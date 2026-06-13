@@ -828,16 +828,56 @@ img {
   border-radius: 8px;
 }
 
-.program-skeleton {
-  position: relative;
-  height: var(--row-h);
-  border-radius: var(--radius);
-  flex-shrink: 0;
-  margin-right: 8px;
+/* Loading skeleton — guide layout (mirrors the real guide proportions). */
+.sk-category {
+  padding: 13px 18px;
 }
 
-.guide-row__lane .program-skeleton {
-  display: inline-block;
+.sk-guide {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sk-guide__ruler {
+  display: flex;
+  margin-bottom: 6px;
+}
+
+.sk-guide__label-spacer {
+  width: var(--guide-label-w);
+  flex-shrink: 0;
+}
+
+.sk-guide__ruler-track {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sk-guide__row {
+  display: flex;
+  gap: 8px;
+}
+
+.sk-guide__label {
+  width: var(--guide-label-w);
+  flex-shrink: 0;
+  height: var(--row-h);
+  border-radius: var(--radius);
+}
+
+.sk-guide__lane {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 8px;
+}
+
+.sk-guide__block {
+  height: var(--row-h);
+  border-radius: var(--radius);
 }
 
 @media (prefers-reduced-motion: reduce) {
