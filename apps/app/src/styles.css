@@ -533,7 +533,6 @@ img {
 
 .program--selected {
   border-color: #fff;
-  border-width: 3px;
 }
 
 /* Channel is offline or the provider sent no programme info. */
