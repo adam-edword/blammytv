@@ -61,13 +61,13 @@ export function EpgGuide({
                 <div className="guide-row__label">{ch.name}</div>
                 <div className="guide-row__lane" style={{ width: laneWidth }}>
                   {blocks.length === 0 ? (
-                    // Offline / no programme info from the provider.
+                    // Offline / no programme info from the provider. The
+                    // hatched styling conveys it; label is for screen readers.
                     <div
                       className="program program--noinfo"
                       style={{ left: 0, width: Math.max(0, laneWidth - 6) }}
-                    >
-                      <span className="program__title">No info</span>
-                    </div>
+                      aria-label="No information"
+                    />
                   ) : (
                     blocks.map(({ p, left, width }) => {
                       const live = isLiveNow(p, now);

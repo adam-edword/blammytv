@@ -547,12 +547,6 @@ img {
   pointer-events: none;
 }
 
-.program--noinfo .program__title {
-  color: var(--text-dim);
-  font-weight: 500;
-  font-style: italic;
-}
-
 /* ---------- Now indicator ---------- */
 
 .now-indicator {
