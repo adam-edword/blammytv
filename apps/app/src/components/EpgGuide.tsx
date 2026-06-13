@@ -52,35 +52,48 @@ export function EpgGuide({
           </div>
 
           {/* Channel rows */}
-          {channels.map((ch) => (
-            <div className="guide-row" key={ch.id}>
-              <div className="guide-row__label">{ch.name}</div>
-              <div className="guide-row__lane" style={{ width: laneWidth }}>
-                {(byChannel[ch.id] ?? []).map((p) => {
-                  const { left, width } = blockGeometry(win, p);
-                  if (width <= 0) return null;
-                  const live = isLiveNow(p, now);
-                  const selected = p.id === selectedProgramId;
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      className={
-                        "program" +
-                        (live ? " program--live" : "") +
-                        (selected ? " program--selected" : "")
-                      }
-                      style={{ left, width: Math.max(0, width - 6) }}
-                      onClick={() => onSelectProgram?.(p)}
-                      title={p.title}
+          {channels.map((ch) => {
+            const blocks = (byChannel[ch.id] ?? [])
+              .map((p) => ({ p, ...blockGeometry(win, p) }))
+              .filter((b) => b.width > 0);
+            return (
+              <div className="guide-row" key={ch.id}>
+                <div className="guide-row__label">{ch.name}</div>
+                <div className="guide-row__lane" style={{ width: laneWidth }}>
+                  {blocks.length === 0 ? (
+                    // Offline / no programme info from the provider.
+                    <div
+                      className="program program--noinfo"
+                      style={{ left: 0, width: Math.max(0, laneWidth - 6) }}
                     >
-                      <span className="program__title">{p.title}</span>
-                    </button>
-                  );
-                })}
+                      <span className="program__title">No info</span>
+                    </div>
+                  ) : (
+                    blocks.map(({ p, left, width }) => {
+                      const live = isLiveNow(p, now);
+                      const selected = p.id === selectedProgramId;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          className={
+                            "program" +
+                            (live ? " program--live" : "") +
+                            (selected ? " program--selected" : "")
+                          }
+                          style={{ left, width: Math.max(0, width - 6) }}
+                          onClick={() => onSelectProgram?.(p)}
+                          title={p.title}
+                        >
+                          <span className="program__title">{p.title}</span>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {/* Now indicator spans all rows, offset past the label column */}
           <div

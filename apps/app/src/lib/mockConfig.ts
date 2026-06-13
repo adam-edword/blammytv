@@ -42,6 +42,15 @@ const CHANNELS: LiveChannel[] = [
   chan("c-ss2", "SuperSport 2", "g-wc"),
 ];
 
+/** Channels with no EPG data — they render the guide's "No info" state
+ * (offline feeds, or channels the provider sends no programme info for). */
+const NOINFO_CHANNELS: LiveChannel[] = [
+  chan("c-ppv1", "Pop-Up PPV 1", "g-wc"),
+  chan("c-barker", "Barker Channel", "g-wc"),
+  chan("c-101", "Channel 101", "g-wc"),
+  chan("c-studio", "Studio Feed (Offline)", "g-wc"),
+];
+
 /** A few hand-authored slots so the featured row reads like the design; the
  * rest are filled programmatically. */
 const FEATURED_TITLE = "FIFA World Cup 2026 : Group D: USA vs. Paraguay Live";
@@ -75,7 +84,9 @@ export function mockConfig(deviceName: string): ConfigBlob {
     updatedAt: new Date(now).toISOString(),
     live: {
       groups: GROUPS,
-      channels: CHANNELS,
+      // No-info channels render below the scheduled ones; we intentionally
+      // generate no programs for them.
+      channels: [...CHANNELS, ...NOINFO_CHANNELS],
       programs,
       featuredChannelId: "c-tsn1",
     },

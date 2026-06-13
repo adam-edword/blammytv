@@ -534,6 +534,25 @@ img {
   border-width: 3px;
 }
 
+/* Channel is offline or the provider sent no programme info. */
+.program--noinfo {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 255, 255, 0.02),
+    rgba(255, 255, 255, 0.02) 10px,
+    transparent 10px,
+    transparent 20px
+  );
+  border: 1.5px dashed rgba(255, 255, 255, 0.1);
+  pointer-events: none;
+}
+
+.program--noinfo .program__title {
+  color: var(--text-dim);
+  font-weight: 500;
+  font-style: italic;
+}
+
 /* ---------- Now indicator ---------- */
 
 .now-indicator {
