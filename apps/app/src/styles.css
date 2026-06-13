@@ -543,7 +543,11 @@ img {
   width: 3px;
   background: var(--red);
   border-radius: 2px;
-  z-index: 2;
+  /* Same layer as the sticky time ruler so the dot, which pokes up into the
+     ruler's band, renders on top of it instead of being clipped behind it.
+     The indicator is the last child of the guide, so equal z-index resolves
+     in its favour by paint order. */
+  z-index: 3;
   pointer-events: none;
 }
 
