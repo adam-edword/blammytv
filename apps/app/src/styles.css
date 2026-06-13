@@ -795,6 +795,59 @@ img {
   margin-top: 8px;
 }
 
+/* ---------- Settings panel ---------- */
+
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.51);
+  z-index: 100;
+  animation: settings-fade 0.15s ease;
+}
+
+.settings-panel {
+  position: fixed;
+  top: 95px;
+  right: 18px;
+  /* Matches the Figma mock (≈1063×713 anchored top-right on a 1920×1080
+     frame); clamps so it stays sensible on smaller windows. */
+  width: min(1063px, 56vw);
+  height: min(713px, calc(100dvh - 135px));
+  background: var(--bg);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+  z-index: 101;
+  animation: settings-pop 0.16s ease;
+}
+
+.settings-panel__close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  color: var(--text);
+}
+
+@keyframes settings-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes settings-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-overlay,
+  .settings-panel {
+    animation: none;
+  }
+}
+
 /* ---------- Skeletons ---------- */
 
 .skeleton {

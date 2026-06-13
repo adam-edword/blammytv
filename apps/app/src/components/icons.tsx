@@ -90,3 +90,12 @@ export function ChevronIcon({ size = 16, className }: IconProps) {
     </Svg>
   );
 }
+
+/** Interface / Close (X) */
+export function CloseIcon({ size = 24, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <path d="M6 6L18 18M18 6L6 18" />
+    </Svg>
+  );
+}

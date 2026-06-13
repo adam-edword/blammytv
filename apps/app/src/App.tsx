@@ -5,6 +5,7 @@ import { type TabKey } from "./components/TopTabs";
 import { PairingScreen } from "./screens/PairingScreen";
 import { LiveScreen } from "./screens/LiveScreen";
 import { VodScreen } from "./screens/VodScreen";
+import { SettingsPanel } from "./components/SettingsPanel";
 import { LiveScreenSkeleton } from "./components/LoadingSkeletons";
 import { fetchConfig } from "./lib/config";
 import { loadShareCode, saveShareCode, clearShareCode } from "./lib/pairing";
@@ -20,6 +21,7 @@ export function App() {
     loadShareCode(),
   );
   const [tab, setTab] = useState<TabKey>("live");
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [load, setLoad] = useState<Load>({ status: "idle" });
 
   const pull = useCallback((code: ShareCode) => {
@@ -53,7 +55,11 @@ export function App() {
 
   return (
     <div className="app-shell">
-      <AppHeader active={tab} onChange={setTab} />
+      <AppHeader
+        active={tab}
+        onChange={setTab}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
       <main className="app-main">
         {load.status === "loading" || load.status === "idle" ? (
           <LiveScreenSkeleton />
@@ -70,6 +76,10 @@ export function App() {
           <Content tab={tab} config={load.config} />
         )}
       </main>
+      <SettingsPanel
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+      />
     </div>
   );
 }

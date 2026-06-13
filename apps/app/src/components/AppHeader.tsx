@@ -8,10 +8,12 @@ import { SearchIcon, AccountIcon, SettingsIcon } from "./icons";
 export function AppHeader({
   active,
   onChange,
+  onOpenSettings,
   version = "v0.0.1",
 }: {
   active: TabKey;
   onChange: (key: TabKey) => void;
+  onOpenSettings?: () => void;
   version?: string;
 }) {
   const clock = useClock();
@@ -52,7 +54,12 @@ export function AppHeader({
         <button className="icon-btn" aria-label="Account" type="button">
           <AccountIcon />
         </button>
-        <button className="icon-btn" aria-label="Settings" type="button">
+        <button
+          className="icon-btn"
+          aria-label="Settings"
+          type="button"
+          onClick={onOpenSettings}
+        >
           <SettingsIcon />
         </button>
       </div>
