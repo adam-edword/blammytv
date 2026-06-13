@@ -17,6 +17,12 @@ importers:
       '@blammytv/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@fontsource/stack-sans-headline':
+        specifier: ^5.2.1
+        version: 5.2.1
+      '@fontsource/stack-sans-text':
+        specifier: ^5.2.1
+        version: 5.2.1
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -272,6 +278,12 @@ packages:
     engines: {node: '>=12'}
     cpu: [x64]
     os: [win32]
+
+  '@fontsource/stack-sans-headline@5.2.1':
+    resolution: {integrity: sha512-rzY0whRXQAaz5qWB3wdsjdI6Y4PsuZEwKk8lijrVVc41sNOutDHvvG8wBQ2rX139g6KNQQcq1slSvGw7U3V5Yw==}
+
+  '@fontsource/stack-sans-text@5.2.1':
+    resolution: {integrity: sha512-ir7IsU6RGo9XOmRBnCdNzSLWAqdOl2Gdab63khjK8w9kN900OmOn3ebXj0bWf1wLQx1hTSpJnJMlB1ijBaH0lw==}
 
   '@jridgewell/gen-mapping@0.3.13':
     resolution: {integrity: sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA==}
@@ -809,6 +821,10 @@ snapshots:
 
   '@esbuild/win32-x64@0.21.5':
     optional: true
+
+  '@fontsource/stack-sans-headline@5.2.1': {}
+
+  '@fontsource/stack-sans-text@5.2.1': {}
 
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:

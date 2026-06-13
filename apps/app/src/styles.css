@@ -1,9 +1,9 @@
 /*
  * BlammyTV — global styles.
  *
- * Palette and metrics lifted from the EPG Figma frame. The design uses the
- * "Stack Sans" family; until those fonts are bundled we fall back to a system
- * stack (swap --font-headline / --font-text once the licensed fonts land).
+ * Palette and metrics lifted from the EPG Figma frame. The "Stack Sans" family
+ * is self-hosted (bundled via Fontsource in src/fonts.ts); the system stack
+ * below is just a fallback while the woff2s load.
  */
 
 :root {
