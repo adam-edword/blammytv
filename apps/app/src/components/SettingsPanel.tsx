@@ -2,9 +2,8 @@ import { useEffect } from "react";
 import { CloseIcon } from "./icons";
 import {
   usePreferences,
-  UI_SCALE_MIN,
-  UI_SCALE_MAX,
-  UI_SCALE_STEP,
+  UI_SCALE_OPTIONS,
+  nearestScaleIndex,
 } from "../state/preferences";
 
 /**
@@ -52,6 +51,7 @@ export function SettingsPanel({
   if (!open) return null;
 
   const activeAccent = prefs.accent.toLowerCase();
+  const scaleIndex = nearestScaleIndex(prefs.uiScale);
 
   return (
     <div className="settings-overlay" onClick={onClose}>
@@ -120,20 +120,33 @@ export function SettingsPanel({
                 </span>
               </div>
               <div className="settings__control settings__scale">
-                <span className="settings__scale-a settings__scale-a--sm">A</span>
                 <input
                   type="range"
-                  min={UI_SCALE_MIN}
-                  max={UI_SCALE_MAX}
-                  step={UI_SCALE_STEP}
-                  value={prefs.uiScale}
-                  onChange={(e) => setUiScale(parseFloat(e.target.value))}
+                  min={0}
+                  max={UI_SCALE_OPTIONS.length - 1}
+                  step={1}
+                  value={scaleIndex}
+                  onChange={(e) =>
+                    setUiScale(UI_SCALE_OPTIONS[parseInt(e.target.value)].value)
+                  }
                   aria-label="UI scale"
+                  aria-valuetext={UI_SCALE_OPTIONS[scaleIndex].label}
                 />
-                <span className="settings__scale-a settings__scale-a--lg">A</span>
-                <span className="settings__value">
-                  {Math.round(prefs.uiScale * 100)}%
-                </span>
+                <div className="settings__scale-labels">
+                  {UI_SCALE_OPTIONS.map((o, i) => (
+                    <button
+                      key={o.label}
+                      type="button"
+                      className={
+                        "settings__scale-label" +
+                        (i === scaleIndex ? " is-active" : "")
+                      }
+                      onClick={() => setUiScale(o.value)}
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 

@@ -25,7 +25,33 @@ export interface Preferences {
 export const DEFAULT_ACCENT = "#c22727";
 export const UI_SCALE_MIN = 0.8;
 export const UI_SCALE_MAX = 1.3;
-export const UI_SCALE_STEP = 0.05;
+
+/** Discrete UI-scale notches shown on the slider. Normal == 1 (the default). */
+export interface UiScaleOption {
+  label: string;
+  value: number;
+}
+export const UI_SCALE_OPTIONS: UiScaleOption[] = [
+  { label: "XS", value: 0.85 },
+  { label: "Small", value: 0.925 },
+  { label: "Normal", value: 1 },
+  { label: "Large", value: 1.1 },
+  { label: "XL", value: 1.2 },
+];
+
+/** Index of the notch closest to a stored scale value. */
+export function nearestScaleIndex(value: number): number {
+  let best = 0;
+  let bestDist = Infinity;
+  UI_SCALE_OPTIONS.forEach((o, i) => {
+    const d = Math.abs(o.value - value);
+    if (d < bestDist) {
+      bestDist = d;
+      best = i;
+    }
+  });
+  return best;
+}
 
 export const DEFAULT_PREFERENCES: Preferences = {
   accent: DEFAULT_ACCENT,

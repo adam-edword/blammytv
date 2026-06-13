@@ -960,38 +960,43 @@ img {
   opacity: 0;
 }
 
-/* UI scale slider */
+/* UI scale stepped slider */
 .settings__scale {
-  min-width: 280px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  width: 300px;
 }
 
 .settings__scale input[type="range"] {
-  flex: 1;
+  width: 100%;
   accent-color: var(--red);
   cursor: pointer;
 }
 
-.settings__scale-a {
-  color: var(--text-dim);
-  font-family: var(--font-headline);
-  font-weight: 600;
+.settings__scale-labels {
+  display: flex;
+  justify-content: space-between;
 }
 
-.settings__scale-a--sm {
+.settings__scale-label {
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  font-family: var(--font-headline);
+  font-weight: 600;
   font-size: 14px;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color 0.12s ease;
 }
 
-.settings__scale-a--lg {
-  font-size: 24px;
-}
-
-.settings__value {
-  font-family: var(--font-headline);
-  font-weight: 600;
-  font-size: 18px;
+.settings__scale-label:hover {
   color: var(--text);
-  width: 52px;
-  text-align: right;
+}
+
+.settings__scale-label.is-active {
+  color: var(--red);
 }
 
 /* Toggle switch */
