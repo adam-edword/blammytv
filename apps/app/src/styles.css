@@ -396,7 +396,9 @@ img {
   background: var(--red-tint);
   border-color: var(--red-border);
   color: var(--red);
-  font-weight: 600;
+  /* Selection changes colour only — no font-weight change, so the text never
+     reflows/shifts. The transparent base border (see .category) reserves the
+     same space whether or not the red border is shown. */
 }
 
 .category--active:hover {
