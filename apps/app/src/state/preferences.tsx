@@ -22,7 +22,7 @@ export interface Preferences {
   lightMode: boolean;
 }
 
-export const DEFAULT_ACCENT = "#c22727";
+export const DEFAULT_ACCENT = "#ff1e00";
 export const UI_SCALE_MIN = 0.8;
 export const UI_SCALE_MAX = 1.3;
 

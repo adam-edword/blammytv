@@ -19,14 +19,13 @@ import {
 
 /** Quick-pick accent swatches; the custom picker covers everything else. */
 const ACCENT_PRESETS = [
-  "#c22727", // red (default)
-  "#e07b2f", // orange
-  "#e0b020", // amber
-  "#2faa55", // green
-  "#20a7b2", // teal
-  "#2f7fe0", // blue
-  "#8a5cf0", // purple
-  "#e0518f", // pink
+  "#ff1e00", // red (default)
+  "#ffd500", // yellow
+  "#2cad57", // green
+  "#0800ff", // blue
+  "#a200ff", // purple
+  "#ff2773", // pink
+  "#9e9e9e", // grey
 ];
 
 export function SettingsPanel({
@@ -52,6 +51,26 @@ export function SettingsPanel({
 
   const activeAccent = prefs.accent.toLowerCase();
   const scaleIndex = nearestScaleIndex(prefs.uiScale);
+  const lastScale = UI_SCALE_OPTIONS.length - 1;
+
+  const setScaleIndex = (i: number) =>
+    setUiScale(UI_SCALE_OPTIONS[Math.max(0, Math.min(lastScale, i))].value);
+
+  const onScaleKey = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowRight" || e.key === "ArrowUp") {
+      e.preventDefault();
+      setScaleIndex(scaleIndex + 1);
+    } else if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
+      e.preventDefault();
+      setScaleIndex(scaleIndex - 1);
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      setScaleIndex(0);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      setScaleIndex(lastScale);
+    }
+  };
 
   return (
     <div className="settings-overlay" onClick={onClose}>
@@ -120,30 +139,38 @@ export function SettingsPanel({
                 </span>
               </div>
               <div className="settings__control settings__scale">
-                <input
-                  type="range"
-                  min={0}
-                  max={UI_SCALE_OPTIONS.length - 1}
-                  step={1}
-                  value={scaleIndex}
-                  onChange={(e) =>
-                    setUiScale(UI_SCALE_OPTIONS[parseInt(e.target.value)].value)
-                  }
+                <div
+                  className="scaleslider"
+                  role="slider"
+                  tabIndex={0}
                   aria-label="UI scale"
+                  aria-valuemin={0}
+                  aria-valuemax={lastScale}
+                  aria-valuenow={scaleIndex}
                   aria-valuetext={UI_SCALE_OPTIONS[scaleIndex].label}
-                />
-                <div className="settings__scale-labels">
+                  onKeyDown={onScaleKey}
+                >
+                  <div className="scaleslider__line" />
+                  <div
+                    className="scaleslider__fill"
+                    style={{ width: `calc((100% - 24px) * ${scaleIndex / lastScale})` }}
+                  />
                   {UI_SCALE_OPTIONS.map((o, i) => (
                     <button
                       key={o.label}
                       type="button"
+                      tabIndex={-1}
                       className={
-                        "settings__scale-label" +
+                        "scalenotch" +
+                        (i <= scaleIndex ? " is-filled" : "") +
                         (i === scaleIndex ? " is-active" : "")
                       }
+                      style={{ left: `calc(12px + (100% - 24px) * ${i / lastScale})` }}
                       onClick={() => setUiScale(o.value)}
+                      aria-label={o.label}
                     >
-                      {o.label}
+                      <span className="scalenotch__bar" />
+                      <span className="scalenotch__label">{o.label}</span>
                     </button>
                   ))}
                 </div>
