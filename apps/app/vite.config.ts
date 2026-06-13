@@ -9,6 +9,9 @@ const shared = fileURLToPath(
 );
 
 export default defineConfig({
+  // GitHub Pages serves the app from a subfolder (/blammytv/), so CI sets
+  // DEPLOY_BASE to that path. Local dev/build stay at root.
+  base: process.env.DEPLOY_BASE ?? "/",
   plugins: [react()],
   resolve: {
     alias: {
