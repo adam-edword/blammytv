@@ -22,11 +22,6 @@ export function NowPlaying({
         ) : (
           <div className="now-playing__art now-playing__art--placeholder" />
         )}
-        <div className="now-playing__score">
-          <span className="now-playing__score-text">USA 2 – 0 PAR</span>
-          <span className="now-playing__score-clock">35'</span>
-        </div>
-        <div className="now-playing__channel-chip">{channel.name} HDR</div>
       </div>
 
       <div className="now-playing__details">
