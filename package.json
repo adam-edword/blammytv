@@ -1,0 +1,15 @@
+{
+  "name": "blammytv",
+  "version": "0.1.0",
+  "private": true,
+  "description": "react-based iptv client (xtream codes + debrid). thin clients, backend-owned config.",
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "dev": "pnpm --filter @blammytv/app dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}

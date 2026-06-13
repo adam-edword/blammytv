@@ -1,0 +1,17 @@
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# build output
+**/dist/
+**/.vite/
+
+# tauri (added later)
+**/src-tauri/target/
+
+# editor / os
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+*.log
