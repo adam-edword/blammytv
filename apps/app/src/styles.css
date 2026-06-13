@@ -374,11 +374,22 @@ img {
 
 .category--source {
   color: var(--text);
-  cursor: default;
 }
 
 .category__chevron {
   color: var(--text);
+  flex-shrink: 0;
+  transition: transform 0.18s ease;
+}
+
+.category__chevron--collapsed {
+  transform: rotate(-90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .category__chevron {
+    transition: none;
+  }
 }
 
 .category--active {

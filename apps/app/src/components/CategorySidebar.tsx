@@ -1,9 +1,12 @@
+import { useState } from "react";
 import type { ChannelGroup } from "@blammytv/shared";
 import { StarIcon, ChevronIcon } from "./icons";
 
 export const FAVORITES_ID = "__favorites__";
 
-/** Left rail of the guide: Favorites + the channel categories from config. */
+/** Left rail of the guide: Favorites + a collapsible source folder holding the
+ * channel categories from config. (One source for now; the folder is its own
+ * unit so multiple sources can each get one later.) */
 export function CategorySidebar({
   groups,
   selectedId,
@@ -15,6 +18,8 @@ export function CategorySidebar({
   onSelect: (id: string) => void;
   sourceName?: string;
 }) {
+  const [sourceOpen, setSourceOpen] = useState(true);
+
   const visible = groups
     .filter((g) => !g.hidden)
     .sort((a, b) => a.order - b.order);
@@ -33,23 +38,34 @@ export function CategorySidebar({
         <span>Favorites</span>
       </button>
 
-      <div className="category category--source">
-        <ChevronIcon className="category__chevron" />
-        <span>{sourceName}</span>
-      </div>
-
-      {visible.map((g) => (
-        <button
-          key={g.id}
+      <button
+        className="category category--source"
+        type="button"
+        aria-expanded={sourceOpen}
+        onClick={() => setSourceOpen((open) => !open)}
+      >
+        <ChevronIcon
           className={
-            "category" + (selectedId === g.id ? " category--active" : "")
+            "category__chevron" +
+            (sourceOpen ? "" : " category__chevron--collapsed")
           }
-          type="button"
-          onClick={() => onSelect(g.id)}
-        >
-          {g.name}
-        </button>
-      ))}
+        />
+        <span>{sourceName}</span>
+      </button>
+
+      {sourceOpen &&
+        visible.map((g) => (
+          <button
+            key={g.id}
+            className={
+              "category" + (selectedId === g.id ? " category--active" : "")
+            }
+            type="button"
+            onClick={() => onSelect(g.id)}
+          >
+            {g.name}
+          </button>
+        ))}
     </aside>
   );
 }
