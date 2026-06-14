@@ -597,9 +597,18 @@ img {
   font-family: var(--font-headline);
   font-weight: 600;
   font-size: 20px;
+  flex: 1;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
+  /* Fade the text out at the right edge instead of truncating with an
+     ellipsis, so it stays consistent as a card narrows and slides away. */
+  -webkit-mask-image: linear-gradient(
+    to right,
+    #000 calc(100% - 26px),
+    transparent
+  );
+  mask-image: linear-gradient(to right, #000 calc(100% - 26px), transparent);
 }
 
 .program--live {
