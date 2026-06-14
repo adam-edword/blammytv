@@ -1264,6 +1264,8 @@ img {
   z-index: 1;
   height: 100%;
   display: flex;
+  /* Info pinned left, source rail pushed to the right edge. */
+  justify-content: space-between;
   gap: 48px;
   padding: calc(var(--header-zone) + 12px) 44px 48px 64px;
   box-sizing: border-box;
@@ -1297,7 +1299,7 @@ img {
 }
 
 .detail__info {
-  flex: 1;
+  flex: 0 1 760px;
   min-width: 0;
   max-width: 760px;
   align-self: center;
