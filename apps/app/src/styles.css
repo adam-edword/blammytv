@@ -1490,7 +1490,7 @@ img {
   display: flex;
   justify-content: space-between;
   gap: 48px;
-  margin-bottom: 40px;
+  margin-bottom: 60px;
 }
 
 .series__title-block {
@@ -1648,7 +1648,7 @@ img {
 /* Episode grid */
 .episode-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
   gap: 16px;
 }
 
@@ -1657,8 +1657,8 @@ img {
   align-items: stretch;
   gap: 20px;
   padding: 12px;
-  border-radius: 16px;
-  background: #141418;
+  border-radius: 12px;
+  background: #14141450;
   border: 1.5px solid rgba(255, 255, 255, 0.06);
   text-align: left;
   cursor: pointer;
@@ -1668,7 +1668,7 @@ img {
 .episode-card:hover,
 .episode-card:focus-visible {
   border-color: var(--red-border);
-  background: #1b1b21;
+  background: #1b1b2188;
   outline: none;
 }
 
@@ -1676,7 +1676,7 @@ img {
   flex: none;
   width: 118px;
   aspect-ratio: 118 / 81;
-  border-radius: 8px;
+  border-radius: 5px;
   background: #fff;
   overflow: hidden;
 }
@@ -1694,6 +1694,7 @@ img {
   flex-direction: column;
   /* Title pinned to the top, date to the bottom, like the design. */
   justify-content: space-between;
+  gap: 8px;
   padding: 3px 0;
 }
 
@@ -1701,10 +1702,10 @@ img {
   font-family: var(--font-headline);
   font-weight: 600;
   font-size: 16px;
+  line-height: 1.3;
   color: #f2f2f5;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* Wrap long titles rather than truncating. */
+  overflow-wrap: anywhere;
 }
 
 .episode-card__date {
