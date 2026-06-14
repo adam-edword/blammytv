@@ -218,6 +218,13 @@ img {
   background: var(--surface-hover);
 }
 
+/* Inactive section's search button: hidden but keeps its space so the tab bar
+   doesn't shift when switching sections. */
+.icon-btn--ghost {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 /* ---------- Tabs ---------- */
 
 .top-tabs {

@@ -38,18 +38,19 @@ export function AppHeader({
       </div>
 
       <div className="app-header__center">
-        {/* Each section has its own search (a different engine); only the
-            active section's button is shown, on that section's outer edge. */}
-        {section === "live" && (
-          <button
-            className="icon-btn"
-            aria-label="Search live channels"
-            type="button"
-            onClick={onSearchLive}
-          >
-            <SearchIcon />
-          </button>
-        )}
+        {/* Each section has its own search (a different engine), on that
+            section's outer edge. Both slots are always rendered — the inactive
+            one is hidden but keeps its space — so the tabs never shift. */}
+        <button
+          className={"icon-btn" + (section === "live" ? "" : " icon-btn--ghost")}
+          aria-label="Search live channels"
+          aria-hidden={section !== "live"}
+          tabIndex={section === "live" ? undefined : -1}
+          type="button"
+          onClick={onSearchLive}
+        >
+          <SearchIcon />
+        </button>
         <nav className="top-tabs" role="tablist" aria-label="Sections">
           {TABS.map((tab, i) => {
             // A divider sits where the section changes (Live TV | Stream …).
@@ -75,16 +76,18 @@ export function AppHeader({
             );
           })}
         </nav>
-        {section === "stream" && (
-          <button
-            className="icon-btn"
-            aria-label="Search streaming"
-            type="button"
-            onClick={onSearchStream}
-          >
-            <SearchIcon />
-          </button>
-        )}
+        <button
+          className={
+            "icon-btn" + (section === "stream" ? "" : " icon-btn--ghost")
+          }
+          aria-label="Search streaming"
+          aria-hidden={section !== "stream"}
+          tabIndex={section === "stream" ? undefined : -1}
+          type="button"
+          onClick={onSearchStream}
+        >
+          <SearchIcon />
+        </button>
       </div>
 
       <div className="app-header__actions">
