@@ -14,10 +14,9 @@ import {
 /** Gap between adjacent program blocks, in px. */
 const PROGRAM_GAP = 6;
 
-/** Once a pinned card would be thinner than this, stop pinning it — its normal
- * block then slides off under the label (pushed off) instead of shrinking to a
- * sliver at the edge. */
-const MIN_PIN_WIDTH = 72;
+/** As a pinned card shrinks below this width near a programme's end, it fades
+ * out so it dissolves gracefully instead of leaving a sliver/empty box. */
+const FADE_WIDTH = 120;
 
 interface Block {
   p: EpgProgram;
@@ -91,13 +90,10 @@ export function EpgGuide({
 
           {/* Channel rows */}
           {lanes.map(({ ch, blocks }) => {
-            // The block spanning the left edge that has scrolled past it and
-            // still has enough width left to pin (otherwise it slides off).
+            // The block spanning the left edge that has also scrolled past it.
             const pinned =
               blocks.find(
-                (b) =>
-                  b.left < scrollLeft &&
-                  scrollLeft <= b.left + b.width - PROGRAM_GAP - MIN_PIN_WIDTH,
+                (b) => b.left < scrollLeft && scrollLeft < b.left + b.width,
               ) ?? null;
             return (
               <div className="guide-row" key={ch.id}>
@@ -142,7 +138,7 @@ export function EpgGuide({
     </div>
   );
 
-  function programButton(b: Block, pinned: boolean) {
+  function programButton(b: Block, pinned: boolean, opacity = 1) {
     const live = isLiveNow(b.p, now);
     const selected = b.p.id === selectedProgramId;
     return (
@@ -160,7 +156,7 @@ export function EpgGuide({
         // JS-driven, so the right edge tracks the programme's end.
         style={
           pinned
-            ? { width: b.width }
+            ? { width: b.width, opacity }
             : { left: b.left, width: Math.max(0, b.width - PROGRAM_GAP) }
         }
         onClick={() => onSelectProgram?.(b.p)}
@@ -172,12 +168,14 @@ export function EpgGuide({
   }
 
   /** A copy of the current block pinned to the left edge (via CSS sticky),
-   * shrinking toward its end time as the guide scrolls. */
+   * shrinking toward its end time as the guide scrolls and fading out over its
+   * final stretch so it dissolves instead of leaving a sliver. */
   function pinnedCard(b: Block, scroll: number) {
     const right = b.left + b.width - PROGRAM_GAP;
     const width = right - scroll;
     if (width <= 0) return null;
-    return programButton({ p: b.p, left: 0, width }, true);
+    const opacity = Math.min(1, width / FADE_WIDTH);
+    return programButton({ p: b.p, left: 0, width }, true, opacity);
   }
 }
 
