@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { LiveChannel, EpgProgram } from "@blammytv/shared";
 import {
   guideWindow,
@@ -24,6 +24,14 @@ interface Block {
   p: EpgProgram;
   left: number;
   width: number;
+}
+
+/** Width / fade / slide for a pinned card at a given horizontal scroll. */
+function pinnedMetrics(right: number, scroll: number) {
+  const width = Math.max(0, right - scroll);
+  const opacity = Math.min(1, width / FADE_WIDTH);
+  const slide = -(1 - opacity) * SLIDE_DISTANCE;
+  return { width, opacity, slide };
 }
 
 /** The time-grid TV guide. Channels down the side, programmes laid out along a
@@ -70,17 +78,58 @@ export function EpgGuide({
     }));
   }, [channels, programs, win]);
 
-  // Track horizontal scroll (rAF-throttled) to drive the pinned cards.
   const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollXRef = useRef(0);
   const rafRef = useRef(0);
-  const [scrollLeft, setScrollLeft] = useState(0);
+
+  // Which programme id is pinned per lane. Updated only on a handoff, so the
+  // component re-renders rarely; the per-frame motion is applied imperatively.
+  const [pins, setPins] = useState<(string | null)[]>([]);
+
+  const computePins = useCallback(
+    (scroll: number) =>
+      lanes.map(
+        ({ blocks }) =>
+          blocks.find(
+            (b) => b.left < scroll && scroll < b.left + b.width - PROGRAM_GAP,
+          )?.p.id ?? null,
+      ),
+    [lanes, PROGRAM_GAP],
+  );
+
+  // Reset pins when the data/window changes (e.g. switching category).
+  useEffect(() => {
+    setPins(computePins(scrollXRef.current));
+  }, [computePins]);
+
   const onScroll = useCallback(() => {
     if (rafRef.current) return;
     rafRef.current = requestAnimationFrame(() => {
       rafRef.current = 0;
-      setScrollLeft(scrollRef.current?.scrollLeft ?? 0);
+      const sl = scrollRef.current?.scrollLeft ?? 0;
+      scrollXRef.current = sl;
+
+      // Re-render only when the pinned programme changes (a handoff).
+      const next = computePins(sl);
+      setPins((prev) =>
+        prev.length === next.length && prev.every((id, i) => id === next[i])
+          ? prev
+          : next,
+      );
+
+      // Drive the pinned cards each frame so they stay locked to the native
+      // scroll — no lag against the sticky left edge or the next card.
+      scrollRef.current
+        ?.querySelectorAll<HTMLElement>(".program--pinned")
+        .forEach((el) => {
+          const right = parseFloat(el.dataset.right || "0");
+          const { width, opacity, slide } = pinnedMetrics(right, sl);
+          el.style.width = `${width}px`;
+          el.style.opacity = `${opacity}`;
+          el.style.transform = slide ? `translateX(${slide}px)` : "";
+        });
     });
-  }, []);
+  }, [computePins]);
 
   return (
     <div className="guide">
@@ -103,12 +152,9 @@ export function EpgGuide({
           </div>
 
           {/* Channel rows */}
-          {lanes.map(({ ch, blocks }) => {
-            // The block spanning the left edge that has also scrolled past it.
-            const pinned =
-              blocks.find(
-                (b) => b.left < scrollLeft && scrollLeft < b.left + b.width,
-              ) ?? null;
+          {lanes.map(({ ch, blocks }, i) => {
+            const pinId = pins[i] ?? null;
+            const pin = pinId ? blocks.find((b) => b.p.id === pinId) : null;
             return (
               <div className="guide-row" key={ch.id}>
                 <div className="guide-row__label">{ch.name}</div>
@@ -117,18 +163,18 @@ export function EpgGuide({
                     // Offline / no programme info from the provider.
                     <div
                       className="program program--noinfo"
-                      style={{ left: 0, width: Math.max(0, laneWidth - PROGRAM_GAP) }}
+                      style={{
+                        left: 0,
+                        width: Math.max(0, laneWidth - PROGRAM_GAP),
+                      }}
                       aria-label="No information"
                     />
                   ) : (
-                    // Skip the normal copy of the pinned block — the pinned card
-                    // covers its visible extent, and live blocks are translucent
-                    // so a copy underneath would show through.
                     blocks.map((b) =>
-                      b === pinned ? null : programButton(b, false),
+                      b.p.id === pinId ? null : normalCard(b),
                     )
                   )}
-                  {pinned && pinnedCard(pinned, scrollLeft)}
+                  {pin && pinnedCard(pin)}
                 </div>
               </div>
             );
@@ -152,31 +198,22 @@ export function EpgGuide({
     </div>
   );
 
-  function programButton(b: Block, pinned: boolean, opacity = 1, slide = 0) {
-    const live = isLiveNow(b.p, now);
-    const selected = b.p.id === selectedProgramId;
+  function cardClass(b: Block, pinned: boolean) {
+    return (
+      "program" +
+      (isLiveNow(b.p, now) ? " program--live" : "") +
+      (b.p.id === selectedProgramId ? " program--selected" : "") +
+      (pinned ? " program--pinned" : "")
+    );
+  }
+
+  function normalCard(b: Block) {
     return (
       <button
-        key={pinned ? `pin-${b.p.id}` : b.p.id}
+        key={b.p.id}
         type="button"
-        className={
-          "program" +
-          (live ? " program--live" : "") +
-          (selected ? " program--selected" : "") +
-          (pinned ? " program--pinned" : "")
-        }
-        // Pinned cards are positioned at the edge with CSS sticky (left edge is
-        // composited by the browser — no scroll-lag wiggle); only the width is
-        // JS-driven, so the right edge tracks the programme's end.
-        style={
-          pinned
-            ? {
-                width: b.width,
-                opacity,
-                transform: slide ? `translateX(${slide}px)` : undefined,
-              }
-            : { left: b.left, width: Math.max(0, b.width - PROGRAM_GAP) }
-        }
+        className={cardClass(b, false)}
+        style={{ left: b.left, width: Math.max(0, b.width - PROGRAM_GAP) }}
         onClick={() => onSelectProgram?.(b.p)}
         title={b.p.title}
       >
@@ -185,16 +222,30 @@ export function EpgGuide({
     );
   }
 
-  /** A copy of the current block pinned to the left edge (via CSS sticky),
-   * shrinking toward its end time as the guide scrolls. Over its final stretch
-   * it fades out and drifts left under the label, so it slides off the edge. */
-  function pinnedCard(b: Block, scroll: number) {
+  /** The current block, pinned to the left edge via CSS sticky. Its initial
+   * width/fade/slide come from the latest scroll; the per-frame updates are
+   * applied imperatively in onScroll (keyed off data-right). */
+  function pinnedCard(b: Block) {
     const right = b.left + b.width - PROGRAM_GAP;
-    const width = right - scroll;
+    const { width, opacity, slide } = pinnedMetrics(right, scrollXRef.current);
     if (width <= 0) return null;
-    const opacity = Math.min(1, width / FADE_WIDTH);
-    const slide = -(1 - opacity) * SLIDE_DISTANCE;
-    return programButton({ p: b.p, left: 0, width }, true, opacity, slide);
+    return (
+      <button
+        key={`pin-${b.p.id}`}
+        type="button"
+        data-right={right}
+        className={cardClass(b, true)}
+        style={{
+          width,
+          opacity,
+          transform: slide ? `translateX(${slide}px)` : undefined,
+        }}
+        onClick={() => onSelectProgram?.(b.p)}
+        title={b.p.title}
+      >
+        <span className="program__title">{b.p.title}</span>
+      </button>
+    );
   }
 }
 
