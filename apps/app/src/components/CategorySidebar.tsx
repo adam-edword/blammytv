@@ -1,22 +1,31 @@
 import { useState } from "react";
 import type { ChannelGroup } from "@blammytv/shared";
 import { StarIcon, ChevronIcon } from "./icons";
+import { extractEmoji } from "../lib/emoji";
 
 export const FAVORITES_ID = "__favorites__";
 
+/** Collapsed glyph for a source: its emoji if it has one, else its first
+ * character as a fallback "icon". */
+function glyphFor(name: string): string {
+  return extractEmoji(name) || name.trim().charAt(0).toUpperCase();
+}
+
 /** Left rail of the guide: Favorites + a collapsible source folder holding the
- * channel categories from config. (One source for now; the folder is its own
- * unit so multiple sources can each get one later.) */
+ * channel categories from config. When `collapsed` (the panel is dragged
+ * narrow), titles are hidden and each source shows just its emoji/glyph. */
 export function CategorySidebar({
   groups,
   selectedId,
   onSelect,
   sourceName = "Source Name",
+  collapsed = false,
 }: {
   groups: ChannelGroup[];
   selectedId: string;
   onSelect: (id: string) => void;
   sourceName?: string;
+  collapsed?: boolean;
 }) {
   const [sourceOpen, setSourceOpen] = useState(true);
 
@@ -25,23 +34,30 @@ export function CategorySidebar({
     .sort((a, b) => a.order - b.order);
 
   return (
-    <aside className="categories" aria-label="Categories">
+    <aside
+      className={"categories" + (collapsed ? " categories--collapsed" : "")}
+      aria-label="Categories"
+    >
       <button
         className={
           "category category--icon" +
           (selectedId === FAVORITES_ID ? " category--active" : "")
         }
         type="button"
+        title={collapsed ? "Favorites" : undefined}
+        aria-label={collapsed ? "Favorites" : undefined}
         onClick={() => onSelect(FAVORITES_ID)}
       >
         <StarIcon className="category__star" />
-        <span>Favorites</span>
+        {!collapsed && <span className="category__label">Favorites</span>}
       </button>
 
       <button
         className="category category--source"
         type="button"
         aria-expanded={sourceOpen}
+        title={collapsed ? sourceName : undefined}
+        aria-label={collapsed ? sourceName : undefined}
         onClick={() => setSourceOpen((open) => !open)}
       >
         <ChevronIcon
@@ -50,7 +66,7 @@ export function CategorySidebar({
             (sourceOpen ? "" : " category__chevron--collapsed")
           }
         />
-        <span>{sourceName}</span>
+        {!collapsed && <span className="category__label">{sourceName}</span>}
       </button>
 
       {sourceOpen &&
@@ -61,9 +77,15 @@ export function CategorySidebar({
               "category" + (selectedId === g.id ? " category--active" : "")
             }
             type="button"
+            title={collapsed ? g.name : undefined}
+            aria-label={collapsed ? g.name : undefined}
             onClick={() => onSelect(g.id)}
           >
-            {g.name}
+            {collapsed ? (
+              <span className="category__glyph">{glyphFor(g.name)}</span>
+            ) : (
+              <span className="category__label">{g.name}</span>
+            )}
           </button>
         ))}
     </aside>

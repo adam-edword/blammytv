@@ -334,7 +334,7 @@ img {
 
 .live-screen__body {
   display: flex;
-  gap: 36px;
+  gap: 0;
   flex: 1;
   min-height: 0;
 }
@@ -346,7 +346,59 @@ img {
   flex-direction: column;
   gap: 4px;
   overflow-y: auto;
+  overflow-x: hidden;
   padding-bottom: 24px;
+}
+
+/* Draggable divider between the source panel and the guide (occupies the gutter). */
+.cat-resize {
+  flex: none;
+  width: 36px;
+  align-self: stretch;
+  position: relative;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.cat-resize::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 4px;
+  height: 56px;
+  border-radius: 2px;
+  background: var(--panel-3);
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.cat-resize:hover::before,
+.cat-resize--active::before {
+  opacity: 1;
+}
+
+.cat-resize--active::before {
+  background: var(--red);
+}
+
+.category__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Collapsed source rail: centered emoji/glyph, no titles. */
+.categories--collapsed .category {
+  justify-content: center;
+  gap: 0;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.category__glyph {
+  font-size: 22px;
+  line-height: 1;
 }
 
 .category {
