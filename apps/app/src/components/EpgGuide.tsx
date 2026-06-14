@@ -12,7 +12,7 @@ import {
 } from "../lib/epg";
 
 /** Gap between adjacent program blocks, in px. */
-const PROGRAM_GAP = 6;
+const PROGRAM_GAP = 8;
 
 /** Only once a pinned card shrinks below this width — about when it would
  * otherwise be a thin sliver hovering over the next card — does it fade out, so
