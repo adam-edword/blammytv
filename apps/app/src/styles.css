@@ -35,6 +35,9 @@
     "Segoe UI", Roboto, sans-serif;
 
   --radius: 12px;
+  /* Vertical space the header chrome occupies (shell top pad + header + gap);
+     the Stream hero pulls up by this much to sit behind the header. */
+  --header-zone: 92px;
   --categories-w: 400px;
   --guide-label-w: 200px;
   /* Even gutter around the floating channel-label card within its column. */
@@ -141,6 +144,23 @@ img {
   padding-right: 44px;
   margin-bottom: 18px;
   gap: 24px;
+  /* Sit above page content so the Stream hero can bleed up behind it. */
+  position: relative;
+  z-index: 5;
+}
+
+/* A soft top scrim keeps the header legible over the Stream hero (and over any
+   content that scrolls beneath it). Invisible on dark pages (bg → transparent). */
+.app-header::before {
+  content: "";
+  position: absolute;
+  top: -28px;
+  left: -44px;
+  right: 0;
+  bottom: -44px;
+  background: linear-gradient(to bottom, var(--bg) 32%, transparent);
+  z-index: -1;
+  pointer-events: none;
 }
 
 .app-header__brand {
@@ -988,8 +1008,11 @@ img {
 /* ---------- Stream page ---------- */
 
 .stream {
-  flex: 1;
-  min-height: 0;
+  flex: none;
+  /* Pull the scroll container up so the hero bleeds behind the (transparent)
+     header; grow its height to compensate so it still fills to the bottom. */
+  height: calc(100% + var(--header-zone));
+  margin-top: calc(-1 * var(--header-zone));
   overflow-y: auto;
   /* Bleed left to the screen edge (the shell pads content in by 44px); rows
      and the hero re-inset their own content to line up. */
@@ -1003,7 +1026,8 @@ img {
   /* Bleed past the shell's left/right padding for a full-width banner. */
   margin: 0 0 28px -44px;
   width: calc(100% + 44px);
-  height: clamp(460px, 60vh, 660px);
+  /* Tall, cinematic banner (~40% taller than a half-screen hero). */
+  height: clamp(620px, 84vh, 900px);
   border-radius: 0;
   overflow: hidden;
   display: flex;
@@ -1024,12 +1048,14 @@ img {
   }
 }
 
-/* Darken the bottom-left so the title/synopsis stay legible over any art. */
+/* Darken the bottom-left (and a touch of the top) so the title/synopsis and the
+   overlaid header stay legible over any art. */
 .hero__scrim {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(to top, var(--bg) 2%, rgba(0, 0, 0, 0) 55%),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0) 20%),
+    linear-gradient(to top, var(--bg) 2%, rgba(0, 0, 0, 0) 60%),
     linear-gradient(to right, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0) 60%);
 }
 
