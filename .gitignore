@@ -15,3 +15,6 @@ dist-ssr/
 .vscode/*
 !.vscode/extensions.json
 *.log
+
+# server data store
+/apps/server/data/
