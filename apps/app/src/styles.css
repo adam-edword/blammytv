@@ -32,6 +32,8 @@
   --radius: 12px;
   --categories-w: 400px;
   --guide-label-w: 200px;
+  /* Even gutter around the floating channel-label card within its column. */
+  --label-card-gap: 8px;
   --row-h: 60px;
 
   color-scheme: dark;
@@ -462,7 +464,10 @@ img {
 
 .guide-row {
   display: flex;
-  gap: 8px;
+  /* No flex gap: the lane sits flush at the label-column edge so programs line
+     up with the time ruler. The visible label card is inset within the column
+     (see ::after), creating an even gutter to the grid. */
+  gap: 0;
   margin-bottom: 8px;
 }
 
@@ -475,7 +480,8 @@ img {
   height: var(--row-h);
   display: block;
   line-height: var(--row-h);
-  padding: 0 12px 0 16px;
+  /* Text inset accounts for the card's left gutter (see ::after). */
+  padding: 0 16px 0 24px;
   font-family: var(--font-headline);
   font-weight: 600;
   font-size: 19px;
@@ -483,31 +489,29 @@ img {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  /* Solid fill over the 8px gap below and to the right, so programs sliding
-     under the label (and the now-line) stay hidden and the card keeps its
-     rounded right edge. Box-shadow isn't clipped by overflow: hidden. */
-  box-shadow:
-    0 8px 0 0 var(--bg),
-    8px 0 0 0 var(--bg);
+  /* Fill the row gap below with bg so the now-line is hidden between cards
+     (box-shadow isn't clipped by overflow: hidden). */
+  box-shadow: 0 8px 0 0 var(--bg);
 }
 
-/* Two stacked backings so the *rounded* label fully occludes programs that
-   scroll behind it: a square --bg fill behind the corners, plus the visible
-   rounded panel. (A single rounded background leaves the corners transparent,
-   letting program blocks show through.) */
+/* The sticky label column is a solid occluder (::before) with a floating
+   rounded card inset inside it (::after). The card has an even gutter on every
+   side: the occluder fills the gutters, so programs/now-line scrolling behind
+   stay hidden and the card keeps its rounded edges. */
 .guide-row__label::before,
 .guide-row__label::after {
   content: "";
   position: absolute;
-  inset: 0;
   z-index: -1;
 }
 
 .guide-row__label::before {
+  inset: 0;
   background: var(--bg);
 }
 
 .guide-row__label::after {
+  inset: 0 var(--label-card-gap);
   background: var(--panel);
   border-radius: var(--radius);
 }
