@@ -32,11 +32,11 @@ export interface UiScaleOption {
   value: number;
 }
 export const UI_SCALE_OPTIONS: UiScaleOption[] = [
-  { label: "XS", value: 0.85 },
-  { label: "Small", value: 0.925 },
-  { label: "Normal", value: 1 },
-  { label: "Large", value: 1.1 },
-  { label: "XL", value: 1.2 },
+  { label: "80%", value: 0.8 },
+  { label: "90%", value: 0.9 },
+  { label: "100%", value: 1 },
+  { label: "110%", value: 1.1 },
+  { label: "120%", value: 1.2 },
 ];
 
 /** Index of the notch closest to a stored scale value. */

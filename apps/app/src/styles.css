@@ -1041,9 +1041,19 @@ img {
   background: var(--red);
 }
 
-.scalenotch.is-active .scalenotch__bar {
-  height: 22px;
-  margin-top: 5px;
+/* Circular indicator marking the current notch. */
+.scaleslider__thumb {
+  position: absolute;
+  top: 16px;
+  transform: translate(-50%, -50%);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid var(--red);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  transition: left 0.12s ease;
 }
 
 .scalenotch__label {

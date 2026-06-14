@@ -183,6 +183,13 @@ export function SettingsPanel({
                       <span className="scalenotch__label">{o.label}</span>
                     </button>
                   ))}
+                  <span
+                    className="scaleslider__thumb"
+                    style={{
+                      left: `calc(12px + (100% - 24px) * ${scaleIndex / lastScale})`,
+                    }}
+                    aria-hidden="true"
+                  />
                 </div>
               </div>
             </div>
