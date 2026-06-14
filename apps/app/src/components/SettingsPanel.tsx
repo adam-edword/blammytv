@@ -197,13 +197,9 @@ export function SettingsPanel({
             {/* Light mode */}
             <div className="settings__row">
               <div className="settings__row-label">
-                <span className="settings__row-title">
-                  Light mode
-                  <span className="settings__badge">Coming soon</span>
-                </span>
+                <span className="settings__row-title">Light mode</span>
                 <span className="settings__row-desc">
-                  A light theme isn't ready yet — the preference is saved for
-                  when it lands.
+                  Switch the interface to a light theme.
                 </span>
               </div>
               <div className="settings__control">

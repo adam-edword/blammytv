@@ -24,6 +24,11 @@
   --text: #f2f2f5;
   --text-dim: #9c9ca8;
 
+  /* Subtle overlays that must invert between themes (hairline borders, hover
+     fills). Defined as tokens so the light theme can flip them in one place. */
+  --surface-hover: rgba(255, 255, 255, 0.05);
+  --hairline: rgba(255, 255, 255, 0.07);
+
   --font-headline: "Stack Sans Headline", "Inter", system-ui, -apple-system,
     "Segoe UI", Roboto, sans-serif;
   --font-text: "Stack Sans Text", "Inter", system-ui, -apple-system,
@@ -37,6 +42,48 @@
   --row-h: 60px;
 
   color-scheme: dark;
+}
+
+/* ---------- Light theme ----------
+ * Most surfaces are token-driven, so the theme is mainly a palette swap plus a
+ * few overlays/details that have to invert. The accent (--accent-rgb) is shared
+ * — the user's colour pick applies to both themes. */
+:root[data-theme="light"] {
+  --bg: #f3f4f7;
+  --panel: #ffffff;
+  --panel-2: #e9ebf0;
+  --panel-3: #dde0e7;
+  --surface-muted: #d6d9e1;
+
+  --text: #16171d;
+  --text-dim: #5b606e;
+
+  --surface-hover: rgba(0, 0, 0, 0.05);
+  --hairline: rgba(0, 0, 0, 0.1);
+
+  color-scheme: light;
+}
+
+/* No-info hatch reads as dark-on-light instead of light-on-dark. */
+:root[data-theme="light"] .program--noinfo {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(0, 0, 0, 0.04),
+    rgba(0, 0, 0, 0.04) 10px,
+    transparent 10px,
+    transparent 20px
+  );
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+/* Skeleton shimmer needs a bright sweep to show on light surfaces. */
+:root[data-theme="light"] .skeleton::after {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.7),
+    transparent
+  );
 }
 
 * {
@@ -112,7 +159,7 @@ img {
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 26px;
-  color: #fff;
+  color: var(--text);
 }
 
 .app-header__version {
@@ -128,7 +175,7 @@ img {
   font-weight: 200;
   font-size: 26px;
   line-height: 26px;
-  color: #fff;
+  color: var(--text);
   opacity: 0.3;
 }
 
@@ -141,7 +188,7 @@ img {
 .app-header__divider {
   font-size: 30px;
   font-weight: 200;
-  color: #fff;
+  color: var(--text);
   opacity: 0.3;
 }
 
@@ -149,7 +196,7 @@ img {
   display: flex;
   align-items: center;
   gap: 12px;
-  color: #fff;
+  color: var(--text);
   opacity: 0.4;
 }
 
@@ -168,7 +215,7 @@ img {
 
 .icon-btn:hover {
   opacity: 1;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--surface-hover);
 }
 
 /* ---------- Tabs ---------- */
@@ -183,7 +230,7 @@ img {
   font-family: var(--font-headline);
   font-weight: 200;
   font-size: 21px;
-  color: #fff;
+  color: var(--text);
   opacity: 0.3;
   background: transparent;
   border: none;
@@ -438,7 +485,7 @@ img {
 
 .category:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--surface-hover);
 }
 
 .category--icon {
@@ -602,7 +649,7 @@ img {
   background: var(--panel-2);
   border: 1.5px solid transparent;
   border-radius: var(--radius);
-  color: #fff;
+  color: var(--text);
   text-align: left;
   overflow: hidden;
   transition: filter 0.12s ease;
@@ -658,8 +705,8 @@ img {
      (same width as every other block, so no reflow) plus a 1.5px inset shadow
      for the extra thickness. Box-shadow doesn't affect layout, so the text
      never shifts on selection — at any DPI. */
-  border-color: #fff;
-  box-shadow: inset 0 0 0 1.5px #fff;
+  border-color: var(--text);
+  box-shadow: inset 0 0 0 1.5px var(--text);
 }
 
 /* Channel is offline or the provider sent no programme info. */
@@ -813,7 +860,7 @@ img {
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 40px;
-  color: #fff;
+  color: var(--text);
 }
 
 .pairing__lead {
@@ -831,7 +878,7 @@ img {
   font-size: 44px;
   letter-spacing: 14px;
   text-indent: 14px;
-  color: #fff;
+  color: var(--text);
   background: var(--panel);
   border: 2px solid var(--panel-3);
   border-radius: 16px;
@@ -936,7 +983,7 @@ img {
   width: min(1063px, 56vw);
   height: min(713px, calc(100dvh - 135px));
   background: var(--bg);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--hairline);
   border-radius: 12px;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
   z-index: 101;
@@ -985,7 +1032,7 @@ img {
   justify-content: space-between;
   gap: 32px;
   padding: 22px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--hairline);
 }
 
 .settings__row-label {
@@ -1053,7 +1100,7 @@ img {
 }
 
 .swatch--active {
-  border-color: #fff;
+  border-color: var(--text);
 }
 
 .settings__custom-btn {
@@ -1079,7 +1126,7 @@ img {
 }
 
 .settings__custom-btn.is-active {
-  border-color: #fff;
+  border-color: var(--text);
 }
 
 .settings__custom-btn input[type="color"] {

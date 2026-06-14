@@ -18,7 +18,7 @@ export interface Preferences {
   accent: string;
   /** Whole-UI zoom multiplier. */
   uiScale: number;
-  /** Light theme on/off. Persisted, but no light theme exists yet. */
+  /** Light theme on/off (applied via data-theme on the document root). */
   lightMode: boolean;
 }
 
