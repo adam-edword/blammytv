@@ -149,20 +149,6 @@ img {
   z-index: 5;
 }
 
-/* A soft top scrim keeps the header legible over the Stream hero (and over any
-   content that scrolls beneath it). Invisible on dark pages (bg → transparent). */
-.app-header::before {
-  content: "";
-  position: absolute;
-  top: -28px;
-  left: -44px;
-  right: 0;
-  bottom: -44px;
-  background: linear-gradient(to bottom, var(--bg) 32%, transparent);
-  z-index: -1;
-  pointer-events: none;
-}
-
 .app-header__brand {
   display: flex;
   align-items: flex-start;
