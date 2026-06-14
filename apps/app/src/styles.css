@@ -214,6 +214,8 @@ img {
   display: flex;
   gap: 40px;
   padding-right: 44px;
+  /* Breathing room around the hero, dropping the grid below it down. */
+  margin: 50px 0;
 }
 
 .now-playing__preview {
@@ -353,8 +355,6 @@ img {
   gap: 0;
   flex: 1;
   min-height: 0;
-  /* Drop the grid down and give the now-playing hero some room to breathe. */
-  margin: 50px 0;
 }
 
 .categories {
