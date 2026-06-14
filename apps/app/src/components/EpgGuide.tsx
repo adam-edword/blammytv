@@ -100,15 +100,18 @@ export function EpgGuide({
   // component re-renders rarely; the per-frame motion is applied imperatively.
   const [pins, setPins] = useState<(string | null)[]>([]);
 
-  // Toggle the fade mask on a title only when its text actually overflows.
+  // Toggle the fade mask on a title/label only when its text actually overflows.
   const clipTitle = (t: HTMLElement) =>
     t.classList.toggle("is-clipped", t.scrollWidth > t.clientWidth + 1);
 
-  // Re-measure every title after a render and once fonts have loaded (their
-  // widths shift). Pinned cards are also re-measured per frame in onScroll.
+  // Program titles and channel labels both fade rather than truncate.
+  const CLIP_SELECTOR = ".program__title, .guide-row__label-text";
+
+  // Re-measure after a render and once fonts have loaded (their widths shift).
+  // Pinned cards are also re-measured per frame in onScroll.
   useLayoutEffect(() => {
     scrollRef.current
-      ?.querySelectorAll<HTMLElement>(".program__title")
+      ?.querySelectorAll<HTMLElement>(CLIP_SELECTOR)
       .forEach(clipTitle);
   });
   useEffect(() => {
@@ -116,7 +119,7 @@ export function EpgGuide({
     document.fonts?.ready.then(() => {
       if (done) return;
       scrollRef.current
-        ?.querySelectorAll<HTMLElement>(".program__title")
+        ?.querySelectorAll<HTMLElement>(CLIP_SELECTOR)
         .forEach(clipTitle);
     });
     return () => {
@@ -200,7 +203,9 @@ export function EpgGuide({
             const pin = pinId ? blocks.find((b) => b.p.id === pinId) : null;
             return (
               <div className="guide-row" key={ch.id}>
-                <div className="guide-row__label">{ch.name}</div>
+                <div className="guide-row__label">
+                  <span className="guide-row__label-text">{ch.name}</span>
+                </div>
                 <div className="guide-row__lane" style={{ width: laneWidth }}>
                   {blocks.length === 0 ? (
                     // Offline / no programme info from the provider.

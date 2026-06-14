@@ -603,12 +603,28 @@ img {
   font-weight: 600;
   font-size: 19px;
   color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   /* Fill the row gap below with bg so the now-line is hidden between cards
      (box-shadow isn't clipped by overflow: hidden). */
   box-shadow: 0 var(--label-card-gap) 0 0 var(--bg);
+}
+
+/* Inner text element so the fade masks the label text only — not the card
+   background (::after) or the gap occluder. */
+.guide-row__label-text {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* Applied by measurement when the name overflows: fade out at the right edge
+   instead of an ellipsis, matching the program cards. */
+.guide-row__label-text.is-clipped {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    #000 calc(100% - 26px),
+    transparent
+  );
+  mask-image: linear-gradient(to right, #000 calc(100% - 26px), transparent);
 }
 
 /* The sticky label column is a solid occluder (::before) with a floating
