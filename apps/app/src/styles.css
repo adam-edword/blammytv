@@ -353,6 +353,8 @@ img {
   gap: 0;
   flex: 1;
   min-height: 0;
+  /* Drop the grid down and give the now-playing hero some room to breathe. */
+  margin: 50px 0;
 }
 
 .categories {
