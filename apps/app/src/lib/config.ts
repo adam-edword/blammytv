@@ -1,23 +1,41 @@
 import {
   ConfigBlobSchema,
+  mockConfig,
   type ConfigBlob,
   type ShareCode,
 } from "@blammytv/shared";
-import { mockConfig } from "./mockConfig";
 
 /**
  * The single seam between the app and where config comes from.
  *
- * v0.1 has no backend, so we serve a validated mock blob after a short delay
- * (so the loading skeletons — the whole pitch — actually get to show). When the
- * backend exists, this becomes a `fetch()` against the config endpoint; the
- * rest of the app is untouched because it only consumes a parsed ConfigBlob.
+ * If a backend is configured (VITE_API_URL), the device pulls its config from
+ * the `/config` endpoint, authenticated by the share code. Otherwise we're in
+ * demo mode (e.g. the GitHub Pages showcase) and serve a validated mock blob
+ * after a short delay (so the loading skeletons get to show).
+ *
+ * Either way the app only ever sees a parsed ConfigBlob, so nothing downstream
+ * cares which path produced it. ConfigBlobSchema.parse is the guard that the
+ * dumb terminal only renders well-formed config — real or mock.
  */
+const API_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, "");
+
 export async function fetchConfig(shareCode: ShareCode): Promise<ConfigBlob> {
-  await delay(900);
-  // ConfigBlobSchema.parse is the guard that the dumb terminal only ever
-  // renders well-formed config — real or mock.
-  return ConfigBlobSchema.parse(mockConfig(`Living Room (${shareCode})`));
+  if (!API_URL) {
+    await delay(900);
+    return ConfigBlobSchema.parse(mockConfig(`Living Room (${shareCode})`));
+  }
+
+  const res = await fetch(`${API_URL}/config`, {
+    headers: { Authorization: `Bearer ${shareCode}` },
+  });
+  if (!res.ok) {
+    throw new Error(
+      res.status === 401
+        ? "That code didn't work. Check it and try again."
+        : `Couldn't load config (${res.status}).`,
+    );
+  }
+  return ConfigBlobSchema.parse(await res.json());
 }
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
