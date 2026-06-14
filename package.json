@@ -6,13 +6,18 @@
   "packageManager": "pnpm@10.33.0",
   "scripts": {
     "dev": "pnpm --filter @blammytv/app dev",
+    "dev:all": "concurrently -n server,app -c blue,green \"pnpm --filter @blammytv/server dev\" \"pnpm --filter @blammytv/app dev\"",
+    "server": "pnpm --filter @blammytv/server dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck"
   },
   "devDependencies": {
+    "concurrently": "^10.0.3",
     "typescript": "^5.6.3"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild"]
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }
