@@ -46,6 +46,23 @@ export const EpgProgramSchema = z.object({
 });
 export type EpgProgram = z.infer<typeof EpgProgramSchema>;
 
+/** A playable source/release for a title, as resolved + ranked by the backend
+ * (debrid cache, quality, languages, …). The device is a dumb terminal: it
+ * renders these in the given order and never re-sorts or re-filters them.
+ * `quality` and `lines` are already display-formatted server-side. */
+export const StreamSourceSchema = z.object({
+  id: z.string(),
+  /** Prominent left label, e.g. "1080p" / "2160p". */
+  quality: z.string(),
+  /** Instant-play (cached on debrid) — shown as the ⚡ marker. */
+  cached: z.boolean().default(false),
+  /** Pre-formatted meta lines (provider, languages, size, rating, …). */
+  lines: z.array(z.string()).default([]),
+  /** Already-resolved, directly playable URL. */
+  streamUrl: z.string().url(),
+});
+export type StreamSource = z.infer<typeof StreamSourceSchema>;
+
 export const VodItemSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -59,6 +76,11 @@ export const VodItemSchema = z.object({
   rating: z.number().optional(),
   runtimeMin: z.number().int().optional(),
   synopsis: z.string().optional(),
+  /** Detail-page metadata. */
+  genres: z.array(z.string()).default([]),
+  cast: z.array(z.string()).default([]),
+  /** Playable sources for this title, pre-ranked by the backend. */
+  sources: z.array(StreamSourceSchema).default([]),
 });
 export type VodItem = z.infer<typeof VodItemSchema>;
 

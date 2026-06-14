@@ -7,9 +7,11 @@ import { formatMeta, initials } from "../lib/vod";
 export function StreamCard({
   item,
   layout,
+  onOpen,
 }: {
   item: VodItem;
   layout: "poster" | "landscape";
+  onOpen?: (item: VodItem) => void;
 }) {
   const art = layout === "landscape" ? item.backdrop ?? item.poster : item.poster;
   return (
@@ -17,6 +19,7 @@ export function StreamCard({
       className={`stream-card stream-card--${layout}`}
       type="button"
       title={item.title}
+      onClick={() => onOpen?.(item)}
     >
       <div className="stream-card__art">
         {art ? (

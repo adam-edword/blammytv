@@ -4,6 +4,7 @@ import type {
   LiveChannel,
   ChannelGroup,
   VodItem,
+  StreamSource,
 } from "@blammytv/shared";
 
 /**
@@ -163,10 +164,74 @@ export function mockConfig(deviceName: string): ConfigBlob {
       programs,
       featuredChannelId: "c-tsn1",
     },
-    movies: MOVIES,
-    series: SERIES,
+    movies: MOVIES.map(decorate),
+    series: SERIES.map(decorate),
     stream: STREAM,
     favorites: ["c-tsn1", "c-bbc1", "c-espn", "c-redzone", "m2", "s1"],
+  };
+}
+
+/** Attach detail-page metadata (genres, cast) and a backend-ranked source list
+ * to a catalog item. Real values come from the backend; these are stand-ins. */
+function decorate(item: VodItem): VodItem {
+  const g = seed(item.id);
+  return {
+    ...item,
+    genres: [
+      GENRE_POOL[g % GENRE_POOL.length],
+      GENRE_POOL[(g + 2) % GENRE_POOL.length],
+      GENRE_POOL[(g + 4) % GENRE_POOL.length],
+    ],
+    cast: CAST,
+    sources: SOURCES,
+  };
+}
+
+const GENRE_POOL = [
+  "Horror",
+  "Suspense",
+  "Thriller",
+  "Drama",
+  "Action",
+  "Sci-Fi",
+  "Mystery",
+];
+
+const CAST = [
+  "John Mith",
+  "Sharon Green",
+  "Marcus Reed",
+  "Elena Cole",
+  "Sharon Green",
+  "David Park",
+  "Sharon Green",
+  "Nadia Frost",
+  "Sharon Green",
+];
+
+/** Placeholder source list — the backend supplies and ranks the real ones. */
+const SOURCES: StreamSource[] = [
+  src("2160p", true, ["☁︎ HDR · Remux", "🗣 English · Italian", "◧ 84.2 Mb/s · 4d", "★★★★★"]),
+  src("1080p", true, ["☁︎ BluRay", "🗣 English · Italian", "◧ 54.8 Mb/s · 10d", "★★★★★"]),
+  src("1080p", true, ["☁︎ WEB-DL", "🗣 English", "◧ 41.3 Mb/s · 22d", "★★★★☆"]),
+  src("1080p", true, ["☁︎ BluRay", "🗣 English · French", "◧ 38.9 Mb/s · 15d", "★★★★☆"]),
+  src("720p", true, ["☁︎ WEB-DL", "🗣 English", "◧ 18.6 Mb/s · 31d", "★★★★☆"]),
+  src("1080p", false, ["⬇ Torrent · 312 seeders", "🗣 English · Italian", "◧ 51.0 Mb/s · 8d", "★★★★☆"]),
+  src("2160p", false, ["⬇ Torrent · 88 seeders", "🗣 English", "◧ 79.4 Mb/s · 6d", "★★★☆☆"]),
+  src("480p", true, ["☁︎ WEB-DL", "🗣 English", "◧ 7.2 Mb/s · 44d", "★★★☆☆"]),
+];
+
+function src(
+  quality: string,
+  cached: boolean,
+  lines: string[],
+): StreamSource {
+  return {
+    id: `${quality}-${seed(lines.join())}`,
+    quality,
+    cached,
+    lines,
+    streamUrl: `https://example.invalid/source/${seed(lines.join())}.mkv`,
   };
 }
 
@@ -235,13 +300,13 @@ function chan(id: string, name: string, groupId: string): LiveChannel {
 // Artwork is intentionally absent so cards render the placeholder treatment —
 // the real backend hands back poster/backdrop URLs.
 
-type Vod = Omit<VodItem, "kind">;
+type Vod = Omit<VodItem, "kind" | "genres" | "cast" | "sources">;
 
 function movie(item: Vod): VodItem {
-  return { ...item, kind: "movie" };
+  return { ...item, kind: "movie", genres: [], cast: [], sources: [] };
 }
 function series(item: Vod): VodItem {
-  return { ...item, kind: "series" };
+  return { ...item, kind: "series", genres: [], cast: [], sources: [] };
 }
 
 const MOVIES: VodItem[] = [

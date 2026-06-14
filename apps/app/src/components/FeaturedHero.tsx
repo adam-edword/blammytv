@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import type { VodItem } from "@blammytv/shared";
-import { formatMeta } from "../lib/vod";
+import { formatMeta, gradientFor } from "../lib/vod";
 import { PlayIcon, InfoIcon } from "./icons";
 
 /** How long each featured title is shown before auto-advancing. */
@@ -10,7 +10,13 @@ const ROTATE_MS = 7000;
  * featured titles with Watch Now / More Info and a dot pager. When artwork is
  * missing it falls back to a per-title gradient so each slide still feels
  * distinct. */
-export function FeaturedHero({ items }: { items: VodItem[] }) {
+export function FeaturedHero({
+  items,
+  onOpen,
+}: {
+  items: VodItem[];
+  onOpen?: (item: VodItem) => void;
+}) {
   const [index, setIndex] = useState(0);
 
   // Clamp if the list shrinks (e.g. a new config arrives).
@@ -54,11 +60,19 @@ export function FeaturedHero({ items }: { items: VodItem[] }) {
         <p className="hero__meta">{meta || formatMeta(item)}</p>
 
         <div className="hero__actions">
-          <button className="btn btn--primary hero__btn" type="button">
+          <button
+            className="btn btn--primary hero__btn"
+            type="button"
+            onClick={() => onOpen?.(item)}
+          >
             <PlayIcon size={20} />
             Watch Now
           </button>
-          <button className="btn hero__btn" type="button">
+          <button
+            className="btn hero__btn"
+            type="button"
+            onClick={() => onOpen?.(item)}
+          >
             <InfoIcon size={20} />
             More Info
           </button>
@@ -80,12 +94,4 @@ export function FeaturedHero({ items }: { items: VodItem[] }) {
       </div>
     </section>
   );
-}
-
-/** Deterministic placeholder gradient from an item id (stable across reloads). */
-function gradientFor(id: string): string {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  const hue = h % 360;
-  return `linear-gradient(120deg, hsl(${hue} 38% 28%), hsl(${(hue + 40) % 360} 32% 14%))`;
 }

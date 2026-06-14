@@ -1229,6 +1229,219 @@ img {
   color: var(--text-dim);
 }
 
+/* ---------- Title detail / source selection ----------
+ * An image-dominated page, so its text stays light in both themes. */
+
+.detail {
+  flex: none;
+  position: relative;
+  height: calc(100% + var(--header-zone));
+  margin-top: calc(-1 * var(--header-zone));
+  /* Full-bleed backdrop (escape the shell's left padding; right is flush). */
+  margin-left: -44px;
+  width: calc(100% + 44px);
+  overflow: hidden;
+}
+
+.detail__backdrop {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+}
+
+.detail__scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0) 16%),
+    linear-gradient(to right, rgba(0, 0, 0, 0.88) 0%, rgba(0, 0, 0, 0.25) 46%, rgba(0, 0, 0, 0) 70%),
+    linear-gradient(to top, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0) 30%);
+}
+
+.detail__body {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  display: flex;
+  gap: 48px;
+  padding: calc(var(--header-zone) + 12px) 44px 48px 64px;
+  box-sizing: border-box;
+}
+
+.detail__back {
+  position: absolute;
+  top: calc(var(--header-zone) - 8px);
+  left: 64px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  padding: 6px 6px 6px 0;
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.detail__back:hover {
+  color: #fff;
+}
+
+.detail__back-icon {
+  transform: rotate(90deg);
+}
+
+.detail__info {
+  flex: 1;
+  min-width: 0;
+  max-width: 760px;
+  align-self: center;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.detail__title {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 68px;
+  line-height: 1.02;
+  color: #f4f4f7;
+}
+
+.detail__synopsis {
+  margin: 0;
+  max-width: 560px;
+  font-size: 20px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.detail__meta {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-weight: 500;
+  font-size: 17px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.detail__group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.detail__label {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.pill {
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.13);
+  color: #f0f0f2;
+  font-family: var(--font-headline);
+  font-weight: 500;
+  font-size: 16px;
+}
+
+/* Source rail */
+.detail__rail {
+  flex: none;
+  width: 420px;
+  align-self: stretch;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-right: 6px;
+  scrollbar-width: thin;
+}
+
+.detail__no-sources {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 17px;
+}
+
+.source-card {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 18px 22px;
+  background: rgba(10, 10, 12, 0.82);
+  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.source-card:hover,
+.source-card:focus-visible {
+  border-color: var(--red-border);
+  background: rgba(18, 18, 22, 0.92);
+  outline: none;
+}
+
+.source-card__quality {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 96px;
+}
+
+.source-card__res {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 21px;
+  color: #fff;
+}
+
+.source-card__bolt {
+  font-size: 15px;
+}
+
+.source-card__meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.source-card__line {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.62);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.source-card__play {
+  flex: none;
+  color: rgba(255, 255, 255, 0.85);
+}
+
 /* ---------- Error state ---------- */
 
 .error-state {

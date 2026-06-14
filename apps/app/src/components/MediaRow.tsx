@@ -7,10 +7,12 @@ export function MediaRow({
   title,
   layout,
   items,
+  onOpen,
 }: {
   title: string;
   layout: "poster" | "landscape";
   items: VodItem[];
+  onOpen?: (item: VodItem) => void;
 }) {
   if (items.length === 0) return null;
   return (
@@ -18,7 +20,7 @@ export function MediaRow({
       <h2 className="media-row__title">{title}</h2>
       <div className="media-row__track">
         {items.map((item) => (
-          <StreamCard key={item.id} item={item} layout={layout} />
+          <StreamCard key={item.id} item={item} layout={layout} onOpen={onOpen} />
         ))}
       </div>
     </section>

@@ -30,3 +30,12 @@ export function initials(title: string): string {
     .join("")
     .toUpperCase();
 }
+
+/** Deterministic placeholder backdrop gradient from an id (stable per title),
+ * used by the hero and detail page until real artwork exists. */
+export function gradientFor(id: string): string {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  const hue = h % 360;
+  return `linear-gradient(120deg, hsl(${hue} 38% 28%), hsl(${(hue + 40) % 360} 32% 14%))`;
+}
