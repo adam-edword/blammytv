@@ -22,7 +22,7 @@ const ACCENT_PRESETS = [
   "#ff1e00", // red (default)
   "#ffd500", // yellow
   "#2cad57", // green
-  "#0800ff", // blue
+  "#3730ff", // blue
   "#a200ff", // purple
   "#ff2773", // pink
   "#9e9e9e", // grey
