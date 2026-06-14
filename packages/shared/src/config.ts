@@ -51,9 +51,29 @@ export const VodItemSchema = z.object({
   title: z.string(),
   year: z.number().int().optional(),
   poster: z.string().url().optional(),
+  /** Wide artwork used by the Stream hero / landscape cards. */
+  backdrop: z.string().url().optional(),
   kind: z.enum(["movie", "series"]),
+  /** Out-of-10 rating, runtime, and a short synopsis — shown on the Stream
+   * page's hero and card meta line. All resolved server-side. */
+  rating: z.number().optional(),
+  runtimeMin: z.number().int().optional(),
+  synopsis: z.string().optional(),
 });
 export type VodItem = z.infer<typeof VodItemSchema>;
+
+/** A horizontally-scrolling row on the Stream page. The backend decides the
+ * grouping (e.g. "Action – Movie", "Continue Watching") and the order, exactly
+ * like the live guide's channel groups; the device just renders it. */
+export const StreamRowSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  /** Card shape: tall posters (2:3) or wide stills (16:9, e.g. resume row). */
+  layout: z.enum(["poster", "landscape"]).default("poster"),
+  /** Ids into the movies/series catalog, in display order. */
+  itemIds: z.array(z.string()),
+});
+export type StreamRow = z.infer<typeof StreamRowSchema>;
 
 export const ConfigBlobSchema = z.object({
   /** Bumped by the backend whenever the rendered shape changes. */
@@ -73,6 +93,13 @@ export const ConfigBlobSchema = z.object({
   }),
   movies: z.array(VodItemSchema),
   series: z.array(VodItemSchema),
+  /** The Stream tab: a featured hero carousel plus backend-defined rows that
+   * reference items from the movies/series catalog above. */
+  stream: z.object({
+    /** Item ids spotlighted in the auto-advancing hero carousel. */
+    featured: z.array(z.string()),
+    rows: z.array(StreamRowSchema),
+  }),
   /** Favorite item/channel ids, managed in the web UI. */
   favorites: z.array(z.string()),
 });

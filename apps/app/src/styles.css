@@ -985,6 +985,234 @@ img {
   max-width: 46ch;
 }
 
+/* ---------- Stream page ---------- */
+
+.stream {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* Bleed left to the screen edge (the shell pads content in by 44px); rows
+     and the hero re-inset their own content to line up. */
+  margin-left: -44px;
+  padding-left: 44px;
+}
+
+/* Featured hero carousel */
+.hero {
+  position: relative;
+  /* Bleed past the shell's left/right padding for a full-width banner. */
+  margin: 0 0 28px -44px;
+  width: calc(100% + 44px);
+  height: clamp(460px, 60vh, 660px);
+  border-radius: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+}
+
+.hero__backdrop {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  animation: hero-fade 0.6s ease;
+}
+
+@keyframes hero-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Darken the bottom-left so the title/synopsis stay legible over any art. */
+.hero__scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to top, var(--bg) 2%, rgba(0, 0, 0, 0) 55%),
+    linear-gradient(to right, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0) 60%);
+}
+
+.hero__content {
+  position: relative;
+  z-index: 1;
+  max-width: 720px;
+  padding: 0 44px 56px 88px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.hero__title {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 64px;
+  line-height: 1.02;
+  color: var(--text);
+}
+
+.hero__synopsis {
+  margin: 0;
+  max-width: 560px;
+  font-size: 20px;
+  line-height: 1.5;
+  color: var(--text-dim);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.hero__meta {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-weight: 500;
+  font-size: 17px;
+  letter-spacing: 0.3px;
+  color: var(--text-dim);
+}
+
+.hero__actions {
+  display: flex;
+  gap: 14px;
+  margin-top: 6px;
+}
+
+.hero__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Dot pager, centered along the hero's bottom edge. */
+.hero__dots {
+  position: absolute;
+  z-index: 1;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+}
+
+.hero__dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.35);
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.hero__dot--active {
+  background: var(--text);
+  transform: scale(1.1);
+}
+
+:root[data-theme="light"] .hero__dot {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* Rows */
+.stream__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  padding-bottom: 40px;
+}
+
+.media-row__title {
+  margin: 0 0 16px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 28px;
+  color: var(--text);
+}
+
+.media-row__track {
+  display: flex;
+  gap: 20px;
+  overflow-x: auto;
+  /* Let cards run to the right edge; nudge the scrollbar out of the way. */
+  padding-bottom: 8px;
+  scrollbar-width: thin;
+}
+
+/* Cards */
+.stream-card {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  text-align: left;
+}
+
+.stream-card--poster {
+  width: 210px;
+}
+
+.stream-card--landscape {
+  width: 360px;
+}
+
+.stream-card__art {
+  border-radius: 14px;
+  background: var(--panel-2);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  outline: 2px solid transparent;
+  transition: transform 0.15s ease, outline-color 0.15s ease;
+}
+
+.stream-card--poster .stream-card__art {
+  aspect-ratio: 2 / 3;
+}
+
+.stream-card--landscape .stream-card__art {
+  aspect-ratio: 16 / 9;
+}
+
+.stream-card:hover .stream-card__art {
+  transform: translateY(-4px);
+  outline-color: var(--red-border);
+}
+
+.stream-card__art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.stream-card__placeholder {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 34px;
+  color: var(--text-dim);
+}
+
+.stream-card__title {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 19px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stream-card__meta {
+  font-size: 15px;
+  color: var(--text-dim);
+}
+
 /* ---------- Error state ---------- */
 
 .error-state {

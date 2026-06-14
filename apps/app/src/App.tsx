@@ -4,6 +4,7 @@ import { AppHeader } from "./components/AppHeader";
 import { type TabKey } from "./components/TopTabs";
 import { PairingScreen } from "./screens/PairingScreen";
 import { LiveScreen } from "./screens/LiveScreen";
+import { StreamScreen } from "./screens/StreamScreen";
 import { PlaceholderScreen } from "./screens/PlaceholderScreen";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { LiveScreenSkeleton } from "./components/LoadingSkeletons";
@@ -89,12 +90,7 @@ function Content({ tab, config }: { tab: TabKey; config: ConfigBlob }) {
     case "live":
       return <LiveScreen config={config} />;
     case "stream":
-      return (
-        <PlaceholderScreen
-          title="Stream"
-          note="Your on-demand library will live here. We'll build this section next."
-        />
-      );
+      return <StreamScreen config={config} />;
     case "discover":
       return (
         <PlaceholderScreen

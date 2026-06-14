@@ -3,6 +3,7 @@ import type {
   EpgProgram,
   LiveChannel,
   ChannelGroup,
+  VodItem,
 } from "@blammytv/shared";
 
 /**
@@ -162,21 +163,9 @@ export function mockConfig(deviceName: string): ConfigBlob {
       programs,
       featuredChannelId: "c-tsn1",
     },
-    movies: [
-      vod("m1", "The Grand Budapest Hotel", 2014, "movie"),
-      vod("m2", "Dune: Part Two", 2024, "movie"),
-      vod("m3", "Everything Everywhere All at Once", 2022, "movie"),
-      vod("m4", "Sinners", 2025, "movie"),
-      vod("m5", "Oppenheimer", 2023, "movie"),
-      vod("m6", "Past Lives", 2023, "movie"),
-    ],
-    series: [
-      vod("s1", "Severance", 2022, "series"),
-      vod("s2", "The Bear", 2022, "series"),
-      vod("s3", "Slow Horses", 2022, "series"),
-      vod("s4", "Shogun", 2024, "series"),
-      vod("s5", "Andor", 2022, "series"),
-    ],
+    movies: MOVIES,
+    series: SERIES,
+    stream: STREAM,
     favorites: ["c-tsn1", "c-bbc1", "c-espn", "c-redzone", "m2", "s1"],
   };
 }
@@ -242,9 +231,76 @@ function chan(id: string, name: string, groupId: string): LiveChannel {
   };
 }
 
-function vod(id: string, title: string, year: number, kind: "movie" | "series") {
-  return { id, title, year, kind };
+// ---------- Stream catalog (movies + series) ----------
+// Artwork is intentionally absent so cards render the placeholder treatment —
+// the real backend hands back poster/backdrop URLs.
+
+type Vod = Omit<VodItem, "kind">;
+
+function movie(item: Vod): VodItem {
+  return { ...item, kind: "movie" };
 }
+function series(item: Vod): VodItem {
+  return { ...item, kind: "series" };
+}
+
+const MOVIES: VodItem[] = [
+  movie({ id: "m1", title: "The Grand Budapest Hotel", year: 2014, rating: 9.1, runtimeMin: 100 }),
+  movie({ id: "m2", title: "Dune: Part Two", year: 2024, rating: 8.8, runtimeMin: 166, synopsis: "Paul Atreides unites with the Fremen to wage war against the Harkonnen and claim his destiny on Arrakis." }),
+  movie({ id: "m3", title: "Everything Everywhere All at Once", year: 2022, rating: 8.9, runtimeMin: 139 }),
+  movie({ id: "m4", title: "Sinners", year: 2025, rating: 8.2, runtimeMin: 137 }),
+  movie({ id: "m5", title: "Oppenheimer", year: 2023, rating: 8.6, runtimeMin: 180, synopsis: "The story of J. Robert Oppenheimer and the Manhattan Project's race to build the atomic bomb." }),
+  movie({ id: "m6", title: "Past Lives", year: 2023, rating: 8.4, runtimeMin: 106 }),
+  movie({ id: "m7", title: "Blade Runner 2049", year: 2017, rating: 8.5, runtimeMin: 164 }),
+  movie({ id: "m8", title: "Mad Max: Fury Road", year: 2015, rating: 8.7, runtimeMin: 120, synopsis: "On the fringes of a post-apocalyptic wasteland, two rebels just might be able to restore order." }),
+  movie({ id: "m9", title: "Parasite", year: 2019, rating: 8.9, runtimeMin: 132, synopsis: "Greed and class discrimination threaten the newly formed bond between two very different families." }),
+  movie({ id: "m10", title: "The Substance", year: 2024, rating: 7.8, runtimeMin: 141 }),
+  movie({ id: "m11", title: "John Wick: Chapter 4", year: 2023, rating: 7.9, runtimeMin: 169 }),
+  movie({ id: "m12", title: "Sicario", year: 2015, rating: 8.0, runtimeMin: 121 }),
+];
+
+const SERIES: VodItem[] = [
+  series({ id: "s1", title: "Severance", year: 2022, rating: 8.7, runtimeMin: 50, synopsis: "Mark leads a team whose memories are surgically divided between their work and personal lives." }),
+  series({ id: "s2", title: "The Bear", year: 2022, rating: 8.6, runtimeMin: 30 }),
+  series({ id: "s3", title: "Slow Horses", year: 2022, rating: 8.3, runtimeMin: 45 }),
+  series({ id: "s4", title: "Shogun", year: 2024, rating: 8.7, runtimeMin: 60, synopsis: "In feudal Japan, a stranded English pilot becomes a pawn in a ruthless lord's bid for power." }),
+  series({ id: "s5", title: "Andor", year: 2022, rating: 8.4, runtimeMin: 45 }),
+  series({ id: "s6", title: "The Last of Us", year: 2023, rating: 8.7, runtimeMin: 55, synopsis: "Twenty years after a fungal outbreak, a hardened survivor escorts a teenage girl across a ravaged America." }),
+  series({ id: "s7", title: "Fallout", year: 2024, rating: 8.4, runtimeMin: 60 }),
+  series({ id: "s8", title: "Reacher", year: 2022, rating: 8.1, runtimeMin: 50 }),
+  series({ id: "s9", title: "Dark", year: 2017, rating: 8.7, runtimeMin: 60 }),
+  series({ id: "s10", title: "Breaking Bad", year: 2008, rating: 9.5, runtimeMin: 49 }),
+];
+
+const STREAM = {
+  featured: ["m2", "s6", "m9", "s4", "m5", "s1", "m8"],
+  rows: [
+    {
+      id: "row-continue",
+      title: "Continue Watching",
+      layout: "landscape" as const,
+      itemIds: ["s2", "m2", "s1", "m5", "s4", "m9"],
+    },
+    {
+      id: "row-action-movie",
+      title: "Action - Movie",
+      layout: "poster" as const,
+      itemIds: ["m2", "m8", "m11", "m12", "m7", "m4", "m1", "m3"],
+    },
+    {
+      id: "row-action-series",
+      title: "Action - Series",
+      layout: "poster" as const,
+      itemIds: ["s6", "s7", "s8", "s5", "s4", "s3", "s1", "s9"],
+    },
+    {
+      id: "row-drama-movie",
+      title: "Drama - Movie",
+      layout: "poster" as const,
+      itemIds: ["m5", "m9", "m6", "m3", "m10", "m1", "m4", "m7"],
+    },
+  ],
+};
 
 function floorToHalfHour(ms: number): number {
   return Math.floor(ms / (30 * MIN)) * 30 * MIN;
