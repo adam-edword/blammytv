@@ -16,11 +16,20 @@ export function NowPlaying({
 
   return (
     <section className="now-playing">
-      <div className="now-playing__preview">
+      <div
+        className={
+          "now-playing__preview" +
+          (channel.logo ? "" : " now-playing__preview--empty")
+        }
+      >
         {channel.logo ? (
           <img className="now-playing__art" src={channel.logo} alt="" />
         ) : (
-          <div className="now-playing__art now-playing__art--placeholder" />
+          // Nothing actually playing yet — a basic black screen with a play
+          // glyph stands in for the player surface.
+          <div className="now-playing__art now-playing__empty" aria-hidden="true">
+            <span className="now-playing__play" />
+          </div>
         )}
       </div>
 
