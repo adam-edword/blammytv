@@ -25,7 +25,7 @@ const ACCENT_PRESETS = [
   "#3730ff", // blue
   "#a200ff", // purple
   "#ff2773", // pink
-  "#a32ac8", // violet
+  "#9aa0b1", // grey
 ];
 
 export function SettingsPanel({
