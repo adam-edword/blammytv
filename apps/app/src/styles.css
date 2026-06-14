@@ -473,11 +473,9 @@ img {
   width: var(--guide-label-w);
   flex-shrink: 0;
   height: var(--row-h);
-  display: flex;
-  align-items: center;
+  display: block;
+  line-height: var(--row-h);
   padding: 0 12px 0 16px;
-  background: var(--panel);
-  border-radius: var(--radius);
   font-family: var(--font-headline);
   font-weight: 600;
   font-size: 19px;
@@ -485,11 +483,30 @@ img {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  /* Solid fill over the 8px row gap below, so the now-line is hidden there
+     too (box-shadow isn't clipped by this element's overflow: hidden). */
+  box-shadow: 0 8px 0 0 var(--bg);
 }
 
-.guide-row__label {
-  display: block;
-  line-height: var(--row-h);
+/* Two stacked backings so the *rounded* label fully occludes programs that
+   scroll behind it: a square --bg fill behind the corners, plus the visible
+   rounded panel. (A single rounded background leaves the corners transparent,
+   letting program blocks show through.) */
+.guide-row__label::before,
+.guide-row__label::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+
+.guide-row__label::before {
+  background: var(--bg);
+}
+
+.guide-row__label::after {
+  background: var(--panel);
+  border-radius: var(--radius);
 }
 
 .guide-row__lane {
@@ -567,23 +584,23 @@ img {
   width: 3px;
   background: var(--red);
   border-radius: 2px;
-  /* Same layer as the sticky time ruler so the dot, which pokes up into the
-     ruler's band, renders on top of it instead of being clipped behind it.
-     The indicator is the last child of the guide, so equal z-index resolves
-     in its favour by paint order. */
-  z-index: 3;
+  /* Below the sticky labels (z-index 2) so it's hidden behind them when the
+     guide is scrolled, but above the program blocks. */
+  z-index: 1;
   pointer-events: none;
 }
 
-.now-indicator__dot {
+.now-dot {
   position: absolute;
-  top: -8px;
-  left: 50%;
-  transform: translateX(-50%);
+  top: 22px;
   width: 11px;
   height: 11px;
+  margin-left: -4px;
   border-radius: 50%;
   background: var(--red);
+  /* Above the time ruler (z-index 3) so the dot isn't clipped by it. */
+  z-index: 4;
+  pointer-events: none;
 }
 
 /* ---------- VOD grid ---------- */

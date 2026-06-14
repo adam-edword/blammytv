@@ -95,14 +95,19 @@ export function EpgGuide({
             );
           })}
 
-          {/* Now indicator spans all rows, offset past the label column */}
+          {/* Now indicator: the line sits below the sticky labels so it's
+              hidden behind them when scrolled; the dot is a separate element
+              above the time ruler so it isn't clipped. */}
           <div
             className="now-indicator"
             style={{ left: `calc(var(--guide-label-w) + ${nowLeft}px)` }}
             aria-hidden="true"
-          >
-            <span className="now-indicator__dot" />
-          </div>
+          />
+          <div
+            className="now-dot"
+            style={{ left: `calc(var(--guide-label-w) + ${nowLeft}px)` }}
+            aria-hidden="true"
+          />
         </div>
       </div>
     </div>
