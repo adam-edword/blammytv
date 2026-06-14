@@ -1658,8 +1658,9 @@ img {
   gap: 20px;
   padding: 12px;
   border-radius: 12px;
-  background: #14141450;
-  border: 1.5px solid rgba(255, 255, 255, 0.06);
+  /* Match the season-bar controls' translucent fill. */
+  background: rgba(255, 255, 255, 0.1);
+  border: 1.5px solid transparent;
   text-align: left;
   cursor: pointer;
   transition: border-color 0.12s ease, background 0.12s ease;
@@ -1668,7 +1669,7 @@ img {
 .episode-card:hover,
 .episode-card:focus-visible {
   border-color: var(--red-border);
-  background: #1b1b2188;
+  background: rgba(255, 255, 255, 0.16);
   outline: none;
 }
 
