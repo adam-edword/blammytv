@@ -181,15 +181,14 @@ img {
 
 .top-tab {
   font-family: var(--font-headline);
-  font-weight: 700;
+  font-weight: 200;
   font-size: 21px;
   color: #fff;
   opacity: 0.3;
   background: transparent;
   border: none;
   padding: 10px 16px;
-  border-radius: var(--radius);
-  transition: opacity 0.15s ease, background 0.15s ease;
+  transition: opacity 0.15s ease;
 }
 
 .top-tab:hover {
@@ -198,7 +197,7 @@ img {
 
 .top-tab--active {
   opacity: 1;
-  background: var(--panel-3);
+  font-weight: 700;
 }
 
 /* ---------- Now Playing ---------- */
