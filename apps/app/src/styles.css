@@ -1137,7 +1137,7 @@ img {
 }
 
 .media-row__title {
-  margin: 0 0 16px;
+  margin: 0 0 6px;
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 28px;
@@ -1148,8 +1148,9 @@ img {
   display: flex;
   gap: 20px;
   overflow-x: auto;
-  /* Let cards run to the right edge; nudge the scrollbar out of the way. */
-  padding-bottom: 8px;
+  /* overflow-x:auto also clips the vertical axis, which would cut off a card's
+     hover lift + outline; vertical padding gives the lift room to show. */
+  padding: 12px 0 14px;
   scrollbar-width: thin;
 }
 
