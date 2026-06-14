@@ -1,17 +1,79 @@
-import { useEffect, type CSSProperties } from "react";
-import type { VodItem } from "@blammytv/shared";
+import { useEffect, useState, type CSSProperties } from "react";
+import type { VodItem, Episode, StreamSource } from "@blammytv/shared";
 import { SourceCard } from "../components/SourceCard";
+import { EpisodeBrowser } from "../components/EpisodeBrowser";
 import { ChevronIcon } from "../components/icons";
 import { gradientFor } from "../lib/vod";
 
-/** The title detail / source-selection page. A full-bleed backdrop with the
- * title's info on the left and the backend-ranked source list on the right.
- * (Season/episode selection for series will slot in above the rail later.) */
+/** Title detail. Movies go straight to the source selector. Series first show
+ * the episode browser (grid); once an episode is picked it drops into the same
+ * source selector, scoped to that episode. */
 export function TitleDetail({
   item,
   onBack,
 }: {
   item: VodItem;
+  onBack: () => void;
+}) {
+  const isSeries = item.seasons.length > 0;
+  const [picked, setPicked] = useState<{
+    episode: Episode;
+    seasonNumber: number;
+  } | null>(null);
+
+  const backdrop = item.backdrop ?? item.poster;
+  const backdropStyle: CSSProperties = backdrop
+    ? { backgroundImage: `url(${backdrop})` }
+    : { background: gradientFor(item.id) };
+
+  if (isSeries && !picked) {
+    return (
+      <div className="detail">
+        <div className="detail__backdrop" style={backdropStyle} />
+        <div className="detail__scrim detail__scrim--series" />
+        <EpisodeBrowser
+          item={item}
+          onBack={onBack}
+          onPick={(episode, seasonNumber) =>
+            setPicked({ episode, seasonNumber })
+          }
+        />
+      </div>
+    );
+  }
+
+  // Source selector — for a movie, or for a chosen episode of a series.
+  const sources: StreamSource[] = picked ? picked.episode.sources : item.sources;
+  const episodeLabel = picked
+    ? `Season ${picked.seasonNumber} · Episode ${picked.episode.number}`
+    : null;
+  const back = picked ? () => setPicked(null) : onBack;
+
+  return (
+    <SourceSelector
+      item={item}
+      backdropStyle={backdropStyle}
+      sources={sources}
+      episodeLabel={episodeLabel}
+      episodeTitle={picked?.episode.title ?? null}
+      onBack={back}
+    />
+  );
+}
+
+function SourceSelector({
+  item,
+  backdropStyle,
+  sources,
+  episodeLabel,
+  episodeTitle,
+  onBack,
+}: {
+  item: VodItem;
+  backdropStyle: CSSProperties;
+  sources: StreamSource[];
+  episodeLabel: string | null;
+  episodeTitle: string | null;
   onBack: () => void;
 }) {
   // Backspace / Escape backs out — natural on a remote and a keyboard.
@@ -22,11 +84,6 @@ export function TitleDetail({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onBack]);
-
-  const backdrop = item.backdrop ?? item.poster;
-  const backdropStyle: CSSProperties = backdrop
-    ? { backgroundImage: `url(${backdrop})` }
-    : { background: gradientFor(item.id) };
 
   const meta = [
     item.year,
@@ -50,6 +107,14 @@ export function TitleDetail({
 
         <div className="detail__info">
           <h1 className="detail__title">{item.title}</h1>
+          {episodeLabel && (
+            <p className="detail__episode">
+              <span className="detail__episode-label">{episodeLabel}</span>
+              {episodeTitle && (
+                <span className="detail__episode-title">{episodeTitle}</span>
+              )}
+            </p>
+          )}
           {item.synopsis && <p className="detail__synopsis">{item.synopsis}</p>}
           <p className="detail__meta">{meta}</p>
 
@@ -81,10 +146,10 @@ export function TitleDetail({
         </div>
 
         <aside className="detail__rail" aria-label="Sources">
-          {item.sources.length === 0 ? (
+          {sources.length === 0 ? (
             <p className="detail__no-sources">No sources available.</p>
           ) : (
-            item.sources.map((s) => <SourceCard key={s.id} source={s} />)
+            sources.map((s) => <SourceCard key={s.id} source={s} />)
           )}
         </aside>
       </div>

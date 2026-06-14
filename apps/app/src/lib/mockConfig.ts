@@ -5,6 +5,7 @@ import type {
   ChannelGroup,
   VodItem,
   StreamSource,
+  Season,
 } from "@blammytv/shared";
 
 /**
@@ -175,6 +176,7 @@ export function mockConfig(deviceName: string): ConfigBlob {
  * to a catalog item. Real values come from the backend; these are stand-ins. */
 function decorate(item: VodItem): VodItem {
   const g = seed(item.id);
+  const isSeries = item.kind === "series";
   return {
     ...item,
     genres: [
@@ -183,8 +185,45 @@ function decorate(item: VodItem): VodItem {
       GENRE_POOL[(g + 4) % GENRE_POOL.length],
     ],
     cast: CAST,
-    sources: SOURCES,
+    // Movies carry sources directly; series carry them per-episode.
+    sources: isSeries ? [] : SOURCES,
+    seasons: isSeries ? makeSeasons(item.id) : [],
   };
+}
+
+const EP_TITLES = [
+  "The Long Awaited Reunion",
+  "A Promise Kept",
+  "Into the Unknown",
+  "Echoes of the Past",
+  "No Way Back",
+  "The Gathering Storm",
+  "Smoke and Mirrors",
+  "Crossing the Line",
+  "Burning Bridges",
+  "The Reckoning",
+  "Last Light",
+  "Homecoming",
+];
+
+/** A few seasons of placeholder episodes; the backend supplies the real ones. */
+function makeSeasons(itemId: string): Season[] {
+  const seasonCount = 3 + (seed(itemId) % 3); // 3–5 seasons
+  return Array.from({ length: seasonCount }, (_, s) => {
+    const epCount = 10 + ((seed(itemId) + s) % 9); // 10–18 episodes
+    return {
+      id: `${itemId}-s${s + 1}`,
+      number: s + 1,
+      name: `Season ${s + 1}`,
+      episodes: Array.from({ length: epCount }, (_, e) => ({
+        id: `${itemId}-s${s + 1}e${e + 1}`,
+        number: e + 1,
+        title: EP_TITLES[(seed(itemId) + e) % EP_TITLES.length],
+        airDate: "Apr 30, 2026",
+        sources: SOURCES,
+      })),
+    };
+  });
 }
 
 const GENRE_POOL = [
@@ -300,13 +339,13 @@ function chan(id: string, name: string, groupId: string): LiveChannel {
 // Artwork is intentionally absent so cards render the placeholder treatment —
 // the real backend hands back poster/backdrop URLs.
 
-type Vod = Omit<VodItem, "kind" | "genres" | "cast" | "sources">;
+type Vod = Omit<VodItem, "kind" | "genres" | "cast" | "sources" | "seasons">;
 
 function movie(item: Vod): VodItem {
-  return { ...item, kind: "movie", genres: [], cast: [], sources: [] };
+  return { ...item, kind: "movie", genres: [], cast: [], sources: [], seasons: [] };
 }
 function series(item: Vod): VodItem {
-  return { ...item, kind: "series", genres: [], cast: [], sources: [] };
+  return { ...item, kind: "series", genres: [], cast: [], sources: [], seasons: [] };
 }
 
 const MOVIES: VodItem[] = [

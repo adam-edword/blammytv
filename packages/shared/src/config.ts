@@ -63,6 +63,27 @@ export const StreamSourceSchema = z.object({
 });
 export type StreamSource = z.infer<typeof StreamSourceSchema>;
 
+/** One episode of a series. Has its own ranked source list, just like a movie. */
+export const EpisodeSchema = z.object({
+  id: z.string(),
+  number: z.number().int(),
+  title: z.string(),
+  /** Display-formatted air date (e.g. "Apr 30, 2026"). */
+  airDate: z.string().optional(),
+  /** Episode still / thumbnail. */
+  still: z.string().url().optional(),
+  sources: z.array(StreamSourceSchema).default([]),
+});
+export type Episode = z.infer<typeof EpisodeSchema>;
+
+export const SeasonSchema = z.object({
+  id: z.string(),
+  number: z.number().int(),
+  name: z.string().optional(),
+  episodes: z.array(EpisodeSchema),
+});
+export type Season = z.infer<typeof SeasonSchema>;
+
 export const VodItemSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -79,8 +100,10 @@ export const VodItemSchema = z.object({
   /** Detail-page metadata. */
   genres: z.array(z.string()).default([]),
   cast: z.array(z.string()).default([]),
-  /** Playable sources for this title, pre-ranked by the backend. */
+  /** Playable sources for this title (movies), pre-ranked by the backend. */
   sources: z.array(StreamSourceSchema).default([]),
+  /** Seasons + episodes (series). Each episode carries its own sources. */
+  seasons: z.array(SeasonSchema).default([]),
 });
 export type VodItem = z.infer<typeof VodItemSchema>;
 
