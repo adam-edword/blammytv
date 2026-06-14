@@ -12,11 +12,12 @@ export interface GuideWindow {
 }
 
 /** Build the visible window: from `slotsBefore` half-hours before now to
- * `slotsAfter` after, snapped to clean half-hour boundaries. */
+ * `slotsAfter` after, snapped to clean half-hour boundaries. Defaults to no
+ * past slots so "now" sits in the leftmost slice. */
 export function guideWindow(
   now: number,
-  slotsBefore = 1,
-  slotsAfter = 8,
+  slotsBefore = 0,
+  slotsAfter = 9,
 ): GuideWindow {
   const slot = SLOT_MIN * 60_000;
   const base = Math.floor(now / slot) * slot;
