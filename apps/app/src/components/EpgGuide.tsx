@@ -11,9 +11,6 @@ import {
   type GuideWindow,
 } from "../lib/epg";
 
-/** Gap between adjacent program blocks, in px. */
-const PROGRAM_GAP = 8;
-
 /** Only once a pinned card shrinks below this width — about when it would
  * otherwise be a thin sliver hovering over the next card — does it fade out, so
  * it dissolves gracefully instead of leaving a sliver/empty box. */
@@ -48,6 +45,18 @@ export function EpgGuide({
   const win = useMemo<GuideWindow>(() => guideWindow(now), [now]);
   const laneWidth = minutesFromStart(win, win.end) * PX_PER_MIN;
   const nowLeft = minutesFromStart(win, now) * PX_PER_MIN;
+
+  // Gap between adjacent program cards — shares the --label-card-gap token so
+  // the horizontal card gap matches the row gap and label gutter.
+  const PROGRAM_GAP = useMemo(
+    () =>
+      parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue(
+          "--label-card-gap",
+        ),
+      ) || 12,
+    [],
+  );
 
   // Lay out each channel's blocks once; only the pinned card depends on scroll.
   const lanes = useMemo(() => {
