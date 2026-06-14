@@ -1482,7 +1482,7 @@ img {
   z-index: 1;
   height: 100%;
   overflow-y: auto;
-  padding: calc(var(--header-zone) + 44px) 44px 48px 64px;
+  padding: calc(var(--header-zone) + 76px) 44px 48px 64px;
   box-sizing: border-box;
 }
 
@@ -1490,7 +1490,7 @@ img {
   display: flex;
   justify-content: space-between;
   gap: 48px;
-  margin-bottom: 28px;
+  margin-bottom: 40px;
 }
 
 .series__title-block {
@@ -1654,12 +1654,12 @@ img {
 
 .episode-card {
   display: flex;
-  align-items: center;
-  gap: 14px;
+  align-items: stretch;
+  gap: 20px;
   padding: 12px;
-  border-radius: 14px;
-  background: rgba(10, 10, 12, 0.8);
-  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: #141418;
+  border: 1.5px solid rgba(255, 255, 255, 0.06);
   text-align: left;
   cursor: pointer;
   transition: border-color 0.12s ease, background 0.12s ease;
@@ -1668,16 +1668,16 @@ img {
 .episode-card:hover,
 .episode-card:focus-visible {
   border-color: var(--red-border);
-  background: rgba(18, 18, 22, 0.9);
+  background: #1b1b21;
   outline: none;
 }
 
 .episode-card__thumb {
   flex: none;
-  width: 104px;
-  aspect-ratio: 16 / 9;
+  width: 118px;
+  aspect-ratio: 118 / 81;
   border-radius: 8px;
-  background: linear-gradient(135deg, #2a2a33, #17171d);
+  background: #fff;
   overflow: hidden;
 }
 
@@ -1688,10 +1688,13 @@ img {
 }
 
 .episode-card__text {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  min-width: 0;
+  /* Title pinned to the top, date to the bottom, like the design. */
+  justify-content: space-between;
+  padding: 3px 0;
 }
 
 .episode-card__title {
