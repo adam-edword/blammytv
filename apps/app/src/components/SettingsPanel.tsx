@@ -19,7 +19,7 @@ import {
 
 /** Quick-pick accent swatches; the custom picker covers everything else. */
 const ACCENT_PRESETS = [
-  "#ff1e00", // red (default)
+  "#c22727", // red (default)
   "#ffd500", // yellow
   "#2cad57", // green
   "#3730ff", // blue

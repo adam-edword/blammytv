@@ -15,7 +15,7 @@
 
   /* Accent — a single source the rest derive from, so a colour pick recolours
      everything. The provider overrides --accent-rgb on :root at runtime. */
-  --accent-rgb: 255 30 0;
+  --accent-rgb: 194 39 39;
   --red: rgb(var(--accent-rgb));
   --red-soft: rgb(var(--accent-rgb) / 0.16);
   --red-tint: rgb(var(--accent-rgb) / 0.14);
