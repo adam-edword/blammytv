@@ -18,6 +18,10 @@ const PROGRAM_GAP = 6;
  * out so it dissolves gracefully instead of leaving a sliver/empty box. */
 const FADE_WIDTH = 120;
 
+/** How far (px) the card drifts left under the label as it fades, so it reads
+ * as sliding off the edge rather than dissolving in place. */
+const SLIDE_DISTANCE = 28;
+
 interface Block {
   p: EpgProgram;
   left: number;
@@ -138,7 +142,7 @@ export function EpgGuide({
     </div>
   );
 
-  function programButton(b: Block, pinned: boolean, opacity = 1) {
+  function programButton(b: Block, pinned: boolean, opacity = 1, slide = 0) {
     const live = isLiveNow(b.p, now);
     const selected = b.p.id === selectedProgramId;
     return (
@@ -156,7 +160,11 @@ export function EpgGuide({
         // JS-driven, so the right edge tracks the programme's end.
         style={
           pinned
-            ? { width: b.width, opacity }
+            ? {
+                width: b.width,
+                opacity,
+                transform: slide ? `translateX(${slide}px)` : undefined,
+              }
             : { left: b.left, width: Math.max(0, b.width - PROGRAM_GAP) }
         }
         onClick={() => onSelectProgram?.(b.p)}
@@ -168,14 +176,15 @@ export function EpgGuide({
   }
 
   /** A copy of the current block pinned to the left edge (via CSS sticky),
-   * shrinking toward its end time as the guide scrolls and fading out over its
-   * final stretch so it dissolves instead of leaving a sliver. */
+   * shrinking toward its end time as the guide scrolls. Over its final stretch
+   * it fades out and drifts left under the label, so it slides off the edge. */
   function pinnedCard(b: Block, scroll: number) {
     const right = b.left + b.width - PROGRAM_GAP;
     const width = right - scroll;
     if (width <= 0) return null;
     const opacity = Math.min(1, width / FADE_WIDTH);
-    return programButton({ p: b.p, left: 0, width }, true, opacity);
+    const slide = -(1 - opacity) * SLIDE_DISTANCE;
+    return programButton({ p: b.p, left: 0, width }, true, opacity, slide);
   }
 }
 
