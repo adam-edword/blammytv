@@ -1,10 +1,19 @@
 import { useCallback, useEffect, useState } from "react";
-import type { ConfigBlob, ShareCode } from "@blammytv/shared";
+import type {
+  ConfigBlob,
+  ShareCode,
+  VodItem,
+  Episode,
+} from "@blammytv/shared";
 import { AppHeader } from "./components/AppHeader";
 import { type TabKey } from "./components/TopTabs";
 import { PairingScreen } from "./screens/PairingScreen";
 import { LiveScreen } from "./screens/LiveScreen";
-import { VodScreen } from "./screens/VodScreen";
+import { StreamScreen } from "./screens/StreamScreen";
+import { PlaceholderScreen } from "./screens/PlaceholderScreen";
+import { SourceSelector } from "./components/SourceSelector";
+import { EpisodeBrowser } from "./components/EpisodeBrowser";
+import { SettingsPanel } from "./components/SettingsPanel";
 import { LiveScreenSkeleton } from "./components/LoadingSkeletons";
 import { fetchConfig } from "./lib/config";
 import { loadShareCode, saveShareCode, clearShareCode } from "./lib/pairing";
@@ -15,12 +24,50 @@ type Load =
   | { status: "ready"; config: ConfigBlob }
   | { status: "error"; message: string };
 
+/** A navigable page. The base of the stack is always a tab; opening a title or
+ * episode pushes deeper. */
+type Screen =
+  | { kind: "tab"; tab: TabKey }
+  | { kind: "title"; item: VodItem }
+  | { kind: "source"; item: VodItem; episode: Episode; seasonNumber: number };
+
 export function App() {
   const [shareCode, setShareCode] = useState<ShareCode | null>(() =>
     loadShareCode(),
   );
-  const [tab, setTab] = useState<TabKey>("live");
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [load, setLoad] = useState<Load>({ status: "idle" });
+
+  // Navigation lives in the browser history, so Back/Forward — keyboard,
+  // browser buttons, and the mouse thumb buttons — all step through pages.
+  const [nav, setNav] = useState<{ stack: Screen[]; index: number }>({
+    stack: [{ kind: "tab", tab: "live" }],
+    index: 0,
+  });
+
+  useEffect(() => {
+    history.replaceState({ idx: 0 }, "");
+    const onPop = (e: PopStateEvent) => {
+      const idx = typeof e.state?.idx === "number" ? e.state.idx : 0;
+      setNav((n) => ({
+        stack: n.stack,
+        index: Math.max(0, Math.min(idx, n.stack.length - 1)),
+      }));
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  const push = useCallback((screen: Screen) => {
+    setNav((n) => {
+      // Truncate any forward entries, like a browser does on a new navigation.
+      const stack = n.stack.slice(0, n.index + 1).concat(screen);
+      history.pushState({ idx: stack.length - 1 }, "");
+      return { stack, index: stack.length - 1 };
+    });
+  }, []);
+
+  const back = useCallback(() => history.back(), []);
 
   const pull = useCallback((code: ShareCode) => {
     setLoad({ status: "loading" });
@@ -51,9 +98,21 @@ export function App() {
     );
   }
 
+  const screen = nav.stack[nav.index];
+  const activeTab: TabKey = screen.kind === "tab" ? screen.tab : "stream";
+
+  const onTab = (tab: TabKey) => {
+    if (screen.kind === "tab" && screen.tab === tab) return;
+    push({ kind: "tab", tab });
+  };
+
   return (
     <div className="app-shell">
-      <AppHeader active={tab} onChange={setTab} />
+      <AppHeader
+        active={activeTab}
+        onChange={onTab}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
       <main className="app-main">
         {load.status === "loading" || load.status === "idle" ? (
           <LiveScreenSkeleton />
@@ -67,31 +126,91 @@ export function App() {
             }}
           />
         ) : (
-          <Content tab={tab} config={load.config} />
+          <CurrentScreen
+            screen={screen}
+            config={load.config}
+            push={push}
+            back={back}
+          />
         )}
       </main>
+      <SettingsPanel
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+      />
     </div>
   );
 }
 
-function Content({ tab, config }: { tab: TabKey; config: ConfigBlob }) {
+function CurrentScreen({
+  screen,
+  config,
+  push,
+  back,
+}: {
+  screen: Screen;
+  config: ConfigBlob;
+  push: (s: Screen) => void;
+  back: () => void;
+}) {
+  switch (screen.kind) {
+    case "tab":
+      return (
+        <TabContent
+          tab={screen.tab}
+          config={config}
+          onOpen={(item) => push({ kind: "title", item })}
+        />
+      );
+    case "title": {
+      const { item } = screen;
+      if (item.seasons.length > 0) {
+        return (
+          <EpisodeBrowser
+            item={item}
+            onBack={back}
+            onPick={(episode, seasonNumber) =>
+              push({ kind: "source", item, episode, seasonNumber })
+            }
+          />
+        );
+      }
+      return <SourceSelector item={item} sources={item.sources} onBack={back} />;
+    }
+    case "source": {
+      const { item, episode, seasonNumber } = screen;
+      return (
+        <SourceSelector
+          item={item}
+          sources={episode.sources}
+          episodeLabel={`Season ${seasonNumber} · Episode ${episode.number}`}
+          episodeTitle={episode.title}
+          onBack={back}
+        />
+      );
+    }
+  }
+}
+
+function TabContent({
+  tab,
+  config,
+  onOpen,
+}: {
+  tab: TabKey;
+  config: ConfigBlob;
+  onOpen: (item: VodItem) => void;
+}) {
   switch (tab) {
     case "live":
       return <LiveScreen config={config} />;
-    case "series":
+    case "stream":
+      return <StreamScreen config={config} onOpen={onOpen} />;
+    case "discover":
       return (
-        <VodScreen
-          items={config.series}
-          favorites={config.favorites}
-          emptyLabel="No series in this configuration yet."
-        />
-      );
-    case "movies":
-      return (
-        <VodScreen
-          items={config.movies}
-          favorites={config.favorites}
-          emptyLabel="No movies in this configuration yet."
+        <PlaceholderScreen
+          title="Discover"
+          note="A place to browse and find something new to watch. Coming next."
         />
       );
   }

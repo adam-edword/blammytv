@@ -46,14 +46,79 @@ export const EpgProgramSchema = z.object({
 });
 export type EpgProgram = z.infer<typeof EpgProgramSchema>;
 
+/** A playable source/release for a title, as resolved + ranked by the backend
+ * (debrid cache, quality, languages, …). The device is a dumb terminal: it
+ * renders these in the given order and never re-sorts or re-filters them.
+ * `quality` and `lines` are already display-formatted server-side. */
+export const StreamSourceSchema = z.object({
+  id: z.string(),
+  /** Prominent left label, e.g. "1080p" / "2160p". */
+  quality: z.string(),
+  /** Instant-play (cached on debrid) — shown as the ⚡ marker. */
+  cached: z.boolean().default(false),
+  /** Pre-formatted meta lines (provider, languages, size, rating, …). */
+  lines: z.array(z.string()).default([]),
+  /** Already-resolved, directly playable URL. */
+  streamUrl: z.string().url(),
+});
+export type StreamSource = z.infer<typeof StreamSourceSchema>;
+
+/** One episode of a series. Has its own ranked source list, just like a movie. */
+export const EpisodeSchema = z.object({
+  id: z.string(),
+  number: z.number().int(),
+  title: z.string(),
+  /** Display-formatted air date (e.g. "Apr 30, 2026"). */
+  airDate: z.string().optional(),
+  /** Episode still / thumbnail. */
+  still: z.string().url().optional(),
+  sources: z.array(StreamSourceSchema).default([]),
+});
+export type Episode = z.infer<typeof EpisodeSchema>;
+
+export const SeasonSchema = z.object({
+  id: z.string(),
+  number: z.number().int(),
+  name: z.string().optional(),
+  episodes: z.array(EpisodeSchema),
+});
+export type Season = z.infer<typeof SeasonSchema>;
+
 export const VodItemSchema = z.object({
   id: z.string(),
   title: z.string(),
   year: z.number().int().optional(),
   poster: z.string().url().optional(),
+  /** Wide artwork used by the Stream hero / landscape cards. */
+  backdrop: z.string().url().optional(),
   kind: z.enum(["movie", "series"]),
+  /** Out-of-10 rating, runtime, and a short synopsis — shown on the Stream
+   * page's hero and card meta line. All resolved server-side. */
+  rating: z.number().optional(),
+  runtimeMin: z.number().int().optional(),
+  synopsis: z.string().optional(),
+  /** Detail-page metadata. */
+  genres: z.array(z.string()).default([]),
+  cast: z.array(z.string()).default([]),
+  /** Playable sources for this title (movies), pre-ranked by the backend. */
+  sources: z.array(StreamSourceSchema).default([]),
+  /** Seasons + episodes (series). Each episode carries its own sources. */
+  seasons: z.array(SeasonSchema).default([]),
 });
 export type VodItem = z.infer<typeof VodItemSchema>;
+
+/** A horizontally-scrolling row on the Stream page. The backend decides the
+ * grouping (e.g. "Action – Movie", "Continue Watching") and the order, exactly
+ * like the live guide's channel groups; the device just renders it. */
+export const StreamRowSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  /** Card shape: tall posters (2:3) or wide stills (16:9, e.g. resume row). */
+  layout: z.enum(["poster", "landscape"]).default("poster"),
+  /** Ids into the movies/series catalog, in display order. */
+  itemIds: z.array(z.string()),
+});
+export type StreamRow = z.infer<typeof StreamRowSchema>;
 
 export const ConfigBlobSchema = z.object({
   /** Bumped by the backend whenever the rendered shape changes. */
@@ -73,6 +138,13 @@ export const ConfigBlobSchema = z.object({
   }),
   movies: z.array(VodItemSchema),
   series: z.array(VodItemSchema),
+  /** The Stream tab: a featured hero carousel plus backend-defined rows that
+   * reference items from the movies/series catalog above. */
+  stream: z.object({
+    /** Item ids spotlighted in the auto-advancing hero carousel. */
+    featured: z.array(z.string()),
+    rows: z.array(StreamRowSchema),
+  }),
   /** Favorite item/channel ids, managed in the web UI. */
   favorites: z.array(z.string()),
 });

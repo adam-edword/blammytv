@@ -1,0 +1,59 @@
+name: Deploy to GitHub Pages
+
+# Builds the React client and publishes it to GitHub Pages. Runs for the default
+# branch and the current working branch so the demo is visible before merge.
+on:
+  push:
+    branches:
+      - main
+      - claude/peaceful-volta-gjsve2
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one Pages deploy at a time; newer pushes supersede in-flight ones.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Version comes from the "packageManager" field in package.json; don't
+      # also set it here or action-setup errors on the duplicate.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build client
+        run: pnpm --filter @blammytv/app build
+        env:
+          # Matches the project Pages subpath: https://<user>.github.io/blammytv/
+          DEPLOY_BASE: /blammytv/
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/app/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

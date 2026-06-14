@@ -13,13 +13,21 @@
   --panel-3: #23232e;
   --surface-muted: #26262e;
 
-  --red: #c22727;
-  --red-soft: rgba(194, 39, 39, 0.16);
-  --red-tint: rgba(194, 39, 39, 0.14);
-  --red-border: rgba(194, 39, 39, 0.55);
+  /* Accent — a single source the rest derive from, so a colour pick recolours
+     everything. The provider overrides --accent-rgb on :root at runtime. */
+  --accent-rgb: 194 39 39;
+  --red: rgb(var(--accent-rgb));
+  --red-soft: rgb(var(--accent-rgb) / 0.16);
+  --red-tint: rgb(var(--accent-rgb) / 0.14);
+  --red-border: rgb(var(--accent-rgb) / 0.55);
 
   --text: #f2f2f5;
   --text-dim: #9c9ca8;
+
+  /* Subtle overlays that must invert between themes (hairline borders, hover
+     fills). Defined as tokens so the light theme can flip them in one place. */
+  --surface-hover: rgba(255, 255, 255, 0.05);
+  --hairline: rgba(255, 255, 255, 0.07);
 
   --font-headline: "Stack Sans Headline", "Inter", system-ui, -apple-system,
     "Segoe UI", Roboto, sans-serif;
@@ -27,11 +35,58 @@
     "Segoe UI", Roboto, sans-serif;
 
   --radius: 12px;
+  /* Vertical space the header chrome occupies (shell top pad + header + gap);
+     the Stream hero pulls up by this much to sit behind the header. */
+  --header-zone: 92px;
   --categories-w: 400px;
   --guide-label-w: 200px;
+  /* Even gutter around the floating channel-label card within its column. */
+  --label-card-gap: 8px;
   --row-h: 60px;
 
   color-scheme: dark;
+}
+
+/* ---------- Light theme ----------
+ * Most surfaces are token-driven, so the theme is mainly a palette swap plus a
+ * few overlays/details that have to invert. The accent (--accent-rgb) is shared
+ * — the user's colour pick applies to both themes. */
+:root[data-theme="light"] {
+  --bg: #f3f4f7;
+  --panel: #ffffff;
+  --panel-2: #e9ebf0;
+  --panel-3: #dde0e7;
+  --surface-muted: #d6d9e1;
+
+  --text: #16171d;
+  --text-dim: #5b606e;
+
+  --surface-hover: rgba(0, 0, 0, 0.05);
+  --hairline: rgba(0, 0, 0, 0.1);
+
+  color-scheme: light;
+}
+
+/* No-info hatch reads as dark-on-light instead of light-on-dark. */
+:root[data-theme="light"] .program--noinfo {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(0, 0, 0, 0.04),
+    rgba(0, 0, 0, 0.04) 10px,
+    transparent 10px,
+    transparent 20px
+  );
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+/* Skeleton shimmer needs a bright sweep to show on light surfaces. */
+:root[data-theme="light"] .skeleton::after {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.7),
+    transparent
+  );
 }
 
 * {
@@ -51,6 +106,8 @@ body {
   font-family: var(--font-text);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  /* UI scale: zooms the whole interface proportionally. */
+  zoom: var(--ui-scale, 1);
 }
 
 button {
@@ -87,6 +144,9 @@ img {
   padding-right: 44px;
   margin-bottom: 18px;
   gap: 24px;
+  /* Sit above page content so the Stream hero can bleed up behind it. */
+  position: relative;
+  z-index: 5;
 }
 
 .app-header__brand {
@@ -105,7 +165,7 @@ img {
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 26px;
-  color: #fff;
+  color: var(--text);
 }
 
 .app-header__version {
@@ -120,7 +180,8 @@ img {
   font-family: var(--font-headline);
   font-weight: 200;
   font-size: 26px;
-  color: #fff;
+  line-height: 26px;
+  color: var(--text);
   opacity: 0.3;
 }
 
@@ -133,7 +194,7 @@ img {
 .app-header__divider {
   font-size: 30px;
   font-weight: 200;
-  color: #fff;
+  color: var(--text);
   opacity: 0.3;
 }
 
@@ -141,7 +202,7 @@ img {
   display: flex;
   align-items: center;
   gap: 12px;
-  color: #fff;
+  color: var(--text);
   opacity: 0.4;
 }
 
@@ -160,7 +221,14 @@ img {
 
 .icon-btn:hover {
   opacity: 1;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--surface-hover);
+}
+
+/* Inactive section's search button: hidden but keeps its space so the tab bar
+   doesn't shift when switching sections. */
+.icon-btn--ghost {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 /* ---------- Tabs ---------- */
@@ -173,15 +241,14 @@ img {
 
 .top-tab {
   font-family: var(--font-headline);
-  font-weight: 700;
+  font-weight: 200;
   font-size: 21px;
-  color: #fff;
+  color: var(--text);
   opacity: 0.3;
   background: transparent;
   border: none;
   padding: 10px 16px;
-  border-radius: var(--radius);
-  transition: opacity 0.15s ease, background 0.15s ease;
+  transition: opacity 0.15s ease;
 }
 
 .top-tab:hover {
@@ -190,7 +257,7 @@ img {
 
 .top-tab--active {
   opacity: 1;
-  background: var(--panel-3);
+  font-weight: 700;
 }
 
 /* ---------- Now Playing ---------- */
@@ -207,6 +274,8 @@ img {
   display: flex;
   gap: 40px;
   padding-right: 44px;
+  /* Breathing room around the hero, dropping the grid below it down. */
+  margin: 50px 0;
 }
 
 .now-playing__preview {
@@ -214,10 +283,16 @@ img {
   flex-shrink: 0;
   width: 560px;
   aspect-ratio: 600 / 338;
-  border-radius: 18px;
+  border-radius: var(--radius);
   border: 1.5px solid rgba(255, 255, 255, 0.1);
   overflow: hidden;
   background: linear-gradient(to bottom, #391313, #140707);
+}
+
+/* Nothing playing: a plain black screen, matching the app's corner radius. */
+.now-playing__preview--empty {
+  background: #000;
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 .now-playing__art {
@@ -228,45 +303,19 @@ img {
   object-fit: cover;
 }
 
-.now-playing__art--placeholder {
-  background: linear-gradient(135deg, #2a5d35 0%, #1c4226 45%, #14331d 100%);
+.now-playing__empty {
+  display: grid;
+  place-items: center;
+  background: #000;
 }
 
-.now-playing__score,
-.now-playing__channel-chip {
-  position: absolute;
-  background: rgba(0, 0, 0, 0.55);
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 16px;
-  font-family: var(--font-headline);
-}
-
-.now-playing__score {
-  left: 14px;
-  top: 14px;
-  font-size: 20px;
-}
-
-.now-playing__score-text {
-  font-weight: 700;
-  color: #fff;
-}
-
-.now-playing__score-clock {
-  font-weight: 500;
-  color: var(--red);
-}
-
-.now-playing__channel-chip {
-  left: 14px;
-  bottom: 14px;
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text);
-  padding: 7px 14px;
+/* A simple muted play triangle — just enough to read as a player. */
+.now-playing__play {
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 13px 0 13px 22px;
+  border-color: transparent transparent transparent rgba(255, 255, 255, 0.16);
 }
 
 .now-playing__details {
@@ -363,7 +412,7 @@ img {
 
 .live-screen__body {
   display: flex;
-  gap: 36px;
+  gap: 0;
   flex: 1;
   min-height: 0;
 }
@@ -375,7 +424,59 @@ img {
   flex-direction: column;
   gap: 4px;
   overflow-y: auto;
+  overflow-x: hidden;
   padding-bottom: 24px;
+}
+
+/* Draggable divider between the source panel and the guide (occupies the gutter). */
+.cat-resize {
+  flex: none;
+  width: 36px;
+  align-self: stretch;
+  position: relative;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.cat-resize::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 4px;
+  height: 56px;
+  border-radius: 2px;
+  background: var(--panel-3);
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.cat-resize:hover::before,
+.cat-resize--active::before {
+  opacity: 1;
+}
+
+.cat-resize--active::before {
+  background: var(--red);
+}
+
+.category__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Collapsed source rail: centered emoji/glyph, no titles. */
+.categories--collapsed .category {
+  justify-content: center;
+  gap: 0;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.category__glyph {
+  font-size: 22px;
+  line-height: 1;
 }
 
 .category {
@@ -397,7 +498,7 @@ img {
 
 .category:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--surface-hover);
 }
 
 .category--icon {
@@ -410,18 +511,31 @@ img {
 
 .category--source {
   color: var(--text);
-  cursor: default;
 }
 
 .category__chevron {
   color: var(--text);
+  flex-shrink: 0;
+  transition: transform 0.18s ease;
+}
+
+.category__chevron--collapsed {
+  transform: rotate(-90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .category__chevron {
+    transition: none;
+  }
 }
 
 .category--active {
   background: var(--red-tint);
   border-color: var(--red-border);
   color: var(--red);
-  font-weight: 600;
+  /* Selection changes colour only — no font-weight change, so the text never
+     reflows/shifts. The transparent base border (see .category) reserves the
+     same space whether or not the red border is shown. */
 }
 
 .category--active:hover {
@@ -480,8 +594,11 @@ img {
 
 .guide-row {
   display: flex;
-  gap: 8px;
-  margin-bottom: 8px;
+  /* No flex gap: the lane sits flush at the label-column edge so programs line
+     up with the time ruler. The visible label card is inset within the column
+     (see ::after), creating an even gutter to the grid. */
+  gap: 0;
+  margin-bottom: var(--label-card-gap);
 }
 
 .guide-row__label {
@@ -491,23 +608,58 @@ img {
   width: var(--guide-label-w);
   flex-shrink: 0;
   height: var(--row-h);
-  display: flex;
-  align-items: center;
-  padding: 0 12px 0 16px;
-  background: var(--panel);
-  border-radius: var(--radius);
+  display: block;
+  line-height: var(--row-h);
+  /* Text inset accounts for the card's left gutter (see ::after). */
+  padding: 0 16px 0 24px;
   font-family: var(--font-headline);
   font-weight: 600;
   font-size: 19px;
   color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* Fill the row gap below with bg so the now-line is hidden between cards
+     (box-shadow isn't clipped by overflow: hidden). */
+  box-shadow: 0 var(--label-card-gap) 0 0 var(--bg);
 }
 
-.guide-row__label {
+/* Inner text element so the fade masks the label text only — not the card
+   background (::after) or the gap occluder. */
+.guide-row__label-text {
   display: block;
-  line-height: var(--row-h);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* Applied by measurement when the name overflows: fade out at the right edge
+   instead of an ellipsis, matching the program cards. */
+.guide-row__label-text.is-clipped {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    #000 calc(100% - 26px),
+    transparent
+  );
+  mask-image: linear-gradient(to right, #000 calc(100% - 26px), transparent);
+}
+
+/* The sticky label column is a solid occluder (::before) with a floating
+   rounded card inset inside it (::after). The card has an even gutter on every
+   side: the occluder fills the gutters, so programs/now-line scrolling behind
+   stay hidden and the card keeps its rounded edges. */
+.guide-row__label::before,
+.guide-row__label::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+}
+
+.guide-row__label::before {
+  inset: 0;
+  background: var(--bg);
+}
+
+.guide-row__label::after {
+  inset: 0 var(--label-card-gap);
+  background: var(--panel);
+  border-radius: var(--radius);
 }
 
 .guide-row__lane {
@@ -526,7 +678,7 @@ img {
   background: var(--panel-2);
   border: 1.5px solid transparent;
   border-radius: var(--radius);
-  color: #fff;
+  color: var(--text);
   text-align: left;
   overflow: hidden;
   transition: filter 0.12s ease;
@@ -540,9 +692,22 @@ img {
   font-family: var(--font-headline);
   font-weight: 600;
   font-size: 20px;
+  flex: 1;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+/* Applied (by measurement) only when the title actually overflows: fade the
+   text out at the right edge instead of truncating with an ellipsis, so it
+   stays consistent as a card narrows and slides away. */
+.program__title.is-clipped {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    #000 calc(100% - 26px),
+    transparent
+  );
+  mask-image: linear-gradient(to right, #000 calc(100% - 26px), transparent);
 }
 
 .program--live {
@@ -554,9 +719,36 @@ img {
   color: var(--text);
 }
 
+/* The current block, pinned to the left edge as a rounded card; sits above the
+   normal block it's covering. CSS sticky pins the left edge with zero scroll
+   lag — only the width is JS-driven. */
+.program--pinned {
+  position: sticky;
+  left: var(--guide-label-w);
+  top: auto;
+  z-index: 1;
+}
+
 .program--selected {
-  border-color: #fff;
-  border-width: 3px;
+  /* Thicker white ring without touching the box model: a 1.5px white border
+     (same width as every other block, so no reflow) plus a 1.5px inset shadow
+     for the extra thickness. Box-shadow doesn't affect layout, so the text
+     never shifts on selection — at any DPI. */
+  border-color: var(--text);
+  box-shadow: inset 0 0 0 1.5px var(--text);
+}
+
+/* Channel is offline or the provider sent no programme info. */
+.program--noinfo {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 255, 255, 0.02),
+    rgba(255, 255, 255, 0.02) 10px,
+    transparent 10px,
+    transparent 20px
+  );
+  border: 1.5px dashed rgba(255, 255, 255, 0.1);
+  pointer-events: none;
 }
 
 /* ---------- Now indicator ---------- */
@@ -568,19 +760,23 @@ img {
   width: 3px;
   background: var(--red);
   border-radius: 2px;
-  z-index: 2;
+  /* Below the sticky labels (z-index 2) so it's hidden behind them when the
+     guide is scrolled, but above the program blocks. */
+  z-index: 1;
   pointer-events: none;
 }
 
-.now-indicator__dot {
+.now-dot {
   position: absolute;
-  top: -8px;
-  left: 50%;
-  transform: translateX(-50%);
+  top: 22px;
   width: 11px;
   height: 11px;
+  margin-left: -4px;
   border-radius: 50%;
   background: var(--red);
+  /* Above the time ruler (z-index 3) so the dot isn't clipped by it. */
+  z-index: 4;
+  pointer-events: none;
 }
 
 /* ---------- VOD grid ---------- */
@@ -693,7 +889,7 @@ img {
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 40px;
-  color: #fff;
+  color: var(--text);
 }
 
 .pairing__lead {
@@ -711,7 +907,7 @@ img {
   font-size: 44px;
   letter-spacing: 14px;
   text-indent: 14px;
-  color: #fff;
+  color: var(--text);
   background: var(--panel);
   border: 2px solid var(--panel-3);
   border-radius: 16px;
@@ -767,6 +963,757 @@ img {
   color: #fff;
 }
 
+/* ---------- Placeholder section ---------- */
+
+.placeholder {
+  margin: auto;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 60px;
+}
+
+.placeholder__title {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 34px;
+  color: var(--text);
+}
+
+.placeholder__note {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.5;
+  color: var(--text-dim);
+  max-width: 46ch;
+}
+
+/* ---------- Stream page ---------- */
+
+.stream {
+  flex: none;
+  /* Pull the scroll container up so the hero bleeds behind the (transparent)
+     header; grow its height to compensate so it still fills to the bottom. */
+  height: calc(100% + var(--header-zone));
+  margin-top: calc(-1 * var(--header-zone));
+  overflow-y: auto;
+  /* Bleed left to the screen edge (the shell pads content in by 44px); rows
+     and the hero re-inset their own content to line up. */
+  margin-left: -44px;
+  padding-left: 44px;
+}
+
+/* Featured hero carousel */
+.hero {
+  position: relative;
+  /* Bleed past the shell's left/right padding for a full-width banner. */
+  margin: 0 0 28px -44px;
+  width: calc(100% + 44px);
+  /* Tall, cinematic banner (~40% taller than a half-screen hero). */
+  height: clamp(620px, 84vh, 900px);
+  border-radius: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+}
+
+.hero__backdrop {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  animation: hero-fade 0.6s ease;
+}
+
+@keyframes hero-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Darken the bottom-left (and a touch of the top) so the title/synopsis and the
+   overlaid header stay legible over any art. */
+.hero__scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0) 20%),
+    linear-gradient(to top, var(--bg) 2%, rgba(0, 0, 0, 0) 60%),
+    linear-gradient(to right, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0) 60%);
+}
+
+.hero__content {
+  position: relative;
+  z-index: 1;
+  max-width: 720px;
+  padding: 0 44px 56px 88px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.hero__title {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 64px;
+  line-height: 1.02;
+  color: var(--text);
+}
+
+.hero__synopsis {
+  margin: 0;
+  max-width: 560px;
+  font-size: 20px;
+  line-height: 1.5;
+  color: var(--text-dim);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.hero__meta {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-weight: 500;
+  font-size: 17px;
+  letter-spacing: 0.3px;
+  color: var(--text-dim);
+}
+
+.hero__actions {
+  display: flex;
+  gap: 14px;
+  margin-top: 6px;
+}
+
+.hero__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Dot pager, centered along the hero's bottom edge. */
+.hero__dots {
+  position: absolute;
+  z-index: 1;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+}
+
+.hero__dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.35);
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.hero__dot--active {
+  background: var(--text);
+  transform: scale(1.1);
+}
+
+:root[data-theme="light"] .hero__dot {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* Rows */
+.stream__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  padding-bottom: 40px;
+}
+
+.media-row__title {
+  margin: 0 0 6px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 28px;
+  color: var(--text);
+}
+
+.media-row__track {
+  display: flex;
+  gap: 20px;
+  overflow-x: auto;
+  /* The scroll container clips overflow on every edge, which would cut off a
+     card's hover lift + outline. Pad all sides for room; the negative left
+     margin pulls the first card back to line up with the row title (the left
+     room sits inside the page's bleed, so nothing overflows on the right). */
+  padding: 12px 16px 16px;
+  margin-left: -16px;
+  scrollbar-width: thin;
+}
+
+/* Cards */
+.stream-card {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  text-align: left;
+}
+
+.stream-card--poster {
+  width: 210px;
+}
+
+.stream-card--landscape {
+  width: 360px;
+}
+
+.stream-card__art {
+  border-radius: 14px;
+  background: var(--panel-2);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  outline: 2px solid transparent;
+  transition: transform 0.15s ease, outline-color 0.15s ease;
+}
+
+.stream-card--poster .stream-card__art {
+  aspect-ratio: 2 / 3;
+}
+
+.stream-card--landscape .stream-card__art {
+  aspect-ratio: 16 / 9;
+}
+
+.stream-card:hover .stream-card__art {
+  transform: translateY(-4px);
+  outline-color: var(--red-border);
+}
+
+.stream-card__art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.stream-card__placeholder {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 34px;
+  color: var(--text-dim);
+}
+
+.stream-card__title {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 19px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stream-card__meta {
+  font-size: 15px;
+  color: var(--text-dim);
+}
+
+/* ---------- Title detail / source selection ----------
+ * An image-dominated page, so its text stays light in both themes. */
+
+.detail {
+  flex: none;
+  position: relative;
+  height: calc(100% + var(--header-zone));
+  margin-top: calc(-1 * var(--header-zone));
+  /* Full-bleed backdrop (escape the shell's left padding; right is flush). */
+  margin-left: -44px;
+  width: calc(100% + 44px);
+  overflow: hidden;
+}
+
+.detail__backdrop {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+}
+
+.detail__scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0) 16%),
+    linear-gradient(to right, rgba(0, 0, 0, 0.88) 0%, rgba(0, 0, 0, 0.25) 46%, rgba(0, 0, 0, 0) 70%),
+    linear-gradient(to top, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0) 30%);
+}
+
+.detail__body {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  display: flex;
+  /* Info pinned left, source rail pushed to the right edge. */
+  justify-content: space-between;
+  gap: 48px;
+  padding: calc(var(--header-zone) + 12px) 44px 48px 64px;
+  box-sizing: border-box;
+}
+
+.detail__back {
+  position: absolute;
+  top: calc(var(--header-zone) - 8px);
+  left: 64px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  padding: 6px 6px 6px 0;
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.detail__back:hover {
+  color: #fff;
+}
+
+.detail__back-icon {
+  transform: rotate(90deg);
+}
+
+.detail__info {
+  flex: 0 1 760px;
+  min-width: 0;
+  max-width: 760px;
+  align-self: center;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.detail__title {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 68px;
+  line-height: 1.02;
+  color: #f4f4f7;
+}
+
+.detail__synopsis {
+  margin: 0;
+  max-width: 560px;
+  font-size: 20px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.detail__meta {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-weight: 500;
+  font-size: 17px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.detail__group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.detail__label {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.pill {
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.13);
+  color: #f0f0f2;
+  font-family: var(--font-headline);
+  font-weight: 500;
+  font-size: 16px;
+}
+
+/* Source rail */
+.detail__rail {
+  flex: none;
+  width: 420px;
+  align-self: stretch;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-right: 6px;
+  scrollbar-width: thin;
+}
+
+.detail__no-sources {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 17px;
+}
+
+.source-card {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 18px 22px;
+  background: rgba(10, 10, 12, 0.82);
+  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.source-card:hover,
+.source-card:focus-visible {
+  border-color: var(--red-border);
+  background: rgba(18, 18, 22, 0.92);
+  outline: none;
+}
+
+.source-card__quality {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 96px;
+}
+
+.source-card__res {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 21px;
+  color: #fff;
+}
+
+.source-card__bolt {
+  font-size: 15px;
+}
+
+.source-card__meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.source-card__line {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.62);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.source-card__play {
+  flex: none;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Episode context line shown in the source selector for a series. */
+.detail__episode {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.detail__episode-label {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--red);
+}
+
+.detail__episode-title {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 22px;
+  color: #f0f0f2;
+}
+
+/* ---------- Series episode browser ---------- */
+
+/* Stronger dim than the movie scrim — the grid covers the whole page. */
+.detail__scrim--series {
+  background:
+    linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.72)),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.45) 0%, rgba(0, 0, 0, 0) 16%);
+}
+
+.series {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  overflow-y: auto;
+  padding: calc(var(--header-zone) + 76px) 44px 48px 64px;
+  box-sizing: border-box;
+}
+
+.series__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 48px;
+  margin-bottom: 60px;
+}
+
+.series__title-block {
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.series__title {
+  font-size: 52px;
+}
+
+.series__tags {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 540px;
+}
+
+/* Season control bar */
+.season-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.season-bar__nav {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.12s ease, opacity 0.12s ease;
+}
+
+.season-bar__nav:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.season-bar__nav:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.season-bar__nav-icon--prev {
+  transform: rotate(90deg);
+}
+
+.season-bar__nav-icon--next {
+  transform: rotate(-90deg);
+}
+
+.season-bar__select-wrap {
+  position: relative;
+}
+
+.season-bar__select {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 190px;
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: #fff;
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 17px;
+  cursor: pointer;
+}
+
+.season-bar__select:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.season-bar__caret {
+  flex: none;
+  width: 16px;
+  opacity: 0.8;
+}
+
+.season-bar__menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 5;
+  min-width: 100%;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: #16161c;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.season-bar__option {
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: #e8e8ec;
+  font-family: var(--font-headline);
+  font-weight: 500;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.season-bar__option:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.season-bar__option--active {
+  color: var(--red);
+}
+
+.season-bar__search {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--hairline);
+  color: #fff;
+  font-family: var(--font-text);
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.12s ease;
+}
+
+.season-bar__search::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.season-bar__search:focus {
+  border-color: var(--red-border);
+}
+
+/* Episode grid */
+.episode-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  gap: 16px;
+}
+
+.episode-card {
+  display: flex;
+  align-items: stretch;
+  gap: 20px;
+  padding: 12px;
+  border-radius: 12px;
+  /* Match the season-bar controls' translucent fill. */
+  background: rgba(255, 255, 255, 0.1);
+  border: 1.5px solid transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.episode-card:hover,
+.episode-card:focus-visible {
+  border-color: var(--red-border);
+  background: rgba(255, 255, 255, 0.16);
+  outline: none;
+}
+
+.episode-card__thumb {
+  flex: none;
+  width: 118px;
+  aspect-ratio: 118 / 81;
+  border-radius: 5px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.episode-card__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.episode-card__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  /* Title pinned to the top, date to the bottom, like the design. */
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.episode-card__title {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 1.3;
+  color: #f2f2f5;
+  /* Wrap long titles rather than truncating. */
+  overflow-wrap: anywhere;
+}
+
+.episode-card__date {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
 /* ---------- Error state ---------- */
 
 .error-state {
@@ -795,6 +1742,351 @@ img {
   display: flex;
   gap: 12px;
   margin-top: 8px;
+}
+
+/* ---------- Settings panel ---------- */
+
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.51);
+  z-index: 100;
+  animation: settings-fade 0.15s ease;
+}
+
+.settings-panel {
+  position: fixed;
+  top: 95px;
+  right: 18px;
+  /* Matches the Figma mock (≈1063×713 anchored top-right on a 1920×1080
+     frame); clamps so it stays sensible on smaller windows. */
+  width: min(1063px, 56vw);
+  height: min(713px, calc(100dvh - 135px));
+  background: var(--bg);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+  z-index: 101;
+  animation: settings-pop 0.16s ease;
+}
+
+.settings-panel__close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  color: var(--text);
+  z-index: 1;
+}
+
+.settings__inner {
+  height: 100%;
+  overflow-y: auto;
+  padding: 36px 44px 28px;
+}
+
+.settings__title {
+  margin: 0 0 8px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 34px;
+  color: var(--text);
+}
+
+.settings__section {
+  margin-top: 20px;
+}
+
+.settings__section-title {
+  margin: 0 0 4px;
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 16px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.settings__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  padding: 22px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.settings__row-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.settings__row-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 22px;
+  color: var(--text);
+}
+
+.settings__row-desc {
+  font-size: 16px;
+  color: var(--text-dim);
+  max-width: 52ch;
+}
+
+.settings__badge {
+  font-family: var(--font-text);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  background: var(--panel-3);
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+.settings__control {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Swatches */
+.settings__swatches {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: 480px;
+}
+
+.swatch {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  box-shadow: 0 0 0 2px var(--bg);
+  padding: 0;
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+
+.swatch:hover {
+  transform: scale(1.1);
+}
+
+.swatch--active {
+  border-color: var(--text);
+}
+
+.settings__custom-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 10px;
+  background: var(--panel-3);
+  color: var(--text);
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 15px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: filter 0.12s ease, border-color 0.12s ease;
+}
+
+.settings__custom-btn:hover {
+  filter: brightness(1.25);
+}
+
+.settings__custom-btn.is-active {
+  border-color: var(--text);
+}
+
+.settings__custom-btn input[type="color"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* UI scale — custom notched track */
+.settings__scale {
+  width: 320px;
+}
+
+.scaleslider {
+  position: relative;
+  width: 100%;
+  height: 52px;
+  outline: none;
+}
+
+.scaleslider:focus-visible {
+  outline: 2px solid var(--red-border);
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+
+.scaleslider__line,
+.scaleslider__fill {
+  position: absolute;
+  top: 14px;
+  height: 4px;
+  border-radius: 2px;
+}
+
+.scaleslider__line {
+  left: 12px;
+  right: 12px;
+  background: var(--panel-3);
+}
+
+.scaleslider__fill {
+  left: 12px;
+  background: var(--red);
+}
+
+.scalenotch {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.scalenotch__bar {
+  margin-top: 8px;
+  width: 3px;
+  height: 16px;
+  border-radius: 2px;
+  background: var(--panel-3);
+  transition: height 0.12s ease, background 0.12s ease;
+}
+
+.scalenotch.is-filled .scalenotch__bar {
+  background: var(--red);
+}
+
+/* Circular indicator marking the current notch. */
+.scaleslider__thumb {
+  position: absolute;
+  top: 16px;
+  transform: translate(-50%, -50%);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid var(--red);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  transition: left 0.12s ease;
+}
+
+.scalenotch__label {
+  margin-top: 10px;
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-dim);
+  transition: color 0.12s ease;
+}
+
+.scalenotch:hover .scalenotch__label {
+  color: var(--text);
+}
+
+.scalenotch.is-active .scalenotch__label {
+  color: var(--red);
+}
+
+/* Toggle switch */
+.toggle {
+  position: relative;
+  display: inline-flex;
+  cursor: pointer;
+}
+
+.toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle__track {
+  width: 56px;
+  height: 32px;
+  border-radius: 999px;
+  background: var(--panel-3);
+  transition: background 0.15s ease;
+  display: flex;
+  align-items: center;
+  padding: 3px;
+}
+
+.toggle__thumb {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s ease;
+}
+
+.toggle input:checked + .toggle__track {
+  background: var(--red);
+}
+
+.toggle input:checked + .toggle__track .toggle__thumb {
+  transform: translateX(24px);
+}
+
+.toggle input:focus-visible + .toggle__track {
+  outline: 2px solid var(--red-border);
+  outline-offset: 2px;
+}
+
+.settings__footer {
+  margin-top: 28px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+@keyframes settings-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes settings-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-overlay,
+  .settings-panel {
+    animation: none;
+  }
 }
 
 /* ---------- Skeletons ---------- */
@@ -836,16 +2128,56 @@ img {
   border-radius: 8px;
 }
 
-.program-skeleton {
-  position: relative;
-  height: var(--row-h);
-  border-radius: var(--radius);
-  flex-shrink: 0;
-  margin-right: 8px;
+/* Loading skeleton — guide layout (mirrors the real guide proportions). */
+.sk-category {
+  padding: 13px 18px;
 }
 
-.guide-row__lane .program-skeleton {
-  display: inline-block;
+.sk-guide {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sk-guide__ruler {
+  display: flex;
+  margin-bottom: 6px;
+}
+
+.sk-guide__label-spacer {
+  width: var(--guide-label-w);
+  flex-shrink: 0;
+}
+
+.sk-guide__ruler-track {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sk-guide__row {
+  display: flex;
+  gap: 8px;
+}
+
+.sk-guide__label {
+  width: var(--guide-label-w);
+  flex-shrink: 0;
+  height: var(--row-h);
+  border-radius: var(--radius);
+}
+
+.sk-guide__lane {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 8px;
+}
+
+.sk-guide__block {
+  height: var(--row-h);
+  border-radius: var(--radius);
 }
 
 @media (prefers-reduced-motion: reduce) {

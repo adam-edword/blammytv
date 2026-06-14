@@ -90,3 +90,48 @@ export function ChevronIcon({ size = 16, className }: IconProps) {
     </Svg>
   );
 }
+
+/** Interface / Close (X) */
+export function CloseIcon({ size = 24, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <path d="M6 6L18 18M18 6L6 18" />
+    </Svg>
+  );
+}
+
+/** Edit / Pencil */
+export function PencilIcon({ size = 16, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+    </Svg>
+  );
+}
+
+/** Media / Play (filled triangle) — for the Stream hero's Watch Now button. */
+export function PlayIcon({ size = 20, className }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M8 5.14v13.72a1 1 0 0 0 1.54.84l10.8-6.86a1 1 0 0 0 0-1.68L9.54 4.3A1 1 0 0 0 8 5.14z" />
+    </svg>
+  );
+}
+
+/** Interface / Info (i in a circle). */
+export function InfoIcon({ size = 20, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z" />
+      <path d="M12 11v5" />
+      <path d="M12 8h.01" />
+    </Svg>
+  );
+}
