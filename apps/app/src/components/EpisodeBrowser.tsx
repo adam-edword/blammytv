@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import type { VodItem, Episode } from "@blammytv/shared";
 import { EpisodeCard } from "./EpisodeCard";
 import { ChevronIcon } from "./icons";
+import { gradientFor } from "../lib/vod";
 
 /** Series episode browser (Design 2): a compact title header, a season control
  * bar (prev/next + dropdown + search), and a full-width grid of episodes.
@@ -45,8 +46,16 @@ export function EpisodeBrowser({
     setQuery("");
   };
 
+  const backdrop = item.backdrop ?? item.poster;
+  const backdropStyle: CSSProperties = backdrop
+    ? { backgroundImage: `url(${backdrop})` }
+    : { background: gradientFor(item.id) };
+
   return (
-    <div className="series">
+    <div className="detail">
+      <div className="detail__backdrop" style={backdropStyle} />
+      <div className="detail__scrim detail__scrim--series" />
+      <div className="series">
       <button className="detail__back" type="button" onClick={onBack}>
         <ChevronIcon className="detail__back-icon" />
         Back
@@ -162,6 +171,7 @@ export function EpisodeBrowser({
             onClick={() => onPick(ep, season.number)}
           />
         ))}
+      </div>
       </div>
     </div>
   );

@@ -1,79 +1,23 @@
-import { useEffect, useState, type CSSProperties } from "react";
-import type { VodItem, Episode, StreamSource } from "@blammytv/shared";
-import { SourceCard } from "../components/SourceCard";
-import { EpisodeBrowser } from "../components/EpisodeBrowser";
-import { ChevronIcon } from "../components/icons";
+import { useEffect, type CSSProperties } from "react";
+import type { VodItem, StreamSource } from "@blammytv/shared";
+import { SourceCard } from "./SourceCard";
+import { ChevronIcon } from "./icons";
 import { gradientFor } from "../lib/vod";
 
-/** Title detail. Movies go straight to the source selector. Series first show
- * the episode browser (grid); once an episode is picked it drops into the same
- * source selector, scoped to that episode. */
-export function TitleDetail({
+/** The source-selection page: a full-bleed backdrop with the title's info on
+ * the left and the backend-ranked source list on the right. Used for movies
+ * and for a chosen series episode (with a Season/Episode context line). */
+export function SourceSelector({
   item,
-  onBack,
-}: {
-  item: VodItem;
-  onBack: () => void;
-}) {
-  const isSeries = item.seasons.length > 0;
-  const [picked, setPicked] = useState<{
-    episode: Episode;
-    seasonNumber: number;
-  } | null>(null);
-
-  const backdrop = item.backdrop ?? item.poster;
-  const backdropStyle: CSSProperties = backdrop
-    ? { backgroundImage: `url(${backdrop})` }
-    : { background: gradientFor(item.id) };
-
-  if (isSeries && !picked) {
-    return (
-      <div className="detail">
-        <div className="detail__backdrop" style={backdropStyle} />
-        <div className="detail__scrim detail__scrim--series" />
-        <EpisodeBrowser
-          item={item}
-          onBack={onBack}
-          onPick={(episode, seasonNumber) =>
-            setPicked({ episode, seasonNumber })
-          }
-        />
-      </div>
-    );
-  }
-
-  // Source selector — for a movie, or for a chosen episode of a series.
-  const sources: StreamSource[] = picked ? picked.episode.sources : item.sources;
-  const episodeLabel = picked
-    ? `Season ${picked.seasonNumber} · Episode ${picked.episode.number}`
-    : null;
-  const back = picked ? () => setPicked(null) : onBack;
-
-  return (
-    <SourceSelector
-      item={item}
-      backdropStyle={backdropStyle}
-      sources={sources}
-      episodeLabel={episodeLabel}
-      episodeTitle={picked?.episode.title ?? null}
-      onBack={back}
-    />
-  );
-}
-
-function SourceSelector({
-  item,
-  backdropStyle,
   sources,
-  episodeLabel,
-  episodeTitle,
+  episodeLabel = null,
+  episodeTitle = null,
   onBack,
 }: {
   item: VodItem;
-  backdropStyle: CSSProperties;
   sources: StreamSource[];
-  episodeLabel: string | null;
-  episodeTitle: string | null;
+  episodeLabel?: string | null;
+  episodeTitle?: string | null;
   onBack: () => void;
 }) {
   // Backspace / Escape backs out — natural on a remote and a keyboard.
@@ -84,6 +28,11 @@ function SourceSelector({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onBack]);
+
+  const backdrop = item.backdrop ?? item.poster;
+  const backdropStyle: CSSProperties = backdrop
+    ? { backgroundImage: `url(${backdrop})` }
+    : { background: gradientFor(item.id) };
 
   const meta = [
     item.year,
