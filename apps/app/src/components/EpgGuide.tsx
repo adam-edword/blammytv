@@ -14,6 +14,11 @@ import {
 /** Gap between adjacent program blocks, in px. */
 const PROGRAM_GAP = 6;
 
+/** Once a pinned card would be thinner than this, stop pinning it — its normal
+ * block then slides off under the label (pushed off) instead of shrinking to a
+ * sliver at the edge. */
+const MIN_PIN_WIDTH = 72;
+
 interface Block {
   p: EpgProgram;
   left: number;
@@ -86,10 +91,13 @@ export function EpgGuide({
 
           {/* Channel rows */}
           {lanes.map(({ ch, blocks }) => {
-            // The block spanning the left edge that has also scrolled past it.
+            // The block spanning the left edge that has scrolled past it and
+            // still has enough width left to pin (otherwise it slides off).
             const pinned =
               blocks.find(
-                (b) => b.left < scrollLeft && scrollLeft < b.left + b.width,
+                (b) =>
+                  b.left < scrollLeft &&
+                  scrollLeft <= b.left + b.width - PROGRAM_GAP - MIN_PIN_WIDTH,
               ) ?? null;
             return (
               <div className="guide-row" key={ch.id}>
@@ -134,22 +142,25 @@ export function EpgGuide({
     </div>
   );
 
-  function programButton(b: Block, pinnedCard: boolean) {
+  function programButton(b: Block, pinned: boolean) {
     const live = isLiveNow(b.p, now);
     const selected = b.p.id === selectedProgramId;
     return (
       <button
-        key={pinnedCard ? `pin-${b.p.id}` : b.p.id}
+        key={pinned ? `pin-${b.p.id}` : b.p.id}
         type="button"
         className={
           "program" +
           (live ? " program--live" : "") +
           (selected ? " program--selected" : "") +
-          (pinnedCard ? " program--pinned" : "")
+          (pinned ? " program--pinned" : "")
         }
+        // Pinned cards are positioned at the edge with CSS sticky (left edge is
+        // composited by the browser — no scroll-lag wiggle); only the width is
+        // JS-driven, so the right edge tracks the programme's end.
         style={
-          pinnedCard
-            ? { left: b.left, width: b.width }
+          pinned
+            ? { width: b.width }
             : { left: b.left, width: Math.max(0, b.width - PROGRAM_GAP) }
         }
         onClick={() => onSelectProgram?.(b.p)}
@@ -160,13 +171,13 @@ export function EpgGuide({
     );
   }
 
-  /** A copy of the current block pinned to the left edge, shrinking toward its
-   * end time as the guide scrolls. */
+  /** A copy of the current block pinned to the left edge (via CSS sticky),
+   * shrinking toward its end time as the guide scrolls. */
   function pinnedCard(b: Block, scroll: number) {
     const right = b.left + b.width - PROGRAM_GAP;
     const width = right - scroll;
     if (width <= 0) return null;
-    return programButton({ p: b.p, left: scroll, width }, true);
+    return programButton({ p: b.p, left: 0, width }, true);
   }
 }
 

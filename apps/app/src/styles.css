@@ -561,8 +561,12 @@ img {
 }
 
 /* The current block, pinned to the left edge as a rounded card; sits above the
-   normal block it's covering. */
+   normal block it's covering. CSS sticky pins the left edge with zero scroll
+   lag — only the width is JS-driven. */
 .program--pinned {
+  position: sticky;
+  left: var(--guide-label-w);
+  top: auto;
   z-index: 1;
 }
 
