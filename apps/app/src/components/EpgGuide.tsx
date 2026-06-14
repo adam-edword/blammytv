@@ -11,14 +11,10 @@ import {
   type GuideWindow,
 } from "../lib/epg";
 
-/** Only once a pinned card shrinks below this width — about when it would
- * otherwise be a thin sliver hovering over the next card — does it fade out, so
- * it dissolves gracefully instead of leaving a sliver/empty box. */
-const FADE_WIDTH = 48;
-
-/** How far (px) the card drifts left under the label as it fades, so it reads
- * as sliding off the edge rather than dissolving in place. */
-const SLIDE_DISTANCE = 28;
+/** Once a pinned card's visible width shrinks below this, it stops pinning at
+ * the edge and instead slides its left edge under the label (fading) — while
+ * its right edge stays anchored to the next card, so the gap never changes. */
+const SLIDE_WIDTH = 48;
 
 interface Block {
   p: EpgProgram;
@@ -26,12 +22,23 @@ interface Block {
   width: number;
 }
 
-/** Width / fade / slide for a pinned card at a given horizontal scroll. */
+/** Width / fade / slide for a pinned card at a given horizontal scroll.
+ *
+ * The card's right edge always sits at `right - scroll` from the edge (so the
+ * gap to the next card is constant). While that's wider than SLIDE_WIDTH the
+ * card simply shrinks, pinned at the edge. Below it, the card holds SLIDE_WIDTH
+ * and translates left by the difference — so the right edge stays put while the
+ * left slides under the label — and fades out. */
 function pinnedMetrics(right: number, scroll: number) {
-  const width = Math.max(0, right - scroll);
-  const opacity = Math.min(1, width / FADE_WIDTH);
-  const slide = -(1 - opacity) * SLIDE_DISTANCE;
-  return { width, opacity, slide };
+  const visible = Math.max(0, right - scroll);
+  if (visible >= SLIDE_WIDTH) {
+    return { width: visible, opacity: 1, slide: 0 };
+  }
+  return {
+    width: SLIDE_WIDTH,
+    opacity: visible / SLIDE_WIDTH,
+    slide: -(SLIDE_WIDTH - visible),
+  };
 }
 
 /** The time-grid TV guide. Channels down the side, programmes laid out along a
