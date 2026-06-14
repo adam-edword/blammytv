@@ -33,7 +33,7 @@
   --categories-w: 400px;
   --guide-label-w: 200px;
   /* Even gutter around the floating channel-label card within its column. */
-  --label-card-gap: 12px;
+  --label-card-gap: 8px;
   --row-h: 60px;
 
   color-scheme: dark;
