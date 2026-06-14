@@ -1,22 +1,40 @@
-import { useEffect, useState } from "react";
-import { TABS, type TabKey } from "./TopTabs";
+import { Fragment, useEffect, useState } from "react";
+import { TABS, sectionOf, type TabKey } from "./TopTabs";
 import { SearchIcon, AccountIcon, SettingsIcon } from "./icons";
 
 /** Top app chrome: brand + clock, section tabs, account/settings.
  * The tabs are the only nav; nothing here is a settings screen (config lives
- * in the web UI), the gear is just a placeholder affordance for now. */
+ * in the web UI), the gear is just a placeholder affordance for now.
+ *
+ * The two sections — Live TV and Streaming (Stream + Discover) — each own the
+ * search icon: it sits on the left while a Live TV tab is active and on the
+ * right while a streaming tab is active. */
 export function AppHeader({
   active,
   onChange,
   onOpenSettings,
+  onSearch,
   version = "v0.0.1",
 }: {
   active: TabKey;
   onChange: (key: TabKey) => void;
   onOpenSettings?: () => void;
+  onSearch?: () => void;
   version?: string;
 }) {
   const clock = useClock();
+  const section = sectionOf(active);
+
+  const searchButton = (
+    <button
+      className="icon-btn"
+      aria-label="Search"
+      type="button"
+      onClick={onSearch}
+    >
+      <SearchIcon />
+    </button>
+  );
 
   return (
     <header className="app-header">
@@ -29,25 +47,33 @@ export function AppHeader({
       </div>
 
       <div className="app-header__center">
-        <button className="icon-btn" aria-label="Search" type="button">
-          <SearchIcon />
-        </button>
-        <span className="app-header__divider" aria-hidden="true">
-          |
-        </span>
+        {section === "live" && searchButton}
         <nav className="top-tabs" role="tablist" aria-label="Sections">
-          {TABS.map((tab) => (
-            <button
-              key={tab.key}
-              role="tab"
-              aria-selected={active === tab.key}
-              className={"top-tab" + (active === tab.key ? " top-tab--active" : "")}
-              onClick={() => onChange(tab.key)}
-            >
-              {tab.label}
-            </button>
-          ))}
+          {TABS.map((tab, i) => {
+            // A divider sits where the section changes (Live TV | Stream …).
+            const startsSection = i > 0 && TABS[i - 1].section !== tab.section;
+            return (
+              <Fragment key={tab.key}>
+                {startsSection && (
+                  <span className="app-header__divider" aria-hidden="true">
+                    |
+                  </span>
+                )}
+                <button
+                  role="tab"
+                  aria-selected={active === tab.key}
+                  className={
+                    "top-tab" + (active === tab.key ? " top-tab--active" : "")
+                  }
+                  onClick={() => onChange(tab.key)}
+                >
+                  {tab.label}
+                </button>
+              </Fragment>
+            );
+          })}
         </nav>
+        {section === "stream" && searchButton}
       </div>
 
       <div className="app-header__actions">

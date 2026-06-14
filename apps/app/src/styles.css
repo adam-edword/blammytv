@@ -950,6 +950,34 @@ img {
   color: #fff;
 }
 
+/* ---------- Placeholder section ---------- */
+
+.placeholder {
+  margin: auto;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 60px;
+}
+
+.placeholder__title {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 34px;
+  color: var(--text);
+}
+
+.placeholder__note {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.5;
+  color: var(--text-dim);
+  max-width: 46ch;
+}
+
 /* ---------- Error state ---------- */
 
 .error-state {

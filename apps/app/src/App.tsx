@@ -4,7 +4,7 @@ import { AppHeader } from "./components/AppHeader";
 import { type TabKey } from "./components/TopTabs";
 import { PairingScreen } from "./screens/PairingScreen";
 import { LiveScreen } from "./screens/LiveScreen";
-import { VodScreen } from "./screens/VodScreen";
+import { PlaceholderScreen } from "./screens/PlaceholderScreen";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { LiveScreenSkeleton } from "./components/LoadingSkeletons";
 import { fetchConfig } from "./lib/config";
@@ -88,20 +88,18 @@ function Content({ tab, config }: { tab: TabKey; config: ConfigBlob }) {
   switch (tab) {
     case "live":
       return <LiveScreen config={config} />;
-    case "series":
+    case "stream":
       return (
-        <VodScreen
-          items={config.series}
-          favorites={config.favorites}
-          emptyLabel="No series in this configuration yet."
+        <PlaceholderScreen
+          title="Stream"
+          note="Your on-demand library will live here. We'll build this section next."
         />
       );
-    case "movies":
+    case "discover":
       return (
-        <VodScreen
-          items={config.movies}
-          favorites={config.favorites}
-          emptyLabel="No movies in this configuration yet."
+        <PlaceholderScreen
+          title="Discover"
+          note="A place to browse and find something new to watch. Coming next."
         />
       );
   }
