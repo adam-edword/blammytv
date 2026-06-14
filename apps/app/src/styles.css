@@ -33,7 +33,7 @@
   --categories-w: 400px;
   --guide-label-w: 200px;
   /* Even gutter around the floating channel-label card within its column. */
-  --label-card-gap: 8px;
+  --label-card-gap: 12px;
   --row-h: 60px;
 
   color-scheme: dark;
@@ -468,7 +468,7 @@ img {
      up with the time ruler. The visible label card is inset within the column
      (see ::after), creating an even gutter to the grid. */
   gap: 0;
-  margin-bottom: 8px;
+  margin-bottom: var(--label-card-gap);
 }
 
 .guide-row__label {
@@ -491,7 +491,7 @@ img {
   text-overflow: ellipsis;
   /* Fill the row gap below with bg so the now-line is hidden between cards
      (box-shadow isn't clipped by overflow: hidden). */
-  box-shadow: 0 8px 0 0 var(--bg);
+  box-shadow: 0 var(--label-card-gap) 0 0 var(--bg);
 }
 
 /* The sticky label column is a solid occluder (::before) with a floating
