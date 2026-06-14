@@ -13,28 +13,19 @@ export function AppHeader({
   active,
   onChange,
   onOpenSettings,
-  onSearch,
+  onSearchLive,
+  onSearchStream,
   version = "v0.0.1",
 }: {
   active: TabKey;
   onChange: (key: TabKey) => void;
   onOpenSettings?: () => void;
-  onSearch?: () => void;
+  onSearchLive?: () => void;
+  onSearchStream?: () => void;
   version?: string;
 }) {
   const clock = useClock();
   const section = sectionOf(active);
-
-  const searchButton = (
-    <button
-      className="icon-btn"
-      aria-label="Search"
-      type="button"
-      onClick={onSearch}
-    >
-      <SearchIcon />
-    </button>
-  );
 
   return (
     <header className="app-header">
@@ -47,7 +38,18 @@ export function AppHeader({
       </div>
 
       <div className="app-header__center">
-        {section === "live" && searchButton}
+        {/* Each section has its own search (a different engine); only the
+            active section's button is shown, on that section's outer edge. */}
+        {section === "live" && (
+          <button
+            className="icon-btn"
+            aria-label="Search live channels"
+            type="button"
+            onClick={onSearchLive}
+          >
+            <SearchIcon />
+          </button>
+        )}
         <nav className="top-tabs" role="tablist" aria-label="Sections">
           {TABS.map((tab, i) => {
             // A divider sits where the section changes (Live TV | Stream …).
@@ -73,7 +75,16 @@ export function AppHeader({
             );
           })}
         </nav>
-        {section === "stream" && searchButton}
+        {section === "stream" && (
+          <button
+            className="icon-btn"
+            aria-label="Search streaming"
+            type="button"
+            onClick={onSearchStream}
+          >
+            <SearchIcon />
+          </button>
+        )}
       </div>
 
       <div className="app-header__actions">
