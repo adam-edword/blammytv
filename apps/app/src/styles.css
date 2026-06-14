@@ -483,9 +483,12 @@ img {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  /* Solid fill over the 8px row gap below, so the now-line is hidden there
-     too (box-shadow isn't clipped by this element's overflow: hidden). */
-  box-shadow: 0 8px 0 0 var(--bg);
+  /* Solid fill over the 8px gap below and to the right, so programs sliding
+     under the label (and the now-line) stay hidden and the card keeps its
+     rounded right edge. Box-shadow isn't clipped by overflow: hidden. */
+  box-shadow:
+    0 8px 0 0 var(--bg),
+    8px 0 0 0 var(--bg);
 }
 
 /* Two stacked backings so the *rounded* label fully occludes programs that
