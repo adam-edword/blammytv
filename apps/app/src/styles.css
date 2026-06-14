@@ -1148,9 +1148,12 @@ img {
   display: flex;
   gap: 20px;
   overflow-x: auto;
-  /* overflow-x:auto also clips the vertical axis, which would cut off a card's
-     hover lift + outline; vertical padding gives the lift room to show. */
-  padding: 12px 0 14px;
+  /* The scroll container clips overflow on every edge, which would cut off a
+     card's hover lift + outline. Pad all sides for room; the negative left
+     margin pulls the first card back to line up with the row title (the left
+     room sits inside the page's bleed, so nothing overflows on the right). */
+  padding: 12px 16px 16px;
+  margin-left: -16px;
   scrollbar-width: thin;
 }
 
