@@ -14,9 +14,10 @@ import {
 /** Gap between adjacent program blocks, in px. */
 const PROGRAM_GAP = 6;
 
-/** As a pinned card shrinks below this width near a programme's end, it fades
- * out so it dissolves gracefully instead of leaving a sliver/empty box. */
-const FADE_WIDTH = 120;
+/** Only once a pinned card shrinks below this width — about when it would
+ * otherwise be a thin sliver hovering over the next card — does it fade out, so
+ * it dissolves gracefully instead of leaving a sliver/empty box. */
+const FADE_WIDTH = 48;
 
 /** How far (px) the card drifts left under the label as it fades, so it reads
  * as sliding off the edge rather than dissolving in place. */
