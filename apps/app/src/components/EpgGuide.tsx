@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import type { LiveChannel, EpgProgram } from "@blammytv/shared";
 import {
   guideWindow,
@@ -11,8 +11,18 @@ import {
   type GuideWindow,
 } from "../lib/epg";
 
+/** Gap between adjacent program blocks, in px. */
+const PROGRAM_GAP = 6;
+
+interface Block {
+  p: EpgProgram;
+  left: number;
+  width: number;
+}
+
 /** The time-grid TV guide. Channels down the side, programmes laid out along a
- * shared time axis, with a live "now" indicator. */
+ * shared time axis, with a live "now" indicator. The programme currently at the
+ * left edge is "pinned" there as a rounded card while it airs. */
 export function EpgGuide({
   channels,
   programs,
@@ -28,12 +38,35 @@ export function EpgGuide({
 }) {
   const win = useMemo<GuideWindow>(() => guideWindow(now), [now]);
   const laneWidth = minutesFromStart(win, win.end) * PX_PER_MIN;
-  const byChannel = useMemo(() => groupByChannel(programs), [programs]);
   const nowLeft = minutesFromStart(win, now) * PX_PER_MIN;
+
+  // Lay out each channel's blocks once; only the pinned card depends on scroll.
+  const lanes = useMemo(() => {
+    const byChannel = groupByChannel(programs);
+    return channels.map((ch) => ({
+      ch,
+      blocks: (byChannel[ch.id] ?? [])
+        .map((p) => ({ p, ...blockGeometry(win, p) }))
+        .filter((b) => b.width > 0)
+        .sort((a, b) => a.left - b.left),
+    }));
+  }, [channels, programs, win]);
+
+  // Track horizontal scroll (rAF-throttled) to drive the pinned cards.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
+  const onScroll = useCallback(() => {
+    if (rafRef.current) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = 0;
+      setScrollLeft(scrollRef.current?.scrollLeft ?? 0);
+    });
+  }, []);
 
   return (
     <div className="guide">
-      <div className="guide__scroll">
+      <div className="guide__scroll" ref={scrollRef} onScroll={onScroll}>
         <div className="guide__inner">
           {/* Time ruler */}
           <div className="time-ruler">
@@ -52,44 +85,32 @@ export function EpgGuide({
           </div>
 
           {/* Channel rows */}
-          {channels.map((ch) => {
-            const blocks = (byChannel[ch.id] ?? [])
-              .map((p) => ({ p, ...blockGeometry(win, p) }))
-              .filter((b) => b.width > 0);
+          {lanes.map(({ ch, blocks }) => {
+            // The block spanning the left edge that has also scrolled past it.
+            const pinned =
+              blocks.find(
+                (b) => b.left < scrollLeft && scrollLeft < b.left + b.width,
+              ) ?? null;
             return (
               <div className="guide-row" key={ch.id}>
                 <div className="guide-row__label">{ch.name}</div>
                 <div className="guide-row__lane" style={{ width: laneWidth }}>
                   {blocks.length === 0 ? (
-                    // Offline / no programme info from the provider. The
-                    // hatched styling conveys it; label is for screen readers.
+                    // Offline / no programme info from the provider.
                     <div
                       className="program program--noinfo"
-                      style={{ left: 0, width: Math.max(0, laneWidth - 6) }}
+                      style={{ left: 0, width: Math.max(0, laneWidth - PROGRAM_GAP) }}
                       aria-label="No information"
                     />
                   ) : (
-                    blocks.map(({ p, left, width }) => {
-                      const live = isLiveNow(p, now);
-                      const selected = p.id === selectedProgramId;
-                      return (
-                        <button
-                          key={p.id}
-                          type="button"
-                          className={
-                            "program" +
-                            (live ? " program--live" : "") +
-                            (selected ? " program--selected" : "")
-                          }
-                          style={{ left, width: Math.max(0, width - 6) }}
-                          onClick={() => onSelectProgram?.(p)}
-                          title={p.title}
-                        >
-                          <span className="program__title">{p.title}</span>
-                        </button>
-                      );
-                    })
+                    // Skip the normal copy of the pinned block — the pinned card
+                    // covers its visible extent, and live blocks are translucent
+                    // so a copy underneath would show through.
+                    blocks.map((b) =>
+                      b === pinned ? null : programButton(b, false),
+                    )
                   )}
+                  {pinned && pinnedCard(pinned, scrollLeft)}
                 </div>
               </div>
             );
@@ -112,6 +133,41 @@ export function EpgGuide({
       </div>
     </div>
   );
+
+  function programButton(b: Block, pinnedCard: boolean) {
+    const live = isLiveNow(b.p, now);
+    const selected = b.p.id === selectedProgramId;
+    return (
+      <button
+        key={pinnedCard ? `pin-${b.p.id}` : b.p.id}
+        type="button"
+        className={
+          "program" +
+          (live ? " program--live" : "") +
+          (selected ? " program--selected" : "") +
+          (pinnedCard ? " program--pinned" : "")
+        }
+        style={
+          pinnedCard
+            ? { left: b.left, width: b.width }
+            : { left: b.left, width: Math.max(0, b.width - PROGRAM_GAP) }
+        }
+        onClick={() => onSelectProgram?.(b.p)}
+        title={b.p.title}
+      >
+        <span className="program__title">{b.p.title}</span>
+      </button>
+    );
+  }
+
+  /** A copy of the current block pinned to the left edge, shrinking toward its
+   * end time as the guide scrolls. */
+  function pinnedCard(b: Block, scroll: number) {
+    const right = b.left + b.width - PROGRAM_GAP;
+    const width = right - scroll;
+    if (width <= 0) return null;
+    return programButton({ p: b.p, left: scroll, width }, true);
+  }
 }
 
 function groupByChannel(programs: EpgProgram[]): Record<string, EpgProgram[]> {

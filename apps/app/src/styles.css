@@ -560,6 +560,12 @@ img {
   color: var(--text);
 }
 
+/* The current block, pinned to the left edge as a rounded card; sits above the
+   normal block it's covering. */
+.program--pinned {
+  z-index: 1;
+}
+
 .program--selected {
   /* Thicker white ring without touching the box model: a 1.5px white border
      (same width as every other block, so no reflow) plus a 1.5px inset shadow
