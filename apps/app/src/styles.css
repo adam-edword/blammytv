@@ -601,8 +601,12 @@ img {
   min-width: 0;
   white-space: nowrap;
   overflow: hidden;
-  /* Fade the text out at the right edge instead of truncating with an
-     ellipsis, so it stays consistent as a card narrows and slides away. */
+}
+
+/* Applied (by measurement) only when the title actually overflows: fade the
+   text out at the right edge instead of truncating with an ellipsis, so it
+   stays consistent as a card narrows and slides away. */
+.program__title.is-clipped {
   -webkit-mask-image: linear-gradient(
     to right,
     #000 calc(100% - 26px),

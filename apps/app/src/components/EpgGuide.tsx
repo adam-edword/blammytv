@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { LiveChannel, EpgProgram } from "@blammytv/shared";
 import {
   guideWindow,
@@ -93,6 +100,30 @@ export function EpgGuide({
   // component re-renders rarely; the per-frame motion is applied imperatively.
   const [pins, setPins] = useState<(string | null)[]>([]);
 
+  // Toggle the fade mask on a title only when its text actually overflows.
+  const clipTitle = (t: HTMLElement) =>
+    t.classList.toggle("is-clipped", t.scrollWidth > t.clientWidth + 1);
+
+  // Re-measure every title after a render and once fonts have loaded (their
+  // widths shift). Pinned cards are also re-measured per frame in onScroll.
+  useLayoutEffect(() => {
+    scrollRef.current
+      ?.querySelectorAll<HTMLElement>(".program__title")
+      .forEach(clipTitle);
+  });
+  useEffect(() => {
+    let done = false;
+    document.fonts?.ready.then(() => {
+      if (done) return;
+      scrollRef.current
+        ?.querySelectorAll<HTMLElement>(".program__title")
+        .forEach(clipTitle);
+    });
+    return () => {
+      done = true;
+    };
+  }, []);
+
   const computePins = useCallback(
     (scroll: number) =>
       lanes.map(
@@ -125,16 +156,21 @@ export function EpgGuide({
       );
 
       // Drive the pinned cards each frame so they stay locked to the native
-      // scroll — no lag against the sticky left edge or the next card.
-      scrollRef.current
-        ?.querySelectorAll<HTMLElement>(".program--pinned")
-        .forEach((el) => {
-          const right = parseFloat(el.dataset.right || "0");
-          const { width, opacity, slide } = pinnedMetrics(right, sl);
-          el.style.width = `${width}px`;
-          el.style.opacity = `${opacity}`;
-          el.style.transform = slide ? `translateX(${slide}px)` : "";
-        });
+      // scroll — no lag against the sticky left edge or the next card. Writes
+      // first, then reads (re-measure the fade), to avoid layout thrash.
+      const pinnedEls =
+        scrollRef.current?.querySelectorAll<HTMLElement>(".program--pinned");
+      pinnedEls?.forEach((el) => {
+        const right = parseFloat(el.dataset.right || "0");
+        const { width, opacity, slide } = pinnedMetrics(right, sl);
+        el.style.width = `${width}px`;
+        el.style.opacity = `${opacity}`;
+        el.style.transform = slide ? `translateX(${slide}px)` : "";
+      });
+      pinnedEls?.forEach((el) => {
+        const t = el.querySelector<HTMLElement>(".program__title");
+        if (t) clipTitle(t);
+      });
     });
   }, [computePins]);
 
