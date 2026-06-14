@@ -99,3 +99,12 @@ export function CloseIcon({ size = 24, className }: IconProps) {
     </Svg>
   );
 }
+
+/** Edit / Pencil */
+export function PencilIcon({ size = 16, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+    </Svg>
+  );
+}

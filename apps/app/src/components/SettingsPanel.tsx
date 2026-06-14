@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { CloseIcon } from "./icons";
+import { CloseIcon, PencilIcon } from "./icons";
 import {
   usePreferences,
   UI_SCALE_OPTIONS,
@@ -50,6 +50,9 @@ export function SettingsPanel({
   if (!open) return null;
 
   const activeAccent = prefs.accent.toLowerCase();
+  const isCustomAccent = !ACCENT_PRESETS.some(
+    (c) => c.toLowerCase() === activeAccent,
+  );
   const scaleIndex = nearestScaleIndex(prefs.uiScale);
   const lastScale = UI_SCALE_OPTIONS.length - 1;
 
@@ -119,7 +122,14 @@ export function SettingsPanel({
                     onClick={() => setAccent(c)}
                   />
                 ))}
-                <label className="swatch swatch--custom" title="Custom colour">
+                <label
+                  className={
+                    "settings__custom-btn" + (isCustomAccent ? " is-active" : "")
+                  }
+                  title="Custom colour"
+                >
+                  <PencilIcon size={15} />
+                  <span>Custom</span>
                   <input
                     type="color"
                     value={prefs.accent}
