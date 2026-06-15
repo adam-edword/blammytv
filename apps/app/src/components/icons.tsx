@@ -91,6 +91,16 @@ export function ChevronIcon({ size = 16, className }: IconProps) {
   );
 }
 
+/** Time / Recents — a clock face. */
+export function RecentsIcon({ size = 19, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7.5V12L15 14" />
+    </Svg>
+  );
+}
+
 /** Interface / Close (X) */
 export function CloseIcon({ size = 24, className }: IconProps) {
   return (

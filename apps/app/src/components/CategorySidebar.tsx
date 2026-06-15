@@ -1,9 +1,10 @@
 import { useState } from "react";
 import type { ChannelGroup } from "@blammytv/shared";
-import { StarIcon, ChevronIcon } from "./icons";
+import { StarIcon, RecentsIcon, ChevronIcon } from "./icons";
 import { extractEmoji } from "../lib/emoji";
 
 export const FAVORITES_ID = "__favorites__";
+export const RECENTS_ID = "__recents__";
 
 /** Collapsed glyph for a source: its emoji if it has one, else its first
  * character as a fallback "icon". */
@@ -50,6 +51,20 @@ export function CategorySidebar({
       >
         <StarIcon className="category__star" />
         {!collapsed && <span className="category__label">Favorites</span>}
+      </button>
+
+      <button
+        className={
+          "category category--icon" +
+          (selectedId === RECENTS_ID ? " category--active" : "")
+        }
+        type="button"
+        title={collapsed ? "Recents" : undefined}
+        aria-label={collapsed ? "Recents" : undefined}
+        onClick={() => onSelect(RECENTS_ID)}
+      >
+        <RecentsIcon className="category__star" />
+        {!collapsed && <span className="category__label">Recents</span>}
       </button>
 
       <button

@@ -81,16 +81,21 @@ export function EpgGuide({
   );
 
   // Lay out each channel's blocks once; only the pinned card depends on scroll.
+  // Also resolve the programme airing right now, shown under the channel name.
   const lanes = useMemo(() => {
     const byChannel = groupByChannel(programs);
-    return channels.map((ch) => ({
-      ch,
-      blocks: (byChannel[ch.id] ?? [])
-        .map((p) => ({ p, ...blockGeometry(win, p) }))
-        .filter((b) => b.width > 0)
-        .sort((a, b) => a.left - b.left),
-    }));
-  }, [channels, programs, win]);
+    return channels.map((ch) => {
+      const own = byChannel[ch.id] ?? [];
+      return {
+        ch,
+        liveTitle: own.find((p) => isLiveNow(p, now))?.title ?? null,
+        blocks: own
+          .map((p) => ({ p, ...blockGeometry(win, p) }))
+          .filter((b) => b.width > 0)
+          .sort((a, b) => a.left - b.left),
+      };
+    });
+  }, [channels, programs, win, now]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollXRef = useRef(0);
@@ -104,8 +109,10 @@ export function EpgGuide({
   const clipTitle = (t: HTMLElement) =>
     t.classList.toggle("is-clipped", t.scrollWidth > t.clientWidth + 1);
 
-  // Program titles and channel labels both fade rather than truncate.
-  const CLIP_SELECTOR = ".program__title, .guide-row__label-text";
+  // Program titles and channel labels (name + current show) all fade rather
+  // than truncate.
+  const CLIP_SELECTOR =
+    ".program__title, .guide-row__label-text, .guide-row__sub";
 
   // Re-measure after a render and once fonts have loaded (their widths shift).
   // Pinned cards are also re-measured per frame in onScroll.
@@ -198,13 +205,26 @@ export function EpgGuide({
           </div>
 
           {/* Channel rows */}
-          {lanes.map(({ ch, blocks }, i) => {
+          {lanes.map(({ ch, blocks, liveTitle }, i) => {
             const pinId = pins[i] ?? null;
             const pin = pinId ? blocks.find((b) => b.p.id === pinId) : null;
             return (
               <div className="guide-row" key={ch.id}>
-                <div className="guide-row__label">
-                  <span className="guide-row__label-text">{ch.name}</span>
+                <div
+                  className={
+                    "guide-row__label" +
+                    (ch.logo ? " guide-row__label--art" : "")
+                  }
+                >
+                  {ch.logo && (
+                    <img className="guide-row__logo" src={ch.logo} alt="" />
+                  )}
+                  <span className="guide-row__label-meta">
+                    <span className="guide-row__label-text">{ch.name}</span>
+                    {liveTitle && (
+                      <span className="guide-row__sub">{liveTitle}</span>
+                    )}
+                  </span>
                 </div>
                 <div className="guide-row__lane" style={{ width: laneWidth }}>
                   {blocks.length === 0 ? (
@@ -229,15 +249,9 @@ export function EpgGuide({
           })}
 
           {/* Now indicator: the line sits below the sticky labels so it's
-              hidden behind them when scrolled; the dot is a separate element
-              above the time ruler so it isn't clipped. */}
+              hidden behind them when the guide is scrolled. */}
           <div
             className="now-indicator"
-            style={{ left: `calc(var(--guide-label-w) + ${nowLeft}px)` }}
-            aria-hidden="true"
-          />
-          <div
-            className="now-dot"
             style={{ left: `calc(var(--guide-label-w) + ${nowLeft}px)` }}
             aria-hidden="true"
           />
@@ -265,8 +279,20 @@ export function EpgGuide({
         onClick={() => onSelectProgram?.(b.p)}
         title={b.p.title}
       >
-        <span className="program__title">{b.p.title}</span>
+        {cardBody(b)}
       </button>
+    );
+  }
+
+  /** Title + airtime range, shared by normal and pinned cards. */
+  function cardBody(b: Block) {
+    return (
+      <span className="program__meta">
+        <span className="program__title">{b.p.title}</span>
+        <span className="program__time">
+          {formatTime(Date.parse(b.p.start))} – {formatTime(Date.parse(b.p.stop))}
+        </span>
+      </span>
     );
   }
 
@@ -291,7 +317,7 @@ export function EpgGuide({
         onClick={() => onSelectProgram?.(b.p)}
         title={b.p.title}
       >
-        <span className="program__title">{b.p.title}</span>
+        {cardBody(b)}
       </button>
     );
   }

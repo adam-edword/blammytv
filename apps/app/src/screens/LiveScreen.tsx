@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { ConfigBlob, EpgProgram } from "@blammytv/shared";
 import { NowPlaying } from "../components/NowPlaying";
-import { CategorySidebar, FAVORITES_ID } from "../components/CategorySidebar";
+import {
+  CategorySidebar,
+  FAVORITES_ID,
+  RECENTS_ID,
+} from "../components/CategorySidebar";
 import { EpgGuide } from "../components/EpgGuide";
 import { isLiveNow } from "../lib/epg";
 import { isDesktop, popoutPlay } from "../lib/desktop";
@@ -74,6 +78,8 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
       const favSet = new Set(favorites);
       return live.channels.filter((c) => favSet.has(c.id));
     }
+    // Recents has no history wired up yet — show an empty guide for now.
+    if (categoryId === RECENTS_ID) return [];
     return live.channels.filter((c) => c.groupId === categoryId);
   }, [categoryId, live.channels, favorites]);
 
@@ -120,45 +126,45 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
   };
 
   return (
-    <div className={"live-screen" + (inTheater ? " live-screen--theater" : "")}>
-      {heroChannel && (
-        <NowPlaying
-          channel={heroChannel}
-          program={heroProgram}
-          now={now}
-          playing={playing}
-          theater={inTheater}
-          onPlay={() => setPlayingId(heroChannel.id)}
-          onStop={() => {
-            setPlayingId(null);
-            setTheater(false);
-          }}
-          onToggleTheater={() => setTheater((t) => !t)}
-          onPopout={isDesktop() ? popout : undefined}
-        />
-      )}
+    <div
+      className={"live-screen" + (inTheater ? " live-screen--theater" : "")}
+      style={{ "--categories-w": `${panelWidth}px` } as CSSProperties}
+    >
+      <CategorySidebar
+        groups={live.groups}
+        selectedId={categoryId}
+        collapsed={collapsed || inTheater}
+        onSelect={(id) => {
+          setCategoryId(id);
+          setSelectedProgramId(null);
+        }}
+      />
       <div
-        className="live-screen__body"
-        style={{ "--categories-w": `${panelWidth}px` } as CSSProperties}
-      >
-        <CategorySidebar
-          groups={live.groups}
-          selectedId={categoryId}
-          collapsed={collapsed || inTheater}
-          onSelect={(id) => {
-            setCategoryId(id);
-            setSelectedProgramId(null);
-          }}
-        />
-        <div
-          className={"cat-resize" + (resizing ? " cat-resize--active" : "")}
-          role="separator"
-          aria-orientation="vertical"
-          aria-label="Resize source panel"
-          onPointerDown={onResizeDown}
-          onPointerMove={onResizeMove}
-          onPointerUp={onResizeUp}
-        />
+        className={"cat-resize" + (resizing ? " cat-resize--active" : "")}
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize source panel"
+        onPointerDown={onResizeDown}
+        onPointerMove={onResizeMove}
+        onPointerUp={onResizeUp}
+      />
+      <div className="live-screen__main">
+        {heroChannel && (
+          <NowPlaying
+            channel={heroChannel}
+            program={heroProgram}
+            now={now}
+            playing={playing}
+            theater={inTheater}
+            onPlay={() => setPlayingId(heroChannel.id)}
+            onStop={() => {
+              setPlayingId(null);
+              setTheater(false);
+            }}
+            onToggleTheater={() => setTheater((t) => !t)}
+            onPopout={isDesktop() ? popout : undefined}
+          />
+        )}
         <EpgGuide
           channels={channels}
           programs={live.programs}
