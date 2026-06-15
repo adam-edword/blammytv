@@ -87,13 +87,18 @@ ipcMain.handle("transcode:start", async (_event, url) => {
   fs.mkdirSync(HLS_DIR, { recursive: true });
 
   const bin = fs.existsSync(FFMPEG_BIN) ? FFMPEG_BIN : "ffmpeg";
+  let stderr = "";
+  let spawnError = null;
   try {
     ffmpegProc = spawn(
       bin,
       [
         "-hide_banner",
-        "-loglevel", "error",
-        "-fflags", "+nobuffer",
+        "-loglevel", "warning",
+        // Be resilient on flaky HTTP streams.
+        "-reconnect", "1",
+        "-reconnect_streamed", "1",
+        "-reconnect_delay_max", "5",
         "-i", url,
         "-c:v", "copy",
         "-c:a", "aac",
@@ -106,22 +111,31 @@ ipcMain.handle("transcode:start", async (_event, url) => {
         "-hls_segment_filename", path.join(HLS_DIR, "seg_%05d.ts"),
         path.join(HLS_DIR, "index.m3u8"),
       ],
-      { stdio: "ignore" },
+      { stdio: ["ignore", "ignore", "pipe"] },
     );
-    ffmpegProc.on("error", () => {
-      ffmpegProc = null;
-    });
   } catch (err) {
-    return { ok: false, error: String((err && err.message) || err) };
+    return { ok: false, error: "Couldn't launch ffmpeg: " + String((err && err.message) || err) };
   }
+  ffmpegProc.on("error", (err) => {
+    spawnError = err;
+  });
+  ffmpegProc.stderr.on("data", (d) => {
+    stderr = (stderr + d.toString()).slice(-2000);
+  });
 
   const ready = await waitForFile(path.join(HLS_DIR, "index.m3u8"), 15000);
   if (!ready) {
     stopTranscode();
-    return {
-      ok: false,
-      error: "ffmpeg produced no output — check ffmpeg.exe and the stream.",
-    };
+    let detail;
+    if (spawnError) {
+      detail =
+        spawnError.code === "ENOENT"
+          ? "ffmpeg not found — put ffmpeg.exe in apps/desktop/bin (or set FFMPEG_PATH)."
+          : String(spawnError.message);
+    } else {
+      detail = stderr.trim() || "ffmpeg produced no output (no error reported).";
+    }
+    return { ok: false, error: detail };
   }
   return { ok: true, url: `http://127.0.0.1:${hlsPort}/index.m3u8` };
 });
