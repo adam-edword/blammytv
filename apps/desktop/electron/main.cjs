@@ -1,5 +1,45 @@
-const { app, BrowserWindow, shell } = require("electron");
+const { app, BrowserWindow, shell, ipcMain } = require("electron");
 const path = require("node:path");
+const { spawn } = require("node:child_process");
+
+// --- Native playback (mpv) -------------------------------------------------
+// Step 1: prove mpv decodes the user's streams (incl. AC3 audio) by playing in
+// its own window. Embedding into the app's player region comes next.
+let mpvProc = null;
+
+function stopMpv() {
+  if (mpvProc) {
+    try {
+      mpvProc.kill();
+    } catch {
+      /* already gone */
+    }
+    mpvProc = null;
+  }
+}
+
+ipcMain.handle("mpv:play", (_event, url) => {
+  stopMpv();
+  try {
+    mpvProc = spawn("mpv", [url, "--force-window=yes", "--title=BlammyTV"], {
+      stdio: "ignore",
+    });
+    mpvProc.on("exit", () => {
+      mpvProc = null;
+    });
+    mpvProc.on("error", () => {
+      mpvProc = null;
+    });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: String((err && err.message) || err) };
+  }
+});
+
+ipcMain.handle("mpv:stop", () => {
+  stopMpv();
+  return { ok: true };
+});
 
 /**
  * BlammyTV desktop shell.
@@ -26,6 +66,7 @@ function createWindow() {
       // Don't gate stream audio behind a user gesture (video would otherwise
       // auto-start silently).
       autoplayPolicy: "no-user-gesture-required",
+      preload: path.join(__dirname, "preload.cjs"),
     },
   });
 
@@ -53,5 +94,8 @@ app.whenReady().then(() => {
 });
 
 app.on("window-all-closed", () => {
+  stopMpv();
   if (process.platform !== "darwin") app.quit();
 });
+
+app.on("before-quit", stopMpv);
