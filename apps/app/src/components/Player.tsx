@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Hls from "hls.js";
-import { isDesktop, transcodeStart, transcodeStop } from "../lib/desktop";
+import {
+  isDesktop,
+  transcodeStart,
+  transcodeStop,
+  type SourceStats,
+} from "../lib/desktop";
+import { StatsOverlay } from "./StatsOverlay";
 import {
   PlayIcon,
   PauseIcon,
@@ -26,6 +32,8 @@ export interface TheaterMeta {
   startLabel?: string;
   progressPct: number;
   live: boolean;
+  streamId?: string;
+  epgId?: string;
 }
 
 /**
@@ -43,7 +51,6 @@ export function Player({
   onToggleTheater,
   onPopout,
   onStop,
-  onToggleStats,
   meta,
 }: {
   url: string;
@@ -52,11 +59,11 @@ export function Player({
   onToggleTheater?: () => void;
   onPopout?: () => void;
   onStop?: () => void;
-  onToggleStats?: () => void;
   meta?: TheaterMeta;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
   const idleRef = useRef<number>(0);
 
   const [status, setStatus] = useState<"loading" | "playing" | "error">("loading");
@@ -65,6 +72,8 @@ export function Player({
   const [volume, setVolume] = useState(1);
   const [muted, setMuted] = useState(false);
   const [active, setActive] = useState(true);
+  const [statsOpen, setStatsOpen] = useState(false);
+  const [sourceStats, setSourceStats] = useState<SourceStats | null>(null);
 
   // Load the stream (transcode first on desktop), play via hls.js.
   useEffect(() => {
@@ -75,6 +84,7 @@ export function Player({
 
     setStatus("loading");
     setMessage("Tuning in…");
+    setSourceStats(null);
 
     const play = (src: string) => {
       if (cancelled || !video) return;
@@ -85,6 +95,7 @@ export function Player({
           manifestLoadingRetryDelay: 600,
           levelLoadingMaxRetry: 8,
         });
+        hlsRef.current = hls;
         hls.loadSource(src);
         hls.attachMedia(video);
         hls.on(Hls.Events.ERROR, (_e, data) => {
@@ -112,6 +123,7 @@ export function Player({
           setMessage(res?.error ?? "Couldn't start playback.");
           return;
         }
+        setSourceStats(res.stats ?? null);
         play(res.url);
       } else {
         play(url);
@@ -121,6 +133,7 @@ export function Player({
     return () => {
       cancelled = true;
       hls?.destroy();
+      hlsRef.current = null;
       if (isDesktop()) void transcodeStop();
     };
   }, [url]);
@@ -232,6 +245,18 @@ export function Player({
 
       {theater && (
         <>
+          {statsOpen && (
+            <StatsOverlay
+              onClose={() => setStatsOpen(false)}
+              source={sourceStats}
+              videoRef={videoRef}
+              hlsRef={hlsRef}
+              channelName={meta?.channelName}
+              streamId={meta?.streamId}
+              epgId={meta?.epgId}
+            />
+          )}
+
           <button
             className="player__theater-exit"
             type="button"
@@ -302,7 +327,7 @@ export function Player({
                 <button className="player__btn" type="button" disabled title="Subtitles — coming soon" aria-label="Subtitles">
                   <CcIcon size={20} />
                 </button>
-                <button className="player__btn" type="button" onClick={onToggleStats} aria-label="Stats for nerds">
+                <button className={"player__btn" + (statsOpen ? " is-active" : "")} type="button" onClick={() => setStatsOpen((o) => !o)} aria-label="Stats for nerds">
                   <StatsIcon size={20} />
                 </button>
                 {onPopout && (

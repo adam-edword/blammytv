@@ -33,7 +33,10 @@ const MPV_BIN =
 // Detect whether a stream's video is HDR (PQ / HLG), so we only pay the cost of
 // tone-mapping when it's actually needed. Resolves false on any error (no
 // ffprobe, timeout, SDR) — the caller then takes the fast copy path.
-function probeHdr(url) {
+// Probe a stream's video/audio details (and whether it's HDR) with ffprobe in
+// one shot. Resolves null on any error (no ffprobe, timeout) — callers then
+// take the safe/fast path and the stats panel just shows what it can.
+function probeStreams(url) {
   return new Promise((resolve) => {
     const bin = fs.existsSync(FFPROBE_BIN) ? FFPROBE_BIN : "ffprobe";
     let proc;
@@ -42,15 +45,15 @@ function probeHdr(url) {
         bin,
         [
           "-v", "error",
-          "-select_streams", "v:0",
-          "-show_entries", "stream=color_transfer",
-          "-of", "default=nw=1:nk=1",
+          "-show_entries",
+          "stream=codec_type,codec_name,width,height,pix_fmt,r_frame_rate,bit_rate,color_transfer,sample_rate,channels",
+          "-of", "json",
           url,
         ],
         { stdio: ["ignore", "pipe", "ignore"] },
       );
     } catch {
-      return resolve(false);
+      return resolve(null);
     }
     let out = "";
     const timer = setTimeout(() => {
@@ -59,19 +62,37 @@ function probeHdr(url) {
       } catch {
         /* gone */
       }
-      resolve(false);
-    }, 5000);
+      resolve(null);
+    }, 6000);
     proc.stdout.on("data", (d) => {
       out += d.toString();
     });
     proc.on("error", () => {
       clearTimeout(timer);
-      resolve(false);
+      resolve(null);
     });
     proc.on("close", () => {
       clearTimeout(timer);
-      const transfer = out.trim().toLowerCase();
-      resolve(transfer === "smpte2084" || transfer === "arib-std-b67");
+      try {
+        const streams = (JSON.parse(out).streams || []);
+        const v = streams.find((s) => s.codec_type === "video") || {};
+        const a = streams.find((s) => s.codec_type === "audio") || {};
+        const transfer = (v.color_transfer || "").toLowerCase();
+        resolve({
+          video: {
+            width: v.width ?? null,
+            height: v.height ?? null,
+            codec: v.codec_name ?? null,
+            pixFmt: v.pix_fmt ?? null,
+            frameRate: v.r_frame_rate ?? null,
+            bitRate: v.bit_rate ? Number(v.bit_rate) : null,
+          },
+          audioSampleRate: a.sample_rate ? Number(a.sample_rate) : null,
+          hdr: transfer === "smpte2084" || transfer === "arib-std-b67",
+        });
+      } catch {
+        resolve(null);
+      }
     });
   });
 }
@@ -206,9 +227,9 @@ ipcMain.handle("transcode:start", async (_event, url) => {
 
   const bin = fs.existsSync(FFMPEG_BIN) ? FFMPEG_BIN : "ffmpeg";
 
-  // HDR streams look dark/desaturated in a plain <video>, so tone-map them to
-  // SDR (re-encoding the video). Everything else stays on the cheap copy path.
-  const hdr = await probeHdr(url);
+  // Probe once: drives the HDR decision and feeds the Stats panel.
+  const probe = await probeStreams(url);
+  const hdr = probe?.hdr ?? false;
   const videoArgs = hdr
     ? [
         "-vf",
@@ -275,7 +296,17 @@ ipcMain.handle("transcode:start", async (_event, url) => {
     }
     return { ok: false, error: detail };
   }
-  return { ok: true, url: `http://127.0.0.1:${hlsPort}/index.m3u8` };
+  return {
+    ok: true,
+    url: `http://127.0.0.1:${hlsPort}/index.m3u8`,
+    stats: {
+      source: probe?.video ?? null,
+      audioSampleRate: probe?.audioSampleRate ?? null,
+      hdr,
+      // What we actually deliver to the player (see ffmpeg args above).
+      delivered: { audioCodec: "aac", audioChannels: 2, audioBitrateKbps: 160 },
+    },
+  };
 });
 
 ipcMain.handle("transcode:stop", () => {

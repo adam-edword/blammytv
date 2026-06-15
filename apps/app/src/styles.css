@@ -780,6 +780,91 @@ img {
   width: 96px;
 }
 
+/* ---------- Stats for Nerds ---------- */
+.stats {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  width: 340px;
+  max-width: 70%;
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 16px 18px 18px;
+  background: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.stats__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.stats__title {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.3px;
+}
+
+.stats__close {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  cursor: pointer;
+}
+
+.stats__close:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.stats__section {
+  margin-bottom: 12px;
+}
+
+.stats__heading {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 10.5px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--red);
+  margin-bottom: 4px;
+}
+
+.stats__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 1px 0;
+}
+
+.stats__label {
+  color: rgba(255, 255, 255, 0.6);
+  white-space: nowrap;
+}
+
+.stats__value {
+  color: #fff;
+  text-align: right;
+  word-break: break-all;
+}
+
+.stats__value--dim {
+  color: rgba(255, 255, 255, 0.5);
+}
+
 /* ---------- Loading splash ---------- */
 .loading-screen {
   position: fixed;

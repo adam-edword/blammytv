@@ -17,7 +17,6 @@ export function NowPlaying({
   onStop,
   onToggleTheater,
   onPopout,
-  onToggleStats,
 }: {
   channel: LiveChannel;
   program: EpgProgram | null;
@@ -33,7 +32,6 @@ export function NowPlaying({
   onStop: () => void;
   onToggleTheater: () => void;
   onPopout?: () => void;
-  onToggleStats?: () => void;
 }) {
   const live = program ? isLiveNow(program, now) : false;
 
@@ -47,6 +45,8 @@ export function NowPlaying({
     startLabel: program ? formatTime(Date.parse(program.start)) : undefined,
     progressPct: program ? progressPct(program, now) : 100,
     live,
+    streamId: channel.id,
+    epgId: channel.epgId,
   };
 
   return (
@@ -66,7 +66,6 @@ export function NowPlaying({
             onToggleTheater={onToggleTheater}
             onPopout={onPopout}
             onStop={onStop}
-            onToggleStats={onToggleStats}
           />
         ) : (
           // Just a black screen with a play glyph — click to start the stream.
