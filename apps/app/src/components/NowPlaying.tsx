@@ -1,6 +1,7 @@
 import type { LiveChannel, EpgProgram } from "@blammytv/shared";
 import { formatTime, isLiveNow, progressPct } from "../lib/epg";
 import { Player } from "./Player";
+import { isDesktop } from "../lib/desktop";
 
 /** The marquee at the top of the Live tab: a preview of the focused channel
  * plus its current program's details. The preview doubles as the player — click
@@ -30,7 +31,13 @@ export function NowPlaying({
           (playing || channel.logo ? "" : " now-playing__preview--empty")
         }
       >
-        {playing ? (
+        {playing && isDesktop() ? (
+          // Desktop: the video plays in the mpv popout window.
+          <div className="player player--native now-playing__art">
+            <span className="player__native-dot" aria-hidden="true" />
+            <span>Playing in the video window</span>
+          </div>
+        ) : playing ? (
           <Player url={channel.streamUrl} className="now-playing__art" />
         ) : channel.logo ? (
           <button

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import mpegts from "mpegts.js";
-import { isDesktop, mpvPlay, mpvStop } from "../lib/desktop";
 
 /**
  * Live video player. Xtream live feeds are MPEG-TS over HTTP, which browsers
@@ -56,16 +55,6 @@ export function Player({ url, className }: { url: string; className?: string }) 
       } catch {
         /* already torn down */
       }
-    };
-  }, [url]);
-
-  // Step-1 native-playback proof: in the desktop shell, also hand the stream to
-  // mpv (its own window, with real audio decoding). Embedding comes next.
-  useEffect(() => {
-    if (!isDesktop()) return;
-    void mpvPlay(url);
-    return () => {
-      void mpvStop();
     };
   }, [url]);
 

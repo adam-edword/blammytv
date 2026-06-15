@@ -5,6 +5,7 @@
 interface BlammyBridge {
   mpvPlay: (url: string) => Promise<{ ok: boolean; error?: string }>;
   mpvStop: () => Promise<unknown>;
+  onMpvClosed: (cb: () => void) => () => void;
 }
 
 const bridge = (window as unknown as { blammy?: BlammyBridge }).blammy;
@@ -12,3 +13,5 @@ const bridge = (window as unknown as { blammy?: BlammyBridge }).blammy;
 export const isDesktop = (): boolean => !!bridge;
 export const mpvPlay = (url: string) => bridge?.mpvPlay(url);
 export const mpvStop = () => bridge?.mpvStop();
+export const onMpvClosed = (cb: () => void): (() => void) =>
+  bridge?.onMpvClosed(cb) ?? (() => {});

@@ -1,14 +1,28 @@
 const { app, BrowserWindow, shell, ipcMain } = require("electron");
 const path = require("node:path");
+const fs = require("node:fs");
 const { spawn } = require("node:child_process");
 
 // --- Native playback (mpv) -------------------------------------------------
-// Step 1: prove mpv decodes the user's streams (incl. AC3 audio) by playing in
-// its own window. Embedding into the app's player region comes next.
+// The video plays in an mpv popout window (it decodes everything, incl. AC3
+// audio the browser can't). The renderer drives which channel plays; we tell it
+// back when the user closes the mpv window so its state stays in sync.
 let mpvProc = null;
+
+// mpv binary: explicit path via MPV_PATH, else a bundled copy, else PATH.
+const MPV_BIN =
+  process.env.MPV_PATH ||
+  path.join(__dirname, "..", "bin", process.platform === "win32" ? "mpv.exe" : "mpv");
+
+function notifyMpvClosed() {
+  for (const w of BrowserWindow.getAllWindows()) {
+    w.webContents.send("mpv:closed");
+  }
+}
 
 function stopMpv() {
   if (mpvProc) {
+    mpvProc.intentional = true; // app closed it (switch/stop) — not the user
     try {
       mpvProc.kill();
     } catch {
@@ -18,24 +32,23 @@ function stopMpv() {
   }
 }
 
-// mpv binary: explicit path via MPV_PATH, else a bundled copy, else PATH.
-const MPV_BIN =
-  process.env.MPV_PATH ||
-  path.join(__dirname, "..", "bin", process.platform === "win32" ? "mpv.exe" : "mpv");
-
 ipcMain.handle("mpv:play", (_event, url) => {
   stopMpv();
-  const bin = require("node:fs").existsSync(MPV_BIN) ? MPV_BIN : "mpv";
+  const bin = fs.existsSync(MPV_BIN) ? MPV_BIN : "mpv";
   try {
-    mpvProc = spawn(bin, [url, "--force-window=yes", "--title=BlammyTV"], {
-      stdio: "ignore",
+    const proc = spawn(
+      bin,
+      [url, "--force-window=yes", "--title=BlammyTV", "--no-terminal"],
+      { stdio: "ignore" },
+    );
+    proc.on("exit", () => {
+      if (mpvProc === proc) mpvProc = null;
+      if (!proc.intentional) notifyMpvClosed(); // user closed the window
     });
-    mpvProc.on("exit", () => {
-      mpvProc = null;
+    proc.on("error", () => {
+      if (mpvProc === proc) mpvProc = null;
     });
-    mpvProc.on("error", () => {
-      mpvProc = null;
-    });
+    mpvProc = proc;
     return { ok: true };
   } catch (err) {
     return { ok: false, error: String((err && err.message) || err) };

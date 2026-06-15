@@ -375,6 +375,27 @@ img {
   pointer-events: none;
 }
 
+/* Desktop: the video is in the mpv popout; this is the in-app status. */
+.player--native {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #000;
+  color: rgba(255, 255, 255, 0.7);
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.player__native-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--red);
+  box-shadow: 0 0 0 4px rgb(var(--accent-rgb) / 0.2);
+}
+
 /* Control bar — fades out when the pointer's idle. */
 .player__controls {
   position: absolute;

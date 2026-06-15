@@ -4,6 +4,7 @@ import { NowPlaying } from "../components/NowPlaying";
 import { CategorySidebar, FAVORITES_ID } from "../components/CategorySidebar";
 import { EpgGuide } from "../components/EpgGuide";
 import { isLiveNow } from "../lib/epg";
+import { isDesktop, mpvPlay, mpvStop, onMpvClosed } from "../lib/desktop";
 
 // Resizable source panel. Dragged below CAT_COLLAPSE_AT it snaps to a narrow
 // emoji rail. Width is remembered per device.
@@ -95,10 +96,33 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
     live.channels.find((c) => c.id === featuredChannelId) ??
     live.channels[0];
 
-  // Which channel is actively streaming in the preview. Switching the hero
-  // channel stops playback (you re-press play on the new one).
+  // The channel currently playing. On desktop it plays in the mpv popout and
+  // keeps going while you browse the guide; the hero preview only shows the
+  // "playing" state when you're looking at that same channel.
   const [playingId, setPlayingId] = useState<string | null>(null);
   const playing = !!heroChannel && playingId === heroChannel.id;
+
+  const playingChannel = useMemo(
+    () => live.channels.find((c) => c.id === playingId) ?? null,
+    [playingId, live.channels],
+  );
+
+  // Desktop: drive the mpv popout from the playing channel.
+  useEffect(() => {
+    if (!isDesktop()) return;
+    if (playingChannel) void mpvPlay(playingChannel.streamUrl);
+    else void mpvStop();
+  }, [playingChannel]);
+
+  // Clear playing state if the user closes the mpv window; stop mpv on unmount.
+  useEffect(() => {
+    if (!isDesktop()) return;
+    const off = onMpvClosed(() => setPlayingId(null));
+    return () => {
+      off();
+      void mpvStop();
+    };
+  }, []);
 
   return (
     <div className="live-screen">
