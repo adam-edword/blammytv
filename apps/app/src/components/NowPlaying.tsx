@@ -10,6 +10,7 @@ export function NowPlaying({
   program,
   now,
   playing,
+  streamUrl,
   theater,
   onPlay,
   onStop,
@@ -20,6 +21,10 @@ export function NowPlaying({
   program: EpgProgram | null;
   now: number;
   playing: boolean;
+  /** Source for the player — the channel that's actually streaming. Kept
+   * separate from `channel` so hovering a guide row can re-skin the text
+   * without disturbing playback. */
+  streamUrl: string;
   theater: boolean;
   onPlay: () => void;
   onStop: () => void;
@@ -33,29 +38,19 @@ export function NowPlaying({
       <div
         className={
           "now-playing__preview" +
-          (playing || channel.logo ? "" : " now-playing__preview--empty")
+          (playing ? "" : " now-playing__preview--empty")
         }
       >
         {playing ? (
           <Player
-            url={channel.streamUrl}
+            url={streamUrl}
             className="now-playing__art"
             theater={theater}
             onToggleTheater={onToggleTheater}
             onPopout={onPopout}
           />
-        ) : channel.logo ? (
-          <button
-            className="now-playing__art now-playing__play-btn"
-            type="button"
-            aria-label={`Play ${channel.name}`}
-            onClick={onPlay}
-          >
-            <img className="now-playing__art" src={channel.logo} alt="" />
-            <span className="now-playing__play now-playing__play--over" />
-          </button>
         ) : (
-          // Black screen with a play glyph — click to start the stream.
+          // Just a black screen with a play glyph — click to start the stream.
           <button
             className="now-playing__art now-playing__empty now-playing__play-btn"
             type="button"

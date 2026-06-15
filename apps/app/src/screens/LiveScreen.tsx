@@ -125,6 +125,20 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
     setTheater(false);
   };
 
+  // Hovering a guide row previews that channel's current programme in the hero
+  // text — the player keeps streaming whatever it was already playing.
+  const [hoveredChannelId, setHoveredChannelId] = useState<string | null>(null);
+  const hoverChannel = hoveredChannelId
+    ? live.channels.find((c) => c.id === hoveredChannelId) ?? null
+    : null;
+  const hoverProgram = hoverChannel
+    ? live.programs.find(
+        (p) => p.channelId === hoverChannel.id && isLiveNow(p, now),
+      ) ?? null
+    : null;
+  const textChannel = hoverChannel ?? heroChannel;
+  const textProgram = hoverChannel ? hoverProgram : heroProgram;
+
   return (
     <div
       className={"live-screen" + (inTheater ? " live-screen--theater" : "")}
@@ -137,6 +151,7 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
         onSelect={(id) => {
           setCategoryId(id);
           setSelectedProgramId(null);
+          setHoveredChannelId(null);
         }}
       />
       <div
@@ -151,10 +166,11 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
       <div className="live-screen__main">
         {heroChannel && (
           <NowPlaying
-            channel={heroChannel}
-            program={heroProgram}
+            channel={textChannel ?? heroChannel}
+            program={textProgram}
             now={now}
             playing={playing}
+            streamUrl={heroChannel.streamUrl}
             theater={inTheater}
             onPlay={() => setPlayingId(heroChannel.id)}
             onStop={() => {
@@ -171,6 +187,7 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
           now={now}
           selectedProgramId={selectedProgramId ?? undefined}
           onSelectProgram={(p) => setSelectedProgramId(p.id)}
+          onHoverChannel={setHoveredChannelId}
         />
       </div>
     </div>

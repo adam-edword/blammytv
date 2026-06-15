@@ -57,12 +57,16 @@ export function EpgGuide({
   now,
   selectedProgramId,
   onSelectProgram,
+  onHoverChannel,
 }: {
   channels: LiveChannel[];
   programs: EpgProgram[];
   now: number;
   selectedProgramId?: string;
   onSelectProgram?: (p: EpgProgram) => void;
+  /** Fired with a channel id while a row is hovered, and null on leave, so the
+   * hero text can preview that channel without changing playback. */
+  onHoverChannel?: (id: string | null) => void;
 }) {
   const win = useMemo<GuideWindow>(() => guideWindow(now), [now]);
   const laneWidth = minutesFromStart(win, win.end) * PX_PER_MIN;
@@ -185,7 +189,7 @@ export function EpgGuide({
   }, [computePins]);
 
   return (
-    <div className="guide">
+    <div className="guide" onMouseLeave={() => onHoverChannel?.(null)}>
       <div className="guide__scroll" ref={scrollRef} onScroll={onScroll}>
         <div className="guide__inner">
           {/* Time ruler */}
@@ -209,7 +213,11 @@ export function EpgGuide({
             const pinId = pins[i] ?? null;
             const pin = pinId ? blocks.find((b) => b.p.id === pinId) : null;
             return (
-              <div className="guide-row" key={ch.id}>
+              <div
+                className="guide-row"
+                key={ch.id}
+                onMouseEnter={() => onHoverChannel?.(ch.id)}
+              >
                 <div
                   className={
                     "guide-row__label" +
