@@ -23,9 +23,58 @@ const DEV_URL = process.env.ELECTRON_START_URL || "http://localhost:1420/";
 const FFMPEG_BIN =
   process.env.FFMPEG_PATH ||
   path.join(__dirname, "..", "bin", process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg");
+const FFPROBE_BIN =
+  process.env.FFPROBE_PATH ||
+  path.join(__dirname, "..", "bin", process.platform === "win32" ? "ffprobe.exe" : "ffprobe");
 const MPV_BIN =
   process.env.MPV_PATH ||
   path.join(__dirname, "..", "bin", process.platform === "win32" ? "mpv.exe" : "mpv");
+
+// Detect whether a stream's video is HDR (PQ / HLG), so we only pay the cost of
+// tone-mapping when it's actually needed. Resolves false on any error (no
+// ffprobe, timeout, SDR) — the caller then takes the fast copy path.
+function probeHdr(url) {
+  return new Promise((resolve) => {
+    const bin = fs.existsSync(FFPROBE_BIN) ? FFPROBE_BIN : "ffprobe";
+    let proc;
+    try {
+      proc = spawn(
+        bin,
+        [
+          "-v", "error",
+          "-select_streams", "v:0",
+          "-show_entries", "stream=color_transfer",
+          "-of", "default=nw=1:nk=1",
+          url,
+        ],
+        { stdio: ["ignore", "pipe", "ignore"] },
+      );
+    } catch {
+      return resolve(false);
+    }
+    let out = "";
+    const timer = setTimeout(() => {
+      try {
+        proc.kill();
+      } catch {
+        /* gone */
+      }
+      resolve(false);
+    }, 5000);
+    proc.stdout.on("data", (d) => {
+      out += d.toString();
+    });
+    proc.on("error", () => {
+      clearTimeout(timer);
+      resolve(false);
+    });
+    proc.on("close", () => {
+      clearTimeout(timer);
+      const transfer = out.trim().toLowerCase();
+      resolve(transfer === "smpte2084" || transfer === "arib-std-b67");
+    });
+  });
+}
 
 // --- mpv popout (optional native window, instant, decodes anything) --------
 let mpvProc = null;
@@ -156,6 +205,22 @@ ipcMain.handle("transcode:start", async (_event, url) => {
   fs.mkdirSync(HLS_DIR, { recursive: true });
 
   const bin = fs.existsSync(FFMPEG_BIN) ? FFMPEG_BIN : "ffmpeg";
+
+  // HDR streams look dark/desaturated in a plain <video>, so tone-map them to
+  // SDR (re-encoding the video). Everything else stays on the cheap copy path.
+  const hdr = await probeHdr(url);
+  const videoArgs = hdr
+    ? [
+        "-vf",
+        "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709," +
+          "tonemap=tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p",
+        "-c:v", "libx264",
+        "-preset", "veryfast",
+        "-crf", "21",
+        "-force_key_frames", "expr:gte(t,n_forced*2)",
+      ]
+    : ["-c:v", "copy"];
+
   let stderr = "";
   let spawnError = null;
   try {
@@ -169,7 +234,7 @@ ipcMain.handle("transcode:start", async (_event, url) => {
         "-reconnect_streamed", "1",
         "-reconnect_delay_max", "5",
         "-i", url,
-        "-c:v", "copy",
+        ...videoArgs,
         "-c:a", "aac",
         "-ac", "2",
         "-b:a", "160k",
@@ -192,7 +257,11 @@ ipcMain.handle("transcode:start", async (_event, url) => {
     stderr = (stderr + d.toString()).slice(-2000);
   });
 
-  const ready = await waitForFile(path.join(HLS_DIR, "index.m3u8"), 15000);
+  // Re-encoding (HDR) is slower to produce the first segment than a plain copy.
+  const ready = await waitForFile(
+    path.join(HLS_DIR, "index.m3u8"),
+    hdr ? 25000 : 15000,
+  );
   if (!ready) {
     stopTranscode();
     let detail;
