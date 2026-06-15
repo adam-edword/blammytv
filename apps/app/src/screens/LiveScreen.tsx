@@ -229,10 +229,12 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
           onSelectProgram={(p) => {
             setSelectedProgramId(p.id);
             setSelectedChannelId(null);
+            setPlayingId(p.channelId);
           }}
           onSelectChannel={(id) => {
             setSelectedChannelId(id);
             setSelectedProgramId(null);
+            setPlayingId(id);
           }}
           onHoverChannel={setHoveredChannelId}
         />
