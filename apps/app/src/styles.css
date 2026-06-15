@@ -526,18 +526,20 @@ img {
   margin: 0;
 }
 
-/* Centered, largest 16:9 box that fits below the header. */
+/* Largest 16:9 box that fits below the header. Anchored near the top (keeps a
+ * roomy top gap) so the bottom sits closer to the app's bottom edge. */
 .live-screen--theater .now-playing__preview {
   position: fixed;
   left: 50%;
-  top: calc(var(--header-zone) + (100vh - var(--header-zone)) / 2);
-  transform: translate(-50%, -50%);
-  width: min(98vw, calc((100vh - var(--header-zone) - 24px) * 16 / 9));
+  top: calc(var(--header-zone) + 16px);
+  transform: translateX(-50%);
+  width: min(98vw, calc((100vh - var(--header-zone) - 28px) * 16 / 9));
   height: auto;
   aspect-ratio: 16 / 9;
   z-index: 45;
-  border: none;
-  border-radius: 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  overflow: hidden;
 }
 
 /* Dim the nav/header while in theater, but keep it clickable above the black. */

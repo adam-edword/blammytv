@@ -48,7 +48,22 @@ ipcMain.handle("popout:play", (_event, url) => {
   try {
     const proc = spawn(
       bin,
-      [url, "--force-window=yes", "--title=BlammyTV", "--no-terminal"],
+      [
+        url,
+        "--force-window=yes",
+        "--title=BlammyTV",
+        "--no-terminal",
+        // PiP feel: small, borderless, always-on-top, parked bottom-right.
+        "--no-border",
+        "--ontop=yes",
+        "--autofit=480x270",
+        "--geometry=-24-48",
+        // Start faster: hardware decode + low-latency cache profile so it
+        // doesn't sit buffering for several seconds before showing video.
+        "--hwdec=auto-safe",
+        "--profile=low-latency",
+        "--cache=yes",
+      ],
       { stdio: "ignore" },
     );
     proc.on("exit", () => {
