@@ -1,123 +1,133 @@
 const { app, BrowserWindow, shell, ipcMain } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
+const os = require("node:os");
+const http = require("node:http");
 const { spawn } = require("node:child_process");
 
 /**
  * BlammyTV desktop shell.
  *
  * - webSecurity:false lets the renderer call Xtream + load streams directly.
- * - Video plays in mpv (decodes everything, incl. AC3 audio the browser can't),
- *   embedded into a borderless child window layered over the app's player
- *   region. The renderer reports that region's screen bounds; we keep the mpv
- *   window pinned there as the main window moves/resizes.
+ * - Audio fix: a bundled ffmpeg transcodes the live stream locally (AC3 → AAC,
+ *   video copied) into HLS, served from a tiny localhost server. The renderer
+ *   plays that HLS in its normal web <video> (via hls.js) — so the video lives
+ *   right in the app (mini-player, theater) and audio works.
  */
 
-// Free the GPU surface for the embedded mpv window — Chromium's compositor
-// otherwise fights mpv and the video renders black. Our UI is light, so CPU
-// compositing is fine. Must be called before the app is ready.
-app.disableHardwareAcceleration();
-
 const DEV_URL = process.env.ELECTRON_START_URL || "http://localhost:1420/";
-const MPV_BIN =
-  process.env.MPV_PATH ||
-  path.join(__dirname, "..", "bin", process.platform === "win32" ? "mpv.exe" : "mpv");
+const FFMPEG_BIN =
+  process.env.FFMPEG_PATH ||
+  path.join(__dirname, "..", "bin", process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg");
 
-let mainWin = null;
-let videoWin = null;
-let mpvProc = null;
+const HLS_DIR = path.join(os.tmpdir(), "blammytv-hls");
+let hlsServer = null;
+let hlsPort = 0;
+let ffmpegProc = null;
 
-function nativeWid(win) {
-  const buf = win.getNativeWindowHandle();
-  return buf.length >= 8
-    ? buf.readBigUInt64LE(0).toString()
-    : buf.readUInt32LE(0).toString();
-}
-
-// A viewport-relative rect (left/top/width/height, DIP) becomes absolute screen
-// bounds using the main window's content origin — reliable across DPI scaling.
-function rectToBounds(rect) {
-  const cb = mainWin ? mainWin.getContentBounds() : { x: 0, y: 0 };
-  return {
-    x: Math.round(cb.x + rect.left),
-    y: Math.round(cb.y + rect.top),
-    width: Math.max(1, Math.round(rect.width)),
-    height: Math.max(1, Math.round(rect.height)),
-  };
-}
-
-function ensureVideoWin() {
-  if (videoWin && !videoWin.isDestroyed()) return videoWin;
-  videoWin = new BrowserWindow({
-    parent: mainWin || undefined,
-    frame: false,
-    transparent: false,
-    hasShadow: false,
-    resizable: false,
-    skipTaskbar: true,
-    backgroundColor: "#000000",
-    show: false,
+function startServer() {
+  if (hlsServer) return Promise.resolve();
+  fs.mkdirSync(HLS_DIR, { recursive: true });
+  return new Promise((resolve) => {
+    hlsServer = http.createServer((req, res) => {
+      const name = path.basename((req.url || "").split("?")[0]);
+      const file = path.join(HLS_DIR, name);
+      fs.readFile(file, (err, data) => {
+        if (err) {
+          res.writeHead(404);
+          res.end();
+          return;
+        }
+        res.writeHead(200, {
+          "Content-Type": name.endsWith(".m3u8")
+            ? "application/vnd.apple.mpegurl"
+            : "video/mp2t",
+          "Access-Control-Allow-Origin": "*",
+          "Cache-Control": "no-cache",
+        });
+        res.end(data);
+      });
+    });
+    hlsServer.listen(0, "127.0.0.1", () => {
+      hlsPort = hlsServer.address().port;
+      resolve();
+    });
   });
-  videoWin.setMenu(null);
-  return videoWin;
 }
 
-function notifyMpvClosed() {
-  for (const w of BrowserWindow.getAllWindows()) w.webContents.send("mpv:closed");
-}
-
-function killMpv() {
-  if (mpvProc) {
-    mpvProc.intentional = true; // app closed it (switch/stop), not the user
+function stopTranscode() {
+  if (ffmpegProc) {
     try {
-      mpvProc.kill();
+      ffmpegProc.kill();
     } catch {
       /* gone */
     }
-    mpvProc = null;
+    ffmpegProc = null;
   }
 }
 
-function stopPlayback() {
-  killMpv();
-  if (videoWin && !videoWin.isDestroyed()) videoWin.hide();
+function waitForFile(file, timeoutMs) {
+  return new Promise((resolve) => {
+    const start = Date.now();
+    const tick = () => {
+      if (fs.existsSync(file)) return resolve(true);
+      if (Date.now() - start > timeoutMs) return resolve(false);
+      setTimeout(tick, 200);
+    };
+    tick();
+  });
 }
 
-ipcMain.handle("mpv:play", (_event, { url, rect }) => {
-  killMpv();
-  const win = ensureVideoWin();
-  if (rect) win.setBounds(rectToBounds(rect));
-  win.showInactive();
-  const bin = fs.existsSync(MPV_BIN) ? MPV_BIN : "mpv";
+ipcMain.handle("transcode:start", async (_event, url) => {
+  stopTranscode();
+  await startServer();
+
+  // Fresh output dir per stream.
+  fs.rmSync(HLS_DIR, { recursive: true, force: true });
+  fs.mkdirSync(HLS_DIR, { recursive: true });
+
+  const bin = fs.existsSync(FFMPEG_BIN) ? FFMPEG_BIN : "ffmpeg";
   try {
-    const proc = spawn(
+    ffmpegProc = spawn(
       bin,
-      [url, `--wid=${nativeWid(win)}`, "--no-terminal", "--osc=yes"],
+      [
+        "-hide_banner",
+        "-loglevel", "error",
+        "-fflags", "+nobuffer",
+        "-i", url,
+        "-c:v", "copy",
+        "-c:a", "aac",
+        "-ac", "2",
+        "-b:a", "160k",
+        "-f", "hls",
+        "-hls_time", "2",
+        "-hls_list_size", "6",
+        "-hls_flags", "delete_segments+append_list+omit_endlist",
+        "-hls_segment_filename", path.join(HLS_DIR, "seg_%05d.ts"),
+        path.join(HLS_DIR, "index.m3u8"),
+      ],
       { stdio: "ignore" },
     );
-    proc.on("exit", () => {
-      if (mpvProc === proc) mpvProc = null;
-      if (!proc.intentional) notifyMpvClosed();
+    ffmpegProc.on("error", () => {
+      ffmpegProc = null;
     });
-    proc.on("error", () => {
-      if (mpvProc === proc) mpvProc = null;
-    });
-    mpvProc = proc;
-    return { ok: true };
   } catch (err) {
     return { ok: false, error: String((err && err.message) || err) };
   }
-});
 
-ipcMain.handle("mpv:bounds", (_event, rect) => {
-  if (videoWin && !videoWin.isDestroyed() && rect) {
-    videoWin.setBounds(rectToBounds(rect));
+  const ready = await waitForFile(path.join(HLS_DIR, "index.m3u8"), 15000);
+  if (!ready) {
+    stopTranscode();
+    return {
+      ok: false,
+      error: "ffmpeg produced no output — check ffmpeg.exe and the stream.",
+    };
   }
-  return { ok: true };
+  return { ok: true, url: `http://127.0.0.1:${hlsPort}/index.m3u8` };
 });
 
-ipcMain.handle("mpv:stop", () => {
-  stopPlayback();
+ipcMain.handle("transcode:stop", () => {
+  stopTranscode();
   return { ok: true };
 });
 
@@ -135,14 +145,7 @@ function createWindow() {
       preload: path.join(__dirname, "preload.cjs"),
     },
   });
-  mainWin = win;
   win.maximize();
-
-  // Tell the renderer to re-report the player region whenever the window moves
-  // or resizes, so the embedded mpv window stays pinned to it.
-  const sendGeom = () => win.webContents.send("window:geom");
-  win.on("move", sendGeom);
-  win.on("resize", sendGeom);
 
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
@@ -164,8 +167,8 @@ app.whenReady().then(() => {
 });
 
 app.on("window-all-closed", () => {
-  stopPlayback();
+  stopTranscode();
   if (process.platform !== "darwin") app.quit();
 });
 
-app.on("before-quit", stopPlayback);
+app.on("before-quit", stopTranscode);

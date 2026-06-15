@@ -1,30 +1,16 @@
 /**
  * Bridge to the desktop (Electron) shell. Undefined in a plain browser, so
- * callers fall back to web playback.
+ * callers fall back to playing the stream directly.
  */
-/** Viewport-relative rect of the player region (DIP); main converts to screen. */
-export interface Rect {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-}
-
 interface BlammyBridge {
-  mpvPlay: (url: string, rect?: Rect) => Promise<{ ok: boolean; error?: string }>;
-  mpvSetBounds: (rect: Rect) => Promise<unknown>;
-  mpvStop: () => Promise<unknown>;
-  onMpvClosed: (cb: () => void) => () => void;
-  onWindowGeom: (cb: () => void) => () => void;
+  transcodeStart: (url: string) => Promise<{ ok: boolean; url?: string; error?: string }>;
+  transcodeStop: () => Promise<unknown>;
 }
 
 const bridge = (window as unknown as { blammy?: BlammyBridge }).blammy;
 
 export const isDesktop = (): boolean => !!bridge;
-export const mpvPlay = (url: string, rect?: Rect) => bridge?.mpvPlay(url, rect);
-export const mpvSetBounds = (rect: Rect) => bridge?.mpvSetBounds(rect);
-export const mpvStop = () => bridge?.mpvStop();
-export const onMpvClosed = (cb: () => void): (() => void) =>
-  bridge?.onMpvClosed(cb) ?? (() => {});
-export const onWindowGeom = (cb: () => void): (() => void) =>
-  bridge?.onWindowGeom(cb) ?? (() => {});
+
+/** Start the local ffmpeg→HLS transcode; resolves to a playable HLS URL. */
+export const transcodeStart = (url: string) => bridge?.transcodeStart(url);
+export const transcodeStop = () => bridge?.transcodeStop();

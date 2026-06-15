@@ -1,60 +1,78 @@
 import { useEffect, useRef, useState } from "react";
-import mpegts from "mpegts.js";
+import Hls from "hls.js";
+import { isDesktop, transcodeStart, transcodeStop } from "../lib/desktop";
 
 /**
- * Live video player. Xtream live feeds are MPEG-TS over HTTP, which browsers
- * can't decode natively, so we demux with mpegts.js into a <video> element.
+ * Live video player.
  *
- * Cross-origin playback only works where CORS is disabled — i.e. inside the
- * desktop (Electron) shell. In a plain browser the stream fetch is blocked and
- * we surface a small message instead.
+ * On the desktop the stream is transcoded locally (ffmpeg → HLS, AC3 audio → AAC)
+ * and we play that HLS feed; in a plain browser we just try the URL directly.
+ * Either way it's a normal web <video>, so it lives right in the mini-player and
+ * can expand for theater — no native windows.
  */
 export function Player({ url, className }: { url: string; className?: string }) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [error, setError] = useState<string | null>(null);
-  // Whether playback has actually started — mpegts emits recoverable errors
-  // mid-stream, so we only surface the message if the picture never started.
-  const [started, setStarted] = useState(false);
+  const [status, setStatus] = useState<"loading" | "playing" | "error">(
+    "loading",
+  );
+  const [message, setMessage] = useState("Tuning in…");
 
   useEffect(() => {
-    setError(null);
-    setStarted(false);
+    let cancelled = false;
+    let hls: Hls | null = null;
     const video = videoRef.current;
     if (!video) return;
 
-    if (!mpegts.getFeatureList().mseLivePlayback) {
-      setError("Playback isn't supported here.");
-      return;
-    }
+    setStatus("loading");
+    setMessage("Tuning in…");
 
-    const player = mpegts.createPlayer(
-      { type: "mpegts", isLive: true, url },
-      {
-        // Smooth playback over low latency — the right trade for watching TV.
-        // A stash buffer absorbs network jitter; NOT chasing the live edge
-        // avoids the constant little seeks that show up as stutter/buffering.
-        // Worker demuxing is intentionally OFF: it races the audio track setup
-        // and produces inconsistent audio. Main-thread demux is fine on desktop.
-        enableStashBuffer: true,
-        stashInitialSize: 1024 * 384,
-        liveBufferLatencyChasing: false,
-        lazyLoad: false,
-        autoCleanupSourceBuffer: true,
-      },
-    );
-    player.attachMediaElement(video);
-    player.on(mpegts.Events.ERROR, () =>
-      setError("Couldn't play this stream here (needs the desktop app)."),
-    );
-    player.load();
-    void Promise.resolve(player.play()).catch(() => {});
+    const play = (src: string) => {
+      if (cancelled || !video) return;
+      if (Hls.isSupported()) {
+        hls = new Hls({
+          liveSyncDurationCount: 3,
+          manifestLoadingMaxRetry: 8,
+          manifestLoadingRetryDelay: 600,
+          levelLoadingMaxRetry: 8,
+        });
+        hls.loadSource(src);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.ERROR, (_e, data) => {
+          if (data.fatal) {
+            setStatus("error");
+            setMessage("Couldn't play this stream.");
+          }
+        });
+      } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+        video.src = src; // Safari / native HLS
+      } else {
+        setStatus("error");
+        setMessage("HLS isn't supported here.");
+        return;
+      }
+      void video.play().catch(() => {});
+    };
+
+    (async () => {
+      if (isDesktop()) {
+        const res = await transcodeStart(url);
+        if (cancelled) return;
+        if (!res?.ok || !res.url) {
+          setStatus("error");
+          setMessage(res?.error ?? "Couldn't start playback.");
+          return;
+        }
+        play(res.url);
+      } else {
+        // Browser/demo: play the URL directly (mock streams won't resolve).
+        play(url);
+      }
+    })();
 
     return () => {
-      try {
-        player.destroy();
-      } catch {
-        /* already torn down */
-      }
+      cancelled = true;
+      hls?.destroy();
+      if (isDesktop()) void transcodeStop();
     };
   }, [url]);
 
@@ -66,12 +84,14 @@ export function Player({ url, className }: { url: string; className?: string }) 
         autoPlay
         playsInline
         controls
-        onPlaying={() => {
-          setStarted(true);
-          setError(null);
-        }}
+        onPlaying={() => setStatus("playing")}
       />
-      {error && !started && <div className="player__error">{error}</div>}
+      {status !== "playing" && (
+        <div className="player__status">
+          {status === "loading" && <span className="player__spinner" />}
+          <span>{message}</span>
+        </div>
+      )}
     </div>
   );
 }

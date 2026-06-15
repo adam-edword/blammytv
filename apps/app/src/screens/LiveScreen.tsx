@@ -4,15 +4,6 @@ import { NowPlaying } from "../components/NowPlaying";
 import { CategorySidebar, FAVORITES_ID } from "../components/CategorySidebar";
 import { EpgGuide } from "../components/EpgGuide";
 import { isLiveNow } from "../lib/epg";
-import {
-  isDesktop,
-  mpvPlay,
-  mpvSetBounds,
-  mpvStop,
-  onMpvClosed,
-  onWindowGeom,
-  type Rect,
-} from "../lib/desktop";
 
 // Resizable source panel. Dragged below CAT_COLLAPSE_AT it snaps to a narrow
 // emoji rail. Width is remembered per device.
@@ -104,56 +95,10 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
     live.channels.find((c) => c.id === featuredChannelId) ??
     live.channels[0];
 
-  // The channel playing in the hero preview. On desktop the mpv window is
-  // embedded over that preview, so playback is tied to the hero channel.
+  // Which channel is actively streaming in the preview. Switching the hero
+  // channel stops playback (you re-press play on the new one).
   const [playingId, setPlayingId] = useState<string | null>(null);
   const playing = !!heroChannel && playingId === heroChannel.id;
-
-  // Viewport-relative rect of the preview box; the shell converts it to screen
-  // coordinates (via getContentBounds) to pin the embedded mpv window over it.
-  const previewRef = useRef<HTMLDivElement>(null);
-  const previewRect = (): Rect | undefined => {
-    const el = previewRef.current;
-    if (!el) return undefined;
-    const r = el.getBoundingClientRect();
-    return { left: r.left, top: r.top, width: r.width, height: r.height };
-  };
-
-  // Desktop: drive embedded mpv from the playing hero channel.
-  useEffect(() => {
-    if (!isDesktop()) return;
-    if (playing && heroChannel) void mpvPlay(heroChannel.streamUrl, previewRect());
-    else void mpvStop();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playing, heroChannel?.id]);
-
-  // Keep the embedded mpv window pinned to the preview as things move/resize.
-  useEffect(() => {
-    if (!isDesktop() || !playing) return;
-    const sync = () => {
-      const r = previewRect();
-      if (r) void mpvSetBounds(r);
-    };
-    const offGeom = onWindowGeom(sync);
-    window.addEventListener("resize", sync);
-    const ro = previewRef.current ? new ResizeObserver(sync) : null;
-    if (ro && previewRef.current) ro.observe(previewRef.current);
-    return () => {
-      offGeom();
-      window.removeEventListener("resize", sync);
-      ro?.disconnect();
-    };
-  }, [playing]);
-
-  // Clear playing state if the user closes the mpv window; stop mpv on unmount.
-  useEffect(() => {
-    if (!isDesktop()) return;
-    const off = onMpvClosed(() => setPlayingId(null));
-    return () => {
-      off();
-      void mpvStop();
-    };
-  }, []);
 
   return (
     <div className="live-screen">
@@ -163,7 +108,6 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
           program={heroProgram}
           now={now}
           playing={playing}
-          previewRef={previewRef}
           onPlay={() => setPlayingId(heroChannel.id)}
           onStop={() => setPlayingId(null)}
         />

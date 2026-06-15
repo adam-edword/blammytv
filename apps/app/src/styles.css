@@ -345,7 +345,7 @@ img {
   filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6));
 }
 
-/* mpegts.js video surface + custom controls — fills the preview box. */
+/* Web <video> surface — fills the preview box. */
 .player {
   position: relative;
   width: 100%;
@@ -362,38 +362,44 @@ img {
   background: #000;
 }
 
-.player__error {
+/* Loading / error overlay while the stream spins up. */
+.player__status {
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
   padding: 24px;
   text-align: center;
+  font-family: var(--font-headline);
+  font-weight: 600;
   font-size: 15px;
-  line-height: 1.4;
   color: rgba(255, 255, 255, 0.75);
+  background: #000;
   pointer-events: none;
 }
 
-/* Desktop: the video is in the mpv popout; this is the in-app status. */
-.player--native {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  background: #000;
-  color: rgba(255, 255, 255, 0.7);
-  font-family: var(--font-headline);
-  font-weight: 600;
-  font-size: 16px;
+.player__spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.15);
+  border-top-color: var(--red);
+  animation: player-spin 0.8s linear infinite;
 }
 
-.player__native-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--red);
-  box-shadow: 0 0 0 4px rgb(var(--accent-rgb) / 0.2);
+@keyframes player-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player__spinner {
+    animation: none;
+  }
 }
 
 /* Control bar — fades out when the pointer's idle. */
