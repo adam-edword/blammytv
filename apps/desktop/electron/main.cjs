@@ -23,6 +23,9 @@ function createWindow() {
     autoHideMenuBar: true,
     webPreferences: {
       webSecurity: false,
+      // Don't gate stream audio behind a user gesture (video would otherwise
+      // auto-start silently).
+      autoplayPolicy: "no-user-gesture-required",
     },
   });
 

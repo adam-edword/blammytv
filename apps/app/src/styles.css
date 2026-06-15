@@ -282,7 +282,7 @@ img {
   position: relative;
   flex-shrink: 0;
   width: 560px;
-  aspect-ratio: 600 / 338;
+  aspect-ratio: 16 / 9;
   border-radius: var(--radius);
   border: 1.5px solid rgba(255, 255, 255, 0.1);
   overflow: hidden;
