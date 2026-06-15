@@ -172,6 +172,9 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
   const restProgram = playingChannel ? playingProgram : heroProgram;
   const textChannel = hoverChannel ?? restChannel;
   const textProgram = hoverChannel ? hoverProgram : restProgram;
+  const sourceName = live.groups.find(
+    (g) => g.id === (textChannel ?? heroChannel)?.groupId,
+  )?.name;
 
   return (
     <div
@@ -206,6 +209,7 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
             now={now}
             playing={playing}
             streamUrl={(playingChannel ?? heroChannel).streamUrl}
+            sourceName={sourceName}
             theater={inTheater}
             onPlay={() => setPlayingId(heroChannel.id)}
             onStop={() => {

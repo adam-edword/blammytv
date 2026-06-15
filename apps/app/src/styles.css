@@ -458,6 +458,12 @@ img {
   background: rgba(255, 255, 255, 0.14);
 }
 
+.player__btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+  background: transparent;
+}
+
 .player__btn.is-active {
   color: var(--red);
   opacity: 1;
@@ -526,22 +532,26 @@ img {
 
 .player__theater-exit {
   position: absolute;
-  top: 14px;
-  right: 16px;
-  width: 38px;
-  height: 38px;
+  top: 16px;
+  right: 20px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
   border: none;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.5);
   color: #fff;
-  font-size: 18px;
   cursor: pointer;
   opacity: 0;
+  pointer-events: none;
   transition: opacity 0.2s ease, background 0.12s ease;
 }
 
 .player--active .player__theater-exit {
   opacity: 1;
+  pointer-events: auto;
 }
 
 .player__theater-exit:hover {
@@ -580,25 +590,179 @@ img {
   margin: 0;
 }
 
-/* The largest true 16:9 box that fits the stage, top-anchored just under the
- * nav and centered horizontally. Because the box IS 16:9, the video fills it
- * exactly (no internal letterbox) and the frame hugs the picture — so the
- * `top` value below is, deterministically, the gap under the nav. Whatever
- * dimension the box can't fill becomes pure-black backdrop, which blends away.
- *
- * 18px gap under the nav, ~8px on the sides, 10px reserved at the bottom. */
+/* Full-bleed video: fills the whole viewport (letterboxed on black via
+ * object-fit), with the controls overlaid on a bottom scrim. The dimmed nav
+ * floats over the top. */
 .live-screen--theater .now-playing__preview {
   position: fixed;
-  top: calc(var(--header-zone) + 18px);
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(calc(100vw - 16px), calc((100vh - var(--header-zone) - 28px) * 16 / 9));
-  height: auto;
-  aspect-ratio: 16 / 9;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  transform: none;
+  aspect-ratio: auto;
   z-index: 45;
   border: none;
-  border-radius: 12px;
+  border-radius: 0;
   overflow: hidden;
+}
+
+/* ---------- Theater overlay (content + seek + controls) ---------- */
+.theater-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 96px 40px 30px;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.92) 0%,
+    rgba(0, 0, 0, 0.72) 45%,
+    transparent 100%
+  );
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.player--active .theater-bar {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.theater-bar__meta {
+  display: flex;
+  align-items: flex-end;
+  gap: 18px;
+  max-width: 760px;
+}
+
+.theater-bar__art {
+  width: 72px;
+  height: 72px;
+  flex-shrink: 0;
+  object-fit: contain;
+  border-radius: 10px;
+}
+
+.theater-bar__text {
+  min-width: 0;
+}
+
+.theater-bar__chan {
+  margin: 0 0 6px;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.theater-bar__name {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.9px;
+  color: var(--red);
+}
+
+.theater-bar__source {
+  font-family: var(--font-headline);
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
+.theater-bar__title {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: clamp(22px, 2.4vw, 32px);
+  line-height: 1.1;
+  color: var(--text);
+}
+
+.theater-bar__desc {
+  margin: 6px 0 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text-dim);
+  max-width: 720px;
+}
+
+/* Live position (display only). */
+.theater-seek {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.theater-seek__track {
+  position: relative;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.theater-seek__fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--red);
+  border-radius: 3px;
+}
+
+.theater-seek__knob {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  transform: translate(-50%, -50%);
+}
+
+.theater-seek__labels {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.theater-seek__live {
+  color: var(--red);
+}
+
+.theater-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.theater-controls__group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.player__btn--play {
+  width: 48px;
+  height: 48px;
+}
+
+.theater-vol {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.theater-vol__slider {
+  width: 96px;
 }
 
 /* ---------- Loading splash ---------- */

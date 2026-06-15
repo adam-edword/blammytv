@@ -1,6 +1,6 @@
 import type { LiveChannel, EpgProgram } from "@blammytv/shared";
 import { formatTime, isLiveNow, progressPct } from "../lib/epg";
-import { Player } from "./Player";
+import { Player, type TheaterMeta } from "./Player";
 
 /** The marquee at the top of the Live tab: a preview of the focused channel
  * plus its current program's details. The preview doubles as the player — click
@@ -11,11 +11,13 @@ export function NowPlaying({
   now,
   playing,
   streamUrl,
+  sourceName,
   theater,
   onPlay,
   onStop,
   onToggleTheater,
   onPopout,
+  onToggleStats,
 }: {
   channel: LiveChannel;
   program: EpgProgram | null;
@@ -25,13 +27,27 @@ export function NowPlaying({
    * separate from `channel` so hovering a guide row can re-skin the text
    * without disturbing playback. */
   streamUrl: string;
+  sourceName?: string;
   theater: boolean;
   onPlay: () => void;
   onStop: () => void;
   onToggleTheater: () => void;
   onPopout?: () => void;
+  onToggleStats?: () => void;
 }) {
   const live = program ? isLiveNow(program, now) : false;
+
+  // Content + live position for the theater overlay.
+  const meta: TheaterMeta = {
+    logo: channel.logo,
+    channelName: `${channel.name} HDR`,
+    sourceName,
+    title: program?.title ?? "No programme information",
+    description: program?.description,
+    startLabel: program ? formatTime(Date.parse(program.start)) : undefined,
+    progressPct: program ? progressPct(program, now) : 100,
+    live,
+  };
 
   return (
     <section className="now-playing">
@@ -46,9 +62,11 @@ export function NowPlaying({
             url={streamUrl}
             className="now-playing__art"
             theater={theater}
+            meta={meta}
             onToggleTheater={onToggleTheater}
             onPopout={onPopout}
             onStop={onStop}
+            onToggleStats={onToggleStats}
           />
         ) : (
           // Just a black screen with a play glyph — click to start the stream.

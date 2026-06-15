@@ -9,7 +9,24 @@ import {
   PopoutIcon,
   FullscreenIcon,
   CloseIcon,
+  SkipBackIcon,
+  SkipFwdIcon,
+  LanguageIcon,
+  CcIcon,
+  StatsIcon,
 } from "./icons";
+
+/** Show content + live position shown in the theater overlay. */
+export interface TheaterMeta {
+  logo?: string;
+  channelName: string;
+  sourceName?: string;
+  title: string;
+  description?: string;
+  startLabel?: string;
+  progressPct: number;
+  live: boolean;
+}
 
 /**
  * Live video player.
@@ -26,6 +43,8 @@ export function Player({
   onToggleTheater,
   onPopout,
   onStop,
+  onToggleStats,
+  meta,
 }: {
   url: string;
   className?: string;
@@ -33,6 +52,8 @@ export function Player({
   onToggleTheater?: () => void;
   onPopout?: () => void;
   onStop?: () => void;
+  onToggleStats?: () => void;
+  meta?: TheaterMeta;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -131,6 +152,21 @@ export function Player({
     else v.pause();
   }, []);
 
+  // Best-effort skip within the (short) live buffer: back rewinds, forward
+  // clamps to the live edge.
+  const skip = useCallback((delta: number) => {
+    const v = videoRef.current;
+    if (!v) return;
+    try {
+      const s = v.seekable;
+      const min = s.length ? s.start(0) : 0;
+      const max = s.length ? s.end(s.length - 1) : v.currentTime;
+      v.currentTime = Math.min(max, Math.max(min, v.currentTime + delta));
+    } catch {
+      /* not seekable */
+    }
+  }, []);
+
   const toggleFullscreen = useCallback(() => {
     const el = wrapRef.current;
     if (!el) return;
@@ -195,50 +231,110 @@ export function Player({
       )}
 
       {theater && (
-        <button
-          className="player__theater-exit"
-          type="button"
-          aria-label="Exit theater mode"
-          onClick={onToggleTheater}
-        >
-          ✕
-        </button>
-      )}
-
-      {theater && status === "playing" && (
-        <div className="player__controls">
-          <button className="player__btn" type="button" onClick={togglePlay} aria-label={paused ? "Play" : "Pause"}>
-            {paused ? <PlayIcon size={20} /> : <PauseIcon size={20} />}
+        <>
+          <button
+            className="player__theater-exit"
+            type="button"
+            aria-label="Exit theater mode"
+            onClick={onToggleTheater}
+          >
+            <CloseIcon size={20} />
           </button>
-          <button className="player__btn" type="button" onClick={() => setMuted((m) => !m)} aria-label={muted ? "Unmute" : "Mute"}>
-            {muted || volPct === 0 ? <MuteIcon size={20} /> : <VolumeIcon size={20} />}
-          </button>
-          <input
-            className="player__volume"
-            type="range"
-            min={0}
-            max={1}
-            step={0.05}
-            value={muted ? 0 : volume}
-            onChange={(e) => {
-              setMuted(false);
-              setVolume(parseFloat(e.target.value));
-            }}
-            aria-label="Volume"
-          />
-          <span className="player__vol-label">{volPct}%</span>
 
-          <div className="player__spacer" />
+          <div className="theater-bar">
+            {meta && (
+              <div className="theater-bar__meta">
+                {meta.logo && (
+                  <img className="theater-bar__art" src={meta.logo} alt="" />
+                )}
+                <div className="theater-bar__text">
+                  <p className="theater-bar__chan">
+                    <span className="theater-bar__name">{meta.channelName}</span>
+                    {meta.sourceName && (
+                      <span className="theater-bar__source">
+                        {meta.sourceName}
+                      </span>
+                    )}
+                  </p>
+                  <h2 className="theater-bar__title">{meta.title}</h2>
+                  {meta.description && (
+                    <p className="theater-bar__desc">{meta.description}</p>
+                  )}
+                </div>
+              </div>
+            )}
 
-          {onPopout && (
-            <button className="player__btn" type="button" onClick={onPopout} aria-label="Pop out (native player)">
-              <PopoutIcon size={20} />
-            </button>
-          )}
-          <button className="player__btn" type="button" onClick={toggleFullscreen} aria-label="Fullscreen">
-            <FullscreenIcon size={20} />
-          </button>
-        </div>
+            {/* Live position (display only). */}
+            <div className="theater-seek">
+              <div className="theater-seek__track">
+                <div
+                  className="theater-seek__fill"
+                  style={{ width: `${Math.min(100, meta?.progressPct ?? 100)}%` }}
+                />
+                <span
+                  className="theater-seek__knob"
+                  style={{ left: `${Math.min(100, meta?.progressPct ?? 100)}%` }}
+                />
+              </div>
+              <div className="theater-seek__labels">
+                <span>{meta?.startLabel ?? ""}</span>
+                <span className="theater-seek__live">LIVE</span>
+              </div>
+            </div>
+
+            <div className="theater-controls">
+              <div className="theater-controls__group">
+                <button className="player__btn" type="button" onClick={() => skip(-10)} aria-label="Back 10 seconds">
+                  <SkipBackIcon size={24} />
+                </button>
+                <button className="player__btn player__btn--play" type="button" onClick={togglePlay} aria-label={paused ? "Play" : "Pause"}>
+                  {paused ? <PlayIcon size={26} /> : <PauseIcon size={26} />}
+                </button>
+                <button className="player__btn" type="button" onClick={() => skip(10)} aria-label="Forward 10 seconds">
+                  <SkipFwdIcon size={24} />
+                </button>
+              </div>
+
+              <div className="theater-controls__group">
+                <button className="player__btn" type="button" disabled title="Audio language — coming soon" aria-label="Audio language">
+                  <LanguageIcon size={20} />
+                </button>
+                <button className="player__btn" type="button" disabled title="Subtitles — coming soon" aria-label="Subtitles">
+                  <CcIcon size={20} />
+                </button>
+                <button className="player__btn" type="button" onClick={onToggleStats} aria-label="Stats for nerds">
+                  <StatsIcon size={20} />
+                </button>
+                {onPopout && (
+                  <button className="player__btn" type="button" onClick={onPopout} aria-label="Pop out (native player)">
+                    <PopoutIcon size={20} />
+                  </button>
+                )}
+                <button className="player__btn" type="button" onClick={toggleFullscreen} aria-label="Fullscreen">
+                  <FullscreenIcon size={20} />
+                </button>
+                <div className="theater-vol">
+                  <button className="player__btn" type="button" onClick={() => setMuted((m) => !m)} aria-label={muted ? "Unmute" : "Mute"}>
+                    {muted || volPct === 0 ? <MuteIcon size={20} /> : <VolumeIcon size={20} />}
+                  </button>
+                  <input
+                    className="player__volume theater-vol__slider"
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    value={muted ? 0 : volume}
+                    onChange={(e) => {
+                      setMuted(false);
+                      setVolume(parseFloat(e.target.value));
+                    }}
+                    aria-label="Volume"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

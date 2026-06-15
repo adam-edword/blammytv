@@ -110,6 +110,56 @@ export function CloseIcon({ size = 24, className }: IconProps) {
   );
 }
 
+/** Media / Skip back 10s (counter-clockwise arrow). */
+export function SkipBackIcon({ size = 22, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1" />
+      <path d="M3 4v4.5h4.5" />
+    </Svg>
+  );
+}
+
+/** Media / Skip forward 10s (clockwise arrow). */
+export function SkipFwdIcon({ size = 22, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <path d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1" />
+      <path d="M21 4v4.5h-4.5" />
+    </Svg>
+  );
+}
+
+/** Media / Audio language (globe). */
+export function LanguageIcon({ size = 20, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18" />
+      <path d="M12 3c2.6 2.6 2.6 15.4 0 18M12 3c-2.6 2.6-2.6 15.4 0 18" />
+    </Svg>
+  );
+}
+
+/** Media / Subtitles (CC). */
+export function CcIcon({ size = 20, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <rect x="3" y="5" width="18" height="14" rx="3" />
+      <path d="M10.5 10.2a2.2 2.2 0 1 0 0 3.6M17 10.2a2.2 2.2 0 1 0 0 3.6" />
+    </Svg>
+  );
+}
+
+/** Media / Stats (bar chart). */
+export function StatsIcon({ size = 20, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <path d="M5 20V10M12 20V4M19 20v-7" />
+    </Svg>
+  );
+}
+
 /** Edit / Pencil */
 export function PencilIcon({ size = 16, className }: IconProps) {
   return (
