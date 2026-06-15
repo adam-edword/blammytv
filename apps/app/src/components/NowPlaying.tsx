@@ -48,6 +48,7 @@ export function NowPlaying({
             theater={theater}
             onToggleTheater={onToggleTheater}
             onPopout={onPopout}
+            onStop={onStop}
           />
         ) : (
           // Just a black screen with a play glyph — click to start the stream.
@@ -89,11 +90,6 @@ export function NowPlaying({
               />
             </div>
           </div>
-        )}
-        {playing && (
-          <button className="btn now-playing__stop" type="button" onClick={onStop}>
-            Stop
-          </button>
         )}
       </div>
     </section>

@@ -483,6 +483,48 @@ img {
   color: rgba(255, 255, 255, 0.85);
 }
 
+/* Mini player: the whole preview opens theater on click; ring it on hover. */
+.now-playing__preview:has(.player--mini) {
+  cursor: pointer;
+}
+
+.now-playing__preview:has(.player--mini):hover {
+  border-color: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85);
+}
+
+.player--mini {
+  cursor: pointer;
+}
+
+/* Mini player's single Stop button (top-right). */
+.player__stop {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.18s ease, background 0.12s ease;
+  z-index: 4;
+}
+
+.player--mini:hover .player__stop,
+.player--active .player__stop {
+  opacity: 1;
+}
+
+.player__stop:hover {
+  background: rgba(0, 0, 0, 0.78);
+}
+
 .player__theater-exit {
   position: absolute;
   top: 14px;

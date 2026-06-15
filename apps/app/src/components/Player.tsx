@@ -7,8 +7,8 @@ import {
   VolumeIcon,
   MuteIcon,
   PopoutIcon,
-  TheaterIcon,
   FullscreenIcon,
+  CloseIcon,
 } from "./icons";
 
 /**
@@ -25,12 +25,14 @@ export function Player({
   theater = false,
   onToggleTheater,
   onPopout,
+  onStop,
 }: {
   url: string;
   className?: string;
   theater?: boolean;
   onToggleTheater?: () => void;
   onPopout?: () => void;
+  onStop?: () => void;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -151,7 +153,12 @@ export function Player({
   return (
     <div
       ref={wrapRef}
-      className={"player " + (className ?? "") + (active ? " player--active" : "")}
+      className={
+        "player " +
+        (className ?? "") +
+        (theater ? " player--theater" : " player--mini") +
+        (active ? " player--active" : "")
+      }
       onMouseMove={wake}
       onMouseLeave={() => setActive(false)}
     >
@@ -160,7 +167,8 @@ export function Player({
         className="player__video"
         autoPlay
         playsInline
-        onClick={togglePlay}
+        // In the mini player a click opens theater; in theater it toggles play.
+        onClick={theater ? togglePlay : onToggleTheater}
         onPlaying={() => setStatus("playing")}
       />
 
@@ -169,6 +177,21 @@ export function Player({
           {status === "loading" && <span className="player__spinner" />}
           <span>{message}</span>
         </div>
+      )}
+
+      {/* Mini player: a single Stop button, nothing else. */}
+      {!theater && onStop && (
+        <button
+          className="player__stop"
+          type="button"
+          aria-label="Stop"
+          onClick={(e) => {
+            e.stopPropagation();
+            onStop();
+          }}
+        >
+          <CloseIcon size={20} />
+        </button>
       )}
 
       {theater && (
@@ -182,7 +205,7 @@ export function Player({
         </button>
       )}
 
-      {status === "playing" && (
+      {theater && status === "playing" && (
         <div className="player__controls">
           <button className="player__btn" type="button" onClick={togglePlay} aria-label={paused ? "Play" : "Pause"}>
             {paused ? <PlayIcon size={20} /> : <PauseIcon size={20} />}
@@ -210,11 +233,6 @@ export function Player({
           {onPopout && (
             <button className="player__btn" type="button" onClick={onPopout} aria-label="Pop out (native player)">
               <PopoutIcon size={20} />
-            </button>
-          )}
-          {onToggleTheater && (
-            <button className={"player__btn" + (theater ? " is-active" : "")} type="button" onClick={onToggleTheater} aria-label="Theater mode">
-              <TheaterIcon size={20} />
             </button>
           )}
           <button className="player__btn" type="button" onClick={toggleFullscreen} aria-label="Fullscreen">
