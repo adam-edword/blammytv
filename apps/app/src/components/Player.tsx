@@ -35,7 +35,8 @@ export function Player({
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const audioRef = useRef<{ ctx: AudioContext; gain: GainNode } | null>(null);
+  const ctxRef = useRef<AudioContext | null>(null);
+  const gainRef = useRef<GainNode | null>(null);
   const idleRef = useRef<number>(0);
 
   const [error, setError] = useState<string | null>(null);
@@ -44,43 +45,50 @@ export function Player({
   const [muted, setMuted] = useState(false);
   const [active, setActive] = useState(true); // controls visible
 
-  // Web Audio graph — created once for this video element so volume > 100%
-  // works (and keeps working in Picture-in-Picture).
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
+  // Apply a level (0–MAX) to the right place: the Web Audio gain once boost has
+  // engaged, otherwise the element's own volume (capped at 100%).
+  const applyLevel = useCallback((level: number) => {
+    const v = videoRef.current;
+    if (gainRef.current) {
+      gainRef.current.gain.value = level;
+      if (v) v.volume = 1;
+    } else if (v) {
+      v.volume = Math.min(1, level);
+    }
+  }, []);
+
+  /**
+   * Lazily route the element's audio through a Web Audio GainNode so volume can
+   * exceed 100%. Done on demand (and only when boosting) because connecting a
+   * MediaElementSource to a still-suspended context stalls playback — so we
+   * create + resume it inside the user gesture that bumps volume past 100%.
+   */
+  const ensureBoostGraph = useCallback(() => {
+    if (gainRef.current || !videoRef.current) return;
     try {
       const Ctor =
         window.AudioContext ||
         (window as unknown as { webkitAudioContext: typeof AudioContext })
           .webkitAudioContext;
       const ctx = new Ctor();
-      const source = ctx.createMediaElementSource(video);
+      const source = ctx.createMediaElementSource(videoRef.current);
       const gain = ctx.createGain();
       source.connect(gain).connect(ctx.destination);
-      audioRef.current = { ctx, gain };
+      ctxRef.current = ctx;
+      gainRef.current = gain;
+      void ctx.resume().catch(() => {});
     } catch {
-      /* Web Audio unavailable — fall back to element volume (0–100%). */
+      /* Web Audio unavailable — stay on element volume (max 100%). */
     }
-    return () => {
-      audioRef.current?.ctx.close().catch(() => {});
-      audioRef.current = null;
-    };
   }, []);
 
-  // Apply volume / mute.
   useEffect(() => {
-    const level = muted ? 0 : volume;
-    const a = audioRef.current;
-    if (a) {
-      a.gain.gain.value = level;
-      const v = videoRef.current;
-      if (v) v.volume = 1;
-    } else {
-      const v = videoRef.current;
-      if (v) v.volume = Math.min(1, level);
-    }
-  }, [volume, muted]);
+    return () => {
+      ctxRef.current?.close().catch(() => {});
+      ctxRef.current = null;
+      gainRef.current = null;
+    };
+  }, []);
 
   // (Re)create the mpegts player when the stream changes.
   useEffect(() => {
@@ -134,10 +142,28 @@ export function Player({
   const togglePlay = useCallback(() => {
     const v = videoRef.current;
     if (!v) return;
-    audioRef.current?.ctx.resume().catch(() => {});
+    ctxRef.current?.resume().catch(() => {});
     if (v.paused) void v.play().catch(() => {});
     else v.pause();
   }, []);
+
+  const setVol = useCallback(
+    (val: number) => {
+      setMuted(false);
+      if (val > 1) ensureBoostGraph();
+      applyLevel(val);
+      setVolume(val);
+    },
+    [applyLevel, ensureBoostGraph],
+  );
+
+  const toggleMute = useCallback(() => {
+    setMuted((m) => {
+      const next = !m;
+      applyLevel(next ? 0 : volume);
+      return next;
+    });
+  }, [applyLevel, volume]);
 
   const togglePip = useCallback(async () => {
     const v = videoRef.current;
@@ -203,7 +229,7 @@ export function Player({
           {paused ? <PlayIcon size={20} /> : <PauseIcon size={20} />}
         </button>
 
-        <button className="player__btn" type="button" onClick={() => setMuted((m) => !m)} aria-label={muted ? "Unmute" : "Mute"}>
+        <button className="player__btn" type="button" onClick={toggleMute} aria-label={muted ? "Unmute" : "Mute"}>
           {muted || volPct === 0 ? <MuteIcon size={20} /> : <VolumeIcon size={20} />}
         </button>
 
@@ -214,10 +240,7 @@ export function Player({
           max={MAX_VOLUME}
           step={0.05}
           value={muted ? 0 : volume}
-          onChange={(e) => {
-            setMuted(false);
-            setVolume(parseFloat(e.target.value));
-          }}
+          onChange={(e) => setVol(parseFloat(e.target.value))}
           aria-label="Volume"
         />
         <span className="player__vol-label">{volPct}%</span>
