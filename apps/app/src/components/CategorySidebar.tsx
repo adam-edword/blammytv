@@ -49,7 +49,7 @@ export function CategorySidebar({
         aria-label={collapsed ? "Favorites" : undefined}
         onClick={() => onSelect(FAVORITES_ID)}
       >
-        <StarIcon className="category__star" />
+        <StarIcon size={18} className="category__star" />
         {!collapsed && <span className="category__label">Favorites</span>}
       </button>
 
@@ -63,7 +63,7 @@ export function CategorySidebar({
         aria-label={collapsed ? "Recents" : undefined}
         onClick={() => onSelect(RECENTS_ID)}
       >
-        <RecentsIcon className="category__star" />
+        <RecentsIcon size={18} className="category__star" />
         {!collapsed && <span className="category__label">Recents</span>}
       </button>
 
@@ -76,6 +76,7 @@ export function CategorySidebar({
         onClick={() => setSourceOpen((open) => !open)}
       >
         <ChevronIcon
+          size={13}
           className={
             "category__chevron" +
             (sourceOpen ? "" : " category__chevron--collapsed")
