@@ -4,7 +4,15 @@ import { NowPlaying } from "../components/NowPlaying";
 import { CategorySidebar, FAVORITES_ID } from "../components/CategorySidebar";
 import { EpgGuide } from "../components/EpgGuide";
 import { isLiveNow } from "../lib/epg";
-import { isDesktop, mpvPlay, mpvStop, onMpvClosed } from "../lib/desktop";
+import {
+  isDesktop,
+  mpvPlay,
+  mpvSetBounds,
+  mpvStop,
+  onMpvClosed,
+  onWindowGeom,
+  type Bounds,
+} from "../lib/desktop";
 
 // Resizable source panel. Dragged below CAT_COLLAPSE_AT it snaps to a narrow
 // emoji rail. Width is remembered per device.
@@ -96,23 +104,51 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
     live.channels.find((c) => c.id === featuredChannelId) ??
     live.channels[0];
 
-  // The channel currently playing. On desktop it plays in the mpv popout and
-  // keeps going while you browse the guide; the hero preview only shows the
-  // "playing" state when you're looking at that same channel.
+  // The channel playing in the hero preview. On desktop the mpv window is
+  // embedded over that preview, so playback is tied to the hero channel.
   const [playingId, setPlayingId] = useState<string | null>(null);
   const playing = !!heroChannel && playingId === heroChannel.id;
 
-  const playingChannel = useMemo(
-    () => live.channels.find((c) => c.id === playingId) ?? null,
-    [playingId, live.channels],
-  );
+  // Screen-space bounds of the preview box, so the embedded mpv window can be
+  // pinned over it (device-independent px, which matches Electron setBounds).
+  const previewRef = useRef<HTMLDivElement>(null);
+  const previewBounds = (): Bounds | undefined => {
+    const el = previewRef.current;
+    if (!el) return undefined;
+    const r = el.getBoundingClientRect();
+    return {
+      x: window.screenX + r.left,
+      y: window.screenY + r.top,
+      width: r.width,
+      height: r.height,
+    };
+  };
 
-  // Desktop: drive the mpv popout from the playing channel.
+  // Desktop: drive embedded mpv from the playing hero channel.
   useEffect(() => {
     if (!isDesktop()) return;
-    if (playingChannel) void mpvPlay(playingChannel.streamUrl);
+    if (playing && heroChannel) void mpvPlay(heroChannel.streamUrl, previewBounds());
     else void mpvStop();
-  }, [playingChannel]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playing, heroChannel?.id]);
+
+  // Keep the embedded mpv window pinned to the preview as things move/resize.
+  useEffect(() => {
+    if (!isDesktop() || !playing) return;
+    const sync = () => {
+      const b = previewBounds();
+      if (b) void mpvSetBounds(b);
+    };
+    const offGeom = onWindowGeom(sync);
+    window.addEventListener("resize", sync);
+    const ro = previewRef.current ? new ResizeObserver(sync) : null;
+    if (ro && previewRef.current) ro.observe(previewRef.current);
+    return () => {
+      offGeom();
+      window.removeEventListener("resize", sync);
+      ro?.disconnect();
+    };
+  }, [playing]);
 
   // Clear playing state if the user closes the mpv window; stop mpv on unmount.
   useEffect(() => {
@@ -132,6 +168,7 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
           program={heroProgram}
           now={now}
           playing={playing}
+          previewRef={previewRef}
           onPlay={() => setPlayingId(heroChannel.id)}
           onStop={() => setPlayingId(null)}
         />

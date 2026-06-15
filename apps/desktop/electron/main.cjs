@@ -3,47 +3,93 @@ const path = require("node:path");
 const fs = require("node:fs");
 const { spawn } = require("node:child_process");
 
-// --- Native playback (mpv) -------------------------------------------------
-// The video plays in an mpv popout window (it decodes everything, incl. AC3
-// audio the browser can't). The renderer drives which channel plays; we tell it
-// back when the user closes the mpv window so its state stays in sync.
-let mpvProc = null;
+/**
+ * BlammyTV desktop shell.
+ *
+ * - webSecurity:false lets the renderer call Xtream + load streams directly.
+ * - Video plays in mpv (decodes everything, incl. AC3 audio the browser can't),
+ *   embedded into a borderless child window layered over the app's player
+ *   region. The renderer reports that region's screen bounds; we keep the mpv
+ *   window pinned there as the main window moves/resizes.
+ */
 
-// mpv binary: explicit path via MPV_PATH, else a bundled copy, else PATH.
+const DEV_URL = process.env.ELECTRON_START_URL || "http://localhost:1420/";
 const MPV_BIN =
   process.env.MPV_PATH ||
   path.join(__dirname, "..", "bin", process.platform === "win32" ? "mpv.exe" : "mpv");
 
-function notifyMpvClosed() {
-  for (const w of BrowserWindow.getAllWindows()) {
-    w.webContents.send("mpv:closed");
-  }
+let mainWin = null;
+let videoWin = null;
+let mpvProc = null;
+
+function nativeWid(win) {
+  const buf = win.getNativeWindowHandle();
+  return buf.length >= 8
+    ? buf.readBigUInt64LE(0).toString()
+    : buf.readUInt32LE(0).toString();
 }
 
-function stopMpv() {
+function roundBounds(b) {
+  return {
+    x: Math.round(b.x),
+    y: Math.round(b.y),
+    width: Math.max(1, Math.round(b.width)),
+    height: Math.max(1, Math.round(b.height)),
+  };
+}
+
+function ensureVideoWin() {
+  if (videoWin && !videoWin.isDestroyed()) return videoWin;
+  videoWin = new BrowserWindow({
+    parent: mainWin || undefined,
+    frame: false,
+    transparent: false,
+    hasShadow: false,
+    resizable: false,
+    skipTaskbar: true,
+    backgroundColor: "#000000",
+    show: false,
+  });
+  videoWin.setMenu(null);
+  return videoWin;
+}
+
+function notifyMpvClosed() {
+  for (const w of BrowserWindow.getAllWindows()) w.webContents.send("mpv:closed");
+}
+
+function killMpv() {
   if (mpvProc) {
-    mpvProc.intentional = true; // app closed it (switch/stop) — not the user
+    mpvProc.intentional = true; // app closed it (switch/stop), not the user
     try {
       mpvProc.kill();
     } catch {
-      /* already gone */
+      /* gone */
     }
     mpvProc = null;
   }
 }
 
-ipcMain.handle("mpv:play", (_event, url) => {
-  stopMpv();
+function stopPlayback() {
+  killMpv();
+  if (videoWin && !videoWin.isDestroyed()) videoWin.hide();
+}
+
+ipcMain.handle("mpv:play", (_event, { url, bounds }) => {
+  killMpv();
+  const win = ensureVideoWin();
+  if (bounds) win.setBounds(roundBounds(bounds));
+  win.showInactive();
   const bin = fs.existsSync(MPV_BIN) ? MPV_BIN : "mpv";
   try {
     const proc = spawn(
       bin,
-      [url, "--force-window=yes", "--title=BlammyTV", "--no-terminal"],
+      [url, `--wid=${nativeWid(win)}`, "--no-terminal", "--osc=yes"],
       { stdio: "ignore" },
     );
     proc.on("exit", () => {
       if (mpvProc === proc) mpvProc = null;
-      if (!proc.intentional) notifyMpvClosed(); // user closed the window
+      if (!proc.intentional) notifyMpvClosed();
     });
     proc.on("error", () => {
       if (mpvProc === proc) mpvProc = null;
@@ -55,22 +101,17 @@ ipcMain.handle("mpv:play", (_event, url) => {
   }
 });
 
-ipcMain.handle("mpv:stop", () => {
-  stopMpv();
+ipcMain.handle("mpv:bounds", (_event, bounds) => {
+  if (videoWin && !videoWin.isDestroyed() && bounds) {
+    videoWin.setBounds(roundBounds(bounds));
+  }
   return { ok: true };
 });
 
-/**
- * BlammyTV desktop shell.
- *
- * The single deliberate choice here is `webSecurity: false`: this is a trusted,
- * single-purpose client, and turning off web security lets the renderer call
- * the Xtream API and play remote live streams directly — no CORS, no proxy.
- *
- * Dev loads the running Vite server; a packaged build loads the bundled app.
- */
-
-const DEV_URL = process.env.ELECTRON_START_URL || "http://localhost:1420/";
+ipcMain.handle("mpv:stop", () => {
+  stopPlayback();
+  return { ok: true };
+});
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -82,17 +123,19 @@ function createWindow() {
     autoHideMenuBar: true,
     webPreferences: {
       webSecurity: false,
-      // Don't gate stream audio behind a user gesture (video would otherwise
-      // auto-start silently).
       autoplayPolicy: "no-user-gesture-required",
       preload: path.join(__dirname, "preload.cjs"),
     },
   });
-
-  // Open maximized — it's a TV app, give it the whole screen.
+  mainWin = win;
   win.maximize();
 
-  // External links open in the system browser, not inside the app.
+  // Tell the renderer to re-report the player region whenever the window moves
+  // or resizes, so the embedded mpv window stays pinned to it.
+  const sendGeom = () => win.webContents.send("window:geom");
+  win.on("move", sendGeom);
+  win.on("resize", sendGeom);
+
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: "deny" };
@@ -113,8 +156,8 @@ app.whenReady().then(() => {
 });
 
 app.on("window-all-closed", () => {
-  stopMpv();
+  stopPlayback();
   if (process.platform !== "darwin") app.quit();
 });
 
-app.on("before-quit", stopMpv);
+app.on("before-quit", stopPlayback);
