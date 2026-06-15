@@ -33,7 +33,8 @@ export function Player({ url, className }: { url: string; className?: string }) 
         // Smooth playback over low latency — the right trade for watching TV.
         // A stash buffer absorbs network jitter; NOT chasing the live edge
         // avoids the constant little seeks that show up as stutter/buffering.
-        enableWorker: true,
+        // Worker demuxing is intentionally OFF: it races the audio track setup
+        // and produces inconsistent audio. Main-thread demux is fine on desktop.
         enableStashBuffer: true,
         stashInitialSize: 1024 * 384,
         liveBufferLatencyChasing: false,
