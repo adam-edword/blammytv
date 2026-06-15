@@ -102,10 +102,19 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
     live.channels.find((c) => c.id === featuredChannelId) ??
     live.channels[0];
 
-  // Which channel is actively streaming in the preview. Switching the hero
-  // channel stops playback (you re-press play on the new one).
+  // The channel actively streaming in the preview, resolved across *all*
+  // channels (not just the current category) so browsing the rail never
+  // interrupts playback.
   const [playingId, setPlayingId] = useState<string | null>(null);
-  const playing = !!heroChannel && playingId === heroChannel.id;
+  const playingChannel = playingId
+    ? live.channels.find((c) => c.id === playingId) ?? null
+    : null;
+  const playing = !!playingChannel;
+  const playingProgram = playingChannel
+    ? live.programs.find(
+        (p) => p.channelId === playingChannel.id && isLiveNow(p, now),
+      ) ?? null
+    : null;
 
   // Theater mode: page goes black, EPG hides, player floats as the biggest
   // 16:9 box that fits. A body class lets the global header dim to 30%.
@@ -117,10 +126,22 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
     return () => document.body.classList.remove("theater-mode");
   }, [inTheater]);
 
+  // Escape leaves theater and drops back to the mini player — playback keeps
+  // running.
+  useEffect(() => {
+    if (!inTheater) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setTheater(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [inTheater]);
+
   // Pop the current channel into the native mpv window; stop the in-app player.
   const popout = () => {
-    if (!heroChannel) return;
-    void popoutPlay(heroChannel.streamUrl);
+    const ch = playingChannel ?? heroChannel;
+    if (!ch) return;
+    void popoutPlay(ch.streamUrl);
     setPlayingId(null);
     setTheater(false);
   };
@@ -136,8 +157,12 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
         (p) => p.channelId === hoverChannel.id && isLiveNow(p, now),
       ) ?? null
     : null;
-  const textChannel = hoverChannel ?? heroChannel;
-  const textProgram = hoverChannel ? hoverProgram : heroProgram;
+  // Resting hero (no hover): the playing channel while streaming, else the
+  // selected/featured channel.
+  const restChannel = playingChannel ?? heroChannel;
+  const restProgram = playingChannel ? playingProgram : heroProgram;
+  const textChannel = hoverChannel ?? restChannel;
+  const textProgram = hoverChannel ? hoverProgram : restProgram;
 
   return (
     <div
@@ -170,7 +195,7 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
             program={textProgram}
             now={now}
             playing={playing}
-            streamUrl={heroChannel.streamUrl}
+            streamUrl={(playingChannel ?? heroChannel).streamUrl}
             theater={inTheater}
             onPlay={() => setPlayingId(heroChannel.id)}
             onStop={() => {
