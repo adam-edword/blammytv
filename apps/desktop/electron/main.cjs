@@ -18,10 +18,16 @@ function stopMpv() {
   }
 }
 
+// mpv binary: explicit path via MPV_PATH, else a bundled copy, else PATH.
+const MPV_BIN =
+  process.env.MPV_PATH ||
+  path.join(__dirname, "..", "bin", process.platform === "win32" ? "mpv.exe" : "mpv");
+
 ipcMain.handle("mpv:play", (_event, url) => {
   stopMpv();
+  const bin = require("node:fs").existsSync(MPV_BIN) ? MPV_BIN : "mpv";
   try {
-    mpvProc = spawn("mpv", [url, "--force-window=yes", "--title=BlammyTV"], {
+    mpvProc = spawn(bin, [url, "--force-window=yes", "--title=BlammyTV"], {
       stdio: "ignore",
     });
     mpvProc.on("exit", () => {
