@@ -281,6 +281,9 @@ img {
 .now-playing__preview {
   position: relative;
   flex-shrink: 0;
+  /* Don't stretch to the details column's height — keep a true 16:9 box in
+     every state (loading, pre-play, playing). */
+  align-self: center;
   width: 560px;
   aspect-ratio: 16 / 9;
   border-radius: var(--radius);

@@ -12,9 +12,13 @@ import mpegts from "mpegts.js";
 export function Player({ url, className }: { url: string; className?: string }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState<string | null>(null);
+  // Whether playback has actually started — mpegts emits recoverable errors
+  // mid-stream, so we only surface the message if the picture never started.
+  const [started, setStarted] = useState(false);
 
   useEffect(() => {
     setError(null);
+    setStarted(false);
     const video = videoRef.current;
     if (!video) return;
 
@@ -61,8 +65,12 @@ export function Player({ url, className }: { url: string; className?: string }) 
         autoPlay
         playsInline
         controls
+        onPlaying={() => {
+          setStarted(true);
+          setError(null);
+        }}
       />
-      {error && <div className="player__error">{error}</div>}
+      {error && !started && <div className="player__error">{error}</div>}
     </div>
   );
 }
