@@ -526,14 +526,15 @@ img {
   margin: 0;
 }
 
-/* Largest 16:9 box that fits below the header. Anchored near the top (keeps a
- * roomy top gap) so the bottom sits closer to the app's bottom edge. */
+/* Largest 16:9 box that fits below the header. Anchored just under the header
+ * with only a slim bottom reserve, so the box maxes out its vertical room and
+ * — staying 16:9 — fills nearly the full width with thin (~10px) side margins. */
 .live-screen--theater .now-playing__preview {
   position: fixed;
   left: 50%;
-  top: calc(var(--header-zone) + 16px);
+  top: calc(var(--header-zone) - 8px);
   transform: translateX(-50%);
-  width: min(98vw, calc((100vh - var(--header-zone) - 28px) * 16 / 9));
+  width: min(calc(100vw - 20px), calc((100vh - var(--header-zone) - 2px) * 16 / 9));
   height: auto;
   aspect-ratio: 16 / 9;
   z-index: 45;
