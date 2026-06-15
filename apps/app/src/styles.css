@@ -503,9 +503,22 @@ img {
 }
 
 /* ---------- Theater mode ----------
- * The player fills the body; the sidebar stays as a rail, the guide hides.
- * The video element never moves, so playback isn't interrupted. */
-.live-screen--theater .now-playing__details {
+ * Everything EPG hides, the page goes black, and the player floats as the
+ * largest 16:9 box that fits. The <video> element never unmounts, so playback
+ * isn't interrupted. The nav/header dims to 30% (see body.theater-mode). */
+
+/* Full-black backdrop behind the floating player. */
+.live-screen--theater::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: #000;
+  z-index: 40;
+}
+
+/* Hide all the surrounding EPG chrome. */
+.live-screen--theater .now-playing__details,
+.live-screen--theater .live-screen__body {
   display: none;
 }
 
@@ -513,31 +526,29 @@ img {
   margin: 0;
 }
 
+/* Centered, largest 16:9 box that fits below the header. */
 .live-screen--theater .now-playing__preview {
   position: fixed;
-  top: calc(var(--header-zone) + 4px);
-  left: 96px;
-  right: 24px;
-  bottom: 20px;
-  width: auto;
-  aspect-ratio: auto;
-  z-index: 60;
-  border-radius: var(--radius);
+  left: 50%;
+  top: calc(var(--header-zone) + (100vh - var(--header-zone)) / 2);
+  transform: translate(-50%, -50%);
+  width: min(98vw, calc((100vh - var(--header-zone) - 24px) * 16 / 9));
+  height: auto;
+  aspect-ratio: 16 / 9;
+  z-index: 45;
+  border: none;
+  border-radius: 0;
 }
 
-.live-screen--theater .guide,
-.live-screen--theater .cat-resize {
-  display: none;
+/* Dim the nav/header while in theater, but keep it clickable above the black. */
+body.theater-mode .app-header {
+  opacity: 0.3;
+  z-index: 50;
+  transition: opacity 0.2s ease;
 }
 
-.live-screen--theater .categories {
-  position: fixed;
-  top: calc(var(--header-zone) + 4px);
-  left: 16px;
-  bottom: 20px;
-  width: 64px;
-  z-index: 61;
-  padding-bottom: 0;
+body.theater-mode .app-header:hover {
+  opacity: 1;
 }
 
 .now-playing__details {

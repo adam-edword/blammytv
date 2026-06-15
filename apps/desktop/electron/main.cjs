@@ -1,4 +1,8 @@
-const { app, BrowserWindow, shell, ipcMain } = require("electron");
+const { app, BrowserWindow, shell, ipcMain, Menu } = require("electron");
+
+// Kill the application menu entirely so the Alt key can't pop the (File/Edit/
+// View…) menu bar. autoHideMenuBar alone still lets Alt toggle it.
+Menu.setApplicationMenu(null);
 const path = require("node:path");
 const fs = require("node:fs");
 const os = require("node:os");

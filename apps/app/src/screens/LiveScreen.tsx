@@ -101,9 +101,15 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
   const [playingId, setPlayingId] = useState<string | null>(null);
   const playing = !!heroChannel && playingId === heroChannel.id;
 
-  // Theater mode: player fills the body, sidebar collapses, guide hides.
+  // Theater mode: page goes black, EPG hides, player floats as the biggest
+  // 16:9 box that fits. A body class lets the global header dim to 30%.
   const [theater, setTheater] = useState(false);
   const inTheater = playing && theater;
+
+  useEffect(() => {
+    document.body.classList.toggle("theater-mode", inTheater);
+    return () => document.body.classList.remove("theater-mode");
+  }, [inTheater]);
 
   // Pop the current channel into the native mpv window; stop the in-app player.
   const popout = () => {
