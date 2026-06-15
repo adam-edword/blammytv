@@ -25,7 +25,17 @@ export function Player({ url, className }: { url: string; className?: string }) 
 
     const player = mpegts.createPlayer(
       { type: "mpegts", isLive: true, url },
-      { liveBufferLatencyChasing: true },
+      {
+        // Smooth playback over low latency — the right trade for watching TV.
+        // A stash buffer absorbs network jitter; NOT chasing the live edge
+        // avoids the constant little seeks that show up as stutter/buffering.
+        enableWorker: true,
+        enableStashBuffer: true,
+        stashInitialSize: 1024 * 384,
+        liveBufferLatencyChasing: false,
+        lazyLoad: false,
+        autoCleanupSourceBuffer: true,
+      },
     );
     player.attachMediaElement(video);
     player.on(mpegts.Events.ERROR, () =>
