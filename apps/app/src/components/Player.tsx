@@ -1,0 +1,58 @@
+import { useEffect, useRef, useState } from "react";
+import mpegts from "mpegts.js";
+
+/**
+ * Live video player. Xtream live feeds are MPEG-TS over HTTP, which browsers
+ * can't decode natively, so we demux with mpegts.js into a <video> element.
+ *
+ * Cross-origin playback only works where CORS is disabled — i.e. inside the
+ * desktop (Electron) shell. In a plain browser the stream fetch is blocked and
+ * we surface a small message instead.
+ */
+export function Player({ url, className }: { url: string; className?: string }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setError(null);
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (!mpegts.getFeatureList().mseLivePlayback) {
+      setError("Playback isn't supported here.");
+      return;
+    }
+
+    const player = mpegts.createPlayer(
+      { type: "mpegts", isLive: true, url },
+      { liveBufferLatencyChasing: true },
+    );
+    player.attachMediaElement(video);
+    player.on(mpegts.Events.ERROR, () =>
+      setError("Couldn't play this stream here (needs the desktop app)."),
+    );
+    player.load();
+    void Promise.resolve(player.play()).catch(() => {});
+
+    return () => {
+      try {
+        player.destroy();
+      } catch {
+        /* already torn down */
+      }
+    };
+  }, [url]);
+
+  return (
+    <div className={"player " + (className ?? "")}>
+      <video
+        ref={videoRef}
+        className="player__video"
+        autoPlay
+        playsInline
+        controls
+      />
+      {error && <div className="player__error">{error}</div>}
+    </div>
+  );
+}

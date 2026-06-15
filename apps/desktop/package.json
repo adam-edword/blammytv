@@ -1,0 +1,22 @@
+{
+  "name": "@blammytv/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BlammyTV desktop shell (Electron). Runs the app with web security off so the renderer can call Xtream and play streams directly — no proxy.",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "build:win": "DEPLOY_BASE=./ pnpm --filter @blammytv/app build && node scripts/sync-renderer.mjs && electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "tv.blammy.desktop",
+    "productName": "BlammyTV",
+    "directories": { "output": "release" },
+    "files": ["electron/**", "renderer/**"],
+    "win": { "target": "nsis" }
+  }
+}

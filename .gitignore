@@ -18,3 +18,7 @@ dist-ssr/
 
 # server data store
 /apps/server/data/
+
+# electron build artifacts
+/apps/desktop/renderer/
+/apps/desktop/release/

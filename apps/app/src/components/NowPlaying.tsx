@@ -1,16 +1,24 @@
 import type { LiveChannel, EpgProgram } from "@blammytv/shared";
 import { formatTime, isLiveNow, progressPct } from "../lib/epg";
+import { Player } from "./Player";
 
 /** The marquee at the top of the Live tab: a preview of the focused channel
- * plus its current program's details. */
+ * plus its current program's details. The preview doubles as the player — click
+ * it to start the channel's live stream. */
 export function NowPlaying({
   channel,
   program,
   now,
+  playing,
+  onPlay,
+  onStop,
 }: {
   channel: LiveChannel;
   program: EpgProgram | null;
   now: number;
+  playing: boolean;
+  onPlay: () => void;
+  onStop: () => void;
 }) {
   const live = program ? isLiveNow(program, now) : false;
 
@@ -19,17 +27,31 @@ export function NowPlaying({
       <div
         className={
           "now-playing__preview" +
-          (channel.logo ? "" : " now-playing__preview--empty")
+          (playing || channel.logo ? "" : " now-playing__preview--empty")
         }
       >
-        {channel.logo ? (
-          <img className="now-playing__art" src={channel.logo} alt="" />
+        {playing ? (
+          <Player url={channel.streamUrl} className="now-playing__art" />
+        ) : channel.logo ? (
+          <button
+            className="now-playing__art now-playing__play-btn"
+            type="button"
+            aria-label={`Play ${channel.name}`}
+            onClick={onPlay}
+          >
+            <img className="now-playing__art" src={channel.logo} alt="" />
+            <span className="now-playing__play now-playing__play--over" />
+          </button>
         ) : (
-          // Nothing actually playing yet — a basic black screen with a play
-          // glyph stands in for the player surface.
-          <div className="now-playing__art now-playing__empty" aria-hidden="true">
+          // Black screen with a play glyph — click to start the stream.
+          <button
+            className="now-playing__art now-playing__empty now-playing__play-btn"
+            type="button"
+            aria-label={`Play ${channel.name}`}
+            onClick={onPlay}
+          >
             <span className="now-playing__play" />
-          </div>
+          </button>
         )}
       </div>
 
@@ -61,7 +83,13 @@ export function NowPlaying({
             </div>
           </div>
         )}
+        {playing && (
+          <button className="btn now-playing__stop" type="button" onClick={onStop}>
+            Stop
+          </button>
+        )}
       </div>
     </section>
   );
 }
+

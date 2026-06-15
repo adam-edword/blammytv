@@ -95,10 +95,22 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
     live.channels.find((c) => c.id === featuredChannelId) ??
     live.channels[0];
 
+  // Which channel is actively streaming in the preview. Switching the hero
+  // channel stops playback (you re-press play on the new one).
+  const [playingId, setPlayingId] = useState<string | null>(null);
+  const playing = !!heroChannel && playingId === heroChannel.id;
+
   return (
     <div className="live-screen">
       {heroChannel && (
-        <NowPlaying channel={heroChannel} program={heroProgram} now={now} />
+        <NowPlaying
+          channel={heroChannel}
+          program={heroProgram}
+          now={now}
+          playing={playing}
+          onPlay={() => setPlayingId(heroChannel.id)}
+          onStop={() => setPlayingId(null)}
+        />
       )}
       <div
         className="live-screen__body"
