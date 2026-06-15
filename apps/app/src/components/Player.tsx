@@ -7,7 +7,6 @@ import {
   VolumeIcon,
   MuteIcon,
   PopoutIcon,
-  PipIcon,
   TheaterIcon,
   FullscreenIcon,
 } from "./icons";
@@ -130,17 +129,6 @@ export function Player({
     else v.pause();
   }, []);
 
-  const togglePip = useCallback(async () => {
-    const v = videoRef.current;
-    if (!v) return;
-    try {
-      if (document.pictureInPictureElement) await document.exitPictureInPicture();
-      else await v.requestPictureInPicture();
-    } catch {
-      /* unavailable */
-    }
-  }, []);
-
   const toggleFullscreen = useCallback(() => {
     const el = wrapRef.current;
     if (!el) return;
@@ -220,13 +208,10 @@ export function Player({
           <div className="player__spacer" />
 
           {onPopout && (
-            <button className="player__btn" type="button" onClick={onPopout} aria-label="Pop out to native player">
+            <button className="player__btn" type="button" onClick={onPopout} aria-label="Pop out (native player)">
               <PopoutIcon size={20} />
             </button>
           )}
-          <button className="player__btn" type="button" onClick={togglePip} aria-label="Picture in picture">
-            <PipIcon size={20} />
-          </button>
           {onToggleTheater && (
             <button className={"player__btn" + (theater ? " is-active" : "")} type="button" onClick={onToggleTheater} aria-label="Theater mode">
               <TheaterIcon size={20} />
