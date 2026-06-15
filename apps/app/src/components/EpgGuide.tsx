@@ -56,14 +56,19 @@ export function EpgGuide({
   programs,
   now,
   selectedProgramId,
+  selectedChannelId,
   onSelectProgram,
+  onSelectChannel,
   onHoverChannel,
 }: {
   channels: LiveChannel[];
   programs: EpgProgram[];
   now: number;
   selectedProgramId?: string;
+  selectedChannelId?: string;
   onSelectProgram?: (p: EpgProgram) => void;
+  /** Selecting an EPG-less ("no info") channel — it still often has a stream. */
+  onSelectChannel?: (channelId: string) => void;
   /** Fired with a channel id while a row is hovered, and null on leave, so the
    * hero text can preview that channel without changing playback. */
   onHoverChannel?: (id: string | null) => void;
@@ -236,14 +241,20 @@ export function EpgGuide({
                 </div>
                 <div className="guide-row__lane" style={{ width: laneWidth }}>
                   {blocks.length === 0 ? (
-                    // Offline / no programme info from the provider.
-                    <div
-                      className="program program--noinfo"
+                    // No programme info from the provider — still selectable, as
+                    // these channels often have a working stream.
+                    <button
+                      type="button"
+                      className={
+                        "program program--noinfo" +
+                        (ch.id === selectedChannelId ? " program--selected" : "")
+                      }
                       style={{
                         left: 0,
                         width: Math.max(0, laneWidth - PROGRAM_GAP),
                       }}
-                      aria-label="No information"
+                      aria-label={`Select ${ch.name}`}
+                      onClick={() => onSelectChannel?.(ch.id)}
                     />
                   ) : (
                     blocks.map((b) =>

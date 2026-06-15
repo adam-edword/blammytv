@@ -38,6 +38,11 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
   const [selectedProgramId, setSelectedProgramId] = useState<string | null>(
     null,
   );
+  // A channel selected directly (e.g. an EPG-less "no info" card), used when
+  // there's no programme to select.
+  const [selectedChannelId, setSelectedChannelId] = useState<string | null>(
+    null,
+  );
 
   // Source-panel resize.
   const [catWidth, setCatWidth] = useState(loadCatWidth);
@@ -90,14 +95,18 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
     if (selectedProgramId) {
       return live.programs.find((p) => p.id === selectedProgramId) ?? null;
     }
+    const channelId = selectedChannelId ?? featuredChannelId;
     return (
       live.programs.find(
-        (p) => p.channelId === featuredChannelId && isLiveNow(p, now),
+        (p) => p.channelId === channelId && isLiveNow(p, now),
       ) ?? null
     );
-  }, [selectedProgramId, live.programs, featuredChannelId, now]);
+  }, [selectedProgramId, selectedChannelId, live.programs, featuredChannelId, now]);
 
   const heroChannel =
+    (selectedChannelId
+      ? live.channels.find((c) => c.id === selectedChannelId)
+      : null) ??
     live.channels.find((c) => c.id === heroProgram?.channelId) ??
     live.channels.find((c) => c.id === featuredChannelId) ??
     live.channels[0];
@@ -176,6 +185,7 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
         onSelect={(id) => {
           setCategoryId(id);
           setSelectedProgramId(null);
+          setSelectedChannelId(null);
           setHoveredChannelId(null);
         }}
       />
@@ -211,7 +221,15 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
           programs={live.programs}
           now={now}
           selectedProgramId={selectedProgramId ?? undefined}
-          onSelectProgram={(p) => setSelectedProgramId(p.id)}
+          selectedChannelId={selectedChannelId ?? undefined}
+          onSelectProgram={(p) => {
+            setSelectedProgramId(p.id);
+            setSelectedChannelId(null);
+          }}
+          onSelectChannel={(id) => {
+            setSelectedChannelId(id);
+            setSelectedProgramId(null);
+          }}
           onHoverChannel={setHoveredChannelId}
         />
       </div>

@@ -1128,7 +1128,8 @@ body.theater-mode .app-header:hover {
   box-shadow: inset 0 0 0 1.5px var(--text);
 }
 
-/* Channel is offline or the provider sent no programme info. */
+/* No programme info from the provider — still clickable (these channels often
+   have a working stream). */
 .program--noinfo {
   background: repeating-linear-gradient(
     -45deg,
@@ -1138,7 +1139,7 @@ body.theater-mode .app-header:hover {
     transparent 20px
   );
   border: 1.5px dashed rgba(255, 255, 255, 0.1);
-  pointer-events: none;
+  cursor: pointer;
 }
 
 /* ---------- Now indicator ---------- */
