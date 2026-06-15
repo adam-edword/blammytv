@@ -15,14 +15,19 @@ const DEV_URL = process.env.ELECTRON_START_URL || "http://localhost:1420/";
 
 function createWindow() {
   const win = new BrowserWindow({
-    width: 1440,
-    height: 900,
+    width: 1600,
+    height: 1000,
+    minWidth: 1024,
+    minHeight: 680,
     backgroundColor: "#0b0b0e",
     autoHideMenuBar: true,
     webPreferences: {
       webSecurity: false,
     },
   });
+
+  // Open maximized — it's a TV app, give it the whole screen.
+  win.maximize();
 
   // External links open in the system browser, not inside the app.
   win.webContents.setWindowOpenHandler(({ url }) => {
