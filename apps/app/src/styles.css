@@ -526,17 +526,20 @@ img {
   margin: 0;
 }
 
-/* Largest 16:9 box that fits below the header. Anchored just under the header
- * with only a slim bottom reserve, so the box maxes out its vertical room and
- * — staying 16:9 — fills nearly the full width with thin (~10px) side margins. */
+/* Fill the whole stage: nav-bar padding up top, ~10px on the other three
+ * sides. The container is NOT locked to 16:9 — the video letterboxes inside it
+ * (object-fit: contain), and since both the bars and the backdrop are black
+ * there's no visible gap. The picture is simply as large as it can be. */
 .live-screen--theater .now-playing__preview {
   position: fixed;
-  left: 50%;
-  top: calc(var(--header-zone) - 8px);
-  transform: translateX(-50%);
-  width: min(calc(100vw - 20px), calc((100vh - var(--header-zone) - 2px) * 16 / 9));
+  top: calc(var(--header-zone) + 6px);
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  width: auto;
   height: auto;
-  aspect-ratio: 16 / 9;
+  transform: none;
+  aspect-ratio: auto;
   z-index: 45;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 12px;
