@@ -526,22 +526,21 @@ img {
   margin: 0;
 }
 
-/* Fill the whole stage: nav-bar padding up top, ~10px on the other three
- * sides. The container is NOT locked to 16:9 — the video letterboxes inside it
- * (object-fit: contain), and since both the bars and the backdrop are black
- * there's no visible gap. The picture is simply as large as it can be. */
+/* The largest true 16:9 box that fits the stage, top-anchored just under the
+ * nav and centered horizontally. Because the box IS 16:9, the video fills it
+ * exactly (no internal letterbox) and the frame hugs the picture — so the
+ * `top` value below is, deterministically, the gap under the nav. Whatever
+ * dimension the box can't fill becomes pure-black backdrop, which blends away.
+ *
+ * 18px gap under the nav, ~8px on the sides, 10px reserved at the bottom. */
 .live-screen--theater .now-playing__preview {
   position: fixed;
-  /* Roomy gap under the nav so a tall/maximized window shrinks the picture to
-     clear it (resizing on height), instead of growing flush against the bar. */
-  top: calc(var(--header-zone) + 30px);
-  left: 10px;
-  right: 10px;
-  bottom: 10px;
-  width: auto;
+  top: calc(var(--header-zone) + 18px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(calc(100vw - 16px), calc((100vh - var(--header-zone) - 28px) * 16 / 9));
   height: auto;
-  transform: none;
-  aspect-ratio: auto;
+  aspect-ratio: 16 / 9;
   z-index: 45;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 12px;
