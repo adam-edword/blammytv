@@ -10,15 +10,21 @@ export function NowPlaying({
   program,
   now,
   playing,
+  theater,
   onPlay,
   onStop,
+  onToggleTheater,
+  onPopout,
 }: {
   channel: LiveChannel;
   program: EpgProgram | null;
   now: number;
   playing: boolean;
+  theater: boolean;
   onPlay: () => void;
   onStop: () => void;
+  onToggleTheater: () => void;
+  onPopout?: () => void;
 }) {
   const live = program ? isLiveNow(program, now) : false;
 
@@ -31,7 +37,13 @@ export function NowPlaying({
         }
       >
         {playing ? (
-          <Player url={channel.streamUrl} className="now-playing__art" />
+          <Player
+            url={channel.streamUrl}
+            className="now-playing__art"
+            theater={theater}
+            onToggleTheater={onToggleTheater}
+            onPopout={onPopout}
+          />
         ) : channel.logo ? (
           <button
             className="now-playing__art now-playing__play-btn"

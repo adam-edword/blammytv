@@ -19,6 +19,56 @@ const DEV_URL = process.env.ELECTRON_START_URL || "http://localhost:1420/";
 const FFMPEG_BIN =
   process.env.FFMPEG_PATH ||
   path.join(__dirname, "..", "bin", process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg");
+const MPV_BIN =
+  process.env.MPV_PATH ||
+  path.join(__dirname, "..", "bin", process.platform === "win32" ? "mpv.exe" : "mpv");
+
+// --- mpv popout (optional native window, instant, decodes anything) --------
+let mpvProc = null;
+
+function stopPopout() {
+  if (mpvProc) {
+    mpvProc.intentional = true;
+    try {
+      mpvProc.kill();
+    } catch {
+      /* gone */
+    }
+    mpvProc = null;
+  }
+}
+
+ipcMain.handle("popout:play", (_event, url) => {
+  stopPopout();
+  const bin = fs.existsSync(MPV_BIN) ? MPV_BIN : "mpv";
+  try {
+    const proc = spawn(
+      bin,
+      [url, "--force-window=yes", "--title=BlammyTV", "--no-terminal"],
+      { stdio: "ignore" },
+    );
+    proc.on("exit", () => {
+      if (mpvProc === proc) mpvProc = null;
+      if (!proc.intentional) {
+        for (const w of BrowserWindow.getAllWindows()) {
+          w.webContents.send("popout:closed");
+        }
+      }
+    });
+    proc.on("error", () => {
+      if (mpvProc === proc) mpvProc = null;
+    });
+    mpvProc = proc;
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: String((err && err.message) || err) };
+  }
+});
+
+ipcMain.handle("popout:stop", () => {
+  stopPopout();
+  return { ok: true };
+});
 
 const HLS_DIR = path.join(os.tmpdir(), "blammytv-hls");
 let hlsServer = null;
@@ -182,7 +232,11 @@ app.whenReady().then(() => {
 
 app.on("window-all-closed", () => {
   stopTranscode();
+  stopPopout();
   if (process.platform !== "darwin") app.quit();
 });
 
-app.on("before-quit", stopTranscode);
+app.on("before-quit", () => {
+  stopTranscode();
+  stopPopout();
+});

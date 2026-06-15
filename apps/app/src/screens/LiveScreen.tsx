@@ -4,6 +4,7 @@ import { NowPlaying } from "../components/NowPlaying";
 import { CategorySidebar, FAVORITES_ID } from "../components/CategorySidebar";
 import { EpgGuide } from "../components/EpgGuide";
 import { isLiveNow } from "../lib/epg";
+import { isDesktop, popoutPlay } from "../lib/desktop";
 
 // Resizable source panel. Dragged below CAT_COLLAPSE_AT it snaps to a narrow
 // emoji rail. Width is remembered per device.
@@ -100,16 +101,34 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
   const [playingId, setPlayingId] = useState<string | null>(null);
   const playing = !!heroChannel && playingId === heroChannel.id;
 
+  // Theater mode: player fills the body, sidebar collapses, guide hides.
+  const [theater, setTheater] = useState(false);
+  const inTheater = playing && theater;
+
+  // Pop the current channel into the native mpv window; stop the in-app player.
+  const popout = () => {
+    if (!heroChannel) return;
+    void popoutPlay(heroChannel.streamUrl);
+    setPlayingId(null);
+    setTheater(false);
+  };
+
   return (
-    <div className="live-screen">
+    <div className={"live-screen" + (inTheater ? " live-screen--theater" : "")}>
       {heroChannel && (
         <NowPlaying
           channel={heroChannel}
           program={heroProgram}
           now={now}
           playing={playing}
+          theater={inTheater}
           onPlay={() => setPlayingId(heroChannel.id)}
-          onStop={() => setPlayingId(null)}
+          onStop={() => {
+            setPlayingId(null);
+            setTheater(false);
+          }}
+          onToggleTheater={() => setTheater((t) => !t)}
+          onPopout={isDesktop() ? popout : undefined}
         />
       )}
       <div
@@ -119,7 +138,7 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
         <CategorySidebar
           groups={live.groups}
           selectedId={categoryId}
-          collapsed={collapsed}
+          collapsed={collapsed || inTheater}
           onSelect={(id) => {
             setCategoryId(id);
             setSelectedProgramId(null);
