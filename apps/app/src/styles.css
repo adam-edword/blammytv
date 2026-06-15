@@ -532,7 +532,9 @@ img {
  * there's no visible gap. The picture is simply as large as it can be. */
 .live-screen--theater .now-playing__preview {
   position: fixed;
-  top: calc(var(--header-zone) + 6px);
+  /* Roomy gap under the nav so a tall/maximized window shrinks the picture to
+     clear it (resizing on height), instead of growing flush against the bar. */
+  top: calc(var(--header-zone) + 30px);
   left: 10px;
   right: 10px;
   bottom: 10px;
