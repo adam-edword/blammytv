@@ -1,10 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CloseIcon, PencilIcon } from "./icons";
 import {
   usePreferences,
   UI_SCALE_OPTIONS,
   nearestScaleIndex,
 } from "../state/preferences";
+import { PlaylistsSettings } from "./PlaylistsSettings";
 
 /**
  * Settings panel.
@@ -28,24 +29,39 @@ const ACCENT_PRESETS = [
   "#9aa0b1", // grey
 ];
 
+type SettingsTab = "playlists" | "display";
+
 export function SettingsPanel({
   open,
   onClose,
+  onConfigChanged,
 }: {
   open: boolean;
   onClose: () => void;
+  /** Called on close if playlists changed, so the device re-pulls its config. */
+  onConfigChanged?: () => void;
 }) {
   const { prefs, setAccent, setUiScale, setLightMode, reset } =
     usePreferences();
+  const [tab, setTab] = useState<SettingsTab>("playlists");
+  const dirty = useRef(false);
+
+  const close = () => {
+    if (dirty.current) {
+      dirty.current = false;
+      onConfigChanged?.();
+    }
+    onClose();
+  };
 
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") close();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  });
 
   if (!open) return null;
 
@@ -76,7 +92,7 @@ export function SettingsPanel({
   };
 
   return (
-    <div className="settings-overlay" onClick={onClose}>
+    <div className="settings-overlay" onClick={close}>
       <div
         className="settings-panel"
         role="dialog"
@@ -88,7 +104,7 @@ export function SettingsPanel({
           className="icon-btn settings-panel__close"
           type="button"
           aria-label="Close settings"
-          onClick={onClose}
+          onClick={close}
         >
           <CloseIcon />
         </button>
@@ -96,6 +112,29 @@ export function SettingsPanel({
         <div className="settings__inner">
           <h2 className="settings__title">Settings</h2>
 
+          <nav className="settings__tabs" role="tablist" aria-label="Settings sections">
+            {(["playlists", "display"] as const).map((t) => (
+              <button
+                key={t}
+                role="tab"
+                aria-selected={tab === t}
+                className={"settings__tab" + (tab === t ? " settings__tab--active" : "")}
+                onClick={() => setTab(t)}
+              >
+                {t === "playlists" ? "Playlists" : "Display"}
+              </button>
+            ))}
+          </nav>
+
+          {tab === "playlists" && (
+            <PlaylistsSettings
+              onDirty={() => {
+                dirty.current = true;
+              }}
+            />
+          )}
+
+          {tab === "display" && (
           <section className="settings__section">
             <h3 className="settings__section-title">Display</h3>
 
@@ -217,12 +256,15 @@ export function SettingsPanel({
               </div>
             </div>
           </section>
+          )}
 
-          <div className="settings__footer">
-            <button className="btn" type="button" onClick={reset}>
-              Reset to defaults
-            </button>
-          </div>
+          {tab === "display" && (
+            <div className="settings__footer">
+              <button className="btn" type="button" onClick={reset}>
+                Reset to defaults
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

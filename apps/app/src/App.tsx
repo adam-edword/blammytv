@@ -137,6 +137,7 @@ export function App() {
       <SettingsPanel
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
+        onConfigChanged={() => pull(shareCode)}
       />
     </div>
   );

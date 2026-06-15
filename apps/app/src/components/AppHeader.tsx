@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState } from "react";
 import { TABS, sectionOf, type TabKey } from "./TopTabs";
 import { SearchIcon, AccountIcon, SettingsIcon } from "./icons";
+import { APP_VERSION } from "../version";
 
 /** Top app chrome: brand + clock, section tabs, account/settings.
  * The tabs are the only nav; nothing here is a settings screen (config lives
@@ -15,7 +16,7 @@ export function AppHeader({
   onOpenSettings,
   onSearchLive,
   onSearchStream,
-  version = "v0.0.1",
+  version = `v${APP_VERSION}`,
 }: {
   active: TabKey;
   onChange: (key: TabKey) => void;
