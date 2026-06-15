@@ -100,16 +100,26 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
   const [playingId, setPlayingId] = useState<string | null>(null);
   const playing = !!heroChannel && playingId === heroChannel.id;
 
+  // Theater mode: the player fills the body, sidebar collapses to its rail, the
+  // guide hides. Only available while something is playing.
+  const [theater, setTheater] = useState(false);
+  const inTheater = playing && theater;
+
   return (
-    <div className="live-screen">
+    <div className={"live-screen" + (inTheater ? " live-screen--theater" : "")}>
       {heroChannel && (
         <NowPlaying
           channel={heroChannel}
           program={heroProgram}
           now={now}
           playing={playing}
+          theater={inTheater}
           onPlay={() => setPlayingId(heroChannel.id)}
-          onStop={() => setPlayingId(null)}
+          onStop={() => {
+            setPlayingId(null);
+            setTheater(false);
+          }}
+          onToggleTheater={() => setTheater((t) => !t)}
         />
       )}
       <div
@@ -119,7 +129,7 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
         <CategorySidebar
           groups={live.groups}
           selectedId={categoryId}
-          collapsed={collapsed}
+          collapsed={collapsed || inTheater}
           onSelect={(id) => {
             setCategoryId(id);
             setSelectedProgramId(null);

@@ -135,3 +135,65 @@ export function InfoIcon({ size = 20, className }: IconProps) {
     </Svg>
   );
 }
+
+/** Media / Pause */
+export function PauseIcon({ size = 20, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+      <rect x="6" y="5" width="4" height="14" rx="1" />
+      <rect x="14" y="5" width="4" height="14" rx="1" />
+    </svg>
+  );
+}
+
+/** Media / Volume */
+export function VolumeIcon({ size = 20, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <path d="M11 5 6 9H3v6h3l5 4V5Z" />
+      <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+      <path d="M18.5 6a8 8 0 0 1 0 12" />
+    </Svg>
+  );
+}
+
+/** Media / Volume muted */
+export function MuteIcon({ size = 20, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <path d="M11 5 6 9H3v6h3l5 4V5Z" />
+      <path d="M22 9l-6 6M16 9l6 6" />
+    </Svg>
+  );
+}
+
+/** Media / Picture-in-picture */
+export function PipIcon({ size = 20, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <path d="M21 12V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h6" />
+      <rect x="13" y="13" width="8" height="6" rx="1" />
+    </Svg>
+  );
+}
+
+/** Media / Theater (wide screen) */
+export function TheaterIcon({ size = 20, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <rect x="2" y="6" width="20" height="12" rx="2" />
+    </Svg>
+  );
+}
+
+/** Media / Fullscreen (corner arrows) */
+export function FullscreenIcon({ size = 20, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+      <path d="M16 3h3a2 2 0 0 1 2 2v3" />
+      <path d="M21 16v3a2 2 0 0 1-2 2h-3" />
+      <path d="M3 16v3a2 2 0 0 0 2 2h3" />
+    </Svg>
+  );
+}

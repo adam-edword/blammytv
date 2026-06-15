@@ -342,12 +342,13 @@ img {
   filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6));
 }
 
-/* mpegts.js video surface — fills the preview box. */
+/* mpegts.js video surface + custom controls — fills the preview box. */
 .player {
   position: relative;
   width: 100%;
   height: 100%;
   background: #000;
+  overflow: hidden;
 }
 
 .player__video {
@@ -371,9 +372,142 @@ img {
   pointer-events: none;
 }
 
+/* Control bar — fades out when the pointer's idle. */
+.player__controls {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 26px 16px 12px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent);
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+}
+
+.player--active .player__controls {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+.player__spacer {
+  flex: 1;
+}
+
+.player__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  opacity: 0.85;
+  transition: opacity 0.12s ease, background 0.12s ease;
+}
+
+.player__btn:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.player__btn.is-active {
+  color: var(--red);
+  opacity: 1;
+}
+
+.player__volume {
+  width: 96px;
+  height: 4px;
+  accent-color: #fff;
+  cursor: pointer;
+}
+
+.player__volume--boost {
+  accent-color: var(--red);
+}
+
+.player__vol-label {
+  min-width: 38px;
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.player__theater-exit {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease, background 0.12s ease;
+}
+
+.player--active .player__theater-exit {
+  opacity: 1;
+}
+
+.player__theater-exit:hover {
+  background: rgba(0, 0, 0, 0.7);
+}
+
 .now-playing__stop {
   align-self: flex-start;
   margin-top: 4px;
+}
+
+/* ---------- Theater mode ----------
+ * The player fills the body; the sidebar stays as a rail, the guide hides.
+ * The video element never moves, so playback isn't interrupted. */
+.live-screen--theater .now-playing__details {
+  display: none;
+}
+
+.live-screen--theater .now-playing {
+  margin: 0;
+}
+
+.live-screen--theater .now-playing__preview {
+  position: fixed;
+  top: calc(var(--header-zone) + 4px);
+  left: 96px;
+  right: 24px;
+  bottom: 20px;
+  width: auto;
+  aspect-ratio: auto;
+  z-index: 60;
+  border-radius: var(--radius);
+}
+
+.live-screen--theater .guide,
+.live-screen--theater .cat-resize {
+  display: none;
+}
+
+.live-screen--theater .categories {
+  position: fixed;
+  top: calc(var(--header-zone) + 4px);
+  left: 16px;
+  bottom: 20px;
+  width: 64px;
+  z-index: 61;
+  padding-bottom: 0;
 }
 
 .now-playing__details {
