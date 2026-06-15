@@ -591,9 +591,8 @@ img {
 }
 
 /* Framed player: clears the nav up top, a slim margin on the other three
- * sides, rounded corners. The video letterboxes on black inside (object-fit),
- * and the controls overlay sits on a bottom scrim within the frame. Explicit
- * width/height (rather than inset stretch) so the box can't collapse. */
+ * sides. The frame holds the controls overlay and positioning; rounding the
+ * picture is handled on the video element below. */
 .live-screen--theater .now-playing__preview {
   position: fixed;
   top: calc(var(--header-zone) + 8px);
@@ -606,6 +605,20 @@ img {
   border: none;
   border-radius: 12px;
   overflow: hidden;
+}
+
+/* Round the picture itself: size the video element to a centered 16:9 box (the
+ * largest that fits the frame) so border-radius lands on the video, not on the
+ * letterbox bars. The frame is untouched. */
+.live-screen--theater .player__video {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(100%, calc((100vh - var(--header-zone) - 18px) * 16 / 9));
+  height: auto;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
 }
 
 /* ---------- Theater overlay (content + seek + controls) ---------- */
