@@ -4,10 +4,10 @@ import "slot-text/style.css";
 
 /**
  * Full-screen branded splash shown while the app boots / pulls config. The
- * word rolls from "Shipping" to "BlammyTV" with a chromatic sweep (slot-text),
- * then keeps re-rolling "BlammyTV" on a loop until loading finishes (the whole
- * splash unmounts). Sits on the same near-black as the Electron window so
- * there's no flash of background underneath.
+ * word rolls in as "BlammyTV" with a chromatic sweep (slot-text) and keeps
+ * re-rolling on a loop until loading finishes (the whole splash unmounts).
+ * Sits on the same near-black as the Electron window so there's no flash of
+ * background underneath.
  */
 export function LoadingScreen() {
   const wordRef = useRef<HTMLSpanElement>(null);
@@ -24,13 +24,13 @@ export function LoadingScreen() {
       skipUnchanged: false,
     };
 
-    const label = slotText(el, "Shipping");
+    // Start blank so the very first roll spells out BlammyTV (never "Shipping").
+    const label = slotText(el, "");
     let loop = 0;
-    // Roll Shipping → BlammyTV, then keep re-rolling BlammyTV forever.
     const first = window.setTimeout(() => {
       label.set("BlammyTV", roll);
       loop = window.setInterval(() => label.set("BlammyTV", roll), 1600);
-    }, 460);
+    }, 120);
 
     return () => {
       window.clearTimeout(first);
