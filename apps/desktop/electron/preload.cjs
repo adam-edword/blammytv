@@ -2,8 +2,8 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 // Bridge the renderer to native playback (mpv embedded in a child window).
 contextBridge.exposeInMainWorld("blammy", {
-  mpvPlay: (url, bounds) => ipcRenderer.invoke("mpv:play", { url, bounds }),
-  mpvSetBounds: (bounds) => ipcRenderer.invoke("mpv:bounds", bounds),
+  mpvPlay: (url, rect) => ipcRenderer.invoke("mpv:play", { url, rect }),
+  mpvSetBounds: (rect) => ipcRenderer.invoke("mpv:bounds", rect),
   mpvStop: () => ipcRenderer.invoke("mpv:stop"),
   // Fired when the user closes the mpv window; returns an unsubscribe fn.
   onMpvClosed: (cb) => {

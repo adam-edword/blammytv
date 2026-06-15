@@ -13,6 +13,11 @@ const { spawn } = require("node:child_process");
  *   window pinned there as the main window moves/resizes.
  */
 
+// Free the GPU surface for the embedded mpv window — Chromium's compositor
+// otherwise fights mpv and the video renders black. Our UI is light, so CPU
+// compositing is fine. Must be called before the app is ready.
+app.disableHardwareAcceleration();
+
 const DEV_URL = process.env.ELECTRON_START_URL || "http://localhost:1420/";
 const MPV_BIN =
   process.env.MPV_PATH ||
@@ -29,12 +34,15 @@ function nativeWid(win) {
     : buf.readUInt32LE(0).toString();
 }
 
-function roundBounds(b) {
+// A viewport-relative rect (left/top/width/height, DIP) becomes absolute screen
+// bounds using the main window's content origin — reliable across DPI scaling.
+function rectToBounds(rect) {
+  const cb = mainWin ? mainWin.getContentBounds() : { x: 0, y: 0 };
   return {
-    x: Math.round(b.x),
-    y: Math.round(b.y),
-    width: Math.max(1, Math.round(b.width)),
-    height: Math.max(1, Math.round(b.height)),
+    x: Math.round(cb.x + rect.left),
+    y: Math.round(cb.y + rect.top),
+    width: Math.max(1, Math.round(rect.width)),
+    height: Math.max(1, Math.round(rect.height)),
   };
 }
 
@@ -75,10 +83,10 @@ function stopPlayback() {
   if (videoWin && !videoWin.isDestroyed()) videoWin.hide();
 }
 
-ipcMain.handle("mpv:play", (_event, { url, bounds }) => {
+ipcMain.handle("mpv:play", (_event, { url, rect }) => {
   killMpv();
   const win = ensureVideoWin();
-  if (bounds) win.setBounds(roundBounds(bounds));
+  if (rect) win.setBounds(rectToBounds(rect));
   win.showInactive();
   const bin = fs.existsSync(MPV_BIN) ? MPV_BIN : "mpv";
   try {
@@ -101,9 +109,9 @@ ipcMain.handle("mpv:play", (_event, { url, bounds }) => {
   }
 });
 
-ipcMain.handle("mpv:bounds", (_event, bounds) => {
-  if (videoWin && !videoWin.isDestroyed() && bounds) {
-    videoWin.setBounds(roundBounds(bounds));
+ipcMain.handle("mpv:bounds", (_event, rect) => {
+  if (videoWin && !videoWin.isDestroyed() && rect) {
+    videoWin.setBounds(rectToBounds(rect));
   }
   return { ok: true };
 });

@@ -11,7 +11,7 @@ import {
   mpvStop,
   onMpvClosed,
   onWindowGeom,
-  type Bounds,
+  type Rect,
 } from "../lib/desktop";
 
 // Resizable source panel. Dragged below CAT_COLLAPSE_AT it snaps to a narrow
@@ -109,25 +109,20 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
   const [playingId, setPlayingId] = useState<string | null>(null);
   const playing = !!heroChannel && playingId === heroChannel.id;
 
-  // Screen-space bounds of the preview box, so the embedded mpv window can be
-  // pinned over it (device-independent px, which matches Electron setBounds).
+  // Viewport-relative rect of the preview box; the shell converts it to screen
+  // coordinates (via getContentBounds) to pin the embedded mpv window over it.
   const previewRef = useRef<HTMLDivElement>(null);
-  const previewBounds = (): Bounds | undefined => {
+  const previewRect = (): Rect | undefined => {
     const el = previewRef.current;
     if (!el) return undefined;
     const r = el.getBoundingClientRect();
-    return {
-      x: window.screenX + r.left,
-      y: window.screenY + r.top,
-      width: r.width,
-      height: r.height,
-    };
+    return { left: r.left, top: r.top, width: r.width, height: r.height };
   };
 
   // Desktop: drive embedded mpv from the playing hero channel.
   useEffect(() => {
     if (!isDesktop()) return;
-    if (playing && heroChannel) void mpvPlay(heroChannel.streamUrl, previewBounds());
+    if (playing && heroChannel) void mpvPlay(heroChannel.streamUrl, previewRect());
     else void mpvStop();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playing, heroChannel?.id]);
@@ -136,8 +131,8 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
   useEffect(() => {
     if (!isDesktop() || !playing) return;
     const sync = () => {
-      const b = previewBounds();
-      if (b) void mpvSetBounds(b);
+      const r = previewRect();
+      if (r) void mpvSetBounds(r);
     };
     const offGeom = onWindowGeom(sync);
     window.addEventListener("resize", sync);
