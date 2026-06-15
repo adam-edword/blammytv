@@ -590,20 +590,21 @@ img {
   margin: 0;
 }
 
-/* Full-bleed video: fills the whole viewport (letterboxed on black via
- * object-fit), with the controls overlaid on a bottom scrim. The dimmed nav
- * floats over the top. */
+/* Framed player: clears the nav up top, a slim margin on the other three
+ * sides, rounded corners. The video letterboxes on black inside (object-fit),
+ * and the controls overlay sits on a bottom scrim within the frame. Explicit
+ * width/height (rather than inset stretch) so the box can't collapse. */
 .live-screen--theater .now-playing__preview {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
+  top: calc(var(--header-zone) + 8px);
+  left: 10px;
+  width: calc(100vw - 20px);
+  height: calc(100vh - var(--header-zone) - 18px);
   transform: none;
   aspect-ratio: auto;
   z-index: 45;
   border: none;
-  border-radius: 0;
+  border-radius: 12px;
   overflow: hidden;
 }
 
@@ -636,8 +637,9 @@ img {
 
 .theater-bar__meta {
   display: flex;
-  align-items: flex-end;
-  gap: 18px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
   max-width: 760px;
 }
 
