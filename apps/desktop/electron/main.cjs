@@ -283,11 +283,12 @@ ipcMain.handle("theater:open", (_event, url) => {
     height,
     frame: false,
     transparent: true,
-    backgroundColor: "#00000000",
+    // No backgroundColor: on Windows it forces the transparent window opaque.
     resizable: false,
     movable: false,
     skipTaskbar: true,
     hasShadow: false,
+    thickFrame: false,
     fullscreenable: false,
     webPreferences: {
       preload: path.join(__dirname, "overlay-preload.cjs"),
