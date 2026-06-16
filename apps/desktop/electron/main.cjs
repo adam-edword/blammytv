@@ -166,7 +166,8 @@ function loadMpvNative() {
   if (mpvNative) return mpvNative;
   try {
     mpvNative = require("../native/mpv");
-  } catch {
+  } catch (err) {
+    console.error("[mpv] failed to load native addon:", err);
     mpvNative = null;
   }
   return mpvNative;

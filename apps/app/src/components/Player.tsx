@@ -364,7 +364,20 @@ export function Player({
                 </button>
                 {/* TEMP — Phase 1 libmpv spike: play the source in mpv's own window. */}
                 {isDesktop() && (
-                  <button className="player__btn" type="button" onClick={() => void mpvSpike(url)} aria-label="libmpv spike (test)" title="libmpv spike">
+                  <button
+                    className="player__btn"
+                    type="button"
+                    onClick={() =>
+                      void mpvSpike(url).then((res) => {
+                        if (res && !res.ok) {
+                          console.error("[mpv spike]", res.error);
+                          window.alert("libmpv spike failed: " + res.error);
+                        }
+                      })
+                    }
+                    aria-label="libmpv spike (test)"
+                    title="libmpv spike"
+                  >
                     <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5 }}>MPV</span>
                   </button>
                 )}
