@@ -18,6 +18,7 @@
 #include <windows.h>
 #include <GL/gl.h>
 
+#include <chrono>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -429,6 +430,10 @@ struct Player {
   bool started = false;
   std::string glRenderer;
   std::string glVersion;
+  // Rolling per-call timings (ms) to localize the consume-loop bottleneck.
+  double avgRenderMs = 0;
+  double avgReadMs = 0;
+  double avgDrainMs = 0;
 };
 
 Player g_player;
@@ -527,12 +532,19 @@ Napi::Value PlayerRenderFrame(const Napi::CallbackInfo &info) {
   int h = info[1].As<Napi::Number>().Int32Value();
   if (w < 16 || h < 16 || w > 7680 || h > 4320) return env.Null();
 
+  using clk = std::chrono::high_resolution_clock;
+  auto ms = [](clk::time_point a, clk::time_point b) {
+    return std::chrono::duration<double, std::milli>(b - a).count();
+  };
+
   // Our context may have been displaced (e.g. by the probe); reassert it.
   wglMakeCurrent(g_player.gl.hdc, g_player.gl.glrc);
 
   // Drain events (keep mpv progressing; ignore content).
+  auto t0 = clk::now();
   while (mpv_wait_event(g_player.mpv, 0)->event_id != MPV_EVENT_NONE) {
   }
+  auto t1 = clk::now();
 
   if (w != g_player.w || h != g_player.h) {
     glBindTexture(GL_TEXTURE_2D, g_player.tex);
@@ -555,11 +567,19 @@ Napi::Value PlayerRenderFrame(const Napi::CallbackInfo &info) {
                            {MPV_RENDER_PARAM_FLIP_Y, &flipY},
                            {MPV_RENDER_PARAM_INVALID, nullptr}};
   glViewport(0, 0, w, h);
+  auto t2 = clk::now();
   mpv_render_context_render(g_player.rctx, rp);
+  auto t3 = clk::now();
   // glReadPixels implicitly syncs for the region it reads, so an explicit
   // glFinish here is a redundant full-pipeline stall — dropped.
   p_glBindFramebuffer(GL_FRAMEBUFFER, g_player.fbo);
   glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, g_player.pixels.data());
+  auto t4 = clk::now();
+
+  const double a = 0.1;  // EMA smoothing
+  g_player.avgDrainMs += (ms(t0, t1) - g_player.avgDrainMs) * a;
+  g_player.avgRenderMs += (ms(t2, t3) - g_player.avgRenderMs) * a;
+  g_player.avgReadMs += (ms(t3, t4) - g_player.avgReadMs) * a;
 
   return Napi::Buffer<unsigned char>::Copy(env, g_player.pixels.data(),
                                            g_player.pixels.size());
@@ -587,8 +607,11 @@ Napi::Value PlayerStats(const Napi::CallbackInfo &info) {
                     " | vf-fps=" + std::to_string(vfFps) +
                     " | drops=" + std::to_string(drops) +
                     " | dec-drops=" + std::to_string(decDrops) +
-                    " | gl=" + g_player.glRenderer + " (" + g_player.glVersion +
-                    ")";
+                    " | render=" + std::to_string(g_player.avgRenderMs) +
+                    "ms read=" + std::to_string(g_player.avgReadMs) +
+                    "ms drain=" + std::to_string(g_player.avgDrainMs) +
+                    "ms | gl=" + g_player.glRenderer + " (" +
+                    g_player.glVersion + ")";
   if (hw) mpv_free(hw);
   return Napi::String::New(env, out);
 }
