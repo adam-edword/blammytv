@@ -1,7 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { App } from "./App";
-import { PreferencesProvider, initPreferences } from "./state/preferences";
+import { initPreferences } from "./state/preferences";
+import { PreferencesProvider } from "./state/PreferencesProvider";
 import "./fonts";
 import "./styles.css";
 

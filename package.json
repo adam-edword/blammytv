@@ -6,13 +6,23 @@
   "packageManager": "pnpm@10.33.0",
   "scripts": {
     "dev": "pnpm --filter @blammytv/app dev",
+    "dev:all": "concurrently -n server,app -c blue,green \"pnpm --filter @blammytv/server dev\" \"pnpm --filter @blammytv/app dev\"",
+    "desktop": "concurrently -n server,app,electron -c blue,green,magenta \"pnpm --filter @blammytv/server dev\" \"pnpm --filter @blammytv/app dev\" \"wait-on tcp:1420 && pnpm --filter @blammytv/desktop start\"",
+    "server": "pnpm --filter @blammytv/server dev",
     "build": "pnpm -r build",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm --filter @blammytv/app test",
+    "lint": "eslint ."
   },
   "devDependencies": {
-    "typescript": "^5.6.3"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": ["esbuild"]
+    "@eslint/js": "^10.0.1",
+    "concurrently": "^10.0.3",
+    "eslint": "^10.5.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.3",
+    "globals": "^17.6.0",
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.61.1",
+    "wait-on": "^8.0.1"
   }
 }

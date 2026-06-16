@@ -1,0 +1,52 @@
+import type { ConfigBlob } from "@blammytv/shared";
+import { recordBuildStats, type XtreamSource } from "../store.js";
+import { XtreamClient } from "./client.js";
+import { mapChannels, mapEpg, mapGroups } from "./mapper.js";
+
+type LiveSection = ConfigBlob["live"];
+
+/**
+ * Build the merged live section from the enabled Xtream playlists. Each source
+ * is best-effort: one failing playlist (or its EPG) doesn't sink the others.
+ */
+export async function buildLive(sources: XtreamSource[]): Promise<LiveSection> {
+  const groups: LiveSection["groups"] = [];
+  const channels: LiveSection["channels"] = [];
+  const programs: LiveSection["programs"] = [];
+
+  await Promise.all(
+    sources.map(async (source) => {
+      try {
+        const client = new XtreamClient(source);
+        await client.authenticate();
+
+        const [cats, streams] = await Promise.all([
+          client.getLiveCategories(),
+          client.getLiveStreams(),
+        ]);
+
+        const srcChannels = mapChannels(streams, source.id, client);
+        groups.push(...mapGroups(cats, source.id));
+        channels.push(...srcChannels);
+
+        // EPG is best-effort — channels still render ("No info") without it.
+        try {
+          const xmltv = await client.getXmltv();
+          programs.push(...mapEpg(xmltv, srcChannels, Date.now()));
+        } catch (err) {
+          console.warn(`[xtream] EPG failed for "${source.name}": ${msg(err)}`);
+        }
+
+        recordBuildStats(source.id, srcChannels.length);
+      } catch (err) {
+        console.error(`[xtream] playlist "${source.name}" failed: ${msg(err)}`);
+      }
+    }),
+  );
+
+  return { groups, channels, programs, featuredChannelId: channels[0]?.id };
+}
+
+function msg(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}

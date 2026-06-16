@@ -15,3 +15,10 @@ dist-ssr/
 .vscode/*
 !.vscode/extensions.json
 *.log
+
+# server data store
+/apps/server/data/
+
+# electron build artifacts
+/apps/desktop/renderer/
+/apps/desktop/release/

@@ -6,7 +6,7 @@ import type {
   VodItem,
   StreamSource,
   Season,
-} from "@blammytv/shared";
+} from "./config";
 
 /**
  * Stand-in for the not-yet-built backend.

@@ -1,17 +1,14 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useContext } from "react";
 
 /**
- * Device-local display preferences.
+ * Device-local display preferences (pure module).
  *
  * These are per-device *display* settings (accent colour, UI scale, theme) —
  * not the channel/source "config" that the architecture keeps server-side — so
  * they live in localStorage on the device, like the share code.
+ *
+ * The React <PreferencesProvider> lives next door in PreferencesProvider.tsx;
+ * everything here is plain data/logic + the context and hook.
  */
 export interface Preferences {
   /** Accent colour as a hex string, e.g. "#c22727". */
@@ -66,7 +63,7 @@ export function clampScale(v: number): number {
   return Math.min(UI_SCALE_MAX, Math.max(UI_SCALE_MIN, v));
 }
 
-function loadPreferences(): Preferences {
+export function loadPreferences(): Preferences {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_PREFERENCES;
@@ -84,7 +81,7 @@ function loadPreferences(): Preferences {
   }
 }
 
-function savePreferences(p: Preferences): void {
+export function savePreferences(p: Preferences): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(p));
   } catch {
@@ -100,7 +97,7 @@ export function hexToRgbTriplet(hex: string): string {
   return `${(n >> 16) & 255} ${(n >> 8) & 255} ${n & 255}`;
 }
 
-function applyPreferences(p: Preferences): void {
+export function applyPreferences(p: Preferences): void {
   const root = document.documentElement;
   root.style.setProperty("--accent-rgb", hexToRgbTriplet(p.accent));
   root.style.setProperty("--ui-scale", String(p.uiScale));
@@ -113,7 +110,7 @@ export function initPreferences(): void {
   applyPreferences(loadPreferences());
 }
 
-interface PreferencesContextValue {
+export interface PreferencesContextValue {
   prefs: Preferences;
   setAccent: (hex: string) => void;
   setUiScale: (v: number) => void;
@@ -121,31 +118,8 @@ interface PreferencesContextValue {
   reset: () => void;
 }
 
-const PreferencesContext = createContext<PreferencesContextValue | null>(null);
-
-export function PreferencesProvider({ children }: { children: ReactNode }) {
-  const [prefs, setPrefs] = useState<Preferences>(loadPreferences);
-
-  // Apply before paint so returning users don't see a flash of defaults.
-  useEffect(() => {
-    applyPreferences(prefs);
-    savePreferences(prefs);
-  }, [prefs]);
-
-  const value: PreferencesContextValue = {
-    prefs,
-    setAccent: (accent) => setPrefs((p) => ({ ...p, accent })),
-    setUiScale: (uiScale) => setPrefs((p) => ({ ...p, uiScale: clampScale(uiScale) })),
-    setLightMode: (lightMode) => setPrefs((p) => ({ ...p, lightMode })),
-    reset: () => setPrefs(DEFAULT_PREFERENCES),
-  };
-
-  return (
-    <PreferencesContext.Provider value={value}>
-      {children}
-    </PreferencesContext.Provider>
-  );
-}
+export const PreferencesContext =
+  createContext<PreferencesContextValue | null>(null);
 
 export function usePreferences(): PreferencesContextValue {
   const ctx = useContext(PreferencesContext);

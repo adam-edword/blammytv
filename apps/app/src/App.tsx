@@ -14,7 +14,7 @@ import { PlaceholderScreen } from "./screens/PlaceholderScreen";
 import { SourceSelector } from "./components/SourceSelector";
 import { EpisodeBrowser } from "./components/EpisodeBrowser";
 import { SettingsPanel } from "./components/SettingsPanel";
-import { LiveScreenSkeleton } from "./components/LoadingSkeletons";
+import { LoadingScreen } from "./components/LoadingScreen";
 import { fetchConfig } from "./lib/config";
 import { loadShareCode, saveShareCode, clearShareCode } from "./lib/pairing";
 
@@ -115,7 +115,7 @@ export function App() {
       />
       <main className="app-main">
         {load.status === "loading" || load.status === "idle" ? (
-          <LiveScreenSkeleton />
+          <LoadingScreen />
         ) : load.status === "error" ? (
           <ErrorState
             message={load.message}
@@ -137,6 +137,7 @@ export function App() {
       <SettingsPanel
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
+        onConfigChanged={() => pull(shareCode)}
       />
     </div>
   );

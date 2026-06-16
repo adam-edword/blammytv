@@ -1,35 +1,82 @@
 import type { LiveChannel, EpgProgram } from "@blammytv/shared";
 import { formatTime, isLiveNow, progressPct } from "../lib/epg";
+import { Player, type TheaterMeta } from "./Player";
 
 /** The marquee at the top of the Live tab: a preview of the focused channel
- * plus its current program's details. */
+ * plus its current program's details. The preview doubles as the player — click
+ * it to start the channel's live stream. */
 export function NowPlaying({
   channel,
   program,
   now,
+  playing,
+  streamUrl,
+  sourceName,
+  theater,
+  onPlay,
+  onStop,
+  onToggleTheater,
+  onPopout,
 }: {
   channel: LiveChannel;
   program: EpgProgram | null;
   now: number;
+  playing: boolean;
+  /** Source for the player — the channel that's actually streaming. Kept
+   * separate from `channel` so hovering a guide row can re-skin the text
+   * without disturbing playback. */
+  streamUrl: string;
+  sourceName?: string;
+  theater: boolean;
+  onPlay: () => void;
+  onStop: () => void;
+  onToggleTheater: () => void;
+  onPopout?: () => void;
 }) {
   const live = program ? isLiveNow(program, now) : false;
+
+  // Content + live position for the theater overlay.
+  const meta: TheaterMeta = {
+    logo: channel.logo,
+    channelName: `${channel.name} HDR`,
+    sourceName,
+    title: program?.title ?? "No programme information",
+    description: program?.description,
+    startLabel: program ? formatTime(Date.parse(program.start)) : undefined,
+    progressPct: program ? progressPct(program, now) : 100,
+    live,
+    streamId: channel.id,
+    epgId: channel.epgId,
+  };
 
   return (
     <section className="now-playing">
       <div
         className={
           "now-playing__preview" +
-          (channel.logo ? "" : " now-playing__preview--empty")
+          (playing ? "" : " now-playing__preview--empty")
         }
       >
-        {channel.logo ? (
-          <img className="now-playing__art" src={channel.logo} alt="" />
+        {playing ? (
+          <Player
+            url={streamUrl}
+            className="now-playing__art"
+            theater={theater}
+            meta={meta}
+            onToggleTheater={onToggleTheater}
+            onPopout={onPopout}
+            onStop={onStop}
+          />
         ) : (
-          // Nothing actually playing yet — a basic black screen with a play
-          // glyph stands in for the player surface.
-          <div className="now-playing__art now-playing__empty" aria-hidden="true">
+          // Just a black screen with a play glyph — click to start the stream.
+          <button
+            className="now-playing__art now-playing__empty now-playing__play-btn"
+            type="button"
+            aria-label={`Play ${channel.name}`}
+            onClick={onPlay}
+          >
             <span className="now-playing__play" />
-          </div>
+          </button>
         )}
       </div>
 
@@ -65,3 +112,4 @@ export function NowPlaying({
     </section>
   );
 }
+

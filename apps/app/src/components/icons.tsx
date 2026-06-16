@@ -91,11 +91,71 @@ export function ChevronIcon({ size = 16, className }: IconProps) {
   );
 }
 
+/** Time / Recents — a clock face. */
+export function RecentsIcon({ size = 19, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7.5V12L15 14" />
+    </Svg>
+  );
+}
+
 /** Interface / Close (X) */
 export function CloseIcon({ size = 24, className }: IconProps) {
   return (
     <Svg size={size} className={className}>
       <path d="M6 6L18 18M18 6L6 18" />
+    </Svg>
+  );
+}
+
+/** Media / Skip back 10s (counter-clockwise arrow). */
+export function SkipBackIcon({ size = 22, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1" />
+      <path d="M3 4v4.5h4.5" />
+    </Svg>
+  );
+}
+
+/** Media / Skip forward 10s (clockwise arrow). */
+export function SkipFwdIcon({ size = 22, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <path d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1" />
+      <path d="M21 4v4.5h-4.5" />
+    </Svg>
+  );
+}
+
+/** Media / Audio language (globe). */
+export function LanguageIcon({ size = 20, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18" />
+      <path d="M12 3c2.6 2.6 2.6 15.4 0 18M12 3c-2.6 2.6-2.6 15.4 0 18" />
+    </Svg>
+  );
+}
+
+/** Media / Subtitles (CC). */
+export function CcIcon({ size = 20, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <rect x="3" y="5" width="18" height="14" rx="3" />
+      <path d="M10.5 10.2a2.2 2.2 0 1 0 0 3.6M17 10.2a2.2 2.2 0 1 0 0 3.6" />
+    </Svg>
+  );
+}
+
+/** Media / Stats (bar chart). */
+export function StatsIcon({ size = 20, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <path d="M5 20V10M12 20V4M19 20v-7" />
     </Svg>
   );
 }
@@ -132,6 +192,60 @@ export function InfoIcon({ size = 20, className }: IconProps) {
       <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z" />
       <path d="M12 11v5" />
       <path d="M12 8h.01" />
+    </Svg>
+  );
+}
+
+/** Media / Pause */
+export function PauseIcon({ size = 20, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+      <rect x="6" y="5" width="4" height="14" rx="1" />
+      <rect x="14" y="5" width="4" height="14" rx="1" />
+    </svg>
+  );
+}
+
+/** Media / Volume */
+export function VolumeIcon({ size = 20, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <path d="M11 5 6 9H3v6h3l5 4V5Z" />
+      <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+      <path d="M18.5 6a8 8 0 0 1 0 12" />
+    </Svg>
+  );
+}
+
+/** Media / Volume muted */
+export function MuteIcon({ size = 20, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <path d="M11 5 6 9H3v6h3l5 4V5Z" />
+      <path d="M22 9l-6 6M16 9l6 6" />
+    </Svg>
+  );
+}
+
+/** Media / Pop out (open in external window) */
+export function PopoutIcon({ size = 20, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <path d="M14 4h6v6" />
+      <path d="M20 4l-8 8" />
+      <path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6" />
+    </Svg>
+  );
+}
+
+/** Media / Fullscreen (corner arrows) */
+export function FullscreenIcon({ size = 20, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+      <path d="M16 3h3a2 2 0 0 1 2 2v3" />
+      <path d="M21 16v3a2 2 0 0 1-2 2h-3" />
+      <path d="M3 16v3a2 2 0 0 0 2 2h3" />
     </Svg>
   );
 }
