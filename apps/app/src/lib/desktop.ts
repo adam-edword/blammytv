@@ -39,7 +39,19 @@ interface BlammyBridge {
   mpvPlayerStop: () => Promise<unknown>;
 }
 
+/**
+ * In-renderer libmpv bridge (loaded by the preload from the native addon, so
+ * its frame pulls are synchronous + IPC-free — the canvas hot path).
+ */
+interface BlammyMpvBridge {
+  start: (url: string) => { ok: boolean; error?: string };
+  frame: (w: number, h: number) => Uint8Array | null;
+  stop: () => void;
+}
+
 const bridge = (window as unknown as { blammy?: BlammyBridge }).blammy;
+const mpvBridge = (window as unknown as { blammyMpv?: BlammyMpvBridge })
+  .blammyMpv;
 
 export const isDesktop = (): boolean => !!bridge;
 
@@ -59,8 +71,9 @@ export const mpvSpike = (url: string) => bridge?.mpvSpike(url);
 /** Phase 2 step 1 — render one frame offscreen via mpv's render API → BMP. */
 export const mpvRenderProbe = (url: string) => bridge?.mpvRenderProbe(url);
 
-/** Phase 2 step 2 — live libmpv → canvas player. */
-export const mpvPlayerStart = (url: string) => bridge?.mpvPlayerStart(url);
-export const mpvPlayerFrame = (w: number, h: number) =>
-  bridge?.mpvPlayerFrame(w, h);
-export const mpvPlayerStop = () => bridge?.mpvPlayerStop();
+/** Phase 2 step 2 — live libmpv → canvas player (synchronous, in-renderer). */
+export const mpvCanvasStart = (url: string) =>
+  mpvBridge?.start(url) ?? { ok: false, error: "libmpv bridge unavailable" };
+export const mpvCanvasFrame = (w: number, h: number) =>
+  mpvBridge?.frame(w, h) ?? null;
+export const mpvCanvasStop = () => mpvBridge?.stop();

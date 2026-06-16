@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { mpvPlayerStart, mpvPlayerFrame, mpvPlayerStop } from "../lib/desktop";
+import { mpvCanvasStart, mpvCanvasFrame, mpvCanvasStop } from "../lib/desktop";
 import { CloseIcon } from "./icons";
 
 /**
@@ -49,43 +49,36 @@ export function MpvCanvas({ url, onClose }: { url: string; onClose: () => void }
   useEffect(() => {
     let cancelled = false;
     let raf = 0;
-    let inflight = false;
+    let gotFirst = false;
     const ctx = canvasRef.current?.getContext("2d") ?? null;
 
-    (async () => {
-      const res = await mpvPlayerStart(url);
+    const res = mpvCanvasStart(url);
+    if (!res.ok) {
+      setError(res.error ?? "Couldn't start libmpv player.");
+      return;
+    }
+
+    const tick = () => {
       if (cancelled) return;
-      if (!res?.ok) {
-        setError(res?.error ?? "Couldn't start libmpv player.");
-        return;
-      }
-      const tick = async () => {
-        if (cancelled) return;
-        if (!inflight) {
-          inflight = true;
-          try {
-            const { w, h } = sizeRef.current;
-            const buf = await mpvPlayerFrame(w, h);
-            if (!cancelled && buf && ctx && buf.length === w * h * 4) {
-              const data = new Uint8ClampedArray(buf);
-              ctx.putImageData(new ImageData(data, w, h), 0, 0);
-              if (!live) setLive(true);
-            }
-          } finally {
-            inflight = false;
-          }
+      const { w, h } = sizeRef.current;
+      const buf = mpvCanvasFrame(w, h);
+      if (buf && ctx && buf.length === w * h * 4) {
+        const data = new Uint8ClampedArray(buf);
+        ctx.putImageData(new ImageData(data, w, h), 0, 0);
+        if (!gotFirst) {
+          gotFirst = true;
+          setLive(true);
         }
-        raf = requestAnimationFrame(tick);
-      };
+      }
       raf = requestAnimationFrame(tick);
-    })();
+    };
+    raf = requestAnimationFrame(tick);
 
     return () => {
       cancelled = true;
       cancelAnimationFrame(raf);
-      void mpvPlayerStop();
+      mpvCanvasStop();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url]);
 
   return (

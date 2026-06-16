@@ -404,6 +404,9 @@ function createWindow() {
     webPreferences: {
       webSecurity: false,
       autoplayPolicy: "no-user-gesture-required",
+      // sandbox off so the preload can load the native libmpv addon and render
+      // frames in-renderer (no cross-process IPC for the canvas hot path).
+      sandbox: false,
       preload: path.join(__dirname, "preload.cjs"),
     },
   });
