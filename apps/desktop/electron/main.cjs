@@ -260,7 +260,7 @@ let theaterOverlay = null;
 
 // DIAGNOSTIC: skip the overlay so we can see mpv on its own and confirm whether
 // it actually goes fullscreen (vs. a strip with the desktop behind).
-const THEATER_DIAG_NO_OVERLAY = true;
+const THEATER_DIAG_NO_OVERLAY = false;
 
 function closeTheater() {
   const native = loadMpvNative();
@@ -295,10 +295,11 @@ ipcMain.handle("theater:open", (_event, url) => {
   // Hide the app shell so the only layers are mpv (bottom) + transparent
   // overlay (top) — otherwise the app's dark background shows through.
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.hide();
+  // Escape always exits theater (the overlay is click-through, so the buttons
+  // won't take clicks during this occlusion test).
+  globalShortcut.register("Escape", closeTheater);
 
   if (THEATER_DIAG_NO_OVERLAY) {
-    // Show mpv on its own; Escape closes it. Confirms fullscreen behaviour.
-    globalShortcut.register("Escape", closeTheater);
     return { ok: true };
   }
 
@@ -316,6 +317,9 @@ ipcMain.handle("theater:open", (_event, url) => {
     skipTaskbar: true,
     hasShadow: false,
     thickFrame: false,
+    // Non-focusable so mpv stays the active foreground window (occluded +
+    // unfocused DWM content can get throttled/dimmed).
+    focusable: false,
     fullscreenable: false,
     webPreferences: {
       preload: path.join(__dirname, "overlay-preload.cjs"),
@@ -325,6 +329,8 @@ ipcMain.handle("theater:open", (_event, url) => {
   });
   // Sit above mpv's borderless-fullscreen window.
   theaterOverlay.setAlwaysOnTop(true, "screen-saver");
+  // Click-through: input passes to mpv, the overlay never steals focus.
+  theaterOverlay.setIgnoreMouseEvents(true, { forward: true });
   theaterOverlay.loadFile(path.join(__dirname, "..", "overlay.html"));
   theaterOverlay.on("closed", () => {
     theaterOverlay = null;
