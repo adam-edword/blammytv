@@ -259,6 +259,8 @@ function closeTheater() {
   }
   if (theaterOverlay && !theaterOverlay.isDestroyed()) theaterOverlay.close();
   theaterOverlay = null;
+  // Bring the app back.
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.show();
 }
 
 ipcMain.handle("theater:open", (_event, url) => {
@@ -299,6 +301,9 @@ ipcMain.handle("theater:open", (_event, url) => {
   theaterOverlay.on("closed", () => {
     theaterOverlay = null;
   });
+  // Hide the app shell so the only layers are mpv (bottom) + transparent
+  // overlay (top) — otherwise the app's dark background shows through.
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.hide();
   return { ok: true };
 });
 
@@ -463,6 +468,8 @@ ipcMain.handle("transcode:stop", () => {
   return { ok: true };
 });
 
+let mainWindow = null;
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1600,
@@ -484,6 +491,7 @@ function createWindow() {
     },
   });
   win.maximize();
+  mainWindow = win;
 
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
