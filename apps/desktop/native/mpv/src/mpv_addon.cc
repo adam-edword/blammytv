@@ -319,6 +319,7 @@ Napi::Value RenderProbe(const Napi::CallbackInfo &info) {
   // Pump until we get a frame with actual content (or time out).
   std::vector<unsigned char> pixels(static_cast<size_t>(W) * H * 4, 0);
   bool gotContent = false;
+  int lastRenderRc = 0;
   const DWORD startTick = GetTickCount();
   const DWORD timeoutMs = 15000;
 
@@ -339,41 +340,51 @@ Napi::Value RenderProbe(const Napi::CallbackInfo &info) {
       }
     }
 
-    uint64_t flags = mpv_render_context_update(rctx);
-    if (flags & MPV_RENDER_UPDATE_FRAME) {
-      mpv_opengl_fbo mfbo = {static_cast<int>(fbo), W, H, 0};
-      int flipY = 0;
-      mpv_render_param rp[] = {
-          {MPV_RENDER_PARAM_OPENGL_FBO, &mfbo},
-          {MPV_RENDER_PARAM_FLIP_Y, &flipY},
-          {MPV_RENDER_PARAM_INVALID, nullptr}};
-      glViewport(0, 0, W, H);
-      mpv_render_context_render(rctx, rp);
-      glFinish();
+    // Render every iteration rather than gating on MPV_RENDER_UPDATE_FRAME:
+    // without a registered update callback that flag may never set, so we'd
+    // never render and the texture stays black. Once mpv has decoded a frame,
+    // an unconditional render composites it and we read it back.
+    mpv_render_context_update(rctx);
+    mpv_opengl_fbo mfbo = {static_cast<int>(fbo), W, H, 0};
+    int flipY = 0;
+    mpv_render_param rp[] = {{MPV_RENDER_PARAM_OPENGL_FBO, &mfbo},
+                             {MPV_RENDER_PARAM_FLIP_Y, &flipY},
+                             {MPV_RENDER_PARAM_INVALID, nullptr}};
+    glViewport(0, 0, W, H);
+    lastRenderRc = mpv_render_context_render(rctx, rp);
+    glFinish();
 
-      p_glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-      glReadPixels(0, 0, W, H, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+    p_glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glReadPixels(0, 0, W, H, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
 
-      // "Content" = not an all-black frame (decode hasn't produced video yet
-      // right after loadfile; mpv renders black until the first picture).
-      uint64_t sum = 0;
-      for (size_t i = 0; i < pixels.size(); i += 4)
-        sum += pixels[i] + pixels[i + 1] + pixels[i + 2];
-      if (sum > 0) {
-        gotContent = true;
-        break;
-      }
+    // "Content" = not an all-black frame (mpv renders black until the first
+    // picture is decoded).
+    uint64_t sum = 0;
+    for (size_t i = 0; i < pixels.size(); i += 4)
+      sum += pixels[i] + pixels[i + 1] + pixels[i + 2];
+    if (sum > 0) {
+      gotContent = true;
+      break;
     }
     Sleep(10);
   }
 
   mpv_render_context_free(rctx);
-  mpv_terminate_destroy(mpv);
 
   if (!gotContent) {
+    // Surface what mpv thinks it decoded so we can tell "mpv never got a frame"
+    // from "we rendered/read back wrong". dwidth>0 => mpv has video.
+    int64_t dw = 0, dh = 0;
+    mpv_get_property(mpv, "dwidth", MPV_FORMAT_INT64, &dw);
+    mpv_get_property(mpv, "dheight", MPV_FORMAT_INT64, &dh);
+    mpv_terminate_destroy(mpv);
     gl.destroy();
-    return fail("timed out waiting for a non-black frame");
+    return fail("timed out: black frames (render rc=" +
+                std::to_string(lastRenderRc) + ", dwidth=" +
+                std::to_string(dw) + ", dheight=" + std::to_string(dh) + ")");
   }
+
+  mpv_terminate_destroy(mpv);
 
   bool wrote = writeBMP(outPath, W, H, pixels);
   gl.destroy();
