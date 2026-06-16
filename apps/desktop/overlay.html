@@ -8,12 +8,19 @@
       body {
         margin: 0;
         height: 100%;
-        /* Fully transparent so the native mpv video shows through. */
-        background: transparent;
         overflow: hidden;
         font-family: system-ui, sans-serif;
         color: #fff;
         user-select: none;
+      }
+      /* DIAGNOSTIC: semi-transparent red fill + lime border. Tells us the
+         overlay's exact extent (lime edges) and what's behind it: red-tinted
+         VIDEO = transparency works + mpv is there; red-tinted flat gray =
+         Windows desktop behind (mpv not covering); solid red = window opaque. */
+      body {
+        background: rgba(255, 0, 0, 0.25);
+        border: 4px solid #00ff00;
+        box-sizing: border-box;
       }
       /* Top-left proof banner — if you can see this OVER the video, the
          transparent-overlay-over-native-mpv approach works. */

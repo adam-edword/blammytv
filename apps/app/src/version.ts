@@ -1,2 +1,2 @@
 /** Displayed build version. Bumped on every push. */
-export const APP_VERSION = "0.0.140";
+export const APP_VERSION = "0.0.141";

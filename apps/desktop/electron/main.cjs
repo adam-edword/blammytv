@@ -1,4 +1,12 @@
-const { app, BrowserWindow, shell, ipcMain, Menu, screen } = require("electron");
+const {
+  app,
+  BrowserWindow,
+  shell,
+  ipcMain,
+  Menu,
+  screen,
+  globalShortcut,
+} = require("electron");
 
 // Let Chromium hardware-decode HEVC/H.265 in the in-app <video> (4K sports
 // channels are HEVC; without this it falls back to software and drops frames).
@@ -508,6 +516,14 @@ function createWindow() {
 
 app.whenReady().then(() => {
   createWindow();
+  // We null the app menu (Alt-key fix), which also drops the DevTools
+  // accelerator — re-add it as a global shortcut on the focused window.
+  const toggleDevTools = () => {
+    const w = BrowserWindow.getFocusedWindow();
+    if (w) w.webContents.toggleDevTools();
+  };
+  globalShortcut.register("CommandOrControl+Shift+I", toggleDevTools);
+  globalShortcut.register("F12", toggleDevTools);
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
