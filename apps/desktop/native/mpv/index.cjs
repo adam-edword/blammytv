@@ -5,13 +5,17 @@
 // whether or not the addon has been built yet.
 const path = require("path");
 
-// On Windows the addon implicitly links libmpv-2.dll, but Windows doesn't
-// search the .node's own directory for dependent DLLs — so even though the dll
-// sits next to mpv_addon.node, the load fails with a cryptic error. Put the
-// Release dir on the DLL search path before requiring the addon.
+// On Windows the addon implicitly links the libmpv dll, but Windows doesn't
+// search the .node's own directory for dependent DLLs, so the load fails with a
+// cryptic ERR_DLOPEN_FAILED. Put both the (git-ignored, rebuild-safe) vendor dir
+// and the build output dir on the DLL search path before requiring the addon —
+// vendor/ survives `node-gyp rebuild` (which wipes build/), so the dll there
+// keeps the addon loadable across rebuilds.
 const releaseDir = path.join(__dirname, "build", "Release");
+const vendorDir = path.join(__dirname, "vendor");
 if (process.platform === "win32") {
-  process.env.PATH = releaseDir + path.delimiter + process.env.PATH;
+  process.env.PATH =
+    vendorDir + path.delimiter + releaseDir + path.delimiter + process.env.PATH;
 }
 
 module.exports = require(path.join(releaseDir, "mpv_addon.node"));
