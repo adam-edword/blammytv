@@ -6,6 +6,11 @@ name: Build mpv addon (Windows)
 # apps/desktop/native/mpv/build/Release/.
 on:
   workflow_dispatch:
+  push:
+    branches: [claude/next, main]
+    paths:
+      - "apps/desktop/native/**"
+      - ".github/workflows/build-mpv-addon.yml"
 
 jobs:
   build:
