@@ -406,7 +406,10 @@ function createWindow() {
       autoplayPolicy: "no-user-gesture-required",
       // sandbox off so the preload can load the native libmpv addon and render
       // frames in-renderer (no cross-process IPC for the canvas hot path).
+      // contextIsolation off so the preload hands the renderer the frame buffer
+      // directly (window.blammyMpv) — no per-frame structured-clone copy.
       sandbox: false,
+      contextIsolation: false,
       preload: path.join(__dirname, "preload.cjs"),
     },
   });

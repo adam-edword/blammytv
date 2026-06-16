@@ -1,11 +1,11 @@
-const { contextBridge, ipcRenderer } = require("electron");
+const { ipcRenderer } = require("electron");
 const path = require("node:path");
 
 // Load the native libmpv addon HERE, in the renderer process, so the canvas
-// player's per-frame readback never crosses the process boundary. The frame
-// pull is exposed synchronously: the renderer's rAF loop calls it directly and
-// gets the pixels back with no IPC and no async round-trip (the choke point of
-// the main-process version). Audio plays natively from mpv.
+// player's per-frame readback never crosses the process boundary. With
+// contextIsolation disabled we assign the bridges straight onto window (instead
+// of contextBridge), so the frame buffer is handed to the renderer with no
+// structured-clone copy — the JS-side hot path. Audio plays natively from mpv.
 let mpvAddon = null;
 function getMpv() {
   if (mpvAddon) return mpvAddon;
@@ -18,7 +18,7 @@ function getMpv() {
   return mpvAddon;
 }
 
-contextBridge.exposeInMainWorld("blammyMpv", {
+globalThis.blammyMpv = {
   start: (url) => {
     const m = getMpv();
     if (!m || typeof m.playerStart !== "function") {
@@ -31,7 +31,7 @@ contextBridge.exposeInMainWorld("blammyMpv", {
       return { ok: false, error: String((err && err.message) || err) };
     }
   },
-  // Returns RGBA bytes for the current frame (or null). Synchronous on purpose.
+  // Returns RGBA bytes for the current frame (or null). Synchronous + no clone.
   frame: (w, h) => {
     const m = getMpv();
     if (!m || typeof m.playerRenderFrame !== "function") return null;
@@ -55,9 +55,9 @@ contextBridge.exposeInMainWorld("blammyMpv", {
       return "";
     }
   },
-});
+};
 
-contextBridge.exposeInMainWorld("blammy", {
+globalThis.blammy = {
   // In-app player: local ffmpeg → HLS transcode.
   transcodeStart: (url) => ipcRenderer.invoke("transcode:start", url),
   transcodeStop: () => ipcRenderer.invoke("transcode:stop"),
@@ -68,13 +68,9 @@ contextBridge.exposeInMainWorld("blammy", {
   mpvSpike: (url) => ipcRenderer.invoke("mpv:spike", url),
   // libmpv render probe (Phase 2 step 1): render one frame offscreen → BMP.
   mpvRenderProbe: (url) => ipcRenderer.invoke("mpv:renderProbe", url),
-  // libmpv live canvas player (Phase 2 step 2).
-  mpvPlayerStart: (url) => ipcRenderer.invoke("mpv:playerStart", url),
-  mpvPlayerFrame: (w, h) => ipcRenderer.invoke("mpv:playerFrame", w, h),
-  mpvPlayerStop: () => ipcRenderer.invoke("mpv:playerStop"),
   onPopoutClosed: (cb) => {
     const handler = () => cb();
     ipcRenderer.on("popout:closed", handler);
     return () => ipcRenderer.removeListener("popout:closed", handler);
   },
-});
+};

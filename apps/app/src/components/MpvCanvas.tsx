@@ -7,15 +7,67 @@ import {
 } from "../lib/desktop";
 import { CloseIcon } from "./icons";
 
+// Fullscreen-quad shaders. The vertex shader flips Y (our RGBA buffer is
+// top-down; GL textures are bottom-up) so the picture is upright.
+const VERT = `
+attribute vec2 pos;
+varying vec2 uv;
+void main() {
+  uv = vec2((pos.x + 1.0) * 0.5, (1.0 - pos.y) * 0.5);
+  gl_Position = vec4(pos, 0.0, 1.0);
+}`;
+const FRAG = `
+precision mediump float;
+varying vec2 uv;
+uniform sampler2D tex;
+void main() { gl_FragColor = texture2D(tex, uv); }`;
+
+function makeGl(canvas: HTMLCanvasElement) {
+  const gl = canvas.getContext("webgl", {
+    alpha: false,
+    antialias: false,
+    preserveDrawingBuffer: false,
+  });
+  if (!gl) return null;
+  const compile = (type: number, src: string) => {
+    const s = gl.createShader(type)!;
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    return s;
+  };
+  const prog = gl.createProgram()!;
+  gl.attachShader(prog, compile(gl.VERTEX_SHADER, VERT));
+  gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FRAG));
+  gl.linkProgram(prog);
+  gl.useProgram(prog);
+
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(
+    gl.ARRAY_BUFFER,
+    new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]),
+    gl.STATIC_DRAW,
+  );
+  const loc = gl.getAttribLocation(prog, "pos");
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+
+  const tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  return { gl, tex };
+}
+
 /**
- * Phase 2 step 2 spike: a live libmpv → <canvas> layer that fills the theater.
+ * Phase 2 step 2: a live libmpv → <canvas> layer that fills the theater.
  *
- * Starts the native player on `url`, then each animation frame pulls the latest
- * decoded frame (RGBA bytes, over IPC) and draws it to a 2D canvas. We render at
- * the canvas's actual on-screen pixel size (devicePixelRatio-aware) so it's
- * full display resolution — mpv decodes the source at 4K and scales to exactly
- * what the screen shows. mpv plays audio natively. It sits above the <video> but
- * below the theater controls, so the HTML chrome composites on top.
+ * Pulls each decoded frame synchronously from the in-renderer addon (no IPC, no
+ * clone) and uploads it straight to a WebGL texture (no putImageData / no extra
+ * copy — the GPU does the scale). mpv plays audio natively. Sits above the
+ * <video> but below the theater controls, so the HTML chrome composites on top.
  */
 export function MpvCanvas({ url, onClose }: { url: string; onClose: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -24,20 +76,8 @@ export function MpvCanvas({ url, onClose }: { url: string; onClose: () => void }
   const [live, setLive] = useState(false);
   const [stats, setStats] = useState("");
 
-  // Poll mpv diagnostics (decoder, real fps, drops, GL renderer).
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      const s = mpvCanvasStats();
-      if (s) {
-        setStats(s);
-        console.log("[mpv stats]", s);
-      }
-    }, 2000);
-    return () => window.clearInterval(id);
-  }, []);
-
   // Keep the canvas's intrinsic size = its on-screen pixel size (capped), so the
-  // readback is full resolution and putImageData maps 1:1 (no upscale blur).
+  // readback is full resolution and the upload maps 1:1.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -64,11 +104,32 @@ export function MpvCanvas({ url, onClose }: { url: string; onClose: () => void }
     };
   }, []);
 
+  // Poll mpv diagnostics (decoder, real fps, drops, timings, GL renderer).
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const s = mpvCanvasStats();
+      if (s) {
+        setStats(s);
+        console.log("[mpv stats]", s);
+      }
+    }, 2000);
+    return () => window.clearInterval(id);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     let raf = 0;
     let gotFirst = false;
-    const ctx = canvasRef.current?.getContext("2d") ?? null;
+    let texW = 0;
+    let texH = 0;
+
+    const canvas = canvasRef.current;
+    const ctx = canvas ? makeGl(canvas) : null;
+    if (!ctx) {
+      setError("WebGL unavailable.");
+      return;
+    }
+    const { gl, tex } = ctx;
 
     const res = mpvCanvasStart(url);
     if (!res.ok) {
@@ -80,9 +141,17 @@ export function MpvCanvas({ url, onClose }: { url: string; onClose: () => void }
       if (cancelled) return;
       const { w, h } = sizeRef.current;
       const buf = mpvCanvasFrame(w, h);
-      if (buf && ctx && buf.length === w * h * 4) {
-        const data = new Uint8ClampedArray(buf);
-        ctx.putImageData(new ImageData(data, w, h), 0, 0);
+      if (buf && buf.length === w * h * 4) {
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        if (w !== texW || h !== texH) {
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+          texW = w;
+          texH = h;
+        } else {
+          gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+        }
+        gl.viewport(0, 0, canvas!.width, canvas!.height);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
         if (!gotFirst) {
           gotFirst = true;
           setLive(true);

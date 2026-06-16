@@ -32,11 +32,6 @@ interface BlammyBridge {
   mpvRenderProbe: (
     url: string,
   ) => Promise<{ ok: boolean; path?: string; error?: string }>;
-  mpvPlayerStart: (
-    url: string,
-  ) => Promise<{ ok: boolean; error?: string }>;
-  mpvPlayerFrame: (w: number, h: number) => Promise<Uint8Array | null>;
-  mpvPlayerStop: () => Promise<unknown>;
 }
 
 /**
