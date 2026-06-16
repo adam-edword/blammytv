@@ -3,17 +3,17 @@ import { mpvPlayerStart, mpvPlayerFrame, mpvPlayerStop } from "../lib/desktop";
 import { CloseIcon } from "./icons";
 
 // Internal render size — mpv scales the source to this; we read it back and
-// blit to the canvas. Kept modest for the step-2 spike (bounded readback).
-const W = 960;
-const H = 540;
+// blit to the canvas (CSS scales it to fill the theater). Bounded readback.
+const W = 1280;
+const H = 720;
 
 /**
- * Phase 2 step 2 spike: a live libmpv → <canvas> overlay.
+ * Phase 2 step 2 spike: a live libmpv → <canvas> layer that fills the theater.
  *
  * Starts the native player on `url`, then each animation frame pulls the latest
  * decoded frame (RGBA bytes, over IPC) and draws it to a 2D canvas. mpv plays
- * audio natively. This proves frames land in-page (HTML composites on top); the
- * real theater integration + control wiring comes next.
+ * audio natively. It sits above the <video> but below the theater controls, so
+ * the existing HTML chrome composites on top — previewing the final player.
  */
 export function MpvCanvas({ url, onClose }: { url: string; onClose: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -63,20 +63,18 @@ export function MpvCanvas({ url, onClose }: { url: string; onClose: () => void }
 
   return (
     <div className="mpv-canvas">
-      <div className="mpv-canvas__bar">
-        <span className="mpv-canvas__label">
-          libmpv → canvas {live ? "• live" : error ? "• error" : "• starting…"}
-        </span>
+      <canvas ref={canvasRef} width={W} height={H} className="mpv-canvas__view" />
+      <div className="mpv-canvas__hud">
+        <span>libmpv {live ? "• live" : error ? "• error" : "• starting…"}</span>
         <button
           className="mpv-canvas__close"
           type="button"
           aria-label="Close libmpv canvas"
           onClick={onClose}
         >
-          <CloseIcon size={16} />
+          <CloseIcon size={14} />
         </button>
       </div>
-      <canvas ref={canvasRef} width={W} height={H} className="mpv-canvas__view" />
       {error && <div className="mpv-canvas__error">{error}</div>}
     </div>
   );

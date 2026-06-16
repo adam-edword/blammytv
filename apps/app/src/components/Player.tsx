@@ -150,6 +150,15 @@ export function Player({
     if (v) v.volume = muted ? 0 : volume;
   }, [volume, muted]);
 
+  // While the libmpv canvas is up it owns video + audio, so pause the <video>
+  // underneath (no echo, no double-decode). Resume it when the canvas closes.
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (canvasOpen) v.pause();
+    else void v.play().catch(() => {});
+  }, [canvasOpen]);
+
   // Track play/pause.
   useEffect(() => {
     const v = videoRef.current;

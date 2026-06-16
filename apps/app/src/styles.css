@@ -512,63 +512,79 @@ img {
   transform: translateX(-50%) translateY(0);
 }
 
-/* TEMP — Phase 2 step 2: live libmpv → canvas overlay (top-left). */
+/* TEMP — Phase 2 step 2: full-bleed live libmpv → canvas (above <video>,
+   below the theater controls so HTML chrome composites on top). */
 .mpv-canvas {
   position: absolute;
-  top: 16px;
-  left: 16px;
-  z-index: 20;
-  display: flex;
-  flex-direction: column;
-  border-radius: 10px;
-  overflow: hidden;
-  background: #000;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-}
-
-.mpv-canvas__bar {
+  inset: 0;
+  z-index: 1;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  justify-content: center;
+  background: #000;
+}
+
+.mpv-canvas__view {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+
+.mpv-canvas__hud {
+  position: absolute;
+  top: 16px;
+  left: 20px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 6px 8px 6px 12px;
-  background: rgba(0, 0, 0, 0.85);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.65);
   color: #fff;
   font-family: var(--font-headline);
   font-weight: 600;
   font-size: 12px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.player--active .mpv-canvas__hud {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .mpv-canvas__close {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
   border: none;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
   color: #fff;
   cursor: pointer;
 }
 
 .mpv-canvas__close:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.mpv-canvas__view {
-  display: block;
-  width: 640px;
-  height: 360px;
-  background: #000;
+  background: rgba(255, 255, 255, 0.24);
 }
 
 .mpv-canvas__error {
+  position: absolute;
+  top: 56px;
+  left: 20px;
+  z-index: 4;
   padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.7);
   color: #ff8080;
   font-size: 12px;
-  max-width: 640px;
+  max-width: 70%;
 }
 
 .player__theater-exit {
