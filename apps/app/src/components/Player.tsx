@@ -5,6 +5,7 @@ import {
   transcodeStart,
   transcodeStop,
   mpvSpike,
+  mpvRenderProbe,
   type SourceStats,
 } from "../lib/desktop";
 import { StatsOverlay } from "./StatsOverlay";
@@ -368,7 +369,7 @@ export function Player({
                     className="player__btn"
                     type="button"
                     onClick={() =>
-                      void mpvSpike(url).then((res) => {
+                      void mpvSpike(url)?.then((res) => {
                         if (res && !res.ok) {
                           console.error("[mpv spike]", res.error);
                           window.alert("libmpv spike failed: " + res.error);
@@ -379,6 +380,25 @@ export function Player({
                     title="libmpv spike"
                   >
                     <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5 }}>MPV</span>
+                  </button>
+                )}
+                {/* TEMP — Phase 2 step 1: render one frame offscreen → BMP. */}
+                {isDesktop() && (
+                  <button
+                    className="player__btn"
+                    type="button"
+                    onClick={() =>
+                      void mpvRenderProbe(url)?.then((res) => {
+                        if (res && !res.ok) {
+                          console.error("[mpv probe]", res.error);
+                          window.alert("render probe failed: " + res.error);
+                        }
+                      })
+                    }
+                    aria-label="libmpv render probe (test)"
+                    title="libmpv render probe"
+                  >
+                    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5 }}>RP</span>
                   </button>
                 )}
                 {onPopout && (

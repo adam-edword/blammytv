@@ -12,7 +12,12 @@
       "cflags_cc!": [ "-fno-exceptions" ],
       "conditions": [
         [ "OS=='win'", {
-          "libraries": [ "<(module_root_dir)/vendor/lib/mpv.lib" ],
+          "libraries": [
+            "<(module_root_dir)/vendor/lib/mpv.lib",
+            "opengl32.lib",
+            "gdi32.lib",
+            "user32.lib"
+          ],
           "msvs_settings": {
             "VCCLCompilerTool": {
               "ExceptionHandling": 1,

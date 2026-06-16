@@ -190,6 +190,24 @@ ipcMain.handle("mpv:spike", (_event, url) => {
   }
 });
 
+// Phase 2 step 1: render one frame offscreen via mpv's render API into our own
+// FBO, write it to a BMP, and open it so we can eyeball that the GL spine works.
+ipcMain.handle("mpv:renderProbe", async (_event, url) => {
+  const native = loadMpvNative();
+  if (!native || typeof native.renderProbe !== "function") {
+    return { ok: false, error: "libmpv addon (renderProbe) not built" };
+  }
+  try {
+    const out = path.join(os.tmpdir(), `blammy-mpv-frame-${Date.now()}.bmp`);
+    const written = native.renderProbe(url, out);
+    await shell.openPath(written);
+    return { ok: true, path: written };
+  } catch (err) {
+    console.error("[mpv] renderProbe failed:", err);
+    return { ok: false, error: String((err && err.message) || err) };
+  }
+});
+
 ipcMain.handle("popout:stop", () => {
   stopPopout();
   return { ok: true };

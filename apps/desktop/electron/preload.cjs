@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld("blammy", {
   popoutStop: () => ipcRenderer.invoke("popout:stop"),
   // libmpv spike (Phase 1): play via the native addon's own mpv window.
   mpvSpike: (url) => ipcRenderer.invoke("mpv:spike", url),
+  // libmpv render probe (Phase 2 step 1): render one frame offscreen → BMP.
+  mpvRenderProbe: (url) => ipcRenderer.invoke("mpv:renderProbe", url),
   onPopoutClosed: (cb) => {
     const handler = () => cb();
     ipcRenderer.on("popout:closed", handler);
