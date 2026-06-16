@@ -21,5 +21,11 @@ export default defineConfig({
   server: {
     port: 1420,
     strictPort: false,
+    // Don't let Vite's file watcher follow the Rust build output — cargo
+    // churns/locks thousands of files in src-tauri/target and the watcher
+    // crashes with EBUSY.
+    watch: {
+      ignored: ["**/src-tauri/**"],
+    },
   },
 });
