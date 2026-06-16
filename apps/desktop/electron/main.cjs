@@ -258,6 +258,10 @@ ipcMain.handle("mpv:playerStop", () => {
 // transparent always-on-top Electron overlay window for our HTML controls.
 let theaterOverlay = null;
 
+// DIAGNOSTIC: skip the overlay so we can see mpv on its own and confirm whether
+// it actually goes fullscreen (vs. a strip with the desktop behind).
+const THEATER_DIAG_NO_OVERLAY = true;
+
 function closeTheater() {
   const native = loadMpvNative();
   try {
@@ -267,6 +271,11 @@ function closeTheater() {
   }
   if (theaterOverlay && !theaterOverlay.isDestroyed()) theaterOverlay.close();
   theaterOverlay = null;
+  try {
+    globalShortcut.unregister("Escape");
+  } catch {
+    /* not registered */
+  }
   // Bring the app back.
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.show();
 }
@@ -281,6 +290,16 @@ ipcMain.handle("theater:open", (_event, url) => {
   } catch (err) {
     console.error("[theater] playerStartWindow failed:", err);
     return { ok: false, error: String((err && err.message) || err) };
+  }
+
+  // Hide the app shell so the only layers are mpv (bottom) + transparent
+  // overlay (top) — otherwise the app's dark background shows through.
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.hide();
+
+  if (THEATER_DIAG_NO_OVERLAY) {
+    // Show mpv on its own; Escape closes it. Confirms fullscreen behaviour.
+    globalShortcut.register("Escape", closeTheater);
+    return { ok: true };
   }
 
   const { x, y, width, height } = screen.getPrimaryDisplay().bounds;
@@ -310,9 +329,6 @@ ipcMain.handle("theater:open", (_event, url) => {
   theaterOverlay.on("closed", () => {
     theaterOverlay = null;
   });
-  // Hide the app shell so the only layers are mpv (bottom) + transparent
-  // overlay (top) — otherwise the app's dark background shows through.
-  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.hide();
   return { ok: true };
 });
 
