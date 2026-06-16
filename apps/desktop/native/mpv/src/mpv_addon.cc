@@ -537,7 +537,9 @@ Napi::Value PlayerRenderFrame(const Napi::CallbackInfo &info) {
 
   mpv_render_context_update(g_player.rctx);
   mpv_opengl_fbo mfbo = {static_cast<int>(g_player.fbo), w, h, 0};
-  int flipY = 1;
+  // Canvas putImageData is top-down while glReadPixels is bottom-up, so the
+  // player wants the opposite flip from the BMP probe — flip_y=0 here is upright.
+  int flipY = 0;
   mpv_render_param rp[] = {{MPV_RENDER_PARAM_OPENGL_FBO, &mfbo},
                            {MPV_RENDER_PARAM_FLIP_Y, &flipY},
                            {MPV_RENDER_PARAM_INVALID, nullptr}};
