@@ -20,7 +20,7 @@ export function LoadingScreen() {
       stagger: 105,
       duration: 460,
       bounce: 0.2,
-      color: chromatic({ from: 315 }),
+      color: chromatic({ from: 0 }),
       skipUnchanged: false,
     };
 
