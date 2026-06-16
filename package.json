@@ -11,7 +11,7 @@
     "server": "pnpm --filter @blammytv/server dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm --filter @blammytv/app test",
+    "test": "pnpm -r --if-present test",
     "lint": "eslint ."
   },
   "devDependencies": {
