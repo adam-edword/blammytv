@@ -104,18 +104,37 @@ Napi::Value ApiVersion(const Napi::CallbackInfo &info) {
 #define GL_COLOR_ATTACHMENT0 0x8CE0
 #define GL_FRAMEBUFFER_COMPLETE 0x8CD5
 #endif
+#ifndef GL_PIXEL_PACK_BUFFER
+#define GL_PIXEL_PACK_BUFFER 0x88EB
+#define GL_STREAM_READ 0x88E1
+#define GL_READ_ONLY 0x88B8
+#endif
+typedef ptrdiff_t GLsizeiptrT;
 typedef void(APIENTRY *PFNGLGENFRAMEBUFFERS)(GLsizei, GLuint *);
 typedef void(APIENTRY *PFNGLBINDFRAMEBUFFER)(GLenum, GLuint);
 typedef void(APIENTRY *PFNGLFRAMEBUFFERTEXTURE2D)(GLenum, GLenum, GLenum, GLuint,
                                                   GLint);
 typedef GLenum(APIENTRY *PFNGLCHECKFRAMEBUFFERSTATUS)(GLenum);
 typedef void(APIENTRY *PFNGLDELETEFRAMEBUFFERS)(GLsizei, const GLuint *);
+typedef void(APIENTRY *PFNGLGENBUFFERS)(GLsizei, GLuint *);
+typedef void(APIENTRY *PFNGLBINDBUFFER)(GLenum, GLuint);
+typedef void(APIENTRY *PFNGLBUFFERDATA)(GLenum, GLsizeiptrT, const void *,
+                                        GLenum);
+typedef void *(APIENTRY *PFNGLMAPBUFFER)(GLenum, GLenum);
+typedef GLboolean(APIENTRY *PFNGLUNMAPBUFFER)(GLenum);
+typedef void(APIENTRY *PFNGLDELETEBUFFERS)(GLsizei, const GLuint *);
 
 PFNGLGENFRAMEBUFFERS p_glGenFramebuffers = nullptr;
 PFNGLBINDFRAMEBUFFER p_glBindFramebuffer = nullptr;
 PFNGLFRAMEBUFFERTEXTURE2D p_glFramebufferTexture2D = nullptr;
 PFNGLCHECKFRAMEBUFFERSTATUS p_glCheckFramebufferStatus = nullptr;
 PFNGLDELETEFRAMEBUFFERS p_glDeleteFramebuffers = nullptr;
+PFNGLGENBUFFERS p_glGenBuffers = nullptr;
+PFNGLBINDBUFFER p_glBindBuffer = nullptr;
+PFNGLBUFFERDATA p_glBufferData = nullptr;
+PFNGLMAPBUFFER p_glMapBuffer = nullptr;
+PFNGLUNMAPBUFFER p_glUnmapBuffer = nullptr;
+PFNGLDELETEBUFFERS p_glDeleteBuffers = nullptr;
 
 void *glLoad(const char *name) {
   void *p = reinterpret_cast<void *>(wglGetProcAddress(name));
@@ -135,9 +154,17 @@ bool loadFboFns() {
       (PFNGLCHECKFRAMEBUFFERSTATUS)glLoad("glCheckFramebufferStatus");
   p_glDeleteFramebuffers =
       (PFNGLDELETEFRAMEBUFFERS)glLoad("glDeleteFramebuffers");
+  p_glGenBuffers = (PFNGLGENBUFFERS)glLoad("glGenBuffers");
+  p_glBindBuffer = (PFNGLBINDBUFFER)glLoad("glBindBuffer");
+  p_glBufferData = (PFNGLBUFFERDATA)glLoad("glBufferData");
+  p_glMapBuffer = (PFNGLMAPBUFFER)glLoad("glMapBuffer");
+  p_glUnmapBuffer = (PFNGLUNMAPBUFFER)glLoad("glUnmapBuffer");
+  p_glDeleteBuffers = (PFNGLDELETEBUFFERS)glLoad("glDeleteBuffers");
   return p_glGenFramebuffers && p_glBindFramebuffer &&
          p_glFramebufferTexture2D && p_glCheckFramebufferStatus &&
-         p_glDeleteFramebuffers;
+         p_glDeleteFramebuffers && p_glGenBuffers && p_glBindBuffer &&
+         p_glBufferData && p_glMapBuffer && p_glUnmapBuffer &&
+         p_glDeleteBuffers;
 }
 
 // mpv's get_proc_address callback (same loader).
@@ -436,6 +463,12 @@ struct Player {
   double avgDrainMs = 0;
   bool hasFrame = false;
   std::chrono::high_resolution_clock::time_point lastRenderTp{};
+  // Double-buffered pixel-pack buffers for async readback (no GPU stall).
+  GLuint pbo[2] = {0, 0};
+  int pboIndex = 0;
+  int pboFilled = 0;  // how many PBOs hold a completed readback yet
+  int mappedPbo = -1;  // PBO currently mapped into the last returned Buffer
+  size_t pboBytes = 0;
 };
 
 Player g_player;
@@ -457,6 +490,12 @@ void playerTeardown() {
   g_player.w = 0;
   g_player.h = 0;
   g_player.started = false;
+  // GL objects die with the context; just reset the readback-pipeline state.
+  g_player.pbo[0] = g_player.pbo[1] = 0;
+  g_player.pboIndex = 0;
+  g_player.pboFilled = 0;
+  g_player.mappedPbo = -1;
+  g_player.pboBytes = 0;
 }
 
 // playerStartWindow(url): boolean — native theater path. mpv renders to its own
@@ -610,6 +649,16 @@ Napi::Value PlayerRenderFrame(const Napi::CallbackInfo &info) {
   // that counter is cosmetic and not what the viewer sees.
   mpv_render_context_update(g_player.rctx);
 
+  // The Buffer we returned last frame aliased a mapped PBO; JS consumed it
+  // synchronously (the WebGL upload), so unmap it now before we reuse it.
+  if (g_player.mappedPbo >= 0) {
+    p_glBindBuffer(GL_PIXEL_PACK_BUFFER, g_player.pbo[g_player.mappedPbo]);
+    p_glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+    p_glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+    g_player.mappedPbo = -1;
+  }
+
+  const size_t bytes = static_cast<size_t>(w) * h * 4;
   if (resized) {
     glBindTexture(GL_TEXTURE_2D, g_player.tex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA,
@@ -617,14 +666,23 @@ Napi::Value PlayerRenderFrame(const Napi::CallbackInfo &info) {
     p_glBindFramebuffer(GL_FRAMEBUFFER, g_player.fbo);
     p_glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                              GL_TEXTURE_2D, g_player.tex, 0);
+    // (Re)allocate the readback PBOs at the new size; restart the pipeline.
+    if (g_player.pbo[0]) p_glDeleteBuffers(2, g_player.pbo);
+    p_glGenBuffers(2, g_player.pbo);
+    for (int i = 0; i < 2; ++i) {
+      p_glBindBuffer(GL_PIXEL_PACK_BUFFER, g_player.pbo[i]);
+      p_glBufferData(GL_PIXEL_PACK_BUFFER, static_cast<GLsizeiptrT>(bytes),
+                     nullptr, GL_STREAM_READ);
+    }
+    p_glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
     g_player.w = w;
     g_player.h = h;
-    g_player.pixels.assign(static_cast<size_t>(w) * h * 4, 0);
+    g_player.pboBytes = bytes;
+    g_player.pboIndex = 0;
+    g_player.pboFilled = 0;
   }
 
   mpv_opengl_fbo mfbo = {static_cast<int>(g_player.fbo), w, h, 0};
-  // Canvas putImageData is top-down while glReadPixels is bottom-up, so the
-  // player wants the opposite flip from the BMP probe — flip_y=0 here is upright.
   int flipY = 0;
   mpv_render_param rp[] = {{MPV_RENDER_PARAM_OPENGL_FBO, &mfbo},
                            {MPV_RENDER_PARAM_FLIP_Y, &flipY},
@@ -633,13 +691,33 @@ Napi::Value PlayerRenderFrame(const Napi::CallbackInfo &info) {
   auto t2 = clk::now();
   mpv_render_context_render(g_player.rctx, rp);
   auto t3 = clk::now();
-  // glReadPixels implicitly syncs for the region it reads, so an explicit
-  // glFinish here is a redundant full-pipeline stall — dropped.
+
+  // Async readback into pbo[index] (returns immediately; GPU DMAs into it).
+  const int idx = g_player.pboIndex;
+  const int prev = idx ^ 1;
   p_glBindFramebuffer(GL_FRAMEBUFFER, g_player.fbo);
-  glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, g_player.pixels.data());
+  p_glBindBuffer(GL_PIXEL_PACK_BUFFER, g_player.pbo[idx]);
+  glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+  // Map the OTHER PBO — the readback we issued last frame, which the GPU has
+  // long since finished, so the map doesn't stall. Return a zero-copy Buffer
+  // over it (unmapped at the start of next frame).
+  Napi::Value result = env.Null();
+  if (g_player.pboFilled >= 1) {
+    p_glBindBuffer(GL_PIXEL_PACK_BUFFER, g_player.pbo[prev]);
+    void *ptr = p_glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+    if (ptr) {
+      g_player.mappedPbo = prev;
+      result = Napi::Buffer<unsigned char>::New(
+          env, static_cast<unsigned char *>(ptr), bytes);
+    }
+  }
+  p_glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+
+  g_player.pboIndex = prev;
+  if (g_player.pboFilled < 2) g_player.pboFilled++;
   auto t4 = clk::now();
 
-  // Tell mpv the frame was consumed so its timing/drop accounting stays sane.
   mpv_render_context_report_swap(g_player.rctx);
   g_player.lastRenderTp = t4;
   g_player.hasFrame = true;
@@ -649,8 +727,7 @@ Napi::Value PlayerRenderFrame(const Napi::CallbackInfo &info) {
   g_player.avgRenderMs += (ms(t2, t3) - g_player.avgRenderMs) * a;
   g_player.avgReadMs += (ms(t3, t4) - g_player.avgReadMs) * a;
 
-  return Napi::Buffer<unsigned char>::Copy(env, g_player.pixels.data(),
-                                           g_player.pixels.size());
+  return result;
 }
 
 // playerStats(): string — diagnostics: which decoder mpv actually chose, real

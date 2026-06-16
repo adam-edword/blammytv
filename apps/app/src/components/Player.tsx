@@ -72,6 +72,7 @@ export function Player({
   const [active, setActive] = useState(true);
   const [volHud, setVolHud] = useState(false);
   const volHudRef = useRef<number>(0);
+  const [fps, setFps] = useState(0);
 
   // Browser fallback: load the stream into the <video> via hls.js.
   useEffect(() => {
@@ -228,6 +229,7 @@ export function Player({
             setStatus("error");
             setMessage(m);
           }}
+          onFps={setFps}
         />
       ) : (
         <video
@@ -265,6 +267,12 @@ export function Player({
         >
           <CloseIcon size={20} />
         </button>
+      )}
+
+      {theater && onDesktop && (
+        <div className="player__fps" aria-hidden="true">
+          {fps} fps
+        </div>
       )}
 
       {theater && (

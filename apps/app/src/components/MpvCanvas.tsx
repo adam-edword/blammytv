@@ -58,12 +58,14 @@ export function MpvCanvas({
   onClick,
   onLive,
   onError,
+  onFps,
 }: {
   url: string;
   className?: string;
   onClick?: () => void;
   onLive?: () => void;
   onError?: (msg: string) => void;
+  onFps?: (fps: number) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sizeRef = useRef({ w: 1280, h: 720 });
@@ -73,8 +75,8 @@ export function MpvCanvas({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const MAX_W = 2560;
-    const MAX_H = 1440;
+    const MAX_W = 3840;
+    const MAX_H = 2160;
     const measure = () => {
       const rect = canvas.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
@@ -113,6 +115,8 @@ export function MpvCanvas({
     let texW = 0;
     let texH = 0;
     let lastDraw = -1;
+    let drawn = 0;
+    let fpsSince = -1;
 
     const canvas = canvasRef.current;
     const ctx = canvas ? makeGl(canvas) : null;
@@ -148,6 +152,13 @@ export function MpvCanvas({
         }
         gl.viewport(0, 0, canvas!.width, canvas!.height);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        drawn++;
+        if (fpsSince < 0) fpsSince = t;
+        else if (t - fpsSince >= 500) {
+          onFps?.(Math.round((drawn * 1000) / (t - fpsSince)));
+          drawn = 0;
+          fpsSince = t;
+        }
         if (!gotFirst) {
           gotFirst = true;
           onLive?.();

@@ -3142,3 +3142,19 @@ body.is-overlay {
   position: fixed;
   inset: 0;
 }
+
+/* Dev fps readout (top-right) while measuring the 4K canvas pipeline. */
+.player__fps {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  z-index: 6;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 12px;
+  pointer-events: none;
+}
