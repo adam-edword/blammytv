@@ -11,11 +11,18 @@
     "server": "pnpm --filter @blammytv/server dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm --filter @blammytv/app test"
+    "test": "pnpm --filter @blammytv/app test",
+    "lint": "eslint ."
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "concurrently": "^10.0.3",
+    "eslint": "^10.5.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.3",
+    "globals": "^17.6.0",
     "typescript": "^5.6.3",
+    "typescript-eslint": "^8.61.1",
     "wait-on": "^8.0.1"
   }
 }
