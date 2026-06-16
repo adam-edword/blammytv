@@ -72,6 +72,10 @@ function makeGl(canvas: HTMLCanvasElement) {
 export function MpvCanvas({ url, onClose }: { url: string; onClose: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sizeRef = useRef({ w: 1280, h: 720 });
+  // Min ms between frame pulls — derived from the source fps so we never present
+  // faster than the content (the win on high-refresh displays). Defaults to
+  // ~60fps until the first stats sample tells us the real rate.
+  const intervalRef = useRef(15.5);
   const [error, setError] = useState<string | null>(null);
   const [live, setLive] = useState(false);
   const [stats, setStats] = useState("");
@@ -104,13 +108,21 @@ export function MpvCanvas({ url, onClose }: { url: string; onClose: () => void }
     };
   }, []);
 
-  // Poll mpv diagnostics (decoder, real fps, drops, timings, GL renderer).
+  // Poll mpv diagnostics (decoder, real fps, drops, timings, GL renderer) and
+  // retune the frame-pull interval to the source fps — never present faster.
   useEffect(() => {
     const id = window.setInterval(() => {
       const s = mpvCanvasStats();
       if (s) {
         setStats(s);
         console.log("[mpv stats]", s);
+        const m = s.match(/container-fps=([\d.]+)/);
+        const fps = m ? parseFloat(m[1]) : NaN;
+        if (fps > 1 && fps < 240) {
+          // Small margin so the rAF tick nearest the frame boundary fires
+          // (rAF granularity is ~4ms on a 240Hz panel) — i.e. don't undershoot.
+          intervalRef.current = Math.max(6, 1000 / fps - 4);
+        }
       }
     }, 2000);
     return () => window.clearInterval(id);
@@ -122,6 +134,7 @@ export function MpvCanvas({ url, onClose }: { url: string; onClose: () => void }
     let gotFirst = false;
     let texW = 0;
     let texH = 0;
+    let lastDraw = -1;
 
     const canvas = canvasRef.current;
     const ctx = canvas ? makeGl(canvas) : null;
@@ -137,8 +150,13 @@ export function MpvCanvas({ url, onClose }: { url: string; onClose: () => void }
       return;
     }
 
-    const tick = () => {
+    const tick = (t: number) => {
       if (cancelled) return;
+      if (t - lastDraw < intervalRef.current) {
+        raf = requestAnimationFrame(tick);
+        return;
+      }
+      lastDraw = t;
       const { w, h } = sizeRef.current;
       const buf = mpvCanvasFrame(w, h);
       if (buf && buf.length === w * h * 4) {
