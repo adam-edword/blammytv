@@ -286,6 +286,7 @@ Napi::Value RenderProbe(const Napi::CallbackInfo &info) {
   // needs (which a generic WGL context lacks → black frames). libplacebo still
   // does HDR tone-map + scaling during render, so the picture stays correct.
   mpv_set_option_string(mpv, "hwdec", "auto-copy");
+  mpv_set_option_string(mpv, "force-window", "no");
   mpv_set_option_string(mpv, "terminal", "no");
   if (mpv_initialize(mpv) < 0) {
     mpv_terminate_destroy(mpv);
@@ -294,12 +295,14 @@ Napi::Value RenderProbe(const Napi::CallbackInfo &info) {
   }
 
   mpv_opengl_init_params glParams = {getProcAddress, nullptr};
-  int advanced = 1;
+  // Basic (non-advanced) render mode: each mpv_render_context_render() draws the
+  // current frame synchronously into the FBO we pass. Advanced control defers to
+  // mpv's own frame timing/update-callback contract, which our simple polling
+  // loop doesn't satisfy → black FBO (and an mpv fallback window).
   mpv_render_param createParams[] = {
       {MPV_RENDER_PARAM_API_TYPE,
        const_cast<char *>(MPV_RENDER_API_TYPE_OPENGL)},
       {MPV_RENDER_PARAM_OPENGL_INIT_PARAMS, &glParams},
-      {MPV_RENDER_PARAM_ADVANCED_CONTROL, &advanced},
       {MPV_RENDER_PARAM_INVALID, nullptr}};
   mpv_render_context *rctx = nullptr;
   if (mpv_render_context_create(&rctx, mpv, createParams) < 0) {
