@@ -86,13 +86,20 @@ export function MpvCanvas({ url, onClose }: { url: string; onClose: () => void }
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    // Cap the readback resolution. At true 4K we move ~33MB off the GPU and
+    // ~33MB back on every frame (~4GB/s @ 60fps) which the bus can't sustain, so
+    // the draw loop falls to ~38fps. Capping at 1440p halves the transfer for a
+    // smooth 60; mpv still decodes 4K and downscales with good scalers, and the
+    // canvas upscales to the screen — nearly indistinguishable at distance.
+    const MAX_W = 2560;
+    const MAX_H = 1440;
     const measure = () => {
       const rect = canvas.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
       let w = Math.round(rect.width * dpr);
       let h = Math.round(rect.height * dpr);
-      w = Math.max(640, Math.min(3840, w));
-      h = Math.max(360, Math.min(2160, h));
+      w = Math.max(640, Math.min(MAX_W, w));
+      h = Math.max(360, Math.min(MAX_H, h));
       w -= w % 2;
       h -= h % 2;
       sizeRef.current = { w, h };
