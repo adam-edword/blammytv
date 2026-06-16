@@ -649,15 +649,6 @@ Napi::Value PlayerRenderFrame(const Napi::CallbackInfo &info) {
   // that counter is cosmetic and not what the viewer sees.
   mpv_render_context_update(g_player.rctx);
 
-  // The Buffer we returned last frame aliased a mapped PBO; JS consumed it
-  // synchronously (the WebGL upload), so unmap it now before we reuse it.
-  if (g_player.mappedPbo >= 0) {
-    p_glBindBuffer(GL_PIXEL_PACK_BUFFER, g_player.pbo[g_player.mappedPbo]);
-    p_glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
-    p_glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
-    g_player.mappedPbo = -1;
-  }
-
   const size_t bytes = static_cast<size_t>(w) * h * 4;
   if (resized) {
     glBindTexture(GL_TEXTURE_2D, g_player.tex);
@@ -680,6 +671,7 @@ Napi::Value PlayerRenderFrame(const Napi::CallbackInfo &info) {
     g_player.pboBytes = bytes;
     g_player.pboIndex = 0;
     g_player.pboFilled = 0;
+    g_player.pixels.assign(bytes, 0);
   }
 
   mpv_opengl_fbo mfbo = {static_cast<int>(g_player.fbo), w, h, 0};
@@ -692,27 +684,32 @@ Napi::Value PlayerRenderFrame(const Napi::CallbackInfo &info) {
   mpv_render_context_render(g_player.rctx, rp);
   auto t3 = clk::now();
 
-  // Async readback into pbo[index] (returns immediately; GPU DMAs into it).
+  // Async readback into pbo[index] (returns immediately; the GPU DMAs into it).
   const int idx = g_player.pboIndex;
   const int prev = idx ^ 1;
   p_glBindFramebuffer(GL_FRAMEBUFFER, g_player.fbo);
   p_glBindBuffer(GL_PIXEL_PACK_BUFFER, g_player.pbo[idx]);
   glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
-  // Map the OTHER PBO — the readback we issued last frame, which the GPU has
-  // long since finished, so the map doesn't stall. Return a zero-copy Buffer
-  // over it (unmapped at the start of next frame).
-  Napi::Value result = env.Null();
+  // Copy out the PBO we issued last frame (GPU's long since done → no stall).
+  bool have = false;
   if (g_player.pboFilled >= 1) {
     p_glBindBuffer(GL_PIXEL_PACK_BUFFER, g_player.pbo[prev]);
     void *ptr = p_glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
     if (ptr) {
-      g_player.mappedPbo = prev;
-      result = Napi::Buffer<unsigned char>::New(
-          env, static_cast<unsigned char *>(ptr), bytes);
+      memcpy(g_player.pixels.data(), ptr, bytes);
+      p_glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+      have = true;
     }
   }
   p_glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+
+  // Fallback (first frame, or if the PBO map ever fails): plain synchronous
+  // readback so we always deliver a frame.
+  if (!have) {
+    glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, g_player.pixels.data());
+    have = true;
+  }
 
   g_player.pboIndex = prev;
   if (g_player.pboFilled < 2) g_player.pboFilled++;
@@ -727,7 +724,7 @@ Napi::Value PlayerRenderFrame(const Napi::CallbackInfo &info) {
   g_player.avgRenderMs += (ms(t2, t3) - g_player.avgRenderMs) * a;
   g_player.avgReadMs += (ms(t3, t4) - g_player.avgReadMs) * a;
 
-  return result;
+  return Napi::Buffer<unsigned char>::Copy(env, g_player.pixels.data(), bytes);
 }
 
 // playerStats(): string — diagnostics: which decoder mpv actually chose, real
