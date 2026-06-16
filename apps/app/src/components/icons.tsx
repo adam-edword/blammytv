@@ -227,25 +227,6 @@ export function MuteIcon({ size = 20, className }: IconProps) {
   );
 }
 
-/** Media / Picture-in-picture */
-export function PipIcon({ size = 20, className }: IconProps) {
-  return (
-    <Svg size={size} className={className}>
-      <path d="M21 12V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h6" />
-      <rect x="13" y="13" width="8" height="6" rx="1" />
-    </Svg>
-  );
-}
-
-/** Media / Theater (wide screen) */
-export function TheaterIcon({ size = 20, className }: IconProps) {
-  return (
-    <Svg size={size} className={className}>
-      <rect x="2" y="6" width="20" height="12" rx="2" />
-    </Svg>
-  );
-}
-
 /** Media / Pop out (open in external window) */
 export function PopoutIcon({ size = 20, className }: IconProps) {
   return (

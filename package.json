@@ -10,7 +10,8 @@
     "desktop": "concurrently -n server,app,electron -c blue,green,magenta \"pnpm --filter @blammytv/server dev\" \"pnpm --filter @blammytv/app dev\" \"wait-on tcp:1420 && pnpm --filter @blammytv/desktop start\"",
     "server": "pnpm --filter @blammytv/server dev",
     "build": "pnpm -r build",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm --filter @blammytv/app test"
   },
   "devDependencies": {
     "concurrently": "^10.0.3",

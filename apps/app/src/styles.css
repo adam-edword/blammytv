@@ -345,15 +345,6 @@ img {
   border-left-color: rgba(255, 255, 255, 0.55);
 }
 
-.now-playing__play--over {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  border-left-color: rgba(255, 255, 255, 0.9);
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6));
-}
-
 /* Web <video> surface — fills the preview box. */
 .player {
   position: relative;
@@ -411,33 +402,6 @@ img {
   }
 }
 
-/* Control bar — fades out when the pointer's idle. */
-.player__controls {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 26px 16px 12px;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent);
-  opacity: 0;
-  transform: translateY(6px);
-  transition: opacity 0.2s ease, transform 0.2s ease;
-  pointer-events: none;
-}
-
-.player--active .player__controls {
-  opacity: 1;
-  transform: none;
-  pointer-events: auto;
-}
-
-.player__spacer {
-  flex: 1;
-}
-
 .player__btn {
   display: inline-flex;
   align-items: center;
@@ -474,18 +438,6 @@ img {
   height: 4px;
   accent-color: #fff;
   cursor: pointer;
-}
-
-.player__volume--boost {
-  accent-color: var(--red);
-}
-
-.player__vol-label {
-  min-width: 38px;
-  font-family: var(--font-headline);
-  font-weight: 600;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.85);
 }
 
 /* Mini player: the whole preview opens theater on click; ring it on hover. */
@@ -583,11 +535,6 @@ img {
 
 .player__theater-exit:hover {
   background: rgba(0, 0, 0, 0.7);
-}
-
-.now-playing__stop {
-  align-self: flex-start;
-  margin-top: 4px;
 }
 
 /* ---------- Theater mode ----------
