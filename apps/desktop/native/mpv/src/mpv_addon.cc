@@ -553,16 +553,12 @@ Napi::Value PlayerRenderFrame(const Napi::CallbackInfo &info) {
 
   const bool resized = (w != g_player.w || h != g_player.h);
 
-  // Only read back when mpv actually has a new frame (with a ~20ms fallback so
-  // we never freeze if the flag stays quiet). This aligns our consumption with
-  // mpv's frame production — far fewer counted drops and no redundant readbacks
-  // on a high-refresh display.
-  uint64_t flags = mpv_render_context_update(g_player.rctx);
-  bool newFrame = (flags & MPV_RENDER_UPDATE_FRAME) != 0;
-  if (!newFrame && !resized && g_player.hasFrame &&
-      ms(g_player.lastRenderTp, t1) < 20.0) {
-    return env.Null();  // keep showing the last frame
-  }
+  // Advance the render context and render on every call (i.e. every display
+  // refresh) — presenting each vsync matches the native popout's smoothness.
+  // Gating on the new-frame flag lowered the drop counter but capped us below
+  // the source fps (phase beat). mpv still drops the odd frame to stay realtime;
+  // that counter is cosmetic and not what the viewer sees.
+  mpv_render_context_update(g_player.rctx);
 
   if (resized) {
     glBindTexture(GL_TEXTURE_2D, g_player.tex);

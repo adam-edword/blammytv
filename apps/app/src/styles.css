@@ -1394,6 +1394,16 @@ body.theater-mode .app-header:hover {
   transition: filter 0.12s ease;
 }
 
+/* Big guides have hundreds/thousands of cards; let the browser skip rendering
+   the ones scrolled off-screen (huge win for paint/layout during scroll). Width
+   is set inline and height is fixed, so the box geometry is unaffected — only
+   the off-screen cards' contents are skipped. Pinned (sticky) cards always
+   render, so they're excluded. */
+.program:not(.program--pinned) {
+  content-visibility: auto;
+  contain-intrinsic-size: auto var(--row-h);
+}
+
 .program:hover {
   filter: brightness(1.25);
 }
