@@ -2,9 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Hls from "hls.js";
 import {
   isDesktop,
-  nativeTheaterOpen,
-  nativeTheaterMeta,
-  onTheaterClosed,
   mpvCanvasSetPause,
   mpvCanvasSetMute,
   mpvCanvasSetVolume,
@@ -75,8 +72,6 @@ export function Player({
   const [active, setActive] = useState(true);
   const [volHud, setVolHud] = useState(false);
   const volHudRef = useRef<number>(0);
-  // Native fullscreen theater (desktop): mpv's own GPU window + HTML overlay.
-  const [nativeFs, setNativeFs] = useState(false);
 
   // Browser fallback: load the stream into the <video> via hls.js.
   useEffect(() => {
@@ -133,33 +128,8 @@ export function Player({
     };
   }, [onDesktop]);
 
-  // Native fullscreen lifecycle: entering starts the native mpv window + overlay
-  // (the canvas surface unmounts, freeing the single mpv handle); the overlay's
-  // Close/Escape fires theater:closed, which brings us back to the canvas.
-  useEffect(() => {
-    if (!onDesktop) return;
-    return onTheaterClosed(() => setNativeFs(false));
-  }, [onDesktop]);
-
-  useEffect(() => {
-    if (!onDesktop || !nativeFs) return;
-    void nativeTheaterOpen(url, meta)?.then((res) => {
-      if (res && !res.ok) {
-        console.error("[native theater]", res.error);
-        setNativeFs(false);
-      }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nativeFs]);
-
-  // Keep the overlay's show info fresh while native theater is open.
-  useEffect(() => {
-    if (onDesktop && nativeFs && meta) void nativeTheaterMeta(meta);
-  }, [onDesktop, nativeFs, meta]);
-
-  // A fresh surface (new channel, or returning from native fullscreen) starts
-  // playing — keep the transport icon honest.
-  useEffect(() => setPaused(false), [url, nativeFs]);
+  // A fresh surface (new channel) starts playing — keep the transport icon honest.
+  useEffect(() => setPaused(false), [url]);
 
   const togglePlay = useCallback(() => {
     if (onDesktop) {
@@ -195,17 +165,14 @@ export function Player({
     [onDesktop],
   );
 
-  // Fullscreen: native mpv theater on the desktop, browser fullscreen otherwise.
+  // Fullscreen: the same canvas/video just fills the screen — seamless, same mpv
+  // instance (no handoff). The controls + theater bar fill the screen via CSS.
   const goFullscreen = useCallback(() => {
-    if (onDesktop) {
-      setNativeFs(true);
-      return;
-    }
     const el = wrapRef.current;
     if (!el) return;
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     else el.requestFullscreen().catch(() => {});
-  }, [onDesktop]);
+  }, []);
 
   const wake = useCallback(() => {
     setActive(true);
@@ -238,9 +205,6 @@ export function Player({
   }, []);
 
   const volPct = Math.round((muted ? 0 : volume) * 100);
-  // While native fullscreen is up, the app window is hidden — render a calm
-  // placeholder so the (paused) mini doesn't fight the native player.
-  const surfaceHidden = onDesktop && nativeFs;
 
   return (
     <div
@@ -254,9 +218,7 @@ export function Player({
       onMouseMove={wake}
       onMouseLeave={() => setActive(false)}
     >
-      {surfaceHidden ? (
-        <div className="player__video" />
-      ) : onDesktop ? (
+      {onDesktop ? (
         <MpvCanvas
           url={url}
           className="player__video"
@@ -278,7 +240,7 @@ export function Player({
         />
       )}
 
-      {status !== "playing" && !surfaceHidden && (
+      {status !== "playing" && (
         <div className="player__status">
           {status === "loading" && <span className="player__spinner" />}
           <span>{message}</span>
