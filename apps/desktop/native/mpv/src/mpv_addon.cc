@@ -285,6 +285,11 @@ Napi::Value RenderProbe(const Napi::CallbackInfo &info) {
   // GL texture. Avoids the WGL_NV_DX_interop requirement that plain d3d11va→GL
   // needs (which a generic WGL context lacks → black frames). libplacebo still
   // does HDR tone-map + scaling during render, so the picture stays correct.
+  // vo=libmpv forces the render-API video output (no window) — setting it BEFORE
+  // initialize is the reliable way; relying on render_context_create to switch
+  // the vo implicitly doesn't work on all libmpv builds (mpv was falling back to
+  // a gpu window → our FBO stayed black).
+  mpv_set_option_string(mpv, "vo", "libmpv");
   mpv_set_option_string(mpv, "hwdec", "auto-copy");
   mpv_set_option_string(mpv, "force-window", "no");
   mpv_set_option_string(mpv, "terminal", "no");
@@ -293,6 +298,9 @@ Napi::Value RenderProbe(const Napi::CallbackInfo &info) {
     gl.destroy();
     return fail("mpv_initialize failed");
   }
+  // Pipe mpv's own log to stderr (shows in the pnpm desktop terminal) so render
+  // / vo problems are visible instead of guessed.
+  mpv_request_log_messages(mpv, "v");
 
   mpv_opengl_init_params glParams = {getProcAddress, nullptr};
   // Basic (non-advanced) render mode: each mpv_render_context_render() draws the
@@ -331,6 +339,11 @@ Napi::Value RenderProbe(const Napi::CallbackInfo &info) {
     while (true) {
       mpv_event *ev = mpv_wait_event(mpv, 0);
       if (ev->event_id == MPV_EVENT_NONE) break;
+      if (ev->event_id == MPV_EVENT_LOG_MESSAGE) {
+        mpv_event_log_message *lm =
+            static_cast<mpv_event_log_message *>(ev->data);
+        fprintf(stderr, "[mpv] %s: %s", lm->prefix, lm->text);
+      }
       if (ev->event_id == MPV_EVENT_END_FILE) {
         mpv_event_end_file *ef = static_cast<mpv_event_end_file *>(ev->data);
         if (ef && ef->reason == MPV_END_FILE_REASON_ERROR) {
