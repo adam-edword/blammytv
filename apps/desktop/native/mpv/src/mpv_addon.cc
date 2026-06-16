@@ -362,7 +362,7 @@ Napi::Value RenderProbe(const Napi::CallbackInfo &info) {
     // an unconditional render composites it and we read it back.
     mpv_render_context_update(rctx);
     mpv_opengl_fbo mfbo = {static_cast<int>(fbo), W, H, 0};
-    int flipY = 0;
+    int flipY = 1;  // mpv renders bottom-up for GL; flip so readback is upright
     mpv_render_param rp[] = {{MPV_RENDER_PARAM_OPENGL_FBO, &mfbo},
                              {MPV_RENDER_PARAM_FLIP_Y, &flipY},
                              {MPV_RENDER_PARAM_INVALID, nullptr}};
