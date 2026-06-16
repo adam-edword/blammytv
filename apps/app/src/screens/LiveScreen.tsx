@@ -140,7 +140,9 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
   useEffect(() => {
     if (!inTheater) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setTheater(false);
+      // While fullscreen, let Escape exit fullscreen (back to theater) first;
+      // a second Escape then leaves theater.
+      if (e.key === "Escape" && !document.fullscreenElement) setTheater(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

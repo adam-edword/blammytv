@@ -648,6 +648,13 @@ img {
   border-radius: 12px;
 }
 
+/* True fullscreen: the player element fills the screen, so size the picture to
+ * the whole screen (no nav-gap reservation) and drop the rounded corners. */
+.player:fullscreen .player__video {
+  width: min(100%, calc(100vh * 16 / 9));
+  border-radius: 0;
+}
+
 /* ---------- Theater overlay (content + seek + controls) ---------- */
 .theater-bar {
   position: absolute;

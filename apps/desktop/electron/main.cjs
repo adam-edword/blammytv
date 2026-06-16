@@ -227,20 +227,11 @@ ipcMain.handle("transcode:start", async (_event, url) => {
 
   const bin = fs.existsSync(FFMPEG_BIN) ? FFMPEG_BIN : "ffmpeg";
 
-  // Probe once: drives the HDR decision and feeds the Stats panel.
+  // Probe once: feeds the Stats panel (HDR flag, codec, resolution, …).
   const probe = await probeStreams(url);
   const hdr = probe?.hdr ?? false;
-  const videoArgs = hdr
-    ? [
-        "-vf",
-        "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709," +
-          "tonemap=tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p",
-        "-c:v", "libx264",
-        "-preset", "veryfast",
-        "-crf", "21",
-        "-force_key_frames", "expr:gte(t,n_forced*2)",
-      ]
-    : ["-c:v", "copy"];
+  // Tone-mapping is disabled for now — copy the video stream untouched.
+  const videoArgs = ["-c:v", "copy"];
 
   let stderr = "";
   let spawnError = null;
@@ -278,11 +269,7 @@ ipcMain.handle("transcode:start", async (_event, url) => {
     stderr = (stderr + d.toString()).slice(-2000);
   });
 
-  // Re-encoding (HDR) is slower to produce the first segment than a plain copy.
-  const ready = await waitForFile(
-    path.join(HLS_DIR, "index.m3u8"),
-    hdr ? 25000 : 15000,
-  );
+  const ready = await waitForFile(path.join(HLS_DIR, "index.m3u8"), 15000);
   if (!ready) {
     stopTranscode();
     let detail;

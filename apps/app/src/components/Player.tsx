@@ -288,7 +288,11 @@ export function Player({
             className="player__theater-exit"
             type="button"
             aria-label="Exit theater mode"
-            onClick={onToggleTheater}
+            onClick={() => {
+              if (document.fullscreenElement)
+                document.exitFullscreen().catch(() => {});
+              onToggleTheater?.();
+            }}
           >
             <CloseIcon size={20} />
           </button>
