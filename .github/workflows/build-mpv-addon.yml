@@ -38,7 +38,7 @@ jobs:
         id: electron
         shell: pwsh
         run: |
-          $v = pnpm --filter @blammytv/desktop exec node -e "process.stdout.write(require('electron/package.json').version)"
+          $v = (Get-Content apps/desktop/node_modules/electron/package.json -Raw | ConvertFrom-Json).version
           if (-not $v) { throw "could not resolve electron version" }
           Write-Host "Electron $v"
           "version=$v" >> $env:GITHUB_OUTPUT
