@@ -1,4 +1,4 @@
-const { app, BrowserWindow, shell, ipcMain, Menu } = require("electron");
+const { app, BrowserWindow, shell, ipcMain, Menu, screen } = require("electron");
 
 // Let Chromium hardware-decode HEVC/H.265 in the in-app <video> (4K sports
 // channels are HEVC; without this it falls back to software and drops frames).
@@ -246,6 +246,76 @@ ipcMain.handle("mpv:playerStop", () => {
   return { ok: true };
 });
 
+// --- Native theater (Milestone 1): mpv fullscreen native surface + a
+// transparent always-on-top Electron overlay window for our HTML controls.
+let theaterOverlay = null;
+
+function closeTheater() {
+  const native = loadMpvNative();
+  try {
+    native?.playerStop?.();
+  } catch {
+    /* gone */
+  }
+  if (theaterOverlay && !theaterOverlay.isDestroyed()) theaterOverlay.close();
+  theaterOverlay = null;
+}
+
+ipcMain.handle("theater:open", (_event, url) => {
+  const native = loadMpvNative();
+  if (!native || typeof native.playerStartWindow !== "function") {
+    return { ok: false, error: "libmpv addon (native window) not built" };
+  }
+  try {
+    native.playerStartWindow(url);
+  } catch (err) {
+    console.error("[theater] playerStartWindow failed:", err);
+    return { ok: false, error: String((err && err.message) || err) };
+  }
+
+  const { x, y, width, height } = screen.getPrimaryDisplay().bounds;
+  theaterOverlay = new BrowserWindow({
+    x,
+    y,
+    width,
+    height,
+    frame: false,
+    transparent: true,
+    backgroundColor: "#00000000",
+    resizable: false,
+    movable: false,
+    skipTaskbar: true,
+    hasShadow: false,
+    fullscreenable: false,
+    webPreferences: {
+      preload: path.join(__dirname, "overlay-preload.cjs"),
+      sandbox: false,
+      contextIsolation: false,
+    },
+  });
+  // Sit above mpv's borderless-fullscreen window.
+  theaterOverlay.setAlwaysOnTop(true, "screen-saver");
+  theaterOverlay.loadFile(path.join(__dirname, "..", "overlay.html"));
+  theaterOverlay.on("closed", () => {
+    theaterOverlay = null;
+  });
+  return { ok: true };
+});
+
+ipcMain.handle("theater:close", () => {
+  closeTheater();
+  return { ok: true };
+});
+
+ipcMain.handle("theater:pause", (_event, paused) => {
+  try {
+    loadMpvNative()?.playerSetPause?.(paused);
+  } catch {
+    /* gone */
+  }
+  return { ok: true };
+});
+
 ipcMain.handle("popout:stop", () => {
   stopPopout();
   return { ok: true };
@@ -437,6 +507,11 @@ app.whenReady().then(() => {
 function stopMpvNative() {
   try {
     mpvNative?.stop();
+  } catch {
+    /* gone */
+  }
+  try {
+    mpvNative?.playerStop?.();
   } catch {
     /* gone */
   }

@@ -459,6 +459,47 @@ void playerTeardown() {
   g_player.started = false;
 }
 
+// playerStartWindow(url): boolean — native theater path. mpv renders to its own
+// borderless fullscreen GPU surface (d3d11va direct, zero readback → true
+// 4K60), which a transparent Electron overlay layers on top of. Uses g_player's
+// mpv handle so the same playerSetPause/Volume/Seek controls drive it.
+Napi::Value PlayerStartWindow(const Napi::CallbackInfo &info) {
+  Napi::Env env = info.Env();
+  if (info.Length() < 1 || !info[0].IsString()) {
+    Napi::TypeError::New(env, "playerStartWindow(url) requires a URL string")
+        .ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  const std::string url = info[0].As<Napi::String>().Utf8Value();
+
+  playerTeardown();
+
+  auto fail = [&](const std::string &msg) -> Napi::Value {
+    playerTeardown();
+    Napi::Error::New(env, msg).ThrowAsJavaScriptException();
+    return env.Null();
+  };
+
+  g_player.mpv = mpv_create();
+  if (!g_player.mpv) return fail("mpv_create failed");
+  // Native window: full hardware path, no render API. Our overlay draws the UI.
+  mpv_set_option_string(g_player.mpv, "force-window", "yes");
+  mpv_set_option_string(g_player.mpv, "fullscreen", "yes");
+  mpv_set_option_string(g_player.mpv, "border", "no");
+  mpv_set_option_string(g_player.mpv, "ontop", "no");
+  mpv_set_option_string(g_player.mpv, "osc", "no");
+  mpv_set_option_string(g_player.mpv, "input-default-bindings", "no");
+  mpv_set_option_string(g_player.mpv, "input-vo-keyboard", "no");
+  mpv_set_option_string(g_player.mpv, "hwdec", "auto-safe");
+  mpv_set_option_string(g_player.mpv, "title", "BlammyTV Theater");
+  mpv_set_option_string(g_player.mpv, "terminal", "no");
+  if (mpv_initialize(g_player.mpv) < 0) return fail("mpv_initialize failed");
+
+  const char *cmd[] = {"loadfile", url.c_str(), nullptr};
+  if (mpv_command(g_player.mpv, cmd) < 0) return fail("loadfile failed");
+  return Napi::Boolean::New(env, true);
+}
+
 // playerStart(url): boolean — (re)create the player and begin playback.
 Napi::Value PlayerStart(const Napi::CallbackInfo &info) {
   Napi::Env env = info.Env();
@@ -683,6 +724,7 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
   exports.Set("apiVersion", Napi::Function::New(env, ApiVersion));
   exports.Set("renderProbe", Napi::Function::New(env, RenderProbe));
   exports.Set("playerStart", Napi::Function::New(env, PlayerStart));
+  exports.Set("playerStartWindow", Napi::Function::New(env, PlayerStartWindow));
   exports.Set("playerRenderFrame", Napi::Function::New(env, PlayerRenderFrame));
   exports.Set("playerStats", Napi::Function::New(env, PlayerStats));
   exports.Set("playerSetPause", Napi::Function::New(env, PlayerSetPause));

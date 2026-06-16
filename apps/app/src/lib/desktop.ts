@@ -32,6 +32,9 @@ interface BlammyBridge {
   mpvRenderProbe: (
     url: string,
   ) => Promise<{ ok: boolean; path?: string; error?: string }>;
+  nativeTheaterOpen: (
+    url: string,
+  ) => Promise<{ ok: boolean; error?: string }>;
 }
 
 /**
@@ -70,6 +73,9 @@ export const mpvSpike = (url: string) => bridge?.mpvSpike(url);
 
 /** Phase 2 step 1 — render one frame offscreen via mpv's render API → BMP. */
 export const mpvRenderProbe = (url: string) => bridge?.mpvRenderProbe(url);
+
+/** Native theater — mpv fullscreen GPU surface + transparent HTML overlay. */
+export const nativeTheaterOpen = (url: string) => bridge?.nativeTheaterOpen(url);
 
 /** Phase 2 step 2 — live libmpv → canvas player (synchronous, in-renderer). */
 export const mpvCanvasStart = (url: string) =>

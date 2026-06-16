@@ -6,6 +6,7 @@ import {
   transcodeStop,
   mpvSpike,
   mpvRenderProbe,
+  nativeTheaterOpen,
   mpvCanvasSetPause,
   mpvCanvasSetMute,
   mpvCanvasSetVolume,
@@ -461,6 +462,25 @@ export function Player({
                     title="libmpv canvas"
                   >
                     <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5 }}>CV</span>
+                  </button>
+                )}
+                {/* TEMP — Native theater Milestone 1: mpv fullscreen + overlay. */}
+                {isDesktop() && (
+                  <button
+                    className="player__btn"
+                    type="button"
+                    onClick={() =>
+                      void nativeTheaterOpen(url)?.then((res) => {
+                        if (res && !res.ok) {
+                          console.error("[native theater]", res.error);
+                          window.alert("native theater failed: " + res.error);
+                        }
+                      })
+                    }
+                    aria-label="native theater (test)"
+                    title="native theater"
+                  >
+                    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5 }}>NV</span>
                   </button>
                 )}
                 {onPopout && (
