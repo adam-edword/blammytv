@@ -28,6 +28,7 @@ interface BlammyBridge {
   popoutPlay: (url: string) => Promise<{ ok: boolean; error?: string }>;
   popoutStop: () => Promise<unknown>;
   onPopoutClosed: (cb: () => void) => () => void;
+  mpvSpike: (url: string) => Promise<{ ok: boolean; error?: string }>;
 }
 
 const bridge = (window as unknown as { blammy?: BlammyBridge }).blammy;
@@ -43,3 +44,6 @@ export const popoutPlay = (url: string) => bridge?.popoutPlay(url);
 export const popoutStop = () => bridge?.popoutStop();
 export const onPopoutClosed = (cb: () => void): (() => void) =>
   bridge?.onPopoutClosed(cb) ?? (() => {});
+
+/** Phase 1 libmpv spike — play the source directly via the native addon. */
+export const mpvSpike = (url: string) => bridge?.mpvSpike(url);

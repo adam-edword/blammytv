@@ -20,6 +20,8 @@ export default tseslint.config(
       "**/node_modules/**",
       "apps/desktop/bin/**",
       "apps/desktop/out/**",
+      "apps/desktop/native/**/build/**",
+      "apps/desktop/native/**/vendor/**",
     ],
   },
 

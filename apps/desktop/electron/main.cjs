@@ -158,6 +158,37 @@ ipcMain.handle("popout:play", (_event, url) => {
   }
 });
 
+// --- libmpv spike (Phase 1) ------------------------------------------------
+// Loaded lazily + guarded: the app runs fine whether or not the native addon
+// has been built (see apps/desktop/native/mpv/README.md).
+let mpvNative = null;
+function loadMpvNative() {
+  if (mpvNative) return mpvNative;
+  try {
+    mpvNative = require("../native/mpv");
+  } catch {
+    mpvNative = null;
+  }
+  return mpvNative;
+}
+
+ipcMain.handle("mpv:spike", (_event, url) => {
+  const native = loadMpvNative();
+  if (!native) {
+    return {
+      ok: false,
+      error:
+        "libmpv addon not built — see apps/desktop/native/mpv/README.md",
+    };
+  }
+  try {
+    native.play(url);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: String((err && err.message) || err) };
+  }
+});
+
 ipcMain.handle("popout:stop", () => {
   stopPopout();
   return { ok: true };
@@ -340,13 +371,23 @@ app.whenReady().then(() => {
   });
 });
 
+function stopMpvNative() {
+  try {
+    mpvNative?.stop();
+  } catch {
+    /* gone */
+  }
+}
+
 app.on("window-all-closed", () => {
   stopTranscode();
   stopPopout();
+  stopMpvNative();
   if (process.platform !== "darwin") app.quit();
 });
 
 app.on("before-quit", () => {
   stopTranscode();
   stopPopout();
+  stopMpvNative();
 });

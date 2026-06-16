@@ -4,6 +4,7 @@ import {
   isDesktop,
   transcodeStart,
   transcodeStop,
+  mpvSpike,
   type SourceStats,
 } from "../lib/desktop";
 import { StatsOverlay } from "./StatsOverlay";
@@ -361,6 +362,12 @@ export function Player({
                 <button className={"player__btn" + (statsOpen ? " is-active" : "")} type="button" onClick={() => setStatsOpen((o) => !o)} aria-label="Stats for nerds">
                   <StatsIcon size={20} />
                 </button>
+                {/* TEMP — Phase 1 libmpv spike: play the source in mpv's own window. */}
+                {isDesktop() && (
+                  <button className="player__btn" type="button" onClick={() => void mpvSpike(url)} aria-label="libmpv spike (test)" title="libmpv spike">
+                    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5 }}>MPV</span>
+                  </button>
+                )}
                 {onPopout && (
                   <button className="player__btn" type="button" onClick={onPopout} aria-label="Pop out (native player)">
                     <PopoutIcon size={20} />
