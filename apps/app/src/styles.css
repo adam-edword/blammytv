@@ -3132,3 +3132,13 @@ body.theater-mode .app-header:hover {
     animation: none;
   }
 }
+
+/* Native-theater overlay window: transparent body so mpv shows through, with a
+   full-screen root hosting the reused theater-bar chrome. */
+body.is-overlay {
+  background: transparent;
+}
+.theater-overlay {
+  position: fixed;
+  inset: 0;
+}

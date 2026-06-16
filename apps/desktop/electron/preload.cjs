@@ -96,8 +96,10 @@ globalThis.blammy = {
   mpvSpike: (url) => ipcRenderer.invoke("mpv:spike", url),
   // libmpv render probe (Phase 2 step 1): render one frame offscreen → BMP.
   mpvRenderProbe: (url) => ipcRenderer.invoke("mpv:renderProbe", url),
-  // Native theater (Milestone 1): mpv fullscreen + transparent HTML overlay.
-  nativeTheaterOpen: (url) => ipcRenderer.invoke("theater:open", url),
+  // Native theater: mpv fullscreen + transparent HTML overlay.
+  nativeTheaterOpen: (url, meta) =>
+    ipcRenderer.invoke("theater:open", url, meta),
+  nativeTheaterMeta: (meta) => ipcRenderer.invoke("theater:setMeta", meta),
   onPopoutClosed: (cb) => {
     const handler = () => cb();
     ipcRenderer.on("popout:closed", handler);

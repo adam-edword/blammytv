@@ -257,10 +257,7 @@ ipcMain.handle("mpv:playerStop", () => {
 // --- Native theater (Milestone 1): mpv fullscreen native surface + a
 // transparent always-on-top Electron overlay window for our HTML controls.
 let theaterOverlay = null;
-
-// DIAGNOSTIC: skip the overlay so we can see mpv on its own and confirm whether
-// it actually goes fullscreen (vs. a strip with the desktop behind).
-const THEATER_DIAG_NO_OVERLAY = false;
+let theaterMeta = null;
 
 function closeTheater() {
   const native = loadMpvNative();
@@ -280,7 +277,7 @@ function closeTheater() {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.show();
 }
 
-ipcMain.handle("theater:open", (_event, url) => {
+ipcMain.handle("theater:open", (_event, url, meta) => {
   const native = loadMpvNative();
   if (!native || typeof native.playerStartWindow !== "function") {
     return { ok: false, error: "libmpv addon (native window) not built" };
@@ -291,17 +288,12 @@ ipcMain.handle("theater:open", (_event, url) => {
     console.error("[theater] playerStartWindow failed:", err);
     return { ok: false, error: String((err && err.message) || err) };
   }
+  theaterMeta = meta ?? null;
 
   // Hide the app shell so the only layers are mpv (bottom) + transparent
   // overlay (top) — otherwise the app's dark background shows through.
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.hide();
-  // Escape always exits theater (the overlay is click-through, so the buttons
-  // won't take clicks during this occlusion test).
   globalShortcut.register("Escape", closeTheater);
-
-  if (THEATER_DIAG_NO_OVERLAY) {
-    return { ok: true };
-  }
 
   const { x, y, width, height } = screen.getPrimaryDisplay().bounds;
   theaterOverlay = new BrowserWindow({
@@ -331,7 +323,14 @@ ipcMain.handle("theater:open", (_event, url) => {
   theaterOverlay.setAlwaysOnTop(true, "screen-saver");
   // Click-through: input passes to mpv, the overlay never steals focus.
   theaterOverlay.setIgnoreMouseEvents(true, { forward: true });
-  theaterOverlay.loadFile(path.join(__dirname, "..", "overlay.html"));
+  // Load the real React app in overlay mode (renders only the theater chrome).
+  if (app.isPackaged) {
+    theaterOverlay.loadFile(path.join(__dirname, "..", "renderer", "index.html"), {
+      query: { overlay: "1" },
+    });
+  } else {
+    theaterOverlay.loadURL(DEV_URL + "?overlay=1");
+  }
   theaterOverlay.on("closed", () => {
     theaterOverlay = null;
   });
@@ -355,6 +354,42 @@ ipcMain.handle("theater:pause", (_event, paused) => {
 ipcMain.handle("overlay:setIgnore", (_event, ignore) => {
   if (theaterOverlay && !theaterOverlay.isDestroyed())
     theaterOverlay.setIgnoreMouseEvents(!!ignore, { forward: true });
+  return { ok: true };
+});
+
+ipcMain.handle("theater:seek", (_event, delta) => {
+  try {
+    loadMpvNative()?.playerSeek?.(delta);
+  } catch {
+    /* gone */
+  }
+  return { ok: true };
+});
+
+ipcMain.handle("theater:volume", (_event, vol) => {
+  try {
+    loadMpvNative()?.playerSetVolume?.(vol);
+  } catch {
+    /* gone */
+  }
+  return { ok: true };
+});
+
+ipcMain.handle("theater:mute", (_event, muted) => {
+  try {
+    loadMpvNative()?.playerSetMute?.(muted);
+  } catch {
+    /* gone */
+  }
+  return { ok: true };
+});
+
+// Theater meta (channel / show / progress) for the overlay to render.
+ipcMain.handle("theater:getMeta", () => theaterMeta);
+ipcMain.handle("theater:setMeta", (_event, meta) => {
+  theaterMeta = meta ?? null;
+  if (theaterOverlay && !theaterOverlay.isDestroyed())
+    theaterOverlay.webContents.send("theater:meta", theaterMeta);
   return { ok: true };
 });
 

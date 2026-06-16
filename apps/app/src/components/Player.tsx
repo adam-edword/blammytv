@@ -470,7 +470,7 @@ export function Player({
                     className="player__btn"
                     type="button"
                     onClick={() =>
-                      void nativeTheaterOpen(url)?.then((res) => {
+                      void nativeTheaterOpen(url, meta)?.then((res) => {
                         if (res && !res.ok) {
                           console.error("[native theater]", res.error);
                           window.alert("native theater failed: " + res.error);

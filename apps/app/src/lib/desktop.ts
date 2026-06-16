@@ -34,7 +34,9 @@ interface BlammyBridge {
   ) => Promise<{ ok: boolean; path?: string; error?: string }>;
   nativeTheaterOpen: (
     url: string,
+    meta?: unknown,
   ) => Promise<{ ok: boolean; error?: string }>;
+  nativeTheaterMeta: (meta: unknown) => Promise<unknown>;
 }
 
 /**
@@ -75,7 +77,11 @@ export const mpvSpike = (url: string) => bridge?.mpvSpike(url);
 export const mpvRenderProbe = (url: string) => bridge?.mpvRenderProbe(url);
 
 /** Native theater — mpv fullscreen GPU surface + transparent HTML overlay. */
-export const nativeTheaterOpen = (url: string) => bridge?.nativeTheaterOpen(url);
+export const nativeTheaterOpen = (url: string, meta?: unknown) =>
+  bridge?.nativeTheaterOpen(url, meta);
+/** Push updated show metadata to the open theater overlay. */
+export const nativeTheaterMeta = (meta: unknown) =>
+  bridge?.nativeTheaterMeta(meta);
 
 /** Phase 2 step 2 — live libmpv → canvas player (synchronous, in-renderer). */
 export const mpvCanvasStart = (url: string) =>
