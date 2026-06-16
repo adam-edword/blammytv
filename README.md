@@ -19,13 +19,15 @@ pnpm monorepo:
 
 | package | what |
 | --- | --- |
-| `packages/shared` | the config-blob + share-code types/zod schemas — the contract every client renders |
-| `apps/app` | the React client (Vite + TS, Tauri-ready): pairing screen, `Live TV \| Series \| Movies` tabs, EPG guide, loading skeletons |
+| `packages/shared` | the config-blob + share-code types/zod schemas (+ a mock blob) — the contract every client renders |
+| `apps/app` | the React client (Vite + TS): pairing, `Live TV \| Stream \| Discover` tabs, the EPG guide, and the in-app + theater video player |
+| `apps/server` | the backend (Hono): resolves xtream credentials and maps panels → the config blob |
+| `apps/desktop` | the Electron shell that wraps `apps/app` for sideloading — plus the local ffmpeg→HLS transcode and the mpv pop-out |
 
-> the backend config API and the web config ui are not built yet. `apps/app`
-> currently renders a validated **mock** config blob (see
-> `apps/app/src/lib/mockConfig.ts`); swapping in the real backend is a one-function
-> change in `apps/app/src/lib/config.ts`.
+> the web config ui isn't built yet, and the backend is partial. by default
+> `apps/app` renders a validated **mock** config blob (from `packages/shared`);
+> pointing it at the real backend is a one-function change in
+> `apps/app/src/lib/config.ts` (set `VITE_API_URL`).
 
 ## develop
 
@@ -33,13 +35,20 @@ requires node 22+ and pnpm 10+.
 
 ```bash
 pnpm install
-pnpm dev          # run the client (apps/app) on http://localhost:1420
-pnpm typecheck    # typecheck all packages
+pnpm dev          # run the web client (apps/app) on http://localhost:1420
+pnpm desktop      # run the full desktop app (server + app + electron)
+pnpm typecheck    # typecheck every package
+pnpm lint         # eslint (flat config)
+pnpm test         # vitest across packages
 pnpm build        # build all packages
 ```
+
+CI runs typecheck + lint + test on every PR to `main` (`.github/workflows/ci.yml`).
+new contributors: see [`CONTRIBUTING.md`](./CONTRIBUTING.md) for conventions and a
+guide to adding a new app (e.g. a Next.js one).
 
 the Live tab is built from the EPG Figma frame: a "now playing" hero, a category
 rail, and a time-grid guide with a live "now" indicator. it's plain CSS (no
 Tailwind) using design tokens in `apps/app/src/styles.css`. the "Stack Sans" fonts
-from the design aren't bundled yet — there's a system-font fallback in the
-`--font-headline` / `--font-text` variables.
+are self-hosted (bundled via Fontsource in `apps/app/src/fonts.ts`), with a
+system-font fallback in the `--font-headline` / `--font-text` variables.
