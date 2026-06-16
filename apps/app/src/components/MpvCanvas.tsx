@@ -17,7 +17,11 @@ uniform sampler2D tex;
 void main() { gl_FragColor = texture2D(tex, uv); }`;
 
 function makeGl(canvas: HTMLCanvasElement) {
-  const gl = canvas.getContext("webgl", { alpha: false, antialias: false });
+  // Prefer WebGL2 so we can upload via a PIXEL_UNPACK_BUFFER (async DMA upload
+  // instead of a blocking texSubImage copy). Fall back to WebGL1.
+  const gl2 = canvas.getContext("webgl2", { alpha: false, antialias: false });
+  const gl: WebGLRenderingContext | WebGL2RenderingContext | null =
+    gl2 ?? canvas.getContext("webgl", { alpha: false, antialias: false });
   if (!gl) return null;
   const compile = (type: number, src: string) => {
     const s = gl.createShader(type)!;
@@ -42,7 +46,9 @@ function makeGl(canvas: HTMLCanvasElement) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  return { gl, tex };
+  const gl2ctx = gl2 ?? null;
+  const pbo = gl2ctx ? gl2ctx.createBuffer() : null;
+  return { gl, gl2: gl2ctx, tex, pbo };
 }
 
 /**
@@ -124,7 +130,7 @@ export function MpvCanvas({
       onError?.("WebGL unavailable.");
       return;
     }
-    const { gl, tex } = ctx;
+    const { gl, gl2, tex, pbo } = ctx;
 
     const res = mpvCanvasStart(url);
     if (!res.ok) {
@@ -143,12 +149,25 @@ export function MpvCanvas({
       const buf = mpvCanvasFrame(w, h);
       if (buf && buf.length === w * h * 4) {
         gl.bindTexture(gl.TEXTURE_2D, tex);
-        if (w !== texW || h !== texH) {
+        const resized = w !== texW || h !== texH;
+        if (gl2 && pbo) {
+          // Stage into the unpack PBO, then upload from it (driver DMA, async).
+          gl2.bindBuffer(gl2.PIXEL_UNPACK_BUFFER, pbo);
+          gl2.bufferData(gl2.PIXEL_UNPACK_BUFFER, buf, gl2.STREAM_DRAW);
+          if (resized) {
+            gl2.texImage2D(gl2.TEXTURE_2D, 0, gl2.RGBA, w, h, 0, gl2.RGBA, gl2.UNSIGNED_BYTE, 0);
+          } else {
+            gl2.texSubImage2D(gl2.TEXTURE_2D, 0, 0, 0, w, h, gl2.RGBA, gl2.UNSIGNED_BYTE, 0);
+          }
+          gl2.bindBuffer(gl2.PIXEL_UNPACK_BUFFER, null);
+        } else if (resized) {
           gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, buf);
-          texW = w;
-          texH = h;
         } else {
           gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+        }
+        if (resized) {
+          texW = w;
+          texH = h;
         }
         gl.viewport(0, 0, canvas!.width, canvas!.height);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
