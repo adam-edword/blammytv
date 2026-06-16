@@ -11,6 +11,10 @@ contextBridge.exposeInMainWorld("blammy", {
   mpvSpike: (url) => ipcRenderer.invoke("mpv:spike", url),
   // libmpv render probe (Phase 2 step 1): render one frame offscreen → BMP.
   mpvRenderProbe: (url) => ipcRenderer.invoke("mpv:renderProbe", url),
+  // libmpv live canvas player (Phase 2 step 2).
+  mpvPlayerStart: (url) => ipcRenderer.invoke("mpv:playerStart", url),
+  mpvPlayerFrame: (w, h) => ipcRenderer.invoke("mpv:playerFrame", w, h),
+  mpvPlayerStop: () => ipcRenderer.invoke("mpv:playerStop"),
   onPopoutClosed: (cb) => {
     const handler = () => cb();
     ipcRenderer.on("popout:closed", handler);

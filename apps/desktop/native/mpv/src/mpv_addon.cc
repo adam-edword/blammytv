@@ -409,11 +409,162 @@ Napi::Value RenderProbe(const Napi::CallbackInfo &info) {
   return Napi::String::New(env, outPath);
 }
 
+// ---------------------------------------------------------------------------
+// Phase 2 step 2: persistent player that renders live frames for a <canvas>.
+// Keeps one GL context + mpv + render context alive; playerRenderFrame(w,h)
+// renders the current frame into an FBO at the requested size, reads it back,
+// and returns the RGBA bytes. The renderer drives it from a loop and uploads
+// each frame to a canvas. mpv plays audio natively (WASAPI), so sound just works.
+// ---------------------------------------------------------------------------
+
+struct Player {
+  GLContext gl;
+  mpv_handle *mpv = nullptr;
+  mpv_render_context *rctx = nullptr;
+  GLuint fbo = 0;
+  GLuint tex = 0;
+  int w = 0;
+  int h = 0;
+  std::vector<unsigned char> pixels;
+  bool started = false;
+};
+
+Player g_player;
+
+void playerTeardown() {
+  if (g_player.rctx) {
+    mpv_render_context_free(g_player.rctx);
+    g_player.rctx = nullptr;
+  }
+  if (g_player.mpv) {
+    mpv_terminate_destroy(g_player.mpv);
+    g_player.mpv = nullptr;
+  }
+  if (g_player.started) {
+    g_player.gl.destroy();
+  }
+  g_player.fbo = 0;
+  g_player.tex = 0;
+  g_player.w = 0;
+  g_player.h = 0;
+  g_player.started = false;
+}
+
+// playerStart(url): boolean — (re)create the player and begin playback.
+Napi::Value PlayerStart(const Napi::CallbackInfo &info) {
+  Napi::Env env = info.Env();
+  if (info.Length() < 1 || !info[0].IsString()) {
+    Napi::TypeError::New(env, "playerStart(url) requires a URL string")
+        .ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  const std::string url = info[0].As<Napi::String>().Utf8Value();
+
+  playerTeardown();
+
+  auto fail = [&](const std::string &msg) -> Napi::Value {
+    playerTeardown();
+    Napi::Error::New(env, msg).ThrowAsJavaScriptException();
+    return env.Null();
+  };
+
+  std::string glErr = g_player.gl.init();
+  if (!glErr.empty()) return fail("GL init: " + glErr);
+
+  glGenTextures(1, &g_player.tex);
+  glBindTexture(GL_TEXTURE_2D, g_player.tex);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  p_glGenFramebuffers(1, &g_player.fbo);
+  p_glBindFramebuffer(GL_FRAMEBUFFER, g_player.fbo);
+
+  g_player.mpv = mpv_create();
+  if (!g_player.mpv) return fail("mpv_create failed");
+  mpv_set_option_string(g_player.mpv, "vo", "libmpv");
+  mpv_set_option_string(g_player.mpv, "hwdec", "auto-copy");
+  mpv_set_option_string(g_player.mpv, "force-window", "no");
+  mpv_set_option_string(g_player.mpv, "terminal", "no");
+  if (mpv_initialize(g_player.mpv) < 0) return fail("mpv_initialize failed");
+
+  mpv_opengl_init_params glParams = {getProcAddress, nullptr};
+  mpv_render_param createParams[] = {
+      {MPV_RENDER_PARAM_API_TYPE,
+       const_cast<char *>(MPV_RENDER_API_TYPE_OPENGL)},
+      {MPV_RENDER_PARAM_OPENGL_INIT_PARAMS, &glParams},
+      {MPV_RENDER_PARAM_INVALID, nullptr}};
+  if (mpv_render_context_create(&g_player.rctx, g_player.mpv, createParams) < 0)
+    return fail("mpv_render_context_create failed");
+
+  const char *cmd[] = {"loadfile", url.c_str(), nullptr};
+  if (mpv_command(g_player.mpv, cmd) < 0) return fail("loadfile failed");
+
+  g_player.started = true;
+  return Napi::Boolean::New(env, true);
+}
+
+// playerRenderFrame(w, h): Buffer | null — render the current frame at w×h and
+// return its RGBA bytes (upright). Returns null until playback produced a frame.
+Napi::Value PlayerRenderFrame(const Napi::CallbackInfo &info) {
+  Napi::Env env = info.Env();
+  if (!g_player.started) return env.Null();
+  if (info.Length() < 2 || !info[0].IsNumber() || !info[1].IsNumber()) {
+    Napi::TypeError::New(env, "playerRenderFrame(w, h) requires two numbers")
+        .ThrowAsJavaScriptException();
+    return env.Null();
+  }
+  int w = info[0].As<Napi::Number>().Int32Value();
+  int h = info[1].As<Napi::Number>().Int32Value();
+  if (w < 16 || h < 16 || w > 7680 || h > 4320) return env.Null();
+
+  // Our context may have been displaced (e.g. by the probe); reassert it.
+  wglMakeCurrent(g_player.gl.hdc, g_player.gl.glrc);
+
+  // Drain events (keep mpv progressing; ignore content).
+  while (mpv_wait_event(g_player.mpv, 0)->event_id != MPV_EVENT_NONE) {
+  }
+
+  if (w != g_player.w || h != g_player.h) {
+    glBindTexture(GL_TEXTURE_2D, g_player.tex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA,
+                 GL_UNSIGNED_BYTE, nullptr);
+    p_glBindFramebuffer(GL_FRAMEBUFFER, g_player.fbo);
+    p_glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                             GL_TEXTURE_2D, g_player.tex, 0);
+    g_player.w = w;
+    g_player.h = h;
+    g_player.pixels.assign(static_cast<size_t>(w) * h * 4, 0);
+  }
+
+  mpv_render_context_update(g_player.rctx);
+  mpv_opengl_fbo mfbo = {static_cast<int>(g_player.fbo), w, h, 0};
+  int flipY = 1;
+  mpv_render_param rp[] = {{MPV_RENDER_PARAM_OPENGL_FBO, &mfbo},
+                           {MPV_RENDER_PARAM_FLIP_Y, &flipY},
+                           {MPV_RENDER_PARAM_INVALID, nullptr}};
+  glViewport(0, 0, w, h);
+  mpv_render_context_render(g_player.rctx, rp);
+  glFinish();
+  p_glBindFramebuffer(GL_FRAMEBUFFER, g_player.fbo);
+  glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, g_player.pixels.data());
+
+  return Napi::Buffer<unsigned char>::Copy(env, g_player.pixels.data(),
+                                           g_player.pixels.size());
+}
+
+// playerStop(): void — tear the player down.
+Napi::Value PlayerStop(const Napi::CallbackInfo &info) {
+  playerTeardown();
+  return info.Env().Undefined();
+}
+
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
   exports.Set("play", Napi::Function::New(env, Play));
   exports.Set("stop", Napi::Function::New(env, Stop));
   exports.Set("apiVersion", Napi::Function::New(env, ApiVersion));
   exports.Set("renderProbe", Napi::Function::New(env, RenderProbe));
+  exports.Set("playerStart", Napi::Function::New(env, PlayerStart));
+  exports.Set("playerRenderFrame", Napi::Function::New(env, PlayerRenderFrame));
+  exports.Set("playerStop", Napi::Function::New(env, PlayerStop));
   return exports;
 }
 

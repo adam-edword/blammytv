@@ -208,6 +208,44 @@ ipcMain.handle("mpv:renderProbe", async (_event, url) => {
   }
 });
 
+// Phase 2 step 2: live libmpv → canvas player. start/stop manage the native
+// player; renderFrame returns the current frame's RGBA bytes for the renderer
+// to upload to a <canvas>. Audio plays natively from mpv.
+ipcMain.handle("mpv:playerStart", (_event, url) => {
+  const native = loadMpvNative();
+  if (!native || typeof native.playerStart !== "function") {
+    return { ok: false, error: "libmpv addon (player) not built" };
+  }
+  try {
+    native.playerStart(url);
+    return { ok: true };
+  } catch (err) {
+    console.error("[mpv] playerStart failed:", err);
+    return { ok: false, error: String((err && err.message) || err) };
+  }
+});
+
+ipcMain.handle("mpv:playerFrame", (_event, w, h) => {
+  const native = loadMpvNative();
+  if (!native || typeof native.playerRenderFrame !== "function") return null;
+  try {
+    return native.playerRenderFrame(w, h); // Buffer (RGBA) or null
+  } catch (err) {
+    console.error("[mpv] playerRenderFrame failed:", err);
+    return null;
+  }
+});
+
+ipcMain.handle("mpv:playerStop", () => {
+  const native = loadMpvNative();
+  try {
+    native?.playerStop?.();
+  } catch {
+    /* already gone */
+  }
+  return { ok: true };
+});
+
 ipcMain.handle("popout:stop", () => {
   stopPopout();
   return { ok: true };

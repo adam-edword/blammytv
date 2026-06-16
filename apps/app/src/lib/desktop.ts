@@ -32,6 +32,11 @@ interface BlammyBridge {
   mpvRenderProbe: (
     url: string,
   ) => Promise<{ ok: boolean; path?: string; error?: string }>;
+  mpvPlayerStart: (
+    url: string,
+  ) => Promise<{ ok: boolean; error?: string }>;
+  mpvPlayerFrame: (w: number, h: number) => Promise<Uint8Array | null>;
+  mpvPlayerStop: () => Promise<unknown>;
 }
 
 const bridge = (window as unknown as { blammy?: BlammyBridge }).blammy;
@@ -53,3 +58,9 @@ export const mpvSpike = (url: string) => bridge?.mpvSpike(url);
 
 /** Phase 2 step 1 — render one frame offscreen via mpv's render API → BMP. */
 export const mpvRenderProbe = (url: string) => bridge?.mpvRenderProbe(url);
+
+/** Phase 2 step 2 — live libmpv → canvas player. */
+export const mpvPlayerStart = (url: string) => bridge?.mpvPlayerStart(url);
+export const mpvPlayerFrame = (w: number, h: number) =>
+  bridge?.mpvPlayerFrame(w, h);
+export const mpvPlayerStop = () => bridge?.mpvPlayerStop();

@@ -9,6 +9,7 @@ import {
   type SourceStats,
 } from "../lib/desktop";
 import { StatsOverlay } from "./StatsOverlay";
+import { MpvCanvas } from "./MpvCanvas";
 import {
   PlayIcon,
   PauseIcon,
@@ -78,6 +79,7 @@ export function Player({
   const [sourceStats, setSourceStats] = useState<SourceStats | null>(null);
   const [volHud, setVolHud] = useState(false);
   const volHudRef = useRef<number>(0);
+  const [canvasOpen, setCanvasOpen] = useState(false);
 
   // Load the stream (transcode first on desktop), play via hls.js.
   useEffect(() => {
@@ -272,6 +274,10 @@ export function Player({
         </button>
       )}
 
+      {theater && canvasOpen && (
+        <MpvCanvas url={url} onClose={() => setCanvasOpen(false)} />
+      )}
+
       {theater && (
         <>
           {statsOpen && (
@@ -399,6 +405,18 @@ export function Player({
                     title="libmpv render probe"
                   >
                     <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5 }}>RP</span>
+                  </button>
+                )}
+                {/* TEMP — Phase 2 step 2: live libmpv → canvas overlay. */}
+                {isDesktop() && (
+                  <button
+                    className={"player__btn" + (canvasOpen ? " is-active" : "")}
+                    type="button"
+                    onClick={() => setCanvasOpen((o) => !o)}
+                    aria-label="libmpv canvas (test)"
+                    title="libmpv canvas"
+                  >
+                    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5 }}>CV</span>
                   </button>
                 )}
                 {onPopout && (
