@@ -434,6 +434,8 @@ struct Player {
   double avgRenderMs = 0;
   double avgReadMs = 0;
   double avgDrainMs = 0;
+  bool hasFrame = false;
+  std::chrono::high_resolution_clock::time_point lastRenderTp{};
 };
 
 Player g_player;
@@ -546,7 +548,20 @@ Napi::Value PlayerRenderFrame(const Napi::CallbackInfo &info) {
   }
   auto t1 = clk::now();
 
-  if (w != g_player.w || h != g_player.h) {
+  const bool resized = (w != g_player.w || h != g_player.h);
+
+  // Only read back when mpv actually has a new frame (with a ~20ms fallback so
+  // we never freeze if the flag stays quiet). This aligns our consumption with
+  // mpv's frame production — far fewer counted drops and no redundant readbacks
+  // on a high-refresh display.
+  uint64_t flags = mpv_render_context_update(g_player.rctx);
+  bool newFrame = (flags & MPV_RENDER_UPDATE_FRAME) != 0;
+  if (!newFrame && !resized && g_player.hasFrame &&
+      ms(g_player.lastRenderTp, t1) < 20.0) {
+    return env.Null();  // keep showing the last frame
+  }
+
+  if (resized) {
     glBindTexture(GL_TEXTURE_2D, g_player.tex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA,
                  GL_UNSIGNED_BYTE, nullptr);
@@ -558,7 +573,6 @@ Napi::Value PlayerRenderFrame(const Napi::CallbackInfo &info) {
     g_player.pixels.assign(static_cast<size_t>(w) * h * 4, 0);
   }
 
-  mpv_render_context_update(g_player.rctx);
   mpv_opengl_fbo mfbo = {static_cast<int>(g_player.fbo), w, h, 0};
   // Canvas putImageData is top-down while glReadPixels is bottom-up, so the
   // player wants the opposite flip from the BMP probe — flip_y=0 here is upright.
@@ -575,6 +589,11 @@ Napi::Value PlayerRenderFrame(const Napi::CallbackInfo &info) {
   p_glBindFramebuffer(GL_FRAMEBUFFER, g_player.fbo);
   glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, g_player.pixels.data());
   auto t4 = clk::now();
+
+  // Tell mpv the frame was consumed so its timing/drop accounting stays sane.
+  mpv_render_context_report_swap(g_player.rctx);
+  g_player.lastRenderTp = t4;
+  g_player.hasFrame = true;
 
   const double a = 0.1;  // EMA smoothing
   g_player.avgDrainMs += (ms(t0, t1) - g_player.avgDrainMs) * a;
@@ -616,6 +635,43 @@ Napi::Value PlayerStats(const Napi::CallbackInfo &info) {
   return Napi::String::New(env, out);
 }
 
+// --- player controls (drive mpv directly) ---------------------------------
+
+Napi::Value PlayerSetPause(const Napi::CallbackInfo &info) {
+  if (g_player.mpv && info.Length() >= 1) {
+    int flag = info[0].ToBoolean().Value() ? 1 : 0;
+    mpv_set_property(g_player.mpv, "pause", MPV_FORMAT_FLAG, &flag);
+  }
+  return info.Env().Undefined();
+}
+
+Napi::Value PlayerSetMute(const Napi::CallbackInfo &info) {
+  if (g_player.mpv && info.Length() >= 1) {
+    int flag = info[0].ToBoolean().Value() ? 1 : 0;
+    mpv_set_property(g_player.mpv, "mute", MPV_FORMAT_FLAG, &flag);
+  }
+  return info.Env().Undefined();
+}
+
+// playerSetVolume(v): v is 0..100 (mpv's scale).
+Napi::Value PlayerSetVolume(const Napi::CallbackInfo &info) {
+  if (g_player.mpv && info.Length() >= 1) {
+    double v = info[0].ToNumber().DoubleValue();
+    mpv_set_property(g_player.mpv, "volume", MPV_FORMAT_DOUBLE, &v);
+  }
+  return info.Env().Undefined();
+}
+
+// playerSeek(delta): relative seek in seconds (best-effort within live buffer).
+Napi::Value PlayerSeek(const Napi::CallbackInfo &info) {
+  if (g_player.mpv && info.Length() >= 1) {
+    std::string d = std::to_string(info[0].ToNumber().DoubleValue());
+    const char *cmd[] = {"seek", d.c_str(), "relative", nullptr};
+    mpv_command(g_player.mpv, cmd);
+  }
+  return info.Env().Undefined();
+}
+
 // playerStop(): void — tear the player down.
 Napi::Value PlayerStop(const Napi::CallbackInfo &info) {
   playerTeardown();
@@ -630,6 +686,10 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
   exports.Set("playerStart", Napi::Function::New(env, PlayerStart));
   exports.Set("playerRenderFrame", Napi::Function::New(env, PlayerRenderFrame));
   exports.Set("playerStats", Napi::Function::New(env, PlayerStats));
+  exports.Set("playerSetPause", Napi::Function::New(env, PlayerSetPause));
+  exports.Set("playerSetMute", Napi::Function::New(env, PlayerSetMute));
+  exports.Set("playerSetVolume", Napi::Function::New(env, PlayerSetVolume));
+  exports.Set("playerSeek", Napi::Function::New(env, PlayerSeek));
   exports.Set("playerStop", Napi::Function::New(env, PlayerStop));
   return exports;
 }

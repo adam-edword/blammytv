@@ -6,6 +6,10 @@ import {
   transcodeStop,
   mpvSpike,
   mpvRenderProbe,
+  mpvCanvasSetPause,
+  mpvCanvasSetMute,
+  mpvCanvasSetVolume,
+  mpvCanvasSeek,
   type SourceStats,
 } from "../lib/desktop";
 import { StatsOverlay } from "./StatsOverlay";
@@ -80,6 +84,7 @@ export function Player({
   const [volHud, setVolHud] = useState(false);
   const volHudRef = useRef<number>(0);
   const [canvasOpen, setCanvasOpen] = useState(false);
+  const [mpvPaused, setMpvPaused] = useState(false);
 
   // Load the stream (transcode first on desktop), play via hls.js.
   useEffect(() => {
@@ -152,12 +157,27 @@ export function Player({
 
   // While the libmpv canvas is up it owns video + audio, so pause the <video>
   // underneath (no echo, no double-decode). Resume it when the canvas closes.
+  // Entering canvas mode starts from playing + syncs current volume/mute to mpv.
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
-    if (canvasOpen) v.pause();
-    else void v.play().catch(() => {});
+    if (canvasOpen) {
+      v.pause();
+      setMpvPaused(false);
+      mpvCanvasSetVolume(volume);
+      mpvCanvasSetMute(muted);
+    } else {
+      void v.play().catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canvasOpen]);
+
+  // In canvas mode, route volume/mute to mpv (it owns audio).
+  useEffect(() => {
+    if (!canvasOpen) return;
+    mpvCanvasSetVolume(volume);
+    mpvCanvasSetMute(muted);
+  }, [canvasOpen, volume, muted]);
 
   // Track play/pause.
   useEffect(() => {
@@ -174,26 +194,41 @@ export function Player({
   }, []);
 
   const togglePlay = useCallback(() => {
+    if (canvasOpen) {
+      setMpvPaused((p) => {
+        const next = !p;
+        mpvCanvasSetPause(next);
+        return next;
+      });
+      return;
+    }
     const v = videoRef.current;
     if (!v) return;
     if (v.paused) void v.play().catch(() => {});
     else v.pause();
-  }, []);
+  }, [canvasOpen]);
 
   // Best-effort skip within the (short) live buffer: back rewinds, forward
   // clamps to the live edge.
-  const skip = useCallback((delta: number) => {
-    const v = videoRef.current;
-    if (!v) return;
-    try {
-      const s = v.seekable;
-      const min = s.length ? s.start(0) : 0;
-      const max = s.length ? s.end(s.length - 1) : v.currentTime;
-      v.currentTime = Math.min(max, Math.max(min, v.currentTime + delta));
-    } catch {
-      /* not seekable */
-    }
-  }, []);
+  const skip = useCallback(
+    (delta: number) => {
+      if (canvasOpen) {
+        mpvCanvasSeek(delta);
+        return;
+      }
+      const v = videoRef.current;
+      if (!v) return;
+      try {
+        const s = v.seekable;
+        const min = s.length ? s.start(0) : 0;
+        const max = s.length ? s.end(s.length - 1) : v.currentTime;
+        v.currentTime = Math.min(max, Math.max(min, v.currentTime + delta));
+      } catch {
+        /* not seekable */
+      }
+    },
+    [canvasOpen],
+  );
 
   const toggleFullscreen = useCallback(() => {
     const el = wrapRef.current;
@@ -360,8 +395,8 @@ export function Player({
                 <button className="player__btn" type="button" onClick={() => skip(-10)} aria-label="Back 10 seconds">
                   <SkipBackIcon size={24} />
                 </button>
-                <button className="player__btn player__btn--play" type="button" onClick={togglePlay} aria-label={paused ? "Play" : "Pause"}>
-                  {paused ? <PlayIcon size={26} /> : <PauseIcon size={26} />}
+                <button className="player__btn player__btn--play" type="button" onClick={togglePlay} aria-label={(canvasOpen ? mpvPaused : paused) ? "Play" : "Pause"}>
+                  {(canvasOpen ? mpvPaused : paused) ? <PlayIcon size={26} /> : <PauseIcon size={26} />}
                 </button>
                 <button className="player__btn" type="button" onClick={() => skip(10)} aria-label="Forward 10 seconds">
                   <SkipFwdIcon size={24} />

@@ -55,6 +55,34 @@ globalThis.blammyMpv = {
       return "";
     }
   },
+  setPause: (paused) => {
+    try {
+      getMpv()?.playerSetPause?.(paused);
+    } catch {
+      /* not started */
+    }
+  },
+  setMute: (muted) => {
+    try {
+      getMpv()?.playerSetMute?.(muted);
+    } catch {
+      /* not started */
+    }
+  },
+  setVolume: (vol) => {
+    try {
+      getMpv()?.playerSetVolume?.(vol);
+    } catch {
+      /* not started */
+    }
+  },
+  seek: (delta) => {
+    try {
+      getMpv()?.playerSeek?.(delta);
+    } catch {
+      /* not started */
+    }
+  },
 };
 
 globalThis.blammy = {
