@@ -79,6 +79,7 @@ export function MpvCanvas({ url, onClose }: { url: string; onClose: () => void }
   const [error, setError] = useState<string | null>(null);
   const [live, setLive] = useState(false);
   const [stats, setStats] = useState("");
+  const [fps, setFps] = useState(0);
 
   // Keep the canvas's intrinsic size = its on-screen pixel size (capped), so the
   // readback is full resolution and the upload maps 1:1.
@@ -135,6 +136,9 @@ export function MpvCanvas({ url, onClose }: { url: string; onClose: () => void }
     let texW = 0;
     let texH = 0;
     let lastDraw = -1;
+    // Measure the actually-presented framerate (what the eye sees).
+    let drawn = 0;
+    let fpsSince = -1;
 
     const canvas = canvasRef.current;
     const ctx = canvas ? makeGl(canvas) : null;
@@ -170,6 +174,13 @@ export function MpvCanvas({ url, onClose }: { url: string; onClose: () => void }
         }
         gl.viewport(0, 0, canvas!.width, canvas!.height);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        drawn++;
+        if (fpsSince < 0) fpsSince = t;
+        else if (t - fpsSince >= 500) {
+          setFps(Math.round((drawn * 1000) / (t - fpsSince)));
+          drawn = 0;
+          fpsSince = t;
+        }
         if (!gotFirst) {
           gotFirst = true;
           setLive(true);
@@ -190,7 +201,10 @@ export function MpvCanvas({ url, onClose }: { url: string; onClose: () => void }
     <div className="mpv-canvas">
       <canvas ref={canvasRef} className="mpv-canvas__view" />
       <div className="mpv-canvas__hud">
-        <span>libmpv {live ? "• live" : error ? "• error" : "• starting…"}</span>
+        <span>
+          libmpv{" "}
+          {live ? `• ${fps} fps` : error ? "• error" : "• starting…"}
+        </span>
         <button
           className="mpv-canvas__close"
           type="button"
