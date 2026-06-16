@@ -313,13 +313,18 @@ ipcMain.handle("theater:open", (_event, url, meta) => {
     // unfocused DWM content can get throttled/dimmed).
     focusable: false,
     fullscreenable: false,
+    // Allow covering the taskbar (Windows otherwise clamps to the work area).
+    enableLargerThanScreen: true,
     webPreferences: {
       preload: path.join(__dirname, "overlay-preload.cjs"),
       sandbox: false,
       contextIsolation: false,
     },
   });
-  // Sit above mpv's borderless-fullscreen window.
+  // Force full display bounds (incl. the taskbar strip) — Windows clamps the
+  // initial size to the work area, leaving the controls short of the bottom.
+  theaterOverlay.setBounds({ x, y, width, height });
+  // Sit above mpv's borderless-fullscreen window (and the taskbar).
   theaterOverlay.setAlwaysOnTop(true, "screen-saver");
   // Click-through: input passes to mpv, the overlay never steals focus.
   theaterOverlay.setIgnoreMouseEvents(true, { forward: true });
