@@ -360,6 +360,9 @@ img {
   height: 100%;
   object-fit: contain;
   background: #000;
+  /* Cosmetic lift — many of these feeds are HDR shown in an SDR <video>, which
+     reads dark + flat. Brighten/saturate a touch. Tunable via --video-boost. */
+  filter: var(--video-boost, brightness(1.12) saturate(1.16) contrast(1.02));
 }
 
 /* Loading / error overlay while the stream spins up. */
