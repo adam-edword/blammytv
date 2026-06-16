@@ -502,6 +502,10 @@ Napi::Value PlayerStart(const Napi::CallbackInfo &info) {
   mpv_set_option_string(g_player.mpv, "hwdec", "auto-copy");
   mpv_set_option_string(g_player.mpv, "force-window", "no");
   mpv_set_option_string(g_player.mpv, "terminal", "no");
+  // We drive presentation ourselves and keep up easily, so don't let mpv drop
+  // the occasional late frame (source fps vs display refresh mismatch) — present
+  // every frame instead. Keeps playback smooth and the drop counter at zero.
+  mpv_set_option_string(g_player.mpv, "framedrop", "no");
   if (mpv_initialize(g_player.mpv) < 0) return fail("mpv_initialize failed");
 
   mpv_opengl_init_params glParams = {getProcAddress, nullptr};
