@@ -281,7 +281,11 @@ Napi::Value RenderProbe(const Napi::CallbackInfo &info) {
     gl.destroy();
     return fail("mpv_create failed");
   }
-  mpv_set_option_string(mpv, "hwdec", "auto-safe");
+  // auto-copy: GPU-decode, then copy frames to system memory for upload to our
+  // GL texture. Avoids the WGL_NV_DX_interop requirement that plain d3d11va→GL
+  // needs (which a generic WGL context lacks → black frames). libplacebo still
+  // does HDR tone-map + scaling during render, so the picture stays correct.
+  mpv_set_option_string(mpv, "hwdec", "auto-copy");
   mpv_set_option_string(mpv, "terminal", "no");
   if (mpv_initialize(mpv) < 0) {
     mpv_terminate_destroy(mpv);
