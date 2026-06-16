@@ -1,5 +1,9 @@
 const { app, BrowserWindow, shell, ipcMain, Menu } = require("electron");
 
+// Let Chromium hardware-decode HEVC/H.265 in the in-app <video> (4K sports
+// channels are HEVC; without this it falls back to software and drops frames).
+app.commandLine.appendSwitch("enable-features", "PlatformHEVCDecoderSupport");
+
 // Kill the application menu entirely so the Alt key can't pop the (File/Edit/
 // View…) menu bar. autoHideMenuBar alone still lets Alt toggle it.
 Menu.setApplicationMenu(null);
