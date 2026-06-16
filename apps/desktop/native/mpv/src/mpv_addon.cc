@@ -427,6 +427,8 @@ struct Player {
   int h = 0;
   std::vector<unsigned char> pixels;
   bool started = false;
+  std::string glRenderer;
+  std::string glVersion;
 };
 
 Player g_player;
@@ -470,6 +472,15 @@ Napi::Value PlayerStart(const Napi::CallbackInfo &info) {
 
   std::string glErr = g_player.gl.init();
   if (!glErr.empty()) return fail("GL init: " + glErr);
+
+  // Capture the GL renderer/version so we can tell hardware GL from a software
+  // fallback (a key suspect for fixed-cost-per-frame slowness).
+  auto glStr = [](GLenum e) -> std::string {
+    const GLubyte *p = glGetString(e);
+    return p ? std::string(reinterpret_cast<const char *>(p)) : std::string("?");
+  };
+  g_player.glRenderer = glStr(GL_RENDERER);
+  g_player.glVersion = glStr(GL_VERSION);
 
   glGenTextures(1, &g_player.tex);
   glBindTexture(GL_TEXTURE_2D, g_player.tex);
@@ -545,12 +556,41 @@ Napi::Value PlayerRenderFrame(const Napi::CallbackInfo &info) {
                            {MPV_RENDER_PARAM_INVALID, nullptr}};
   glViewport(0, 0, w, h);
   mpv_render_context_render(g_player.rctx, rp);
-  glFinish();
+  // glReadPixels implicitly syncs for the region it reads, so an explicit
+  // glFinish here is a redundant full-pipeline stall — dropped.
   p_glBindFramebuffer(GL_FRAMEBUFFER, g_player.fbo);
   glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, g_player.pixels.data());
 
   return Napi::Buffer<unsigned char>::Copy(env, g_player.pixels.data(),
                                            g_player.pixels.size());
+}
+
+// playerStats(): string — diagnostics: which decoder mpv actually chose, real
+// fps, dropped frames, and the GL renderer (hardware vs software).
+Napi::Value PlayerStats(const Napi::CallbackInfo &info) {
+  Napi::Env env = info.Env();
+  if (!g_player.started || !g_player.mpv)
+    return Napi::String::New(env, "(player not started)");
+
+  char *hw = mpv_get_property_string(g_player.mpv, "hwdec-current");
+  double vfFps = 0, containerFps = 0;
+  int64_t drops = 0, decDrops = 0;
+  mpv_get_property(g_player.mpv, "estimated-vf-fps", MPV_FORMAT_DOUBLE, &vfFps);
+  mpv_get_property(g_player.mpv, "container-fps", MPV_FORMAT_DOUBLE,
+                   &containerFps);
+  mpv_get_property(g_player.mpv, "frame-drop-count", MPV_FORMAT_INT64, &drops);
+  mpv_get_property(g_player.mpv, "decoder-frame-drop-count", MPV_FORMAT_INT64,
+                   &decDrops);
+
+  std::string out = "hwdec=" + std::string(hw ? hw : "(none)") +
+                    " | container-fps=" + std::to_string(containerFps) +
+                    " | vf-fps=" + std::to_string(vfFps) +
+                    " | drops=" + std::to_string(drops) +
+                    " | dec-drops=" + std::to_string(decDrops) +
+                    " | gl=" + g_player.glRenderer + " (" + g_player.glVersion +
+                    ")";
+  if (hw) mpv_free(hw);
+  return Napi::String::New(env, out);
 }
 
 // playerStop(): void — tear the player down.
@@ -566,6 +606,7 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
   exports.Set("renderProbe", Napi::Function::New(env, RenderProbe));
   exports.Set("playerStart", Napi::Function::New(env, PlayerStart));
   exports.Set("playerRenderFrame", Napi::Function::New(env, PlayerRenderFrame));
+  exports.Set("playerStats", Napi::Function::New(env, PlayerStats));
   exports.Set("playerStop", Napi::Function::New(env, PlayerStop));
   return exports;
 }

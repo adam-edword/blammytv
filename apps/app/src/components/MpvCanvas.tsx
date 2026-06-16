@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { mpvCanvasStart, mpvCanvasFrame, mpvCanvasStop } from "../lib/desktop";
+import {
+  mpvCanvasStart,
+  mpvCanvasFrame,
+  mpvCanvasStop,
+  mpvCanvasStats,
+} from "../lib/desktop";
 import { CloseIcon } from "./icons";
 
 /**
@@ -17,6 +22,19 @@ export function MpvCanvas({ url, onClose }: { url: string; onClose: () => void }
   const sizeRef = useRef({ w: 1280, h: 720 });
   const [error, setError] = useState<string | null>(null);
   const [live, setLive] = useState(false);
+  const [stats, setStats] = useState("");
+
+  // Poll mpv diagnostics (decoder, real fps, drops, GL renderer).
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const s = mpvCanvasStats();
+      if (s) {
+        setStats(s);
+        console.log("[mpv stats]", s);
+      }
+    }, 2000);
+    return () => window.clearInterval(id);
+  }, []);
 
   // Keep the canvas's intrinsic size = its on-screen pixel size (capped), so the
   // readback is full resolution and putImageData maps 1:1 (no upscale blur).
@@ -96,6 +114,7 @@ export function MpvCanvas({ url, onClose }: { url: string; onClose: () => void }
         </button>
       </div>
       {error && <div className="mpv-canvas__error">{error}</div>}
+      {stats && <div className="mpv-canvas__stats">{stats}</div>}
     </div>
   );
 }

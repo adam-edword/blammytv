@@ -47,6 +47,7 @@ interface BlammyMpvBridge {
   start: (url: string) => { ok: boolean; error?: string };
   frame: (w: number, h: number) => Uint8Array | null;
   stop: () => void;
+  stats: () => string;
 }
 
 const bridge = (window as unknown as { blammy?: BlammyBridge }).blammy;
@@ -77,3 +78,4 @@ export const mpvCanvasStart = (url: string) =>
 export const mpvCanvasFrame = (w: number, h: number) =>
   mpvBridge?.frame(w, h) ?? null;
 export const mpvCanvasStop = () => mpvBridge?.stop();
+export const mpvCanvasStats = (): string => mpvBridge?.stats() ?? "";

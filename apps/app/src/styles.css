@@ -587,6 +587,20 @@ img {
   max-width: 70%;
 }
 
+.mpv-canvas__stats {
+  position: absolute;
+  bottom: 16px;
+  left: 20px;
+  z-index: 4;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #8effc0;
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  max-width: 80%;
+}
+
 .player__theater-exit {
   position: absolute;
   top: 16px;

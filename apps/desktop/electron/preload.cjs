@@ -48,6 +48,13 @@ contextBridge.exposeInMainWorld("blammyMpv", {
       /* already gone */
     }
   },
+  stats: () => {
+    try {
+      return getMpv()?.playerStats?.() ?? "";
+    } catch {
+      return "";
+    }
+  },
 });
 
 contextBridge.exposeInMainWorld("blammy", {
