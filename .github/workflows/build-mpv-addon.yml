@@ -78,7 +78,12 @@ jobs:
       - name: Stage runtime dll next to the addon
         shell: pwsh
         run: |
-          Copy-Item -Force apps/desktop/native/mpv/vendor/libmpv-2.dll apps/desktop/native/mpv/build/Release/
+          $rel = "apps/desktop/native/mpv/build/Release"
+          # The addon may import the dll under either name depending on which
+          # .def the import lib was built from (libmpv-2.dll vs libmpv.dll), so
+          # stage it under both — a dll's filename is free to duplicate.
+          Copy-Item -Force apps/desktop/native/mpv/vendor/libmpv-2.dll "$rel/libmpv-2.dll"
+          Copy-Item -Force apps/desktop/native/mpv/vendor/libmpv-2.dll "$rel/libmpv.dll"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -86,4 +91,5 @@ jobs:
           path: |
             apps/desktop/native/mpv/build/Release/mpv_addon.node
             apps/desktop/native/mpv/build/Release/libmpv-2.dll
+            apps/desktop/native/mpv/build/Release/libmpv.dll
           if-no-files-found: error

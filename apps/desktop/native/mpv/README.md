@@ -73,6 +73,17 @@ Phase 2 (render into the page).
 
 ## Troubleshooting
 
+- **`ERR_DLOPEN_FAILED` / "The specified module could not be found"** — the
+  addon imports the libmpv dll under a fixed name baked in by whichever `.def`
+  the import lib came from. The dll file ships as `libmpv-2.dll`, but the addon
+  often imports plain `libmpv.dll`. Check what it wants with
+  `dumpbin /dependents build\Release\mpv_addon.node`, then copy the runtime dll
+  to that name (staging it under both names is harmless):
+
+  ```bat
+  copy build\Release\libmpv-2.dll build\Release\libmpv.dll
+  ```
+
 - **`mpv_create() failed` / module won't load** — `libmpv-2.dll` isn't next to
   `mpv_addon.node` (copy it into `build/Release/`), or it's the wrong arch.
 - **ABI / `NODE_MODULE_VERSION` mismatch** — rebuild with `--target` matching
