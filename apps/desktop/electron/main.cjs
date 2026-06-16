@@ -273,8 +273,11 @@ function closeTheater() {
   } catch {
     /* not registered */
   }
-  // Bring the app back.
-  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.show();
+  // Bring the app back and tell it the native theater closed (resume mini).
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.show();
+    mainWindow.webContents.send("theater:closed");
+  }
 }
 
 ipcMain.handle("theater:open", (_event, url, meta) => {

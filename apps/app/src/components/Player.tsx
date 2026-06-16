@@ -2,18 +2,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Hls from "hls.js";
 import {
   isDesktop,
-  transcodeStart,
-  transcodeStop,
-  mpvSpike,
-  mpvRenderProbe,
   nativeTheaterOpen,
+  nativeTheaterMeta,
+  onTheaterClosed,
   mpvCanvasSetPause,
   mpvCanvasSetMute,
   mpvCanvasSetVolume,
   mpvCanvasSeek,
-  type SourceStats,
 } from "../lib/desktop";
-import { StatsOverlay } from "./StatsOverlay";
 import { MpvCanvas } from "./MpvCanvas";
 import {
   PlayIcon,
@@ -27,7 +23,6 @@ import {
   SkipFwdIcon,
   LanguageIcon,
   CcIcon,
-  StatsIcon,
 } from "./icons";
 
 /** Show content + live position shown in the theater overlay. */
@@ -45,12 +40,10 @@ export interface TheaterMeta {
 }
 
 /**
- * Live video player.
- *
- * On the desktop the stream is transcoded locally (ffmpeg → HLS, AC3 → AAC) and
- * played here; in a plain browser we just try the URL directly. It's a normal
- * web <video>, so it lives in the mini-player and expands for theater — and the
- * custom control bar adds theater / pop-out (native mpv) on top of the basics.
+ * Live video player. libmpv is the engine on the desktop: the in-page mini +
+ * theater render mpv to a <canvas> (decode at source res, read back at display
+ * size), and Fullscreen swaps to the native mpv window + transparent overlay for
+ * true 4K60. In a plain browser it falls back to a web <video> (HLS).
  */
 export function Player({
   url,
@@ -69,9 +62,9 @@ export function Player({
   onStop?: () => void;
   meta?: TheaterMeta;
 }) {
+  const onDesktop = isDesktop();
   const wrapRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const hlsRef = useRef<Hls | null>(null);
   const idleRef = useRef<number>(0);
 
   const [status, setStatus] = useState<"loading" | "playing" | "error">("loading");
@@ -80,108 +73,54 @@ export function Player({
   const [volume, setVolume] = useState(1);
   const [muted, setMuted] = useState(false);
   const [active, setActive] = useState(true);
-  const [statsOpen, setStatsOpen] = useState(false);
-  const [sourceStats, setSourceStats] = useState<SourceStats | null>(null);
   const [volHud, setVolHud] = useState(false);
   const volHudRef = useRef<number>(0);
-  const [canvasOpen, setCanvasOpen] = useState(false);
-  const [mpvPaused, setMpvPaused] = useState(false);
+  // Native fullscreen theater (desktop): mpv's own GPU window + HTML overlay.
+  const [nativeFs, setNativeFs] = useState(false);
 
-  // Load the stream (transcode first on desktop), play via hls.js.
+  // Browser fallback: load the stream into the <video> via hls.js.
   useEffect(() => {
+    if (onDesktop) return;
     let cancelled = false;
     let hls: Hls | null = null;
     const video = videoRef.current;
     if (!video) return;
-
     setStatus("loading");
     setMessage("Tuning in…");
-    setSourceStats(null);
-
-    const play = (src: string) => {
-      if (cancelled || !video) return;
-      if (Hls.isSupported()) {
-        hls = new Hls({
-          liveSyncDurationCount: 3,
-          manifestLoadingMaxRetry: 8,
-          manifestLoadingRetryDelay: 600,
-          levelLoadingMaxRetry: 8,
-        });
-        hlsRef.current = hls;
-        hls.loadSource(src);
-        hls.attachMedia(video);
-        hls.on(Hls.Events.ERROR, (_e, data) => {
-          if (data.fatal) {
-            setStatus("error");
-            setMessage("Couldn't play this stream.");
-          }
-        });
-      } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-        video.src = src;
-      } else {
-        setStatus("error");
-        setMessage("HLS isn't supported here.");
-        return;
-      }
-      void video.play().catch(() => {});
-    };
-
-    (async () => {
-      if (isDesktop()) {
-        const res = await transcodeStart(url);
-        if (cancelled) return;
-        if (!res?.ok || !res.url) {
+    if (Hls.isSupported()) {
+      hls = new Hls({ liveSyncDurationCount: 3 });
+      hls.loadSource(url);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.ERROR, (_e, data) => {
+        if (data.fatal && !cancelled) {
           setStatus("error");
-          setMessage(res?.error ?? "Couldn't start playback.");
-          return;
+          setMessage("Couldn't play this stream.");
         }
-        setSourceStats(res.stats ?? null);
-        play(res.url);
-      } else {
-        play(url);
-      }
-    })();
-
+      });
+    } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      video.src = url;
+    }
+    void video.play().catch(() => {});
     return () => {
       cancelled = true;
       hls?.destroy();
-      hlsRef.current = null;
-      if (isDesktop()) void transcodeStop();
     };
-  }, [url]);
+  }, [url, onDesktop]);
 
-  // Volume / mute.
+  // Volume / mute → mpv (desktop) or the <video> (browser).
   useEffect(() => {
-    const v = videoRef.current;
-    if (v) v.volume = muted ? 0 : volume;
-  }, [volume, muted]);
-
-  // While the libmpv canvas is up it owns video + audio, so pause the <video>
-  // underneath (no echo, no double-decode). Resume it when the canvas closes.
-  // Entering canvas mode starts from playing + syncs current volume/mute to mpv.
-  useEffect(() => {
-    const v = videoRef.current;
-    if (!v) return;
-    if (canvasOpen) {
-      v.pause();
-      setMpvPaused(false);
+    if (onDesktop) {
       mpvCanvasSetVolume(volume);
       mpvCanvasSetMute(muted);
     } else {
-      void v.play().catch(() => {});
+      const v = videoRef.current;
+      if (v) v.volume = muted ? 0 : volume;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canvasOpen]);
+  }, [volume, muted, onDesktop]);
 
-  // In canvas mode, route volume/mute to mpv (it owns audio).
+  // Browser: track the <video>'s play/pause for the transport icon.
   useEffect(() => {
-    if (!canvasOpen) return;
-    mpvCanvasSetVolume(volume);
-    mpvCanvasSetMute(muted);
-  }, [canvasOpen, volume, muted]);
-
-  // Track play/pause.
-  useEffect(() => {
+    if (onDesktop) return;
     const v = videoRef.current;
     if (!v) return;
     const onPlay = () => setPaused(false);
@@ -192,14 +131,41 @@ export function Player({
       v.removeEventListener("play", onPlay);
       v.removeEventListener("pause", onPause);
     };
-  }, []);
+  }, [onDesktop]);
+
+  // Native fullscreen lifecycle: entering starts the native mpv window + overlay
+  // (the canvas surface unmounts, freeing the single mpv handle); the overlay's
+  // Close/Escape fires theater:closed, which brings us back to the canvas.
+  useEffect(() => {
+    if (!onDesktop) return;
+    return onTheaterClosed(() => setNativeFs(false));
+  }, [onDesktop]);
+
+  useEffect(() => {
+    if (!onDesktop || !nativeFs) return;
+    void nativeTheaterOpen(url, meta)?.then((res) => {
+      if (res && !res.ok) {
+        console.error("[native theater]", res.error);
+        setNativeFs(false);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nativeFs]);
+
+  // Keep the overlay's show info fresh while native theater is open.
+  useEffect(() => {
+    if (onDesktop && nativeFs && meta) void nativeTheaterMeta(meta);
+  }, [onDesktop, nativeFs, meta]);
+
+  // A fresh surface (new channel, or returning from native fullscreen) starts
+  // playing — keep the transport icon honest.
+  useEffect(() => setPaused(false), [url, nativeFs]);
 
   const togglePlay = useCallback(() => {
-    if (canvasOpen) {
-      setMpvPaused((p) => {
-        const next = !p;
-        mpvCanvasSetPause(next);
-        return next;
+    if (onDesktop) {
+      setPaused((p) => {
+        mpvCanvasSetPause(!p);
+        return !p;
       });
       return;
     }
@@ -207,13 +173,11 @@ export function Player({
     if (!v) return;
     if (v.paused) void v.play().catch(() => {});
     else v.pause();
-  }, [canvasOpen]);
+  }, [onDesktop]);
 
-  // Best-effort skip within the (short) live buffer: back rewinds, forward
-  // clamps to the live edge.
   const skip = useCallback(
     (delta: number) => {
-      if (canvasOpen) {
+      if (onDesktop) {
         mpvCanvasSeek(delta);
         return;
       }
@@ -228,15 +192,20 @@ export function Player({
         /* not seekable */
       }
     },
-    [canvasOpen],
+    [onDesktop],
   );
 
-  const toggleFullscreen = useCallback(() => {
+  // Fullscreen: native mpv theater on the desktop, browser fullscreen otherwise.
+  const goFullscreen = useCallback(() => {
+    if (onDesktop) {
+      setNativeFs(true);
+      return;
+    }
     const el = wrapRef.current;
     if (!el) return;
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     else el.requestFullscreen().catch(() => {});
-  }, []);
+  }, [onDesktop]);
 
   const wake = useCallback(() => {
     setActive(true);
@@ -269,6 +238,9 @@ export function Player({
   }, []);
 
   const volPct = Math.round((muted ? 0 : volume) * 100);
+  // While native fullscreen is up, the app window is hidden — render a calm
+  // placeholder so the (paused) mini doesn't fight the native player.
+  const surfaceHidden = onDesktop && nativeFs;
 
   return (
     <div
@@ -282,17 +254,31 @@ export function Player({
       onMouseMove={wake}
       onMouseLeave={() => setActive(false)}
     >
-      <video
-        ref={videoRef}
-        className="player__video"
-        autoPlay
-        playsInline
-        // In the mini player a click opens theater; in theater it toggles play.
-        onClick={theater ? togglePlay : onToggleTheater}
-        onPlaying={() => setStatus("playing")}
-      />
+      {surfaceHidden ? (
+        <div className="player__video" />
+      ) : onDesktop ? (
+        <MpvCanvas
+          url={url}
+          className="player__video"
+          onClick={theater ? togglePlay : onToggleTheater}
+          onLive={() => setStatus("playing")}
+          onError={(m) => {
+            setStatus("error");
+            setMessage(m);
+          }}
+        />
+      ) : (
+        <video
+          ref={videoRef}
+          className="player__video"
+          autoPlay
+          playsInline
+          onClick={theater ? togglePlay : onToggleTheater}
+          onPlaying={() => setStatus("playing")}
+        />
+      )}
 
-      {status !== "playing" && (
+      {status !== "playing" && !surfaceHidden && (
         <div className="player__status">
           {status === "loading" && <span className="player__spinner" />}
           <span>{message}</span>
@@ -319,24 +305,8 @@ export function Player({
         </button>
       )}
 
-      {theater && canvasOpen && (
-        <MpvCanvas url={url} onClose={() => setCanvasOpen(false)} />
-      )}
-
       {theater && (
         <>
-          {statsOpen && (
-            <StatsOverlay
-              onClose={() => setStatsOpen(false)}
-              source={sourceStats}
-              videoRef={videoRef}
-              hlsRef={hlsRef}
-              channelName={meta?.channelName}
-              streamId={meta?.streamId}
-              epgId={meta?.epgId}
-            />
-          )}
-
           <button
             className="player__theater-exit"
             type="button"
@@ -396,8 +366,8 @@ export function Player({
                 <button className="player__btn" type="button" onClick={() => skip(-10)} aria-label="Back 10 seconds">
                   <SkipBackIcon size={24} />
                 </button>
-                <button className="player__btn player__btn--play" type="button" onClick={togglePlay} aria-label={(canvasOpen ? mpvPaused : paused) ? "Play" : "Pause"}>
-                  {(canvasOpen ? mpvPaused : paused) ? <PlayIcon size={26} /> : <PauseIcon size={26} />}
+                <button className="player__btn player__btn--play" type="button" onClick={togglePlay} aria-label={paused ? "Play" : "Pause"}>
+                  {paused ? <PlayIcon size={26} /> : <PauseIcon size={26} />}
                 </button>
                 <button className="player__btn" type="button" onClick={() => skip(10)} aria-label="Forward 10 seconds">
                   <SkipFwdIcon size={24} />
@@ -411,84 +381,12 @@ export function Player({
                 <button className="player__btn" type="button" disabled title="Subtitles — coming soon" aria-label="Subtitles">
                   <CcIcon size={20} />
                 </button>
-                <button className={"player__btn" + (statsOpen ? " is-active" : "")} type="button" onClick={() => setStatsOpen((o) => !o)} aria-label="Stats for nerds">
-                  <StatsIcon size={20} />
-                </button>
-                {/* TEMP — Phase 1 libmpv spike: play the source in mpv's own window. */}
-                {isDesktop() && (
-                  <button
-                    className="player__btn"
-                    type="button"
-                    onClick={() =>
-                      void mpvSpike(url)?.then((res) => {
-                        if (res && !res.ok) {
-                          console.error("[mpv spike]", res.error);
-                          window.alert("libmpv spike failed: " + res.error);
-                        }
-                      })
-                    }
-                    aria-label="libmpv spike (test)"
-                    title="libmpv spike"
-                  >
-                    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5 }}>MPV</span>
-                  </button>
-                )}
-                {/* TEMP — Phase 2 step 1: render one frame offscreen → BMP. */}
-                {isDesktop() && (
-                  <button
-                    className="player__btn"
-                    type="button"
-                    onClick={() =>
-                      void mpvRenderProbe(url)?.then((res) => {
-                        if (res && !res.ok) {
-                          console.error("[mpv probe]", res.error);
-                          window.alert("render probe failed: " + res.error);
-                        }
-                      })
-                    }
-                    aria-label="libmpv render probe (test)"
-                    title="libmpv render probe"
-                  >
-                    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5 }}>RP</span>
-                  </button>
-                )}
-                {/* TEMP — Phase 2 step 2: live libmpv → canvas overlay. */}
-                {isDesktop() && (
-                  <button
-                    className={"player__btn" + (canvasOpen ? " is-active" : "")}
-                    type="button"
-                    onClick={() => setCanvasOpen((o) => !o)}
-                    aria-label="libmpv canvas (test)"
-                    title="libmpv canvas"
-                  >
-                    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5 }}>CV</span>
-                  </button>
-                )}
-                {/* TEMP — Native theater Milestone 1: mpv fullscreen + overlay. */}
-                {isDesktop() && (
-                  <button
-                    className="player__btn"
-                    type="button"
-                    onClick={() =>
-                      void nativeTheaterOpen(url, meta)?.then((res) => {
-                        if (res && !res.ok) {
-                          console.error("[native theater]", res.error);
-                          window.alert("native theater failed: " + res.error);
-                        }
-                      })
-                    }
-                    aria-label="native theater (test)"
-                    title="native theater"
-                  >
-                    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5 }}>NV</span>
-                  </button>
-                )}
                 {onPopout && (
                   <button className="player__btn" type="button" onClick={onPopout} aria-label="Pop out (native player)">
                     <PopoutIcon size={20} />
                   </button>
                 )}
-                <button className="player__btn" type="button" onClick={toggleFullscreen} aria-label="Fullscreen">
+                <button className="player__btn" type="button" onClick={goFullscreen} aria-label="Fullscreen">
                   <FullscreenIcon size={20} />
                 </button>
                 <div className="theater-vol">

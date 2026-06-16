@@ -100,6 +100,11 @@ globalThis.blammy = {
   nativeTheaterOpen: (url, meta) =>
     ipcRenderer.invoke("theater:open", url, meta),
   nativeTheaterMeta: (meta) => ipcRenderer.invoke("theater:setMeta", meta),
+  onTheaterClosed: (cb) => {
+    const handler = () => cb();
+    ipcRenderer.on("theater:closed", handler);
+    return () => ipcRenderer.removeListener("theater:closed", handler);
+  },
   onPopoutClosed: (cb) => {
     const handler = () => cb();
     ipcRenderer.on("popout:closed", handler);

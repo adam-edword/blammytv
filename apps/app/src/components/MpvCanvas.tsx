@@ -1,11 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import {
-  mpvCanvasStart,
-  mpvCanvasFrame,
-  mpvCanvasStop,
-  mpvCanvasStats,
-} from "../lib/desktop";
-import { CloseIcon } from "./icons";
+import { useEffect, useRef } from "react";
+import { mpvCanvasStart, mpvCanvasFrame, mpvCanvasStop, mpvCanvasStats } from "../lib/desktop";
 
 // Fullscreen-quad shaders. The vertex shader flips Y (our RGBA buffer is
 // top-down; GL textures are bottom-up) so the picture is upright.
@@ -23,11 +17,7 @@ uniform sampler2D tex;
 void main() { gl_FragColor = texture2D(tex, uv); }`;
 
 function makeGl(canvas: HTMLCanvasElement) {
-  const gl = canvas.getContext("webgl", {
-    alpha: false,
-    antialias: false,
-    preserveDrawingBuffer: false,
-  });
+  const gl = canvas.getContext("webgl", { alpha: false, antialias: false });
   if (!gl) return null;
   const compile = (type: number, src: string) => {
     const s = gl.createShader(type)!;
@@ -40,18 +30,12 @@ function makeGl(canvas: HTMLCanvasElement) {
   gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FRAG));
   gl.linkProgram(prog);
   gl.useProgram(prog);
-
   const buf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-  gl.bufferData(
-    gl.ARRAY_BUFFER,
-    new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]),
-    gl.STATIC_DRAW,
-  );
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
   const loc = gl.getAttribLocation(prog, "pos");
   gl.enableVertexAttribArray(loc);
   gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-
   const tex = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, tex);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
@@ -62,44 +46,40 @@ function makeGl(canvas: HTMLCanvasElement) {
 }
 
 /**
- * Phase 2 step 2: a live libmpv → <canvas> layer that fills the theater.
- *
- * Pulls each decoded frame synchronously from the in-renderer addon (no IPC, no
- * clone) and uploads it straight to a WebGL texture (no putImageData / no extra
- * copy — the GPU does the scale). mpv plays audio natively. Sits above the
- * <video> but below the theater controls, so the HTML chrome composites on top.
+ * The in-page video surface: libmpv rendered to a <canvas>. Decodes the source
+ * at full res and reads back at the canvas's on-screen pixel size (capped at
+ * 1440p so the per-frame transfer stays smooth), throttled to the source fps so
+ * we never over-present. mpv plays audio natively. This is the mini + theater
+ * picture; fullscreen swaps to the native window path.
  */
-export function MpvCanvas({ url, onClose }: { url: string; onClose: () => void }) {
+export function MpvCanvas({
+  url,
+  className,
+  onClick,
+  onLive,
+  onError,
+}: {
+  url: string;
+  className?: string;
+  onClick?: () => void;
+  onLive?: () => void;
+  onError?: (msg: string) => void;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sizeRef = useRef({ w: 1280, h: 720 });
-  // Min ms between frame pulls — derived from the source fps so we never present
-  // faster than the content (the win on high-refresh displays). Defaults to
-  // ~60fps until the first stats sample tells us the real rate.
   const intervalRef = useRef(15.5);
-  const [error, setError] = useState<string | null>(null);
-  const [live, setLive] = useState(false);
-  const [stats, setStats] = useState("");
-  const [fps, setFps] = useState(0);
 
-  // Keep the canvas's intrinsic size = its on-screen pixel size (capped), so the
-  // readback is full resolution and the upload maps 1:1.
+  // Keep the canvas's intrinsic size = its on-screen pixel size (capped 1440p).
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    // Cap the readback resolution. At true 4K we move ~33MB off the GPU and
-    // ~33MB back on every frame (~4GB/s @ 60fps) which the bus can't sustain, so
-    // the draw loop falls to ~38fps. Capping at 1440p halves the transfer for a
-    // smooth 60; mpv still decodes 4K and downscales with good scalers, and the
-    // canvas upscales to the screen — nearly indistinguishable at distance.
     const MAX_W = 2560;
     const MAX_H = 1440;
     const measure = () => {
       const rect = canvas.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
-      let w = Math.round(rect.width * dpr);
-      let h = Math.round(rect.height * dpr);
-      w = Math.max(640, Math.min(MAX_W, w));
-      h = Math.max(360, Math.min(MAX_H, h));
+      let w = Math.max(640, Math.min(MAX_W, Math.round(rect.width * dpr)));
+      let h = Math.max(360, Math.min(MAX_H, Math.round(rect.height * dpr)));
       w -= w % 2;
       h -= h % 2;
       sizeRef.current = { w, h };
@@ -116,22 +96,12 @@ export function MpvCanvas({ url, onClose }: { url: string; onClose: () => void }
     };
   }, []);
 
-  // Poll mpv diagnostics (decoder, real fps, drops, timings, GL renderer) and
-  // retune the frame-pull interval to the source fps — never present faster.
+  // Retune the pull interval to the source fps (never present faster).
   useEffect(() => {
     const id = window.setInterval(() => {
-      const s = mpvCanvasStats();
-      if (s) {
-        setStats(s);
-        console.log("[mpv stats]", s);
-        const m = s.match(/container-fps=([\d.]+)/);
-        const fps = m ? parseFloat(m[1]) : NaN;
-        if (fps > 1 && fps < 240) {
-          // Small margin so the rAF tick nearest the frame boundary fires
-          // (rAF granularity is ~4ms on a 240Hz panel) — i.e. don't undershoot.
-          intervalRef.current = Math.max(6, 1000 / fps - 4);
-        }
-      }
+      const m = mpvCanvasStats().match(/container-fps=([\d.]+)/);
+      const fps = m ? parseFloat(m[1]) : NaN;
+      if (fps > 1 && fps < 240) intervalRef.current = Math.max(6, 1000 / fps - 4);
     }, 2000);
     return () => window.clearInterval(id);
   }, []);
@@ -143,21 +113,18 @@ export function MpvCanvas({ url, onClose }: { url: string; onClose: () => void }
     let texW = 0;
     let texH = 0;
     let lastDraw = -1;
-    // Measure the actually-presented framerate (what the eye sees).
-    let drawn = 0;
-    let fpsSince = -1;
 
     const canvas = canvasRef.current;
     const ctx = canvas ? makeGl(canvas) : null;
     if (!ctx) {
-      setError("WebGL unavailable.");
+      onError?.("WebGL unavailable.");
       return;
     }
     const { gl, tex } = ctx;
 
     const res = mpvCanvasStart(url);
     if (!res.ok) {
-      setError(res.error ?? "Couldn't start libmpv player.");
+      onError?.(res.error ?? "Couldn't start libmpv.");
       return;
     }
 
@@ -181,16 +148,9 @@ export function MpvCanvas({ url, onClose }: { url: string; onClose: () => void }
         }
         gl.viewport(0, 0, canvas!.width, canvas!.height);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-        drawn++;
-        if (fpsSince < 0) fpsSince = t;
-        else if (t - fpsSince >= 500) {
-          setFps(Math.round((drawn * 1000) / (t - fpsSince)));
-          drawn = 0;
-          fpsSince = t;
-        }
         if (!gotFirst) {
           gotFirst = true;
-          setLive(true);
+          onLive?.();
         }
       }
       raf = requestAnimationFrame(tick);
@@ -202,27 +162,8 @@ export function MpvCanvas({ url, onClose }: { url: string; onClose: () => void }
       cancelAnimationFrame(raf);
       mpvCanvasStop();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url]);
 
-  return (
-    <div className="mpv-canvas">
-      <canvas ref={canvasRef} className="mpv-canvas__view" />
-      <div className="mpv-canvas__hud">
-        <span>
-          libmpv{" "}
-          {live ? `• ${fps} fps` : error ? "• error" : "• starting…"}
-        </span>
-        <button
-          className="mpv-canvas__close"
-          type="button"
-          aria-label="Close libmpv canvas"
-          onClick={onClose}
-        >
-          <CloseIcon size={14} />
-        </button>
-      </div>
-      {error && <div className="mpv-canvas__error">{error}</div>}
-      {stats && <div className="mpv-canvas__stats">{stats}</div>}
-    </div>
-  );
+  return <canvas ref={canvasRef} className={className} onClick={onClick} />;
 }

@@ -37,6 +37,7 @@ interface BlammyBridge {
     meta?: unknown,
   ) => Promise<{ ok: boolean; error?: string }>;
   nativeTheaterMeta: (meta: unknown) => Promise<unknown>;
+  onTheaterClosed: (cb: () => void) => () => void;
 }
 
 /**
@@ -82,6 +83,9 @@ export const nativeTheaterOpen = (url: string, meta?: unknown) =>
 /** Push updated show metadata to the open theater overlay. */
 export const nativeTheaterMeta = (meta: unknown) =>
   bridge?.nativeTheaterMeta(meta);
+/** Fires when the native theater window is closed (Close/Escape). */
+export const onTheaterClosed = (cb: () => void): (() => void) =>
+  bridge?.onTheaterClosed(cb) ?? (() => {});
 
 /** Phase 2 step 2 — live libmpv → canvas player (synchronous, in-renderer). */
 export const mpvCanvasStart = (url: string) =>
