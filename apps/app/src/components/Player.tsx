@@ -74,6 +74,8 @@ export function Player({
   const [active, setActive] = useState(true);
   const [statsOpen, setStatsOpen] = useState(false);
   const [sourceStats, setSourceStats] = useState<SourceStats | null>(null);
+  const [volHud, setVolHud] = useState(false);
+  const volHudRef = useRef<number>(0);
 
   // Load the stream (transcode first on desktop), play via hls.js.
   useEffect(() => {
@@ -197,6 +199,26 @@ export function Player({
     return () => window.clearTimeout(idleRef.current);
   }, [wake]);
 
+  // Scroll over the player to change volume (with a brief on-screen readout).
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const step = e.deltaY < 0 ? 0.05 : -0.05;
+      setMuted(false);
+      setVolume((v) => Math.min(1, Math.max(0, Math.round((v + step) * 100) / 100)));
+      setVolHud(true);
+      window.clearTimeout(volHudRef.current);
+      volHudRef.current = window.setTimeout(() => setVolHud(false), 900);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      window.clearTimeout(volHudRef.current);
+    };
+  }, []);
+
   const volPct = Math.round((muted ? 0 : volume) * 100);
 
   return (
@@ -227,6 +249,11 @@ export function Player({
           <span>{message}</span>
         </div>
       )}
+
+      <div className={"player__vol-hud" + (volHud ? " is-visible" : "")} aria-hidden="true">
+        {volPct === 0 ? <MuteIcon size={18} /> : <VolumeIcon size={18} />}
+        <span>{volPct}%</span>
+      </div>
 
       {/* Mini player: a single Stop button, nothing else. */}
       {!theater && onStop && (
