@@ -59,7 +59,7 @@
   </head>
   <body>
     <div class="banner">BlammyTV — native theater overlay ✅</div>
-    <div class="bar">
+    <div class="bar" data-interactive>
       <button id="play">Pause</button>
       <div class="spacer"></div>
       <button id="close">Close ✕</button>
@@ -77,6 +77,20 @@
         .addEventListener("click", () => window.overlayApi.close());
       document.addEventListener("keydown", (e) => {
         if (e.key === "Escape") window.overlayApi.close();
+      });
+
+      // Click-through everywhere except over a [data-interactive] region. The
+      // window stays non-focusable, so even when we accept clicks mpv keeps the
+      // foreground (no dimming). mousemove is forwarded while ignoring.
+      let ignoring = true;
+      const setIgnore = (ig) => {
+        if (ig === ignoring) return;
+        ignoring = ig;
+        window.overlayApi.setMouseIgnore(ig);
+      };
+      document.addEventListener("mousemove", (e) => {
+        const el = document.elementFromPoint(e.clientX, e.clientY);
+        setIgnore(!(el && el.closest("[data-interactive]")));
       });
     </script>
   </body>

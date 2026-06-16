@@ -352,6 +352,12 @@ ipcMain.handle("theater:pause", (_event, paused) => {
   return { ok: true };
 });
 
+ipcMain.handle("overlay:setIgnore", (_event, ignore) => {
+  if (theaterOverlay && !theaterOverlay.isDestroyed())
+    theaterOverlay.setIgnoreMouseEvents(!!ignore, { forward: true });
+  return { ok: true };
+});
+
 ipcMain.handle("popout:stop", () => {
   stopPopout();
   return { ok: true };
