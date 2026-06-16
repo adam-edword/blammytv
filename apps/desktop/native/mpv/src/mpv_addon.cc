@@ -488,6 +488,10 @@ Napi::Value PlayerStartWindow(const Napi::CallbackInfo &info) {
   mpv_set_option_string(g_player.mpv, "border", "no");
   mpv_set_option_string(g_player.mpv, "ontop", "no");
   mpv_set_option_string(g_player.mpv, "osc", "no");
+  // Present through DWM (bitblt), not a flip-model swapchain. Flip mode gets
+  // promoted to a hardware overlay (MPO) that bypasses DWM composition, so a
+  // transparent window layered on top can't show the video through it.
+  mpv_set_option_string(g_player.mpv, "d3d11-flip", "no");
   mpv_set_option_string(g_player.mpv, "input-default-bindings", "no");
   mpv_set_option_string(g_player.mpv, "input-vo-keyboard", "no");
   mpv_set_option_string(g_player.mpv, "hwdec", "auto-safe");
