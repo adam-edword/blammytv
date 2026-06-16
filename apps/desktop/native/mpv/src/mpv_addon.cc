@@ -492,6 +492,11 @@ Napi::Value PlayerStartWindow(const Napi::CallbackInfo &info) {
   // promoted to a hardware overlay (MPO) that bypasses DWM composition, so a
   // transparent window layered on top can't show the video through it.
   mpv_set_option_string(g_player.mpv, "d3d11-flip", "no");
+  // Tone-map HDR → SDR. Windows composites a transparent window in SDR, so HDR
+  // output underneath gets crushed to near-black. Force SDR so it composites
+  // correctly (bright) under our overlay.
+  mpv_set_option_string(g_player.mpv, "target-trc", "bt.1886");
+  mpv_set_option_string(g_player.mpv, "target-prim", "bt.709");
   mpv_set_option_string(g_player.mpv, "input-default-bindings", "no");
   mpv_set_option_string(g_player.mpv, "input-vo-keyboard", "no");
   mpv_set_option_string(g_player.mpv, "hwdec", "auto-safe");
