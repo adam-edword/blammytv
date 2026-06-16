@@ -11,12 +11,18 @@ that's confirmed, Phase 2 swaps `force-window` for the render API into a canvas.
 This is **Windows-first** and intentionally **not** a workspace package — it has
 its own toolchain + vendored libmpv, so it won't drag the C++ build into CI.
 
-## Prerequisites (Windows)
+## Easiest: let CI build it for you
 
-- **Visual Studio 2022** with the *Desktop development with C++* workload (MSVC + Windows SDK).
-- **Python 3** (for `node-gyp`).
-- The **libmpv dev package** — `mpv-dev-x86_64-*.7z` from
-  <https://sourceforge.net/projects/mpv-player-windows/files/libmpv/>.
+You don't need a C++ toolchain. Run the **"Build mpv addon (Windows)"** GitHub
+Action (`.github/workflows/build-mpv-addon.yml`) — it builds on a Windows runner
+and uploads an artifact with `mpv_addon.node` + `libmpv-2.dll`. Download it and
+drop both files into `apps/desktop/native/mpv/build/Release/`. Done.
+
+## Or build it locally (Windows)
+
+Prerequisites: **VS 2022** (Desktop C++ workload), **Python 3**, and the
+**libmpv dev package** (`mpv-dev-x86_64-*.7z` from
+<https://sourceforge.net/projects/mpv-player-windows/files/libmpv/>).
 
 ## One-time libmpv setup
 
@@ -42,9 +48,9 @@ Keep the runtime DLL handy — you'll copy `libmpv-2.dll` next to the built addo
 
 ```bash
 cd apps/desktop/native/mpv
-pnpm install                 # node-addon-api + node-gyp
+npm install                  # isolated — node-addon-api + node-gyp
 # match --target to your installed Electron (npx electron -v):
-pnpm rebuild                 # node-gyp rebuild against Electron headers
+npm run rebuild              # node-gyp rebuild against Electron headers
 ```
 
 Then make the runtime DLL loadable by the addon:
