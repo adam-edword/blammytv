@@ -40,7 +40,8 @@ use webview2_com::{
     CreateCoreWebView2EnvironmentCompletedHandler,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, WINDOW_EX_STYLE, WS_CHILD, WS_VISIBLE,
+    CreateWindowExW, SetWindowPos, HWND_TOP, SWP_NOACTIVATE, SWP_SHOWWINDOW, WINDOW_EX_STYLE,
+    WS_CHILD, WS_VISIBLE,
 };
 
 // Keep the COM objects alive (else the composition vanishes when they drop).
@@ -356,6 +357,17 @@ pub fn theater(hwnd: isize, w: u32, h: u32, url: &str) -> Result<(), String> {
             None,
         )
         .map_err(|e| format!("CreateWindowExW: {e}"))?;
+        // Force the mpv child above Tauri's own webview (which wry keeps raised),
+        // else it stays occluded and the React app shows through instead of video.
+        let _ = SetWindowPos(
+            child,
+            Some(HWND_TOP),
+            0,
+            0,
+            w as i32,
+            h as i32,
+            SWP_SHOWWINDOW | SWP_NOACTIVATE,
+        );
         crate::mpv::play_wid(url, child.0 as isize)?;
 
         // D3D11 device just for DComp.
