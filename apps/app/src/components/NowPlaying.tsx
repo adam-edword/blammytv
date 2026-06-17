@@ -1,5 +1,7 @@
 import type { LiveChannel, EpgProgram } from "@blammytv/shared";
 import { formatTime, isLiveNow, progressPct } from "../lib/epg";
+import { isTauri } from "../lib/tauri";
+import { CompositionPreview } from "./CompositionPreview";
 import { Player, type TheaterMeta } from "./Player";
 
 /** The marquee at the top of the Live tab: a preview of the focused channel
@@ -58,15 +60,21 @@ export function NowPlaying({
         }
       >
         {playing ? (
-          <Player
-            url={streamUrl}
-            className="now-playing__art"
-            theater={theater}
-            meta={meta}
-            onToggleTheater={onToggleTheater}
-            onPopout={onPopout}
-            onStop={onStop}
-          />
+          isTauri() ? (
+            // On Tauri the in-page <video> can't play IPTV streams — render the
+            // native composition player (mpv) into the preview box instead.
+            <CompositionPreview url={streamUrl} meta={meta} />
+          ) : (
+            <Player
+              url={streamUrl}
+              className="now-playing__art"
+              theater={theater}
+              meta={meta}
+              onToggleTheater={onToggleTheater}
+              onPopout={onPopout}
+              onStop={onStop}
+            />
+          )
         ) : (
           // Just a black screen with a play glyph — click to start the stream.
           <button

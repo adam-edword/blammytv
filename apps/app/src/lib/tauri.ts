@@ -1,4 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+
+/** A rectangle in physical pixels — where the native mpv layer should sit. */
+export interface CompRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
 
 /** True when running inside the Tauri shell (vs Electron or a plain browser). */
 export const isTauri = (): boolean =>
@@ -24,13 +33,38 @@ export const tauriCompMpvChild = (url: string) =>
   invoke("comp_mpv_child", { url }) as Promise<void>;
 
 /**
- * Composition spike Step 3 / Milestones 1-2: native mpv under the composition
- * webview, which loads this same app in transparent overlay mode (TheaterOverlay).
- * The overlay URL is derived from our own origin so it works in dev and prod;
- * `meta` is serialized and pushed to the overlay over the postMessage bridge.
+ * Open the native composition player: mpv renders into `rect` (physical px — the
+ * preview box, or the full window) with the transparent overlay (TheaterOverlay)
+ * composited on top. `meta` is pushed to the overlay over the postMessage bridge.
  */
-export const tauriCompTheater = (url: string, meta?: unknown) => {
+export const tauriCompTheater = (url: string, meta: unknown, rect: CompRect) => {
   const overlayUrl = `${window.location.origin}/?overlay=1&composited=1`;
   const metaJson = meta ? JSON.stringify(meta) : "";
-  return invoke("comp_theater", { url, overlayUrl, metaJson }) as Promise<void>;
+  return invoke("comp_theater", {
+    url,
+    overlayUrl,
+    metaJson,
+    x: rect.x,
+    y: rect.y,
+    w: rect.w,
+    h: rect.h,
+  }) as Promise<void>;
+};
+
+/** Move/resize the native layer to follow its in-app box (or expand to full). */
+export const tauriCompSetRect = (rect: CompRect) =>
+  invoke("comp_set_rect", {
+    x: rect.x,
+    y: rect.y,
+    w: rect.w,
+    h: rect.h,
+  }) as Promise<void>;
+
+/** Tear down the native composition player and free the window. */
+export const tauriCompStop = () => invoke("comp_stop") as Promise<void>;
+
+/** Fired when the overlay's ✕ closes the native player — drop back to the guide. */
+export const onCompClosed = (cb: () => void): (() => void) => {
+  const un = listen("comp-closed", () => cb());
+  return () => void un.then((f) => f());
 };

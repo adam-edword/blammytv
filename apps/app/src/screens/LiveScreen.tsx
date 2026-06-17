@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import type { ConfigBlob, EpgProgram, LiveChannel } from "@blammytv/shared";
+import type { ConfigBlob, EpgProgram } from "@blammytv/shared";
 import { NowPlaying } from "../components/NowPlaying";
 import {
   CategorySidebar,
@@ -7,10 +7,9 @@ import {
   RECENTS_ID,
 } from "../components/CategorySidebar";
 import { EpgGuide } from "../components/EpgGuide";
-import type { TheaterMeta } from "../components/Player";
-import { formatTime, isLiveNow, progressPct } from "../lib/epg";
+import { isLiveNow } from "../lib/epg";
 import { isDesktop, popoutPlay } from "../lib/desktop";
-import { isTauri, tauriCompTheater } from "../lib/tauri";
+import { onCompClosed } from "../lib/tauri";
 
 // Resizable source panel. Dragged below CAT_COLLAPSE_AT it snaps to a narrow
 // emoji rail. Width is remembered per device.
@@ -159,34 +158,9 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
     setTheater(false);
   };
 
-  // Tauri: meta for the channel currently shown in the composition overlay.
-  const theaterMeta = (ch: LiveChannel): TheaterMeta => {
-    const prog =
-      live.programs.find((p) => p.channelId === ch.id && isLiveNow(p, now)) ??
-      null;
-    return {
-      logo: ch.logo,
-      channelName: `${ch.name} HDR`,
-      sourceName,
-      title: prog?.title ?? "No programme information",
-      description: prog?.description,
-      startLabel: prog ? formatTime(Date.parse(prog.start)) : undefined,
-      progressPct: prog ? progressPct(prog, now) : 100,
-      live: prog ? isLiveNow(prog, now) : false,
-      streamId: ch.id,
-      epgId: ch.epgId,
-    };
-  };
-
-  // Tauri: expand into the native composition player (true 4K60), stopping the
-  // in-app preview. The overlay's ✕ closes it and drops back to the guide.
-  const openNativeTheater = () => {
-    const ch = playingChannel ?? heroChannel;
-    if (!ch) return;
-    void tauriCompTheater(ch.streamUrl, theaterMeta(ch)).catch(() => {});
-    setPlayingId(null);
-    setTheater(false);
-  };
+  // Tauri: the composition overlay's ✕ stops the native player — mirror that in
+  // React (drop back to the guide; CompositionPreview unmount tears the layer down).
+  useEffect(() => onCompClosed(() => setPlayingId(null)), []);
 
   // Hovering a guide row previews that channel's current programme in the hero
   // text — the player keeps streaming whatever it was already playing.
@@ -249,9 +223,7 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
               setPlayingId(null);
               setTheater(false);
             }}
-            onToggleTheater={
-              isTauri() ? openNativeTheater : () => setTheater((t) => !t)
-            }
+            onToggleTheater={() => setTheater((t) => !t)}
             onPopout={isDesktop() ? popout : undefined}
           />
         )}

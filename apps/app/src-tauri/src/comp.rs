@@ -431,7 +431,38 @@ unsafe extern "system" fn theater_wndproc(
 // child window, and release the DComp target (so a fresh open can re-target the
 // HWND — Windows allows only one DComp target per window). UI-thread only. Run at
 // the start of every open so reopen / channel-switch always rebuild cleanly.
-fn close_theater() {
+// Reposition/resize the live layer (mpv child + webview visual + controller) to a
+// new rect — keeps the native preview aligned with its in-app box, and powers the
+// expand-to-fullscreen resize. UI-thread only.
+pub fn set_rect(x: i32, y: i32, w: u32, h: u32) {
+    if let Some(s) = THEATER.lock().unwrap().as_ref() {
+        unsafe {
+            let child = HWND(s._child as *mut c_void);
+            let _ = SetWindowPos(
+                child,
+                Some(HWND_TOP),
+                x,
+                y,
+                w as i32,
+                h as i32,
+                SWP_SHOWWINDOW | SWP_NOACTIVATE,
+            );
+            let _ = s._wv_visual.SetOffsetX(x as f32);
+            let _ = s._wv_visual.SetOffsetY(y as f32);
+            if let Some(c) = s._controller.as_ref() {
+                let _ = c.SetBounds(RECT {
+                    left: 0,
+                    top: 0,
+                    right: w as i32,
+                    bottom: h as i32,
+                });
+            }
+            let _ = s._dcomp.Commit();
+        }
+    }
+}
+
+pub fn close_theater() {
     crate::mpv::stop();
     let prev = THEATER.lock().unwrap().take();
     if let Some(t) = prev {
@@ -485,6 +516,8 @@ pub fn mpv_child(hwnd: isize, w: u32, h: u32, url: &str) -> Result<(), String> {
 
 pub fn theater(
     hwnd: isize,
+    x: i32,
+    y: i32,
     w: u32,
     h: u32,
     url: &str,
@@ -497,14 +530,15 @@ pub fn theater(
     unsafe {
         let parent = HWND(hwnd as *mut c_void);
 
-        // Child window for mpv to render into (sits above the Tauri webview).
+        // Child window for mpv to render into (sits above the Tauri webview),
+        // positioned at the layer rect (the in-app preview box, or full window).
         let child = CreateWindowExW(
             WINDOW_EX_STYLE(0),
             windows::core::w!("STATIC"),
             windows::core::w!(""),
             WS_CHILD | WS_VISIBLE,
-            0,
-            0,
+            x,
+            y,
             w as i32,
             h as i32,
             Some(parent),
@@ -518,8 +552,8 @@ pub fn theater(
         let _ = SetWindowPos(
             child,
             Some(HWND_TOP),
-            0,
-            0,
+            x,
+            y,
             w as i32,
             h as i32,
             SWP_SHOWWINDOW | SWP_NOACTIVATE,
@@ -563,6 +597,9 @@ pub fn theater(
             dcomp.CreateVisual().map_err(|e| format!("wv visual: {e}"))?;
         root.AddVisual(&wv_visual, true, None)
             .map_err(|e| format!("AddVisual: {e}"))?;
+        // Position the webview visual at the layer rect (matches the mpv child).
+        let _ = wv_visual.SetOffsetX(x as f32);
+        let _ = wv_visual.SetOffsetY(y as f32);
         target.SetRoot(&root).map_err(|e| format!("SetRoot: {e}"))?;
         dcomp.Commit().map_err(|e| format!("Commit: {e}"))?;
 
@@ -704,6 +741,10 @@ pub fn theater(
                                                             HWND(s._child as *mut c_void);
                                                         let _ = ShowWindow(child, SW_HIDE);
                                                     }
+                                                    // Notify React so it drops back
+                                                    // to the guide + tears the layer
+                                                    // down (via comp_stop).
+                                                    crate::emit_comp_closed();
                                                 }
                                                 _ => {}
                                             }

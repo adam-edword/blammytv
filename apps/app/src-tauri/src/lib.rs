@@ -2,6 +2,20 @@ mod mpv;
 #[cfg(windows)]
 mod comp;
 
+use std::sync::OnceLock;
+
+// App handle, so native code (the composition overlay's ✕) can notify the UI.
+static APP: OnceLock<tauri::AppHandle> = OnceLock::new();
+
+/// Tell the React app the native composition player was closed (overlay ✕), so it
+/// can drop back to the guide and tear the layer down.
+pub fn emit_comp_closed() {
+    if let Some(app) = APP.get() {
+        use tauri::Emitter;
+        let _ = app.emit("comp-closed", ());
+    }
+}
+
 #[tauri::command]
 fn mpv_play(url: String) -> Result<(), String> {
     mpv::play(&url)
@@ -72,23 +86,70 @@ fn comp_theater(
     url: String,
     overlay_url: String,
     meta_json: String,
+    x: i32,
+    y: i32,
+    w: u32,
+    h: u32,
 ) -> Result<(), String> {
     #[cfg(windows)]
     {
         let hwnd = window.hwnd().map_err(|e| e.to_string())?.0 as isize;
-        let size = window.inner_size().map_err(|e| e.to_string())?;
-        let (w, h) = (size.width, size.height);
         let (tx, rx) = std::sync::mpsc::channel();
         window
             .run_on_main_thread(move || {
-                let _ = tx.send(comp::theater(hwnd, w, h, &url, &overlay_url, &meta_json));
+                let _ = tx.send(comp::theater(hwnd, x, y, w, h, &url, &overlay_url, &meta_json));
             })
             .map_err(|e| e.to_string())?;
         rx.recv().map_err(|e| e.to_string())?
     }
     #[cfg(not(windows))]
     {
-        let _ = (window, url, overlay_url, meta_json);
+        let _ = (window, url, overlay_url, meta_json, x, y, w, h);
+        Ok(())
+    }
+}
+
+// Move/resize the native composition layer to follow its in-app box (or expand).
+#[tauri::command]
+fn comp_set_rect(
+    window: tauri::WebviewWindow,
+    x: i32,
+    y: i32,
+    w: u32,
+    h: u32,
+) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        window
+            .run_on_main_thread(move || comp::set_rect(x, y, w, h))
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (window, x, y, w, h);
+        Ok(())
+    }
+}
+
+// Tear down the native composition player (mpv + overlay) and free the HWND.
+#[tauri::command]
+fn comp_stop(window: tauri::WebviewWindow) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        let (tx, rx) = std::sync::mpsc::channel();
+        window
+            .run_on_main_thread(move || {
+                comp::close_theater();
+                let _ = tx.send(());
+            })
+            .map_err(|e| e.to_string())?;
+        rx.recv().map_err(|e| e.to_string())?;
+        Ok(())
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = window;
         Ok(())
     }
 }
@@ -120,6 +181,7 @@ fn comp_webview_test(window: tauri::WebviewWindow) -> Result<(), String> {
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
+            let _ = APP.set(app.handle().clone());
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
@@ -136,7 +198,9 @@ pub fn run() {
             comp_color_test,
             comp_webview_test,
             comp_mpv_child,
-            comp_theater
+            comp_theater,
+            comp_set_rect,
+            comp_stop
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
