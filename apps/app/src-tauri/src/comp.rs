@@ -404,7 +404,7 @@ pub fn theater(hwnd: isize, w: u32, h: u32, url: &str) -> Result<(), String> {
             h as i32,
             SWP_SHOWWINDOW | SWP_NOACTIVATE,
         );
-        crate::mpv::play_wid(url, child.0 as isize, true)?;
+        crate::mpv::play_wid(url, child.0 as isize, false)?;
 
         // D3D11 device just for DComp.
         let mut device: Option<ID3D11Device> = None;
@@ -429,7 +429,7 @@ pub fn theater(hwnd: isize, w: u32, h: u32, url: &str) -> Result<(), String> {
         let dcomp: IDCompositionDevice = DCompositionCreateDevice(&dxgi_device)
             .map_err(|e| format!("DCompositionCreateDevice: {e}"))?;
         let target: IDCompositionTarget = dcomp
-            .CreateTargetForHwnd(child, true)
+            .CreateTargetForHwnd(parent, true)
             .map_err(|e| format!("CreateTargetForHwnd: {e}"))?;
         let root: IDCompositionVisual =
             dcomp.CreateVisual().map_err(|e| format!("root visual: {e}"))?;
@@ -460,7 +460,7 @@ pub fn theater(hwnd: isize, w: u32, h: u32, url: &str) -> Result<(), String> {
                     let dcomp2 = dcomp_cb.clone();
                     let wv2 = wv_cb.clone();
                     env3.CreateCoreWebView2CompositionController(
-                        child,
+                        parent,
                         &CreateCoreWebView2CompositionControllerCompletedHandler::create(Box::new(
                             move |_hr, ctrl: Option<ICoreWebView2CompositionController>| {
                                 let ctrl = ctrl.ok_or_else(|| {
