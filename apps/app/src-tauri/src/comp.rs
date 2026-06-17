@@ -385,7 +385,7 @@ static ORIG_WNDPROC: AtomicIsize = AtomicIsize::new(0);
 unsafe fn round_child(child: HWND, w: u32, h: u32, radius: i32) {
     let d = (radius * 2).max(0);
     let rgn = CreateRoundRectRgn(0, 0, w as i32 + 1, h as i32 + 1, d, d);
-    let _ = SetWindowRgn(child, rgn, true);
+    let _ = SetWindowRgn(child, Some(rgn), true);
 }
 
 fn mouse_kind(msg: u32) -> Option<COREWEBVIEW2_MOUSE_EVENT_KIND> {
