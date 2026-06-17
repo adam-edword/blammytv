@@ -50,9 +50,9 @@ use webview2_com::{
 use windows::Win32::System::Com::CoTaskMemFree;
 use windows::Win32::UI::WindowsAndMessaging::{
     CallWindowProcW, CreateWindowExW, DefWindowProcW, SetWindowLongPtrW, SetWindowPos,
-    GWLP_WNDPROC, HTCLIENT, HWND_TOP, SWP_NOACTIVATE, SWP_SHOWWINDOW, WINDOW_EX_STYLE,
-    WM_LBUTTONDBLCLK, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEMOVE,
-    WM_NCHITTEST, WM_RBUTTONDOWN, WM_RBUTTONUP, WS_CHILD, WS_VISIBLE,
+    DestroyWindow, GWLP_WNDPROC, HTCLIENT, HWND_TOP, SWP_NOACTIVATE, SWP_SHOWWINDOW, SW_HIDE,
+    ShowWindow, WINDOW_EX_STYLE, WM_LBUTTONDBLCLK, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN,
+    WM_MBUTTONUP, WM_MOUSEMOVE, WM_NCHITTEST, WM_RBUTTONDOWN, WM_RBUTTONUP, WS_CHILD, WS_VISIBLE,
 };
 
 // Injected into the composition webview before navigation. Exposes the same
@@ -427,6 +427,26 @@ unsafe extern "system" fn theater_wndproc(
     }
 }
 
+// Full teardown of the current theater: stop mpv, close the webview, destroy the
+// child window, and release the DComp target (so a fresh open can re-target the
+// HWND — Windows allows only one DComp target per window). UI-thread only. Run at
+// the start of every open so reopen / channel-switch always rebuild cleanly.
+fn close_theater() {
+    crate::mpv::stop();
+    let prev = THEATER.lock().unwrap().take();
+    if let Some(t) = prev {
+        unsafe {
+            if let Some(c) = t._controller.as_ref() {
+                let _ = c.Close();
+            }
+            let child = HWND(t._child as *mut c_void);
+            let _ = DestroyWindow(child);
+        }
+        // `t` drops here: releases the DComp target + visuals + device + webview.
+    }
+    ORIG_WNDPROC.store(0, Ordering::SeqCst);
+}
+
 // Diagnostic: embed mpv in a child window only — no DComp, no webview. If video
 // appears, mpv-in-`--wid` works and the issue is purely the composition layering;
 // if the React app still shows, mpv isn't rendering into the child at all.
@@ -471,6 +491,9 @@ pub fn theater(
     overlay_url: &str,
     meta_json: &str,
 ) -> Result<(), String> {
+    // Tear down any previous theater first so we can re-target the HWND and don't
+    // leak the old mpv child / webview (also makes channel-switch a clean rebuild).
+    close_theater();
     unsafe {
         let parent = HWND(hwnd as *mut c_void);
 
@@ -666,6 +689,10 @@ pub fn theater(
                                                         .unwrap_or(0.0),
                                                 ),
                                                 Some("close") => {
+                                                    // Stop video and drop back to the guide. Hide
+                                                    // (don't drop) here — dropping the controller
+                                                    // inside its own callback would re-enter; full
+                                                    // teardown happens at the next open.
                                                     crate::mpv::stop();
                                                     if let Some(s) =
                                                         THEATER.lock().unwrap().as_ref()
@@ -673,6 +700,9 @@ pub fn theater(
                                                         if let Some(ctrl) = s._controller.as_ref() {
                                                             let _ = ctrl.SetIsVisible(false);
                                                         }
+                                                        let child =
+                                                            HWND(s._child as *mut c_void);
+                                                        let _ = ShowWindow(child, SW_HIDE);
                                                     }
                                                 }
                                                 _ => {}
