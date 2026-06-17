@@ -447,8 +447,8 @@ pub fn set_rect(x: i32, y: i32, w: u32, h: u32) {
                 h as i32,
                 SWP_SHOWWINDOW | SWP_NOACTIVATE,
             );
-            let _ = s._wv_visual.SetOffsetX(x as f32);
-            let _ = s._wv_visual.SetOffsetY(y as f32);
+            let _ = s._wv_visual.SetOffsetX2(x as f32);
+            let _ = s._wv_visual.SetOffsetY2(y as f32);
             if let Some(c) = s._controller.as_ref() {
                 let _ = c.SetBounds(RECT {
                     left: 0,
@@ -598,8 +598,8 @@ pub fn theater(
         root.AddVisual(&wv_visual, true, None)
             .map_err(|e| format!("AddVisual: {e}"))?;
         // Position the webview visual at the layer rect (matches the mpv child).
-        let _ = wv_visual.SetOffsetX(x as f32);
-        let _ = wv_visual.SetOffsetY(y as f32);
+        let _ = wv_visual.SetOffsetX2(x as f32);
+        let _ = wv_visual.SetOffsetY2(y as f32);
         target.SetRoot(&root).map_err(|e| format!("SetRoot: {e}"))?;
         dcomp.Commit().map_err(|e| format!("Commit: {e}"))?;
 
