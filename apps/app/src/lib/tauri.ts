@@ -10,3 +10,7 @@ export const tauriMpvPlay = (url: string) =>
 export const tauriMpvSetPause = (paused: boolean) =>
   invoke("mpv_set_pause", { paused }) as Promise<void>;
 export const tauriMpvStop = () => invoke("mpv_stop") as Promise<void>;
+
+/** Composition spike Step 1: composite a blue GPU layer over the window. */
+export const tauriCompColorTest = () =>
+  invoke("comp_color_test") as Promise<void>;
