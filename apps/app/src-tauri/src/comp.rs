@@ -28,12 +28,13 @@ use windows::Win32::Graphics::Dxgi::{
     DXGI_PRESENT, DXGI_SCALING_STRETCH, DXGI_SWAP_CHAIN_DESC1, DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL,
     DXGI_USAGE_RENDER_TARGET_OUTPUT,
 };
-use windows::core::{IUnknown, HSTRING, PCWSTR};
+use windows::core::{IUnknown, HSTRING, PCWSTR, PWSTR};
 use windows::Win32::Foundation::{E_POINTER, RECT};
 use webview2_com::Microsoft::Web::WebView2::Win32::{
-    CreateCoreWebView2EnvironmentWithOptions, ICoreWebView2, ICoreWebView2CompositionController,
-    ICoreWebView2Controller, ICoreWebView2Controller2, ICoreWebView2Environment,
-    ICoreWebView2Environment3, ICoreWebView2WebMessageReceivedEventArgs, COREWEBVIEW2_COLOR,
+    CreateCoreWebView2EnvironmentWithOptions, EventRegistrationToken, ICoreWebView2,
+    ICoreWebView2CompositionController, ICoreWebView2Controller, ICoreWebView2Controller2,
+    ICoreWebView2Environment, ICoreWebView2Environment3,
+    ICoreWebView2WebMessageReceivedEventArgs, COREWEBVIEW2_COLOR,
 };
 use webview2_com::{
     AddScriptToExecuteOnDocumentCreatedCompletedHandler,
@@ -41,7 +42,6 @@ use webview2_com::{
     CreateCoreWebView2EnvironmentCompletedHandler, WebMessageReceivedEventHandler,
 };
 use windows::Win32::System::Com::CoTaskMemFree;
-use windows::Win32::System::WinRT::EventRegistrationToken;
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, SetWindowPos, HWND_TOP, SWP_NOACTIVATE, SWP_SHOWWINDOW, WINDOW_EX_STYLE,
     WS_CHILD, WS_VISIBLE,
@@ -555,7 +555,8 @@ pub fn theater(
                                                 Some(a) => a,
                                                 None => return Ok(()),
                                             };
-                                            let raw = args.TryGetWebMessageAsString()?;
+                                            let mut raw = PWSTR::null();
+                                            args.TryGetWebMessageAsString(&mut raw)?;
                                             let text = raw.to_string().unwrap_or_default();
                                             CoTaskMemFree(Some(raw.0 as *const c_void));
                                             let v: serde_json::Value =
