@@ -7,6 +7,7 @@ export interface CompRect {
   y: number;
   w: number;
   h: number;
+  radius: number; // corner radius in physical px (0 = sharp)
 }
 
 /** True when running inside the Tauri shell (vs Electron or a plain browser). */
@@ -48,6 +49,7 @@ export const tauriCompTheater = (url: string, meta: unknown, rect: CompRect) => 
     y: rect.y,
     w: rect.w,
     h: rect.h,
+    radius: rect.radius,
   }) as Promise<void>;
 };
 
@@ -58,6 +60,7 @@ export const tauriCompSetRect = (rect: CompRect) =>
     y: rect.y,
     w: rect.w,
     h: rect.h,
+    radius: rect.radius,
   }) as Promise<void>;
 
 /** Tear down the native composition player and free the window. */

@@ -90,6 +90,7 @@ fn comp_theater(
     y: i32,
     w: u32,
     h: u32,
+    radius: i32,
 ) -> Result<(), String> {
     #[cfg(windows)]
     {
@@ -97,14 +98,16 @@ fn comp_theater(
         let (tx, rx) = std::sync::mpsc::channel();
         window
             .run_on_main_thread(move || {
-                let _ = tx.send(comp::theater(hwnd, x, y, w, h, &url, &overlay_url, &meta_json));
+                let _ = tx.send(comp::theater(
+                    hwnd, x, y, w, h, radius, &url, &overlay_url, &meta_json,
+                ));
             })
             .map_err(|e| e.to_string())?;
         rx.recv().map_err(|e| e.to_string())?
     }
     #[cfg(not(windows))]
     {
-        let _ = (window, url, overlay_url, meta_json, x, y, w, h);
+        let _ = (window, url, overlay_url, meta_json, x, y, w, h, radius);
         Ok(())
     }
 }
@@ -117,17 +120,18 @@ fn comp_set_rect(
     y: i32,
     w: u32,
     h: u32,
+    radius: i32,
 ) -> Result<(), String> {
     #[cfg(windows)]
     {
         window
-            .run_on_main_thread(move || comp::set_rect(x, y, w, h))
+            .run_on_main_thread(move || comp::set_rect(x, y, w, h, radius))
             .map_err(|e| e.to_string())?;
         Ok(())
     }
     #[cfg(not(windows))]
     {
-        let _ = (window, x, y, w, h);
+        let _ = (window, x, y, w, h, radius);
         Ok(())
     }
 }

@@ -7,8 +7,9 @@ import {
 } from "../lib/tauri";
 import type { TheaterMeta } from "./Player";
 
-/** Box geometry in physical pixels (what the native mpv layer wants). */
-function measure(el: HTMLElement): CompRect {
+/** Box geometry in physical pixels (what the native mpv layer wants). The mini
+ * box is rounded (12px); theater is sharp. */
+function measure(el: HTMLElement, theater: boolean): CompRect {
   const r = el.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
   return {
@@ -16,6 +17,7 @@ function measure(el: HTMLElement): CompRect {
     y: Math.round(r.top * dpr),
     w: Math.round(r.width * dpr),
     h: Math.round(r.height * dpr),
+    radius: theater ? 0 : Math.round(12 * dpr),
   };
 }
 
@@ -36,6 +38,10 @@ export function CompositionPreview({
   theater: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  // Live theater flag for the rAF loop, so toggling it re-rects (rounds/squares
+  // + resizes) without re-running the effect (which would tear the layer down).
+  const theaterRef = useRef(theater);
+  theaterRef.current = theater;
 
   useEffect(() => {
     const el = ref.current;
@@ -44,8 +50,8 @@ export function CompositionPreview({
     let opened = false;
     let last = "";
     const tick = () => {
-      const rect = measure(el);
-      const key = `${rect.x},${rect.y},${rect.w},${rect.h}`;
+      const rect = measure(el, theaterRef.current);
+      const key = `${rect.x},${rect.y},${rect.w},${rect.h},${rect.radius}`;
       if (rect.w > 0 && rect.h > 0 && key !== last) {
         last = key;
         if (!opened) {

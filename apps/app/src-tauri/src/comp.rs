@@ -47,12 +47,14 @@ use webview2_com::{
     CreateCoreWebView2CompositionControllerCompletedHandler,
     CreateCoreWebView2EnvironmentCompletedHandler, WebMessageReceivedEventHandler,
 };
+use windows::Win32::Graphics::Gdi::CreateRoundRectRgn;
 use windows::Win32::System::Com::CoTaskMemFree;
 use windows::Win32::UI::WindowsAndMessaging::{
     CallWindowProcW, CreateWindowExW, DefWindowProcW, SetWindowLongPtrW, SetWindowPos,
-    DestroyWindow, GWLP_WNDPROC, HTCLIENT, HWND_TOP, SWP_NOACTIVATE, SWP_SHOWWINDOW, SW_HIDE,
-    ShowWindow, WINDOW_EX_STYLE, WM_LBUTTONDBLCLK, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN,
-    WM_MBUTTONUP, WM_MOUSEMOVE, WM_NCHITTEST, WM_RBUTTONDOWN, WM_RBUTTONUP, WS_CHILD, WS_VISIBLE,
+    SetWindowRgn, DestroyWindow, GWLP_WNDPROC, HTCLIENT, HWND_TOP, SWP_NOACTIVATE, SWP_SHOWWINDOW,
+    SW_HIDE, ShowWindow, WINDOW_EX_STYLE, WM_LBUTTONDBLCLK, WM_LBUTTONDOWN, WM_LBUTTONUP,
+    WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEMOVE, WM_NCHITTEST, WM_RBUTTONDOWN, WM_RBUTTONUP,
+    WS_CHILD, WS_VISIBLE,
 };
 
 // Injected into the composition webview before navigation. Exposes the same
@@ -378,6 +380,14 @@ static THEATER: Mutex<Option<Theater>> = Mutex::new(None);
 // Original WNDPROC of the mpv child, saved when we subclass it to forward input.
 static ORIG_WNDPROC: AtomicIsize = AtomicIsize::new(0);
 
+// Clip the mpv child to a rounded rectangle (physical-px corner radius) so the
+// native video matches the rounded preview box; radius 0 = sharp (theater).
+unsafe fn round_child(child: HWND, w: u32, h: u32, radius: i32) {
+    let d = (radius * 2).max(0);
+    let rgn = CreateRoundRectRgn(0, 0, w as i32 + 1, h as i32 + 1, d, d);
+    let _ = SetWindowRgn(child, rgn, true);
+}
+
 fn mouse_kind(msg: u32) -> Option<COREWEBVIEW2_MOUSE_EVENT_KIND> {
     Some(match msg {
         WM_MOUSEMOVE => COREWEBVIEW2_MOUSE_EVENT_KIND_MOVE,
@@ -436,7 +446,7 @@ unsafe extern "system" fn theater_wndproc(
 // Reposition/resize the live layer (mpv child + webview visual + controller) to a
 // new rect — keeps the native preview aligned with its in-app box, and powers the
 // expand-to-fullscreen resize. UI-thread only.
-pub fn set_rect(x: i32, y: i32, w: u32, h: u32) {
+pub fn set_rect(x: i32, y: i32, w: u32, h: u32, radius: i32) {
     if let Some(s) = THEATER.lock().unwrap().as_ref() {
         unsafe {
             let child = HWND(s._child as *mut c_void);
@@ -449,6 +459,7 @@ pub fn set_rect(x: i32, y: i32, w: u32, h: u32) {
                 h as i32,
                 SWP_SHOWWINDOW | SWP_NOACTIVATE,
             );
+            round_child(child, w, h, radius);
             let _ = s._wv_visual.SetOffsetX2(x as f32);
             let _ = s._wv_visual.SetOffsetY2(y as f32);
             if let Some(c) = s._controller.as_ref() {
@@ -522,6 +533,7 @@ pub fn theater(
     y: i32,
     w: u32,
     h: u32,
+    radius: i32,
     url: &str,
     overlay_url: &str,
     meta_json: &str,
@@ -560,6 +572,7 @@ pub fn theater(
             h as i32,
             SWP_SHOWWINDOW | SWP_NOACTIVATE,
         );
+        round_child(child, w, h, radius);
         // Subclass the child so we can forward mouse input to the (HWND-less)
         // composition webview. Saves the original proc to chain to.
         let proc: unsafe extern "system" fn(HWND, u32, WPARAM, LPARAM) -> LRESULT = theater_wndproc;
