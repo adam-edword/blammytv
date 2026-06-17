@@ -20,11 +20,13 @@ use windows::Win32::Graphics::Direct3D11::{
 use windows::Win32::Graphics::DirectComposition::{
     DCompositionCreateDevice, IDCompositionDevice, IDCompositionTarget, IDCompositionVisual,
 };
-use windows::Win32::Graphics::Dxgi::Common::{DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_SAMPLE_DESC};
+use windows::Win32::Graphics::Dxgi::Common::{
+    DXGI_ALPHA_MODE_PREMULTIPLIED, DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_SAMPLE_DESC,
+};
 use windows::Win32::Graphics::Dxgi::{
-    CreateDXGIFactory2, IDXGIDevice, IDXGIFactory2, IDXGISwapChain1, DXGI_ALPHA_MODE_PREMULTIPLIED,
-    DXGI_CREATE_FACTORY_FLAGS, DXGI_SCALING_STRETCH, DXGI_SWAP_CHAIN_DESC1,
-    DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL, DXGI_USAGE_RENDER_TARGET_OUTPUT,
+    CreateDXGIFactory2, IDXGIDevice, IDXGIFactory2, IDXGISwapChain1, DXGI_CREATE_FACTORY_FLAGS,
+    DXGI_PRESENT, DXGI_SCALING_STRETCH, DXGI_SWAP_CHAIN_DESC1, DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL,
+    DXGI_USAGE_RENDER_TARGET_OUTPUT,
 };
 
 // Keep the COM objects alive (else the composition vanishes when they drop).
@@ -96,7 +98,9 @@ pub fn color_test(hwnd: isize, w: u32, h: u32) -> Result<(), String> {
         let rtv = rtv.ok_or("no rtv")?;
         // Premultiplied: rgb already scaled by alpha (0.5).
         context.ClearRenderTargetView(&rtv, &[0.0, 0.2, 0.5, 0.5]);
-        swap.Present(1, 0).ok().map_err(|e| format!("Present: {e}"))?;
+        swap.Present(1, DXGI_PRESENT(0))
+            .ok()
+            .map_err(|e| format!("Present: {e}"))?;
 
         // DirectComposition: target on the HWND (topmost) → visual → swapchain.
         let dcomp: IDCompositionDevice = DCompositionCreateDevice(&dxgi_device)
