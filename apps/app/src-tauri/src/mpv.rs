@@ -166,6 +166,47 @@ pub fn set_pause(paused: bool) {
     }
 }
 
+pub fn set_mute(muted: bool) {
+    let g = PLAYER.lock().unwrap();
+    if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {
+        unsafe {
+            let (k, v) = (
+                CString::new("mute").unwrap(),
+                CString::new(if muted { "yes" } else { "no" }).unwrap(),
+            );
+            (l.set_property_string)(p.0, k.as_ptr(), v.as_ptr());
+        }
+    }
+}
+
+/// Volume on mpv's 0..100 scale (can exceed 100, but the UI sends 0..100).
+pub fn set_volume(vol: i64) {
+    let g = PLAYER.lock().unwrap();
+    if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {
+        unsafe {
+            let (k, v) = (
+                CString::new("volume").unwrap(),
+                CString::new(vol.to_string()).unwrap(),
+            );
+            (l.set_property_string)(p.0, k.as_ptr(), v.as_ptr());
+        }
+    }
+}
+
+/// Relative seek in seconds (negative = back).
+pub fn seek(delta: f64) {
+    let g = PLAYER.lock().unwrap();
+    if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {
+        unsafe {
+            let cmd = CString::new("seek").unwrap();
+            let d = CString::new(format!("{delta}")).unwrap();
+            let rel = CString::new("relative").unwrap();
+            let args = [cmd.as_ptr(), d.as_ptr(), rel.as_ptr(), std::ptr::null()];
+            (l.command)(p.0, args.as_ptr());
+        }
+    }
+}
+
 pub fn stop() {
     if let (Some(p), Some(l)) = (PLAYER.lock().unwrap().take(), LIB.get()) {
         unsafe { (l.terminate_destroy)(p.0) };

@@ -31,18 +31,45 @@ use windows::Win32::Graphics::Dxgi::{
 use windows::core::{IUnknown, HSTRING, PCWSTR};
 use windows::Win32::Foundation::{E_POINTER, RECT};
 use webview2_com::Microsoft::Web::WebView2::Win32::{
-    CreateCoreWebView2EnvironmentWithOptions, ICoreWebView2Controller, ICoreWebView2Controller2,
-    ICoreWebView2CompositionController, ICoreWebView2Environment, ICoreWebView2Environment3,
-    COREWEBVIEW2_COLOR,
+    CreateCoreWebView2EnvironmentWithOptions, ICoreWebView2, ICoreWebView2CompositionController,
+    ICoreWebView2Controller, ICoreWebView2Controller2, ICoreWebView2Environment,
+    ICoreWebView2Environment3, ICoreWebView2WebMessageReceivedEventArgs, COREWEBVIEW2_COLOR,
 };
 use webview2_com::{
+    AddScriptToExecuteOnDocumentCreatedCompletedHandler,
     CreateCoreWebView2CompositionControllerCompletedHandler,
-    CreateCoreWebView2EnvironmentCompletedHandler,
+    CreateCoreWebView2EnvironmentCompletedHandler, WebMessageReceivedEventHandler,
 };
+use windows::Win32::System::Com::CoTaskMemFree;
+use windows::Win32::System::WinRT::EventRegistrationToken;
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, SetWindowPos, HWND_TOP, SWP_NOACTIVATE, SWP_SHOWWINDOW, WINDOW_EX_STYLE,
     WS_CHILD, WS_VISIBLE,
 };
+
+// Injected into the composition webview before navigation. Exposes the same
+// `window.overlayApi` the TheaterOverlay already targets (from the Electron era),
+// backed by WebView2's postMessage channel. Posts `ready` so Rust can push meta.
+const OVERLAY_BRIDGE_JS: &str = r#"(function(){
+  if(!window.chrome||!window.chrome.webview)return;
+  var post=function(m){window.chrome.webview.postMessage(JSON.stringify(m));};
+  var metaCbs=[];var lastMeta=null;
+  window.chrome.webview.addEventListener('message',function(e){
+    var msg; try{msg=JSON.parse(e.data);}catch(_){return;}
+    if(msg&&msg.type==='meta'){lastMeta=msg.meta;metaCbs.slice().forEach(function(cb){try{cb(lastMeta);}catch(_){}})}
+  });
+  window.overlayApi={
+    close:function(){post({type:'close'});},
+    setPause:function(p){post({type:'setPause',paused:!!p});},
+    setMute:function(m){post({type:'setMute',muted:!!m});},
+    setVolume:function(v){post({type:'setVolume',vol:v});},
+    seek:function(d){post({type:'seek',delta:d});},
+    setMouseIgnore:function(ig){post({type:'setMouseIgnore',ignore:!!ig});},
+    getMeta:function(){return Promise.resolve(lastMeta);},
+    onMeta:function(cb){metaCbs.push(cb);return function(){metaCbs=metaCbs.filter(function(x){return x!==cb;});};}
+  };
+  post({type:'ready'});
+})();"#;
 
 // Keep the COM objects alive (else the composition vanishes when they drop).
 struct Comp {
@@ -373,7 +400,14 @@ pub fn mpv_child(hwnd: isize, w: u32, h: u32, url: &str) -> Result<(), String> {
     Ok(())
 }
 
-pub fn theater(hwnd: isize, w: u32, h: u32, url: &str, overlay_url: &str) -> Result<(), String> {
+pub fn theater(
+    hwnd: isize,
+    w: u32,
+    h: u32,
+    url: &str,
+    overlay_url: &str,
+    meta_json: &str,
+) -> Result<(), String> {
     unsafe {
         let parent = HWND(hwnd as *mut c_void);
 
@@ -442,8 +476,17 @@ pub fn theater(hwnd: isize, w: u32, h: u32, url: &str, overlay_url: &str) -> Res
 
         let dcomp_cb = dcomp.clone();
         let wv_cb = wv_visual.clone();
-        // Owned copy so the async handlers (which outlive this call) can navigate.
+        // Owned copies so the async handlers (which outlive this call) can use them.
         let overlay_owned = overlay_url.to_string();
+        // The message the overlay receives on `ready` — wraps the channel meta JSON.
+        let meta_msg = format!(
+            "{{\"type\":\"meta\",\"meta\":{}}}",
+            if meta_json.trim().is_empty() {
+                "null"
+            } else {
+                meta_json
+            }
+        );
         let userdata = HSTRING::from(
             std::env::temp_dir()
                 .join("blammytv-wv2")
@@ -462,6 +505,7 @@ pub fn theater(hwnd: isize, w: u32, h: u32, url: &str, overlay_url: &str) -> Res
                     let dcomp2 = dcomp_cb.clone();
                     let wv2 = wv_cb.clone();
                     let overlay2 = overlay_owned.clone();
+                    let meta2 = meta_msg.clone();
                     env3.CreateCoreWebView2CompositionController(
                         parent,
                         &CreateCoreWebView2CompositionControllerCompletedHandler::create(Box::new(
@@ -488,8 +532,87 @@ pub fn theater(hwnd: isize, w: u32, h: u32, url: &str, overlay_url: &str) -> Res
                                 }
                                 c.SetIsVisible(true)?;
                                 let wv = c.CoreWebView2()?;
-                                // Milestone 1: load the real app in overlay mode
-                                // (TheaterOverlay), transparent over the mpv layer.
+
+                                // Milestone 2 (bridge): inject window.overlayApi
+                                // before navigation, then handle its messages.
+                                let script = HSTRING::from(OVERLAY_BRIDGE_JS);
+                                wv.AddScriptToExecuteOnDocumentCreated(
+                                    PCWSTR(script.as_ptr()),
+                                    &AddScriptToExecuteOnDocumentCreatedCompletedHandler::create(
+                                        Box::new(move |_hr, _id| Ok(())),
+                                    ),
+                                )?;
+
+                                let meta3 = meta2.clone();
+                                let mut token = EventRegistrationToken::default();
+                                wv.add_WebMessageReceived(
+                                    &WebMessageReceivedEventHandler::create(Box::new(
+                                        move |wv_opt: Option<ICoreWebView2>,
+                                              args_opt: Option<
+                                            ICoreWebView2WebMessageReceivedEventArgs,
+                                        >| {
+                                            let args = match args_opt {
+                                                Some(a) => a,
+                                                None => return Ok(()),
+                                            };
+                                            let raw = args.TryGetWebMessageAsString()?;
+                                            let text = raw.to_string().unwrap_or_default();
+                                            CoTaskMemFree(Some(raw.0 as *const c_void));
+                                            let v: serde_json::Value =
+                                                match serde_json::from_str(&text) {
+                                                    Ok(v) => v,
+                                                    Err(_) => return Ok(()),
+                                                };
+                                            match v.get("type").and_then(|t| t.as_str()) {
+                                                Some("ready") => {
+                                                    if let Some(wv) = wv_opt.as_ref() {
+                                                        let m = HSTRING::from(meta3.as_str());
+                                                        let _ = wv.PostWebMessageAsString(
+                                                            PCWSTR(m.as_ptr()),
+                                                        );
+                                                    }
+                                                }
+                                                Some("setPause") => crate::mpv::set_pause(
+                                                    v.get("paused")
+                                                        .and_then(|x| x.as_bool())
+                                                        .unwrap_or(false),
+                                                ),
+                                                Some("setMute") => crate::mpv::set_mute(
+                                                    v.get("muted")
+                                                        .and_then(|x| x.as_bool())
+                                                        .unwrap_or(false),
+                                                ),
+                                                Some("setVolume") => crate::mpv::set_volume(
+                                                    v.get("vol")
+                                                        .and_then(|x| x.as_f64())
+                                                        .unwrap_or(100.0)
+                                                        as i64,
+                                                ),
+                                                Some("seek") => crate::mpv::seek(
+                                                    v.get("delta")
+                                                        .and_then(|x| x.as_f64())
+                                                        .unwrap_or(0.0),
+                                                ),
+                                                Some("close") => {
+                                                    crate::mpv::stop();
+                                                    if let Some(s) =
+                                                        THEATER.lock().unwrap().as_ref()
+                                                    {
+                                                        if let Some(ctrl) = s._controller.as_ref() {
+                                                            let _ = ctrl.SetIsVisible(false);
+                                                        }
+                                                    }
+                                                }
+                                                _ => {}
+                                            }
+                                            Ok(())
+                                        },
+                                    )),
+                                    &mut token,
+                                )?;
+
+                                // Load the real app in overlay mode (TheaterOverlay),
+                                // transparent over the mpv layer.
                                 let nav = HSTRING::from(overlay2.as_str());
                                 wv.Navigate(PCWSTR(nav.as_ptr()))?;
                                 let _ = dcomp2.Commit();

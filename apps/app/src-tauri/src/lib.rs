@@ -71,6 +71,7 @@ fn comp_theater(
     window: tauri::WebviewWindow,
     url: String,
     overlay_url: String,
+    meta_json: String,
 ) -> Result<(), String> {
     #[cfg(windows)]
     {
@@ -80,14 +81,14 @@ fn comp_theater(
         let (tx, rx) = std::sync::mpsc::channel();
         window
             .run_on_main_thread(move || {
-                let _ = tx.send(comp::theater(hwnd, w, h, &url, &overlay_url));
+                let _ = tx.send(comp::theater(hwnd, w, h, &url, &overlay_url, &meta_json));
             })
             .map_err(|e| e.to_string())?;
         rx.recv().map_err(|e| e.to_string())?
     }
     #[cfg(not(windows))]
     {
-        let _ = (window, url, overlay_url);
+        let _ = (window, url, overlay_url, meta_json);
         Ok(())
     }
 }

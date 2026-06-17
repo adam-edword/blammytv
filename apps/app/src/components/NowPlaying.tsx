@@ -207,7 +207,7 @@ export function NowPlaying({
               cursor: "pointer",
             }}
             onClick={() =>
-              void tauriCompTheater(streamUrl).catch((e) =>
+              void tauriCompTheater(streamUrl, meta).catch((e) =>
                 window.alert("comp_theater failed: " + e),
               )
             }
