@@ -63,7 +63,7 @@ export function NowPlaying({
           isTauri() ? (
             // On Tauri the in-page <video> can't play IPTV streams — render the
             // native composition player (mpv) into the preview box instead.
-            <CompositionPreview url={streamUrl} meta={meta} />
+            <CompositionPreview url={streamUrl} meta={meta} theater={theater} />
           ) : (
             <Player
               url={streamUrl}

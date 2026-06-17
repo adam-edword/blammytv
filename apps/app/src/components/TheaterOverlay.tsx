@@ -17,6 +17,8 @@ interface OverlayApi {
   setMute: (muted: boolean) => void;
   setVolume: (vol: number) => void; // 0..100 (mpv scale)
   seek: (delta: number) => void;
+  expand?: () => void; // mini → theater (fullscreen)
+  collapse?: () => void; // theater → mini
   setMouseIgnore: (ignore: boolean) => void;
   getMeta: () => Promise<TheaterMeta | null>;
   onMeta: (cb: (meta: TheaterMeta | null) => void) => () => void;
@@ -42,6 +44,14 @@ export function TheaterOverlay() {
   const [muted, setMuted] = useState(false);
   const [active, setActive] = useState(true);
   const idleRef = useRef<number>(0);
+  // The overlay fills the layer rect; when small it's the in-app preview box
+  // (render mini: just ✕ + click-to-expand), when large it's theater mode.
+  const [mini, setMini] = useState(() => window.innerWidth < 1000);
+  useEffect(() => {
+    const f = () => setMini(window.innerWidth < 1000);
+    window.addEventListener("resize", f);
+    return () => window.removeEventListener("resize", f);
+  }, []);
 
   // Pull initial meta + subscribe to live updates.
   useEffect(() => {
@@ -78,7 +88,11 @@ export function TheaterOverlay() {
       setIgnore(!(el && el.closest("[data-interactive]")));
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") api?.close();
+      // Escape exits theater (collapse to mini); only stops from the mini ✕.
+      if (e.key === "Escape") {
+        if (api?.collapse) api.collapse();
+        else api?.close();
+      }
       if (e.key === " ") togglePlay();
     };
     document.addEventListener("mousemove", onMove);
@@ -106,6 +120,31 @@ export function TheaterOverlay() {
 
   const volPct = Math.round((muted ? 0 : volume) * 100);
 
+  // Mini preview: no controls except ✕ (stop); clicking anywhere enters theater.
+  // The white hover border lives in CSS (.mini-overlay).
+  if (mini) {
+    return (
+      <div
+        className="mini-overlay"
+        data-interactive
+        onClick={() => api?.expand?.()}
+      >
+        <button
+          className="mini-overlay__close"
+          type="button"
+          aria-label="Stop"
+          data-interactive
+          onClick={(e) => {
+            e.stopPropagation();
+            api?.close();
+          }}
+        >
+          <CloseIcon size={20} />
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className={"theater-overlay" + (active ? " player--active" : "")}>
       <button
@@ -113,7 +152,7 @@ export function TheaterOverlay() {
         type="button"
         aria-label="Exit theater"
         data-interactive
-        onClick={() => api?.close()}
+        onClick={() => (api?.collapse ? api.collapse() : api?.close())}
       >
         <CloseIcon size={20} />
       </button>

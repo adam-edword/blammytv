@@ -3143,6 +3143,46 @@ body.is-overlay {
   inset: 0;
 }
 
+/* Mini preview overlay (composition): no controls but ✕, white border on hover,
+   click anywhere to enter theater. */
+.mini-overlay {
+  position: fixed;
+  inset: 0;
+  box-sizing: border-box;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+}
+.mini-overlay:hover {
+  border-color: rgba(255, 255, 255, 0.92);
+}
+.mini-overlay__close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.mini-overlay:hover .mini-overlay__close {
+  opacity: 1;
+}
+
+/* The Tauri composition preview box, expanded to fill the viewport in theater. */
+.comp-preview--theater {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+}
+
 /* Dev fps readout (top-right) while measuring the 4K canvas pipeline. */
 .player__fps {
   position: absolute;

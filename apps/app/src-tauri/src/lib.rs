@@ -7,12 +7,12 @@ use std::sync::OnceLock;
 // App handle, so native code (the composition overlay's ✕) can notify the UI.
 static APP: OnceLock<tauri::AppHandle> = OnceLock::new();
 
-/// Tell the React app the native composition player was closed (overlay ✕), so it
-/// can drop back to the guide and tear the layer down.
-pub fn emit_comp_closed() {
+/// Notify the React app of a native-player event (the overlay's ✕ / expand /
+/// collapse), so it can drive the guide + the layer geometry.
+pub fn emit_comp(event: &str) {
     if let Some(app) = APP.get() {
         use tauri::Emitter;
-        let _ = app.emit("comp-closed", ());
+        let _ = app.emit(event, ());
     }
 }
 

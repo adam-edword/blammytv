@@ -29,9 +29,11 @@ function measure(el: HTMLElement): CompRect {
 export function CompositionPreview({
   url,
   meta,
+  theater,
 }: {
   url: string;
   meta: TheaterMeta;
+  theater: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -64,7 +66,15 @@ export function CompositionPreview({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url]);
 
+  // In theater the box fills the viewport; the rAF picks up the new rect and the
+  // native layer (+ overlay, which then shows full chrome) resizes to match.
   return (
-    <div ref={ref} className="now-playing__art" style={{ background: "#000" }} />
+    <div
+      ref={ref}
+      className={
+        "now-playing__art" + (theater ? " comp-preview--theater" : "")
+      }
+      style={{ background: "#000" }}
+    />
   );
 }

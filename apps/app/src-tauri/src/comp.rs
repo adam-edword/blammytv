@@ -72,6 +72,8 @@ const OVERLAY_BRIDGE_JS: &str = r#"(function(){
     setMute:function(m){post({type:'setMute',muted:!!m});},
     setVolume:function(v){post({type:'setVolume',vol:v});},
     seek:function(d){post({type:'seek',delta:d});},
+    expand:function(){post({type:'expand'});},
+    collapse:function(){post({type:'collapse'});},
     setMouseIgnore:function(ig){post({type:'setMouseIgnore',ignore:!!ig});},
     getMeta:function(){return Promise.resolve(lastMeta);},
     onMeta:function(cb){metaCbs.push(cb);return function(){metaCbs=metaCbs.filter(function(x){return x!==cb;});};}
@@ -725,6 +727,10 @@ pub fn theater(
                                                         .and_then(|x| x.as_f64())
                                                         .unwrap_or(0.0),
                                                 ),
+                                                Some("expand") => crate::emit_comp("comp-expand"),
+                                                Some("collapse") => {
+                                                    crate::emit_comp("comp-collapse")
+                                                }
                                                 Some("close") => {
                                                     // Stop video and drop back to the guide. Hide
                                                     // (don't drop) here — dropping the controller
@@ -744,7 +750,7 @@ pub fn theater(
                                                     // Notify React so it drops back
                                                     // to the guide + tears the layer
                                                     // down (via comp_stop).
-                                                    crate::emit_comp_closed();
+                                                    crate::emit_comp("comp-closed");
                                                 }
                                                 _ => {}
                                             }

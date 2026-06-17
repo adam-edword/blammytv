@@ -63,8 +63,15 @@ export const tauriCompSetRect = (rect: CompRect) =>
 /** Tear down the native composition player and free the window. */
 export const tauriCompStop = () => invoke("comp_stop") as Promise<void>;
 
-/** Fired when the overlay's ✕ closes the native player — drop back to the guide. */
-export const onCompClosed = (cb: () => void): (() => void) => {
-  const un = listen("comp-closed", () => cb());
+const onCompEvent = (event: string, cb: () => void): (() => void) => {
+  const un = listen(event, () => cb());
   return () => void un.then((f) => f());
 };
+
+/** Fired when the overlay's ✕ closes the native player — drop back to the guide. */
+export const onCompClosed = (cb: () => void) => onCompEvent("comp-closed", cb);
+/** Fired when the mini preview is clicked — enter theater (fullscreen) mode. */
+export const onCompExpand = (cb: () => void) => onCompEvent("comp-expand", cb);
+/** Fired when theater is exited — collapse back to the mini preview. */
+export const onCompCollapse = (cb: () => void) =>
+  onCompEvent("comp-collapse", cb);

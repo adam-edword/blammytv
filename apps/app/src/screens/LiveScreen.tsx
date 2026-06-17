@@ -9,7 +9,7 @@ import {
 import { EpgGuide } from "../components/EpgGuide";
 import { isLiveNow } from "../lib/epg";
 import { isDesktop, popoutPlay } from "../lib/desktop";
-import { onCompClosed } from "../lib/tauri";
+import { onCompClosed, onCompExpand, onCompCollapse } from "../lib/tauri";
 
 // Resizable source panel. Dragged below CAT_COLLAPSE_AT it snaps to a narrow
 // emoji rail. Width is remembered per device.
@@ -158,9 +158,18 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
     setTheater(false);
   };
 
-  // Tauri: the composition overlay's ✕ stops the native player — mirror that in
-  // React (drop back to the guide; CompositionPreview unmount tears the layer down).
-  useEffect(() => onCompClosed(() => setPlayingId(null)), []);
+  // Tauri: mirror the native overlay's actions in React. ✕ stops (back to guide);
+  // clicking the mini preview expands to theater; theater ✕/Esc collapses to mini.
+  useEffect(
+    () =>
+      onCompClosed(() => {
+        setPlayingId(null);
+        setTheater(false);
+      }),
+    [],
+  );
+  useEffect(() => onCompExpand(() => setTheater(true)), []);
+  useEffect(() => onCompCollapse(() => setTheater(false)), []);
 
   // Hovering a guide row previews that channel's current programme in the hero
   // text — the player keeps streaming whatever it was already playing.
