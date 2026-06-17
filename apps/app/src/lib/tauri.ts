@@ -19,6 +19,10 @@ export const tauriCompColorTest = () =>
 export const tauriCompWebviewTest = () =>
   invoke("comp_webview_test") as Promise<void>;
 
+/** Diagnostic: mpv embedded in a bare child window (no DComp / webview). */
+export const tauriCompMpvChild = (url: string) =>
+  invoke("comp_mpv_child", { url }) as Promise<void>;
+
 /** Composition spike Step 3: native mpv under the composition webview. */
 export const tauriCompTheater = (url: string) =>
   invoke("comp_theater", { url }) as Promise<void>;

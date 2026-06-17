@@ -5,6 +5,7 @@ import {
   tauriMpvPlay,
   tauriCompColorTest,
   tauriCompWebviewTest,
+  tauriCompMpvChild,
   tauriCompTheater,
 } from "../lib/tauri";
 import { Player, type TheaterMeta } from "./Player";
@@ -164,6 +165,30 @@ export function NowPlaying({
             }
           >
             ▣ Composition webview test
+          </button>
+        )}
+        {/* TEMP — diagnostic: mpv in a bare child window (no DComp / webview). */}
+        {isTauri() && (
+          <button
+            type="button"
+            style={{
+              alignSelf: "flex-start",
+              margin: "0 0 8px",
+              padding: "8px 14px",
+              borderRadius: 8,
+              border: "none",
+              background: "#d97706",
+              color: "#fff",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+            onClick={() =>
+              void tauriCompMpvChild(streamUrl).catch((e) =>
+                window.alert("comp_mpv_child failed: " + e),
+              )
+            }
+          >
+            ⬛ mpv child only (no comp)
           </button>
         )}
         {/* TEMP — composition spike Step 3: native mpv under composition webview. */}

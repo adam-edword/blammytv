@@ -337,6 +337,42 @@ struct Theater {
 unsafe impl Send for Theater {}
 static THEATER: Mutex<Option<Theater>> = Mutex::new(None);
 
+// Diagnostic: embed mpv in a child window only — no DComp, no webview. If video
+// appears, mpv-in-`--wid` works and the issue is purely the composition layering;
+// if the React app still shows, mpv isn't rendering into the child at all.
+pub fn mpv_child(hwnd: isize, w: u32, h: u32, url: &str) -> Result<(), String> {
+    unsafe {
+        let parent = HWND(hwnd as *mut c_void);
+        let child = CreateWindowExW(
+            WINDOW_EX_STYLE(0),
+            windows::core::w!("STATIC"),
+            windows::core::w!(""),
+            WS_CHILD | WS_VISIBLE,
+            0,
+            0,
+            w as i32,
+            h as i32,
+            Some(parent),
+            None,
+            None,
+            None,
+        )
+        .map_err(|e| format!("CreateWindowExW: {e}"))?;
+        let _ = SetWindowPos(
+            child,
+            Some(HWND_TOP),
+            0,
+            0,
+            w as i32,
+            h as i32,
+            SWP_SHOWWINDOW | SWP_NOACTIVATE,
+        );
+        crate::mpv::play_wid(url, child.0 as isize)?;
+        *THEATER.lock().unwrap() = None; // drop any prior composition
+    }
+    Ok(())
+}
+
 pub fn theater(hwnd: isize, w: u32, h: u32, url: &str) -> Result<(), String> {
     unsafe {
         let parent = HWND(hwnd as *mut c_void);
