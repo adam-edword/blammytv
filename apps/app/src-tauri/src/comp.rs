@@ -35,7 +35,7 @@ use webview2_com::Microsoft::Web::WebView2::Win32::{
     CreateCoreWebView2EnvironmentWithOptions, ICoreWebView2, ICoreWebView2CompositionController,
     ICoreWebView2Controller, ICoreWebView2Controller2, ICoreWebView2Environment,
     ICoreWebView2Environment3, ICoreWebView2WebMessageReceivedEventArgs, COREWEBVIEW2_COLOR,
-    COREWEBVIEW2_MOUSE_EVENT_KIND,
+    COREWEBVIEW2_MOUSE_EVENT_KIND, COREWEBVIEW2_MOUSE_EVENT_KIND_LEAVE,
     COREWEBVIEW2_MOUSE_EVENT_KIND_LEFT_BUTTON_DOUBLE_CLICK,
     COREWEBVIEW2_MOUSE_EVENT_KIND_LEFT_BUTTON_DOWN, COREWEBVIEW2_MOUSE_EVENT_KIND_LEFT_BUTTON_UP,
     COREWEBVIEW2_MOUSE_EVENT_KIND_MIDDLE_BUTTON_DOWN, COREWEBVIEW2_MOUSE_EVENT_KIND_MIDDLE_BUTTON_UP,
@@ -49,6 +49,9 @@ use webview2_com::{
 };
 use windows::Win32::Graphics::Gdi::{CreateRoundRectRgn, SetWindowRgn};
 use windows::Win32::System::Com::CoTaskMemFree;
+use windows::Win32::UI::Input::KeyboardAndMouse::{
+    TrackMouseEvent, TME_LEAVE, TRACKMOUSEEVENT,
+};
 use windows::Win32::UI::WindowsAndMessaging::{
     CallWindowProcW, CreateWindowExW, DefWindowProcW, SetWindowLongPtrW, SetWindowPos,
     DestroyWindow, GWLP_WNDPROC, HTCLIENT, HWND_TOP, SWP_NOACTIVATE, SWP_SHOWWINDOW,
@@ -388,6 +391,9 @@ unsafe fn round_child(child: HWND, w: u32, h: u32, radius: i32) {
     let _ = SetWindowRgn(child, Some(rgn), true);
 }
 
+// winuser.h WM_MOUSELEAVE (not surfaced under WindowsAndMessaging in windows-rs).
+const WM_MOUSELEAVE: u32 = 0x02A3;
+
 fn mouse_kind(msg: u32) -> Option<COREWEBVIEW2_MOUSE_EVENT_KIND> {
     Some(match msg {
         WM_MOUSEMOVE => COREWEBVIEW2_MOUSE_EVENT_KIND_MOVE,
@@ -398,6 +404,7 @@ fn mouse_kind(msg: u32) -> Option<COREWEBVIEW2_MOUSE_EVENT_KIND> {
         WM_RBUTTONUP => COREWEBVIEW2_MOUSE_EVENT_KIND_RIGHT_BUTTON_UP,
         WM_MBUTTONDOWN => COREWEBVIEW2_MOUSE_EVENT_KIND_MIDDLE_BUTTON_DOWN,
         WM_MBUTTONUP => COREWEBVIEW2_MOUSE_EVENT_KIND_MIDDLE_BUTTON_UP,
+        WM_MOUSELEAVE => COREWEBVIEW2_MOUSE_EVENT_KIND_LEAVE,
         _ => return None,
     })
 }
@@ -414,6 +421,17 @@ unsafe extern "system" fn theater_wndproc(
     // instead of us — claim the client area so we actually receive mouse messages.
     if msg == WM_NCHITTEST {
         return LRESULT(HTCLIENT as isize);
+    }
+    // Ask for a WM_MOUSELEAVE so we can forward a LEAVE when the cursor exits —
+    // else the webview's :hover (the mini border) sticks on after the mouse leaves.
+    if msg == WM_MOUSEMOVE {
+        let mut tme = TRACKMOUSEEVENT {
+            cbSize: std::mem::size_of::<TRACKMOUSEEVENT>() as u32,
+            dwFlags: TME_LEAVE,
+            hwndTrack: hwnd,
+            dwHoverTime: 0,
+        };
+        let _ = TrackMouseEvent(&mut tme);
     }
     if let Some(kind) = mouse_kind(msg) {
         // Clone out + drop the lock before SendMouseInput, which can re-enter
