@@ -18,3 +18,7 @@ export const tauriCompColorTest = () =>
 /** Composition spike Step 2: a transparent composition WebView2 over the layer. */
 export const tauriCompWebviewTest = () =>
   invoke("comp_webview_test") as Promise<void>;
+
+/** Composition spike Step 3: native mpv under the composition webview. */
+export const tauriCompTheater = (url: string) =>
+  invoke("comp_theater", { url }) as Promise<void>;

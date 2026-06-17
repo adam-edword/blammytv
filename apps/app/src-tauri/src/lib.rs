@@ -41,6 +41,29 @@ fn comp_color_test(window: tauri::WebviewWindow) -> Result<(), String> {
     }
 }
 
+// Step 3: native mpv child window with the composition WebView2 over it.
+#[tauri::command]
+fn comp_theater(window: tauri::WebviewWindow, url: String) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        let hwnd = window.hwnd().map_err(|e| e.to_string())?.0 as isize;
+        let size = window.inner_size().map_err(|e| e.to_string())?;
+        let (w, h) = (size.width, size.height);
+        let (tx, rx) = std::sync::mpsc::channel();
+        window
+            .run_on_main_thread(move || {
+                let _ = tx.send(comp::theater(hwnd, w, h, &url));
+            })
+            .map_err(|e| e.to_string())?;
+        rx.recv().map_err(|e| e.to_string())?
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (window, url);
+        Ok(())
+    }
+}
+
 // Step 2: a composition-hosted WebView2 (transparent) over the blue layer.
 #[tauri::command]
 fn comp_webview_test(window: tauri::WebviewWindow) -> Result<(), String> {
@@ -82,7 +105,8 @@ pub fn run() {
             mpv_set_pause,
             mpv_stop,
             comp_color_test,
-            comp_webview_test
+            comp_webview_test,
+            comp_theater
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

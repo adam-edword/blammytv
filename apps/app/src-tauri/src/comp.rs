@@ -39,6 +39,9 @@ use webview2_com::{
     CreateCoreWebView2CompositionControllerCompletedHandler,
     CreateCoreWebView2EnvironmentCompletedHandler,
 };
+use windows::Win32::UI::WindowsAndMessaging::{
+    CreateWindowExW, WINDOW_EX_STYLE, WS_CHILD, WS_VISIBLE,
+};
 
 // Keep the COM objects alive (else the composition vanishes when they drop).
 struct Comp {
@@ -312,6 +315,158 @@ pub fn webview_test(hwnd: isize, w: u32, h: u32) -> Result<(), String> {
             _root: root,
             _color: color,
             _wv_visual: wv_visual,
+            _controller: None,
+        });
+    }
+    Ok(())
+}
+
+// Step 3: native mpv in a child window, with the composition WebView2 over it.
+// mpv child HWND (true 4K60 HDR) is the bottom layer; the topmost DComp target
+// composites the transparent webview (controls) over it — the real Telly player.
+struct Theater {
+    _device: ID3D11Device,
+    _dcomp: IDCompositionDevice,
+    _target: IDCompositionTarget,
+    _root: IDCompositionVisual,
+    _wv_visual: IDCompositionVisual,
+    _child: isize,
+    _controller: Option<ICoreWebView2Controller>,
+}
+unsafe impl Send for Theater {}
+static THEATER: Mutex<Option<Theater>> = Mutex::new(None);
+
+pub fn theater(hwnd: isize, w: u32, h: u32, url: &str) -> Result<(), String> {
+    unsafe {
+        let parent = HWND(hwnd as *mut c_void);
+
+        // Child window for mpv to render into (sits above the Tauri webview).
+        let child = CreateWindowExW(
+            WINDOW_EX_STYLE(0),
+            windows::core::w!("STATIC"),
+            windows::core::w!(""),
+            WS_CHILD | WS_VISIBLE,
+            0,
+            0,
+            w as i32,
+            h as i32,
+            Some(parent),
+            None,
+            None,
+            None,
+        )
+        .map_err(|e| format!("CreateWindowExW: {e}"))?;
+        crate::mpv::play_wid(url, child.0 as isize)?;
+
+        // D3D11 device just for DComp.
+        let mut device: Option<ID3D11Device> = None;
+        let mut context: Option<ID3D11DeviceContext> = None;
+        let mut level = D3D_FEATURE_LEVEL::default();
+        D3D11CreateDevice(
+            None,
+            D3D_DRIVER_TYPE_HARDWARE,
+            HMODULE::default(),
+            D3D11_CREATE_DEVICE_BGRA_SUPPORT,
+            None,
+            D3D11_SDK_VERSION,
+            Some(&mut device),
+            Some(&mut level),
+            Some(&mut context),
+        )
+        .map_err(|e| format!("D3D11CreateDevice: {e}"))?;
+        let device = device.ok_or("no d3d11 device")?;
+        let dxgi_device: IDXGIDevice =
+            device.cast().map_err(|e| format!("cast IDXGIDevice: {e}"))?;
+
+        let dcomp: IDCompositionDevice = DCompositionCreateDevice(&dxgi_device)
+            .map_err(|e| format!("DCompositionCreateDevice: {e}"))?;
+        let target: IDCompositionTarget = dcomp
+            .CreateTargetForHwnd(parent, true)
+            .map_err(|e| format!("CreateTargetForHwnd: {e}"))?;
+        let root: IDCompositionVisual =
+            dcomp.CreateVisual().map_err(|e| format!("root visual: {e}"))?;
+        let wv_visual: IDCompositionVisual =
+            dcomp.CreateVisual().map_err(|e| format!("wv visual: {e}"))?;
+        root.AddVisual(&wv_visual, true, None)
+            .map_err(|e| format!("AddVisual: {e}"))?;
+        target.SetRoot(&root).map_err(|e| format!("SetRoot: {e}"))?;
+        dcomp.Commit().map_err(|e| format!("Commit: {e}"))?;
+
+        let dcomp_cb = dcomp.clone();
+        let wv_cb = wv_visual.clone();
+        let userdata = HSTRING::from(
+            std::env::temp_dir()
+                .join("blammytv-wv2")
+                .to_string_lossy()
+                .to_string(),
+        );
+        CreateCoreWebView2EnvironmentWithOptions(
+            PCWSTR::null(),
+            PCWSTR(userdata.as_ptr()),
+            None,
+            &CreateCoreWebView2EnvironmentCompletedHandler::create(Box::new(
+                move |_hr, env: Option<ICoreWebView2Environment>| {
+                    let env =
+                        env.ok_or_else(|| windows::core::Error::new(E_POINTER, "no environment"))?;
+                    let env3: ICoreWebView2Environment3 = env.cast()?;
+                    let dcomp2 = dcomp_cb.clone();
+                    let wv2 = wv_cb.clone();
+                    env3.CreateCoreWebView2CompositionController(
+                        parent,
+                        &CreateCoreWebView2CompositionControllerCompletedHandler::create(Box::new(
+                            move |_hr, ctrl: Option<ICoreWebView2CompositionController>| {
+                                let ctrl = ctrl.ok_or_else(|| {
+                                    windows::core::Error::new(E_POINTER, "no controller")
+                                })?;
+                                let unk: IUnknown = wv2.cast()?;
+                                ctrl.SetRootVisualTarget(&unk)?;
+                                let c: ICoreWebView2Controller = ctrl.cast()?;
+                                c.SetBounds(RECT {
+                                    left: 0,
+                                    top: 0,
+                                    right: w as i32,
+                                    bottom: h as i32,
+                                })?;
+                                if let Ok(c2) = ctrl.cast::<ICoreWebView2Controller2>() {
+                                    let _ = c2.SetDefaultBackgroundColor(COREWEBVIEW2_COLOR {
+                                        A: 0,
+                                        R: 0,
+                                        G: 0,
+                                        B: 0,
+                                    });
+                                }
+                                c.SetIsVisible(true)?;
+                                let wv = c.CoreWebView2()?;
+                                let html = HSTRING::from(
+                                    "<!doctype html><body style='margin:0;background:transparent;\
+                                     font-family:sans-serif;color:#fff'>\
+                                     <div style='position:fixed;left:0;right:0;bottom:0;padding:28px 32px;\
+                                     font-size:22px;font-weight:700;\
+                                     background:linear-gradient(transparent,rgba(0,0,0,.85))'>\
+                                     BlammyTV \u{2014} mpv under composition webview \u{2705}</div></body>",
+                                );
+                                wv.NavigateToString(PCWSTR(html.as_ptr()))?;
+                                let _ = dcomp2.Commit();
+                                if let Some(s) = THEATER.lock().unwrap().as_mut() {
+                                    s._controller = Some(c);
+                                }
+                                Ok(())
+                            },
+                        )),
+                    )?;
+                    Ok(())
+                },
+            )),
+        )
+        .map_err(|e| format!("CreateCoreWebView2EnvironmentWithOptions: {e}"))?;
+
+        *THEATER.lock().unwrap() = Some(Theater {
+            _device: device,
+            _dcomp: dcomp,
+            _target: target,
+            _root: root,
+            _wv_visual: wv_visual,
+            _child: child.0 as isize,
             _controller: None,
         });
     }

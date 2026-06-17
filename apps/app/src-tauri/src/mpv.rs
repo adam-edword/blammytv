@@ -110,6 +110,42 @@ pub fn play(url: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Render into an existing child window (`--wid`) instead of mpv's own — for the
+/// Tauri composition path: native video in a child HWND, webview composited over.
+pub fn play_wid(url: &str, wid: isize) -> Result<(), String> {
+    let l = lib()?;
+    stop();
+    unsafe {
+        let h = (l.create)();
+        if h.is_null() {
+            return Err("mpv_create failed".into());
+        }
+        let set = |k: &str, v: &str| {
+            let (ck, cv) = (CString::new(k).unwrap(), CString::new(v).unwrap());
+            (l.set_option_string)(h, ck.as_ptr(), cv.as_ptr());
+        };
+        set("wid", &wid.to_string());
+        set("hwdec", "auto-safe");
+        // Present through DWM (bitblt) so the DComp webview can composite over it.
+        set("d3d11-flip", "no");
+        set("audio-channels", "stereo");
+        set("terminal", "no");
+        if (l.initialize)(h) < 0 {
+            (l.terminate_destroy)(h);
+            return Err("mpv_initialize failed".into());
+        }
+        let load = CString::new("loadfile").unwrap();
+        let curl = CString::new(url).map_err(|_| "url has a null byte")?;
+        let args = [load.as_ptr(), curl.as_ptr(), std::ptr::null()];
+        if (l.command)(h, args.as_ptr()) < 0 {
+            (l.terminate_destroy)(h);
+            return Err("loadfile failed".into());
+        }
+        *PLAYER.lock().unwrap() = Some(Player(h));
+    }
+    Ok(())
+}
+
 pub fn set_pause(paused: bool) {
     let mut g = PLAYER.lock().unwrap();
     if let (Some(p), Some(l)) = (g.as_mut(), LIB.get()) {

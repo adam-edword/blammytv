@@ -5,6 +5,7 @@ import {
   tauriMpvPlay,
   tauriCompColorTest,
   tauriCompWebviewTest,
+  tauriCompTheater,
 } from "../lib/tauri";
 import { Player, type TheaterMeta } from "./Player";
 
@@ -163,6 +164,30 @@ export function NowPlaying({
             }
           >
             ▣ Composition webview test
+          </button>
+        )}
+        {/* TEMP — composition spike Step 3: native mpv under composition webview. */}
+        {isTauri() && (
+          <button
+            type="button"
+            style={{
+              alignSelf: "flex-start",
+              margin: "0 0 8px",
+              padding: "8px 14px",
+              borderRadius: 8,
+              border: "none",
+              background: "#9333ea",
+              color: "#fff",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+            onClick={() =>
+              void tauriCompTheater(streamUrl).catch((e) =>
+                window.alert("comp_theater failed: " + e),
+              )
+            }
+          >
+            ◉ Composition theater (mpv + webview)
           </button>
         )}
         <p className="now-playing__channel">{channel.name} HDR</p>
