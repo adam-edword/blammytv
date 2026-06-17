@@ -14,3 +14,7 @@ export const tauriMpvStop = () => invoke("mpv_stop") as Promise<void>;
 /** Composition spike Step 1: composite a blue GPU layer over the window. */
 export const tauriCompColorTest = () =>
   invoke("comp_color_test") as Promise<void>;
+
+/** Composition spike Step 2: a transparent composition WebView2 over the layer. */
+export const tauriCompWebviewTest = () =>
+  invoke("comp_webview_test") as Promise<void>;

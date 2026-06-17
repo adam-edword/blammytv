@@ -41,6 +41,29 @@ fn comp_color_test(window: tauri::WebviewWindow) -> Result<(), String> {
     }
 }
 
+// Step 2: a composition-hosted WebView2 (transparent) over the blue layer.
+#[tauri::command]
+fn comp_webview_test(window: tauri::WebviewWindow) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        let hwnd = window.hwnd().map_err(|e| e.to_string())?.0 as isize;
+        let size = window.inner_size().map_err(|e| e.to_string())?;
+        let (w, h) = (size.width, size.height);
+        let (tx, rx) = std::sync::mpsc::channel();
+        window
+            .run_on_main_thread(move || {
+                let _ = tx.send(comp::webview_test(hwnd, w, h));
+            })
+            .map_err(|e| e.to_string())?;
+        rx.recv().map_err(|e| e.to_string())?
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = window;
+        Ok(())
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -58,7 +81,8 @@ pub fn run() {
             mpv_play,
             mpv_set_pause,
             mpv_stop,
-            comp_color_test
+            comp_color_test,
+            comp_webview_test
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

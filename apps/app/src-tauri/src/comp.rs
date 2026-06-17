@@ -28,6 +28,17 @@ use windows::Win32::Graphics::Dxgi::{
     DXGI_PRESENT, DXGI_SCALING_STRETCH, DXGI_SWAP_CHAIN_DESC1, DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL,
     DXGI_USAGE_RENDER_TARGET_OUTPUT,
 };
+use windows::core::{IUnknown, HSTRING, PCWSTR};
+use windows::Win32::Foundation::{E_POINTER, RECT};
+use webview2_com::Microsoft::Web::WebView2::Win32::{
+    CreateCoreWebView2EnvironmentWithOptions, ICoreWebView2Controller, ICoreWebView2Controller2,
+    ICoreWebView2CompositionController, ICoreWebView2Environment, ICoreWebView2Environment3,
+    COREWEBVIEW2_COLOR,
+};
+use webview2_com::{
+    CreateCoreWebView2CompositionControllerCompletedHandler,
+    CreateCoreWebView2EnvironmentCompletedHandler,
+};
 
 // Keep the COM objects alive (else the composition vanishes when they drop).
 struct Comp {
@@ -125,6 +136,183 @@ pub fn color_test(hwnd: isize, w: u32, h: u32) -> Result<(), String> {
             _dcomp: dcomp,
             _target: target,
             _visual: visual,
+        });
+    }
+    Ok(())
+}
+
+// Step 2: a composition-hosted WebView2 (transparent) as a DComp visual, over a
+// semi-transparent blue layer. If the page floats over the blue with the blue
+// showing through its transparent areas — the Telly architecture is proven.
+struct WebState {
+    _device: ID3D11Device,
+    _context: ID3D11DeviceContext,
+    _swap: IDXGISwapChain1,
+    _dcomp: IDCompositionDevice,
+    _target: IDCompositionTarget,
+    _root: IDCompositionVisual,
+    _color: IDCompositionVisual,
+    _wv_visual: IDCompositionVisual,
+    _controller: Option<ICoreWebView2Controller>,
+}
+unsafe impl Send for WebState {}
+static WEB: Mutex<Option<WebState>> = Mutex::new(None);
+
+pub fn webview_test(hwnd: isize, w: u32, h: u32) -> Result<(), String> {
+    unsafe {
+        let hwnd = HWND(hwnd as *mut c_void);
+
+        let mut device: Option<ID3D11Device> = None;
+        let mut context: Option<ID3D11DeviceContext> = None;
+        let mut level = D3D_FEATURE_LEVEL::default();
+        D3D11CreateDevice(
+            None,
+            D3D_DRIVER_TYPE_HARDWARE,
+            HMODULE::default(),
+            D3D11_CREATE_DEVICE_BGRA_SUPPORT,
+            None,
+            D3D11_SDK_VERSION,
+            Some(&mut device),
+            Some(&mut level),
+            Some(&mut context),
+        )
+        .map_err(|e| format!("D3D11CreateDevice: {e}"))?;
+        let device = device.ok_or("no d3d11 device")?;
+        let context = context.ok_or("no d3d11 context")?;
+
+        let dxgi_device: IDXGIDevice =
+            device.cast().map_err(|e| format!("cast IDXGIDevice: {e}"))?;
+        let factory: IDXGIFactory2 = CreateDXGIFactory2(DXGI_CREATE_FACTORY_FLAGS(0))
+            .map_err(|e| format!("CreateDXGIFactory2: {e}"))?;
+
+        let desc = DXGI_SWAP_CHAIN_DESC1 {
+            Width: w.max(1),
+            Height: h.max(1),
+            Format: DXGI_FORMAT_B8G8R8A8_UNORM,
+            SampleDesc: DXGI_SAMPLE_DESC {
+                Count: 1,
+                Quality: 0,
+            },
+            BufferUsage: DXGI_USAGE_RENDER_TARGET_OUTPUT,
+            BufferCount: 2,
+            Scaling: DXGI_SCALING_STRETCH,
+            SwapEffect: DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL,
+            AlphaMode: DXGI_ALPHA_MODE_PREMULTIPLIED,
+            ..Default::default()
+        };
+        let swap: IDXGISwapChain1 = factory
+            .CreateSwapChainForComposition(&device, &desc, None)
+            .map_err(|e| format!("CreateSwapChainForComposition: {e}"))?;
+        let back: ID3D11Texture2D = swap.GetBuffer(0).map_err(|e| format!("GetBuffer: {e}"))?;
+        let mut rtv: Option<ID3D11RenderTargetView> = None;
+        device
+            .CreateRenderTargetView(&back, None, Some(&mut rtv))
+            .map_err(|e| format!("CreateRenderTargetView: {e}"))?;
+        context.ClearRenderTargetView(&rtv.ok_or("no rtv")?, &[0.0, 0.15, 0.4, 0.5]);
+        swap.Present(1, DXGI_PRESENT(0))
+            .ok()
+            .map_err(|e| format!("Present: {e}"))?;
+
+        let dcomp: IDCompositionDevice = DCompositionCreateDevice(&dxgi_device)
+            .map_err(|e| format!("DCompositionCreateDevice: {e}"))?;
+        let target: IDCompositionTarget = dcomp
+            .CreateTargetForHwnd(hwnd, true)
+            .map_err(|e| format!("CreateTargetForHwnd: {e}"))?;
+        let root: IDCompositionVisual =
+            dcomp.CreateVisual().map_err(|e| format!("root visual: {e}"))?;
+        let color: IDCompositionVisual =
+            dcomp.CreateVisual().map_err(|e| format!("color visual: {e}"))?;
+        color
+            .SetContent(&swap)
+            .map_err(|e| format!("color SetContent: {e}"))?;
+        root.AddVisual(&color, false, None)
+            .map_err(|e| format!("AddVisual color: {e}"))?;
+        let wv_visual: IDCompositionVisual =
+            dcomp.CreateVisual().map_err(|e| format!("wv visual: {e}"))?;
+        root.AddVisual(&wv_visual, true, &color)
+            .map_err(|e| format!("AddVisual wv: {e}"))?;
+        target.SetRoot(&root).map_err(|e| format!("SetRoot: {e}"))?;
+        dcomp.Commit().map_err(|e| format!("Commit: {e}"))?;
+
+        // Async: create the composition WebView2 and connect it to wv_visual.
+        let dcomp_cb = dcomp.clone();
+        let wv_visual_cb = wv_visual.clone();
+        let userdata = HSTRING::from(
+            std::env::temp_dir()
+                .join("blammytv-wv2")
+                .to_string_lossy()
+                .to_string(),
+        );
+        CreateCoreWebView2EnvironmentWithOptions(
+            PCWSTR::null(),
+            PCWSTR(userdata.as_ptr()),
+            None,
+            &CreateCoreWebView2EnvironmentCompletedHandler::create(Box::new(
+                move |_hr, env: Option<ICoreWebView2Environment>| {
+                    let env = env.ok_or_else(|| {
+                        windows::core::Error::new(E_POINTER, "no environment")
+                    })?;
+                    let env3: ICoreWebView2Environment3 = env.cast()?;
+                    let dcomp2 = dcomp_cb.clone();
+                    let wv2 = wv_visual_cb.clone();
+                    env3.CreateCoreWebView2CompositionController(
+                        hwnd,
+                        &CreateCoreWebView2CompositionControllerCompletedHandler::create(Box::new(
+                            move |_hr, ctrl: Option<ICoreWebView2CompositionController>| {
+                                let ctrl = ctrl.ok_or_else(|| {
+                                    windows::core::Error::new(E_POINTER, "no controller")
+                                })?;
+                                let unk: IUnknown = wv2.cast()?;
+                                ctrl.SetRootVisualTarget(&unk)?;
+                                let c: ICoreWebView2Controller = ctrl.cast()?;
+                                c.SetBounds(RECT {
+                                    left: 0,
+                                    top: 0,
+                                    right: w as i32,
+                                    bottom: h as i32,
+                                })?;
+                                if let Ok(c2) = ctrl.cast::<ICoreWebView2Controller2>() {
+                                    let _ = c2.SetDefaultBackgroundColor(COREWEBVIEW2_COLOR {
+                                        A: 0,
+                                        R: 0,
+                                        G: 0,
+                                        B: 0,
+                                    });
+                                }
+                                c.SetIsVisible(true)?;
+                                let wv = c.CoreWebView2()?;
+                                let html = HSTRING::from(
+                                    "<!doctype html><body style='margin:0;background:transparent'>\
+                                     <div style='margin:120px auto;width:540px;height:220px;border-radius:16px;\
+                                     background:rgba(220,30,60,0.92);color:#fff;font:700 28px sans-serif;\
+                                     display:flex;align-items:center;justify-content:center'>\
+                                     COMPOSITION WEBVIEW \u{2705}</div></body>",
+                                );
+                                wv.NavigateToString(PCWSTR(html.as_ptr()))?;
+                                let _ = dcomp2.Commit();
+                                if let Some(s) = WEB.lock().unwrap().as_mut() {
+                                    s._controller = Some(c);
+                                }
+                                Ok(())
+                            },
+                        )),
+                    )?;
+                    Ok(())
+                },
+            )),
+        )
+        .map_err(|e| format!("CreateCoreWebView2EnvironmentWithOptions: {e}"))?;
+
+        *WEB.lock().unwrap() = Some(WebState {
+            _device: device,
+            _context: context,
+            _swap: swap,
+            _dcomp: dcomp,
+            _target: target,
+            _root: root,
+            _color: color,
+            _wv_visual: wv_visual,
+            _controller: None,
         });
     }
     Ok(())

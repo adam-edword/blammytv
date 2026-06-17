@@ -1,6 +1,11 @@
 import type { LiveChannel, EpgProgram } from "@blammytv/shared";
 import { formatTime, isLiveNow, progressPct } from "../lib/epg";
-import { isTauri, tauriMpvPlay, tauriCompColorTest } from "../lib/tauri";
+import {
+  isTauri,
+  tauriMpvPlay,
+  tauriCompColorTest,
+  tauriCompWebviewTest,
+} from "../lib/tauri";
 import { Player, type TheaterMeta } from "./Player";
 
 /** The marquee at the top of the Live tab: a preview of the focused channel
@@ -134,6 +139,30 @@ export function NowPlaying({
             }
           >
             ▦ DComp color test
+          </button>
+        )}
+        {/* TEMP — composition spike Step 2: transparent composition WebView2. */}
+        {isTauri() && (
+          <button
+            type="button"
+            style={{
+              alignSelf: "flex-start",
+              margin: "0 0 8px",
+              padding: "8px 14px",
+              borderRadius: 8,
+              border: "none",
+              background: "#16a34a",
+              color: "#fff",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+            onClick={() =>
+              void tauriCompWebviewTest().catch((e) =>
+                window.alert("comp_webview_test failed: " + e),
+              )
+            }
+          >
+            ▣ Composition webview test
           </button>
         )}
         <p className="now-playing__channel">{channel.name} HDR</p>
