@@ -31,10 +31,9 @@ use windows::Win32::Graphics::Dxgi::{
 use windows::core::{IUnknown, HSTRING, PCWSTR, PWSTR};
 use windows::Win32::Foundation::{E_POINTER, RECT};
 use webview2_com::Microsoft::Web::WebView2::Win32::{
-    CreateCoreWebView2EnvironmentWithOptions, EventRegistrationToken, ICoreWebView2,
-    ICoreWebView2CompositionController, ICoreWebView2Controller, ICoreWebView2Controller2,
-    ICoreWebView2Environment, ICoreWebView2Environment3,
-    ICoreWebView2WebMessageReceivedEventArgs, COREWEBVIEW2_COLOR,
+    CreateCoreWebView2EnvironmentWithOptions, ICoreWebView2, ICoreWebView2CompositionController,
+    ICoreWebView2Controller, ICoreWebView2Controller2, ICoreWebView2Environment,
+    ICoreWebView2Environment3, ICoreWebView2WebMessageReceivedEventArgs, COREWEBVIEW2_COLOR,
 };
 use webview2_com::{
     AddScriptToExecuteOnDocumentCreatedCompletedHandler,
@@ -544,7 +543,9 @@ pub fn theater(
                                 )?;
 
                                 let meta3 = meta2.clone();
-                                let mut token = EventRegistrationToken::default();
+                                // Type inferred from add_WebMessageReceived's signature
+                                // (EventRegistrationToken isn't exported under a name).
+                                let mut token = Default::default();
                                 wv.add_WebMessageReceived(
                                     &WebMessageReceivedEventHandler::create(Box::new(
                                         move |wv_opt: Option<ICoreWebView2>,
