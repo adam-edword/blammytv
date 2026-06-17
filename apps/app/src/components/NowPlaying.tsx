@@ -1,5 +1,6 @@
 import type { LiveChannel, EpgProgram } from "@blammytv/shared";
 import { formatTime, isLiveNow, progressPct } from "../lib/epg";
+import { isTauri, tauriMpvPlay } from "../lib/tauri";
 import { Player, type TheaterMeta } from "./Player";
 
 /** The marquee at the top of the Live tab: a preview of the focused channel
@@ -86,6 +87,30 @@ export function NowPlaying({
             <span className="live-badge__dot" aria-hidden="true" />
             LIVE
           </span>
+        )}
+        {/* TEMP — Tauri Milestone 1: play this channel in mpv via the Rust shell. */}
+        {isTauri() && (
+          <button
+            type="button"
+            style={{
+              alignSelf: "flex-start",
+              margin: "4px 0 8px",
+              padding: "8px 14px",
+              borderRadius: 8,
+              border: "none",
+              background: "var(--accent, #e11d48)",
+              color: "#fff",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+            onClick={() =>
+              void tauriMpvPlay(streamUrl).catch((e) =>
+                window.alert("mpv_play failed: " + e),
+              )
+            }
+          >
+            ▶ Play in mpv (Tauri)
+          </button>
         )}
         <p className="now-playing__channel">{channel.name} HDR</p>
         <h1 className="now-playing__title">

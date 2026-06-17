@@ -1,0 +1,12 @@
+import { invoke } from "@tauri-apps/api/core";
+
+/** True when running inside the Tauri shell (vs Electron or a plain browser). */
+export const isTauri = (): boolean =>
+  typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+/** Milestone 1: play a stream in mpv's own window via the Rust shell. */
+export const tauriMpvPlay = (url: string) =>
+  invoke("mpv_play", { url }) as Promise<void>;
+export const tauriMpvSetPause = (paused: boolean) =>
+  invoke("mpv_set_pause", { paused }) as Promise<void>;
+export const tauriMpvStop = () => invoke("mpv_stop") as Promise<void>;
