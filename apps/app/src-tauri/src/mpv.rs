@@ -112,7 +112,12 @@ pub fn play(url: &str) -> Result<(), String> {
 
 /// Render into an existing child window (`--wid`) instead of mpv's own — for the
 /// Tauri composition path: native video in a child HWND, webview composited over.
-pub fn play_wid(url: &str, wid: isize) -> Result<(), String> {
+///
+/// `composited` forces the bitblt present model (`d3d11-flip=no`) so a DComp layer
+/// can be drawn over the video. Left off, mpv uses its default flip model — which
+/// is what actually shows video when embedded; bitblt into a `--wid` child often
+/// renders nothing.
+pub fn play_wid(url: &str, wid: isize, composited: bool) -> Result<(), String> {
     let l = lib()?;
     stop();
     unsafe {
@@ -126,8 +131,10 @@ pub fn play_wid(url: &str, wid: isize) -> Result<(), String> {
         };
         set("wid", &wid.to_string());
         set("hwdec", "auto-safe");
-        // Present through DWM (bitblt) so the DComp webview can composite over it.
-        set("d3d11-flip", "no");
+        if composited {
+            // Present through DWM (bitblt) so the DComp webview can composite over it.
+            set("d3d11-flip", "no");
+        }
         set("audio-channels", "stereo");
         set("terminal", "no");
         if (l.initialize)(h) < 0 {

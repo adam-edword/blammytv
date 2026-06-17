@@ -367,7 +367,7 @@ pub fn mpv_child(hwnd: isize, w: u32, h: u32, url: &str) -> Result<(), String> {
             h as i32,
             SWP_SHOWWINDOW | SWP_NOACTIVATE,
         );
-        crate::mpv::play_wid(url, child.0 as isize)?;
+        crate::mpv::play_wid(url, child.0 as isize, false)?;
         *THEATER.lock().unwrap() = None; // drop any prior composition
     }
     Ok(())
@@ -404,7 +404,7 @@ pub fn theater(hwnd: isize, w: u32, h: u32, url: &str) -> Result<(), String> {
             h as i32,
             SWP_SHOWWINDOW | SWP_NOACTIVATE,
         );
-        crate::mpv::play_wid(url, child.0 as isize)?;
+        crate::mpv::play_wid(url, child.0 as isize, true)?;
 
         // D3D11 device just for DComp.
         let mut device: Option<ID3D11Device> = None;
