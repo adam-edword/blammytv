@@ -373,7 +373,7 @@ pub fn mpv_child(hwnd: isize, w: u32, h: u32, url: &str) -> Result<(), String> {
     Ok(())
 }
 
-pub fn theater(hwnd: isize, w: u32, h: u32, url: &str) -> Result<(), String> {
+pub fn theater(hwnd: isize, w: u32, h: u32, url: &str, overlay_url: &str) -> Result<(), String> {
     unsafe {
         let parent = HWND(hwnd as *mut c_void);
 
@@ -442,6 +442,8 @@ pub fn theater(hwnd: isize, w: u32, h: u32, url: &str) -> Result<(), String> {
 
         let dcomp_cb = dcomp.clone();
         let wv_cb = wv_visual.clone();
+        // Owned copy so the async handlers (which outlive this call) can navigate.
+        let overlay_owned = overlay_url.to_string();
         let userdata = HSTRING::from(
             std::env::temp_dir()
                 .join("blammytv-wv2")
@@ -459,6 +461,7 @@ pub fn theater(hwnd: isize, w: u32, h: u32, url: &str) -> Result<(), String> {
                     let env3: ICoreWebView2Environment3 = env.cast()?;
                     let dcomp2 = dcomp_cb.clone();
                     let wv2 = wv_cb.clone();
+                    let overlay2 = overlay_owned.clone();
                     env3.CreateCoreWebView2CompositionController(
                         parent,
                         &CreateCoreWebView2CompositionControllerCompletedHandler::create(Box::new(
@@ -485,15 +488,10 @@ pub fn theater(hwnd: isize, w: u32, h: u32, url: &str) -> Result<(), String> {
                                 }
                                 c.SetIsVisible(true)?;
                                 let wv = c.CoreWebView2()?;
-                                let html = HSTRING::from(
-                                    "<!doctype html><body style='margin:0;background:transparent;\
-                                     font-family:sans-serif;color:#fff'>\
-                                     <div style='position:fixed;left:0;right:0;bottom:0;padding:28px 32px;\
-                                     font-size:22px;font-weight:700;\
-                                     background:linear-gradient(transparent,rgba(0,0,0,.85))'>\
-                                     BlammyTV \u{2014} mpv under composition webview \u{2705}</div></body>",
-                                );
-                                wv.NavigateToString(PCWSTR(html.as_ptr()))?;
+                                // Milestone 1: load the real app in overlay mode
+                                // (TheaterOverlay), transparent over the mpv layer.
+                                let nav = HSTRING::from(overlay2.as_str());
+                                wv.Navigate(PCWSTR(nav.as_ptr()))?;
                                 let _ = dcomp2.Commit();
                                 if let Some(s) = THEATER.lock().unwrap().as_mut() {
                                     s._controller = Some(c);

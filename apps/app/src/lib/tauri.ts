@@ -23,6 +23,12 @@ export const tauriCompWebviewTest = () =>
 export const tauriCompMpvChild = (url: string) =>
   invoke("comp_mpv_child", { url }) as Promise<void>;
 
-/** Composition spike Step 3: native mpv under the composition webview. */
-export const tauriCompTheater = (url: string) =>
-  invoke("comp_theater", { url }) as Promise<void>;
+/**
+ * Composition spike Step 3 / Milestone 1: native mpv under the composition
+ * webview, which loads this same app in transparent overlay mode (TheaterOverlay).
+ * The overlay URL is derived from our own origin so it works in dev and prod.
+ */
+export const tauriCompTheater = (url: string) => {
+  const overlayUrl = `${window.location.origin}/?overlay=1&composited=1`;
+  return invoke("comp_theater", { url, overlayUrl }) as Promise<void>;
+};

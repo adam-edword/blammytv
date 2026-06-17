@@ -24,6 +24,11 @@ interface OverlayApi {
 
 const api = (window as unknown as { overlayApi?: OverlayApi }).overlayApi;
 
+// Composition-webview milestone: input isn't forwarded yet, so mousemove can't
+// wake the chrome — keep it pinned visible while we build out the bridge.
+const noAutoHide =
+  new URLSearchParams(window.location.search).get("composited") === "1";
+
 /**
  * The theater chrome rendered in the transparent overlay window that floats over
  * the native mpv surface. Same look as the in-page theater bar; controls drive
@@ -52,7 +57,9 @@ export function TheaterOverlay() {
   const wake = useCallback(() => {
     setActive(true);
     window.clearTimeout(idleRef.current);
-    idleRef.current = window.setTimeout(() => setActive(false), 2800);
+    if (!noAutoHide) {
+      idleRef.current = window.setTimeout(() => setActive(false), 2800);
+    }
   }, []);
 
   // Show on activity; toggle click-through so only [data-interactive] regions

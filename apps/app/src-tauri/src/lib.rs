@@ -64,9 +64,14 @@ fn comp_mpv_child(window: tauri::WebviewWindow, url: String) -> Result<(), Strin
     }
 }
 
-// Step 3: native mpv child window with the composition WebView2 over it.
+// Step 3 / Milestone 1: native mpv child window with the composition WebView2
+// over it, the webview loading the real app (overlay mode) transparent on top.
 #[tauri::command]
-fn comp_theater(window: tauri::WebviewWindow, url: String) -> Result<(), String> {
+fn comp_theater(
+    window: tauri::WebviewWindow,
+    url: String,
+    overlay_url: String,
+) -> Result<(), String> {
     #[cfg(windows)]
     {
         let hwnd = window.hwnd().map_err(|e| e.to_string())?.0 as isize;
@@ -75,14 +80,14 @@ fn comp_theater(window: tauri::WebviewWindow, url: String) -> Result<(), String>
         let (tx, rx) = std::sync::mpsc::channel();
         window
             .run_on_main_thread(move || {
-                let _ = tx.send(comp::theater(hwnd, w, h, &url));
+                let _ = tx.send(comp::theater(hwnd, w, h, &url, &overlay_url));
             })
             .map_err(|e| e.to_string())?;
         rx.recv().map_err(|e| e.to_string())?
     }
     #[cfg(not(windows))]
     {
-        let _ = (window, url);
+        let _ = (window, url, overlay_url);
         Ok(())
     }
 }
