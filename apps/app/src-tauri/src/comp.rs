@@ -393,7 +393,7 @@ pub fn theater(hwnd: isize, w: u32, h: u32, url: &str) -> Result<(), String> {
         let dcomp: IDCompositionDevice = DCompositionCreateDevice(&dxgi_device)
             .map_err(|e| format!("DCompositionCreateDevice: {e}"))?;
         let target: IDCompositionTarget = dcomp
-            .CreateTargetForHwnd(parent, true)
+            .CreateTargetForHwnd(child, true)
             .map_err(|e| format!("CreateTargetForHwnd: {e}"))?;
         let root: IDCompositionVisual =
             dcomp.CreateVisual().map_err(|e| format!("root visual: {e}"))?;
@@ -424,7 +424,7 @@ pub fn theater(hwnd: isize, w: u32, h: u32, url: &str) -> Result<(), String> {
                     let dcomp2 = dcomp_cb.clone();
                     let wv2 = wv_cb.clone();
                     env3.CreateCoreWebView2CompositionController(
-                        parent,
+                        child,
                         &CreateCoreWebView2CompositionControllerCompletedHandler::create(Box::new(
                             move |_hr, ctrl: Option<ICoreWebView2CompositionController>| {
                                 let ctrl = ctrl.ok_or_else(|| {
