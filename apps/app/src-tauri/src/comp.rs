@@ -9,6 +9,7 @@
 #![cfg(windows)]
 
 use std::ffi::c_void;
+use std::sync::atomic::{AtomicIsize, Ordering};
 use std::sync::Mutex;
 use windows::core::Interface;
 use windows::Win32::Foundation::{HMODULE, HWND};
@@ -29,11 +30,17 @@ use windows::Win32::Graphics::Dxgi::{
     DXGI_USAGE_RENDER_TARGET_OUTPUT,
 };
 use windows::core::{IUnknown, HSTRING, PCWSTR, PWSTR};
-use windows::Win32::Foundation::{E_POINTER, RECT};
+use windows::Win32::Foundation::{E_POINTER, LPARAM, LRESULT, POINT, RECT, WPARAM};
 use webview2_com::Microsoft::Web::WebView2::Win32::{
     CreateCoreWebView2EnvironmentWithOptions, ICoreWebView2, ICoreWebView2CompositionController,
     ICoreWebView2Controller, ICoreWebView2Controller2, ICoreWebView2Environment,
     ICoreWebView2Environment3, ICoreWebView2WebMessageReceivedEventArgs, COREWEBVIEW2_COLOR,
+    COREWEBVIEW2_MOUSE_EVENT_KIND, COREWEBVIEW2_MOUSE_EVENT_KIND_LEAVE,
+    COREWEBVIEW2_MOUSE_EVENT_KIND_LEFT_BUTTON_DOUBLE_CLICK,
+    COREWEBVIEW2_MOUSE_EVENT_KIND_LEFT_BUTTON_DOWN, COREWEBVIEW2_MOUSE_EVENT_KIND_LEFT_BUTTON_UP,
+    COREWEBVIEW2_MOUSE_EVENT_KIND_MIDDLE_BUTTON_DOWN, COREWEBVIEW2_MOUSE_EVENT_KIND_MIDDLE_BUTTON_UP,
+    COREWEBVIEW2_MOUSE_EVENT_KIND_MOVE, COREWEBVIEW2_MOUSE_EVENT_KIND_RIGHT_BUTTON_DOWN,
+    COREWEBVIEW2_MOUSE_EVENT_KIND_RIGHT_BUTTON_UP, COREWEBVIEW2_MOUSE_EVENT_VIRTUAL_KEYS,
 };
 use webview2_com::{
     AddScriptToExecuteOnDocumentCreatedCompletedHandler,
@@ -42,8 +49,10 @@ use webview2_com::{
 };
 use windows::Win32::System::Com::CoTaskMemFree;
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, SetWindowPos, HWND_TOP, SWP_NOACTIVATE, SWP_SHOWWINDOW, WINDOW_EX_STYLE,
-    WS_CHILD, WS_VISIBLE,
+    CallWindowProcW, CreateWindowExW, DefWindowProcW, SetWindowLongPtrW, SetWindowPos,
+    GWLP_WNDPROC, HTCLIENT, HWND_TOP, SWP_NOACTIVATE, SWP_SHOWWINDOW, WINDOW_EX_STYLE,
+    WM_LBUTTONDBLCLK, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSELEAVE,
+    WM_MOUSEMOVE, WM_NCHITTEST, WM_RBUTTONDOWN, WM_RBUTTONUP, WS_CHILD, WS_VISIBLE,
 };
 
 // Injected into the composition webview before navigation. Exposes the same
@@ -359,9 +368,65 @@ struct Theater {
     _wv_visual: IDCompositionVisual,
     _child: isize,
     _controller: Option<ICoreWebView2Controller>,
+    _comp_controller: Option<ICoreWebView2CompositionController>,
 }
 unsafe impl Send for Theater {}
 static THEATER: Mutex<Option<Theater>> = Mutex::new(None);
+
+// Original WNDPROC of the mpv child, saved when we subclass it to forward input.
+static ORIG_WNDPROC: AtomicIsize = AtomicIsize::new(0);
+
+fn mouse_kind(msg: u32) -> Option<COREWEBVIEW2_MOUSE_EVENT_KIND> {
+    Some(match msg {
+        WM_MOUSEMOVE => COREWEBVIEW2_MOUSE_EVENT_KIND_MOVE,
+        WM_LBUTTONDOWN => COREWEBVIEW2_MOUSE_EVENT_KIND_LEFT_BUTTON_DOWN,
+        WM_LBUTTONUP => COREWEBVIEW2_MOUSE_EVENT_KIND_LEFT_BUTTON_UP,
+        WM_LBUTTONDBLCLK => COREWEBVIEW2_MOUSE_EVENT_KIND_LEFT_BUTTON_DOUBLE_CLICK,
+        WM_RBUTTONDOWN => COREWEBVIEW2_MOUSE_EVENT_KIND_RIGHT_BUTTON_DOWN,
+        WM_RBUTTONUP => COREWEBVIEW2_MOUSE_EVENT_KIND_RIGHT_BUTTON_UP,
+        WM_MBUTTONDOWN => COREWEBVIEW2_MOUSE_EVENT_KIND_MIDDLE_BUTTON_DOWN,
+        WM_MBUTTONUP => COREWEBVIEW2_MOUSE_EVENT_KIND_MIDDLE_BUTTON_UP,
+        WM_MOUSELEAVE => COREWEBVIEW2_MOUSE_EVENT_KIND_LEAVE,
+        _ => return None,
+    })
+}
+
+// Subclass proc on the mpv child window: forward mouse to the composition
+// controller (which otherwise receives no input), then chain to the original.
+unsafe extern "system" fn theater_wndproc(
+    hwnd: HWND,
+    msg: u32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+) -> LRESULT {
+    // STATIC controls report HTTRANSPARENT, which sends the mouse to the parent
+    // instead of us — claim the client area so we actually receive mouse messages.
+    if msg == WM_NCHITTEST {
+        return LRESULT(HTCLIENT as isize);
+    }
+    if let Some(kind) = mouse_kind(msg) {
+        // Clone out + drop the lock before SendMouseInput, which can re-enter
+        // this proc (cursor updates) and would otherwise deadlock the Mutex.
+        let cc = THEATER
+            .lock()
+            .ok()
+            .and_then(|g| g.as_ref().and_then(|s| s._comp_controller.clone()));
+        if let Some(cc) = cc {
+            let x = (lparam.0 & 0xFFFF) as i16 as i32;
+            let y = ((lparam.0 >> 16) & 0xFFFF) as i16 as i32;
+            let vkeys = COREWEBVIEW2_MOUSE_EVENT_VIRTUAL_KEYS((wparam.0 & 0xFFFF) as u32);
+            let _ = cc.SendMouseInput(kind, vkeys, 0, POINT { x, y });
+        }
+    }
+    let orig = ORIG_WNDPROC.load(Ordering::SeqCst);
+    if orig != 0 {
+        let prev: unsafe extern "system" fn(HWND, u32, WPARAM, LPARAM) -> LRESULT =
+            std::mem::transmute(orig);
+        CallWindowProcW(Some(prev), hwnd, msg, wparam, lparam)
+    } else {
+        DefWindowProcW(hwnd, msg, wparam, lparam)
+    }
+}
 
 // Diagnostic: embed mpv in a child window only — no DComp, no webview. If video
 // appears, mpv-in-`--wid` works and the issue is purely the composition layering;
@@ -437,6 +502,12 @@ pub fn theater(
             h as i32,
             SWP_SHOWWINDOW | SWP_NOACTIVATE,
         );
+        // Subclass the child so we can forward mouse input to the (HWND-less)
+        // composition webview. Saves the original proc to chain to.
+        let proc: unsafe extern "system" fn(HWND, u32, WPARAM, LPARAM) -> LRESULT = theater_wndproc;
+        let prev = SetWindowLongPtrW(child, GWLP_WNDPROC, proc as usize as isize);
+        ORIG_WNDPROC.store(prev, Ordering::SeqCst);
+
         crate::mpv::play_wid(url, child.0 as isize, false)?;
 
         // D3D11 device just for DComp.
@@ -619,6 +690,7 @@ pub fn theater(
                                 wv.Navigate(PCWSTR(nav.as_ptr()))?;
                                 let _ = dcomp2.Commit();
                                 if let Some(s) = THEATER.lock().unwrap().as_mut() {
+                                    s._comp_controller = Some(ctrl);
                                     s._controller = Some(c);
                                 }
                                 Ok(())
@@ -639,6 +711,7 @@ pub fn theater(
             _wv_visual: wv_visual,
             _child: child.0 as isize,
             _controller: None,
+            _comp_controller: None,
         });
     }
     Ok(())
