@@ -88,6 +88,9 @@ pub fn play(url: &str) -> Result<(), String> {
         };
         set("force-window", "yes");
         set("hwdec", "auto-safe");
+        // Downmix surround (AC3/E-AC3 5.1) to clean stereo for desktop output —
+        // matches the Electron path; native 5.1 on a stereo device sounds rough.
+        set("audio-channels", "stereo");
         set("title", "BlammyTV (Tauri)");
         set("osc", "yes");
         set("terminal", "no");
