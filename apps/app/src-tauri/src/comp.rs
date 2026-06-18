@@ -600,12 +600,6 @@ pub fn theater(
         ORIG_WNDPROC.store(prev, Ordering::SeqCst);
 
         crate::mpv::play_wid(url, child.0 as isize, false)?;
-        // One-shot colour diagnostic once playback settles (windowed state), so we
-        // can compare against the fullscreen log instead of guessing about HDR.
-        std::thread::spawn(|| {
-            std::thread::sleep(std::time::Duration::from_millis(2500));
-            crate::mpv::log_color_diag("after-play");
-        });
 
         // D3D11 device just for DComp.
         let mut device: Option<ID3D11Device> = None;

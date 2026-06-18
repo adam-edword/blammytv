@@ -139,16 +139,11 @@ pub fn play_wid(url: &str, wid: isize, composited: bool) -> Result<(), String> {
         };
         set("wid", &wid.to_string());
         set("hwdec", "auto-safe");
-        // Pass the source's HDR colorspace through to the swapchain so windowed
-        // (theater) output matches fullscreen — otherwise mpv tone-maps HDR→SDR
-        // only while windowed, making theater look dim. (Confirmed HDR source:
-        // pq / bt.2020 / sig-peak ~4.9.)
-        set("target-colorspace-hint", "yes");
-        // Verbose log to a file so we can read the ACTUAL swapchain colorspace mpv
-        // picks (windowed vs fullscreen) instead of guessing — target-trc reads
-        // "auto" and doesn't reveal the resolved output.
-        set("log-file", &mpv_log_path());
-        set("msg-level", "vo=v");
+        // NOTE: the theater/fullscreen brightness difference is NOT mpv — its
+        // output is byte-identical SDR (R8G8B8A8_UNORM, sRGB) in both states
+        // (verified via diagnostics). It's a Windows presentation quirk (DWM
+        // composition windowed vs independent-flip/overlay fullscreen). The real
+        // fix is rendering mpv into a DComp composition swapchain (render API).
         if composited {
             // Present through DWM (bitblt) so the DComp webview can composite over it.
             set("d3d11-flip", "no");
