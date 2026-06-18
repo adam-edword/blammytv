@@ -3209,6 +3209,30 @@ body.is-overlay {
   opacity: 1;
 }
 
+/* Buffering loader (composition overlay): centered "loading" slot-text. */
+.comp-loading {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.comp-loading__text {
+  font: 600 clamp(16px, 2.2vw, 28px) / 1 system-ui, sans-serif;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.92);
+  animation: comp-loading-pulse 1.4s ease-in-out infinite;
+}
+@keyframes comp-loading-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 /* Dev fps readout (top-right) while measuring the 4K canvas pipeline. */
 .player__fps {
   position: absolute;

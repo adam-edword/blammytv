@@ -9,7 +9,7 @@
 #![cfg(windows)]
 
 use std::ffi::c_void;
-use std::sync::atomic::{AtomicIsize, Ordering};
+use std::sync::atomic::{AtomicIsize, AtomicU64, Ordering};
 use std::sync::Mutex;
 use windows::core::Interface;
 use windows::Win32::Foundation::{HMODULE, HWND};
@@ -67,9 +67,11 @@ const OVERLAY_BRIDGE_JS: &str = r#"(function(){
   if(!window.chrome||!window.chrome.webview)return;
   var post=function(m){window.chrome.webview.postMessage(JSON.stringify(m));};
   var metaCbs=[];var lastMeta=null;
+  var loadingCbs=[];var lastLoading=true;
   window.chrome.webview.addEventListener('message',function(e){
     var msg; try{msg=JSON.parse(e.data);}catch(_){return;}
     if(msg&&msg.type==='meta'){lastMeta=msg.meta;metaCbs.slice().forEach(function(cb){try{cb(lastMeta);}catch(_){}})}
+    if(msg&&msg.type==='loading'){lastLoading=!!msg.loading;loadingCbs.slice().forEach(function(cb){try{cb(lastLoading);}catch(_){}})}
   });
   window.overlayApi={
     close:function(){post({type:'close'});},
@@ -83,7 +85,9 @@ const OVERLAY_BRIDGE_JS: &str = r#"(function(){
     exitFullscreen:function(){post({type:'exitFullscreen'});},
     setMouseIgnore:function(ig){post({type:'setMouseIgnore',ignore:!!ig});},
     getMeta:function(){return Promise.resolve(lastMeta);},
-    onMeta:function(cb){metaCbs.push(cb);return function(){metaCbs=metaCbs.filter(function(x){return x!==cb;});};}
+    onMeta:function(cb){metaCbs.push(cb);return function(){metaCbs=metaCbs.filter(function(x){return x!==cb;});};},
+    getLoading:function(){return lastLoading;},
+    onLoading:function(cb){loadingCbs.push(cb);return function(){loadingCbs=loadingCbs.filter(function(x){return x!==cb;});};}
   };
   post({type:'ready'});
 })();"#;
@@ -384,6 +388,47 @@ static THEATER: Mutex<Option<Theater>> = Mutex::new(None);
 
 // Original WNDPROC of the mpv child, saved when we subclass it to forward input.
 static ORIG_WNDPROC: AtomicIsize = AtomicIsize::new(0);
+
+// Bumped per theater open; the loader poll thread exits when it's superseded.
+static LOADER_GEN: AtomicU64 = AtomicU64::new(0);
+
+// Post a JSON message into the composition overlay (UI thread only).
+fn post_overlay(msg: &str) {
+    // Clone the controller out and drop the lock before the COM calls.
+    let ctrl = THEATER
+        .lock()
+        .unwrap()
+        .as_ref()
+        .and_then(|s| s._controller.clone());
+    if let Some(c) = ctrl {
+        unsafe {
+            if let Ok(wv) = c.CoreWebView2() {
+                let m = HSTRING::from(msg);
+                let _ = wv.PostWebMessageAsString(PCWSTR(m.as_ptr()));
+            }
+        }
+    }
+}
+
+// Hide the overlay's loader once mpv is actually presenting (core-idle == no),
+// or after a timeout. Runs off-thread; posts back on the UI thread.
+fn spawn_loader_watch() {
+    let gen = LOADER_GEN.fetch_add(1, Ordering::SeqCst) + 1;
+    std::thread::spawn(move || {
+        for _ in 0..120 {
+            std::thread::sleep(std::time::Duration::from_millis(150));
+            if LOADER_GEN.load(Ordering::SeqCst) != gen {
+                return; // superseded by a newer open
+            }
+            if crate::mpv::get_property("core-idle").as_deref() == Some("no") {
+                break;
+            }
+        }
+        if LOADER_GEN.load(Ordering::SeqCst) == gen {
+            crate::run_on_main(|| post_overlay("{\"type\":\"loading\",\"loading\":false}"));
+        }
+    });
+}
 
 // Clip the mpv child to a rounded rectangle (physical-px corner radius) so the
 // native video matches the rounded preview box; radius 0 = sharp (theater).
@@ -829,5 +874,7 @@ pub fn theater(
             _comp_controller: None,
         });
     }
+    // Watch for first frame to clear the overlay's loader.
+    spawn_loader_watch();
     Ok(())
 }

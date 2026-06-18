@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { slotText } from "slot-text";
+import "slot-text/style.css";
 import type { TheaterMeta } from "./Player";
 import {
   PlayIcon,
@@ -29,6 +31,30 @@ interface OverlayApi {
   setMouseIgnore: (ignore: boolean) => void;
   getMeta: () => Promise<TheaterMeta | null>;
   onMeta: (cb: (meta: TheaterMeta | null) => void) => () => void;
+  getLoading?: () => boolean;
+  onLoading?: (cb: (loading: boolean) => void) => () => void;
+}
+
+/** Centered "loading" with the slot-text roll while a source buffers. */
+function LoadingGlyph() {
+  const ref = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const label = slotText(el, "loading");
+    label.set("loading", {
+      stagger: 75,
+      duration: 680,
+      bounce: 1,
+      skipUnchanged: false,
+    });
+    return () => label.destroy();
+  }, []);
+  return (
+    <div className="comp-loading" aria-live="polite">
+      <span ref={ref} className="comp-loading__text" />
+    </div>
+  );
 }
 
 const api = (window as unknown as { overlayApi?: OverlayApi }).overlayApi;
@@ -68,6 +94,13 @@ export function TheaterOverlay() {
       alive = false;
       off?.();
     };
+  }, []);
+
+  // Loader: shown until mpv reports it's actually presenting (core-idle == no).
+  const [loading, setLoading] = useState(() => api?.getLoading?.() ?? true);
+  useEffect(() => {
+    const off = api?.onLoading?.((l) => setLoading(l));
+    return () => off?.();
   }, []);
 
   const wake = useCallback(() => {
@@ -147,6 +180,7 @@ export function TheaterOverlay() {
         data-interactive
         onClick={() => api?.expand?.()}
       >
+        {loading && <LoadingGlyph />}
         <button
           className="mini-overlay__close"
           type="button"
@@ -165,6 +199,7 @@ export function TheaterOverlay() {
 
   return (
     <div className={"theater-overlay" + (active ? " player--active" : "")}>
+      {loading && <LoadingGlyph />}
       <div className="theater-topright" data-interactive>
         <button
           className="player__theater-exit"

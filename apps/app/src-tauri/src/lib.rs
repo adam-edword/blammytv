@@ -16,6 +16,14 @@ pub fn emit_comp(event: &str) {
     }
 }
 
+/// Run a closure on the UI thread (e.g. to post into the composition webview from
+/// a background mpv poll thread, which must touch COM on the main thread).
+pub fn run_on_main<F: FnOnce() + Send + 'static>(f: F) {
+    if let Some(app) = APP.get() {
+        let _ = app.run_on_main_thread(f);
+    }
+}
+
 #[tauri::command]
 fn mpv_play(url: String) -> Result<(), String> {
     mpv::play(&url)
