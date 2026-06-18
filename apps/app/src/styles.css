@@ -3176,13 +3176,6 @@ body.is-overlay {
   opacity: 1;
 }
 
-/* The Tauri composition preview box, expanded to fill the viewport in theater. */
-.comp-preview--theater {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-}
-
 /* Dev fps readout (top-right) while measuring the 4K canvas pipeline. */
 .player__fps {
   position: absolute;

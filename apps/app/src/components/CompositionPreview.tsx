@@ -7,9 +7,10 @@ import {
 } from "../lib/tauri";
 import type { TheaterMeta } from "./Player";
 
-/** Box geometry in physical pixels (what the native mpv layer wants). The mini
- * box is rounded (12px); theater is sharp. */
-function measure(el: HTMLElement, theater: boolean): CompRect {
+/** Box geometry in physical pixels (what the native mpv layer wants). The preview
+ * box is rounded 12px in both mini and theater (the theater frame CSS handles the
+ * padded layout); only true fullscreen squares it off. */
+function measure(el: HTMLElement): CompRect {
   const r = el.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
   return {
@@ -17,7 +18,7 @@ function measure(el: HTMLElement, theater: boolean): CompRect {
     y: Math.round(r.top * dpr),
     w: Math.round(r.width * dpr),
     h: Math.round(r.height * dpr),
-    radius: theater ? 0 : Math.round(12 * dpr),
+    radius: Math.round(12 * dpr),
   };
 }
 
@@ -31,17 +32,11 @@ function measure(el: HTMLElement, theater: boolean): CompRect {
 export function CompositionPreview({
   url,
   meta,
-  theater,
 }: {
   url: string;
   meta: TheaterMeta;
-  theater: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  // Live theater flag for the rAF loop, so toggling it re-rects (rounds/squares
-  // + resizes) without re-running the effect (which would tear the layer down).
-  const theaterRef = useRef(theater);
-  theaterRef.current = theater;
 
   useEffect(() => {
     const el = ref.current;
@@ -50,7 +45,7 @@ export function CompositionPreview({
     let opened = false;
     let last = "";
     const tick = () => {
-      const rect = measure(el, theaterRef.current);
+      const rect = measure(el);
       const key = `${rect.x},${rect.y},${rect.w},${rect.h},${rect.radius}`;
       if (rect.w > 0 && rect.h > 0 && key !== last) {
         last = key;
@@ -72,15 +67,9 @@ export function CompositionPreview({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url]);
 
-  // In theater the box fills the viewport; the rAF picks up the new rect and the
-  // native layer (+ overlay, which then shows full chrome) resizes to match.
+  // The native layer follows this box; the theater frame layout is driven by the
+  // parent .live-screen--theater CSS, which the rAF picks up automatically.
   return (
-    <div
-      ref={ref}
-      className={
-        "now-playing__art" + (theater ? " comp-preview--theater" : "")
-      }
-      style={{ background: "#000" }}
-    />
+    <div ref={ref} className="now-playing__art" style={{ background: "#000" }} />
   );
 }
