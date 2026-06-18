@@ -659,31 +659,32 @@ img {
 /* Framed player: clears the nav up top, a slim margin on the other three
  * sides. The frame holds the controls overlay and positioning; rounding the
  * picture is handled on the video element below. */
+/* The framed player is a centered 16:9 box (largest that fits below the nav with
+ * 25px padding), so the native mpv layer fills it edge-to-edge — no letterbox
+ * bars — and its rounded corners land on the picture itself. */
 .live-screen--theater .now-playing__preview {
   position: fixed;
-  top: calc(var(--header-zone) + 8px);
-  left: 10px;
-  width: calc(100vw - 20px);
-  height: calc(100vh - var(--header-zone) - 18px);
-  transform: none;
-  aspect-ratio: auto;
+  top: calc(var(--header-zone) + 25px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(
+    calc(100vw - 50px),
+    calc((100vh - var(--header-zone) - 50px) * 16 / 9)
+  );
+  height: auto;
+  aspect-ratio: 16 / 9;
   z-index: 45;
   border: none;
   border-radius: 12px;
   overflow: hidden;
 }
 
-/* Round the picture itself: size the video element to a centered 16:9 box (the
- * largest that fits the frame) so border-radius lands on the video, not on the
- * letterbox bars. The frame is untouched. */
+/* The frame is already 16:9, so the picture just fills it. */
 .live-screen--theater .player__video {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: min(100%, calc((100vh - var(--header-zone) - 18px) * 16 / 9));
-  height: auto;
-  aspect-ratio: 16 / 9;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   border-radius: 12px;
 }
 
