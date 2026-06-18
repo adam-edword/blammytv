@@ -12,6 +12,7 @@ import {
   SkipFwdIcon,
   FullscreenIcon,
   ExitFullscreenIcon,
+  PopoutIcon,
 } from "./icons";
 
 /** True when the overlay fills (nearly) the whole monitor — i.e. fullscreen. */
@@ -28,6 +29,7 @@ interface OverlayApi {
   collapse?: () => void; // theater → mini
   fullscreen?: () => void; // theater → fullscreen
   exitFullscreen?: () => void; // fullscreen → theater
+  popout?: () => void; // pop into mpv's own floating window
   setMouseIgnore: (ignore: boolean) => void;
   getMeta: () => Promise<TheaterMeta | null>;
   onMeta: (cb: (meta: TheaterMeta | null) => void) => () => void;
@@ -201,6 +203,15 @@ export function TheaterOverlay() {
     <div className={"theater-overlay" + (active ? " player--active" : "")}>
       {loading && <LoadingGlyph />}
       <div className="theater-topright" data-interactive>
+        <button
+          className="player__theater-exit"
+          type="button"
+          aria-label="Pop out"
+          data-interactive
+          onClick={() => api?.popout?.()}
+        >
+          <PopoutIcon size={20} />
+        </button>
         <button
           className="player__theater-exit"
           type="button"

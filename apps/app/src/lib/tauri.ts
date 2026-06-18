@@ -88,6 +88,12 @@ export const onCompFullscreen = (cb: () => void) =>
 /** Fired when fullscreen is exited (back to theater). */
 export const onCompExitFullscreen = (cb: () => void) =>
   onCompEvent("comp-exit-fullscreen", cb);
+/** Fired when the overlay's popout button is pressed. */
+export const onCompPopout = (cb: () => void) => onCompEvent("comp-popout", cb);
+
+/** Tear down the composition player and play in mpv's own floating window (PiP). */
+export const tauriCompPopout = (url: string) =>
+  invoke("comp_popout", { url }) as Promise<void>;
 
 /** Take the OS window in/out of true fullscreen (over the taskbar/nav). */
 export const tauriSetFullscreen = (on: boolean) =>

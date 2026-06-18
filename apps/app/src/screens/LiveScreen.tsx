@@ -15,6 +15,8 @@ import {
   onCompCollapse,
   onCompFullscreen,
   onCompExitFullscreen,
+  onCompPopout,
+  tauriCompPopout,
   tauriSetFullscreen,
 } from "../lib/tauri";
 
@@ -200,6 +202,17 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
     [],
   );
   useEffect(() => onCompExitFullscreen(leaveFullscreen), []);
+  // Pop the current stream into mpv's own floating window; close the in-app player.
+  useEffect(
+    () =>
+      onCompPopout(() => {
+        void tauriCompPopout(streamUrlRef.current).catch(() => {});
+        setPlayingId(null);
+        setTheater(false);
+        leaveFullscreen();
+      }),
+    [],
+  );
 
   // Hovering a guide row previews that channel's current programme in the hero
   // text — the player keeps streaming whatever it was already playing.
@@ -216,6 +229,9 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
   // selected/featured channel.
   const restChannel = playingChannel ?? heroChannel;
   const restProgram = playingChannel ? playingProgram : heroProgram;
+  // Live stream URL for native-overlay actions (popout) fired from static effects.
+  const streamUrlRef = useRef("");
+  streamUrlRef.current = (playingChannel ?? heroChannel)?.streamUrl ?? "";
   const textChannel = hoverChannel ?? restChannel;
   const textProgram = hoverChannel ? hoverProgram : restProgram;
   const sourceName = live.groups.find(

@@ -150,6 +150,24 @@ fn comp_set_rect(
     }
 }
 
+// Pop out: tear down the in-app composition player, then play in mpv's own
+// floating window (PiP with mpv's OSC), like the old desktop popout.
+#[tauri::command]
+fn comp_popout(window: tauri::WebviewWindow, url: String) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        let (tx, rx) = std::sync::mpsc::channel();
+        window
+            .run_on_main_thread(move || {
+                comp::close_theater();
+                let _ = tx.send(());
+            })
+            .map_err(|e| e.to_string())?;
+        rx.recv().map_err(|e| e.to_string())?;
+    }
+    mpv::play(&url)
+}
+
 // Tear down the native composition player (mpv + overlay) and free the HWND.
 #[tauri::command]
 fn comp_stop(window: tauri::WebviewWindow) -> Result<(), String> {
@@ -219,7 +237,8 @@ pub fn run() {
             comp_mpv_child,
             comp_theater,
             comp_set_rect,
-            comp_stop
+            comp_stop,
+            comp_popout
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
