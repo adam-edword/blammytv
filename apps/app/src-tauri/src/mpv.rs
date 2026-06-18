@@ -17,6 +17,8 @@ type FnSetOptionString = unsafe extern "C" fn(Handle, *const c_char, *const c_ch
 type FnInitialize = unsafe extern "C" fn(Handle) -> c_int;
 type FnCommand = unsafe extern "C" fn(Handle, *const *const c_char) -> c_int;
 type FnSetPropertyString = unsafe extern "C" fn(Handle, *const c_char, *const c_char) -> c_int;
+type FnGetPropertyString = unsafe extern "C" fn(Handle, *const c_char) -> *mut c_char;
+type FnFree = unsafe extern "C" fn(*mut c_void);
 type FnTerminateDestroy = unsafe extern "C" fn(Handle);
 
 struct Lib {
@@ -25,6 +27,8 @@ struct Lib {
     initialize: FnInitialize,
     command: FnCommand,
     set_property_string: FnSetPropertyString,
+    get_property_string: FnGetPropertyString,
+    free: FnFree,
     terminate_destroy: FnTerminateDestroy,
 }
 // The function pointers are plain C functions; access is serialized via the
@@ -59,6 +63,10 @@ fn lib() -> Result<&'static Lib, String> {
             set_property_string: std::mem::transmute::<_, FnSetPropertyString>(
                 sym(b"mpv_set_property_string\0")?,
             ),
+            get_property_string: std::mem::transmute::<_, FnGetPropertyString>(
+                sym(b"mpv_get_property_string\0")?,
+            ),
+            free: std::mem::transmute::<_, FnFree>(sym(b"mpv_free\0")?),
             terminate_destroy: std::mem::transmute::<_, FnTerminateDestroy>(
                 sym(b"mpv_terminate_destroy\0")?,
             ),
@@ -211,4 +219,47 @@ pub fn stop() {
     if let (Some(p), Some(l)) = (PLAYER.lock().unwrap().take(), LIB.get()) {
         unsafe { (l.terminate_destroy)(p.0) };
     }
+}
+
+/// Read an mpv property as a string (via the player mutex, so it's safe against
+/// stop()/terminate). Returns None if no player or the property is empty/unset.
+pub fn get_property(name: &str) -> Option<String> {
+    let g = PLAYER.lock().unwrap();
+    let (p, l) = (g.as_ref()?, LIB.get()?);
+    unsafe {
+        let cname = CString::new(name).ok()?;
+        let ptr = (l.get_property_string)(p.0, cname.as_ptr());
+        if ptr.is_null() {
+            return None;
+        }
+        let s = std::ffi::CStr::from_ptr(ptr).to_string_lossy().into_owned();
+        (l.free)(ptr as *mut c_void);
+        if s.is_empty() {
+            None
+        } else {
+            Some(s)
+        }
+    }
+}
+
+/// Log the actual colour pipeline — to settle whether the theater/fullscreen
+/// brightness difference is HDR (source gamma/primaries vs what mpv outputs).
+pub fn log_color_diag(tag: &str) {
+    let props = [
+        "video-params/gamma",      // pq/hlg = HDR source, bt.1886/etc = SDR
+        "video-params/primaries",  // bt.2020 = wide gamut
+        "video-params/sig-peak",   // >1 = HDR source
+        "target-trc",              // what mpv outputs to
+        "target-prim",
+        "target-peak",
+        "current-vo",
+        "dwidth",
+        "dheight",
+    ];
+    let mut out = String::new();
+    for p in props {
+        let v = get_property(p).unwrap_or_else(|| "?".into());
+        out.push_str(&format!("{p}={v}  "));
+    }
+    log::info!("[color-diag {tag}] {out}");
 }

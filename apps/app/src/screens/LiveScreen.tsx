@@ -16,6 +16,7 @@ import {
   onCompFullscreen,
   onCompExitFullscreen,
   tauriSetFullscreen,
+  tauriMpvColorDiag,
 } from "../lib/tauri";
 
 // Resizable source panel. Dragged below CAT_COLLAPSE_AT it snaps to a narrow
@@ -196,10 +197,19 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
       onCompFullscreen(() => {
         setFullscreen(true);
         tauriSetFullscreen(true);
+        // Log the colour pipeline a beat after the swapchain goes fullscreen.
+        window.setTimeout(() => void tauriMpvColorDiag("fullscreen"), 1500);
       }),
     [],
   );
-  useEffect(() => onCompExitFullscreen(leaveFullscreen), []);
+  useEffect(
+    () =>
+      onCompExitFullscreen(() => {
+        leaveFullscreen();
+        window.setTimeout(() => void tauriMpvColorDiag("windowed"), 1500);
+      }),
+    [],
+  );
 
   // Hovering a guide row previews that channel's current programme in the hero
   // text — the player keeps streaming whatever it was already playing.

@@ -31,6 +31,12 @@ fn mpv_stop() {
     mpv::stop();
 }
 
+// Log the mpv colour pipeline (HDR diagnosis); tag distinguishes theater vs fullscreen.
+#[tauri::command]
+fn mpv_color_diag(tag: String) {
+    mpv::log_color_diag(&tag);
+}
+
 // Telly-way composition spike, Step 1: composite a semi-transparent blue GPU
 // layer over the window via DirectComposition. Runs on the UI thread.
 #[tauri::command]
@@ -199,6 +205,7 @@ pub fn run() {
             mpv_play,
             mpv_set_pause,
             mpv_stop,
+            mpv_color_diag,
             comp_color_test,
             comp_webview_test,
             comp_mpv_child,
