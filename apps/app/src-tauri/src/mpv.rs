@@ -81,6 +81,53 @@ struct Player(Handle);
 unsafe impl Send for Player {}
 
 static PLAYER: Mutex<Option<Player>> = Mutex::new(None);
+// The popout PiP runs as its OWN mpv instance, separate from the composition
+// PLAYER — so tearing down the in-app player (close_theater/stop) can't kill it.
+static POPOUT: Mutex<Option<Player>> = Mutex::new(None);
+
+/// Play in mpv's own floating window (PiP): on-top, half-size, separate instance.
+pub fn play_popout(url: &str) -> Result<(), String> {
+    let l = lib()?;
+    stop_popout();
+    unsafe {
+        let h = (l.create)();
+        if h.is_null() {
+            return Err("mpv_create failed".into());
+        }
+        let set = |k: &str, v: &str| {
+            let (ck, cv) = (CString::new(k).unwrap(), CString::new(v).unwrap());
+            (l.set_option_string)(h, ck.as_ptr(), cv.as_ptr());
+        };
+        set("force-window", "yes");
+        // Float above the app at a sensible size, else it opens behind BlammyTV.
+        set("ontop", "yes");
+        set("autofit", "50%");
+        set("hwdec", "auto-safe");
+        set("audio-channels", "stereo");
+        set("title", "BlammyTV — Popout");
+        set("osc", "yes");
+        set("terminal", "no");
+        if (l.initialize)(h) < 0 {
+            (l.terminate_destroy)(h);
+            return Err("mpv_initialize failed".into());
+        }
+        let load = CString::new("loadfile").unwrap();
+        let curl = CString::new(url).map_err(|_| "url has a null byte")?;
+        let args = [load.as_ptr(), curl.as_ptr(), std::ptr::null()];
+        if (l.command)(h, args.as_ptr()) < 0 {
+            (l.terminate_destroy)(h);
+            return Err("loadfile failed".into());
+        }
+        *POPOUT.lock().unwrap() = Some(Player(h));
+    }
+    Ok(())
+}
+
+pub fn stop_popout() {
+    if let (Some(p), Some(l)) = (POPOUT.lock().unwrap().take(), LIB.get()) {
+        unsafe { (l.terminate_destroy)(p.0) };
+    }
+}
 
 pub fn play(url: &str) -> Result<(), String> {
     let l = lib()?;

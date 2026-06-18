@@ -165,10 +165,9 @@ fn comp_popout(window: tauri::WebviewWindow, url: String) -> Result<(), String> 
             .map_err(|e| e.to_string())?;
         rx.recv().map_err(|e| e.to_string())?;
     }
-    log::info!("[popout] play url (len {}): {}", url.len(), url);
-    let r = mpv::play(&url);
-    log::info!("[popout] play result: {:?}", r);
-    r
+    // Own mpv instance so the composition teardown (fired by the React unmount)
+    // can't terminate it.
+    mpv::play_popout(&url)
 }
 
 // Tear down the native composition player (mpv + overlay) and free the HWND.
