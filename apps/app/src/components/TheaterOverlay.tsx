@@ -88,11 +88,24 @@ export function TheaterOverlay() {
       }
       if (e.key === " ") togglePlay();
     };
+    // YouTube-style: hide the chrome the instant the cursor leaves the player
+    // (the forwarded WM_MOUSELEAVE fires a leave on the document root).
+    const onLeave = () => {
+      window.clearTimeout(idleRef.current);
+      setActive(false);
+    };
+    const onOut = (e: MouseEvent) => {
+      if (!e.relatedTarget) onLeave();
+    };
     document.addEventListener("mousemove", onMove);
     document.addEventListener("keydown", onKey);
+    document.addEventListener("mouseout", onOut);
+    document.documentElement.addEventListener("mouseleave", onLeave);
     return () => {
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("keydown", onKey);
+      document.removeEventListener("mouseout", onOut);
+      document.documentElement.removeEventListener("mouseleave", onLeave);
       window.clearTimeout(idleRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
