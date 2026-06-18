@@ -72,16 +72,10 @@ export function CompositionPreview({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url]);
 
-  // The native layer follows this box; theater layout comes from the parent
-  // .live-screen--theater CSS, fullscreen from the class here — the rAF picks up
-  // either automatically.
+  // The native layer follows this box; theater + fullscreen layout both come from
+  // the parent .live-screen--theater / --fullscreen CSS, which the rAF picks up.
+  // (The `fullscreen` prop only drives the corner radius via measure().)
   return (
-    <div
-      ref={ref}
-      className={
-        "now-playing__art" + (fullscreen ? " comp-preview--fullscreen" : "")
-      }
-      style={{ background: "#000" }}
-    />
+    <div ref={ref} className="now-playing__art" style={{ background: "#000" }} />
   );
 }

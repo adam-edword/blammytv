@@ -224,7 +224,11 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
 
   return (
     <div
-      className={"live-screen" + (inTheater ? " live-screen--theater" : "")}
+      className={
+        "live-screen" +
+        (inTheater ? " live-screen--theater" : "") +
+        (fullscreen ? " live-screen--fullscreen" : "")
+      }
       style={{ "--categories-w": `${panelWidth}px` } as CSSProperties}
     >
       <CategorySidebar

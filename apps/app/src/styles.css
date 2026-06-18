@@ -701,6 +701,25 @@ img {
   border-radius: 12px;
 }
 
+/* True fullscreen: the frame covers the whole viewport, square, over everything.
+ * (No transform here — a transformed ancestor would trap fixed children.) */
+.live-screen--fullscreen .now-playing__preview {
+  position: fixed;
+  inset: 0;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  max-width: none;
+  transform: none;
+  aspect-ratio: auto;
+  border-radius: 0;
+  z-index: 200;
+}
+.live-screen--fullscreen .player__video {
+  border-radius: 0;
+}
+
 /* True fullscreen: the player element fills the screen, so size the picture to
  * the whole screen (no nav-gap reservation) and drop the rounded corners. */
 .player:fullscreen .player__video {
@@ -3188,14 +3207,6 @@ body.is-overlay {
 }
 .mini-overlay:hover .mini-overlay__close {
   opacity: 1;
-}
-
-/* True fullscreen: the composition box covers the whole viewport, square corners. */
-.comp-preview--fullscreen {
-  position: fixed;
-  inset: 0;
-  z-index: 200;
-  border-radius: 0;
 }
 
 /* Dev fps readout (top-right) while measuring the 4K canvas pipeline. */
