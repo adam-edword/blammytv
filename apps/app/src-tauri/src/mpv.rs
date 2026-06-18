@@ -139,6 +139,11 @@ pub fn play_wid(url: &str, wid: isize, composited: bool) -> Result<(), String> {
         };
         set("wid", &wid.to_string());
         set("hwdec", "auto-safe");
+        // Pass the source's HDR colorspace through to the swapchain so windowed
+        // (theater) output matches fullscreen — otherwise mpv tone-maps HDR→SDR
+        // only while windowed, making theater look dim. (Confirmed HDR source:
+        // pq / bt.2020 / sig-peak ~4.9.)
+        set("target-colorspace-hint", "yes");
         if composited {
             // Present through DWM (bitblt) so the DComp webview can composite over it.
             set("d3d11-flip", "no");
