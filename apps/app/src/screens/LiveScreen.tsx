@@ -206,7 +206,9 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
   useEffect(
     () =>
       onCompPopout(() => {
-        void tauriCompPopout(streamUrlRef.current).catch(() => {});
+        void tauriCompPopout(streamUrlRef.current).catch((e) =>
+          window.alert("popout failed: " + e),
+        );
         setPlayingId(null);
         setTheater(false);
         leaveFullscreen();

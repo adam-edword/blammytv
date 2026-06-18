@@ -165,7 +165,10 @@ fn comp_popout(window: tauri::WebviewWindow, url: String) -> Result<(), String> 
             .map_err(|e| e.to_string())?;
         rx.recv().map_err(|e| e.to_string())?;
     }
-    mpv::play(&url)
+    log::info!("[popout] play url (len {}): {}", url.len(), url);
+    let r = mpv::play(&url);
+    log::info!("[popout] play result: {:?}", r);
+    r
 }
 
 // Tear down the native composition player (mpv + overlay) and free the HWND.
