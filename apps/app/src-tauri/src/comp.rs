@@ -79,6 +79,8 @@ const OVERLAY_BRIDGE_JS: &str = r#"(function(){
     seek:function(d){post({type:'seek',delta:d});},
     expand:function(){post({type:'expand'});},
     collapse:function(){post({type:'collapse'});},
+    fullscreen:function(){post({type:'fullscreen'});},
+    exitFullscreen:function(){post({type:'exitFullscreen'});},
     setMouseIgnore:function(ig){post({type:'setMouseIgnore',ignore:!!ig});},
     getMeta:function(){return Promise.resolve(lastMeta);},
     onMeta:function(cb){metaCbs.push(cb);return function(){metaCbs=metaCbs.filter(function(x){return x!==cb;});};}
@@ -761,6 +763,12 @@ pub fn theater(
                                                 Some("expand") => crate::emit_comp("comp-expand"),
                                                 Some("collapse") => {
                                                     crate::emit_comp("comp-collapse")
+                                                }
+                                                Some("fullscreen") => {
+                                                    crate::emit_comp("comp-fullscreen")
+                                                }
+                                                Some("exitFullscreen") => {
+                                                    crate::emit_comp("comp-exit-fullscreen")
                                                 }
                                                 Some("close") => {
                                                     // Stop video and drop back to the guide. Hide

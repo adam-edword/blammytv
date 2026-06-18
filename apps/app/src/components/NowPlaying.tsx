@@ -15,6 +15,7 @@ export function NowPlaying({
   streamUrl,
   sourceName,
   theater,
+  fullscreen,
   onPlay,
   onStop,
   onToggleTheater,
@@ -30,6 +31,7 @@ export function NowPlaying({
   streamUrl: string;
   sourceName?: string;
   theater: boolean;
+  fullscreen: boolean;
   onPlay: () => void;
   onStop: () => void;
   onToggleTheater: () => void;
@@ -63,7 +65,11 @@ export function NowPlaying({
           isTauri() ? (
             // On Tauri the in-page <video> can't play IPTV streams — render the
             // native composition player (mpv) into the preview box instead.
-            <CompositionPreview url={streamUrl} meta={meta} />
+            <CompositionPreview
+              url={streamUrl}
+              meta={meta}
+              fullscreen={fullscreen}
+            />
           ) : (
             <Player
               url={streamUrl}

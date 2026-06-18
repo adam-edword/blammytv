@@ -8,7 +8,12 @@ import {
   CloseIcon,
   SkipBackIcon,
   SkipFwdIcon,
+  FullscreenIcon,
+  ExitFullscreenIcon,
 } from "./icons";
+
+/** True when the overlay fills (nearly) the whole monitor — i.e. fullscreen. */
+const atFullscreen = () => window.innerWidth >= window.screen.width * 0.95;
 
 /** Bridge exposed by overlay-preload.cjs (native theater window). */
 interface OverlayApi {
@@ -17,8 +22,10 @@ interface OverlayApi {
   setMute: (muted: boolean) => void;
   setVolume: (vol: number) => void; // 0..100 (mpv scale)
   seek: (delta: number) => void;
-  expand?: () => void; // mini → theater (fullscreen)
+  expand?: () => void; // mini → theater
   collapse?: () => void; // theater → mini
+  fullscreen?: () => void; // theater → fullscreen
+  exitFullscreen?: () => void; // fullscreen → theater
   setMouseIgnore: (ignore: boolean) => void;
   getMeta: () => Promise<TheaterMeta | null>;
   onMeta: (cb: (meta: TheaterMeta | null) => void) => () => void;
@@ -42,8 +49,12 @@ export function TheaterOverlay() {
   // The overlay fills the layer rect; when small it's the in-app preview box
   // (render mini: just ✕ + click-to-expand), when large it's theater mode.
   const [mini, setMini] = useState(() => window.innerWidth < 1000);
+  const [fs, setFs] = useState(atFullscreen);
   useEffect(() => {
-    const f = () => setMini(window.innerWidth < 1000);
+    const f = () => {
+      setMini(window.innerWidth < 1000);
+      setFs(atFullscreen());
+    };
     window.addEventListener("resize", f);
     return () => window.removeEventListener("resize", f);
   }, []);
@@ -81,9 +92,10 @@ export function TheaterOverlay() {
       setIgnore(!(el && el.closest("[data-interactive]")));
     };
     const onKey = (e: KeyboardEvent) => {
-      // Escape exits theater (collapse to mini); only stops from the mini ✕.
+      // Escape steps back one level: fullscreen → theater → mini.
       if (e.key === "Escape") {
-        if (api?.collapse) api.collapse();
+        if (atFullscreen()) api?.exitFullscreen?.();
+        else if (api?.collapse) api.collapse();
         else api?.close();
       }
       if (e.key === " ") togglePlay();
@@ -153,15 +165,32 @@ export function TheaterOverlay() {
 
   return (
     <div className={"theater-overlay" + (active ? " player--active" : "")}>
-      <button
-        className="player__theater-exit"
-        type="button"
-        aria-label="Exit theater"
-        data-interactive
-        onClick={() => (api?.collapse ? api.collapse() : api?.close())}
-      >
-        <CloseIcon size={20} />
-      </button>
+      <div className="theater-topright" data-interactive>
+        <button
+          className="player__theater-exit"
+          type="button"
+          aria-label={fs ? "Exit fullscreen" : "Fullscreen"}
+          data-interactive
+          onClick={() => (fs ? api?.exitFullscreen?.() : api?.fullscreen?.())}
+        >
+          {fs ? <ExitFullscreenIcon size={20} /> : <FullscreenIcon size={20} />}
+        </button>
+        <button
+          className="player__theater-exit"
+          type="button"
+          aria-label={fs ? "Exit fullscreen" : "Exit theater"}
+          data-interactive
+          onClick={() =>
+            fs
+              ? api?.exitFullscreen?.()
+              : api?.collapse
+                ? api.collapse()
+                : api?.close()
+          }
+        >
+          <CloseIcon size={20} />
+        </button>
+      </div>
 
       <div className="theater-bar" data-interactive>
         {meta && (

@@ -9,7 +9,14 @@ import {
 import { EpgGuide } from "../components/EpgGuide";
 import { isLiveNow } from "../lib/epg";
 import { isDesktop, popoutPlay } from "../lib/desktop";
-import { onCompClosed, onCompExpand, onCompCollapse } from "../lib/tauri";
+import {
+  onCompClosed,
+  onCompExpand,
+  onCompCollapse,
+  onCompFullscreen,
+  onCompExitFullscreen,
+  tauriSetFullscreen,
+} from "../lib/tauri";
 
 // Resizable source panel. Dragged below CAT_COLLAPSE_AT it snaps to a narrow
 // emoji rail. Width is remembered per device.
@@ -159,17 +166,40 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
   };
 
   // Tauri: mirror the native overlay's actions in React. ✕ stops (back to guide);
-  // clicking the mini preview expands to theater; theater ✕/Esc collapses to mini.
+  // mini click expands to theater; theater ✕ collapses to mini; the fullscreen
+  // button takes the OS window edge-to-edge, exit steps back to theater.
+  const [fullscreen, setFullscreen] = useState(false);
+  const leaveFullscreen = () => {
+    setFullscreen(false);
+    tauriSetFullscreen(false);
+  };
   useEffect(
     () =>
       onCompClosed(() => {
         setPlayingId(null);
         setTheater(false);
+        leaveFullscreen();
       }),
     [],
   );
   useEffect(() => onCompExpand(() => setTheater(true)), []);
-  useEffect(() => onCompCollapse(() => setTheater(false)), []);
+  useEffect(
+    () =>
+      onCompCollapse(() => {
+        setTheater(false);
+        leaveFullscreen();
+      }),
+    [],
+  );
+  useEffect(
+    () =>
+      onCompFullscreen(() => {
+        setFullscreen(true);
+        tauriSetFullscreen(true);
+      }),
+    [],
+  );
+  useEffect(() => onCompExitFullscreen(leaveFullscreen), []);
 
   // Hovering a guide row previews that channel's current programme in the hero
   // text — the player keeps streaming whatever it was already playing.
@@ -227,10 +257,12 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
             streamUrl={(playingChannel ?? heroChannel).streamUrl}
             sourceName={sourceName}
             theater={inTheater}
+            fullscreen={fullscreen}
             onPlay={() => setPlayingId(heroChannel.id)}
             onStop={() => {
               setPlayingId(null);
               setTheater(false);
+              leaveFullscreen();
             }}
             onToggleTheater={() => setTheater((t) => !t)}
             onPopout={isDesktop() ? popout : undefined}

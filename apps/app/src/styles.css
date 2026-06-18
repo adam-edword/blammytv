@@ -629,6 +629,19 @@ img {
   background: rgba(0, 0, 0, 0.7);
 }
 
+/* Top-right cluster: fullscreen toggle + exit, fading with the rest of the chrome. */
+.theater-topright {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  z-index: 3;
+  display: flex;
+  gap: 10px;
+}
+.theater-topright .player__theater-exit {
+  position: static;
+}
+
 /* ---------- Theater mode ----------
  * Everything EPG hides, the page goes black, and the player floats as the
  * largest 16:9 box that fits. The <video> element never unmounts, so playback
@@ -3175,6 +3188,14 @@ body.is-overlay {
 }
 .mini-overlay:hover .mini-overlay__close {
   opacity: 1;
+}
+
+/* True fullscreen: the composition box covers the whole viewport, square corners. */
+.comp-preview--fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  border-radius: 0;
 }
 
 /* Dev fps readout (top-right) while measuring the 4K canvas pipeline. */

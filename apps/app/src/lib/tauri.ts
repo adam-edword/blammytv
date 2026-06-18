@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 /** A rectangle in physical pixels — where the native mpv layer should sit. */
 export interface CompRect {
@@ -78,3 +79,15 @@ export const onCompExpand = (cb: () => void) => onCompEvent("comp-expand", cb);
 /** Fired when theater is exited — collapse back to the mini preview. */
 export const onCompCollapse = (cb: () => void) =>
   onCompEvent("comp-collapse", cb);
+/** Fired when the overlay's fullscreen button is pressed (enter fullscreen). */
+export const onCompFullscreen = (cb: () => void) =>
+  onCompEvent("comp-fullscreen", cb);
+/** Fired when fullscreen is exited (back to theater). */
+export const onCompExitFullscreen = (cb: () => void) =>
+  onCompEvent("comp-exit-fullscreen", cb);
+
+/** Take the OS window in/out of true fullscreen (over the taskbar/nav). */
+export const tauriSetFullscreen = (on: boolean) =>
+  void getCurrentWindow()
+    .setFullscreen(on)
+    .catch(() => {});
