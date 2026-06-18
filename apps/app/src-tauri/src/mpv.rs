@@ -265,30 +265,25 @@ fn log_swapchain_lines(tag: &str) {
     let Ok(text) = std::fs::read_to_string(mpv_log_path()) else {
         return;
     };
-    let keys = [
-        "swapchain",
-        "colorspace",
-        "color space",
-        "hdr",
-        "pq",
-        "bt.2020",
-        "scrgb",
-        "rgba16",
-        "10 bit",
-        "10-bit",
-        "dxgi",
-        "tone",
-        "peak",
-    ];
+    // Target the d3d11 swapchain/colorspace decision; exclude libplacebo shader
+    // source (which spams "pq"/"tone"/"peak" from GLSL, not actual output state).
     let hits: Vec<&str> = text
         .lines()
         .filter(|l| {
             let low = l.to_lowercase();
-            keys.iter().any(|k| low.contains(k))
+            if low.contains("libplacebo") {
+                return false;
+            }
+            low.contains("swapchain")
+                || low.contains("dxgi")
+                || low.contains("scrgb")
+                || low.contains("hdr10")
+                || low.contains("color space")
+                || (low.contains("d3d11") && (low.contains("color") || low.contains("hdr")))
         })
         .collect();
     // Last few are the most recent (current window state).
-    for l in hits.iter().rev().take(8).rev() {
+    for l in hits.iter().rev().take(6).rev() {
         log::info!("[swapchain {tag}] {l}");
     }
     if hits.is_empty() {
