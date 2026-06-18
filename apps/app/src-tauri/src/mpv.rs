@@ -144,6 +144,11 @@ pub fn play_wid(url: &str, wid: isize, composited: bool) -> Result<(), String> {
         // only while windowed, making theater look dim. (Confirmed HDR source:
         // pq / bt.2020 / sig-peak ~4.9.)
         set("target-colorspace-hint", "yes");
+        // Verbose log to a file so we can read the ACTUAL swapchain colorspace mpv
+        // picks (windowed vs fullscreen) instead of guessing — target-trc reads
+        // "auto" and doesn't reveal the resolved output.
+        set("log-file", &mpv_log_path());
+        set("msg-level", "vo=v");
         if composited {
             // Present through DWM (bitblt) so the DComp webview can composite over it.
             set("d3d11-flip", "no");
@@ -247,6 +252,50 @@ pub fn get_property(name: &str) -> Option<String> {
     }
 }
 
+fn mpv_log_path() -> String {
+    std::env::temp_dir()
+        .join("blammytv-mpv.log")
+        .to_string_lossy()
+        .into_owned()
+}
+
+/// Surface the swapchain/HDR lines mpv wrote to its log — the resolved output
+/// colorspace (windowed vs fullscreen), which the `target-*` properties hide.
+fn log_swapchain_lines(tag: &str) {
+    let Ok(text) = std::fs::read_to_string(mpv_log_path()) else {
+        return;
+    };
+    let keys = [
+        "swapchain",
+        "colorspace",
+        "color space",
+        "hdr",
+        "pq",
+        "bt.2020",
+        "scrgb",
+        "rgba16",
+        "10 bit",
+        "10-bit",
+        "dxgi",
+        "tone",
+        "peak",
+    ];
+    let hits: Vec<&str> = text
+        .lines()
+        .filter(|l| {
+            let low = l.to_lowercase();
+            keys.iter().any(|k| low.contains(k))
+        })
+        .collect();
+    // Last few are the most recent (current window state).
+    for l in hits.iter().rev().take(8).rev() {
+        log::info!("[swapchain {tag}] {l}");
+    }
+    if hits.is_empty() {
+        log::info!("[swapchain {tag}] (no swapchain/colorspace lines in mpv log)");
+    }
+}
+
 /// Log the actual colour pipeline — to settle whether the theater/fullscreen
 /// brightness difference is HDR (source gamma/primaries vs what mpv outputs).
 pub fn log_color_diag(tag: &str) {
@@ -267,4 +316,5 @@ pub fn log_color_diag(tag: &str) {
         out.push_str(&format!("{p}={v}  "));
     }
     log::info!("[color-diag {tag}] {out}");
+    log_swapchain_lines(tag);
 }
