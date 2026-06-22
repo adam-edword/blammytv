@@ -3171,6 +3171,12 @@ body.theater-mode .app-header:hover {
 body.is-overlay {
   background: transparent;
 }
+/* No text/data selection on the players (overlay chrome + in-page preview). */
+body.is-overlay,
+.now-playing__preview {
+  user-select: none;
+  -webkit-user-select: none;
+}
 .theater-overlay {
   position: fixed;
   inset: 0;

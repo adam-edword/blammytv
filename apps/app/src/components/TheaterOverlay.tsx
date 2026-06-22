@@ -253,7 +253,16 @@ export function TheaterOverlay() {
   }
 
   return (
-    <div className={"theater-overlay" + (active ? " player--active" : "")}>
+    <div
+      className={"theater-overlay" + (active ? " player--active" : "")}
+      onClick={(e) => {
+        // Click the picture (not a control) to play/pause, like YouTube.
+        if (!(e.target as Element).closest("[data-interactive]")) {
+          togglePlay();
+          wake();
+        }
+      }}
+    >
       {loading && <LoadingGlyph />}
       <div className="theater-topright" data-interactive>
         <button
