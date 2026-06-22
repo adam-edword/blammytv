@@ -234,6 +234,21 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
     window.addEventListener("keydown", f);
     return () => window.removeEventListener("keydown", f);
   }, []);
+  // Scroll over the player = volume. Only when the wheel lands on the preview box
+  // (so the EPG keeps its own scroll). Covers the case where the wheel reaches the
+  // main webview; the native child handles it when "scroll inactive windows" is on.
+  useEffect(() => {
+    if (!isTauri()) return;
+    const onWheel = (e: WheelEvent) => {
+      if (!playingRef.current) return;
+      const t = e.target as Element | null;
+      if (!t || !t.closest(".now-playing__preview")) return;
+      e.preventDefault();
+      void tauriCompKey(e.deltaY < 0 ? "ArrowUp" : "ArrowDown").catch(() => {});
+    };
+    window.addEventListener("wheel", onWheel, { passive: false });
+    return () => window.removeEventListener("wheel", onWheel);
+  }, []);
   // Pop the current stream into mpv's own floating window; close the in-app player.
   useEffect(
     () =>
