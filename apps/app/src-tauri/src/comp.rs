@@ -54,8 +54,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
     CallWindowProcW, CreateWindowExW, DefWindowProcW, SetWindowLongPtrW, SetWindowPos,
     DestroyWindow, GWLP_WNDPROC, HTCLIENT, HWND_TOP, SWP_NOACTIVATE, SWP_SHOWWINDOW,
     SW_HIDE, ShowWindow, WINDOW_EX_STYLE, WM_LBUTTONDBLCLK, WM_LBUTTONDOWN, WM_LBUTTONUP,
-    WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEMOVE, WM_NCHITTEST, WM_RBUTTONDOWN, WM_RBUTTONUP,
-    WS_CHILD, WS_VISIBLE,
+    WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCHITTEST, WM_RBUTTONDOWN,
+    WM_RBUTTONUP, WS_CHILD, WS_VISIBLE,
 };
 
 // Injected into the composition webview before navigation. Exposes the same
@@ -477,6 +477,13 @@ unsafe extern "system" fn theater_wndproc(
     // instead of us — claim the client area so we actually receive mouse messages.
     if msg == WM_NCHITTEST {
         return LRESULT(HTCLIENT as isize);
+    }
+    // Scroll over the player = volume (we only get the wheel while hovering the
+    // child, so the EPG keeps its own scroll). Route through the key handler.
+    if msg == WM_MOUSEWHEEL {
+        let delta = ((wparam.0 >> 16) & 0xFFFF) as u16 as i16;
+        post_key(if delta > 0 { "ArrowUp" } else { "ArrowDown" });
+        return LRESULT(0);
     }
     // Ask for a WM_MOUSELEAVE so we can forward a LEAVE when the cursor exits —
     // else the webview's :hover (the mini border) sticks on after the mouse leaves.
