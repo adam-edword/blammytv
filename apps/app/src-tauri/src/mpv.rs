@@ -19,7 +19,22 @@ type FnCommand = unsafe extern "C" fn(Handle, *const *const c_char) -> c_int;
 type FnSetPropertyString = unsafe extern "C" fn(Handle, *const c_char, *const c_char) -> c_int;
 type FnGetPropertyString = unsafe extern "C" fn(Handle, *const c_char) -> *mut c_char;
 type FnFree = unsafe extern "C" fn(*mut c_void);
+type FnWaitEvent = unsafe extern "C" fn(Handle, f64) -> *mut MpvEvent;
 type FnTerminateDestroy = unsafe extern "C" fn(Handle);
+
+// Just the leading field we need (matches `struct mpv_event`).
+#[repr(C)]
+struct MpvEvent {
+    event_id: c_int,
+    _error: c_int,
+    _reply_userdata: u64,
+    _data: *mut c_void,
+}
+const MPV_EVENT_SHUTDOWN: c_int = 1;
+
+// Move an mpv handle into the event-watcher thread (guarded by the POPOUT mutex).
+struct SendHandle(Handle);
+unsafe impl Send for SendHandle {}
 
 struct Lib {
     create: FnCreate,
@@ -29,6 +44,7 @@ struct Lib {
     set_property_string: FnSetPropertyString,
     get_property_string: FnGetPropertyString,
     free: FnFree,
+    wait_event: FnWaitEvent,
     terminate_destroy: FnTerminateDestroy,
 }
 // The function pointers are plain C functions; access is serialized via the
@@ -67,6 +83,7 @@ fn lib() -> Result<&'static Lib, String> {
                 sym(b"mpv_get_property_string\0")?,
             ),
             free: std::mem::transmute::<_, FnFree>(sym(b"mpv_free\0")?),
+            wait_event: std::mem::transmute::<_, FnWaitEvent>(sym(b"mpv_wait_event\0")?),
             terminate_destroy: std::mem::transmute::<_, FnTerminateDestroy>(
                 sym(b"mpv_terminate_destroy\0")?,
             ),
@@ -121,6 +138,36 @@ pub fn play_popout(url: &str) -> Result<(), String> {
             return Err("loadfile failed".into());
         }
         *POPOUT.lock().unwrap() = Some(Player(h));
+
+        // Watch the popout's events: when its window is closed (✕ / taskbar / q),
+        // mpv emits SHUTDOWN — we must terminate it, else it hangs in-process and
+        // a force-close takes the whole app down.
+        let sh = SendHandle(h);
+        std::thread::spawn(move || {
+            let h = sh.0;
+            let l = match LIB.get() {
+                Some(l) => l,
+                None => return,
+            };
+            loop {
+                let ev = unsafe { (l.wait_event)(h, -1.0) };
+                if ev.is_null() {
+                    continue;
+                }
+                if unsafe { (*ev).event_id } == MPV_EVENT_SHUTDOWN {
+                    break;
+                }
+            }
+            // Destroy only if POPOUT still holds this handle (else stop_popout
+            // already took ownership — avoid a double terminate_destroy).
+            let mut g = POPOUT.lock().unwrap();
+            let ours = g.as_ref().map(|p| p.0 as usize) == Some(h as usize);
+            let taken = if ours { g.take() } else { None };
+            drop(g);
+            if let Some(p) = taken {
+                unsafe { (l.terminate_destroy)(p.0) };
+            }
+        });
     }
     Ok(())
 }
