@@ -1,10 +1,8 @@
-// The Telly-way composition spike (Windows only).
-//
-// Step 1: prove DirectComposition can put a GPU layer over the Tauri window.
-// We make a composition swapchain, clear it to a semi-transparent blue, and show
-// it via a DComp target on the window HWND. If a blue tint appears over the app,
-// the DComp foundation works — next we swap the colour for the WebView2 visual
-// (transparent, controls) and an mpv child window beneath it.
+// The composition player (Windows only): native mpv renders into a child HWND
+// (true 4K60), and a transparent composition-hosted WebView2 (the React
+// TheaterOverlay) is composited over it via a topmost DirectComposition target —
+// one window, controls-on-video, no readback. Mouse/keyboard are forwarded in,
+// and the overlay drives mpv + window state back over a postMessage bridge.
 
 #![cfg(windows)]
 
@@ -15,20 +13,13 @@ use windows::core::Interface;
 use windows::Win32::Foundation::{HMODULE, HWND};
 use windows::Win32::Graphics::Direct3D::{D3D_DRIVER_TYPE_HARDWARE, D3D_FEATURE_LEVEL};
 use windows::Win32::Graphics::Direct3D11::{
-    D3D11CreateDevice, ID3D11Device, ID3D11DeviceContext, ID3D11RenderTargetView,
-    ID3D11Texture2D, D3D11_CREATE_DEVICE_BGRA_SUPPORT, D3D11_SDK_VERSION,
+    D3D11CreateDevice, ID3D11Device, ID3D11DeviceContext, D3D11_CREATE_DEVICE_BGRA_SUPPORT,
+    D3D11_SDK_VERSION,
 };
 use windows::Win32::Graphics::DirectComposition::{
     DCompositionCreateDevice, IDCompositionDevice, IDCompositionTarget, IDCompositionVisual,
 };
-use windows::Win32::Graphics::Dxgi::Common::{
-    DXGI_ALPHA_MODE_PREMULTIPLIED, DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_SAMPLE_DESC,
-};
-use windows::Win32::Graphics::Dxgi::{
-    CreateDXGIFactory2, IDXGIDevice, IDXGIFactory2, IDXGISwapChain1, DXGI_CREATE_FACTORY_FLAGS,
-    DXGI_PRESENT, DXGI_SCALING_STRETCH, DXGI_SWAP_CHAIN_DESC1, DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL,
-    DXGI_USAGE_RENDER_TARGET_OUTPUT,
-};
+use windows::Win32::Graphics::Dxgi::IDXGIDevice;
 use windows::core::{IUnknown, HSTRING, PCWSTR, PWSTR};
 use windows::Win32::Foundation::{E_POINTER, LPARAM, LRESULT, POINT, RECT, WPARAM};
 use webview2_com::Microsoft::Web::WebView2::Win32::{
@@ -93,284 +84,6 @@ const OVERLAY_BRIDGE_JS: &str = r#"(function(){
   };
   post({type:'ready'});
 })();"#;
-
-// Keep the COM objects alive (else the composition vanishes when they drop).
-struct Comp {
-    _device: ID3D11Device,
-    _context: ID3D11DeviceContext,
-    _swap: IDXGISwapChain1,
-    _dcomp: IDCompositionDevice,
-    _target: IDCompositionTarget,
-    _visual: IDCompositionVisual,
-}
-// Created + used only on the UI thread; the Mutex just keeps it alive.
-unsafe impl Send for Comp {}
-static COMP: Mutex<Option<Comp>> = Mutex::new(None);
-
-pub fn color_test(hwnd: isize, w: u32, h: u32) -> Result<(), String> {
-    unsafe {
-        let hwnd = HWND(hwnd as *mut c_void);
-
-        // D3D11 device (BGRA support is required for DComp).
-        let mut device: Option<ID3D11Device> = None;
-        let mut context: Option<ID3D11DeviceContext> = None;
-        let mut level = D3D_FEATURE_LEVEL::default();
-        D3D11CreateDevice(
-            None,
-            D3D_DRIVER_TYPE_HARDWARE,
-            HMODULE::default(),
-            D3D11_CREATE_DEVICE_BGRA_SUPPORT,
-            None,
-            D3D11_SDK_VERSION,
-            Some(&mut device),
-            Some(&mut level),
-            Some(&mut context),
-        )
-        .map_err(|e| format!("D3D11CreateDevice: {e}"))?;
-        let device = device.ok_or("no d3d11 device")?;
-        let context = context.ok_or("no d3d11 context")?;
-
-        let dxgi_device: IDXGIDevice =
-            device.cast().map_err(|e| format!("cast IDXGIDevice: {e}"))?;
-        let factory: IDXGIFactory2 = CreateDXGIFactory2(DXGI_CREATE_FACTORY_FLAGS(0))
-            .map_err(|e| format!("CreateDXGIFactory2: {e}"))?;
-
-        let desc = DXGI_SWAP_CHAIN_DESC1 {
-            Width: w.max(1),
-            Height: h.max(1),
-            Format: DXGI_FORMAT_B8G8R8A8_UNORM,
-            SampleDesc: DXGI_SAMPLE_DESC {
-                Count: 1,
-                Quality: 0,
-            },
-            BufferUsage: DXGI_USAGE_RENDER_TARGET_OUTPUT,
-            BufferCount: 2,
-            Scaling: DXGI_SCALING_STRETCH,
-            SwapEffect: DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL,
-            AlphaMode: DXGI_ALPHA_MODE_PREMULTIPLIED,
-            ..Default::default()
-        };
-        let swap: IDXGISwapChain1 = factory
-            .CreateSwapChainForComposition(&device, &desc, None)
-            .map_err(|e| format!("CreateSwapChainForComposition: {e}"))?;
-
-        // Clear the back buffer to semi-transparent blue and present.
-        let back: ID3D11Texture2D = swap.GetBuffer(0).map_err(|e| format!("GetBuffer: {e}"))?;
-        let mut rtv: Option<ID3D11RenderTargetView> = None;
-        device
-            .CreateRenderTargetView(&back, None, Some(&mut rtv))
-            .map_err(|e| format!("CreateRenderTargetView: {e}"))?;
-        let rtv = rtv.ok_or("no rtv")?;
-        // Premultiplied: rgb already scaled by alpha (0.5).
-        context.ClearRenderTargetView(&rtv, &[0.0, 0.2, 0.5, 0.5]);
-        swap.Present(1, DXGI_PRESENT(0))
-            .ok()
-            .map_err(|e| format!("Present: {e}"))?;
-
-        // DirectComposition: target on the HWND (topmost) → visual → swapchain.
-        let dcomp: IDCompositionDevice = DCompositionCreateDevice(&dxgi_device)
-            .map_err(|e| format!("DCompositionCreateDevice: {e}"))?;
-        let target: IDCompositionTarget = dcomp
-            .CreateTargetForHwnd(hwnd, true)
-            .map_err(|e| format!("CreateTargetForHwnd: {e}"))?;
-        let visual: IDCompositionVisual =
-            dcomp.CreateVisual().map_err(|e| format!("CreateVisual: {e}"))?;
-        visual
-            .SetContent(&swap)
-            .map_err(|e| format!("SetContent: {e}"))?;
-        target
-            .SetRoot(&visual)
-            .map_err(|e| format!("SetRoot: {e}"))?;
-        dcomp.Commit().map_err(|e| format!("Commit: {e}"))?;
-
-        *COMP.lock().unwrap() = Some(Comp {
-            _device: device,
-            _context: context,
-            _swap: swap,
-            _dcomp: dcomp,
-            _target: target,
-            _visual: visual,
-        });
-    }
-    Ok(())
-}
-
-// Step 2: a composition-hosted WebView2 (transparent) as a DComp visual, over a
-// semi-transparent blue layer. If the page floats over the blue with the blue
-// showing through its transparent areas — the Telly architecture is proven.
-struct WebState {
-    _device: ID3D11Device,
-    _context: ID3D11DeviceContext,
-    _swap: IDXGISwapChain1,
-    _dcomp: IDCompositionDevice,
-    _target: IDCompositionTarget,
-    _root: IDCompositionVisual,
-    _color: IDCompositionVisual,
-    _wv_visual: IDCompositionVisual,
-    _controller: Option<ICoreWebView2Controller>,
-}
-unsafe impl Send for WebState {}
-static WEB: Mutex<Option<WebState>> = Mutex::new(None);
-
-pub fn webview_test(hwnd: isize, w: u32, h: u32) -> Result<(), String> {
-    unsafe {
-        let hwnd = HWND(hwnd as *mut c_void);
-
-        let mut device: Option<ID3D11Device> = None;
-        let mut context: Option<ID3D11DeviceContext> = None;
-        let mut level = D3D_FEATURE_LEVEL::default();
-        D3D11CreateDevice(
-            None,
-            D3D_DRIVER_TYPE_HARDWARE,
-            HMODULE::default(),
-            D3D11_CREATE_DEVICE_BGRA_SUPPORT,
-            None,
-            D3D11_SDK_VERSION,
-            Some(&mut device),
-            Some(&mut level),
-            Some(&mut context),
-        )
-        .map_err(|e| format!("D3D11CreateDevice: {e}"))?;
-        let device = device.ok_or("no d3d11 device")?;
-        let context = context.ok_or("no d3d11 context")?;
-
-        let dxgi_device: IDXGIDevice =
-            device.cast().map_err(|e| format!("cast IDXGIDevice: {e}"))?;
-        let factory: IDXGIFactory2 = CreateDXGIFactory2(DXGI_CREATE_FACTORY_FLAGS(0))
-            .map_err(|e| format!("CreateDXGIFactory2: {e}"))?;
-
-        let desc = DXGI_SWAP_CHAIN_DESC1 {
-            Width: w.max(1),
-            Height: h.max(1),
-            Format: DXGI_FORMAT_B8G8R8A8_UNORM,
-            SampleDesc: DXGI_SAMPLE_DESC {
-                Count: 1,
-                Quality: 0,
-            },
-            BufferUsage: DXGI_USAGE_RENDER_TARGET_OUTPUT,
-            BufferCount: 2,
-            Scaling: DXGI_SCALING_STRETCH,
-            SwapEffect: DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL,
-            AlphaMode: DXGI_ALPHA_MODE_PREMULTIPLIED,
-            ..Default::default()
-        };
-        let swap: IDXGISwapChain1 = factory
-            .CreateSwapChainForComposition(&device, &desc, None)
-            .map_err(|e| format!("CreateSwapChainForComposition: {e}"))?;
-        let back: ID3D11Texture2D = swap.GetBuffer(0).map_err(|e| format!("GetBuffer: {e}"))?;
-        let mut rtv: Option<ID3D11RenderTargetView> = None;
-        device
-            .CreateRenderTargetView(&back, None, Some(&mut rtv))
-            .map_err(|e| format!("CreateRenderTargetView: {e}"))?;
-        context.ClearRenderTargetView(&rtv.ok_or("no rtv")?, &[0.0, 0.15, 0.4, 0.5]);
-        swap.Present(1, DXGI_PRESENT(0))
-            .ok()
-            .map_err(|e| format!("Present: {e}"))?;
-
-        let dcomp: IDCompositionDevice = DCompositionCreateDevice(&dxgi_device)
-            .map_err(|e| format!("DCompositionCreateDevice: {e}"))?;
-        let target: IDCompositionTarget = dcomp
-            .CreateTargetForHwnd(hwnd, true)
-            .map_err(|e| format!("CreateTargetForHwnd: {e}"))?;
-        let root: IDCompositionVisual =
-            dcomp.CreateVisual().map_err(|e| format!("root visual: {e}"))?;
-        let color: IDCompositionVisual =
-            dcomp.CreateVisual().map_err(|e| format!("color visual: {e}"))?;
-        color
-            .SetContent(&swap)
-            .map_err(|e| format!("color SetContent: {e}"))?;
-        root.AddVisual(&color, false, None)
-            .map_err(|e| format!("AddVisual color: {e}"))?;
-        let wv_visual: IDCompositionVisual =
-            dcomp.CreateVisual().map_err(|e| format!("wv visual: {e}"))?;
-        root.AddVisual(&wv_visual, true, &color)
-            .map_err(|e| format!("AddVisual wv: {e}"))?;
-        target.SetRoot(&root).map_err(|e| format!("SetRoot: {e}"))?;
-        dcomp.Commit().map_err(|e| format!("Commit: {e}"))?;
-
-        // Async: create the composition WebView2 and connect it to wv_visual.
-        let dcomp_cb = dcomp.clone();
-        let wv_visual_cb = wv_visual.clone();
-        let userdata = HSTRING::from(
-            std::env::temp_dir()
-                .join("blammytv-wv2")
-                .to_string_lossy()
-                .to_string(),
-        );
-        CreateCoreWebView2EnvironmentWithOptions(
-            PCWSTR::null(),
-            PCWSTR(userdata.as_ptr()),
-            None,
-            &CreateCoreWebView2EnvironmentCompletedHandler::create(Box::new(
-                move |_hr, env: Option<ICoreWebView2Environment>| {
-                    let env = env.ok_or_else(|| {
-                        windows::core::Error::new(E_POINTER, "no environment")
-                    })?;
-                    let env3: ICoreWebView2Environment3 = env.cast()?;
-                    let dcomp2 = dcomp_cb.clone();
-                    let wv2 = wv_visual_cb.clone();
-                    env3.CreateCoreWebView2CompositionController(
-                        hwnd,
-                        &CreateCoreWebView2CompositionControllerCompletedHandler::create(Box::new(
-                            move |_hr, ctrl: Option<ICoreWebView2CompositionController>| {
-                                let ctrl = ctrl.ok_or_else(|| {
-                                    windows::core::Error::new(E_POINTER, "no controller")
-                                })?;
-                                let unk: IUnknown = wv2.cast()?;
-                                ctrl.SetRootVisualTarget(&unk)?;
-                                let c: ICoreWebView2Controller = ctrl.cast()?;
-                                c.SetBounds(RECT {
-                                    left: 0,
-                                    top: 0,
-                                    right: w as i32,
-                                    bottom: h as i32,
-                                })?;
-                                if let Ok(c2) = ctrl.cast::<ICoreWebView2Controller2>() {
-                                    let _ = c2.SetDefaultBackgroundColor(COREWEBVIEW2_COLOR {
-                                        A: 0,
-                                        R: 0,
-                                        G: 0,
-                                        B: 0,
-                                    });
-                                }
-                                c.SetIsVisible(true)?;
-                                let wv = c.CoreWebView2()?;
-                                let html = HSTRING::from(
-                                    "<!doctype html><body style='margin:0;background:transparent'>\
-                                     <div style='margin:120px auto;width:540px;height:220px;border-radius:16px;\
-                                     background:rgba(220,30,60,0.92);color:#fff;font:700 28px sans-serif;\
-                                     display:flex;align-items:center;justify-content:center'>\
-                                     COMPOSITION WEBVIEW \u{2705}</div></body>",
-                                );
-                                wv.NavigateToString(PCWSTR(html.as_ptr()))?;
-                                let _ = dcomp2.Commit();
-                                if let Some(s) = WEB.lock().unwrap().as_mut() {
-                                    s._controller = Some(c);
-                                }
-                                Ok(())
-                            },
-                        )),
-                    )?;
-                    Ok(())
-                },
-            )),
-        )
-        .map_err(|e| format!("CreateCoreWebView2EnvironmentWithOptions: {e}"))?;
-
-        *WEB.lock().unwrap() = Some(WebState {
-            _device: device,
-            _context: context,
-            _swap: swap,
-            _dcomp: dcomp,
-            _target: target,
-            _root: root,
-            _color: color,
-            _wv_visual: wv_visual,
-            _controller: None,
-        });
-    }
-    Ok(())
-}
 
 // Step 3: native mpv in a child window, with the composition WebView2 over it.
 // mpv child HWND (true 4K60 HDR) is the bottom layer; the topmost DComp target
@@ -570,42 +283,6 @@ pub fn close_theater() {
         // `t` drops here: releases the DComp target + visuals + device + webview.
     }
     ORIG_WNDPROC.store(0, Ordering::SeqCst);
-}
-
-// Diagnostic: embed mpv in a child window only — no DComp, no webview. If video
-// appears, mpv-in-`--wid` works and the issue is purely the composition layering;
-// if the React app still shows, mpv isn't rendering into the child at all.
-pub fn mpv_child(hwnd: isize, w: u32, h: u32, url: &str) -> Result<(), String> {
-    unsafe {
-        let parent = HWND(hwnd as *mut c_void);
-        let child = CreateWindowExW(
-            WINDOW_EX_STYLE(0),
-            windows::core::w!("STATIC"),
-            windows::core::w!(""),
-            WS_CHILD | WS_VISIBLE,
-            0,
-            0,
-            w as i32,
-            h as i32,
-            Some(parent),
-            None,
-            None,
-            None,
-        )
-        .map_err(|e| format!("CreateWindowExW: {e}"))?;
-        let _ = SetWindowPos(
-            child,
-            Some(HWND_TOP),
-            0,
-            0,
-            w as i32,
-            h as i32,
-            SWP_SHOWWINDOW | SWP_NOACTIVATE,
-        );
-        crate::mpv::play_wid(url, child.0 as isize, false)?;
-        *THEATER.lock().unwrap() = None; // drop any prior composition
-    }
-    Ok(())
 }
 
 pub fn theater(

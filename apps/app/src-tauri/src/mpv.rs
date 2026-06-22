@@ -1,9 +1,8 @@
 // Minimal libmpv binding loaded at runtime from libmpv-2.dll (the same DLL the
 // Electron addon used). Runtime loading avoids build-time linking against mpv.
 //
-// Milestone 1: prove libmpv runs inside the Tauri/Rust shell by playing a stream
-// in mpv's own window (force-window). The render-into-the-webview compositing
-// comes next; this confirms the stack end-to-end.
+// Two instances: the composition PLAYER (rendered into a `--wid` child window,
+// see comp.rs) and the POPOUT PiP (mpv's own floating window).
 
 use libloading::Library;
 use std::ffi::CString;
@@ -179,42 +178,6 @@ pub fn stop_popout() {
     }
 }
 
-pub fn play(url: &str) -> Result<(), String> {
-    let l = lib()?;
-    stop();
-    unsafe {
-        let h = (l.create)();
-        if h.is_null() {
-            return Err("mpv_create failed".into());
-        }
-        let set = |k: &str, v: &str| {
-            let (ck, cv) = (CString::new(k).unwrap(), CString::new(v).unwrap());
-            (l.set_option_string)(h, ck.as_ptr(), cv.as_ptr());
-        };
-        set("force-window", "yes");
-        set("hwdec", "auto-safe");
-        // Downmix surround (AC3/E-AC3 5.1) to clean stereo for desktop output —
-        // matches the Electron path; native 5.1 on a stereo device sounds rough.
-        set("audio-channels", "stereo");
-        set("title", "BlammyTV (Tauri)");
-        set("osc", "yes");
-        set("terminal", "no");
-        if (l.initialize)(h) < 0 {
-            (l.terminate_destroy)(h);
-            return Err("mpv_initialize failed".into());
-        }
-        let load = CString::new("loadfile").unwrap();
-        let curl = CString::new(url).map_err(|_| "url has a null byte")?;
-        let args = [load.as_ptr(), curl.as_ptr(), std::ptr::null()];
-        if (l.command)(h, args.as_ptr()) < 0 {
-            (l.terminate_destroy)(h);
-            return Err("loadfile failed".into());
-        }
-        *PLAYER.lock().unwrap() = Some(Player(h));
-    }
-    Ok(())
-}
-
 /// Render into an existing child window (`--wid`) instead of mpv's own — for the
 /// Tauri composition path: native video in a child HWND, webview composited over.
 ///
@@ -342,66 +305,4 @@ pub fn get_property(name: &str) -> Option<String> {
             Some(s)
         }
     }
-}
-
-fn mpv_log_path() -> String {
-    std::env::temp_dir()
-        .join("blammytv-mpv.log")
-        .to_string_lossy()
-        .into_owned()
-}
-
-/// Surface the swapchain/HDR lines mpv wrote to its log — the resolved output
-/// colorspace (windowed vs fullscreen), which the `target-*` properties hide.
-fn log_swapchain_lines(tag: &str) {
-    let Ok(text) = std::fs::read_to_string(mpv_log_path()) else {
-        return;
-    };
-    // Target the d3d11 swapchain/colorspace decision; exclude libplacebo shader
-    // source (which spams "pq"/"tone"/"peak" from GLSL, not actual output state).
-    let hits: Vec<&str> = text
-        .lines()
-        .filter(|l| {
-            let low = l.to_lowercase();
-            if low.contains("libplacebo") {
-                return false;
-            }
-            low.contains("swapchain")
-                || low.contains("dxgi")
-                || low.contains("scrgb")
-                || low.contains("hdr10")
-                || low.contains("color space")
-                || (low.contains("d3d11") && (low.contains("color") || low.contains("hdr")))
-        })
-        .collect();
-    // Last few are the most recent (current window state).
-    for l in hits.iter().rev().take(6).rev() {
-        log::info!("[swapchain {tag}] {l}");
-    }
-    if hits.is_empty() {
-        log::info!("[swapchain {tag}] (no swapchain/colorspace lines in mpv log)");
-    }
-}
-
-/// Log the actual colour pipeline — to settle whether the theater/fullscreen
-/// brightness difference is HDR (source gamma/primaries vs what mpv outputs).
-pub fn log_color_diag(tag: &str) {
-    let props = [
-        "video-params/gamma",      // pq/hlg = HDR source, bt.1886/etc = SDR
-        "video-params/primaries",  // bt.2020 = wide gamut
-        "video-params/sig-peak",   // >1 = HDR source
-        "target-trc",              // what mpv outputs to
-        "target-prim",
-        "target-peak",
-        "current-vo",
-        "dwidth",
-        "dheight",
-    ];
-    let mut out = String::new();
-    for p in props {
-        let v = get_property(p).unwrap_or_else(|| "?".into());
-        out.push_str(&format!("{p}={v}  "));
-    }
-    log::info!("[color-diag {tag}] {out}");
-    log_swapchain_lines(tag);
 }

@@ -15,34 +15,9 @@ export interface CompRect {
 export const isTauri = (): boolean =>
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
-/** Milestone 1: play a stream in mpv's own window via the Rust shell. */
-export const tauriMpvPlay = (url: string) =>
-  invoke("mpv_play", { url }) as Promise<void>;
-export const tauriMpvSetPause = (paused: boolean) =>
-  invoke("mpv_set_pause", { paused }) as Promise<void>;
-export const tauriMpvStop = () => invoke("mpv_stop") as Promise<void>;
-/** Log mpv's colour pipeline (HDR diagnosis) tagged by window state. */
-export const tauriMpvColorDiag = (tag: string) =>
-  invoke("mpv_color_diag", { tag }) as Promise<void>;
-/** DIAGNOSTIC: log a message to the terminal. */
-export const tauriDbg = (msg: string) =>
-  invoke("dbg", { msg }) as Promise<void>;
-
 /** Forward a captured keyboard shortcut into the composition overlay. */
 export const tauriCompKey = (key: string) =>
   invoke("comp_key", { key }) as Promise<void>;
-
-/** Composition spike Step 1: composite a blue GPU layer over the window. */
-export const tauriCompColorTest = () =>
-  invoke("comp_color_test") as Promise<void>;
-
-/** Composition spike Step 2: a transparent composition WebView2 over the layer. */
-export const tauriCompWebviewTest = () =>
-  invoke("comp_webview_test") as Promise<void>;
-
-/** Diagnostic: mpv embedded in a bare child window (no DComp / webview). */
-export const tauriCompMpvChild = (url: string) =>
-  invoke("comp_mpv_child", { url }) as Promise<void>;
 
 /**
  * Open the native composition player: mpv renders into `rect` (physical px — the
