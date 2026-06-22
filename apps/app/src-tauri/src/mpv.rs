@@ -144,6 +144,7 @@ pub fn play_popout(url: &str) -> Result<(), String> {
         // a force-close takes the whole app down.
         let sh = SendHandle(h);
         std::thread::spawn(move || {
+            let sh = sh; // capture the whole (Send) wrapper, not the raw ptr field
             let h = sh.0;
             let l = match LIB.get() {
                 Some(l) => l,
