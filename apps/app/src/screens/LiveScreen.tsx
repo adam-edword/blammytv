@@ -20,7 +20,6 @@ import {
   tauriCompPopout,
   tauriSetFullscreen,
   tauriCompKey,
-  tauriDbg,
 } from "../lib/tauri";
 
 // YouTube-style shortcut keys we forward to the native overlay while playing.
@@ -241,12 +240,9 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
   useEffect(() => {
     if (!isTauri()) return;
     const onWheel = (e: WheelEvent) => {
+      if (!playingRef.current) return;
       const t = e.target as Element | null;
-      const matched = !!t?.closest(".now-playing__preview");
-      void tauriDbg(
-        `wheel react: playing=${playingRef.current} matched=${matched} target=${t?.tagName}.${(t as HTMLElement)?.className ?? ""}`,
-      ).catch(() => {});
-      if (!playingRef.current || !matched) return;
+      if (!t || !t.closest(".now-playing__preview")) return;
       e.preventDefault();
       void tauriCompKey(e.deltaY < 0 ? "ArrowUp" : "ArrowDown").catch(() => {});
     };

@@ -166,7 +166,7 @@ export function TheaterOverlay() {
   // captured by the main webview (forwarded via onKey) or hit the overlay direct.
   const handleKey = useCallback(
     (key: string) => {
-      const k = key.length === 1 ? key.toLowerCase() : key;
+      const k = key.toLowerCase();
       switch (k) {
         case " ":
         case "k":

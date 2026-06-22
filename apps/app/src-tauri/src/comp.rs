@@ -482,7 +482,6 @@ unsafe extern "system" fn theater_wndproc(
     // child, so the EPG keeps its own scroll). Route through the key handler.
     if msg == WM_MOUSEWHEEL {
         let delta = ((wparam.0 >> 16) & 0xFFFF) as u16 as i16;
-        log::info!("[dbg] wheel native: delta={delta}");
         post_key(if delta > 0 { "ArrowUp" } else { "ArrowDown" });
         return LRESULT(0);
     }
