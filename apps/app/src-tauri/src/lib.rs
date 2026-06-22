@@ -45,10 +45,21 @@ fn mpv_color_diag(tag: String) {
     mpv::log_color_diag(&tag);
 }
 
-// DIAGNOSTIC: which surface receives keys (does the React main webview get them?).
+// Forward a keyboard shortcut from the React main webview into the composition
+// overlay (which owns the player UI + mpv control).
 #[tauri::command]
-fn dbg_key(key: String) {
-    log::info!("[rkey] {key}");
+fn comp_key(window: tauri::WebviewWindow, key: String) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        window
+            .run_on_main_thread(move || comp::post_key(&key))
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (window, key);
+    }
+    Ok(())
 }
 
 // Telly-way composition spike, Step 1: composite a semi-transparent blue GPU
@@ -240,7 +251,7 @@ pub fn run() {
             mpv_set_pause,
             mpv_stop,
             mpv_color_diag,
-            dbg_key,
+            comp_key,
             comp_color_test,
             comp_webview_test,
             comp_mpv_child,

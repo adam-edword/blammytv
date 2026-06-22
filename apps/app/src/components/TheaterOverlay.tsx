@@ -35,6 +35,7 @@ interface OverlayApi {
   onMeta: (cb: (meta: TheaterMeta | null) => void) => () => void;
   getLoading?: () => boolean;
   onLoading?: (cb: (loading: boolean) => void) => () => void;
+  onKey?: (cb: (key: string) => void) => () => void;
 }
 
 /** Centered "loading" with the slot-text roll while a source buffers. */
@@ -126,15 +127,6 @@ export function TheaterOverlay() {
       const el = document.elementFromPoint(e.clientX, e.clientY);
       setIgnore(!(el && el.closest("[data-interactive]")));
     };
-    const onKey = (e: KeyboardEvent) => {
-      // Escape steps back one level: fullscreen → theater → mini.
-      if (e.key === "Escape") {
-        if (atFullscreen()) api?.exitFullscreen?.();
-        else if (api?.collapse) api.collapse();
-        else api?.close();
-      }
-      if (e.key === " ") togglePlay();
-    };
     // YouTube-style: hide the chrome the instant the cursor leaves the player
     // (the forwarded WM_MOUSELEAVE fires a leave on the document root).
     const onLeave = () => {
@@ -145,12 +137,10 @@ export function TheaterOverlay() {
       if (!e.relatedTarget) onLeave();
     };
     document.addEventListener("mousemove", onMove);
-    document.addEventListener("keydown", onKey);
     document.addEventListener("mouseout", onOut);
     document.documentElement.addEventListener("mouseleave", onLeave);
     return () => {
       document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("keydown", onKey);
       document.removeEventListener("mouseout", onOut);
       document.documentElement.removeEventListener("mouseleave", onLeave);
       window.clearTimeout(idleRef.current);
@@ -170,6 +160,69 @@ export function TheaterOverlay() {
       return next;
     });
   }, []);
+
+  // YouTube-style shortcuts. Volume/mute drive mpv via the volume effect; seek
+  // and mode changes go straight through the bridge. Runs whether the key was
+  // captured by the main webview (forwarded via onKey) or hit the overlay direct.
+  const handleKey = useCallback(
+    (key: string) => {
+      const k = key.length === 1 ? key.toLowerCase() : key;
+      switch (k) {
+        case " ":
+        case "k":
+          togglePlay();
+          break;
+        case "m":
+          setMuted((x) => !x);
+          break;
+        case "arrowup":
+          setMuted(false);
+          setVolume((v) => Math.min(1, +(v + 0.05).toFixed(2)));
+          break;
+        case "arrowdown":
+          setVolume((v) => Math.max(0, +(v - 0.05).toFixed(2)));
+          break;
+        case "arrowleft":
+          api?.seek(-5);
+          break;
+        case "arrowright":
+          api?.seek(5);
+          break;
+        case "j":
+          api?.seek(-10);
+          break;
+        case "l":
+          api?.seek(10);
+          break;
+        case "f":
+          if (atFullscreen()) api?.exitFullscreen?.();
+          else api?.fullscreen?.();
+          break;
+        case "t":
+          if (window.innerWidth < 1000) api?.expand?.();
+          else api?.collapse?.();
+          break;
+        case "escape":
+          if (atFullscreen()) api?.exitFullscreen?.();
+          else api?.collapse?.();
+          break;
+        default:
+          return;
+      }
+      wake();
+    },
+    [togglePlay, wake],
+  );
+
+  useEffect(() => {
+    const off = api?.onKey?.(handleKey);
+    const onDocKey = (e: KeyboardEvent) => handleKey(e.key);
+    document.addEventListener("keydown", onDocKey);
+    return () => {
+      off?.();
+      document.removeEventListener("keydown", onDocKey);
+    };
+  }, [handleKey]);
 
   const volPct = Math.round((muted ? 0 : volume) * 100);
 

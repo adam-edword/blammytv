@@ -49,15 +49,13 @@ use webview2_com::{
 };
 use windows::Win32::Graphics::Gdi::{CreateRoundRectRgn, SetWindowRgn};
 use windows::Win32::System::Com::CoTaskMemFree;
-use windows::Win32::UI::Input::KeyboardAndMouse::{
-    SetFocus, TrackMouseEvent, TME_LEAVE, TRACKMOUSEEVENT,
-};
+use windows::Win32::UI::Input::KeyboardAndMouse::{TrackMouseEvent, TME_LEAVE, TRACKMOUSEEVENT};
 use windows::Win32::UI::WindowsAndMessaging::{
     CallWindowProcW, CreateWindowExW, DefWindowProcW, SetWindowLongPtrW, SetWindowPos,
     DestroyWindow, GWLP_WNDPROC, HTCLIENT, HWND_TOP, SWP_NOACTIVATE, SWP_SHOWWINDOW,
     SW_HIDE, ShowWindow, WINDOW_EX_STYLE, WM_LBUTTONDBLCLK, WM_LBUTTONDOWN, WM_LBUTTONUP,
-    WM_KEYDOWN, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEMOVE, WM_NCHITTEST, WM_RBUTTONDOWN,
-    WM_RBUTTONUP, WS_CHILD, WS_VISIBLE,
+    WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEMOVE, WM_NCHITTEST, WM_RBUTTONDOWN, WM_RBUTTONUP,
+    WS_CHILD, WS_VISIBLE,
 };
 
 // Injected into the composition webview before navigation. Exposes the same
@@ -68,10 +66,12 @@ const OVERLAY_BRIDGE_JS: &str = r#"(function(){
   var post=function(m){window.chrome.webview.postMessage(JSON.stringify(m));};
   var metaCbs=[];var lastMeta=null;
   var loadingCbs=[];var lastLoading=true;
+  var keyCbs=[];
   window.chrome.webview.addEventListener('message',function(e){
     var msg; try{msg=JSON.parse(e.data);}catch(_){return;}
     if(msg&&msg.type==='meta'){lastMeta=msg.meta;metaCbs.slice().forEach(function(cb){try{cb(lastMeta);}catch(_){}})}
     if(msg&&msg.type==='loading'){lastLoading=!!msg.loading;loadingCbs.slice().forEach(function(cb){try{cb(lastLoading);}catch(_){}})}
+    if(msg&&msg.type==='key'){keyCbs.slice().forEach(function(cb){try{cb(msg.key);}catch(_){}})}
   });
   window.overlayApi={
     close:function(){post({type:'close'});},
@@ -88,7 +88,8 @@ const OVERLAY_BRIDGE_JS: &str = r#"(function(){
     getMeta:function(){return Promise.resolve(lastMeta);},
     onMeta:function(cb){metaCbs.push(cb);return function(){metaCbs=metaCbs.filter(function(x){return x!==cb;});};},
     getLoading:function(){return lastLoading;},
-    onLoading:function(cb){loadingCbs.push(cb);return function(){loadingCbs=loadingCbs.filter(function(x){return x!==cb;});};}
+    onLoading:function(cb){loadingCbs.push(cb);return function(){loadingCbs=loadingCbs.filter(function(x){return x!==cb;});};},
+    onKey:function(cb){keyCbs.push(cb);return function(){keyCbs=keyCbs.filter(function(x){return x!==cb;});};}
   };
   post({type:'ready'});
 })();"#;
@@ -393,6 +394,13 @@ static ORIG_WNDPROC: AtomicIsize = AtomicIsize::new(0);
 // Bumped per theater open; the loader poll thread exits when it's superseded.
 static LOADER_GEN: AtomicU64 = AtomicU64::new(0);
 
+// Forward a keyboard shortcut (captured by the main webview, which holds focus)
+// into the overlay, which owns the player UI + drives mpv. UI thread only.
+pub fn post_key(key: &str) {
+    let esc = key.replace('\\', "\\\\").replace('"', "\\\"");
+    post_overlay(&format!("{{\"type\":\"key\",\"key\":\"{esc}\"}}"));
+}
+
 // Post a JSON message into the composition overlay (UI thread only).
 fn post_overlay(msg: &str) {
     // Clone the controller out and drop the lock before the COM calls.
@@ -469,16 +477,6 @@ unsafe extern "system" fn theater_wndproc(
     // instead of us — claim the client area so we actually receive mouse messages.
     if msg == WM_NCHITTEST {
         return LRESULT(HTCLIENT as isize);
-    }
-    // Take keyboard focus on click so we receive WM_KEYDOWN (shortcuts).
-    if msg == WM_LBUTTONDOWN {
-        let _ = SetFocus(Some(hwnd));
-    }
-    // DIAGNOSTIC: confirm the mpv child actually receives keys before building the
-    // shortcut handler (focus is uncertain with 3 surfaces in one window).
-    if msg == WM_KEYDOWN {
-        log::info!("[key] vk={:#04x}", wparam.0 as u32);
-        return LRESULT(0);
     }
     // Ask for a WM_MOUSELEAVE so we can forward a LEAVE when the cursor exits —
     // else the webview's :hover (the mini border) sticks on after the mouse leaves.
@@ -654,8 +652,6 @@ pub fn theater(
         let proc: unsafe extern "system" fn(HWND, u32, WPARAM, LPARAM) -> LRESULT = theater_wndproc;
         let prev = SetWindowLongPtrW(child, GWLP_WNDPROC, proc as usize as isize);
         ORIG_WNDPROC.store(prev, Ordering::SeqCst);
-        // Grab keyboard focus so the child receives WM_KEYDOWN for shortcuts.
-        let _ = SetFocus(Some(child));
 
         crate::mpv::play_wid(url, child.0 as isize, false)?;
 

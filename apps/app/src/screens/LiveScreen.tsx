@@ -19,8 +19,24 @@ import {
   onCompPopout,
   tauriCompPopout,
   tauriSetFullscreen,
-  tauriDbgKey,
+  tauriCompKey,
 } from "../lib/tauri";
+
+// YouTube-style shortcut keys we forward to the native overlay while playing.
+const SHORTCUT_KEYS = new Set([
+  " ",
+  "k",
+  "m",
+  "f",
+  "t",
+  "j",
+  "l",
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowUp",
+  "ArrowDown",
+  "Escape",
+]);
 
 // Resizable source panel. Dragged below CAT_COLLAPSE_AT it snaps to a narrow
 // emoji rail. Width is remembered per device.
@@ -204,10 +220,17 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
     [],
   );
   useEffect(() => onCompExitFullscreen(leaveFullscreen), []);
-  // DIAGNOSTIC: does the React main webview receive keys while playing?
+  // YouTube-style shortcuts: the main webview holds keyboard focus, so capture
+  // here and forward to the native overlay (which drives mpv + its UI). The
+  // overlay also handles keys directly for when it holds focus.
   useEffect(() => {
     if (!isTauri()) return;
-    const f = (e: KeyboardEvent) => void tauriDbgKey(e.key).catch(() => {});
+    const f = (e: KeyboardEvent) => {
+      const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      if (!playingRef.current || !SHORTCUT_KEYS.has(key)) return;
+      e.preventDefault();
+      void tauriCompKey(key).catch(() => {});
+    };
     window.addEventListener("keydown", f);
     return () => window.removeEventListener("keydown", f);
   }, []);
@@ -241,6 +264,9 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
   // Live stream URL for native-overlay actions (popout) fired from static effects.
   const streamUrlRef = useRef("");
   streamUrlRef.current = (playingChannel ?? heroChannel)?.streamUrl ?? "";
+  // Whether the native player is active — so shortcut keys only fire while playing.
+  const playingRef = useRef(false);
+  playingRef.current = playing;
   const textChannel = hoverChannel ?? restChannel;
   const textProgram = hoverChannel ? hoverProgram : restProgram;
   const sourceName = live.groups.find(
