@@ -10,6 +10,7 @@ import { EpgGuide } from "../components/EpgGuide";
 import { isLiveNow } from "../lib/epg";
 import { isDesktop, popoutPlay } from "../lib/desktop";
 import {
+  isTauri,
   onCompClosed,
   onCompExpand,
   onCompCollapse,
@@ -18,6 +19,7 @@ import {
   onCompPopout,
   tauriCompPopout,
   tauriSetFullscreen,
+  tauriDbgKey,
 } from "../lib/tauri";
 
 // Resizable source panel. Dragged below CAT_COLLAPSE_AT it snaps to a narrow
@@ -202,6 +204,13 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
     [],
   );
   useEffect(() => onCompExitFullscreen(leaveFullscreen), []);
+  // DIAGNOSTIC: does the React main webview receive keys while playing?
+  useEffect(() => {
+    if (!isTauri()) return;
+    const f = (e: KeyboardEvent) => void tauriDbgKey(e.key).catch(() => {});
+    window.addEventListener("keydown", f);
+    return () => window.removeEventListener("keydown", f);
+  }, []);
   // Pop the current stream into mpv's own floating window; close the in-app player.
   useEffect(
     () =>

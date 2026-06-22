@@ -45,6 +45,12 @@ fn mpv_color_diag(tag: String) {
     mpv::log_color_diag(&tag);
 }
 
+// DIAGNOSTIC: which surface receives keys (does the React main webview get them?).
+#[tauri::command]
+fn dbg_key(key: String) {
+    log::info!("[rkey] {key}");
+}
+
 // Telly-way composition spike, Step 1: composite a semi-transparent blue GPU
 // layer over the window via DirectComposition. Runs on the UI thread.
 #[tauri::command]
@@ -234,6 +240,7 @@ pub fn run() {
             mpv_set_pause,
             mpv_stop,
             mpv_color_diag,
+            dbg_key,
             comp_color_test,
             comp_webview_test,
             comp_mpv_child,

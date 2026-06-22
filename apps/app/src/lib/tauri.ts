@@ -24,6 +24,9 @@ export const tauriMpvStop = () => invoke("mpv_stop") as Promise<void>;
 /** Log mpv's colour pipeline (HDR diagnosis) tagged by window state. */
 export const tauriMpvColorDiag = (tag: string) =>
   invoke("mpv_color_diag", { tag }) as Promise<void>;
+/** DIAGNOSTIC: report a key the React main webview received. */
+export const tauriDbgKey = (key: string) =>
+  invoke("dbg_key", { key }) as Promise<void>;
 
 /** Composition spike Step 1: composite a blue GPU layer over the window. */
 export const tauriCompColorTest = () =>
