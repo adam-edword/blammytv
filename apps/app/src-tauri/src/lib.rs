@@ -45,6 +45,12 @@ fn mpv_color_diag(tag: String) {
     mpv::log_color_diag(&tag);
 }
 
+// DIAGNOSTIC: log a message from the frontend to the terminal.
+#[tauri::command]
+fn dbg(msg: String) {
+    log::info!("[dbg] {msg}");
+}
+
 // Forward a keyboard shortcut from the React main webview into the composition
 // overlay (which owns the player UI + mpv control).
 #[tauri::command]
@@ -251,6 +257,7 @@ pub fn run() {
             mpv_set_pause,
             mpv_stop,
             mpv_color_diag,
+            dbg,
             comp_key,
             comp_color_test,
             comp_webview_test,

@@ -24,6 +24,10 @@ export const tauriMpvStop = () => invoke("mpv_stop") as Promise<void>;
 /** Log mpv's colour pipeline (HDR diagnosis) tagged by window state. */
 export const tauriMpvColorDiag = (tag: string) =>
   invoke("mpv_color_diag", { tag }) as Promise<void>;
+/** DIAGNOSTIC: log a message to the terminal. */
+export const tauriDbg = (msg: string) =>
+  invoke("dbg", { msg }) as Promise<void>;
+
 /** Forward a captured keyboard shortcut into the composition overlay. */
 export const tauriCompKey = (key: string) =>
   invoke("comp_key", { key }) as Promise<void>;
