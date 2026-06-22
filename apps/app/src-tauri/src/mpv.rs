@@ -102,6 +102,8 @@ pub fn play_popout(url: &str) -> Result<(), String> {
         // Float above the app at a sensible size, else it opens behind BlammyTV.
         set("ontop", "yes");
         set("autofit", "50%");
+        // Borderless — a clean PiP, no Windows title bar (still drag/resizable).
+        set("border", "no");
         set("hwdec", "auto-safe");
         set("audio-channels", "stereo");
         set("title", "BlammyTV — Popout");
