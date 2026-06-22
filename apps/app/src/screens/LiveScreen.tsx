@@ -8,7 +8,6 @@ import {
 } from "../components/CategorySidebar";
 import { EpgGuide } from "../components/EpgGuide";
 import { isLiveNow } from "../lib/epg";
-import { isDesktop, popoutPlay } from "../lib/desktop";
 import {
   isTauri,
   onCompClosed,
@@ -176,15 +175,6 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [inTheater]);
 
-  // Pop the current channel into the native mpv window; stop the in-app player.
-  const popout = () => {
-    const ch = playingChannel ?? heroChannel;
-    if (!ch) return;
-    void popoutPlay(ch.streamUrl);
-    setPlayingId(null);
-    setTheater(false);
-  };
-
   // Tauri: mirror the native overlay's actions in React. ✕ stops (back to guide);
   // mini click expands to theater; theater ✕ collapses to mini; the fullscreen
   // button takes the OS window edge-to-edge, exit steps back to theater.
@@ -335,7 +325,6 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
               leaveFullscreen();
             }}
             onToggleTheater={() => setTheater((t) => !t)}
-            onPopout={isDesktop() ? popout : undefined}
           />
         )}
         <EpgGuide

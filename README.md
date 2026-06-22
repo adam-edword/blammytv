@@ -20,9 +20,8 @@ pnpm monorepo:
 | package | what |
 | --- | --- |
 | `packages/shared` | the config-blob + share-code types/zod schemas (+ a mock blob) — the contract every client renders |
-| `apps/app` | the React client (Vite + TS): pairing, `Live TV \| Stream \| Discover` tabs, the EPG guide, and the in-app + theater video player |
+| `apps/app` | the React client (Vite + TS): pairing, `Live TV \| Stream \| Discover` tabs, the EPG guide, and the in-app + theater video player. Wrapped by a Tauri shell (`apps/app/src-tauri`) for the sideloaded Windows app, with a native libmpv composition player for true 4K60 |
 | `apps/server` | the backend (Hono): resolves xtream credentials and maps panels → the config blob |
-| `apps/desktop` | the Electron shell that wraps `apps/app` for sideloading — plus the local ffmpeg→HLS transcode and the mpv pop-out |
 
 > the web config ui isn't built yet, and the backend is partial. by default
 > `apps/app` renders a validated **mock** config blob (from `packages/shared`);
@@ -36,7 +35,7 @@ requires node 22+ and pnpm 10+.
 ```bash
 pnpm install
 pnpm dev          # run the web client (apps/app) on http://localhost:1420
-pnpm desktop      # run the full desktop app (server + app + electron)
+pnpm dev:all      # run the server + web client together
 pnpm typecheck    # typecheck every package
 pnpm lint         # eslint (flat config)
 pnpm test         # vitest across packages

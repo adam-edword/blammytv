@@ -19,7 +19,6 @@ export function NowPlaying({
   onPlay,
   onStop,
   onToggleTheater,
-  onPopout,
 }: {
   channel: LiveChannel;
   program: EpgProgram | null;
@@ -35,7 +34,6 @@ export function NowPlaying({
   onPlay: () => void;
   onStop: () => void;
   onToggleTheater: () => void;
-  onPopout?: () => void;
 }) {
   const live = program ? isLiveNow(program, now) : false;
 
@@ -77,7 +75,6 @@ export function NowPlaying({
               theater={theater}
               meta={meta}
               onToggleTheater={onToggleTheater}
-              onPopout={onPopout}
               onStop={onStop}
             />
           )

@@ -7,7 +7,6 @@
   "scripts": {
     "dev": "pnpm --filter @blammytv/app dev",
     "dev:all": "concurrently -n server,app -c blue,green \"pnpm --filter @blammytv/server dev\" \"pnpm --filter @blammytv/app dev\"",
-    "desktop": "concurrently -n server,app,electron -c blue,green,magenta \"pnpm --filter @blammytv/server dev\" \"pnpm --filter @blammytv/app dev\" \"wait-on tcp:1420 && pnpm --filter @blammytv/desktop start\"",
     "server": "pnpm --filter @blammytv/server dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
@@ -22,7 +21,6 @@
     "eslint-plugin-react-refresh": "^0.5.3",
     "globals": "^17.6.0",
     "typescript": "^5.6.3",
-    "typescript-eslint": "^8.61.1",
-    "wait-on": "^8.0.1"
+    "typescript-eslint": "^8.61.1"
   }
 }

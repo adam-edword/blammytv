@@ -14,7 +14,7 @@ clients, backend-owned config, secrets stay server-side) is in the
 | command | what |
 | --- | --- |
 | `pnpm dev` | web client (`apps/app`) on http://localhost:1420 |
-| `pnpm desktop` | full desktop app (server + app + electron) |
+| `pnpm dev:all` | server + web client together |
 | `pnpm typecheck` | `tsc --noEmit` in every package |
 | `pnpm lint` | eslint (flat config, `eslint.config.mjs`) |
 | `pnpm test` | vitest across packages |
@@ -84,7 +84,7 @@ the workspace globs `apps/*` and `packages/*` (`pnpm-workspace.yaml`), so a new
 
 5. **native build deps.** pnpm blocks dependency build scripts by default. if a
    Next dep needs one (e.g. `sharp`), add it to `onlyBuiltDependencies` in
-   `pnpm-workspace.yaml` (where `esbuild` and `electron` already live).
+   `pnpm-workspace.yaml` (where `esbuild` already lives).
 
 that's it — `pnpm install`, the SessionStart hook, and CI all extend to the new
 package without further setup.

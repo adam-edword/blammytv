@@ -1,19 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Hls from "hls.js";
 import {
-  isDesktop,
-  mpvCanvasSetPause,
-  mpvCanvasSetMute,
-  mpvCanvasSetVolume,
-  mpvCanvasSeek,
-} from "../lib/desktop";
-import { MpvCanvas } from "./MpvCanvas";
-import {
   PlayIcon,
   PauseIcon,
   VolumeIcon,
   MuteIcon,
-  PopoutIcon,
   FullscreenIcon,
   CloseIcon,
   SkipBackIcon,
@@ -37,17 +28,15 @@ export interface TheaterMeta {
 }
 
 /**
- * Live video player. libmpv is the engine on the desktop: the in-page mini +
- * theater render mpv to a <canvas> (decode at source res, read back at display
- * size), and Fullscreen swaps to the native mpv window + transparent overlay for
- * true 4K60. In a plain browser it falls back to a web <video> (HLS).
+ * Live video player for the browser/web build: plays the stream in a <video> via
+ * hls.js, with a mini + theater (CSS) layout. The Windows app uses the native
+ * composition player instead (see CompositionPreview / TheaterOverlay).
  */
 export function Player({
   url,
   className,
   theater = false,
   onToggleTheater,
-  onPopout,
   onStop,
   meta,
 }: {
@@ -55,16 +44,16 @@ export function Player({
   className?: string;
   theater?: boolean;
   onToggleTheater?: () => void;
-  onPopout?: () => void;
   onStop?: () => void;
   meta?: TheaterMeta;
 }) {
-  const onDesktop = isDesktop();
   const wrapRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const idleRef = useRef<number>(0);
 
-  const [status, setStatus] = useState<"loading" | "playing" | "error">("loading");
+  const [status, setStatus] = useState<"loading" | "playing" | "error">(
+    "loading",
+  );
   const [message, setMessage] = useState("Tuning in…");
   const [paused, setPaused] = useState(false);
   const [volume, setVolume] = useState(1);
@@ -72,11 +61,9 @@ export function Player({
   const [active, setActive] = useState(true);
   const [volHud, setVolHud] = useState(false);
   const volHudRef = useRef<number>(0);
-  const [fps, setFps] = useState(0);
 
-  // Browser fallback: load the stream into the <video> via hls.js.
+  // Load the stream into the <video> via hls.js.
   useEffect(() => {
-    if (onDesktop) return;
     let cancelled = false;
     let hls: Hls | null = null;
     const video = videoRef.current;
@@ -101,22 +88,16 @@ export function Player({
       cancelled = true;
       hls?.destroy();
     };
-  }, [url, onDesktop]);
+  }, [url]);
 
-  // Volume / mute → mpv (desktop) or the <video> (browser).
+  // Volume / mute → the <video>.
   useEffect(() => {
-    if (onDesktop) {
-      mpvCanvasSetVolume(volume);
-      mpvCanvasSetMute(muted);
-    } else {
-      const v = videoRef.current;
-      if (v) v.volume = muted ? 0 : volume;
-    }
-  }, [volume, muted, onDesktop]);
+    const v = videoRef.current;
+    if (v) v.volume = muted ? 0 : volume;
+  }, [volume, muted]);
 
-  // Browser: track the <video>'s play/pause for the transport icon.
+  // Track the <video>'s play/pause for the transport icon.
   useEffect(() => {
-    if (onDesktop) return;
     const v = videoRef.current;
     if (!v) return;
     const onPlay = () => setPaused(false);
@@ -127,47 +108,32 @@ export function Player({
       v.removeEventListener("play", onPlay);
       v.removeEventListener("pause", onPause);
     };
-  }, [onDesktop]);
+  }, []);
 
   // A fresh surface (new channel) starts playing — keep the transport icon honest.
   useEffect(() => setPaused(false), [url]);
 
   const togglePlay = useCallback(() => {
-    if (onDesktop) {
-      setPaused((p) => {
-        mpvCanvasSetPause(!p);
-        return !p;
-      });
-      return;
-    }
     const v = videoRef.current;
     if (!v) return;
     if (v.paused) void v.play().catch(() => {});
     else v.pause();
-  }, [onDesktop]);
+  }, []);
 
-  const skip = useCallback(
-    (delta: number) => {
-      if (onDesktop) {
-        mpvCanvasSeek(delta);
-        return;
-      }
-      const v = videoRef.current;
-      if (!v) return;
-      try {
-        const s = v.seekable;
-        const min = s.length ? s.start(0) : 0;
-        const max = s.length ? s.end(s.length - 1) : v.currentTime;
-        v.currentTime = Math.min(max, Math.max(min, v.currentTime + delta));
-      } catch {
-        /* not seekable */
-      }
-    },
-    [onDesktop],
-  );
+  const skip = useCallback((delta: number) => {
+    const v = videoRef.current;
+    if (!v) return;
+    try {
+      const s = v.seekable;
+      const min = s.length ? s.start(0) : 0;
+      const max = s.length ? s.end(s.length - 1) : v.currentTime;
+      v.currentTime = Math.min(max, Math.max(min, v.currentTime + delta));
+    } catch {
+      /* not seekable */
+    }
+  }, []);
 
-  // Fullscreen: the same canvas/video just fills the screen — seamless, same mpv
-  // instance (no handoff). The controls + theater bar fill the screen via CSS.
+  // Fullscreen: the <video> fills the screen; the controls overlay via CSS.
   const goFullscreen = useCallback(() => {
     const el = wrapRef.current;
     if (!el) return;
@@ -193,7 +159,9 @@ export function Player({
       e.preventDefault();
       const step = e.deltaY < 0 ? 0.05 : -0.05;
       setMuted(false);
-      setVolume((v) => Math.min(1, Math.max(0, Math.round((v + step) * 100) / 100)));
+      setVolume((v) =>
+        Math.min(1, Math.max(0, Math.round((v + step) * 100) / 100)),
+      );
       setVolHud(true);
       window.clearTimeout(volHudRef.current);
       volHudRef.current = window.setTimeout(() => setVolHud(false), 900);
@@ -219,28 +187,14 @@ export function Player({
       onMouseMove={wake}
       onMouseLeave={() => setActive(false)}
     >
-      {onDesktop ? (
-        <MpvCanvas
-          url={url}
-          className="player__video"
-          onClick={theater ? togglePlay : onToggleTheater}
-          onLive={() => setStatus("playing")}
-          onError={(m) => {
-            setStatus("error");
-            setMessage(m);
-          }}
-          onFps={setFps}
-        />
-      ) : (
-        <video
-          ref={videoRef}
-          className="player__video"
-          autoPlay
-          playsInline
-          onClick={theater ? togglePlay : onToggleTheater}
-          onPlaying={() => setStatus("playing")}
-        />
-      )}
+      <video
+        ref={videoRef}
+        className="player__video"
+        autoPlay
+        playsInline
+        onClick={theater ? togglePlay : onToggleTheater}
+        onPlaying={() => setStatus("playing")}
+      />
 
       {status !== "playing" && (
         <div className="player__status">
@@ -249,7 +203,10 @@ export function Player({
         </div>
       )}
 
-      <div className={"player__vol-hud" + (volHud ? " is-visible" : "")} aria-hidden="true">
+      <div
+        className={"player__vol-hud" + (volHud ? " is-visible" : "")}
+        aria-hidden="true"
+      >
         {volPct === 0 ? <MuteIcon size={18} /> : <VolumeIcon size={18} />}
         <span>{volPct}%</span>
       </div>
@@ -267,12 +224,6 @@ export function Player({
         >
           <CloseIcon size={20} />
         </button>
-      )}
-
-      {theater && onDesktop && (
-        <div className="player__fps" aria-hidden="true">
-          {fps} fps
-        </div>
       )}
 
       {theater && (
@@ -333,35 +284,71 @@ export function Player({
 
             <div className="theater-controls">
               <div className="theater-controls__group">
-                <button className="player__btn" type="button" onClick={() => skip(-10)} aria-label="Back 10 seconds">
+                <button
+                  className="player__btn"
+                  type="button"
+                  onClick={() => skip(-10)}
+                  aria-label="Back 10 seconds"
+                >
                   <SkipBackIcon size={24} />
                 </button>
-                <button className="player__btn player__btn--play" type="button" onClick={togglePlay} aria-label={paused ? "Play" : "Pause"}>
+                <button
+                  className="player__btn player__btn--play"
+                  type="button"
+                  onClick={togglePlay}
+                  aria-label={paused ? "Play" : "Pause"}
+                >
                   {paused ? <PlayIcon size={26} /> : <PauseIcon size={26} />}
                 </button>
-                <button className="player__btn" type="button" onClick={() => skip(10)} aria-label="Forward 10 seconds">
+                <button
+                  className="player__btn"
+                  type="button"
+                  onClick={() => skip(10)}
+                  aria-label="Forward 10 seconds"
+                >
                   <SkipFwdIcon size={24} />
                 </button>
               </div>
 
               <div className="theater-controls__group">
-                <button className="player__btn" type="button" disabled title="Audio language — coming soon" aria-label="Audio language">
+                <button
+                  className="player__btn"
+                  type="button"
+                  disabled
+                  title="Audio language — coming soon"
+                  aria-label="Audio language"
+                >
                   <LanguageIcon size={20} />
                 </button>
-                <button className="player__btn" type="button" disabled title="Subtitles — coming soon" aria-label="Subtitles">
+                <button
+                  className="player__btn"
+                  type="button"
+                  disabled
+                  title="Subtitles — coming soon"
+                  aria-label="Subtitles"
+                >
                   <CcIcon size={20} />
                 </button>
-                {onPopout && (
-                  <button className="player__btn" type="button" onClick={onPopout} aria-label="Pop out (native player)">
-                    <PopoutIcon size={20} />
-                  </button>
-                )}
-                <button className="player__btn" type="button" onClick={goFullscreen} aria-label="Fullscreen">
+                <button
+                  className="player__btn"
+                  type="button"
+                  onClick={goFullscreen}
+                  aria-label="Fullscreen"
+                >
                   <FullscreenIcon size={20} />
                 </button>
                 <div className="theater-vol">
-                  <button className="player__btn" type="button" onClick={() => setMuted((m) => !m)} aria-label={muted ? "Unmute" : "Mute"}>
-                    {muted || volPct === 0 ? <MuteIcon size={20} /> : <VolumeIcon size={20} />}
+                  <button
+                    className="player__btn"
+                    type="button"
+                    onClick={() => setMuted((m) => !m)}
+                    aria-label={muted ? "Unmute" : "Mute"}
+                  >
+                    {muted || volPct === 0 ? (
+                      <MuteIcon size={20} />
+                    ) : (
+                      <VolumeIcon size={20} />
+                    )}
                   </button>
                   <input
                     className="player__volume theater-vol__slider"
