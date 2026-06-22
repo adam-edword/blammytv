@@ -50,14 +50,14 @@ use webview2_com::{
 use windows::Win32::Graphics::Gdi::{CreateRoundRectRgn, SetWindowRgn};
 use windows::Win32::System::Com::CoTaskMemFree;
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    TrackMouseEvent, TME_LEAVE, TRACKMOUSEEVENT,
+    SetFocus, TrackMouseEvent, TME_LEAVE, TRACKMOUSEEVENT,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     CallWindowProcW, CreateWindowExW, DefWindowProcW, SetWindowLongPtrW, SetWindowPos,
     DestroyWindow, GWLP_WNDPROC, HTCLIENT, HWND_TOP, SWP_NOACTIVATE, SWP_SHOWWINDOW,
     SW_HIDE, ShowWindow, WINDOW_EX_STYLE, WM_LBUTTONDBLCLK, WM_LBUTTONDOWN, WM_LBUTTONUP,
-    WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEMOVE, WM_NCHITTEST, WM_RBUTTONDOWN, WM_RBUTTONUP,
-    WS_CHILD, WS_VISIBLE,
+    WM_KEYDOWN, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEMOVE, WM_NCHITTEST, WM_RBUTTONDOWN,
+    WM_RBUTTONUP, WS_CHILD, WS_VISIBLE,
 };
 
 // Injected into the composition webview before navigation. Exposes the same
@@ -470,6 +470,16 @@ unsafe extern "system" fn theater_wndproc(
     if msg == WM_NCHITTEST {
         return LRESULT(HTCLIENT as isize);
     }
+    // Take keyboard focus on click so we receive WM_KEYDOWN (shortcuts).
+    if msg == WM_LBUTTONDOWN {
+        let _ = SetFocus(Some(hwnd));
+    }
+    // DIAGNOSTIC: confirm the mpv child actually receives keys before building the
+    // shortcut handler (focus is uncertain with 3 surfaces in one window).
+    if msg == WM_KEYDOWN {
+        log::info!("[key] vk={:#04x}", wparam.0 as u32);
+        return LRESULT(0);
+    }
     // Ask for a WM_MOUSELEAVE so we can forward a LEAVE when the cursor exits —
     // else the webview's :hover (the mini border) sticks on after the mouse leaves.
     if msg == WM_MOUSEMOVE {
@@ -644,6 +654,8 @@ pub fn theater(
         let proc: unsafe extern "system" fn(HWND, u32, WPARAM, LPARAM) -> LRESULT = theater_wndproc;
         let prev = SetWindowLongPtrW(child, GWLP_WNDPROC, proc as usize as isize);
         ORIG_WNDPROC.store(prev, Ordering::SeqCst);
+        // Grab keyboard focus so the child receives WM_KEYDOWN for shortcuts.
+        let _ = SetFocus(Some(child));
 
         crate::mpv::play_wid(url, child.0 as isize, false)?;
 
