@@ -1989,6 +1989,16 @@ body.theater-mode .app-header:hover {
   color: var(--text);
 }
 
+/* Clearlogo art in place of the title on the featured hero. */
+.hero__logo {
+  display: block;
+  max-width: min(620px, 80%);
+  max-height: 260px;
+  margin: 0;
+  object-fit: contain;
+  object-position: left bottom;
+}
+
 .hero__synopsis {
   margin: 0;
   max-width: 560px;

@@ -55,7 +55,11 @@ export function FeaturedHero({
       <div className="hero__scrim" />
 
       <div className="hero__content">
-        <h1 className="hero__title">{item.title}</h1>
+        {item.logo ? (
+          <img className="hero__logo" src={item.logo} alt={item.title} />
+        ) : (
+          <h1 className="hero__title">{item.title}</h1>
+        )}
         {item.synopsis && <p className="hero__synopsis">{item.synopsis}</p>}
         <p className="hero__meta">{meta || formatMeta(item)}</p>
 
