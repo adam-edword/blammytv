@@ -20,8 +20,24 @@ import type { TheaterMeta } from "./components/Player";
 import { ChevronIcon } from "./components/icons";
 import { fetchConfig } from "./lib/config";
 import { fetchVodDetail, vodBackendConfigured } from "./lib/vod";
-import { isTauri, onCompClosed, onCompExitFullscreen, onCompFullscreen, tauriSetFullscreen } from "./lib/tauri";
+import { isTauri, onCompClosed, onCompExitFullscreen, onCompFullscreen, tauriCompKey, tauriSetFullscreen } from "./lib/tauri";
 import { loadShareCode, saveShareCode, clearShareCode } from "./lib/pairing";
+
+/** YouTube-style keys the VOD player forwards to the overlay. No "t" (there's no
+ * theater mode for VOD — it's already a full player); Esc/Backspace stop. */
+const VOD_SHORTCUTS = new Set([
+  " ",
+  "k",
+  "m",
+  "f",
+  "j",
+  "l",
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowUp",
+  "ArrowDown",
+  "Escape",
+]);
 
 type Load =
   | { status: "idle" }
@@ -190,6 +206,32 @@ function VodPlayer({
     // onClose just clears state; binding once per source is fine.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url]);
+
+  // The main webview holds keyboard focus, so capture the YouTube-style
+  // shortcuts here and forward them to the overlay (which drives mpv) — same as
+  // live. Capture phase + stopImmediatePropagation keeps the source list behind
+  // from also acting on Esc/Backspace. Scroll = volume anywhere over the player.
+  useEffect(() => {
+    if (!isTauri()) return;
+    const onKey = (e: KeyboardEvent) => {
+      const raw = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      const key = raw === "Backspace" ? "Escape" : raw;
+      if (!VOD_SHORTCUTS.has(key)) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      void tauriCompKey(key).catch(() => {});
+    };
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      void tauriCompKey(e.deltaY < 0 ? "ArrowUp" : "ArrowDown").catch(() => {});
+    };
+    window.addEventListener("keydown", onKey, { capture: true });
+    window.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      window.removeEventListener("keydown", onKey, { capture: true });
+      window.removeEventListener("wheel", onWheel);
+    };
+  }, []);
 
   if (!isTauri()) {
     return (
