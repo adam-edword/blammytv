@@ -1,53 +1,75 @@
-# blammytv
+<p align="center">
+  <img src="https://i.imgur.com/DajrQUR.png" alt="blammytv" />
+</p>
 
-react-based iptv client supporting xtream codes (iptv) + debrid for tv/movies. sideload-only, since app stores will be a pain to get published on — both of us are fine with that. north star: "boomer-proof" ux, simple enough that anyone can use it.
+<p align="center">
+  A lovely IPTV &amp; AIOStreams client — Xtream Codes for live TV, AIOStreams for movies &amp; shows.<br/>
+  <strong>"Boomer-proof"</strong> UX, designer-focused UI.
+</p>
 
-## architecture
+---
 
-the backend is the single source of truth; the apps are **dumb terminals**. a
-device pairs with a share code, pulls a config blob on load, and just renders it.
-there are no settings screens on-device — all config (stream urls, debrid keys,
-channel/group visibility, ordering, favorites) lives in a web ui. the one allowed
-on-device input is the share-code entry on first launch.
+## What it is
 
-secrets never reach the client: the backend resolves debrid keys / xtream
-credentials and only ever hands the device playable stream urls.
+blammytv is a streaming client built for one job: making live TV and on-demand feel effortless. Live channels come from Xtream Codes panels; movies and shows resolve on demand through AIOStreams + debrid. There's a full EPG guide, a "now playing" hero, and a native player that does real 4K60.
 
-## repo layout
+## What you get
 
-pnpm monorepo:
+- **Live TV with a real guide** — an EPG time-grid with a live "now" indicator, category rails, and a "now playing" hero.
+- **Movies & shows** — a browsable VOD layout today, with on-demand resolution through AIOStreams + debrid coming next.
+- **A player that doesn't compromise** — a native libmpv composition player on Windows for true 4K60, with mini / theater / fullscreen / pop-out modes.
+- **Nothing to configure on the couch** — pair once with a share code and start watching.
 
-| package | what |
+## Status
+
+> **v0.1.0 - Live TV works**
+
+Live TV through Xtream is wired up end-to-end. Movies & shows are still seeded with sample data until the AIOStreams + debrid resolver lands, and the **Discover** tab is a placeholder ("coming next"). There's no standalone web config UI yet — playlists are managed in-app for now.
+
+You can run the client standalone today: with no `VITE_API_URL` set, `apps/app` boots into a **demo mode** that renders a validated mock config blob from `packages/shared`. Point it at a real backend by setting `VITE_API_URL` (see `apps/app/src/lib/config.ts`).
+
+## How it works
+
+**Pair once, then watch.** On first launch the device takes a 6-character **share code**; from then on it pulls a **config blob** from the backend — channels, EPG, groups, ordering, favorites — and just renders it. The day-to-day screen stays dead simple. That's the boomer-proof part.
+
+The bits that need managing live in an on-device **Settings** panel:
+
+- **Playlists** — add, name, enable/disable, and remove your Xtream sources. Credentials you enter here are posted straight to the backend and aren't persisted on the device; the backend stores them, talks to the panels, and serves back ready-to-play streams.
+- **Display** — accent color, UI scale, and a light-mode toggle.
+
+The config blob the device renders is deliberately secret-free, and debrid keys + AIOStreams config never live on the device at all — they stay server-side.
+
+## Project structure
+
+pnpm monorepo.
+
+| Package | What it does |
 | --- | --- |
-| `packages/shared` | the config-blob + share-code types/zod schemas (+ a mock blob) — the contract every client renders |
-| `apps/app` | the React client (Vite + TS): pairing, `Live TV \| Stream \| Discover` tabs, the EPG guide, and the in-app + theater video player. Wrapped by a Tauri shell (`apps/app/src-tauri`) for the sideloaded Windows app, with a native libmpv composition player for true 4K60 |
-| `apps/server` | the backend (Hono): resolves xtream credentials and maps panels → the config blob |
+| `packages/shared` | The config-blob + share-code types / zod schemas (plus a mock blob). The contract every client renders against. |
+| `apps/app` | The React client (Vite + TS): pairing, the `Live TV \| Stream \| Discover` tabs, the EPG guide, and the in-app + theater player. Wrapped in a Tauri shell (`apps/app/src-tauri`) for the sideloaded Windows build, with a native libmpv composition player for true 4K60. |
+| `apps/server` | The backend (Hono): resolves Xtream credentials and maps panels → the config blob. |
 
-> the web config ui isn't built yet, and the backend is partial. by default
-> `apps/app` renders a validated **mock** config blob (from `packages/shared`);
-> pointing it at the real backend is a one-function change in
-> `apps/app/src/lib/config.ts` (set `VITE_API_URL`).
+## Getting started
 
-## develop
+**Prerequisites:** Node 22+ and pnpm 10+.
 
-requires node 22+ and pnpm 10+.
-
-```bash
+​```bash
 pnpm install
+
 pnpm dev          # run the web client (apps/app) on http://localhost:1420
 pnpm dev:all      # run the server + web client together
 pnpm typecheck    # typecheck every package
 pnpm lint         # eslint (flat config)
 pnpm test         # vitest across packages
 pnpm build        # build all packages
-```
+​```
 
-CI runs typecheck + lint + test on every PR to `main` (`.github/workflows/ci.yml`).
-new contributors: see [`CONTRIBUTING.md`](./CONTRIBUTING.md) for conventions and a
-guide to adding a new app (e.g. a Next.js one).
+CI runs typecheck + lint + test on every PR to `main` — see `.github/workflows/ci.yml`.
 
-the Live tab is built from the EPG Figma frame: a "now playing" hero, a category
-rail, and a time-grid guide with a live "now" indicator. it's plain CSS (no
-Tailwind) using design tokens in `apps/app/src/styles.css`. the "Stack Sans" fonts
-are self-hosted (bundled via Fontsource in `apps/app/src/fonts.ts`), with a
-system-font fallback in the `--font-headline` / `--font-text` variables.
+## Design notes
+
+The Live tab is an EPG frame: a "now playing" hero, a category rail, and a time-grid guide with a live "now" indicator. Styling is plain CSS (no Tailwind), driven by design tokens in `apps/app/src/styles.css`. The "Stack Sans" typeface is self-hosted (bundled via Fontsource in `apps/app/src/fonts.ts`), with a system-font fallback in the `--font-headline` / `--font-text` variables.
+
+## Contributing
+
+See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for conventions and a walkthrough on adding a new app (e.g. a Next.js client).
