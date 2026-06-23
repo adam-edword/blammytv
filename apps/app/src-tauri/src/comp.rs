@@ -58,11 +58,13 @@ const OVERLAY_BRIDGE_JS: &str = r#"(function(){
   var metaCbs=[];var lastMeta=null;
   var loadingCbs=[];var lastLoading=true;
   var keyCbs=[];
+  var timeCbs=[];var lastTime=null;
   window.chrome.webview.addEventListener('message',function(e){
     var msg; try{msg=JSON.parse(e.data);}catch(_){return;}
     if(msg&&msg.type==='meta'){lastMeta=msg.meta;metaCbs.slice().forEach(function(cb){try{cb(lastMeta);}catch(_){}})}
     if(msg&&msg.type==='loading'){lastLoading=!!msg.loading;loadingCbs.slice().forEach(function(cb){try{cb(lastLoading);}catch(_){}})}
     if(msg&&msg.type==='key'){keyCbs.slice().forEach(function(cb){try{cb(msg.key);}catch(_){}})}
+    if(msg&&msg.type==='time'){lastTime={pos:msg.pos,dur:msg.dur};timeCbs.slice().forEach(function(cb){try{cb(lastTime);}catch(_){}})}
   });
   window.overlayApi={
     close:function(){post({type:'close'});},
@@ -70,6 +72,7 @@ const OVERLAY_BRIDGE_JS: &str = r#"(function(){
     setMute:function(m){post({type:'setMute',muted:!!m});},
     setVolume:function(v){post({type:'setVolume',vol:v});},
     seek:function(d){post({type:'seek',delta:d});},
+    seekTo:function(p){post({type:'seekTo',pos:p});},
     expand:function(){post({type:'expand'});},
     collapse:function(){post({type:'collapse'});},
     fullscreen:function(){post({type:'fullscreen'});},
@@ -80,7 +83,9 @@ const OVERLAY_BRIDGE_JS: &str = r#"(function(){
     onMeta:function(cb){metaCbs.push(cb);return function(){metaCbs=metaCbs.filter(function(x){return x!==cb;});};},
     getLoading:function(){return lastLoading;},
     onLoading:function(cb){loadingCbs.push(cb);return function(){loadingCbs=loadingCbs.filter(function(x){return x!==cb;});};},
-    onKey:function(cb){keyCbs.push(cb);return function(){keyCbs=keyCbs.filter(function(x){return x!==cb;});};}
+    onKey:function(cb){keyCbs.push(cb);return function(){keyCbs=keyCbs.filter(function(x){return x!==cb;});};},
+    getTime:function(){return lastTime;},
+    onTime:function(cb){timeCbs.push(cb);return function(){timeCbs=timeCbs.filter(function(x){return x!==cb;});};}
   };
   post({type:'ready'});
 })();"#;
@@ -148,6 +153,28 @@ fn spawn_loader_watch() {
         }
         if LOADER_GEN.load(Ordering::SeqCst) == gen {
             crate::run_on_main(|| post_overlay("{\"type\":\"loading\",\"loading\":false}"));
+        }
+    });
+}
+
+// Poll mpv's playback position + duration and push them to the overlay (for the
+// VOD scrubber). Runs until a newer open/teardown bumps the generation. Live
+// streams report no usable duration, so nothing is posted there.
+fn spawn_time_watch() {
+    let gen = LOADER_GEN.load(Ordering::SeqCst);
+    std::thread::spawn(move || loop {
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        if LOADER_GEN.load(Ordering::SeqCst) != gen {
+            return; // superseded by a newer open or a teardown
+        }
+        let pos = crate::mpv::get_property("time-pos").and_then(|s| s.parse::<f64>().ok());
+        let dur = crate::mpv::get_property("duration").and_then(|s| s.parse::<f64>().ok());
+        if let (Some(p), Some(d)) = (pos, dur) {
+            if p.is_finite() && d.is_finite() && d > 0.0 {
+                crate::run_on_main(move || {
+                    post_overlay(&format!("{{\"type\":\"time\",\"pos\":{p},\"dur\":{d}}}"));
+                });
+            }
         }
     });
 }
@@ -270,6 +297,8 @@ pub fn set_rect(x: i32, y: i32, w: u32, h: u32, radius: i32) {
 }
 
 pub fn close_theater() {
+    // Bump the generation so the loader / time poll threads exit.
+    LOADER_GEN.fetch_add(1, Ordering::SeqCst);
     crate::mpv::stop();
     let prev = THEATER.lock().unwrap().take();
     if let Some(t) = prev {
@@ -498,6 +527,11 @@ pub fn theater(
                                                         .and_then(|x| x.as_f64())
                                                         .unwrap_or(0.0),
                                                 ),
+                                                Some("seekTo") => crate::mpv::seek_abs(
+                                                    v.get("pos")
+                                                        .and_then(|x| x.as_f64())
+                                                        .unwrap_or(0.0),
+                                                ),
                                                 Some("expand") => crate::emit_comp("comp-expand"),
                                                 Some("collapse") => {
                                                     crate::emit_comp("comp-collapse")
@@ -570,5 +604,6 @@ pub fn theater(
     }
     // Watch for first frame to clear the overlay's loader.
     spawn_loader_watch();
+    spawn_time_watch();
     Ok(())
 }

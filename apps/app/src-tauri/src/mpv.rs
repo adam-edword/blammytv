@@ -280,6 +280,20 @@ pub fn seek(delta: f64) {
     }
 }
 
+/// Absolute seek to a position in seconds (for scrubbing).
+pub fn seek_abs(pos: f64) {
+    let g = PLAYER.lock().unwrap();
+    if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {
+        unsafe {
+            let cmd = CString::new("seek").unwrap();
+            let d = CString::new(format!("{pos}")).unwrap();
+            let abs = CString::new("absolute").unwrap();
+            let args = [cmd.as_ptr(), d.as_ptr(), abs.as_ptr(), std::ptr::null()];
+            (l.command)(p.0, args.as_ptr());
+        }
+    }
+}
+
 pub fn stop() {
     if let (Some(p), Some(l)) = (PLAYER.lock().unwrap().take(), LIB.get()) {
         unsafe { (l.terminate_destroy)(p.0) };

@@ -25,6 +25,7 @@ interface OverlayApi {
   setMute: (muted: boolean) => void;
   setVolume: (vol: number) => void; // 0..100 (mpv scale)
   seek: (delta: number) => void;
+  seekTo?: (pos: number) => void; // absolute, seconds (VOD scrub)
   expand?: () => void; // mini → theater
   collapse?: () => void; // theater → mini
   fullscreen?: () => void; // theater → fullscreen
@@ -36,6 +37,25 @@ interface OverlayApi {
   getLoading?: () => boolean;
   onLoading?: (cb: (loading: boolean) => void) => () => void;
   onKey?: (cb: (key: string) => void) => () => void;
+  getTime?: () => PlayTime | null;
+  onTime?: (cb: (t: PlayTime | null) => void) => () => void;
+}
+
+/** mpv playback position + total, in seconds (VOD only). */
+interface PlayTime {
+  pos: number;
+  dur: number;
+}
+
+/** "1:23:45" / "4:05" from seconds. */
+function fmtTime(s?: number): string {
+  if (s == null || !Number.isFinite(s)) return "0:00";
+  const t = Math.max(0, Math.floor(s));
+  const h = Math.floor(t / 3600);
+  const m = Math.floor((t % 3600) / 60);
+  const sec = t % 60;
+  const mm = h > 0 ? String(m).padStart(2, "0") : String(m);
+  return `${h > 0 ? `${h}:` : ""}${mm}:${String(sec).padStart(2, "0")}`;
 }
 
 /** Centered "loading" with the slot-text roll while a source buffers. */
@@ -106,6 +126,13 @@ export function TheaterOverlay() {
   const [loading, setLoading] = useState(() => api?.getLoading?.() ?? true);
   useEffect(() => {
     const off = api?.onLoading?.((l) => setLoading(l));
+    return () => off?.();
+  }, []);
+
+  // Playback position + duration for the VOD scrubber (live reports none).
+  const [time, setTime] = useState<PlayTime | null>(() => api?.getTime?.() ?? null);
+  useEffect(() => {
+    const off = api?.onTime?.((t) => setTime(t));
     return () => off?.();
   }, []);
 
@@ -251,6 +278,7 @@ export function TheaterOverlay() {
   }, [handleKey]);
 
   const volPct = Math.round((muted ? 0 : volume) * 100);
+  const playPct = time && time.dur ? Math.min(100, (time.pos / time.dur) * 100) : 0;
 
   // Mini preview: no controls except ✕ (stop); clicking anywhere enters theater.
   // The white hover border lives in CSS (.mini-overlay). VOD never goes mini.
@@ -353,7 +381,36 @@ export function TheaterOverlay() {
           </div>
         )}
 
-        {!isVod && (
+        {isVod ? (
+          <div className="theater-seek">
+            <div
+              className="theater-seek__track theater-seek__track--seekable"
+              onClick={(e) => {
+                const dur = time?.dur ?? 0;
+                if (!dur) return;
+                const r = e.currentTarget.getBoundingClientRect();
+                const frac = Math.min(
+                  1,
+                  Math.max(0, (e.clientX - r.left) / r.width),
+                );
+                api?.seekTo?.(frac * dur);
+              }}
+            >
+              <div
+                className="theater-seek__fill"
+                style={{ width: `${playPct}%` }}
+              />
+              <span
+                className="theater-seek__knob"
+                style={{ left: `${playPct}%` }}
+              />
+            </div>
+            <div className="theater-seek__labels">
+              <span>{fmtTime(time?.pos)}</span>
+              <span>{fmtTime(time?.dur)}</span>
+            </div>
+          </div>
+        ) : (
           <div className="theater-seek">
             <div className="theater-seek__track">
               <div

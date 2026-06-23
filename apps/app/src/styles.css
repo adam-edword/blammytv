@@ -834,6 +834,11 @@ img {
   background: rgba(255, 255, 255, 0.22);
 }
 
+/* VOD scrubber: clickable to seek. */
+.theater-seek__track--seekable {
+  cursor: pointer;
+}
+
 .theater-seek__fill {
   position: absolute;
   left: 0;
