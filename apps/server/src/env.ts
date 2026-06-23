@@ -11,3 +11,14 @@ export interface XtreamConfig {
   /** Live container extension for the playable URL (ts | m3u8). */
   liveExt: string;
 }
+
+/**
+ * The AIOStreams manifest URL — the single, decoupled connection for VOD
+ * (movies + shows). It embeds the user's private config (debrid keys etc.), so
+ * it's a server-only secret: read from the environment / a gitignored `.env`,
+ * never committed and never placed in the config blob.
+ */
+export function aiostreamsUrl(): string | undefined {
+  const url = process.env.BLAMMY_AIOSTREAMS_URL?.trim();
+  return url || undefined;
+}

@@ -69,7 +69,7 @@ function sourceLines(s: Stream): string[] {
 /** Full detail (synopsis, cast, seasons). Sources are resolved on-demand, so
  * they're left empty here. */
 export function metaToVod(m: MetaDetail): VodItem {
-  const kind = m.type === "series" ? "series" : "movie";
+  const kind = isSeries(m.type) ? "series" : "movie";
   return {
     id: m.id,
     title: m.name,
@@ -95,7 +95,7 @@ export function metaPreviewToVod(m: MetaPreview): VodItem {
     title: m.name,
     year: parseYear(m.releaseInfo),
     poster: httpUrl(m.poster),
-    kind: m.type === "series" ? "series" : "movie",
+    kind: isSeries(m.type) ? "series" : "movie",
     rating: parseRating(m.imdbRating),
     synopsis: m.description,
     genres: m.genres ?? [],
@@ -136,6 +136,11 @@ export function mapSeasons(videos: Video[]): Season[] {
 // ---------------------------------------------------------------------------
 // Parsing helpers
 // ---------------------------------------------------------------------------
+
+/** Stremio types can be "series" or "anime.series" etc. */
+export function isSeries(type?: string): boolean {
+  return (type ?? "").includes("series");
+}
 
 /** "AIOStreams|2160p|BluRay REMUX|…" → "2160p". */
 function resolutionOf(binge: string): string | undefined {

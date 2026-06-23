@@ -2,6 +2,7 @@ import { serve } from "@hono/node-server";
 import { Hono, type Context, type Next } from "hono";
 import { cors } from "hono/cors";
 import { ConfigBlobSchema, isCompleteShareCode, mockConfig } from "@blammytv/shared";
+import type { ConfigBlob } from "@blammytv/shared";
 import {
   addXtreamSource,
   listSources,
@@ -10,6 +11,16 @@ import {
   summarize,
 } from "./store.js";
 import { buildLive } from "./xtream/index.js";
+import { buildVod, resolveSources, resolveVodItem } from "./aiostreams/index.js";
+import { aiostreamsUrl } from "./env.js";
+
+// Load a local .env (gitignored) so BLAMMY_AIOSTREAMS_URL etc. are available in
+// dev without exporting them by hand. No-op in environments without a file.
+try {
+  process.loadEnvFile();
+} catch {
+  /* no .env present — rely on the ambient environment */
+}
 
 /**
  * BlammyTV backend.
@@ -41,6 +52,8 @@ app.use(
 // Gate everything but /health behind a share code.
 app.use("/config", requireCode);
 app.use("/admin/*", requireCode);
+app.use("/vod/*", requireCode);
+app.use("/sources/*", requireCode);
 
 app.get("/health", (c) => c.json({ ok: true }));
 
@@ -48,20 +61,70 @@ app.get("/config", async (c) => {
   const code = c.get("code");
   const seed = mockConfig(`Living Room (${code})`);
 
-  const enabled = listSources().filter((s) => s.enabled);
-  if (enabled.length === 0) {
-    // Nothing configured yet → serve the demo seed.
-    return c.json(ConfigBlobSchema.parse(seed));
-  }
+  // Live (Xtream) and VOD (AIOStreams) are independent subsystems — neither's
+  // failure should sink the other, so both are best-effort and fall back to the
+  // seed when unconfigured or broken.
+  const [live, vod] = await Promise.all([
+    buildLiveSection(seed),
+    buildVodSection(seed),
+  ]);
 
-  const live = await buildLive(enabled);
-  if (live.channels.length === 0) {
-    return c.json({ error: "no channels — check your playlist(s)" }, 502);
-  }
-
-  // Live comes from the playlists; VOD/stream stays seeded until aiostreams.
-  return c.json(ConfigBlobSchema.parse({ ...seed, live }));
+  return c.json(ConfigBlobSchema.parse({ ...seed, live, ...vod }));
 });
+
+/** On-demand title detail (synopsis, cast, seasons/episodes). */
+app.get("/vod/:type/:id", async (c) => {
+  const url = aiostreamsUrl();
+  if (!url) return c.json({ error: "VOD not configured" }, 404);
+  try {
+    const item = await resolveVodItem(url, c.req.param("type"), c.req.param("id"));
+    return item ? c.json({ item }) : c.json({ error: "not found" }, 404);
+  } catch (err) {
+    console.error(`[aiostreams] meta failed: ${msg(err)}`);
+    return c.json({ error: "lookup failed" }, 502);
+  }
+});
+
+/** On-demand ranked playable sources for a title or episode. */
+app.get("/sources/:type/:id", async (c) => {
+  const url = aiostreamsUrl();
+  if (!url) return c.json({ error: "VOD not configured" }, 404);
+  try {
+    const sources = await resolveSources(url, c.req.param("type"), c.req.param("id"));
+    return c.json({ sources });
+  } catch (err) {
+    console.error(`[aiostreams] sources failed: ${msg(err)}`);
+    return c.json({ error: "resolve failed" }, 502);
+  }
+});
+
+/** Live section from the enabled Xtream playlists, or the demo seed. */
+async function buildLiveSection(seed: ConfigBlob): Promise<ConfigBlob["live"]> {
+  const enabled = listSources().filter((s) => s.enabled);
+  if (enabled.length === 0) return seed.live;
+  try {
+    const live = await buildLive(enabled);
+    if (live.channels.length > 0) return live;
+    console.warn("[xtream] enabled playlist(s) produced no channels");
+  } catch (err) {
+    console.error(`[xtream] live build failed: ${msg(err)}`);
+  }
+  return seed.live;
+}
+
+/** VOD section (movies/series/stream) from AIOStreams, or the demo seed. */
+async function buildVodSection(
+  seed: ConfigBlob,
+): Promise<Pick<ConfigBlob, "movies" | "series" | "stream">> {
+  const url = aiostreamsUrl();
+  if (!url) return { movies: seed.movies, series: seed.series, stream: seed.stream };
+  try {
+    return await buildVod(url);
+  } catch (err) {
+    console.error(`[aiostreams] vod build failed: ${msg(err)}`);
+    return { movies: seed.movies, series: seed.series, stream: seed.stream };
+  }
+}
 
 // ---- Playlists admin (used by the in-app settings) ----
 
@@ -113,6 +176,10 @@ async function requireCode(c: Context<Env>, next: Next) {
   }
   c.set("code", code);
   await next();
+}
+
+function msg(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
 }
 
 function str(v: unknown): string {
