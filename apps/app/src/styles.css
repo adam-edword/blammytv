@@ -164,7 +164,6 @@ img {
 .app-header__logo {
   width: 34px;
   height: 34px;
-  border-radius: 8px;
   object-fit: contain;
   flex-shrink: 0;
   align-self: center;
