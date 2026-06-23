@@ -383,7 +383,15 @@ export function TheaterOverlay() {
       <div className="theater-bar">
         {meta && (
           <div className="theater-bar__meta">
-            {meta.logo && <img className="theater-bar__art" src={meta.logo} alt="" />}
+            {meta.logo && (
+              <img
+                className={
+                  "theater-bar__art" + (isVod ? " theater-bar__art--logo" : "")
+                }
+                src={meta.logo}
+                alt=""
+              />
+            )}
             <div className="theater-bar__text">
               <p className="theater-bar__chan">
                 <span className="theater-bar__name">{meta.channelName}</span>

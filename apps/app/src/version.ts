@@ -1,2 +1,2 @@
-/** Displayed build version. Bumped on every push. */
-export const APP_VERSION = "0.1.0";
+/** Displayed build version. Bump the patch on each push. */
+export const APP_VERSION = "0.1.15";

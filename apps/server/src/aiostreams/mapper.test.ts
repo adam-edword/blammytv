@@ -25,20 +25,16 @@ describe("mapStream", () => {
     },
   };
 
-  it("maps quality, cached and the glyph meta lines", () => {
+  it("maps quality/cached and renders the formatter's lines verbatim", () => {
     expect(mapStream(remux)).toMatchObject({
       quality: "2160p",
       cached: true,
-      lines: [
-        "☁︎ BluRay REMUX · FraMeSToR",
-        "◧ 55.7 Mb/s · 70.6 GB",
-        "★★★★☆",
-      ],
+      lines: ["𖥂 Interstellar (2014)", "◧ 55.7 mb/s", "★★★★☆"],
       streamUrl: "https://addon.debridio.com/play/movie/torbox/REDACTED/remux.mkv",
     });
   });
 
-  it("keeps a languages line when present", () => {
+  it("passes through every description line as the formatter wrote it", () => {
     const multi: Stream = {
       name: "4K ⚡",
       description:
@@ -50,9 +46,9 @@ describe("mapStream", () => {
       },
     };
     expect(mapStream(multi).lines).toEqual([
-      "☁︎ BluRay REMUX · SGF",
+      "𖥂 Interstellar (2014)",
       "🗣 English · Japanese · Russian",
-      "◧ 66.3 Mb/s · 84.0 GB",
+      "◧ 66.3 mb/s",
       "★★★⯪☆",
     ]);
   });

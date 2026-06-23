@@ -26,40 +26,14 @@ export function mapStream(s: Stream): StreamSource {
   };
 }
 
-/** Build the SourceCard meta lines from AIOStreams' name/description/hints. */
+/** The source's display lines, taken straight from AIOStreams' formatter (its
+ * `description`). We mirror exactly what the user configured — same as Stremio —
+ * rather than reconstructing lines ourselves, so it's formatter-agnostic. */
 function sourceLines(s: Stream): string[] {
-  const lines: string[] = [];
-
-  // bingeGroup looks like "AIOStreams|2160p|BluRay REMUX|FraMeSToR":
-  // [0] addon tag, [1] resolution, [2+] source type + release group.
-  const tags = (s.behaviorHints?.bingeGroup ?? "")
-    .split("|")
-    .map((p) => p.trim())
-    .filter(Boolean)
-    .slice(2);
-  if (tags.length) lines.push(`☁︎ ${tags.join(" · ")}`);
-
-  // description carries languages / bitrate / quality-stars, already formatted.
-  const desc = (s.description ?? "")
+  return (s.description ?? "")
     .split("\n")
     .map((l) => l.trim())
     .filter(Boolean);
-  const langs = desc.find((l) => l.startsWith("🗣"));
-  const rate = desc.find((l) => l.startsWith("◧"));
-  const stars = desc.find((l) => /^[★⯪☆]/u.test(l));
-
-  if (langs) lines.push(langs);
-
-  const size = s.behaviorHints?.videoSize
-    ? formatSize(s.behaviorHints.videoSize)
-    : undefined;
-  const rateClean = rate ? rate.replace(/mb\/s/i, "Mb/s").trim() : undefined;
-  if (rateClean && size) lines.push(`${rateClean} · ${size}`);
-  else if (rateClean) lines.push(rateClean);
-  else if (size) lines.push(`◧ ${size}`);
-
-  if (stars) lines.push(stars);
-  return lines;
 }
 
 // ---------------------------------------------------------------------------
@@ -76,6 +50,7 @@ export function metaToVod(m: MetaDetail): VodItem {
     year: parseYear(m.year ?? m.releaseInfo),
     poster: httpUrl(m.poster),
     backdrop: httpUrl(m.background) ?? httpUrl(m.landscapePoster),
+    logo: httpUrl(m.logo),
     kind,
     rating: parseRating(m.imdbRating),
     runtimeMin: parseRuntime(m.runtime),
@@ -155,11 +130,6 @@ function qualityLabel(name: string): string {
   if (m) return m[1].toLowerCase();
   if (/\b(4k|uhd|2160)\b/i.test(n)) return "2160p";
   return n || "SD";
-}
-
-function formatSize(bytes: number): string {
-  const gb = bytes / 1e9;
-  return gb >= 1 ? `${gb.toFixed(1)} GB` : `${Math.round(bytes / 1e6)} MB`;
 }
 
 /** "2014" | "2008-2013" | 2014 → 2014 (the first 4-digit year). */

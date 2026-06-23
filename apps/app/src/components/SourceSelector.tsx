@@ -87,7 +87,7 @@ export function SourceSelector({
 
   // What the player overlay shows for a chosen source.
   const playMeta = (s: StreamSource): TheaterMeta => ({
-    logo: item.poster,
+    logo: item.logo,
     backdrop: item.backdrop ?? item.poster,
     channelName: [
       item.year,
@@ -115,7 +115,11 @@ export function SourceSelector({
         </button>
 
         <div className="detail__info">
-          <h1 className="detail__title">{item.title}</h1>
+          {item.logo ? (
+            <img className="detail__logo" src={item.logo} alt={item.title} />
+          ) : (
+            <h1 className="detail__title">{item.title}</h1>
+          )}
           {episodeLabel && (
             <p className="detail__episode">
               <span className="detail__episode-label">{episodeLabel}</span>
