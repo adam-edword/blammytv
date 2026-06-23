@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { slotText } from "slot-text";
 import "slot-text/style.css";
 import type { TheaterMeta } from "./Player";
@@ -135,6 +141,16 @@ export function TheaterOverlay() {
     const off = api?.onTime?.((t) => setTime(t));
     return () => off?.();
   }, []);
+
+  // VOD scrub: fraction (0..1) while dragging, and the hover fraction for the
+  // preview bubble. `draggingRef` tracks the drag across rapid pointer events.
+  const [scrubFrac, setScrubFrac] = useState<number | null>(null);
+  const [hoverFrac, setHoverFrac] = useState<number | null>(null);
+  const draggingRef = useRef(false);
+  const fracFromEvent = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    return Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+  };
 
   // On-demand playback swaps the chrome: no LIVE scrubber, ✕ stops outright,
   // and there's no mini/theater/fullscreen dance (it opens fullscreen).
@@ -279,6 +295,9 @@ export function TheaterOverlay() {
 
   const volPct = Math.round((muted ? 0 : volume) * 100);
   const playPct = time && time.dur ? Math.min(100, (time.pos / time.dur) * 100) : 0;
+  // While dragging, the fill follows the finger, not mpv's reported position.
+  const displayPct = scrubFrac != null ? scrubFrac * 100 : playPct;
+  const previewImg = meta?.backdrop ?? meta?.logo;
 
   // Mini preview: no controls except ✕ (stop); clicking anywhere enters theater.
   // The white hover border lives in CSS (.mini-overlay). VOD never goes mini.
@@ -385,25 +404,55 @@ export function TheaterOverlay() {
           <div className="theater-seek">
             <div
               className="theater-seek__track theater-seek__track--seekable"
-              onClick={(e) => {
-                const dur = time?.dur ?? 0;
-                if (!dur) return;
-                const r = e.currentTarget.getBoundingClientRect();
-                const frac = Math.min(
-                  1,
-                  Math.max(0, (e.clientX - r.left) / r.width),
-                );
-                api?.seekTo?.(frac * dur);
+              onPointerDown={(e) => {
+                if (!time?.dur) return;
+                e.currentTarget.setPointerCapture(e.pointerId);
+                draggingRef.current = true;
+                const f = fracFromEvent(e);
+                setScrubFrac(f);
+                setHoverFrac(f);
+              }}
+              onPointerMove={(e) => {
+                if (!time?.dur) return;
+                const f = fracFromEvent(e);
+                setHoverFrac(f);
+                if (draggingRef.current) setScrubFrac(f);
+              }}
+              onPointerUp={(e) => {
+                if (!draggingRef.current) return;
+                draggingRef.current = false;
+                const f = fracFromEvent(e);
+                if (time?.dur) api?.seekTo?.(f * time.dur);
+                setScrubFrac(null);
+              }}
+              onPointerLeave={() => {
+                if (!draggingRef.current) setHoverFrac(null);
               }}
             >
               <div
                 className="theater-seek__fill"
-                style={{ width: `${playPct}%` }}
+                style={{ width: `${displayPct}%` }}
               />
               <span
                 className="theater-seek__knob"
-                style={{ left: `${playPct}%` }}
+                style={{ left: `${displayPct}%` }}
               />
+              {hoverFrac != null && time?.dur != null && (
+                <div
+                  className="scrub-preview"
+                  style={{ left: `${hoverFrac * 100}%` }}
+                >
+                  {previewImg && (
+                    <div
+                      className="scrub-preview__thumb"
+                      style={{ backgroundImage: `url(${previewImg})` }}
+                    />
+                  )}
+                  <span className="scrub-preview__time">
+                    {fmtTime(hoverFrac * time.dur)}
+                  </span>
+                </div>
+              )}
             </div>
             <div className="theater-seek__labels">
               <span>{fmtTime(time?.pos)}</span>

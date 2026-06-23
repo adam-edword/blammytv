@@ -88,6 +88,7 @@ export function SourceSelector({
   // What the player overlay shows for a chosen source.
   const playMeta = (s: StreamSource): TheaterMeta => ({
     logo: item.poster,
+    backdrop: item.backdrop ?? item.poster,
     channelName: [
       item.year,
       item.kind === "series" ? "Series" : "Movie",
