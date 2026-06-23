@@ -1937,8 +1937,8 @@ body.theater-mode .app-header:hover {
   /* Bleed past the shell's left/right padding for a full-width banner. */
   margin: 0 0 28px -44px;
   width: calc(100% + 44px);
-  /* Tall, cinematic banner (~40% taller than a half-screen hero). */
-  height: clamp(620px, 84vh, 900px);
+  /* Tall, cinematic banner. */
+  height: 85vh;
   border-radius: 0;
   overflow: hidden;
   display: flex;
