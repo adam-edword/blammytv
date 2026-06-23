@@ -17,8 +17,7 @@ type Pick = (
  * Reuses the title screen's EpisodeCard / SourceCard so it matches.
  *
  * - Movie: lists the title's sources; pick one to switch the stream in place.
- * - Series: season picker + episode list; picking an episode plays its
- *   top-ranked source. (Per-episode source picking can follow.)
+ * - Series: season picker + episode list → pick an episode → pick a source.
  */
 export function SourcePanel({
   item,
@@ -57,15 +56,17 @@ export function SourcePanel({
         <SeriesBody
           item={item}
           shareCode={shareCode}
+          currentUrl={currentUrl}
           currentEpisodeId={currentEpisodeId}
           onPick={onPick}
         />
       ) : (
-        <MovieBody
-          item={item}
+        <SourceList
           shareCode={shareCode}
+          kind="movie"
+          id={item.id}
           currentUrl={currentUrl}
-          onPick={onPick}
+          onPickSource={(s) => onPick(s.streamUrl, playMeta(item, s), { item })}
         />
       )}
     </aside>
@@ -96,27 +97,31 @@ function playMeta(
   };
 }
 
-function MovieBody({
-  item,
+/** Resolves and lists the sources for a movie/episode; pick one to play. */
+function SourceList({
   shareCode,
+  kind,
+  id,
   currentUrl,
-  onPick,
+  onPickSource,
 }: {
-  item: VodItem;
   shareCode: ShareCode;
+  kind: VodItem["kind"];
+  id: string;
   currentUrl: string;
-  onPick: Pick;
+  onPickSource: (source: StreamSource) => void;
 }) {
   const [sources, setSources] = useState<StreamSource[] | null>(null);
   useEffect(() => {
     let alive = true;
-    fetchVodSources(shareCode, "movie", item.id)
+    setSources(null);
+    fetchVodSources(shareCode, kind, id)
       .then((s) => alive && setSources(s))
       .catch(() => alive && setSources([]));
     return () => {
       alive = false;
     };
-  }, [shareCode, item.id]);
+  }, [shareCode, kind, id]);
 
   if (sources === null)
     return <p className="src-panel__note">Finding sources…</p>;
@@ -132,10 +137,7 @@ function MovieBody({
             "src-panel__item" + (s.streamUrl === currentUrl ? " is-current" : "")
           }
         >
-          <SourceCard
-            source={s}
-            onPlay={() => onPick(s.streamUrl, playMeta(item, s), { item })}
-          />
+          <SourceCard source={s} onPlay={() => onPickSource(s)} />
         </div>
       ))}
     </div>
@@ -145,11 +147,13 @@ function MovieBody({
 function SeriesBody({
   item,
   shareCode,
+  currentUrl,
   currentEpisodeId,
   onPick,
 }: {
   item: VodItem;
   shareCode: ShareCode;
+  currentUrl: string;
   currentEpisodeId?: string;
   onPick: Pick;
 }) {
@@ -161,24 +165,38 @@ function SeriesBody({
   }, [item.seasons, currentEpisodeId]);
 
   const [seasonIdx, setSeasonIdx] = useState(initialSeason);
-  const [busy, setBusy] = useState(false);
+  const [selected, setSelected] = useState<Episode | null>(null);
   const season = item.seasons[seasonIdx];
 
-  const play = async (ep: Episode) => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      const sources = await fetchVodSources(shareCode, "series", ep.id);
-      const top = sources[0];
-      if (top)
-        onPick(top.streamUrl, playMeta(item, top, ep), {
-          item,
-          episodeId: ep.id,
-        });
-    } finally {
-      setBusy(false);
-    }
-  };
+  // Picking an episode drills into its sources.
+  if (selected) {
+    return (
+      <>
+        <button
+          className="src-panel__back"
+          type="button"
+          onClick={() => setSelected(null)}
+        >
+          <ChevronIcon /> Episodes
+        </button>
+        <p className="src-panel__subtitle">
+          {selected.number}. {selected.title}
+        </p>
+        <SourceList
+          shareCode={shareCode}
+          kind="series"
+          id={selected.id}
+          currentUrl={currentUrl}
+          onPickSource={(s) =>
+            onPick(s.streamUrl, playMeta(item, s, selected), {
+              item,
+              episodeId: selected.id,
+            })
+          }
+        />
+      </>
+    );
+  }
 
   return (
     <>
@@ -208,8 +226,6 @@ function SeriesBody({
         </button>
       </div>
 
-      {busy && <p className="src-panel__note">Loading source…</p>}
-
       <div className="src-panel__list">
         {season?.episodes.map((ep) => (
           <div
@@ -219,7 +235,7 @@ function SeriesBody({
               (ep.id === currentEpisodeId ? " is-current" : "")
             }
           >
-            <EpisodeCard episode={ep} onClick={() => void play(ep)} />
+            <EpisodeCard episode={ep} onClick={() => setSelected(ep)} />
           </div>
         ))}
       </div>

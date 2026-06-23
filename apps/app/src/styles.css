@@ -2292,6 +2292,8 @@ body.theater-mode .app-header:hover {
   padding: 8px 16px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.13);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   color: #f0f0f2;
   font-family: var(--font-headline);
   font-weight: 500;
@@ -2421,6 +2423,33 @@ body.theater-mode .app-header:hover {
   padding: 18px;
   color: var(--text-dim);
 }
+/* Cards fill the panel even when the title is short. */
+.src-panel__item .episode-card,
+.src-panel__item .source-card {
+  width: 100%;
+}
+.src-panel__back {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 6px;
+  margin: 12px 18px 0;
+  padding: 6px 12px 6px 8px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+}
+.src-panel__back:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+.src-panel__subtitle {
+  margin: 10px 18px 0;
+  font-weight: 600;
+  color: var(--text);
+}
 
 /* Shown in place of the player while it's popped out to mpv's own window. */
 .vod-player--popped {
@@ -2461,6 +2490,8 @@ body.theater-mode .app-header:hover {
   width: 100%;
   padding: 18px 22px;
   background: rgba(10, 10, 12, 0.82);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1.5px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
   text-align: left;
@@ -2731,6 +2762,8 @@ body.theater-mode .app-header:hover {
   border-radius: 12px;
   /* Match the season-bar controls' translucent fill. */
   background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1.5px solid transparent;
   text-align: left;
   cursor: pointer;

@@ -296,6 +296,9 @@ function VodPlayer({
       void tauriCompKey(key).catch(() => {});
     };
     const onWheel = (e: WheelEvent) => {
+      // Over the side panel, let it scroll instead of changing volume.
+      const t = e.target as Element | null;
+      if (t && t.closest(".src-panel")) return;
       e.preventDefault();
       void tauriCompKey(e.deltaY < 0 ? "ArrowUp" : "ArrowDown").catch(() => {});
     };
