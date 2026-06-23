@@ -781,8 +781,8 @@ img {
 .theater-bar__art--logo {
   width: auto;
   height: auto;
-  max-width: 240px;
-  max-height: 64px;
+  max-width: 340px;
+  max-height: 104px;
   border-radius: 0;
   object-position: left center;
 }
@@ -2181,9 +2181,9 @@ body.theater-mode .app-header:hover {
 
 .detail__logo {
   display: block;
-  max-width: min(540px, 55%);
-  max-height: 168px;
-  margin: 0 0 6px;
+  max-width: min(680px, 62%);
+  max-height: 240px;
+  margin: 0 0 10px;
   object-fit: contain;
   object-position: left center;
 }
