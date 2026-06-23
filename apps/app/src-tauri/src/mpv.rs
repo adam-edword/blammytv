@@ -102,7 +102,7 @@ static PLAYER: Mutex<Option<Player>> = Mutex::new(None);
 static POPOUT: Mutex<Option<Player>> = Mutex::new(None);
 
 /// Play in mpv's own floating window (PiP): on-top, half-size, separate instance.
-pub fn play_popout(url: &str) -> Result<(), String> {
+pub fn play_popout(url: &str, start: f64) -> Result<(), String> {
     let l = lib()?;
     stop_popout();
     unsafe {
@@ -125,6 +125,10 @@ pub fn play_popout(url: &str) -> Result<(), String> {
         set("title", "BlammyTV — Popout");
         set("osc", "yes");
         set("terminal", "no");
+        // Resume where the in-app player was (VOD); 0 for live.
+        if start > 0.0 {
+            set("start", &start.to_string());
+        }
         if (l.initialize)(h) < 0 {
             (l.terminate_destroy)(h);
             return Err("mpv_initialize failed".into());

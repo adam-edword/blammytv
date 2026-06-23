@@ -379,17 +379,15 @@ export function TheaterOverlay() {
     >
       {loading && <LoadingGlyph />}
       <div className="theater-topright" data-interactive>
-        {!isVod && (
-          <button
-            className="player__theater-exit"
-            type="button"
-            aria-label="Pop out"
-            data-interactive
-            onClick={() => api?.popout?.()}
-          >
-            <PopoutIcon size={20} />
-          </button>
-        )}
+        <button
+          className="player__theater-exit"
+          type="button"
+          aria-label="Pop out"
+          data-interactive
+          onClick={() => api?.popout?.()}
+        >
+          <PopoutIcon size={20} />
+        </button>
         <button
           className="player__theater-exit"
           type="button"

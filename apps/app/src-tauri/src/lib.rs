@@ -103,20 +103,30 @@ fn comp_set_rect(
 // floating window (PiP with mpv's OSC), like the old desktop popout.
 #[tauri::command]
 fn comp_popout(window: tauri::WebviewWindow, url: String) -> Result<(), String> {
+    let start;
     #[cfg(windows)]
     {
         let (tx, rx) = std::sync::mpsc::channel();
         window
             .run_on_main_thread(move || {
+                // Capture the position before teardown so the popout resumes there.
+                let pos = mpv::get_property("time-pos")
+                    .and_then(|s| s.parse::<f64>().ok())
+                    .unwrap_or(0.0);
                 comp::close_theater();
-                let _ = tx.send(());
+                let _ = tx.send(pos);
             })
             .map_err(|e| e.to_string())?;
-        rx.recv().map_err(|e| e.to_string())?;
+        start = rx.recv().map_err(|e| e.to_string())?;
+    }
+    #[cfg(not(windows))]
+    {
+        start = 0.0_f64;
+        let _ = &window;
     }
     // Own mpv instance so the composition teardown (fired by the React unmount)
     // can't terminate it.
-    mpv::play_popout(&url)
+    mpv::play_popout(&url, start)
 }
 
 // Tear down the native composition player (mpv + overlay) and free the HWND.

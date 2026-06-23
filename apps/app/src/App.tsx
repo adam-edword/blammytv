@@ -20,7 +20,7 @@ import type { TheaterMeta } from "./components/Player";
 import { ChevronIcon } from "./components/icons";
 import { fetchConfig } from "./lib/config";
 import { fetchVodDetail, vodBackendConfigured } from "./lib/vod";
-import { isTauri, onCompClosed, onCompExitFullscreen, onCompFullscreen, tauriCompKey, tauriSetFullscreen } from "./lib/tauri";
+import { isTauri, onCompClosed, onCompExitFullscreen, onCompFullscreen, onCompPopout, tauriCompKey, tauriCompPopout, tauriSetFullscreen } from "./lib/tauri";
 import { loadShareCode, saveShareCode, clearShareCode } from "./lib/pairing";
 
 /** YouTube-style keys the VOD player forwards to the overlay. No "t" (there's no
@@ -197,10 +197,17 @@ function VodPlayer({
     const offClose = onCompClosed(onClose);
     const offFull = onCompFullscreen(() => tauriSetFullscreen(true));
     const offExit = onCompExitFullscreen(() => tauriSetFullscreen(false));
+    // Pop out into mpv's own floating window (resumes at the current position,
+    // captured server-side), then drop the in-app player.
+    const offPop = onCompPopout(() => {
+      void tauriCompPopout(url);
+      onClose();
+    });
     return () => {
       offClose();
       offFull();
       offExit();
+      offPop();
       tauriSetFullscreen(false);
     };
     // onClose just clears state; binding once per source is fine.
