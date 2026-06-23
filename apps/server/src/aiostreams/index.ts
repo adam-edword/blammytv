@@ -7,7 +7,7 @@ import type { CatalogDef } from "./types.js";
 type VodSection = Pick<ConfigBlob, "movies" | "series" | "stream">;
 
 const ITEMS_PER_ROW = 40;
-const FEATURED_COUNT = 5;
+const FEATURED_COUNT = 9;
 
 /**
  * Build the movies/series catalog and the Stream rows from an AIOStreams
