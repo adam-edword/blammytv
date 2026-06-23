@@ -1,25 +1,64 @@
-import { useEffect, type CSSProperties } from "react";
-import type { VodItem, StreamSource } from "@blammytv/shared";
+import { useEffect, useState, type CSSProperties } from "react";
+import type { ShareCode, VodItem, StreamSource } from "@blammytv/shared";
 import { SourceCard } from "./SourceCard";
 import { ChevronIcon } from "./icons";
-import { gradientFor } from "../lib/vod";
+import { fetchVodSources, gradientFor, vodBackendConfigured } from "../lib/vod";
 
 /** The source-selection page: a full-bleed backdrop with the title's info on
  * the left and the backend-ranked source list on the right. Used for movies
- * and for a chosen series episode (with a Season/Episode context line). */
+ * and for a chosen series episode (with a Season/Episode context line).
+ *
+ * Sources are resolved on-demand: when this opens it asks the backend for the
+ * ranked list for `sourceKind`/`sourceId` (a movie id, or an episode's
+ * `tt…:s:e`). In demo mode it just renders `fallbackSources` from the blob. */
 export function SourceSelector({
   item,
-  sources,
+  shareCode,
+  sourceKind,
+  sourceId,
+  fallbackSources = [],
   episodeLabel = null,
   episodeTitle = null,
   onBack,
 }: {
   item: VodItem;
-  sources: StreamSource[];
+  shareCode: ShareCode;
+  sourceKind: VodItem["kind"];
+  sourceId: string;
+  fallbackSources?: StreamSource[];
   episodeLabel?: string | null;
   episodeTitle?: string | null;
   onBack: () => void;
 }) {
+  // null = still resolving; [] = resolved but nothing available.
+  const [sources, setSources] = useState<StreamSource[] | null>(
+    vodBackendConfigured() ? null : fallbackSources,
+  );
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    if (!vodBackendConfigured()) {
+      setSources(fallbackSources);
+      return;
+    }
+    let alive = true;
+    setSources(null);
+    setFailed(false);
+    fetchVodSources(shareCode, sourceKind, sourceId)
+      .then((s) => alive && setSources(s))
+      .catch(() => {
+        if (alive) {
+          setSources([]);
+          setFailed(true);
+        }
+      });
+    return () => {
+      alive = false;
+    };
+    // fallbackSources is stable per screen; resolution keys off id/kind.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shareCode, sourceKind, sourceId]);
+
   // Backspace / Escape backs out — natural on a remote and a keyboard.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -95,8 +134,12 @@ export function SourceSelector({
         </div>
 
         <aside className="detail__rail" aria-label="Sources">
-          {sources.length === 0 ? (
-            <p className="detail__no-sources">No sources available.</p>
+          {sources === null ? (
+            <p className="detail__no-sources">Finding sources…</p>
+          ) : sources.length === 0 ? (
+            <p className="detail__no-sources">
+              {failed ? "Couldn't load sources." : "No sources available."}
+            </p>
           ) : (
             sources.map((s) => <SourceCard key={s.id} source={s} />)
           )}

@@ -2209,6 +2209,12 @@ body.theater-mode .app-header:hover {
   font-size: 17px;
 }
 
+.detail__loading {
+  margin: auto;
+  color: var(--text-dim);
+  font-size: 18px;
+}
+
 .source-card {
   flex: 0 0 auto;
   display: flex;

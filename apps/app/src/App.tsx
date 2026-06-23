@@ -15,7 +15,9 @@ import { SourceSelector } from "./components/SourceSelector";
 import { EpisodeBrowser } from "./components/EpisodeBrowser";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { LoadingScreen } from "./components/LoadingScreen";
+import { ChevronIcon } from "./components/icons";
 import { fetchConfig } from "./lib/config";
+import { fetchVodDetail, vodBackendConfigured } from "./lib/vod";
 import { loadShareCode, saveShareCode, clearShareCode } from "./lib/pairing";
 
 type Load =
@@ -129,6 +131,7 @@ export function App() {
           <CurrentScreen
             screen={screen}
             config={load.config}
+            shareCode={shareCode}
             push={push}
             back={back}
           />
@@ -146,11 +149,13 @@ export function App() {
 function CurrentScreen({
   screen,
   config,
+  shareCode,
   push,
   back,
 }: {
   screen: Screen;
   config: ConfigBlob;
+  shareCode: ShareCode;
   push: (s: Screen) => void;
   back: () => void;
 }) {
@@ -163,27 +168,24 @@ function CurrentScreen({
           onOpen={(item) => push({ kind: "title", item })}
         />
       );
-    case "title": {
-      const { item } = screen;
-      if (item.seasons.length > 0) {
-        return (
-          <EpisodeBrowser
-            item={item}
-            onBack={back}
-            onPick={(episode, seasonNumber) =>
-              push({ kind: "source", item, episode, seasonNumber })
-            }
-          />
-        );
-      }
-      return <SourceSelector item={item} sources={item.sources} onBack={back} />;
-    }
+    case "title":
+      return (
+        <TitleScreen
+          item={screen.item}
+          shareCode={shareCode}
+          push={push}
+          back={back}
+        />
+      );
     case "source": {
       const { item, episode, seasonNumber } = screen;
       return (
         <SourceSelector
           item={item}
-          sources={episode.sources}
+          shareCode={shareCode}
+          sourceKind="series"
+          sourceId={episode.id}
+          fallbackSources={episode.sources}
           episodeLabel={`Season ${seasonNumber} · Episode ${episode.number}`}
           episodeTitle={episode.title}
           onBack={back}
@@ -191,6 +193,88 @@ function CurrentScreen({
       );
     }
   }
+}
+
+/** A title page. The catalog item from the blob is lightweight, so on open we
+ * pull full detail (synopsis/cast, and seasons for series) from the backend,
+ * then branch: series → episode browser, movie → source selector. In demo mode
+ * the item already carries everything, so it renders straight through. */
+function TitleScreen({
+  item,
+  shareCode,
+  push,
+  back,
+}: {
+  item: VodItem;
+  shareCode: ShareCode;
+  push: (s: Screen) => void;
+  back: () => void;
+}) {
+  const [detail, setDetail] = useState<VodItem>(item);
+  const [loading, setLoading] = useState(vodBackendConfigured());
+
+  useEffect(() => {
+    if (!vodBackendConfigured()) {
+      setDetail(item);
+      setLoading(false);
+      return;
+    }
+    let alive = true;
+    setLoading(true);
+    fetchVodDetail(shareCode, item.kind, item.id)
+      .then((full) => {
+        if (alive && full) setDetail(full);
+      })
+      .catch(() => {
+        /* keep the lightweight item — at worst we show no sources */
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [item, shareCode]);
+
+  if (loading) return <DetailLoading onBack={back} />;
+
+  if (detail.kind === "series" && detail.seasons.length > 0) {
+    return (
+      <EpisodeBrowser
+        item={detail}
+        onBack={back}
+        onPick={(episode, seasonNumber) =>
+          push({ kind: "source", item: detail, episode, seasonNumber })
+        }
+      />
+    );
+  }
+  return (
+    <SourceSelector
+      item={detail}
+      shareCode={shareCode}
+      sourceKind={detail.kind}
+      sourceId={detail.id}
+      fallbackSources={detail.sources}
+      onBack={back}
+    />
+  );
+}
+
+/** Brief placeholder while a title's detail is fetched, with a way back out. */
+function DetailLoading({ onBack }: { onBack: () => void }) {
+  return (
+    <div className="detail">
+      <div className="detail__scrim" />
+      <div className="detail__body">
+        <button className="detail__back" type="button" onClick={onBack}>
+          <ChevronIcon className="detail__back-icon" />
+          Back
+        </button>
+        <p className="detail__loading">Loading…</p>
+      </div>
+    </div>
+  );
 }
 
 function TabContent({

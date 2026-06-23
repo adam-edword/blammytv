@@ -1,4 +1,43 @@
-import type { VodItem } from "@blammytv/shared";
+import type { ShareCode, StreamSource, VodItem } from "@blammytv/shared";
+
+const API_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, "");
+
+/** Whether a real backend is wired. In demo mode there's none, and catalog
+ * items carry their own seasons/sources inline, so nothing is fetched. */
+export const vodBackendConfigured = (): boolean => Boolean(API_URL);
+
+async function get<T>(path: string, code: ShareCode): Promise<T> {
+  const res = await fetch(`${API_URL}${path}`, {
+    headers: { Authorization: `Bearer ${code}` },
+  });
+  if (!res.ok) throw new Error(`Request failed (${res.status})`);
+  return (await res.json()) as T;
+}
+
+/** On-demand title detail: synopsis, cast, and (for series) seasons/episodes.
+ * Catalog items in the blob are lightweight; this fills one in when opened. */
+export async function fetchVodDetail(
+  code: ShareCode,
+  kind: VodItem["kind"],
+  id: string,
+): Promise<VodItem | null> {
+  const { item } = await get<{ item?: VodItem }>(`/vod/${kind}/${id}`, code);
+  return item ?? null;
+}
+
+/** On-demand ranked playable sources for a movie (`tt123`) or episode
+ * (`tt123:1:2`), resolved through the backend's AIOStreams connection. */
+export async function fetchVodSources(
+  code: ShareCode,
+  kind: VodItem["kind"],
+  id: string,
+): Promise<StreamSource[]> {
+  const { sources } = await get<{ sources?: StreamSource[] }>(
+    `/sources/${kind}/${id}`,
+    code,
+  );
+  return sources ?? [];
+}
 
 /** Build an id → item lookup across the movies + series catalogs, so Stream
  * rows (which reference ids) can resolve their items. */
