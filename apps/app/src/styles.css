@@ -2335,6 +2335,21 @@ body.theater-mode .app-header:hover {
   height: 100%;
 }
 
+/* Shown in place of the player while it's popped out to mpv's own window. */
+.vod-player--popped {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+.vod-popped__title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text);
+}
+
 .vod-player-fallback {
   position: fixed;
   inset: 0;

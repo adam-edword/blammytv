@@ -364,6 +364,7 @@ pub fn theater(
     url: &str,
     overlay_url: &str,
     meta_json: &str,
+    start: f64,
 ) -> Result<(), String> {
     // Tear down any previous theater first so we can re-target the HWND and don't
     // leak the old mpv child / webview (also makes channel-switch a clean rebuild).
@@ -406,7 +407,7 @@ pub fn theater(
         let prev = SetWindowLongPtrW(child, GWLP_WNDPROC, proc as usize as isize);
         ORIG_WNDPROC.store(prev, Ordering::SeqCst);
 
-        crate::mpv::play_wid(url, child.0 as isize, false)?;
+        crate::mpv::play_wid(url, child.0 as isize, false, start)?;
 
         // D3D11 device just for DComp.
         let mut device: Option<ID3D11Device> = None;

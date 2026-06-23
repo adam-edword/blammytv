@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   ConfigBlob,
   ShareCode,
@@ -20,7 +20,7 @@ import type { TheaterMeta } from "./components/Player";
 import { ChevronIcon } from "./components/icons";
 import { fetchConfig } from "./lib/config";
 import { fetchVodDetail, vodBackendConfigured } from "./lib/vod";
-import { isTauri, onCompClosed, onCompExitFullscreen, onCompFullscreen, onCompPopout, tauriCompKey, tauriCompPopout, tauriSetFullscreen } from "./lib/tauri";
+import { isTauri, onCompClosed, onCompExitFullscreen, onCompFullscreen, onCompPopout, onPopoutClosed, tauriCompKey, tauriCompPopout, tauriPopoutPos, tauriPopoutStop, tauriSetFullscreen } from "./lib/tauri";
 import { loadShareCode, saveShareCode, clearShareCode } from "./lib/pairing";
 
 /** YouTube-style keys the VOD player forwards to the overlay. No "t" (there's no
@@ -192,34 +192,63 @@ function VodPlayer({
   meta: TheaterMeta;
   onClose: () => void;
 }) {
+  // When popped out, the in-app player is replaced by a placeholder (the native
+  // layer moved to mpv's floating window). `resumeAt` reopens it where it was.
+  const [poppedOut, setPoppedOut] = useState(false);
+  const [resumeAt, setResumeAt] = useState(0);
+  const posRef = useRef(0);
+
+  const bringBack = useCallback((pos: number) => {
+    setResumeAt(pos > 0 ? pos : posRef.current);
+    setPoppedOut(false);
+  }, []);
+
   useEffect(() => {
     if (!isTauri()) return;
     const offClose = onCompClosed(onClose);
     const offFull = onCompFullscreen(() => tauriSetFullscreen(true));
     const offExit = onCompExitFullscreen(() => tauriSetFullscreen(false));
     // Pop out into mpv's own floating window (resumes at the current position,
-    // captured server-side), then drop the in-app player.
+    // captured server-side); keep the in-app player mounted as a placeholder.
     const offPop = onCompPopout(() => {
       void tauriCompPopout(url);
-      onClose();
+      tauriSetFullscreen(false);
+      setPoppedOut(true);
     });
+    // The user closed the floating window → bring the in-app player back where
+    // it left off (last polled position).
+    const offReclaim = onPopoutClosed(() => bringBack(posRef.current));
     return () => {
       offClose();
       offFull();
       offExit();
       offPop();
+      offReclaim();
       tauriSetFullscreen(false);
     };
-    // onClose just clears state; binding once per source is fine.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [url]);
+  }, [url, onClose, bringBack]);
+
+  // While popped out, poll the floating window's position so a reclaim resumes
+  // at the right spot.
+  useEffect(() => {
+    if (!poppedOut || !isTauri()) return;
+    const id = window.setInterval(() => {
+      void tauriPopoutPos()
+        .then((p) => {
+          if (p > 0) posRef.current = p;
+        })
+        .catch(() => {});
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [poppedOut]);
 
   // The main webview holds keyboard focus, so capture the YouTube-style
   // shortcuts here and forward them to the overlay (which drives mpv) — same as
   // live. Capture phase + stopImmediatePropagation keeps the source list behind
   // from also acting on Esc/Backspace. Scroll = volume anywhere over the player.
+  // Inactive while popped out (mpv's own window handles its keys).
   useEffect(() => {
-    if (!isTauri()) return;
+    if (!isTauri() || poppedOut) return;
     const onKey = (e: KeyboardEvent) => {
       const raw = e.key.length === 1 ? e.key.toLowerCase() : e.key;
       const key = raw === "Backspace" ? "Escape" : raw;
@@ -238,7 +267,7 @@ function VodPlayer({
       window.removeEventListener("keydown", onKey, { capture: true });
       window.removeEventListener("wheel", onWheel);
     };
-  }, []);
+  }, [poppedOut]);
 
   if (!isTauri()) {
     return (
@@ -250,9 +279,34 @@ function VodPlayer({
       </div>
     );
   }
+
+  if (poppedOut) {
+    return (
+      <div className="vod-player vod-player--popped">
+        <p className="vod-popped__title">Player popped out</p>
+        <button
+          className="btn btn--primary"
+          type="button"
+          onClick={async () => {
+            let pos = posRef.current;
+            try {
+              pos = await tauriPopoutPos();
+            } catch {
+              /* fall back to last polled position */
+            }
+            await tauriPopoutStop().catch(() => {});
+            bringBack(pos);
+          }}
+        >
+          Bring it back
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="vod-player">
-      <CompositionPreview url={url} meta={meta} fullscreen />
+      <CompositionPreview url={url} meta={meta} fullscreen start={resumeAt} />
     </div>
   );
 }

@@ -170,6 +170,11 @@ pub fn play_popout(url: &str, start: f64) -> Result<(), String> {
             drop(g);
             if let Some(p) = taken {
                 unsafe { (l.terminate_destroy)(p.0) };
+                // The user closed the popout window (we still owned it) → tell
+                // React to bring the in-app player back. A programmatic
+                // stop_popout() takes ownership first, so `taken` is None there
+                // and we stay silent (the button drives the reclaim itself).
+                crate::emit_comp("popout-closed");
             }
         });
     }
@@ -189,7 +194,7 @@ pub fn stop_popout() {
 /// can be drawn over the video. Left off, mpv uses its default flip model — which
 /// is what actually shows video when embedded; bitblt into a `--wid` child often
 /// renders nothing.
-pub fn play_wid(url: &str, wid: isize, composited: bool) -> Result<(), String> {
+pub fn play_wid(url: &str, wid: isize, composited: bool, start: f64) -> Result<(), String> {
     let l = lib()?;
     stop();
     unsafe {
@@ -214,6 +219,10 @@ pub fn play_wid(url: &str, wid: isize, composited: bool) -> Result<(), String> {
         }
         set("audio-channels", "stereo");
         set("terminal", "no");
+        // Resume at a position when reclaiming from the popout (0 otherwise).
+        if start > 0.0 {
+            set("start", &start.to_string());
+        }
         if (l.initialize)(h) < 0 {
             (l.terminate_destroy)(h);
             return Err("mpv_initialize failed".into());
@@ -228,6 +237,24 @@ pub fn play_wid(url: &str, wid: isize, composited: bool) -> Result<(), String> {
         *PLAYER.lock().unwrap() = Some(Player(h));
     }
     Ok(())
+}
+
+/// Current playback position of the popout window (seconds), or 0.0 if none.
+/// Reads under the POPOUT lock so it's safe against stop_popout().
+pub fn popout_pos() -> f64 {
+    let g = POPOUT.lock().unwrap();
+    if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {
+        unsafe {
+            let name = CString::new("time-pos").unwrap();
+            let ptr = (l.get_property_string)(p.0, name.as_ptr());
+            if !ptr.is_null() {
+                let s = std::ffi::CStr::from_ptr(ptr).to_string_lossy().into_owned();
+                (l.free)(ptr as *mut c_void);
+                return s.parse::<f64>().unwrap_or(0.0);
+            }
+        }
+    }
+    0.0
 }
 
 pub fn set_pause(paused: bool) {

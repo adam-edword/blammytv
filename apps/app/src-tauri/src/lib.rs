@@ -54,6 +54,7 @@ fn comp_theater(
     w: u32,
     h: u32,
     radius: i32,
+    start: f64,
 ) -> Result<(), String> {
     #[cfg(windows)]
     {
@@ -62,7 +63,7 @@ fn comp_theater(
         window
             .run_on_main_thread(move || {
                 let _ = tx.send(comp::theater(
-                    hwnd, x, y, w, h, radius, &url, &overlay_url, &meta_json,
+                    hwnd, x, y, w, h, radius, &url, &overlay_url, &meta_json, start,
                 ));
             })
             .map_err(|e| e.to_string())?;
@@ -70,8 +71,30 @@ fn comp_theater(
     }
     #[cfg(not(windows))]
     {
-        let _ = (window, url, overlay_url, meta_json, x, y, w, h, radius);
+        let _ = (window, url, overlay_url, meta_json, x, y, w, h, radius, start);
         Ok(())
+    }
+}
+
+// Current popout playback position (seconds) — used to reclaim it in-app.
+#[tauri::command]
+fn popout_pos() -> f64 {
+    #[cfg(windows)]
+    {
+        mpv::popout_pos()
+    }
+    #[cfg(not(windows))]
+    {
+        0.0
+    }
+}
+
+// Close the popout window (used by the "Bring it back" button).
+#[tauri::command]
+fn popout_stop() {
+    #[cfg(windows)]
+    {
+        mpv::stop_popout();
     }
 }
 
@@ -170,7 +193,9 @@ pub fn run() {
             comp_theater,
             comp_set_rect,
             comp_popout,
-            comp_stop
+            comp_stop,
+            popout_pos,
+            popout_stop
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

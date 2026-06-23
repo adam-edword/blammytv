@@ -33,10 +33,13 @@ export function CompositionPreview({
   url,
   meta,
   fullscreen,
+  start = 0,
 }: {
   url: string;
   meta: TheaterMeta;
   fullscreen: boolean;
+  /** Resume position (seconds) when reopening, e.g. reclaiming from the popout. */
+  start?: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   // Live fullscreen flag for the rAF loop (re-rects without re-running the effect).
@@ -56,7 +59,7 @@ export function CompositionPreview({
         last = key;
         if (!opened) {
           opened = true;
-          void tauriCompTheater(url, meta, rect).catch(() => {});
+          void tauriCompTheater(url, meta, rect, start).catch(() => {});
         } else {
           void tauriCompSetRect(rect).catch(() => {});
         }
