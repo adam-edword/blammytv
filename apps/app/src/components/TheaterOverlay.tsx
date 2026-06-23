@@ -79,6 +79,9 @@ export function TheaterOverlay() {
   // (render mini: just ✕ + click-to-expand), when large it's theater mode.
   const [mini, setMini] = useState(() => window.innerWidth < 1000);
   const [fs, setFs] = useState(atFullscreen);
+  // VOD owns its OS-fullscreen intent locally (the window-size heuristic can't
+  // tell maximized from fullscreen). Starts windowed-fill.
+  const [vodFs, setVodFs] = useState(false);
   useEffect(() => {
     const f = () => {
       setMini(window.innerWidth < 1000);
@@ -165,6 +168,24 @@ export function TheaterOverlay() {
     });
   }, []);
 
+  // Fullscreen toggle. Live uses the window-size heuristic; VOD tracks its own
+  // intent (the main webview mirrors the comp-fullscreen events to the OS).
+  const toggleFullscreen = useCallback(() => {
+    if (isVod) {
+      setVodFs((on) => {
+        if (on) api?.exitFullscreen?.();
+        else api?.fullscreen?.();
+        return !on;
+      });
+    } else if (atFullscreen()) {
+      api?.exitFullscreen?.();
+    } else {
+      api?.fullscreen?.();
+    }
+  }, [isVod]);
+
+  const fullscreenOn = isVod ? vodFs : fs;
+
   // YouTube-style shortcuts. Volume/mute drive mpv via the volume effect; seek
   // and mode changes go straight through the bridge. Runs whether the key was
   // captured by the main webview (forwarded via onKey) or hit the overlay direct.
@@ -199,9 +220,7 @@ export function TheaterOverlay() {
           api?.seek(10);
           break;
         case "f":
-          if (isVod) break;
-          if (atFullscreen()) api?.exitFullscreen?.();
-          else api?.fullscreen?.();
+          toggleFullscreen();
           break;
         case "t":
           if (isVod) break;
@@ -218,7 +237,7 @@ export function TheaterOverlay() {
       }
       wake();
     },
-    [isVod, togglePlay, wake],
+    [isVod, toggleFullscreen, togglePlay, wake],
   );
 
   useEffect(() => {
@@ -273,27 +292,29 @@ export function TheaterOverlay() {
       {loading && <LoadingGlyph />}
       <div className="theater-topright" data-interactive>
         {!isVod && (
-          <>
-            <button
-              className="player__theater-exit"
-              type="button"
-              aria-label="Pop out"
-              data-interactive
-              onClick={() => api?.popout?.()}
-            >
-              <PopoutIcon size={20} />
-            </button>
-            <button
-              className="player__theater-exit"
-              type="button"
-              aria-label={fs ? "Exit fullscreen" : "Fullscreen"}
-              data-interactive
-              onClick={() => (fs ? api?.exitFullscreen?.() : api?.fullscreen?.())}
-            >
-              {fs ? <ExitFullscreenIcon size={20} /> : <FullscreenIcon size={20} />}
-            </button>
-          </>
+          <button
+            className="player__theater-exit"
+            type="button"
+            aria-label="Pop out"
+            data-interactive
+            onClick={() => api?.popout?.()}
+          >
+            <PopoutIcon size={20} />
+          </button>
         )}
+        <button
+          className="player__theater-exit"
+          type="button"
+          aria-label={fullscreenOn ? "Exit fullscreen" : "Fullscreen"}
+          data-interactive
+          onClick={toggleFullscreen}
+        >
+          {fullscreenOn ? (
+            <ExitFullscreenIcon size={20} />
+          ) : (
+            <FullscreenIcon size={20} />
+          )}
+        </button>
         <button
           className="player__theater-exit"
           type="button"

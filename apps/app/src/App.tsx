@@ -20,7 +20,7 @@ import type { TheaterMeta } from "./components/Player";
 import { ChevronIcon } from "./components/icons";
 import { fetchConfig } from "./lib/config";
 import { fetchVodDetail, vodBackendConfigured } from "./lib/vod";
-import { isTauri, onCompClosed, tauriSetFullscreen } from "./lib/tauri";
+import { isTauri, onCompClosed, onCompExitFullscreen, onCompFullscreen, tauriSetFullscreen } from "./lib/tauri";
 import { loadShareCode, saveShareCode, clearShareCode } from "./lib/pairing";
 
 type Load =
@@ -162,10 +162,11 @@ export function App() {
   );
 }
 
-/** Plays a chosen VOD source fullscreen. On Tauri it drives the native mpv
- * composition layer (same machinery as live), going OS-fullscreen for the
- * duration and tearing down on close. In the browser there's no native player,
- * so it shows a short note. */
+/** Plays a chosen VOD source. On Tauri it drives the native mpv composition
+ * layer (same machinery as live). It opens "windowed-fill" — covering the app
+ * window (taskbar still visible, letterboxed) — and the overlay's fullscreen
+ * button toggles true OS fullscreen via the comp events. Tears down on close.
+ * In the browser there's no native player, so it shows a short note. */
 function VodPlayer({
   url,
   meta,
@@ -177,13 +178,16 @@ function VodPlayer({
 }) {
   useEffect(() => {
     if (!isTauri()) return;
-    tauriSetFullscreen(true);
-    const off = onCompClosed(onClose);
+    const offClose = onCompClosed(onClose);
+    const offFull = onCompFullscreen(() => tauriSetFullscreen(true));
+    const offExit = onCompExitFullscreen(() => tauriSetFullscreen(false));
     return () => {
-      off();
+      offClose();
+      offFull();
+      offExit();
       tauriSetFullscreen(false);
     };
-    // onClose just clears state; binding once on mount is fine.
+    // onClose just clears state; binding once per source is fine.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url]);
 
