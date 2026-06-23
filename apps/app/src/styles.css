@@ -1974,7 +1974,7 @@ body.theater-mode .app-header:hover {
   position: relative;
   z-index: 1;
   max-width: 720px;
-  padding: 0 44px 56px 88px;
+  padding: 0 44px 140px 88px;
   display: flex;
   flex-direction: column;
   gap: 16px;
