@@ -380,7 +380,7 @@ export function TheaterOverlay() {
         </button>
       </div>
 
-      <div className="theater-bar" data-interactive>
+      <div className="theater-bar">
         {meta && (
           <div className="theater-bar__meta">
             {meta.logo && <img className="theater-bar__art" src={meta.logo} alt="" />}
@@ -400,7 +400,7 @@ export function TheaterOverlay() {
         )}
 
         {isVod ? (
-          <div className="theater-seek">
+          <div className="theater-seek" data-interactive>
             <div
               className="theater-seek__track theater-seek__track--seekable"
               onPointerDown={(e) => {
@@ -453,7 +453,7 @@ export function TheaterOverlay() {
             </div>
           </div>
         ) : (
-          <div className="theater-seek">
+          <div className="theater-seek" data-interactive>
             <div className="theater-seek__track">
               <div
                 className="theater-seek__fill"
@@ -471,7 +471,7 @@ export function TheaterOverlay() {
           </div>
         )}
 
-        <div className="theater-controls">
+        <div className="theater-controls" data-interactive>
           <div className="theater-controls__group">
             <button className="player__btn" type="button" onClick={() => api?.seek(-10)} aria-label="Back 10 seconds">
               <SkipBackIcon size={24} />
