@@ -19,6 +19,8 @@ import {
   FullscreenIcon,
   ExitFullscreenIcon,
   PopoutIcon,
+  LanguageIcon,
+  CcIcon,
 } from "./icons";
 
 /** True when the overlay fills (nearly) the whole monitor — i.e. fullscreen. */
@@ -45,6 +47,11 @@ interface OverlayApi {
   onKey?: (cb: (key: string) => void) => () => void;
   getTime?: () => PlayTime | null;
   onTime?: (cb: (t: PlayTime | null) => void) => () => void;
+  selectAudio?: (id: string | number) => void;
+  selectSub?: (id: string | number) => void;
+  setSpeed?: (speed: number) => void;
+  getTracks?: () => TrackMsg | null;
+  onTracks?: (cb: (t: TrackMsg | null) => void) => () => void;
 }
 
 /** mpv playback position + total, in seconds (VOD only). */
@@ -52,6 +59,20 @@ interface PlayTime {
   pos: number;
   dur: number;
 }
+
+/** An audio or subtitle track option from mpv's track list. */
+interface TrackOpt {
+  id: number;
+  label: string;
+  lang?: string;
+  selected: boolean;
+}
+interface TrackMsg {
+  audio: TrackOpt[];
+  subs: TrackOpt[];
+}
+
+const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 
 /** "1:23:45" / "4:05" from seconds. */
 function fmtTime(s?: number): string {
@@ -151,6 +172,19 @@ export function TheaterOverlay() {
     const r = e.currentTarget.getBoundingClientRect();
     return Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
   };
+
+  // Audio / subtitle tracks + playback speed (VOD).
+  const [tracks, setTracks] = useState<TrackMsg | null>(
+    () => api?.getTracks?.() ?? null,
+  );
+  useEffect(() => {
+    const off = api?.onTracks?.((t) => setTracks(t));
+    return () => off?.();
+  }, []);
+  const [speed, setSpeed] = useState(1);
+  const [menu, setMenu] = useState<null | "audio" | "subs" | "speed">(null);
+  const menuRef = useRef<string | null>(null);
+  menuRef.current = menu;
 
   // On-demand playback swaps the chrome: no LIVE scrubber, ✕ stops outright,
   // and there's no mini/theater/fullscreen dance (it opens fullscreen).
@@ -297,6 +331,9 @@ export function TheaterOverlay() {
   const playPct = time && time.dur ? Math.min(100, (time.pos / time.dur) * 100) : 0;
   // While dragging, the fill follows the finger, not mpv's reported position.
   const displayPct = scrubFrac != null ? scrubFrac * 100 : playPct;
+  const audioTracks = tracks?.audio ?? [];
+  const subTracks = tracks?.subs ?? [];
+  const subOff = !subTracks.some((t) => t.selected);
 
   // Mini preview: no controls except ✕ (stop); clicking anywhere enters theater.
   // The white hover border lives in CSS (.mini-overlay). VOD never goes mini.
@@ -328,6 +365,11 @@ export function TheaterOverlay() {
     <div
       className={"theater-overlay" + (active ? " player--active" : "")}
       onClick={(e) => {
+        // An open menu? Any click just dismisses it (no pause).
+        if (menuRef.current) {
+          setMenu(null);
+          return;
+        }
         // Click the picture (not a control) to play/pause, like YouTube.
         if (!(e.target as Element).closest("[data-interactive]")) {
           togglePlay();
@@ -493,6 +535,124 @@ export function TheaterOverlay() {
           </div>
 
           <div className="theater-controls__group">
+            {isVod && (
+              <>
+                <div className="theater-menu-wrap">
+                  <button
+                    className="player__btn"
+                    type="button"
+                    aria-label="Audio track"
+                    onClick={() =>
+                      setMenu((m) => (m === "audio" ? null : "audio"))
+                    }
+                  >
+                    <LanguageIcon size={20} />
+                  </button>
+                  {menu === "audio" && (
+                    <div className="track-menu">
+                      {audioTracks.length === 0 ? (
+                        <span className="track-menu__empty">No tracks</span>
+                      ) : (
+                        audioTracks.map((t) => (
+                          <button
+                            key={t.id}
+                            className={
+                              "track-menu__item" +
+                              (t.selected ? " is-active" : "")
+                            }
+                            type="button"
+                            onClick={() => {
+                              api?.selectAudio?.(t.id);
+                              setMenu(null);
+                            }}
+                          >
+                            {t.label}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="theater-menu-wrap">
+                  <button
+                    className="player__btn"
+                    type="button"
+                    aria-label="Subtitles"
+                    onClick={() =>
+                      setMenu((m) => (m === "subs" ? null : "subs"))
+                    }
+                  >
+                    <CcIcon size={20} />
+                  </button>
+                  {menu === "subs" && (
+                    <div className="track-menu">
+                      <button
+                        className={
+                          "track-menu__item" + (subOff ? " is-active" : "")
+                        }
+                        type="button"
+                        onClick={() => {
+                          api?.selectSub?.("no");
+                          setMenu(null);
+                        }}
+                      >
+                        Off
+                      </button>
+                      {subTracks.map((t) => (
+                        <button
+                          key={t.id}
+                          className={
+                            "track-menu__item" +
+                            (t.selected ? " is-active" : "")
+                          }
+                          type="button"
+                          onClick={() => {
+                            api?.selectSub?.(t.id);
+                            setMenu(null);
+                          }}
+                        >
+                          {t.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="theater-menu-wrap">
+                  <button
+                    className="player__btn player__btn--speed"
+                    type="button"
+                    aria-label="Playback speed"
+                    onClick={() =>
+                      setMenu((m) => (m === "speed" ? null : "speed"))
+                    }
+                  >
+                    {speed}×
+                  </button>
+                  {menu === "speed" && (
+                    <div className="track-menu">
+                      {SPEEDS.map((s) => (
+                        <button
+                          key={s}
+                          className={
+                            "track-menu__item" + (s === speed ? " is-active" : "")
+                          }
+                          type="button"
+                          onClick={() => {
+                            api?.setSpeed?.(s);
+                            setSpeed(s);
+                            setMenu(null);
+                          }}
+                        >
+                          {s}×
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
             <div className="theater-vol">
               <button className="player__btn" type="button" onClick={() => setMuted((m) => !m)} aria-label={muted ? "Unmute" : "Mute"}>
                 {muted || volPct === 0 ? <MuteIcon size={20} /> : <VolumeIcon size={20} />}

@@ -59,12 +59,14 @@ const OVERLAY_BRIDGE_JS: &str = r#"(function(){
   var loadingCbs=[];var lastLoading=true;
   var keyCbs=[];
   var timeCbs=[];var lastTime=null;
+  var tracksCbs=[];var lastTracks=null;
   window.chrome.webview.addEventListener('message',function(e){
     var msg; try{msg=JSON.parse(e.data);}catch(_){return;}
     if(msg&&msg.type==='meta'){lastMeta=msg.meta;metaCbs.slice().forEach(function(cb){try{cb(lastMeta);}catch(_){}})}
     if(msg&&msg.type==='loading'){lastLoading=!!msg.loading;loadingCbs.slice().forEach(function(cb){try{cb(lastLoading);}catch(_){}})}
     if(msg&&msg.type==='key'){keyCbs.slice().forEach(function(cb){try{cb(msg.key);}catch(_){}})}
     if(msg&&msg.type==='time'){lastTime={pos:msg.pos,dur:msg.dur};timeCbs.slice().forEach(function(cb){try{cb(lastTime);}catch(_){}})}
+    if(msg&&msg.type==='tracks'){lastTracks={audio:msg.audio,subs:msg.subs};tracksCbs.slice().forEach(function(cb){try{cb(lastTracks);}catch(_){}})}
   });
   window.overlayApi={
     close:function(){post({type:'close'});},
@@ -73,6 +75,9 @@ const OVERLAY_BRIDGE_JS: &str = r#"(function(){
     setVolume:function(v){post({type:'setVolume',vol:v});},
     seek:function(d){post({type:'seek',delta:d});},
     seekTo:function(p){post({type:'seekTo',pos:p});},
+    selectAudio:function(id){post({type:'selectAudio',id:String(id)});},
+    selectSub:function(id){post({type:'selectSub',id:String(id)});},
+    setSpeed:function(s){post({type:'setSpeed',speed:s});},
     expand:function(){post({type:'expand'});},
     collapse:function(){post({type:'collapse'});},
     fullscreen:function(){post({type:'fullscreen'});},
@@ -85,7 +90,9 @@ const OVERLAY_BRIDGE_JS: &str = r#"(function(){
     onLoading:function(cb){loadingCbs.push(cb);return function(){loadingCbs=loadingCbs.filter(function(x){return x!==cb;});};},
     onKey:function(cb){keyCbs.push(cb);return function(){keyCbs=keyCbs.filter(function(x){return x!==cb;});};},
     getTime:function(){return lastTime;},
-    onTime:function(cb){timeCbs.push(cb);return function(){timeCbs=timeCbs.filter(function(x){return x!==cb;});};}
+    onTime:function(cb){timeCbs.push(cb);return function(){timeCbs=timeCbs.filter(function(x){return x!==cb;});};},
+    getTracks:function(){return lastTracks;},
+    onTracks:function(cb){tracksCbs.push(cb);return function(){tracksCbs=tracksCbs.filter(function(x){return x!==cb;});};}
   };
   post({type:'ready'});
 })();"#;
@@ -157,23 +164,56 @@ fn spawn_loader_watch() {
     });
 }
 
-// Poll mpv's playback position + duration and push them to the overlay (for the
-// VOD scrubber). Runs until a newer open/teardown bumps the generation. Live
-// streams report no usable duration, so nothing is posted there.
+// Build the {type:'tracks', audio, subs} message from mpv's track list.
+fn tracks_json() -> String {
+    let mut audio = Vec::new();
+    let mut subs = Vec::new();
+    for t in crate::mpv::track_list() {
+        let label = if !t.title.is_empty() {
+            t.title.clone()
+        } else if !t.lang.is_empty() {
+            t.lang.clone()
+        } else {
+            format!("Track {}", t.id)
+        };
+        let entry = serde_json::json!({
+            "id": t.id, "label": label, "lang": t.lang, "selected": t.selected,
+        });
+        match t.kind.as_str() {
+            "audio" => audio.push(entry),
+            "sub" => subs.push(entry),
+            _ => {}
+        }
+    }
+    serde_json::json!({ "type": "tracks", "audio": audio, "subs": subs }).to_string()
+}
+
+// Poll mpv's playback position + duration (for the VOD scrubber) and the track
+// list (audio/sub selectors), pushing each to the overlay when it changes. Runs
+// until a newer open/teardown bumps the generation. Live streams report no
+// usable duration, so no time is posted there.
 fn spawn_time_watch() {
     let gen = LOADER_GEN.load(Ordering::SeqCst);
-    std::thread::spawn(move || loop {
-        std::thread::sleep(std::time::Duration::from_millis(500));
-        if LOADER_GEN.load(Ordering::SeqCst) != gen {
-            return; // superseded by a newer open or a teardown
-        }
-        let pos = crate::mpv::get_property("time-pos").and_then(|s| s.parse::<f64>().ok());
-        let dur = crate::mpv::get_property("duration").and_then(|s| s.parse::<f64>().ok());
-        if let (Some(p), Some(d)) = (pos, dur) {
-            if p.is_finite() && d.is_finite() && d > 0.0 {
-                crate::run_on_main(move || {
-                    post_overlay(&format!("{{\"type\":\"time\",\"pos\":{p},\"dur\":{d}}}"));
-                });
+    std::thread::spawn(move || {
+        let mut last_tracks = String::new();
+        loop {
+            std::thread::sleep(std::time::Duration::from_millis(500));
+            if LOADER_GEN.load(Ordering::SeqCst) != gen {
+                return; // superseded by a newer open or a teardown
+            }
+            let pos = crate::mpv::get_property("time-pos").and_then(|s| s.parse::<f64>().ok());
+            let dur = crate::mpv::get_property("duration").and_then(|s| s.parse::<f64>().ok());
+            if let (Some(p), Some(d)) = (pos, dur) {
+                if p.is_finite() && d.is_finite() && d > 0.0 {
+                    crate::run_on_main(move || {
+                        post_overlay(&format!("{{\"type\":\"time\",\"pos\":{p},\"dur\":{d}}}"));
+                    });
+                }
+            }
+            let tj = tracks_json();
+            if tj != last_tracks {
+                last_tracks = tj.clone();
+                crate::run_on_main(move || post_overlay(&tj));
             }
         }
     });
@@ -531,6 +571,23 @@ pub fn theater(
                                                     v.get("pos")
                                                         .and_then(|x| x.as_f64())
                                                         .unwrap_or(0.0),
+                                                ),
+                                                Some("selectAudio") => crate::mpv::set_track(
+                                                    "audio",
+                                                    v.get("id")
+                                                        .and_then(|x| x.as_str())
+                                                        .unwrap_or("auto"),
+                                                ),
+                                                Some("selectSub") => crate::mpv::set_track(
+                                                    "sub",
+                                                    v.get("id")
+                                                        .and_then(|x| x.as_str())
+                                                        .unwrap_or("no"),
+                                                ),
+                                                Some("setSpeed") => crate::mpv::set_speed(
+                                                    v.get("speed")
+                                                        .and_then(|x| x.as_f64())
+                                                        .unwrap_or(1.0),
                                                 ),
                                                 Some("expand") => crate::emit_comp("comp-expand"),
                                                 Some("collapse") => {

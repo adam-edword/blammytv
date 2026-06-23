@@ -300,6 +300,64 @@ pub fn stop() {
     }
 }
 
+/// One entry from mpv's `track-list` (audio / sub / video).
+pub struct TrackInfo {
+    pub id: i64,
+    pub kind: String,
+    pub title: String,
+    pub lang: String,
+    pub selected: bool,
+}
+
+/// Read the current track list via mpv's `track-list/...` string sub-properties.
+pub fn track_list() -> Vec<TrackInfo> {
+    let count = get_property("track-list/count")
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(0);
+    (0..count)
+        .map(|i| TrackInfo {
+            id: get_property(&format!("track-list/{i}/id"))
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(0),
+            kind: get_property(&format!("track-list/{i}/type")).unwrap_or_default(),
+            title: get_property(&format!("track-list/{i}/title")).unwrap_or_default(),
+            lang: get_property(&format!("track-list/{i}/lang")).unwrap_or_default(),
+            selected: get_property(&format!("track-list/{i}/selected")).as_deref()
+                == Some("yes"),
+        })
+        .collect()
+}
+
+/// Set a string property on the player (no-op if there's no player).
+fn set_prop(name: &str, value: &str) {
+    let g = PLAYER.lock().unwrap();
+    if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {
+        unsafe {
+            let (k, v) = (
+                CString::new(name).unwrap(),
+                CString::new(value).unwrap(),
+            );
+            (l.set_property_string)(p.0, k.as_ptr(), v.as_ptr());
+        }
+    }
+}
+
+/// Select an audio ("audio") or subtitle ("sub") track. `id` is a track id, or
+/// "no" (off) / "auto".
+pub fn set_track(kind: &str, id: &str) {
+    let prop = match kind {
+        "audio" => "aid",
+        "sub" => "sid",
+        _ => return,
+    };
+    set_prop(prop, id);
+}
+
+/// Playback speed multiplier (1.0 = normal).
+pub fn set_speed(speed: f64) {
+    set_prop("speed", &speed.to_string());
+}
+
 /// Read an mpv property as a string (via the player mutex, so it's safe against
 /// stop()/terminate). Returns None if no player or the property is empty/unset.
 pub fn get_property(name: &str) -> Option<String> {
