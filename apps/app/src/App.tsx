@@ -283,7 +283,7 @@ function VodPlayer({
   if (poppedOut) {
     return (
       <div className="vod-player vod-player--popped">
-        <p className="vod-popped__title">Player popped out</p>
+        <p className="vod-popped__title">Player Popped Out</p>
         <button
           className="btn btn--primary"
           type="button"
@@ -298,7 +298,7 @@ function VodPlayer({
             bringBack(pos);
           }}
         >
-          Bring it back
+          Bring It Back
         </button>
       </div>
     );
