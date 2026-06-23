@@ -16,11 +16,12 @@ import { EpisodeBrowser } from "./components/EpisodeBrowser";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { LoadingScreen } from "./components/LoadingScreen";
 import { CompositionPreview } from "./components/CompositionPreview";
+import { SourcePanel } from "./components/SourcePanel";
 import type { TheaterMeta } from "./components/Player";
 import { ChevronIcon } from "./components/icons";
 import { fetchConfig } from "./lib/config";
 import { fetchVodDetail, vodBackendConfigured } from "./lib/vod";
-import { isTauri, onCompClosed, onCompExitFullscreen, onCompFullscreen, onCompPopout, onPopoutClosed, tauriCompKey, tauriCompPopout, tauriPopoutPos, tauriPopoutStop, tauriSetFullscreen } from "./lib/tauri";
+import { isTauri, onCompClosed, onCompExitFullscreen, onCompFullscreen, onCompPanel, onCompPopout, onPopoutClosed, tauriCompKey, tauriCompPopout, tauriPopoutPos, tauriPopoutStop, tauriSetFullscreen } from "./lib/tauri";
 import { loadShareCode, saveShareCode, clearShareCode } from "./lib/pairing";
 
 /** YouTube-style keys the VOD player forwards to the overlay. No "t" (there's no
@@ -62,7 +63,14 @@ export function App() {
   const [playing, setPlaying] = useState<{
     url: string;
     meta: TheaterMeta;
+    item: VodItem;
+    episodeId?: string;
   } | null>(null);
+  const playSource = useCallback(
+    (url: string, meta: TheaterMeta, ctx: { item: VodItem; episodeId?: string }) =>
+      setPlaying({ url, meta, item: ctx.item, episodeId: ctx.episodeId }),
+    [],
+  );
 
   // Navigation lives in the browser history, so Back/Forward — keyboard,
   // browser buttons, and the mouse thumb buttons — all step through pages.
@@ -158,7 +166,7 @@ export function App() {
             shareCode={shareCode}
             push={push}
             back={back}
-            onPlay={(url, meta) => setPlaying({ url, meta })}
+            onPlay={playSource}
           />
         )}
       </main>
@@ -171,7 +179,11 @@ export function App() {
         <VodPlayer
           url={playing.url}
           meta={playing.meta}
+          item={playing.item}
+          episodeId={playing.episodeId}
+          shareCode={shareCode}
           onClose={() => setPlaying(null)}
+          onSwitch={playSource}
         />
       )}
     </div>
@@ -186,17 +198,33 @@ export function App() {
 function VodPlayer({
   url,
   meta,
+  item,
+  episodeId,
+  shareCode,
   onClose,
+  onSwitch,
 }: {
   url: string;
   meta: TheaterMeta;
+  item: VodItem;
+  episodeId?: string;
+  shareCode: ShareCode;
   onClose: () => void;
+  onSwitch: (
+    url: string,
+    meta: TheaterMeta,
+    ctx: { item: VodItem; episodeId?: string },
+  ) => void;
 }) {
   // When popped out, the in-app player is replaced by a placeholder (the native
   // layer moved to mpv's floating window). `resumeAt` reopens it where it was.
   const [poppedOut, setPoppedOut] = useState(false);
   const [resumeAt, setResumeAt] = useState(0);
   const posRef = useRef(0);
+  // Episodes/sources side panel — the video shrinks to make room for it.
+  const [panelOpen, setPanelOpen] = useState(false);
+  const panelRef = useRef(false);
+  panelRef.current = panelOpen;
 
   const bringBack = useCallback((pos: number) => {
     setResumeAt(pos > 0 ? pos : posRef.current);
@@ -218,12 +246,15 @@ function VodPlayer({
     // The user closed the floating window → bring the in-app player back where
     // it left off (last polled position).
     const offReclaim = onPopoutClosed(() => bringBack(posRef.current));
+    // Toggle the episodes/sources side panel (the video shrinks for it).
+    const offPanel = onCompPanel(() => setPanelOpen((o) => !o));
     return () => {
       offClose();
       offFull();
       offExit();
       offPop();
       offReclaim();
+      offPanel();
       tauriSetFullscreen(false);
     };
   }, [url, onClose, bringBack]);
@@ -252,6 +283,13 @@ function VodPlayer({
     const onKey = (e: KeyboardEvent) => {
       const raw = e.key.length === 1 ? e.key.toLowerCase() : e.key;
       const key = raw === "Backspace" ? "Escape" : raw;
+      // With the panel open, Escape closes it (rather than stopping playback).
+      if (panelRef.current && key === "Escape") {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        setPanelOpen(false);
+        return;
+      }
       if (!VOD_SHORTCUTS.has(key)) return;
       e.preventDefault();
       e.stopImmediatePropagation();
@@ -305,8 +343,20 @@ function VodPlayer({
   }
 
   return (
-    <div className="vod-player">
-      <CompositionPreview url={url} meta={meta} fullscreen start={resumeAt} />
+    <div className={"vod-player" + (panelOpen ? " vod-player--panel" : "")}>
+      <div className="vod-player__stage">
+        <CompositionPreview url={url} meta={meta} fullscreen start={resumeAt} />
+      </div>
+      {panelOpen && (
+        <SourcePanel
+          item={item}
+          shareCode={shareCode}
+          currentUrl={url}
+          currentEpisodeId={episodeId}
+          onPick={onSwitch}
+          onClose={() => setPanelOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -324,7 +374,11 @@ function CurrentScreen({
   shareCode: ShareCode;
   push: (s: Screen) => void;
   back: () => void;
-  onPlay: (url: string, meta: TheaterMeta) => void;
+  onPlay: (
+    url: string,
+    meta: TheaterMeta,
+    ctx: { item: VodItem; episodeId?: string },
+  ) => void;
 }) {
   switch (screen.kind) {
     case "tab":
@@ -379,7 +433,11 @@ function TitleScreen({
   shareCode: ShareCode;
   push: (s: Screen) => void;
   back: () => void;
-  onPlay: (url: string, meta: TheaterMeta) => void;
+  onPlay: (
+    url: string,
+    meta: TheaterMeta,
+    ctx: { item: VodItem; episodeId?: string },
+  ) => void;
 }) {
   const [detail, setDetail] = useState<VodItem>(item);
   const [loading, setLoading] = useState(vodBackendConfigured());

@@ -21,6 +21,7 @@ import {
   PopoutIcon,
   LanguageIcon,
   CcIcon,
+  ListIcon,
 } from "./icons";
 
 /** True when the overlay fills (nearly) the whole monitor — i.e. fullscreen. */
@@ -39,6 +40,7 @@ interface OverlayApi {
   fullscreen?: () => void; // theater → fullscreen
   exitFullscreen?: () => void; // fullscreen → theater
   popout?: () => void; // pop into mpv's own floating window
+  panel?: () => void; // toggle the episodes/sources side panel (VOD)
   setMouseIgnore: (ignore: boolean) => void;
   getMeta: () => Promise<TheaterMeta | null>;
   onMeta: (cb: (meta: TheaterMeta | null) => void) => () => void;
@@ -535,6 +537,14 @@ export function TheaterOverlay() {
           <div className="theater-controls__group">
             {isVod && (
               <>
+                <button
+                  className="player__btn"
+                  type="button"
+                  aria-label="Episodes & sources"
+                  onClick={() => api?.panel?.()}
+                >
+                  <ListIcon size={20} />
+                </button>
                 <div className="theater-menu-wrap">
                   <button
                     className="player__btn"

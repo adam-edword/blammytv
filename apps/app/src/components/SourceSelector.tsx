@@ -31,7 +31,11 @@ export function SourceSelector({
   episodeLabel?: string | null;
   episodeTitle?: string | null;
   onBack: () => void;
-  onPlay: (url: string, meta: TheaterMeta) => void;
+  onPlay: (
+    url: string,
+    meta: TheaterMeta,
+    ctx: { item: VodItem; episodeId?: string },
+  ) => void;
 }) {
   // null = still resolving; [] = resolved but nothing available.
   const [sources, setSources] = useState<StreamSource[] | null>(
@@ -170,7 +174,12 @@ export function SourceSelector({
               <SourceCard
                 key={s.id}
                 source={s}
-                onPlay={() => onPlay(s.streamUrl, playMeta(s))}
+                onPlay={() =>
+                  onPlay(s.streamUrl, playMeta(s), {
+                    item,
+                    episodeId: sourceKind === "series" ? sourceId : undefined,
+                  })
+                }
               />
             ))
           )}

@@ -2328,11 +2328,98 @@ body.theater-mode .app-header:hover {
   position: fixed;
   inset: 0;
   z-index: 60;
+  display: flex;
   background: #000;
 }
-.vod-player .now-playing__art {
+.vod-player__stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.vod-player__stage .now-playing__art {
   width: 100%;
   height: 100%;
+}
+
+/* Episodes / sources side panel (video shrinks to make room). Plain scaffold
+   styling — the visual design layers on top of this. */
+.src-panel {
+  flex: 0 0 420px;
+  width: 420px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #0d0d10;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+.src-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.src-panel__title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+}
+.src-panel__close {
+  display: inline-flex;
+  padding: 6px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.src-panel__close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+.src-panel__seasons {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 18px;
+}
+.src-panel__season-name {
+  font-weight: 600;
+  color: var(--text);
+}
+.src-panel__season-nav {
+  display: inline-flex;
+  padding: 6px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  cursor: pointer;
+}
+.src-panel__season-nav:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.src-panel__season-nav--next {
+  transform: scaleX(-1);
+}
+.src-panel__list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 18px;
+}
+.src-panel__item.is-current {
+  outline: 2px solid var(--accent, #e23);
+  outline-offset: 2px;
+  border-radius: 12px;
+}
+.src-panel__note {
+  padding: 18px;
+  color: var(--text-dim);
 }
 
 /* Shown in place of the player while it's popped out to mpv's own window. */

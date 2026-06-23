@@ -78,6 +78,8 @@ export const onCompExitFullscreen = (cb: () => void) =>
   onCompEvent("comp-exit-fullscreen", cb);
 /** Fired when the overlay's popout button is pressed. */
 export const onCompPopout = (cb: () => void) => onCompEvent("comp-popout", cb);
+/** Fired when the overlay's episodes/sources panel button is pressed. */
+export const onCompPanel = (cb: () => void) => onCompEvent("comp-panel", cb);
 /** Fired when the user closes the popout window (✕/taskbar) — bring it back. */
 export const onPopoutClosed = (cb: () => void) =>
   onCompEvent("popout-closed", cb);

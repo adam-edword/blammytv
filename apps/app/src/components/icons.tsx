@@ -260,3 +260,15 @@ export function ExitFullscreenIcon({ size = 20, className }: IconProps) {
     </Svg>
   );
 }
+
+/** Episodes / source list (playlist with a play marker). */
+export function ListIcon({ size = 20, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <line x1="4" y1="7" x2="20" y2="7" />
+      <line x1="4" y1="12" x2="13" y2="12" />
+      <line x1="4" y1="17" x2="13" y2="17" />
+      <path d="M17 13.2v5.6l4-2.8z" fill="currentColor" stroke="none" />
+    </Svg>
+  );
+}
