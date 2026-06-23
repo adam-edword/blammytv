@@ -23,6 +23,9 @@ export interface TheaterMeta {
   startLabel?: string;
   progressPct: number;
   live: boolean;
+  /** Distinguishes live TV from on-demand playback. The overlay swaps its
+   * chrome (no LIVE scrubber, ✕ stops) for VOD. Absent ⇒ treated as live. */
+  kind?: "live" | "vod";
   streamId?: string;
   epgId?: string;
 }

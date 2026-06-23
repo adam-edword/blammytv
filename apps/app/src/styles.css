@@ -2215,6 +2215,35 @@ body.theater-mode .app-header:hover {
   font-size: 18px;
 }
 
+/* Fullscreen VOD playback surface — the native mpv layer renders into this box
+   (CompositionPreview tracks its rect); it sits above the whole app. */
+.vod-player {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: #000;
+}
+.vod-player .now-playing__art {
+  width: 100%;
+  height: 100%;
+}
+
+.vod-player-fallback {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.92);
+  color: var(--text);
+  font-size: 18px;
+}
+
 .source-card {
   flex: 0 0 auto;
   display: flex;

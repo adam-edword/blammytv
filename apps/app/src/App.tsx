@@ -15,9 +15,12 @@ import { SourceSelector } from "./components/SourceSelector";
 import { EpisodeBrowser } from "./components/EpisodeBrowser";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { LoadingScreen } from "./components/LoadingScreen";
+import { CompositionPreview } from "./components/CompositionPreview";
+import type { TheaterMeta } from "./components/Player";
 import { ChevronIcon } from "./components/icons";
 import { fetchConfig } from "./lib/config";
 import { fetchVodDetail, vodBackendConfigured } from "./lib/vod";
+import { isTauri, onCompClosed, tauriSetFullscreen } from "./lib/tauri";
 import { loadShareCode, saveShareCode, clearShareCode } from "./lib/pairing";
 
 type Load =
@@ -39,6 +42,11 @@ export function App() {
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [load, setLoad] = useState<Load>({ status: "idle" });
+  // A chosen VOD source playing fullscreen over everything (null = not playing).
+  const [playing, setPlaying] = useState<{
+    url: string;
+    meta: TheaterMeta;
+  } | null>(null);
 
   // Navigation lives in the browser history, so Back/Forward — keyboard,
   // browser buttons, and the mouse thumb buttons — all step through pages.
@@ -134,6 +142,7 @@ export function App() {
             shareCode={shareCode}
             push={push}
             back={back}
+            onPlay={(url, meta) => setPlaying({ url, meta })}
           />
         )}
       </main>
@@ -142,6 +151,55 @@ export function App() {
         onClose={() => setSettingsOpen(false)}
         onConfigChanged={() => pull(shareCode)}
       />
+      {playing && (
+        <VodPlayer
+          url={playing.url}
+          meta={playing.meta}
+          onClose={() => setPlaying(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+/** Plays a chosen VOD source fullscreen. On Tauri it drives the native mpv
+ * composition layer (same machinery as live), going OS-fullscreen for the
+ * duration and tearing down on close. In the browser there's no native player,
+ * so it shows a short note. */
+function VodPlayer({
+  url,
+  meta,
+  onClose,
+}: {
+  url: string;
+  meta: TheaterMeta;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    if (!isTauri()) return;
+    tauriSetFullscreen(true);
+    const off = onCompClosed(onClose);
+    return () => {
+      off();
+      tauriSetFullscreen(false);
+    };
+    // onClose just clears state; binding once on mount is fine.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [url]);
+
+  if (!isTauri()) {
+    return (
+      <div className="vod-player-fallback">
+        <p>Playback opens in the BlammyTV desktop app.</p>
+        <button className="btn btn--primary" type="button" onClick={onClose}>
+          Close
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="vod-player">
+      <CompositionPreview url={url} meta={meta} fullscreen />
     </div>
   );
 }
@@ -152,12 +210,14 @@ function CurrentScreen({
   shareCode,
   push,
   back,
+  onPlay,
 }: {
   screen: Screen;
   config: ConfigBlob;
   shareCode: ShareCode;
   push: (s: Screen) => void;
   back: () => void;
+  onPlay: (url: string, meta: TheaterMeta) => void;
 }) {
   switch (screen.kind) {
     case "tab":
@@ -175,6 +235,7 @@ function CurrentScreen({
           shareCode={shareCode}
           push={push}
           back={back}
+          onPlay={onPlay}
         />
       );
     case "source": {
@@ -189,6 +250,7 @@ function CurrentScreen({
           episodeLabel={`Season ${seasonNumber} · Episode ${episode.number}`}
           episodeTitle={episode.title}
           onBack={back}
+          onPlay={onPlay}
         />
       );
     }
@@ -204,11 +266,13 @@ function TitleScreen({
   shareCode,
   push,
   back,
+  onPlay,
 }: {
   item: VodItem;
   shareCode: ShareCode;
   push: (s: Screen) => void;
   back: () => void;
+  onPlay: (url: string, meta: TheaterMeta) => void;
 }) {
   const [detail, setDetail] = useState<VodItem>(item);
   const [loading, setLoading] = useState(vodBackendConfigured());
@@ -257,6 +321,7 @@ function TitleScreen({
       sourceId={detail.id}
       fallbackSources={detail.sources}
       onBack={back}
+      onPlay={onPlay}
     />
   );
 }

@@ -3,10 +3,16 @@ import { PlayIcon } from "./icons";
 
 /** One source row in the selector: a prominent quality label (+ ⚡ when it's
  * instant), the backend's pre-formatted meta lines, and a play affordance.
- * It's a focusable button so it works under a TV remote. */
-export function SourceCard({ source }: { source: StreamSource }) {
+ * It's a focusable button so it works under a TV remote. Clicking it plays. */
+export function SourceCard({
+  source,
+  onPlay,
+}: {
+  source: StreamSource;
+  onPlay?: () => void;
+}) {
   return (
-    <button className="source-card" type="button">
+    <button className="source-card" type="button" onClick={onPlay}>
       <span className="source-card__quality">
         <span className="source-card__res">{source.quality}</span>
         {source.cached && (

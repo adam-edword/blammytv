@@ -1,6 +1,7 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import type { ShareCode, VodItem, StreamSource } from "@blammytv/shared";
 import { SourceCard } from "./SourceCard";
+import type { TheaterMeta } from "./Player";
 import { ChevronIcon } from "./icons";
 import { fetchVodSources, gradientFor, vodBackendConfigured } from "../lib/vod";
 
@@ -20,6 +21,7 @@ export function SourceSelector({
   episodeLabel = null,
   episodeTitle = null,
   onBack,
+  onPlay,
 }: {
   item: VodItem;
   shareCode: ShareCode;
@@ -29,6 +31,7 @@ export function SourceSelector({
   episodeLabel?: string | null;
   episodeTitle?: string | null;
   onBack: () => void;
+  onPlay: (url: string, meta: TheaterMeta) => void;
 }) {
   // null = still resolving; [] = resolved but nothing available.
   const [sources, setSources] = useState<StreamSource[] | null>(
@@ -81,6 +84,23 @@ export function SourceSelector({
   ]
     .filter(Boolean)
     .join("   ·   ");
+
+  // What the player overlay shows for a chosen source.
+  const playMeta = (s: StreamSource): TheaterMeta => ({
+    logo: item.poster,
+    channelName: [
+      item.year,
+      item.kind === "series" ? "Series" : "Movie",
+      `${s.quality}${s.cached ? " ⚡" : ""}`,
+    ]
+      .filter(Boolean)
+      .join(" · "),
+    title: episodeTitle ? `${item.title} — ${episodeTitle}` : item.title,
+    description: episodeLabel ?? item.synopsis,
+    progressPct: 0,
+    live: false,
+    kind: "vod",
+  });
 
   return (
     <div className="detail">
@@ -141,7 +161,13 @@ export function SourceSelector({
               {failed ? "Couldn't load sources." : "No sources available."}
             </p>
           ) : (
-            sources.map((s) => <SourceCard key={s.id} source={s} />)
+            sources.map((s) => (
+              <SourceCard
+                key={s.id}
+                source={s}
+                onPlay={() => onPlay(s.streamUrl, playMeta(s))}
+              />
+            ))
           )}
         </aside>
       </div>

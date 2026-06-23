@@ -106,6 +106,10 @@ export function TheaterOverlay() {
     return () => off?.();
   }, []);
 
+  // On-demand playback swaps the chrome: no LIVE scrubber, ✕ stops outright,
+  // and there's no mini/theater/fullscreen dance (it opens fullscreen).
+  const isVod = meta?.kind === "vod";
+
   const wake = useCallback(() => {
     setActive(true);
     window.clearTimeout(idleRef.current);
@@ -195,15 +199,18 @@ export function TheaterOverlay() {
           api?.seek(10);
           break;
         case "f":
+          if (isVod) break;
           if (atFullscreen()) api?.exitFullscreen?.();
           else api?.fullscreen?.();
           break;
         case "t":
+          if (isVod) break;
           if (window.innerWidth < 1000) api?.expand?.();
           else api?.collapse?.();
           break;
         case "escape":
-          if (atFullscreen()) api?.exitFullscreen?.();
+          if (isVod) api?.close();
+          else if (atFullscreen()) api?.exitFullscreen?.();
           else api?.collapse?.();
           break;
         default:
@@ -211,7 +218,7 @@ export function TheaterOverlay() {
       }
       wake();
     },
-    [togglePlay, wake],
+    [isVod, togglePlay, wake],
   );
 
   useEffect(() => {
@@ -227,8 +234,8 @@ export function TheaterOverlay() {
   const volPct = Math.round((muted ? 0 : volume) * 100);
 
   // Mini preview: no controls except ✕ (stop); clicking anywhere enters theater.
-  // The white hover border lives in CSS (.mini-overlay).
-  if (mini) {
+  // The white hover border lives in CSS (.mini-overlay). VOD never goes mini.
+  if (mini && !isVod) {
     return (
       <div
         className="mini-overlay"
@@ -265,35 +272,41 @@ export function TheaterOverlay() {
     >
       {loading && <LoadingGlyph />}
       <div className="theater-topright" data-interactive>
+        {!isVod && (
+          <>
+            <button
+              className="player__theater-exit"
+              type="button"
+              aria-label="Pop out"
+              data-interactive
+              onClick={() => api?.popout?.()}
+            >
+              <PopoutIcon size={20} />
+            </button>
+            <button
+              className="player__theater-exit"
+              type="button"
+              aria-label={fs ? "Exit fullscreen" : "Fullscreen"}
+              data-interactive
+              onClick={() => (fs ? api?.exitFullscreen?.() : api?.fullscreen?.())}
+            >
+              {fs ? <ExitFullscreenIcon size={20} /> : <FullscreenIcon size={20} />}
+            </button>
+          </>
+        )}
         <button
           className="player__theater-exit"
           type="button"
-          aria-label="Pop out"
-          data-interactive
-          onClick={() => api?.popout?.()}
-        >
-          <PopoutIcon size={20} />
-        </button>
-        <button
-          className="player__theater-exit"
-          type="button"
-          aria-label={fs ? "Exit fullscreen" : "Fullscreen"}
-          data-interactive
-          onClick={() => (fs ? api?.exitFullscreen?.() : api?.fullscreen?.())}
-        >
-          {fs ? <ExitFullscreenIcon size={20} /> : <FullscreenIcon size={20} />}
-        </button>
-        <button
-          className="player__theater-exit"
-          type="button"
-          aria-label={fs ? "Exit fullscreen" : "Exit theater"}
+          aria-label={isVod ? "Stop" : fs ? "Exit fullscreen" : "Exit theater"}
           data-interactive
           onClick={() =>
-            fs
-              ? api?.exitFullscreen?.()
-              : api?.collapse
-                ? api.collapse()
-                : api?.close()
+            isVod
+              ? api?.close()
+              : fs
+                ? api?.exitFullscreen?.()
+                : api?.collapse
+                  ? api.collapse()
+                  : api?.close()
           }
         >
           <CloseIcon size={20} />
@@ -319,22 +332,24 @@ export function TheaterOverlay() {
           </div>
         )}
 
-        <div className="theater-seek">
-          <div className="theater-seek__track">
-            <div
-              className="theater-seek__fill"
-              style={{ width: `${Math.min(100, meta?.progressPct ?? 100)}%` }}
-            />
-            <span
-              className="theater-seek__knob"
-              style={{ left: `${Math.min(100, meta?.progressPct ?? 100)}%` }}
-            />
+        {!isVod && (
+          <div className="theater-seek">
+            <div className="theater-seek__track">
+              <div
+                className="theater-seek__fill"
+                style={{ width: `${Math.min(100, meta?.progressPct ?? 100)}%` }}
+              />
+              <span
+                className="theater-seek__knob"
+                style={{ left: `${Math.min(100, meta?.progressPct ?? 100)}%` }}
+              />
+            </div>
+            <div className="theater-seek__labels">
+              <span>{meta?.startLabel ?? ""}</span>
+              <span className="theater-seek__live">LIVE</span>
+            </div>
           </div>
-          <div className="theater-seek__labels">
-            <span>{meta?.startLabel ?? ""}</span>
-            <span className="theater-seek__live">LIVE</span>
-          </div>
-        </div>
+        )}
 
         <div className="theater-controls">
           <div className="theater-controls__group">
