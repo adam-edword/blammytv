@@ -18,7 +18,7 @@ It's sideload-only — getting an app like this through store review isn't worth
 ## What you get
 
 - **Live TV with a real guide** — an EPG time-grid with a live "now" indicator, category rails, and a "now playing" hero.
-- **Movies & shows on demand** — resolved through AIOStreams + debrid.
+- **Movies & shows** — a browsable VOD layout today, with on-demand resolution through AIOStreams + debrid coming next.
 - **A player that doesn't compromise** — a native libmpv composition player on Windows for true 4K60, with mini / theater / fullscreen / pop-out modes.
 - **Nothing to configure on the couch** — pair once with a share code and start watching.
 
@@ -26,17 +26,20 @@ It's sideload-only — getting an app like this through store review isn't worth
 
 > **v0.1.0 — early, but real.**
 
-Work in progress. The web config UI isn't built yet and the backend is only partial. By default `apps/app` renders a validated **mock** config blob from `packages/shared`, so you can run and develop the client standalone today. Pointing it at a real backend is a one-function change in `apps/app/src/lib/config.ts` (set `VITE_API_URL`).
+Live TV through Xtream is wired up end-to-end. Movies & shows are still seeded with sample data until the AIOStreams + debrid resolver lands, and the **Discover** tab is a placeholder ("coming next"). There's no standalone web config UI yet — playlists are managed in-app for now.
+
+You can run the client standalone today: with no `VITE_API_URL` set, `apps/app` boots into a **demo mode** that renders a validated mock config blob from `packages/shared`. Point it at a real backend by setting `VITE_API_URL` (see `apps/app/src/lib/config.ts`).
 
 ## How it works
 
-The backend is the single source of truth, and the apps are **dumb terminals**:
+**Pair once, then watch.** On first launch the device takes a 6-character **share code**; from then on it pulls a **config blob** from the backend — channels, EPG, groups, ordering, favorites — and just renders it. The day-to-day screen stays dead simple. That's the boomer-proof part.
 
-- a device pairs with a **share code** on first launch,
-- it pulls a **config blob** and just renders it,
-- there are no settings screens on-device — all config (stream URLs, debrid keys, channel/group visibility, ordering, favorites) lives in a web UI.
+The bits that need managing live in an on-device **Settings** panel:
 
-The share-code entry is the only thing you ever type on-device. Secrets never reach the client: the backend resolves debrid keys and Xtream credentials, and only ever hands the device playable stream URLs.
+- **Playlists** — add, name, enable/disable, and remove your Xtream sources. Credentials you enter here are posted straight to the backend and aren't persisted on the device; the backend stores them, talks to the panels, and serves back ready-to-play streams.
+- **Display** — accent color, UI scale, and a light-mode toggle.
+
+The config blob the device renders is deliberately secret-free, and debrid keys + AIOStreams config never live on the device at all — they stay server-side.
 
 ## Project structure
 
