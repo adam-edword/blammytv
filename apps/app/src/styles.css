@@ -161,6 +161,14 @@ img {
   line-height: 1;
 }
 
+.app-header__logo {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  object-fit: contain;
+  flex-shrink: 0;
+  align-self: center;
+}
 .app-header__name {
   font-family: var(--font-headline);
   font-weight: 700;
@@ -1257,6 +1265,7 @@ body.theater-mode .app-header:hover {
 /* ---------- Guide ---------- */
 
 .guide {
+  position: relative;
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -1520,6 +1529,36 @@ body.theater-mode .app-header:hover {
   );
   border: 1.5px dashed rgba(255, 255, 255, 0.1);
   cursor: pointer;
+}
+.program__noinfo-text {
+  font-family: var(--font-headline);
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+/* Drag handle for the EPG channel-label column width. */
+.guide-resize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--guide-label-w);
+  width: 10px;
+  transform: translateX(-50%);
+  cursor: col-resize;
+  z-index: 7;
+  touch-action: none;
+}
+.guide-resize::after {
+  content: "";
+  position: absolute;
+  inset: 0 calc(50% - 1px);
+  background: transparent;
+  transition: background 0.12s ease;
+}
+.guide-resize:hover::after,
+.guide-resize--active::after {
+  background: var(--accent, #e11d48);
 }
 
 /* ---------- Now indicator ---------- */

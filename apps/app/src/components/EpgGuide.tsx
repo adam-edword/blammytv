@@ -23,6 +23,12 @@ import {
  * its right edge stays anchored to the next card, so the gap never changes. */
 const SLIDE_WIDTH = 48;
 
+// Resizable channel-label column (the `--guide-label-w` track), remembered.
+const LABEL_MIN = 120;
+const LABEL_MAX = 420;
+const LABEL_DEFAULT = 200;
+const LABEL_STORAGE = "blammytv.guideLabelWidth";
+
 interface Block {
   p: EpgProgram;
   left: number;
@@ -73,6 +79,45 @@ export function EpgGuide({
    * hero text can preview that channel without changing playback. */
   onHoverChannel?: (id: string | null) => void;
 }) {
+  // Resizable channel-label column.
+  const [labelWidth, setLabelWidth] = useState(() => {
+    try {
+      const n = parseFloat(localStorage.getItem(LABEL_STORAGE) ?? "");
+      return Number.isFinite(n)
+        ? Math.min(LABEL_MAX, Math.max(LABEL_MIN, n))
+        : LABEL_DEFAULT;
+    } catch {
+      return LABEL_DEFAULT;
+    }
+  });
+  const [labelResizing, setLabelResizing] = useState(false);
+  const labelDrag = useRef({ x: 0, w: 0 });
+  useEffect(() => {
+    try {
+      localStorage.setItem(LABEL_STORAGE, String(labelWidth));
+    } catch {
+      /* ignore */
+    }
+  }, [labelWidth]);
+  const onLabelResizeDown = (e: React.PointerEvent) => {
+    labelDrag.current = { x: e.clientX, w: labelWidth };
+    setLabelResizing(true);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onLabelResizeMove = (e: React.PointerEvent) => {
+    if (!labelResizing) return;
+    const next = labelDrag.current.w + (e.clientX - labelDrag.current.x);
+    setLabelWidth(Math.min(LABEL_MAX, Math.max(LABEL_MIN, next)));
+  };
+  const onLabelResizeUp = (e: React.PointerEvent) => {
+    setLabelResizing(false);
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+  };
+
   const win = useMemo<GuideWindow>(() => guideWindow(now), [now]);
   const laneWidth = minutesFromStart(win, win.end) * PX_PER_MIN;
   const nowLeft = minutesFromStart(win, now) * PX_PER_MIN;
@@ -194,7 +239,11 @@ export function EpgGuide({
   }, [computePins]);
 
   return (
-    <div className="guide" onMouseLeave={() => onHoverChannel?.(null)}>
+    <div
+      className="guide"
+      onMouseLeave={() => onHoverChannel?.(null)}
+      style={{ "--guide-label-w": `${labelWidth}px` } as React.CSSProperties}
+    >
       <div className="guide__scroll" ref={scrollRef} onScroll={onScroll}>
         <div className="guide__inner">
           {/* Time ruler */}
@@ -255,7 +304,11 @@ export function EpgGuide({
                       }}
                       aria-label={`Select ${ch.name}`}
                       onClick={() => onSelectChannel?.(ch.id)}
-                    />
+                    >
+                      <span className="program__noinfo-text">
+                        No Information
+                      </span>
+                    </button>
                   ) : (
                     blocks.map((b) =>
                       b.p.id === pinId ? null : normalCard(b),
@@ -276,6 +329,17 @@ export function EpgGuide({
           />
         </div>
       </div>
+
+      {/* Drag the channel-label column wider/narrower. */}
+      <div
+        className={"guide-resize" + (labelResizing ? " guide-resize--active" : "")}
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize channel column"
+        onPointerDown={onLabelResizeDown}
+        onPointerMove={onLabelResizeMove}
+        onPointerUp={onLabelResizeUp}
+      />
     </div>
   );
 

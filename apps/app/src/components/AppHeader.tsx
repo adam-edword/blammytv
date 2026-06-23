@@ -31,6 +31,15 @@ export function AppHeader({
   return (
     <header className="app-header">
       <div className="app-header__brand">
+        <img
+          className="app-header__logo"
+          src="/logo.png"
+          alt=""
+          aria-hidden="true"
+          onError={(e) => {
+            e.currentTarget.style.display = "none";
+          }}
+        />
         <div className="app-header__title">
           <span className="app-header__name">BlammyTV</span>
           <span className="app-header__version">{version}</span>
