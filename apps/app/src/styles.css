@@ -834,31 +834,28 @@ img {
   background: rgba(255, 255, 255, 0.22);
 }
 
-/* VOD scrubber: clickable + draggable to seek. */
+/* VOD scrubber: clickable + draggable to seek. A transparent pseudo-element
+   extends the grab zone well above/below the thin visible bar so it's easy to
+   grab, without thickening the bar or affecting the seek math. */
 .theater-seek__track--seekable {
   cursor: pointer;
   touch-action: none;
 }
+.theater-seek__track--seekable::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -16px;
+  bottom: -16px;
+}
 
-/* Hover/scrub preview bubble above the track: title art + target time. */
+/* Hover/scrub preview: just the target time, floating above the bar. */
 .scrub-preview {
   position: absolute;
-  bottom: 18px;
+  bottom: 16px;
   transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
   pointer-events: none;
-}
-.scrub-preview__thumb {
-  width: 168px;
-  height: 94px;
-  border-radius: 7px;
-  background-size: cover;
-  background-position: center;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.55);
 }
 .scrub-preview__time {
   padding: 2px 8px;
@@ -868,6 +865,7 @@ img {
   font-size: 13px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .theater-seek__fill {

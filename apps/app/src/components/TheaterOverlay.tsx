@@ -297,7 +297,6 @@ export function TheaterOverlay() {
   const playPct = time && time.dur ? Math.min(100, (time.pos / time.dur) * 100) : 0;
   // While dragging, the fill follows the finger, not mpv's reported position.
   const displayPct = scrubFrac != null ? scrubFrac * 100 : playPct;
-  const previewImg = meta?.backdrop ?? meta?.logo;
 
   // Mini preview: no controls except ✕ (stop); clicking anywhere enters theater.
   // The white hover border lives in CSS (.mini-overlay). VOD never goes mini.
@@ -442,12 +441,6 @@ export function TheaterOverlay() {
                   className="scrub-preview"
                   style={{ left: `${hoverFrac * 100}%` }}
                 >
-                  {previewImg && (
-                    <div
-                      className="scrub-preview__thumb"
-                      style={{ backgroundImage: `url(${previewImg})` }}
-                    />
-                  )}
                   <span className="scrub-preview__time">
                     {fmtTime(hoverFrac * time.dur)}
                   </span>
