@@ -43,8 +43,14 @@ export function SettingsPanel({
   /** Called on close if playlists changed, so the device re-pulls its config. */
   onConfigChanged?: () => void;
 }) {
-  const { prefs, setAccent, setUiScale, setLightMode, reset } =
-    usePreferences();
+  const {
+    prefs,
+    setAccent,
+    setUiScale,
+    setLightMode,
+    setHideNoInfoChannels,
+    reset,
+  } = usePreferences();
   const [tab, setTab] = useState<SettingsTab>("aiostreams");
   const dirty = useRef(false);
 
@@ -261,6 +267,31 @@ export function SettingsPanel({
                     checked={prefs.lightMode}
                     onChange={(e) => setLightMode(e.target.checked)}
                     aria-label="Light mode"
+                  />
+                  <span className="toggle__track">
+                    <span className="toggle__thumb" />
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            {/* Hide channels with no info */}
+            <div className="settings__row">
+              <div className="settings__row-label">
+                <span className="settings__row-title">
+                  Hide channels with no info
+                </span>
+                <span className="settings__row-desc">
+                  Skip live channels that have no programme information.
+                </span>
+              </div>
+              <div className="settings__control">
+                <label className="toggle">
+                  <input
+                    type="checkbox"
+                    checked={prefs.hideNoInfoChannels}
+                    onChange={(e) => setHideNoInfoChannels(e.target.checked)}
+                    aria-label="Hide channels with no info"
                   />
                   <span className="toggle__track">
                     <span className="toggle__thumb" />

@@ -8,6 +8,7 @@ import {
 } from "../components/CategorySidebar";
 import { EpgGuide } from "../components/EpgGuide";
 import { isLiveNow } from "../lib/epg";
+import { usePreferences } from "../state/preferences";
 import {
   isTauri,
   onCompClosed,
@@ -105,15 +106,24 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
     }
   };
 
+  const { prefs } = usePreferences();
   const channels = useMemo(() => {
+    let list: typeof live.channels;
     if (categoryId === FAVORITES_ID) {
       const favSet = new Set(favorites);
-      return live.channels.filter((c) => favSet.has(c.id));
+      list = live.channels.filter((c) => favSet.has(c.id));
+    } else if (categoryId === RECENTS_ID) {
+      // Recents has no history wired up yet — show an empty guide for now.
+      list = [];
+    } else {
+      list = live.channels.filter((c) => c.groupId === categoryId);
     }
-    // Recents has no history wired up yet — show an empty guide for now.
-    if (categoryId === RECENTS_ID) return [];
-    return live.channels.filter((c) => c.groupId === categoryId);
-  }, [categoryId, live.channels, favorites]);
+    if (prefs.hideNoInfoChannels) {
+      const withInfo = new Set(live.programs.map((p) => p.channelId));
+      list = list.filter((c) => withInfo.has(c.id));
+    }
+    return list;
+  }, [categoryId, live.channels, live.programs, favorites, prefs.hideNoInfoChannels]);
 
   // The hero follows the user's selection, falling back to whatever is live on
   // the featured channel.

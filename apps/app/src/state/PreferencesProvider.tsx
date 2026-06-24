@@ -28,6 +28,8 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     setLightMode: (lightMode) => setPrefs((p) => ({ ...p, lightMode })),
     setCarouselSources: (carouselSources) =>
       setPrefs((p) => ({ ...p, carouselSources })),
+    setHideNoInfoChannels: (hideNoInfoChannels) =>
+      setPrefs((p) => ({ ...p, hideNoInfoChannels })),
     reset: () => setPrefs(DEFAULT_PREFERENCES),
   };
 
