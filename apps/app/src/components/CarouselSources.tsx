@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
 import { CloseIcon, ChevronIcon } from "./icons";
-import { usePreferences } from "../state/preferences";
+import { savePreferences, usePreferences } from "../state/preferences";
 import { backendConfigured, listCatalogs, type CatalogOption } from "../lib/admin";
 
 /** Customize → Carousel Sources: pick which catalogs the Stream hero pulls
- * from. The selection is a device pref sent to /config; the server builds 9
- * items spread evenly across the chosen lists, shuffled per load. */
-export function CarouselSources({ onDirty }: { onDirty: () => void }) {
+ * from. Edits build up a draft; **Save** persists it and rebuilds the carousel
+ * (closing the panel never forces a rebuild). The selection is a device pref
+ * sent to /config; the server picks 9 spread evenly across the chosen lists. */
+export function CarouselSources({ onSaved }: { onSaved: () => void }) {
   const { prefs, setCarouselSources } = usePreferences();
   const [catalogs, setCatalogs] = useState<CatalogOption[] | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [draft, setDraft] = useState<string[]>(prefs.carouselSources);
   const configured = backendConfigured();
 
   useEffect(() => {
@@ -26,16 +28,18 @@ export function CarouselSources({ onDirty }: { onDirty: () => void }) {
     };
   }, [configured]);
 
-  const selected = prefs.carouselSources;
   const byId = new Map((catalogs ?? []).map((c) => [c.id, c]));
-  const unselected = (catalogs ?? []).filter((c) => !selected.includes(c.id));
-
-  const update = (ids: string[]) => {
-    setCarouselSources(ids);
-    onDirty();
-  };
-
+  const unselected = (catalogs ?? []).filter((c) => !draft.includes(c.id));
+  const dirty = draft.join(",") !== prefs.carouselSources.join(",");
   const labelFor = (c: CatalogOption) => `${c.name} · ${typeLabel(c.type)}`;
+
+  const save = () => {
+    // Persist now so the immediate re-pull reads the fresh selection, then keep
+    // React state in sync, then rebuild.
+    savePreferences({ ...prefs, carouselSources: draft });
+    setCarouselSources(draft);
+    onSaved();
+  };
 
   if (!configured) {
     return (
@@ -54,13 +58,13 @@ export function CarouselSources({ onDirty }: { onDirty: () => void }) {
       </p>
 
       <div className="carousel-chips">
-        {selected.map((id) => (
+        {draft.map((id) => (
           <span key={id} className="carousel-chip">
             {byId.get(id) ? labelFor(byId.get(id)!) : id}
             <button
               type="button"
               aria-label="Remove"
-              onClick={() => update(selected.filter((x) => x !== id))}
+              onClick={() => setDraft((d) => d.filter((x) => x !== id))}
             >
               <CloseIcon size={14} />
             </button>
@@ -88,7 +92,7 @@ export function CarouselSources({ onDirty }: { onDirty: () => void }) {
                     key={c.id}
                     type="button"
                     onClick={() => {
-                      update([...selected, c.id]);
+                      setDraft((d) => [...d, c.id]);
                       setAddOpen(false);
                     }}
                   >
@@ -99,6 +103,17 @@ export function CarouselSources({ onDirty }: { onDirty: () => void }) {
             </div>
           )}
         </div>
+      </div>
+
+      <div className="carousel-sources__actions">
+        <button
+          className="btn btn--primary"
+          type="button"
+          disabled={!dirty}
+          onClick={save}
+        >
+          Save
+        </button>
       </div>
     </div>
   );

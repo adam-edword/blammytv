@@ -3662,3 +3662,10 @@ body.is-overlay,
   color: var(--text-dim);
   font-size: 14px;
 }
+.carousel-sources__actions {
+  margin-top: 16px;
+}
+.carousel-sources__actions .btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}

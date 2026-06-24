@@ -137,15 +137,9 @@ export function SettingsPanel({
 
           {tab === "customize" && (
           <section className="settings__section">
-            <h3 className="settings__section-title">Customize</h3>
-
             {/* Carousel sources */}
             <div className="settings__row settings__row--block">
-              <CarouselSources
-                onDirty={() => {
-                  dirty.current = true;
-                }}
-              />
+              <CarouselSources onSaved={() => onConfigChanged?.()} />
             </div>
 
             {/* Accent colour */}
