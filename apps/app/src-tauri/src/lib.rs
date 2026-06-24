@@ -193,6 +193,7 @@ async fn http_get(url: String) -> Result<String, String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_window_state::Builder::default().build())
         .setup(|app| {
             let _ = APP.set(app.handle().clone());
             if cfg!(debug_assertions) {
