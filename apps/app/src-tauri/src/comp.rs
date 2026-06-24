@@ -38,6 +38,18 @@ use webview2_com::{
     CreateCoreWebView2CompositionControllerCompletedHandler,
     CreateCoreWebView2EnvironmentCompletedHandler, WebMessageReceivedEventHandler,
 };
+// Production only: the composition webview runs in its own WebView2 environment
+// with no Tauri asset protocol, so it can't reach tauri.localhost. We intercept
+// its requests and serve the embedded frontend ourselves (see serve_asset).
+#[cfg(not(debug_assertions))]
+use webview2_com::WebResourceRequestedEventHandler;
+#[cfg(not(debug_assertions))]
+use webview2_com::Microsoft::Web::WebView2::Win32::{
+    ICoreWebView2WebResourceRequestedEventArgs, ICoreWebView2WebResourceResponse,
+    COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL,
+};
+#[cfg(not(debug_assertions))]
+use windows::Win32::UI::Shell::SHCreateMemStream;
 use windows::Win32::Graphics::Gdi::{CreateRoundRectRgn, SetWindowRgn};
 use windows::Win32::System::Com::CoTaskMemFree;
 use windows::Win32::UI::Input::KeyboardAndMouse::{TrackMouseEvent, TME_LEAVE, TRACKMOUSEEVENT};
@@ -97,6 +109,58 @@ const OVERLAY_BRIDGE_JS: &str = r#"(function(){
   };
   post({type:'ready'});
 })();"#;
+
+// The host the production overlay loads from. Its requests are intercepted and
+// served from the app's embedded frontend (see serve_asset). Any host works
+// since nothing actually resolves it over the network.
+#[cfg(not(debug_assertions))]
+const OVERLAY_HOST: &str = "blammytv.localhost";
+
+/// The URL the composition webview navigates to in a packaged build. In dev the
+/// overlay loads from the Vite server (the `overlay_url` passed from JS); in
+/// production there's no dev server, so we load the embedded frontend via a
+/// virtual host whose requests `serve_asset` fulfils.
+#[cfg(not(debug_assertions))]
+fn overlay_prod_url() -> String {
+    format!("http://{OVERLAY_HOST}/?overlay=1&composited=1")
+}
+
+/// Strip a full request URI down to the asset path (leading `/`, no query) so it
+/// can be looked up in the embedded frontend (e.g.
+/// `http://blammytv.localhost/assets/x.js?v=1` → `/assets/x.js`).
+#[cfg(not(debug_assertions))]
+fn asset_path_from_uri(uri: &str) -> String {
+    let after_scheme = uri.split_once("://").map_or(uri, |(_, rest)| rest);
+    let path = match after_scheme.find('/') {
+        Some(i) => &after_scheme[i..],
+        None => "/",
+    };
+    path.split(['?', '#']).next().unwrap_or("/").to_string()
+}
+
+/// Build a WebView2 response for `uri` from the app's embedded frontend, or
+/// `None` if there's no such asset. This is what lets the standalone composition
+/// webview load the React overlay without a Tauri asset protocol of its own.
+#[cfg(not(debug_assertions))]
+fn serve_asset(
+    env: &ICoreWebView2Environment,
+    uri: &str,
+) -> Option<ICoreWebView2WebResourceResponse> {
+    let app = crate::APP.get()?;
+    let asset = app.asset_resolver().get(asset_path_from_uri(uri))?;
+    let headers = HSTRING::from(format!("Content-Type: {}\r\n", asset.mime_type));
+    let reason = HSTRING::from("OK");
+    unsafe {
+        let stream = SHCreateMemStream(Some(&asset.bytes))?;
+        env.CreateWebResourceResponse(
+            &stream,
+            200,
+            PCWSTR(reason.as_ptr()),
+            PCWSTR(headers.as_ptr()),
+        )
+        .ok()
+    }
+}
 
 // Step 3: native mpv in a child window, with the composition WebView2 over it.
 // mpv child HWND (true 4K60 HDR) is the bottom layer; the topmost DComp target
@@ -479,6 +543,10 @@ pub fn theater(
                     let wv2 = wv_cb.clone();
                     let overlay2 = overlay_owned.clone();
                     let meta2 = meta_msg.clone();
+                    // Needed in production to build embedded-asset responses for
+                    // the overlay (see the WebResourceRequested handler below).
+                    #[cfg(not(debug_assertions))]
+                    let env_inner = env.clone();
                     env3.CreateCoreWebView2CompositionController(
                         parent,
                         &CreateCoreWebView2CompositionControllerCompletedHandler::create(Box::new(
@@ -632,9 +700,54 @@ pub fn theater(
                                     &mut token,
                                 )?;
 
+                                // In a packaged build there's no dev server, so
+                                // serve the overlay from the embedded frontend:
+                                // intercept this webview's requests and answer
+                                // them from the app's bundled assets.
+                                #[cfg(not(debug_assertions))]
+                                {
+                                    let env_rr = env_inner.clone();
+                                    let mut rr_token = 0i64;
+                                    wv.add_WebResourceRequested(
+                                        &WebResourceRequestedEventHandler::create(Box::new(
+                                            move |_wv,
+                                                  args: Option<
+                                                ICoreWebView2WebResourceRequestedEventArgs,
+                                            >| {
+                                                let args = match args {
+                                                    Some(a) => a,
+                                                    None => return Ok(()),
+                                                };
+                                                let mut raw = PWSTR::null();
+                                                args.Request()?.Uri(&mut raw)?;
+                                                let uri = raw.to_string().unwrap_or_default();
+                                                CoTaskMemFree(Some(raw.0 as *const c_void));
+                                                if let Some(resp) = serve_asset(&env_rr, &uri) {
+                                                    args.SetResponse(&resp)?;
+                                                }
+                                                Ok(())
+                                            },
+                                        )),
+                                        &mut rr_token,
+                                    )?;
+                                    let filter = HSTRING::from("*");
+                                    wv.AddWebResourceRequestedFilter(
+                                        PCWSTR(filter.as_ptr()),
+                                        COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL,
+                                    )?;
+                                }
+
                                 // Load the real app in overlay mode (TheaterOverlay),
-                                // transparent over the mpv layer.
-                                let nav = HSTRING::from(overlay2.as_str());
+                                // transparent over the mpv layer. Dev uses the Vite
+                                // URL from JS; production uses the embedded frontend.
+                                #[cfg(not(debug_assertions))]
+                                let nav_str = {
+                                    let _ = &overlay2;
+                                    overlay_prod_url()
+                                };
+                                #[cfg(debug_assertions)]
+                                let nav_str = overlay2.clone();
+                                let nav = HSTRING::from(nav_str.as_str());
                                 wv.Navigate(PCWSTR(nav.as_ptr()))?;
                                 let _ = dcomp2.Commit();
                                 if let Some(s) = THEATER.lock().unwrap().as_mut() {
