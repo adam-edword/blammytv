@@ -73,7 +73,11 @@ export function mapEpg(
     if (start == null || stop == null || stop < from || start > to) continue;
 
     const title =
-      prog.getElementsByTagName("title")[0]?.textContent?.trim() || "Programme";
+      prog.getElementsByTagName("title")[0]?.textContent?.trim() ?? "";
+    // Skip filler entries ("To Be Announced", "No Information", untitled, …).
+    // Providers often add a day-spanning placeholder that overlaps the real
+    // programmes — it collides with them in the guide and clutters the hero.
+    if (isFillerTitle(title)) continue;
     const description =
       prog.getElementsByTagName("desc")[0]?.textContent?.trim() || undefined;
     const startIso = new Date(start).toISOString();
@@ -104,6 +108,14 @@ function parseXmltvTime(s?: string | null): number | null {
   const offset = tz ? `${tz.slice(0, 3)}:${tz.slice(3)}` : "Z";
   const t = Date.parse(`${y}-${mo}-${d}T${h}:${mi}:${se}${offset}`);
   return Number.isNaN(t) ? null : t;
+}
+
+/** Placeholder programme titles that carry no real info — dropped from the EPG. */
+function isFillerTitle(t: string): boolean {
+  if (!t) return true;
+  return /^(to be announced|tba|no info(rmation)?|n\/?a|programme|program)\.?$/i.test(
+    t,
+  );
 }
 
 function validUrl(s?: string | null): string | undefined {

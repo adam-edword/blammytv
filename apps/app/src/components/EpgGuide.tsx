@@ -144,10 +144,12 @@ export function EpgGuide({
       return {
         ch,
         liveTitle: own.find((p) => isLiveNow(p, now))?.title ?? null,
-        blocks: own
-          .map((p) => ({ p, ...blockGeometry(win, p) }))
-          .filter((b) => b.width > 0)
-          .sort((a, b) => a.left - b.left),
+        blocks: dropOverlaps(
+          own
+            .map((p) => ({ p, ...blockGeometry(win, p) }))
+            .filter((b) => b.width > 0)
+            .sort((a, b) => a.left - b.left),
+        ),
       };
     });
   }, [channels, programs, win, now]);
@@ -424,5 +426,22 @@ function groupByChannel(programs: EpgProgram[]): Record<string, EpgProgram[]> {
   for (const p of programs) (out[p.channelId] ??= []).push(p);
   for (const list of Object.values(out))
     list.sort((a, b) => Date.parse(a.start) - Date.parse(b.start));
+  return out;
+}
+
+/** Keep only non-overlapping blocks (input sorted by `left`): the first of any
+ * overlapping run wins, the rest are dropped. A safety net for messy provider
+ * EPGs where programmes overlap and would otherwise stack on top of each other. */
+function dropOverlaps<T extends { left: number; width: number }>(
+  blocks: T[],
+): T[] {
+  const out: T[] = [];
+  let right = -Infinity;
+  for (const b of blocks) {
+    if (b.left + 0.5 >= right) {
+      out.push(b);
+      right = b.left + b.width;
+    }
+  }
   return out;
 }
