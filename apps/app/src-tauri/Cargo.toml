@@ -23,6 +23,9 @@ serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
 tauri = { version = "2.11.2", features = [] }
 tauri-plugin-log = "2"
+# Rust-side HTTP so the app can reach AIOStreams/Xtream without browser CORS
+# (rustls = no OpenSSL/system TLS dep, keeps the bundle self-contained).
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 libloading = "0.8"
 
 # The Telly-way composition spike (Windows): composition-hosted WebView2 +

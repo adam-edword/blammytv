@@ -174,6 +174,22 @@ fn comp_stop(window: tauri::WebviewWindow) -> Result<(), String> {
     }
 }
 
+/// Cross-platform HTTP GET returning the response body as text. Lets the app
+/// reach AIOStreams / Xtream from the Rust side, so the webview isn't blocked by
+/// browser CORS — the foundation for running self-contained, with no backend.
+#[tauri::command]
+async fn http_get(url: String) -> Result<String, String> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| e.to_string())?;
+    let res = client.get(&url).send().await.map_err(|e| e.to_string())?;
+    if !res.status().is_success() {
+        return Err(format!("HTTP {}", res.status().as_u16()));
+    }
+    res.text().await.map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -195,7 +211,8 @@ pub fn run() {
             comp_popout,
             comp_stop,
             popout_pos,
-            popout_stop
+            popout_stop,
+            http_get
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
