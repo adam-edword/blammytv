@@ -135,6 +135,29 @@ img {
   flex-direction: column;
 }
 
+/* Self-update banner: slim bar above the header when a new build is available. */
+.update-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 44px 14px 0;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: rgb(var(--accent-rgb) / 0.14);
+  border: 1px solid rgb(var(--accent-rgb) / 0.32);
+}
+
+.update-banner__text {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.update-banner__btn {
+  flex: none;
+}
+
 /* ---------- Header ---------- */
 
 .app-header {

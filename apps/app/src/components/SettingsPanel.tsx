@@ -8,6 +8,8 @@ import {
 import { PlaylistsSettings } from "./PlaylistsSettings";
 import { CarouselSources } from "./CarouselSources";
 import { AioStreamsSettings } from "./AioStreamsSettings";
+import { useUpdater } from "../state/updater";
+import { isTauri } from "../lib/tauri";
 
 /**
  * Settings panel.
@@ -299,6 +301,9 @@ export function SettingsPanel({
                 </label>
               </div>
             </div>
+
+            {/* Updates (desktop only) */}
+            {isTauri() && <UpdatesRow />}
           </section>
           )}
 
@@ -310,6 +315,56 @@ export function SettingsPanel({
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** "Check for updates" row in the Customize tab — manual counterpart to the
+ * launch banner. Shares the UpdaterProvider state, so a find here also lights
+ * up the banner. */
+function UpdatesRow() {
+  const { status, version, error, check, install } = useUpdater();
+  const offerInstall = status === "available" || status === "installing";
+  const busy = status === "checking" || status === "installing";
+
+  const desc =
+    status === "available"
+      ? `Version ${version} is ready to install.`
+      : status === "installing"
+        ? "Downloading and installing…"
+        : status === "uptodate"
+          ? "You're on the latest version."
+          : status === "error"
+            ? `Update check failed: ${error ?? "unknown error"}`
+            : "Check for a new version of BlammyTV.";
+
+  return (
+    <div className="settings__row">
+      <div className="settings__row-label">
+        <span className="settings__row-title">Updates</span>
+        <span className="settings__row-desc">{desc}</span>
+      </div>
+      <div className="settings__control">
+        {offerInstall ? (
+          <button
+            className="btn btn--primary"
+            type="button"
+            disabled={busy}
+            onClick={() => void install()}
+          >
+            {status === "installing" ? "Installing…" : "Install & restart"}
+          </button>
+        ) : (
+          <button
+            className="btn"
+            type="button"
+            disabled={busy}
+            onClick={() => void check()}
+          >
+            {status === "checking" ? "Checking…" : "Check for updates"}
+          </button>
+        )}
       </div>
     </div>
   );

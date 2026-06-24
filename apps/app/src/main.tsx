@@ -4,6 +4,7 @@ import { App } from "./App";
 import { TheaterOverlay } from "./components/TheaterOverlay";
 import { initPreferences } from "./state/preferences";
 import { PreferencesProvider } from "./state/PreferencesProvider";
+import { UpdaterProvider } from "./state/UpdaterProvider";
 import "./fonts";
 import "./styles.css";
 
@@ -25,9 +26,11 @@ if (isOverlay) {
   initPreferences();
   root.render(
     <React.StrictMode>
-      <PreferencesProvider>
-        <App />
-      </PreferencesProvider>
+      <UpdaterProvider>
+        <PreferencesProvider>
+          <App />
+        </PreferencesProvider>
+      </UpdaterProvider>
     </React.StrictMode>,
   );
 }

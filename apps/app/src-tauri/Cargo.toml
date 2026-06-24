@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "0.1.0"
+version = "0.2.0"
 description = "A Tauri App"
 authors = ["you"]
 license = ""
@@ -26,6 +26,9 @@ tauri-plugin-log = "2"
 # Remember window size/position/maximized across launches. First run (no saved
 # state) falls back to the config's maximized:true; afterwards it restores.
 tauri-plugin-window-state = "2"
+# Self-update from GitHub Releases (auto-check on launch + manual button).
+# Driven from Rust commands (below) so no JS plugin packages are needed.
+tauri-plugin-updater = "2"
 # Rust-side HTTP so the app can reach AIOStreams/Xtream without browser CORS
 # (rustls = no OpenSSL/system TLS dep, keeps the bundle self-contained).
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }

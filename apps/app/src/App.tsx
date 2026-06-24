@@ -6,6 +6,7 @@ import type {
   Episode,
 } from "@blammytv/shared";
 import { AppHeader } from "./components/AppHeader";
+import { UpdateBanner } from "./components/UpdateBanner";
 import { type TabKey } from "./components/TopTabs";
 import { PairingScreen } from "./screens/PairingScreen";
 import { OnboardingScreen } from "./screens/OnboardingScreen";
@@ -165,6 +166,7 @@ export function App() {
 
   return (
     <div className="app-shell">
+      <UpdateBanner />
       <AppHeader
         active={activeTab}
         onChange={onTab}
