@@ -7,6 +7,7 @@ import {
   RECENTS_ID,
 } from "../components/CategorySidebar";
 import { EpgGuide } from "../components/EpgGuide";
+import { SourceError } from "../components/SourceError";
 import { isLiveNow } from "../lib/epg";
 import { usePreferences } from "../state/preferences";
 import {
@@ -56,7 +57,16 @@ function loadCatWidth(): number {
   }
 }
 
-export function LiveScreen({ config }: { config: ConfigBlob }) {
+export function LiveScreen({
+  config,
+  error,
+  onRetry,
+}: {
+  config: ConfigBlob;
+  /** Set when the IPTV playlists failed to load (independent of Stream). */
+  error?: string;
+  onRetry: () => void;
+}) {
   const { live, favorites } = config;
   const now = useNow();
 
@@ -123,7 +133,7 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
       list = list.filter((c) => withInfo.has(c.id));
     }
     return list;
-  }, [categoryId, live.channels, live.programs, favorites, prefs.hideNoInfoChannels]);
+  }, [categoryId, live, favorites, prefs.hideNoInfoChannels]);
 
   // The hero follows the user's selection, falling back to whatever is live on
   // the featured channel.
@@ -297,6 +307,9 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
     if (t && t.closest(".now-playing__preview")) return;
     setTheater(false);
   };
+
+  // IPTV failed to load — scoped to this tab; Stream is unaffected.
+  if (error) return <SourceError message={error} onRetry={onRetry} />;
 
   return (
     <div

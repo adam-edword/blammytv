@@ -20,7 +20,7 @@ import { CompositionPreview } from "./components/CompositionPreview";
 import { SourcePanel } from "./components/SourcePanel";
 import type { TheaterMeta } from "./components/Player";
 import { ChevronIcon } from "./components/icons";
-import { fetchConfig } from "./lib/config";
+import { fetchConfig, type ConfigErrors } from "./lib/config";
 import { fetchVodDetail, vodBackendConfigured } from "./lib/vod";
 import { getAioUrl } from "./lib/settings";
 import { isTauri, onCompClosed, onCompExitFullscreen, onCompFullscreen, onCompPanel, onCompPopout, onPopoutClosed, tauriCompKey, tauriCompPopout, tauriPopoutPos, tauriPopoutStop, tauriSetFullscreen } from "./lib/tauri";
@@ -45,7 +45,7 @@ const VOD_SHORTCUTS = new Set([
 type Load =
   | { status: "idle" }
   | { status: "loading" }
-  | { status: "ready"; config: ConfigBlob }
+  | { status: "ready"; config: ConfigBlob; errors: ConfigErrors }
   | { status: "error"; message: string };
 
 /** A navigable page. The base of the stack is always a tab; opening a title or
@@ -115,7 +115,9 @@ export function App() {
   const pull = useCallback((code: ShareCode) => {
     setLoad({ status: "loading" });
     fetchConfig(code)
-      .then((config) => setLoad({ status: "ready", config }))
+      .then(({ config, errors }) =>
+        setLoad({ status: "ready", config, errors }),
+      )
       .catch((err) =>
         setLoad({
           status: "error",
@@ -184,6 +186,8 @@ export function App() {
           <CurrentScreen
             screen={screen}
             config={load.config}
+            errors={load.errors}
+            onRetry={() => pull(shareCode)}
             shareCode={shareCode}
             push={push}
             back={back}
@@ -388,6 +392,8 @@ function VodPlayer({
 function CurrentScreen({
   screen,
   config,
+  errors,
+  onRetry,
   shareCode,
   push,
   back,
@@ -395,6 +401,8 @@ function CurrentScreen({
 }: {
   screen: Screen;
   config: ConfigBlob;
+  errors: ConfigErrors;
+  onRetry: () => void;
   shareCode: ShareCode;
   push: (s: Screen) => void;
   back: () => void;
@@ -410,6 +418,8 @@ function CurrentScreen({
         <TabContent
           tab={screen.tab}
           config={config}
+          errors={errors}
+          onRetry={onRetry}
           onOpen={(item) => push({ kind: "title", item })}
         />
       );
@@ -534,17 +544,30 @@ function DetailLoading({ onBack }: { onBack: () => void }) {
 function TabContent({
   tab,
   config,
+  errors,
+  onRetry,
   onOpen,
 }: {
   tab: TabKey;
   config: ConfigBlob;
+  errors: ConfigErrors;
+  onRetry: () => void;
   onOpen: (item: VodItem) => void;
 }) {
   switch (tab) {
     case "live":
-      return <LiveScreen config={config} />;
+      return (
+        <LiveScreen config={config} error={errors.live} onRetry={onRetry} />
+      );
     case "stream":
-      return <StreamScreen config={config} onOpen={onOpen} />;
+      return (
+        <StreamScreen
+          config={config}
+          error={errors.vod}
+          onRetry={onRetry}
+          onOpen={onOpen}
+        />
+      );
     case "discover":
       return (
         <PlaceholderScreen

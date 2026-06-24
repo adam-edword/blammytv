@@ -2876,6 +2876,32 @@ body.theater-mode .app-header:hover {
   margin-top: 8px;
 }
 
+/* Per-tab source error (AIOStreams / IPTV) — scoped to one screen, not the
+   whole app, since the two sources are independent. */
+.source-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 14px;
+  max-width: 560px;
+  margin: 18vh auto 0;
+  padding: 40px;
+}
+
+.source-error__title {
+  font-family: var(--font-headline);
+  font-size: 26px;
+  margin: 0;
+}
+
+.source-error__msg {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
 /* ---------- Settings panel ---------- */
 
 .settings-overlay {
