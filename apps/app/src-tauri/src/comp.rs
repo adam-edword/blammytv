@@ -191,6 +191,13 @@ static ORIG_WNDPROC: AtomicIsize = AtomicIsize::new(0);
 // Bumped per theater open; the loader poll thread exits when it's superseded.
 static LOADER_GEN: AtomicU64 = AtomicU64::new(0);
 
+// Bumped on every theater build/teardown. The webview is created asynchronously,
+// so its completion callbacks capture the generation they were started under and
+// refuse to install themselves if a newer build has superseded them (otherwise a
+// fast channel switch installs a dead controller over the live one — its video
+// surface is already gone — and the overlay stops responding to clicks).
+static THEATER_GEN: AtomicU64 = AtomicU64::new(0);
+
 // Forward a keyboard shortcut (captured by the main webview, which holds focus)
 // into the overlay, which owns the player UI + drives mpv. UI thread only.
 pub fn post_key(key: &str) {
@@ -409,8 +416,10 @@ pub fn set_rect(x: i32, y: i32, w: u32, h: u32, radius: i32) {
 }
 
 pub fn close_theater() {
-    // Bump the generation so the loader / time poll threads exit.
+    // Bump the generation so the loader / time poll threads exit, and so any
+    // in-flight webview build for this theater bails instead of installing.
     LOADER_GEN.fetch_add(1, Ordering::SeqCst);
+    THEATER_GEN.fetch_add(1, Ordering::SeqCst);
     crate::mpv::stop();
     let prev = THEATER.lock().unwrap().take();
     if let Some(t) = prev {
@@ -441,6 +450,10 @@ pub fn theater(
     // Tear down any previous theater first so we can re-target the HWND and don't
     // leak the old mpv child / webview (also makes channel-switch a clean rebuild).
     close_theater();
+    // This build's generation. The async webview callbacks below capture it and
+    // only install themselves while it's still current (see THEATER_GEN).
+    THEATER_GEN.fetch_add(1, Ordering::SeqCst);
+    let gen = THEATER_GEN.load(Ordering::SeqCst);
     unsafe {
         let parent = HWND(hwnd as *mut c_void);
 
@@ -543,6 +556,11 @@ pub fn theater(
             None,
             &CreateCoreWebView2EnvironmentCompletedHandler::create(Box::new(
                 move |_hr, env: Option<ICoreWebView2Environment>| {
+                    // A newer theater build superseded this one (fast channel
+                    // switch) before the environment finished — abandon it.
+                    if THEATER_GEN.load(Ordering::SeqCst) != gen {
+                        return Ok(());
+                    }
                     let env =
                         env.ok_or_else(|| windows::core::Error::new(E_POINTER, "no environment"))?;
                     let env3: ICoreWebView2Environment3 = env.cast()?;
@@ -561,6 +579,16 @@ pub fn theater(
                                 let ctrl = ctrl.ok_or_else(|| {
                                     windows::core::Error::new(E_POINTER, "no controller")
                                 })?;
+                                // Superseded mid-build: this controller's video
+                                // surface (the DComp child) is already destroyed,
+                                // so close it instead of installing it over the
+                                // current theater (the fast-channel-switch bug).
+                                if THEATER_GEN.load(Ordering::SeqCst) != gen {
+                                    if let Ok(c) = ctrl.cast::<ICoreWebView2Controller>() {
+                                        let _ = c.Close();
+                                    }
+                                    return Ok(());
+                                }
                                 let unk: IUnknown = wv2.cast()?;
                                 ctrl.SetRootVisualTarget(&unk)?;
                                 let c: ICoreWebView2Controller = ctrl.cast()?;

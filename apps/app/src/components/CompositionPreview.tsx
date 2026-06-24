@@ -7,6 +7,10 @@ import {
 } from "../lib/tauri";
 import type { TheaterMeta } from "./Player";
 
+// Wait this long after the channel settles before building the native player, so
+// rapid channel switching doesn't thrash mpv + the composition webview.
+const OPEN_DEBOUNCE_MS = 150;
+
 /** Box geometry in physical pixels (what the native mpv layer wants). The preview
  * box is rounded 12px in both mini and theater (the theater frame CSS handles the
  * padded layout); true fullscreen squares it off. */
@@ -66,8 +70,14 @@ export function CompositionPreview({
       }
       raf = requestAnimationFrame(tick);
     };
-    raf = requestAnimationFrame(tick);
+    // Debounce the open: each url change re-runs this effect and clears the
+    // pending timer, so flipping quickly through channels only ever builds the
+    // native layer for the one you land on (the rest never start).
+    const openTimer = setTimeout(() => {
+      raf = requestAnimationFrame(tick);
+    }, OPEN_DEBOUNCE_MS);
     return () => {
+      clearTimeout(openTimer);
       cancelAnimationFrame(raf);
       void tauriCompStop().catch(() => {});
     };
