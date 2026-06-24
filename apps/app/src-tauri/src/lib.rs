@@ -181,6 +181,12 @@ fn comp_stop(window: tauri::WebviewWindow) -> Result<(), String> {
 async fn http_get(url: String) -> Result<String, String> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
+        // Present as a browser: many AIOStreams/addon hosts (esp. behind
+        // Cloudflare/WAFs) reject requests without a normal User-Agent with 403.
+        .user_agent(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
+             (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+        )
         .build()
         .map_err(|e| e.to_string())?;
     let res = client.get(&url).send().await.map_err(|e| e.to_string())?;
