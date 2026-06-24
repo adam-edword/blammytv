@@ -3673,3 +3673,49 @@ body.is-overlay,
   width: 100%;
   margin-top: 10px;
 }
+
+/* First-run onboarding (standalone desktop app). */
+.onboarding {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--bg);
+}
+.onboarding__card {
+  width: 100%;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 14px;
+}
+.onboarding__logo {
+  width: 84px;
+  height: 84px;
+  object-fit: contain;
+}
+.onboarding__title {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 34px;
+  color: var(--text);
+}
+.onboarding__lede {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 16px;
+  line-height: 1.5;
+}
+.onboarding__input {
+  width: 100%;
+  margin-top: 8px;
+}
+.onboarding__btn {
+  margin-top: 4px;
+  min-width: 160px;
+}

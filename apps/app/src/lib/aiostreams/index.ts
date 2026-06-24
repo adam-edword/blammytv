@@ -7,15 +7,8 @@ import type { CatalogDef } from "./types";
 type VodSection = Pick<ConfigBlob, "movies" | "series" | "stream">;
 
 const ITEMS_PER_ROW = 40;
-
-// Default carousel mix (used when the user hasn't picked sources). The two snoak
-// lists require a genre param so they're never homepage rows ("carousel only").
-// TODO(ship): these ids are personal to one AIOMetadata setup — de-personalize
-// before packaging for others (fall back to homepage rows only).
-const SNOAK_MOVIES_ID = "0c7e3b0.mdblist.175011";
-const SNOAK_SHOWS_ID = "0c7e3b0.mdblist.175012";
 const FEATURED_TOTAL = 9;
-const CATALOG_PICKS = 3;
+const DEFAULT_SOURCE_ROWS = 3; // rows the default carousel draws from
 
 /**
  * Build the movies/series catalog and the Stream rows from an AIOStreams
@@ -130,9 +123,10 @@ function isSelectable(cat: CatalogDef): boolean {
   return (cat.extra ?? []).every((e) => !e.isRequired || e.name === "genre");
 }
 
+/** Default carousel sources when the user hasn't picked any: the first few
+ * homepage rows. (Add curated lists via the Customize → Carousel sources picker.) */
 function defaultCarousel(rows: ConfigBlob["stream"]["rows"]): string[] {
-  const rowCats = rows.slice(0, CATALOG_PICKS).map((r) => r.id.replace(/^aio:/, ""));
-  return [SNOAK_MOVIES_ID, SNOAK_SHOWS_ID, ...rowCats];
+  return rows.slice(0, DEFAULT_SOURCE_ROWS).map((r) => r.id.replace(/^aio:/, ""));
 }
 
 /**

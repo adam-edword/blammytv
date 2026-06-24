@@ -8,6 +8,7 @@ import type {
 import { AppHeader } from "./components/AppHeader";
 import { type TabKey } from "./components/TopTabs";
 import { PairingScreen } from "./screens/PairingScreen";
+import { OnboardingScreen } from "./screens/OnboardingScreen";
 import { LiveScreen } from "./screens/LiveScreen";
 import { StreamScreen } from "./screens/StreamScreen";
 import { PlaceholderScreen } from "./screens/PlaceholderScreen";
@@ -21,6 +22,7 @@ import type { TheaterMeta } from "./components/Player";
 import { ChevronIcon } from "./components/icons";
 import { fetchConfig } from "./lib/config";
 import { fetchVodDetail, vodBackendConfigured } from "./lib/vod";
+import { getAioUrl } from "./lib/settings";
 import { isTauri, onCompClosed, onCompExitFullscreen, onCompFullscreen, onCompPanel, onCompPopout, onPopoutClosed, tauriCompKey, tauriCompPopout, tauriPopoutPos, tauriPopoutStop, tauriSetFullscreen } from "./lib/tauri";
 import { loadShareCode, saveShareCode, clearShareCode } from "./lib/pairing";
 
@@ -54,8 +56,15 @@ type Screen =
   | { kind: "source"; item: VodItem; episode: Episode; seasonNumber: number };
 
 export function App() {
+  // The desktop app is self-contained — no pairing. Use a stub code (the local
+  // data layer ignores it) so the share-code screen is skipped. The browser/dev
+  // build still pairs.
   const [shareCode, setShareCode] = useState<ShareCode | null>(() =>
-    loadShareCode(),
+    isTauri() ? ("BLAMMY" as ShareCode) : loadShareCode(),
+  );
+  // First run on desktop needs an AIOStreams URL (the onboarding screen).
+  const [aioReady, setAioReady] = useState(
+    () => !isTauri() || Boolean(getAioUrl()),
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [load, setLoad] = useState<Load>({ status: "idle" });
@@ -127,6 +136,18 @@ export function App() {
         onPaired={(code) => {
           saveShareCode(code);
           setShareCode(code);
+        }}
+      />
+    );
+  }
+
+  // First-run onboarding (desktop): collect the AIOStreams URL, then load.
+  if (isTauri() && !aioReady) {
+    return (
+      <OnboardingScreen
+        onDone={() => {
+          setAioReady(true);
+          pull(shareCode);
         }}
       />
     );
