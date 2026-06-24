@@ -29,7 +29,7 @@
       "endpoints": [
         "https://github.com/adam-edword/blammytv/releases/latest/download/latest.json"
       ],
-      "pubkey": "REPLACE_WITH_TAURI_UPDATER_PUBLIC_KEY"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDVGRDNFMTA3MjRERjEwRjcKUldUM0VOOGtCK0hUWDV4bVhyRmhGeSs1RUF1VGdLcEFmM1A5b2hvKzJuTTdGVnNGbWRZTnZCay8K"
     }
   },
   "bundle": {
