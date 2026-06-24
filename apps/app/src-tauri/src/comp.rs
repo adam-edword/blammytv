@@ -146,6 +146,13 @@ fn serve_asset(
     env: &ICoreWebView2Environment,
     uri: &str,
 ) -> Option<ICoreWebView2WebResourceResponse> {
+    // Only our own virtual host is served from embedded assets; anything else
+    // (channel icons, posters, …) must reach the network untouched. Without this
+    // guard the asset resolver's index.html fallback would hijack every external
+    // image request and return HTML for it.
+    if !uri.starts_with(&format!("http://{OVERLAY_HOST}/")) {
+        return None;
+    }
     let app = crate::APP.get()?;
     let asset = app.asset_resolver().get(asset_path_from_uri(uri))?;
     let headers = HSTRING::from(format!("Content-Type: {}\r\n", asset.mime_type));
@@ -730,7 +737,11 @@ pub fn theater(
                                         )),
                                         &mut rr_token,
                                     )?;
-                                    let filter = HSTRING::from("*");
+                                    // Scope the filter to our host so external
+                                    // resources (channel icons, posters) aren't
+                                    // intercepted and load straight from the net.
+                                    let filter =
+                                        HSTRING::from(format!("http://{OVERLAY_HOST}/*"));
                                     wv.AddWebResourceRequestedFilter(
                                         PCWSTR(filter.as_ptr()),
                                         COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL,
