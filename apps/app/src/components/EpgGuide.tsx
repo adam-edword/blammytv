@@ -17,6 +17,7 @@ import {
   PX_PER_MIN,
   type GuideWindow,
 } from "../lib/epg";
+import { qualityTags } from "../lib/quality";
 
 /** Once a pinned card's visible width shrinks below this, it stops pinning at
  * the edge and instead slides its left edge under the label (fading) — while
@@ -283,6 +284,18 @@ export function EpgGuide({
                   )}
                   <span className="guide-row__label-meta">
                     <span className="guide-row__label-text">{ch.name}</span>
+                    {(() => {
+                      const tags = qualityTags(ch.name);
+                      return tags.length ? (
+                        <span className="guide-row__badges">
+                          {tags.map((t) => (
+                            <span key={t} className="quality-badge">
+                              {t}
+                            </span>
+                          ))}
+                        </span>
+                      ) : null;
+                    })()}
                     {liveTitle && (
                       <span className="guide-row__sub">{liveTitle}</span>
                     )}

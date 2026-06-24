@@ -1467,6 +1467,28 @@ body.theater-mode .app-header:hover {
   overflow: hidden;
 }
 
+/* Quality tags parsed from the channel name (4K / HDR / 60FPS …). Heuristic —
+   only shown when the provider tags them in the name. */
+.guide-row__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 1px;
+}
+
+.quality-badge {
+  flex: none;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  line-height: 1.4;
+  color: var(--text-dim);
+  background: rgb(255 255 255 / 0.08);
+  border: 1px solid rgb(255 255 255 / 0.1);
+}
+
 /* Current show airing now, under the channel name. */
 .guide-row__sub {
   display: block;
