@@ -7,7 +7,15 @@ import type { CatalogDef } from "./types.js";
 type VodSection = Pick<ConfigBlob, "movies" | "series" | "stream">;
 
 const ITEMS_PER_ROW = 40;
-const FEATURED_COUNT = 9;
+
+// Featured carousel sources. The two snoak lists are fetched directly (top 3
+// each) — they require a genre param so they're never homepage rows ("carousel
+// only"). Plus 1 random item from each of the first few homepage rows. All
+// shuffled and re-rolled per build, so the carousel varies on each app load.
+const SNOAK_MOVIES_ID = "0c7e3b0.mdblist.175011"; // Today's Most Popular Movies on TV
+const SNOAK_SHOWS_ID = "0c7e3b0.mdblist.175012"; // Today's Most Popular Shows on TV
+const SNOAK_TAKE = 3;
+const CATALOG_PICKS = 3;
 
 /**
  * Build the movies/series catalog and the Stream rows from an AIOStreams
@@ -52,13 +60,15 @@ export async function buildVod(manifestUrl: string): Promise<VodSection> {
     rows.push({ id: `aio:${cat.id}`, title: label(cat), layout: "poster", itemIds });
   }
 
-  // Enrich a handful of movies for the auto-advancing hero carousel.
-  const featured = pickFeatured(rows, movies);
+  // Build the featured carousel, then enrich each item (by its kind) so the
+  // hero has artwork + synopsis.
+  const featured = await buildFeatured(client, rows, movies, series);
   await Promise.all(
     featured.map(async (id) => {
+      const inSeries = series.has(id);
       try {
-        const { meta } = await client.meta("movie", id);
-        if (meta) movies.set(id, metaToVod(meta));
+        const { meta } = await client.meta(inSeries ? "series" : "movie", id);
+        if (meta) (inSeries ? series : movies).set(id, metaToVod(meta));
       } catch (err) {
         console.warn(`[aiostreams] hero enrich ${id} failed: ${msg(err)}`);
       }
@@ -101,19 +111,64 @@ function isBrowseable(cat: CatalogDef): boolean {
   return (cat.extra ?? []).every((e) => !e.isRequired);
 }
 
-/** First few distinct movie ids across the rows, for the hero. */
-function pickFeatured(
+/**
+ * Featured carousel: top {@link SNOAK_TAKE} from each snoak list (fetched
+ * directly with `genre=None` — they're not browseable as rows) + 1 random item
+ * from each of the first {@link CATALOG_PICKS} homepage rows, all shuffled.
+ * Adds the snoak picks to the movies/series maps so the hero can resolve them.
+ */
+async function buildFeatured(
+  client: AddonClient,
   rows: ConfigBlob["stream"]["rows"],
   movies: Map<string, VodItem>,
-): string[] {
-  const out: string[] = [];
-  for (const row of rows) {
-    for (const id of row.itemIds) {
-      if (movies.has(id) && !out.includes(id)) out.push(id);
-      if (out.length >= FEATURED_COUNT) return out;
-    }
+  series: Map<string, VodItem>,
+): Promise<string[]> {
+  const ids: string[] = [];
+
+  const [snoakMovies, snoakShows] = await Promise.all([
+    client
+      .catalog("movie", SNOAK_MOVIES_ID, "genre=None")
+      .then((r) => r.metas ?? [])
+      .catch((err) => {
+        console.warn(`[aiostreams] snoak movies failed: ${msg(err)}`);
+        return [];
+      }),
+    client
+      .catalog("series", SNOAK_SHOWS_ID, "genre=None")
+      .then((r) => r.metas ?? [])
+      .catch((err) => {
+        console.warn(`[aiostreams] snoak shows failed: ${msg(err)}`);
+        return [];
+      }),
+  ]);
+
+  for (const m of snoakMovies.slice(0, SNOAK_TAKE)) {
+    const item: VodItem = { ...metaPreviewToVod(m), kind: "movie" };
+    movies.set(item.id, item);
+    if (!ids.includes(item.id)) ids.push(item.id);
   }
-  return out;
+  for (const m of snoakShows.slice(0, SNOAK_TAKE)) {
+    const item: VodItem = { ...metaPreviewToVod(m), kind: "series" };
+    series.set(item.id, item);
+    if (!ids.includes(item.id)) ids.push(item.id);
+  }
+
+  // One random item from each of the first few homepage rows.
+  for (const row of rows.slice(0, CATALOG_PICKS)) {
+    const pool = row.itemIds.filter((id) => !ids.includes(id));
+    if (pool.length > 0) ids.push(pool[Math.floor(Math.random() * pool.length)]);
+  }
+
+  return shuffle(ids);
+}
+
+/** Fisher–Yates shuffle in place; returns the same array. */
+function shuffle<T>(arr: T[]): T[] {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
 }
 
 function label(cat: CatalogDef): string {
