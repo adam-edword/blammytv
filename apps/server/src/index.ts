@@ -11,7 +11,7 @@ import {
   summarize,
 } from "./store.js";
 import { buildLive } from "./xtream/index.js";
-import { buildVod, resolveSources, resolveVodItem } from "./aiostreams/index.js";
+import { buildVod, listCatalogs, resolveSources, resolveVodItem } from "./aiostreams/index.js";
 import { aiostreamsUrl } from "./env.js";
 
 // Load a local .env (gitignored) so BLAMMY_AIOSTREAMS_URL etc. are available in
@@ -61,15 +61,33 @@ app.get("/config", async (c) => {
   const code = c.get("code");
   const seed = mockConfig(`Living Room (${code})`);
 
+  // The device's carousel-source picks ride along as a query param.
+  const carousel = (c.req.query("carousel") ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
   // Live (Xtream) and VOD (AIOStreams) are independent subsystems — neither's
   // failure should sink the other, so both are best-effort and fall back to the
   // seed when unconfigured or broken.
   const [live, vod] = await Promise.all([
     buildLiveSection(seed),
-    buildVodSection(seed),
+    buildVodSection(seed, carousel),
   ]);
 
   return c.json(ConfigBlobSchema.parse({ ...seed, live, ...vod }));
+});
+
+// Catalogs the carousel can pull from (for the Customize picker).
+app.get("/admin/catalogs", async (c) => {
+  const url = aiostreamsUrl();
+  if (!url) return c.json([]);
+  try {
+    return c.json(await listCatalogs(url));
+  } catch (err) {
+    console.error(`[aiostreams] catalogs failed: ${msg(err)}`);
+    return c.json([]);
+  }
 });
 
 /** On-demand title detail (synopsis, cast, seasons/episodes). */
@@ -115,11 +133,12 @@ async function buildLiveSection(seed: ConfigBlob): Promise<ConfigBlob["live"]> {
 /** VOD section (movies/series/stream) from AIOStreams, or the demo seed. */
 async function buildVodSection(
   seed: ConfigBlob,
+  carousel: string[],
 ): Promise<Pick<ConfigBlob, "movies" | "series" | "stream">> {
   const url = aiostreamsUrl();
   if (!url) return { movies: seed.movies, series: seed.series, stream: seed.stream };
   try {
-    return await buildVod(url);
+    return await buildVod(url, carousel);
   } catch (err) {
     console.error(`[aiostreams] vod build failed: ${msg(err)}`);
     return { movies: seed.movies, series: seed.series, stream: seed.stream };

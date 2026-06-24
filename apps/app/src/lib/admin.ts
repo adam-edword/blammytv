@@ -29,6 +29,15 @@ export interface AddXtreamInput {
   password: string;
 }
 
+/** A catalog the carousel can pull from (for the Customize picker). */
+export interface CatalogOption {
+  id: string;
+  type: string;
+  name: string;
+}
+
+export const listCatalogs = () => req<CatalogOption[]>("/admin/catalogs");
+
 export const listSources = () => req<SourceSummary[]>("/admin/sources");
 
 export const addXtreamSource = (input: AddXtreamInput) =>

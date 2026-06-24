@@ -26,6 +26,8 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     setUiScale: (uiScale) =>
       setPrefs((p) => ({ ...p, uiScale: clampScale(uiScale) })),
     setLightMode: (lightMode) => setPrefs((p) => ({ ...p, lightMode })),
+    setCarouselSources: (carouselSources) =>
+      setPrefs((p) => ({ ...p, carouselSources })),
     reset: () => setPrefs(DEFAULT_PREFERENCES),
   };
 

@@ -17,6 +17,8 @@ export interface Preferences {
   uiScale: number;
   /** Light theme on/off (applied via data-theme on the document root). */
   lightMode: boolean;
+  /** Catalog ids the Stream hero carousel pulls from (empty ⇒ default mix). */
+  carouselSources: string[];
 }
 
 export const DEFAULT_ACCENT = "#c22727";
@@ -54,6 +56,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   accent: DEFAULT_ACCENT,
   uiScale: 1,
   lightMode: false,
+  carouselSources: [],
 };
 
 const STORAGE_KEY = "blammytv.preferences";
@@ -75,6 +78,9 @@ export function loadPreferences(): Preferences {
           : DEFAULT_ACCENT,
       uiScale: typeof p.uiScale === "number" ? clampScale(p.uiScale) : 1,
       lightMode: !!p.lightMode,
+      carouselSources: Array.isArray(p.carouselSources)
+        ? p.carouselSources.filter((x: unknown): x is string => typeof x === "string")
+        : [],
     };
   } catch {
     return DEFAULT_PREFERENCES;
@@ -115,6 +121,7 @@ export interface PreferencesContextValue {
   setAccent: (hex: string) => void;
   setUiScale: (v: number) => void;
   setLightMode: (v: boolean) => void;
+  setCarouselSources: (ids: string[]) => void;
   reset: () => void;
 }
 

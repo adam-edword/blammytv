@@ -6,6 +6,7 @@ import {
   nearestScaleIndex,
 } from "../state/preferences";
 import { PlaylistsSettings } from "./PlaylistsSettings";
+import { CarouselSources } from "./CarouselSources";
 
 /**
  * Settings panel.
@@ -29,7 +30,7 @@ const ACCENT_PRESETS = [
   "#9aa0b1", // grey
 ];
 
-type SettingsTab = "playlists" | "display";
+type SettingsTab = "playlists" | "customize";
 
 export function SettingsPanel({
   open,
@@ -113,7 +114,7 @@ export function SettingsPanel({
           <h2 className="settings__title">Settings</h2>
 
           <nav className="settings__tabs" role="tablist" aria-label="Settings sections">
-            {(["playlists", "display"] as const).map((t) => (
+            {(["playlists", "customize"] as const).map((t) => (
               <button
                 key={t}
                 role="tab"
@@ -121,7 +122,7 @@ export function SettingsPanel({
                 className={"settings__tab" + (tab === t ? " settings__tab--active" : "")}
                 onClick={() => setTab(t)}
               >
-                {t === "playlists" ? "Playlists" : "Display"}
+                {t === "playlists" ? "Playlists" : "Customize"}
               </button>
             ))}
           </nav>
@@ -134,9 +135,18 @@ export function SettingsPanel({
             />
           )}
 
-          {tab === "display" && (
+          {tab === "customize" && (
           <section className="settings__section">
-            <h3 className="settings__section-title">Display</h3>
+            <h3 className="settings__section-title">Customize</h3>
+
+            {/* Carousel sources */}
+            <div className="settings__row settings__row--block">
+              <CarouselSources
+                onDirty={() => {
+                  dirty.current = true;
+                }}
+              />
+            </div>
 
             {/* Accent colour */}
             <div className="settings__row">
@@ -258,7 +268,7 @@ export function SettingsPanel({
           </section>
           )}
 
-          {tab === "display" && (
+          {tab === "customize" && (
             <div className="settings__footer">
               <button className="btn" type="button" onClick={reset}>
                 Reset to defaults

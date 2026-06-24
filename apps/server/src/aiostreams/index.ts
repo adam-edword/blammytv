@@ -14,8 +14,8 @@ const ITEMS_PER_ROW = 40;
 // shuffled and re-rolled per build, so the carousel varies on each app load.
 const SNOAK_MOVIES_ID = "0c7e3b0.mdblist.175011"; // Today's Most Popular Movies on TV
 const SNOAK_SHOWS_ID = "0c7e3b0.mdblist.175012"; // Today's Most Popular Shows on TV
-const SNOAK_TAKE = 3;
-const CATALOG_PICKS = 3;
+const FEATURED_TOTAL = 9;
+const CATALOG_PICKS = 3; // homepage rows in the default carousel mix
 
 /**
  * Build the movies/series catalog and the Stream rows from an AIOStreams
@@ -26,7 +26,10 @@ const CATALOG_PICKS = 3;
  * seasons) and playable sources are resolved on-demand when a title is opened.
  * A few featured items are enriched up-front so the hero has artwork.
  */
-export async function buildVod(manifestUrl: string): Promise<VodSection> {
+export async function buildVod(
+  manifestUrl: string,
+  carouselSources: string[] = [],
+): Promise<VodSection> {
   const client = new AddonClient(manifestUrl);
   const manifest = await client.manifest();
   const browseable = manifest.catalogs.filter(isBrowseable);
@@ -60,9 +63,18 @@ export async function buildVod(manifestUrl: string): Promise<VodSection> {
     rows.push({ id: `aio:${cat.id}`, title: label(cat), layout: "poster", itemIds });
   }
 
-  // Build the featured carousel, then enrich each item (by its kind) so the
-  // hero has artwork + synopsis.
-  const featured = await buildFeatured(client, rows, movies, series);
+  // Build the featured carousel from the chosen catalogs (or a default mix),
+  // then enrich each item (by its kind) so the hero has artwork + synopsis.
+  const sourceIds = carouselSources.length
+    ? carouselSources
+    : defaultCarousel(rows);
+  const featured = await buildFeatured(
+    client,
+    manifest.catalogs,
+    sourceIds,
+    movies,
+    series,
+  );
   await Promise.all(
     featured.map(async (id) => {
       const inSeries = series.has(id);
@@ -106,60 +118,101 @@ export async function resolveSources(
   return mapStreams(streams);
 }
 
-/** A catalog is browseable when it has no required extra (search/people/etc.). */
+/** A catalog is browseable (becomes a homepage row) when it has no required
+ * extra (search/people/etc.). */
 function isBrowseable(cat: CatalogDef): boolean {
   return (cat.extra ?? []).every((e) => !e.isRequired);
 }
 
+/** A catalog the carousel can pull from: browseable, or list-like with only a
+ * required `genre` (which has a "None" option). Excludes search/people/etc. */
+function isSelectable(cat: CatalogDef): boolean {
+  return (cat.extra ?? []).every((e) => !e.isRequired || e.name === "genre");
+}
+
+/** The carousel sources to use when the user hasn't picked any: the two snoak
+ * "most popular on TV" lists + the first few homepage rows. */
+function defaultCarousel(rows: ConfigBlob["stream"]["rows"]): string[] {
+  const rowCats = rows.slice(0, CATALOG_PICKS).map((r) => r.id.replace(/^aio:/, ""));
+  return [SNOAK_MOVIES_ID, SNOAK_SHOWS_ID, ...rowCats];
+}
+
+/** Catalogs the Customize picker can choose from (id + type + name). */
+export async function listCatalogs(
+  manifestUrl: string,
+): Promise<Array<{ id: string; type: string; name: string }>> {
+  const client = new AddonClient(manifestUrl);
+  const manifest = await client.manifest();
+  return manifest.catalogs
+    .filter(isSelectable)
+    .map((c) => ({ id: c.id, type: c.type, name: c.name ?? c.id }));
+}
+
 /**
- * Featured carousel: top {@link SNOAK_TAKE} from each snoak list (fetched
- * directly with `genre=None` — they're not browseable as rows) + 1 random item
- * from each of the first {@link CATALOG_PICKS} homepage rows, all shuffled.
- * Adds the snoak picks to the movies/series maps so the hero can resolve them.
+ * Featured carousel: pool the items of each selected catalog, then pick
+ * {@link FEATURED_TOTAL} spread evenly across them (round-robin) and shuffled.
+ * Catalogs that need a genre are fetched with `genre=None`. Adds the picks to
+ * the movies/series maps so the hero can resolve them.
  */
 async function buildFeatured(
   client: AddonClient,
-  rows: ConfigBlob["stream"]["rows"],
+  catalogs: CatalogDef[],
+  sourceIds: string[],
   movies: Map<string, VodItem>,
   series: Map<string, VodItem>,
 ): Promise<string[]> {
-  const ids: string[] = [];
+  const pools = await Promise.all(
+    sourceIds.map(async (cid) => {
+      const def = catalogs.find((c) => c.id === cid);
+      if (!def) return [] as string[];
+      const needsGenre = (def.extra ?? []).some(
+        (e) => e.isRequired && e.name === "genre",
+      );
+      try {
+        const { metas = [] } = await client.catalog(
+          def.type,
+          def.id,
+          needsGenre ? "genre=None" : undefined,
+        );
+        const kind = isSeries(def.type) ? "series" : "movie";
+        return metas.slice(0, ITEMS_PER_ROW).map((m) => {
+          const item: VodItem = { ...metaPreviewToVod(m), kind };
+          (kind === "series" ? series : movies).set(item.id, item);
+          return item.id;
+        });
+      } catch (err) {
+        console.warn(`[aiostreams] carousel "${cid}" failed: ${msg(err)}`);
+        return [] as string[];
+      }
+    }),
+  );
 
-  const [snoakMovies, snoakShows] = await Promise.all([
-    client
-      .catalog("movie", SNOAK_MOVIES_ID, "genre=None")
-      .then((r) => r.metas ?? [])
-      .catch((err) => {
-        console.warn(`[aiostreams] snoak movies failed: ${msg(err)}`);
-        return [];
-      }),
-    client
-      .catalog("series", SNOAK_SHOWS_ID, "genre=None")
-      .then((r) => r.metas ?? [])
-      .catch((err) => {
-        console.warn(`[aiostreams] snoak shows failed: ${msg(err)}`);
-        return [];
-      }),
-  ]);
+  return pickEven(pools, FEATURED_TOTAL);
+}
 
-  for (const m of snoakMovies.slice(0, SNOAK_TAKE)) {
-    const item: VodItem = { ...metaPreviewToVod(m), kind: "movie" };
-    movies.set(item.id, item);
-    if (!ids.includes(item.id)) ids.push(item.id);
+/** Pick `count` ids spread evenly across the pools: round-robin by index over
+ * a shuffled pool order, items within each pool shuffled, deduped. */
+function pickEven(pools: string[][], count: number): string[] {
+  const order = shuffle(pools.map((p) => shuffle([...p])));
+  const out: string[] = [];
+  const seen = new Set<string>();
+  let pass = 0;
+  for (;;) {
+    let anyAtPass = false;
+    for (const pool of order) {
+      if (out.length >= count) return out;
+      if (pass < pool.length) {
+        anyAtPass = true;
+        const id = pool[pass];
+        if (!seen.has(id)) {
+          seen.add(id);
+          out.push(id);
+        }
+      }
+    }
+    if (!anyAtPass) return out; // every pool exhausted
+    pass++;
   }
-  for (const m of snoakShows.slice(0, SNOAK_TAKE)) {
-    const item: VodItem = { ...metaPreviewToVod(m), kind: "series" };
-    series.set(item.id, item);
-    if (!ids.includes(item.id)) ids.push(item.id);
-  }
-
-  // One random item from each of the first few homepage rows.
-  for (const row of rows.slice(0, CATALOG_PICKS)) {
-    const pool = row.itemIds.filter((id) => !ids.includes(id));
-    if (pool.length > 0) ids.push(pool[Math.floor(Math.random() * pool.length)]);
-  }
-
-  return shuffle(ids);
 }
 
 /** Fisher–Yates shuffle in place; returns the same array. */

@@ -7,11 +7,11 @@
  */
 
 :root {
-  --bg: #0b0b0e;
-  --panel: #15151a;
-  --panel-2: #1e1e25;
-  --panel-3: #23232e;
-  --surface-muted: #26262e;
+  --bg: #0b0b0b;
+  --panel: #151515;
+  --panel-2: #1e1e1e;
+  --panel-3: #232323;
+  --surface-muted: #262626;
 
   /* Accent — a single source the rest derive from, so a colour pick recolours
      everything. The provider overrides --accent-rgb on :root at runtime. */
@@ -21,8 +21,8 @@
   --red-tint: rgb(var(--accent-rgb) / 0.14);
   --red-border: rgb(var(--accent-rgb) / 0.55);
 
-  --text: #f2f2f5;
-  --text-dim: #9c9ca8;
+  --text: #f2f2f2;
+  --text-dim: #9c9c9c;
 
   /* Subtle overlays that must invert between themes (hairline borders, hover
      fills). Defined as tokens so the light theme can flip them in one place. */
@@ -1842,7 +1842,7 @@ body.theater-mode .app-header:hover {
 }
 
 .pairing__input::placeholder {
-  color: #3a3a45;
+  color: #3a3a3a;
   letter-spacing: 14px;
 }
 
@@ -2254,7 +2254,7 @@ body.theater-mode .app-header:hover {
   font-weight: 700;
   font-size: 68px;
   line-height: 1.02;
-  color: #f4f4f7;
+  color: #f4f4f4;
 }
 
 .detail__synopsis {
@@ -2300,7 +2300,7 @@ body.theater-mode .app-header:hover {
   background: rgba(255, 255, 255, 0.13);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  color: #f0f0f2;
+  color: #f0f0f0;
   font-family: var(--font-headline);
   font-weight: 500;
   font-size: 16px;
@@ -2357,7 +2357,7 @@ body.theater-mode .app-header:hover {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #0d0d10;
+  background: #0d0d0d;
   border-left: 1px solid rgba(255, 255, 255, 0.08);
 }
 .src-panel__head {
@@ -2573,7 +2573,7 @@ body.theater-mode .app-header:hover {
   font-family: var(--font-headline);
   font-weight: 600;
   font-size: 22px;
-  color: #f0f0f2;
+  color: #f0f0f0;
 }
 
 /* ---------- Series episode browser ---------- */
@@ -2700,7 +2700,7 @@ body.theater-mode .app-header:hover {
   margin: 0;
   padding: 6px;
   list-style: none;
-  background: #16161c;
+  background: #161616;
   border: 1px solid var(--hairline);
   border-radius: 10px;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
@@ -2715,7 +2715,7 @@ body.theater-mode .app-header:hover {
   border: none;
   border-radius: 7px;
   background: transparent;
-  color: #e8e8ec;
+  color: #e8e8e8;
   font-family: var(--font-headline);
   font-weight: 500;
   font-size: 16px;
@@ -2814,7 +2814,7 @@ body.theater-mode .app-header:hover {
   font-weight: 600;
   font-size: 16px;
   line-height: 1.3;
-  color: #f2f2f5;
+  color: #f2f2f2;
   /* Wrap long titles rather than truncating. */
   overflow-wrap: anywhere;
 }
@@ -3574,4 +3574,91 @@ body.is-overlay,
   font-weight: 600;
   font-size: 12px;
   pointer-events: none;
+}
+
+/* Customize → Carousel sources picker. */
+.settings__row--block {
+  display: block;
+}
+.carousel-sources {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.carousel-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+.carousel-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 13px;
+  border-radius: 999px;
+  background: var(--panel-3);
+  color: var(--text);
+  font-size: 14px;
+}
+.carousel-chip > button {
+  display: inline-flex;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.carousel-chip > button:hover {
+  color: var(--text);
+}
+.carousel-chip--add {
+  cursor: pointer;
+  border: 1px dashed var(--hairline);
+  background: transparent;
+  color: var(--text-dim);
+}
+.carousel-chip--add:hover {
+  color: var(--text);
+}
+.carousel-add {
+  position: relative;
+}
+.carousel-add__caret {
+  opacity: 0.7;
+}
+.carousel-add__menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 5;
+  min-width: 230px;
+  max-height: 300px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  background: var(--panel-2);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+}
+.carousel-add__menu button {
+  text-align: left;
+  padding: 9px 12px;
+  border: none;
+  border-radius: 7px;
+  background: none;
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.carousel-add__menu button:hover {
+  background: var(--surface-hover);
+}
+.carousel-add__note {
+  padding: 9px 12px;
+  color: var(--text-dim);
+  font-size: 14px;
 }

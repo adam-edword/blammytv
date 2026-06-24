@@ -4,6 +4,7 @@ import {
   type ConfigBlob,
   type ShareCode,
 } from "@blammytv/shared";
+import { loadPreferences } from "../state/preferences";
 
 /**
  * The single seam between the app and where config comes from.
@@ -25,7 +26,13 @@ export async function fetchConfig(shareCode: ShareCode): Promise<ConfigBlob> {
     return ConfigBlobSchema.parse(mockConfig(`Living Room (${shareCode})`));
   }
 
-  const res = await fetch(`${API_URL}/config`, {
+  // The carousel-source picker (a device pref) rides along as a query param so
+  // the server builds the hero carousel from the chosen catalogs.
+  const sources = loadPreferences().carouselSources;
+  const qs = sources.length
+    ? `?carousel=${encodeURIComponent(sources.join(","))}`
+    : "";
+  const res = await fetch(`${API_URL}/config${qs}`, {
     headers: { Authorization: `Bearer ${shareCode}` },
   });
   if (!res.ok) {
