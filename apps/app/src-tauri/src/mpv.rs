@@ -53,15 +53,31 @@ unsafe impl Sync for Lib {}
 
 static LIB: OnceLock<Lib> = OnceLock::new();
 
+/// Locate libmpv-2.dll: next to the exe, a bundled `resources/` dir, then the
+/// OS search path (covers dev — on PATH or beside the dev exe — and the
+/// packaged installer, wherever the bundler drops the resource).
+fn load_libmpv() -> Result<Library, String> {
+    let mut tried: Vec<String> = Vec::new();
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            for p in [dir.join("libmpv-2.dll"), dir.join("resources/libmpv-2.dll")] {
+                match unsafe { Library::new(&p) } {
+                    Ok(lib) => return Ok(lib),
+                    Err(e) => tried.push(format!("{}: {e}", p.display())),
+                }
+            }
+        }
+    }
+    unsafe { Library::new("libmpv-2.dll") }
+        .map_err(|e| format!("load libmpv-2.dll: {e} (also tried: {})", tried.join("; ")))
+}
+
 fn lib() -> Result<&'static Lib, String> {
     if let Some(l) = LIB.get() {
         return Ok(l);
     }
     unsafe {
-        let library: &'static Library = Box::leak(Box::new(
-            Library::new("libmpv-2.dll")
-                .map_err(|e| format!("load libmpv-2.dll: {e} (is it next to the exe / on PATH?)"))?,
-        ));
+        let library: &'static Library = Box::leak(Box::new(load_libmpv()?));
         let sym = |name: &[u8]| -> Result<*const c_void, String> {
             library
                 .get::<*const c_void>(name)
