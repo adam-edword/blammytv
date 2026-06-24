@@ -278,6 +278,16 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
     (g) => g.id === (textChannel ?? heroChannel)?.groupId,
   )?.name;
 
+  // In theater (not fullscreen), clicking the black area outside the player drops
+  // back to the mini player + guide. The native overlay swallows clicks on the
+  // player box itself, so anything React sees here is genuinely "outside".
+  const onBackdropClick = (e: React.MouseEvent) => {
+    if (!inTheater || fullscreen) return;
+    const t = e.target as Element | null;
+    if (t && t.closest(".now-playing__preview")) return;
+    setTheater(false);
+  };
+
   return (
     <div
       className={
@@ -286,6 +296,7 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
         (fullscreen ? " live-screen--fullscreen" : "")
       }
       style={{ "--categories-w": `${panelWidth}px` } as CSSProperties}
+      onClick={onBackdropClick}
     >
       <CategorySidebar
         groups={live.groups}
