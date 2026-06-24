@@ -2,6 +2,13 @@ import { loadShareCode } from "./pairing";
 import { isTauri } from "./tauri";
 import { getAioUrl } from "./settings";
 import { listCatalogs as aioListCatalogs } from "./aiostreams";
+import {
+  addPlaylist,
+  loadPlaylists,
+  removePlaylist,
+  setPlaylistEnabled,
+  type Playlist,
+} from "./playlists";
 
 /**
  * Client for the backend's playlists admin API (used by the in-app settings).
@@ -49,22 +56,54 @@ export const listCatalogs = async (): Promise<CatalogOption[]> => {
   return req<CatalogOption[]>("/admin/catalogs");
 };
 
-export const listSources = () => req<SourceSummary[]>("/admin/sources");
+/** Credential-free view of a local playlist (matches the old server summary). */
+function summarize(p: Playlist): SourceSummary {
+  return {
+    id: p.id,
+    type: "xtream",
+    name: p.name,
+    baseUrl: p.baseUrl,
+    enabled: p.enabled,
+    createdAt: p.createdAt,
+  };
+}
 
-export const addXtreamSource = (input: AddXtreamInput) =>
-  req<SourceSummary>("/admin/sources", {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
+export const listSources = async (): Promise<SourceSummary[]> =>
+  isTauri()
+    ? loadPlaylists().map(summarize)
+    : req<SourceSummary[]>("/admin/sources");
 
-export const setSourceEnabled = (id: string, enabled: boolean) =>
-  req<{ ok: true }>(`/admin/sources/${id}`, {
+export const addXtreamSource = async (
+  input: AddXtreamInput,
+): Promise<SourceSummary> =>
+  isTauri()
+    ? summarize(addPlaylist(input))
+    : req<SourceSummary>("/admin/sources", {
+        method: "POST",
+        body: JSON.stringify(input),
+      });
+
+export const setSourceEnabled = async (
+  id: string,
+  enabled: boolean,
+): Promise<{ ok: true }> => {
+  if (isTauri()) {
+    setPlaylistEnabled(id, enabled);
+    return { ok: true };
+  }
+  return req<{ ok: true }>(`/admin/sources/${id}`, {
     method: "PATCH",
     body: JSON.stringify({ enabled }),
   });
+};
 
-export const removeSource = (id: string) =>
-  req<{ ok: true }>(`/admin/sources/${id}`, { method: "DELETE" });
+export const removeSource = async (id: string): Promise<{ ok: true }> => {
+  if (isTauri()) {
+    removePlaylist(id);
+    return { ok: true };
+  }
+  return req<{ ok: true }>(`/admin/sources/${id}`, { method: "DELETE" });
+};
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   if (!API_URL) throw new Error("No backend configured.");

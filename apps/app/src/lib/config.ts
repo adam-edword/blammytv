@@ -8,6 +8,8 @@ import { loadPreferences } from "../state/preferences";
 import { isTauri } from "./tauri";
 import { getAioUrl } from "./settings";
 import { buildVod } from "./aiostreams";
+import { buildLive } from "./xtream";
+import { loadPlaylists } from "./playlists";
 
 /**
  * The single seam between the app and where its config comes from.
@@ -46,27 +48,41 @@ export async function fetchConfig(shareCode: ShareCode): Promise<ConfigBlob> {
   return ConfigBlobSchema.parse(await res.json());
 }
 
-/** Build the ConfigBlob on-device from the AIOStreams URL + carousel picks.
- * VOD comes from AIOStreams; live stays on the demo seed until Xtream moves
- * on-device too. Falls back to the seed if nothing's configured yet. */
+/** Build the ConfigBlob on-device: VOD from AIOStreams, live from the saved
+ * Xtream playlists. Each is best-effort and independent; with nothing set up,
+ * VOD falls back to the demo seed and live is empty. */
 async function buildLocalConfig(): Promise<ConfigBlob> {
   const seed = mockConfig("BlammyTV");
   const aioUrl = getAioUrl();
+  const playlists = loadPlaylists().filter((p) => p.enabled);
 
-  let vod: Pick<ConfigBlob, "movies" | "series" | "stream"> = {
-    movies: seed.movies,
-    series: seed.series,
-    stream: seed.stream,
-  };
-  if (aioUrl) {
-    try {
-      vod = await buildVod(aioUrl, loadPreferences().carouselSources);
-    } catch (err) {
-      console.error("[config] VOD build failed:", err);
-    }
-  }
+  const [vod, live] = await Promise.all([
+    (async (): Promise<Pick<ConfigBlob, "movies" | "series" | "stream">> => {
+      if (!aioUrl) {
+        return { movies: seed.movies, series: seed.series, stream: seed.stream };
+      }
+      try {
+        return await buildVod(aioUrl, loadPreferences().carouselSources);
+      } catch (err) {
+        console.error("[config] VOD build failed:", err);
+        return { movies: seed.movies, series: seed.series, stream: seed.stream };
+      }
+    })(),
+    (async (): Promise<ConfigBlob["live"]> => {
+      if (playlists.length === 0) {
+        return { groups: [], channels: [], programs: [] };
+      }
+      try {
+        const built = await buildLive(playlists);
+        if (built.channels.length > 0) return built;
+      } catch (err) {
+        console.error("[config] live build failed:", err);
+      }
+      return { groups: [], channels: [], programs: [] };
+    })(),
+  ]);
 
-  return ConfigBlobSchema.parse({ ...seed, live: seed.live, ...vod });
+  return ConfigBlobSchema.parse({ ...seed, live, ...vod });
 }
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
