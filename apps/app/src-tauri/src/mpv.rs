@@ -170,11 +170,11 @@ pub fn play_popout(url: &str, start: f64) -> Result<(), String> {
                 None => return,
             };
             loop {
-                let ev = unsafe { (l.wait_event)(h, -1.0) };
+                let ev = (l.wait_event)(h, -1.0);
                 if ev.is_null() {
                     continue;
                 }
-                if unsafe { (*ev).event_id } == MPV_EVENT_SHUTDOWN {
+                if (*ev).event_id == MPV_EVENT_SHUTDOWN {
                     break;
                 }
             }
@@ -185,7 +185,7 @@ pub fn play_popout(url: &str, start: f64) -> Result<(), String> {
             let taken = if ours { g.take() } else { None };
             drop(g);
             if let Some(p) = taken {
-                unsafe { (l.terminate_destroy)(p.0) };
+                (l.terminate_destroy)(p.0);
                 // The user closed the popout window (we still owned it) → tell
                 // React to bring the in-app player back. A programmatic
                 // stop_popout() takes ownership first, so `taken` is None there
