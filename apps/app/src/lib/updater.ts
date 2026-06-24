@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "./tauri";
 
 /**
@@ -9,7 +10,6 @@ import { isTauri } from "./tauri";
 /** Check GitHub Releases for a newer build. Returns the new version, or null. */
 export async function checkForUpdate(): Promise<string | null> {
   if (!isTauri()) return null;
-  const { invoke } = await import("@tauri-apps/api/core");
   return invoke<string | null>("check_update");
 }
 
@@ -17,6 +17,5 @@ export async function checkForUpdate(): Promise<string | null> {
  * success (the app restarts); rejects if the install fails. */
 export async function installUpdate(): Promise<void> {
   if (!isTauri()) return;
-  const { invoke } = await import("@tauri-apps/api/core");
   await invoke("install_update");
 }
