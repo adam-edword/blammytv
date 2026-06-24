@@ -49,8 +49,10 @@ export async function fetchConfig(shareCode: ShareCode): Promise<ConfigBlob> {
 }
 
 /** Build the ConfigBlob on-device: VOD from AIOStreams, live from the saved
- * Xtream playlists. Each is best-effort and independent; with nothing set up,
- * VOD falls back to the demo seed and live is empty. */
+ * Xtream playlists. Live is best-effort (empty when nothing's set up); VOD
+ * failures are surfaced — onboarding guarantees a manifest URL, so a failed
+ * build means something's actually wrong (bad URL, unreachable addon) and the
+ * user needs to see that, not a demo catalog masquerading as their content. */
 async function buildLocalConfig(): Promise<ConfigBlob> {
   const seed = mockConfig("BlammyTV");
   const aioUrl = getAioUrl();
@@ -58,14 +60,23 @@ async function buildLocalConfig(): Promise<ConfigBlob> {
 
   const [vod, live] = await Promise.all([
     (async (): Promise<Pick<ConfigBlob, "movies" | "series" | "stream">> => {
+      // Onboarding requires a URL before we get here; if somehow missing, show
+      // an empty catalog rather than the demo seed.
       if (!aioUrl) {
-        return { movies: seed.movies, series: seed.series, stream: seed.stream };
+        return { movies: [], series: [], stream: { featured: [], rows: [] } };
       }
       try {
         return await buildVod(aioUrl, loadPreferences().carouselSources);
       } catch (err) {
+        // Let it reach the UI's error state. Previously this fell back to the
+        // demo seed, which renders as real-looking but art-less content and
+        // hid the actual failure (the "buddy has keys but no art" red herring).
+        const m = err instanceof Error ? err.message : String(err);
         console.error("[config] VOD build failed:", err);
-        return { movies: seed.movies, series: seed.series, stream: seed.stream };
+        throw new Error(
+          `Couldn't load your AIOStreams catalog (${m}). ` +
+            `Check the manifest URL in Settings → AIOStreams.`,
+        );
       }
     })(),
     (async (): Promise<ConfigBlob["live"]> => {
