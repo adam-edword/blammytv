@@ -86,7 +86,55 @@ export async function resolveVodItem(
 ): Promise<VodItem | null> {
   const client = new AddonClient(manifestUrl);
   const { meta } = await client.meta(isSeries(type) ? "series" : "movie", id);
-  return meta ? metaToVod(meta) : null;
+  const primary = meta ? metaToVod(meta) : null;
+  // If the user's addon has no metadata source configured, the title comes back
+  // bare — fall back to Stremio's free Cinemeta and fill in the gaps.
+  if (isSparse(primary)) {
+    const fallback = await cinemetaVod(type, id);
+    if (fallback) return primary ? mergeVod(primary, fallback) : fallback;
+  }
+  return primary;
+}
+
+/** Stremio's public, keyless metadata addon (IMDb ids only). */
+const CINEMETA_MANIFEST = "https://v3-cinemeta.strem.io/manifest.json";
+
+/** A title with no poster and no synopsis is effectively un-presentable. */
+function isSparse(v: VodItem | null): boolean {
+  return !v || (!v.poster && !v.synopsis);
+}
+
+/** Look a title up in Cinemeta. Only IMDb-keyed ids (`tt…`) are supported. */
+async function cinemetaVod(type: string, id: string): Promise<VodItem | null> {
+  if (!/^tt\d+/.test(id)) return null;
+  try {
+    const { meta } = await new AddonClient(CINEMETA_MANIFEST).meta(
+      isSeries(type) ? "series" : "movie",
+      id,
+    );
+    return meta ? metaToVod(meta) : null;
+  } catch (err) {
+    console.warn(`[cinemeta] ${id} failed: ${msg(err)}`);
+    return null;
+  }
+}
+
+/** Keep everything the addon gave us; backfill only the fields it left empty. */
+function mergeVod(primary: VodItem, fb: VodItem): VodItem {
+  return {
+    ...primary,
+    title: primary.title || fb.title,
+    year: primary.year ?? fb.year,
+    poster: primary.poster ?? fb.poster,
+    backdrop: primary.backdrop ?? fb.backdrop,
+    logo: primary.logo ?? fb.logo,
+    rating: primary.rating ?? fb.rating,
+    runtimeMin: primary.runtimeMin ?? fb.runtimeMin,
+    synopsis: primary.synopsis || fb.synopsis,
+    genres: primary.genres.length ? primary.genres : fb.genres,
+    cast: primary.cast.length ? primary.cast : fb.cast,
+    seasons: primary.seasons.length ? primary.seasons : fb.seasons,
+  };
 }
 
 /** Ranked playable sources for a title (`tt123`) or episode (`tt123:1:2`). */
