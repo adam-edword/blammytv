@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { CloseIcon, ChevronIcon } from "./icons";
 import { savePreferences, usePreferences } from "../state/preferences";
 import { backendConfigured, listCatalogs, type CatalogOption } from "../lib/admin";
+import { isTauri } from "../lib/tauri";
+import { getAioUrl } from "../lib/settings";
 
 /** Customize → Carousel Sources: pick which catalogs the Stream hero pulls
  * from. Edits build up a draft; **Save** persists it and rebuilds the carousel
@@ -12,7 +14,7 @@ export function CarouselSources({ onSaved }: { onSaved: () => void }) {
   const [catalogs, setCatalogs] = useState<CatalogOption[] | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [draft, setDraft] = useState<string[]>(prefs.carouselSources);
-  const configured = backendConfigured();
+  const configured = isTauri() ? Boolean(getAioUrl()) : backendConfigured();
 
   useEffect(() => {
     if (!configured) {
@@ -44,7 +46,7 @@ export function CarouselSources({ onSaved }: { onSaved: () => void }) {
   if (!configured) {
     return (
       <p className="settings__row-desc">
-        Connect a backend to customize the carousel.
+        Add your AIOStreams URL first to customize the carousel.
       </p>
     );
   }

@@ -1,4 +1,7 @@
 import { loadShareCode } from "./pairing";
+import { isTauri } from "./tauri";
+import { getAioUrl } from "./settings";
+import { listCatalogs as aioListCatalogs } from "./aiostreams";
 
 /**
  * Client for the backend's playlists admin API (used by the in-app settings).
@@ -36,7 +39,15 @@ export interface CatalogOption {
   name: string;
 }
 
-export const listCatalogs = () => req<CatalogOption[]>("/admin/catalogs");
+/** Catalogs for the carousel picker — read straight from AIOStreams on the
+ * desktop app, or from the dev backend in the browser. */
+export const listCatalogs = async (): Promise<CatalogOption[]> => {
+  if (isTauri()) {
+    const url = getAioUrl();
+    return url ? aioListCatalogs(url) : [];
+  }
+  return req<CatalogOption[]>("/admin/catalogs");
+};
 
 export const listSources = () => req<SourceSummary[]>("/admin/sources");
 

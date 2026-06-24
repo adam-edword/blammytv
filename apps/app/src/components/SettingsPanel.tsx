@@ -7,6 +7,7 @@ import {
 } from "../state/preferences";
 import { PlaylistsSettings } from "./PlaylistsSettings";
 import { CarouselSources } from "./CarouselSources";
+import { AioStreamsSettings } from "./AioStreamsSettings";
 
 /**
  * Settings panel.
@@ -30,7 +31,7 @@ const ACCENT_PRESETS = [
   "#9aa0b1", // grey
 ];
 
-type SettingsTab = "playlists" | "customize";
+type SettingsTab = "aiostreams" | "playlists" | "customize";
 
 export function SettingsPanel({
   open,
@@ -44,7 +45,7 @@ export function SettingsPanel({
 }) {
   const { prefs, setAccent, setUiScale, setLightMode, reset } =
     usePreferences();
-  const [tab, setTab] = useState<SettingsTab>("playlists");
+  const [tab, setTab] = useState<SettingsTab>("aiostreams");
   const dirty = useRef(false);
 
   const close = () => {
@@ -114,7 +115,7 @@ export function SettingsPanel({
           <h2 className="settings__title">Settings</h2>
 
           <nav className="settings__tabs" role="tablist" aria-label="Settings sections">
-            {(["playlists", "customize"] as const).map((t) => (
+            {(["aiostreams", "playlists", "customize"] as const).map((t) => (
               <button
                 key={t}
                 role="tab"
@@ -122,10 +123,18 @@ export function SettingsPanel({
                 className={"settings__tab" + (tab === t ? " settings__tab--active" : "")}
                 onClick={() => setTab(t)}
               >
-                {t === "playlists" ? "Playlists" : "Customize"}
+                {t === "aiostreams"
+                  ? "AIOStreams"
+                  : t === "playlists"
+                    ? "Playlists"
+                    : "Customize"}
               </button>
             ))}
           </nav>
+
+          {tab === "aiostreams" && (
+            <AioStreamsSettings onSaved={() => onConfigChanged?.()} />
+          )}
 
           {tab === "playlists" && (
             <PlaylistsSettings
