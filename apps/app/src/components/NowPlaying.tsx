@@ -36,6 +36,12 @@ export function NowPlaying({
   onToggleTheater: () => void;
 }) {
   const live = program ? isLiveNow(program, now) : false;
+  // Minutes until a not-yet-live programme starts (null if live/past/none).
+  const startMs = program ? Date.parse(program.start) : NaN;
+  const untilStartMin =
+    !live && Number.isFinite(startMs) && startMs > now
+      ? Math.max(1, Math.round((startMs - now) / 60000))
+      : null;
 
   // Content + live position for the theater overlay.
   const meta: TheaterMeta = {
@@ -92,12 +98,16 @@ export function NowPlaying({
       </div>
 
       <div className="now-playing__details">
-        {live && (
+        {live ? (
           <span className="live-badge">
             <span className="live-badge__dot" aria-hidden="true" />
             LIVE
           </span>
-        )}
+        ) : untilStartMin != null ? (
+          <span className="live-badge live-badge--upcoming">
+            {formatUntil(untilStartMin)}
+          </span>
+        ) : null}
         <p className="now-playing__channel">{channel.name} HDR</p>
         <h1 className="now-playing__title">
           {program?.title ?? "No programme information"}
@@ -122,5 +132,13 @@ export function NowPlaying({
       </div>
     </section>
   );
+}
+
+/** "in 45 min" under an hour; "in 2h 5m" / "in 3h" beyond. */
+function formatUntil(min: number): string {
+  if (min < 60) return `in ${min} min`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m ? `in ${h}h ${m}m` : `in ${h}h`;
 }
 

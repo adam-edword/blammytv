@@ -1211,6 +1211,12 @@ body.theater-mode .app-header:hover {
   background: #170505;
 }
 
+/* Hovered future card: same chip, neutral instead of the live red. */
+.live-badge--upcoming {
+  background: var(--surface-muted);
+  color: var(--text);
+}
+
 .now-playing__channel {
   margin: 0;
   font-family: var(--font-headline);
