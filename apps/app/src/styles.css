@@ -9,7 +9,7 @@
 :root {
   --bg: #0b0b0b;
   --panel: #151515;
-  --panel-2: #1e1e1e;
+  --panel-2: #141414;
   --panel-3: #232323;
   --surface-muted: #262626;
 
@@ -2998,6 +2998,7 @@ body.theater-mode .app-header:hover {
   background: rgba(13, 13, 13, 0.72);
   backdrop-filter: blur(7px);
   -webkit-backdrop-filter: blur(7px);
+  corner-shape: round;
   border: 1px solid var(--hairline);
   border-radius: 20px;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
@@ -3872,6 +3873,7 @@ body.is-overlay,
   background: rgba(13, 13, 13, 0.72);
   backdrop-filter: blur(7px);
   -webkit-backdrop-filter: blur(7px);
+  corner-shape: round;
   border: 1px solid var(--hairline);
   border-radius: 20px;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
