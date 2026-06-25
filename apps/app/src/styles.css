@@ -93,6 +93,16 @@
   box-sizing: border-box;
 }
 
+/* Squircle (superellipse) corners wherever a border-radius is set — no effect
+   on un-rounded elements. Progressive enhancement: older WebView2 ignores it
+   and falls back to normal rounded corners. Specific elements can opt back out
+   with `corner-shape: round` (e.g. perfect circles). */
+*,
+*::before,
+*::after {
+  corner-shape: superellipse(4);
+}
+
 html,
 body,
 #root {
@@ -418,6 +428,7 @@ img {
   width: 34px;
   height: 34px;
   border-radius: 50%;
+  corner-shape: round;
   border: 3px solid rgba(255, 255, 255, 0.15);
   border-top-color: var(--red);
   animation: player-spin 0.8s linear infinite;
@@ -498,6 +509,7 @@ img {
   place-items: center;
   border: none;
   border-radius: 50%;
+  corner-shape: round;
   background: rgba(0, 0, 0, 0.5);
   color: #fff;
   cursor: pointer;
@@ -595,6 +607,7 @@ img {
   height: 24px;
   border: none;
   border-radius: 50%;
+  corner-shape: round;
   background: rgba(255, 255, 255, 0.12);
   color: #fff;
   cursor: pointer;
@@ -642,6 +655,7 @@ img {
   height: 40px;
   border: none;
   border-radius: 50%;
+  corner-shape: round;
   background: rgba(0, 0, 0, 0.5);
   color: #fff;
   cursor: pointer;
@@ -719,7 +733,6 @@ img {
   z-index: 45;
   border: none;
   border-radius: 12px;
-  corner-shape: superellipse(4);
   overflow: hidden;
 }
 
@@ -730,7 +743,6 @@ img {
   width: 100%;
   height: 100%;
   border-radius: 12px;
-  corner-shape: superellipse(4);
 }
 
 /* True fullscreen: the frame covers the whole viewport, square, over everything.
@@ -972,6 +984,7 @@ img {
   width: 14px;
   height: 14px;
   border-radius: 50%;
+  corner-shape: round;
   background: #fff;
   transform: translate(-50%, -50%);
 }
@@ -1056,6 +1069,7 @@ img {
   height: 26px;
   border: none;
   border-radius: 50%;
+  corner-shape: round;
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
   cursor: pointer;
@@ -1176,6 +1190,7 @@ body.theater-mode .app-header:hover {
   width: 7px;
   height: 7px;
   border-radius: 50%;
+  corner-shape: round;
   background: #170505;
 }
 
@@ -1918,7 +1933,6 @@ body.theater-mode .app-header:hover {
   border: none;
   padding: 14px 22px;
   border-radius: 12px;
-  corner-shape: superellipse(4);
   transition: filter 0.15s ease, opacity 0.15s ease;
 }
 
@@ -2091,6 +2105,7 @@ body.theater-mode .app-header:hover {
   width: 11px;
   height: 11px;
   border-radius: 50%;
+  corner-shape: round;
   border: none;
   padding: 0;
   background: rgba(255, 255, 255, 0.35);
@@ -2472,7 +2487,6 @@ body.theater-mode .app-header:hover {
   outline: 2px solid var(--accent, #e23);
   outline-offset: 2px;
   border-radius: 12px;
-  corner-shape: superellipse(4);
 }
 .src-panel__note {
   padding: 18px;
@@ -2815,7 +2829,6 @@ body.theater-mode .app-header:hover {
   gap: 20px;
   padding: 12px;
   border-radius: 12px;
-  corner-shape: superellipse(4);
   /* Match the season-bar controls' translucent fill. */
   background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(16px);
@@ -2951,7 +2964,6 @@ body.theater-mode .app-header:hover {
   background: var(--bg);
   border: 1px solid var(--hairline);
   border-radius: 12px;
-  corner-shape: superellipse(4);
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
   z-index: 101;
   animation: settings-pop 0.16s ease;
@@ -3055,6 +3067,7 @@ body.theater-mode .app-header:hover {
   width: 34px;
   height: 34px;
   border-radius: 50%;
+  corner-shape: round;
   border: 2px solid transparent;
   box-shadow: 0 0 0 2px var(--bg);
   padding: 0;
@@ -3180,6 +3193,7 @@ body.theater-mode .app-header:hover {
   width: 18px;
   height: 18px;
   border-radius: 50%;
+  corner-shape: round;
   background: #fff;
   border: 3px solid var(--red);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
@@ -3233,6 +3247,7 @@ body.theater-mode .app-header:hover {
   width: 26px;
   height: 26px;
   border-radius: 50%;
+  corner-shape: round;
   background: #fff;
   transition: transform 0.15s ease;
 }
@@ -3588,7 +3603,6 @@ body.is-overlay,
   box-sizing: border-box;
   border: 2px solid transparent;
   border-radius: 12px;
-  corner-shape: superellipse(4);
   cursor: pointer;
 }
 .mini-overlay:hover {
