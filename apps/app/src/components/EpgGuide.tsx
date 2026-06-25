@@ -143,7 +143,6 @@ export function EpgGuide({
       const own = byChannel[ch.id] ?? [];
       return {
         ch,
-        liveTitle: own.find((p) => isLiveNow(p, now))?.title ?? null,
         blocks: dropOverlaps(
           own
             .map((p) => ({ p, ...blockGeometry(win, p) }))
@@ -152,7 +151,7 @@ export function EpgGuide({
         ),
       };
     });
-  }, [channels, programs, win, now]);
+  }, [channels, programs, win]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollXRef = useRef(0);
@@ -168,8 +167,7 @@ export function EpgGuide({
 
   // Program titles and channel labels (name + current show) all fade rather
   // than truncate.
-  const CLIP_SELECTOR =
-    ".program__title, .guide-row__label-text, .guide-row__sub";
+  const CLIP_SELECTOR = ".program__title, .guide-row__label-text";
 
   // Re-measure after a render and once fonts have loaded (their widths shift).
   // Pinned cards are also re-measured per frame in onScroll.
@@ -266,7 +264,7 @@ export function EpgGuide({
           </div>
 
           {/* Channel rows */}
-          {lanes.map(({ ch, blocks, liveTitle }, i) => {
+          {lanes.map(({ ch, blocks }, i) => {
             const pinId = pins[i] ?? null;
             const pin = pinId ? blocks.find((b) => b.p.id === pinId) : null;
             return (
@@ -298,9 +296,6 @@ export function EpgGuide({
                         </span>
                       ) : null;
                     })()}
-                    {liveTitle && (
-                      <span className="guide-row__sub">{liveTitle}</span>
-                    )}
                   </span>
                 </div>
                 <div className="guide-row__lane" style={{ width: laneWidth }}>
