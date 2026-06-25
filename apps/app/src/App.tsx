@@ -16,6 +16,8 @@ import { PlaceholderScreen } from "./screens/PlaceholderScreen";
 import { SourceSelector } from "./components/SourceSelector";
 import { EpisodeBrowser } from "./components/EpisodeBrowser";
 import { SettingsPanel } from "./components/SettingsPanel";
+import { ProfileModal } from "./components/ProfileModal";
+import { loadProfile, saveProfile } from "./lib/profile";
 import { LoadingScreen } from "./components/LoadingScreen";
 import { CompositionPreview } from "./components/CompositionPreview";
 import { SourcePanel } from "./components/SourcePanel";
@@ -68,6 +70,9 @@ export function App() {
     () => !isTauri() || Boolean(getAioUrl()),
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profile, setProfile] = useState(loadProfile);
+  useEffect(() => saveProfile(profile), [profile]);
   const [load, setLoad] = useState<Load>({ status: "idle" });
   // A chosen VOD source playing fullscreen over everything (null = not playing).
   const [playing, setPlaying] = useState<{
@@ -171,6 +176,8 @@ export function App() {
         active={activeTab}
         onChange={onTab}
         onOpenSettings={() => setSettingsOpen(true)}
+        onOpenProfile={() => setProfileOpen(true)}
+        avatar={profile.avatar}
       />
       <main className="app-main">
         {load.status === "loading" || load.status === "idle" ? (
@@ -201,6 +208,12 @@ export function App() {
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         onConfigChanged={() => pull(shareCode)}
+      />
+      <ProfileModal
+        open={profileOpen}
+        profile={profile}
+        onChange={setProfile}
+        onClose={() => setProfileOpen(false)}
       />
       {playing && (
         <VodPlayer

@@ -14,6 +14,8 @@ export function AppHeader({
   active,
   onChange,
   onOpenSettings,
+  onOpenProfile,
+  avatar,
   onSearchLive,
   onSearchStream,
   version = `v${APP_VERSION}`,
@@ -21,6 +23,9 @@ export function AppHeader({
   active: TabKey;
   onChange: (key: TabKey) => void;
   onOpenSettings?: () => void;
+  onOpenProfile?: () => void;
+  /** Data URL of the profile avatar; replaces the account icon when set. */
+  avatar?: string | null;
   onSearchLive?: () => void;
   onSearchStream?: () => void;
   version?: string;
@@ -101,8 +106,17 @@ export function AppHeader({
       </div>
 
       <div className="app-header__actions">
-        <button className="icon-btn" aria-label="Account" type="button">
-          <AccountIcon />
+        <button
+          className={"icon-btn" + (avatar ? " icon-btn--avatar" : "")}
+          aria-label="Account"
+          type="button"
+          onClick={onOpenProfile}
+        >
+          {avatar ? (
+            <img className="icon-btn__avatar" src={avatar} alt="" />
+          ) : (
+            <AccountIcon />
+          )}
         </button>
         <button
           className="icon-btn"
