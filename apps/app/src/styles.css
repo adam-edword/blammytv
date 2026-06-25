@@ -260,6 +260,10 @@ img {
   align-items: center;
   gap: 12px;
   color: var(--text);
+}
+/* Dim the action icons individually — a group opacity here would also cap the
+   avatar image (a child can't brighten past a parent's opacity). */
+.app-header__actions .icon-btn:not(.icon-btn--avatar) {
   opacity: 0.4;
 }
 
@@ -1959,6 +1963,13 @@ body.theater-mode .app-header:hover {
   transition: filter 0.15s ease, opacity 0.15s ease;
 }
 
+/* Compact button — for inline actions like the profile photo controls. */
+.btn--sm {
+  font-size: 14px;
+  padding: 8px 14px;
+  border-radius: 14px;
+}
+
 .btn:hover {
   filter: brightness(1.2);
 }
@@ -2971,7 +2982,7 @@ body.theater-mode .app-header:hover {
 .settings-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.51);
+  background: rgba(0, 0, 0, 0.38);
   z-index: 100;
   animation: settings-fade 0.15s ease;
 }
@@ -2984,7 +2995,9 @@ body.theater-mode .app-header:hover {
      frame); clamps so it stays sensible on smaller windows. */
   width: min(1063px, 56vw);
   height: min(713px, calc(100dvh - 135px));
-  background: var(--bg);
+  background: rgba(13, 13, 13, 0.72);
+  backdrop-filter: blur(28px) saturate(1.3);
+  -webkit-backdrop-filter: blur(28px) saturate(1.3);
   border: 1px solid var(--hairline);
   border-radius: 20px;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
@@ -3856,7 +3869,9 @@ body.is-overlay,
   left: 50%;
   transform: translate(-50%, -50%);
   width: min(380px, calc(100vw - 32px));
-  background: var(--bg);
+  background: rgba(13, 13, 13, 0.72);
+  backdrop-filter: blur(28px) saturate(1.3);
+  -webkit-backdrop-filter: blur(28px) saturate(1.3);
   border: 1px solid var(--hairline);
   border-radius: 20px;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);

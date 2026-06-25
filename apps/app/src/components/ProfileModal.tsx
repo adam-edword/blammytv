@@ -65,7 +65,7 @@ export function ProfileModal({
 
         <div className="profile-modal__photo-actions">
           <button
-            className="btn"
+            className="btn btn--sm"
             type="button"
             onClick={() => fileRef.current?.click()}
           >
@@ -73,7 +73,7 @@ export function ProfileModal({
           </button>
           {profile.avatar && (
             <button
-              className="btn"
+              className="btn btn--sm"
               type="button"
               onClick={() => onChange({ ...profile, avatar: null })}
             >
