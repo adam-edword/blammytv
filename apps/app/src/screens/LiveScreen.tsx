@@ -274,14 +274,21 @@ export function LiveScreen({
   // Hovering a guide row previews that channel's current programme in the hero
   // text — the player keeps streaming whatever it was already playing.
   const [hoveredChannelId, setHoveredChannelId] = useState<string | null>(null);
-  const hoverChannel = hoveredChannelId
-    ? live.channels.find((c) => c.id === hoveredChannelId) ?? null
-    : null;
-  const hoverProgram = hoverChannel
-    ? live.programs.find(
-        (p) => p.channelId === hoverChannel.id && isLiveNow(p, now),
-      ) ?? null
-    : null;
+  // The exact programme card under the cursor (a future one too), if any.
+  const [hoveredProgram, setHoveredProgram] = useState<EpgProgram | null>(null);
+  // Channel being previewed: the hovered card's channel wins, else the row.
+  const hoverChannel = (() => {
+    const id = hoveredProgram?.channelId ?? hoveredChannelId;
+    return id ? live.channels.find((c) => c.id === id) ?? null : null;
+  })();
+  // The previewed programme: the hovered card, else the channel's current show.
+  const hoverProgram =
+    hoveredProgram ??
+    (hoverChannel
+      ? live.programs.find(
+          (p) => p.channelId === hoverChannel.id && isLiveNow(p, now),
+        ) ?? null
+      : null);
   // Resting hero (no hover): the playing channel while streaming, else the
   // selected/featured channel.
   const restChannel = playingChannel ?? heroChannel;
@@ -330,6 +337,7 @@ export function LiveScreen({
           setSelectedProgramId(null);
           setSelectedChannelId(null);
           setHoveredChannelId(null);
+          setHoveredProgram(null);
         }}
       />
       <div
@@ -378,6 +386,7 @@ export function LiveScreen({
             setPlayingId(id);
           }}
           onHoverChannel={setHoveredChannelId}
+          onHoverProgram={setHoveredProgram}
         />
       </div>
     </div>

@@ -67,6 +67,7 @@ export function EpgGuide({
   onSelectProgram,
   onSelectChannel,
   onHoverChannel,
+  onHoverProgram,
 }: {
   channels: LiveChannel[];
   programs: EpgProgram[];
@@ -79,6 +80,9 @@ export function EpgGuide({
   /** Fired with a channel id while a row is hovered, and null on leave, so the
    * hero text can preview that channel without changing playback. */
   onHoverChannel?: (id: string | null) => void;
+  /** Fired with the specific programme under the cursor (null over a row but no
+   * card), so the hero previews that exact programme — even a future one. */
+  onHoverProgram?: (p: EpgProgram | null) => void;
 }) {
   // Resizable channel-label column.
   const [labelWidth, setLabelWidth] = useState(() => {
@@ -271,7 +275,10 @@ export function EpgGuide({
               <div
                 className="guide-row"
                 key={ch.id}
-                onMouseEnter={() => onHoverChannel?.(ch.id)}
+                onMouseEnter={() => {
+                  onHoverChannel?.(ch.id);
+                  onHoverProgram?.(null);
+                }}
               >
                 <div
                   className={
@@ -370,6 +377,7 @@ export function EpgGuide({
         className={cardClass(b, false)}
         style={{ left: b.left, width: Math.max(0, b.width - PROGRAM_GAP) }}
         onClick={() => onSelectProgram?.(b.p)}
+        onMouseEnter={() => onHoverProgram?.(b.p)}
         title={b.p.title}
       >
         {cardBody(b)}
@@ -408,6 +416,7 @@ export function EpgGuide({
           transform: slide ? `translateX(${slide}px)` : undefined,
         }}
         onClick={() => onSelectProgram?.(b.p)}
+        onMouseEnter={() => onHoverProgram?.(b.p)}
         title={b.p.title}
       >
         {cardBody(b)}
