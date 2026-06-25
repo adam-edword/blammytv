@@ -100,7 +100,7 @@
 *,
 *::before,
 *::after {
-  corner-shape: superellipse(4);
+  corner-shape: superellipse(2);
 }
 
 html,
