@@ -3263,7 +3263,7 @@ body.theater-mode .app-header:hover {
 .toggle__thumb {
   width: 26px;
   height: 26px;
-  border-radius: 9px;
+  border-radius: 18px;
   background: #fff;
   transition: transform 0.15s ease;
 }
