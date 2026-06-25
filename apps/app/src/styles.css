@@ -34,7 +34,7 @@
   --font-text: "Stack Sans Text", "Inter", system-ui, -apple-system,
     "Segoe UI", Roboto, sans-serif;
 
-  --radius: 22px;
+  --radius: 20px;
   /* Vertical space the header chrome occupies (shell top pad + header + gap);
      the Stream hero pulls up by this much to sit behind the header. */
   --header-zone: 92px;
@@ -100,7 +100,24 @@
 *,
 *::before,
 *::after {
-  corner-shape: superellipse(2);
+  corner-shape: superellipse(1.8);
+}
+
+/* App, not a document: no accidental text selection or image dragging. Inputs
+   re-enable selection so typing/editing still works. */
+body {
+  user-select: none;
+  -webkit-user-select: none;
+}
+input,
+textarea,
+[contenteditable="true"] {
+  user-select: text;
+  -webkit-user-select: text;
+}
+img {
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 html,
@@ -732,7 +749,7 @@ img {
   aspect-ratio: 16 / 9;
   z-index: 45;
   border: none;
-  border-radius: 26px;
+  border-radius: 20px;
   overflow: hidden;
 }
 
@@ -742,7 +759,7 @@ img {
   inset: 0;
   width: 100%;
   height: 100%;
-  border-radius: 26px;
+  border-radius: 20px;
 }
 
 /* True fullscreen: the frame covers the whole viewport, square, over everything.
@@ -1335,7 +1352,7 @@ body.theater-mode .app-header:hover {
   font-weight: 500;
   font-size: 15px;
   padding: 6px 14px;
-  border-radius: 16px;
+  border-radius: 20px;
   transition: background 0.15s ease, color 0.15s ease;
 }
 
@@ -1793,7 +1810,7 @@ body.theater-mode .app-header:hover {
 .poster-card__art {
   position: relative;
   aspect-ratio: 2 / 3;
-  border-radius: 28px;
+  border-radius: 20px;
   background: var(--panel-2);
   overflow: hidden;
   display: flex;
@@ -1897,7 +1914,7 @@ body.theater-mode .app-header:hover {
   color: var(--text);
   background: var(--panel);
   border: 2px solid var(--panel-3);
-  border-radius: 30px;
+  border-radius: 20px;
   padding: 18px 12px;
   outline: none;
   transition: border-color 0.15s ease;
@@ -1932,7 +1949,7 @@ body.theater-mode .app-header:hover {
   background: var(--panel-3);
   border: none;
   padding: 14px 22px;
-  border-radius: 26px;
+  border-radius: 20px;
   transition: filter 0.15s ease, opacity 0.15s ease;
 }
 
@@ -2172,7 +2189,7 @@ body.theater-mode .app-header:hover {
 }
 
 .stream-card__art {
-  border-radius: 28px;
+  border-radius: 20px;
   background: var(--panel-2);
   overflow: hidden;
   display: flex;
@@ -2486,7 +2503,7 @@ body.theater-mode .app-header:hover {
 .src-panel__item.is-current {
   outline: 2px solid var(--accent, #e23);
   outline-offset: 2px;
-  border-radius: 26px;
+  border-radius: 20px;
 }
 .src-panel__note {
   padding: 18px;
@@ -2562,7 +2579,7 @@ body.theater-mode .app-header:hover {
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1.5px solid rgba(255, 255, 255, 0.08);
-  border-radius: 30px;
+  border-radius: 20px;
   text-align: left;
   cursor: pointer;
   transition: border-color 0.12s ease, background 0.12s ease;
@@ -2828,7 +2845,7 @@ body.theater-mode .app-header:hover {
   align-items: stretch;
   gap: 20px;
   padding: 12px;
-  border-radius: 26px;
+  border-radius: 20px;
   /* Match the season-bar controls' translucent fill. */
   background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(16px);
@@ -2963,7 +2980,7 @@ body.theater-mode .app-header:hover {
   height: min(713px, calc(100dvh - 135px));
   background: var(--bg);
   border: 1px solid var(--hairline);
-  border-radius: 26px;
+  border-radius: 20px;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
   z-index: 101;
   animation: settings-pop 0.16s ease;
@@ -3246,8 +3263,7 @@ body.theater-mode .app-header:hover {
 .toggle__thumb {
   width: 26px;
   height: 26px;
-  border-radius: 50%;
-  corner-shape: round;
+  border-radius: 9px;
   background: #fff;
   transition: transform 0.15s ease;
 }
@@ -3602,7 +3618,7 @@ body.is-overlay,
   inset: 0;
   box-sizing: border-box;
   border: 2px solid transparent;
-  border-radius: 26px;
+  border-radius: 20px;
   cursor: pointer;
 }
 .mini-overlay:hover {
@@ -3617,7 +3633,7 @@ body.is-overlay,
   display: grid;
   place-items: center;
   border: none;
-  border-radius: 16px;
+  border-radius: 20px;
   background: rgba(0, 0, 0, 0.55);
   color: #fff;
   cursor: pointer;
