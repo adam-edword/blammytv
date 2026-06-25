@@ -187,6 +187,9 @@ async fn http_get(url: String) -> Result<String, String> {
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
              (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
         )
+        // Match the known-good curl request: HTTP/1.1 over the Windows Schannel
+        // TLS stack, so the connection fingerprint isn't flagged as a bot.
+        .http1_only()
         .build()
         .map_err(|e| e.to_string())?;
     let res = client

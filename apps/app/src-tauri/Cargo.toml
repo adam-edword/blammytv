@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "0.2.2"
+version = "0.2.3"
 description = "A Tauri App"
 authors = ["you"]
 license = ""
@@ -29,9 +29,12 @@ tauri-plugin-window-state = "2"
 # Self-update from GitHub Releases (auto-check on launch + manual button).
 # Driven from Rust commands (below) so no JS plugin packages are needed.
 tauri-plugin-updater = "2"
-# Rust-side HTTP so the app can reach AIOStreams/Xtream without browser CORS
-# (rustls = no OpenSSL/system TLS dep, keeps the bundle self-contained).
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+# Rust-side HTTP so the app can reach AIOStreams/Xtream without browser CORS.
+# native-tls = Windows Schannel (same TLS stack as curl/Edge), so the TLS
+# fingerprint looks like a normal Windows client — some Cloudflare-fronted hosts
+# 403 rustls's distinct fingerprint even when the headers are browser-like.
+# Schannel ships with Windows, so the bundle stays self-contained.
+reqwest = { version = "0.12", default-features = false, features = ["native-tls"] }
 libloading = "0.8"
 
 # The Telly-way composition spike (Windows): composition-hosted WebView2 +
