@@ -85,34 +85,6 @@ importers:
         specifier: ^2.1.9
         version: 2.1.9(@types/node@22.19.21)
 
-  apps/server:
-    dependencies:
-      '@blammytv/shared':
-        specifier: workspace:*
-        version: link:../../packages/shared
-      '@hono/node-server':
-        specifier: ^1.13.7
-        version: 1.19.14(hono@4.12.25)
-      fast-xml-parser:
-        specifier: ^5.8.0
-        version: 5.8.0
-      hono:
-        specifier: ^4.6.14
-        version: 4.12.25
-    devDependencies:
-      '@types/node':
-        specifier: ^22.10.0
-        version: 22.19.21
-      tsx:
-        specifier: ^4.19.2
-        version: 4.22.4
-      typescript:
-        specifier: ^5.6.3
-        version: 5.9.3
-      vitest:
-        specifier: ^2.1.9
-        version: 2.1.9(@types/node@22.19.21)
-
   packages/shared:
     dependencies:
       zod:

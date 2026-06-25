@@ -48,8 +48,7 @@ pnpm monorepo.
 | Package | What it does |
 | --- | --- |
 | `packages/shared` | The config-blob + share-code types / zod schemas (plus a mock blob). The contract every client renders against. |
-| `apps/app` | The React client (Vite + TS): pairing, the `Live TV \| Stream \| Discover` tabs, the EPG guide, and the in-app + theater player. Wrapped in a Tauri shell (`apps/app/src-tauri`) for the sideloaded Windows build, with a native libmpv composition player for true 4K60. |
-| `apps/server` | The backend (Hono): resolves Xtream credentials and maps panels → the config blob. |
+| `apps/app` | The React client (Vite + TS): the `Live TV \| Stream \| Discover` tabs, the EPG guide, and the in-app + theater player. Wrapped in a Tauri shell (`apps/app/src-tauri`) for the Windows build, with a native libmpv composition player for true 4K60. It builds its config on-device from the AIOStreams manifest + Xtream playlists — no backend. |
 
 ## Getting started
 
