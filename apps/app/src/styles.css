@@ -2998,7 +2998,6 @@ body.theater-mode .app-header:hover {
   background: rgba(13, 13, 13, 0.72);
   backdrop-filter: blur(7px);
   -webkit-backdrop-filter: blur(7px);
-  corner-shape: round;
   border: 1px solid var(--hairline);
   border-radius: 20px;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
@@ -3873,7 +3872,6 @@ body.is-overlay,
   background: rgba(13, 13, 13, 0.72);
   backdrop-filter: blur(7px);
   -webkit-backdrop-filter: blur(7px);
-  corner-shape: round;
   border: 1px solid var(--hairline);
   border-radius: 20px;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
