@@ -189,7 +189,18 @@ async fn http_get(url: String) -> Result<String, String> {
         )
         .build()
         .map_err(|e| e.to_string())?;
-    let res = client.get(&url).send().await.map_err(|e| e.to_string())?;
+    let res = client
+        .get(&url)
+        // Send the headers a browser would. Some hosts (Cloudflare's Browser
+        // Integrity Check) 403 requests that have a User-Agent but lack these.
+        .header(
+            reqwest::header::ACCEPT,
+            "application/json, text/plain, */*",
+        )
+        .header(reqwest::header::ACCEPT_LANGUAGE, "en-US,en;q=0.9")
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
     if !res.status().is_success() {
         return Err(format!("HTTP {}", res.status().as_u16()));
     }
