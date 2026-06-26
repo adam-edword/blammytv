@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import type { ConfigBlob, EpgProgram } from "@blammytv/shared";
+import type { ConfigBlob, EpgProgram, LiveChannel } from "@blammytv/shared";
 import { NowPlaying } from "../components/NowPlaying";
 import {
   CategorySidebar,
@@ -9,6 +9,8 @@ import {
 import { EpgGuide } from "../components/EpgGuide";
 import { SourceError } from "../components/SourceError";
 import { isLiveNow } from "../lib/epg";
+import { loadFavorites, toggleFavorite } from "../lib/favorites";
+import { loadRecents, pushRecent } from "../lib/recents";
 import { usePreferences } from "../state/preferences";
 import {
   isTauri,
@@ -67,7 +69,12 @@ export function LiveScreen({
   error?: string;
   onRetry: () => void;
 }) {
-  const { live, favorites } = config;
+  const { live } = config;
+  // Favorites + recents live on-device (not in the config blob).
+  const [favorites, setFavorites] = useState(loadFavorites);
+  const [recents, setRecents] = useState(loadRecents);
+  const favoriteIds = useMemo(() => new Set(favorites), [favorites]);
+  const onToggleFavorite = (id: string) => setFavorites(toggleFavorite(id));
   const now = useNow();
 
   const [categoryId, setCategoryId] = useState(
@@ -120,11 +127,14 @@ export function LiveScreen({
   const channels = useMemo(() => {
     let list: typeof live.channels;
     if (categoryId === FAVORITES_ID) {
-      const favSet = new Set(favorites);
-      list = live.channels.filter((c) => favSet.has(c.id));
+      list = live.channels.filter((c) => favoriteIds.has(c.id));
     } else if (categoryId === RECENTS_ID) {
-      // Recents has no history wired up yet — show an empty guide for now.
-      list = [];
+      // Most-recent-first; map the stored ids back to channels, dropping any
+      // that no longer exist.
+      const byId = new Map(live.channels.map((c) => [c.id, c]));
+      list = recents
+        .map((id) => byId.get(id))
+        .filter((c): c is LiveChannel => Boolean(c));
     } else {
       list = live.channels.filter((c) => c.groupId === categoryId);
     }
@@ -133,7 +143,7 @@ export function LiveScreen({
       list = list.filter((c) => withInfo.has(c.id));
     }
     return list;
-  }, [categoryId, live, favorites, prefs.hideNoInfoChannels]);
+  }, [categoryId, live, favoriteIds, recents, prefs.hideNoInfoChannels]);
 
   // The hero follows the user's selection, falling back to whatever is live on
   // the featured channel.
@@ -162,6 +172,11 @@ export function LiveScreen({
   // channels (not just the current category) so browsing the rail never
   // interrupts playback.
   const [playingId, setPlayingId] = useState<string | null>(null);
+  // Start a channel and record it in the recents list.
+  const playChannel = (id: string) => {
+    setPlayingId(id);
+    setRecents(pushRecent(id));
+  };
   const playingChannel = playingId
     ? live.channels.find((c) => c.id === playingId) ?? null
     : null;
@@ -360,7 +375,7 @@ export function LiveScreen({
             sourceName={sourceName}
             theater={inTheater}
             fullscreen={fullscreen}
-            onPlay={() => setPlayingId(heroChannel.id)}
+            onPlay={() => playChannel(heroChannel.id)}
             onStop={() => {
               setPlayingId(null);
               setTheater(false);
@@ -378,15 +393,17 @@ export function LiveScreen({
           onSelectProgram={(p) => {
             setSelectedProgramId(p.id);
             setSelectedChannelId(null);
-            setPlayingId(p.channelId);
+            playChannel(p.channelId);
           }}
           onSelectChannel={(id) => {
             setSelectedChannelId(id);
             setSelectedProgramId(null);
-            setPlayingId(id);
+            playChannel(id);
           }}
           onHoverChannel={setHoveredChannelId}
           onHoverProgram={setHoveredProgram}
+          favoriteIds={favoriteIds}
+          onToggleFavorite={onToggleFavorite}
         />
       </div>
     </div>

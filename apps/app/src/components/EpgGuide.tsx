@@ -18,6 +18,7 @@ import {
   type GuideWindow,
 } from "../lib/epg";
 import { qualityTags } from "../lib/quality";
+import { StarIcon } from "./icons";
 
 /** Once a pinned card's visible width shrinks below this, it stops pinning at
  * the edge and instead slides its left edge under the label (fading) — while
@@ -68,6 +69,8 @@ export function EpgGuide({
   onSelectChannel,
   onHoverChannel,
   onHoverProgram,
+  favoriteIds,
+  onToggleFavorite,
 }: {
   channels: LiveChannel[];
   programs: EpgProgram[];
@@ -77,6 +80,9 @@ export function EpgGuide({
   onSelectProgram?: (p: EpgProgram) => void;
   /** Selecting an EPG-less ("no info") channel — it still often has a stream. */
   onSelectChannel?: (channelId: string) => void;
+  /** Channel ids the user has favorited (lights the star). */
+  favoriteIds?: Set<string>;
+  onToggleFavorite?: (channelId: string) => void;
   /** Fired with a channel id while a row is hovered, and null on leave, so the
    * hero text can preview that channel without changing playback. */
   onHoverChannel?: (id: string | null) => void;
@@ -304,6 +310,27 @@ export function EpgGuide({
                       ) : null;
                     })()}
                   </span>
+                  {onToggleFavorite && (
+                    <button
+                      type="button"
+                      className={
+                        "guide-row__fav" +
+                        (favoriteIds?.has(ch.id) ? " guide-row__fav--on" : "")
+                      }
+                      aria-label={
+                        favoriteIds?.has(ch.id)
+                          ? `Remove ${ch.name} from favorites`
+                          : `Add ${ch.name} to favorites`
+                      }
+                      aria-pressed={favoriteIds?.has(ch.id) ?? false}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleFavorite(ch.id);
+                      }}
+                    >
+                      <StarIcon size={16} filled={favoriteIds?.has(ch.id)} />
+                    </button>
+                  )}
                 </div>
                 <div className="guide-row__lane" style={{ width: laneWidth }}>
                   {blocks.length === 0 ? (

@@ -1543,6 +1543,33 @@ body.theater-mode .app-header:hover {
   margin-top: 1px;
 }
 
+/* Favorite star in the channel label — appears on row hover, stays lit (accent)
+   when the channel is favorited. */
+.guide-row__fav {
+  margin-left: auto;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease, color 0.12s ease;
+}
+.guide-row:hover .guide-row__fav,
+.guide-row__fav--on {
+  opacity: 1;
+}
+.guide-row__fav:hover {
+  color: var(--text);
+}
+.guide-row__fav--on {
+  color: var(--red);
+}
+
 .quality-badge {
   flex: none;
   padding: 1px 5px;
