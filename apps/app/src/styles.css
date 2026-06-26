@@ -1587,7 +1587,7 @@ body.theater-mode .app-header:hover {
    feeds stand out. The transparent border reveals the border-box gradient. */
 .quality-badge--4k {
   color: #fff;
-  border: 1.5px solid transparent;
+  border: 1px solid transparent;
   background:
     linear-gradient(100deg, #2a211f, #191d2b) padding-box,
     linear-gradient(100deg, #ff9e7d, #ffd479, #7ee787, #6bb6ff, #c08cff)
