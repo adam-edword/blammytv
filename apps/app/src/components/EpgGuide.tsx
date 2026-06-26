@@ -302,7 +302,13 @@ export function EpgGuide({
                       return tags.length ? (
                         <span className="guide-row__badges">
                           {tags.map((t) => (
-                            <span key={t} className="quality-badge">
+                            <span
+                              key={t}
+                              className={
+                                "quality-badge quality-badge--" +
+                                t.toLowerCase()
+                              }
+                            >
                               {t}
                             </span>
                           ))}
