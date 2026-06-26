@@ -9,6 +9,15 @@
 
 ---
 
+## Download & install (Windows)
+
+1. **Download** the latest installer from the [**Releases page**](https://github.com/adam-edword/blammytv/releases/latest) — grab `BlammyTV_<version>_x64-setup.exe` under *Assets*.
+2. **Run it.** Windows SmartScreen will say *"Windows protected your PC"* because the build isn't code-signed — click **More info → Run anyway**. (It's an unsigned indie app, not malware.)
+3. **On first launch,** paste your **AIOStreams manifest URL** when prompted — that's all you need to start watching movies & shows.
+4. **For live TV (optional):** add your Xtream playlist under **Settings → Playlists** (server URL + username + password). It's kept separate from your AIOStreams setup.
+
+From there the app **updates itself** — new versions install on launch, or via **Settings → Updates → Check for updates**. Each person uses their own AIOStreams URL; nothing is shared.
+
 ## What it is
 
 blammytv is a streaming client built for one job: making live TV and on-demand feel effortless. Live channels come from Xtream Codes panels; movies and shows resolve on demand through AIOStreams + debrid. There's a full EPG guide, a "now playing" hero, and a native player that does real 4K60.

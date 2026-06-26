@@ -46,7 +46,7 @@ export function NowPlaying({
   // Content + live position for the theater overlay.
   const meta: TheaterMeta = {
     logo: channel.logo,
-    channelName: `${channel.name} HDR`,
+    channelName: channel.name,
     sourceName,
     title: program?.title ?? "No programme information",
     description: program?.description,
@@ -108,7 +108,7 @@ export function NowPlaying({
             {formatUntil(untilStartMin)}
           </span>
         ) : null}
-        <p className="now-playing__channel">{channel.name} HDR</p>
+        <p className="now-playing__channel">{channel.name}</p>
         <h1 className="now-playing__title">
           {program?.title ?? "No programme information"}
         </h1>
