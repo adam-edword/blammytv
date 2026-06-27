@@ -1,6 +1,7 @@
 package com.blammytv.app
 
 import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.util.Log
 import android.view.SurfaceView
@@ -21,6 +22,10 @@ class MainActivity : TauriActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
+    // The SurfaceView sits behind the window; make the window background
+    // transparent so it shows through (the transparent WebView alone isn't
+    // enough — the opaque window background would paint black over the video).
+    window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
   }
 
   // M1: a native ExoPlayer renders into a SurfaceView behind the transparent
