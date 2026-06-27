@@ -13,6 +13,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.DefaultTimeBar
 import androidx.media3.ui.PlayerView
 
 // Android player model: a native Media3 PlayerView rendered ON TOP of the
@@ -66,6 +67,18 @@ class MainActivity : TauriActivity() {
       view.useController = true
       view.setShowBuffering(PlayerView.SHOW_BUFFERING_ALWAYS)
       view.visibility = View.GONE
+
+      // Brand the timeline: played fill + scrubber thumb in BlammyTV red
+      // (--accent-rgb 194 39 39 = #C22727), tracks knocked back to translucent
+      // white so the accent reads. The controller is inflated in PlayerView's
+      // constructor, so exo_progress exists now.
+      view.findViewById<DefaultTimeBar>(androidx.media3.ui.R.id.exo_progress)
+        ?.apply {
+          setPlayedColor(BRAND_RED)
+          setScrubberColor(BRAND_RED)
+          setBufferedColor(0x66FFFFFF) // ~40% white
+          setUnplayedColor(0x33FFFFFF) // ~20% white
+        }
 
       val content = findViewById<ViewGroup>(android.R.id.content)
       content.addView(
@@ -169,5 +182,7 @@ class MainActivity : TauriActivity() {
 
   companion object {
     private const val TAG = "BlammyPlayer"
+    // BlammyTV accent red (#C22727); ARGB, opaque.
+    private val BRAND_RED = 0xFFC22727.toInt()
   }
 }
