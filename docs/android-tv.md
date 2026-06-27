@@ -23,10 +23,11 @@ config-building, favorites/recents, settings, profile). The two hard parts do
 
 ## Milestones
 
-### Milestone 0 — UI on Android (foundation) ← *in progress*
+### Milestone 0 — UI on Android (foundation) ← ✅ **done**
 
 Goal: get the React app rendering in an Android APK, player stubbed. Proves the
-port and gives a base to build on.
+port and gives a base to build on. **Achieved** — the BlammyTV UI renders on an
+Android TV emulator (onboarding/welcome screen), player stubbed, no crash.
 
 Done on this branch (Rust prep so a non-Windows target compiles):
 
@@ -55,6 +56,41 @@ pnpm tauri android dev       # build + run on a device/emulator (TV or phone)
 Expected at the end of M0: the app launches on Android, the UI renders on demo
 data, AIOStreams/Xtream fetches work — **playback does nothing yet** (the
 `comp_*` commands are no-ops). That's success for M0.
+
+#### Gotchas hit getting M0 running (and the fixes)
+
+None of these were app-logic — all platform/toolchain glue. Recorded so we never
+re-debug them:
+
+- **Vite must bind to `TAURI_DEV_HOST`.** `tauri android dev` serves the frontend
+  to the device over the LAN; Vite was on `localhost` only, so the device hung on
+  "Waiting for your frontend dev server". Fix: `server.host = process.env
+  .TAURI_DEV_HOST || false` + matching HMR host in `vite.config.ts`.
+- **pnpm monorepo breaks `pnpm tauri`.** The Android Gradle task
+  (`buildSrc/BuildTask.kt`) runs `pnpm tauri android android-studio-script` from
+  `apps/app/src-tauri`, which isn't a workspace package — pnpm resolves to the
+  repo root, goes recursive, and the `tauri` bin (only in `apps/app/node_modules`)
+  isn't found (`ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL`). Fix: add `@tauri-apps/cli` +
+  a `"tauri": "tauri"` script to the **root** `package.json`.
+- **rustls crypto provider crash on launch (SIGABRT).** Tauri core transitively
+  pulls reqwest 0.13, which builds rustls clients with no default crypto provider
+  on non-Windows — the first HTTPS client panics ("No rustls crypto provider is
+  configured"). Fix: declare `rustls` (0.23, `ring`) for non-Windows and
+  `rustls::crypto::ring::default_provider().install_default()` at the top of
+  `run()`.
+- **No Android Studio needed.** `tauri android init` installs the SDK cmdline
+  tools + NDK itself. The emulator + a system image are separate: install via
+  `sdkmanager "emulator" "system-images;android-36;android-tv;x86_64"` (pick the
+  **x86_64** TV image to match the 64-bit host), create with `avdmanager`, run
+  with `emulator -avd <name>`.
+- **AVD `image.sysdir.1` path doubling.** Because the SDK lives at the nonstandard
+  `...\Android\Sdk`, `avdmanager` wrote `image.sysdir.1=Sdk/system-images/...`, so
+  the emulator looked in `...\Android\Sdk\Sdk\...` and failed ("Cannot find AVD
+  system path"). Fix: strip the leading `Sdk/` from that line in the AVD's
+  `config.ini`, and set `ANDROID_SDK_ROOT`/`ANDROID_HOME`.
+- **Accept SDK licenses** (`sdkmanager --licenses --sdk_root=<sdk>`) or Gradle dies
+  at `minifyRelease`/build-tools install. For a sideloadable APK use
+  `--debug` (release APKs are unsigned and won't install).
 
 ### Milestone 1 — the player (the real R&D)
 
