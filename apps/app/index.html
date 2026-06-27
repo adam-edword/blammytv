@@ -3,6 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      // Android (TV): the desktop layout is designed for ~1280px+, but the TV
+      // WebView hands us a ~960px CSS viewport (device-width at dpr 2), so it
+      // looks oversized. Override with a fixed logical width so the layout
+      // reflows to the screen. Desktop (WebView2) never matches this branch and
+      // keeps device-width. Width is tunable for now via localStorage
+      // 'blammytv.tvViewportWidth' (default 1280) — set it + reload to try sizes.
+      if (/Android/.test(navigator.userAgent)) {
+        var w = localStorage.getItem("blammytv.tvViewportWidth") || "1280";
+        document
+          .querySelector('meta[name="viewport"]')
+          .setAttribute("content", "width=" + w);
+      }
+    </script>
     <link rel="icon" type="image/png" href="/logo.png" />
     <title>BlammyTV</title>
   </head>
