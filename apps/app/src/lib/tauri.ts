@@ -15,6 +15,26 @@ export interface CompRect {
 export const isTauri = (): boolean =>
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
+/**
+ * The native Android player bridge, injected by MainActivity via
+ * addJavascriptInterface. Present only in the Android build — on Windows the
+ * player is the DirectComposition/mpv path below, so this is undefined there.
+ */
+interface NativePlayer {
+  load(url: string): void;
+  play(): void;
+  pause(): void;
+  stop(): void;
+  seek(seconds: number): void;
+}
+declare global {
+  interface Window {
+    BlammyNativePlayer?: NativePlayer;
+  }
+}
+const nativePlayer = (): NativePlayer | undefined =>
+  typeof window !== "undefined" ? window.BlammyNativePlayer : undefined;
+
 /** Forward a captured keyboard shortcut into the composition overlay. */
 export const tauriCompKey = (key: string) =>
   invoke("comp_key", { key }) as Promise<void>;
@@ -30,6 +50,14 @@ export const tauriCompTheater = (
   rect: CompRect,
   start = 0,
 ) => {
+  // Android: drive the native ExoPlayer bridge instead of the Windows
+  // DirectComposition path. (Surface is fullscreen for now; rect-positioning
+  // comes next.)
+  const np = nativePlayer();
+  if (np) {
+    np.load(url);
+    return Promise.resolve();
+  }
   const overlayUrl = `${window.location.origin}/?overlay=1&composited=1`;
   const metaJson = meta ? JSON.stringify(meta) : "";
   return invoke("comp_theater", {
@@ -46,17 +74,27 @@ export const tauriCompTheater = (
 };
 
 /** Move/resize the native layer to follow its in-app box (or expand to full). */
-export const tauriCompSetRect = (rect: CompRect) =>
-  invoke("comp_set_rect", {
+export const tauriCompSetRect = (rect: CompRect) => {
+  // Android: the surface is fullscreen for now, so repositioning is a no-op.
+  if (nativePlayer()) return Promise.resolve();
+  return invoke("comp_set_rect", {
     x: rect.x,
     y: rect.y,
     w: rect.w,
     h: rect.h,
     radius: rect.radius,
   }) as Promise<void>;
+};
 
 /** Tear down the native composition player and free the window. */
-export const tauriCompStop = () => invoke("comp_stop") as Promise<void>;
+export const tauriCompStop = () => {
+  const np = nativePlayer();
+  if (np) {
+    np.stop();
+    return Promise.resolve();
+  }
+  return invoke("comp_stop") as Promise<void>;
+};
 
 const onCompEvent = (event: string, cb: () => void): (() => void) => {
   const un = listen(event, () => cb());
