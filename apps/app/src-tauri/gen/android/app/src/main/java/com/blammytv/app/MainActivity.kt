@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.util.Log
 import android.view.TextureView
 import android.view.ViewGroup
+import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import androidx.activity.enableEdgeToEdge
 import androidx.media3.common.MediaItem
@@ -15,69 +16,95 @@ import androidx.media3.exoplayer.ExoPlayer
 
 class MainActivity : TauriActivity() {
   private var player: ExoPlayer? = null
+  private var textureView: TextureView? = null
 
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
   }
 
-  // M1 playback spike — a TextureView sits behind the transparent WebView and
-  // ExoPlayer renders a hardcoded test stream into it. Verbose logging under the
-  // "BlammyPlayer" tag so `adb logcat -s BlammyPlayer:*` shows exactly what the
-  // player does (state, video size, first frame) or the precise error code.
+  // M1: a native ExoPlayer renders into a TextureView behind the transparent
+  // WebView, and a JS bridge (`window.BlammyNativePlayer`) lets the React app
+  // drive it — load/play/pause/seek. The player starts idle; nothing plays until
+  // JS calls load(). Next step wires this into the app's real player launch and
+  // sizes the surface to the player region instead of full screen.
   override fun onWebViewCreate(webView: WebView) {
     super.onWebViewCreate(webView)
     webView.setBackgroundColor(Color.TRANSPARENT)
     webView.post {
       val content = findViewById<ViewGroup>(android.R.id.content)
-      val textureView = TextureView(this)
+      val tv = TextureView(this)
       content.addView(
-        textureView,
+        tv,
         0,
         ViewGroup.LayoutParams(
           ViewGroup.LayoutParams.MATCH_PARENT,
           ViewGroup.LayoutParams.MATCH_PARENT,
         ),
       )
-      Log.i(TAG, "onWebViewCreate: building ExoPlayer + TextureView")
+      textureView = tv
+
       val exo = ExoPlayer.Builder(this).build()
-      exo.setVideoTextureView(textureView)
-      exo.addListener(
-        object : Player.Listener {
-          override fun onPlaybackStateChanged(state: Int) {
-            val name = when (state) {
-              Player.STATE_IDLE -> "IDLE"
-              Player.STATE_BUFFERING -> "BUFFERING"
-              Player.STATE_READY -> "READY"
-              Player.STATE_ENDED -> "ENDED"
-              else -> state.toString()
-            }
-            Log.i(TAG, "playbackState=$name")
-          }
-
-          override fun onPlayerError(error: PlaybackException) {
-            Log.e(TAG, "playerError: ${error.errorCodeName} — ${error.message}", error)
-          }
-
-          override fun onVideoSizeChanged(videoSize: VideoSize) {
-            Log.i(TAG, "videoSize=${videoSize.width}x${videoSize.height}")
-          }
-
-          override fun onRenderedFirstFrame() {
-            Log.i(TAG, "renderedFirstFrame — video is on the surface ✅")
-          }
-        },
-      )
-      exo.setMediaItem(
-        MediaItem.fromUri(
-          "https://storage.googleapis.com/exoplayer-test-media-0/BigBuckBunny_320x180.mp4",
-        ),
-      )
+      exo.setVideoTextureView(tv)
+      exo.addListener(loggingListener)
       exo.repeatMode = Player.REPEAT_MODE_ALL
-      exo.playWhenReady = true
-      exo.prepare()
       player = exo
-      Log.i(TAG, "prepare() called")
+
+      // Expose the player to JS. Methods run on a binder thread, so each hops to
+      // the main thread (ExoPlayer is single-threaded, built on main here).
+      webView.addJavascriptInterface(Bridge(), "BlammyNativePlayer")
+      Log.i(TAG, "native player bridge ready (window.BlammyNativePlayer)")
+    }
+  }
+
+  inner class Bridge {
+    @JavascriptInterface
+    fun load(url: String) = runOnUiThread {
+      Log.i(TAG, "load($url)")
+      player?.apply {
+        setMediaItem(MediaItem.fromUri(url))
+        playWhenReady = true
+        prepare()
+      }
+    }
+
+    @JavascriptInterface
+    fun play() = runOnUiThread { player?.play() }
+
+    @JavascriptInterface
+    fun pause() = runOnUiThread { player?.pause() }
+
+    @JavascriptInterface
+    fun stop() = runOnUiThread { player?.stop() }
+
+    @JavascriptInterface
+    fun seek(seconds: Double) = runOnUiThread {
+      player?.seekTo((seconds * 1000).toLong())
+    }
+  }
+
+  private val loggingListener = object : Player.Listener {
+    override fun onPlaybackStateChanged(state: Int) {
+      val name = when (state) {
+        Player.STATE_IDLE -> "IDLE"
+        Player.STATE_BUFFERING -> "BUFFERING"
+        Player.STATE_READY -> "READY"
+        Player.STATE_ENDED -> "ENDED"
+        else -> state.toString()
+      }
+      Log.i(TAG, "playbackState=$name")
+    }
+
+    override fun onPlayerError(error: PlaybackException) {
+      Log.e(TAG, "playerError: ${error.errorCodeName} — ${error.message}", error)
+    }
+
+    override fun onVideoSizeChanged(videoSize: VideoSize) {
+      Log.i(TAG, "videoSize=${videoSize.width}x${videoSize.height}")
+    }
+
+    override fun onRenderedFirstFrame() {
+      Log.i(TAG, "renderedFirstFrame — video is on the surface ✅")
     }
   }
 
