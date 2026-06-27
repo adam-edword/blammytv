@@ -6,6 +6,10 @@ import {
   nearestScaleIndex,
 } from "../state/preferences";
 import { PlaylistsSettings } from "./PlaylistsSettings";
+import { CarouselSources } from "./CarouselSources";
+import { AioStreamsSettings } from "./AioStreamsSettings";
+import { useUpdater } from "../state/updater";
+import { isTauri } from "../lib/tauri";
 
 /**
  * Settings panel.
@@ -29,7 +33,7 @@ const ACCENT_PRESETS = [
   "#9aa0b1", // grey
 ];
 
-type SettingsTab = "playlists" | "display";
+type SettingsTab = "aiostreams" | "playlists" | "customize";
 
 export function SettingsPanel({
   open,
@@ -41,9 +45,15 @@ export function SettingsPanel({
   /** Called on close if playlists changed, so the device re-pulls its config. */
   onConfigChanged?: () => void;
 }) {
-  const { prefs, setAccent, setUiScale, setLightMode, reset } =
-    usePreferences();
-  const [tab, setTab] = useState<SettingsTab>("playlists");
+  const {
+    prefs,
+    setAccent,
+    setUiScale,
+    setLightMode,
+    setHideNoInfoChannels,
+    reset,
+  } = usePreferences();
+  const [tab, setTab] = useState<SettingsTab>("aiostreams");
   const dirty = useRef(false);
 
   const close = () => {
@@ -113,7 +123,7 @@ export function SettingsPanel({
           <h2 className="settings__title">Settings</h2>
 
           <nav className="settings__tabs" role="tablist" aria-label="Settings sections">
-            {(["playlists", "display"] as const).map((t) => (
+            {(["aiostreams", "playlists", "customize"] as const).map((t) => (
               <button
                 key={t}
                 role="tab"
@@ -121,10 +131,18 @@ export function SettingsPanel({
                 className={"settings__tab" + (tab === t ? " settings__tab--active" : "")}
                 onClick={() => setTab(t)}
               >
-                {t === "playlists" ? "Playlists" : "Display"}
+                {t === "aiostreams"
+                  ? "AIOStreams"
+                  : t === "playlists"
+                    ? "Playlists"
+                    : "Customize"}
               </button>
             ))}
           </nav>
+
+          {tab === "aiostreams" && (
+            <AioStreamsSettings onSaved={() => onConfigChanged?.()} />
+          )}
 
           {tab === "playlists" && (
             <PlaylistsSettings
@@ -134,9 +152,12 @@ export function SettingsPanel({
             />
           )}
 
-          {tab === "display" && (
+          {tab === "customize" && (
           <section className="settings__section">
-            <h3 className="settings__section-title">Display</h3>
+            {/* Carousel sources */}
+            <div className="settings__row settings__row--block">
+              <CarouselSources onSaved={() => onConfigChanged?.()} />
+            </div>
 
             {/* Accent colour */}
             <div className="settings__row">
@@ -255,10 +276,38 @@ export function SettingsPanel({
                 </label>
               </div>
             </div>
+
+            {/* Hide channels with no info */}
+            <div className="settings__row">
+              <div className="settings__row-label">
+                <span className="settings__row-title">
+                  Hide channels with no info
+                </span>
+                <span className="settings__row-desc">
+                  Skip live channels that have no programme information.
+                </span>
+              </div>
+              <div className="settings__control">
+                <label className="toggle">
+                  <input
+                    type="checkbox"
+                    checked={prefs.hideNoInfoChannels}
+                    onChange={(e) => setHideNoInfoChannels(e.target.checked)}
+                    aria-label="Hide channels with no info"
+                  />
+                  <span className="toggle__track">
+                    <span className="toggle__thumb" />
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            {/* Updates (desktop only) */}
+            {isTauri() && <UpdatesRow />}
           </section>
           )}
 
-          {tab === "display" && (
+          {tab === "customize" && (
             <div className="settings__footer">
               <button className="btn" type="button" onClick={reset}>
                 Reset to defaults
@@ -266,6 +315,56 @@ export function SettingsPanel({
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** "Check for updates" row in the Customize tab — manual counterpart to the
+ * launch banner. Shares the UpdaterProvider state, so a find here also lights
+ * up the banner. */
+function UpdatesRow() {
+  const { status, version, error, check, install } = useUpdater();
+  const offerInstall = status === "available" || status === "installing";
+  const busy = status === "checking" || status === "installing";
+
+  const desc =
+    status === "available"
+      ? `Version ${version} is ready to install.`
+      : status === "installing"
+        ? "Downloading and installing…"
+        : status === "uptodate"
+          ? "You're on the latest version."
+          : status === "error"
+            ? `Update check failed: ${error ?? "unknown error"}`
+            : "Check for a new version of BlammyTV.";
+
+  return (
+    <div className="settings__row">
+      <div className="settings__row-label">
+        <span className="settings__row-title">Updates</span>
+        <span className="settings__row-desc">{desc}</span>
+      </div>
+      <div className="settings__control">
+        {offerInstall ? (
+          <button
+            className="btn btn--primary"
+            type="button"
+            disabled={busy}
+            onClick={() => void install()}
+          >
+            {status === "installing" ? "Installing…" : "Install & restart"}
+          </button>
+        ) : (
+          <button
+            className="btn"
+            type="button"
+            disabled={busy}
+            onClick={() => void check()}
+          >
+            {status === "checking" ? "Checking…" : "Check for updates"}
+          </button>
+        )}
       </div>
     </div>
   );

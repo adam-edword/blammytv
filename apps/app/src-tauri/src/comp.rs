@@ -38,6 +38,18 @@ use webview2_com::{
     CreateCoreWebView2CompositionControllerCompletedHandler,
     CreateCoreWebView2EnvironmentCompletedHandler, WebMessageReceivedEventHandler,
 };
+// Production only: the composition webview runs in its own WebView2 environment
+// with no Tauri asset protocol, so it can't reach tauri.localhost. We intercept
+// its requests and serve the embedded frontend ourselves (see serve_asset).
+#[cfg(not(debug_assertions))]
+use webview2_com::WebResourceRequestedEventHandler;
+#[cfg(not(debug_assertions))]
+use webview2_com::Microsoft::Web::WebView2::Win32::{
+    ICoreWebView2WebResourceRequestedEventArgs, ICoreWebView2WebResourceResponse,
+    COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL,
+};
+#[cfg(not(debug_assertions))]
+use windows::Win32::UI::Shell::SHCreateMemStream;
 use windows::Win32::Graphics::Gdi::{CreateRoundRectRgn, SetWindowRgn};
 use windows::Win32::System::Com::CoTaskMemFree;
 use windows::Win32::UI::Input::KeyboardAndMouse::{TrackMouseEvent, TME_LEAVE, TRACKMOUSEEVENT};
@@ -58,11 +70,15 @@ const OVERLAY_BRIDGE_JS: &str = r#"(function(){
   var metaCbs=[];var lastMeta=null;
   var loadingCbs=[];var lastLoading=true;
   var keyCbs=[];
+  var timeCbs=[];var lastTime=null;
+  var tracksCbs=[];var lastTracks=null;
   window.chrome.webview.addEventListener('message',function(e){
     var msg; try{msg=JSON.parse(e.data);}catch(_){return;}
     if(msg&&msg.type==='meta'){lastMeta=msg.meta;metaCbs.slice().forEach(function(cb){try{cb(lastMeta);}catch(_){}})}
     if(msg&&msg.type==='loading'){lastLoading=!!msg.loading;loadingCbs.slice().forEach(function(cb){try{cb(lastLoading);}catch(_){}})}
     if(msg&&msg.type==='key'){keyCbs.slice().forEach(function(cb){try{cb(msg.key);}catch(_){}})}
+    if(msg&&msg.type==='time'){lastTime={pos:msg.pos,dur:msg.dur};timeCbs.slice().forEach(function(cb){try{cb(lastTime);}catch(_){}})}
+    if(msg&&msg.type==='tracks'){lastTracks={audio:msg.audio,subs:msg.subs};tracksCbs.slice().forEach(function(cb){try{cb(lastTracks);}catch(_){}})}
   });
   window.overlayApi={
     close:function(){post({type:'close'});},
@@ -70,20 +86,88 @@ const OVERLAY_BRIDGE_JS: &str = r#"(function(){
     setMute:function(m){post({type:'setMute',muted:!!m});},
     setVolume:function(v){post({type:'setVolume',vol:v});},
     seek:function(d){post({type:'seek',delta:d});},
+    seekTo:function(p){post({type:'seekTo',pos:p});},
+    selectAudio:function(id){post({type:'selectAudio',id:String(id)});},
+    selectSub:function(id){post({type:'selectSub',id:String(id)});},
+    setSpeed:function(s){post({type:'setSpeed',speed:s});},
     expand:function(){post({type:'expand'});},
     collapse:function(){post({type:'collapse'});},
     fullscreen:function(){post({type:'fullscreen'});},
     exitFullscreen:function(){post({type:'exitFullscreen'});},
     popout:function(){post({type:'popout'});},
+    panel:function(){post({type:'panel'});},
     setMouseIgnore:function(ig){post({type:'setMouseIgnore',ignore:!!ig});},
     getMeta:function(){return Promise.resolve(lastMeta);},
     onMeta:function(cb){metaCbs.push(cb);return function(){metaCbs=metaCbs.filter(function(x){return x!==cb;});};},
     getLoading:function(){return lastLoading;},
     onLoading:function(cb){loadingCbs.push(cb);return function(){loadingCbs=loadingCbs.filter(function(x){return x!==cb;});};},
-    onKey:function(cb){keyCbs.push(cb);return function(){keyCbs=keyCbs.filter(function(x){return x!==cb;});};}
+    onKey:function(cb){keyCbs.push(cb);return function(){keyCbs=keyCbs.filter(function(x){return x!==cb;});};},
+    getTime:function(){return lastTime;},
+    onTime:function(cb){timeCbs.push(cb);return function(){timeCbs=timeCbs.filter(function(x){return x!==cb;});};},
+    getTracks:function(){return lastTracks;},
+    onTracks:function(cb){tracksCbs.push(cb);return function(){tracksCbs=tracksCbs.filter(function(x){return x!==cb;});};}
   };
   post({type:'ready'});
 })();"#;
+
+// The host the production overlay loads from. Its requests are intercepted and
+// served from the app's embedded frontend (see serve_asset). Any host works
+// since nothing actually resolves it over the network.
+#[cfg(not(debug_assertions))]
+const OVERLAY_HOST: &str = "blammytv.localhost";
+
+/// The URL the composition webview navigates to in a packaged build. In dev the
+/// overlay loads from the Vite server (the `overlay_url` passed from JS); in
+/// production there's no dev server, so we load the embedded frontend via a
+/// virtual host whose requests `serve_asset` fulfils.
+#[cfg(not(debug_assertions))]
+fn overlay_prod_url() -> String {
+    format!("http://{OVERLAY_HOST}/?overlay=1&composited=1")
+}
+
+/// Strip a full request URI down to the asset path (leading `/`, no query) so it
+/// can be looked up in the embedded frontend (e.g.
+/// `http://blammytv.localhost/assets/x.js?v=1` → `/assets/x.js`).
+#[cfg(not(debug_assertions))]
+fn asset_path_from_uri(uri: &str) -> String {
+    let after_scheme = uri.split_once("://").map_or(uri, |(_, rest)| rest);
+    let path = match after_scheme.find('/') {
+        Some(i) => &after_scheme[i..],
+        None => "/",
+    };
+    path.split(['?', '#']).next().unwrap_or("/").to_string()
+}
+
+/// Build a WebView2 response for `uri` from the app's embedded frontend, or
+/// `None` if there's no such asset. This is what lets the standalone composition
+/// webview load the React overlay without a Tauri asset protocol of its own.
+#[cfg(not(debug_assertions))]
+fn serve_asset(
+    env: &ICoreWebView2Environment,
+    uri: &str,
+) -> Option<ICoreWebView2WebResourceResponse> {
+    // Only our own virtual host is served from embedded assets; anything else
+    // (channel icons, posters, …) must reach the network untouched. Without this
+    // guard the asset resolver's index.html fallback would hijack every external
+    // image request and return HTML for it.
+    if !uri.starts_with(&format!("http://{OVERLAY_HOST}/")) {
+        return None;
+    }
+    let app = crate::APP.get()?;
+    let asset = app.asset_resolver().get(asset_path_from_uri(uri))?;
+    let headers = HSTRING::from(format!("Content-Type: {}\r\n", asset.mime_type));
+    let reason = HSTRING::from("OK");
+    unsafe {
+        let stream = SHCreateMemStream(Some(&asset.bytes))?;
+        env.CreateWebResourceResponse(
+            &stream,
+            200,
+            PCWSTR(reason.as_ptr()),
+            PCWSTR(headers.as_ptr()),
+        )
+        .ok()
+    }
+}
 
 // Step 3: native mpv in a child window, with the composition WebView2 over it.
 // mpv child HWND (true 4K60 HDR) is the bottom layer; the topmost DComp target
@@ -106,6 +190,13 @@ static ORIG_WNDPROC: AtomicIsize = AtomicIsize::new(0);
 
 // Bumped per theater open; the loader poll thread exits when it's superseded.
 static LOADER_GEN: AtomicU64 = AtomicU64::new(0);
+
+// Bumped on every theater build/teardown. The webview is created asynchronously,
+// so its completion callbacks capture the generation they were started under and
+// refuse to install themselves if a newer build has superseded them (otherwise a
+// fast channel switch installs a dead controller over the live one — its video
+// surface is already gone — and the overlay stops responding to clicks).
+static THEATER_GEN: AtomicU64 = AtomicU64::new(0);
 
 // Forward a keyboard shortcut (captured by the main webview, which holds focus)
 // into the overlay, which owns the player UI + drives mpv. UI thread only.
@@ -148,6 +239,61 @@ fn spawn_loader_watch() {
         }
         if LOADER_GEN.load(Ordering::SeqCst) == gen {
             crate::run_on_main(|| post_overlay("{\"type\":\"loading\",\"loading\":false}"));
+        }
+    });
+}
+
+// Build the {type:'tracks', audio, subs} message from mpv's track list.
+fn tracks_json() -> String {
+    let mut audio = Vec::new();
+    let mut subs = Vec::new();
+    for t in crate::mpv::track_list() {
+        let label = if !t.title.is_empty() {
+            t.title.clone()
+        } else if !t.lang.is_empty() {
+            t.lang.clone()
+        } else {
+            format!("Track {}", t.id)
+        };
+        let entry = serde_json::json!({
+            "id": t.id, "label": label, "lang": t.lang, "selected": t.selected,
+        });
+        match t.kind.as_str() {
+            "audio" => audio.push(entry),
+            "sub" => subs.push(entry),
+            _ => {}
+        }
+    }
+    serde_json::json!({ "type": "tracks", "audio": audio, "subs": subs }).to_string()
+}
+
+// Poll mpv's playback position + duration (for the VOD scrubber) and the track
+// list (audio/sub selectors), pushing each to the overlay when it changes. Runs
+// until a newer open/teardown bumps the generation. Live streams report no
+// usable duration, so no time is posted there.
+fn spawn_time_watch() {
+    let gen = LOADER_GEN.load(Ordering::SeqCst);
+    std::thread::spawn(move || {
+        let mut last_tracks = String::new();
+        loop {
+            std::thread::sleep(std::time::Duration::from_millis(500));
+            if LOADER_GEN.load(Ordering::SeqCst) != gen {
+                return; // superseded by a newer open or a teardown
+            }
+            let pos = crate::mpv::get_property("time-pos").and_then(|s| s.parse::<f64>().ok());
+            let dur = crate::mpv::get_property("duration").and_then(|s| s.parse::<f64>().ok());
+            if let (Some(p), Some(d)) = (pos, dur) {
+                if p.is_finite() && d.is_finite() && d > 0.0 {
+                    crate::run_on_main(move || {
+                        post_overlay(&format!("{{\"type\":\"time\",\"pos\":{p},\"dur\":{d}}}"));
+                    });
+                }
+            }
+            let tj = tracks_json();
+            if tj != last_tracks {
+                last_tracks = tj.clone();
+                crate::run_on_main(move || post_overlay(&tj));
+            }
         }
     });
 }
@@ -270,6 +416,10 @@ pub fn set_rect(x: i32, y: i32, w: u32, h: u32, radius: i32) {
 }
 
 pub fn close_theater() {
+    // Bump the generation so the loader / time poll threads exit, and so any
+    // in-flight webview build for this theater bails instead of installing.
+    LOADER_GEN.fetch_add(1, Ordering::SeqCst);
+    THEATER_GEN.fetch_add(1, Ordering::SeqCst);
     crate::mpv::stop();
     let prev = THEATER.lock().unwrap().take();
     if let Some(t) = prev {
@@ -295,10 +445,15 @@ pub fn theater(
     url: &str,
     overlay_url: &str,
     meta_json: &str,
+    start: f64,
 ) -> Result<(), String> {
     // Tear down any previous theater first so we can re-target the HWND and don't
     // leak the old mpv child / webview (also makes channel-switch a clean rebuild).
     close_theater();
+    // This build's generation. The async webview callbacks below capture it and
+    // only install themselves while it's still current (see THEATER_GEN).
+    THEATER_GEN.fetch_add(1, Ordering::SeqCst);
+    let gen = THEATER_GEN.load(Ordering::SeqCst);
     unsafe {
         let parent = HWND(hwnd as *mut c_void);
 
@@ -337,7 +492,7 @@ pub fn theater(
         let prev = SetWindowLongPtrW(child, GWLP_WNDPROC, proc as usize as isize);
         ORIG_WNDPROC.store(prev, Ordering::SeqCst);
 
-        crate::mpv::play_wid(url, child.0 as isize, false)?;
+        crate::mpv::play_wid(url, child.0 as isize, false, start)?;
 
         // D3D11 device just for DComp.
         let mut device: Option<ID3D11Device> = None;
@@ -401,6 +556,11 @@ pub fn theater(
             None,
             &CreateCoreWebView2EnvironmentCompletedHandler::create(Box::new(
                 move |_hr, env: Option<ICoreWebView2Environment>| {
+                    // A newer theater build superseded this one (fast channel
+                    // switch) before the environment finished — abandon it.
+                    if THEATER_GEN.load(Ordering::SeqCst) != gen {
+                        return Ok(());
+                    }
                     let env =
                         env.ok_or_else(|| windows::core::Error::new(E_POINTER, "no environment"))?;
                     let env3: ICoreWebView2Environment3 = env.cast()?;
@@ -408,6 +568,10 @@ pub fn theater(
                     let wv2 = wv_cb.clone();
                     let overlay2 = overlay_owned.clone();
                     let meta2 = meta_msg.clone();
+                    // Needed in production to build embedded-asset responses for
+                    // the overlay (see the WebResourceRequested handler below).
+                    #[cfg(not(debug_assertions))]
+                    let env_inner = env.clone();
                     env3.CreateCoreWebView2CompositionController(
                         parent,
                         &CreateCoreWebView2CompositionControllerCompletedHandler::create(Box::new(
@@ -415,6 +579,16 @@ pub fn theater(
                                 let ctrl = ctrl.ok_or_else(|| {
                                     windows::core::Error::new(E_POINTER, "no controller")
                                 })?;
+                                // Superseded mid-build: this controller's video
+                                // surface (the DComp child) is already destroyed,
+                                // so close it instead of installing it over the
+                                // current theater (the fast-channel-switch bug).
+                                if THEATER_GEN.load(Ordering::SeqCst) != gen {
+                                    if let Ok(c) = ctrl.cast::<ICoreWebView2Controller>() {
+                                        let _ = c.Close();
+                                    }
+                                    return Ok(());
+                                }
                                 let unk: IUnknown = wv2.cast()?;
                                 ctrl.SetRootVisualTarget(&unk)?;
                                 let c: ICoreWebView2Controller = ctrl.cast()?;
@@ -498,6 +672,28 @@ pub fn theater(
                                                         .and_then(|x| x.as_f64())
                                                         .unwrap_or(0.0),
                                                 ),
+                                                Some("seekTo") => crate::mpv::seek_abs(
+                                                    v.get("pos")
+                                                        .and_then(|x| x.as_f64())
+                                                        .unwrap_or(0.0),
+                                                ),
+                                                Some("selectAudio") => crate::mpv::set_track(
+                                                    "audio",
+                                                    v.get("id")
+                                                        .and_then(|x| x.as_str())
+                                                        .unwrap_or("auto"),
+                                                ),
+                                                Some("selectSub") => crate::mpv::set_track(
+                                                    "sub",
+                                                    v.get("id")
+                                                        .and_then(|x| x.as_str())
+                                                        .unwrap_or("no"),
+                                                ),
+                                                Some("setSpeed") => crate::mpv::set_speed(
+                                                    v.get("speed")
+                                                        .and_then(|x| x.as_f64())
+                                                        .unwrap_or(1.0),
+                                                ),
                                                 Some("expand") => crate::emit_comp("comp-expand"),
                                                 Some("collapse") => {
                                                     crate::emit_comp("comp-collapse")
@@ -509,6 +705,7 @@ pub fn theater(
                                                     crate::emit_comp("comp-exit-fullscreen")
                                                 }
                                                 Some("popout") => crate::emit_comp("comp-popout"),
+                                                Some("panel") => crate::emit_comp("comp-panel"),
                                                 Some("close") => {
                                                     // Stop video and drop back to the guide. Hide
                                                     // (don't drop) here — dropping the controller
@@ -538,9 +735,58 @@ pub fn theater(
                                     &mut token,
                                 )?;
 
+                                // In a packaged build there's no dev server, so
+                                // serve the overlay from the embedded frontend:
+                                // intercept this webview's requests and answer
+                                // them from the app's bundled assets.
+                                #[cfg(not(debug_assertions))]
+                                {
+                                    let env_rr = env_inner.clone();
+                                    let mut rr_token = 0i64;
+                                    wv.add_WebResourceRequested(
+                                        &WebResourceRequestedEventHandler::create(Box::new(
+                                            move |_wv,
+                                                  args: Option<
+                                                ICoreWebView2WebResourceRequestedEventArgs,
+                                            >| {
+                                                let args = match args {
+                                                    Some(a) => a,
+                                                    None => return Ok(()),
+                                                };
+                                                let mut raw = PWSTR::null();
+                                                args.Request()?.Uri(&mut raw)?;
+                                                let uri = raw.to_string().unwrap_or_default();
+                                                CoTaskMemFree(Some(raw.0 as *const c_void));
+                                                if let Some(resp) = serve_asset(&env_rr, &uri) {
+                                                    args.SetResponse(&resp)?;
+                                                }
+                                                Ok(())
+                                            },
+                                        )),
+                                        &mut rr_token,
+                                    )?;
+                                    // Scope the filter to our host so external
+                                    // resources (channel icons, posters) aren't
+                                    // intercepted and load straight from the net.
+                                    let filter =
+                                        HSTRING::from(format!("http://{OVERLAY_HOST}/*"));
+                                    wv.AddWebResourceRequestedFilter(
+                                        PCWSTR(filter.as_ptr()),
+                                        COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL,
+                                    )?;
+                                }
+
                                 // Load the real app in overlay mode (TheaterOverlay),
-                                // transparent over the mpv layer.
-                                let nav = HSTRING::from(overlay2.as_str());
+                                // transparent over the mpv layer. Dev uses the Vite
+                                // URL from JS; production uses the embedded frontend.
+                                #[cfg(not(debug_assertions))]
+                                let nav_str = {
+                                    let _ = &overlay2;
+                                    overlay_prod_url()
+                                };
+                                #[cfg(debug_assertions)]
+                                let nav_str = overlay2.clone();
+                                let nav = HSTRING::from(nav_str.as_str());
                                 wv.Navigate(PCWSTR(nav.as_ptr()))?;
                                 let _ = dcomp2.Commit();
                                 if let Some(s) = THEATER.lock().unwrap().as_mut() {
@@ -570,5 +816,6 @@ pub fn theater(
     }
     // Watch for first frame to clear the overlay's loader.
     spawn_loader_watch();
+    spawn_time_watch();
     Ok(())
 }

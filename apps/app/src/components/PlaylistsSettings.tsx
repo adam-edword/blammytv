@@ -8,6 +8,7 @@ import {
   setSourceEnabled,
   type SourceSummary,
 } from "../lib/admin";
+import { isTauri } from "../lib/tauri";
 
 /**
  * Playlists tab: add / list / toggle / remove Xtream playlists. These live on
@@ -25,7 +26,7 @@ export function PlaylistsSettings({ onDirty }: { onDirty: () => void }) {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const configured = backendConfigured();
+  const configured = isTauri() || backendConfigured();
 
   async function refresh() {
     setLoading(true);

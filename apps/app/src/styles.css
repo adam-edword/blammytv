@@ -7,11 +7,11 @@
  */
 
 :root {
-  --bg: #0b0b0e;
-  --panel: #15151a;
-  --panel-2: #1e1e25;
-  --panel-3: #23232e;
-  --surface-muted: #26262e;
+  --bg: #0b0b0b;
+  --panel: #151515;
+  --panel-2: #141414;
+  --panel-3: #232323;
+  --surface-muted: #262626;
 
   /* Accent — a single source the rest derive from, so a colour pick recolours
      everything. The provider overrides --accent-rgb on :root at runtime. */
@@ -21,8 +21,8 @@
   --red-tint: rgb(var(--accent-rgb) / 0.14);
   --red-border: rgb(var(--accent-rgb) / 0.55);
 
-  --text: #f2f2f5;
-  --text-dim: #9c9ca8;
+  --text: #f2f2f2;
+  --text-dim: #9c9c9c;
 
   /* Subtle overlays that must invert between themes (hairline borders, hover
      fills). Defined as tokens so the light theme can flip them in one place. */
@@ -34,7 +34,7 @@
   --font-text: "Stack Sans Text", "Inter", system-ui, -apple-system,
     "Segoe UI", Roboto, sans-serif;
 
-  --radius: 12px;
+  --radius: 20px;
   /* Vertical space the header chrome occupies (shell top pad + header + gap);
      the Stream hero pulls up by this much to sit behind the header. */
   --header-zone: 92px;
@@ -93,6 +93,33 @@
   box-sizing: border-box;
 }
 
+/* Squircle (superellipse) corners wherever a border-radius is set — no effect
+   on un-rounded elements. Progressive enhancement: older WebView2 ignores it
+   and falls back to normal rounded corners. Specific elements can opt back out
+   with `corner-shape: round` (e.g. perfect circles). */
+*,
+*::before,
+*::after {
+  corner-shape: superellipse(1.8);
+}
+
+/* App, not a document: no accidental text selection or image dragging. Inputs
+   re-enable selection so typing/editing still works. */
+body {
+  user-select: none;
+  -webkit-user-select: none;
+}
+input,
+textarea,
+[contenteditable="true"] {
+  user-select: text;
+  -webkit-user-select: text;
+}
+img {
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
 html,
 body,
 #root {
@@ -133,6 +160,29 @@ img {
   min-height: 0;
   display: flex;
   flex-direction: column;
+}
+
+/* Self-update banner: slim bar above the header when a new build is available. */
+.update-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 44px 14px 0;
+  padding: 10px 16px;
+  border-radius: 20px;
+  background: rgb(var(--accent-rgb) / 0.14);
+  border: 1px solid rgb(var(--accent-rgb) / 0.32);
+}
+
+.update-banner__text {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.update-banner__btn {
+  flex: none;
 }
 
 /* ---------- Header ---------- */
@@ -210,6 +260,10 @@ img {
   align-items: center;
   gap: 12px;
   color: var(--text);
+}
+/* Dim the action icons individually — a group opacity here would also cap the
+   avatar image (a child can't brighten past a parent's opacity). */
+.app-header__actions .icon-btn:not(.icon-btn--avatar) {
   opacity: 0.4;
 }
 
@@ -395,6 +449,7 @@ img {
   width: 34px;
   height: 34px;
   border-radius: 50%;
+  corner-shape: round;
   border: 3px solid rgba(255, 255, 255, 0.15);
   border-top-color: var(--red);
   animation: player-spin 0.8s linear infinite;
@@ -475,6 +530,7 @@ img {
   place-items: center;
   border: none;
   border-radius: 50%;
+  corner-shape: round;
   background: rgba(0, 0, 0, 0.5);
   color: #fff;
   cursor: pointer;
@@ -572,6 +628,7 @@ img {
   height: 24px;
   border: none;
   border-radius: 50%;
+  corner-shape: round;
   background: rgba(255, 255, 255, 0.12);
   color: #fff;
   cursor: pointer;
@@ -619,6 +676,7 @@ img {
   height: 40px;
   border: none;
   border-radius: 50%;
+  corner-shape: round;
   background: rgba(0, 0, 0, 0.5);
   color: #fff;
   cursor: pointer;
@@ -695,7 +753,7 @@ img {
   aspect-ratio: 16 / 9;
   z-index: 45;
   border: none;
-  border-radius: 12px;
+  border-radius: 20px;
   overflow: hidden;
 }
 
@@ -705,7 +763,7 @@ img {
   inset: 0;
   width: 100%;
   height: 100%;
-  border-radius: 12px;
+  border-radius: 20px;
 }
 
 /* True fullscreen: the frame covers the whole viewport, square, over everything.
@@ -774,7 +832,71 @@ img {
   height: 72px;
   flex-shrink: 0;
   object-fit: contain;
-  border-radius: 10px;
+  border-radius: 20px;
+}
+
+/* Wide transparent clearlogo (VOD) instead of a square thumbnail. */
+.theater-bar__art--logo {
+  width: auto;
+  height: auto;
+  max-width: 430px;
+  max-height: 132px;
+  border-radius: 0;
+  object-position: left center;
+}
+
+/* Audio / subtitle / speed pop-up menus in the player controls. */
+.theater-menu-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.track-menu {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 150px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: rgba(18, 18, 22, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+}
+.track-menu__item {
+  appearance: none;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.82);
+  text-align: left;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.track-menu__item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.track-menu__item.is-active {
+  color: #fff;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.06);
+}
+.track-menu__empty {
+  padding: 8px 12px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 14px;
+}
+.player__btn--speed {
+  min-width: 42px;
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .theater-bar__text {
@@ -834,6 +956,40 @@ img {
   background: rgba(255, 255, 255, 0.22);
 }
 
+/* VOD scrubber: clickable + draggable to seek. A transparent pseudo-element
+   extends the grab zone well above/below the thin visible bar so it's easy to
+   grab, without thickening the bar or affecting the seek math. */
+.theater-seek__track--seekable {
+  cursor: pointer;
+  touch-action: none;
+}
+.theater-seek__track--seekable::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -16px;
+  bottom: -16px;
+}
+
+/* Hover/scrub preview: just the target time, floating above the bar. */
+.scrub-preview {
+  position: absolute;
+  bottom: 16px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.scrub-preview__time {
+  padding: 2px 8px;
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.82);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .theater-seek__fill {
   position: absolute;
   left: 0;
@@ -849,6 +1005,7 @@ img {
   width: 14px;
   height: 14px;
   border-radius: 50%;
+  corner-shape: round;
   background: #fff;
   transform: translate(-50%, -50%);
 }
@@ -933,6 +1090,7 @@ img {
   height: 26px;
   border: none;
   border-radius: 50%;
+  corner-shape: round;
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
   cursor: pointer;
@@ -1053,7 +1211,14 @@ body.theater-mode .app-header:hover {
   width: 7px;
   height: 7px;
   border-radius: 50%;
+  corner-shape: round;
   background: #170505;
+}
+
+/* Hovered future card: same chip, neutral instead of the live red. */
+.live-badge--upcoming {
+  background: var(--surface-muted);
+  color: var(--text);
 }
 
 .now-playing__channel {
@@ -1197,7 +1362,7 @@ body.theater-mode .app-header:hover {
   font-weight: 500;
   font-size: 15px;
   padding: 6px 14px;
-  border-radius: 9px;
+  border-radius: 20px;
   transition: background 0.15s ease, color 0.15s ease;
 }
 
@@ -1367,6 +1532,66 @@ body.theater-mode .app-header:hover {
   display: block;
   white-space: nowrap;
   overflow: hidden;
+}
+
+/* Quality tags parsed from the channel name (4K / HDR / 60FPS …). Heuristic —
+   only shown when the provider tags them in the name. */
+.guide-row__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 1px;
+}
+
+/* Favorite star in the channel label — appears on row hover, stays lit (accent)
+   when the channel is favorited. */
+.guide-row__fav {
+  margin-left: auto;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease, color 0.12s ease;
+}
+.guide-row:hover .guide-row__fav,
+.guide-row__fav--on {
+  opacity: 1;
+}
+.guide-row__fav:hover {
+  color: var(--text);
+}
+.guide-row__fav--on {
+  color: var(--red);
+}
+
+.quality-badge {
+  flex: none;
+  padding: 1px 5px;
+  border-radius: 10px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  line-height: 1.4;
+  color: var(--text-dim);
+  background: rgb(255 255 255 / 0.08);
+  border: 1px solid rgb(255 255 255 / 0.1);
+}
+
+/* 4K gets a rainbow gradient border (dark interior, vivid ring) so the best
+   feeds stand out. The transparent border reveals the border-box gradient. */
+.quality-badge--4k {
+  color: #fff;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(100deg, #2a211f, #191d2b) padding-box,
+    linear-gradient(100deg, #ff9e7d, #ffd479, #7ee787, #6bb6ff, #c08cff)
+      border-box;
 }
 
 /* Current show airing now, under the channel name. */
@@ -1633,7 +1858,7 @@ body.theater-mode .app-header:hover {
 .poster-card__art {
   position: relative;
   aspect-ratio: 2 / 3;
-  border-radius: 14px;
+  border-radius: 20px;
   background: var(--panel-2);
   overflow: hidden;
   display: flex;
@@ -1737,14 +1962,14 @@ body.theater-mode .app-header:hover {
   color: var(--text);
   background: var(--panel);
   border: 2px solid var(--panel-3);
-  border-radius: 16px;
+  border-radius: 20px;
   padding: 18px 12px;
   outline: none;
   transition: border-color 0.15s ease;
 }
 
 .pairing__input::placeholder {
-  color: #3a3a45;
+  color: #3a3a3a;
   letter-spacing: 14px;
 }
 
@@ -1772,8 +1997,15 @@ body.theater-mode .app-header:hover {
   background: var(--panel-3);
   border: none;
   padding: 14px 22px;
-  border-radius: 12px;
+  border-radius: 20px;
   transition: filter 0.15s ease, opacity 0.15s ease;
+}
+
+/* Compact button — for inline actions like the profile photo controls. */
+.btn--sm {
+  font-size: 14px;
+  padding: 8px 14px;
+  border-radius: 14px;
 }
 
 .btn:hover {
@@ -1839,8 +2071,8 @@ body.theater-mode .app-header:hover {
   /* Bleed past the shell's left/right padding for a full-width banner. */
   margin: 0 0 28px -44px;
   width: calc(100% + 44px);
-  /* Tall, cinematic banner (~40% taller than a half-screen hero). */
-  height: clamp(620px, 84vh, 900px);
+  /* Tall, cinematic banner. */
+  height: 85vh;
   border-radius: 0;
   overflow: hidden;
   display: flex;
@@ -1876,7 +2108,7 @@ body.theater-mode .app-header:hover {
   position: relative;
   z-index: 1;
   max-width: 720px;
-  padding: 0 44px 56px 88px;
+  padding: 0 44px 190px 188px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -1891,16 +2123,22 @@ body.theater-mode .app-header:hover {
   color: var(--text);
 }
 
+/* Clearlogo art in place of the title on the featured hero. */
+.hero__logo {
+  display: block;
+  max-width: min(620px, 80%);
+  max-height: 260px;
+  margin: 0;
+  object-fit: contain;
+  object-position: left bottom;
+}
+
 .hero__synopsis {
   margin: 0;
-  max-width: 560px;
+  max-width: 620px;
   font-size: 20px;
   line-height: 1.5;
   color: var(--text-dim);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
 .hero__meta {
@@ -1939,6 +2177,7 @@ body.theater-mode .app-header:hover {
   width: 11px;
   height: 11px;
   border-radius: 50%;
+  corner-shape: round;
   border: none;
   padding: 0;
   background: rgba(255, 255, 255, 0.35);
@@ -2005,7 +2244,7 @@ body.theater-mode .app-header:hover {
 }
 
 .stream-card__art {
-  border-radius: 14px;
+  border-radius: 20px;
   background: var(--panel-2);
   overflow: hidden;
   display: flex;
@@ -2135,13 +2374,22 @@ body.theater-mode .app-header:hover {
   gap: 18px;
 }
 
+.detail__logo {
+  display: block;
+  max-width: min(840px, 76%);
+  max-height: 300px;
+  margin: 0 0 12px;
+  object-fit: contain;
+  object-position: left center;
+}
+
 .detail__title {
   margin: 0;
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 68px;
   line-height: 1.02;
-  color: #f4f4f7;
+  color: #f4f4f4;
 }
 
 .detail__synopsis {
@@ -2185,7 +2433,9 @@ body.theater-mode .app-header:hover {
   padding: 8px 16px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.13);
-  color: #f0f0f2;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: #f0f0f0;
   font-family: var(--font-headline);
   font-weight: 500;
   font-size: 16px;
@@ -2209,6 +2459,170 @@ body.theater-mode .app-header:hover {
   font-size: 17px;
 }
 
+.detail__loading {
+  margin: auto;
+  color: var(--text-dim);
+  font-size: 18px;
+}
+
+/* Fullscreen VOD playback surface — the native mpv layer renders into this box
+   (CompositionPreview tracks its rect); it sits above the whole app. */
+.vod-player {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  background: #000;
+}
+.vod-player__stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.vod-player__stage .now-playing__art {
+  width: 100%;
+  height: 100%;
+}
+
+/* Episodes / sources side panel (video shrinks to make room). Plain scaffold
+   styling — the visual design layers on top of this. */
+.src-panel {
+  flex: 0 0 420px;
+  width: 420px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #0d0d0d;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+.src-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.src-panel__title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+}
+.src-panel__close {
+  display: inline-flex;
+  padding: 6px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.src-panel__close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+.src-panel__seasons {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 18px;
+}
+.src-panel__season-name {
+  font-weight: 600;
+  color: var(--text);
+}
+.src-panel__season-nav {
+  display: inline-flex;
+  padding: 6px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  cursor: pointer;
+}
+.src-panel__season-nav:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.src-panel__season-nav--next {
+  transform: scaleX(-1);
+}
+.src-panel__list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 18px;
+}
+.src-panel__item.is-current {
+  outline: 2px solid var(--accent, #e23);
+  outline-offset: 2px;
+  border-radius: 20px;
+}
+.src-panel__note {
+  padding: 18px;
+  color: var(--text-dim);
+}
+/* Cards fill the panel even when the title is short. */
+.src-panel__item .episode-card,
+.src-panel__item .source-card {
+  width: 100%;
+}
+.src-panel__back {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 6px;
+  margin: 12px 18px 0;
+  padding: 6px 12px 6px 8px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+}
+.src-panel__back:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+.src-panel__subtitle {
+  margin: 10px 18px 0;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Shown in place of the player while it's popped out to mpv's own window. */
+.vod-player--popped {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+.vod-popped__title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.vod-player-fallback {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.92);
+  color: var(--text);
+  font-size: 18px;
+}
+
 .source-card {
   flex: 0 0 auto;
   display: flex;
@@ -2217,8 +2631,10 @@ body.theater-mode .app-header:hover {
   width: 100%;
   padding: 18px 22px;
   background: rgba(10, 10, 12, 0.82);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1.5px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
+  border-radius: 20px;
   text-align: left;
   cursor: pointer;
   transition: border-color 0.12s ease, background 0.12s ease;
@@ -2292,7 +2708,7 @@ body.theater-mode .app-header:hover {
   font-family: var(--font-headline);
   font-weight: 600;
   font-size: 22px;
-  color: #f0f0f2;
+  color: #f0f0f0;
 }
 
 /* ---------- Series episode browser ---------- */
@@ -2353,7 +2769,7 @@ body.theater-mode .app-header:hover {
   justify-content: center;
   width: 44px;
   height: 44px;
-  border-radius: 10px;
+  border-radius: 20px;
   background: rgba(255, 255, 255, 0.1);
   border: none;
   color: #fff;
@@ -2390,7 +2806,7 @@ body.theater-mode .app-header:hover {
   min-width: 190px;
   height: 44px;
   padding: 0 16px;
-  border-radius: 10px;
+  border-radius: 20px;
   background: rgba(255, 255, 255, 0.1);
   border: none;
   color: #fff;
@@ -2419,9 +2835,9 @@ body.theater-mode .app-header:hover {
   margin: 0;
   padding: 6px;
   list-style: none;
-  background: #16161c;
+  background: #161616;
   border: 1px solid var(--hairline);
-  border-radius: 10px;
+  border-radius: 20px;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
   max-height: 300px;
   overflow-y: auto;
@@ -2434,7 +2850,7 @@ body.theater-mode .app-header:hover {
   border: none;
   border-radius: 7px;
   background: transparent;
-  color: #e8e8ec;
+  color: #e8e8e8;
   font-family: var(--font-headline);
   font-weight: 500;
   font-size: 16px;
@@ -2454,7 +2870,7 @@ body.theater-mode .app-header:hover {
   min-width: 0;
   height: 44px;
   padding: 0 16px;
-  border-radius: 10px;
+  border-radius: 20px;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid var(--hairline);
   color: #fff;
@@ -2484,9 +2900,11 @@ body.theater-mode .app-header:hover {
   align-items: stretch;
   gap: 20px;
   padding: 12px;
-  border-radius: 12px;
+  border-radius: 20px;
   /* Match the season-bar controls' translucent fill. */
   background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1.5px solid transparent;
   text-align: left;
   cursor: pointer;
@@ -2531,7 +2949,7 @@ body.theater-mode .app-header:hover {
   font-weight: 600;
   font-size: 16px;
   line-height: 1.3;
-  color: #f2f2f5;
+  color: #f2f2f2;
   /* Wrap long titles rather than truncating. */
   overflow-wrap: anywhere;
 }
@@ -2571,12 +2989,38 @@ body.theater-mode .app-header:hover {
   margin-top: 8px;
 }
 
+/* Per-tab source error (AIOStreams / IPTV) — scoped to one screen, not the
+   whole app, since the two sources are independent. */
+.source-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 14px;
+  max-width: 560px;
+  margin: 18vh auto 0;
+  padding: 40px;
+}
+
+.source-error__title {
+  font-family: var(--font-headline);
+  font-size: 26px;
+  margin: 0;
+}
+
+.source-error__msg {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
 /* ---------- Settings panel ---------- */
 
 .settings-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.51);
+  background: rgba(0, 0, 0, 0.38);
   z-index: 100;
   animation: settings-fade 0.15s ease;
 }
@@ -2589,9 +3033,11 @@ body.theater-mode .app-header:hover {
      frame); clamps so it stays sensible on smaller windows. */
   width: min(1063px, 56vw);
   height: min(713px, calc(100dvh - 135px));
-  background: var(--bg);
+  background: rgba(13, 13, 13, 0.72);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
   border: 1px solid var(--hairline);
-  border-radius: 12px;
+  border-radius: 20px;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
   z-index: 101;
   animation: settings-pop 0.16s ease;
@@ -2695,6 +3141,7 @@ body.theater-mode .app-header:hover {
   width: 34px;
   height: 34px;
   border-radius: 50%;
+  corner-shape: round;
   border: 2px solid transparent;
   box-shadow: 0 0 0 2px var(--bg);
   padding: 0;
@@ -2717,7 +3164,7 @@ body.theater-mode .app-header:hover {
   gap: 8px;
   height: 34px;
   padding: 0 14px;
-  border-radius: 10px;
+  border-radius: 20px;
   background: var(--panel-3);
   color: var(--text);
   font-family: var(--font-headline);
@@ -2820,6 +3267,7 @@ body.theater-mode .app-header:hover {
   width: 18px;
   height: 18px;
   border-radius: 50%;
+  corner-shape: round;
   background: #fff;
   border: 3px solid var(--red);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
@@ -2872,7 +3320,7 @@ body.theater-mode .app-header:hover {
 .toggle__thumb {
   width: 26px;
   height: 26px;
-  border-radius: 50%;
+  border-radius: 18px;
   background: #fff;
   transition: transform 0.15s ease;
 }
@@ -3011,7 +3459,7 @@ body.theater-mode .app-header:hover {
   box-sizing: border-box;
   background: var(--panel-2);
   border: 1px solid var(--panel-3);
-  border-radius: 10px;
+  border-radius: 20px;
   padding: 12px 14px;
   color: var(--text);
   font-family: var(--font-text);
@@ -3113,7 +3561,7 @@ body.theater-mode .app-header:hover {
   position: relative;
   overflow: hidden;
   background: var(--panel-2);
-  border-radius: 10px;
+  border-radius: 20px;
 }
 
 .skeleton::after {
@@ -3227,7 +3675,7 @@ body.is-overlay,
   inset: 0;
   box-sizing: border-box;
   border: 2px solid transparent;
-  border-radius: 12px;
+  border-radius: 20px;
   cursor: pointer;
 }
 .mini-overlay:hover {
@@ -3242,7 +3690,7 @@ body.is-overlay,
   display: grid;
   place-items: center;
   border: none;
-  border-radius: 9px;
+  border-radius: 20px;
   background: rgba(0, 0, 0, 0.55);
   color: #fff;
   cursor: pointer;
@@ -3291,4 +3739,218 @@ body.is-overlay,
   font-weight: 600;
   font-size: 12px;
   pointer-events: none;
+}
+
+/* Customize → Carousel sources picker. */
+.settings__row--block {
+  display: block;
+}
+.carousel-sources {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.carousel-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+.carousel-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 13px;
+  border-radius: 999px;
+  background: var(--panel-3);
+  color: var(--text);
+  font-size: 14px;
+}
+.carousel-chip > button {
+  display: inline-flex;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.carousel-chip > button:hover {
+  color: var(--text);
+}
+.carousel-chip--add {
+  cursor: pointer;
+  border: 1px dashed var(--hairline);
+  background: transparent;
+  color: var(--text-dim);
+}
+.carousel-chip--add:hover {
+  color: var(--text);
+}
+.carousel-add {
+  position: relative;
+}
+.carousel-add__caret {
+  opacity: 0.7;
+}
+.carousel-add__menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 5;
+  min-width: 230px;
+  max-height: 300px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  background: var(--panel-2);
+  border: 1px solid var(--hairline);
+  border-radius: 20px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+}
+.carousel-add__menu button {
+  text-align: left;
+  padding: 9px 12px;
+  border: none;
+  border-radius: 7px;
+  background: none;
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.carousel-add__menu button:hover {
+  background: var(--surface-hover);
+}
+.carousel-add__note {
+  padding: 9px 12px;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+.carousel-sources__actions {
+  margin-top: 16px;
+}
+.carousel-sources__actions .btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.aiostreams__input {
+  width: 100%;
+  margin-top: 10px;
+}
+
+/* First-run onboarding (standalone desktop app). */
+.onboarding {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--bg);
+}
+.onboarding__card {
+  width: 100%;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 14px;
+}
+.onboarding__logo {
+  width: 84px;
+  height: 84px;
+  object-fit: contain;
+}
+.onboarding__title {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 34px;
+  color: var(--text);
+}
+.onboarding__lede {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 16px;
+  line-height: 1.5;
+}
+.onboarding__input {
+  width: 100%;
+  margin-top: 8px;
+}
+.onboarding__btn {
+  margin-top: 4px;
+  min-width: 160px;
+}
+
+/* ---------- Account avatar + profile modal ---------- */
+
+/* The header account button shows the avatar image when one is set. */
+.icon-btn--avatar {
+  opacity: 1;
+  padding: 0;
+}
+.icon-btn__avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  object-fit: cover;
+  display: block;
+}
+
+/* A small centered card over the shared settings backdrop. */
+.profile-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(380px, calc(100vw - 32px));
+  background: rgba(13, 13, 13, 0.72);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+  border: 1px solid var(--hairline);
+  border-radius: 20px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+  z-index: 101;
+  padding: 34px 28px 26px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  animation: settings-fade 0.15s ease;
+}
+.profile-modal__close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+.profile-modal__avatar {
+  width: 96px;
+  height: 96px;
+  border-radius: 28px;
+  background: var(--panel-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  overflow: hidden;
+}
+.profile-modal__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.profile-modal__photo-actions {
+  display: flex;
+  gap: 8px;
+}
+.profile-modal__name {
+  width: 100%;
+}
+.profile-modal__done {
+  width: 100%;
+  margin-top: 2px;
 }

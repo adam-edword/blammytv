@@ -16,9 +16,17 @@ dist-ssr/
 !.vscode/extensions.json
 *.log
 
+# secrets / local env (never commit; .env.example is the tracked template)
+.env
+.env.*
+!.env.example
+
 # server data store
 /apps/server/data/
 
 # electron build artifacts
 /apps/desktop/renderer/
 /apps/desktop/release/
+
+# libmpv runtime DLL (place locally for tauri build; not committed)
+**/src-tauri/*.dll

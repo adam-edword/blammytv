@@ -17,6 +17,8 @@ import {
   PX_PER_MIN,
   type GuideWindow,
 } from "../lib/epg";
+import { qualityTags } from "../lib/quality";
+import { StarIcon } from "./icons";
 
 /** Once a pinned card's visible width shrinks below this, it stops pinning at
  * the edge and instead slides its left edge under the label (fading) — while
@@ -66,6 +68,9 @@ export function EpgGuide({
   onSelectProgram,
   onSelectChannel,
   onHoverChannel,
+  onHoverProgram,
+  favoriteIds,
+  onToggleFavorite,
 }: {
   channels: LiveChannel[];
   programs: EpgProgram[];
@@ -75,9 +80,15 @@ export function EpgGuide({
   onSelectProgram?: (p: EpgProgram) => void;
   /** Selecting an EPG-less ("no info") channel — it still often has a stream. */
   onSelectChannel?: (channelId: string) => void;
+  /** Channel ids the user has favorited (lights the star). */
+  favoriteIds?: Set<string>;
+  onToggleFavorite?: (channelId: string) => void;
   /** Fired with a channel id while a row is hovered, and null on leave, so the
    * hero text can preview that channel without changing playback. */
   onHoverChannel?: (id: string | null) => void;
+  /** Fired with the specific programme under the cursor (null over a row but no
+   * card), so the hero previews that exact programme — even a future one. */
+  onHoverProgram?: (p: EpgProgram | null) => void;
 }) {
   // Resizable channel-label column.
   const [labelWidth, setLabelWidth] = useState(() => {
@@ -142,14 +153,15 @@ export function EpgGuide({
       const own = byChannel[ch.id] ?? [];
       return {
         ch,
-        liveTitle: own.find((p) => isLiveNow(p, now))?.title ?? null,
-        blocks: own
-          .map((p) => ({ p, ...blockGeometry(win, p) }))
-          .filter((b) => b.width > 0)
-          .sort((a, b) => a.left - b.left),
+        blocks: dropOverlaps(
+          own
+            .map((p) => ({ p, ...blockGeometry(win, p) }))
+            .filter((b) => b.width > 0)
+            .sort((a, b) => a.left - b.left),
+        ),
       };
     });
-  }, [channels, programs, win, now]);
+  }, [channels, programs, win]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollXRef = useRef(0);
@@ -165,8 +177,7 @@ export function EpgGuide({
 
   // Program titles and channel labels (name + current show) all fade rather
   // than truncate.
-  const CLIP_SELECTOR =
-    ".program__title, .guide-row__label-text, .guide-row__sub";
+  const CLIP_SELECTOR = ".program__title, .guide-row__label-text";
 
   // Re-measure after a render and once fonts have loaded (their widths shift).
   // Pinned cards are also re-measured per frame in onScroll.
@@ -263,14 +274,17 @@ export function EpgGuide({
           </div>
 
           {/* Channel rows */}
-          {lanes.map(({ ch, blocks, liveTitle }, i) => {
+          {lanes.map(({ ch, blocks }, i) => {
             const pinId = pins[i] ?? null;
             const pin = pinId ? blocks.find((b) => b.p.id === pinId) : null;
             return (
               <div
                 className="guide-row"
                 key={ch.id}
-                onMouseEnter={() => onHoverChannel?.(ch.id)}
+                onMouseEnter={() => {
+                  onHoverChannel?.(ch.id);
+                  onHoverProgram?.(null);
+                }}
               >
                 <div
                   className={
@@ -283,10 +297,46 @@ export function EpgGuide({
                   )}
                   <span className="guide-row__label-meta">
                     <span className="guide-row__label-text">{ch.name}</span>
-                    {liveTitle && (
-                      <span className="guide-row__sub">{liveTitle}</span>
-                    )}
+                    {(() => {
+                      const tags = qualityTags(ch.name);
+                      return tags.length ? (
+                        <span className="guide-row__badges">
+                          {tags.map((t) => (
+                            <span
+                              key={t}
+                              className={
+                                "quality-badge quality-badge--" +
+                                t.toLowerCase()
+                              }
+                            >
+                              {t}
+                            </span>
+                          ))}
+                        </span>
+                      ) : null;
+                    })()}
                   </span>
+                  {onToggleFavorite && (
+                    <button
+                      type="button"
+                      className={
+                        "guide-row__fav" +
+                        (favoriteIds?.has(ch.id) ? " guide-row__fav--on" : "")
+                      }
+                      aria-label={
+                        favoriteIds?.has(ch.id)
+                          ? `Remove ${ch.name} from favorites`
+                          : `Add ${ch.name} to favorites`
+                      }
+                      aria-pressed={favoriteIds?.has(ch.id) ?? false}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleFavorite(ch.id);
+                      }}
+                    >
+                      <StarIcon size={16} filled={favoriteIds?.has(ch.id)} />
+                    </button>
+                  )}
                 </div>
                 <div className="guide-row__lane" style={{ width: laneWidth }}>
                   {blocks.length === 0 ? (
@@ -360,6 +410,7 @@ export function EpgGuide({
         className={cardClass(b, false)}
         style={{ left: b.left, width: Math.max(0, b.width - PROGRAM_GAP) }}
         onClick={() => onSelectProgram?.(b.p)}
+        onMouseEnter={() => onHoverProgram?.(b.p)}
         title={b.p.title}
       >
         {cardBody(b)}
@@ -398,6 +449,7 @@ export function EpgGuide({
           transform: slide ? `translateX(${slide}px)` : undefined,
         }}
         onClick={() => onSelectProgram?.(b.p)}
+        onMouseEnter={() => onHoverProgram?.(b.p)}
         title={b.p.title}
       >
         {cardBody(b)}
@@ -411,5 +463,22 @@ function groupByChannel(programs: EpgProgram[]): Record<string, EpgProgram[]> {
   for (const p of programs) (out[p.channelId] ??= []).push(p);
   for (const list of Object.values(out))
     list.sort((a, b) => Date.parse(a.start) - Date.parse(b.start));
+  return out;
+}
+
+/** Keep only non-overlapping blocks (input sorted by `left`): the first of any
+ * overlapping run wins, the rest are dropped. A safety net for messy provider
+ * EPGs where programmes overlap and would otherwise stack on top of each other. */
+function dropOverlaps<T extends { left: number; width: number }>(
+  blocks: T[],
+): T[] {
+  const out: T[] = [];
+  let right = -Infinity;
+  for (const b of blocks) {
+    if (b.left + 0.5 >= right) {
+      out.push(b);
+      right = b.left + b.width;
+    }
+  }
   return out;
 }

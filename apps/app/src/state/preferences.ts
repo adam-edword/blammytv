@@ -17,6 +17,10 @@ export interface Preferences {
   uiScale: number;
   /** Light theme on/off (applied via data-theme on the document root). */
   lightMode: boolean;
+  /** Catalog ids the Stream hero carousel pulls from (empty ⇒ default mix). */
+  carouselSources: string[];
+  /** Hide live channels that have no programme info (the "No Information" rows). */
+  hideNoInfoChannels: boolean;
 }
 
 export const DEFAULT_ACCENT = "#c22727";
@@ -54,6 +58,8 @@ export const DEFAULT_PREFERENCES: Preferences = {
   accent: DEFAULT_ACCENT,
   uiScale: 1,
   lightMode: false,
+  carouselSources: [],
+  hideNoInfoChannels: false,
 };
 
 const STORAGE_KEY = "blammytv.preferences";
@@ -75,6 +81,10 @@ export function loadPreferences(): Preferences {
           : DEFAULT_ACCENT,
       uiScale: typeof p.uiScale === "number" ? clampScale(p.uiScale) : 1,
       lightMode: !!p.lightMode,
+      carouselSources: Array.isArray(p.carouselSources)
+        ? p.carouselSources.filter((x: unknown): x is string => typeof x === "string")
+        : [],
+      hideNoInfoChannels: !!p.hideNoInfoChannels,
     };
   } catch {
     return DEFAULT_PREFERENCES;
@@ -115,6 +125,8 @@ export interface PreferencesContextValue {
   setAccent: (hex: string) => void;
   setUiScale: (v: number) => void;
   setLightMode: (v: boolean) => void;
+  setCarouselSources: (ids: string[]) => void;
+  setHideNoInfoChannels: (v: boolean) => void;
   reset: () => void;
 }
 

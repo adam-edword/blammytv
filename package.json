@@ -2,12 +2,10 @@
   "name": "blammytv",
   "version": "0.1.0",
   "private": true,
-  "description": "react-based iptv client (xtream codes + debrid). thin clients, backend-owned config.",
+  "description": "Self-contained desktop IPTV/VOD client (Xtream Codes + AIOStreams/debrid).",
   "packageManager": "pnpm@10.33.0",
   "scripts": {
     "dev": "pnpm --filter @blammytv/app dev",
-    "dev:all": "concurrently -n server,app -c blue,green \"pnpm --filter @blammytv/server dev\" \"pnpm --filter @blammytv/app dev\"",
-    "server": "pnpm --filter @blammytv/server dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r --if-present test",

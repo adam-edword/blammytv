@@ -53,15 +53,31 @@ unsafe impl Sync for Lib {}
 
 static LIB: OnceLock<Lib> = OnceLock::new();
 
+/// Locate libmpv-2.dll: next to the exe, a bundled `resources/` dir, then the
+/// OS search path (covers dev — on PATH or beside the dev exe — and the
+/// packaged installer, wherever the bundler drops the resource).
+fn load_libmpv() -> Result<Library, String> {
+    let mut tried: Vec<String> = Vec::new();
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            for p in [dir.join("libmpv-2.dll"), dir.join("resources/libmpv-2.dll")] {
+                match unsafe { Library::new(&p) } {
+                    Ok(lib) => return Ok(lib),
+                    Err(e) => tried.push(format!("{}: {e}", p.display())),
+                }
+            }
+        }
+    }
+    unsafe { Library::new("libmpv-2.dll") }
+        .map_err(|e| format!("load libmpv-2.dll: {e} (also tried: {})", tried.join("; ")))
+}
+
 fn lib() -> Result<&'static Lib, String> {
     if let Some(l) = LIB.get() {
         return Ok(l);
     }
     unsafe {
-        let library: &'static Library = Box::leak(Box::new(
-            Library::new("libmpv-2.dll")
-                .map_err(|e| format!("load libmpv-2.dll: {e} (is it next to the exe / on PATH?)"))?,
-        ));
+        let library: &'static Library = Box::leak(Box::new(load_libmpv()?));
         let sym = |name: &[u8]| -> Result<*const c_void, String> {
             library
                 .get::<*const c_void>(name)
@@ -102,7 +118,7 @@ static PLAYER: Mutex<Option<Player>> = Mutex::new(None);
 static POPOUT: Mutex<Option<Player>> = Mutex::new(None);
 
 /// Play in mpv's own floating window (PiP): on-top, half-size, separate instance.
-pub fn play_popout(url: &str) -> Result<(), String> {
+pub fn play_popout(url: &str, start: f64) -> Result<(), String> {
     let l = lib()?;
     stop_popout();
     unsafe {
@@ -125,6 +141,10 @@ pub fn play_popout(url: &str) -> Result<(), String> {
         set("title", "BlammyTV — Popout");
         set("osc", "yes");
         set("terminal", "no");
+        // Resume where the in-app player was (VOD); 0 for live.
+        if start > 0.0 {
+            set("start", &start.to_string());
+        }
         if (l.initialize)(h) < 0 {
             (l.terminate_destroy)(h);
             return Err("mpv_initialize failed".into());
@@ -150,11 +170,11 @@ pub fn play_popout(url: &str) -> Result<(), String> {
                 None => return,
             };
             loop {
-                let ev = unsafe { (l.wait_event)(h, -1.0) };
+                let ev = (l.wait_event)(h, -1.0);
                 if ev.is_null() {
                     continue;
                 }
-                if unsafe { (*ev).event_id } == MPV_EVENT_SHUTDOWN {
+                if (*ev).event_id == MPV_EVENT_SHUTDOWN {
                     break;
                 }
             }
@@ -165,7 +185,12 @@ pub fn play_popout(url: &str) -> Result<(), String> {
             let taken = if ours { g.take() } else { None };
             drop(g);
             if let Some(p) = taken {
-                unsafe { (l.terminate_destroy)(p.0) };
+                (l.terminate_destroy)(p.0);
+                // The user closed the popout window (we still owned it) → tell
+                // React to bring the in-app player back. A programmatic
+                // stop_popout() takes ownership first, so `taken` is None there
+                // and we stay silent (the button drives the reclaim itself).
+                crate::emit_comp("popout-closed");
             }
         });
     }
@@ -185,7 +210,7 @@ pub fn stop_popout() {
 /// can be drawn over the video. Left off, mpv uses its default flip model — which
 /// is what actually shows video when embedded; bitblt into a `--wid` child often
 /// renders nothing.
-pub fn play_wid(url: &str, wid: isize, composited: bool) -> Result<(), String> {
+pub fn play_wid(url: &str, wid: isize, composited: bool, start: f64) -> Result<(), String> {
     let l = lib()?;
     stop();
     unsafe {
@@ -210,6 +235,10 @@ pub fn play_wid(url: &str, wid: isize, composited: bool) -> Result<(), String> {
         }
         set("audio-channels", "stereo");
         set("terminal", "no");
+        // Resume at a position when reclaiming from the popout (0 otherwise).
+        if start > 0.0 {
+            set("start", &start.to_string());
+        }
         if (l.initialize)(h) < 0 {
             (l.terminate_destroy)(h);
             return Err("mpv_initialize failed".into());
@@ -224,6 +253,24 @@ pub fn play_wid(url: &str, wid: isize, composited: bool) -> Result<(), String> {
         *PLAYER.lock().unwrap() = Some(Player(h));
     }
     Ok(())
+}
+
+/// Current playback position of the popout window (seconds), or 0.0 if none.
+/// Reads under the POPOUT lock so it's safe against stop_popout().
+pub fn popout_pos() -> f64 {
+    let g = POPOUT.lock().unwrap();
+    if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {
+        unsafe {
+            let name = CString::new("time-pos").unwrap();
+            let ptr = (l.get_property_string)(p.0, name.as_ptr());
+            if !ptr.is_null() {
+                let s = std::ffi::CStr::from_ptr(ptr).to_string_lossy().into_owned();
+                (l.free)(ptr as *mut c_void);
+                return s.parse::<f64>().unwrap_or(0.0);
+            }
+        }
+    }
+    0.0
 }
 
 pub fn set_pause(paused: bool) {
@@ -280,10 +327,82 @@ pub fn seek(delta: f64) {
     }
 }
 
+/// Absolute seek to a position in seconds (for scrubbing).
+pub fn seek_abs(pos: f64) {
+    let g = PLAYER.lock().unwrap();
+    if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {
+        unsafe {
+            let cmd = CString::new("seek").unwrap();
+            let d = CString::new(format!("{pos}")).unwrap();
+            let abs = CString::new("absolute").unwrap();
+            let args = [cmd.as_ptr(), d.as_ptr(), abs.as_ptr(), std::ptr::null()];
+            (l.command)(p.0, args.as_ptr());
+        }
+    }
+}
+
 pub fn stop() {
     if let (Some(p), Some(l)) = (PLAYER.lock().unwrap().take(), LIB.get()) {
         unsafe { (l.terminate_destroy)(p.0) };
     }
+}
+
+/// One entry from mpv's `track-list` (audio / sub / video).
+pub struct TrackInfo {
+    pub id: i64,
+    pub kind: String,
+    pub title: String,
+    pub lang: String,
+    pub selected: bool,
+}
+
+/// Read the current track list via mpv's `track-list/...` string sub-properties.
+pub fn track_list() -> Vec<TrackInfo> {
+    let count = get_property("track-list/count")
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(0);
+    (0..count)
+        .map(|i| TrackInfo {
+            id: get_property(&format!("track-list/{i}/id"))
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(0),
+            kind: get_property(&format!("track-list/{i}/type")).unwrap_or_default(),
+            title: get_property(&format!("track-list/{i}/title")).unwrap_or_default(),
+            lang: get_property(&format!("track-list/{i}/lang")).unwrap_or_default(),
+            selected: get_property(&format!("track-list/{i}/selected")).as_deref()
+                == Some("yes"),
+        })
+        .collect()
+}
+
+/// Set a string property on the player (no-op if there's no player).
+fn set_prop(name: &str, value: &str) {
+    let g = PLAYER.lock().unwrap();
+    if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {
+        unsafe {
+            let (k, v) = (
+                CString::new(name).unwrap(),
+                CString::new(value).unwrap(),
+            );
+            (l.set_property_string)(p.0, k.as_ptr(), v.as_ptr());
+        }
+    }
+}
+
+/// Select an audio ("audio") or subtitle ("sub") track. `id` is a track id, or
+/// "no" (off) / "auto".
+pub fn set_track(kind: &str, id: &str) {
+    let prop = match kind {
+        "audio" => "aid",
+        "sub" => "sid",
+        _ => return,
+    };
+    set_prop(prop, id);
+}
+
+/// Playback speed multiplier (1.0 = normal).
+pub fn set_speed(speed: f64) {
+    set_prop("speed", &speed.to_string());
 }
 
 /// Read an mpv property as a string (via the player mutex, so it's safe against

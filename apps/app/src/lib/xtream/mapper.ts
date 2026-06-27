@@ -1,7 +1,6 @@
-import { XMLParser } from "fast-xml-parser";
 import type { ChannelGroup, LiveChannel, EpgProgram } from "@blammytv/shared";
-import type { XtreamCategory, XtreamLiveStream } from "./types.js";
-import type { XtreamClient } from "./client.js";
+import type { XtreamCategory, XtreamLiveStream } from "./types";
+import type { XtreamClient } from "./client";
 
 // Ids are namespaced by source so multiple playlists never collide.
 const groupId = (sourceId: string, catId: string) => `${sourceId}:g:${catId}`;
@@ -37,26 +36,13 @@ export function mapChannels(
 
 /**
  * Map XMLTV programmes onto our channels, windowed to keep the blob bounded.
- * Programmes are matched to channels by their `epg_channel_id`.
+ * Parsed with the WebView's native DOMParser. Matched to channels by epg id.
  */
 export function mapEpg(
   xmltv: string,
   channels: LiveChannel[],
   now: number,
 ): EpgProgram[] {
-  let doc: unknown;
-  try {
-    doc = new XMLParser({
-      ignoreAttributes: false,
-      attributeNamePrefix: "@_",
-    }).parse(xmltv);
-  } catch {
-    return [];
-  }
-
-  const programmes = asArray((doc as XmlDoc)?.tv?.programme);
-  if (programmes.length === 0) return [];
-
   // epgId → our channel ids (a single EPG feed can map to several channels).
   const byEpg = new Map<string, string[]>();
   for (const ch of channels) {
@@ -67,19 +53,33 @@ export function mapEpg(
   }
   if (byEpg.size === 0) return [];
 
+  let doc: Document;
+  try {
+    doc = new DOMParser().parseFromString(xmltv, "text/xml");
+    if (doc.querySelector("parsererror")) return [];
+  } catch {
+    return [];
+  }
+
   const from = now - 60 * 60 * 1000;
   const to = now + 12 * 60 * 60 * 1000;
   const out: EpgProgram[] = [];
 
-  for (const prog of programmes) {
-    const targets = byEpg.get(String(prog["@_channel"] ?? ""));
+  for (const prog of Array.from(doc.getElementsByTagName("programme"))) {
+    const targets = byEpg.get(prog.getAttribute("channel") ?? "");
     if (!targets) continue;
-    const start = parseXmltvTime(prog["@_start"]);
-    const stop = parseXmltvTime(prog["@_stop"]);
+    const start = parseXmltvTime(prog.getAttribute("start"));
+    const stop = parseXmltvTime(prog.getAttribute("stop"));
     if (start == null || stop == null || stop < from || start > to) continue;
 
-    const title = textOf(prog.title) || "Programme";
-    const description = textOf(prog.desc) || undefined;
+    const title =
+      prog.getElementsByTagName("title")[0]?.textContent?.trim() ?? "";
+    // Skip filler entries ("To Be Announced", "No Information", untitled, …).
+    // Providers often add a day-spanning placeholder that overlaps the real
+    // programmes — it collides with them in the guide and clutters the hero.
+    if (isFillerTitle(title)) continue;
+    const description =
+      prog.getElementsByTagName("desc")[0]?.textContent?.trim() || undefined;
     const startIso = new Date(start).toISOString();
     const stopIso = new Date(stop).toISOString();
 
@@ -97,19 +97,8 @@ export function mapEpg(
   return out;
 }
 
-interface XmlProgramme {
-  "@_channel"?: string;
-  "@_start"?: string;
-  "@_stop"?: string;
-  title?: unknown;
-  desc?: unknown;
-}
-interface XmlDoc {
-  tv?: { programme?: XmlProgramme | XmlProgramme[] };
-}
-
 /** "20260614200000 +0000" → epoch ms (UTC if no offset given). */
-function parseXmltvTime(s?: string): number | null {
+function parseXmltvTime(s?: string | null): number | null {
   if (!s) return null;
   const m = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(?:\s*([+-]\d{4}))?/.exec(
     String(s).trim(),
@@ -121,17 +110,12 @@ function parseXmltvTime(s?: string): number | null {
   return Number.isNaN(t) ? null : t;
 }
 
-/** XMLTV text nodes can be a string, an object with #text, or an array. */
-function textOf(node: unknown): string {
-  if (node == null) return "";
-  if (typeof node === "string") return node;
-  if (Array.isArray(node)) return textOf(node[0]);
-  if (typeof node === "object") return String((node as { "#text"?: unknown })["#text"] ?? "");
-  return String(node);
-}
-
-function asArray<T>(x: T | T[] | undefined): T[] {
-  return Array.isArray(x) ? x : x == null ? [] : [x];
+/** Placeholder programme titles that carry no real info — dropped from the EPG. */
+function isFillerTitle(t: string): boolean {
+  if (!t) return true;
+  return /^(to be announced|tba|no info(rmation)?|n\/?a|programme|program)\.?$/i.test(
+    t,
+  );
 }
 
 function validUrl(s?: string | null): string | undefined {

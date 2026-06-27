@@ -18,18 +18,19 @@ export function FeaturedHero({
   onOpen?: (item: VodItem) => void;
 }) {
   const [index, setIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
 
   // Clamp if the list shrinks (e.g. a new config arrives).
   const safeIndex = items.length ? index % items.length : 0;
 
   useEffect(() => {
-    if (items.length <= 1) return;
+    if (items.length <= 1 || paused) return;
     const id = setInterval(
       () => setIndex((i) => (i + 1) % items.length),
       ROTATE_MS,
     );
     return () => clearInterval(id);
-  }, [items.length]);
+  }, [items.length, paused]);
 
   const item = items[safeIndex];
   if (!item) return null;
@@ -49,13 +50,22 @@ export function FeaturedHero({
     .join("  ·  ");
 
   return (
-    <section className="hero" aria-roledescription="carousel">
+    <section
+      className="hero"
+      aria-roledescription="carousel"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+    >
       {/* key forces a fresh fade-in each time the slide changes */}
       <div key={item.id} className="hero__backdrop" style={backdropStyle} />
       <div className="hero__scrim" />
 
       <div className="hero__content">
-        <h1 className="hero__title">{item.title}</h1>
+        {item.logo ? (
+          <img className="hero__logo" src={item.logo} alt={item.title} />
+        ) : (
+          <h1 className="hero__title">{item.title}</h1>
+        )}
         {item.synopsis && <p className="hero__synopsis">{item.synopsis}</p>}
         <p className="hero__meta">{meta || formatMeta(item)}</p>
 

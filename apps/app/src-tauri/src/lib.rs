@@ -54,6 +54,7 @@ fn comp_theater(
     w: u32,
     h: u32,
     radius: i32,
+    start: f64,
 ) -> Result<(), String> {
     #[cfg(windows)]
     {
@@ -62,7 +63,7 @@ fn comp_theater(
         window
             .run_on_main_thread(move || {
                 let _ = tx.send(comp::theater(
-                    hwnd, x, y, w, h, radius, &url, &overlay_url, &meta_json,
+                    hwnd, x, y, w, h, radius, &url, &overlay_url, &meta_json, start,
                 ));
             })
             .map_err(|e| e.to_string())?;
@@ -70,8 +71,30 @@ fn comp_theater(
     }
     #[cfg(not(windows))]
     {
-        let _ = (window, url, overlay_url, meta_json, x, y, w, h, radius);
+        let _ = (window, url, overlay_url, meta_json, x, y, w, h, radius, start);
         Ok(())
+    }
+}
+
+// Current popout playback position (seconds) — used to reclaim it in-app.
+#[tauri::command]
+fn popout_pos() -> f64 {
+    #[cfg(windows)]
+    {
+        mpv::popout_pos()
+    }
+    #[cfg(not(windows))]
+    {
+        0.0
+    }
+}
+
+// Close the popout window (used by the "Bring it back" button).
+#[tauri::command]
+fn popout_stop() {
+    #[cfg(windows)]
+    {
+        mpv::stop_popout();
     }
 }
 
@@ -103,20 +126,30 @@ fn comp_set_rect(
 // floating window (PiP with mpv's OSC), like the old desktop popout.
 #[tauri::command]
 fn comp_popout(window: tauri::WebviewWindow, url: String) -> Result<(), String> {
+    let start;
     #[cfg(windows)]
     {
         let (tx, rx) = std::sync::mpsc::channel();
         window
             .run_on_main_thread(move || {
+                // Capture the position before teardown so the popout resumes there.
+                let pos = mpv::get_property("time-pos")
+                    .and_then(|s| s.parse::<f64>().ok())
+                    .unwrap_or(0.0);
                 comp::close_theater();
-                let _ = tx.send(());
+                let _ = tx.send(pos);
             })
             .map_err(|e| e.to_string())?;
-        rx.recv().map_err(|e| e.to_string())?;
+        start = rx.recv().map_err(|e| e.to_string())?;
+    }
+    #[cfg(not(windows))]
+    {
+        start = 0.0_f64;
+        let _ = &window;
     }
     // Own mpv instance so the composition teardown (fired by the React unmount)
     // can't terminate it.
-    mpv::play_popout(&url)
+    mpv::play_popout(&url, start)
 }
 
 // Tear down the native composition player (mpv + overlay) and free the HWND.
@@ -141,9 +174,94 @@ fn comp_stop(window: tauri::WebviewWindow) -> Result<(), String> {
     }
 }
 
+/// Cross-platform HTTP GET returning the response body as text. Lets the app
+/// reach AIOStreams / Xtream from the Rust side, so the webview isn't blocked by
+/// browser CORS — the foundation for running self-contained, with no backend.
+#[tauri::command]
+async fn http_get(url: String) -> Result<String, String> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        // Present as a browser: many AIOStreams/addon hosts (esp. behind
+        // Cloudflare/WAFs) reject requests without a normal User-Agent with 403.
+        .user_agent(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
+             (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+        )
+        // Match the known-good curl request: HTTP/1.1 over the Windows Schannel
+        // TLS stack, so the connection fingerprint isn't flagged as a bot.
+        .http1_only()
+        .build()
+        .map_err(|e| e.to_string())?;
+    let res = client
+        .get(&url)
+        // Send the headers a browser would. Some hosts (Cloudflare's Browser
+        // Integrity Check) 403 requests that have a User-Agent but lack these.
+        .header(
+            reqwest::header::ACCEPT,
+            "application/json, text/plain, */*",
+        )
+        .header(reqwest::header::ACCEPT_LANGUAGE, "en-US,en;q=0.9")
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    if !res.status().is_success() {
+        return Err(format!("HTTP {}", res.status().as_u16()));
+    }
+    res.text().await.map_err(|e| e.to_string())
+}
+
+// Self-update: check GitHub Releases (see tauri.conf.json > plugins.updater) for
+// a newer signed build. Returns the new version string when one is available.
+#[tauri::command]
+async fn check_update(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    #[cfg(desktop)]
+    {
+        use tauri_plugin_updater::UpdaterExt;
+        let updater = app.updater().map_err(|e| e.to_string())?;
+        match updater.check().await {
+            Ok(Some(update)) => Ok(Some(update.version)),
+            Ok(None) => Ok(None),
+            Err(e) => Err(e.to_string()),
+        }
+    }
+    #[cfg(not(desktop))]
+    {
+        let _ = app;
+        Ok(None)
+    }
+}
+
+// Download + install the pending update, then relaunch into it. On success the
+// app restarts and this never returns.
+#[tauri::command]
+async fn install_update(app: tauri::AppHandle) -> Result<(), String> {
+    #[cfg(desktop)]
+    {
+        use tauri_plugin_updater::UpdaterExt;
+        let updater = app.updater().map_err(|e| e.to_string())?;
+        let update = updater
+            .check()
+            .await
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| "No update available".to_string())?;
+        update
+            .download_and_install(|_chunk, _total| {}, || {})
+            .await
+            .map_err(|e| e.to_string())?;
+        app.restart()
+    }
+    #[cfg(not(desktop))]
+    {
+        let _ = app;
+        Ok(())
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let _ = APP.set(app.handle().clone());
             if cfg!(debug_assertions) {
@@ -160,7 +278,12 @@ pub fn run() {
             comp_theater,
             comp_set_rect,
             comp_popout,
-            comp_stop
+            comp_stop,
+            popout_pos,
+            popout_stop,
+            http_get,
+            check_update,
+            install_update
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

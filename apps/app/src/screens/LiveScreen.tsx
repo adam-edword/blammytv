@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import type { ConfigBlob, EpgProgram } from "@blammytv/shared";
+import type { ConfigBlob, EpgProgram, LiveChannel } from "@blammytv/shared";
 import { NowPlaying } from "../components/NowPlaying";
 import {
   CategorySidebar,
@@ -7,7 +7,11 @@ import {
   RECENTS_ID,
 } from "../components/CategorySidebar";
 import { EpgGuide } from "../components/EpgGuide";
+import { SourceError } from "../components/SourceError";
 import { isLiveNow } from "../lib/epg";
+import { loadFavorites, toggleFavorite } from "../lib/favorites";
+import { loadRecents, pushRecent } from "../lib/recents";
+import { usePreferences } from "../state/preferences";
 import {
   isTauri,
   onCompClosed,
@@ -55,8 +59,22 @@ function loadCatWidth(): number {
   }
 }
 
-export function LiveScreen({ config }: { config: ConfigBlob }) {
-  const { live, favorites } = config;
+export function LiveScreen({
+  config,
+  error,
+  onRetry,
+}: {
+  config: ConfigBlob;
+  /** Set when the IPTV playlists failed to load (independent of Stream). */
+  error?: string;
+  onRetry: () => void;
+}) {
+  const { live } = config;
+  // Favorites + recents live on-device (not in the config blob).
+  const [favorites, setFavorites] = useState(loadFavorites);
+  const [recents, setRecents] = useState(loadRecents);
+  const favoriteIds = useMemo(() => new Set(favorites), [favorites]);
+  const onToggleFavorite = (id: string) => setFavorites(toggleFavorite(id));
   const now = useNow();
 
   const [categoryId, setCategoryId] = useState(
@@ -105,15 +123,27 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
     }
   };
 
+  const { prefs } = usePreferences();
   const channels = useMemo(() => {
+    let list: typeof live.channels;
     if (categoryId === FAVORITES_ID) {
-      const favSet = new Set(favorites);
-      return live.channels.filter((c) => favSet.has(c.id));
+      list = live.channels.filter((c) => favoriteIds.has(c.id));
+    } else if (categoryId === RECENTS_ID) {
+      // Most-recent-first; map the stored ids back to channels, dropping any
+      // that no longer exist.
+      const byId = new Map(live.channels.map((c) => [c.id, c]));
+      list = recents
+        .map((id) => byId.get(id))
+        .filter((c): c is LiveChannel => Boolean(c));
+    } else {
+      list = live.channels.filter((c) => c.groupId === categoryId);
     }
-    // Recents has no history wired up yet — show an empty guide for now.
-    if (categoryId === RECENTS_ID) return [];
-    return live.channels.filter((c) => c.groupId === categoryId);
-  }, [categoryId, live.channels, favorites]);
+    if (prefs.hideNoInfoChannels) {
+      const withInfo = new Set(live.programs.map((p) => p.channelId));
+      list = list.filter((c) => withInfo.has(c.id));
+    }
+    return list;
+  }, [categoryId, live, favoriteIds, recents, prefs.hideNoInfoChannels]);
 
   // The hero follows the user's selection, falling back to whatever is live on
   // the featured channel.
@@ -142,6 +172,11 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
   // channels (not just the current category) so browsing the rail never
   // interrupts playback.
   const [playingId, setPlayingId] = useState<string | null>(null);
+  // Start a channel and record it in the recents list.
+  const playChannel = (id: string) => {
+    setPlayingId(id);
+    setRecents(pushRecent(id));
+  };
   const playingChannel = playingId
     ? live.channels.find((c) => c.id === playingId) ?? null
     : null;
@@ -254,14 +289,21 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
   // Hovering a guide row previews that channel's current programme in the hero
   // text — the player keeps streaming whatever it was already playing.
   const [hoveredChannelId, setHoveredChannelId] = useState<string | null>(null);
-  const hoverChannel = hoveredChannelId
-    ? live.channels.find((c) => c.id === hoveredChannelId) ?? null
-    : null;
-  const hoverProgram = hoverChannel
-    ? live.programs.find(
-        (p) => p.channelId === hoverChannel.id && isLiveNow(p, now),
-      ) ?? null
-    : null;
+  // The exact programme card under the cursor (a future one too), if any.
+  const [hoveredProgram, setHoveredProgram] = useState<EpgProgram | null>(null);
+  // Channel being previewed: the hovered card's channel wins, else the row.
+  const hoverChannel = (() => {
+    const id = hoveredProgram?.channelId ?? hoveredChannelId;
+    return id ? live.channels.find((c) => c.id === id) ?? null : null;
+  })();
+  // The previewed programme: the hovered card, else the channel's current show.
+  const hoverProgram =
+    hoveredProgram ??
+    (hoverChannel
+      ? live.programs.find(
+          (p) => p.channelId === hoverChannel.id && isLiveNow(p, now),
+        ) ?? null
+      : null);
   // Resting hero (no hover): the playing channel while streaming, else the
   // selected/featured channel.
   const restChannel = playingChannel ?? heroChannel;
@@ -278,6 +320,19 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
     (g) => g.id === (textChannel ?? heroChannel)?.groupId,
   )?.name;
 
+  // In theater (not fullscreen), clicking the black area outside the player drops
+  // back to the mini player + guide. The native overlay swallows clicks on the
+  // player box itself, so anything React sees here is genuinely "outside".
+  const onBackdropClick = (e: React.MouseEvent) => {
+    if (!inTheater || fullscreen) return;
+    const t = e.target as Element | null;
+    if (t && t.closest(".now-playing__preview")) return;
+    setTheater(false);
+  };
+
+  // IPTV failed to load — scoped to this tab; Stream is unaffected.
+  if (error) return <SourceError message={error} onRetry={onRetry} />;
+
   return (
     <div
       className={
@@ -286,6 +341,7 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
         (fullscreen ? " live-screen--fullscreen" : "")
       }
       style={{ "--categories-w": `${panelWidth}px` } as CSSProperties}
+      onClick={onBackdropClick}
     >
       <CategorySidebar
         groups={live.groups}
@@ -296,6 +352,7 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
           setSelectedProgramId(null);
           setSelectedChannelId(null);
           setHoveredChannelId(null);
+          setHoveredProgram(null);
         }}
       />
       <div
@@ -318,7 +375,7 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
             sourceName={sourceName}
             theater={inTheater}
             fullscreen={fullscreen}
-            onPlay={() => setPlayingId(heroChannel.id)}
+            onPlay={() => playChannel(heroChannel.id)}
             onStop={() => {
               setPlayingId(null);
               setTheater(false);
@@ -336,14 +393,17 @@ export function LiveScreen({ config }: { config: ConfigBlob }) {
           onSelectProgram={(p) => {
             setSelectedProgramId(p.id);
             setSelectedChannelId(null);
-            setPlayingId(p.channelId);
+            playChannel(p.channelId);
           }}
           onSelectChannel={(id) => {
             setSelectedChannelId(id);
             setSelectedProgramId(null);
-            setPlayingId(id);
+            playChannel(id);
           }}
           onHoverChannel={setHoveredChannelId}
+          onHoverProgram={setHoveredProgram}
+          favoriteIds={favoriteIds}
+          onToggleFavorite={onToggleFavorite}
         />
       </div>
     </div>

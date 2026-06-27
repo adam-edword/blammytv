@@ -1,15 +1,20 @@
 import type { ConfigBlob } from "@blammytv/shared";
-import { recordBuildStats, type XtreamSource } from "../store.js";
-import { XtreamClient } from "./client.js";
-import { mapChannels, mapEpg, mapGroups } from "./mapper.js";
+import { XtreamClient } from "./client";
+import { mapChannels, mapEpg, mapGroups } from "./mapper";
+import type { XtreamConfig } from "./types";
 
 type LiveSection = ConfigBlob["live"];
+
+/** A saved Xtream playlist: account config + identity. */
+export type XtreamPlaylist = XtreamConfig & { id: string; name: string };
 
 /**
  * Build the merged live section from the enabled Xtream playlists. Each source
  * is best-effort: one failing playlist (or its EPG) doesn't sink the others.
  */
-export async function buildLive(sources: XtreamSource[]): Promise<LiveSection> {
+export async function buildLive(
+  sources: XtreamPlaylist[],
+): Promise<LiveSection> {
   const groups: LiveSection["groups"] = [];
   const channels: LiveSection["channels"] = [];
   const programs: LiveSection["programs"] = [];
@@ -36,8 +41,6 @@ export async function buildLive(sources: XtreamSource[]): Promise<LiveSection> {
         } catch (err) {
           console.warn(`[xtream] EPG failed for "${source.name}": ${msg(err)}`);
         }
-
-        recordBuildStats(source.id, srcChannels.length);
       } catch (err) {
         console.error(`[xtream] playlist "${source.name}" failed: ${msg(err)}`);
       }

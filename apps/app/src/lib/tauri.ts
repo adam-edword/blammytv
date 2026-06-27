@@ -24,7 +24,12 @@ export const tauriCompKey = (key: string) =>
  * preview box, or the full window) with the transparent overlay (TheaterOverlay)
  * composited on top. `meta` is pushed to the overlay over the postMessage bridge.
  */
-export const tauriCompTheater = (url: string, meta: unknown, rect: CompRect) => {
+export const tauriCompTheater = (
+  url: string,
+  meta: unknown,
+  rect: CompRect,
+  start = 0,
+) => {
   const overlayUrl = `${window.location.origin}/?overlay=1&composited=1`;
   const metaJson = meta ? JSON.stringify(meta) : "";
   return invoke("comp_theater", {
@@ -36,6 +41,7 @@ export const tauriCompTheater = (url: string, meta: unknown, rect: CompRect) => 
     w: rect.w,
     h: rect.h,
     radius: rect.radius,
+    start,
   }) as Promise<void>;
 };
 
@@ -72,10 +78,21 @@ export const onCompExitFullscreen = (cb: () => void) =>
   onCompEvent("comp-exit-fullscreen", cb);
 /** Fired when the overlay's popout button is pressed. */
 export const onCompPopout = (cb: () => void) => onCompEvent("comp-popout", cb);
+/** Fired when the overlay's episodes/sources panel button is pressed. */
+export const onCompPanel = (cb: () => void) => onCompEvent("comp-panel", cb);
+/** Fired when the user closes the popout window (✕/taskbar) — bring it back. */
+export const onPopoutClosed = (cb: () => void) =>
+  onCompEvent("popout-closed", cb);
 
 /** Tear down the composition player and play in mpv's own floating window (PiP). */
 export const tauriCompPopout = (url: string) =>
   invoke("comp_popout", { url }) as Promise<void>;
+
+/** Current popout playback position (seconds), to reclaim it in-app. */
+export const tauriPopoutPos = () => invoke("popout_pos") as Promise<number>;
+
+/** Close the popout window (used by the in-app "Bring it back" button). */
+export const tauriPopoutStop = () => invoke("popout_stop") as Promise<void>;
 
 /** Take the OS window in/out of true fullscreen (over the taskbar/nav). */
 export const tauriSetFullscreen = (on: boolean) =>

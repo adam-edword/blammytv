@@ -1,2 +1,3 @@
-/** Displayed build version. Bumped on every push. */
-export const APP_VERSION = "0.1.0";
+/** Displayed build version. Keep in sync with tauri.conf.json > version, which
+ * is the version the self-updater compares against. */
+export const APP_VERSION = "0.2.3";

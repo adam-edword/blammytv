@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "BlammyTV",
-  "version": "0.1.0",
-  "identifier": "com.tauri.dev",
+  "version": "0.2.3",
+  "identifier": "com.blammytv.app",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
@@ -15,6 +15,7 @@
         "title": "BlammyTV",
         "width": 800,
         "height": 600,
+        "maximized": true,
         "resizable": true,
         "fullscreen": false
       }
@@ -23,9 +24,19 @@
       "csp": null
     }
   },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/adam-edword/blammytv/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDVGRDNFMTA3MjRERjEwRjcKUldUM0VOOGtCK0hUWDV4bVhyRmhGeSs1RUF1VGdLcEFmM1A5b2hvKzJuTTdGVnNGbWRZTnZCay8K"
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
+    "resources": ["libmpv-2.dll"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

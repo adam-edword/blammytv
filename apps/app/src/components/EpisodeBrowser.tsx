@@ -63,7 +63,15 @@ export function EpisodeBrowser({
 
       <header className="series__header">
         <div className="series__title-block">
-          <h1 className="detail__title series__title">{item.title}</h1>
+          {item.logo ? (
+            <img
+              className="detail__logo series__logo"
+              src={item.logo}
+              alt={item.title}
+            />
+          ) : (
+            <h1 className="detail__title series__title">{item.title}</h1>
+          )}
           {item.synopsis && (
             <p className="detail__synopsis">{item.synopsis}</p>
           )}

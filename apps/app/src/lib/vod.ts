@@ -1,4 +1,55 @@
-import type { VodItem } from "@blammytv/shared";
+import type { ShareCode, StreamSource, VodItem } from "@blammytv/shared";
+import { isTauri } from "./tauri";
+import { getAioUrl } from "./settings";
+import { resolveSources, resolveVodItem } from "./aiostreams";
+
+const API_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, "");
+
+/** Whether VOD can be fetched on-demand: on the desktop app, once an AIOStreams
+ * URL is set; in the browser, when a dev backend is configured. */
+export const vodBackendConfigured = (): boolean =>
+  isTauri() ? Boolean(getAioUrl()) : Boolean(API_URL);
+
+async function get<T>(path: string, code: ShareCode): Promise<T> {
+  const res = await fetch(`${API_URL}${path}`, {
+    headers: { Authorization: `Bearer ${code}` },
+  });
+  if (!res.ok) throw new Error(`Request failed (${res.status})`);
+  return (await res.json()) as T;
+}
+
+/** On-demand title detail: synopsis, cast, and (for series) seasons/episodes.
+ * Catalog items in the blob are lightweight; this fills one in when opened. */
+export async function fetchVodDetail(
+  code: ShareCode,
+  kind: VodItem["kind"],
+  id: string,
+): Promise<VodItem | null> {
+  if (isTauri()) {
+    const url = getAioUrl();
+    return url ? resolveVodItem(url, kind, id) : null;
+  }
+  const { item } = await get<{ item?: VodItem }>(`/vod/${kind}/${id}`, code);
+  return item ?? null;
+}
+
+/** On-demand ranked playable sources for a movie (`tt123`) or episode
+ * (`tt123:1:2`), resolved through AIOStreams. */
+export async function fetchVodSources(
+  code: ShareCode,
+  kind: VodItem["kind"],
+  id: string,
+): Promise<StreamSource[]> {
+  if (isTauri()) {
+    const url = getAioUrl();
+    return url ? resolveSources(url, kind, id) : [];
+  }
+  const { sources } = await get<{ sources?: StreamSource[] }>(
+    `/sources/${kind}/${id}`,
+    code,
+  );
+  return sources ?? [];
+}
 
 /** Build an id → item lookup across the movies + series catalogs, so Stream
  * rows (which reference ids) can resolve their items. */

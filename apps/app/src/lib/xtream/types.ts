@@ -1,8 +1,17 @@
 /**
- * Minimal shapes for the Xtream Codes `player_api.php` responses we use.
- * Panels are loosely typed and inconsistent (numbers as strings, etc.), so
- * everything here is permissive — the mapper normalizes.
+ * Minimal shapes for the Xtream Codes `player_api.php` responses we use, plus
+ * the account config. Panels are loosely typed (numbers as strings, etc.), so
+ * everything is permissive — the mapper normalizes.
  */
+
+export interface XtreamConfig {
+  /** e.g. http://line.example.com:8080 (no trailing slash). */
+  baseUrl: string;
+  username: string;
+  password: string;
+  /** Live container extension for the playable URL (ts | m3u8). */
+  liveExt: string;
+}
 
 export interface XtreamAuth {
   user_info?: {

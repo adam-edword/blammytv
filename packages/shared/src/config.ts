@@ -91,6 +91,8 @@ export const VodItemSchema = z.object({
   poster: z.string().url().optional(),
   /** Wide artwork used by the Stream hero / landscape cards. */
   backdrop: z.string().url().optional(),
+  /** Transparent "clearlogo" title art, shown on the detail page + player. */
+  logo: z.string().url().optional(),
   kind: z.enum(["movie", "series"]),
   /** Out-of-10 rating, runtime, and a short synopsis — shown on the Stream
    * page's hero and card meta line. All resolved server-side. */
