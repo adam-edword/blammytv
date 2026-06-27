@@ -82,7 +82,6 @@ dependencies = [
  "libloading 0.8.9",
  "log",
  "reqwest 0.12.28",
- "serde",
  "serde_json",
  "tauri",
  "tauri-build",
