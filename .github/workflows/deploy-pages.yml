@@ -1,12 +1,12 @@
 name: Deploy to GitHub Pages
 
-# Builds the React client and publishes it to GitHub Pages. Runs for the default
-# branch and the current working branch so the demo is visible before merge.
+# Builds the React client and publishes it to GitHub Pages. Deploys from the
+# default branch only (one Pages site per repo); use the manual run
+# (workflow_dispatch) to preview another branch on demand.
 on:
   push:
     branches:
       - main
-      - claude/peaceful-volta-gjsve2
   workflow_dispatch:
 
 permissions:
