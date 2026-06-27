@@ -9,11 +9,11 @@
       // layout looks oversized. Scale the whole page down with CSS zoom instead —
       // it re-lays-out the page as if it had `target` logical px of width. Desktop
       // (WebView2) never matches this branch. Tunable via localStorage
-      // 'blammytv.tvViewportWidth' (target logical width; default 1280) — set it +
+      // 'blammytv.tvViewportWidth' (target logical width; default 1440) — set it +
       // reload to try sizes; bigger target = smaller UI.
       if (/Android/.test(navigator.userAgent)) {
         var target = parseInt(
-          localStorage.getItem("blammytv.tvViewportWidth") || "1280",
+          localStorage.getItem("blammytv.tvViewportWidth") || "1440",
           10,
         );
         document.documentElement.style.zoom = String(screen.width / target);
