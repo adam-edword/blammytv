@@ -85,6 +85,8 @@ class MainActivity : TauriActivity() {
       val view = LayoutInflater.from(this)
         .inflate(R.layout.btv_player_view, content, false) as PlayerView
       view.player = exo
+      view.controllerShowTimeoutMs = 3500
+      view.controllerHideOnTouch = true
       view.visibility = View.GONE
 
       logoView = view.findViewById(R.id.btv_logo)

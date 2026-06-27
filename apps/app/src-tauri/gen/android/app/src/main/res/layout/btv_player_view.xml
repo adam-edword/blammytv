@@ -10,6 +10,4 @@
     app:surface_type="surface_view"
     app:use_controller="true"
     app:show_buffering="always"
-    app:hide_on_touch="true"
-    app:controller_show_timeout_ms="3500"
     app:controller_layout_id="@layout/btv_player_controls" />
