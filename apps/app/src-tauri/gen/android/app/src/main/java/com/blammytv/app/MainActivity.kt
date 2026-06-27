@@ -39,10 +39,6 @@ class MainActivity : TauriActivity() {
 
       webView.addJavascriptInterface(Bridge(), "BlammyNativePlayer")
       Log.i(TAG, "native player bridge ready (window.BlammyNativePlayer)")
-
-      // TEMP: auto-play on launch so compositing can be eyeballed without the
-      // JS console. Remove once the player is wired through the app UI.
-      playUrl(BUNNY_URL)
     }
   }
 
@@ -122,7 +118,5 @@ class MainActivity : TauriActivity() {
 
   companion object {
     private const val TAG = "BlammyPlayer"
-    private const val BUNNY_URL =
-      "https://storage.googleapis.com/exoplayer-test-media-0/BigBuckBunny_320x180.mp4"
   }
 }
