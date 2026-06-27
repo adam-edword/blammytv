@@ -133,6 +133,13 @@ html.is-android body {
   background: transparent;
 }
 
+/* Android: the player surface is a transparent "hole" to the native ExoPlayer
+   video behind the WebView, so it must NOT paint the desktop #000 placeholder
+   (which is an inline style on the element — hence !important). */
+html.is-android .now-playing__art {
+  background: transparent !important;
+}
+
 body {
   margin: 0;
   background: var(--bg);
