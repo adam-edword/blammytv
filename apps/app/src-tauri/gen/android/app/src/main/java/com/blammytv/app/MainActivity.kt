@@ -3,7 +3,7 @@ package com.blammytv.app
 import android.graphics.Color
 import android.os.Bundle
 import android.util.Log
-import android.view.TextureView
+import android.view.SurfaceView
 import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
@@ -16,42 +16,42 @@ import androidx.media3.exoplayer.ExoPlayer
 
 class MainActivity : TauriActivity() {
   private var player: ExoPlayer? = null
-  private var textureView: TextureView? = null
+  private var surfaceView: SurfaceView? = null
 
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
   }
 
-  // M1: a native ExoPlayer renders into a TextureView behind the transparent
-  // WebView, and a JS bridge (`window.BlammyNativePlayer`) lets the React app
-  // drive it — load/play/pause/seek. The player starts idle; nothing plays until
-  // JS calls load(). Next step wires this into the app's real player launch and
-  // sizes the surface to the player region instead of full screen.
+  // M1: a native ExoPlayer renders into a SurfaceView behind the transparent
+  // WebView. SurfaceView (not TextureView) is deliberate — it punches a hole at
+  // the system-compositor level, so the video stays visible across source
+  // switches; TextureView only re-composited through the transparent WebView on
+  // a full page reload. Driven from JS via window.BlammyNativePlayer.
   override fun onWebViewCreate(webView: WebView) {
     super.onWebViewCreate(webView)
     webView.setBackgroundColor(Color.TRANSPARENT)
     webView.post {
       val content = findViewById<ViewGroup>(android.R.id.content)
-      val tv = TextureView(this)
+      // Bottom child of the content frame: its surface sits behind the window,
+      // and the transparent WebView on top shows it through.
+      val sv = SurfaceView(this)
       content.addView(
-        tv,
+        sv,
         0,
         ViewGroup.LayoutParams(
           ViewGroup.LayoutParams.MATCH_PARENT,
           ViewGroup.LayoutParams.MATCH_PARENT,
         ),
       )
-      textureView = tv
+      surfaceView = sv
 
       val exo = ExoPlayer.Builder(this).build()
-      exo.setVideoTextureView(tv)
+      exo.setVideoSurfaceView(sv)
       exo.addListener(loggingListener)
       exo.repeatMode = Player.REPEAT_MODE_ALL
       player = exo
 
-      // Expose the player to JS. Methods run on a binder thread, so each hops to
-      // the main thread (ExoPlayer is single-threaded, built on main here).
       webView.addJavascriptInterface(Bridge(), "BlammyNativePlayer")
       Log.i(TAG, "native player bridge ready (window.BlammyNativePlayer)")
     }
