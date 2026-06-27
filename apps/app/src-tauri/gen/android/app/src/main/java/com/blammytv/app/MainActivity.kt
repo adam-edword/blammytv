@@ -17,20 +17,21 @@ import androidx.media3.exoplayer.ExoPlayer
 class MainActivity : TauriActivity() {
   private var player: ExoPlayer? = null
   private var textureView: TextureView? = null
+  private var webViewRef: WebView? = null
 
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
   }
 
-  // M1: ExoPlayer renders into a TextureView behind the transparent WebView.
-  // Key detail: TextureView is opaque by default, which conflicts with a
-  // transparent WebView composited on top (the video only re-appeared on a full
-  // page reload). setOpaque(false) makes it composite live with the overlay, so
-  // the video shows and survives source switches. Driven from JS via
-  // window.BlammyNativePlayer.
+  // M1: ExoPlayer renders into a plain (opaque) TextureView behind the
+  // transparent WebView — the config confirmed to show video. A fresh composite
+  // shows the frame; a *source switch* otherwise stayed black until a page
+  // reload, so onRenderedFirstFrame nudges the WebView to re-composite. Driven
+  // from JS via window.BlammyNativePlayer.
   override fun onWebViewCreate(webView: WebView) {
     super.onWebViewCreate(webView)
+    webViewRef = webView
     webView.setBackgroundColor(Color.TRANSPARENT)
     webView.post {
       val content = findViewById<ViewGroup>(android.R.id.content)
@@ -51,19 +52,20 @@ class MainActivity : TauriActivity() {
       exo.repeatMode = Player.REPEAT_MODE_ALL
       player = exo
 
-      // TEMP compositing probe: auto-play a known-good H.264 clip on startup so
-      // the black-box-vs-video question can be eyeballed without the JS console.
-      // Remove once compositing is confirmed.
-      exo.setMediaItem(
-        MediaItem.fromUri(
-          "https://storage.googleapis.com/exoplayer-test-media-0/BigBuckBunny_320x180.mp4",
-        ),
-      )
-      exo.playWhenReady = true
-      exo.prepare()
-
       webView.addJavascriptInterface(Bridge(), "BlammyNativePlayer")
       Log.i(TAG, "native player bridge ready (window.BlammyNativePlayer)")
+
+      // TEMP probe (no console needed): auto-play a clip, then auto-switch after
+      // 6s so we can eyeball whether the onRenderedFirstFrame re-composite keeps
+      // the video visible across a switch. Remove once confirmed.
+      exo.setMediaItem(MediaItem.fromUri(BUNNY_URL))
+      exo.playWhenReady = true
+      exo.prepare()
+      tv.postDelayed({
+        Log.i(TAG, "auto-switch: reloading source to test re-composite")
+        exo.setMediaItem(MediaItem.fromUri(BUNNY_URL))
+        exo.prepare()
+      }, 6000)
     }
   }
 
@@ -115,6 +117,15 @@ class MainActivity : TauriActivity() {
 
     override fun onRenderedFirstFrame() {
       Log.i(TAG, "renderedFirstFrame — video is on the surface ✅")
+      // A fresh composite shows the frame, but after a source switch the WebView
+      // kept showing black until a reload. Nudge it to re-composite its
+      // transparent overlay over the new frame (a cheap repaint, analogous to
+      // what the reload was doing). Testing whether this is enough.
+      webViewRef?.evaluateJavascript(
+        "document.body.style.opacity='0.999';" +
+          "requestAnimationFrame(function(){document.body.style.opacity='';});",
+        null,
+      )
     }
   }
 
@@ -126,5 +137,7 @@ class MainActivity : TauriActivity() {
 
   companion object {
     private const val TAG = "BlammyPlayer"
+    private const val BUNNY_URL =
+      "https://storage.googleapis.com/exoplayer-test-media-0/BigBuckBunny_320x180.mp4"
   }
 }
