@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fullscreen Media3 PlayerView (opaque SurfaceView, on top of the WebView)
+     using the custom BlammyTV controller layout. -->
+<androidx.media3.ui.PlayerView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000"
+    app:surface_type="surface_view"
+    app:use_controller="true"
+    app:show_buffering="always"
+    app:hide_on_touch="true"
+    app:controller_show_timeout_ms="3500"
+    app:controller_layout_id="@layout/btv_player_controls" />

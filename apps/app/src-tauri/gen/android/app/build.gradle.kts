@@ -64,10 +64,12 @@ dependencies {
     implementation("androidx.activity:activity-ktx:1.10.1")
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.lifecycle:lifecycle-process:2.10.0")
-    // M1 player: Media3 PlayerView (its built-in transport UI) rendered on top
-    // of the WebView, fullscreen, while watching.
+    // M1 player: Media3 PlayerView (custom BlammyTV controller layout) rendered
+    // on top of the WebView, fullscreen, while watching.
     implementation("androidx.media3:media3-exoplayer:1.4.1")
     implementation("androidx.media3:media3-ui:1.4.1")
+    // Loads the clearlogo (a remote URL from the catalog) into the player chrome.
+    implementation("io.coil-kt:coil:2.7.0")
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.4")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.0")

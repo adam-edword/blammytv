@@ -2,19 +2,24 @@ package com.blammytv.app
 
 import android.os.Bundle
 import android.util.Log
+import android.view.KeyEvent
+import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.view.KeyEvent
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
+import android.widget.Button
+import android.widget.ImageView
+import android.widget.TextView
 import androidx.activity.enableEdgeToEdge
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.ui.DefaultTimeBar
 import androidx.media3.ui.PlayerView
+import coil.load
+import org.json.JSONObject
 
 // Android player model: a native Media3 PlayerView rendered ON TOP of the
 // WebView. The PlayerView is an opaque SurfaceView plus Media3's built-in,
@@ -30,6 +35,14 @@ class MainActivity : TauriActivity() {
   private var player: ExoPlayer? = null
   private var playerView: PlayerView? = null
   private var webViewRef: WebView? = null
+
+  // BlammyTV chrome views inside the custom controller layout.
+  private var logoView: ImageView? = null
+  private var metaView: TextView? = null
+  private var titleView: TextView? = null
+  private var subtitleView: TextView? = null
+  private var speedButton: Button? = null
+  private var speedIndex = SPEED_DEFAULT_INDEX
 
   // Back closes the player. wry consumes the Back key INSIDE the WebView
   // (webView.goBack()) before the OnBackPressedDispatcher or onBackPressed()
@@ -56,55 +69,100 @@ class MainActivity : TauriActivity() {
     super.onWebViewCreate(webView)
     webViewRef = webView
     webView.post {
-      val exo = ExoPlayer.Builder(this).build()
+      // ±10s seek increments drive the rew/ffwd buttons.
+      val exo = ExoPlayer.Builder(this)
+        .setSeekBackIncrementMs(10_000)
+        .setSeekForwardIncrementMs(10_000)
+        .build()
       exo.addListener(loggingListener)
       player = exo
 
-      // PlayerView defaults to a SurfaceView (opaque). Added as the LAST child
-      // of the content root, it sits on top of the WebView; GONE until we play.
-      val view = PlayerView(this)
+      // The custom controller layout (btv_player_controls) brands the chrome and
+      // carries the timeline tint. PlayerView is an opaque SurfaceView; added as
+      // the LAST child of the content root it sits on top of the WebView, GONE
+      // until we play.
+      val content = findViewById<ViewGroup>(android.R.id.content)
+      val view = LayoutInflater.from(this)
+        .inflate(R.layout.btv_player_view, content, false) as PlayerView
       view.player = exo
-      view.useController = true
-      view.setShowBuffering(PlayerView.SHOW_BUFFERING_ALWAYS)
       view.visibility = View.GONE
 
-      // Brand the timeline: played fill + scrubber thumb in BlammyTV red
-      // (--accent-rgb 194 39 39 = #C22727), tracks knocked back to translucent
-      // white so the accent reads. The controller is inflated in PlayerView's
-      // constructor, so exo_progress exists now.
-      view.findViewById<DefaultTimeBar>(androidx.media3.ui.R.id.exo_progress)
-        ?.apply {
-          setPlayedColor(BRAND_RED)
-          setScrubberColor(BRAND_RED)
-          setBufferedColor(0x66FFFFFF) // ~40% white
-          setUnplayedColor(0x33FFFFFF) // ~20% white
-        }
+      logoView = view.findViewById(R.id.btv_logo)
+      metaView = view.findViewById(R.id.btv_meta)
+      titleView = view.findViewById(R.id.btv_title)
+      subtitleView = view.findViewById(R.id.btv_subtitle)
+      speedButton = view.findViewById<Button>(R.id.btv_speed)?.also { btn ->
+        btn.setOnClickListener { cycleSpeed() }
+      }
 
-      val content = findViewById<ViewGroup>(android.R.id.content)
-      content.addView(
-        view,
-        ViewGroup.LayoutParams(
-          ViewGroup.LayoutParams.MATCH_PARENT,
-          ViewGroup.LayoutParams.MATCH_PARENT,
-        ),
-      )
+      content.addView(view)
       playerView = view
 
       webView.addJavascriptInterface(Bridge(), "BlammyNativePlayer")
-      Log.i(TAG, "native player ready (fullscreen PlayerView on top)")
+      Log.i(TAG, "native player ready (custom BlammyTV chrome, on top)")
     }
   }
 
   // Show the player fullscreen and start the source. Reused across source
   // switches — no surface recreation needed now that it's opaque and on top.
-  private fun showPlayer(url: String) {
+  private fun showPlayer(url: String, metaJson: String) {
     val exo = player ?: return
     val view = playerView ?: return
+    applyMeta(metaJson)
+    resetSpeed()
     exo.setMediaItem(MediaItem.fromUri(url))
     exo.playWhenReady = true
     exo.prepare()
     view.visibility = View.VISIBLE
     view.requestFocus()
+  }
+
+  // Populate the chrome from the forwarded meta (logo URL + the three text
+  // lines). Missing fields hide their view. Logo loads via Coil.
+  private fun applyMeta(metaJson: String) {
+    val o = try { JSONObject(metaJson) } catch (e: Exception) { null }
+    val logo = o?.optString("logo").orNull()
+    val line = o?.optString("line").orNull()
+    val title = o?.optString("title").orNull()
+    val subtitle = o?.optString("subtitle").orNull()
+
+    metaView?.text = line ?: ""
+    metaView?.visibility = if (line == null) View.GONE else View.VISIBLE
+    titleView?.text = title ?: ""
+    subtitleView?.text = subtitle ?: ""
+    subtitleView?.visibility = if (subtitle == null) View.GONE else View.VISIBLE
+
+    val logoImg = logoView
+    if (logoImg != null) {
+      if (logo == null) {
+        logoImg.visibility = View.GONE
+        logoImg.setImageDrawable(null)
+      } else {
+        logoImg.visibility = View.VISIBLE
+        logoImg.load(logo)
+      }
+    }
+  }
+
+  private fun String?.orNull(): String? = if (isNullOrEmpty()) null else this
+
+  // Cycle the playback speed on each tap and reflect it on the player.
+  private fun cycleSpeed() {
+    speedIndex = (speedIndex + 1) % SPEEDS.size
+    val s = SPEEDS[speedIndex]
+    player?.setPlaybackSpeed(s)
+    speedButton?.text = formatSpeed(s)
+  }
+
+  private fun resetSpeed() {
+    speedIndex = SPEED_DEFAULT_INDEX
+    player?.setPlaybackSpeed(1f)
+    speedButton?.text = formatSpeed(1f)
+  }
+
+  private fun formatSpeed(s: Float): String {
+    val label = if (s == s.toLong().toFloat()) s.toLong().toString() else s.toString()
+    return "$label×"
   }
 
   // Stop playback and hide the player, WITHOUT notifying JS — used when JS
@@ -129,9 +187,9 @@ class MainActivity : TauriActivity() {
 
   inner class Bridge {
     @JavascriptInterface
-    fun load(url: String) = runOnUiThread {
+    fun load(url: String, metaJson: String) = runOnUiThread {
       Log.i(TAG, "load($url)")
-      showPlayer(url)
+      showPlayer(url, metaJson)
     }
 
     @JavascriptInterface
@@ -182,7 +240,7 @@ class MainActivity : TauriActivity() {
 
   companion object {
     private const val TAG = "BlammyPlayer"
-    // BlammyTV accent red (#C22727); ARGB, opaque.
-    private val BRAND_RED = 0xFFC22727.toInt()
+    private val SPEEDS = floatArrayOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f)
+    private const val SPEED_DEFAULT_INDEX = 2 // 1.0×
   }
 }

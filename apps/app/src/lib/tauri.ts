@@ -21,7 +21,7 @@ export const isTauri = (): boolean =>
  * player is the DirectComposition/mpv path below, so this is undefined there.
  */
 interface NativePlayer {
-  load(url: string): void;
+  load(url: string, metaJson: string): void;
   play(): void;
   pause(): void;
   stop(): void;
@@ -65,11 +65,24 @@ export const tauriCompTheater = (
   start = 0,
 ) => {
   // Android: drive the native ExoPlayer bridge instead of the Windows
-  // DirectComposition path. (Surface is fullscreen for now; rect-positioning
-  // comes next.)
+  // DirectComposition path. Forward the chrome fields (clearlogo + the three
+  // text lines) so the custom controller can render them. (Surface is
+  // fullscreen for now; rect-positioning comes next.)
   const np = nativePlayer();
   if (np) {
-    np.load(url);
+    const m = (meta ?? {}) as {
+      logo?: string;
+      channelName?: string;
+      title?: string;
+      description?: string;
+    };
+    const payload = JSON.stringify({
+      logo: m.logo,
+      line: m.channelName,
+      title: m.title,
+      subtitle: m.description,
+    });
+    np.load(url, payload);
     return Promise.resolve();
   }
   const overlayUrl = `${window.location.origin}/?overlay=1&composited=1`;
