@@ -4,9 +4,9 @@ import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.view.ViewGroup
+import android.view.KeyEvent
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
-import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
@@ -30,15 +30,20 @@ class MainActivity : TauriActivity() {
   private var playerView: PlayerView? = null
   private var webViewRef: WebView? = null
 
-  // Back closes the player. wry handles Back through the OnBackPressedDispatcher
-  // (for WebView history), which bypasses the old onBackPressed() override — so
-  // we register our own callback, enabled ONLY while the player is showing.
-  // Added after wry's (in onWebViewCreate) so it has priority: one Back closes
-  // the player and consumes the event before web-history navigation sees it.
-  private val backCallback = object : OnBackPressedCallback(false) {
-    override fun handleOnBackPressed() {
-      closePlayer()
+  // Back closes the player. wry consumes the Back key INSIDE the WebView
+  // (webView.goBack()) before the OnBackPressedDispatcher or onBackPressed()
+  // ever run — so neither could intercept it, and Back just walked the React
+  // app's history underneath the still-visible player. dispatchKeyEvent is the
+  // Activity's earliest key hook, before the event reaches the WebView: while
+  // the player is showing we consume Back here and close the player.
+  override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+    if (event.keyCode == KeyEvent.KEYCODE_BACK &&
+      playerView?.visibility == View.VISIBLE
+    ) {
+      if (event.action == KeyEvent.ACTION_UP) closePlayer()
+      return true // consume both DOWN and UP so the WebView never navigates
     }
+    return super.dispatchKeyEvent(event)
   }
 
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,8 +54,6 @@ class MainActivity : TauriActivity() {
   override fun onWebViewCreate(webView: WebView) {
     super.onWebViewCreate(webView)
     webViewRef = webView
-    // Registered after wry's back handler → higher priority while enabled.
-    onBackPressedDispatcher.addCallback(this, backCallback)
     webView.post {
       val exo = ExoPlayer.Builder(this).build()
       exo.addListener(loggingListener)
@@ -89,7 +92,6 @@ class MainActivity : TauriActivity() {
     exo.prepare()
     view.visibility = View.VISIBLE
     view.requestFocus()
-    backCallback.isEnabled = true
   }
 
   // Stop playback and hide the player, WITHOUT notifying JS — used when JS
@@ -98,7 +100,6 @@ class MainActivity : TauriActivity() {
     player?.stop()
     player?.clearMediaItems()
     playerView?.visibility = View.GONE
-    backCallback.isEnabled = false
   }
 
   // Native-initiated close (Back button): hide, then tell React to drop its
