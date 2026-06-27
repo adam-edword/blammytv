@@ -2,7 +2,7 @@
 <!-- Custom Media3 controller layout — mirrors the Windows VOD theater chrome.
      Media3 wires the views with @id/exo_* IDs (play/pause, progress, position,
      duration, rew, ffwd); the btv_* views are populated by MainActivity from the
-     forwarded meta. Sized up for a 10-foot TV. -->
+     forwarded meta. Type uses the app's Stack Sans (res/font). -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
@@ -16,31 +16,32 @@
       android:background="@drawable/btv_player_scrim"
       android:paddingStart="48dp"
       android:paddingEnd="48dp"
-      android:paddingTop="128dp"
-      android:paddingBottom="40dp">
+      android:paddingTop="120dp"
+      android:paddingBottom="18dp">
 
     <!-- Clearlogo (wide, transparent) — loaded via Coil. -->
     <ImageView
         android:id="@+id/btv_logo"
         android:layout_width="wrap_content"
-        android:layout_height="68dp"
-        android:maxWidth="380dp"
+        android:layout_height="88dp"
+        android:maxWidth="480dp"
         android:adjustViewBounds="true"
         android:scaleType="fitStart"
-        android:layout_marginBottom="16dp"
+        android:layout_marginBottom="14dp"
         android:contentDescription="@null"
         android:visibility="gone" />
 
-    <!-- Meta line: 2020 · Series · 1080p ⚡ (BlammyTV red). -->
+    <!-- Meta line: 2001 · Movie · 1080p ⚡ (BlammyTV red). -->
     <TextView
         android:id="@+id/btv_meta"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:fontFamily="@font/stack_sans_headline"
         android:maxLines="1"
         android:ellipsize="end"
         android:textColor="#C22727"
         android:textStyle="bold"
-        android:textSize="17sp"
+        android:textSize="12sp"
         android:letterSpacing="0.01" />
 
     <!-- Title. -->
@@ -48,7 +49,8 @@
         android:id="@+id/btv_title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
+        android:layout_marginTop="5dp"
+        android:fontFamily="@font/stack_sans_headline"
         android:maxLines="2"
         android:ellipsize="end"
         android:textColor="#FFFFFF"
@@ -61,17 +63,18 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
+        android:fontFamily="@font/stack_sans_text"
         android:maxLines="2"
         android:ellipsize="end"
         android:textColor="#B3FFFFFF"
-        android:textSize="19sp"
+        android:textSize="13sp"
         android:visibility="gone" />
 
     <!-- Scrubber row: position · timeline · duration. -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
+        android:layout_marginTop="18dp"
         android:orientation="horizontal"
         android:gravity="center_vertical">
 
@@ -79,20 +82,21 @@
           android:id="@id/exo_position"
           android:layout_width="wrap_content"
           android:layout_height="wrap_content"
+          android:fontFamily="@font/stack_sans_text"
           android:textColor="#FFFFFF"
-          android:textSize="15sp"
+          android:textSize="14sp"
           android:includeFontPadding="false" />
 
       <androidx.media3.ui.DefaultTimeBar
           android:id="@id/exo_progress"
           android:layout_width="0dp"
-          android:layout_height="28dp"
+          android:layout_height="26dp"
           android:layout_weight="1"
           android:layout_marginStart="16dp"
           android:layout_marginEnd="16dp"
           app:bar_height="3dp"
-          app:scrubber_enabled_size="15dp"
-          app:scrubber_dragged_size="19dp"
+          app:scrubber_enabled_size="14dp"
+          app:scrubber_dragged_size="18dp"
           app:played_color="#C22727"
           app:scrubber_color="#C22727"
           app:buffered_color="#66FFFFFF"
@@ -102,8 +106,9 @@
           android:id="@id/exo_duration"
           android:layout_width="wrap_content"
           android:layout_height="wrap_content"
+          android:fontFamily="@font/stack_sans_text"
           android:textColor="#FFFFFF"
-          android:textSize="15sp"
+          android:textSize="14sp"
           android:includeFontPadding="false" />
     </LinearLayout>
 
@@ -111,20 +116,21 @@
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="14dp">
+        android:layout_marginTop="6dp">
 
       <LinearLayout
           android:layout_width="wrap_content"
           android:layout_height="wrap_content"
           android:layout_alignParentStart="true"
+          android:layout_centerVertical="true"
           android:orientation="horizontal"
           android:gravity="center_vertical">
 
         <ImageButton
             android:id="@id/exo_rew"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
-            android:padding="12dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:padding="9dp"
             android:scaleType="fitCenter"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:tint="#FFFFFF"
@@ -133,11 +139,11 @@
 
         <ImageButton
             android:id="@id/exo_play_pause"
-            android:layout_width="76dp"
-            android:layout_height="76dp"
+            android:layout_width="54dp"
+            android:layout_height="54dp"
             android:layout_marginStart="8dp"
             android:layout_marginEnd="8dp"
-            android:padding="12dp"
+            android:padding="9dp"
             android:scaleType="fitCenter"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:tint="#FFFFFF"
@@ -146,9 +152,9 @@
 
         <ImageButton
             android:id="@id/exo_ffwd"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
-            android:padding="12dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:padding="9dp"
             android:scaleType="fitCenter"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:tint="#FFFFFF"
@@ -162,15 +168,16 @@
           android:layout_height="wrap_content"
           android:layout_alignParentEnd="true"
           android:layout_centerVertical="true"
+          android:fontFamily="@font/stack_sans_headline"
           android:minWidth="0dp"
           android:minHeight="0dp"
-          android:paddingStart="16dp"
-          android:paddingEnd="16dp"
-          android:paddingTop="10dp"
-          android:paddingBottom="10dp"
-          android:background="?android:attr/selectableItemBackground"
+          android:paddingStart="14dp"
+          android:paddingEnd="14dp"
+          android:paddingTop="8dp"
+          android:paddingBottom="8dp"
+          android:background="@drawable/btv_speed_bg"
           android:textColor="#FFFFFF"
-          android:textSize="18sp"
+          android:textSize="16sp"
           android:textStyle="bold"
           android:textAllCaps="false"
           android:text="1×" />
