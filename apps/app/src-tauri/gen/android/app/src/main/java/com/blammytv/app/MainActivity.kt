@@ -70,7 +70,7 @@ class MainActivity : TauriActivity() {
       )
       exo.setMediaItem(
         MediaItem.fromUri(
-          "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+          "https://storage.googleapis.com/exoplayer-test-media-0/BigBuckBunny_320x180.mp4",
         ),
       )
       exo.repeatMode = Player.REPEAT_MODE_ALL
