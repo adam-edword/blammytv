@@ -1,9 +1,8 @@
 package com.blammytv.app
 
-import android.graphics.Color
 import android.os.Bundle
 import android.util.Log
-import android.view.TextureView
+import android.view.View
 import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
@@ -13,61 +12,105 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.PlayerView
 
+// Android player model: a native Media3 PlayerView rendered ON TOP of the
+// WebView. The PlayerView is an opaque SurfaceView plus Media3's built-in,
+// remote-friendly transport (play/pause, scrubber, ±10s) — so there is no
+// compositing and no transparency: the video is its own view, shown fullscreen
+// only while watching and hidden again on close. The Back button (or JS stop())
+// closes it and returns to the React UI.
+//
+// This deliberately replaces the earlier "video behind a transparent WebView"
+// spike, which leaked the fullscreen video behind the whole app. Driven from JS
+// via window.BlammyNativePlayer.
 class MainActivity : TauriActivity() {
   private var player: ExoPlayer? = null
-  private var textureView: TextureView? = null
+  private var playerView: PlayerView? = null
+  private var webViewRef: WebView? = null
 
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
   }
 
-  // M1: ExoPlayer renders into a plain opaque TextureView behind the transparent
-  // WebView. Measured behaviour: a FRESH TextureView composites (video shows),
-  // but reusing one across a source switch stayed black until a page reload. So
-  // playUrl() recreates the TextureView on every load — each source gets a fresh
-  // composite, the state we know works. Driven from JS via window.BlammyNativePlayer.
   override fun onWebViewCreate(webView: WebView) {
     super.onWebViewCreate(webView)
-    webView.setBackgroundColor(Color.TRANSPARENT)
+    webViewRef = webView
     webView.post {
       val exo = ExoPlayer.Builder(this).build()
       exo.addListener(loggingListener)
-      exo.repeatMode = Player.REPEAT_MODE_ALL
       player = exo
 
+      // PlayerView defaults to a SurfaceView (opaque). Added as the LAST child
+      // of the content root, it sits on top of the WebView; GONE until we play.
+      val view = PlayerView(this)
+      view.player = exo
+      view.useController = true
+      view.setShowBuffering(PlayerView.SHOW_BUFFERING_ALWAYS)
+      view.visibility = View.GONE
+
+      val content = findViewById<ViewGroup>(android.R.id.content)
+      content.addView(
+        view,
+        ViewGroup.LayoutParams(
+          ViewGroup.LayoutParams.MATCH_PARENT,
+          ViewGroup.LayoutParams.MATCH_PARENT,
+        ),
+      )
+      playerView = view
+
       webView.addJavascriptInterface(Bridge(), "BlammyNativePlayer")
-      Log.i(TAG, "native player bridge ready (window.BlammyNativePlayer)")
+      Log.i(TAG, "native player ready (fullscreen PlayerView on top)")
     }
   }
 
-  // Recreate the TextureView each load → fresh surface → fresh composite.
-  private fun playUrl(url: String) {
+  // Show the player fullscreen and start the source. Reused across source
+  // switches — no surface recreation needed now that it's opaque and on top.
+  private fun showPlayer(url: String) {
     val exo = player ?: return
-    val content = findViewById<ViewGroup>(android.R.id.content)
-    textureView?.let { content.removeView(it) }
-    val tv = TextureView(this)
-    content.addView(
-      tv,
-      0,
-      ViewGroup.LayoutParams(
-        ViewGroup.LayoutParams.MATCH_PARENT,
-        ViewGroup.LayoutParams.MATCH_PARENT,
-      ),
-    )
-    textureView = tv
-    exo.setVideoTextureView(tv)
+    val view = playerView ?: return
     exo.setMediaItem(MediaItem.fromUri(url))
     exo.playWhenReady = true
     exo.prepare()
+    view.visibility = View.VISIBLE
+    view.requestFocus()
+  }
+
+  // Stop playback and hide the player, WITHOUT notifying JS — used when JS
+  // itself asked to stop (React already knows it's closing).
+  private fun hidePlayer() {
+    player?.stop()
+    player?.clearMediaItems()
+    playerView?.visibility = View.GONE
+  }
+
+  // Native-initiated close (Back button): hide, then tell React to drop its
+  // player route so the app returns to browsing.
+  private fun closePlayer() {
+    hidePlayer()
+    webViewRef?.post {
+      webViewRef?.evaluateJavascript(
+        "window.dispatchEvent(new Event('blammy-native-close'))",
+        null,
+      )
+    }
+  }
+
+  override fun onBackPressed() {
+    if (playerView?.visibility == View.VISIBLE) {
+      closePlayer()
+    } else {
+      @Suppress("DEPRECATION")
+      super.onBackPressed()
+    }
   }
 
   inner class Bridge {
     @JavascriptInterface
     fun load(url: String) = runOnUiThread {
       Log.i(TAG, "load($url)")
-      playUrl(url)
+      showPlayer(url)
     }
 
     @JavascriptInterface
@@ -77,7 +120,7 @@ class MainActivity : TauriActivity() {
     fun pause() = runOnUiThread { player?.pause() }
 
     @JavascriptInterface
-    fun stop() = runOnUiThread { player?.stop() }
+    fun stop() = runOnUiThread { hidePlayer() }
 
     @JavascriptInterface
     fun seek(seconds: Double) = runOnUiThread {

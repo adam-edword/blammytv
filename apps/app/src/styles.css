@@ -126,57 +126,9 @@ body,
   height: 100%;
 }
 
-/* M1 compositing spike: make the page background transparent on Android so a
-   native surface behind the WebView (a red test view today; ExoPlayer video
-   later) shows through. Desktop never gets the `.is-android` class. */
-html.is-android body {
-  background: transparent;
-}
-
-/* Android: the player surface is a transparent "hole" to the native ExoPlayer
-   video behind the WebView, so it must NOT paint the desktop #000 placeholder
-   (which is an inline style on the element — hence !important). */
-html.is-android .now-playing__art {
-  background: transparent !important;
-}
-
-/* Android: the player view containers paint an opaque #000 backdrop on desktop
-   (mpv draws into it); on Android that backdrop would cover the native video
-   behind the WebView, so make them transparent too. */
-html.is-android .vod-player,
-html.is-android .vod-player__stage {
-  background: transparent;
-}
-
-/* Android player controls. The native video has no separate overlay webview
-   (that's a Windows-only thing), so the transport renders here in the main app,
-   over the transparent player view, on top of the video behind the WebView. */
-.android-controls {
-  position: fixed;
-  bottom: 40px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 18px;
-  z-index: 50;
-}
-.android-controls__btn {
-  width: 68px;
-  height: 68px;
-  border-radius: 999px;
-  border: none;
-  background: rgba(0, 0, 0, 0.62);
-  color: #fff;
-  font-size: 22px;
-  line-height: 1;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.android-controls__btn:active {
-  background: rgba(0, 0, 0, 0.85);
-}
+/* Android: the native Media3 PlayerView renders fullscreen ON TOP of the WebView
+   while watching, so the app stays fully opaque — no transparency/compositing
+   hacks here. (The `.is-android` class still drives TV viewport scaling below.) */
 
 body {
   margin: 0;

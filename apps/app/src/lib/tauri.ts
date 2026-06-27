@@ -37,10 +37,17 @@ const nativePlayer = (): NativePlayer | undefined =>
 
 /** True when running on the native Android player (the bridge is injected). */
 export const isNativePlayer = (): boolean => !!nativePlayer();
-/** Native player transport — Android only; no-ops elsewhere. */
-export const nativePlay = () => nativePlayer()?.play();
-export const nativePause = () => nativePlayer()?.pause();
-export const nativeSeek = (seconds: number) => nativePlayer()?.seek(seconds);
+
+/**
+ * Fired when the native Android player closes itself (the Back button) — React
+ * should drop its player route and return to browsing. The native side
+ * dispatches a `blammy-native-close` window event over the JS bridge.
+ */
+export const onNativeClose = (cb: () => void): (() => void) => {
+  const handler = () => cb();
+  window.addEventListener("blammy-native-close", handler);
+  return () => window.removeEventListener("blammy-native-close", handler);
+};
 
 /** Forward a captured keyboard shortcut into the composition overlay. */
 export const tauriCompKey = (key: string) =>
