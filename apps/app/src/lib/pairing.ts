@@ -1,12 +1,13 @@
 import { ShareCodeSchema, type ShareCode } from "@blammytv/shared";
 
 /**
- * On-device pairing state.
+ * On-device share-code state.
  *
- * The device stores only its share code — the handle it uses to pull config
- * from the backend. No config, keys, or settings are ever persisted on-device.
- * (When the real backend lands this becomes a device token swapped for the
- * share code; the surface here stays the same.)
+ * Holds only the share code — a demo/dev concept. In the browser it scopes the
+ * bundled demo (and keys a dev backend via VITE_API_URL, if one is configured).
+ * The self-contained desktop app hardcodes it to "BLAMMY" and builds its config
+ * on-device, so nothing here gates the real product. No config, keys, or settings
+ * are ever persisted through this surface.
  */
 
 const STORAGE_KEY = "blammytv.shareCode";

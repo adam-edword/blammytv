@@ -1,16 +1,17 @@
 import { z } from "zod";
 
 /**
- * The config blob.
+ * The config blob — the validated shape the whole UI renders.
  *
- * Per the project's committed decision, the backend is the single source of
- * truth and the apps are dumb terminals: they pull this blob on load and just
- * render it. Nothing here is writable on-device.
+ * The desktop app is self-contained: it assembles this blob on-device (live from
+ * Xtream, VOD from AIOStreams) rather than pulling it from a backend. The browser
+ * / GitHub-Pages demo builds the same shape from the bundled seed. Either way the
+ * UI only ever renders a validated ConfigBlob.
  *
- * Note what is deliberately ABSENT: debrid API keys, xtream credentials, and
- * raw aiostreams config never reach the client. The backend resolves those and
- * only ever hands the device playable stream URLs. If a secret would show up in
- * this schema, it belongs server-side instead.
+ * Note what is deliberately ABSENT: debrid API keys, xtream credentials, and raw
+ * aiostreams config never live in this rendered shape. The native layer resolves
+ * them from on-device settings and hands the UI playable stream URLs; if a secret
+ * would show up in this schema, it belongs in that resolution step instead.
  */
 
 export const ChannelGroupSchema = z.object({
