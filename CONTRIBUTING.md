@@ -1,20 +1,23 @@
 # contributing
 
-welcome! this is a **pnpm monorepo**. the high-level architecture (dumb-terminal
-clients, backend-owned config, secrets stay server-side) is in the
-[README](./README.md) — worth reading first.
+welcome! this is a **pnpm monorepo**. the high-level architecture (a
+**self-contained** desktop client — Xtream Codes for live TV, AIOStreams + debrid
+for movies/shows, a native libmpv player) is in the [README](./README.md) — worth
+reading first.
 
 ## prerequisites
 
 - **node 22+** and **pnpm 10+** (`corepack enable` will get you the pinned pnpm)
 - everything installs from the root: `pnpm install`
+- the native Windows app additionally needs the **Rust toolchain** + the Tauri
+  prerequisites and a local `libmpv-2.dll` — see [RELEASING.md](./RELEASING.md).
 
 ## the loop
 
 | command | what |
 | --- | --- |
-| `pnpm dev` | web client (`apps/app`) on http://localhost:1420 |
-| `pnpm dev:all` | server + web client together |
+| `pnpm dev` | web/dev client (`apps/app`) on http://localhost:1420 |
+| `pnpm tauri dev` | the full native desktop app (Windows; from `apps/app`) |
 | `pnpm typecheck` | `tsc --noEmit` in every package |
 | `pnpm lint` | eslint (flat config, `eslint.config.mjs`) |
 | `pnpm test` | vitest across packages |
@@ -28,24 +31,28 @@ defines `typecheck` / `lint` / `test` is picked up automatically — including b
 - **branches & PRs** — branch off `main`, open a PR back into `main`. CI
   (`.github/workflows/ci.yml`) runs typecheck + lint + test on every PR; keep it
   green.
-- **the contract lives in `packages/shared`** — config-blob + share-code types and
-  zod schemas. clients only ever render a **validated** config blob; if you change
-  the shape, change it here so every client (and the mock) stays in sync.
-- **secrets never reach a client.** debrid keys / xtream credentials are resolved
-  server-side; clients only get playable URLs. don't add on-device config inputs
-  (the share code is the one allowed exception) and don't commit credentials.
+- **the data model lives in `packages/shared`** — the `ConfigBlob` types and zod
+  schemas the whole UI renders. the app assembles the blob **on-device** (live
+  from Xtream, VOD from AIOStreams) and renders only a **validated** blob; if you
+  change the shape, change it here so every consumer (and the demo seed) stays in
+  sync.
+- **secrets live on-device, and never get committed.** the AIOStreams manifest URL
+  (which embeds debrid keys) and Xtream credentials are stored in the user's
+  `localStorage` and read by the Rust layer at request time — they are *not*
+  baked into the build or sent anywhere we don't control. never commit
+  credentials, `.env` files, or the updater signing key (only the **public**
+  minisign key belongs in the repo).
 - **style is enforced, not argued** — `eslint.config.mjs` + `tsconfig.base.json`
   (strict, no unused locals/params). run `pnpm lint` / `pnpm typecheck` before a PR.
-- **tests** — pure logic gets a `*.test.ts` next to it (see `apps/app/src/lib`,
-  `apps/server/src/xtream/mapper.test.ts`).
+- **tests** — pure logic gets a `*.test.ts` next to it (see `apps/app/src/lib`).
 
 ## adding a new app (e.g. a Next.js app)
 
 the workspace globs `apps/*` and `packages/*` (`pnpm-workspace.yaml`), so a new
 `apps/web/` joins automatically — no registration needed. a few things to wire up:
 
-1. **share the contract.** import `@blammytv/shared` for the config-blob types,
-   zod schemas, and the mock. it's published as **raw TypeScript** (`exports` →
+1. **share the data model.** import `@blammytv/shared` for the `ConfigBlob` types
+   and zod schemas. it's published as **raw TypeScript** (`exports` →
    `src/index.ts`), so Next won't transpile it out of the box — add it to
    `transpilePackages` in `next.config`:
 

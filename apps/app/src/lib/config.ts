@@ -77,7 +77,18 @@ const EMPTY_LIVE: ConfigBlob["live"] = { groups: [], channels: [], programs: [] 
  * versa). Onboarding guarantees a manifest URL, so a VOD error is a real
  * problem worth showing — not the demo catalog masquerading as content. */
 async function buildLocalConfig(): Promise<LoadedConfig> {
-  const seed = mockConfig("BlammyTV");
+  // Self-contained: only the blob's scalar fields are seeded locally; live and
+  // movies/series/stream below are real data. (No demo catalog is built here —
+  // favorites live in their own localStorage store, not the blob.)
+  const seed: Pick<
+    ConfigBlob,
+    "version" | "deviceName" | "updatedAt" | "favorites"
+  > = {
+    version: 1,
+    deviceName: "BlammyTV",
+    updatedAt: new Date().toISOString(),
+    favorites: [],
+  };
   const aioUrl = getAioUrl();
   const playlists = loadPlaylists().filter((p) => p.enabled);
   const errors: ConfigErrors = {};

@@ -379,10 +379,6 @@ unsafe extern "system" fn theater_wndproc(
     }
 }
 
-// Full teardown of the current theater: stop mpv, close the webview, destroy the
-// child window, and release the DComp target (so a fresh open can re-target the
-// HWND — Windows allows only one DComp target per window). UI-thread only. Run at
-// the start of every open so reopen / channel-switch always rebuild cleanly.
 // Reposition/resize the live layer (mpv child + webview visual + controller) to a
 // new rect — keeps the native preview aligned with its in-app box, and powers the
 // expand-to-fullscreen resize. UI-thread only.
@@ -415,6 +411,10 @@ pub fn set_rect(x: i32, y: i32, w: u32, h: u32, radius: i32) {
     }
 }
 
+// Full teardown of the current theater: stop mpv, close the webview, destroy the
+// child window, and release the DComp target (so a fresh open can re-target the
+// HWND — Windows allows only one DComp target per window). UI-thread only. Run at
+// the start of every open so reopen / channel-switch always rebuild cleanly.
 pub fn close_theater() {
     // Bump the generation so the loader / time poll threads exit, and so any
     // in-flight webview build for this theater bails instead of installing.

@@ -1,10 +1,10 @@
 [package]
 name = "app"
 version = "0.2.4"
-description = "A Tauri App"
-authors = ["you"]
+description = "Self-contained desktop IPTV/VOD client (Xtream Codes + AIOStreams/debrid)."
+authors = ["adam-edword"]
 license = ""
-repository = ""
+repository = "https://github.com/adam-edword/blammytv"
 edition = "2021"
 rust-version = "1.77.2"
 

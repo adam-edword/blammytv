@@ -15,14 +15,7 @@ const unusedVars = [
 
 export default tseslint.config(
   {
-    ignores: [
-      "**/dist/**",
-      "**/node_modules/**",
-      "apps/desktop/bin/**",
-      "apps/desktop/out/**",
-      "apps/desktop/native/**/build/**",
-      "apps/desktop/native/**/vendor/**",
-    ],
+    ignores: ["**/dist/**", "**/node_modules/**"],
   },
 
   // Base JS rules everywhere.
@@ -52,25 +45,15 @@ export default tseslint.config(
     },
   },
 
-  // Node-side TypeScript: server + shared.
+  // Node-side TypeScript: the shared package.
   {
-    files: ["apps/server/**/*.ts", "packages/**/*.ts"],
+    files: ["packages/**/*.ts"],
     languageOptions: { globals: { ...globals.node } },
-  },
-
-  // Electron shell: CommonJS.
-  {
-    files: ["apps/desktop/**/*.cjs"],
-    languageOptions: {
-      sourceType: "commonjs",
-      globals: { ...globals.node },
-    },
-    rules: { "no-unused-vars": unusedVars },
   },
 
   // Node ESM scripts (build helpers, this config).
   {
-    files: ["apps/desktop/**/*.mjs", "*.mjs"],
+    files: ["*.mjs"],
     languageOptions: { globals: { ...globals.node } },
   },
 );
