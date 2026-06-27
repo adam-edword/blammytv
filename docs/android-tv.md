@@ -92,21 +92,49 @@ re-debug them:
   at `minifyRelease`/build-tools install. For a sideloadable APK use
   `--debug` (release APKs are unsigned and won't install).
 
-### Milestone 1 — the player (the real R&D)
+### Milestone 1 — the player (the real R&D) ← *core proven*
 
-A **Tauri Android plugin (Kotlin)** that adds a `SurfaceView` beneath the
-transparent Tauri WebView and drives playback into it — the Android analog of the
-DirectComposition trick. Two candidate engines:
+Engine chosen: **ExoPlayer / Media3** (fast to working, native Android, great for
+the debrid MP4/MKV case; swappable behind the plugin interface if live TS fights
+back). libmpv stays the fallback for parity if needed.
 
-- **libmpv** (compiled `.so` for Android, JNI bridge) — closest to parity with
-  the Windows player (same demuxers/codecs, HDR, 4K), but more integration work.
-- **ExoPlayer / Media3** — native Android, easy `SurfaceView` integration, but
-  codec/container coverage (raw TS, some MKV) is weaker and varies by device.
+**The de-risk spike works end to end** — real H.264 video decodes and composites
+*under* the React UI on the Android TV emulator. How it's wired today (in
+`MainActivity.kt`, throwaway hardcoded-URL form):
 
-Bridge the same control surface the overlay already speaks (play/pause/seek/
-tracks/volume) over the existing message channel, so the React overlay barely
-changes. Start by prototyping *just* the player + a hardcoded URL to de-risk
-before wiring the UI.
+- Override `WryActivity.onWebViewCreate(webView)` — the hook called right after
+  the WebView is built.
+- `webView.setBackgroundColor(Color.TRANSPARENT)` and add the page-transparent
+  CSS on Android (`html.is-android body { background: transparent }`).
+- Insert a `TextureView` as the **bottom child** of `android.R.id.content`
+  (`addView(view, 0, …)`), so it draws behind the WebView. A `TextureView`
+  composites in-hierarchy (no SurfaceView z-order dance needed).
+- `ExoPlayer.Builder(this).build()` → `setVideoTextureView(textureView)` →
+  `setMediaItem(uri)` → `prepare()`. A `Player.Listener` logs under tag
+  `BlammyPlayer` (state, video size, first frame, error code).
+
+Spike gotchas hit (all recorded so we don't repeat them):
+
+- **Java version / GraalVM.** Bumping the Android build to Java 11 makes AGP build
+  a system-modules JDK image via `jlink`, which fails on the GraalVM JDK Gradle
+  runs on. Stay on **Java 8** (Media3 compiles fine there — it's Java, no
+  Kotlin-inline boundary), or point the build at a Temurin JDK.
+- **Media3 dep** goes in `gen/android/app/build.gradle.kts`
+  (`androidx.media3:media3-exoplayer`). That file is NOT regenerated per build, so
+  edits persist (CRLF can cause phantom pull conflicts — `git checkout --` it).
+- **Test URLs.** Google locked the old `gtv-videos-bucket` (403). A working one:
+  `storage.googleapis.com/exoplayer-test-media-0/BigBuckBunny_320x180.mp4`.
+
+Still to do to make it real (the wiring):
+
+1. **Tauri plugin** so JS drives `load(url)/play/pause/seek/tracks/volume` with the
+   app's actual stream URLs — the same control surface the overlay already speaks,
+   so the React side barely changes. (Replaces the hardcoded URL in MainActivity.)
+2. **Only the player region transparent**, not the whole page — position/size the
+   TextureView to the in-app player box (preview) or fullscreen (theater), matching
+   the Windows `set_rect` behaviour.
+3. **HLS/TS for live IPTV** — add `media3-exoplayer-hls` and test on real streams;
+   fall back to libmpv only if container coverage is a problem.
 
 ### Milestone 2 — remote / D-pad navigation
 
