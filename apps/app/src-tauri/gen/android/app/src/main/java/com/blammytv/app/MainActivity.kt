@@ -35,7 +35,6 @@ class MainActivity : TauriActivity() {
     webView.post {
       val content = findViewById<ViewGroup>(android.R.id.content)
       val tv = TextureView(this)
-      tv.isOpaque = false
       content.addView(
         tv,
         0,
@@ -51,6 +50,17 @@ class MainActivity : TauriActivity() {
       exo.addListener(loggingListener)
       exo.repeatMode = Player.REPEAT_MODE_ALL
       player = exo
+
+      // TEMP compositing probe: auto-play a known-good H.264 clip on startup so
+      // the black-box-vs-video question can be eyeballed without the JS console.
+      // Remove once compositing is confirmed.
+      exo.setMediaItem(
+        MediaItem.fromUri(
+          "https://storage.googleapis.com/exoplayer-test-media-0/BigBuckBunny_320x180.mp4",
+        ),
+      )
+      exo.playWhenReady = true
+      exo.prepare()
 
       webView.addJavascriptInterface(Bridge(), "BlammyNativePlayer")
       Log.i(TAG, "native player bridge ready (window.BlammyNativePlayer)")
