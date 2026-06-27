@@ -9,14 +9,16 @@ import type {
 } from "./config";
 
 /**
- * Stand-in for the not-yet-built backend.
+ * The bundled demo catalog.
  *
- * Once the config API exists, delete this file and point `fetchConfig` at the
- * real endpoint — nothing else in the app changes, because the app only ever
- * sees a validated ConfigBlob.
+ * This is the permanent fixture behind the browser / GitHub-Pages demo (and the
+ * no-backend dev path): `fetchConfig` builds a ConfigBlob from it so the UI has
+ * something to render without real Xtream / AIOStreams credentials. The shipping
+ * desktop app does NOT use this — it assembles a real blob on-device (see
+ * `buildLocalConfig`). Keep it in sync with the schema so the demo stays valid.
  *
  * EPG times are generated relative to *now* so the guide's "now" indicator and
- * the live programs always line up whenever the skeleton is run.
+ * the live programs always line up whenever the demo is run.
  */
 
 const MIN = 60_000;

@@ -1,10 +1,10 @@
 [package]
 name = "app"
-version = "0.2.3"
-description = "A Tauri App"
-authors = ["you"]
+version = "0.2.4"
+description = "Self-contained desktop IPTV/VOD client (Xtream Codes + AIOStreams/debrid)."
+authors = ["adam-edword"]
 license = ""
-repository = ""
+repository = "https://github.com/adam-edword/blammytv"
 edition = "2021"
 rust-version = "1.77.2"
 
@@ -19,7 +19,6 @@ tauri-build = { version = "2.6.2", features = [] }
 
 [dependencies]
 serde_json = "1.0"
-serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
 tauri = { version = "2.11.2", features = [] }
 tauri-plugin-log = "2"
