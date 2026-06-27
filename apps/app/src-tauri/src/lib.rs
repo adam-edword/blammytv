@@ -1,3 +1,6 @@
+// Native player is Windows-only (libmpv via libmpv-2.dll + DirectComposition).
+// Other platforms (Android, …) will get their own player; these stay gated.
+#[cfg(windows)]
 mod mpv;
 #[cfg(windows)]
 mod comp;
@@ -126,7 +129,6 @@ fn comp_set_rect(
 // floating window (PiP with mpv's OSC), like the old desktop popout.
 #[tauri::command]
 fn comp_popout(window: tauri::WebviewWindow, url: String) -> Result<(), String> {
-    let start;
     #[cfg(windows)]
     {
         let (tx, rx) = std::sync::mpsc::channel();
@@ -140,16 +142,17 @@ fn comp_popout(window: tauri::WebviewWindow, url: String) -> Result<(), String> 
                 let _ = tx.send(pos);
             })
             .map_err(|e| e.to_string())?;
-        start = rx.recv().map_err(|e| e.to_string())?;
+        let start = rx.recv().map_err(|e| e.to_string())?;
+        // Own mpv instance so the composition teardown (fired by the React
+        // unmount) can't terminate it.
+        mpv::play_popout(&url, start)
     }
+    // Popout is a Windows-only feature (native mpv window); no-op elsewhere.
     #[cfg(not(windows))]
     {
-        start = 0.0_f64;
-        let _ = &window;
+        let _ = (window, url);
+        Ok(())
     }
-    // Own mpv instance so the composition teardown (fired by the React unmount)
-    // can't terminate it.
-    mpv::play_popout(&url, start)
 }
 
 // Tear down the native composition player (mpv + overlay) and free the HWND.
@@ -259,9 +262,16 @@ async fn install_update(app: tauri::AppHandle) -> Result<(), String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_window_state::Builder::default().build())
-        .plugin(tauri_plugin_updater::Builder::new().build())
+    #[allow(unused_mut)]
+    let mut builder = tauri::Builder::default();
+    // Window-state + self-updater are desktop-only; mobile gets its own story.
+    #[cfg(desktop)]
+    {
+        builder = builder
+            .plugin(tauri_plugin_window_state::Builder::default().build())
+            .plugin(tauri_plugin_updater::Builder::new().build());
+    }
+    builder
         .setup(|app| {
             let _ = APP.set(app.handle().clone());
             if cfg!(debug_assertions) {

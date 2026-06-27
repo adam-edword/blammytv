@@ -29,18 +29,17 @@ tauri-plugin-window-state = "2"
 # Self-update from GitHub Releases (auto-check on launch + manual button).
 # Driven from Rust commands (below) so no JS plugin packages are needed.
 tauri-plugin-updater = "2"
-# Rust-side HTTP so the app can reach AIOStreams/Xtream without browser CORS.
-# native-tls = Windows Schannel (same TLS stack as curl/Edge), so the TLS
-# fingerprint looks like a normal Windows client — some Cloudflare-fronted hosts
-# 403 rustls's distinct fingerprint even when the headers are browser-like.
-# Schannel ships with Windows, so the bundle stays self-contained.
+# Rust-side HTTP (reqwest) so the app can reach AIOStreams/Xtream without browser
+# CORS. The TLS backend is pinned per-target below — native-tls (Schannel) on
+# Windows, rustls elsewhere.
+
+# Windows: native-tls = Schannel, so the TLS fingerprint looks like a normal
+# Windows client (some Cloudflare-fronted hosts 403 rustls's distinct
+# fingerprint even when the headers are browser-like). Plus the native player
+# stack (libmpv via libloading + composition-hosted WebView2 + DirectComposition).
+[target.'cfg(windows)'.dependencies]
 reqwest = { version = "0.12", default-features = false, features = ["native-tls"] }
 libloading = "0.8"
-
-# The Telly-way composition spike (Windows): composition-hosted WebView2 +
-# DirectComposition over a native mpv child window. These are already in the
-# tree via Tauri; pin them as direct deps with the features we need.
-[target.'cfg(windows)'.dependencies]
 webview2-com = "0.38"
 windows = { version = "0.61", features = [
     "Win32_Foundation",
@@ -56,3 +55,8 @@ windows = { version = "0.61", features = [
     "Win32_System_WinRT",
     "Win32_UI_Shell",
 ] }
+
+# Non-Windows (Android, …): rustls is pure Rust — no OpenSSL/Schannel — so it
+# cross-compiles cleanly. The native player isn't built here yet.
+[target.'cfg(not(windows))'.dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
