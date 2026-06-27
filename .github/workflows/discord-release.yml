@@ -1,0 +1,47 @@
+name: Discord release notification
+
+# Posts a custom embed to a Discord channel whenever a GitHub release is
+# *published* (drafts and edits are ignored). The webhook URL lives in the
+# DISCORD_WEBHOOK repo secret and must be the BARE Discord webhook URL —
+# https://discord.com/api/webhooks/{id}/{token} — with no /github suffix.
+on:
+  release:
+    types: [published]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post release to Discord
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          TITLE: ${{ github.event.release.name }}
+          TAG: ${{ github.event.release.tag_name }}
+          BODY: ${{ github.event.release.body }}
+          URL: ${{ github.event.release.html_url }}
+        run: |
+          set -euo pipefail
+
+          # Untrusted fields (TITLE/BODY) are passed to jq via --arg, never
+          # interpolated into the shell, so a release body can't inject commands.
+          body="${BODY:-No changelog provided.}"
+          # Discord caps an embed description at 4096 chars; leave room for the
+          # download line we append below.
+          body="${body:0:3500}"
+          description="$(printf '%s\n\n[Download & install »](%s)' "$body" "$URL")"
+
+          payload="$(jq -n \
+            --arg title "🎉 ${TITLE:-$TAG} released" \
+            --arg desc "$description" \
+            --arg url "$URL" \
+            '{
+              username: "BlammyTV Releases",
+              embeds: [{
+                title: $title,
+                description: $desc,
+                url: $url,
+                color: 7059199
+              }]
+            }')"
+
+          curl -fsS -H "Content-Type: application/json" -d "$payload" "$WEBHOOK"
