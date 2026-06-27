@@ -26,7 +26,7 @@ import { ChevronIcon } from "./components/icons";
 import { fetchConfig, type ConfigErrors } from "./lib/config";
 import { fetchVodDetail, vodBackendConfigured } from "./lib/vod";
 import { getAioUrl } from "./lib/settings";
-import { isTauri, onCompClosed, onCompExitFullscreen, onCompFullscreen, onCompPanel, onCompPopout, onPopoutClosed, tauriCompKey, tauriCompPopout, tauriPopoutPos, tauriPopoutStop, tauriSetFullscreen } from "./lib/tauri";
+import { isTauri, isNativePlayer, nativePlay, nativePause, onCompClosed, onCompExitFullscreen, onCompFullscreen, onCompPanel, onCompPopout, onPopoutClosed, tauriCompKey, tauriCompPopout, tauriPopoutPos, tauriPopoutStop, tauriSetFullscreen } from "./lib/tauri";
 import { loadShareCode, saveShareCode, clearShareCode } from "./lib/pairing";
 
 /** YouTube-style keys the VOD player forwards to the overlay. No "t" (there's no
@@ -263,6 +263,9 @@ function VodPlayer({
   const posRef = useRef(0);
   // Episodes/sources side panel — the video shrinks to make room for it.
   const [panelOpen, setPanelOpen] = useState(false);
+  // Android: the native bridge doesn't report playback state, so the on-screen
+  // controls track play/pause locally.
+  const [paused, setPaused] = useState(false);
   const panelRef = useRef(false);
   panelRef.current = panelOpen;
 
@@ -390,6 +393,30 @@ function VodPlayer({
       <div className="vod-player__stage">
         <CompositionPreview url={url} meta={meta} fullscreen start={resumeAt} />
       </div>
+      {isNativePlayer() && (
+        <div className="android-controls">
+          <button
+            className="android-controls__btn"
+            type="button"
+            onClick={() => {
+              if (paused) nativePlay();
+              else nativePause();
+              setPaused((p) => !p);
+            }}
+            aria-label={paused ? "Play" : "Pause"}
+          >
+            {paused ? "▶" : "❚❚"}
+          </button>
+          <button
+            className="android-controls__btn"
+            type="button"
+            onClick={onClose}
+            aria-label="Close player"
+          >
+            ✕
+          </button>
+        </div>
+      )}
       {panelOpen && (
         <SourcePanel
           item={item}

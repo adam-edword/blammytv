@@ -148,6 +148,36 @@ html.is-android .vod-player__stage {
   background: transparent;
 }
 
+/* Android player controls. The native video has no separate overlay webview
+   (that's a Windows-only thing), so the transport renders here in the main app,
+   over the transparent player view, on top of the video behind the WebView. */
+.android-controls {
+  position: fixed;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 18px;
+  z-index: 50;
+}
+.android-controls__btn {
+  width: 68px;
+  height: 68px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(0, 0, 0, 0.62);
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.android-controls__btn:active {
+  background: rgba(0, 0, 0, 0.85);
+}
+
 body {
   margin: 0;
   background: var(--bg);

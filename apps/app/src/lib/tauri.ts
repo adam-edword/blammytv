@@ -35,6 +35,13 @@ declare global {
 const nativePlayer = (): NativePlayer | undefined =>
   typeof window !== "undefined" ? window.BlammyNativePlayer : undefined;
 
+/** True when running on the native Android player (the bridge is injected). */
+export const isNativePlayer = (): boolean => !!nativePlayer();
+/** Native player transport — Android only; no-ops elsewhere. */
+export const nativePlay = () => nativePlayer()?.play();
+export const nativePause = () => nativePlayer()?.pause();
+export const nativeSeek = (seconds: number) => nativePlayer()?.seek(seconds);
+
 /** Forward a captured keyboard shortcut into the composition overlay. */
 export const tauriCompKey = (key: string) =>
   invoke("comp_key", { key }) as Promise<void>;
