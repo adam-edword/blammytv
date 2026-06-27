@@ -140,6 +140,14 @@ html.is-android .now-playing__art {
   background: transparent !important;
 }
 
+/* Android: the player view containers paint an opaque #000 backdrop on desktop
+   (mpv draws into it); on Android that backdrop would cover the native video
+   behind the WebView, so make them transparent too. */
+html.is-android .vod-player,
+html.is-android .vod-player__stage {
+  background: transparent;
+}
+
 body {
   margin: 0;
   background: var(--bg);
