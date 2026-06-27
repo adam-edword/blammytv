@@ -12,6 +12,7 @@
       // 'blammytv.tvViewportWidth' (target logical width; default 1440) — set it +
       // reload to try sizes; bigger target = smaller UI.
       if (/Android/.test(navigator.userAgent)) {
+        document.documentElement.classList.add("is-android");
         var target = parseInt(
           localStorage.getItem("blammytv.tvViewportWidth") || "1440",
           10,

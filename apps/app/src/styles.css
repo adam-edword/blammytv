@@ -126,6 +126,13 @@ body,
   height: 100%;
 }
 
+/* M1 compositing spike: make the page background transparent on Android so a
+   native surface behind the WebView (a red test view today; ExoPlayer video
+   later) shows through. Desktop never gets the `.is-android` class. */
+html.is-android body {
+  background: transparent;
+}
+
 body {
   margin: 0;
   background: var(--bg);
