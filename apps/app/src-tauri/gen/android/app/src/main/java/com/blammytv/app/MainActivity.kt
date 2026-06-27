@@ -1,10 +1,9 @@
 package com.blammytv.app
 
 import android.graphics.Color
-import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.util.Log
-import android.view.SurfaceView
+import android.view.TextureView
 import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
@@ -17,42 +16,38 @@ import androidx.media3.exoplayer.ExoPlayer
 
 class MainActivity : TauriActivity() {
   private var player: ExoPlayer? = null
-  private var surfaceView: SurfaceView? = null
+  private var textureView: TextureView? = null
 
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
-    // The SurfaceView sits behind the window; make the window background
-    // transparent so it shows through (the transparent WebView alone isn't
-    // enough — the opaque window background would paint black over the video).
-    window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
   }
 
-  // M1: a native ExoPlayer renders into a SurfaceView behind the transparent
-  // WebView. SurfaceView (not TextureView) is deliberate — it punches a hole at
-  // the system-compositor level, so the video stays visible across source
-  // switches; TextureView only re-composited through the transparent WebView on
-  // a full page reload. Driven from JS via window.BlammyNativePlayer.
+  // M1: ExoPlayer renders into a TextureView behind the transparent WebView.
+  // Key detail: TextureView is opaque by default, which conflicts with a
+  // transparent WebView composited on top (the video only re-appeared on a full
+  // page reload). setOpaque(false) makes it composite live with the overlay, so
+  // the video shows and survives source switches. Driven from JS via
+  // window.BlammyNativePlayer.
   override fun onWebViewCreate(webView: WebView) {
     super.onWebViewCreate(webView)
     webView.setBackgroundColor(Color.TRANSPARENT)
     webView.post {
       val content = findViewById<ViewGroup>(android.R.id.content)
-      // Bottom child of the content frame: its surface sits behind the window,
-      // and the transparent WebView on top shows it through.
-      val sv = SurfaceView(this)
+      val tv = TextureView(this)
+      tv.isOpaque = false
       content.addView(
-        sv,
+        tv,
         0,
         ViewGroup.LayoutParams(
           ViewGroup.LayoutParams.MATCH_PARENT,
           ViewGroup.LayoutParams.MATCH_PARENT,
         ),
       )
-      surfaceView = sv
+      textureView = tv
 
       val exo = ExoPlayer.Builder(this).build()
-      exo.setVideoSurfaceView(sv)
+      exo.setVideoTextureView(tv)
       exo.addListener(loggingListener)
       exo.repeatMode = Player.REPEAT_MODE_ALL
       player = exo
