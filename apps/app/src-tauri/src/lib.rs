@@ -262,6 +262,15 @@ async fn install_update(app: tauri::AppHandle) -> Result<(), String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // reqwest 0.13 (pulled transitively by Tauri core) builds rustls clients with
+    // no default crypto provider on non-Windows targets, so the first HTTPS client
+    // panics ("No rustls crypto provider is configured"). Install the ring provider
+    // process-wide before anything builds a client. Windows uses native-tls, so
+    // this is gated off there.
+    #[cfg(not(windows))]
+    {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+    }
     #[allow(unused_mut)]
     let mut builder = tauri::Builder::default();
     // Window-state + self-updater are desktop-only; mobile gets its own story.

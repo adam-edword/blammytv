@@ -59,3 +59,8 @@ windows = { version = "0.61", features = [
 # cross-compiles cleanly. The native player isn't built here yet.
 [target.'cfg(not(windows))'.dependencies]
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+# Tauri core transitively pulls reqwest 0.13, which uses rustls with NO bundled
+# crypto provider — building any client panics until one is installed as the
+# process default. Declare rustls (same 0.23 line) with the ring provider so
+# run() can install_default() it at startup. See lib.rs.
+rustls = { version = "0.23", features = ["ring"] }
