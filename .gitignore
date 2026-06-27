@@ -21,5 +21,8 @@ dist-ssr/
 .env.*
 !.env.example
 
-# libmpv runtime DLL (place locally for tauri build; not committed)
+# libmpv runtime DLL (place locally for tauri build; not committed). The Windows
+# DLL also gets copied into the Android bundle assets and can linger at the repo
+# root — it's a Windows binary, never commit it anywhere.
 **/src-tauri/*.dll
+**/libmpv-2.dll
