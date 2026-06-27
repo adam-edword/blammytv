@@ -17,37 +17,22 @@ import androidx.media3.exoplayer.ExoPlayer
 class MainActivity : TauriActivity() {
   private var player: ExoPlayer? = null
   private var textureView: TextureView? = null
-  private var webViewRef: WebView? = null
 
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
   }
 
-  // M1: ExoPlayer renders into a plain (opaque) TextureView behind the
-  // transparent WebView — the config confirmed to show video. A fresh composite
-  // shows the frame; a *source switch* otherwise stayed black until a page
-  // reload, so onRenderedFirstFrame nudges the WebView to re-composite. Driven
-  // from JS via window.BlammyNativePlayer.
+  // M1: ExoPlayer renders into a plain opaque TextureView behind the transparent
+  // WebView. Measured behaviour: a FRESH TextureView composites (video shows),
+  // but reusing one across a source switch stayed black until a page reload. So
+  // playUrl() recreates the TextureView on every load — each source gets a fresh
+  // composite, the state we know works. Driven from JS via window.BlammyNativePlayer.
   override fun onWebViewCreate(webView: WebView) {
     super.onWebViewCreate(webView)
-    webViewRef = webView
     webView.setBackgroundColor(Color.TRANSPARENT)
     webView.post {
-      val content = findViewById<ViewGroup>(android.R.id.content)
-      val tv = TextureView(this)
-      content.addView(
-        tv,
-        0,
-        ViewGroup.LayoutParams(
-          ViewGroup.LayoutParams.MATCH_PARENT,
-          ViewGroup.LayoutParams.MATCH_PARENT,
-        ),
-      )
-      textureView = tv
-
       val exo = ExoPlayer.Builder(this).build()
-      exo.setVideoTextureView(tv)
       exo.addListener(loggingListener)
       exo.repeatMode = Player.REPEAT_MODE_ALL
       player = exo
@@ -55,29 +40,38 @@ class MainActivity : TauriActivity() {
       webView.addJavascriptInterface(Bridge(), "BlammyNativePlayer")
       Log.i(TAG, "native player bridge ready (window.BlammyNativePlayer)")
 
-      // TEMP probe (no console needed): auto-play a clip, then auto-switch after
-      // 6s so we can eyeball whether the onRenderedFirstFrame re-composite keeps
-      // the video visible across a switch. Remove once confirmed.
-      exo.setMediaItem(MediaItem.fromUri(BUNNY_URL))
-      exo.playWhenReady = true
-      exo.prepare()
-      tv.postDelayed({
-        Log.i(TAG, "auto-switch: reloading source to test re-composite")
-        exo.setMediaItem(MediaItem.fromUri(BUNNY_URL))
-        exo.prepare()
-      }, 6000)
+      // TEMP: auto-play on launch so compositing can be eyeballed without the
+      // JS console. Remove once the player is wired through the app UI.
+      playUrl(BUNNY_URL)
     }
+  }
+
+  // Recreate the TextureView each load → fresh surface → fresh composite.
+  private fun playUrl(url: String) {
+    val exo = player ?: return
+    val content = findViewById<ViewGroup>(android.R.id.content)
+    textureView?.let { content.removeView(it) }
+    val tv = TextureView(this)
+    content.addView(
+      tv,
+      0,
+      ViewGroup.LayoutParams(
+        ViewGroup.LayoutParams.MATCH_PARENT,
+        ViewGroup.LayoutParams.MATCH_PARENT,
+      ),
+    )
+    textureView = tv
+    exo.setVideoTextureView(tv)
+    exo.setMediaItem(MediaItem.fromUri(url))
+    exo.playWhenReady = true
+    exo.prepare()
   }
 
   inner class Bridge {
     @JavascriptInterface
     fun load(url: String) = runOnUiThread {
       Log.i(TAG, "load($url)")
-      player?.apply {
-        setMediaItem(MediaItem.fromUri(url))
-        playWhenReady = true
-        prepare()
-      }
+      playUrl(url)
     }
 
     @JavascriptInterface
@@ -117,15 +111,6 @@ class MainActivity : TauriActivity() {
 
     override fun onRenderedFirstFrame() {
       Log.i(TAG, "renderedFirstFrame — video is on the surface ✅")
-      // A fresh composite shows the frame, but after a source switch the WebView
-      // kept showing black until a reload. Nudge it to re-composite its
-      // transparent overlay over the new frame (a cheap repaint, analogous to
-      // what the reload was doing). Testing whether this is enough.
-      webViewRef?.evaluateJavascript(
-        "document.body.style.opacity='0.999';" +
-          "requestAnimationFrame(function(){document.body.style.opacity='';});",
-        null,
-      )
     }
   }
 
