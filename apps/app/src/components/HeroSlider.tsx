@@ -136,9 +136,8 @@ export function HeroSlider({
               <article
                 key={it.id}
                 className={"hero-slide" + (active ? " is-active" : "")}
+                style={artStyle}
               >
-                <div className="hero-slide__art" style={artStyle} />
-                <div className="hero-slide__scrim" />
                 <div className="hero-slide__fade" />
                 {active && (
                   <div className="hero-slide__content">

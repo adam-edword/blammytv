@@ -199,6 +199,10 @@ html.is-android .stream {
   border-radius: 33px;
   overflow: hidden;
   opacity: 0.4;
+  /* Artwork is the slide's OWN background (not a clipped child) so the rounded
+     corners don't get a light AA fringe. */
+  background-size: cover;
+  background-position: center;
   transition:
     opacity 0.42s ease,
     box-shadow 0.2s ease;
@@ -206,30 +210,14 @@ html.is-android .stream {
 .hero-slide.is-active {
   opacity: 1;
 }
-.hero-slide__art {
-  position: absolute;
-  inset: 0;
-  background-size: cover;
-  background-position: center;
-}
-.hero-slide__scrim {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    90deg,
-    rgba(0, 0, 0, 0.88) 0%,
-    rgba(0, 0, 0, 0.45) 45%,
-    transparent 78%
-  );
-}
 /* Fade the bottom of the card into the page background so it melts into the
    layout (matches the mockup). Painted under the content. */
 .hero-slide__fade {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  /* Raised: solid bg a little higher (8%), fully transparent much higher (62%). */
-  background: linear-gradient(to top, var(--bg) 8%, transparent 62%);
+  /* Solid bg up to 4%, fully transparent by 62%. */
+  background: linear-gradient(to top, var(--bg) 4%, transparent 62%);
 }
 .hero-slide__content {
   position: absolute;
@@ -238,8 +226,8 @@ html.is-android .stream {
   max-width: 54%;
 }
 .hero-slide__logo {
-  max-width: 360px;
-  max-height: 120px;
+  max-width: 540px;
+  max-height: 180px;
   margin-bottom: 12px;
 }
 .hero-slide__title {
@@ -251,6 +239,8 @@ html.is-android .stream {
 }
 .hero-slide__synopsis {
   margin: 0 0 12px;
+  /* Bring the description in (narrower than the title/meta block). */
+  max-width: 62%;
   font-size: 12px;
   line-height: 1.45;
   color: rgba(255, 255, 255, 0.95);
