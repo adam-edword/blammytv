@@ -107,6 +107,18 @@ export function App() {
     return () => window.removeEventListener("popstate", onPop);
   }, []);
 
+  // TEMP spike: log every keydown so we can see exactly what the WebView
+  // delivers when the emulator D-pad / a TV remote is pressed. This decides the
+  // spatial-navigation approach. Remove once we've read the output.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) =>
+      console.log(
+        `[keytest] key=${e.key} code=${e.code} keyCode=${e.keyCode} target=${(e.target as Element)?.tagName ?? "?"}`,
+      );
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, []);
+
   const push = useCallback((screen: Screen) => {
     setNav((n) => {
       // Truncate any forward entries, like a browser does on a new navigation.
