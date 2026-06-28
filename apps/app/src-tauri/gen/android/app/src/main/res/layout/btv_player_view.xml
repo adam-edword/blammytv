@@ -1,13 +1,47 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Fullscreen Media3 PlayerView (opaque SurfaceView, on top of the WebView)
-     using the custom BlammyTV controller layout. -->
-<androidx.media3.ui.PlayerView
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- Fullscreen player container: the Media3 PlayerView (opaque SurfaceView, on
+     top of the WebView) with the custom BlammyTV controller, plus our own
+     loading + error overlays on top (Media3's default buffering spinner is
+     disabled via show_buffering="never"). -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#000000"
-    app:surface_type="surface_view"
-    app:use_controller="true"
-    app:show_buffering="always"
-    app:controller_layout_id="@layout/btv_player_controls" />
+    android:background="#000000">
+
+  <androidx.media3.ui.PlayerView
+      android:id="@+id/btv_player"
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      app:surface_type="surface_view"
+      app:use_controller="true"
+      app:show_buffering="never"
+      app:controller_layout_id="@layout/btv_player_controls" />
+
+  <!-- "loading" wordmark (scramble-settle, driven by MainActivity) — replaces
+       the default spinner. -->
+  <TextView
+      android:id="@+id/btv_loading"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_gravity="center"
+      android:fontFamily="@font/stack_sans_headline"
+      android:textColor="#FFFFFF"
+      android:textSize="30sp"
+      android:letterSpacing="0.04"
+      android:visibility="gone" />
+
+  <!-- Playback error message (e.g. unsupported codec). -->
+  <TextView
+      android:id="@+id/btv_error"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_gravity="center"
+      android:gravity="center"
+      android:paddingStart="40dp"
+      android:paddingEnd="40dp"
+      android:fontFamily="@font/stack_sans_headline"
+      android:textColor="#FFFFFF"
+      android:textSize="22sp"
+      android:visibility="gone" />
+</FrameLayout>

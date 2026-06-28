@@ -33,6 +33,7 @@ import org.json.JSONObject
 // via window.BlammyNativePlayer.
 class MainActivity : TauriActivity() {
   private var player: ExoPlayer? = null
+  private var playerContainer: View? = null
   private var playerView: PlayerView? = null
   private var webViewRef: WebView? = null
 
@@ -44,6 +45,11 @@ class MainActivity : TauriActivity() {
   private var speedButton: Button? = null
   private var speedIndex = SPEED_DEFAULT_INDEX
 
+  // Loading + error overlays (replace Media3's default spinner).
+  private var loadingView: TextView? = null
+  private var errorView: TextView? = null
+  private var loadingFrame = 0
+
   // Back closes the player. wry consumes the Back key INSIDE the WebView
   // (webView.goBack()) before the OnBackPressedDispatcher or onBackPressed()
   // ever run — so neither could intercept it, and Back just walked the React
@@ -52,7 +58,7 @@ class MainActivity : TauriActivity() {
   // the player is showing we consume Back here and close the player.
   override fun dispatchKeyEvent(event: KeyEvent): Boolean {
     if (event.keyCode == KeyEvent.KEYCODE_BACK &&
-      playerView?.visibility == View.VISIBLE
+      playerContainer?.visibility == View.VISIBLE
     ) {
       if (event.action == KeyEvent.ACTION_UP) closePlayer()
       return true // consume both DOWN and UP so the WebView never navigates
@@ -82,12 +88,14 @@ class MainActivity : TauriActivity() {
       // the LAST child of the content root it sits on top of the WebView, GONE
       // until we play.
       val content = findViewById<ViewGroup>(android.R.id.content)
-      val view = LayoutInflater.from(this)
-        .inflate(R.layout.btv_player_view, content, false) as PlayerView
+      val container = LayoutInflater.from(this)
+        .inflate(R.layout.btv_player_view, content, false) as ViewGroup
+      container.visibility = View.GONE
+
+      val view = container.findViewById<PlayerView>(R.id.btv_player)
       view.player = exo
       view.controllerShowTimeoutMs = 3500
       view.controllerHideOnTouch = true
-      view.visibility = View.GONE
 
       logoView = view.findViewById(R.id.btv_logo)
       metaView = view.findViewById(R.id.btv_meta)
@@ -96,8 +104,11 @@ class MainActivity : TauriActivity() {
       speedButton = view.findViewById<Button>(R.id.btv_speed)?.also { btn ->
         btn.setOnClickListener { cycleSpeed() }
       }
+      loadingView = container.findViewById(R.id.btv_loading)
+      errorView = container.findViewById(R.id.btv_error)
 
-      content.addView(view)
+      content.addView(container)
+      playerContainer = container
       playerView = view
 
       webView.addJavascriptInterface(Bridge(), "BlammyNativePlayer")
@@ -109,14 +120,14 @@ class MainActivity : TauriActivity() {
   // switches — no surface recreation needed now that it's opaque and on top.
   private fun showPlayer(url: String, metaJson: String) {
     val exo = player ?: return
-    val view = playerView ?: return
     applyMeta(metaJson)
     resetSpeed()
+    hideError()
     exo.setMediaItem(MediaItem.fromUri(url))
     exo.playWhenReady = true
     exo.prepare()
-    view.visibility = View.VISIBLE
-    view.requestFocus()
+    playerContainer?.visibility = View.VISIBLE
+    playerView?.requestFocus()
   }
 
   // Populate the chrome from the forwarded meta (logo URL + the three text
@@ -172,7 +183,54 @@ class MainActivity : TauriActivity() {
   private fun hidePlayer() {
     player?.stop()
     player?.clearMediaItems()
-    playerView?.visibility = View.GONE
+    hideLoading()
+    hideError()
+    playerContainer?.visibility = View.GONE
+  }
+
+  // "loading" wordmark with a per-character scramble that settles left-to-right
+  // (the native echo of the web build's slot-text roll). One pass per buffer.
+  private val loadingRunnable = object : Runnable {
+    override fun run() {
+      val v = loadingView ?: return
+      val settled = loadingFrame / 2
+      if (settled >= LOADING_TEXT.length) {
+        v.text = LOADING_TEXT
+        return
+      }
+      val sb = StringBuilder()
+      for (i in LOADING_TEXT.indices) {
+        sb.append(if (i < settled) LOADING_TEXT[i] else ('a'..'z').random())
+      }
+      v.text = sb
+      loadingFrame++
+      v.postDelayed(this, 70)
+    }
+  }
+
+  private fun showLoading() {
+    val v = loadingView ?: return
+    if (v.visibility == View.VISIBLE) return
+    v.visibility = View.VISIBLE
+    loadingFrame = 0
+    v.removeCallbacks(loadingRunnable)
+    v.post(loadingRunnable)
+  }
+
+  private fun hideLoading() {
+    val v = loadingView ?: return
+    v.removeCallbacks(loadingRunnable)
+    v.visibility = View.GONE
+  }
+
+  private fun showError() {
+    hideLoading()
+    errorView?.text = "Can't play this source"
+    errorView?.visibility = View.VISIBLE
+  }
+
+  private fun hideError() {
+    errorView?.visibility = View.GONE
   }
 
   // Native-initiated close (Back button): hide, then tell React to drop its
@@ -219,10 +277,16 @@ class MainActivity : TauriActivity() {
         else -> state.toString()
       }
       Log.i(TAG, "playbackState=$name")
+      when (state) {
+        Player.STATE_BUFFERING -> showLoading()
+        Player.STATE_READY -> { hideLoading(); hideError() }
+        else -> hideLoading() // IDLE/ENDED — leave any error overlay up
+      }
     }
 
     override fun onPlayerError(error: PlaybackException) {
       Log.e(TAG, "playerError: ${error.errorCodeName} — ${error.message}", error)
+      showError()
     }
 
     override fun onVideoSizeChanged(videoSize: VideoSize) {
@@ -242,6 +306,7 @@ class MainActivity : TauriActivity() {
 
   companion object {
     private const val TAG = "BlammyPlayer"
+    private const val LOADING_TEXT = "loading"
     private val SPEEDS = floatArrayOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f)
     private const val SPEED_DEFAULT_INDEX = 2 // 1.0×
   }
