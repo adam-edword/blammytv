@@ -195,11 +195,10 @@ porting the whole UI.
   on first reveal. Re-add a quick FPS/long-frame overlay to measure (see commit
   `5ae114f` for the throwaway `lib/fpsmeter.ts`); instrument the focus-move
   handler vs. the scroll rAF separately before changing anything.
-- **Focused-card glow ghost.** The focused card's white `box-shadow` glow can
-  leave stale paint ("white box") in the scroll viewport under CSS `zoom` — a
-  Blink invalidation quirk. Promoting layers (`will-change`) did not fix it and
-  added GPU pressure (reverted). The robust fix is to stop using `box-shadow`
-  for the glow: render it as a self-contained element/pseudo behind the art
-  (radial-gradient or blurred box toggled via `opacity`, like the hero glow) so
-  it composites/clears with the card instead of bleeding into the parent layer.
-  May already be reduced now that the glow no longer fades (snaps) — confirm.
+- **Focused-card glow ghost.** ✅ Fixed: the focused card's white `box-shadow`
+  glow left stale paint ("white box") in the scroll viewport under CSS `zoom`
+  (a Blink invalidation quirk; `will-change` didn't help and was reverted). The
+  glow is now a blurred `.stream-card__art::after` element toggled via `opacity`
+  (no `box-shadow`), so it composites/clears with the card. Watch for perf: the
+  `filter: blur` is on every card's `::after` but should only rasterise the
+  focused one (opacity 0 elsewhere) — fold a check into the perf pass.

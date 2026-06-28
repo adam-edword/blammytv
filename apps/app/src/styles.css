@@ -148,7 +148,9 @@ body,
 }
 .stream-card.is-focused .stream-card__art {
   transform: scale(1.05);
-  box-shadow: 0 0 24px 2px rgba(255, 255, 255, 0.42);
+}
+.stream-card.is-focused .stream-card__art::after {
+  opacity: 0.5;
 }
 .top-tab.is-focused {
   /* Beats `.top-tab { opacity: 0.3 }` (more specific) so the focused tab is
@@ -2476,7 +2478,9 @@ html.is-android * {
 .stream-card__art {
   border-radius: 20px;
   background: var(--panel-2);
-  overflow: hidden;
+  /* No `overflow: hidden`: the focus glow (::after) needs to bleed past the art
+     edges. The image is rounded directly instead (see below). */
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2487,6 +2491,24 @@ html.is-android * {
   transition:
     transform 0.15s ease,
     outline-color 0.15s ease;
+}
+
+/* Focus glow: a soft blurred halo behind the art, toggled by opacity. We do NOT
+   use `box-shadow` for this — a box-shadow on a card inside a horizontally
+   scrolling row leaves stale "ghost box" paint under CSS `zoom` (Blink doesn't
+   invalidate the shadow's bleed on fast scroll). A blurred element composites
+   and clears with the card, so it can't ghost. */
+.stream-card__art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: #fff;
+  filter: blur(16px);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  pointer-events: none;
+  z-index: -1;
 }
 
 .stream-card--poster .stream-card__art {
@@ -2506,6 +2528,8 @@ html.is-android * {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  /* Round the image directly (the art no longer clips via overflow: hidden). */
+  border-radius: inherit;
 }
 
 .stream-card__placeholder {
