@@ -246,8 +246,15 @@ html.is-android .stream {
   inset: 0;
   pointer-events: none;
   border-radius: inherit;
-  /* Solid bg up to 4%, fully transparent by 62%. */
-  background: linear-gradient(to top, var(--bg) 4%, transparent 62%);
+  /* Radial shading over the art (top layer) + the bottom-up fade into the page
+     bg, raised so it carries further up the card (to match the Figma). */
+  background:
+    radial-gradient(
+      67.05% 78.72% at 70.13% 43.38%,
+      rgba(11, 11, 14, 0) 0%,
+      rgba(11, 11, 14, 0.65) 100%
+    ),
+    linear-gradient(to top, var(--bg) 4%, transparent 85%);
 }
 .hero-slide__content {
   position: absolute;
@@ -299,13 +306,24 @@ html.is-android .stream {
   gap: 7px;
 }
 /* Browse-mode focus ring on the active slide (whole carousel is the focus). */
-/* Hero focus: dim the neighbours + a subtle lift on the active slide, so the
-   active pops by contrast. No glow/overflow to fight the scroll-container clip. */
-.hero-slider.is-focused .hero-slide:not(.is-active) {
-  opacity: 0.45;
+/* Hero focus: a soft white glow over the active card as a separate layer
+   (transparent centre, halo over the neighbours). No scale, so all slides stay
+   the same size. */
+.hero-slider__glow {
+  position: absolute;
+  top: 10px;
+  left: 11%;
+  width: 78%;
+  aspect-ratio: 2 / 1;
+  border-radius: 33px 33px 0 0;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0;
+  box-shadow: 0 0 64px 4px rgba(255, 255, 255, 0.55);
+  transition: opacity 0.25s ease;
 }
-.hero-slider.is-focused .hero-slide.is-active {
-  transform: scale(1.012);
+.hero-slider.is-focused .hero-slider__glow {
+  opacity: 1;
 }
 
 body {

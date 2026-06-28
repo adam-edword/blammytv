@@ -30,7 +30,7 @@ export function StreamCard({
       layout.node?.scrollIntoView({
         block: "center",
         inline: "center",
-        behavior: "smooth",
+        behavior: "instant" as ScrollBehavior,
       }),
   });
   // Mirror norigin's focus onto the native DOM focus too (keeps a11y honest).
