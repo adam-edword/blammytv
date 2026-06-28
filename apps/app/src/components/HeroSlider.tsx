@@ -164,7 +164,7 @@ export function HeroSlider({
                         onPress={() => onOpen?.(it)}
                         onArrow={watchArrow}
                       >
-                        <PlayIcon size={20} />
+                        <PlayIcon size={14} />
                         Watch Now
                       </HeroAction>
                       <HeroAction
@@ -175,7 +175,7 @@ export function HeroSlider({
                         onPress={() => onOpen?.(it)}
                         onArrow={infoArrow}
                       >
-                        <InfoIcon size={20} />
+                        <InfoIcon size={14} />
                         More Info
                       </HeroAction>
                     </div>
@@ -185,9 +185,6 @@ export function HeroSlider({
             );
           })}
         </div>
-      </div>
-      <div className="hero-slider__pager" aria-hidden="true">
-        {safeIndex + 1} / {count}
       </div>
     </div>
   );

@@ -172,8 +172,9 @@ html.is-android .stream {
 }
 .hero-slider {
   position: relative;
-  /* Small gap below the nav — tucks up just under the bar (tune this top value). */
-  margin: 6px 0 24px;
+  /* Small gap below the nav (top), and bleed left to the screen edge (-44px
+     cancels the .stream content inset) so the peeks are symmetric. */
+  margin: 6px 0 24px -44px;
 }
 .hero-slider__viewport {
   overflow: hidden;
@@ -181,20 +182,21 @@ html.is-android .stream {
 }
 .hero-slider__track {
   display: flex;
-  /* Centre the active 78%-wide slide (11% margin each side); pitch is 80%. */
-  transform: translateX(calc(11% - var(--hero-i, 0) * 80%));
-  transition: transform 0.42s cubic-bezier(0.22, 0.61, 0.36, 1);
+  /* Centre the active 78%-wide slide (11% margin each side); pitch is 79%
+     (78% slide + 1% gap). */
+  transform: translateX(calc(11% - var(--hero-i, 0) * 79%));
+  transition: transform 0.7s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 .hero-slide {
   position: relative;
   flex: 0 0 78%;
-  margin-right: 2%;
+  margin-right: 1%;
   /* Height comes from the (zoom-safe) width via aspect-ratio — `vh` is wrong
      here because the page is CSS-`zoom`ed for the TV viewport. Lower ratio =
      taller card; this is the knob for "row below barely peeks". Neighbours are
      the SAME size as the active slide, just dimmed + cut off at the edges. */
   aspect-ratio: 2 / 1;
-  border-radius: 22px;
+  border-radius: 33px;
   overflow: hidden;
   opacity: 0.4;
   transition:
@@ -226,7 +228,8 @@ html.is-android .stream {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(to top, var(--bg) 0%, transparent 42%);
+  /* Raised: solid bg a little higher (8%), fully transparent much higher (62%). */
+  background: linear-gradient(to top, var(--bg) 8%, transparent 62%);
 }
 .hero-slide__content {
   position: absolute;
@@ -248,9 +251,9 @@ html.is-android .stream {
 }
 .hero-slide__synopsis {
   margin: 0 0 12px;
-  font-size: 17px;
+  font-size: 12px;
   line-height: 1.45;
-  color: rgba(255, 255, 255, 0.82);
+  color: rgba(255, 255, 255, 0.95);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -258,32 +261,28 @@ html.is-android .stream {
 }
 .hero-slide__meta {
   margin: 0;
-  font-size: 15px;
+  font-size: 13px;
   color: rgba(255, 255, 255, 0.6);
 }
 .hero-slide__actions {
   display: flex;
-  gap: 14px;
+  gap: 12px;
   margin-top: 18px;
+}
+/* Smaller hero action buttons (~half) on the TV slider. */
+.hero-slide__actions .btn {
+  font-size: 12px;
+  padding: 8px 14px;
+  border-radius: 13px;
+}
+.hero-slide__actions .hero__btn {
+  gap: 7px;
 }
 /* Browse-mode focus ring on the active slide (whole carousel is the focus). */
 .hero-slider.is-focused .hero-slide.is-active {
   box-shadow:
     0 0 0 3px rgb(var(--accent-rgb)),
     0 16px 44px rgba(0, 0, 0, 0.6);
-}
-.hero-slider__pager {
-  position: absolute;
-  top: 22px;
-  right: 13%;
-  font-family: var(--font-headline);
-  font-weight: 600;
-  font-size: 15px;
-  letter-spacing: 0.04em;
-  color: rgba(255, 255, 255, 0.72);
-  background: rgba(0, 0, 0, 0.45);
-  padding: 5px 12px;
-  border-radius: 999px;
 }
 
 body {
