@@ -180,8 +180,21 @@ html.is-android .app-header__version {
   font-size: 10px;
 }
 /* Smaller nav → smaller gap down to the hero. */
+/* Floating nav: the header is absolutely positioned and transparent so content
+   scrolls behind it. The content area gets top clearance so non-hero screens
+   aren't hidden under the bar. */
+html.is-android .app-shell {
+  padding-top: 0;
+}
 html.is-android .app-header {
-  margin-bottom: 10px;
+  position: absolute;
+  top: 22px;
+  left: 44px;
+  right: 0;
+  margin: 0;
+}
+html.is-android .app-main {
+  padding-top: 96px;
 }
 /* True-centre the tabs: give the two side sections equal flex so the centre
    sits dead-centre regardless of the wider clock side vs the icon side. */
@@ -196,12 +209,15 @@ html.is-android .app-header__actions {
 /* TV hero: a peek slider (active slide centered, neighbours peeking), driven by
    the D-pad — see HeroSlider. No auto-advance. */
 
-/* The TV hero is a card BELOW the nav, not a full-bleed backdrop, so cancel the
-   Stream content's bleed-up-behind-the-header (that's a desktop-only effect for
-   the classic FeaturedHero). */
+/* The Stream content bleeds up behind the floating nav: cancel the app-main top
+   clearance so the hero sits near the top (the hero's own top margin keeps it
+   just clear of the bar and leaves room above for the focus glow). */
 html.is-android .stream {
-  margin-top: 0;
-  height: 100%;
+  margin-top: -96px;
+  height: calc(100% + 96px);
+}
+html.is-android .hero-slider {
+  margin-top: 64px;
 }
 .hero-slider {
   position: relative;
@@ -210,6 +226,8 @@ html.is-android .stream {
   margin: 6px 0 24px -44px;
 }
 .hero-slider__viewport {
+  position: relative;
+  z-index: 1;
   overflow: hidden;
   padding: 10px 0;
 }
@@ -317,7 +335,10 @@ html.is-android .stream {
   aspect-ratio: 2 / 1;
   border-radius: 33px 33px 0 0;
   pointer-events: none;
-  z-index: 2;
+  /* Behind the slides: neighbours cover its sides and sliding cards pass over it
+     (no floating-over-neighbours, no odd transition). The halo peeks around the
+     active card's edges + top/bottom. */
+  z-index: 0;
   opacity: 0;
   box-shadow: 0 0 64px 4px rgba(255, 255, 255, 0.55);
   transition: opacity 0.25s ease;
