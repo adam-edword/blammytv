@@ -142,19 +142,19 @@ body,
 .stream-card {
   transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
+/* Card focus: glow + lift on the artwork only (the title/meta below stay put). */
 .stream-card.is-focused {
-  transform: scale(1.06);
   z-index: 2;
-  box-shadow:
-    0 0 0 3px rgb(var(--accent-rgb)),
-    0 12px 32px rgba(0, 0, 0, 0.55);
+}
+.stream-card.is-focused .stream-card__art {
+  transform: scale(1.05);
+  box-shadow: 0 0 24px 2px rgba(255, 255, 255, 0.42);
 }
 .top-tab.is-focused {
-  /* Beats `.top-tab { opacity: 0.3 }` (equal specificity, but this is more
-     specific) so the focused tab + its ring are full-strength. */
+  /* Beats `.top-tab { opacity: 0.3 }` (more specific) so the focused tab is
+     full-strength, with an accent underline (not a boxed ring). */
   opacity: 1;
-  background: rgb(var(--accent-rgb) / 0.18);
-  box-shadow: inset 0 0 0 2px rgb(var(--accent-rgb));
+  box-shadow: inset 0 -3px 0 0 rgb(var(--accent-rgb));
 }
 .hero__btn.is-focused {
   box-shadow: 0 0 0 3px rgb(var(--accent-rgb));
@@ -299,11 +299,24 @@ html.is-android .stream {
   gap: 7px;
 }
 /* Browse-mode focus ring on the active slide (whole carousel is the focus). */
-/* Hero focus: no hard border (too heavy on a huge element + the square bottom).
-   A soft accent glow + subtle lift reads as "raised and selected". */
-.hero-slider.is-focused .hero-slide.is-active {
-  transform: scale(1.012);
-  box-shadow: 0 16px 56px 4px rgb(var(--accent-rgb) / 0.5);
+/* Hero focus: a soft white glow rendered OUTSIDE the clipped viewport so it
+   isn't cut off. It overlays the centred active card with a transparent centre
+   (the card shows through) and a halo that sits over the neighbours. */
+.hero-slider__glow {
+  position: absolute;
+  top: 10px;
+  left: 11%;
+  width: 78%;
+  aspect-ratio: 2 / 1;
+  border-radius: 33px 33px 0 0;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0;
+  box-shadow: 0 0 64px 3px rgba(255, 255, 255, 0.55);
+  transition: opacity 0.25s ease;
+}
+.hero-slider.is-focused .hero-slider__glow {
+  opacity: 1;
 }
 
 body {
@@ -2395,10 +2408,10 @@ body.theater-mode .app-header:hover {
   gap: 20px;
   overflow-x: auto;
   /* The scroll container clips overflow on every edge, which would cut off a
-     card's hover lift + outline. Pad all sides for room; the negative left
+     focused card's glow + lift. Pad top/bottom for glow room; the negative left
      margin pulls the first card back to line up with the row title (the left
      room sits inside the page's bleed, so nothing overflows on the right). */
-  padding: 12px 16px 16px;
+  padding: 24px 16px;
   margin-left: -16px;
   scrollbar-width: thin;
 }
@@ -2431,7 +2444,10 @@ body.theater-mode .app-header:hover {
   align-items: center;
   justify-content: center;
   outline: 2px solid transparent;
-  transition: transform 0.15s ease, outline-color 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    outline-color 0.15s ease;
 }
 
 .stream-card--poster .stream-card__art {

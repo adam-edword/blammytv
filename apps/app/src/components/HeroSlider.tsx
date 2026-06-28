@@ -126,6 +126,9 @@ export function HeroSlider({
       className={"hero-slider" + (focused && !entered ? " is-focused" : "")}
       ref={ref}
     >
+      {/* Focus glow — outside the clipped viewport so it isn't cut off; sits over
+          the centred active card with a transparent centre. */}
+      <div className="hero-slider__glow" aria-hidden="true" />
       <div className="hero-slider__viewport">
         <div
           className="hero-slider__track"
