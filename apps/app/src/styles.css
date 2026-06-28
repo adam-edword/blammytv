@@ -149,8 +149,11 @@ body,
 .stream-card.is-focused .stream-card__art {
   transform: scale(1.05);
 }
+/* blur only on the focused card (one layer), not all 16 cards' pseudo-elements;
+   no opacity transition so it snaps (avoids a crisp un-blurred box mid-fade). */
 .stream-card.is-focused .stream-card__art::after {
   opacity: 0.5;
+  filter: blur(16px);
 }
 .top-tab.is-focused {
   /* Beats `.top-tab { opacity: 0.3 }` (more specific) so the focused tab is
@@ -2504,9 +2507,7 @@ html.is-android * {
   inset: 0;
   border-radius: inherit;
   background: #fff;
-  filter: blur(16px);
   opacity: 0;
-  transition: opacity 0.12s ease;
   pointer-events: none;
   z-index: -1;
 }
@@ -2571,6 +2572,17 @@ html.is-android .stream-card__meta {
 html.is-android .stream-card:hover .stream-card__art {
   transform: none;
   outline-color: transparent;
+}
+
+/* TV: norigin owns the visible focus cue (the `.is-focused` glow). We also
+   mirror focus onto native DOM focus for a11y, but during fast D-pad nav the
+   native focus can lag/diverge from norigin — and the browser's default focus
+   ring then lingers as a stray "box" on whichever element last held native
+   focus (e.g. a glow on one card, a ring on another). Suppress all native
+   focus rings on the TV build; the `.is-focused` styling is the only cue. */
+html.is-android :focus,
+html.is-android :focus-visible {
+  outline: none;
 }
 
 /* TV: sit the row title closer to its cards (the track keeps its 34px top pad

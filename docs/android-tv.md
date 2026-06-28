@@ -195,10 +195,16 @@ porting the whole UI.
   on first reveal. Re-add a quick FPS/long-frame overlay to measure (see commit
   `5ae114f` for the throwaway `lib/fpsmeter.ts`); instrument the focus-move
   handler vs. the scroll rAF separately before changing anything.
-- **Focused-card glow ghost.** ✅ Fixed: the focused card's white `box-shadow`
-  glow left stale paint ("white box") in the scroll viewport under CSS `zoom`
-  (a Blink invalidation quirk; `will-change` didn't help and was reverted). The
-  glow is now a blurred `.stream-card__art::after` element toggled via `opacity`
-  (no `box-shadow`), so it composites/clears with the card. Watch for perf: the
-  `filter: blur` is on every card's `::after` but should only rasterise the
-  focused one (opacity 0 elsewhere) — fold a check into the perf pass.
+- **The "white box" was the native focus ring, not a glow ghost.** ✅ Fixed.
+  Initially misdiagnosed as the card `box-shadow` glow ghosting on scroll; the
+  giveaway was the box appearing on a *different* card than the `.is-focused`
+  glow. Cause: we mirror norigin focus onto native DOM focus (for a11y), but
+  during fast D-pad nav the native focus lags/diverges, and the browser draws
+  its default focus ring on whichever element last held native focus. Fix:
+  `html.is-android :focus { outline: none }` — norigin's `.is-focused` is the
+  only focus cue on TV. (Possible latent issue: native focus diverging could let
+  Enter activate a stale card via the button's native click; not observed, but
+  if it happens, stop mirroring native focus on Android or blur the old card.)
+  Separately, the card glow was reworked off `box-shadow` to a blurred
+  `::after` (perf + it's a cleaner glow); `filter: blur` is scoped to the
+  focused card only.
