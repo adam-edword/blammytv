@@ -160,6 +160,19 @@ body,
   box-shadow: 0 0 0 3px rgb(var(--accent-rgb));
 }
 
+/* Smaller, more premium nav text on the TV (matches the mockup). Desktop keeps
+   its larger header. */
+html.is-android .top-tab {
+  font-size: 16px;
+}
+html.is-android .app-header__name,
+html.is-android .app-header__clock {
+  font-size: 19px;
+}
+html.is-android .app-header__version {
+  font-size: 9px;
+}
+
 /* TV hero: a peek slider (active slide centered, neighbours peeking), driven by
    the D-pad — see HeroSlider. No auto-advance. */
 
@@ -197,10 +210,10 @@ html.is-android .stream {
      the SAME size as the active slide, just dimmed + cut off at the edges. */
   aspect-ratio: 2 / 1;
   border-radius: 33px;
-  overflow: hidden;
   opacity: 0.4;
-  /* Artwork is the slide's OWN background (not a clipped child) so the rounded
-     corners don't get a light AA fringe. */
+  /* Artwork is the slide's OWN background (not a clipped child), and there's NO
+     overflow:hidden — border-radius rounds the background cleanly, while the
+     overflow clip was the source of the light AA fringe on the corners. */
   background-size: cover;
   background-position: center;
   transition:
@@ -216,6 +229,7 @@ html.is-android .stream {
   position: absolute;
   inset: 0;
   pointer-events: none;
+  border-radius: inherit;
   /* Solid bg up to 4%, fully transparent by 62%. */
   background: linear-gradient(to top, var(--bg) 4%, transparent 62%);
 }
@@ -226,8 +240,8 @@ html.is-android .stream {
   max-width: 54%;
 }
 .hero-slide__logo {
-  max-width: 540px;
-  max-height: 180px;
+  max-width: 270px;
+  max-height: 90px;
   margin-bottom: 12px;
 }
 .hero-slide__title {
