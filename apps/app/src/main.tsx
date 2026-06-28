@@ -34,8 +34,6 @@ if (isOverlay) {
     throttle: 100,
     throttleKeypresses: true,
     useGetBoundingClientRect: true,
-    // TEMP: log navigation decisions while we verify the fix. Remove once solid.
-    debug: true,
   });
   root.render(
     <React.StrictMode>

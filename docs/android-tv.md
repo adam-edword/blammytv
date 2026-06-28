@@ -163,3 +163,19 @@ Everything else is known-tractable (port the UI, add focus nav). The player is
 the only true unknown — if libmpv-into-a-SurfaceView-under-the-webview feels good,
 the project is real; if it's painful, better to learn that on day one than after
 porting the whole UI.
+
+## Follow-ups / backlog
+
+- **Bring the peek-slider hero to Windows.** The new remote-driven `HeroSlider`
+  (peek slider + two-level focus, no auto-advance) currently renders on Android
+  only; desktop still uses the classic auto-advancing `FeaturedHero`. Decision:
+  adopt the slider on Windows too. For desktop it needs mouse affordances —
+  click a peeking neighbour to slide, click the active slide / Watch Now to play,
+  and either drop the two-level "enter" step or map it to hover. Likely unify the
+  two heroes once that's wired.
+- **Spatial navigation: remaining screens.** Only the Stream tab (tabs + hero +
+  rows) is wired so far. Still to do: Live TV, Discover, the title/source
+  selector, settings/onboarding forms, and the EPG grid (the hard one).
+- **AVD keyboard → D-pad.** The emulator isn't mapping host arrow keys to the
+  D-pad, so testing relies on `adb shell input keyevent`. Worth fixing the AVD
+  config for a smoother dev loop.

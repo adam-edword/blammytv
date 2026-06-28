@@ -1,9 +1,16 @@
 import { useMemo } from "react";
 import type { ConfigBlob, VodItem } from "@blammytv/shared";
 import { FeaturedHero } from "../components/FeaturedHero";
+import { HeroSlider } from "../components/HeroSlider";
 import { MediaRow } from "../components/MediaRow";
 import { SourceError } from "../components/SourceError";
 import { vodCatalog } from "../lib/vod";
+
+/** TV build (Android): the remote-driven peek-slider hero. Desktop keeps the
+ * classic auto-advancing FeaturedHero (until the Windows port lands). */
+const isTv =
+  typeof document !== "undefined" &&
+  document.documentElement.classList.contains("is-android");
 
 /** The Stream home: a featured hero carousel over a stack of horizontally
  * scrolling rows. Rows and the featured list come straight from the config
@@ -40,7 +47,11 @@ export function StreamScreen({
   // root and sit genuinely below the tabs.
   return (
     <div className="stream">
-      <FeaturedHero items={featured} onOpen={onOpen} />
+      {isTv ? (
+        <HeroSlider items={featured} onOpen={onOpen} />
+      ) : (
+        <FeaturedHero items={featured} onOpen={onOpen} />
+      )}
       <div className="stream__rows">
         {stream.rows.map((row) => (
           <MediaRow
