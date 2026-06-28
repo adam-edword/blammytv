@@ -184,3 +184,22 @@ porting the whole UI.
 - **AVD keyboard → D-pad.** The emulator isn't mapping host arrow keys to the
   D-pad, so testing relies on `adb shell input keyevent`. Worth fixing the AVD
   config for a smoother dev loop.
+- **Row-nav performance pass.** Holding ◀/▶ for a fast full-row swipe still dips
+  to ~40fps with a handful of long (>32ms, ~60ms) frames — livable, not smooth.
+  Confirmed app-side, not the emulator (host-GPU mode made no difference) and
+  GPU/paint-bound (emulator logged `Failed to find EmulatedEglImage` texture
+  thrash). Already fixed the worst offender: `.stream-card__art` was animating
+  `box-shadow` (non-compositable → full repaint per frame). Remaining suspects
+  for the pass: the CSS `zoom` on `<body>` forcing per-frame repaints on every
+  scroll, the per-frame `scrollLeft` rAF in `lib/scroll.ts`, and poster decode
+  on first reveal. Re-add a quick FPS/long-frame overlay to measure (see commit
+  `5ae114f` for the throwaway `lib/fpsmeter.ts`); instrument the focus-move
+  handler vs. the scroll rAF separately before changing anything.
+- **Focused-card glow ghost.** The focused card's white `box-shadow` glow can
+  leave stale paint ("white box") in the scroll viewport under CSS `zoom` — a
+  Blink invalidation quirk. Promoting layers (`will-change`) did not fix it and
+  added GPU pressure (reverted). The robust fix is to stop using `box-shadow`
+  for the glow: render it as a self-contained element/pseudo behind the art
+  (radial-gradient or blurred box toggled via `opacity`, like the hero glow) so
+  it composites/clears with the card instead of bleeding into the parent layer.
+  May already be reduced now that the glow no longer fades (snaps) — confirm.
