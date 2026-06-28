@@ -67,11 +67,14 @@ class MainActivity : TauriActivity() {
       if (event.action == KeyEvent.ACTION_UP) closePlayer()
       return true // consume both DOWN and UP so the WebView never navigates
     }
-    // Any remote key while the controls are up resets their idle fade-out timer.
+    // A remote key reveals the controls and resets their idle fade-out timer;
+    // the first press while they're hidden only reveals them.
     if (event.action == KeyEvent.ACTION_DOWN &&
-      playerView?.isControllerFullyVisible == true
+      playerContainer?.visibility == View.VISIBLE
     ) {
-      scheduleHideControls()
+      val wasHidden = controlsHidden()
+      showControls()
+      if (wasHidden) return true
     }
     return super.dispatchKeyEvent(event)
   }
@@ -119,19 +122,19 @@ class MainActivity : TauriActivity() {
       // alpha on show and on our own idle timer.
       view.controllerShowTimeoutMs = 0
       view.controllerHideOnTouch = false
-      // Don't let Media3 re-show the controller on every state change — that
-      // fought our fade and caused flicker. We're the only one that shows it.
       view.controllerAutoShow = false
-      view.setControllerVisibilityListener(
-        PlayerView.ControllerVisibilityListener { visibility ->
-          if (visibility == View.VISIBLE) onControllerShown()
-        },
-      )
+      // We fully own the controls' show/hide so the chrome fades cleanly. Media3
+      // keeps the controller permanently shown (it stays wired + updating); we
+      // only animate the chrome layer's alpha/visibility on top of it, and never
+      // call hideController() — that snapped/flashed on our custom layout. A
+      // tap reveals the controls; an idle timer fades them back out.
       view.setOnTouchListener { _, ev ->
-        if (ev.action == MotionEvent.ACTION_DOWN && view.isControllerFullyVisible) {
-          scheduleHideControls()
+        if (ev.action == MotionEvent.ACTION_DOWN) {
+          val wasHidden = controlsHidden()
+          showControls()
+          if (wasHidden) return@setOnTouchListener true // consume the reveal tap
         }
-        false // don't consume — let the PlayerView/buttons handle the touch
+        false
       }
       chromeView = view.findViewById(R.id.btv_chrome)
 
@@ -165,8 +168,14 @@ class MainActivity : TauriActivity() {
     exo.playWhenReady = true
     exo.prepare()
     playerContainer?.visibility = View.VISIBLE
+    playerView?.showController() // keep Media3's controller permanently shown
+    chromeView?.let {
+      it.animate().cancel()
+      it.visibility = View.VISIBLE
+      it.alpha = 1f
+    }
+    scheduleHideControls()
     playerView?.requestFocus()
-    playerView?.showController() // brief chrome on open, then our timer fades it
   }
 
   // Populate the chrome from the forwarded meta (logo URL + the three text
@@ -228,21 +237,24 @@ class MainActivity : TauriActivity() {
     playerContainer?.visibility = View.GONE
   }
 
-  // Chrome (controls) fade. Media3 still decides WHEN to show the controller
-  // (tap/key/auto-show); we intercept that to fade the chrome in, and run our
-  // own idle timer to fade it back out and hide the controller.
+  // Controls fade. We keep Media3's controller permanently shown and fade only
+  // the chrome layer (btv_chrome) on top of it — never calling hideController(),
+  // which snapped/flashed on our custom layout. Hidden = alpha 0 + INVISIBLE (so
+  // it takes no touches); shown = alpha 1 + VISIBLE.
   private val hideControlsRunnable = Runnable {
     val c = chromeView ?: return@Runnable
     c.animate().cancel()
     c.animate().alpha(0f).setDuration(FADE_MS).withEndAction {
-      playerView?.hideController()
+      c.visibility = View.INVISIBLE
     }.start()
   }
 
-  private fun onControllerShown() {
+  private fun controlsHidden(): Boolean = chromeView?.visibility != View.VISIBLE
+
+  private fun showControls() {
     val c = chromeView ?: return
     c.animate().cancel()
-    c.alpha = 0f
+    c.visibility = View.VISIBLE
     c.animate().alpha(1f).setDuration(FADE_MS).start()
     scheduleHideControls()
   }
