@@ -17,6 +17,9 @@ const CAROUSEL_KEY = "hero-carousel";
 const WATCH_KEY = "hero-watch";
 const INFO_KEY = "hero-info";
 
+/** How long each featured title shows before auto-advancing (when idle). */
+const ROTATE_MS = 7000;
+
 /**
  * The TV/remote hero: a peek slider (active slide centered, neighbours peeking)
  * with a deliberate two-level focus model — no auto-advance.
@@ -75,6 +78,17 @@ export function HeroSlider({
   useEffect(() => {
     if (entered) setFocus(WATCH_KEY);
   }, [entered]);
+
+  // Auto-advance — but only while the carousel isn't engaged (not focused in
+  // browse mode and not entered), so a slide never moves under you.
+  useEffect(() => {
+    if (focused || entered || count <= 1) return;
+    const id = window.setInterval(
+      () => setIndex((i) => (i + 1) % count),
+      ROTATE_MS,
+    );
+    return () => window.clearInterval(id);
+  }, [focused, entered, count]);
 
   const item = items[safeIndex];
   if (!item) return null;
