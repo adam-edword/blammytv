@@ -233,6 +233,9 @@ html.is-android .stream {
      bg anyway, and squaring it sidesteps the rounded-corner AA fringe there
      (the fringe is a Chromium artifact on the slide's transformed layer). */
   border-radius: 33px 33px 0 0;
+  /* Squircle corners (matches the logo aesthetic). Brand-new CSS — ignored
+     gracefully on older WebViews, which fall back to circular corners. */
+  corner-shape: superellipse(4);
   background-size: cover;
   background-position: center;
   transition:
@@ -316,6 +319,7 @@ html.is-android .stream {
   width: 78%;
   aspect-ratio: 2 / 1;
   border-radius: 33px 33px 0 0;
+  corner-shape: superellipse(4);
   pointer-events: none;
   z-index: 2;
   opacity: 0;
