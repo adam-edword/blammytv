@@ -34,6 +34,10 @@ if (isOverlay) {
     throttle: 100,
     throttleKeypresses: true,
     useGetBoundingClientRect: true,
+    // TEMP: draw focusable boxes + log navigation decisions so we can see why
+    // Down finds no target. Remove once diagnosed.
+    debug: true,
+    visualDebug: true,
   });
   root.render(
     <React.StrictMode>
