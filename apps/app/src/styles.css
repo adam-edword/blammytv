@@ -3022,6 +3022,69 @@ html.is-android .media-row__track {
   color: #f0f0f0;
 }
 
+/* ---------- TV: tighten the detail / source-selection screen ----------
+   The detail screen was built at desktop scale; bring its type and the source
+   rail down to match the (smaller) Stream browser so the app reads cohesively.
+   Windows keeps the larger sizes until the polish is ported. */
+html.is-android .detail__back {
+  font-size: 15px;
+}
+html.is-android .detail__info {
+  gap: 12px;
+}
+html.is-android .detail__logo {
+  max-width: min(420px, 60%);
+  max-height: 150px;
+}
+html.is-android .detail__title {
+  font-size: 42px;
+}
+html.is-android .detail__synopsis {
+  max-width: 440px;
+  font-size: 14px;
+}
+html.is-android .detail__meta {
+  font-size: 13px;
+}
+html.is-android .detail__label {
+  font-size: 11px;
+}
+html.is-android .pill {
+  padding: 5px 12px;
+  font-size: 12px;
+}
+html.is-android .detail__episode-label {
+  font-size: 12px;
+}
+html.is-android .detail__episode-title {
+  font-size: 16px;
+}
+html.is-android .detail__no-sources {
+  font-size: 14px;
+}
+/* Source rail: narrower, tighter rows with smaller type. */
+html.is-android .detail__rail {
+  width: 360px;
+  gap: 10px;
+}
+html.is-android .source-card {
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 16px;
+}
+html.is-android .source-card__quality {
+  min-width: 78px;
+}
+html.is-android .source-card__res {
+  font-size: 16px;
+}
+html.is-android .source-card__bolt {
+  font-size: 13px;
+}
+html.is-android .source-card__line {
+  font-size: 12px;
+}
+
 /* ---------- Series episode browser ---------- */
 
 /* Stronger dim than the movie scrim — the grid covers the whole page. */
