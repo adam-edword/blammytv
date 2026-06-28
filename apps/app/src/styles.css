@@ -172,8 +172,8 @@ html.is-android .stream {
 }
 .hero-slider {
   position: relative;
-  /* Clear gap below the nav (it must not overlap the hero). */
-  margin: 26px 0 24px;
+  /* Small gap below the nav — tucks up just under the bar (tune this top value). */
+  margin: 6px 0 24px;
 }
 .hero-slider__viewport {
   overflow: hidden;
