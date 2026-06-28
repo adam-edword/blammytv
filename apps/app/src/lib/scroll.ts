@@ -133,7 +133,14 @@ export function smoothScrollToTop(el: HTMLElement, ms = 250): void {
   }
 }
 
-/** Smoothly centre `el` within each scroll container over `ms` (default 250). */
+/** Smoothly centre `el` within each scroll container over `ms` (default 250).
+ *
+ * The app applies CSS `zoom` to <body>, which splits coordinate spaces:
+ * getBoundingClientRect() reports *visual* (post-zoom) px, while scrollTop /
+ * clientHeight report *layout* (pre-zoom) px. So we measure the centring delta
+ * entirely from rects (one space) and convert it to scroll units via a zoom
+ * ratio self-calibrated from the container (scRect.height / clientHeight). At
+ * zoom 1 this reduces to a plain rect-based centre. */
 export function smoothCenterIntoView(el: HTMLElement, ms = 250): void {
   const elRect = el.getBoundingClientRect();
   for (const sc of scrollParents(el)) {
@@ -141,16 +148,15 @@ export function smoothCenterIntoView(el: HTMLElement, ms = 250): void {
 
     let toTop = sc.scrollTop;
     if (sc.scrollHeight > sc.clientHeight) {
-      const center = elRect.top - scRect.top + sc.scrollTop + elRect.height / 2;
-      const want = center - sc.clientHeight / 2;
-      toTop = Math.max(
-        0,
-        Math.min(want, sc.scrollHeight - sc.clientHeight),
-      );
+      const zoomY = scRect.height / sc.clientHeight || 1;
+      const deltaVisual =
+        elRect.top + elRect.height / 2 - (scRect.top + scRect.height / 2);
+      const want = sc.scrollTop + deltaVisual / zoomY;
+      toTop = Math.max(0, Math.min(want, sc.scrollHeight - sc.clientHeight));
       dbg(
-        `sc=${sc.className.split(" ")[0]}\n` +
-          `elTop=${elRect.top.toFixed(0)} elH=${elRect.height.toFixed(0)}\n` +
-          `scTop=${scRect.top.toFixed(0)} clientH=${sc.clientHeight} scrollH=${sc.scrollHeight}\n` +
+        `sc=${sc.className.split(" ")[0]} zoomY=${zoomY.toFixed(3)}\n` +
+          `elTop=${elRect.top.toFixed(0)} elH=${elRect.height.toFixed(0)} scH(rect)=${scRect.height.toFixed(0)}\n` +
+          `clientH=${sc.clientHeight} scrollH=${sc.scrollHeight} dVis=${deltaVisual.toFixed(0)}\n` +
           `from=${sc.scrollTop.toFixed(0)} want=${want.toFixed(0)} toTop=${toTop.toFixed(0)}` +
           (want > sc.scrollHeight - sc.clientHeight ? " [CLAMPED@end]" : "") +
           (want < 0 ? " [CLAMPED@top]" : ""),
@@ -159,11 +165,11 @@ export function smoothCenterIntoView(el: HTMLElement, ms = 250): void {
 
     let toLeft = sc.scrollLeft;
     if (sc.scrollWidth > sc.clientWidth) {
-      const center = elRect.left - scRect.left + sc.scrollLeft + elRect.width / 2;
-      toLeft = Math.max(
-        0,
-        Math.min(center - sc.clientWidth / 2, sc.scrollWidth - sc.clientWidth),
-      );
+      const zoomX = scRect.width / sc.clientWidth || 1;
+      const deltaVisual =
+        elRect.left + elRect.width / 2 - (scRect.left + scRect.width / 2);
+      const want = sc.scrollLeft + deltaVisual / zoomX;
+      toLeft = Math.max(0, Math.min(want, sc.scrollWidth - sc.clientWidth));
     }
 
     animate(sc, toLeft, toTop, ms);
