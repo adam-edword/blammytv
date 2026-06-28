@@ -1,4 +1,8 @@
 import { useMemo } from "react";
+import {
+  FocusContext,
+  useFocusable,
+} from "@noriginmedia/norigin-spatial-navigation";
 import type { ConfigBlob, VodItem } from "@blammytv/shared";
 import { FeaturedHero } from "../components/FeaturedHero";
 import { MediaRow } from "../components/MediaRow";
@@ -30,24 +34,28 @@ export function StreamScreen({
 
   const featured = resolve(stream.featured);
 
+  const { ref, focusKey } = useFocusable({ saveLastFocusedChild: true });
+
   if (error) {
     return <SourceError message={error} onRetry={onRetry} />;
   }
 
   return (
-    <div className="stream">
-      <FeaturedHero items={featured} onOpen={onOpen} />
-      <div className="stream__rows">
-        {stream.rows.map((row) => (
-          <MediaRow
-            key={row.id}
-            title={row.title}
-            layout={row.layout}
-            items={resolve(row.itemIds)}
-            onOpen={onOpen}
-          />
-        ))}
+    <FocusContext.Provider value={focusKey}>
+      <div className="stream" ref={ref}>
+        <FeaturedHero items={featured} onOpen={onOpen} />
+        <div className="stream__rows">
+          {stream.rows.map((row) => (
+            <MediaRow
+              key={row.id}
+              title={row.title}
+              layout={row.layout}
+              items={resolve(row.itemIds)}
+              onOpen={onOpen}
+            />
+          ))}
+        </div>
       </div>
-    </div>
+    </FocusContext.Provider>
   );
 }

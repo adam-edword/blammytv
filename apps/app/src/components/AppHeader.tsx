@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState } from "react";
 import { TABS, sectionOf, type TabKey } from "./TopTabs";
 import { SearchIcon, AccountIcon, SettingsIcon } from "./icons";
+import { FocusButton } from "./FocusButton";
 import { APP_VERSION } from "../version";
 
 /** Top app chrome: brand + clock, section tabs, account/settings.
@@ -77,16 +78,16 @@ export function AppHeader({
                     |
                   </span>
                 )}
-                <button
-                  role="tab"
-                  aria-selected={active === tab.key}
+                <FocusButton
                   className={
                     "top-tab" + (active === tab.key ? " top-tab--active" : "")
                   }
-                  onClick={() => onChange(tab.key)}
+                  focusKey={`tab-${tab.key}`}
+                  autoFocus={active === tab.key}
+                  onPress={() => onChange(tab.key)}
                 >
                   {tab.label}
-                </button>
+                </FocusButton>
               </Fragment>
             );
           })}

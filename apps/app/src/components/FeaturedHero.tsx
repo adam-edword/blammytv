@@ -2,6 +2,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import type { VodItem } from "@blammytv/shared";
 import { formatMeta, gradientFor } from "../lib/vod";
 import { PlayIcon, InfoIcon } from "./icons";
+import { FocusButton } from "./FocusButton";
 
 /** How long each featured title is shown before auto-advancing. */
 const ROTATE_MS = 7000;
@@ -70,22 +71,22 @@ export function FeaturedHero({
         <p className="hero__meta">{meta || formatMeta(item)}</p>
 
         <div className="hero__actions">
-          <button
+          <FocusButton
             className="btn btn--primary hero__btn"
-            type="button"
-            onClick={() => onOpen?.(item)}
+            ariaLabel="Watch now"
+            onPress={() => onOpen?.(item)}
           >
             <PlayIcon size={20} />
             Watch Now
-          </button>
-          <button
+          </FocusButton>
+          <FocusButton
             className="btn hero__btn"
-            type="button"
-            onClick={() => onOpen?.(item)}
+            ariaLabel="More info"
+            onPress={() => onOpen?.(item)}
           >
             <InfoIcon size={20} />
             More Info
-          </button>
+          </FocusButton>
         </div>
       </div>
 
