@@ -183,6 +183,15 @@ html.is-android .app-header__version {
 html.is-android .app-header {
   margin-bottom: 10px;
 }
+/* True-centre the tabs: give the two side sections equal flex so the centre
+   sits dead-centre regardless of the wider clock side vs the icon side. */
+html.is-android .app-header__brand,
+html.is-android .app-header__actions {
+  flex: 1 1 0;
+}
+html.is-android .app-header__actions {
+  justify-content: flex-end;
+}
 
 /* TV hero: a peek slider (active slide centered, neighbours peeking), driven by
    the D-pad — see HeroSlider. No auto-advance. */
