@@ -2518,6 +2518,15 @@ body.theater-mode .app-header:hover {
   color: var(--text-dim);
 }
 
+/* TV: tighten the card type to match the slider's reduced scale (the Windows
+   build keeps the larger 19/15 until the polish is ported over). */
+html.is-android .stream-card__title {
+  font-size: 14px;
+}
+html.is-android .stream-card__meta {
+  font-size: 12px;
+}
+
 /* ---------- Title detail / source selection ----------
  * An image-dominated page, so its text stays light in both themes. */
 
