@@ -5,6 +5,7 @@ import {
 } from "@noriginmedia/norigin-spatial-navigation";
 import type { VodItem } from "@blammytv/shared";
 import { formatMeta, initials } from "../lib/vod";
+import { smoothCenterIntoView } from "../lib/scroll";
 
 /** A single Stream catalog card. Posters are 2:3, landscape stills are 16:9
  * (used by rows like Continue Watching). Artwork falls back to a monogram
@@ -26,12 +27,9 @@ export function StreamCard({
   const { ref, focused } = useFocusable<HTMLButtonElement>({
     focusKey: `card-${rowId}-${item.id}`,
     onEnterPress: () => onOpen?.(item),
-    onFocus: (layout: FocusableComponentLayout) =>
-      layout.node?.scrollIntoView({
-        block: "center",
-        inline: "center",
-        behavior: "instant" as ScrollBehavior,
-      }),
+    onFocus: (layout: FocusableComponentLayout) => {
+      if (layout.node) smoothCenterIntoView(layout.node, 250);
+    },
   });
   // Mirror norigin's focus onto the native DOM focus too (keeps a11y honest).
   useEffect(() => {

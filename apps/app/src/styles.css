@@ -217,7 +217,9 @@ html.is-android .stream {
   height: calc(100% + 96px);
 }
 html.is-android .hero-slider {
-  margin-top: 64px;
+  /* Sit just below the nav at rest (initial spacing); content still scrolls up
+     behind the bar. Tune this for the nav→hero gap. */
+  margin-top: 88px;
 }
 .hero-slider {
   position: relative;
