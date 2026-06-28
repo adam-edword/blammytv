@@ -2051,6 +2051,16 @@ body.theater-mode .app-header:hover {
   background-clip: padding-box;
 }
 
+/* TV: no scrollbars anywhere — the whole app is remote-driven, so the app
+   (vertical) and row (horizontal) scrollbars just add clutter. Scrolling still
+   works; only the visible bar is gone. */
+html.is-android ::-webkit-scrollbar {
+  display: none;
+}
+html.is-android * {
+  scrollbar-width: none;
+}
+
 /* ---------- VOD grid ---------- */
 
 .vod-screen {
