@@ -20,12 +20,12 @@ export function FocusButton({
   focusKey?: string;
   /** Grab focus on mount (e.g. the active tab on first paint). */
   autoFocus?: boolean;
-  /** Dim + skip in spatial navigation (e.g. season prev/next at the ends). */
+  /** Dim + no-op (e.g. season prev/next at the ends). Stays navigable on
+   * purpose: removing a *focused* element from nav strands the cursor on it. */
   disabled?: boolean;
 }) {
   const { ref, focused, focusSelf } = useFocusable<HTMLButtonElement>({
     focusKey,
-    focusable: !disabled,
     onEnterPress: () => {
       if (!disabled) onPress?.();
     },

@@ -53,9 +53,6 @@ export function EpisodeBrowser({
     saveLastFocusedChild: true,
     trackChildren: true,
   });
-  // The season dropdown is its own (vertical) focus group while it's open.
-  const { ref: menuRef, focusKey: menuFocusKey } =
-    useFocusable<HTMLUListElement>({ saveLastFocusedChild: false });
 
   // Land focus on the first episode when the browser opens.
   useEffect(() => {
@@ -67,11 +64,10 @@ export function EpisodeBrowser({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // While the dropdown is open: focus the current season, and let Back/Escape
-  // close it (returning focus to the select button) rather than leaving the page.
+  // While the dropdown is open, let Back/Escape close it (returning focus to the
+  // select button) rather than backing out of the page.
   useEffect(() => {
     if (!menuOpen) return;
-    const raf = requestAnimationFrame(() => setFocus(seasonOptKey(seasonIdx)));
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" || e.key === "Backspace") {
         e.preventDefault();
@@ -80,11 +76,8 @@ export function EpisodeBrowser({
       }
     };
     window.addEventListener("keydown", onKey);
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [menuOpen, seasonIdx]);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [menuOpen]);
 
   // Season prev/next: keep focus on the control (the grid swaps underneath).
   const changeSeason = (i: number) => {
@@ -191,24 +184,11 @@ export function EpisodeBrowser({
               <ChevronIcon className="season-bar__caret" />
             </FocusButton>
             {menuOpen && (
-              <FocusContext.Provider value={menuFocusKey}>
-                <ul className="season-bar__menu" role="listbox" ref={menuRef}>
-                  {seasons.map((s, i) => (
-                    <li key={s.id}>
-                      <FocusButton
-                        focusKey={seasonOptKey(i)}
-                        className={
-                          "season-bar__option" +
-                          (i === seasonIdx ? " season-bar__option--active" : "")
-                        }
-                        onPress={() => pickSeasonFromMenu(i)}
-                      >
-                        {s.name ?? `Season ${s.number}`}
-                      </FocusButton>
-                    </li>
-                  ))}
-                </ul>
-              </FocusContext.Provider>
+              <SeasonMenu
+                seasons={seasons}
+                seasonIdx={seasonIdx}
+                onPick={pickSeasonFromMenu}
+              />
             )}
           </div>
 
@@ -247,5 +227,47 @@ export function EpisodeBrowser({
         </FocusContext.Provider>
       </div>
     </div>
+  );
+}
+
+/** The season dropdown's option list — its own focus group. Rendered only while
+ * the menu is open, so its focusables aren't registered (as a phantom 0,0
+ * container) when closed, which would otherwise swallow focus on the way out of
+ * the grid. Focus lands on the current season as it mounts. */
+function SeasonMenu({
+  seasons,
+  seasonIdx,
+  onPick,
+}: {
+  seasons: VodItem["seasons"];
+  seasonIdx: number;
+  onPick: (i: number) => void;
+}) {
+  const { ref, focusKey } = useFocusable<HTMLUListElement>({
+    saveLastFocusedChild: false,
+  });
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setFocus(seasonOptKey(seasonIdx)));
+    return () => cancelAnimationFrame(id);
+  }, [seasonIdx]);
+  return (
+    <FocusContext.Provider value={focusKey}>
+      <ul className="season-bar__menu" role="listbox" ref={ref}>
+        {seasons.map((s, i) => (
+          <li key={s.id}>
+            <FocusButton
+              focusKey={seasonOptKey(i)}
+              className={
+                "season-bar__option" +
+                (i === seasonIdx ? " season-bar__option--active" : "")
+              }
+              onPress={() => onPick(i)}
+            >
+              {s.name ?? `Season ${s.number}`}
+            </FocusButton>
+          </li>
+        ))}
+      </ul>
+    </FocusContext.Provider>
   );
 }
