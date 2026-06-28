@@ -11,6 +11,7 @@ export function FocusButton({
   ariaLabel,
   focusKey,
   autoFocus = false,
+  disabled = false,
 }: {
   className?: string;
   onPress?: () => void;
@@ -19,14 +20,19 @@ export function FocusButton({
   focusKey?: string;
   /** Grab focus on mount (e.g. the active tab on first paint). */
   autoFocus?: boolean;
+  /** Dim + skip in spatial navigation (e.g. season prev/next at the ends). */
+  disabled?: boolean;
 }) {
   const { ref, focused, focusSelf } = useFocusable<HTMLButtonElement>({
     focusKey,
-    onEnterPress: () => onPress?.(),
+    focusable: !disabled,
+    onEnterPress: () => {
+      if (!disabled) onPress?.();
+    },
   });
   useEffect(() => {
-    if (autoFocus) focusSelf();
-  }, [autoFocus, focusSelf]);
+    if (autoFocus && !disabled) focusSelf();
+  }, [autoFocus, disabled, focusSelf]);
   useEffect(() => {
     if (focused) ref.current?.focus({ preventScroll: true });
   }, [focused, ref]);
@@ -35,6 +41,7 @@ export function FocusButton({
       ref={ref}
       type="button"
       aria-label={ariaLabel}
+      disabled={disabled}
       className={className + (focused ? " is-focused" : "")}
       onClick={() => onPress?.()}
     >

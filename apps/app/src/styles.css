@@ -3151,7 +3151,8 @@ html.is-android .source-card__line {
   transition: background 0.12s ease, opacity 0.12s ease;
 }
 
-.season-bar__nav:hover:not(:disabled) {
+.season-bar__nav:hover:not(:disabled),
+.season-bar__nav.is-focused {
   background: rgba(255, 255, 255, 0.18);
 }
 
@@ -3190,7 +3191,8 @@ html.is-android .source-card__line {
   cursor: pointer;
 }
 
-.season-bar__select:hover {
+.season-bar__select:hover,
+.season-bar__select.is-focused {
   background: rgba(255, 255, 255, 0.18);
 }
 
@@ -3231,7 +3233,8 @@ html.is-android .source-card__line {
   cursor: pointer;
 }
 
-.season-bar__option:hover {
+.season-bar__option:hover,
+.season-bar__option.is-focused {
   background: rgba(255, 255, 255, 0.08);
 }
 
@@ -3286,7 +3289,8 @@ html.is-android .source-card__line {
 }
 
 .episode-card:hover,
-.episode-card:focus-visible {
+.episode-card:focus-visible,
+.episode-card.is-focused {
   border-color: var(--red-border);
   background: rgba(255, 255, 255, 0.16);
   outline: none;

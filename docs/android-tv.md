@@ -179,10 +179,13 @@ porting the whole UI.
   push the centre off), smaller/"premium" nav text (tabs 18px, brand/clock 22px),
   tighter tab spacing, and a smaller header→content gap.
 - **Spatial navigation: remaining screens.** Done: the Stream tab (tabs + hero +
-  rows) and the **source-selection screen** (`SourceSelector` — ▲/▼ through the
-  source rail, Enter plays, Back reachable, first source auto-focused on load).
-  Still to do: the series **episode browser** (`EpisodeBrowser` — season picker +
-  episode list; needed so series can reach the source screen by remote), Live TV,
+  rows), the **source-selection screen** (`SourceSelector`), and the series
+  **episode browser** (`EpisodeBrowser` — focusable episode grid, season
+  prev/next + dropdown, Back; first episode auto-focused; dropdown traps focus
+  and closes on Back). The episode-browser **season bar + episode grid still use
+  desktop sizing** — give them the same TV scale-down the rest of the detail
+  screen got. Search-by-text in the season bar is left as mouse/keyboard only
+  (on-screen-keyboard text entry is a separate concern). Still to do: Live TV,
   Discover, settings/onboarding forms, and the EPG grid (the hard one).
 - **AVD keyboard → D-pad.** The emulator isn't mapping host arrow keys to the
   D-pad, so testing relies on `adb shell input keyevent`. Worth fixing the AVD
