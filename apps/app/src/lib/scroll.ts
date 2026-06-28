@@ -7,6 +7,26 @@ function easeInOutCubic(t: number): number {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
 
+// --- TEMP DIAGNOSTIC (remove once centring is fixed) -----------------------
+// Flip to false to silence. Renders the last vertical-centring computation in a
+// fixed overlay so we can read the real numbers off a screenshot on the
+// emulator (no chrome://inspect needed).
+const DEBUG_SCROLL = true;
+let dbgEl: HTMLElement | null = null;
+function dbg(line: string): void {
+  if (!DEBUG_SCROLL) return;
+  if (!dbgEl) {
+    dbgEl = document.createElement("pre");
+    dbgEl.style.cssText =
+      "position:fixed;left:8px;bottom:8px;z-index:99999;margin:0;padding:8px 10px;" +
+      "background:rgba(0,0,0,0.8);color:#0f0;font:11px/1.4 monospace;" +
+      "white-space:pre;pointer-events:none;border-radius:6px;max-width:60vw";
+    document.body.appendChild(dbgEl);
+  }
+  dbgEl.textContent = line;
+}
+// ---------------------------------------------------------------------------
+
 const active = new WeakMap<HTMLElement, number>();
 
 function animate(
@@ -75,9 +95,18 @@ export function smoothCenterIntoView(el: HTMLElement, ms = 250): void {
     let toTop = sc.scrollTop;
     if (sc.scrollHeight > sc.clientHeight) {
       const center = elRect.top - scRect.top + sc.scrollTop + elRect.height / 2;
+      const want = center - sc.clientHeight / 2;
       toTop = Math.max(
         0,
-        Math.min(center - sc.clientHeight / 2, sc.scrollHeight - sc.clientHeight),
+        Math.min(want, sc.scrollHeight - sc.clientHeight),
+      );
+      dbg(
+        `sc=${sc.className.split(" ")[0]}\n` +
+          `elTop=${elRect.top.toFixed(0)} elH=${elRect.height.toFixed(0)}\n` +
+          `scTop=${scRect.top.toFixed(0)} clientH=${sc.clientHeight} scrollH=${sc.scrollHeight}\n` +
+          `from=${sc.scrollTop.toFixed(0)} want=${want.toFixed(0)} toTop=${toTop.toFixed(0)}` +
+          (want > sc.scrollHeight - sc.clientHeight ? " [CLAMPED@end]" : "") +
+          (want < 0 ? " [CLAMPED@top]" : ""),
       );
     }
 
