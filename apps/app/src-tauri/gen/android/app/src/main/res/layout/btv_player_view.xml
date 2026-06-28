@@ -27,7 +27,7 @@
       android:layout_gravity="center"
       android:fontFamily="@font/stack_sans_headline"
       android:textColor="#FFFFFF"
-      android:textSize="30sp"
+      android:textSize="15sp"
       android:letterSpacing="0.04"
       android:visibility="gone" />
 
