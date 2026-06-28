@@ -164,6 +164,13 @@ body,
    its larger header. */
 html.is-android .top-tab {
   font-size: 18px;
+  padding: 8px 11px;
+}
+html.is-android .top-tabs {
+  gap: 12px;
+}
+html.is-android .app-header__center {
+  gap: 14px;
 }
 html.is-android .app-header__name,
 html.is-android .app-header__clock {
@@ -171,6 +178,10 @@ html.is-android .app-header__clock {
 }
 html.is-android .app-header__version {
   font-size: 10px;
+}
+/* Smaller nav → smaller gap down to the hero. */
+html.is-android .app-header {
+  margin-bottom: 10px;
 }
 
 /* TV hero: a peek slider (active slide centered, neighbours peeking), driven by
@@ -216,7 +227,10 @@ html.is-android .stream {
      it reads as the card edge blending into the page, not a visible border. */
   background-size: cover;
   background-position: center;
-  box-shadow: inset 0 0 0 1px var(--bg);
+  /* 1px page-bg border + padding-box clip insets the bright artwork, so the
+     rounded edge against the page is the bg colour — no light AA fringe. */
+  border: 1px solid var(--bg);
+  background-clip: padding-box;
   transition:
     opacity 0.42s ease,
     box-shadow 0.2s ease;
@@ -286,7 +300,6 @@ html.is-android .stream {
 /* Browse-mode focus ring on the active slide (whole carousel is the focus). */
 .hero-slider.is-focused .hero-slide.is-active {
   box-shadow:
-    inset 0 0 0 1px var(--bg),
     0 0 0 3px rgb(var(--accent-rgb)),
     0 16px 44px rgba(0, 0, 0, 0.6);
 }
