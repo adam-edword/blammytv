@@ -17,7 +17,8 @@
         "height": 600,
         "maximized": true,
         "resizable": true,
-        "fullscreen": false
+        "fullscreen": false,
+        "backgroundColor": "#0b0b0b"
       }
     ],
     "security": {

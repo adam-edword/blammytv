@@ -3,6 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      /* Paint the app's dark background on the first frame so there's no white
+         flash before the CSS bundle loads and React mounts (the WebView defaults
+         to white). Matches --bg. */
+      html,
+      body {
+        margin: 0;
+        background: #0b0b0b;
+      }
+    </style>
     <script>
       // Android (TV): the WebView hands us a ~960px CSS viewport (device-width at
       // dpr 2) AND ignores a `width=` viewport override, so the ~1280px+ desktop
