@@ -66,7 +66,10 @@ export function smoothScrollToTop(el: HTMLElement, ms = 250): void {
   }
 }
 
-/** Smoothly centre `el` within each scroll container over `ms` (default 250).
+/** Smoothly centre `el` within each scroll container. Vertical (row→row) moves
+ * use `ms` (default 250); horizontal (card→card within a row) moves use the
+ * snappier `horizMs` (default 150) so holding ◀/▶ keeps up instead of lagging
+ * behind a long per-card animation.
  *
  * The app applies CSS `zoom` to <body>, which splits coordinate spaces:
  * getBoundingClientRect() reports *visual* (post-zoom) px, while scrollTop /
@@ -74,18 +77,24 @@ export function smoothScrollToTop(el: HTMLElement, ms = 250): void {
  * entirely from rects (one space) and convert it to scroll units via a zoom
  * ratio self-calibrated from the container (scRect.height / clientHeight). At
  * zoom 1 this reduces to a plain rect-based centre. */
-export function smoothCenterIntoView(el: HTMLElement, ms = 250): void {
+export function smoothCenterIntoView(
+  el: HTMLElement,
+  ms = 250,
+  horizMs = 150,
+): void {
   const elRect = el.getBoundingClientRect();
   for (const sc of scrollParents(el)) {
     const scRect = sc.getBoundingClientRect();
 
     let toTop = sc.scrollTop;
+    let movedVertically = false;
     if (sc.scrollHeight > sc.clientHeight) {
       const zoomY = scRect.height / sc.clientHeight || 1;
       const deltaVisual =
         elRect.top + elRect.height / 2 - (scRect.top + scRect.height / 2);
       const want = sc.scrollTop + deltaVisual / zoomY;
       toTop = Math.max(0, Math.min(want, sc.scrollHeight - sc.clientHeight));
+      movedVertically = Math.abs(toTop - sc.scrollTop) >= 1;
     }
 
     let toLeft = sc.scrollLeft;
@@ -97,6 +106,8 @@ export function smoothCenterIntoView(el: HTMLElement, ms = 250): void {
       toLeft = Math.max(0, Math.min(want, sc.scrollWidth - sc.clientWidth));
     }
 
-    animate(sc, toLeft, toTop, ms);
+    // The vertical scroller (rows) gets the slower, deliberate easing; the
+    // horizontal scroller (cards) gets the snappy one.
+    animate(sc, toLeft, toTop, movedVertically ? ms : horizMs);
   }
 }

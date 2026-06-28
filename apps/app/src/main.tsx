@@ -31,7 +31,9 @@ if (isOverlay) {
   // viewport coordinates so focus can move *between* containers (e.g. the header
   // tabs down into the scrolling content) — offset-based measurement can't.
   initSpatialNav({
-    throttle: 100,
+    // Lower throttle so holding ◀/▶ on a row advances at a responsive rate
+    // (100ms capped it at ~10 cards/sec, which felt "held back").
+    throttle: 60,
     throttleKeypresses: true,
     useGetBoundingClientRect: true,
   });

@@ -2561,10 +2561,11 @@ html.is-android .media-row__track {
   padding-left: 44px;
 }
 
-/* TV: the .stream vertical scroller leaves stale paint of a card's white glow
-   box-shadow when scrolled (a Blink invalidation quirk under CSS `zoom`).
-   Promoting it to its own composited layer makes it repaint cleanly on scroll. */
-html.is-android .stream {
+/* TV: the row track leaves stale paint of a focused card's white box-shadow
+   glow as it scrolls horizontally (a Blink invalidation quirk under CSS
+   `zoom`). Promoting the track to its own composited layer makes the whole
+   strip repaint cleanly, so the glow travels/clears with the cards. */
+html.is-android .media-row__track {
   will-change: transform;
 }
 
