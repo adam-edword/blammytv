@@ -189,9 +189,11 @@ html.is-android .stream {
   position: relative;
   flex: 0 0 78%;
   margin-right: 2%;
-  /* Tall card so the row below barely peeks (tune this knob). Neighbours are the
-     SAME size as the active slide — just dimmed + cut off at the edges. */
-  height: 66vh;
+  /* Height comes from the (zoom-safe) width via aspect-ratio — `vh` is wrong
+     here because the page is CSS-`zoom`ed for the TV viewport. Lower ratio =
+     taller card; this is the knob for "row below barely peeks". Neighbours are
+     the SAME size as the active slide, just dimmed + cut off at the edges. */
+  aspect-ratio: 2 / 1;
   border-radius: 22px;
   overflow: hidden;
   opacity: 0.4;
