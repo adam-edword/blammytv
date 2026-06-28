@@ -3,8 +3,8 @@
 // default-speed "smooth" (too slow) or instant — this gives us an exact, snappy
 // duration for D-pad navigation.
 
-function easeOutCubic(t: number): number {
-  return 1 - Math.pow(1 - t, 3);
+function easeInOutCubic(t: number): number {
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
 
 const active = new WeakMap<HTMLElement, number>();
@@ -25,7 +25,7 @@ function animate(
   const start = performance.now();
   const step = (now: number) => {
     const t = Math.min(1, (now - start) / ms);
-    const e = easeOutCubic(t);
+    const e = easeInOutCubic(t);
     sc.scrollLeft = fromLeft + (toLeft - fromLeft) * e;
     sc.scrollTop = fromTop + (toTop - fromTop) * e;
     if (t < 1) active.set(sc, requestAnimationFrame(step));
@@ -49,6 +49,21 @@ function scrollParents(el: HTMLElement): HTMLElement[] {
     node = node.parentElement;
   }
   return out;
+}
+
+/**
+ * Smoothly scroll `el`'s nearest vertical scroll container back to the very top
+ * over `ms` (default 250). Used when focus returns to the hero: scrolling to 0
+ * lands at the rest position (so the hero keeps its margin gap below the nav),
+ * unlike `scrollIntoView({ block: "start" })` which jams the hero under the bar.
+ */
+export function smoothScrollToTop(el: HTMLElement, ms = 250): void {
+  for (const sc of scrollParents(el)) {
+    if (sc.scrollHeight > sc.clientHeight) {
+      animate(sc, sc.scrollLeft, 0, ms);
+      return;
+    }
+  }
 }
 
 /** Smoothly centre `el` within each scroll container over `ms` (default 250). */

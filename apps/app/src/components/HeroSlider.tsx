@@ -11,6 +11,7 @@ import {
 } from "@noriginmedia/norigin-spatial-navigation";
 import type { VodItem } from "@blammytv/shared";
 import { formatMeta, gradientFor } from "../lib/vod";
+import { smoothScrollToTop } from "../lib/scroll";
 import { PlayIcon, InfoIcon } from "./icons";
 
 // Focus keys for the two-level model.
@@ -62,10 +63,11 @@ export function HeroSlider({
   const { ref, focused } = useFocusable<HTMLDivElement>({
     focusKey: CAROUSEL_KEY,
     onEnterPress: () => setEntered(true),
-    // Focusing the hero (e.g. coming back up from a row) scrolls the page to the
-    // top so the whole hero is shown.
-    onFocus: (layout: FocusableComponentLayout) =>
-      layout.node?.scrollIntoView({ block: "start", behavior: "smooth" }),
+    // Focusing the hero (e.g. coming back up from a row) scrolls the page back
+    // to its rest position, so the hero keeps its gap below the nav.
+    onFocus: (layout: FocusableComponentLayout) => {
+      if (layout.node) smoothScrollToTop(layout.node, 250);
+    },
     onArrowPress: (dir) => {
       if (dir === "left") {
         prev();
