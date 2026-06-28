@@ -61,12 +61,6 @@ class MainActivity : TauriActivity() {
   // Activity's earliest key hook, before the event reaches the WebView: while
   // the player is showing we consume Back here and close the player.
   override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-    if (event.keyCode == KeyEvent.KEYCODE_BACK) {
-      Log.i(
-        TAG,
-        "BACK action=${event.action} playerVisible=${playerContainer?.visibility == View.VISIBLE} controlsHidden=${controlsHidden()}",
-      )
-    }
     if (event.keyCode == KeyEvent.KEYCODE_BACK &&
       playerContainer?.visibility == View.VISIBLE
     ) {

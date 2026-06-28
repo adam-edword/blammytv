@@ -98,7 +98,6 @@ export function App() {
     history.replaceState({ idx: 0 }, "");
     const onPop = (e: PopStateEvent) => {
       const idx = typeof e.state?.idx === "number" ? e.state.idx : 0;
-      console.log("[blammy-nav] popstate idx=" + idx);
       setNav((n) => ({
         stack: n.stack,
         index: Math.max(0, Math.min(idx, n.stack.length - 1)),
