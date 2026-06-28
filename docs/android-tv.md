@@ -178,9 +178,12 @@ porting the whole UI.
   true-centred tabs (equal-flex side sections, so the wider clock side doesn't
   push the centre off), smaller/"premium" nav text (tabs 18px, brand/clock 22px),
   tighter tab spacing, and a smaller header→content gap.
-- **Spatial navigation: remaining screens.** Only the Stream tab (tabs + hero +
-  rows) is wired so far. Still to do: Live TV, Discover, the title/source
-  selector, settings/onboarding forms, and the EPG grid (the hard one).
+- **Spatial navigation: remaining screens.** Done: the Stream tab (tabs + hero +
+  rows) and the **source-selection screen** (`SourceSelector` — ▲/▼ through the
+  source rail, Enter plays, Back reachable, first source auto-focused on load).
+  Still to do: the series **episode browser** (`EpisodeBrowser` — season picker +
+  episode list; needed so series can reach the source screen by remote), Live TV,
+  Discover, settings/onboarding forms, and the EPG grid (the hard one).
 - **AVD keyboard → D-pad.** The emulator isn't mapping host arrow keys to the
   D-pad, so testing relies on `adb shell input keyevent`. Worth fixing the AVD
   config for a smoother dev loop.

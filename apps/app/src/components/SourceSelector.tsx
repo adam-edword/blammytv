@@ -1,9 +1,19 @@
 import { useEffect, useState, type CSSProperties } from "react";
+import {
+  FocusContext,
+  setFocus,
+  useFocusable,
+} from "@noriginmedia/norigin-spatial-navigation";
 import type { ShareCode, VodItem, StreamSource } from "@blammytv/shared";
 import { SourceCard } from "./SourceCard";
+import { FocusButton } from "./FocusButton";
 import type { TheaterMeta } from "./Player";
 import { ChevronIcon } from "./icons";
 import { fetchVodSources, gradientFor, vodBackendConfigured } from "../lib/vod";
+
+/** Stable focus key for one source row. */
+const sourceKey = (id: string) => `src-${id}`;
+const BACK_KEY = "detail-back";
 
 /** The source-selection page: a full-bleed backdrop with the title's info on
  * the left and the backend-ranked source list on the right. Used for movies
@@ -42,6 +52,22 @@ export function SourceSelector({
     vodBackendConfigured() ? null : fallbackSources,
   );
   const [failed, setFailed] = useState(false);
+
+  // The source rail is a vertical focus group (▲/▼ between sources); ◀/▲ off the
+  // list reaches the Back button, which sits outside the group.
+  const { ref: railRef, focusKey: railFocusKey } = useFocusable<HTMLElement>({
+    saveLastFocusedChild: true,
+    trackChildren: true,
+  });
+
+  // Land focus on the first source as soon as the list resolves (forward nav
+  // doesn't auto-restore focus); fall back to Back when there's nothing to pick.
+  useEffect(() => {
+    const target =
+      sources && sources.length > 0 ? sourceKey(sources[0].id) : BACK_KEY;
+    const id = requestAnimationFrame(() => setFocus(target));
+    return () => cancelAnimationFrame(id);
+  }, [sources]);
 
   useEffect(() => {
     if (!vodBackendConfigured()) {
@@ -113,10 +139,14 @@ export function SourceSelector({
       <div className="detail__scrim" />
 
       <div className="detail__body">
-        <button className="detail__back" type="button" onClick={onBack}>
+        <FocusButton
+          className="detail__back"
+          focusKey={BACK_KEY}
+          onPress={onBack}
+        >
           <ChevronIcon className="detail__back-icon" />
           Back
-        </button>
+        </FocusButton>
 
         <div className="detail__info">
           {item.logo ? (
@@ -162,28 +192,31 @@ export function SourceSelector({
           )}
         </div>
 
-        <aside className="detail__rail" aria-label="Sources">
-          {sources === null ? (
-            <p className="detail__no-sources">Finding sources…</p>
-          ) : sources.length === 0 ? (
-            <p className="detail__no-sources">
-              {failed ? "Couldn't load sources." : "No sources available."}
-            </p>
-          ) : (
-            sources.map((s) => (
-              <SourceCard
-                key={s.id}
-                source={s}
-                onPlay={() =>
-                  onPlay(s.streamUrl, playMeta(s), {
-                    item,
-                    episodeId: sourceKind === "series" ? sourceId : undefined,
-                  })
-                }
-              />
-            ))
-          )}
-        </aside>
+        <FocusContext.Provider value={railFocusKey}>
+          <aside className="detail__rail" aria-label="Sources" ref={railRef}>
+            {sources === null ? (
+              <p className="detail__no-sources">Finding sources…</p>
+            ) : sources.length === 0 ? (
+              <p className="detail__no-sources">
+                {failed ? "Couldn't load sources." : "No sources available."}
+              </p>
+            ) : (
+              sources.map((s) => (
+                <SourceCard
+                  key={s.id}
+                  source={s}
+                  focusKey={sourceKey(s.id)}
+                  onPlay={() =>
+                    onPlay(s.streamUrl, playMeta(s), {
+                      item,
+                      episodeId: sourceKind === "series" ? sourceId : undefined,
+                    })
+                  }
+                />
+              ))
+            )}
+          </aside>
+        </FocusContext.Provider>
       </div>
     </div>
   );

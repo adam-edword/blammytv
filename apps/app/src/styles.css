@@ -2661,8 +2661,13 @@ html.is-android .media-row__track {
   transition: color 0.15s ease;
 }
 
-.detail__back:hover {
+.detail__back:hover,
+.detail__back.is-focused {
   color: #fff;
+}
+/* Underline the Back affordance when the remote is on it (matches the tabs). */
+.detail__back.is-focused {
+  box-shadow: inset 0 -2px 0 0 currentColor;
 }
 
 .detail__back-icon {
@@ -2946,7 +2951,8 @@ html.is-android .media-row__track {
 }
 
 .source-card:hover,
-.source-card:focus-visible {
+.source-card:focus-visible,
+.source-card.is-focused {
   border-color: var(--red-border);
   background: rgba(18, 18, 22, 0.92);
   outline: none;
