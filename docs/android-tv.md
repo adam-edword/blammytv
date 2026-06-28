@@ -173,6 +173,11 @@ porting the whole UI.
   click a peeking neighbour to slide, click the active slide / Watch Now to play,
   and either drop the two-level "enter" step or map it to hover. Likely unify the
   two heroes once that's wired.
+- **Bring the TV nav polish to Windows.** Several header tweaks are gated to
+  `html.is-android` and should be adopted on desktop when the hero lands:
+  true-centred tabs (equal-flex side sections, so the wider clock side doesn't
+  push the centre off), smaller/"premium" nav text (tabs 18px, brand/clock 22px),
+  tighter tab spacing, and a smaller header→content gap.
 - **Spatial navigation: remaining screens.** Only the Stream tab (tabs + hero +
   rows) is wired so far. Still to do: Live TV, Discover, the title/source
   selector, settings/onboarding forms, and the EPG grid (the hard one).
