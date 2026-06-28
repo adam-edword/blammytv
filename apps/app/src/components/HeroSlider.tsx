@@ -7,6 +7,7 @@ import {
 import {
   setFocus,
   useFocusable,
+  type FocusableComponentLayout,
 } from "@noriginmedia/norigin-spatial-navigation";
 import type { VodItem } from "@blammytv/shared";
 import { formatMeta, gradientFor } from "../lib/vod";
@@ -61,6 +62,10 @@ export function HeroSlider({
   const { ref, focused } = useFocusable<HTMLDivElement>({
     focusKey: CAROUSEL_KEY,
     onEnterPress: () => setEntered(true),
+    // Focusing the hero (e.g. coming back up from a row) scrolls the page to the
+    // top so the whole hero is shown.
+    onFocus: (layout: FocusableComponentLayout) =>
+      layout.node?.scrollIntoView({ block: "start", behavior: "smooth" }),
     onArrowPress: (dir) => {
       if (dir === "left") {
         prev();

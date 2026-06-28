@@ -23,7 +23,7 @@ export function StreamCard({
     onEnterPress: () => onOpen?.(item),
     onFocus: (layout: FocusableComponentLayout) =>
       layout.node?.scrollIntoView({
-        block: "nearest",
+        block: "center",
         inline: "center",
         behavior: "smooth",
       }),
