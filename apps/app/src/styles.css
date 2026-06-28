@@ -220,17 +220,13 @@ html.is-android .stream {
      taller card; this is the knob for "row below barely peeks". Neighbours are
      the SAME size as the active slide, just dimmed + cut off at the edges. */
   aspect-ratio: 2 / 1;
-  border-radius: 33px;
+  /* Top corners rounded, bottom corners square: the bottom fades into the page
+     bg anyway, and squaring it sidesteps the rounded-corner AA fringe there
+     (the fringe is a Chromium artifact on the slide's transformed layer). */
+  border-radius: 33px 33px 0 0;
   opacity: 0.4;
-  /* Artwork is the slide's OWN background (no clipped child, no overflow:hidden).
-     A 1px inset ring in the page-bg colour masks the border-radius AA fringe —
-     it reads as the card edge blending into the page, not a visible border. */
   background-size: cover;
   background-position: center;
-  /* 1px page-bg border + padding-box clip insets the bright artwork, so the
-     rounded edge against the page is the bg colour — no light AA fringe. */
-  border: 1px solid var(--bg);
-  background-clip: padding-box;
   transition:
     opacity 0.42s ease,
     box-shadow 0.2s ease;
