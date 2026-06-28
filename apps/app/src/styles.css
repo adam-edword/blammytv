@@ -2547,6 +2547,27 @@ html.is-android .stream-card:hover .stream-card__art {
   outline-color: transparent;
 }
 
+/* TV: sit the row title closer to its cards (the track keeps its 34px top pad
+   for glow room; a negative title margin pulls the cards up under the title). */
+html.is-android .media-row__title {
+  margin-bottom: -16px;
+}
+
+/* TV: bleed the row track's left edge out to the screen edge so the leftmost
+   card's focus glow has room and cards clip off-screen (not at an inset notch).
+   padding-left re-insets the first card to line up with the row title. */
+html.is-android .media-row__track {
+  margin-left: -44px;
+  padding-left: 44px;
+}
+
+/* TV: the .stream vertical scroller leaves stale paint of a card's white glow
+   box-shadow when scrolled (a Blink invalidation quirk under CSS `zoom`).
+   Promoting it to its own composited layer makes it repaint cleanly on scroll. */
+html.is-android .stream {
+  will-change: transform;
+}
+
 /* ---------- Title detail / source selection ----------
  * An image-dominated page, so its text stays light in both themes. */
 

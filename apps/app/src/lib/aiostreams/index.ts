@@ -6,7 +6,7 @@ import type { CatalogDef } from "./types";
 /** The slice of the config blob AIOStreams owns: the VOD catalog + Stream tab. */
 type VodSection = Pick<ConfigBlob, "movies" | "series" | "stream">;
 
-const ITEMS_PER_ROW = 40;
+const ITEMS_PER_ROW = 16;
 const FEATURED_TOTAL = 9;
 const DEFAULT_SOURCE_ROWS = 3; // rows the default carousel draws from
 
