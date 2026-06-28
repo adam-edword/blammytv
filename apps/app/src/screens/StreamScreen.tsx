@@ -1,8 +1,4 @@
 import { useMemo } from "react";
-import {
-  FocusContext,
-  useFocusable,
-} from "@noriginmedia/norigin-spatial-navigation";
 import type { ConfigBlob, VodItem } from "@blammytv/shared";
 import { FeaturedHero } from "../components/FeaturedHero";
 import { MediaRow } from "../components/MediaRow";
@@ -34,28 +30,28 @@ export function StreamScreen({
 
   const featured = resolve(stream.featured);
 
-  const { ref, focusKey } = useFocusable({ saveLastFocusedChild: true });
-
   if (error) {
     return <SourceError message={error} onRetry={onRetry} />;
   }
 
+  // No focus container around the whole screen: it's full-bleed (the hero sits
+  // behind the header), so its box would overlap the tabs and break Down nav
+  // out of the header. The hero buttons + MediaRow containers register at the
+  // root and sit genuinely below the tabs.
   return (
-    <FocusContext.Provider value={focusKey}>
-      <div className="stream" ref={ref}>
-        <FeaturedHero items={featured} onOpen={onOpen} />
-        <div className="stream__rows">
-          {stream.rows.map((row) => (
-            <MediaRow
-              key={row.id}
-              title={row.title}
-              layout={row.layout}
-              items={resolve(row.itemIds)}
-              onOpen={onOpen}
-            />
-          ))}
-        </div>
+    <div className="stream">
+      <FeaturedHero items={featured} onOpen={onOpen} />
+      <div className="stream__rows">
+        {stream.rows.map((row) => (
+          <MediaRow
+            key={row.id}
+            title={row.title}
+            layout={row.layout}
+            items={resolve(row.itemIds)}
+            onOpen={onOpen}
+          />
+        ))}
       </div>
-    </FocusContext.Provider>
+    </div>
   );
 }
