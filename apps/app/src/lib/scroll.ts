@@ -13,8 +13,9 @@ function easeInOutCubic(t: number): number {
 // emulator (no chrome://inspect needed).
 const DEBUG_SCROLL = true;
 let dbgEl: HTMLElement | null = null;
-function dbg(line: string): void {
-  if (!DEBUG_SCROLL) return;
+let dbgCompute = "";
+let dbgResult = "";
+function dbgRender(): void {
   if (!dbgEl) {
     dbgEl = document.createElement("pre");
     dbgEl.style.cssText =
@@ -23,7 +24,18 @@ function dbg(line: string): void {
       "white-space:pre;pointer-events:none;border-radius:6px;max-width:60vw";
     document.body.appendChild(dbgEl);
   }
-  dbgEl.textContent = line;
+  dbgEl.textContent = dbgCompute + (dbgResult ? "\n" + dbgResult : "");
+}
+function dbg(line: string): void {
+  if (!DEBUG_SCROLL) return;
+  dbgCompute = line;
+  dbgResult = "";
+  dbgRender();
+}
+function dbgReport(line: string): void {
+  if (!DEBUG_SCROLL) return;
+  dbgResult = line;
+  dbgRender();
 }
 // ---------------------------------------------------------------------------
 
@@ -42,6 +54,7 @@ function animate(
   const prev = active.get(sc);
   if (prev) cancelAnimationFrame(prev);
 
+  const vertical = Math.abs(toTop - fromTop) >= 1;
   const start = performance.now();
   const step = (now: number) => {
     const t = Math.min(1, (now - start) / ms);
@@ -49,7 +62,18 @@ function animate(
     sc.scrollLeft = fromLeft + (toLeft - fromLeft) * e;
     sc.scrollTop = fromTop + (toTop - fromTop) * e;
     if (t < 1) active.set(sc, requestAnimationFrame(step));
-    else active.delete(sc);
+    else {
+      active.delete(sc);
+      if (vertical) {
+        const ended = sc.scrollTop;
+        dbgReport(`ended=${ended.toFixed(0)} (target ${toTop.toFixed(0)})`);
+        window.setTimeout(() => {
+          dbgReport(
+            `ended=${ended.toFixed(0)} settled=${sc.scrollTop.toFixed(0)} (target ${toTop.toFixed(0)})`,
+          );
+        }, 350);
+      }
+    }
   };
   active.set(sc, requestAnimationFrame(step));
 }
