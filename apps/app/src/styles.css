@@ -162,9 +162,18 @@ body,
 
 /* TV hero: a peek slider (active slide centered, neighbours peeking), driven by
    the D-pad — see HeroSlider. No auto-advance. */
+
+/* The TV hero is a card BELOW the nav, not a full-bleed backdrop, so cancel the
+   Stream content's bleed-up-behind-the-header (that's a desktop-only effect for
+   the classic FeaturedHero). */
+html.is-android .stream {
+  margin-top: 0;
+  height: 100%;
+}
 .hero-slider {
   position: relative;
-  margin-bottom: 30px;
+  /* Clear gap below the nav (it must not overlap the hero). */
+  margin: 26px 0 24px;
 }
 .hero-slider__viewport {
   overflow: hidden;
@@ -180,19 +189,18 @@ body,
   position: relative;
   flex: 0 0 78%;
   margin-right: 2%;
-  aspect-ratio: 16 / 7;
+  /* Tall card so the row below barely peeks (tune this knob). Neighbours are the
+     SAME size as the active slide — just dimmed + cut off at the edges. */
+  height: 66vh;
   border-radius: 22px;
   overflow: hidden;
   opacity: 0.4;
-  transform: scale(0.95);
   transition:
     opacity 0.42s ease,
-    transform 0.42s ease,
     box-shadow 0.2s ease;
 }
 .hero-slide.is-active {
   opacity: 1;
-  transform: scale(1);
 }
 .hero-slide__art {
   position: absolute;
@@ -209,6 +217,14 @@ body,
     rgba(0, 0, 0, 0.45) 45%,
     transparent 78%
   );
+}
+/* Fade the bottom of the card into the page background so it melts into the
+   layout (matches the mockup). Painted under the content. */
+.hero-slide__fade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(to top, var(--bg) 0%, transparent 42%);
 }
 .hero-slide__content {
   position: absolute;

@@ -139,6 +139,7 @@ export function HeroSlider({
               >
                 <div className="hero-slide__art" style={artStyle} />
                 <div className="hero-slide__scrim" />
+                <div className="hero-slide__fade" />
                 {active && (
                   <div className="hero-slide__content">
                     {it.logo ? (
