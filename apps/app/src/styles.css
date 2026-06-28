@@ -218,7 +218,7 @@ html.is-android .stream {
   /* Centre the active 78%-wide slide (11% margin each side); pitch is 79%
      (78% slide + 1% gap). */
   transform: translateX(calc(11% - var(--hero-i, 0) * 79%));
-  transition: transform 0.7s cubic-bezier(0.22, 0.61, 0.36, 1);
+  transition: transform 0.45s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 .hero-slide {
   position: relative;
@@ -237,7 +237,7 @@ html.is-android .stream {
   background-position: center;
   transition:
     transform 0.22s ease,
-    box-shadow 0.22s ease;
+    opacity 0.22s ease;
 }
 /* Fade the bottom of the card into the page background so it melts into the
    layout (matches the mockup). Painted under the content. */
@@ -299,24 +299,13 @@ html.is-android .stream {
   gap: 7px;
 }
 /* Browse-mode focus ring on the active slide (whole carousel is the focus). */
-/* Hero focus: a soft white glow rendered OUTSIDE the clipped viewport so it
-   isn't cut off. It overlays the centred active card with a transparent centre
-   (the card shows through) and a halo that sits over the neighbours. */
-.hero-slider__glow {
-  position: absolute;
-  top: 10px;
-  left: 11%;
-  width: 78%;
-  aspect-ratio: 2 / 1;
-  border-radius: 33px 33px 0 0;
-  pointer-events: none;
-  z-index: 2;
-  opacity: 0;
-  box-shadow: 0 0 64px 3px rgba(255, 255, 255, 0.55);
-  transition: opacity 0.25s ease;
+/* Hero focus: dim the neighbours + a subtle lift on the active slide, so the
+   active pops by contrast. No glow/overflow to fight the scroll-container clip. */
+.hero-slider.is-focused .hero-slide:not(.is-active) {
+  opacity: 0.45;
 }
-.hero-slider.is-focused .hero-slider__glow {
-  opacity: 1;
+.hero-slider.is-focused .hero-slide.is-active {
+  transform: scale(1.012);
 }
 
 body {
@@ -2408,10 +2397,10 @@ body.theater-mode .app-header:hover {
   gap: 20px;
   overflow-x: auto;
   /* The scroll container clips overflow on every edge, which would cut off a
-     focused card's glow + lift. Pad top/bottom for glow room; the negative left
-     margin pulls the first card back to line up with the row title (the left
-     room sits inside the page's bleed, so nothing overflows on the right). */
-  padding: 24px 16px;
+     focused card's glow + lift. Pad top/bottom generously for glow room; the
+     negative left margin pulls the first card back to line up with the row title
+     (the left room sits inside the page's bleed, so nothing overflows right). */
+  padding: 34px 16px;
   margin-left: -16px;
   scrollbar-width: thin;
 }
