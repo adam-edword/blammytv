@@ -1,4 +1,8 @@
 import { Fragment, useEffect, useState } from "react";
+import {
+  FocusContext,
+  useFocusable,
+} from "@noriginmedia/norigin-spatial-navigation";
 import { TABS, sectionOf, type TabKey } from "./TopTabs";
 import { SearchIcon, AccountIcon, SettingsIcon } from "./icons";
 import { FocusButton } from "./FocusButton";
@@ -34,6 +38,17 @@ export function AppHeader({
   const clock = useClock();
   const section = sectionOf(active);
 
+  // Wrap the tab strip in a focus context so that arriving at the nav from below
+  // (e.g. Up out of the hero) always lands on the *active* tab, not whichever
+  // tab happens to be geometrically nearest. `preferredChildFocusKey` points at
+  // the active tab; `saveLastFocusedChild` is off so the preference always wins
+  // over the last-focused tab.
+  const { ref: tabsRef, focusKey: tabsFocusKey } = useFocusable<HTMLElement>({
+    focusKey: "tabs",
+    saveLastFocusedChild: false,
+    preferredChildFocusKey: `tab-${active}`,
+  });
+
   return (
     <header className="app-header">
       <div className="app-header__brand">
@@ -67,31 +82,39 @@ export function AppHeader({
         >
           <SearchIcon />
         </button>
-        <nav className="top-tabs" role="tablist" aria-label="Sections">
-          {TABS.map((tab, i) => {
-            // A divider sits where the section changes (Live TV | Stream …).
-            const startsSection = i > 0 && TABS[i - 1].section !== tab.section;
-            return (
-              <Fragment key={tab.key}>
-                {startsSection && (
-                  <span className="app-header__divider" aria-hidden="true">
-                    |
-                  </span>
-                )}
-                <FocusButton
-                  className={
-                    "top-tab" + (active === tab.key ? " top-tab--active" : "")
-                  }
-                  focusKey={`tab-${tab.key}`}
-                  autoFocus={active === tab.key}
-                  onPress={() => onChange(tab.key)}
-                >
-                  {tab.label}
-                </FocusButton>
-              </Fragment>
-            );
-          })}
-        </nav>
+        <FocusContext.Provider value={tabsFocusKey}>
+          <nav
+            className="top-tabs"
+            role="tablist"
+            aria-label="Sections"
+            ref={tabsRef}
+          >
+            {TABS.map((tab, i) => {
+              // A divider sits where the section changes (Live TV | Stream …).
+              const startsSection =
+                i > 0 && TABS[i - 1].section !== tab.section;
+              return (
+                <Fragment key={tab.key}>
+                  {startsSection && (
+                    <span className="app-header__divider" aria-hidden="true">
+                      |
+                    </span>
+                  )}
+                  <FocusButton
+                    className={
+                      "top-tab" + (active === tab.key ? " top-tab--active" : "")
+                    }
+                    focusKey={`tab-${tab.key}`}
+                    autoFocus={active === tab.key}
+                    onPress={() => onChange(tab.key)}
+                  >
+                    {tab.label}
+                  </FocusButton>
+                </Fragment>
+              );
+            })}
+          </nav>
+        </FocusContext.Provider>
         <button
           className={
             "icon-btn" + (section === "stream" ? "" : " icon-btn--ghost")
