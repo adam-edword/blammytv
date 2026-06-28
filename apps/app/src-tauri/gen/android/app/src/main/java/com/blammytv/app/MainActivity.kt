@@ -13,6 +13,8 @@ import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.activity.enableEdgeToEdge
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -83,10 +85,19 @@ class MainActivity : TauriActivity() {
     super.onWebViewCreate(webView)
     webViewRef = webView
     webView.post {
-      // ±10s seek increments drive the rew/ffwd buttons.
+      // ±10s seek increments drive the rew/ffwd buttons. Request + manage audio
+      // focus (handleAudioFocus=true): Android's audio hardening mutes playback
+      // from an app that doesn't hold focus, so without this the video is silent.
       val exo = ExoPlayer.Builder(this)
         .setSeekBackIncrementMs(10_000)
         .setSeekForwardIncrementMs(10_000)
+        .setAudioAttributes(
+          AudioAttributes.Builder()
+            .setUsage(C.USAGE_MEDIA)
+            .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
+            .build(),
+          /* handleAudioFocus= */ true,
+        )
         .build()
       exo.addListener(loggingListener)
       player = exo
