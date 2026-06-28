@@ -247,10 +247,7 @@ html.is-android .hero-slider {
      taller card; this is the knob for "row below barely peeks". Neighbours are
      the SAME size as the active slide, just dimmed + cut off at the edges. */
   aspect-ratio: 2 / 1;
-  /* Top corners rounded, bottom corners square: the bottom fades into the page
-     bg anyway, and squaring it sidesteps the rounded-corner AA fringe there
-     (the fringe is a Chromium artifact on the slide's transformed layer). */
-  border-radius: 33px 33px 0 0;
+  border-radius: 33px;
   background-size: cover;
   background-position: center;
   transition:
@@ -333,14 +330,14 @@ html.is-android .hero-slider {
   left: 11%;
   width: 78%;
   aspect-ratio: 2 / 1;
-  border-radius: 33px 33px 0 0;
+  border-radius: 33px;
   pointer-events: none;
-  /* Behind the slides: neighbours cover its sides and sliding cards pass over it
-     (no floating-over-neighbours, no odd transition). The halo peeks around the
-     active card's edges + top/bottom. */
+  /* Behind the slides: a solid white shape, blurred into a soft glow. The card
+     covers the centre, so the white reads as a halo around its edges. */
   z-index: 0;
   opacity: 0;
-  box-shadow: 0 0 64px 4px rgba(255, 255, 255, 0.55);
+  background: #fff;
+  filter: blur(45px);
   transition: opacity 0.25s ease;
 }
 .hero-slider.is-focused .hero-slider__glow {
