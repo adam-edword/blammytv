@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.util.Log
 import android.view.KeyEvent
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.JavascriptInterface
@@ -35,6 +36,7 @@ class MainActivity : TauriActivity() {
   private var player: ExoPlayer? = null
   private var playerContainer: View? = null
   private var playerView: PlayerView? = null
+  private var chromeView: View? = null
   private var webViewRef: WebView? = null
 
   // BlammyTV chrome views inside the custom controller layout.
@@ -62,6 +64,12 @@ class MainActivity : TauriActivity() {
     ) {
       if (event.action == KeyEvent.ACTION_UP) closePlayer()
       return true // consume both DOWN and UP so the WebView never navigates
+    }
+    // Any remote key while the controls are up resets their idle fade-out timer.
+    if (event.action == KeyEvent.ACTION_DOWN &&
+      playerView?.isControllerFullyVisible == true
+    ) {
+      scheduleHideControls()
     }
     return super.dispatchKeyEvent(event)
   }
@@ -94,8 +102,24 @@ class MainActivity : TauriActivity() {
 
       val view = container.findViewById<PlayerView>(R.id.btv_player)
       view.player = exo
-      view.controllerShowTimeoutMs = 3500
-      view.controllerHideOnTouch = true
+      // We drive show/hide ourselves so the chrome can fade (Media3's built-in
+      // controller animation only applies to its default layout, not ours):
+      // disable Media3's auto-hide + touch-toggle-hide, then fade the chrome's
+      // alpha on show and on our own idle timer.
+      view.controllerShowTimeoutMs = 0
+      view.controllerHideOnTouch = false
+      view.setControllerVisibilityListener(
+        PlayerView.ControllerVisibilityListener { visibility ->
+          if (visibility == View.VISIBLE) onControllerShown()
+        },
+      )
+      view.setOnTouchListener { _, ev ->
+        if (ev.action == MotionEvent.ACTION_DOWN && view.isControllerFullyVisible) {
+          scheduleHideControls()
+        }
+        false // don't consume — let the PlayerView/buttons handle the touch
+      }
+      chromeView = view.findViewById(R.id.btv_chrome)
 
       logoView = view.findViewById(R.id.btv_logo)
       metaView = view.findViewById(R.id.btv_meta)
@@ -183,9 +207,35 @@ class MainActivity : TauriActivity() {
   private fun hidePlayer() {
     player?.stop()
     player?.clearMediaItems()
+    chromeView?.removeCallbacks(hideControlsRunnable)
     hideLoading()
     hideError()
     playerContainer?.visibility = View.GONE
+  }
+
+  // Chrome (controls) fade. Media3 still decides WHEN to show the controller
+  // (tap/key/auto-show); we intercept that to fade the chrome in, and run our
+  // own idle timer to fade it back out and hide the controller.
+  private val hideControlsRunnable = Runnable {
+    val c = chromeView ?: return@Runnable
+    c.animate().cancel()
+    c.animate().alpha(0f).setDuration(FADE_MS).withEndAction {
+      playerView?.hideController()
+    }.start()
+  }
+
+  private fun onControllerShown() {
+    val c = chromeView ?: return
+    c.animate().cancel()
+    c.alpha = 0f
+    c.animate().alpha(1f).setDuration(FADE_MS).start()
+    scheduleHideControls()
+  }
+
+  private fun scheduleHideControls() {
+    val c = chromeView ?: return
+    c.removeCallbacks(hideControlsRunnable)
+    c.postDelayed(hideControlsRunnable, CONTROLS_TIMEOUT_MS)
   }
 
   // "loading" wordmark with a per-character scramble that settles left-to-right
@@ -307,6 +357,8 @@ class MainActivity : TauriActivity() {
   companion object {
     private const val TAG = "BlammyPlayer"
     private const val LOADING_TEXT = "loading"
+    private const val FADE_MS = 200L
+    private const val CONTROLS_TIMEOUT_MS = 3500L
     private val SPEEDS = floatArrayOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f)
     private const val SPEED_DEFAULT_INDEX = 2 // 1.0×
   }
