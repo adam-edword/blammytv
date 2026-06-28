@@ -140,7 +140,7 @@ body,
   opacity: 1;
 }
 .stream-card {
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  transition: transform 0.12s ease;
 }
 /* Card focus: glow + lift on the artwork only (the title/meta below stay put). */
 .stream-card.is-focused {
@@ -2481,9 +2481,11 @@ html.is-android * {
   align-items: center;
   justify-content: center;
   outline: 2px solid transparent;
+  /* NB: do NOT transition box-shadow — animating it forces a full repaint every
+     frame (no GPU compositing), which makes held ◀/▶ navigation choppy as the
+     glow fades in/out on card after card. The glow snaps; only the lift eases. */
   transition:
     transform 0.15s ease,
-    box-shadow 0.15s ease,
     outline-color 0.15s ease;
 }
 
@@ -2561,13 +2563,6 @@ html.is-android .media-row__track {
   padding-left: 44px;
 }
 
-/* TV: the row track leaves stale paint of a focused card's white box-shadow
-   glow as it scrolls horizontally (a Blink invalidation quirk under CSS
-   `zoom`). Promoting the track to its own composited layer makes the whole
-   strip repaint cleanly, so the glow travels/clears with the cards. */
-html.is-android .media-row__track {
-  will-change: transform;
-}
 
 /* ---------- Title detail / source selection ----------
  * An image-dominated page, so its text stays light in both themes. */

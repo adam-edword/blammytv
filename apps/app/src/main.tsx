@@ -8,6 +8,7 @@ import { UpdaterProvider } from "./state/UpdaterProvider";
 import { init as initSpatialNav } from "@noriginmedia/norigin-spatial-navigation";
 import "./fonts";
 import "./styles.css";
+import "./lib/fpsmeter"; // TEMP: perf overlay while tuning row-nav jank
 
 const root = ReactDOM.createRoot(document.getElementById("root")!);
 
