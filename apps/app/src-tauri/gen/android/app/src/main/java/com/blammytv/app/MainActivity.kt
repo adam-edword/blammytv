@@ -119,6 +119,9 @@ class MainActivity : TauriActivity() {
       // alpha on show and on our own idle timer.
       view.controllerShowTimeoutMs = 0
       view.controllerHideOnTouch = false
+      // Don't let Media3 re-show the controller on every state change — that
+      // fought our fade and caused flicker. We're the only one that shows it.
+      view.controllerAutoShow = false
       view.setControllerVisibilityListener(
         PlayerView.ControllerVisibilityListener { visibility ->
           if (visibility == View.VISIBLE) onControllerShown()
@@ -163,6 +166,7 @@ class MainActivity : TauriActivity() {
     exo.prepare()
     playerContainer?.visibility = View.VISIBLE
     playerView?.requestFocus()
+    playerView?.showController() // brief chrome on open, then our timer fades it
   }
 
   // Populate the chrome from the forwarded meta (logo URL + the three text
