@@ -3,18 +3,21 @@
 // default-speed "smooth" (too slow) or instant — this gives us an exact, snappy
 // duration for D-pad navigation.
 
+import { getCurrentFocusKey } from "@noriginmedia/norigin-spatial-navigation";
+
 function easeInOutCubic(t: number): number {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
 
 // --- TEMP DIAGNOSTIC (remove once centring is fixed) -----------------------
-// Flip to false to silence. Renders the last vertical-centring computation in a
-// fixed overlay so we can read the real numbers off a screenshot on the
-// emulator (no chrome://inspect needed).
+// Flip to false to silence. Renders the last vertical-centring computation plus
+// a live (per-frame) scrollTop + focus readout in a fixed overlay, so we can
+// read the real state off a screenshot on the emulator (no chrome://inspect).
 const DEBUG_SCROLL = true;
 let dbgEl: HTMLElement | null = null;
 let dbgCompute = "";
 let dbgResult = "";
+let dbgLive = "";
 function dbgRender(): void {
   if (!dbgEl) {
     dbgEl = document.createElement("pre");
@@ -24,7 +27,9 @@ function dbgRender(): void {
       "white-space:pre;pointer-events:none;border-radius:6px;max-width:60vw";
     document.body.appendChild(dbgEl);
   }
-  dbgEl.textContent = dbgCompute + (dbgResult ? "\n" + dbgResult : "");
+  dbgEl.textContent = [dbgLive, dbgCompute, dbgResult]
+    .filter(Boolean)
+    .join("\n");
 }
 function dbg(line: string): void {
   if (!DEBUG_SCROLL) return;
@@ -36,6 +41,24 @@ function dbgReport(line: string): void {
   if (!DEBUG_SCROLL) return;
   dbgResult = line;
   dbgRender();
+}
+// Live per-frame trace of the actual stream scrollTop and the focused element,
+// so a screenshot shows the true state regardless of when it's taken.
+if (DEBUG_SCROLL && typeof requestAnimationFrame === "function") {
+  let last = "";
+  const tick = () => {
+    const sc = document.querySelector<HTMLElement>(".stream");
+    const next = sc
+      ? `live=${sc.scrollTop.toFixed(0)} focus=${getCurrentFocusKey() ?? "?"}`
+      : "";
+    if (next !== last) {
+      last = next;
+      dbgLive = next;
+      dbgRender();
+    }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
 }
 // ---------------------------------------------------------------------------
 
