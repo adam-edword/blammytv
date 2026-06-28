@@ -27,8 +27,14 @@ if (isOverlay) {
   initPreferences();
   // TV remote navigation: the WebView delivers the D-pad as arrow keydowns, so
   // norigin's spatial navigation drives focus across the UI. Throttle so a held
-  // key doesn't race through focusables.
-  initSpatialNav({ throttle: 100, throttleKeypresses: true });
+  // key doesn't race through focusables. useGetBoundingClientRect gives true
+  // viewport coordinates so focus can move *between* containers (e.g. the header
+  // tabs down into the scrolling content) — offset-based measurement can't.
+  initSpatialNav({
+    throttle: 100,
+    throttleKeypresses: true,
+    useGetBoundingClientRect: true,
+  });
   root.render(
     <React.StrictMode>
       <UpdaterProvider>

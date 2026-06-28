@@ -135,6 +135,9 @@ body,
    10-foot UI (brand-red ring + a small lift). */
 .is-focused {
   outline: none;
+  /* Always full-strength when focused, even if the element is dimmed at rest
+     (e.g. inactive tabs) — otherwise the ring inherits the faded opacity. */
+  opacity: 1;
 }
 .stream-card {
   transition: transform 0.12s ease, box-shadow 0.12s ease;
