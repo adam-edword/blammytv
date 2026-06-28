@@ -26,6 +26,10 @@ import { ChevronIcon } from "./components/icons";
 import { fetchConfig, type ConfigErrors } from "./lib/config";
 import { fetchVodDetail, vodBackendConfigured } from "./lib/vod";
 import { getAioUrl } from "./lib/settings";
+import {
+  getCurrentFocusKey,
+  setFocus,
+} from "@noriginmedia/norigin-spatial-navigation";
 import { isTauri, onCompClosed, onCompExitFullscreen, onCompFullscreen, onCompPanel, onCompPopout, onNativeClose, onPopoutClosed, tauriCompKey, tauriCompPopout, tauriPopoutPos, tauriPopoutStop, tauriSetFullscreen } from "./lib/tauri";
 import { loadShareCode, saveShareCode, clearShareCode } from "./lib/pairing";
 
@@ -94,10 +98,16 @@ export function App() {
     index: 0,
   });
 
+  // The spatial-focus key to restore once the screen we navigated (back) to has
+  // re-rendered and its focusables have re-registered.
+  const pendingFocus = useRef<string | null>(null);
+
   useEffect(() => {
     history.replaceState({ idx: 0 }, "");
     const onPop = (e: PopStateEvent) => {
       const idx = typeof e.state?.idx === "number" ? e.state.idx : 0;
+      pendingFocus.current =
+        typeof e.state?.focus === "string" ? e.state.focus : null;
       setNav((n) => ({
         stack: n.stack,
         index: Math.max(0, Math.min(idx, n.stack.length - 1)),
@@ -107,7 +117,21 @@ export function App() {
     return () => window.removeEventListener("popstate", onPop);
   }, []);
 
+  // After navigating back, return focus to whatever was focused when we left
+  // this screen (saved in its history entry on push). rAF so the destination
+  // screen's focusables have registered first.
+  useEffect(() => {
+    const key = pendingFocus.current;
+    if (!key) return;
+    pendingFocus.current = null;
+    const id = requestAnimationFrame(() => setFocus(key));
+    return () => cancelAnimationFrame(id);
+  }, [nav.index]);
+
   const push = useCallback((screen: Screen) => {
+    // Stamp the screen we're leaving with its current focus, so Back restores it.
+    const focus = getCurrentFocusKey();
+    history.replaceState({ ...history.state, focus }, "");
     setNav((n) => {
       // Truncate any forward entries, like a browser does on a new navigation.
       const stack = n.stack.slice(0, n.index + 1).concat(screen);

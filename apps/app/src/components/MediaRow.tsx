@@ -14,11 +14,13 @@ export function MediaRow({
   layout,
   items,
   onOpen,
+  rowId,
 }: {
   title: string;
   layout: "poster" | "landscape";
   items: VodItem[];
   onOpen?: (item: VodItem) => void;
+  rowId: string;
 }) {
   const { ref, focusKey } = useFocusable({
     saveLastFocusedChild: true,
@@ -36,6 +38,7 @@ export function MediaRow({
               item={item}
               layout={layout}
               onOpen={onOpen}
+              rowId={rowId}
             />
           ))}
         </div>

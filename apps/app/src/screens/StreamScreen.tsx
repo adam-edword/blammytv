@@ -56,6 +56,7 @@ export function StreamScreen({
         {stream.rows.map((row) => (
           <MediaRow
             key={row.id}
+            rowId={row.id}
             title={row.title}
             layout={row.layout}
             items={resolve(row.itemIds)}

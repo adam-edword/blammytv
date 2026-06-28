@@ -13,13 +13,18 @@ export function StreamCard({
   item,
   layout,
   onOpen,
+  rowId,
 }: {
   item: VodItem;
   layout: "poster" | "landscape";
   onOpen?: (item: VodItem) => void;
+  /** Row id — combined with the item id for a stable, unique focus key so focus
+   * survives navigating away and back. */
+  rowId: string;
 }) {
   const art = layout === "landscape" ? item.backdrop ?? item.poster : item.poster;
   const { ref, focused } = useFocusable<HTMLButtonElement>({
+    focusKey: `card-${rowId}-${item.id}`,
     onEnterPress: () => onOpen?.(item),
     onFocus: (layout: FocusableComponentLayout) =>
       layout.node?.scrollIntoView({
