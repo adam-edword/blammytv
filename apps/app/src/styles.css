@@ -2525,6 +2525,16 @@ html.is-android .stream-card__title {
 }
 html.is-android .stream-card__meta {
   font-size: 12px;
+  /* Pull the meta up against the title (the card's flex gap is 10px) so the
+     two text lines read as one block. */
+  margin-top: -5px;
+}
+
+/* TV is remote-driven: a stray mouse/pointer hover (e.g. the emulator's cursor)
+   shouldn't lift + outline a card and fight the D-pad focus highlight. */
+html.is-android .stream-card:hover .stream-card__art {
+  transform: none;
+  outline-color: transparent;
 }
 
 /* ---------- Title detail / source selection ----------
