@@ -235,7 +235,9 @@ html.is-android .stream {
   border-radius: 33px 33px 0 0;
   background-size: cover;
   background-position: center;
-  transition: box-shadow 0.2s ease;
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease;
 }
 /* Fade the bottom of the card into the page background so it melts into the
    layout (matches the mockup). Painted under the content. */
@@ -297,10 +299,11 @@ html.is-android .stream {
   gap: 7px;
 }
 /* Browse-mode focus ring on the active slide (whole carousel is the focus). */
+/* Hero focus: no hard border (too heavy on a huge element + the square bottom).
+   A soft accent glow + subtle lift reads as "raised and selected". */
 .hero-slider.is-focused .hero-slide.is-active {
-  box-shadow:
-    0 0 0 3px rgb(var(--accent-rgb)),
-    0 16px 44px rgba(0, 0, 0, 0.6);
+  transform: scale(1.012);
+  box-shadow: 0 16px 56px 4px rgb(var(--accent-rgb) / 0.5);
 }
 
 body {
