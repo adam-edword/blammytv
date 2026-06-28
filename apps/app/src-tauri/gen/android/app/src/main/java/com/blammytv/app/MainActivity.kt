@@ -64,7 +64,11 @@ class MainActivity : TauriActivity() {
     if (event.keyCode == KeyEvent.KEYCODE_BACK &&
       playerContainer?.visibility == View.VISIBLE
     ) {
-      if (event.action == KeyEvent.ACTION_UP) closePlayer()
+      // Back dismisses the controls first if they're showing; only when they're
+      // already hidden does it exit the player.
+      if (event.action == KeyEvent.ACTION_UP) {
+        if (controlsHidden()) closePlayer() else hideControls()
+      }
       return true // consume both DOWN and UP so the WebView never navigates
     }
     // A remote key reveals the controls and resets their idle fade-out timer;
@@ -241,8 +245,11 @@ class MainActivity : TauriActivity() {
   // the chrome layer (btv_chrome) on top of it — never calling hideController(),
   // which snapped/flashed on our custom layout. Hidden = alpha 0 + INVISIBLE (so
   // it takes no touches); shown = alpha 1 + VISIBLE.
-  private val hideControlsRunnable = Runnable {
-    val c = chromeView ?: return@Runnable
+  private val hideControlsRunnable = Runnable { hideControls() }
+
+  private fun hideControls() {
+    val c = chromeView ?: return
+    c.removeCallbacks(hideControlsRunnable)
     c.animate().cancel()
     c.animate().alpha(0f).setDuration(FADE_MS).withEndAction {
       c.visibility = View.INVISIBLE
