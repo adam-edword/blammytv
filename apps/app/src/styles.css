@@ -1538,6 +1538,10 @@ body.theater-mode .app-header:hover {
   overflow-y: auto;
   overflow-x: hidden;
   padding-bottom: 24px;
+  /* Keep ~2 rows of buffer above/below the focused category — scrollIntoView
+     ({block:"nearest"}) honours this, so the cursor never sits flush at the edge
+     before the list scrolls. */
+  scroll-padding-block: 84px;
 }
 
 /* Draggable divider between the source panel and the guide (occupies the gutter). */
