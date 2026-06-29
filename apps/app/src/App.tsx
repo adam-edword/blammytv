@@ -219,18 +219,34 @@ export function App() {
     [shareCode, push, playSource],
   );
 
+  // Bumped per pull so a slow background EPG (or load) from a superseded pull
+  // can't patch/overwrite the current one.
+  const pullSeq = useRef(0);
   const pull = useCallback((code: ShareCode) => {
+    const id = ++pullSeq.current;
     setLoad({ status: "loading" });
-    fetchConfig(code)
-      .then(({ config, errors }) =>
-        setLoad({ status: "ready", config, errors }),
-      )
-      .catch((err) =>
-        setLoad({
-          status: "error",
-          message: err instanceof Error ? err.message : "Couldn't load",
-        }),
+    fetchConfig(code, (programs) => {
+      // The deferred EPG arrived — patch it into the live guide.
+      if (id !== pullSeq.current) return;
+      setLoad((prev) =>
+        prev.status === "ready"
+          ? {
+              ...prev,
+              config: { ...prev.config, live: { ...prev.config.live, programs } },
+            }
+          : prev,
       );
+    })
+      .then(({ config, errors }) => {
+        if (id === pullSeq.current) setLoad({ status: "ready", config, errors });
+      })
+      .catch((err) => {
+        if (id === pullSeq.current)
+          setLoad({
+            status: "error",
+            message: err instanceof Error ? err.message : "Couldn't load",
+          });
+      });
   }, []);
 
   // The dumb-terminal lifecycle: as soon as we have a share code, phone home

@@ -35,8 +35,12 @@ export interface LoadedConfig {
   errors: ConfigErrors;
 }
 
-export async function fetchConfig(shareCode: ShareCode): Promise<LoadedConfig> {
-  if (isTauri()) return buildLocalConfig();
+export async function fetchConfig(
+  shareCode: ShareCode,
+  /** Tauri only: called once the deferred EPG finishes, to patch the guide. */
+  onPrograms?: (programs: ConfigBlob["live"]["programs"]) => void,
+): Promise<LoadedConfig> {
+  if (isTauri()) return buildLocalConfig(onPrograms);
 
   // Browser/dev paths.
   if (!API_URL) {
@@ -76,7 +80,9 @@ const EMPTY_LIVE: ConfigBlob["live"] = { groups: [], channels: [], programs: [] 
  * source's tab, so a broken AIOStreams URL never takes down Live TV (and vice
  * versa). Onboarding guarantees a manifest URL, so a VOD error is a real
  * problem worth showing — not the demo catalog masquerading as content. */
-async function buildLocalConfig(): Promise<LoadedConfig> {
+async function buildLocalConfig(
+  onPrograms?: (programs: ConfigBlob["live"]["programs"]) => void,
+): Promise<LoadedConfig> {
   // Self-contained: only the blob's scalar fields are seeded locally; live and
   // movies/series/stream below are real data. (No demo catalog is built here —
   // favorites live in their own localStorage store, not the blob.)
@@ -120,9 +126,16 @@ async function buildLocalConfig(): Promise<LoadedConfig> {
       if (playlists.length === 0) return EMPTY_LIVE;
       try {
         const s = performance.now();
-        const built = await buildLive(playlists);
+        // Channels resolve now; the EPG streams in via onPrograms (background).
+        const epgStart = performance.now();
+        const built = await buildLive(playlists, (programs) => {
+          console.log(
+            `[load] EPG arrived in background ${since(epgStart)}ms — ${programs.length} programs`,
+          );
+          onPrograms?.(programs);
+        });
         console.log(
-          `[load] live (Xtream/M3U) ${since(s)}ms — ${built.channels.length} ch, ${built.programs.length} programs`,
+          `[load] live channels ${since(s)}ms — ${built.channels.length} ch (EPG deferred)`,
         );
         if (built.channels.length > 0) return built;
         return EMPTY_LIVE;

@@ -1,7 +1,8 @@
-import type { ConfigBlob } from "@blammytv/shared";
+import type { ConfigBlob, EpgProgram } from "@blammytv/shared";
 import { httpGetText } from "../http";
 import { channelId, groupId, mapEpg, validUrl } from "../xtream/mapper";
 import type { M3uPlaylistEntry } from "../playlists";
+import type { ChannelBuild } from "../live";
 import { parseM3u } from "./parser";
 
 type LiveSection = ConfigBlob["live"];
@@ -9,18 +10,17 @@ type LiveSection = ConfigBlob["live"];
 const UNCATEGORIZED = "Uncategorized";
 
 /**
- * Build the merged live section from the enabled M3U playlists. Each source is
- * best-effort: a playlist that fails to fetch or parse (or whose EPG fails)
- * never sinks the others. M3U entries already carry a directly-playable URL, so
- * channels need no per-play resolution — they slot into the same shape Xtream
- * produces.
+ * Build channels/groups from the enabled M3U playlists (fetch + parse the
+ * playlist). The EPG (the `url-tvg` / explicit XMLTV) is deferred to
+ * `loadPrograms()` so the guide renders immediately. Each source is best-effort.
+ * M3U entries already carry a directly-playable URL — same shape as Xtream.
  */
-export async function buildM3uLive(
+export async function buildM3uChannels(
   sources: M3uPlaylistEntry[],
-): Promise<LiveSection> {
+): Promise<ChannelBuild> {
   const groups: LiveSection["groups"] = [];
   const channels: LiveSection["channels"] = [];
-  const programs: LiveSection["programs"] = [];
+  const epgLoaders: Array<() => Promise<EpgProgram[]>> = [];
 
   await Promise.all(
     sources.map(async (source) => {
@@ -55,15 +55,17 @@ export async function buildM3uLive(
         }));
         channels.push(...srcChannels);
 
-        // EPG is best-effort — channels still render ("No info") without it.
         const epg = source.epgUrl || epgUrl;
         if (epg) {
-          try {
-            const xmltv = await httpGetText(epg);
-            programs.push(...mapEpg(xmltv, srcChannels, Date.now()));
-          } catch (err) {
-            console.warn(`[m3u] EPG failed for "${source.name}": ${msg(err)}`);
-          }
+          epgLoaders.push(async () => {
+            try {
+              const xmltv = await httpGetText(epg);
+              return mapEpg(xmltv, srcChannels, Date.now());
+            } catch (err) {
+              console.warn(`[m3u] EPG failed for "${source.name}": ${msg(err)}`);
+              return [];
+            }
+          });
         }
       } catch (err) {
         console.error(`[m3u] playlist "${source.name}" failed: ${msg(err)}`);
@@ -71,7 +73,12 @@ export async function buildM3uLive(
     }),
   );
 
-  return { groups, channels, programs, featuredChannelId: channels[0]?.id };
+  return {
+    groups,
+    channels,
+    loadPrograms: async () =>
+      (await Promise.all(epgLoaders.map((f) => f()))).flat(),
+  };
 }
 
 function msg(e: unknown): string {
