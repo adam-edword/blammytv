@@ -2683,7 +2683,6 @@ html.is-android .media-row__track {
   background:
     linear-gradient(to bottom, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0) 16%),
     linear-gradient(to right, rgba(0, 0, 0, 0.88) 0%, rgba(0, 0, 0, 0.25) 46%, rgba(0, 0, 0, 0) 70%),
-    linear-gradient(to top, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0) 30%),
     /* Soft radial (same shape as the hero slides) centred left-of-frame so its
        dark edge pools on the right — keeps the frosted source rail legible over
        busy art while leaving the centre subject visible. */
