@@ -16,7 +16,7 @@ import { isTv } from "../lib/tv";
 import { PlayIcon, InfoIcon } from "./icons";
 
 // Focus keys for the two-level model.
-const CAROUSEL_KEY = "hero-carousel";
+export const CAROUSEL_KEY = "hero-carousel";
 const WATCH_KEY = "hero-watch";
 const INFO_KEY = "hero-info";
 

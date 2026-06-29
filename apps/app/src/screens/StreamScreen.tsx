@@ -1,7 +1,8 @@
 import { useMemo } from "react";
+import { setFocus } from "@noriginmedia/norigin-spatial-navigation";
 import type { ConfigBlob, VodItem } from "@blammytv/shared";
 import { FeaturedHero } from "../components/FeaturedHero";
-import { HeroSlider } from "../components/HeroSlider";
+import { CAROUSEL_KEY, HeroSlider } from "../components/HeroSlider";
 import { MediaRow } from "../components/MediaRow";
 import { SourceError } from "../components/SourceError";
 import { vodCatalog } from "../lib/vod";
@@ -85,7 +86,14 @@ export function StreamScreen({
             items={cwItems}
             onOpen={onResume}
             progressById={cwProgress}
-            onClear={(item) => removeContinueWatching(item.id)}
+            onClear={(item) => {
+              removeContinueWatching(item.id);
+              // Clearing the last card unmounts the whole row, so norigin has no
+              // sibling to restore focus to — send it up to the hero instead.
+              if (cwItems.length <= 1) {
+                requestAnimationFrame(() => setFocus(CAROUSEL_KEY));
+              }
+            }}
           />
         )}
         {stream.rows.map((row) => (
