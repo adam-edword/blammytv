@@ -18,12 +18,16 @@ function glyphFor(name: string): string {
 export function CategorySidebar({
   groups,
   selectedId,
+  focusedId,
   onSelect,
   sourceName = "Source Name",
   collapsed = false,
 }: {
   groups: ChannelGroup[];
   selectedId: string;
+  /** The remote cursor's category (gets the focus ring) — distinct from the
+   * active/selected category. */
+  focusedId?: string;
   onSelect: (id: string) => void;
   sourceName?: string;
   collapsed?: boolean;
@@ -42,7 +46,8 @@ export function CategorySidebar({
       <button
         className={
           "category category--icon" +
-          (selectedId === FAVORITES_ID ? " category--active" : "")
+          (selectedId === FAVORITES_ID ? " category--active" : "") +
+          (focusedId === FAVORITES_ID ? " is-focused" : "")
         }
         type="button"
         title={collapsed ? "Favorites" : undefined}
@@ -56,7 +61,8 @@ export function CategorySidebar({
       <button
         className={
           "category category--icon" +
-          (selectedId === RECENTS_ID ? " category--active" : "")
+          (selectedId === RECENTS_ID ? " category--active" : "") +
+          (focusedId === RECENTS_ID ? " is-focused" : "")
         }
         type="button"
         title={collapsed ? "Recents" : undefined}
@@ -90,7 +96,9 @@ export function CategorySidebar({
           <button
             key={g.id}
             className={
-              "category" + (selectedId === g.id ? " category--active" : "")
+              "category" +
+              (selectedId === g.id ? " category--active" : "") +
+              (focusedId === g.id ? " is-focused" : "")
             }
             type="button"
             title={collapsed ? g.name : undefined}

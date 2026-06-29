@@ -6,17 +6,16 @@ import {
   useRef,
   useState,
 } from "react";
-import type { LiveChannel, EpgProgram } from "@blammytv/shared";
+import type { EpgProgram } from "@blammytv/shared";
 import {
-  guideWindow,
   ticks,
-  blockGeometry,
   minutesFromStart,
   isLiveNow,
   formatTime,
   PX_PER_MIN,
   type GuideWindow,
 } from "../lib/epg";
+import type { Block, Lane } from "../lib/guide";
 import { qualityTags } from "../lib/quality";
 import { StarIcon } from "./icons";
 
@@ -30,12 +29,6 @@ const LABEL_MIN = 120;
 const LABEL_MAX = 420;
 const LABEL_DEFAULT = 200;
 const LABEL_STORAGE = "blammytv.guideLabelWidth";
-
-interface Block {
-  p: EpgProgram;
-  left: number;
-  width: number;
-}
 
 /** Width / fade / slide for a pinned card at a given horizontal scroll.
  *
@@ -60,11 +53,13 @@ function pinnedMetrics(right: number, scroll: number) {
  * shared time axis, with a live "now" indicator. The programme currently at the
  * left edge is "pinned" there as a rounded card while it airs. */
 export function EpgGuide({
-  channels,
-  programs,
+  lanes,
+  win,
   now,
   selectedProgramId,
   selectedChannelId,
+  focusedProgramId,
+  focusedChannelId,
   onSelectProgram,
   onSelectChannel,
   onHoverChannel,
@@ -72,11 +67,16 @@ export function EpgGuide({
   favoriteIds,
   onToggleFavorite,
 }: {
-  channels: LiveChannel[];
-  programs: EpgProgram[];
+  /** Pre-laid-out channel rows (shared with the live screen's navigation). */
+  lanes: Lane[];
+  win: GuideWindow;
   now: number;
   selectedProgramId?: string;
   selectedChannelId?: string;
+  /** The remote cursor's programme — drawn with a focus ring + scrolled in. */
+  focusedProgramId?: string;
+  /** The remote cursor's channel when the row has no EPG (the noinfo cell). */
+  focusedChannelId?: string;
   onSelectProgram?: (p: EpgProgram) => void;
   /** Selecting an EPG-less ("no info") channel — it still often has a stream. */
   onSelectChannel?: (channelId: string) => void;
@@ -129,7 +129,6 @@ export function EpgGuide({
     }
   };
 
-  const win = useMemo<GuideWindow>(() => guideWindow(now), [now]);
   const laneWidth = minutesFromStart(win, win.end) * PX_PER_MIN;
   const nowLeft = minutesFromStart(win, now) * PX_PER_MIN;
 
@@ -144,24 +143,6 @@ export function EpgGuide({
       ) || 12,
     [],
   );
-
-  // Lay out each channel's blocks once; only the pinned card depends on scroll.
-  // Also resolve the programme airing right now, shown under the channel name.
-  const lanes = useMemo(() => {
-    const byChannel = groupByChannel(programs);
-    return channels.map((ch) => {
-      const own = byChannel[ch.id] ?? [];
-      return {
-        ch,
-        blocks: dropOverlaps(
-          own
-            .map((p) => ({ p, ...blockGeometry(win, p) }))
-            .filter((b) => b.width > 0)
-            .sort((a, b) => a.left - b.left),
-        ),
-      };
-    });
-  }, [channels, programs, win]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollXRef = useRef(0);
@@ -248,6 +229,65 @@ export function EpgGuide({
       });
     });
   }, [computePins]);
+
+  // Keep the remote cursor's cell in view. Pure model math (block geometry +
+  // the scroll container's client size), so the body `zoom` never enters — and
+  // the single scroll container is moved directly, not via getBoundingClientRect.
+  useEffect(() => {
+    const c = scrollRef.current;
+    if (!c || (!focusedProgramId && !focusedChannelId)) return;
+
+    let row = -1;
+    let block: Block | null = null;
+    for (let i = 0; i < lanes.length; i++) {
+      const lane = lanes[i];
+      const b = focusedProgramId
+        ? lane.blocks.find((x) => x.p.id === focusedProgramId)
+        : undefined;
+      if (b) {
+        row = i;
+        block = b;
+        break;
+      }
+      if (focusedChannelId && lane.ch.id === focusedChannelId) {
+        row = i;
+        break; // noinfo row: spans the lane, no horizontal target
+      }
+    }
+    if (row < 0) return;
+
+    const cs = getComputedStyle(c);
+    const labelW = parseFloat(cs.getPropertyValue("--guide-label-w")) || 0;
+    const rowH = parseFloat(cs.getPropertyValue("--row-h")) || 60;
+    const rulerH =
+      c.querySelector<HTMLElement>(".time-ruler")?.offsetHeight ?? 30;
+    const M = 16; // breathing room around the focused cell
+
+    // Horizontal: reveal the focused block clear of the sticky label column.
+    if (block) {
+      const cw = c.clientWidth;
+      const minLeft = labelW + block.left + block.width - cw + M;
+      const maxLeft = block.left - M;
+      let sl = c.scrollLeft;
+      if (sl > maxLeft) sl = maxLeft;
+      else if (sl < minLeft) sl = minLeft;
+      sl = Math.max(0, sl);
+      if (Math.abs(sl - c.scrollLeft) > 1) c.scrollLeft = sl;
+    } else if (c.scrollLeft !== 0) {
+      c.scrollLeft = 0;
+    }
+
+    // Vertical: reveal the row clear of the sticky time ruler.
+    const y = rulerH + row * (rowH + PROGRAM_GAP);
+    const chH = c.clientHeight;
+    const minTop = y + rowH - chH + M;
+    const maxTop = y - rulerH - M;
+    let st = c.scrollTop;
+    if (st > maxTop) st = maxTop;
+    else if (st < minTop) st = minTop;
+    st = Math.max(0, st);
+    if (Math.abs(st - c.scrollTop) > 1) c.scrollTop = st;
+  }, [focusedProgramId, focusedChannelId, lanes, PROGRAM_GAP]);
 
   return (
     <div
@@ -346,7 +386,8 @@ export function EpgGuide({
                       type="button"
                       className={
                         "program program--noinfo" +
-                        (ch.id === selectedChannelId ? " program--selected" : "")
+                        (ch.id === selectedChannelId ? " program--selected" : "") +
+                        (ch.id === focusedChannelId ? " program--focused" : "")
                       }
                       style={{
                         left: 0,
@@ -398,6 +439,7 @@ export function EpgGuide({
       "program" +
       (isLiveNow(b.p, now) ? " program--live" : "") +
       (b.p.id === selectedProgramId ? " program--selected" : "") +
+      (b.p.id === focusedProgramId ? " program--focused" : "") +
       (pinned ? " program--pinned" : "")
     );
   }
@@ -456,29 +498,4 @@ export function EpgGuide({
       </button>
     );
   }
-}
-
-function groupByChannel(programs: EpgProgram[]): Record<string, EpgProgram[]> {
-  const out: Record<string, EpgProgram[]> = {};
-  for (const p of programs) (out[p.channelId] ??= []).push(p);
-  for (const list of Object.values(out))
-    list.sort((a, b) => Date.parse(a.start) - Date.parse(b.start));
-  return out;
-}
-
-/** Keep only non-overlapping blocks (input sorted by `left`): the first of any
- * overlapping run wins, the rest are dropped. A safety net for messy provider
- * EPGs where programmes overlap and would otherwise stack on top of each other. */
-function dropOverlaps<T extends { left: number; width: number }>(
-  blocks: T[],
-): T[] {
-  const out: T[] = [];
-  let right = -Infinity;
-  for (const b of blocks) {
-    if (b.left + 0.5 >= right) {
-      out.push(b);
-      right = b.left + b.width;
-    }
-  }
-  return out;
 }

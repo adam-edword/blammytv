@@ -1,4 +1,15 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
+import {
+  setFocus,
+  useFocusable,
+} from "@noriginmedia/norigin-spatial-navigation";
 import type { ConfigBlob, EpgProgram, LiveChannel } from "@blammytv/shared";
 import { NowPlaying } from "../components/NowPlaying";
 import {
@@ -8,7 +19,8 @@ import {
 } from "../components/CategorySidebar";
 import { EpgGuide } from "../components/EpgGuide";
 import { SourceError } from "../components/SourceError";
-import { isLiveNow } from "../lib/epg";
+import { guideWindow, isLiveNow } from "../lib/epg";
+import { buildLanes, laneColumns } from "../lib/guide";
 import { loadFavorites, toggleFavorite } from "../lib/favorites";
 import { loadRecents, pushRecent } from "../lib/recents";
 import { usePreferences } from "../state/preferences";
@@ -145,6 +157,29 @@ export function LiveScreen({
     return list;
   }, [categoryId, live, favoriteIds, recents, prefs.hideNoInfoChannels]);
 
+  // One time window + per-channel lanes, shared by the guide (rendering) and the
+  // remote-navigation cursor below — so the navigable cells are exactly the ones
+  // drawn.
+  const win = useMemo(() => guideWindow(now), [now]);
+  const lanes = useMemo(
+    () => buildLanes(channels, live.programs, win),
+    [channels, live.programs, win],
+  );
+
+  // Ordered, remote-navigable category list (mirrors the sidebar order, minus
+  // the source-folder toggle, which is a pointer-only affordance).
+  const navCategories = useMemo(
+    () => [
+      FAVORITES_ID,
+      RECENTS_ID,
+      ...live.groups
+        .filter((g) => !g.hidden)
+        .sort((a, b) => a.order - b.order)
+        .map((g) => g.id),
+    ],
+    [live.groups],
+  );
+
   // The hero follows the user's selection, falling back to whatever is live on
   // the featured channel.
   const featuredChannelId = live.featuredChannelId ?? live.channels[0]?.id;
@@ -247,12 +282,15 @@ export function LiveScreen({
   useEffect(() => onCompExitFullscreen(leaveFullscreen), []);
   // YouTube-style shortcuts: the main webview holds keyboard focus, so capture
   // here and forward to the native overlay (which drives mpv + its UI). The
-  // overlay also handles keys directly for when it holds focus.
+  // overlay also handles keys directly for when it holds focus. Only while the
+  // player owns the screen (theater/fullscreen) — in mini mode the arrows belong
+  // to the guide cursor, so the remote can keep browsing while a channel plays.
   useEffect(() => {
     if (!isTauri()) return;
     const f = (e: KeyboardEvent) => {
       const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
       if (!playingRef.current || !SHORTCUT_KEYS.has(key)) return;
+      if (!theaterRef.current && !fsRef.current) return;
       e.preventDefault();
       void tauriCompKey(key).catch(() => {});
     };
@@ -320,6 +358,197 @@ export function LiveScreen({
     (g) => g.id === (textChannel ?? heroChannel)?.groupId,
   )?.name;
 
+  // ─── Remote navigation ────────────────────────────────────────────────────
+  // A single norigin node bridges the header tabs to this content; every move
+  // inside is index-based over `lanes` (a logical grid) and the sidebar list, so
+  // norigin never runs geometry inside the densely-scrolled guide. onArrowPress
+  // returns false to consume a move that stays inside, true at an edge to let
+  // the header tabs take focus.
+  type Nav =
+    | { zone: "sidebar"; row: number }
+    | { zone: "guide"; row: number; col: number }
+    | null;
+  const [nav, setNav] = useState<Nav>(null);
+  const navRef = useRef<Nav>(null);
+  navRef.current = nav;
+  // Remember the guide cell so leaving and returning lands where you were.
+  const lastGuide = useRef({ row: 0, col: 0 });
+  // Read in event handlers: while the player owns the screen (theater /
+  // fullscreen), arrows drive the player (below), not the guide cursor.
+  const theaterRef = useRef(false);
+  theaterRef.current = inTheater;
+  const fsRef = useRef(false);
+  fsRef.current = fullscreen;
+
+  // Selection actions, shared by pointer (guide/sidebar props) and remote (Enter).
+  // playChannel only touches stable setters, so empty deps are safe.
+  const selectProgram = useCallback((p: EpgProgram) => {
+    setSelectedProgramId(p.id);
+    setSelectedChannelId(null);
+    playChannel(p.channelId);
+  }, []);
+  const selectChannelId = useCallback((id: string) => {
+    setSelectedChannelId(id);
+    setSelectedProgramId(null);
+    playChannel(id);
+  }, []);
+  const selectCategory = useCallback((id: string) => {
+    setCategoryId(id);
+    setSelectedProgramId(null);
+    setSelectedChannelId(null);
+    setHoveredChannelId(null);
+    setHoveredProgram(null);
+  }, []);
+
+  const colCount = useCallback(
+    (row: number) => (lanes[row] ? laneColumns(lanes[row]) : 1),
+    [lanes],
+  );
+  const moveGuide = useCallback(
+    (row: number, col: number) => {
+      const r = Math.max(0, Math.min(lanes.length - 1, row));
+      const c = Math.max(0, Math.min(colCount(r) - 1, col));
+      lastGuide.current = { row: r, col: c };
+      setNav({ zone: "guide", row: r, col: c });
+    },
+    [lanes.length, colCount],
+  );
+  const enterGuide = useCallback(() => {
+    if (lanes.length === 0) {
+      setNav({ zone: "sidebar", row: 0 });
+      return;
+    }
+    moveGuide(lastGuide.current.row, lastGuide.current.col);
+  }, [lanes.length, moveGuide]);
+
+  const handleArrow = useCallback(
+    (dir: string): boolean => {
+      // Player owns the keys while in theater/fullscreen — consume without moving
+      // (the forward-to-player effect handles them).
+      if (theaterRef.current || fsRef.current) return false;
+      const n = navRef.current;
+      if (!n) {
+        enterGuide();
+        return false;
+      }
+      if (n.zone === "sidebar") {
+        if (dir === "up") {
+          if (n.row > 0) {
+            setNav({ zone: "sidebar", row: n.row - 1 });
+            return false;
+          }
+          return true; // up off the top → header tabs
+        }
+        if (dir === "down") {
+          if (n.row < navCategories.length - 1)
+            setNav({ zone: "sidebar", row: n.row + 1 });
+          return false;
+        }
+        if (dir === "right") {
+          enterGuide();
+          return false;
+        }
+        return true; // left: nothing further left
+      }
+      // guide
+      if (lanes.length === 0) return true;
+      if (dir === "up") {
+        if (n.row > 0) {
+          moveGuide(n.row - 1, n.col);
+          return false;
+        }
+        return true; // up off the top row → header tabs
+      }
+      if (dir === "down") {
+        if (n.row < lanes.length - 1) moveGuide(n.row + 1, n.col);
+        return false;
+      }
+      if (dir === "left") {
+        if (n.col > 0) moveGuide(n.row, n.col - 1);
+        else {
+          const idx = Math.max(0, navCategories.indexOf(categoryId));
+          setNav({ zone: "sidebar", row: idx });
+        }
+        return false;
+      }
+      if (dir === "right") {
+        if (n.col < colCount(n.row) - 1) moveGuide(n.row, n.col + 1);
+        return false;
+      }
+      return false;
+    },
+    [enterGuide, moveGuide, colCount, lanes.length, navCategories, categoryId],
+  );
+
+  const handleEnter = useCallback(() => {
+    if (theaterRef.current || fsRef.current) return;
+    const n = navRef.current;
+    if (!n) return;
+    if (n.zone === "sidebar") {
+      const id = navCategories[n.row];
+      if (id) selectCategory(id);
+      return;
+    }
+    const lane = lanes[n.row];
+    if (!lane) return;
+    const blk = lane.blocks[n.col];
+    if (blk) selectProgram(blk.p);
+    else selectChannelId(lane.ch.id);
+  }, [navCategories, lanes, selectCategory, selectProgram, selectChannelId]);
+
+  const { ref: contentRef } = useFocusable<HTMLDivElement>({
+    focusKey: "live-content",
+    onArrowPress: handleArrow,
+    onEnterPress: handleEnter,
+    onFocus: () => {
+      if (!navRef.current) enterGuide();
+    },
+    onBlur: () => setNav(null),
+  });
+
+  // Land focus in the guide when the Live tab mounts (it remounts on switch).
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setFocus("live-content"));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  // Clamp the cursor when the category (and thus lanes) changes under it.
+  useEffect(() => {
+    const n = navRef.current;
+    if (n?.zone !== "guide") return;
+    if (lanes.length === 0) setNav({ zone: "sidebar", row: 0 });
+    else moveGuide(n.row, n.col);
+    // React only to lanes changing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lanes]);
+
+  // Drive the hero preview from the remote cursor (mirrors mouse hover).
+  useEffect(() => {
+    if (nav?.zone === "guide") {
+      const lane = lanes[nav.row];
+      if (lane) {
+        const blk = lane.blocks[nav.col] ?? null;
+        setHoveredChannelId(lane.ch.id);
+        setHoveredProgram(blk ? blk.p : null);
+      }
+    } else {
+      setHoveredChannelId(null);
+      setHoveredProgram(null);
+    }
+  }, [nav, lanes]);
+
+  // The cursor's focused ids, handed to the guide for the ring + scroll-in.
+  const focusedLane = nav?.zone === "guide" ? lanes[nav.row] : undefined;
+  const focusedBlock =
+    nav?.zone === "guide" && focusedLane
+      ? focusedLane.blocks[nav.col]
+      : undefined;
+  const focusedProgramId = focusedBlock?.p.id;
+  const focusedChannelId =
+    focusedLane && !focusedBlock ? focusedLane.ch.id : undefined;
+  const focusedCategoryId =
+    nav?.zone === "sidebar" ? navCategories[nav.row] : undefined;
+
   // In theater (not fullscreen), clicking the black area outside the player drops
   // back to the mini player + guide. The native overlay swallows clicks on the
   // player box itself, so anything React sees here is genuinely "outside".
@@ -335,6 +564,7 @@ export function LiveScreen({
 
   return (
     <div
+      ref={contentRef}
       className={
         "live-screen" +
         (inTheater ? " live-screen--theater" : "") +
@@ -346,14 +576,9 @@ export function LiveScreen({
       <CategorySidebar
         groups={live.groups}
         selectedId={categoryId}
+        focusedId={focusedCategoryId}
         collapsed={collapsed || inTheater}
-        onSelect={(id) => {
-          setCategoryId(id);
-          setSelectedProgramId(null);
-          setSelectedChannelId(null);
-          setHoveredChannelId(null);
-          setHoveredProgram(null);
-        }}
+        onSelect={selectCategory}
       />
       <div
         className={"cat-resize" + (resizing ? " cat-resize--active" : "")}
@@ -385,21 +610,15 @@ export function LiveScreen({
           />
         )}
         <EpgGuide
-          channels={channels}
-          programs={live.programs}
+          lanes={lanes}
+          win={win}
           now={now}
           selectedProgramId={selectedProgramId ?? undefined}
           selectedChannelId={selectedChannelId ?? undefined}
-          onSelectProgram={(p) => {
-            setSelectedProgramId(p.id);
-            setSelectedChannelId(null);
-            playChannel(p.channelId);
-          }}
-          onSelectChannel={(id) => {
-            setSelectedChannelId(id);
-            setSelectedProgramId(null);
-            playChannel(id);
-          }}
+          focusedProgramId={focusedProgramId}
+          focusedChannelId={focusedChannelId}
+          onSelectProgram={selectProgram}
+          onSelectChannel={selectChannelId}
           onHoverChannel={setHoveredChannelId}
           onHoverProgram={setHoveredProgram}
           favoriteIds={favoriteIds}

@@ -1664,6 +1664,12 @@ body.theater-mode .app-header:hover {
   background: var(--red-soft);
 }
 
+/* Remote cursor on a category — accent ring, separate from the active state. */
+.category.is-focused {
+  border-color: rgb(var(--accent-rgb));
+  box-shadow: 0 0 0 2px rgb(var(--accent-rgb));
+}
+
 /* ---------- Guide ---------- */
 
 .guide {
@@ -1977,6 +1983,30 @@ body.theater-mode .app-header:hover {
      never shifts on selection — at any DPI. */
   border-color: var(--text);
   box-shadow: inset 0 0 0 1.5px var(--text);
+}
+
+/* The remote cursor (D-pad focus) — a bright accent ring, distinct from the
+   white "selected/playing" ring. Raised so the ring isn't clipped by the next
+   card. Box-shadow only, so no layout shift. */
+.program--focused {
+  border-color: rgb(var(--accent-rgb));
+  box-shadow:
+    0 0 0 2px rgb(var(--accent-rgb)),
+    inset 0 0 0 1.5px rgb(var(--accent-rgb));
+  z-index: 5;
+}
+
+.program--focused.program--noinfo {
+  border-style: solid;
+}
+
+/* Both rings at once (the cursor is on the playing programme): white core,
+   accent halo. */
+.program--selected.program--focused {
+  border-color: var(--text);
+  box-shadow:
+    0 0 0 2px rgb(var(--accent-rgb)),
+    inset 0 0 0 1.5px var(--text);
 }
 
 /* No programme info from the provider — still clickable (these channels often
