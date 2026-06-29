@@ -41,7 +41,9 @@ tauri-plugin-updater = "2"
 # fingerprint even when the headers are browser-like). Plus the native player
 # stack (libmpv via libloading + composition-hosted WebView2 + DirectComposition).
 [target.'cfg(windows)'.dependencies]
-reqwest = { version = "0.12", default-features = false, features = ["native-tls"] }
+# gzip: XMLTV EPGs are huge (tens of MB) and compress ~10:1 — request it so we
+# pull the compressed wire size, not the raw text.
+reqwest = { version = "0.12", default-features = false, features = ["native-tls", "gzip"] }
 libloading = "0.8"
 webview2-com = "0.38"
 windows = { version = "0.61", features = [
@@ -62,7 +64,7 @@ windows = { version = "0.61", features = [
 # Non-Windows (Android, …): rustls is pure Rust — no OpenSSL/Schannel — so it
 # cross-compiles cleanly. The native player isn't built here yet.
 [target.'cfg(not(windows))'.dependencies]
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "gzip"] }
 # Tauri core transitively pulls reqwest 0.13, which uses rustls with NO bundled
 # crypto provider — building any client panics until one is installed as the
 # process default. Declare rustls (same 0.23 line) with the ring provider so
