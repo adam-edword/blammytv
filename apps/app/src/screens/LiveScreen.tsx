@@ -458,8 +458,7 @@ export function LiveScreen({
           if (n.row < navCategories.length - 1)
             setNav({ zone: "sidebar", row: n.row + 1 });
         } else if (dir === "right") {
-          if (heroChannel) setNav({ zone: "hero" });
-          else enterGuide();
+          enterGuide(); // sources → timeline (the mini player is up from there)
         }
         // left: nothing to the left — stay put.
         return false;
