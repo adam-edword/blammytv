@@ -36,6 +36,10 @@ if (isOverlay) {
     throttle: 60,
     throttleKeypresses: true,
     useGetBoundingClientRect: true,
+    // TEMP: draw a labelled box around every focusable so we can spot a phantom
+    // (a registered focusable with no real node sits at 0,0). Remove once the
+    // nav-bar-up focus loss is traced.
+    visualDebug: true,
   });
   root.render(
     <React.StrictMode>
