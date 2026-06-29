@@ -12,7 +12,7 @@ export type XtreamPlaylist = XtreamConfig & { id: string; name: string };
  * Build the merged live section from the enabled Xtream playlists. Each source
  * is best-effort: one failing playlist (or its EPG) doesn't sink the others.
  */
-export async function buildLive(
+export async function buildXtreamLive(
   sources: XtreamPlaylist[],
 ): Promise<LiveSection> {
   const groups: LiveSection["groups"] = [];

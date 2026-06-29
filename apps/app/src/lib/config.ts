@@ -8,7 +8,7 @@ import { loadPreferences } from "../state/preferences";
 import { isTauri } from "./tauri";
 import { getAioUrl } from "./settings";
 import { buildVod } from "./aiostreams";
-import { buildLive } from "./xtream";
+import { buildLive } from "./live";
 import { loadPlaylists } from "./playlists";
 
 /**

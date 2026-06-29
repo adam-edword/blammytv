@@ -3,6 +3,7 @@ import { isTauri } from "./tauri";
 import { getAioUrl } from "./settings";
 import { listCatalogs as aioListCatalogs } from "./aiostreams";
 import {
+  addM3uPlaylist,
   addPlaylist,
   loadPlaylists,
   removePlaylist,
@@ -23,8 +24,9 @@ export const backendConfigured = (): boolean => Boolean(API_URL);
 
 export interface SourceSummary {
   id: string;
-  type: "xtream";
+  type: "xtream" | "m3u";
   name: string;
+  /** Display address — the panel URL (Xtream) or the playlist URL (M3U). */
   baseUrl: string;
   enabled: boolean;
   createdAt: string;
@@ -37,6 +39,12 @@ export interface AddXtreamInput {
   baseUrl: string;
   username: string;
   password: string;
+}
+
+export interface AddM3uInput {
+  name?: string;
+  url: string;
+  epgUrl?: string;
 }
 
 /** A catalog the carousel can pull from (for the Customize picker). */
@@ -60,9 +68,9 @@ export const listCatalogs = async (): Promise<CatalogOption[]> => {
 function summarize(p: Playlist): SourceSummary {
   return {
     id: p.id,
-    type: "xtream",
+    type: p.kind,
     name: p.name,
-    baseUrl: p.baseUrl,
+    baseUrl: p.kind === "m3u" ? p.url : p.baseUrl,
     enabled: p.enabled,
     createdAt: p.createdAt,
   };
@@ -81,6 +89,16 @@ export const addXtreamSource = async (
     : req<SourceSummary>("/admin/sources", {
         method: "POST",
         body: JSON.stringify(input),
+      });
+
+export const addM3uSource = async (
+  input: AddM3uInput,
+): Promise<SourceSummary> =>
+  isTauri()
+    ? summarize(addM3uPlaylist(input))
+    : req<SourceSummary>("/admin/sources", {
+        method: "POST",
+        body: JSON.stringify({ type: "m3u", ...input }),
       });
 
 export const setSourceEnabled = async (

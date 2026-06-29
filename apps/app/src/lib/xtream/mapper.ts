@@ -2,9 +2,11 @@ import type { ChannelGroup, LiveChannel, EpgProgram } from "@blammytv/shared";
 import type { XtreamCategory, XtreamLiveStream } from "./types";
 import type { XtreamClient } from "./client";
 
-// Ids are namespaced by source so multiple playlists never collide.
-const groupId = (sourceId: string, catId: string) => `${sourceId}:g:${catId}`;
-const channelId = (sourceId: string, streamId: number | string) =>
+// Ids are namespaced by source so multiple playlists never collide. Shared with
+// the M3U builder so both source kinds use one id scheme.
+export const groupId = (sourceId: string, catId: string) =>
+  `${sourceId}:g:${catId}`;
+export const channelId = (sourceId: string, streamId: number | string) =>
   `${sourceId}:c:${streamId}`;
 
 export function mapGroups(
@@ -118,7 +120,7 @@ function isFillerTitle(t: string): boolean {
   );
 }
 
-function validUrl(s?: string | null): string | undefined {
+export function validUrl(s?: string | null): string | undefined {
   if (!s) return undefined;
   try {
     const u = new URL(s);

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { CloseIcon } from "./icons";
 import {
+  addM3uSource,
   addXtreamSource,
   backendConfigured,
   listSources,
@@ -9,6 +10,8 @@ import {
   type SourceSummary,
 } from "../lib/admin";
 import { isTauri } from "../lib/tauri";
+
+type PlaylistKind = "xtream" | "m3u";
 
 /**
  * Playlists tab: add / list / toggle / remove Xtream playlists. These live on
@@ -20,10 +23,13 @@ export function PlaylistsSettings({ onDirty }: { onDirty: () => void }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [kind, setKind] = useState<PlaylistKind>("xtream");
   const [name, setName] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [m3uUrl, setM3uUrl] = useState("");
+  const [epgUrl, setEpgUrl] = useState("");
   const [busy, setBusy] = useState(false);
 
   const configured = isTauri() || backendConfigured();
@@ -54,7 +60,11 @@ export function PlaylistsSettings({ onDirty }: { onDirty: () => void }) {
     );
   }
 
-  const canAdd = baseUrl.trim() && username.trim() && password.trim() && !busy;
+  const canAdd =
+    !busy &&
+    (kind === "xtream"
+      ? Boolean(baseUrl.trim() && username.trim() && password.trim())
+      : Boolean(m3uUrl.trim()));
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
@@ -62,16 +72,26 @@ export function PlaylistsSettings({ onDirty }: { onDirty: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      await addXtreamSource({
-        name: name.trim() || undefined,
-        baseUrl: baseUrl.trim(),
-        username: username.trim(),
-        password,
-      });
+      if (kind === "xtream") {
+        await addXtreamSource({
+          name: name.trim() || undefined,
+          baseUrl: baseUrl.trim(),
+          username: username.trim(),
+          password,
+        });
+      } else {
+        await addM3uSource({
+          name: name.trim() || undefined,
+          url: m3uUrl.trim(),
+          epgUrl: epgUrl.trim() || undefined,
+        });
+      }
       setName("");
       setBaseUrl("");
       setUsername("");
       setPassword("");
+      setM3uUrl("");
+      setEpgUrl("");
       await refresh();
       onDirty();
     } catch (e) {
@@ -106,7 +126,22 @@ export function PlaylistsSettings({ onDirty }: { onDirty: () => void }) {
   return (
     <div className="playlists">
       <form className="playlist-form" onSubmit={add}>
-        <h4 className="playlist-form__title">Add Xtream Playlist</h4>
+        <h4 className="playlist-form__title">Add Playlist</h4>
+
+        <div className="seg" role="tablist" aria-label="Playlist type">
+          {(["xtream", "m3u"] as const).map((k) => (
+            <button
+              key={k}
+              type="button"
+              role="tab"
+              aria-selected={kind === k}
+              className={"seg__btn" + (kind === k ? " seg__btn--active" : "")}
+              onClick={() => setKind(k)}
+            >
+              {k === "xtream" ? "Xtream" : "M3U"}
+            </button>
+          ))}
+        </div>
 
         <label className="field">
           <span className="field__label">Name (optional)</span>
@@ -114,48 +149,81 @@ export function PlaylistsSettings({ onDirty }: { onDirty: () => void }) {
             className="field__input"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="My IPTV"
+            placeholder={kind === "xtream" ? "My IPTV" : "My M3U"}
           />
         </label>
 
-        <label className="field">
-          <span className="field__label">Server URL *</span>
-          <input
-            className="field__input"
-            value={baseUrl}
-            onChange={(e) => setBaseUrl(e.target.value)}
-            placeholder="http://example.com:8080"
-            inputMode="url"
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-          />
-        </label>
+        {kind === "xtream" ? (
+          <>
+            <label className="field">
+              <span className="field__label">Server URL *</span>
+              <input
+                className="field__input"
+                value={baseUrl}
+                onChange={(e) => setBaseUrl(e.target.value)}
+                placeholder="http://example.com:8080"
+                inputMode="url"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+              />
+            </label>
 
-        <div className="field-row">
-          <label className="field">
-            <span className="field__label">Username *</span>
-            <input
-              className="field__input"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="username"
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-            />
-          </label>
-          <label className="field">
-            <span className="field__label">Password *</span>
-            <input
-              className="field__input"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="password"
-            />
-          </label>
-        </div>
+            <div className="field-row">
+              <label className="field">
+                <span className="field__label">Username *</span>
+                <input
+                  className="field__input"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="username"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                />
+              </label>
+              <label className="field">
+                <span className="field__label">Password *</span>
+                <input
+                  className="field__input"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="password"
+                />
+              </label>
+            </div>
+          </>
+        ) : (
+          <>
+            <label className="field">
+              <span className="field__label">M3U URL *</span>
+              <input
+                className="field__input"
+                value={m3uUrl}
+                onChange={(e) => setM3uUrl(e.target.value)}
+                placeholder="http://example.com/playlist.m3u"
+                inputMode="url"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+              />
+            </label>
+            <label className="field">
+              <span className="field__label">EPG / XMLTV URL (optional)</span>
+              <input
+                className="field__input"
+                value={epgUrl}
+                onChange={(e) => setEpgUrl(e.target.value)}
+                placeholder="http://example.com/epg.xml"
+                inputMode="url"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+              />
+            </label>
+          </>
+        )}
 
         {error && <p className="playlist-form__error">{error}</p>}
 
@@ -179,7 +247,9 @@ export function PlaylistsSettings({ onDirty }: { onDirty: () => void }) {
               <div className="playlist-item__main">
                 <div className="playlist-item__head">
                   <span className="playlist-item__name">{s.name}</span>
-                  <span className="playlist-item__badge">XTREAM</span>
+                  <span className="playlist-item__badge">
+                    {s.type.toUpperCase()}
+                  </span>
                 </div>
                 <span className="playlist-item__sub">
                   {s.channelCount != null

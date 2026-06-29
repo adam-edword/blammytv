@@ -6,7 +6,7 @@ import {
   stopConfigServer,
 } from "../lib/tauri";
 import { setAioUrl } from "../lib/settings";
-import { addPlaylist } from "../lib/playlists";
+import { addM3uPlaylist, addPlaylist } from "../lib/playlists";
 import { FocusButton } from "./FocusButton";
 
 type ServerInfo = { ip: string; port: number; token: string };
@@ -43,6 +43,7 @@ export function SetupHandoff({
         const cfg = JSON.parse(json) as {
           aioUrl?: string;
           xtream?: { url?: string; username?: string; password?: string };
+          m3u?: { url?: string; epgUrl?: string };
         };
         if (cfg.aioUrl?.trim()) setAioUrl(cfg.aioUrl.trim());
         if (cfg.xtream?.url?.trim()) {
@@ -50,6 +51,12 @@ export function SetupHandoff({
             baseUrl: cfg.xtream.url.trim(),
             username: cfg.xtream.username ?? "",
             password: cfg.xtream.password ?? "",
+          });
+        }
+        if (cfg.m3u?.url?.trim()) {
+          addM3uPlaylist({
+            url: cfg.m3u.url.trim(),
+            epgUrl: cfg.m3u.epgUrl?.trim() || undefined,
           });
         }
         setReceived(true);

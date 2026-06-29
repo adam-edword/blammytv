@@ -212,6 +212,13 @@ const FORM_HTML: &str = r#"<!doctype html><html><head><meta charset="utf-8">
       <label>Password</label>
       <input id="xpass" type="password" autocomplete="off">
     </fieldset>
+    <fieldset>
+      <legend>Live TV (M3U) — optional</legend>
+      <label>Playlist URL</label>
+      <input id="murl" type="url" placeholder="http://host/playlist.m3u" autocomplete="off">
+      <label>EPG / XMLTV URL (optional)</label>
+      <input id="mepg" type="url" placeholder="http://host/epg.xml" autocomplete="off">
+    </fieldset>
     <button id="go" type="submit">Send to TV</button>
     <div class="msg" id="m"></div>
   </form>
@@ -222,9 +229,11 @@ const FORM_HTML: &str = r#"<!doctype html><html><head><meta charset="utf-8">
     e.preventDefault();
     var aio=document.getElementById('aio').value.trim();
     var xurl=document.getElementById('xurl').value.trim();
+    var murl=document.getElementById('murl').value.trim();
     var payload={aioUrl:aio};
     if(xurl){payload.xtream={url:xurl,username:document.getElementById('xuser').value.trim(),password:document.getElementById('xpass').value};}
-    if(!aio && !xurl){m.className='msg err';m.textContent='Enter at least one provider.';return;}
+    if(murl){payload.m3u={url:murl,epgUrl:document.getElementById('mepg').value.trim()};}
+    if(!aio && !xurl && !murl){m.className='msg err';m.textContent='Enter at least one provider.';return;}
     go.disabled=true;m.className='msg';m.textContent='Sending…';
     fetch('/config?t=__TOKEN__',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
       .then(function(r){if(!r.ok)throw new Error(r.status);m.className='msg ok';m.textContent='Sent to your TV ✓ — you can close this tab.';})
