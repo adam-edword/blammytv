@@ -3347,6 +3347,50 @@ html:not(.is-android) .episode-card:focus-visible {
   color: rgba(255, 255, 255, 0.55);
 }
 
+/* ---------- TV: tighten the episode browser to match the app scale ----------
+   Shrinks the season bar and the episode grid/cards (Windows keeps the larger
+   sizes until the polish is ported). */
+html.is-android .season-bar {
+  gap: 10px;
+  margin-bottom: 18px;
+}
+html.is-android .season-bar__nav {
+  width: 36px;
+  height: 36px;
+  border-radius: 16px;
+}
+html.is-android .season-bar__select {
+  min-width: 160px;
+  height: 36px;
+  font-size: 14px;
+}
+html.is-android .season-bar__search {
+  height: 36px;
+  font-size: 13px;
+}
+html.is-android .season-bar__option {
+  padding: 8px 12px;
+  font-size: 13px;
+}
+html.is-android .episode-grid {
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 12px;
+}
+html.is-android .episode-card {
+  gap: 14px;
+  padding: 10px;
+  border-radius: 16px;
+}
+html.is-android .episode-card__thumb {
+  width: 96px;
+}
+html.is-android .episode-card__title {
+  font-size: 15px;
+}
+html.is-android .episode-card__date {
+  font-size: 12px;
+}
+
 /* ---------- Error state ---------- */
 
 .error-state {
