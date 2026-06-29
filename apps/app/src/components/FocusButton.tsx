@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from "react";
 import { useFocusable } from "@noriginmedia/norigin-spatial-navigation";
+import { isTv } from "../lib/tv";
 
 /** A button wired into spatial navigation: arrow keys move focus to it, Enter
  * (D-pad center) activates it, and it gets the `is-focused` highlight. Falls
@@ -33,8 +34,9 @@ export function FocusButton({
   useEffect(() => {
     if (autoFocus && !disabled) focusSelf();
   }, [autoFocus, disabled, focusSelf]);
+  // Mirror onto native DOM focus for a11y — desktop only (see lib/tv).
   useEffect(() => {
-    if (focused) ref.current?.focus({ preventScroll: true });
+    if (focused && !isTv) ref.current?.focus({ preventScroll: true });
   }, [focused, ref]);
   return (
     <button

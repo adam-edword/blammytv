@@ -6,6 +6,7 @@ import {
 import type { VodItem } from "@blammytv/shared";
 import { formatMeta, initials } from "../lib/vod";
 import { smoothCenterIntoView } from "../lib/scroll";
+import { isTv } from "../lib/tv";
 
 /** A single Stream catalog card. Posters are 2:3, landscape stills are 16:9
  * (used by rows like Continue Watching). Artwork falls back to a monogram
@@ -31,9 +32,10 @@ export function StreamCard({
       if (layout.node) smoothCenterIntoView(layout.node, 250);
     },
   });
-  // Mirror norigin's focus onto the native DOM focus too (keeps a11y honest).
+  // Mirror norigin's focus onto native DOM focus for a11y — desktop only. On TV
+  // it diverges during fast nav and lights up a stale card's :focus-visible.
   useEffect(() => {
-    if (focused) ref.current?.focus({ preventScroll: true });
+    if (focused && !isTv) ref.current?.focus({ preventScroll: true });
   }, [focused, ref]);
   return (
     <button

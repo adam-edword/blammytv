@@ -12,6 +12,7 @@ import {
 import type { VodItem } from "@blammytv/shared";
 import { formatMeta, gradientFor } from "../lib/vod";
 import { smoothScrollToTop } from "../lib/scroll";
+import { isTv } from "../lib/tv";
 import { PlayIcon, InfoIcon } from "./icons";
 
 // Focus keys for the two-level model.
@@ -223,8 +224,9 @@ function HeroAction({
     onEnterPress: onPress,
     onArrowPress: (dir) => onArrow(dir),
   });
+  // Mirror onto native DOM focus for a11y — desktop only (see lib/tv).
   useEffect(() => {
-    if (focused) ref.current?.focus({ preventScroll: true });
+    if (focused && !isTv) ref.current?.focus({ preventScroll: true });
   }, [focused, ref]);
   return (
     <button

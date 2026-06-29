@@ -6,6 +6,7 @@ import {
 import type { StreamSource } from "@blammytv/shared";
 import { PlayIcon } from "./icons";
 import { smoothCenterIntoView } from "../lib/scroll";
+import { isTv } from "../lib/tv";
 
 /** One source row in the selector: a prominent quality label (+ ⚡ when it's
  * instant), the backend's pre-formatted meta lines, and a play affordance.
@@ -30,9 +31,9 @@ export function SourceCard({
       if (layout.node) smoothCenterIntoView(layout.node, 200);
     },
   });
-  // Mirror norigin's focus onto native DOM focus too (keeps a11y honest).
+  // Mirror onto native DOM focus for a11y — desktop only (see lib/tv).
   useEffect(() => {
-    if (focused) ref.current?.focus({ preventScroll: true });
+    if (focused && !isTv) ref.current?.focus({ preventScroll: true });
   }, [focused, ref]);
   return (
     <button

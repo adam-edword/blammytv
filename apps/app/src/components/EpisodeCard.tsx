@@ -5,6 +5,7 @@ import {
 } from "@noriginmedia/norigin-spatial-navigation";
 import type { Episode } from "@blammytv/shared";
 import { smoothCenterIntoView } from "../lib/scroll";
+import { isTv } from "../lib/tv";
 
 /** One episode in the grid: a 16:9 still with the episode number/title and air
  * date. Focusable button so it works under a TV remote.
@@ -28,8 +29,9 @@ export function EpisodeCard({
       if (layout.node) smoothCenterIntoView(layout.node, 200);
     },
   });
+  // Mirror onto native DOM focus for a11y — desktop only (see lib/tv).
   useEffect(() => {
-    if (focused) ref.current?.focus({ preventScroll: true });
+    if (focused && !isTv) ref.current?.focus({ preventScroll: true });
   }, [focused, ref]);
   return (
     <button

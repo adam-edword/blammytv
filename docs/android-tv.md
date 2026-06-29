@@ -207,10 +207,14 @@ porting the whole UI.
   glow. Cause: we mirror norigin focus onto native DOM focus (for a11y), but
   during fast D-pad nav the native focus lags/diverges, and the browser draws
   its default focus ring on whichever element last held native focus. Fix:
-  `html.is-android :focus { outline: none }` — norigin's `.is-focused` is the
-  only focus cue on TV. (Possible latent issue: native focus diverging could let
-  Enter activate a stale card via the button's native click; not observed, but
-  if it happens, stop mirroring native focus on Android or blur the old card.)
+  `html.is-android :focus { outline: none }` — but that only killed the
+  `outline`; cards that style `:focus-visible` with a *border-color* (source /
+  episode cards) still lit up on the diverged card. Final fix: **stop mirroring
+  norigin focus onto native DOM focus on TV** (`lib/tv.ts` `isTv` gate in
+  StreamCard/SourceCard/EpisodeCard/FocusButton/HeroAction), so native focus
+  never moves on Android — plus desktop-scoping the cards' hover/`:focus-visible`
+  rules. norigin's `.is-focused` is now the only focus cue on TV; this also
+  removes the latent "Enter activates a stale card" risk.
   Separately, the card glow was reworked off `box-shadow` to a blurred
   `::after` (perf + it's a cleaner glow); `filter: blur` is scoped to the
   focused card only.

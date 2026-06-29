@@ -2950,9 +2950,12 @@ html.is-android .media-row__track {
   transition: border-color 0.12s ease, background 0.12s ease;
 }
 
-.source-card:hover,
-.source-card:focus-visible,
-.source-card.is-focused {
+/* Pointer hover / native focus only highlight on desktop; on TV norigin's
+   .is-focused is the sole cue (a stray cursor or diverged native focus must not
+   light up a card). */
+.source-card.is-focused,
+html:not(.is-android) .source-card:hover,
+html:not(.is-android) .source-card:focus-visible {
   border-color: var(--red-border);
   background: rgba(18, 18, 22, 0.92);
   outline: none;
@@ -3294,9 +3297,10 @@ html.is-android .source-card__line {
   transition: border-color 0.12s ease, background 0.12s ease;
 }
 
-.episode-card:hover,
-.episode-card:focus-visible,
-.episode-card.is-focused {
+/* Hover / native focus highlight desktop-only; TV uses .is-focused alone. */
+.episode-card.is-focused,
+html:not(.is-android) .episode-card:hover,
+html:not(.is-android) .episode-card:focus-visible {
   border-color: var(--red-border);
   background: rgba(255, 255, 255, 0.16);
   outline: none;
