@@ -16,6 +16,7 @@ import {
   type GuideWindow,
 } from "../lib/epg";
 import type { Block, Lane } from "../lib/guide";
+import { requestChannelEpg } from "../lib/epgLazy";
 import { qualityTags } from "../lib/quality";
 import { StarIcon } from "./icons";
 
@@ -292,6 +293,31 @@ export function EpgGuide({
     if (Math.abs(st - c.scrollTop) > 1) c.scrollTop = st;
   }, [focusedProgramId, focusedChannelId, lanes, PROGRAM_GAP]);
 
+  // Lazy EPG: request each channel's programmes as its row scrolls into view
+  // (with a prefetch margin). Re-observe only when the channel set changes (a
+  // category switch) — key={ch.id} keeps the row elements stable across EPG
+  // arrivals, so the observer stays valid in between.
+  const channelsSig = `${lanes.length}:${lanes[0]?.ch.id ?? ""}:${
+    lanes[lanes.length - 1]?.ch.id ?? ""
+  }`;
+  useEffect(() => {
+    const root = scrollRef.current;
+    if (!root) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          const id = (e.target as HTMLElement).dataset.channelId;
+          if (e.isIntersecting && id) requestChannelEpg(id);
+        }
+      },
+      { root, rootMargin: "400px 0px" },
+    );
+    root
+      .querySelectorAll<HTMLElement>("[data-channel-id]")
+      .forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [channelsSig]);
+
   return (
     <div
       className="guide"
@@ -324,6 +350,7 @@ export function EpgGuide({
               <div
                 className="guide-row"
                 key={ch.id}
+                data-channel-id={ch.id}
                 onMouseEnter={() => {
                   onHoverChannel?.(ch.id);
                   onHoverProgram?.(null);

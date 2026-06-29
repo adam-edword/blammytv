@@ -40,3 +40,17 @@ export interface XtreamLiveStream {
   tv_archive?: number;
   direct_source?: string;
 }
+
+/** `get_short_epg` — the next few programmes for ONE channel (fetched lazily so
+ * we never pull the whole multi-MB XMLTV). title/description are base64. */
+export interface XtreamShortEpg {
+  epg_listings?: XtreamEpgListing[];
+}
+
+export interface XtreamEpgListing {
+  id?: string;
+  title?: string; // base64
+  description?: string; // base64
+  start_timestamp?: number | string;
+  stop_timestamp?: number | string;
+}

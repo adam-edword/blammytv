@@ -4,6 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type CSSProperties,
 } from "react";
 import {
@@ -21,9 +22,14 @@ import { EpgGuide } from "../components/EpgGuide";
 import { SourceError } from "../components/SourceError";
 import { guideWindow, isLiveNow } from "../lib/epg";
 import { buildLanes, laneColumns } from "../lib/guide";
+import {
+  epgVersion,
+  getChannelPrograms,
+  requestChannelEpg,
+  subscribeEpg,
+} from "../lib/epgLazy";
 import { loadFavorites, toggleFavorite } from "../lib/favorites";
 import { loadRecents, pushRecent } from "../lib/recents";
-import { usePreferences } from "../state/preferences";
 import {
   isTauri,
   isNativePlayer,
@@ -138,7 +144,6 @@ export function LiveScreen({
     }
   };
 
-  const { prefs } = usePreferences();
   const channels = useMemo(() => {
     let list: typeof live.channels;
     if (categoryId === FAVORITES_ID) {
@@ -153,20 +158,33 @@ export function LiveScreen({
     } else {
       list = live.channels.filter((c) => c.groupId === categoryId);
     }
-    if (prefs.hideNoInfoChannels) {
-      const withInfo = new Set(live.programs.map((p) => p.channelId));
-      list = list.filter((c) => withInfo.has(c.id));
-    }
+    // NOTE: prefs.hideNoInfoChannels can't be applied here anymore — with lazy
+    // per-channel EPG we don't know which channels have programmes until their
+    // row is viewed. (Revisit if we want to hide them as their EPG resolves.)
     return list;
-  }, [categoryId, live, favoriteIds, recents, prefs.hideNoInfoChannels]);
+  }, [categoryId, live, favoriteIds, recents]);
+
+  // Programmes come from the lazy per-channel EPG store (the guide requests each
+  // channel's `get_short_epg` as its row scrolls into view). Re-derive whenever
+  // the store updates.
+  const epgVer = useSyncExternalStore(subscribeEpg, epgVersion);
+  const programs = useMemo(() => {
+    void epgVer; // re-read the mutable EPG cache whenever it changes
+    const out: EpgProgram[] = [];
+    for (const ch of channels) {
+      const p = getChannelPrograms(ch.id);
+      if (p) out.push(...p);
+    }
+    return out;
+  }, [channels, epgVer]);
 
   // One time window + per-channel lanes, shared by the guide (rendering) and the
   // remote-navigation cursor below — so the navigable cells are exactly the ones
   // drawn.
   const win = useMemo(() => guideWindow(now), [now]);
   const lanes = useMemo(
-    () => buildLanes(channels, live.programs, win),
-    [channels, live.programs, win],
+    () => buildLanes(channels, programs, win),
+    [channels, programs, win],
   );
 
   // Ordered, remote-navigable category list (mirrors the sidebar order, minus
@@ -183,20 +201,30 @@ export function LiveScreen({
     [live.groups],
   );
 
+  // Current programme for a channel, from the lazy EPG store (re-reads on epgVer).
+  const nowProgram = useCallback(
+    (channelId?: string): EpgProgram | null => {
+      void epgVer; // re-read the lazy store as a channel's EPG arrives
+      if (!channelId) return null;
+      return (
+        (getChannelPrograms(channelId) ?? []).find((p) => isLiveNow(p, now)) ??
+        null
+      );
+    },
+    [now, epgVer],
+  );
+
   // The hero follows the user's selection, falling back to whatever is live on
   // the featured channel.
   const featuredChannelId = live.featuredChannelId ?? live.channels[0]?.id;
   const heroProgram = useMemo<EpgProgram | null>(() => {
+    // A selected programme is one the user just picked in the guide (so it's in
+    // the current category's lazy programmes).
     if (selectedProgramId) {
-      return live.programs.find((p) => p.id === selectedProgramId) ?? null;
+      return programs.find((p) => p.id === selectedProgramId) ?? null;
     }
-    const channelId = selectedChannelId ?? featuredChannelId;
-    return (
-      live.programs.find(
-        (p) => p.channelId === channelId && isLiveNow(p, now),
-      ) ?? null
-    );
-  }, [selectedProgramId, selectedChannelId, live.programs, featuredChannelId, now]);
+    return nowProgram(selectedChannelId ?? featuredChannelId);
+  }, [selectedProgramId, selectedChannelId, featuredChannelId, programs, nowProgram]);
 
   const heroChannel =
     (selectedChannelId
@@ -220,10 +248,19 @@ export function LiveScreen({
     : null;
   const playing = !!playingChannel;
   const playingProgram = playingChannel
-    ? live.programs.find(
-        (p) => p.channelId === playingChannel.id && isLiveNow(p, now),
-      ) ?? null
+    ? nowProgram(playingChannel.id)
     : null;
+
+  // The hero + playing channels can be off-screen (so the guide's row observer
+  // won't have requested them) — fetch their EPG so the hero shows "now playing".
+  const heroChannelId = heroChannel?.id;
+  const playingChannelId = playingChannel?.id;
+  useEffect(() => {
+    if (heroChannelId) requestChannelEpg(heroChannelId);
+  }, [heroChannelId]);
+  useEffect(() => {
+    if (playingChannelId) requestChannelEpg(playingChannelId);
+  }, [playingChannelId]);
 
   // Theater mode: page goes black, EPG hides, player floats as the biggest
   // 16:9 box that fits. A body class lets the global header dim to 30%.
@@ -354,12 +391,7 @@ export function LiveScreen({
   })();
   // The previewed programme: the hovered card, else the channel's current show.
   const hoverProgram =
-    hoveredProgram ??
-    (hoverChannel
-      ? live.programs.find(
-          (p) => p.channelId === hoverChannel.id && isLiveNow(p, now),
-        ) ?? null
-      : null);
+    hoveredProgram ?? (hoverChannel ? nowProgram(hoverChannel.id) : null);
   // Resting hero (no hover): the playing channel while streaming, else the
   // selected/featured channel.
   const restChannel = playingChannel ?? heroChannel;

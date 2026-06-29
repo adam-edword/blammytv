@@ -4,6 +4,7 @@ import type {
   XtreamCategory,
   XtreamConfig,
   XtreamLiveStream,
+  XtreamShortEpg,
 } from "./types";
 
 /** Thin client for an Xtream Codes panel. Fetches go through Rust (`http_get`)
@@ -28,6 +29,18 @@ export class XtreamClient {
 
   getLiveStreams(): Promise<XtreamLiveStream[]> {
     return httpGetJson(this.playerApi({ action: "get_live_streams" }));
+  }
+
+  /** The next `limit` programmes for one channel — tiny, fetched on demand as
+   * the guide scrolls (instead of the whole-account XMLTV). */
+  getShortEpg(streamId: number | string, limit = 12): Promise<XtreamShortEpg> {
+    return httpGetJson(
+      this.playerApi({
+        action: "get_short_epg",
+        stream_id: String(streamId),
+        limit: String(limit),
+      }),
+    );
   }
 
   /** Full XMLTV EPG for the account (one document covering all channels). */

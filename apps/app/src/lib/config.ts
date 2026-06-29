@@ -35,12 +35,8 @@ export interface LoadedConfig {
   errors: ConfigErrors;
 }
 
-export async function fetchConfig(
-  shareCode: ShareCode,
-  /** Tauri only: called once the deferred EPG finishes, to patch the guide. */
-  onPrograms?: (programs: ConfigBlob["live"]["programs"]) => void,
-): Promise<LoadedConfig> {
-  if (isTauri()) return buildLocalConfig(onPrograms);
+export async function fetchConfig(shareCode: ShareCode): Promise<LoadedConfig> {
+  if (isTauri()) return buildLocalConfig();
 
   // Browser/dev paths.
   if (!API_URL) {
@@ -80,9 +76,7 @@ const EMPTY_LIVE: ConfigBlob["live"] = { groups: [], channels: [], programs: [] 
  * source's tab, so a broken AIOStreams URL never takes down Live TV (and vice
  * versa). Onboarding guarantees a manifest URL, so a VOD error is a real
  * problem worth showing — not the demo catalog masquerading as content. */
-async function buildLocalConfig(
-  onPrograms?: (programs: ConfigBlob["live"]["programs"]) => void,
-): Promise<LoadedConfig> {
+async function buildLocalConfig(): Promise<LoadedConfig> {
   // Self-contained: only the blob's scalar fields are seeded locally; live and
   // movies/series/stream below are real data. (No demo catalog is built here —
   // favorites live in their own localStorage store, not the blob.)
@@ -99,9 +93,8 @@ async function buildLocalConfig(
   const playlists = loadPlaylists().filter((p) => p.enabled);
   const errors: ConfigErrors = {};
 
-  // Temporary load profiling — tells us whether the wait is network (VOD/live
-  // fetches) or synchronous work (parsing + zod validation, which blocks the
-  // splash animation). Read from the WebView console (logcat: CONSOLE lines).
+  // Load profiling (EPG is now lazy per-channel, so this should be a couple
+  // seconds). Read from the WebView console (logcat: CONSOLE lines).
   const t0 = performance.now();
   const since = (start: number) => Math.round(performance.now() - start);
 
@@ -126,16 +119,10 @@ async function buildLocalConfig(
       if (playlists.length === 0) return EMPTY_LIVE;
       try {
         const s = performance.now();
-        // Channels resolve now; the EPG streams in via onPrograms (background).
-        const epgStart = performance.now();
-        const built = await buildLive(playlists, (programs) => {
-          console.log(
-            `[load] EPG arrived in background ${since(epgStart)}ms — ${programs.length} programs`,
-          );
-          onPrograms?.(programs);
-        });
+        // Channels only — each channel's EPG is fetched lazily by the guide.
+        const built = await buildLive(playlists);
         console.log(
-          `[load] live channels ${since(s)}ms — ${built.channels.length} ch (EPG deferred)`,
+          `[load] live channels ${since(s)}ms — ${built.channels.length} ch (EPG lazy)`,
         );
         if (built.channels.length > 0) return built;
         return EMPTY_LIVE;
@@ -150,11 +137,8 @@ async function buildLocalConfig(
     })(),
   ]);
 
-  const zs = performance.now();
   const config = ConfigBlobSchema.parse({ ...seed, live, ...vod });
-  console.log(
-    `[load] zod validate ${since(zs)}ms · total ${since(t0)}ms (network runs in parallel; zod is synchronous = the freeze)`,
-  );
+  console.log(`[load] total ${since(t0)}ms`);
   return { config, errors };
 }
 

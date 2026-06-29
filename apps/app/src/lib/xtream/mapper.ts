@@ -1,6 +1,47 @@
 import type { ChannelGroup, LiveChannel, EpgProgram } from "@blammytv/shared";
-import type { XtreamCategory, XtreamLiveStream } from "./types";
+import type {
+  XtreamCategory,
+  XtreamEpgListing,
+  XtreamLiveStream,
+} from "./types";
 import type { XtreamClient } from "./client";
+
+/** Decode a base64 field (Xtream encodes EPG title/desc), UTF-8 safe. */
+function decodeB64(s?: string): string {
+  if (!s) return "";
+  try {
+    const bin = atob(s);
+    const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+    return new TextDecoder().decode(bytes).trim();
+  } catch {
+    return "";
+  }
+}
+
+/** Map a channel's `get_short_epg` listings into our programme shape. */
+export function mapShortEpg(
+  listings: XtreamEpgListing[],
+  channelId: string,
+): EpgProgram[] {
+  const out: EpgProgram[] = [];
+  for (const l of listings) {
+    const start = Number(l.start_timestamp) * 1000;
+    const stop = Number(l.stop_timestamp) * 1000;
+    if (!Number.isFinite(start) || !Number.isFinite(stop) || stop <= start)
+      continue;
+    const title = decodeB64(l.title);
+    if (isFillerTitle(title)) continue;
+    out.push({
+      id: `${channelId}@${start}`,
+      channelId,
+      title,
+      start: new Date(start).toISOString(),
+      stop: new Date(stop).toISOString(),
+      description: decodeB64(l.description) || undefined,
+    });
+  }
+  return out;
+}
 
 // Ids are namespaced by source so multiple playlists never collide. Shared with
 // the M3U builder so both source kinds use one id scheme.

@@ -1,35 +1,26 @@
-import type { ConfigBlob, EpgProgram } from "@blammytv/shared";
+import type { ConfigBlob } from "@blammytv/shared";
 import { buildXtreamChannels } from "./xtream";
 import { buildM3uChannels } from "./m3u";
 import type { Playlist, M3uPlaylistEntry, XtreamPlaylistEntry } from "./playlists";
 
 type LiveSection = ConfigBlob["live"];
 
-/** A source's channels/groups now, with its EPG deferred to `loadPrograms()` so
- * the guide can render before the (often huge) XMLTV finishes downloading. */
+/** A source's channels + groups. Programmes are NOT built here — the guide
+ * fetches each channel's EPG lazily (see lib/epgLazy) so a 20k-channel provider
+ * doesn't block the load on a tens-of-MB XMLTV dump. */
 export interface ChannelBuild {
   groups: LiveSection["groups"];
   channels: LiveSection["channels"];
-  loadPrograms: () => Promise<EpgProgram[]>;
 }
 
-const EMPTY: ChannelBuild = {
-  groups: [],
-  channels: [],
-  loadPrograms: async () => [],
-};
+const EMPTY: ChannelBuild = { groups: [], channels: [] };
 
 /**
- * Build the live section in two phases. The returned section has channels +
- * groups but **no programs** — it resolves fast (auth + the channel lists, a
- * couple seconds) so the app is usable immediately. The EPG (tens of MB of
- * XMLTV) is then fetched + parsed in the background and handed back via
- * `onPrograms`, which patches the guide once it's ready.
+ * Build the live section's channels + groups, dispatching by kind. Fast (auth +
+ * the channel lists). Programmes start empty and stream in per-channel from the
+ * lazy EPG store as the guide renders.
  */
-export async function buildLive(
-  playlists: Playlist[],
-  onPrograms?: (programs: EpgProgram[]) => void,
-): Promise<LiveSection> {
+export async function buildLive(playlists: Playlist[]): Promise<LiveSection> {
   const xtream = playlists.filter(
     (p): p is XtreamPlaylistEntry => p.kind === "xtream",
   );
@@ -42,14 +33,5 @@ export async function buildLive(
 
   const groups = [...x.groups, ...m.groups];
   const channels = [...x.channels, ...m.channels];
-
-  // Background: pull + parse the EPG, then patch it in. Best-effort — a failed
-  // EPG just leaves channels rendering "No info".
-  if (onPrograms) {
-    void Promise.all([x.loadPrograms(), m.loadPrograms()])
-      .then(([xp, mp]) => onPrograms([...xp, ...mp]))
-      .catch(() => {});
-  }
-
   return { groups, channels, programs: [], featuredChannelId: channels[0]?.id };
 }
