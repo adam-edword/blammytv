@@ -360,18 +360,22 @@ export function LiveScreen({
 
   // ─── Remote navigation ────────────────────────────────────────────────────
   // A single norigin node bridges the header tabs to this content; every move
-  // inside is index-based over `lanes` (a logical grid) and the sidebar list, so
-  // norigin never runs geometry inside the densely-scrolled guide. onArrowPress
-  // returns false to consume a move that stays inside, true at an edge to let
-  // the header tabs take focus.
+  // inside is index-based over the sidebar list, the mini player, and the guide
+  // `lanes` (a logical grid), so norigin never runs geometry inside the densely-
+  // scrolled guide. Crucially, onArrowPress NEVER returns true — focus is never
+  // handed to norigin's geometry from this full-screen node (that lands on
+  // whatever's nearest, e.g. the settings button, or vanishes at an edge).
+  // Exits upward go to the active tab by name; every other edge stays put.
   type Nav =
     | { zone: "sidebar"; row: number }
+    | { zone: "hero" }
     | { zone: "guide"; row: number; col: number }
     | null;
   const [nav, setNav] = useState<Nav>(null);
   const navRef = useRef<Nav>(null);
   navRef.current = nav;
-  // Remember the guide cell so leaving and returning lands where you were.
+  // Remember the guide cell so moving sidebar↔guide within a category keeps your
+  // place; reset to the top when the category changes (selectCategory).
   const lastGuide = useRef({ row: 0, col: 0 });
   // Read in event handlers: while the player owns the screen (theater /
   // fullscreen), arrows drive the player (below), not the guide cursor.
@@ -398,7 +402,20 @@ export function LiveScreen({
     setSelectedChannelId(null);
     setHoveredChannelId(null);
     setHoveredProgram(null);
+    // A new source starts the timeline at the top, not wherever the last one was.
+    lastGuide.current = { row: 0, col: 0 };
   }, []);
+
+  // Land focus on the sources list, on the active category — the natural entry
+  // point for the tab (the guide is a step to the right of it).
+  const gotoSidebar = useCallback(() => {
+    const idx = Math.max(0, navCategories.indexOf(categoryId));
+    setNav({ zone: "sidebar", row: idx });
+  }, [navCategories, categoryId]);
+
+  // Exit upward: always the active (Live) tab, never a geometric guess. The
+  // setFocus blurs this node, which clears `nav`.
+  const gotoTabs = useCallback(() => setFocus("tab-live"), []);
 
   const colCount = useCallback(
     (row: number) => (lanes[row] ? laneColumns(lanes[row]) : 1),
@@ -415,69 +432,76 @@ export function LiveScreen({
   );
   const enterGuide = useCallback(() => {
     if (lanes.length === 0) {
-      setNav({ zone: "sidebar", row: 0 });
+      gotoSidebar();
       return;
     }
     moveGuide(lastGuide.current.row, lastGuide.current.col);
-  }, [lanes.length, moveGuide]);
+  }, [lanes.length, moveGuide, gotoSidebar]);
 
   const handleArrow = useCallback(
     (dir: string): boolean => {
       // Player owns the keys while in theater/fullscreen — consume without moving
-      // (the forward-to-player effect handles them).
+      // (the forward-to-player effect handles them). Never returns true below, so
+      // focus can't escape to norigin geometry and get lost.
       if (theaterRef.current || fsRef.current) return false;
       const n = navRef.current;
       if (!n) {
-        enterGuide();
+        gotoSidebar();
         return false;
       }
+
       if (n.zone === "sidebar") {
         if (dir === "up") {
-          if (n.row > 0) {
-            setNav({ zone: "sidebar", row: n.row - 1 });
-            return false;
-          }
-          return true; // up off the top → header tabs
-        }
-        if (dir === "down") {
+          if (n.row > 0) setNav({ zone: "sidebar", row: n.row - 1 });
+          else gotoTabs(); // top of the list → Live tab
+        } else if (dir === "down") {
           if (n.row < navCategories.length - 1)
             setNav({ zone: "sidebar", row: n.row + 1 });
-          return false;
+        } else if (dir === "right") {
+          if (heroChannel) setNav({ zone: "hero" });
+          else enterGuide();
         }
-        if (dir === "right") {
-          enterGuide();
-          return false;
-        }
-        return true; // left: nothing further left
+        // left: nothing to the left — stay put.
+        return false;
       }
+
+      if (n.zone === "hero") {
+        if (dir === "up") gotoTabs();
+        else if (dir === "down") enterGuide();
+        else if (dir === "left") gotoSidebar();
+        // right: stay.
+        return false;
+      }
+
       // guide
-      if (lanes.length === 0) return true;
+      if (lanes.length === 0) {
+        gotoSidebar();
+        return false;
+      }
       if (dir === "up") {
-        if (n.row > 0) {
-          moveGuide(n.row - 1, n.col);
-          return false;
-        }
-        return true; // up off the top row → header tabs
-      }
-      if (dir === "down") {
+        if (n.row > 0) moveGuide(n.row - 1, n.col);
+        else if (heroChannel) setNav({ zone: "hero" }); // top row → mini player
+        else gotoTabs();
+      } else if (dir === "down") {
         if (n.row < lanes.length - 1) moveGuide(n.row + 1, n.col);
-        return false;
-      }
-      if (dir === "left") {
+      } else if (dir === "left") {
         if (n.col > 0) moveGuide(n.row, n.col - 1);
-        else {
-          const idx = Math.max(0, navCategories.indexOf(categoryId));
-          setNav({ zone: "sidebar", row: idx });
-        }
-        return false;
-      }
-      if (dir === "right") {
+        else gotoSidebar(); // first column → sources
+      } else if (dir === "right") {
         if (n.col < colCount(n.row) - 1) moveGuide(n.row, n.col + 1);
-        return false;
       }
       return false;
     },
-    [enterGuide, moveGuide, colCount, lanes.length, navCategories, categoryId],
+    [
+      gotoSidebar,
+      gotoTabs,
+      enterGuide,
+      moveGuide,
+      colCount,
+      lanes.length,
+      navCategories.length,
+      heroChannel,
+    ],
   );
 
   const handleEnter = useCallback(() => {
@@ -487,26 +511,36 @@ export function LiveScreen({
     if (n.zone === "sidebar") {
       const id = navCategories[n.row];
       if (id) selectCategory(id);
-      return;
+    } else if (n.zone === "hero") {
+      if (heroChannel) playChannel(heroChannel.id);
+    } else {
+      const lane = lanes[n.row];
+      if (!lane) return;
+      const blk = lane.blocks[n.col];
+      if (blk) selectProgram(blk.p);
+      else selectChannelId(lane.ch.id);
     }
-    const lane = lanes[n.row];
-    if (!lane) return;
-    const blk = lane.blocks[n.col];
-    if (blk) selectProgram(blk.p);
-    else selectChannelId(lane.ch.id);
-  }, [navCategories, lanes, selectCategory, selectProgram, selectChannelId]);
+  }, [
+    navCategories,
+    lanes,
+    heroChannel,
+    selectCategory,
+    selectProgram,
+    selectChannelId,
+  ]);
 
   const { ref: contentRef } = useFocusable<HTMLDivElement>({
     focusKey: "live-content",
     onArrowPress: handleArrow,
     onEnterPress: handleEnter,
     onFocus: () => {
-      if (!navRef.current) enterGuide();
+      if (!navRef.current) gotoSidebar();
     },
     onBlur: () => setNav(null),
   });
 
-  // Land focus in the guide when the Live tab mounts (it remounts on switch).
+  // Land focus in the tab when the Live screen mounts (it remounts on switch) —
+  // onFocus then seats the cursor on the sources list.
   useEffect(() => {
     const id = requestAnimationFrame(() => setFocus("live-content"));
     return () => cancelAnimationFrame(id);
@@ -516,13 +550,14 @@ export function LiveScreen({
   useEffect(() => {
     const n = navRef.current;
     if (n?.zone !== "guide") return;
-    if (lanes.length === 0) setNav({ zone: "sidebar", row: 0 });
+    if (lanes.length === 0) gotoSidebar();
     else moveGuide(n.row, n.col);
     // React only to lanes changing.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lanes]);
 
-  // Drive the hero preview from the remote cursor (mirrors mouse hover).
+  // Drive the hero preview from the remote cursor (mirrors mouse hover). On the
+  // hero/sidebar the hero shows its resting channel, so clear the hover preview.
   useEffect(() => {
     if (nav?.zone === "guide") {
       const lane = lanes[nav.row];
@@ -537,7 +572,8 @@ export function LiveScreen({
     }
   }, [nav, lanes]);
 
-  // The cursor's focused ids, handed to the guide for the ring + scroll-in.
+  // The cursor's focused ids, handed to the guide/sidebar/hero for the ring.
+  const heroFocused = nav?.zone === "hero";
   const focusedLane = nav?.zone === "guide" ? lanes[nav.row] : undefined;
   const focusedBlock =
     nav?.zone === "guide" && focusedLane
@@ -600,6 +636,7 @@ export function LiveScreen({
             sourceName={sourceName}
             theater={inTheater}
             fullscreen={fullscreen}
+            focused={heroFocused}
             onPlay={() => playChannel(heroChannel.id)}
             onStop={() => {
               setPlayingId(null);

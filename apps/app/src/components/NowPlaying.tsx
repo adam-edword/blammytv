@@ -16,6 +16,7 @@ export function NowPlaying({
   sourceName,
   theater,
   fullscreen,
+  focused = false,
   onPlay,
   onStop,
   onToggleTheater,
@@ -31,6 +32,8 @@ export function NowPlaying({
   sourceName?: string;
   theater: boolean;
   fullscreen: boolean;
+  /** Remote cursor is on the mini player (draws a focus ring). */
+  focused?: boolean;
   onPlay: () => void;
   onStop: () => void;
   onToggleTheater: () => void;
@@ -58,7 +61,7 @@ export function NowPlaying({
   };
 
   return (
-    <section className="now-playing">
+    <section className={"now-playing" + (focused ? " now-playing--focused" : "")}>
       <div
         className={
           "now-playing__preview" +

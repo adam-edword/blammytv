@@ -606,6 +606,13 @@ img {
   background: #000;
 }
 
+/* Remote cursor on the mini player — accent ring around the preview box. */
+.now-playing--focused .now-playing__preview {
+  box-shadow:
+    0 0 0 3px var(--bg),
+    0 0 0 6px rgb(var(--accent-rgb));
+}
+
 .now-playing__art {
   position: absolute;
   inset: 0;
