@@ -2533,6 +2533,24 @@ html.is-android * {
   border-radius: inherit;
 }
 
+/* Continue Watching progress bar, pinned to the bottom of the art. */
+.stream-card__progress {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  z-index: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+.stream-card__progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: rgb(var(--accent-rgb));
+}
+
 .stream-card__placeholder {
   font-family: var(--font-headline);
   font-weight: 700;

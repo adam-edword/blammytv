@@ -15,12 +15,15 @@ export function MediaRow({
   items,
   onOpen,
   rowId,
+  progressById,
 }: {
   title: string;
   layout: "poster" | "landscape";
   items: VodItem[];
   onOpen?: (item: VodItem) => void;
   rowId: string;
+  /** Optional 0..1 watched fraction per item id (Continue Watching row). */
+  progressById?: Record<string, number>;
 }) {
   const { ref, focusKey } = useFocusable({
     saveLastFocusedChild: true,
@@ -39,6 +42,7 @@ export function MediaRow({
               layout={layout}
               onOpen={onOpen}
               rowId={rowId}
+              progressPct={progressById?.[item.id]}
             />
           ))}
         </div>

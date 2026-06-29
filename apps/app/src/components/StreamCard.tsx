@@ -16,6 +16,7 @@ export function StreamCard({
   layout,
   onOpen,
   rowId,
+  progressPct,
 }: {
   item: VodItem;
   layout: "poster" | "landscape";
@@ -23,6 +24,9 @@ export function StreamCard({
   /** Row id — combined with the item id for a stable, unique focus key so focus
    * survives navigating away and back. */
   rowId: string;
+  /** 0..1 watched fraction — draws a Continue Watching progress bar on the art
+   * (only meaningful on landscape cards). */
+  progressPct?: number;
 }) {
   const art = layout === "landscape" ? item.backdrop ?? item.poster : item.poster;
   const { ref, focused } = useFocusable<HTMLButtonElement>({
@@ -52,6 +56,14 @@ export function StreamCard({
           <img src={art} alt="" loading="lazy" />
         ) : (
           <span className="stream-card__placeholder">{initials(item.title)}</span>
+        )}
+        {progressPct != null && progressPct > 0 && (
+          <div className="stream-card__progress" aria-hidden="true">
+            <div
+              className="stream-card__progress-fill"
+              style={{ width: `${Math.min(100, progressPct * 100)}%` }}
+            />
+          </div>
         )}
       </div>
       <span className="stream-card__title">{item.title}</span>

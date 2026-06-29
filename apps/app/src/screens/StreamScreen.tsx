@@ -5,6 +5,7 @@ import { HeroSlider } from "../components/HeroSlider";
 import { MediaRow } from "../components/MediaRow";
 import { SourceError } from "../components/SourceError";
 import { vodCatalog } from "../lib/vod";
+import { progressPct, useContinueWatching } from "../lib/continueWatching";
 
 /** TV build (Android): the remote-driven peek-slider hero. Desktop keeps the
  * classic auto-advancing FeaturedHero (until the Windows port lands). */
@@ -37,6 +38,16 @@ export function StreamScreen({
 
   const featured = resolve(stream.featured);
 
+  // Continue Watching: locally-stored, in-progress titles resolved against the
+  // catalog (skip any whose item is no longer in the catalog). Sits between the
+  // hero and the backend rows, as landscape cards with a progress bar.
+  const cw = useContinueWatching();
+  const cwItems = cw
+    .map((e) => catalog.get(e.id))
+    .filter((i): i is VodItem => Boolean(i));
+  const cwProgress: Record<string, number> = {};
+  for (const e of cw) cwProgress[e.id] = progressPct(e);
+
   if (error) {
     return <SourceError message={error} onRetry={onRetry} />;
   }
@@ -53,6 +64,16 @@ export function StreamScreen({
         <FeaturedHero items={featured} onOpen={onOpen} />
       )}
       <div className="stream__rows">
+        {cwItems.length > 0 && (
+          <MediaRow
+            rowId="continue-watching"
+            title="Continue Watching"
+            layout="landscape"
+            items={cwItems}
+            onOpen={onOpen}
+            progressById={cwProgress}
+          />
+        )}
         {stream.rows.map((row) => (
           <MediaRow
             key={row.id}

@@ -166,6 +166,18 @@ porting the whole UI.
 
 ## Follow-ups / backlog
 
+- **Continue Watching — finish the native half.** The web foundation is in:
+  `lib/continueWatching.ts` (localStorage, cap 12, drops past 90% watched), a
+  landscape CW row between the hero and the catalog rows (`StreamScreen`), a
+  progress bar on the landscape `StreamCard`, and an entry saved on play
+  (`App.tsx playSource`). What's missing needs the native player: (1) ExoPlayer
+  must report position+duration to JS (periodic + on close) so progress %
+  fills in and entries drop at 90% — add a `blammy-native-progress` window event
+  from `MainActivity` and a `tauri.onNativeProgress` listener that updates the
+  entry; (2) **resume** — `load` must accept a start position (seek after
+  prepare) and a CW card click should re-resolve the title's top source and play
+  at the saved position. Needs a Gradle rebuild.
+
 - **Bring the peek-slider hero to Windows.** The new remote-driven `HeroSlider`
   (peek slider + two-level focus, no auto-advance) currently renders on Android
   only; desktop still uses the classic auto-advancing `FeaturedHero`. Decision:

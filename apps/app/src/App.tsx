@@ -25,6 +25,7 @@ import type { TheaterMeta } from "./components/Player";
 import { ChevronIcon } from "./components/icons";
 import { fetchConfig, type ConfigErrors } from "./lib/config";
 import { fetchVodDetail, vodBackendConfigured } from "./lib/vod";
+import { upsertContinueWatching } from "./lib/continueWatching";
 import { getAioUrl } from "./lib/settings";
 import {
   getCurrentFocusKey,
@@ -86,8 +87,24 @@ export function App() {
     episodeId?: string;
   } | null>(null);
   const playSource = useCallback(
-    (url: string, meta: TheaterMeta, ctx: { item: VodItem; episodeId?: string }) =>
-      setPlaying({ url, meta, item: ctx.item, episodeId: ctx.episodeId }),
+    (
+      url: string,
+      meta: TheaterMeta,
+      ctx: { item: VodItem; episodeId?: string },
+    ) => {
+      // Record it in Continue Watching. Position/duration are filled in once the
+      // player reports progress; until then this is just "recently started".
+      upsertContinueWatching({
+        id: ctx.item.id,
+        kind: ctx.item.kind,
+        episodeId: ctx.episodeId,
+        title: ctx.item.title,
+        backdrop: ctx.item.backdrop ?? ctx.item.poster,
+        positionSec: 0,
+        durationSec: 0,
+      });
+      setPlaying({ url, meta, item: ctx.item, episodeId: ctx.episodeId });
+    },
     [],
   );
 
