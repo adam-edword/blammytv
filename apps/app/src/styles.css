@@ -3005,7 +3005,9 @@ html.is-android .media-row__track {
   background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1.5px solid transparent;
+  /* Thicker transparent border (sized once here) so the focus state below only
+     recolours it — no layout shift — and reads clearly at a distance. */
+  border: 3px solid transparent;
   border-radius: 20px;
   text-align: left;
   cursor: pointer;
@@ -3018,7 +3020,7 @@ html.is-android .media-row__track {
 .source-card.is-focused,
 html:not(.is-android) .source-card:hover,
 html:not(.is-android) .source-card:focus-visible {
-  border-color: var(--red-border);
+  border-color: rgb(var(--accent-rgb));
   background: rgba(255, 255, 255, 0.16);
   outline: none;
 }
@@ -3353,7 +3355,9 @@ html.is-android .source-card__line {
   background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1.5px solid transparent;
+  /* Thicker transparent border so the focus state only recolours it (no shift)
+     and reads clearly at a distance. */
+  border: 3px solid transparent;
   text-align: left;
   cursor: pointer;
   transition: border-color 0.12s ease, background 0.12s ease;
@@ -3363,7 +3367,7 @@ html.is-android .source-card__line {
 .episode-card.is-focused,
 html:not(.is-android) .episode-card:hover,
 html:not(.is-android) .episode-card:focus-visible {
-  border-color: var(--red-border);
+  border-color: rgb(var(--accent-rgb));
   background: rgba(255, 255, 255, 0.16);
   outline: none;
 }
