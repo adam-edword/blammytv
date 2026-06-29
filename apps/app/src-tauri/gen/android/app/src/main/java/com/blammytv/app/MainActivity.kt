@@ -21,7 +21,10 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
+import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
 import coil.load
 import org.json.JSONObject
@@ -97,7 +100,23 @@ class MainActivity : TauriActivity() {
       // ±10s seek increments drive the rew/ffwd buttons. Request + manage audio
       // focus (handleAudioFocus=true): Android's audio hardening mutes playback
       // from an app that doesn't hold focus, so without this the video is silent.
+      // IPTV/VOD hosts routinely 302 to a different host — and often a different
+      // protocol (https → http CDN). DefaultHttpDataSource rejects cross-protocol
+      // redirects by default (ERROR_CODE_IO_BAD_HTTP_STATUS: 302), so allow them,
+      // and present a browser User-Agent (some hosts 403 the default one), matching
+      // the Rust http_get. (Cleartext is enabled in the manifest so http targets
+      // connect.)
+      val httpDataSourceFactory = DefaultHttpDataSource.Factory()
+        .setAllowCrossProtocolRedirects(true)
+        .setUserAgent(
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+            "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+        )
+      val mediaSourceFactory =
+        DefaultMediaSourceFactory(DefaultDataSource.Factory(this, httpDataSourceFactory))
+
       val exo = ExoPlayer.Builder(this)
+        .setMediaSourceFactory(mediaSourceFactory)
         .setSeekBackIncrementMs(10_000)
         .setSeekForwardIncrementMs(10_000)
         .setAudioAttributes(

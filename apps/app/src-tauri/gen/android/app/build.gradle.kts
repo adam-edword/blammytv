@@ -17,7 +17,10 @@ android {
     compileSdk = 36
     namespace = "com.blammytv.app"
     defaultConfig {
-        manifestPlaceholders["usesCleartextTraffic"] = "false"
+        // IPTV streams are frequently plain HTTP (or HTTPS that 302s to an HTTP
+        // CDN), so cleartext must be allowed for playback — in release too, not
+        // just debug.
+        manifestPlaceholders["usesCleartextTraffic"] = "true"
         applicationId = "com.blammytv.app"
         minSdk = 24
         targetSdk = 36
