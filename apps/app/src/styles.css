@@ -348,7 +348,7 @@ html.is-android .hero-slider {
   transition: opacity 0.25s ease;
 }
 .hero-slider.is-focused .hero-slider__glow {
-  opacity: 0.3;
+  opacity: 0.2;
 }
 
 body {
@@ -3385,7 +3385,7 @@ html.is-android .episode-card__thumb {
   width: 96px;
 }
 html.is-android .episode-card__title {
-  font-size: 15px;
+  font-size: 16px;
 }
 html.is-android .episode-card__date {
   font-size: 12px;
