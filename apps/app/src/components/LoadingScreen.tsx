@@ -26,15 +26,13 @@ export function LoadingScreen() {
 
     // Start blank so the very first roll spells out BlammyTV (never "Shipping").
     const label = slotText(el, "");
-    let loop = 0;
-    const first = window.setTimeout(() => {
-      label.set("BlammyTV", roll);
-      loop = window.setInterval(() => label.set("BlammyTV", roll), 1600);
-    }, 120);
+    // One reveal, then a CSS breathe keeps it alive (see styles) — the JS roll
+    // freezes whenever the main thread blocks building config, so it can't be the
+    // continuous animation. The reveal fires before that heavy work, so it's clean.
+    const first = window.setTimeout(() => label.set("BlammyTV", roll), 120);
 
     return () => {
       window.clearTimeout(first);
-      window.clearInterval(loop);
       label.destroy();
     };
   }, []);

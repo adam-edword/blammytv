@@ -606,6 +606,13 @@ img {
   background: #000;
 }
 
+/* Android: the native player is an opaque SurfaceView with square corners (it
+   can't clip to a rounded outline), so square the box + focus ring to match —
+   otherwise the rounded ring doesn't line up with the square video. */
+html.is-android .now-playing__preview {
+  border-radius: 0;
+}
+
 /* Remote cursor on the mini player — accent ring around the preview box. */
 .now-playing--focused .now-playing__preview {
   box-shadow:
@@ -1401,6 +1408,14 @@ img {
   letter-spacing: -0.02em;
   color: var(--text);
   line-height: 1;
+  /* CSS breathe (compositor thread) so the splash keeps animating even while the
+     main thread is blocked building config — starts after the slot-text reveal. */
+  animation: loading-word-breathe 2s ease-in-out 0.8s infinite;
+}
+
+@keyframes loading-word-breathe {
+  0%, 100% { opacity: 0.62; }
+  50% { opacity: 1; }
 }
 
 .loading-screen__sub {

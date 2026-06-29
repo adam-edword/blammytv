@@ -2,7 +2,6 @@ package com.blammytv.app
 
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
-import android.graphics.Outline
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -12,7 +11,6 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
-import android.view.ViewOutlineProvider
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.widget.Button
@@ -202,15 +200,10 @@ class MainActivity : TauriActivity() {
       loadingView = container.findViewById(R.id.btv_loading)
       errorView = container.findViewById(R.id.btv_error)
 
-      // Round the mini surface to match the React hero box; fullscreen squares
-      // it off (radius 0). clipToOutline clips the SurfaceView too.
-      container.outlineProvider = object : ViewOutlineProvider() {
-        override fun getOutline(v: View, outline: Outline) {
-          val r = if (fullscreen) 0f else miniRadius.toFloat()
-          outline.setRoundRect(0, 0, v.width, v.height, r)
-        }
-      }
-      container.clipToOutline = true
+      // (No rounded outline: with a SurfaceView the surface punches through the
+      // clip and shows square corners poking past the rounded edge. The mini box
+      // is squared on the web side to match. Revisit with texture_view when the
+      // HDR→SDR tone-mapping pass lands.)
 
       content.addView(container)
       playerContainer = container
