@@ -1,5 +1,7 @@
 package com.blammytv.app
 
+import android.animation.ObjectAnimator
+import android.animation.ValueAnimator
 import android.graphics.Outline
 import android.os.Bundle
 import android.os.Handler
@@ -61,7 +63,6 @@ class MainActivity : TauriActivity() {
   // Loading + error overlays (replace Media3's default spinner).
   private var loadingView: TextView? = null
   private var errorView: TextView? = null
-  private var loadingFrame = 0
 
   // Player placement. Live plays in a "mini" surface positioned over the React
   // hero box (video only, no chrome, NOT focusable so the remote keeps driving
@@ -108,7 +109,9 @@ class MainActivity : TauriActivity() {
       showControls()
       if (wasHidden) return true
     }
-    return super.dispatchKeyEvent(event)
+    // Drive the controller directly so the keys never fall through to the
+    // WebView (the EPG) underneath, even if focus is momentarily ambiguous.
+    return playerView?.dispatchKeyEvent(event) ?: super.dispatchKeyEvent(event)
   }
 
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -254,7 +257,11 @@ class MainActivity : TauriActivity() {
       scheduleHideControls()
       view.isFocusable = true
       view.isFocusableInTouchMode = true
-      view.requestFocus()
+      // Take focus off the WebView so the remote drives the controller (Media3
+      // auto-focuses play/pause) — otherwise norigin underneath eats the keys
+      // and only Back works. Retry post-layout if the first grab doesn't land.
+      webViewRef?.clearFocus()
+      if (!view.requestFocus()) view.post { view.requestFocus() }
     } else {
       c.layoutParams = FrameLayout.LayoutParams(miniW, miniH).apply {
         leftMargin = miniX
@@ -411,38 +418,29 @@ class MainActivity : TauriActivity() {
     c.postDelayed(hideControlsRunnable, CONTROLS_TIMEOUT_MS)
   }
 
-  // "loading" wordmark with a per-character scramble that settles left-to-right
-  // (the native echo of the web build's slot-text roll). One pass per buffer.
-  private val loadingRunnable = object : Runnable {
-    override fun run() {
-      val v = loadingView ?: return
-      val settled = loadingFrame / 2
-      if (settled >= LOADING_TEXT.length) {
-        v.text = LOADING_TEXT
-        return
-      }
-      val sb = StringBuilder()
-      for (i in LOADING_TEXT.indices) {
-        sb.append(if (i < settled) LOADING_TEXT[i] else ('a'..'z').random())
-      }
-      v.text = sb
-      loadingFrame++
-      v.postDelayed(this, 70)
-    }
-  }
+  // Static "loading…" with a slow opacity pulse while a source buffers.
+  private var loadingPulse: ObjectAnimator? = null
 
   private fun showLoading() {
     val v = loadingView ?: return
     if (v.visibility == View.VISIBLE) return
+    v.text = LOADING_TEXT
+    v.alpha = 1f
     v.visibility = View.VISIBLE
-    loadingFrame = 0
-    v.removeCallbacks(loadingRunnable)
-    v.post(loadingRunnable)
+    loadingPulse?.cancel()
+    loadingPulse = ObjectAnimator.ofFloat(v, "alpha", 1f, 0.3f).apply {
+      duration = 850
+      repeatMode = ValueAnimator.REVERSE
+      repeatCount = ValueAnimator.INFINITE
+      start()
+    }
   }
 
   private fun hideLoading() {
     val v = loadingView ?: return
-    v.removeCallbacks(loadingRunnable)
+    loadingPulse?.cancel()
+    loadingPulse = null
+    v.alpha = 1f
     v.visibility = View.GONE
   }
 
@@ -587,7 +585,7 @@ class MainActivity : TauriActivity() {
 
   companion object {
     private const val TAG = "BlammyPlayer"
-    private const val LOADING_TEXT = "loading"
+    private const val LOADING_TEXT = "loading…"
     private const val FADE_MS = 200L
     private const val CONTROLS_TIMEOUT_MS = 3500L
     private const val PROGRESS_INTERVAL_MS = 5000L // Continue Watching ticks

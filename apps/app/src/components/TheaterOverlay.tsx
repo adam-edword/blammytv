@@ -5,8 +5,6 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { slotText } from "slot-text";
-import "slot-text/style.css";
 import type { TheaterMeta } from "./Player";
 import {
   PlayIcon,
@@ -87,24 +85,11 @@ function fmtTime(s?: number): string {
   return `${h > 0 ? `${h}:` : ""}${mm}:${String(sec).padStart(2, "0")}`;
 }
 
-/** Centered "loading" with the slot-text roll while a source buffers. */
+/** Centered "loading…" with a slow opacity pulse while a source buffers. */
 function LoadingGlyph() {
-  const ref = useRef<HTMLSpanElement>(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const label = slotText(el, "loading");
-    label.set("loading", {
-      stagger: 75,
-      duration: 680,
-      bounce: 1,
-      skipUnchanged: false,
-    });
-    return () => label.destroy();
-  }, []);
   return (
     <div className="comp-loading" aria-live="polite">
-      <span ref={ref} className="comp-loading__text" />
+      <span className="comp-loading__text">loading…</span>
     </div>
   );
 }

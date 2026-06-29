@@ -4356,7 +4356,7 @@ body.is-overlay,
   opacity: 1;
 }
 
-/* Buffering loader (composition overlay): centered "loading" slot-text. */
+/* Buffering loader (composition overlay): centered "loading…" with a slow pulse. */
 .comp-loading {
   position: fixed;
   inset: 0;
