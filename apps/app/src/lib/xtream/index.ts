@@ -36,8 +36,15 @@ export async function buildXtreamLive(
 
         // EPG is best-effort — channels still render ("No info") without it.
         try {
+          const xs = performance.now();
           const xmltv = await client.getXmltv();
-          programs.push(...mapEpg(xmltv, srcChannels, Date.now()));
+          const xf = performance.now();
+          const mapped = mapEpg(xmltv, srcChannels, Date.now());
+          console.log(
+            `[load] EPG "${source.name}": fetch ${Math.round(xf - xs)}ms ` +
+              `(${(xmltv.length / 1e6).toFixed(1)}MB), parse ${Math.round(performance.now() - xf)}ms → ${mapped.length}`,
+          );
+          programs.push(...mapped);
         } catch (err) {
           console.warn(`[xtream] EPG failed for "${source.name}": ${msg(err)}`);
         }

@@ -93,11 +93,20 @@ async function buildLocalConfig(): Promise<LoadedConfig> {
   const playlists = loadPlaylists().filter((p) => p.enabled);
   const errors: ConfigErrors = {};
 
+  // Temporary load profiling — tells us whether the wait is network (VOD/live
+  // fetches) or synchronous work (parsing + zod validation, which blocks the
+  // splash animation). Read from the WebView console (logcat: CONSOLE lines).
+  const t0 = performance.now();
+  const since = (start: number) => Math.round(performance.now() - start);
+
   const [vod, live] = await Promise.all([
     (async (): Promise<Pick<ConfigBlob, "movies" | "series" | "stream">> => {
       if (!aioUrl) return EMPTY_VOD;
       try {
-        return await buildVod(aioUrl, loadPreferences().carouselSources);
+        const s = performance.now();
+        const r = await buildVod(aioUrl, loadPreferences().carouselSources);
+        console.log(`[load] VOD (AIOStreams) ${since(s)}ms`);
+        return r;
       } catch (err) {
         const m = err instanceof Error ? err.message : String(err);
         console.error("[config] VOD build failed:", err);
@@ -110,7 +119,11 @@ async function buildLocalConfig(): Promise<LoadedConfig> {
     (async (): Promise<ConfigBlob["live"]> => {
       if (playlists.length === 0) return EMPTY_LIVE;
       try {
+        const s = performance.now();
         const built = await buildLive(playlists);
+        console.log(
+          `[load] live (Xtream/M3U) ${since(s)}ms — ${built.channels.length} ch, ${built.programs.length} programs`,
+        );
         if (built.channels.length > 0) return built;
         return EMPTY_LIVE;
       } catch (err) {
@@ -124,7 +137,12 @@ async function buildLocalConfig(): Promise<LoadedConfig> {
     })(),
   ]);
 
-  return { config: ConfigBlobSchema.parse({ ...seed, live, ...vod }), errors };
+  const zs = performance.now();
+  const config = ConfigBlobSchema.parse({ ...seed, live, ...vod });
+  console.log(
+    `[load] zod validate ${since(zs)}ms · total ${since(t0)}ms (network runs in parallel; zod is synchronous = the freeze)`,
+  );
+  return { config, errors };
 }
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

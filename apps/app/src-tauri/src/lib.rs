@@ -183,22 +183,33 @@ fn comp_stop(window: tauri::WebviewWindow) -> Result<(), String> {
 /// Cross-platform HTTP GET returning the response body as text. Lets the app
 /// reach AIOStreams / Xtream from the Rust side, so the webview isn't blocked by
 /// browser CORS — the foundation for running self-contained, with no backend.
+/// One shared client for all `http_get` calls — building a fresh reqwest client
+/// per request meant a new TLS stack + no connection reuse, so a config load that
+/// fans out dozens of requests (AIOStreams catalogs/enrich + Xtream EPG) paid a
+/// full handshake every time. A shared client keep-alives connections per host.
+static HTTP_CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
+
+fn http_client() -> &'static reqwest::Client {
+    HTTP_CLIENT.get_or_init(|| {
+        reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(30))
+            // Present as a browser: many AIOStreams/addon hosts (esp. behind
+            // Cloudflare/WAFs) reject requests without a normal User-Agent with 403.
+            .user_agent(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
+                 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+            )
+            // HTTP/1.1 keeps the connection fingerprint plain (some hosts flag
+            // h2/rustls as a bot).
+            .http1_only()
+            .build()
+            .expect("build shared HTTP client")
+    })
+}
+
 #[tauri::command]
 async fn http_get(url: String) -> Result<String, String> {
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(30))
-        // Present as a browser: many AIOStreams/addon hosts (esp. behind
-        // Cloudflare/WAFs) reject requests without a normal User-Agent with 403.
-        .user_agent(
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
-             (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-        )
-        // Match the known-good curl request: HTTP/1.1 over the Windows Schannel
-        // TLS stack, so the connection fingerprint isn't flagged as a bot.
-        .http1_only()
-        .build()
-        .map_err(err_chain)?;
-    let res = client
+    let res = http_client()
         .get(&url)
         // Send the headers a browser would. Some hosts (Cloudflare's Browser
         // Integrity Check) 403 requests that have a User-Agent but lack these.

@@ -1408,14 +1408,6 @@ html.is-android .now-playing__preview {
   letter-spacing: -0.02em;
   color: var(--text);
   line-height: 1;
-  /* CSS breathe (compositor thread) so the splash keeps animating even while the
-     main thread is blocked building config — starts after the slot-text reveal. */
-  animation: loading-word-breathe 2s ease-in-out 0.8s infinite;
-}
-
-@keyframes loading-word-breathe {
-  0%, 100% { opacity: 0.62; }
-  50% { opacity: 1; }
 }
 
 .loading-screen__sub {
