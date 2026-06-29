@@ -47,6 +47,10 @@ export function AppHeader({
     focusKey: "tabs",
     saveLastFocusedChild: false,
     preferredChildFocusKey: `tab-${active}`,
+    // Nothing lives above the tabs — ▲ stays put instead of escaping into the
+    // void (which dropped the cursor). ▼ still drops into the content.
+    isFocusBoundary: true,
+    focusBoundaryDirections: ["up"],
   });
 
   return (

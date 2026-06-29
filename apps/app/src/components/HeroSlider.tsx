@@ -78,7 +78,14 @@ export function HeroSlider({
         next();
         return false;
       }
-      return true; // up/down → let norigin leave the hero
+      if (dir === "up") {
+        // Explicit hand-off to the active tab (setFocus("tabs") resolves to it
+        // via preferredChildFocusKey) — letting norigin guess by geometry from
+        // the full-width hero dropped the cursor instead of reaching the tabs.
+        setFocus("tabs");
+        return false;
+      }
+      return true; // down → let norigin leave the hero to the rows
     },
   });
 

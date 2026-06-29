@@ -31,6 +31,11 @@ export function MediaRow({
   const { ref, focusKey } = useFocusable({
     saveLastFocusedChild: true,
     trackChildren: true,
+    // Can't escape a row sideways: ◀ at the first card / ▶ at the last stays put
+    // instead of norigin walking up the tree and grabbing a card in another row
+    // (which read as "the cursor vanished"). ▲/▼ still move between rows.
+    isFocusBoundary: true,
+    focusBoundaryDirections: ["left", "right"],
   });
   if (items.length === 0) return null;
   return (
