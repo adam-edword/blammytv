@@ -2580,6 +2580,13 @@ html.is-android * {
   font-weight: 600;
   font-size: 14px;
   line-height: 1.3;
+  /* Fade in (scrim + text together) when it appears at 0.5s of holding. */
+  animation: cw-hold-fade 0.22s ease both;
+}
+@keyframes cw-hold-fade {
+  from {
+    opacity: 0;
+  }
 }
 
 .stream-card__placeholder {
