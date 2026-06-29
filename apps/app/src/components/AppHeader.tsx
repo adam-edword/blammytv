@@ -130,26 +130,26 @@ export function AppHeader({
       </div>
 
       <div className="app-header__actions">
-        <button
+        <FocusButton
           className={"icon-btn" + (avatar ? " icon-btn--avatar" : "")}
-          aria-label="Account"
-          type="button"
-          onClick={onOpenProfile}
+          ariaLabel="Account"
+          focusKey="hdr-account"
+          onPress={onOpenProfile}
         >
           {avatar ? (
             <img className="icon-btn__avatar" src={avatar} alt="" />
           ) : (
             <AccountIcon />
           )}
-        </button>
-        <button
+        </FocusButton>
+        <FocusButton
           className="icon-btn"
-          aria-label="Settings"
-          type="button"
-          onClick={onOpenSettings}
+          ariaLabel="Settings"
+          focusKey="hdr-settings"
+          onPress={onOpenSettings}
         >
           <SettingsIcon />
-        </button>
+        </FocusButton>
       </div>
     </header>
   );
