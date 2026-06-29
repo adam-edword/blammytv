@@ -261,7 +261,10 @@ export function EpgGuide({
     const rowH = parseFloat(cs.getPropertyValue("--row-h")) || 60;
     const rulerH =
       c.querySelector<HTMLElement>(".time-ruler")?.offsetHeight ?? 30;
-    const M = 16; // breathing room around the focused cell
+    const M = 16; // horizontal breathing room around the focused cell
+    // Keep ~1 row of buffer above/below the focused row, so it scrolls before
+    // pinning to the edge (matches the sources rail's scroll-padding).
+    const vM = rowH + PROGRAM_GAP;
 
     // Horizontal: reveal the focused block clear of the sticky label column.
     if (block) {
@@ -277,11 +280,11 @@ export function EpgGuide({
       c.scrollLeft = 0;
     }
 
-    // Vertical: reveal the row clear of the sticky time ruler.
+    // Vertical: reveal the row clear of the sticky time ruler, plus a row of buffer.
     const y = rulerH + row * (rowH + PROGRAM_GAP);
     const chH = c.clientHeight;
-    const minTop = y + rowH - chH + M;
-    const maxTop = y - rulerH - M;
+    const minTop = y + rowH - chH + vM;
+    const maxTop = y - rulerH - vM;
     let st = c.scrollTop;
     if (st > maxTop) st = maxTop;
     else if (st < minTop) st = minTop;
