@@ -1,9 +1,4 @@
-import {
-  useEffect,
-  useMemo,
-  useState,
-  type CSSProperties,
-} from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import {
   FocusContext,
   setFocus,
@@ -49,10 +44,20 @@ export function EpisodeBrowser({
   }, [season, query]);
 
   // The episode grid is a 2D focus group (▲▼◀▶ between episodes).
-  const { ref: gridRef, focusKey: gridFocusKey } = useFocusable<HTMLDivElement>({
-    saveLastFocusedChild: true,
-    trackChildren: true,
-  });
+  const { ref: gridRef, focusKey: gridFocusKey } = useFocusable<HTMLDivElement>(
+    {
+      saveLastFocusedChild: true,
+      trackChildren: true,
+    },
+  );
+  // The season bar is a focus group that always lands on the dropdown when
+  // entered (e.g. ▲ out of the grid), regardless of which control you left it
+  // on — so the season picker is the consistent "home" of that row.
+  const { ref: seasonBarRef, focusKey: seasonBarFocusKey } =
+    useFocusable<HTMLDivElement>({
+      saveLastFocusedChild: false,
+      preferredChildFocusKey: SELECT_KEY,
+    });
 
   // Land focus on the first episode when the browser opens.
   useEffect(() => {
@@ -131,7 +136,9 @@ export function EpisodeBrowser({
             ) : (
               <h1 className="detail__title series__title">{item.title}</h1>
             )}
-            {item.synopsis && <p className="detail__synopsis">{item.synopsis}</p>}
+            {item.synopsis && (
+              <p className="detail__synopsis">{item.synopsis}</p>
+            )}
             <p className="detail__meta">{meta}</p>
           </div>
 
@@ -163,55 +170,57 @@ export function EpisodeBrowser({
           </div>
         </header>
 
-        <div className="season-bar">
-          <FocusButton
-            className="season-bar__nav"
-            focusKey="season-prev"
-            ariaLabel="Previous season"
-            disabled={seasonIdx === 0}
-            onPress={() => changeSeason(Math.max(0, seasonIdx - 1))}
-          >
-            <ChevronIcon className="season-bar__nav-icon season-bar__nav-icon--prev" />
-          </FocusButton>
-
-          <div className="season-bar__select-wrap">
+        <FocusContext.Provider value={seasonBarFocusKey}>
+          <div className="season-bar" ref={seasonBarRef}>
             <FocusButton
-              className="season-bar__select"
-              focusKey={SELECT_KEY}
-              onPress={() => setMenuOpen((o) => !o)}
+              className="season-bar__nav"
+              focusKey="season-prev"
+              ariaLabel="Previous season"
+              disabled={seasonIdx === 0}
+              onPress={() => changeSeason(Math.max(0, seasonIdx - 1))}
             >
-              {season.name ?? `Season ${season.number}`}
-              <ChevronIcon className="season-bar__caret" />
+              <ChevronIcon className="season-bar__nav-icon season-bar__nav-icon--prev" />
             </FocusButton>
-            {menuOpen && (
-              <SeasonMenu
-                seasons={seasons}
-                seasonIdx={seasonIdx}
-                onPick={pickSeasonFromMenu}
-              />
-            )}
+
+            <div className="season-bar__select-wrap">
+              <FocusButton
+                className="season-bar__select"
+                focusKey={SELECT_KEY}
+                onPress={() => setMenuOpen((o) => !o)}
+              >
+                {season.name ?? `Season ${season.number}`}
+                <ChevronIcon className="season-bar__caret" />
+              </FocusButton>
+              {menuOpen && (
+                <SeasonMenu
+                  seasons={seasons}
+                  seasonIdx={seasonIdx}
+                  onPick={pickSeasonFromMenu}
+                />
+              )}
+            </div>
+
+            <FocusButton
+              className="season-bar__nav season-bar__nav--next"
+              focusKey="season-next"
+              ariaLabel="Next season"
+              disabled={seasonIdx === seasons.length - 1}
+              onPress={() =>
+                changeSeason(Math.min(seasons.length - 1, seasonIdx + 1))
+              }
+            >
+              <ChevronIcon className="season-bar__nav-icon season-bar__nav-icon--next" />
+            </FocusButton>
+
+            <input
+              className="season-bar__search"
+              type="text"
+              placeholder="Search Episode"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
           </div>
-
-          <FocusButton
-            className="season-bar__nav season-bar__nav--next"
-            focusKey="season-next"
-            ariaLabel="Next season"
-            disabled={seasonIdx === seasons.length - 1}
-            onPress={() =>
-              changeSeason(Math.min(seasons.length - 1, seasonIdx + 1))
-            }
-          >
-            <ChevronIcon className="season-bar__nav-icon season-bar__nav-icon--next" />
-          </FocusButton>
-
-          <input
-            className="season-bar__search"
-            type="text"
-            placeholder="Search Episode"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </div>
+        </FocusContext.Provider>
 
         <FocusContext.Provider value={gridFocusKey}>
           <div className="episode-grid" ref={gridRef}>

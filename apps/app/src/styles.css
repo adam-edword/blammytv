@@ -3151,8 +3151,7 @@ html.is-android .source-card__line {
   transition: background 0.12s ease, opacity 0.12s ease;
 }
 
-.season-bar__nav:hover:not(:disabled),
-.season-bar__nav.is-focused {
+.season-bar__nav:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.18);
 }
 
@@ -3191,9 +3190,16 @@ html.is-android .source-card__line {
   cursor: pointer;
 }
 
-.season-bar__select:hover,
+.season-bar__select:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+/* Remote focus on the season controls: an accent ring (matches the cards),
+   not just a background tint, so "you are here" reads at 10 feet. */
+.season-bar__nav.is-focused,
 .season-bar__select.is-focused {
   background: rgba(255, 255, 255, 0.18);
+  box-shadow: inset 0 0 0 2px var(--red-border);
 }
 
 .season-bar__caret {
