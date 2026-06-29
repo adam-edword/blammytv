@@ -5,6 +5,9 @@ mod mpv;
 #[cfg(windows)]
 mod comp;
 
+// On-device LAN setup server ("configure from another device"). All platforms.
+mod config_server;
+
 use std::sync::OnceLock;
 
 // App handle, so native code (the composition overlay's ✕) can notify the UI.
@@ -302,7 +305,9 @@ pub fn run() {
             popout_stop,
             http_get,
             check_update,
-            install_update
+            install_update,
+            config_server::config_server_start,
+            config_server::config_server_stop
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

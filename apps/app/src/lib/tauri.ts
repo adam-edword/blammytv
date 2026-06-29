@@ -69,6 +69,27 @@ export const onNativeProgress = (
   return () => window.removeEventListener("blammy-native-progress", handler);
 };
 
+/** On-device LAN setup server ("configure from another device"). Returns the
+ * LAN address + a one-time token for the TV to display as a URL/QR. */
+export const startConfigServer = () =>
+  invoke("config_server_start") as Promise<{
+    ip: string;
+    port: number;
+    token: string;
+  }>;
+
+export const stopConfigServer = () =>
+  invoke("config_server_stop") as Promise<void>;
+
+/** Fires when the setup form (filled in on a phone/laptop) submits — the payload
+ * is the raw JSON the browser posted. */
+export const onConfigReceived = (
+  cb: (json: string) => void,
+): (() => void) => {
+  const un = listen<string>("config-received", (e) => cb(e.payload));
+  return () => void un.then((f) => f());
+};
+
 /** Forward a captured keyboard shortcut into the composition overlay. */
 export const tauriCompKey = (key: string) =>
   invoke("comp_key", { key }) as Promise<void>;

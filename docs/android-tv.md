@@ -166,6 +166,21 @@ porting the whole UI.
 
 ## Follow-ups / backlog
 
+- **Setup handoff ("configure from another device").** New: instead of typing
+  the AIOStreams/Xtream details on the remote, the TV runs a tiny LAN HTTP
+  server (`src-tauri/src/config_server.rs`, `tiny_http` + `local-ip-address`)
+  and shows a URL + QR (onboarding, `SetupHandoff.tsx`). You open it on a
+  phone/laptop on the same WiFi, fill the form, and it's emitted to the WebView
+  (`config-received` → `setAioUrl` + `addPlaylist`). A 6-char token gates writes;
+  creds never leave the LAN. Needs a Gradle/Cargo rebuild. **Couldn't fully
+  compile-verify the Rust here** (host lacks GTK, Android needs the NDK for a C
+  TLS dep) — the `tiny_http`/`local-ip-address` calls were checked in isolation
+  and the Tauri bits mirror existing commands, but watch the first rebuild.
+  Future: extend the form + payload for **M3U** and **Stalker/MAG** portals
+  (add a `<fieldset>` in `FORM_HTML` and a branch in `SetupHandoff`); add a
+  Settings entry to re-run it (the settings panel internals aren't
+  remote-navigable yet — that's its own follow-up).
+
 - **Continue Watching — done.** Progress: the native player reports
   position+duration (`blammy-native-progress`, every 5s + on close), `VodPlayer`
   updates the entry, and the store drops it past 90%. Resume: a CW card click

@@ -1,10 +1,15 @@
 import { useState } from "react";
 import { setAioUrl } from "../lib/settings";
+import { SetupHandoff } from "../components/SetupHandoff";
+import { isTv } from "../lib/tv";
 
-/** First-run welcome for the standalone desktop app: capture the AIOStreams
- * manifest URL so the app can build its catalog. Everything else (IPTV
- * playlists, customization) is available later in Settings. */
+/** First-run welcome. On TV, set up from a phone/laptop on the same WiFi (no
+ * typing on the remote); desktop types the AIOStreams manifest URL directly.
+ * Everything else (IPTV playlists, customization) is available later in
+ * Settings. */
 export function OnboardingScreen({ onDone }: { onDone: () => void }) {
+  // TV starts on the LAN handoff (with a "type it" fallback); desktop types.
+  const [manual, setManual] = useState(!isTv);
   const [url, setUrl] = useState("");
 
   const submit = () => {
@@ -12,6 +17,10 @@ export function OnboardingScreen({ onDone }: { onDone: () => void }) {
     setAioUrl(url);
     onDone();
   };
+
+  if (!manual) {
+    return <SetupHandoff onDone={onDone} onManual={() => setManual(true)} />;
+  }
 
   return (
     <div className="onboarding">

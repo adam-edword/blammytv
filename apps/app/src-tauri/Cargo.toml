@@ -20,6 +20,10 @@ tauri-build = { version = "2.6.2", features = [] }
 [dependencies]
 serde_json = "1.0"
 log = "0.4"
+# Tiny blocking HTTP server + LAN-IP lookup for the on-device setup handoff
+# (configure from a phone/laptop on the same WiFi). Cross-platform, no async rt.
+tiny_http = "0.12"
+local-ip-address = "0.6"
 tauri = { version = "2.11.2", features = [] }
 tauri-plugin-log = "2"
 # Remember window size/position/maximized across launches. First run (no saved
