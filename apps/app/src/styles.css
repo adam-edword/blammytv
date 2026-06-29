@@ -2680,11 +2680,12 @@ html.is-android .media-row__track {
 .detail__scrim {
   position: absolute;
   inset: 0;
-  /* Just the soft radial (same shape as the hero slides), centred left-of-frame
-     so its dark edge pools on the right — keeps the frosted source rail legible
-     over busy art while leaving the centre subject visible. */
+  /* Soft radial vignette (same shape as the hero slides): a bright focal on the
+     centre subject with dark wrapping the edges — heaviest on the right, where
+     the frosted source rail sits. Centred near the middle so it reads as a
+     radial, not a one-sided right gradient. */
   background: radial-gradient(
-    70% 86% at 26% 48%,
+    62% 80% at 44% 46%,
     rgba(11, 11, 14, 0) 0%,
     rgba(11, 11, 14, 0.72) 100%
   );
