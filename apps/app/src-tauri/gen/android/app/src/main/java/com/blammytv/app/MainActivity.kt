@@ -178,7 +178,7 @@ class MainActivity : TauriActivity() {
       playerView = view
 
       webView.addJavascriptInterface(Bridge(), "BlammyNativePlayer")
-      Log.i(TAG, "native player ready (custom BlammyTV chrome, on top)")
+      Log.i(TAG, "native player ready (cross-protocol redirects on)")
     }
   }
 
