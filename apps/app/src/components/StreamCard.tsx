@@ -8,6 +8,10 @@ import { formatMeta, initials } from "../lib/vod";
 import { smoothCenterIntoView } from "../lib/scroll";
 import { isTv } from "../lib/tv";
 
+/** Continue Watching hold-to-clear thresholds. */
+const HOLD_MS = 500; // hold OK this long to remove an entry
+const RELEASE_MS = 90; // keyup with no follow-up keydown within this = released
+
 /** A single Stream catalog card. Posters are 2:3, landscape stills are 16:9
  * (used by rows like Continue Watching). Artwork falls back to a monogram
  * placeholder when the backend hasn't supplied an image. */
@@ -35,44 +39,20 @@ export function StreamCard({
   const art = layout === "landscape" ? item.backdrop ?? item.poster : item.poster;
 
   // Hold-to-clear (Continue Watching only). Telling a hold from a tap by
-  // press/release *timing* is unreliable — keyboard autorepeat and the emulator
-  // emit early or paired keyups, so a held key reads as a tap. Instead detect
-  // the hold from keydown `event.repeat`, which Chromium sets true for both a
-  // held remote button and keyboard autorepeat. A quick tap (no repeat) opens;
-  // the open is debounced so a stray autorepeat keyup landing just before the
-  // first repeat doesn't open prematurely.
+  // press/release *timing* via norigin is unreliable (it throttles keydowns and
+  // emits one onEnterRelease). The raw key stream is the real signal: a held OK
+  // repeats keydown every ~30–50ms on BOTH keyboard (DOWN/UP pairs) and the
+  // remote (DOWNs with no UP until release), all with repeat=false. So we time
+  // the hold from the first keydown and treat a keyup with no follow-up keydown
+  // (within RELEASE_MS) as the release: hold past HOLD_MS clears, a tap opens.
   const cb = useRef({ onOpen, onClear, item });
   cb.current = { onOpen, onClear, item };
-  const cleared = useRef(false);
-  const openTimer = useRef<number | null>(null);
-  const cancelOpen = () => {
-    if (openTimer.current != null) {
-      clearTimeout(openTimer.current);
-      openTimer.current = null;
-    }
-  };
 
   const { ref, focused } = useFocusable<HTMLButtonElement>({
     focusKey: `card-${rowId}-${item.id}`,
+    // CW cards drive OK from the raw key listener below; others open on press.
     onEnterPress: () => {
-      if (!onClear) {
-        onOpen?.(item);
-        return;
-      }
-      cleared.current = false; // start of a fresh press
-      cancelOpen();
-    },
-    onEnterRelease: () => {
-      if (!onClear) return;
-      if (cleared.current) {
-        cleared.current = false; // a hold already removed it — swallow the open
-        return;
-      }
-      cancelOpen();
-      openTimer.current = window.setTimeout(() => {
-        openTimer.current = null;
-        if (!cleared.current) cb.current.onOpen?.(cb.current.item);
-      }, 140);
+      if (!onClear) onOpen?.(item);
     },
     onFocus: (layout: FocusableComponentLayout) => {
       if (layout.node) smoothCenterIntoView(layout.node, 250);
@@ -84,21 +64,47 @@ export function StreamCard({
     if (focused && !isTv) ref.current?.focus({ preventScroll: true });
   }, [focused, ref]);
 
-  // While focused, a held OK/center autorepeats — `event.repeat` flags it as a
-  // hold and removes the entry (once), independent of release timing.
   const clearable = onClear != null;
   useEffect(() => {
     if (!focused || !clearable) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Enter" || !e.repeat || cleared.current) return;
-      cleared.current = true;
-      cancelOpen();
-      cb.current.onClear?.();
+    let firstDownAt = 0;
+    let cleared = false;
+    let openTimer: number | null = null;
+    const cancelOpen = () => {
+      if (openTimer != null) {
+        clearTimeout(openTimer);
+        openTimer = null;
+      }
     };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    const onDown = (e: KeyboardEvent) => {
+      if (e.key !== "Enter") return;
+      cancelOpen(); // still pressing — a pending release-open is premature
+      if (firstDownAt === 0) firstDownAt = performance.now();
+      if (!cleared && performance.now() - firstDownAt >= HOLD_MS) {
+        cleared = true;
+        cb.current.onClear?.();
+      }
+    };
+    const onUp = (e: KeyboardEvent) => {
+      if (e.key !== "Enter") return;
+      cancelOpen();
+      // Debounce: a follow-up keydown (still held) cancels this; otherwise it's
+      // a real release → open if it was a tap (not a hold that already cleared).
+      openTimer = window.setTimeout(() => {
+        openTimer = null;
+        if (!cleared && firstDownAt !== 0) cb.current.onOpen?.(cb.current.item);
+        firstDownAt = 0;
+        cleared = false;
+      }, RELEASE_MS);
+    };
+    window.addEventListener("keydown", onDown, true);
+    window.addEventListener("keyup", onUp, true);
+    return () => {
+      cancelOpen();
+      window.removeEventListener("keydown", onDown, true);
+      window.removeEventListener("keyup", onUp, true);
+    };
   }, [focused, clearable]);
-  useEffect(() => cancelOpen, []);
   return (
     <button
       ref={ref}
