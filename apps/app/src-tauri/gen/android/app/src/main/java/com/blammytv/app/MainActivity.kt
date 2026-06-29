@@ -50,6 +50,7 @@ class MainActivity : TauriActivity() {
   private var playerContainer: View? = null
   private var playerView: PlayerView? = null
   private var chromeView: View? = null
+  private var playPauseButton: View? = null
   private var webViewRef: WebView? = null
 
   // BlammyTV chrome views inside the custom controller layout.
@@ -109,9 +110,10 @@ class MainActivity : TauriActivity() {
       showControls()
       if (wasHidden) return true
     }
-    // Drive the controller directly so the keys never fall through to the
-    // WebView (the EPG) underneath, even if focus is momentarily ambiguous.
-    return playerView?.dispatchKeyEvent(event) ?: super.dispatchKeyEvent(event)
+    // Normal dispatch: with a control focused (applyPlayerMode/showControls seat
+    // focus on play/pause), ViewRootImpl does the D-pad focus navigation between
+    // the controls — and the WebView isn't focused, so it can't steal the keys.
+    return super.dispatchKeyEvent(event)
   }
 
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -188,6 +190,7 @@ class MainActivity : TauriActivity() {
         false
       }
       chromeView = view.findViewById(R.id.btv_chrome)
+      playPauseButton = view.findViewById(androidx.media3.ui.R.id.exo_play_pause)
 
       logoView = view.findViewById(R.id.btv_logo)
       metaView = view.findViewById(R.id.btv_meta)
@@ -257,11 +260,13 @@ class MainActivity : TauriActivity() {
       scheduleHideControls()
       view.isFocusable = true
       view.isFocusableInTouchMode = true
-      // Take focus off the WebView so the remote drives the controller (Media3
-      // auto-focuses play/pause) — otherwise norigin underneath eats the keys
-      // and only Back works. Retry post-layout if the first grab doesn't land.
+      // Seat focus on the play/pause button so the D-pad has somewhere to start
+      // (we keep the controller permanently shown + fade the chrome ourselves, so
+      // Media3 never re-focuses it). Clear the WebView first so norigin can't keep
+      // eating the keys; retry post-layout if the first grab doesn't land.
       webViewRef?.clearFocus()
-      if (!view.requestFocus()) view.post { view.requestFocus() }
+      val target = playPauseButton ?: view
+      if (!target.requestFocus()) target.post { target.requestFocus() }
     } else {
       c.layoutParams = FrameLayout.LayoutParams(miniW, miniH).apply {
         leftMargin = miniX
@@ -409,6 +414,10 @@ class MainActivity : TauriActivity() {
     c.animate().cancel()
     c.visibility = View.VISIBLE
     c.animate().alpha(1f).setDuration(FADE_MS).start()
+    // Only re-seat focus when no control has it (the chrome going INVISIBLE drops
+    // it) — not on every reveal, or it'd yank you back off whichever button you
+    // navigated to.
+    if (fullscreen && c.hasFocus() != true) playPauseButton?.requestFocus()
     scheduleHideControls()
   }
 
