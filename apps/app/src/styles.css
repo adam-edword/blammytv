@@ -2996,10 +2996,11 @@ html.is-android .media-row__track {
   gap: 16px;
   width: 100%;
   padding: 18px 22px;
-  background: rgba(10, 10, 12, 0.82);
+  /* Frosted white glass — matches the episode cards. */
+  background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  border: 1.5px solid transparent;
   border-radius: 20px;
   text-align: left;
   cursor: pointer;
@@ -3013,7 +3014,7 @@ html.is-android .media-row__track {
 html:not(.is-android) .source-card:hover,
 html:not(.is-android) .source-card:focus-visible {
   border-color: var(--red-border);
-  background: rgba(18, 18, 22, 0.92);
+  background: rgba(255, 255, 255, 0.16);
   outline: none;
 }
 
