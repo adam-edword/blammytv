@@ -21,7 +21,23 @@ export const isTauri = (): boolean =>
  * player is the DirectComposition/mpv path below, so this is undefined there.
  */
 interface NativePlayer {
+  /** Load fullscreen (VOD). */
   load(url: string, metaJson: string, startSeconds: number): void;
+  /** Load into the mini surface at a physical-px rect (live). */
+  loadAt(
+    url: string,
+    metaJson: string,
+    startSeconds: number,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    radius: number,
+  ): void;
+  /** Keep the mini surface aligned to its (moving) web box. */
+  setRect(x: number, y: number, w: number, h: number, radius: number): void;
+  /** Tap the mini → fullscreen; native Back collapses back to mini. */
+  setFullscreen(fs: boolean): void;
   play(): void;
   pause(): void;
   stop(): void;
@@ -69,6 +85,16 @@ export const onNativeProgress = (
   return () => window.removeEventListener("blammy-native-progress", handler);
 };
 
+/**
+ * Fired when the native Android player collapses fullscreen back to the mini
+ * surface (its Back button) — React drops theater mode; the mini keeps playing.
+ */
+export const onNativeCollapse = (cb: () => void): (() => void) => {
+  const handler = () => cb();
+  window.addEventListener("blammy-native-collapse", handler);
+  return () => window.removeEventListener("blammy-native-collapse", handler);
+};
+
 /** On-device LAN setup server ("configure from another device"). Returns the
  * LAN address + a one-time token for the TV to display as a URL/QR. */
 export const startConfigServer = () =>
@@ -107,8 +133,9 @@ export const tauriCompTheater = (
 ) => {
   // Android: drive the native ExoPlayer bridge instead of the Windows
   // DirectComposition path. Forward the chrome fields (clearlogo + the three
-  // text lines) so the custom controller can render them. (Surface is
-  // fullscreen for now; rect-positioning comes next.)
+  // text lines) so the custom controller can render them, and load into the mini
+  // surface at the hero-box rect — the rAF loop (setRect) keeps it aligned, and a
+  // tap (setFullscreen) expands it.
   const np = nativePlayer();
   if (np) {
     const m = (meta ?? {}) as {
@@ -123,7 +150,7 @@ export const tauriCompTheater = (
       title: m.title,
       subtitle: m.description,
     });
-    np.load(url, payload, start);
+    np.loadAt(url, payload, start, rect.x, rect.y, rect.w, rect.h, rect.radius);
     return Promise.resolve();
   }
   const overlayUrl = `${window.location.origin}/?overlay=1&composited=1`;
@@ -143,8 +170,13 @@ export const tauriCompTheater = (
 
 /** Move/resize the native layer to follow its in-app box (or expand to full). */
 export const tauriCompSetRect = (rect: CompRect) => {
-  // Android: the surface is fullscreen for now, so repositioning is a no-op.
-  if (nativePlayer()) return Promise.resolve();
+  // Android: keep the mini surface aligned to the web box (no-op while it's
+  // fullscreen — the native side ignores it then).
+  const np = nativePlayer();
+  if (np) {
+    np.setRect(rect.x, rect.y, rect.w, rect.h, rect.radius);
+    return Promise.resolve();
+  }
   return invoke("comp_set_rect", {
     x: rect.x,
     y: rect.y,
@@ -152,6 +184,14 @@ export const tauriCompSetRect = (rect: CompRect) => {
     h: rect.h,
     radius: rect.radius,
   }) as Promise<void>;
+};
+
+/** Expand the mini player to fullscreen (or collapse it). Android only — the
+ * desktop drives fullscreen through the overlay's own events. */
+export const tauriCompFullscreen = (fs: boolean) => {
+  const np = nativePlayer();
+  if (np) np.setFullscreen(fs);
+  return Promise.resolve();
 };
 
 /** Tear down the native composition player and free the window. */

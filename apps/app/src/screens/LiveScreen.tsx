@@ -26,12 +26,15 @@ import { loadRecents, pushRecent } from "../lib/recents";
 import { usePreferences } from "../state/preferences";
 import {
   isTauri,
+  isNativePlayer,
   onCompClosed,
   onCompExpand,
   onCompCollapse,
   onCompFullscreen,
   onCompExitFullscreen,
   onCompPopout,
+  onNativeCollapse,
+  tauriCompFullscreen,
   tauriCompPopout,
   tauriSetFullscreen,
   tauriCompKey,
@@ -231,6 +234,17 @@ export function LiveScreen({
     document.body.classList.toggle("theater-mode", inTheater);
     return () => document.body.classList.remove("theater-mode");
   }, [inTheater]);
+
+  // Android: the mini player follows theater mode — entering expands it to
+  // fullscreen, leaving collapses it back to the hero box (still playing).
+  useEffect(() => {
+    if (!isNativePlayer() || !playing) return;
+    void tauriCompFullscreen(inTheater);
+  }, [inTheater, playing]);
+
+  // Android: the native player's Back collapses fullscreen → mini; mirror it so
+  // React leaves theater mode (the mini keeps playing).
+  useEffect(() => onNativeCollapse(() => setTheater(false)), []);
 
   // Escape leaves theater and drops back to the mini player — playback keeps
   // running.
@@ -511,7 +525,9 @@ export function LiveScreen({
       const id = navCategories[n.row];
       if (id) selectCategory(id);
     } else if (n.zone === "hero") {
-      if (heroChannel) playChannel(heroChannel.id);
+      // Tap the mini → fullscreen if it's already playing, else start it.
+      if (playing) setTheater(true);
+      else if (heroChannel) playChannel(heroChannel.id);
     } else {
       const lane = lanes[n.row];
       if (!lane) return;
@@ -523,6 +539,7 @@ export function LiveScreen({
     navCategories,
     lanes,
     heroChannel,
+    playing,
     selectCategory,
     selectProgram,
     selectChannelId,

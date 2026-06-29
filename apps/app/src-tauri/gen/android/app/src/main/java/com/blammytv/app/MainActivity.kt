@@ -1,5 +1,6 @@
 package com.blammytv.app
 
+import android.graphics.Outline
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -9,9 +10,11 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewOutlineProvider
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.activity.enableEdgeToEdge
@@ -60,6 +63,21 @@ class MainActivity : TauriActivity() {
   private var errorView: TextView? = null
   private var loadingFrame = 0
 
+  // Player placement. Live plays in a "mini" surface positioned over the React
+  // hero box (video only, no chrome, NOT focusable so the remote keeps driving
+  // the EPG behind it); tapping it (from JS) goes "fullscreen" (match_parent,
+  // chrome, focusable). VOD always loads fullscreen. The mini rect is in physical
+  // px, mirrored from the web box by the JS rAF loop (setRect).
+  private var fullscreen = true
+  // Whether this session has a mini surface (live). VOD has none, so its Back
+  // closes the player rather than collapsing to a mini.
+  private var hasMini = false
+  private var miniX = 0
+  private var miniY = 0
+  private var miniW = 0
+  private var miniH = 0
+  private var miniRadius = 0
+
   // Back closes the player. wry consumes the Back key INSIDE the WebView
   // (webView.goBack()) before the OnBackPressedDispatcher or onBackPressed()
   // ever run — so neither could intercept it, and Back just walked the React
@@ -67,21 +85,25 @@ class MainActivity : TauriActivity() {
   // Activity's earliest key hook, before the event reaches the WebView: while
   // the player is showing we consume Back here and close the player.
   override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-    if (event.keyCode == KeyEvent.KEYCODE_BACK &&
-      playerContainer?.visibility == View.VISIBLE
-    ) {
-      // Back dismisses the controls first if they're showing; only when they're
-      // already hidden does it exit the player.
+    // Only the fullscreen player owns the remote. In mini the surface is just a
+    // preview behind the React UI, so keys fall through to the WebView (EPG nav).
+    val owns = fullscreen && playerContainer?.visibility == View.VISIBLE
+    if (!owns) return super.dispatchKeyEvent(event)
+
+    if (event.keyCode == KeyEvent.KEYCODE_BACK) {
+      // Back dismisses the controls first if they're showing. Otherwise: live
+      // collapses fullscreen → mini (keeps playing, returns to the EPG); VOD has
+      // no mini, so it closes the player.
       if (event.action == KeyEvent.ACTION_UP) {
-        if (controlsHidden()) closePlayer() else hideControls()
+        if (!controlsHidden()) hideControls()
+        else if (hasMini) collapseToMini()
+        else closePlayer()
       }
       return true // consume both DOWN and UP so the WebView never navigates
     }
     // A remote key reveals the controls and resets their idle fade-out timer;
     // the first press while they're hidden only reveals them.
-    if (event.action == KeyEvent.ACTION_DOWN &&
-      playerContainer?.visibility == View.VISIBLE
-    ) {
+    if (event.action == KeyEvent.ACTION_DOWN) {
       val wasHidden = controlsHidden()
       showControls()
       if (wasHidden) return true
@@ -174,6 +196,16 @@ class MainActivity : TauriActivity() {
       loadingView = container.findViewById(R.id.btv_loading)
       errorView = container.findViewById(R.id.btv_error)
 
+      // Round the mini surface to match the React hero box; fullscreen squares
+      // it off (radius 0). clipToOutline clips the SurfaceView too.
+      container.outlineProvider = object : ViewOutlineProvider() {
+        override fun getOutline(v: View, outline: Outline) {
+          val r = if (fullscreen) 0f else miniRadius.toFloat()
+          outline.setRoundRect(0, 0, v.width, v.height, r)
+        }
+      }
+      container.clipToOutline = true
+
       content.addView(container)
       playerContainer = container
       playerView = view
@@ -183,9 +215,9 @@ class MainActivity : TauriActivity() {
     }
   }
 
-  // Show the player fullscreen and start the source. Reused across source
+  // Start a source and show the player in the current mode. Reused across source
   // switches — no surface recreation needed now that it's opaque and on top.
-  private fun showPlayer(url: String, metaJson: String, startSeconds: Double) {
+  private fun startSource(url: String, metaJson: String, startSeconds: Double) {
     val exo = player ?: return
     applyMeta(metaJson)
     resetSpeed()
@@ -197,15 +229,62 @@ class MainActivity : TauriActivity() {
     exo.playWhenReady = true
     exo.prepare()
     playerContainer?.visibility = View.VISIBLE
-    playerView?.showController() // keep Media3's controller permanently shown
-    chromeView?.let {
-      it.animate().cancel()
-      it.visibility = View.VISIBLE
-      it.alpha = 1f
-    }
-    scheduleHideControls()
-    playerView?.requestFocus()
+    applyPlayerMode()
     startProgressReports()
+  }
+
+  // Lay the player out for the current mode. Fullscreen: edge-to-edge, chrome
+  // visible, focusable + focused (owns the remote). Mini: positioned over the
+  // hero box, chrome hidden (video only), NOT focusable so the WebView keeps the
+  // remote for EPG navigation.
+  private fun applyPlayerMode() {
+    val c = playerContainer ?: return
+    val view = playerView ?: return
+    if (fullscreen) {
+      c.layoutParams = FrameLayout.LayoutParams(
+        FrameLayout.LayoutParams.MATCH_PARENT,
+        FrameLayout.LayoutParams.MATCH_PARENT,
+      )
+      view.showController()
+      chromeView?.let {
+        it.animate().cancel()
+        it.visibility = View.VISIBLE
+        it.alpha = 1f
+      }
+      scheduleHideControls()
+      view.isFocusable = true
+      view.isFocusableInTouchMode = true
+      view.requestFocus()
+    } else {
+      c.layoutParams = FrameLayout.LayoutParams(miniW, miniH).apply {
+        leftMargin = miniX
+        topMargin = miniY
+      }
+      chromeView?.let {
+        it.animate().cancel()
+        it.visibility = View.INVISIBLE
+      }
+      view.isFocusable = false
+      view.isFocusableInTouchMode = false
+      // Hand the remote back to the WebView (EPG nav) when leaving fullscreen.
+      webViewRef?.requestFocus()
+    }
+    c.invalidateOutline()
+    c.requestLayout()
+  }
+
+  // Back from fullscreen → mini (keep playing) + return to the EPG. Tells React
+  // so it drops theater mode and re-focuses the hero.
+  private fun collapseToMini() {
+    if (!fullscreen) return
+    fullscreen = false
+    applyPlayerMode()
+    webViewRef?.post {
+      webViewRef?.evaluateJavascript(
+        "window.dispatchEvent(new Event('blammy-native-collapse'))",
+        null,
+      )
+    }
   }
 
   // Continue Watching: push position+duration to JS on a timer while playing
@@ -390,10 +469,50 @@ class MainActivity : TauriActivity() {
   }
 
   inner class Bridge {
+    // VOD: load fullscreen.
     @JavascriptInterface
     fun load(url: String, metaJson: String, startSeconds: Double) = runOnUiThread {
       Log.i(TAG, "load($url, start=$startSeconds)")
-      showPlayer(url, metaJson, startSeconds)
+      fullscreen = true
+      hasMini = false
+      startSource(url, metaJson, startSeconds)
+    }
+
+    // Live: load into the mini surface at the hero-box rect (physical px). Rect
+    // args are Double (the JS bridge marshals numbers as doubles) → Int.
+    @JavascriptInterface
+    fun loadAt(
+      url: String,
+      metaJson: String,
+      startSeconds: Double,
+      x: Double,
+      y: Double,
+      w: Double,
+      h: Double,
+      radius: Double,
+    ) = runOnUiThread {
+      miniX = x.toInt(); miniY = y.toInt()
+      miniW = w.toInt(); miniH = h.toInt(); miniRadius = radius.toInt()
+      Log.i(TAG, "loadAt($url, mini=${miniW}x$miniH@$miniX,$miniY r=$miniRadius)")
+      fullscreen = false
+      hasMini = true
+      startSource(url, metaJson, startSeconds)
+    }
+
+    // Keep the mini surface aligned to its (moving/resizing) web box.
+    @JavascriptInterface
+    fun setRect(x: Double, y: Double, w: Double, h: Double, radius: Double) = runOnUiThread {
+      miniX = x.toInt(); miniY = y.toInt()
+      miniW = w.toInt(); miniH = h.toInt(); miniRadius = radius.toInt()
+      if (!fullscreen && playerContainer?.visibility == View.VISIBLE) applyPlayerMode()
+    }
+
+    // Tap the mini → fullscreen; (native Back collapses back to mini).
+    @JavascriptInterface
+    fun setFullscreen(fs: Boolean) = runOnUiThread {
+      if (fullscreen == fs) return@runOnUiThread
+      fullscreen = fs
+      if (playerContainer?.visibility == View.VISIBLE) applyPlayerMode()
     }
 
     @JavascriptInterface
