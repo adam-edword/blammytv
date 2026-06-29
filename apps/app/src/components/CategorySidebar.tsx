@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ChannelGroup } from "@blammytv/shared";
 import { StarIcon, RecentsIcon, ChevronIcon } from "./icons";
 import { extractEmoji } from "../lib/emoji";
@@ -34,6 +34,13 @@ export function CategorySidebar({
 }) {
   const [sourceOpen, setSourceOpen] = useState(true);
 
+  // Keep the remote-focused category scrolled into view (the rail scrolls on its
+  // own). The ref rides whichever button currently matches `focusedId`.
+  const focusedRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (focusedId) focusedRef.current?.scrollIntoView({ block: "nearest" });
+  }, [focusedId]);
+
   const visible = groups
     .filter((g) => !g.hidden)
     .sort((a, b) => a.order - b.order);
@@ -44,6 +51,7 @@ export function CategorySidebar({
       aria-label="Categories"
     >
       <button
+        ref={focusedId === FAVORITES_ID ? focusedRef : undefined}
         className={
           "category category--icon" +
           (selectedId === FAVORITES_ID ? " category--active" : "") +
@@ -59,6 +67,7 @@ export function CategorySidebar({
       </button>
 
       <button
+        ref={focusedId === RECENTS_ID ? focusedRef : undefined}
         className={
           "category category--icon" +
           (selectedId === RECENTS_ID ? " category--active" : "") +
@@ -95,6 +104,7 @@ export function CategorySidebar({
         visible.map((g) => (
           <button
             key={g.id}
+            ref={focusedId === g.id ? focusedRef : undefined}
             className={
               "category" +
               (selectedId === g.id ? " category--active" : "") +
