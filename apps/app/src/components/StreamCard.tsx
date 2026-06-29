@@ -12,7 +12,7 @@ import { isTv } from "../lib/tv";
 // (DOWNs, no UP until release), all repeat=false — so we time the press from the
 // raw key stream rather than norigin's throttled press/release.
 const HINT_MS = 500; // CW: overlay appears, and the tap-vs-hold boundary
-const HOLD_MS = 3500; // CW: hold this long to remove the entry
+const HOLD_MS = 2000; // CW: hold this long to remove the entry
 const RELEASE_MS = 90; // a keyup with no follow-up keydown within this = released
 
 // Module-level: a hold just removed a card. Focus jumps to a sibling, but the
