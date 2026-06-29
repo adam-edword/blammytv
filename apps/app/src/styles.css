@@ -142,6 +142,11 @@ body,
 .stream-card {
   transition: transform 0.12s ease;
 }
+/* Button-press feedback: shrink while OK is held, spring back on release. The
+   art (and its focus glow) scale with the card. */
+.stream-card.is-pressed {
+  transform: scale(0.95);
+}
 /* Card focus: glow + lift on the artwork only (the title/meta below stay put). */
 .stream-card.is-focused {
   z-index: 2;
@@ -2555,6 +2560,26 @@ html.is-android * {
   height: 100%;
   border-radius: inherit;
   background: rgb(var(--accent-rgb));
+}
+
+/* "Continue holding to clear" overlay, shown after 0.5s of holding OK on a
+   Continue Watching card (so a quick tap-to-open never flashes it). */
+.stream-card__hold {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  text-align: center;
+  border-radius: inherit;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1.3;
 }
 
 .stream-card__placeholder {
