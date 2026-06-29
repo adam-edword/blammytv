@@ -17,6 +17,7 @@ import { PlaceholderScreen } from "./screens/PlaceholderScreen";
 import { SourceSelector } from "./components/SourceSelector";
 import { EpisodeBrowser } from "./components/EpisodeBrowser";
 import { SettingsPanel } from "./components/SettingsPanel";
+import { SetupHandoff } from "./components/SetupHandoff";
 import { ProfileModal } from "./components/ProfileModal";
 import { loadProfile, saveProfile } from "./lib/profile";
 import { LoadingScreen } from "./components/LoadingScreen";
@@ -79,6 +80,8 @@ export function App() {
     () => !isTauri() || Boolean(getAioUrl()),
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Phone-handoff setup overlay, re-openable from Settings (no remote typing).
+  const [setupOpen, setSetupOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [profile, setProfile] = useState(loadProfile);
   useEffect(() => saveProfile(profile), [profile]);
@@ -307,7 +310,20 @@ export function App() {
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         onConfigChanged={() => pull(shareCode)}
+        onReRunSetup={() => {
+          setSettingsOpen(false);
+          setSetupOpen(true);
+        }}
       />
+      {setupOpen && (
+        <SetupHandoff
+          onDone={() => {
+            setSetupOpen(false);
+            pull(shareCode);
+          }}
+          onCancel={() => setSetupOpen(false)}
+        />
+      )}
       <ProfileModal
         open={profileOpen}
         profile={profile}

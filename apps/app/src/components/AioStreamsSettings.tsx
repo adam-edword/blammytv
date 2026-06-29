@@ -1,9 +1,18 @@
 import { useState } from "react";
 import { getAioUrl, setAioUrl } from "../lib/settings";
+import { FocusButton } from "./FocusButton";
+import { FocusField } from "./FocusField";
 
 /** Settings → AIOStreams: paste the manifest URL that powers movies & shows.
  * Saving rebuilds the catalog (the config re-pulls). */
-export function AioStreamsSettings({ onSaved }: { onSaved: () => void }) {
+export function AioStreamsSettings({
+  onSaved,
+  onReRunSetup,
+}: {
+  onSaved: () => void;
+  /** Open the phone-handoff flow instead of typing the URL on the remote. */
+  onReRunSetup?: () => void;
+}) {
   const [url, setUrl] = useState(getAioUrl());
   const dirty = url.trim() !== getAioUrl();
 
@@ -20,26 +29,33 @@ export function AioStreamsSettings({ onSaved }: { onSaved: () => void }) {
           Paste your AIOStreams manifest URL (the <code>…/manifest.json</code>{" "}
           link). This powers movies &amp; shows.
         </p>
-        <input
-          className="field__input aiostreams__input"
-          type="url"
+        {onReRunSetup && (
+          <FocusButton
+            className="btn settings__handoff-btn"
+            focusKey="set-aio-handoff"
+            onPress={onReRunSetup}
+          >
+            Set up from your phone
+          </FocusButton>
+        )}
+        <FocusField
+          label="Manifest URL"
+          focusKey="set-aio-url"
           value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://…/manifest.json"
+          onChange={setUrl}
+          type="url"
           inputMode="url"
-          autoCapitalize="none"
-          autoCorrect="off"
-          spellCheck={false}
+          placeholder="https://…/manifest.json"
         />
         <div className="carousel-sources__actions">
-          <button
+          <FocusButton
             className="btn btn--primary"
-            type="button"
+            focusKey="set-aio-save"
             disabled={!dirty}
-            onClick={save}
+            onPress={save}
           >
             Save
-          </button>
+          </FocusButton>
         </div>
       </div>
     </section>

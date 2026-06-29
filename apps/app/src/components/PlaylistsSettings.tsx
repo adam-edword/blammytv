@@ -10,15 +10,25 @@ import {
   type SourceSummary,
 } from "../lib/admin";
 import { isTauri } from "../lib/tauri";
+import { FocusButton } from "./FocusButton";
+import { FocusField } from "./FocusField";
+import { FocusToggle } from "./FocusToggle";
 
 type PlaylistKind = "xtream" | "m3u";
 
 /**
- * Playlists tab: add / list / toggle / remove Xtream playlists. These live on
- * the backend (credentials never persist on-device); the form just posts them.
- * `onDirty` lets the panel know the device config changed so it can re-pull.
+ * Playlists tab: add / list / toggle / remove live-TV playlists (Xtream or
+ * M3U), stored on-device. `onDirty` lets the panel know the device config
+ * changed so it can re-pull. `onReRunSetup` opens the phone handoff so sources
+ * can be added without typing on the remote.
  */
-export function PlaylistsSettings({ onDirty }: { onDirty: () => void }) {
+export function PlaylistsSettings({
+  onDirty,
+  onReRunSetup,
+}: {
+  onDirty: () => void;
+  onReRunSetup?: () => void;
+}) {
   const [sources, setSources] = useState<SourceSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -66,8 +76,12 @@ export function PlaylistsSettings({ onDirty }: { onDirty: () => void }) {
       ? Boolean(baseUrl.trim() && username.trim() && password.trim())
       : Boolean(m3uUrl.trim()));
 
-  async function add(e: React.FormEvent) {
+  function onFormSubmit(e: React.FormEvent) {
     e.preventDefault();
+    void add();
+  }
+
+  async function add() {
     if (!canAdd) return;
     setBusy(true);
     setError(null);
@@ -125,111 +139,102 @@ export function PlaylistsSettings({ onDirty }: { onDirty: () => void }) {
 
   return (
     <div className="playlists">
-      <form className="playlist-form" onSubmit={add}>
+      <form className="playlist-form" onSubmit={onFormSubmit}>
         <h4 className="playlist-form__title">Add Playlist</h4>
+
+        {onReRunSetup && (
+          <FocusButton
+            className="btn settings__handoff-btn"
+            focusKey="set-pl-handoff"
+            onPress={onReRunSetup}
+          >
+            Set up from your phone
+          </FocusButton>
+        )}
 
         <div className="seg" role="tablist" aria-label="Playlist type">
           {(["xtream", "m3u"] as const).map((k) => (
-            <button
+            <FocusButton
               key={k}
-              type="button"
-              role="tab"
-              aria-selected={kind === k}
+              focusKey={`set-pl-kind-${k}`}
               className={"seg__btn" + (kind === k ? " seg__btn--active" : "")}
-              onClick={() => setKind(k)}
+              onPress={() => setKind(k)}
             >
               {k === "xtream" ? "Xtream" : "M3U"}
-            </button>
+            </FocusButton>
           ))}
         </div>
 
-        <label className="field">
-          <span className="field__label">Name (optional)</span>
-          <input
-            className="field__input"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder={kind === "xtream" ? "My IPTV" : "My M3U"}
-          />
-        </label>
+        <FocusField
+          label="Name (optional)"
+          focusKey="set-pl-name"
+          value={name}
+          onChange={setName}
+          placeholder={kind === "xtream" ? "My IPTV" : "My M3U"}
+        />
 
         {kind === "xtream" ? (
           <>
-            <label className="field">
-              <span className="field__label">Server URL *</span>
-              <input
-                className="field__input"
-                value={baseUrl}
-                onChange={(e) => setBaseUrl(e.target.value)}
-                placeholder="http://example.com:8080"
-                inputMode="url"
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
-              />
-            </label>
-
+            <FocusField
+              label="Server URL *"
+              focusKey="set-pl-baseurl"
+              value={baseUrl}
+              onChange={setBaseUrl}
+              type="url"
+              inputMode="url"
+              placeholder="http://example.com:8080"
+            />
             <div className="field-row">
-              <label className="field">
-                <span className="field__label">Username *</span>
-                <input
-                  className="field__input"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="username"
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                  spellCheck={false}
-                />
-              </label>
-              <label className="field">
-                <span className="field__label">Password *</span>
-                <input
-                  className="field__input"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="password"
-                />
-              </label>
+              <FocusField
+                label="Username *"
+                focusKey="set-pl-user"
+                value={username}
+                onChange={setUsername}
+                placeholder="username"
+              />
+              <FocusField
+                label="Password *"
+                focusKey="set-pl-pass"
+                value={password}
+                onChange={setPassword}
+                type="password"
+                placeholder="password"
+              />
             </div>
           </>
         ) : (
           <>
-            <label className="field">
-              <span className="field__label">M3U URL *</span>
-              <input
-                className="field__input"
-                value={m3uUrl}
-                onChange={(e) => setM3uUrl(e.target.value)}
-                placeholder="http://example.com/playlist.m3u"
-                inputMode="url"
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
-              />
-            </label>
-            <label className="field">
-              <span className="field__label">EPG / XMLTV URL (optional)</span>
-              <input
-                className="field__input"
-                value={epgUrl}
-                onChange={(e) => setEpgUrl(e.target.value)}
-                placeholder="http://example.com/epg.xml"
-                inputMode="url"
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
-              />
-            </label>
+            <FocusField
+              label="M3U URL *"
+              focusKey="set-pl-m3uurl"
+              value={m3uUrl}
+              onChange={setM3uUrl}
+              type="url"
+              inputMode="url"
+              placeholder="http://example.com/playlist.m3u"
+            />
+            <FocusField
+              label="EPG / XMLTV URL (optional)"
+              focusKey="set-pl-epg"
+              value={epgUrl}
+              onChange={setEpgUrl}
+              type="url"
+              inputMode="url"
+              placeholder="http://example.com/epg.xml"
+            />
           </>
         )}
 
         {error && <p className="playlist-form__error">{error}</p>}
 
-        <button className="btn btn--primary" type="submit" disabled={!canAdd}>
+        <FocusButton
+          className="btn btn--primary"
+          focusKey="set-pl-add"
+          disabled={!canAdd}
+          onPress={() => void add()}
+        >
           {busy ? "Adding…" : "Add Playlist"}
-        </button>
+        </FocusButton>
       </form>
 
       <div className="playlists__list">
@@ -260,26 +265,20 @@ export function PlaylistsSettings({ onDirty }: { onDirty: () => void }) {
                 </span>
               </div>
               <div className="playlist-item__actions">
-                <label className="toggle" title={s.enabled ? "Enabled" : "Disabled"}>
-                  <input
-                    type="checkbox"
-                    checked={s.enabled}
-                    onChange={() => toggle(s)}
-                    aria-label={`Enable ${s.name}`}
-                  />
-                  <span className="toggle__track">
-                    <span className="toggle__thumb" />
-                  </span>
-                </label>
-                <button
+                <FocusToggle
+                  focusKey={`set-pl-toggle-${s.id}`}
+                  checked={s.enabled}
+                  onChange={() => toggle(s)}
+                  ariaLabel={`Enable ${s.name}`}
+                />
+                <FocusButton
                   className="icon-btn"
-                  type="button"
-                  aria-label={`Remove ${s.name}`}
-                  title="Remove"
-                  onClick={() => remove(s)}
+                  focusKey={`set-pl-remove-${s.id}`}
+                  ariaLabel={`Remove ${s.name}`}
+                  onPress={() => remove(s)}
                 >
                   <CloseIcon size={20} />
-                </button>
+                </FocusButton>
               </div>
             </div>
           ))

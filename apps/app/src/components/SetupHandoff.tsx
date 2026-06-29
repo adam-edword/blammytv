@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import {
+  FocusContext,
+  useFocusable,
+} from "@noriginmedia/norigin-spatial-navigation";
+import {
   onConfigReceived,
   startConfigServer,
   stopConfigServer,
@@ -21,16 +25,29 @@ type ServerInfo = { ip: string; port: number; token: string };
 export function SetupHandoff({
   onDone,
   onManual,
+  onCancel,
 }: {
   onDone: () => void;
   /** Optional fallback to a typed form (e.g. if the LAN handoff can't reach). */
   onManual?: () => void;
+  /** Optional dismiss (when opened from Settings rather than first-run): shows a
+   * Close button and lets Escape/Backspace back out. */
+  onCancel?: () => void;
 }) {
   const [info, setInfo] = useState<ServerInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [received, setReceived] = useState(false);
   const onDoneRef = useRef(onDone);
   onDoneRef.current = onDone;
+
+  // Trap the remote inside the overlay (it can sit over live content when
+  // re-opened from Settings).
+  const { ref: boundaryRef, focusKey } = useFocusable<HTMLDivElement>({
+    focusKey: "setup-handoff",
+    isFocusBoundary: true,
+    saveLastFocusedChild: true,
+    trackChildren: true,
+  });
 
   useEffect(() => {
     let alive = true;
@@ -74,10 +91,21 @@ export function SetupHandoff({
     // Mount once: the server lives for the life of this screen.
   }, []);
 
+  // Escape / Backspace dismisses when this is a re-openable settings overlay.
+  useEffect(() => {
+    if (!onCancel) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" || e.key === "Backspace") onCancel();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onCancel]);
+
   const url = info ? `http://${info.ip}:${info.port}/?t=${info.token}` : "";
 
   return (
-    <div className="setup">
+    <FocusContext.Provider value={focusKey}>
+      <div className="setup" ref={boundaryRef}>
       <div className="setup__card">
         <img className="setup__logo" src="/logo.png" alt="" />
         <h1 className="setup__title">Set up from your phone</h1>
@@ -120,7 +148,19 @@ export function SetupHandoff({
             Enter manually instead
           </FocusButton>
         )}
+
+        {onCancel && !received && (
+          <FocusButton
+            className="btn setup__manual"
+            focusKey="setup-cancel"
+            autoFocus
+            onPress={onCancel}
+          >
+            Done
+          </FocusButton>
+        )}
       </div>
-    </div>
+      </div>
+    </FocusContext.Provider>
   );
 }

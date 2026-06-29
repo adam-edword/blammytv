@@ -4,6 +4,7 @@ import { savePreferences, usePreferences } from "../state/preferences";
 import { backendConfigured, listCatalogs, type CatalogOption } from "../lib/admin";
 import { isTauri } from "../lib/tauri";
 import { getAioUrl } from "../lib/settings";
+import { FocusButton } from "./FocusButton";
 
 /** Customize → Carousel Sources: pick which catalogs the Stream hero pulls
  * from. Edits build up a draft; **Save** persists it and rebuilds the carousel
@@ -63,25 +64,25 @@ export function CarouselSources({ onSaved }: { onSaved: () => void }) {
         {draft.map((id) => (
           <span key={id} className="carousel-chip">
             {byId.get(id) ? labelFor(byId.get(id)!) : id}
-            <button
-              type="button"
-              aria-label="Remove"
-              onClick={() => setDraft((d) => d.filter((x) => x !== id))}
+            <FocusButton
+              focusKey={`set-carousel-remove-${id}`}
+              ariaLabel="Remove"
+              onPress={() => setDraft((d) => d.filter((x) => x !== id))}
             >
               <CloseIcon size={14} />
-            </button>
+            </FocusButton>
           </span>
         ))}
 
         <div className="carousel-add">
-          <button
-            type="button"
+          <FocusButton
+            focusKey="set-carousel-add"
             className="carousel-chip carousel-chip--add"
-            onClick={() => setAddOpen((o) => !o)}
+            onPress={() => setAddOpen((o) => !o)}
           >
             add sources
             <ChevronIcon size={14} className="carousel-add__caret" />
-          </button>
+          </FocusButton>
           {addOpen && (
             <div className="carousel-add__menu">
               {catalogs === null ? (
@@ -90,16 +91,16 @@ export function CarouselSources({ onSaved }: { onSaved: () => void }) {
                 <span className="carousel-add__note">Nothing left to add</span>
               ) : (
                 unselected.map((c) => (
-                  <button
+                  <FocusButton
                     key={c.id}
-                    type="button"
-                    onClick={() => {
+                    focusKey={`set-carousel-opt-${c.id}`}
+                    onPress={() => {
                       setDraft((d) => [...d, c.id]);
                       setAddOpen(false);
                     }}
                   >
                     {labelFor(c)}
-                  </button>
+                  </FocusButton>
                 ))
               )}
             </div>
@@ -108,14 +109,14 @@ export function CarouselSources({ onSaved }: { onSaved: () => void }) {
       </div>
 
       <div className="carousel-sources__actions">
-        <button
+        <FocusButton
           className="btn btn--primary"
-          type="button"
+          focusKey="set-carousel-save"
           disabled={!dirty}
-          onClick={save}
+          onPress={save}
         >
           Save
-        </button>
+        </FocusButton>
       </div>
     </div>
   );
