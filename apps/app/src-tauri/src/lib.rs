@@ -197,7 +197,7 @@ async fn http_get(url: String) -> Result<String, String> {
         // TLS stack, so the connection fingerprint isn't flagged as a bot.
         .http1_only()
         .build()
-        .map_err(|e| e.to_string())?;
+        .map_err(err_chain)?;
     let res = client
         .get(&url)
         // Send the headers a browser would. Some hosts (Cloudflare's Browser
@@ -209,11 +209,26 @@ async fn http_get(url: String) -> Result<String, String> {
         .header(reqwest::header::ACCEPT_LANGUAGE, "en-US,en;q=0.9")
         .send()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(err_chain)?;
     if !res.status().is_success() {
         return Err(format!("HTTP {}", res.status().as_u16()));
     }
-    res.text().await.map_err(|e| e.to_string())
+    res.text().await.map_err(err_chain)
+}
+
+/// Flatten an error and its `source()` chain into one line. reqwest's top-level
+/// message is only "error sending request for url (…)" — the real cause (TLS
+/// handshake, DNS, connection refused, timeout, bad cert) lives in the source
+/// chain, which `to_string()` drops. Keeping it makes failures diagnosable.
+fn err_chain<E: std::error::Error>(e: E) -> String {
+    let mut out = e.to_string();
+    let mut source = e.source();
+    while let Some(s) = source {
+        out.push_str(": ");
+        out.push_str(&s.to_string());
+        source = s.source();
+    }
+    out
 }
 
 // Self-update: check GitHub Releases (see tauri.conf.json > plugins.updater) for
