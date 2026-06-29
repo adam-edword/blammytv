@@ -26,12 +26,15 @@ export function StreamScreen({
   error,
   onRetry,
   onOpen,
+  onResume,
 }: {
   config: ConfigBlob;
   /** Set when the AIOStreams catalog failed to load (independent of Live TV). */
   error?: string;
   onRetry: () => void;
   onOpen: (item: VodItem) => void;
+  /** Continue Watching: resume a title (re-resolve + play at saved position). */
+  onResume: (item: VodItem) => void;
 }) {
   const { stream, movies, series } = config;
 
@@ -80,7 +83,7 @@ export function StreamScreen({
             title="Continue Watching"
             layout="landscape"
             items={cwItems}
-            onOpen={onOpen}
+            onOpen={onResume}
             progressById={cwProgress}
             onClear={(item) => removeContinueWatching(item.id)}
           />

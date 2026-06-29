@@ -4,6 +4,7 @@ import type {
   ShareCode,
   VodItem,
   Episode,
+  StreamSource,
 } from "@blammytv/shared";
 import { AppHeader } from "./components/AppHeader";
 import { UpdateBanner } from "./components/UpdateBanner";
@@ -24,8 +25,11 @@ import { SourcePanel } from "./components/SourcePanel";
 import type { TheaterMeta } from "./components/Player";
 import { ChevronIcon } from "./components/icons";
 import { fetchConfig, type ConfigErrors } from "./lib/config";
-import { fetchVodDetail, vodBackendConfigured } from "./lib/vod";
-import { upsertContinueWatching } from "./lib/continueWatching";
+import { fetchVodDetail, fetchVodSources, vodBackendConfigured } from "./lib/vod";
+import {
+  listContinueWatching,
+  upsertContinueWatching,
+} from "./lib/continueWatching";
 import { getAioUrl } from "./lib/settings";
 import {
   getCurrentFocusKey,
@@ -85,12 +89,14 @@ export function App() {
     meta: TheaterMeta;
     item: VodItem;
     episodeId?: string;
+    /** Seconds to resume from (Continue Watching); 0 = from the top. */
+    start?: number;
   } | null>(null);
   const playSource = useCallback(
     (
       url: string,
       meta: TheaterMeta,
-      ctx: { item: VodItem; episodeId?: string },
+      ctx: { item: VodItem; episodeId?: string; start?: number },
     ) => {
       // Record it in Continue Watching. Position/duration are filled in once the
       // player reports progress; until then this is just "recently started".
@@ -100,10 +106,16 @@ export function App() {
         episodeId: ctx.episodeId,
         title: ctx.item.title,
         backdrop: ctx.item.backdrop ?? ctx.item.poster,
-        positionSec: 0,
+        positionSec: ctx.start ?? 0,
         durationSec: 0,
       });
-      setPlaying({ url, meta, item: ctx.item, episodeId: ctx.episodeId });
+      setPlaying({
+        url,
+        meta,
+        item: ctx.item,
+        episodeId: ctx.episodeId,
+        start: ctx.start ?? 0,
+      });
     },
     [],
   );
@@ -158,6 +170,51 @@ export function App() {
   }, []);
 
   const back = useCallback(() => history.back(), []);
+
+  // Resume a Continue Watching title: re-resolve its top source (the saved
+  // stream URL has likely expired) and play from the saved position. With no
+  // sources, fall back to the title screen.
+  const resumeWatching = useCallback(
+    async (item: VodItem) => {
+      if (!shareCode) return;
+      const entry = listContinueWatching().find((e) => e.id === item.id);
+      const episodeId = entry?.episodeId;
+      const sourceId = episodeId ?? item.id;
+      let sources: StreamSource[] = [];
+      try {
+        sources = await fetchVodSources(shareCode, item.kind, sourceId);
+      } catch {
+        /* fall through to the no-source fallback */
+      }
+      const top = sources[0];
+      if (!top) {
+        push({ kind: "title", item });
+        return;
+      }
+      const meta: TheaterMeta = {
+        logo: item.logo,
+        backdrop: item.backdrop ?? item.poster,
+        channelName: [
+          item.year,
+          item.kind === "series" ? "Series" : "Movie",
+          `${top.quality}${top.cached ? " ⚡" : ""}`,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+        title: item.title,
+        description: item.synopsis,
+        progressPct: 0,
+        live: false,
+        kind: "vod",
+      };
+      playSource(top.streamUrl, meta, {
+        item,
+        episodeId,
+        start: entry?.positionSec ?? 0,
+      });
+    },
+    [shareCode, push, playSource],
+  );
 
   const pull = useCallback((code: ShareCode) => {
     setLoad({ status: "loading" });
@@ -242,6 +299,7 @@ export function App() {
             push={push}
             back={back}
             onPlay={playSource}
+            onResume={resumeWatching}
           />
         )}
       </main>
@@ -262,6 +320,7 @@ export function App() {
           meta={playing.meta}
           item={playing.item}
           episodeId={playing.episodeId}
+          start={playing.start}
           shareCode={shareCode}
           onClose={() => setPlaying(null)}
           onSwitch={playSource}
@@ -281,6 +340,7 @@ function VodPlayer({
   meta,
   item,
   episodeId,
+  start = 0,
   shareCode,
   onClose,
   onSwitch,
@@ -289,6 +349,8 @@ function VodPlayer({
   meta: TheaterMeta;
   item: VodItem;
   episodeId?: string;
+  /** Seconds to resume from on the initial open (Continue Watching). */
+  start?: number;
   shareCode: ShareCode;
   onClose: () => void;
   onSwitch: (
@@ -298,9 +360,10 @@ function VodPlayer({
   ) => void;
 }) {
   // When popped out, the in-app player is replaced by a placeholder (the native
-  // layer moved to mpv's floating window). `resumeAt` reopens it where it was.
+  // layer moved to mpv's floating window). `resumeAt` reopens it where it was;
+  // it starts at `start` so a Continue Watching resume opens at the saved spot.
   const [poppedOut, setPoppedOut] = useState(false);
-  const [resumeAt, setResumeAt] = useState(0);
+  const [resumeAt, setResumeAt] = useState(start);
   const posRef = useRef(0);
   // Episodes/sources side panel — the video shrinks to make room for it.
   const [panelOpen, setPanelOpen] = useState(false);
@@ -474,6 +537,7 @@ function CurrentScreen({
   push,
   back,
   onPlay,
+  onResume,
 }: {
   screen: Screen;
   config: ConfigBlob;
@@ -487,6 +551,7 @@ function CurrentScreen({
     meta: TheaterMeta,
     ctx: { item: VodItem; episodeId?: string },
   ) => void;
+  onResume: (item: VodItem) => void;
 }) {
   switch (screen.kind) {
     case "tab":
@@ -497,6 +562,7 @@ function CurrentScreen({
           errors={errors}
           onRetry={onRetry}
           onOpen={(item) => push({ kind: "title", item })}
+          onResume={onResume}
         />
       );
     case "title":
@@ -623,12 +689,14 @@ function TabContent({
   errors,
   onRetry,
   onOpen,
+  onResume,
 }: {
   tab: TabKey;
   config: ConfigBlob;
   errors: ConfigErrors;
   onRetry: () => void;
   onOpen: (item: VodItem) => void;
+  onResume: (item: VodItem) => void;
 }) {
   switch (tab) {
     case "live":
@@ -642,6 +710,7 @@ function TabContent({
           error={errors.vod}
           onRetry={onRetry}
           onOpen={onOpen}
+          onResume={onResume}
         />
       );
     case "discover":
