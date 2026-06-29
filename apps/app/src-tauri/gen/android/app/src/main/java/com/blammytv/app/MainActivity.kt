@@ -499,12 +499,15 @@ class MainActivity : TauriActivity() {
       startSource(url, metaJson, startSeconds)
     }
 
-    // Keep the mini surface aligned to its (moving/resizing) web box.
+    // Keep the mini surface aligned to its (moving/resizing) web box. Ignored
+    // while fullscreen, so the pre-fullscreen mini rect is preserved for a clean
+    // collapse (no flash to a stale/relocated box).
     @JavascriptInterface
     fun setRect(x: Double, y: Double, w: Double, h: Double, radius: Double) = runOnUiThread {
+      if (fullscreen) return@runOnUiThread
       miniX = x.toInt(); miniY = y.toInt()
       miniW = w.toInt(); miniH = h.toInt(); miniRadius = radius.toInt()
-      if (!fullscreen && playerContainer?.visibility == View.VISIBLE) applyPlayerMode()
+      if (playerContainer?.visibility == View.VISIBLE) applyPlayerMode()
     }
 
     // Tap the mini → fullscreen; (native Back collapses back to mini).

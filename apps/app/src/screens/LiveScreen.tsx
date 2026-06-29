@@ -231,6 +231,10 @@ export function LiveScreen({
   const inTheater = playing && theater;
 
   useEffect(() => {
+    // On Android the native player owns fullscreen (it covers the UI), so the
+    // React layout must stay put — applying the desktop theater layout would
+    // move the hero box, leaving the mini's rect + focus ring stale on collapse.
+    if (isNativePlayer()) return;
     document.body.classList.toggle("theater-mode", inTheater);
     return () => document.body.classList.remove("theater-mode");
   }, [inTheater]);
