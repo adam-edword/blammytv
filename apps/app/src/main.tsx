@@ -8,6 +8,7 @@ import { UpdaterProvider } from "./state/UpdaterProvider";
 import { init as initSpatialNav } from "@noriginmedia/norigin-spatial-navigation";
 import "./fonts";
 import "./styles.css";
+import "./lib/keydebug"; // TEMP: log raw key events to settle hold-to-clear
 
 const root = ReactDOM.createRoot(document.getElementById("root")!);
 
