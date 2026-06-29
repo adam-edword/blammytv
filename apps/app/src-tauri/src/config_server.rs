@@ -83,11 +83,13 @@ fn handle(mut req: tiny_http::Request, token: &str, app: &AppHandle) {
         return;
     }
 
-    // Any GET: serve the form when the token matches, else a gentle gate page.
+    // Any GET: serve the form when the token matches, else a gate page where you
+    // can type the code (so the QR isn't the only way in).
     if token_ok {
         let _ = req.respond(html(&form_html(token)));
     } else {
-        let _ = req.respond(html(GATE_HTML));
+        let attempted = query.split('&').any(|kv| kv.starts_with("t="));
+        let _ = req.respond(html(&gate_html(attempted)));
     }
 }
 
@@ -102,6 +104,15 @@ fn html(body: &str) -> tiny_http::Response<std::io::Cursor<Vec<u8>>> {
 
 fn form_html(token: &str) -> String {
     FORM_HTML.replace("__TOKEN__", token)
+}
+
+fn gate_html(attempted: bool) -> String {
+    let msg = if attempted {
+        r#"<p class="err">That code didn't match — check the TV and try again.</p>"#
+    } else {
+        ""
+    };
+    GATE_HTML.replace("__MSG__", msg)
 }
 
 /// 6 chars from an unambiguous alphabet, seeded from the clock (no rand dep).
@@ -123,11 +134,35 @@ fn gen_token() -> String {
     out
 }
 
+// Shown when there's no valid token in the URL. `__MSG__` is an optional
+// "didn't match" line. Entering the code navigates to /?t=<code>, which serves
+// the form when it matches.
 const GATE_HTML: &str = r#"<!doctype html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>BlammyTV setup</title></head>
-<body style="font-family:system-ui;background:#0b0b0e;color:#eee;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;padding:24px">
-<p>Open the link shown on your TV (it includes a one-time code).</p>
+<title>BlammyTV setup</title>
+<style>
+  :root{color-scheme:dark}*{box-sizing:border-box}
+  body{font-family:system-ui,-apple-system,sans-serif;background:#0b0b0e;color:#eee;margin:0;padding:24px;display:flex;justify-content:center}
+  .wrap{width:100%;max-width:420px;text-align:center}
+  h1{font-size:22px;margin:24px 0 4px}
+  p.sub{opacity:.65;margin:0 0 20px;font-size:14px}
+  p.err{color:#ff6b6b;font-size:14px;margin:0 0 14px}
+  input{width:100%;padding:14px;border-radius:10px;border:1px solid #2a2a30;background:#151519;color:#fff;font-size:22px;text-align:center;letter-spacing:6px;text-transform:uppercase}
+  button{width:100%;padding:13px;border:none;border-radius:10px;background:#c22727;color:#fff;font-size:16px;font-weight:600;margin-top:12px;cursor:pointer}
+</style></head>
+<body><div class="wrap">
+  <h1>Enter your TV code</h1>
+  <p class="sub">Type the code shown on your TV to continue.</p>
+  __MSG__
+  <form id="f">
+    <input id="code" inputmode="text" autocomplete="off" autocapitalize="characters" maxlength="6" placeholder="ABC123" autofocus>
+    <button type="submit">Continue</button>
+  </form>
+</div>
+<script>
+  var f=document.getElementById('f'),code=document.getElementById('code');
+  f.addEventListener('submit',function(e){e.preventDefault();var c=code.value.trim().toUpperCase();if(c)location.href='/?t='+encodeURIComponent(c);});
+</script>
 </body></html>"#;
 
 const DONE_HTML: &str = r#"<!doctype html><html><head><meta charset="utf-8">
