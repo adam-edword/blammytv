@@ -5,7 +5,11 @@ import { HeroSlider } from "../components/HeroSlider";
 import { MediaRow } from "../components/MediaRow";
 import { SourceError } from "../components/SourceError";
 import { vodCatalog } from "../lib/vod";
-import { progressPct, useContinueWatching } from "../lib/continueWatching";
+import {
+  progressPct,
+  removeContinueWatching,
+  useContinueWatching,
+} from "../lib/continueWatching";
 
 /** TV build (Android): the remote-driven peek-slider hero. Desktop keeps the
  * classic auto-advancing FeaturedHero (until the Windows port lands). */
@@ -42,8 +46,14 @@ export function StreamScreen({
   // catalog (skip any whose item is no longer in the catalog). Sits between the
   // hero and the backend rows, as landscape cards with a progress bar.
   const cw = useContinueWatching();
+  // Use the entry's stored backdrop (16:9 art from the detail/source screen) —
+  // the catalog item often has only a poster, especially for series.
   const cwItems = cw
-    .map((e) => catalog.get(e.id))
+    .map((e) => {
+      const item = catalog.get(e.id);
+      if (!item) return null;
+      return e.backdrop ? { ...item, backdrop: e.backdrop } : item;
+    })
     .filter((i): i is VodItem => Boolean(i));
   const cwProgress: Record<string, number> = {};
   for (const e of cw) cwProgress[e.id] = progressPct(e);
@@ -72,6 +82,7 @@ export function StreamScreen({
             items={cwItems}
             onOpen={onOpen}
             progressById={cwProgress}
+            onClear={(item) => removeContinueWatching(item.id)}
           />
         )}
         {stream.rows.map((row) => (

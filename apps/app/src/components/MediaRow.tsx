@@ -16,6 +16,7 @@ export function MediaRow({
   onOpen,
   rowId,
   progressById,
+  onClear,
 }: {
   title: string;
   layout: "poster" | "landscape";
@@ -24,6 +25,8 @@ export function MediaRow({
   rowId: string;
   /** Optional 0..1 watched fraction per item id (Continue Watching row). */
   progressById?: Record<string, number>;
+  /** When set (Continue Watching), holding OK on a card removes it. */
+  onClear?: (item: VodItem) => void;
 }) {
   const { ref, focusKey } = useFocusable({
     saveLastFocusedChild: true,
@@ -43,6 +46,7 @@ export function MediaRow({
               onOpen={onOpen}
               rowId={rowId}
               progressPct={progressById?.[item.id]}
+              onClear={onClear ? () => onClear(item) : undefined}
             />
           ))}
         </div>

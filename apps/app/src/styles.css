@@ -2526,6 +2526,12 @@ html.is-android * {
 }
 
 .stream-card__art img {
+  /* Absolute so the image doesn't drive the box's height — the box's size comes
+     from its aspect-ratio (2:3 poster / 16:9 landscape), and the image fills it
+     (cover-cropping). In-flow, the img's intrinsic ratio would win and a poster
+     in a landscape card would render tall instead of cropped to 16:9. */
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
