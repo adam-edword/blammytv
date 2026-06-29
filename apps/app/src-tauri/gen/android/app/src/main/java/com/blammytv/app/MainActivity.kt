@@ -23,6 +23,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.HttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
@@ -429,6 +430,21 @@ class MainActivity : TauriActivity() {
 
     override fun onPlayerError(error: PlaybackException) {
       Log.e(TAG, "playerError: ${error.errorCodeName} — ${error.message}", error)
+      // Surface the HTTP detail the stack trace hides: the response code, the URL
+      // it died on, and the redirect target (Location) + protocol, so source
+      // failures are diagnosable at a glance.
+      var cause: Throwable? = error
+      while (cause != null) {
+        if (cause is HttpDataSource.InvalidResponseCodeException) {
+          val location = cause.headerFields["Location"]?.joinToString()
+          Log.e(
+            TAG,
+            "http ${cause.responseCode} on ${cause.dataSpec.uri} -> Location=$location",
+          )
+          break
+        }
+        cause = cause.cause
+      }
       showError()
     }
 
