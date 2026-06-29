@@ -21,7 +21,7 @@ export const isTauri = (): boolean =>
  * player is the DirectComposition/mpv path below, so this is undefined there.
  */
 interface NativePlayer {
-  load(url: string, metaJson: string): void;
+  load(url: string, metaJson: string, startSeconds: number): void;
   play(): void;
   pause(): void;
   stop(): void;
@@ -47,6 +47,26 @@ export const onNativeClose = (cb: () => void): (() => void) => {
   const handler = () => cb();
   window.addEventListener("blammy-native-close", handler);
   return () => window.removeEventListener("blammy-native-close", handler);
+};
+
+/**
+ * Fired periodically by the native Android player with the current playback
+ * position + total duration (seconds) — used to keep Continue Watching progress
+ * up to date. Dispatched as a `blammy-native-progress` CustomEvent.
+ */
+export const onNativeProgress = (
+  cb: (position: number, duration: number) => void,
+): (() => void) => {
+  const handler = (e: Event) => {
+    const d = (e as CustomEvent).detail as
+      | { position?: number; duration?: number }
+      | undefined;
+    if (d && typeof d.position === "number" && typeof d.duration === "number") {
+      cb(d.position, d.duration);
+    }
+  };
+  window.addEventListener("blammy-native-progress", handler);
+  return () => window.removeEventListener("blammy-native-progress", handler);
 };
 
 /** Forward a captured keyboard shortcut into the composition overlay. */
@@ -82,7 +102,7 @@ export const tauriCompTheater = (
       title: m.title,
       subtitle: m.description,
     });
-    np.load(url, payload);
+    np.load(url, payload, start);
     return Promise.resolve();
   }
   const overlayUrl = `${window.location.origin}/?overlay=1&composited=1`;

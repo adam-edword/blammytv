@@ -166,7 +166,14 @@ porting the whole UI.
 
 ## Follow-ups / backlog
 
-- **Continue Watching — finish the native half.** The web foundation is in:
+- **Continue Watching — resume click.** Progress now works: the native player
+  reports position+duration (`blammy-native-progress`, every 5s + on close),
+  `VodPlayer` updates the entry, and the store drops it past 90%. The native
+  `load` also accepts a start offset (seeks). Remaining: a CW card click should
+  **resume** — re-resolve the title's top source and play at the saved position
+  (thread the entry's `positionSec` into `playSource` → `VodPlayer` `resumeAt`,
+  and give the CW row its own `onResume` instead of the generic open).
+- **(superseded) Continue Watching — finish the native half.** The web base is in:
   `lib/continueWatching.ts` (localStorage, cap 12, drops past 90% watched), a
   landscape CW row between the hero and the catalog rows (`StreamScreen`), a
   progress bar on the landscape `StreamCard`, and an entry saved on play

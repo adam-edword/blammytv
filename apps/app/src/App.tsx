@@ -31,7 +31,7 @@ import {
   getCurrentFocusKey,
   setFocus,
 } from "@noriginmedia/norigin-spatial-navigation";
-import { isTauri, onCompClosed, onCompExitFullscreen, onCompFullscreen, onCompPanel, onCompPopout, onNativeClose, onPopoutClosed, tauriCompKey, tauriCompPopout, tauriPopoutPos, tauriPopoutStop, tauriSetFullscreen } from "./lib/tauri";
+import { isTauri, onCompClosed, onCompExitFullscreen, onCompFullscreen, onCompPanel, onCompPopout, onNativeClose, onNativeProgress, onPopoutClosed, tauriCompKey, tauriCompPopout, tauriPopoutPos, tauriPopoutStop, tauriSetFullscreen } from "./lib/tauri";
 import { loadShareCode, saveShareCode, clearShareCode } from "./lib/pairing";
 
 /** YouTube-style keys the VOD player forwards to the overlay. No "t" (there's no
@@ -311,6 +311,22 @@ function VodPlayer({
     setResumeAt(pos > 0 ? pos : posRef.current);
     setPoppedOut(false);
   }, []);
+
+  // Keep Continue Watching current from the native player's position ticks. The
+  // store drops the entry automatically once it's past 90% watched.
+  useEffect(() => {
+    return onNativeProgress((position, duration) => {
+      upsertContinueWatching({
+        id: item.id,
+        kind: item.kind,
+        episodeId,
+        title: item.title,
+        backdrop: item.backdrop ?? item.poster,
+        positionSec: position,
+        durationSec: duration,
+      });
+    });
+  }, [item, episodeId]);
 
   useEffect(() => {
     if (!isTauri()) return;

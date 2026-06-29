@@ -1,6 +1,8 @@
 package com.blammytv.app
 
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.KeyEvent
 import android.view.LayoutInflater
@@ -163,12 +165,15 @@ class MainActivity : TauriActivity() {
 
   // Show the player fullscreen and start the source. Reused across source
   // switches — no surface recreation needed now that it's opaque and on top.
-  private fun showPlayer(url: String, metaJson: String) {
+  private fun showPlayer(url: String, metaJson: String, startSeconds: Double) {
     val exo = player ?: return
     applyMeta(metaJson)
     resetSpeed()
     hideError()
     exo.setMediaItem(MediaItem.fromUri(url))
+    // Resume (Continue Watching): seek before prepare so it starts at the saved
+    // position. 0 = play from the top.
+    if (startSeconds > 0) exo.seekTo((startSeconds * 1000).toLong())
     exo.playWhenReady = true
     exo.prepare()
     playerContainer?.visibility = View.VISIBLE
@@ -180,6 +185,39 @@ class MainActivity : TauriActivity() {
     }
     scheduleHideControls()
     playerView?.requestFocus()
+    startProgressReports()
+  }
+
+  // Continue Watching: push position+duration to JS on a timer while playing
+  // (and once on teardown), so the web layer can update the local list and drop
+  // a title when it's finished.
+  private val progressHandler = Handler(Looper.getMainLooper())
+  private val progressRunnable = object : Runnable {
+    override fun run() {
+      emitProgress()
+      progressHandler.postDelayed(this, PROGRESS_INTERVAL_MS)
+    }
+  }
+  private fun startProgressReports() {
+    progressHandler.removeCallbacks(progressRunnable)
+    progressHandler.postDelayed(progressRunnable, PROGRESS_INTERVAL_MS)
+  }
+  private fun stopProgressReports() {
+    progressHandler.removeCallbacks(progressRunnable)
+  }
+  private fun emitProgress() {
+    val exo = player ?: return
+    val durMs = exo.duration
+    if (durMs <= 0) return // unknown (not ready / live) — nothing useful to save
+    val pos = exo.currentPosition / 1000.0
+    val dur = durMs / 1000.0
+    webViewRef?.post {
+      webViewRef?.evaluateJavascript(
+        "window.dispatchEvent(new CustomEvent('blammy-native-progress'," +
+          "{detail:{position:$pos,duration:$dur}}))",
+        null,
+      )
+    }
   }
 
   // Populate the chrome from the forwarded meta (logo URL + the three text
@@ -233,6 +271,8 @@ class MainActivity : TauriActivity() {
   // Stop playback and hide the player, WITHOUT notifying JS — used when JS
   // itself asked to stop (React already knows it's closing).
   private fun hidePlayer() {
+    emitProgress() // capture the final position before teardown
+    stopProgressReports()
     player?.stop()
     player?.clearMediaItems()
     chromeView?.removeCallbacks(hideControlsRunnable)
@@ -331,9 +371,9 @@ class MainActivity : TauriActivity() {
 
   inner class Bridge {
     @JavascriptInterface
-    fun load(url: String, metaJson: String) = runOnUiThread {
-      Log.i(TAG, "load($url)")
-      showPlayer(url, metaJson)
+    fun load(url: String, metaJson: String, startSeconds: Double) = runOnUiThread {
+      Log.i(TAG, "load($url, start=$startSeconds)")
+      showPlayer(url, metaJson, startSeconds)
     }
 
     @JavascriptInterface
@@ -393,6 +433,7 @@ class MainActivity : TauriActivity() {
     private const val LOADING_TEXT = "loading"
     private const val FADE_MS = 200L
     private const val CONTROLS_TIMEOUT_MS = 3500L
+    private const val PROGRESS_INTERVAL_MS = 5000L // Continue Watching ticks
     private val SPEEDS = floatArrayOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f)
     private const val SPEED_DEFAULT_INDEX = 2 // 1.0×
   }
