@@ -9,15 +9,15 @@
     android:layout_height="match_parent"
     android:background="#000000">
 
-  <!-- surface_view: a SurfaceView hands HDR to the display pipeline (a
-       TextureView reads it into an SDR texture and renders dark/washed). The
-       trade-off is square mini corners — revisit with HDR→SDR decoder
-       tone-mapping later, which would allow texture_view + correct brightness. -->
+  <!-- texture_view: a regular view, so the mini player clips to rounded corners
+       and resizes synchronously (smooth fullscreen↔mini, no SurfaceView flash).
+       Trade-off: HDR is read into an SDR texture and renders dark until we add
+       HDR→SDR tone-mapping in the decoder (a later pass). -->
   <androidx.media3.ui.PlayerView
       android:id="@+id/btv_player"
       android:layout_width="match_parent"
       android:layout_height="match_parent"
-      app:surface_type="surface_view"
+      app:surface_type="texture_view"
       app:use_controller="true"
       app:show_buffering="never"
       app:controller_layout_id="@layout/btv_player_controls" />

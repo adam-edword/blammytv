@@ -606,12 +606,6 @@ img {
   background: #000;
 }
 
-/* Android: the native player is an opaque SurfaceView with square corners (it
-   can't clip to a rounded outline), so square the box + focus ring to match —
-   otherwise the rounded ring doesn't line up with the square video. */
-html.is-android .now-playing__preview {
-  border-radius: 0;
-}
 
 /* Remote cursor on the mini player — accent ring around the preview box. */
 .now-playing--focused .now-playing__preview {

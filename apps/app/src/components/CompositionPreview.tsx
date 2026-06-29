@@ -17,12 +17,18 @@ const OPEN_DEBOUNCE_MS = 150;
 function measure(el: HTMLElement, fullscreen: boolean): CompRect {
   const r = el.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
+  const w = Math.round(r.width * dpr);
+  const h = Math.round(r.height * dpr);
+  // The box's CSS corner radius (var(--radius) = 12) in physical px. Derive the
+  // box's layout→physical scale (covers body zoom *and* dpr) so the native
+  // rounding hugs the web focus ring instead of being tighter or looser.
+  const scale = el.offsetWidth > 0 ? w / el.offsetWidth : dpr;
   return {
     x: Math.round(r.left * dpr),
     y: Math.round(r.top * dpr),
-    w: Math.round(r.width * dpr),
-    h: Math.round(r.height * dpr),
-    radius: fullscreen ? 0 : Math.round(12 * dpr),
+    w,
+    h,
+    radius: fullscreen ? 0 : Math.round(12 * scale),
   };
 }
 
