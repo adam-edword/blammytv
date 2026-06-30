@@ -119,18 +119,26 @@ export function AppHeader({
             })}
           </nav>
         </FocusContext.Provider>
-        <button
-          className={
-            "icon-btn" + (section === "stream" ? "" : " icon-btn--ghost")
-          }
-          aria-label="Search streaming"
-          aria-hidden={section !== "stream"}
-          tabIndex={section === "stream" ? undefined : -1}
-          type="button"
-          onClick={onSearchStream}
-        >
-          <SearchIcon />
-        </button>
+        {section === "stream" ? (
+          <FocusButton
+            className="icon-btn"
+            focusKey="hdr-search-stream"
+            ariaLabel="Search streaming"
+            onPress={onSearchStream}
+          >
+            <SearchIcon />
+          </FocusButton>
+        ) : (
+          <button
+            className="icon-btn icon-btn--ghost"
+            aria-label="Search streaming"
+            aria-hidden
+            tabIndex={-1}
+            type="button"
+          >
+            <SearchIcon />
+          </button>
+        )}
       </div>
 
       <div className="app-header__actions">

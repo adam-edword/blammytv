@@ -1,7 +1,7 @@
 import type { ShareCode, StreamSource, VodItem } from "@blammytv/shared";
 import { isTauri } from "./tauri";
 import { getAioUrl } from "./settings";
-import { resolveSources, resolveVodItem } from "./aiostreams";
+import { resolveSources, resolveVodItem, searchVod } from "./aiostreams";
 
 const API_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, "");
 
@@ -49,6 +49,25 @@ export async function fetchVodSources(
     code,
   );
   return sources ?? [];
+}
+
+/** Search VOD titles by query — through AIOStreams' search catalogs on the
+ * desktop app, or the dev backend in the browser. */
+export async function searchVodTitles(
+  code: ShareCode,
+  query: string,
+): Promise<VodItem[]> {
+  const q = query.trim();
+  if (!q) return [];
+  if (isTauri()) {
+    const url = getAioUrl();
+    return url ? searchVod(url, q) : [];
+  }
+  const { items } = await get<{ items?: VodItem[] }>(
+    `/search?q=${encodeURIComponent(q)}`,
+    code,
+  );
+  return items ?? [];
 }
 
 /** Build an id → item lookup across the movies + series catalogs, so Stream

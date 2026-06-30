@@ -13,6 +13,7 @@ import { PairingScreen } from "./screens/PairingScreen";
 import { OnboardingScreen } from "./screens/OnboardingScreen";
 import { LiveScreen } from "./screens/LiveScreen";
 import { StreamScreen } from "./screens/StreamScreen";
+import { SearchScreen } from "./screens/SearchScreen";
 import { PlaceholderScreen } from "./screens/PlaceholderScreen";
 import { SourceSelector } from "./components/SourceSelector";
 import { EpisodeBrowser } from "./components/EpisodeBrowser";
@@ -65,6 +66,7 @@ type Load =
  * episode pushes deeper. */
 type Screen =
   | { kind: "tab"; tab: TabKey }
+  | { kind: "search" }
   | { kind: "title"; item: VodItem }
   | { kind: "source"; item: VodItem; episode: Episode; seasonNumber: number };
 
@@ -278,6 +280,9 @@ export function App() {
         onChange={onTab}
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenProfile={() => setProfileOpen(true)}
+        onSearchStream={() => {
+          if (screen.kind !== "search") push({ kind: "search" });
+        }}
         avatar={profile.avatar}
       />
       <main className="app-main">
@@ -579,6 +584,14 @@ function CurrentScreen({
           onRetry={onRetry}
           onOpen={(item) => push({ kind: "title", item })}
           onResume={onResume}
+        />
+      );
+    case "search":
+      return (
+        <SearchScreen
+          shareCode={shareCode}
+          onOpen={(item) => push({ kind: "title", item })}
+          onBack={back}
         />
       );
     case "title":

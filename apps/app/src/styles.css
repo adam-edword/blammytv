@@ -4840,3 +4840,140 @@ body.is-overlay,
   width: 100%;
   margin-top: 2px;
 }
+
+/* ---------- Stream search ---------- */
+.search-screen {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 8px 40px 0 0;
+}
+
+.search-screen__bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 22px;
+  border-radius: 16px;
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+}
+.search-screen__bar svg {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  color: var(--text-dim);
+}
+.search-screen__query,
+.search-screen__placeholder {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 25px;
+  line-height: 1.1;
+}
+.search-screen__query {
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  white-space: pre;
+}
+.search-screen__placeholder {
+  color: var(--text-dim);
+}
+.search-screen__caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.05em;
+  margin-left: 2px;
+  background: rgb(var(--accent-rgb));
+  animation: search-caret 1s step-end infinite;
+}
+@keyframes search-caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+.search-screen__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 28px;
+  padding-bottom: 24px;
+}
+
+/* On-screen keyboard: D-pad navigable key grid. */
+.osk {
+  flex: none;
+  width: 384px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.osk__row {
+  display: flex;
+  gap: 10px;
+}
+.osk__key {
+  flex: 1;
+  min-width: 0;
+  height: 56px;
+  border: none;
+  border-radius: 12px;
+  background: var(--panel-3);
+  color: var(--text);
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 20px;
+  cursor: pointer;
+  transition:
+    transform 0.1s ease,
+    background 0.1s ease;
+}
+.osk__key--action {
+  font-size: 16px;
+  background: var(--surface-muted);
+  color: var(--text-dim);
+}
+.osk__key--space {
+  flex: 3;
+}
+.osk__key.is-focused {
+  background: rgb(var(--accent-rgb));
+  color: #fff;
+  transform: scale(1.08);
+  position: relative;
+  z-index: 1;
+}
+
+/* Results pane. */
+.search-results {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+.search-results--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--text-dim);
+  font-family: var(--font-headline);
+  font-size: 20px;
+}
+.search-results__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 24px 18px;
+  align-content: start;
+  padding: 4px 4px 24px;
+}
+/* The card is sized for fixed-width rows; in the grid let the cell drive width. */
+.search-results__grid .stream-card,
+.search-results__grid .stream-card--poster {
+  width: auto;
+}
