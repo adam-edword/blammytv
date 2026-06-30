@@ -1,7 +1,24 @@
 import type { ConfigBlob, StreamSource, VodItem } from "@blammytv/shared";
 import { AddonClient } from "./client";
 import { isSeries, mapStreams, metaPreviewToVod, metaToVod } from "./mapper";
-import type { CatalogDef } from "./types";
+import type { AddonManifest, CatalogDef } from "./types";
+
+// The manifest doesn't change within a session, so fetch it once per URL and
+// share it across the initial load and every later search — otherwise each
+// search pays an extra round trip just to re-read the catalog list. Cache the
+// promise (dedupes concurrent calls); drop it on failure so a retry can refetch.
+const manifestCache = new Map<string, Promise<AddonManifest>>();
+function cachedManifest(client: AddonClient, url: string): Promise<AddonManifest> {
+  let p = manifestCache.get(url);
+  if (!p) {
+    p = client.manifest().catch((err) => {
+      manifestCache.delete(url);
+      throw err;
+    });
+    manifestCache.set(url, p);
+  }
+  return p;
+}
 
 /** The slice of the config blob AIOStreams owns: the VOD catalog + Stream tab. */
 type VodSection = Pick<ConfigBlob, "movies" | "series" | "stream">;
@@ -20,7 +37,7 @@ export async function buildVod(
   carouselSources: string[] = [],
 ): Promise<VodSection> {
   const client = new AddonClient(manifestUrl);
-  const manifest = await client.manifest();
+  const manifest = await cachedManifest(client, manifestUrl);
   const browseable = manifest.catalogs.filter(isBrowseable);
 
   const fetched = await Promise.all(
@@ -90,7 +107,7 @@ export async function searchVod(
   const q = query.trim();
   if (!q) return [];
   const client = new AddonClient(manifestUrl);
-  const manifest = await client.manifest();
+  const manifest = await cachedManifest(client, manifestUrl);
   const searchCats = manifest.catalogs.filter((cat) =>
     (cat.extra ?? []).some((e) => e.name === "search"),
   );
@@ -194,7 +211,7 @@ export async function listCatalogs(
   manifestUrl: string,
 ): Promise<Array<{ id: string; type: string; name: string }>> {
   const client = new AddonClient(manifestUrl);
-  const manifest = await client.manifest();
+  const manifest = await cachedManifest(client, manifestUrl);
   return manifest.catalogs
     .filter(isSelectable)
     .map((c) => ({ id: c.id, type: c.type, name: c.name ?? c.id }));

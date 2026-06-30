@@ -4951,6 +4951,29 @@ body.is-overlay,
   z-index: 1;
 }
 
+/* Explicit submit — search runs on this, not while typing. */
+.search-screen__submit {
+  flex: none;
+  margin-top: 2px;
+  padding: 15px;
+  border: none;
+  border-radius: 12px;
+  background: rgb(var(--accent-rgb));
+  color: #fff;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition:
+    transform 0.1s ease,
+    filter 0.1s ease;
+}
+.search-screen__submit.is-focused {
+  transform: scale(1.03);
+  filter: brightness(1.15);
+}
+
 /* Results pane. */
 .search-results {
   flex: 1;

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   FocusContext,
   useFocusable,
@@ -6,14 +6,13 @@ import {
 import type { ShareCode, VodItem } from "@blammytv/shared";
 import { StreamCard } from "../components/StreamCard";
 import { OnScreenKeyboard } from "../components/OnScreenKeyboard";
+import { FocusButton } from "../components/FocusButton";
 import { SearchIcon } from "../components/icons";
 import { searchVodTitles } from "../lib/vod";
 
-const DEBOUNCE_MS = 400;
-
-/** Stream search: an on-screen keyboard drives a query that's run against the
- * AIOStreams search catalogs; results show as a poster grid. Remote-only — the
- * keyboard is D-pad navigable (no system IME). */
+/** Stream search: an on-screen QWERTY keyboard builds a query that's run — on an
+ * explicit Search press, not while typing — against the AIOStreams search
+ * catalogs; results show as a poster grid. Remote-only (no system IME). */
 export function SearchScreen({
   shareCode,
   onOpen,
@@ -26,38 +25,27 @@ export function SearchScreen({
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<VodItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [searched, setSearched] = useState(false);
-  // Ignore responses from superseded queries (newer query already in flight).
+  // The query the current results are for (null = nothing searched yet).
+  const [submitted, setSubmitted] = useState<string | null>(null);
+  // Ignore a stale response if a newer search started before it returned.
   const reqId = useRef(0);
 
-  // Debounced search whenever the query settles.
-  useEffect(() => {
+  const runSearch = useCallback(() => {
     const q = query.trim();
-    if (!q) {
-      setResults([]);
-      setSearched(false);
-      setLoading(false);
-      return;
-    }
+    if (!q) return;
     setLoading(true);
-    const timer = setTimeout(() => {
-      const mine = ++reqId.current;
-      searchVodTitles(shareCode, q)
-        .then((items) => {
-          if (mine !== reqId.current) return;
-          setResults(items);
-          setSearched(true);
-        })
-        .catch(() => {
-          if (mine !== reqId.current) return;
-          setResults([]);
-          setSearched(true);
-        })
-        .finally(() => {
-          if (mine === reqId.current) setLoading(false);
-        });
-    }, DEBOUNCE_MS);
-    return () => clearTimeout(timer);
+    setSubmitted(q);
+    const mine = ++reqId.current;
+    searchVodTitles(shareCode, q)
+      .then((items) => {
+        if (mine === reqId.current) setResults(items);
+      })
+      .catch(() => {
+        if (mine === reqId.current) setResults([]);
+      })
+      .finally(() => {
+        if (mine === reqId.current) setLoading(false);
+      });
   }, [query, shareCode]);
 
   // Escape backs out (desktop); on the TV the hardware Back pops the screen.
@@ -91,11 +79,18 @@ export function SearchScreen({
           onBackspace={() => setQuery((q) => q.slice(0, -1))}
           onClear={() => setQuery("")}
         />
+        <FocusButton
+          className="search-screen__submit"
+          focusKey="search-submit"
+          onPress={runSearch}
+        >
+          Search
+        </FocusButton>
       </div>
       <ResultsPane
         query={query}
+        submitted={submitted}
         loading={loading}
-        searched={searched}
         results={results}
         onOpen={onOpen}
       />
@@ -105,41 +100,41 @@ export function SearchScreen({
 
 function ResultsPane({
   query,
+  submitted,
   loading,
-  searched,
   results,
   onOpen,
 }: {
   query: string;
+  submitted: string | null;
   loading: boolean;
-  searched: boolean;
   results: VodItem[];
   onOpen: (item: VodItem) => void;
 }) {
-  // An empty/loading state has no cards to focus, so keep the grid a plain div;
-  // wrap only the populated grid in a focus context.
-  if (!query.trim()) {
+  if (loading) {
+    return <Message>Searching…</Message>;
+  }
+  if (submitted == null) {
     return (
-      <div className="search-results search-results--empty">
-        <p>Type to search your catalog.</p>
-      </div>
+      <Message>
+        {query.trim()
+          ? "Press Search to find your titles."
+          : "Type a title, then press Search."}
+      </Message>
     );
   }
-  if (loading && results.length === 0) {
-    return (
-      <div className="search-results search-results--empty">
-        <p>Searching…</p>
-      </div>
-    );
-  }
-  if (searched && results.length === 0) {
-    return (
-      <div className="search-results search-results--empty">
-        <p>No results for “{query.trim()}”.</p>
-      </div>
-    );
+  if (results.length === 0) {
+    return <Message>No results for “{submitted}”.</Message>;
   }
   return <ResultsGrid results={results} onOpen={onOpen} />;
+}
+
+function Message({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="search-results search-results--empty">
+      <p>{children}</p>
+    </div>
+  );
 }
 
 function ResultsGrid({
