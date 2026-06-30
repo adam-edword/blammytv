@@ -17,6 +17,7 @@ export function NowPlaying({
   theater,
   fullscreen,
   focused = false,
+  holdHint = false,
   onPlay,
   onStop,
   onToggleTheater,
@@ -34,6 +35,9 @@ export function NowPlaying({
   fullscreen: boolean;
   /** Remote cursor is on the mini player (draws a focus ring). */
   focused?: boolean;
+  /** Holding OK on the playing mini past the tap threshold — shows the
+   * "continue holding to close" scrim (mirrors the Continue Watching card). */
+  holdHint?: boolean;
   onPlay: () => void;
   onStop: () => void;
   onToggleTheater: () => void;
@@ -97,6 +101,11 @@ export function NowPlaying({
           >
             <span className="now-playing__play" />
           </button>
+        )}
+        {playing && holdHint && (
+          <div className="now-playing__hold" aria-hidden="true">
+            Continue holding to close
+          </div>
         )}
       </div>
 

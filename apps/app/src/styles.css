@@ -614,6 +614,27 @@ img {
     0 0 0 6px rgb(var(--accent-rgb));
 }
 
+/* "Continue holding to close" scrim over the playing mini, shown after 0.5s of
+   holding OK (so a quick tap-to-theater never flashes it) — mirrors the
+   Continue Watching card's hold overlay. */
+.now-playing__hold {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1.3;
+  animation: cw-hold-fade 0.22s ease both;
+}
+
 .now-playing__art {
   position: absolute;
   inset: 0;

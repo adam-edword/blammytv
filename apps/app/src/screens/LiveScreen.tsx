@@ -428,6 +428,9 @@ export function LiveScreen({
   const [nav, setNav] = useState<Nav>(null);
   const navRef = useRef<Nav>(null);
   navRef.current = nav;
+  // "Continue holding to close" scrim on the mini player (set by the hold-to-
+  // close key handler below, drawn by NowPlaying).
+  const [heroHold, setHeroHold] = useState(false);
   // Remember the guide cell so moving sidebar↔guide within a category keeps your
   // place; reset to the top when the category changes (selectCategory).
   const lastGuide = useRef({ row: 0, col: 0 });
@@ -565,9 +568,10 @@ export function LiveScreen({
       const id = navCategories[n.row];
       if (id) selectCategory(id);
     } else if (n.zone === "hero") {
-      // Tap the mini → fullscreen if it's already playing, else start it.
-      if (playing) setTheater(true);
-      else if (heroChannel) playChannel(heroChannel.id);
+      // While playing, the raw key handler below distinguishes tap (→ theater)
+      // from hold (→ close), so don't act on the norigin keydown here. When the
+      // mini is idle, a tap just starts the channel.
+      if (!playing && heroChannel) playChannel(heroChannel.id);
     } else {
       const lane = lanes[n.row];
       if (!lane) return;
@@ -584,6 +588,93 @@ export function LiveScreen({
     selectProgram,
     selectChannelId,
   ]);
+
+  // Hold-to-close stops the mini and seats the cursor on that channel's guide
+  // row (or just drops into the guide if it isn't in the current category).
+  // Captured by ref so the (stable) key listener below always runs the latest.
+  const heroClose = () => {
+    const id = playingId;
+    setPlayingId(null);
+    setTheater(false);
+    leaveFullscreen();
+    const row = id ? lanes.findIndex((l) => l.ch.id === id) : -1;
+    if (row >= 0) moveGuide(row, 0);
+    else enterGuide();
+  };
+  const heroCloseRef = useRef(heroClose);
+  heroCloseRef.current = heroClose;
+
+  // Mini-player OK: tap → theater, hold ~2s → close (mirrors the Continue
+  // Watching card). norigin fires Enter on keydown — too eager for a hold — so
+  // time the press from the raw key stream, exactly like StreamCard. Active only
+  // while the cursor sits on a *playing* mini and the player isn't full-size.
+  useEffect(() => {
+    const HINT_MS = 500; // tap-vs-hold boundary; scrim appears
+    const HOLD_MS = 2000; // hold this long to close
+    const RELEASE_MS = 90; // keyup with no follow-up keydown = released
+    let firstDownAt = 0;
+    let lastUpAt = 0;
+    let closed = false;
+    let releaseTimer: number | null = null;
+    let hintTimer: number | null = null;
+    const cancelRelease = () => {
+      if (releaseTimer != null) {
+        clearTimeout(releaseTimer);
+        releaseTimer = null;
+      }
+    };
+    const cancelHint = () => {
+      if (hintTimer != null) {
+        clearTimeout(hintTimer);
+        hintTimer = null;
+      }
+    };
+    const armed = () =>
+      navRef.current?.zone === "hero" &&
+      playingRef.current &&
+      !theaterRef.current &&
+      !fsRef.current;
+
+    const onDown = (e: KeyboardEvent) => {
+      if (e.key !== "Enter" || !armed()) return;
+      cancelRelease();
+      if (firstDownAt === 0) {
+        firstDownAt = performance.now();
+        hintTimer = window.setTimeout(() => setHeroHold(true), HINT_MS);
+      }
+      if (!closed && performance.now() - firstDownAt >= HOLD_MS) {
+        closed = true;
+        cancelHint();
+        setHeroHold(false);
+        heroCloseRef.current();
+      }
+    };
+    const onUp = (e: KeyboardEvent) => {
+      if (e.key !== "Enter") return;
+      lastUpAt = performance.now();
+      cancelRelease();
+      releaseTimer = window.setTimeout(() => {
+        releaseTimer = null;
+        cancelHint();
+        setHeroHold(false);
+        const held = firstDownAt ? lastUpAt - firstDownAt : 0;
+        const wasClosed = closed;
+        firstDownAt = 0;
+        closed = false;
+        if (wasClosed) return; // the hold already closed it
+        // A tap (released before the scrim shows) expands the mini to theater.
+        if (held < HINT_MS && armed()) setTheater(true);
+      }, RELEASE_MS);
+    };
+    window.addEventListener("keydown", onDown, true);
+    window.addEventListener("keyup", onUp, true);
+    return () => {
+      cancelRelease();
+      cancelHint();
+      window.removeEventListener("keydown", onDown, true);
+      window.removeEventListener("keyup", onUp, true);
+    };
+  }, []);
 
   const { ref: contentRef } = useFocusable<HTMLDivElement>({
     focusKey: "live-content",
@@ -703,6 +794,7 @@ export function LiveScreen({
             theater={inTheater}
             fullscreen={fullscreen}
             focused={heroFocused}
+            holdHint={heroHold}
             onPlay={() => playChannel(heroChannel.id)}
             onStop={() => {
               setPlayingId(null);
