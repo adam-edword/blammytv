@@ -9,6 +9,7 @@ import { OnScreenKeyboard } from "../components/OnScreenKeyboard";
 import { FocusButton } from "../components/FocusButton";
 import { SearchIcon } from "../components/icons";
 import { searchVodTitles } from "../lib/vod";
+import { setFocusFallback } from "../lib/focusGuard";
 
 /** Stream search: an on-screen QWERTY keyboard builds a query that's run — on an
  * explicit Search press, not while typing — against the AIOStreams search
@@ -56,6 +57,10 @@ export function SearchScreen({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onBack]);
+
+  // If focus is ever lost on this page (e.g. the results swap under the cursor),
+  // the global guard re-homes it to the keyboard.
+  useEffect(() => setFocusFallback("search-kbd"), []);
 
   return (
     <div className="search-screen">

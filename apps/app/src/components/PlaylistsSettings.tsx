@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { setFocus } from "@noriginmedia/norigin-spatial-navigation";
 import { CloseIcon } from "./icons";
 import {
   addM3uSource,
@@ -128,6 +129,9 @@ export function PlaylistsSettings({
   }
 
   async function remove(s: SourceSummary) {
+    // The remove button unmounts with its row — move focus to the stable "Add"
+    // button first so the cursor isn't stranded on the deleted node.
+    setFocus("set-pl-add");
     setSources((list) => list.filter((x) => x.id !== s.id));
     try {
       await removeSource(s.id);

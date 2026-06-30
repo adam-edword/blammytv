@@ -6,6 +6,7 @@ import { initPreferences } from "./state/preferences";
 import { PreferencesProvider } from "./state/PreferencesProvider";
 import { UpdaterProvider } from "./state/UpdaterProvider";
 import { init as initSpatialNav } from "@noriginmedia/norigin-spatial-navigation";
+import { installFocusGuard } from "./lib/focusGuard";
 import "./fonts";
 import "./styles.css";
 
@@ -37,6 +38,9 @@ if (isOverlay) {
     throttleKeypresses: true,
     useGetBoundingClientRect: true,
   });
+  // Safety net: re-home the cursor if it's ever left pointing at an unmounted
+  // focusable (otherwise the remote goes dead until a manual nav reset).
+  installFocusGuard();
   root.render(
     <React.StrictMode>
       <UpdaterProvider>

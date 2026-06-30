@@ -17,6 +17,7 @@ import { FocusButton } from "./FocusButton";
 import { FocusToggle } from "./FocusToggle";
 import { useUpdater } from "../state/updater";
 import { isTauri } from "../lib/tauri";
+import { getFocusFallback, setFocusFallback } from "../lib/focusGuard";
 
 /** The header settings button — focus returns here when the panel closes. */
 const SETTINGS_BTN_KEY = "hdr-settings";
@@ -93,8 +94,15 @@ export function SettingsPanel({
 
   useEffect(() => {
     if (!open) return;
+    // While open, focus-loss recovery stays inside the panel (it's a focus
+    // boundary); restore the underlying screen's fallback on close.
+    const prevFallback = getFocusFallback();
+    setFocusFallback("settings-panel");
     const id = requestAnimationFrame(() => setFocus(tabKey(tab)));
-    return () => cancelAnimationFrame(id);
+    return () => {
+      cancelAnimationFrame(id);
+      setFocusFallback(prevFallback);
+    };
     // Only on open: focus the active tab. `tab` is intentionally not a dep —
     // re-focusing on every tab switch would yank focus off the tab row.
     // eslint-disable-next-line react-hooks/exhaustive-deps

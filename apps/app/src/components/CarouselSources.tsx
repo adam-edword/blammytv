@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { setFocus } from "@noriginmedia/norigin-spatial-navigation";
 import { CloseIcon, ChevronIcon } from "./icons";
 import { savePreferences, usePreferences } from "../state/preferences";
 import { backendConfigured, listCatalogs, type CatalogOption } from "../lib/admin";
@@ -67,7 +68,12 @@ export function CarouselSources({ onSaved }: { onSaved: () => void }) {
             <FocusButton
               focusKey={`set-carousel-remove-${id}`}
               ariaLabel="Remove"
-              onPress={() => setDraft((d) => d.filter((x) => x !== id))}
+              onPress={() => {
+                // This button unmounts on remove — move focus off it first so the
+                // cursor isn't stranded on a deleted node.
+                setFocus("set-carousel-add");
+                setDraft((d) => d.filter((x) => x !== id));
+              }}
             >
               <CloseIcon size={14} />
             </FocusButton>
@@ -95,6 +101,9 @@ export function CarouselSources({ onSaved }: { onSaved: () => void }) {
                     key={c.id}
                     focusKey={`set-carousel-opt-${c.id}`}
                     onPress={() => {
+                      // The menu (and this option) unmount on select — re-home
+                      // focus to the toggle so the cursor isn't stranded.
+                      setFocus("set-carousel-add");
                       setDraft((d) => [...d, c.id]);
                       setAddOpen(false);
                     }}

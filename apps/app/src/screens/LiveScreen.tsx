@@ -22,6 +22,7 @@ import { EpgGuide } from "../components/EpgGuide";
 import { SourceError } from "../components/SourceError";
 import { EmptyState } from "../components/EmptyState";
 import { loadPlaylists } from "../lib/playlists";
+import { setFocusFallback } from "../lib/focusGuard";
 import { guideWindow, isLiveNow, SLOT_MIN } from "../lib/epg";
 import { buildLanes, laneColumns } from "../lib/guide";
 import {
@@ -779,8 +780,10 @@ export function LiveScreen({
   });
 
   // Land focus in the tab when the Live screen mounts (it remounts on switch) —
-  // onFocus then seats the cursor on the sources list.
+  // onFocus then seats the cursor on the sources list. Also the focus-loss
+  // recovery target for this page.
   useEffect(() => {
+    setFocusFallback("live-content");
     const id = requestAnimationFrame(() => setFocus("live-content"));
     return () => cancelAnimationFrame(id);
   }, []);
