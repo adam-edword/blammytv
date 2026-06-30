@@ -436,6 +436,10 @@ export function LiveScreen({
   // doesn't immediately re-play the channel under the new cursor. Cleared when
   // the key is actually released (mirrors StreamCard's holdConsumed).
   const holdConsumedRef = useRef(false);
+  // Whether the current arrow keydown is an OS auto-repeat (held) vs a fresh
+  // press — boundary exits into the nav consult this so a held scroll soft-stops
+  // at the edge instead of overshooting (set by the capture listener below).
+  const arrowRepeatRef = useRef(false);
   // Remember the guide cell so moving sidebar↔guide within a category keeps your
   // place; reset to the top when the category changes (selectCategory).
   const lastGuide = useRef({ row: 0, col: 0 });
@@ -515,7 +519,9 @@ export function LiveScreen({
       if (n.zone === "sidebar") {
         if (dir === "up") {
           if (n.row > 0) setNav({ zone: "sidebar", row: n.row - 1 });
-          else gotoTabs(); // top of the list → Live tab
+          // Top of the list → Live tab, but only on a deliberate press: a held
+          // scroll soft-stops at the top instead of blowing through into the nav.
+          else if (!arrowRepeatRef.current) gotoTabs();
         } else if (dir === "down") {
           if (n.row < navCategories.length - 1)
             setNav({ zone: "sidebar", row: n.row + 1 });
@@ -527,8 +533,11 @@ export function LiveScreen({
       }
 
       if (n.zone === "hero") {
-        if (dir === "up") gotoTabs();
-        else if (dir === "down") enterGuide();
+        // Soft-stop: a held scroll up stays on the mini; an intentional press
+        // exits to the nav.
+        if (dir === "up") {
+          if (!arrowRepeatRef.current) gotoTabs();
+        } else if (dir === "down") enterGuide();
         else if (dir === "left") gotoSidebar();
         // right: stay.
         return false;
@@ -542,7 +551,7 @@ export function LiveScreen({
       if (dir === "up") {
         if (n.row > 0) moveGuide(n.row - 1, n.col);
         else if (heroChannel) setNav({ zone: "hero" }); // top row → mini player
-        else gotoTabs();
+        else if (!arrowRepeatRef.current) gotoTabs(); // soft-stop into the nav
       } else if (dir === "down") {
         if (n.row < lanes.length - 1) moveGuide(n.row + 1, n.col);
       } else if (dir === "left") {
@@ -690,6 +699,22 @@ export function LiveScreen({
     };
   }, []);
 
+  // Track arrow auto-repeat (held vs fresh press) for the soft-stop boundary
+  // exits. Capture phase runs before norigin's handler, so arrowRepeatRef is
+  // already up to date when handleArrow consults it.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!e.key.startsWith("Arrow")) return;
+      arrowRepeatRef.current = e.repeat;
+      // Any arrow press means an OK-hold is over — clear a possibly-stuck
+      // consume flag (e.g. if the hold's keyup was swallowed by the native
+      // player), so OK can't end up silently ignored afterward.
+      holdConsumedRef.current = false;
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, []);
+
   const { ref: contentRef } = useFocusable<HTMLDivElement>({
     focusKey: "live-content",
     onArrowPress: handleArrow,
@@ -748,12 +773,18 @@ export function LiveScreen({
 
   // Prefetch the top rows' EPG of the category the cursor is hovering in the
   // sidebar — so by the time you open it, the first screenful is already there
-  // (the rest still stream in on scroll).
+  // (the rest still stream in on scroll). Debounced: holding up/down through the
+  // sidebar would otherwise fire a burst of requests (8 per category passed),
+  // and the resulting network + re-render churn is what makes the hold-scroll
+  // stutter. Only prefetch once the cursor settles on a category.
   useEffect(() => {
     if (!focusedCategoryId) return;
-    for (const ch of channelsForCategory(focusedCategoryId).slice(0, 8)) {
-      requestChannelEpg(ch.id);
-    }
+    const id = window.setTimeout(() => {
+      for (const ch of channelsForCategory(focusedCategoryId).slice(0, 8)) {
+        requestChannelEpg(ch.id);
+      }
+    }, 300);
+    return () => window.clearTimeout(id);
   }, [focusedCategoryId, channelsForCategory]);
 
   // In theater (not fullscreen), clicking the black area outside the player drops
