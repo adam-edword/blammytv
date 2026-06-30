@@ -620,11 +620,12 @@ img {
 }
 
 /* "keep holding to close" tab that slides out from behind the player's right
-   edge after 0.5s of holding OK (a quick tap-to-theater never flashes it). It's
+   edge after 0.2s of holding OK (a quick tap-to-theater never flashes it). It's
    anchored to the preview's right edge and tucked behind it (z-index below the
    preview), so the left half hides behind the video — including the native video
    on Android — and the right half sticks out into the gap where it's always
-   visible. */
+   visible. An accent fill rises bottom→top over the remaining hold, reaching the
+   top exactly as the channel closes. */
 .now-playing__close-tab {
   position: absolute;
   z-index: 0;
@@ -642,6 +643,7 @@ img {
      clipped by a too-short pill. */
   padding: 26px 7px 26px 13px;
   border-radius: 0 15px 15px 0;
+  overflow: hidden; /* clip the rising fill to the pill's rounded shape */
   background: var(--text);
   color: var(--bg);
   font-family: var(--font-headline);
@@ -654,14 +656,32 @@ img {
   transform: translateY(-50%) translateX(-100%);
   animation: close-tab-out 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
-/* Bottom-to-top vertical label. */
+/* Progress fill — rises from the bottom over the hold. Duration is HOLD_MS −
+   HINT_MS (2000 − 200), since the tab only mounts once the hint threshold
+   passes, so it tops out the instant the channel closes. */
+.now-playing__close-tab::before {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 0;
+  background: rgb(var(--accent-rgb));
+  animation: close-tab-fill 1.8s linear forwards;
+}
+/* Bottom-to-top vertical label, above the fill. */
 .now-playing__close-tab span {
+  position: relative;
+  z-index: 1;
   writing-mode: vertical-rl;
   transform: rotate(180deg);
 }
 @keyframes close-tab-out {
   to {
     transform: translateY(-50%) translateX(-30%);
+  }
+}
+@keyframes close-tab-fill {
+  to {
+    height: 100%;
   }
 }
 
