@@ -62,16 +62,32 @@ export function CompositionPreview({
     let raf = 0;
     let opened = false;
     let last = "";
-    const tick = () => {
-      const rect = measure(el, fsRef.current);
-      const key = `${rect.x},${rect.y},${rect.w},${rect.h},${rect.radius}`;
-      if (rect.w > 0 && rect.h > 0 && key !== last) {
-        last = key;
-        if (!opened) {
-          opened = true;
-          void tauriCompTheater(url, meta, rect, start).catch(() => {});
-        } else {
-          void tauriCompSetRect(rect).catch(() => {});
+    let lastChangeAt = 0; // rAF timestamp of the last rect change
+    let lastSampleAt = 0; // rAF timestamp of the last getBoundingClientRect
+    // Sample the box every frame while it's actively moving (a panel-resize drag,
+    // the theater transition), then back off to ~6fps once it's been still.
+    // `measure()` calls getBoundingClientRect — a forced layout flush — and a
+    // playing channel sits on a static box for hours, so polling that every frame
+    // is continuous layout churn competing with the video compositor. The idle
+    // cadence still catches any move within ~160ms, imperceptible for a tracking
+    // overlay; an actual move bumps lastChangeAt and snaps back to per-frame.
+    const SETTLE_MS = 400;
+    const IDLE_SAMPLE_MS = 160;
+    const tick = (ts: number) => {
+      const moving = ts - lastChangeAt < SETTLE_MS;
+      if (moving || ts - lastSampleAt >= IDLE_SAMPLE_MS) {
+        lastSampleAt = ts;
+        const rect = measure(el, fsRef.current);
+        const key = `${rect.x},${rect.y},${rect.w},${rect.h},${rect.radius}`;
+        if (rect.w > 0 && rect.h > 0 && key !== last) {
+          last = key;
+          lastChangeAt = ts;
+          if (!opened) {
+            opened = true;
+            void tauriCompTheater(url, meta, rect, start).catch(() => {});
+          } else {
+            void tauriCompSetRect(rect).catch(() => {});
+          }
         }
       }
       raf = requestAnimationFrame(tick);
