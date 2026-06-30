@@ -14,6 +14,13 @@ import { mapShortEpg } from "./xtream/mapper";
  */
 
 const cache = new Map<string, EpgProgram[]>();
+// Bound the per-channel cache so an hours-long session browsing a 20k-channel
+// provider doesn't retain every channel's programmes (tens of MB that never
+// free). The live working set — a screenful + the 400px observer margin + the
+// 8-channel sidebar prefetch — is dozens, far below this cap, so nothing on
+// screen is ever evicted; an evicted row just re-fetches its few-KB
+// get_short_epg if it scrolls back. Map keeps insertion order → LRU eviction.
+const MAX_CACHE = 2000;
 const inFlight = new Set<string>();
 const listeners = new Set<() => void>();
 // Bumped on every cache change so `useSyncExternalStore` re-renders.
@@ -35,12 +42,26 @@ export function getChannelPrograms(channelId: string): EpgProgram[] | undefined 
 
 /** Fetch a channel's EPG once (no-op if cached or already in flight). */
 export function requestChannelEpg(channelId: string): void {
-  if (cache.has(channelId) || inFlight.has(channelId)) return;
+  if (inFlight.has(channelId)) return;
+  const cached = cache.get(channelId);
+  if (cached !== undefined) {
+    // Already cached — mark it recently used (move to the end) so actively
+    // shown channels survive eviction. Called from effects/observers, never
+    // during render, so reordering the Map here is safe.
+    cache.delete(channelId);
+    cache.set(channelId, cached);
+    return;
+  }
   inFlight.add(channelId);
   fetchChannelEpg(channelId)
     .then((programs) => {
       // Cache success (including a genuine empty result → "No Information").
       cache.set(channelId, programs);
+      // Evict the least-recently-used entry once over the cap.
+      if (cache.size > MAX_CACHE) {
+        const oldest = cache.keys().next().value;
+        if (oldest !== undefined) cache.delete(oldest);
+      }
       version++;
       listeners.forEach((l) => l());
     })
