@@ -13,6 +13,17 @@ val tauriProperties = Properties().apply {
     }
 }
 
+// Release signing config — read from a gitignored keystore.properties (never
+// committed; see the comment on the signingConfigs block below). If it's absent
+// the release build stays unsigned rather than failing, so CI / other machines
+// without the keystore can still compile.
+val keystoreProperties = Properties().apply {
+    val f = file("keystore.properties")
+    if (f.exists()) {
+        f.inputStream().use { load(it) }
+    }
+}
+
 android {
     compileSdk = 36
     namespace = "com.blammytv.app"
@@ -31,6 +42,19 @@ android {
         versionCode = 20240
         versionName = "0.2.4a"
     }
+    // Reads storeFile/storePassword/keyAlias/keyPassword from keystore.properties
+    // (gitignored). Create that file locally — see the build instructions — so
+    // the signing secrets never enter the repo.
+    signingConfigs {
+        create("release") {
+            keystoreProperties.getProperty("storeFile")?.let { path ->
+                storeFile = file(path)
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
     buildTypes {
         getByName("debug") {
             applicationIdSuffix = ".debug"
@@ -45,6 +69,10 @@ android {
             }
         }
         getByName("release") {
+            // Sign the release APK if a keystore is configured locally.
+            if (keystoreProperties.getProperty("storeFile") != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             isMinifyEnabled = true
             proguardFiles(
                 *fileTree(".") { include("**/*.pro") }
