@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import type { ChannelGroup } from "@blammytv/shared";
 import { StarIcon, RecentsIcon, ChevronIcon } from "./icons";
 import { extractEmoji } from "../lib/emoji";
@@ -15,7 +15,7 @@ function glyphFor(name: string): string {
 /** Left rail of the guide: Favorites + a collapsible source folder holding the
  * channel categories from config. When `collapsed` (the panel is dragged
  * narrow), titles are hidden and each source shows just its emoji/glyph. */
-export function CategorySidebar({
+export const CategorySidebar = memo(function CategorySidebar({
   groups,
   selectedId,
   focusedId,
@@ -41,9 +41,10 @@ export function CategorySidebar({
     if (focusedId) focusedRef.current?.scrollIntoView({ block: "nearest" });
   }, [focusedId]);
 
-  const visible = groups
-    .filter((g) => !g.hidden)
-    .sort((a, b) => a.order - b.order);
+  const visible = useMemo(
+    () => groups.filter((g) => !g.hidden).sort((a, b) => a.order - b.order),
+    [groups],
+  );
 
   return (
     <aside
@@ -124,4 +125,4 @@ export function CategorySidebar({
         ))}
     </aside>
   );
-}
+});

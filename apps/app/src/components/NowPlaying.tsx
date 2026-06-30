@@ -1,8 +1,16 @@
+import { lazy, Suspense } from "react";
 import type { LiveChannel, EpgProgram } from "@blammytv/shared";
 import { formatTime, isLiveNow, progressPct } from "../lib/epg";
 import { isTauri } from "../lib/tauri";
 import { CompositionPreview } from "./CompositionPreview";
-import { Player, type TheaterMeta } from "./Player";
+import type { TheaterMeta } from "./Player";
+
+// The in-page <video> player pulls in hls.js (~530KB). It's only used on the
+// browser/demo path — on Android the native player (CompositionPreview) handles
+// playback — so load it lazily, keeping hls.js out of the TV critical bundle.
+const Player = lazy(() =>
+  import("./Player").then((m) => ({ default: m.Player })),
+);
 
 /** The marquee at the top of the Live tab: a preview of the focused channel
  * plus its current program's details. The preview doubles as the player — click
@@ -82,14 +90,16 @@ export function NowPlaying({
               fullscreen={fullscreen}
             />
           ) : (
-            <Player
-              url={streamUrl}
-              className="now-playing__art"
-              theater={theater}
-              meta={meta}
-              onToggleTheater={onToggleTheater}
-              onStop={onStop}
-            />
+            <Suspense fallback={<div className="now-playing__art" />}>
+              <Player
+                url={streamUrl}
+                className="now-playing__art"
+                theater={theater}
+                meta={meta}
+                onToggleTheater={onToggleTheater}
+                onStop={onStop}
+              />
+            </Suspense>
           )
         ) : (
           // Just a black screen with a play glyph — click to start the stream.

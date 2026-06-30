@@ -1,4 +1,5 @@
 import {
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -53,7 +54,7 @@ function pinnedMetrics(right: number, scroll: number) {
 /** The time-grid TV guide. Channels down the side, programmes laid out along a
  * shared time axis, with a live "now" indicator. The programme currently at the
  * left edge is "pinned" there as a rounded card while it airs. */
-export function EpgGuide({
+export const EpgGuide = memo(function EpgGuide({
   lanes,
   win,
   now,
@@ -538,4 +539,4 @@ export function EpgGuide({
       </button>
     );
   }
-}
+});

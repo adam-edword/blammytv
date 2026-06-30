@@ -20,7 +20,7 @@ import {
 } from "../components/CategorySidebar";
 import { EpgGuide } from "../components/EpgGuide";
 import { SourceError } from "../components/SourceError";
-import { guideWindow, isLiveNow } from "../lib/epg";
+import { guideWindow, isLiveNow, SLOT_MIN } from "../lib/epg";
 import { buildLanes, laneColumns } from "../lib/guide";
 import {
   epgVersion,
@@ -95,8 +95,30 @@ export function LiveScreen({
   const [favorites, setFavorites] = useState(loadFavorites);
   const [recents, setRecents] = useState(loadRecents);
   const favoriteIds = useMemo(() => new Set(favorites), [favorites]);
-  const onToggleFavorite = (id: string) => setFavorites(toggleFavorite(id));
+  // Stable identity so a memoized EpgGuide isn't re-rendered every keypress.
+  const onToggleFavorite = useCallback(
+    (id: string) => setFavorites(toggleFavorite(id)),
+    [],
+  );
   const now = useNow();
+
+  // Index channels by id and by group once (the channel set is stable for the
+  // session) so per-render id lookups and category filters are O(1)/O(group)
+  // instead of O(N) — a provider can carry 20k+ channels, and these run on every
+  // remote keypress.
+  const channelById = useMemo(
+    () => new Map(live.channels.map((c) => [c.id, c])),
+    [live.channels],
+  );
+  const channelsByGroup = useMemo(() => {
+    const m = new Map<string, LiveChannel[]>();
+    for (const c of live.channels) {
+      const arr = m.get(c.groupId);
+      if (arr) arr.push(c);
+      else m.set(c.groupId, [c]);
+    }
+    return m;
+  }, [live.channels]);
 
   const [categoryId, setCategoryId] = useState(
     () => live.groups[0]?.id ?? FAVORITES_ID,
@@ -152,15 +174,13 @@ export function LiveScreen({
     (catId: string): LiveChannel[] => {
       if (catId === FAVORITES_ID)
         return live.channels.filter((c) => favoriteIds.has(c.id));
-      if (catId === RECENTS_ID) {
-        const byId = new Map(live.channels.map((c) => [c.id, c]));
+      if (catId === RECENTS_ID)
         return recents
-          .map((id) => byId.get(id))
+          .map((id) => channelById.get(id))
           .filter((c): c is LiveChannel => Boolean(c));
-      }
-      return live.channels.filter((c) => c.groupId === catId);
+      return channelsByGroup.get(catId) ?? [];
     },
-    [live.channels, favoriteIds, recents],
+    [live.channels, favoriteIds, recents, channelById, channelsByGroup],
   );
 
   const channels = useMemo(
@@ -185,7 +205,12 @@ export function LiveScreen({
   // One time window + per-channel lanes, shared by the guide (rendering) and the
   // remote-navigation cursor below — so the navigable cells are exactly the ones
   // drawn.
-  const win = useMemo(() => guideWindow(now), [now]);
+  // `now` ticks every 30s (for the now-line/progress), but the guide window only
+  // moves every SLOT_MIN minutes — key on the slot so `win`'s identity is stable
+  // in between and `lanes` doesn't do a full rebuild every 30s.
+  const winSlot = Math.floor(now / (SLOT_MIN * 60_000));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const win = useMemo(() => guideWindow(now), [winSlot]);
   const lanes = useMemo(
     () => buildLanes(channels, programs, win),
     [channels, programs, win],
@@ -231,11 +256,9 @@ export function LiveScreen({
   }, [selectedProgramId, selectedChannelId, featuredChannelId, programs, nowProgram]);
 
   const heroChannel =
-    (selectedChannelId
-      ? live.channels.find((c) => c.id === selectedChannelId)
-      : null) ??
-    live.channels.find((c) => c.id === heroProgram?.channelId) ??
-    live.channels.find((c) => c.id === featuredChannelId) ??
+    (selectedChannelId ? channelById.get(selectedChannelId) : null) ??
+    (heroProgram ? channelById.get(heroProgram.channelId) : null) ??
+    (featuredChannelId ? channelById.get(featuredChannelId) : null) ??
     live.channels[0];
 
   // The channel actively streaming in the preview, resolved across *all*
@@ -247,9 +270,7 @@ export function LiveScreen({
     setPlayingId(id);
     setRecents(pushRecent(id));
   };
-  const playingChannel = playingId
-    ? live.channels.find((c) => c.id === playingId) ?? null
-    : null;
+  const playingChannel = playingId ? channelById.get(playingId) ?? null : null;
   const playing = !!playingChannel;
   const playingProgram = playingChannel
     ? nowProgram(playingChannel.id)
@@ -391,7 +412,7 @@ export function LiveScreen({
   // Channel being previewed: the hovered card's channel wins, else the row.
   const hoverChannel = (() => {
     const id = hoveredProgram?.channelId ?? hoveredChannelId;
-    return id ? live.channels.find((c) => c.id === id) ?? null : null;
+    return id ? channelById.get(id) ?? null : null;
   })();
   // The previewed programme: the hovered card, else the channel's current show.
   const hoverProgram =
