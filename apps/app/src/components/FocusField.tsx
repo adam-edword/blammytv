@@ -30,7 +30,9 @@ export function FocusField({
     onEnterPress: () => ref.current?.focus(),
   });
   useEffect(() => {
-    if (focused && !isTv) ref.current?.focus({ preventScroll: true });
+    if (!focused) return;
+    ref.current?.scrollIntoView({ block: "nearest" });
+    if (!isTv) ref.current?.focus({ preventScroll: true });
   }, [focused, ref]);
   return (
     <label className={"field" + (focused ? " field--focused" : "")}>

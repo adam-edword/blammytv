@@ -21,7 +21,9 @@ export function FocusToggle({
     onEnterPress: () => onChange(!checked),
   });
   useEffect(() => {
-    if (focused && !isTv) ref.current?.focus({ preventScroll: true });
+    if (!focused) return;
+    ref.current?.scrollIntoView({ block: "nearest" });
+    if (!isTv) ref.current?.focus({ preventScroll: true });
   }, [focused, ref]);
   return (
     <button

@@ -34,9 +34,13 @@ export function FocusButton({
   useEffect(() => {
     if (autoFocus && !disabled) focusSelf();
   }, [autoFocus, disabled, focusSelf]);
-  // Mirror onto native DOM focus for a11y — desktop only (see lib/tv).
+  // On focus: keep the button in view (scrolls the nearest scroll container,
+  // e.g. the Settings panel — works on TV where there's no DOM focus event) and
+  // mirror onto native DOM focus for a11y on desktop (see lib/tv).
   useEffect(() => {
-    if (focused && !isTv) ref.current?.focus({ preventScroll: true });
+    if (!focused) return;
+    ref.current?.scrollIntoView({ block: "nearest" });
+    if (!isTv) ref.current?.focus({ preventScroll: true });
   }, [focused, ref]);
   return (
     <button

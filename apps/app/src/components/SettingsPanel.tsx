@@ -333,6 +333,9 @@ function ScaleSlider({
       return true;
     },
   });
+  useEffect(() => {
+    if (focused) ref.current?.scrollIntoView({ block: "nearest" });
+  }, [focused, ref]);
   return (
     <div
       ref={ref}
@@ -393,6 +396,9 @@ function AccentCustom({
     focusKey: "set-accent-custom",
     onEnterPress: () => inputRef.current?.click(),
   });
+  useEffect(() => {
+    if (focused) ref.current?.scrollIntoView({ block: "nearest" });
+  }, [focused, ref]);
   return (
     <label
       ref={ref}

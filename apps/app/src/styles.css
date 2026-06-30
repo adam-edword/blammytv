@@ -3725,13 +3725,12 @@ html.is-android .episode-card__date {
 
 .settings-panel {
   position: fixed;
+  /* Anchored top-right and extended to the bottom of the screen (with padding),
+     so long sections have room and scroll inside .settings__inner. */
   top: 64px;
   right: 28px;
-  /* Roomy modal anchored top-right; clamps so it stays sensible on smaller
-     windows. Enlarged from the original Figma size so the controls aren't
-     cramped on a 10-foot UI. */
+  bottom: 28px;
   width: min(1340px, 78vw);
-  height: min(900px, calc(100dvh - 104px));
   background: rgba(13, 13, 13, 0.72);
   backdrop-filter: blur(7px);
   -webkit-backdrop-filter: blur(7px);
