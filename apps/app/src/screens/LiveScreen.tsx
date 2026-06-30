@@ -764,13 +764,22 @@ export function LiveScreen({
   // IPTV failed to load — scoped to this tab; Stream is unaffected.
   if (error) return <SourceError message={error} onRetry={onRetry} />;
 
+  // On Android the native surface owns fullscreen (it covers the UI), so the
+  // React Live layout must stay completely static — the theater/fullscreen
+  // classes here reposition .now-playing__preview, and on collapse the rAF can
+  // catch that stale theater rect for a frame and shove the native video to it,
+  // which is the exit jitter. Desktop keeps the in-page theater layout.
+  const nativePlayer = isNativePlayer();
+  const theaterLayout = !nativePlayer && inTheater;
+  const fullscreenLayout = !nativePlayer && fullscreen;
+
   return (
     <div
       ref={contentRef}
       className={
         "live-screen" +
-        (inTheater ? " live-screen--theater" : "") +
-        (fullscreen ? " live-screen--fullscreen" : "")
+        (theaterLayout ? " live-screen--theater" : "") +
+        (fullscreenLayout ? " live-screen--fullscreen" : "")
       }
       style={{ "--categories-w": `${panelWidth}px` } as CSSProperties}
       onClick={onBackdropClick}
@@ -779,7 +788,7 @@ export function LiveScreen({
         groups={live.groups}
         selectedId={categoryId}
         focusedId={focusedCategoryId}
-        collapsed={collapsed || inTheater}
+        collapsed={collapsed || theaterLayout}
         onSelect={selectCategory}
       />
       <div
