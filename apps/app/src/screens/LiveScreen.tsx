@@ -498,11 +498,16 @@ export function LiveScreen({
   );
   const enterGuide = useCallback(() => {
     if (lanes.length === 0) {
-      gotoSidebar();
+      // Empty category (empty Favorites/Recents, an empty group): there's no
+      // guide to enter. If a channel is up in the mini, land there so Right
+      // isn't a dead-end that bounces straight back to the sidebar; otherwise
+      // stay put.
+      if (heroChannel) setNav({ zone: "hero" });
+      else gotoSidebar();
       return;
     }
     moveGuide(lastGuide.current.row, lastGuide.current.col);
-  }, [lanes.length, moveGuide, gotoSidebar]);
+  }, [lanes.length, moveGuide, gotoSidebar, heroChannel]);
 
   const handleArrow = useCallback(
     (dir: string): boolean => {
@@ -545,7 +550,9 @@ export function LiveScreen({
 
       // guide
       if (lanes.length === 0) {
-        gotoSidebar();
+        // No guide here (empty category) — prefer the mini over a sidebar bounce.
+        if (heroChannel) setNav({ zone: "hero" });
+        else gotoSidebar();
         return false;
       }
       if (dir === "up") {
