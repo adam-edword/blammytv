@@ -1404,25 +1404,32 @@ img {
   line-height: 1;
 }
 
-/* Android splash: a CSS-only wave (slot-text ghosts on that WebView). The same
-   chromatic letters bob up in sequence — staggered per-letter animation-delay
-   makes the ripple, and it loops forever. Nothing is created/destroyed. */
-.loading-wave {
-  display: inline-flex;
+/* Android splash: a CSS-only gradient word (slot-text ghosts on that WebView).
+   The EPG 4K quality-badge palette is clipped to the glyphs and slid back and
+   forth so the colours drift across the word. Nothing is created/destroyed and
+   no glyphs are transformed, so it can't strand letters the way slot-text did. */
+.loading-gradient {
+  background: linear-gradient(
+    100deg,
+    #ff9e7d,
+    #ffd479,
+    #7ee787,
+    #6bb6ff,
+    #c08cff
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: loading-gradient 3.2s ease-in-out infinite alternate;
 }
-.loading-wave__letter {
-  display: inline-block;
-  white-space: pre;
-  animation: loading-wave 1.5s ease-in-out infinite;
-}
-@keyframes loading-wave {
-  0%,
-  55%,
-  100% {
-    transform: translateY(0) scale(1);
+@keyframes loading-gradient {
+  from {
+    background-position: 0% 50%;
   }
-  25% {
-    transform: translateY(-0.16em) scale(1.06);
+  to {
+    background-position: 100% 50%;
   }
 }
 
