@@ -1404,17 +1404,26 @@ img {
   line-height: 1;
 }
 
-/* The slot-text roll hides the outgoing glyphs purely by clipping them inside
-   each cell (.char-slot { overflow-y: clip }). That mixed overflow-x:visible +
-   overflow-y:clip is rendered inconsistently by the Android WebView — it can end
-   up not clipping, leaving the slid-out glyphs on screen as "ghosts". Force plain
-   overflow:hidden on Android so the cells reliably mask their reel. (Also drop
-   the per-glyph will-change so no stale GPU layer lingers.) */
-html.is-android .char-slot {
-  overflow: hidden;
+/* Android splash: a CSS-only wave (slot-text ghosts on that WebView). The same
+   chromatic letters bob up in sequence — staggered per-letter animation-delay
+   makes the ripple, and it loops forever. Nothing is created/destroyed. */
+.loading-wave {
+  display: inline-flex;
 }
-html.is-android .char-face {
-  will-change: auto;
+.loading-wave__letter {
+  display: inline-block;
+  white-space: pre;
+  animation: loading-wave 1.5s ease-in-out infinite;
+}
+@keyframes loading-wave {
+  0%,
+  55%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  25% {
+    transform: translateY(-0.16em) scale(1.06);
+  }
 }
 
 .loading-screen__sub {
