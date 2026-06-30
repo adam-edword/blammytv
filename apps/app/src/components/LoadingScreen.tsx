@@ -27,9 +27,13 @@ export function LoadingScreen() {
     // Start blank so the very first roll spells out BlammyTV (never "Shipping").
     const label = slotText(el, "");
     let loop = 0;
+    // Re-roll only after a roll has fully finished + cleaned up (~1.7s) plus a
+    // beat. A shorter interval interrupts the in-flight roll every cycle, which
+    // the Android WebView renders as stranded "ghost" glyphs (Windows tolerates
+    // the interrupt; Android doesn't).
     const first = window.setTimeout(() => {
       label.set("BlammyTV", roll);
-      loop = window.setInterval(() => label.set("BlammyTV", roll), 1600);
+      loop = window.setInterval(() => label.set("BlammyTV", roll), 2800);
     }, 120);
 
     return () => {
