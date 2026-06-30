@@ -431,6 +431,11 @@ export function LiveScreen({
   // "Continue holding to close" scrim on the mini player (set by the hold-to-
   // close key handler below, drawn by NowPlaying).
   const [heroHold, setHeroHold] = useState(false);
+  // A hold just closed the mini and moved the cursor onto a guide row, but OK is
+  // still physically down — swallow the rest of that press so its release/repeat
+  // doesn't immediately re-play the channel under the new cursor. Cleared when
+  // the key is actually released (mirrors StreamCard's holdConsumed).
+  const holdConsumedRef = useRef(false);
   // Remember the guide cell so moving sidebar↔guide within a category keeps your
   // place; reset to the top when the category changes (selectCategory).
   const lastGuide = useRef({ row: 0, col: 0 });
@@ -562,6 +567,7 @@ export function LiveScreen({
 
   const handleEnter = useCallback(() => {
     if (theaterRef.current || fsRef.current) return;
+    if (holdConsumedRef.current) return; // tail of a hold that just closed the mini
     const n = navRef.current;
     if (!n) return;
     if (n.zone === "sidebar") {
@@ -644,6 +650,7 @@ export function LiveScreen({
       }
       if (!closed && performance.now() - firstDownAt >= HOLD_MS) {
         closed = true;
+        holdConsumedRef.current = true; // swallow the rest of this press
         cancelHint();
         setHeroHold(false);
         heroCloseRef.current();
@@ -661,6 +668,8 @@ export function LiveScreen({
         const wasClosed = closed;
         firstDownAt = 0;
         closed = false;
+        // Physical release is complete — let OK act normally again.
+        holdConsumedRef.current = false;
         if (wasClosed) return; // the hold already closed it
         // A tap (released before the scrim shows) expands the mini to theater.
         if (held < HINT_MS && armed()) setTheater(true);

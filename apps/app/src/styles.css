@@ -1426,23 +1426,13 @@ img {
 }
 
 /* Android splash: a CSS-only gradient word (slot-text ghosts on that WebView),
-   framed like the EPG 4K quality-badge. The 4K palette is clipped to the glyphs
-   AND drawn as a 1px ring (border-box gradient over a --bg padding-box, so only
-   the border shows); both layers share the same shimmer so the ring and the
-   letters drift in sync. Nothing is created/destroyed and no glyphs are
+   styled like the EPG 4K quality-badge — a vivid gradient outline with a dark
+   interior, here applied to the letterforms themselves. The 4K palette is
+   clipped to each glyph (including its stroke); a transparent text-stroke widens
+   that clip into an outline ring, and a dark semi-transparent text-fill covers
+   the interior so only a faint tint of the gradient shows through inside. The
+   gradient shimmers side to side. Nothing is created/destroyed and no glyphs are
    transformed, so it can't strand letters the way slot-text did. */
-.loading-badge {
-  display: inline-block;
-  padding: 0.12em 0.4em;
-  border: 1px solid transparent;
-  border-radius: 0.34em;
-  background:
-    linear-gradient(var(--bg), var(--bg)) padding-box,
-    linear-gradient(100deg, #ff9e7d, #ffd479, #7ee787, #6bb6ff, #c08cff)
-      border-box;
-  background-size: 220% 100%;
-  animation: loading-gradient 2.56s ease-in-out infinite alternate;
-}
 .loading-gradient {
   background: linear-gradient(
     100deg,
@@ -1455,11 +1445,10 @@ img {
   background-size: 220% 100%;
   -webkit-background-clip: text;
   background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
-  /* Softer than the ring so the 1px border reads as the accent (matches the
-     badge, where the vivid gradient is the ring and the interior is subdued). */
-  opacity: 0.5;
+  /* Dark interior (a hint of the gradient bleeds through the alpha); the
+     transparent stroke reveals the clipped gradient as the outline. */
+  -webkit-text-fill-color: rgba(11, 11, 11, 0.62);
+  -webkit-text-stroke: 2.5px transparent;
   animation: loading-gradient 2.56s ease-in-out infinite alternate;
 }
 @keyframes loading-gradient {
