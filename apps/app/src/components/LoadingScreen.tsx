@@ -5,9 +5,30 @@ import { isTv } from "../lib/tv";
 
 const WORD = "BlammyTV";
 
-/** Per-letter chromatic hue (matches slot-text's chromatic sweep). */
-const hueAt = (i: number) =>
-  Math.round((i / Math.max(1, WORD.length - 1)) * 320);
+/**
+ * The EPG 4K quality-badge gradient stops (peach → gold → green → blue →
+ * violet). Reusing this palette ties the splash to the same accent the guide
+ * uses to mark the best feeds, so the brand colour reads as intentional.
+ */
+const BADGE_STOPS = [
+  [0xff, 0x9e, 0x7d],
+  [0xff, 0xd4, 0x79],
+  [0x7e, 0xe7, 0x87],
+  [0x6b, 0xb6, 0xff],
+  [0xc0, 0x8c, 0xff],
+] as const;
+
+/** Sample the 4K badge gradient at position t (0..1) → an `rgb()` string. */
+const colorAt = (i: number) => {
+  const t = i / Math.max(1, WORD.length - 1);
+  const span = BADGE_STOPS.length - 1;
+  const seg = Math.min(span - 1, Math.floor(t * span));
+  const f = t * span - seg;
+  const [r0, g0, b0] = BADGE_STOPS[seg];
+  const [r1, g1, b1] = BADGE_STOPS[seg + 1];
+  const mix = (a: number, b: number) => Math.round(a + (b - a) * f);
+  return `rgb(${mix(r0, r1)} ${mix(g0, g1)} ${mix(b0, b1)})`;
+};
 
 /**
  * Full-screen branded splash shown while the app boots / pulls config.
@@ -57,7 +78,7 @@ export function LoadingScreen() {
               key={i}
               className="loading-wave__letter"
               style={{
-                color: `hsl(${hueAt(i)} 92% 62%)`,
+                color: colorAt(i),
                 animationDelay: `${i * 95}ms`,
               }}
             >
