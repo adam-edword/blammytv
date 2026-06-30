@@ -147,18 +147,17 @@ body,
 .stream-card.is-pressed {
   transform: scale(0.95);
 }
-/* Card focus: glow + lift on the artwork only (the title/meta below stay put). */
+/* Card focus: a slim lift + a subtle white border on the artwork (the title/meta
+   below stay put). Replaces the old blurred glow halo — the border is a crisp
+   solid outline (reuses the base art outline, so no layout shift) with none of
+   the blur's per-card paint cost. */
 .stream-card.is-focused {
   z-index: 2;
 }
 .stream-card.is-focused .stream-card__art {
   transform: scale(1.05);
-}
-/* blur only on the focused card (one layer), not all 16 cards' pseudo-elements;
-   no opacity transition so it snaps (avoids a crisp un-blurred box mid-fade). */
-.stream-card.is-focused .stream-card__art::after {
-  opacity: 0.5;
-  filter: blur(16px);
+  outline-width: 3px;
+  outline-color: rgba(255, 255, 255, 0.2);
 }
 .top-tab.is-focused {
   /* Beats `.top-tab { opacity: 0.3 }` (more specific) so the focused tab is
@@ -2988,6 +2987,25 @@ html.is-android .media-row__track {
   font-family: var(--font-headline);
   font-weight: 500;
   font-size: 16px;
+}
+
+/* TV (weak GPU): drop the per-card backdrop blur. backdrop-filter: blur(16px) is
+   one of the most expensive GPU ops, and these are per-card — a full episode/
+   source grid is 6–12 simultaneous blur passes. Over the dark detail scrim the
+   frosted look reads almost identically with a slightly more opaque flat fill.
+   Desktop (stronger GPU) keeps the real blur. */
+html.is-android .pill,
+html.is-android .source-card,
+html.is-android .episode-card {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+html.is-android .pill {
+  background: rgba(255, 255, 255, 0.16);
+}
+html.is-android .source-card,
+html.is-android .episode-card {
+  background: rgba(255, 255, 255, 0.13);
 }
 
 /* Source rail */
