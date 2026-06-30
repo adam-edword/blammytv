@@ -71,35 +71,34 @@ export function SearchScreen({
 
   return (
     <div className="search-screen">
-      <div className="search-screen__bar">
-        <SearchIcon />
-        {query ? (
-          <span className="search-screen__query">
-            {query}
-            <span className="search-screen__caret" aria-hidden="true" />
-          </span>
-        ) : (
-          <span className="search-screen__placeholder">
-            Search movies &amp; shows
-          </span>
-        )}
-      </div>
-
-      <div className="search-screen__body">
+      <div className="search-screen__left">
+        <div className="search-screen__bar">
+          <SearchIcon />
+          {query ? (
+            <span className="search-screen__query">
+              {query}
+              <span className="search-screen__caret" aria-hidden="true" />
+            </span>
+          ) : (
+            <span className="search-screen__placeholder">
+              Search movies &amp; shows
+            </span>
+          )}
+        </div>
         <OnScreenKeyboard
           focusKey="search-kbd"
           onChar={(ch) => setQuery((q) => q + ch)}
           onBackspace={() => setQuery((q) => q.slice(0, -1))}
           onClear={() => setQuery("")}
         />
-        <ResultsPane
-          query={query}
-          loading={loading}
-          searched={searched}
-          results={results}
-          onOpen={onOpen}
-        />
       </div>
+      <ResultsPane
+        query={query}
+        loading={loading}
+        searched={searched}
+        results={results}
+        onOpen={onOpen}
+      />
     </div>
   );
 }

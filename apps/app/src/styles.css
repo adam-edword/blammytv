@@ -4842,13 +4842,19 @@ body.is-overlay,
 }
 
 /* ---------- Stream search ---------- */
+/* Left column (query + QWERTY keyboard), results grid fills the rest. */
 .search-screen {
   flex: 1;
   min-height: 0;
   display: flex;
-  flex-direction: column;
-  gap: 20px;
+  gap: 32px;
   padding: 8px 40px 0 0;
+}
+.search-screen__left {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
 }
 
 .search-screen__bar {
@@ -4897,32 +4903,24 @@ body.is-overlay,
   }
 }
 
-.search-screen__body {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  gap: 28px;
-  padding-bottom: 24px;
-}
-
-/* On-screen keyboard: D-pad navigable key grid. */
+/* On-screen QWERTY: rows centered with fixed-width keys so the columns line up
+   like a real keyboard (predictable ▲▼); the control row stretches to fill. */
 .osk {
-  flex: none;
-  width: 384px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 9px;
 }
 .osk__row {
   display: flex;
-  gap: 10px;
+  gap: 9px;
+  justify-content: center;
 }
 .osk__key {
-  flex: 1;
-  min-width: 0;
-  height: 56px;
+  flex: none;
+  width: 50px;
+  height: 50px;
   border: none;
-  border-radius: 12px;
+  border-radius: 11px;
   background: var(--panel-3);
   color: var(--text);
   font-family: var(--font-headline);
@@ -4933,13 +4931,17 @@ body.is-overlay,
     transform 0.1s ease,
     background 0.1s ease;
 }
+.osk__row--controls .osk__key {
+  flex: 1;
+  width: auto;
+}
 .osk__key--action {
   font-size: 16px;
   background: var(--surface-muted);
   color: var(--text-dim);
 }
 .osk__key--space {
-  flex: 3;
+  flex: 3.2;
 }
 .osk__key.is-focused {
   background: rgb(var(--accent-rgb));
