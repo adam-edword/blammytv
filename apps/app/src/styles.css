@@ -580,6 +580,8 @@ img {
 }
 
 .now-playing {
+  --preview-w: 480px;
+  position: relative; /* anchors the slide-out "hold to close" tab */
   display: flex;
   gap: 28px;
   padding-right: 44px;
@@ -593,8 +595,9 @@ img {
   /* Don't stretch to the details column's height — keep a true 16:9 box in
      every state (loading, pre-play, playing). */
   align-self: center;
-  width: 480px;
+  width: var(--preview-w);
   aspect-ratio: 16 / 9;
+  z-index: 1; /* paints over the tucked-behind half of the close tab */
   border-radius: var(--radius);
   border: none;
   overflow: hidden;
@@ -614,25 +617,43 @@ img {
     0 0 0 6px rgb(var(--accent-rgb));
 }
 
-/* "Continue holding to close" scrim over the playing mini, shown after 0.5s of
-   holding OK (so a quick tap-to-theater never flashes it) — mirrors the
-   Continue Watching card's hold overlay. */
-.now-playing__hold {
+/* "keep holding to close" tab that slides out from behind the player's right
+   edge after 0.5s of holding OK (a quick tap-to-theater never flashes it). It's
+   anchored to the preview's right edge and tucked behind it (z-index below the
+   preview), so the left half hides behind the video — including the native video
+   on Android — and the right half sticks out into the gap where it's always
+   visible. */
+.now-playing__close-tab {
   position: absolute;
-  inset: 0;
-  z-index: 3;
+  z-index: 0;
+  top: 50%;
+  left: var(--preview-w);
+  width: 34px;
+  height: calc(var(--preview-w) * 9 / 16 * 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 12px;
-  text-align: center;
-  background: rgba(0, 0, 0, 0.5);
-  color: #fff;
+  border-radius: 0 14px 14px 0;
+  background: var(--text);
+  color: var(--bg);
   font-family: var(--font-headline);
   font-weight: 600;
-  font-size: 15px;
-  line-height: 1.3;
-  animation: cw-hold-fade 0.22s ease both;
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  /* Start fully tucked behind the player, then slide the right half out. */
+  transform: translateY(-50%) translateX(-100%);
+  animation: close-tab-out 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+/* Bottom-to-top vertical label. */
+.now-playing__close-tab span {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+@keyframes close-tab-out {
+  to {
+    transform: translateY(-50%) translateX(-34%);
+  }
 }
 
 .now-playing__art {

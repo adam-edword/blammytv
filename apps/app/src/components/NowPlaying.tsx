@@ -102,12 +102,17 @@ export function NowPlaying({
             <span className="now-playing__play" />
           </button>
         )}
-        {playing && holdHint && (
-          <div className="now-playing__hold" aria-hidden="true">
-            Continue holding to close
-          </div>
-        )}
       </div>
+
+      {/* "keep holding to close" tab that slides out from behind the player's
+          right edge during a hold. It sits OUTSIDE the preview box (and the
+          native video that covers it on Android), so it's visible there — unlike
+          a scrim drawn over the video. */}
+      {playing && holdHint && (
+        <div className="now-playing__close-tab" aria-hidden="true">
+          <span>keep holding to close</span>
+        </div>
+      )}
 
       <div className="now-playing__details">
         {live ? (
