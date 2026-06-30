@@ -2041,6 +2041,28 @@ body.theater-mode .app-header:hover {
   color: var(--text-dim);
 }
 
+/* EPG still loading for this channel (lazy fetch in flight): a soft shimmer
+   sweep instead of the dashed "no info" look, so a freshly-opened source reads
+   as "loading" rather than "empty". */
+.program--loading {
+  border: 1.5px solid transparent;
+  background: linear-gradient(
+    100deg,
+    var(--panel-2) 30%,
+    var(--surface-hover) 50%,
+    var(--panel-2) 70%
+  );
+  background-size: 200% 100%;
+  animation: program-shimmer 1.25s linear infinite;
+}
+.program--loading .program__noinfo-text {
+  opacity: 0.55;
+}
+@keyframes program-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
 /* Drag handle for the EPG channel-label column width. */
 .guide-resize {
   position: absolute;

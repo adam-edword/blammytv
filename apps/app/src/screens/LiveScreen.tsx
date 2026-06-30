@@ -144,25 +144,29 @@ export function LiveScreen({
     }
   };
 
-  const channels = useMemo(() => {
-    let list: typeof live.channels;
-    if (categoryId === FAVORITES_ID) {
-      list = live.channels.filter((c) => favoriteIds.has(c.id));
-    } else if (categoryId === RECENTS_ID) {
-      // Most-recent-first; map the stored ids back to channels, dropping any
-      // that no longer exist.
-      const byId = new Map(live.channels.map((c) => [c.id, c]));
-      list = recents
-        .map((id) => byId.get(id))
-        .filter((c): c is LiveChannel => Boolean(c));
-    } else {
-      list = live.channels.filter((c) => c.groupId === categoryId);
-    }
-    // NOTE: prefs.hideNoInfoChannels can't be applied here anymore — with lazy
-    // per-channel EPG we don't know which channels have programmes until their
-    // row is viewed. (Revisit if we want to hide them as their EPG resolves.)
-    return list;
-  }, [categoryId, live, favoriteIds, recents]);
+  // The channels in a category (Favorites / Recents / a group). Shared by the
+  // rendered list and the sidebar-focus prefetch below.
+  // NOTE: prefs.hideNoInfoChannels can't be applied with lazy EPG — we don't
+  // know which channels have programmes until their row is viewed.
+  const channelsForCategory = useCallback(
+    (catId: string): LiveChannel[] => {
+      if (catId === FAVORITES_ID)
+        return live.channels.filter((c) => favoriteIds.has(c.id));
+      if (catId === RECENTS_ID) {
+        const byId = new Map(live.channels.map((c) => [c.id, c]));
+        return recents
+          .map((id) => byId.get(id))
+          .filter((c): c is LiveChannel => Boolean(c));
+      }
+      return live.channels.filter((c) => c.groupId === catId);
+    },
+    [live.channels, favoriteIds, recents],
+  );
+
+  const channels = useMemo(
+    () => channelsForCategory(categoryId),
+    [channelsForCategory, categoryId],
+  );
 
   // Programmes come from the lazy per-channel EPG store (the guide requests each
   // channel's `get_short_epg` as its row scrolls into view). Re-derive whenever
@@ -636,6 +640,16 @@ export function LiveScreen({
     focusedLane && !focusedBlock ? focusedLane.ch.id : undefined;
   const focusedCategoryId =
     nav?.zone === "sidebar" ? navCategories[nav.row] : undefined;
+
+  // Prefetch the top rows' EPG of the category the cursor is hovering in the
+  // sidebar — so by the time you open it, the first screenful is already there
+  // (the rest still stream in on scroll).
+  useEffect(() => {
+    if (!focusedCategoryId) return;
+    for (const ch of channelsForCategory(focusedCategoryId).slice(0, 8)) {
+      requestChannelEpg(ch.id);
+    }
+  }, [focusedCategoryId, channelsForCategory]);
 
   // In theater (not fullscreen), clicking the black area outside the player drops
   // back to the mini player + guide. The native overlay swallows clicks on the

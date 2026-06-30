@@ -16,7 +16,7 @@ import {
   type GuideWindow,
 } from "../lib/epg";
 import type { Block, Lane } from "../lib/guide";
-import { requestChannelEpg } from "../lib/epgLazy";
+import { getChannelPrograms, requestChannelEpg } from "../lib/epgLazy";
 import { qualityTags } from "../lib/quality";
 import { StarIcon } from "./icons";
 
@@ -410,12 +410,16 @@ export function EpgGuide({
                 </div>
                 <div className="guide-row__lane" style={{ width: laneWidth }}>
                   {blocks.length === 0 ? (
-                    // No programme info from the provider — still selectable, as
-                    // these channels often have a working stream.
+                    // No blocks: either the channel's EPG hasn't been fetched yet
+                    // (loading shimmer) or it came back empty ("No Information").
+                    // Still selectable either way — these channels often play.
                     <button
                       type="button"
                       className={
                         "program program--noinfo" +
+                        (getChannelPrograms(ch.id) === undefined
+                          ? " program--loading"
+                          : "") +
                         (ch.id === selectedChannelId ? " program--selected" : "") +
                         (ch.id === focusedChannelId ? " program--focused" : "")
                       }
@@ -427,7 +431,9 @@ export function EpgGuide({
                       onClick={() => onSelectChannel?.(ch.id)}
                     >
                       <span className="program__noinfo-text">
-                        No Information
+                        {getChannelPrograms(ch.id) === undefined
+                          ? "loading…"
+                          : "No Information"}
                       </span>
                     </button>
                   ) : (

@@ -65,7 +65,6 @@ export function SettingsPanel({
     setAccent,
     setUiScale,
     setLightMode,
-    setHideNoInfoChannels,
     reset,
   } = usePreferences();
   const [tab, setTab] = useState<SettingsTab>("aiostreams");
@@ -269,26 +268,6 @@ export function SettingsPanel({
                       checked={prefs.lightMode}
                       onChange={setLightMode}
                       ariaLabel="Light mode"
-                    />
-                  </div>
-                </div>
-
-                {/* Hide channels with no info */}
-                <div className="settings__row">
-                  <div className="settings__row-label">
-                    <span className="settings__row-title">
-                      Hide channels with no info
-                    </span>
-                    <span className="settings__row-desc">
-                      Skip live channels that have no programme information.
-                    </span>
-                  </div>
-                  <div className="settings__control">
-                    <FocusToggle
-                      focusKey="set-hide"
-                      checked={prefs.hideNoInfoChannels}
-                      onChange={setHideNoInfoChannels}
-                      ariaLabel="Hide channels with no info"
                     />
                   </div>
                 </div>
