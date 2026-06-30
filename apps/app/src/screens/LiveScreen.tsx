@@ -875,15 +875,19 @@ export function LiveScreen({
         collapsed={collapsed || theaterLayout}
         onSelect={selectCategory}
       />
-      <div
-        className={"cat-resize" + (resizing ? " cat-resize--active" : "")}
-        role="separator"
-        aria-orientation="vertical"
-        aria-label="Resize source panel"
-        onPointerDown={onResizeDown}
-        onPointerMove={onResizeMove}
-        onPointerUp={onResizeUp}
-      />
+      {/* Pointer-only drag handle — pointless on a TV (no pointer), so drop it
+          on the native/Android build. The rail stays at its default width. */}
+      {!nativePlayer && (
+        <div
+          className={"cat-resize" + (resizing ? " cat-resize--active" : "")}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize source panel"
+          onPointerDown={onResizeDown}
+          onPointerMove={onResizeMove}
+          onPointerUp={onResizeUp}
+        />
+      )}
       <div className="live-screen__main">
         {heroChannel && (
           <NowPlaying

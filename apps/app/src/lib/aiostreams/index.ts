@@ -78,6 +78,47 @@ export async function buildVod(
   };
 }
 
+/**
+ * Search the addon's search-capable catalogs (Stremio `search` extra) and merge
+ * the results, deduped by id. Items are lightweight previews; detail + sources
+ * resolve on-demand via the existing open flow.
+ */
+export async function searchVod(
+  manifestUrl: string,
+  query: string,
+): Promise<VodItem[]> {
+  const q = query.trim();
+  if (!q) return [];
+  const client = new AddonClient(manifestUrl);
+  const manifest = await client.manifest();
+  const searchCats = manifest.catalogs.filter((cat) =>
+    (cat.extra ?? []).some((e) => e.name === "search"),
+  );
+  const extra = `search=${encodeURIComponent(q)}`;
+  const pools = await Promise.all(
+    searchCats.map(async (cat) => {
+      try {
+        const { metas = [] } = await client.catalog(cat.type, cat.id, extra);
+        const kind = isSeries(cat.type) ? "series" : "movie";
+        return metas.map((m): VodItem => ({ ...metaPreviewToVod(m), kind }));
+      } catch (err) {
+        console.warn(`[aiostreams] search "${label(cat)}" failed: ${msg(err)}`);
+        return [] as VodItem[];
+      }
+    }),
+  );
+  const seen = new Set<string>();
+  const out: VodItem[] = [];
+  for (const pool of pools) {
+    for (const item of pool) {
+      if (seen.has(item.id)) continue;
+      seen.add(item.id);
+      out.push(item);
+    }
+  }
+  return out;
+}
+
 /** Full detail for one title (synopsis, cast, and seasons for series). */
 export async function resolveVodItem(
   manifestUrl: string,
