@@ -3753,6 +3753,9 @@ html.is-android .episode-card__date {
   height: 100%;
   overflow-y: auto;
   padding: 36px 44px 28px;
+  /* Breathing room when a focused control scrolls into view (scrollIntoView
+     respects this), so it doesn't land flush against the top/bottom edge. */
+  scroll-padding-block: 44px;
 }
 
 .settings__title {
