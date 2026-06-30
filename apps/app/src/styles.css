@@ -3003,9 +3003,13 @@ html.is-android .episode-card {
 html.is-android .pill {
   background: rgba(255, 255, 255, 0.16);
 }
+/* The text on these is light (#f2f2f2), so without the blur a faint white tint
+   let the bright parts of the backdrop bleed through and wash the text out. A
+   more opaque panel-grey fill keeps the backdrop from showing through (legible
+   light text everywhere) while still reading as a card lifted off the dark page. */
 html.is-android .source-card,
 html.is-android .episode-card {
-  background: rgba(255, 255, 255, 0.13);
+  background: rgba(38, 38, 44, 0.72);
 }
 
 /* Source rail */

@@ -457,10 +457,12 @@ export function LiveScreen({
   // doesn't immediately re-play the channel under the new cursor. Cleared when
   // the key is actually released (mirrors StreamCard's holdConsumed).
   const holdConsumedRef = useRef(false);
-  // Whether the current arrow keydown is an OS auto-repeat (held) vs a fresh
-  // press — boundary exits into the nav consult this so a held scroll soft-stops
-  // at the edge instead of overshooting (set by the capture listener below).
-  const arrowRepeatRef = useRef(false);
+  // Whether the current arrow keydown is part of a held scroll vs a fresh press
+  // — boundary exits into the nav consult this so a held scroll soft-stops at the
+  // edge instead of overshooting (set by the capture listener below).
+  const arrowHeldRef = useRef(false);
+  const heldArrows = useRef(new Set<string>());
+  const lastArrowDownRef = useRef(0);
   // Remember the guide cell so moving sidebar↔guide within a category keeps your
   // place; reset to the top when the category changes (selectCategory).
   const lastGuide = useRef({ row: 0, col: 0 });
@@ -547,7 +549,7 @@ export function LiveScreen({
           if (n.row > 0) setNav({ zone: "sidebar", row: n.row - 1 });
           // Top of the list → Live tab, but only on a deliberate press: a held
           // scroll soft-stops at the top instead of blowing through into the nav.
-          else if (!arrowRepeatRef.current) gotoTabs();
+          else if (!arrowHeldRef.current) gotoTabs();
         } else if (dir === "down") {
           if (n.row < navCategories.length - 1)
             setNav({ zone: "sidebar", row: n.row + 1 });
@@ -562,7 +564,7 @@ export function LiveScreen({
         // Soft-stop: a held scroll up stays on the mini; an intentional press
         // exits to the nav.
         if (dir === "up") {
-          if (!arrowRepeatRef.current) gotoTabs();
+          if (!arrowHeldRef.current) gotoTabs();
         } else if (dir === "down") enterGuide();
         else if (dir === "left") gotoSidebar();
         // right: stay.
@@ -579,7 +581,7 @@ export function LiveScreen({
       if (dir === "up") {
         if (n.row > 0) moveGuide(n.row - 1, n.col);
         else if (heroChannel) setNav({ zone: "hero" }); // top row → mini player
-        else if (!arrowRepeatRef.current) gotoTabs(); // soft-stop into the nav
+        else if (!arrowHeldRef.current) gotoTabs(); // soft-stop into the nav
       } else if (dir === "down") {
         if (n.row < lanes.length - 1) moveGuide(n.row + 1, n.col);
       } else if (dir === "left") {
@@ -727,20 +729,38 @@ export function LiveScreen({
     };
   }, []);
 
-  // Track arrow auto-repeat (held vs fresh press) for the soft-stop boundary
-  // exits. Capture phase runs before norigin's handler, so arrowRepeatRef is
-  // already up to date when handleArrow consults it.
+  // Detect a held arrow vs a fresh press for the soft-stop boundary exits.
+  // event.repeat is unreliable here — the Android TV remote repeats keydowns
+  // with no keyup until release AND repeat=false (see StreamCard) — so detect a
+  // hold two ways: the key is already down (no keyup since the last keydown, the
+  // remote case), or this keydown landed within the auto-repeat gap of the
+  // previous (the keyboard case, which interleaves keyup/keydown). Capture phase
+  // runs before norigin's handler, so the ref is current when handleArrow reads
+  // it. (Even one event stale, consecutive hold-repeats keep it true.)
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
+    const HELD_GAP_MS = 250;
+    const onDown = (e: KeyboardEvent) => {
       if (!e.key.startsWith("Arrow")) return;
-      arrowRepeatRef.current = e.repeat;
+      const t = performance.now();
+      arrowHeldRef.current =
+        heldArrows.current.has(e.key) ||
+        t - lastArrowDownRef.current < HELD_GAP_MS;
+      heldArrows.current.add(e.key);
+      lastArrowDownRef.current = t;
       // Any arrow press means an OK-hold is over — clear a possibly-stuck
       // consume flag (e.g. if the hold's keyup was swallowed by the native
       // player), so OK can't end up silently ignored afterward.
       holdConsumedRef.current = false;
     };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
+    const onUp = (e: KeyboardEvent) => {
+      if (e.key.startsWith("Arrow")) heldArrows.current.delete(e.key);
+    };
+    window.addEventListener("keydown", onDown, true);
+    window.addEventListener("keyup", onUp, true);
+    return () => {
+      window.removeEventListener("keydown", onDown, true);
+      window.removeEventListener("keyup", onUp, true);
+    };
   }, []);
 
   const { ref: contentRef } = useFocusable<HTMLDivElement>({
