@@ -156,7 +156,7 @@ export function StreamCard({
     >
       <div className="stream-card__art">
         {art ? (
-          <img src={art} alt="" loading="lazy" />
+          <img src={art} alt="" loading="lazy" decoding="async" />
         ) : (
           <span className="stream-card__placeholder">{initials(item.title)}</span>
         )}

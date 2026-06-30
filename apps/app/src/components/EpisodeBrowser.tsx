@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import {
   FocusContext,
+  getCurrentFocusKey,
   setFocus,
   useFocusable,
 } from "@noriginmedia/norigin-spatial-navigation";
@@ -68,6 +69,25 @@ export function EpisodeBrowser({
     // Mount only: subsequent season changes manage their own focus below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Re-home focus when the episode list changes under the cursor, so it can't
+  // strand on a vanished card. The grid is a focusable container with no
+  // focusable ancestor, so when its children unmount (an empty search, a season
+  // swap to an empty season) norigin lands focus on the empty container and the
+  // D-pad goes dead. Guard: if the focused *episode* is gone, jump to the first
+  // remaining one (pre-empting norigin's 300ms restore + geometry jump); if the
+  // list is empty, fall back to the season bar. Only act when the cursor is on an
+  // episode — focus parked on the season controls (prev/next/dropdown) is left
+  // alone, so changing seasons keeps you on the control as intended.
+  useEffect(() => {
+    const cur = getCurrentFocusKey();
+    if (!cur || !cur.startsWith("ep-")) return;
+    if (episodes.length === 0) {
+      setFocus(SELECT_KEY);
+    } else if (!episodes.some((ep) => episodeKey(ep.id) === cur)) {
+      setFocus(episodeKey(episodes[0].id));
+    }
+  }, [episodes]);
 
   // While the dropdown is open, let Back/Escape close it (returning focus to the
   // select button) rather than backing out of the page.

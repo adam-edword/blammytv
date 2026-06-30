@@ -18,7 +18,7 @@ export function MediaCard({
     <button className="poster-card" type="button">
       <div className="poster-card__art">
         {item.poster ? (
-          <img src={item.poster} alt="" loading="lazy" />
+          <img src={item.poster} alt="" loading="lazy" decoding="async" />
         ) : (
           <span className="poster-card__placeholder">{initials}</span>
         )}
