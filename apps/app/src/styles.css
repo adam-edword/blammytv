@@ -1404,10 +1404,24 @@ img {
   line-height: 1;
 }
 
-/* Android splash: a CSS-only gradient word (slot-text ghosts on that WebView).
-   The EPG 4K quality-badge palette is clipped to the glyphs and slid back and
-   forth so the colours drift across the word. Nothing is created/destroyed and
-   no glyphs are transformed, so it can't strand letters the way slot-text did. */
+/* Android splash: a CSS-only gradient word (slot-text ghosts on that WebView),
+   framed like the EPG 4K quality-badge. The 4K palette is clipped to the glyphs
+   AND drawn as a 1px ring (border-box gradient over a --bg padding-box, so only
+   the border shows); both layers share the same shimmer so the ring and the
+   letters drift in sync. Nothing is created/destroyed and no glyphs are
+   transformed, so it can't strand letters the way slot-text did. */
+.loading-badge {
+  display: inline-block;
+  padding: 0.12em 0.4em;
+  border: 1px solid transparent;
+  border-radius: 0.34em;
+  background:
+    linear-gradient(var(--bg), var(--bg)) padding-box,
+    linear-gradient(100deg, #ff9e7d, #ffd479, #7ee787, #6bb6ff, #c08cff)
+      border-box;
+  background-size: 220% 100%;
+  animation: loading-gradient 2.56s ease-in-out infinite alternate;
+}
 .loading-gradient {
   background: linear-gradient(
     100deg,
@@ -1422,7 +1436,10 @@ img {
   background-clip: text;
   -webkit-text-fill-color: transparent;
   color: transparent;
-  animation: loading-gradient 3.2s ease-in-out infinite alternate;
+  /* Softer than the ring so the 1px border reads as the accent (matches the
+     badge, where the vivid gradient is the ring and the interior is subdued). */
+  opacity: 0.5;
+  animation: loading-gradient 2.56s ease-in-out infinite alternate;
 }
 @keyframes loading-gradient {
   from {

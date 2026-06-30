@@ -49,7 +49,9 @@ export function LoadingScreen() {
   return (
     <div className="loading-screen">
       {isTv ? (
-        <span className="loading-screen__word loading-gradient">{WORD}</span>
+        <span className="loading-screen__word loading-badge">
+          <span className="loading-gradient">{WORD}</span>
+        </span>
       ) : (
         <span ref={wordRef} className="loading-screen__word" />
       )}
