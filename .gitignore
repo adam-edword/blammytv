@@ -26,3 +26,12 @@ dist-ssr/
 # root — it's a Windows binary, never commit it anywhere.
 **/src-tauri/*.dll
 **/libmpv-2.dll
+
+# --- Never commit: source credentials + large native binaries ---
+# Server runtime data holds configured IPTV/debrid source credentials.
+apps/server/data/
+# Desktop runtime + vendored/built native binaries (too large for git / GitHub).
+apps/desktop/bin/
+apps/desktop/native/mpv/build/
+apps/desktop/native/mpv/vendor/*.dll
+apps/desktop/native/mpv/vendor/lib/
