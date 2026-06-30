@@ -308,6 +308,7 @@ export function App() {
             back={back}
             onPlay={playSource}
             onResume={resumeWatching}
+            onOpenSettings={() => setSettingsOpen(true)}
           />
         )}
       </main>
@@ -559,6 +560,7 @@ function CurrentScreen({
   back,
   onPlay,
   onResume,
+  onOpenSettings,
 }: {
   screen: Screen;
   config: ConfigBlob;
@@ -573,6 +575,7 @@ function CurrentScreen({
     ctx: { item: VodItem; episodeId?: string },
   ) => void;
   onResume: (item: VodItem) => void;
+  onOpenSettings: () => void;
 }) {
   switch (screen.kind) {
     case "tab":
@@ -584,6 +587,7 @@ function CurrentScreen({
           onRetry={onRetry}
           onOpen={(item) => push({ kind: "title", item })}
           onResume={onResume}
+          onOpenSettings={onOpenSettings}
         />
       );
     case "search":
@@ -719,6 +723,7 @@ function TabContent({
   onRetry,
   onOpen,
   onResume,
+  onOpenSettings,
 }: {
   tab: TabKey;
   config: ConfigBlob;
@@ -726,11 +731,17 @@ function TabContent({
   onRetry: () => void;
   onOpen: (item: VodItem) => void;
   onResume: (item: VodItem) => void;
+  onOpenSettings: () => void;
 }) {
   switch (tab) {
     case "live":
       return (
-        <LiveScreen config={config} error={errors.live} onRetry={onRetry} />
+        <LiveScreen
+          config={config}
+          error={errors.live}
+          onRetry={onRetry}
+          onOpenSettings={onOpenSettings}
+        />
       );
     case "stream":
       return (
@@ -740,6 +751,7 @@ function TabContent({
           onRetry={onRetry}
           onOpen={onOpen}
           onResume={onResume}
+          onOpenSettings={onOpenSettings}
         />
       );
     case "discover":

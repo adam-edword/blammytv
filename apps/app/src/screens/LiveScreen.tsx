@@ -20,6 +20,8 @@ import {
 } from "../components/CategorySidebar";
 import { EpgGuide } from "../components/EpgGuide";
 import { SourceError } from "../components/SourceError";
+import { EmptyState } from "../components/EmptyState";
+import { loadPlaylists } from "../lib/playlists";
 import { guideWindow, isLiveNow, SLOT_MIN } from "../lib/epg";
 import { buildLanes, laneColumns } from "../lib/guide";
 import {
@@ -84,11 +86,14 @@ export function LiveScreen({
   config,
   error,
   onRetry,
+  onOpenSettings,
 }: {
   config: ConfigBlob;
   /** Set when the IPTV playlists failed to load (independent of Stream). */
   error?: string;
   onRetry: () => void;
+  /** Open Settings — the empty state's call to action when no playlists exist. */
+  onOpenSettings: () => void;
 }) {
   const { live } = config;
   // Favorites + recents live on-device (not in the config blob).
@@ -847,6 +852,24 @@ export function LiveScreen({
 
   // IPTV failed to load — scoped to this tab; Stream is unaffected.
   if (error) return <SourceError message={error} onRetry={onRetry} />;
+
+  // No channels: either no playlist is set up (fresh install) or one returned
+  // nothing — show a way forward instead of an empty sidebar + guide dead-end.
+  if (live.channels.length === 0) {
+    const hasPlaylists = loadPlaylists().some((p) => p.enabled);
+    return (
+      <EmptyState
+        title={hasPlaylists ? "No channels found" : "Add a live TV source"}
+        message={
+          hasPlaylists
+            ? "Your IPTV playlists didn’t return any channels. Check them in Settings → Playlists."
+            : "Add an IPTV playlist to watch live TV. You can set it up from your phone in Settings — no typing on the remote."
+        }
+        actionLabel="Open Settings"
+        onAction={onOpenSettings}
+      />
+    );
+  }
 
   // On Android the native surface owns fullscreen (it covers the UI), so the
   // React Live layout must stay completely static — the theater/fullscreen

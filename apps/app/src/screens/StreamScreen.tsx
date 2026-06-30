@@ -5,7 +5,8 @@ import { FeaturedHero } from "../components/FeaturedHero";
 import { CAROUSEL_KEY, HeroSlider } from "../components/HeroSlider";
 import { MediaRow } from "../components/MediaRow";
 import { SourceError } from "../components/SourceError";
-import { vodCatalog } from "../lib/vod";
+import { EmptyState } from "../components/EmptyState";
+import { vodCatalog, vodBackendConfigured } from "../lib/vod";
 import {
   progressPct,
   removeContinueWatching,
@@ -28,6 +29,7 @@ export function StreamScreen({
   onRetry,
   onOpen,
   onResume,
+  onOpenSettings,
 }: {
   config: ConfigBlob;
   /** Set when the AIOStreams catalog failed to load (independent of Live TV). */
@@ -36,6 +38,8 @@ export function StreamScreen({
   onOpen: (item: VodItem) => void;
   /** Continue Watching: resume a title (re-resolve + play at saved position). */
   onResume: (item: VodItem) => void;
+  /** Open Settings — the empty state's call to action when nothing's set up. */
+  onOpenSettings: () => void;
 }) {
   const { stream, movies, series } = config;
 
@@ -64,6 +68,26 @@ export function StreamScreen({
 
   if (error) {
     return <SourceError message={error} onRetry={onRetry} />;
+  }
+
+  // Nothing to show: either no streaming source is set up (fresh install), or one
+  // is configured but returned no catalog — both are dead-ends without a nudge.
+  if (stream.featured.length === 0 && stream.rows.length === 0) {
+    return vodBackendConfigured() ? (
+      <EmptyState
+        title="Nothing to stream yet"
+        message="Your streaming source didn’t return any titles. Double-check your AIOStreams setup in Settings."
+        actionLabel="Open Settings"
+        onAction={onOpenSettings}
+      />
+    ) : (
+      <EmptyState
+        title="Add a streaming source"
+        message="Connect AIOStreams to browse movies and shows. You can set it up from your phone in Settings — no typing on the remote."
+        actionLabel="Open Settings"
+        onAction={onOpenSettings}
+      />
+    );
   }
 
   // No focus container around the whole screen: it's full-bleed (the hero sits

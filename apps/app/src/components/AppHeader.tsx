@@ -21,7 +21,6 @@ export function AppHeader({
   onOpenSettings,
   onOpenProfile,
   avatar,
-  onSearchLive,
   onSearchStream,
   version = `v${APP_VERSION}`,
 }: {
@@ -31,7 +30,6 @@ export function AppHeader({
   onOpenProfile?: () => void;
   /** Data URL of the profile avatar; replaces the account icon when set. */
   avatar?: string | null;
-  onSearchLive?: () => void;
   onSearchStream?: () => void;
   version?: string;
 }) {
@@ -73,16 +71,14 @@ export function AppHeader({
       </div>
 
       <div className="app-header__center">
-        {/* Each section has its own search (a different engine), on that
-            section's outer edge. Both slots are always rendered — the inactive
-            one is hidden but keeps its space — so the tabs never shift. */}
+        {/* The streaming section has a search (right edge); live search isn't
+            built yet, so its left slot is kept (an invisible spacer) only to keep
+            the tabs centred — never shown or focusable. */}
         <button
-          className={"icon-btn" + (section === "live" ? "" : " icon-btn--ghost")}
-          aria-label="Search live channels"
-          aria-hidden={section !== "live"}
-          tabIndex={section === "live" ? undefined : -1}
+          className="icon-btn icon-btn--ghost"
+          aria-hidden="true"
+          tabIndex={-1}
           type="button"
-          onClick={onSearchLive}
         >
           <SearchIcon />
         </button>
