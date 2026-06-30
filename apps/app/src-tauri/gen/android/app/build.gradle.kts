@@ -24,8 +24,12 @@ android {
         applicationId = "com.blammytv.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
-        versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
+        // Test-build version label. Set here (not derived from tauri.conf.json,
+        // which stays valid semver "0.2.4" for the updater) so the "a" suffix is
+        // allowed. Bump versionCode for every new build you sideload, so it
+        // installs over the previous one instead of being rejected as a downgrade.
+        versionCode = 20240
+        versionName = "0.2.4a"
     }
     buildTypes {
         getByName("debug") {
