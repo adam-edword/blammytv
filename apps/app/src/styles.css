@@ -583,7 +583,9 @@ img {
   --preview-w: 480px;
   position: relative; /* anchors the slide-out "hold to close" tab */
   display: flex;
-  gap: 28px;
+  /* Roomy enough that the "hold to close" tab tucks between the player and the
+     details without crowding either. */
+  gap: 44px;
   padding-right: 44px;
   flex-shrink: 0;
   margin: 0 0 18px;
@@ -627,7 +629,10 @@ img {
   position: absolute;
   z-index: 0;
   top: 50%;
-  left: var(--preview-w);
+  /* Anchor just outside the focus ring (the preview's box-shadow extends ~6px
+     past its edge), so the emerged label clears the ring instead of tucking
+     under it. */
+  left: calc(var(--preview-w) + 7px);
   display: flex;
   align-items: center;
   /* Bias the label to the emerged (right) side; the extra left padding is a
@@ -635,14 +640,14 @@ img {
   justify-content: flex-end;
   /* Height comes from the (vertical) label + padding, so the text can never be
      clipped by a too-short pill. */
-  padding: 26px 8px 26px 14px;
-  border-radius: 0 16px 16px 0;
+  padding: 26px 7px 26px 13px;
+  border-radius: 0 15px 15px 0;
   background: var(--text);
   color: var(--bg);
   font-family: var(--font-headline);
   font-weight: 600;
-  font-size: 11px;
-  letter-spacing: 0.06em;
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
   white-space: nowrap;
   /* Start fully tucked behind the player, then slide most of it out (leaving the
      square left corners hidden behind the player edge for the "peeking" look). */
@@ -656,7 +661,7 @@ img {
 }
 @keyframes close-tab-out {
   to {
-    transform: translateY(-50%) translateX(-34%);
+    transform: translateY(-50%) translateX(-30%);
   }
 }
 

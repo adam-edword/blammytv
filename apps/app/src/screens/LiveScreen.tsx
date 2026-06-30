@@ -615,7 +615,7 @@ export function LiveScreen({
   // time the press from the raw key stream, exactly like StreamCard. Active only
   // while the cursor sits on a *playing* mini and the player isn't full-size.
   useEffect(() => {
-    const HINT_MS = 500; // tap-vs-hold boundary; scrim appears
+    const HINT_MS = 200; // tap-vs-hold boundary; the "hold to close" tab appears
     const HOLD_MS = 2000; // hold this long to close
     const RELEASE_MS = 90; // keyup with no follow-up keydown = released
     let firstDownAt = 0;
