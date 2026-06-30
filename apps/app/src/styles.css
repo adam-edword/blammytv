@@ -1404,6 +1404,14 @@ img {
   line-height: 1;
 }
 
+/* slot-text promotes each glyph face to its own GPU layer (will-change:
+   transform). The Android WebView doesn't discard those layers when a face is
+   removed, leaving the faded "ghost" glyphs behind. Drop the hint on Android —
+   the splash has few glyphs, so it animates fine on the main thread. */
+html.is-android .char-face {
+  will-change: auto;
+}
+
 .loading-screen__sub {
   font-family: var(--font-text);
   font-size: 15px;
