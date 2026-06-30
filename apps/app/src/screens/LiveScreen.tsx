@@ -665,14 +665,19 @@ export function LiveScreen({
         cancelHint();
         setHeroHold(false);
         const held = firstDownAt ? lastUpAt - firstDownAt : 0;
+        const wasArmedPress = firstDownAt !== 0;
         const wasClosed = closed;
         firstDownAt = 0;
         closed = false;
         // Physical release is complete — let OK act normally again.
         holdConsumedRef.current = false;
         if (wasClosed) return; // the hold already closed it
-        // A tap (released before the scrim shows) expands the mini to theater.
-        if (held < HINT_MS && armed()) setTheater(true);
+        // A tap expands the mini to theater — but only if the press began on an
+        // already-playing mini (firstDownAt is only set when armed at keydown).
+        // A tap that just started an idle channel must NOT also jump to theater:
+        // by release, playback has flipped on so armed() is now true, and held
+        // would be 0 (firstDownAt never set), which would wrongly pass.
+        if (wasArmedPress && held < HINT_MS && armed()) setTheater(true);
       }, RELEASE_MS);
     };
     window.addEventListener("keydown", onDown, true);

@@ -39,16 +39,19 @@ export function requestChannelEpg(channelId: string): void {
   inFlight.add(channelId);
   fetchChannelEpg(channelId)
     .then((programs) => {
+      // Cache success (including a genuine empty result → "No Information").
       cache.set(channelId, programs);
+      version++;
+      listeners.forEach((l) => l());
     })
     .catch(() => {
-      // Cache the empty result so we don't hammer a failing channel.
-      cache.set(channelId, []);
+      // Don't cache failures: a transient error (panel 5xx, network blip,
+      // throttling during a scroll burst) must not pin the channel to "No
+      // Information" for the session. Leaving it uncached lets it retry when the
+      // row next scrolls into view or the hero/prefetch path requests it.
     })
     .finally(() => {
       inFlight.delete(channelId);
-      version++;
-      listeners.forEach((l) => l());
     });
 }
 

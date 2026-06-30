@@ -294,12 +294,16 @@ export function EpgGuide({
   }, [focusedProgramId, focusedChannelId, lanes, PROGRAM_GAP]);
 
   // Lazy EPG: request each channel's programmes as its row scrolls into view
-  // (with a prefetch margin). Re-observe only when the channel set changes (a
+  // (with a prefetch margin). Re-observe only when the channel *set* changes (a
   // category switch) — key={ch.id} keeps the row elements stable across EPG
-  // arrivals, so the observer stays valid in between.
-  const channelsSig = `${lanes.length}:${lanes[0]?.ch.id ?? ""}:${
-    lanes[lanes.length - 1]?.ch.id ?? ""
-  }`;
+  // arrivals, so the observer stays valid in between. The signature must cover
+  // every id: a length+first+last key collides for two categories that share
+  // their endpoints, leaving the middle rows unobserved (never fetched). Memoed
+  // on `lanes` so it doesn't rebuild on focus-only re-renders.
+  const channelsSig = useMemo(
+    () => lanes.map((l) => l.ch.id).join(","),
+    [lanes],
+  );
   useEffect(() => {
     const root = scrollRef.current;
     if (!root) return;

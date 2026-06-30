@@ -6,15 +6,18 @@ import type {
 } from "./types";
 import type { XtreamClient } from "./client";
 
-/** Decode a base64 field (Xtream encodes EPG title/desc), UTF-8 safe. */
+/** Decode a base64 field (Xtream encodes EPG title/desc), UTF-8 safe. Some
+ * panels send plain text instead — `fatal` makes an invalid-UTF-8 decode throw
+ * so we fall back to the raw text rather than emit mojibake (or, as before, lose
+ * it entirely by returning ""). */
 function decodeB64(s?: string): string {
   if (!s) return "";
   try {
     const bin = atob(s);
     const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
-    return new TextDecoder().decode(bytes).trim();
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes).trim();
   } catch {
-    return "";
+    return s.trim();
   }
 }
 
@@ -27,7 +30,14 @@ export function mapShortEpg(
   for (const l of listings) {
     const start = Number(l.start_timestamp) * 1000;
     const stop = Number(l.stop_timestamp) * 1000;
-    if (!Number.isFinite(start) || !Number.isFinite(stop) || stop <= start)
+    // start <= 0 rejects empty/missing timestamps: Number("") is 0 (not NaN),
+    // which would otherwise emit a bogus programme starting at the 1970 epoch.
+    if (
+      !Number.isFinite(start) ||
+      !Number.isFinite(stop) ||
+      start <= 0 ||
+      stop <= start
+    )
       continue;
     const title = decodeB64(l.title);
     if (isFillerTitle(title)) continue;
