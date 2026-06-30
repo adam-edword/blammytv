@@ -1404,10 +1404,15 @@ img {
   line-height: 1;
 }
 
-/* slot-text promotes each glyph face to its own GPU layer (will-change:
-   transform). The Android WebView doesn't discard those layers when a face is
-   removed, leaving the faded "ghost" glyphs behind. Drop the hint on Android —
-   the splash has few glyphs, so it animates fine on the main thread. */
+/* The slot-text roll hides the outgoing glyphs purely by clipping them inside
+   each cell (.char-slot { overflow-y: clip }). That mixed overflow-x:visible +
+   overflow-y:clip is rendered inconsistently by the Android WebView — it can end
+   up not clipping, leaving the slid-out glyphs on screen as "ghosts". Force plain
+   overflow:hidden on Android so the cells reliably mask their reel. (Also drop
+   the per-glyph will-change so no stale GPU layer lingers.) */
+html.is-android .char-slot {
+  overflow: hidden;
+}
 html.is-android .char-face {
   will-change: auto;
 }
