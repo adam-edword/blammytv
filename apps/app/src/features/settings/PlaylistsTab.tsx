@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { ChipTabs } from "../../ui/ChipTabs";
 import { Toggle } from "../../ui/Toggle";
 import { CloseIcon } from "../../ui/icons";
@@ -111,26 +111,30 @@ export function PlaylistsTab() {
             <>
               <div className="settings-form__row">
                 <Field
+                  label="Name (optional)"
                   value={form.name}
                   onChange={set("name")}
-                  placeholder="Name (optional)"
+                  placeholder="Living Room IPTV"
                 />
                 <Field
+                  label="Server URL"
                   value={form.server}
                   onChange={set("server")}
-                  placeholder="Server URL"
+                  placeholder="http://tv.example.com:8080"
                 />
               </div>
               <div className="settings-form__row">
                 <Field
+                  label="Username"
                   value={form.username}
                   onChange={set("username")}
-                  placeholder="Username"
+                  placeholder="user123"
                 />
                 <Field
+                  label="Password"
                   value={form.password}
                   onChange={set("password")}
-                  placeholder="Password"
+                  placeholder="••••••••"
                   type="password"
                 />
               </div>
@@ -139,14 +143,16 @@ export function PlaylistsTab() {
           {kind === "m3u" && (
             <div className="settings-form__row">
               <Field
+                label="Name (optional)"
                 value={form.name}
                 onChange={set("name")}
-                placeholder="Name (optional)"
+                placeholder="Living Room IPTV"
               />
               <Field
+                label="Playlist URL"
                 value={form.url}
                 onChange={set("url")}
-                placeholder="Playlist URL (.m3u / .m3u8)"
+                placeholder="https://example.com/playlist.m3u8"
               />
             </div>
           )}
@@ -154,21 +160,24 @@ export function PlaylistsTab() {
             <>
               <div className="settings-form__row">
                 <Field
+                  label="Name (optional)"
                   value={form.name}
                   onChange={set("name")}
-                  placeholder="Name (optional)"
+                  placeholder="Living Room IPTV"
                 />
                 <Field
+                  label="Portal URL"
                   value={form.portal}
                   onChange={set("portal")}
-                  placeholder="Portal URL"
+                  placeholder="http://portal.example.com/c/"
                 />
               </div>
               <div className="settings-form__row">
                 <Field
+                  label="MAC address"
                   value={form.mac}
                   onChange={set("mac")}
-                  placeholder="MAC address (00:1A:79:…)"
+                  placeholder="00:1A:79:12:34:56"
                 />
               </div>
             </>
@@ -224,25 +233,34 @@ export function PlaylistsTab() {
 }
 
 function Field({
+  label,
   value,
   onChange,
   placeholder,
   type = "text",
 }: {
+  label: string;
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
   type?: string;
 }) {
+  const id = useId();
   return (
-    <input
-      className="settings-input"
-      type={type}
-      value={value}
-      placeholder={placeholder}
-      onChange={(e) => onChange(e.target.value)}
-      spellCheck={false}
-      autoComplete="off"
-    />
+    <div className="settings-field">
+      <label className="settings-field__label" htmlFor={id}>
+        {label}
+      </label>
+      <input
+        id={id}
+        className="settings-input"
+        type={type}
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        spellCheck={false}
+        autoComplete="off"
+      />
+    </div>
   );
 }

@@ -112,6 +112,24 @@
   gap: 12px;
 }
 
+/* Label-above-input field. Placeholders show example values, not names. */
+.settings-field {
+  flex: 1;
+  min-width: 1px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-field__label {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 12px;
+  opacity: 0.6;
+  padding-left: 6px;
+}
+
 .settings-input {
   flex: 1;
   min-width: 1px;

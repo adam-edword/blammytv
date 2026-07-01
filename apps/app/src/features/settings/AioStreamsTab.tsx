@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { isValidManifestUrl, loadAioUrl, saveAioUrl } from "./aiostreams";
 
 export function AioStreamsTab() {
   const [url, setUrl] = useState(loadAioUrl);
   const [savedUrl, setSavedUrl] = useState(url);
   const dirty = url.trim() !== savedUrl;
+  const id = useId();
 
   const submit = () => {
     if (!isValidManifestUrl(url)) return;
@@ -19,15 +20,21 @@ export function AioStreamsTab() {
         Paste your AIOStreams manifest URL. It powers the movies and series
         under the Stream tab.
       </p>
-      <input
-        className="settings-input"
-        type="text"
-        value={url}
-        placeholder="https://…/manifest.json"
-        onChange={(e) => setUrl(e.target.value)}
-        spellCheck={false}
-        autoComplete="off"
-      />
+      <div className="settings-field">
+        <label className="settings-field__label" htmlFor={id}>
+          Manifest URL
+        </label>
+        <input
+          id={id}
+          className="settings-input"
+          type="text"
+          value={url}
+          placeholder="https://aiostreams.example.com/stremio/…/manifest.json"
+          onChange={(e) => setUrl(e.target.value)}
+          spellCheck={false}
+          autoComplete="off"
+        />
+      </div>
       <button
         type="button"
         className="btn-primary"
