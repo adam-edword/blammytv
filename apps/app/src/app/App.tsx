@@ -4,9 +4,10 @@ import { LiveScreen } from "../features/live/LiveScreen";
 import { StreamScreen } from "../features/stream/StreamScreen";
 import { DiscoverScreen } from "../features/discover/DiscoverScreen";
 import { SettingsModal } from "../features/settings/SettingsModal";
+import { loadStartupTab } from "../features/settings/startupTab";
 
 export function App() {
-  const [tab, setTab] = useState<TabKey>("live");
+  const [tab, setTab] = useState<TabKey>(loadStartupTab);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (

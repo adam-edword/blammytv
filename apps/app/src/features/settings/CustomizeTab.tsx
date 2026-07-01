@@ -23,6 +23,17 @@ import {
   saveClockFormat,
   type ClockFormat,
 } from "./clockFormat";
+import {
+  applyCornerStyle,
+  loadCornerStyle,
+  saveCornerStyle,
+  type CornerStyle,
+} from "./cornerStyle";
+import {
+  loadStartupTab,
+  saveStartupTab,
+  type StartupTab,
+} from "./startupTab";
 
 const SCALE_TABS = UI_SCALES.map((s) => ({
   key: String(s),
@@ -32,6 +43,18 @@ const SCALE_TABS = UI_SCALES.map((s) => ({
 const CLOCK_TABS: Array<{ key: ClockFormat; label: string }> = [
   { key: "12h", label: "12h" },
   { key: "24h", label: "24h" },
+];
+
+const CORNER_TABS: Array<{ key: CornerStyle; label: string }> = [
+  { key: "squircle", label: "Squircle" },
+  { key: "round", label: "Round" },
+  { key: "sharp", label: "Sharp" },
+];
+
+const STARTUP_TABS: Array<{ key: StartupTab; label: string }> = [
+  { key: "live", label: "Live TV" },
+  { key: "stream", label: "Stream" },
+  { key: "discover", label: "Discover" },
 ];
 
 /** Swatch look: the color's 16% surface tint as fill, the pure color as the
@@ -84,15 +107,30 @@ export function CustomizeTab() {
     saveClockFormat(next);
   };
 
+  const [corners, setCorners] = useState<CornerStyle>(loadCornerStyle);
+  const pickCorners = (next: CornerStyle) => {
+    setCorners(next);
+    saveCornerStyle(next);
+    applyCornerStyle(next);
+  };
+
+  const [startup, setStartup] = useState<StartupTab>(loadStartupTab);
+  const pickStartup = (next: StartupTab) => {
+    setStartup(next);
+    saveStartupTab(next);
+  };
+
   /** Back to factory appearance: default accent (custom slot cleared),
-   * dark theme, 100% scale, 12h clock. */
+   * dark theme, squircle corners, 100% scale, 12h clock, open on Live. */
   const reset = () => {
     pick(ACCENT_PRESETS[0].hex);
     setCustom("");
     saveCustomAccent("");
     pickTheme("dark");
+    pickCorners("squircle");
     pickScale(1);
     pickClock("12h");
+    pickStartup("live");
   };
 
   return (
@@ -162,6 +200,16 @@ export function CustomizeTab() {
 
       <div className="customize-row">
         <div>
+          <h4 className="customize-row__title">Corner Style</h4>
+          <p className="settings__section-note settings__section-note--dim">
+            The shape of every corner in the app.
+          </p>
+        </div>
+        <ChipTabs tabs={CORNER_TABS} active={corners} onChange={pickCorners} />
+      </div>
+
+      <div className="customize-row">
+        <div>
           <h4 className="customize-row__title">UI Scale</h4>
           <p className="settings__section-note settings__section-note--dim">
             Make everything bigger or smaller.
@@ -182,6 +230,16 @@ export function CustomizeTab() {
           </p>
         </div>
         <ChipTabs tabs={CLOCK_TABS} active={clock} onChange={pickClock} />
+      </div>
+
+      <div className="customize-row">
+        <div>
+          <h4 className="customize-row__title">Startup Tab</h4>
+          <p className="settings__section-note settings__section-note--dim">
+            Where the app opens.
+          </p>
+        </div>
+        <ChipTabs tabs={STARTUP_TABS} active={startup} onChange={pickStartup} />
       </div>
 
       <button type="button" className="customize-reset" onClick={reset}>

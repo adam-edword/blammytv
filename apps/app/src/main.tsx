@@ -9,11 +9,16 @@ import { App } from "./app/App";
 import { applyAccent, loadAccent } from "./features/settings/accent";
 import { applyTheme, loadTheme } from "./features/settings/theme";
 import { applyUiScale, loadUiScale } from "./features/settings/uiScale";
+import {
+  applyCornerStyle,
+  loadCornerStyle,
+} from "./features/settings/cornerStyle";
 
-// Apply saved accent, theme, and scale before first paint so nothing flashes.
+// Apply saved appearance before first paint so nothing flashes.
 applyAccent(loadAccent());
 applyTheme(loadTheme());
 applyUiScale(loadUiScale());
+applyCornerStyle(loadCornerStyle());
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

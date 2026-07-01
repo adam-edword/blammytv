@@ -63,6 +63,20 @@
   color-scheme: dark;
 }
 
+/* Corner styles (Customize): round swaps the superellipse profile; sharp
+   additionally zeroes every radius — the one sanctioned !important, since
+   it must beat each component's own border-radius. */
+:root[data-corners="round"],
+:root[data-corners="sharp"] {
+  --corner: round;
+}
+
+:root[data-corners="sharp"] *,
+:root[data-corners="sharp"] *::before,
+:root[data-corners="sharp"] *::after {
+  border-radius: 0 !important;
+}
+
 /* Light theme (palette carried over from the old app). */
 :root[data-theme="light"] {
   --bg: #f3f4f7;
