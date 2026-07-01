@@ -412,17 +412,47 @@
   margin: 0 0 2px;
 }
 
-/* Quiet escape hatch back to the default appearance. */
-.customize-reset {
-  font-family: var(--font-headline);
-  font-weight: 600;
-  font-size: 13px;
-  color: var(--text-muted);
-  transition: color 150ms ease;
+/* Danger zone: destructive actions live behind a red hairline. The red is
+ * fixed (not the accent) so danger reads as danger under any theme. */
+.danger-zone {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px 22px 22px;
+  border: 1px solid rgba(194, 39, 39, 0.45);
+  border-radius: var(--radius-card);
 }
 
-.customize-reset:hover {
+.danger-zone__title {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 15px;
+  color: #e04b4b;
+  margin: 0;
+}
+
+.btn-danger {
+  flex-shrink: 0;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 13px;
   color: var(--text);
+  background: color-mix(in srgb, #c22727 16%, var(--mix-base));
+  border: 0.5px solid #c22727;
+  border-radius: 25px;
+  padding: 8px 14px;
+  transition:
+    filter 150ms ease,
+    background 150ms ease;
+}
+
+.btn-danger:hover {
+  filter: brightness(1.35);
+}
+
+.btn-danger--armed {
+  background: color-mix(in srgb, #c22727 45%, var(--mix-base));
 }
 
 /* -------------------------------------------------------- playlist list */

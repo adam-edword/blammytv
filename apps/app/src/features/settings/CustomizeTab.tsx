@@ -35,6 +35,8 @@ import {
   saveStartupTab,
   type StartupTab,
 } from "./startupTab";
+import { savePlaylists } from "./playlists";
+import { saveAioUrl, saveHeroSources } from "./aiostreams";
 
 const SCALE_TABS = UI_SCALES.map((s) => ({
   key: String(s),
@@ -168,6 +170,27 @@ export function CustomizeTab() {
     pickScale(1);
     pickClock("12h");
     pickStartup("live");
+  };
+
+  // Clearing credentials is destructive, so it takes two clicks: arm, then
+  // confirm within a few seconds.
+  const [clearArmed, setClearArmed] = useState(false);
+  const clearTimer = useRef(0);
+  const clearLogins = () => {
+    if (!clearArmed) {
+      setClearArmed(true);
+      window.clearTimeout(clearTimer.current);
+      clearTimer.current = window.setTimeout(
+        () => setClearArmed(false),
+        4000,
+      );
+      return;
+    }
+    window.clearTimeout(clearTimer.current);
+    setClearArmed(false);
+    savePlaylists([]);
+    saveAioUrl("");
+    saveHeroSources([]);
   };
 
   return (
@@ -342,9 +365,44 @@ export function CustomizeTab() {
           />
         </div>
 
-        <button type="button" className="customize-reset" onClick={reset}>
-          Reset appearance
-        </button>
+      </section>
+
+      <section className="settings-section">
+        <div className="danger-zone">
+          <h3 className="danger-zone__title">Danger Zone</h3>
+
+          <div className="customize-row">
+            <div>
+              <h4 className="customize-row__title">Reset Appearance</h4>
+              <p className="settings__section-note settings__section-note--dim">
+                Accent, theme, corners, scale, clock, and startup tab back to
+                defaults.
+              </p>
+            </div>
+            <button type="button" className="btn-danger" onClick={reset}>
+              Reset
+            </button>
+          </div>
+
+          <div className="customize-row">
+            <div>
+              <h4 className="customize-row__title">Clear All Login Info</h4>
+              <p className="settings__section-note settings__section-note--dim">
+                Removes every playlist and your AIOStreams manifest from this
+                device.
+              </p>
+            </div>
+            <button
+              type="button"
+              className={
+                "btn-danger" + (clearArmed ? " btn-danger--armed" : "")
+              }
+              onClick={clearLogins}
+            >
+              {clearArmed ? "Click again to confirm" : "Clear…"}
+            </button>
+          </div>
+        </div>
       </section>
     </>
   );
