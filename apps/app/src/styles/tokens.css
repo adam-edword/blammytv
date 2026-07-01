@@ -1,0 +1,37 @@
+/**
+ * Design tokens, extracted from the "IPTV EPG Redesign" Figma file.
+ *
+ * Sources: header (133:416), channel cards + badges (126:784, 126:856),
+ * playlist items (126:403). The red family is built around #c22727 — the
+ * accent the app has always used — so the brand carries over.
+ */
+:root {
+  /* Surfaces */
+  --bg: #000000;
+  --surface: #0f0f0f;
+  --border: rgba(255, 255, 255, 0.1);
+
+  /* Accent (red) family */
+  --accent: #c22727;
+  --accent-surface: #1f0606; /* selected fill (playlist items, airing cells) */
+  --accent-border: rgba(194, 39, 39, 0.36); /* selected outline */
+  --accent-border-hover: #631414; /* hover outline */
+
+  /* Text */
+  --text: #f2f2f5;
+  --text-muted: #a2a2a2;
+
+  /* Quality-badge borders (fills are per-badge gradients) */
+  --badge-4k: #ff7bf6;
+  --badge-fhd: #ffe57f;
+  --badge-hd: #242424;
+
+  /* Shape */
+  --radius-card: 12px;
+  --radius-chip: 8px;
+  --radius-badge: 3.4px;
+
+  /* Type */
+  --font-headline: "Stack Sans Headline", "Segoe UI", system-ui, sans-serif;
+  --font-text: "Stack Sans Text", "Segoe UI", system-ui, sans-serif;
+}

@@ -34,9 +34,9 @@ It's **self-contained** — there's no server to run. The app builds its own cat
 
 ## Status
 
-> **v0.2.x — a working alpha.**
+> **v0.0.x — a ground-up rebuild, targeting the new Figma designs.**
 
-Live TV (Xtream) and movies & shows (AIOStreams) are wired end-to-end, and the app self-updates from GitHub Releases. The **Discover** tab is still a placeholder, and on-screen **search** isn't wired up yet. Everything is managed in-app — there's no separate web UI.
+The frontend is being rebuilt from scratch against the "IPTV EPG Redesign" Figma file; the battle-tested native layer (`src-tauri`: libmpv composition player, Schannel TLS fetches, self-updater) carries over intact. Release ladder: **v0.1.0** the Live tab begins, **v0.2.0** live TV complete + AIOStreams begins, **v0.3.0** the Stream tab is done. The previous working alpha (v0.2.4) lives in the pre-rebuild history and on the Releases page.
 
 ## How it works
 
@@ -53,12 +53,11 @@ Everything you configure lives in **localStorage** on the device:
 
 ## Project structure
 
-pnpm monorepo.
+pnpm monorepo with a single app (for now).
 
 | Package | What it does |
 | --- | --- |
-| `packages/shared` | The `ConfigBlob` types + zod schemas the UI renders against, plus a bundled mock blob for demo mode. |
-| `apps/app` | The React client (Vite + TS): the `Live TV \| Stream \| Discover` tabs, the EPG guide, and the in-app + theater player. Wrapped in a Tauri shell (`apps/app/src-tauri`, Rust) for the Windows build, with the native libmpv composition player and the self-updater. |
+| `apps/app` | The React client (Vite + TS), organized by feature: `src/app` (shell + header), `src/features/{live,stream,discover,settings}`, `src/ui` (shared primitives), `src/lib` (utilities), `src/styles` (design tokens + base). Wrapped in a Tauri shell (`apps/app/src-tauri`, Rust) for the Windows build, with the native libmpv composition player and the self-updater. |
 
 ## Getting started
 
@@ -74,7 +73,7 @@ pnpm test         # vitest across packages
 pnpm build        # build all packages
 ```
 
-`pnpm dev` runs the frontend in a browser on **demo data** (the bundled mock blob from `packages/shared`) — great for UI work, but live TV and real AIOStreams need the native layer. For the real thing, from `apps/app`:
+`pnpm dev` runs the frontend in a browser — great for UI work, but live TV and real AIOStreams need the native layer. For the real thing, from `apps/app`:
 
 ```bash
 pnpm tauri dev    # the full desktop app — native player + on-device AIOStreams/Xtream
@@ -85,7 +84,7 @@ Cutting and publishing a release (signing keys, `latest.json`, GitHub Releases) 
 
 ## Design notes
 
-The Live tab is an EPG frame: a "now playing" hero, a category rail, and a time-grid guide with a live "now" indicator. Styling is plain CSS (no Tailwind), driven by design tokens in `apps/app/src/styles.css` — a desaturated dark theme, squircle corners (`corner-shape`), and a recolorable accent. The "Stack Sans" typeface is self-hosted (bundled via Fontsource in `apps/app/src/fonts.ts`), with a system-font fallback in the `--font-headline` / `--font-text` variables.
+The Live tab is an EPG frame: a "now playing" hero with a live mini-player, a source/folder sidebar, and a time-grid guide with a live "now" indicator. Styling is plain CSS (no Tailwind), driven by design tokens extracted from the Figma file into `apps/app/src/styles/tokens.css` — a black theme built on `#0f0f0f` surfaces and the `#c22727` red family. The "Stack Sans" typeface is self-hosted (bundled via Fontsource in `apps/app/src/fonts.ts`), with a system-font fallback in the `--font-headline` / `--font-text` variables.
 
 The desktop player is the interesting bit: native **mpv** (loaded at runtime from `libmpv-2.dll`) renders into a child window for true 4K60, and a transparent composition-hosted **WebView2** (the React control overlay) is composited over it with **DirectComposition** — one window, controls-on-video, no readback. See `apps/app/src-tauri/src/comp.rs`.
 

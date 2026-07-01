@@ -1,36 +1,12 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { App } from "./App";
-import { TheaterOverlay } from "./components/TheaterOverlay";
-import { initPreferences } from "./state/preferences";
-import { PreferencesProvider } from "./state/PreferencesProvider";
-import { UpdaterProvider } from "./state/UpdaterProvider";
 import "./fonts";
-import "./styles.css";
+import "./styles/tokens.css";
+import "./styles/base.css";
+import { App } from "./app/App";
 
-const root = ReactDOM.createRoot(document.getElementById("root")!);
-
-// The native-theater overlay window loads this same bundle with ?overlay=1 — it
-// renders only the transparent theater chrome over the native mpv surface.
-const isOverlay =
-  new URLSearchParams(window.location.search).get("overlay") === "1";
-
-if (isOverlay) {
-  document.body.classList.add("is-overlay");
-  root.render(
-    <React.StrictMode>
-      <TheaterOverlay />
-    </React.StrictMode>,
-  );
-} else {
-  initPreferences();
-  root.render(
-    <React.StrictMode>
-      <UpdaterProvider>
-        <PreferencesProvider>
-          <App />
-        </PreferencesProvider>
-      </UpdaterProvider>
-    </React.StrictMode>,
-  );
-}
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+);

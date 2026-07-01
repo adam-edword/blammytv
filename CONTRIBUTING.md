@@ -31,11 +31,9 @@ defines `typecheck` / `lint` / `test` is picked up automatically — including b
 - **branches & PRs** — branch off `main`, open a PR back into `main`. CI
   (`.github/workflows/ci.yml`) runs typecheck + lint + test on every PR; keep it
   green.
-- **the data model lives in `packages/shared`** — the `ConfigBlob` types and zod
-  schemas the whole UI renders. the app assembles the blob **on-device** (live
-  from Xtream, VOD from AIOStreams) and renders only a **validated** blob; if you
-  change the shape, change it here so every consumer (and the demo seed) stays in
-  sync.
+- **the app is self-contained and on-device** — live TV comes from the user's
+  playlists, VOD from their AIOStreams manifest, both fetched via the Rust layer.
+  domain types live next to the feature that owns them (`apps/app/src/features/*`).
 - **secrets live on-device, and never get committed.** the AIOStreams manifest URL
   (which embeds debrid keys) and Xtream credentials are stored in the user's
   `localStorage` and read by the Rust layer at request time — they are *not*
@@ -48,20 +46,10 @@ defines `typecheck` / `lint` / `test` is picked up automatically — including b
 
 ## adding a new app (e.g. a Next.js app)
 
-the workspace globs `apps/*` and `packages/*` (`pnpm-workspace.yaml`), so a new
-`apps/web/` joins automatically — no registration needed. a few things to wire up:
+the workspace globs `apps/*` (`pnpm-workspace.yaml`), so a new `apps/web/` joins
+automatically — no registration needed. a few things to wire up:
 
-1. **share the data model.** import `@blammytv/shared` for the `ConfigBlob` types
-   and zod schemas. it's published as **raw TypeScript** (`exports` →
-   `src/index.ts`), so Next won't transpile it out of the box — add it to
-   `transpilePackages` in `next.config`:
-
-   ```js
-   // apps/web/next.config.mjs
-   export default { transpilePackages: ["@blammytv/shared"] };
-   ```
-
-2. **tsconfig.** extend the repo base so strictness/casing stay consistent, then
+1. **tsconfig.** extend the repo base so strictness/casing stay consistent, then
    layer Next's needs on top:
 
    ```jsonc
@@ -72,7 +60,7 @@ the workspace globs `apps/*` and `packages/*` (`pnpm-workspace.yaml`), so a new
    }
    ```
 
-3. **scripts.** give `apps/web/package.json` a `typecheck`, `lint`, and `test`
+2. **scripts.** give `apps/web/package.json` a `typecheck`, `lint`, and `test`
    script so the root commands and CI cover it for free:
 
    ```jsonc
@@ -85,11 +73,11 @@ the workspace globs `apps/*` and `packages/*` (`pnpm-workspace.yaml`), so a new
    }
    ```
 
-4. **eslint.** the flat config is organized per-area. add an `apps/web/**` block
+3. **eslint.** the flat config is organized per-area. add an `apps/web/**` block
    (with `@next/eslint-plugin-next` if you want Next's rules); until then, the base
    TS + React rules already apply. keeping `pnpm lint` at 0 is the bar.
 
-5. **native build deps.** pnpm blocks dependency build scripts by default. if a
+4. **native build deps.** pnpm blocks dependency build scripts by default. if a
    Next dep needs one (e.g. `sharp`), add it to `onlyBuiltDependencies` in
    `pnpm-workspace.yaml` (where `esbuild` already lives).
 

@@ -1,6 +1,5 @@
 packages:
   - apps/*
-  - packages/*
 
 # Packages allowed to run install/build scripts (pnpm blocks them by default).
 onlyBuiltDependencies:

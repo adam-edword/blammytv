@@ -1,0 +1,277 @@
+/* App shell + the pieces that exist at v0.0.x (header, placeholders, settings
+ * card). Feature styles land next to their features as they're built. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-text);
+  font-weight: 400;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.app-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+/* ---------------------------------------------------------------- header */
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 27px 50px 10px 30px;
+}
+
+.header__brand {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+}
+
+.header__logo {
+  width: 35px;
+  height: 28px;
+  margin-top: 4px;
+  object-fit: contain;
+}
+
+.header__title {
+  display: flex;
+  flex-direction: column;
+}
+
+.header__name {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 26px;
+  line-height: 34px;
+}
+
+.header__version {
+  font-family: var(--font-headline);
+  font-weight: 200;
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.35;
+}
+
+.header__clock {
+  font-family: var(--font-headline);
+  font-weight: 200;
+  font-size: 26px;
+  line-height: 34px;
+  opacity: 0.3;
+}
+
+.header__tabs {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding-top: 7px;
+}
+
+.header__search {
+  width: 17px;
+  height: 17px;
+  opacity: 0.3;
+}
+
+.header__tab-slot {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.header__tab {
+  font-family: var(--font-headline);
+  font-weight: 300;
+  font-size: 21px;
+  letter-spacing: 0.42px;
+  opacity: 0.3;
+  transition: opacity 120ms ease;
+}
+
+.header__tab:hover {
+  opacity: 0.6;
+}
+
+.header__tab--active {
+  font-weight: 700;
+  letter-spacing: 0;
+  opacity: 1;
+}
+
+.header__divider {
+  font-family: var(--font-text);
+  font-weight: 200;
+  font-size: 32px;
+  opacity: 0.3;
+}
+
+.header__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  opacity: 0.3;
+}
+
+.header__action {
+  display: grid;
+  place-items: center;
+  transition: filter 120ms ease;
+}
+
+/* The cluster sits at 0.3 opacity, so hover brightens the icon itself. */
+.header__action:hover {
+  filter: brightness(2);
+}
+
+.header__action svg {
+  width: 25px;
+  height: 25px;
+}
+
+/* ----------------------------------------------------------- placeholder */
+
+.placeholder {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  padding: 24px;
+}
+
+.placeholder__title {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 28px;
+  margin: 0;
+}
+
+.placeholder__note {
+  color: var(--text-muted);
+  max-width: 44ch;
+  margin: 0;
+}
+
+/* -------------------------------------------------------------- settings */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  padding: 88px 48px;
+}
+
+.settings {
+  width: min(640px, 100%);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 28px 32px 32px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+}
+
+.settings__header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.settings__title {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 26px;
+  margin: 0;
+  flex: 1;
+}
+
+.settings__tabs {
+  display: flex;
+  background: #000;
+  border-radius: 999px;
+  padding: 3px;
+}
+
+.settings__tab {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 13px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  color: var(--text);
+  opacity: 0.85;
+}
+
+.settings__tab--active {
+  background: var(--text);
+  color: #000;
+  opacity: 1;
+}
+
+.settings__close {
+  display: grid;
+  place-items: center;
+  opacity: 0.9;
+}
+
+.settings__close svg {
+  width: 22px;
+  height: 22px;
+}
+
+.settings__body {
+  margin-top: 28px;
+}
+
+.settings__section-title {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 30px;
+  margin: 0 0 10px;
+}
+
+.settings__section-note {
+  color: var(--text-muted);
+  margin: 0;
+  max-width: 52ch;
+  line-height: 1.5;
+}

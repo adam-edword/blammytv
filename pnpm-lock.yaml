@@ -32,27 +32,18 @@ importers:
 
   apps/app:
     dependencies:
-      '@blammytv/shared':
-        specifier: workspace:*
-        version: link:../../packages/shared
       '@fontsource/stack-sans-headline':
         specifier: ^5.2.1
         version: 5.2.1
       '@fontsource/stack-sans-text':
         specifier: ^5.2.1
         version: 5.2.1
-      hls.js:
-        specifier: ^1.6.16
-        version: 1.6.16
       react:
         specifier: ^18.3.1
         version: 18.3.1
       react-dom:
         specifier: ^18.3.1
         version: 18.3.1(react@18.3.1)
-      slot-text:
-        specifier: ^0.3.1
-        version: 0.3.1(react@18.3.1)
     devDependencies:
       '@tauri-apps/api':
         specifier: ^2.11.0
@@ -78,16 +69,6 @@ importers:
       vitest:
         specifier: ^2.1.9
         version: 2.1.9(@types/node@22.19.21)
-
-  packages/shared:
-    dependencies:
-      zod:
-        specifier: ^3.23.8
-        version: 3.25.76
-    devDependencies:
-      typescript:
-        specifier: ^5.6.3
-        version: 5.9.3
 
 packages:
 
@@ -953,9 +934,6 @@ packages:
   hermes-parser@0.25.1:
     resolution: {integrity: sha512-6pEjquH3rqaI6cYAXYPcz9MS4rY6R4ngRgrgfDshRptUZIc3lw0MCIJIGDj9++mfySOuPTHB4nrSW99BCvOPIA==}
 
-  hls.js@1.6.16:
-    resolution: {integrity: sha512-VSIRpLfRwlAAdGL4wiTucx2ScRipo0ed1FBatWkyt832jC4CReKstga6yIhYVwGu9LOBjuX9wzmRMeQdBJtzEA==}
-
   ignore@5.3.2:
     resolution: {integrity: sha512-hsBTNUqQTDwkWtcdYI2i06Y/nUBEsNEDJKjWdigLvegy8kDuJAS8uRlpkkcQpyEXL0Z/pjDy5HBmMjRCJ2gq+g==}
     engines: {node: '>= 4'}
@@ -1130,23 +1108,6 @@ packages:
 
   siginfo@2.0.0:
     resolution: {integrity: sha512-ybx0WO1/8bSBLEWXZvEd7gMW3Sn3JFlW3TvX1nREbDLRNQNaeNN8WK0meBwPdAaOI7TtRRRJn/Es1zhrrCHu7g==}
-
-  slot-text@0.3.1:
-    resolution: {integrity: sha512-gDHfMnFrz4CxqD7H8F3CqWVGYwTbgjpJiIH1bQg1Tj60TzgnLe47vuQDHNeyg4zbhsEAPFvUp05nG7lKsboCVw==}
-    peerDependencies:
-      react: '>=18 <20'
-      solid-js: '>=1.8 <2'
-      svelte: '>=4 <6'
-      vue: '>=3.4 <4'
-    peerDependenciesMeta:
-      react:
-        optional: true
-      solid-js:
-        optional: true
-      svelte:
-        optional: true
-      vue:
-        optional: true
 
   source-map-js@1.2.1:
     resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
@@ -2098,8 +2059,6 @@ snapshots:
     dependencies:
       hermes-estree: 0.25.1
 
-  hls.js@1.6.16: {}
-
   ignore@5.3.2: {}
 
   ignore@7.0.5: {}
@@ -2262,10 +2221,6 @@ snapshots:
   shebang-regex@3.0.0: {}
 
   siginfo@2.0.0: {}
-
-  slot-text@0.3.1(react@18.3.1):
-    optionalDependencies:
-      react: 18.3.1
 
   source-map-js@1.2.1: {}
 

@@ -6,11 +6,12 @@
  * matters for a sideload-only client. Vite fingerprints and bundles the woff2
  * files referenced by these stylesheets.
  *
- * Only the weights actually used in styles.css are imported, to keep the bundle
- * lean: Headline 200/500/600/700, Text 200/400.
+ * Only the weights the redesign actually uses are imported, to keep the bundle
+ * lean: Headline 200 (ExtraLight), 300 (Light), 600 (SemiBold), 700 (Bold),
+ * Text 200/400.
  */
 import "@fontsource/stack-sans-headline/200.css";
-import "@fontsource/stack-sans-headline/500.css";
+import "@fontsource/stack-sans-headline/300.css";
 import "@fontsource/stack-sans-headline/600.css";
 import "@fontsource/stack-sans-headline/700.css";
 import "@fontsource/stack-sans-text/200.css";

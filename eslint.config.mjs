@@ -45,12 +45,6 @@ export default tseslint.config(
     },
   },
 
-  // Node-side TypeScript: the shared package.
-  {
-    files: ["packages/**/*.ts"],
-    languageOptions: { globals: { ...globals.node } },
-  },
-
   // Node ESM scripts (build helpers, this config).
   {
     files: ["*.mjs"],
