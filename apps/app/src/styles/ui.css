@@ -47,7 +47,7 @@
   position: relative;
   width: 46px;
   height: 24px;
-  border-radius: 6px;
+  border-radius: 25px;
   background: var(--surface-sunken);
   border: 1px solid var(--border);
   transition: background 150ms ease;
@@ -59,7 +59,7 @@
   left: 1px;
   width: 21px;
   height: 20px;
-  border-radius: 4px;
+  border-radius: 25px;
   background: var(--accent-dim);
   border: 1px solid rgba(255, 255, 255, 0.11);
   transition:
