@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { CloseIcon } from "../../ui/icons";
 
 type SettingsTab = "playlists" | "aiostreams" | "customize";
@@ -14,6 +14,19 @@ const TABS: Array<{ key: SettingsTab; label: string }> = [
  * with the Live tab, AIOStreams with the Stream tab. */
 export function SettingsModal({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<SettingsTab>("playlists");
+
+  // The active-chip highlight is a single thumb that slides between chips.
+  // Position it off the active button's measured offset within the rail.
+  const railRef = useRef<HTMLDivElement>(null);
+  const [thumb, setThumb] = useState<{ left: number; width: number } | null>(
+    null,
+  );
+  useLayoutEffect(() => {
+    const btn = railRef.current?.querySelector<HTMLButtonElement>(
+      `[data-tab="${tab}"]`,
+    );
+    if (btn) setThumb({ left: btn.offsetLeft, width: btn.offsetWidth });
+  }, [tab]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -33,11 +46,19 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       >
         <header className="settings__header">
           <h2 className="settings__title">Settings</h2>
-          <div className="settings__tabs">
+          <div className="settings__tabs" ref={railRef}>
+            {thumb && (
+              <span
+                className="settings__tab-thumb"
+                style={{ left: thumb.left, width: thumb.width }}
+                aria-hidden
+              />
+            )}
             {TABS.map((t) => (
               <button
                 key={t.key}
                 type="button"
+                data-tab={t.key}
                 className={
                   "settings__tab" +
                   (t.key === tab ? " settings__tab--active" : "")

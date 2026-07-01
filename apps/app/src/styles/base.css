@@ -231,29 +231,44 @@ button {
   margin: 0;
 }
 
-/* Chip rail: near-black track, active chip raised on #2a2a2a with a hairline
- * border. Text is Bold 12 on every chip — inactive just loses the chip. */
+/* Chip rail: near-black track; the raised #2a2a2a chip is a single thumb
+ * that slides under the active label. Text is Bold 12 on every chip. */
 .settings__tabs {
+  position: relative;
   display: flex;
   align-items: center;
   background: var(--surface);
-  border-radius: 9px;
-  padding: 1px;
+  border-radius: 18px;
+  padding: 2px;
 }
 
 .settings__tab {
+  position: relative;
+  z-index: 1;
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 12px;
   padding: 6px 15px;
   border-radius: var(--radius-chip);
-  border: 0.5px solid transparent;
   color: var(--text);
 }
 
-.settings__tab--active {
+.settings__tab-thumb {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
   background: #2a2a2a;
-  border-color: #494949;
+  border: 0.5px solid #494949;
+  border-radius: var(--radius-chip);
+  transition:
+    left 220ms cubic-bezier(0.4, 0, 0.2, 1),
+    width 220ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings__tab-thumb {
+    transition: none;
+  }
 }
 
 .settings__close {
