@@ -20,6 +20,36 @@ describe("catalogsFromManifest", () => {
   it("handles a manifest without catalogs", () => {
     expect(catalogsFromManifest({})).toEqual([]);
   });
+
+  it("omits search-only catalogs (required search extra, both forms)", () => {
+    const catalogs = catalogsFromManifest({
+      catalogs: [
+        { type: "movie", id: "top", name: "Top Movies" },
+        {
+          type: "movie",
+          id: "search",
+          name: "Movie Search",
+          extra: [{ name: "search", isRequired: true }],
+        },
+        {
+          type: "series",
+          id: "search",
+          name: "Series Search",
+          extraRequired: ["search"],
+        },
+        {
+          type: "movie",
+          id: "browsable",
+          name: "Browsable with optional search",
+          extra: [{ name: "search", isRequired: false }],
+        },
+      ],
+    });
+    expect(catalogs.map((c) => c.name)).toEqual([
+      "Top Movies",
+      "Browsable with optional search",
+    ]);
+  });
 });
 
 describe("liveCategoriesUrl", () => {
