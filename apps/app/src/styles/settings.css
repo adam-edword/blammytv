@@ -11,11 +11,14 @@
   padding: 88px 48px;
 }
 
-/* Glass card: 10% white over 45% black, blurred backdrop. */
+/* Glass card: 10% white over 45% black, blurred backdrop. Grows with its
+ * content down to near the window bottom; interior lists scroll, the card
+ * itself doesn't. */
 .settings {
   width: min(786px, 100%);
   max-height: calc(100vh - 136px);
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   background: var(--card-glass);
   backdrop-filter: blur(10px);
   border: 1px solid var(--border-strong);
@@ -54,11 +57,28 @@
   height: 24px;
 }
 
+/* Scrolls only as a fallback (tabs with no inner scroller on a short
+ * window); when a folder list is open, the list itself absorbs the squeeze. */
 .settings__body {
   display: flex;
   flex-direction: column;
   gap: 40px;
   margin-top: 40px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* Sections keep their natural height — except one hosting an expanded
+ * source list, which may shrink so the list inside scrolls. */
+.settings__body > .settings-section:has(.source-list) {
+  min-height: 0;
+}
+
+.playlist-item:has(.source-list) {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 /* Sections sit under a hairline divider (per the design). */
@@ -411,16 +431,22 @@
   width: 100%;
 }
 
-/* Expanded folder list (and the AIOStreams hero-sources list). */
+/* Expanded folder list: scrollable, with a floor so it never collapses;
+ * grows up to 60vh when the window allows. */
 .source-list {
   margin-top: 6px;
   width: 100%;
-  max-height: 260px;
+  min-height: 160px;
+  max-height: 60vh;
   overflow-y: auto;
   background: var(--surface);
   border: 1px solid var(--border-input);
   border-radius: var(--radius-card);
   padding: 8px 6px;
+}
+
+.source-list--note {
+  min-height: 0;
 }
 
 .source-list--note {
