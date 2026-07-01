@@ -140,6 +140,9 @@
   border-radius: var(--radius-card);
   padding: 11px 12px;
   outline: none;
+  /* Long values (manifest URLs) truncate with an ellipsis instead of
+   * clipping at the corner; the browser lifts it while editing. */
+  text-overflow: ellipsis;
 }
 
 .settings-input::placeholder {
