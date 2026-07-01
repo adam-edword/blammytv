@@ -1,0 +1,193 @@
+/* The floating settings card (Figma 131:787 / 131:819). */
+
+/* No dim — the design floats the glass card straight over the content
+ * (the card's own backdrop blur provides the separation). */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  padding: 88px 48px;
+}
+
+/* Glass card: 10% white over 45% black, blurred backdrop. */
+.settings {
+  width: min(786px, 100%);
+  max-height: calc(100vh - 136px);
+  overflow-y: auto;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.1)),
+    linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.45));
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 26px;
+  padding: 32px 39px;
+  box-shadow: 0 -13px 72.6px rgba(0, 0, 0, 0.73);
+}
+
+.settings__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.settings__title {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 32px;
+  margin: 0;
+}
+
+.settings__close {
+  display: grid;
+  place-items: center;
+  opacity: 0.3;
+  transition: opacity 150ms ease;
+}
+
+.settings__close:hover {
+  opacity: 1;
+}
+
+.settings__close svg {
+  width: 24px;
+  height: 24px;
+}
+
+.settings__body {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  margin-top: 40px;
+}
+
+/* Sections sit under a hairline divider (per the design). */
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  padding-top: 20px;
+}
+
+.settings__section-title {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 32px;
+  margin: 0;
+}
+
+.settings-section__list-title {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 21px;
+  margin: 0;
+}
+
+.settings__section-note {
+  font-size: 15px;
+  margin: 0;
+  max-width: 52ch;
+  line-height: 1.45;
+}
+
+.settings__section-note--dim {
+  opacity: 0.4;
+}
+
+/* ------------------------------------------------------------- add form */
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  width: 100%;
+}
+
+.settings-form__row {
+  display: flex;
+  gap: 12px;
+}
+
+.settings-input {
+  flex: 1;
+  min-width: 1px;
+  width: 100%;
+  font-family: var(--font-text);
+  font-size: 15px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-card);
+  padding: 11px 12px;
+  outline: none;
+}
+
+.settings-input::placeholder {
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.settings-input:focus {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* -------------------------------------------------------- playlist list */
+
+.playlist-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-card);
+  padding: 11px 20px;
+}
+
+.playlist-row__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.playlist-row__name {
+  font-family: var(--font-headline);
+  font-weight: 400;
+  font-size: 15px;
+}
+
+.playlist-row__source {
+  font-family: var(--font-headline);
+  font-weight: 400;
+  font-size: 12px;
+  opacity: 0.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playlist-row__actions {
+  display: flex;
+  align-items: center;
+  gap: 19px;
+}
+
+.playlist-row__delete {
+  display: grid;
+  place-items: center;
+  opacity: 0.5;
+  transition: opacity 150ms ease;
+}
+
+.playlist-row__delete:hover {
+  opacity: 1;
+}
+
+.playlist-row__delete svg {
+  width: 13px;
+  height: 13px;
+}

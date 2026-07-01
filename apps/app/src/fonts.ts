@@ -7,11 +7,12 @@
  * files referenced by these stylesheets.
  *
  * Only the weights the redesign actually uses are imported, to keep the bundle
- * lean: Headline 200 (ExtraLight), 300 (Light), 600 (SemiBold), 700 (Bold),
- * Text 200/400.
+ * lean: Headline 200 (ExtraLight), 300 (Light), 400 (Regular),
+ * 600 (SemiBold), 700 (Bold), Text 200/400.
  */
 import "@fontsource/stack-sans-headline/200.css";
 import "@fontsource/stack-sans-headline/300.css";
+import "@fontsource/stack-sans-headline/400.css";
 import "@fontsource/stack-sans-headline/600.css";
 import "@fontsource/stack-sans-headline/700.css";
 import "@fontsource/stack-sans-text/200.css";
