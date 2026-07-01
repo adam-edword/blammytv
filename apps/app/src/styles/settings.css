@@ -250,10 +250,40 @@
   corner-shape: round; /* keep the drag thumbs perfectly circular */
 }
 
+/* Bottom row: eyedropper left, hex input right. */
+.accent-popover__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.accent-popover__dropper {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border-input);
+  opacity: 0.75;
+  transition: opacity 150ms ease;
+}
+
+.accent-popover__dropper:hover {
+  opacity: 1;
+}
+
+.accent-popover__dropper svg {
+  width: 15px;
+  height: 15px;
+}
+
 .accent-popover__hex {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex: 1;
   font-family: var(--font-headline);
   font-weight: 600;
   font-size: 13px;

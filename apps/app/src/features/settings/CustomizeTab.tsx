@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { HexColorInput, HexColorPicker } from "react-colorful";
-import { CheckIcon } from "../../ui/icons";
+import { CheckIcon, EyeDropperIcon } from "../../ui/icons";
 import { ChipTabs } from "../../ui/ChipTabs";
 import { Toggle } from "../../ui/Toggle";
 import {
@@ -57,6 +57,15 @@ const STARTUP_TABS: Array<{ key: StartupTab; label: string }> = [
   { key: "stream", label: "Stream" },
   { key: "discover", label: "Discover" },
 ];
+
+/** The native screen eyedropper (Chromium/WebView2; absent elsewhere, so the
+ * button only renders when supported). Not yet in TS's DOM lib. */
+interface EyeDropperApi {
+  open(): Promise<{ sRGBHex: string }>;
+}
+const eyeDropperCtor = (
+  window as { EyeDropper?: new () => EyeDropperApi }
+).EyeDropper;
 
 /** Swatch look: the color's 16% surface tint as fill, the pure color as the
  * border — the same recipe the accent family uses app-wide (--mix-base keeps
@@ -254,13 +263,33 @@ export function CustomizeTab() {
                   color={custom || accent}
                   onChange={pickCustom}
                 />
-                <div className="accent-popover__hex">
-                  <span className="accent-popover__hash">#</span>
-                  <HexColorInput
-                    color={custom || accent}
-                    onChange={pickCustom}
-                    aria-label="Custom accent hex value"
-                  />
+                <div className="accent-popover__row">
+                  {eyeDropperCtor && (
+                    <button
+                      type="button"
+                      className="accent-popover__dropper"
+                      aria-label="Pick a color from the screen"
+                      title="Pick from screen"
+                      onClick={async () => {
+                        try {
+                          const { sRGBHex } = await new eyeDropperCtor().open();
+                          pickCustom(sRGBHex);
+                        } catch {
+                          /* user cancelled the eyedropper */
+                        }
+                      }}
+                    >
+                      <EyeDropperIcon />
+                    </button>
+                  )}
+                  <div className="accent-popover__hex">
+                    <span className="accent-popover__hash">#</span>
+                    <HexColorInput
+                      color={custom || accent}
+                      onChange={pickCustom}
+                      aria-label="Custom accent hex value"
+                    />
+                  </div>
                 </div>
               </div>
             )}

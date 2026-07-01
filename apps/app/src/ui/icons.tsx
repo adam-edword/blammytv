@@ -178,6 +178,15 @@ export function CheckIcon({ size = 16, className }: IconProps) {
   );
 }
 
+/** Edit / Pipette — the color-picker eyedropper. */
+export function EyeDropperIcon({ size = 16, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <path d="m2 22 1-1h3l9-9M3 21v-3l9-9m0 0 3.5-3.5a2.121 2.121 0 1 1 3 3L15 12m-3-3 3 3" />
+    </Svg>
+  );
+}
+
 /** Media / Play (filled triangle) — for the Stream hero's Watch Now button. */
 export function PlayIcon({ size = 20, className }: IconProps) {
   return (
