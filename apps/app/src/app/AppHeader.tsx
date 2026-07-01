@@ -2,6 +2,10 @@ import { useEffect, useState } from "react";
 import { AccountIcon, SearchIcon, SettingsIcon } from "../ui/icons";
 import { formatClock } from "../lib/time";
 import { APP_VERSION } from "../lib/version";
+import {
+  loadClockFormat,
+  onClockFormatChange,
+} from "../features/settings/clockFormat";
 
 export type TabKey = "live" | "stream" | "discover";
 
@@ -11,14 +15,20 @@ const TABS: Array<{ key: TabKey; label: string }> = [
   { key: "discover", label: "Discover" },
 ];
 
-/** Live clock, minute-accurate (the header shows no seconds). */
+/** Live clock, minute-accurate (the header shows no seconds). Follows the
+ * 12h/24h preference immediately when it changes in Settings. */
 function useClock(): string {
   const [now, setNow] = useState(() => new Date());
+  const [format, setFormat] = useState(loadClockFormat);
   useEffect(() => {
     const id = window.setInterval(() => setNow(new Date()), 1000);
-    return () => window.clearInterval(id);
+    const off = onClockFormatChange(setFormat);
+    return () => {
+      window.clearInterval(id);
+      off();
+    };
   }, []);
-  return formatClock(now);
+  return formatClock(now, format);
 }
 
 export function AppHeader({

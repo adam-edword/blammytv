@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { CheckIcon } from "../../ui/icons";
+import { ChipTabs } from "../../ui/ChipTabs";
 import { Toggle } from "../../ui/Toggle";
 import {
   ACCENT_PRESETS,
@@ -10,6 +11,28 @@ import {
   saveCustomAccent,
 } from "./accent";
 import { applyTheme, loadTheme, saveTheme, type Theme } from "./theme";
+import {
+  UI_SCALES,
+  applyUiScale,
+  loadUiScale,
+  saveUiScale,
+  type UiScale,
+} from "./uiScale";
+import {
+  loadClockFormat,
+  saveClockFormat,
+  type ClockFormat,
+} from "./clockFormat";
+
+const SCALE_TABS = UI_SCALES.map((s) => ({
+  key: String(s),
+  label: `${Math.round(s * 100)}%`,
+}));
+
+const CLOCK_TABS: Array<{ key: ClockFormat; label: string }> = [
+  { key: "12h", label: "12h" },
+  { key: "24h", label: "24h" },
+];
 
 /** Swatch look: the color's 16% surface tint as fill, the pure color as the
  * border — the same recipe the accent family uses app-wide (--mix-base keeps
@@ -46,6 +69,19 @@ export function CustomizeTab() {
     setTheme(next);
     saveTheme(next);
     applyTheme(next);
+  };
+
+  const [scale, setScale] = useState<UiScale>(loadUiScale);
+  const pickScale = (next: UiScale) => {
+    setScale(next);
+    saveUiScale(next);
+    applyUiScale(next);
+  };
+
+  const [clock, setClock] = useState<ClockFormat>(loadClockFormat);
+  const pickClock = (next: ClockFormat) => {
+    setClock(next);
+    saveClockFormat(next);
   };
 
   return (
@@ -113,9 +149,29 @@ export function CustomizeTab() {
         />
       </div>
 
-      <p className="settings__section-note settings__section-note--dim">
-        UI scale will join here later.
-      </p>
+      <div className="customize-row">
+        <div>
+          <h4 className="customize-row__title">UI Scale</h4>
+          <p className="settings__section-note settings__section-note--dim">
+            Make everything bigger or smaller.
+          </p>
+        </div>
+        <ChipTabs
+          tabs={SCALE_TABS}
+          active={String(scale)}
+          onChange={(key) => pickScale(Number(key) as UiScale)}
+        />
+      </div>
+
+      <div className="customize-row">
+        <div>
+          <h4 className="customize-row__title">Clock Format</h4>
+          <p className="settings__section-note settings__section-note--dim">
+            How the header clock reads.
+          </p>
+        </div>
+        <ChipTabs tabs={CLOCK_TABS} active={clock} onChange={pickClock} />
+      </div>
     </section>
   );
 }
