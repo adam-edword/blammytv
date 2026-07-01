@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { CheckIcon, PencilIcon } from "../../ui/icons";
+import { CheckIcon } from "../../ui/icons";
 import {
   ACCENT_PRESETS,
   applyAccent,
   loadAccent,
+  loadCustomAccent,
   saveAccent,
+  saveCustomAccent,
 } from "./accent";
 
 /** Swatch look: the color's dark 16% surface as fill, the pure color as the
@@ -18,13 +20,22 @@ function swatchStyle(hex: string) {
 
 export function CustomizeTab() {
   const [accent, setAccent] = useState(loadAccent);
-  const isCustom = !ACCENT_PRESETS.some((p) => p.hex === accent);
+  // The custom slot keeps its color even while a preset is selected.
+  const [custom, setCustom] = useState(loadCustomAccent);
+  const isCustomActive = accent === custom && custom !== "";
 
   const pick = (hex: string) => {
     const value = hex.toLowerCase();
     setAccent(value);
     saveAccent(value);
     applyAccent(value);
+  };
+
+  const pickCustom = (hex: string) => {
+    const value = hex.toLowerCase();
+    setCustom(value);
+    saveCustomAccent(value);
+    pick(value);
   };
 
   return (
@@ -49,28 +60,26 @@ export function CustomizeTab() {
             {p.hex === accent && <CheckIcon className="accent-swatch__check" />}
           </button>
         ))}
-        {/* The custom chip is the native color picker wearing chip clothes:
-            mini swatch (the current custom color, or neutral) + pencil + label. */}
+        {/* The custom chip is the native color picker wearing chip clothes. */}
         <label
           className={
-            "accent-custom" + (isCustom ? " accent-custom--active" : "")
+            "accent-custom" + (isCustomActive ? " accent-custom--active" : "")
           }
           title="Custom"
         >
           <span
-            className="accent-swatch accent-custom__swatch"
-            style={isCustom ? swatchStyle(accent) : undefined}
+            className="accent-swatch"
+            style={custom ? swatchStyle(custom) : undefined}
           >
-            {isCustom && <CheckIcon className="accent-swatch__check" />}
+            {isCustomActive && <CheckIcon className="accent-swatch__check" />}
           </span>
-          <PencilIcon className="accent-custom__pen" />
           Custom
           <input
             type="color"
             className="accent-custom__input"
-            value={accent}
+            value={custom || accent}
             aria-label="Custom accent color"
-            onChange={(e) => pick(e.target.value)}
+            onChange={(e) => pickCustom(e.target.value)}
           />
         </label>
       </div>

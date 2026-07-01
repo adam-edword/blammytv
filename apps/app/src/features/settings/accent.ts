@@ -25,6 +25,7 @@ export function isValidHex(value: string): boolean {
 }
 
 const KEY = "accent";
+const CUSTOM_KEY = "accent-custom";
 const VERSION = 1;
 
 export function loadAccent(): string {
@@ -34,6 +35,17 @@ export function loadAccent(): string {
 
 export function saveAccent(hex: string): void {
   save(KEY, VERSION, hex.toLowerCase());
+}
+
+/** The last custom color, remembered separately so the custom swatch keeps
+ * its color while a preset is selected. Empty until one is ever picked. */
+export function loadCustomAccent(): string {
+  const stored = load<string>(CUSTOM_KEY, VERSION, "");
+  return isValidHex(stored) ? stored.toLowerCase() : "";
+}
+
+export function saveCustomAccent(hex: string): void {
+  save(CUSTOM_KEY, VERSION, hex.toLowerCase());
 }
 
 /** Push the accent into CSS; every derived shade follows via color-mix. */

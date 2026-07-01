@@ -157,18 +157,20 @@
 .accent-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 9px;
 }
 
-/* Preset swatch: dark 16% fill, pure-color border (set inline per color);
- * the active one carries a white check. */
+/* Swatch: dark 16% fill, pure-color border (set inline per color); the
+ * active one carries a white check. The custom chip's mini swatch is the
+ * same element — neutral until a custom color has ever been picked. */
 .accent-swatch {
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
+  width: 26px;
+  height: 26px;
   border-radius: 12px;
   border: 2px solid rgba(255, 255, 255, 0.2);
+  background: var(--surface);
   transition: transform 120ms ease;
   cursor: pointer;
 }
@@ -178,21 +180,21 @@
 }
 
 .accent-swatch__check {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   color: var(--text);
 }
 
-/* The custom chip: mini swatch + pencil + label, same height as swatches. */
+/* The custom chip: mini swatch + label. */
 .accent-custom {
   display: flex;
   align-items: center;
-  gap: 9px;
-  height: 34px;
-  padding: 0 14px 0 3px;
+  gap: 7px;
+  height: 32px;
+  padding: 0 7px 0 3px;
   background: #2a2a2a;
   border: 0.5px solid #494949;
-  border-radius: 12px;
+  border-radius: 25px;
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 13px;
@@ -204,22 +206,9 @@
   filter: brightness(1.2);
 }
 
-.accent-custom__swatch {
-  width: 26px;
-  height: 26px;
-  border-radius: 9px;
-  background: var(--surface);
-}
-
-.accent-custom__swatch .accent-swatch__check {
-  width: 14px;
-  height: 14px;
-}
-
-.accent-custom__pen {
-  width: 14px;
-  height: 14px;
-  opacity: 0.8;
+/* Chip-hosted swatch shouldn't scale independently of its chip. */
+.accent-custom .accent-swatch:hover {
+  transform: none;
 }
 
 .accent-custom__input {
