@@ -229,8 +229,8 @@
 .customize-row__title {
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: 21px;
-  margin: 0 0 4px;
+  font-size: 15px;
+  margin: 0 0 2px;
 }
 
 /* Quiet escape hatch back to the default appearance. */
