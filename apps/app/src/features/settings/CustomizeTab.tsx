@@ -66,6 +66,12 @@ export function CustomizeTab() {
             "accent-custom" + (isCustomActive ? " accent-custom--active" : "")
           }
           title="Custom"
+          // Clicking applies the remembered custom color right away (the
+          // native picker also opens via the label; changes there apply
+          // live and whatever it's on at close wins).
+          onClick={() => {
+            if (custom) pick(custom);
+          }}
         >
           <span
             className="accent-swatch"
