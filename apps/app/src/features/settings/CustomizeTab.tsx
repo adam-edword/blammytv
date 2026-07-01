@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { HexColorInput, HexColorPicker } from "react-colorful";
 import { CheckIcon } from "../../ui/icons";
 import { ChipTabs } from "../../ui/ChipTabs";
 import { Toggle } from "../../ui/Toggle";
@@ -86,6 +87,33 @@ export function CustomizeTab() {
     saveCustomAccent(value);
     pick(value);
   };
+
+  // Our own picker popover (the native one is unstylable OS chrome).
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const popRef = useRef<HTMLDivElement>(null);
+  const chipRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!pickerOpen) return;
+    // Capture-phase Esc so the popover closes before the modal would.
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        setPickerOpen(false);
+      }
+    };
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (!popRef.current?.contains(t) && !chipRef.current?.contains(t)) {
+        setPickerOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKey, { capture: true });
+    window.addEventListener("mousedown", onDown);
+    return () => {
+      window.removeEventListener("keydown", onKey, { capture: true });
+      window.removeEventListener("mousedown", onDown);
+    };
+  }, [pickerOpen]);
 
   const [theme, setTheme] = useState<Theme>(loadTheme);
   const pickTheme = (next: Theme) => {
@@ -195,18 +223,19 @@ export function CustomizeTab() {
                 )}
               </button>
             ))}
-            {/* The custom chip is the native color picker wearing chip clothes. */}
-            <label
+            {/* Clicking applies the remembered custom color right away and
+                opens our own picker popover (changes apply live). */}
+            <button
+              type="button"
+              ref={chipRef}
               className={
                 "accent-custom" +
                 (isCustomActive ? " accent-custom--active" : "")
               }
               title="Custom"
-              // Clicking applies the remembered custom color right away (the
-              // native picker also opens via the label; changes there apply
-              // live and whatever it's on at close wins).
               onClick={() => {
                 if (custom) pick(custom);
+                setPickerOpen((o) => !o);
               }}
             >
               <span
@@ -218,14 +247,23 @@ export function CustomizeTab() {
                 )}
               </span>
               Custom
-              <input
-                type="color"
-                className="accent-custom__input"
-                value={custom || accent}
-                aria-label="Custom accent color"
-                onChange={(e) => pickCustom(e.target.value)}
-              />
-            </label>
+            </button>
+            {pickerOpen && (
+              <div className="accent-popover" ref={popRef}>
+                <HexColorPicker
+                  color={custom || accent}
+                  onChange={pickCustom}
+                />
+                <div className="accent-popover__hex">
+                  <span className="accent-popover__hash">#</span>
+                  <HexColorInput
+                    color={custom || accent}
+                    onChange={pickCustom}
+                    aria-label="Custom accent hex value"
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
