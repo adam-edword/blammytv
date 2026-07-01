@@ -251,6 +251,13 @@ button {
   padding: 6px 15px;
   border-radius: var(--radius-chip);
   color: var(--text);
+  opacity: 0.5;
+  transition: opacity 150ms ease;
+}
+
+.settings__tab:hover,
+.settings__tab--active {
+  opacity: 1;
 }
 
 .settings__tab-thumb {
