@@ -1,19 +1,22 @@
-import { useEffect, useId, useState } from "react";
-import { Toggle } from "../../ui/Toggle";
+import { useEffect, useId, useRef, useState } from "react";
+import { ChevronIcon, CloseIcon } from "../../ui/icons";
 import { fetchAioCatalogs, type AioCatalog } from "../../data/aiostreams";
 import {
   isValidManifestUrl,
   loadAioUrl,
-  loadHeroExcluded,
+  loadHeroSources,
   saveAioUrl,
-  saveHeroExcluded,
-  toggleExcluded,
+  saveHeroSources,
 } from "./aiostreams";
 
 type Catalogs =
   | { status: "idle" | "loading" }
   | { status: "ready"; items: AioCatalog[] }
   | { status: "error" };
+
+function typeLabel(type: string): string {
+  return type.charAt(0).toUpperCase() + type.slice(1);
+}
 
 export function AioStreamsTab() {
   const [url, setUrl] = useState(loadAioUrl);
@@ -27,10 +30,10 @@ export function AioStreamsTab() {
     setSavedUrl(url.trim());
   };
 
-  // Hero-slider sources: catalogs come from the saved manifest; the user
-  // switches individual ones off (stored as an excluded list).
+  // Hero-slider sources: an explicit selection of catalogs from the saved
+  // manifest, shown as removable chips. Empty = the default mix.
   const [catalogs, setCatalogs] = useState<Catalogs>({ status: "idle" });
-  const [excluded, setExcluded] = useState<string[]>(loadHeroExcluded);
+  const [selected, setSelected] = useState<string[]>(loadHeroSources);
 
   useEffect(() => {
     if (!isValidManifestUrl(savedUrl)) {
@@ -51,11 +54,40 @@ export function AioStreamsTab() {
     };
   }, [savedUrl]);
 
-  const flip = (key: string) => {
-    const next = toggleExcluded(excluded, key);
-    setExcluded(next);
-    saveHeroExcluded(next);
+  const update = (keys: string[]) => {
+    setSelected(keys);
+    saveHeroSources(keys);
   };
+
+  // The "add sources" dropdown.
+  const [addOpen, setAddOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const addRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!addOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        setAddOpen(false);
+      }
+    };
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (!menuRef.current?.contains(t) && !addRef.current?.contains(t)) {
+        setAddOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKey, { capture: true });
+    window.addEventListener("mousedown", onDown);
+    return () => {
+      window.removeEventListener("keydown", onKey, { capture: true });
+      window.removeEventListener("mousedown", onDown);
+    };
+  }, [addOpen]);
+
+  const items = catalogs.status === "ready" ? catalogs.items : [];
+  const byKey = new Map(items.map((c) => [c.key, c]));
+  const available = items.filter((c) => !selected.includes(c.key));
 
   return (
     <>
@@ -94,8 +126,8 @@ export function AioStreamsTab() {
         <section className="settings-section">
           <h3 className="settings-section__list-title">Hero Slider Sources</h3>
           <p className="settings__section-note settings__section-note--dim">
-            The catalogs the Stream tab's hero pulls from. Everything is on by
-            default; switch off what you don't want featured.
+            The catalogs the hero pulls from, spread evenly and shuffled on
+            each load. Leave empty for the default mix of everything.
           </p>
           {catalogs.status === "loading" && (
             <p className="settings__section-note settings__section-note--dim">
@@ -109,29 +141,59 @@ export function AioStreamsTab() {
               isn't.
             </p>
           )}
-          {catalogs.status === "ready" &&
-            (catalogs.items.length === 0 ? (
-              <p className="settings__section-note settings__section-note--dim">
-                This manifest exposes no catalogs.
-              </p>
-            ) : (
-              <div className="source-list">
-                {catalogs.items.map((c) => (
-                  <div key={c.key} className="source-row">
-                    <span className="source-row__name">
-                      {c.name}
-                      <span className="source-row__type">{c.type}</span>
-                    </span>
-                    <Toggle
-                      small
-                      on={!excluded.includes(c.key)}
-                      onChange={() => flip(c.key)}
-                      label={`Feature ${c.name} in the hero`}
-                    />
-                  </div>
-                ))}
-              </div>
-            ))}
+          {catalogs.status === "ready" && (
+            <div className="chip-select">
+              {selected.map((key) => {
+                const c = byKey.get(key);
+                return (
+                  <span key={key} className="source-chip">
+                    {c ? `${c.name} · ${typeLabel(c.type)}` : key}
+                    <button
+                      type="button"
+                      className="source-chip__x"
+                      aria-label={`Remove ${c?.name ?? key}`}
+                      onClick={() =>
+                        update(selected.filter((k) => k !== key))
+                      }
+                    >
+                      <CloseIcon />
+                    </button>
+                  </span>
+                );
+              })}
+              {available.length > 0 && (
+                <span className="chip-select__add-slot">
+                  <button
+                    type="button"
+                    ref={addRef}
+                    className="chip-select__add"
+                    aria-expanded={addOpen}
+                    onClick={() => setAddOpen((o) => !o)}
+                  >
+                    add sources
+                    <ChevronIcon />
+                  </button>
+                  {addOpen && (
+                    <div className="chip-select__menu" ref={menuRef}>
+                      {available.map((c) => (
+                        <button
+                          key={c.key}
+                          type="button"
+                          className="chip-select__option"
+                          onClick={() => update([...selected, c.key])}
+                        >
+                          {c.name}
+                          <span className="source-row__type">
+                            {typeLabel(c.type)}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </span>
+              )}
+            </div>
+          )}
         </section>
       )}
     </>

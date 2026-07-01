@@ -20,20 +20,15 @@ export function isValidManifestUrl(url: string): boolean {
   return isHttpUrl(url);
 }
 
-/* Hero-slider sources. We store the catalogs the user switched OFF, so
- * anything new in the manifest defaults to on. */
+/* Hero-slider sources: the catalogs the hero pulls from, as an explicit
+ * selection. Empty means the default mix (everything browsable). */
 
-const EXCLUDED_KEY = "heroExcluded";
+const SOURCES_KEY = "heroSources";
 
-export function loadHeroExcluded(): string[] {
-  return load<string[]>(EXCLUDED_KEY, VERSION, []);
+export function loadHeroSources(): string[] {
+  return load<string[]>(SOURCES_KEY, VERSION, []);
 }
 
-export function saveHeroExcluded(keys: string[]): void {
-  save(EXCLUDED_KEY, VERSION, keys);
-}
-
-/** Flip one catalog key's membership in the excluded list. */
-export function toggleExcluded(list: string[], key: string): string[] {
-  return list.includes(key) ? list.filter((k) => k !== key) : [...list, key];
+export function saveHeroSources(keys: string[]): void {
+  save(SOURCES_KEY, VERSION, keys);
 }
