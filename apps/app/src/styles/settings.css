@@ -146,6 +146,56 @@
   color: var(--text-ghost);
 }
 
+/* In-field tools (copy/clear), revealed on hover or focus. */
+.settings-field__control {
+  position: relative;
+  display: flex;
+  width: 100%;
+}
+
+.settings-input--with-tools {
+  padding-right: 76px;
+}
+
+.settings-field__tools {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+.settings-field__control:hover .settings-field__tools,
+.settings-field__control:focus-within .settings-field__tools {
+  opacity: 1;
+}
+
+.settings-field__tool {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  opacity: 0.55;
+  transition:
+    opacity 150ms ease,
+    background 150ms ease;
+}
+
+.settings-field__tool:hover {
+  opacity: 1;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.settings-field__tool svg {
+  width: 14px;
+  height: 14px;
+}
+
 .settings-input:focus {
   border-color: color-mix(in srgb, var(--text) 30%, transparent);
 }

@@ -1,6 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronIcon, CloseIcon } from "../../ui/icons";
+import { CheckIcon, ChevronIcon, CloseIcon, CopyIcon } from "../../ui/icons";
 import { fetchAioCatalogs, type AioCatalog } from "../../data/aiostreams";
 import {
   isValidManifestUrl,
@@ -25,10 +25,24 @@ export function AioStreamsTab() {
   const dirty = url.trim() !== savedUrl;
   const id = useId();
 
+  // Submitting an emptied field removes the saved manifest (that's what
+  // makes the in-field clear meaningful).
+  const submittable = url.trim() === "" || isValidManifestUrl(url);
   const submit = () => {
-    if (!isValidManifestUrl(url)) return;
+    if (!submittable) return;
     saveAioUrl(url);
     setSavedUrl(url.trim());
+  };
+
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard
+      .writeText(url.trim())
+      .then(() => {
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 1200);
+      })
+      .catch(() => {});
   };
 
   // Hero-slider sources: an explicit selection of catalogs from the saved
@@ -138,21 +152,45 @@ export function AioStreamsTab() {
           <label className="settings-field__label" htmlFor={id}>
             Manifest URL
           </label>
-          <input
-            id={id}
-            className="settings-input"
-            type="text"
-            value={url}
-            placeholder="https://aiostreams.example.com/stremio/…/manifest.json"
-            onChange={(e) => setUrl(e.target.value)}
-            spellCheck={false}
-            autoComplete="off"
-          />
+          <div className="settings-field__control">
+            <input
+              id={id}
+              className="settings-input settings-input--with-tools"
+              type="text"
+              value={url}
+              placeholder="https://aiostreams.example.com/stremio/…/manifest.json"
+              onChange={(e) => setUrl(e.target.value)}
+              spellCheck={false}
+              autoComplete="off"
+            />
+            {url.trim() !== "" && (
+              <span className="settings-field__tools">
+                <button
+                  type="button"
+                  className="settings-field__tool"
+                  aria-label="Copy manifest URL"
+                  title={copied ? "Copied!" : "Copy"}
+                  onClick={copy}
+                >
+                  {copied ? <CheckIcon /> : <CopyIcon />}
+                </button>
+                <button
+                  type="button"
+                  className="settings-field__tool"
+                  aria-label="Clear manifest URL"
+                  title="Clear"
+                  onClick={() => setUrl("")}
+                >
+                  <CloseIcon />
+                </button>
+              </span>
+            )}
+          </div>
         </div>
         <button
           type="button"
           className="btn-primary"
-          disabled={!dirty || !isValidManifestUrl(url)}
+          disabled={!dirty || !submittable}
           onClick={submit}
         >
           {dirty || !savedUrl ? "Submit" : "Saved"}
