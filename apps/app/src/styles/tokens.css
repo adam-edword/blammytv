@@ -15,7 +15,6 @@
   --surface: #0f0f0f; /* inputs, rows */
   --surface-track: #0f0f0f; /* chip-rail track (darker than the card) */
   --surface-raised: #2a2a2a; /* chip thumb, custom-accent chip */
-  --surface-sunken: #111111; /* toggle off-track */
   --border: rgba(255, 255, 255, 0.1);
   --border-strong: rgba(255, 255, 255, 0.2); /* dividers, card edge */
   --border-raised: #494949; /* hairline on raised chips */
@@ -42,9 +41,6 @@
   --text: #f2f2f5;
   --text-muted: #a2a2a2;
   --text-ghost: rgba(255, 255, 255, 0.2); /* placeholders */
-
-  /* Toggle */
-  --toggle-thumb-on: #d9d9d9;
 
   /* Quality-badge borders (fills are per-badge gradients) */
   --badge-4k: #ff7bf6;
@@ -73,7 +69,6 @@
   --surface: #ffffff;
   --surface-track: #e2e4ea;
   --surface-raised: #f5f6f9;
-  --surface-sunken: #dde0e7;
   --border: rgba(0, 0, 0, 0.1);
   --border-strong: rgba(0, 0, 0, 0.15);
   --border-raised: #c9cdd6;
@@ -88,8 +83,6 @@
   --text: #16171d;
   --text-muted: #5b606e;
   --text-ghost: rgba(0, 0, 0, 0.25);
-
-  --toggle-thumb-on: #ffffff;
 
   color-scheme: light;
 }

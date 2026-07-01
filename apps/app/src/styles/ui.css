@@ -42,29 +42,28 @@
     width 220ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Toggle: 46×24 track, 21×20 sliding thumb (Figma 131:911/131:921). */
+/* Toggle: a text-less chip rail. Same track color, inset, radius, and slide
+ * curve as .chip-tabs; the white squircle thumb is the "chip". On floods the
+ * track with the accent. */
 .toggle {
   position: relative;
-  width: 46px;
-  height: 24px;
-  border-radius: 25px;
-  background: var(--surface-sunken);
-  border: 1px solid var(--border);
-  transition: background 150ms ease;
+  width: 52px;
+  height: 30px;
+  border-radius: 18px;
+  background: var(--surface-track);
+  transition: background 220ms ease;
 }
 
 .toggle__thumb {
   position: absolute;
-  top: 1px;
-  left: 1px;
-  width: 21px;
-  height: 20px;
-  border-radius: 25px;
-  background: var(--accent-dim);
-  border: 1px solid rgba(255, 255, 255, 0.11);
-  transition:
-    left 150ms ease,
-    background 150ms ease;
+  top: 2px;
+  left: 2px;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-chip);
+  background: #ffffff;
+  border: 0.5px solid rgba(0, 0, 0, 0.12);
+  transition: left 220ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .toggle--on {
@@ -72,9 +71,7 @@
 }
 
 .toggle--on .toggle__thumb {
-  left: 22px;
-  background: var(--toggle-thumb-on);
-  border-color: rgba(255, 255, 255, 0.61);
+  left: 24px;
 }
 
 /* Primary action button (Figma "Add Playlist"/"Submit"). */
