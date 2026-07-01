@@ -16,11 +16,9 @@
   width: min(786px, 100%);
   max-height: calc(100vh - 136px);
   overflow-y: auto;
-  background:
-    linear-gradient(rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.1)),
-    linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.45));
+  background: var(--card-glass);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--border-strong);
   border-radius: 26px;
   padding: 32px 39px;
   box-shadow: 0 -13px 72.6px rgba(0, 0, 0, 0.73);
@@ -69,7 +67,7 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 18px;
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  border-top: 1px solid var(--border-strong);
   padding-top: 20px;
 }
 
@@ -138,18 +136,18 @@
   font-size: 15px;
   color: var(--text);
   background: var(--surface);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid var(--border-input);
   border-radius: var(--radius-card);
   padding: 11px 12px;
   outline: none;
 }
 
 .settings-input::placeholder {
-  color: rgba(255, 255, 255, 0.2);
+  color: var(--text-ghost);
 }
 
 .settings-input:focus {
-  border-color: rgba(255, 255, 255, 0.3);
+  border-color: color-mix(in srgb, var(--text) 30%, transparent);
 }
 
 /* ------------------------------------------------------- accent picker */
@@ -169,7 +167,7 @@
   width: 26px;
   height: 26px;
   border-radius: 12px;
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  border: 2px solid var(--border-strong);
   background: var(--surface);
   transition: transform 120ms ease;
   cursor: pointer;
@@ -192,8 +190,8 @@
   gap: 7px;
   height: 32px;
   padding: 0 7px 0 3px;
-  background: #2a2a2a;
-  border: 0.5px solid #494949;
+  background: var(--surface-raised);
+  border: 0.5px solid var(--border-raised);
   border-radius: 25px;
   font-family: var(--font-headline);
   font-weight: 700;
@@ -219,6 +217,22 @@
   padding: 0;
 }
 
+/* A label + control row inside a section (e.g. the theme toggle). */
+.customize-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 20px;
+}
+
+.customize-row__title {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 21px;
+  margin: 0 0 4px;
+}
+
 /* -------------------------------------------------------- playlist list */
 
 .playlist-row {
@@ -227,7 +241,7 @@
   justify-content: space-between;
   width: 100%;
   background: var(--surface);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid var(--border-input);
   border-radius: var(--radius-card);
   padding: 11px 20px;
 }

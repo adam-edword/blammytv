@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { CheckIcon } from "../../ui/icons";
+import { Toggle } from "../../ui/Toggle";
 import {
   ACCENT_PRESETS,
   applyAccent,
@@ -8,12 +9,14 @@ import {
   saveAccent,
   saveCustomAccent,
 } from "./accent";
+import { applyTheme, loadTheme, saveTheme, type Theme } from "./theme";
 
-/** Swatch look: the color's dark 16% surface as fill, the pure color as the
- * border — the same recipe the accent family uses app-wide. */
+/** Swatch look: the color's 16% surface tint as fill, the pure color as the
+ * border — the same recipe the accent family uses app-wide (--mix-base keeps
+ * the tint tracking the theme). */
 function swatchStyle(hex: string) {
   return {
-    background: `color-mix(in srgb, ${hex} 16%, black)`,
+    background: `color-mix(in srgb, ${hex} 16%, var(--mix-base))`,
     borderColor: hex,
   };
 }
@@ -36,6 +39,13 @@ export function CustomizeTab() {
     setCustom(value);
     saveCustomAccent(value);
     pick(value);
+  };
+
+  const [theme, setTheme] = useState<Theme>(loadTheme);
+  const pickTheme = (next: Theme) => {
+    setTheme(next);
+    saveTheme(next);
+    applyTheme(next);
   };
 
   return (
@@ -89,8 +99,22 @@ export function CustomizeTab() {
           />
         </label>
       </div>
+      <div className="customize-row">
+        <div>
+          <h4 className="customize-row__title">Light Theme</h4>
+          <p className="settings__section-note settings__section-note--dim">
+            Flip the whole app to a light palette.
+          </p>
+        </div>
+        <Toggle
+          on={theme === "light"}
+          onChange={(on) => pickTheme(on ? "light" : "dark")}
+          label="Light theme"
+        />
+      </div>
+
       <p className="settings__section-note settings__section-note--dim">
-        Theme and UI scale will join here later.
+        UI scale will join here later.
       </p>
     </section>
   );

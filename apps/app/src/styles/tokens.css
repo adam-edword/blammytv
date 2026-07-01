@@ -4,19 +4,35 @@
  * Sources: header (133:416), channel cards + badges (126:784, 126:856),
  * playlist items (126:403). The red family is built around #c22727 — the
  * accent the app has always used — so the brand carries over.
+ *
+ * Theme: dark is the design's native palette (defaults below); the light
+ * override at the bottom swaps every theme-dependent token. Components must
+ * only use tokens for themable color — no raw hex for surfaces/text/borders.
  */
 :root {
   /* Surfaces */
   --bg: #000000;
-  --surface: #0f0f0f;
+  --surface: #0f0f0f; /* inputs, rows, chip tracks */
+  --surface-raised: #2a2a2a; /* chip thumb, custom-accent chip */
+  --surface-sunken: #111111; /* toggle off-track */
   --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.2); /* dividers, card edge */
+  --border-raised: #494949; /* hairline on raised chips */
+  --border-input: rgba(255, 255, 255, 0.14);
+
+  /* The settings card's glass: 10% white over 45% black (light flips it). */
+  --card-glass:
+    linear-gradient(rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.1)),
+    linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.45));
 
   /* Accent family. Only --accent is ever set (the Customize picker overrides
      it on :root); the shades below derive from it. The mix percentages are
      exact for the design's red: #1f0606 = 16%, #631414 = 51%, #991f1f = 79%,
-     border = 36% alpha. */
+     border = 36% alpha. --mix-base flips per theme so the accent surface
+     stays a tint of the background. */
+  --mix-base: #000000;
   --accent: #c22727;
-  --accent-surface: color-mix(in srgb, var(--accent) 16%, black);
+  --accent-surface: color-mix(in srgb, var(--accent) 16%, var(--mix-base));
   --accent-border: color-mix(in srgb, var(--accent) 36%, transparent);
   --accent-border-hover: color-mix(in srgb, var(--accent) 51%, black);
   --accent-dim: color-mix(in srgb, var(--accent) 79%, black);
@@ -24,6 +40,10 @@
   /* Text */
   --text: #f2f2f5;
   --text-muted: #a2a2a2;
+  --text-ghost: rgba(255, 255, 255, 0.2); /* placeholders */
+
+  /* Toggle */
+  --toggle-thumb-on: #d9d9d9;
 
   /* Quality-badge borders (fills are per-badge gradients) */
   --badge-4k: #ff7bf6;
@@ -42,4 +62,32 @@
   /* Type */
   --font-headline: "Stack Sans Headline", "Segoe UI", system-ui, sans-serif;
   --font-text: "Stack Sans Text", "Segoe UI", system-ui, sans-serif;
+
+  color-scheme: dark;
+}
+
+/* Light theme (palette carried over from the old app). */
+:root[data-theme="light"] {
+  --bg: #f3f4f7;
+  --surface: #ffffff;
+  --surface-raised: #e9ebf0;
+  --surface-sunken: #dde0e7;
+  --border: rgba(0, 0, 0, 0.1);
+  --border-strong: rgba(0, 0, 0, 0.15);
+  --border-raised: #c9cdd6;
+  --border-input: rgba(0, 0, 0, 0.12);
+
+  --card-glass:
+    linear-gradient(rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.72)),
+    linear-gradient(rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.3));
+
+  --mix-base: #ffffff;
+
+  --text: #16171d;
+  --text-muted: #5b606e;
+  --text-ghost: rgba(0, 0, 0, 0.25);
+
+  --toggle-thumb-on: #ffffff;
+
+  color-scheme: light;
 }
