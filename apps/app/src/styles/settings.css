@@ -167,11 +167,22 @@
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 0 10px 0 30px;
+  padding: 0 10px 0 5px;
   border-radius: 0 24px 24px 0;
-  background: linear-gradient(to right, transparent, var(--surface) 28px);
+  background: var(--surface);
   opacity: 0;
   transition: opacity 150ms ease;
+}
+
+/* The fade lives just outside the puck's left edge. */
+.settings-field__tools::before {
+  content: "";
+  position: absolute;
+  right: 100%;
+  top: 0;
+  bottom: 0;
+  width: 24px;
+  background: linear-gradient(to right, transparent, var(--surface));
 }
 
 .settings-field__control:hover .settings-field__tools,
