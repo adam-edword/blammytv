@@ -169,6 +169,15 @@ export function PencilIcon({ size = 16, className }: IconProps) {
   );
 }
 
+/** Interface / Check — the active-accent tick. */
+export function CheckIcon({ size = 16, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <path d="M4 12L10 18L20 6" />
+    </Svg>
+  );
+}
+
 /** Media / Play (filled triangle) — for the Stream hero's Watch Now button. */
 export function PlayIcon({ size = 20, className }: IconProps) {
   return (

@@ -7,7 +7,7 @@ import { SettingsModal } from "../features/settings/SettingsModal";
 
 export function App() {
   const [tab, setTab] = useState<TabKey>("live");
-  const [settingsOpen, setSettingsOpen] = useState(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
     <div className="app-shell">
