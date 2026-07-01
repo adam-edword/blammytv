@@ -7,7 +7,7 @@
   position: relative;
   display: flex;
   align-items: center;
-  background: var(--surface);
+  background: var(--surface-track);
   border-radius: 18px;
   padding: 2px;
 }

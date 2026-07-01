@@ -12,7 +12,8 @@
 :root {
   /* Surfaces */
   --bg: #000000;
-  --surface: #0f0f0f; /* inputs, rows, chip tracks */
+  --surface: #0f0f0f; /* inputs, rows */
+  --surface-track: #0f0f0f; /* chip-rail track (darker than the card) */
   --surface-raised: #2a2a2a; /* chip thumb, custom-accent chip */
   --surface-sunken: #111111; /* toggle off-track */
   --border: rgba(255, 255, 255, 0.1);
@@ -70,7 +71,8 @@
 :root[data-theme="light"] {
   --bg: #f3f4f7;
   --surface: #ffffff;
-  --surface-raised: #e9ebf0;
+  --surface-track: #e2e4ea;
+  --surface-raised: #f5f6f9;
   --surface-sunken: #dde0e7;
   --border: rgba(0, 0, 0, 0.1);
   --border-strong: rgba(0, 0, 0, 0.15);
