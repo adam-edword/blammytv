@@ -430,10 +430,6 @@
   height: 12px;
 }
 
-.chip-select__add-slot {
-  position: relative;
-}
-
 .chip-select__add {
   display: flex;
   align-items: center;
@@ -461,11 +457,11 @@
   height: 13px;
 }
 
+/* Portaled to <body> so it can overhang the settings card's scroll box;
+ * positioned from the add button's rect (top/left set inline). */
 .chip-select__menu {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  z-index: 5;
+  position: fixed;
+  z-index: 30;
   min-width: 300px;
   max-height: 280px;
   overflow-y: auto;

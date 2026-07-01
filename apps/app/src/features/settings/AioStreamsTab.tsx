@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ChevronIcon, CloseIcon } from "../../ui/icons";
 import { fetchAioCatalogs, type AioCatalog } from "../../data/aiostreams";
 import {
@@ -59,10 +60,46 @@ export function AioStreamsTab() {
     saveHeroSources(keys);
   };
 
-  // The "add sources" dropdown.
+  // The "add sources" dropdown. It renders in a portal with fixed
+  // positioning so it can float outside the settings card (which clips its
+  // own overflow); anchored to the button, flipped upward when the space
+  // below runs out.
   const [addOpen, setAddOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{
+    top: number;
+    left: number;
+    up: boolean;
+  } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const addRef = useRef<HTMLButtonElement>(null);
+
+  useLayoutEffect(() => {
+    if (!addOpen) return;
+    const place = () => {
+      const rect = addRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      // The UI-scale zoom on <html> scales layout units; rects come back in
+      // visual pixels, so divide to keep the fixed menu aligned.
+      const zoom = Number(document.documentElement.style.zoom || 1) || 1;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const up = spaceBelow < 300 && rect.top > spaceBelow;
+      setMenuPos({
+        top: (up ? rect.top - 8 : rect.bottom + 8) / zoom,
+        left: rect.left / zoom,
+        up,
+      });
+    };
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, { capture: true });
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, { capture: true });
+    };
+    // catalogs.status: the anchor button mounts with the catalog list, so
+    // re-place once it exists.
+  }, [addOpen, catalogs.status]);
+
   useEffect(() => {
     if (!addOpen) return;
     const onKey = (e: KeyboardEvent) => {
@@ -162,7 +199,7 @@ export function AioStreamsTab() {
                 );
               })}
               {available.length > 0 && (
-                <span className="chip-select__add-slot">
+                <>
                   <button
                     type="button"
                     ref={addRef}
@@ -173,24 +210,37 @@ export function AioStreamsTab() {
                     add sources
                     <ChevronIcon />
                   </button>
-                  {addOpen && (
-                    <div className="chip-select__menu" ref={menuRef}>
-                      {available.map((c) => (
-                        <button
-                          key={c.key}
-                          type="button"
-                          className="chip-select__option"
-                          onClick={() => update([...selected, c.key])}
-                        >
-                          {c.name}
-                          <span className="source-row__type">
-                            {typeLabel(c.type)}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </span>
+                  {addOpen &&
+                    menuPos &&
+                    createPortal(
+                      <div
+                        className="chip-select__menu"
+                        ref={menuRef}
+                        style={{
+                          top: menuPos.top,
+                          left: menuPos.left,
+                          transform: menuPos.up
+                            ? "translateY(-100%)"
+                            : undefined,
+                        }}
+                      >
+                        {available.map((c) => (
+                          <button
+                            key={c.key}
+                            type="button"
+                            className="chip-select__option"
+                            onClick={() => update([...selected, c.key])}
+                          >
+                            {c.name}
+                            <span className="source-row__type">
+                              {typeLabel(c.type)}
+                            </span>
+                          </button>
+                        ))}
+                      </div>,
+                      document.body,
+                    )}
+                </>
               )}
             </div>
           )}
