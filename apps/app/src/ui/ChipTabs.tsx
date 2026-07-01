@@ -20,10 +20,27 @@ export function ChipTabs<K extends string>({
     null,
   );
   useLayoutEffect(() => {
-    const btn = railRef.current?.querySelector<HTMLButtonElement>(
-      `[data-tab="${active}"]`,
-    );
-    if (btn) setThumb({ left: btn.offsetLeft, width: btn.offsetWidth });
+    const rail = railRef.current;
+    if (!rail) return;
+    const measure = () => {
+      const btn = rail.querySelector<HTMLButtonElement>(
+        `[data-tab="${active}"]`,
+      );
+      if (btn) setThumb({ left: btn.offsetLeft, width: btn.offsetWidth });
+    };
+    measure();
+    // Label widths move when the webfont lands or the rail resizes —
+    // re-measure so the thumb doesn't keep a stale size.
+    let alive = true;
+    document.fonts?.ready.then(() => {
+      if (alive) measure();
+    });
+    const ro = new ResizeObserver(measure);
+    ro.observe(rail);
+    return () => {
+      alive = false;
+      ro.disconnect();
+    };
   }, [active]);
 
   return (

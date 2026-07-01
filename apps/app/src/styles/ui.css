@@ -60,7 +60,7 @@
   width: 21px;
   height: 20px;
   border-radius: 4px;
-  background: #991f1f;
+  background: var(--accent-dim);
   border: 1px solid rgba(255, 255, 255, 0.11);
   transition:
     left 150ms ease,

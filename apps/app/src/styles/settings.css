@@ -152,6 +152,53 @@
   border-color: rgba(255, 255, 255, 0.3);
 }
 
+/* ------------------------------------------------------- accent picker */
+
+.accent-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.accent-swatch {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  border: 2px solid transparent;
+  transition: transform 120ms ease;
+  cursor: pointer;
+}
+
+.accent-swatch:hover {
+  transform: scale(1.12);
+}
+
+.accent-swatch--active {
+  border-color: var(--text);
+}
+
+/* The custom swatch shows a color wheel until a custom color is active. */
+.accent-swatch--custom {
+  display: grid;
+  place-items: center;
+  background: conic-gradient(
+    #ff2773,
+    #ffd500,
+    #2cad57,
+    #3730ff,
+    #a200ff,
+    #ff2773
+  );
+}
+
+.accent-swatch__input {
+  width: 0;
+  height: 0;
+  opacity: 0;
+  border: none;
+  padding: 0;
+}
+
 /* -------------------------------------------------------- playlist list */
 
 .playlist-row {

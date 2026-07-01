@@ -3,6 +3,7 @@ import { CloseIcon } from "../../ui/icons";
 import { ChipTabs } from "../../ui/ChipTabs";
 import { PlaylistsTab } from "./PlaylistsTab";
 import { AioStreamsTab } from "./AioStreamsTab";
+import { CustomizeTab } from "./CustomizeTab";
 
 type SettingsTab = "playlists" | "aiostreams" | "customize";
 
@@ -50,14 +51,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         <div className="settings__body">
           {tab === "playlists" && <PlaylistsTab />}
           {tab === "aiostreams" && <AioStreamsTab />}
-          {tab === "customize" && (
-            <section className="settings-section">
-              <h3 className="settings__section-title">Customize</h3>
-              <p className="settings__section-note">
-                Accent color, theme, and UI scale will live here.
-              </p>
-            </section>
-          )}
+          {tab === "customize" && <CustomizeTab />}
         </div>
       </section>
     </div>

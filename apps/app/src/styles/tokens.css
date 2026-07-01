@@ -11,11 +11,15 @@
   --surface: #0f0f0f;
   --border: rgba(255, 255, 255, 0.1);
 
-  /* Accent (red) family */
+  /* Accent family. Only --accent is ever set (the Customize picker overrides
+     it on :root); the shades below derive from it. The mix percentages are
+     exact for the design's red: #1f0606 = 16%, #631414 = 51%, #991f1f = 79%,
+     border = 36% alpha. */
   --accent: #c22727;
-  --accent-surface: #1f0606; /* selected fill (playlist items, airing cells) */
-  --accent-border: rgba(194, 39, 39, 0.36); /* selected outline */
-  --accent-border-hover: #631414; /* hover outline */
+  --accent-surface: color-mix(in srgb, var(--accent) 16%, black);
+  --accent-border: color-mix(in srgb, var(--accent) 36%, transparent);
+  --accent-border-hover: color-mix(in srgb, var(--accent) 51%, black);
+  --accent-dim: color-mix(in srgb, var(--accent) 79%, black);
 
   /* Text */
   --text: #f2f2f5;
