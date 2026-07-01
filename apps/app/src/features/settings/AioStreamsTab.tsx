@@ -155,7 +155,7 @@ export function AioStreamsTab() {
           <div className="settings-field__control">
             <input
               id={id}
-              className="settings-input settings-input--with-tools"
+              className="settings-input"
               type="text"
               value={url}
               placeholder="https://aiostreams.example.com/stremio/…/manifest.json"
