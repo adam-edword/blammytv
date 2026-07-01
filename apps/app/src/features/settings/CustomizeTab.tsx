@@ -84,6 +84,17 @@ export function CustomizeTab() {
     saveClockFormat(next);
   };
 
+  /** Back to factory appearance: default accent (custom slot cleared),
+   * dark theme, 100% scale, 12h clock. */
+  const reset = () => {
+    pick(ACCENT_PRESETS[0].hex);
+    setCustom("");
+    saveCustomAccent("");
+    pickTheme("dark");
+    pickScale(1);
+    pickClock("12h");
+  };
+
   return (
     <section className="settings-section">
       <h3 className="settings__section-title">Accent Color</h3>
@@ -172,6 +183,10 @@ export function CustomizeTab() {
         </div>
         <ChipTabs tabs={CLOCK_TABS} active={clock} onChange={pickClock} />
       </div>
+
+      <button type="button" className="customize-reset" onClick={reset}>
+        Reset appearance
+      </button>
     </section>
   );
 }

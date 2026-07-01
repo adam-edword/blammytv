@@ -233,6 +233,19 @@
   margin: 0 0 4px;
 }
 
+/* Quiet escape hatch back to the default appearance. */
+.customize-reset {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-muted);
+  transition: color 150ms ease;
+}
+
+.customize-reset:hover {
+  color: var(--text);
+}
+
 /* -------------------------------------------------------- playlist list */
 
 .playlist-row {
