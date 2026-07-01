@@ -134,117 +134,151 @@ export function CustomizeTab() {
   };
 
   return (
-    <section className="settings-section">
-      <h3 className="settings__section-title">Accent Color</h3>
-      <p className="settings__section-note">
-        The color used for highlights, toggles, and buttons across the app.
-      </p>
-      <div className="accent-row" role="radiogroup" aria-label="Accent color">
-        {ACCENT_PRESETS.map((p) => (
-          <button
-            key={p.hex}
-            type="button"
-            role="radio"
-            aria-checked={p.hex === accent}
-            aria-label={p.name}
-            title={p.name}
-            className="accent-swatch"
-            style={swatchStyle(p.hex)}
-            onClick={() => pick(p.hex)}
-          >
-            {p.hex === accent && <CheckIcon className="accent-swatch__check" />}
-          </button>
-        ))}
-        {/* The custom chip is the native color picker wearing chip clothes. */}
-        <label
-          className={
-            "accent-custom" + (isCustomActive ? " accent-custom--active" : "")
-          }
-          title="Custom"
-          // Clicking applies the remembered custom color right away (the
-          // native picker also opens via the label; changes there apply
-          // live and whatever it's on at close wins).
-          onClick={() => {
-            if (custom) pick(custom);
-          }}
-        >
-          <span
-            className="accent-swatch"
-            style={custom ? swatchStyle(custom) : undefined}
-          >
-            {isCustomActive && <CheckIcon className="accent-swatch__check" />}
-          </span>
-          Custom
-          <input
-            type="color"
-            className="accent-custom__input"
-            value={custom || accent}
-            aria-label="Custom accent color"
-            onChange={(e) => pickCustom(e.target.value)}
+    <>
+      <section className="settings-section">
+        <h3 className="settings__section-title">General</h3>
+
+        <div className="customize-row">
+          <div>
+            <h4 className="customize-row__title">Clock Format</h4>
+            <p className="settings__section-note settings__section-note--dim">
+              How the header clock reads.
+            </p>
+          </div>
+          <ChipTabs tabs={CLOCK_TABS} active={clock} onChange={pickClock} />
+        </div>
+
+        <div className="customize-row">
+          <div>
+            <h4 className="customize-row__title">Startup Tab</h4>
+            <p className="settings__section-note settings__section-note--dim">
+              Where the app opens.
+            </p>
+          </div>
+          <ChipTabs
+            tabs={STARTUP_TABS}
+            active={startup}
+            onChange={pickStartup}
           />
-        </label>
-      </div>
-      <div className="customize-row">
-        <div>
-          <h4 className="customize-row__title">Light Theme</h4>
-          <p className="settings__section-note settings__section-note--dim">
-            Flip the whole app to a light palette.
-          </p>
         </div>
-        <Toggle
-          on={theme === "light"}
-          onChange={(on) => pickTheme(on ? "light" : "dark")}
-          label="Light theme"
-        />
-      </div>
+      </section>
 
-      <div className="customize-row">
-        <div>
-          <h4 className="customize-row__title">Corner Style</h4>
-          <p className="settings__section-note settings__section-note--dim">
-            The shape of every corner in the app.
-          </p>
+      <section className="settings-section">
+        <h3 className="settings__section-title">Theme</h3>
+
+        <div className="customize-row">
+          <div>
+            <h4 className="customize-row__title">Accent Color</h4>
+            <p className="settings__section-note settings__section-note--dim">
+              Used for highlights, toggles, and buttons across the app.
+            </p>
+          </div>
+          <div
+            className="accent-row"
+            role="radiogroup"
+            aria-label="Accent color"
+          >
+            {ACCENT_PRESETS.map((p) => (
+              <button
+                key={p.hex}
+                type="button"
+                role="radio"
+                aria-checked={p.hex === accent}
+                aria-label={p.name}
+                title={p.name}
+                className="accent-swatch"
+                style={swatchStyle(p.hex)}
+                onClick={() => pick(p.hex)}
+              >
+                {p.hex === accent && (
+                  <CheckIcon className="accent-swatch__check" />
+                )}
+              </button>
+            ))}
+            {/* The custom chip is the native color picker wearing chip clothes. */}
+            <label
+              className={
+                "accent-custom" +
+                (isCustomActive ? " accent-custom--active" : "")
+              }
+              title="Custom"
+              // Clicking applies the remembered custom color right away (the
+              // native picker also opens via the label; changes there apply
+              // live and whatever it's on at close wins).
+              onClick={() => {
+                if (custom) pick(custom);
+              }}
+            >
+              <span
+                className="accent-swatch"
+                style={custom ? swatchStyle(custom) : undefined}
+              >
+                {isCustomActive && (
+                  <CheckIcon className="accent-swatch__check" />
+                )}
+              </span>
+              Custom
+              <input
+                type="color"
+                className="accent-custom__input"
+                value={custom || accent}
+                aria-label="Custom accent color"
+                onChange={(e) => pickCustom(e.target.value)}
+              />
+            </label>
+          </div>
         </div>
-        <ChipTabs tabs={CORNER_TABS} active={corners} onChange={pickCorners} />
-      </div>
 
-      <div className="customize-row">
-        <div>
-          <h4 className="customize-row__title">UI Scale</h4>
-          <p className="settings__section-note settings__section-note--dim">
-            Make everything bigger or smaller.
-          </p>
+        <div className="customize-row">
+          <div>
+            <h4 className="customize-row__title">Light Theme</h4>
+            <p className="settings__section-note settings__section-note--dim">
+              Flip the whole app to a light palette.
+            </p>
+          </div>
+          <Toggle
+            on={theme === "light"}
+            onChange={(on) => pickTheme(on ? "light" : "dark")}
+            label="Light theme"
+          />
         </div>
-        <ChipTabs
-          tabs={SCALE_TABS}
-          active={String(scale)}
-          onChange={(key) => pickScale(Number(key) as UiScale)}
-        />
-      </div>
+      </section>
 
-      <div className="customize-row">
-        <div>
-          <h4 className="customize-row__title">Clock Format</h4>
-          <p className="settings__section-note settings__section-note--dim">
-            How the header clock reads.
-          </p>
+      <section className="settings-section">
+        <h3 className="settings__section-title">Display</h3>
+
+        <div className="customize-row">
+          <div>
+            <h4 className="customize-row__title">UI Scale</h4>
+            <p className="settings__section-note settings__section-note--dim">
+              Make everything bigger or smaller.
+            </p>
+          </div>
+          <ChipTabs
+            tabs={SCALE_TABS}
+            active={String(scale)}
+            onChange={(key) => pickScale(Number(key) as UiScale)}
+          />
         </div>
-        <ChipTabs tabs={CLOCK_TABS} active={clock} onChange={pickClock} />
-      </div>
 
-      <div className="customize-row">
-        <div>
-          <h4 className="customize-row__title">Startup Tab</h4>
-          <p className="settings__section-note settings__section-note--dim">
-            Where the app opens.
-          </p>
+        <div className="customize-row">
+          <div>
+            <h4 className="customize-row__title">Corner Style</h4>
+            <p className="settings__section-note settings__section-note--dim">
+              The shape of every corner in the app.
+            </p>
+          </div>
+          <ChipTabs
+            tabs={CORNER_TABS}
+            active={corners}
+            onChange={pickCorners}
+          />
         </div>
-        <ChipTabs tabs={STARTUP_TABS} active={startup} onChange={pickStartup} />
-      </div>
 
-      <button type="button" className="customize-reset" onClick={reset}>
-        Reset appearance
-      </button>
-    </section>
+        <button type="button" className="customize-reset" onClick={reset}>
+          Reset appearance
+        </button>
+      </section>
+    </>
   );
 }
