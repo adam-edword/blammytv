@@ -281,12 +281,17 @@ button {
 .settings__close {
   display: grid;
   place-items: center;
-  opacity: 0.9;
+  opacity: 0.5;
+  transition: opacity 150ms ease;
+}
+
+.settings__close:hover {
+  opacity: 1;
 }
 
 .settings__close svg {
-  width: 17px;
-  height: 17px;
+  width: 24px;
+  height: 24px;
 }
 
 .settings__body {
