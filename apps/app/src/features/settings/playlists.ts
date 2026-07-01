@@ -12,6 +12,10 @@ interface PlaylistBase {
   id: string;
   name: string;
   enabled: boolean;
+  /** Category/folder ids the user switched off — these stay out of the Live
+   * sidebar. Absent (older saves) means nothing hidden; unknown ids are
+   * ignored, so folders new on the provider side default to visible. */
+  hiddenCategories?: string[];
 }
 
 export interface XtreamPlaylist extends PlaylistBase {
@@ -79,6 +83,28 @@ export function removePlaylist(list: Playlist[], id: string): Playlist[] {
 
 export function togglePlaylist(list: Playlist[], id: string): Playlist[] {
   return list.map((p) => (p.id === id ? { ...p, enabled: !p.enabled } : p));
+}
+
+export function isCategoryHidden(p: Playlist, categoryId: string): boolean {
+  return p.hiddenCategories?.includes(categoryId) ?? false;
+}
+
+/** Flip one category's visibility on one playlist. */
+export function toggleHiddenCategory(
+  list: Playlist[],
+  playlistId: string,
+  categoryId: string,
+): Playlist[] {
+  return list.map((p) => {
+    if (p.id !== playlistId) return p;
+    const hidden = p.hiddenCategories ?? [];
+    return {
+      ...p,
+      hiddenCategories: hidden.includes(categoryId)
+        ? hidden.filter((id) => id !== categoryId)
+        : [...hidden, categoryId],
+    };
+  });
 }
 
 /** Light URL check for server/playlist/portal fields. */

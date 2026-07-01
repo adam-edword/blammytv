@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   addPlaylist,
+  isCategoryHidden,
   isHttpUrl,
   playlistSource,
   removePlaylist,
+  toggleHiddenCategory,
   togglePlaylist,
   type Playlist,
 } from "./playlists";
@@ -60,5 +62,22 @@ describe("helpers", () => {
     expect(isHttpUrl("http://ok.example:8080")).toBe(true);
     expect(isHttpUrl("ftp://no.example")).toBe(false);
     expect(isHttpUrl("not a url")).toBe(false);
+  });
+});
+
+describe("hidden categories", () => {
+  it("toggles per playlist and leaves others alone", () => {
+    let list = addPlaylist(addPlaylist([], draft(), "a"), draft(), "b");
+    list = toggleHiddenCategory(list, "a", "sports");
+    expect(isCategoryHidden(list[0], "sports")).toBe(true);
+    expect(isCategoryHidden(list[1], "sports")).toBe(false);
+    list = toggleHiddenCategory(list, "a", "sports");
+    expect(isCategoryHidden(list[0], "sports")).toBe(false);
+  });
+
+  it("treats older saves without the field as nothing hidden", () => {
+    const legacy = addPlaylist([], draft(), "a")[0];
+    delete (legacy as { hiddenCategories?: string[] }).hiddenCategories;
+    expect(isCategoryHidden(legacy, "anything")).toBe(false);
   });
 });

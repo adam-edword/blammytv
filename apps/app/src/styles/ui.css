@@ -74,6 +74,22 @@
   left: 24px;
 }
 
+/* Dense-list variant. */
+.toggle--sm {
+  width: 40px;
+  height: 24px;
+}
+
+.toggle--sm .toggle__thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 12px;
+}
+
+.toggle--sm.toggle--on .toggle__thumb {
+  left: 18px;
+}
+
 /* Primary action button (Figma "Add Playlist"/"Submit"). */
 .btn-primary {
   font-family: var(--font-headline);

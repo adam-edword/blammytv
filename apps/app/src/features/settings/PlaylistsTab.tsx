@@ -1,20 +1,28 @@
 import { useId, useState } from "react";
 import { ChipTabs } from "../../ui/ChipTabs";
 import { Toggle } from "../../ui/Toggle";
-import { CloseIcon } from "../../ui/icons";
+import { ChevronIcon, CloseIcon } from "../../ui/icons";
+import { fetchLiveCategories, type XtreamCategory } from "../../data/xtream";
 import {
   KIND_LABELS,
   addPlaylist,
+  isCategoryHidden,
   isHttpUrl,
   loadPlaylists,
   playlistSource,
   removePlaylist,
   savePlaylists,
+  toggleHiddenCategory,
   togglePlaylist,
   type Playlist,
   type PlaylistDraft,
   type PlaylistKind,
 } from "./playlists";
+
+type Categories =
+  | { status: "loading" }
+  | { status: "ready"; items: XtreamCategory[] }
+  | { status: "error" };
 
 const KIND_TABS: Array<{ key: PlaylistKind; label: string }> = [
   { key: "xtream", label: KIND_LABELS.xtream },
@@ -83,9 +91,32 @@ export function PlaylistsTab() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [playlists, setPlaylists] = useState<Playlist[]>(loadPlaylists);
 
+  // Per-playlist folder editor: which row is expanded, and each row's
+  // fetched category list (kept per id so re-expanding is instant).
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [categories, setCategories] = useState<Record<string, Categories>>({});
+
   const update = (list: Playlist[]) => {
     setPlaylists(list);
     savePlaylists(list);
+  };
+
+  const expand = (p: Playlist) => {
+    if (expandedId === p.id) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(p.id);
+    // Only Xtream has a category API wired today.
+    if (p.kind !== "xtream" || categories[p.id]?.status === "ready") return;
+    setCategories((c) => ({ ...c, [p.id]: { status: "loading" } }));
+    fetchLiveCategories(p)
+      .then((items) =>
+        setCategories((c) => ({ ...c, [p.id]: { status: "ready", items } })),
+      )
+      .catch(() =>
+        setCategories((c) => ({ ...c, [p.id]: { status: "error" } })),
+      );
   };
 
   const set = (field: keyof FormState) => (value: string) =>
@@ -202,33 +233,123 @@ export function PlaylistsTab() {
           </p>
         ) : (
           playlists.map((p) => (
-            <div key={p.id} className="playlist-row">
-              <div className="playlist-row__text">
-                <span className="playlist-row__name">{p.name}</span>
-                <span className="playlist-row__source">
-                  {playlistSource(p)}
-                </span>
+            <div key={p.id} className="playlist-item">
+              <div className="playlist-row">
+                <div className="playlist-row__text">
+                  <span className="playlist-row__name">{p.name}</span>
+                  <span className="playlist-row__source">
+                    {playlistSource(p)}
+                  </span>
+                </div>
+                <div className="playlist-row__actions">
+                  <Toggle
+                    on={p.enabled}
+                    onChange={() => update(togglePlaylist(playlists, p.id))}
+                    label={`${p.name} enabled`}
+                  />
+                  <button
+                    type="button"
+                    className={
+                      "playlist-row__expand" +
+                      (expandedId === p.id ? " playlist-row__expand--open" : "")
+                    }
+                    aria-label={`Edit ${p.name} folders`}
+                    aria-expanded={expandedId === p.id}
+                    onClick={() => expand(p)}
+                  >
+                    <ChevronIcon />
+                  </button>
+                  <button
+                    type="button"
+                    className="playlist-row__delete"
+                    aria-label={`Delete ${p.name}`}
+                    onClick={() => update(removePlaylist(playlists, p.id))}
+                  >
+                    <CloseIcon />
+                  </button>
+                </div>
               </div>
-              <div className="playlist-row__actions">
-                <Toggle
-                  on={p.enabled}
-                  onChange={() => update(togglePlaylist(playlists, p.id))}
-                  label={`${p.name} enabled`}
+              {expandedId === p.id && (
+                <FolderEditor
+                  playlist={p}
+                  categories={categories[p.id]}
+                  onToggle={(categoryId) =>
+                    update(toggleHiddenCategory(playlists, p.id, categoryId))
+                  }
                 />
-                <button
-                  type="button"
-                  className="playlist-row__delete"
-                  aria-label={`Delete ${p.name}`}
-                  onClick={() => update(removePlaylist(playlists, p.id))}
-                >
-                  <CloseIcon />
-                </button>
-              </div>
+              )}
             </div>
           ))
         )}
       </section>
     </>
+  );
+}
+
+/** The expanded folder list under a playlist row: every category from the
+ * provider with a visibility toggle — off keeps it out of the Live sidebar. */
+function FolderEditor({
+  playlist,
+  categories,
+  onToggle,
+}: {
+  playlist: Playlist;
+  categories: Categories | undefined;
+  onToggle: (categoryId: string) => void;
+}) {
+  if (playlist.kind !== "xtream") {
+    return (
+      <div className="source-list source-list--note">
+        <p className="settings__section-note settings__section-note--dim">
+          Folder editing for {KIND_LABELS[playlist.kind]} playlists arrives
+          with its live-TV client.
+        </p>
+      </div>
+    );
+  }
+  if (!categories || categories.status === "loading") {
+    return (
+      <div className="source-list source-list--note">
+        <p className="settings__section-note settings__section-note--dim">
+          Loading folders…
+        </p>
+      </div>
+    );
+  }
+  if (categories.status === "error") {
+    return (
+      <div className="source-list source-list--note">
+        <p className="settings__section-note settings__section-note--dim">
+          Couldn't reach the server. Check the playlist's credentials — and
+          note the browser dev build can be blocked by CORS where the desktop
+          app isn't.
+        </p>
+      </div>
+    );
+  }
+  if (categories.items.length === 0) {
+    return (
+      <div className="source-list source-list--note">
+        <p className="settings__section-note settings__section-note--dim">
+          The server reports no live categories.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="source-list">
+      {categories.items.map((c) => (
+        <div key={c.id} className="source-row">
+          <span className="source-row__name">{c.name}</span>
+          <Toggle
+            small
+            on={!isCategoryHidden(playlist, c.id)}
+            onChange={() => onToggle(c.id)}
+            label={`Show ${c.name} in Live TV`}
+          />
+        </div>
+      ))}
+    </div>
   );
 }
 
