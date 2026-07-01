@@ -5,6 +5,8 @@
 *::before,
 *::after {
   box-sizing: border-box;
+  /* Squircle corners everywhere a border-radius exists (no-op otherwise). */
+  corner-shape: var(--corner);
 }
 
 html,
@@ -191,60 +193,67 @@ button {
 
 /* -------------------------------------------------------------- settings */
 
+/* No dim — the design floats the glass card straight over the content
+ * (the card's own backdrop blur provides the separation). */
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
   display: flex;
   justify-content: flex-end;
   align-items: flex-start;
   padding: 88px 48px;
 }
 
+/* Glass card: 10% white over 45% black, blurred backdrop (from Figma 131:678). */
 .settings {
-  width: min(640px, 100%);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  padding: 28px 32px 32px;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+  width: min(786px, 100%);
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.1)),
+    linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.45));
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 26px;
+  padding: 32px 39px;
+  box-shadow: 0 -13px 72.6px rgba(0, 0, 0, 0.73);
 }
 
 .settings__header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 20px;
 }
 
 .settings__title {
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 26px;
+  font-weight: 600;
+  font-size: 32px;
   margin: 0;
-  flex: 1;
 }
 
+/* Chip rail: near-black track, active chip raised on #2a2a2a with a hairline
+ * border. Text is Bold 12 on every chip — inactive just loses the chip. */
 .settings__tabs {
   display: flex;
-  background: #000;
-  border-radius: 999px;
-  padding: 3px;
+  align-items: center;
+  background: var(--surface);
+  border-radius: 9px;
+  padding: 1px;
 }
 
 .settings__tab {
   font-family: var(--font-headline);
-  font-weight: 600;
-  font-size: 13px;
-  padding: 6px 14px;
-  border-radius: 999px;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 6px 15px;
+  border-radius: var(--radius-chip);
+  border: 0.5px solid transparent;
   color: var(--text);
-  opacity: 0.85;
 }
 
 .settings__tab--active {
-  background: var(--text);
-  color: #000;
-  opacity: 1;
+  background: #2a2a2a;
+  border-color: #494949;
 }
 
 .settings__close {
@@ -254,24 +263,24 @@ button {
 }
 
 .settings__close svg {
-  width: 22px;
-  height: 22px;
+  width: 17px;
+  height: 17px;
 }
 
 .settings__body {
-  margin-top: 28px;
+  margin-top: 40px;
 }
 
 .settings__section-title {
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 30px;
+  font-weight: 600;
+  font-size: 32px;
   margin: 0 0 10px;
 }
 
 .settings__section-note {
-  color: var(--text-muted);
+  font-size: 15px;
   margin: 0;
   max-width: 52ch;
-  line-height: 1.5;
+  line-height: 1.45;
 }
