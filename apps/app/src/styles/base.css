@@ -65,20 +65,31 @@ button {
   padding: 27px 17px;
 }
 
-/* Progressive blur under the nav (mock: Frame 34). Four stacked backdrop
- * layers, each with a smaller radius masked to a lower band, so the blur
- * radius itself decays with depth — total melt at the top dissolving to
- * crisp — plus a light --bg-tinted scrim that keeps colors vivid. The
- * layers compound where their masks overlap, smoothing the falloff. mpv
+/* Nav glass: the same treatment as the settings card (--card-glass fill +
+ * uniform 10px backdrop blur) as one flat window — no progression. mpv
  * video never sits under the nav, so backdrop-filter is safe here. */
 .header__veil {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  height: 100%; /* full melt at the top, gone by the nav's bottom edge */
+  height: 100%;
   z-index: -1;
   pointer-events: none;
+  background: var(--card-glass);
+  backdrop-filter: blur(10px);
+}
+
+.header__veil i {
+  position: absolute;
+  inset: 0;
+}
+
+/* Progressive-blur experiment, parked (mock Frame 34): seven layers with
+ * climbing radii and overlapping to-top masks — the codepen recipe,
+ * mirrored. Never matched the mock's feel; kept for a future attempt.
+
+.header__veil {
   background: linear-gradient(
     to bottom,
     color-mix(in srgb, var(--bg) 60%, transparent),
@@ -87,14 +98,6 @@ button {
   );
 }
 
-.header__veil i {
-  position: absolute;
-  inset: 0;
-}
-
-/* Seven layers, radii climbing 1→16px, masks overlapping ~half their
- * neighbors (the codepen recipe, mirrored: their melt sits at the bottom,
- * ours at the top, so the gradients run `to top` with identical stops). */
 .header__veil i:nth-child(1) {
   backdrop-filter: blur(1px);
   mask-image: linear-gradient(
@@ -159,6 +162,7 @@ button {
   backdrop-filter: blur(16px);
   mask-image: linear-gradient(to top, transparent 70%, #000 100%);
 }
+*/
 
 .header__brand {
   display: flex;
