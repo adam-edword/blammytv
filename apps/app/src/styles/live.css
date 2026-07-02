@@ -52,6 +52,7 @@
 .mode-rail {
   display: flex;
   align-items: stretch;
+  justify-content: space-between;
   gap: 3px;
   padding: 2px;
   background: var(--surface-track);
@@ -81,8 +82,11 @@
     flex-grow 260ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* The pill grows on the same curve but caps near its content width; the
+ * leftover space pushes the idle icons out to the rail's edges. */
 .mode-rail__chip--active {
   flex-grow: 1;
+  max-width: 116px;
 }
 
 .mode-rail__chip:hover {
