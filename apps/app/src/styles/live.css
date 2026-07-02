@@ -452,7 +452,7 @@
   text-align: left;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 20px;
   overflow: hidden;
   transition: border-color 120ms ease;
 }
@@ -550,7 +550,7 @@
   text-align: left;
   background: var(--surface-puck);
   border: 1.5px solid color-mix(in srgb, var(--text) 4%, transparent);
-  border-radius: 12px;
+  border-radius: 20px;
   overflow: hidden;
   transition: filter 120ms ease;
 }
