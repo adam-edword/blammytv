@@ -121,8 +121,12 @@
 
 /* ---------- Quality badges (Figma 126:856) ---------- */
 
-/* 23x12 pills: tier gradient at ~30% over black, hairline tier border,
- * Bold 7.2px. Deliberately unthemed — they read as hardware markings. */
+/* 23x12 pills: tier gradient at ~30% over black, Bold 7.2px. The ring is
+ * the old build's technique — a transparent border revealing a gradient
+ * clipped to the border-box — because sub-pixel solid borders render
+ * mushy, and the design's rings are themselves gradients. Layers:
+ * fill (padding-box) over black (padding-box) over ring (border-box).
+ * Deliberately unthemed — they read as hardware markings. */
 .badge {
   flex: none;
   display: inline-flex;
@@ -131,7 +135,7 @@
   min-width: 23px;
   height: 12px;
   padding: 2.6px 4.4px;
-  border: 0.6px solid;
+  border: 1px solid transparent;
   border-radius: var(--radius-badge);
   font-family: var(--font-headline);
   font-weight: 700;
@@ -140,53 +144,74 @@
   color: #fff;
 }
 
+/* Fill gradients verbatim from the Figma dev-mode export; rings are the
+ * same stops at full strength. */
 .badge--4k {
-  border-color: var(--badge-4k);
-  background-image:
+  background:
     linear-gradient(
-      -76deg,
-      rgba(255, 123, 246, 0.29) 5%,
-      rgba(134, 150, 255, 0.29) 29%,
-      rgba(132, 255, 169, 0.29) 54%,
-      rgba(255, 229, 127, 0.29) 78%,
-      rgba(255, 155, 155, 0.29) 98%
-    ),
-    linear-gradient(#000, #000);
+        277deg,
+        rgba(255, 123, 246, 0.29) 4.71%,
+        rgba(134, 150, 255, 0.29) 28.92%,
+        rgba(132, 255, 169, 0.29) 54.03%,
+        rgba(255, 229, 127, 0.29) 77.78%,
+        rgba(255, 155, 155, 0.29) 97.96%
+      )
+      padding-box,
+    linear-gradient(#000, #000) padding-box,
+    linear-gradient(
+        277deg,
+        #ff7bf6 4.71%,
+        #8696ff 28.92%,
+        #84ffa9 54.03%,
+        #ffe57f 77.78%,
+        #ff9b9b 97.96%
+      )
+      border-box;
 }
 
 .badge--fhd {
-  border-color: var(--badge-fhd);
-  background-image:
+  background:
     linear-gradient(
-      217deg,
-      rgba(255, 229, 127, 0.3) 8%,
-      rgba(179, 87, 0, 0.3) 88%
-    ),
-    linear-gradient(#000, #000);
+        236deg,
+        rgba(255, 229, 127, 0.3) 8.39%,
+        rgba(179, 87, 0, 0.3) 88%
+      )
+      padding-box,
+    linear-gradient(#000, #000) padding-box,
+    linear-gradient(236deg, #ffe57f 8.39%, #b35700 88%) border-box;
 }
 
 .badge--hd {
-  border-color: var(--badge-hd);
-  background-image:
+  background:
     linear-gradient(
-      -64deg,
-      rgba(255, 255, 255, 0.3) 0%,
-      rgba(49, 49, 49, 0.3) 97%
-    ),
-    linear-gradient(#000, #000);
+        284deg,
+        rgba(255, 255, 255, 0.3) 0%,
+        rgba(49, 49, 49, 0.3) 96.81%
+      )
+      padding-box,
+    linear-gradient(#000, #000) padding-box,
+    linear-gradient(284deg, #fff 0%, #313131 96.81%) border-box;
 }
 
-/* HDR: the rainbow runs the fill (like 4K) and tints the glyphs too. */
 .badge--hdr {
-  border-color: var(--badge-4k);
-  background-image:
-    linear-gradient(
-      100deg,
-      rgba(255, 155, 155, 0.29),
-      rgba(255, 123, 246, 0.29) 25%,
-      rgba(134, 150, 255, 0.29) 50%,
-      rgba(132, 255, 169, 0.29) 75%,
-      rgba(255, 229, 127, 0.29)
-    ),
-    linear-gradient(#000, #000);
+  background:
+    conic-gradient(
+        from -57deg at 50% 50%,
+        rgba(255, 123, 246, 0.29) 3.46deg,
+        rgba(134, 150, 255, 0.29) 93.46deg,
+        rgba(132, 255, 169, 0.29) 190.38deg,
+        rgba(255, 229, 127, 0.29) 282.12deg,
+        rgba(255, 155, 155, 0.29) 353.08deg
+      )
+      padding-box,
+    linear-gradient(#000, #000) padding-box,
+    conic-gradient(
+        from -57deg at 50% 50%,
+        #ff7bf6 3.46deg,
+        #8696ff 93.46deg,
+        #84ffa9 190.38deg,
+        #ffe57f 282.12deg,
+        #ff9b9b 353.08deg
+      )
+      border-box;
 }

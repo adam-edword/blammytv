@@ -546,8 +546,11 @@
 
 /* Real guides carry hundreds of rows — let the browser skip painting the
  * cells scrolled off-screen. Geometry is inline (width) + fixed height, so
- * only off-screen contents are skipped. Pinned cells always render. */
-.guide__cell:not(.guide__cell--pinned) {
+ * only off-screen contents are skipped. Pinned cells always render, and
+ * blank lanes are excluded because their label is position:sticky — the
+ * layout containment implied by content-visibility would scope the sticky
+ * to the cell and shove the label 213px inward. */
+.guide__cell:not(.guide__cell--pinned):not(.guide__cell--blank) {
   content-visibility: auto;
   contain-intrinsic-size: auto 60px;
 }
@@ -572,14 +575,16 @@
   font-weight: 500;
   font-size: 15px;
   color: var(--text-muted);
+  /* overflow:hidden would make the cell the sticky label's scroll
+   * container (killing the hug); nothing here needs clipping anyway. */
+  overflow: visible;
 }
 
-/* Non-pinned cell text hugs the scrollport's left edge (position:sticky)
- * until the cell's far edge pushes it away. The pinned cell IS at the edge
- * already, so its body stays static (sticky inside a width-animated,
- * translated card is asking for trouble). */
+/* Cell bodies are static: the pinned cell owns the edge-hugging behavior
+ * (the straddling programme is always the pinned one). Only blank lanes —
+ * which are never pinned — keep a sticky label so "No Information" hugs
+ * the scrollport until the lane's far edge pushes it away. */
 .guide__cell-body {
-  position: sticky;
   min-width: 0;
   max-width: 100%;
   display: flex;
@@ -588,8 +593,8 @@
   gap: 2px;
 }
 
-.guide__cell--pinned .guide__cell-body {
-  position: static;
+.guide__cell--blank .guide__cell-body {
+  position: sticky;
 }
 
 .guide__cell-title {

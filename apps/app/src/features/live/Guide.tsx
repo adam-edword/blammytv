@@ -202,11 +202,8 @@ export function Guide({
     (b.live ? " guide__cell--live" : "") +
     (pinned ? " guide__cell--pinned" : "");
 
-  const cellBody = (b: Block, sticky: boolean) => (
-    <span
-      className="guide__cell-body"
-      style={sticky ? { left: LANE_X + 16 } : undefined}
-    >
+  const cellBody = (b: Block) => (
+    <span className="guide__cell-body">
       <span className="guide__cell-title">{b.p.title}</span>
       <span className="guide__cell-time">{range(b.p.start, b.p.end)}</span>
     </span>
@@ -309,7 +306,7 @@ export function Guide({
                       onPreview({ channel, programme: pin.p })
                     }
                   >
-                    {cellBody(pin, false)}
+                    {cellBody(pin)}
                   </button>
                 )}
 
@@ -341,7 +338,7 @@ export function Guide({
                           onPreview({ channel, programme: b.p })
                         }
                       >
-                        {cellBody(b, true)}
+                        {cellBody(b)}
                       </button>
                     ),
                   )
