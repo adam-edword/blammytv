@@ -412,6 +412,9 @@
       color-mix(in srgb, var(--accent) 29%, var(--mix-base)),
       color-mix(in srgb, var(--accent) 10%, var(--mix-base))
     );
+  /* Size the gradient to the border box; otherwise it spans only the
+   * padding box and its edges smear out under the transparent border. */
+  background-origin: border-box;
 }
 
 .hero__preview:hover {
