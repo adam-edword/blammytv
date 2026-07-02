@@ -1,11 +1,12 @@
 /* Live tab. Rebuilding section by section — currently: the sidebar. */
 
+/* No padding here: the EPG grid must reach the screen edges; the sidebar
+ * carries its own margins instead. */
 .live {
   flex: 1;
   min-width: 0;
   display: flex;
   gap: 14px;
-  padding: 0 30px 24px;
 }
 
 /* ------------------------------------------------------------- sidebar */
@@ -19,6 +20,7 @@
   gap: 12px;
   min-height: 0;
   padding: 2px;
+  margin: 0 0 12px 12px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 20px;

@@ -53,7 +53,7 @@ button {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  padding: 27px 50px 10px 30px;
+  padding: 27px 17px;
 }
 
 .header__brand {
