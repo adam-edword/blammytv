@@ -326,7 +326,8 @@ export const Guide = memo(function Guide({
               <div
                 className={
                   "guide__channel" +
-                  (selected ? " guide__channel--selected" : "")
+                  (selected ? " guide__channel--selected" : "") +
+                  (favorite ? " guide__channel--starred" : "")
                 }
               >
                 <button

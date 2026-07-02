@@ -496,6 +496,13 @@
   overflow: hidden;
 }
 
+/* Starred cards reserve the star's lane: the name's box ends before the
+ * star, so the measured fade completes clear of it (Figma 131:248) —
+ * toggling re-renders, which re-measures the clip. */
+.guide__channel--starred .guide__card-name {
+  max-width: calc(100% - 30px);
+}
+
 /* Favorite star, three states (Figma 131:213/230/248): card hover shows
  * a faint ghost, hovering the star itself swaps to the rainbow-ringed
  * hollow, and starred keeps the filled rainbow star visible. */
