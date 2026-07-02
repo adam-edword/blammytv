@@ -6,7 +6,7 @@ import {
   ticks,
   windowStart,
   xForTime,
-} from "./guide";
+} from "./epg";
 
 const at = (h: number, m: number) => new Date(2026, 5, 30, h, m);
 

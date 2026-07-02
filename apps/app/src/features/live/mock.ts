@@ -1,4 +1,4 @@
-import { windowStart } from "./guide";
+import { windowStart } from "./epg";
 
 /**
  * Deterministic demo catalog for building the EPG against the Figma frame

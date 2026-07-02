@@ -21,7 +21,7 @@ import {
   ticks,
   windowStart,
   xForTime,
-} from "./guide";
+} from "./epg";
 import { programmesFor, type MockChannel, type Programme } from "./mock";
 
 /* Grid geometry (Figma 133:500): 189px channel cards, 8px gutters, 60px
