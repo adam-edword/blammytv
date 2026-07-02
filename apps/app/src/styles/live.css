@@ -214,7 +214,6 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding-right: 2px;
 }
 
 /* Folder rows: placeholder square + name; red fill = selected, red border
@@ -230,7 +229,7 @@
   color: var(--text);
   border: 1px solid transparent;
   border-radius: var(--radius-chip);
-  padding: 8px 11px;
+  padding: 8px 10px;
   /* Fixed so the label can't drive row height — folded rows (label
    * hidden) must keep identical geometry or the icons drift. */
   height: 36px;
