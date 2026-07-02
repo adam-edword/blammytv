@@ -166,18 +166,18 @@ button {
 
 .header__brand {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 15px;
 }
 
 .header__logo {
   width: 35px;
   height: 28px;
-  margin-top: 4px;
   object-fit: contain;
 }
 
 .header__title {
+  position: relative; /* the version hangs below without adding height */
   display: flex;
   flex-direction: column;
 }
@@ -189,7 +189,12 @@ button {
   line-height: 34px;
 }
 
+/* Out of flow so the brand block stays one 34px line — the nav's shared
+ * centerline ignores the version entirely. */
 .header__version {
+  position: absolute;
+  top: 100%;
+  left: 0;
   font-family: var(--font-headline);
   font-weight: 200;
   font-size: 11px;
@@ -205,11 +210,13 @@ button {
   opacity: 0.3;
 }
 
+/* Tabs and actions share the brand name's 34px line: same height,
+ * contents centered, so all three clusters sit on one centerline. */
 .header__tabs {
   display: flex;
   align-items: center;
   gap: 20px;
-  padding-top: 7px;
+  height: 34px;
 }
 
 .header__search {
@@ -254,6 +261,7 @@ button {
   display: flex;
   align-items: center;
   gap: 12px;
+  height: 34px;
   opacity: 0.3;
 }
 
