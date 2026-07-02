@@ -31,14 +31,18 @@ export function ChipTabs<K extends string>({
       if (btn) setThumb({ left: btn.offsetLeft, width: btn.offsetWidth });
     };
     measure();
-    // Label widths move when the webfont lands or the rail resizes —
-    // re-measure so the thumb doesn't keep a stale size.
+    // Label widths move when the webfont lands, the rail resizes, or a chip
+    // animates its own width (the Live rail's fixed-geometry morph) —
+    // observe the buttons too so the thumb tracks them mid-transition.
     let alive = true;
     document.fonts?.ready.then(() => {
       if (alive) measure();
     });
     const ro = new ResizeObserver(measure);
     ro.observe(rail);
+    rail
+      .querySelectorAll<HTMLButtonElement>("[data-tab]")
+      .forEach((btn) => ro.observe(btn));
     return () => {
       alive = false;
       ro.disconnect();
