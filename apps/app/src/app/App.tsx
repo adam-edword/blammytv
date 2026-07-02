@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { AppHeader, type TabKey } from "./AppHeader";
-import { DevBlurBackdrop } from "./DevBlurBackdrop";
 import { LiveScreen } from "../features/live/LiveScreen";
 import { StreamScreen } from "../features/stream/StreamScreen";
 import { DiscoverScreen } from "../features/discover/DiscoverScreen";
@@ -28,8 +27,6 @@ export function App() {
         )}
       </main>
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
-      {/* TEMPORARY: sharp scrollable wall for tuning the nav blur (B toggles). */}
-      <DevBlurBackdrop />
     </div>
   );
 }
