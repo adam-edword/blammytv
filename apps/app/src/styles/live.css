@@ -555,12 +555,17 @@
   contain-intrinsic-size: auto 60px;
 }
 
-/* The airing cell docked at the lane edge (old build's system): in-flow so
- * position:sticky works; width/opacity/transform driven per frame from
- * onScroll while its right edge stays anchored in canvas space. */
+/* The airing cell docked at the lane edge (old build's behavior, layout-
+ * free): the cell keeps its natural rect; per-frame onScroll updates only
+ * its clip-path (visual left edge), the body's translateX, and opacity —
+ * paint/composite work, no layout. */
 .guide__cell--pinned {
-  position: sticky;
   z-index: 1;
+  will-change: clip-path, opacity;
+}
+
+.guide__cell--pinned .guide__cell-body {
+  will-change: transform;
 }
 
 .guide__cell--live {

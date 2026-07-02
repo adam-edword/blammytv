@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronIcon,
   PanelIcon,
@@ -149,11 +149,17 @@ export function LiveScreen() {
   } | null>(null);
 
   // The sidebar's selected source narrows the guide; keep original indices
-  // so each channel's deterministic mock programmes stay stable.
-  const visible = MOCK_CHANNELS.map((channel, index) => ({
-    channel,
-    index,
-  })).filter(({ channel }) => !folder || channel.folder === folder);
+  // so each channel's deterministic mock programmes stay stable. Memoized:
+  // a fresh identity per render would bust the guide's memoization on
+  // every hover-preview update (it re-renders constantly while scrolling
+  // with the cursor over cells).
+  const visible = useMemo(
+    () =>
+      MOCK_CHANNELS.map((channel, index) => ({ channel, index })).filter(
+        ({ channel }) => !folder || channel.folder === folder,
+      ),
+    [folder],
+  );
   const heroChannel =
     MOCK_CHANNELS.find((c) => c.id === channelId) ?? MOCK_CHANNELS[0];
 

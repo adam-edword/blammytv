@@ -1,4 +1,5 @@
 import {
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -35,22 +36,40 @@ const RULER_H = 28;
 const CELL_GAP = 8;
 
 /** Once a pinned cell's visible width shrinks below this, it stops pinning
- * at the edge and instead slides its left edge under the channel column
- * (fading) — while its right edge stays anchored to the next cell, so the
- * gap never changes. (The old build's system, ported intact.) */
+ * at the edge and instead slides under the channel column (fading) — while
+ * its right edge stays anchored to the next cell, so the gap never changes.
+ * (The old build's behavior, re-implemented without layout: the cell keeps
+ * its natural rect and the left edge is a clip-path, so the per-frame
+ * updates are paint/composite only.) */
 const SLIDE_WIDTH = 48;
 
-/** Width / fade / slide for a pinned cell at a given horizontal scroll. */
-function pinnedMetrics(right: number, scroll: number) {
-  const visible = Math.max(0, right - scroll);
-  if (visible >= SLIDE_WIDTH) {
-    return { width: visible, opacity: 1, slide: 0 };
-  }
+/** Clip / fade for a pinned cell at a given horizontal scroll, in
+ * lane-relative px. The visual left edge is the lane edge while the
+ * visible run is wide enough, then holds at SLIDE_WIDTH and fades. */
+function pinnedMetrics(left: number, right: number, scroll: number) {
+  const visible = right - scroll;
+  const clip = Math.max(0, Math.min(scroll, right - SLIDE_WIDTH) - left);
   return {
-    width: SLIDE_WIDTH,
-    opacity: visible / SLIDE_WIDTH,
-    slide: -(SLIDE_WIDTH - visible),
+    clip,
+    opacity: Math.max(0, Math.min(1, visible / SLIDE_WIDTH)),
   };
+}
+
+
+/** Fade masks only where text actually overflows (measured, not blind). */
+function clipTitle(t: HTMLElement) {
+  t.classList.toggle("is-clipped", t.scrollWidth > t.clientWidth + 1);
+}
+
+function unpin(el: HTMLElement) {
+  el.classList.remove("guide__cell--pinned");
+  el.style.clipPath = "";
+  el.style.opacity = "";
+  delete el.dataset.tw;
+  const body = el.querySelector<HTMLElement>(".guide__cell-body");
+  if (body) body.style.transform = "";
+  const t = el.querySelector<HTMLElement>(".guide__cell-title");
+  if (t) clipTitle(t);
 }
 
 interface Block {
@@ -63,7 +82,10 @@ interface Block {
   key: number;
 }
 
-export function Guide({
+/* memo: hover previews re-render LiveScreen constantly while the cursor
+ * crosses cells; the guide's own props stay stable, so it must not be
+ * dragged along. */
+export const Guide = memo(function Guide({
   channels,
   selectedId,
   onSelect,
@@ -125,9 +147,15 @@ export function Guide({
   const scrollXRef = useRef(0);
   const rafRef = useRef(0);
 
-  // Which programme is pinned per lane. State changes only on a handoff,
-  // so renders are rare; the per-frame motion is applied imperatively.
-  const [pins, setPins] = useState<(number | null)[]>([]);
+  /* Pinning is fully imperative — React never renders it. With 14+ lanes a
+   * handoff happens somewhere almost constantly while scrubbing, and a
+   * state-driven pin re-rendered the whole grid each time (the scroll
+   * jank). The rAF toggles the class/styles directly; a post-render effect
+   * re-applies them since a React render resets className/style. */
+  const pinsRef = useRef<(number | null)[]>([]);
+  const pinnedElsRef = useRef<(HTMLElement | null)[]>([]);
+  const laneElsRef = useRef<HTMLElement[]>([]);
+
   const computePins = useCallback(
     (scroll: number) =>
       lanes.map(
@@ -136,18 +164,65 @@ export function Guide({
       ),
     [lanes],
   );
-  useEffect(() => {
-    setPins(computePins(scrollXRef.current));
-  }, [computePins]);
 
-  // Fade masks only where text actually overflows (measured, not blind).
-  const clipTitle = (t: HTMLElement) =>
-    t.classList.toggle("is-clipped", t.scrollWidth > t.clientWidth + 1);
+  /** Reconcile which cell is pinned per lane, then drive the pinned cells:
+   * clip-path + body transform + opacity only — no width writes, no
+   * layout. Title natural widths are measured once per pin (cached) so the
+   * per-frame clip check is pure arithmetic. */
+  const syncPins = useCallback(
+    (scroll: number) => {
+      const next = computePins(scroll);
+      const prev = pinsRef.current;
+      next.forEach((key, i) => {
+        const el = pinnedElsRef.current[i];
+        if (prev[i] === key && el?.isConnected) return;
+        if (el?.isConnected) unpin(el);
+        pinnedElsRef.current[i] = key
+          ? laneElsRef.current[i]?.querySelector<HTMLElement>(
+              `[data-key="${key}"]`,
+            ) ?? null
+          : null;
+        pinnedElsRef.current[i]?.classList.add("guide__cell--pinned");
+      });
+      pinsRef.current = next;
+
+      lanes.forEach(({ blocks }, i) => {
+        const key = next[i];
+        const el = pinnedElsRef.current[i];
+        if (!key || !el) return;
+        const b = blocks.find((x) => x.key === key);
+        if (!b) return;
+        const { clip, opacity } = pinnedMetrics(b.left, b.right, scroll);
+        el.style.clipPath = `inset(0 0 0 ${clip}px round 12px)`;
+        el.style.opacity = `${opacity}`;
+        const body = el.querySelector<HTMLElement>(".guide__cell-body");
+        if (body) body.style.transform = `translateX(${clip}px)`;
+        const t = el.querySelector<HTMLElement>(".guide__cell-title");
+        if (!t) return;
+        if (!el.dataset.tw) el.dataset.tw = String(t.scrollWidth);
+        // 28 = the cell's horizontal padding.
+        t.classList.toggle(
+          "is-clipped",
+          parseFloat(el.dataset.tw) > b.width - clip - 28,
+        );
+      });
+    },
+    [computePins, lanes],
+  );
+
   const CLIP_SELECTOR = ".guide__cell-title, .guide__card-name";
   useLayoutEffect(() => {
+    // A render rebuilt/reset the DOM: refresh the lane handles, re-measure
+    // fades, and re-apply the imperative pins that render wiped.
+    laneElsRef.current = Array.from(
+      scrollRef.current?.querySelectorAll<HTMLElement>(".guide__lane") ?? [],
+    );
     scrollRef.current
       ?.querySelectorAll<HTMLElement>(CLIP_SELECTOR)
       .forEach(clipTitle);
+    pinsRef.current = [];
+    pinnedElsRef.current = [];
+    syncPins(scrollXRef.current);
   });
   useEffect(() => {
     let alive = true;
@@ -168,39 +243,13 @@ export function Guide({
       rafRef.current = 0;
       const sl = scrollRef.current?.scrollLeft ?? 0;
       scrollXRef.current = sl;
-
-      // Re-render only when a pinned programme changes (a handoff).
-      const next = computePins(sl);
-      setPins((prev) =>
-        prev.length === next.length && prev.every((k, i) => k === next[i])
-          ? prev
-          : next,
-      );
-
-      // Drive the pinned cells each frame — writes first, then reads
-      // (re-measuring their fades), to avoid layout thrash.
-      const pinned = scrollRef.current?.querySelectorAll<HTMLElement>(
-        ".guide__cell--pinned",
-      );
-      pinned?.forEach((el) => {
-        const right = parseFloat(el.dataset.right || "0");
-        const { width, opacity, slide } = pinnedMetrics(right, sl);
-        el.style.width = `${width}px`;
-        el.style.opacity = `${opacity}`;
-        el.style.transform = slide ? `translateX(${slide}px)` : "";
-      });
-      pinned?.forEach((el) => {
-        const t = el.querySelector<HTMLElement>(".guide__cell-title");
-        if (t) clipTitle(t);
-      });
+      syncPins(sl);
     });
-  }, [computePins]);
+  }, [syncPins]);
   useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
 
-  const cellClass = (b: Block, pinned: boolean) =>
-    "guide__cell" +
-    (b.live ? " guide__cell--live" : "") +
-    (pinned ? " guide__cell--pinned" : "");
+  const cellClass = (b: Block) =>
+    "guide__cell" + (b.live ? " guide__cell--live" : "");
 
   const cellBody = (b: Block) => (
     <span className="guide__cell-body">
@@ -225,14 +274,9 @@ export function Guide({
           <div className="guide__corner" style={{ width: LANE_X }} />
         </div>
 
-        {lanes.map(({ channel, blocks }, laneIndex) => {
+        {lanes.map(({ channel, blocks }) => {
           const selected = channel.id === selectedId;
           const favorite = favorites.includes(channel.id);
-          const pinKey = pins[laneIndex] ?? null;
-          const pin = pinKey ? blocks.find((b) => b.key === pinKey) : null;
-          const pinMetrics = pin
-            ? pinnedMetrics(pin.right, scrollXRef.current)
-            : null;
           return (
             <div
               key={channel.id}
@@ -283,33 +327,6 @@ export function Guide({
                 className="guide__lane"
                 style={{ width: laneW, height: ROW_H }}
               >
-                {/* The pinned cell is in-flow (sticky needs that) and comes
-                 * first so it can't disturb the absolute cells. Its width/
-                 * fade/slide are driven per frame in onScroll. */}
-                {pin && pinMetrics && pinMetrics.width > 0 && (
-                  <button
-                    key={`pin-${pin.key}`}
-                    type="button"
-                    data-right={pin.right}
-                    className={cellClass(pin, true)}
-                    style={{
-                      left: LANE_X,
-                      width: pinMetrics.width,
-                      opacity: pinMetrics.opacity,
-                      transform: pinMetrics.slide
-                        ? `translateX(${pinMetrics.slide}px)`
-                        : undefined,
-                    }}
-                    title={pin.p.title}
-                    onClick={() => onSelect(channel.id)}
-                    onMouseEnter={() =>
-                      onPreview({ channel, programme: pin.p })
-                    }
-                  >
-                    {cellBody(pin)}
-                  </button>
-                )}
-
                 {channel.noInfo ? (
                   <button
                     type="button"
@@ -325,23 +342,22 @@ export function Guide({
                     </span>
                   </button>
                 ) : (
-                  blocks.map((b) =>
-                    b.key === pinKey ? null : (
-                      <button
-                        key={b.key}
-                        type="button"
-                        className={cellClass(b, false)}
-                        style={{ left: b.left, width: b.width }}
-                        title={b.p.title}
-                        onClick={() => onSelect(channel.id)}
-                        onMouseEnter={() =>
-                          onPreview({ channel, programme: b.p })
-                        }
-                      >
-                        {cellBody(b)}
-                      </button>
-                    ),
-                  )
+                  blocks.map((b) => (
+                    <button
+                      key={b.key}
+                      type="button"
+                      data-key={b.key}
+                      className={cellClass(b)}
+                      style={{ left: b.left, width: b.width }}
+                      title={b.p.title}
+                      onClick={() => onSelect(channel.id)}
+                      onMouseEnter={() =>
+                        onPreview({ channel, programme: b.p })
+                      }
+                    >
+                      {cellBody(b)}
+                    </button>
+                  ))
                 )}
               </div>
             </div>
@@ -356,4 +372,4 @@ export function Guide({
       </div>
     </div>
   );
-}
+});
