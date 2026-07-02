@@ -15,12 +15,15 @@
 /* The sidebar panel (values tuned by hand in devtools): surface fill,
  * hairline border, radius concentric with the rail (18px + 2px padding). */
 .live-sidebar {
-  flex: 0 0 230px;
-  /* Never let content set the width: a flex item's min-width defaults to
-   * auto, so one long provider category name would push the whole panel
-   * wide open. Long names fade out at the edge instead (below). */
+  /* 252px = the panel's true rendered width before it was ever clamped
+   * (mode rail 206 + collapse button + gaps + padding/border) — the old
+   * nominal 230 basis was always overruled by the rail's intrinsic size.
+   * Fixed hard: a flex item's min-width defaults to auto, so one long
+   * provider category name would otherwise push the panel wide open.
+   * Long names fade out at the edge instead (below). */
+  flex: 0 0 252px;
   min-width: 0;
-  max-width: 230px;
+  max-width: 252px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -204,6 +207,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
   min-width: 0;
   white-space: nowrap;
   overflow: hidden;
@@ -264,7 +268,11 @@
   border-radius: var(--radius-chip);
   padding: 8px 10px;
   /* Fixed so the label can't drive row height — folded rows (label
-   * hidden) must keep identical geometry or the icons drift. */
+   * hidden) must keep identical geometry or the icons drift. flex-shrink 0
+   * is the half that matters: the list overflows its scrollport, and a
+   * shrinkable row compresses to min-content — ~36px WITH a label, bare
+   * icon height without one, which shifted every icon up on collapse. */
+  flex-shrink: 0;
   height: 36px;
   transition:
     border-color 120ms ease,

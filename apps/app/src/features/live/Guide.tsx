@@ -392,12 +392,18 @@ export const Guide = memo(function Guide({
         {lanes.map(({ channel, blocks }) => {
           const selected = channel.id === selectedId;
           const favorite = favorites.includes(channel.id);
+          /* Previews attach to the card and the cells themselves — NOT
+           * the row. A row-level enter previewed the channel's airing
+           * programme, so sweeping vertically across the lane flashed
+           * each channel's live show for a frame before the cell under
+           * the cursor fired. Element-to-element handoff has no
+           * intermediate state; the gaps between elements just keep the
+           * previous preview. */
           return (
             <div
               key={channel.id}
               className="guide__row"
               style={{ height: ROW_H + ROW_GAP }}
-              onMouseEnter={() => onPreview({ channel, programme: null })}
             >
               <div
                 className={
@@ -405,6 +411,7 @@ export const Guide = memo(function Guide({
                   (selected ? " guide__channel--selected" : "") +
                   (favorite ? " guide__channel--starred" : "")
                 }
+                onMouseEnter={() => onPreview({ channel, programme: null })}
               >
                 <button
                   type="button"
@@ -455,6 +462,9 @@ export const Guide = memo(function Guide({
                     className="guide__cell guide__cell--blank"
                     style={{ left: 0, width: laneW - CELL_GAP }}
                     onClick={() => onSelect(channel.id)}
+                    onMouseEnter={() =>
+                      onPreview({ channel, programme: null })
+                    }
                   >
                     <span
                       className="guide__cell-body"
