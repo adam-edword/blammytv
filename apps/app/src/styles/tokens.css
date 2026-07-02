@@ -14,6 +14,7 @@
   --bg: #000000;
   --surface: #0f0f0f; /* inputs, rows */
   --surface-track: #0f0f0f; /* chip-rail track (darker than the card) */
+  --surface-puck: #1c1c1c; /* pucks sitting ON a --surface panel (live sidebar) */
   --surface-raised: #2a2a2a; /* chip thumb, custom-accent chip */
   --border: rgba(255, 255, 255, 0.1);
   --border-strong: rgba(255, 255, 255, 0.2); /* dividers, card edge */
@@ -40,6 +41,7 @@
   /* Text */
   --text: #f2f2f5;
   --text-muted: #a2a2a2;
+  --text-dim: #494949; /* quietest label tier (sidebar group headers) */
   --text-ghost: rgba(255, 255, 255, 0.2); /* placeholders */
 
   /* Quality-badge borders (fills are per-badge gradients) */
@@ -101,6 +103,7 @@
   --bg: #f3f4f7;
   --surface: #ffffff;
   --surface-track: #e2e4ea;
+  --surface-puck: #e2e4ea;
   --surface-raised: #f5f6f9;
   --border: rgba(0, 0, 0, 0.1);
   --border-strong: rgba(0, 0, 0, 0.15);
@@ -115,6 +118,7 @@
 
   --text: #16171d;
   --text-muted: #5b606e;
+  --text-dim: #b3b7c2;
   --text-ghost: rgba(0, 0, 0, 0.25);
 
   color-scheme: light;
