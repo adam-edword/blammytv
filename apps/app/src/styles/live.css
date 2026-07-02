@@ -457,9 +457,9 @@
   transition: border-color 120ms ease;
 }
 
-.guide__channel--selected .guide__card {
-  border-color: var(--text);
-}
+/* No visual selected state on channel cards — the hero (and later the
+ * mini-player) already shows the selection; a ring here read as noise.
+ * The --selected class stays on the element if a designed cue lands. */
 
 /* Mock logo slot: portrait tile with the channel initial until real
  * channel art lands. */
