@@ -24,8 +24,21 @@
   border-radius: 20px;
 }
 
+/* Folded and idle the panel chrome disappears; hovering anywhere on the
+ * rail fades it back. border-color (not none) keeps the 1px geometry so
+ * the icons don't shift. */
 .live-sidebar--collapsed {
   flex: 0 0 auto;
+  background: none;
+  border-color: transparent;
+  transition:
+    background 200ms ease,
+    border-color 200ms ease;
+}
+
+.live-sidebar--collapsed:hover {
+  background: var(--surface);
+  border-color: var(--border);
 }
 
 /* Top row: collapse ghost + mode rail share the line; the rail takes
