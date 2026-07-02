@@ -46,10 +46,11 @@
   height: 16px;
 }
 
-/* Mode rail: no overlay thumb — the active chip is the pill. Chips morph
- * via flex-grow (a plain number, so the transition always interpolates);
- * width, background, and label move as one element on one curve. */
+/* Mode rail, the Claude-app way: buttons snap to their new size instantly
+ * (labels show/hide with no width animation); the single indicator element
+ * glides to the settled target via transform+width on the spring. */
 .mode-rail {
+  position: relative;
   display: flex;
   align-items: stretch;
   justify-content: space-between;
@@ -59,34 +60,41 @@
   border-radius: 18px;
 }
 
+.mode-rail__indicator {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 0;
+  border-radius: var(--radius-chip);
+  background: var(--surface-raised);
+  border: 0.5px solid var(--border-raised);
+  will-change: transform, width;
+  transition:
+    transform 380ms var(--spring),
+    width 380ms var(--spring);
+}
+
+.mode-rail__indicator--snap {
+  transition: none;
+}
+
 .mode-rail__chip {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex: 0 1 38px;
-  min-width: 38px;
+  gap: 7px;
   height: 29px;
+  padding: 0 12px;
   border-radius: var(--radius-chip);
-  border: 0.5px solid transparent;
-  overflow: hidden;
   white-space: nowrap;
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 12px;
   color: var(--text);
   opacity: 0.5;
-  transition:
-    opacity 150ms ease,
-    background 220ms ease,
-    border-color 220ms ease,
-    flex-grow 380ms var(--spring);
-}
-
-/* The pill grows on the same curve but caps snug around its content; the
- * leftover space pushes the idle icons out to the rail's edges. */
-.mode-rail__chip--active {
-  flex-grow: 1;
-  max-width: 102px;
+  transition: opacity 150ms ease;
 }
 
 .mode-rail__chip:hover {
@@ -95,8 +103,6 @@
 
 .mode-rail__chip--active {
   opacity: 1;
-  background: var(--surface-raised);
-  border-color: var(--border-raised);
 }
 
 .mode-rail__chip svg {
@@ -105,28 +111,33 @@
   flex-shrink: 0;
 }
 
-/* The label lives in the DOM always; it unfolds on activation. */
+/* Labels collapse instantly (the indicator masks the snap); the incoming
+ * label fades in as the pill arrives. */
 .mode-rail__label {
-  max-width: 0;
-  opacity: 0;
-  overflow: hidden;
-  transition:
-    max-width 380ms var(--spring),
-    opacity 200ms ease 60ms,
-    margin-left 380ms var(--spring);
-  margin-left: 0;
+  display: none;
 }
 
 .mode-rail__chip--active .mode-rail__label {
-  max-width: 110px;
-  opacity: 1;
-  margin-left: 7px;
+  display: inline;
+  animation: mode-label-in 240ms ease 100ms backwards;
+}
+
+@keyframes mode-label-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .mode-rail__chip,
-  .mode-rail__label {
+  .mode-rail__indicator {
     transition: none;
+  }
+
+  .mode-rail__chip--active .mode-rail__label {
+    animation: none;
   }
 }
 

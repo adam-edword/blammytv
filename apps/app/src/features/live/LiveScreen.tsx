@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import {
   ChevronIcon,
   PanelIcon,
@@ -24,9 +24,10 @@ function ModeIcon({ mode, active }: { mode: Mode; active: boolean }) {
   return <RecentsIcon />;
 }
 
-/** The mode rail, Claude-app style: no measured thumb — the active chip IS
- * the pill. The grid's column template morphs with the selection, the label
- * collapses via max-width, and background/width/label animate as one unit. */
+/** The mode rail, built to the Claude app's actual mechanics (verified from
+ * its DOM): buttons resize INSTANTLY when the label collapses/expands, and a
+ * single indicator element glides to the settled target via transform+width.
+ * One animated element, exact one-shot measurement, nothing to chase. */
 function ModeRail({
   mode,
   onChange,
@@ -34,8 +35,54 @@ function ModeRail({
   mode: Mode;
   onChange: (m: Mode) => void;
 }) {
+  const railRef = useRef<HTMLDivElement>(null);
+  const [ind, setInd] = useState({ x: 0, w: 0, snap: true });
+
+  useLayoutEffect(() => {
+    const rail = railRef.current;
+    if (!rail) return;
+    const measure = (snap: boolean) => {
+      const btn = rail.querySelector<HTMLButtonElement>(
+        `[data-mode="${mode}"]`,
+      );
+      if (btn) {
+        setInd((prev) => ({
+          x: btn.offsetLeft,
+          w: btn.offsetWidth,
+          // First placement snaps into position; later ones glide.
+          snap: snap || prev.w === 0,
+        }));
+      }
+    };
+    measure(false);
+    // Font load / rail resize move the settled targets — reposition
+    // without animating.
+    let alive = true;
+    document.fonts?.ready.then(() => {
+      if (alive) measure(true);
+    });
+    const ro = new ResizeObserver(() => measure(true));
+    ro.observe(rail);
+    return () => {
+      alive = false;
+      ro.disconnect();
+    };
+  }, [mode]);
+
   return (
-    <div className="mode-rail" role="tablist">
+    <div className="mode-rail" role="tablist" ref={railRef}>
+      <div
+        className={
+          "mode-rail__indicator" +
+          (ind.snap ? " mode-rail__indicator--snap" : "")
+        }
+        style={{
+          transform: `translateX(${ind.x}px)`,
+          width: ind.w,
+          visibility: ind.w ? "visible" : "hidden",
+        }}
+        aria-hidden
+      />
       {MODES.map((m) => {
         const active = m.key === mode;
         return (
@@ -43,6 +90,7 @@ function ModeRail({
             key={m.key}
             type="button"
             role="tab"
+            data-mode={m.key}
             aria-selected={active}
             aria-label={m.label}
             className={
