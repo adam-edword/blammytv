@@ -7,7 +7,11 @@ import {
   useRef,
   useState,
 } from "react";
-import { RainbowStarIcon, StarIcon } from "../../ui/icons";
+import {
+  RainbowStarIcon,
+  StarGhostIcon,
+  StarRainbowHollowIcon,
+} from "../../ui/icons";
 import { formatClock } from "../../lib/time";
 import {
   loadClockFormat,
@@ -353,7 +357,16 @@ export const Guide = memo(function Guide({
                     setFavorites((list) => toggleFavorite(list, channel.id))
                   }
                 >
-                  {favorite ? <RainbowStarIcon /> : <StarIcon />}
+                  {favorite ? (
+                    <RainbowStarIcon />
+                  ) : (
+                    <>
+                      {/* Card hover shows the ghost; hovering the star
+                       * itself swaps to the rainbow-ringed one (CSS). */}
+                      <StarGhostIcon className="guide__fav-idle" />
+                      <StarRainbowHollowIcon className="guide__fav-hot" />
+                    </>
+                  )}
                 </button>
               </div>
 

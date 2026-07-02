@@ -253,6 +253,67 @@ export function RainbowStarIcon({ size = 16, className }: IconProps) {
   );
 }
 
+/** Faint filled star — the guide card's favorite at rest while the card
+ * is hovered (Figma 131:213 "Card Hover"). Fills with currentColor so it
+ * follows the theme. */
+export function StarGhostIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="none"
+      className={className}
+      aria-hidden="true"
+    >
+      <path
+        opacity="0.1"
+        d="M6.93138 0.690967C7.23073 -0.230344 8.53414 -0.230344 8.83349 0.690967L10.0087 4.308C10.1426 4.72003 10.5266 4.99899 10.9598 4.99899H14.763C15.7317 4.99899 16.1345 6.2386 15.3508 6.808L12.2739 9.04346C11.9234 9.2981 11.7768 9.74947 11.9107 10.1615L13.0859 13.7785C13.3853 14.6998 12.3308 15.466 11.5471 14.8966L8.47022 12.6611C8.11973 12.4065 7.64514 12.4065 7.29465 12.6611L4.21781 14.8966C3.4341 15.466 2.37962 14.6998 2.67897 13.7785L3.85422 10.1615C3.98809 9.74947 3.84144 9.2981 3.49095 9.04346L0.414113 6.808C-0.369601 6.2386 0.0331748 4.99899 1.0019 4.99899H4.80508C5.2383 4.99899 5.62226 4.72003 5.75613 4.308L6.93138 0.690967Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+/** Dark-core star ringed by the rainbow gradient — the guide card's
+ * favorite while the star itself is hovered (Figma 131:230 "Star Hover").
+ * Gradient ids are per-instance so many stars can render at once. */
+export function StarRainbowHollowIcon({ size = 17, className }: IconProps) {
+  const grad = useId();
+  const d =
+    "M7.43236 1.19097C7.73171 0.269656 9.03512 0.269656 9.33447 1.19097L10.5097 4.808C10.6436 5.22003 11.0275 5.49899 11.4608 5.49899H15.264C16.2327 5.49899 16.6355 6.7386 15.8517 7.308L12.7749 9.54346C12.4244 9.7981 12.2778 10.2495 12.4116 10.6615L13.5869 14.2785C13.8862 15.1998 12.8317 15.966 12.048 15.3966L8.9712 13.1611C8.62071 12.9065 8.14612 12.9065 7.79563 13.1611L4.71879 15.3966C3.93508 15.966 2.8806 15.1998 3.17995 14.2785L4.3552 10.6615C4.48907 10.2495 4.34241 9.7981 3.99193 9.54346L0.915089 7.308C0.131376 6.7386 0.534151 5.49899 1.50287 5.49899H5.30605C5.73928 5.49899 6.12324 5.22003 6.25711 4.808L7.43236 1.19097Z";
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 17 17"
+      fill="none"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d={d} fill="#262626" />
+      <path d={d} stroke="black" />
+      <path d={d} stroke={`url(#${grad})`} />
+      <defs>
+        <linearGradient
+          id={grad}
+          x1="18.8541"
+          y1="10.5993"
+          x2="-2.83823"
+          y2="7.78823"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop stopColor="#FF7BF6" />
+          <stop offset="0.259615" stopColor="#8696FF" />
+          <stop offset="0.528846" stopColor="#84FFA9" />
+          <stop offset="0.783654" stopColor="#FFE57F" />
+          <stop offset="1" stopColor="#FF9B9B" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+
 /** Interface / Check — the active-accent tick. */
 export function CheckIcon({ size = 16, className }: IconProps) {
   return (

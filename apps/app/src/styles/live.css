@@ -496,17 +496,20 @@
   overflow: hidden;
 }
 
-/* Favorite star: appears on row hover (or stays when starred). */
+/* Favorite star, three states (Figma 131:213/230/248): card hover shows
+ * a faint ghost, hovering the star itself swaps to the rainbow-ringed
+ * hollow, and starred keeps the filled rainbow star visible. */
 .guide__fav {
   position: absolute;
   right: 18px;
   top: 50%;
-  transform: translateY(-50%);
+  transform: translateY(-68%);
   z-index: 1;
   display: grid;
   place-items: center;
   width: 24px;
   height: 24px;
+  color: var(--text); /* the ghost fills with currentColor */
   opacity: 0;
   transition: opacity 120ms ease;
 }
@@ -519,6 +522,18 @@
 .guide__fav svg {
   width: 21px;
   height: 21px;
+}
+
+.guide__fav .guide__fav-hot {
+  display: none;
+}
+
+.guide__fav:hover .guide__fav-idle {
+  display: none;
+}
+
+.guide__fav:hover .guide__fav-hot {
+  display: block;
 }
 
 /* --------------------------------------------------------- guide cells */
