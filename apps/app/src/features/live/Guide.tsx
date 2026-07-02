@@ -362,7 +362,16 @@ export const Guide = memo(function Guide({
   );
 
   return (
-    <div className="guide" ref={scrollRef} onScroll={onScroll}>
+    /* The preview clears only when the cursor leaves the guide entirely.
+     * Per-row mouseleave cleared it in the gap BETWEEN rows, so a quick
+     * vertical sweep flashed the hero back to the selected channel between
+     * every pair of cards. */
+    <div
+      className="guide"
+      ref={scrollRef}
+      onScroll={onScroll}
+      onMouseLeave={() => onPreview(null)}
+    >
       <div className="guide__canvas" style={{ width: LANE_X + laneW }}>
         <div className="guide__ruler" style={{ height: RULER_H }}>
           {ticks(start).map((t) => (
@@ -389,7 +398,6 @@ export const Guide = memo(function Guide({
               className="guide__row"
               style={{ height: ROW_H + ROW_GAP }}
               onMouseEnter={() => onPreview({ channel, programme: null })}
-              onMouseLeave={() => onPreview(null)}
             >
               <div
                 className={
