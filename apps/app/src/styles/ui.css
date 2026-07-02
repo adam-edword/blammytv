@@ -132,14 +132,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 23px;
-  height: 12px;
-  padding: 2.6px 4.4px;
+  padding: 1.6px 4.4px;
   border: 1px solid transparent;
-  border-radius: var(--radius-badge);
+  border-radius: 10px;
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: 7.2px;
+  font-size: 8.2px;
   line-height: 1;
   color: #fff;
 }
