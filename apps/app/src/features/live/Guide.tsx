@@ -271,56 +271,6 @@ export const Guide = memo(function Guide({
     };
   }, []);
 
-  // TEMP debug: press G while the guide is on screen to copy a full dump
-  // of every cell's state to the clipboard (and console) — for catching
-  // the left-scroll anomaly live on real hardware.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() !== "g" || e.repeat) return;
-      const g = scrollRef.current;
-      if (!g) return;
-      const dump = {
-        version: document.querySelector(".header__version")?.textContent,
-        scrollLeft: g.scrollLeft,
-        zoom: document.documentElement.style.zoom || "1",
-        dpr: window.devicePixelRatio,
-        lanes: Array.from(g.querySelectorAll(".guide__lane")).map((lane) =>
-          Array.from(
-            lane.querySelectorAll<HTMLElement>(".guide__cell"),
-          ).map((el) => {
-            const r = el.getBoundingClientRect();
-            const t = el.querySelector(".guide__cell-title");
-            const tm = el.querySelector(".guide__cell-time");
-            return {
-              title: el.title || el.textContent?.slice(0, 24),
-              cls: el.className,
-              styleLeft: el.style.left,
-              styleWidth: el.style.width,
-              dataLeft: el.dataset.left,
-              dataWidth: el.dataset.width,
-              rect: `${r.left.toFixed(1)},${r.width.toFixed(1)}`,
-              titleDx: t
-                ? (t.getBoundingClientRect().left - r.left).toFixed(1)
-                : null,
-              timeDx: tm
-                ? (tm.getBoundingClientRect().left - r.left).toFixed(1)
-                : null,
-              pos: getComputedStyle(el).position,
-              clip: el.style.clipPath,
-              tf: el.style.transform,
-              op: el.style.opacity,
-            };
-          }),
-        ),
-      };
-      const json = JSON.stringify(dump);
-      console.log("GUIDE DUMP", dump);
-      void navigator.clipboard?.writeText(json);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
   const onScroll = useCallback(() => {
     if (rafRef.current) return;
     rafRef.current = requestAnimationFrame(() => {
