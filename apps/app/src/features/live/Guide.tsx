@@ -358,7 +358,7 @@ export const Guide = memo(function Guide({
                   }
                 >
                   {favorite ? (
-                    <RainbowStarIcon />
+                    <RainbowStarIcon vivid />
                   ) : (
                     <>
                       {/* Card hover shows the ghost; hovering the star

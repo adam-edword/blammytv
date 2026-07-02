@@ -210,10 +210,15 @@ export function SquareIcon({ size = 15, className }: IconProps) {
   );
 }
 
-/** The design's rainbow favorite star: dark core under a 70% rainbow
- * gradient, gradient stroke. Gradient ids are per-instance so many stars
- * can render at once. */
-export function RainbowStarIcon({ size = 16, className }: IconProps) {
+/** The design's rainbow favorite star: dark core under a rainbow
+ * gradient, gradient stroke. `vivid` fills at full strength (the guide's
+ * starred state) instead of the sidebar's muted 70%. Gradient ids are
+ * per-instance so many stars can render at once. */
+export function RainbowStarIcon({
+  size = 16,
+  className,
+  vivid = false,
+}: IconProps & { vivid?: boolean }) {
   const grad = useId();
   const d =
     "M9.51964 2.92705C9.81899 2.00574 11.1224 2.00574 11.4218 2.92705L12.597 6.54409C12.7309 6.95611 13.1148 7.23507 13.5481 7.23507H17.3512C18.32 7.23507 18.7227 8.47469 17.939 9.04409L14.8622 11.2795C14.5117 11.5342 14.365 11.9856 14.4989 12.3976L15.6742 16.0146C15.9735 16.9359 14.919 17.702 14.1353 17.1326L11.0585 14.8972C10.708 14.6425 10.2334 14.6425 9.88291 14.8972L6.80607 17.1326C6.02236 17.702 4.96788 16.9359 5.26723 16.0146L6.44248 12.3976C6.57635 11.9856 6.42969 11.5342 6.07921 11.2795L3.00237 9.04409C2.21866 8.47469 2.62143 7.23507 3.59015 7.23507H7.39333C7.82656 7.23507 8.21052 6.95611 8.34439 6.54409L9.51964 2.92705Z";
@@ -232,7 +237,7 @@ export function RainbowStarIcon({ size = 16, className }: IconProps) {
       <path
         d={d}
         fill={`url(#${grad})`}
-        fillOpacity="0.7"
+        fillOpacity={vivid ? 1 : 0.7}
         stroke={`url(#${grad})`}
       />
       <defs>
