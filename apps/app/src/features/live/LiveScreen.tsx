@@ -8,7 +8,8 @@ import {
   TvIcon,
 } from "../../ui/icons";
 import { splitTitleEmoji } from "./emoji";
-import { MOCK_FOLDERS, MOCK_PLAYLIST_NAME } from "./mock";
+import { Hero } from "./Hero";
+import { MOCK_CHANNELS, MOCK_FOLDERS, MOCK_PLAYLIST_NAME } from "./mock";
 
 type Mode = "playlist" | "favorites" | "recents";
 
@@ -242,9 +243,10 @@ export function LiveScreen() {
       )}
 
       <div className="live-main">
-        <p className="live-main__placeholder">
-          Hero and guide rebuild next, section by section.
-        </p>
+        <Hero channel={MOCK_CHANNELS[0]} />
+        <div className="live-main__stage">
+          <p className="live-main__placeholder">Guide grid next.</p>
+        </div>
       </div>
     </div>
   );
