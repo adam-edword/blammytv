@@ -53,44 +53,80 @@
   opacity: 0.8;
 }
 
-.live-sidebar__top .chip-tabs {
+/* Mode rail: no overlay thumb — the active chip is the pill. The grid's
+ * columns morph with the selection (grid-template-columns is animatable),
+ * so width, background, and label move as one element on one curve. */
+.mode-rail {
   flex: 1;
+  display: grid;
+  align-items: stretch;
+  gap: 3px;
+  padding: 2px;
+  background: var(--surface-track);
+  border-radius: 18px;
+  transition: grid-template-columns 260ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Fixed-geometry mode rail: inactive chips hold an icon-width slot, the
- * active one absorbs the rest — the rail never resizes, chips morph on
- * the thumb's curve. */
-.live-sidebar__top .chip-tabs__tab {
-  flex: 0 0 38px;
-  justify-content: center;
-  padding: 6px 0;
-  overflow: hidden;
-  white-space: nowrap;
-  transition:
-    opacity 150ms ease,
-    flex-grow 220ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.live-sidebar__top .chip-tabs__tab--active {
-  flex-grow: 1;
-}
-
-/* Icon sizing inside mode chips (labels appear on the active chip). */
-.chip-tabs__tab {
+.mode-rail__chip {
   display: flex;
   align-items: center;
-  gap: 7px;
+  justify-content: center;
+  min-width: 0;
+  height: 29px;
+  border-radius: var(--radius-chip);
+  border: 0.5px solid transparent;
+  overflow: hidden;
+  white-space: nowrap;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--text);
+  opacity: 0.5;
+  transition:
+    opacity 150ms ease,
+    background 220ms ease,
+    border-color 220ms ease;
 }
 
-.chip-tabs__tab svg {
+.mode-rail__chip:hover {
+  opacity: 0.85;
+}
+
+.mode-rail__chip--active {
+  opacity: 1;
+  background: var(--surface-raised);
+  border-color: var(--border-raised);
+}
+
+.mode-rail__chip svg {
   width: 15px;
   height: 15px;
   flex-shrink: 0;
 }
 
-/* The rainbow star carries its own colors at full strength. */
-.chip-tabs__tab--active .chip-tabs__star {
+/* The label lives in the DOM always; it unfolds on activation. */
+.mode-rail__label {
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition:
+    max-width 260ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 180ms ease,
+    margin-left 260ms cubic-bezier(0.4, 0, 0.2, 1);
+  margin-left: 0;
+}
+
+.mode-rail__chip--active .mode-rail__label {
+  max-width: 110px;
   opacity: 1;
+  margin-left: 7px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mode-rail,
+  .mode-rail__label {
+    transition: none;
+  }
 }
 
 /* --------------------------------------------------- playlist group */
