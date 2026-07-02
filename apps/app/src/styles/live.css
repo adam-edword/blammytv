@@ -807,10 +807,12 @@
 
 /* One line under a right-edge fade, like the title — real provider names
  * run long, and a wrapped channel line stole a synopsis line's worth of
- * the hero's pinned height. */
+ * the hero's pinned height. The box stretches to the details' full width
+ * so the fade zone sits at the container edge: names that don't reach it
+ * render untouched (a shrink-to-fit box always "overflows" its own mask). */
 .hero__channel {
   margin-top: 16px;
-  max-width: 100%;
+  align-self: stretch;
   white-space: nowrap;
   overflow: hidden;
   mask-image: linear-gradient(to right, #000 calc(100% - 100px), transparent);
