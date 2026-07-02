@@ -239,6 +239,16 @@
   opacity: 0.9;
 }
 
+/* Emoji lifted from the source title; same slot width as the tv icon so
+ * labels line up across rows. */
+.live-folder__emoji {
+  flex-shrink: 0;
+  width: 16px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1;
+}
+
 .live-folder__name {
   min-width: 0;
   white-space: nowrap;

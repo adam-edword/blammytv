@@ -26,15 +26,17 @@ export interface Programme {
 
 export const MOCK_PLAYLIST_NAME = "Meteor";
 
+/* A few titles carry emojis the way real provider categories do, to
+ * exercise the emoji-icon path; the rest fall back to the tv icon. */
 export const MOCK_FOLDERS = [
-  "World Cup 2026",
+  "🏆 World Cup 2026",
   "FIFA World Cup 2026 Men",
   "FIFA Women's World Cup",
-  "UEFA Euro 2024",
+  "⚽ UEFA Euro 2024",
   "Copa America 2024",
   "AFC Asian Cup 2023",
-  "United States",
-  "Africa Cup of Nations",
+  "🇺🇸 United States",
+  "🌍 Africa Cup of Nations",
   "FIFA Club World Cup",
   "Olympic Football",
   "UEFA Nations League",

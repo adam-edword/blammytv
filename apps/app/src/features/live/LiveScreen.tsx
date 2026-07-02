@@ -4,10 +4,10 @@ import {
   PanelIcon,
   RainbowStarIcon,
   RecentsIcon,
-  SquareIcon,
   StarIcon,
   TvIcon,
 } from "../../ui/icons";
+import { splitTitleEmoji } from "./emoji";
 import { MOCK_FOLDERS, MOCK_PLAYLIST_NAME } from "./mock";
 
 type Mode = "playlist" | "favorites" | "recents";
@@ -149,20 +149,29 @@ export function LiveScreen() {
             </button>
             {groupOpen && (
               <div className="live-sidebar__folders">
-                {MOCK_FOLDERS.map((f) => (
-                  <button
-                    key={f}
-                    type="button"
-                    className={
-                      "live-folder" +
-                      (folder === f ? " live-folder--active" : "")
-                    }
-                    onClick={() => setFolder(folder === f ? null : f)}
-                  >
-                    <SquareIcon className="live-folder__icon" />
-                    <span className="live-folder__name">{f}</span>
-                  </button>
-                ))}
+                {MOCK_FOLDERS.map((f) => {
+                  const { emoji, label } = splitTitleEmoji(f);
+                  return (
+                    <button
+                      key={f}
+                      type="button"
+                      className={
+                        "live-folder" +
+                        (folder === f ? " live-folder--active" : "")
+                      }
+                      onClick={() => setFolder(folder === f ? null : f)}
+                    >
+                      {emoji ? (
+                        <span className="live-folder__emoji" aria-hidden>
+                          {emoji}
+                        </span>
+                      ) : (
+                        <TvIcon className="live-folder__icon" />
+                      )}
+                      <span className="live-folder__name">{label}</span>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
