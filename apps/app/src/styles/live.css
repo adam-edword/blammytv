@@ -11,7 +11,7 @@
 /* ------------------------------------------------------------- sidebar */
 
 /* The sidebar panel (values tuned by hand in devtools): surface fill,
- * hairline border, 18px radius matching the rail's own. */
+ * hairline border, radius concentric with the rail (18px + 2px padding). */
 .live-sidebar {
   flex: 0 0 230px;
   display: flex;
@@ -21,7 +21,7 @@
   padding: 2px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 18px;
+  border-radius: 20px;
 }
 
 .live-sidebar--collapsed {
