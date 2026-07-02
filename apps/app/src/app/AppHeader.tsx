@@ -61,11 +61,14 @@ export function AppHeader({
 
   return (
     <header className="header" ref={ref}>
-      {/* Progressive blur: stacked backdrop layers, each with a smaller
-       * radius and a mask band lower than the last, so the melt decays
+      {/* Progressive blur: stacked backdrop layers with geometrically
+       * doubling radii and overlapping mask bands, so the melt decays
        * smoothly with depth (a single blurred layer just fades in opacity,
        * which reads as an abrupt band). */}
       <div className="header__veil" aria-hidden>
+        <i />
+        <i />
+        <i />
         <i />
         <i />
         <i />
