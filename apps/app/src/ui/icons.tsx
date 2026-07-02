@@ -5,6 +5,8 @@
  * Source viewBox 24×24, stroke-width 2, round caps/joins — left untouched.
  */
 
+import { useId } from "react";
+
 type IconProps = { size?: number; className?: string };
 
 function Svg({
@@ -176,6 +178,78 @@ export function PencilIcon({ size = 16, className }: IconProps) {
     <Svg size={size} className={className}>
       <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
     </Svg>
+  );
+}
+
+/** Interface / Sidebar — collapse/expand the side panel. */
+export function PanelIcon({ size = 18, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <rect x="3" y="4" width="18" height="16" rx="3" />
+      <path d="M9.5 4V20" />
+    </Svg>
+  );
+}
+
+/** Devices / TV — the playlist mode chip. */
+export function TvIcon({ size = 16, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <rect x="2" y="7" width="20" height="14" rx="2" />
+      <path d="M16 3L12 7L8 3" />
+    </Svg>
+  );
+}
+
+/** Interface / Square — the folder rows' placeholder mark (per the design). */
+export function SquareIcon({ size = 15, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <rect x="4" y="4" width="16" height="16" rx="3" />
+    </Svg>
+  );
+}
+
+/** The design's rainbow favorite star: dark core under a 70% rainbow
+ * gradient, gradient stroke. Gradient ids are per-instance so many stars
+ * can render at once. */
+export function RainbowStarIcon({ size = 16, className }: IconProps) {
+  const grad = useId();
+  const d =
+    "M9.51964 2.92705C9.81899 2.00574 11.1224 2.00574 11.4218 2.92705L12.597 6.54409C12.7309 6.95611 13.1148 7.23507 13.5481 7.23507H17.3512C18.32 7.23507 18.7227 8.47469 17.939 9.04409L14.8622 11.2795C14.5117 11.5342 14.365 11.9856 14.4989 12.3976L15.6742 16.0146C15.9735 16.9359 14.919 17.702 14.1353 17.1326L11.0585 14.8972C10.708 14.6425 10.2334 14.6425 9.88291 14.8972L6.80607 17.1326C6.02236 17.702 4.96788 16.9359 5.26723 16.0146L6.44248 12.3976C6.57635 11.9856 6.42969 11.5342 6.07921 11.2795L3.00237 9.04409C2.21866 8.47469 2.62143 7.23507 3.59015 7.23507H7.39333C7.82656 7.23507 8.21052 6.95611 8.34439 6.54409L9.51964 2.92705Z";
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 21 21"
+      fill="none"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d={d} fill="black" stroke="black" />
+      <path
+        d={d}
+        fill={`url(#${grad})`}
+        fillOpacity="0.7"
+        stroke={`url(#${grad})`}
+      />
+      <defs>
+        <linearGradient
+          id={grad}
+          x1="20.9414"
+          y1="12.3353"
+          x2="-0.750952"
+          y2="9.52432"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop stopColor="#FF7BF6" />
+          <stop offset="0.259615" stopColor="#8696FF" />
+          <stop offset="0.528846" stopColor="#84FFA9" />
+          <stop offset="0.783654" stopColor="#FFE57F" />
+          <stop offset="1" stopColor="#FF9B9B" />
+        </linearGradient>
+      </defs>
+    </svg>
   );
 }
 

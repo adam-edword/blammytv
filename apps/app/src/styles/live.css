@@ -1,7 +1,6 @@
-/* Live tab: sidebar + hero + EPG grid (Figma frame 133:415). */
+/* Live tab. Rebuilding section by section — currently: the sidebar. */
 
 .live {
-  --guide-channel-w: 210px;
   flex: 1;
   min-width: 0;
   display: flex;
@@ -12,60 +11,107 @@
 /* ------------------------------------------------------------- sidebar */
 
 .live-sidebar {
-  flex: 0 0 200px;
+  flex: 0 0 230px;
   display: flex;
   flex-direction: column;
   gap: 12px;
   min-height: 0;
 }
 
-.live-sidebar__modes {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-chip);
-  padding: 4px;
+.live-sidebar--collapsed {
+  flex: 0 0 auto;
 }
 
-.live-mode {
+.live-sidebar__top {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+/* Collapse button: a lone chip at rail height. */
+.live-collapse {
   display: grid;
   place-items: center;
-  flex: 1;
-  height: 30px;
-  border-radius: 12px;
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 13px;
-  opacity: 0.45;
-  transition:
-    opacity 150ms ease,
-    background 150ms ease;
+  width: 38px;
+  background: var(--surface-track);
+  border-radius: 18px;
+  opacity: 0.75;
+  transition: opacity 150ms ease;
 }
 
-.live-mode svg {
-  width: 15px;
-  height: 15px;
+.live-sidebar--collapsed .live-collapse {
+  height: 33px;
 }
 
-.live-mode:hover {
+.live-collapse:hover {
+  opacity: 1;
+}
+
+.live-collapse svg {
+  width: 16px;
+  height: 16px;
   opacity: 0.8;
 }
 
-.live-mode--active {
-  opacity: 1;
-  background: var(--surface-raised);
+.live-sidebar__top .chip-tabs {
+  flex: 1;
+  justify-content: space-between;
 }
 
-.live-sidebar__playlist {
-  margin: 6px 0 0 10px;
+/* Icon sizing inside mode chips (labels appear on the active chip). */
+.chip-tabs__tab {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.chip-tabs__tab svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+/* The rainbow star carries its own colors at full strength. */
+.chip-tabs__tab--active .chip-tabs__star {
+  opacity: 1;
+}
+
+/* --------------------------------------------------- playlist group */
+
+.live-sidebar__list {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.live-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px 2px;
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 11px;
-  letter-spacing: 1.5px;
+  letter-spacing: 1.6px;
   text-transform: uppercase;
   color: var(--text-muted);
+  transition: color 150ms ease;
+}
+
+.live-group:hover {
+  color: var(--text);
+}
+
+.live-group__caret {
+  width: 13px;
+  height: 13px;
+  transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.live-group__caret--closed {
+  transform: rotate(-90deg);
 }
 
 .live-sidebar__folders {
@@ -78,20 +124,20 @@
   padding-right: 2px;
 }
 
-/* Folder chips: red fill = selected, red border = hover (Figma 126:403). */
+/* Folder rows: placeholder square + name; red fill = selected, red border
+ * = hover (Figma 126:403). */
 .live-folder {
+  display: flex;
+  align-items: center;
+  gap: 9px;
   text-align: left;
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 14px;
   color: var(--text);
-  background: var(--surface);
   border: 1px solid transparent;
   border-radius: var(--radius-chip);
   padding: 8px 11px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   transition:
     border-color 120ms ease,
     background 120ms ease;
@@ -106,413 +152,35 @@
   border-color: var(--accent-border);
 }
 
-/* ---------------------------------------------------------------- hero */
+.live-folder__icon {
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+.live-folder__name {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.live-sidebar__note {
+  margin: 4px 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* ------------------------------------------------------------- main */
 
 .live-main {
   flex: 1;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
-.live-hero {
-  display: flex;
-  gap: 32px;
-  align-items: flex-start;
-}
-
-.live-hero__preview {
-  flex: 0 0 380px;
-  aspect-ratio: 16 / 9;
   display: grid;
   place-items: center;
-  background: #000;
-  border: 1px solid var(--border-strong);
-  border-radius: 10px;
 }
 
-.live-hero__preview-note {
-  font-family: var(--font-headline);
-  font-weight: 600;
-  font-size: 12px;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  opacity: 0.25;
-}
-
-.live-hero__info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding-top: 4px;
-}
-
-.live-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  width: fit-content;
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 13px;
-  letter-spacing: 1px;
-  background: var(--accent-surface);
-  border: 1px solid var(--accent-border);
-  border-radius: 8px;
-  padding: 4px 12px;
-}
-
-.live-badge__dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  corner-shape: round;
-  background: var(--accent);
-}
-
-.live-hero__channel {
-  margin: 6px 0 0;
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 17px;
-  color: var(--accent);
-}
-
-.live-hero__title {
-  margin: 0;
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 38px;
-  line-height: 1.1;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
-
-.live-hero__synopsis {
-  margin: 2px 0 0;
-  font-size: 14px;
-  line-height: 1.45;
+.live-main__placeholder {
   color: var(--text-muted);
-  max-width: 64ch;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
-
-.live-hero__meta {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-top: 8px;
-  width: 100%;
-}
-
-.live-hero__time {
-  font-family: var(--font-headline);
-  font-weight: 600;
-  font-size: 13px;
-  white-space: nowrap;
-  opacity: 0.8;
-}
-
-.live-hero__bar {
-  flex: 1;
-  height: 5px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--text) 12%, transparent);
-  overflow: hidden;
-}
-
-.live-hero__bar-fill {
-  height: 100%;
-  border-radius: 999px;
-  background: var(--accent);
-}
-
-/* --------------------------------------------------------------- guide */
-
-.guide {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-}
-
-.guide__scroll {
-  flex: 1;
-  min-width: 0;
-  overflow: auto;
-}
-
-.guide__inner {
-  position: relative;
-}
-
-.guide__timeline {
-  position: sticky;
-  top: 0;
-  z-index: 3;
-  display: flex;
-  height: 30px;
-  background: var(--bg);
-}
-
-.guide__corner {
-  flex: 0 0 var(--guide-channel-w);
-  position: sticky;
-  left: 0;
-  z-index: 1;
-  background: var(--bg);
-}
-
-.guide__ticks {
-  position: relative;
-  flex: 1;
-}
-
-.guide__tick {
-  position: absolute;
-  top: 4px;
-  font-family: var(--font-headline);
-  font-weight: 600;
-  font-size: 12px;
-  color: var(--text-muted);
-  opacity: 0.7;
-  white-space: nowrap;
-}
-
-.guide__rows {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  padding-top: 4px;
-}
-
-.guide__now {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: var(--accent);
-  z-index: 2;
-  pointer-events: none;
-}
-
-.guide-row {
-  display: flex;
-  gap: 10px;
-  height: 60px;
-}
-
-/* Channel card (Figma 126:784): logo, name, quality badge, star. */
-.guide-channel {
-  position: sticky;
-  left: 0;
-  z-index: 2;
-  flex: 0 0 var(--guide-channel-w);
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 0 10px 0 14px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  cursor: pointer;
-  transition: border-color 120ms ease;
-}
-
-.guide-channel:hover {
-  border-color: var(--border-strong);
-}
-
-.guide-channel--active {
-  border-color: var(--accent-border);
-}
-
-.guide-channel__logo {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  flex-shrink: 0;
-  border-radius: 9px;
-  background: var(--surface-raised);
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 12px;
-  opacity: 0.85;
-}
-
-.guide-channel__text {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 3px;
-}
-
-.guide-channel__name {
-  max-width: 100%;
-  font-family: var(--font-headline);
-  font-weight: 600;
-  font-size: 14px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.guide-channel__star {
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  opacity: 0;
-  color: var(--text-muted);
-  transition:
-    opacity 120ms ease,
-    color 120ms ease;
-}
-
-.guide-channel:hover .guide-channel__star {
-  opacity: 0.7;
-}
-
-.guide-channel__star--on,
-.guide-channel:hover .guide-channel__star--on {
-  opacity: 1;
-  color: #6ee787; /* the design's green favorite star */
-}
-
-.guide-channel__star svg {
-  width: 16px;
-  height: 16px;
-}
-
-.guide-row__cells {
-  position: relative;
-  flex: 1;
-  min-width: 0;
-}
-
-.guide-cell {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 2px;
-  padding: 0 16px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  overflow: hidden;
-  cursor: pointer;
-  transition: border-color 120ms ease;
-}
-
-.guide-cell:hover {
-  border-color: var(--accent-border-hover);
-}
-
-.guide-cell--airing {
-  background: var(--accent-surface);
-  border-color: var(--accent-border);
-}
-
-.guide-cell--noinfo {
-  position: static;
-  width: 100%;
-  height: 100%;
-  justify-content: center;
-  color: var(--text-muted);
-  opacity: 0.6;
-  font-size: 14px;
-  cursor: default;
-}
-
-.guide-cell__title {
-  font-family: var(--font-headline);
-  font-weight: 600;
-  font-size: 14px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.guide-cell__time {
-  font-size: 11px;
   opacity: 0.5;
-  white-space: nowrap;
-}
-
-/* -------------------------------------------------- quality badges */
-
-.badge {
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 8px;
-  letter-spacing: 0.3px;
-  padding: 2px 5px;
-  border-radius: var(--radius-badge);
-  border: 0.6px solid var(--badge-hd);
-  background: linear-gradient(
-      -64deg,
-      rgba(255, 255, 255, 0.3),
-      rgba(49, 49, 49, 0.3)
-    ),
-    #000;
-  color: #fff;
-}
-
-.badge--4k {
-  border-color: var(--badge-4k);
-  background: linear-gradient(
-      -76deg,
-      rgba(255, 123, 246, 0.29) 4.7%,
-      rgba(134, 150, 255, 0.29) 28.9%,
-      rgba(132, 255, 169, 0.29) 54%,
-      rgba(255, 229, 127, 0.29) 77.8%,
-      rgba(255, 155, 155, 0.29) 98%
-    ),
-    #000;
-}
-
-.badge--fhd {
-  border-color: var(--badge-fhd);
-  background: linear-gradient(
-      217deg,
-      rgba(255, 229, 127, 0.3) 8.4%,
-      rgba(179, 87, 0, 0.3) 88%
-    ),
-    #000;
-}
-
-.badge--hdr {
-  border-color: #cfd4de;
-  background: linear-gradient(
-      217deg,
-      rgba(207, 212, 222, 0.35) 8.4%,
-      rgba(90, 96, 110, 0.35) 88%
-    ),
-    #000;
-}
-
-/* ---------------------------------------------------------- empties */
-
-.live-empty {
-  flex: 1;
-  display: grid;
-  place-items: center;
-}
-
-.live-empty__note {
-  color: var(--text-muted);
-  font-size: 15px;
+  font-size: 14px;
 }
