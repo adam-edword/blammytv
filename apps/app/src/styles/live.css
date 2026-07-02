@@ -10,51 +10,44 @@
 
 /* ------------------------------------------------------------- sidebar */
 
-/* The sidebar is its own panel (Figma 144:412): surface fill, hairline
- * border, 12px radius, 4px padding. Folded, the chrome drops and only the
- * collapse puck remains. */
 .live-sidebar {
-  flex: 0 0 220px;
+  flex: 0 0 230px;
   display: flex;
   flex-direction: column;
   gap: 12px;
   min-height: 0;
-  padding: 4px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  overflow: hidden;
 }
 
 .live-sidebar--collapsed {
   flex: 0 0 auto;
-  padding: 0;
-  background: none;
-  border-color: transparent;
 }
 
-/* Top row: collapse puck + mode rail share the line; the rail takes
- * whatever width is left. */
+/* Top row: collapse ghost + mode rail share the line; the rail takes
+ * whatever width is left. Folded, only the ghost remains. */
 .live-sidebar__top {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
 }
 
+/* Collapse: a quiet ghost icon, same spot whether the sidebar is open or
+ * folded. */
 .live-collapse {
   flex-shrink: 0;
   display: grid;
   place-items: center;
   width: 30px;
-  height: 30px;
+  height: 26px;
   border-radius: 9px;
-  background: var(--surface-puck);
-  opacity: 0.7;
-  transition: opacity 150ms ease;
+  opacity: 0.45;
+  transition:
+    opacity 150ms ease,
+    background 150ms ease;
 }
 
 .live-collapse:hover {
   opacity: 1;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
 }
 
 .live-collapse svg {
@@ -74,7 +67,7 @@
   justify-content: space-between;
   gap: 3px;
   padding: 2px;
-  background: var(--surface-puck);
+  background: var(--surface-track);
   border-radius: 18px;
 }
 
@@ -172,24 +165,24 @@
 .live-group {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 13px 2px;
-  font-family: var(--font-text);
-  font-weight: 500;
-  font-size: 12px;
-  letter-spacing: 1.2px;
+  gap: 8px;
+  padding: 4px 6px 2px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 1.6px;
   text-transform: uppercase;
-  color: var(--text-dim);
+  color: var(--text-muted);
   transition: color 150ms ease;
 }
 
 .live-group:hover {
-  color: var(--text-muted);
+  color: var(--text);
 }
 
 .live-group__caret {
-  width: 11px;
-  height: 11px;
+  width: 13px;
+  height: 13px;
   transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -208,35 +201,22 @@
 }
 
 /* Folder rows: placeholder square + name; red fill = selected, red border
- * = hover (Figma 126:403). Long names fade out at the right edge — an
- * overlay shadow above the text (invisible when the name is short), not an
- * ellipsis, matching the design. */
+ * = hover (Figma 126:403). */
 .live-folder {
-  position: relative;
-  overflow: hidden;
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 9px;
   text-align: left;
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: 15px;
+  font-size: 14px;
   color: var(--text);
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-chip);
   padding: 8px 11px;
   transition:
     border-color 120ms ease,
     background 120ms ease;
-}
-
-.live-folder::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  box-shadow: inset -60px 0 32px -30px var(--surface);
-  pointer-events: none;
 }
 
 .live-folder:hover {
@@ -248,20 +228,16 @@
   border-color: var(--accent-border);
 }
 
-.live-folder--active::after {
-  box-shadow: inset -60px 0 32px -30px var(--accent-surface);
-}
-
 .live-folder__icon {
   flex-shrink: 0;
-  width: 14px;
-  height: 14px;
   opacity: 0.9;
 }
 
 .live-folder__name {
   min-width: 0;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .live-sidebar__note {
