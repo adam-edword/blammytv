@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AccountIcon, SearchIcon, SettingsIcon } from "../ui/icons";
 import { formatClock } from "../lib/time";
 import { APP_VERSION } from "../lib/version";
@@ -42,8 +42,25 @@ export function AppHeader({
 }) {
   const clock = useClock();
 
+  // The header floats over the tabs; publish its measured height so tabs
+  // that shouldn't start underneath can offset themselves (--header-h).
+  const ref = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const publish = () =>
+      document.documentElement.style.setProperty(
+        "--header-h",
+        `${el.offsetHeight}px`,
+      );
+    publish();
+    const ro = new ResizeObserver(publish);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   return (
-    <header className="header">
+    <header className="header" ref={ref}>
       <div className="header__brand">
         <img className="header__logo" src="/logo.png" alt="" />
         <div className="header__title">

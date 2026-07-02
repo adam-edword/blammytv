@@ -36,6 +36,7 @@ button {
 }
 
 .app-shell {
+  position: relative; /* anchors the floating header */
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -49,11 +50,38 @@ button {
 
 /* ---------------------------------------------------------------- header */
 
+/* The nav floats over the tabs so scrolling content can pass behind it.
+ * Tabs that shouldn't start underneath offset themselves with
+ * var(--header-h), published by AppHeader from its measured height. */
 .header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   padding: 27px 17px;
+}
+
+/* Legibility for content scrolling underneath: progressive blur plus a
+ * whisper of scrim (--bg-tinted, so black in dark / white in light), both
+ * fading out toward the bottom edge. mpv video never sits under the nav,
+ * so backdrop-filter is safe here. */
+.header::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  backdrop-filter: blur(14px);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--bg) 55%, transparent),
+    transparent
+  );
+  mask-image: linear-gradient(to bottom, #000 35%, transparent);
+  pointer-events: none;
 }
 
 .header__brand {
