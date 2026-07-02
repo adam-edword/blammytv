@@ -55,7 +55,24 @@
 
 .live-sidebar__top .chip-tabs {
   flex: 1;
-  justify-content: space-between;
+}
+
+/* Fixed-geometry mode rail: inactive chips hold an icon-width slot, the
+ * active one absorbs the rest — the rail never resizes, chips morph on
+ * the thumb's curve. */
+.live-sidebar__top .chip-tabs__tab {
+  flex: 0 0 38px;
+  justify-content: center;
+  padding: 6px 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition:
+    opacity 150ms ease,
+    flex-grow 220ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.live-sidebar__top .chip-tabs__tab--active {
+  flex-grow: 1;
 }
 
 /* Icon sizing inside mode chips (labels appear on the active chip). */
