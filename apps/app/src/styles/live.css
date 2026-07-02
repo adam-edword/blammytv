@@ -556,13 +556,13 @@
 }
 
 /* The airing cell docked at the lane edge: position:sticky so the left
- * edge and text ride the compositor (zero scroll lag, natural corners);
- * per-frame onScroll only clips the trailing right edge (paint, no
- * layout), plus slide/fade near the handoff. */
+ * edge and text ride the compositor (zero scroll lag); per-frame onScroll
+ * drives its width so the right edge stays anchored in canvas space —
+ * a real box, so real superellipse corners and truthful text clipping. */
 .guide__cell--pinned {
   position: sticky;
   z-index: 1;
-  will-change: clip-path, transform, opacity;
+  will-change: width, transform, opacity;
 }
 
 .guide__cell--live {

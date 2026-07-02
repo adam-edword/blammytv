@@ -39,26 +39,27 @@ const CELL_GAP = 8;
  * at the edge and instead slides under the channel column (fading) — while
  * its right edge stays anchored to the next cell, so the gap never changes.
  *
- * Mechanics (v3, the lag-free synthesis): the pinned cell switches to
- * position:sticky — its left edge and text ride the COMPOSITOR like the
- * old build's, so they can never vibrate against the scroll, and the
- * visible left corners keep their natural profile. Per frame, JS only
- * cuts the trailing right edge with a clip-path (paint-only; no width, no
- * layout) so the visual right edge stays anchored in canvas space. */
+ * Mechanics (v4 = the old build's, refined): the pinned cell switches to
+ * position:sticky — its left edge and text ride the COMPOSITOR, so they
+ * can't vibrate against the scroll — and its WIDTH is driven per frame so
+ * the right edge stays anchored in canvas space. Real width means real
+ * corners (the superellipse profile) and truthful text measurement (the
+ * fade mask lands on the card edge). The old perf sin wasn't the width
+ * write itself — it was React re-rendering per handoff and forced layout
+ * reads per frame, both long gone. */
 const SLIDE_WIDTH = 48;
 
-/** Trailing cut / slide / fade for a pinned sticky cell. `cut` is taken
- * off the cell's right edge so its visual right stays at `right` in canvas
- * space; under SLIDE_WIDTH the cut freezes and the cell slides left,
- * fading — identical behavior to the old build's width-driven handoff. */
+/** Width / slide / fade for a pinned sticky cell: shrinks with its right
+ * edge anchored; under SLIDE_WIDTH the width holds and it slides beneath
+ * the channel column, fading out. */
 function pinnedMetrics(b: Block, scroll: number) {
   const visible = b.right - scroll;
   if (visible >= SLIDE_WIDTH) {
-    return { cut: b.width - visible, slide: 0, opacity: 1 };
+    return { width: visible, slide: 0, opacity: 1 };
   }
   return {
-    cut: b.width - SLIDE_WIDTH,
-    slide: Math.max(visible - SLIDE_WIDTH, -b.width),
+    width: SLIDE_WIDTH,
+    slide: Math.max(visible - SLIDE_WIDTH, -SLIDE_WIDTH),
     opacity: Math.max(0, visible / SLIDE_WIDTH),
   };
 }
@@ -75,6 +76,7 @@ function clipTitle(t: HTMLElement) {
 function unpin(el: HTMLElement) {
   el.classList.remove("guide__cell--pinned");
   if (el.dataset.left) el.style.left = `${el.dataset.left}px`;
+  if (el.dataset.width) el.style.width = `${el.dataset.width}px`;
   el.style.clipPath = "";
   el.style.transform = "";
   el.style.opacity = "";
@@ -213,9 +215,8 @@ export const Guide = memo(function Guide({
         if (!key || !el) return;
         const b = blocks.find((x) => x.key === key);
         if (!b) return;
-        const { cut, slide, opacity } = pinnedMetrics(b, scroll);
-        el.style.clipPath =
-          cut > 0 ? `inset(-1px ${cut}px -1px -1px round 12px)` : "";
+        const { width, slide, opacity } = pinnedMetrics(b, scroll);
+        el.style.width = `${width}px`;
         el.style.transform = slide ? `translateX(${slide}px)` : "";
         el.style.opacity = opacity < 1 ? `${opacity}` : "";
         const t = el.querySelector<HTMLElement>(".guide__cell-title");
@@ -224,7 +225,7 @@ export const Guide = memo(function Guide({
         // 28 = the cell's horizontal padding.
         t.classList.toggle(
           "is-clipped",
-          parseFloat(el.dataset.tw) > b.right - scroll - 28,
+          parseFloat(el.dataset.tw) > width - 28,
         );
       });
     },
@@ -381,6 +382,7 @@ export const Guide = memo(function Guide({
                       type="button"
                       data-key={b.key}
                       data-left={b.left}
+                      data-width={b.width}
                       className={cellClass(b)}
                       style={{ left: b.left, width: b.width }}
                       title={b.p.title}
