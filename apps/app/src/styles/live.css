@@ -70,19 +70,20 @@
   flex: 1;
   min-width: 0;
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: space-between;
-  padding: 1px 11px 1px 1px;
+  gap: 3px;
+  padding: 2px;
   background: var(--surface-puck);
-  border-radius: 9px;
+  border-radius: 18px;
 }
 
 .mode-rail__indicator {
   position: absolute;
-  top: 1px;
-  bottom: 1px;
+  top: 2px;
+  bottom: 2px;
   left: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-chip);
   background: var(--surface-raised);
   border: 0.5px solid var(--border-raised);
   will-change: transform, width;
@@ -101,10 +102,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  height: 28px;
-  padding: 0 7px;
-  border-radius: 8px;
+  gap: 7px;
+  height: 29px;
+  padding: 0 12px;
+  border-radius: var(--radius-chip);
   white-space: nowrap;
   font-family: var(--font-headline);
   font-weight: 700;
@@ -120,24 +121,12 @@
 
 .mode-rail__chip--active {
   opacity: 1;
-  padding: 0 15px;
 }
 
-/* Per-mode icon sizes from the design: tv 14, star 21, clock 16. */
 .mode-rail__chip svg {
-  width: 14px;
-  height: 14px;
+  width: 15px;
+  height: 15px;
   flex-shrink: 0;
-}
-
-.mode-rail__chip[data-mode="favorites"] svg {
-  width: 21px;
-  height: 21px;
-}
-
-.mode-rail__chip[data-mode="recents"] svg {
-  width: 16px;
-  height: 16px;
 }
 
 /* Labels collapse instantly (the indicator masks the snap); the incoming
