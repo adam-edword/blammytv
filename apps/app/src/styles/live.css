@@ -562,7 +562,10 @@
 .guide__cell--pinned {
   position: sticky;
   z-index: 1;
-  will-change: width, transform, opacity;
+  /* No will-change: forcing the pinned cell onto its own compositor layer
+   * made WebView2 reuse a stale raster offset when a cell swaps
+   * absolute -> sticky mid-scroll — text painted at its pre-pin position
+   * inside the correctly-placed box (geometry clean, pixels wrong). */
 }
 
 .guide__cell--live {
