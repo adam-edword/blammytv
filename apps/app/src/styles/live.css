@@ -390,27 +390,32 @@
 /* Now Playing (Figma 133:479): preview slot + programme details. */
 .hero {
   display: flex;
-  gap: 40px;
+  gap: 25px;
   align-items: stretch;
   padding-right: 50px;
 }
 
-/* The mpv slot, framed like a set: white bezel over a black inset ring.
- * Deliberately unthemed — it's a TV, not a surface. The accent-tinted
+/* The mpv slot, exactly 16:9. Nothing can render over the native player,
+ * so no inner effects — just a white bezel that appears on hover
+ * (transparent otherwise, keeping the geometry fixed). The accent-tinted
  * gradient is the "off air" placeholder the video replaces. */
 .hero__preview {
   flex-shrink: 0;
   width: 494px;
-  height: 278px;
-  border: 3px solid #fff;
-  border-radius: 12px;
-  box-shadow: inset 0 0 0 7px #000;
+  aspect-ratio: 16 / 9;
+  border: 3px solid transparent;
+  border-radius: 20px;
+  transition: border-color 150ms ease;
   background:
     linear-gradient(
       to bottom,
       color-mix(in srgb, var(--accent) 29%, var(--mix-base)),
       color-mix(in srgb, var(--accent) 10%, var(--mix-base))
     );
+}
+
+.hero__preview:hover {
+  border-color: #fff;
 }
 
 .hero__details {
@@ -430,7 +435,7 @@
   padding: 7px 14px;
   background: var(--accent-surface);
   border: 0.5px solid var(--accent);
-  border-radius: 8px;
+  border-radius: 20px;
   font-family: var(--font-text);
   font-weight: 700;
   font-size: 17px;
