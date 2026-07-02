@@ -92,7 +92,7 @@ button {
   inset: 0;
 }
 
-/* Seven layers, radii doubling 1→64px, masks overlapping ~half their
+/* Seven layers, radii climbing 1→16px, masks overlapping ~half their
  * neighbors (the codepen recipe, mirrored: their melt sits at the bottom,
  * ours at the top, so the gradients run `to top` with identical stops). */
 .header__veil i:nth-child(1) {
@@ -129,7 +129,7 @@ button {
 }
 
 .header__veil i:nth-child(4) {
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(6px);
   mask-image: linear-gradient(
     to top,
     transparent 20%,
@@ -140,7 +140,7 @@ button {
 }
 
 .header__veil i:nth-child(5) {
-  backdrop-filter: blur(16px);
+  backdrop-filter: blur(8px);
   mask-image: linear-gradient(
     to top,
     transparent 40%,
@@ -151,12 +151,12 @@ button {
 }
 
 .header__veil i:nth-child(6) {
-  backdrop-filter: blur(32px);
+  backdrop-filter: blur(12px);
   mask-image: linear-gradient(to top, transparent 60%, #000 80%);
 }
 
 .header__veil i:nth-child(7) {
-  backdrop-filter: blur(64px);
+  backdrop-filter: blur(16px);
   mask-image: linear-gradient(to top, transparent 70%, #000 100%);
 }
 
