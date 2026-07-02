@@ -282,7 +282,12 @@
  * row labels drop out, but the rows themselves keep their geometry so the
  * emoji/icons stay pixel-fixed through the toggle. */
 .live-sidebar--collapsed .live-group {
-  visibility: hidden; /* keeps its height so the rows don't shift up */
+  /* Keep the height (so rows don't shift up) but surrender the width —
+   * otherwise the hidden playlist name holds the rail wide open. */
+  visibility: hidden;
+  width: 0;
+  padding-inline: 0;
+  white-space: nowrap;
 }
 
 .live-sidebar--collapsed .live-folder__name {
