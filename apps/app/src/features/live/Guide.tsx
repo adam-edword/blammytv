@@ -37,6 +37,10 @@ const ROW_H = 60;
 const ROW_GAP = 8;
 const RULER_H = 28;
 const CELL_GAP = 8;
+/** One row's slice of scroll height (row + its gap). */
+const ROW_STEP = ROW_H + ROW_GAP;
+/** Extra rows rendered beyond each viewport edge. */
+const OVERSCAN = 5;
 
 /** Once a pinned cell's visible width shrinks below this, it stops pinning
  * at the edge and instead slides under the channel column (fading) — while
@@ -70,6 +74,14 @@ function pinnedMetrics(b: Block, scroll: number) {
 /** Fade masks only where text actually overflows (measured, not blind). */
 function clipTitle(t: HTMLElement) {
   t.classList.toggle("is-clipped", t.scrollWidth > t.clientWidth + 1);
+}
+
+/** Batch form: all reads, then all writes — interleaving them forces a
+ * reflow per element, which row-window shifts would pay every 68px. */
+function clipTitles(els: Iterable<HTMLElement>) {
+  const list = Array.from(els);
+  const clipped = list.map((t) => t.scrollWidth > t.clientWidth + 1);
+  list.forEach((t, i) => t.classList.toggle("is-clipped", clipped[i]));
 }
 
 /** Restore a cell to its natural place. The true left comes from the
@@ -164,10 +176,32 @@ export const Guide = memo(function Guide({
   const range = (from: Date, to: Date) =>
     `${formatClock(from, clockFmt)} – ${formatClock(to, clockFmt)}`;
 
-  // Lay each lane out once; only the pinned cell depends on scroll.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollXRef = useRef(0);
+  const rafRef = useRef(0);
+
+  /* Vertical row window: real playlists run to six figures of channels, so
+   * only the rows near the viewport render (spacer divs keep the scroll
+   * height truthful). The window widens by OVERSCAN rows each way and only
+   * re-renders when the visible row range actually changes — a 68px step —
+   * so horizontal scrubbing (which never changes it) stays render-free. */
+  const [rowWin, setRowWin] = useState({ from: 0, to: 36 });
+  const renderFrom = Math.max(0, Math.min(rowWin.from, channels.length));
+  const renderTo = Math.max(renderFrom, Math.min(rowWin.to, channels.length));
+
+  const measureRowWindow = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const top = el.scrollTop - RULER_H;
+    const from = Math.max(0, Math.floor(top / ROW_STEP) - OVERSCAN);
+    const to = Math.ceil((top + el.clientHeight) / ROW_STEP) + OVERSCAN;
+    setRowWin((w) => (w.from === from && w.to === to ? w : { from, to }));
+  }, []);
+
+  // Lay the windowed lanes out once; only the pinned cell depends on scroll.
   const lanes = useMemo(
     () =>
-      channels.map(({ channel, programmes }) => {
+      channels.slice(renderFrom, renderTo).map(({ channel, programmes }) => {
         const blocks: Block[] = programmes
           .map((p) => ({ p, rect: cellRect(p.start, p.end, start) }))
           .filter((b) => b.rect !== null)
@@ -184,12 +218,8 @@ export const Guide = memo(function Guide({
           });
         return { channel, blocks };
       }),
-    [channels, now, start],
+    [channels, renderFrom, renderTo, now, start],
   );
-
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const scrollXRef = useRef(0);
-  const rafRef = useRef(0);
 
   /* Pinning is fully imperative — React never renders it. With 14+ lanes a
    * handoff happens somewhere almost constantly while scrubbing, and a
@@ -278,25 +308,32 @@ export const Guide = memo(function Guide({
     laneElsRef.current = Array.from(
       scrollRef.current?.querySelectorAll<HTMLElement>(".guide__lane") ?? [],
     );
-    scrollRef.current
-      ?.querySelectorAll<HTMLElement>(CLIP_SELECTOR)
-      .forEach(clipTitle);
+    clipTitles(
+      scrollRef.current?.querySelectorAll<HTMLElement>(CLIP_SELECTOR) ?? [],
+    );
     pinsRef.current = [];
     pinnedElsRef.current = [];
     syncPins(scrollXRef.current);
+    // Row-window drift check (channels changed, container resized): a
+    // corrected window re-renders once; the equality guard stops the loop.
+    measureRowWindow();
   });
   useEffect(() => {
     let alive = true;
     document.fonts?.ready.then(() => {
       if (alive)
-        scrollRef.current
-          ?.querySelectorAll<HTMLElement>(CLIP_SELECTOR)
-          .forEach(clipTitle);
+        clipTitles(
+          scrollRef.current?.querySelectorAll<HTMLElement>(CLIP_SELECTOR) ??
+            [],
+        );
     });
+    const ro = new ResizeObserver(measureRowWindow);
+    if (scrollRef.current) ro.observe(scrollRef.current);
     return () => {
       alive = false;
+      ro.disconnect();
     };
-  }, []);
+  }, [measureRowWindow]);
 
   const onScroll = useCallback(() => {
     if (rafRef.current) return;
@@ -304,9 +341,14 @@ export const Guide = memo(function Guide({
       rafRef.current = 0;
       const sl = scrollRef.current?.scrollLeft ?? 0;
       scrollXRef.current = sl;
+      // Vertical: maybe shift the row window (no-op re-render when it
+      // hasn't crossed a row boundary). Horizontal: drive the pins — the
+      // lanes/DOM pair from the last render is self-consistent even if a
+      // window change is about to land; the post-render effect re-syncs.
+      measureRowWindow();
       syncPins(sl);
     });
-  }, [syncPins]);
+  }, [measureRowWindow, syncPins]);
   useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
 
   const cellClass = (b: Block) =>
@@ -334,6 +376,9 @@ export const Guide = memo(function Guide({
           ))}
           <div className="guide__corner" style={{ width: LANE_X }} />
         </div>
+
+        {/* Off-window rows exist only as scroll height. */}
+        {renderFrom > 0 && <div style={{ height: renderFrom * ROW_STEP }} />}
 
         {lanes.map(({ channel, blocks }) => {
           const selected = channel.id === selectedId;
@@ -434,6 +479,10 @@ export const Guide = memo(function Guide({
             </div>
           );
         })}
+
+        {renderTo < channels.length && (
+          <div style={{ height: (channels.length - renderTo) * ROW_STEP }} />
+        )}
 
         <div
           className="guide__nowline"

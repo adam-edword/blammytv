@@ -3,7 +3,7 @@
 Working state of the greenfield rebuild (branch `claude/blammytv-rebuild-xclzto`)
 and the agreed order of what's next. Update this file as sections land.
 
-## Where we are (v0.1.60)
+## Where we are (v0.1.61)
 
 - **Settings panel: complete.** Playlists (Xtream sub-tabs, folder visibility
   editor), AIOStreams (manifest + hero-slider source chips), Customize
@@ -57,6 +57,22 @@ and the agreed order of what's next. Update this file as sections land.
   Playwright: 12/12 checks (categories, hidden drops, badges, logos, EPG
   cells, filler, hero, folder filter, favorites on real ids, mock
   fallback).
+- **Huge-playlist hardening (v0.1.61).** Reproduced a 90MB-scale provider
+  locally (220k streams / 67MB JSON + 40MB xmltv fake panel in the
+  scratchpad): the loader died on `push(...spread)` of a six-figure array
+  (argument-stack overflow → permanent error state), and had it survived,
+  rendering all channels ungrouped would have hung the WebView (the old
+  build never did this — it always scoped to one category). Fixes: concat
+  instead of spread; **guide rows are virtualized** (spacer-div window,
+  ±5 overscan, re-render only on 68px row-boundary crossings — horizontal
+  scrub stays render-free and the pin system rides the purge-first resync
+  untouched); loading status narrates per-stage progress
+  (sign-in/channels/guide download/parse) with `[live]` console timings, so
+  a wedged stage names itself. 220k channels: interactive in ~5s, bottom of
+  the 15M-px scroll renders, folder filter ~300ms, horizontal p95 16.7ms.
+  Watch for: a frozen "Fetching channels…" in the Tauri app means the 90MB
+  string is stuck in the `invoke` IPC bridge — that fix is Rust-side
+  (stream to disk / byte channel), gated behind a milestone.
 - Floating glass nav (progressive-blur experiment parked, commented in
   base.css), F11/Escape fullscreen keys, `--header-h` published by measure.
 - `src-tauri` ported wholesale from the old app (Schannel TLS fix, mpv

@@ -165,13 +165,18 @@ export function LiveScreen() {
   // bundled mock otherwise. Loaded once up front (the old build's proven
   // strategy) and re-fetched when the playlists change in Settings.
   const [live, setLive] = useState<LoadState>({ status: "loading" });
+  /** What the loader is doing right now — big playlists spend seconds per
+   * stage, and a stalled label pinpoints the wedged one. */
+  const [stage, setStage] = useState<string | null>(null);
   const liveRef = useRef(live);
   liveRef.current = live;
   const seqRef = useRef(0);
   const refresh = useCallback((silent: boolean) => {
     const seq = ++seqRef.current;
     if (!silent) setLive({ status: "loading" });
-    loadLive(new Date())
+    loadLive(new Date(), (label) => {
+      if (seq === seqRef.current && !silent) setStage(label);
+    })
       .then((data) => {
         if (seq === seqRef.current) setLive({ status: "ready", data });
       })
@@ -252,9 +257,16 @@ export function LiveScreen() {
   }, [live, mode, folder, favorites, recents]);
 
   const ready = live.status === "ready" ? live.data : null;
-  const heroChannel = ready
-    ? (ready.channels.find((c) => c.id === channelId) ?? ready.channels[0])
-    : undefined;
+  // Memoized: hover previews re-render this screen constantly, and a scan
+  // over a six-figure channel list per render is real time.
+  const heroChannel = useMemo(
+    () =>
+      ready
+        ? (ready.channels.find((c) => c.id === channelId) ??
+          ready.channels[0])
+        : undefined,
+    [ready, channelId],
+  );
   // A hover preview shows that channel's own listings, so the hero can
   // find its airing programme when the cursor is on the card (no cell).
   const shownChannel = preview?.channel ?? heroChannel;
@@ -399,7 +411,7 @@ export function LiveScreen() {
       <div className="live-main">
         {live.status === "loading" && (
           <div className="live-status">
-            <p>Loading channels…</p>
+            <p>{stage ?? "Loading channels…"}</p>
           </div>
         )}
         {live.status === "error" && (
