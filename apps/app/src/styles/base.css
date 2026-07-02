@@ -76,8 +76,11 @@ button {
   height: 100%;
   z-index: -1;
   pointer-events: none;
+  /* Temporarily bare — the glass tint reads as frost even over the plain
+   * background. Re-enable when Stream's scrolling content needs it:
   background: var(--card-glass);
   backdrop-filter: blur(10px);
+  */
 }
 
 .header__veil i {
