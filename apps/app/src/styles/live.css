@@ -22,56 +22,48 @@
   flex: 0 0 auto;
 }
 
-.live-sidebar__top {
-  display: flex;
-  align-items: stretch;
-  gap: 8px;
-}
-
-/* Collapse button: a lone chip at rail height. */
+/* Collapse: a quiet ghost icon on its own slim row, same spot whether the
+ * sidebar is open or folded. */
 .live-collapse {
   display: grid;
   place-items: center;
-  width: 38px;
-  background: var(--surface-track);
-  border-radius: 18px;
-  opacity: 0.75;
-  transition: opacity 150ms ease;
-}
-
-.live-sidebar--collapsed .live-collapse {
-  height: 33px;
+  width: 30px;
+  height: 26px;
+  border-radius: 9px;
+  opacity: 0.45;
+  transition:
+    opacity 150ms ease,
+    background 150ms ease;
 }
 
 .live-collapse:hover {
   opacity: 1;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
 }
 
 .live-collapse svg {
   width: 16px;
   height: 16px;
-  opacity: 0.8;
 }
 
-/* Mode rail: no overlay thumb — the active chip is the pill. The grid's
- * columns morph with the selection (grid-template-columns is animatable),
- * so width, background, and label move as one element on one curve. */
+/* Mode rail: no overlay thumb — the active chip is the pill. Chips morph
+ * via flex-grow (a plain number, so the transition always interpolates);
+ * width, background, and label move as one element on one curve. */
 .mode-rail {
-  flex: 1;
-  display: grid;
+  display: flex;
   align-items: stretch;
   gap: 3px;
   padding: 2px;
   background: var(--surface-track);
   border-radius: 18px;
-  transition: grid-template-columns 260ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .mode-rail__chip {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 0;
+  flex: 0 1 38px;
+  min-width: 38px;
   height: 29px;
   border-radius: var(--radius-chip);
   border: 0.5px solid transparent;
@@ -85,7 +77,12 @@
   transition:
     opacity 150ms ease,
     background 220ms ease,
-    border-color 220ms ease;
+    border-color 220ms ease,
+    flex-grow 260ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.mode-rail__chip--active {
+  flex-grow: 1;
 }
 
 .mode-rail__chip:hover {
@@ -123,7 +120,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .mode-rail,
+  .mode-rail__chip,
   .mode-rail__label {
     transition: none;
   }

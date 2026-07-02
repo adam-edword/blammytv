@@ -35,15 +35,7 @@ function ModeRail({
   onChange: (m: Mode) => void;
 }) {
   return (
-    <div
-      className="mode-rail"
-      role="tablist"
-      style={{
-        gridTemplateColumns: MODES.map((m) =>
-          m.key === mode ? "1fr" : "38px",
-        ).join(" "),
-      }}
-    >
+    <div className="mode-rail" role="tablist">
       {MODES.map((m) => {
         const active = m.key === mode;
         return (
@@ -78,18 +70,16 @@ export function LiveScreen() {
       <aside
         className={"live-sidebar" + (collapsed ? " live-sidebar--collapsed" : "")}
       >
-        <div className="live-sidebar__top">
-          <button
-            type="button"
-            className="live-collapse"
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            aria-expanded={!collapsed}
-            onClick={() => setCollapsed((c) => !c)}
-          >
-            <PanelIcon />
-          </button>
-          {!collapsed && <ModeRail mode={mode} onChange={setMode} />}
-        </div>
+        <button
+          type="button"
+          className="live-collapse"
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-expanded={!collapsed}
+          onClick={() => setCollapsed((c) => !c)}
+        >
+          <PanelIcon />
+        </button>
+        {!collapsed && <ModeRail mode={mode} onChange={setMode} />}
 
         {!collapsed && mode === "playlist" && (
           <div className="live-sidebar__list">
