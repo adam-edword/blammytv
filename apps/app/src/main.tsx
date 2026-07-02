@@ -5,6 +5,7 @@ import "./styles/tokens.css";
 import "./styles/base.css";
 import "./styles/ui.css";
 import "./styles/settings.css";
+import "./styles/live.css";
 import { App } from "./app/App";
 import { applyAccent, loadAccent } from "./features/settings/accent";
 import { applyTheme, loadTheme } from "./features/settings/theme";
