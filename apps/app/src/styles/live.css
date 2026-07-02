@@ -130,7 +130,7 @@
 
 .mode-rail__chip--active .mode-rail__label {
   display: inline;
-  animation: mode-label-in 240ms ease 100ms backwards;
+  animation: mode-label-in 100ms ease-out backwards;
 }
 
 @keyframes mode-label-in {
