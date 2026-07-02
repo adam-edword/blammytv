@@ -555,17 +555,14 @@
   contain-intrinsic-size: auto 60px;
 }
 
-/* The airing cell docked at the lane edge (old build's behavior, layout-
- * free): the cell keeps its natural rect; per-frame onScroll updates only
- * its clip-path (visual left edge), the body's translateX, and opacity —
- * paint/composite work, no layout. */
+/* The airing cell docked at the lane edge: position:sticky so the left
+ * edge and text ride the compositor (zero scroll lag, natural corners);
+ * per-frame onScroll only clips the trailing right edge (paint, no
+ * layout), plus slide/fade near the handoff. */
 .guide__cell--pinned {
+  position: sticky;
   z-index: 1;
-  will-change: clip-path, opacity;
-}
-
-.guide__cell--pinned .guide__cell-body {
-  will-change: transform;
+  will-change: clip-path, transform, opacity;
 }
 
 .guide__cell--live {

@@ -38,23 +38,30 @@ const CELL_GAP = 8;
 /** Once a pinned cell's visible width shrinks below this, it stops pinning
  * at the edge and instead slides under the channel column (fading) — while
  * its right edge stays anchored to the next cell, so the gap never changes.
- * (The old build's behavior, re-implemented without layout: the cell keeps
- * its natural rect and the left edge is a clip-path, so the per-frame
- * updates are paint/composite only.) */
+ *
+ * Mechanics (v3, the lag-free synthesis): the pinned cell switches to
+ * position:sticky — its left edge and text ride the COMPOSITOR like the
+ * old build's, so they can never vibrate against the scroll, and the
+ * visible left corners keep their natural profile. Per frame, JS only
+ * cuts the trailing right edge with a clip-path (paint-only; no width, no
+ * layout) so the visual right edge stays anchored in canvas space. */
 const SLIDE_WIDTH = 48;
 
-/** Clip / fade for a pinned cell at a given horizontal scroll, in
- * lane-relative px. The visual left edge is the lane edge while the
- * visible run is wide enough, then holds at SLIDE_WIDTH and fades. */
-function pinnedMetrics(left: number, right: number, scroll: number) {
-  const visible = right - scroll;
-  const clip = Math.max(0, Math.min(scroll, right - SLIDE_WIDTH) - left);
+/** Trailing cut / slide / fade for a pinned sticky cell. `cut` is taken
+ * off the cell's right edge so its visual right stays at `right` in canvas
+ * space; under SLIDE_WIDTH the cut freezes and the cell slides left,
+ * fading — identical behavior to the old build's width-driven handoff. */
+function pinnedMetrics(b: Block, scroll: number) {
+  const visible = b.right - scroll;
+  if (visible >= SLIDE_WIDTH) {
+    return { cut: b.width - visible, slide: 0, opacity: 1 };
+  }
   return {
-    clip,
-    opacity: Math.max(0, Math.min(1, visible / SLIDE_WIDTH)),
+    cut: b.width - SLIDE_WIDTH,
+    slide: Math.max(visible - SLIDE_WIDTH, -b.width),
+    opacity: Math.max(0, visible / SLIDE_WIDTH),
   };
 }
-
 
 /** Fade masks only where text actually overflows (measured, not blind). */
 function clipTitle(t: HTMLElement) {
@@ -63,11 +70,12 @@ function clipTitle(t: HTMLElement) {
 
 function unpin(el: HTMLElement) {
   el.classList.remove("guide__cell--pinned");
+  el.style.left = el.dataset.restoreLeft ?? el.style.left;
   el.style.clipPath = "";
+  el.style.transform = "";
   el.style.opacity = "";
+  delete el.dataset.restoreLeft;
   delete el.dataset.tw;
-  const body = el.querySelector<HTMLElement>(".guide__cell-body");
-  if (body) body.style.transform = "";
   const t = el.querySelector<HTMLElement>(".guide__cell-title");
   if (t) clipTitle(t);
 }
@@ -166,9 +174,11 @@ export const Guide = memo(function Guide({
   );
 
   /** Reconcile which cell is pinned per lane, then drive the pinned cells:
-   * clip-path + body transform + opacity only — no width writes, no
-   * layout. Title natural widths are measured once per pin (cached) so the
-   * per-frame clip check is pure arithmetic. */
+   * trailing clip-path (+ slide/fade near the handoff) only — no width
+   * writes, no layout. Pinning swaps the cell to position:sticky with the
+   * lane edge as its constraint (`left` becomes the sticky offset). Title
+   * natural widths are measured once per pin (cached) so the per-frame
+   * clip check is pure arithmetic. */
   const syncPins = useCallback(
     (scroll: number) => {
       const next = computePins(scroll);
@@ -177,12 +187,17 @@ export const Guide = memo(function Guide({
         const el = pinnedElsRef.current[i];
         if (prev[i] === key && el?.isConnected) return;
         if (el?.isConnected) unpin(el);
-        pinnedElsRef.current[i] = key
+        const target = key
           ? laneElsRef.current[i]?.querySelector<HTMLElement>(
               `[data-key="${key}"]`,
             ) ?? null
           : null;
-        pinnedElsRef.current[i]?.classList.add("guide__cell--pinned");
+        pinnedElsRef.current[i] = target;
+        if (target) {
+          target.dataset.restoreLeft = target.style.left;
+          target.style.left = `${LANE_X}px`; // sticky constraint, not offset
+          target.classList.add("guide__cell--pinned");
+        }
       });
       pinsRef.current = next;
 
@@ -192,18 +207,18 @@ export const Guide = memo(function Guide({
         if (!key || !el) return;
         const b = blocks.find((x) => x.key === key);
         if (!b) return;
-        const { clip, opacity } = pinnedMetrics(b.left, b.right, scroll);
-        el.style.clipPath = `inset(0 0 0 ${clip}px round 12px)`;
-        el.style.opacity = `${opacity}`;
-        const body = el.querySelector<HTMLElement>(".guide__cell-body");
-        if (body) body.style.transform = `translateX(${clip}px)`;
+        const { cut, slide, opacity } = pinnedMetrics(b, scroll);
+        el.style.clipPath =
+          cut > 0 ? `inset(-1px ${cut}px -1px -1px round 12px)` : "";
+        el.style.transform = slide ? `translateX(${slide}px)` : "";
+        el.style.opacity = opacity < 1 ? `${opacity}` : "";
         const t = el.querySelector<HTMLElement>(".guide__cell-title");
         if (!t) return;
         if (!el.dataset.tw) el.dataset.tw = String(t.scrollWidth);
         // 28 = the cell's horizontal padding.
         t.classList.toggle(
           "is-clipped",
-          parseFloat(el.dataset.tw) > b.width - clip - 28,
+          parseFloat(el.dataset.tw) > b.right - scroll - 28,
         );
       });
     },
