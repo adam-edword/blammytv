@@ -119,11 +119,20 @@ export function isHttpUrl(value: string): boolean {
 
 const KEY = "playlists";
 const VERSION = 1;
+const EVENT = "blammytv:playlists";
 
 export function loadPlaylists(): Playlist[] {
   return load<Playlist[]>(KEY, VERSION, []);
 }
 
+/** Saving notifies listeners (the Live tab) so its data refreshes without
+ * a restart. */
 export function savePlaylists(list: Playlist[]): void {
   save(KEY, VERSION, list);
+  window.dispatchEvent(new CustomEvent(EVENT));
+}
+
+export function onPlaylistsChange(cb: () => void): () => void {
+  window.addEventListener(EVENT, cb);
+  return () => window.removeEventListener(EVENT, cb);
 }

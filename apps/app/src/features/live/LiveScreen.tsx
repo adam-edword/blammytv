@@ -1,5 +1,7 @@
 import {
+  Fragment,
   useCallback,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -13,18 +15,14 @@ import {
   StarIcon,
   TvIcon,
 } from "../../ui/icons";
+import { onPlaylistsChange } from "../settings/playlists";
 import { splitTitleEmoji } from "./emoji";
 import { loadFavorites, toggleFavorite } from "./favorites";
 import { Guide } from "./Guide";
 import { Hero } from "./Hero";
+import type { Channel, LiveData, Programme } from "./model";
 import { loadRecents, recordRecent } from "./recents";
-import {
-  MOCK_CHANNELS,
-  MOCK_FOLDERS,
-  MOCK_PLAYLIST_NAME,
-  type MockChannel,
-  type Programme,
-} from "./mock";
+import { loadLive } from "./source";
 
 type Mode = "playlist" | "favorites" | "recents";
 
@@ -33,6 +31,13 @@ const MODES: Array<{ key: Mode; label: string }> = [
   { key: "favorites", label: "Favorites" },
   { key: "recents", label: "Recents" },
 ];
+
+type LoadState =
+  | { status: "loading" }
+  | { status: "ready"; data: LiveData }
+  | { status: "error"; message: string };
+
+const NO_PROGRAMMES: Programme[] = [];
 
 function ModeIcon({ mode, active }: { mode: Mode; active: boolean }) {
   if (mode === "playlist") return <TvIcon />;
@@ -141,20 +146,75 @@ function ModeRail({
 export function LiveScreen() {
   const [mode, setMode] = useState<Mode>("playlist");
   const [collapsed, setCollapsed] = useState(false);
-  const [groupOpen, setGroupOpen] = useState(true);
+  const [closedGroups, setClosedGroups] = useState<Set<string>>(new Set());
   const [folder, setFolder] = useState<string | null>(null);
   /** Source-name tooltip for the folded rail (fixed-position so the
    * scrolling list can't clip it). */
   const [tip, setTip] = useState<{ label: string; x: number; y: number } | null>(
     null,
   );
-  const [channelId, setChannelId] = useState(MOCK_CHANNELS[0].id);
+  const [channelId, setChannelId] = useState("");
   /** Hover preview from the guide: the hero shows whatever the cursor is
    * over (channel or exact programme) without changing the selection. */
   const [preview, setPreview] = useState<{
-    channel: MockChannel;
+    channel: Channel;
     programme: Programme | null;
   } | null>(null);
+
+  // The live catalog: real Xtream playlists when any are configured, the
+  // bundled mock otherwise. Loaded once up front (the old build's proven
+  // strategy) and re-fetched when the playlists change in Settings.
+  const [live, setLive] = useState<LoadState>({ status: "loading" });
+  const liveRef = useRef(live);
+  liveRef.current = live;
+  const seqRef = useRef(0);
+  const refresh = useCallback((silent: boolean) => {
+    const seq = ++seqRef.current;
+    if (!silent) setLive({ status: "loading" });
+    loadLive(new Date())
+      .then((data) => {
+        if (seq === seqRef.current) setLive({ status: "ready", data });
+      })
+      .catch((err) => {
+        if (seq === seqRef.current)
+          setLive({
+            status: "error",
+            message: err instanceof Error ? err.message : String(err),
+          });
+      });
+  }, []);
+  useEffect(() => refresh(false), [refresh]);
+  useEffect(() => {
+    let timer = 0;
+    const off = onPlaylistsChange(() => {
+      // Settings saves fire per toggle; refetch once the burst settles.
+      // Silent while data is already up — no flash back to "Loading".
+      window.clearTimeout(timer);
+      timer = window.setTimeout(
+        () => refresh(liveRef.current.status === "ready"),
+        800,
+      );
+    });
+    return () => {
+      off();
+      window.clearTimeout(timer);
+    };
+  }, [refresh]);
+
+  // Adopt a valid selection whenever the catalog changes: first channel on
+  // first load, and again if a refresh dropped the selected one. A stale
+  // folder filter clears rather than showing an empty guide.
+  useEffect(() => {
+    if (live.status !== "ready") return;
+    const { channels, groups } = live.data;
+    if (channels.length && !channels.some((c) => c.id === channelId))
+      setChannelId(channels[0].id);
+    if (
+      folder &&
+      !groups.some((g) => g.folders.some((f) => f.id === folder))
+    )
+      setFolder(null);
+  }, [live, channelId, folder]);
 
   // Favorites and recents live here (not in the guide) because the modes
   // filter on them. Selecting a channel records it as recent.
@@ -168,32 +228,39 @@ export function LiveScreen() {
     setFavorites((list) => toggleFavorite(list, id));
   }, []);
 
-  // What the guide shows, per mode. Original indices ride along so each
-  // channel's deterministic mock programmes stay stable. Memoized: a fresh
-  // identity per render would bust the guide's memoization on every
-  // hover-preview update (it re-renders constantly while scrolling with
-  // the cursor over cells).
-  const indexed = (channel: MockChannel) => ({
-    channel,
-    index: MOCK_CHANNELS.indexOf(channel),
-  });
+  // What the guide shows, per mode, with each channel's programmes riding
+  // along. Memoized: a fresh identity per render would bust the guide's
+  // memoization on every hover-preview update (it re-renders constantly
+  // while scrolling with the cursor over cells).
   const visible = useMemo(() => {
+    if (live.status !== "ready") return [];
+    const { channels, programmes } = live.data;
+    const attach = (c: Channel) => ({
+      channel: c,
+      programmes: programmes.get(c.id) ?? NO_PROGRAMMES,
+    });
     if (mode === "favorites")
-      return MOCK_CHANNELS.filter((c) => favorites.includes(c.id)).map(
-        indexed,
-      );
+      return channels.filter((c) => favorites.includes(c.id)).map(attach);
     if (mode === "recents")
       return recents
-        .map((id) => MOCK_CHANNELS.find((c) => c.id === id))
-        .filter((c): c is MockChannel => !!c)
-        .map(indexed);
-    return MOCK_CHANNELS.filter((c) => !folder || c.folder === folder).map(
-      indexed,
-    );
-  }, [mode, folder, favorites, recents]);
+        .map((id) => channels.find((c) => c.id === id))
+        .filter((c): c is Channel => !!c)
+        .map(attach);
+    return channels
+      .filter((c) => !folder || c.folderId === folder)
+      .map(attach);
+  }, [live, mode, folder, favorites, recents]);
 
-  const heroChannel =
-    MOCK_CHANNELS.find((c) => c.id === channelId) ?? MOCK_CHANNELS[0];
+  const ready = live.status === "ready" ? live.data : null;
+  const heroChannel = ready
+    ? (ready.channels.find((c) => c.id === channelId) ?? ready.channels[0])
+    : undefined;
+  // A hover preview shows that channel's own listings, so the hero can
+  // find its airing programme when the cursor is on the card (no cell).
+  const shownChannel = preview?.channel ?? heroChannel;
+  const shownProgrammes =
+    (ready && shownChannel && ready.programmes.get(shownChannel.id)) ||
+    NO_PROGRAMMES;
 
   return (
     <div className="live">
@@ -219,72 +286,98 @@ export function LiveScreen() {
         {/* The source list stays mounted through collapse — the same rows
          * just lose their labels, so the icons never move and scroll
          * position survives. Folded, it doubles as a quick-switch rail. */}
-        {(collapsed || mode === "playlist") && (
+        {(collapsed || mode === "playlist") && ready && (
           <div className="live-sidebar__list">
-            <button
-              type="button"
-              className="live-group"
-              aria-expanded={groupOpen}
-              onClick={() => setGroupOpen((o) => !o)}
-            >
-              <ChevronIcon
-                className={
-                  "live-group__caret" +
-                  (groupOpen ? "" : " live-group__caret--closed")
-                }
-              />
-              {MOCK_PLAYLIST_NAME}
-            </button>
-            {groupOpen && (
-              <div
-                className="live-sidebar__folders"
-                onScroll={() => setTip(null)}
-              >
-                {MOCK_FOLDERS.map((f) => {
-                  const { emoji, label } = splitTitleEmoji(f);
-                  const active = folder === f;
-                  return (
-                    <button
-                      key={f}
-                      type="button"
-                      aria-label={label}
+            {ready.groups.map((g) => {
+              const open = !closedGroups.has(g.id);
+              return (
+                <Fragment key={g.id}>
+                  <button
+                    type="button"
+                    className="live-group"
+                    aria-expanded={open}
+                    onClick={() =>
+                      setClosedGroups((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(g.id)) next.delete(g.id);
+                        else next.add(g.id);
+                        return next;
+                      })
+                    }
+                  >
+                    <ChevronIcon
                       className={
-                        "live-folder" + (active ? " live-folder--active" : "")
+                        "live-group__caret" +
+                        (open ? "" : " live-group__caret--closed")
                       }
-                      onClick={() => {
-                        setFolder(active ? null : f);
-                        // A folded-rail click tunes the EPG to this source.
-                        if (collapsed) setMode("playlist");
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!collapsed) return;
-                        const r = e.currentTarget.getBoundingClientRect();
-                        // Fixed positioning lives in the zoomed coordinate
-                        // space (see the settings dropdown), so unscale.
-                        const zoom = Number(
-                          document.documentElement.style.zoom || 1,
-                        );
-                        setTip({
-                          label,
-                          x: r.right / zoom + 12,
-                          y: (r.top + r.height / 2) / zoom,
-                        });
-                      }}
-                      onMouseLeave={() => setTip(null)}
+                    />
+                    {g.name}
+                  </button>
+                  {g.error && !collapsed && (
+                    <p className="live-group__error">
+                      Couldn't load this playlist — {g.error}
+                    </p>
+                  )}
+                  {open && g.folders.length > 0 && (
+                    <div
+                      className="live-sidebar__folders"
+                      onScroll={() => setTip(null)}
                     >
-                      {emoji ? (
-                        <span className="live-folder__emoji" aria-hidden>
-                          {emoji}
-                        </span>
-                      ) : (
-                        <TvIcon className="live-folder__icon" />
-                      )}
-                      <span className="live-folder__name">{label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+                      {g.folders.map((f) => {
+                        const { emoji, label } = splitTitleEmoji(f.name);
+                        const active = folder === f.id;
+                        return (
+                          <button
+                            key={f.id}
+                            type="button"
+                            aria-label={label}
+                            className={
+                              "live-folder" +
+                              (active ? " live-folder--active" : "")
+                            }
+                            onClick={() => {
+                              setFolder(active ? null : f.id);
+                              // A folded-rail click tunes the EPG to this
+                              // source.
+                              if (collapsed) setMode("playlist");
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!collapsed) return;
+                              const r =
+                                e.currentTarget.getBoundingClientRect();
+                              // Fixed positioning lives in the zoomed
+                              // coordinate space (see the settings
+                              // dropdown), so unscale.
+                              const zoom = Number(
+                                document.documentElement.style.zoom || 1,
+                              );
+                              setTip({
+                                label,
+                                x: r.right / zoom + 12,
+                                y: (r.top + r.height / 2) / zoom,
+                              });
+                            }}
+                            onMouseLeave={() => setTip(null)}
+                          >
+                            {emoji ? (
+                              <span
+                                className="live-folder__emoji"
+                                aria-hidden
+                              >
+                                {emoji}
+                              </span>
+                            ) : (
+                              <TvIcon className="live-folder__icon" />
+                            )}
+                            <span className="live-folder__name">{label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </Fragment>
+              );
+            })}
           </div>
         )}
 
@@ -304,27 +397,56 @@ export function LiveScreen() {
       )}
 
       <div className="live-main">
-        <Hero
-          channel={preview?.channel ?? heroChannel}
-          programme={preview?.programme ?? undefined}
-        />
-        {visible.length === 0 && mode !== "playlist" ? (
-          <div className="guide-empty">
+        {live.status === "loading" && (
+          <div className="live-status">
+            <p>Loading channels…</p>
+          </div>
+        )}
+        {live.status === "error" && (
+          <div className="live-status">
             <p>
-              {mode === "favorites"
-                ? "Nothing starred yet — hover a channel card and hit the star."
-                : "Nothing watched yet — recents fill in as you tune around."}
+              Couldn't load your playlists — {live.message}. Check them in
+              Settings → Playlists.
             </p>
           </div>
-        ) : (
-          <Guide
-            channels={visible}
-            selectedId={channelId}
-            favorites={favorites}
-            onSelect={selectChannel}
-            onToggleFavorite={handleToggleFavorite}
-            onPreview={setPreview}
-          />
+        )}
+        {ready && !shownChannel && (
+          <div className="live-status">
+            <p>
+              {ready.groups.find((g) => g.error)
+                ? `Couldn't load your playlists — ${
+                    ready.groups.find((g) => g.error)!.error
+                  }. Check them in Settings → Playlists.`
+                : "No channels here yet. Add a playlist in Settings → Playlists."}
+            </p>
+          </div>
+        )}
+        {ready && shownChannel && (
+          <>
+            <Hero
+              channel={shownChannel}
+              programmes={shownProgrammes}
+              programme={preview?.programme ?? undefined}
+            />
+            {visible.length === 0 && mode !== "playlist" ? (
+              <div className="guide-empty">
+                <p>
+                  {mode === "favorites"
+                    ? "Nothing starred yet — hover a channel card and hit the star."
+                    : "Nothing watched yet — recents fill in as you tune around."}
+                </p>
+              </div>
+            ) : (
+              <Guide
+                channels={visible}
+                selectedId={channelId}
+                favorites={favorites}
+                onSelect={selectChannel}
+                onToggleFavorite={handleToggleFavorite}
+                onPreview={setPreview}
+              />
+            )}
+          </>
         )}
       </div>
     </div>

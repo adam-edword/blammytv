@@ -223,6 +223,13 @@
   transform: rotate(-90deg);
 }
 
+/* One playlist failing shouldn't look like an empty folder list. */
+.live-group__error {
+  margin: 0 6px 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 .live-sidebar__folders {
   flex: 1;
   min-height: 0;
@@ -383,6 +390,19 @@
   opacity: 0.6;
 }
 
+/* Whole-tab states: loading, playlist failure, nothing configured. */
+.live-status {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: 0 48px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 14px;
+  opacity: 0.6;
+}
+
 /* -------------------------------------------------------------- guide */
 
 /* One scroll container for both axes: the ruler pins to the top and the
@@ -487,6 +507,16 @@
   font-weight: 700;
   font-size: 15px;
   color: var(--text);
+  overflow: hidden;
+}
+
+/* Real playlists bring stream_icon art of every shape; contain it inside
+ * the lettermark box. */
+.guide__logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 2px;
 }
 
 .guide__card-meta {

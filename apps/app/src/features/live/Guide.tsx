@@ -26,7 +26,7 @@ import {
   windowStart,
   xForTime,
 } from "./epg";
-import { programmesFor, type MockChannel, type Programme } from "./mock";
+import type { Channel, Programme } from "./model";
 
 /* Grid geometry (Figma 133:500): 189px channel cards, 8px gutters, 60px
  * rows under the ruler. One scroll container; the ruler and channel column
@@ -102,6 +102,29 @@ interface Block {
   key: number;
 }
 
+/** Channel logo with a lettermark fallback: real playlists carry
+ * stream_icon URLs of wildly varying health, so a broken image swaps back
+ * to the initial. */
+function CardLogo({ channel }: { channel: Channel }) {
+  const [broken, setBroken] = useState(false);
+  return (
+    <span className="guide__logo" aria-hidden>
+      {channel.logo && !broken ? (
+        <img
+          className="guide__logo-img"
+          src={channel.logo}
+          alt=""
+          loading="lazy"
+          draggable={false}
+          onError={() => setBroken(true)}
+        />
+      ) : (
+        channel.name[0]
+      )}
+    </span>
+  );
+}
+
 /* memo: hover previews re-render LiveScreen constantly while the cursor
  * crosses cells; the guide's own props stay stable, so it must not be
  * dragged along. */
@@ -113,7 +136,7 @@ export const Guide = memo(function Guide({
   onToggleFavorite,
   onPreview,
 }: {
-  channels: Array<{ channel: MockChannel; index: number }>;
+  channels: Array<{ channel: Channel; programmes: Programme[] }>;
   selectedId: string;
   favorites: string[];
   onSelect: (id: string) => void;
@@ -121,7 +144,7 @@ export const Guide = memo(function Guide({
   /** Hover preview for the hero: the exact programme over a cell, the
    * channel's airing programme over a card, null on leave. */
   onPreview: (
-    preview: { channel: MockChannel; programme: Programme | null } | null,
+    preview: { channel: Channel; programme: Programme | null } | null,
   ) => void;
 }) {
   // The now-line creeps and the window jumps at half-hour boundaries.
@@ -144,23 +167,21 @@ export const Guide = memo(function Guide({
   // Lay each lane out once; only the pinned cell depends on scroll.
   const lanes = useMemo(
     () =>
-      channels.map(({ channel, index }) => {
-        const blocks: Block[] = channel.noInfo
-          ? []
-          : programmesFor(index, now)
-              .map((p) => ({ p, rect: cellRect(p.start, p.end, start) }))
-              .filter((b) => b.rect !== null)
-              .map(({ p, rect }) => {
-                const width = Math.max(rect!.w - CELL_GAP, 4);
-                return {
-                  p,
-                  live: p.start <= now && now < p.end,
-                  left: rect!.x,
-                  width,
-                  right: rect!.x + width,
-                  key: p.start.getTime(),
-                };
-              });
+      channels.map(({ channel, programmes }) => {
+        const blocks: Block[] = programmes
+          .map((p) => ({ p, rect: cellRect(p.start, p.end, start) }))
+          .filter((b) => b.rect !== null)
+          .map(({ p, rect }) => {
+            const width = Math.max(rect!.w - CELL_GAP, 4);
+            return {
+              p,
+              live: p.start <= now && now < p.end,
+              left: rect!.x,
+              width,
+              right: rect!.x + width,
+              key: p.start.getTime(),
+            };
+          });
         return { channel, blocks };
       }),
     [channels, now, start],
@@ -337,12 +358,12 @@ export const Guide = memo(function Guide({
                   className="guide__card"
                   onClick={() => onSelect(channel.id)}
                 >
-                  <span className="guide__logo" aria-hidden>
-                    {channel.name[0]}
-                  </span>
+                  <CardLogo key={channel.logo ?? ""} channel={channel} />
                   <span className="guide__card-meta">
                     <span className="guide__card-name">{channel.name}</span>
-                    <QualityBadge quality={channel.quality} />
+                    {channel.quality && (
+                      <QualityBadge quality={channel.quality} />
+                    )}
                   </span>
                 </button>
                 <button
@@ -375,7 +396,7 @@ export const Guide = memo(function Guide({
                 className="guide__lane"
                 style={{ width: laneW, height: ROW_H }}
               >
-                {channel.noInfo ? (
+                {blocks.length === 0 ? (
                   <button
                     type="button"
                     className="guide__cell guide__cell--blank"

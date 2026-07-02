@@ -1,4 +1,4 @@
-import type { Quality } from "../features/live/mock";
+import type { Quality } from "../features/live/model";
 
 /** The design's tiny quality tags: gradient fills with per-tier borders
  * (4K rainbow, FHD gold, HD plain, HDR silver). */

@@ -1,4 +1,4 @@
-import type { Quality } from "./mock";
+import type { Quality } from "./model";
 
 /**
  * Best-effort stream quality from a channel/source title. IPTV listings

@@ -1,28 +1,12 @@
 import { windowStart } from "./epg";
+import type { LiveData, Programme, Quality } from "./model";
 
 /**
  * Deterministic demo catalog for building the EPG against the Figma frame
  * (which is World Cup-themed). Everything derives from index hashes — no
- * randomness — so layouts are stable across reloads and tests.
+ * randomness — so layouts are stable across reloads and tests. Loads only
+ * when no real playlist is configured (see source.ts).
  */
-
-export type Quality = "4K" | "FHD" | "HD" | "HDR";
-
-export interface MockChannel {
-  id: string;
-  name: string;
-  quality: Quality;
-  folder: string;
-  /** Channels with no programme data render a single "No Information" cell. */
-  noInfo?: boolean;
-}
-
-export interface Programme {
-  title: string;
-  synopsis: string;
-  start: Date;
-  end: Date;
-}
 
 export const MOCK_PLAYLIST_NAME = "Meteor";
 
@@ -46,6 +30,8 @@ export const MOCK_FOLDERS = [
   "Serie A 2023-24",
 ];
 
+/** [name, quality, noInfo?] — noInfo channels get no programme data, so the
+ * "No Information" lane path stays exercised. */
 const CHANNELS: Array<[string, Quality, boolean?]> = [
   ["ESPN", "4K"],
   ["NBC Sports Network", "4K"],
@@ -63,15 +49,31 @@ const CHANNELS: Array<[string, Quality, boolean?]> = [
   ["Premier Sports", "HD"],
 ];
 
-export const MOCK_CHANNELS: MockChannel[] = CHANNELS.map(
-  ([name, quality, noInfo], i) => ({
+/** The mock catalog in the live model's shape. */
+export function mockLive(now: Date): LiveData {
+  const channels = CHANNELS.map(([name, quality], i) => ({
     id: `ch${i}`,
     name,
-    quality,
-    folder: MOCK_FOLDERS[i % MOCK_FOLDERS.length],
-    noInfo,
-  }),
-);
+    quality: quality as Quality | null,
+    folderId: MOCK_FOLDERS[i % MOCK_FOLDERS.length],
+  }));
+  const programmes = new Map<string, Programme[]>();
+  CHANNELS.forEach(([, , noInfo], i) => {
+    // 12 hours of listings so long dev sessions don't outrun the tiles.
+    if (!noInfo) programmes.set(`ch${i}`, programmesFor(i, now, 12));
+  });
+  return {
+    groups: [
+      {
+        id: "mock",
+        name: MOCK_PLAYLIST_NAME,
+        folders: MOCK_FOLDERS.map((f) => ({ id: f, name: f })),
+      },
+    ],
+    channels,
+    programmes,
+  };
+}
 
 const GROUPS = "ABCDEFGH";
 const TEAMS = [

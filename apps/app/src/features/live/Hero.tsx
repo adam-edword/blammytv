@@ -4,23 +4,20 @@ import {
   loadClockFormat,
   onClockFormatChange,
 } from "../settings/clockFormat";
-import {
-  MOCK_CHANNELS,
-  programmesFor,
-  type MockChannel,
-  type Programme,
-} from "./mock";
+import type { Channel, Programme } from "./model";
 
 /** The Live tab's hero (Figma 133:479): the mpv preview slot beside the
- * now-playing programme details. Mock-driven until the player lands —
- * the preview keeps a stable element id so the native wiring has a fixed
- * target. An explicit `programme` (guide hover preview) overrides the
- * channel's airing one — even a future show. */
+ * now-playing programme details. The preview keeps a stable element id so
+ * the native player wiring has a fixed target. An explicit `programme`
+ * (guide hover preview) overrides the channel's airing one — even a
+ * future show. */
 export function Hero({
   channel,
+  programmes,
   programme,
 }: {
-  channel: MockChannel;
+  channel: Channel;
+  programmes: Programme[];
   programme?: Programme;
 }) {
   // Programme progress creeps, so re-render on a slow tick.
@@ -35,12 +32,8 @@ export function Hero({
     };
   }, []);
 
-  const index = MOCK_CHANNELS.indexOf(channel);
   const current =
-    programme ??
-    (channel.noInfo
-      ? undefined
-      : programmesFor(index, now).find((p) => p.start <= now && now < p.end));
+    programme ?? programmes.find((p) => p.start <= now && now < p.end);
   const live = !!current && current.start <= now && now < current.end;
   const progress = live
     ? (now.getTime() - current.start.getTime()) /

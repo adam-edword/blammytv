@@ -3,7 +3,7 @@
 Working state of the greenfield rebuild (branch `claude/blammytv-rebuild-xclzto`)
 and the agreed order of what's next. Update this file as sections land.
 
-## Where we are (v0.1.50)
+## Where we are (v0.1.60)
 
 - **Settings panel: complete.** Playlists (Xtream sub-tabs, folder visibility
   editor), AIOStreams (manifest + hero-slider source chips), Customize
@@ -35,7 +35,28 @@ and the agreed order of what's next. Update this file as sections land.
     React renders AND HMR — always restore from rendered attributes and
     purge on every render pass.
 - Quality badges to the exact Figma gradients with border-box gradient rings;
-  `extractQuality()` (tested) ready for real channel names.
+  `extractQuality()` (tested) runs on real channel names.
+- **Modes wired (v0.1.59).** Favorites filters the guide to starred channels;
+  Recents (`recents.ts`, move-to-front, cap 30) records selections; empty
+  modes show a centered nudge. Both persist and verified via Playwright.
+- **Xtream content wired (v0.1.60) — no player yet.** `model.ts` is the one
+  domain shape (Channel/Programme/LiveData, ids namespaced
+  `<playlistId>:<streamId>`); `source.ts#loadLive()` is the seam — real
+  playlists when configured, `mockLive()` otherwise, so the mock stays the
+  dev harness. Strategy is the old build's, confirmed on origin/main:
+  authenticate → `get_live_categories` + `get_live_streams` (all streams,
+  two calls) → full `xmltv.php` parsed with DOMParser (`xmltv.ts`, windowed
+  −1h..+12h, filler titles dropped, matched by `epg_channel_id`). Per-source
+  best-effort: a failing playlist or EPG never sinks the others (group
+  carries `error`; channels render No-Information lanes without EPG).
+  `hiddenCategories` drops folders AND their channels. Logos render
+  `stream_icon` with lettermark fallback. Guide/Hero consume passed
+  programme arrays — no mock imports left in either. Live data refreshes
+  (debounced, silent) when playlists change in Settings
+  (`onPlaylistsChange`). Verified end-to-end with a fake Xtream panel under
+  Playwright: 12/12 checks (categories, hidden drops, badges, logos, EPG
+  cells, filler, hero, folder filter, favorites on real ids, mock
+  fallback).
 - Floating glass nav (progressive-blur experiment parked, commented in
   base.css), F11/Escape fullscreen keys, `--header-h` published by measure.
 - `src-tauri` ported wholesale from the old app (Schannel TLS fix, mpv
@@ -43,19 +64,11 @@ and the agreed order of what's next. Update this file as sections land.
 
 ## Next steps, in order
 
-1. **Modes wiring.** Favorites mode: guide shows only starred channels
-   (`favorites.ts` already persists ids). Recents: small storage-backed
-   module (same `lib/storage.ts` envelope), recording channel selections;
-   guide shows them in recency order.
-2. **Real data behind the layout** (late v0.1.x). LiveSource interface,
-   Xtream first: `get_live_streams` per category honoring each playlist's
-   `hiddenCategories`, `get_short_epg` for the guide window, channel logos
-   (guide card `.guide__logo` currently renders the initial), loading/error
-   states, `extractQuality()` on names. All HTTP through `lib/http.ts`
-   (`http_get` command).
-3. **v0.2.0 gate.** Live tab complete incl. mpv mini-player in the hero
-   (`#player-slot`); then the Stream tab (AIOStreams) begins — re-enable the
-   nav glass (commented in base.css) when scrolling content exists.
+1. **v0.2.0 gate.** Live tab complete incl. mpv mini-player in the hero
+   (`#player-slot`; `liveStreamUrl()` still to port — credentials-in-path,
+   see old `client.ts`); then the Stream tab (AIOStreams) begins —
+   re-enable the nav glass (commented in base.css) when scrolling content
+   exists.
 
 Slated for later, user-approved: ambient backdrop setting, motion toggle,
 M3U + Stalker sources, timeshift/track-selection/stats in the player overlay,
