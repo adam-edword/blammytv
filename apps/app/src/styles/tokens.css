@@ -56,6 +56,25 @@
      without corner-shape fall back to plain round corners. */
   --corner: superellipse(2);
 
+  /* Spring easing (Claude-app feel): accelerate, overshoot ~4%, settle.
+     A linear() approximation of a gentle spring — pair with ~380ms. */
+  --spring: linear(
+    0,
+    0.037 1.9%,
+    0.153 4.1%,
+    0.417 7.6%,
+    0.72 11.6%,
+    0.888 14.4%,
+    0.984 17.1%,
+    1.033 19.9%,
+    1.044 22.8%,
+    1.036 26.8%,
+    1.005 35.6%,
+    0.997 41.6%,
+    0.999 51%,
+    1
+  );
+
   /* Type */
   --font-headline: "Stack Sans Headline", "Segoe UI", system-ui, sans-serif;
   --font-text: "Stack Sans Text", "Segoe UI", system-ui, sans-serif;
