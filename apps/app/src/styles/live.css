@@ -231,6 +231,9 @@
   border: 1px solid transparent;
   border-radius: var(--radius-chip);
   padding: 8px 11px;
+  /* Fixed so the label can't drive row height — folded rows (label
+   * hidden) must keep identical geometry or the icons drift. */
+  height: 36px;
   transition:
     border-color 120ms ease,
     background 120ms ease;
@@ -271,6 +274,73 @@
   margin: 4px 6px;
   font-size: 13px;
   color: var(--text-muted);
+}
+
+/* ------------------------------------------------- collapsed icon rail */
+
+/* Folded, the same list narrows to a quiet icon rail: the header text and
+ * row labels drop out, but the rows themselves keep their geometry so the
+ * emoji/icons stay pixel-fixed through the toggle. */
+.live-sidebar--collapsed .live-group {
+  visibility: hidden; /* keeps its height so the rows don't shift up */
+}
+
+.live-sidebar--collapsed .live-folder__name {
+  display: none;
+}
+
+.live-sidebar--collapsed .live-sidebar__folders {
+  scrollbar-width: none;
+}
+
+.live-sidebar--collapsed .live-folder {
+  opacity: 0.45;
+  transition:
+    opacity 150ms ease,
+    border-color 120ms ease,
+    background 120ms ease;
+}
+
+.live-sidebar--collapsed .live-folder:hover {
+  opacity: 1;
+  border-color: transparent; /* opacity is the hover cue when folded */
+}
+
+.live-sidebar--collapsed .live-folder--active,
+.live-sidebar--collapsed .live-folder--active:hover {
+  opacity: 1;
+  border-color: var(--accent-border);
+}
+
+/* Source-name tooltip beside the folded rail. */
+.live-tip {
+  position: fixed;
+  z-index: 40;
+  transform: translateY(-50%);
+  padding: 6px 12px;
+  background: var(--surface-raised);
+  border: 0.5px solid var(--border-raised);
+  border-radius: 10px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text);
+  white-space: nowrap;
+  pointer-events: none;
+  animation: tip-in 120ms ease;
+}
+
+@keyframes tip-in {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) translateX(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-tip {
+    animation: none;
+  }
 }
 
 /* ------------------------------------------------------------- main */

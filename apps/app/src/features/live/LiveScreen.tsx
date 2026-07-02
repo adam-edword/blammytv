@@ -127,6 +127,11 @@ export function LiveScreen() {
   const [collapsed, setCollapsed] = useState(false);
   const [groupOpen, setGroupOpen] = useState(true);
   const [folder, setFolder] = useState<string | null>(null);
+  /** Source-name tooltip for the folded rail (fixed-position so the
+   * scrolling list can't clip it). */
+  const [tip, setTip] = useState<{ label: string; x: number; y: number } | null>(
+    null,
+  );
 
   return (
     <div className="live">
@@ -139,14 +144,20 @@ export function LiveScreen() {
             className="live-collapse"
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             aria-expanded={!collapsed}
-            onClick={() => setCollapsed((c) => !c)}
+            onClick={() => {
+              setTip(null);
+              setCollapsed((c) => !c);
+            }}
           >
             <PanelIcon />
           </button>
           {!collapsed && <ModeRail mode={mode} onChange={setMode} />}
         </div>
 
-        {!collapsed && mode === "playlist" && (
+        {/* The source list stays mounted through collapse — the same rows
+         * just lose their labels, so the icons never move and scroll
+         * position survives. Folded, it doubles as a quick-switch rail. */}
+        {(collapsed || mode === "playlist") && (
           <div className="live-sidebar__list">
             <button
               type="button"
@@ -163,18 +174,41 @@ export function LiveScreen() {
               {MOCK_PLAYLIST_NAME}
             </button>
             {groupOpen && (
-              <div className="live-sidebar__folders">
+              <div
+                className="live-sidebar__folders"
+                onScroll={() => setTip(null)}
+              >
                 {MOCK_FOLDERS.map((f) => {
                   const { emoji, label } = splitTitleEmoji(f);
+                  const active = folder === f;
                   return (
                     <button
                       key={f}
                       type="button"
+                      aria-label={label}
                       className={
-                        "live-folder" +
-                        (folder === f ? " live-folder--active" : "")
+                        "live-folder" + (active ? " live-folder--active" : "")
                       }
-                      onClick={() => setFolder(folder === f ? null : f)}
+                      onClick={() => {
+                        setFolder(active ? null : f);
+                        // A folded-rail click tunes the EPG to this source.
+                        if (collapsed) setMode("playlist");
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!collapsed) return;
+                        const r = e.currentTarget.getBoundingClientRect();
+                        // Fixed positioning lives in the zoomed coordinate
+                        // space (see the settings dropdown), so unscale.
+                        const zoom = Number(
+                          document.documentElement.style.zoom || 1,
+                        );
+                        setTip({
+                          label,
+                          x: r.right / zoom + 12,
+                          y: (r.top + r.height / 2) / zoom,
+                        });
+                      }}
+                      onMouseLeave={() => setTip(null)}
                     >
                       {emoji ? (
                         <span className="live-folder__emoji" aria-hidden>
@@ -200,6 +234,12 @@ export function LiveScreen() {
           </p>
         )}
       </aside>
+
+      {collapsed && tip && (
+        <div className="live-tip" style={{ left: tip.x, top: tip.y }} aria-hidden>
+          {tip.label}
+        </div>
+      )}
 
       <div className="live-main">
         <p className="live-main__placeholder">
