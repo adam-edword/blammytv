@@ -65,23 +65,67 @@ button {
   padding: 27px 17px;
 }
 
-/* Legibility for content scrolling underneath: progressive blur plus a
- * whisper of scrim (--bg-tinted, so black in dark / white in light), both
- * fading out toward the bottom edge. mpv video never sits under the nav,
- * so backdrop-filter is safe here. */
-.header::before {
-  content: "";
+/* Progressive blur under the nav (mock: Frame 34). Four stacked backdrop
+ * layers, each with a smaller radius masked to a lower band, so the blur
+ * radius itself decays with depth — total melt at the top dissolving to
+ * crisp — plus a light --bg-tinted scrim that keeps colors vivid. The
+ * layers compound where their masks overlap, smoothing the falloff. mpv
+ * video never sits under the nav, so backdrop-filter is safe here. */
+.header__veil {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100%; /* full melt at the top, gone by the nav's bottom edge */
   z-index: -1;
-  backdrop-filter: blur(14px);
+  pointer-events: none;
   background: linear-gradient(
     to bottom,
-    color-mix(in srgb, var(--bg) 55%, transparent),
-    transparent
+    color-mix(in srgb, var(--bg) 60%, transparent),
+    color-mix(in srgb, var(--bg) 25%, transparent) 40%,
+    transparent 75%
   );
-  mask-image: linear-gradient(to bottom, #000 35%, transparent);
-  pointer-events: none;
+}
+
+.header__veil i {
+  position: absolute;
+  inset: 0;
+}
+
+.header__veil i:nth-child(1) {
+  backdrop-filter: blur(28px);
+  mask-image: linear-gradient(to bottom, #000 22%, transparent 48%);
+}
+
+.header__veil i:nth-child(2) {
+  backdrop-filter: blur(14px);
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 8%,
+    #000 28%,
+    #000 48%,
+    transparent 68%
+  );
+}
+
+.header__veil i:nth-child(3) {
+  backdrop-filter: blur(7px);
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 40%,
+    #000 58%,
+    transparent 80%
+  );
+}
+
+.header__veil i:nth-child(4) {
+  backdrop-filter: blur(3px);
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 62%,
+    #000 78%,
+    transparent 96%
+  );
 }
 
 .header__brand {
