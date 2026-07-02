@@ -416,7 +416,13 @@
 }
 
 .guide__row {
+  display: flex; /* sticky channel + the lane; no gap — the gutter lives
+                    inside the channel column so cells align with the ruler */
+}
+
+.guide__lane {
   position: relative;
+  flex-shrink: 0;
 }
 
 /* ------------------------------------------------ guide channel column */
@@ -451,16 +457,6 @@
   transition: border-color 120ms ease;
 }
 
-/* Channel names run under a right-edge fade, like the design. */
-.guide__card::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  box-shadow: inset -56px 0 33px -34px var(--surface);
-  pointer-events: none;
-}
-
 .guide__channel--selected .guide__card {
   border-color: var(--text);
 }
@@ -491,11 +487,13 @@
 }
 
 .guide__card-name {
+  max-width: 100%;
   font-family: var(--font-headline);
   font-weight: 600;
   font-size: 16px;
   color: var(--text);
   white-space: nowrap;
+  overflow: hidden;
 }
 
 /* Favorite star: appears on row hover (or stays when starred). */
@@ -528,6 +526,7 @@
 .guide__cell {
   position: absolute;
   top: 0;
+  height: 100%;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -538,24 +537,32 @@
   border: 1.5px solid color-mix(in srgb, var(--text) 4%, transparent);
   border-radius: 12px;
   overflow: hidden;
+  transition: filter 120ms ease;
 }
 
-.guide__cell::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  box-shadow: inset -60px 0 32px -30px var(--surface-puck);
-  pointer-events: none;
+.guide__cell:hover {
+  filter: brightness(1.25);
+}
+
+/* Real guides carry hundreds of rows — let the browser skip painting the
+ * cells scrolled off-screen. Geometry is inline (width) + fixed height, so
+ * only off-screen contents are skipped. Pinned cells always render. */
+.guide__cell:not(.guide__cell--pinned) {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 60px;
+}
+
+/* The airing cell docked at the lane edge (old build's system): in-flow so
+ * position:sticky works; width/opacity/transform driven per frame from
+ * onScroll while its right edge stays anchored in canvas space. */
+.guide__cell--pinned {
+  position: sticky;
+  z-index: 1;
 }
 
 .guide__cell--live {
   background: var(--accent-surface);
   border: 1px solid var(--accent-border);
-}
-
-.guide__cell--live::after {
-  box-shadow: inset -60px 0 32px -30px var(--accent-surface);
 }
 
 .guide__cell--blank {
@@ -567,13 +574,10 @@
   color: var(--text-muted);
 }
 
-.guide__cell--blank::after {
-  box-shadow: inset -60px 0 32px -30px var(--surface);
-}
-
-/* The cell text hugs the scrollport's left edge (position:sticky) until
- * the cell's far edge pushes it away — the old app's trick, now without
- * any scroll JS. */
+/* Non-pinned cell text hugs the scrollport's left edge (position:sticky)
+ * until the cell's far edge pushes it away. The pinned cell IS at the edge
+ * already, so its body stays static (sticky inside a width-animated,
+ * translated card is asking for trouble). */
 .guide__cell-body {
   position: sticky;
   min-width: 0;
@@ -584,12 +588,19 @@
   gap: 2px;
 }
 
+.guide__cell--pinned .guide__cell-body {
+  position: static;
+}
+
 .guide__cell-title {
   font-family: var(--font-headline);
   font-weight: 600;
   font-size: 15px;
   color: var(--text);
+  min-width: 0;
+  max-width: 100%;
   white-space: nowrap;
+  overflow: hidden;
 }
 
 .guide__cell-time {
@@ -598,6 +609,14 @@
   font-size: 10px;
   color: var(--text-muted);
   white-space: nowrap;
+}
+
+/* Measured fade: applied only when the text actually overflows (see
+ * clipTitle in Guide.tsx) — the text fades out at the right edge rather
+ * than truncating, and stays consistent as a pinned cell narrows. */
+.guide__cell-title.is-clipped,
+.guide__card-name.is-clipped {
+  mask-image: linear-gradient(to right, #000 calc(100% - 26px), transparent);
 }
 
 /* ----------------------------------------------------------- now-line */

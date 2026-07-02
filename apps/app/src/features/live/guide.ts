@@ -1,7 +1,7 @@
 /** Pure time-grid math for the EPG. All positions derive from PX_PER_MIN so
  * the guide's density is one knob. */
 
-export const PX_PER_MIN = 5;
+export const PX_PER_MIN = 9.5;
 export const GUIDE_HOURS = 4;
 
 /** The guide window opens at the last half-hour boundary. */

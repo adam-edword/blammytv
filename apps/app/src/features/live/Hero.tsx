@@ -4,13 +4,25 @@ import {
   loadClockFormat,
   onClockFormatChange,
 } from "../settings/clockFormat";
-import { MOCK_CHANNELS, programmesFor, type MockChannel } from "./mock";
+import {
+  MOCK_CHANNELS,
+  programmesFor,
+  type MockChannel,
+  type Programme,
+} from "./mock";
 
 /** The Live tab's hero (Figma 133:479): the mpv preview slot beside the
  * now-playing programme details. Mock-driven until the player lands —
  * the preview keeps a stable element id so the native wiring has a fixed
- * target. */
-export function Hero({ channel }: { channel: MockChannel }) {
+ * target. An explicit `programme` (guide hover preview) overrides the
+ * channel's airing one — even a future show. */
+export function Hero({
+  channel,
+  programme,
+}: {
+  channel: MockChannel;
+  programme?: Programme;
+}) {
   // Programme progress creeps, so re-render on a slow tick.
   const [now, setNow] = useState(() => new Date());
   const [clockFmt, setClockFmt] = useState(loadClockFormat);
@@ -24,10 +36,13 @@ export function Hero({ channel }: { channel: MockChannel }) {
   }, []);
 
   const index = MOCK_CHANNELS.indexOf(channel);
-  const current = channel.noInfo
-    ? undefined
-    : programmesFor(index, now).find((p) => p.start <= now && now < p.end);
-  const progress = current
+  const current =
+    programme ??
+    (channel.noInfo
+      ? undefined
+      : programmesFor(index, now).find((p) => p.start <= now && now < p.end));
+  const live = !!current && current.start <= now && now < current.end;
+  const progress = live
     ? (now.getTime() - current.start.getTime()) /
       (current.end.getTime() - current.start.getTime())
     : 0;
@@ -38,10 +53,14 @@ export function Hero({ channel }: { channel: MockChannel }) {
       <div className="hero__preview" id="player-slot" />
 
       <div className="hero__details">
-        <span className="hero__live">
-          <i className="hero__live-dot" />
-          LIVE
-        </span>
+        {/* Only airing programmes wear the badge — a hover-previewed
+         * future show shouldn't claim to be live. */}
+        {live && (
+          <span className="hero__live">
+            <i className="hero__live-dot" />
+            LIVE
+          </span>
+        )}
         <span className="hero__channel">{channel.name}</span>
         <div className="hero__title-wrap">
           <h2 className="hero__title">

@@ -10,7 +10,13 @@ import {
 import { splitTitleEmoji } from "./emoji";
 import { Guide } from "./Guide";
 import { Hero } from "./Hero";
-import { MOCK_CHANNELS, MOCK_FOLDERS, MOCK_PLAYLIST_NAME } from "./mock";
+import {
+  MOCK_CHANNELS,
+  MOCK_FOLDERS,
+  MOCK_PLAYLIST_NAME,
+  type MockChannel,
+  type Programme,
+} from "./mock";
 
 type Mode = "playlist" | "favorites" | "recents";
 
@@ -135,6 +141,12 @@ export function LiveScreen() {
     null,
   );
   const [channelId, setChannelId] = useState(MOCK_CHANNELS[0].id);
+  /** Hover preview from the guide: the hero shows whatever the cursor is
+   * over (channel or exact programme) without changing the selection. */
+  const [preview, setPreview] = useState<{
+    channel: MockChannel;
+    programme: Programme | null;
+  } | null>(null);
 
   // The sidebar's selected source narrows the guide; keep original indices
   // so each channel's deterministic mock programmes stay stable.
@@ -254,11 +266,15 @@ export function LiveScreen() {
       )}
 
       <div className="live-main">
-        <Hero channel={heroChannel} />
+        <Hero
+          channel={preview?.channel ?? heroChannel}
+          programme={preview?.programme ?? undefined}
+        />
         <Guide
           channels={visible}
           selectedId={channelId}
           onSelect={setChannelId}
+          onPreview={setPreview}
         />
       </div>
     </div>
