@@ -99,7 +99,22 @@ function ModeRail({
             onClick={() => onChange(m.key)}
           >
             <ModeIcon mode={m.key} active={active} />
-            <span className="mode-rail__label">{m.label}</span>
+            {/* All three labels stack in one grid cell so the active pill
+             * is the same width in every mode — otherwise space-between
+             * nudges the idle icons as the pill's label length changes. */}
+            <span className="mode-rail__label" aria-hidden>
+              {MODES.map((x) => (
+                <span
+                  key={x.key}
+                  className={
+                    "mode-rail__label-line" +
+                    (x.key === m.key ? "" : " mode-rail__label-line--ghost")
+                  }
+                >
+                  {x.label}
+                </span>
+              ))}
+            </span>
           </button>
         );
       })}

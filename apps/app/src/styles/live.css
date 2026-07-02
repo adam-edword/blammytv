@@ -135,8 +135,19 @@
 }
 
 .mode-rail__chip--active .mode-rail__label {
-  display: inline;
+  display: inline-grid;
+  justify-items: center;
   animation: mode-label-in 100ms ease-out backwards;
+}
+
+/* The stacked label lines share one cell; ghosts hold the widest width so
+ * the pill never changes size between modes. */
+.mode-rail__label-line {
+  grid-area: 1 / 1;
+}
+
+.mode-rail__label-line--ghost {
+  visibility: hidden;
 }
 
 @keyframes mode-label-in {
