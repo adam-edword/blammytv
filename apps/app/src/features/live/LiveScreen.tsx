@@ -1,4 +1,10 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ChevronIcon,
   PanelIcon,
@@ -8,8 +14,10 @@ import {
   TvIcon,
 } from "../../ui/icons";
 import { splitTitleEmoji } from "./emoji";
+import { loadFavorites, toggleFavorite } from "./favorites";
 import { Guide } from "./Guide";
 import { Hero } from "./Hero";
+import { loadRecents, recordRecent } from "./recents";
 import {
   MOCK_CHANNELS,
   MOCK_FOLDERS,
@@ -148,18 +156,42 @@ export function LiveScreen() {
     programme: Programme | null;
   } | null>(null);
 
-  // The sidebar's selected source narrows the guide; keep original indices
-  // so each channel's deterministic mock programmes stay stable. Memoized:
-  // a fresh identity per render would bust the guide's memoization on
-  // every hover-preview update (it re-renders constantly while scrolling
-  // with the cursor over cells).
-  const visible = useMemo(
-    () =>
-      MOCK_CHANNELS.map((channel, index) => ({ channel, index })).filter(
-        ({ channel }) => !folder || channel.folder === folder,
-      ),
-    [folder],
-  );
+  // Favorites and recents live here (not in the guide) because the modes
+  // filter on them. Selecting a channel records it as recent.
+  const [favorites, setFavorites] = useState(loadFavorites);
+  const [recents, setRecents] = useState(loadRecents);
+  const selectChannel = useCallback((id: string) => {
+    setChannelId(id);
+    setRecents((list) => recordRecent(list, id));
+  }, []);
+  const handleToggleFavorite = useCallback((id: string) => {
+    setFavorites((list) => toggleFavorite(list, id));
+  }, []);
+
+  // What the guide shows, per mode. Original indices ride along so each
+  // channel's deterministic mock programmes stay stable. Memoized: a fresh
+  // identity per render would bust the guide's memoization on every
+  // hover-preview update (it re-renders constantly while scrolling with
+  // the cursor over cells).
+  const indexed = (channel: MockChannel) => ({
+    channel,
+    index: MOCK_CHANNELS.indexOf(channel),
+  });
+  const visible = useMemo(() => {
+    if (mode === "favorites")
+      return MOCK_CHANNELS.filter((c) => favorites.includes(c.id)).map(
+        indexed,
+      );
+    if (mode === "recents")
+      return recents
+        .map((id) => MOCK_CHANNELS.find((c) => c.id === id))
+        .filter((c): c is MockChannel => !!c)
+        .map(indexed);
+    return MOCK_CHANNELS.filter((c) => !folder || c.folder === folder).map(
+      indexed,
+    );
+  }, [mode, folder, favorites, recents]);
+
   const heroChannel =
     MOCK_CHANNELS.find((c) => c.id === channelId) ?? MOCK_CHANNELS[0];
 
@@ -276,12 +308,24 @@ export function LiveScreen() {
           channel={preview?.channel ?? heroChannel}
           programme={preview?.programme ?? undefined}
         />
-        <Guide
-          channels={visible}
-          selectedId={channelId}
-          onSelect={setChannelId}
-          onPreview={setPreview}
-        />
+        {visible.length === 0 && mode !== "playlist" ? (
+          <div className="guide-empty">
+            <p>
+              {mode === "favorites"
+                ? "Nothing starred yet — hover a channel card and hit the star."
+                : "Nothing watched yet — recents fill in as you tune around."}
+            </p>
+          </div>
+        ) : (
+          <Guide
+            channels={visible}
+            selectedId={channelId}
+            favorites={favorites}
+            onSelect={selectChannel}
+            onToggleFavorite={handleToggleFavorite}
+            onPreview={setPreview}
+          />
+        )}
       </div>
     </div>
   );

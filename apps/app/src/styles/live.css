@@ -372,6 +372,17 @@
   flex-direction: column;
 }
 
+/* Empty modes (no favorites / no recents yet). */
+.guide-empty {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  font-size: 14px;
+  opacity: 0.6;
+}
+
 /* -------------------------------------------------------------- guide */
 
 /* One scroll container for both axes: the ruler pins to the top and the

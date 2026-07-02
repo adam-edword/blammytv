@@ -18,7 +18,6 @@ import {
   onClockFormatChange,
 } from "../settings/clockFormat";
 import { QualityBadge } from "../../ui/QualityBadge";
-import { loadFavorites, toggleFavorite } from "./favorites";
 import {
   GUIDE_HOURS,
   PX_PER_MIN,
@@ -109,12 +108,16 @@ interface Block {
 export const Guide = memo(function Guide({
   channels,
   selectedId,
+  favorites,
   onSelect,
+  onToggleFavorite,
   onPreview,
 }: {
   channels: Array<{ channel: MockChannel; index: number }>;
   selectedId: string;
+  favorites: string[];
   onSelect: (id: string) => void;
+  onToggleFavorite: (id: string) => void;
   /** Hover preview for the hero: the exact programme over a cell, the
    * channel's airing programme over a card, null on leave. */
   onPreview: (
@@ -124,7 +127,6 @@ export const Guide = memo(function Guide({
   // The now-line creeps and the window jumps at half-hour boundaries.
   const [now, setNow] = useState(() => new Date());
   const [clockFmt, setClockFmt] = useState(loadClockFormat);
-  const [favorites, setFavorites] = useState(loadFavorites);
   useEffect(() => {
     const id = window.setInterval(() => setNow(new Date()), 30_000);
     const off = onClockFormatChange(setClockFmt);
@@ -354,9 +356,7 @@ export const Guide = memo(function Guide({
                       : `Add ${channel.name} to favorites`
                   }
                   aria-pressed={favorite}
-                  onClick={() =>
-                    setFavorites((list) => toggleFavorite(list, channel.id))
-                  }
+                  onClick={() => onToggleFavorite(channel.id)}
                 >
                   {favorite ? (
                     <RainbowStarIcon vivid />
