@@ -68,13 +68,16 @@ function clipTitle(t: HTMLElement) {
   t.classList.toggle("is-clipped", t.scrollWidth > t.clientWidth + 1);
 }
 
+/** Restore a cell to its natural place. The true left comes from the
+ * React-rendered data-left attribute — never from imperative bookkeeping,
+ * which a re-render can poison (React skips style writes when its props
+ * are unchanged, so the pinned 197px would masquerade as the original). */
 function unpin(el: HTMLElement) {
   el.classList.remove("guide__cell--pinned");
-  el.style.left = el.dataset.restoreLeft ?? el.style.left;
+  if (el.dataset.left) el.style.left = `${el.dataset.left}px`;
   el.style.clipPath = "";
   el.style.transform = "";
   el.style.opacity = "";
-  delete el.dataset.restoreLeft;
   delete el.dataset.tw;
   const t = el.querySelector<HTMLElement>(".guide__cell-title");
   if (t) clipTitle(t);
@@ -194,7 +197,6 @@ export const Guide = memo(function Guide({
           : null;
         pinnedElsRef.current[i] = target;
         if (target) {
-          target.dataset.restoreLeft = target.style.left;
           target.style.left = `${LANE_X}px`; // sticky constraint, not offset
           target.classList.add("guide__cell--pinned");
         }
@@ -227,8 +229,12 @@ export const Guide = memo(function Guide({
 
   const CLIP_SELECTOR = ".guide__cell-title, .guide__card-name";
   useLayoutEffect(() => {
-    // A render rebuilt/reset the DOM: refresh the lane handles, re-measure
-    // fades, and re-apply the imperative pins that render wiped.
+    // After a render: purge every pin artifact FIRST (a render resets only
+    // the styles whose props changed, so imperative pin styles linger),
+    // then refresh lane handles, re-measure fades, and re-pin cleanly.
+    scrollRef.current
+      ?.querySelectorAll<HTMLElement>(".guide__cell--pinned")
+      .forEach(unpin);
     laneElsRef.current = Array.from(
       scrollRef.current?.querySelectorAll<HTMLElement>(".guide__lane") ?? [],
     );
@@ -362,6 +368,7 @@ export const Guide = memo(function Guide({
                       key={b.key}
                       type="button"
                       data-key={b.key}
+                      data-left={b.left}
                       className={cellClass(b)}
                       style={{ left: b.left, width: b.width }}
                       title={b.p.title}
