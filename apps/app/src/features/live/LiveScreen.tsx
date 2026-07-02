@@ -118,16 +118,18 @@ export function LiveScreen() {
       <aside
         className={"live-sidebar" + (collapsed ? " live-sidebar--collapsed" : "")}
       >
-        <button
-          type="button"
-          className="live-collapse"
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          aria-expanded={!collapsed}
-          onClick={() => setCollapsed((c) => !c)}
-        >
-          <PanelIcon />
-        </button>
-        {!collapsed && <ModeRail mode={mode} onChange={setMode} />}
+        <div className="live-sidebar__top">
+          <button
+            type="button"
+            className="live-collapse"
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-expanded={!collapsed}
+            onClick={() => setCollapsed((c) => !c)}
+          >
+            <PanelIcon />
+          </button>
+          {!collapsed && <ModeRail mode={mode} onChange={setMode} />}
+        </div>
 
         {!collapsed && mode === "playlist" && (
           <div className="live-sidebar__list">

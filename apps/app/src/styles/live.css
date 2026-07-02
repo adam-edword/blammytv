@@ -22,9 +22,18 @@
   flex: 0 0 auto;
 }
 
-/* Collapse: a quiet ghost icon on its own slim row, same spot whether the
- * sidebar is open or folded. */
+/* Top row: collapse ghost + mode rail share the line; the rail takes
+ * whatever width is left. Folded, only the ghost remains. */
+.live-sidebar__top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Collapse: a quiet ghost icon, same spot whether the sidebar is open or
+ * folded. */
 .live-collapse {
+  flex-shrink: 0;
   display: grid;
   place-items: center;
   width: 30px;
@@ -51,6 +60,8 @@
  * glides to the settled target via transform+width on the spring. */
 .mode-rail {
   position: relative;
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: stretch;
   justify-content: space-between;
