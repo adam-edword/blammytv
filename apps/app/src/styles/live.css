@@ -82,11 +82,11 @@
     flex-grow 380ms var(--spring);
 }
 
-/* The pill grows on the same curve but caps near its content width; the
+/* The pill grows on the same curve but caps snug around its content; the
  * leftover space pushes the idle icons out to the rail's edges. */
 .mode-rail__chip--active {
   flex-grow: 1;
-  max-width: 116px;
+  max-width: 102px;
 }
 
 .mode-rail__chip:hover {
