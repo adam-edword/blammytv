@@ -3,7 +3,7 @@
 Working state of the greenfield rebuild (branch `claude/blammytv-rebuild-xclzto`)
 and the agreed order of what's next. Update this file as sections land.
 
-## Where we are (v0.1.63)
+## Where we are (v0.1.64)
 
 - **Settings panel: complete.** Playlists (Xtream sub-tabs, folder visibility
   editor), AIOStreams (manifest + hero-slider source chips), Customize
