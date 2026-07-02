@@ -226,7 +226,9 @@ export function RainbowStarIcon({ size = 16, className }: IconProps) {
       className={className}
       aria-hidden="true"
     >
-      <path d={d} fill="black" stroke="black" />
+      {/* No black understroke: at scaled sizes its antialiased fringe
+       * peeks past the gradient stroke as a dark halo. */}
+      <path d={d} fill="black" />
       <path
         d={d}
         fill={`url(#${grad})`}
@@ -292,7 +294,6 @@ export function StarRainbowHollowIcon({ size = 17, className }: IconProps) {
       aria-hidden="true"
     >
       <path d={d} fill="#262626" />
-      <path d={d} stroke="black" />
       <path d={d} stroke={`url(#${grad})`} />
       <defs>
         <linearGradient
