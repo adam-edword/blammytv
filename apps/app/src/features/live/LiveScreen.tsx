@@ -8,6 +8,7 @@ import {
   TvIcon,
 } from "../../ui/icons";
 import { splitTitleEmoji } from "./emoji";
+import { Guide } from "./Guide";
 import { Hero } from "./Hero";
 import { MOCK_CHANNELS, MOCK_FOLDERS, MOCK_PLAYLIST_NAME } from "./mock";
 
@@ -133,6 +134,16 @@ export function LiveScreen() {
   const [tip, setTip] = useState<{ label: string; x: number; y: number } | null>(
     null,
   );
+  const [channelId, setChannelId] = useState(MOCK_CHANNELS[0].id);
+
+  // The sidebar's selected source narrows the guide; keep original indices
+  // so each channel's deterministic mock programmes stay stable.
+  const visible = MOCK_CHANNELS.map((channel, index) => ({
+    channel,
+    index,
+  })).filter(({ channel }) => !folder || channel.folder === folder);
+  const heroChannel =
+    MOCK_CHANNELS.find((c) => c.id === channelId) ?? MOCK_CHANNELS[0];
 
   return (
     <div className="live">
@@ -243,10 +254,12 @@ export function LiveScreen() {
       )}
 
       <div className="live-main">
-        <Hero channel={MOCK_CHANNELS[0]} />
-        <div className="live-main__stage">
-          <p className="live-main__placeholder">Guide grid next.</p>
-        </div>
+        <Hero channel={heroChannel} />
+        <Guide
+          channels={visible}
+          selectedId={channelId}
+          onSelect={setChannelId}
+        />
       </div>
     </div>
   );

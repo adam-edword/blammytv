@@ -372,17 +372,244 @@
   flex-direction: column;
 }
 
-.live-main__stage {
+/* -------------------------------------------------------------- guide */
+
+/* One scroll container for both axes: the ruler pins to the top and the
+ * channel column pins to the left via position:sticky, so nothing can
+ * desync from the cells. z ladder: cells (0) → now-line (1) → channel
+ * column (2) → ruler (3, its corner above the ticks). */
+.guide {
   flex: 1;
   min-height: 0;
-  display: grid;
-  place-items: center;
+  margin-top: 16px;
+  overflow: auto;
 }
 
-.live-main__placeholder {
+.guide__canvas {
+  position: relative;
+}
+
+.guide__ruler {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--bg);
+}
+
+.guide__tick {
+  position: absolute;
+  top: 2px;
+  font-family: var(--font-headline);
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* Blanks out ticks sliding beneath the channel column. */
+.guide__corner {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  height: 100%;
+  background: var(--bg);
+}
+
+.guide__row {
+  position: relative;
+}
+
+/* ------------------------------------------------ guide channel column */
+
+/* Sticky, opaque, and a hair wider than the card so cells vanish under
+ * it instead of peeking through the gutter. */
+.guide__channel {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  display: flex;
+  width: 197px;
+  height: 100%;
+  padding-right: 8px;
+  padding-bottom: 8px; /* the row gap, kept inside the occluder */
+  background: var(--bg);
+}
+
+.guide__card {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 0 12px 0 16px;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: border-color 120ms ease;
+}
+
+/* Channel names run under a right-edge fade, like the design. */
+.guide__card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset -56px 0 33px -34px var(--surface);
+  pointer-events: none;
+}
+
+.guide__channel--selected .guide__card {
+  border-color: var(--text);
+}
+
+/* Mock logo slot: portrait tile with the channel initial until real
+ * channel art lands. */
+.guide__logo {
+  flex-shrink: 0;
+  width: 26px;
+  height: 39px;
+  display: grid;
+  place-items: center;
+  background: var(--surface-raised);
+  border: 0.5px solid var(--border-raised);
+  border-radius: 7px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text);
+}
+
+.guide__card-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+
+.guide__card-name {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+/* Favorite star: appears on row hover (or stays when starred). */
+.guide__fav {
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.guide__channel:hover .guide__fav,
+.guide__fav--on {
+  opacity: 1;
+}
+
+.guide__fav svg {
+  width: 21px;
+  height: 21px;
+}
+
+/* --------------------------------------------------------- guide cells */
+
+.guide__cell {
+  position: absolute;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 0 12px 0 16px;
+  text-align: left;
+  background: var(--surface-puck);
+  border: 1.5px solid color-mix(in srgb, var(--text) 4%, transparent);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.guide__cell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset -60px 0 32px -30px var(--surface-puck);
+  pointer-events: none;
+}
+
+.guide__cell--live {
+  background: var(--accent-surface);
+  border: 1px solid var(--accent-border);
+}
+
+.guide__cell--live::after {
+  box-shadow: inset -60px 0 32px -30px var(--accent-surface);
+}
+
+.guide__cell--blank {
+  background: var(--surface);
+  border: 1.5px dashed color-mix(in srgb, var(--accent) 24%, var(--mix-base));
+  font-family: var(--font-headline);
+  font-weight: 500;
+  font-size: 15px;
   color: var(--text-muted);
-  opacity: 0.5;
-  font-size: 14px;
+}
+
+.guide__cell--blank::after {
+  box-shadow: inset -60px 0 32px -30px var(--surface);
+}
+
+/* The cell text hugs the scrollport's left edge (position:sticky) until
+ * the cell's far edge pushes it away — the old app's trick, now without
+ * any scroll JS. */
+.guide__cell-body {
+  position: sticky;
+  min-width: 0;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.guide__cell-title {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.guide__cell-time {
+  font-family: var(--font-headline);
+  font-weight: 500;
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ----------------------------------------------------------- now-line */
+
+.guide__nowline {
+  position: absolute;
+  bottom: 0;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+  z-index: 1;
+  pointer-events: none;
 }
 
 /* -------------------------------------------------------------- hero */
