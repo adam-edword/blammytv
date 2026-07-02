@@ -79,6 +79,10 @@ function unpin(el: HTMLElement) {
   el.style.transform = "";
   el.style.opacity = "";
   delete el.dataset.tw;
+  // Defensive: older pin mechanics transformed the body, and imperative
+  // styles survive both React renders and HMR module swaps.
+  const body = el.querySelector<HTMLElement>(".guide__cell-body");
+  if (body) body.style.transform = "";
   const t = el.querySelector<HTMLElement>(".guide__cell-title");
   if (t) clipTitle(t);
 }
@@ -230,11 +234,19 @@ export const Guide = memo(function Guide({
   const CLIP_SELECTOR = ".guide__cell-title, .guide__card-name";
   useLayoutEffect(() => {
     // After a render: purge every pin artifact FIRST (a render resets only
-    // the styles whose props changed, so imperative pin styles linger),
-    // then refresh lane handles, re-measure fades, and re-pin cleanly.
+    // the styles whose props changed, so imperative pin styles linger —
+    // across renders AND across HMR module swaps), then refresh lane
+    // handles, re-measure fades, and re-pin cleanly.
     scrollRef.current
       ?.querySelectorAll<HTMLElement>(".guide__cell--pinned")
       .forEach(unpin);
+    scrollRef.current
+      ?.querySelectorAll<HTMLElement>(
+        ".guide__cell:not(.guide__cell--blank) .guide__cell-body[style]",
+      )
+      .forEach((body) => {
+        body.style.transform = "";
+      });
     laneElsRef.current = Array.from(
       scrollRef.current?.querySelectorAll<HTMLElement>(".guide__lane") ?? [],
     );
