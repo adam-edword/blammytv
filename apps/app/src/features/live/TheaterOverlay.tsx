@@ -30,6 +30,11 @@ export function TheaterOverlay() {
   const [meta, setMeta] = useState<TheaterMeta | null>(null);
   const [loading, setLoading] = useState(true);
   const [paused, setPaused] = useState(false);
+  // DIAGNOSTIC (v0.1.73): is the Rust-injected bridge present? Rendered in a
+  // deliberately loud, CSS-independent banner so a Windows build can tell us
+  // (a) whether this overlay webview renders at all and (b) whether the
+  // overlayApi bridge connected. Removed once the overlay is confirmed showing.
+  const hasBridge = typeof window !== "undefined" && !!window.overlayApi;
 
   useEffect(() => {
     const api = window.overlayApi;
@@ -50,6 +55,22 @@ export function TheaterOverlay() {
 
   return (
     <div className="overlay">
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          padding: "8px 12px",
+          background: "#e5326b",
+          color: "#fff",
+          font: "700 14px system-ui, sans-serif",
+          textAlign: "center",
+          zIndex: 9999,
+        }}
+      >
+        BlammyTV overlay loaded · bridge {hasBridge ? "connected" : "absent"}
+      </div>
       {loading && <div className="overlay__spinner" aria-hidden />}
       <div className="overlay__bar">
         <button
