@@ -817,23 +817,15 @@
   flex-shrink: 0;
   width: 494px;
   aspect-ratio: 16 / 9;
-  border: 3px solid transparent;
+  /* Plain black slate with a hairline edge: this is what shows before/while
+   * a channel loads and during a channel switch (the mpv layer covers it
+   * once video arrives). Black + a faint border reads as an idle player, not
+   * the accent "glitch" the old gradient looked like mid-switch. */
+  border: 1px solid #ffffff10;
   border-radius: 20px;
-  transition: border-color 150ms ease;
-  background:
-    linear-gradient(
-      to bottom,
-      color-mix(in srgb, var(--accent) 29%, var(--mix-base)),
-      color-mix(in srgb, var(--accent) 10%, var(--mix-base))
-    );
-  /* Size the gradient to the border box; otherwise it spans only the
-   * padding box and its edges smear out under the transparent border. */
-  background-origin: border-box;
+  background: #000;
 }
 
-.hero__preview:hover {
-  border-color: #fff;
-}
 
 .hero__details {
   flex: 1;
