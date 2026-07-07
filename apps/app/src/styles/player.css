@@ -99,6 +99,36 @@
   font-family: var(--font-text);
 }
 
+/* Fake rounded video corners. The mpv child presents a flip-model swapchain
+ * DWM composites directly, so neither SetWindowRgn (round_child) nor a CSS
+ * radius on the slot clips the picture — the video corners are always sharp.
+ * This transparent overlay sits pixel-aligned over the video, so we paint the
+ * four corner triangles in the app background: outside the arc = --bg (blends
+ * into the chrome around the inset player), inside = transparent (video shows).
+ * Windowed theater only — fullscreen fills the monitor, no corners to round. */
+.theater-overlay:not(.theater-overlay--fs)::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  --r: 12px;
+  background:
+    radial-gradient(var(--r) at bottom right, #0000 98%, var(--bg)) top left /
+      var(--r) var(--r) no-repeat,
+    radial-gradient(var(--r) at bottom left, #0000 98%, var(--bg)) top right /
+      var(--r) var(--r) no-repeat,
+    radial-gradient(var(--r) at top right, #0000 98%, var(--bg)) bottom left /
+      var(--r) var(--r) no-repeat,
+    radial-gradient(var(--r) at top left, #0000 98%, var(--bg)) bottom right /
+      var(--r) var(--r) no-repeat;
+}
+
+/* Sharp corner setting zeroes the fake rounding too. */
+:root[data-corners="sharp"] .theater-overlay::before {
+  display: none;
+}
+
 .player__btn {
   display: inline-flex;
   align-items: center;

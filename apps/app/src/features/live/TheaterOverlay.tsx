@@ -259,7 +259,11 @@ export function TheaterOverlay() {
   // THEATER / FULLSCREEN.
   return (
     <div
-      className={"theater-overlay" + (active ? " player--active" : "")}
+      className={
+        "theater-overlay" +
+        (active ? " player--active" : "") +
+        (fs ? " theater-overlay--fs" : "")
+      }
       onClick={(e) => {
         // Click the picture (not a control) to play/pause.
         if (!(e.target as Element).closest("[data-interactive]")) {
