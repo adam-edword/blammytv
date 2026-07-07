@@ -50,8 +50,11 @@ const api = () => window.overlayApi;
 
 /** True when the overlay fills (nearly) the whole monitor — i.e. fullscreen. */
 const atFullscreen = () => window.innerWidth >= window.screen.width * 0.95;
-/** Below this the overlay is the small in-app preview box (mini). */
-const MINI_MAX = 1000;
+/** The mini box is uniquely short (≈278px, 494×16:9); theater fills the main
+ * content area and fullscreen the monitor, both far taller. Keying mini off
+ * height (not width) survives a narrow window where the theater fill is also
+ * narrow. */
+const isMini = () => window.innerHeight < 450;
 
 export function TheaterOverlay() {
   const [meta, setMeta] = useState<TheaterMeta | null>(null);
@@ -64,13 +67,13 @@ export function TheaterOverlay() {
   // live stream, so this is a client-side indicator that tracks the seeks.
   const [livePct, setLivePct] = useState(100);
   const [active, setActive] = useState(true); // chrome shown (auto-hides)
-  const [mini, setMini] = useState(() => window.innerWidth < MINI_MAX);
+  const [mini, setMini] = useState(isMini);
   const [fs, setFs] = useState(atFullscreen);
   const idleRef = useRef(0);
 
   useEffect(() => {
     const f = () => {
-      setMini(window.innerWidth < MINI_MAX);
+      setMini(isMini());
       setFs(atFullscreen());
     };
     window.addEventListener("resize", f);
@@ -191,7 +194,7 @@ export function TheaterOverlay() {
           toggleFullscreen();
           break;
         case "t":
-          if (window.innerWidth < MINI_MAX) api()?.expand?.();
+          if (isMini()) api()?.expand?.();
           else api()?.collapse?.();
           break;
         case "escape":

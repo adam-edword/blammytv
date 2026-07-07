@@ -19,7 +19,7 @@ const OPEN_DEBOUNCE_MS = 150;
 const RADIUS_CSS = 12;
 const SLOT_ID = "player-slot";
 
-function measure(el: HTMLElement, fullscreen: boolean): CompRect {
+function measure(el: HTMLElement, squared: boolean): CompRect {
   const r = el.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
   return {
@@ -27,8 +27,8 @@ function measure(el: HTMLElement, fullscreen: boolean): CompRect {
     y: Math.round(r.top * dpr),
     w: Math.round(r.width * dpr),
     h: Math.round(r.height * dpr),
-    // Fullscreen squares the picture off; mini/theater round it.
-    radius: fullscreen ? 0 : Math.round(RADIUS_CSS * dpr),
+    // Theater/fullscreen fill to edges (square); only the mini box is rounded.
+    radius: squared ? 0 : Math.round(RADIUS_CSS * dpr),
   };
 }
 
@@ -42,18 +42,18 @@ function measure(el: HTMLElement, fullscreen: boolean): CompRect {
 export function CompositionPlayer({
   url,
   meta,
-  fullscreen = false,
+  squared = false,
 }: {
   url: string;
   meta: TheaterMeta | null;
-  /** Squares the picture off and drops the radius. Read live in the rAF so a
-   * fullscreen toggle re-rects without restarting playback. */
-  fullscreen?: boolean;
+  /** Drops the corner radius to 0 (theater/fullscreen fill to edges). Read
+   * live in the rAF so a toggle re-rects without restarting playback. */
+  squared?: boolean;
 }) {
   const metaRef = useRef(meta);
   metaRef.current = meta;
-  const fsRef = useRef(fullscreen);
-  fsRef.current = fullscreen;
+  const fsRef = useRef(squared);
+  fsRef.current = squared;
 
   // Effect keyed on `url`: a channel switch tears the player fully down
   // (cleanup comp_stop) and rebuilds after the debounce. The teardown gap is

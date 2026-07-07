@@ -297,13 +297,6 @@ export function LiveScreen() {
     return () => offs.forEach((off) => off());
   }, [leaveFullscreen]);
 
-  // Theater dims the floating nav to a peek (full opacity on hover) instead of
-  // hiding it behind the backdrop. Fullscreen stays fully immersive (the
-  // fill-the-screen video covers it), so only flag plain theater.
-  useEffect(() => {
-    document.body.classList.toggle("player-theater", theater && !fullscreen);
-    return () => document.body.classList.remove("player-theater");
-  }, [theater, fullscreen]);
 
   // While playing, forward the player shortcuts to the overlay (which owns mpv
   // + the size transitions). The guide has focus, so these keys hit the main
@@ -408,17 +401,6 @@ export function LiveScreen() {
         "live" +
         (theater ? " live--theater" : "") +
         (fullscreen ? " live--fullscreen" : "")
-      }
-      onClick={
-        theater && !fullscreen
-          ? (e) => {
-              // Theater backdrop click (outside the player box) → mini. The
-              // mpv layer swallows clicks on the box itself, so anything React
-              // sees here is genuinely outside it.
-              if (!(e.target as Element).closest(".hero__preview"))
-                setTheater(false);
-            }
-          : undefined
       }
     >
       <aside
@@ -614,7 +596,7 @@ export function LiveScreen() {
               <CompositionPlayer
                 url={playUrl}
                 meta={playMeta}
-                fullscreen={fullscreen}
+                squared={theater || fullscreen}
               />
             )}
             {visible.length === 0 ? (

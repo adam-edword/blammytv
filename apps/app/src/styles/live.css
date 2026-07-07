@@ -828,44 +828,33 @@
 }
 
 /* ---- Theater / fullscreen ----
- * The player box (#player-slot === .hero__preview) floats free and the mpv
- * layer follows it (rAF). Theater: hide the surrounding chrome behind a black
- * backdrop and centre the largest 16:9 box below the nav. Fullscreen: fill the
- * viewport, squared off. No transform on the fullscreen box — a transformed
- * ancestor would trap the fixed child. */
-.live--theater::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background: #000;
-  z-index: 40;
-}
-
-.live--theater .live-sidebar,
+ * Theater covers only the EPG: the guide and hero details fold away and the
+ * player grows to fill the main content area, but the header and sidebar stay
+ * fully visible so you can flip channels while watching. The mpv layer follows
+ * the #player-slot (=.hero__preview) box via the rAF driver. Fullscreen fills
+ * the whole viewport, squared off (fixed, no transform — a transformed
+ * ancestor would trap the fixed child). */
 .live--theater .hero__details,
 .live--theater .guide,
 .live--theater .guide-empty {
   display: none;
 }
 
+/* Hero stops being a fixed 16:9 strip and grows to fill the main column. */
 .live--theater .hero {
+  flex: 1;
   height: auto;
+  gap: 0;
+  padding-right: 0;
 }
 
 .live--theater .hero__preview {
-  position: fixed;
-  top: calc(var(--header-h, 103px) + 25px);
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(
-    calc(100vw - 50px),
-    calc((100vh - var(--header-h, 103px) - 50px) * 16 / 9)
-  );
+  flex: 1;
+  width: auto;
   height: auto;
-  aspect-ratio: 16 / 9;
-  z-index: 45;
+  aspect-ratio: auto;
   border: none;
-  border-radius: 12px;
+  border-radius: 0;
 }
 
 .live--fullscreen .hero__preview {
@@ -878,19 +867,6 @@
   aspect-ratio: auto;
   border-radius: 0;
   z-index: 200;
-}
-
-/* In theater the nav isn't hidden — it dims to a peek over the black backdrop
- * (above it, z 60 > 40) and returns to full on hover, like the old build.
- * Fullscreen omits the body class, so the fill-screen video covers it. */
-body.player-theater .header {
-  z-index: 60;
-  opacity: 0.15;
-  transition: opacity 0.2s ease;
-}
-
-body.player-theater .header:hover {
-  opacity: 1;
 }
 
 
