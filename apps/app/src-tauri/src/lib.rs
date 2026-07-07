@@ -263,7 +263,35 @@ pub fn run() {
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
+            use tauri::Manager;
             let _ = APP.set(app.handle().clone());
+
+            // Window bring-up. The window-state plugin has, by now, restored a
+            // saved size/position from a previous launch. On the very first
+            // launch there's nothing to restore, so open maximized. A private
+            // marker file (not the plugin's) draws the first-run line — after
+            // it exists we leave the window alone, so a remembered,
+            // un-maximized size survives every later launch instead of being
+            // forced back to maximized.
+            if let Some(win) = app.get_webview_window("main") {
+                let marker = app
+                    .path()
+                    .app_config_dir()
+                    .ok()
+                    .map(|dir| dir.join(".blammytv-initialized"));
+                let first_run =
+                    marker.as_ref().map(|p| !p.exists()).unwrap_or(false);
+                if first_run {
+                    let _ = win.maximize();
+                    if let Some(p) = &marker {
+                        if let Some(parent) = p.parent() {
+                            let _ = std::fs::create_dir_all(parent);
+                        }
+                        let _ = std::fs::write(p, b"1");
+                    }
+                }
+            }
+
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()

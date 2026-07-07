@@ -23,7 +23,7 @@ log = "0.4"
 tauri = { version = "2.11.2", features = [] }
 tauri-plugin-log = "2"
 # Remember window size/position/maximized across launches. First run (no saved
-# state) falls back to the config's maximized:true; afterwards it restores.
+# state) opens maximized (see the setup hook in lib.rs); afterwards it restores.
 tauri-plugin-window-state = "2"
 # Self-update from GitHub Releases (auto-check on launch + manual button).
 # Driven from Rust commands (below) so no JS plugin packages are needed.

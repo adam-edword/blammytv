@@ -13,11 +13,13 @@
     "windows": [
       {
         "title": "BlammyTV",
-        "width": 800,
-        "height": 600,
-        "maximized": true,
+        "width": 1280,
+        "height": 800,
+        "minWidth": 1000,
+        "minHeight": 680,
         "resizable": true,
-        "fullscreen": false
+        "fullscreen": false,
+        "backgroundColor": "#000000"
       }
     ],
     "security": {
