@@ -297,6 +297,14 @@ export function LiveScreen() {
     return () => offs.forEach((off) => off());
   }, [leaveFullscreen]);
 
+  // Theater dims the floating nav to a peek (full opacity on hover) instead of
+  // hiding it behind the backdrop. Fullscreen stays fully immersive (the
+  // fill-the-screen video covers it), so only flag plain theater.
+  useEffect(() => {
+    document.body.classList.toggle("player-theater", theater && !fullscreen);
+    return () => document.body.classList.remove("player-theater");
+  }, [theater, fullscreen]);
+
   // While playing, forward the player shortcuts to the overlay (which owns mpv
   // + the size transitions). The guide has focus, so these keys hit the main
   // webview; comp_key relays them. Skips text fields.

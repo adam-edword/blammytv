@@ -59,6 +59,10 @@ export function TheaterOverlay() {
   const [paused, setPaused] = useState(false);
   const [volume, setVolume] = useState(1);
   const [muted, setMuted] = useState(false);
+  // Live-edge position (%). Full = at the live edge; seeking back walks it
+  // left, forward walks it toward live. mpv exposes no live position for a
+  // live stream, so this is a client-side indicator that tracks the seeks.
+  const [livePct, setLivePct] = useState(100);
   const [active, setActive] = useState(true); // chrome shown (auto-hides)
   const [mini, setMini] = useState(() => window.innerWidth < MINI_MAX);
   const [fs, setFs] = useState(atFullscreen);
@@ -141,6 +145,12 @@ export function TheaterOverlay() {
     });
   }, []);
 
+  // Seek mpv + walk the live-edge indicator (≈0.8%/sec, so ±10s ≈ ±8%).
+  const doSeek = useCallback((delta: number) => {
+    api()?.seek(delta);
+    setLivePct((p) => Math.min(100, Math.max(0, p + delta * 0.8)));
+  }, []);
+
   const toggleFullscreen = useCallback(() => {
     if (atFullscreen()) api()?.exitFullscreen?.();
     else api()?.fullscreen?.();
@@ -166,16 +176,16 @@ export function TheaterOverlay() {
           setVolume((v) => Math.max(0, +(v - 0.05).toFixed(2)));
           break;
         case "arrowleft":
-          api()?.seek(-5);
+          doSeek(-5);
           break;
         case "arrowright":
-          api()?.seek(5);
+          doSeek(5);
           break;
         case "j":
-          api()?.seek(-10);
+          doSeek(-10);
           break;
         case "l":
-          api()?.seek(10);
+          doSeek(10);
           break;
         case "f":
           toggleFullscreen();
@@ -193,7 +203,7 @@ export function TheaterOverlay() {
       }
       wake();
     },
-    [toggleFullscreen, togglePlay, wake],
+    [doSeek, toggleFullscreen, togglePlay, wake],
   );
 
   useEffect(() => {
@@ -300,11 +310,11 @@ export function TheaterOverlay() {
           <div className="theater-seek__track">
             <div
               className="theater-seek__fill"
-              style={{ width: `${Math.min(100, meta?.progressPct ?? 0)}%` }}
+              style={{ width: `${livePct}%` }}
             />
             <span
               className="theater-seek__knob"
-              style={{ left: `${Math.min(100, meta?.progressPct ?? 0)}%` }}
+              style={{ left: `${livePct}%` }}
             />
           </div>
           <div className="theater-seek__labels">
@@ -319,7 +329,7 @@ export function TheaterOverlay() {
               type="button"
               className="player__btn"
               aria-label="Back 10 seconds"
-              onClick={() => api()?.seek(-10)}
+              onClick={() => doSeek(-10)}
             >
               <SkipBackIcon size={24} />
             </button>
@@ -335,7 +345,7 @@ export function TheaterOverlay() {
               type="button"
               className="player__btn"
               aria-label="Forward 10 seconds"
-              onClick={() => api()?.seek(10)}
+              onClick={() => doSeek(10)}
             >
               <SkipFwdIcon size={24} />
             </button>

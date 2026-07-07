@@ -880,6 +880,19 @@
   z-index: 200;
 }
 
+/* In theater the nav isn't hidden — it dims to a peek over the black backdrop
+ * (above it, z 60 > 40) and returns to full on hover, like the old build.
+ * Fullscreen omits the body class, so the fill-screen video covers it. */
+body.player-theater .header {
+  z-index: 60;
+  opacity: 0.15;
+  transition: opacity 0.2s ease;
+}
+
+body.player-theater .header:hover {
+  opacity: 1;
+}
+
 
 .hero__details {
   flex: 1;
