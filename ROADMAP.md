@@ -3,7 +3,7 @@
 Working state of the greenfield rebuild (branch `claude/blammytv-rebuild-xclzto`)
 and the agreed order of what's next. Update this file as sections land.
 
-## Where we are (v0.1.69)
+## Where we are (v0.1.72)
 
 - **Settings panel: complete.** Playlists (Xtream sub-tabs, folder visibility
   editor), AIOStreams (manifest + hero-slider source chips), Customize
@@ -76,15 +76,38 @@ and the agreed order of what's next. Update this file as sections land.
 - Floating glass nav (progressive-blur experiment parked, commented in
   base.css), F11/Escape fullscreen keys, `--header-h` published by measure.
 - `src-tauri` ported wholesale from the old app (Schannel TLS fix, mpv
-  composition, updater). Do not touch it during frontend iterations.
+  composition, updater). The Rust player API is COMPLETE and needs no
+  changes — `comp_theater/comp_set_rect/comp_stop/comp_key/comp_popout/
+  popout_pos/popout_stop` + the `comp-*` events; geometry is PHYSICAL device
+  pixels (frontend multiplies CSS px by devicePixelRatio); the overlay is a
+  second webview of our bundle loaded with `?overlay=1` and driven via the
+  Rust-injected `window.overlayApi` bridge. Do not touch src-tauri.
+- **Native player — Phase 1 landed (v0.1.72), frontend-only, UNVERIFIED on
+  Windows.** Auto-play on channel select: selecting a channel streams it
+  into `#player-slot`. `lib/tauri.ts` regained the comp wrappers +
+  `onCompClosed`; `stream.ts` rebuilds the live URL from the namespaced
+  channel id (`<playlistId>:<streamId>`) + playlist creds (`liveExt`
+  re-added to `XtreamPlaylist`, default "ts"); `CompositionPlayer.tsx` is
+  the ported rAF geometry driver (150ms open-debounce, dpr-scaled rect,
+  radius 20 to match the box); `main.tsx` routes `?overlay=1` to a minimal
+  `TheaterOverlay` (play/pause + close). Browser/mock path untouched (no url
+  → no player). MUST be verified on a real Windows build with a real
+  playlist before Phase 2.
 
 ## Next steps, in order
 
-1. **v0.2.0 gate.** Live tab complete incl. mpv mini-player in the hero
-   (`#player-slot`; `liveStreamUrl()` still to port — credentials-in-path,
-   see old `client.ts`); then the Stream tab (AIOStreams) begins —
-   re-enable the nav glass (commented in base.css) when scrolling content
-   exists.
+1. **Native player Phase 2** — port the old build's full `TheaterOverlay`
+   verbatim (transport, volume, seek, tracks, expand/collapse, fullscreen)
+   and wire the LiveScreen state machine: `comp-expand/collapse/fullscreen/
+   exit-fullscreen` handlers, `body.theater-mode` + root classes, keyboard
+   forwarding via `comp_key` (SHORTCUT_KEYS + wheel→volume), `tauriSetFullscreen`.
+   Fix the hero hover bezel then (it's covered by the mpv layer). Verify on
+   Windows.
+2. **Native player Phase 3** — popout/PiP (`comp_popout` + `popout_pos`/
+   `popout_stop` reclaim, `popout-closed`), audio/subtitle track menus, the
+   update banner (`check_update`/`install_update`). Then **v0.2.0**.
+3. **Stream tab (AIOStreams)** — re-enable the nav glass (commented in
+   base.css) once scrolling content exists.
 
 Slated for later, user-approved: ambient backdrop setting, motion toggle,
 M3U + Stalker sources, timeshift/track-selection/stats in the player overlay,

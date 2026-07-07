@@ -23,6 +23,10 @@ export interface XtreamPlaylist extends PlaylistBase {
   server: string;
   username: string;
   password: string;
+  /** Live container extension for the playable URL. Absent (older saves)
+   * means the default "ts", which is what nearly every Xtream panel serves
+   * for live; a few use "m3u8". */
+  liveExt?: string;
 }
 
 export interface M3uPlaylist extends PlaylistBase {

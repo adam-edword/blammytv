@@ -15,7 +15,9 @@ import {
   StarIcon,
   TvIcon,
 } from "../../ui/icons";
+import { isTauri, onCompClosed } from "../../lib/tauri";
 import { onPlaylistsChange } from "../settings/playlists";
+import { CompositionPlayer } from "./CompositionPlayer";
 import { splitTitleEmoji } from "./emoji";
 import { loadFavorites, toggleFavorite } from "./favorites";
 import { Guide } from "./Guide";
@@ -23,6 +25,7 @@ import { Hero } from "./Hero";
 import type { Channel, LiveData, Programme } from "./model";
 import { loadRecents, recordRecent } from "./recents";
 import { loadLive, peekLive } from "./source";
+import { buildMeta, channelStreamUrl } from "./stream";
 
 type Mode = "playlist" | "favorites" | "recents";
 
@@ -156,6 +159,10 @@ export function LiveScreen() {
   // Resume the last-watched channel (recents[0]) so a tab switch or app
   // restart doesn't dump the selection back on the catalog's first row.
   const [channelId, setChannelId] = useState(() => loadRecents()[0] ?? "");
+  // Whether the native player is live. Selecting a channel starts it
+  // (auto-play); the overlay's ✕ (comp-closed) stops it. Left off on launch
+  // so a restored selection doesn't stream until the user actually tunes in.
+  const [playing, setPlaying] = useState(false);
   /** Hover preview from the guide: the hero shows whatever the cursor is
    * over (channel or exact programme) without changing the selection. */
   const [preview, setPreview] = useState<{
@@ -242,7 +249,14 @@ export function LiveScreen() {
   const [recents, setRecents] = useState(loadRecents);
   const selectChannel = useCallback((id: string) => {
     setChannelId(id);
+    setPlaying(true); // auto-play on select
     setRecents((list) => recordRecent(list, id));
+  }, []);
+  // The overlay's ✕ stops playback (mpv already torn down Rust-side). Tauri's
+  // listen() reaches into shell internals, so guard the browser dev path.
+  useEffect(() => {
+    if (!isTauri()) return;
+    return onCompClosed(() => setPlaying(false));
   }, []);
   const handleToggleFavorite = useCallback((id: string) => {
     setFavorites((list) => toggleFavorite(list, id));
@@ -288,6 +302,22 @@ export function LiveScreen() {
   const shownProgrammes =
     (ready && shownChannel && ready.programmes.get(shownChannel.id)) ||
     NO_PROGRAMMES;
+
+  // The native player streams the COMMITTED channel (heroChannel), never the
+  // transient hover preview. The URL is rebuilt from the channel id; a null
+  // url (mock catalog, or a browser build) means no player mounts.
+  const playUrl =
+    isTauri() && playing && heroChannel
+      ? channelStreamUrl(heroChannel.id)
+      : null;
+  const playMeta = (() => {
+    if (!playUrl || !ready || !heroChannel) return null;
+    const at = new Date();
+    const airing = (ready.programmes.get(heroChannel.id) ?? NO_PROGRAMMES).find(
+      (p) => p.start <= at && at < p.end,
+    );
+    return buildMeta(heroChannel, airing, at);
+  })();
 
   return (
     <div className="live">
@@ -477,6 +507,10 @@ export function LiveScreen() {
               programmes={shownProgrammes}
               programme={preview?.programme ?? undefined}
             />
+            {/* Headless: opens mpv into #player-slot and follows the box.
+             * Only in Tauri with a real stream URL, so browser/mock is
+             * untouched. */}
+            {playUrl && <CompositionPlayer url={playUrl} meta={playMeta} />}
             {visible.length === 0 ? (
               <div className="guide-empty">
                 <p>
