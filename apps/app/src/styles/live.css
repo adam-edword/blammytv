@@ -835,17 +835,20 @@
  * the whole viewport, squared off (fixed, no transform — a transformed
  * ancestor would trap the fixed child). */
 .live--theater .hero__details,
-.live--theater .guide,
+.live--theater .guide-wrap,
 .live--theater .guide-empty {
   display: none;
 }
 
-/* Hero stops being a fixed 16:9 strip and grows to fill the main column. */
+/* Hero stops being a fixed 16:9 strip and grows to fill the main column. The
+ * 12px bottom/right inset mirrors the sidebar's own margin (0 0 12px 12px), so
+ * the player sits in the layout with matching breathing room on the free
+ * edges (the left edge already has the .live gap to the sidebar). */
 .live--theater .hero {
   flex: 1;
   height: auto;
   gap: 0;
-  padding-right: 0;
+  padding: 0 12px 12px 0;
 }
 
 .live--theater .hero__preview {
