@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 /** True when running inside the Tauri shell (vs. a plain browser tab). */
 export function isTauri(): boolean {
@@ -29,6 +30,11 @@ export interface TheaterMeta {
   title?: string;
   description?: string;
   live?: boolean;
+  sourceName?: string;
+  /** Airing programme's start label + progress (0–100) for the LIVE bar.
+   * Frozen at open time (meta is pushed once), refreshed on channel change. */
+  startLabel?: string;
+  progressPct?: number;
 }
 
 /** Open the native player: load `url` into mpv at `rect`, mounting the overlay
@@ -80,4 +86,33 @@ function onCompEvent(event: string, cb: () => void): () => void {
  * should drop the player. */
 export function onCompClosed(cb: () => void): () => void {
   return onCompEvent("comp-closed", cb);
+}
+
+/** Forward a keyboard shortcut from the main webview into the overlay (which
+ * owns the player UI + mpv control). */
+export function tauriCompKey(key: string): Promise<void> {
+  return invoke("comp_key", { key });
+}
+
+/** OS-window fullscreen (hides the title bar so the player fills the monitor). */
+export function tauriSetFullscreen(on: boolean): Promise<void> {
+  return getCurrentWindow().setFullscreen(on);
+}
+
+/** The mini → theater expand fired (overlay clicked / `t` key). */
+export function onCompExpand(cb: () => void): () => void {
+  return onCompEvent("comp-expand", cb);
+}
+/** Theater → mini collapse fired. */
+export function onCompCollapse(cb: () => void): () => void {
+  return onCompEvent("comp-collapse", cb);
+}
+/** Theater → fullscreen fired — the app should also take the OS window
+ * fullscreen. */
+export function onCompFullscreen(cb: () => void): () => void {
+  return onCompEvent("comp-fullscreen", cb);
+}
+/** Fullscreen → theater fired. */
+export function onCompExitFullscreen(cb: () => void): () => void {
+  return onCompEvent("comp-exit-fullscreen", cb);
 }

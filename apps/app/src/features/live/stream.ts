@@ -37,14 +37,37 @@ export function buildMeta(
   channel: Channel,
   programme: Programme | undefined,
   now: Date,
+  sourceName?: string,
 ): TheaterMeta {
   const live =
     !!programme && programme.start <= now && now < programme.end;
+  let progressPct: number | undefined;
+  let startLabel: string | undefined;
+  if (programme) {
+    const span = programme.end.getTime() - programme.start.getTime();
+    progressPct =
+      span > 0
+        ? Math.min(
+            100,
+            Math.max(
+              0,
+              ((now.getTime() - programme.start.getTime()) / span) * 100,
+            ),
+          )
+        : 0;
+    startLabel = programme.start.toLocaleTimeString([], {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  }
   return {
     channelName: channel.name,
     logo: channel.logo,
     title: programme?.title,
     description: programme?.synopsis,
     live,
+    sourceName,
+    startLabel,
+    progressPct,
   };
 }

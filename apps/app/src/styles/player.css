@@ -1,61 +1,61 @@
-/* The composition overlay webview. It floats over the mpv video, so every
- * layer must be transparent (Rust sets the webview background transparent;
- * main.tsx clears the html/body black too, overriding the launch bg). */
+/* The composition overlay webview floats over the mpv video, so every layer is
+ * transparent (Rust sets the webview bg transparent; main.tsx clears the html/
+ * body black too, overriding the launch bg). Ported from the old build,
+ * live-only. Three states: mini / theater / fullscreen. */
 .is-overlay,
 .is-overlay body {
   background: transparent;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
-.overlay {
+/* ---- Buffering loader (centered pulsing "loading") ---- */
+.comp-loading {
   position: fixed;
   inset: 0;
-  /* Match the video's rounded corners so the hover ring rounds with it. */
-  border-radius: 12px;
-  color: #fff;
-  font-family: var(--font-text);
-  /* The whole mini player reads as clickable. NB: over the playing video the
-   * mpv child owns the OS cursor, so this only takes effect once Rust forwards
-   * WM_SETCURSOR (deferred to the native pass); it applies immediately in the
-   * non-composited fallback. */
-  cursor: pointer;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
 }
 
-/* Hover the mini player → white ring. This lives on the overlay, not the app
- * box: while a channel plays, the mpv layer sits on top and forwards the mouse
- * here, so the app's .hero__preview never sees the hover. Inset because the
- * overlay is clipped to the video bounds. */
-.overlay:hover {
-  box-shadow: inset 0 0 0 2px #fff;
+.comp-loading__text {
+  font: 600 clamp(16px, 2.2vw, 28px) / 1 system-ui, sans-serif;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.92);
+  animation: comp-loading-pulse 1.4s ease-in-out infinite;
 }
 
-/* Simple centered loading spinner while mpv buffers the first frame. */
-.overlay__spinner {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  width: 42px;
-  height: 42px;
-  margin: -21px 0 0 -21px;
-  border: 3px solid rgba(255, 255, 255, 0.25);
-  border-top-color: #fff;
-  border-radius: 50%;
-  animation: overlay-spin 800ms linear infinite;
-}
-
-@keyframes overlay-spin {
-  to {
-    transform: rotate(360deg);
+@keyframes comp-loading-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .overlay__spinner {
-    animation-duration: 2000ms;
+  .comp-loading__text {
+    animation-duration: 3s;
   }
 }
 
-/* Play/pause and close float directly over the video. Dark pill so they read
- * over any bright frame. Hidden until the mini player is hovered. */
+/* ---- Mini overlay: click anywhere expands to theater; play/pause + ✕ float
+ * over the video and fade in on hover, with a white edge ring. ---- */
+.mini-overlay {
+  position: fixed;
+  inset: 0;
+  box-sizing: border-box;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.mini-overlay:hover {
+  border-color: rgba(255, 255, 255, 0.92);
+}
+
 .overlay__btn {
   position: absolute;
   display: grid;
@@ -66,7 +66,6 @@
   border-radius: 10px;
   background: rgba(0, 0, 0, 0.5);
   color: #fff;
-  font-size: 14px;
   cursor: pointer;
   opacity: 0;
   transition:
@@ -74,7 +73,7 @@
     opacity 140ms ease;
 }
 
-.overlay:hover .overlay__btn {
+.mini-overlay:hover .overlay__btn {
   opacity: 1;
 }
 
@@ -87,7 +86,225 @@
   bottom: 14px;
 }
 
-.overlay__close {
+.mini-overlay__close {
   top: 14px;
   right: 14px;
+}
+
+/* ---- Theater / fullscreen chrome ---- */
+.theater-overlay {
+  position: fixed;
+  inset: 0;
+  color: #fff;
+  font-family: var(--font-text);
+}
+
+.player__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  opacity: 0.85;
+  transition:
+    opacity 0.12s ease,
+    background 0.12s ease;
+}
+
+.player__btn:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.player__btn--play {
+  width: 48px;
+  height: 48px;
+}
+
+.player__volume {
+  width: 96px;
+  height: 4px;
+  accent-color: #fff;
+  cursor: pointer;
+}
+
+/* Top-right cluster (fullscreen + close), auto-hides with the chrome. */
+.theater-topright {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  z-index: 3;
+  display: flex;
+  gap: 10px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.player--active .theater-topright {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.theater-topright .player__btn {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.theater-topright .player__btn:hover {
+  background: rgba(0, 0, 0, 0.72);
+}
+
+/* Bottom bar: meta + LIVE position + transport/volume. */
+.theater-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 96px 40px 30px;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.92) 0%,
+    rgba(0, 0, 0, 0.72) 45%,
+    transparent 100%
+  );
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.player--active .theater-bar {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.theater-bar__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  max-width: 760px;
+}
+
+.theater-bar__text {
+  min-width: 0;
+}
+
+.theater-bar__chan {
+  margin: 0 0 6px;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.theater-bar__name {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.9px;
+  color: var(--accent);
+}
+
+.theater-bar__source {
+  font-family: var(--font-headline);
+  font-weight: 500;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.theater-bar__title {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: clamp(22px, 2.4vw, 32px);
+  line-height: 1.1;
+  color: #fff;
+}
+
+.theater-bar__desc {
+  margin: 6px 0 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.72);
+  max-width: 720px;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.theater-seek {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.theater-seek__track {
+  position: relative;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.theater-seek__fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--accent);
+  border-radius: 3px;
+}
+
+.theater-seek__knob {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  corner-shape: round;
+  background: #fff;
+  transform: translate(-50%, -50%);
+}
+
+.theater-seek__labels {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.theater-seek__live {
+  color: var(--accent);
+}
+
+.theater-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.theater-controls__group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.theater-vol {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.theater-vol__slider {
+  width: 96px;
 }

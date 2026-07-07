@@ -15,7 +15,16 @@ import {
   StarIcon,
   TvIcon,
 } from "../../ui/icons";
-import { isTauri, onCompClosed } from "../../lib/tauri";
+import {
+  isTauri,
+  onCompClosed,
+  onCompCollapse,
+  onCompExitFullscreen,
+  onCompExpand,
+  onCompFullscreen,
+  tauriCompKey,
+  tauriSetFullscreen,
+} from "../../lib/tauri";
 import { onPlaylistsChange } from "../settings/playlists";
 import { CompositionPlayer } from "./CompositionPlayer";
 import { splitTitleEmoji } from "./emoji";
@@ -163,6 +172,11 @@ export function LiveScreen() {
   // (auto-play); the overlay's ✕ (comp-closed) stops it. Left off on launch
   // so a restored selection doesn't stream until the user actually tunes in.
   const [playing, setPlaying] = useState(false);
+  // Player size: mini (default) → theater (large windowed) → fullscreen. The
+  // overlay drives these via comp-* events; the box geometry is CSS (classes
+  // below), the rAF follows.
+  const [theater, setTheater] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
   /** Hover preview from the guide: the hero shows whatever the cursor is
    * over (channel or exact programme) without changing the selection. */
   const [preview, setPreview] = useState<{
@@ -252,12 +266,73 @@ export function LiveScreen() {
     setPlaying(true); // auto-play on select
     setRecents((list) => recordRecent(list, id));
   }, []);
-  // The overlay's ✕ stops playback (mpv already torn down Rust-side). Tauri's
-  // listen() reaches into shell internals, so guard the browser dev path.
+  // Leave fullscreen fully — player state + the OS window together.
+  const leaveFullscreen = useCallback(() => {
+    setFullscreen(false);
+    if (isTauri()) void tauriSetFullscreen(false).catch(() => {});
+  }, []);
+  // Native player events. The overlay drives the size transitions; we mirror
+  // them into React state (which drives the box geometry classes) and take the
+  // OS window fullscreen to match. ✕ stops playback and resets everything.
+  // Tauri's listen() reaches shell internals, so guard the browser dev path.
   useEffect(() => {
     if (!isTauri()) return;
-    return onCompClosed(() => setPlaying(false));
-  }, []);
+    const offs = [
+      onCompExpand(() => setTheater(true)),
+      onCompCollapse(() => {
+        setTheater(false);
+        leaveFullscreen();
+      }),
+      onCompFullscreen(() => {
+        setFullscreen(true);
+        void tauriSetFullscreen(true).catch(() => {});
+      }),
+      onCompExitFullscreen(leaveFullscreen),
+      onCompClosed(() => {
+        setPlaying(false);
+        setTheater(false);
+        leaveFullscreen();
+      }),
+    ];
+    return () => offs.forEach((off) => off());
+  }, [leaveFullscreen]);
+
+  // While playing, forward the player shortcuts to the overlay (which owns mpv
+  // + the size transitions). The guide has focus, so these keys hit the main
+  // webview; comp_key relays them. Skips text fields.
+  useEffect(() => {
+    if (!isTauri() || !playing) return;
+    const SHORTCUTS = new Set([
+      " ",
+      "k",
+      "m",
+      "f",
+      "t",
+      "j",
+      "l",
+      "ArrowLeft",
+      "ArrowRight",
+      "ArrowUp",
+      "ArrowDown",
+      "Escape",
+    ]);
+    const onKey = (e: KeyboardEvent) => {
+      if (!SHORTCUTS.has(e.key)) return;
+      const t = e.target as HTMLElement | null;
+      if (
+        t &&
+        (t.tagName === "INPUT" ||
+          t.tagName === "TEXTAREA" ||
+          t.isContentEditable)
+      )
+        return;
+      e.preventDefault();
+      void tauriCompKey(e.key).catch(() => {});
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [playing]);
+
   const handleToggleFavorite = useCallback((id: string) => {
     setFavorites((list) => toggleFavorite(list, id));
   }, []);
@@ -320,7 +395,24 @@ export function LiveScreen() {
   })();
 
   return (
-    <div className="live">
+    <div
+      className={
+        "live" +
+        (theater ? " live--theater" : "") +
+        (fullscreen ? " live--fullscreen" : "")
+      }
+      onClick={
+        theater && !fullscreen
+          ? (e) => {
+              // Theater backdrop click (outside the player box) → mini. The
+              // mpv layer swallows clicks on the box itself, so anything React
+              // sees here is genuinely outside it.
+              if (!(e.target as Element).closest(".hero__preview"))
+                setTheater(false);
+            }
+          : undefined
+      }
+    >
       <aside
         className={"live-sidebar" + (collapsed ? " live-sidebar--collapsed" : "")}
       >
@@ -510,7 +602,13 @@ export function LiveScreen() {
             {/* Headless: opens mpv into #player-slot and follows the box.
              * Only in Tauri with a real stream URL, so browser/mock is
              * untouched. */}
-            {playUrl && <CompositionPlayer url={playUrl} meta={playMeta} />}
+            {playUrl && (
+              <CompositionPlayer
+                url={playUrl}
+                meta={playMeta}
+                fullscreen={fullscreen}
+              />
+            )}
             {visible.length === 0 ? (
               <div className="guide-empty">
                 <p>

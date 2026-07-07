@@ -19,7 +19,7 @@ const OPEN_DEBOUNCE_MS = 150;
 const RADIUS_CSS = 12;
 const SLOT_ID = "player-slot";
 
-function measure(el: HTMLElement): CompRect {
+function measure(el: HTMLElement, fullscreen: boolean): CompRect {
   const r = el.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
   return {
@@ -27,7 +27,8 @@ function measure(el: HTMLElement): CompRect {
     y: Math.round(r.top * dpr),
     w: Math.round(r.width * dpr),
     h: Math.round(r.height * dpr),
-    radius: Math.round(RADIUS_CSS * dpr),
+    // Fullscreen squares the picture off; mini/theater round it.
+    radius: fullscreen ? 0 : Math.round(RADIUS_CSS * dpr),
   };
 }
 
@@ -41,12 +42,18 @@ function measure(el: HTMLElement): CompRect {
 export function CompositionPlayer({
   url,
   meta,
+  fullscreen = false,
 }: {
   url: string;
   meta: TheaterMeta | null;
+  /** Squares the picture off and drops the radius. Read live in the rAF so a
+   * fullscreen toggle re-rects without restarting playback. */
+  fullscreen?: boolean;
 }) {
   const metaRef = useRef(meta);
   metaRef.current = meta;
+  const fsRef = useRef(fullscreen);
+  fsRef.current = fullscreen;
 
   // Effect keyed on `url`: a channel switch tears the player fully down
   // (cleanup comp_stop) and rebuilds after the debounce. The teardown gap is
@@ -61,7 +68,7 @@ export function CompositionPlayer({
     const tick = () => {
       const el = document.getElementById(SLOT_ID);
       if (el) {
-        const rect = measure(el);
+        const rect = measure(el, fsRef.current);
         const key = `${rect.x},${rect.y},${rect.w},${rect.h},${rect.radius}`;
         if (rect.w > 0 && rect.h > 0 && key !== last) {
           last = key;

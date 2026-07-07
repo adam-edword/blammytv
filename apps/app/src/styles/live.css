@@ -827,6 +827,59 @@
   cursor: pointer;
 }
 
+/* ---- Theater / fullscreen ----
+ * The player box (#player-slot === .hero__preview) floats free and the mpv
+ * layer follows it (rAF). Theater: hide the surrounding chrome behind a black
+ * backdrop and centre the largest 16:9 box below the nav. Fullscreen: fill the
+ * viewport, squared off. No transform on the fullscreen box — a transformed
+ * ancestor would trap the fixed child. */
+.live--theater::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: #000;
+  z-index: 40;
+}
+
+.live--theater .live-sidebar,
+.live--theater .hero__details,
+.live--theater .guide,
+.live--theater .guide-empty {
+  display: none;
+}
+
+.live--theater .hero {
+  height: auto;
+}
+
+.live--theater .hero__preview {
+  position: fixed;
+  top: calc(var(--header-h, 103px) + 25px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(
+    calc(100vw - 50px),
+    calc((100vh - var(--header-h, 103px) - 50px) * 16 / 9)
+  );
+  height: auto;
+  aspect-ratio: 16 / 9;
+  z-index: 45;
+  border: none;
+  border-radius: 12px;
+}
+
+.live--fullscreen .hero__preview {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  max-width: none;
+  transform: none;
+  aspect-ratio: auto;
+  border-radius: 0;
+  z-index: 200;
+}
+
 
 .hero__details {
   flex: 1;

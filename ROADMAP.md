@@ -112,18 +112,31 @@ and the agreed order of what's next. Update this file as sections land.
     to settle Rust-side. The idle box is black `#000` + `#ffffff10` so the gap
     reads clean meanwhile.
 
+- **Native player Phase 2 — theater + fullscreen (v0.1.78), needs Windows
+  verify.** Three states: mini → theater (large windowed, chrome hidden behind
+  a black backdrop, centred largest-16:9 box) → fullscreen (fills the monitor +
+  `tauriSetFullscreen`, squared off). `TheaterOverlay` is the old build's chrome
+  ported live-only (meta bar, LIVE progress, transport, volume, top-right
+  fullscreen/close, auto-hide via `player--active`, click-through via
+  `setMouseIgnore`); mini keeps play/pause + ✕ and click-to-expand. LiveScreen
+  mirrors the `comp-expand/collapse/fullscreen/exit-fullscreen`/`closed` events
+  into `theater`/`fullscreen` state → `.live--theater`/`--fullscreen` geometry
+  classes (grow `#player-slot` == `.hero__preview`; the rAF follows). Shortcut
+  keys (space/k/m/f/t/j/l/arrows/Escape) forward from the main webview via
+  `comp_key`; App.tsx's Escape stays harmlessly redundant. `CompositionPlayer`
+  gained a `fullscreen` prop (radius 0). Overlay chrome verified in-browser at
+  mini + theater sizes (renders, drives the bridge); the geometry/OS-fullscreen/
+  keyboard need a Windows check. **Watch for:** a transformed ancestor of
+  `.hero__preview` would trap the `position:fixed` theater box; header is
+  covered by the z-40 backdrop in theater.
+
 ## Next steps, in order
 
-1. **Native player Phase 2** — port the old build's full `TheaterOverlay`
-   verbatim (transport, volume, seek, tracks, expand/collapse, fullscreen)
-   and wire the LiveScreen state machine: `comp-expand/collapse/fullscreen/
-   exit-fullscreen` handlers, `body.theater-mode` + root classes, keyboard
-   forwarding via `comp_key` (SHORTCUT_KEYS + wheel→volume), `tauriSetFullscreen`.
-   Fix the hero hover bezel then (it's covered by the mpv layer). Verify on
-   Windows.
-2. **Native player Phase 3** — popout/PiP (`comp_popout` + `popout_pos`/
+1. **Native player Phase 3** — popout/PiP (`comp_popout` + `popout_pos`/
    `popout_stop` reclaim, `popout-closed`), audio/subtitle track menus, the
    update banner (`check_update`/`install_update`). Then **v0.2.0**.
+2. **Native (Rust) pass** — the batched WM_SETCURSOR / DComp corner clip /
+   async-close switch-tighten items (see the player bullet above).
 3. **Stream tab (AIOStreams)** — re-enable the nav glass (commented in
    base.css) once scrolling content exists.
 
