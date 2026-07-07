@@ -136,3 +136,8 @@ export function onCompPopout(cb: () => void): () => void {
 export function onCompFavorite(cb: () => void): () => void {
   return onCompEvent("comp-favorite", cb);
 }
+/** The floating PiP window was closed by the user (✕ / taskbar / q) — the app
+ * should bring the stream back into the in-app player. */
+export function onPopoutClosed(cb: () => void): () => void {
+  return onCompEvent("popout-closed", cb);
+}

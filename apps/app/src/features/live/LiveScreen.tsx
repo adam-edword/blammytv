@@ -24,6 +24,7 @@ import {
   onCompFavorite,
   onCompFullscreen,
   onCompPopout,
+  onPopoutClosed,
   tauriCompKey,
   tauriCompPopout,
   tauriSetFullscreen,
@@ -319,6 +320,14 @@ export function LiveScreen() {
       onCompFavorite(() => {
         const id = heroIdRef.current;
         if (id) handleToggleFavorite(id);
+      }),
+      // Closing the PiP window brings the stream back in-app, resuming in
+      // theater (the channel is still selected; theater geometry makes the
+      // overlay show its full chrome).
+      onPopoutClosed(() => {
+        if (!heroIdRef.current) return;
+        setPlaying(true);
+        setTheater(true);
       }),
     ];
     return () => offs.forEach((off) => off());
