@@ -82,17 +82,28 @@ and the agreed order of what's next. Update this file as sections land.
   pixels (frontend multiplies CSS px by devicePixelRatio); the overlay is a
   second webview of our bundle loaded with `?overlay=1` and driven via the
   Rust-injected `window.overlayApi` bridge. Do not touch src-tauri.
-- **Native player — Phase 1 landed (v0.1.72), frontend-only, UNVERIFIED on
-  Windows.** Auto-play on channel select: selecting a channel streams it
-  into `#player-slot`. `lib/tauri.ts` regained the comp wrappers +
-  `onCompClosed`; `stream.ts` rebuilds the live URL from the namespaced
-  channel id (`<playlistId>:<streamId>`) + playlist creds (`liveExt`
-  re-added to `XtreamPlaylist`, default "ts"); `CompositionPlayer.tsx` is
+- **Native player — Phase 1 VERIFIED working on Windows (v0.1.75).**
+  Auto-play on channel select: selecting a channel streams it into
+  `#player-slot`, sized/positioned/followed correctly, with rounded 12px
+  corners and a minimal overlay (play/pause, channel name, ✕). `lib/tauri.ts`
+  has the comp wrappers + `onCompClosed`; `stream.ts` rebuilds the live URL
+  from the namespaced channel id (`<playlistId>:<streamId>`) + playlist creds
+  (`liveExt` on `XtreamPlaylist`, default "ts"); `CompositionPlayer.tsx` is
   the ported rAF geometry driver (150ms open-debounce, dpr-scaled rect,
-  radius 20 to match the box); `main.tsx` routes `?overlay=1` to a minimal
-  `TheaterOverlay` (play/pause + close). Browser/mock path untouched (no url
-  → no player). MUST be verified on a real Windows build with a real
-  playlist before Phase 2.
+  RADIUS_CSS=12); `main.tsx` routes `?overlay=1` to `TheaterOverlay`.
+  Browser/mock path untouched (no url → no player).
+  - **Overlay bridge gotcha (fixed):** `window.overlayApi.getLoading()` is a
+    SYNCHRONOUS boolean (comp.rs), `getMeta()` is a Promise, `on*` return an
+    unsubscribe fn. An uncaught throw in an overlay effect unmounts the whole
+    overlay tree (looks like "webview didn't load") — match the bridge types
+    exactly. A pre-React DOM probe distinguishes "webview didn't composite"
+    from "React crashed."
+  - **Known Phase-2/Rust items:** the idle box is black `#000` + `#ffffff10`
+    (the mpv layer covers it once video arrives); rounding the VIDEO relies on
+    `round_child`'s window region, which the mpv D3D flip swapchain can bypass
+    (was intermittently sharp) — a proper fix is a DirectComposition clip
+    (Rust). Channel-switch shows a brief black gap (comp_stop → 150ms debounce
+    → comp_theater); can be tightened by skipping the teardown on a *switch*.
 
 ## Next steps, in order
 
