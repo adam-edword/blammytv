@@ -358,6 +358,10 @@ export function LiveScreen() {
                             key={f.id}
                             type="button"
                             aria-label={label}
+                            // Expanded, long names fade at the edge — a native
+                            // tooltip makes the full name recoverable. Folded,
+                            // the custom .live-tip owns that, so skip it.
+                            title={collapsed ? undefined : label}
                             className={
                               "live-folder" +
                               (active ? " live-folder--active" : "")
@@ -430,24 +434,42 @@ export function LiveScreen() {
           </div>
         )}
         {live.status === "error" && (
-          <div className="live-status">
+          <div className="live-status live-status--error">
             <p>
               Couldn't load your playlists — {live.message}. Check them in
               Settings → Playlists.
             </p>
+            <button
+              type="button"
+              className="live-status__retry"
+              onClick={() => refresh(false)}
+            >
+              Try again
+            </button>
           </div>
         )}
-        {ready && !shownChannel && (
-          <div className="live-status">
-            <p>
-              {ready.groups.find((g) => g.error)
-                ? `Couldn't load your playlists — ${
-                    ready.groups.find((g) => g.error)!.error
-                  }. Check them in Settings → Playlists.`
-                : "No channels here yet. Add a playlist in Settings → Playlists."}
-            </p>
-          </div>
-        )}
+        {ready &&
+          !shownChannel &&
+          (ready.groups.find((g) => g.error) ? (
+            <div className="live-status live-status--error">
+              <p>
+                Couldn't load your playlists —{" "}
+                {ready.groups.find((g) => g.error)!.error}. Check them in
+                Settings → Playlists.
+              </p>
+              <button
+                type="button"
+                className="live-status__retry"
+                onClick={() => refresh(false)}
+              >
+                Try again
+              </button>
+            </div>
+          ) : (
+            <div className="live-status">
+              <p>No channels here yet. Add a playlist in Settings → Playlists.</p>
+            </div>
+          ))}
         {ready && shownChannel && (
           <>
             <Hero
@@ -455,12 +477,14 @@ export function LiveScreen() {
               programmes={shownProgrammes}
               programme={preview?.programme ?? undefined}
             />
-            {visible.length === 0 && mode !== "playlist" ? (
+            {visible.length === 0 ? (
               <div className="guide-empty">
                 <p>
                   {mode === "favorites"
                     ? "Nothing starred yet — hover a channel card and hit the star."
-                    : "Nothing watched yet — recents fill in as you tune around."}
+                    : mode === "recents"
+                      ? "Nothing watched yet — recents fill in as you tune around."
+                      : "No channels in this folder."}
                 </p>
               </div>
             ) : (
@@ -468,6 +492,7 @@ export function LiveScreen() {
                 channels={visible}
                 selectedId={channelId}
                 favorites={favorites}
+                resetKey={`${mode}|${folder ?? ""}`}
                 onSelect={selectChannel}
                 onToggleFavorite={handleToggleFavorite}
                 onPreview={setPreview}

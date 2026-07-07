@@ -418,11 +418,37 @@
   min-height: 0;
   display: grid;
   place-items: center;
+  gap: 14px;
   padding: 0 48px;
   text-align: center;
   color: var(--text-muted);
   font-size: 14px;
   opacity: 0.6;
+}
+
+/* A real failure shouldn't whisper like the idle "Loading…" hint. */
+.live-status--error {
+  color: var(--text);
+  opacity: 1;
+}
+
+.live-status__retry {
+  padding: 8px 18px;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-chip);
+  background: var(--accent-surface);
+  color: var(--text);
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease;
+}
+
+.live-status__retry:hover {
+  border-color: var(--accent);
 }
 
 /* -------------------------------------------------------------- guide */

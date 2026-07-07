@@ -91,6 +91,17 @@ M3U + Stalker sources, timeshift/track-selection/stats in the player overlay,
 programme-level selection
 in the hero.
 
+Deferred **Live-tab accessibility pass** (one deliberate batch, not piecemeal —
+from the v0.1.71 polish audit): keyboard-operable channel-column resize
+separator (focus + arrow keys + `aria-valuenow`); roving-focus + arrow-key
+navigation on the mode-rail tablist; accessible names on guide cells
+(channel + programme + time); reveal the favourites star on keyboard focus;
+a themed `:focus-visible` treatment across the Live controls; live-region
+announcements for loading/error status; `aria-current` for the active folder
+and the selected channel. Also deferred until the player lands: the hero
+preview's hover bezel uses raw `#fff` (off-token, invisible in light theme) —
+fix when that box is reworked for mpv.
+
 ## Working habits (so a fresh session doesn't relearn them)
 
 - **Version bumps** on every user-visible frontend change: root

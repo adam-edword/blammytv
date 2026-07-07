@@ -118,7 +118,10 @@ interface Block {
   left: number;
   width: number;
   right: number;
-  key: number;
+  /** Unique within a lane. Carries the lane index so a provider that ships
+   * two programmes with the same start time can't collide React keys or the
+   * `[data-key]` pin lookup. */
+  key: string;
 }
 
 /** Channel logo with a lettermark fallback: real playlists carry
@@ -151,6 +154,7 @@ export const Guide = memo(function Guide({
   channels,
   selectedId,
   favorites,
+  resetKey,
   onSelect,
   onToggleFavorite,
   onPreview,
@@ -158,6 +162,10 @@ export const Guide = memo(function Guide({
   channels: Array<{ channel: Channel; programmes: Programme[] }>;
   selectedId: string;
   favorites: string[];
+  /** Changes when the viewed list changes for a reason that should scroll
+   * back to the top (folder or mode switch) — but NOT when the same list's
+   * contents shift (starring a channel), so that never yanks the scroll. */
+  resetKey: string;
   onSelect: (id: string) => void;
   onToggleFavorite: (id: string) => void;
   /** Hover preview for the hero: the exact programme over a cell, the
@@ -204,7 +212,11 @@ export const Guide = memo(function Guide({
   };
   const onResizeMove = (e: ReactPointerEvent) => {
     if (!resizing) return;
-    const next = dragRef.current.w + (e.clientX - dragRef.current.x);
+    // clientX rides the document `zoom` (the UI-scale setting), but the
+    // column width is plain CSS px — divide the drag delta back out so the
+    // handle tracks the cursor 1:1 at any scale.
+    const zoom = Number(document.documentElement.style.zoom || 1);
+    const next = dragRef.current.w + (e.clientX - dragRef.current.x) / zoom;
     setCardW(Math.min(CARD_MAX, Math.max(CARD_MIN, next)));
   };
   const onResizeUp = (e: ReactPointerEvent) => {
@@ -245,7 +257,7 @@ export const Guide = memo(function Guide({
         const blocks: Block[] = programmes
           .map((p) => ({ p, rect: cellRect(p.start, p.end, start) }))
           .filter((b) => b.rect !== null)
-          .map(({ p, rect }) => {
+          .map(({ p, rect }, i) => {
             const width = Math.max(rect!.w - CELL_GAP, 4);
             return {
               p,
@@ -253,7 +265,7 @@ export const Guide = memo(function Guide({
               left: rect!.x,
               width,
               right: rect!.x + width,
-              key: p.start.getTime(),
+              key: `${p.start.getTime()}:${i}`,
             };
           });
         return { channel, blocks };
@@ -266,7 +278,7 @@ export const Guide = memo(function Guide({
    * state-driven pin re-rendered the whole grid each time (the scroll
    * jank). The rAF toggles the class/styles directly; a post-render effect
    * re-applies them since a React render resets className/style. */
-  const pinsRef = useRef<(number | null)[]>([]);
+  const pinsRef = useRef<(string | null)[]>([]);
   const pinnedElsRef = useRef<(HTMLElement | null)[]>([]);
   const laneElsRef = useRef<HTMLElement[]>([]);
 
@@ -390,6 +402,13 @@ export const Guide = memo(function Guide({
     });
   }, [measureRowWindow, syncPins]);
   useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
+
+  // Folder/mode switch → a different (often shorter) list; start it at the
+  // top rather than stranding the previous vertical position. Horizontal
+  // (time-axis) scroll is intentionally preserved.
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+  }, [resetKey]);
 
   const cellClass = (b: Block) =>
     "guide__cell" + (b.live ? " guide__cell--live" : "");
@@ -558,15 +577,18 @@ export const Guide = memo(function Guide({
       </div>
       </div>
 
-      {/* Drag the channel-card column wider/narrower. */}
+      {/* Drag the channel-card column wider/narrower; double-click resets it
+       * to the default width. */}
       <div
         className={"guide-resize" + (resizing ? " guide-resize--active" : "")}
         role="separator"
         aria-orientation="vertical"
         aria-label="Resize channel column"
+        title="Drag to resize · double-click to reset"
         onPointerDown={onResizeDown}
         onPointerMove={onResizeMove}
         onPointerUp={onResizeUp}
+        onDoubleClick={() => setCardW(CARD_MIN)}
       />
     </div>
   );
