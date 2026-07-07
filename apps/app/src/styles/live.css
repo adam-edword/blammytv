@@ -840,22 +840,32 @@
   display: none;
 }
 
-/* Hero stops being a fixed 16:9 strip and grows to fill the main column. The
- * 12px bottom/right inset mirrors the sidebar's own margin (0 0 12px 12px), so
- * the player sits in the layout with matching breathing room on the free
- * edges (the left edge already has the .live gap to the sidebar). */
+/* Hero grows to own the main column and centres the player in it. The 12px
+ * bottom/right inset mirrors the sidebar's own margin (0 0 12px 12px), so the
+ * player breathes on the free edges (the left already has the .live gap). */
 .live--theater .hero {
   flex: 1;
   height: auto;
   gap: 0;
   padding: 0 12px 12px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Size context for the player's container-query fit below. */
+  container-type: size;
 }
 
+/* The box HUGS the 16:9 picture — the largest 16:9 rect that fits the main
+ * area, centred. mpv fills a matching-aspect box exactly (no letterbox), so
+ * the video's corners land ON the container corners, which is where the
+ * overlay paints its rounded-corner wedges. A fill-the-rectangle box instead
+ * letterboxed the video mid-container, leaving the real corners square and the
+ * wedges stranded in the black bars. (Non-16:9 channels still letterbox inside
+ * this box — the fully robust fix rounds mpv's real output rect natively.) */
 .live--theater .hero__preview {
-  flex: 1;
-  width: auto;
+  width: min(100cqw, calc(100cqh * 16 / 9));
   height: auto;
-  aspect-ratio: auto;
+  aspect-ratio: 16 / 9;
   border: none;
   border-radius: 0;
 }
