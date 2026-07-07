@@ -88,7 +88,7 @@ and the agreed order of what's next. Update this file as sections land.
 
 Slated for later, user-approved: ambient backdrop setting, motion toggle,
 M3U + Stalker sources, timeshift/track-selection/stats in the player overlay,
-drag-resizable channel column (old build had one), programme-level selection
+programme-level selection
 in the hero.
 
 ## Working habits (so a fresh session doesn't relearn them)

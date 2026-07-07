@@ -6,7 +6,10 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
 } from "react";
+import { load, save } from "../../lib/storage";
 import {
   RainbowStarIcon,
   StarGhostIcon,
@@ -30,9 +33,13 @@ import type { Channel, Programme } from "./model";
 
 /* Grid geometry (Figma 133:500): 189px channel cards, 8px gutters, 60px
  * rows under the ruler. One scroll container; the ruler and channel column
- * pin via position:sticky, so they can never desync from the cells. */
-const CARD_W = 189;
-const LANE_X = CARD_W + 8;
+ * pin via position:sticky, so they can never desync from the cells.
+ * The card column is drag-resizable (the old build's `--guide-label-w`
+ * mechanics): Figma's 189 is the floor, 2.5x of it the ceiling. */
+const CARD_MIN = 189;
+const CARD_MAX = Math.round(CARD_MIN * 2.5);
+const CARD_W_KEY = "guideCardW";
+const CARD_W_VERSION = 1;
 const ROW_H = 60;
 const ROW_GAP = 8;
 const RULER_H = 28;
@@ -176,6 +183,39 @@ export const Guide = memo(function Guide({
   const range = (from: Date, to: Date) =>
     `${formatClock(from, clockFmt)} – ${formatClock(to, clockFmt)}`;
 
+  // Resizable channel-card column, remembered (the old build's mechanics:
+  // pointer-capture drag, clamped, persisted).
+  const [cardW, setCardW] = useState(() =>
+    Math.min(
+      CARD_MAX,
+      Math.max(CARD_MIN, load<number>(CARD_W_KEY, CARD_W_VERSION, CARD_MIN)),
+    ),
+  );
+  const [resizing, setResizing] = useState(false);
+  const dragRef = useRef({ x: 0, w: 0 });
+  useEffect(() => save(CARD_W_KEY, CARD_W_VERSION, cardW), [cardW]);
+  /** Left edge of the programme lanes: card column + its 8px gutter. */
+  const laneX = cardW + 8;
+
+  const onResizeDown = (e: ReactPointerEvent) => {
+    dragRef.current = { x: e.clientX, w: cardW };
+    setResizing(true);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onResizeMove = (e: ReactPointerEvent) => {
+    if (!resizing) return;
+    const next = dragRef.current.w + (e.clientX - dragRef.current.x);
+    setCardW(Math.min(CARD_MAX, Math.max(CARD_MIN, next)));
+  };
+  const onResizeUp = (e: ReactPointerEvent) => {
+    setResizing(false);
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      /* not captured */
+    }
+  };
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollXRef = useRef(0);
   const rafRef = useRef(0);
@@ -260,7 +300,7 @@ export const Guide = memo(function Guide({
           : null;
         pinnedElsRef.current[i] = target;
         if (target) {
-          target.style.left = `${LANE_X}px`; // sticky constraint, not offset
+          target.style.left = `${laneX}px`; // sticky constraint, not offset
           target.classList.add("guide__cell--pinned");
         }
       });
@@ -286,7 +326,7 @@ export const Guide = memo(function Guide({
         );
       });
     },
-    [computePins, lanes],
+    [computePins, lanes, laneX],
   );
 
   const CLIP_SELECTOR = ".guide__cell-title, .guide__card-name";
@@ -362,28 +402,36 @@ export const Guide = memo(function Guide({
   );
 
   return (
-    /* The preview clears only when the cursor leaves the guide entirely.
-     * Per-row mouseleave cleared it in the gap BETWEEN rows, so a quick
-     * vertical sweep flashed the hero back to the selected channel between
-     * every pair of cards. */
+    /* The wrapper exists for the resize handle: it must overlay the
+     * column/lane boundary WITHOUT riding the horizontal pan, so it hangs
+     * off a non-scrolling parent. --guide-card-w drives the CSS side
+     * (channel column width, handle position). */
     <div
-      className="guide"
-      ref={scrollRef}
-      onScroll={onScroll}
-      onMouseLeave={() => onPreview(null)}
+      className="guide-wrap"
+      style={{ "--guide-card-w": `${cardW}px` } as CSSProperties}
     >
-      <div className="guide__canvas" style={{ width: LANE_X + laneW }}>
+      {/* The preview clears only when the cursor leaves the guide
+       * entirely. Per-row mouseleave cleared it in the gap BETWEEN rows,
+       * so a quick vertical sweep flashed the hero back to the selected
+       * channel between every pair of cards. */}
+      <div
+        className="guide"
+        ref={scrollRef}
+        onScroll={onScroll}
+        onMouseLeave={() => onPreview(null)}
+      >
+      <div className="guide__canvas" style={{ width: laneX + laneW }}>
         <div className="guide__ruler" style={{ height: RULER_H }}>
           {ticks(start).map((t) => (
             <span
               key={t.getTime()}
               className="guide__tick"
-              style={{ left: LANE_X + xForTime(t, start) }}
+              style={{ left: laneX + xForTime(t, start) }}
             >
               | {formatClock(t, clockFmt)}
             </span>
           ))}
-          <div className="guide__corner" style={{ width: LANE_X }} />
+          <div className="guide__corner" style={{ width: laneX }} />
         </div>
 
         {/* Off-window rows exist only as scroll height. */}
@@ -468,7 +516,7 @@ export const Guide = memo(function Guide({
                   >
                     <span
                       className="guide__cell-body"
-                      style={{ left: LANE_X + 16 }}
+                      style={{ left: laneX + 16 }}
                     >
                       No Information
                     </span>
@@ -504,10 +552,22 @@ export const Guide = memo(function Guide({
 
         <div
           className="guide__nowline"
-          style={{ left: LANE_X + xForTime(now, start), top: RULER_H }}
+          style={{ left: laneX + xForTime(now, start), top: RULER_H }}
           aria-hidden
         />
       </div>
+      </div>
+
+      {/* Drag the channel-card column wider/narrower. */}
+      <div
+        className={"guide-resize" + (resizing ? " guide-resize--active" : "")}
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize channel column"
+        onPointerDown={onResizeDown}
+        onPointerMove={onResizeMove}
+        onPointerUp={onResizeUp}
+      />
     </div>
   );
 });

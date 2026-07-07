@@ -431,11 +431,49 @@
  * channel column pins to the left via position:sticky, so nothing can
  * desync from the cells. z ladder: cells (0) → now-line (1) → channel
  * column (2) → ruler (3, its corner above the ticks). */
-.guide {
+/* Non-scrolling shell: hosts the column-resize handle so it can overlay
+ * the card/lane boundary without riding the horizontal pan. */
+.guide-wrap {
+  position: relative;
   flex: 1;
   min-height: 0;
   margin-top: 16px;
+  display: flex;
+}
+
+.guide {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
   overflow: auto;
+}
+
+/* Drag handle for the channel-card column width (the old build's): a
+ * 10px grab strip centered on the 8px gutter, showing a 2px accent line
+ * on hover/drag. */
+.guide-resize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--guide-card-w, 189px) + 4px);
+  width: 10px;
+  transform: translateX(-50%);
+  cursor: col-resize;
+  z-index: 4;
+  touch-action: none;
+}
+
+.guide-resize::after {
+  content: "";
+  position: absolute;
+  inset: 0 calc(50% - 1px);
+  background: transparent;
+  transition: background 120ms ease;
+}
+
+.guide-resize:hover::after,
+.guide-resize--active::after {
+  background: var(--accent);
 }
 
 .guide__canvas {
@@ -487,7 +525,9 @@
   left: 0;
   z-index: 2;
   display: flex;
-  width: 197px;
+  /* Card width + the 8px gutter (kept inside the occluder). Driven by the
+   * resizable column (JS sets --guide-card-w on .guide-wrap). */
+  width: calc(var(--guide-card-w, 189px) + 8px);
   height: 100%;
   padding-right: 8px;
   padding-bottom: 8px; /* the row gap, kept inside the occluder */
