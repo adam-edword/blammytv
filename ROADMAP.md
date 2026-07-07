@@ -98,12 +98,19 @@ and the agreed order of what's next. Update this file as sections land.
     overlay tree (looks like "webview didn't load") — match the bridge types
     exactly. A pre-React DOM probe distinguishes "webview didn't composite"
     from "React crashed."
-  - **Known Phase-2/Rust items:** the idle box is black `#000` + `#ffffff10`
-    (the mpv layer covers it once video arrives); rounding the VIDEO relies on
-    `round_child`'s window region, which the mpv D3D flip swapchain can bypass
-    (was intermittently sharp) — a proper fix is a DirectComposition clip
-    (Rust). Channel-switch shows a brief black gap (comp_stop → 150ms debounce
-    → comp_theater); can be tightened by skipping the teardown on a *switch*.
+  - **Known native (Rust) items — batch into one Windows pass:**
+    (1) round the VIDEO — `round_child`'s window region is bypassed by mpv's
+    D3D flip swapchain (intermittently sharp); fix with a DirectComposition
+    clip. (2) `cursor: pointer` over the playing video — the mpv child owns the
+    OS cursor and `theater_wndproc` doesn't handle `WM_SETCURSOR`; add a handler
+    (`SetCursor(IDC_HAND)` for `HTCLIENT`, or forward the overlay's requested
+    cursor). CSS `cursor:pointer` is already set on `.overlay`, inert until this
+    lands. (3) tighter channel switch WITHOUT losing the overlay: the switch
+    gap exists because the overlay WebView2's `Close()` is async and rebuilding
+    without a gap races it (tried removing the gap in v0.1.76 — video rebuilt
+    but the overlay didn't come back; reverted). A real fix waits for the close
+    to settle Rust-side. The idle box is black `#000` + `#ffffff10` so the gap
+    reads clean meanwhile.
 
 ## Next steps, in order
 

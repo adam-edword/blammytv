@@ -47,50 +47,44 @@ export function CompositionPlayer({
 }) {
   const metaRef = useRef(meta);
   metaRef.current = meta;
-  const rectRef = useRef<CompRect | null>(null);
-  const openedRef = useRef(false);
 
-  // Geometry loop — mounts once and follows #player-slot for the player's
-  // whole life (survives channel switches). Only pushes set_rect once a
-  // player is actually open. comp_stop fires only on true unmount.
+  // Effect keyed on `url`: a channel switch tears the player fully down
+  // (cleanup comp_stop) and rebuilds after the debounce. The teardown gap is
+  // load-bearing — the overlay is a WebView2 whose Close() is ASYNC, so
+  // rebuilding without the gap races the close and the new overlay never
+  // comes back (the video does). The black idle box covers the gap; a real
+  // tightening needs Rust-side handling of the async close (can't test here).
   useEffect(() => {
     let raf = 0;
+    let opened = false;
     let last = "";
     const tick = () => {
       const el = document.getElementById(SLOT_ID);
       if (el) {
         const rect = measure(el);
-        rectRef.current = rect;
         const key = `${rect.x},${rect.y},${rect.w},${rect.h},${rect.radius}`;
-        if (rect.w > 0 && rect.h > 0 && openedRef.current && key !== last) {
+        if (rect.w > 0 && rect.h > 0 && key !== last) {
           last = key;
-          void tauriCompSetRect(rect).catch(() => {});
+          if (!opened) {
+            opened = true;
+            void tauriCompTheater(url, metaRef.current, rect, 0).catch(
+              () => {},
+            );
+          } else {
+            void tauriCompSetRect(rect).catch(() => {});
+          }
         }
       }
       raf = requestAnimationFrame(tick);
     };
-    raf = requestAnimationFrame(tick);
+    const openTimer = window.setTimeout(() => {
+      raf = requestAnimationFrame(tick);
+    }, OPEN_DEBOUNCE_MS);
     return () => {
+      window.clearTimeout(openTimer);
       cancelAnimationFrame(raf);
-      openedRef.current = false;
       void tauriCompStop().catch(() => {});
     };
-  }, []);
-
-  // Open / switch — debounced comp_theater on the URL. Crucially it does NOT
-  // tear the old player down first: the previous channel keeps playing right
-  // up until the new comp_theater (which rebuilds internally), so a switch is
-  // a brief rebuild gap instead of comp_stop → 150ms black → comp_theater.
-  // Rapid flipping still only ever builds the channel you land on (each change
-  // resets the timer).
-  useEffect(() => {
-    const t = window.setTimeout(() => {
-      const rect = rectRef.current;
-      if (!rect || rect.w <= 0 || rect.h <= 0) return;
-      void tauriCompTheater(url, metaRef.current, rect, 0).catch(() => {});
-      openedRef.current = true;
-    }, OPEN_DEBOUNCE_MS);
-    return () => window.clearTimeout(t);
   }, [url]);
 
   return null;

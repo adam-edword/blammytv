@@ -13,6 +13,11 @@
   border-radius: 12px;
   color: #fff;
   font-family: var(--font-text);
+  /* The whole mini player reads as clickable. NB: over the playing video the
+   * mpv child owns the OS cursor, so this only takes effect once Rust forwards
+   * WM_SETCURSOR (deferred to the native pass); it applies immediately in the
+   * non-composited fallback. */
+  cursor: pointer;
 }
 
 /* Hover the mini player → white ring. This lives on the overlay, not the app
@@ -50,7 +55,7 @@
 }
 
 /* Play/pause and close float directly over the video. Dark pill so they read
- * over any bright frame. */
+ * over any bright frame. Hidden until the mini player is hovered. */
 .overlay__btn {
   position: absolute;
   display: grid;
@@ -63,7 +68,14 @@
   color: #fff;
   font-size: 14px;
   cursor: pointer;
-  transition: background 120ms ease;
+  opacity: 0;
+  transition:
+    background 120ms ease,
+    opacity 140ms ease;
+}
+
+.overlay:hover .overlay__btn {
+  opacity: 1;
 }
 
 .overlay__btn:hover {
