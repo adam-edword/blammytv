@@ -15,8 +15,8 @@ import {
  * opens with comp_theater. A 150ms debounce means fast channel-flipping never
  * builds mpv for skipped channels. */
 const OPEN_DEBOUNCE_MS = 150;
-/** CSS corner radius of #player-slot (.hero__preview is 20px). */
-const RADIUS_CSS = 20;
+/** CSS corner radius of #player-slot — keep in sync with .hero__preview. */
+const RADIUS_CSS = 12;
 const SLOT_ID = "player-slot";
 
 function measure(el: HTMLElement): CompRect {

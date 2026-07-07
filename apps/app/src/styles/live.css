@@ -822,7 +822,7 @@
    * once video arrives). Black + a faint border reads as an idle player, not
    * the accent "glitch" the old gradient looked like mid-switch. */
   border: 1px solid #ffffff10;
-  border-radius: 20px;
+  border-radius: 12px;
   background: #000;
 }
 
