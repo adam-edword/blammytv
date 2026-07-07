@@ -96,6 +96,7 @@ const OVERLAY_BRIDGE_JS: &str = r#"(function(){
     exitFullscreen:function(){post({type:'exitFullscreen'});},
     popout:function(){post({type:'popout'});},
     panel:function(){post({type:'panel'});},
+    toggleFavorite:function(){post({type:'favorite'});},
     setMouseIgnore:function(ig){post({type:'setMouseIgnore',ignore:!!ig});},
     getMeta:function(){return Promise.resolve(lastMeta);},
     onMeta:function(cb){metaCbs.push(cb);return function(){metaCbs=metaCbs.filter(function(x){return x!==cb;});};},
@@ -706,6 +707,9 @@ pub fn theater(
                                                 }
                                                 Some("popout") => crate::emit_comp("comp-popout"),
                                                 Some("panel") => crate::emit_comp("comp-panel"),
+                                                Some("favorite") => {
+                                                    crate::emit_comp("comp-favorite")
+                                                }
                                                 Some("close") => {
                                                     // Stop video and drop back to the guide. Hide
                                                     // (don't drop) here — dropping the controller

@@ -7,8 +7,11 @@ import {
   MuteIcon,
   PauseIcon,
   PlayIcon,
+  PopoutIcon,
+  RainbowStarIcon,
   SkipBackIcon,
   SkipFwdIcon,
+  StarIcon,
   VolumeIcon,
 } from "../../ui/icons";
 
@@ -32,6 +35,8 @@ interface OverlayApi {
   collapse?: () => void; // theater → mini
   fullscreen?: () => void; // theater → fullscreen
   exitFullscreen?: () => void; // fullscreen → theater
+  popout?: () => void; // detach to mpv's floating PiP window
+  toggleFavorite?: () => void; // star/unstar the playing channel
   setMouseIgnore: (ignore: boolean) => void;
   getMeta: () => Promise<TheaterMeta | null>;
   onMeta: (cb: (meta: TheaterMeta | null) => void) => () => void;
@@ -69,6 +74,9 @@ export function TheaterOverlay() {
   const [active, setActive] = useState(true); // chrome shown (auto-hides)
   const [mini, setMini] = useState(isMini);
   const [fs, setFs] = useState(atFullscreen);
+  // Favorite is seeded from meta at open/channel-change, then owned locally so a
+  // click flips instantly (the main app persists the real list via the bridge).
+  const [fav, setFav] = useState(false);
   const idleRef = useRef(0);
 
   useEffect(() => {
@@ -92,6 +100,16 @@ export function TheaterOverlay() {
       offMeta();
       offLoading();
     };
+  }, []);
+
+  // Re-seed the favorite state whenever meta changes (open / channel switch).
+  useEffect(() => {
+    setFav(!!meta?.favorite);
+  }, [meta]);
+
+  const toggleFav = useCallback(() => {
+    setFav((f) => !f);
+    api()?.toggleFavorite?.();
   }, []);
 
   // Push volume/mute to mpv.
@@ -274,10 +292,32 @@ export function TheaterOverlay() {
     >
       {loading && <LoadingGlyph />}
 
+      <div className="theater-topscrim" aria-hidden />
+
+      <div className="theater-topleft" data-interactive>
+        <button
+          type="button"
+          className={"player__btn player__btn--glass" + (fav ? " is-fav" : "")}
+          aria-label={fav ? "Remove from favorites" : "Add to favorites"}
+          aria-pressed={fav}
+          onClick={toggleFav}
+        >
+          {fav ? <RainbowStarIcon size={20} /> : <StarIcon size={20} />}
+        </button>
+      </div>
+
       <div className="theater-topright" data-interactive>
         <button
           type="button"
-          className="player__btn"
+          className="player__btn player__btn--glass"
+          aria-label="Pop out"
+          onClick={() => api()?.popout?.()}
+        >
+          <PopoutIcon size={20} />
+        </button>
+        <button
+          type="button"
+          className="player__btn player__btn--glass"
           aria-label={fs ? "Exit fullscreen" : "Fullscreen"}
           onClick={toggleFullscreen}
         >
@@ -285,7 +325,7 @@ export function TheaterOverlay() {
         </button>
         <button
           type="button"
-          className="player__btn"
+          className="player__btn player__btn--glass"
           aria-label={fs ? "Exit fullscreen" : "Close"}
           onClick={() => (fs ? api()?.exitFullscreen?.() : api()?.collapse?.())}
         >

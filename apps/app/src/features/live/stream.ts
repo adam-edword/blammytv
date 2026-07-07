@@ -38,6 +38,7 @@ export function buildMeta(
   programme: Programme | undefined,
   now: Date,
   sourceName?: string,
+  favorite?: boolean,
 ): TheaterMeta {
   const live =
     !!programme && programme.start <= now && now < programme.end;
@@ -69,5 +70,6 @@ export function buildMeta(
     sourceName,
     startLabel,
     progressPct,
+    favorite,
   };
 }

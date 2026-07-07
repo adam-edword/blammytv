@@ -35,6 +35,9 @@ export interface TheaterMeta {
    * Frozen at open time (meta is pushed once), refreshed on channel change. */
   startLabel?: string;
   progressPct?: number;
+  /** Whether the channel is starred — seeds the overlay's favorite button.
+   * Read at open time; the overlay tracks its own state after a toggle. */
+  favorite?: boolean;
 }
 
 /** Open the native player: load `url` into mpv at `rect`, mounting the overlay
@@ -76,6 +79,14 @@ export function tauriCompStop(): Promise<void> {
   return invoke("comp_stop");
 }
 
+/** Pop the stream out into mpv's own floating window (PiP). Tears down the
+ * in-app composition player first (Rust captures the position so the popout
+ * resumes there), then plays in a separate mpv instance the teardown can't
+ * kill. */
+export function tauriCompPopout(url: string): Promise<void> {
+  return invoke("comp_popout", { url });
+}
+
 /** Subscribe to a native→JS composition event; returns an unsubscribe fn. */
 function onCompEvent(event: string, cb: () => void): () => void {
   const un = listen(event, () => cb());
@@ -115,4 +126,13 @@ export function onCompFullscreen(cb: () => void): () => void {
 /** Fullscreen → theater fired. */
 export function onCompExitFullscreen(cb: () => void): () => void {
   return onCompEvent("comp-exit-fullscreen", cb);
+}
+/** The overlay's PiP button fired — the app should pop the stream out. */
+export function onCompPopout(cb: () => void): () => void {
+  return onCompEvent("comp-popout", cb);
+}
+/** The overlay's favorite button fired — the app should toggle the star for
+ * the playing channel. */
+export function onCompFavorite(cb: () => void): () => void {
+  return onCompEvent("comp-favorite", cb);
 }

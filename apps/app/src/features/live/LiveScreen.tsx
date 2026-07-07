@@ -21,8 +21,11 @@ import {
   onCompCollapse,
   onCompExitFullscreen,
   onCompExpand,
+  onCompFavorite,
   onCompFullscreen,
+  onCompPopout,
   tauriCompKey,
+  tauriCompPopout,
   tauriSetFullscreen,
 } from "../../lib/tauri";
 import { onPlaylistsChange } from "../settings/playlists";
@@ -271,6 +274,14 @@ export function LiveScreen() {
     setFullscreen(false);
     if (isTauri()) void tauriSetFullscreen(false).catch(() => {});
   }, []);
+  // The comp-event handlers below subscribe once (stable deps) but need the
+  // live stream URL / channel id at fire time — read them off refs kept current
+  // each render rather than re-subscribing on every channel change.
+  const playUrlRef = useRef<string | null>(null);
+  const heroIdRef = useRef<string | undefined>(undefined);
+  const handleToggleFavorite = useCallback((id: string) => {
+    setFavorites((list) => toggleFavorite(list, id));
+  }, []);
   // Native player events. The overlay drives the size transitions; we mirror
   // them into React state (which drives the box geometry classes) and take the
   // OS window fullscreen to match. ✕ stops playback and resets everything.
@@ -293,9 +304,25 @@ export function LiveScreen() {
         setTheater(false);
         leaveFullscreen();
       }),
+      // PiP: hand the current stream to mpv's floating window, then drop the
+      // in-app player back to the guide (the popout is a separate instance the
+      // teardown can't kill).
+      onCompPopout(() => {
+        const url = playUrlRef.current;
+        if (url) void tauriCompPopout(url).catch(() => {});
+        setPlaying(false);
+        setTheater(false);
+        leaveFullscreen();
+      }),
+      // Favorite: star/unstar the channel that's playing (the overlay tracks
+      // its own button state optimistically).
+      onCompFavorite(() => {
+        const id = heroIdRef.current;
+        if (id) handleToggleFavorite(id);
+      }),
     ];
     return () => offs.forEach((off) => off());
-  }, [leaveFullscreen]);
+  }, [leaveFullscreen, handleToggleFavorite]);
 
 
   // While playing, forward the player shortcuts to the overlay (which owns mpv
@@ -333,10 +360,6 @@ export function LiveScreen() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [playing]);
-
-  const handleToggleFavorite = useCallback((id: string) => {
-    setFavorites((list) => toggleFavorite(list, id));
-  }, []);
 
   // What the guide shows, per mode, with each channel's programmes riding
   // along. Memoized: a fresh identity per render would bust the guide's
@@ -386,13 +409,21 @@ export function LiveScreen() {
     isTauri() && playing && heroChannel
       ? channelStreamUrl(heroChannel.id)
       : null;
+  playUrlRef.current = playUrl;
+  heroIdRef.current = heroChannel?.id;
   const playMeta = (() => {
     if (!playUrl || !ready || !heroChannel) return null;
     const at = new Date();
     const airing = (ready.programmes.get(heroChannel.id) ?? NO_PROGRAMMES).find(
       (p) => p.start <= at && at < p.end,
     );
-    return buildMeta(heroChannel, airing, at);
+    return buildMeta(
+      heroChannel,
+      airing,
+      at,
+      undefined,
+      favorites.includes(heroChannel.id),
+    );
   })();
 
   return (
