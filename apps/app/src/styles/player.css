@@ -9,12 +9,18 @@
 .overlay {
   position: fixed;
   inset: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
+  /* Match the video's rounded corners so the hover ring rounds with it. */
+  border-radius: 12px;
   color: #fff;
   font-family: var(--font-text);
-  /* Controls fade in on hover of the video; always-on for the Phase-1 bar. */
+}
+
+/* Hover the mini player → white ring. This lives on the overlay, not the app
+ * box: while a channel plays, the mpv layer sits on top and forwards the mouse
+ * here, so the app's .hero__preview never sees the hover. Inset because the
+ * overlay is clipped to the video bounds. */
+.overlay:hover {
+  box-shadow: inset 0 0 0 2px #fff;
 }
 
 /* Simple centered loading spinner while mpv buffers the first frame. */
@@ -43,26 +49,17 @@
   }
 }
 
-.overlay__bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  background: linear-gradient(
-    to top,
-    rgba(0, 0, 0, 0.7),
-    rgba(0, 0, 0, 0)
-  );
-}
-
+/* Play/pause and close float directly over the video. Dark pill so they read
+ * over any bright frame. */
 .overlay__btn {
+  position: absolute;
   display: grid;
   place-items: center;
   width: 34px;
   height: 34px;
   border: none;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.5);
   color: #fff;
   font-size: 14px;
   cursor: pointer;
@@ -70,20 +67,15 @@
 }
 
 .overlay__btn:hover {
-  background: rgba(255, 255, 255, 0.24);
+  background: rgba(0, 0, 0, 0.72);
 }
 
-.overlay__name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 15px;
+.overlay__play {
+  left: 14px;
+  bottom: 14px;
 }
 
 .overlay__close {
-  margin-left: auto;
+  top: 14px;
+  right: 14px;
 }
