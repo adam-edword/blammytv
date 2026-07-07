@@ -172,6 +172,20 @@ export function TheaterOverlay() {
     setLivePct((p) => Math.min(100, Math.max(0, p + delta * 0.8)));
   }, []);
 
+  // Jump to the live edge: seek forward by however far the indicator says we're
+  // behind (0.8%/sec ⇒ seconds = behind% / 0.8), then peg the bar to live.
+  const goLive = useCallback(() => {
+    setLivePct((p) => {
+      const behindSecs = (100 - p) / 0.8;
+      if (behindSecs > 0.5) api()?.seek(behindSecs);
+      return 100;
+    });
+  }, []);
+  // At the live edge (within a hair of 100) → the dot burns bright; behind it
+  // dims. The only way to fall behind in this UI is the seek controls, so the
+  // indicator is an honest read of "are we live" without polling mpv.
+  const atLive = livePct >= 99;
+
   const toggleFullscreen = useCallback(() => {
     if (atFullscreen()) api()?.exitFullscreen?.();
     else api()?.fullscreen?.();
@@ -336,6 +350,14 @@ export function TheaterOverlay() {
       <div className="theater-bar">
         {meta && (
           <div className="theater-bar__meta">
+            {meta.logo && (
+              <img
+                className="theater-bar__logo"
+                src={meta.logo}
+                alt=""
+                aria-hidden
+              />
+            )}
             <div className="theater-bar__text">
               <p className="theater-bar__chan">
                 <span className="theater-bar__name">{meta.channelName}</span>
@@ -395,6 +417,15 @@ export function TheaterOverlay() {
               onClick={() => doSeek(10)}
             >
               <SkipFwdIcon size={24} />
+            </button>
+            <button
+              type="button"
+              className={"theater-live" + (atLive ? " is-live" : "")}
+              aria-label="Jump to live"
+              onClick={goLive}
+            >
+              <span className="theater-live__dot" />
+              LIVE
             </button>
           </div>
 

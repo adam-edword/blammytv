@@ -287,6 +287,16 @@
   max-width: 760px;
 }
 
+/* Channel logo, sitting above the programme text. Unboxed (per the hero
+ * treatment) — just the mark, scaled to a fixed height. */
+.theater-bar__logo {
+  height: 56px;
+  width: auto;
+  max-width: 170px;
+  object-fit: contain;
+  object-position: left center;
+}
+
 .theater-bar__text {
   min-width: 0;
 }
@@ -390,6 +400,53 @@
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+/* Jump-to-live pill. The dot glows red at the live edge and dims when the
+ * indicator says we've fallen behind (a rewind/skip-back). */
+.theater-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: 10px;
+  padding: 6px 13px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.62);
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.7px;
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+
+.theater-live:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+
+.theater-live__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.35;
+  transition:
+    opacity 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.theater-live.is-live {
+  color: #fff;
+}
+
+.theater-live.is-live .theater-live__dot {
+  opacity: 1;
+  box-shadow: 0 0 7px var(--accent);
 }
 
 .theater-vol {
