@@ -22,7 +22,7 @@ import { Guide } from "./Guide";
 import { Hero } from "./Hero";
 import type { Channel, LiveData, Programme } from "./model";
 import { loadRecents, recordRecent } from "./recents";
-import { loadLive } from "./source";
+import { loadLive, peekLive } from "./source";
 
 type Mode = "playlist" | "favorites" | "recents";
 
@@ -153,7 +153,9 @@ export function LiveScreen() {
   const [tip, setTip] = useState<{ label: string; x: number; y: number } | null>(
     null,
   );
-  const [channelId, setChannelId] = useState("");
+  // Resume the last-watched channel (recents[0]) so a tab switch or app
+  // restart doesn't dump the selection back on the catalog's first row.
+  const [channelId, setChannelId] = useState(() => loadRecents()[0] ?? "");
   /** Hover preview from the guide: the hero shows whatever the cursor is
    * over (channel or exact programme) without changing the selection. */
   const [preview, setPreview] = useState<{
@@ -163,20 +165,29 @@ export function LiveScreen() {
 
   // The live catalog: real Xtream playlists when any are configured, the
   // bundled mock otherwise. Loaded once up front (the old build's proven
-  // strategy) and re-fetched when the playlists change in Settings.
-  const [live, setLive] = useState<LoadState>({ status: "loading" });
+  // strategy), served from the session cache on remounts (tab switches
+  // unmount this screen), and re-fetched when the playlists change in
+  // Settings.
+  const [live, setLive] = useState<LoadState>(() => {
+    const cached = peekLive();
+    return cached ? { status: "ready", data: cached } : { status: "loading" };
+  });
   /** What the loader is doing right now — big playlists spend seconds per
    * stage, and a stalled label pinpoints the wedged one. */
   const [stage, setStage] = useState<string | null>(null);
   const liveRef = useRef(live);
   liveRef.current = live;
   const seqRef = useRef(0);
-  const refresh = useCallback((silent: boolean) => {
+  const refresh = useCallback((silent: boolean, force = false) => {
     const seq = ++seqRef.current;
     if (!silent) setLive({ status: "loading" });
-    loadLive(new Date(), (label) => {
-      if (seq === seqRef.current && !silent) setStage(label);
-    })
+    loadLive(
+      new Date(),
+      (label) => {
+        if (seq === seqRef.current && !silent) setStage(label);
+      },
+      force,
+    )
       .then((data) => {
         if (seq === seqRef.current) setLive({ status: "ready", data });
       })
@@ -188,15 +199,19 @@ export function LiveScreen() {
           });
       });
   }, []);
-  useEffect(() => refresh(false), [refresh]);
+  useEffect(() => {
+    // Mounted warm from the cache: nothing to fetch.
+    if (liveRef.current.status !== "ready") refresh(false);
+  }, [refresh]);
   useEffect(() => {
     let timer = 0;
     const off = onPlaylistsChange(() => {
       // Settings saves fire per toggle; refetch once the burst settles.
       // Silent while data is already up — no flash back to "Loading".
+      // Forced: the whole point is to rebuild past the cache.
       window.clearTimeout(timer);
       timer = window.setTimeout(
-        () => refresh(liveRef.current.status === "ready"),
+        () => refresh(liveRef.current.status === "ready", true),
         800,
       );
     });

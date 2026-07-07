@@ -26,27 +26,74 @@ import { parseXmltv } from "./xmltv";
  * real time in each stage, and a stalled label tells us exactly which one
  * wedged. Timings land on the console for the same reason.
  */
+/** Session cache: switching tabs unmounts the Live screen, and refetching
+ * a 90MB playlist on every remount is absurd. Keyed by the playlist
+ * configs (so a Settings change misses naturally) and aged out on the
+ * guide's half-hour rhythm. In-memory only — a fresh app launch always
+ * fetches. */
+const CACHE_TTL_MS = 30 * 60_000;
+let cache: { key: string; at: number; data: LiveData } | null = null;
+
+const enabledXtream = () =>
+  loadPlaylists().filter(
+    (p): p is XtreamPlaylist => p.enabled && p.kind === "xtream",
+  );
+
+const cacheKey = (playlists: XtreamPlaylist[]) =>
+  playlists.length === 0
+    ? "mock"
+    : JSON.stringify(
+        playlists.map((p) => [
+          p.id,
+          p.server,
+          p.username,
+          p.password,
+          p.hiddenCategories ?? [],
+        ]),
+      );
+
+/** The cached catalog, if it's still current — lets a remounting Live
+ * screen render data in its very first frame, no loading state. */
+export function peekLive(): LiveData | null {
+  const key = cacheKey(enabledXtream());
+  return cache && cache.key === key && Date.now() - cache.at < CACHE_TTL_MS
+    ? cache.data
+    : null;
+}
+
 export async function loadLive(
   now: Date,
   onStage?: (label: string) => void,
+  force = false,
 ): Promise<LiveData> {
-  const playlists = loadPlaylists().filter(
-    (p): p is XtreamPlaylist => p.enabled && p.kind === "xtream",
-  );
-  if (playlists.length === 0) return mockLive(now);
-
-  const data: LiveData = { groups: [], channels: [], programmes: new Map() };
-  const built = await Promise.all(
-    playlists.map((p) => buildXtreamSource(p, now, onStage)),
-  );
-  // Assembled in saved-playlist order, not arrival order. concat, not
-  // push(...spread): spreading a six-figure channel list overflows the
-  // argument stack.
-  for (const src of built) {
-    data.groups.push(src.group);
-    data.channels = data.channels.concat(src.channels);
-    for (const [id, list] of src.programmes) data.programmes.set(id, list);
+  const playlists = enabledXtream();
+  const key = cacheKey(playlists);
+  if (!force && cache && cache.key === key) {
+    if (Date.now() - cache.at < CACHE_TTL_MS) return cache.data;
+    cache = null;
   }
+
+  let data: LiveData;
+  if (playlists.length === 0) {
+    data = mockLive(now);
+  } else {
+    data = { groups: [], channels: [], programmes: new Map() };
+    const built = await Promise.all(
+      playlists.map((p) => buildXtreamSource(p, now, onStage)),
+    );
+    // Assembled in saved-playlist order, not arrival order. concat, not
+    // push(...spread): spreading a six-figure channel list overflows the
+    // argument stack.
+    for (const src of built) {
+      data.groups.push(src.group);
+      data.channels = data.channels.concat(src.channels);
+      for (const [id, list] of src.programmes) data.programmes.set(id, list);
+    }
+  }
+
+  // A total failure (no channels at all) stays uncached so the next mount
+  // retries instead of pinning the error for half an hour.
+  if (data.channels.length > 0) cache = { key, at: Date.now(), data };
   return data;
 }
 
