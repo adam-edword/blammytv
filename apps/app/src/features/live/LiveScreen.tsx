@@ -321,13 +321,12 @@ export function LiveScreen() {
         const id = heroIdRef.current;
         if (id) handleToggleFavorite(id);
       }),
-      // Closing the PiP window brings the stream back in-app, resuming in
-      // theater (the channel is still selected; theater geometry makes the
-      // overlay show its full chrome).
+      // Closing the PiP window brings the stream back in-app as the mini
+      // player — popping out is for browsing the EPG, so resuming into theater
+      // would just cover the guide the user came back to. (theater is already
+      // false from the pop-out; just re-arm playback.)
       onPopoutClosed(() => {
-        if (!heroIdRef.current) return;
-        setPlaying(true);
-        setTheater(true);
+        if (heroIdRef.current) setPlaying(true);
       }),
     ];
     return () => offs.forEach((off) => off());
