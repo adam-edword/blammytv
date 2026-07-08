@@ -160,9 +160,17 @@ async function buildXtreamSource(
     onStage?.(`Signing in to ${p.name}…`);
     await authenticate(p);
 
+    // Kick the guide download off NOW — it's the longest leg (tens of MB)
+    // and needs nothing from categories/streams, which used to gate it.
+    // Pre-attach a catch so a failure elsewhere can't surface it as an
+    // unhandled rejection; the EPG block below awaits and handles it.
+    const xmlT0 = performance.now();
+    const xmlPromise = fetchXmltv(p);
+    xmlPromise.catch(() => {});
+
     onStage?.(`Fetching ${p.name} channels…`);
     await breathe();
-    let t = performance.now();
+    const t = performance.now();
     const [cats, streams] = await Promise.all([
       fetchLiveCategories(p),
       fetchLiveStreams(p),
@@ -182,14 +190,13 @@ async function buildXtreamSource(
     try {
       onStage?.(`Downloading the ${p.name} TV guide…`);
       await breathe();
-      t = performance.now();
-      const xml = await fetchXmltv(p);
+      const xml = await xmlPromise; // in flight since right after sign-in
       const fetched = performance.now();
       onStage?.(`Reading the ${p.name} TV guide…`);
       await breathe();
       programmes = parseXmltv(xml, epgIndex(streams, p), now);
       console.info(
-        `[live] ${p.name}: xmltv ${(xml.length / 1e6).toFixed(1)}MB in ${Math.round(fetched - t)}ms, parsed EPG for ${programmes.size} channels in ${Math.round(performance.now() - fetched)}ms`,
+        `[live] ${p.name}: xmltv ${(xml.length / 1e6).toFixed(1)}MB in ${Math.round(fetched - xmlT0)}ms (overlapped), parsed EPG for ${programmes.size} channels in ${Math.round(performance.now() - fetched)}ms`,
       );
     } catch (err) {
       console.warn(`[live] EPG failed for "${p.name}": ${msg(err)}`);

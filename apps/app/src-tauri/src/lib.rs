@@ -206,8 +206,13 @@ fn http_client() -> &'static reqwest::Client {
     })
 }
 
+/// Returns the body as RAW BYTES (`tauri::ipc::Response`), not a String: a
+/// String return rides the JSON IPC path, and JSON-escaping a ~95MB xmltv
+/// document (every quote/newline) plus re-parsing it webview-side measurably
+/// dominated load time. The raw path hands the buffer over untouched; the
+/// frontend TextDecoder-decodes it in ~100ms.
 #[tauri::command]
-async fn http_get(url: String) -> Result<String, String> {
+async fn http_get(url: String) -> Result<tauri::ipc::Response, String> {
     // Load-time diagnostics, printed to the `tauri dev` terminal (devtools
     // close on channel load, the terminal doesn't). Headers-vs-body split
     // separates connect/TTFB from download+decode; the frontend's own [live]
@@ -236,7 +241,7 @@ async fn http_get(url: String) -> Result<String, String> {
     // compressed the response, reqwest strips it during transparent decode,
     // so None here ≈ "compression was applied".
     let clen = res.content_length();
-    let body = res.text().await.map_err(|e| e.to_string())?;
+    let body = res.bytes().await.map_err(|e| e.to_string())?;
     println!(
         "[http] {} — headers {}ms, total {}ms, body {:.1}MB (content-length: {})",
         short,
@@ -248,7 +253,7 @@ async fn http_get(url: String) -> Result<String, String> {
             None => "absent (compressed, or chunked)".to_string(),
         },
     );
-    Ok(body)
+    Ok(tauri::ipc::Response::new(body.to_vec()))
 }
 
 // Self-update: check GitHub Releases (see tauri.conf.json > plugins.updater) for

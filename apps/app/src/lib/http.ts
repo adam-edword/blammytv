@@ -9,7 +9,14 @@ import { isTauri } from "./tauri";
  */
 export async function httpGetText(url: string): Promise<string> {
   if (isTauri()) {
-    return invoke<string>("http_get", { url });
+    // http_get returns RAW BYTES (tauri::ipc::Response) — the string return
+    // path JSON-escapes the whole body across the IPC bridge, which for a
+    // ~95MB xmltv document was a multi-second tax. Decode here instead
+    // (~100ms). The string check keeps us working if the command ever
+    // reverts to a String return.
+    const raw = await invoke<unknown>("http_get", { url });
+    if (typeof raw === "string") return raw;
+    return new TextDecoder().decode(raw as ArrayBuffer);
   }
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
