@@ -471,10 +471,10 @@ export function LiveScreen() {
   // interpretable. Two formats (path vs php) probe which scheme the panel
   // honors. Delete once the hero Timeshift panel lands.
   const [probeStatus, setProbeStatus] = useState<Record<string, string>>({});
-  // A start captured once per channel so the shown/copied/checked URL matches
-  // what Play uses (rather than drifting a minute each render).
-  const probeStart = useMemo(
-    () => new Date(Date.now() - 65 * 60_000),
+  // "now" captured once per channel so the swept URLs are stable across
+  // renders (Check and Play hit the same instant).
+  const probeNow = useMemo(
+    () => Date.now(),
     // heroChannel drives it; the id is the stable identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [heroIdRef.current],
@@ -485,27 +485,44 @@ export function LiveScreen() {
     url: string | null;
     play?: () => void;
   }
+  // A TIME sweep, not a format sweep: path & php both returned 200·0B at −65m
+  // for both timezones, and the M3U declares no catchup template. The open
+  // question is whether ANY past slot has archive data (the most recent hour
+  // is often not yet written). So probe progressively deeper past offsets; if
+  // a deeper one returns a real stream ("error decoding response body", like
+  // the live control) we know the archive is real and −65m was just too fresh.
+  const OFFSETS: Array<{ label: string; mins: number }> = [
+    { label: "−65m", mins: 65 },
+    { label: "−3h", mins: 180 },
+    { label: "−20h", mins: 1200 },
+    { label: "−2d", mins: 2880 },
+  ];
   const probeTargets: ProbeTarget[] = (() => {
     const id = heroIdRef.current;
     if (!id) return [];
-    const ts = (tz: TimeshiftTz, format: TimeshiftFormat): ProbeTarget => ({
-      key: `${format}-${tz}`,
-      label: `${format} · ${tz}`,
-      url: catchupStreamUrl(id, probeStart, 30, tz, format),
-      play: () => {
-        setPlaying(true);
-        setTimeshift({
-          start: probeStart,
-          durationMins: 30,
-          tz,
-          format,
-          label: `${format} · ${tz}`,
-        });
-      },
-    });
+    // Path scheme + UTC is enough to answer "is data reachable": a few hours of
+    // server-tz skew still lands any of these inside a 3-day archive.
+    const sweep = (o: { label: string; mins: number }): ProbeTarget => {
+      const start = new Date(probeNow - o.mins * 60_000);
+      return {
+        key: `sweep-${o.mins}`,
+        label: `path · ${o.label}`,
+        url: catchupStreamUrl(id, start, 30, "utc", "path"),
+        play: () => {
+          setPlaying(true);
+          setTimeshift({
+            start,
+            durationMins: 30,
+            tz: "utc",
+            format: "path",
+            label: `path · ${o.label}`,
+          });
+        },
+      };
+    };
     return [
       // Control: the ordinary live URL, so we know what a working stream looks
-      // like through this same Check (expect a timeout / large body, not 0B).
+      // like through this same Check (expect "error decoding response body").
       {
         key: "live",
         label: "live (control)",
@@ -515,9 +532,7 @@ export function LiveScreen() {
           setPlaying(true);
         },
       },
-      ts("utc", "path"),
-      ts("utc", "php"),
-      ts("local", "php"),
+      ...OFFSETS.map(sweep),
     ];
   })();
   const checkProbe = useCallback(async (key: string, url: string | null) => {
