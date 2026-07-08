@@ -83,7 +83,12 @@ export function CustomizeTab() {
   const [accent, setAccent] = useState(loadAccent);
   // The custom slot keeps its color even while a preset is selected.
   const [custom, setCustom] = useState(loadCustomAccent);
-  const isCustomActive = accent === custom && custom !== "";
+  // Only "active" when the accent is the custom colour AND not also a preset —
+  // otherwise a custom hex that happens to equal a preset lights up both swatches.
+  const isCustomActive =
+    custom !== "" &&
+    accent === custom &&
+    !ACCENT_PRESETS.some((p) => p.hex === accent);
 
   const pick = (hex: string) => {
     const value = hex.toLowerCase();
@@ -176,6 +181,9 @@ export function CustomizeTab() {
   // confirm within a few seconds.
   const [clearArmed, setClearArmed] = useState(false);
   const clearTimer = useRef(0);
+  // Closing Settings while armed would otherwise fire setState on an unmounted
+  // component when the 4s timer elapses.
+  useEffect(() => () => window.clearTimeout(clearTimer.current), []);
   const clearLogins = () => {
     if (!clearArmed) {
       setClearArmed(true);

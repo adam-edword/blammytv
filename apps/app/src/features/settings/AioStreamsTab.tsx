@@ -59,7 +59,18 @@ export function AioStreamsTab() {
     setCatalogs({ status: "loading" });
     fetchAioCatalogs(savedUrl)
       .then((items) => {
-        if (alive) setCatalogs({ status: "ready", items });
+        if (!alive) return;
+        setCatalogs({ status: "ready", items });
+        // Prune any saved hero selection the (possibly changed) manifest no
+        // longer offers, so stale keys don't linger as raw-string chips or in
+        // storage.
+        const valid = new Set(items.map((c) => c.key));
+        setSelected((sel) => {
+          const pruned = sel.filter((k) => valid.has(k));
+          if (pruned.length === sel.length) return sel;
+          saveHeroSources(pruned);
+          return pruned;
+        });
       })
       .catch(() => {
         if (alive) setCatalogs({ status: "error" });

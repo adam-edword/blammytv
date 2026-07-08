@@ -177,28 +177,38 @@ fn comp_stop(window: tauri::WebviewWindow) -> Result<(), String> {
 /// Cross-platform HTTP GET returning the response body as text. Lets the app
 /// reach AIOStreams / Xtream from the Rust side, so the webview isn't blocked by
 /// browser CORS — the foundation for running self-contained, with no backend.
+/// One process-wide HTTP client so back-to-back fetches (categories, streams,
+/// the big xmltv) reuse the connection pool + TLS session instead of redoing a
+/// TCP+TLS handshake every call. Built once, lazily.
+fn http_client() -> &'static reqwest::Client {
+    use std::sync::OnceLock;
+    static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+    CLIENT.get_or_init(|| {
+        reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(30))
+            // Present as a browser: many AIOStreams/addon hosts (esp. behind
+            // Cloudflare/WAFs) reject requests without a normal User-Agent with 403.
+            .user_agent(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
+                 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+            )
+            // Transparent response compression. xmltv.php returns ~20:1-compressible
+            // XML; without this we pulled the whole guide raw (tens of MB), which
+            // dominated load time. reqwest adds Accept-Encoding and decodes for us.
+            .gzip(true)
+            .brotli(true)
+            .deflate(true)
+            // Match the known-good curl request: HTTP/1.1 over the Windows Schannel
+            // TLS stack, so the connection fingerprint isn't flagged as a bot.
+            .http1_only()
+            .build()
+            .expect("failed to build the shared HTTP client")
+    })
+}
+
 #[tauri::command]
 async fn http_get(url: String) -> Result<String, String> {
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(30))
-        // Present as a browser: many AIOStreams/addon hosts (esp. behind
-        // Cloudflare/WAFs) reject requests without a normal User-Agent with 403.
-        .user_agent(
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
-             (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-        )
-        // Transparent response compression. xmltv.php returns ~20:1-compressible
-        // XML; without this we pulled the whole guide raw (tens of MB), which
-        // dominated load time. reqwest adds Accept-Encoding and decodes for us.
-        .gzip(true)
-        .brotli(true)
-        .deflate(true)
-        // Match the known-good curl request: HTTP/1.1 over the Windows Schannel
-        // TLS stack, so the connection fingerprint isn't flagged as a bot.
-        .http1_only()
-        .build()
-        .map_err(|e| e.to_string())?;
-    let res = client
+    let res = http_client()
         .get(&url)
         // Send the headers a browser would. Some hosts (Cloudflare's Browser
         // Integrity Check) 403 requests that have a User-Agent but lack these.

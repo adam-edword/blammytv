@@ -4,6 +4,7 @@ import {
   loadClockFormat,
   onClockFormatChange,
 } from "../settings/clockFormat";
+import { progress as epgProgress } from "./epg";
 import type { Channel, Programme } from "./model";
 
 /** The Live tab's hero (Figma 133:479): the mpv preview slot beside the
@@ -35,10 +36,7 @@ export function Hero({
   const current =
     programme ?? programmes.find((p) => p.start <= now && now < p.end);
   const live = !!current && current.start <= now && now < current.end;
-  const progress = live
-    ? (now.getTime() - current.start.getTime()) /
-      (current.end.getTime() - current.start.getTime())
-    : 0;
+  const progress = live ? epgProgress(current.start, current.end, now) : 0;
 
   return (
     <section className="hero" aria-label="Now playing">

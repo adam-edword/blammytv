@@ -78,8 +78,14 @@ export async function loadLive(
     data = mockLive(now);
   } else {
     data = { groups: [], channels: [], programmes: new Map() };
+    // Stage narration is a single last-writer-wins label, so it only makes
+    // sense for one source. With several enabled, they load concurrently and
+    // would stomp each other's labels (showing a finished source while a
+    // different one is the one actually wedged) — fall back to the generic
+    // "Loading channels…" the caller shows when no stage is reported.
+    const narrate = playlists.length === 1 ? onStage : undefined;
     const built = await Promise.all(
-      playlists.map((p) => buildXtreamSource(p, now, onStage)),
+      playlists.map((p) => buildXtreamSource(p, now, narrate)),
     );
     // Assembled in saved-playlist order, not arrival order. concat, not
     // push(...spread): spreading a six-figure channel list overflows the

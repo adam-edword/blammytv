@@ -16,7 +16,15 @@ export async function httpGetText(url: string): Promise<string> {
   return res.text();
 }
 
-/** GET and parse JSON. */
+/** GET and parse JSON. A non-JSON body (a proxy/captive-portal HTML page, a
+ * panel error page served with 200) throws a named error naming the real
+ * failure instead of an opaque "Unexpected token '<'" SyntaxError. */
 export async function httpGetJson<T>(url: string): Promise<T> {
-  return JSON.parse(await httpGetText(url)) as T;
+  const body = await httpGetText(url);
+  try {
+    return JSON.parse(body) as T;
+  } catch {
+    const head = body.slice(0, 80).replace(/\s+/g, " ").trim();
+    throw new Error(`the server returned a non-JSON response (starts: "${head}")`);
+  }
 }

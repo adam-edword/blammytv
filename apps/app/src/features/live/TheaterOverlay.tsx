@@ -113,9 +113,11 @@ export function TheaterOverlay() {
     api()?.toggleFavorite?.();
   }, []);
 
-  // Push volume/mute to mpv.
+  // Push volume + mute to mpv. Mute drives mpv's real mute property (not a
+  // volume-0 fake), so the underlying level is untouched across mute/unmute.
   useEffect(() => {
-    api()?.setVolume(Math.round((muted ? 0 : volume) * 100));
+    api()?.setVolume(Math.round(volume * 100));
+    api()?.setMute(muted);
   }, [volume, muted]);
 
   const wake = useCallback(() => {
@@ -159,12 +161,14 @@ export function TheaterOverlay() {
     };
   }, [mini, wake]);
 
+  // Read the live value off a ref so the bridge side effect stays OUT of the
+  // setState updater (updaters must be pure — StrictMode double-invokes them).
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
   const togglePlay = useCallback(() => {
-    setPaused((p) => {
-      const next = !p;
-      api()?.setPause(next);
-      return next;
-    });
+    const next = !pausedRef.current;
+    setPaused(next);
+    api()?.setPause(next);
   }, []);
 
   // Seek mpv + walk the live-edge indicator (≈0.8%/sec, so ±10s ≈ ±8%).
@@ -243,7 +247,17 @@ export function TheaterOverlay() {
 
   useEffect(() => {
     const off = api()?.onKey?.(handleKey);
-    const onDocKey = (e: KeyboardEvent) => handleKey(e.key);
+    const onDocKey = (e: KeyboardEvent) => {
+      // A focused control already acts on its own keys — don't ALSO fire the
+      // global shortcut, or Space double-toggles play (net no-op) and an arrow
+      // on the volume slider both nudges it and seeks. Buttons own Space/Enter;
+      // inputs (the range slider) own the arrows.
+      const el = e.target as HTMLElement | null;
+      const tag = el?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || el?.isContentEditable) return;
+      if (tag === "BUTTON" && (e.key === " " || e.key === "Enter")) return;
+      handleKey(e.key);
+    };
     document.addEventListener("keydown", onDocKey);
     return () => {
       off?.();

@@ -187,7 +187,11 @@ export const Guide = memo(function Guide({
     };
   }, []);
 
-  const start = windowStart(now);
+  // Memoized on `now` (changes only on the 30s tick / half-hour roll): a fresh
+  // Date each render would give `lanes` a new `start` identity every render and
+  // recompute the whole lane layout on unrelated re-renders (e.g. the ~60/sec
+  // setCardW during a column-resize drag).
+  const start = useMemo(() => windowStart(now), [now]);
   const laneW = GUIDE_HOURS * 60 * PX_PER_MIN;
   const range = (from: Date, to: Date) =>
     `${formatClock(from, clockFmt)} – ${formatClock(to, clockFmt)}`;

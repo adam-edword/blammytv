@@ -1,5 +1,6 @@
 import type { TheaterMeta } from "../../lib/tauri";
 import { loadPlaylists, type XtreamPlaylist } from "../settings/playlists";
+import { progress as epgProgress } from "./epg";
 import type { Channel, Programme } from "./model";
 
 /**
@@ -166,17 +167,7 @@ export function buildMeta(
   let progressPct: number | undefined;
   let startLabel: string | undefined;
   if (programme) {
-    const span = programme.end.getTime() - programme.start.getTime();
-    progressPct =
-      span > 0
-        ? Math.min(
-            100,
-            Math.max(
-              0,
-              ((now.getTime() - programme.start.getTime()) / span) * 100,
-            ),
-          )
-        : 0;
+    progressPct = epgProgress(programme.start, programme.end, now) * 100;
     startLabel = programme.start.toLocaleTimeString([], {
       hour: "numeric",
       minute: "2-digit",

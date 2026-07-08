@@ -21,10 +21,19 @@ function useClock(): string {
   const [now, setNow] = useState(() => new Date());
   const [format, setFormat] = useState(loadClockFormat);
   useEffect(() => {
-    const id = window.setInterval(() => setNow(new Date()), 1000);
+    // Tick once per minute, re-aligned to the wall-clock minute boundary (the
+    // header shows no seconds) — not 60 re-renders/min for a string that only
+    // changes once a minute.
+    let id: number;
+    const schedule = () =>
+      window.setTimeout(() => {
+        setNow(new Date());
+        id = schedule();
+      }, 60_000 - (Date.now() % 60_000) + 50);
+    id = schedule();
     const off = onClockFormatChange(setFormat);
     return () => {
-      window.clearInterval(id);
+      window.clearTimeout(id);
       off();
     };
   }, []);
