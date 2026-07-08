@@ -20,6 +20,11 @@ export interface XtreamStream {
   stream_icon?: string | null;
   epg_channel_id?: string | null;
   category_id?: string | number | null;
+  /** Server catch-up flag. Panels send 0/1, and as often a *string* ("1"),
+   * so callers coerce. */
+  tv_archive?: number | string | null;
+  /** Archive depth in days — likewise string-typed off the panel ("3"). */
+  tv_archive_duration?: number | string | null;
 }
 
 interface XtreamAuth {

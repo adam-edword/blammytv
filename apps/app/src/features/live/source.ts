@@ -184,8 +184,19 @@ export function mapStreams(
         quality: extractQuality(name),
         folderId: folderId(p.id, s.category_id),
         logo: validUrl(s.stream_icon),
+        archiveDays: archiveDaysOf(s),
       };
     });
+}
+
+/** Catch-up depth for a stream, in whole days (0 = no archive). The panel
+ * sends both fields string-typed ("1", "3") and sometimes numeric, so coerce
+ * and guard: a channel is only archived when tv_archive is truthy AND the
+ * duration parses to a positive number. */
+export function archiveDaysOf(s: XtreamStream): number {
+  if (Number(s.tv_archive) !== 1) return 0;
+  const days = Math.floor(Number(s.tv_archive_duration));
+  return Number.isFinite(days) && days > 0 ? days : 0;
 }
 
 /** epg_channel_id → our channel ids (one feed can back several channels). */

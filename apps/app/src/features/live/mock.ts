@@ -56,6 +56,7 @@ export function mockLive(now: Date): LiveData {
     name,
     quality: quality as Quality | null,
     folderId: MOCK_FOLDERS[i % MOCK_FOLDERS.length],
+    archiveDays: 0,
   }));
   const programmes = new Map<string, Programme[]>();
   CHANNELS.forEach(([, , noInfo], i) => {

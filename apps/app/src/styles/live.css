@@ -1010,3 +1010,47 @@
   height: 100%;
   background: var(--accent);
 }
+
+/* TEMP — timeshift verification probe. Sits in the right-of-hero space that
+ * will become the real Timeshift panel. Deliberately plain/utilitarian: it's
+ * a diagnostic, not designed UI. Remove with the probe in LiveScreen. */
+.hero__probe {
+  margin-left: auto;
+  align-self: center;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  width: 240px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.hero__probe-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim, #aaa);
+}
+.hero__probe-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.hero__probe-btn {
+  flex: 1;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--text, #fff);
+  background: #ffffff10;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.hero__probe-btn:hover {
+  background: #ffffff1e;
+}
+.hero__probe-active {
+  flex: 1;
+  font-size: 12px;
+  color: var(--accent);
+}

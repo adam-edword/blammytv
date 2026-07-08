@@ -32,6 +32,74 @@ export function channelStreamUrl(channelId: string): string | null {
   return `${base}/live/${u}/${p}/${streamId}.${ext}`;
 }
 
+/** Which wall-clock the panel expects in a timeshift URL. This is THE open
+ * question the spike exists to answer: panels disagree on whether the start
+ * timestamp is the server's local time or UTC, and it can only be settled
+ * against a live server. Isolated here so flipping it is a one-line change. */
+export type TimeshiftTz = "utc" | "local";
+
+const pad = (n: number) => String(n).padStart(2, "0");
+
+/** Format an instant as the panel's `YYYY-MM-DD:HH-MM`, in either UTC or the
+ * machine's local wall-clock. Seconds are dropped — timeshift granularity is
+ * the minute. */
+export function formatTimeshiftStamp(at: Date, tz: TimeshiftTz): string {
+  const [y, mo, d, h, mi] =
+    tz === "utc"
+      ? [
+          at.getUTCFullYear(),
+          at.getUTCMonth() + 1,
+          at.getUTCDate(),
+          at.getUTCHours(),
+          at.getUTCMinutes(),
+        ]
+      : [
+          at.getFullYear(),
+          at.getMonth() + 1,
+          at.getDate(),
+          at.getHours(),
+          at.getMinutes(),
+        ];
+  return `${y}-${pad(mo)}-${pad(d)}:${pad(h)}-${pad(mi)}`;
+}
+
+/**
+ * Rebuild a playable Xtream *timeshift* (catch-up) URL for a past slot on a
+ * channel. Same id→credentials lookup as the live builder; returns null for
+ * non-Xtream ids or a since-removed playlist.
+ *
+ * Classic Xtream timeshift format (credentials + duration + start in the
+ * path). `durationMins` is the LENGTH of the requested playback (the
+ * programme's runtime), not the archive depth; `start` is the programme's
+ * start moment:
+ *   {server}/timeshift/{user}/{pass}/{durationMins}/{YYYY-MM-DD:HH-MM}/{id}.{ext}
+ */
+export function catchupStreamUrl(
+  channelId: string,
+  start: Date,
+  durationMins: number,
+  tz: TimeshiftTz = "utc",
+): string | null {
+  const sep = channelId.indexOf(":");
+  if (sep < 0) return null;
+  const playlistId = channelId.slice(0, sep);
+  const streamId = channelId.slice(sep + 1);
+  if (!streamId) return null;
+
+  const playlist = loadPlaylists().find(
+    (p): p is XtreamPlaylist => p.id === playlistId && p.kind === "xtream",
+  );
+  if (!playlist) return null;
+
+  const mins = Math.max(1, Math.round(durationMins));
+  const base = playlist.server.trim().replace(/\/+$/, "");
+  const u = encodeURIComponent(playlist.username);
+  const p = encodeURIComponent(playlist.password);
+  const ext = (playlist.liveExt || "ts").replace(/^\./, "");
+  const stamp = formatTimeshiftStamp(start, tz);
+  return `${base}/timeshift/${u}/${p}/${mins}/${stamp}/${streamId}.${ext}`;
+}
+
 /** The overlay's now-playing metadata for a channel + its airing programme. */
 export function buildMeta(
   channel: Channel,

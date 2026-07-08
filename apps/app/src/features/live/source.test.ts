@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { XtreamPlaylist } from "../settings/playlists";
-import { epgIndex, mapStreams } from "./source";
+import { archiveDaysOf, epgIndex, mapStreams } from "./source";
 
 const playlist = (over: Partial<XtreamPlaylist> = {}): XtreamPlaylist => ({
   kind: "xtream",
@@ -32,6 +32,7 @@ describe("mapStreams", () => {
       quality: "4K",
       folderId: "pl1:7",
       logo: "http://cdn.example.com/espn.png",
+      archiveDays: 0,
     });
   });
 
@@ -61,9 +62,44 @@ describe("mapStreams", () => {
       quality: null,
       folderId: "pl1:",
       logo: undefined,
+      archiveDays: 0,
     });
     expect(chans[1].quality).toBeNull();
     expect(chans[1].logo).toBeUndefined();
+  });
+
+  it("carries catch-up depth from the panel's archive fields", () => {
+    const [ch] = mapStreams(
+      [
+        {
+          stream_id: 1,
+          name: "BBC One FHD",
+          category_id: "248",
+          // String-typed, exactly as the real panel sends them.
+          tv_archive: 1,
+          tv_archive_duration: "3",
+        },
+      ],
+      playlist(),
+    );
+    expect(ch.archiveDays).toBe(3);
+  });
+});
+
+describe("archiveDaysOf", () => {
+  it("coerces the panel's string fields to a positive day count", () => {
+    expect(archiveDaysOf({ stream_id: 1, tv_archive: 1, tv_archive_duration: "3" })).toBe(3);
+    expect(archiveDaysOf({ stream_id: 1, tv_archive: "1", tv_archive_duration: "1" })).toBe(1);
+  });
+
+  it("is 0 when the channel has no usable archive", () => {
+    // Not flagged.
+    expect(archiveDaysOf({ stream_id: 1, tv_archive: 0, tv_archive_duration: "3" })).toBe(0);
+    // Flagged but a junk / zero / missing duration.
+    expect(archiveDaysOf({ stream_id: 1, tv_archive: 1, tv_archive_duration: "0" })).toBe(0);
+    expect(archiveDaysOf({ stream_id: 1, tv_archive: 1, tv_archive_duration: "" })).toBe(0);
+    expect(archiveDaysOf({ stream_id: 1, tv_archive: 1 })).toBe(0);
+    expect(archiveDaysOf({ stream_id: 1 })).toBe(0);
   });
 });
 

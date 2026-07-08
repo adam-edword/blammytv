@@ -15,6 +15,10 @@ export interface Channel {
   /** Sidebar folder (category) this channel lives in. */
   folderId: string;
   logo?: string;
+  /** Days of server-side catch-up archive, 0 when the channel has none.
+   * Derived from the panel's tv_archive / tv_archive_duration fields (both
+   * arrive string-typed, so this is the coerced, guarded number). */
+  archiveDays: number;
 }
 
 export interface Programme {
