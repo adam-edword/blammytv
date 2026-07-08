@@ -172,14 +172,14 @@ export function TheaterOverlay() {
     setLivePct((p) => Math.min(100, Math.max(0, p + delta * 0.8)));
   }, []);
 
-  // Jump to the live edge: seek forward by however far the indicator says we're
-  // behind (0.8%/sec ⇒ seconds = behind% / 0.8), then peg the bar to live.
+  // Jump to the live edge. Live has no fixed length, and the indicator is only
+  // a rough client-side model — so rather than seek by a computed offset (which
+  // undershoots, since the edge drifts forward while you watch the buffer), do
+  // a big relative forward seek: mpv clamps it to its newest available data,
+  // i.e. the live edge (minus the inherent buffer). Then peg the bar to live.
   const goLive = useCallback(() => {
-    setLivePct((p) => {
-      const behindSecs = (100 - p) / 0.8;
-      if (behindSecs > 0.5) api()?.seek(behindSecs);
-      return 100;
-    });
+    api()?.seek(86400);
+    setLivePct(100);
   }, []);
   // At the live edge (within a hair of 100) → the dot burns bright; behind it
   // dims. The only way to fall behind in this UI is the seek controls, so the
