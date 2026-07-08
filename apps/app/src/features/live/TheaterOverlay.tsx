@@ -442,6 +442,17 @@ export function TheaterOverlay() {
     >
       {loading && <TuneCard meta={meta} phase={tune} onRetry={retryTune} />}
 
+      {/* TEMP diagnostic (remove after the tracks question settles): raw
+        * receipt state of the comp.rs tracks push, always visible, so a
+        * screenshot distinguishes "no push arrived" from "1 audio / 0 subs
+        * → menus correctly hidden". */}
+      <div className="track-debug" aria-hidden>
+        {tracks
+          ? `tracks: ${tracks.audio.length} audio / ${tracks.subs.length} subs` +
+            (tracks.audio.map((t) => ` · ${t.lang || t.label}`).join("") || "")
+          : "tracks: none received"}
+      </div>
+
       <div className="theater-topscrim" aria-hidden />
 
       <div className="theater-topleft" data-interactive>
