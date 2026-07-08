@@ -50,6 +50,30 @@ tech wins — no framework-of-the-month, no clever abstractions for hypothetical
 reuse. When a task matches an installed Claude Code skill (security review,
 design review, etc.), use the skill instead of re-implementing.
 
+## Delegation — orchestrate by task shape, not by default
+
+Standing permission to run subagents/workflows underneath the main session — no
+need to ask first — **when the task shape actually benefits:**
+
+- **Research & evaluation** — comparing libraries, studying how other apps solve
+  a problem. Parallel readers, synthesize on top.
+- **Broad audits** — security review, perf sweep, dead-code hunt. Fan out by
+  dimension, adversarially verify findings, report only what survives.
+- **Fresh-eyes review before a release** — a reviewer agent's lack of our
+  context is a feature: it can't rationalize our decisions.
+- **Big mechanical sweeps** — migrations, renames, test backfill, where the
+  work-list is known and the items are independent.
+
+**Stay hands-on for surgical, diagnostic, context-heavy work** — the
+measure→fix→retest loop that most changes here are. Accumulated context is the
+asset: the v0.1.106 disk cache caught a StrictMode race only because the same
+head fixed it in v0.1.104. Subagents start blank — briefing them on a one-file
+fix costs more than it buys.
+
+Delegation never dilutes the agreements above: agent findings get verified
+before acting on them, and the main session owns the synthesis, the decision,
+and the commit.
+
 ## Completion status
 
 End every task with one of:
