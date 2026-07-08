@@ -13,14 +13,15 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Leaving Live unmounts LiveScreen, whose CompositionPlayer tears the native
-  // mpv layer down in a useEffect cleanup — but passive cleanup runs after the
-  // incoming tab paints, so the layer (a top-most child window, not DOM)
-  // lingers visible for a beat. Tear it down eagerly at click time, while the
-  // main thread is still idle, so it vanishes with the tab.
+  // mpv layer down — but that teardown (run_on_main_thread) queues behind the
+  // incoming tab's render/paint, so the layer (a top-most child window, not
+  // DOM) hangs on screen for a beat. AWAIT the teardown before switching: the
+  // main thread is idle at click time, so mpv is destroyed first, then the new
+  // tab renders. comp_stop is a cheap no-op when nothing's playing.
   const changeTab = useCallback(
-    (next: TabKey) => {
+    async (next: TabKey) => {
       if (tab === "live" && next !== "live" && isTauri()) {
-        void tauriCompStop().catch(() => {});
+        await tauriCompStop().catch(() => {});
       }
       setTab(next);
     },

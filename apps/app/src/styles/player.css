@@ -290,9 +290,9 @@
 /* Channel logo, sitting above the programme text. Unboxed (per the hero
  * treatment) — just the mark, scaled to a fixed height. */
 .theater-bar__logo {
-  height: 56px;
+  height: 112px;
   width: auto;
-  max-width: 170px;
+  max-width: 320px;
   object-fit: contain;
   object-position: left center;
 }
