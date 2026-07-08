@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { XtreamPlaylist } from "../settings/playlists";
+import type { Channel, Programme } from "./model";
 
 // The URL builders look credentials up via loadPlaylists(); mock it so the
 // tests are independent of any persisted storage.
@@ -16,7 +17,7 @@ vi.mock("../settings/playlists", () => ({
   loadPlaylists: () => [PLAYLIST],
 }));
 
-const { catchupStreamUrl, channelStreamUrl, formatTimeshiftStamp } =
+const { buildMeta, catchupStreamUrl, channelStreamUrl, formatTimeshiftStamp } =
   await import("./stream");
 
 describe("formatTimeshiftStamp", () => {
@@ -69,5 +70,61 @@ describe("catchupStreamUrl", () => {
     expect(catchupStreamUrl("ch0", start, 30)).toBeNull(); // mock id, no ":"
     expect(catchupStreamUrl("pl1:", start, 30)).toBeNull(); // empty stream id
     expect(catchupStreamUrl("nope:5", start, 30)).toBeNull(); // no such playlist
+  });
+});
+
+describe("buildMeta", () => {
+  const ch: Channel = {
+    id: "pl1:1",
+    name: "BBC One",
+    quality: null,
+    folderId: "pl1:248",
+    logo: "http://cdn/bbc.png",
+    archiveDays: 0,
+  };
+  // now = 20:30; a 20:00–21:00 programme is airing and half done.
+  const now = new Date("2026-07-08T20:30:00Z");
+  const prog = (from: string, to: string): Programme => ({
+    title: "News",
+    synopsis: "The day's headlines",
+    start: new Date(from),
+    end: new Date(to),
+  });
+
+  it("marks a currently-airing programme live and clamps progress to its span", () => {
+    const m = buildMeta(
+      ch,
+      prog("2026-07-08T20:00:00Z", "2026-07-08T21:00:00Z"),
+      now,
+      "Meteor",
+      true,
+    );
+    expect(m.live).toBe(true);
+    expect(m.progressPct).toBeCloseTo(50, 5);
+    expect(m.title).toBe("News");
+    expect(m.description).toBe("The day's headlines");
+    expect(m.channelName).toBe("BBC One");
+    expect(m.sourceName).toBe("Meteor");
+    expect(m.favorite).toBe(true);
+  });
+
+  it("is not live for a future programme, progress pinned at 0", () => {
+    const m = buildMeta(ch, prog("2026-07-08T22:00:00Z", "2026-07-08T23:00:00Z"), now);
+    expect(m.live).toBe(false);
+    expect(m.progressPct).toBe(0);
+  });
+
+  it("is not live for a finished programme, progress clamped at 100", () => {
+    const m = buildMeta(ch, prog("2026-07-08T18:00:00Z", "2026-07-08T19:00:00Z"), now);
+    expect(m.live).toBe(false);
+    expect(m.progressPct).toBe(100);
+  });
+
+  it("handles a channel with no programme (no title/progress, not live)", () => {
+    const m = buildMeta(ch, undefined, now);
+    expect(m.live).toBe(false);
+    expect(m.title).toBeUndefined();
+    expect(m.progressPct).toBeUndefined();
+    expect(m.startLabel).toBeUndefined();
   });
 });
