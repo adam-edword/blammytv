@@ -341,6 +341,33 @@ pub fn seek_abs(pos: f64) {
     }
 }
 
+/// "Go to live" for a live stream: reload the current URL on the composition
+/// PLAYER. A forward seek can't reach the live edge (mpv never pulled the data
+/// between the playback buffer and now), so we re-`loadfile` the same path,
+/// which restarts at the newest segment. Player-level options (wid, d3d11-flip,
+/// volume) persist across loadfile, so only the video rebuffers — the overlay
+/// stays put. Reversible: drop this and the goLive bridge/handler to restore
+/// the old (non-functional) forward-seek behavior.
+pub fn reload_live() {
+    // get_property locks PLAYER and releases before we re-lock below.
+    let url = match get_property("path") {
+        Some(u) => u,
+        None => return,
+    };
+    let g = PLAYER.lock().unwrap();
+    if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {
+        unsafe {
+            let cmd = CString::new("loadfile").unwrap();
+            let curl = match CString::new(url) {
+                Ok(c) => c,
+                Err(_) => return,
+            };
+            let args = [cmd.as_ptr(), curl.as_ptr(), std::ptr::null()];
+            (l.command)(p.0, args.as_ptr());
+        }
+    }
+}
+
 pub fn stop() {
     if let (Some(p), Some(l)) = (PLAYER.lock().unwrap().take(), LIB.get()) {
         unsafe { (l.terminate_destroy)(p.0) };

@@ -37,6 +37,7 @@ interface OverlayApi {
   exitFullscreen?: () => void; // fullscreen → theater
   popout?: () => void; // detach to mpv's floating PiP window
   toggleFavorite?: () => void; // star/unstar the playing channel
+  goLive?: () => void; // reload the stream at the live edge
   setMouseIgnore: (ignore: boolean) => void;
   getMeta: () => Promise<TheaterMeta | null>;
   onMeta: (cb: (meta: TheaterMeta | null) => void) => () => void;
@@ -172,13 +173,12 @@ export function TheaterOverlay() {
     setLivePct((p) => Math.min(100, Math.max(0, p + delta * 0.8)));
   }, []);
 
-  // Jump to the live edge. Live has no fixed length, and the indicator is only
-  // a rough client-side model — so rather than seek by a computed offset (which
-  // undershoots, since the edge drifts forward while you watch the buffer), do
-  // a big relative forward seek: mpv clamps it to its newest available data,
-  // i.e. the live edge (minus the inherent buffer). Then peg the bar to live.
+  // Jump to the live edge. A forward seek can't reach it (mpv never pulled the
+  // data between the playback buffer and now), so this reloads the stream on
+  // the same mpv instance — it restarts at the newest segment while the overlay
+  // stays put (video just rebuffers). Then peg the indicator to live.
   const goLive = useCallback(() => {
-    api()?.seek(86400);
+    api()?.goLive?.();
     setLivePct(100);
   }, []);
   // At the live edge (within a hair of 100) → the dot burns bright; behind it
