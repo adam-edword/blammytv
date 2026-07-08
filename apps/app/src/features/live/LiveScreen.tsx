@@ -43,6 +43,7 @@ import {
   buildMeta,
   catchupStreamUrl,
   channelStreamUrl,
+  type TimeshiftFormat,
   type TimeshiftTz,
 } from "./stream";
 
@@ -201,6 +202,7 @@ export function LiveScreen() {
     start: Date;
     durationMins: number;
     tz: TimeshiftTz;
+    format: TimeshiftFormat;
     label: string;
   } | null>(null);
 
@@ -439,6 +441,7 @@ export function LiveScreen() {
             timeshift.start,
             timeshift.durationMins,
             timeshift.tz,
+            timeshift.format,
           )
         : channelStreamUrl(heroChannel.id)
       : null;
@@ -459,15 +462,15 @@ export function LiveScreen() {
     );
   })();
 
-  // TEMP — timeshift verification probe. On an archive channel it builds a
-  // catch-up URL for a fixed slot ~65 min ago (30-min window) in each timezone
-  // candidate and lets us, without the devtools console (which closes on
-  // channel load): Check the URL in-app (native-TLS GET → HTTP status/body
-  // type), Copy it for an external curl, or Play it. Delete once the hero
-  // Timeshift panel lands.
-  const [probeStatus, setProbeStatus] = useState<
-    Partial<Record<TimeshiftTz, string>>
-  >({});
+  // TEMP — timeshift verification probe. On an archive channel it builds
+  // catch-up URLs for a fixed slot ~65 min ago (30-min window) and lets us,
+  // without the devtools console (which closes on channel load): Check a URL
+  // in-app (native-TLS GET → HTTP status / body size / body type), Copy it for
+  // an external curl, or Play it. A LIVE control calibrates what a *working*
+  // stream returns through the same Check, so an empty timeshift 200 is
+  // interpretable. Two formats (path vs php) probe which scheme the panel
+  // honors. Delete once the hero Timeshift panel lands.
+  const [probeStatus, setProbeStatus] = useState<Record<string, string>>({});
   // A start captured once per channel so the shown/copied/checked URL matches
   // what Play uses (rather than drifting a minute each render).
   const probeStart = useMemo(
@@ -476,44 +479,69 @@ export function LiveScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [heroIdRef.current],
   );
-  const probeUrl = useCallback(
-    (tz: TimeshiftTz) =>
-      heroIdRef.current
-        ? catchupStreamUrl(heroIdRef.current, probeStart, 30, tz)
-        : null,
-    [probeStart],
-  );
-  const checkTimeshift = useCallback(
-    async (tz: TimeshiftTz) => {
-      const url = probeUrl(tz);
-      if (!url) return;
-      setProbeStatus((s) => ({ ...s, [tz]: "checking…" }));
-      try {
-        const body = await httpGetText(url);
-        const head = body.slice(0, 60).replace(/\s+/g, " ").trim();
-        const kind = body.startsWith("#EXTM3U")
-          ? "HLS m3u8"
-          : /^\s*<(!doctype|html)/i.test(body)
-            ? "HTML (error page?)"
-            : `${body.length}B body`;
-        setProbeStatus((s) => ({ ...s, [tz]: `200 · ${kind} · ${head}` }));
-      } catch (e) {
-        setProbeStatus((s) => ({
-          ...s,
-          [tz]: e instanceof Error ? e.message : String(e),
-        }));
-      }
-    },
-    [probeUrl],
-  );
-  const startTimeshiftProbe = useCallback(
-    (tz: TimeshiftTz) => {
-      if (!heroIdRef.current) return;
-      setPlaying(true);
-      setTimeshift({ start: probeStart, durationMins: 30, tz, label: `−65m · ${tz}` });
-    },
-    [probeStart],
-  );
+  interface ProbeTarget {
+    key: string;
+    label: string;
+    url: string | null;
+    play?: () => void;
+  }
+  const probeTargets: ProbeTarget[] = (() => {
+    const id = heroIdRef.current;
+    if (!id) return [];
+    const ts = (tz: TimeshiftTz, format: TimeshiftFormat): ProbeTarget => ({
+      key: `${format}-${tz}`,
+      label: `${format} · ${tz}`,
+      url: catchupStreamUrl(id, probeStart, 30, tz, format),
+      play: () => {
+        setPlaying(true);
+        setTimeshift({
+          start: probeStart,
+          durationMins: 30,
+          tz,
+          format,
+          label: `${format} · ${tz}`,
+        });
+      },
+    });
+    return [
+      // Control: the ordinary live URL, so we know what a working stream looks
+      // like through this same Check (expect a timeout / large body, not 0B).
+      {
+        key: "live",
+        label: "live (control)",
+        url: channelStreamUrl(id),
+        play: () => {
+          setTimeshift(null);
+          setPlaying(true);
+        },
+      },
+      ts("utc", "path"),
+      ts("utc", "php"),
+      ts("local", "php"),
+    ];
+  })();
+  const checkProbe = useCallback(async (key: string, url: string | null) => {
+    if (!url) return;
+    setProbeStatus((s) => ({ ...s, [key]: "checking…" }));
+    try {
+      const body = await httpGetText(url);
+      const head = body.slice(0, 48).replace(/\s+/g, " ").trim();
+      const kind = body.startsWith("#EXTM3U")
+        ? "HLS m3u8"
+        : /^\s*<(!doctype|html)/i.test(body)
+          ? "HTML (error page?)"
+          : "body";
+      setProbeStatus((s) => ({
+        ...s,
+        [key]: `200 · ${body.length}B · ${kind}${head ? ` · ${head}` : ""}`,
+      }));
+    } catch (e) {
+      setProbeStatus((s) => ({
+        ...s,
+        [key]: e instanceof Error ? e.message : String(e),
+      }));
+    }
+  }, []);
   const archiveDays = heroChannel?.archiveDays ?? 0;
   const timeshiftProbe =
     isTauri() && archiveDays > 0 ? (
@@ -521,42 +549,39 @@ export function LiveScreen() {
         <span className="hero__probe-title">
           ⏪ Timeshift test · {archiveDays}-day archive
         </span>
-        {(["utc", "local"] as TimeshiftTz[]).map((tz) => {
-          const url = probeUrl(tz);
-          return (
-            <div key={tz} className="hero__probe-tz">
-              <div className="hero__probe-row">
-                <span className="hero__probe-label">{tz}</span>
-                <button
-                  type="button"
-                  className="hero__probe-btn"
-                  onClick={() => checkTimeshift(tz)}
-                >
-                  Check
-                </button>
-                <button
-                  type="button"
-                  className="hero__probe-btn"
-                  onClick={() =>
-                    url && void navigator.clipboard?.writeText(url)
-                  }
-                >
-                  Copy
-                </button>
-                <button
-                  type="button"
-                  className="hero__probe-btn"
-                  onClick={() => startTimeshiftProbe(tz)}
-                >
-                  Play
-                </button>
-              </div>
-              {probeStatus[tz] && (
-                <span className="hero__probe-status">{probeStatus[tz]}</span>
-              )}
+        {probeTargets.map((t) => (
+          <div key={t.key} className="hero__probe-tz">
+            <div className="hero__probe-row">
+              <span className="hero__probe-label">{t.label}</span>
+              <button
+                type="button"
+                className="hero__probe-btn"
+                onClick={() => checkProbe(t.key, t.url)}
+              >
+                Check
+              </button>
+              <button
+                type="button"
+                className="hero__probe-btn"
+                onClick={() =>
+                  t.url && void navigator.clipboard?.writeText(t.url)
+                }
+              >
+                Copy
+              </button>
+              <button
+                type="button"
+                className="hero__probe-btn"
+                onClick={t.play}
+              >
+                Play
+              </button>
             </div>
-          );
-        })}
+            {probeStatus[t.key] && (
+              <span className="hero__probe-status">{probeStatus[t.key]}</span>
+            )}
+          </div>
+        ))}
         {timeshift && (
           <div className="hero__probe-row">
             <span className="hero__probe-active">Playing {timeshift.label}</span>

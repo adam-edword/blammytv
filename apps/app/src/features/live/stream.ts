@@ -63,22 +63,27 @@ export function formatTimeshiftStamp(at: Date, tz: TimeshiftTz): string {
   return `${y}-${pad(mo)}-${pad(d)}:${pad(h)}-${pad(mi)}`;
 }
 
+/** The two timeshift URL schemes Xtream/XUI panels ship. Which one a given
+ * panel honors is exactly what the spike is probing:
+ *   - "path": {server}/timeshift/{u}/{p}/{mins}/{stamp}/{id}.{ext}
+ *   - "php":  {server}/streaming/timeshift.php?username&password&stream&start&duration
+ */
+export type TimeshiftFormat = "path" | "php";
+
 /**
  * Rebuild a playable Xtream *timeshift* (catch-up) URL for a past slot on a
  * channel. Same id→credentials lookup as the live builder; returns null for
  * non-Xtream ids or a since-removed playlist.
  *
- * Classic Xtream timeshift format (credentials + duration + start in the
- * path). `durationMins` is the LENGTH of the requested playback (the
- * programme's runtime), not the archive depth; `start` is the programme's
- * start moment:
- *   {server}/timeshift/{user}/{pass}/{durationMins}/{YYYY-MM-DD:HH-MM}/{id}.{ext}
+ * `durationMins` is the LENGTH of the requested playback (the programme's
+ * runtime), not the archive depth; `start` is the programme's start moment.
  */
 export function catchupStreamUrl(
   channelId: string,
   start: Date,
   durationMins: number,
   tz: TimeshiftTz = "utc",
+  format: TimeshiftFormat = "path",
 ): string | null {
   const sep = channelId.indexOf(":");
   if (sep < 0) return null;
@@ -93,10 +98,22 @@ export function catchupStreamUrl(
 
   const mins = Math.max(1, Math.round(durationMins));
   const base = playlist.server.trim().replace(/\/+$/, "");
+  const stamp = formatTimeshiftStamp(start, tz);
+
+  if (format === "php") {
+    const qs = new URLSearchParams({
+      username: playlist.username,
+      password: playlist.password,
+      stream: streamId,
+      start: stamp,
+      duration: String(mins),
+    });
+    return `${base}/streaming/timeshift.php?${qs}`;
+  }
+
   const u = encodeURIComponent(playlist.username);
   const p = encodeURIComponent(playlist.password);
   const ext = (playlist.liveExt || "ts").replace(/^\./, "");
-  const stamp = formatTimeshiftStamp(start, tz);
   return `${base}/timeshift/${u}/${p}/${mins}/${stamp}/${streamId}.${ext}`;
 }
 

@@ -47,6 +47,12 @@ describe("catchupStreamUrl", () => {
     );
   });
 
+  it("builds the php scheme with query params when asked", () => {
+    expect(catchupStreamUrl("pl1:369852", start, 30, "utc", "php")).toBe(
+      "http://tv.example.com:8080/streaming/timeshift.php?username=u+ser&password=p%40ss&stream=369852&start=2026-07-08%3A19-00&duration=30",
+    );
+  });
+
   it("rounds the duration to whole minutes and floors at 1", () => {
     expect(catchupStreamUrl("pl1:1", start, 29.6, "utc")).toContain("/30/");
     expect(catchupStreamUrl("pl1:1", start, 0, "utc")).toContain("/1/");
