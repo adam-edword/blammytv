@@ -19,11 +19,14 @@ weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
 - Branch `claude/blammytv-rebuild-xclzto` — the only branch; never push
   elsewhere. Adam pulls it and runs `pnpm tauri dev` on Windows.
-- Just landed: audio/subtitle track menus in TheaterOverlay (v0.1.110,
+- Just landed: audio/subtitle track menus in TheaterOverlay (v0.1.110-112,
   frontend-only — comp.rs's tracks push/selectAudio/selectSub were already
   complete; verified 12/12 headless with a mocked bridge via
-  `scripts/verify-overlay-tracks.mjs`, needs a Windows eyeball on a real
-  multi-audio channel). Before that: the gradient-ring brand mark
+  `scripts/verify-overlay-tracks.mjs`). Buttons always visible, grayed when
+  nothing to choose (v0.1.112, Adam's call). Receipt of the comp.rs tracks
+  push was confirmed on Adam's Windows machine via a temporary debug chip
+  (v0.1.111, removed in v0.1.112): a real channel read `1 audio / 0 subs ·
+  eng` — the push pipeline is healthy end-to-end; no Rust change needed. Before that: the gradient-ring brand mark
   (`public/logo.png` + `logo.svg` in the header, full `src-tauri/icons`
   set; `build.rs` watches `icon.ico` so swaps re-embed), the load-time saga
   (11s → ~4s cold → 0.24s hydrated launch) and the tune watchdog — ROADMAP

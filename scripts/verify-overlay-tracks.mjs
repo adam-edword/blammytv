@@ -75,19 +75,22 @@ await page.addInitScript(mockBridge);
 await page.goto(URL);
 await page.waitForSelector(".theater-overlay");
 
+// Buttons are always rendered; they gray out (disabled) with nothing to choose.
 check(
-  "no tracks yet → no track buttons",
-  (await page.locator(".theater-tracks").count()) === 0,
+  "no tracks yet → both buttons disabled",
+  (await page.locator(".theater-tracks button:disabled").count()) === 2,
 );
 
 await page.evaluate((t) => window.__pushTracks(t), TRACKS);
 await page.mouse.move(550, 300); // wake the chrome
 await page.mouse.move(560, 310);
-await page.waitForSelector('[aria-label="Audio track"]');
+await page.waitForSelector('[aria-label="Audio track"]:not(:disabled)');
 check(
-  "tracks push → audio + CC buttons render",
-  (await page.locator('[aria-label="Audio track"]').count()) === 1 &&
-    (await page.locator('[aria-label="Subtitles"]').count()) === 1,
+  "tracks push → audio + CC buttons enabled",
+  (await page.locator('[aria-label="Audio track"]:not(:disabled)').count()) ===
+    1 &&
+    (await page.locator('[aria-label="Subtitles"]:not(:disabled)').count()) ===
+      1,
 );
 
 // Audio menu: entries + current selection.
@@ -165,12 +168,17 @@ await page.evaluate(() =>
     subs: [],
   }),
 );
-// Poll: the push lands via React state, so the unmount isn't synchronous.
-const hidden = await page
-  .waitForFunction(() => document.querySelectorAll(".theater-tracks").length === 0, null, { timeout: 3000 })
+// Poll: the push lands via React state, so the flip isn't synchronous.
+const grayed = await page
+  .waitForFunction(
+    () =>
+      document.querySelectorAll(".theater-tracks button:disabled").length === 2,
+    null,
+    { timeout: 3000 },
+  )
   .then(() => true)
   .catch(() => false);
-check("1 audio / 0 subs → both buttons hidden", hidden);
+check("1 audio / 0 subs → both buttons grayed out", grayed);
 await page.close();
 
 // ---- Page 2: tracks cached in the bridge BEFORE React mounts (the getTracks
@@ -182,7 +190,7 @@ await page2.goto(URL);
 await page2.waitForSelector(".theater-overlay");
 check(
   "pre-mount cached tracks seed via sync getTracks()",
-  (await page2.locator(".theater-tracks").count()) === 2,
+  (await page2.locator(".theater-tracks button:not(:disabled)").count()) === 2,
 );
 await page2.close();
 

@@ -554,6 +554,13 @@
   background: rgba(255, 255, 255, 0.14);
 }
 
+/* Grayed out when there's nothing to choose (one audio track / no subs). */
+.player__btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+  background: transparent;
+}
+
 .track-menu {
   position: absolute;
   right: 0;
@@ -617,20 +624,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/* TEMP diagnostic chip (see TheaterOverlay) — remove with it. */
-.track-debug {
-  position: fixed;
-  top: 76px;
-  left: 20px;
-  z-index: 6;
-  padding: 4px 9px;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.55);
-  color: rgba(255, 255, 255, 0.75);
-  font: 500 11px / 1.4 ui-monospace, monospace;
-  pointer-events: none;
 }
 
 .theater-vol {

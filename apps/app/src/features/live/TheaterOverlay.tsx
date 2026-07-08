@@ -442,17 +442,6 @@ export function TheaterOverlay() {
     >
       {loading && <TuneCard meta={meta} phase={tune} onRetry={retryTune} />}
 
-      {/* TEMP diagnostic (remove after the tracks question settles): raw
-        * receipt state of the comp.rs tracks push, always visible, so a
-        * screenshot distinguishes "no push arrived" from "1 audio / 0 subs
-        * → menus correctly hidden". */}
-      <div className="track-debug" aria-hidden>
-        {tracks
-          ? `tracks: ${tracks.audio.length} audio / ${tracks.subs.length} subs` +
-            (tracks.audio.map((t) => ` · ${t.lang || t.label}`).join("") || "")
-          : "tracks: none received"}
-      </div>
-
       <div className="theater-topscrim" aria-hidden />
 
       <div className="theater-topleft" data-interactive>
@@ -577,95 +566,91 @@ export function TheaterOverlay() {
           </div>
 
           <div className="theater-controls__group">
-            {/* Audio menu only when there's a choice; CC whenever subs exist
-              * (off/on is a real choice even with one track). */}
-            {(tracks?.audio.length ?? 0) >= 2 && (
-              <div className="theater-tracks">
-                <button
-                  type="button"
-                  className={
-                    "player__btn" + (menu === "audio" ? " is-open" : "")
-                  }
-                  aria-label="Audio track"
-                  aria-haspopup="menu"
-                  aria-expanded={menu === "audio"}
-                  onClick={() => setMenu((m) => (m === "audio" ? null : "audio"))}
-                >
-                  <LanguageIcon size={20} />
-                </button>
-                {menu === "audio" && (
-                  <div className="track-menu" role="menu" aria-label="Audio tracks">
-                    <p className="track-menu__head">Audio</p>
-                    {tracks!.audio.map((t) => (
-                      <button
-                        key={t.id}
-                        type="button"
-                        role="menuitemradio"
-                        aria-checked={t.selected}
-                        className={
-                          "track-menu__item" + (t.selected ? " is-selected" : "")
-                        }
-                        onClick={() => chooseAudio(t.id)}
-                      >
-                        <span className="track-menu__label">{t.label}</span>
-                        {t.selected && <CheckIcon size={15} />}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-            {(tracks?.subs.length ?? 0) >= 1 && (
-              <div className="theater-tracks">
-                <button
-                  type="button"
-                  className={"player__btn" + (menu === "subs" ? " is-open" : "")}
-                  aria-label="Subtitles"
-                  aria-haspopup="menu"
-                  aria-expanded={menu === "subs"}
-                  onClick={() => setMenu((m) => (m === "subs" ? null : "subs"))}
-                >
-                  <CcIcon size={20} />
-                </button>
-                {menu === "subs" && (
-                  <div className="track-menu" role="menu" aria-label="Subtitles">
-                    <p className="track-menu__head">Subtitles</p>
+            {/* Always visible, grayed out when there's nothing to choose:
+              * audio needs ≥2 tracks (one track = no choice), subs need ≥1
+              * (off/on is a real choice even with one track). A disabled
+              * button can't open its menu. */}
+            <div className="theater-tracks">
+              <button
+                type="button"
+                className={"player__btn" + (menu === "audio" ? " is-open" : "")}
+                aria-label="Audio track"
+                aria-haspopup="menu"
+                aria-expanded={menu === "audio"}
+                disabled={(tracks?.audio.length ?? 0) < 2}
+                onClick={() => setMenu((m) => (m === "audio" ? null : "audio"))}
+              >
+                <LanguageIcon size={20} />
+              </button>
+              {menu === "audio" && tracks && tracks.audio.length >= 2 && (
+                <div className="track-menu" role="menu" aria-label="Audio tracks">
+                  <p className="track-menu__head">Audio</p>
+                  {tracks.audio.map((t) => (
                     <button
+                      key={t.id}
                       type="button"
                       role="menuitemradio"
-                      aria-checked={!tracks!.subs.some((t) => t.selected)}
+                      aria-checked={t.selected}
                       className={
-                        "track-menu__item" +
-                        (tracks!.subs.some((t) => t.selected)
-                          ? ""
-                          : " is-selected")
+                        "track-menu__item" + (t.selected ? " is-selected" : "")
                       }
-                      onClick={() => chooseSub(null)}
+                      onClick={() => chooseAudio(t.id)}
                     >
-                      <span className="track-menu__label">Off</span>
-                      {!tracks!.subs.some((t) => t.selected) && (
-                        <CheckIcon size={15} />
-                      )}
+                      <span className="track-menu__label">{t.label}</span>
+                      {t.selected && <CheckIcon size={15} />}
                     </button>
-                    {tracks!.subs.map((t) => (
-                      <button
-                        key={t.id}
-                        type="button"
-                        role="menuitemradio"
-                        aria-checked={t.selected}
-                        className={
-                          "track-menu__item" + (t.selected ? " is-selected" : "")
-                        }
-                        onClick={() => chooseSub(t.id)}
-                      >
-                        <span className="track-menu__label">{t.label}</span>
-                        {t.selected && <CheckIcon size={15} />}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="theater-tracks">
+              <button
+                type="button"
+                className={"player__btn" + (menu === "subs" ? " is-open" : "")}
+                aria-label="Subtitles"
+                aria-haspopup="menu"
+                aria-expanded={menu === "subs"}
+                disabled={(tracks?.subs.length ?? 0) < 1}
+                onClick={() => setMenu((m) => (m === "subs" ? null : "subs"))}
+              >
+                <CcIcon size={20} />
+              </button>
+              {menu === "subs" && tracks && tracks.subs.length >= 1 && (
+                <div className="track-menu" role="menu" aria-label="Subtitles">
+                  <p className="track-menu__head">Subtitles</p>
+                  <button
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={!tracks.subs.some((t) => t.selected)}
+                    className={
+                      "track-menu__item" +
+                      (tracks.subs.some((t) => t.selected) ? "" : " is-selected")
+                    }
+                    onClick={() => chooseSub(null)}
+                  >
+                    <span className="track-menu__label">Off</span>
+                    {!tracks.subs.some((t) => t.selected) && (
+                      <CheckIcon size={15} />
+                    )}
+                  </button>
+                  {tracks.subs.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={t.selected}
+                      className={
+                        "track-menu__item" + (t.selected ? " is-selected" : "")
+                      }
+                      onClick={() => chooseSub(t.id)}
+                    >
+                      <span className="track-menu__label">{t.label}</span>
+                      {t.selected && <CheckIcon size={15} />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="theater-vol">
               <button
                 type="button"

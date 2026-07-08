@@ -223,8 +223,11 @@ above removes a switch-blocker or rescues the first session.
   (both String() their id; sid `"no"` = subs off). TheaterOverlay now
   subscribes (seeded from the sync cache so a push that lands before React
   mounts isn't lost) and renders glass popover menus in the theater controls:
-  audio (globe icon, shown only with ≥2 tracks) and subtitles (CC icon, shown
-  with ≥1 track, with an Off entry keyed off "no sub has selected"). Selection
+  audio (globe icon, enabled with ≥2 tracks) and subtitles (CC icon, enabled
+  with ≥1 track, with an Off entry keyed off "no sub has selected"). Both
+  buttons are ALWAYS visible and gray out (`disabled`) when there's nothing
+  to choose — Adam's call in v0.1.112 (they originally hid, which reads as
+  "feature missing" on the common 1-audio/0-subs stream). Selection
   is optimistic; the Rust 500ms poll re-pushes the real `selected` flags and
   confirms/corrects. An open menu holds the auto-hide chrome awake; Escape and
   picture-clicks close the menu before their usual actions; mini stays
