@@ -156,12 +156,20 @@ and the agreed order of what's next. Update this file as sections land.
   so `http_get` never sent Accept-Encoding. Enabled `gzip`/`brotli`/`deflate`
   on the client (`Cargo.toml` + `.gzip(true).brotli(true).deflate(true)`).
   Measured ratios on the representative guide: xmltv 56.9MB → **2.4MB** gzip
-  (23:1), streams 7.1MB → 0.6MB — ~64MB of transfer down to ~3MB, which also
-  shrinks what crosses the Tauri IPC bridge by the same factor. Rust change →
-  verify on a Windows rebuild. **If more is needed after this:** overlap the
-  xmltv download with categories+streams (today the pipeline is serial:
-  auth → cat+streams → xmltv → parse), and the IPC-bridge streaming rework
-  (now much less urgent since payloads are ~20× smaller).
+  (23:1), streams 7.1MB → 0.6MB. **Verified on Windows via the v0.1.103
+  `[http]` terminal diagnostics:** compression engaged (95.4MB of xmltv in
+  ~2.1-3.6s ≈ compressed wire), whole Rust-side fetch ≈ 4s. The REAL
+  remaining killer the diagnostics exposed: **the entire pipeline ran
+  twice** — StrictMode's dev double-effect fired two concurrent loadLive
+  calls, the cache only writes post-completion, and there was no in-flight
+  dedup → double fetch + double IPC haul + double 95MB DOMParser. Fixed in
+  v0.1.104 with a single-flight guard (concurrent callers share the
+  promise, stage callbacks fan in; forced refreshes bypass). NOTE: gzip
+  does NOT shrink the IPC haul — the decoded 95MB string still crosses the
+  invoke bridge once per load. If single-pass load is still slow, next
+  levers in order: measure the frontend-vs-Rust delta from the [http] +
+  [live] logs (that delta = IPC + DOMParser), then the byte-channel /
+  stream-to-disk IPC rework, then overlapping xmltv with cat+streams.
 
 ## Live TV 1.0 slate (persona discovery, 2 runs, 8 personas — full report in
 ## the session scratchpad's LIVE_TV_1.0_FEATURES.md)

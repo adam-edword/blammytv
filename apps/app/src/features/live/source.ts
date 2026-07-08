@@ -34,6 +34,18 @@ import { parseXmltv } from "./xmltv";
 const CACHE_TTL_MS = 30 * 60_000;
 let cache: { key: string; at: number; data: LiveData } | null = null;
 
+/** Single-flight guard: the cache is only written AFTER a load completes, so
+ * two concurrent loadLive calls both missed it and each fetched + parsed the
+ * full pipeline (~95MB xmltv, twice — StrictMode's dev double-effect made
+ * this the norm, and mount racing the playlists-change debounce can do it in
+ * prod). Joiners share the in-flight promise; their onStage callbacks fan in
+ * so the loading label still narrates for whichever caller renders. */
+let inflight: {
+  key: string;
+  promise: Promise<LiveData>;
+  stages: Set<(label: string) => void>;
+} | null = null;
+
 const enabledXtream = () =>
   loadPlaylists().filter(
     (p): p is XtreamPlaylist => p.enabled && p.kind === "xtream",
@@ -73,6 +85,33 @@ export async function loadLive(
     cache = null;
   }
 
+  // Join a matching load already in the air instead of doubling it. Forced
+  // refreshes (playlist edits) start fresh — they exist to bypass stale work.
+  if (!force && inflight && inflight.key === key) {
+    if (onStage) inflight.stages.add(onStage);
+    return inflight.promise;
+  }
+
+  const stages = new Set<(label: string) => void>();
+  if (onStage) stages.add(onStage);
+  const promise = doLoad(playlists, key, now, (label) =>
+    stages.forEach((cb) => cb(label)),
+  );
+  const record = { key, promise, stages };
+  inflight = record;
+  try {
+    return await promise;
+  } finally {
+    if (inflight === record) inflight = null;
+  }
+}
+
+async function doLoad(
+  playlists: XtreamPlaylist[],
+  key: string,
+  now: Date,
+  onStage: (label: string) => void,
+): Promise<LiveData> {
   let data: LiveData;
   if (playlists.length === 0) {
     data = mockLive(now);
