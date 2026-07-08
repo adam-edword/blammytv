@@ -33,7 +33,10 @@ tauri-plugin-updater = "2"
 # fingerprint looks like a normal Windows client — some Cloudflare-fronted hosts
 # 403 rustls's distinct fingerprint even when the headers are browser-like.
 # Schannel ships with Windows, so the bundle stays self-contained.
-reqwest = { version = "0.12", default-features = false, features = ["native-tls"] }
+# gzip/brotli/deflate: xmltv.php serves ~20:1-compressible XML — without these
+# we downloaded the whole guide raw (the load-time killer). reqwest sends the
+# Accept-Encoding and transparently decodes only when these features are on.
+reqwest = { version = "0.12", default-features = false, features = ["native-tls", "gzip", "brotli", "deflate"] }
 libloading = "0.8"
 
 # The Telly-way composition spike (Windows): composition-hosted WebView2 +

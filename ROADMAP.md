@@ -148,6 +148,21 @@ and the agreed order of what's next. Update this file as sections land.
   → `catchupStreamUrl` → `CompositionPlayer`; LIVE button already exits to the
   live edge).
 
+- **Load-time perf: response compression (v0.1.100, needs Windows rebuild).**
+  Sources loaded in ~10s vs a competitor's 3-5s. Profiled it (real 20k-channel
+  streams + a representative ~57MB guide): CPU work is minor — JSON.parse 31ms,
+  streams+map ~430ms, xmltv parse ~700ms. The cost was **downloading the guide
+  raw**: reqwest was built `default-features = false` with only `native-tls`,
+  so `http_get` never sent Accept-Encoding. Enabled `gzip`/`brotli`/`deflate`
+  on the client (`Cargo.toml` + `.gzip(true).brotli(true).deflate(true)`).
+  Measured ratios on the representative guide: xmltv 56.9MB → **2.4MB** gzip
+  (23:1), streams 7.1MB → 0.6MB — ~64MB of transfer down to ~3MB, which also
+  shrinks what crosses the Tauri IPC bridge by the same factor. Rust change →
+  verify on a Windows rebuild. **If more is needed after this:** overlap the
+  xmltv download with categories+streams (today the pipeline is serial:
+  auth → cat+streams → xmltv → parse), and the IPC-bridge streaming rework
+  (now much less urgent since payloads are ~20× smaller).
+
 ## Next steps, in order
 
 1. **Native player Phase 3** — popout/PiP (`comp_popout` + `popout_pos`/
