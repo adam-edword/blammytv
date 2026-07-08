@@ -50,4 +50,11 @@ export default tseslint.config(
     files: ["*.mjs", "scripts/**/*.mjs"],
     languageOptions: { globals: { ...globals.node } },
   },
+
+  // Playwright verify scripts run in node but serialize callbacks into the
+  // page (addInitScript/evaluate), so those bodies use browser globals too.
+  {
+    files: ["scripts/verify-*.mjs"],
+    languageOptions: { globals: { ...globals.node, ...globals.browser } },
+  },
 );

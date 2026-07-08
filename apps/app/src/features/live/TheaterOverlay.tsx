@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { TheaterMeta } from "../../lib/tauri";
 import {
+  CcIcon,
+  CheckIcon,
   CloseIcon,
   ExitFullscreenIcon,
   FullscreenIcon,
+  LanguageIcon,
   MuteIcon,
   PauseIcon,
   PlayIcon,
@@ -23,8 +26,23 @@ import {
  * Three states, keyed off the overlay window's own size (it tracks the player
  * box): MINI (small — play/pause + ✕ + click-to-expand), THEATER (large
  * windowed — full auto-hiding chrome), FULLSCREEN (fills the monitor — same
- * chrome). Ported from the old build, live-only (no VOD seek/tracks/speed).
+ * chrome). Ported from the old build, live-only (no VOD seek/speed).
  */
+
+/** One entry from mpv's track list, as pushed by comp.rs (`{type:'tracks'}`,
+ * polled every 500ms Rust-side and re-pushed whenever it changes). */
+interface TrackEntry {
+  id: number;
+  label: string;
+  lang: string;
+  selected: boolean;
+}
+
+interface Tracks {
+  audio: TrackEntry[];
+  subs: TrackEntry[];
+}
+
 interface OverlayApi {
   close: () => void;
   setPause: (paused: boolean) => void;
@@ -44,6 +62,10 @@ interface OverlayApi {
   getLoading: () => boolean;
   onLoading: (cb: (loading: boolean) => void) => () => void;
   onKey?: (cb: (key: string) => void) => () => void;
+  selectAudio?: (id: number | string) => void; // mpv aid ("auto" ok)
+  selectSub?: (id: number | string) => void; // mpv sid ("no" = off)
+  getTracks?: () => Tracks | null; // SYNCHRONOUS (comp.rs bridge, like getLoading)
+  onTracks?: (cb: (tracks: Tracks | null) => void) => () => void;
 }
 
 declare global {
@@ -78,6 +100,11 @@ export function TheaterOverlay() {
   // Favorite is seeded from meta at open/channel-change, then owned locally so a
   // click flips instantly (the main app persists the real list via the bridge).
   const [fav, setFav] = useState(false);
+  // Audio/sub tracks, seeded sync from the bridge cache then pushed on change.
+  const [tracks, setTracks] = useState<Tracks | null>(
+    () => api()?.getTracks?.() ?? null,
+  );
+  const [menu, setMenu] = useState<"audio" | "subs" | null>(null);
   const idleRef = useRef(0);
 
   useEffect(() => {
@@ -101,6 +128,11 @@ export function TheaterOverlay() {
       offMeta();
       offLoading();
     };
+  }, []);
+
+  useEffect(() => {
+    const off = api()?.onTracks?.(setTracks);
+    return () => off?.();
   }, []);
 
   /* Tune watchdog. `loading` flips false exactly once, on mpv's FIRST FRAME
@@ -166,10 +198,50 @@ export function TheaterOverlay() {
     api()?.setMute(muted);
   }, [volume, muted]);
 
+  // An open track menu holds the chrome awake (read off a ref so wake stays
+  // stable); closing it restarts the idle timer the menu was holding.
+  const menuRef = useRef(menu);
+  menuRef.current = menu;
   const wake = useCallback(() => {
     setActive(true);
     window.clearTimeout(idleRef.current);
-    idleRef.current = window.setTimeout(() => setActive(false), 2400);
+    idleRef.current = window.setTimeout(() => {
+      if (!menuRef.current) setActive(false);
+    }, 2400);
+  }, []);
+  useEffect(() => {
+    if (menu === null) wake();
+  }, [menu, wake]);
+  // If the chrome does hide (e.g. the cursor left the player), take any open
+  // menu down with it rather than leaving it open invisibly.
+  useEffect(() => {
+    if (!active) setMenu(null);
+  }, [active]);
+
+  // Track selection: fire the bridge, flip the checkmark optimistically, and
+  // let comp.rs's 500ms track poll confirm (it re-pushes when mpv's `selected`
+  // flags change, which also corrects us if mpv rejected the switch).
+  const chooseAudio = useCallback((id: number) => {
+    api()?.selectAudio?.(id);
+    setTracks(
+      (prev) =>
+        prev && {
+          ...prev,
+          audio: prev.audio.map((t) => ({ ...t, selected: t.id === id })),
+        },
+    );
+    setMenu(null);
+  }, []);
+  const chooseSub = useCallback((id: number | null) => {
+    api()?.selectSub?.(id === null ? "no" : id);
+    setTracks(
+      (prev) =>
+        prev && {
+          ...prev,
+          subs: prev.subs.map((t) => ({ ...t, selected: t.id === id })),
+        },
+    );
+    setMenu(null);
   }, []);
 
   // Show on activity; toggle click-through so only [data-interactive] regions
@@ -280,7 +352,8 @@ export function TheaterOverlay() {
           else api()?.collapse?.();
           break;
         case "escape":
-          if (atFullscreen()) api()?.exitFullscreen?.();
+          if (menuRef.current) setMenu(null);
+          else if (atFullscreen()) api()?.exitFullscreen?.();
           else api()?.collapse?.();
           break;
         default:
@@ -359,9 +432,10 @@ export function TheaterOverlay() {
         (fs ? " theater-overlay--fs" : "")
       }
       onClick={(e) => {
-        // Click the picture (not a control) to play/pause.
+        // Click the picture (not a control): close an open menu, else play/pause.
         if (!(e.target as Element).closest("[data-interactive]")) {
-          togglePlay();
+          if (menuRef.current) setMenu(null);
+          else togglePlay();
           wake();
         }
       }}
@@ -492,6 +566,95 @@ export function TheaterOverlay() {
           </div>
 
           <div className="theater-controls__group">
+            {/* Audio menu only when there's a choice; CC whenever subs exist
+              * (off/on is a real choice even with one track). */}
+            {(tracks?.audio.length ?? 0) >= 2 && (
+              <div className="theater-tracks">
+                <button
+                  type="button"
+                  className={
+                    "player__btn" + (menu === "audio" ? " is-open" : "")
+                  }
+                  aria-label="Audio track"
+                  aria-haspopup="menu"
+                  aria-expanded={menu === "audio"}
+                  onClick={() => setMenu((m) => (m === "audio" ? null : "audio"))}
+                >
+                  <LanguageIcon size={20} />
+                </button>
+                {menu === "audio" && (
+                  <div className="track-menu" role="menu" aria-label="Audio tracks">
+                    <p className="track-menu__head">Audio</p>
+                    {tracks!.audio.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={t.selected}
+                        className={
+                          "track-menu__item" + (t.selected ? " is-selected" : "")
+                        }
+                        onClick={() => chooseAudio(t.id)}
+                      >
+                        <span className="track-menu__label">{t.label}</span>
+                        {t.selected && <CheckIcon size={15} />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {(tracks?.subs.length ?? 0) >= 1 && (
+              <div className="theater-tracks">
+                <button
+                  type="button"
+                  className={"player__btn" + (menu === "subs" ? " is-open" : "")}
+                  aria-label="Subtitles"
+                  aria-haspopup="menu"
+                  aria-expanded={menu === "subs"}
+                  onClick={() => setMenu((m) => (m === "subs" ? null : "subs"))}
+                >
+                  <CcIcon size={20} />
+                </button>
+                {menu === "subs" && (
+                  <div className="track-menu" role="menu" aria-label="Subtitles">
+                    <p className="track-menu__head">Subtitles</p>
+                    <button
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={!tracks!.subs.some((t) => t.selected)}
+                      className={
+                        "track-menu__item" +
+                        (tracks!.subs.some((t) => t.selected)
+                          ? ""
+                          : " is-selected")
+                      }
+                      onClick={() => chooseSub(null)}
+                    >
+                      <span className="track-menu__label">Off</span>
+                      {!tracks!.subs.some((t) => t.selected) && (
+                        <CheckIcon size={15} />
+                      )}
+                    </button>
+                    {tracks!.subs.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={t.selected}
+                        className={
+                          "track-menu__item" + (t.selected ? " is-selected" : "")
+                        }
+                        onClick={() => chooseSub(t.id)}
+                      >
+                        <span className="track-menu__label">{t.label}</span>
+                        {t.selected && <CheckIcon size={15} />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="theater-vol">
               <button
                 type="button"

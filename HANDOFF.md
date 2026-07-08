@@ -15,24 +15,26 @@ Audience: switchers from other Windows IPTV clients, Stremio users, ideally
 both — and explicitly *inviting to newcomers*; first-five-minutes activation
 weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
-## Live state (2026-07-08, v0.1.109)
+## Live state (2026-07-08, v0.1.110)
 
 - Branch `claude/blammytv-rebuild-xclzto` — the only branch; never push
   elsewhere. Adam pulls it and runs `pnpm tauri dev` on Windows.
-- Just landed: the gradient-ring brand mark (`public/logo.png` + `logo.svg`
-  in the header, full `src-tauri/icons` set; `build.rs` watches `icon.ico`
-  so swaps re-embed). Before that: the load-time saga (11s → ~4s cold →
-  0.24s hydrated launch) and the tune watchdog — ROADMAP has both in full.
+- Just landed: audio/subtitle track menus in TheaterOverlay (v0.1.110,
+  frontend-only — comp.rs's tracks push/selectAudio/selectSub were already
+  complete; verified 12/12 headless with a mocked bridge via
+  `scripts/verify-overlay-tracks.mjs`, needs a Windows eyeball on a real
+  multi-audio channel). Before that: the gradient-ring brand mark
+  (`public/logo.png` + `logo.svg` in the header, full `src-tauri/icons`
+  set; `build.rs` watches `icon.ico` so swaps re-embed), the load-time saga
+  (11s → ~4s cold → 0.24s hydrated launch) and the tune watchdog — ROADMAP
+  has them in full.
 - Adam's terminal `[http]`/`[live]` logs are the ground truth for perf and
   networking claims — ask him to paste them. That measure→fix→paste loop
   settled every perf question so far; keep using it.
 
 ## Immediate queue (user-approved order)
 
-1. **Track menus** (slate #5, S) — the Rust side already exists
-   (`mpv.rs`/`comp.rs`: `track_list`/`set_track`, selectAudio/selectSub).
-   FIRST verify the overlay actually receives the tracks push, then build
-   the TheaterOverlay menu UI.
+1. ~~**Track menus**~~ — SHIPPED v0.1.110 (see live state above).
 2. **Adult-hide by default** (slate #6, S) — `is_adult` + a conservative
    name-pattern fallback, riding the existing `hiddenCategories` pipeline
    in `source.ts`.

@@ -208,16 +208,29 @@ parity). Telly = live-TV quality bar. In value order:
 4. **First-run welcome + validated paste-anything add** (M) — kill the silent
    mock catalog; Test & Add with human error copy; pairs with Adam's
    onboarding Figma. Xtream-only at 1.0.
-5. **Audio/subtitle track menus** (S) — mpv.rs/comp.rs already implement
-   track_list/set_track + selectAudio/selectSub; only the overlay menu UI
-   remains (verify the overlay receives the tracks push).
+5. **Audio/subtitle track menus** (S) — ✅ SHIPPED v0.1.110 (see below).
 6. **Adult-hide by default** (S) — is_adult + conservative name fallback,
    riding the hiddenCategories pipeline.
 7. Stretch: channel-number chip + favorites drag-reorder (both S).
 Post-1.0 headliner: instant recording to disk. Cut line rationale: everything
 above removes a switch-blocker or rescues the first session.
 
-- **Stream resilience, frontend half (v0.1.102).** The tune watchdog lives in
+- **Audio/subtitle track menus (v0.1.110, frontend-only).** The Rust side was
+  already complete and verified by code-trace: comp.rs `spawn_time_watch`
+  polls mpv's track list every 500ms and posts `{type:'tracks'}` on change;
+  the injected bridge caches `lastTracks` and exposes `getTracks()`
+  (SYNCHRONOUS, like getLoading) / `onTracks()` / `selectAudio` / `selectSub`
+  (both String() their id; sid `"no"` = subs off). TheaterOverlay now
+  subscribes (seeded from the sync cache so a push that lands before React
+  mounts isn't lost) and renders glass popover menus in the theater controls:
+  audio (globe icon, shown only with ≥2 tracks) and subtitles (CC icon, shown
+  with ≥1 track, with an Off entry keyed off "no sub has selected"). Selection
+  is optimistic; the Rust 500ms poll re-pushes the real `selected` flags and
+  confirms/corrects. An open menu holds the auto-hide chrome awake; Escape and
+  picture-clicks close the menu before their usual actions; mini stays
+  menu-free. Verified 12/12 headless (`scripts/verify-overlay-tracks.mjs`,
+  mocked bridge — the tune-watchdog pattern) + screenshot. Still wants a
+  Windows eyeball on a real multi-audio channel. The tune watchdog lives in
   TheaterOverlay: `loading` flips false only on mpv's first frame, so a dead
   channel = loading stuck true. After 10s with no frame the overlay silently
   reloads the stream in place (goLive = re-loadfile, the live-edge mechanic),
