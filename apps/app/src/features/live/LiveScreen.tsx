@@ -29,6 +29,7 @@ import {
   tauriCompPopout,
   tauriSetFullscreen,
 } from "../../lib/tauri";
+import { httpGetText } from "../../lib/http";
 import { onPlaylistsChange } from "../settings/playlists";
 import { CompositionPlayer } from "./CompositionPlayer";
 import { splitTitleEmoji } from "./emoji";
@@ -458,22 +459,60 @@ export function LiveScreen() {
     );
   })();
 
-  // TEMP — timeshift verification probe. On an archive channel, plays a fixed
-  // slot from ~65 min ago (30-min window) via the catch-up URL, in each
-  // timezone candidate, so we can settle UTC-vs-local against the live panel.
-  // Logs the exact URL for the manual check. Delete once the hero Timeshift
-  // panel lands.
+  // TEMP — timeshift verification probe. On an archive channel it builds a
+  // catch-up URL for a fixed slot ~65 min ago (30-min window) in each timezone
+  // candidate and lets us, without the devtools console (which closes on
+  // channel load): Check the URL in-app (native-TLS GET → HTTP status/body
+  // type), Copy it for an external curl, or Play it. Delete once the hero
+  // Timeshift panel lands.
+  const [probeStatus, setProbeStatus] = useState<
+    Partial<Record<TimeshiftTz, string>>
+  >({});
+  // A start captured once per channel so the shown/copied/checked URL matches
+  // what Play uses (rather than drifting a minute each render).
+  const probeStart = useMemo(
+    () => new Date(Date.now() - 65 * 60_000),
+    // heroChannel drives it; the id is the stable identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [heroIdRef.current],
+  );
+  const probeUrl = useCallback(
+    (tz: TimeshiftTz) =>
+      heroIdRef.current
+        ? catchupStreamUrl(heroIdRef.current, probeStart, 30, tz)
+        : null,
+    [probeStart],
+  );
+  const checkTimeshift = useCallback(
+    async (tz: TimeshiftTz) => {
+      const url = probeUrl(tz);
+      if (!url) return;
+      setProbeStatus((s) => ({ ...s, [tz]: "checking…" }));
+      try {
+        const body = await httpGetText(url);
+        const head = body.slice(0, 60).replace(/\s+/g, " ").trim();
+        const kind = body.startsWith("#EXTM3U")
+          ? "HLS m3u8"
+          : /^\s*<(!doctype|html)/i.test(body)
+            ? "HTML (error page?)"
+            : `${body.length}B body`;
+        setProbeStatus((s) => ({ ...s, [tz]: `200 · ${kind} · ${head}` }));
+      } catch (e) {
+        setProbeStatus((s) => ({
+          ...s,
+          [tz]: e instanceof Error ? e.message : String(e),
+        }));
+      }
+    },
+    [probeUrl],
+  );
   const startTimeshiftProbe = useCallback(
     (tz: TimeshiftTz) => {
-      const id = heroIdRef.current;
-      if (!id) return;
-      const start = new Date(Date.now() - 65 * 60_000);
-      const url = catchupStreamUrl(id, start, 30, tz);
-      console.info(`[timeshift] ${tz} probe → ${url}`);
+      if (!heroIdRef.current) return;
       setPlaying(true);
-      setTimeshift({ start, durationMins: 30, tz, label: `−65m · ${tz}` });
+      setTimeshift({ start: probeStart, durationMins: 30, tz, label: `−65m · ${tz}` });
     },
-    [],
+    [probeStart],
   );
   const archiveDays = heroChannel?.archiveDays ?? 0;
   const timeshiftProbe =
@@ -482,22 +521,42 @@ export function LiveScreen() {
         <span className="hero__probe-title">
           ⏪ Timeshift test · {archiveDays}-day archive
         </span>
-        <div className="hero__probe-row">
-          <button
-            type="button"
-            className="hero__probe-btn"
-            onClick={() => startTimeshiftProbe("utc")}
-          >
-            Play −65m (UTC)
-          </button>
-          <button
-            type="button"
-            className="hero__probe-btn"
-            onClick={() => startTimeshiftProbe("local")}
-          >
-            Play −65m (local)
-          </button>
-        </div>
+        {(["utc", "local"] as TimeshiftTz[]).map((tz) => {
+          const url = probeUrl(tz);
+          return (
+            <div key={tz} className="hero__probe-tz">
+              <div className="hero__probe-row">
+                <span className="hero__probe-label">{tz}</span>
+                <button
+                  type="button"
+                  className="hero__probe-btn"
+                  onClick={() => checkTimeshift(tz)}
+                >
+                  Check
+                </button>
+                <button
+                  type="button"
+                  className="hero__probe-btn"
+                  onClick={() =>
+                    url && void navigator.clipboard?.writeText(url)
+                  }
+                >
+                  Copy
+                </button>
+                <button
+                  type="button"
+                  className="hero__probe-btn"
+                  onClick={() => startTimeshiftProbe(tz)}
+                >
+                  Play
+                </button>
+              </div>
+              {probeStatus[tz] && (
+                <span className="hero__probe-status">{probeStatus[tz]}</span>
+              )}
+            </div>
+          );
+        })}
         {timeshift && (
           <div className="hero__probe-row">
             <span className="hero__probe-active">Playing {timeshift.label}</span>

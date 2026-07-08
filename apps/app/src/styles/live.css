@@ -1021,7 +1021,7 @@
   flex-direction: column;
   gap: 10px;
   padding: 14px;
-  width: 240px;
+  width: 320px;
   border: 1px dashed var(--border);
   border-radius: 12px;
   background: var(--surface);
@@ -1031,14 +1031,26 @@
   font-weight: 600;
   color: var(--text-dim, #aaa);
 }
+.hero__probe-tz {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
 .hero__probe-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+}
+.hero__probe-label {
+  width: 40px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim, #aaa);
+  text-transform: uppercase;
 }
 .hero__probe-btn {
   flex: 1;
-  padding: 8px 10px;
+  padding: 7px 8px;
   font-size: 12px;
   color: var(--text, #fff);
   background: #ffffff10;
@@ -1048,6 +1060,13 @@
 }
 .hero__probe-btn:hover {
   background: #ffffff1e;
+}
+.hero__probe-status {
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text-dim, #bbb);
+  word-break: break-all;
+  font-family: ui-monospace, monospace;
 }
 .hero__probe-active {
   flex: 1;
