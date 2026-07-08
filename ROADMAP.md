@@ -163,6 +163,42 @@ and the agreed order of what's next. Update this file as sections land.
   auth → cat+streams → xmltv → parse), and the IPC-bridge streaming rework
   (now much less urgent since payloads are ~20× smaller).
 
+## Live TV 1.0 slate (persona discovery, 2 runs, 8 personas — full report in
+## the session scratchpad's LIVE_TV_1.0_FEATURES.md)
+
+Audience: desktop switchers from Windows IPTV clients + Stremio users, AND
+newcomers to both (first-five-minutes activation weighs as much as switcher
+parity). Telly = live-TV quality bar. In value order:
+1. **Ctrl+K channel search** (M) — unanimous 7/7 personas; wire the drawn
+   header icon into a fuzzy command palette; needs Adam's palette design.
+2. **Stream resilience + tune-in ident** (M) — ✅ frontend half SHIPPED
+   v0.1.102 (see below). Remaining: surface mpv end-file/error through
+   comp.rs for mid-play death detection — batch with the Windows native pass.
+3. **In-player zapping + last-channel + now/next OSD** (M) — closes the
+   fullscreen dead end; core zap + toast only (mini-guide strip post-1.0).
+4. **First-run welcome + validated paste-anything add** (M) — kill the silent
+   mock catalog; Test & Add with human error copy; pairs with Adam's
+   onboarding Figma. Xtream-only at 1.0.
+5. **Audio/subtitle track menus** (S) — mpv.rs/comp.rs already implement
+   track_list/set_track + selectAudio/selectSub; only the overlay menu UI
+   remains (verify the overlay receives the tracks push).
+6. **Adult-hide by default** (S) — is_adult + conservative name fallback,
+   riding the hiddenCategories pipeline.
+7. Stretch: channel-number chip + favorites drag-reorder (both S).
+Post-1.0 headliner: instant recording to disk. Cut line rationale: everything
+above removes a switch-blocker or rescues the first session.
+
+- **Stream resilience, frontend half (v0.1.102).** The tune watchdog lives in
+  TheaterOverlay: `loading` flips false only on mpv's first frame, so a dead
+  channel = loading stuck true. After 10s with no frame the overlay silently
+  reloads the stream in place (goLive = re-loadfile, the live-edge mechanic),
+  twice with the loader-watch still armed; out of retries → an honest "This
+  channel isn't responding — it's the stream, not you" card with Retry. The
+  bare "loading" pulse became a branded tune ident (logo + channel +
+  programme). Verified headless with a mocked overlayApi bridge: 8/8 asserts
+  across the full escalation (real 10s timers). Mid-play death detection
+  still needs the comp.rs end-file event (native pass).
+
 ## Next steps, in order
 
 1. **Native player Phase 3** — popout/PiP (`comp_popout` + `popout_pos`/

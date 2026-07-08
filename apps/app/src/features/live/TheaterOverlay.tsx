@@ -103,6 +103,52 @@ export function TheaterOverlay() {
     };
   }, []);
 
+  /* Tune watchdog. `loading` flips false exactly once, on mpv's FIRST FRAME
+   * (comp.rs spawn_loader_watch) — so a dead channel is `loading` stuck true
+   * forever, which used to render as an eternal "loading" pulse. Instead:
+   * after STALL_MS with no frame, silently reload the stream in place
+   * (goLive = re-loadfile of the same URL, the proven live-edge mechanic) up
+   * to TUNE_RETRIES times; if a retry lands a frame the still-armed loader
+   * watch clears `loading` and the chain disarms. Out of retries → an honest
+   * "isn't responding" card with a manual Retry. A channel switch tears this
+   * whole overlay down, so state resets naturally; user-initiated goLive
+   * while playing never arms it (`loading` is already false). Mid-play death
+   * detection needs an mpv end-file signal from comp.rs — batched with the
+   * Windows native pass. */
+  const TUNE_RETRIES = 2;
+  const STALL_MS = 10_000;
+  const [tune, setTune] = useState<"waiting" | "retrying" | "dead">("waiting");
+  const [tuneAttempt, setTuneAttempt] = useState(0); // manual Retry re-arms
+  const retriesRef = useRef(0);
+  useEffect(() => {
+    if (!loading) {
+      retriesRef.current = 0;
+      setTune("waiting");
+      return;
+    }
+    let id = 0;
+    const arm = () => {
+      id = window.setTimeout(() => {
+        if (retriesRef.current < TUNE_RETRIES) {
+          retriesRef.current += 1;
+          setTune("retrying");
+          api()?.goLive?.();
+          arm();
+        } else {
+          setTune("dead");
+        }
+      }, STALL_MS);
+    };
+    arm();
+    return () => window.clearTimeout(id);
+  }, [loading, tuneAttempt]);
+  const retryTune = useCallback(() => {
+    retriesRef.current = 0;
+    setTune("retrying");
+    api()?.goLive?.();
+    setTuneAttempt((n) => n + 1); // re-arms the watchdog chain
+  }, []);
+
   // Re-seed the favorite state whenever meta changes (open / channel switch).
   useEffect(() => {
     setFav(!!meta?.favorite);
@@ -275,7 +321,9 @@ export function TheaterOverlay() {
         data-interactive
         onClick={() => api()?.expand?.()}
       >
-        {loading && <LoadingGlyph />}
+        {loading && (
+          <TuneCard meta={meta} phase={tune} onRetry={retryTune} compact />
+        )}
         <button
           type="button"
           className="overlay__btn overlay__play"
@@ -318,7 +366,7 @@ export function TheaterOverlay() {
         }
       }}
     >
-      {loading && <LoadingGlyph />}
+      {loading && <TuneCard meta={meta} phase={tune} onRetry={retryTune} />}
 
       <div className="theater-topscrim" aria-hidden />
 
@@ -478,11 +526,52 @@ export function TheaterOverlay() {
   );
 }
 
-/** Centered pulsing "loading" while a source buffers. */
-function LoadingGlyph() {
+/** The tune-in surface: a branded ident (logo + channel + programme) instead
+ * of a bare pulse over black, with the watchdog's escalation — quiet loading,
+ * "reconnecting" while it self-heals, and an honest isn't-responding card
+ * (with Retry) when the channel is dead. Compact variant for the mini box. */
+function TuneCard({
+  meta,
+  phase,
+  onRetry,
+  compact = false,
+}: {
+  meta: TheaterMeta | null;
+  phase: "waiting" | "retrying" | "dead";
+  onRetry: () => void;
+  compact?: boolean;
+}) {
   return (
-    <div className="comp-loading" aria-live="polite">
-      <span className="comp-loading__text">loading</span>
+    <div
+      className={"tune" + (compact ? " tune--compact" : "")}
+      aria-live="polite"
+    >
+      <div className="tune__ident">
+        {meta?.logo && (
+          <img className="tune__logo" src={meta.logo} alt="" aria-hidden />
+        )}
+        {meta?.channelName && (
+          <span className="tune__channel">{meta.channelName}</span>
+        )}
+        {!compact && meta?.title && (
+          <span className="tune__title">{meta.title}</span>
+        )}
+      </div>
+      {phase === "dead" ? (
+        <div className="tune__dead" data-interactive>
+          <p className="tune__dead-msg">
+            This channel isn&rsquo;t responding — it&rsquo;s the stream, not
+            you.
+          </p>
+          <button type="button" className="tune__retry" onClick={onRetry}>
+            Retry
+          </button>
+        </div>
+      ) : (
+        <span className="tune__status">
+          {phase === "retrying" ? "reconnecting" : "loading"}
+        </span>
+      )}
     </div>
   );
 }
