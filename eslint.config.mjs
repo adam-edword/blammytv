@@ -45,9 +45,9 @@ export default tseslint.config(
     },
   },
 
-  // Node ESM scripts (build helpers, this config).
+  // Node ESM scripts (build helpers, this config, the fake test panels).
   {
-    files: ["*.mjs"],
+    files: ["*.mjs", "scripts/**/*.mjs"],
     languageOptions: { globals: { ...globals.node } },
   },
 );

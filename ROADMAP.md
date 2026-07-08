@@ -3,7 +3,7 @@
 Working state of the greenfield rebuild (branch `claude/blammytv-rebuild-xclzto`)
 and the agreed order of what's next. Update this file as sections land.
 
-## Where we are (v0.1.72)
+## Where we are (v0.1.109)
 
 - **Settings panel: complete.** Playlists (Xtream sub-tabs, folder visibility
   editor), AIOStreams (manifest + hero-slider source chips), Customize
@@ -185,8 +185,15 @@ and the agreed order of what's next. Update this file as sections land.
   Remaining lever if ever needed: Rust-side windowed xmltv parse (ships only
   the −1h..+12h slice, kills the 95MB DOMParser pass).
 
-## Live TV 1.0 slate (persona discovery, 2 runs, 8 personas — full report in
-## the session scratchpad's LIVE_TV_1.0_FEATURES.md)
+- **Brand (v0.1.107–109).** The gradient-ring mark is the app identity:
+  `public/logo.png`/`logo.svg` in the header + the full `src-tauri/icons`
+  set, and `build.rs` declares `rerun-if-changed=icons/icon.ico` so an icon
+  swap re-embeds without a clean build. The mark's center is transparent by
+  design (reads perfectly on the dark header); if the OS taskbar icon ever
+  needs a filled center, that's a deliberate, separate change.
+
+## Live TV 1.0 slate (persona discovery, 2 runs, 8 personas — this section
+## is the surviving summary; the scratchpad report died with its container)
 
 Audience: desktop switchers from Windows IPTV clients + Stremio users, AND
 newcomers to both (first-five-minutes activation weighs as much as switcher
@@ -257,7 +264,8 @@ when that box is reworked for mpv.
 - **Verify with data before shipping:** Playwright (`playwright-core` in the
   scratchpad + `/opt/pw-browsers/chromium`) for geometry/behavior asserts and
   scroll benchmarks (compare against a cloneNode of the DOM as the perf
-  ceiling); headless screenshots for visuals; then gates:
+  ceiling); headless screenshots for visuals; the fake Xtream panels live in
+  `scripts/` (wiring-scale and perf-scale); then gates:
   typecheck / lint / test / build.
 - **Windows is the target, Linux is the sandbox:** no case-sibling filenames
   (guide.ts vs Guide.tsx broke the Windows build); compositor/raster bugs may
