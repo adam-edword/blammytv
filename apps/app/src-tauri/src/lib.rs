@@ -208,6 +208,14 @@ fn http_client() -> &'static reqwest::Client {
 
 #[tauri::command]
 async fn http_get(url: String) -> Result<String, String> {
+    // Load-time diagnostics, printed to the `tauri dev` terminal (devtools
+    // close on channel load, the terminal doesn't). Headers-vs-body split
+    // separates connect/TTFB from download+decode; the frontend's own [live]
+    // timer wraps this whole invoke, so (frontend − total here) = IPC-bridge
+    // cost of hauling the decoded string into the webview. URL is logged
+    // without its query string — credentials live there.
+    let short = url.split('?').next().unwrap_or(&url).to_string();
+    let t0 = std::time::Instant::now();
     let res = http_client()
         .get(&url)
         // Send the headers a browser would. Some hosts (Cloudflare's Browser
@@ -223,7 +231,24 @@ async fn http_get(url: String) -> Result<String, String> {
     if !res.status().is_success() {
         return Err(format!("HTTP {}", res.status().as_u16()));
     }
-    res.text().await.map_err(|e| e.to_string())
+    let t_headers = t0.elapsed().as_millis();
+    // Some(len) = the raw Content-Length reqwest saw. When the server
+    // compressed the response, reqwest strips it during transparent decode,
+    // so None here ≈ "compression was applied".
+    let clen = res.content_length();
+    let body = res.text().await.map_err(|e| e.to_string())?;
+    println!(
+        "[http] {} — headers {}ms, total {}ms, body {:.1}MB (content-length: {})",
+        short,
+        t_headers,
+        t0.elapsed().as_millis(),
+        body.len() as f64 / 1e6,
+        match clen {
+            Some(n) => format!("{:.1}MB on the wire → NOT compressed", n as f64 / 1e6),
+            None => "absent (compressed, or chunked)".to_string(),
+        },
+    );
+    Ok(body)
 }
 
 // Self-update: check GitHub Releases (see tauri.conf.json > plugins.updater) for
