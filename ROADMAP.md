@@ -130,6 +130,24 @@ and the agreed order of what's next. Update this file as sections land.
   `.hero__preview` would trap the `position:fixed` theater box; header is
   covered by the z-40 backdrop in theater.
 
+- **Catch-up / timeshift — groundwork landed, feature SHELVED (v0.1.97).**
+  Spiked it because a provider's `get_live_streams` flags catch-up per stream
+  (`tv_archive` + `tv_archive_duration` days). Kept, tested, ready: those
+  fields parse into `Channel.archiveDays` (`source.archiveDaysOf`, string-
+  coerced/guarded), and `stream.ts#catchupStreamUrl` builds both standard
+  Xtream timeshift URLs (path + php) with the server-tz question isolated in
+  `formatTimeshiftStamp`. Shelved because the **test provider advertises
+  catch-up but doesn't serve it** — proven four ways (probe `200 · 0B` at
+  every past offset/scheme; mpv perma-load; M3U declares no `catchup-source`;
+  and the reference app **Desktop Telly** black-screens on catch-up too, via a
+  provider-native AES-obfuscated `/live/play/<token>/<id>` URL). The EPG loads
+  past *listings*, but the *video* archive isn't there. Full finish-steps live
+  in the `stream.ts` catch-up header comment. **To resume:** point BlammyTV at
+  a provider that genuinely serves standard timeshift, settle the tz default
+  against it, then wire a Timeshift panel in the right-of-hero space (past cell
+  → `catchupStreamUrl` → `CompositionPlayer`; LIVE button already exits to the
+  live edge).
+
 ## Next steps, in order
 
 1. **Native player Phase 3** — popout/PiP (`comp_popout` + `popout_pos`/

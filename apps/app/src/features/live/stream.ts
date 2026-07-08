@@ -32,10 +32,46 @@ export function channelStreamUrl(channelId: string): string | null {
   return `${base}/live/${u}/${p}/${streamId}.${ext}`;
 }
 
-/** Which wall-clock the panel expects in a timeshift URL. This is THE open
- * question the spike exists to answer: panels disagree on whether the start
- * timestamp is the server's local time or UTC, and it can only be settled
- * against a live server. Isolated here so flipping it is a one-line change. */
+/* ---------------------------------------------------------------------------
+ * CATCH-UP / TIMESHIFT — SHELVED, groundwork kept (see also model.Channel
+ * .archiveDays and source.archiveDaysOf).
+ *
+ * What's proven and ready:
+ *   - Providers flag catch-up per stream via get_live_streams'
+ *     `tv_archive` (0/1) + `tv_archive_duration` (days, string-typed). We parse
+ *     these into Channel.archiveDays.
+ *   - The builder below produces the two standard Xtream/XUI timeshift URLs.
+ *
+ * Why it's shelved (verified 2026-07, don't re-derive from scratch): the test
+ * provider advertises `tv_archive:1` on ~383 UK channels but does NOT serve
+ * playable archive. Confirmed four ways — our probe returned `200 · 0B` at
+ * every past offset (−65m … −2d) and both schemes; mpv perma-loaded; the M3U
+ * declared no `catchup-source` anywhere; and the reference app (Desktop Telly)
+ * got a BLACK SCREEN on catch-up too, using a provider-native, AES-obfuscated
+ * `/live/play/<encrypted-token>/<id>` URL (not constructible from creds). The
+ * EPG loads past *listings* (metadata) but the *video* archive isn't there.
+ *
+ * To finish the feature when a provider that genuinely serves catch-up is
+ * available:
+ *   1. Verify that provider serves standard timeshift (curl the builder's URL
+ *      → expect video bytes, not an empty 200). If it uses an encrypted-token
+ *      scheme like the test provider, this builder won't help — that needs
+ *      separate reverse-engineering and probably isn't worth it.
+ *   2. Settle the TimeshiftTz question against it (see below) — the ONE thing
+ *      only a live archive can answer. Flip the default once.
+ *   3. Wire the UI: a Timeshift panel in the right-of-hero space. Clicking a
+ *      past programme on an `archiveDays > 0` channel calls this builder
+ *      (start = programme.start, durationMins = programme length) and feeds the
+ *      URL to CompositionPlayer, exactly as the live path does. The LIVE button
+ *      already returns to the live edge, so that's the "exit catch-up" action.
+ *      Clamp requests away from the last few minutes (the newest segment may
+ *      not be written yet).
+ * ------------------------------------------------------------------------- */
+
+/** Which wall-clock the panel expects in a timeshift URL — the one thing only
+ * a live, real archive can settle: panels disagree on whether the start
+ * timestamp is the server's local time or UTC. Isolated here so flipping the
+ * default is a one-line change once verified. */
 export type TimeshiftTz = "utc" | "local";
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -63,8 +99,8 @@ export function formatTimeshiftStamp(at: Date, tz: TimeshiftTz): string {
   return `${y}-${pad(mo)}-${pad(d)}:${pad(h)}-${pad(mi)}`;
 }
 
-/** The two timeshift URL schemes Xtream/XUI panels ship. Which one a given
- * panel honors is exactly what the spike is probing:
+/** The two standard timeshift URL schemes Xtream/XUI panels ship. Which one a
+ * given panel honors varies, so the builder supports both:
  *   - "path": {server}/timeshift/{u}/{p}/{mins}/{stamp}/{id}.{ext}
  *   - "php":  {server}/streaming/timeshift.php?username&password&stream&start&duration
  */

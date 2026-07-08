@@ -29,7 +29,6 @@ import {
   tauriCompPopout,
   tauriSetFullscreen,
 } from "../../lib/tauri";
-import { httpGetText } from "../../lib/http";
 import { onPlaylistsChange } from "../settings/playlists";
 import { CompositionPlayer } from "./CompositionPlayer";
 import { splitTitleEmoji } from "./emoji";
@@ -39,13 +38,7 @@ import { Hero } from "./Hero";
 import type { Channel, LiveData, Programme } from "./model";
 import { loadRecents, recordRecent } from "./recents";
 import { loadLive, peekLive } from "./source";
-import {
-  buildMeta,
-  catchupStreamUrl,
-  channelStreamUrl,
-  type TimeshiftFormat,
-  type TimeshiftTz,
-} from "./stream";
+import { buildMeta, channelStreamUrl } from "./stream";
 
 type Mode = "playlist" | "favorites" | "recents";
 
@@ -194,17 +187,6 @@ export function LiveScreen() {
     channel: Channel;
     programme: Programme | null;
   } | null>(null);
-  // TEMP — timeshift verification spike. When set, the player streams a
-  // catch-up URL instead of the live one. Exists only to prove the timeshift
-  // format + timezone against a real panel; the real UX is the hero
-  // Timeshift panel Adam is designing. Remove with the probe below.
-  const [timeshift, setTimeshift] = useState<{
-    start: Date;
-    durationMins: number;
-    tz: TimeshiftTz;
-    format: TimeshiftFormat;
-    label: string;
-  } | null>(null);
 
   // The live catalog: real Xtream playlists when any are configured, the
   // bundled mock otherwise. Loaded once up front (the old build's proven
@@ -286,7 +268,6 @@ export function LiveScreen() {
   const selectChannel = useCallback((id: string) => {
     setChannelId(id);
     setPlaying(true); // auto-play on select
-    setTimeshift(null); // a fresh channel drops out of any catch-up probe
     setRecents((list) => recordRecent(list, id));
   }, []);
   // Leave fullscreen fully — player state + the OS window together.
@@ -431,19 +412,10 @@ export function LiveScreen() {
 
   // The native player streams the COMMITTED channel (heroChannel), never the
   // transient hover preview. The URL is rebuilt from the channel id; a null
-  // url (mock catalog, or a browser build) means no player mounts. A live
-  // timeshift probe swaps in the catch-up URL for the same channel.
+  // url (mock catalog, or a browser build) means no player mounts.
   const playUrl =
     isTauri() && playing && heroChannel
-      ? timeshift
-        ? catchupStreamUrl(
-            heroChannel.id,
-            timeshift.start,
-            timeshift.durationMins,
-            timeshift.tz,
-            timeshift.format,
-          )
-        : channelStreamUrl(heroChannel.id)
+      ? channelStreamUrl(heroChannel.id)
       : null;
   playUrlRef.current = playUrl;
   heroIdRef.current = heroChannel?.id;
@@ -461,156 +433,6 @@ export function LiveScreen() {
       favorites.includes(heroChannel.id),
     );
   })();
-
-  // TEMP — timeshift verification probe. On an archive channel it builds
-  // catch-up URLs for a fixed slot ~65 min ago (30-min window) and lets us,
-  // without the devtools console (which closes on channel load): Check a URL
-  // in-app (native-TLS GET → HTTP status / body size / body type), Copy it for
-  // an external curl, or Play it. A LIVE control calibrates what a *working*
-  // stream returns through the same Check, so an empty timeshift 200 is
-  // interpretable. Two formats (path vs php) probe which scheme the panel
-  // honors. Delete once the hero Timeshift panel lands.
-  const [probeStatus, setProbeStatus] = useState<Record<string, string>>({});
-  // "now" captured once per channel so the swept URLs are stable across
-  // renders (Check and Play hit the same instant).
-  const probeNow = useMemo(
-    () => Date.now(),
-    // heroChannel drives it; the id is the stable identity.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [heroIdRef.current],
-  );
-  interface ProbeTarget {
-    key: string;
-    label: string;
-    url: string | null;
-    play?: () => void;
-  }
-  // A TIME sweep, not a format sweep: path & php both returned 200·0B at −65m
-  // for both timezones, and the M3U declares no catchup template. The open
-  // question is whether ANY past slot has archive data (the most recent hour
-  // is often not yet written). So probe progressively deeper past offsets; if
-  // a deeper one returns a real stream ("error decoding response body", like
-  // the live control) we know the archive is real and −65m was just too fresh.
-  const OFFSETS: Array<{ label: string; mins: number }> = [
-    { label: "−65m", mins: 65 },
-    { label: "−3h", mins: 180 },
-    { label: "−20h", mins: 1200 },
-    { label: "−2d", mins: 2880 },
-  ];
-  const probeTargets: ProbeTarget[] = (() => {
-    const id = heroIdRef.current;
-    if (!id) return [];
-    // Path scheme + UTC is enough to answer "is data reachable": a few hours of
-    // server-tz skew still lands any of these inside a 3-day archive.
-    const sweep = (o: { label: string; mins: number }): ProbeTarget => {
-      const start = new Date(probeNow - o.mins * 60_000);
-      return {
-        key: `sweep-${o.mins}`,
-        label: `path · ${o.label}`,
-        url: catchupStreamUrl(id, start, 30, "utc", "path"),
-        play: () => {
-          setPlaying(true);
-          setTimeshift({
-            start,
-            durationMins: 30,
-            tz: "utc",
-            format: "path",
-            label: `path · ${o.label}`,
-          });
-        },
-      };
-    };
-    return [
-      // Control: the ordinary live URL, so we know what a working stream looks
-      // like through this same Check (expect "error decoding response body").
-      {
-        key: "live",
-        label: "live (control)",
-        url: channelStreamUrl(id),
-        play: () => {
-          setTimeshift(null);
-          setPlaying(true);
-        },
-      },
-      ...OFFSETS.map(sweep),
-    ];
-  })();
-  const checkProbe = useCallback(async (key: string, url: string | null) => {
-    if (!url) return;
-    setProbeStatus((s) => ({ ...s, [key]: "checking…" }));
-    try {
-      const body = await httpGetText(url);
-      const head = body.slice(0, 48).replace(/\s+/g, " ").trim();
-      const kind = body.startsWith("#EXTM3U")
-        ? "HLS m3u8"
-        : /^\s*<(!doctype|html)/i.test(body)
-          ? "HTML (error page?)"
-          : "body";
-      setProbeStatus((s) => ({
-        ...s,
-        [key]: `200 · ${body.length}B · ${kind}${head ? ` · ${head}` : ""}`,
-      }));
-    } catch (e) {
-      setProbeStatus((s) => ({
-        ...s,
-        [key]: e instanceof Error ? e.message : String(e),
-      }));
-    }
-  }, []);
-  const archiveDays = heroChannel?.archiveDays ?? 0;
-  const timeshiftProbe =
-    isTauri() && archiveDays > 0 ? (
-      <div className="hero__probe">
-        <span className="hero__probe-title">
-          ⏪ Timeshift test · {archiveDays}-day archive
-        </span>
-        {probeTargets.map((t) => (
-          <div key={t.key} className="hero__probe-tz">
-            <div className="hero__probe-row">
-              <span className="hero__probe-label">{t.label}</span>
-              <button
-                type="button"
-                className="hero__probe-btn"
-                onClick={() => checkProbe(t.key, t.url)}
-              >
-                Check
-              </button>
-              <button
-                type="button"
-                className="hero__probe-btn"
-                onClick={() =>
-                  t.url && void navigator.clipboard?.writeText(t.url)
-                }
-              >
-                Copy
-              </button>
-              <button
-                type="button"
-                className="hero__probe-btn"
-                onClick={t.play}
-              >
-                Play
-              </button>
-            </div>
-            {probeStatus[t.key] && (
-              <span className="hero__probe-status">{probeStatus[t.key]}</span>
-            )}
-          </div>
-        ))}
-        {timeshift && (
-          <div className="hero__probe-row">
-            <span className="hero__probe-active">Playing {timeshift.label}</span>
-            <button
-              type="button"
-              className="hero__probe-btn"
-              onClick={() => setTimeshift(null)}
-            >
-              Back to live
-            </button>
-          </div>
-        )}
-      </div>
-    ) : null;
 
   return (
     <div
@@ -805,7 +627,6 @@ export function LiveScreen() {
               channel={shownChannel}
               programmes={shownProgrammes}
               programme={preview?.programme ?? undefined}
-              probe={timeshiftProbe}
             />
             {/* Headless: opens mpv into #player-slot and follows the box.
              * Only in Tauri with a real stream URL, so browser/mock is

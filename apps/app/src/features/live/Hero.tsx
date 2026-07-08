@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { formatClock } from "../../lib/time";
 import {
   loadClockFormat,
@@ -15,14 +15,10 @@ export function Hero({
   channel,
   programmes,
   programme,
-  probe,
 }: {
   channel: Channel;
   programmes: Programme[];
   programme?: Programme;
-  /** TEMP — timeshift verification probe, rendered in the right-of-hero
-   * space (the future Timeshift panel). Null on non-archive channels. */
-  probe?: ReactNode;
 }) {
   // Programme progress creeps, so re-render on a slow tick.
   const [now, setNow] = useState(() => new Date());
@@ -84,8 +80,6 @@ export function Hero({
           </div>
         </div>
       </div>
-
-      {probe}
     </section>
   );
 }
