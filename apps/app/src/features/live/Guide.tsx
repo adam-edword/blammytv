@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { load, save } from "../../lib/storage";
@@ -226,6 +227,19 @@ export const Guide = memo(function Guide({
     } catch {
       /* not captured */
     }
+  };
+  // Keyboard-operable resize: arrows nudge, Home/End jump to the clamps. The
+  // separator carries aria-valuenow/min/max so assistive tech reads the width.
+  const RESIZE_STEP = 24;
+  const onResizeKey = (e: ReactKeyboardEvent) => {
+    let next: number;
+    if (e.key === "ArrowLeft") next = cardW - RESIZE_STEP;
+    else if (e.key === "ArrowRight") next = cardW + RESIZE_STEP;
+    else if (e.key === "Home") next = CARD_MIN;
+    else if (e.key === "End") next = CARD_MAX;
+    else return;
+    e.preventDefault();
+    setCardW(Math.min(CARD_MAX, Math.max(CARD_MIN, next)));
   };
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -483,6 +497,12 @@ export const Guide = memo(function Guide({
                 <button
                   type="button"
                   className="guide__card"
+                  aria-current={selected ? "true" : undefined}
+                  aria-label={
+                    channel.quality
+                      ? `${channel.name}, ${channel.quality}`
+                      : channel.name
+                  }
                   onClick={() => onSelect(channel.id)}
                 >
                   <CardLogo key={channel.logo ?? ""} channel={channel} />
@@ -528,6 +548,7 @@ export const Guide = memo(function Guide({
                     type="button"
                     className="guide__cell guide__cell--blank"
                     style={{ left: 0, width: laneW - CELL_GAP }}
+                    aria-label={`${channel.name}, no programme information`}
                     onClick={() => onSelect(channel.id)}
                     onMouseEnter={() =>
                       onPreview({ channel, programme: null })
@@ -551,6 +572,7 @@ export const Guide = memo(function Guide({
                       className={cellClass(b)}
                       style={{ left: b.left, width: b.width }}
                       title={b.p.title}
+                      aria-label={`${channel.name}, ${b.p.title}, ${range(b.p.start, b.p.end)}${b.live ? ", on now" : ""}`}
                       onClick={() => onSelect(channel.id)}
                       onMouseEnter={() =>
                         onPreview({ channel, programme: b.p })
@@ -584,10 +606,15 @@ export const Guide = memo(function Guide({
         role="separator"
         aria-orientation="vertical"
         aria-label="Resize channel column"
+        aria-valuemin={CARD_MIN}
+        aria-valuemax={CARD_MAX}
+        aria-valuenow={Math.round(cardW)}
+        tabIndex={0}
         title="Drag to resize · double-click to reset"
         onPointerDown={onResizeDown}
         onPointerMove={onResizeMove}
         onPointerUp={onResizeUp}
+        onKeyDown={onResizeKey}
         onDoubleClick={() => setCardW(CARD_MIN)}
       />
     </div>

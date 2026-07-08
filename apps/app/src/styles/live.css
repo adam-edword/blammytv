@@ -653,6 +653,10 @@
 }
 
 .guide__channel:hover .guide__fav,
+/* Keyboard parity: reveal the star when anything in the row (its card or the
+ * star itself) has focus, so it's reachable without a mouse. */
+.guide__channel:focus-within .guide__fav,
+.guide__fav:focus-visible,
 .guide__fav--on {
   opacity: 1;
 }
@@ -1009,4 +1013,25 @@
 .hero__bar-fill {
   height: 100%;
   background: var(--accent);
+}
+
+/* ---- Keyboard focus (a11y batch) ----
+ * One themed ring for every interactive Live control. :focus-visible shows it
+ * for keyboard / assistive-tech users without ringing on plain mouse clicks.
+ * Accent-derived so it lands in both dark and light themes. */
+.mode-rail__chip:focus-visible,
+.live-collapse:focus-visible,
+.live-group:focus-visible,
+.live-folder:focus-visible,
+.guide__card:focus-visible,
+.guide__fav:focus-visible,
+.guide__cell:focus-visible,
+.live-status__retry:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+/* The resize separator is a hairline strip; inset the ring so it stays on it. */
+.guide-resize:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
 }

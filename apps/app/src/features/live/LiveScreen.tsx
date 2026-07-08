@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import {
   ChevronIcon,
@@ -75,6 +76,27 @@ function ModeRail({
   const railRef = useRef<HTMLDivElement>(null);
   const [ind, setInd] = useState({ x: 0, w: 0, snap: true });
 
+  // Roving-tabindex arrow-key navigation (WAI-ARIA tablist): only the active
+  // tab is in the tab order; arrows move selection AND focus, Home/End jump to
+  // the ends.
+  const onKey = (e: ReactKeyboardEvent<HTMLButtonElement>) => {
+    const i = MODES.findIndex((m) => m.key === mode);
+    let next: number;
+    if (e.key === "ArrowRight" || e.key === "ArrowDown")
+      next = (i + 1) % MODES.length;
+    else if (e.key === "ArrowLeft" || e.key === "ArrowUp")
+      next = (i - 1 + MODES.length) % MODES.length;
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = MODES.length - 1;
+    else return;
+    e.preventDefault();
+    const key = MODES[next].key;
+    onChange(key);
+    railRef.current
+      ?.querySelector<HTMLButtonElement>(`[data-mode="${key}"]`)
+      ?.focus();
+  };
+
   useLayoutEffect(() => {
     const rail = railRef.current;
     if (!rail) return;
@@ -130,10 +152,12 @@ function ModeRail({
             data-mode={m.key}
             aria-selected={active}
             aria-label={m.label}
+            tabIndex={active ? 0 : -1}
             className={
               "mode-rail__chip" + (active ? " mode-rail__chip--active" : "")
             }
             onClick={() => onChange(m.key)}
+            onKeyDown={onKey}
           >
             <ModeIcon mode={m.key} active={active} />
             {/* All three labels stack in one grid cell so the active pill
@@ -509,6 +533,7 @@ export function LiveScreen() {
                             key={f.id}
                             type="button"
                             aria-label={label}
+                            aria-current={active ? "true" : undefined}
                             // Expanded, long names fade at the edge — a native
                             // tooltip makes the full name recoverable. Folded,
                             // the custom .live-tip owns that, so skip it.
@@ -580,12 +605,15 @@ export function LiveScreen() {
 
       <div className="live-main">
         {live.status === "loading" && (
-          <div className="live-status">
+          <div className="live-status" role="status" aria-live="polite">
             <p>{stage ?? "Loading channels…"}</p>
           </div>
         )}
         {live.status === "error" && (
-          <div className="live-status live-status--error">
+          <div
+            className="live-status live-status--error"
+            role="alert"
+          >
             <p>
               Couldn't load your playlists — {live.message}. Check them in
               Settings → Playlists.
@@ -602,7 +630,7 @@ export function LiveScreen() {
         {ready &&
           !shownChannel &&
           (ready.groups.find((g) => g.error) ? (
-            <div className="live-status live-status--error">
+            <div className="live-status live-status--error" role="alert">
               <p>
                 Couldn't load your playlists —{" "}
                 {ready.groups.find((g) => g.error)!.error}. Check them in
@@ -617,7 +645,7 @@ export function LiveScreen() {
               </button>
             </div>
           ) : (
-            <div className="live-status">
+            <div className="live-status" role="status">
               <p>No channels here yet. Add a playlist in Settings → Playlists.</p>
             </div>
           ))}

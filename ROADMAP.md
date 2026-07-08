@@ -163,16 +163,17 @@ M3U + Stalker sources, timeshift/track-selection/stats in the player overlay,
 programme-level selection
 in the hero.
 
-Deferred **Live-tab accessibility pass** (one deliberate batch, not piecemeal —
-from the v0.1.71 polish audit): keyboard-operable channel-column resize
-separator (focus + arrow keys + `aria-valuenow`); roving-focus + arrow-key
+**Live-tab accessibility pass — LANDED (v0.1.98).** The batch from the v0.1.71
+audit: keyboard-operable channel-column resize separator (`role=separator` +
+`tabindex` + arrow/Home/End + `aria-value*`); roving-tabindex + arrow-key
 navigation on the mode-rail tablist; accessible names on guide cells
-(channel + programme + time); reveal the favourites star on keyboard focus;
-a themed `:focus-visible` treatment across the Live controls; live-region
-announcements for loading/error status; `aria-current` for the active folder
-and the selected channel. Also deferred until the player lands: the hero
-preview's hover bezel uses raw `#fff` (off-token, invisible in light theme) —
-fix when that box is reworked for mpv.
+(channel + programme + time + "on now") and channel cards; favourites star
+revealed on `:focus-within`/`:focus-visible`; a themed `:focus-visible` ring
+across the Live controls; `role=status`/`role=alert` live regions on
+loading/error; `aria-current` for the active folder and the selected channel.
+Verified headless (8/8 Playwright a11y asserts). Still deferred until the
+player lands: the hero preview's edge uses raw `#ffffff10` (off-token) — fix
+when that box is reworked for mpv.
 
 ## Working habits (so a fresh session doesn't relearn them)
 
