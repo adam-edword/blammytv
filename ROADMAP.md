@@ -170,6 +170,20 @@ and the agreed order of what's next. Update this file as sections land.
   levers in order: measure the frontend-vs-Rust delta from the [http] +
   [live] logs (that delta = IPC + DOMParser), then the byte-channel /
   stream-to-disk IPC rework, then overlapping xmltv with cat+streams.
+  **All landed (v0.1.105-106), measured on Windows: 11s → ~4s** via raw-bytes
+  IPC (tauri::ipc::Response — no more JSON-escaping the 95MB body; verified
+  against the locked tauri 2.11.3 source) + xmltv download overlapped with
+  cat+streams. Then **disk hydration (v0.1.106)**: the parsed catalog
+  persists to IndexedDB (structured clone — Maps/Dates native, one record,
+  keyed by the playlist-config fingerprint, 8h max age) and a fresh launch
+  hydrates instantly while a background revalidation swaps fresh data in via
+  onLiveRefreshed (same silent path as playlist edits). Verified against the
+  20k-channel fake panel: cold 2.9s → **hydrated reload 0.24s**, with
+  revalidation confirmed running behind it. Single-flight note: the slot is
+  claimed SYNCHRONOUSLY before the async disk probe — an await between the
+  join-check and the claim re-opens the StrictMode double-load race.
+  Remaining lever if ever needed: Rust-side windowed xmltv parse (ships only
+  the −1h..+12h slice, kills the 95MB DOMParser pass).
 
 ## Live TV 1.0 slate (persona discovery, 2 runs, 8 personas — full report in
 ## the session scratchpad's LIVE_TV_1.0_FEATURES.md)

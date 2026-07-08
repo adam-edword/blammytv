@@ -38,7 +38,7 @@ import { Guide } from "./Guide";
 import { Hero } from "./Hero";
 import type { Channel, LiveData, Programme } from "./model";
 import { loadRecents, recordRecent } from "./recents";
-import { loadLive, peekLive } from "./source";
+import { loadLive, onLiveRefreshed, peekLive } from "./source";
 import { buildMeta, channelStreamUrl } from "./stream";
 
 type Mode = "playlist" | "favorites" | "recents";
@@ -252,6 +252,12 @@ export function LiveScreen() {
     // Mounted warm from the cache: nothing to fetch.
     if (liveRef.current.status !== "ready") refresh(false);
   }, [refresh]);
+  // Disk-hydrated launches revalidate in the background; when the fresh data
+  // lands, re-read the (now-updated) memory cache without a loading flash.
+  useEffect(
+    () => onLiveRefreshed(() => refresh(true)),
+    [refresh],
+  );
   useEffect(() => {
     let timer = 0;
     const off = onPlaylistsChange(() => {

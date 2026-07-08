@@ -9,6 +9,7 @@ import {
   loadPlaylists,
   type XtreamPlaylist,
 } from "../settings/playlists";
+import { diskGet, diskPut } from "./diskCache";
 import { mockLive } from "./mock";
 import type { Channel, LiveData, LiveGroup, Programme } from "./model";
 import { extractQuality } from "./quality";
@@ -45,6 +46,52 @@ let inflight: {
   promise: Promise<LiveData>;
   stages: Set<(label: string) => void>;
 } | null = null;
+
+/** How old a DISK snapshot may be and still hydrate the guide instantly.
+ * The EPG we keep covers fetch−1h..fetch+12h, and the guide window shows
+ * now..now+4h — at 8h old the cached listings still fill the whole window
+ * while the background refresh replaces them. */
+const DISK_MAX_AGE_MS = 8 * 3600_000;
+
+/** Fired after a BACKGROUND refresh lands fresh data in the memory cache —
+ * the Live screen re-reads it silently (same path as playlist edits). */
+const REFRESHED_EVENT = "blammytv:live-refreshed";
+export function onLiveRefreshed(cb: () => void): () => void {
+  window.addEventListener(REFRESHED_EVENT, cb);
+  return () => window.removeEventListener(REFRESHED_EVENT, cb);
+}
+
+/** Persist off the critical path: a structured-clone write of a ~15MB graph
+ * costs real main-thread time, so let the first paint settle first. */
+function scheduleDiskPut(key: string, at: number, data: LiveData) {
+  setTimeout(() => {
+    void diskPut({ key, at, data });
+  }, 1500);
+}
+
+/** Revalidate a disk hydration: run the real load without blocking the
+ * caller, then announce so the screen swaps to fresh data in place. Called
+ * only from inside the owning in-flight record's disk-hit branch; it
+ * REPLACES that record in the single-flight slot, so the hydrating callers
+ * keep their already-shared promise (resolving with disk data) while any
+ * later caller joins the live revalidation instead. */
+function refreshInBackground(playlists: XtreamPlaylist[], key: string) {
+  const stages = new Set<(label: string) => void>();
+  const promise = doLoad(playlists, key, new Date(), (label) =>
+    stages.forEach((cb) => cb(label)),
+  );
+  const record = { key, promise, stages };
+  inflight = record;
+  promise
+    .then((data) => {
+      if (data.channels.length > 0)
+        window.dispatchEvent(new CustomEvent(REFRESHED_EVENT));
+    })
+    .catch(() => {})
+    .finally(() => {
+      if (inflight === record) inflight = null;
+    });
+}
 
 const enabledXtream = () =>
   loadPlaylists().filter(
@@ -92,15 +139,36 @@ export async function loadLive(
     return inflight.promise;
   }
 
+  // Claim the single-flight slot SYNCHRONOUSLY — the disk probe below awaits,
+  // and that gap is exactly where a concurrent caller (StrictMode's double
+  // effect) would slip past the join check and double the load.
   const stages = new Set<(label: string) => void>();
   if (onStage) stages.add(onStage);
-  const promise = doLoad(playlists, key, now, (label) =>
-    stages.forEach((cb) => cb(label)),
-  );
-  const record = { key, promise, stages };
+  const record = {
+    key,
+    stages,
+    promise: undefined as unknown as Promise<LiveData>,
+  };
+  record.promise = (async () => {
+    // Disk hydrate (Telly-style instant start): a recent-enough snapshot from
+    // a previous run renders NOW, and the real load revalidates behind it —
+    // the screen swaps to fresh data via onLiveRefreshed. Config changes miss
+    // naturally (the key fingerprints the playlists); mock never persists.
+    if (!force && playlists.length > 0) {
+      const disk = await diskGet(key).catch(() => null);
+      if (disk && Date.now() - disk.at < DISK_MAX_AGE_MS) {
+        cache = { key, at: disk.at, data: disk.data };
+        refreshInBackground(playlists, key); // replaces this record's slot
+        return disk.data;
+      }
+    }
+    return doLoad(playlists, key, now, (label) =>
+      stages.forEach((cb) => cb(label)),
+    );
+  })();
   inflight = record;
   try {
-    return await promise;
+    return await record.promise;
   } finally {
     if (inflight === record) inflight = null;
   }
@@ -137,8 +205,13 @@ async function doLoad(
   }
 
   // A total failure (no channels at all) stays uncached so the next mount
-  // retries instead of pinning the error for half an hour.
-  if (data.channels.length > 0) cache = { key, at: Date.now(), data };
+  // retries instead of pinning the error for half an hour. Real playlist
+  // loads also persist to disk for the next launch's instant hydrate.
+  if (data.channels.length > 0) {
+    const at = Date.now();
+    cache = { key, at, data };
+    if (playlists.length > 0) scheduleDiskPut(key, at, data);
+  }
   return data;
 }
 
