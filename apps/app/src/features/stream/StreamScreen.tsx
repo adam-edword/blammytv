@@ -365,6 +365,7 @@ function Hero({
   const m = heroMargin(width);
   const cardW = Math.max(0, width - 2 * m);
   const step = cardW + HERO_GAP;
+  const activeItem = items[((v % count) + count) % count];
   // Window of live slots around the current one: both neighbors visible,
   // one extra each side so a slide-in mounts before it enters the frame.
   // One extra slot AHEAD of the window: the next-next card mounts and
@@ -380,6 +381,25 @@ function Hero({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
+      {/* Ambient glow (the Android app's pattern): one absolute box parked
+        * behind the always-centered active slot — the card covers the
+        * middle, so only the halo shows. Filled with the active card's own
+        * art, hard-blurred: a static raster per slide change, no per-frame
+        * paint. Keyed img fades in on each change. */}
+      <div
+        className="shero__glow"
+        aria-hidden
+        style={{ left: m - 24, width: cardW + 48 }}
+      >
+        {(activeItem?.backdrop ?? activeItem?.poster) && (
+          <img
+            key={activeItem.id}
+            src={activeItem.backdrop ?? activeItem.poster}
+            alt=""
+            decoding="async"
+          />
+        )}
+      </div>
       <div
         className="shero__track"
         style={{ transform: `translateX(${m - v * step}px)` }}

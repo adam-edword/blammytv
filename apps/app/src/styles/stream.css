@@ -45,8 +45,34 @@
 .shero__track {
   position: absolute;
   inset: 0;
+  z-index: 1; /* slides above the ambient glow layer */
   transition: transform 550ms cubic-bezier(0.25, 0.8, 0.3, 1);
   will-change: transform;
+}
+/* Ambient glow behind the active slot (left/width set inline from the
+ * measured geometry — the active slot never moves, so neither does this).
+ * The art is blurred into colored light; the card covers the center. */
+.shero__glow {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  z-index: 0;
+  pointer-events: none;
+}
+.shero__glow img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 60px;
+  filter: blur(70px) saturate(1.35);
+  opacity: 0;
+  animation: shero-glow-in 700ms ease forwards;
+}
+@keyframes shero-glow-in {
+  to { opacity: 0.55; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shero__glow img { animation: none; opacity: 0.55; }
 }
 /* Slides are absolutely placed on the track at slot * step (inline left) —
  * the infinite window repositions freely. Vertical inset gives the active
@@ -65,26 +91,6 @@
   transform: translateZ(0);
 }
 .shero__card--active { cursor: pointer; }
-/* The Figma glow lives on a sibling-free pseudo BEHIND the card content,
- * PRE-BAKED and faded via opacity only — animating box-shadow itself is
- * a per-frame CPU repaint of a huge blur region, which dropped the whole
- * slide's frame rate. overflow:hidden clips the pseudo, so the halo is
- * painted by ::after on the card's border box edges via a spread shadow
- * on an inset element… simplest robust form: an ::after covering the
- * card with the shadow, opacity-toggled. */
-.shero__card::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 60px;
-  box-shadow:
-    0 0 44px rgba(255, 255, 255, 0.32),
-    0 0 140px rgba(255, 255, 255, 0.14);
-  opacity: 0;
-  transition: opacity 550ms ease;
-  pointer-events: none;
-}
-.shero__card--active::after { opacity: 1; }
 .shero__art {
   position: absolute;
   inset: 0;
