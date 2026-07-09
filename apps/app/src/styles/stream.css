@@ -7,7 +7,7 @@
   padding: calc(var(--header-h, 76px) + 8px) 28px 40px;
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 0;
 }
 
 .stream__note {
@@ -33,7 +33,7 @@
  * transform. ---- */
 .shero {
   position: relative;
-  height: min(90vh, 940px);
+  height: 80vh;
   margin: 0 -28px;
   /* Clip the sliding track horizontally ONLY — `hidden` would force the
    * y-axis too and guillotine the active card's glow into a rectangle.
@@ -167,8 +167,8 @@
 .media-row__title {
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: 18px;
-  margin-bottom: 12px;
+  font-size: 41px;
+  margin-bottom: 16px;
 }
 .media-row__scroller {
   display: flex;
@@ -191,8 +191,8 @@
   background: color-mix(in srgb, var(--text) 38%, transparent);
 }
 .stream-card {
-  flex: 0 0 230px;
-  width: 230px;
+  flex: 0 0 auto;
+  width: auto;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -203,7 +203,7 @@
 .stream-card:hover { transform: translateY(-3px); }
 .stream-card__poster,
 .stream-card__mono {
-  width: 230px;
+  width: 300px;
   aspect-ratio: 2 / 3;
   border-radius: 25px;
   object-fit: cover;
@@ -221,8 +221,10 @@
 .stream-card__name {
   font-family: var(--font-headline);
   font-weight: 600;
-  font-size: 15px;
+  font-size: 18px;
   color: var(--text);
+  /* Bound the clamp box or a long title re-widens the auto-width card. */
+  max-width: 300px;
   /* Wrap inside the card's width — a long title must never widen the
    * card (it stretched the whole flex item before). Two lines, then …. */
   display: -webkit-box;
@@ -231,7 +233,8 @@
   overflow: hidden;
 }
 .stream-card__meta {
-  font-size: 12.5px;
+  font-size: 15px;
+  max-width: 300px;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
