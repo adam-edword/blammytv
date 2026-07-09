@@ -1,9 +1,17 @@
 /* Welcome / boot animation, from the Figma mock "BTV WELCOME ANIMATION"
  * (194:1158): the full-screen TV — pastel angular-gradient frame around a
- * black screen — shrinks into the logo mark, springs 360px left, and the
- * wordmark fades in beside it. All timings/easings are the mock's keyframe
- * tracks verbatim (via get_motion_context). Colors are raw hex on purpose:
- * this is fixed brand artwork, identical in both themes. */
+ * black screen — shrinks into the logo mark, springs left, and the wordmark
+ * fades in beside it. Timings/easings are the mock's keyframe tracks
+ * verbatim (via get_motion_context); the geometry is viewport-true — the
+ * starting TV's edges are the window's edges at any aspect ratio, so the
+ * end-state scale factors can't live in static CSS. The component computes
+ * them per resize into the vars below (--s is the mock's 1920×1080 cover
+ * factor; the others are the per-axis end scales):
+ *   --s      lockup scale (icon/wordmark sizing, spring distance)
+ *   --tv-sx/--tv-sy    backdrop viewport→icon scale (96s×97.2s)
+ *   --scr-sx/--scr-sy  screen→icon-hole scale (50.9s×50.35s)
+ * Colors are raw hex on purpose: fixed brand artwork, identical in both
+ * themes. */
 
 .welcome-overlay {
   position: fixed;
@@ -18,21 +26,24 @@
   opacity: 0;
 }
 
-/* Fixed 1920×1080 design-space stage; the component scales it to cover the
- * window, so every child below uses the mock's pixel values as-is. */
-.welcome-stage {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 1920px;
-  height: 1080px;
-}
-
+/* The TV's gradient frame: the viewport itself, not a scaled stage. */
 .welcome-backdrop {
   position: absolute;
   inset: 0;
   overflow: hidden;
   animation: welcome-frame-shrink 2000ms both;
+}
+
+/* The gradient paint keeps the mock's 1920×1080 geometry, cover-scaled and
+ * centered inside the viewport-sized frame so the sweep reads the same at
+ * any window shape (extremes crop a little, as cover always does). */
+.welcome-gradient-fit {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 1920px;
+  height: 1080px;
+  transform: translate(-50%, -50%) scale(var(--s));
 }
 
 /* Figma's angular gradient carries a paint transform (rotation + skew); the
@@ -64,24 +75,33 @@
   );
 }
 
-/* The TV's black screen (Frame 91 in the mock). */
+/* The TV's black screen (Frame 91 in the mock): the mock's 37/35/36/35px
+ * frame thickness at 1080p, scaled with the lockup so the border reads the
+ * same weight on any window. */
 .welcome-screen {
   position: absolute;
-  inset: 3.43% 1.82% 3.33% 1.82%;
+  inset: calc(37px * var(--s)) calc(35px * var(--s)) calc(36px * var(--s));
   border-radius: 30px;
   background: #000;
   animation: welcome-screen-shrink 2000ms both;
 }
 
+/* Lockup metrics follow the canvas lockup (Frame 64, 85:84): the wordmark's
+ * line box centers on the mark and hugs it at ~24% of the font size. Sized
+ * against the 96px tile and placed so the finished lockup sits optically
+ * centered — icon center 284px left of screen center (which is why the
+ * spring travels -284px), wordmark from 204px left of it. All in mock px,
+ * scaled by --s. */
 .welcome-wordmark {
   position: absolute;
-  top: 42.59%;
-  left: 39.01%;
+  top: 50%;
+  left: calc(50% - 204px * var(--s));
   margin: 0;
+  transform: translateY(-50%);
   font-family: var(--font-headline);
-  font-size: 130.858px;
+  font-size: calc(110px * var(--s));
   font-weight: 700;
-  letter-spacing: -2.6172px;
+  letter-spacing: calc(-2.2px * var(--s));
   line-height: normal;
   white-space: nowrap;
   color: #fff;
@@ -91,15 +111,16 @@
 /* Track timings from the mock: scale eases in-out and lands at ~737ms; the
  * leftward move runs ~868→1856ms on a spring (Figma's response curve
  * `1 - e^(-7.6657t)·(cos(6.7605t) + 1.1339·sin(6.7605t))`, sampled below —
- * ~2.8% overshoot settling back). Translate precedes scale so the -360px is
+ * ~2.8% overshoot settling back). Translate precedes scale so the travel is
  * in screen pixels, matching the mock.
  *
- * The mock's motion used placeholder geometry; the end state is tuned to the
- * real app-icon lockup instead: half the mock's icon size (~96px tile) and
- * app-icon corner rounding (30% outer / 27% inner, made squircle by the
- * global corner-shape). Percentage radii keep the corners circular under the
- * non-uniform scale, and every keyframe restates border-radius so it doesn't
- * drift back to the base value after the shrink lands. */
+ * The mock's motion used placeholder end geometry; the TV settles on the
+ * real app-icon mark instead: a ~96px tile (half the mock's) with the app
+ * icon's corner rounding (30% outer / 27% inner, made squircle by the
+ * global corner-shape). Percentage radii keep the corners circular under
+ * the non-uniform scale at any viewport shape, and every keyframe restates
+ * border-radius so it doesn't drift back to the base value after the
+ * shrink lands. */
 @keyframes welcome-frame-shrink {
   0% {
     transform: translateX(0) scale(1, 1);
@@ -107,12 +128,12 @@
     animation-timing-function: cubic-bezier(0.5, 0, 0.5, 1);
   }
   36.86% {
-    transform: translateX(0) scale(0.05, 0.09);
+    transform: translateX(0) scale(var(--tv-sx), var(--tv-sy));
     border-radius: 30%;
     animation-timing-function: linear;
   }
   43.42% {
-    transform: translateX(0) scale(0.05, 0.09);
+    transform: translateX(0) scale(var(--tv-sx), var(--tv-sy));
     border-radius: 30%;
     animation-timing-function: linear(
       0,
@@ -150,7 +171,8 @@
   }
   92.79%,
   100% {
-    transform: translateX(-360px) scale(0.05, 0.09);
+    transform: translateX(calc(-284px * var(--s)))
+      scale(var(--tv-sx), var(--tv-sy));
     border-radius: 30%;
   }
 }
@@ -162,12 +184,12 @@
     animation-timing-function: cubic-bezier(0.5, 0, 0.5, 1);
   }
   36.78% {
-    transform: translateX(0) scale(0.0275, 0.05);
+    transform: translateX(0) scale(var(--scr-sx), var(--scr-sy));
     border-radius: 27%;
     animation-timing-function: linear;
   }
   43.42% {
-    transform: translateX(0) scale(0.0275, 0.05);
+    transform: translateX(0) scale(var(--scr-sx), var(--scr-sy));
     border-radius: 27%;
     animation-timing-function: linear(
       0,
@@ -205,7 +227,8 @@
   }
   92.79%,
   100% {
-    transform: translateX(-360px) scale(0.0275, 0.05);
+    transform: translateX(calc(-284px * var(--s)))
+      scale(var(--scr-sx), var(--scr-sy));
     border-radius: 27%;
   }
 }
