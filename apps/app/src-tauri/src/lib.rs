@@ -298,9 +298,63 @@ fn mpv_blur(on: bool) -> Result<(), String> {
     Ok(())
 }
 
-/// Frozen-frame glass: one tone-mapped frame of the playing video as raw
-/// PNG bytes, for the DOM to blur and lay under a modal — glass over the
-/// native layer can't sample it live, but a frosted still reads the same.
+/// Region frost: blur ONLY the rectangle under a modal card, every frame,
+/// on the GPU — live glass over a still-playing picture. The rect (video-
+/// normalized 0..1) is BAKED into the shader source at write time, so it
+/// works on any mpv that runs user shaders — no //!PARAM / shader-opts
+/// version dependency. Rect changes (resize) just re-bake + re-set.
+const FROST_REGION_TEMPLATE: &str = r#"//!HOOK MAIN
+//!BIND HOOKED
+//!SAVE FROST
+//!WIDTH HOOKED.w 8 /
+//!HEIGHT HOOKED.h 8 /
+//!DESC frost region: low-res base
+vec4 hook() {
+    return HOOKED_texOff(vec2(0.0));
+}
+
+//!HOOK MAIN
+//!BIND HOOKED
+//!BIND FROST
+//!DESC frost region: composite
+vec4 hook() {
+    vec2 uv = HOOKED_pos;
+    if (uv.x < @X0@ || uv.x > @X1@ || uv.y < @Y0@ || uv.y > @Y1@)
+        return HOOKED_texOff(vec2(0.0));
+    vec2 px = FROST_pt;
+    vec4 c = vec4(0.0);
+    float wsum = 0.0;
+    for (int i = -2; i <= 2; i++) {
+        for (int j = -2; j <= 2; j++) {
+            float w = 1.0 / (1.0 + float(i * i + j * j));
+            c += FROST_tex(uv + vec2(float(i), float(j)) * px) * w;
+            wsum += w;
+        }
+    }
+    return c / wsum;
+}
+"#;
+
+#[tauri::command]
+fn mpv_frost(on: bool, x0: f64, y0: f64, x1: f64, y1: f64) -> Result<(), String> {
+    if !on {
+        mpv::set_glsl_shaders("");
+        return Ok(());
+    }
+    let shader = FROST_REGION_TEMPLATE
+        .replace("@X0@", &format!("{x0:.6}"))
+        .replace("@Y0@", &format!("{y0:.6}"))
+        .replace("@X1@", &format!("{x1:.6}"))
+        .replace("@Y1@", &format!("{y1:.6}"));
+    let path = std::env::temp_dir().join("blammytv-frost-region.glsl");
+    std::fs::write(&path, shader).map_err(|e| e.to_string())?;
+    mpv::set_glsl_shaders(path.to_string_lossy().as_ref());
+    Ok(())
+}
+
+/// Frozen-frame glass (DORMANT — Adam requires the video visibly playing
+/// behind modals; kept for future channel thumbnails): one tone-mapped
+/// frame of the playing video as raw PNG bytes.
 #[tauri::command]
 fn mpv_snapshot() -> Result<tauri::ipc::Response, String> {
     let path = std::env::temp_dir().join("blammytv-freeze.png");
@@ -636,6 +690,7 @@ pub fn run() {
             mpv_track,
             mpv_status,
             mpv_blur,
+            mpv_frost,
             mpv_snapshot,
             http_get,
             check_update,

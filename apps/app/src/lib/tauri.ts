@@ -136,8 +136,20 @@ export function tauriMpvTrack(kind: "audio" | "sub", id: string): Promise<void> 
 export function tauriMpvBlur(on: boolean): Promise<void> {
   return invoke("mpv_blur", { on });
 }
+/** Region frost: GPU-blur ONLY the video rectangle under a modal card
+ * (video-normalized 0..1 coords, baked into the shader Rust-side). The
+ * picture keeps playing — live glass. `on:false` clears the shader. */
+export function tauriMpvFrost(
+  on: boolean,
+  x0 = 0,
+  y0 = 0,
+  x1 = 0,
+  y1 = 0,
+): Promise<void> {
+  return invoke("mpv_frost", { on, x0, y0, x1, y1 });
+}
 /** One tone-mapped frame of the playing video, as a PNG blob (raw-bytes
- * IPC, same path as http_get) — the frozen-frame glass under modals. */
+ * IPC, same path as http_get). DORMANT — kept for future thumbnails. */
 export async function tauriMpvSnapshot(): Promise<Blob> {
   const raw = await invoke<unknown>("mpv_snapshot");
   return new Blob([raw as ArrayBuffer], { type: "image/png" });

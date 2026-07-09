@@ -29,7 +29,7 @@ import {
   onPopoutClosed,
   tauriCompKey,
   tauriCompPopout,
-  tauriMpvSnapshot,
+  tauriMpvFrost,
   tauriSetFullscreen,
 } from "../../lib/tauri";
 import { createPortal } from "react-dom";
@@ -529,35 +529,34 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
     };
   }, []);
 
-  // Frozen-frame glass: while a modal covers the app, lay a pre-blurred
-  // snapshot of the playing frame into the chrome host (the ::after scrim
-  // dims it — see player.css). The canvas blur runs once per open; a
-  // failed snapshot just leaves the plain scrim.
+  // Live glass: while a modal covers the app, mpv GPU-blurs ONLY the
+  // region under the settings card (rect baked into the shader Rust-side)
+  // — the video keeps playing everywhere, frosted under the card. The
+  // rect is measured in video-normalized coords and re-baked on resize.
   useEffect(() => {
-    const host = chromeHostRef.current;
-    if (!modalOpen || !INV || !host || !playUrlRef.current) return;
-    let gone = false;
-    void (async () => {
-      try {
-        const bmp = await createImageBitmap(await tauriMpvSnapshot());
-        const c = document.createElement("canvas");
-        c.width = Math.max(2, Math.round(bmp.width / 2));
-        c.height = Math.max(2, Math.round(bmp.height / 2));
-        const ctx = c.getContext("2d");
-        if (!ctx) return;
-        ctx.filter = "blur(14px)";
-        // Overdraw past the edges so the blur has no transparent fringe.
-        ctx.drawImage(bmp, -32, -32, c.width + 64, c.height + 64);
-        bmp.close();
-        if (gone) return;
-        host.style.backgroundImage = `url(${c.toDataURL("image/jpeg", 0.75)})`;
-      } catch {
-        /* nothing playing / snapshot failed — scrim alone */
+    if (!modalOpen || !INV || !playUrlRef.current) return;
+    const apply = () => {
+      const slot = document.getElementById("player-slot");
+      const card = document.querySelector(".settings");
+      if (!slot || !card) return;
+      const s = slot.getBoundingClientRect();
+      const c = card.getBoundingClientRect();
+      const pad = 12; // tuck the frost just past the card's rounded corners
+      const x0 = Math.max(0, (c.left - pad - s.left) / s.width);
+      const y0 = Math.max(0, (c.top - pad - s.top) / s.height);
+      const x1 = Math.min(1, (c.right + pad - s.left) / s.width);
+      const y1 = Math.min(1, (c.bottom + pad - s.top) / s.height);
+      if (x1 <= x0 || y1 <= y0) {
+        void tauriMpvFrost(false).catch(() => {});
+        return;
       }
-    })();
+      void tauriMpvFrost(true, x0, y0, x1, y1).catch(() => {});
+    };
+    apply();
+    window.addEventListener("resize", apply);
     return () => {
-      gone = true;
-      host.style.backgroundImage = "";
+      window.removeEventListener("resize", apply);
+      void tauriMpvFrost(false).catch(() => {});
     };
   }, [modalOpen]);
 
