@@ -70,7 +70,7 @@
   transform-origin: 0 0;
   transform: matrix(141.62, 64.542, -114.74, 79.662, 964.59, 542.58)
     translate(-140.72px, -140.72px);
-  animation: welcome-gradient-spin 8s linear infinite;
+  animation: welcome-gradient-spin 5s linear infinite;
   background: conic-gradient(
     from var(--welcome-grad-angle),
     #ff9b9b -4.8706%,
