@@ -249,7 +249,7 @@
  * label fades in while the art dims; releasing early opens as a click. */
 .continue-card {
   position: relative;
-  flex: 0 0 300px;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -259,9 +259,9 @@
 }
 .continue-card:hover { transform: translateY(-3px); }
 .continue-card__art {
-  width: 300px;
-  aspect-ratio: 16 / 9;
-  border-radius: 12px;
+  height: 300px;
+  width: auto;
+  border-radius: 25px;
   object-fit: cover;
   background: var(--surface);
   border: 1px solid var(--border-strong);
@@ -271,19 +271,26 @@
 .continue-card__hold {
   position: absolute;
   top: 0;
-  width: 300px;
-  aspect-ratio: 16 / 9;
+  left: 0;
+  width: 100%;
+  height: 300px;
+  border-radius: 25px;
   display: grid;
   place-items: center;
   font-family: var(--font-headline);
   font-weight: 600;
   font-size: 14px;
   color: #fff;
-  border-radius: 12px;
   background: rgba(0, 0, 0, 0.55);
   opacity: 0;
   transition: opacity 250ms ease;
   pointer-events: none;
+}
+/* Art width now follows the image's own aspect at 300px tall; bound the
+ * text so a long title can't stretch the auto-width card further. */
+.continue-card .stream-card__name,
+.continue-card .stream-card__meta {
+  max-width: 533px;
 }
 .continue-card--holding .continue-card__art { filter: brightness(0.5); }
 .continue-card--holding .continue-card__hold { opacity: 1; }
