@@ -1,0 +1,11 @@
+{
+  "version": "0.2.0",
+  "notes": "The milestone build: native inverted-layer player (video under glass), M3U + Stalker/MAG sources, mid-play death recovery, audio/subtitle track menus, stats overlay, adult filter on by default, channel numbers, and in-app updates.",
+  "pub_date": "2026-07-09T18:22:00Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUM0VOOGtCK0hUWDBRVFFTMG0yY0kvTW9FTGdIc3pwQXovZEZ1ZGk3TG83WUoxUmJ5WktNQ1VQWTdQTGIwODRweVRuUU84VmtZS3NocnZsMFR5WHFLelVpcWtXaStKaEE4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgzNjIxMzIwCWZpbGU6QmxhbW15VFZfMC4yLjBfeDY0LXNldHVwLmV4ZQpDamVkQm1hdmh1U0ptYjVlbEdGOXVFMVVIS2k0aXo3Mm1JR0g1ak5PTmE0SWs4Nyt6YXZndFUyaDExUjNwY3p2Vno1WWNEeU5HUm4yS2RXamRmUm9BUT09Cg==",
+      "url": "https://github.com/adam-edword/blammytv/releases/download/v0.2.0/BlammyTV_0.2.0_x64-setup.exe"
+    }
+  }
+}
