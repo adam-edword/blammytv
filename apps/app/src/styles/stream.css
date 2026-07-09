@@ -55,8 +55,8 @@
  * never reads hard. */
 .shero__glowbox {
   position: absolute;
-  top: -30px;
-  bottom: -30px;
+  top: -60px;
+  bottom: -60px;
   z-index: 0;
   overflow: hidden;
   border-radius: 90px;
@@ -66,12 +66,12 @@
    * that — so a real halo band survives at strength. (The first feather
    * pass swallowed the whole halo: 70px falloff on a 24px overscan.) */
   -webkit-mask-image:
-    linear-gradient(to right, transparent, #000 80px, #000 calc(100% - 80px), transparent),
-    linear-gradient(to bottom, transparent, #000 55px, #000 calc(100% - 55px), transparent);
+    linear-gradient(to right, transparent, #000 130px, #000 calc(100% - 130px), transparent),
+    linear-gradient(to bottom, transparent, #000 90px, #000 calc(100% - 90px), transparent);
   -webkit-mask-composite: source-in;
   mask-image:
-    linear-gradient(to right, transparent, #000 80px, #000 calc(100% - 80px), transparent),
-    linear-gradient(to bottom, transparent, #000 55px, #000 calc(100% - 55px), transparent);
+    linear-gradient(to right, transparent, #000 130px, #000 calc(100% - 130px), transparent),
+    linear-gradient(to bottom, transparent, #000 90px, #000 calc(100% - 90px), transparent);
   mask-composite: intersect;
 }
 .shero__glowtrack {
