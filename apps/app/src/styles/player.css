@@ -201,6 +201,21 @@
   font-family: var(--font-text);
 }
 
+/* Inline (inverted-player) chrome host: CompositionPlayer keeps this fixed
+ * box glued to the slot rect, and the overlay's fixed-inset roots become
+ * absolute so they fill the BOX, not the viewport. Above the theater
+ * backdrop (40), below the settings modal (60). */
+#inv-chrome {
+  position: fixed;
+  z-index: 45;
+}
+
+#inv-chrome .mini-overlay,
+#inv-chrome .theater-overlay,
+#inv-chrome .tune {
+  position: absolute;
+}
+
 /* Fake rounded video corners. The mpv child presents a flip-model swapchain
  * DWM composites directly, so neither SetWindowRgn (round_child) nor a CSS
  * radius on the slot clips the picture — the video corners are always sharp.

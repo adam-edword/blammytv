@@ -295,16 +295,35 @@ already registered: `mpv_pause/mute/volume/seek/go_live/track` +
 `mpv_status` (pos/dur/presenting/tracks poll — replaces the bridge's push
 threads).
 
-**A1 (next, frontend-only):** port TheaterOverlay's chrome inline — inject
-a direct `OverlayApi` implementation backed by the mpv_* commands +
-mpv_status polling, render it over the hole via a portal OUTSIDE
-`.app-shell` (the clip hole would cut chrome rendered inside the shell),
-mirror expand/collapse/fullscreen straight into LiveScreen state. Then:
-tune watchdog port, rounded hole corners (clip-path `path()` or corner
-masks), popout, and the live-video-behind-Settings flourish (portal the
-modal out of the shell). When the inverted path is default and proven,
-comp.rs's overlay subsystem + the WM_SETCURSOR/corner-clip/switch-gap
-native items are deleted as the v0.2.0 milestone.
+**A1 (v0.1.117, frontend-only): full chrome inline + live video behind
+Settings.** A0 Windows check first confirmed theater + fullscreen geometry
+work. The pieces:
+- `overlayApi.ts` now owns the bridge contract (OverlayApi/Tracks types,
+  `api()` accessor) with a module-level override LiveScreen sets BEFORE
+  rendering TheaterOverlay inline (state initializers read it sync).
+- `useDirectOverlay` implements the contract over the mpv_* commands + a
+  500ms `mpv_status` poll: loading flips on first `presenting` (same
+  core-idle signal as the Rust loader-watch, so the TUNE WATCHDOG works
+  unchanged), tracks push on change, comp-* verbs become LiveScreen
+  callbacks (expand/collapse/fullscreen/popout/favorite/close).
+- TheaterOverlay grew a `frame` prop ("mini"/"theater"/"fullscreen") —
+  inline, the window heuristics are meaningless, LiveScreen passes its own
+  state; handlers read it via ref (miniNow/fsNow). Its document key handler
+  now preventDefaults handled keys and skips arrows on buttons (inline it
+  shares the app document — roving tablists own their arrows). LiveScreen
+  does NOT forward comp_key when inverted (double-fire).
+- The chrome portals into `#inv-chrome` on document.body (outside the
+  shell = outside the clip hole), which CompositionPlayer sizes to the slot
+  rect each frame alongside the hole; z 45 (above theater backdrop 40).
+- SettingsModal portals to document.body too (z 60) and the inverted path
+  no longer parks: the video PLAYS behind the settings card — the Telly
+  moment, and the modal card sits clean above it. Comp path still parks.
+Needs Windows verify: chrome renders over video in all three frames, click
+map (picture=pause, mini click=expand), auto-hide, tune watchdog on a dead
+channel, track menus on a multi-audio channel, Settings-over-live-video.
+Then: rounded hole corners, popout reclaim polish, default-flip the flag →
+v0.2.0 deletion milestone (comp.rs overlay subsystem + WM_SETCURSOR/
+corner-clip/switch-gap items all die).
 
 ## Layer inversion spike history (superseded — kept for the record)
 

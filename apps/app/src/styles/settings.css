@@ -5,7 +5,9 @@
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 25; /* above the floating header (20) */
+  /* Above everything: the floating header (20), the theater backdrop (40),
+   * and the inverted player's inline chrome host (45). */
+  z-index: 60;
   display: flex;
   justify-content: flex-end;
   align-items: flex-start;

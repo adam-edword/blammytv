@@ -29,11 +29,15 @@ import {
   onPopoutClosed,
   tauriCompKey,
   tauriCompPopout,
-  tauriMpvMute,
-  tauriMpvPause,
-  tauriMpvSeek,
   tauriSetFullscreen,
 } from "../../lib/tauri";
+import { createPortal } from "react-dom";
+import { setOverlayApiOverride } from "./overlayApi";
+import { TheaterOverlay } from "./TheaterOverlay";
+import { useDirectOverlay } from "./useDirectOverlay";
+
+/** Inverted-player dev flag, read once (flipping it reloads the app). */
+const INV = invertedPlayer();
 import { onPlaylistsChange } from "../settings/playlists";
 import { CompositionPlayer } from "./CompositionPlayer";
 import { splitTitleEmoji } from "./emoji";
@@ -314,12 +318,6 @@ export function LiveScreen() {
   // each render rather than re-subscribing on every channel change.
   const playUrlRef = useRef<string | null>(null);
   const heroIdRef = useRef<string | undefined>(undefined);
-  // Inverted-player keyboard state (no overlay to own it on that path):
-  // pause/mute toggles + current size state, read at key time.
-  const theaterRef = useRef(false);
-  const fullscreenRef = useRef(false);
-  const invPausedRef = useRef(false);
-  const invMutedRef = useRef(false);
   const handleToggleFavorite = useCallback((id: string) => {
     setFavorites((list) => toggleFavorite(list, id));
   }, []);
@@ -403,55 +401,15 @@ export function LiveScreen() {
       )
         return;
       e.preventDefault();
-      if (!invertedPlayer()) {
-        void tauriCompKey(e.key).catch(() => {});
-        return;
-      }
-      // Inverted path: no overlay webview to forward into — the main webview
-      // owns the player, so the shortcuts drive mpv + size state directly.
-      // (A0 keyboard-only chrome; the visual controls port comes next.)
-      switch (e.key) {
-        case " ":
-        case "k":
-          invPausedRef.current = !invPausedRef.current;
-          void tauriMpvPause(invPausedRef.current).catch(() => {});
-          break;
-        case "m":
-          invMutedRef.current = !invMutedRef.current;
-          void tauriMpvMute(invMutedRef.current).catch(() => {});
-          break;
-        case "f":
-          if (fullscreenRef.current) leaveFullscreen();
-          else {
-            setFullscreen(true);
-            void tauriSetFullscreen(true).catch(() => {});
-          }
-          break;
-        case "t":
-          setTheater((v) => !v);
-          break;
-        case "ArrowLeft":
-          void tauriMpvSeek(-5).catch(() => {});
-          break;
-        case "ArrowRight":
-          void tauriMpvSeek(5).catch(() => {});
-          break;
-        case "j":
-          void tauriMpvSeek(-10).catch(() => {});
-          break;
-        case "l":
-          void tauriMpvSeek(10).catch(() => {});
-          break;
-        case "Escape":
-          if (fullscreenRef.current) leaveFullscreen();
-          else if (theaterRef.current) setTheater(false);
-          else setPlaying(false); // mini: stop playback, back to the guide
-          break;
-      }
+      void tauriCompKey(e.key).catch(() => {});
     };
+    // Inverted path: the chrome renders INLINE (same document), so
+    // TheaterOverlay's own key listener handles the player shortcuts —
+    // forwarding would double-fire every one of them.
+    if (invertedPlayer()) return;
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [playing, leaveFullscreen]);
+  }, [playing]);
 
   // What the guide shows, per mode, with each channel's programmes riding
   // along. Memoized: a fresh identity per render would bust the guide's
@@ -503,14 +461,6 @@ export function LiveScreen() {
       : null;
   playUrlRef.current = playUrl;
   heroIdRef.current = heroChannel?.id;
-  theaterRef.current = theater;
-  fullscreenRef.current = fullscreen;
-  // A fresh open starts unpaused/unmuted — resync the inverted-keyboard
-  // toggles whenever the stream changes.
-  useEffect(() => {
-    invPausedRef.current = false;
-    invMutedRef.current = false;
-  }, [playUrl]);
   const playMeta = (() => {
     if (!playUrl || !ready || !heroChannel) return null;
     const at = new Date();
@@ -525,6 +475,58 @@ export function LiveScreen() {
       favorites.includes(heroChannel.id),
     );
   })();
+
+  // Inline chrome for the inverted player: a direct OverlayApi (mpv commands
+  // + a status poll) injected into TheaterOverlay, which renders into a
+  // fixed host div OUTSIDE .app-shell — the clip-path hole would cut any
+  // chrome painted inside the shell. CompositionPlayer keeps the host glued
+  // to the slot rect alongside the hole itself.
+  const directApi = useDirectOverlay(INV && !!playUrl, playUrl, playMeta, {
+    onClose: () => {
+      setPlaying(false);
+      setTheater(false);
+      leaveFullscreen();
+    },
+    onExpand: () => setTheater(true),
+    onCollapse: () => {
+      setTheater(false);
+      leaveFullscreen();
+    },
+    onFullscreen: () => {
+      setFullscreen(true);
+      void tauriSetFullscreen(true).catch(() => {});
+    },
+    onExitFullscreen: leaveFullscreen,
+    onPopout: () => {
+      const url = playUrlRef.current;
+      if (url) void tauriCompPopout(url).catch(() => {});
+      setPlaying(false);
+      setTheater(false);
+      leaveFullscreen();
+    },
+    onToggleFavorite: () => {
+      const id = heroIdRef.current;
+      if (id) handleToggleFavorite(id);
+    },
+  });
+  // Must be set before TheaterOverlay renders (its state initializers read
+  // the api synchronously); idempotent, so the render-path call is safe.
+  if (INV) setOverlayApiOverride(directApi);
+  const chromeHostRef = useRef<HTMLDivElement | null>(null);
+  if (INV && !chromeHostRef.current) {
+    const host = document.createElement("div");
+    host.id = "inv-chrome";
+    chromeHostRef.current = host;
+  }
+  useEffect(() => {
+    const host = chromeHostRef.current;
+    if (!host) return;
+    document.body.appendChild(host);
+    return () => {
+      host.remove();
+      setOverlayApiOverride(null);
+    };
+  }, []);
 
   return (
     <div
@@ -734,6 +736,19 @@ export function LiveScreen() {
                 squared={theater || fullscreen}
               />
             )}
+            {/* Inverted path: the player chrome lives in the main webview,
+             * portaled outside the shell so the clip hole can't cut it. */}
+            {INV &&
+              playUrl &&
+              chromeHostRef.current &&
+              createPortal(
+                <TheaterOverlay
+                  frame={
+                    fullscreen ? "fullscreen" : theater ? "theater" : "mini"
+                  }
+                />,
+                chromeHostRef.current,
+              )}
             {visible.length === 0 ? (
               <div className="guide-empty">
                 <p>

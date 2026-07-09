@@ -43,10 +43,13 @@ webview above bottom-parked video. **Spike PASSED on Adam's machine (first
 build, v0.1.115)** — video through the hole, chrome above video, flip model
 clean; glass over video is tint-only (status quo, not a regression). **A0
 landed (v0.1.116): the inverted player runs in the real app behind a dev
-flag — Ctrl+Shift+U flips old ↔ new and reloads.** Keyboard-only chrome in
-A0. ROADMAP "Layer inversion" has the full A0 mechanics + the A1 plan
-(inline chrome port — FRONTEND-ONLY, all Rust commands already registered:
-mpv_pause/mute/volume/seek/go_live/track + mpv_status). The rip is Adam-
+flag — Ctrl+Shift+U flips old ↔ new and reloads.** A0 verified on Windows
+(theater + fullscreen geometry work). **A1 landed (v0.1.117, frontend-only):
+full TheaterOverlay chrome inline over the hole (direct OverlayApi via
+mpv_* commands + mpv_status poll, portaled to #inv-chrome outside the
+shell) and Settings portaled to body with parking removed on the inverted
+path — video plays live behind the settings card.** ROADMAP "Layer
+inversion" has full mechanics + the Windows verify checklist. The rip is Adam-
 approved; comp.rs/mpv.rs still do-not-touch until the inverted path is
 default and the v0.2.0 deletion milestone formally starts. Main window is
 now transparent:true (tauri.conf) — if Adam reports flag-OFF visual

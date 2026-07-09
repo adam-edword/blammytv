@@ -101,21 +101,34 @@ export function CompositionPlayer({
     const tick = () => {
       const el = document.getElementById(SLOT_ID);
       if (el) {
-        const parked = document.documentElement.dataset.nativeHidden === "1";
+        // Parking is comp-path-only: those native layers sit ABOVE the
+        // webview, so a modal can't cover them. Inverted video is BELOW the
+        // UI — modals portal out of the shell and cover it naturally.
+        const parked =
+          !INVERTED && document.documentElement.dataset.nativeHidden === "1";
         const rect = parked ? PARKED : measure(el, fsRef.current);
         const key = `${rect.x},${rect.y},${rect.w},${rect.h},${rect.radius}`;
         if (rect.w > 0 && rect.h > 0 && key !== last) {
           last = key;
           if (INVERTED) {
-            if (parked) healHole();
-            else if (shell) {
-              const r = el.getBoundingClientRect(); // hole is CSS px
+            // No parking here: modals portal OUT of the shell and paint
+            // above the hole, so the video keeps playing behind them —
+            // the point of the whole inversion.
+            const r = el.getBoundingClientRect(); // hole + chrome are CSS px
+            if (shell) {
               shell.style.clipPath = holeClip(
                 r.left,
                 r.top,
                 r.left + r.width,
                 r.top + r.height,
               );
+            }
+            const chrome = document.getElementById("inv-chrome");
+            if (chrome) {
+              chrome.style.left = `${r.left}px`;
+              chrome.style.top = `${r.top}px`;
+              chrome.style.width = `${r.width}px`;
+              chrome.style.height = `${r.height}px`;
             }
             if (!opened) {
               opened = true;

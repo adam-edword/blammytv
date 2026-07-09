@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { TheaterMeta } from "../../lib/tauri";
+import { api, type Tracks } from "./overlayApi";
 import {
   CcIcon,
   CheckIcon,
@@ -29,53 +30,6 @@ import {
  * chrome). Ported from the old build, live-only (no VOD seek/speed).
  */
 
-/** One entry from mpv's track list, as pushed by comp.rs (`{type:'tracks'}`,
- * polled every 500ms Rust-side and re-pushed whenever it changes). */
-interface TrackEntry {
-  id: number;
-  label: string;
-  lang: string;
-  selected: boolean;
-}
-
-interface Tracks {
-  audio: TrackEntry[];
-  subs: TrackEntry[];
-}
-
-interface OverlayApi {
-  close: () => void;
-  setPause: (paused: boolean) => void;
-  setMute: (muted: boolean) => void;
-  setVolume: (vol: number) => void; // 0..100 (mpv scale)
-  seek: (delta: number) => void;
-  expand?: () => void; // mini → theater
-  collapse?: () => void; // theater → mini
-  fullscreen?: () => void; // theater → fullscreen
-  exitFullscreen?: () => void; // fullscreen → theater
-  popout?: () => void; // detach to mpv's floating PiP window
-  toggleFavorite?: () => void; // star/unstar the playing channel
-  goLive?: () => void; // reload the stream at the live edge
-  setMouseIgnore: (ignore: boolean) => void;
-  getMeta: () => Promise<TheaterMeta | null>;
-  onMeta: (cb: (meta: TheaterMeta | null) => void) => () => void;
-  getLoading: () => boolean;
-  onLoading: (cb: (loading: boolean) => void) => () => void;
-  onKey?: (cb: (key: string) => void) => () => void;
-  selectAudio?: (id: number | string) => void; // mpv aid ("auto" ok)
-  selectSub?: (id: number | string) => void; // mpv sid ("no" = off)
-  getTracks?: () => Tracks | null; // SYNCHRONOUS (comp.rs bridge, like getLoading)
-  onTracks?: (cb: (tracks: Tracks | null) => void) => () => void;
-}
-
-declare global {
-  interface Window {
-    overlayApi?: OverlayApi;
-  }
-}
-
-const api = () => window.overlayApi;
-
 /** True when the overlay fills (nearly) the whole monitor — i.e. fullscreen. */
 const atFullscreen = () => window.innerWidth >= window.screen.width * 0.95;
 /** The mini box is uniquely short (≈278px, 494×16:9); theater fills the main
@@ -84,7 +38,12 @@ const atFullscreen = () => window.innerWidth >= window.screen.width * 0.95;
  * narrow. */
 const isMini = () => window.innerHeight < 450;
 
-export function TheaterOverlay() {
+/** Player size state. In the overlay webview it's inferred from the window
+ * (the webview IS the player box); rendered inline (inverted player) the
+ * window is the whole app, so LiveScreen passes the state it owns. */
+export type OverlayFrame = "mini" | "theater" | "fullscreen";
+
+export function TheaterOverlay({ frame }: { frame?: OverlayFrame } = {}) {
   const [meta, setMeta] = useState<TheaterMeta | null>(null);
   const [loading, setLoading] = useState(() => api()?.getLoading() ?? true);
   const [paused, setPaused] = useState(false);
@@ -95,8 +54,24 @@ export function TheaterOverlay() {
   // live stream, so this is a client-side indicator that tracks the seeks.
   const [livePct, setLivePct] = useState(100);
   const [active, setActive] = useState(true); // chrome shown (auto-hides)
-  const [mini, setMini] = useState(isMini);
-  const [fs, setFs] = useState(atFullscreen);
+  const [mini, setMini] = useState(() =>
+    frame ? frame === "mini" : isMini(),
+  );
+  const [fs, setFs] = useState(() =>
+    frame ? frame === "fullscreen" : atFullscreen(),
+  );
+  // Live frame reads for the key handlers (props go stale in stable
+  // callbacks; the window heuristics stay the overlay-webview fallback).
+  const frameRef = useRef(frame);
+  frameRef.current = frame;
+  const miniNow = useCallback(
+    () => (frameRef.current ? frameRef.current === "mini" : isMini()),
+    [],
+  );
+  const fsNow = useCallback(
+    () => (frameRef.current ? frameRef.current === "fullscreen" : atFullscreen()),
+    [],
+  );
   // Favorite is seeded from meta at open/channel-change, then owned locally so a
   // click flips instantly (the main app persists the real list via the bridge).
   const [fav, setFav] = useState(false);
@@ -108,13 +83,20 @@ export function TheaterOverlay() {
   const idleRef = useRef(0);
 
   useEffect(() => {
+    if (frame) {
+      // Inline: the parent owns the size state — mirror it, skip the window
+      // heuristics entirely.
+      setMini(frame === "mini");
+      setFs(frame === "fullscreen");
+      return;
+    }
     const f = () => {
       setMini(isMini());
       setFs(atFullscreen());
     };
     window.addEventListener("resize", f);
     return () => window.removeEventListener("resize", f);
-  }, []);
+  }, [frame]);
 
   // Meta + loading from the bridge (getLoading is a SYNC boolean).
   useEffect(() => {
@@ -309,14 +291,16 @@ export function TheaterOverlay() {
   const atLive = livePct >= 99;
 
   const toggleFullscreen = useCallback(() => {
-    if (atFullscreen()) api()?.exitFullscreen?.();
+    if (fsNow()) api()?.exitFullscreen?.();
     else api()?.fullscreen?.();
-  }, []);
+  }, [fsNow]);
 
   // YouTube-style shortcuts. Fires whether the key was captured by the main
-  // webview (forwarded via onKey) or hit the overlay directly.
+  // webview (forwarded via onKey) or hit the overlay directly. Returns
+  // whether the key was handled (the inline document listener uses it to
+  // preventDefault without eating unrelated keys).
   const handleKey = useCallback(
-    (key: string) => {
+    (key: string): boolean => {
       switch (key.toLowerCase()) {
         case " ":
         case "k":
@@ -348,20 +332,21 @@ export function TheaterOverlay() {
           toggleFullscreen();
           break;
         case "t":
-          if (isMini()) api()?.expand?.();
+          if (miniNow()) api()?.expand?.();
           else api()?.collapse?.();
           break;
         case "escape":
           if (menuRef.current) setMenu(null);
-          else if (atFullscreen()) api()?.exitFullscreen?.();
+          else if (fsNow()) api()?.exitFullscreen?.();
           else api()?.collapse?.();
           break;
         default:
-          return;
+          return false;
       }
       wake();
+      return true;
     },
-    [doSeek, toggleFullscreen, togglePlay, wake],
+    [doSeek, fsNow, miniNow, toggleFullscreen, togglePlay, wake],
   );
 
   useEffect(() => {
@@ -370,12 +355,18 @@ export function TheaterOverlay() {
       // A focused control already acts on its own keys — don't ALSO fire the
       // global shortcut, or Space double-toggles play (net no-op) and an arrow
       // on the volume slider both nudges it and seeks. Buttons own Space/Enter;
-      // inputs (the range slider) own the arrows.
+      // inputs (the range slider) own the arrows — and inline (inverted
+      // player) the app's buttons own their arrows too (roving tablists,
+      // guide cells), so arrows on any button stay theirs.
       const el = e.target as HTMLElement | null;
       const tag = el?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || el?.isContentEditable) return;
-      if (tag === "BUTTON" && (e.key === " " || e.key === "Enter")) return;
-      handleKey(e.key);
+      if (
+        tag === "BUTTON" &&
+        (e.key === " " || e.key === "Enter" || e.key.startsWith("Arrow"))
+      )
+        return;
+      if (handleKey(e.key)) e.preventDefault();
     };
     document.addEventListener("keydown", onDocKey);
     return () => {

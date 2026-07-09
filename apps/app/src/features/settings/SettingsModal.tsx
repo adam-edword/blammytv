@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { CloseIcon } from "../../ui/icons";
 import { ChipTabs } from "../../ui/ChipTabs";
 import { PlaylistsTab } from "./PlaylistsTab";
@@ -27,7 +28,11 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  return (
+  // Portaled OUT of .app-shell: with the inverted player, the shell carries
+  // a clip-path hole where the video shows — a modal rendered inside it
+  // would have that hole cut through its middle. On body, the modal paints
+  // above everything and the video keeps playing behind the backdrop.
+  return createPortal(
     <div className="modal-backdrop" onClick={onClose}>
       <section
         className="settings"
@@ -54,6 +59,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           {tab === "customize" && <CustomizeTab />}
         </div>
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }
