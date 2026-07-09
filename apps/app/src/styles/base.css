@@ -217,7 +217,7 @@ button {
 .header__lockup {
   display: flex;
   align-items: center;
-  gap: 19px; /* logo ↔ wordmark, tuned independently of the clock */
+  gap: 5px; /* logo ↔ wordmark, tuned independently of the clock */
 }
 
 .header__logo {
