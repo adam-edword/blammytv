@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { XtreamPlaylist } from "../settings/playlists";
-import { archiveDaysOf, epgIndex, mapStreams } from "./source";
+import { archiveDaysOf, droppedCategories, epgIndex, mapStreams } from "./source";
 
 const playlist = (over: Partial<XtreamPlaylist> = {}): XtreamPlaylist => ({
   kind: "xtream",
@@ -100,6 +100,62 @@ describe("archiveDaysOf", () => {
     expect(archiveDaysOf({ stream_id: 1, tv_archive: 1, tv_archive_duration: "" })).toBe(0);
     expect(archiveDaysOf({ stream_id: 1, tv_archive: 1 })).toBe(0);
     expect(archiveDaysOf({ stream_id: 1 })).toBe(0);
+  });
+});
+
+describe("adult filter", () => {
+  const cats = [
+    { id: "1", name: "Sports", adult: false },
+    { id: "2", name: "XXX VIP", adult: false }, // caught by name
+    { id: "3", name: "After Dark", adult: true }, // caught by panel flag
+    { id: "4", name: "Adult Swim", adult: false }, // the exception — stays
+  ];
+
+  it("droppedCategories merges user-hidden with adult when filtering", () => {
+    const hidden = droppedCategories(
+      playlist({ hiddenCategories: ["1"] }),
+      cats,
+      false,
+    );
+    expect([...hidden].sort()).toEqual(["1", "2", "3"]);
+  });
+
+  it("droppedCategories leaves adult folders alone when showing", () => {
+    const hidden = droppedCategories(
+      playlist({ hiddenCategories: ["1"] }),
+      cats,
+      true,
+    );
+    expect([...hidden]).toEqual(["1"]);
+  });
+
+  it("mapStreams drops adult-flagged streams by default", () => {
+    const chans = mapStreams(
+      [
+        { stream_id: 1, name: "Keep", category_id: "7" },
+        { stream_id: 2, name: "Drop", category_id: "7", is_adult: "1" },
+      ],
+      playlist(),
+    );
+    expect(chans.map((c) => c.name)).toEqual(["Keep"]);
+  });
+
+  it("mapStreams keeps adult streams when the filter is off", () => {
+    const chans = mapStreams(
+      [{ stream_id: 2, name: "Kept", category_id: "7", is_adult: 1 }],
+      playlist(),
+      new Set(),
+      false,
+    );
+    expect(chans.map((c) => c.name)).toEqual(["Kept"]);
+  });
+
+  it("epgIndex skips adult streams by default", () => {
+    const idx = epgIndex(
+      [{ stream_id: 1, epg_channel_id: "x.tv", category_id: "7", is_adult: "1" }],
+      playlist(),
+    );
+    expect(idx.size).toBe(0);
   });
 });
 

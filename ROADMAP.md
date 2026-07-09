@@ -209,8 +209,21 @@ parity). Telly = live-TV quality bar. In value order:
    mock catalog; Test & Add with human error copy; pairs with Adam's
    onboarding Figma. Xtream-only at 1.0.
 5. **Audio/subtitle track menus** (S) — ✅ SHIPPED v0.1.110 (see below).
-6. **Adult-hide by default** (S) — is_adult + conservative name fallback,
-   riding the hiddenCategories pipeline.
+6. **Adult-hide by default** (S) — ✅ SHIPPED v0.1.113. Global "Show adult
+   content" toggle (Settings → Playlists, default OFF). Adult categories —
+   panel `is_adult` flag (coerced in `fetchLiveCategories`) or the
+   conservative word-bounded name pattern in `live/adult.ts` (xxx / porn /
+   adult(s) / erotic / 18+, with an Adult Swim exception) — merge into the
+   hiddenCategories drop set (`source.ts#droppedCategories`), so folders,
+   channels, and EPG drop identically; stream-level `is_adult` drops
+   individual channels from innocent categories too. The filter is part of
+   the cache/disk fingerprint (flipping it reloads), and saving emits the
+   playlists-change signal so Live refreshes silently. The folder editor
+   hides adult rows behind an "N adult folders hidden" note while the
+   filter is on. Verified: unit (name patterns, flag coercion, drop set)
+   + 8/8 E2E against the fake panel (`scripts/verify-adult-filter.mjs`;
+   panel-flag, name-catch, stream-flag-in-innocent-category, Adult Swim
+   survives, user-hidden unaffected, toggle restores).
 7. Stretch: channel-number chip + favorites drag-reorder (both S).
 Post-1.0 headliner: instant recording to disk. Cut line rationale: everything
 above removes a switch-blocker or rescues the first session.

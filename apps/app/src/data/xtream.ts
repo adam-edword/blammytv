@@ -11,6 +11,9 @@ import type { XtreamPlaylist } from "../features/settings/playlists";
 export interface XtreamCategory {
   id: string;
   name: string;
+  /** Panel `is_adult` flag, coerced (sent as "0"/"1" or 0/1, when at all).
+   * Policy (hide/show, name fallback) lives in features/live/adult.ts. */
+  adult: boolean;
 }
 
 /** Raw live stream entry, straight off the panel. */
@@ -25,6 +28,8 @@ export interface XtreamStream {
   tv_archive?: number | string | null;
   /** Archive depth in days — likewise string-typed off the panel ("3"). */
   tv_archive_duration?: number | string | null;
+  /** Some panels flag adult content per stream ("0"/"1", or numeric). */
+  is_adult?: number | string | null;
 }
 
 interface XtreamAuth {
@@ -78,7 +83,11 @@ export async function fetchLiveCategories(
   p: XtreamPlaylist,
 ): Promise<XtreamCategory[]> {
   const raw = await httpGetJson<
-    Array<{ category_id?: string | number; category_name?: string }>
+    Array<{
+      category_id?: string | number;
+      category_name?: string;
+      is_adult?: number | string | null;
+    }>
   >(liveCategoriesUrl(p));
   if (!Array.isArray(raw)) return [];
   return raw
@@ -86,6 +95,7 @@ export async function fetchLiveCategories(
     .map((c) => ({
       id: String(c.category_id),
       name: c.category_name || String(c.category_id),
+      adult: Number(c.is_adult) === 1,
     }));
 }
 

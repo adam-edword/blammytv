@@ -18,6 +18,11 @@ const CATEGORIES = [
   { category_id: "1", category_name: "🏆 Sports", parent_id: 0 },
   { category_id: "2", category_name: "News", parent_id: 0 },
   { category_id: "3", category_name: "Hidden Stuff", parent_id: 0 },
+  // Adult-filter coverage: flagged by the panel (innocent name), caught by
+  // name (no flag), and the classic false positive that must stay visible.
+  { category_id: "5", category_name: "VIP Extra", parent_id: 0, is_adult: "1" },
+  { category_id: "6", category_name: "XXX Movies", parent_id: 0 },
+  { category_id: "7", category_name: "Adult Swim", parent_id: 0 },
 ];
 
 const STREAMS = [
@@ -56,6 +61,43 @@ const STREAMS = [
     stream_icon: null,
     epg_channel_id: "hidden.fake",
     category_id: "3", // hidden category → dropped entirely
+  },
+  {
+    num: 5,
+    name: "Panel Flagged Channel",
+    stream_type: "live",
+    stream_id: 105,
+    stream_icon: null,
+    epg_channel_id: null,
+    category_id: "5", // panel-flagged adult category
+  },
+  {
+    num: 6,
+    name: "Name Caught Channel",
+    stream_type: "live",
+    stream_id: 106,
+    stream_icon: null,
+    epg_channel_id: null,
+    category_id: "6", // name-pattern adult category
+  },
+  {
+    num: 7,
+    name: "Sneaky Flagged Stream",
+    stream_type: "live",
+    stream_id: 107,
+    stream_icon: null,
+    epg_channel_id: null,
+    category_id: "2", // innocent category, but the STREAM is flagged
+    is_adult: "1",
+  },
+  {
+    num: 8,
+    name: "Toonami Reruns",
+    stream_type: "live",
+    stream_id: 108,
+    stream_icon: null,
+    epg_channel_id: null,
+    category_id: "7", // Adult Swim — must survive the name filter
   },
 ];
 

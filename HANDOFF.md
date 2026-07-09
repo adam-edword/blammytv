@@ -37,10 +37,9 @@ weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
 ## Immediate queue (user-approved order)
 
-1. ~~**Track menus**~~ — SHIPPED v0.1.110 (see live state above).
-2. **Adult-hide by default** (slate #6, S) — `is_adult` + a conservative
-   name-pattern fallback, riding the existing `hiddenCategories` pipeline
-   in `source.ts`.
+1. ~~**Track menus**~~ — SHIPPED v0.1.110-112 (see live state above).
+2. ~~**Adult-hide by default**~~ — SHIPPED v0.1.113 (ROADMAP slate #6 has
+   the full mechanics + verify evidence).
 3. Waiting on Adam's Figma: **Ctrl+K search palette** (#1) and **first-run
    onboarding** (#4). He's designing both — don't start them without his
    designs or an explicit go.

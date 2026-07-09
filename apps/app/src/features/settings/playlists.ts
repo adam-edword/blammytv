@@ -133,6 +133,12 @@ export function loadPlaylists(): Playlist[] {
  * a restart. */
 export function savePlaylists(list: Playlist[]): void {
   save(KEY, VERSION, list);
+  emitPlaylistsChange();
+}
+
+/** Fire the refresh signal without saving — for settings that change what
+ * the Live tab shows through the same pipeline (the adult filter). */
+export function emitPlaylistsChange(): void {
   window.dispatchEvent(new CustomEvent(EVENT));
 }
 

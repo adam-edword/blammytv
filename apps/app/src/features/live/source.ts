@@ -3,12 +3,15 @@ import {
   fetchLiveCategories,
   fetchLiveStreams,
   fetchXmltv,
+  type XtreamCategory,
   type XtreamStream,
 } from "../../data/xtream";
 import {
   loadPlaylists,
   type XtreamPlaylist,
 } from "../settings/playlists";
+import { loadShowAdult } from "../settings/adultFilter";
+import { isAdultCategory, isAdultStream } from "./adult";
 import { diskGet, diskPut } from "./diskCache";
 import { mockLive } from "./mock";
 import type { Channel, LiveData, LiveGroup, Programme } from "./model";
@@ -101,7 +104,7 @@ const enabledXtream = () =>
 const cacheKey = (playlists: XtreamPlaylist[]) =>
   playlists.length === 0
     ? "mock"
-    : JSON.stringify(
+    : JSON.stringify([
         playlists.map((p) => [
           p.id,
           p.server,
@@ -109,7 +112,10 @@ const cacheKey = (playlists: XtreamPlaylist[]) =>
           p.password,
           p.hiddenCategories ?? [],
         ]),
-      );
+        // The adult filter changes what a load produces, so it's part of
+        // the config fingerprint — flipping it misses cache + disk naturally.
+        loadShowAdult(),
+      ]);
 
 /** The cached catalog, if it's still current — lets a remounting Live
  * screen render data in its very first frame, no loading state. */
@@ -252,11 +258,12 @@ async function buildXtreamSource(
       `[live] ${p.name}: ${cats.length} categories + ${streams.length} streams in ${Math.round(performance.now() - t)}ms`,
     );
 
-    const hidden = new Set(p.hiddenCategories ?? []);
+    const showAdult = loadShowAdult();
+    const hidden = droppedCategories(p, cats, showAdult);
     const folders = cats
       .filter((c) => !hidden.has(c.id))
       .map((c) => ({ id: folderId(p.id, c.id), name: c.name }));
-    const channels = mapStreams(streams, p);
+    const channels = mapStreams(streams, p, hidden, !showAdult);
 
     // EPG is best-effort — channels still render "No Information" without it.
     let programmes = new Map<string, Programme[]>();
@@ -267,7 +274,7 @@ async function buildXtreamSource(
       const fetched = performance.now();
       onStage?.(`Reading the ${p.name} TV guide…`);
       await breathe();
-      programmes = parseXmltv(xml, epgIndex(streams, p), now);
+      programmes = parseXmltv(xml, epgIndex(streams, p, hidden, !showAdult), now);
       console.info(
         `[live] ${p.name}: xmltv ${(xml.length / 1e6).toFixed(1)}MB in ${Math.round(fetched - xmlT0)}ms (overlapped), parsed EPG for ${programmes.size} channels in ${Math.round(performance.now() - fetched)}ms`,
       );
@@ -291,16 +298,36 @@ const folderId = (playlistId: string, catId: unknown) =>
 const channelId = (playlistId: string, streamId: number | string) =>
   `${playlistId}:${streamId}`;
 
+/** The category ids a load drops: the user's hidden folders, plus — unless
+ * adult content is shown — every category the panel flags `is_adult` or the
+ * conservative name pattern catches (see adult.ts). */
+export function droppedCategories(
+  p: XtreamPlaylist,
+  cats: XtreamCategory[],
+  showAdult: boolean,
+): Set<string> {
+  const hidden = new Set(p.hiddenCategories ?? []);
+  if (!showAdult) {
+    for (const c of cats) if (isAdultCategory(c)) hidden.add(c.id);
+  }
+  return hidden;
+}
+
 /** Normalize raw panel streams into channels. Streams in a hidden category
  * drop out entirely — hiding a folder hides its content, not just the
- * sidebar row. */
+ * sidebar row. Adult-flagged streams drop too unless the filter is off. */
 export function mapStreams(
   streams: XtreamStream[],
   p: XtreamPlaylist,
+  hidden: Set<string> = new Set(p.hiddenCategories ?? []),
+  hideAdult = true,
 ): Channel[] {
-  const hidden = new Set(p.hiddenCategories ?? []);
   return streams
-    .filter((s) => !hidden.has(String(s.category_id ?? "")))
+    .filter(
+      (s) =>
+        !hidden.has(String(s.category_id ?? "")) &&
+        !(hideAdult && isAdultStream(s)),
+    )
     .map((s) => {
       const name = s.name?.trim() || `Channel ${s.stream_id}`;
       return {
@@ -328,11 +355,13 @@ export function archiveDaysOf(s: XtreamStream): number {
 export function epgIndex(
   streams: XtreamStream[],
   p: XtreamPlaylist,
+  hidden: Set<string> = new Set(p.hiddenCategories ?? []),
+  hideAdult = true,
 ): Map<string, string[]> {
-  const hidden = new Set(p.hiddenCategories ?? []);
   const byEpg = new Map<string, string[]>();
   for (const s of streams) {
     if (!s.epg_channel_id || hidden.has(String(s.category_id ?? ""))) continue;
+    if (hideAdult && isAdultStream(s)) continue;
     const list = byEpg.get(s.epg_channel_id) ?? [];
     list.push(channelId(p.id, s.stream_id));
     byEpg.set(s.epg_channel_id, list);

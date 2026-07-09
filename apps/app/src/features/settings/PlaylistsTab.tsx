@@ -18,6 +18,8 @@ import {
   type PlaylistDraft,
   type PlaylistKind,
 } from "./playlists";
+import { loadShowAdult, saveShowAdult } from "./adultFilter";
+import { isAdultCategory } from "../live/adult";
 
 type Categories =
   | { status: "loading" }
@@ -90,6 +92,7 @@ export function PlaylistsTab() {
   const [kind, setKind] = useState<PlaylistKind>("xtream");
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [playlists, setPlaylists] = useState<Playlist[]>(loadPlaylists);
+  const [showAdult, setShowAdult] = useState<boolean>(loadShowAdult);
 
   // Per-playlist folder editor: which row is expanded, and each row's
   // fetched category list (kept per id so re-expanding is instant).
@@ -273,6 +276,7 @@ export function PlaylistsTab() {
                 <FolderEditor
                   playlist={p}
                   categories={categories[p.id]}
+                  showAdult={showAdult}
                   onToggle={(categoryId) =>
                     update(toggleHiddenCategory(playlists, p.id, categoryId))
                   }
@@ -281,6 +285,32 @@ export function PlaylistsTab() {
             </div>
           ))
         )}
+      </section>
+
+      <section className="settings-section">
+        <h3 className="settings-section__list-title">Content</h3>
+        <div className="playlist-item">
+          <div className="playlist-row">
+            <div className="playlist-row__text">
+              <span className="playlist-row__name">Show adult content</span>
+              <span className="playlist-row__source">
+                Off keeps adult folders and channels out of Live TV — flagged
+                by your provider, or caught by name.
+              </span>
+            </div>
+            <div className="playlist-row__actions">
+              <Toggle
+                on={showAdult}
+                onChange={() => {
+                  const next = !showAdult;
+                  setShowAdult(next);
+                  saveShowAdult(next);
+                }}
+                label="Show adult content"
+              />
+            </div>
+          </div>
+        </div>
       </section>
     </>
   );
@@ -291,10 +321,12 @@ export function PlaylistsTab() {
 function FolderEditor({
   playlist,
   categories,
+  showAdult,
   onToggle,
 }: {
   playlist: Playlist;
   categories: Categories | undefined;
+  showAdult: boolean;
   onToggle: (categoryId: string) => void;
 }) {
   if (playlist.kind !== "xtream") {
@@ -336,9 +368,16 @@ function FolderEditor({
       </div>
     );
   }
+  // With the adult filter on, adult folders leave the editor too — a
+  // visibility toggle on a globally-filtered folder would lie in both
+  // positions. The count keeps it honest.
+  const items = showAdult
+    ? categories.items
+    : categories.items.filter((c) => !isAdultCategory(c));
+  const adultHidden = categories.items.length - items.length;
   return (
     <div className="source-list">
-      {categories.items.map((c) => (
+      {items.map((c) => (
         <div key={c.id} className="source-row">
           <span className="source-row__name">{c.name}</span>
           <Toggle
@@ -349,6 +388,13 @@ function FolderEditor({
           />
         </div>
       ))}
+      {adultHidden > 0 && (
+        <p className="settings__section-note settings__section-note--dim">
+          {adultHidden} adult {adultHidden === 1 ? "folder" : "folders"} hidden
+          — turn on “Show adult content” below to manage{" "}
+          {adultHidden === 1 ? "it" : "them"}.
+        </p>
+      )}
     </div>
   );
 }
