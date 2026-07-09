@@ -60,6 +60,8 @@
   pointer-events: none;
 }
 .shero__glow img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -67,6 +69,12 @@
   filter: blur(70px) saturate(1.35);
   opacity: 0;
   animation: shero-glow-in 700ms ease forwards;
+}
+/* The previous tint, steady underneath while the new one washes in over
+ * it — slightly dimmer so the stacked pair reads like one glow. */
+.shero__glow img.shero__glow-under {
+  animation: none;
+  opacity: 0.4;
 }
 @keyframes shero-glow-in {
   to { opacity: 0.55; }

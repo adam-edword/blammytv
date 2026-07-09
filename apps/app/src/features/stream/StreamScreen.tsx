@@ -366,6 +366,14 @@ function Hero({
   const cardW = Math.max(0, width - 2 * m);
   const step = cardW + HERO_GAP;
   const activeItem = items[((v % count) + count) % count];
+  // Glow crossfade without a dark gap: the PREVIOUS art stays mounted
+  // steady underneath while the new one fades in on top — the tint
+  // updates as the cards slide, never dropping to black between.
+  const activeArt = activeItem?.backdrop ?? activeItem?.poster;
+  const [glow, setGlow] = useState<{ prev?: string; curr?: string }>({});
+  useEffect(() => {
+    if (activeArt) setGlow((g) => ({ prev: g.curr, curr: activeArt }));
+  }, [activeArt]);
   // Window of live slots around the current one: both neighbors visible,
   // one extra each side so a slide-in mounts before it enters the frame.
   // One extra slot AHEAD of the window: the next-next card mounts and
@@ -391,13 +399,16 @@ function Hero({
         aria-hidden
         style={{ left: m - 24, width: cardW + 48 }}
       >
-        {(activeItem?.backdrop ?? activeItem?.poster) && (
+        {glow.prev && glow.prev !== glow.curr && (
           <img
-            key={activeItem.id}
-            src={activeItem.backdrop ?? activeItem.poster}
+            className="shero__glow-under"
+            src={glow.prev}
             alt=""
             decoding="async"
           />
+        )}
+        {glow.curr && (
+          <img key={glow.curr} src={glow.curr} alt="" decoding="async" />
         )}
       </div>
       <div
