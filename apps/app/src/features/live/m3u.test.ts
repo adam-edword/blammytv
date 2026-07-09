@@ -162,13 +162,24 @@ http://host.example/2.ts
 #EXTINF:-1,No Number
 http://host.example/3.ts
 #EXTINF:-1 tvg-chno="not-a-number",Junk Number
-http://host.example/4.ts`,
+http://host.example/4.ts
+#EXTINF:-1 tvg-chno="",Empty Number
+http://host.example/5.ts
+#EXTINF:-1 tvg-chno="-3",Negative Number
+http://host.example/6.ts
+#EXTINF:-1 tvg-chno="0",Zero Number
+http://host.example/7.ts`,
     );
     expect(out[0].channelNumber).toBe(12);
     expect(out[1].channelNumber).toBe(7);
     expect(out[2].channelNumber).toBeUndefined();
     // A non-numeric channel number is dropped rather than surfaced as NaN.
     expect(out[3].channelNumber).toBeUndefined();
+    // tvg-chno="" would coerce to 0 via Number("") — dropped, not chip "#0".
+    expect(out[4].channelNumber).toBeUndefined();
+    // Junk negatives and zero are dropped too: positive integers only.
+    expect(out[5].channelNumber).toBeUndefined();
+    expect(out[6].channelNumber).toBeUndefined();
   });
 
   it("falls back to tvg-name then the URL when the display name is empty", () => {

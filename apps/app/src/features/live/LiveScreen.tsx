@@ -466,7 +466,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   // url (mock catalog, or a browser build) means no player mounts.
   const playUrl =
     isTauri() && playing && heroChannel
-      ? channelStreamUrl(heroChannel.id)
+      ? (heroChannel.url ?? channelStreamUrl(heroChannel.id))
       : null;
   playUrlRef.current = playUrl;
   heroIdRef.current = heroChannel?.id;

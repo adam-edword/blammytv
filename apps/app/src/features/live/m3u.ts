@@ -116,7 +116,10 @@ function parseExtinf(body: string): PendingEntry {
 
   const attrs = parseAttributes(attrPart);
   const chno = attrs["tvg-chno"] ?? attrs["channel-number"];
-  const channelNumber = chno != null ? Number(chno) : Number.NaN;
+  // Positive integers only: `tvg-chno=""` coerces to 0 (the Number("")
+  // footgun) and some providers ship junk negatives — same guard as the
+  // Xtream side's channelNumber().
+  const channelNumber = chno != null ? Math.floor(Number(chno)) : Number.NaN;
 
   return {
     name,
@@ -124,7 +127,10 @@ function parseExtinf(body: string): PendingEntry {
     groupTitle: attrs["group-title"] || undefined,
     tvgId: attrs["tvg-id"] || undefined,
     tvgName: attrs["tvg-name"] || undefined,
-    channelNumber: Number.isFinite(channelNumber) ? channelNumber : undefined,
+    channelNumber:
+      Number.isFinite(channelNumber) && channelNumber > 0
+        ? channelNumber
+        : undefined,
   };
 }
 

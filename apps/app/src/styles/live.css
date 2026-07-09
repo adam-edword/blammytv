@@ -939,18 +939,19 @@
   color: var(--accent);
 }
 
-/* Provider channel number, a quiet monospace chip before the name. */
+/* Provider channel number: a quiet dark chip after the name (Adam's mock —
+ * "#137", gray on black, never fighting the accent-colored name). */
 .hero__number {
   display: inline-block;
-  margin-right: 10px;
-  padding: 1px 8px;
-  border-radius: 6px;
-  background: var(--accent-surface);
-  border: 1px solid var(--accent-border);
+  margin-left: 12px;
+  padding: 1px 10px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
   font-size: 15px;
-  letter-spacing: 0;
+  letter-spacing: 0.5px;
   font-variant-numeric: tabular-nums;
-  color: var(--accent);
+  color: var(--text-muted);
   vertical-align: 2px;
 }
 

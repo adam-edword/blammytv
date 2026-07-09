@@ -243,7 +243,12 @@ seam stays as-is; landing page greenlit (artifact first).]
    + 8/8 E2E against the fake panel (`scripts/verify-adult-filter.mjs`;
    panel-flag, name-catch, stream-flag-in-innocent-category, Adult Swim
    survives, user-hidden unaffected, toggle restores).
-7. Stretch: channel-number chip + favorites drag-reorder (both S).
+7. Stretch: channel-number chip — ✅ SHIPPED on the sprint branch
+   (v0.1.133/134): hero-only per triage #4, `#137` dark pill right of the
+   channel name, Customize → "Channel Numbers" toggle (default on,
+   `settings/channelNumber.ts`). Favorites drag-reorder: data layer landed
+   (`reorderFavorite` + favorites-order rendering), drag-handle UI deferred
+   to a desk session.
 Post-1.0 headliner: instant recording to disk. Cut line rationale: everything
 above removes a switch-blocker or rescues the first session.
 

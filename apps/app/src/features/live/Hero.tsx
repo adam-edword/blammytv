@@ -4,6 +4,10 @@ import {
   loadClockFormat,
   onClockFormatChange,
 } from "../settings/clockFormat";
+import {
+  loadShowChannelNumber,
+  onShowChannelNumberChange,
+} from "../settings/channelNumber";
 import { progress as epgProgress } from "./epg";
 import type { Channel, Programme } from "./model";
 
@@ -24,12 +28,15 @@ export function Hero({
   // Programme progress creeps, so re-render on a slow tick.
   const [now, setNow] = useState(() => new Date());
   const [clockFmt, setClockFmt] = useState(loadClockFormat);
+  const [showNumber, setShowNumber] = useState(loadShowChannelNumber);
   useEffect(() => {
     const id = window.setInterval(() => setNow(new Date()), 30_000);
     const off = onClockFormatChange(setClockFmt);
+    const offNum = onShowChannelNumberChange(setShowNumber);
     return () => {
       window.clearInterval(id);
       off();
+      offNum();
     };
   }, []);
 
@@ -53,10 +60,10 @@ export function Hero({
           </span>
         )}
         <span className="hero__channel">
-          {channel.number != null && (
-            <span className="hero__number">{channel.number}</span>
-          )}
           {channel.name}
+          {showNumber && channel.number != null && (
+            <span className="hero__number">#{channel.number}</span>
+          )}
         </span>
         <div className="hero__title-wrap">
           <h2 className="hero__title">

@@ -219,6 +219,33 @@ export function TheaterOverlay({
   useEffect(() => {
     if (menu === null) wake();
   }, [menu, wake]);
+
+  // Wheel over the video = volume, matching mpv's own convention. INLINE
+  // ONLY: on the legacy overlay-webview path the wheel reaches the mpv child
+  // first and mpv's native wheel-volume handles it — a handler there would
+  // double-step. Inverted, the webview is on top and mpv never sees the
+  // wheel, which is why this regressed. Native listener (passive:false) —
+  // React's root wheel listeners are passive, so preventDefault would be
+  // ignored via onWheel.
+  const wheelHostRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!frame) return;
+    const el = wheelHostRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const up = e.deltaY < 0;
+      if (up) setMuted(false);
+      setVolume((v) =>
+        Math.min(1, Math.max(0, +(v + (up ? 0.05 : -0.05)).toFixed(2))),
+      );
+      wake();
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+    // mini flips which root exists, so re-attach when it changes.
+  }, [frame, mini, wake]);
+
   // If the chrome does hide (e.g. the cursor left the player), take any open
   // menu down with it rather than leaving it open invisibly.
   useEffect(() => {
@@ -412,6 +439,7 @@ export function TheaterOverlay({
   if (mini) {
     return (
       <div
+        ref={wheelHostRef}
         className="mini-overlay"
         data-interactive
         onClick={() => api()?.expand?.()}
@@ -448,6 +476,7 @@ export function TheaterOverlay({
   // THEATER / FULLSCREEN.
   return (
     <div
+      ref={wheelHostRef}
       className={
         "theater-overlay" +
         (active ? " player--active" : "") +

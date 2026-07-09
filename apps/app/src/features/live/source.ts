@@ -360,6 +360,12 @@ async function buildM3uSource(
     const seen = new Set<string>();
     const epgIdx = new Map<string, string[]>();
     const channels: Channel[] = [];
+    // tvg-id is the EPG feed id and is legitimately SHARED across HD/SD/
+    // backup variants — it can't be the channel id alone (duplicate React
+    // keys, unselectable variants, favorites marking both). First holder
+    // keeps the plain id (stable for favorites); later ones get a counter
+    // suffix, deterministic because playlist order is.
+    const usedIds = new Map<string, number>();
 
     for (const e of entries) {
       const group = e.groupTitle?.trim() || M3U_UNGROUPED;
@@ -368,7 +374,10 @@ async function buildM3uSource(
         seen.add(group);
         folders.push({ id: folderId(p.id, group), name: group });
       }
-      const id = channelId(p.id, e.tvgId || hashId(e.url));
+      const base = channelId(p.id, e.tvgId || hashId(e.url));
+      const dupes = usedIds.get(base) ?? 0;
+      usedIds.set(base, dupes + 1);
+      const id = dupes === 0 ? base : `${base}~${dupes}`;
       channels.push({
         id,
         name: e.name,
@@ -377,6 +386,7 @@ async function buildM3uSource(
         logo: validUrl(e.logo),
         archiveDays: 0,
         number: e.channelNumber,
+        url: e.url,
       });
       if (e.tvgId) {
         const list = epgIdx.get(e.tvgId) ?? [];
@@ -508,5 +518,16 @@ function validUrl(s?: string | null): string | undefined {
 }
 
 function msg(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
+  const raw = e instanceof Error ? e.message : String(e);
+  // NEVER surface a full URL (Xtream creds live in the path, M3U creds in
+  // the query — and reqwest's transport errors embed the whole URL). Keep
+  // only the origin so the message still names the host that failed. This
+  // string reaches console logs AND the on-screen group.error.
+  return raw.replace(/https?:\/\/[^\s"')]+/gi, (m) => {
+    try {
+      return new URL(m).origin + "/…";
+    } catch {
+      return "https://…";
+    }
+  });
 }

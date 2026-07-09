@@ -81,11 +81,11 @@ default and the v0.2.0 deletion milestone formally starts. Main window is
 now transparent:true (tauri.conf) — if Adam reports flag-OFF visual
 regressions (launch flash, window shadow), that change is the suspect.
 
-## Headless sprint (branch `claude/blammytv-headless-sprint`, v0.1.133 — NOT yet
+## Headless sprint (branch `claude/blammytv-headless-sprint`, v0.1.134 — NOT yet
 ## merged to the working branch; needs a Windows rebuild + Adam's eyeball)
 
 Fresh 20x-budget autonomous sprint off the working branch. All landed green
-(typecheck / lint / 111 tests / build; M3U + adult + tracks browser E2Es):
+(typecheck / lint / 113 tests / build; M3U + adult + tracks browser E2Es):
 - **M3U/M3U8 sources** (v0.2.0 scope): `m3u.ts` parser + `buildM3uSource` in
   source.ts (group-title folders, tvg-id/URL-hash ids, header `url-tvg` EPG
   via the XMLTV path, adult + hidden-group drop). Add form already existed.
@@ -105,8 +105,25 @@ Fresh 20x-budget autonomous sprint off the working branch. All landed green
   `resolveStreamUrl`; `http_get` needs a headers map).
 - Extracted `hole.ts` (+ tests) from CompositionPlayer.
 A fresh-eyes review workflow ran over the diff (dimension fan-out +
-adversarial verify) before this handoff — see the sprint commit / any
-follow-up fix commits for what it surfaced.
+adversarial verify) before this handoff. Four confirmed findings, ALL
+FIXED in v0.1.134:
+1. (HIGH) M3U channels were unplayable — the parsed URL was discarded and
+   playback always built an Xtream URL. Fix: `Channel.url` carries the M3U
+   URL verbatim; LiveScreen plays `heroChannel.url ?? channelStreamUrl(id)`.
+2. (MED) Colliding tvg-ids (HD/SD variants) produced duplicate channel ids
+   → dup React keys, one variant untunable. Fix: `~N` dedup suffix.
+3. (MED) Provider error strings could leak credentialed URLs (reqwest
+   embeds the full URL; M3U creds ride the query, Xtream creds the path).
+   Fix: source.ts `msg()` scrubs any URL down to its origin.
+4. (LOW) `tvg-chno=""` coerced to 0 → spurious "#0" chip. Fix: positive-
+   integer-only guard in both the M3U and Xtream number paths.
+The review also flagged `reorderFavorite` as uncalled — intentional: the
+data layer landed ahead of the deferred drag-handle UI (desk item).
+v0.1.134 also folds in Adam's asks: hero channel-number chip restyled to
+the mock (right of the name, `#137`, dark pill) + a Customize toggle
+("Channel Numbers", default on, `channelNumber.ts`), and wheel-to-change-
+volume restored on the theater/mini overlays (native non-passive wheel
+listener — React root wheel handlers are passive and can't preventDefault).
 **TODO for Adam:** replace the landing page's CSS app mock with a real
 screenshot of the app (his request). And decide whether to merge this
 sprint branch into the working branch after a Windows rebuild.

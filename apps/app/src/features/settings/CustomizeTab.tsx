@@ -25,6 +25,10 @@ import {
   type ClockFormat,
 } from "./clockFormat";
 import {
+  loadShowChannelNumber,
+  saveShowChannelNumber,
+} from "./channelNumber";
+import {
   applyCornerStyle,
   loadCornerStyle,
   saveCornerStyle,
@@ -164,8 +168,16 @@ export function CustomizeTab() {
     saveStartupTab(next);
   };
 
+  const [chanNum, setChanNum] = useState<boolean>(loadShowChannelNumber);
+  const toggleChanNum = () => {
+    const next = !chanNum;
+    setChanNum(next);
+    saveShowChannelNumber(next);
+  };
+
   /** Back to factory appearance: default accent (custom slot cleared),
-   * dark theme, squircle corners, 100% scale, 12h clock, open on Live. */
+   * dark theme, squircle corners, 100% scale, 12h clock, open on Live,
+   * channel numbers shown. */
   const reset = () => {
     pick(ACCENT_PRESETS[0].hex);
     setCustom("");
@@ -175,6 +187,8 @@ export function CustomizeTab() {
     pickScale(1);
     pickClock("12h");
     pickStartup("live");
+    setChanNum(true);
+    saveShowChannelNumber(true);
   };
 
   // Clearing credentials is destructive, so it takes two clicks: arm, then
@@ -227,6 +241,20 @@ export function CustomizeTab() {
             tabs={STARTUP_TABS}
             active={startup}
             onChange={pickStartup}
+          />
+        </div>
+
+        <div className="customize-row">
+          <div>
+            <h4 className="customize-row__title">Channel Numbers</h4>
+            <p className="settings__section-note settings__section-note--dim">
+              Show the provider&rsquo;s channel number beside the name.
+            </p>
+          </div>
+          <Toggle
+            on={chanNum}
+            onChange={toggleChanNum}
+            label="Show channel numbers"
           />
         </div>
       </section>

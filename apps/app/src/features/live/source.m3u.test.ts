@@ -71,4 +71,44 @@ describe("loadLive M3U path", () => {
     expect(data.channels.map((c) => c.name)).toContain("Naughty Channel");
     expect(data.groups[0].folders.map((f) => f.name)).toContain("XXX Adult");
   });
+
+  it("carries each entry's stream URL onto the channel verbatim", async () => {
+    const { loadLive } = await import("./source");
+    const data = await loadLive(new Date());
+    // M3U channels play their own URL directly — channelStreamUrl() only
+    // knows how to build Xtream URLs, so a missing .url means unplayable.
+    expect(data.channels.map((c) => c.url)).toEqual([
+      "http://host/live/1.ts",
+      "http://host/live/2.ts",
+    ]);
+  });
+
+  it("dedupes colliding tvg-ids so every channel keeps a unique id", async () => {
+    // HD/SD variants of one channel commonly share a tvg-id; without a
+    // dedup suffix they'd collide as React keys and only one would tune.
+    httpGetText.mockImplementation((url: string) =>
+      url.endsWith(".m3u")
+        ? Promise.resolve(
+            [
+              "#EXTM3U",
+              '#EXTINF:-1 tvg-id="bbc1.uk" group-title="UK",BBC One HD',
+              "http://host/live/hd.ts",
+              '#EXTINF:-1 tvg-id="bbc1.uk" group-title="UK",BBC One SD',
+              "http://host/live/sd.ts",
+            ].join("\n"),
+          )
+        : Promise.reject(new Error("no epg")),
+    );
+    const { loadLive } = await import("./source");
+    const data = await loadLive(new Date());
+    expect(data.channels.map((c) => c.id)).toEqual([
+      "m1:bbc1.uk",
+      "m1:bbc1.uk~1",
+    ]);
+    // Each variant still plays its own stream.
+    expect(data.channels.map((c) => c.url)).toEqual([
+      "http://host/live/hd.ts",
+      "http://host/live/sd.ts",
+    ]);
+  });
 });

@@ -18,6 +18,10 @@ export interface Channel {
   /** Provider channel number (Xtream `num`), shown in the hero on hover.
    * Undefined when the source doesn't number its channels. */
   number?: number;
+  /** Direct stream URL (M3U entries carry theirs verbatim). Absent for
+   * Xtream, whose URL is rebuilt from the id + saved credentials — see
+   * stream.ts#channelStreamUrl. Callers prefer this when present. */
+  url?: string;
   /** Days of server-side catch-up archive, 0 when the channel has none.
    * Derived from the panel's tv_archive / tv_archive_duration fields (both
    * arrive string-typed, so this is the coerced, guarded number). */
