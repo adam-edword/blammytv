@@ -209,6 +209,14 @@ and the agreed order of what's next. Update this file as sections land.
 Audience: desktop switchers from Windows IPTV clients + Stremio users, AND
 newcomers to both (first-five-minutes activation weighs as much as switcher
 parity). Telly = live-TV quality bar. In value order:
+[Adam's 2026-07-09 triage: #1 #2 keep (awaiting Figma); #3 keep LOW-prio;
+#4 reshaped — NO chip in the EPG UI, show the channel number in the HERO
+data on hover instead (Xtream `get_live_streams.num` → model → hero);
+#5 approved; #6 post-1.0; Stream tab post-0.2.0; timeshift backburner;
+**M3U + Stalker sources PULLED INTO v0.2.0 scope**; stats overlay keep;
+ambient/motion post-0.3.0; programme-level hero selection keep; hole-rim
+seam stays as-is; landing page greenlit (artifact first).]
+
 1. **Ctrl+K channel search** (M) — unanimous 7/7 personas; wire the drawn
    header icon into a fuzzy command palette; needs Adam's palette design.
 2. **Stream resilience + tune-in ident** (M) — ✅ frontend half SHIPPED
