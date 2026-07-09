@@ -2,6 +2,10 @@
  * detail page with the addon's pre-ranked source rail, episode grid. */
 
 .stream {
+  /* Full window width regardless of content — as a flex child of
+   * .app-main it otherwise sizes to max-content and a sparse detail
+   * page collapses into a left-hand strip. */
+  width: 100%;
   height: 100%;
   overflow-y: auto;
   padding: calc(var(--header-h, 76px) + 8px) 28px 40px;
@@ -368,11 +372,16 @@
 .continue-card--holding .continue-card__hold { opacity: 1; }
 
 /* ---- detail page ---- */
+/* Detail + episodes fill the whole window (`.stream--full` drops the
+ * scroll-box padding) — the backdrop runs to the edges and under the
+ * floating header; the body pads itself clear of it. */
+.stream--full {
+  padding: 0;
+}
 .vod-detail {
   position: relative;
   flex: 1;
   min-height: 0;
-  border-radius: var(--radius-card, 16px);
   overflow: hidden;
   background: var(--surface);
 }
@@ -395,7 +404,7 @@
   display: grid;
   grid-template-columns: 1fr 360px;
   gap: 28px;
-  padding: 28px 32px;
+  padding: calc(var(--header-h, 76px) + 12px) 32px 32px;
   overflow-y: auto;
   color: #f2f2f4;
 }
@@ -439,6 +448,8 @@
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.25);
   color: rgba(242, 242, 244, 0.8);
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px);
 }
 
 /* ---- source rail ---- */
@@ -462,6 +473,7 @@
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.07);
   border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(18px);
   cursor: pointer;
   text-align: left;
   transition: background 140ms ease;
@@ -501,6 +513,8 @@
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   color: rgba(242, 242, 244, 0.75);
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px);
   cursor: pointer;
 }
 .season-chip--on {
@@ -522,6 +536,7 @@
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(18px);
   cursor: pointer;
   transition: background 140ms ease;
 }

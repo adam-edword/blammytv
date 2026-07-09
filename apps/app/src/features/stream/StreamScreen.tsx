@@ -106,10 +106,54 @@ export function StreamScreen() {
     };
   }, []);
 
+  // Back/forward history over the view state — the ← Back buttons and the
+  // mouse side buttons (4 = back, 5 = forward) all walk the same stacks.
+  const backStack = useRef<View[]>([]);
+  const fwdStack = useRef<View[]>([]);
+  const navigate = useCallback((next: View) => {
+    setView((cur) => {
+      backStack.current.push(cur);
+      fwdStack.current = [];
+      return next;
+    });
+  }, []);
+  const goBack = useCallback(() => {
+    setView((cur) => {
+      const prev = backStack.current.pop();
+      if (!prev) return cur;
+      fwdStack.current.push(cur);
+      return prev;
+    });
+  }, []);
+  const goForward = useCallback(() => {
+    setView((cur) => {
+      const next = fwdStack.current.pop();
+      if (!next) return cur;
+      backStack.current.push(cur);
+      return next;
+    });
+  }, []);
+  useEffect(() => {
+    if (playing) return;
+    // MouseEvent.button: 3 = back (mouse 4), 4 = forward (mouse 5).
+    // preventDefault on BOTH phases or WebView2 walks its own history.
+    const onButton = (e: MouseEvent) => {
+      if (e.button !== 3 && e.button !== 4) return;
+      e.preventDefault();
+      if (e.type === "mouseup") (e.button === 3 ? goBack : goForward)();
+    };
+    window.addEventListener("mousedown", onButton);
+    window.addEventListener("mouseup", onButton);
+    return () => {
+      window.removeEventListener("mousedown", onButton);
+      window.removeEventListener("mouseup", onButton);
+    };
+  }, [playing, goBack, goForward]);
+
   const open = useCallback(async (item: VodItem) => {
     // Show the lightweight item immediately; swap in the full detail
     // (synopsis, cast, seasons) when it lands. Failure keeps the light one.
-    setView(
+    navigate(
       item.kind === "series" ? { at: "episodes", item } : { at: "title", item },
     );
     try {
@@ -123,7 +167,7 @@ export function StreamScreen() {
     } catch {
       /* best-effort: the light item still renders */
     }
-  }, []);
+  }, [navigate]);
 
   // Hero "Watch Now": resolve fresh sources and play the best one straight
   // away (first cached — the addon's ranking within that — else first
@@ -204,7 +248,9 @@ export function StreamScreen() {
   }
 
   return (
-    <div className="stream">
+    // Off home, the detail/episode screens go full-bleed: no scroll-box
+    // padding, backdrop to the window edges, under the floating header.
+    <div className={"stream" + (view.at === "home" ? "" : " stream--full")}>
       {view.at === "home" && (
         <Home
           load={load}
@@ -221,7 +267,7 @@ export function StreamScreen() {
       {view.at === "title" && (
         <Detail
           item={view.item}
-          onBack={() => setView({ at: "home" })}
+          onBack={goBack}
           onPlaySource={(s) =>
             setPlaying({ url: s.streamUrl, item: view.item })
           }
@@ -230,9 +276,9 @@ export function StreamScreen() {
       {view.at === "episodes" && (
         <Episodes
           item={view.item}
-          onBack={() => setView({ at: "home" })}
+          onBack={goBack}
           onPick={(episodeId, episodeLabel) =>
-            setView({ at: "sources", item: view.item, episodeId, episodeLabel })
+            navigate({ at: "sources", item: view.item, episodeId, episodeLabel })
           }
         />
       )}
@@ -241,7 +287,7 @@ export function StreamScreen() {
           item={view.item}
           episodeId={view.episodeId}
           episodeLabel={view.episodeLabel}
-          onBack={() => setView({ at: "episodes", item: view.item })}
+          onBack={goBack}
           onPlaySource={(s) =>
             setPlaying({
               url: s.streamUrl,
