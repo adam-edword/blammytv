@@ -179,6 +179,26 @@ LiveGroup.epgError and render under the playlist row in Settings →
 Playlists ("Channels OK · guide: <reason>"). Bobby updates via the chip,
 opens Settings, reads the line to Adam. Fix follows the data.
 
+## STREAM TAB S1 — LANDED (v0.2.6, branch blammytv-0.3.0-push)
+
+The AIOStreams browse surface is real: data/stremio.ts (protocol client,
+colon-preserving encSegment — load-bearing), features/stream/{model,mapper,
+source}.ts ported from the old build (rows from browseable catalogs,
+hero round-robin + up-front meta enrich, Cinemeta fallback for sparse
+metas, magnet filtering, per-catalog isolation, manifest-URL scrubbing in
+errors), StreamScreen: hero carousel + poster rows + detail/sources +
+series season/episode browser + fullscreen playback through the SHARED
+InvertedPlayer/TheaterOverlay (its own #inv-chrome host + api override —
+overlay verbs mapped: close/collapse/exitFullscreen all stop back to the
+catalog). Verified: 9 unit tests + scripts/verify-stream.mjs 8/8 vs
+scripts/fake-aio.mjs (:8084). NEXT (S2): VOD scrubber chrome in
+TheaterOverlay (mpv seek_abs is waiting Rust-side, needs an mpv_seek_abs
+command), watch-progress/Continue-Watching, pagination + search, nav
+glass re-enable (base.css comment) now that scrolling content exists.
+NOTE: repo branches cleaned 2026-07-09; work continues on
+blammytv-0.3.0-push (old branch list is in the session log; android-tv
+kept deliberately — 186 unique commits of parked port work).
+
 ## v0.2.0 — PACKAGED-READY (2026-07-09). Update chip shipped; all four
 ## version spots aligned at 0.2.0 (tauri.conf/Cargo.toml included, the
 ## milestone exception to the three-file protocol). Release = Adam's desk:
