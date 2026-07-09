@@ -92,18 +92,28 @@
  * leftward move runs ~868→1856ms on a spring (Figma's response curve
  * `1 - e^(-7.6657t)·(cos(6.7605t) + 1.1339·sin(6.7605t))`, sampled below —
  * ~2.8% overshoot settling back). Translate precedes scale so the -360px is
- * in screen pixels, matching the mock. */
+ * in screen pixels, matching the mock.
+ *
+ * The mock's motion used placeholder geometry; the end state is tuned to the
+ * real app-icon lockup instead: half the mock's icon size (~96px tile) and
+ * app-icon corner rounding (30% outer / 27% inner, made squircle by the
+ * global corner-shape). Percentage radii keep the corners circular under the
+ * non-uniform scale, and every keyframe restates border-radius so it doesn't
+ * drift back to the base value after the shrink lands. */
 @keyframes welcome-frame-shrink {
   0% {
     transform: translateX(0) scale(1, 1);
+    border-radius: 0px;
     animation-timing-function: cubic-bezier(0.5, 0, 0.5, 1);
   }
   36.86% {
-    transform: translateX(0) scale(0.1, 0.18);
+    transform: translateX(0) scale(0.05, 0.09);
+    border-radius: 30%;
     animation-timing-function: linear;
   }
   43.42% {
-    transform: translateX(0) scale(0.1, 0.18);
+    transform: translateX(0) scale(0.05, 0.09);
+    border-radius: 30%;
     animation-timing-function: linear(
       0,
       0.0403 3%,
@@ -140,21 +150,25 @@
   }
   92.79%,
   100% {
-    transform: translateX(-360px) scale(0.1, 0.18);
+    transform: translateX(-360px) scale(0.05, 0.09);
+    border-radius: 30%;
   }
 }
 
 @keyframes welcome-screen-shrink {
   0% {
     transform: translateX(0) scale(1, 1);
+    border-radius: 30px;
     animation-timing-function: cubic-bezier(0.5, 0, 0.5, 1);
   }
   36.78% {
-    transform: translateX(0) scale(0.055, 0.1);
+    transform: translateX(0) scale(0.0275, 0.05);
+    border-radius: 27%;
     animation-timing-function: linear;
   }
   43.42% {
-    transform: translateX(0) scale(0.055, 0.1);
+    transform: translateX(0) scale(0.0275, 0.05);
+    border-radius: 27%;
     animation-timing-function: linear(
       0,
       0.0403 3%,
@@ -191,7 +205,8 @@
   }
   92.79%,
   100% {
-    transform: translateX(-360px) scale(0.055, 0.1);
+    transform: translateX(-360px) scale(0.0275, 0.05);
+    border-radius: 27%;
   }
 }
 
