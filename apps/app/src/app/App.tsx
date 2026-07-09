@@ -28,6 +28,20 @@ export function App() {
     [tab],
   );
 
+  // The native player (mpv child HWND + composition overlay) sits ABOVE the
+  // main webview — no CSS z-index can put the settings modal over it. While
+  // the modal is open, flag the root; CompositionPlayer reads it per-frame
+  // and parks the native layers in a tiny offscreen rect (audio keeps
+  // playing, picture returns the instant the modal closes).
+  useEffect(() => {
+    const root = document.documentElement;
+    if (settingsOpen) root.dataset.nativeHidden = "1";
+    else delete root.dataset.nativeHidden;
+    return () => {
+      delete root.dataset.nativeHidden;
+    };
+  }, [settingsOpen]);
+
   // F11 toggles fullscreen; Escape always exits it. The window-state
   // plugin restores fullscreen across launches, so without this there's
   // no way out from inside the app.

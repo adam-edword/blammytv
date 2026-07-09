@@ -19,6 +19,13 @@ const OPEN_DEBOUNCE_MS = 150;
 const RADIUS_CSS = 12;
 const SLOT_ID = "player-slot";
 
+/** Where the native layers park while a modal covers the app (they're child
+ * HWNDs above the webview, so no CSS can cover them — see App.tsx, which
+ * sets `data-native-hidden` on the root). 2×2 at a negative offset instead
+ * of 0×0: fully clipped by the parent window, without poking any zero-size
+ * edge case in the WebView2 composition bounds. */
+const PARKED: CompRect = { x: -8, y: -8, w: 2, h: 2, radius: 0 };
+
 function measure(el: HTMLElement, squared: boolean): CompRect {
   const r = el.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
@@ -68,7 +75,8 @@ export function CompositionPlayer({
     const tick = () => {
       const el = document.getElementById(SLOT_ID);
       if (el) {
-        const rect = measure(el, fsRef.current);
+        const parked = document.documentElement.dataset.nativeHidden === "1";
+        const rect = parked ? PARKED : measure(el, fsRef.current);
         const key = `${rect.x},${rect.y},${rect.w},${rect.h},${rect.radius}`;
         if (rect.w > 0 && rect.h > 0 && key !== last) {
           last = key;

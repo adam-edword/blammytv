@@ -185,6 +185,17 @@ and the agreed order of what's next. Update this file as sections land.
   Remaining lever if ever needed: Rust-side windowed xmltv parse (ships only
   the −1h..+12h slice, kills the 95MB DOMParser pass).
 
+- **Settings-over-player (v0.1.114, needs Windows verify).** The settings
+  modal rendered BEHIND the playing video: the mpv child HWND + composition
+  overlay are native layers above the main webview, so no CSS z-index can
+  cover them (Telly wins here by compositing video as a texture inside its
+  UI — not our architecture). Fix rides the existing rect driver: App.tsx
+  sets `data-native-hidden` on the root while the modal is open, and
+  CompositionPlayer's rAF parks the native layers in a 2×2 offscreen rect
+  (not 0×0 — avoids WebView2 zero-bounds edge cases) until it clears. Audio
+  keeps playing; the picture snaps back on close. Any future full-cover
+  surface (Ctrl+K palette) can reuse the same flag.
+
 - **Brand (v0.1.107–109).** The gradient-ring mark is the app identity:
   `public/logo.png`/`logo.svg` in the header + the full `src-tauri/icons`
   set, and `build.rs` declares `rerun-if-changed=icons/icon.ico` so an icon
