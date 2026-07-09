@@ -57,8 +57,11 @@ mpv_snapshot (thumbnails someday).** mpv.rs has gained exactly TWO
 additive fns (set_glsl_shaders, screenshot_to_file) — do-not-touch
 exceptions covered by Adam's rip authorization. `[mpv] <version>` prints
 to the terminal on inverted open — feeds the pending libmpv-upgrade /
-gpu-next decision. ROADMAP "Layer inversion" has what remains before
-default-flip.
+gpu-next decision. **ARCHITECTURE COMMITTED (Adam, 2026-07-09: "100%"): inverted is the
+DEFAULT as of v0.1.132.** Ctrl+Shift+U = legacy escape hatch until the
+v0.2.0 deletion. Remaining v0.2.0 gates: desk parity pass (popout + HDR
+brightness), mid-play death detection (headless, mpv_status), review
+fleet, test backfill, then the deletion itself.
 
 **Frost diagnosis CLOSED (v0.1.127-129):** placement was fine all along —
 the "unblurred" line was the hole-rim seam where CSS backdrop blur (shell)

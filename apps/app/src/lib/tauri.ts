@@ -8,12 +8,13 @@ export function isTauri(): boolean {
   return "__TAURI_INTERNALS__" in window;
 }
 
-/** Dev flag: run the INVERTED player (native video parked BELOW a
- * transparent webview — the Telly arrangement, spike-proven v0.1.115)
- * instead of the comp.rs video-on-top + overlay-webview path. Toggled with
- * Ctrl+Shift+U in dev; read once at boot (main.tsx stamps .invert-player). */
+/** THE player architecture (Adam committed 100%, 2026-07-09): native video
+ * parked BELOW the transparent webview — the Telly arrangement. Default ON;
+ * Ctrl+Shift+U still flips to the legacy comp.rs path as an escape hatch
+ * until the v0.2.0 deletion milestone removes it. Read once at boot
+ * (main.tsx stamps .invert-player). */
 export function invertedPlayer(): boolean {
-  return isTauri() && load<boolean>("invertPlayer", 1, false);
+  return isTauri() && load<boolean>("invertPlayer", 1, true);
 }
 export function setInvertedPlayer(on: boolean): void {
   save("invertPlayer", 1, on);
