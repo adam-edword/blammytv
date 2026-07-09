@@ -384,8 +384,16 @@ export function TheaterOverlay({
           toggleFullscreen();
           break;
         case "t":
+          // t = theater: expand from mini, collapse from theater — and from
+          // fullscreen, drop back to THEATER (not to wherever fullscreen was
+          // entered from: theater persists across fullscreen, so a mini→f
+          // ride would otherwise land in mini). Expand first so leaving
+          // fullscreen can't flash the mini box.
           if (miniNow()) api()?.expand?.();
-          else api()?.collapse?.();
+          else if (fsNow()) {
+            api()?.expand?.();
+            api()?.exitFullscreen?.();
+          } else api()?.collapse?.();
           break;
         case "i":
           // Stats overlay — theater/fullscreen only, and only in the shell

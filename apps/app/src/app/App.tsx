@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { isTauri, tauriInvStop } from "../lib/tauri";
+import { isTauri } from "../lib/tauri";
 import { AppHeader, type TabKey } from "./AppHeader";
 import { WelcomeAnimation } from "./WelcomeAnimation";
 import { shouldPlayWelcome } from "./welcome";
@@ -16,21 +16,13 @@ export function App() {
   // Boot animation: plays over the shell while it loads, once per launch.
   const [welcome, setWelcome] = useState(shouldPlayWelcome);
 
-  // Leaving Live unmounts LiveScreen, whose CompositionPlayer tears the native
-  // mpv layer down — but that teardown (run_on_main_thread) queues behind the
-  // incoming tab's render/paint, so the video child can hang on for a beat.
-  // AWAIT the teardown before switching: the main thread is idle at click
-  // time, so mpv is destroyed first, then the new tab renders. inv_stop is a
-  // cheap no-op when nothing's playing.
-  const changeTab = useCallback(
-    async (next: TabKey) => {
-      if (tab === "live" && next !== "live" && isTauri()) {
-        await tauriInvStop().catch(() => {});
-      }
-      setTab(next);
-    },
-    [tab],
-  );
+  // Tab switches are instant: leaving Live unmounts LiveScreen, whose
+  // InvertedPlayer cleanup heals the shell's clip hole SYNCHRONOUSLY (before
+  // the next paint) and fires inv_stop without waiting. The video child sits
+  // BELOW the webview, so once the hole is gone it has nothing to show
+  // through — the old await-the-teardown dance existed only because the comp
+  // layer floated above the UI.
+  const changeTab = setTab;
 
   // While a modal is open, flag the root: the video keeps playing behind it
   // (it's below the webview), and the player chrome fades out via CSS so it
