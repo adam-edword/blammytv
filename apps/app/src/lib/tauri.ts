@@ -161,3 +161,16 @@ export function tauriSetFullscreen(on: boolean): Promise<void> {
 export function onPopoutClosed(cb: () => void): () => void {
   return onUiEvent("popout-closed", cb);
 }
+
+/** Ask GitHub Releases (via tauri-plugin-updater) whether a newer signed
+ * build exists. Resolves with its version string, or null when current. */
+export function tauriCheckUpdate(): Promise<string | null> {
+  return invoke("check_update");
+}
+
+/** Download + install the pending update, then relaunch into it. On
+ * success the app restarts and this never resolves; a rejection means the
+ * download/install failed and the caller may retry. */
+export function tauriInstallUpdate(): Promise<void> {
+  return invoke("install_update");
+}

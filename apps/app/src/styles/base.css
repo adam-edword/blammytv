@@ -356,3 +356,71 @@ button {
   max-width: 44ch;
   margin: 0;
 }
+
+/* ------------------------------------------------- update chip (header) */
+
+/* Right-side header group: the update chip at full strength beside the
+ * dimmed icon cluster. */
+.header__right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* The sweep angle, registered so the ring's spin interpolates. */
+@property --update-ring {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 90deg;
+}
+
+/* A glass pill wearing the brand gradient as a slow-turning 1.5px ring —
+ * the boot logo's sweep, reused to mean "something new is here". The inner
+ * fill paints over padding-box so the gradient survives only as the rim. */
+.update-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border: 1.5px solid transparent;
+  border-radius: 999px;
+  font-family: var(--font-headline);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--text);
+  cursor: pointer;
+  background:
+    linear-gradient(color-mix(in srgb, var(--bg) 82%, transparent),
+        color-mix(in srgb, var(--bg) 82%, transparent)) padding-box,
+    conic-gradient(
+        from var(--update-ring),
+        #ff9b9b, #ff8bc9, #ff7bf6, #c388fb, #8696ff,
+        #85cbd4, #84ffa9, #c1f294, #ffe57f, #ff9b9b
+      ) border-box;
+  animation: update-ring-turn 9s linear infinite;
+  transition: filter 140ms ease;
+}
+.update-chip:hover { filter: brightness(1.25); }
+.update-chip--busy { cursor: progress; }
+@keyframes update-ring-turn { to { --update-ring: 450deg; } }
+
+/* The pulse dot: same gradient family, breathing while idle, steady spin
+ * read while installing (motion = work happening). */
+.update-chip__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: conic-gradient(#ff8bc9, #8696ff, #84ffa9, #ffe57f, #ff8bc9);
+  animation: update-dot-pulse 2.4s ease-in-out infinite;
+}
+.update-chip--busy .update-chip__dot { animation: update-dot-spin 900ms linear infinite; }
+@keyframes update-dot-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50% { transform: scale(1.35); opacity: 1; }
+}
+@keyframes update-dot-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .update-chip, .update-chip__dot { animation: none; }
+}

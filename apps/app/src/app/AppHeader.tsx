@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AccountIcon, SearchIcon, SettingsIcon } from "../ui/icons";
+import { UpdateChip } from "./UpdateChip";
 import { formatClock } from "../lib/time";
 import { APP_VERSION } from "../lib/version";
 import {
@@ -116,18 +117,23 @@ export function AppHeader({
         ))}
       </nav>
 
-      <div className="header__actions">
-        <button type="button" className="header__action" aria-label="Profile">
-          <AccountIcon />
-        </button>
-        <button
-          type="button"
-          className="header__action"
-          aria-label="Settings"
-          onClick={onOpenSettings}
-        >
-          <SettingsIcon />
-        </button>
+      <div className="header__right">
+        {/* Outside the 0.3-opacity icon cluster on purpose: an available
+          * update should read at full strength. */}
+        <UpdateChip />
+        <div className="header__actions">
+          <button type="button" className="header__action" aria-label="Profile">
+            <AccountIcon />
+          </button>
+          <button
+            type="button"
+            className="header__action"
+            aria-label="Settings"
+            onClick={onOpenSettings}
+          >
+            <SettingsIcon />
+          </button>
+        </div>
       </div>
     </header>
   );

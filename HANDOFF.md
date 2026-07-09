@@ -151,6 +151,20 @@ listener — React root wheel handlers are passive and can't preventDefault).
 screenshot of the app (his request). And decide whether to merge this
 sprint branch into the working branch after a Windows rebuild.
 
+## v0.2.0 — PACKAGED-READY (2026-07-09). Update chip shipped; all four
+## version spots aligned at 0.2.0 (tauri.conf/Cargo.toml included, the
+## milestone exception to the three-file protocol). Release = Adam's desk:
+## RELEASING.md verbatim (fetch-libmpv, signed tauri build, latest.json,
+## GitHub release). First `pnpm tauri dev`/build also compile-verifies the
+## v0.1.137 http_get headers change and rewrites Cargo.lock — commit that.
+
+## Update banner — SHIPPED v0.2.0. UpdateChip.tsx in the header's new
+## .header__right group (full-strength, outside the 0.3-opacity icon
+## cluster): silent check_update 6s after launch (Tauri only), gradient-
+## ring glass pill "vX ready" when one exists, click = install_update →
+## auto-relaunch; failure re-arms as "retry". `?update=<ver>` forces the
+## chip for styling/screenshots (the test seam the headless shots used).
+
 ## Stalker/MAG sources — SHIPPED v0.1.137 (the last v0.2.0 source gate)
 
 Full protocol client per docs/stalker-implementation.md (that doc is the
