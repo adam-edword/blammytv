@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mapSeasons, mapStreams, metaToVod } from "./mapper";
+import { mapSeasons, mapStreams, metaPreviewToVod, metaToVod } from "./mapper";
 
 describe("mapStreams", () => {
   it("filters to http streams, preserves addon order, parses quality/cached/lines", () => {
@@ -83,5 +83,23 @@ describe("metaToVod", () => {
     expect(v.poster).toBeUndefined();
     expect(v.backdrop).toBe("http://h/bg.png");
     expect(v.cast).toEqual(["A", "B"]);
+  });
+});
+
+describe("metaPreviewToVod", () => {
+  it("keeps runtime when the catalog preview provides it", () => {
+    const v = metaPreviewToVod({
+      id: "tt6",
+      type: "movie",
+      name: "Film",
+      runtime: "129 min",
+      releaseInfo: 2021,
+    });
+    expect(v.runtimeMin).toBe(129);
+    expect(v.year).toBe(2021);
+    // And absent runtime stays absent — no fake zeroes on the meta line.
+    expect(
+      metaPreviewToVod({ id: "tt7", type: "movie", name: "X" }).runtimeMin,
+    ).toBeUndefined();
   });
 });

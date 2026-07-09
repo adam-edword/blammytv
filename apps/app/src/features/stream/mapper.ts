@@ -77,6 +77,7 @@ export function metaPreviewToVod(m: MetaPreview): VodItem {
     year: parseYear(m.releaseInfo),
     poster: httpUrl(m.poster),
     rating: parseRating(m.imdbRating),
+    runtimeMin: parseRuntime(m.runtime),
     synopsis: m.description,
     genres: m.genres ?? [],
     cast: [],

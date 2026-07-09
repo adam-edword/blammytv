@@ -61,6 +61,9 @@ const MOVIES = NUMBERS.map((word, i) => {
     ...(sparse
       ? {}
       : { poster: poster(id), description: `A perfectly fake movie, number ${word}.` }),
+    // Cinemeta-style: catalog previews carry runtime too (some entries
+    // deliberately without, matching real-world spotty coverage).
+    ...(i % 2 === 0 ? { runtime: `${95 + i * 7} min` } : {}),
   };
 });
 

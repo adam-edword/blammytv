@@ -47,6 +47,8 @@ export interface MetaPreview {
   imdbRating?: string | number;
   genres?: string[];
   description?: string;
+  /** Cinemeta-style previews include it ("2h 49min" / "129 min"). */
+  runtime?: string;
 }
 
 /** Full title detail — what powers the detail page. */
@@ -54,7 +56,6 @@ export interface MetaDetail extends MetaPreview {
   background?: string;
   logo?: string;
   landscapePoster?: string;
-  runtime?: string;
   director?: string;
   year?: string | number;
   cast?: Array<{ name: string; character?: string; photo?: string }> | string[];
