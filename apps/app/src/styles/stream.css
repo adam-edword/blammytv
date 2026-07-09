@@ -46,7 +46,7 @@
   position: absolute;
   inset: 0;
   z-index: 1; /* above the glow box */
-  transition: transform 550ms cubic-bezier(0.25, 0.8, 0.3, 1);
+  transition: transform 650ms cubic-bezier(0.45, 0.05, 0.2, 1);
   will-change: transform;
 }
 /* The shadow slider's stationary window (left/width inline from measured
@@ -61,11 +61,21 @@
   overflow: hidden;
   border-radius: 70px;
   pointer-events: none;
+  /* Feathered window: intensity falls off over ~70px at every edge
+   * instead of cutting hard at the clip line. */
+  -webkit-mask-image:
+    linear-gradient(to right, transparent, #000 70px, #000 calc(100% - 70px), transparent),
+    linear-gradient(to bottom, transparent, #000 60px, #000 calc(100% - 60px), transparent);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to right, transparent, #000 70px, #000 calc(100% - 70px), transparent),
+    linear-gradient(to bottom, transparent, #000 60px, #000 calc(100% - 60px), transparent);
+  mask-composite: intersect;
 }
 .shero__glowtrack {
   position: absolute;
   inset: 0;
-  transition: transform 550ms cubic-bezier(0.25, 0.8, 0.3, 1);
+  transition: transform 650ms cubic-bezier(0.45, 0.05, 0.2, 1);
   will-change: transform;
 }
 .shero__glowbox img {
@@ -92,8 +102,15 @@
   /* Own compositor layer: the rounded content rides the track's
    * transform without re-rasterizing every frame. */
   transform: translateZ(0);
+  /* Neighbors sit dimmed; the incoming card fades up QUICKLY (300ms vs
+   * the 650ms slide) so it reads lit by the time it lands. */
+  opacity: 0.3;
+  transition: opacity 300ms ease;
 }
-.shero__card--active { cursor: pointer; }
+.shero__card--active {
+  cursor: pointer;
+  opacity: 1;
+}
 .shero__art {
   position: absolute;
   inset: 0;
