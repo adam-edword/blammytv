@@ -185,13 +185,24 @@
   margin: 0 -28px;
   padding: 4px 28px 10px;
 }
-/* Scrollbar hidden until the row is hovered; colors match the global
- * (Live-tab) slim thumb from base.css. */
-.media-row__scroller::-webkit-scrollbar-thumb {
-  background: transparent;
+/* Scrollbar hidden until the row is hovered, FADING in. Scrollbar pseudos
+ * can't transition their own properties in Chromium — the documented
+ * workaround is a registered @property color that the element transitions
+ * and the thumb reads via var(). Colors match base.css's slim thumb. */
+@property --row-sb {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: transparent;
 }
-.media-row:hover .media-row__scroller::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--text) 20%, transparent);
+.media-row__scroller {
+  --row-sb: transparent;
+  transition: --row-sb 350ms ease;
+}
+.media-row:hover .media-row__scroller {
+  --row-sb: color-mix(in srgb, var(--text) 20%, transparent);
+}
+.media-row__scroller::-webkit-scrollbar-thumb {
+  background: var(--row-sb);
 }
 .media-row:hover .media-row__scroller::-webkit-scrollbar-thumb:hover {
   background: color-mix(in srgb, var(--text) 38%, transparent);
