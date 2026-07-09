@@ -9,12 +9,12 @@
    * and the inverted player's inline chrome host (45). */
   z-index: 60;
   display: flex;
-  /* Centered (was a top-right float): with the inverted player the card
-   * sits over live, dimmed video — center reads as a proper modal focus
-   * state. Padding keeps it off the edges on small windows. */
-  justify-content: center;
-  align-items: center;
-  padding: 48px;
+  /* Top-right float, per the Figma (centered for a stretch in v0.1.120-136;
+   * Adam moved it back 2026-07-09). The region frost follows the card's
+   * measured rect, so position doesn't matter to the glass. */
+  justify-content: flex-end;
+  align-items: flex-start;
+  padding: 88px 48px;
 }
 
 /* Glass card: 10% white over 45% black, blurred backdrop. Grows with its
