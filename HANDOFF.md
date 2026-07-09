@@ -81,6 +81,36 @@ default and the v0.2.0 deletion milestone formally starts. Main window is
 now transparent:true (tauri.conf) — if Adam reports flag-OFF visual
 regressions (launch flash, window shadow), that change is the suspect.
 
+## Headless sprint (branch `claude/blammytv-headless-sprint`, v0.1.133 — NOT yet
+## merged to the working branch; needs a Windows rebuild + Adam's eyeball)
+
+Fresh 20x-budget autonomous sprint off the working branch. All landed green
+(typecheck / lint / 111 tests / build; M3U + adult + tracks browser E2Es):
+- **M3U/M3U8 sources** (v0.2.0 scope): `m3u.ts` parser + `buildM3uSource` in
+  source.ts (group-title folders, tvg-id/URL-hash ids, header `url-tvg` EPG
+  via the XMLTV path, adult + hidden-group drop). Add form already existed.
+  NOT done: an M3U folder editor in Settings (still Xtream-only) — channels
+  load + adult-filter works, but per-folder hide UI for M3U is a follow-up.
+  Fixture `scripts/fake-m3u.mjs`, E2E `scripts/verify-m3u.mjs`.
+- **Mid-play death detection** (v0.2.0 gate #2): `mpv_status` reports
+  eof/idle; useDirectOverlay re-arms the tune watchdog. RUST CHANGED.
+- **Channel number on hero** (triage #4): Xtream `num` → model → hero chip.
+- **Favorites hand-ordering**: `reorderFavorite` + Favorites renders in list
+  order. Drag-handle UI in the guide DEFERRED (scarred virtualized grid
+  needs real-app verification — a desk item).
+- **Stats-for-nerds overlay**: `mpv_stats` command + StatsOverlay, `i`
+  toggles (theater/fullscreen). RUST CHANGED.
+- **docs/stalker-implementation.md**: full Stalker protocol + plan (key
+  finding: streams resolve per-play → `stream.ts` needs an async
+  `resolveStreamUrl`; `http_get` needs a headers map).
+- Extracted `hole.ts` (+ tests) from CompositionPlayer.
+A fresh-eyes review workflow ran over the diff (dimension fan-out +
+adversarial verify) before this handoff — see the sprint commit / any
+follow-up fix commits for what it surfaced.
+**TODO for Adam:** replace the landing page's CSS app mock with a real
+screenshot of the app (his request). And decide whether to merge this
+sprint branch into the working branch after a Windows rebuild.
+
 ## Immediate queue (user-approved order)
 
 1. ~~**Track menus**~~ — SHIPPED v0.1.110-112 (see live state above).
