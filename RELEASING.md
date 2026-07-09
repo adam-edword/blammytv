@@ -39,6 +39,12 @@ themselves on next launch.
 
 ## Per release
 
+**Lazy path:** `.\scripts\release.ps1` does steps 2 of the below in one go —
+prompts for the key password (never echoed), builds signed NSIS, wipes the
+env vars, and puts the `.sig` on the clipboard. Steps 0 (libmpv refresh),
+1 (version bump) and 3+ (publish) still apply.
+
+
 0. **Refresh the bundled libmpv** (the installer ships
    `apps/app/src-tauri/libmpv-2.dll` via `tauri.windows.conf.json`; the DLL
    is gitignored, so each release machine keeps its own copy current):
