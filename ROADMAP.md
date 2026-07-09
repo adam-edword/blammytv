@@ -345,9 +345,14 @@ and the painted corner bites read funky. New treatment:
   tuned shader (/4 + wider gaussian + desat — mpv_blur stays in the build,
   dormant); (3) frozen-frame glass (screenshot → DOM blur under the card,
   picture freezes); (4) region blur under the card via --glsl-shader-opts
-  (libmpv-version dependent); (5) long-term: mpv render API → video
-  becomes a DComp surface → native blur + fixes the fullscreen-brightness
-  quirk. DOM backdrop-filter over the native layer is impossible, full
+  (libmpv-version dependent — probe get_property("mpv-version") first).
+  (5) render API → DComp surface is REJECTED as a blur solution (Adam's
+  call, 2026-07-09, and he's right): it keeps mpv's native RENDERING but
+  forfeits the native PRESENTATION path — fullscreen independent-flip /
+  direct scanout and mpv-owned HDR swapchains — i.e. the actual point of
+  a native viewer, traded for cosmetics. Only revisit if something far
+  bigger forces it, and then only behind a spike proving HDR + fullscreen
+  parity. DOM backdrop-filter over the native layer is impossible, full
   stop.
 - **Corners are now REAL**: the hole itself is a rounded rect —
   `clip-path: path()` with a clockwise outer rect + counter-clockwise
