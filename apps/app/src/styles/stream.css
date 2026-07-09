@@ -26,82 +26,121 @@
 .stream__note p { color: var(--text-muted); }
 .stream__note--dim { color: var(--text-muted); }
 
-/* ---- featured hero ---- */
-.stream-hero {
+/* ---- featured hero (Figma 133-721): ~90vh card carousel, neighbors
+ * peeking from the window edges, text + glass actions bottom-left. The
+ * .stream container's padding is escaped with negative margins so the
+ * peeks bleed to the window edge like the mock. */
+.shero {
   position: relative;
-  width: 100%;
-  aspect-ratio: 21 / 7;
-  max-height: 46vh;
-  border-radius: var(--radius-card, 16px);
-  overflow: hidden;
-  background: var(--surface);
-  text-align: left;
-  cursor: pointer;
+  height: min(90vh, 920px);
+  margin: 0 -28px;
+  display: grid;
+  grid-template-columns: 1fr;
   flex-shrink: 0;
 }
-.stream-hero__art {
+.shero__card {
+  position: relative;
+  margin: 0 168px;
+  border-radius: 20px;
+  overflow: hidden;
+  background: var(--surface);
+  animation: shero-in 420ms ease;
+}
+@keyframes shero-in {
+  from { opacity: 0.4; }
+  to { opacity: 1; }
+}
+.shero__art {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
-.stream-hero__scrim {
+.shero__scrim {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.82), transparent 55%),
-    linear-gradient(to right, rgba(0, 0, 0, 0.55), transparent 60%);
+  background:
+    linear-gradient(to top, rgba(0, 0, 0, 0.72), transparent 45%),
+    linear-gradient(to right, rgba(0, 0, 0, 0.5), transparent 55%);
 }
-.stream-hero__text {
+.shero__text {
   position: absolute;
-  left: 32px;
-  bottom: 28px;
-  max-width: 52ch;
+  left: 56px;
+  bottom: 56px;
+  max-width: 46ch;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 12px;
   color: #f2f2f4;
 }
-.stream-hero__kind {
+.shero__title {
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--accent, #c22727);
-}
-.stream-hero__title {
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: clamp(24px, 3vw, 40px);
+  font-size: clamp(44px, 6vw, 92px);
   letter-spacing: -0.02em;
-  line-height: 1.05;
+  line-height: 0.98;
+  color: #f5eecf;
 }
-.stream-hero__synopsis {
-  font-size: 14px;
-  color: rgba(242, 242, 244, 0.75);
+.shero__synopsis {
+  font-size: 15px;
+  line-height: 1.45;
+  color: rgba(242, 242, 244, 0.85);
+  max-width: 42ch;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.stream-hero__dots {
+.shero__meta {
+  font-size: 14px;
+  color: rgba(242, 242, 244, 0.6);
+  white-space: pre;
+}
+.shero__rating { color: #ffd166; }
+.shero__actions { display: flex; gap: 10px; margin-top: 6px; }
+.shero__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 14px;
+  color: #f2f2f4;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+.shero__btn:hover { background: rgba(255, 255, 255, 0.22); }
+.shero__btn--play { background: rgba(255, 255, 255, 0.2); }
+.shero__btn span { opacity: 0.85; font-size: 13px; }
+
+/* The neighbors: full-height slivers hugging the window edges, dimmed
+ * until hover. */
+.shero__peek {
   position: absolute;
-  right: 20px;
-  bottom: 20px;
-  display: flex;
-  gap: 6px;
+  top: 0;
+  bottom: 0;
+  width: 148px;
+  border-radius: 20px;
+  overflow: hidden;
+  background: var(--surface);
+  cursor: pointer;
+  filter: brightness(0.45);
+  transition: filter 160ms ease;
+  z-index: 1;
 }
-.stream-hero__dots i {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.35);
-  transition: background 200ms ease, transform 200ms ease;
-}
-.stream-hero__dots i.on {
-  background: #fff;
-  transform: scale(1.2);
+.shero__peek:hover { filter: brightness(0.75); }
+.shero__peek--prev { left: -128px; }
+.shero__peek--next { right: -128px; }
+.shero__peek img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 /* ---- rows ---- */

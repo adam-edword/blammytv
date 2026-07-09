@@ -83,6 +83,24 @@ export function StreamScreen() {
     }
   }, []);
 
+  // Hero "Watch Now": resolve fresh sources and play the best one straight
+  // away (first cached — the addon's ranking within that — else first
+  // overall). No sources → fall through to the detail page instead.
+  const watchNow = useCallback(
+    async (item: VodItem) => {
+      if (item.kind === "series") return open(item); // series always browse
+      try {
+        const sources = await resolveVodSources("movie", item.id);
+        const pick = sources.find((s) => s.cached) ?? sources[0];
+        if (pick) return setPlaying({ url: pick.streamUrl, item });
+      } catch {
+        /* fall through to detail */
+      }
+      void open(item);
+    },
+    [open],
+  );
+
   // ---- Playback: fullscreen through the shared inverted player. The
   // overlay's meta is minimal VOD shape (live:false, no programme). ----
   const stop = useCallback(() => {
@@ -145,7 +163,9 @@ export function StreamScreen() {
 
   return (
     <div className="stream">
-      {view.at === "home" && <Home load={load} onOpen={open} />}
+      {view.at === "home" && (
+        <Home load={load} onOpen={open} onWatchNow={watchNow} />
+      )}
       {view.at === "title" && (
         <Detail
           item={view.item}
@@ -185,7 +205,15 @@ export function StreamScreen() {
 
 // ---------------------------------------------------------------------------
 
-function Home({ load, onOpen }: { load: Load; onOpen: (i: VodItem) => void }) {
+function Home({
+  load,
+  onOpen,
+  onWatchNow,
+}: {
+  load: Load;
+  onOpen: (i: VodItem) => void;
+  onWatchNow: (i: VodItem) => void;
+}) {
   if (!loadAioUrl()) {
     return (
       <div className="stream__note">
@@ -214,7 +242,9 @@ function Home({ load, onOpen }: { load: Load; onOpen: (i: VodItem) => void }) {
     .filter((v): v is VodItem => !!v);
   return (
     <>
-      {featured.length > 0 && <Hero items={featured} onOpen={onOpen} />}
+      {featured.length > 0 && (
+        <Hero items={featured} onOpen={onOpen} onWatchNow={onWatchNow} />
+      )}
       <div className="stream__rows">
         {data.rows.map((row) => (
           <section key={row.id} className="media-row">
@@ -232,50 +262,100 @@ function Home({ load, onOpen }: { load: Load; onOpen: (i: VodItem) => void }) {
   );
 }
 
-/** Auto-advancing featured carousel (7s), dot pager, backdrop-first. */
+/** The Figma hero (133-721): a ~90vh card carousel — the active slide is a
+ * full-bleed rounded card, its neighbors peek in from the edges. Bottom-left
+ * text block (title, synopsis, meta line) + Watch Now / More Info glass
+ * pills. Auto-advances every 8s; clicking a peeking card slides to it. */
 function Hero({
   items,
   onOpen,
+  onWatchNow,
 }: {
   items: VodItem[];
   onOpen: (i: VodItem) => void;
+  onWatchNow: (i: VodItem) => void;
 }) {
   const [index, setIndex] = useState(0);
+  const count = items.length;
   useEffect(() => {
     const id = window.setInterval(
-      () => setIndex((i) => (i + 1) % items.length),
-      7000,
+      () => setIndex((i) => (i + 1) % count),
+      8000,
     );
     return () => window.clearInterval(id);
-  }, [items.length]);
-  const item = items[index % items.length];
+  }, [count]);
+  const at = (o: number) => items[(index + o + count) % count];
+  const item = at(0);
   if (!item) return null;
   return (
-    <button type="button" className="stream-hero" onClick={() => onOpen(item)}>
-      {(item.backdrop ?? item.poster) && (
-        <img
-          className="stream-hero__art"
-          src={item.backdrop ?? item.poster}
-          alt=""
-        />
+    <div className="shero" role="region" aria-label="Featured">
+      {count > 1 && (
+        <button
+          type="button"
+          className="shero__peek shero__peek--prev"
+          aria-label="Previous"
+          onClick={() => setIndex((i) => (i - 1 + count) % count)}
+        >
+          {(at(-1).backdrop ?? at(-1).poster) && (
+            <img src={at(-1).backdrop ?? at(-1).poster} alt="" />
+          )}
+        </button>
       )}
-      <div className="stream-hero__scrim" aria-hidden />
-      <div className="stream-hero__text">
-        <span className="stream-hero__kind">
-          {item.kind === "series" ? "Series" : "Movie"}
-          {item.year ? ` · ${item.year}` : ""}
-        </span>
-        <h2 className="stream-hero__title">{item.title}</h2>
-        {item.synopsis && (
-          <p className="stream-hero__synopsis">{item.synopsis}</p>
+      <div className="shero__card" key={item.id}>
+        {(item.backdrop ?? item.poster) && (
+          <img
+            className="shero__art"
+            src={item.backdrop ?? item.poster}
+            alt=""
+          />
         )}
+        <div className="shero__scrim" aria-hidden />
+        <div className="shero__text">
+          <h2 className="shero__title">{item.title}</h2>
+          {item.synopsis && <p className="shero__synopsis">{item.synopsis}</p>}
+          <p className="shero__meta">
+            {[
+              item.year,
+              item.runtimeMin ? `${item.runtimeMin} min` : null,
+              item.kind === "series" ? "Series" : "Movie",
+            ]
+              .filter(Boolean)
+              .join("   ")}
+            {item.rating ? (
+              <span className="shero__rating"> ★ {item.rating.toFixed(1)}/10</span>
+            ) : null}
+          </p>
+          <div className="shero__actions">
+            <button
+              type="button"
+              className="shero__btn shero__btn--play"
+              onClick={() => onWatchNow(item)}
+            >
+              <span aria-hidden>|&gt;</span> Watch Now
+            </button>
+            <button
+              type="button"
+              className="shero__btn"
+              onClick={() => onOpen(item)}
+            >
+              <span aria-hidden>(i)</span> More Info
+            </button>
+          </div>
+        </div>
       </div>
-      <div className="stream-hero__dots" aria-hidden>
-        {items.map((x, i) => (
-          <i key={x.id} className={i === index % items.length ? "on" : ""} />
-        ))}
-      </div>
-    </button>
+      {count > 1 && (
+        <button
+          type="button"
+          className="shero__peek shero__peek--next"
+          aria-label="Next"
+          onClick={() => setIndex((i) => (i + 1) % count)}
+        >
+          {(at(1).backdrop ?? at(1).poster) && (
+            <img src={at(1).backdrop ?? at(1).poster} alt="" />
+          )}
+        </button>
+      )}
+    </div>
   );
 }
 

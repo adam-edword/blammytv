@@ -27,7 +27,7 @@ let text = await page.evaluate(() => document.body.innerText);
 
 check("catalog rows render", text.includes("Top Movies") && text.includes("Top Series"));
 check("search-only catalog excluded", !text.includes("Search"));
-check("hero carousel present", await page.locator(".stream-hero").count() > 0);
+check("hero carousel present", await page.locator(".shero").count() > 0);
 await page.screenshot({ path: process.env.SHOT_DIR ? process.env.SHOT_DIR + "/stream-home.png" : "stream-home.png" });
 
 // Movie detail + sources
