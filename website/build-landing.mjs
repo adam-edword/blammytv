@@ -20,6 +20,8 @@ html = html
   .replace("{{F_H700}}", font("stack-sans-headline/stack-sans-headline-latin-700-normal.woff"))
   .replace("{{F_H300}}", font("stack-sans-headline/stack-sans-headline-latin-300-normal.woff"))
   .replace("{{F_T400}}", font("stack-sans-text/stack-sans-text-latin-400-normal.woff"))
+  .replace("{{SHOT_GUIDE}}", b64(join(root, "website", "shots", "guide.jpg")))
+  .replace("{{SHOT_THEATER}}", b64(join(root, "website", "shots", "theater.jpg")))
   .replaceAll("{{LOGO_SVG_SM}}", logo)
   .replaceAll("{{LOGO_SVG}}", logo);
 

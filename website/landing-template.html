@@ -208,7 +208,7 @@
   .btn.quiet:hover, .btn.quiet:focus-visible { color: var(--ink); border-color: var(--line-strong); }
   .hero .fine { margin-top: 16px; font-size: 13px; color: var(--faint); }
 
-  /* ---- the living mock, wrapped in the boot animation's gradient TV frame ---- */
+  /* ---- the app itself, wrapped in the boot animation's gradient TV frame ---- */
   .tv {
     --ring: 90deg;
     padding: 3px;
@@ -218,190 +218,14 @@
     box-shadow: 0 30px 90px rgba(0, 0, 0, 0.55);
   }
   @keyframes ring { to { --ring: 450deg; } }
-  .mock {
-    background: #000;
-    border-radius: 19px;
-    overflow: hidden;
-    font-family: "Stack Headline";
-    color: #f2f2f4;
-    font-size: 10px;
-    line-height: 1.35;
-    user-select: none;
-  }
-  .m-head {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 11px 14px 9px;
-  }
-  .m-head svg { width: 14px; height: 14px; }
-  .m-head b { font-size: 11.5px; font-weight: 700; letter-spacing: -0.02em; }
-  .m-head .clk { font-weight: 300; opacity: 0.4; font-size: 11px; }
-  .m-tabs { margin-left: auto; display: flex; gap: 9px; font-size: 10px; }
-  .m-tabs span { opacity: 0.35; font-weight: 300; }
-  .m-tabs .on { opacity: 1; font-weight: 700; }
-  .m-body {
-    display: grid;
-    grid-template-columns: 118px 1fr;
-    gap: 9px;
-    padding: 0 10px 10px;
-  }
-  .m-side {
-    background: #0f0f0f;
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    border-radius: 10px;
-    padding: 8px 7px;
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-  }
-  .m-side .rail {
-    display: flex;
-    gap: 3px;
-    margin-bottom: 6px;
-  }
-  .m-side .rail i {
-    flex: 1;
-    height: 13px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.07);
-  }
-  .m-side .rail i.on { background: rgba(255, 255, 255, 0.2); }
-  .m-side .f {
-    padding: 3.5px 6px;
-    border-radius: 6px;
-    opacity: 0.62;
-    font-weight: 300;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .m-side .f.on {
-    background: color-mix(in srgb, #c22727 16%, #000);
-    opacity: 1;
-    font-weight: 700;
-  }
-  .m-main { display: flex; flex-direction: column; gap: 9px; min-width: 0; }
-  .m-hero { display: grid; grid-template-columns: 44% 1fr; gap: 10px; align-items: center; }
-  .m-player {
-    aspect-ratio: 16 / 9;
-    border-radius: 8px;
-    position: relative;
-    overflow: hidden;
-    background:
-      radial-gradient(120% 90% at 20% 15%, rgba(255, 139, 201, 0.5), transparent 55%),
-      radial-gradient(120% 100% at 85% 80%, rgba(134, 150, 255, 0.45), transparent 60%),
-      radial-gradient(100% 100% at 70% 20%, rgba(132, 255, 169, 0.28), transparent 55%),
-      #07070a;
-  }
-  .m-player::before {
-    content: "";
-    position: absolute;
-    inset: -40%;
-    background: radial-gradient(45% 38% at 50% 50%, rgba(255, 229, 127, 0.35), transparent 70%);
-    animation: drift 9s ease-in-out infinite alternate;
-  }
-  @keyframes drift {
-    from { transform: translate(-8%, -6%); }
-    to { transform: translate(9%, 7%); }
-  }
-  .m-player .bar {
-    position: absolute;
-    left: 7px;
-    right: 7px;
-    bottom: 6px;
-    height: 2.5px;
-    border-radius: 2px;
-    background: rgba(255, 255, 255, 0.22);
-  }
-  .m-player .bar i {
+  .tv .shot {
     display: block;
-    width: 78%;
-    height: 100%;
-    border-radius: 2px;
-    background: #c22727;
+    width: 100%;
+    height: auto;
+    border-radius: 19px;
+    background: #000;
   }
-  .m-meta { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-  .m-live {
-    align-self: flex-start;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    border: 1px solid rgba(194, 39, 39, 0.6);
-    color: #ff8686;
-    border-radius: 999px;
-    padding: 1.5px 7px;
-    font-size: 8.5px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-  }
-  .m-live i {
-    width: 4px;
-    height: 4px;
-    border-radius: 50%;
-    background: #c22727;
-    box-shadow: 0 0 5px #c22727;
-  }
-  .m-chan { color: #e25b5b; font-weight: 700; font-size: 9px; letter-spacing: 0.05em; }
-  .m-title { font-weight: 700; font-size: 14.5px; letter-spacing: -0.02em; }
-  .m-desc { font-weight: 300; opacity: 0.5; font-size: 9px; max-width: 34ch; }
-  .m-epg { display: flex; flex-direction: column; gap: 4px; position: relative; }
-  .m-ruler {
-    display: grid;
-    grid-template-columns: 92px repeat(3, 1fr);
-    gap: 4px;
-    font-size: 8px;
-    font-weight: 300;
-    opacity: 0.4;
-    padding: 2px 0;
-  }
-  .m-row { display: grid; grid-template-columns: 92px repeat(6, 1fr); gap: 4px; }
-  .m-row .ch {
-    grid-column: span 1;
-    background: #0f0f0f;
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    border-radius: 6px;
-    padding: 5px 7px;
-    font-weight: 700;
-    font-size: 8.5px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .m-row .c {
-    grid-column: span 2;
-    background: #0f0f0f;
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 6px;
-    padding: 5px 7px;
-    font-weight: 300;
-    font-size: 8px;
-    opacity: 0.75;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .m-row .c.live {
-    background: color-mix(in srgb, #c22727 14%, #000);
-    border-color: rgba(194, 39, 39, 0.45);
-    opacity: 1;
-    font-weight: 400;
-  }
-  .m-row .c.wide { grid-column: span 4; }
-  .m-now {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 38%;
-    width: 1.5px;
-    background: #c22727;
-    box-shadow: 0 0 6px rgba(194, 39, 39, 0.8);
-    animation: now 30s linear infinite;
-  }
-  @keyframes now {
-    from { left: 32%; }
-    to { left: 56%; }
-  }
+  .showcase { margin-top: 40px; }
 
   /* ---- pillars ---- */
   .pillars {
@@ -512,7 +336,7 @@
     .pillars, .grid { grid-template-columns: 1fr; }
   }
   @media (prefers-reduced-motion: reduce) {
-    .tv, .close, .m-player::before, .m-now { animation: none; }
+    .tv, .close { animation: none; }
   }
   :focus-visible { outline: 2px solid #8696ff; outline-offset: 3px; }
 </style>
@@ -540,62 +364,9 @@
       <p class="fine">Free · self-updating · bring your own Xtream playlist</p>
     </div>
 
-    <div class="tv" aria-hidden="true">
-      <div class="mock">
-        <div class="m-head">
-          {{LOGO_SVG_SM}}<b>BlammyTV</b><span class="clk">9:41 PM</span>
-          <span class="m-tabs"><span class="on">Live TV</span><span>Stream</span><span>Discover</span></span>
-        </div>
-        <div class="m-body">
-          <div class="m-side">
-            <div class="rail"><i class="on"></i><i></i><i></i></div>
-            <span class="f">🏆 Sports</span>
-            <span class="f on">📺 Entertainment</span>
-            <span class="f">🎬 Movies</span>
-            <span class="f">📰 News</span>
-            <span class="f">🧒 Kids</span>
-            <span class="f">🎵 Music</span>
-            <span class="f">🌍 International</span>
-          </div>
-          <div class="m-main">
-            <div class="m-hero">
-              <div class="m-player"><span class="bar"><i></i></span></div>
-              <div class="m-meta">
-                <span class="m-live"><i></i>LIVE</span>
-                <span class="m-chan">GALAXY ONE 4K</span>
-                <span class="m-title">The Night Signal</span>
-                <span class="m-desc">A late shift at the edge of the dial. New episode.</span>
-              </div>
-            </div>
-            <div class="m-epg">
-              <div class="m-ruler"><span></span><span>9:00 PM</span><span>9:30 PM</span><span>10:00 PM</span></div>
-              <div class="m-row">
-                <span class="ch">Galaxy One 4K</span>
-                <span class="c live">The Night Signal</span>
-                <span class="c">Afterhours</span>
-                <span class="c">Signoff</span>
-              </div>
-              <div class="m-row">
-                <span class="ch">Meteor Sports</span>
-                <span class="c wide">Championship Night (Live)</span>
-                <span class="c">Recap</span>
-              </div>
-              <div class="m-row">
-                <span class="ch">Nebula News</span>
-                <span class="c">The Brief</span>
-                <span class="c live">World Tonight</span>
-                <span class="c">Overnight</span>
-              </div>
-              <div class="m-row">
-                <span class="ch">Comet Cinema</span>
-                <span class="c wide">Feature: North of Nowhere</span>
-                <span class="c">Shorts</span>
-              </div>
-              <span class="m-now"></span>
-            </div>
-          </div>
-        </div>
-      </div>
+    <div class="tv">
+      <img class="shot" src="data:image/jpeg;base64,{{SHOT_GUIDE}}"
+        alt="BlammyTV's Live TV tab: a channel sidebar, a live mini player, and a full programme guide" />
     </div>
   </header>
 
@@ -626,6 +397,10 @@
         entire interface floats above it. Settings open <em>over</em> your
         stream, frosted live on the GPU, while it keeps playing.
       </p>
+    </div>
+    <div class="tv showcase">
+      <img class="shot" src="data:image/jpeg;base64,{{SHOT_THEATER}}"
+        alt="Theater mode: the stream fills the window while the player controls float on top" />
     </div>
     <div class="grid">
       <div class="cell">
