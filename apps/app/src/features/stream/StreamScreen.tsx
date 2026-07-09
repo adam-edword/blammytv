@@ -388,9 +388,17 @@ function Hero({
           return (
             <div
               key={slot}
+              role="button"
+              tabIndex={active ? 0 : -1}
+              onKeyDown={(e) => {
+                if (active && (e.key === "Enter" || e.key === " ")) onOpen(item);
+              }}
               className={"shero__card" + (active ? " shero__card--active" : "")}
               style={{ left: slot * step, width: cardW }}
-              onClick={() => !active && setV(slot)}
+              // Whole-card click: neighbors slide into place; the ACTIVE
+              // card opens the title's source-selection screen (the
+              // buttons stopPropagation, so Watch Now stays instant-play).
+              onClick={() => (active ? onOpen(item) : setV(slot))}
             >
               {(item.backdrop ?? item.poster) && (
                 <img

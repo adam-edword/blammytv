@@ -58,7 +58,7 @@
   transition: box-shadow 550ms ease;
 }
 .shero__card--active {
-  cursor: default;
+  cursor: pointer;
   /* The Figma glow: a soft white halo behind the active card. */
   box-shadow:
     0 0 44px rgba(255, 255, 255, 0.32),
