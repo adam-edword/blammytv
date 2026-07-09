@@ -35,6 +35,10 @@
   position: absolute;
   inset: 0;
   overflow: hidden;
+  /* Brand artwork: the corner profile is pinned, not the user's --corner
+   * setting — the mark must look like the logo even with corners set to
+   * round/sharp. Engines without corner-shape fall back to plain round. */
+  corner-shape: squircle;
   animation: welcome-frame-shrink 2000ms 700ms both;
 }
 
@@ -97,6 +101,7 @@
   inset: calc(36.5px * var(--s)) calc(35px * var(--s));
   border-radius: 30px;
   background: #000;
+  corner-shape: squircle; /* pinned like the backdrop's — brand artwork */
   animation: welcome-screen-shrink 2000ms 700ms both;
 }
 
@@ -136,9 +141,10 @@
  *
  * The mock's motion used placeholder end geometry; the TV settles on the
  * brand logo ("Subtract", 186:794) at 0.48× instead: a 96px square tile
- * with a 54.4px hole, and the logo's exact corner rounding — 54.667/200 =
- * 27.333% outer, 22.667/113.333 = 20% inner (made squircle by the global
- * corner-shape). Percentage radii keep the corners circular under the
+ * with a 54.4px hole. The logo's nominal radii (27.333% outer, 20% inner)
+ * carry Figma's 60% corner smoothing, which reads much rounder than the
+ * numbers — 38%/30% with the squircle profile matched the logo render in a
+ * side-by-side. Percentage radii keep the corners circular under the
  * non-uniform scale at any viewport shape, and every keyframe restates
  * border-radius so it doesn't drift back to the base value after the
  * shrink lands. */
@@ -150,12 +156,12 @@
   }
   36.86% {
     transform: translateX(0) scale(var(--tv-sx), var(--tv-sy));
-    border-radius: 27.333%;
+    border-radius: 38%;
     animation-timing-function: linear;
   }
   43.42% {
     transform: translateX(0) scale(var(--tv-sx), var(--tv-sy));
-    border-radius: 27.333%;
+    border-radius: 38%;
     animation-timing-function: linear(
       0,
       0.0403 3%,
@@ -194,7 +200,7 @@
   100% {
     transform: translateX(calc(-284px * var(--s)))
       scale(var(--tv-sx), var(--tv-sy));
-    border-radius: 27.333%;
+    border-radius: 38%;
   }
 }
 
@@ -206,12 +212,12 @@
   }
   36.78% {
     transform: translateX(0) scale(var(--scr-sx), var(--scr-sy));
-    border-radius: 20%;
+    border-radius: 30%;
     animation-timing-function: linear;
   }
   43.42% {
     transform: translateX(0) scale(var(--scr-sx), var(--scr-sy));
-    border-radius: 20%;
+    border-radius: 30%;
     animation-timing-function: linear(
       0,
       0.0403 3%,
@@ -250,7 +256,7 @@
   100% {
     transform: translateX(calc(-284px * var(--s)))
       scale(var(--scr-sx), var(--scr-sy));
-    border-radius: 20%;
+    border-radius: 30%;
   }
 }
 
