@@ -1,4 +1,4 @@
-<title>BlammyTV — Live TV, done properly</title>
+<title>BlammyTV</title>
 <style>
   @font-face {
     font-family: "Stack Headline";
@@ -80,9 +80,42 @@
     -webkit-font-smoothing: antialiased;
   }
   .wrap {
+    position: relative;
     max-width: 1064px;
     margin: 0 auto;
     padding: 0 28px;
+  }
+
+  /* Aurora: brand-color blobs drifting on a small canvas, upscaled through
+   * a heavy blur. Sits behind the hero like a screen glowing in a dark
+   * room. Painted by the script at the end of the page. */
+  .aura {
+    position: absolute;
+    top: -140px;
+    left: -12%;
+    right: -12%;
+    height: 820px;
+    z-index: -1;
+    pointer-events: none;
+    filter: blur(80px) saturate(1.2);
+    opacity: 0.5;
+    -webkit-mask-image: linear-gradient(#000 55%, transparent);
+    mask-image: linear-gradient(#000 55%, transparent);
+  }
+  .aura canvas { width: 100%; height: 100%; display: block; }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) .aura { opacity: 0.34; }
+  }
+  :root[data-theme="light"] .aura { opacity: 0.34; }
+
+  /* Film grain over everything, barely-there. */
+  .grain {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    pointer-events: none;
+    opacity: 0.3;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='linear' slope='0.055'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
   }
   h1, h2, h3 {
     font-family: "Stack Headline", system-ui, sans-serif;
@@ -485,6 +518,7 @@
 </style>
 
 <div class="wrap">
+  <div class="aura" aria-hidden="true"><canvas id="aura" width="520" height="400"></canvas></div>
   <nav class="nav">
     <span class="lockup">{{LOGO_SVG}}<b>BlammyTV</b></span>
     <a class="gh" href="https://github.com/adam-edword/blammytv" target="_blank" rel="noreferrer">GitHub</a>
@@ -495,8 +529,8 @@
       <p class="eyebrow">For Windows · IPTV + Stremio</p>
       <h1>The player your playlists deserve.</h1>
       <p class="sub">
-        BlammyTV runs a <b>real mpv engine</b> under a modern guide —
-        native 4K60 HDR video, an EPG that opens in a quarter of a second,
+        BlammyTV runs a <b>real mpv engine</b> under a modern guide.
+        Native 4K60 HDR video, a guide that opens in a quarter of a second,
         and your Stremio add-ons moving in next door.
       </p>
       <div class="ctas">
@@ -543,7 +577,7 @@
               </div>
               <div class="m-row">
                 <span class="ch">Meteor Sports</span>
-                <span class="c wide">Championship Night — Live</span>
+                <span class="c wide">Championship Night (Live)</span>
                 <span class="c">Recap</span>
               </div>
               <div class="m-row">
@@ -574,7 +608,7 @@
     <div class="pillar">
       <p class="num"><b>4K60</b> HDR</p>
       <h3>Actually native</h3>
-      <p>mpv renders in its own window — no canvas, no readback, no tone-mapping through a browser.</p>
+      <p>mpv renders in its own window. No canvas, no readback, no tone-mapping through a browser.</p>
     </div>
     <div class="pillar">
       <p class="num"><b>220,000</b></p>
@@ -589,14 +623,14 @@
       <h2>Video underneath. Everything else on glass.</h2>
       <p class="lede">
         The picture is a real native surface at the bottom of the window, and the
-        entire interface floats above it — so settings open <em>over</em> your
+        entire interface floats above it. Settings open <em>over</em> your
         stream, frosted live on the GPU, while it keeps playing.
       </p>
     </div>
     <div class="grid">
       <div class="cell">
         <h3>Live glass</h3>
-        <p>Open Settings mid-stream and the video keeps playing behind the panel — blurred in real time by the player itself, not a screenshot.</p>
+        <p>Open Settings mid-stream and the video keeps playing behind the panel, blurred in real time by the player itself. Not a screenshot.</p>
       </div>
       <div class="cell">
         <h3>Honest when a stream breaks</h3>
@@ -605,11 +639,11 @@
       </div>
       <div class="cell">
         <h3>Tracks, sorted</h3>
-        <p>Audio and subtitle menus live in the player, and gray out when a stream has nothing to choose — no dead buttons, no mystery.</p>
+        <p>Audio and subtitle menus live in the player, and gray out when a stream has nothing to choose. No dead buttons, no mystery.</p>
       </div>
       <div class="cell">
         <h3>Family-safe out of the box</h3>
-        <p>Adult categories are hidden by default — flagged by your provider or caught by name. One switch in Settings when it’s your box.</p>
+        <p>Adult categories are hidden by default, flagged by your provider or caught by name. One switch in Settings when it’s your box.</p>
       </div>
       <div class="cell">
         <h3>Make it yours</h3>
@@ -617,7 +651,7 @@
       </div>
       <div class="cell">
         <h3>Stremio, next door</h3>
-        <p>AIOStreams manifest support is already wired in — the full Stream tab is next on the roadmap after Live TV 1.0.</p>
+        <p>AIOStreams manifest support is already wired in. The full Stream tab comes next, right after Live TV 1.0.</p>
       </div>
     </div>
   </section>
@@ -637,3 +671,52 @@
     <span>Built on <a href="https://mpv.io" target="_blank" rel="noreferrer">mpv</a> · <a href="https://github.com/adam-edword/blammytv" target="_blank" rel="noreferrer">GitHub</a></span>
   </footer>
 </div>
+<div class="grain" aria-hidden="true"></div>
+<script>
+  (function () {
+    var cv = document.getElementById("aura");
+    if (!cv || !cv.getContext) return;
+    var ctx = cv.getContext("2d");
+    var W = cv.width, H = cv.height;
+    var colors = ["#ff8bc9", "#ff7bf6", "#c388fb", "#8696ff", "#85cbd4", "#84ffa9", "#ffe57f"];
+    var blobs = colors.map(function (c, i) {
+      return {
+        c: c,
+        r: (0.24 + 0.09 * (i % 3)) * W,
+        ox: (0.08 + 0.84 * ((i * 53) % 97) / 97) * W,
+        oy: (0.12 + 0.6 * ((i * 29) % 89) / 89) * H,
+        ax: (0.06 + ((i * 17) % 7) / 90) * W,
+        ay: (0.05 + ((i * 13) % 7) / 110) * H,
+        px: i * 1.31,
+        py: i * 2.17,
+        sx: 0.00005 * ((i % 3) + 1),
+        sy: 0.00007 * (((i + 1) % 3) + 1)
+      };
+    });
+    function paint(t) {
+      ctx.clearRect(0, 0, W, H);
+      ctx.globalCompositeOperation = "lighter";
+      for (var i = 0; i < blobs.length; i++) {
+        var b = blobs[i];
+        var x = b.ox + b.ax * Math.sin(t * b.sx + b.px);
+        var y = b.oy + b.ay * Math.cos(t * b.sy + b.py);
+        var g = ctx.createRadialGradient(x, y, 0, x, y, b.r);
+        g.addColorStop(0, b.c + "72");
+        g.addColorStop(1, b.c + "00");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(x, y, b.r, 0, 7);
+        ctx.fill();
+      }
+      ctx.globalCompositeOperation = "source-over";
+    }
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      paint(9000);
+      return;
+    }
+    (function loop(t) {
+      paint(t || 0);
+      requestAnimationFrame(loop);
+    })(0);
+  })();
+</script>
