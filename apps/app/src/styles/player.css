@@ -223,7 +223,7 @@
 #inv-chrome {
   border-radius: 12px;
   background: transparent;
-  transition: background 0.25s ease;
+  transition: background 0.2s ease;
 }
 
 :root[data-native-hidden] #inv-chrome {

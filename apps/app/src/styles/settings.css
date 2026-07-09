@@ -9,9 +9,12 @@
    * and the inverted player's inline chrome host (45). */
   z-index: 60;
   display: flex;
-  justify-content: flex-end;
-  align-items: flex-start;
-  padding: 88px 48px;
+  /* Centered (was a top-right float): with the inverted player the card
+   * sits over live, dimmed video — center reads as a proper modal focus
+   * state. Padding keeps it off the edges on small windows. */
+  justify-content: center;
+  align-items: center;
+  padding: 48px;
 }
 
 /* Glass card: 10% white over 45% black, blurred backdrop. Grows with its
