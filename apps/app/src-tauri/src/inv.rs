@@ -12,7 +12,7 @@ use std::sync::atomic::{AtomicIsize, Ordering};
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DestroyWindow, SetWindowPos, HWND_BOTTOM, SWP_NOACTIVATE,
-    SWP_SHOWWINDOW, WINDOW_EX_STYLE, WS_CHILD, WS_VISIBLE,
+    SWP_SHOWWINDOW, WINDOW_EX_STYLE, WINDOW_STYLE, WS_CHILD, WS_VISIBLE,
 };
 
 static CHILD: AtomicIsize = AtomicIsize::new(0);
@@ -32,11 +32,20 @@ pub fn open(
     close();
     unsafe {
         let parent = HWND(parent as *mut c_void);
+        // SS_BLACKRECT (0x4): the static paints itself SOLID BLACK. A bare
+        // STATIC has no background brush of its own, and with the top-level
+        // window transparent, what fills it before mpv's first frame is
+        // machine-dependent — some DWM/driver combos erased it to NOTHING,
+        // showing the desktop straight through the clip hole while a
+        // channel tuned (seen on a user install; dev machines showed the
+        // benign control-gray instead). Black is also the right loading
+        // color for a video surface.
+        const SS_BLACKRECT: WINDOW_STYLE = WINDOW_STYLE(0x0000_0004);
         let child = CreateWindowExW(
             WINDOW_EX_STYLE(0),
             windows::core::w!("STATIC"),
             windows::core::w!(""),
-            WS_CHILD | WS_VISIBLE,
+            WS_CHILD | WS_VISIBLE | SS_BLACKRECT,
             x,
             y,
             w as i32,
