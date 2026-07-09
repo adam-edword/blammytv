@@ -19,6 +19,15 @@ themselves on next launch.
 
 ## Per release
 
+0. **Refresh the bundled libmpv** (the installer ships
+   `apps/app/src-tauri/libmpv-2.dll` via `tauri.windows.conf.json`; the DLL
+   is gitignored, so each release machine keeps its own copy current):
+   ```powershell
+   node scripts/fetch-libmpv.mjs   # needs 7-Zip; prints manual steps if not
+   ```
+   The app degrades gracefully on older mpv builds (e.g. the settings-glass
+   frost needs gpu-next; without it the card goes solid) — but ship current.
+
 1. **Bump the version** in all four spots (they must agree — the updater compares
    against `tauri.conf.json`):
    - `apps/app/src-tauri/tauri.conf.json` → `version`

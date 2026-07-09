@@ -216,6 +216,20 @@
   position: absolute;
 }
 
+/* Player chrome bows out while a modal covers the app: no player shows its
+ * transport bar behind a settings sheet, and hiding it leaves only frosted
+ * video under the card — cleaner than blurring DOM chrome. */
+#inv-chrome .mini-overlay,
+#inv-chrome .theater-overlay {
+  transition: opacity 0.2s ease;
+}
+
+:root[data-native-hidden] #inv-chrome .mini-overlay,
+:root[data-native-hidden] #inv-chrome .theater-overlay {
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* While a modal covers the app (root carries data-native-hidden), the
  * video KEEPS PLAYING — mpv GPU-frosts only the region under the card
  * (LiveScreen drives it) and this ::after adds a light dim so the card

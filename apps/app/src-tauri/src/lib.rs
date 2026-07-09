@@ -361,21 +361,25 @@ vec4 hook() {
 }
 "#;
 
+// Returns whether frost is actually available: //!PARAM shaders need the
+// gpu-next vo. On anything else (older bundled mpv, overridden vo) we
+// leave the picture untouched and the frontend downgrades the settings
+// card to a solid background instead of unreadable glass.
 #[tauri::command]
-fn mpv_frost(on: bool) -> Result<(), String> {
+fn mpv_frost(on: bool) -> Result<bool, String> {
     if !on {
         mpv::set_glsl_shaders("");
-        return Ok(());
+        return Ok(true);
+    }
+    let vo = mpv::get_property("current-vo").unwrap_or_default();
+    println!("[mpv] frost requested, vo={vo}");
+    if vo != "gpu-next" {
+        return Ok(false);
     }
     let path = std::env::temp_dir().join("blammytv-frost-region.glsl");
     std::fs::write(&path, FROST_REGION_SHADER).map_err(|e| e.to_string())?;
     mpv::set_glsl_shaders(path.to_string_lossy().as_ref());
-    // Ground truth for shader support: PARAM needs gpu-next.
-    println!(
-        "[mpv] frost on, vo={}",
-        mpv::get_property("current-vo").unwrap_or_else(|| "?".into())
-    );
-    Ok(())
+    Ok(true)
 }
 
 // Move the frost rect (video-normalized). Pure uniform update — safe to

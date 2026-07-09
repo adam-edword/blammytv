@@ -537,7 +537,16 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   // rect hugs the card exactly (no pad), so the frost never halos.
   useEffect(() => {
     if (!modalOpen || !INV || !playUrlRef.current) return;
-    void tauriMpvFrost(true).catch(() => {});
+    // data-frost signals capability to CSS: "0" downgrades the settings
+    // card to a solid background (glass over un-frostable live video is
+    // unreadable). Absent = normal glass (no video, or frost active).
+    void tauriMpvFrost(true)
+      .then((ok) => {
+        document.documentElement.dataset.frost = ok ? "1" : "0";
+      })
+      .catch(() => {
+        document.documentElement.dataset.frost = "0";
+      });
     let raf = 0;
     const push = () => {
       raf = 0;
@@ -568,6 +577,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
       ro.disconnect();
       window.removeEventListener("resize", queue);
       if (raf) cancelAnimationFrame(raf);
+      delete document.documentElement.dataset.frost;
       void tauriMpvFrost(false).catch(() => {});
     };
   }, [modalOpen]);

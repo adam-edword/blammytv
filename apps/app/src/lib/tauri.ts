@@ -137,9 +137,11 @@ export function tauriMpvBlur(on: boolean): Promise<void> {
   return invoke("mpv_blur", { on });
 }
 /** Region frost: GPU-blur ONLY the video rectangle under a modal card —
- * live glass. Load/clear the shader once with `tauriMpvFrost`; move the
- * rect with `tauriMpvFrostRect` (pure uniform update, UI-rate safe). */
-export function tauriMpvFrost(on: boolean): Promise<void> {
+ * live glass. Load/clear the shader once with `tauriMpvFrost` (resolves
+ * FALSE when the running mpv can't do it — PARAM shaders need gpu-next —
+ * so callers can downgrade the card to solid); move the rect with
+ * `tauriMpvFrostRect` (pure uniform update, UI-rate safe). */
+export function tauriMpvFrost(on: boolean): Promise<boolean> {
   return invoke("mpv_frost", { on });
 }
 export function tauriMpvFrostRect(

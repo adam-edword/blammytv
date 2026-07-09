@@ -33,6 +33,15 @@
   box-shadow: 0 -13px 72.6px rgba(0, 0, 0, 0.73);
 }
 
+/* Frost unavailable (older bundled mpv / vo without PARAM shaders) while
+ * live video plays behind the card: glass over an unblurred moving picture
+ * is unreadable, so the card goes solid. LiveScreen stamps data-frost="0"
+ * on the root exactly in that case. */
+:root[data-frost="0"] .settings {
+  background: var(--bg);
+  backdrop-filter: none;
+}
+
 .settings__header {
   display: flex;
   align-items: center;

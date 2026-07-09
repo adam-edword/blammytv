@@ -384,6 +384,20 @@ the card exactly (no halo). `mpv_frost` prints `vo=` to the terminal —
 if it ever says `gpu` (not gpu-next), PARAM is unsupported and frost is
 silently absent; that's the diagnostic. Hole scrim 0.25. mpv_blur
 (whole-frame) stays dormant; render-API/DComp REJECTED (above).
+
+**A7 (v0.1.124): A6 verified feeling great on Windows; polish + shipping
+story.** (1) Player chrome fades out under modals (`data-native-hidden`
+opacity rule) — the "DOM not blurring" report was transport chrome showing
+through the card; hiding it beats blurring it, leaving only frosted video
+under the glass. (2) `mpv_frost` now RETURNS capability (current-vo must
+be gpu-next for //!PARAM); LiveScreen stamps `data-frost="0"` when
+unsupported and the settings card downgrades to a SOLID var(--bg)
+background — Adam's requirement for users on older mpv. (3) The installer
+already bundled src-tauri/libmpv-2.dll (tauri.windows.conf.json, DLL
+gitignored); `scripts/fetch-libmpv.mjs` now refreshes it to the latest
+shinchiro build (GitHub API + 7-Zip, manual fallback printed), and
+RELEASING.md gained step 0. Adam's dev machine runs mpv v0.41-dev
+(gpu-next default), so frost is live for him.
 Remaining before default-flip: popout reclaim polish, paused-icon reset on
 channel switch, then v0.2.0 deletion milestone (comp.rs overlay subsystem +
 WM_SETCURSOR/corner-clip/switch-gap items all die) with the fresh-eyes
