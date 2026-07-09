@@ -45,8 +45,37 @@
 .shero__track {
   position: absolute;
   inset: 0;
+  z-index: 1; /* above the glow box */
   transition: transform 550ms cubic-bezier(0.25, 0.8, 0.3, 1);
   will-change: transform;
+}
+/* The shadow slider's stationary window (left/width inline from measured
+ * geometry): clips a second, blurred copy of the track. The imgs' own
+ * 70px blur softens their edges well inside the clip, so the box edge
+ * never reads hard. */
+.shero__glowbox {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  z-index: 0;
+  overflow: hidden;
+  border-radius: 70px;
+  pointer-events: none;
+}
+.shero__glowtrack {
+  position: absolute;
+  inset: 0;
+  transition: transform 550ms cubic-bezier(0.25, 0.8, 0.3, 1);
+  will-change: transform;
+}
+.shero__glowbox img {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 60px;
+  filter: blur(70px) saturate(1.4);
+  opacity: 0.6;
 }
 /* Slides are absolutely placed on the track at slot * step (inline left) —
  * the infinite window repositions freely. Vertical inset gives the active
@@ -65,25 +94,6 @@
   transform: translateZ(0);
 }
 .shero__card--active { cursor: pointer; }
-/* The card's own ambient light: oversized, hard-blurred art behind the
- * card body. Only opacity animates (compositor); the blur rasters once.
- * The card must stay overflow-visible for this to bleed. */
-.shero__card-glow {
-  position: absolute;
-  inset: -34px;
-  width: calc(100% + 68px);
-  height: calc(100% + 68px);
-  object-fit: cover;
-  border-radius: 80px;
-  filter: blur(70px) saturate(1.4);
-  opacity: 0;
-  transition: opacity 550ms ease;
-  pointer-events: none;
-}
-.shero__card--active .shero__card-glow { opacity: 0.6; }
-@media (prefers-reduced-motion: reduce) {
-  .shero__card-glow { transition: none; }
-}
 .shero__art {
   position: absolute;
   inset: 0;

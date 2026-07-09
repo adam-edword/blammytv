@@ -381,6 +381,36 @@ function Hero({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
+      {/* Adam's shadow slider: the same carousel again, blurred, masked
+        * to the stationary (android-style) box behind the center slot.
+        * The box never moves — the blurred art sliding through it IS the
+        * ambient light reacting to the cards, in exact lockstep (same
+        * geometry, same transition). The inner track's offset subtracts
+        * the box's own left so both tracks align in screen space. */}
+      <div
+        className="shero__glowbox"
+        aria-hidden
+        style={{ left: m - 24, width: cardW + 48 }}
+      >
+        <div
+          className="shero__glowtrack"
+          style={{ transform: `translateX(${24 - v * step}px)` }}
+        >
+          {slots.map((slot) => {
+            const item = items[((slot % count) + count) % count];
+            const art = item?.backdrop ?? item?.poster;
+            return art ? (
+              <img
+                key={slot}
+                src={art}
+                alt=""
+                decoding="async"
+                style={{ left: slot * step, width: cardW }}
+              />
+            ) : null;
+          })}
+        </div>
+      </div>
       <div
         className="shero__track"
         style={{ transform: `translateX(${m - v * step}px)` }}
@@ -405,25 +435,12 @@ function Hero({
               onClick={() => (active ? onOpen(item) : setV(slot))}
             >
               {(item.backdrop ?? item.poster) && (
-                <>
-                  {/* The card's own ambient light: its art, oversized and
-                    * hard-blurred, behind the card body. Lit only while
-                    * active (opacity transition) — sliding cards carry
-                    * their glow with them. */}
-                  <img
-                    className="shero__card-glow"
-                    src={item.backdrop ?? item.poster}
-                    alt=""
-                    aria-hidden
-                    decoding="async"
-                  />
-                  <img
-                    className="shero__art"
-                    src={item.backdrop ?? item.poster}
-                    alt=""
-                    decoding="async"
-                  />
-                </>
+                <img
+                  className="shero__art"
+                  src={item.backdrop ?? item.poster}
+                  alt=""
+                  decoding="async"
+                />
               )}
               <div className="shero__scrim" aria-hidden />
               <div className="shero__text">
