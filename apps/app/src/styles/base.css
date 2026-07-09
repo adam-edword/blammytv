@@ -211,7 +211,13 @@ button {
 .header__brand {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 15px; /* lockup ↔ clock */
+}
+
+.header__lockup {
+  display: flex;
+  align-items: center;
+  gap: 19px; /* logo ↔ wordmark, tuned independently of the clock */
 }
 
 .header__logo {
