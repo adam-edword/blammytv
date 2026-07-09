@@ -18,6 +18,9 @@ import { isTauri } from "./tauri";
 export async function httpGetText(
   url: string,
   headers?: Record<string, string>,
+  /** Per-request timeout override (seconds; Rust default is 30). The xmltv
+   * guide download is the one legit long fetch. Ignored in the browser. */
+  timeoutSecs?: number,
 ): Promise<string> {
   if (isTauri()) {
     // http_get returns RAW BYTES (tauri::ipc::Response) — the string return
@@ -25,7 +28,7 @@ export async function httpGetText(
     // ~95MB xmltv document was a multi-second tax. Decode here instead
     // (~100ms). The string check keeps us working if the command ever
     // reverts to a String return.
-    const raw = await invoke<unknown>("http_get", { url, headers });
+    const raw = await invoke<unknown>("http_get", { url, headers, timeoutSecs });
     if (typeof raw === "string") return raw;
     return new TextDecoder().decode(raw as ArrayBuffer);
   }

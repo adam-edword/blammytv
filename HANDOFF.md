@@ -151,6 +151,19 @@ listener — React root wheel handlers are passive and can't preventDefault).
 screenshot of the app (his request). And decide whether to merge this
 sprint branch into the working branch after a Windows rebuild.
 
+## OPEN BUG — friend's install: EPG empty on his Xtream line (2026-07-09)
+
+Bobby's provider: channels + video fine, EVERY channel "No Information";
+the same login loads a guide in Desktop Telly; Adam can't repro on his
+line and Bobby won't share creds. Suspects, in order: (1) the Rust HTTP
+client's 30s timeout starving a big/slow xmltv download (fits the
+Telly-works signature — Telly has no cap; fetchXmltv now gets 180s),
+(2) streams carrying no epg_channel_id, (3) xmltv.php 404/403 on that
+panel. v0.2.1 ships the DIAGNOSTIC: guide failures now land on
+LiveGroup.epgError and render under the playlist row in Settings →
+Playlists ("Channels OK · guide: <reason>"). Bobby updates via the chip,
+opens Settings, reads the line to Adam. Fix follows the data.
+
 ## v0.2.0 — PACKAGED-READY (2026-07-09). Update chip shipped; all four
 ## version spots aligned at 0.2.0 (tauri.conf/Cargo.toml included, the
 ## milestone exception to the three-file protocol). Release = Adam's desk:

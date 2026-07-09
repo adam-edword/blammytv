@@ -108,7 +108,10 @@ export async function fetchLiveStreams(
   return Array.isArray(raw) ? raw.filter((s) => s.stream_id != null) : [];
 }
 
-/** The full XMLTV EPG for the account — one document, all channels. */
+/** The full XMLTV EPG for the account — one document, all channels.
+ * Three-minute timeout: the document is tens of MB and the client's 30s
+ * default starved it on slower links (EPG silently empty for those users
+ * while channels worked — the Telly-loads-it-we-don't signature). */
 export function fetchXmltv(p: XtreamPlaylist): Promise<string> {
-  return httpGetText(xmltvUrl(p));
+  return httpGetText(xmltvUrl(p), undefined, 180);
 }

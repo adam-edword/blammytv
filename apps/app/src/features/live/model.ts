@@ -53,6 +53,11 @@ export interface LiveGroup {
   /** Set when this source failed to load — its folders/channels are absent
    * but the other sources still render. */
   error?: string;
+  /** Set when channels loaded but the GUIDE didn't (download failed, no EPG
+   * ids, zero matches). Surfaced in Settings → Playlists so installed users
+   * can report why everything says "No Information" — the console.warn
+   * behind it is invisible in a packaged build. */
+  epgError?: string;
 }
 
 export interface LiveData {

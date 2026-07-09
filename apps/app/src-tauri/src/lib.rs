@@ -426,6 +426,10 @@ fn http_client() -> &'static reqwest::Client {
 /// dominated load time. The raw path hands the buffer over untouched; the
 /// frontend TextDecoder-decodes it in ~100ms.
 ///
+/// `timeout_secs` (optional) overrides the client's 30s default for one
+/// request — the full xmltv guide is tens of MB and legitimately exceeds
+/// 30s on slower links, which read as "EPG always empty" for those users.
+///
 /// `headers` (optional) is for header-authenticated providers — Stalker/MAG
 /// portals need per-request `Cookie` (the MAC), `Authorization: Bearer`, and
 /// a MAG `User-Agent`. Merge semantics, verified against the locked reqwest
@@ -439,6 +443,7 @@ fn http_client() -> &'static reqwest::Client {
 async fn http_get(
     url: String,
     headers: Option<std::collections::HashMap<String, String>>,
+    timeout_secs: Option<u64>,
 ) -> Result<tauri::ipc::Response, String> {
     // Load-time diagnostics, printed to the `tauri dev` terminal (devtools
     // close on channel load, the terminal doesn't). Headers-vs-body split
@@ -470,6 +475,9 @@ async fn http_get(
             map.insert(name, val);
         }
         req = req.headers(map);
+    }
+    if let Some(secs) = timeout_secs {
+        req = req.timeout(std::time::Duration::from_secs(secs));
     }
     let res = req.send().await.map_err(|e| e.to_string())?;
     if !res.status().is_success() {

@@ -706,3 +706,15 @@
   width: 13px;
   height: 13px;
 }
+
+/* Load/guide status under a playlist's source line — the reportable reason
+ * when everything says "No Information" (installed builds have no console). */
+.playlist-row__status {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.playlist-row__status--error {
+  color: #e25b5b;
+}

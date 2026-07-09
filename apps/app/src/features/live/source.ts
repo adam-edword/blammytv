@@ -280,8 +280,12 @@ async function buildXtreamSource(
       .map((c) => ({ id: folderId(p.id, c.id), name: c.name }));
     const channels = mapStreams(streams, p, hidden, !showAdult);
 
-    // EPG is best-effort — channels still render "No Information" without it.
+    // EPG is best-effort — channels still render "No Information" without
+    // it. Whatever goes wrong lands on group.epgError so an installed user
+    // can read the reason in Settings → Playlists (the console is invisible
+    // in a packaged build).
     let programmes = new Map<string, Programme[]>();
+    let epgError: string | undefined;
     try {
       onStage?.(`Downloading the ${p.name} TV guide…`);
       await breathe();
@@ -289,15 +293,25 @@ async function buildXtreamSource(
       const fetched = performance.now();
       onStage?.(`Reading the ${p.name} TV guide…`);
       await breathe();
-      programmes = parseXmltv(xml, epgIndex(streams, p, hidden, !showAdult), now);
+      const index = epgIndex(streams, p, hidden, !showAdult);
+      programmes = parseXmltv(xml, index, now);
       console.info(
         `[live] ${p.name}: xmltv ${(xml.length / 1e6).toFixed(1)}MB in ${Math.round(fetched - xmlT0)}ms (overlapped), parsed EPG for ${programmes.size} channels in ${Math.round(performance.now() - fetched)}ms`,
       );
+      if (index.size === 0)
+        epgError = "the panel's channels carry no EPG ids to match a guide";
+      else if (programmes.size === 0)
+        epgError = `the guide downloaded (${(xml.length / 1e6).toFixed(1)}MB) but matched none of the channels`;
     } catch (err) {
+      epgError = `guide download failed — ${msg(err)}`;
       console.warn(`[live] EPG failed for "${p.name}": ${msg(err)}`);
     }
 
-    return { group: { id: p.id, name: p.name, folders }, channels, programmes };
+    return {
+      group: { id: p.id, name: p.name, folders, ...(epgError ? { epgError } : {}) },
+      channels,
+      programmes,
+    };
   } catch (err) {
     console.error(`[live] playlist "${p.name}" failed: ${msg(err)}`);
     return {
@@ -402,23 +416,36 @@ async function buildM3uSource(
     }
 
     // EPG is best-effort — only when the playlist declares one AND some
-    // channel carries a tvg-id to match against.
+    // channel carries a tvg-id to match against. Reasons land on epgError
+    // for Settings → Playlists.
     let programmes = new Map<string, Programme[]>();
+    let epgError: string | undefined;
     const epgUrl = m3uEpgUrl(text);
     if (epgUrl && epgIdx.size > 0) {
       try {
         onStage?.(`Downloading the ${p.name} TV guide…`);
         await breathe();
-        const xml = await httpGetText(epgUrl);
+        const xml = await httpGetText(epgUrl, undefined, 180);
         onStage?.(`Reading the ${p.name} TV guide…`);
         await breathe();
         programmes = parseXmltv(xml, epgIdx, now);
+        if (programmes.size === 0)
+          epgError = "the guide downloaded but matched none of the channels";
       } catch (err) {
+        epgError = `guide download failed — ${msg(err)}`;
         console.warn(`[live] EPG failed for "${p.name}": ${msg(err)}`);
       }
+    } else if (!epgUrl) {
+      epgError = "the playlist declares no guide (no url-tvg header)";
+    } else {
+      epgError = "no channel carries a tvg-id to match the guide against";
     }
 
-    return { group: { id: p.id, name: p.name, folders }, channels, programmes };
+    return {
+      group: { id: p.id, name: p.name, folders, ...(epgError ? { epgError } : {}) },
+      channels,
+      programmes,
+    };
   } catch (err) {
     console.error(`[live] playlist "${p.name}" failed: ${msg(err)}`);
     return {
@@ -496,6 +523,7 @@ async function buildStalkerSource(
     // channel id; clamp to the same window parseXmltv keeps (−1h..+12h) —
     // `period`'s unit is portal-dependent, so the clamp is client-side.
     const programmes = new Map<string, Programme[]>();
+    let epgError: string | undefined;
     try {
       onStage?.(`Downloading the ${p.name} TV guide…`);
       await breathe();
@@ -524,11 +552,18 @@ async function buildStalkerSource(
       console.info(
         `[live] ${p.name}: EPG for ${programmes.size} channels`,
       );
+      if (programmes.size === 0)
+        epgError = "the portal returned no guide data (get_epg_info empty)";
     } catch (err) {
+      epgError = `guide download failed — ${msg(err)}`;
       console.warn(`[live] EPG failed for "${p.name}": ${msg(err)}`);
     }
 
-    return { group: { id: p.id, name: p.name, folders }, channels, programmes };
+    return {
+      group: { id: p.id, name: p.name, folders, ...(epgError ? { epgError } : {}) },
+      channels,
+      programmes,
+    };
   } catch (err) {
     console.error(`[live] playlist "${p.name}" failed: ${msg(err)}`);
     return {

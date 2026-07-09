@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { ChipTabs } from "../../ui/ChipTabs";
 import { Toggle } from "../../ui/Toggle";
 import { ChevronIcon, CloseIcon } from "../../ui/icons";
@@ -20,6 +20,7 @@ import {
 } from "./playlists";
 import { loadShowAdult, saveShowAdult } from "./adultFilter";
 import { isAdultCategory } from "../live/adult";
+import { onLiveRefreshed, peekLive } from "../live/source";
 
 type Categories =
   | { status: "loading" }
@@ -93,6 +94,13 @@ export function PlaylistsTab() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [playlists, setPlaylists] = useState<Playlist[]>(loadPlaylists);
   const [showAdult, setShowAdult] = useState<boolean>(loadShowAdult);
+  // Per-playlist load/guide status off the last catalog load — this is how
+  // an installed user (no console) reads WHY the guide is empty. Re-read
+  // when a background refresh lands.
+  const [liveTick, setLiveTick] = useState(0);
+  useEffect(() => onLiveRefreshed(() => setLiveTick((t) => t + 1)), []);
+  void liveTick;
+  const liveGroups = peekLive()?.groups ?? [];
 
   // Per-playlist folder editor: which row is expanded, and each row's
   // fetched category list (kept per id so re-expanding is instant).
@@ -243,6 +251,22 @@ export function PlaylistsTab() {
                   <span className="playlist-row__source">
                     {playlistSource(p)}
                   </span>
+                  {(() => {
+                    const g = liveGroups.find((x) => x.id === p.id);
+                    if (g?.error)
+                      return (
+                        <span className="playlist-row__status playlist-row__status--error">
+                          Couldn't load — {g.error}
+                        </span>
+                      );
+                    if (g?.epgError)
+                      return (
+                        <span className="playlist-row__status">
+                          Channels OK · guide: {g.epgError}
+                        </span>
+                      );
+                    return null;
+                  })()}
                 </div>
                 <div className="playlist-row__actions">
                   <Toggle
