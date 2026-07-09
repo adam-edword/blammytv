@@ -1,82 +1,18 @@
 mod mpv;
 #[cfg(windows)]
-mod comp;
-#[cfg(windows)]
-mod spike;
-#[cfg(windows)]
 mod inv;
 
 use std::sync::OnceLock;
 
-// App handle, so native code (the composition overlay's ✕) can notify the UI.
+// App handle, so native code (the popout monitor thread) can notify the UI.
 static APP: OnceLock<tauri::AppHandle> = OnceLock::new();
 
-/// Notify the React app of a native-player event (the overlay's ✕ / expand /
-/// collapse), so it can drive the guide + the layer geometry.
-pub fn emit_comp(event: &str) {
+/// Notify the React app of a native-player event (today: `popout-closed`
+/// from mpv.rs's popout monitor), so it can restore the in-app player.
+pub fn emit_ui(event: &str) {
     if let Some(app) = APP.get() {
         use tauri::Emitter;
         let _ = app.emit(event, ());
-    }
-}
-
-/// Run a closure on the UI thread (e.g. to post into the composition webview from
-/// a background mpv poll thread, which must touch COM on the main thread).
-pub fn run_on_main<F: FnOnce() + Send + 'static>(f: F) {
-    if let Some(app) = APP.get() {
-        let _ = app.run_on_main_thread(f);
-    }
-}
-
-// Forward a keyboard shortcut from the React main webview into the composition
-// overlay (which owns the player UI + mpv control).
-#[tauri::command]
-fn comp_key(window: tauri::WebviewWindow, key: String) -> Result<(), String> {
-    #[cfg(windows)]
-    {
-        window
-            .run_on_main_thread(move || comp::post_key(&key))
-            .map_err(|e| e.to_string())?;
-    }
-    #[cfg(not(windows))]
-    {
-        let _ = (window, key);
-    }
-    Ok(())
-}
-
-// Open the native composition player: mpv renders into the given rect (the preview
-// box, or full window) with the transparent overlay composited on top.
-#[tauri::command]
-fn comp_theater(
-    window: tauri::WebviewWindow,
-    url: String,
-    overlay_url: String,
-    meta_json: String,
-    x: i32,
-    y: i32,
-    w: u32,
-    h: u32,
-    radius: i32,
-    start: f64,
-) -> Result<(), String> {
-    #[cfg(windows)]
-    {
-        let hwnd = window.hwnd().map_err(|e| e.to_string())?.0 as isize;
-        let (tx, rx) = std::sync::mpsc::channel();
-        window
-            .run_on_main_thread(move || {
-                let _ = tx.send(comp::theater(
-                    hwnd, x, y, w, h, radius, &url, &overlay_url, &meta_json, start,
-                ));
-            })
-            .map_err(|e| e.to_string())?;
-        rx.recv().map_err(|e| e.to_string())?
-    }
-    #[cfg(not(windows))]
-    {
-        let _ = (window, url, overlay_url, meta_json, x, y, w, h, radius, start);
-        Ok(())
     }
 }
 
@@ -102,34 +38,13 @@ fn popout_stop() {
     }
 }
 
-// Move/resize the native composition layer to follow its in-app box (or expand).
+// Pop out: capture the position, tear the in-app player down (one provider
+// connection at a time — starting the popout while the in-app stream still
+// plays would hold two), then play in mpv's own floating window (PiP with
+// mpv's OSC). The React side also unmounts the player driver; its inv_stop
+// then lands on an already-closed player, which is a safe no-op.
 #[tauri::command]
-fn comp_set_rect(
-    window: tauri::WebviewWindow,
-    x: i32,
-    y: i32,
-    w: u32,
-    h: u32,
-    radius: i32,
-) -> Result<(), String> {
-    #[cfg(windows)]
-    {
-        window
-            .run_on_main_thread(move || comp::set_rect(x, y, w, h, radius))
-            .map_err(|e| e.to_string())?;
-        Ok(())
-    }
-    #[cfg(not(windows))]
-    {
-        let _ = (window, x, y, w, h, radius);
-        Ok(())
-    }
-}
-
-// Pop out: tear down the in-app composition player, then play in mpv's own
-// floating window (PiP with mpv's OSC), like the old desktop popout.
-#[tauri::command]
-fn comp_popout(window: tauri::WebviewWindow, url: String) -> Result<(), String> {
+fn popout_open(window: tauri::WebviewWindow, url: String) -> Result<(), String> {
     let start;
     #[cfg(windows)]
     {
@@ -140,7 +55,7 @@ fn comp_popout(window: tauri::WebviewWindow, url: String) -> Result<(), String> 
                 let pos = mpv::get_property("time-pos")
                     .and_then(|s| s.parse::<f64>().ok())
                     .unwrap_or(0.0);
-                comp::close_theater();
+                inv::close();
                 let _ = tx.send(pos);
             })
             .map_err(|e| e.to_string())?;
@@ -151,34 +66,12 @@ fn comp_popout(window: tauri::WebviewWindow, url: String) -> Result<(), String> 
         start = 0.0_f64;
         let _ = &window;
     }
-    // Own mpv instance so the composition teardown (fired by the React unmount)
+    // Own mpv instance so the in-app teardown (fired by the React unmount)
     // can't terminate it.
     mpv::play_popout(&url, start)
 }
 
-// Tear down the native composition player (mpv + overlay) and free the HWND.
-#[tauri::command]
-fn comp_stop(window: tauri::WebviewWindow) -> Result<(), String> {
-    #[cfg(windows)]
-    {
-        let (tx, rx) = std::sync::mpsc::channel();
-        window
-            .run_on_main_thread(move || {
-                comp::close_theater();
-                let _ = tx.send(());
-            })
-            .map_err(|e| e.to_string())?;
-        rx.recv().map_err(|e| e.to_string())?;
-        Ok(())
-    }
-    #[cfg(not(windows))]
-    {
-        let _ = window;
-        Ok(())
-    }
-}
-
-// ---- Inverted-layer player (dev flag; see inv.rs). Rects are PHYSICAL px. ----
+// ---- Inverted-layer player (THE architecture; see inv.rs). Rects are PHYSICAL px. ----
 
 #[tauri::command]
 fn inv_open(
@@ -405,8 +298,9 @@ fn mpv_snapshot() -> Result<tauri::ipc::Response, String> {
     Ok(tauri::ipc::Response::new(bytes))
 }
 
-/// Player status snapshot for the inverted chrome's poll (replaces comp.rs's
-/// loader/time/tracks push threads): position/duration, whether mpv is
+/// Player status snapshot for the inverted chrome's poll (replaced the old
+/// overlay webview's loader/time/tracks push threads): position/duration,
+/// whether mpv is
 /// actually presenting (core-idle == "no" ⇒ first frame has landed), and the
 /// audio/sub track lists.
 #[tauri::command]
@@ -492,100 +386,6 @@ fn mpv_stats() -> String {
     put_num(&mut m, "width", get_num("width"));
     put_num(&mut m, "height", get_num("height"));
     Value::Object(m).to_string()
-}
-
-// ---- Layer-inversion spike (dev-only UI drives these; see spike.rs). ----
-
-// Open the transparent spike window pointed at our bundle's ?spike=1 page.
-// Async on purpose: building a window inside a synchronous command deadlocks
-// on Windows (documented tauri behavior).
-#[tauri::command]
-async fn spike_window(app: tauri::AppHandle, page: String) -> Result<(), String> {
-    #[cfg(windows)]
-    {
-        use tauri::Manager;
-        if let Some(win) = app.get_webview_window("spike") {
-            let _ = win.set_focus();
-            return Ok(());
-        }
-        let url: tauri::Url = page.parse().map_err(|e| format!("bad page url: {e}"))?;
-        let win =
-            tauri::WebviewWindowBuilder::new(&app, "spike", tauri::WebviewUrl::External(url))
-                .title("BlammyTV — Layer Spike")
-                .inner_size(1100.0, 700.0)
-                .resizable(false)
-                .transparent(true)
-                .build()
-                .map_err(|e| e.to_string())?;
-        // Closing the spike window stops its playback + drops the child.
-        win.on_window_event(|ev| {
-            if matches!(
-                ev,
-                tauri::WindowEvent::CloseRequested { .. } | tauri::WindowEvent::Destroyed
-            ) {
-                run_on_main(spike::close);
-            }
-        });
-        Ok(())
-    }
-    #[cfg(not(windows))]
-    {
-        let _ = (app, page);
-        Ok(())
-    }
-}
-
-// (Re)start spike playback into a fresh bottom-of-z-order child of the spike
-// window. `bitblt` toggles mpv's present mode (see spike.rs).
-#[tauri::command]
-fn spike_play(app: tauri::AppHandle, url: String, bitblt: bool) -> Result<(), String> {
-    #[cfg(windows)]
-    {
-        use tauri::Manager;
-        let win = app
-            .get_webview_window("spike")
-            .ok_or("spike window not open")?;
-        let hwnd = win.hwnd().map_err(|e| e.to_string())?.0 as isize;
-        let size = win.inner_size().map_err(|e| e.to_string())?;
-        let (tx, rx) = std::sync::mpsc::channel();
-        win.run_on_main_thread(move || {
-            let _ = tx.send(spike::open_under(
-                hwnd,
-                size.width,
-                size.height,
-                &url,
-                bitblt,
-            ));
-        })
-        .map_err(|e| e.to_string())?;
-        rx.recv().map_err(|e| e.to_string())?
-    }
-    #[cfg(not(windows))]
-    {
-        let _ = (app, url, bitblt);
-        Ok(())
-    }
-}
-
-// Stop spike playback (the window itself stays open).
-#[tauri::command]
-fn spike_stop(app: tauri::AppHandle) -> Result<(), String> {
-    #[cfg(windows)]
-    {
-        let (tx, rx) = std::sync::mpsc::channel();
-        app.run_on_main_thread(move || {
-            spike::close();
-            let _ = tx.send(());
-        })
-        .map_err(|e| e.to_string())?;
-        rx.recv().map_err(|e| e.to_string())?;
-        Ok(())
-    }
-    #[cfg(not(windows))]
-    {
-        let _ = app;
-        Ok(())
-    }
 }
 
 /// Cross-platform HTTP GET returning the response body as text. Lets the app
@@ -762,16 +562,9 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            comp_key,
-            comp_theater,
-            comp_set_rect,
-            comp_popout,
-            comp_stop,
+            popout_open,
             popout_pos,
             popout_stop,
-            spike_window,
-            spike_play,
-            spike_stop,
             inv_open,
             inv_set_rect,
             inv_stop,

@@ -1,11 +1,13 @@
 import type { TheaterMeta } from "../../lib/tauri";
 
 /**
- * The player-chrome bridge contract. Two implementations:
- * - `window.overlayApi` — injected by comp.rs into the composition overlay
- *   webview (the video-on-top path);
- * - the direct api from useDirectOverlay — mpv commands + a status poll,
- *   for the inverted player's INLINE chrome in the main webview.
+ * The player-chrome api contract. In the app there is ONE implementation:
+ * the direct api from useDirectOverlay (mpv commands + a status poll),
+ * injected via setOverlayApiOverride. The `window.overlayApi` fallback is a
+ * TEST SEAM — scripts/verify-overlay-tracks.mjs mounts TheaterOverlay
+ * standalone (`?overlay=1`) and drives it through a mocked window global.
+ * (The shape is inherited from the old comp.rs overlay-webview bridge,
+ * deleted at the v0.2.0 milestone.)
  */
 
 export interface TrackEntry {
@@ -41,7 +43,7 @@ export interface OverlayApi {
   onKey?: (cb: (key: string) => void) => () => void;
   selectAudio?: (id: number | string) => void; // mpv aid ("auto" ok)
   selectSub?: (id: number | string) => void; // mpv sid ("no" = off)
-  getTracks?: () => Tracks | null; // SYNCHRONOUS (comp.rs bridge, like getLoading)
+  getTracks?: () => Tracks | null; // SYNCHRONOUS (like getLoading)
   onTracks?: (cb: (tracks: Tracks | null) => void) => () => void;
 }
 
@@ -51,10 +53,10 @@ declare global {
   }
 }
 
-/** Inline (inverted-player) mode: LiveScreen injects the direct
- * implementation BEFORE rendering TheaterOverlay, so its state initializers
- * (getLoading/getTracks) already read through it. Null = the real
- * `window.overlayApi` bridge. */
+/** LiveScreen injects the direct implementation BEFORE rendering
+ * TheaterOverlay, so its state initializers (getLoading/getTracks) already
+ * read through it. Null = fall through to `window.overlayApi` (the test
+ * seam above). */
 let apiOverride: OverlayApi | null = null;
 
 export function setOverlayApiOverride(a: OverlayApi | null): void {

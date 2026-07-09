@@ -1,7 +1,9 @@
 // Headless verify: TheaterOverlay's audio/subtitle track menus against a
-// mocked overlayApi bridge (same pattern as the tune-watchdog verify). The
-// mock mimics comp.rs's OVERLAY_BRIDGE_JS exactly: getTracks is SYNCHRONOUS,
+// mocked overlayApi (same pattern as the tune-watchdog verify). The mock
+// fills the window.overlayApi test seam (see overlayApi.ts) with the same
+// contract useDirectOverlay implements in the app: getTracks is SYNCHRONOUS,
 // on* return unsubscribe fns, selectAudio/selectSub String() their id.
+// The `?overlay=1` route in main.tsx exists solely for this harness.
 //
 // Run:
 //   pnpm --filter @blammytv/app build

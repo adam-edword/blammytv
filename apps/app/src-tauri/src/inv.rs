@@ -1,9 +1,9 @@
-// Inverted-layer player — the Telly arrangement, spike-proven in v0.1.115:
-// the mpv child sits at the BOTTOM of the main window's z-order and the
-// transparent UI webview renders ABOVE it (the frontend cuts a clip-path
-// hole where the video shows through). Runs behind a dev flag alongside the
-// comp.rs path; when the inversion ships as the default, comp.rs's overlay
-// subsystem is superseded by this module plus plain React chrome.
+// Inverted-layer player — the Telly arrangement, spike-proven in v0.1.115
+// and THE architecture since v0.1.132: the mpv child sits at the BOTTOM of
+// the main window's z-order and the transparent UI webview renders ABOVE it
+// (the frontend cuts a clip-path hole where the video shows through). The
+// old comp.rs overlay subsystem this superseded was deleted at the v0.2.0
+// milestone; player chrome is plain React in the main webview.
 
 #![cfg(windows)]
 

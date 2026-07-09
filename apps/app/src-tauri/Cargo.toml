@@ -39,22 +39,12 @@ tauri-plugin-updater = "2"
 reqwest = { version = "0.12", default-features = false, features = ["native-tls", "gzip", "brotli", "deflate"] }
 libloading = "0.8"
 
-# The Telly-way composition spike (Windows): composition-hosted WebView2 +
-# DirectComposition over a native mpv child window. These are already in the
-# tree via Tauri; pin them as direct deps with the features we need.
+# Native child-window plumbing for the inverted player (inv.rs): create the
+# mpv child HWND and pin it to the bottom of the z-order. Already in the tree
+# via Tauri; pinned as a direct dep with just the features inv.rs uses. (The
+# WebView2/DirectComposition set died with comp.rs at the v0.2.0 deletion.)
 [target.'cfg(windows)'.dependencies]
-webview2-com = "0.38"
 windows = { version = "0.61", features = [
     "Win32_Foundation",
-    "Win32_Graphics_Direct3D",
-    "Win32_Graphics_Direct3D11",
-    "Win32_Graphics_Dxgi",
-    "Win32_Graphics_Dxgi_Common",
-    "Win32_Graphics_DirectComposition",
-    "Win32_Graphics_Gdi",
     "Win32_UI_WindowsAndMessaging",
-    "Win32_UI_Input_KeyboardAndMouse",
-    "Win32_System_Com",
-    "Win32_System_WinRT",
-    "Win32_UI_Shell",
 ] }

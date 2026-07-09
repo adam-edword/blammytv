@@ -2,7 +2,7 @@
 
 const PLAYED_KEY = "btv:welcome-played";
 
-/** Play on a fresh window launch only: reloads (HMR, Ctrl+Shift+U player
+/** Play on a fresh window launch only: reloads (HMR, dev-flag
  * flip) keep sessionStorage, so they skip it. `?welcome=1` forces a replay
  * and reduced-motion users never see it. Pure — the flag is stamped by
  * `markWelcomePlayed` on mount, not here (StrictMode calls useState

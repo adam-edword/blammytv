@@ -11,9 +11,9 @@ import {
 } from "../../lib/tauri";
 import type { OverlayApi, Tracks } from "./overlayApi";
 
-/** The comp-* event verbs the bridge routed through Rust — inline they're
- * plain callbacks into LiveScreen's state. Read through a ref at call time,
- * so the returned api can stay one stable object. */
+/** The window verbs (expand/collapse/fullscreen/…) — plain callbacks into
+ * LiveScreen's state. Read through a ref at call time, so the returned api
+ * can stay one stable object. */
 export interface DirectOverlayHandlers {
   onClose: () => void;
   onExpand: () => void;
@@ -25,13 +25,13 @@ export interface DirectOverlayHandlers {
 }
 
 /**
- * The inline OverlayApi for the INVERTED player: the exact contract comp.rs
- * injects into the overlay webview (`window.overlayApi`), but backed by
- * direct mpv commands plus a 500ms `mpv_status` poll — loading flips false
- * on mpv's first presented frame (core-idle, same signal as the Rust
- * loader-watch, so the tune watchdog works unchanged), and the track lists
- * push on change exactly like the bridge did. `resetKey` (the stream URL)
- * re-arms loading on every channel switch.
+ * The inline OverlayApi for the player chrome: backed by direct mpv
+ * commands plus a 500ms `mpv_status` poll — loading flips false on mpv's
+ * first presented frame (core-idle), and the track lists push on change.
+ * (The contract is the one the old comp.rs overlay-webview bridge defined;
+ * the shape survived the v0.2.0 deletion so TheaterOverlay didn't have to
+ * change.) `resetKey` (the stream URL) re-arms loading on every channel
+ * switch.
  */
 export function useDirectOverlay(
   active: boolean,

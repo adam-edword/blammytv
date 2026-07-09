@@ -58,12 +58,28 @@ additive fns (set_glsl_shaders, screenshot_to_file) — do-not-touch
 exceptions covered by Adam's rip authorization. `[mpv] <version>` prints
 to the terminal on inverted open — feeds the pending libmpv-upgrade /
 gpu-next decision. **ARCHITECTURE COMMITTED (Adam, 2026-07-09: "100%"): inverted is the
-DEFAULT as of v0.1.132.** Ctrl+Shift+U = legacy escape hatch until the
-v0.2.0 deletion. Remaining v0.2.0 gates: ~~desk parity pass~~ ✅ PASSED
-(Adam, 2026-07-09, at-desk: popout + HDR on inverted, "no issues found"),
-~~mid-play death detection~~ ✅ shipped headless via mpv_status (v0.1.133),
-review fleet, test backfill, then the deletion itself — deletion milestone
-FORMALLY STARTED 2026-07-09 (dependency map + cut in progress).
+DEFAULT as of v0.1.132.** ~~Remaining v0.2.0 gates~~ ALL CLOSED 2026-07-09:
+desk parity pass ✅ (Adam at-desk: popout + HDR on inverted, "no issues
+found"), mid-play death detection ✅ (headless, mpv_status, v0.1.133), and
+**THE DELETION ITSELF ✅ (v0.1.135)**: comp.rs (829 lines, the whole
+overlay-webview subsystem), spike.rs + SpikeScreen + `?spike=1`, the
+Ctrl+Shift+U/Ctrl+Shift+L dev shortcuts, the invertPlayer flag (always
+inverted now — main.tsx stamps .invert-player whenever isTauri()), the
+comp_* commands and comp-* events, webview2-com + the D3D11/DComp windows
+features (Cargo.toml down to Foundation + WindowsAndMessaging). Popout
+survives rewired: `popout_open` captures time-pos, inv::close()es (one
+provider connection at a time), then mpv::play_popout — TS wrapper
+`tauriPopoutOpen`. App.tsx tab-switch teardown now awaits `inv_stop`.
+`onPopoutClosed` re-homed to its own effect in LiveScreen.
+CompositionPlayer.tsx → **InvertedPlayer.tsx** (comp branches + modal
+parking stripped; it's the geometry driver: rAF follow + clip hole +
+two-phase settle). mpv.rs touched only additively-adjacent: emit_comp →
+emit_ui rename at its one call, and #[allow(dead_code)] on seek_abs +
+set_speed (kept for the Stream tab's VOD controls). The `?overlay=1`
+route + `window.overlayApi` fallback in overlayApi.ts survive as a
+DOCUMENTED TEST SEAM for scripts/verify-overlay-tracks.mjs — the shipping
+app never loads them. NOT COMPILED HERE (no Rust toolchain): first
+`pnpm tauri dev` after pulling may need a trivial fix — paste errors.
 
 **Frost diagnosis CLOSED (v0.1.127-129):** placement was fine all along —
 the "unblurred" line was the hole-rim seam where CSS backdrop blur (shell)

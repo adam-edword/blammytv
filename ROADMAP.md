@@ -411,10 +411,13 @@ gitignored); `scripts/fetch-libmpv.mjs` now refreshes it to the latest
 shinchiro build (GitHub API + 7-Zip, manual fallback printed), and
 RELEASING.md gained step 0. Adam's dev machine runs mpv v0.41-dev
 (gpu-next default), so frost is live for him.
-Remaining before default-flip: popout reclaim polish, paused-icon reset on
-channel switch, then v0.2.0 deletion milestone (comp.rs overlay subsystem +
-WM_SETCURSOR/corner-clip/switch-gap items all die) with the fresh-eyes
-agent review fleet first.
+~~Remaining before default-flip~~ → default flipped v0.1.132, desk parity
+pass (popout + HDR) PASSED 2026-07-09, and the **v0.2.0 deletion milestone
+LANDED (v0.1.135)**: comp.rs + spike.rs + the overlay webview + the
+invertPlayer flag are gone; the batched WM_SETCURSOR / DComp corner-clip /
+async-close switch-gap scars died with them as predicted. Popout rewired
+through `popout_open` (mpv.rs unchanged-in-spirit; see HANDOFF for the
+full cut list). Needs Adam's Windows rebuild to compile-verify.
 
 ## Layer inversion spike history (superseded — kept for the record)
 
@@ -456,18 +459,21 @@ instead, and record why here.
 
 ## Next steps, in order
 
-1. **Native player Phase 3** — popout/PiP (`comp_popout` + `popout_pos`/
-   `popout_stop` reclaim, `popout-closed`), audio/subtitle track menus, the
-   update banner (`check_update`/`install_update`). Then **v0.2.0**.
-2. **Native (Rust) pass** — the batched WM_SETCURSOR / DComp corner clip /
-   async-close switch-tighten items (see the player bullet above).
-3. **Stream tab (AIOStreams)** — re-enable the nav glass (commented in
+1. ~~**Native player Phase 3**~~ ✅ popout/PiP shipped (now `popout_open` +
+   `popout_pos`/`popout_stop` reclaim, `popout-closed`); track menus shipped
+   v0.1.110. Remaining from this bullet: the update banner
+   (`check_update`/`install_update` exist Rust-side, no UI yet).
+2. ~~**Native (Rust) pass**~~ ✅ dissolved by the v0.1.135 comp.rs deletion —
+   WM_SETCURSOR / DComp corner clip / async-close switch-gap all died with
+   the overlay subsystem.
+3. **Stalker portal sources** — the last v0.2.0 source gate
+   (docs/stalker-implementation.md has the full plan).
+4. **Stream tab (AIOStreams)** — re-enable the nav glass (commented in
    base.css) once scrolling content exists.
 
 Slated for later, user-approved: ambient backdrop setting, motion toggle,
-M3U + Stalker sources, timeshift/track-selection/stats in the player overlay,
-programme-level selection
-in the hero.
+timeshift, programme-level selection in the hero, M3U folder editor in
+Settings, favorites drag-handle UI (data layer shipped v0.1.133).
 
 **Live-tab accessibility pass — LANDED (v0.1.98).** The batch from the v0.1.71
 audit: keyboard-operable channel-column resize separator (`role=separator` +

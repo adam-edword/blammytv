@@ -1,8 +1,8 @@
 // Minimal libmpv binding loaded at runtime from libmpv-2.dll (the same DLL the
 // Electron addon used). Runtime loading avoids build-time linking against mpv.
 //
-// Two instances: the composition PLAYER (rendered into a `--wid` child window,
-// see comp.rs) and the POPOUT PiP (mpv's own floating window).
+// Two instances: the in-app PLAYER (rendered into a `--wid` child window,
+// see inv.rs) and the POPOUT PiP (mpv's own floating window).
 
 use libloading::Library;
 use std::ffi::CString;
@@ -113,8 +113,8 @@ struct Player(Handle);
 unsafe impl Send for Player {}
 
 static PLAYER: Mutex<Option<Player>> = Mutex::new(None);
-// The popout PiP runs as its OWN mpv instance, separate from the composition
-// PLAYER — so tearing down the in-app player (close_theater/stop) can't kill it.
+// The popout PiP runs as its OWN mpv instance, separate from the in-app
+// PLAYER — so tearing down the in-app player (inv::close/stop) can't kill it.
 static POPOUT: Mutex<Option<Player>> = Mutex::new(None);
 
 /// Play in mpv's own floating window (PiP): on-top, half-size, separate instance.
@@ -190,7 +190,7 @@ pub fn play_popout(url: &str, start: f64) -> Result<(), String> {
                 // React to bring the in-app player back. A programmatic
                 // stop_popout() takes ownership first, so `taken` is None there
                 // and we stay silent (the button drives the reclaim itself).
-                crate::emit_comp("popout-closed");
+                crate::emit_ui("popout-closed");
             }
         });
     }
@@ -328,6 +328,9 @@ pub fn seek(delta: f64) {
 }
 
 /// Absolute seek to a position in seconds (for scrubbing).
+/// Unused since the overlay-webview bridge died (v0.2.0 comp.rs deletion);
+/// kept for the VOD seekbar the Stream tab will need.
+#[allow(dead_code)]
 pub fn seek_abs(pos: f64) {
     let g = PLAYER.lock().unwrap();
     if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {
@@ -428,6 +431,9 @@ pub fn set_track(kind: &str, id: &str) {
 }
 
 /// Playback speed multiplier (1.0 = normal).
+/// Unused since the overlay-webview bridge died (v0.2.0 comp.rs deletion);
+/// kept for the VOD player controls the Stream tab will need.
+#[allow(dead_code)]
 pub fn set_speed(speed: f64) {
     set_prop("speed", &speed.to_string());
 }

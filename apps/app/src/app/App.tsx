@@ -1,12 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import {
-  invertedPlayer,
-  isTauri,
-  setInvertedPlayer,
-  tauriCompStop,
-  tauriSpikeWindow,
-} from "../lib/tauri";
+import { isTauri, tauriInvStop } from "../lib/tauri";
 import { AppHeader, type TabKey } from "./AppHeader";
 import { WelcomeAnimation } from "./WelcomeAnimation";
 import { shouldPlayWelcome } from "./welcome";
@@ -24,69 +18,31 @@ export function App() {
 
   // Leaving Live unmounts LiveScreen, whose CompositionPlayer tears the native
   // mpv layer down — but that teardown (run_on_main_thread) queues behind the
-  // incoming tab's render/paint, so the layer (a top-most child window, not
-  // DOM) hangs on screen for a beat. AWAIT the teardown before switching: the
-  // main thread is idle at click time, so mpv is destroyed first, then the new
-  // tab renders. comp_stop is a cheap no-op when nothing's playing.
+  // incoming tab's render/paint, so the video child can hang on for a beat.
+  // AWAIT the teardown before switching: the main thread is idle at click
+  // time, so mpv is destroyed first, then the new tab renders. inv_stop is a
+  // cheap no-op when nothing's playing.
   const changeTab = useCallback(
     async (next: TabKey) => {
       if (tab === "live" && next !== "live" && isTauri()) {
-        await tauriCompStop().catch(() => {});
+        await tauriInvStop().catch(() => {});
       }
       setTab(next);
     },
     [tab],
   );
 
-  // The native player (mpv child HWND + composition overlay) sits ABOVE the
-  // main webview — no CSS z-index can put the settings modal over it. While
-  // the modal is open, flag the root; CompositionPlayer reads it per-frame
-  // and parks the native layers in a tiny offscreen rect (audio keeps
-  // playing, picture returns the instant the modal closes).
+  // While a modal is open, flag the root: the video keeps playing behind it
+  // (it's below the webview), and the player chrome fades out via CSS so it
+  // doesn't read through the glass (see player.css [data-native-hidden]).
   useEffect(() => {
     const root = document.documentElement;
     if (settingsOpen) root.dataset.nativeHidden = "1";
     else delete root.dataset.nativeHidden;
-    // Inverted path: the video keeps playing behind the modal; the chrome
-    // host dims it via CSS (see player.css). The mpv frost shader
-    // (tauriMpvBlur) is dormant pending Adam's pick of a blur treatment.
     return () => {
       delete root.dataset.nativeHidden;
     };
   }, [settingsOpen]);
-
-  // DEV: Ctrl+Shift+U flips the inverted-player flag and reloads (Ctrl+
-  // Shift+I is taken — WebView2 devtools). Old player ↔ new player, live.
-  useEffect(() => {
-    if (!isTauri() || !import.meta.env.DEV) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (!(e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "u")) return;
-      e.preventDefault();
-      setInvertedPlayer(!invertedPlayer());
-      window.location.reload();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
-  // DEV: Ctrl+Shift+L opens the layer-inversion spike window (spike.rs),
-  // handing over the most recently played stream URL if there is one.
-  useEffect(() => {
-    if (!isTauri() || !import.meta.env.DEV) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (!(e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "l")) return;
-      e.preventDefault();
-      const stream = (window as { __lastCompUrl?: string }).__lastCompUrl;
-      const page = new URL(window.location.origin);
-      page.searchParams.set("spike", "1");
-      if (stream) page.searchParams.set("u", stream);
-      void tauriSpikeWindow(page.toString()).catch((err) =>
-        console.error("[spike]", err),
-      );
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
 
   // F11 toggles fullscreen; Escape always exits it. The window-state
   // plugin restores fullscreen across launches, so without this there's

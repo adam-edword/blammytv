@@ -10,8 +10,7 @@ import "./styles/player.css";
 import "./styles/welcome.css";
 import { App } from "./app/App";
 import { TheaterOverlay } from "./features/live/TheaterOverlay";
-import { SpikeScreen } from "./features/spike/SpikeScreen";
-import { invertedPlayer } from "./lib/tauri";
+import { isTauri } from "./lib/tauri";
 import { applyAccent, loadAccent } from "./features/settings/accent";
 import { applyTheme, loadTheme } from "./features/settings/theme";
 import { applyUiScale, loadUiScale } from "./features/settings/uiScale";
@@ -28,10 +27,11 @@ applyCornerStyle(loadCornerStyle());
 
 const root = ReactDOM.createRoot(document.getElementById("root")!);
 
-// The native player composites a second webview of THIS bundle over the mpv
-// video, loaded with `?overlay=1`. That instance renders only the transparent
-// TheaterOverlay — and must clear the black launch background so the video
-// shows through.
+// TEST HARNESS: `?overlay=1` renders the player chrome standalone (bare
+// TheaterOverlay on a transparent page) so scripts/verify-overlay-tracks.mjs
+// can drive it headlessly with a mocked window.overlayApi. It was the comp.rs
+// overlay webview's entry before the v0.2.0 deletion; it survives only for
+// that harness — the shipping app never loads it.
 const params = new URLSearchParams(window.location.search);
 if (params.get("overlay") === "1") {
   document.documentElement.style.background = "transparent";
@@ -42,20 +42,11 @@ if (params.get("overlay") === "1") {
       <TheaterOverlay />
     </React.StrictMode>,
   );
-} else if (params.get("spike") === "1") {
-  // DEV layer-inversion spike: a transparent window with native video parked
-  // BELOW the webview — the page's hole must reveal it (see spike.rs).
-  document.documentElement.style.background = "transparent";
-  document.body.style.background = "transparent";
-  root.render(
-    <React.StrictMode>
-      <SpikeScreen />
-    </React.StrictMode>,
-  );
 } else {
-  // Inverted-player dev flag: stamp the root class BEFORE first paint so the
-  // shell (not body) owns the background — see base.css .invert-player.
-  if (invertedPlayer()) document.documentElement.classList.add("invert-player");
+  // Native shell (the window is transparent): stamp the root class BEFORE
+  // first paint so the shell (not body) owns the background — see base.css
+  // .invert-player. In a plain browser tab the body stays opaque.
+  if (isTauri()) document.documentElement.classList.add("invert-player");
   root.render(
     <React.StrictMode>
       <App />

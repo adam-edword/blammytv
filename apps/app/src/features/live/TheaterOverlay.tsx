@@ -127,17 +127,17 @@ export function TheaterOverlay({
   }, []);
 
   /* Tune watchdog. `loading` flips false exactly once, on mpv's FIRST FRAME
-   * (comp.rs spawn_loader_watch) — so a dead channel is `loading` stuck true
-   * forever, which used to render as an eternal "loading" pulse. Instead:
-   * after STALL_MS with no frame, silently reload the stream in place
-   * (goLive = re-loadfile of the same URL, the proven live-edge mechanic) up
-   * to TUNE_RETRIES times; if a retry lands a frame the still-armed loader
-   * watch clears `loading` and the chain disarms. Out of retries → an honest
-   * "isn't responding" card with a manual Retry. A channel switch tears this
-   * whole overlay down, so state resets naturally; user-initiated goLive
-   * while playing never arms it (`loading` is already false). Mid-play death
-   * detection needs an mpv end-file signal from comp.rs — batched with the
-   * Windows native pass. */
+   * (useDirectOverlay's mpv_status poll) — so a dead channel is `loading`
+   * stuck true forever, which used to render as an eternal "loading" pulse.
+   * Instead: after STALL_MS with no frame, silently reload the stream in
+   * place (goLive = re-loadfile of the same URL, the proven live-edge
+   * mechanic) up to TUNE_RETRIES times; if a retry lands a frame the
+   * still-armed poll clears `loading` and the chain disarms. Out of retries
+   * → an honest "isn't responding" card with a manual Retry. A channel
+   * switch tears this whole overlay down, so state resets naturally;
+   * user-initiated goLive while playing never arms it (`loading` is already
+   * false). Mid-play death re-arms it too: the poll flips `loading` back on
+   * when mpv reports EOF/idle (`ended`). */
   const TUNE_RETRIES = 2;
   const STALL_MS = 10_000;
   const [tune, setTune] = useState<"waiting" | "retrying" | "dead">("waiting");
@@ -252,8 +252,8 @@ export function TheaterOverlay({
     if (!active) setMenu(null);
   }, [active]);
 
-  // Track selection: fire the bridge, flip the checkmark optimistically, and
-  // let comp.rs's 500ms track poll confirm (it re-pushes when mpv's `selected`
+  // Track selection: fire the api, flip the checkmark optimistically, and
+  // let the 500ms mpv_status poll confirm (it re-pushes when mpv's `selected`
   // flags change, which also corrects us if mpv rejected the switch).
   const chooseAudio = useCallback((id: number) => {
     api()?.selectAudio?.(id);

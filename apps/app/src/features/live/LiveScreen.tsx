@@ -17,20 +17,11 @@ import {
   TvIcon,
 } from "../../ui/icons";
 import {
-  invertedPlayer,
   isTauri,
-  onCompClosed,
-  onCompCollapse,
-  onCompExitFullscreen,
-  onCompExpand,
-  onCompFavorite,
-  onCompFullscreen,
-  onCompPopout,
   onPopoutClosed,
-  tauriCompKey,
-  tauriCompPopout,
   tauriMpvFrost,
   tauriMpvFrostRect,
+  tauriPopoutOpen,
   tauriSetFullscreen,
 } from "../../lib/tauri";
 import { createPortal } from "react-dom";
@@ -39,10 +30,11 @@ import { setOverlayApiOverride } from "./overlayApi";
 import { TheaterOverlay } from "./TheaterOverlay";
 import { useDirectOverlay } from "./useDirectOverlay";
 
-/** Inverted-player dev flag, read once (flipping it reloads the app). */
-const INV = invertedPlayer();
+/** Native player present (the inverted layer is THE architecture; in a
+ * plain browser tab there is no player at all). */
+const INV = isTauri();
 import { onPlaylistsChange } from "../settings/playlists";
-import { CompositionPlayer } from "./CompositionPlayer";
+import { InvertedPlayer } from "./InvertedPlayer";
 import { splitTitleEmoji } from "./emoji";
 import { loadFavorites, toggleFavorite } from "./favorites";
 import { Guide } from "./Guide";
@@ -324,95 +316,17 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   const handleToggleFavorite = useCallback((id: string) => {
     setFavorites((list) => toggleFavorite(list, id));
   }, []);
-  // Native player events. The overlay drives the size transitions; we mirror
-  // them into React state (which drives the box geometry classes) and take the
-  // OS window fullscreen to match. ✕ stops playback and resets everything.
-  // Tauri's listen() reaches shell internals, so guard the browser dev path.
+  // Closing the PiP window brings the stream back in-app as the mini
+  // player — popping out is for browsing the EPG, so resuming into theater
+  // would just cover the guide the user came back to. (theater is already
+  // false from the pop-out; just re-arm playback.) Tauri's listen()
+  // reaches shell internals, so guard the browser dev path.
   useEffect(() => {
     if (!isTauri()) return;
-    const offs = [
-      onCompExpand(() => setTheater(true)),
-      onCompCollapse(() => {
-        setTheater(false);
-        leaveFullscreen();
-      }),
-      onCompFullscreen(() => {
-        setFullscreen(true);
-        void tauriSetFullscreen(true).catch(() => {});
-      }),
-      onCompExitFullscreen(leaveFullscreen),
-      onCompClosed(() => {
-        setPlaying(false);
-        setTheater(false);
-        leaveFullscreen();
-      }),
-      // PiP: hand the current stream to mpv's floating window, then drop the
-      // in-app player back to the guide (the popout is a separate instance the
-      // teardown can't kill).
-      onCompPopout(() => {
-        const url = playUrlRef.current;
-        if (url) void tauriCompPopout(url).catch(() => {});
-        setPlaying(false);
-        setTheater(false);
-        leaveFullscreen();
-      }),
-      // Favorite: star/unstar the channel that's playing (the overlay tracks
-      // its own button state optimistically).
-      onCompFavorite(() => {
-        const id = heroIdRef.current;
-        if (id) handleToggleFavorite(id);
-      }),
-      // Closing the PiP window brings the stream back in-app as the mini
-      // player — popping out is for browsing the EPG, so resuming into theater
-      // would just cover the guide the user came back to. (theater is already
-      // false from the pop-out; just re-arm playback.)
-      onPopoutClosed(() => {
-        if (heroIdRef.current) setPlaying(true);
-      }),
-    ];
-    return () => offs.forEach((off) => off());
-  }, [leaveFullscreen, handleToggleFavorite]);
-
-
-  // While playing, forward the player shortcuts to the overlay (which owns mpv
-  // + the size transitions). The guide has focus, so these keys hit the main
-  // webview; comp_key relays them. Skips text fields.
-  useEffect(() => {
-    if (!isTauri() || !playing) return;
-    const SHORTCUTS = new Set([
-      " ",
-      "k",
-      "m",
-      "f",
-      "t",
-      "j",
-      "l",
-      "ArrowLeft",
-      "ArrowRight",
-      "ArrowUp",
-      "ArrowDown",
-      "Escape",
-    ]);
-    const onKey = (e: KeyboardEvent) => {
-      if (!SHORTCUTS.has(e.key)) return;
-      const t = e.target as HTMLElement | null;
-      if (
-        t &&
-        (t.tagName === "INPUT" ||
-          t.tagName === "TEXTAREA" ||
-          t.isContentEditable)
-      )
-        return;
-      e.preventDefault();
-      void tauriCompKey(e.key).catch(() => {});
-    };
-    // Inverted path: the chrome renders INLINE (same document), so
-    // TheaterOverlay's own key listener handles the player shortcuts —
-    // forwarding would double-fire every one of them.
-    if (invertedPlayer()) return;
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [playing]);
+    return onPopoutClosed(() => {
+      if (heroIdRef.current) setPlaying(true);
+    });
+  }, []);
 
   // What the guide shows, per mode, with each channel's programmes riding
   // along. Memoized: a fresh identity per render would bust the guide's
@@ -488,7 +402,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   // Inline chrome for the inverted player: a direct OverlayApi (mpv commands
   // + a status poll) injected into TheaterOverlay, which renders into a
   // fixed host div OUTSIDE .app-shell — the clip-path hole would cut any
-  // chrome painted inside the shell. CompositionPlayer keeps the host glued
+  // chrome painted inside the shell. InvertedPlayer keeps the host glued
   // to the slot rect alongside the hole itself.
   const directApi = useDirectOverlay(INV && !!playUrl, playUrl, playMeta, {
     onClose: () => {
@@ -508,7 +422,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
     onExitFullscreen: leaveFullscreen,
     onPopout: () => {
       const url = playUrlRef.current;
-      if (url) void tauriCompPopout(url).catch(() => {});
+      if (url) void tauriPopoutOpen(url).catch(() => {});
       setPlaying(false);
       setTheater(false);
       leaveFullscreen();
@@ -789,11 +703,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
              * Only in Tauri with a real stream URL, so browser/mock is
              * untouched. */}
             {playUrl && (
-              <CompositionPlayer
-                url={playUrl}
-                meta={playMeta}
-                squared={theater || fullscreen}
-              />
+              <InvertedPlayer url={playUrl} squared={theater || fullscreen} />
             )}
             {/* Inverted path: the player chrome lives in the main webview,
              * portaled outside the shell so the clip hole can't cut it. */}
