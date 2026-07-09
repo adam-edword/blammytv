@@ -55,8 +55,8 @@
  * never reads hard. */
 .shero__glowbox {
   position: absolute;
-  top: -60px;
-  bottom: -60px;
+  top: -90px;
+  bottom: -90px;
   z-index: 0;
   overflow: hidden;
   border-radius: 90px;
@@ -66,12 +66,12 @@
    * that — so a real halo band survives at strength. (The first feather
    * pass swallowed the whole halo: 70px falloff on a 24px overscan.) */
   -webkit-mask-image:
-    linear-gradient(to right, transparent, #000 130px, #000 calc(100% - 130px), transparent),
-    linear-gradient(to bottom, transparent, #000 90px, #000 calc(100% - 90px), transparent);
+    linear-gradient(to right, transparent, #000 180px, #000 calc(100% - 180px), transparent),
+    linear-gradient(to bottom, transparent, #000 120px, #000 calc(100% - 120px), transparent);
   -webkit-mask-composite: source-in;
   mask-image:
-    linear-gradient(to right, transparent, #000 130px, #000 calc(100% - 130px), transparent),
-    linear-gradient(to bottom, transparent, #000 90px, #000 calc(100% - 90px), transparent);
+    linear-gradient(to right, transparent, #000 180px, #000 calc(100% - 180px), transparent),
+    linear-gradient(to bottom, transparent, #000 120px, #000 calc(100% - 120px), transparent);
   mask-composite: intersect;
 }
 .shero__glowtrack {
@@ -87,13 +87,17 @@
   object-fit: cover;
   border-radius: 60px;
   filter: blur(70px) saturate(1.4);
-  /* Neighbor light rests dim and the incoming slide's light fades up
-   * fast (300ms vs the 650ms slide) — the dimming lives HERE, in the
-   * light, not on the cards themselves. */
+  /* Neighbor light rests dim; the incoming slide's light fades up fast
+   * and undelayed, while the OUTGOING one holds until the slide's final
+   * stretch (350ms delay on the way down) — light leads the arrival and
+   * trails the departure. */
   opacity: 0.3;
+  transition: opacity 300ms ease 350ms;
+}
+.shero__glowbox img.shero__glow--lit {
+  opacity: 0.7;
   transition: opacity 300ms ease;
 }
-.shero__glowbox img.shero__glow--lit { opacity: 0.85; }
 /* Slides are absolutely placed on the track at slot * step (inline left) —
  * the infinite window repositions freely. Vertical inset gives the active
  * card's glow room to breathe inside the clipped section. */
