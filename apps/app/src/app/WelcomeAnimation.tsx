@@ -4,9 +4,12 @@ import { markWelcomePlayed } from "./welcome";
 /** The Figma timeline ("BTV WELCOME ANIMATION", 194:1158) runs 2000ms:
  * the viewport-filling TV shrinks into the logo mark (~0–737ms), springs
  * left (~868–1856ms) and the wordmark fades in beside it (~1173–1850ms).
- * Hold the finished lockup a beat, then fade the overlay out over the app. */
+ * The opening TV sits START_HOLD_MS first (welcome.css delays the timeline
+ * to match), the finished lockup sits END_HOLD_MS, then the overlay fades
+ * out over the app. */
 const TIMELINE_MS = 2000;
-const HOLD_MS = 350;
+const START_HOLD_MS = 700;
+const END_HOLD_MS = 1000;
 
 /** End-state lockup geometry, in the mock's 1920×1080 pixels (see
  * welcome.css). The icon tile lands at 96×97.2 with a 50.9×50.35 screen
@@ -55,7 +58,7 @@ export function WelcomeAnimation({ onDone }: { onDone: () => void }) {
   // boot animation never stands between the user and the app.
   useEffect(() => {
     const skip = () => setLeaving(true);
-    const timer = setTimeout(skip, TIMELINE_MS + HOLD_MS);
+    const timer = setTimeout(skip, START_HOLD_MS + TIMELINE_MS + END_HOLD_MS);
     window.addEventListener("pointerdown", skip);
     window.addEventListener("keydown", skip);
     return () => {

@@ -26,12 +26,24 @@
   opacity: 0;
 }
 
-/* The TV's gradient frame: the viewport itself, not a scaled stage. */
+/* The TV's gradient frame: the viewport itself, not a scaled stage. All
+ * three timeline animations share a 700ms delay ("both" holds the first
+ * frame through it), so the opening TV sits a beat — gradient already
+ * turning — before the shrink; the component's exit timer adds the
+ * matching hold on the finished lockup. */
 .welcome-backdrop {
   position: absolute;
   inset: 0;
   overflow: hidden;
-  animation: welcome-frame-shrink 2000ms both;
+  animation: welcome-frame-shrink 2000ms 700ms both;
+}
+
+/* The gradient's sweep angle, registered so it interpolates — the spin
+ * animates the paint alone; the shape never rotates. */
+@property --welcome-grad-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 90deg;
 }
 
 /* The gradient paint keeps the mock's 1920×1080 geometry, cover-scaled and
@@ -58,8 +70,9 @@
   transform-origin: 0 0;
   transform: matrix(141.62, 64.542, -114.74, 79.662, 964.59, 542.58)
     translate(-140.72px, -140.72px);
+  animation: welcome-gradient-spin 8s linear infinite;
   background: conic-gradient(
-    from 90deg,
+    from var(--welcome-grad-angle),
     #ff9b9b -4.8706%,
     #ff8bc9 3.8928%,
     #ff7bf6 12.656%,
@@ -83,7 +96,7 @@
   inset: calc(37px * var(--s)) calc(35px * var(--s)) calc(36px * var(--s));
   border-radius: 30px;
   background: #000;
-  animation: welcome-screen-shrink 2000ms both;
+  animation: welcome-screen-shrink 2000ms 700ms both;
 }
 
 /* Lockup metrics follow the canvas lockup (Frame 64, 85:84): the wordmark's
@@ -105,7 +118,13 @@
   line-height: normal;
   white-space: nowrap;
   color: #fff;
-  animation: welcome-wordmark-in 2000ms both;
+  animation: welcome-wordmark-in 2000ms 700ms both;
+}
+
+@keyframes welcome-gradient-spin {
+  to {
+    --welcome-grad-angle: 450deg;
+  }
 }
 
 /* Track timings from the mock: scale eases in-out and lands at ~737ms; the
