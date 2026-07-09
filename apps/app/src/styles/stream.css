@@ -201,15 +201,63 @@
   font-size: 41px;
   margin-bottom: 16px;
 }
+/* The viewport owns the page-padding bleed + anchors scrims/arrows. */
+.media-row__viewport {
+  position: relative;
+  margin: 0 -28px;
+}
 .media-row__scroller {
   display: flex;
   gap: 16px;
   overflow-x: auto;
-  /* Bleed through .stream's 28px padding so cards scroll to the window
-   * edge instead of clipping at it; content still starts aligned. */
-  margin: 0 -28px;
   padding: 4px 28px 10px;
 }
+/* Edge scrims: only lit when content actually hides that way. */
+.media-row__scrim {
+  position: absolute;
+  top: 0;
+  bottom: 10px;
+  width: 100px;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 250ms ease;
+}
+.media-row__scrim--left {
+  left: 0;
+  background: linear-gradient(to right, var(--bg), transparent);
+}
+.media-row__scrim--right {
+  right: 0;
+  background: linear-gradient(to left, var(--bg), transparent);
+}
+.media-row__scrim.is-on { opacity: 1; }
+/* Nudge arrows: glass circles over the artwork band, revealed on row
+ * hover (they only render at all when scrolling that way is possible). */
+.media-row__arrow {
+  position: absolute;
+  top: calc(50% - 46px);
+  z-index: 3;
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 180ms ease, filter 140ms ease;
+}
+.media-row:hover .media-row__arrow { opacity: 1; }
+.media-row__arrow:hover { filter: brightness(1.4); }
+.media-row__arrow--left { left: 14px; }
+.media-row__arrow--right { right: 14px; }
+.media-row__arrow svg { width: 18px; height: 18px; }
+.media-row__arrow--left svg { transform: rotate(90deg); }
+.media-row__arrow--right svg { transform: rotate(-90deg); }
 /* Row scrollbars: Chromium/WebView2 won't repaint scrollbar pseudos on
  * ancestor hover or custom-property changes (verified on a real install
  * — only direct thumb hover ever restyled), so no fade is possible.
@@ -239,7 +287,6 @@
   border-radius: 25px;
   object-fit: cover;
   background: var(--surface);
-  border: 1px solid var(--border-strong);
 }
 .stream-card__mono {
   display: grid;

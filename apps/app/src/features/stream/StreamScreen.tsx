@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { ChevronIcon } from "../../ui/icons";
 import { createPortal } from "react-dom";
 import { isTauri, tauriSetFullscreen } from "../../lib/tauri";
 import { setOverlayApiOverride } from "../live/overlayApi";
@@ -292,7 +299,7 @@ function Home({
         {watching.length > 0 && (
           <section className="media-row">
             <h3 className="media-row__title">Continue Watching</h3>
-            <div className="media-row__scroller">
+            <RowScroller>
               {watching.map((e) => (
                 <ContinueCard
                   key={e.id}
@@ -301,22 +308,91 @@ function Home({
                   onClear={() => onClearWatching(e.id)}
                 />
               ))}
-            </div>
+            </RowScroller>
           </section>
         )}
         {data.rows.map((row) => (
           <section key={row.id} className="media-row">
             <h3 className="media-row__title">{row.title}</h3>
-            <div className="media-row__scroller">
+            <RowScroller>
               {row.itemIds.map((id) => {
                 const item = data.items.get(id);
                 return item ? <Card key={id} item={item} onOpen={onOpen} /> : null;
               })}
-            </div>
+            </RowScroller>
           </section>
         ))}
       </div>
     </>
+  );
+}
+
+/** Horizontal row shell: scroller + edge scrims + hover arrows. Scrims
+ * and arrows only exist on a side that actually has hidden content
+ * (scroll position tracked; ResizeObserver keeps it honest). Arrows
+ * nudge by ~75% of the viewport, smooth. */
+function RowScroller({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [can, setCan] = useState({ left: false, right: false });
+  const update = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    setCan({
+      left: el.scrollLeft > 4,
+      right: el.scrollLeft + el.clientWidth < el.scrollWidth - 4,
+    });
+  }, []);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    update();
+    el.addEventListener("scroll", update, { passive: true });
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener("scroll", update);
+      ro.disconnect();
+    };
+  }, [update]);
+  const nudge = (dir: 1 | -1) =>
+    ref.current?.scrollBy({
+      left: dir * ref.current.clientWidth * 0.75,
+      behavior: "smooth",
+    });
+  return (
+    <div className="media-row__viewport">
+      <div className="media-row__scroller" ref={ref}>
+        {children}
+      </div>
+      <div
+        className={"media-row__scrim media-row__scrim--left" + (can.left ? " is-on" : "")}
+        aria-hidden
+      />
+      <div
+        className={"media-row__scrim media-row__scrim--right" + (can.right ? " is-on" : "")}
+        aria-hidden
+      />
+      {can.left && (
+        <button
+          type="button"
+          className="media-row__arrow media-row__arrow--left"
+          aria-label="Scroll back"
+          onClick={() => nudge(-1)}
+        >
+          <ChevronIcon />
+        </button>
+      )}
+      {can.right && (
+        <button
+          type="button"
+          className="media-row__arrow media-row__arrow--right"
+          aria-label="Scroll forward"
+          onClick={() => nudge(1)}
+        >
+          <ChevronIcon />
+        </button>
+      )}
+    </div>
   );
 }
 
