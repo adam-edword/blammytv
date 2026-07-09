@@ -87,6 +87,19 @@ export function tauriCompPopout(url: string): Promise<void> {
   return invoke("comp_popout", { url });
 }
 
+/** DEV layer-inversion spike (see spike.rs / SpikeScreen). Opens the
+ * transparent test window pointed at our bundle's `?spike=1` page. */
+export function tauriSpikeWindow(page: string): Promise<void> {
+  return invoke("spike_window", { page });
+}
+/** (Re)start spike playback; `bitblt` flips mpv's present mode. */
+export function tauriSpikePlay(url: string, bitblt: boolean): Promise<void> {
+  return invoke("spike_play", { url, bitblt });
+}
+export function tauriSpikeStop(): Promise<void> {
+  return invoke("spike_stop");
+}
+
 /** Subscribe to a native→JS composition event; returns an unsubscribe fn. */
 function onCompEvent(event: string, cb: () => void): () => void {
   const un = listen(event, () => cb());

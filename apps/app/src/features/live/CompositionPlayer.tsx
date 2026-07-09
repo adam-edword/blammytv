@@ -69,6 +69,9 @@ export function CompositionPlayer({
   // comes back (the video does). The black idle box covers the gap; a real
   // tightening needs Rust-side handling of the async close (can't test here).
   useEffect(() => {
+    // Stash for the dev layer-spike (Ctrl+Shift+L): lets the spike window
+    // play the channel that's actually on, instead of a canned test stream.
+    (window as { __lastCompUrl?: string }).__lastCompUrl = url;
     let raf = 0;
     let opened = false;
     let last = "";

@@ -268,6 +268,44 @@ above removes a switch-blocker or rescues the first session.
   across the full escalation (real 10s timers). Mid-play death detection
   still needs the comp.rs end-file event (native pass).
 
+## Layer inversion (Telly-parity architecture) — SPIKE READY, awaiting Windows run
+
+The settings-behind-player question led somewhere big. **Probed Desktop
+Telly's actual window tree** (PowerShell EnumChildWindows on Adam's machine,
+2026-07-09) and it is LITERALLY OUR STACK: `WRY_WEBVIEW` (Tauri!) +
+`Chrome_*` (WebView2) + a native `mpv` child — but with the UI webview ABOVE
+the video child in z-order. Their whole UI is a transparent layer over
+bottom-parked native video; settings-over-video is free. Their install dir
+corroborates: iptv-player.exe + iptv-backend.exe (sidecar), lib/libmpv-2.dll,
+plus mpv.exe (popout) and ffmpeg.exe (recording).
+
+**If the inversion works in our window, the entire overlay subsystem
+dissolves** — no second webview, no bridge, no comp_key forwarding, no
+setMouseIgnore — and four batched native scars die as side effects:
+settings-over-player, DComp corner clip (CSS handles the hole's corners),
+WM_SETCURSOR (UI layer owns the cursor), async-close switch gap (no overlay
+webview to race). TheaterOverlay becomes a normal in-tree component.
+
+**The spike (v0.1.115, dev-only, throwaway):** `spike.rs` + `SpikeScreen`
+(`?spike=1`). In dev, **Ctrl+Shift+L** opens a transparent window with an
+mpv child parked at HWND_BOTTOM (comp.rs uses HWND_TOP — this is the exact
+inversion), auto-playing the last-played channel (falls back to a public HLS
+test stream). The page's checklist covers: hole transparency, chrome above
+video, glass-blur-over-video (expected: tint only — backdrop-filter can't
+sample another HWND; note the design implication), animation smoothness,
+occlusion artifacts, flip vs bitblt present modes (buttons for both — flip
+is mpv's default and the quality path; comp.rs needed bitblt only for the
+DComp overlay we'd be deleting), and HDR brightness. Playing takes over the
+shared mpv PLAYER instance (main window's channel stops) — fine for a spike.
+NOTE: written against vendored-source-verified APIs (tauri 2.11.3 /
+windows 0.61.3) but NOT compiled — the container can't build Rust. First
+`pnpm tauri dev` may need a trivial fix; Adam pastes errors.
+
+**Decision rule:** spike composites cleanly (incl. HDR + flip model) → the
+inversion becomes the v0.2.0 milestone and replaces the batched native-pass
+items; spike fails → keep current architecture, do the settings-PiP variant
+instead, and record why here.
+
 ## Next steps, in order
 
 1. **Native player Phase 3** — popout/PiP (`comp_popout` + `popout_pos`/

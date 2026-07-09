@@ -35,6 +35,17 @@ weighs as much as switcher parity. NOT a living-room/TV-remote product.
   networking claims — ask him to paste them. That measure→fix→paste loop
   settled every perf question so far; keep using it.
 
+## THE BIG ONE — layer inversion (see ROADMAP "Layer inversion")
+
+Probed Desktop Telly's window tree on Adam's machine: it's OUR STACK
+(wry/WebView2 + native mpv child) with the layers INVERTED — transparent UI
+webview above bottom-parked video. Adam wants to pursue the rip. The spike
+is in-repo (v0.1.115, Ctrl+Shift+L in dev, spike.rs + SpikeScreen), written
+against verified vendored APIs but NEVER COMPILED — expect possibly one
+trivial build fix, Adam pastes errors. Spike passes → the inversion is the
+v0.2.0 milestone and supersedes the batched native-pass items. comp.rs/
+mpv.rs remain do-not-touch until that milestone formally starts.
+
 ## Immediate queue (user-approved order)
 
 1. ~~**Track menus**~~ — SHIPPED v0.1.110-112 (see live state above).
@@ -51,9 +62,11 @@ weighs as much as switcher parity. NOT a living-room/TV-remote product.
 ## Environment (remote container)
 
 - **Rust does not build here** — Windows-target app, Linux sandbox lacks
-  GTK. Verify Rust/Tauri API claims against the vendored source instead:
-  `~/.cargo/registry/src/*/tauri-2.11.3/` (tauri is version-LOCKED; check
-  `Cargo.lock` before citing an API).
+  GTK. Verify Rust/Tauri API claims against crate source (tauri is
+  version-LOCKED; check `Cargo.lock` before citing an API). The cargo
+  registry is NOT in fresh containers — fetch locked sources with
+  `curl -A "blammytv-dev" https://static.crates.io/crates/<name>/<name>-<ver>.crate`
+  into the scratchpad and untar (the crates.io API path 403s without a UA).
 - **Headless verification**: chromium at `/opt/pw-browsers/chromium`;
   `npm i playwright-core` in the session scratchpad, then
   `chromium.launch({ executablePath: "/opt/pw-browsers/chromium" })`.

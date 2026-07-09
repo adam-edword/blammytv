@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { isTauri, tauriCompStop } from "../lib/tauri";
+import { isTauri, tauriCompStop, tauriSpikeWindow } from "../lib/tauri";
 import { AppHeader, type TabKey } from "./AppHeader";
 import { LiveScreen } from "../features/live/LiveScreen";
 import { StreamScreen } from "../features/stream/StreamScreen";
@@ -41,6 +41,25 @@ export function App() {
       delete root.dataset.nativeHidden;
     };
   }, [settingsOpen]);
+
+  // DEV: Ctrl+Shift+L opens the layer-inversion spike window (spike.rs),
+  // handing over the most recently played stream URL if there is one.
+  useEffect(() => {
+    if (!isTauri() || !import.meta.env.DEV) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "l")) return;
+      e.preventDefault();
+      const stream = (window as { __lastCompUrl?: string }).__lastCompUrl;
+      const page = new URL(window.location.origin);
+      page.searchParams.set("spike", "1");
+      if (stream) page.searchParams.set("u", stream);
+      void tauriSpikeWindow(page.toString()).catch((err) =>
+        console.error("[spike]", err),
+      );
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   // F11 toggles fullscreen; Escape always exits it. The window-state
   // plugin restores fullscreen across launches, so without this there's

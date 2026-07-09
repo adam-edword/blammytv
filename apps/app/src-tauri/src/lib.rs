@@ -1,6 +1,8 @@
 mod mpv;
 #[cfg(windows)]
 mod comp;
+#[cfg(windows)]
+mod spike;
 
 use std::sync::OnceLock;
 
@@ -170,6 +172,100 @@ fn comp_stop(window: tauri::WebviewWindow) -> Result<(), String> {
     #[cfg(not(windows))]
     {
         let _ = window;
+        Ok(())
+    }
+}
+
+// ---- Layer-inversion spike (dev-only UI drives these; see spike.rs). ----
+
+// Open the transparent spike window pointed at our bundle's ?spike=1 page.
+// Async on purpose: building a window inside a synchronous command deadlocks
+// on Windows (documented tauri behavior).
+#[tauri::command]
+async fn spike_window(app: tauri::AppHandle, page: String) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        use tauri::Manager;
+        if let Some(win) = app.get_webview_window("spike") {
+            let _ = win.set_focus();
+            return Ok(());
+        }
+        let url: tauri::Url = page.parse().map_err(|e| format!("bad page url: {e}"))?;
+        let win =
+            tauri::WebviewWindowBuilder::new(&app, "spike", tauri::WebviewUrl::External(url))
+                .title("BlammyTV — Layer Spike")
+                .inner_size(1100.0, 700.0)
+                .resizable(false)
+                .transparent(true)
+                .build()
+                .map_err(|e| e.to_string())?;
+        // Closing the spike window stops its playback + drops the child.
+        win.on_window_event(|ev| {
+            if matches!(
+                ev,
+                tauri::WindowEvent::CloseRequested { .. } | tauri::WindowEvent::Destroyed
+            ) {
+                run_on_main(spike::close);
+            }
+        });
+        Ok(())
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (app, page);
+        Ok(())
+    }
+}
+
+// (Re)start spike playback into a fresh bottom-of-z-order child of the spike
+// window. `bitblt` toggles mpv's present mode (see spike.rs).
+#[tauri::command]
+fn spike_play(app: tauri::AppHandle, url: String, bitblt: bool) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        use tauri::Manager;
+        let win = app
+            .get_webview_window("spike")
+            .ok_or("spike window not open")?;
+        let hwnd = win.hwnd().map_err(|e| e.to_string())?.0 as isize;
+        let size = win.inner_size().map_err(|e| e.to_string())?;
+        let (tx, rx) = std::sync::mpsc::channel();
+        win.run_on_main_thread(move || {
+            let _ = tx.send(spike::open_under(
+                hwnd,
+                size.width,
+                size.height,
+                &url,
+                bitblt,
+            ));
+        })
+        .map_err(|e| e.to_string())?;
+        rx.recv().map_err(|e| e.to_string())?
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (app, url, bitblt);
+        Ok(())
+    }
+}
+
+// Stop spike playback (the window itself stays open).
+#[tauri::command]
+fn spike_stop(app: tauri::AppHandle) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        let (tx, rx) = std::sync::mpsc::channel();
+        app.run_on_main_thread(move || {
+            spike::close();
+            let _ = tx.send(());
+        })
+        .map_err(|e| e.to_string())?;
+        rx.recv().map_err(|e| e.to_string())?;
+        Ok(())
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = app;
         Ok(())
     }
 }
@@ -355,6 +451,9 @@ pub fn run() {
             comp_stop,
             popout_pos,
             popout_stop,
+            spike_window,
+            spike_play,
+            spike_stop,
             http_get,
             check_update,
             install_update
