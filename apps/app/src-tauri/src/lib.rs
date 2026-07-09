@@ -414,6 +414,11 @@ fn mpv_status() -> String {
     let pos = mpv::get_property("time-pos").and_then(|s| s.parse::<f64>().ok());
     let dur = mpv::get_property("duration").and_then(|s| s.parse::<f64>().ok());
     let presenting = mpv::get_property("core-idle").as_deref() == Some("no");
+    // Mid-play death signal: a live stream that dies makes mpv reach EOF and
+    // fall back to idle (no file loaded). Either means the picture is gone
+    // even though we WERE presenting — the frontend watchdog re-arms on it.
+    let ended = mpv::get_property("eof-reached").as_deref() == Some("yes")
+        || mpv::get_property("idle-active").as_deref() == Some("yes");
     let mut audio = Vec::new();
     let mut subs = Vec::new();
     for t in mpv::track_list() {
@@ -434,10 +439,59 @@ fn mpv_status() -> String {
         }
     }
     serde_json::json!({
-        "pos": pos, "dur": dur, "presenting": presenting,
+        "pos": pos, "dur": dur, "presenting": presenting, "ended": ended,
         "audio": audio, "subs": subs,
     })
     .to_string()
+}
+
+/// Playback telemetry for the inverted chrome's "stats for nerds" overlay.
+/// Every field is best-effort: mpv returns nothing for a property a given
+/// stream/decoder doesn't expose, and we simply omit that key from the JSON.
+/// Numbers are parsed where sensible (dimensions, fps, bitrates in bits/s,
+/// cache seconds, dropped-frame count); codecs and hwdec stay strings. fps
+/// prefers the container rate, falling back to mpv's estimate; dropped frames
+/// prefer the total, falling back to the decoder count.
+#[tauri::command]
+fn mpv_stats() -> String {
+    use serde_json::{Map, Number, Value};
+
+    fn get_num(prop: &str) -> Option<f64> {
+        mpv::get_property(prop).and_then(|s| s.parse::<f64>().ok())
+    }
+    fn put_str(m: &mut Map<String, Value>, key: &str, prop: &str) {
+        if let Some(v) = mpv::get_property(prop) {
+            m.insert(key.to_string(), Value::String(v));
+        }
+    }
+    fn put_num(m: &mut Map<String, Value>, key: &str, val: Option<f64>) {
+        if let Some(n) = val.and_then(Number::from_f64) {
+            m.insert(key.to_string(), Value::Number(n));
+        }
+    }
+
+    let mut m = Map::new();
+    put_str(&mut m, "videoCodec", "video-codec");
+    put_num(&mut m, "videoW", get_num("video-params/w"));
+    put_num(&mut m, "videoH", get_num("video-params/h"));
+    put_num(
+        &mut m,
+        "fps",
+        get_num("container-fps").or_else(|| get_num("estimated-vf-fps")),
+    );
+    put_num(&mut m, "videoBitrate", get_num("video-bitrate"));
+    put_str(&mut m, "audioCodec", "audio-codec");
+    put_num(&mut m, "audioBitrate", get_num("audio-bitrate"));
+    put_str(&mut m, "hwdec", "hwdec-current");
+    put_num(
+        &mut m,
+        "dropped",
+        get_num("frame-drop-count").or_else(|| get_num("decoder-frame-drop-count")),
+    );
+    put_num(&mut m, "cache", get_num("demuxer-cache-duration"));
+    put_num(&mut m, "width", get_num("width"));
+    put_num(&mut m, "height", get_num("height"));
+    Value::Object(m).to_string()
 }
 
 // ---- Layer-inversion spike (dev-only UI drives these; see spike.rs). ----
@@ -728,6 +782,7 @@ pub fn run() {
             mpv_go_live,
             mpv_track,
             mpv_status,
+            mpv_stats,
             mpv_blur,
             mpv_frost,
             mpv_frost_rect,

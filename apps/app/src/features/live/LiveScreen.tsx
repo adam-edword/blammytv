@@ -34,6 +34,7 @@ import {
   tauriSetFullscreen,
 } from "../../lib/tauri";
 import { createPortal } from "react-dom";
+import { frostRegion } from "./hole";
 import { setOverlayApiOverride } from "./overlayApi";
 import { TheaterOverlay } from "./TheaterOverlay";
 import { useDirectOverlay } from "./useDirectOverlay";
@@ -425,7 +426,13 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
       programmes: programmes.get(c.id) ?? NO_PROGRAMMES,
     });
     if (mode === "favorites")
-      return channels.filter((c) => favorites.includes(c.id)).map(attach);
+      // Render in the FAVORITES list order (the user's hand-sort), not source
+      // order — reorderFavorite rearranges that list. A channel that isn't
+      // loaded (source disabled) drops out.
+      return favorites
+        .map((id) => channels.find((c) => c.id === id))
+        .filter((c): c is Channel => !!c)
+        .map(attach);
     if (mode === "recents")
       return recents
         .map((id) => channels.find((c) => c.id === id))
@@ -553,15 +560,13 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
       const slot = document.getElementById("player-slot");
       const card = document.querySelector(".settings");
       if (!slot || !card) return;
-      const s = slot.getBoundingClientRect();
-      const c = card.getBoundingClientRect();
-      const x0 = Math.max(0, (c.left - s.left) / s.width);
-      const y0 = Math.max(0, (c.top - s.top) / s.height);
-      const x1 = Math.min(1, (c.right - s.left) / s.width);
-      const y1 = Math.min(1, (c.bottom - s.top) / s.height);
+      const r = frostRegion(
+        slot.getBoundingClientRect(),
+        card.getBoundingClientRect(),
+      );
       // Degenerate (card off the video) → parked uniforms = no frost.
-      if (x1 <= x0 || y1 <= y0) void tauriMpvFrostRect(1, 1, 0, 0).catch(() => {});
-      else void tauriMpvFrostRect(x0, y0, x1, y1).catch(() => {});
+      if (!r) void tauriMpvFrostRect(1, 1, 0, 0).catch(() => {});
+      else void tauriMpvFrostRect(r.x0, r.y0, r.x1, r.y1).catch(() => {});
     };
     const queue = () => {
       if (!raf) raf = requestAnimationFrame(push);

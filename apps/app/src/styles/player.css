@@ -690,3 +690,74 @@
 .theater-vol__slider {
   width: 96px;
 }
+
+/* ---- Stats-for-nerds overlay: a compact glass telemetry panel pinned
+ * top-left of the player, just below the favorite button. Persists while
+ * toggled (independent of the auto-hiding chrome). Glassy like the track
+ * menus; values in a tabular monospace so they don't jitter as they tick. ---- */
+.stats-overlay {
+  position: absolute;
+  top: 66px;
+  left: 20px;
+  z-index: 4;
+  min-width: 208px;
+  max-width: 300px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(0, 0, 0, 0.55);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  backdrop-filter: blur(18px) saturate(1.2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 8px 28px rgba(0, 0, 0, 0.45);
+  color: #fff;
+}
+
+.stats-overlay__head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 8px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.stats-overlay__empty {
+  margin: 0;
+  font: 500 12px / 1.3 var(--font-text);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.stats-overlay__list {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 16px;
+}
+
+/* Each row lets its dt/dd drop straight into the shared grid columns. */
+.stats-overlay__row {
+  display: contents;
+}
+
+.stats-overlay__key {
+  font: 500 12px / 1.5 var(--font-text);
+  color: rgba(255, 255, 255, 0.6);
+  white-space: nowrap;
+}
+
+.stats-overlay__val {
+  margin: 0;
+  justify-self: end;
+  text-align: right;
+  font-family: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+}

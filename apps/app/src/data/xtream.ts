@@ -23,6 +23,8 @@ export interface XtreamStream {
   stream_icon?: string | null;
   epg_channel_id?: string | null;
   category_id?: string | number | null;
+  /** Provider channel number (LCN). String-typed as often as numeric. */
+  num?: number | string | null;
   /** Server catch-up flag. Panels send 0/1, and as often a *string* ("1"),
    * so callers coerce. */
   tv_archive?: number | string | null;

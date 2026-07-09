@@ -15,6 +15,9 @@ export interface Channel {
   /** Sidebar folder (category) this channel lives in. */
   folderId: string;
   logo?: string;
+  /** Provider channel number (Xtream `num`), shown in the hero on hover.
+   * Undefined when the source doesn't number its channels. */
+  number?: number;
   /** Days of server-side catch-up archive, 0 when the channel has none.
    * Derived from the panel's tv_archive / tv_archive_duration fields (both
    * arrive string-typed, so this is the coerced, guarded number). */

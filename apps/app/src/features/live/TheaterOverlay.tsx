@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { TheaterMeta } from "../../lib/tauri";
+import { isTauri, type TheaterMeta } from "../../lib/tauri";
 import { api, type Tracks } from "./overlayApi";
+import { StatsOverlay } from "./StatsOverlay";
 import {
   CcIcon,
   CheckIcon,
@@ -16,6 +17,7 @@ import {
   SkipBackIcon,
   SkipFwdIcon,
   StarIcon,
+  StatsIcon,
   VolumeIcon,
 } from "../../ui/icons";
 
@@ -90,6 +92,9 @@ export function TheaterOverlay({
     () => api()?.getTracks?.() ?? null,
   );
   const [menu, setMenu] = useState<"audio" | "subs" | null>(null);
+  // Stats-for-nerds panel (theater/fullscreen only). Telemetry comes straight
+  // from the mpv_stats Tauri command, so it's gated on running in the shell.
+  const [showStats, setShowStats] = useState(false);
   const idleRef = useRef(0);
 
   useEffect(() => {
@@ -355,6 +360,12 @@ export function TheaterOverlay({
           if (miniNow()) api()?.expand?.();
           else api()?.collapse?.();
           break;
+        case "i":
+          // Stats overlay — theater/fullscreen only, and only in the shell
+          // (mpv_stats is a Tauri command). Ignored otherwise (unhandled).
+          if (!isTauri() || miniNow()) return false;
+          setShowStats((v) => !v);
+          break;
         case "escape":
           if (menuRef.current) setMenu(null);
           else if (fsNow()) api()?.exitFullscreen?.();
@@ -452,6 +463,8 @@ export function TheaterOverlay({
       }}
     >
       {loading && <TuneCard meta={meta} phase={tune} onRetry={retryTune} />}
+
+      {showStats && isTauri() && <StatsOverlay />}
 
       <div className="theater-topscrim" aria-hidden />
 
@@ -577,6 +590,19 @@ export function TheaterOverlay({
           </div>
 
           <div className="theater-controls__group">
+            {/* Stats for nerds (theater/fullscreen only; needs the shell for
+              * the mpv_stats command). Toggles the top-left telemetry panel. */}
+            {isTauri() && (
+              <button
+                type="button"
+                className={"player__btn" + (showStats ? " is-open" : "")}
+                aria-label="Stats for nerds"
+                aria-pressed={showStats}
+                onClick={() => setShowStats((v) => !v)}
+              >
+                <StatsIcon size={20} />
+              </button>
+            )}
             {/* Always visible, grayed out when there's nothing to choose:
               * audio needs ≥2 tracks (one track = no choice), subs need ≥1
               * (off/on is a real choice even with one track). A disabled

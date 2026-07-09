@@ -166,11 +166,35 @@ export interface MpvStatus {
   pos: number | null;
   dur: number | null;
   presenting: boolean;
+  /** Mid-play death: the stream reached EOF or mpv fell back to idle. */
+  ended: boolean;
   audio: Array<{ id: number; label: string; lang: string; selected: boolean }>;
   subs: Array<{ id: number; label: string; lang: string; selected: boolean }>;
 }
 export async function tauriMpvStatus(): Promise<MpvStatus> {
   return JSON.parse(await invoke<string>("mpv_status")) as MpvStatus;
+}
+
+/** Playback telemetry for the "stats for nerds" overlay. Every field is
+ * best-effort — mpv omits any property a given stream/decoder doesn't expose,
+ * so all are optional. Bitrates are bits/sec; `cache` is seconds; `videoW`/
+ * `videoH` are the decoded picture size, `width`/`height` the output size. */
+export interface MpvStats {
+  videoCodec?: string;
+  videoW?: number;
+  videoH?: number;
+  fps?: number;
+  videoBitrate?: number;
+  audioCodec?: string;
+  audioBitrate?: number;
+  hwdec?: string;
+  dropped?: number;
+  cache?: number;
+  width?: number;
+  height?: number;
+}
+export async function tauriMpvStats(): Promise<MpvStats> {
+  return JSON.parse(await invoke<string>("mpv_stats")) as MpvStats;
 }
 
 /** DEV layer-inversion spike (see spike.rs / SpikeScreen). Opens the

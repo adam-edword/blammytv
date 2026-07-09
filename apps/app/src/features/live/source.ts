@@ -8,11 +8,14 @@ import {
 } from "../../data/xtream";
 import {
   loadPlaylists,
+  type M3uPlaylist,
   type XtreamPlaylist,
 } from "../settings/playlists";
 import { loadShowAdult } from "../settings/adultFilter";
-import { isAdultCategory, isAdultStream } from "./adult";
+import { httpGetText } from "../../lib/http";
+import { isAdultCategory, isAdultStream, nameLooksAdult } from "./adult";
 import { diskGet, diskPut } from "./diskCache";
+import { parseM3U } from "./m3u";
 import { mockLive } from "./mock";
 import type { Channel, LiveData, LiveGroup, Programme } from "./model";
 import { extractQuality } from "./quality";
@@ -78,7 +81,7 @@ function scheduleDiskPut(key: string, at: number, data: LiveData) {
  * REPLACES that record in the single-flight slot, so the hydrating callers
  * keep their already-shared promise (resolving with disk data) while any
  * later caller joins the live revalidation instead. */
-function refreshInBackground(playlists: XtreamPlaylist[], key: string) {
+function refreshInBackground(playlists: LoadableSource[], key: string) {
   const stages = new Set<(label: string) => void>();
   const promise = doLoad(playlists, key, new Date(), (label) =>
     stages.forEach((cb) => cb(label)),
@@ -96,22 +99,24 @@ function refreshInBackground(playlists: XtreamPlaylist[], key: string) {
     });
 }
 
-const enabledXtream = () =>
+/** Enabled sources we can actually load today: Xtream + M3U. Stalker is
+ * still a stub (see docs/stalker-implementation.md) and is filtered out. */
+type LoadableSource = XtreamPlaylist | M3uPlaylist;
+const enabledSources = (): LoadableSource[] =>
   loadPlaylists().filter(
-    (p): p is XtreamPlaylist => p.enabled && p.kind === "xtream",
+    (p): p is LoadableSource =>
+      p.enabled && (p.kind === "xtream" || p.kind === "m3u"),
   );
 
-const cacheKey = (playlists: XtreamPlaylist[]) =>
+const cacheKey = (playlists: LoadableSource[]) =>
   playlists.length === 0
     ? "mock"
     : JSON.stringify([
-        playlists.map((p) => [
-          p.id,
-          p.server,
-          p.username,
-          p.password,
-          p.hiddenCategories ?? [],
-        ]),
+        playlists.map((p) =>
+          p.kind === "xtream"
+            ? [p.id, p.server, p.username, p.password, p.hiddenCategories ?? []]
+            : [p.id, p.url, p.hiddenCategories ?? []],
+        ),
         // The adult filter changes what a load produces, so it's part of
         // the config fingerprint — flipping it misses cache + disk naturally.
         loadShowAdult(),
@@ -120,7 +125,7 @@ const cacheKey = (playlists: XtreamPlaylist[]) =>
 /** The cached catalog, if it's still current — lets a remounting Live
  * screen render data in its very first frame, no loading state. */
 export function peekLive(): LiveData | null {
-  const key = cacheKey(enabledXtream());
+  const key = cacheKey(enabledSources());
   return cache && cache.key === key && Date.now() - cache.at < CACHE_TTL_MS
     ? cache.data
     : null;
@@ -131,7 +136,7 @@ export async function loadLive(
   onStage?: (label: string) => void,
   force = false,
 ): Promise<LiveData> {
-  const playlists = enabledXtream();
+  const playlists = enabledSources();
   const key = cacheKey(playlists);
   if (!force && cache && cache.key === key) {
     if (Date.now() - cache.at < CACHE_TTL_MS) return cache.data;
@@ -181,7 +186,7 @@ export async function loadLive(
 }
 
 async function doLoad(
-  playlists: XtreamPlaylist[],
+  playlists: LoadableSource[],
   key: string,
   now: Date,
   onStage: (label: string) => void,
@@ -198,7 +203,11 @@ async function doLoad(
     // "Loading channels…" the caller shows when no stage is reported.
     const narrate = playlists.length === 1 ? onStage : undefined;
     const built = await Promise.all(
-      playlists.map((p) => buildXtreamSource(p, now, narrate)),
+      playlists.map((p) =>
+        p.kind === "m3u"
+          ? buildM3uSource(p, now, narrate)
+          : buildXtreamSource(p, now, narrate),
+      ),
     );
     // Assembled in saved-playlist order, not arrival order. concat, not
     // push(...spread): spreading a six-figure channel list overflows the
@@ -293,6 +302,117 @@ async function buildXtreamSource(
   }
 }
 
+/** M3U group with no group-title lands here (Xtream always has a category). */
+const M3U_UNGROUPED = "Uncategorized";
+
+/** Pull the `url-tvg` / `x-tvg-url` EPG link out of the `#EXTM3U` header —
+ * the parser is entry-only, and this is a header attribute. First match
+ * wins; a comma-separated list takes its first url. */
+function m3uEpgUrl(text: string): string | undefined {
+  const m = text.match(/#EXTM3U[^\n]*?(?:url-tvg|x-tvg-url)\s*=\s*"([^"]*)"/i);
+  const first = m?.[1]?.split(",")[0]?.trim();
+  return first && /^https?:\/\//i.test(first) ? first : undefined;
+}
+
+/** Stable 32-bit FNV-1a hash → base36, for channel ids when an M3U entry
+ * carries no tvg-id. Keyed on the URL so favorites/recents survive reloads. */
+function hashId(s: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(36);
+}
+
+/** Build a source from an M3U playlist: one text download, parsed into
+ * channels grouped by `group-title`. EPG is best-effort via the header's
+ * `url-tvg` (reusing the XMLTV pipeline, matched on `tvg-id`); without it
+ * channels render No-Information lanes, exactly like an Xtream source whose
+ * EPG failed. Adult groups + user-hidden groups drop by group name. */
+async function buildM3uSource(
+  p: M3uPlaylist,
+  now: Date,
+  onStage?: (label: string) => void,
+): Promise<{
+  group: LiveGroup;
+  channels: Channel[];
+  programmes: Map<string, Programme[]>;
+}> {
+  try {
+    onStage?.(`Downloading ${p.name}…`);
+    const t = performance.now();
+    const text = await httpGetText(p.url);
+    await breathe();
+    onStage?.(`Reading ${p.name}…`);
+    const entries = parseM3U(text);
+    console.info(
+      `[live] ${p.name}: ${entries.length} M3U entries in ${Math.round(performance.now() - t)}ms`,
+    );
+
+    const showAdult = loadShowAdult();
+    const userHidden = new Set(p.hiddenCategories ?? []);
+    const isHidden = (group: string) =>
+      userHidden.has(group) || (!showAdult && nameLooksAdult(group));
+
+    // Distinct groups in first-appearance order (folders), skipping hidden.
+    const folders: { id: string; name: string }[] = [];
+    const seen = new Set<string>();
+    const epgIdx = new Map<string, string[]>();
+    const channels: Channel[] = [];
+
+    for (const e of entries) {
+      const group = e.groupTitle?.trim() || M3U_UNGROUPED;
+      if (isHidden(group)) continue;
+      if (!seen.has(group)) {
+        seen.add(group);
+        folders.push({ id: folderId(p.id, group), name: group });
+      }
+      const id = channelId(p.id, e.tvgId || hashId(e.url));
+      channels.push({
+        id,
+        name: e.name,
+        quality: extractQuality(e.name),
+        folderId: folderId(p.id, group),
+        logo: validUrl(e.logo),
+        archiveDays: 0,
+        number: e.channelNumber,
+      });
+      if (e.tvgId) {
+        const list = epgIdx.get(e.tvgId) ?? [];
+        list.push(id);
+        epgIdx.set(e.tvgId, list);
+      }
+    }
+
+    // EPG is best-effort — only when the playlist declares one AND some
+    // channel carries a tvg-id to match against.
+    let programmes = new Map<string, Programme[]>();
+    const epgUrl = m3uEpgUrl(text);
+    if (epgUrl && epgIdx.size > 0) {
+      try {
+        onStage?.(`Downloading the ${p.name} TV guide…`);
+        await breathe();
+        const xml = await httpGetText(epgUrl);
+        onStage?.(`Reading the ${p.name} TV guide…`);
+        await breathe();
+        programmes = parseXmltv(xml, epgIdx, now);
+      } catch (err) {
+        console.warn(`[live] EPG failed for "${p.name}": ${msg(err)}`);
+      }
+    }
+
+    return { group: { id: p.id, name: p.name, folders }, channels, programmes };
+  } catch (err) {
+    console.error(`[live] playlist "${p.name}" failed: ${msg(err)}`);
+    return {
+      group: { id: p.id, name: p.name, folders: [], error: msg(err) },
+      channels: [],
+      programmes: new Map(),
+    };
+  }
+}
+
 const folderId = (playlistId: string, catId: unknown) =>
   `${playlistId}:${String(catId ?? "")}`;
 const channelId = (playlistId: string, streamId: number | string) =>
@@ -337,8 +457,16 @@ export function mapStreams(
         folderId: folderId(p.id, s.category_id),
         logo: validUrl(s.stream_icon),
         archiveDays: archiveDaysOf(s),
+        number: channelNumber(s),
       };
     });
+}
+
+/** Provider channel number (Xtream `num`), coerced from the panel's
+ * string-or-number field. Undefined when absent or not a positive integer. */
+export function channelNumber(s: XtreamStream): number | undefined {
+  const n = Math.floor(Number(s.num));
+  return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
 /** Catch-up depth for a stream, in whole days (0 = no archive). The panel

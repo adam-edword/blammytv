@@ -52,7 +52,12 @@ export function Hero({
             LIVE
           </span>
         )}
-        <span className="hero__channel">{channel.name}</span>
+        <span className="hero__channel">
+          {channel.number != null && (
+            <span className="hero__number">{channel.number}</span>
+          )}
+          {channel.name}
+        </span>
         <div className="hero__title-wrap">
           <h2 className="hero__title">
             {current ? current.title : "No Information"}

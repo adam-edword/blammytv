@@ -38,30 +38,7 @@ const PARKED: CompRect = { x: -8, y: -8, w: 2, h: 2, radius: 0 };
  * here also heals the hole, so a modal is fully opaque even mid-play. */
 const INVERTED = invertedPlayer();
 
-/** Full-viewport ring with a ROUNDED-rect cutout at CSS-px rect (l,t,r,b).
- * clip-path path(): the outer rect winds clockwise and the inner rounded
- * rect counter-clockwise, so the default nonzero fill-rule leaves a hole —
- * no dependency on evenodd support. Coords are plain px; the outer rect
- * needs the window size, so callers key on it too. */
-const holeClip = (
-  l: number,
-  t: number,
-  r: number,
-  b: number,
-  rad: number,
-  W: number,
-  H: number,
-) => {
-  const k = Math.min(rad, (r - l) / 2, (b - t) / 2);
-  const inner =
-    k > 0
-      ? `M${l + k} ${t}A${k} ${k} 0 0 0 ${l} ${t + k}L${l} ${b - k}` +
-        `A${k} ${k} 0 0 0 ${l + k} ${b}L${r - k} ${b}` +
-        `A${k} ${k} 0 0 0 ${r} ${b - k}L${r} ${t + k}` +
-        `A${k} ${k} 0 0 0 ${r - k} ${t}Z`
-      : `M${l} ${t}L${l} ${b}L${r} ${b}L${r} ${t}Z`;
-  return `path("M0 0H${W}V${H}H0Z ${inner}")`;
-};
+import { holeClip } from "./hole";
 
 function measure(el: HTMLElement, squared: boolean): CompRect {
   const r = el.getBoundingClientRect();

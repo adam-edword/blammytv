@@ -70,6 +70,12 @@ export function useDirectOverlay(
           if (s.loading && st.presenting) {
             s.loading = false;
             s.loadingCbs.forEach((cb) => cb(false));
+          } else if (!s.loading && st.ended) {
+            // Mid-play death: we were presenting, now mpv hit EOF/idle. Flip
+            // loading back true so TheaterOverlay's tune watchdog re-arms and
+            // runs its silent goLive-reload escalation (then the dead card).
+            s.loading = true;
+            s.loadingCbs.forEach((cb) => cb(true));
           }
           const tj = JSON.stringify([st.audio, st.subs]);
           if (tj !== s.tracksJson) {

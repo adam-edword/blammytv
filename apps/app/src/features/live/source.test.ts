@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { XtreamPlaylist } from "../settings/playlists";
-import { archiveDaysOf, droppedCategories, epgIndex, mapStreams } from "./source";
+import {
+  archiveDaysOf,
+  channelNumber,
+  droppedCategories,
+  epgIndex,
+  mapStreams,
+} from "./source";
 
 const playlist = (over: Partial<XtreamPlaylist> = {}): XtreamPlaylist => ({
   kind: "xtream",
@@ -83,6 +89,30 @@ describe("mapStreams", () => {
       playlist(),
     );
     expect(ch.archiveDays).toBe(3);
+  });
+});
+
+describe("channelNumber", () => {
+  it("coerces the panel's num field to a positive integer", () => {
+    expect(channelNumber({ stream_id: 1, num: 101 })).toBe(101);
+    expect(channelNumber({ stream_id: 1, num: "205" })).toBe(205);
+    expect(channelNumber({ stream_id: 1, num: "12.0" })).toBe(12);
+  });
+
+  it("is undefined when the panel gives no usable number", () => {
+    expect(channelNumber({ stream_id: 1 })).toBeUndefined();
+    expect(channelNumber({ stream_id: 1, num: 0 })).toBeUndefined();
+    expect(channelNumber({ stream_id: 1, num: "" })).toBeUndefined();
+    expect(channelNumber({ stream_id: 1, num: null })).toBeUndefined();
+    expect(channelNumber({ stream_id: 1, num: "abc" })).toBeUndefined();
+  });
+
+  it("mapStreams carries the number onto the channel", () => {
+    const [ch] = mapStreams(
+      [{ stream_id: 7, name: "ESPN", category_id: "1", num: "104" }],
+      playlist(),
+    );
+    expect(ch.number).toBe(104);
   });
 });
 

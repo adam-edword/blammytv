@@ -939,6 +939,21 @@
   color: var(--accent);
 }
 
+/* Provider channel number, a quiet monospace chip before the name. */
+.hero__number {
+  display: inline-block;
+  margin-right: 10px;
+  padding: 1px 8px;
+  border-radius: 6px;
+  background: var(--accent-surface);
+  border: 1px solid var(--accent-border);
+  font-size: 15px;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  vertical-align: 2px;
+}
+
 /* Long titles run under a right-edge fade instead of wrapping. */
 .hero__title-wrap {
   position: relative;
