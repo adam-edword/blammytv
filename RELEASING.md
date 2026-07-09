@@ -19,6 +19,12 @@ themselves on next launch.
 
 ## Hard-won rules (2026-07-09, the first rebuild release)
 
+- **Dev bumps touch only the three frontend files** (root+app package.json,
+  version.ts). Cargo.toml + tauri.conf.json stay at the LAST RELEASED
+  version between releases — touching either makes every `git pull`
+  recompile Rust for no reason. They jump straight to the new version in
+  the release commit itself.
+
 - **One shell, one build, one upload.** The `TAURI_SIGNING_*` env vars die
   with the PowerShell window; a rebuild without them produces an UNSIGNED
   exe and errors only at the end. Never mix an exe and a `.sig` from
