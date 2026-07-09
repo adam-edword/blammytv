@@ -151,6 +151,16 @@ listener — React root wheel handlers are passive and can't preventDefault).
 screenshot of the app (his request). And decide whether to merge this
 sprint branch into the working branch after a Windows rebuild.
 
+## RELEASED: v0.2.5 (tag v0.2.5_alpha, 2026-07-09) — the self-update
+## pipeline is PROVEN LIVE: chip → verified download → install → relaunch
+## worked on both real installs (Adam + Bobby). Release flow hardening in
+## RELEASING.md + scripts/release.ps1 (one-shell signed build). The 0.2.x
+## tags ≤ 0.2.4a belong to the PRE-REBUILD app — never reuse them; the
+## June v0.2.1 release collision cost a whole evening (details in
+## RELEASING.md's hard-won rules). Manifests live in releases/<ver>/ and
+## are only written AFTER the uploaded exe verifies against the sig
+## (blake2b-512 + Ed25519 vs tauri.conf pubkey — the session does this).
+
 ## OPEN BUG — friend's install: EPG empty on his Xtream line (2026-07-09)
 
 Bobby's provider: channels + video fine, EVERY channel "No Information";
