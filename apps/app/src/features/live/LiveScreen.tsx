@@ -30,6 +30,7 @@ import {
   tauriCompKey,
   tauriCompPopout,
   tauriMpvFrost,
+  tauriMpvFrostRect,
   tauriSetFullscreen,
 } from "../../lib/tauri";
 import { createPortal } from "react-dom";
@@ -530,32 +531,43 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   }, []);
 
   // Live glass: while a modal covers the app, mpv GPU-blurs ONLY the
-  // region under the settings card (rect baked into the shader Rust-side)
-  // — the video keeps playing everywhere, frosted under the card. The
-  // rect is measured in video-normalized coords and re-baked on resize.
+  // region under the settings card. The shader loads once; every geometry
+  // change (tab-switch reflows via ResizeObserver, window resizes) is a
+  // pure uniform update, rAF-throttled — no reloads, no stale rects. The
+  // rect hugs the card exactly (no pad), so the frost never halos.
   useEffect(() => {
     if (!modalOpen || !INV || !playUrlRef.current) return;
-    const apply = () => {
+    void tauriMpvFrost(true).catch(() => {});
+    let raf = 0;
+    const push = () => {
+      raf = 0;
       const slot = document.getElementById("player-slot");
       const card = document.querySelector(".settings");
       if (!slot || !card) return;
       const s = slot.getBoundingClientRect();
       const c = card.getBoundingClientRect();
-      const pad = 12; // tuck the frost just past the card's rounded corners
-      const x0 = Math.max(0, (c.left - pad - s.left) / s.width);
-      const y0 = Math.max(0, (c.top - pad - s.top) / s.height);
-      const x1 = Math.min(1, (c.right + pad - s.left) / s.width);
-      const y1 = Math.min(1, (c.bottom + pad - s.top) / s.height);
-      if (x1 <= x0 || y1 <= y0) {
-        void tauriMpvFrost(false).catch(() => {});
-        return;
-      }
-      void tauriMpvFrost(true, x0, y0, x1, y1).catch(() => {});
+      const x0 = Math.max(0, (c.left - s.left) / s.width);
+      const y0 = Math.max(0, (c.top - s.top) / s.height);
+      const x1 = Math.min(1, (c.right - s.left) / s.width);
+      const y1 = Math.min(1, (c.bottom - s.top) / s.height);
+      // Degenerate (card off the video) → parked uniforms = no frost.
+      if (x1 <= x0 || y1 <= y0) void tauriMpvFrostRect(1, 1, 0, 0).catch(() => {});
+      else void tauriMpvFrostRect(x0, y0, x1, y1).catch(() => {});
     };
-    apply();
-    window.addEventListener("resize", apply);
+    const queue = () => {
+      if (!raf) raf = requestAnimationFrame(push);
+    };
+    queue();
+    const ro = new ResizeObserver(queue);
+    const card = document.querySelector(".settings");
+    const slot = document.getElementById("player-slot");
+    if (card) ro.observe(card);
+    if (slot) ro.observe(slot);
+    window.addEventListener("resize", queue);
     return () => {
-      window.removeEventListener("resize", apply);
+      ro.disconnect();
+      window.removeEventListener("resize", queue);
+      if (raf) cancelAnimationFrame(raf);
       void tauriMpvFrost(false).catch(() => {});
     };
   }, [modalOpen]);

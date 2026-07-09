@@ -299,11 +299,37 @@ fn mpv_blur(on: bool) -> Result<(), String> {
 }
 
 /// Region frost: blur ONLY the rectangle under a modal card, every frame,
-/// on the GPU — live glass over a still-playing picture. The rect (video-
-/// normalized 0..1) is BAKED into the shader source at write time, so it
-/// works on any mpv that runs user shaders — no //!PARAM / shader-opts
-/// version dependency. Rect changes (resize) just re-bake + re-set.
-const FROST_REGION_TEMPLATE: &str = r#"//!HOOK MAIN
+/// on the GPU — live glass over a still-playing picture. The rect lives in
+/// //!PARAM uniforms (video-normalized 0..1), so the shader loads ONCE and
+/// geometry changes are just `glsl-shader-opts` property sets — no file
+/// rewrites, no chain reloads, no hiccups. Defaults are a degenerate rect
+/// (x0>x1) = frost disabled until the frontend pushes a real one.
+/// Requires gpu-next for PARAM (default vo on Adam's mpv 0.41-dev).
+const FROST_REGION_SHADER: &str = r#"//!PARAM frost_x0
+//!TYPE float
+//!MINIMUM 0.0
+//!MAXIMUM 1.0
+1.0
+
+//!PARAM frost_y0
+//!TYPE float
+//!MINIMUM 0.0
+//!MAXIMUM 1.0
+1.0
+
+//!PARAM frost_x1
+//!TYPE float
+//!MINIMUM 0.0
+//!MAXIMUM 1.0
+0.0
+
+//!PARAM frost_y1
+//!TYPE float
+//!MINIMUM 0.0
+//!MAXIMUM 1.0
+0.0
+
+//!HOOK MAIN
 //!BIND HOOKED
 //!SAVE FROST
 //!WIDTH HOOKED.w 8 /
@@ -319,7 +345,7 @@ vec4 hook() {
 //!DESC frost region: composite
 vec4 hook() {
     vec2 uv = HOOKED_pos;
-    if (uv.x < @X0@ || uv.x > @X1@ || uv.y < @Y0@ || uv.y > @Y1@)
+    if (uv.x < frost_x0 || uv.x > frost_x1 || uv.y < frost_y0 || uv.y > frost_y1)
         return HOOKED_texOff(vec2(0.0));
     vec2 px = FROST_pt;
     vec4 c = vec4(0.0);
@@ -336,20 +362,29 @@ vec4 hook() {
 "#;
 
 #[tauri::command]
-fn mpv_frost(on: bool, x0: f64, y0: f64, x1: f64, y1: f64) -> Result<(), String> {
+fn mpv_frost(on: bool) -> Result<(), String> {
     if !on {
         mpv::set_glsl_shaders("");
         return Ok(());
     }
-    let shader = FROST_REGION_TEMPLATE
-        .replace("@X0@", &format!("{x0:.6}"))
-        .replace("@Y0@", &format!("{y0:.6}"))
-        .replace("@X1@", &format!("{x1:.6}"))
-        .replace("@Y1@", &format!("{y1:.6}"));
     let path = std::env::temp_dir().join("blammytv-frost-region.glsl");
-    std::fs::write(&path, shader).map_err(|e| e.to_string())?;
+    std::fs::write(&path, FROST_REGION_SHADER).map_err(|e| e.to_string())?;
     mpv::set_glsl_shaders(path.to_string_lossy().as_ref());
+    // Ground truth for shader support: PARAM needs gpu-next.
+    println!(
+        "[mpv] frost on, vo={}",
+        mpv::get_property("current-vo").unwrap_or_else(|| "?".into())
+    );
     Ok(())
+}
+
+// Move the frost rect (video-normalized). Pure uniform update — safe to
+// call at UI rates (resize drags, tab-switch reflows).
+#[tauri::command]
+fn mpv_frost_rect(x0: f64, y0: f64, x1: f64, y1: f64) {
+    mpv::set_shader_opts(&format!(
+        "frost_x0={x0:.4},frost_y0={y0:.4},frost_x1={x1:.4},frost_y1={y1:.4}"
+    ));
 }
 
 /// Frozen-frame glass (DORMANT — Adam requires the video visibly playing
@@ -691,6 +726,7 @@ pub fn run() {
             mpv_status,
             mpv_blur,
             mpv_frost,
+            mpv_frost_rect,
             mpv_snapshot,
             http_get,
             check_update,

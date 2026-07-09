@@ -439,6 +439,14 @@ pub fn set_glsl_shaders(path: &str) {
     set_prop("glsl-shaders", path);
 }
 
+/// Set shader tunables (`glsl-shader-opts`, "name=value,..."): updates
+/// //!PARAM uniforms in the loaded chain WITHOUT reloading it — the cheap
+/// per-frame-safe path for the moving frost rect (gpu-next required for
+/// PARAM; Adam runs mpv 0.41-dev, where it's the default vo).
+pub fn set_shader_opts(opts: &str) {
+    set_prop("glsl-shader-opts", opts);
+}
+
 /// Write one tone-mapped frame of the current video to `path` (format from
 /// the extension; "video" = no OSD). mpv_command is synchronous, so the
 /// file exists when this returns true. Used for the frozen-frame glass

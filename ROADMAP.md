@@ -370,14 +370,20 @@ treatment.** mpv GPU-blurs ONLY the rectangle under the settings card,
 every frame: a /8 SAVE pass + a rect-branched composite pass
 (`FROST_REGION_TEMPLATE` in lib.rs), with the card rect BAKED into the
 shader source at write time (video-normalized; LiveScreen measures
-card+slot, re-bakes on resize via `mpv_frost`). No //!PARAM / shader-opts
-/ gpu-next dependency — works on any mpv that runs user shaders (A2
-proved his does). The hole scrim dropped to 0.25 (the picture should stay
-watchable). mpv-version question: `[mpv] <version>` now prints to the
-terminal on every inverted open — libmpv-2.dll is a drop-in upgrade
-(shinchiro builds); vo=gpu-next is a separate deliberate experiment
-(quality bar + HDR retest) and would unlock //!PARAM animated frost.
-mpv_blur (whole-frame) stays dormant; render-API/DComp REJECTED (above).
+card+slot, re-bakes on resize via `mpv_frost`). SUPERSEDED SAME NIGHT by
+**A6 (v0.1.123)**: Adam's terminal answered the version question — **mpv
+v0.41.0-724-g71ebd0840, a bleeding-edge dev build** (gpu-next default), so
+rect-baking's file-rewrite+reload dance (which left stale frost on tab
+switches and lost the rect on window resize) was replaced with //!PARAM
+uniforms: the shader loads ONCE (`mpv_frost on/off`, degenerate-rect
+defaults = disabled) and every geometry change is a `glsl-shader-opts`
+property set (`mpv_frost_rect`, mpv.rs `set_shader_opts` — third additive
+exception). Frontend: rAF-throttled pushes from a ResizeObserver on the
+card AND the slot plus window resize; pad dropped to 0 so the frost hugs
+the card exactly (no halo). `mpv_frost` prints `vo=` to the terminal —
+if it ever says `gpu` (not gpu-next), PARAM is unsupported and frost is
+silently absent; that's the diagnostic. Hole scrim 0.25. mpv_blur
+(whole-frame) stays dormant; render-API/DComp REJECTED (above).
 Remaining before default-flip: popout reclaim polish, paused-icon reset on
 channel switch, then v0.2.0 deletion milestone (comp.rs overlay subsystem +
 WM_SETCURSOR/corner-clip/switch-gap items all die) with the fresh-eyes
