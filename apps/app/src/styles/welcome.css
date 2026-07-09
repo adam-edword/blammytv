@@ -8,8 +8,8 @@
  * them per resize into the vars below (--s is the mock's 1920×1080 cover
  * factor; the others are the per-axis end scales):
  *   --s      lockup scale (icon/wordmark sizing, spring distance)
- *   --tv-sx/--tv-sy    backdrop viewport→icon scale (96s×97.2s)
- *   --scr-sx/--scr-sy  screen→icon-hole scale (50.9s×50.35s)
+ *   --tv-sx/--tv-sy    backdrop viewport→icon scale (96s square)
+ *   --scr-sx/--scr-sy  screen→icon-hole scale (54.4s square)
  * Colors are raw hex on purpose: fixed brand artwork, identical in both
  * themes. */
 
@@ -88,12 +88,13 @@
   );
 }
 
-/* The TV's black screen (Frame 91 in the mock): the mock's 37/35/36/35px
- * frame thickness at 1080p, scaled with the lockup so the border reads the
- * same weight on any window. */
+/* The TV's black screen (Frame 91 in the mock): the mock's ~36/35px frame
+ * thickness at 1080p (top/bottom equalized so the hole lands dead-center in
+ * the logo tile), scaled with the lockup so the border reads the same
+ * weight on any window. */
 .welcome-screen {
   position: absolute;
-  inset: calc(37px * var(--s)) calc(35px * var(--s)) calc(36px * var(--s));
+  inset: calc(36.5px * var(--s)) calc(35px * var(--s));
   border-radius: 30px;
   background: #000;
   animation: welcome-screen-shrink 2000ms 700ms both;
@@ -134,10 +135,11 @@
  * in screen pixels, matching the mock.
  *
  * The mock's motion used placeholder end geometry; the TV settles on the
- * real app-icon mark instead: a ~96px tile (half the mock's) with the app
- * icon's corner rounding (30% outer / 27% inner, made squircle by the
- * global corner-shape). Percentage radii keep the corners circular under
- * the non-uniform scale at any viewport shape, and every keyframe restates
+ * brand logo ("Subtract", 186:794) at 0.48× instead: a 96px square tile
+ * with a 54.4px hole, and the logo's exact corner rounding — 54.667/200 =
+ * 27.333% outer, 22.667/113.333 = 20% inner (made squircle by the global
+ * corner-shape). Percentage radii keep the corners circular under the
+ * non-uniform scale at any viewport shape, and every keyframe restates
  * border-radius so it doesn't drift back to the base value after the
  * shrink lands. */
 @keyframes welcome-frame-shrink {
@@ -148,12 +150,12 @@
   }
   36.86% {
     transform: translateX(0) scale(var(--tv-sx), var(--tv-sy));
-    border-radius: 30%;
+    border-radius: 27.333%;
     animation-timing-function: linear;
   }
   43.42% {
     transform: translateX(0) scale(var(--tv-sx), var(--tv-sy));
-    border-radius: 30%;
+    border-radius: 27.333%;
     animation-timing-function: linear(
       0,
       0.0403 3%,
@@ -192,7 +194,7 @@
   100% {
     transform: translateX(calc(-284px * var(--s)))
       scale(var(--tv-sx), var(--tv-sy));
-    border-radius: 30%;
+    border-radius: 27.333%;
   }
 }
 
@@ -204,12 +206,12 @@
   }
   36.78% {
     transform: translateX(0) scale(var(--scr-sx), var(--scr-sy));
-    border-radius: 27%;
+    border-radius: 20%;
     animation-timing-function: linear;
   }
   43.42% {
     transform: translateX(0) scale(var(--scr-sx), var(--scr-sy));
-    border-radius: 27%;
+    border-radius: 20%;
     animation-timing-function: linear(
       0,
       0.0403 3%,
@@ -248,7 +250,7 @@
   100% {
     transform: translateX(calc(-284px * var(--s)))
       scale(var(--scr-sx), var(--scr-sy));
-    border-radius: 27%;
+    border-radius: 20%;
   }
 }
 
