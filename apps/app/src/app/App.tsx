@@ -8,6 +8,8 @@ import {
   tauriSpikeWindow,
 } from "../lib/tauri";
 import { AppHeader, type TabKey } from "./AppHeader";
+import { WelcomeAnimation } from "./WelcomeAnimation";
+import { shouldPlayWelcome } from "./welcome";
 import { LiveScreen } from "../features/live/LiveScreen";
 import { StreamScreen } from "../features/stream/StreamScreen";
 import { DiscoverScreen } from "../features/discover/DiscoverScreen";
@@ -17,6 +19,8 @@ import { loadStartupTab } from "../features/settings/startupTab";
 export function App() {
   const [tab, setTab] = useState<TabKey>(loadStartupTab);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Boot animation: plays over the shell while it loads, once per launch.
+  const [welcome, setWelcome] = useState(shouldPlayWelcome);
 
   // Leaving Live unmounts LiveScreen, whose CompositionPlayer tears the native
   // mpv layer down — but that teardown (run_on_main_thread) queues behind the
@@ -118,6 +122,7 @@ export function App() {
         )}
       </main>
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+      {welcome && <WelcomeAnimation onDone={() => setWelcome(false)} />}
     </div>
   );
 }

@@ -1,0 +1,211 @@
+/* Welcome / boot animation, from the Figma mock "BTV WELCOME ANIMATION"
+ * (194:1158): the full-screen TV — pastel angular-gradient frame around a
+ * black screen — shrinks into the logo mark, springs 360px left, and the
+ * wordmark fades in beside it. All timings/easings are the mock's keyframe
+ * tracks verbatim (via get_motion_context). Colors are raw hex on purpose:
+ * this is fixed brand artwork, identical in both themes. */
+
+.welcome-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  overflow: hidden;
+  background: #000;
+  transition: opacity 400ms ease;
+}
+
+.welcome-overlay.is-leaving {
+  opacity: 0;
+}
+
+/* Fixed 1920×1080 design-space stage; the component scales it to cover the
+ * window, so every child below uses the mock's pixel values as-is. */
+.welcome-stage {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 1920px;
+  height: 1080px;
+}
+
+.welcome-backdrop {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  animation: welcome-frame-shrink 2000ms both;
+}
+
+/* Figma's angular gradient carries a paint transform (rotation + skew); the
+ * exported SVG realises it as a 281.43px conic-gradient square mapped by this
+ * matrix. Reproduced verbatim so the color sweep lands exactly as designed. */
+.welcome-gradient {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 281.43px;
+  height: 281.43px;
+  transform-origin: 0 0;
+  transform: matrix(141.62, 64.542, -114.74, 79.662, 964.59, 542.58)
+    translate(-140.72px, -140.72px);
+  background: conic-gradient(
+    from 90deg,
+    #ff9b9b -4.8706%,
+    #ff8bc9 3.8928%,
+    #ff7bf6 12.656%,
+    #c388fb 21.574%,
+    #8696ff 30.493%,
+    #85cbd4 40.25%,
+    #84ffa9 50.008%,
+    #c1f294 62.55%,
+    #ffe57f 75.091%,
+    #ff9b9b 95.129%,
+    #ff8bc9 103.89%,
+    #ff7bf6 112.66%
+  );
+}
+
+/* The TV's black screen (Frame 91 in the mock). */
+.welcome-screen {
+  position: absolute;
+  inset: 3.43% 1.82% 3.33% 1.82%;
+  border-radius: 30px;
+  background: #000;
+  animation: welcome-screen-shrink 2000ms both;
+}
+
+.welcome-wordmark {
+  position: absolute;
+  top: 42.59%;
+  left: 39.01%;
+  margin: 0;
+  font-family: var(--font-headline);
+  font-size: 130.858px;
+  font-weight: 700;
+  letter-spacing: -2.6172px;
+  line-height: normal;
+  white-space: nowrap;
+  color: #fff;
+  animation: welcome-wordmark-in 2000ms both;
+}
+
+/* Track timings from the mock: scale eases in-out and lands at ~737ms; the
+ * leftward move runs ~868→1856ms on a spring (Figma's response curve
+ * `1 - e^(-7.6657t)·(cos(6.7605t) + 1.1339·sin(6.7605t))`, sampled below —
+ * ~2.8% overshoot settling back). Translate precedes scale so the -360px is
+ * in screen pixels, matching the mock. */
+@keyframes welcome-frame-shrink {
+  0% {
+    transform: translateX(0) scale(1, 1);
+    animation-timing-function: cubic-bezier(0.5, 0, 0.5, 1);
+  }
+  36.86% {
+    transform: translateX(0) scale(0.1, 0.18);
+    animation-timing-function: linear;
+  }
+  43.42% {
+    transform: translateX(0) scale(0.1, 0.18);
+    animation-timing-function: linear(
+      0,
+      0.0403 3%,
+      0.1374 6%,
+      0.2633 9%,
+      0.3978 12%,
+      0.5278 15%,
+      0.6452 18%,
+      0.7458 21%,
+      0.8283 24%,
+      0.8933 27%,
+      0.9423 30%,
+      0.9775 33%,
+      1.0014 36%,
+      1.0164 39%,
+      1.0247 42%,
+      1.028 45%,
+      1.0281 48%,
+      1.026 51%,
+      1.0227 54%,
+      1.019 57%,
+      1.0152 60%,
+      1.0106 64%,
+      1.0068 68%,
+      1.0039 72%,
+      1.0018 76%,
+      1.0005 80%,
+      0.9997 84%,
+      0.9993 88%,
+      0.9992 92%,
+      0.9992 96%,
+      0.9993 100%
+    );
+  }
+  92.79%,
+  100% {
+    transform: translateX(-360px) scale(0.1, 0.18);
+  }
+}
+
+@keyframes welcome-screen-shrink {
+  0% {
+    transform: translateX(0) scale(1, 1);
+    animation-timing-function: cubic-bezier(0.5, 0, 0.5, 1);
+  }
+  36.78% {
+    transform: translateX(0) scale(0.055, 0.1);
+    animation-timing-function: linear;
+  }
+  43.42% {
+    transform: translateX(0) scale(0.055, 0.1);
+    animation-timing-function: linear(
+      0,
+      0.0403 3%,
+      0.1374 6%,
+      0.2633 9%,
+      0.3978 12%,
+      0.5278 15%,
+      0.6452 18%,
+      0.7458 21%,
+      0.8283 24%,
+      0.8933 27%,
+      0.9423 30%,
+      0.9775 33%,
+      1.0014 36%,
+      1.0164 39%,
+      1.0247 42%,
+      1.028 45%,
+      1.0281 48%,
+      1.026 51%,
+      1.0227 54%,
+      1.019 57%,
+      1.0152 60%,
+      1.0106 64%,
+      1.0068 68%,
+      1.0039 72%,
+      1.0018 76%,
+      1.0005 80%,
+      0.9997 84%,
+      0.9993 88%,
+      0.9992 92%,
+      0.9992 96%,
+      0.9993 100%
+    );
+  }
+  92.79%,
+  100% {
+    transform: translateX(-360px) scale(0.055, 0.1);
+  }
+}
+
+@keyframes welcome-wordmark-in {
+  0% {
+    opacity: 0;
+    animation-timing-function: linear;
+  }
+  58.65% {
+    opacity: 0;
+    animation-timing-function: cubic-bezier(0.5, 0, 0.5, 1);
+  }
+  92.5%,
+  100% {
+    opacity: 1;
+  }
+}
