@@ -41,25 +41,28 @@
 .shero__track {
   position: absolute;
   inset: 0;
-  display: flex;
-  align-items: stretch;
   transition: transform 550ms cubic-bezier(0.25, 0.8, 0.3, 1);
   will-change: transform;
 }
+/* Slides are absolutely placed on the track at slot * step (inline left) —
+ * the infinite window repositions freely. Vertical inset gives the active
+ * card's glow room to breathe inside the clipped section. */
 .shero__card {
-  position: relative;
-  flex-shrink: 0;
-  height: 100%;
+  position: absolute;
+  top: 22px;
+  bottom: 22px;
   border-radius: 60px;
   overflow: hidden;
   background: var(--surface);
   cursor: pointer;
-  filter: brightness(0.45);
-  transition: filter 550ms ease;
+  transition: box-shadow 550ms ease;
 }
 .shero__card--active {
-  filter: none;
   cursor: default;
+  /* The Figma glow: a soft white halo behind the active card. */
+  box-shadow:
+    0 0 44px rgba(255, 255, 255, 0.32),
+    0 0 140px rgba(255, 255, 255, 0.14);
 }
 .shero__art {
   position: absolute;

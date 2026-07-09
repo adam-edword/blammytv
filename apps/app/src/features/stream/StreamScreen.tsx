@@ -320,14 +320,16 @@ function Home({
   );
 }
 
-/** The Figma hero (133-721): a ~90vh sliding carousel. Every slide is a
- * full card on one flex track; the active one is centered and its
- * neighbors peek in from the window edges with a 30px gap. The track
- * SLIDES (transform, 550ms) rather than fading. Title art: the addon's
- * clearlogo when the item has one, text fallback otherwise. */
+/** The Figma hero (133-721): a ~90vh sliding carousel that never rewinds.
+ * The index is VIRTUAL (unbounded, forward-only on auto-advance); slides
+ * are a moving window of absolute-positioned cards, each showing
+ * items[slot mod n] — so wrapping from the 9th back to the 1st is just one
+ * more slide to the right, forever. Hovering the section pauses the
+ * auto-advance; the active card wears the Figma glow; neighbors stay at
+ * full strength and click-slide. */
 const HERO_GAP = 30;
 function heroMargin(w: number): number {
-  // The side inset ≈ 15% of the window, clamped sane — the card is ~15%
+  // Side inset ≈ 15% of the window, clamped sane — the card is ~15%
   // thinner than full-bleed and the neighbors fill the reveal.
   return Math.min(320, Math.max(200, w * 0.15));
 }
@@ -340,8 +342,9 @@ function Hero({
   onOpen: (i: VodItem) => void;
   onWatchNow: (i: VodItem) => void;
 }) {
-  const [index, setIndex] = useState(0);
+  const [v, setV] = useState(0); // virtual index — never wraps
   const [width, setWidth] = useState(0);
+  const [hovered, setHovered] = useState(false);
   const hostRef = useRef<HTMLDivElement | null>(null);
   const count = items.length;
   useEffect(() => {
@@ -354,89 +357,103 @@ function Hero({
     return () => ro.disconnect();
   }, []);
   useEffect(() => {
-    const id = window.setInterval(
-      () => setIndex((i) => (i + 1) % count),
-      8000,
-    );
+    if (hovered || count < 2) return;
+    const id = window.setInterval(() => setV((x) => x + 1), 8000);
     return () => window.clearInterval(id);
-  }, [count]);
+  }, [hovered, count]);
 
   const m = heroMargin(width);
   const cardW = Math.max(0, width - 2 * m);
-  const offset = m - index * (cardW + HERO_GAP);
+  const step = cardW + HERO_GAP;
+  // Window of live slots around the current one: both neighbors visible,
+  // one extra each side so a slide-in mounts before it enters the frame.
+  const slots = [v - 2, v - 1, v, v + 1, v + 2];
   return (
-    <div className="shero" ref={hostRef} role="region" aria-label="Featured">
+    <div
+      className="shero"
+      ref={hostRef}
+      role="region"
+      aria-label="Featured"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
       <div
         className="shero__track"
-        style={{ transform: `translateX(${offset}px)`, gap: HERO_GAP }}
+        style={{ transform: `translateX(${m - v * step}px)` }}
       >
-        {items.map((item, i) => (
-          <div
-            key={item.id}
-            className={
-              "shero__card" + (i === index ? " shero__card--active" : "")
-            }
-            style={{ width: cardW }}
-            onClick={() => i !== index && setIndex(i)}
-          >
-            {(item.backdrop ?? item.poster) && (
-              <img
-                className="shero__art"
-                src={item.backdrop ?? item.poster}
-                alt=""
-                loading={Math.abs(i - index) <= 1 ? "eager" : "lazy"}
-              />
-            )}
-            <div className="shero__scrim" aria-hidden />
-            <div className="shero__text">
-              {item.logo ? (
-                <img className="shero__logo" src={item.logo} alt={item.title} />
-              ) : (
-                <h2 className="shero__title">{item.title}</h2>
+        {slots.map((slot) => {
+          const item = items[((slot % count) + count) % count];
+          if (!item) return null;
+          const active = slot === v;
+          return (
+            <div
+              key={slot}
+              className={"shero__card" + (active ? " shero__card--active" : "")}
+              style={{ left: slot * step, width: cardW }}
+              onClick={() => !active && setV(slot)}
+            >
+              {(item.backdrop ?? item.poster) && (
+                <img
+                  className="shero__art"
+                  src={item.backdrop ?? item.poster}
+                  alt=""
+                />
               )}
-              {item.synopsis && (
-                <p className="shero__synopsis">{item.synopsis}</p>
-              )}
-              <p className="shero__meta">
-                {[
-                  item.year,
-                  item.runtimeMin ? `${item.runtimeMin} min` : null,
-                  item.kind === "series" ? "Series" : "Movie",
-                ]
-                  .filter(Boolean)
-                  .join("   ")}
-                {item.rating ? (
-                  <span className="shero__rating">
-                    {" "}
-                    ★ {item.rating.toFixed(1)}/10
-                  </span>
-                ) : null}
-              </p>
-              <div className="shero__actions">
-                <button
-                  type="button"
-                  className="btn-primary"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onWatchNow(item);
-                  }}
-                >
-                  Watch Now
-                </button>
-                <button
-                  type="button"
-                  className="shero__btn-quiet"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onOpen(item);
-                  }}
-                >
-                  More Info
-                </button>
+              <div className="shero__scrim" aria-hidden />
+              <div className="shero__text">
+                {item.logo ? (
+                  <img
+                    className="shero__logo"
+                    src={item.logo}
+                    alt={item.title}
+                  />
+                ) : (
+                  <h2 className="shero__title">{item.title}</h2>
+                )}
+                {item.synopsis && (
+                  <p className="shero__synopsis">{item.synopsis}</p>
+                )}
+                <p className="shero__meta">
+                  {[
+                    item.year,
+                    item.runtimeMin ? `${item.runtimeMin} min` : null,
+                    item.kind === "series" ? "Series" : "Movie",
+                  ]
+                    .filter(Boolean)
+                    .join("   ")}
+                  {item.rating ? (
+                    <span className="shero__rating">
+                      {" "}
+                      ★ {item.rating.toFixed(1)}/10
+                    </span>
+                  ) : null}
+                </p>
+                <div className="shero__actions">
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onWatchNow(item);
+                    }}
+                  >
+                    Watch Now
+                  </button>
+                  <button
+                    type="button"
+                    className="shero__btn-quiet"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpen(item);
+                    }}
+                  >
+                    More Info
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
