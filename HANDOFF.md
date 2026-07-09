@@ -39,12 +39,18 @@ weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
 Probed Desktop Telly's window tree on Adam's machine: it's OUR STACK
 (wry/WebView2 + native mpv child) with the layers INVERTED — transparent UI
-webview above bottom-parked video. Adam wants to pursue the rip. The spike
-is in-repo (v0.1.115, Ctrl+Shift+L in dev, spike.rs + SpikeScreen), written
-against verified vendored APIs but NEVER COMPILED — expect possibly one
-trivial build fix, Adam pastes errors. Spike passes → the inversion is the
-v0.2.0 milestone and supersedes the batched native-pass items. comp.rs/
-mpv.rs remain do-not-touch until that milestone formally starts.
+webview above bottom-parked video. **Spike PASSED on Adam's machine (first
+build, v0.1.115)** — video through the hole, chrome above video, flip model
+clean; glass over video is tint-only (status quo, not a regression). **A0
+landed (v0.1.116): the inverted player runs in the real app behind a dev
+flag — Ctrl+Shift+U flips old ↔ new and reloads.** Keyboard-only chrome in
+A0. ROADMAP "Layer inversion" has the full A0 mechanics + the A1 plan
+(inline chrome port — FRONTEND-ONLY, all Rust commands already registered:
+mpv_pause/mute/volume/seek/go_live/track + mpv_status). The rip is Adam-
+approved; comp.rs/mpv.rs still do-not-touch until the inverted path is
+default and the v0.2.0 deletion milestone formally starts. Main window is
+now transparent:true (tauri.conf) — if Adam reports flag-OFF visual
+regressions (launch flash, window shadow), that change is the suspect.
 
 ## Immediate queue (user-approved order)
 

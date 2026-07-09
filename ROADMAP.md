@@ -268,7 +268,45 @@ above removes a switch-blocker or rescues the first session.
   across the full escalation (real 10s timers). Mid-play death detection
   still needs the comp.rs end-file event (native pass).
 
-## Layer inversion (Telly-parity architecture) — SPIKE READY, awaiting Windows run
+## Layer inversion (Telly-parity architecture) — SPIKE PASSED, A0 IN TREE
+
+**Spike result (Adam's machine, first build, v0.1.115):** PASSED. Video
+through the hole, chrome/cards/animation above the video, flip present mode
+(the quality path) composites cleanly under the webview. Glass finding:
+backdrop-filter over the hole is TINT-ONLY (no blur of the native video) —
+which is the status quo, not a regression: the comp.rs overlay never truly
+blurred video either (WebView2 can't sample another window's pixels). Tint
+glass is the design language over video, as it already was.
+
+**A0 (v0.1.116): the inverted player runs in the REAL app behind a dev
+flag.** Ctrl+Shift+U in dev flips old ↔ new player and reloads. Mechanics:
+the main window is now `transparent: true` (tauri.conf — replaces
+`backgroundColor`; with the flag OFF, body still paints var(--bg) so
+nothing changes visually beyond a possible brief launch flash); with the
+flag ON, `.app-shell` becomes the window's only opaque paint (base.css
+`.invert-player` rules) and CompositionPlayer's same rAF driver cuts an
+evenodd clip-path HOLE through it at the slot rect while driving
+`inv_open/inv_set_rect/inv_stop` (inv.rs — child at HWND_BOTTOM, flip
+model, no overlay webview, no DComp). Parking (modal open) also heals the
+hole, so Settings stays fully opaque mid-play. Keyboard chrome only in A0
+(LiveScreen drives mpv directly: space/k pause, m mute, f/t/Escape sizes,
+arrows/j/l seek — no overlay to forward comp_key into). Rust side for A1 is
+already registered: `mpv_pause/mute/volume/seek/go_live/track` +
+`mpv_status` (pos/dur/presenting/tracks poll — replaces the bridge's push
+threads).
+
+**A1 (next, frontend-only):** port TheaterOverlay's chrome inline — inject
+a direct `OverlayApi` implementation backed by the mpv_* commands +
+mpv_status polling, render it over the hole via a portal OUTSIDE
+`.app-shell` (the clip hole would cut chrome rendered inside the shell),
+mirror expand/collapse/fullscreen straight into LiveScreen state. Then:
+tune watchdog port, rounded hole corners (clip-path `path()` or corner
+masks), popout, and the live-video-behind-Settings flourish (portal the
+modal out of the shell). When the inverted path is default and proven,
+comp.rs's overlay subsystem + the WM_SETCURSOR/corner-clip/switch-gap
+native items are deleted as the v0.2.0 milestone.
+
+## Layer inversion spike history (superseded — kept for the record)
 
 The settings-behind-player question led somewhere big. **Probed Desktop
 Telly's actual window tree** (PowerShell EnumChildWindows on Adam's machine,

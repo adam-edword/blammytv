@@ -1,8 +1,12 @@
 import { useEffect, useRef } from "react";
 import {
+  invertedPlayer,
   tauriCompSetRect,
   tauriCompStop,
   tauriCompTheater,
+  tauriInvOpen,
+  tauriInvSetRect,
+  tauriInvStop,
   type CompRect,
   type TheaterMeta,
 } from "../../lib/tauri";
@@ -25,6 +29,19 @@ const SLOT_ID = "player-slot";
  * of 0×0: fully clipped by the parent window, without poking any zero-size
  * edge case in the WebView2 composition bounds. */
 const PARKED: CompRect = { x: -8, y: -8, w: 2, h: 2, radius: 0 };
+
+/** Inverted path (dev flag, inv.rs): the video child sits BELOW the webview,
+ * so it only shows where nothing paints over it — the driver cuts a
+ * clip-path hole through .app-shell (the flag makes the shell the window's
+ * only opaque layer, see base.css) exactly at the slot. Everything else —
+ * the rAF follow, the parking, the debounce — is the same driver. Parking
+ * here also heals the hole, so a modal is fully opaque even mid-play. */
+const INVERTED = invertedPlayer();
+
+/** Full-viewport ring with a rectangular cutout at CSS-px rect (l,t,r,b). */
+const holeClip = (l: number, t: number, r: number, b: number) =>
+  `polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, ` +
+  `${l}px ${t}px, ${l}px ${b}px, ${r}px ${b}px, ${r}px ${t}px, ${l}px ${t}px)`;
 
 function measure(el: HTMLElement, squared: boolean): CompRect {
   const r = el.getBoundingClientRect();
@@ -75,6 +92,12 @@ export function CompositionPlayer({
     let raf = 0;
     let opened = false;
     let last = "";
+    const shell = INVERTED
+      ? document.querySelector<HTMLElement>(".app-shell")
+      : null;
+    const healHole = () => {
+      if (shell) shell.style.clipPath = "";
+    };
     const tick = () => {
       const el = document.getElementById(SLOT_ID);
       if (el) {
@@ -83,7 +106,24 @@ export function CompositionPlayer({
         const key = `${rect.x},${rect.y},${rect.w},${rect.h},${rect.radius}`;
         if (rect.w > 0 && rect.h > 0 && key !== last) {
           last = key;
-          if (!opened) {
+          if (INVERTED) {
+            if (parked) healHole();
+            else if (shell) {
+              const r = el.getBoundingClientRect(); // hole is CSS px
+              shell.style.clipPath = holeClip(
+                r.left,
+                r.top,
+                r.left + r.width,
+                r.top + r.height,
+              );
+            }
+            if (!opened) {
+              opened = true;
+              void tauriInvOpen(url, rect).catch(() => {});
+            } else {
+              void tauriInvSetRect(rect).catch(() => {});
+            }
+          } else if (!opened) {
             opened = true;
             void tauriCompTheater(url, metaRef.current, rect, 0).catch(
               () => {},
@@ -101,7 +141,12 @@ export function CompositionPlayer({
     return () => {
       window.clearTimeout(openTimer);
       cancelAnimationFrame(raf);
-      void tauriCompStop().catch(() => {});
+      if (INVERTED) {
+        healHole();
+        void tauriInvStop().catch(() => {});
+      } else {
+        void tauriCompStop().catch(() => {});
+      }
     };
   }, [url]);
 

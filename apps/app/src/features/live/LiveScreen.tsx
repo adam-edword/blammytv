@@ -17,6 +17,7 @@ import {
   TvIcon,
 } from "../../ui/icons";
 import {
+  invertedPlayer,
   isTauri,
   onCompClosed,
   onCompCollapse,
@@ -28,6 +29,9 @@ import {
   onPopoutClosed,
   tauriCompKey,
   tauriCompPopout,
+  tauriMpvMute,
+  tauriMpvPause,
+  tauriMpvSeek,
   tauriSetFullscreen,
 } from "../../lib/tauri";
 import { onPlaylistsChange } from "../settings/playlists";
@@ -310,6 +314,12 @@ export function LiveScreen() {
   // each render rather than re-subscribing on every channel change.
   const playUrlRef = useRef<string | null>(null);
   const heroIdRef = useRef<string | undefined>(undefined);
+  // Inverted-player keyboard state (no overlay to own it on that path):
+  // pause/mute toggles + current size state, read at key time.
+  const theaterRef = useRef(false);
+  const fullscreenRef = useRef(false);
+  const invPausedRef = useRef(false);
+  const invMutedRef = useRef(false);
   const handleToggleFavorite = useCallback((id: string) => {
     setFavorites((list) => toggleFavorite(list, id));
   }, []);
@@ -393,11 +403,55 @@ export function LiveScreen() {
       )
         return;
       e.preventDefault();
-      void tauriCompKey(e.key).catch(() => {});
+      if (!invertedPlayer()) {
+        void tauriCompKey(e.key).catch(() => {});
+        return;
+      }
+      // Inverted path: no overlay webview to forward into — the main webview
+      // owns the player, so the shortcuts drive mpv + size state directly.
+      // (A0 keyboard-only chrome; the visual controls port comes next.)
+      switch (e.key) {
+        case " ":
+        case "k":
+          invPausedRef.current = !invPausedRef.current;
+          void tauriMpvPause(invPausedRef.current).catch(() => {});
+          break;
+        case "m":
+          invMutedRef.current = !invMutedRef.current;
+          void tauriMpvMute(invMutedRef.current).catch(() => {});
+          break;
+        case "f":
+          if (fullscreenRef.current) leaveFullscreen();
+          else {
+            setFullscreen(true);
+            void tauriSetFullscreen(true).catch(() => {});
+          }
+          break;
+        case "t":
+          setTheater((v) => !v);
+          break;
+        case "ArrowLeft":
+          void tauriMpvSeek(-5).catch(() => {});
+          break;
+        case "ArrowRight":
+          void tauriMpvSeek(5).catch(() => {});
+          break;
+        case "j":
+          void tauriMpvSeek(-10).catch(() => {});
+          break;
+        case "l":
+          void tauriMpvSeek(10).catch(() => {});
+          break;
+        case "Escape":
+          if (fullscreenRef.current) leaveFullscreen();
+          else if (theaterRef.current) setTheater(false);
+          else setPlaying(false); // mini: stop playback, back to the guide
+          break;
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [playing]);
+  }, [playing, leaveFullscreen]);
 
   // What the guide shows, per mode, with each channel's programmes riding
   // along. Memoized: a fresh identity per render would bust the guide's
@@ -449,6 +503,14 @@ export function LiveScreen() {
       : null;
   playUrlRef.current = playUrl;
   heroIdRef.current = heroChannel?.id;
+  theaterRef.current = theater;
+  fullscreenRef.current = fullscreen;
+  // A fresh open starts unpaused/unmuted — resync the inverted-keyboard
+  // toggles whenever the stream changes.
+  useEffect(() => {
+    invPausedRef.current = false;
+    invMutedRef.current = false;
+  }, [playUrl]);
   const playMeta = (() => {
     if (!playUrl || !ready || !heroChannel) return null;
     const at = new Date();

@@ -3,6 +3,8 @@ mod mpv;
 mod comp;
 #[cfg(windows)]
 mod spike;
+#[cfg(windows)]
+mod inv;
 
 use std::sync::OnceLock;
 
@@ -174,6 +176,142 @@ fn comp_stop(window: tauri::WebviewWindow) -> Result<(), String> {
         let _ = window;
         Ok(())
     }
+}
+
+// ---- Inverted-layer player (dev flag; see inv.rs). Rects are PHYSICAL px. ----
+
+#[tauri::command]
+fn inv_open(
+    window: tauri::WebviewWindow,
+    url: String,
+    x: i32,
+    y: i32,
+    w: u32,
+    h: u32,
+) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        let hwnd = window.hwnd().map_err(|e| e.to_string())?.0 as isize;
+        let (tx, rx) = std::sync::mpsc::channel();
+        window
+            .run_on_main_thread(move || {
+                let _ = tx.send(inv::open(hwnd, x, y, w, h, &url));
+            })
+            .map_err(|e| e.to_string())?;
+        rx.recv().map_err(|e| e.to_string())?
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (window, url, x, y, w, h);
+        Ok(())
+    }
+}
+
+#[tauri::command]
+fn inv_set_rect(window: tauri::WebviewWindow, x: i32, y: i32, w: u32, h: u32) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        window
+            .run_on_main_thread(move || inv::set_rect(x, y, w, h))
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (window, x, y, w, h);
+        Ok(())
+    }
+}
+
+#[tauri::command]
+fn inv_stop(window: tauri::WebviewWindow) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        let (tx, rx) = std::sync::mpsc::channel();
+        window
+            .run_on_main_thread(move || {
+                inv::close();
+                let _ = tx.send(());
+            })
+            .map_err(|e| e.to_string())?;
+        rx.recv().map_err(|e| e.to_string())?;
+        Ok(())
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = window;
+        Ok(())
+    }
+}
+
+// ---- Direct mpv control for the inverted player's in-tree chrome (the
+// overlay webview's postMessage bridge doesn't exist on this path — these
+// are its verbs as plain commands). mpv calls are mutex-guarded and safe
+// off the UI thread. ----
+
+#[tauri::command]
+fn mpv_pause(paused: bool) {
+    mpv::set_pause(paused);
+}
+
+#[tauri::command]
+fn mpv_mute(muted: bool) {
+    mpv::set_mute(muted);
+}
+
+#[tauri::command]
+fn mpv_volume(vol: i64) {
+    mpv::set_volume(vol);
+}
+
+#[tauri::command]
+fn mpv_seek(delta: f64) {
+    mpv::seek(delta);
+}
+
+#[tauri::command]
+fn mpv_go_live() {
+    mpv::reload_live();
+}
+
+#[tauri::command]
+fn mpv_track(kind: String, id: String) {
+    mpv::set_track(&kind, &id);
+}
+
+/// Player status snapshot for the inverted chrome's poll (replaces comp.rs's
+/// loader/time/tracks push threads): position/duration, whether mpv is
+/// actually presenting (core-idle == "no" ⇒ first frame has landed), and the
+/// audio/sub track lists.
+#[tauri::command]
+fn mpv_status() -> String {
+    let pos = mpv::get_property("time-pos").and_then(|s| s.parse::<f64>().ok());
+    let dur = mpv::get_property("duration").and_then(|s| s.parse::<f64>().ok());
+    let presenting = mpv::get_property("core-idle").as_deref() == Some("no");
+    let mut audio = Vec::new();
+    let mut subs = Vec::new();
+    for t in mpv::track_list() {
+        let label = if !t.title.is_empty() {
+            t.title.clone()
+        } else if !t.lang.is_empty() {
+            t.lang.clone()
+        } else {
+            format!("Track {}", t.id)
+        };
+        let entry = serde_json::json!({
+            "id": t.id, "label": label, "lang": t.lang, "selected": t.selected,
+        });
+        match t.kind.as_str() {
+            "audio" => audio.push(entry),
+            "sub" => subs.push(entry),
+            _ => {}
+        }
+    }
+    serde_json::json!({
+        "pos": pos, "dur": dur, "presenting": presenting,
+        "audio": audio, "subs": subs,
+    })
+    .to_string()
 }
 
 // ---- Layer-inversion spike (dev-only UI drives these; see spike.rs). ----
@@ -454,6 +592,16 @@ pub fn run() {
             spike_window,
             spike_play,
             spike_stop,
+            inv_open,
+            inv_set_rect,
+            inv_stop,
+            mpv_pause,
+            mpv_mute,
+            mpv_volume,
+            mpv_seek,
+            mpv_go_live,
+            mpv_track,
+            mpv_status,
             http_get,
             check_update,
             install_update

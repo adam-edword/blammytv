@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { isTauri, tauriCompStop, tauriSpikeWindow } from "../lib/tauri";
+import {
+  invertedPlayer,
+  isTauri,
+  setInvertedPlayer,
+  tauriCompStop,
+  tauriSpikeWindow,
+} from "../lib/tauri";
 import { AppHeader, type TabKey } from "./AppHeader";
 import { LiveScreen } from "../features/live/LiveScreen";
 import { StreamScreen } from "../features/stream/StreamScreen";
@@ -41,6 +47,20 @@ export function App() {
       delete root.dataset.nativeHidden;
     };
   }, [settingsOpen]);
+
+  // DEV: Ctrl+Shift+U flips the inverted-player flag and reloads (Ctrl+
+  // Shift+I is taken — WebView2 devtools). Old player ↔ new player, live.
+  useEffect(() => {
+    if (!isTauri() || !import.meta.env.DEV) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "u")) return;
+      e.preventDefault();
+      setInvertedPlayer(!invertedPlayer());
+      window.location.reload();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   // DEV: Ctrl+Shift+L opens the layer-inversion spike window (spike.rs),
   // handing over the most recently played stream URL if there is one.

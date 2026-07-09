@@ -10,6 +10,7 @@ import "./styles/player.css";
 import { App } from "./app/App";
 import { TheaterOverlay } from "./features/live/TheaterOverlay";
 import { SpikeScreen } from "./features/spike/SpikeScreen";
+import { invertedPlayer } from "./lib/tauri";
 import { applyAccent, loadAccent } from "./features/settings/accent";
 import { applyTheme, loadTheme } from "./features/settings/theme";
 import { applyUiScale, loadUiScale } from "./features/settings/uiScale";
@@ -51,6 +52,9 @@ if (params.get("overlay") === "1") {
     </React.StrictMode>,
   );
 } else {
+  // Inverted-player dev flag: stamp the root class BEFORE first paint so the
+  // shell (not body) owns the background — see base.css .invert-player.
+  if (invertedPlayer()) document.documentElement.classList.add("invert-player");
   root.render(
     <React.StrictMode>
       <App />

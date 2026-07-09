@@ -1,10 +1,22 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { load, save } from "./storage";
 
 /** True when running inside the Tauri shell (vs. a plain browser tab). */
 export function isTauri(): boolean {
   return "__TAURI_INTERNALS__" in window;
+}
+
+/** Dev flag: run the INVERTED player (native video parked BELOW a
+ * transparent webview — the Telly arrangement, spike-proven v0.1.115)
+ * instead of the comp.rs video-on-top + overlay-webview path. Toggled with
+ * Ctrl+Shift+U in dev; read once at boot (main.tsx stamps .invert-player). */
+export function invertedPlayer(): boolean {
+  return isTauri() && load<boolean>("invertPlayer", 1, false);
+}
+export function setInvertedPlayer(on: boolean): void {
+  save("invertPlayer", 1, on);
 }
 
 /**
@@ -85,6 +97,52 @@ export function tauriCompStop(): Promise<void> {
  * kill. */
 export function tauriCompPopout(url: string): Promise<void> {
   return invoke("comp_popout", { url });
+}
+
+/* ---- Inverted player path (inv.rs): video child at the bottom of the
+ * z-order, no overlay webview — chrome is ordinary React in the main
+ * webview, driving mpv through the commands below. Rects PHYSICAL px. ---- */
+
+export function tauriInvOpen(url: string, rect: CompRect): Promise<void> {
+  return invoke("inv_open", { url, x: rect.x, y: rect.y, w: rect.w, h: rect.h });
+}
+export function tauriInvSetRect(rect: CompRect): Promise<void> {
+  return invoke("inv_set_rect", { x: rect.x, y: rect.y, w: rect.w, h: rect.h });
+}
+export function tauriInvStop(): Promise<void> {
+  return invoke("inv_stop");
+}
+
+export function tauriMpvPause(paused: boolean): Promise<void> {
+  return invoke("mpv_pause", { paused });
+}
+export function tauriMpvMute(muted: boolean): Promise<void> {
+  return invoke("mpv_mute", { muted });
+}
+export function tauriMpvVolume(vol: number): Promise<void> {
+  return invoke("mpv_volume", { vol: Math.round(vol) });
+}
+export function tauriMpvSeek(delta: number): Promise<void> {
+  return invoke("mpv_seek", { delta });
+}
+export function tauriMpvGoLive(): Promise<void> {
+  return invoke("mpv_go_live");
+}
+export function tauriMpvTrack(kind: "audio" | "sub", id: string): Promise<void> {
+  return invoke("mpv_track", { kind, id });
+}
+
+/** One poll of the inverted player's status (replaces the overlay bridge's
+ * loading/time/tracks pushes). `presenting` = mpv has put up a frame. */
+export interface MpvStatus {
+  pos: number | null;
+  dur: number | null;
+  presenting: boolean;
+  audio: Array<{ id: number; label: string; lang: string; selected: boolean }>;
+  subs: Array<{ id: number; label: string; lang: string; selected: boolean }>;
+}
+export async function tauriMpvStatus(): Promise<MpvStatus> {
+  return JSON.parse(await invoke<string>("mpv_status")) as MpvStatus;
 }
 
 /** DEV layer-inversion spike (see spike.rs / SpikeScreen). Opens the
