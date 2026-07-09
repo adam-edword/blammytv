@@ -16,6 +16,12 @@ import type { StreamSource, VodData, VodItem } from "./model";
 import { loadVod, peekVod, resolveVodItem, resolveVodSources } from "./source";
 import { loadAioUrl } from "../settings/aiostreams";
 import {
+  cardMetaLine,
+  loadCardMeta,
+  onCardMetaChange,
+  type CardMetaField,
+} from "../settings/cardMeta";
+import {
   clearWatching,
   loadWatching,
   recordWatching,
@@ -69,6 +75,8 @@ export function StreamScreen() {
             rating: p.item.rating,
             year: p.item.year,
             runtimeMin: p.item.runtimeMin,
+            genre: p.item.genres[0],
+            kind: p.item.kind,
             at: Date.now(),
           }),
         );
@@ -264,6 +272,9 @@ function Home({
   onClearWatching: (id: string) => void;
   onOpenWatching: (e: WatchEntry) => void;
 }) {
+  // Which details the cards show — flips live while Settings is open.
+  const [metaFields, setMetaFields] = useState<CardMetaField[]>(loadCardMeta);
+  useEffect(() => onCardMetaChange(setMetaFields), []);
   if (!loadAioUrl()) {
     return (
       <div className="stream__note">
@@ -304,6 +315,7 @@ function Home({
                 <ContinueCard
                   key={e.id}
                   entry={e}
+                  metaFields={metaFields}
                   onOpen={() => onOpenWatching(e)}
                   onClear={() => onClearWatching(e.id)}
                 />
@@ -317,7 +329,14 @@ function Home({
             <RowScroller>
               {row.itemIds.map((id) => {
                 const item = data.items.get(id);
-                return item ? <Card key={id} item={item} onOpen={onOpen} /> : null;
+                return item ? (
+                  <Card
+                    key={id}
+                    item={item}
+                    metaFields={metaFields}
+                    onOpen={onOpen}
+                  />
+                ) : null;
               })}
             </RowScroller>
           </section>
@@ -579,7 +598,22 @@ function Hero({
   );
 }
 
-function Card({ item, onOpen }: { item: VodItem; onOpen: (i: VodItem) => void }) {
+function Card({
+  item,
+  metaFields,
+  onOpen,
+}: {
+  item: VodItem;
+  metaFields: CardMetaField[];
+  onOpen: (i: VodItem) => void;
+}) {
+  const meta = cardMetaLine(metaFields, {
+    rating: item.rating,
+    year: item.year,
+    runtimeMin: item.runtimeMin,
+    genre: item.genres[0],
+    kind: item.kind,
+  });
   return (
     <button type="button" className="stream-card" onClick={() => onOpen(item)}>
       {item.poster ? (
@@ -593,15 +627,7 @@ function Card({ item, onOpen }: { item: VodItem; onOpen: (i: VodItem) => void })
         <span className="stream-card__mono">{item.title.slice(0, 1)}</span>
       )}
       <span className="stream-card__name">{item.title}</span>
-      <span className="stream-card__meta">
-        {[
-          item.rating ? item.rating.toFixed(1) : null,
-          item.year,
-          item.runtimeMin ? `${item.runtimeMin} min` : null,
-        ]
-          .filter(Boolean)
-          .join(" · ")}
-      </span>
+      {meta && <span className="stream-card__meta">{meta}</span>}
     </button>
   );
 }
@@ -610,13 +636,22 @@ function Card({ item, onOpen }: { item: VodItem; onOpen: (i: VodItem) => void })
  * Figma interaction — a click opens, a ~1s press-and-hold removes). */
 function ContinueCard({
   entry,
+  metaFields,
   onOpen,
   onClear,
 }: {
   entry: WatchEntry;
+  metaFields: CardMetaField[];
   onOpen: () => void;
   onClear: () => void;
 }) {
+  const meta = cardMetaLine(metaFields, {
+    rating: entry.rating,
+    year: entry.year,
+    runtimeMin: entry.runtimeMin,
+    genre: entry.genre,
+    kind: entry.kind,
+  });
   const [holding, setHolding] = useState(false);
   const timer = useRef(0);
   const held = useRef(false);
@@ -653,15 +688,7 @@ function ContinueCard({
         Keep holding to clear
       </span>
       <span className="stream-card__name">{entry.title}</span>
-      <span className="stream-card__meta">
-        {[
-          entry.rating ? entry.rating.toFixed(1) : null,
-          entry.year,
-          entry.runtimeMin ? `${entry.runtimeMin} min` : null,
-        ]
-          .filter(Boolean)
-          .join(" · ")}
-      </span>
+      {meta && <span className="stream-card__meta">{meta}</span>}
     </button>
   );
 }

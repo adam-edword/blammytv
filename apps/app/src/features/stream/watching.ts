@@ -18,6 +18,10 @@ export interface WatchEntry {
   rating?: number;
   year?: number;
   runtimeMin?: number;
+  /** First genre + kind, captured at play time for the card meta line
+   * (absent on entries recorded before they existed). */
+  genre?: string;
+  kind?: "movie" | "series";
   at: number;
 }
 

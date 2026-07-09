@@ -9,6 +9,12 @@ import {
   saveAioUrl,
   saveHeroSources,
 } from "./aiostreams";
+import {
+  CARD_META_FIELDS,
+  loadCardMeta,
+  saveCardMeta,
+  type CardMetaField,
+} from "./cardMeta";
 
 type Catalogs =
   | { status: "idle" | "loading" }
@@ -146,6 +152,19 @@ export function AioStreamsTab() {
       window.removeEventListener("mousedown", onDown);
     };
   }, [addOpen]);
+
+  // Card details: which fields the browse cards show under the title.
+  // Toggling saves immediately and the Stream home re-renders live.
+  const [metaFields, setMetaFields] = useState<CardMetaField[]>(loadCardMeta);
+  const toggleMeta = (key: CardMetaField) => {
+    setMetaFields(
+      saveCardMeta(
+        metaFields.includes(key)
+          ? metaFields.filter((k) => k !== key)
+          : [...metaFields, key],
+      ),
+    );
+  };
 
   const items = catalogs.status === "ready" ? catalogs.items : [];
   const byKey = new Map(items.map((c) => [c.key, c]));
@@ -293,6 +312,29 @@ export function AioStreamsTab() {
               )}
             </div>
           )}
+        </section>
+      )}
+
+      {savedUrl && (
+        <section className="settings-section">
+          <h3 className="settings-section__list-title">Card Details</h3>
+          <p className="settings__section-note settings__section-note--dim">
+            What shows under a card&rsquo;s title in the Stream rows. Runtime
+            only appears where the catalog provides it.
+          </p>
+          <div className="meta-pick" role="group" aria-label="Card details">
+            {CARD_META_FIELDS.map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                className="meta-pick__chip"
+                aria-pressed={metaFields.includes(f.key)}
+                onClick={() => toggleMeta(f.key)}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
         </section>
       )}
     </>

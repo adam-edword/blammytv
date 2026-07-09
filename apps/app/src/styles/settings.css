@@ -630,6 +630,38 @@
   background: color-mix(in srgb, var(--text) 7%, transparent);
 }
 
+/* Card Details: multi-toggle chips, source-chip metrics — off ones sit
+ * dim and borderless, on ones read like a selected source chip. */
+.meta-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.meta-pick__chip {
+  padding: 8px 16px;
+  border-radius: 25px;
+  border: 1px solid transparent;
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-muted);
+  transition:
+    color 150ms ease,
+    border-color 150ms ease,
+    background-color 150ms ease;
+}
+
+.meta-pick__chip:hover {
+  color: var(--text);
+}
+
+.meta-pick__chip[aria-pressed="true"] {
+  color: var(--text);
+  background: var(--surface);
+  border-color: var(--border-input);
+}
+
 .playlist-row__expand {
   display: grid;
   place-items: center;
