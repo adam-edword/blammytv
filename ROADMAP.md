@@ -358,6 +358,19 @@ and the painted corner bites read funky. New treatment:
   `clip-path: path()` with a clockwise outer rect + counter-clockwise
   inner rounded rect, so the default nonzero fill rule cuts the hole (no
   evenodd dependency). 12px in mini, 0 squared; corner-mask CSS deleted.
+
+**A4 (v0.1.121, needs rebuild): frozen-frame glass under modals.** The
+plain scrim read badly in theater (thin glass over a huge bright picture).
+Now modal-open grabs one tone-mapped frame from mpv (`mpv_snapshot` — raw
+PNG bytes over the http_get raw-IPC path; `mpv::screenshot_to_file` is the
+SECOND additive do-not-touch exception), LiveScreen blurs it once in a
+half-res canvas (blur 14px, edge overdraw kills the fringe) and lays it
+into the chrome host's background under the ::after scrim (0.5 dim, 0.2s
+fade). Result: real frosted-video glass behind the card; the stream keeps
+playing hidden and reappears live on close. No frame to grab → plain
+scrim fallback. Settings modal is centered now (v0.1.120, Adam's call —
+the top-right float predates video-behind). mpv_blur stays dormant;
+render-API/DComp REJECTED (see above).
 Remaining before default-flip: popout reclaim polish, paused-icon reset on
 channel switch, then v0.2.0 deletion milestone (comp.rs overlay subsystem +
 WM_SETCURSOR/corner-clip/switch-gap items all die) with the fresh-eyes

@@ -136,6 +136,12 @@ export function tauriMpvTrack(kind: "audio" | "sub", id: string): Promise<void> 
 export function tauriMpvBlur(on: boolean): Promise<void> {
   return invoke("mpv_blur", { on });
 }
+/** One tone-mapped frame of the playing video, as a PNG blob (raw-bytes
+ * IPC, same path as http_get) — the frozen-frame glass under modals. */
+export async function tauriMpvSnapshot(): Promise<Blob> {
+  const raw = await invoke<unknown>("mpv_snapshot");
+  return new Blob([raw as ArrayBuffer], { type: "image/png" });
+}
 
 /** One poll of the inverted player's status (replaces the overlay bridge's
  * loading/time/tracks pushes). `presenting` = mpv has put up a frame. */

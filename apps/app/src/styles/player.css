@@ -217,17 +217,28 @@
 }
 
 /* While a modal covers the app (root carries data-native-hidden), the
- * chrome host doubles as a dim scrim over the still-playing video — the
- * native layer can't be blurred from the DOM, but a smooth darken reads
- * as intentional modal focus. Host radius matches the rounded hole. */
+ * chrome host doubles as the modal's video treatment: LiveScreen lays a
+ * pre-blurred snapshot of the frame into the host background (frozen-frame
+ * glass — DOM blur can't sample the native layer live), and the ::after
+ * scrim dims it. No snapshot (nothing playing / it failed) → the scrim
+ * alone still reads as modal focus. Radius matches the rounded hole. */
 #inv-chrome {
   border-radius: 12px;
-  background: transparent;
+  background: transparent center / cover no-repeat;
+}
+
+#inv-chrome::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0);
   transition: background 0.2s ease;
 }
 
-:root[data-native-hidden] #inv-chrome {
-  background: rgba(0, 0, 0, 0.6);
+:root[data-native-hidden] #inv-chrome::after {
+  background: rgba(0, 0, 0, 0.5);
 }
 
 /* Fake rounded video corners. The mpv child presents a flip-model swapchain

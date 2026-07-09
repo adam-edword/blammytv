@@ -29,6 +29,7 @@ import {
   onPopoutClosed,
   tauriCompKey,
   tauriCompPopout,
+  tauriMpvSnapshot,
   tauriSetFullscreen,
 } from "../../lib/tauri";
 import { createPortal } from "react-dom";
@@ -191,7 +192,7 @@ function ModeRail({
   );
 }
 
-export function LiveScreen() {
+export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   const [mode, setMode] = useState<Mode>("playlist");
   const [collapsed, setCollapsed] = useState(false);
   const [closedGroups, setClosedGroups] = useState<Set<string>>(new Set());
@@ -527,6 +528,38 @@ export function LiveScreen() {
       setOverlayApiOverride(null);
     };
   }, []);
+
+  // Frozen-frame glass: while a modal covers the app, lay a pre-blurred
+  // snapshot of the playing frame into the chrome host (the ::after scrim
+  // dims it — see player.css). The canvas blur runs once per open; a
+  // failed snapshot just leaves the plain scrim.
+  useEffect(() => {
+    const host = chromeHostRef.current;
+    if (!modalOpen || !INV || !host || !playUrlRef.current) return;
+    let gone = false;
+    void (async () => {
+      try {
+        const bmp = await createImageBitmap(await tauriMpvSnapshot());
+        const c = document.createElement("canvas");
+        c.width = Math.max(2, Math.round(bmp.width / 2));
+        c.height = Math.max(2, Math.round(bmp.height / 2));
+        const ctx = c.getContext("2d");
+        if (!ctx) return;
+        ctx.filter = "blur(14px)";
+        // Overdraw past the edges so the blur has no transparent fringe.
+        ctx.drawImage(bmp, -32, -32, c.width + 64, c.height + 64);
+        bmp.close();
+        if (gone) return;
+        host.style.backgroundImage = `url(${c.toDataURL("image/jpeg", 0.75)})`;
+      } catch {
+        /* nothing playing / snapshot failed — scrim alone */
+      }
+    })();
+    return () => {
+      gone = true;
+      host.style.backgroundImage = "";
+    };
+  }, [modalOpen]);
 
   return (
     <div

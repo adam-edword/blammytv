@@ -113,7 +113,7 @@ export function App() {
       />
       <main className="app-main">
         {tab === "live" ? (
-          <LiveScreen />
+          <LiveScreen modalOpen={settingsOpen} />
         ) : tab === "stream" ? (
           <StreamScreen />
         ) : (

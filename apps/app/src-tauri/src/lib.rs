@@ -298,6 +298,20 @@ fn mpv_blur(on: bool) -> Result<(), String> {
     Ok(())
 }
 
+/// Frozen-frame glass: one tone-mapped frame of the playing video as raw
+/// PNG bytes, for the DOM to blur and lay under a modal — glass over the
+/// native layer can't sample it live, but a frosted still reads the same.
+#[tauri::command]
+fn mpv_snapshot() -> Result<tauri::ipc::Response, String> {
+    let path = std::env::temp_dir().join("blammytv-freeze.png");
+    if !mpv::screenshot_to_file(path.to_string_lossy().as_ref()) {
+        return Err("no frame to snapshot".into());
+    }
+    let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
+    let _ = std::fs::remove_file(&path);
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
 /// Player status snapshot for the inverted chrome's poll (replaces comp.rs's
 /// loader/time/tracks push threads): position/duration, whether mpv is
 /// actually presenting (core-idle == "no" ⇒ first frame has landed), and the
@@ -622,6 +636,7 @@ pub fn run() {
             mpv_track,
             mpv_status,
             mpv_blur,
+            mpv_snapshot,
             http_get,
             check_update,
             install_update

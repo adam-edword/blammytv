@@ -439,6 +439,32 @@ pub fn set_glsl_shaders(path: &str) {
     set_prop("glsl-shaders", path);
 }
 
+/// Write one tone-mapped frame of the current video to `path` (format from
+/// the extension; "video" = no OSD). mpv_command is synchronous, so the
+/// file exists when this returns true. Used for the frozen-frame glass
+/// behind modals (lib.rs `mpv_snapshot`).
+pub fn screenshot_to_file(path: &str) -> bool {
+    let g = PLAYER.lock().unwrap();
+    if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {
+        unsafe {
+            let cmd = CString::new("screenshot-to-file").unwrap();
+            let cpath = match CString::new(path) {
+                Ok(c) => c,
+                Err(_) => return false,
+            };
+            let flags = CString::new("video").unwrap();
+            let args = [
+                cmd.as_ptr(),
+                cpath.as_ptr(),
+                flags.as_ptr(),
+                std::ptr::null(),
+            ];
+            return (l.command)(p.0, args.as_ptr()) >= 0;
+        }
+    }
+    false
+}
+
 /// Read an mpv property as a string (via the player mutex, so it's safe against
 /// stop()/terminate). Returns None if no player or the property is empty/unset.
 pub fn get_property(name: &str) -> Option<String> {
