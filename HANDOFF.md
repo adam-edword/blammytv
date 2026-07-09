@@ -58,7 +58,18 @@ additive fns (set_glsl_shaders, screenshot_to_file) — do-not-touch
 exceptions covered by Adam's rip authorization. `[mpv] <version>` prints
 to the terminal on inverted open — feeds the pending libmpv-upgrade /
 gpu-next decision. ROADMAP "Layer inversion" has what remains before
-default-flip. The rip is Adam-
+default-flip.
+
+**Open diagnosis: frost-rect vs card alignment.** Adam reports part of the
+card-over-video region unblurred. v0.1.126 instruments it: set localStorage
+`blammytv.frostDebug` = {"v":1,"data":true} and the frost rect paints RED
+(plus `[mpv] frost rect (...)→(...)` in the terminal) — one screenshot
+shows offset/flip/scale. Candidate causes if misaligned: uv y-origin,
+video letterbox vs slot mapping, stale slot rect at open.
+
+**Welcome/boot animation merged (PR #5 → v0.1.125):** Figma-motion boot
+lockup, session-gated, skippable, reduced-motion aware; ?welcome=1
+replays. The PR missed version.ts (classic slip) — fixed in the merge. The rip is Adam-
 approved; comp.rs/mpv.rs still do-not-touch until the inverted path is
 default and the v0.2.0 deletion milestone formally starts. Main window is
 now transparent:true (tauri.conf) — if Adam reports flag-OFF visual

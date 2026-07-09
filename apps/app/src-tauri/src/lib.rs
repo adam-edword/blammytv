@@ -329,6 +329,12 @@ const FROST_REGION_SHADER: &str = r#"//!PARAM frost_x0
 //!MAXIMUM 1.0
 0.0
 
+//!PARAM frost_debug
+//!TYPE float
+//!MINIMUM 0.0
+//!MAXIMUM 1.0
+0.0
+
 //!HOOK MAIN
 //!BIND HOOKED
 //!SAVE FROST
@@ -357,7 +363,12 @@ vec4 hook() {
             wsum += w;
         }
     }
-    return c / wsum;
+    c /= wsum;
+    // Diagnostic: paint the frost rect red so a screenshot shows exactly
+    // where it lands vs the card (blammytv.frostDebug in localStorage).
+    if (frost_debug > 0.5)
+        c = mix(c, vec4(1.0, 0.1, 0.1, 1.0), 0.35);
+    return c;
 }
 "#;
 
@@ -383,11 +394,15 @@ fn mpv_frost(on: bool) -> Result<bool, String> {
 }
 
 // Move the frost rect (video-normalized). Pure uniform update — safe to
-// call at UI rates (resize drags, tab-switch reflows).
+// call at UI rates (resize drags, tab-switch reflows). `debug` tints the
+// rect red (alignment diagnosis); the println is the terminal's copy of
+// what the shader was actually told.
 #[tauri::command]
-fn mpv_frost_rect(x0: f64, y0: f64, x1: f64, y1: f64) {
+fn mpv_frost_rect(x0: f64, y0: f64, x1: f64, y1: f64, debug: bool) {
+    println!("[mpv] frost rect ({x0:.3},{y0:.3})→({x1:.3},{y1:.3}) debug={debug}");
     mpv::set_shader_opts(&format!(
-        "frost_x0={x0:.4},frost_y0={y0:.4},frost_x1={x1:.4},frost_y1={y1:.4}"
+        "frost_x0={x0:.4},frost_y0={y0:.4},frost_x1={x1:.4},frost_y1={y1:.4},frost_debug={}",
+        if debug { 1 } else { 0 }
     ));
 }
 
