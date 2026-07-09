@@ -390,11 +390,11 @@ function Hero({
       <div
         className="shero__glowbox"
         aria-hidden
-        style={{ left: m - 24, width: cardW + 48 }}
+        style={{ left: m - 90, width: cardW + 180 }}
       >
         <div
           className="shero__glowtrack"
-          style={{ transform: `translateX(${24 - v * step}px)` }}
+          style={{ transform: `translateX(${90 - v * step}px)` }}
         >
           {slots.map((slot) => {
             const item = items[((slot % count) + count) % count];
@@ -402,6 +402,7 @@ function Hero({
             return art ? (
               <img
                 key={slot}
+                className={slot === v ? "shero__glow--lit" : undefined}
                 src={art}
                 alt=""
                 decoding="async"
