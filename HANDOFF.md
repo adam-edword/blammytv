@@ -59,9 +59,11 @@ exceptions covered by Adam's rip authorization. `[mpv] <version>` prints
 to the terminal on inverted open — feeds the pending libmpv-upgrade /
 gpu-next decision. **ARCHITECTURE COMMITTED (Adam, 2026-07-09: "100%"): inverted is the
 DEFAULT as of v0.1.132.** Ctrl+Shift+U = legacy escape hatch until the
-v0.2.0 deletion. Remaining v0.2.0 gates: desk parity pass (popout + HDR
-brightness), mid-play death detection (headless, mpv_status), review
-fleet, test backfill, then the deletion itself.
+v0.2.0 deletion. Remaining v0.2.0 gates: ~~desk parity pass~~ ✅ PASSED
+(Adam, 2026-07-09, at-desk: popout + HDR on inverted, "no issues found"),
+~~mid-play death detection~~ ✅ shipped headless via mpv_status (v0.1.133),
+review fleet, test backfill, then the deletion itself — deletion milestone
+FORMALLY STARTED 2026-07-09 (dependency map + cut in progress).
 
 **Frost diagnosis CLOSED (v0.1.127-129):** placement was fine all along —
 the "unblurred" line was the hole-rim seam where CSS backdrop blur (shell)
