@@ -5,7 +5,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { ChevronIcon } from "../../ui/icons";
+import { ChevronIcon, PlayIcon } from "../../ui/icons";
 import { createPortal } from "react-dom";
 import { isTauri, tauriSetFullscreen } from "../../lib/tauri";
 import { setOverlayApiOverride } from "../live/overlayApi";
@@ -829,14 +829,15 @@ function Detail({
                 onClick={() => onPlaySource(s)}
               >
                 <span className="vod-source__quality">
-                  {s.cached && <span className="vod-source__zap">⚡</span>}
                   {s.quality}
+                  {s.cached && <span className="vod-source__zap">⚡</span>}
                 </span>
                 <span className="vod-source__lines">
-                  {s.lines.slice(0, 2).map((l, i) => (
+                  {s.lines.slice(0, 3).map((l, i) => (
                     <span key={i}>{l}</span>
                   ))}
                 </span>
+                <PlayIcon className="vod-source__play" />
               </button>
             ))}
         </div>

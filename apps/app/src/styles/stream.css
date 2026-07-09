@@ -402,7 +402,7 @@
   position: relative;
   height: 100%;
   display: grid;
-  grid-template-columns: 1fr 360px;
+  grid-template-columns: 1fr 420px;
   gap: 28px;
   padding: calc(var(--header-h, 76px) + 12px) 32px 32px;
   overflow-y: auto;
@@ -465,12 +465,14 @@
   font-size: 16px;
 }
 .vod-sources__note { color: rgba(242, 242, 244, 0.6); font-size: 14px; }
+/* Figma 133-721 source card: a glass slab with the quality in its own
+ * raised block left, the addon's meta lines beside it, play glyph right. */
 .vod-source {
   display: flex;
-  gap: 12px;
+  gap: 16px;
   align-items: center;
-  padding: 10px 14px;
-  border-radius: 12px;
+  padding: 10px 16px 10px 10px;
+  border-radius: 20px;
   background: rgba(255, 255, 255, 0.07);
   border: 1px solid rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(18px);
@@ -481,27 +483,42 @@
 .vod-source:hover { background: rgba(255, 255, 255, 0.14); }
 .vod-source__quality {
   flex-shrink: 0;
+  align-self: stretch;
+  min-width: 104px;
+  padding: 18px 16px;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.38);
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: 14px;
+  font-size: 17px;
   color: #fff;
   display: flex;
   align-items: center;
-  gap: 5px;
+  justify-content: center;
+  gap: 6px;
 }
 .vod-source__zap { color: #ffe57f; }
 .vod-source__lines {
+  flex: 1;
   display: flex;
   flex-direction: column;
+  gap: 2px;
   min-width: 0;
-  font-size: 12px;
-  color: rgba(242, 242, 244, 0.65);
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(242, 242, 244, 0.75);
 }
 .vod-source__lines span {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.vod-source__play {
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: opacity 140ms ease;
+}
+.vod-source:hover .vod-source__play { opacity: 1; }
 
 /* ---- episodes ---- */
 .season-bar { display: flex; gap: 8px; flex-wrap: wrap; }
