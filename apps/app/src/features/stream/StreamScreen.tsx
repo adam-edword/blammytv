@@ -8,6 +8,12 @@ import { useDirectOverlay } from "../live/useDirectOverlay";
 import type { StreamSource, VodData, VodItem } from "./model";
 import { loadVod, peekVod, resolveVodItem, resolveVodSources } from "./source";
 import { loadAioUrl } from "../settings/aiostreams";
+import {
+  clearWatching,
+  loadWatching,
+  recordWatching,
+  type WatchEntry,
+} from "./watching";
 
 /**
  * The Stream tab: AIOStreams-powered movies + series. A featured hero, then
@@ -36,11 +42,32 @@ export function StreamScreen() {
     return cached ? { status: "ready", data: cached } : { status: "loading" };
   });
   const [view, setView] = useState<View>({ at: "home" });
-  const [playing, setPlaying] = useState<{
+  const [playing, setPlayingRaw] = useState<{
     url: string;
     item: VodItem;
     label?: string;
   } | null>(null);
+  const [watching, setWatching] = useState<WatchEntry[]>(loadWatching);
+  const setPlaying = useCallback(
+    (p: { url: string; item: VodItem; label?: string; episodeId?: string } | null) => {
+      setPlayingRaw(p);
+      if (p)
+        setWatching(
+          recordWatching({
+            id: p.item.id,
+            episodeId: p.episodeId,
+            title: p.item.title,
+            label: p.label,
+            art: p.item.backdrop ?? p.item.poster,
+            rating: p.item.rating,
+            year: p.item.year,
+            runtimeMin: p.item.runtimeMin,
+            at: Date.now(),
+          }),
+        );
+    },
+    [],
+  );
 
   useEffect(() => {
     let stale = false;
@@ -98,7 +125,7 @@ export function StreamScreen() {
       }
       void open(item);
     },
-    [open],
+    [open, setPlaying],
   );
 
   // ---- Playback: fullscreen through the shared inverted player. The
@@ -106,7 +133,7 @@ export function StreamScreen() {
   const stop = useCallback(() => {
     setPlaying(null);
     if (isTauri()) void tauriSetFullscreen(false).catch(() => {});
-  }, []);
+  }, [setPlaying]);
   const playMeta = playing
     ? {
         channelName: playing.item.title,
@@ -164,7 +191,17 @@ export function StreamScreen() {
   return (
     <div className="stream">
       {view.at === "home" && (
-        <Home load={load} onOpen={open} onWatchNow={watchNow} />
+        <Home
+          load={load}
+          onOpen={open}
+          onWatchNow={watchNow}
+          watching={watching}
+          onClearWatching={(id) => setWatching(clearWatching(id))}
+          onOpenWatching={(e) => {
+            const item = load.status === "ready" ? load.data.items.get(e.id) : undefined;
+            if (item) void open(item);
+          }}
+        />
       )}
       {view.at === "title" && (
         <Detail
@@ -209,10 +246,16 @@ function Home({
   load,
   onOpen,
   onWatchNow,
+  watching,
+  onClearWatching,
+  onOpenWatching,
 }: {
   load: Load;
   onOpen: (i: VodItem) => void;
   onWatchNow: (i: VodItem) => void;
+  watching: WatchEntry[];
+  onClearWatching: (id: string) => void;
+  onOpenWatching: (e: WatchEntry) => void;
 }) {
   if (!loadAioUrl()) {
     return (
@@ -246,6 +289,21 @@ function Home({
         <Hero items={featured} onOpen={onOpen} onWatchNow={onWatchNow} />
       )}
       <div className="stream__rows">
+        {watching.length > 0 && (
+          <section className="media-row">
+            <h3 className="media-row__title">Continue Watching</h3>
+            <div className="media-row__scroller">
+              {watching.map((e) => (
+                <ContinueCard
+                  key={e.id}
+                  entry={e}
+                  onOpen={() => onOpenWatching(e)}
+                  onClear={() => onClearWatching(e.id)}
+                />
+              ))}
+            </div>
+          </section>
+        )}
         {data.rows.map((row) => (
           <section key={row.id} className="media-row">
             <h3 className="media-row__title">{row.title}</h3>
@@ -373,6 +431,75 @@ function Card({ item, onOpen }: { item: VodItem; onOpen: (i: VodItem) => void })
         <span className="stream-card__mono">{item.title.slice(0, 1)}</span>
       )}
       <span className="stream-card__name">{item.title}</span>
+      <span className="stream-card__meta">
+        {[
+          item.rating ? item.rating.toFixed(1) : null,
+          item.year,
+          item.runtimeMin ? `${item.runtimeMin} min` : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+      </span>
+    </button>
+  );
+}
+
+/** Continue Watching card: landscape art, meta line, HOLD to clear (the
+ * Figma interaction — a click opens, a ~1s press-and-hold removes). */
+function ContinueCard({
+  entry,
+  onOpen,
+  onClear,
+}: {
+  entry: WatchEntry;
+  onOpen: () => void;
+  onClear: () => void;
+}) {
+  const [holding, setHolding] = useState(false);
+  const timer = useRef(0);
+  const held = useRef(false);
+  const start = () => {
+    held.current = false;
+    setHolding(true);
+    timer.current = window.setTimeout(() => {
+      held.current = true;
+      setHolding(false);
+      onClear();
+    }, 1000);
+  };
+  const cancel = () => {
+    window.clearTimeout(timer.current);
+    setHolding(false);
+  };
+  return (
+    <button
+      type="button"
+      className={"continue-card" + (holding ? " continue-card--holding" : "")}
+      onPointerDown={start}
+      onPointerUp={cancel}
+      onPointerLeave={cancel}
+      onClick={() => {
+        if (!held.current) onOpen();
+      }}
+    >
+      {entry.art ? (
+        <img className="continue-card__art" src={entry.art} alt="" loading="lazy" />
+      ) : (
+        <span className="continue-card__art continue-card__art--empty" />
+      )}
+      <span className="continue-card__hold" aria-hidden>
+        Keep holding to clear
+      </span>
+      <span className="stream-card__name">{entry.title}</span>
+      <span className="stream-card__meta">
+        {[
+          entry.rating ? entry.rating.toFixed(1) : null,
+          entry.year,
+          entry.runtimeMin ? `${entry.runtimeMin} min` : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+      </span>
     </button>
   );
 }

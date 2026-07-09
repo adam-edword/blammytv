@@ -163,7 +163,7 @@
   scrollbar-width: thin;
 }
 .stream-card {
-  flex: 0 0 152px;
+  flex: 0 0 190px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -174,7 +174,7 @@
 .stream-card:hover { transform: translateY(-3px); }
 .stream-card__poster,
 .stream-card__mono {
-  width: 152px;
+  width: 190px;
   aspect-ratio: 2 / 3;
   border-radius: 12px;
   object-fit: cover;
@@ -190,12 +190,62 @@
   color: var(--text-muted);
 }
 .stream-card__name {
-  font-size: 13px;
-  color: var(--text-muted);
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.stream-card__meta {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Continue Watching: landscape cards + the press-and-hold clear. The hold
+ * label fades in while the art dims; releasing early opens as a click. */
+.continue-card {
+  position: relative;
+  flex: 0 0 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 140ms ease;
+}
+.continue-card:hover { transform: translateY(-3px); }
+.continue-card__art {
+  width: 300px;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  object-fit: cover;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  transition: filter 300ms ease;
+}
+.continue-card__art--empty { display: block; }
+.continue-card__hold {
+  position: absolute;
+  top: 0;
+  width: 300px;
+  aspect-ratio: 16 / 9;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 14px;
+  color: #fff;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  transition: opacity 250ms ease;
+  pointer-events: none;
+}
+.continue-card--holding .continue-card__art { filter: brightness(0.5); }
+.continue-card--holding .continue-card__hold { opacity: 1; }
 
 /* ---- detail page ---- */
 .vod-detail {
