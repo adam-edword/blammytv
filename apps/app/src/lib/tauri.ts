@@ -11,8 +11,9 @@ export function isTauri(): boolean {
  * The native player (Windows, inv.rs). mpv renders into a child HWND at a
  * rect we supply, parked below the transparent webview. Rust never scales,
  * so every rect is in PHYSICAL DEVICE PIXELS — callers multiply CSS px by
- * devicePixelRatio themselves. `radius` rounds the DOM hole only (CSS px,
- * see CompositionPlayer) — the native rect itself is always square.
+ * devicePixelRatio themselves (radius included; it only feeds the rAF
+ * change-detection key in InvertedPlayer — the DOM hole rounds itself from
+ * RADIUS_CSS, and the native rect is always square).
  */
 export interface CompRect {
   x: number;

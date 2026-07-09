@@ -1,5 +1,10 @@
 import type { TheaterMeta } from "../../lib/tauri";
-import { loadPlaylists, type XtreamPlaylist } from "../settings/playlists";
+import { createLink } from "../../data/stalker";
+import {
+  loadPlaylists,
+  type StalkerPlaylist,
+  type XtreamPlaylist,
+} from "../settings/playlists";
 import { progress as epgProgress } from "./epg";
 import type { Channel, Programme } from "./model";
 
@@ -33,6 +38,32 @@ export function channelStreamUrl(channelId: string): string | null {
   return `${base}/live/${u}/${p}/${streamId}.${ext}`;
 }
 
+/**
+ * Resolve a channel to its playable URL — the async front door the player
+ * uses. Three shapes, cheapest first:
+ *   - a carried direct URL (M3U) is returned as-is;
+ *   - a Stalker channel's opaque `streamCmd` is exchanged via create_link on
+ *     EVERY call: the returned URL holds a short-lived play_token, so it is
+ *     never cached — re-resolve on each play and on any player reload;
+ *   - otherwise the pure Xtream builder (null for mock ids / gone playlists).
+ */
+export async function resolveStreamUrl(
+  channel: Channel,
+): Promise<string | null> {
+  if (channel.url) return channel.url;
+  if (channel.streamCmd) {
+    const sep = channel.id.indexOf(":");
+    if (sep < 0) return null;
+    const playlistId = channel.id.slice(0, sep);
+    const playlist = loadPlaylists().find(
+      (p): p is StalkerPlaylist => p.id === playlistId && p.kind === "stalker",
+    );
+    if (!playlist) return null;
+    return createLink(playlist, channel.streamCmd);
+  }
+  return channelStreamUrl(channel.id);
+}
+
 /* ---------------------------------------------------------------------------
  * CATCH-UP / TIMESHIFT — SHELVED, groundwork kept (see also model.Channel
  * .archiveDays and source.archiveDaysOf).
@@ -63,7 +94,7 @@ export function channelStreamUrl(channelId: string): string | null {
  *   3. Wire the UI: a Timeshift panel in the right-of-hero space. Clicking a
  *      past programme on an `archiveDays > 0` channel calls this builder
  *      (start = programme.start, durationMins = programme length) and feeds the
- *      URL to CompositionPlayer, exactly as the live path does. The LIVE button
+ *      URL to InvertedPlayer, exactly as the live path does. The LIVE button
  *      already returns to the live edge, so that's the "exit catch-up" action.
  *      Clamp requests away from the last few minutes (the newest segment may
  *      not be written yet).

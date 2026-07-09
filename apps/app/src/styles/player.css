@@ -1,7 +1,7 @@
-/* The composition overlay webview floats over the mpv video, so every layer is
- * transparent (Rust sets the webview bg transparent; main.tsx clears the html/
- * body black too, overriding the launch bg). Ported from the old build,
- * live-only. Three states: mini / theater / fullscreen. */
+/* Player chrome for the inline (inverted-layer) player: the video child sits
+ * BELOW the transparent main webview, and this chrome floats over the clip
+ * hole in #inv-chrome. The .is-overlay rules exist only for the ?overlay=1
+ * test harness (see main.tsx). Three states: mini / theater / fullscreen. */
 .is-overlay,
 .is-overlay body {
   background: transparent;

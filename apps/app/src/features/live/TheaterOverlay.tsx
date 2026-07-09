@@ -22,14 +22,17 @@ import {
 } from "../../ui/icons";
 
 /**
- * The on-video chrome, rendered in the transparent overlay webview Rust
- * composites over the mpv child (main.tsx routes `?overlay=1` here). Controls
- * drive mpv through the Rust-injected `window.overlayApi` bridge, NOT Tauri.
+ * The on-video player chrome, rendered INLINE in the main webview (portaled
+ * into #inv-chrome over the clip hole — the video child sits below the
+ * webview, see inv.rs). Controls drive mpv through the api() from
+ * useDirectOverlay: plain Tauri mpv_* commands + a 500ms status poll.
  *
- * Three states, keyed off the overlay window's own size (it tracks the player
- * box): MINI (small — play/pause + ✕ + click-to-expand), THEATER (large
- * windowed — full auto-hiding chrome), FULLSCREEN (fills the monitor — same
- * chrome). Ported from the old build, live-only (no VOD seek/speed).
+ * Three states: MINI (small — play/pause + ✕ + click-to-expand), THEATER
+ * (large windowed — full auto-hiding chrome), FULLSCREEN (fills the monitor —
+ * same chrome). Inline, LiveScreen passes the state it owns via the `frame`
+ * prop; without one (only the `?overlay=1` TEST HARNESS route, a leftover of
+ * the deleted comp.rs overlay webview kept for verify-overlay-tracks.mjs)
+ * the state is inferred from the window size. Live-only (no VOD seek/speed).
  */
 
 /** True when the overlay fills (nearly) the whole monitor — i.e. fullscreen. */

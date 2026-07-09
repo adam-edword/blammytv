@@ -62,6 +62,10 @@ export function InvertedPlayer({
     let raf = 0;
     let opened = false;
     let last = "";
+    // Set by cleanup: a move promise still in flight at teardown would
+    // otherwise arm a fresh settle timer AFTER cleanup healed the hole,
+    // re-cutting a see-through rectangle no component is left to heal.
+    let disposed = false;
     const shell = document.querySelector<HTMLElement>(".app-shell");
     // The settled hole (CSS px) + the two-phase timer. The video child is
     // BELOW the UI, so it only ever shows through the hole — the one fatal
@@ -118,6 +122,7 @@ export function InvertedPlayer({
             // Phase 2: once the native move has landed (plus a frame for
             // its present), open the full hole and snap the chrome to it.
             void move.catch(() => {}).then(() => {
+              if (disposed) return;
               window.clearTimeout(settleTimer);
               settleTimer = window.setTimeout(() => {
                 hole = next;
@@ -149,6 +154,7 @@ export function InvertedPlayer({
       raf = requestAnimationFrame(tick);
     }, OPEN_DEBOUNCE_MS);
     return () => {
+      disposed = true;
       window.clearTimeout(openTimer);
       window.clearTimeout(settleTimer);
       cancelAnimationFrame(raf);

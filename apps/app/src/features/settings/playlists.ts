@@ -38,6 +38,10 @@ export interface StalkerPlaylist extends PlaylistBase {
   kind: "stalker";
   portal: string;
   mac: string;
+  /** The endpoint path that answered the handshake (`…/load.php` vs
+   * `…/portal.php` varies by install), remembered by the add-form's probe
+   * so later loads skip straight to it. Absent = probe again. */
+  endpoint?: string;
 }
 
 export type Playlist = XtreamPlaylist | M3uPlaylist | StalkerPlaylist;

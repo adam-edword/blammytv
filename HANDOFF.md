@@ -17,8 +17,11 @@ weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
 ## Live state (2026-07-08, v0.1.110)
 
-- Branch `claude/blammytv-rebuild-xclzto` — the only branch; never push
-  elsewhere. Adam pulls it and runs `pnpm tauri dev` on Windows.
+- Branch `claude/blammytv-rebuild-xclzto-uz75yh` — the working branch;
+  never push elsewhere. Adam pulls it and runs `pnpm tauri dev` on Windows.
+  NOTE for the next Windows rebuild: cargo will rewrite Cargo.lock (the
+  v0.1.135 Cargo.toml trim couldn't be locked here — no Rust toolchain);
+  commit that lockfile churn with the rebuild.
 - Just landed: audio/subtitle track menus in TheaterOverlay (v0.1.110-112,
   frontend-only — comp.rs's tracks push/selectAudio/selectSub were already
   complete; verified 12/12 headless with a mocked bridge via
@@ -69,8 +72,11 @@ comp_* commands and comp-* events, webview2-com + the D3D11/DComp windows
 features (Cargo.toml down to Foundation + WindowsAndMessaging). Popout
 survives rewired: `popout_open` captures time-pos, inv::close()es (one
 provider connection at a time), then mpv::play_popout — TS wrapper
-`tauriPopoutOpen`. App.tsx tab-switch teardown now awaits `inv_stop`.
-`onPopoutClosed` re-homed to its own effect in LiveScreen.
+`tauriPopoutOpen`. App.tsx tab switches are INSTANT (v0.1.136): no teardown await —
+InvertedPlayer's unmount cleanup heals the clip hole synchronously before
+paint (the review fleet confirmed the brief awaited-stop variant was a
+real desktop-peek bug). `onPopoutClosed` re-homed to its own effect in
+LiveScreen. From fullscreen, `t` returns to THEATER (v0.1.136).
 CompositionPlayer.tsx → **InvertedPlayer.tsx** (comp branches + modal
 parking stripped; it's the geometry driver: rAF follow + clip hole +
 two-phase settle). mpv.rs touched only additively-adjacent: emit_comp →
@@ -94,13 +100,12 @@ and re-pushes volume/mute to the fresh mpv instance).
 **Welcome/boot animation merged (PR #5 → v0.1.125):** Figma-motion boot
 lockup, session-gated, skippable, reduced-motion aware; ?welcome=1
 replays. The PR missed version.ts (classic slip) — fixed in the merge. The rip is Adam-
-approved; comp.rs/mpv.rs still do-not-touch until the inverted path is
-default and the v0.2.0 deletion milestone formally starts. Main window is
-now transparent:true (tauri.conf) — if Adam reports flag-OFF visual
+approved and EXECUTED (v0.1.135) — see Landmines for mpv.rs's standing
+rule. Main window is transparent:true (tauri.conf) — if Adam reports flag-OFF visual
 regressions (launch flash, window shadow), that change is the suspect.
 
-## Headless sprint (branch `claude/blammytv-headless-sprint`, v0.1.134 — NOT yet
-## merged to the working branch; needs a Windows rebuild + Adam's eyeball)
+## Headless sprint (v0.1.133-134 — MERGED into the working branch
+## 2026-07-09 after Adam's Windows verify; the sprint branch is disposable)
 
 Fresh 20x-budget autonomous sprint off the working branch. All landed green
 (typecheck / lint / 113 tests / build; M3U + adult + tracks browser E2Es):
@@ -146,6 +151,36 @@ listener — React root wheel handlers are passive and can't preventDefault).
 screenshot of the app (his request). And decide whether to merge this
 sprint branch into the working branch after a Windows rebuild.
 
+## Stalker/MAG sources — SHIPPED v0.1.137 (the last v0.2.0 source gate)
+
+Full protocol client per docs/stalker-implementation.md (that doc is the
+reference; its "no code written yet" header is now historical). Shape:
+`data/stalker.ts` mirrors xtream.ts; sessions are in-memory per playlist
+(token + discovered endpoint), auth failures re-handshake once (lazy
+refresh — no watchdog heartbeat); create_link runs on EVERY play and on
+go-live (stream.ts#resolveStreamUrl is now the async front door: M3U url →
+Stalker create_link → Xtream sync). LiveScreen resolves playUrl in an
+effect keyed on [playing, heroId] — a background data refresh must NOT
+re-resolve (would rebuild the player mid-watch). Rust http_get gained an
+optional headers map (verified against locked reqwest source: request
+headers override client defaults; never log values — Cookie carries the
+MAC). Verified: 8 unit tests (header assembly, path probe, pagination
+fallback, prefix strip, token-expiry retry) + verify-stalker.mjs 4/4
+against fake-stalker.mjs (LAX=1 relaxes Cookie/UA for browser fetch; the
+Bearer flow still enforced). UNPROVEN against a real portal — watch
+endpoint probing and get_epg_info's period unit on first live use.
+
+The comp.rs deletion-review fleet (19 agents, adversarial verify) returned
+16 confirmed findings on v0.1.135: 1 HIGH (tab-switch desktop peek — was
+already killed by v0.1.136's instant tab switch, independently), 2 real
+races fixed in v0.1.137 (InvertedPlayer stale-move settle timer re-cutting
+the healed hole → `disposed` guard; popout's Rust-side inv::close racing
+the unmount heal → LiveScreen heals the hole before invoking popout_open),
+1 Cargo.lock note (cargo rewrites it on Adam's next build — commit that
+churn), and 12 stale-docs/comments findings — all swept (README
+architecture paragraph, this file's queue/landmines, ROADMAP's historical
+sections annotated, TheaterOverlay/player.css/tauri.ts/mpv.rs headers).
+
 ## Immediate queue (user-approved order)
 
 1. ~~**Track menus**~~ — SHIPPED v0.1.110-112 (see live state above).
@@ -154,10 +189,10 @@ sprint branch into the working branch after a Windows rebuild.
 3. Waiting on Adam's Figma: **Ctrl+K search palette** (#1) and **first-run
    onboarding** (#4). He's designing both — don't start them without his
    designs or an explicit go.
-4. Batched for a Windows-native pass at Adam's desk (don't attempt
-   headless): comp.rs END_FILE/error event (mid-play death detection),
-   WM_SETCURSOR handler, DComp corner clip, async-close channel-switch
-   tighten. Post-1.0 headliner: recording to disk.
+4. ~~The batched Windows-native pass~~ RESOLVED: mid-play death detection
+   shipped headless via mpv_status (v0.1.133), and the WM_SETCURSOR /
+   DComp corner-clip / switch-gap items dissolved with the comp.rs
+   deletion (v0.1.135). Post-1.0 headliner: recording to disk.
 
 ## Environment (remote container)
 
@@ -189,8 +224,11 @@ sprint branch into the working branch after a Windows rebuild.
 
 ## Landmines (the expensive ones; ROADMAP's "Scars" notes have more)
 
-- **`src-tauri/comp.rs` and `mpv.rs` are do-not-touch** without an explicit
-  ask from Adam. `lib.rs#http_get` is fair game (established precedent).
+- **`src-tauri/mpv.rs` is do-not-touch** without an explicit ask from Adam
+  (comp.rs no longer exists — deleted at the v0.2.0 milestone under Adam's
+  rip authorization, which also covered mpv.rs's emit_ui rename + two
+  #[allow(dead_code)] annotations). `lib.rs#http_get` is fair game
+  (established precedent; it grew an optional headers map for Stalker).
 - **native-tls (Schannel) is a TLS-fingerprint fix** — AIOStreams 403'd the
   default stack with identical headers. Never swap reqwest's TLS backend.
   reqwest is `default-features = false`; every listed feature

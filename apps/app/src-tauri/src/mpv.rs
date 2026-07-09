@@ -203,13 +203,16 @@ pub fn stop_popout() {
     }
 }
 
-/// Render into an existing child window (`--wid`) instead of mpv's own — for the
-/// Tauri composition path: native video in a child HWND, webview composited over.
+/// Render into an existing child window (`--wid`) instead of mpv's own —
+/// the in-app player: native video in a child HWND at the bottom of the
+/// z-order (inv.rs), under the transparent UI webview.
 ///
-/// `composited` forces the bitblt present model (`d3d11-flip=no`) so a DComp layer
-/// can be drawn over the video. Left off, mpv uses its default flip model — which
-/// is what actually shows video when embedded; bitblt into a `--wid` child often
-/// renders nothing.
+/// `composited` forces the bitblt present model (`d3d11-flip=no`) so a DComp
+/// layer can be drawn over the video — a relic of the deleted comp.rs path;
+/// the sole surviving caller (inv.rs) passes false, keeping mpv's default
+/// flip model (the quality path, and what actually shows video embedded).
+/// `start` resumes at a position; inv.rs currently always passes 0.0, so
+/// popout reclaim rejoins at the live edge, not the captured position.
 pub fn play_wid(url: &str, wid: isize, composited: bool, start: f64) -> Result<(), String> {
     let l = lib()?;
     stop();

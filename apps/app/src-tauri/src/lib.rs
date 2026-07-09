@@ -425,8 +425,21 @@ fn http_client() -> &'static reqwest::Client {
 /// document (every quote/newline) plus re-parsing it webview-side measurably
 /// dominated load time. The raw path hands the buffer over untouched; the
 /// frontend TextDecoder-decodes it in ~100ms.
+///
+/// `headers` (optional) is for header-authenticated providers — Stalker/MAG
+/// portals need per-request `Cookie` (the MAC), `Authorization: Bearer`, and
+/// a MAG `User-Agent`. Merge semantics, verified against the locked reqwest
+/// 0.12.28 source: `.headers(map)` REPLACES same-named request headers
+/// (util::replace_headers), and client defaults (our Chrome UA) only fill
+/// header slots the request left vacant (execute_request) — so caller
+/// headers always win, and the Xtream/AIOStreams callers that pass nothing
+/// are untouched. NEVER log header values: Cookie carries the MAC and
+/// Authorization the session token.
 #[tauri::command]
-async fn http_get(url: String) -> Result<tauri::ipc::Response, String> {
+async fn http_get(
+    url: String,
+    headers: Option<std::collections::HashMap<String, String>>,
+) -> Result<tauri::ipc::Response, String> {
     // Load-time diagnostics, printed to the `tauri dev` terminal (devtools
     // close on channel load, the terminal doesn't). Headers-vs-body split
     // separates connect/TTFB from download+decode; the frontend's own [live]
@@ -435,7 +448,7 @@ async fn http_get(url: String) -> Result<tauri::ipc::Response, String> {
     // without its query string — credentials live there.
     let short = url.split('?').next().unwrap_or(&url).to_string();
     let t0 = std::time::Instant::now();
-    let res = http_client()
+    let mut req = http_client()
         .get(&url)
         // Send the headers a browser would. Some hosts (Cloudflare's Browser
         // Integrity Check) 403 requests that have a User-Agent but lack these.
@@ -443,10 +456,22 @@ async fn http_get(url: String) -> Result<tauri::ipc::Response, String> {
             reqwest::header::ACCEPT,
             "application/json, text/plain, */*",
         )
-        .header(reqwest::header::ACCEPT_LANGUAGE, "en-US,en;q=0.9")
-        .send()
-        .await
-        .map_err(|e| e.to_string())?;
+        .header(reqwest::header::ACCEPT_LANGUAGE, "en-US,en;q=0.9");
+    if let Some(h) = headers {
+        // Applied LAST via .headers(), which replaces same-named entries —
+        // a caller's Accept/User-Agent overrides the browser defaults above.
+        let mut map = reqwest::header::HeaderMap::new();
+        for (k, v) in &h {
+            // Errors echo the header NAME only — values may hold credentials.
+            let name = reqwest::header::HeaderName::from_bytes(k.as_bytes())
+                .map_err(|_| format!("bad header name: {k}"))?;
+            let val = reqwest::header::HeaderValue::from_str(v)
+                .map_err(|_| format!("bad value for header: {k}"))?;
+            map.insert(name, val);
+        }
+        req = req.headers(map);
+    }
+    let res = req.send().await.map_err(|e| e.to_string())?;
     if !res.status().is_success() {
         return Err(format!("HTTP {}", res.status().as_u16()));
     }

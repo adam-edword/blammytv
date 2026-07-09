@@ -69,7 +69,7 @@ button {
   height: 100%;
 }
 
-/* Inverted-layer player (dev flag; see inv.rs). The OS window is transparent
+/* Inverted-layer player (THE architecture; see inv.rs). The OS window is transparent
  * (tauri.conf) and, with the flag on, the shell — not body — paints the app
  * background, so the player driver can cut a clip-path hole through
  * .app-shell where the bottom-parked native video shows through. Without

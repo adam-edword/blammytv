@@ -21,6 +21,7 @@ import {
   onPopoutClosed,
   tauriMpvFrost,
   tauriMpvFrostRect,
+  tauriMpvGoLive,
   tauriPopoutOpen,
   tauriSetFullscreen,
 } from "../../lib/tauri";
@@ -42,7 +43,7 @@ import { Hero } from "./Hero";
 import type { Channel, LiveData, Programme } from "./model";
 import { loadRecents, recordRecent } from "./recents";
 import { loadLive, onLiveRefreshed, peekLive } from "./source";
-import { buildMeta, channelStreamUrl } from "./stream";
+import { buildMeta, resolveStreamUrl } from "./stream";
 
 type Mode = "playlist" | "favorites" | "recents";
 
@@ -200,12 +201,12 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   // restart doesn't dump the selection back on the catalog's first row.
   const [channelId, setChannelId] = useState(() => loadRecents()[0] ?? "");
   // Whether the native player is live. Selecting a channel starts it
-  // (auto-play); the overlay's ✕ (comp-closed) stops it. Left off on launch
+  // (auto-play); the chrome's ✕ (onClose) stops it. Left off on launch
   // so a restored selection doesn't stream until the user actually tunes in.
   const [playing, setPlaying] = useState(false);
-  // Player size: mini (default) → theater (large windowed) → fullscreen. The
-  // overlay drives these via comp-* events; the box geometry is CSS (classes
-  // below), the rAF follows.
+  // Player size: mini (default) → theater (large windowed) → fullscreen.
+  // The chrome drives these via its DirectOverlayHandlers callbacks; the box
+  // geometry is CSS (classes below), the rAF follows.
   const [theater, setTheater] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   /** Hover preview from the guide: the hero shows whatever the cursor is
@@ -308,9 +309,10 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
     setFullscreen(false);
     if (isTauri()) void tauriSetFullscreen(false).catch(() => {});
   }, []);
-  // The comp-event handlers below subscribe once (stable deps) but need the
-  // live stream URL / channel id at fire time — read them off refs kept current
-  // each render rather than re-subscribing on every channel change.
+  // The player-chrome handlers (directApi below, plus the popout-closed
+  // listener) are stable objects that fire long after the render that made
+  // them — they read the live stream URL / channel id off refs kept current
+  // each render instead of re-subscribing on every channel change.
   const playUrlRef = useRef<string | null>(null);
   const heroIdRef = useRef<string | undefined>(undefined);
   const handleToggleFavorite = useCallback((id: string) => {
@@ -376,12 +378,37 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
     NO_PROGRAMMES;
 
   // The native player streams the COMMITTED channel (heroChannel), never the
-  // transient hover preview. The URL is rebuilt from the channel id; a null
-  // url (mock catalog, or a browser build) means no player mounts.
-  const playUrl =
-    isTauri() && playing && heroChannel
-      ? (heroChannel.url ?? channelStreamUrl(heroChannel.id))
-      : null;
+  // transient hover preview. Resolution is ASYNC (stream.ts): M3U carries
+  // its URL, Xtream rebuilds it synchronously under the hood, and Stalker
+  // exchanges the channel's cmd via create_link — so the URL lands in state
+  // one tick later and the player mounts then (imperceptible for the sync
+  // kinds). A null url (mock catalog, browser build, resolve failure) means
+  // no player mounts. Keyed on the channel ID, not the object — a background
+  // data refresh must not re-resolve (a fresh Stalker link would rebuild the
+  // player mid-watch); the ref carries the current object into the effect.
+  const [playUrl, setPlayUrl] = useState<string | null>(null);
+  const heroChannelRef = useRef(heroChannel);
+  heroChannelRef.current = heroChannel;
+  const heroId = heroChannel?.id;
+  useEffect(() => {
+    const ch = heroChannelRef.current;
+    if (!(isTauri() && playing && ch)) {
+      setPlayUrl(null);
+      return;
+    }
+    let stale = false;
+    resolveStreamUrl(ch).then(
+      (url) => {
+        if (!stale) setPlayUrl(url);
+      },
+      () => {
+        if (!stale) setPlayUrl(null);
+      },
+    );
+    return () => {
+      stale = true;
+    };
+  }, [playing, heroId]);
   playUrlRef.current = playUrl;
   heroIdRef.current = heroChannel?.id;
   const playMeta = (() => {
@@ -422,6 +449,12 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
     onExitFullscreen: leaveFullscreen,
     onPopout: () => {
       const url = playUrlRef.current;
+      // Heal the shell's clip hole BEFORE Rust tears the video child down:
+      // popout_open closes the in-app player main-thread-side, and losing
+      // the race against InvertedPlayer's unmount cleanup would flash the
+      // desktop through the still-cut hole. Idempotent with that cleanup.
+      const shell = document.querySelector<HTMLElement>(".app-shell");
+      if (shell) shell.style.clipPath = "";
       if (url) void tauriPopoutOpen(url).catch(() => {});
       setPlaying(false);
       setTheater(false);
@@ -430,6 +463,27 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
     onToggleFavorite: () => {
       const id = heroIdRef.current;
       if (id) handleToggleFavorite(id);
+    },
+    // Go-live for Stalker channels re-resolves the URL first: the playing
+    // one's play_token is short-lived, and mpv's in-place reload of a stale
+    // token is a guaranteed 403. A changed URL swaps into state and rebuilds
+    // the player fresh; same-URL (token still valid) and every other kind
+    // fall through to the plain reload. The tune watchdog's silent retries
+    // ride this same handler, so mid-play death recovery gets fresh tokens.
+    onGoLive: () => {
+      const ch = heroChannelRef.current;
+      if (!ch?.streamCmd) {
+        void tauriMpvGoLive().catch(() => {});
+        return;
+      }
+      resolveStreamUrl(ch).then(
+        (url) => {
+          if (heroIdRef.current !== ch.id) return; // switched away meanwhile
+          if (url && url !== playUrlRef.current) setPlayUrl(url);
+          else void tauriMpvGoLive().catch(() => {});
+        },
+        () => void tauriMpvGoLive().catch(() => {}),
+      );
     },
   });
   // Must be set before TheaterOverlay renders (its state initializers read

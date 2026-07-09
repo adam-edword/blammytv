@@ -22,6 +22,11 @@ export interface Channel {
    * Xtream, whose URL is rebuilt from the id + saved credentials — see
    * stream.ts#channelStreamUrl. Callers prefer this when present. */
   url?: string;
+  /** Stalker only: the channel's opaque play command, exchanged per-play
+   * for a short-lived tokenized URL (stream.ts#resolveStreamUrl →
+   * data/stalker.ts#createLink). Rides the Channel so it survives the disk
+   * cache, same pattern as archiveDays. */
+  streamCmd?: string;
   /** Days of server-side catch-up archive, 0 when the channel has none.
    * Derived from the panel's tv_archive / tv_archive_duration fields (both
    * arrive string-typed, so this is the coerced, guarded number). */

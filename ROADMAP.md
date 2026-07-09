@@ -76,12 +76,15 @@ and the agreed order of what's next. Update this file as sections land.
 - Floating glass nav (progressive-blur experiment parked, commented in
   base.css), F11/Escape fullscreen keys, `--header-h` published by measure.
 - `src-tauri` ported wholesale from the old app (Schannel TLS fix, mpv
-  composition, updater). The Rust player API is COMPLETE and needs no
-  changes — `comp_theater/comp_set_rect/comp_stop/comp_key/comp_popout/
-  popout_pos/popout_stop` + the `comp-*` events; geometry is PHYSICAL device
-  pixels (frontend multiplies CSS px by devicePixelRatio); the overlay is a
-  second webview of our bundle loaded with `?overlay=1` and driven via the
-  Rust-injected `window.overlayApi` bridge. Do not touch src-tauri.
+  composition, updater). [2026-07-09: HISTORICAL — the comp_* surface below
+  was deleted at the v0.1.135 milestone; the current API is inv_open/
+  inv_set_rect/inv_stop + popout_open/popout_pos/popout_stop + mpv_*. The
+  "do not touch" here referred to the comp era.] The Rust player API was
+  COMPLETE then — `comp_theater/comp_set_rect/comp_stop/comp_key/
+  comp_popout` + the `comp-*` events; geometry is PHYSICAL device pixels
+  (frontend multiplies CSS px by devicePixelRatio, still true); the overlay
+  was a second webview of our bundle loaded with `?overlay=1` (today: a
+  test seam only).
 - **Native player — Phase 1 VERIFIED working on Windows (v0.1.75).**
   Auto-play on channel select: selecting a channel streams it into
   `#player-slot`, sized/positioned/followed correctly, with rounded 12px
@@ -220,8 +223,9 @@ seam stays as-is; landing page greenlit (artifact first).]
 1. **Ctrl+K channel search** (M) — unanimous 7/7 personas; wire the drawn
    header icon into a fuzzy command palette; needs Adam's palette design.
 2. **Stream resilience + tune-in ident** (M) — ✅ frontend half SHIPPED
-   v0.1.102 (see below). Remaining: surface mpv end-file/error through
-   comp.rs for mid-play death detection — batch with the Windows native pass.
+   v0.1.102 (see below). Remaining half ✅ SHIPPED v0.1.133: mid-play death detection via the
+   mpv_status poll (`ended` re-arms the tune watchdog) — no comp.rs event
+   needed (comp.rs is deleted).
 3. **In-player zapping + last-channel + now/next OSD** (M) — closes the
    fullscreen dead end; core zap + toast only (mini-guide strip post-1.0).
 4. **First-run welcome + validated paste-anything add** (M) — kill the silent
@@ -279,7 +283,9 @@ above removes a switch-blocker or rescues the first session.
   bare "loading" pulse became a branded tune ident (logo + channel +
   programme). Verified headless with a mocked overlayApi bridge: 8/8 asserts
   across the full escalation (real 10s timers). Mid-play death detection
-  still needs the comp.rs end-file event (native pass).
+  landed later via the mpv_status poll (v0.1.133; `ended` re-arms the
+  watchdog) — the comp.rs end-file event it once waited on never existed
+  and comp.rs is now deleted.
 
 ## Layer inversion (Telly-parity architecture) — SPIKE PASSED, A0 IN TREE
 
@@ -466,8 +472,23 @@ instead, and record why here.
 2. ~~**Native (Rust) pass**~~ ✅ dissolved by the v0.1.135 comp.rs deletion —
    WM_SETCURSOR / DComp corner clip / async-close switch-gap all died with
    the overlay subsystem.
-3. **Stalker portal sources** — the last v0.2.0 source gate
-   (docs/stalker-implementation.md has the full plan).
+3. ~~**Stalker portal sources**~~ ✅ SHIPPED v0.1.137 — the last v0.2.0
+   source gate. `data/stalker.ts` (handshake→token→get_profile with
+   endpoint-path probing, MAG headers, lazy re-handshake on failure;
+   get_all_channels + paginated get_ordered_list fallback; get_epg_info
+   keyed-map EPG, window-clamped client-side; create_link with solution-
+   prefix strip), `buildStalkerSource` in source.ts (censored/name adult
+   drops on both genre and channel axes), `Channel.streamCmd`, async
+   `stream.ts#resolveStreamUrl` (M3U url → Stalker create_link per play →
+   Xtream sync builder), LiveScreen resolves the play URL in an effect and
+   go-live re-resolves Stalker URLs (short-lived play_token; the watchdog's
+   silent retries ride the same path). Rust: http_get grew an optional
+   headers map (merge semantics verified against locked reqwest 0.12.28;
+   names-only in errors — values carry the MAC/token). RUST CHANGED.
+   Fixture scripts/fake-stalker.mjs (:8083, LAX=1 for browser E2Es), E2E
+   scripts/verify-stalker.mjs 4/4, 8 adapter/source unit tests. NOT yet
+   proven against a real portal — endpoint probing + get_epg_info period
+   semantics are the fields to watch on first live use.
 4. **Stream tab (AIOStreams)** — re-enable the nav glass (commented in
    base.css) once scrolling content exists.
 

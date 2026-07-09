@@ -3,7 +3,7 @@
  * rect counter-clockwise, so the default nonzero fill-rule leaves a hole —
  * no dependency on evenodd support. Coords are plain px; the outer rect
  * needs the window size, so callers key on it too. (Extracted from
- * CompositionPlayer for testability.) */
+ * InvertedPlayer for testability.) */
 export const holeClip = (
   l: number,
   t: number,

@@ -22,6 +22,10 @@ export interface DirectOverlayHandlers {
   onExitFullscreen: () => void;
   onPopout: () => void;
   onToggleFavorite: () => void;
+  /** Optional go-live override. Default is mpv's re-loadfile of the same
+   * URL — right for Xtream/M3U, WRONG for Stalker, whose play_token is
+   * short-lived: LiveScreen re-resolves the URL there instead. */
+  onGoLive?: () => void;
 }
 
 /**
@@ -113,7 +117,10 @@ export function useDirectOverlay(
       exitFullscreen: () => h.current.onExitFullscreen(),
       popout: () => h.current.onPopout(),
       toggleFavorite: () => h.current.onToggleFavorite(),
-      goLive: () => void tauriMpvGoLive().catch(() => {}),
+      goLive: () => {
+        if (h.current.onGoLive) h.current.onGoLive();
+        else void tauriMpvGoLive().catch(() => {});
+      },
       setMouseIgnore: () => {}, // real DOM above the video — clicks just work
       getMeta: () => Promise.resolve(metaRef.current),
       onMeta: sub(s.metaCbs),

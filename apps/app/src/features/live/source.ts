@@ -7,8 +7,14 @@ import {
   type XtreamStream,
 } from "../../data/xtream";
 import {
+  fetchChannels as fetchStalkerChannels,
+  fetchEpg as fetchStalkerEpg,
+  fetchGenres as fetchStalkerGenres,
+} from "../../data/stalker";
+import {
   loadPlaylists,
   type M3uPlaylist,
+  type StalkerPlaylist,
   type XtreamPlaylist,
 } from "../settings/playlists";
 import { loadShowAdult } from "../settings/adultFilter";
@@ -99,14 +105,10 @@ function refreshInBackground(playlists: LoadableSource[], key: string) {
     });
 }
 
-/** Enabled sources we can actually load today: Xtream + M3U. Stalker is
- * still a stub (see docs/stalker-implementation.md) and is filtered out. */
-type LoadableSource = XtreamPlaylist | M3uPlaylist;
+/** Enabled sources: all three kinds load through the same pipeline. */
+type LoadableSource = XtreamPlaylist | M3uPlaylist | StalkerPlaylist;
 const enabledSources = (): LoadableSource[] =>
-  loadPlaylists().filter(
-    (p): p is LoadableSource =>
-      p.enabled && (p.kind === "xtream" || p.kind === "m3u"),
-  );
+  loadPlaylists().filter((p) => p.enabled);
 
 const cacheKey = (playlists: LoadableSource[]) =>
   playlists.length === 0
@@ -115,7 +117,9 @@ const cacheKey = (playlists: LoadableSource[]) =>
         playlists.map((p) =>
           p.kind === "xtream"
             ? [p.id, p.server, p.username, p.password, p.hiddenCategories ?? []]
-            : [p.id, p.url, p.hiddenCategories ?? []],
+            : p.kind === "stalker"
+              ? [p.id, p.portal, p.mac, p.hiddenCategories ?? []]
+              : [p.id, p.url, p.hiddenCategories ?? []],
         ),
         // The adult filter changes what a load produces, so it's part of
         // the config fingerprint — flipping it misses cache + disk naturally.
@@ -206,7 +210,9 @@ async function doLoad(
       playlists.map((p) =>
         p.kind === "m3u"
           ? buildM3uSource(p, now, narrate)
-          : buildXtreamSource(p, now, narrate),
+          : p.kind === "stalker"
+            ? buildStalkerSource(p, now, narrate)
+            : buildXtreamSource(p, now, narrate),
       ),
     );
     // Assembled in saved-playlist order, not arrival order. concat, not
@@ -410,6 +416,116 @@ async function buildM3uSource(
       } catch (err) {
         console.warn(`[live] EPG failed for "${p.name}": ${msg(err)}`);
       }
+    }
+
+    return { group: { id: p.id, name: p.name, folders }, channels, programmes };
+  } catch (err) {
+    console.error(`[live] playlist "${p.name}" failed: ${msg(err)}`);
+    return {
+      group: { id: p.id, name: p.name, folders: [], error: msg(err) },
+      channels: [],
+      programmes: new Map(),
+    };
+  }
+}
+
+/** Build a source from a Stalker/MAG portal: handshake + genres + the bulk
+ * channel list (with the paginated per-genre fallback inside
+ * data/stalker.ts), EPG via get_epg_info's keyed map — compact JSON, no
+ * XMLTV document. Channels carry their opaque `cmd` on Channel.streamCmd;
+ * playback exchanges it per-play (stream.ts#resolveStreamUrl). Adult drops
+ * mirror Xtream: a genre falls to the portal's `censored` flag or the name
+ * pattern, a channel to its own `censored` flag. */
+async function buildStalkerSource(
+  p: StalkerPlaylist,
+  now: Date,
+  onStage?: (label: string) => void,
+): Promise<{
+  group: LiveGroup;
+  channels: Channel[];
+  programmes: Map<string, Programme[]>;
+}> {
+  try {
+    onStage?.(`Signing in to ${p.name}…`);
+    const genres = await fetchStalkerGenres(p);
+
+    const showAdult = loadShowAdult();
+    const userHidden = new Set(p.hiddenCategories ?? []);
+    const hidden = new Set<string>();
+    for (const g of genres) {
+      if (userHidden.has(g.id)) hidden.add(g.id);
+      else if (!showAdult && (g.censored || nameLooksAdult(g.title)))
+        hidden.add(g.id);
+    }
+    const folders = genres
+      .filter((g) => !hidden.has(g.id))
+      .map((g) => ({ id: folderId(p.id, g.id), name: g.title }));
+
+    onStage?.(`Fetching ${p.name} channels…`);
+    await breathe();
+    const t = performance.now();
+    const raw = await fetchStalkerChannels(
+      p,
+      genres.map((g) => g.id),
+    );
+    console.info(
+      `[live] ${p.name}: ${genres.length} genres + ${raw.length} channels in ${Math.round(performance.now() - t)}ms`,
+    );
+
+    const channels: Channel[] = [];
+    // Kept portal channel ids, for scoping the EPG map to visible channels.
+    const kept = new Set<string>();
+    for (const c of raw) {
+      const genre = c.genreId ?? "";
+      if (hidden.has(genre)) continue;
+      if (!showAdult && c.censored) continue; // per-channel adult flag
+      kept.add(c.id);
+      channels.push({
+        id: channelId(p.id, c.id),
+        name: c.name,
+        quality: extractQuality(c.name),
+        folderId: folderId(p.id, genre),
+        logo: validUrl(c.logo),
+        archiveDays: 0, // Stalker archive is its own create_link variant — with timeshift, later
+        number: c.number,
+        streamCmd: c.cmd,
+      });
+    }
+
+    // EPG is best-effort. The portal returns UNIX-second programmes keyed by
+    // channel id; clamp to the same window parseXmltv keeps (−1h..+12h) —
+    // `period`'s unit is portal-dependent, so the clamp is client-side.
+    const programmes = new Map<string, Programme[]>();
+    try {
+      onStage?.(`Downloading the ${p.name} TV guide…`);
+      await breathe();
+      const epg = await fetchStalkerEpg(p);
+      const winStart = now.getTime() - 3600_000;
+      const winEnd = now.getTime() + 12 * 3600_000;
+      for (const [chId, rows] of epg) {
+        if (!kept.has(chId)) continue;
+        const list: Programme[] = [];
+        for (const r of rows) {
+          const start = new Date(r.start * 1000);
+          const end = new Date(r.stop * 1000);
+          if (end.getTime() <= winStart || start.getTime() >= winEnd) continue;
+          list.push({
+            title: r.title,
+            ...(r.synopsis ? { synopsis: r.synopsis } : {}),
+            start,
+            end,
+          });
+        }
+        if (list.length) {
+          list.sort((a, b) => a.start.getTime() - b.start.getTime());
+          programmes.set(channelId(p.id, chId), list);
+        }
+      }
+      console.info(
+        `[live] ${p.name}: EPG for ${programmes.size} channels`,
+      );
+    } catch (err) {
+      console.warn(`[live] EPG failed for "${p.name}": ${msg(err)}`);
     }
 
     return { group: { id: p.id, name: p.name, folders }, channels, programmes };

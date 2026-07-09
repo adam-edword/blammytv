@@ -368,7 +368,10 @@ namespaced-id contract (`<playlistId>:<streamId>`) carries over directly:
   `setPlayUrl`. The existing `playUrlRef` bridge already exists; the player just
   mounts one tick later (imperceptible; Xtream stays effectively instant because
   its resolver is synchronous under the hood). This is contained — no change to
-  CompositionPlayer or the mpv bridge, which only ever receive a finished URL.
+  InvertedPlayer (née CompositionPlayer) or the mpv command layer, which only
+  ever receive a finished URL. [Post-v0.1.135 note: the comp.rs overlay
+  bridge this doc occasionally references was deleted; the shipping chrome is
+  useDirectOverlay in the main webview.]
 - **Carrying `cmd`** — create_link needs the channel's `cmd`, but `model.ts
   Channel` has no field for it. Recommendation: add an **optional opaque
   `streamCmd?: string`** to `Channel`, populated only by the Stalker adapter
