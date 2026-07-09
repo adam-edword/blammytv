@@ -161,7 +161,12 @@ sprint branch into the working branch after a Windows rebuild.
 ## are only written AFTER the uploaded exe verifies against the sig
 ## (blake2b-512 + Ed25519 vs tauri.conf pubkey — the session does this).
 
-## OPEN BUG — friend's install: EPG empty on his Xtream line (2026-07-09)
+## ~~OPEN BUG~~ CLOSED (v0.2.5 confirmed on Bobby's install): the 30s
+## HTTP timeout WAS the culprit — his guide populates with the 180s xmltv
+## budget. Suspect (1) below confirmed by outcome; the Settings guide-
+## status line stays as permanent diagnosability.
+
+## The original report — friend's install: EPG empty on his Xtream line (2026-07-09)
 
 Bobby's provider: channels + video fine, EVERY channel "No Information";
 the same login loads a guide in Desktop Telly; Adam can't repro on his
