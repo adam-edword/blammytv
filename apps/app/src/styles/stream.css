@@ -35,7 +35,11 @@
   position: relative;
   height: min(90vh, 940px);
   margin: 0 -28px;
-  overflow: hidden;
+  /* Clip the sliding track horizontally ONLY — `hidden` would force the
+   * y-axis too and guillotine the active card's glow into a rectangle.
+   * `clip` leaves overflow-y genuinely visible. */
+  overflow-x: clip;
+  overflow-y: visible;
   flex-shrink: 0;
 }
 .shero__track {
