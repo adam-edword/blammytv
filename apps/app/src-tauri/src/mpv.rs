@@ -432,6 +432,13 @@ pub fn set_speed(speed: f64) {
     set_prop("speed", &speed.to_string());
 }
 
+/// Set the GPU post-process shader chain (absolute path to a .glsl user
+/// shader, or empty to clear). Runtime-safe: the vo reconfigures mid-play.
+/// Used by the inverted player's frost-behind-modal (lib.rs `mpv_blur`).
+pub fn set_glsl_shaders(path: &str) {
+    set_prop("glsl-shaders", path);
+}
+
 /// Read an mpv property as a string (via the player mutex, so it's safe against
 /// stop()/terminate). Returns None if no player or the property is empty/unset.
 pub fn get_property(name: &str) -> Option<String> {

@@ -318,12 +318,29 @@ work. The pieces:
 - SettingsModal portals to document.body too (z 60) and the inverted path
   no longer parks: the video PLAYS behind the settings card — the Telly
   moment, and the modal card sits clean above it. Comp path still parks.
-Needs Windows verify: chrome renders over video in all three frames, click
-map (picture=pause, mini click=expand), auto-hide, tune watchdog on a dead
-channel, track menus on a multi-audio channel, Settings-over-live-video.
-Then: rounded hole corners, popout reclaim polish, default-flip the flag →
-v0.2.0 deletion milestone (comp.rs overlay subsystem + WM_SETCURSOR/
-corner-clip/switch-gap items all die).
+A1 verified on Windows: chrome + theater + fullscreen + Settings-over-live-
+video all work. **A2 (v0.1.118) fixed Adam's three findings:**
+- **Frost-behind-modal (needs rebuild):** DOM backdrop-filter can never
+  sample the native video (separate window — researched and closed), so
+  mpv blurs ITSELF: `frost.glsl` (downsample /8 + two-pass gaussian, GPU,
+  trivial cost) ships via include_str!, lands in a temp file, and
+  `mpv_blur` toggles mpv's `glsl-shaders` chain when the modal opens
+  (additive `mpv::set_glsl_shaders` — first do-not-touch exception,
+  3 lines, Adam-covered by the rip authorization).
+- **Transition glitch (t between theater/mini):** two causes, two fixes.
+  TheaterOverlay now derives mini/fs from the `frame` prop IN RENDER (the
+  state+effect route painted one frame of old layout in the new box), and
+  the driver two-phases geometry: clip the hole to old∩new FIRST (the
+  video covers that overlap throughout the move — the desktop can never
+  peek through), push the native rect, then open the full hole + snap the
+  chrome one frame after the move lands.
+- **Mini corner radius:** the hole stays square; `#inv-chrome
+  .mini-overlay::before` paints the four corner bites in var(--bg) — the
+  theater fake-corner radial-gradient trick, applied to the inline mini.
+Remaining before default-flip: popout reclaim polish, paused-icon reset on
+channel switch, then v0.2.0 deletion milestone (comp.rs overlay subsystem +
+WM_SETCURSOR/corner-clip/switch-gap items all die) with the fresh-eyes
+agent review fleet first.
 
 ## Layer inversion spike history (superseded — kept for the record)
 

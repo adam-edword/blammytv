@@ -43,13 +43,15 @@ webview above bottom-parked video. **Spike PASSED on Adam's machine (first
 build, v0.1.115)** — video through the hole, chrome above video, flip model
 clean; glass over video is tint-only (status quo, not a regression). **A0
 landed (v0.1.116): the inverted player runs in the real app behind a dev
-flag — Ctrl+Shift+U flips old ↔ new and reloads.** A0 verified on Windows
-(theater + fullscreen geometry work). **A1 landed (v0.1.117, frontend-only):
-full TheaterOverlay chrome inline over the hole (direct OverlayApi via
-mpv_* commands + mpv_status poll, portaled to #inv-chrome outside the
-shell) and Settings portaled to body with parking removed on the inverted
-path — video plays live behind the settings card.** ROADMAP "Layer
-inversion" has full mechanics + the Windows verify checklist. The rip is Adam-
+flag — Ctrl+Shift+U flips old ↔ new and reloads.** A0+A1 verified on
+Windows (theater, fullscreen, inline chrome, Settings over live video).
+**A2 landed (v0.1.118, needs rebuild): mpv-side GPU frost while the modal
+is open (frost.glsl + mpv_blur — DOM blur can't sample the native layer),
+two-phase hole/video geometry sequencing + render-derived frame state
+(kills the t-transition glitch), and painted corner bites for the mini
+box.** NOTE: mpv.rs gained ONE additive fn (set_glsl_shaders) — the first
+do-not-touch exception, covered by Adam's rip authorization. ROADMAP
+"Layer inversion" has full mechanics + what remains before default-flip. The rip is Adam-
 approved; comp.rs/mpv.rs still do-not-touch until the inverted path is
 default and the v0.2.0 deletion milestone formally starts. Main window is
 now transparent:true (tauri.conf) — if Adam reports flag-OFF visual

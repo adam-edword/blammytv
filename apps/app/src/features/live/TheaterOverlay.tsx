@@ -54,12 +54,13 @@ export function TheaterOverlay({ frame }: { frame?: OverlayFrame } = {}) {
   // live stream, so this is a client-side indicator that tracks the seeks.
   const [livePct, setLivePct] = useState(100);
   const [active, setActive] = useState(true); // chrome shown (auto-hides)
-  const [mini, setMini] = useState(() =>
-    frame ? frame === "mini" : isMini(),
-  );
-  const [fs, setFs] = useState(() =>
-    frame ? frame === "fullscreen" : atFullscreen(),
-  );
+  // Window-heuristic size state (overlay-webview mode). Inline, `frame`
+  // wins DERIVED IN RENDER — routing it through state + an effect painted
+  // one frame of the old layout inside the new box on every transition.
+  const [miniState, setMiniState] = useState(isMini);
+  const [fsState, setFsState] = useState(atFullscreen);
+  const mini = frame ? frame === "mini" : miniState;
+  const fs = frame ? frame === "fullscreen" : fsState;
   // Live frame reads for the key handlers (props go stale in stable
   // callbacks; the window heuristics stay the overlay-webview fallback).
   const frameRef = useRef(frame);
@@ -83,16 +84,10 @@ export function TheaterOverlay({ frame }: { frame?: OverlayFrame } = {}) {
   const idleRef = useRef(0);
 
   useEffect(() => {
-    if (frame) {
-      // Inline: the parent owns the size state — mirror it, skip the window
-      // heuristics entirely.
-      setMini(frame === "mini");
-      setFs(frame === "fullscreen");
-      return;
-    }
+    if (frame) return; // inline: derived from the prop in render, zero lag
     const f = () => {
-      setMini(isMini());
-      setFs(atFullscreen());
+      setMiniState(isMini());
+      setFsState(atFullscreen());
     };
     window.addEventListener("resize", f);
     return () => window.removeEventListener("resize", f);

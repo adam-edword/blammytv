@@ -5,6 +5,7 @@ import {
   isTauri,
   setInvertedPlayer,
   tauriCompStop,
+  tauriMpvBlur,
   tauriSpikeWindow,
 } from "../lib/tauri";
 import { AppHeader, type TabKey } from "./AppHeader";
@@ -43,8 +44,13 @@ export function App() {
     const root = document.documentElement;
     if (settingsOpen) root.dataset.nativeHidden = "1";
     else delete root.dataset.nativeHidden;
+    // Inverted path keeps playing behind the modal — frost the picture
+    // natively (mpv shader) since DOM blur can't reach it.
+    if (invertedPlayer())
+      void tauriMpvBlur(settingsOpen).catch(() => {});
     return () => {
       delete root.dataset.nativeHidden;
+      if (invertedPlayer()) void tauriMpvBlur(false).catch(() => {});
     };
   }, [settingsOpen]);
 

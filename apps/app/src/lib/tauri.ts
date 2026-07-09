@@ -131,6 +131,11 @@ export function tauriMpvGoLive(): Promise<void> {
 export function tauriMpvTrack(kind: "audio" | "sub", id: string): Promise<void> {
   return invoke("mpv_track", { kind, id });
 }
+/** GPU frost on the whole picture (inverted path, modal open): DOM blur
+ * can't sample the native video, so mpv blurs itself via a user shader. */
+export function tauriMpvBlur(on: boolean): Promise<void> {
+  return invoke("mpv_blur", { on });
+}
 
 /** One poll of the inverted player's status (replaces the overlay bridge's
  * loading/time/tracks pushes). `presenting` = mpv has put up a frame. */

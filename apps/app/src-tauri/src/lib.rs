@@ -279,6 +279,25 @@ fn mpv_track(kind: String, id: String) {
     mpv::set_track(&kind, &id);
 }
 
+/// GPU frost for the whole picture while a modal covers the inverted
+/// player: DOM backdrop-filter can NEVER sample the native video (separate
+/// window), so we blur at the source — mpv runs a downsample+gaussian user
+/// shader while the modal is open. The shader ships in the binary and is
+/// written to a temp file on first use (mpv wants a path).
+const FROST_SHADER: &str = include_str!("frost.glsl");
+
+#[tauri::command]
+fn mpv_blur(on: bool) -> Result<(), String> {
+    if !on {
+        mpv::set_glsl_shaders("");
+        return Ok(());
+    }
+    let path = std::env::temp_dir().join("blammytv-frost.glsl");
+    std::fs::write(&path, FROST_SHADER).map_err(|e| e.to_string())?;
+    mpv::set_glsl_shaders(path.to_string_lossy().as_ref());
+    Ok(())
+}
+
 /// Player status snapshot for the inverted chrome's poll (replaces comp.rs's
 /// loader/time/tracks push threads): position/duration, whether mpv is
 /// actually presenting (core-idle == "no" ⇒ first frame has landed), and the
@@ -602,6 +621,7 @@ pub fn run() {
             mpv_go_live,
             mpv_track,
             mpv_status,
+            mpv_blur,
             http_get,
             check_update,
             install_update
