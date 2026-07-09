@@ -752,6 +752,13 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
               channel={shownChannel}
               programmes={shownProgrammes}
               programme={preview?.programme ?? undefined}
+              // Theater only: clicking the black space around the picture
+              // drops back to mini (clicks ON the picture hit the inline
+              // chrome, which owns play/pause). Fullscreen has no space to
+              // click, mini's hero space is normal UI.
+              onBackdropClick={
+                theater && !fullscreen ? () => setTheater(false) : undefined
+              }
             />
             {/* Headless: opens mpv into #player-slot and follows the box.
              * Only in Tauri with a real stream URL, so browser/mock is

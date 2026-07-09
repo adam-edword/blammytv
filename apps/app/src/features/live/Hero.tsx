@@ -20,10 +20,15 @@ export function Hero({
   channel,
   programmes,
   programme,
+  onBackdropClick,
 }: {
   channel: Channel;
   programmes: Programme[];
   programme?: Programme;
+  /** Theater mode: a click on the hero's own black flex-space (not the
+   * player box or any child) collapses back to mini. Only the section
+   * element itself counts, so nothing inside the picture can trigger it. */
+  onBackdropClick?: () => void;
 }) {
   // Programme progress creeps, so re-render on a slow tick.
   const [now, setNow] = useState(() => new Date());
@@ -46,7 +51,16 @@ export function Hero({
   const progress = live ? epgProgress(current.start, current.end, now) : 0;
 
   return (
-    <section className="hero" aria-label="Now playing">
+    <section
+      className="hero"
+      aria-label="Now playing"
+      onClick={
+        onBackdropClick &&
+        ((e) => {
+          if (e.target === e.currentTarget) onBackdropClick();
+        })
+      }
+    >
       {/* mpv composites into this box later; keep the id stable. */}
       <div className="hero__preview" id="player-slot" />
 
