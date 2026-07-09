@@ -61,6 +61,7 @@
   overflow: hidden;
   border-radius: 90px;
   pointer-events: none;
+  opacity: 0.8; /* Adam's final trim on the whole light layer */
   /* Feathered window: the box reaches ~90px past the card on the sides
    * and ~52px vertically, and the feather eats only the outer half of
    * that — so a real halo band survives at strength. (The first feather
