@@ -150,15 +150,7 @@ export function tauriMpvFrostRect(
   x1: number,
   y1: number,
 ): Promise<void> {
-  // Diagnostic: set localStorage blammytv.frostDebug to {"v":1,"data":true}
-  // to paint the frost rect red (alignment vs the card, one screenshot).
-  return invoke("mpv_frost_rect", {
-    x0,
-    y0,
-    x1,
-    y1,
-    debug: load<boolean>("frostDebug", 1, false),
-  });
+  return invoke("mpv_frost_rect", { x0, y0, x1, y1 });
 }
 /** One tone-mapped frame of the playing video, as a PNG blob (raw-bytes
  * IPC, same path as http_get). DORMANT — kept for future thumbnails. */

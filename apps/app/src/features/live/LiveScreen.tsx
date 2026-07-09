@@ -800,6 +800,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
                   frame={
                     fullscreen ? "fullscreen" : theater ? "theater" : "mini"
                   }
+                  playbackKey={playUrl}
                 />,
                 chromeHostRef.current,
               )}

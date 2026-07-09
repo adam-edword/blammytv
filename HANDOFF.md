@@ -60,12 +60,15 @@ to the terminal on inverted open — feeds the pending libmpv-upgrade /
 gpu-next decision. ROADMAP "Layer inversion" has what remains before
 default-flip.
 
-**Open diagnosis: frost-rect vs card alignment.** Adam reports part of the
-card-over-video region unblurred. v0.1.126 instruments it: set localStorage
-`blammytv.frostDebug` = {"v":1,"data":true} and the frost rect paints RED
-(plus `[mpv] frost rect (...)→(...)` in the terminal) — one screenshot
-shows offset/flip/scale. Candidate causes if misaligned: uv y-origin,
-video letterbox vs slot mapping, stale slot rect at open.
+**Frost diagnosis CLOSED (v0.1.127-129):** placement was fine all along —
+the "unblurred" line was the hole-rim seam where CSS backdrop blur (shell)
+meets mpv frost (video); two blur systems, hard clip between them. A
+whole-rim --bg feather read as a giant vignette (reverted). Adam accepted
+the seam ("live with it"); a future fix must scope to card∩rim only. The
+frost debug tint/logging was removed in v0.1.129; `[mpv] frost requested,
+vo=` (capability) stays. v0.1.129 also fixed the inline overlay's stale
+state across channel switches (playbackKey prop resets paused/live-edge
+and re-pushes volume/mute to the fresh mpv instance).
 
 **Welcome/boot animation merged (PR #5 → v0.1.125):** Figma-motion boot
 lockup, session-gated, skippable, reduced-motion aware; ?welcome=1

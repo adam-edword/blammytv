@@ -43,7 +43,16 @@ const isMini = () => window.innerHeight < 450;
  * window is the whole app, so LiveScreen passes the state it owns. */
 export type OverlayFrame = "mini" | "theater" | "fullscreen";
 
-export function TheaterOverlay({ frame }: { frame?: OverlayFrame } = {}) {
+export function TheaterOverlay({
+  frame,
+  playbackKey,
+}: {
+  frame?: OverlayFrame;
+  /** Inline mode: changes when the stream does. The overlay webview was
+   * rebuilt per channel, so its state reset for free — inline, the same
+   * component instance survives the switch and must resync itself. */
+  playbackKey?: string | null;
+} = {}) {
   const [meta, setMeta] = useState<TheaterMeta | null>(null);
   const [loading, setLoading] = useState(() => api()?.getLoading() ?? true);
   const [paused, setPaused] = useState(false);
@@ -174,6 +183,22 @@ export function TheaterOverlay({ frame }: { frame?: OverlayFrame } = {}) {
     api()?.setVolume(Math.round(volume * 100));
     api()?.setMute(muted);
   }, [volume, muted]);
+
+  // Channel switch (inline): the fresh mpv instance starts unpaused at the
+  // live edge with default volume — resync the icon/indicator, and re-push
+  // the user's volume/mute (read off refs; this must not re-run on slider
+  // moves — the effect above owns those).
+  const volumeRef = useRef(volume);
+  volumeRef.current = volume;
+  const mutedRef = useRef(muted);
+  mutedRef.current = muted;
+  useEffect(() => {
+    if (!playbackKey) return;
+    setPaused(false);
+    setLivePct(100);
+    api()?.setVolume(Math.round(volumeRef.current * 100));
+    api()?.setMute(mutedRef.current);
+  }, [playbackKey]);
 
   // An open track menu holds the chrome awake (read off a ref so wake stays
   // stable); closing it restarts the idle timer the menu was holding.
