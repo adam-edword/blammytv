@@ -1,0 +1,11 @@
+{
+  "version": "0.2.5",
+  "notes": "Fixes from the first installs: solid-black player surface while a channel tunes (no more desktop showing through on some machines), a three-minute budget for big TV-guide downloads (a common cause of every channel reading No Information), and guide status readable under each playlist in Settings. New: Check for updates in Settings, and clicking outside the theater picture returns to the mini player.",
+  "pub_date": "2026-07-09T19:24:16Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUM0VOOGtCK0hUWHc4TWZ6VkZaRExGNjQ5bEhkVG85RzZ0WGhiSXNTalpyOTFUVEFUY3FXcmxnQ21BNC9zOTRNWUZ6Z3g4QkQzcHh4NFAyVGNwdnVBaHB0VElxVkppaGdzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgzNjI1MDU2CWZpbGU6QmxhbW15VFZfMC4yLjVfeDY0LXNldHVwLmV4ZQpBZlhETlUzd0V6R2JOa0NqV1RHbzVMTEJnblVQMEx4OUVxbXBCb2NHNUxOUGFvQmFNNzFydkdlZjFHR3dTV0p2dXhZNGttK21jRkxMYzVtRHB4WkFDUT09Cg==",
+      "url": "https://github.com/adam-edword/blammytv/releases/download/v0.2.5_alpha/BlammyTV_0.2.5_x64-setup.exe"
+    }
+  }
+}
