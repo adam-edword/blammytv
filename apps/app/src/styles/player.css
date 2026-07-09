@@ -201,6 +201,43 @@
   font-family: var(--font-text);
 }
 
+/* Inline (inverted-player) chrome host: CompositionPlayer keeps this fixed
+ * box glued to the slot rect, and the overlay's fixed-inset roots become
+ * absolute so they fill the BOX, not the viewport. Above the theater
+ * backdrop (40), below the settings modal (60). */
+#inv-chrome {
+  position: fixed;
+  z-index: 45;
+}
+
+#inv-chrome .mini-overlay,
+#inv-chrome .theater-overlay,
+#inv-chrome .tune {
+  position: absolute;
+}
+
+/* While a modal covers the app (root carries data-native-hidden), the
+ * video KEEPS PLAYING — mpv GPU-frosts only the region under the card
+ * (LiveScreen drives it) and this ::after adds a light dim so the card
+ * pops without hiding the picture. Radius matches the rounded hole. */
+#inv-chrome {
+  border-radius: 12px;
+}
+
+#inv-chrome::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0);
+  transition: background 0.2s ease;
+}
+
+:root[data-native-hidden] #inv-chrome::after {
+  background: rgba(0, 0, 0, 0.25);
+}
+
 /* Fake rounded video corners. The mpv child presents a flip-model swapchain
  * DWM composites directly, so neither SetWindowRgn (round_child) nor a CSS
  * radius on the slot clips the picture — the video corners are always sharp.

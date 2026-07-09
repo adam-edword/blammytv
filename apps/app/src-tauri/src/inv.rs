@@ -59,6 +59,11 @@ pub fn open(
         crate::mpv::play_wid(url, child.0 as isize, false, 0.0)?;
         CHILD.store(child.0 as isize, Ordering::SeqCst);
     }
+    // One line of ground truth for the upgrade question: which libmpv did
+    // the loader actually find? (Terminal-visible, once per open.)
+    if let Some(v) = crate::mpv::get_property("mpv-version") {
+        println!("[mpv] {v}");
+    }
     Ok(())
 }
 

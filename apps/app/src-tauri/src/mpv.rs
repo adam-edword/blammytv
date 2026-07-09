@@ -432,6 +432,47 @@ pub fn set_speed(speed: f64) {
     set_prop("speed", &speed.to_string());
 }
 
+/// Set the GPU post-process shader chain (absolute path to a .glsl user
+/// shader, or empty to clear). Runtime-safe: the vo reconfigures mid-play.
+/// Used by the inverted player's frost-behind-modal (lib.rs `mpv_blur`).
+pub fn set_glsl_shaders(path: &str) {
+    set_prop("glsl-shaders", path);
+}
+
+/// Set shader tunables (`glsl-shader-opts`, "name=value,..."): updates
+/// //!PARAM uniforms in the loaded chain WITHOUT reloading it — the cheap
+/// per-frame-safe path for the moving frost rect (gpu-next required for
+/// PARAM; Adam runs mpv 0.41-dev, where it's the default vo).
+pub fn set_shader_opts(opts: &str) {
+    set_prop("glsl-shader-opts", opts);
+}
+
+/// Write one tone-mapped frame of the current video to `path` (format from
+/// the extension; "video" = no OSD). mpv_command is synchronous, so the
+/// file exists when this returns true. Used for the frozen-frame glass
+/// behind modals (lib.rs `mpv_snapshot`).
+pub fn screenshot_to_file(path: &str) -> bool {
+    let g = PLAYER.lock().unwrap();
+    if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {
+        unsafe {
+            let cmd = CString::new("screenshot-to-file").unwrap();
+            let cpath = match CString::new(path) {
+                Ok(c) => c,
+                Err(_) => return false,
+            };
+            let flags = CString::new("video").unwrap();
+            let args = [
+                cmd.as_ptr(),
+                cpath.as_ptr(),
+                flags.as_ptr(),
+                std::ptr::null(),
+            ];
+            return (l.command)(p.0, args.as_ptr()) >= 0;
+        }
+    }
+    false
+}
+
 /// Read an mpv property as a string (via the player mutex, so it's safe against
 /// stop()/terminate). Returns None if no player or the property is empty/unset.
 pub fn get_property(name: &str) -> Option<String> {

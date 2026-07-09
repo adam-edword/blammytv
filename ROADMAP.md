@@ -295,16 +295,99 @@ already registered: `mpv_pause/mute/volume/seek/go_live/track` +
 `mpv_status` (pos/dur/presenting/tracks poll — replaces the bridge's push
 threads).
 
-**A1 (next, frontend-only):** port TheaterOverlay's chrome inline — inject
-a direct `OverlayApi` implementation backed by the mpv_* commands +
-mpv_status polling, render it over the hole via a portal OUTSIDE
-`.app-shell` (the clip hole would cut chrome rendered inside the shell),
-mirror expand/collapse/fullscreen straight into LiveScreen state. Then:
-tune watchdog port, rounded hole corners (clip-path `path()` or corner
-masks), popout, and the live-video-behind-Settings flourish (portal the
-modal out of the shell). When the inverted path is default and proven,
-comp.rs's overlay subsystem + the WM_SETCURSOR/corner-clip/switch-gap
-native items are deleted as the v0.2.0 milestone.
+**A1 (v0.1.117, frontend-only): full chrome inline + live video behind
+Settings.** A0 Windows check first confirmed theater + fullscreen geometry
+work. The pieces:
+- `overlayApi.ts` now owns the bridge contract (OverlayApi/Tracks types,
+  `api()` accessor) with a module-level override LiveScreen sets BEFORE
+  rendering TheaterOverlay inline (state initializers read it sync).
+- `useDirectOverlay` implements the contract over the mpv_* commands + a
+  500ms `mpv_status` poll: loading flips on first `presenting` (same
+  core-idle signal as the Rust loader-watch, so the TUNE WATCHDOG works
+  unchanged), tracks push on change, comp-* verbs become LiveScreen
+  callbacks (expand/collapse/fullscreen/popout/favorite/close).
+- TheaterOverlay grew a `frame` prop ("mini"/"theater"/"fullscreen") —
+  inline, the window heuristics are meaningless, LiveScreen passes its own
+  state; handlers read it via ref (miniNow/fsNow). Its document key handler
+  now preventDefaults handled keys and skips arrows on buttons (inline it
+  shares the app document — roving tablists own their arrows). LiveScreen
+  does NOT forward comp_key when inverted (double-fire).
+- The chrome portals into `#inv-chrome` on document.body (outside the
+  shell = outside the clip hole), which CompositionPlayer sizes to the slot
+  rect each frame alongside the hole; z 45 (above theater backdrop 40).
+- SettingsModal portals to document.body too (z 60) and the inverted path
+  no longer parks: the video PLAYS behind the settings card — the Telly
+  moment, and the modal card sits clean above it. Comp path still parks.
+A1 verified on Windows: chrome + theater + fullscreen + Settings-over-live-
+video all work. **A2 (v0.1.118) fixed Adam's three findings:**
+- **Frost-behind-modal (needs rebuild):** DOM backdrop-filter can never
+  sample the native video (separate window — researched and closed), so
+  mpv blurs ITSELF: `frost.glsl` (downsample /8 + two-pass gaussian, GPU,
+  trivial cost) ships via include_str!, lands in a temp file, and
+  `mpv_blur` toggles mpv's `glsl-shaders` chain when the modal opens
+  (additive `mpv::set_glsl_shaders` — first do-not-touch exception,
+  3 lines, Adam-covered by the rip authorization).
+- **Transition glitch (t between theater/mini):** two causes, two fixes.
+  TheaterOverlay now derives mini/fs from the `frame` prop IN RENDER (the
+  state+effect route painted one frame of old layout in the new box), and
+  the driver two-phases geometry: clip the hole to old∩new FIRST (the
+  video covers that overlap throughout the move — the desktop can never
+  peek through), push the native rect, then open the full hole + snap the
+  chrome one frame after the move lands.
+- **Mini corner radius:** the hole stays square; `#inv-chrome
+  .mini-overlay::before` paints the four corner bites in var(--bg) — the
+  theater fake-corner radial-gradient trick, applied to the inline mini.
+**A3 (v0.1.119, frontend-only):** Adam vetoed the whole-picture frost look
+and the painted corner bites read funky. New treatment:
+- **Modal-over-video = dim scrim** (the chrome host darkens to 60% with a
+  fade while `data-native-hidden` is set; video keeps playing). The
+  researched blur menu, for Adam's pick later: (1) scrim — SHIPPED; (2)
+  tuned shader (/4 + wider gaussian + desat — mpv_blur stays in the build,
+  dormant); (3) frozen-frame glass (screenshot → DOM blur under the card,
+  picture freezes); (4) region blur under the card via --glsl-shader-opts
+  (libmpv-version dependent — probe get_property("mpv-version") first).
+  (5) render API → DComp surface is REJECTED as a blur solution (Adam's
+  call, 2026-07-09, and he's right): it keeps mpv's native RENDERING but
+  forfeits the native PRESENTATION path — fullscreen independent-flip /
+  direct scanout and mpv-owned HDR swapchains — i.e. the actual point of
+  a native viewer, traded for cosmetics. Only revisit if something far
+  bigger forces it, and then only behind a spike proving HDR + fullscreen
+  parity. DOM backdrop-filter over the native layer is impossible, full
+  stop.
+- **Corners are now REAL**: the hole itself is a rounded rect —
+  `clip-path: path()` with a clockwise outer rect + counter-clockwise
+  inner rounded rect, so the default nonzero fill rule cuts the hole (no
+  evenodd dependency). 12px in mini, 0 squared; corner-mask CSS deleted.
+
+**A4 (v0.1.121): frozen-frame glass — built, then REJECTED by Adam (the
+video must VISIBLY keep playing behind the panel).** `mpv_snapshot` +
+`mpv::screenshot_to_file` (second additive do-not-touch exception) stay in
+the build, dormant — future channel thumbnails. Settings modal is centered
+now (v0.1.120, Adam's call — the top-right float predates video-behind).
+
+**A5 (v0.1.122, needs rebuild): LIVE region frost — the endgame modal
+treatment.** mpv GPU-blurs ONLY the rectangle under the settings card,
+every frame: a /8 SAVE pass + a rect-branched composite pass
+(`FROST_REGION_TEMPLATE` in lib.rs), with the card rect BAKED into the
+shader source at write time (video-normalized; LiveScreen measures
+card+slot, re-bakes on resize via `mpv_frost`). SUPERSEDED SAME NIGHT by
+**A6 (v0.1.123)**: Adam's terminal answered the version question — **mpv
+v0.41.0-724-g71ebd0840, a bleeding-edge dev build** (gpu-next default), so
+rect-baking's file-rewrite+reload dance (which left stale frost on tab
+switches and lost the rect on window resize) was replaced with //!PARAM
+uniforms: the shader loads ONCE (`mpv_frost on/off`, degenerate-rect
+defaults = disabled) and every geometry change is a `glsl-shader-opts`
+property set (`mpv_frost_rect`, mpv.rs `set_shader_opts` — third additive
+exception). Frontend: rAF-throttled pushes from a ResizeObserver on the
+card AND the slot plus window resize; pad dropped to 0 so the frost hugs
+the card exactly (no halo). `mpv_frost` prints `vo=` to the terminal —
+if it ever says `gpu` (not gpu-next), PARAM is unsupported and frost is
+silently absent; that's the diagnostic. Hole scrim 0.25. mpv_blur
+(whole-frame) stays dormant; render-API/DComp REJECTED (above).
+Remaining before default-flip: popout reclaim polish, paused-icon reset on
+channel switch, then v0.2.0 deletion milestone (comp.rs overlay subsystem +
+WM_SETCURSOR/corner-clip/switch-gap items all die) with the fresh-eyes
+agent review fleet first.
 
 ## Layer inversion spike history (superseded — kept for the record)
 

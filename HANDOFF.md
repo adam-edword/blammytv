@@ -43,10 +43,22 @@ webview above bottom-parked video. **Spike PASSED on Adam's machine (first
 build, v0.1.115)** — video through the hole, chrome above video, flip model
 clean; glass over video is tint-only (status quo, not a regression). **A0
 landed (v0.1.116): the inverted player runs in the real app behind a dev
-flag — Ctrl+Shift+U flips old ↔ new and reloads.** Keyboard-only chrome in
-A0. ROADMAP "Layer inversion" has the full A0 mechanics + the A1 plan
-(inline chrome port — FRONTEND-ONLY, all Rust commands already registered:
-mpv_pause/mute/volume/seek/go_live/track + mpv_status). The rip is Adam-
+flag — Ctrl+Shift+U flips old ↔ new and reloads.** A0+A1 verified on
+Windows (theater, fullscreen, inline chrome, Settings over live video).
+**Modal-over-video treatment settled after four iterations (ROADMAP has
+the full A2→A5 arc): the answer is A5 (v0.1.122) LIVE REGION FROST — mpv
+GPU-blurs only the rect under the centered settings card (rect baked into
+the shader source, no version dependencies), video visibly playing
+everywhere, hole scrim 0.25. Adam's constraints that got us here: video
+must VISIBLY play behind the panel (killed frozen-frame A4), whole-frame
+blur looked wrong (killed A2 frost), render-API/DComp rejected on
+presentation-path grounds. Dormant-but-kept: mpv_blur (whole-frame),
+mpv_snapshot (thumbnails someday).** mpv.rs has gained exactly TWO
+additive fns (set_glsl_shaders, screenshot_to_file) — do-not-touch
+exceptions covered by Adam's rip authorization. `[mpv] <version>` prints
+to the terminal on inverted open — feeds the pending libmpv-upgrade /
+gpu-next decision. ROADMAP "Layer inversion" has what remains before
+default-flip. The rip is Adam-
 approved; comp.rs/mpv.rs still do-not-touch until the inverted path is
 default and the v0.2.0 deletion milestone formally starts. Main window is
 now transparent:true (tauri.conf) — if Adam reports flag-OFF visual

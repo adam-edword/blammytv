@@ -38,10 +38,30 @@ const PARKED: CompRect = { x: -8, y: -8, w: 2, h: 2, radius: 0 };
  * here also heals the hole, so a modal is fully opaque even mid-play. */
 const INVERTED = invertedPlayer();
 
-/** Full-viewport ring with a rectangular cutout at CSS-px rect (l,t,r,b). */
-const holeClip = (l: number, t: number, r: number, b: number) =>
-  `polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, ` +
-  `${l}px ${t}px, ${l}px ${b}px, ${r}px ${b}px, ${r}px ${t}px, ${l}px ${t}px)`;
+/** Full-viewport ring with a ROUNDED-rect cutout at CSS-px rect (l,t,r,b).
+ * clip-path path(): the outer rect winds clockwise and the inner rounded
+ * rect counter-clockwise, so the default nonzero fill-rule leaves a hole —
+ * no dependency on evenodd support. Coords are plain px; the outer rect
+ * needs the window size, so callers key on it too. */
+const holeClip = (
+  l: number,
+  t: number,
+  r: number,
+  b: number,
+  rad: number,
+  W: number,
+  H: number,
+) => {
+  const k = Math.min(rad, (r - l) / 2, (b - t) / 2);
+  const inner =
+    k > 0
+      ? `M${l + k} ${t}A${k} ${k} 0 0 0 ${l} ${t + k}L${l} ${b - k}` +
+        `A${k} ${k} 0 0 0 ${l + k} ${b}L${r - k} ${b}` +
+        `A${k} ${k} 0 0 0 ${r} ${b - k}L${r} ${t + k}` +
+        `A${k} ${k} 0 0 0 ${r - k} ${t}Z`
+      : `M${l} ${t}L${l} ${b}L${r} ${b}L${r} ${t}Z`;
+  return `path("M0 0H${W}V${H}H0Z ${inner}")`;
+};
 
 function measure(el: HTMLElement, squared: boolean): CompRect {
   const r = el.getBoundingClientRect();
@@ -95,34 +115,88 @@ export function CompositionPlayer({
     const shell = INVERTED
       ? document.querySelector<HTMLElement>(".app-shell")
       : null;
+    // The settled hole (CSS px) + the two-phase timer. The video child is
+    // BELOW the UI, so it only ever shows through the hole — the one fatal
+    // frame is a hole with no video behind it (the desktop peeks through).
+    let hole: { l: number; t: number; r: number; b: number } | null = null;
+    let settleTimer = 0;
     const healHole = () => {
       if (shell) shell.style.clipPath = "";
     };
     const tick = () => {
       const el = document.getElementById(SLOT_ID);
       if (el) {
-        const parked = document.documentElement.dataset.nativeHidden === "1";
+        // Parking is comp-path-only: those native layers sit ABOVE the
+        // webview, so a modal can't cover them. Inverted video is BELOW the
+        // UI — modals portal out of the shell and cover it naturally.
+        const parked =
+          !INVERTED && document.documentElement.dataset.nativeHidden === "1";
         const rect = parked ? PARKED : measure(el, fsRef.current);
-        const key = `${rect.x},${rect.y},${rect.w},${rect.h},${rect.radius}`;
+        // Window dims ride the key: the inverted hole's outer path needs
+        // them, so a resize that somehow keeps the slot rect still re-clips.
+        const key = `${rect.x},${rect.y},${rect.w},${rect.h},${rect.radius},${window.innerWidth}x${window.innerHeight}`;
         if (rect.w > 0 && rect.h > 0 && key !== last) {
           last = key;
           if (INVERTED) {
-            if (parked) healHole();
-            else if (shell) {
-              const r = el.getBoundingClientRect(); // hole is CSS px
-              shell.style.clipPath = holeClip(
-                r.left,
-                r.top,
-                r.left + r.width,
-                r.top + r.height,
-              );
+            // No parking here: modals portal OUT of the shell and paint
+            // above the hole, so the video keeps playing behind them —
+            // the point of the whole inversion.
+            const b = el.getBoundingClientRect(); // hole + chrome are CSS px
+            const next = {
+              l: b.left,
+              t: b.top,
+              r: b.left + b.width,
+              b: b.top + b.height,
+            };
+            const rad = fsRef.current ? 0 : RADIUS_CSS;
+            const W = window.innerWidth;
+            const H = window.innerHeight;
+            // Phase 1: clamp the hole to old∩new — the video covers that
+            // overlap at every moment of the move, so nothing can peek
+            // through while the native rect lands. Disjoint jump → the
+            // hole closes for a frame instead.
+            if (shell) {
+              const ix = hole
+                ? {
+                    l: Math.max(hole.l, next.l),
+                    t: Math.max(hole.t, next.t),
+                    r: Math.min(hole.r, next.r),
+                    b: Math.min(hole.b, next.b),
+                  }
+                : next;
+              shell.style.clipPath =
+                ix.r > ix.l && ix.b > ix.t
+                  ? holeClip(ix.l, ix.t, ix.r, ix.b, rad, W, H)
+                  : "";
             }
-            if (!opened) {
-              opened = true;
-              void tauriInvOpen(url, rect).catch(() => {});
-            } else {
-              void tauriInvSetRect(rect).catch(() => {});
-            }
+            const move = opened
+              ? tauriInvSetRect(rect)
+              : ((opened = true), tauriInvOpen(url, rect));
+            // Phase 2: once the native move has landed (plus a frame for
+            // its present), open the full hole and snap the chrome to it.
+            void move.catch(() => {}).then(() => {
+              window.clearTimeout(settleTimer);
+              settleTimer = window.setTimeout(() => {
+                hole = next;
+                if (shell)
+                  shell.style.clipPath = holeClip(
+                    next.l,
+                    next.t,
+                    next.r,
+                    next.b,
+                    rad,
+                    W,
+                    H,
+                  );
+                const chrome = document.getElementById("inv-chrome");
+                if (chrome) {
+                  chrome.style.left = `${next.l}px`;
+                  chrome.style.top = `${next.t}px`;
+                  chrome.style.width = `${next.r - next.l}px`;
+                  chrome.style.height = `${next.b - next.t}px`;
+                }
+              }, 16);
+            });
           } else if (!opened) {
             opened = true;
             void tauriCompTheater(url, metaRef.current, rect, 0).catch(
@@ -140,6 +214,7 @@ export function CompositionPlayer({
     }, OPEN_DEBOUNCE_MS);
     return () => {
       window.clearTimeout(openTimer);
+      window.clearTimeout(settleTimer);
       cancelAnimationFrame(raf);
       if (INVERTED) {
         healHole();

@@ -131,6 +131,31 @@ export function tauriMpvGoLive(): Promise<void> {
 export function tauriMpvTrack(kind: "audio" | "sub", id: string): Promise<void> {
   return invoke("mpv_track", { kind, id });
 }
+/** GPU frost on the whole picture (inverted path, modal open): DOM blur
+ * can't sample the native video, so mpv blurs itself via a user shader. */
+export function tauriMpvBlur(on: boolean): Promise<void> {
+  return invoke("mpv_blur", { on });
+}
+/** Region frost: GPU-blur ONLY the video rectangle under a modal card —
+ * live glass. Load/clear the shader once with `tauriMpvFrost`; move the
+ * rect with `tauriMpvFrostRect` (pure uniform update, UI-rate safe). */
+export function tauriMpvFrost(on: boolean): Promise<void> {
+  return invoke("mpv_frost", { on });
+}
+export function tauriMpvFrostRect(
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+): Promise<void> {
+  return invoke("mpv_frost_rect", { x0, y0, x1, y1 });
+}
+/** One tone-mapped frame of the playing video, as a PNG blob (raw-bytes
+ * IPC, same path as http_get). DORMANT — kept for future thumbnails. */
+export async function tauriMpvSnapshot(): Promise<Blob> {
+  const raw = await invoke<unknown>("mpv_snapshot");
+  return new Blob([raw as ArrayBuffer], { type: "image/png" });
+}
 
 /** One poll of the inverted player's status (replaces the overlay bridge's
  * loading/time/tracks pushes). `presenting` = mpv has put up a frame. */

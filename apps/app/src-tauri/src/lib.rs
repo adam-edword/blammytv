@@ -279,6 +279,128 @@ fn mpv_track(kind: String, id: String) {
     mpv::set_track(&kind, &id);
 }
 
+/// GPU frost for the whole picture while a modal covers the inverted
+/// player: DOM backdrop-filter can NEVER sample the native video (separate
+/// window), so we blur at the source — mpv runs a downsample+gaussian user
+/// shader while the modal is open. The shader ships in the binary and is
+/// written to a temp file on first use (mpv wants a path).
+const FROST_SHADER: &str = include_str!("frost.glsl");
+
+#[tauri::command]
+fn mpv_blur(on: bool) -> Result<(), String> {
+    if !on {
+        mpv::set_glsl_shaders("");
+        return Ok(());
+    }
+    let path = std::env::temp_dir().join("blammytv-frost.glsl");
+    std::fs::write(&path, FROST_SHADER).map_err(|e| e.to_string())?;
+    mpv::set_glsl_shaders(path.to_string_lossy().as_ref());
+    Ok(())
+}
+
+/// Region frost: blur ONLY the rectangle under a modal card, every frame,
+/// on the GPU — live glass over a still-playing picture. The rect lives in
+/// //!PARAM uniforms (video-normalized 0..1), so the shader loads ONCE and
+/// geometry changes are just `glsl-shader-opts` property sets — no file
+/// rewrites, no chain reloads, no hiccups. Defaults are a degenerate rect
+/// (x0>x1) = frost disabled until the frontend pushes a real one.
+/// Requires gpu-next for PARAM (default vo on Adam's mpv 0.41-dev).
+const FROST_REGION_SHADER: &str = r#"//!PARAM frost_x0
+//!TYPE float
+//!MINIMUM 0.0
+//!MAXIMUM 1.0
+1.0
+
+//!PARAM frost_y0
+//!TYPE float
+//!MINIMUM 0.0
+//!MAXIMUM 1.0
+1.0
+
+//!PARAM frost_x1
+//!TYPE float
+//!MINIMUM 0.0
+//!MAXIMUM 1.0
+0.0
+
+//!PARAM frost_y1
+//!TYPE float
+//!MINIMUM 0.0
+//!MAXIMUM 1.0
+0.0
+
+//!HOOK MAIN
+//!BIND HOOKED
+//!SAVE FROST
+//!WIDTH HOOKED.w 8 /
+//!HEIGHT HOOKED.h 8 /
+//!DESC frost region: low-res base
+vec4 hook() {
+    return HOOKED_texOff(vec2(0.0));
+}
+
+//!HOOK MAIN
+//!BIND HOOKED
+//!BIND FROST
+//!DESC frost region: composite
+vec4 hook() {
+    vec2 uv = HOOKED_pos;
+    if (uv.x < frost_x0 || uv.x > frost_x1 || uv.y < frost_y0 || uv.y > frost_y1)
+        return HOOKED_texOff(vec2(0.0));
+    vec2 px = FROST_pt;
+    vec4 c = vec4(0.0);
+    float wsum = 0.0;
+    for (int i = -2; i <= 2; i++) {
+        for (int j = -2; j <= 2; j++) {
+            float w = 1.0 / (1.0 + float(i * i + j * j));
+            c += FROST_tex(uv + vec2(float(i), float(j)) * px) * w;
+            wsum += w;
+        }
+    }
+    return c / wsum;
+}
+"#;
+
+#[tauri::command]
+fn mpv_frost(on: bool) -> Result<(), String> {
+    if !on {
+        mpv::set_glsl_shaders("");
+        return Ok(());
+    }
+    let path = std::env::temp_dir().join("blammytv-frost-region.glsl");
+    std::fs::write(&path, FROST_REGION_SHADER).map_err(|e| e.to_string())?;
+    mpv::set_glsl_shaders(path.to_string_lossy().as_ref());
+    // Ground truth for shader support: PARAM needs gpu-next.
+    println!(
+        "[mpv] frost on, vo={}",
+        mpv::get_property("current-vo").unwrap_or_else(|| "?".into())
+    );
+    Ok(())
+}
+
+// Move the frost rect (video-normalized). Pure uniform update — safe to
+// call at UI rates (resize drags, tab-switch reflows).
+#[tauri::command]
+fn mpv_frost_rect(x0: f64, y0: f64, x1: f64, y1: f64) {
+    mpv::set_shader_opts(&format!(
+        "frost_x0={x0:.4},frost_y0={y0:.4},frost_x1={x1:.4},frost_y1={y1:.4}"
+    ));
+}
+
+/// Frozen-frame glass (DORMANT — Adam requires the video visibly playing
+/// behind modals; kept for future channel thumbnails): one tone-mapped
+/// frame of the playing video as raw PNG bytes.
+#[tauri::command]
+fn mpv_snapshot() -> Result<tauri::ipc::Response, String> {
+    let path = std::env::temp_dir().join("blammytv-freeze.png");
+    if !mpv::screenshot_to_file(path.to_string_lossy().as_ref()) {
+        return Err("no frame to snapshot".into());
+    }
+    let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
+    let _ = std::fs::remove_file(&path);
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
 /// Player status snapshot for the inverted chrome's poll (replaces comp.rs's
 /// loader/time/tracks push threads): position/duration, whether mpv is
 /// actually presenting (core-idle == "no" ⇒ first frame has landed), and the
@@ -602,6 +724,10 @@ pub fn run() {
             mpv_go_live,
             mpv_track,
             mpv_status,
+            mpv_blur,
+            mpv_frost,
+            mpv_frost_rect,
+            mpv_snapshot,
             http_get,
             check_update,
             install_update
