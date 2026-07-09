@@ -56,28 +56,47 @@
   top: 22px;
   bottom: 22px;
   border-radius: 60px;
-  overflow: hidden;
+  /* No overflow:hidden here — it would clip the ::after glow. The
+   * rounding lives on the art/scrim layers instead. */
   background: var(--surface);
   cursor: pointer;
-  transition: box-shadow 550ms ease;
+  /* Own compositor layer: the rounded content rides the track's
+   * transform without re-rasterizing every frame. */
+  transform: translateZ(0);
 }
-.shero__card--active {
-  cursor: pointer;
-  /* The Figma glow: a soft white halo behind the active card. */
+.shero__card--active { cursor: pointer; }
+/* The Figma glow lives on a sibling-free pseudo BEHIND the card content,
+ * PRE-BAKED and faded via opacity only — animating box-shadow itself is
+ * a per-frame CPU repaint of a huge blur region, which dropped the whole
+ * slide's frame rate. overflow:hidden clips the pseudo, so the halo is
+ * painted by ::after on the card's border box edges via a spread shadow
+ * on an inset element… simplest robust form: an ::after covering the
+ * card with the shadow, opacity-toggled. */
+.shero__card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 60px;
   box-shadow:
     0 0 44px rgba(255, 255, 255, 0.32),
     0 0 140px rgba(255, 255, 255, 0.14);
+  opacity: 0;
+  transition: opacity 550ms ease;
+  pointer-events: none;
 }
+.shero__card--active::after { opacity: 1; }
 .shero__art {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: 60px; /* the card itself no longer clips (glow) */
 }
 .shero__scrim {
   position: absolute;
   inset: 0;
+  border-radius: 60px;
   background:
     linear-gradient(to top, rgba(0, 0, 0, 0.72), transparent 45%),
     linear-gradient(to right, rgba(0, 0, 0, 0.5), transparent 55%);

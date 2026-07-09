@@ -367,7 +367,10 @@ function Hero({
   const step = cardW + HERO_GAP;
   // Window of live slots around the current one: both neighbors visible,
   // one extra each side so a slide-in mounts before it enters the frame.
-  const slots = [v - 2, v - 1, v, v + 1, v + 2];
+  // One extra slot AHEAD of the window: the next-next card mounts and
+  // decodes ~8s before it ever enters the frame, so a slide never pays
+  // an image decode mid-animation.
+  const slots = [v - 2, v - 1, v, v + 1, v + 2, v + 3];
   return (
     <div
       className="shero"
@@ -405,6 +408,7 @@ function Hero({
                   className="shero__art"
                   src={item.backdrop ?? item.poster}
                   alt=""
+                  decoding="async"
                 />
               )}
               <div className="shero__scrim" aria-hidden />
