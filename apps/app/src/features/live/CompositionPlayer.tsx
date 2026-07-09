@@ -38,10 +38,30 @@ const PARKED: CompRect = { x: -8, y: -8, w: 2, h: 2, radius: 0 };
  * here also heals the hole, so a modal is fully opaque even mid-play. */
 const INVERTED = invertedPlayer();
 
-/** Full-viewport ring with a rectangular cutout at CSS-px rect (l,t,r,b). */
-const holeClip = (l: number, t: number, r: number, b: number) =>
-  `polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, ` +
-  `${l}px ${t}px, ${l}px ${b}px, ${r}px ${b}px, ${r}px ${t}px, ${l}px ${t}px)`;
+/** Full-viewport ring with a ROUNDED-rect cutout at CSS-px rect (l,t,r,b).
+ * clip-path path(): the outer rect winds clockwise and the inner rounded
+ * rect counter-clockwise, so the default nonzero fill-rule leaves a hole —
+ * no dependency on evenodd support. Coords are plain px; the outer rect
+ * needs the window size, so callers key on it too. */
+const holeClip = (
+  l: number,
+  t: number,
+  r: number,
+  b: number,
+  rad: number,
+  W: number,
+  H: number,
+) => {
+  const k = Math.min(rad, (r - l) / 2, (b - t) / 2);
+  const inner =
+    k > 0
+      ? `M${l + k} ${t}A${k} ${k} 0 0 0 ${l} ${t + k}L${l} ${b - k}` +
+        `A${k} ${k} 0 0 0 ${l + k} ${b}L${r - k} ${b}` +
+        `A${k} ${k} 0 0 0 ${r} ${b - k}L${r} ${t + k}` +
+        `A${k} ${k} 0 0 0 ${r - k} ${t}Z`
+      : `M${l} ${t}L${l} ${b}L${r} ${b}L${r} ${t}Z`;
+  return `path("M0 0H${W}V${H}H0Z ${inner}")`;
+};
 
 function measure(el: HTMLElement, squared: boolean): CompRect {
   const r = el.getBoundingClientRect();
@@ -112,7 +132,9 @@ export function CompositionPlayer({
         const parked =
           !INVERTED && document.documentElement.dataset.nativeHidden === "1";
         const rect = parked ? PARKED : measure(el, fsRef.current);
-        const key = `${rect.x},${rect.y},${rect.w},${rect.h},${rect.radius}`;
+        // Window dims ride the key: the inverted hole's outer path needs
+        // them, so a resize that somehow keeps the slot rect still re-clips.
+        const key = `${rect.x},${rect.y},${rect.w},${rect.h},${rect.radius},${window.innerWidth}x${window.innerHeight}`;
         if (rect.w > 0 && rect.h > 0 && key !== last) {
           last = key;
           if (INVERTED) {
@@ -126,6 +148,9 @@ export function CompositionPlayer({
               r: b.left + b.width,
               b: b.top + b.height,
             };
+            const rad = fsRef.current ? 0 : RADIUS_CSS;
+            const W = window.innerWidth;
+            const H = window.innerHeight;
             // Phase 1: clamp the hole to old∩new — the video covers that
             // overlap at every moment of the move, so nothing can peek
             // through while the native rect lands. Disjoint jump → the
@@ -141,7 +166,7 @@ export function CompositionPlayer({
                 : next;
               shell.style.clipPath =
                 ix.r > ix.l && ix.b > ix.t
-                  ? holeClip(ix.l, ix.t, ix.r, ix.b)
+                  ? holeClip(ix.l, ix.t, ix.r, ix.b, rad, W, H)
                   : "";
             }
             const move = opened
@@ -154,7 +179,15 @@ export function CompositionPlayer({
               settleTimer = window.setTimeout(() => {
                 hole = next;
                 if (shell)
-                  shell.style.clipPath = holeClip(next.l, next.t, next.r, next.b);
+                  shell.style.clipPath = holeClip(
+                    next.l,
+                    next.t,
+                    next.r,
+                    next.b,
+                    rad,
+                    W,
+                    H,
+                  );
                 const chrome = document.getElementById("inv-chrome");
                 if (chrome) {
                   chrome.style.left = `${next.l}px`;

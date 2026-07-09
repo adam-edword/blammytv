@@ -216,25 +216,18 @@
   position: absolute;
 }
 
-/* Rounded corners for the inline mini box: the clip hole is square, so
- * paint the four corner bites over the video in the surrounding app
- * background — the same radial-gradient trick as the theater's fake
- * corners. Keep --r in sync with .hero__preview's border-radius. */
-#inv-chrome .mini-overlay::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  --r: 12px;
-  background:
-    radial-gradient(var(--r) at bottom right, #0000 98%, var(--bg)) top left /
-      var(--r) var(--r) no-repeat,
-    radial-gradient(var(--r) at bottom left, #0000 98%, var(--bg)) top right /
-      var(--r) var(--r) no-repeat,
-    radial-gradient(var(--r) at top right, #0000 98%, var(--bg)) bottom left /
-      var(--r) var(--r) no-repeat,
-    radial-gradient(var(--r) at top left, #0000 98%, var(--bg)) bottom right /
-      var(--r) var(--r) no-repeat;
+/* While a modal covers the app (root carries data-native-hidden), the
+ * chrome host doubles as a dim scrim over the still-playing video — the
+ * native layer can't be blurred from the DOM, but a smooth darken reads
+ * as intentional modal focus. Host radius matches the rounded hole. */
+#inv-chrome {
+  border-radius: 12px;
+  background: transparent;
+  transition: background 0.25s ease;
+}
+
+:root[data-native-hidden] #inv-chrome {
+  background: rgba(0, 0, 0, 0.6);
 }
 
 /* Fake rounded video corners. The mpv child presents a flip-model swapchain

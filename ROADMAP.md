@@ -337,6 +337,22 @@ video all work. **A2 (v0.1.118) fixed Adam's three findings:**
 - **Mini corner radius:** the hole stays square; `#inv-chrome
   .mini-overlay::before` paints the four corner bites in var(--bg) — the
   theater fake-corner radial-gradient trick, applied to the inline mini.
+**A3 (v0.1.119, frontend-only):** Adam vetoed the whole-picture frost look
+and the painted corner bites read funky. New treatment:
+- **Modal-over-video = dim scrim** (the chrome host darkens to 60% with a
+  fade while `data-native-hidden` is set; video keeps playing). The
+  researched blur menu, for Adam's pick later: (1) scrim — SHIPPED; (2)
+  tuned shader (/4 + wider gaussian + desat — mpv_blur stays in the build,
+  dormant); (3) frozen-frame glass (screenshot → DOM blur under the card,
+  picture freezes); (4) region blur under the card via --glsl-shader-opts
+  (libmpv-version dependent); (5) long-term: mpv render API → video
+  becomes a DComp surface → native blur + fixes the fullscreen-brightness
+  quirk. DOM backdrop-filter over the native layer is impossible, full
+  stop.
+- **Corners are now REAL**: the hole itself is a rounded rect —
+  `clip-path: path()` with a clockwise outer rect + counter-clockwise
+  inner rounded rect, so the default nonzero fill rule cuts the hole (no
+  evenodd dependency). 12px in mini, 0 squared; corner-mask CSS deleted.
 Remaining before default-flip: popout reclaim polish, paused-icon reset on
 channel switch, then v0.2.0 deletion milestone (comp.rs overlay subsystem +
 WM_SETCURSOR/corner-clip/switch-gap items all die) with the fresh-eyes

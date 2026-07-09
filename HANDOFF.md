@@ -45,13 +45,16 @@ clean; glass over video is tint-only (status quo, not a regression). **A0
 landed (v0.1.116): the inverted player runs in the real app behind a dev
 flag — Ctrl+Shift+U flips old ↔ new and reloads.** A0+A1 verified on
 Windows (theater, fullscreen, inline chrome, Settings over live video).
-**A2 landed (v0.1.118, needs rebuild): mpv-side GPU frost while the modal
-is open (frost.glsl + mpv_blur — DOM blur can't sample the native layer),
-two-phase hole/video geometry sequencing + render-derived frame state
-(kills the t-transition glitch), and painted corner bites for the mini
-box.** NOTE: mpv.rs gained ONE additive fn (set_glsl_shaders) — the first
-do-not-touch exception, covered by Adam's rip authorization. ROADMAP
-"Layer inversion" has full mechanics + what remains before default-flip. The rip is Adam-
+**A2 (v0.1.118): two-phase hole/video geometry + render-derived frame
+state (killed the t-transition glitch); mpv frost shader landed but Adam
+VETOED the look — it's dormant (mpv_blur command kept; ROADMAP lists the
+blur options menu awaiting his pick). A3 (v0.1.119, frontend-only): modal
+dims the still-playing video via a scrim on the chrome host, and the hole
+itself is now a rounded rect (clip-path path(), nonzero-winding hole — no
+corner masks).** NOTE: mpv.rs gained ONE additive fn (set_glsl_shaders) —
+the first do-not-touch exception, covered by Adam's rip authorization.
+ROADMAP "Layer inversion" has full mechanics + what remains before
+default-flip. The rip is Adam-
 approved; comp.rs/mpv.rs still do-not-touch until the inverted path is
 default and the v0.2.0 deletion milestone formally starts. Main window is
 now transparent:true (tauri.conf) — if Adam reports flag-OFF visual
