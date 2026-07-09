@@ -365,15 +365,7 @@ function Hero({
   const m = heroMargin(width);
   const cardW = Math.max(0, width - 2 * m);
   const step = cardW + HERO_GAP;
-  const activeItem = items[((v % count) + count) % count];
-  // Glow crossfade without a dark gap: the PREVIOUS art stays mounted
-  // steady underneath while the new one fades in on top — the tint
-  // updates as the cards slide, never dropping to black between.
-  const activeArt = activeItem?.backdrop ?? activeItem?.poster;
-  const [glow, setGlow] = useState<{ prev?: string; curr?: string }>({});
-  useEffect(() => {
-    if (activeArt) setGlow((g) => ({ prev: g.curr, curr: activeArt }));
-  }, [activeArt]);
+
   // Window of live slots around the current one: both neighbors visible,
   // one extra each side so a slide-in mounts before it enters the frame.
   // One extra slot AHEAD of the window: the next-next card mounts and
@@ -389,28 +381,6 @@ function Hero({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {/* Ambient glow (the Android app's pattern): one absolute box parked
-        * behind the always-centered active slot — the card covers the
-        * middle, so only the halo shows. Filled with the active card's own
-        * art, hard-blurred: a static raster per slide change, no per-frame
-        * paint. Keyed img fades in on each change. */}
-      <div
-        className="shero__glow"
-        aria-hidden
-        style={{ left: m - 24, width: cardW + 48 }}
-      >
-        {glow.prev && glow.prev !== glow.curr && (
-          <img
-            className="shero__glow-under"
-            src={glow.prev}
-            alt=""
-            decoding="async"
-          />
-        )}
-        {glow.curr && (
-          <img key={glow.curr} src={glow.curr} alt="" decoding="async" />
-        )}
-      </div>
       <div
         className="shero__track"
         style={{ transform: `translateX(${m - v * step}px)` }}
@@ -435,12 +405,25 @@ function Hero({
               onClick={() => (active ? onOpen(item) : setV(slot))}
             >
               {(item.backdrop ?? item.poster) && (
-                <img
-                  className="shero__art"
-                  src={item.backdrop ?? item.poster}
-                  alt=""
-                  decoding="async"
-                />
+                <>
+                  {/* The card's own ambient light: its art, oversized and
+                    * hard-blurred, behind the card body. Lit only while
+                    * active (opacity transition) — sliding cards carry
+                    * their glow with them. */}
+                  <img
+                    className="shero__card-glow"
+                    src={item.backdrop ?? item.poster}
+                    alt=""
+                    aria-hidden
+                    decoding="async"
+                  />
+                  <img
+                    className="shero__art"
+                    src={item.backdrop ?? item.poster}
+                    alt=""
+                    decoding="async"
+                  />
+                </>
               )}
               <div className="shero__scrim" aria-hidden />
               <div className="shero__text">
