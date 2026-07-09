@@ -595,10 +595,12 @@
 }
 
 /* Portaled to <body> so it can overhang the settings card's scroll box;
- * positioned from the add button's rect (top/left set inline). */
+ * positioned from the add button's rect (top/left set inline). MUST sit
+ * above the settings backdrop (z 60): below it, the menu paints behind
+ * the card AND clicks land on the backdrop — which closes Settings. */
 .chip-select__menu {
   position: fixed;
-  z-index: 30;
+  z-index: 70;
   min-width: 300px;
   max-height: 280px;
   overflow-y: auto;

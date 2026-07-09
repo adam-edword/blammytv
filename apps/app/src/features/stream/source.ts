@@ -225,7 +225,11 @@ async function buildFeatured(
 ): Promise<string[]> {
   const pools = await Promise.all(
     sourceIds.map(async (cid) => {
-      const def = catalogs.find((c) => c.id === cid);
+      // Saved hero sources are `${type}/${id}` keys (Settings' picker);
+      // the default mix passes bare catalog ids. Accept both.
+      const def = catalogs.find(
+        (c) => `${c.type}/${c.id}` === cid || c.id === cid,
+      );
       if (!def) return [] as string[];
       try {
         const { metas = [] } = await fetchCatalog(

@@ -130,6 +130,13 @@ describe("stream source", () => {
     expect(data.error).not.toContain("SECRETCONFIG");
   });
 
+  it("accepts type/id-keyed hero sources (the Settings picker's format)", async () => {
+    heroSources = ["movie/top-movies"]; // key form, not bare id
+    const { loadVod } = await import("./source");
+    const data = await loadVod();
+    expect(data.featured.length).toBeGreaterThan(0);
+  });
+
   it("returns an empty, error-free surface when no manifest is configured", async () => {
     aioUrl = "";
     const { loadVod } = await import("./source");
