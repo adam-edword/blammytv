@@ -320,10 +320,17 @@ function Home({
   );
 }
 
-/** The Figma hero (133-721): a ~90vh card carousel — the active slide is a
- * full-bleed rounded card, its neighbors peek in from the edges. Bottom-left
- * text block (title, synopsis, meta line) + Watch Now / More Info glass
- * pills. Auto-advances every 8s; clicking a peeking card slides to it. */
+/** The Figma hero (133-721): a ~90vh sliding carousel. Every slide is a
+ * full card on one flex track; the active one is centered and its
+ * neighbors peek in from the window edges with a 30px gap. The track
+ * SLIDES (transform, 550ms) rather than fading. Title art: the addon's
+ * clearlogo when the item has one, text fallback otherwise. */
+const HERO_GAP = 30;
+function heroMargin(w: number): number {
+  // The side inset ≈ 15% of the window, clamped sane — the card is ~15%
+  // thinner than full-bleed and the neighbors fill the reveal.
+  return Math.min(320, Math.max(200, w * 0.15));
+}
 function Hero({
   items,
   onOpen,
@@ -334,7 +341,18 @@ function Hero({
   onWatchNow: (i: VodItem) => void;
 }) {
   const [index, setIndex] = useState(0);
+  const [width, setWidth] = useState(0);
+  const hostRef = useRef<HTMLDivElement | null>(null);
   const count = items.length;
+  useEffect(() => {
+    const el = hostRef.current;
+    if (!el) return;
+    const measure = () => setWidth(el.clientWidth);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   useEffect(() => {
     const id = window.setInterval(
       () => setIndex((i) => (i + 1) % count),
@@ -342,77 +360,84 @@ function Hero({
     );
     return () => window.clearInterval(id);
   }, [count]);
-  const at = (o: number) => items[(index + o + count) % count];
-  const item = at(0);
-  if (!item) return null;
+
+  const m = heroMargin(width);
+  const cardW = Math.max(0, width - 2 * m);
+  const offset = m - index * (cardW + HERO_GAP);
   return (
-    <div className="shero" role="region" aria-label="Featured">
-      {count > 1 && (
-        <button
-          type="button"
-          className="shero__peek shero__peek--prev"
-          aria-label="Previous"
-          onClick={() => setIndex((i) => (i - 1 + count) % count)}
-        >
-          {(at(-1).backdrop ?? at(-1).poster) && (
-            <img src={at(-1).backdrop ?? at(-1).poster} alt="" />
-          )}
-        </button>
-      )}
-      <div className="shero__card" key={item.id}>
-        {(item.backdrop ?? item.poster) && (
-          <img
-            className="shero__art"
-            src={item.backdrop ?? item.poster}
-            alt=""
-          />
-        )}
-        <div className="shero__scrim" aria-hidden />
-        <div className="shero__text">
-          <h2 className="shero__title">{item.title}</h2>
-          {item.synopsis && <p className="shero__synopsis">{item.synopsis}</p>}
-          <p className="shero__meta">
-            {[
-              item.year,
-              item.runtimeMin ? `${item.runtimeMin} min` : null,
-              item.kind === "series" ? "Series" : "Movie",
-            ]
-              .filter(Boolean)
-              .join("   ")}
-            {item.rating ? (
-              <span className="shero__rating"> ★ {item.rating.toFixed(1)}/10</span>
-            ) : null}
-          </p>
-          <div className="shero__actions">
-            <button
-              type="button"
-              className="shero__btn shero__btn--play"
-              onClick={() => onWatchNow(item)}
-            >
-              <span aria-hidden>|&gt;</span> Watch Now
-            </button>
-            <button
-              type="button"
-              className="shero__btn"
-              onClick={() => onOpen(item)}
-            >
-              <span aria-hidden>(i)</span> More Info
-            </button>
+    <div className="shero" ref={hostRef} role="region" aria-label="Featured">
+      <div
+        className="shero__track"
+        style={{ transform: `translateX(${offset}px)`, gap: HERO_GAP }}
+      >
+        {items.map((item, i) => (
+          <div
+            key={item.id}
+            className={
+              "shero__card" + (i === index ? " shero__card--active" : "")
+            }
+            style={{ width: cardW }}
+            onClick={() => i !== index && setIndex(i)}
+          >
+            {(item.backdrop ?? item.poster) && (
+              <img
+                className="shero__art"
+                src={item.backdrop ?? item.poster}
+                alt=""
+                loading={Math.abs(i - index) <= 1 ? "eager" : "lazy"}
+              />
+            )}
+            <div className="shero__scrim" aria-hidden />
+            <div className="shero__text">
+              {item.logo ? (
+                <img className="shero__logo" src={item.logo} alt={item.title} />
+              ) : (
+                <h2 className="shero__title">{item.title}</h2>
+              )}
+              {item.synopsis && (
+                <p className="shero__synopsis">{item.synopsis}</p>
+              )}
+              <p className="shero__meta">
+                {[
+                  item.year,
+                  item.runtimeMin ? `${item.runtimeMin} min` : null,
+                  item.kind === "series" ? "Series" : "Movie",
+                ]
+                  .filter(Boolean)
+                  .join("   ")}
+                {item.rating ? (
+                  <span className="shero__rating">
+                    {" "}
+                    ★ {item.rating.toFixed(1)}/10
+                  </span>
+                ) : null}
+              </p>
+              <div className="shero__actions">
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onWatchNow(item);
+                  }}
+                >
+                  Watch Now
+                </button>
+                <button
+                  type="button"
+                  className="shero__btn-quiet"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpen(item);
+                  }}
+                >
+                  More Info
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
+        ))}
       </div>
-      {count > 1 && (
-        <button
-          type="button"
-          className="shero__peek shero__peek--next"
-          aria-label="Next"
-          onClick={() => setIndex((i) => (i + 1) % count)}
-        >
-          {(at(1).backdrop ?? at(1).poster) && (
-            <img src={at(1).backdrop ?? at(1).poster} alt="" />
-          )}
-        </button>
-      )}
     </div>
   );
 }

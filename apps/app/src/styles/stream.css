@@ -26,29 +26,40 @@
 .stream__note p { color: var(--text-muted); }
 .stream__note--dim { color: var(--text-muted); }
 
-/* ---- featured hero (Figma 133-721): ~90vh card carousel, neighbors
- * peeking from the window edges, text + glass actions bottom-left. The
- * .stream container's padding is escaped with negative margins so the
- * peeks bleed to the window edge like the mock. */
+/* ---- featured hero (Figma 133-721): 90vh sliding track, 60px-radius
+ * cards, neighbors peeking with a 30px gap. Escapes .stream's padding so
+ * the peeks bleed to the window edges. Geometry (card width / offset) is
+ * measured + set inline by the component; the track only animates
+ * transform. ---- */
 .shero {
   position: relative;
-  height: min(90vh, 920px);
+  height: min(90vh, 940px);
   margin: 0 -28px;
-  display: grid;
-  grid-template-columns: 1fr;
+  overflow: hidden;
   flex-shrink: 0;
+}
+.shero__track {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: stretch;
+  transition: transform 550ms cubic-bezier(0.25, 0.8, 0.3, 1);
+  will-change: transform;
 }
 .shero__card {
   position: relative;
-  margin: 0 168px;
-  border-radius: 20px;
+  flex-shrink: 0;
+  height: 100%;
+  border-radius: 60px;
   overflow: hidden;
   background: var(--surface);
-  animation: shero-in 420ms ease;
+  cursor: pointer;
+  filter: brightness(0.45);
+  transition: filter 550ms ease;
 }
-@keyframes shero-in {
-  from { opacity: 0.4; }
-  to { opacity: 1; }
+.shero__card--active {
+  filter: none;
+  cursor: default;
 }
 .shero__art {
   position: absolute;
@@ -67,12 +78,19 @@
 .shero__text {
   position: absolute;
   left: 56px;
-  bottom: 56px;
-  max-width: 46ch;
+  bottom: 52px;
+  max-width: 52ch;
   display: flex;
   flex-direction: column;
   gap: 12px;
   color: #f2f2f4;
+}
+/* Clearlogo title art when the addon provides it; text is the fallback. */
+.shero__logo {
+  max-width: 420px;
+  max-height: 160px;
+  object-fit: contain;
+  object-position: left bottom;
 }
 .shero__title {
   font-family: var(--font-headline);
@@ -84,11 +102,11 @@
 }
 .shero__synopsis {
   font-size: 15px;
-  line-height: 1.45;
+  line-height: 1.5;
   color: rgba(242, 242, 244, 0.85);
-  max-width: 42ch;
+  max-width: 48ch;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 10;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -99,49 +117,20 @@
 }
 .shero__rating { color: #ffd166; }
 .shero__actions { display: flex; gap: 10px; margin-top: 6px; }
-.shero__btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+/* The neutral sibling of .btn-primary (ui.css) — identical metrics. */
+.shero__btn-quiet {
   font-family: var(--font-headline);
-  font-weight: 600;
-  font-size: 14px;
-  color: #f2f2f4;
-  padding: 10px 16px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  backdrop-filter: blur(8px);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text);
+  background: var(--surface-raised);
+  border: 0.5px solid var(--border-raised);
+  border-radius: 25px;
+  padding: 9px 14px;
   cursor: pointer;
-  transition: background 140ms ease;
+  transition: filter 150ms ease;
 }
-.shero__btn:hover { background: rgba(255, 255, 255, 0.22); }
-.shero__btn--play { background: rgba(255, 255, 255, 0.2); }
-.shero__btn span { opacity: 0.85; font-size: 13px; }
-
-/* The neighbors: full-height slivers hugging the window edges, dimmed
- * until hover. */
-.shero__peek {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 148px;
-  border-radius: 20px;
-  overflow: hidden;
-  background: var(--surface);
-  cursor: pointer;
-  filter: brightness(0.45);
-  transition: filter 160ms ease;
-  z-index: 1;
-}
-.shero__peek:hover { filter: brightness(0.75); }
-.shero__peek--prev { left: -128px; }
-.shero__peek--next { right: -128px; }
-.shero__peek img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
+.shero__btn-quiet:hover { filter: brightness(1.35); }
 
 /* ---- rows ---- */
 .stream__rows {
