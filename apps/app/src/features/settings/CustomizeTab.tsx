@@ -28,6 +28,7 @@ import {
   loadShowChannelNumber,
   saveShowChannelNumber,
 } from "./channelNumber";
+import { UpdatesSection } from "./UpdatesSection";
 import {
   applyCornerStyle,
   loadCornerStyle,
@@ -402,6 +403,8 @@ export function CustomizeTab() {
         </div>
 
       </section>
+
+      <UpdatesSection />
 
       <section className="settings-section">
         <div className="danger-zone">

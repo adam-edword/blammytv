@@ -17,6 +17,26 @@ themselves on next launch.
    Lose the private key and existing installs can't accept updates (they'd need a
    fresh manual install with a new key).
 
+## Hard-won rules (2026-07-09, the first rebuild release)
+
+- **One shell, one build, one upload.** The `TAURI_SIGNING_*` env vars die
+  with the PowerShell window; a rebuild without them produces an UNSIGNED
+  exe and errors only at the end. Never mix an exe and a `.sig` from
+  different builds — every build makes a new pair, and the updater
+  rejects a mismatched one (correctly).
+- **The 0.2.x tag namespace up to v0.2.4a is BURNED** by the pre-rebuild
+  app's releases. Never reuse an existing tag: GitHub attaches your
+  release to the old tag/commit, silently refuses same-name asset uploads
+  until the old asset is deleted, and the old releases' own latest.json
+  manifests make `releases/latest` ambiguous. The rebuild line continues
+  from v0.2.5.
+- **Always tick "Set as the latest release"** when publishing — it pins
+  what `releases/latest/download/latest.json` (the URL every installed
+  app polls) resolves to, deterministically.
+- Verification is cheap: the sig math can be checked against the uploaded
+  exe before shipping the manifest (blake2b-512 of the file, Ed25519
+  against tauri.conf's pubkey — the remote session does this on request).
+
 ## Per release
 
 0. **Refresh the bundled libmpv** (the installer ships
