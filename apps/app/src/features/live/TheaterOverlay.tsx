@@ -4,6 +4,7 @@ import { api, type TimeInfo, type Tracks } from "./overlayApi";
 import {
   loadOverlayMeta,
   onOverlayMetaChange,
+  overlayHeading,
   type OverlayMetaField,
 } from "../settings/overlayMeta";
 import { StatsOverlay } from "./StatsOverlay";
@@ -603,7 +604,7 @@ export function TheaterOverlay({
       <div className="theater-bar">
         {meta && (
           <div className="theater-bar__meta">
-            {meta.logo && (
+            {meta.logo && (!vod || overlayFields.includes("logo")) && (
               <img
                 className="theater-bar__logo"
                 src={meta.logo}
@@ -612,8 +613,8 @@ export function TheaterOverlay({
               />
             )}
             <div className="theater-bar__text">
-              {/* VOD: no channel line (the art IS the title) and the rest
-                * follows the Settings → Player Overlay toggles. */}
+              {/* VOD: no channel line (the art IS the title); the heading
+                * composes from the granular Player Overlay toggles. */}
               {!vod && (
                 <p className="theater-bar__chan">
                   <span className="theater-bar__name">{meta.channelName}</span>
@@ -622,9 +623,20 @@ export function TheaterOverlay({
                   )}
                 </p>
               )}
-              {meta.title && (!vod || overlayFields.includes("title")) && (
-                <h2 className="theater-bar__title">{meta.title}</h2>
-              )}
+              {vod
+                ? (() => {
+                    const heading = overlayHeading(
+                      overlayFields,
+                      meta.vod,
+                      meta.title,
+                    );
+                    return heading ? (
+                      <h2 className="theater-bar__title">{heading}</h2>
+                    ) : null;
+                  })()
+                : meta.title && (
+                    <h2 className="theater-bar__title">{meta.title}</h2>
+                  )}
               {meta.description &&
                 (!vod || overlayFields.includes("description")) && (
                   <p className="theater-bar__desc">{meta.description}</p>

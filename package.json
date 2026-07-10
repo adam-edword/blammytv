@@ -1,6 +1,6 @@
 {
   "name": "blammytv",
-  "version": "0.2.49",
+  "version": "0.2.50",
   "private": true,
   "description": "Self-contained desktop IPTV/VOD client (Xtream Codes + AIOStreams/debrid).",
   "packageManager": "pnpm@10.33.0",

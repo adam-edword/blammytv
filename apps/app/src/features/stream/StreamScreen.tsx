@@ -52,7 +52,14 @@ type View =
   | { at: "home" }
   | { at: "title"; item: VodItem }
   | { at: "episodes"; item: VodItem }
-  | { at: "sources"; item: VodItem; episodeId?: string; episodeLabel?: string };
+  | {
+      at: "sources";
+      item: VodItem;
+      episodeId?: string;
+      episodeLabel?: string;
+      /** Structured pieces for the overlay's granular meta toggles. */
+      episodeInfo?: { season: number; episode: number; title: string };
+    };
 
 type Load =
   | { status: "loading" }
@@ -69,11 +76,20 @@ export function StreamScreen() {
     url: string;
     item: VodItem;
     label?: string;
+    episodeInfo?: { season: number; episode: number; title: string };
     resumeAt?: number;
   } | null>(null);
   const [watching, setWatching] = useState<WatchEntry[]>(loadWatching);
   const setPlaying = useCallback(
-    (p: { url: string; item: VodItem; label?: string; episodeId?: string } | null) => {
+    (
+      p: {
+        url: string;
+        item: VodItem;
+        label?: string;
+        episodeId?: string;
+        episodeInfo?: { season: number; episode: number; title: string };
+      } | null,
+    ) => {
       if (!p) return setPlayingRaw(null);
       // Resume decision reads the entry BEFORE this play overwrites it —
       // same title (and, for series, same episode) picks up a few seconds
@@ -234,6 +250,7 @@ export function StreamScreen() {
         title: playing.label ?? playing.item.title,
         description: playing.item.synopsis,
         live: false,
+        vod: playing.episodeInfo,
       }
     : null;
   const directApi = useDirectOverlay(
@@ -347,8 +364,14 @@ export function StreamScreen() {
         <Episodes
           item={view.item}
           onBack={goBack}
-          onPick={(episodeId, episodeLabel) =>
-            navigate({ at: "sources", item: view.item, episodeId, episodeLabel })
+          onPick={(episodeId, episodeLabel, episodeInfo) =>
+            navigate({
+              at: "sources",
+              item: view.item,
+              episodeId,
+              episodeLabel,
+              episodeInfo,
+            })
           }
         />
       )}
@@ -363,6 +386,7 @@ export function StreamScreen() {
               url: s.streamUrl,
               item: view.item,
               label: view.episodeLabel,
+              episodeInfo: view.episodeInfo,
             })
           }
         />
@@ -960,7 +984,11 @@ function Episodes({
 }: {
   item: VodItem;
   onBack: () => void;
-  onPick: (episodeId: string, label: string) => void;
+  onPick: (
+    episodeId: string,
+    label: string,
+    info: { season: number; episode: number; title: string },
+  ) => void;
 }) {
   const [seasonIdx, setSeasonIdx] = useState(0);
   const season =
@@ -1010,7 +1038,11 @@ function Episodes({
                   type="button"
                   className="episode-card"
                   onClick={() =>
-                    onPick(e.id, `S${season.number} · E${e.number} — ${e.title}`)
+                    onPick(e.id, `S${season.number} · E${e.number} — ${e.title}`, {
+                      season: season.number,
+                      episode: e.number,
+                      title: e.title,
+                    })
                   }
                 >
                   {e.still && (
