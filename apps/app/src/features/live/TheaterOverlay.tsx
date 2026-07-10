@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isTauri, type TheaterMeta } from "../../lib/tauri";
 import { api, type TimeInfo, type Tracks } from "./overlayApi";
+import {
+  loadOverlayMeta,
+  onOverlayMetaChange,
+  type OverlayMetaField,
+} from "../settings/overlayMeta";
 import { StatsOverlay } from "./StatsOverlay";
 import {
   CcIcon,
@@ -137,6 +142,12 @@ export function TheaterOverlay({
     const off = api()?.onTracks?.(setTracks);
     return () => off?.();
   }, []);
+
+  // Which text the VOD meta block shows (Settings → Player Overlay).
+  const [overlayFields, setOverlayFields] = useState<OverlayMetaField[]>(
+    loadOverlayMeta,
+  );
+  useEffect(() => onOverlayMetaChange(setOverlayFields), []);
 
   // Playback clock — only VOD pushes one (live streams have no duration).
   const [time, setTime] = useState<TimeInfo | null>(
@@ -601,18 +612,23 @@ export function TheaterOverlay({
               />
             )}
             <div className="theater-bar__text">
-              <p className="theater-bar__chan">
-                <span className="theater-bar__name">{meta.channelName}</span>
-                {meta.sourceName && (
-                  <span className="theater-bar__source">{meta.sourceName}</span>
-                )}
-              </p>
-              {meta.title && (
+              {/* VOD: no channel line (the art IS the title) and the rest
+                * follows the Settings → Player Overlay toggles. */}
+              {!vod && (
+                <p className="theater-bar__chan">
+                  <span className="theater-bar__name">{meta.channelName}</span>
+                  {meta.sourceName && (
+                    <span className="theater-bar__source">{meta.sourceName}</span>
+                  )}
+                </p>
+              )}
+              {meta.title && (!vod || overlayFields.includes("title")) && (
                 <h2 className="theater-bar__title">{meta.title}</h2>
               )}
-              {meta.description && (
-                <p className="theater-bar__desc">{meta.description}</p>
-              )}
+              {meta.description &&
+                (!vod || overlayFields.includes("description")) && (
+                  <p className="theater-bar__desc">{meta.description}</p>
+                )}
             </div>
           </div>
         )}

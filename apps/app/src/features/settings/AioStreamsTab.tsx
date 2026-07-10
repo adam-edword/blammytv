@@ -15,6 +15,12 @@ import {
   saveCardMeta,
   type CardMetaField,
 } from "./cardMeta";
+import {
+  OVERLAY_META_FIELDS,
+  loadOverlayMeta,
+  saveOverlayMeta,
+  type OverlayMetaField,
+} from "./overlayMeta";
 
 type Catalogs =
   | { status: "idle" | "loading" }
@@ -162,6 +168,19 @@ export function AioStreamsTab() {
         metaFields.includes(key)
           ? metaFields.filter((k) => k !== key)
           : [...metaFields, key],
+      ),
+    );
+  };
+
+  // Player overlay text: what shows beside the title art during playback.
+  const [overlayFields, setOverlayFields] =
+    useState<OverlayMetaField[]>(loadOverlayMeta);
+  const toggleOverlay = (key: OverlayMetaField) => {
+    setOverlayFields(
+      saveOverlayMeta(
+        overlayFields.includes(key)
+          ? overlayFields.filter((k) => k !== key)
+          : [...overlayFields, key],
       ),
     );
   };
@@ -330,6 +349,28 @@ export function AioStreamsTab() {
                 className="meta-pick__chip"
                 aria-pressed={metaFields.includes(f.key)}
                 onClick={() => toggleMeta(f.key)}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {savedUrl && (
+        <section className="settings-section">
+          <h3 className="settings-section__list-title">Player Overlay</h3>
+          <p className="settings__section-note settings__section-note--dim">
+            What shows beside the title art while a movie or episode plays.
+          </p>
+          <div className="meta-pick" role="group" aria-label="Player overlay">
+            {OVERLAY_META_FIELDS.map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                className="meta-pick__chip"
+                aria-pressed={overlayFields.includes(f.key)}
+                onClick={() => toggleOverlay(f.key)}
               >
                 {f.label}
               </button>

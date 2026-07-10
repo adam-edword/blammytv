@@ -107,7 +107,7 @@
   background: #000;
 }
 .tune__vodlogo {
-  width: clamp(260px, 44vw, 640px);
+  width: clamp(260px, 40vw, 560px);
   max-height: 40vh;
   object-fit: contain;
   filter: drop-shadow(0 6px 28px rgba(0, 0, 0, 0.6));
