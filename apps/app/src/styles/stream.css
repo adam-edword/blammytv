@@ -703,10 +703,14 @@
    * while the wallpaper art loads (or when an item has none). */
   background: #000;
 }
-/* Backdrop wallpaper + detail-page-style radial scrim, under the text. */
+/* Backdrop wallpaper + detail-page-style radial scrim, under the text.
+ * z -1: positioned layers otherwise paint ABOVE the in-flow text (the
+ * card rendered as art-only). .upnext is a stacking context (fixed,
+ * z 50), so -1 stays above its black base but below the content. */
 .upnext__art {
   position: absolute;
   inset: 0;
+  z-index: -1;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -714,6 +718,7 @@
 .upnext__scrim {
   position: absolute;
   inset: 0;
+  z-index: -1;
   background: radial-gradient(
     ellipse at center,
     rgba(0, 0, 0, 0.55),
