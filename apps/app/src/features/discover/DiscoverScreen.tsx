@@ -10,6 +10,7 @@ import { requestOpenInStream } from "../stream/openRequest";
 import type { VodItem } from "../stream/model";
 import {
   fetchDiscoverPage,
+  genreArtTitle,
   genreArtwork,
   gridCatalogs,
   interleave,
@@ -135,6 +136,13 @@ export function DiscoverScreen() {
           seenRef.current.add(i.id);
           return true;
         });
+        // The genre card's own title leads its grid: what the wallpaper
+        // promised is the first thing the click delivers.
+        if (reset && genre) {
+          const pin = genreArtTitle(genre);
+          const at = pin ? merged.findIndex((i) => i.id === pin) : -1;
+          if (at > 0) merged.unshift(...merged.splice(at, 1));
+        }
         setItems((prev) => (reset ? merged : [...prev, ...merged]));
         const exhausted = pages.every(({ page }) => page.length === 0);
         setPhase(exhausted ? "done" : "idle");

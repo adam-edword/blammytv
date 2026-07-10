@@ -184,13 +184,16 @@ export function interleave<T>(...lists: T[][]): T[] {
  * before.
  */
 const ART_KEY = "discoverArt";
-const ART_VERSION = 5; // v5: options-less genre extras join the pool
-// (v4 art was dealt with most of the manifest silently benched)
+const ART_VERSION = 6; // v6: remember WHICH title was dealt (the grid
+// pins it first); v5 entries lack the id
 const ART_ID_CAP = 600;
 const ART_TTL_MS = 50 * 3600_000;
 interface ArtMemo {
   byId: Record<string, string>;
-  lastByGenre: Record<string, { url: string; at: number; n: number }>;
+  lastByGenre: Record<
+    string,
+    { url: string; at: number; n: number; id: string }
+  >;
 }
 let artMem: ArtMemo | null = null;
 
@@ -208,8 +211,15 @@ function rememberArt(id: string, genre: string, url: string, n: number): void {
   const keys = Object.keys(m.byId);
   // Cheap cap: drop oldest-inserted keys (object key order) past the cap.
   for (let i = 0; i < keys.length - ART_ID_CAP; i++) delete m.byId[keys[i]];
-  m.lastByGenre[genre.toLowerCase()] = { url, at: Date.now(), n };
+  m.lastByGenre[genre.toLowerCase()] = { url, at: Date.now(), n, id };
   save(ART_KEY, ART_VERSION, m);
+}
+
+/** The title whose backdrop the genre card is wearing right now — the
+ * grid pins it to the front so the card's promise is the first thing
+ * the click delivers. */
+export function genreArtTitle(genre: string): string | null {
+  return artMemo().lastByGenre[genre.toLowerCase()]?.id ?? null;
 }
 
 /** djb2 — stable per-genre stagger for the catalog rotation. */
