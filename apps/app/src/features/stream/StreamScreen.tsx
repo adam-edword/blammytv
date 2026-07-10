@@ -788,7 +788,17 @@ export function StreamScreen() {
           !playing.popped &&
           chromeHostRef.current &&
           createPortal(
-            <div className="vod-panel" data-interactive>
+            <>
+              {/* Click-away backdrop: marked data-interactive so the
+                * overlay's click-to-pause skips it (TheaterOverlay only
+                * pauses on clicks OUTSIDE [data-interactive]) — a click
+                * off the panel closes the panel, nothing else. */}
+              <div
+                className="vod-panel__backdrop"
+                data-interactive
+                onClick={() => setPanelOpen(false)}
+              />
+              <div className="vod-panel" data-interactive>
               <div className="vod-panel__head">
                 <h3>Sources</h3>
                 <button
@@ -832,7 +842,8 @@ export function StreamScreen() {
                     </button>
                   ))}
               </div>
-            </div>,
+              </div>
+            </>,
             chromeHostRef.current,
           )}
         {/* PORTALED like the player chrome: the app shell has the video
@@ -844,6 +855,19 @@ export function StreamScreen() {
           chromeHostRef.current &&
           createPortal(
             <div className="upnext" data-interactive>
+              {/* Wallpaper behind the card: at EOF mpv idles and its gray
+                * fill showed through the hole (or, raced, a frozen last
+                * frame). The detail page's backdrop art makes it
+                * deterministic and worth looking at. */}
+              {(upNext.item.backdrop ?? upNext.item.poster) && (
+                <img
+                  className="upnext__art"
+                  src={upNext.item.backdrop ?? upNext.item.poster}
+                  alt=""
+                  aria-hidden
+                />
+              )}
+              <div className="upnext__scrim" aria-hidden />
               <p className="upnext__eyebrow">Up next</p>
               <h2 className="upnext__title">
                 S{upNext.season.number} · E{upNext.episode.number} —{" "}

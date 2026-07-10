@@ -699,7 +699,26 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
-  background: rgba(0, 0, 0, 0.78);
+  /* Opaque base: mpv's gray idle fill must never peek through the hole
+   * while the wallpaper art loads (or when an item has none). */
+  background: #000;
+}
+/* Backdrop wallpaper + detail-page-style radial scrim, under the text. */
+.upnext__art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.upnext__scrim {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(0, 0, 0, 0.55),
+    rgba(0, 0, 0, 0.85)
+  );
 }
 .upnext__eyebrow {
   font-family: var(--font-headline);
@@ -791,6 +810,16 @@
 
 /* In-playback source panel: slides in from the right over the video
  * (which keeps playing). Lives in the chrome portal, above the hole. */
+
+/* Invisible click-away layer under the panel: a click anywhere off the
+ * panel closes it instead of reaching the overlay (which would pause). */
+.vod-panel__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  background: transparent;
+}
+
 .vod-panel {
   position: fixed;
   top: 16px;
