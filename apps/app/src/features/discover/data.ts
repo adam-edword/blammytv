@@ -154,7 +154,7 @@ export function interleave<T>(...lists: T[][]): T[] {
  * before.
  */
 const ART_KEY = "discoverArt";
-const ART_VERSION = 2; // v2: genre-feed sourced; v1 sampled browse items
+const ART_VERSION = 3; // v3: any-catalog sourced (v2 art was dealt first-catalog-only)
 const ART_ID_CAP = 600;
 const ART_TTL_MS = 50 * 3600_000;
 interface ArtMemo {
