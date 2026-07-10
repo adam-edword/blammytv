@@ -16,6 +16,14 @@ pub fn emit_ui(event: &str) {
     }
 }
 
+/// Like emit_ui but carrying a number (popout-closed's final position).
+pub fn emit_ui_pos(event: &str, pos: f64) {
+    if let Some(app) = APP.get() {
+        use tauri::Emitter;
+        let _ = app.emit(event, pos);
+    }
+}
+
 // Current popout playback position (seconds) — used to reclaim it in-app.
 #[tauri::command]
 fn popout_pos() -> f64 {

@@ -689,5 +689,36 @@
 }
 
 /* ---- fullscreen VOD stage ---- */
+/* PiP mode: the stage stays fullscreen and black; the art idles dim with
+ * a hint. ✕ (top right, same spot as the player's) exits to the catalog
+ * while the pop-out keeps playing. */
+.vod-pip {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+}
+.vod-pip__logo {
+  width: clamp(220px, 30vw, 420px);
+  max-height: 32vh;
+  object-fit: contain;
+  opacity: 0.45;
+}
+.vod-pip__hint {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 15px;
+  color: rgba(242, 242, 244, 0.55);
+}
+.vod-pip__close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+}
+
 .vod-stage { position: fixed; inset: 0; }
 .vod-stage__slot { position: absolute; inset: 0; }

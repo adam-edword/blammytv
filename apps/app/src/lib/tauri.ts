@@ -153,21 +153,20 @@ export async function tauriMpvStats(): Promise<MpvStats> {
   return JSON.parse(await invoke<string>("mpv_stats")) as MpvStats;
 }
 
-/** Subscribe to a native→JS player event; returns an unsubscribe fn. */
-function onUiEvent(event: string, cb: () => void): () => void {
-  const un = listen(event, () => cb());
-  return () => void un.then((f) => f());
-}
-
 /** OS-window fullscreen (hides the title bar so the player fills the monitor). */
 export function tauriSetFullscreen(on: boolean): Promise<void> {
   return getCurrentWindow().setFullscreen(on);
 }
 
 /** The floating PiP window was closed by the user (✕ / taskbar / q) — the app
- * should bring the stream back into the in-app player. */
-export function onPopoutClosed(cb: () => void): () => void {
-  return onUiEvent("popout-closed", cb);
+ * should bring the stream back into the in-app player. The payload is the
+ * popout's final position in seconds (VOD resume); undefined when the
+ * quitting mpv core couldn't report one. */
+export function onPopoutClosed(cb: (pos?: number) => void): () => void {
+  const un = listen<unknown>("popout-closed", (e) =>
+    cb(typeof e.payload === "number" && e.payload > 0 ? e.payload : undefined),
+  );
+  return () => void un.then((f) => f());
 }
 
 /** Ask GitHub Releases (via tauri-plugin-updater) whether a newer signed

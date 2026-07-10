@@ -6,7 +6,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { ChevronIcon, PlayIcon } from "../../ui/icons";
+import { ChevronIcon, CloseIcon, PlayIcon } from "../../ui/icons";
 import { createPortal } from "react-dom";
 import { isTauri, tauriSetFullscreen } from "../../lib/tauri";
 import { setOverlayApiOverride } from "../live/overlayApi";
@@ -36,7 +36,11 @@ import {
   updateWatchingProgress,
   type WatchEntry,
 } from "./watching";
-import { tauriMpvStatus, tauriPopoutOpen } from "../../lib/tauri";
+import {
+  onPopoutClosed,
+  tauriMpvStatus,
+  tauriPopoutOpen,
+} from "../../lib/tauri";
 
 /**
  * The Stream tab: AIOStreams-powered movies + series. A featured hero, then
@@ -78,6 +82,8 @@ export function StreamScreen() {
     label?: string;
     episodeInfo?: { season: number; episode: number; title: string };
     resumeAt?: number;
+    /** Playing in the PiP window: the stage stays (black), video doesn't. */
+    popped?: boolean;
   } | null>(null);
   const [watching, setWatching] = useState<WatchEntry[]>(loadWatching);
   const setPlaying = useCallback(
@@ -254,7 +260,7 @@ export function StreamScreen() {
       }
     : null;
   const directApi = useDirectOverlay(
-    isTauri() && !!playing,
+    isTauri() && !!playing && !playing.popped,
     playing?.url ?? null,
     playMeta,
     {
@@ -263,17 +269,18 @@ export function StreamScreen() {
       onCollapse: stop, // t / collapse = leave playback back to the catalog
       onFullscreen: () => {},
       onExitFullscreen: stop,
-      // Same sequence Live uses: heal the shell's clip hole BEFORE Rust
-      // tears the video child down (losing that race flashes the desktop
-      // through the still-cut hole), then popout_open captures time-pos
-      // natively so the PiP resumes exactly there. Back in the catalog,
-      // Continue Watching picks up within the 5s progress tick.
+      // Same open sequence Live uses: heal the shell's clip hole BEFORE
+      // Rust tears the video child down (losing that race flashes the
+      // desktop through the still-cut hole), then popout_open captures
+      // time-pos natively so the PiP resumes exactly there. The app STAYS
+      // on the fullscreen stage, black, until the PiP closes — then
+      // playback returns in-app at the popout's final position.
       onPopout: () => {
         if (!playing) return;
         const shell = document.querySelector<HTMLElement>(".app-shell");
         if (shell) shell.style.clipPath = "";
         void tauriPopoutOpen(playing.url).catch(() => {});
-        stop();
+        setPlayingRaw({ ...playing, popped: true });
       },
       onToggleFavorite: () => {},
     },
@@ -285,7 +292,7 @@ export function StreamScreen() {
   const resumedRef = useRef(false);
   useEffect(() => {
     resumedRef.current = false;
-    if (!playing?.resumeAt || !isTauri()) return;
+    if (!playing?.resumeAt || playing.popped || !isTauri()) return;
     const at = playing.resumeAt;
     const fire = () => {
       if (resumedRef.current) return;
@@ -296,12 +303,38 @@ export function StreamScreen() {
     return directApi.onLoading((l) => {
       if (!l) fire();
     });
-  }, [playing?.url, playing?.resumeAt, directApi]);
+    // popped in the deps: returning from the PiP remounts playback and
+    // must re-arm the one-shot seek.
+  }, [playing?.url, playing?.resumeAt, playing?.popped, directApi]);
+
+  // PiP closed → bring playback back in-app, resuming where the popout
+  // got to (its final position rides the event; the watch entry catches
+  // up too). Ignored unless we're actually in popped state.
+  const playingRef = useRef(playing);
+  playingRef.current = playing;
+  useEffect(() => {
+    if (!isTauri()) return;
+    return onPopoutClosed((pos) => {
+      const p = playingRef.current;
+      if (!p?.popped) return;
+      if (pos) setWatching(updateWatchingProgress(p.item.id, pos));
+      // No position from the quitting core → fall back to the watch
+      // entry (ticked up to the pop moment), then to the original resume.
+      const fallback = pos
+        ? undefined
+        : resumePoint(loadWatching().find((e) => e.id === p.item.id));
+      setPlayingRaw({
+        ...p,
+        popped: false,
+        resumeAt: pos ? Math.max(0, pos - 1) : (fallback ?? p.resumeAt),
+      });
+    });
+  }, []);
 
   // Progress tick: every 5s while playing, mirror pos/dur into the watch
   // entry — powers resume and the Continue Watching progress bar.
   useEffect(() => {
-    if (!playing || !isTauri()) return;
+    if (!playing || playing.popped || !isTauri()) return;
     const itemId = playing.item.id;
     const id = window.setInterval(() => {
       tauriMpvStatus()
@@ -335,12 +368,36 @@ export function StreamScreen() {
     return (
       <div className="vod-stage">
         <div id="player-slot" className="vod-stage__slot" />
-        <InvertedPlayer url={playing.url} squared />
-        {chromeHostRef.current &&
+        {!playing.popped && <InvertedPlayer url={playing.url} squared />}
+        {!playing.popped &&
+          chromeHostRef.current &&
           createPortal(
             <TheaterOverlay frame="fullscreen" playbackKey={playing.url} />,
             chromeHostRef.current,
           )}
+        {playing.popped && (
+          <div className="vod-pip">
+            {(playing.item.logo ?? playing.item.poster) && (
+              <img
+                className="vod-pip__logo"
+                src={playing.item.logo ?? playing.item.poster}
+                alt=""
+                aria-hidden
+              />
+            )}
+            <p className="vod-pip__hint">
+              Playing in the pop-out — close it to continue here.
+            </p>
+            <button
+              type="button"
+              className="player__btn player__btn--glass vod-pip__close"
+              aria-label="Back to catalog"
+              onClick={stop}
+            >
+              <CloseIcon size={20} />
+            </button>
+          </div>
+        )}
       </div>
     );
   }

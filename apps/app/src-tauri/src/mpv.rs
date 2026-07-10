@@ -130,7 +130,10 @@ pub fn play_popout(url: &str, start: f64) -> Result<(), String> {
             let (ck, cv) = (CString::new(k).unwrap(), CString::new(v).unwrap());
             (l.set_option_string)(h, ck.as_ptr(), cv.as_ptr());
         };
-        set("force-window", "yes");
+        // "immediate": the PiP window appears BEFORE the stream opens —
+        // debrid URLs can take seconds to probe, and "yes" kept the window
+        // invisible until first frame (read as a 5-10s dead click).
+        set("force-window", "immediate");
         // Float above the app at a sensible size, else it opens behind BlammyTV.
         set("ontop", "yes");
         set("autofit", "50%");
@@ -185,12 +188,27 @@ pub fn play_popout(url: &str, start: f64) -> Result<(), String> {
             let taken = if ours { g.take() } else { None };
             drop(g);
             if let Some(p) = taken {
+                // Best-effort final position BEFORE destroy — the handle is
+                // still valid post-SHUTDOWN; a quitting core may return
+                // nothing, and 0.0 tells the frontend "no reading".
+                let name = CString::new("time-pos").unwrap();
+                let ptr = (l.get_property_string)(p.0, name.as_ptr());
+                let pos = if ptr.is_null() {
+                    0.0
+                } else {
+                    let s = std::ffi::CStr::from_ptr(ptr)
+                        .to_string_lossy()
+                        .into_owned();
+                    (l.free)(ptr as *mut c_void);
+                    s.parse::<f64>().unwrap_or(0.0)
+                };
                 (l.terminate_destroy)(p.0);
                 // The user closed the popout window (we still owned it) → tell
-                // React to bring the in-app player back. A programmatic
-                // stop_popout() takes ownership first, so `taken` is None there
-                // and we stay silent (the button drives the reclaim itself).
-                crate::emit_ui("popout-closed");
+                // React to bring the in-app player back, with where it got to.
+                // A programmatic stop_popout() takes ownership first, so
+                // `taken` is None there and we stay silent (the button drives
+                // the reclaim itself).
+                crate::emit_ui_pos("popout-closed", pos);
             }
         });
     }
