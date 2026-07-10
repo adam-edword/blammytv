@@ -525,6 +525,21 @@
   transform: translate(-50%, -50%);
 }
 
+/* VOD variant: the rail is a real scrubber. The ::before fattens the hit
+ * area without changing the 5px visual. */
+.theater-seek__track--vod {
+  cursor: pointer;
+  touch-action: none;
+}
+.theater-seek__track--vod::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -9px;
+  bottom: -9px;
+}
+
 .theater-seek__labels {
   display: flex;
   justify-content: space-between;

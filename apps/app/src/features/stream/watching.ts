@@ -22,6 +22,10 @@ export interface WatchEntry {
    * (absent on entries recorded before they existed). */
   genre?: string;
   kind?: "movie" | "series";
+  /** Last playback position/duration in seconds (the 5s progress tick).
+   * Powers resume-from-position and the card's progress bar. */
+  posSec?: number;
+  durSec?: number;
   at: number;
 }
 
@@ -47,4 +51,34 @@ export function clearWatching(id: string): WatchEntry[] {
   const list = loadWatching().filter((e) => e.id !== id);
   save(KEY, VERSION, list);
   return list;
+}
+
+/** Periodic position tick for whatever's playing — updates in place,
+ * no reorder (the entry is already front from recordWatching). */
+export function updateWatchingProgress(
+  id: string,
+  posSec: number,
+  durSec?: number,
+): WatchEntry[] {
+  const list = loadWatching().map((e) =>
+    e.id === id
+      ? { ...e, posSec, ...(durSec ? { durSec } : {}) }
+      : e,
+  );
+  save(KEY, VERSION, list);
+  return list;
+}
+
+/** Where to resume this entry, or undefined for start-from-zero: needs a
+ * meaningful position (>60s in), not effectively finished (<95% when the
+ * duration is known), and — for series — the SAME episode. Rewinds a few
+ * seconds so the cut lands before where you left off. */
+export function resumePoint(
+  e: WatchEntry | undefined,
+  episodeId?: string,
+): number | undefined {
+  if (!e?.posSec || e.posSec < 60) return undefined;
+  if (episodeId && e.episodeId !== episodeId) return undefined;
+  if (e.durSec && e.posSec > e.durSec * 0.95) return undefined;
+  return Math.max(0, e.posSec - 3);
 }

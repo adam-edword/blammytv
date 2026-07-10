@@ -74,6 +74,10 @@ export function tauriMpvVolume(vol: number): Promise<void> {
 export function tauriMpvSeek(delta: number): Promise<void> {
   return invoke("mpv_seek", { delta });
 }
+/** Absolute seek (seconds) — the VOD scrubber. */
+export function tauriMpvSeekAbs(pos: number): Promise<void> {
+  return invoke("mpv_seek_abs", { pos });
+}
 export function tauriMpvGoLive(): Promise<void> {
   return invoke("mpv_go_live");
 }

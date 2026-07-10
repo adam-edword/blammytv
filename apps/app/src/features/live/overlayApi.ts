@@ -22,12 +22,20 @@ export interface Tracks {
   subs: TrackEntry[];
 }
 
+/** Playback clock for the VOD scrubber (null for live streams — mpv has
+ * no meaningful duration there). */
+export interface TimeInfo {
+  pos: number;
+  dur: number;
+}
+
 export interface OverlayApi {
   close: () => void;
   setPause: (paused: boolean) => void;
   setMute: (muted: boolean) => void;
   setVolume: (vol: number) => void; // 0..100 (mpv scale)
   seek: (delta: number) => void;
+  seekAbs?: (pos: number) => void; // absolute seconds (VOD scrubber)
   expand?: () => void; // mini → theater
   collapse?: () => void; // theater → mini
   fullscreen?: () => void; // theater → fullscreen
@@ -45,6 +53,8 @@ export interface OverlayApi {
   selectSub?: (id: number | string) => void; // mpv sid ("no" = off)
   getTracks?: () => Tracks | null; // SYNCHRONOUS (like getLoading)
   onTracks?: (cb: (tracks: Tracks | null) => void) => () => void;
+  getTime?: () => TimeInfo | null; // SYNCHRONOUS (like getLoading)
+  onTime?: (cb: (t: TimeInfo | null) => void) => () => void;
 }
 
 declare global {

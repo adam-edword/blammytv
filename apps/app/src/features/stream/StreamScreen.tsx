@@ -32,8 +32,11 @@ import {
   clearWatching,
   loadWatching,
   recordWatching,
+  resumePoint,
+  updateWatchingProgress,
   type WatchEntry,
 } from "./watching";
+import { tauriMpvStatus } from "../../lib/tauri";
 
 /**
  * The Stream tab: AIOStreams-powered movies + series. A featured hero, then
@@ -66,27 +69,37 @@ export function StreamScreen() {
     url: string;
     item: VodItem;
     label?: string;
+    resumeAt?: number;
   } | null>(null);
   const [watching, setWatching] = useState<WatchEntry[]>(loadWatching);
   const setPlaying = useCallback(
     (p: { url: string; item: VodItem; label?: string; episodeId?: string } | null) => {
-      setPlayingRaw(p);
-      if (p)
-        setWatching(
-          recordWatching({
-            id: p.item.id,
-            episodeId: p.episodeId,
-            title: p.item.title,
-            label: p.label,
-            art: p.item.backdrop ?? p.item.poster,
-            rating: p.item.rating,
-            year: p.item.year,
-            runtimeMin: p.item.runtimeMin,
-            genre: p.item.genres[0],
-            kind: p.item.kind,
-            at: Date.now(),
-          }),
-        );
+      if (!p) return setPlayingRaw(null);
+      // Resume decision reads the entry BEFORE this play overwrites it —
+      // same title (and, for series, same episode) picks up a few seconds
+      // before where it left off.
+      const prev = loadWatching().find((e) => e.id === p.item.id);
+      const resumeAt = resumePoint(prev, p.episodeId);
+      const sameEp = !p.episodeId || prev?.episodeId === p.episodeId;
+      setPlayingRaw({ ...p, resumeAt });
+      setWatching(
+        recordWatching({
+          id: p.item.id,
+          episodeId: p.episodeId,
+          title: p.item.title,
+          label: p.label,
+          art: p.item.backdrop ?? p.item.poster,
+          rating: p.item.rating,
+          year: p.item.year,
+          runtimeMin: p.item.runtimeMin,
+          genre: p.item.genres[0],
+          kind: p.item.kind,
+          // Same episode/title keeps its progress; switching episodes resets.
+          ...(sameEp && prev?.posSec ? { posSec: prev.posSec } : {}),
+          ...(sameEp && prev?.durSec ? { durSec: prev.durSec } : {}),
+          at: Date.now(),
+        }),
+      );
     },
     [],
   );
@@ -238,6 +251,42 @@ export function StreamScreen() {
     },
   );
   if (isTauri() && playing) setOverlayApiOverride(directApi);
+
+  // Resume-from-position: one absolute seek on the first presented frame
+  // (seeking before the file loads is a no-op mpv-side).
+  const resumedRef = useRef(false);
+  useEffect(() => {
+    resumedRef.current = false;
+    if (!playing?.resumeAt || !isTauri()) return;
+    const at = playing.resumeAt;
+    const fire = () => {
+      if (resumedRef.current) return;
+      resumedRef.current = true;
+      directApi.seekAbs?.(at);
+    };
+    if (!directApi.getLoading()) fire();
+    return directApi.onLoading((l) => {
+      if (!l) fire();
+    });
+  }, [playing?.url, playing?.resumeAt, directApi]);
+
+  // Progress tick: every 5s while playing, mirror pos/dur into the watch
+  // entry — powers resume and the Continue Watching progress bar.
+  useEffect(() => {
+    if (!playing || !isTauri()) return;
+    const itemId = playing.item.id;
+    const id = window.setInterval(() => {
+      tauriMpvStatus()
+        .then((st) => {
+          if (st.pos != null && st.pos > 0)
+            setWatching(
+              updateWatchingProgress(itemId, st.pos, st.dur ?? undefined),
+            );
+        })
+        .catch(() => {});
+    }, 5000);
+    return () => window.clearInterval(id);
+  }, [playing]);
   const chromeHostRef = useRef<HTMLDivElement | null>(null);
   if (isTauri() && !chromeHostRef.current) {
     const host = document.createElement("div");
@@ -770,11 +819,22 @@ function ContinueCard({
         if (!held.current) onOpen();
       }}
     >
-      {entry.art ? (
-        <img className="continue-card__art" src={entry.art} alt="" loading="lazy" />
-      ) : (
-        <span className="continue-card__art continue-card__art--empty" />
-      )}
+      <span className="continue-card__artwrap">
+        {entry.art ? (
+          <img className="continue-card__art" src={entry.art} alt="" loading="lazy" />
+        ) : (
+          <span className="continue-card__art continue-card__art--empty" />
+        )}
+        {entry.posSec && entry.durSec ? (
+          <span className="continue-card__progress" aria-hidden>
+            <span
+              style={{
+                width: `${Math.min(100, (entry.posSec / entry.durSec) * 100)}%`,
+              }}
+            />
+          </span>
+        ) : null}
+      </span>
       <span className="continue-card__hold" aria-hidden>
         Keep holding to clear
       </span>

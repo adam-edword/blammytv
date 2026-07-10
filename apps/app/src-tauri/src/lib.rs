@@ -162,6 +162,12 @@ fn mpv_seek(delta: f64) {
     mpv::seek(delta);
 }
 
+/// Absolute seek in seconds — the VOD scrubber's verb.
+#[tauri::command]
+fn mpv_seek_abs(pos: f64) {
+    mpv::seek_abs(pos);
+}
+
 #[tauri::command]
 fn mpv_go_live() {
     mpv::reload_live();
@@ -605,6 +611,7 @@ pub fn run() {
             mpv_mute,
             mpv_volume,
             mpv_seek,
+            mpv_seek_abs,
             mpv_go_live,
             mpv_track,
             mpv_status,

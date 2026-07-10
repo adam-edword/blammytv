@@ -4,12 +4,13 @@ import {
   tauriMpvMute,
   tauriMpvPause,
   tauriMpvSeek,
+  tauriMpvSeekAbs,
   tauriMpvStatus,
   tauriMpvTrack,
   tauriMpvVolume,
   type TheaterMeta,
 } from "../../lib/tauri";
-import type { OverlayApi, Tracks } from "./overlayApi";
+import type { OverlayApi, TimeInfo, Tracks } from "./overlayApi";
 
 /** The window verbs (expand/collapse/fullscreen/…) — plain callbacks into
  * LiveScreen's state. Read through a ref at call time, so the returned api
@@ -50,9 +51,11 @@ export function useDirectOverlay(
     loading: true,
     tracks: null as Tracks | null,
     tracksJson: "",
+    time: null as TimeInfo | null,
     metaCbs: new Set<(m: TheaterMeta | null) => void>(),
     loadingCbs: new Set<(l: boolean) => void>(),
     tracksCbs: new Set<(t: Tracks | null) => void>(),
+    timeCbs: new Set<(t: TimeInfo | null) => void>(),
   }).current;
 
   // Meta pushes (open, channel switch, programme rollover).
@@ -67,7 +70,9 @@ export function useDirectOverlay(
     s.loading = true;
     s.tracks = null;
     s.tracksJson = "";
+    s.time = null;
     s.loadingCbs.forEach((cb) => cb(true));
+    s.timeCbs.forEach((cb) => cb(null));
     const id = window.setInterval(() => {
       tauriMpvStatus()
         .then((st) => {
@@ -86,6 +91,12 @@ export function useDirectOverlay(
             s.tracksJson = tj;
             s.tracks = { audio: st.audio, subs: st.subs };
             s.tracksCbs.forEach((cb) => cb(s.tracks));
+          }
+          // The playback clock, for the VOD scrubber. Live streams have no
+          // usable duration — the overlay only renders it when dur > 0.
+          if (st.pos != null && st.dur != null && st.dur > 0) {
+            s.time = { pos: st.pos, dur: st.dur };
+            s.timeCbs.forEach((cb) => cb(s.time));
           }
         })
         .catch(() => {});
@@ -108,6 +119,7 @@ export function useDirectOverlay(
       setMute: (m) => void tauriMpvMute(m).catch(() => {}),
       setVolume: (v) => void tauriMpvVolume(v).catch(() => {}),
       seek: (d) => void tauriMpvSeek(d).catch(() => {}),
+      seekAbs: (p) => void tauriMpvSeekAbs(p).catch(() => {}),
       selectAudio: (id) =>
         void tauriMpvTrack("audio", String(id)).catch(() => {}),
       selectSub: (id) => void tauriMpvTrack("sub", String(id)).catch(() => {}),
@@ -129,6 +141,8 @@ export function useDirectOverlay(
       onKey: () => () => {}, // the overlay's own document listener covers keys
       getTracks: () => s.tracks,
       onTracks: sub(s.tracksCbs),
+      getTime: () => s.time,
+      onTime: sub(s.timeCbs),
     };
   }, [s]);
 }

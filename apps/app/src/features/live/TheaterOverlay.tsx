@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isTauri, type TheaterMeta } from "../../lib/tauri";
-import { api, type Tracks } from "./overlayApi";
+import { api, type TimeInfo, type Tracks } from "./overlayApi";
 import { StatsOverlay } from "./StatsOverlay";
 import {
   CcIcon,
@@ -47,6 +47,15 @@ const isMini = () => window.innerHeight < 450;
  * (the webview IS the player box); rendered inline (inverted player) the
  * window is the whole app, so LiveScreen passes the state it owns. */
 export type OverlayFrame = "mini" | "theater" | "fullscreen";
+
+/** "1:23" / "12:34" / "1:02:07" — hours only when they exist. */
+function fmtClock(s: number): string {
+  const t = Math.max(0, Math.floor(s));
+  const h = Math.floor(t / 3600);
+  const m = Math.floor((t % 3600) / 60);
+  const sec = String(t % 60).padStart(2, "0");
+  return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${sec}` : `${m}:${sec}`;
+}
 
 export function TheaterOverlay({
   frame,
@@ -127,6 +136,24 @@ export function TheaterOverlay({
   useEffect(() => {
     const off = api()?.onTracks?.(setTracks);
     return () => off?.();
+  }, []);
+
+  // Playback clock — only VOD pushes one (live streams have no duration).
+  const [time, setTime] = useState<TimeInfo | null>(
+    () => api()?.getTime?.() ?? null,
+  );
+  useEffect(() => {
+    const off = api()?.onTime?.(setTime);
+    return () => off?.();
+  }, []);
+  // Scrub-in-progress fraction (0..1); null = not scrubbing. While held,
+  // the bar follows the pointer and the poll's updates don't fight it.
+  const [scrub, setScrub] = useState<number | null>(null);
+  const seekTrackRef = useRef<HTMLDivElement | null>(null);
+  const scrubFrac = useCallback((clientX: number) => {
+    const r = seekTrackRef.current?.getBoundingClientRect();
+    if (!r || r.width === 0) return 0;
+    return Math.min(1, Math.max(0, (clientX - r.left) / r.width));
   }, []);
 
   /* Tune watchdog. `loading` flips false exactly once, on mpv's FIRST FRAME
@@ -327,9 +354,14 @@ export function TheaterOverlay({
   }, []);
 
   // Seek mpv + walk the live-edge indicator (≈0.8%/sec, so ±10s ≈ ±8%).
+  // For VOD, also bump the clock optimistically — the poll trues it up
+  // within 500ms, but the bar shouldn't lag the keypress.
   const doSeek = useCallback((delta: number) => {
     api()?.seek(delta);
     setLivePct((p) => Math.min(100, Math.max(0, p + delta * 0.8)));
+    setTime((t) =>
+      t ? { ...t, pos: Math.min(t.dur, Math.max(0, t.pos + delta)) } : t,
+    );
   }, []);
 
   // Jump to the live edge. A forward seek can't reach it (mpv never pulled the
@@ -344,6 +376,16 @@ export function TheaterOverlay({
   // dims. The only way to fall behind in this UI is the seek controls, so the
   // indicator is an honest read of "are we live" without polling mpv.
   const atLive = livePct >= 99;
+
+  // VOD (Stream tab sets live:false): the seek row is a real scrubber and
+  // the LIVE affordances disappear.
+  const vod = meta?.live === false;
+  const vodPct =
+    scrub !== null
+      ? scrub * 100
+      : time && time.dur > 0
+        ? Math.min(100, (time.pos / time.dur) * 100)
+        : 0;
 
   const toggleFullscreen = useCallback(() => {
     if (fsNow()) api()?.exitFullscreen?.();
@@ -576,20 +618,66 @@ export function TheaterOverlay({
         )}
 
         <div className="theater-seek" data-interactive>
-          <div className="theater-seek__track">
-            <div
-              className="theater-seek__fill"
-              style={{ width: `${livePct}%` }}
-            />
-            <span
-              className="theater-seek__knob"
-              style={{ left: `${livePct}%` }}
-            />
-          </div>
-          <div className="theater-seek__labels">
-            <span>{meta?.startLabel ?? ""}</span>
-            <span className="theater-seek__live">LIVE</span>
-          </div>
+          {vod ? (
+            <>
+              <div
+                className="theater-seek__track theater-seek__track--vod"
+                ref={seekTrackRef}
+                onPointerDown={(e) => {
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                  setScrub(scrubFrac(e.clientX));
+                }}
+                onPointerMove={(e) => {
+                  if (scrub !== null) setScrub(scrubFrac(e.clientX));
+                }}
+                onPointerUp={(e) => {
+                  if (scrub === null) return;
+                  const f = scrubFrac(e.clientX);
+                  setScrub(null);
+                  if (time && time.dur > 0) {
+                    api()?.seekAbs?.(f * time.dur);
+                    // Optimistic: the poll trues it up within 500ms.
+                    setTime({ pos: f * time.dur, dur: time.dur });
+                  }
+                }}
+                onPointerCancel={() => setScrub(null)}
+              >
+                <div
+                  className="theater-seek__fill"
+                  style={{ width: `${vodPct}%` }}
+                />
+                <span
+                  className="theater-seek__knob"
+                  style={{ left: `${vodPct}%` }}
+                />
+              </div>
+              <div className="theater-seek__labels">
+                <span>
+                  {time
+                    ? fmtClock(scrub !== null ? scrub * time.dur : time.pos)
+                    : "0:00"}
+                </span>
+                <span>{time ? fmtClock(time.dur) : "–:––"}</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="theater-seek__track">
+                <div
+                  className="theater-seek__fill"
+                  style={{ width: `${livePct}%` }}
+                />
+                <span
+                  className="theater-seek__knob"
+                  style={{ left: `${livePct}%` }}
+                />
+              </div>
+              <div className="theater-seek__labels">
+                <span>{meta?.startLabel ?? ""}</span>
+                <span className="theater-seek__live">LIVE</span>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="theater-controls" data-interactive>
@@ -618,15 +706,17 @@ export function TheaterOverlay({
             >
               <SkipFwdIcon size={24} />
             </button>
-            <button
-              type="button"
-              className={"theater-live" + (atLive ? " is-live" : "")}
-              aria-label="Jump to live"
-              onClick={goLive}
-            >
-              <span className="theater-live__dot" />
-              LIVE
-            </button>
+            {!vod && (
+              <button
+                type="button"
+                className={"theater-live" + (atLive ? " is-live" : "")}
+                aria-label="Jump to live"
+                onClick={goLive}
+              >
+                <span className="theater-live__dot" />
+                LIVE
+              </button>
+            )}
           </div>
 
           <div className="theater-controls__group">
