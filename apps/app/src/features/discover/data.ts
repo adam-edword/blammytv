@@ -128,16 +128,16 @@ export function interleave<T>(a: T[], b: T[]): T[] {
  * hero/cached items, so the rail can't inherit the hero sources' taste
  * (the all-anime-rail bug).
  *
- * Each genre's pick is CACHED for a day (Adam: fewer requests beats
+ * Each genre's pick is CACHED for 50 hours (Adam: fewer requests beats
  * per-visit churn) — repeat visits inside the window cost zero network,
- * and the daily redeal crossfades in as the rail's motion. `byId`
+ * and the redeal crossfades in as the rail's motion. `byId`
  * additionally skips /meta refetches when a redeal draws a title seen
  * before.
  */
 const ART_KEY = "discoverArt";
 const ART_VERSION = 2; // v2: genre-feed sourced; v1 sampled browse items
 const ART_ID_CAP = 600;
-const ART_TTL_MS = 24 * 3600_000;
+const ART_TTL_MS = 50 * 3600_000;
 interface ArtMemo {
   byId: Record<string, string>;
   lastByGenre: Record<string, { url: string; at: number }>;
