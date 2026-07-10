@@ -7,6 +7,7 @@ import {
   type CatalogDef,
 } from "../../data/stremio";
 import { loadAioUrl, loadHeroSources } from "../settings/aiostreams";
+import { load as loadStored, save as saveStored } from "../../lib/storage";
 import { mapStreams, metaPreviewToVod, metaToVod } from "./mapper";
 import type { StreamRow, StreamSource, VodData, VodItem } from "./model";
 
@@ -23,7 +24,9 @@ const ITEMS_PER_ROW = 40;
 const FEATURED_TOTAL = 9;
 const DEFAULT_SOURCE_ROWS = 3; // rows the default hero mix draws from
 
-/** Session cache, keyed by the config that shaped it. In-memory only. */
+/** Session cache, keyed by the config that shaped it, mirrored to disk so
+ * a fresh launch paints the last catalog instantly (stale-while-revalidate:
+ * peekVod serves any age for display; loadVod refetches past the TTL). */
 const CACHE_TTL_MS = 30 * 60_000;
 let cache: { key: string; at: number; data: VodData } | null = null;
 let inflight: { key: string; promise: Promise<VodData> } | null = null;
@@ -31,13 +34,63 @@ let inflight: { key: string; promise: Promise<VodData> } | null = null;
 const configKey = () =>
   JSON.stringify([loadAioUrl(), loadHeroSources()]);
 
-/** The cached catalog if still current — a remounting Stream screen
- * renders in its first frame. */
+/** Hero picks enrich in the background after the rows resolve — subscribe
+ * to repaint as backdrops/synopses land. */
+type VodUpdateListener = (data: VodData) => void;
+const updateListeners = new Set<VodUpdateListener>();
+export function onVodUpdate(cb: VodUpdateListener): () => void {
+  updateListeners.add(cb);
+  return () => updateListeners.delete(cb);
+}
+function notifyUpdate(data: VodData) {
+  for (const cb of updateListeners) cb(data);
+}
+
+const DISK_KEY = "vodCache";
+const DISK_VERSION = 1;
+interface DiskVod {
+  key: string;
+  at: number;
+  items: VodItem[];
+  rows: StreamRow[];
+  featured: string[];
+}
+function diskLoad(key: string): { at: number; data: VodData } | null {
+  const d = loadStored<DiskVod | null>(DISK_KEY, DISK_VERSION, null);
+  if (!d || d.key !== key || !Array.isArray(d.items)) return null;
+  return {
+    at: d.at,
+    data: {
+      items: new Map(d.items.map((i) => [i.id, i])),
+      rows: d.rows,
+      featured: d.featured,
+    },
+  };
+}
+function diskSave(key: string, at: number, data: VodData): void {
+  if (data.error || data.items.size === 0) return;
+  saveStored<DiskVod>(DISK_KEY, DISK_VERSION, {
+    key,
+    at,
+    items: [...data.items.values()],
+    rows: data.rows,
+    featured: data.featured,
+  });
+}
+
+/** The last built catalog for the current config, ANY age — display it
+ * immediately; loadVod refreshes (and repaints) if it's past the TTL. */
 export function peekVod(): VodData | null {
   const key = configKey();
-  return cache && cache.key === key && Date.now() - cache.at < CACHE_TTL_MS
-    ? cache.data
-    : null;
+  if (cache && cache.key === key) return cache.data;
+  const disk = diskLoad(key);
+  if (disk) {
+    // Hydrate the memory slot with the original timestamp so loadVod's
+    // TTL check decides honestly whether a refresh is due.
+    cache = { key, at: disk.at, data: disk.data };
+    return disk.data;
+  }
+  return null;
 }
 
 export async function loadVod(force = false): Promise<VodData> {
@@ -53,7 +106,11 @@ export async function loadVod(force = false): Promise<VodData> {
   try {
     const data = await record.promise;
     // Only successful, non-empty builds are worth pinning for the TTL.
-    if (!data.error && data.items.size > 0) cache = { key, at: Date.now(), data };
+    if (!data.error && data.items.size > 0) {
+      const at = Date.now();
+      cache = { key, at, data };
+      diskSave(key, at, data);
+    }
     return data;
   } finally {
     if (inflight === record) inflight = null;
@@ -98,6 +155,9 @@ export async function buildVod(
 
   const items = new Map<string, VodItem>();
   const rows: StreamRow[] = [];
+  // Row fetches double as hero pools (both key forms) — buildFeatured must
+  // never re-fetch a catalog this wave already has.
+  const rowPools = new Map<string, string[]>();
   for (const { cat, items: rowItems } of fetched) {
     if (rowItems.length === 0) continue;
     const itemIds: string[] = [];
@@ -106,25 +166,47 @@ export async function buildVod(
       itemIds.push(item.id);
     }
     rows.push({ id: `aio:${cat.id}`, title: label(cat), layout: "poster", itemIds });
+    rowPools.set(`${cat.type}/${cat.id}`, itemIds);
+    rowPools.set(cat.id, itemIds);
   }
 
   const sourceIds = heroSources.length ? heroSources : defaultHero(rows);
-  const featured = await buildFeatured(manifestUrl, manifest.catalogs, sourceIds, items);
+  const featured = await buildFeatured(
+    manifestUrl,
+    manifest.catalogs,
+    sourceIds,
+    items,
+    rowPools,
+  );
 
-  // Enrich the hero picks up-front (backdrop + synopsis); best-effort each.
+  // Rows paint NOW; the hero picks enrich (backdrop + synopsis) in the
+  // background, notifying subscribers as each lands.
+  const data: VodData = { items, rows, featured };
+  void enrichFeatured(manifestUrl, data);
+  return data;
+}
+
+/** Best-effort full-meta fetch for each hero pick, mutating the shared
+ * items map in place. Notifies only while the build is still current —
+ * a config change mid-flight must not repaint the new UI with old data. */
+async function enrichFeatured(manifestUrl: string, data: VodData): Promise<void> {
+  const buildKey = configKey();
   await Promise.all(
-    featured.map(async (id) => {
-      const kind = items.get(id)?.kind ?? "movie";
+    data.featured.map(async (id) => {
+      const kind = data.items.get(id)?.kind ?? "movie";
       try {
         const { meta } = await fetchMeta(manifestUrl, kind, id);
-        if (meta) items.set(id, metaToVod(meta));
+        if (!meta) return;
+        data.items.set(id, metaToVod(meta));
+        if (configKey() === buildKey) notifyUpdate(data);
       } catch (err) {
         console.warn(`[stream] hero enrich failed: ${msg(err)}`);
       }
     }),
   );
-
-  return { items, rows, featured };
+  // Re-mirror to disk so a relaunch peeks the enriched hero, not previews.
+  if (configKey() === buildKey && cache?.key === buildKey)
+    diskSave(buildKey, cache.at, data);
 }
 
 /** Full detail for one title (synopsis, cast, seasons for series), with the
@@ -222,9 +304,14 @@ async function buildFeatured(
   catalogs: CatalogDef[],
   sourceIds: string[],
   items: Map<string, VodItem>,
+  rowPools: Map<string, string[]>,
 ): Promise<string[]> {
   const pools = await Promise.all(
     sourceIds.map(async (cid) => {
+      // Browseable sources were fetched for the rows this same build —
+      // reuse that pool instead of a duplicate round trip.
+      const pooled = rowPools.get(cid);
+      if (pooled) return [...pooled];
       // Saved hero sources are `${type}/${id}` keys (Settings' picker);
       // the default mix passes bare catalog ids. Accept both.
       const def = catalogs.find(

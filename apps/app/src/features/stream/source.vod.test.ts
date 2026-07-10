@@ -81,7 +81,17 @@ beforeEach(() => {
 
 describe("stream source", () => {
   it("builds rows from browseable catalogs; broken one isolates; search-only excluded", async () => {
-    const { loadVod } = await import("./source");
+    const { loadVod, onVodUpdate } = await import("./source");
+    // Subscribe BEFORE loading: enrichment runs in the background and can
+    // finish between microtasks with mocked fetches.
+    const enriched = new Promise<void>((resolve) => {
+      const off = onVodUpdate((d) => {
+        if (d.featured.some((id) => d.items.get(id)?.backdrop === "http://h/bg.png")) {
+          off();
+          resolve();
+        }
+      });
+    });
     const data = await loadVod();
     expect(data.error).toBeUndefined();
     expect(data.rows.map((r) => r.title)).toEqual(["Top Movies", "Top Series"]);
@@ -89,10 +99,43 @@ describe("stream source", () => {
     // membership, not the preview title).
     expect(data.rows[0].itemIds).toContain("tt1");
     expect(data.rows[0].itemIds).toContain("tt2");
-    // Hero picks were meta-enriched up-front.
+    // Featured ids are ready immediately; full meta lands via the update
+    // event (background enrichment — rows never wait on it).
     expect(data.featured.length).toBeGreaterThan(0);
-    const enriched = data.featured.map((id) => data.items.get(id)!);
-    expect(enriched.some((v) => v.backdrop === "http://h/bg.png")).toBe(true);
+    await enriched;
+    const heroes = data.featured.map((id) => data.items.get(id)!);
+    expect(heroes.some((v) => v.backdrop === "http://h/bg.png")).toBe(true);
+  });
+
+  it("reuses row fetches as hero pools — no duplicate catalog round trip", async () => {
+    const { loadVod } = await import("./source");
+    await loadVod();
+    const topMovieFetches = httpGetJson.mock.calls
+      .map((c) => String(c[0]))
+      .filter((u) => u.includes("/catalog/movie/top-movies.json"));
+    expect(topMovieFetches).toHaveLength(1);
+  });
+
+  it("persists the build and peeks it back after a fresh start", async () => {
+    const store = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+      removeItem: (k: string) => void store.delete(k),
+    });
+    try {
+      const first = await import("./source");
+      await first.loadVod();
+      expect(store.size).toBeGreaterThan(0);
+      // A new module instance = a fresh launch: memory cache empty, the
+      // disk mirror serves the first paint.
+      vi.resetModules();
+      const second = await import("./source");
+      const peeked = second.peekVod();
+      expect(peeked?.rows.map((r) => r.title)).toEqual(["Top Movies", "Top Series"]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("falls back to Cinemeta for sparse metas and merges the gaps", async () => {

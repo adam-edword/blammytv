@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type ReactNode,
@@ -13,7 +14,13 @@ import { InvertedPlayer } from "../live/InvertedPlayer";
 import { TheaterOverlay } from "../live/TheaterOverlay";
 import { useDirectOverlay } from "../live/useDirectOverlay";
 import type { StreamSource, VodData, VodItem } from "./model";
-import { loadVod, peekVod, resolveVodItem, resolveVodSources } from "./source";
+import {
+  loadVod,
+  onVodUpdate,
+  peekVod,
+  resolveVodItem,
+  resolveVodSources,
+} from "./source";
 import { loadAioUrl } from "../settings/aiostreams";
 import {
   cardMetaLine,
@@ -84,22 +91,37 @@ export function StreamScreen() {
     [],
   );
 
+  // Hero picks enrich after the rows land — repaint as each arrives (the
+  // shared items map is already mutated; a fresh outer object re-renders).
+  useEffect(
+    () =>
+      onVodUpdate((data) => setLoad({ status: "ready", data: { ...data } })),
+    [],
+  );
   useEffect(() => {
     let stale = false;
     loadVod().then(
       (data) =>
         !stale &&
-        setLoad(
+        setLoad((prev) =>
           data.error
-            ? { status: "error", message: data.error }
+            ? // A failed refresh never replaces a catalog we're already
+              // showing (the stale-while-revalidate peek) with an error.
+              prev.status === "ready"
+              ? prev
+              : { status: "error", message: data.error }
             : { status: "ready", data },
         ),
       (e) =>
         !stale &&
-        setLoad({
-          status: "error",
-          message: e instanceof Error ? e.message : String(e),
-        }),
+        setLoad((prev) =>
+          prev.status === "ready"
+            ? prev
+            : {
+                status: "error",
+                message: e instanceof Error ? e.message : String(e),
+              },
+        ),
     );
     return () => {
       stale = true;
@@ -487,7 +509,8 @@ function Hero({
   const [hovered, setHovered] = useState(false);
   const hostRef = useRef<HTMLDivElement | null>(null);
   const count = items.length;
-  useEffect(() => {
+  // Layout effect: measured BEFORE first paint, so no width-0 frame exists.
+  useLayoutEffect(() => {
     const el = hostRef.current;
     if (!el) return;
     const measure = () => setWidth(el.clientWidth);
@@ -496,6 +519,23 @@ function Hero({
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+  // Track transitions stay OFF until a frame has painted at the measured
+  // geometry — otherwise entering the tab animates the 650ms slide from
+  // the width-0 layout ("the slider moves in a bit"). Same guard snaps
+  // (not glides) the tracks on window resizes.
+  const [animReady, setAnimReady] = useState(false);
+  const lastW = useRef(width);
+  if (lastW.current !== width) {
+    lastW.current = width;
+    if (animReady) setAnimReady(false);
+  }
+  useEffect(() => {
+    if (animReady || width === 0) return;
+    const id = requestAnimationFrame(() =>
+      requestAnimationFrame(() => setAnimReady(true)),
+    );
+    return () => cancelAnimationFrame(id);
+  }, [animReady, width]);
   useEffect(() => {
     if (hovered || count < 2) return;
     const id = window.setInterval(() => setV((x) => x + 1), 8000);
@@ -534,7 +574,10 @@ function Hero({
       >
         <div
           className="shero__glowtrack"
-          style={{ transform: `translateX(${210 - v * step}px)` }}
+          style={{
+            transform: `translateX(${210 - v * step}px)`,
+            transition: animReady ? undefined : "none",
+          }}
         >
           {slots.map((slot) => {
             const item = items[((slot % count) + count) % count];
@@ -554,7 +597,10 @@ function Hero({
       </div>
       <div
         className="shero__track"
-        style={{ transform: `translateX(${m - v * step}px)` }}
+        style={{
+          transform: `translateX(${m - v * step}px)`,
+          transition: animReady ? undefined : "none",
+        }}
       >
         {slots.map((slot) => {
           const item = items[((slot % count) + count) % count];
