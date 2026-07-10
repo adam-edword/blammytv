@@ -34,7 +34,7 @@ export interface TheaterMeta {
   /** VOD episode identity, structured — the overlay's granular meta
    * toggles (S-number / E-number / episode title) compose their own line
    * from these instead of a pre-baked label. Absent for movies. */
-  vod?: { season?: number; episode?: number; title?: string };
+  vod?: { season?: number; episode?: number; title?: string; hasNext?: boolean };
   /** Airing programme's start label + progress (0–100) for the LIVE bar.
    * Frozen at open time (meta is pushed once), refreshed on channel change. */
   startLabel?: string;

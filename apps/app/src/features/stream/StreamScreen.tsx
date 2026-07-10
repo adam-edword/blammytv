@@ -139,6 +139,7 @@ export function StreamScreen() {
           title: p.item.title,
           label: p.label,
           art: p.item.backdrop ?? p.item.poster,
+          logo: p.item.logo,
           rating: p.item.rating,
           year: p.item.year,
           runtimeMin: p.item.runtimeMin,
@@ -305,49 +306,53 @@ export function StreamScreen() {
     season: Season;
     episode: Episode;
   } | null>(null);
+  // Shared by Up Next, the overlay's next-episode button, and any future
+  // episode jump: resolve cached-first and play, else land on sources.
+  const playEpisode = useCallback(
+    async (item: VodItem, season: Season, episode: Episode) => {
+      setResolving({ art: item.logo ?? item.poster, title: item.title });
+      const label = `S${season.number} · E${episode.number} — ${episode.title}`;
+      const info = {
+        season: season.number,
+        episode: episode.number,
+        title: episode.title,
+      };
+      try {
+        const sources = await resolveVodSources("series", episode.id);
+        const idx = Math.max(0, sources.findIndex((s) => s.cached));
+        const pick = sources[idx];
+        if (pick) {
+          setPlaying({
+            url: pick.streamUrl,
+            item,
+            label,
+            episodeId: episode.id,
+            episodeInfo: info,
+            queue: sources.filter((_, i) => i !== idx),
+          });
+          return;
+        }
+      } catch {
+        /* fall through to the source screen */
+      }
+      setPlaying(null);
+      if (isTauri()) void tauriSetFullscreen(false).catch(() => {});
+      navigate({
+        at: "sources",
+        item,
+        episodeId: episode.id,
+        episodeLabel: label,
+        episodeInfo: info,
+      });
+    },
+    [setPlaying, navigate],
+  );
   const playUpNext = useCallback(async () => {
     const un = upNextRef.current;
     if (!un) return;
     setUpNext(null);
-    const { item, season, episode } = un;
-    setResolving({ art: item.logo ?? item.poster, title: item.title });
-    try {
-      const sources = await resolveVodSources("series", episode.id);
-      const idx = Math.max(0, sources.findIndex((s) => s.cached));
-      const pick = sources[idx];
-      if (pick) {
-        setPlaying({
-          url: pick.streamUrl,
-          item,
-          label: `S${season.number} · E${episode.number} — ${episode.title}`,
-          episodeId: episode.id,
-          episodeInfo: {
-            season: season.number,
-            episode: episode.number,
-            title: episode.title,
-          },
-          queue: sources.filter((_, i) => i !== idx),
-        });
-        return;
-      }
-    } catch {
-      /* fall through to the source screen */
-    }
-    // No playable source — land the user on the next episode's sources.
-    setPlaying(null);
-    if (isTauri()) void tauriSetFullscreen(false).catch(() => {});
-    navigate({
-      at: "sources",
-      item,
-      episodeId: episode.id,
-      episodeLabel: `S${season.number} · E${episode.number} — ${episode.title}`,
-      episodeInfo: {
-        season: season.number,
-        episode: episode.number,
-        title: episode.title,
-      },
-    });
-  }, [setPlaying, navigate]);
+    await playEpisode(un.item, un.season, un.episode);
+  }, [playEpisode]);
   const upNextRef = useRef(upNext);
   upNextRef.current = upNext;
   // Autoplay countdown — the tick and the fire live in separate effects
@@ -392,13 +397,17 @@ export function StreamScreen() {
     async (entry: WatchEntry, known?: VodItem) => {
       const kind = entry.kind ?? (entry.episodeId ? "series" : "movie");
       setResolving({
-        art: known?.logo ?? known?.poster ?? entry.art,
+        art: known?.logo ?? entry.logo ?? known?.poster ?? entry.art,
         title: entry.title,
       });
       let item = known;
       if (!item || (kind === "series" && item.seasons.length === 0)) {
         const full = await resolveVodItem(kind, entry.id).catch(() => null);
         if (full) item = full;
+        // The catalog preview had no clearlogo; the full meta does —
+        // upgrade the breathing art mid-resolve.
+        if (full?.logo)
+          setResolving((r) => (r ? { ...r, art: full.logo } : r));
       }
       if (!item) {
         setResolving(null);
@@ -437,6 +446,48 @@ export function StreamScreen() {
     },
     [setPlaying, open],
   );
+
+  // In-playback source panel: slides over the video (which keeps playing);
+  // picking a source switches the stream at the current position. Sources
+  // resolve fresh on every open — debrid links are short-lived.
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [panelSources, setPanelSources] = useState<
+    StreamSource[] | null | "failed"
+  >(null);
+  useEffect(() => {
+    if (!playing) setPanelOpen(false);
+  }, [playing]);
+  useEffect(() => {
+    if (!panelOpen) return;
+    const p = playingRef.current;
+    if (!p) return;
+    let stale = false;
+    setPanelSources(null);
+    resolveVodSources(p.item.kind, p.episodeId ?? p.item.id).then(
+      (list) => !stale && setPanelSources(list),
+      () => !stale && setPanelSources("failed"),
+    );
+    return () => {
+      stale = true;
+    };
+  }, [panelOpen]);
+  const pickPanelSource = useCallback((src: StreamSource, all: StreamSource[]) => {
+    const p = playingRef.current;
+    if (!p) return;
+    setPanelOpen(false);
+    if (src.streamUrl === p.url) return; // already playing this one
+    const entry = loadWatching().find((e) => e.id === p.item.id);
+    const at =
+      entry?.posSec && entry.posSec > 10
+        ? Math.max(0, entry.posSec - 3)
+        : undefined;
+    setPlayingRaw({
+      ...p,
+      url: src.streamUrl,
+      queue: all.filter((s) => s.id !== src.id && s.streamUrl !== p.url),
+      resumeAt: at,
+    });
+  }, []);
   const playMeta = playing
     ? {
         channelName: playing.item.title,
@@ -444,7 +495,14 @@ export function StreamScreen() {
         title: playing.label ?? playing.item.title,
         description: playing.item.synopsis,
         live: false,
-        vod: playing.episodeInfo,
+        vod: playing.episodeInfo
+          ? {
+              ...playing.episodeInfo,
+              hasNext:
+                !!playing.episodeId &&
+                !!nextEpisode(playing.item.seasons, playing.episodeId),
+            }
+          : undefined,
       }
     : null;
   const directApi = useDirectOverlay(
@@ -501,6 +559,13 @@ export function StreamScreen() {
         stop();
       },
       onNextSource: () => tryNextSource(),
+      onNextEpisode: () => {
+        const p = playingRef.current;
+        if (!p?.episodeId) return;
+        const nxt = nextEpisode(p.item.seasons, p.episodeId);
+        if (nxt) void playEpisode(p.item, nxt.season, nxt.episode);
+      },
+      onSourcePanel: () => setPanelOpen((o) => !o),
     },
   );
   if (isTauri() && playing) setOverlayApiOverride(directApi);
@@ -674,6 +739,57 @@ export function StreamScreen() {
           chromeHostRef.current &&
           createPortal(
             <TheaterOverlay frame={playing.mode} playbackKey={playing.url} />,
+            chromeHostRef.current,
+          )}
+        {panelOpen &&
+          !playing.popped &&
+          chromeHostRef.current &&
+          createPortal(
+            <div className="vod-panel" data-interactive>
+              <div className="vod-panel__head">
+                <h3>Sources</h3>
+                <button
+                  type="button"
+                  className="player__btn player__btn--glass"
+                  aria-label="Close sources"
+                  onClick={() => setPanelOpen(false)}
+                >
+                  <CloseIcon size={18} />
+                </button>
+              </div>
+              <div className="vod-panel__list">
+                {panelSources === null && (
+                  <p className="vod-sources__note">Finding sources…</p>
+                )}
+                {panelSources === "failed" && (
+                  <p className="vod-sources__note">Couldn&rsquo;t load sources.</p>
+                )}
+                {Array.isArray(panelSources) &&
+                  panelSources.map((src) => (
+                    <button
+                      key={src.id}
+                      type="button"
+                      className={
+                        "vod-source" +
+                        (src.streamUrl === playing.url
+                          ? " vod-source--current"
+                          : "")
+                      }
+                      onClick={() => pickPanelSource(src, panelSources)}
+                    >
+                      <span className="vod-source__quality">
+                        {src.quality}
+                        {src.cached && <span className="vod-source__zap">⚡</span>}
+                      </span>
+                      <span className="vod-source__lines">
+                        {src.lines.slice(0, 2).map((l, i) => (
+                          <span key={i}>{l}</span>
+                        ))}
+                      </span>
+                    </button>
+                  ))}
+              </div>
+            </div>,
             chromeHostRef.current,
           )}
         {/* PORTALED like the player chrome: the app shell has the video

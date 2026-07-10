@@ -13,6 +13,8 @@ import {
   CcIcon,
   CheckIcon,
   CloseIcon,
+  NextEpisodeIcon,
+  PanelIcon,
   ExitFullscreenIcon,
   FullscreenIcon,
   LanguageIcon,
@@ -765,6 +767,16 @@ export function TheaterOverlay({
             >
               <SkipFwdIcon size={24} />
             </button>
+            {vod && meta?.vod?.hasNext && (
+              <button
+                type="button"
+                className="player__btn"
+                aria-label="Next episode"
+                onClick={() => api()?.nextEpisode?.()}
+              >
+                <NextEpisodeIcon size={22} />
+              </button>
+            )}
             {!vod && (
               <button
                 type="button"
@@ -779,6 +791,17 @@ export function TheaterOverlay({
           </div>
 
           <div className="theater-controls__group">
+            {/* In-playback source switcher — VOD only. */}
+            {vod && (
+              <button
+                type="button"
+                className="player__btn"
+                aria-label="Sources"
+                onClick={() => api()?.sourcePanel?.()}
+              >
+                <PanelIcon size={20} />
+              </button>
+            )}
             {/* Playback speed — VOD only (live has no rate to bend). */}
             {vod && (
               <div className="theater-tracks">

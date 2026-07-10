@@ -38,6 +38,8 @@ export interface OverlayApi {
   seekAbs?: (pos: number) => void; // absolute seconds (VOD scrubber)
   setSpeed?: (speed: number) => void; // playback rate (VOD speed menu)
   nextSource?: () => void; // VOD failover: play the next available source
+  nextEpisode?: () => void; // VOD series: jump to the next episode
+  sourcePanel?: () => void; // VOD: toggle the in-playback source panel
   expand?: () => void; // mini → theater
   collapse?: () => void; // theater → mini
   fullscreen?: () => void; // theater → fullscreen

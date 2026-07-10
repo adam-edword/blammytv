@@ -15,6 +15,8 @@ export interface WatchEntry {
   label?: string;
   /** Landscape art preferred (backdrop), poster fallback. */
   art?: string;
+  /** Clearlogo title art — the resolving/loading screens prefer it. */
+  logo?: string;
   rating?: number;
   year?: number;
   runtimeMin?: number;

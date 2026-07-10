@@ -182,6 +182,23 @@ export function PencilIcon({ size = 16, className }: IconProps) {
 }
 
 /** Interface / Sidebar — collapse/expand the side panel. */
+/** Next episode — filled play glyph against an end bar (YouTube-style). */
+export function NextEpisodeIcon({ size = 20, className }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M5 5.9v12.2a1 1 0 0 0 1.55.83l9.2-6.1a1 1 0 0 0 0-1.66l-9.2-6.1A1 1 0 0 0 5 5.9z" />
+      <rect x="17.5" y="5" width="2.4" height="14" rx="1.2" />
+    </svg>
+  );
+}
+
 export function PanelIcon({ size = 18, className }: IconProps) {
   return (
     <Svg size={size} className={className}>

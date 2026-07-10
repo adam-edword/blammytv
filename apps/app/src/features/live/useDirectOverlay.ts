@@ -33,6 +33,10 @@ export interface DirectOverlayHandlers {
   onEnded?: () => void;
   /** VOD only: switch to the next available source (failover). */
   onNextSource?: () => void;
+  /** VOD series: jump straight to the next episode. */
+  onNextEpisode?: () => void;
+  /** VOD: toggle the in-playback source panel. */
+  onSourcePanel?: () => void;
 }
 
 /**
@@ -161,6 +165,8 @@ export function useDirectOverlay(
       seekAbs: (p) => void tauriMpvSeekAbs(p).catch(() => {}),
       setSpeed: (sp) => void tauriMpvSetSpeed(sp).catch(() => {}),
       nextSource: () => h.current.onNextSource?.(),
+      nextEpisode: () => h.current.onNextEpisode?.(),
+      sourcePanel: () => h.current.onSourcePanel?.(),
       selectAudio: (id) =>
         void tauriMpvTrack("audio", String(id)).catch(() => {}),
       selectSub: (id) => void tauriMpvTrack("sub", String(id)).catch(() => {}),
