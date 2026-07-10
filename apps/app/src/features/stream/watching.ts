@@ -22,6 +22,10 @@ export interface WatchEntry {
    * (absent on entries recorded before they existed). */
   genre?: string;
   kind?: "movie" | "series";
+  /** Episode identity for quick-resume's overlay heading. */
+  season?: number;
+  episode?: number;
+  epTitle?: string;
   /** Last playback position/duration in seconds (the 5s progress tick).
    * Powers resume-from-position and the card's progress bar. */
   posSec?: number;

@@ -21,6 +21,14 @@ import {
   saveOverlayMeta,
   type OverlayMetaField,
 } from "./overlayMeta";
+import { Toggle } from "../../ui/Toggle";
+import {
+  ROW_CAP_MAX,
+  ROW_CAP_MIN,
+  loadRowCap,
+  saveRowCap,
+} from "./rowCap";
+import { loadSourceFailover, saveSourceFailover } from "./failover";
 
 type Catalogs =
   | { status: "idle" | "loading" }
@@ -184,6 +192,10 @@ export function AioStreamsTab() {
       ),
     );
   };
+
+  // Catalog row size + auto source-failover.
+  const [rowCap, setRowCap] = useState<number>(loadRowCap);
+  const [failover, setFailover] = useState<boolean>(loadSourceFailover);
 
   const items = catalogs.status === "ready" ? catalogs.items : [];
   const byKey = new Map(items.map((c) => [c.key, c]));
@@ -375,6 +387,52 @@ export function AioStreamsTab() {
                 {f.label}
               </button>
             ))}
+          </div>
+        </section>
+      )}
+
+      {savedUrl && (
+        <section className="settings-section">
+          <h3 className="settings-section__list-title">Catalog Row Size</h3>
+          <p className="settings__section-note settings__section-note--dim">
+            How many titles each row loads. A higher cap results in longer
+            load times.
+          </p>
+          <div className="rowcap">
+            <input
+              className="rowcap__slider"
+              type="range"
+              min={ROW_CAP_MIN}
+              max={ROW_CAP_MAX}
+              step={5}
+              value={rowCap}
+              aria-label="Titles per row"
+              onChange={(e) => setRowCap(saveRowCap(Number(e.target.value)))}
+            />
+            <span className="rowcap__value">{rowCap}</span>
+          </div>
+        </section>
+      )}
+
+      {savedUrl && (
+        <section className="settings-section">
+          <div className="customize-row">
+            <div>
+              <h4 className="customize-row__title">Auto Source Failover</h4>
+              <p className="settings__section-note settings__section-note--dim">
+                When a source dies mid-play, jump to the next available one
+                automatically. Off shows a button instead.
+              </p>
+            </div>
+            <Toggle
+              on={failover}
+              onChange={() => {
+                const next = !failover;
+                setFailover(next);
+                saveSourceFailover(next);
+              }}
+              label="Auto source failover"
+            />
           </div>
         </section>
       )}

@@ -814,3 +814,11 @@
   font-variant-numeric: tabular-nums;
   color: #fff;
 }
+
+/* Speed button: text glyph in the icon row (VOD only). */
+.player__btn--speed {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 14px;
+  min-width: 40px;
+}

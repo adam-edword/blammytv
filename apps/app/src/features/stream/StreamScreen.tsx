@@ -2,18 +2,19 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
 } from "react";
-import { ChevronIcon, CloseIcon, PlayIcon } from "../../ui/icons";
+import { CheckIcon, ChevronIcon, CloseIcon, PlayIcon } from "../../ui/icons";
 import { createPortal } from "react-dom";
 import { isTauri, tauriSetFullscreen } from "../../lib/tauri";
 import { setOverlayApiOverride } from "../live/overlayApi";
 import { InvertedPlayer } from "../live/InvertedPlayer";
 import { TheaterOverlay } from "../live/TheaterOverlay";
 import { useDirectOverlay } from "../live/useDirectOverlay";
-import type { StreamSource, VodData, VodItem } from "./model";
+import type { Episode, Season, StreamSource, VodData, VodItem } from "./model";
 import {
   loadVod,
   onVodUpdate,
@@ -21,6 +22,8 @@ import {
   resolveVodItem,
   resolveVodSources,
 } from "./source";
+import { nextEpisode } from "./mapper";
+import { loadWatched, markWatched } from "./watched";
 import { loadAioUrl } from "../settings/aiostreams";
 import {
   cardMetaLine,
@@ -82,7 +85,10 @@ export function StreamScreen() {
     url: string;
     item: VodItem;
     label?: string;
+    episodeId?: string;
     episodeInfo?: { season: number; episode: number; title: string };
+    /** Remaining source candidates, in addon order — the failover queue. */
+    queue?: StreamSource[];
     resumeAt?: number;
     /** theater = fills the APP WINDOW; fullscreen = OS fullscreen. */
     mode: "theater" | "fullscreen";
@@ -98,9 +104,14 @@ export function StreamScreen() {
         label?: string;
         episodeId?: string;
         episodeInfo?: { season: number; episode: number; title: string };
+        queue?: StreamSource[];
       } | null,
     ) => {
-      if (!p) return setPlayingRaw(null);
+      if (!p) {
+        setUpNext(null);
+        return setPlayingRaw(null);
+      }
+      setUpNext(null);
       // Starting a new play while a pop-out runs would double the provider
       // connections — reel the pop-out in first (silent close).
       if (playingRef.current?.popped) void tauriPopoutStop().catch(() => {});
@@ -124,6 +135,13 @@ export function StreamScreen() {
           runtimeMin: p.item.runtimeMin,
           genre: p.item.genres[0],
           kind: p.item.kind,
+          ...(p.episodeInfo
+            ? {
+                season: p.episodeInfo.season,
+                episode: p.episodeInfo.episode,
+                epTitle: p.episodeInfo.title,
+              }
+            : {}),
           // Same episode/title keeps its progress; switching episodes resets.
           ...(sameEp && prev?.posSec ? { posSec: prev.posSec } : {}),
           ...(sameEp && prev?.durSec ? { durSec: prev.durSec } : {}),
@@ -241,8 +259,14 @@ export function StreamScreen() {
       if (item.kind === "series") return open(item); // series always browse
       try {
         const sources = await resolveVodSources("movie", item.id);
-        const pick = sources.find((s) => s.cached) ?? sources[0];
-        if (pick) return setPlaying({ url: pick.streamUrl, item });
+        const idx = Math.max(0, sources.findIndex((s) => s.cached));
+        const pick = sources[idx];
+        if (pick)
+          return setPlaying({
+            url: pick.streamUrl,
+            item,
+            queue: sources.filter((_, i) => i !== idx),
+          });
       } catch {
         /* fall through to detail */
       }
@@ -263,6 +287,136 @@ export function StreamScreen() {
     setPlayingRaw((p) => (p && p.mode !== mode ? { ...p, mode } : p));
     if (isTauri()) void tauriSetFullscreen(mode === "fullscreen").catch(() => {});
   }, []);
+
+  // Up Next (series EOF): the stage stays black, the card counts down.
+  const [upNext, setUpNext] = useState<{
+    item: VodItem;
+    season: Season;
+    episode: Episode;
+  } | null>(null);
+  const playUpNext = useCallback(async () => {
+    const un = upNextRef.current;
+    if (!un) return;
+    setUpNext(null);
+    const { item, season, episode } = un;
+    try {
+      const sources = await resolveVodSources("series", episode.id);
+      const idx = Math.max(0, sources.findIndex((s) => s.cached));
+      const pick = sources[idx];
+      if (pick) {
+        setPlaying({
+          url: pick.streamUrl,
+          item,
+          label: `S${season.number} · E${episode.number} — ${episode.title}`,
+          episodeId: episode.id,
+          episodeInfo: {
+            season: season.number,
+            episode: episode.number,
+            title: episode.title,
+          },
+          queue: sources.filter((_, i) => i !== idx),
+        });
+        return;
+      }
+    } catch {
+      /* fall through to the source screen */
+    }
+    // No playable source — land the user on the next episode's sources.
+    setPlaying(null);
+    if (isTauri()) void tauriSetFullscreen(false).catch(() => {});
+    navigate({
+      at: "sources",
+      item,
+      episodeId: episode.id,
+      episodeLabel: `S${season.number} · E${episode.number} — ${episode.title}`,
+      episodeInfo: {
+        season: season.number,
+        episode: episode.number,
+        title: episode.title,
+      },
+    });
+  }, [setPlaying, navigate]);
+  const upNextRef = useRef(upNext);
+  upNextRef.current = upNext;
+  // Autoplay countdown — the tick and the fire live in separate effects
+  // (updaters stay pure; StrictMode double-invokes them).
+  const [countdown, setCountdown] = useState(10);
+  useEffect(() => {
+    if (!upNext) return;
+    setCountdown(10);
+    const id = window.setInterval(
+      () => setCountdown((c) => Math.max(0, c - 1)),
+      1000,
+    );
+    return () => window.clearInterval(id);
+  }, [upNext]);
+  useEffect(() => {
+    if (upNext && countdown === 0) void playUpNext();
+  }, [countdown, upNext, playUpNext]);
+
+  // Source failover: play the next candidate from the queue at (about)
+  // the position the dying source reached. Empty queue → exit cleanly.
+  const tryNextSource = useCallback(() => {
+    const p = playingRef.current;
+    if (!p) return;
+    const [next, ...rest] = p.queue ?? [];
+    if (!next) {
+      setPlaying(null);
+      if (isTauri()) void tauriSetFullscreen(false).catch(() => {});
+      return;
+    }
+    const entry = loadWatching().find((e) => e.id === p.item.id);
+    const at =
+      entry?.posSec && entry.posSec > 10
+        ? Math.max(0, entry.posSec - 3)
+        : undefined;
+    setPlayingRaw({ ...p, url: next.streamUrl, queue: rest, resumeAt: at });
+  }, [setPlaying]);
+
+  // Continue Watching quick-resume: one click straight into playback
+  // (sources resolve fresh; first cached wins). Any miss falls back to
+  // the detail/source screen.
+  const quickResume = useCallback(
+    async (entry: WatchEntry, known?: VodItem) => {
+      const kind = entry.kind ?? (entry.episodeId ? "series" : "movie");
+      let item = known;
+      if (!item || (kind === "series" && item.seasons.length === 0)) {
+        const full = await resolveVodItem(kind, entry.id).catch(() => null);
+        if (full) item = full;
+      }
+      if (!item) return;
+      try {
+        const sources = await resolveVodSources(
+          kind,
+          entry.episodeId ?? item.id,
+        );
+        const idx = Math.max(0, sources.findIndex((s) => s.cached));
+        const pick = sources[idx];
+        if (pick) {
+          setPlaying({
+            url: pick.streamUrl,
+            item,
+            label: entry.label,
+            episodeId: entry.episodeId,
+            episodeInfo:
+              entry.season != null && entry.episode != null
+                ? {
+                    season: entry.season,
+                    episode: entry.episode,
+                    title: entry.epTitle ?? "",
+                  }
+                : undefined,
+            queue: sources.filter((_, i) => i !== idx),
+          });
+          return;
+        }
+      } catch {
+        /* fall through to the browse path */
+      }
+      void open(item);
+    },
+    [setPlaying, open],
+  );
   const playMeta = playing
     ? {
         channelName: playing.item.title,
@@ -301,18 +455,28 @@ export function StreamScreen() {
       },
       onToggleFavorite: () => {},
       // Natural end of the file: mark the entry finished (full bar; next
-      // play starts over) and exit to the source screen. Without this,
-      // EOF took the live-death path — watchdog reload, restart at 0:00,
-      // and the progress tick then shredding the saved position.
+      // play starts over), ledger the episode as watched, then either roll
+      // the Up Next card (series with a next episode) or exit. Without
+      // this, EOF took the live-death path — watchdog reload, restart at
+      // 0:00, and the progress tick then shredding the saved position.
       onEnded: () => {
         const p = playingRef.current;
         if (p) {
           const e = loadWatching().find((x) => x.id === p.item.id);
           if (e?.durSec)
             setWatching(updateWatchingProgress(p.item.id, e.durSec, e.durSec));
+          if (p.episodeId) {
+            markWatched(p.item.id, p.episodeId);
+            const nxt = nextEpisode(p.item.seasons, p.episodeId);
+            if (nxt) {
+              setUpNext({ item: p.item, ...nxt });
+              return; // stage stays; the Up Next card takes over
+            }
+          }
         }
         stop();
       },
+      onNextSource: () => tryNextSource(),
     },
   );
   if (isTauri() && playing) setOverlayApiOverride(directApi);
@@ -469,6 +633,32 @@ export function StreamScreen() {
             <TheaterOverlay frame={playing.mode} playbackKey={playing.url} />,
             chromeHostRef.current,
           )}
+        {upNext && !playing.popped && (
+          <div className="upnext" data-interactive>
+            <p className="upnext__eyebrow">Up next</p>
+            <h2 className="upnext__title">
+              S{upNext.season.number} · E{upNext.episode.number} —{" "}
+              {upNext.episode.title}
+            </h2>
+            <p className="upnext__count">Playing in {countdown}s</p>
+            <div className="upnext__actions">
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => void playUpNext()}
+              >
+                Play now
+              </button>
+              <button
+                type="button"
+                className="shero__btn-quiet"
+                onClick={stop}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
         {playing.popped && (
           <div className="vod-pip">
             {(playing.item.logo ?? playing.item.poster) && (
@@ -518,7 +708,13 @@ export function StreamScreen() {
           watching={watching}
           onClearWatching={(id) => setWatching(clearWatching(id))}
           onOpenWatching={(e) => {
-            const item = load.status === "ready" ? load.data.items.get(e.id) : undefined;
+            const item =
+              load.status === "ready" ? load.data.items.get(e.id) : undefined;
+            void quickResume(e, item);
+          }}
+          onSourcesWatching={(e) => {
+            const item =
+              load.status === "ready" ? load.data.items.get(e.id) : undefined;
             if (item) void open(item);
           }}
         />
@@ -527,8 +723,8 @@ export function StreamScreen() {
         <Detail
           item={view.item}
           onBack={goBack}
-          onPlaySource={(s) =>
-            setPlaying({ url: s.streamUrl, item: view.item })
+          onPlaySource={(s, queue) =>
+            setPlaying({ url: s.streamUrl, item: view.item, queue })
           }
         />
       )}
@@ -553,12 +749,14 @@ export function StreamScreen() {
           episodeId={view.episodeId}
           episodeLabel={view.episodeLabel}
           onBack={goBack}
-          onPlaySource={(s) =>
+          onPlaySource={(s, queue) =>
             setPlaying({
               url: s.streamUrl,
               item: view.item,
               label: view.episodeLabel,
+              episodeId: view.episodeId,
               episodeInfo: view.episodeInfo,
+              queue,
             })
           }
         />
@@ -576,6 +774,7 @@ function Home({
   watching,
   onClearWatching,
   onOpenWatching,
+  onSourcesWatching,
 }: {
   load: Load;
   onOpen: (i: VodItem) => void;
@@ -583,6 +782,7 @@ function Home({
   watching: WatchEntry[];
   onClearWatching: (id: string) => void;
   onOpenWatching: (e: WatchEntry) => void;
+  onSourcesWatching: (e: WatchEntry) => void;
 }) {
   // Which details the cards show — flips live while Settings is open.
   const [metaFields, setMetaFields] = useState<CardMetaField[]>(loadCardMeta);
@@ -629,6 +829,7 @@ function Home({
                   entry={e}
                   metaFields={metaFields}
                   onOpen={() => onOpenWatching(e)}
+                  onSources={() => onSourcesWatching(e)}
                   onClear={() => onClearWatching(e.id)}
                 />
               ))}
@@ -974,11 +1175,13 @@ function ContinueCard({
   entry,
   metaFields,
   onOpen,
+  onSources,
   onClear,
 }: {
   entry: WatchEntry;
   metaFields: CardMetaField[];
   onOpen: () => void;
+  onSources: () => void;
   onClear: () => void;
 }) {
   const meta = cardMetaLine(metaFields, {
@@ -1005,14 +1208,19 @@ function ContinueCard({
     setHolding(false);
   };
   return (
-    <button
-      type="button"
+    // div+role, not <button>: the Sources chip nests a real button inside.
+    <div
+      role="button"
+      tabIndex={0}
       className={"continue-card" + (holding ? " continue-card--holding" : "")}
       onPointerDown={start}
       onPointerUp={cancel}
       onPointerLeave={cancel}
       onClick={() => {
         if (!held.current) onOpen();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onOpen();
       }}
     >
       <span className="continue-card__artwrap">
@@ -1030,13 +1238,25 @@ function ContinueCard({
             />
           </span>
         ) : null}
+        {/* Straight to the source screen instead of quick-resume. */}
+        <button
+          type="button"
+          className="continue-card__sources"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSources();
+          }}
+        >
+          Sources ›
+        </button>
       </span>
       <span className="continue-card__hold" aria-hidden>
         Keep holding to clear
       </span>
       <span className="stream-card__name">{entry.title}</span>
       {meta && <span className="stream-card__meta">{meta}</span>}
-    </button>
+    </div>
   );
 }
 
@@ -1056,7 +1276,7 @@ function Detail({
   episodeId?: string;
   episodeLabel?: string;
   onBack: () => void;
-  onPlaySource: (s: StreamSource) => void;
+  onPlaySource: (s: StreamSource, queue: StreamSource[]) => void;
 }) {
   const [sources, setSources] = useState<StreamSource[] | null | "failed">(
     null,
@@ -1122,12 +1342,12 @@ function Detail({
             <p className="vod-sources__note">No sources available.</p>
           )}
           {Array.isArray(sources) &&
-            sources.map((s) => (
+            sources.map((s, i) => (
               <button
                 key={s.id}
                 type="button"
                 className="vod-source"
-                onClick={() => onPlaySource(s)}
+                onClick={() => onPlaySource(s, sources.slice(i + 1))}
               >
                 <span className="vod-source__quality">
                   {s.quality}
@@ -1165,6 +1385,9 @@ function Episodes({
   const [seasonIdx, setSeasonIdx] = useState(0);
   const season =
     item.seasons[Math.min(seasonIdx, Math.max(0, item.seasons.length - 1))];
+  // Watched ledger (checkmarks). Re-read per mount — playback marks land
+  // between visits to this screen.
+  const watched = useMemo(() => loadWatched(item.id), [item.id]);
   return (
     <div className="vod-detail">
       {item.backdrop && (
@@ -1223,6 +1446,11 @@ function Episodes({
                       <span className="episode-card__cue" aria-hidden>
                         <PlayIcon size={36} />
                       </span>
+                      {watched.has(e.id) && (
+                        <span className="episode-card__seen" title="Watched">
+                          <CheckIcon size={13} />
+                        </span>
+                      )}
                     </span>
                   )}
                   <span className="episode-card__text">

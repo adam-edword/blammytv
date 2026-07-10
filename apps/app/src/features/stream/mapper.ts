@@ -112,6 +112,29 @@ export function mapSeasons(videos: StremioVideo[]): Season[] {
     }));
 }
 
+/** The episode after `episodeId` in playback order: next in its season,
+ * else the first of the following season (Specials/season 0 excluded as a
+ * "next" target — nobody binge-rolls INTO specials). Null at series end
+ * or when the id isn't found. */
+export function nextEpisode(
+  seasons: Season[],
+  episodeId: string,
+): { season: Season; episode: Episode } | null {
+  for (let si = 0; si < seasons.length; si++) {
+    const idx = seasons[si].episodes.findIndex((e) => e.id === episodeId);
+    if (idx === -1) continue;
+    if (idx + 1 < seasons[si].episodes.length)
+      return { season: seasons[si], episode: seasons[si].episodes[idx + 1] };
+    for (let sj = si + 1; sj < seasons.length; sj++) {
+      if (seasons[sj].number === 0) continue;
+      if (seasons[sj].episodes.length > 0)
+        return { season: seasons[sj], episode: seasons[sj].episodes[0] };
+    }
+    return null;
+  }
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // Parsing helpers
 // ---------------------------------------------------------------------------

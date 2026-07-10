@@ -7,6 +7,7 @@ import {
   overlayHeading,
   type OverlayMetaField,
 } from "../settings/overlayMeta";
+import { loadSourceFailover } from "../settings/failover";
 import { StatsOverlay } from "./StatsOverlay";
 import {
   CcIcon,
@@ -74,6 +75,8 @@ export function TheaterOverlay({
   playbackKey?: string | null;
 } = {}) {
   const [meta, setMeta] = useState<TheaterMeta | null>(null);
+  const metaRefForDead = useRef<TheaterMeta | null>(null);
+  metaRefForDead.current = meta;
   const [loading, setLoading] = useState(() => api()?.getLoading() ?? true);
   const [paused, setPaused] = useState(false);
   const [volume, setVolume] = useState(1);
@@ -109,7 +112,7 @@ export function TheaterOverlay({
   const [tracks, setTracks] = useState<Tracks | null>(
     () => api()?.getTracks?.() ?? null,
   );
-  const [menu, setMenu] = useState<"audio" | "subs" | null>(null);
+  const [menu, setMenu] = useState<"audio" | "subs" | "speed" | null>(null);
   // Stats-for-nerds panel (theater/fullscreen only). Telemetry comes straight
   // from the mpv_stats Tauri command, so it's gated on running in the shell.
   const [showStats, setShowStats] = useState(false);
@@ -157,6 +160,14 @@ export function TheaterOverlay({
   useEffect(() => {
     const off = api()?.onTime?.(setTime);
     return () => off?.();
+  }, []);
+  // Playback speed (VOD menu). A fresh mpv instance per stream means the
+  // real rate resets to 1 on every switch — mirror that locally below.
+  const [speed, setSpeed] = useState(1);
+  const pickSpeed = useCallback((sp: number) => {
+    setSpeed(sp);
+    api()?.setSpeed?.(sp);
+    setMenu(null);
   }, []);
   // Scrub-in-progress fraction (0..1); null = not scrubbing. While held,
   // the bar follows the pointer and the poll's updates don't fight it.
@@ -207,6 +218,20 @@ export function TheaterOverlay({
     arm();
     return () => window.clearTimeout(id);
   }, [loading, tuneAttempt]);
+  // VOD auto-failover (Settings → AIOStreams, off by default): the moment
+  // the watchdog declares the source dead, jump to the next candidate.
+  const vodDeadRef = useRef(false);
+  useEffect(() => {
+    const isVod = metaRefForDead.current?.live === false;
+    if (tune !== "dead" || !isVod) {
+      vodDeadRef.current = false;
+      return;
+    }
+    if (vodDeadRef.current) return;
+    vodDeadRef.current = true;
+    if (loadSourceFailover()) api()?.nextSource?.();
+  }, [tune]);
+
   const retryTune = useCallback(() => {
     retriesRef.current = 0;
     setTune("retrying");
@@ -241,6 +266,7 @@ export function TheaterOverlay({
   mutedRef.current = muted;
   useEffect(() => {
     if (!playbackKey) return;
+    setSpeed(1); // fresh mpv instance = rate 1
     setPaused(false);
     setLivePct(100);
     api()?.setVolume(Math.round(volumeRef.current * 100));
@@ -753,6 +779,47 @@ export function TheaterOverlay({
           </div>
 
           <div className="theater-controls__group">
+            {/* Playback speed — VOD only (live has no rate to bend). */}
+            {vod && (
+              <div className="theater-tracks">
+                <button
+                  type="button"
+                  className={
+                    "player__btn player__btn--speed" +
+                    (menu === "speed" ? " is-open" : "")
+                  }
+                  aria-label="Playback speed"
+                  aria-haspopup="menu"
+                  aria-expanded={menu === "speed"}
+                  onClick={() =>
+                    setMenu((m) => (m === "speed" ? null : "speed"))
+                  }
+                >
+                  {speed === 1 ? "1×" : `${speed}×`}
+                </button>
+                {menu === "speed" && (
+                  <div className="track-menu" role="menu" aria-label="Speed">
+                    <p className="track-menu__head">Speed</p>
+                    {[0.5, 0.75, 1, 1.25, 1.5, 2].map((sp) => (
+                      <button
+                        key={sp}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={speed === sp}
+                        className={
+                          "track-menu__item" +
+                          (speed === sp ? " is-selected" : "")
+                        }
+                        onClick={() => pickSpeed(sp)}
+                      >
+                        {sp}×
+                        {speed === sp && <CheckIcon size={14} />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             {/* Stats for nerds (theater/fullscreen only; needs the shell for
               * the mpv_stats command). Toggles the top-left telemetry panel. */}
             {isTauri() && (
@@ -939,12 +1006,22 @@ function TuneCard({
       {phase === "dead" ? (
         <div className="tune__dead" data-interactive>
           <p className="tune__dead-msg">
-            This channel isn&rsquo;t responding — it&rsquo;s the stream, not
-            you.
+            {vod
+              ? "This source isn\u2019t responding \u2014 it\u2019s the stream, not you."
+              : "This channel isn\u2019t responding \u2014 it\u2019s the stream, not you."}
           </p>
           <button type="button" className="tune__retry" onClick={onRetry}>
             Retry
           </button>
+          {vod && api()?.nextSource && (
+            <button
+              type="button"
+              className="tune__retry"
+              onClick={() => api()?.nextSource?.()}
+            >
+              Try next available source
+            </button>
+          )}
         </div>
       ) : (
         <span className="tune__status">

@@ -176,6 +176,12 @@ fn mpv_seek_abs(pos: f64) {
     mpv::seek_abs(pos);
 }
 
+/// Playback speed multiplier — the VOD speed menu.
+#[tauri::command]
+fn mpv_set_speed(speed: f64) {
+    mpv::set_speed(speed);
+}
+
 #[tauri::command]
 fn mpv_go_live() {
     mpv::reload_live();
@@ -621,6 +627,7 @@ pub fn run() {
             mpv_volume,
             mpv_seek,
             mpv_seek_abs,
+            mpv_set_speed,
             mpv_go_live,
             mpv_track,
             mpv_status,

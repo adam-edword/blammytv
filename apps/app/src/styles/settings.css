@@ -774,3 +774,22 @@
   background: color-mix(in srgb, var(--accent) 22%, var(--mix-base));
   border-color: var(--accent);
 }
+
+/* Catalog Row Size slider. */
+.rowcap {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.rowcap__slider {
+  flex: 1;
+  max-width: 340px;
+  accent-color: var(--accent, #c22727);
+}
+.rowcap__value {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 15px;
+  min-width: 3ch;
+  font-variant-numeric: tabular-nums;
+}

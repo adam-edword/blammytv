@@ -7,6 +7,7 @@ import {
   type CatalogDef,
 } from "../../data/stremio";
 import { loadAioUrl, loadHeroSources } from "../settings/aiostreams";
+import { loadRowCap } from "../settings/rowCap";
 import { load as loadStored, save as saveStored } from "../../lib/storage";
 import { mapStreams, metaPreviewToVod, metaToVod } from "./mapper";
 import type { StreamRow, StreamSource, VodData, VodItem } from "./model";
@@ -20,7 +21,7 @@ import type { StreamRow, StreamSource, VodData, VodItem } from "./model";
  * best-effort (one bad row never sinks the tab).
  */
 
-const ITEMS_PER_ROW = 40;
+// Titles per row: user-set (Settings → Catalog Row Size, default 40).
 const FEATURED_TOTAL = 9;
 const DEFAULT_SOURCE_ROWS = 3; // rows the default hero mix draws from
 
@@ -32,7 +33,7 @@ let cache: { key: string; at: number; data: VodData } | null = null;
 let inflight: { key: string; promise: Promise<VodData> } | null = null;
 
 const configKey = () =>
-  JSON.stringify([loadAioUrl(), loadHeroSources()]);
+  JSON.stringify([loadAioUrl(), loadHeroSources(), loadRowCap()]);
 
 /** Hero picks enrich in the background after the rows resolve — subscribe
  * to repaint as backdrops/synopses land. */
@@ -132,7 +133,7 @@ async function doLoad(): Promise<VodData> {
     return { items: new Map(), rows: [], featured: [] };
   }
   try {
-    return await buildVod(manifestUrl, loadHeroSources());
+    return await buildVod(manifestUrl, loadHeroSources(), loadRowCap());
   } catch (err) {
     console.error(`[stream] catalog failed: ${msg(err)}`);
     return { items: new Map(), rows: [], featured: [], error: msg(err) };
@@ -143,6 +144,7 @@ async function doLoad(): Promise<VodData> {
 export async function buildVod(
   manifestUrl: string,
   heroSources: string[] = [],
+  rowCap = 40,
 ): Promise<VodData> {
   const manifest = await fetchManifest(manifestUrl);
   const browseable = manifest.catalogs.filter(isBrowseable);
@@ -153,7 +155,7 @@ export async function buildVod(
         const { metas = [] } = await fetchCatalog(manifestUrl, cat.type, cat.id);
         return {
           cat,
-          items: metas.slice(0, ITEMS_PER_ROW).map(metaPreviewToVod),
+          items: metas.slice(0, rowCap).map(metaPreviewToVod),
         };
       } catch (err) {
         console.error(`[stream] catalog "${label(cat)}" failed: ${msg(err)}`);
@@ -182,7 +184,7 @@ export async function buildVod(
   // The build's identity, from its OWN args — sampling configKey() after
   // the awaits raced a mid-build config change (the enrichment could then
   // notify/mirror an old catalog under the NEW config's key).
-  const buildKey = JSON.stringify([manifestUrl, heroSources]);
+  const buildKey = JSON.stringify([manifestUrl, heroSources, rowCap]);
 
   const sourceIds = heroSources.length ? heroSources : defaultHero(rows);
   const featured = await buildFeatured(
@@ -191,6 +193,7 @@ export async function buildVod(
     sourceIds,
     items,
     rowPools,
+    rowCap,
   );
 
   // Rows paint NOW; the hero picks enrich (backdrop + synopsis) in the
@@ -322,6 +325,7 @@ async function buildFeatured(
   sourceIds: string[],
   items: Map<string, VodItem>,
   rowPools: Map<string, string[]>,
+  rowCap: number,
 ): Promise<string[]> {
   const pools = await Promise.all(
     sourceIds.map(async (cid) => {
@@ -342,7 +346,7 @@ async function buildFeatured(
           def.id,
           needsGenre(def) ? "genre=None" : undefined,
         );
-        return metas.slice(0, ITEMS_PER_ROW).map((m) => {
+        return metas.slice(0, rowCap).map((m) => {
           const item = metaPreviewToVod(m);
           if (!items.has(item.id)) items.set(item.id, item);
           return item.id;

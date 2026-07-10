@@ -465,10 +465,8 @@ pub fn set_track(kind: &str, id: &str) {
     set_prop(prop, id);
 }
 
-/// Playback speed multiplier (1.0 = normal).
-/// Unused since the overlay-webview bridge died (v0.2.0 comp.rs deletion);
-/// kept for the VOD player controls the Stream tab will need.
-#[allow(dead_code)]
+/// Playback speed multiplier (1.0 = normal) — the VOD speed menu
+/// (mpv_set_speed command).
 pub fn set_speed(speed: f64) {
     set_prop("speed", &speed.to_string());
 }

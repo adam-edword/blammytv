@@ -92,6 +92,10 @@ export function tauriMpvSeek(delta: number): Promise<void> {
 export function tauriMpvSeekAbs(pos: number): Promise<void> {
   return invoke("mpv_seek_abs", { pos });
 }
+/** Playback speed multiplier — the VOD speed menu. */
+export function tauriMpvSetSpeed(speed: number): Promise<void> {
+  return invoke("mpv_set_speed", { speed });
+}
 export function tauriMpvGoLive(): Promise<void> {
   return invoke("mpv_go_live");
 }

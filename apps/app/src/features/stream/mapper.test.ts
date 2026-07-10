@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mapSeasons, mapStreams, metaPreviewToVod, metaToVod } from "./mapper";
+import { mapSeasons, mapStreams, metaPreviewToVod, metaToVod, nextEpisode } from "./mapper";
 
 describe("mapStreams", () => {
   it("filters to http streams, preserves addon order, parses quality/cached/lines", () => {
@@ -101,5 +101,26 @@ describe("metaPreviewToVod", () => {
     expect(
       metaPreviewToVod({ id: "tt7", type: "movie", name: "X" }).runtimeMin,
     ).toBeUndefined();
+  });
+});
+
+describe("nextEpisode", () => {
+  const seasons = [
+    { id: "s0", number: 0, name: "Specials", episodes: [{ id: "x:0:1", number: 1, title: "sp" }] },
+    { id: "s1", number: 1, name: "Season 1", episodes: [
+      { id: "x:1:1", number: 1, title: "a" },
+      { id: "x:1:2", number: 2, title: "b" },
+    ]},
+    { id: "s2", number: 2, name: "Season 2", episodes: [{ id: "x:2:1", number: 1, title: "c" }] },
+  ];
+  it("advances within a season, then across seasons", () => {
+    expect(nextEpisode(seasons, "x:1:1")?.episode.id).toBe("x:1:2");
+    const cross = nextEpisode(seasons, "x:1:2");
+    expect(cross?.episode.id).toBe("x:2:1");
+    expect(cross?.season.number).toBe(2);
+  });
+  it("ends at the series end and never rolls INTO specials", () => {
+    expect(nextEpisode(seasons, "x:2:1")).toBeNull();
+    expect(nextEpisode(seasons, "nope")).toBeNull();
   });
 });

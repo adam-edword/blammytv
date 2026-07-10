@@ -5,6 +5,7 @@ import {
   tauriMpvPause,
   tauriMpvSeek,
   tauriMpvSeekAbs,
+  tauriMpvSetSpeed,
   tauriMpvStatus,
   tauriMpvTrack,
   tauriMpvVolume,
@@ -30,6 +31,8 @@ export interface DirectOverlayHandlers {
   /** VOD only: the file played to its END. Without this, EOF takes the
    * live-death path — watchdog reload, then a "not responding" card. */
   onEnded?: () => void;
+  /** VOD only: switch to the next available source (failover). */
+  onNextSource?: () => void;
 }
 
 /**
@@ -136,6 +139,8 @@ export function useDirectOverlay(
       setVolume: (v) => void tauriMpvVolume(v).catch(() => {}),
       seek: (d) => void tauriMpvSeek(d).catch(() => {}),
       seekAbs: (p) => void tauriMpvSeekAbs(p).catch(() => {}),
+      setSpeed: (sp) => void tauriMpvSetSpeed(sp).catch(() => {}),
+      nextSource: () => h.current.onNextSource?.(),
       selectAudio: (id) =>
         void tauriMpvTrack("audio", String(id)).catch(() => {}),
       selectSub: (id) => void tauriMpvTrack("sub", String(id)).catch(() => {}),

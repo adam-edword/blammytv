@@ -36,6 +36,8 @@ export interface OverlayApi {
   setVolume: (vol: number) => void; // 0..100 (mpv scale)
   seek: (delta: number) => void;
   seekAbs?: (pos: number) => void; // absolute seconds (VOD scrubber)
+  setSpeed?: (speed: number) => void; // playback rate (VOD speed menu)
+  nextSource?: () => void; // VOD failover: play the next available source
   expand?: () => void; // mini → theater
   collapse?: () => void; // theater → mini
   fullscreen?: () => void; // theater → fullscreen
