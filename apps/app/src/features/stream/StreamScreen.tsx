@@ -96,6 +96,13 @@ export function StreamScreen() {
     popped?: boolean;
   } | null>(null);
   const [watching, setWatching] = useState<WatchEntry[]>(loadWatching);
+  // Between "user clicked play" and "sources resolved": the player-style
+  // black screen with the art breathing, INSTANTLY — a quick-resume /
+  // Watch Now click must never sit on a dead screen for seconds.
+  const [resolving, setResolving] = useState<{
+    art?: string;
+    title: string;
+  } | null>(null);
   const setPlaying = useCallback(
     (
       p: {
@@ -109,9 +116,11 @@ export function StreamScreen() {
     ) => {
       if (!p) {
         setUpNext(null);
+        setResolving(null);
         return setPlayingRaw(null);
       }
       setUpNext(null);
+      setResolving(null);
       // Starting a new play while a pop-out runs would double the provider
       // connections — reel the pop-out in first (silent close).
       if (playingRef.current?.popped) void tauriPopoutStop().catch(() => {});
@@ -257,6 +266,7 @@ export function StreamScreen() {
   const watchNow = useCallback(
     async (item: VodItem) => {
       if (item.kind === "series") return open(item); // series always browse
+      setResolving({ art: item.logo ?? item.poster, title: item.title });
       try {
         const sources = await resolveVodSources("movie", item.id);
         const idx = Math.max(0, sources.findIndex((s) => s.cached));
@@ -270,6 +280,7 @@ export function StreamScreen() {
       } catch {
         /* fall through to detail */
       }
+      setResolving(null);
       void open(item);
     },
     [open, setPlaying],
@@ -299,6 +310,7 @@ export function StreamScreen() {
     if (!un) return;
     setUpNext(null);
     const { item, season, episode } = un;
+    setResolving({ art: item.logo ?? item.poster, title: item.title });
     try {
       const sources = await resolveVodSources("series", episode.id);
       const idx = Math.max(0, sources.findIndex((s) => s.cached));
@@ -379,12 +391,19 @@ export function StreamScreen() {
   const quickResume = useCallback(
     async (entry: WatchEntry, known?: VodItem) => {
       const kind = entry.kind ?? (entry.episodeId ? "series" : "movie");
+      setResolving({
+        art: known?.logo ?? known?.poster ?? entry.art,
+        title: entry.title,
+      });
       let item = known;
       if (!item || (kind === "series" && item.seasons.length === 0)) {
         const full = await resolveVodItem(kind, entry.id).catch(() => null);
         if (full) item = full;
       }
-      if (!item) return;
+      if (!item) {
+        setResolving(null);
+        return;
+      }
       try {
         const sources = await resolveVodSources(
           kind,
@@ -413,6 +432,7 @@ export function StreamScreen() {
       } catch {
         /* fall through to the browse path */
       }
+      setResolving(null);
       void open(item);
     },
     [setPlaying, open],
@@ -625,6 +645,25 @@ export function StreamScreen() {
       host.remove();
     };
   }, [playingUrl, popped]);
+
+  if (resolving && !playing && isTauri()) {
+    return (
+      <div className="vod-stage vod-stage--popped">
+        <div className="vod-pip">
+          {resolving.art ? (
+            <img
+              className="tune__vodlogo"
+              src={resolving.art}
+              alt=""
+              aria-hidden
+            />
+          ) : (
+            <span className="tune__vodtitle">{resolving.title}</span>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (playing && isTauri()) {
     return (
