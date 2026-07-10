@@ -25,7 +25,7 @@ From there the app **updates itself**: new versions install on launch, or on dem
 ## What it is
 
 <p align="center">
-  <img src="https://i.imgur.com/g1kIvQK.jpeg" alt="btv preview" />
+  <img src="https://i.imgur.com/UT5p0x5.jpeg" alt="btv preview" />
 </p>
 
 BlammyTV is a streaming *client* built for one job: making live TV and on-demand feel effortless in a single app. It plays **your** sources: live channels from the IPTV credentials you add (Xtream Codes panels, M3U playlists, Stalker portals), movies and shows resolved through **your** AIOStreams manifest + debrid accounts. The app itself contains and provides no content whatsoever. What it brings is the experience: a full EPG guide, a "now playing" hero with a live mini-player, and a native libmpv player that does real 4K60 and HDR.
