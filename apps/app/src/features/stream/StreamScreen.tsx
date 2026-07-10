@@ -637,32 +637,40 @@ export function StreamScreen() {
             <TheaterOverlay frame={playing.mode} playbackKey={playing.url} />,
             chromeHostRef.current,
           )}
-        {upNext && !playing.popped && (
-          <div className="upnext" data-interactive>
-            <p className="upnext__eyebrow">Up next</p>
-            <h2 className="upnext__title">
-              S{upNext.season.number} · E{upNext.episode.number} —{" "}
-              {upNext.episode.title}
-            </h2>
-            <p className="upnext__count">Playing in {countdown}s</p>
-            <div className="upnext__actions">
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={() => void playUpNext()}
-              >
-                Play now
-              </button>
-              <button
-                type="button"
-                className="shero__btn-quiet"
-                onClick={stop}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
+        {/* PORTALED like the player chrome: the app shell has the video
+          * hole clipped out of it, so anything rendered in-shell inside
+          * the hole region is invisible (the first Up Next render was —
+          * mpv's gray idle fill showed through instead). */}
+        {upNext &&
+          !playing.popped &&
+          chromeHostRef.current &&
+          createPortal(
+            <div className="upnext" data-interactive>
+              <p className="upnext__eyebrow">Up next</p>
+              <h2 className="upnext__title">
+                S{upNext.season.number} · E{upNext.episode.number} —{" "}
+                {upNext.episode.title}
+              </h2>
+              <p className="upnext__count">Playing in {countdown}s</p>
+              <div className="upnext__actions">
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => void playUpNext()}
+                >
+                  Play now
+                </button>
+                <button
+                  type="button"
+                  className="shero__btn-quiet"
+                  onClick={stop}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>,
+            chromeHostRef.current,
+          )}
         {playing.popped && (
           <div className="vod-pip">
             {(playing.item.logo ?? playing.item.poster) && (
