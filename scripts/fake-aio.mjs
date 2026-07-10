@@ -47,7 +47,10 @@ const MANIFEST = {
       type: "movie",
       id: "more-movies",
       name: "More Movies",
-      extra: [{ name: "genre", options: ["Action"] }, { name: "skip" }],
+      // Genre extra WITHOUT options — the real-manifest shape that must
+      // serve ANY genre (v0.3.18); its Action-only content answers other
+      // genres with an empty page.
+      extra: [{ name: "genre" }, { name: "skip" }],
     },
     // Required-genre catalog: only selectable for hero with genre=None.
     {
