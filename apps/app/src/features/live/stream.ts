@@ -193,8 +193,6 @@ export function buildMeta(
   sourceName?: string,
   favorite?: boolean,
 ): TheaterMeta {
-  const live =
-    !!programme && programme.start <= now && now < programme.end;
   let progressPct: number | undefined;
   let startLabel: string | undefined;
   if (programme) {
@@ -209,7 +207,12 @@ export function buildMeta(
     logo: channel.logo,
     title: programme?.title,
     description: programme?.synopsis,
-    live,
+    // CONTENT TYPE, not "airing now": the overlay flips its whole chrome
+    // (star vs VOD buttons, live bar vs scrubber, watchdog profile) on
+    // `live === false`. Deriving this from EPG coverage turned every
+    // guide-less channel into a VOD player — a live channel is live
+    // whether or not the guide knows what's on.
+    live: true,
     sourceName,
     startLabel,
     progressPct,

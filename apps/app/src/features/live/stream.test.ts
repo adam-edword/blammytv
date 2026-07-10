@@ -91,7 +91,7 @@ describe("buildMeta", () => {
     end: new Date(to),
   });
 
-  it("marks a currently-airing programme live and clamps progress to its span", () => {
+  it("fills programme meta and clamps progress to its span", () => {
     const m = buildMeta(
       ch,
       prog("2026-07-08T20:00:00Z", "2026-07-08T21:00:00Z"),
@@ -108,21 +108,31 @@ describe("buildMeta", () => {
     expect(m.favorite).toBe(true);
   });
 
-  it("is not live for a future programme, progress pinned at 0", () => {
-    const m = buildMeta(ch, prog("2026-07-08T22:00:00Z", "2026-07-08T23:00:00Z"), now);
-    expect(m.live).toBe(false);
-    expect(m.progressPct).toBe(0);
+  it("clamps progress for future/finished programmes", () => {
+    expect(
+      buildMeta(ch, prog("2026-07-08T22:00:00Z", "2026-07-08T23:00:00Z"), now)
+        .progressPct,
+    ).toBe(0);
+    expect(
+      buildMeta(ch, prog("2026-07-08T18:00:00Z", "2026-07-08T19:00:00Z"), now)
+        .progressPct,
+    ).toBe(100);
   });
 
-  it("is not live for a finished programme, progress clamped at 100", () => {
-    const m = buildMeta(ch, prog("2026-07-08T18:00:00Z", "2026-07-08T19:00:00Z"), now);
-    expect(m.live).toBe(false);
-    expect(m.progressPct).toBe(100);
+  // `live` is the CONTENT TYPE flag the overlay keys its whole chrome on
+  // (vod = live === false) — a channel with no guide coverage is still
+  // live TV. Regression: EPG-derived `live` turned guide-less channels
+  // into VOD players (no star, VOD buttons, 40s watchdog).
+  it("is live regardless of EPG coverage", () => {
+    expect(buildMeta(ch, undefined, now).live).toBe(true);
+    expect(
+      buildMeta(ch, prog("2026-07-08T22:00:00Z", "2026-07-08T23:00:00Z"), now)
+        .live,
+    ).toBe(true);
   });
 
-  it("handles a channel with no programme (no title/progress, not live)", () => {
+  it("handles a channel with no programme (no title/progress)", () => {
     const m = buildMeta(ch, undefined, now);
-    expect(m.live).toBe(false);
     expect(m.title).toBeUndefined();
     expect(m.progressPct).toBeUndefined();
     expect(m.startLabel).toBeUndefined();

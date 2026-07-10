@@ -29,6 +29,9 @@ export interface TheaterMeta {
   logo?: string;
   title?: string;
   description?: string;
+  /** CONTENT TYPE: true = live TV, false = VOD. The overlay derives its
+   * whole chrome from `live === false` (star vs VOD buttons, live bar vs
+   * scrubber, watchdog profile) — never derive this from EPG coverage. */
   live?: boolean;
   sourceName?: string;
   /** VOD episode identity, structured — the overlay's granular meta
