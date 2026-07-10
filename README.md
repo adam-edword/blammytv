@@ -3,8 +3,8 @@
 </p>
 
 <p align="center">
-  A self-contained Windows desktop client for live TV &amp; on-demand — Xtream Codes, M3U, and Stalker portals for IPTV; AIOStreams (+ debrid) for movies &amp; shows.<br/>
-  Native libmpv playback, <strong>"boomer-proof"</strong> UX, no server to run.
+  An elegant, premium IPTV and Stremio player. Bring your own playlists and AIOStreams manifest and enjoy all your content in one beautiful app.<br/>
+  <sub>Windows desktop · native libmpv playback · no server to run</sub>
 </p>
 
 ---
