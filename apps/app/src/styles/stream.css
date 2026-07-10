@@ -434,19 +434,22 @@
   align-items: flex-start;
   justify-content: flex-start;
 }
+/* Same glass language as the pills/chips on these screens: #00000050,
+ * blur, and the shared darkening hover. */
 .vod-back {
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 15px;
   color: var(--text);
-  background: var(--surface-raised);
-  border: 0.5px solid var(--border-raised);
-  border-radius: 25px;
-  padding: 9px 14px;
+  background: #00000050;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  padding: 9px 15px;
+  backdrop-filter: blur(16px);
   cursor: pointer;
-  transition: filter 150ms ease;
+  transition: background 140ms ease;
 }
-.vod-back:hover { filter: brightness(1.35); }
+.vod-back:hover { background: rgba(0, 0, 0, 0.6); }
 .vod-detail__logo { max-width: 500px; max-height: 300px; object-fit: contain; }
 .vod-detail__title {
   font-family: var(--font-headline);
