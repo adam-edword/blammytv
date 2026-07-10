@@ -43,8 +43,34 @@ export async function httpGetText(
 export async function httpGetJson<T>(
   url: string,
   headers?: Record<string, string>,
+  opts?: {
+    /** On a Rust-side 403, retry the request from the WEBVIEW: our Rust
+     * client presents as a browser but its TLS fingerprint isn't really
+     * Chrome's, and some proxies/bot walls 403 on that alone. WebView2 IS
+     * Chrome — genuine fingerprint and headers. Only safe for endpoints
+     * that send ACAO:* (Stremio addons do, by spec; Xtream panels don't,
+     * so their callers must not set this). */
+    browserRetryOn403?: boolean;
+  },
 ): Promise<T> {
-  const body = await httpGetText(url, headers);
+  let body: string;
+  try {
+    body = await httpGetText(url, headers);
+  } catch (e) {
+    const is403 = e instanceof Error && /HTTP 403/.test(e.message);
+    if (!is403 || !opts?.browserRetryOn403 || !isTauri()) throw e;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      body = await res.text();
+    } catch (retryErr) {
+      // Diagnosable from a screenshot: real Chrome was ALSO rejected, so
+      // it's the config/instance, not the client.
+      throw new Error("HTTP 403 (browser-engine retry was also rejected)", {
+        cause: retryErr,
+      });
+    }
+  }
   try {
     return JSON.parse(body) as T;
   } catch {

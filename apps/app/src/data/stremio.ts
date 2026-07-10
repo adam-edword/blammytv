@@ -102,6 +102,10 @@ export interface StreamResponse {
   streams?: StremioStream[];
 }
 
+/** Stremio addons send ACAO:* by spec — safe to retry a Rust-side 403
+ * from the webview (real Chrome fingerprint; see httpGetJson). */
+const BROWSER_RETRY = { browserRetryOn403: true };
+
 /** Base path for an addon: the manifest URL minus `/manifest.json`. */
 export function addonBase(manifestUrl: string): string {
   return manifestUrl
@@ -118,7 +122,11 @@ export function encSegment(seg: string): string {
 }
 
 export function fetchManifest(manifestUrl: string): Promise<AddonManifest> {
-  return httpGetJson<AddonManifest>(`${addonBase(manifestUrl)}/manifest.json`);
+  return httpGetJson<AddonManifest>(
+    `${addonBase(manifestUrl)}/manifest.json`,
+    undefined,
+    BROWSER_RETRY,
+  );
 }
 
 /** A catalog page. `extra` is the raw Stremio extra segment when present —
@@ -132,6 +140,8 @@ export function fetchCatalog(
   const tail = extra ? `/${extra}` : "";
   return httpGetJson<CatalogResponse>(
     `${addonBase(manifestUrl)}/catalog/${encSegment(type)}/${encSegment(id)}${tail}.json`,
+    undefined,
+    BROWSER_RETRY,
   );
 }
 
@@ -142,6 +152,8 @@ export function fetchMeta(
 ): Promise<MetaResponse> {
   return httpGetJson<MetaResponse>(
     `${addonBase(manifestUrl)}/meta/${encSegment(type)}/${encSegment(id)}.json`,
+    undefined,
+    BROWSER_RETRY,
   );
 }
 
@@ -153,6 +165,8 @@ export function fetchStreams(
 ): Promise<StreamResponse> {
   return httpGetJson<StreamResponse>(
     `${addonBase(manifestUrl)}/stream/${encSegment(type)}/${encSegment(id)}.json`,
+    undefined,
+    BROWSER_RETRY,
   );
 }
 
