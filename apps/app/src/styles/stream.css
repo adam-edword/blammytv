@@ -423,8 +423,8 @@
   gap: 12px;
   margin-bottom: 7%;
   margin-left: 7%;
-  align-items: flex-end;
-  justify-content: center;
+  align-items: flex-start;
+  justify-content: flex-end;
   max-width: 66ch;
 }
 /* The episodes page keeps its top-left header — the flex-end/7% layout
