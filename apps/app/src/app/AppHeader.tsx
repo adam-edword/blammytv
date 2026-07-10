@@ -148,7 +148,12 @@ export function AppHeader({
           }
           aria-hidden={active === "live"}
         >
-          <span className="header__searchpill">
+          {/* The whole pill focuses the input — the icon is the visible
+            * target when everything else is hidden at rest. */}
+          <span
+            className="header__searchpill"
+            onClick={() => searchInputRef.current?.focus()}
+          >
             <SearchIcon aria-hidden />
             <input
               ref={searchInputRef}

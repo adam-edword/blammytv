@@ -335,13 +335,20 @@ button {
    * full: text and icon at 1. Constant 1.5px border (transparent at
    * rest) so no state change ever shifts layout. */
   border: 1.5px solid transparent;
-  background: color-mix(in srgb, var(--bg) 72%, transparent);
-  backdrop-filter: blur(8px);
-  transition: border-color 150ms ease;
+  /* Background only while FOCUSED — a resting glass blob reads as a
+   * mystery box over bright content scrolling under the nav. */
+  background: transparent;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease;
 }
 .header__searchpill:hover,
 .header__searchpill:focus-within {
   border-color: var(--accent);
+}
+.header__searchpill:focus-within {
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  backdrop-filter: blur(8px);
+  cursor: text;
 }
 .header__searchinput {
   opacity: 0;
