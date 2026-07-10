@@ -19,7 +19,11 @@ import type { VodItem } from "../stream/model";
 export interface DiscoverCatalog {
   type: "movie" | "series";
   id: string;
-  /** The catalog's declared genre options, verbatim (opaque strings). */
+  /** The catalog declares a genre extra at all (options or not). */
+  genreCapable: boolean;
+  /** The catalog's declared genre OPTIONS, verbatim (opaque strings).
+   * Empty with genreCapable=true means "takes a genre, enumerates
+   * nothing" — such catalogs serve ANY genre filter. */
   genres: string[];
 }
 
@@ -49,7 +53,12 @@ export function pickCatalogs(catalogs: CatalogDef[]): DiscoverCatalog[] {
       (c): c is CatalogDef & { type: "movie" | "series" } =>
         (c.type === "movie" || c.type === "series") && browseable(c),
     )
-    .map((c) => ({ type: c.type, id: c.id, genres: genreOptions(c) }));
+    .map((c) => ({
+      type: c.type,
+      id: c.id,
+      genreCapable: (c.extra ?? []).some((e) => e.name === "genre"),
+      genres: genreOptions(c),
+    }));
 }
 
 /** The grid's feeds: EVERY catalog matching the type filter that can
@@ -87,6 +96,23 @@ export async function loadDiscover(): Promise<DiscoverConfig> {
   const catalogs = pickCatalogs(manifest.catalogs ?? []);
   if (catalogs.length === 0)
     throw new Error("the addon declares no browseable catalogs");
+  // Diagnostic (ids/names only — never the manifest URL): which catalogs
+  // exist and how each declares genres, for by-hand reports like "the
+  // rail is all X" — the answer is usually in this shape.
+  console.info(
+    `[discover] ${catalogs.length} browseable catalogs: ` +
+      catalogs
+        .map(
+          (c) =>
+            `${c.id}(${c.type}): ` +
+            (c.genreCapable
+              ? c.genres.length
+                ? `${c.genres.length} genres`
+                : "genre-capable, no options"
+              : "no genre extra"),
+        )
+        .join(" | "),
+  );
   return { manifestUrl, catalogs, genres: unionGenres(catalogs) };
 }
 
@@ -102,11 +128,15 @@ export function catalogExtra(
   return parts.length ? parts.join("&") : undefined;
 }
 
-/** Can this catalog serve this genre filter? A catalog that declares
- * genre options can only be asked for one of them; one that declares
- * none can't be genre-filtered at all. */
+/** Can this catalog serve this genre filter? Enumerated options bind
+ * (only those genres); a genre extra with NO options means "takes any
+ * genre" — treating that as unservable silently benched most of a real
+ * manifest and left only the anime catalogs dealing rail art. No genre
+ * extra at all = can't be filtered. */
 export function servesGenre(cat: DiscoverCatalog, genre: string | null): boolean {
   if (!genre) return true;
+  if (!cat.genreCapable) return false;
+  if (cat.genres.length === 0) return true;
   return cat.genres.some((g) => g.trim().toLowerCase() === genre.toLowerCase());
 }
 
@@ -154,9 +184,8 @@ export function interleave<T>(...lists: T[][]): T[] {
  * before.
  */
 const ART_KEY = "discoverArt";
-const ART_VERSION = 4; // v4: rotating catalog pick (random pick favored
-// whichever flavor dominates the manifest — mostly-anime lists kept
-// dealing mostly-anime art)
+const ART_VERSION = 5; // v5: options-less genre extras join the pool
+// (v4 art was dealt with most of the manifest silently benched)
 const ART_ID_CAP = 600;
 const ART_TTL_MS = 50 * 3600_000;
 interface ArtMemo {

@@ -28,9 +28,14 @@ describe("pickCatalogs", () => {
       { type: "tv", id: "live-tv" }, // unknown type → ignored
     ]);
     expect(out).toEqual([
-      { type: "movie", id: "top-movies", genres: ["Action", "Drama"] },
-      { type: "movie", id: "second-movies", genres: [] },
-      { type: "series", id: "top-series", genres: [] },
+      {
+        type: "movie",
+        id: "top-movies",
+        genreCapable: true,
+        genres: ["Action", "Drama"],
+      },
+      { type: "movie", id: "second-movies", genreCapable: false, genres: [] },
+      { type: "series", id: "top-series", genreCapable: false, genres: [] },
     ]);
   });
 
@@ -49,9 +54,24 @@ describe("pickCatalogs", () => {
 
 describe("gridCatalogs", () => {
   const cats = [
-    { type: "movie" as const, id: "anime-movies", genres: ["Action", "Anime"] },
-    { type: "movie" as const, id: "top-movies", genres: ["Action", "Crime"] },
-    { type: "series" as const, id: "top-series", genres: ["Crime"] },
+    {
+      type: "movie" as const,
+      id: "anime-movies",
+      genreCapable: true,
+      genres: ["Action", "Anime"],
+    },
+    {
+      type: "movie" as const,
+      id: "top-movies",
+      genreCapable: true,
+      genres: ["Action", "Crime"],
+    },
+    {
+      type: "series" as const,
+      id: "top-series",
+      genreCapable: true,
+      genres: ["Crime"],
+    },
   ];
 
   it("returns every catalog matching type + genre (the conglomerate)", () => {
@@ -78,8 +98,18 @@ describe("gridCatalogs", () => {
 describe("unionGenres", () => {
   it("keeps movie order first and dedupes case-insensitively", () => {
     const out = unionGenres([
-      { type: "movie", id: "m", genres: ["Action", "Sci-Fi", "Drama"] },
-      { type: "series", id: "s", genres: ["drama", "Anime", " Action "] },
+      {
+        type: "movie",
+        id: "m",
+        genreCapable: true,
+        genres: ["Action", "Sci-Fi", "Drama"],
+      },
+      {
+        type: "series",
+        id: "s",
+        genreCapable: true,
+        genres: ["drama", "Anime", " Action "],
+      },
     ]);
     expect(out).toEqual(["Action", "Sci-Fi", "Drama", "Anime"]);
   });
@@ -97,22 +127,35 @@ describe("catalogExtra", () => {
 });
 
 describe("servesGenre", () => {
-  const cat = { type: "movie" as const, id: "m", genres: ["Action", "Drama"] };
+  const cat = {
+    type: "movie" as const,
+    id: "m",
+    genreCapable: true,
+    genres: ["Action", "Drama"],
+  };
   it("matches case-insensitively and always serves the null filter", () => {
     expect(servesGenre(cat, null)).toBe(true);
     expect(servesGenre(cat, "action")).toBe(true);
     expect(servesGenre(cat, "Anime")).toBe(false);
-    // A catalog with no declared genres can't be filtered at all.
-    expect(servesGenre({ ...cat, genres: [] }, "Action")).toBe(false);
+  });
+
+  it("genre extra without options serves ANY genre; no extra serves none", () => {
+    // The real-manifest bug: 8 of 10 catalogs declared genre without
+    // enumerating options and were silently benched from the rail.
+    expect(servesGenre({ ...cat, genres: [] }, "Action")).toBe(true);
+    expect(
+      servesGenre({ ...cat, genreCapable: false, genres: [] }, "Action"),
+    ).toBe(false);
   });
 });
 
 describe("artCatalogFor", () => {
-  const serving = [
-    { type: "movie" as const, id: "a", genres: [] },
-    { type: "movie" as const, id: "b", genres: [] },
-    { type: "movie" as const, id: "c", genres: [] },
-  ];
+  const serving = ["a", "b", "c"].map((id) => ({
+    type: "movie" as const,
+    id,
+    genreCapable: true,
+    genres: [],
+  }));
 
   it("rotates through every serving catalog as deals advance", () => {
     const seq = [0, 1, 2, 3].map((n) => artCatalogFor(serving, "Action", n).id);
