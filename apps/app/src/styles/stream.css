@@ -624,11 +624,12 @@
   transition: opacity 150ms ease;
 }
 .episode-card:hover .episode-card__cue { opacity: 1; }
-/* Number inline with the title up top; the air date pins to the bottom. */
+/* Number runs INLINE with the title (one text flow, so a wrapping title
+ * continues under the E-chip, no hanging indent); date pins to the
+ * card bottom. */
 .episode-card__text {
-  display: flex;
-  gap: 8px;
-  align-items: baseline;
+  display: block;
+  margin-left: 5px;
   min-width: 0;
 }
 .episode-card__num {
@@ -636,13 +637,14 @@
   font-weight: 700;
   font-size: 15px;
   color: var(--accent, #c22727);
-  flex-shrink: 0;
+  margin-right: 8px;
 }
 .episode-card__title { font-size: 15px; color: #f2f2f4; }
 .episode-card__date {
   font-size: 12px;
   color: rgba(242, 242, 244, 0.55);
   margin-top: auto;
+  margin-left: 5px;
 }
 
 /* ---- fullscreen VOD stage ---- */
