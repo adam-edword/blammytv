@@ -51,6 +51,16 @@ export interface TheaterMeta {
 export function tauriPopoutOpen(url: string): Promise<void> {
   return invoke("popout_open", { url });
 }
+/** Current popout playback position (seconds; 0 when none) — polled while
+ * popped so a reclaim resumes at the right spot (old-app pattern). */
+export function tauriPopoutPos(): Promise<number> {
+  return invoke("popout_pos");
+}
+/** Close the popout window programmatically (the "Bring It Back" button).
+ * Silent — no popout-closed event; the caller drives the reclaim. */
+export function tauriPopoutStop(): Promise<void> {
+  return invoke("popout_stop");
+}
 
 /* ---- The player (inv.rs): video child at the bottom of the z-order,
  * chrome is ordinary React in the main webview, driving mpv through the

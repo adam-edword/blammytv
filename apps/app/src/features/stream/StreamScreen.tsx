@@ -40,6 +40,8 @@ import {
   onPopoutClosed,
   tauriMpvStatus,
   tauriPopoutOpen,
+  tauriPopoutPos,
+  tauriPopoutStop,
 } from "../../lib/tauri";
 
 /**
@@ -289,7 +291,10 @@ export function StreamScreen() {
         const shell = document.querySelector<HTMLElement>(".app-shell");
         if (shell) shell.style.clipPath = "";
         void tauriPopoutOpen(playing.url).catch(() => {});
-        setPlayingRaw({ ...playing, popped: true });
+        // Old-app pattern: popping out drops OS fullscreen — the popped
+        // placeholder is a normal windowed app view.
+        setPlayingRaw({ ...playing, popped: true, mode: "theater" });
+        if (isTauri()) void tauriSetFullscreen(false).catch(() => {});
       },
       onToggleFavorite: () => {},
     },
@@ -337,6 +342,45 @@ export function StreamScreen() {
         popped: false,
         resumeAt: pos ? Math.max(0, pos - 1) : (fallback ?? p.resumeAt),
       });
+    });
+  }, []);
+
+  // While popped: poll the floating window's position every second (the
+  // old app's pattern) so Bring It Back / a reclaim resumes at the right
+  // spot — and Continue Watching keeps ticking through the PiP session.
+  const popPosRef = useRef(0);
+  useEffect(() => {
+    if (!playing?.popped || !isTauri()) return;
+    popPosRef.current = 0;
+    const itemId = playing.item.id;
+    const id = window.setInterval(() => {
+      tauriPopoutPos()
+        .then((p) => {
+          if (p > 0) {
+            popPosRef.current = p;
+            setWatching(updateWatchingProgress(itemId, p));
+          }
+        })
+        .catch(() => {});
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [playing]);
+  // "Bring It Back": read the popout's position, close it silently (no
+  // popout-closed event — stop_popout takes ownership first), resume here.
+  const bringBack = useCallback(async () => {
+    const p = playingRef.current;
+    if (!p?.popped) return;
+    let pos = popPosRef.current;
+    try {
+      pos = await tauriPopoutPos();
+    } catch {
+      /* fall back to the last polled position */
+    }
+    await tauriPopoutStop().catch(() => {});
+    setPlayingRaw({
+      ...p,
+      popped: false,
+      resumeAt: pos > 0 ? Math.max(0, pos - 1) : p.resumeAt,
     });
   }, []);
 
@@ -400,9 +444,14 @@ export function StreamScreen() {
                 aria-hidden
               />
             )}
-            <p className="vod-pip__hint">
-              Playing in the pop-out — close it to continue here.
-            </p>
+            <p className="vod-pip__hint">Player popped out.</p>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => void bringBack()}
+            >
+              Bring It Back
+            </button>
             <button
               type="button"
               className="player__btn player__btn--glass vod-pip__close"
