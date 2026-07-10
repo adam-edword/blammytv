@@ -1154,9 +1154,64 @@ export function RowScroller({ children }: { children: ReactNode }) {
       left: dir * ref.current.clientWidth * 0.75,
       behavior: "smooth",
     });
+  // Click-and-drag scrolling: pointer deltas map 1:1 onto scrollLeft (no
+  // physics — native feel only). Past a small slop the gesture is a DRAG:
+  // capture the pointer and swallow the next click so the card under the
+  // cursor doesn't open. Serves every row: Stream home, Continue
+  // Watching, and Discover's genre rail all render through here.
+  const drag = useRef<{ x: number; left: number; moved: boolean } | null>(
+    null,
+  );
+  // Set when a drag ends; the gesture's trailing click (which fires AFTER
+  // pointerup) checks-and-clears it in the capture phase, before any
+  // card's own onClick can open something.
+  const justDragged = useRef(false);
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 || e.pointerType !== "mouse") return; // touch scrolls natively
+    const el = ref.current;
+    if (!el) return;
+    justDragged.current = false;
+    drag.current = { x: e.clientX, left: el.scrollLeft, moved: false };
+  };
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    const el = ref.current;
+    if (!d || !el) return;
+    const dx = e.clientX - d.x;
+    if (!d.moved && Math.abs(dx) < 6) return; // click slop
+    if (!d.moved) {
+      d.moved = true;
+      el.setPointerCapture(e.pointerId);
+      el.classList.add("is-dragging");
+    }
+    el.scrollLeft = d.left - dx;
+  };
+  const endDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    const el = ref.current;
+    drag.current = null;
+    if (!d?.moved || !el) return;
+    justDragged.current = true;
+    el.releasePointerCapture(e.pointerId);
+    el.classList.remove("is-dragging");
+  };
+  const swallowDragClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!justDragged.current) return;
+    justDragged.current = false;
+    e.preventDefault();
+    e.stopPropagation();
+  };
   return (
     <div className="media-row__viewport">
-      <div className="media-row__scroller" ref={ref}>
+      <div
+        className="media-row__scroller"
+        ref={ref}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        onClickCapture={swallowDragClick}
+      >
         {children}
       </div>
       <div
@@ -1426,6 +1481,7 @@ export function Card({
           src={item.poster}
           alt=""
           loading="lazy"
+          draggable={false}
           onError={() => setBroken(true)}
         />
       ) : (
@@ -1493,7 +1549,7 @@ function ContinueCard({
     >
       <span className="continue-card__artwrap">
         {entry.art ? (
-          <img className="continue-card__art" src={entry.art} alt="" loading="lazy" />
+          <img className="continue-card__art" src={entry.art} alt="" loading="lazy" draggable={false} />
         ) : (
           <span className="continue-card__art continue-card__art--empty" />
         )}

@@ -216,6 +216,15 @@
   overflow-x: auto;
   padding: 4px 28px 10px;
 }
+/* Mid-drag: the row scrolls under the cursor — suppress hover lifts and
+ * accidental selection so the gesture reads as grabbing the shelf. */
+.media-row__scroller.is-dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+.media-row__scroller.is-dragging * {
+  pointer-events: none;
+}
 /* Edge scrims: only lit when content actually hides that way. */
 .media-row__scrim {
   position: absolute;
