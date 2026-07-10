@@ -15,13 +15,28 @@ Audience: switchers from other Windows IPTV clients, Stremio users, ideally
 both — and explicitly *inviting to newcomers*; first-five-minutes activation
 weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
-## Live state (2026-07-08, v0.1.110)
+## Live state (2026-07-10, v0.3.0 RELEASED)
 
-- Branch `claude/blammytv-rebuild-xclzto-uz75yh` — the working branch;
-  never push elsewhere. Adam pulls it and runs `pnpm tauri dev` on Windows.
-  NOTE for the next Windows rebuild: cargo will rewrite Cargo.lock (the
-  v0.1.135 Cargo.toml trim couldn't be locked here — no Rust toolchain);
-  commit that lockfile churn with the rebuild.
+- **Branch `blammytv-0.4.0-push`** — the working branch since the v0.3.0
+  release; never push elsewhere. (History: claude/blammytv-rebuild-… →
+  blammytv-0.3.0-push, which carries the v0.3.0 release commit.) Adam
+  pulls and runs `pnpm tauri dev` on Windows.
+- **v0.3.0 "VOD" SHIPPED 2026-07-10**: tag v0.3.0 (clean namespace, no
+  suffix needed — only 0.2.x tags are burned), set-as-latest ✓, sig
+  verified from this session against the uploaded exe (sha256 matches
+  GitHub's digest), manifest at releases/v0.3.0/latest.json, attached to
+  the release. Both installs updated via the chip. Natives sit at 0.3.0
+  now; dev bumps are 0.3.x in the three frontend files ONLY.
+- OPEN: Bobby's AIOStreams manifest 403s in-app (same server as Adam's,
+  Adam's works; browser test was confounded — likely a STALE saved
+  config URL; awaiting his fresh-URL re-paste). Cargo.lock churn from
+  Adam's release build still uncommitted on his machine.
+- The 0.3.0 cycle's scars worth remembering: PS 5.1 reads BOM-less UTF-8
+  as ANSI, so em-dashes in .ps1 strings become closing quotes (release.ps1
+  is pure ASCII now); anything drawn over the video MUST portal into
+  #inv-chrome (the shell's clip hole eats in-shell content — the invisible
+  Up Next card); libmpv forbids terminate_destroy concurrent with
+  wait_event (popout teardown is quit→watcher-owned destroy now).
 - Just landed: audio/subtitle track menus in TheaterOverlay (v0.1.110-112,
   frontend-only — comp.rs's tracks push/selectAudio/selectSub were already
   complete; verified 12/12 headless with a mocked bridge via
@@ -191,12 +206,15 @@ series season/episode browser + fullscreen playback through the SHARED
 InvertedPlayer/TheaterOverlay (its own #inv-chrome host + api override —
 overlay verbs mapped: close/collapse/exitFullscreen all stop back to the
 catalog). Verified: 9 unit tests + scripts/verify-stream.mjs 8/8 vs
-scripts/fake-aio.mjs (:8084). NEXT (S2): VOD scrubber chrome in
-TheaterOverlay (mpv seek_abs is waiting Rust-side, needs an mpv_seek_abs
-command — DONE v0.2.47: scrubber + resume-from-position shipped),
-pagination + search, an episode search within a series (Adam wants it
-"eventually"), nav glass re-enable (base.css comment) now that
-scrolling content exists.
+scripts/fake-aio.mjs (:8084). The whole S2 player block SHIPPED in
+0.3.0: scrubber+resume, Up Next autoplay, next-episode button, speed
+menu, source panel + failover queue, watched marks, Skip Intro Phase 1
+(chapters) with the Hidden/Normal/Combine setting. 0.4.0 QUEUE:
+Skip Intro Phase 2 (aniskip for anime — imdb→MAL mapping, see the
+2026-07-10 conversation), catalog pagination + search (skip= supported
+client-side already), episode search within a series, nav glass
+re-enable (base.css comment), Ctrl+K palette + onboarding (await Adam's
+Figma).
 NOTE: repo branches cleaned 2026-07-09; work continues on
 blammytv-0.3.0-push (old branch list is in the session log; android-tv
 kept deliberately — 186 unique commits of parked port work).
