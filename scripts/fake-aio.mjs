@@ -41,6 +41,14 @@ const MANIFEST = {
       name: "Top Series",
       extra: [{ name: "genre", options: ["Drama", "Comedy"] }, { name: "skip" }],
     },
+    // A SECOND browseable movie catalog: Discover's grid must conglomerate
+    // across all of the user's lists, not anchor to the first one.
+    {
+      type: "movie",
+      id: "more-movies",
+      name: "More Movies",
+      extra: [{ name: "genre", options: ["Action"] }, { name: "skip" }],
+    },
     // Required-genre catalog: only selectable for hero with genre=None.
     {
       type: "movie",
@@ -92,6 +100,20 @@ const SERIES = NUMBERS.slice(0, 4).map((word, i) => {
   };
 });
 
+// The second browseable movie list (distinct ids/titles so the E2E can
+// prove the conglomerate grid mixes catalogs).
+const MORE_MOVIES = NUMBERS.slice(0, 2).map((word, i) => {
+  const id = `tt40000${i + 1}`;
+  return {
+    id,
+    type: "movie",
+    name: `Extra Movie ${word}`,
+    poster: poster(id),
+    description: `An extra fake movie, number ${word}.`,
+    genres: ["Action"],
+  };
+});
+
 const GENRE_MOVIES = NUMBERS.slice(0, 3).map((word, i) => {
   const id = `tt30000${i + 1}`;
   return {
@@ -104,7 +126,7 @@ const GENRE_MOVIES = NUMBERS.slice(0, 3).map((word, i) => {
 });
 
 const BY_ID = new Map(
-  [...MOVIES, ...SERIES, ...GENRE_MOVIES].map((m) => [m.id, m]),
+  [...MOVIES, ...SERIES, ...MORE_MOVIES, ...GENRE_MOVIES].map((m) => [m.id, m]),
 );
 const SPARSE_IDS = new Set(["tt100007", "tt100008"]);
 
@@ -233,6 +255,7 @@ http
       };
       if (type === "movie" && catalogId === "top-movies") return page(MOVIES);
       if (type === "series" && catalogId === "top-series") return page(SERIES);
+      if (type === "movie" && catalogId === "more-movies") return page(MORE_MOVIES);
       if (type === "movie" && catalogId === "genre-movies" && extra?.startsWith("genre="))
         return json({ metas: GENRE_MOVIES });
       return notFound();

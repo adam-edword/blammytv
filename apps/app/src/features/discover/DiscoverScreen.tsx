@@ -11,10 +11,10 @@ import type { VodItem } from "../stream/model";
 import {
   fetchDiscoverPage,
   genreArtwork,
+  gridCatalogs,
   interleave,
   loadDiscover,
   resolveGenreArt,
-  servesGenre,
   type DiscoverConfig,
 } from "./data";
 
@@ -111,11 +111,8 @@ export function DiscoverScreen() {
         setPhase("more");
       }
       try {
-        const active = cfg.cfg.catalogs.filter(
-          (c) =>
-            (filter === "all" || c.type === filter) &&
-            servesGenre(c, genre) &&
-            !doneRef.current[c.type],
+        const active = gridCatalogs(cfg.cfg.catalogs, filter, genre).filter(
+          (c) => !doneRef.current[c.id],
         );
         if (active.length === 0) {
           if (reqId === reqIdRef.current) setPhase("done");
@@ -123,22 +120,17 @@ export function DiscoverScreen() {
         }
         const pages = await Promise.all(
           active.map((c) =>
-            fetchDiscoverPage(cfg.cfg, c, genre, cursors.current[c.type] ?? 0)
+            fetchDiscoverPage(cfg.cfg, c, genre, cursors.current[c.id] ?? 0)
               .then((page) => ({ c, page }))
               .catch(() => ({ c, page: [] as VodItem[] })),
           ),
         );
         if (reqId !== reqIdRef.current) return; // filter changed mid-flight
         for (const { c, page } of pages) {
-          cursors.current[c.type] =
-            (cursors.current[c.type] ?? 0) + page.length;
-          if (page.length === 0) doneRef.current[c.type] = true;
+          cursors.current[c.id] = (cursors.current[c.id] ?? 0) + page.length;
+          if (page.length === 0) doneRef.current[c.id] = true;
         }
-        const movie = pages.find((p) => p.c.type === "movie")?.page ?? [];
-        const series = pages.find((p) => p.c.type === "series")?.page ?? [];
-        const merged = (
-          filter === "all" ? interleave(movie, series) : [...movie, ...series]
-        ).filter((i) => {
+        const merged = interleave(...pages.map((p) => p.page)).filter((i) => {
           if (seenRef.current.has(i.id)) return false;
           seenRef.current.add(i.id);
           return true;

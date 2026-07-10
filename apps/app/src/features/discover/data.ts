@@ -38,14 +38,32 @@ const browseable = (cat: CatalogDef): boolean =>
 const genreOptions = (cat: CatalogDef): string[] =>
   (cat.extra ?? []).find((e) => e.name === "genre")?.options ?? [];
 
-/** First browseable catalog per content type. Exported for tests. */
+/** EVERY browseable movie/series catalog, manifest order. The rail's
+ * genres union across all of them, and each genre's art pulls from a
+ * random catalog that declares it — anchoring anything to just the
+ * FIRST catalog made an anime-first manifest paint an all-anime
+ * Discover. Exported for tests. */
 export function pickCatalogs(catalogs: CatalogDef[]): DiscoverCatalog[] {
-  const out: DiscoverCatalog[] = [];
-  for (const type of ["movie", "series"] as const) {
-    const cat = catalogs.find((c) => c.type === type && browseable(c));
-    if (cat) out.push({ type, id: cat.id, genres: genreOptions(cat) });
-  }
-  return out;
+  return catalogs
+    .filter(
+      (c): c is CatalogDef & { type: "movie" | "series" } =>
+        (c.type === "movie" || c.type === "series") && browseable(c),
+    )
+    .map((c) => ({ type: c.type, id: c.id, genres: genreOptions(c) }));
+}
+
+/** The grid's feeds: EVERY catalog matching the type filter that can
+ * serve the current genre — the grid is a conglomerate of all the
+ * user's lists (round-robin interleaved, each with its own cursor),
+ * not the first catalog wearing filters. Exported for tests. */
+export function gridCatalogs(
+  catalogs: DiscoverCatalog[],
+  filter: "all" | "movie" | "series",
+  genre: string | null,
+): DiscoverCatalog[] {
+  return catalogs.filter(
+    (c) => (filter === "all" || c.type === filter) && servesGenre(c, genre),
+  );
 }
 
 /** Order-preserving, case-insensitive union of the catalogs' genres. */
@@ -109,15 +127,16 @@ export async function fetchDiscoverPage(
     .map(metaPreviewToVod);
 }
 
-/** Alternate merge for the "All Content" grid — no cross-type ranking
- * exists, so honest interleaving beats a fake one. Exported for tests. */
-export function interleave<T>(a: T[], b: T[]): T[] {
+/** Round-robin merge across any number of feeds — the "conglomerate"
+ * order: rank-1 of every list, then rank-2 of every list… No cross-
+ * catalog ranking exists, so honest interleaving beats a fake one (and
+ * beats true randomness: stable under pagination, no reshuffling).
+ * Exported for tests. */
+export function interleave<T>(...lists: T[][]): T[] {
   const out: T[] = [];
-  const n = Math.max(a.length, b.length);
-  for (let i = 0; i < n; i++) {
-    if (i < a.length) out.push(a[i]);
-    if (i < b.length) out.push(b[i]);
-  }
+  const n = Math.max(0, ...lists.map((l) => l.length));
+  for (let i = 0; i < n; i++)
+    for (const l of lists) if (i < l.length) out.push(l[i]);
   return out;
 }
 
@@ -181,42 +200,52 @@ export function genreArtwork(genres: string[]): Map<string, string> {
  * metadata, and hand its backdrop over. A few draws per genre, since
  * not every title carries one.
  */
+const ART_CONCURRENCY = 4;
+
 export async function resolveGenreArt(
   cfg: DiscoverConfig,
   genres: string[],
   onArt: (genre: string, src: string) => void,
 ): Promise<void> {
-  await Promise.all(
-    genres.map(async (genre) => {
-      const cached = artMemo().lastByGenre[genre.toLowerCase()];
-      if (cached && Date.now() - cached.at < ART_TTL_MS) return;
-      const serving = cfg.catalogs.filter((c) => servesGenre(c, genre));
-      if (serving.length === 0) return;
-      const cat = serving[Math.floor(Math.random() * serving.length)];
-      const res = await fetchCatalog(
-        cfg.manifestUrl,
-        cat.type,
-        cat.id,
-        catalogExtra(genre, 0),
-      ).catch(() => null);
-      const pool = (res?.metas ?? []).filter((m) => m?.id && m?.name);
-      for (let attempt = 0; attempt < 3 && pool.length > 0; attempt++) {
-        const [pick] = pool.splice(
-          Math.floor(Math.random() * pool.length),
-          1,
-        );
-        const known = artMemo().byId[pick.id];
-        const url =
-          known ??
-          (await fetchMeta(cfg.manifestUrl, cat.type, pick.id)
-            .then((r) => r.meta?.background)
-            .catch(() => undefined));
-        if (url) {
-          rememberArt(pick.id, genre, url);
-          onArt(genre, url);
-          return;
-        }
+  const dealGenre = async (genre: string) => {
+    const cached = artMemo().lastByGenre[genre.toLowerCase()];
+    if (cached && Date.now() - cached.at < ART_TTL_MS) return;
+    const serving = cfg.catalogs.filter((c) => servesGenre(c, genre));
+    if (serving.length === 0) return;
+    const cat = serving[Math.floor(Math.random() * serving.length)];
+    const res = await fetchCatalog(
+      cfg.manifestUrl,
+      cat.type,
+      cat.id,
+      catalogExtra(genre, 0),
+    ).catch(() => null);
+    const pool = (res?.metas ?? []).filter((m) => m?.id && m?.name);
+    for (let attempt = 0; attempt < 3 && pool.length > 0; attempt++) {
+      const [pick] = pool.splice(Math.floor(Math.random() * pool.length), 1);
+      const known = artMemo().byId[pick.id];
+      const url =
+        known ??
+        (await fetchMeta(cfg.manifestUrl, cat.type, pick.id)
+          .then((r) => r.meta?.background)
+          .catch(() => undefined));
+      if (url) {
+        rememberArt(pick.id, genre, url);
+        onArt(genre, url);
+        return;
       }
-    }),
+    }
+  };
+  // Small worker pool in rail order: ~40 parallel requests at a slow
+  // AIOStreams instance queued the whole tab (the reported slowness) —
+  // 4-wide keeps the visible cards landing first and the grid snappy.
+  const queue = [...genres];
+  await Promise.all(
+    Array.from(
+      { length: Math.min(ART_CONCURRENCY, queue.length) },
+      async () => {
+        for (let g = queue.shift(); g !== undefined; g = queue.shift())
+          await dealGenre(g);
+      },
+    ),
   );
 }
