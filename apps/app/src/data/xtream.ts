@@ -35,7 +35,48 @@ export interface XtreamStream {
 }
 
 interface XtreamAuth {
-  user_info?: { auth?: number; status?: string; message?: string };
+  user_info?: {
+    auth?: number;
+    status?: string;
+    message?: string;
+    /** Connection usage — string-typed off most panels ("2", "5"). */
+    active_cons?: number | string | null;
+    max_connections?: number | string | null;
+  };
+}
+
+export interface XtreamConnections {
+  active: number;
+  max: number;
+}
+
+/** Coerce the panel's connection counters. Null when the panel doesn't
+ * report a usable limit (absent fields, junk values, max of 0 — some
+ * panels send "0" while happily serving streams) — the UI hides the
+ * pill rather than showing a wrong number. */
+export function parseConnections(
+  info: XtreamAuth["user_info"],
+): XtreamConnections | null {
+  if (info?.active_cons == null || info?.max_connections == null) return null;
+  const active = Number(info.active_cons);
+  const max = Number(info.max_connections);
+  if (!Number.isFinite(active) || !Number.isFinite(max)) return null;
+  if (max <= 0 || active < 0) return null;
+  return { active, max };
+}
+
+/** Light account poll for the sidebar's connection pill — the same tiny
+ * player_api endpoint authenticate uses. Never throws: a failed poll
+ * just hides the pill until the next one. */
+export async function fetchConnections(
+  p: XtreamPlaylist,
+): Promise<XtreamConnections | null> {
+  try {
+    const auth = await httpGetJson<XtreamAuth>(playerApiUrl(p));
+    return parseConnections(auth?.user_info);
+  } catch {
+    return null;
+  }
 }
 
 /** Pure URL builders, separated from the fetches for testability. */

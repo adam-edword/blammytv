@@ -36,6 +36,7 @@ import { useDirectOverlay } from "./useDirectOverlay";
 const INV = isTauri();
 import { onPlaylistsChange } from "../settings/playlists";
 import { InvertedPlayer } from "./InvertedPlayer";
+import { useConnections } from "./connections";
 import { splitTitleEmoji } from "./emoji";
 import { loadFavorites, toggleFavorite } from "./favorites";
 import { Guide } from "./Guide";
@@ -387,6 +388,9 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   // data refresh must not re-resolve (a fresh Stalker link would rebuild the
   // player mid-watch); the ref carries the current object into the effect.
   const [playUrl, setPlayUrl] = useState<string | null>(null);
+  // Sidebar connection pills; keyed on the tuned stream so each tune
+  // re-polls once the panel has registered the session.
+  const conns = useConnections(playUrl);
   const heroChannelRef = useRef(heroChannel);
   heroChannelRef.current = heroChannel;
   const heroId = heroChannel?.id;
@@ -589,6 +593,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
           <div className="live-sidebar__list">
             {ready.groups.map((g) => {
               const open = !closedGroups.has(g.id);
+              const c = conns.get(g.id);
               return (
                 <Fragment key={g.id}>
                   <button
@@ -611,6 +616,19 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
                       }
                     />
                     {g.name}
+                    {/* Connection usage (Xtream only) — accent at the cap,
+                     * when the number is the reason a stream won't open. */}
+                    {c && !collapsed && (
+                      <span
+                        className={
+                          "live-conns" +
+                          (c.active >= c.max ? " live-conns--full" : "")
+                        }
+                        title={`${c.active} of ${c.max} connections in use`}
+                      >
+                        {c.active}/{c.max}
+                      </span>
+                    )}
                   </button>
                   {g.error && !collapsed && (
                     <p className="live-group__error">
