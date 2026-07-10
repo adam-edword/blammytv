@@ -57,6 +57,36 @@ export function AppHeader({
   const [query, setQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  // `/`, Ctrl+K, Ctrl+F focus the pill — VOD side only, never while
+  // typing in another field, never while a player is up (its own keys
+  // win; #inv-chrome existing = playback chrome mounted).
+  useEffect(() => {
+    if (active === "live") return;
+    const onKey = (e: KeyboardEvent) => {
+      const slash =
+        e.key === "/" && !e.ctrlKey && !e.metaKey && !e.altKey;
+      const combo =
+        (e.ctrlKey || e.metaKey) &&
+        !e.altKey &&
+        (e.key.toLowerCase() === "k" || e.key.toLowerCase() === "f");
+      if (!slash && !combo) return;
+      const t = e.target as HTMLElement | null;
+      if (
+        t &&
+        (t.tagName === "INPUT" ||
+          t.tagName === "TEXTAREA" ||
+          t.tagName === "SELECT" ||
+          t.isContentEditable)
+      )
+        return;
+      if (document.getElementById("inv-chrome")) return;
+      e.preventDefault();
+      searchInputRef.current?.focus();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [active]);
+
   // The header floats over the tabs; publish its measured height so tabs
   // that shouldn't start underneath can offset themselves (--header-h).
   const ref = useRef<HTMLElement>(null);
