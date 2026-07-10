@@ -140,6 +140,8 @@ export interface MpvStatus {
   ended: boolean;
   audio: Array<{ id: number; label: string; lang: string; selected: boolean }>;
   subs: Array<{ id: number; label: string; lang: string; selected: boolean }>;
+  /** File chapter markers (absent on pre-chapter Rust builds). */
+  chapters?: Array<{ title: string; start: number }>;
 }
 export async function tauriMpvStatus(): Promise<MpvStatus> {
   return JSON.parse(await invoke<string>("mpv_status")) as MpvStatus;

@@ -822,3 +822,27 @@
   font-size: 14px;
   min-width: 40px;
 }
+
+/* Skip Intro/Recap/Credits chip: Netflix corner, visible whenever the
+ * clock is inside a skip-worthy chapter — independent of the auto-hiding
+ * chrome. */
+.skip-chip {
+  position: fixed;
+  right: 44px;
+  bottom: 190px;
+  z-index: 46;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text);
+  padding: 12px 24px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(16px);
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+.skip-chip:hover {
+  background: rgba(0, 0, 0, 0.85);
+}

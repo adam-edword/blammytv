@@ -29,6 +29,12 @@ export interface TimeInfo {
   dur: number;
 }
 
+/** One chapter marker from the playing file. */
+export interface ChapterInfo {
+  title: string;
+  start: number;
+}
+
 export interface OverlayApi {
   close: () => void;
   setPause: (paused: boolean) => void;
@@ -59,6 +65,8 @@ export interface OverlayApi {
   onTracks?: (cb: (tracks: Tracks | null) => void) => () => void;
   getTime?: () => TimeInfo | null; // SYNCHRONOUS (like getLoading)
   onTime?: (cb: (t: TimeInfo | null) => void) => () => void;
+  getChapters?: () => ChapterInfo[]; // SYNCHRONOUS (like getTracks)
+  onChapters?: (cb: (c: ChapterInfo[]) => void) => () => void;
 }
 
 declare global {

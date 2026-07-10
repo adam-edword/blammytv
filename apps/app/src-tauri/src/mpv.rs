@@ -440,6 +440,28 @@ pub fn track_list() -> Vec<TrackInfo> {
         .collect()
 }
 
+pub struct ChapterInfo {
+    pub title: String,
+    pub start: f64,
+}
+
+/// The file's chapter markers (the Skip Intro data source: scene files
+/// often name them "Intro"/"OP"/"Recap"). Same per-index sub-property
+/// pattern as track_list; bounded in case a broken mux reports absurdity.
+pub fn chapter_list() -> Vec<ChapterInfo> {
+    let count = get_property("chapter-list/count")
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(0);
+    (0..count.min(128))
+        .map(|i| ChapterInfo {
+            title: get_property(&format!("chapter-list/{i}/title")).unwrap_or_default(),
+            start: get_property(&format!("chapter-list/{i}/time"))
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(0.0),
+        })
+        .collect()
+}
+
 /// Set a string property on the player (no-op if there's no player).
 fn set_prop(name: &str, value: &str) {
     let g = PLAYER.lock().unwrap();

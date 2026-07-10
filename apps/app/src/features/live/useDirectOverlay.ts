@@ -11,7 +11,7 @@ import {
   tauriMpvVolume,
   type TheaterMeta,
 } from "../../lib/tauri";
-import type { OverlayApi, TimeInfo, Tracks } from "./overlayApi";
+import type { ChapterInfo, OverlayApi, TimeInfo, Tracks } from "./overlayApi";
 
 /** The window verbs (expand/collapse/fullscreen/…) — plain callbacks into
  * LiveScreen's state. Read through a ref at call time, so the returned api
@@ -64,6 +64,9 @@ export function useDirectOverlay(
     tracks: null as Tracks | null,
     tracksJson: "",
     time: null as TimeInfo | null,
+    chapters: [] as ChapterInfo[],
+    chaptersJson: "",
+    chapterCbs: new Set<(c: ChapterInfo[]) => void>(),
     metaCbs: new Set<(m: TheaterMeta | null) => void>(),
     loadingCbs: new Set<(l: boolean) => void>(),
     tracksCbs: new Set<(t: Tracks | null) => void>(),
@@ -85,8 +88,11 @@ export function useDirectOverlay(
     s.tracks = null;
     s.tracksJson = "";
     s.time = null;
+    s.chapters = [];
+    s.chaptersJson = "";
     s.loadingCbs.forEach((cb) => cb(true));
     s.timeCbs.forEach((cb) => cb(null));
+    s.chapterCbs.forEach((cb) => cb([]));
     const id = window.setInterval(() => {
       tauriMpvStatus()
         .then((st) => {
@@ -113,6 +119,13 @@ export function useDirectOverlay(
               s.loading = true;
               s.loadingCbs.forEach((cb) => cb(true));
             }
+          }
+          // Chapter markers (static per file — dedupe like tracks).
+          const cj = JSON.stringify(st.chapters ?? []);
+          if (cj !== s.chaptersJson) {
+            s.chaptersJson = cj;
+            s.chapters = st.chapters ?? [];
+            s.chapterCbs.forEach((cb) => cb(s.chapters));
           }
           const tj = JSON.stringify([st.audio, st.subs]);
           if (tj !== s.tracksJson) {
@@ -190,6 +203,8 @@ export function useDirectOverlay(
       onTracks: sub(s.tracksCbs),
       getTime: () => s.time,
       onTime: sub(s.timeCbs),
+      getChapters: () => s.chapters,
+      onChapters: sub(s.chapterCbs),
     };
   }, [s]);
 }

@@ -352,9 +352,13 @@ fn mpv_status() -> String {
             _ => {}
         }
     }
+    let chapters: Vec<serde_json::Value> = mpv::chapter_list()
+        .into_iter()
+        .map(|c| serde_json::json!({ "title": c.title, "start": c.start }))
+        .collect();
     serde_json::json!({
         "pos": pos, "dur": dur, "presenting": presenting, "ended": ended,
-        "audio": audio, "subs": subs,
+        "audio": audio, "subs": subs, "chapters": chapters,
     })
     .to_string()
 }

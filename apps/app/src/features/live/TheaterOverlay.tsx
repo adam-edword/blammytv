@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isTauri, type TheaterMeta } from "../../lib/tauri";
-import { api, type TimeInfo, type Tracks } from "./overlayApi";
+import { api, type ChapterInfo, type TimeInfo, type Tracks } from "./overlayApi";
 import {
   loadOverlayMeta,
   onOverlayMetaChange,
@@ -56,6 +56,17 @@ const isMini = () => window.innerHeight < 450;
  * (the webview IS the player box); rendered inline (inverted player) the
  * window is the whole app, so LiveScreen passes the state it owns. */
 export type OverlayFrame = "mini" | "theater" | "fullscreen";
+
+/** Chapter titles worth a Skip button. Deliberately conservative — a
+ * false "Skip Intro" over real content is worse than a missing one. */
+const SKIP_RX =
+  /\b(intro|opening|op|recap|previously|credits|ending|ed|outro|preview)\b/i;
+function skipLabel(title: string): string {
+  if (/recap|previously/i.test(title)) return "Skip Recap";
+  if (/credits|ending|outro|\bed\b/i.test(title)) return "Skip Credits";
+  if (/preview/i.test(title)) return "Skip Preview";
+  return "Skip Intro";
+}
 
 /** "1:23" / "12:34" / "1:02:07" — hours only when they exist. */
 function fmtClock(s: number): string {
@@ -163,6 +174,16 @@ export function TheaterOverlay({
     const off = api()?.onTime?.(setTime);
     return () => off?.();
   }, []);
+  // File chapter markers — the Skip Intro data source (Phase 1: named
+  // chapters; aniskip comes later).
+  const [chapters, setChapters] = useState<ChapterInfo[]>(
+    () => api()?.getChapters?.() ?? [],
+  );
+  useEffect(() => {
+    const off = api()?.onChapters?.(setChapters);
+    return () => off?.();
+  }, []);
+
   // Playback speed (VOD menu). A fresh mpv instance per stream means the
   // real rate resets to 1 on every switch — mirror that locally below.
   const [speed, setSpeed] = useState(1);
@@ -427,6 +448,23 @@ export function TheaterOverlay({
         ? Math.min(100, (time.pos / time.dur) * 100)
         : 0;
 
+  // Inside a skip-worthy chapter right now? (Bounded: a "chapter" covering
+  // half the file is mislabeled content, not an intro.)
+  let skip: { label: string; to: number } | null = null;
+  if (vod && time && time.dur > 0 && chapters.length > 1) {
+    const idx = chapters.findIndex(
+      (c, i) =>
+        time.pos >= c.start &&
+        (i + 1 >= chapters.length || time.pos < chapters[i + 1].start),
+    );
+    if (idx >= 0 && SKIP_RX.test(chapters[idx].title)) {
+      const end =
+        idx + 1 < chapters.length ? chapters[idx + 1].start : time.dur;
+      if (end - chapters[idx].start < time.dur * 0.5)
+        skip = { label: skipLabel(chapters[idx].title), to: end };
+    }
+  }
+
   const toggleFullscreen = useCallback(() => {
     if (fsNow()) api()?.exitFullscreen?.();
     else api()?.fullscreen?.();
@@ -632,6 +670,17 @@ export function TheaterOverlay({
           <CloseIcon size={20} />
         </button>
       </div>
+
+      {skip && !mini && (
+        <button
+          type="button"
+          className="skip-chip"
+          data-interactive
+          onClick={() => api()?.seekAbs?.(skip.to)}
+        >
+          {skip.label}
+        </button>
+      )}
 
       <div className="theater-bar">
         {meta && (
