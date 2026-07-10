@@ -112,13 +112,12 @@ export function AppHeader({
           className={
             "header__search" + (active === "live" ? "" : " header__search--off")
           }
-          aria-label="Search"
+          aria-label="Search channels"
           aria-hidden={active !== "live"}
           tabIndex={active === "live" ? 0 : -1}
-          onClick={() => {
-            onChange("discover");
-            requestAnimationFrame(() => searchInputRef.current?.focus());
-          }}
+          /* Deliberately INERT: this is the live-channel search slot,
+           * completely unlinked from the VOD pill (jumping a TV user to
+           * Discover was wrong). Wire it when TV search exists. */
         >
           <SearchIcon />
         </button>
