@@ -275,6 +275,18 @@ sections annotated, TheaterOverlay/player.css/tauri.ts/mpv.rs headers).
    shipped headless via mpv_status (v0.1.133), and the WM_SETCURSOR /
    DComp corner-clip / switch-gap items dissolved with the comp.rs
    deletion (v0.1.135). Post-1.0 headliner: recording to disk.
+5. **POST-V1: hero slider click-and-drag** (Adam-approved 2026-07-10).
+   Vibe-checked as "somewhat simple": the virtual-index moving-window
+   architecture is drag-friendly (drag = live px offset on the card
+   positions, commit index ±1 or snap back on release; index−1 already
+   renders fine — "never rewinds" is about wrap direction only). The four
+   seams: click-vs-drag slop threshold (~6px, suppress card click past
+   it), transition OFF during drag (same inline `transition: none` trick
+   as the entry-animation gate), auto-advance pause while dragging,
+   pointer capture + draggable=false hygiene. Scope call: ONE card per
+   gesture (threshold ~15-20% width or a flick) — no multi-card momentum.
+   Sized at a solid session, two-thirds of it verifying the
+   click/drag/auto-advance interplay doesn't regress.
 
 ## Environment (remote container)
 
