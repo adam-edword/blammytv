@@ -507,7 +507,7 @@
   text-align: left;
   transition: background 140ms ease;
 }
-.vod-source:hover { background: rgba(255, 255, 255, 0.08); }
+.vod-source:hover { background: rgba(0, 0, 0, 0.6); }
 .vod-source__quality {
   flex-shrink: 0;
   align-self: stretch;
@@ -584,7 +584,7 @@
   cursor: pointer;
   transition: background 140ms ease;
 }
-.episode-card:hover { background: rgba(255, 255, 255, 0.12); }
+.episode-card:hover { background: rgba(0, 0, 0, 0.6); }
 .episode-card__thumb {
   position: relative;
   display: block;
