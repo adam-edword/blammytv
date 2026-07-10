@@ -98,10 +98,16 @@ export function useDirectOverlay(
             s.loading = false;
             s.loadingCbs.forEach((cb) => cb(false));
           } else if (!s.loading && st.ended) {
-            if (metaRef.current?.live === false) {
-              // VOD reaching EOF is COMPLETION, not death — the live path
-              // below would reload the file and end at a "not responding"
-              // card. Fire the handler once; the Stream screen exits.
+            if (
+              metaRef.current?.live === false &&
+              (!s.time || s.time.dur <= 0 || s.time.pos >= s.time.dur * 0.9)
+            ) {
+              // VOD reaching EOF near the end is COMPLETION. The clock
+              // guard matters: a debrid stream dying at 40% also reports
+              // `ended`, and the completion path would mark it watched,
+              // roll Up Next, and shred the resume position — that case
+              // falls through to the death branch (VOD watchdog → dead
+              // card with Retry / Try next source).
               if (!s.endedFired) {
                 s.endedFired = true;
                 h.current.onEnded?.();

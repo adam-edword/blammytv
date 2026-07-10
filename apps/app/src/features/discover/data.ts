@@ -204,6 +204,20 @@ export function servesGenre(cat: DiscoverCatalog, genre: string | null): boolean
   return cat.genres.some((g) => g.trim().toLowerCase() === genre.toLowerCase());
 }
 
+/** The catalog's OWN casing for a rail genre ("comedy" catalog asked for
+ * "Comedy" returns empty on case-sensitive addons) — matching is
+ * case-insensitive, the request must not be. */
+export function genreForCatalog(
+  cat: DiscoverCatalog,
+  genre: string | null,
+): string | null {
+  if (!genre) return null;
+  return (
+    cat.genres.find((g) => g.trim().toLowerCase() === genre.toLowerCase()) ??
+    genre
+  );
+}
+
 export async function fetchDiscoverPage(
   cfg: DiscoverConfig,
   cat: DiscoverCatalog,
@@ -214,7 +228,7 @@ export async function fetchDiscoverPage(
     cfg.manifestUrl,
     cat.type,
     cat.id,
-    catalogExtra(genre, skip),
+    catalogExtra(genreForCatalog(cat, genre), skip),
   );
   return (res.metas ?? [])
     .filter((m) => m?.id && m?.name)
@@ -407,7 +421,7 @@ export async function resolveGenreArt(
         cfg.manifestUrl,
         cat.type,
         cat.id,
-        catalogExtra(genre, 0),
+        catalogExtra(genreForCatalog(cat, genre), 0),
       ).catch(() => null);
       const pool = (res?.metas ?? []).filter((m) => m?.id && m?.name);
       for (

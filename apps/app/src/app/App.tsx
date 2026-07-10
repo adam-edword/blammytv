@@ -56,7 +56,10 @@ export function App() {
       // The VOD player owns Escape (theater↔fullscreen toggle through its
       // own state machine) — exiting OS fullscreen from here would desync
       // playing.mode and fight the overlay's toggle.
-      if (e.key === "Escape" && document.getElementById("inv-chrome")) return;
+      // Keyed on the VOD STAGE, not #inv-chrome: Live mounts its chrome
+      // host on mount whether or not anything plays, and the host check
+      // ate Live's Escape-exits-fullscreen everywhere.
+      if (e.key === "Escape" && document.querySelector(".vod-stage")) return;
       const win = getCurrentWindow();
       const full = await win.isFullscreen();
       if (e.key === "F11") {

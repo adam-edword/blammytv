@@ -1,3 +1,4 @@
+import { scrubbedMessage } from "../../lib/errors";
 import {
   authenticate,
   fetchLiveCategories,
@@ -677,17 +678,8 @@ function validUrl(s?: string | null): string | undefined {
   }
 }
 
-function msg(e: unknown): string {
-  const raw = e instanceof Error ? e.message : String(e);
-  // NEVER surface a full URL (Xtream creds live in the path, M3U creds in
-  // the query — and reqwest's transport errors embed the whole URL). Keep
-  // only the origin so the message still names the host that failed. This
-  // string reaches console logs AND the on-screen group.error.
-  return raw.replace(/https?:\/\/[^\s"')]+/gi, (m) => {
-    try {
-      return new URL(m).origin + "/…";
-    } catch {
-      return "https://…";
-    }
-  });
-}
+// NEVER surface a full URL (Xtream creds live in the path, M3U creds in
+// the query — and reqwest's transport errors embed the whole URL). The
+// shared scrubber keeps only the origin; this string reaches console
+// logs AND the on-screen group.error.
+const msg = scrubbedMessage;

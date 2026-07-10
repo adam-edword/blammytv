@@ -623,6 +623,11 @@ export function StreamScreen() {
             markWatched(p.item.id, p.episodeId);
             const nxt = nextEpisode(p.item.seasons, p.episodeId);
             if (nxt) {
+              // Re-arm the countdown HERE, not just in the [upNext]
+              // effect: after a fired countdown the state rests at 0, and
+              // the fire effect would see 0 + the new card in the same
+              // commit — episode 3 of a binge started with no card.
+              setCountdown(10);
               setUpNext({ item: p.item, ...nxt });
               return; // stage stays; the Up Next card takes over
             }
@@ -1192,6 +1197,11 @@ export function RowScroller({ children }: { children: ReactNode }) {
     drag.current = null;
     if (!d?.moved || !el) return;
     justDragged.current = true;
+    // Self-heal: if the trailing click never arrives (capture-release
+    // edge cases), don't leave the latch armed to eat a later real click.
+    window.setTimeout(() => {
+      justDragged.current = false;
+    }, 250);
     el.releasePointerCapture(e.pointerId);
     el.classList.remove("is-dragging");
   };
@@ -1466,6 +1476,9 @@ export function Card({
   // one falls back to the lettermark like a missing one does, instead of
   // the browser's broken-image box (same pattern as the guide's logos).
   const [broken, setBroken] = useState(false);
+  // Enrichment can swap a dead preview poster for a working full-meta
+  // one under the same item id — give the new URL a chance.
+  useEffect(() => setBroken(false), [item.poster]);
   const meta = cardMetaLine(metaFields, {
     rating: item.rating,
     year: item.year,

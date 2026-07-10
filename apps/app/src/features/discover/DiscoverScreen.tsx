@@ -22,6 +22,7 @@ import {
   type DiscoverConfig,
 } from "./data";
 import { getSearchQuery, onSearchQueryChange } from "./searchQuery";
+import { scrubbedMessage } from "../../lib/errors";
 
 /**
  * Discover: search-free exploration of the addon's catalogs. A pill
@@ -98,7 +99,9 @@ export function DiscoverScreen() {
         !stale &&
         setCfg({
           status: "error",
-          message: e instanceof Error ? e.message : String(e),
+          // Scrubbed: transport errors echo the FULL manifest URL (the
+          // credential) and this string renders on screen.
+          message: scrubbedMessage(e),
         }),
     );
     return () => {
@@ -175,17 +178,21 @@ export function DiscoverScreen() {
         const pages = await Promise.all(
           active.map((c) =>
             fetchDiscoverPage(cfg.cfg, c, genre, cursors.current[catKey(c)] ?? 0)
-              .then((page) => ({ c, page }))
-              .catch(() => ({ c, page: [] as VodItem[] })),
+              .then((page) => ({ c, page: page as VodItem[] | null }))
+              // null = transient failure: no cursor advance, NOT done —
+              // an empty SUCCESS is the only exhaustion signal, so a
+              // network blip can't bench a catalog until the next reset.
+              .catch(() => ({ c, page: null })),
           ),
         );
         if (reqId !== reqIdRef.current) return; // filter changed mid-flight
         for (const { c, page } of pages) {
+          if (page === null) continue;
           cursors.current[catKey(c)] =
             (cursors.current[catKey(c)] ?? 0) + page.length;
           if (page.length === 0) doneRef.current[catKey(c)] = true;
         }
-        const merged = interleave(...pages.map((p) => p.page)).filter((i) => {
+        const merged = interleave(...pages.map((p) => p.page ?? [])).filter((i) => {
           if (seenRef.current.has(i.id)) return false;
           seenRef.current.add(i.id);
           return true;
@@ -198,10 +205,15 @@ export function DiscoverScreen() {
           if (at > 0) merged.unshift(...merged.splice(at, 1));
         }
         setItems((prev) => (reset ? merged : [...prev, ...merged]));
-        const exhausted = pages.every(({ page }) => page.length === 0);
+        const exhausted = pages.every(
+          ({ page }) => page !== null && page.length === 0,
+        );
         setPhase(exhausted ? "done" : "idle");
       } finally {
-        busyRef.current = false;
+        // Only the CURRENT request may unlatch: a superseded flight's
+        // finally otherwise opened a concurrent same-generation load
+        // (double-advanced cursors = a silently skipped page).
+        if (reqId === reqIdRef.current) busyRef.current = false;
       }
     },
     [cfg, filter, genre],
@@ -230,19 +242,30 @@ export function DiscoverScreen() {
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [loadMore, phase]);
+    // `searching` unmounts/remounts the sentinel with the browse branch —
+    // without it in the deps the observer kept watching a detached node
+    // and infinite scroll died after any search round-trip.
+  }, [loadMore, phase, searching]);
 
   const open = useCallback((item: VodItem) => requestOpenInStream(item), []);
 
   if (cfg.status === "error") {
     return (
       <div className="discover discover--empty">
-        <h2>Discover</h2>
-        <p className="discover__note">
-          {cfg.message === "no addon configured"
-            ? "Connect your AIOStreams manifest in Settings and this tab fills itself."
-            : `Couldn't reach the addon — ${cfg.message}`}
-        </p>
+        {cfg.message === "no addon configured" ? (
+          <>
+            <h2>Something new to watch.</h2>
+            <p className="discover__note">
+              Connect your AIOStreams manifest in Settings → AIOStreams and
+              this tab fills itself.
+            </p>
+          </>
+        ) : (
+          <>
+            <h2>Couldn&rsquo;t load Discover.</h2>
+            <p className="discover__note">{cfg.message}</p>
+          </>
+        )}
       </div>
     );
   }
@@ -312,7 +335,7 @@ export function DiscoverScreen() {
                       }
                     />
                   )}
-                  <span className="genre-card__scrim" aria-hidden />
+                  {bg && <span className="genre-card__scrim" aria-hidden />}
                   <span className="genre-card__name">{g}</span>
                 </button>
               );

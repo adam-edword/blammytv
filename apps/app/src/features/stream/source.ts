@@ -1,3 +1,4 @@
+import { scrubbedMessage } from "../../lib/errors";
 import {
   fetchCatalog,
   fetchManifest,
@@ -399,13 +400,4 @@ function label(cat: CatalogDef): string {
 /** NEVER surface a full URL — the manifest URL embeds the user's addon
  * config (a credential), and transport errors echo the whole URL. Same
  * discipline as live/source.ts. */
-function msg(e: unknown): string {
-  const raw = e instanceof Error ? e.message : String(e);
-  return raw.replace(/https?:\/\/[^\s"')]+/gi, (m) => {
-    try {
-      return new URL(m).origin + "/…";
-    } catch {
-      return "https://…";
-    }
-  });
-}
+const msg = scrubbedMessage;

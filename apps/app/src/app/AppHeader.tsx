@@ -208,6 +208,9 @@ export function AppHeader({
               }}
               onKeyDown={(e) => {
                 if (e.key === "Escape") {
+                  // Ours alone: without stopPropagation the App-level
+                  // listener also exits OS fullscreen on the same press.
+                  e.stopPropagation();
                   setQuery("");
                   setSearchQuery("");
                   e.currentTarget.blur();
