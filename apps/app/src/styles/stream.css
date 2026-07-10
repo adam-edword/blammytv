@@ -407,7 +407,7 @@
   display: grid;
   grid-template-columns: 1fr 420px;
   gap: 28px;
-  padding: calc(var(--header-h, 76px) + 12px) 7% 0 32px;
+  padding: 0 7% 0 32px;
   /* The page itself never scrolls on the source screen — only the rail. */
   overflow: hidden;
   color: #f2f2f4;
@@ -416,6 +416,7 @@
   grid-template-columns: 1fr;
   align-content: start;
   overflow-y: auto;
+  padding-top: calc(var(--header-h, 76px) + 12px);
   padding-bottom: 32px;
 }
 .vod-detail__info {
@@ -488,6 +489,10 @@
    * hidden), the overflow lives here. */
   min-height: 0;
   overflow-y: auto;
+  /* Content padding, not container position: at rest the rail starts
+   * below the header exactly as before, but scrolled cards bleed past
+   * it to the viewport top (and off the bottom). */
+  padding-top: calc(var(--header-h, 76px) + 12px);
   /* Breathing room between the cards and the scrollbar; a dab at the
    * bottom so the last card isn't flush when scrolled to the end. */
   padding-right: 12px;
