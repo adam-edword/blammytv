@@ -9,6 +9,7 @@ import { StreamScreen } from "../features/stream/StreamScreen";
 import { DiscoverScreen } from "../features/discover/DiscoverScreen";
 import { SettingsModal } from "../features/settings/SettingsModal";
 import { loadStartupTab } from "../features/settings/startupTab";
+import { onOpenRequest } from "../features/stream/openRequest";
 
 export function App() {
   const [tab, setTab] = useState<TabKey>(loadStartupTab);
@@ -23,6 +24,10 @@ export function App() {
   // through — the old await-the-teardown dance existed only because the comp
   // layer floated above the UI.
   const changeTab = setTab;
+
+  // Discover hands a picked title to the Stream tab (detail + playback
+  // live there) — the mailbox holds the item; we just flip the tab.
+  useEffect(() => onOpenRequest(() => setTab("stream")), []);
 
   // While a modal is open, flag the root: the video keeps playing behind it
   // (it's below the webview), and the player chrome fades out via CSS so it

@@ -8,6 +8,7 @@ import "./styles/settings.css";
 import "./styles/live.css";
 import "./styles/player.css";
 import "./styles/stream.css";
+import "./styles/discover.css";
 import "./styles/welcome.css";
 import { App } from "./app/App";
 import { TheaterOverlay } from "./features/live/TheaterOverlay";

@@ -27,8 +27,20 @@ const MANIFEST = {
   resources: ["catalog", "meta", "stream"],
   types: ["movie", "series"],
   catalogs: [
-    { type: "movie", id: "top-movies", name: "Top Movies" },
-    { type: "series", id: "top-series", name: "Top Series" },
+    // Optional genre extra: Discover's rail + grid filter exercise it;
+    // browse rows ignore optional extras, so Stream behavior is unchanged.
+    {
+      type: "movie",
+      id: "top-movies",
+      name: "Top Movies",
+      extra: [{ name: "genre", options: ["Action", "Comedy"] }, { name: "skip" }],
+    },
+    {
+      type: "series",
+      id: "top-series",
+      name: "Top Series",
+      extra: [{ name: "genre", options: ["Drama", "Comedy"] }, { name: "skip" }],
+    },
     // Required-genre catalog: only selectable for hero with genre=None.
     {
       type: "movie",
@@ -64,6 +76,7 @@ const MOVIES = NUMBERS.map((word, i) => {
     // Cinemeta-style: catalog previews carry runtime too (some entries
     // deliberately without, matching real-world spotty coverage).
     ...(i % 2 === 0 ? { runtime: `${95 + i * 7} min` } : {}),
+    genres: i % 2 === 0 ? ["Action"] : ["Comedy"],
   };
 });
 
@@ -75,6 +88,7 @@ const SERIES = NUMBERS.slice(0, 4).map((word, i) => {
     name: `Fake Series ${word}`,
     poster: poster(id),
     description: `A perfectly fake series, number ${word}.`,
+    genres: i % 2 === 0 ? ["Drama"] : ["Comedy"],
   };
 });
 
@@ -206,10 +220,19 @@ http
 
     if (segs[0] === "catalog") {
       const [, type, catalogId, extra] = segs;
-      if (type === "movie" && catalogId === "top-movies" && !extra)
-        return json({ metas: MOVIES });
-      if (type === "series" && catalogId === "top-series" && !extra)
-        return json({ metas: SERIES });
+      // Browse catalogs take OPTIONAL genre/skip extras (Discover's grid);
+      // no extra = the plain full list the Stream rows fetch.
+      const params = new URLSearchParams(extra ?? "");
+      const genreFilter = params.get("genre");
+      const skip = Number(params.get("skip") ?? 0) || 0;
+      const page = (list) => {
+        const filtered = genreFilter
+          ? list.filter((m) => (m.genres ?? []).includes(genreFilter))
+          : list;
+        return json({ metas: filtered.slice(skip, skip + 8) });
+      };
+      if (type === "movie" && catalogId === "top-movies") return page(MOVIES);
+      if (type === "series" && catalogId === "top-series") return page(SERIES);
       if (type === "movie" && catalogId === "genre-movies" && extra?.startsWith("genre="))
         return json({ metas: GENRE_MOVIES });
       return notFound();

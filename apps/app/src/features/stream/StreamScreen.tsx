@@ -24,6 +24,7 @@ import {
 } from "./source";
 import { nextEpisode } from "./mapper";
 import { getAniskipRanges, type SkipRange } from "./aniskip";
+import { onOpenRequest, takeOpenRequest } from "./openRequest";
 import { loadWatched, markWatched } from "./watched";
 import { loadAioUrl } from "../settings/aiostreams";
 import {
@@ -289,6 +290,18 @@ export function StreamScreen() {
     },
     [open, setPlaying],
   );
+
+  // Discover → Stream handoff: drain the mailbox on mount (the tab switch
+  // mounts this screen after the request was parked) and on the event
+  // (already-on-Stream case).
+  useEffect(() => {
+    const consume = () => {
+      const item = takeOpenRequest();
+      if (item) void open(item);
+    };
+    consume();
+    return onOpenRequest(consume);
+  }, [open]);
 
   // ---- Playback: fullscreen through the shared inverted player. The
   // overlay's meta is minimal VOD shape (live:false, no programme). ----
@@ -1097,7 +1110,7 @@ function Home({
  * and arrows only exist on a side that actually has hidden content
  * (scroll position tracked; ResizeObserver keeps it honest). Arrows
  * nudge by ~75% of the viewport, smooth. */
-function RowScroller({ children }: { children: ReactNode }) {
+export function RowScroller({ children }: { children: ReactNode }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [can, setCan] = useState({ left: false, right: false });
   const update = useCallback(() => {
@@ -1369,7 +1382,7 @@ function Hero({
   );
 }
 
-function Card({
+export function Card({
   item,
   metaFields,
   onOpen,
