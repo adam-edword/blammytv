@@ -407,7 +407,7 @@
   display: grid;
   grid-template-columns: 1fr 420px;
   gap: 28px;
-  padding: calc(var(--header-h, 76px) + 12px) 7% 32px 32px;
+  padding: calc(var(--header-h, 76px) + 12px) 7% 0 32px;
   /* The page itself never scrolls on the source screen — only the rail. */
   overflow: hidden;
   color: #f2f2f4;
@@ -416,6 +416,7 @@
   grid-template-columns: 1fr;
   align-content: start;
   overflow-y: auto;
+  padding-bottom: 32px;
 }
 .vod-detail__info {
   display: flex;
@@ -487,6 +488,19 @@
    * hidden), the overflow lives here. */
   min-height: 0;
   overflow-y: auto;
+  /* Breathing room between the cards and the scrollbar; a dab at the
+   * bottom so the last card isn't flush when scrolled to the end. */
+  padding-right: 12px;
+  padding-bottom: 16px;
+  /* Hidden-until-hover via standard scrollbar-color — unlike the
+   * ::-webkit-scrollbar pseudos (which WebView2 won't repaint on
+   * ancestor hover; see the row scrollbars), this rides the normal
+   * style system. */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+.vod-sources:hover {
+  scrollbar-color: color-mix(in srgb, var(--text) 28%, transparent) transparent;
 }
 .vod-sources h3 {
   font-family: var(--font-headline);
