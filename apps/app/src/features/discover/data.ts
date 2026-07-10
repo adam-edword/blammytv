@@ -1,13 +1,13 @@
 import {
   fetchCatalog,
   fetchManifest,
+  fetchMeta,
   type CatalogDef,
 } from "../../data/stremio";
 import { load, save } from "../../lib/storage";
 import { loadAioUrl } from "../settings/aiostreams";
 import { metaPreviewToVod } from "../stream/mapper";
 import type { VodItem } from "../stream/model";
-import { loadVod, peekVod, resolveVodItem } from "../stream/source";
 
 /**
  * Discover's data seam: one primary browseable catalog per content type
@@ -122,86 +122,98 @@ export function interleave<T>(a: T[], b: T[]): T[] {
 }
 
 /**
- * Rail wallpapers, dealt fresh each visit: a random backdrop per genre.
+ * Rail wallpapers. Per Adam's spec: every visit, each genre card pulls
+ * ONE RANDOM MATCHING TITLE from that genre's own catalog feed and uses
+ * its FULL METADATA's backdrop — never sampled from the user's browsed/
+ * hero/cached items, so the rail can't inherit the hero sources' taste
+ * (the all-anime-rail bug).
  *
- * Catalog PREVIEWS carry no backdrop — only hero-enriched items do, and
- * the hero pool follows the user's hero sources (all-anime hero = an
- * all-anime rail, the reported bug). So backdrops learned from full-meta
- * fetches are remembered here (id → url), which widens the pool to any
- * item the rail has ever resolved: the sync pass paints instantly from
- * known art, and resolveGenreArt backfills the gaps.
+ * Each genre's pick is CACHED for a day (Adam: fewer requests beats
+ * per-visit churn) — repeat visits inside the window cost zero network,
+ * and the daily redeal crossfades in as the rail's motion. `byId`
+ * additionally skips /meta refetches when a redeal draws a title seen
+ * before.
  */
 const ART_KEY = "discoverArt";
-const ART_VERSION = 1;
-const ART_CAP = 600;
-let artMem: Record<string, string> | null = null;
+const ART_VERSION = 2; // v2: genre-feed sourced; v1 sampled browse items
+const ART_ID_CAP = 600;
+const ART_TTL_MS = 24 * 3600_000;
+interface ArtMemo {
+  byId: Record<string, string>;
+  lastByGenre: Record<string, { url: string; at: number }>;
+}
+let artMem: ArtMemo | null = null;
 
-function artCache(): Record<string, string> {
-  artMem ??= load<Record<string, string>>(ART_KEY, ART_VERSION, {});
+function artMemo(): ArtMemo {
+  artMem ??= load<ArtMemo>(ART_KEY, ART_VERSION, {
+    byId: {},
+    lastByGenre: {},
+  });
   return artMem;
 }
 
-function rememberArt(id: string, url: string): void {
-  const c = artCache();
-  if (c[id] === url) return;
-  c[id] = url;
-  const keys = Object.keys(c);
+function rememberArt(id: string, genre: string, url: string): void {
+  const m = artMemo();
+  m.byId[id] = url;
+  const keys = Object.keys(m.byId);
   // Cheap cap: drop oldest-inserted keys (object key order) past the cap.
-  for (let i = 0; i < keys.length - ART_CAP; i++) delete c[keys[i]];
-  save(ART_KEY, ART_VERSION, c);
+  for (let i = 0; i < keys.length - ART_ID_CAP; i++) delete m.byId[keys[i]];
+  m.lastByGenre[genre.toLowerCase()] = { url, at: Date.now() };
+  save(ART_KEY, ART_VERSION, m);
 }
 
-const backdropOf = (i: VodItem): string | undefined =>
-  i.backdrop ?? artCache()[i.id];
-
-const genreMatches = (pool: VodItem[], genre: string): VodItem[] => {
-  const k = genre.toLowerCase();
-  return pool.filter((i) => i.genres.some((g) => g.toLowerCase() === k));
-};
-
+/** Instant paint: each genre's cached art, whatever its age — staleness
+ * only decides whether resolveGenreArt redeals, never blanks a card. */
 export function genreArtwork(genres: string[]): Map<string, string> {
   const out = new Map<string, string>();
-  const data = peekVod();
-  if (!data) return out;
-  const pool = [...data.items.values()];
+  const last = artMemo().lastByGenre;
   for (const genre of genres) {
-    const withArt = genreMatches(pool, genre).filter(backdropOf);
-    if (withArt.length) {
-      const pick = withArt[Math.floor(Math.random() * withArt.length)];
-      out.set(genre, backdropOf(pick) as string);
-    }
+    const hit = last[genre.toLowerCase()];
+    if (hit) out.set(genre, hit.url);
   }
   return out;
 }
 
 /**
- * Backfill wallpapers for genres the sync pass couldn't cover: pick a
- * random cached item of the genre and resolve its FULL meta (which does
- * carry `background`), remembering the result so future visits paint it
- * synchronously — the cache broadens with every genre the rail shows.
- * One tiny /meta call per uncovered genre, once per install (then cached).
+ * The redeal: for every genre whose cached art is missing or older than
+ * ART_TTL_MS, fetch its catalog feed (random pick among the catalogs
+ * serving it), draw one random title, resolve that title's full
+ * metadata, and hand its backdrop over. A few draws per genre, since
+ * not every title carries one.
  */
 export async function resolveGenreArt(
+  cfg: DiscoverConfig,
   genres: string[],
   onArt: (genre: string, src: string) => void,
 ): Promise<void> {
-  // Discover can be the FIRST tab visited: the item cache is empty until
-  // the Stream catalog builds, so build it (disk-hydrated when possible)
-  // rather than leaving the rail artless until a Stream visit.
-  const data = peekVod() ?? (await loadVod().catch(() => null));
-  if (!data) return;
-  const pool = [...data.items.values()];
   await Promise.all(
     genres.map(async (genre) => {
-      const matches = genreMatches(pool, genre).filter((i) => !backdropOf(i));
-      // A few tries: not every title's full meta carries a backdrop.
-      for (let attempt = 0; attempt < 2 && matches.length > 0; attempt++) {
-        const idx = Math.floor(Math.random() * matches.length);
-        const [pick] = matches.splice(idx, 1);
-        const full = await resolveVodItem(pick.kind, pick.id).catch(() => null);
-        if (full?.backdrop) {
-          rememberArt(pick.id, full.backdrop);
-          onArt(genre, full.backdrop);
+      const cached = artMemo().lastByGenre[genre.toLowerCase()];
+      if (cached && Date.now() - cached.at < ART_TTL_MS) return;
+      const serving = cfg.catalogs.filter((c) => servesGenre(c, genre));
+      if (serving.length === 0) return;
+      const cat = serving[Math.floor(Math.random() * serving.length)];
+      const res = await fetchCatalog(
+        cfg.manifestUrl,
+        cat.type,
+        cat.id,
+        catalogExtra(genre, 0),
+      ).catch(() => null);
+      const pool = (res?.metas ?? []).filter((m) => m?.id && m?.name);
+      for (let attempt = 0; attempt < 3 && pool.length > 0; attempt++) {
+        const [pick] = pool.splice(
+          Math.floor(Math.random() * pool.length),
+          1,
+        );
+        const known = artMemo().byId[pick.id];
+        const url =
+          known ??
+          (await fetchMeta(cfg.manifestUrl, cat.type, pick.id)
+            .then((r) => r.meta?.background)
+            .catch(() => undefined));
+        if (url) {
+          rememberArt(pick.id, genre, url);
+          onArt(genre, url);
           return;
         }
       }

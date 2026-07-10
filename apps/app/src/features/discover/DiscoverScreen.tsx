@@ -66,21 +66,21 @@ export function DiscoverScreen() {
     };
   }, []);
 
-  // Rail wallpapers: dealt once per visit (deliberately random — fresh
-  // art each time the tab opens) from known backdrops; genres the cache
-  // can't cover yet backfill async via one full-meta fetch each, and the
-  // learned art persists so next visit paints synchronously.
+  // Rail wallpapers: last visit's art paints instantly, then EVERY genre
+  // draws a fresh random title from its own catalog feed and swaps to
+  // that title's full-meta backdrop — never sampled from the user's
+  // browsed/hero items (Adam: "never pull from my selected sources").
   const [art, setArt] = useState<Map<string, string>>(() => new Map());
   useEffect(() => {
     if (cfg.status !== "ready") return;
     let stale = false;
-    const first = genreArtwork(cfg.cfg.genres);
-    setArt(first);
-    const missing = cfg.cfg.genres.filter((g) => !first.has(g));
-    if (missing.length)
-      void resolveGenreArt(missing, (g, src) => {
-        if (!stale) setArt((prev) => new Map(prev).set(g, src));
-      });
+    setArt(genreArtwork(cfg.cfg.genres)); // last visit's art, instantly
+    void resolveGenreArt(cfg.cfg, cfg.cfg.genres, (g, src) => {
+      if (!stale)
+        setArt((prev) =>
+          prev.get(g) === src ? prev : new Map(prev).set(g, src),
+        );
+    });
     return () => {
       stale = true;
     };

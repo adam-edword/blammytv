@@ -46,6 +46,22 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  /* Each visit deals a fresh random title — the swap fades in over the
+   * previous art (the img remounts when src changes). */
+  animation: genre-art-in 450ms ease;
+}
+@keyframes genre-art-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .genre-card__art {
+    animation: none;
+  }
 }
 /* The darkening-hover family: clickable surfaces deepen on hover. */
 .genre-card__scrim {
