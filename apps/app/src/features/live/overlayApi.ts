@@ -46,6 +46,7 @@ export interface OverlayApi {
   nextSource?: () => void; // VOD failover: play the next available source
   nextEpisode?: () => void; // VOD series: jump to the next episode
   sourcePanel?: () => void; // VOD: toggle the in-playback source panel
+  creditsWindow?: (active: boolean) => void; // VOD: clock entered/left an ending-credits window (mini Up Next)
   expand?: () => void; // mini → theater
   collapse?: () => void; // theater → mini
   fullscreen?: () => void; // theater → fullscreen

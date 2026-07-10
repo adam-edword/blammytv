@@ -22,7 +22,7 @@ import {
   resolveVodItem,
   resolveVodSources,
 } from "./source";
-import { nextEpisode, nextUpEpisode } from "./mapper";
+import { nextEpisode, nextUpEpisode, pickCachedIndex } from "./mapper";
 import { getAniskipRanges, type SkipRange } from "./aniskip";
 import {
   onOpenRequest,
@@ -95,6 +95,8 @@ export function StreamScreen() {
     episodeInfo?: { season: number; episode: number; title: string };
     /** Remaining source candidates, in addon order — the failover queue. */
     queue?: StreamSource[];
+    /** The playing source's binge key — episode rolls stay in-group. */
+    bingeGroup?: string;
     resumeAt?: number;
     /** theater = fills the APP WINDOW; fullscreen = OS fullscreen. */
     mode: "theater" | "fullscreen";
@@ -118,14 +120,17 @@ export function StreamScreen() {
         episodeId?: string;
         episodeInfo?: { season: number; episode: number; title: string };
         queue?: StreamSource[];
+        bingeGroup?: string;
       } | null,
     ) => {
       if (!p) {
         setUpNext(null);
+        setUpNextMini(null);
         setResolving(null);
         return setPlayingRaw(null);
       }
       setUpNext(null);
+      setUpNextMini(null);
       setResolving(null);
       // Starting a new play while a pop-out runs would double the provider
       // connections — reel the pop-out in first (silent close).
@@ -293,6 +298,7 @@ export function StreamScreen() {
           return setPlaying({
             url: sources[idx].streamUrl,
             item,
+            bingeGroup: sources[idx].bingeGroup,
             queue: sources.filter((s, i) => i !== idx && s.cached),
           });
       } catch {
@@ -338,10 +344,25 @@ export function StreamScreen() {
     season: Season;
     episode: Episode;
   } | null>(null);
+  // Mini Up Next: the corner popup while the CREDITS still play (the
+  // fullscreen card above is reserved for true EOF). Driven by the
+  // overlay's creditsWindow signal; ✕ keys the dismissal to the next
+  // episode's id, so the card stays away for the rest of this episode's
+  // credits but the following episode gets a fresh one.
+  const [upNextMini, setUpNextMini] = useState<{
+    item: VodItem;
+    season: Season;
+    episode: Episode;
+  } | null>(null);
+  const miniDismissedRef = useRef<string | null>(null);
   // Shared by Up Next, the overlay's next-episode button, and any future
   // episode jump: resolve cached-first and play, else land on sources.
   const playEpisode = useCallback(
     async (item: VodItem, season: Season, episode: Episode) => {
+      // Sticky bingeGroup (Stremio semantics): rolling to another episode
+      // prefers a cached source from the SAME release group as what's
+      // playing now — captured before setResolving/setPlaying churn it.
+      const stickyGroup = playingRef.current?.bingeGroup;
       setResolving({ art: item.logo ?? item.poster, title: item.title });
       const label = `S${season.number} · E${episode.number} — ${episode.title}`;
       const info = {
@@ -352,7 +373,7 @@ export function StreamScreen() {
       try {
         const sources = await resolveVodSources("series", episode.id);
         // Cached only — see watchNow. No cached → the source screen below.
-        const idx = sources.findIndex((s) => s.cached);
+        const idx = pickCachedIndex(sources, stickyGroup);
         if (idx >= 0) {
           setPlaying({
             url: sources[idx].streamUrl,
@@ -360,6 +381,7 @@ export function StreamScreen() {
             label,
             episodeId: episode.id,
             episodeInfo: info,
+            bingeGroup: sources[idx].bingeGroup,
             queue: sources.filter((s, i) => i !== idx && s.cached),
           });
           return;
@@ -425,7 +447,13 @@ export function StreamScreen() {
       entry?.posSec && entry.posSec > 10
         ? Math.max(0, entry.posSec - 3)
         : undefined;
-    setPlayingRaw({ ...p, url: next.streamUrl, queue: rest, resumeAt: at });
+    setPlayingRaw({
+      ...p,
+      url: next.streamUrl,
+      bingeGroup: next.bingeGroup,
+      queue: rest,
+      resumeAt: at,
+    });
   }, [setPlaying]);
 
   // Continue Watching quick-resume: one click straight into playback
@@ -475,6 +503,7 @@ export function StreamScreen() {
             label: entry.label,
             episodeId: entry.episodeId,
             episodeInfo,
+            bingeGroup: sources[idx].bingeGroup,
             queue: sources.filter((s, i) => i !== idx && s.cached),
           });
           return;
@@ -559,6 +588,7 @@ export function StreamScreen() {
     setPlayingRaw({
       ...p,
       url: src.streamUrl,
+      bingeGroup: src.bingeGroup,
       queue: all.filter((s) => s.id !== src.id && s.streamUrl !== p.url),
       resumeAt: at,
     });
@@ -614,6 +644,7 @@ export function StreamScreen() {
       // this, EOF took the live-death path — watchdog reload, restart at
       // 0:00, and the progress tick then shredding the saved position.
       onEnded: () => {
+        setUpNextMini(null); // the fullscreen card takes over at true EOF
         const p = playingRef.current;
         if (p) {
           const e = loadWatching().find((x) => x.id === p.item.id);
@@ -643,6 +674,17 @@ export function StreamScreen() {
         if (nxt) void playEpisode(p.item, nxt.season, nxt.episode);
       },
       onSourcePanel: () => setPanelOpen((o) => !o),
+      // Credits started/ended (overlay's AniSkip/chapter clock): pop the
+      // corner Up Next while the episode still plays — never for movies,
+      // never re-popping one the user dismissed this cycle.
+      onCreditsWindow: (active) => {
+        if (!active) return setUpNextMini(null);
+        const p = playingRef.current;
+        if (!p?.episodeId || p.popped) return;
+        const nxt = nextEpisode(p.item.seasons, p.episodeId);
+        if (!nxt || miniDismissedRef.current === nxt.episode.id) return;
+        setUpNextMini({ item: p.item, ...nxt });
+      },
     },
   );
   if (isTauri() && playing) setOverlayApiOverride(directApi);
@@ -914,6 +956,14 @@ export function StreamScreen() {
                 />
               )}
               <div className="upnext__scrim" aria-hidden />
+              {upNext.episode.still && (
+                <img
+                  className="upnext__still"
+                  src={upNext.episode.still}
+                  alt=""
+                  aria-hidden
+                />
+              )}
               <p className="upnext__eyebrow">Up next</p>
               <h2 className="upnext__title">
                 S{upNext.season.number} · E{upNext.episode.number} —{" "}
@@ -936,6 +986,58 @@ export function StreamScreen() {
                   Cancel
                 </button>
               </div>
+            </div>,
+            chromeHostRef.current,
+          )}
+        {/* Mini Up Next: corner popup while the credits play — content
+          * keeps rolling, no countdown, no takeover. Stands down for the
+          * fullscreen EOF card and while the source panel is open. */}
+        {upNextMini &&
+          !upNext &&
+          !panelOpen &&
+          !playing.popped &&
+          chromeHostRef.current &&
+          createPortal(
+            <div className="upnext-mini" data-interactive>
+              {(upNextMini.episode.still ?? upNextMini.item.backdrop) && (
+                <img
+                  className="upnext-mini__thumb"
+                  src={upNextMini.episode.still ?? upNextMini.item.backdrop}
+                  alt=""
+                  aria-hidden
+                />
+              )}
+              <div className="upnext-mini__body">
+                <p className="upnext-mini__eyebrow">Up next</p>
+                <p className="upnext-mini__title">
+                  S{upNextMini.season.number} · E{upNextMini.episode.number} —{" "}
+                  {upNextMini.episode.title}
+                </p>
+                <div className="upnext-mini__actions">
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={() => {
+                      const m = upNextMini;
+                      setUpNextMini(null);
+                      void playEpisode(m.item, m.season, m.episode);
+                    }}
+                  >
+                    Play now
+                  </button>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="player__btn player__btn--glass upnext-mini__close"
+                aria-label="Dismiss"
+                onClick={() => {
+                  miniDismissedRef.current = upNextMini.episode.id;
+                  setUpNextMini(null);
+                }}
+              >
+                <CloseIcon size={14} />
+              </button>
             </div>,
             chromeHostRef.current,
           )}
@@ -1004,7 +1106,12 @@ export function StreamScreen() {
           item={view.item}
           onBack={goBack}
           onPlaySource={(s, queue) =>
-            setPlaying({ url: s.streamUrl, item: view.item, queue })
+            setPlaying({
+              url: s.streamUrl,
+              item: view.item,
+              bingeGroup: s.bingeGroup,
+              queue,
+            })
           }
         />
       )}
@@ -1036,6 +1143,7 @@ export function StreamScreen() {
               label: view.episodeLabel,
               episodeId: view.episodeId,
               episodeInfo: view.episodeInfo,
+              bingeGroup: s.bingeGroup,
               queue,
             })
           }

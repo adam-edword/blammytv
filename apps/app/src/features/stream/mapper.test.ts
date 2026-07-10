@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { mapSeasons, mapStreams, metaPreviewToVod, metaToVod, nextEpisode, nextUpEpisode } from "./mapper";
+import {
+  mapSeasons,
+  mapStreams,
+  metaPreviewToVod,
+  metaToVod,
+  nextEpisode,
+  nextUpEpisode,
+  pickCachedIndex,
+} from "./mapper";
 
 describe("mapStreams", () => {
   it("filters to http streams, preserves addon order, parses quality/cached/lines", () => {
@@ -25,6 +33,7 @@ describe("mapStreams", () => {
       cached: true,
       lines: ["Fake Movie 4K", "8.2GB ⚡"],
       streamUrl: "http://host/video/a-4k.mp4",
+      bingeGroup: "fake|2160p|x265", // carried for episode-roll stickiness
     });
     expect(out[1]).toMatchObject({ quality: "1080p", cached: false });
     // Order is the addon's ranking — never re-sorted.
@@ -70,6 +79,37 @@ describe("mapStreams", () => {
       { name: "[RD download] Movie", url: "http://h/c.mp4" },
     ]);
     expect(out.map((s) => s.cached)).toEqual([true, true, false]);
+  });
+});
+
+describe("pickCachedIndex", () => {
+  const src = (id: string, cached: boolean, group?: string) => ({
+    id,
+    quality: "1080p",
+    cached,
+    lines: [],
+    streamUrl: `http://h/${id}`,
+    ...(group ? { bingeGroup: group } : {}),
+  });
+
+  it("prefers a cached source from the same bingeGroup", () => {
+    const list = [src("a", true, "g1"), src("b", true, "g2")];
+    expect(pickCachedIndex(list, "g2")).toBe(1);
+    expect(pickCachedIndex(list, "g1")).toBe(0);
+  });
+
+  it("falls back to the first cached when the group has no cached match", () => {
+    // g2 exists but only UNCACHED — stickiness never overrides the
+    // cached-only rule.
+    const list = [src("a", false, "g2"), src("b", true, "g1")];
+    expect(pickCachedIndex(list, "g2")).toBe(1);
+    // No group preference at all → plain first-cached.
+    expect(pickCachedIndex(list)).toBe(1);
+  });
+
+  it("returns -1 when nothing is cached", () => {
+    expect(pickCachedIndex([src("a", false, "g1")], "g1")).toBe(-1);
+    expect(pickCachedIndex([])).toBe(-1);
   });
 });
 

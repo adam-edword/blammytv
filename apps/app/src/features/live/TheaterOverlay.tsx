@@ -613,6 +613,37 @@ export function TheaterOverlay({
     }
   }
 
+  // Credits-window signal for the host (StreamScreen's mini Up Next):
+  // true while the clock sits inside an ENDING window — an AniSkip
+  // ed/mixed-ed interval, or a credits-titled chapter starting in the
+  // last 40% of the file (an OP labeled "OP/ED" early on must not pop
+  // the card). Independent of skipBehavior: hiding the skip CHIP is a
+  // chrome preference, not "never tell me the credits started".
+  let creditsNow = false;
+  if (vod && time && time.dur > 0) {
+    creditsNow = !!meta?.skips?.some(
+      (s) =>
+        s.type.endsWith("ed") &&
+        time.pos >= s.start &&
+        time.pos < s.end &&
+        s.end - s.start < time.dur * 0.5,
+    );
+    if (!creditsNow && chapters.length > 1) {
+      const idx = chapters.findIndex(
+        (c, i) =>
+          time.pos >= c.start &&
+          (i + 1 >= chapters.length || time.pos < chapters[i + 1].start),
+      );
+      creditsNow =
+        idx >= 0 &&
+        CREDITS_RX.test(chapters[idx].title) &&
+        chapters[idx].start >= time.dur * 0.6;
+    }
+  }
+  useEffect(() => {
+    api()?.creditsWindow?.(creditsNow);
+  }, [creditsNow]);
+
   const toggleFullscreen = useCallback(() => {
     if (fsNow()) api()?.exitFullscreen?.();
     else api()?.fullscreen?.();

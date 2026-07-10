@@ -18,6 +18,10 @@ export interface StreamSource {
   lines: string[];
   /** Already-resolved, directly playable URL. */
   streamUrl: string;
+  /** Stremio's binge key (`provider|resolution|codec…`): episode rolls
+   * prefer a cached source from the SAME group, so the release (and its
+   * tracks, bitrate, timing) stays consistent across an autoplay run. */
+  bingeGroup?: string;
 }
 
 /** One episode of a series. Sources resolve on-demand, like a movie's. */

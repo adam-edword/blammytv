@@ -33,7 +33,25 @@ export function mapStream(s: StremioStream): StreamSource {
     cached: isCached(s, name),
     lines: sourceLines(s),
     streamUrl: s.url as string,
+    ...(binge ? { bingeGroup: binge } : {}),
   };
+}
+
+/** Auto-play's pick: the first CACHED source, preferring one from the
+ * same bingeGroup as what just played (Stremio's binge semantics — the
+ * same release keeps tracks/bitrate/timing consistent across an episode
+ * roll). Uncached is never auto-picked; -1 = nothing cached. */
+export function pickCachedIndex(
+  sources: StreamSource[],
+  preferGroup?: string,
+): number {
+  if (preferGroup) {
+    const idx = sources.findIndex(
+      (s) => s.cached && s.bingeGroup === preferGroup,
+    );
+    if (idx >= 0) return idx;
+  }
+  return sources.findIndex((s) => s.cached);
 }
 
 /** Torrentio-style cached markers: "[RD+]", "[AD+]", "[TB+]"… (uncached

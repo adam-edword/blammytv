@@ -37,6 +37,9 @@ export interface DirectOverlayHandlers {
   onNextEpisode?: () => void;
   /** VOD: toggle the in-playback source panel. */
   onSourcePanel?: () => void;
+  /** VOD series: the clock entered (true) or left (false) an
+   * ending-credits window — drives the mini Up Next popup. */
+  onCreditsWindow?: (active: boolean) => void;
 }
 
 /**
@@ -167,6 +170,7 @@ export function useDirectOverlay(
       nextSource: () => h.current.onNextSource?.(),
       nextEpisode: () => h.current.onNextEpisode?.(),
       sourcePanel: () => h.current.onSourcePanel?.(),
+      creditsWindow: (active) => h.current.onCreditsWindow?.(active),
       selectAudio: (id) =>
         void tauriMpvTrack("audio", String(id)).catch(() => {}),
       selectSub: (id) => void tauriMpvTrack("sub", String(id)).catch(() => {}),

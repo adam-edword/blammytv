@@ -1,9 +1,17 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   loadPlaybackPrefs,
   matchTrack,
   rememberPlayback,
 } from "./playbackPrefs";
+
+// Same node-env seam as watching.test.ts — vitest runs without a DOM.
+const store = new Map<string, string>();
+vi.stubGlobal("localStorage", {
+  getItem: (k: string) => store.get(k) ?? null,
+  setItem: (k: string, v: string) => void store.set(k, v),
+  removeItem: (k: string) => void store.delete(k),
+});
 
 const track = (id: number, lang: string, label = "") => ({
   id,
@@ -35,7 +43,7 @@ describe("matchTrack", () => {
 });
 
 describe("prefs store", () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => store.clear());
 
   it("merges patches and round-trips", () => {
     rememberPlayback({ subLang: "eng" });
