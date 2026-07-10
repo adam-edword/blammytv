@@ -308,6 +308,58 @@ button {
   pointer-events: none;
 }
 
+/* VOD-side search pill. The SLOT is in-flow and icon-sized (mirrors the
+ * TV icon, so the centered tab cluster is symmetric and never moves);
+ * the PILL hangs off it absolutely and grows rightward over empty
+ * header space. */
+.header__searchslot {
+  position: relative;
+  width: 17px;
+  height: 32px;
+  flex-shrink: 0;
+}
+.header__searchpill {
+  position: absolute;
+  left: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: min(320px, 22vw);
+  padding: 6px 14px 6px 12px;
+  border-radius: 1000px;
+  border: 1px solid var(--border-strong, rgba(255, 255, 255, 0.14));
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  backdrop-filter: blur(8px);
+  transition: border-color 150ms ease;
+}
+.header__searchpill:focus-within {
+  border-color: var(--accent);
+}
+.header__searchpill svg {
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+  opacity: 0.45;
+}
+.header__searchinput {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+}
+.header__searchinput::placeholder {
+  color: var(--text-muted);
+}
+.header__searchinput::-webkit-search-cancel-button {
+  cursor: pointer;
+}
+
 .header__tab-slot {
   display: flex;
   align-items: center;

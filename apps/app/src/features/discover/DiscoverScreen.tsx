@@ -19,8 +19,7 @@ import {
   searchDiscover,
   type DiscoverConfig,
 } from "./data";
-import { onSearchRequest, takeSearchRequest } from "./searchRequest";
-import { SearchIcon } from "../../ui/icons";
+import { getSearchQuery, onSearchQueryChange } from "./searchQuery";
 
 /**
  * Discover: search-free exploration of the addon's catalogs. A pill
@@ -64,7 +63,8 @@ export function DiscoverScreen() {
   // ---- Search: debounced, across every search-capable catalog of the
   // filtered type. Two+ characters enters search mode (rail + browse
   // grid step aside); clearing or Escape returns to browsing.
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(getSearchQuery);
+  useEffect(() => onSearchQueryChange(setQuery), []);
   const q = query.trim();
   const searching = q.length >= 2;
   const [results, setResults] = useState<VodItem[] | null>(null);
@@ -87,16 +87,6 @@ export function DiscoverScreen() {
     };
   }, [cfg, filter, q, searching]);
 
-  // Header 🔍 hand-off: drain on mount (the click switched tabs before
-  // this screen existed) and on the event (already-here case).
-  const searchRef = useRef<HTMLInputElement | null>(null);
-  useEffect(() => {
-    const consume = () => {
-      if (takeSearchRequest()) searchRef.current?.focus();
-    };
-    consume();
-    return onSearchRequest(consume);
-  }, []);
 
   useEffect(() => {
     let stale = false;
@@ -249,24 +239,6 @@ export function DiscoverScreen() {
           onChange={(k) => setFilter(k)}
         />
       </div>
-
-      {cfg.status === "ready" && cfg.cfg.searchCatalogs.length > 0 && (
-        <div className="discover__searchwrap">
-          <SearchIcon className="discover__searchicon" aria-hidden />
-          <input
-            ref={searchRef}
-            className="discover__search"
-            type="search"
-            placeholder="Search movies & series…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") setQuery("");
-            }}
-            aria-label="Search movies and series"
-          />
-        </div>
-      )}
 
       {searching ? (
         <section className="discover__gridwrap">

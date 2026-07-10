@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AccountIcon, SearchIcon, SettingsIcon } from "../ui/icons";
-import { requestSearch } from "../features/discover/searchRequest";
+import { setSearchQuery } from "../features/discover/searchQuery";
 import { UpdateChip } from "./UpdateChip";
 import { formatClock } from "../lib/time";
 import { APP_VERSION } from "../lib/version";
@@ -52,6 +52,10 @@ export function AppHeader({
   onOpenSettings: () => void;
 }) {
   const clock = useClock();
+  // Controlled mirror of the shared search store (the store is the truth
+  // DiscoverScreen renders from; local state keeps the input snappy).
+  const [query, setQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // The header floats over the tabs; publish its measured height so tabs
   // that shouldn't start underneath can offset themselves (--header-h).
@@ -111,7 +115,10 @@ export function AppHeader({
           aria-label="Search"
           aria-hidden={active !== "live"}
           tabIndex={active === "live" ? 0 : -1}
-          onClick={requestSearch}
+          onClick={() => {
+            onChange("discover");
+            requestAnimationFrame(() => searchInputRef.current?.focus());
+          }}
         >
           <SearchIcon />
         </button>
@@ -130,19 +137,42 @@ export function AppHeader({
             {i === 0 && <span className="header__divider">|</span>}
           </span>
         ))}
-        <button
-          type="button"
+        {/* VOD side: the search PILL. The in-flow slot stays icon-sized
+          * (mirrors the TV icon, keeping the tab cluster symmetric and
+          * immobile); the actual pill renders absolutely off that anchor
+          * and extends rightward over empty header space. */}
+        <span
           className={
-            "header__search header__search--right" +
+            "header__searchslot" +
             (active === "live" ? " header__search--off" : "")
           }
-          aria-label="Search movies & series"
           aria-hidden={active === "live"}
-          tabIndex={active === "live" ? -1 : 0}
-          onClick={requestSearch}
         >
-          <SearchIcon />
-        </button>
+          <span className="header__searchpill">
+            <SearchIcon aria-hidden />
+            <input
+              ref={searchInputRef}
+              className="header__searchinput"
+              type="search"
+              placeholder="Search movies & series…"
+              value={query}
+              tabIndex={active === "live" ? -1 : 0}
+              aria-label="Search movies and series"
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setSearchQuery(e.target.value);
+                // Typing from the Stream tab lands you where results are.
+                if (active !== "discover") onChange("discover");
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setQuery("");
+                  setSearchQuery("");
+                }
+              }}
+            />
+          </span>
+        </span>
       </nav>
 
       <div className="header__right">
