@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   artCatalogFor,
   catalogExtra,
+  pickSearchCatalogs,
   gridCatalogs,
   interleave,
   pickCatalogs,
@@ -49,6 +50,18 @@ describe("pickCatalogs", () => {
         },
       ]),
     ).toEqual([]);
+  });
+});
+
+describe("pickSearchCatalogs", () => {
+  it("keeps every catalog with a search extra, required or optional", () => {
+    const out = pickSearchCatalogs([
+      { type: "movie", id: "search", extra: [{ name: "search", isRequired: true }] },
+      { type: "movie", id: "top", extra: [{ name: "genre" }, { name: "search" }] },
+      { type: "movie", id: "plain" },
+      { type: "tv", id: "live", extra: [{ name: "search" }] },
+    ]);
+    expect(out.map((c) => c.id)).toEqual(["search", "top"]);
   });
 });
 

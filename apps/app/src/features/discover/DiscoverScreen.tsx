@@ -16,8 +16,11 @@ import {
   interleave,
   loadDiscover,
   resolveGenreArt,
+  searchDiscover,
   type DiscoverConfig,
 } from "./data";
+import { onSearchRequest, takeSearchRequest } from "./searchRequest";
+import { SearchIcon } from "../../ui/icons";
 
 /**
  * Discover: search-free exploration of the addon's catalogs. A pill
@@ -57,6 +60,43 @@ export function DiscoverScreen() {
     filter === "all" && !metaFields.includes("kind")
       ? [...metaFields, "kind" as const]
       : metaFields;
+
+  // ---- Search: debounced, across every search-capable catalog of the
+  // filtered type. Two+ characters enters search mode (rail + browse
+  // grid step aside); clearing or Escape returns to browsing.
+  const [query, setQuery] = useState("");
+  const q = query.trim();
+  const searching = q.length >= 2;
+  const [results, setResults] = useState<VodItem[] | null>(null);
+  useEffect(() => {
+    if (!searching || cfg.status !== "ready") {
+      setResults(null);
+      return;
+    }
+    let stale = false;
+    setResults(null); // "Searching…" between keystrokes and payload
+    const t = window.setTimeout(() => {
+      searchDiscover(cfg.cfg, filter, q).then(
+        (r) => !stale && setResults(r),
+        () => !stale && setResults([]),
+      );
+    }, 350);
+    return () => {
+      stale = true;
+      window.clearTimeout(t);
+    };
+  }, [cfg, filter, q, searching]);
+
+  // Header 🔍 hand-off: drain on mount (the click switched tabs before
+  // this screen existed) and on the event (already-here case).
+  const searchRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    const consume = () => {
+      if (takeSearchRequest()) searchRef.current?.focus();
+    };
+    consume();
+    return onSearchRequest(consume);
+  }, []);
 
   useEffect(() => {
     let stale = false;
@@ -210,6 +250,46 @@ export function DiscoverScreen() {
         />
       </div>
 
+      {cfg.status === "ready" && cfg.cfg.searchCatalogs.length > 0 && (
+        <div className="discover__searchwrap">
+          <SearchIcon className="discover__searchicon" aria-hidden />
+          <input
+            ref={searchRef}
+            className="discover__search"
+            type="search"
+            placeholder="Search movies & series…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setQuery("");
+            }}
+            aria-label="Search movies and series"
+          />
+        </div>
+      )}
+
+      {searching ? (
+        <section className="discover__gridwrap">
+          <h3 className="media-row__title">Results for “{q}”</h3>
+          {results === null ? (
+            <p className="discover__note">Searching…</p>
+          ) : results.length === 0 ? (
+            <p className="discover__note">No results for “{q}”.</p>
+          ) : (
+            <div className="disc-grid">
+              {results.map((item) => (
+                <Card
+                  key={item.id}
+                  item={item}
+                  metaFields={gridMetaFields}
+                  onOpen={open}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      ) : (
+        <>
       {cfg.status === "ready" && cfg.cfg.genres.length > 0 && (
         <section className="media-row discover__genres">
           <h3 className="media-row__title">By Genre</h3>
@@ -282,6 +362,8 @@ export function DiscoverScreen() {
         {phase === "more" && <p className="discover__note">Loading more…</p>}
         <div ref={sentinelRef} className="discover__sentinel" aria-hidden />
       </section>
+        </>
+      )}
     </div>
   );
 }

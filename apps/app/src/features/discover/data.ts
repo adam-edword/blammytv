@@ -32,6 +32,9 @@ export interface DiscoverConfig {
   catalogs: DiscoverCatalog[];
   /** Rail order: movie catalog's genres first, series-only ones appended. */
   genres: string[];
+  /** Catalogs declaring a `search` extra (search-only ones included —
+   * they're excluded from browse but are exactly what search wants). */
+  searchCatalogs: DiscoverCatalog[];
 }
 
 /** Browseable = fetchable unfiltered: no required extra (search etc.) —
@@ -58,6 +61,24 @@ export function pickCatalogs(catalogs: CatalogDef[]): DiscoverCatalog[] {
       id: c.id,
       genreCapable: (c.extra ?? []).some((e) => e.name === "genre"),
       genres: genreOptions(c),
+    }));
+}
+
+/** Search pool: every movie/series catalog declaring a `search` extra,
+ * whether required (search-only catalogs) or optional (Cinemeta-style
+ * top catalogs are browseable AND searchable). Exported for tests. */
+export function pickSearchCatalogs(catalogs: CatalogDef[]): DiscoverCatalog[] {
+  return catalogs
+    .filter(
+      (c): c is CatalogDef & { type: "movie" | "series" } =>
+        (c.type === "movie" || c.type === "series") &&
+        (c.extra ?? []).some((e) => e.name === "search"),
+    )
+    .map((c) => ({
+      type: c.type,
+      id: c.id,
+      genreCapable: false,
+      genres: [],
     }));
 }
 
@@ -94,13 +115,14 @@ export async function loadDiscover(): Promise<DiscoverConfig> {
   if (!manifestUrl) throw new Error("no addon configured");
   const manifest = await fetchManifest(manifestUrl);
   const catalogs = pickCatalogs(manifest.catalogs ?? []);
+  const searchCatalogs = pickSearchCatalogs(manifest.catalogs ?? []);
   if (catalogs.length === 0)
     throw new Error("the addon declares no browseable catalogs");
   // Diagnostic (ids/names only — never the manifest URL): which catalogs
   // exist and how each declares genres, for by-hand reports like "the
   // rail is all X" — the answer is usually in this shape.
   console.info(
-    `[discover] ${catalogs.length} browseable catalogs: ` +
+    `[discover] ${searchCatalogs.length} search catalogs; ${catalogs.length} browseable catalogs: ` +
       catalogs
         .map(
           (c) =>
@@ -113,7 +135,48 @@ export async function loadDiscover(): Promise<DiscoverConfig> {
         )
         .join(" | "),
   );
-  return { manifestUrl, catalogs, genres: unionGenres(catalogs) };
+  return {
+    manifestUrl,
+    catalogs,
+    genres: unionGenres(catalogs),
+    searchCatalogs,
+  };
+}
+
+/**
+ * One search, every search-capable catalog of the filtered type, results
+ * interleaved + deduped like the browse conglomerate. Single page per
+ * catalog — Stremio search rarely paginates, and a first page per source
+ * is already plenty for a picker.
+ */
+export async function searchDiscover(
+  cfg: DiscoverConfig,
+  filter: "all" | "movie" | "series",
+  query: string,
+): Promise<VodItem[]> {
+  const cats = cfg.searchCatalogs.filter(
+    (c) => filter === "all" || c.type === filter,
+  );
+  const pages = await Promise.all(
+    cats.map((c) =>
+      fetchCatalog(
+        cfg.manifestUrl,
+        c.type,
+        c.id,
+        `search=${encodeURIComponent(query)}`,
+      )
+        .then((r) =>
+          (r.metas ?? []).filter((m) => m?.id && m?.name).map(metaPreviewToVod),
+        )
+        .catch(() => [] as VodItem[]),
+    ),
+  );
+  const seen = new Set<string>();
+  return interleave(...pages).filter((i) => {
+    if (seen.has(i.id)) return false;
+    seen.add(i.id);
+    return true;
+  });
 }
 
 /** The Stremio extra path segment for a page: `genre=X&skip=N` (either

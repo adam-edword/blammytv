@@ -33,13 +33,21 @@ const MANIFEST = {
       type: "movie",
       id: "top-movies",
       name: "Top Movies",
-      extra: [{ name: "genre", options: ["Action", "Comedy"] }, { name: "skip" }],
+      extra: [
+        { name: "genre", options: ["Action", "Comedy"] },
+        { name: "skip" },
+        { name: "search" },
+      ],
     },
     {
       type: "series",
       id: "top-series",
       name: "Top Series",
-      extra: [{ name: "genre", options: ["Drama", "Comedy"] }, { name: "skip" }],
+      extra: [
+        { name: "genre", options: ["Drama", "Comedy"] },
+        { name: "skip" },
+        { name: "search" },
+      ],
     },
     // A SECOND browseable movie catalog: Discover's grid must conglomerate
     // across all of the user's lists, not anchor to the first one.
@@ -249,16 +257,24 @@ http
       // no extra = the plain full list the Stream rows fetch.
       const params = new URLSearchParams(extra ?? "");
       const genreFilter = params.get("genre");
+      const search = params.get("search");
       const skip = Number(params.get("skip") ?? 0) || 0;
       const page = (list) => {
-        const filtered = genreFilter
+        let filtered = genreFilter
           ? list.filter((m) => (m.genres ?? []).includes(genreFilter))
           : list;
+        if (search)
+          filtered = filtered.filter((m) =>
+            m.name.toLowerCase().includes(search.toLowerCase()),
+          );
         return json({ metas: filtered.slice(skip, skip + 8) });
       };
       if (type === "movie" && catalogId === "top-movies") return page(MOVIES);
       if (type === "series" && catalogId === "top-series") return page(SERIES);
       if (type === "movie" && catalogId === "more-movies") return page(MORE_MOVIES);
+      // Search-only catalog: answers ONLY the search extra.
+      if (type === "movie" && catalogId === "search-only" && search)
+        return page(GENRE_MOVIES);
       if (type === "movie" && catalogId === "genre-movies" && extra?.startsWith("genre="))
         return json({ metas: GENRE_MOVIES });
       return notFound();

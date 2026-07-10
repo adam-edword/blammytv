@@ -22,6 +22,45 @@
   margin-bottom: 34px;
 }
 
+/* Search bar: the app's pill language, centered under the toggle. */
+.discover__searchwrap {
+  position: relative;
+  width: min(460px, 80vw);
+  margin: 0 auto 26px;
+}
+.discover__searchicon {
+  position: absolute;
+  left: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  opacity: 0.45;
+  pointer-events: none;
+}
+.discover__search {
+  width: 100%;
+  padding: 11px 18px 11px 44px;
+  border-radius: 1000px;
+  border: 1px solid var(--border-strong, rgba(255, 255, 255, 0.14));
+  background: #00000050;
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  outline: none;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+.discover__search::placeholder {
+  color: var(--text-muted);
+}
+.discover__search:focus {
+  border-color: var(--accent);
+  background: rgba(0, 0, 0, 0.6);
+}
+.discover__search::-webkit-search-cancel-button {
+  cursor: pointer;
+}
+
 /* Genre card: wallpaper art under a scrim, label centered. Flat gradient
  * when the cache has no art for that genre yet. */
 .genre-card {

@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AccountIcon, SearchIcon, SettingsIcon } from "../ui/icons";
+import { requestSearch } from "../features/discover/searchRequest";
 import { UpdateChip } from "./UpdateChip";
 import { formatClock } from "../lib/time";
 import { APP_VERSION } from "../lib/version";
@@ -98,8 +99,22 @@ export function AppHeader({
       </div>
 
       <nav className="header__tabs" aria-label="Sections">
-        {/* Search is drawn in the redesign but not wired yet. */}
-        <SearchIcon className="header__search" aria-hidden />
+        {/* TWO search buttons flank the tabs — TV-side and VOD-side — and
+          * swap via visibility (not display) so the cluster never moves a
+          * pixel. Both open Discover's search today; the TV-side slot is
+          * reserved for live-channel search when that exists. */}
+        <button
+          type="button"
+          className={
+            "header__search" + (active === "live" ? "" : " header__search--off")
+          }
+          aria-label="Search"
+          aria-hidden={active !== "live"}
+          tabIndex={active === "live" ? 0 : -1}
+          onClick={requestSearch}
+        >
+          <SearchIcon />
+        </button>
         {TABS.map((tab, i) => (
           <span key={tab.key} className="header__tab-slot">
             <button
@@ -115,6 +130,19 @@ export function AppHeader({
             {i === 0 && <span className="header__divider">|</span>}
           </span>
         ))}
+        <button
+          type="button"
+          className={
+            "header__search header__search--right" +
+            (active === "live" ? " header__search--off" : "")
+          }
+          aria-label="Search movies & series"
+          aria-hidden={active === "live"}
+          tabIndex={active === "live" ? -1 : 0}
+          onClick={requestSearch}
+        >
+          <SearchIcon />
+        </button>
       </nav>
 
       <div className="header__right">

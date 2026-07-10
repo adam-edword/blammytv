@@ -284,9 +284,28 @@ button {
 }
 
 .header__search {
+  display: grid;
+  place-items: center;
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.3;
+  transition: opacity 150ms ease;
+}
+.header__search svg {
   width: 17px;
   height: 17px;
-  opacity: 0.3;
+}
+.header__search:hover {
+  opacity: 0.8;
+}
+/* visibility (not display): the hidden twin keeps its space so the tab
+ * cluster never shifts when the icon swaps sides. */
+.header__search--off {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .header__tab-slot {

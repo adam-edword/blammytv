@@ -13,6 +13,7 @@ import {
   onOpenRequest,
   onReturnRequest,
 } from "../features/stream/openRequest";
+import { onSearchRequest } from "../features/discover/searchRequest";
 
 export function App() {
   const [tab, setTab] = useState<TabKey>(loadStartupTab);
@@ -33,6 +34,8 @@ export function App() {
   // Backing all the way out of that hand-off flips back to Discover.
   useEffect(() => onOpenRequest(() => setTab("stream")), []);
   useEffect(() => onReturnRequest(() => setTab("discover")), []);
+  // Header 🔍 → Discover, whose screen focuses the search bar.
+  useEffect(() => onSearchRequest(() => setTab("discover")), []);
 
   // While a modal is open, flag the root: the video keeps playing behind it
   // (it's below the webview), and the player chrome fades out via CSS so it
