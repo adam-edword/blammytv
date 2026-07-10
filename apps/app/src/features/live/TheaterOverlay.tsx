@@ -498,7 +498,7 @@ export function TheaterOverlay({
         onClick={() => api()?.expand?.()}
       >
         {loading && (
-          <TuneCard meta={meta} phase={tune} onRetry={retryTune} compact />
+          <TuneCard meta={meta} phase={tune} onRetry={retryTune} vod={vod} compact />
         )}
         <button
           type="button"
@@ -544,7 +544,7 @@ export function TheaterOverlay({
         }
       }}
     >
-      {loading && <TuneCard meta={meta} phase={tune} onRetry={retryTune} />}
+      {loading && <TuneCard meta={meta} phase={tune} onRetry={retryTune} vod={vod} />}
 
       {showStats && isTauri() && <StatsOverlay />}
 
@@ -861,15 +861,35 @@ function TuneCard({
   phase,
   onRetry,
   compact = false,
+  vod = false,
 }: {
   meta: TheaterMeta | null;
   phase: "waiting" | "retrying" | "dead";
   onRetry: () => void;
   compact?: boolean;
+  /** VOD variant: solid black, just the title art breathing — no text,
+   * no status. The dead card still shows (over black) so a broken
+   * source stays diagnosable. */
+  vod?: boolean;
 }) {
+  if (vod && phase !== "dead") {
+    return (
+      <div className="tune tune--vod" aria-live="polite">
+        {meta?.logo ? (
+          <img className="tune__vodlogo" src={meta.logo} alt="" aria-hidden />
+        ) : (
+          <span className="tune__vodtitle">{meta?.channelName ?? ""}</span>
+        )}
+      </div>
+    );
+  }
   return (
     <div
-      className={"tune" + (compact ? " tune--compact" : "")}
+      className={
+        "tune" +
+        (compact ? " tune--compact" : "") +
+        (vod ? " tune--vod" : "")
+      }
       aria-live="polite"
     >
       <div className="tune__ident">
