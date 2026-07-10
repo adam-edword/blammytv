@@ -9,6 +9,11 @@ import {
 } from "../settings/overlayMeta";
 import { loadSourceFailover } from "../settings/failover";
 import {
+  loadPlaybackPrefs,
+  matchTrack,
+  rememberPlayback,
+} from "../settings/playbackPrefs";
+import {
   loadSkipBehavior,
   onSkipBehaviorChange,
   type SkipBehavior,
@@ -210,6 +215,7 @@ export function TheaterOverlay({
   const pickSpeed = useCallback((sp: number) => {
     setSpeed(sp);
     api()?.setSpeed?.(sp);
+    if (vodRef.current) rememberPlayback({ speed: sp });
     setMenu(null);
   }, []);
   // Scrub-in-progress fraction (0..1); null = not scrubbing. While held,
@@ -377,8 +383,18 @@ export function TheaterOverlay({
   // Track selection: fire the api, flip the checkmark optimistically, and
   // let the 500ms mpv_status poll confirm (it re-pushes when mpv's `selected`
   // flags change, which also corrects us if mpv rejected the switch).
+  const vodRef = useRef(false); // mirrors `vod` for the stable callbacks
+  const tracksRef = useRef<Tracks | null>(null);
+  tracksRef.current = tracks;
   const chooseAudio = useCallback((id: number) => {
     api()?.selectAudio?.(id);
+    // VOD continuity: an explicit pick is remembered by LANGUAGE and
+    // re-applied on the next episode's fresh mpv instance.
+    if (vodRef.current) {
+      const t = tracksRef.current?.audio.find((a) => a.id === id);
+      if (t?.lang || t?.label)
+        rememberPlayback({ audioLang: t.lang || t.label });
+    }
     setTracks(
       (prev) =>
         prev && {
@@ -390,6 +406,14 @@ export function TheaterOverlay({
   }, []);
   const chooseSub = useCallback((id: number | null) => {
     api()?.selectSub?.(id === null ? "no" : id);
+    if (vodRef.current) {
+      if (id === null) rememberPlayback({ subLang: "off" });
+      else {
+        const t = tracksRef.current?.subs.find((x) => x.id === id);
+        if (t?.lang || t?.label)
+          rememberPlayback({ subLang: t.lang || t.label });
+      }
+    }
     setTracks(
       (prev) =>
         prev && {
@@ -472,6 +496,62 @@ export function TheaterOverlay({
   // VOD (Stream tab sets live:false): the seek row is a real scrubber and
   // the LIVE affordances disappear.
   const vod = meta?.live === false;
+  vodRef.current = vod;
+
+  // VOD continuity, apply side: once per FILE, when its track list first
+  // lands, re-select the remembered languages and speed (every stream is
+  // a fresh mpv instance — without this, subs/speed die at each episode
+  // boundary). Runs once per playbackKey, before any user pick for the
+  // file; explicit picks afterward both win and update the memory.
+  const appliedKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!vod || !tracks) return;
+    const key = playbackKey ?? "mount";
+    if (appliedKeyRef.current === key) return;
+    appliedKeyRef.current = key;
+    const prefs = loadPlaybackPrefs();
+    if (prefs.audioLang) {
+      const t = matchTrack(tracks.audio, prefs.audioLang);
+      if (t && !t.selected) {
+        api()?.selectAudio?.(t.id);
+        setTracks(
+          (prev) =>
+            prev && {
+              ...prev,
+              audio: prev.audio.map((a) => ({ ...a, selected: a.id === t.id })),
+            },
+        );
+      }
+    }
+    if (prefs.subLang === "off") {
+      if (tracks.subs.some((x) => x.selected)) {
+        api()?.selectSub?.("no");
+        setTracks(
+          (prev) =>
+            prev && {
+              ...prev,
+              subs: prev.subs.map((x) => ({ ...x, selected: false })),
+            },
+        );
+      }
+    } else if (prefs.subLang) {
+      const t = matchTrack(tracks.subs, prefs.subLang);
+      if (t && !t.selected) {
+        api()?.selectSub?.(t.id);
+        setTracks(
+          (prev) =>
+            prev && {
+              ...prev,
+              subs: prev.subs.map((x) => ({ ...x, selected: x.id === t.id })),
+            },
+        );
+      }
+    }
+    if (prefs.speed && prefs.speed !== 1) {
+      setSpeed(prefs.speed);
+      api()?.setSpeed?.(prefs.speed);
+    }
+  }, [vod, tracks, playbackKey]);
   const vodPct =
     scrub !== null
       ? scrub * 100
