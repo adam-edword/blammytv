@@ -21,6 +21,7 @@ import { loadShowAdult } from "../settings/adultFilter";
 import { httpGetText } from "../../lib/http";
 import { isAdultCategory, isAdultStream, nameLooksAdult } from "./adult";
 import { diskGet, diskPut } from "./diskCache";
+import { normalizeProgrammes } from "./epg";
 import { parseM3U } from "./m3u";
 import { mockLive } from "./mock";
 import type { Channel, LiveData, LiveGroup, Programme } from "./model";
@@ -172,6 +173,10 @@ export async function loadLive(
     if (!force && playlists.length > 0) {
       const disk = await diskGet(key).catch(() => null);
       if (disk && Date.now() - disk.at < DISK_MAX_AGE_MS) {
+        // Snapshots written before the normalize step existed still carry
+        // overlapping programmes; re-normalizing is cheap and idempotent.
+        for (const [id, list] of disk.data.programmes)
+          disk.data.programmes.set(id, normalizeProgrammes(list));
         cache = { key, at: disk.at, data: disk.data };
         refreshInBackground(playlists, key); // replaces this record's slot
         return disk.data;
@@ -217,11 +222,15 @@ async function doLoad(
     );
     // Assembled in saved-playlist order, not arrival order. concat, not
     // push(...spread): spreading a six-figure channel list overflows the
-    // argument stack.
+    // argument stack. Programme lists are normalized here — the one choke
+    // point all three builders share — so dirty provider EPGs (duplicate
+    // entries with shifted starts, entries bleeding past their neighbour)
+    // can't render overlapping guide cells.
     for (const src of built) {
       data.groups.push(src.group);
       data.channels = data.channels.concat(src.channels);
-      for (const [id, list] of src.programmes) data.programmes.set(id, list);
+      for (const [id, list] of src.programmes)
+        data.programmes.set(id, normalizeProgrammes(list));
     }
   }
 
