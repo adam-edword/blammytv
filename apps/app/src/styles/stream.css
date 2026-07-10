@@ -607,7 +607,7 @@
   opacity: 0;
   transition: opacity 150ms ease;
 }
-.episode-card__thumb:hover::after { opacity: 1; }
+.episode-card:hover .episode-card__thumb::after { opacity: 1; }
 .episode-card__cue {
   position: absolute;
   inset: 0;
@@ -618,7 +618,7 @@
   opacity: 0;
   transition: opacity 150ms ease;
 }
-.episode-card__thumb:hover .episode-card__cue { opacity: 1; }
+.episode-card:hover .episode-card__cue { opacity: 1; }
 /* Number inline with the title up top; the air date pins to the bottom. */
 .episode-card__text {
   display: flex;
