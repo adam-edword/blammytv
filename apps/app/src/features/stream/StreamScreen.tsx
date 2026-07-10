@@ -108,30 +108,29 @@ export function StreamScreen() {
 
   // Back/forward history over the view state — the ← Back buttons and the
   // mouse side buttons (4 = back, 5 = forward) all walk the same stacks.
+  // Stack mutation stays OUTSIDE the setView updaters: updaters must be
+  // pure (StrictMode double-invokes them — a pop inside ran twice and Back
+  // became a no-op in dev). viewRef mirrors the committed view instead.
   const backStack = useRef<View[]>([]);
   const fwdStack = useRef<View[]>([]);
+  const viewRef = useRef(view);
+  viewRef.current = view;
   const navigate = useCallback((next: View) => {
-    setView((cur) => {
-      backStack.current.push(cur);
-      fwdStack.current = [];
-      return next;
-    });
+    backStack.current.push(viewRef.current);
+    fwdStack.current = [];
+    setView(next);
   }, []);
   const goBack = useCallback(() => {
-    setView((cur) => {
-      const prev = backStack.current.pop();
-      if (!prev) return cur;
-      fwdStack.current.push(cur);
-      return prev;
-    });
+    const prev = backStack.current.pop();
+    if (!prev) return;
+    fwdStack.current.push(viewRef.current);
+    setView(prev);
   }, []);
   const goForward = useCallback(() => {
-    setView((cur) => {
-      const next = fwdStack.current.pop();
-      if (!next) return cur;
-      backStack.current.push(cur);
-      return next;
-    });
+    const next = fwdStack.current.pop();
+    if (!next) return;
+    backStack.current.push(viewRef.current);
+    setView(next);
   }, []);
   useEffect(() => {
     if (playing) return;
