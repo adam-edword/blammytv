@@ -128,7 +128,15 @@ export function AppHeader({
               className={
                 "header__tab" + (tab.key === active ? " header__tab--active" : "")
               }
-              onClick={() => onChange(tab.key)}
+              onClick={() => {
+                // The Discover TAB means browse: clear any active search
+                // so it never lands (or stays) on stale results.
+                if (tab.key === "discover") {
+                  setQuery("");
+                  setSearchQuery("");
+                }
+                onChange(tab.key);
+              }}
             >
               {tab.label}
             </button>
