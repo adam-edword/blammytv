@@ -104,6 +104,18 @@ button {
   align-items: flex-start;
   justify-content: space-between;
   padding: 27px 17px;
+  /* Subtle scrim so the nav reads over bright content scrolling under
+   * it; fades out just past the header's own height. */
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--bg) 72%, transparent),
+    transparent
+  );
+  /* The gradient must not eat clicks below the nav's actual controls. */
+  pointer-events: none;
+}
+.header > * {
+  pointer-events: auto;
 }
 
 /* Nav glass: the same treatment as the settings card (--card-glass fill +

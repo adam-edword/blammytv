@@ -762,6 +762,30 @@
   transition: opacity 150ms ease, background 140ms ease;
 }
 .continue-card:hover .continue-card__sources { opacity: 1; }
+/* Same hover treatment as episode stills: 0.4 dim + centered play cue. */
+.continue-card__artwrap::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 25px;
+  background: rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  transition: opacity 150ms ease;
+  pointer-events: none;
+}
+.continue-card:hover .continue-card__artwrap::after { opacity: 1; }
+.continue-card__cue {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.75);
+  opacity: 0;
+  transition: opacity 150ms ease;
+  pointer-events: none;
+}
+.continue-card:hover .continue-card__cue { opacity: 1; }
 .continue-card__sources:hover { background: rgba(0, 0, 0, 0.75); }
 .continue-card { cursor: pointer; }
 

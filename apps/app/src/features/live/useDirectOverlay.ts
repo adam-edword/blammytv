@@ -56,6 +56,7 @@ export function useDirectOverlay(
   const s = useRef({
     loading: true,
     endedFired: false,
+    nearEndLogged: false,
     tracks: null as Tracks | null,
     tracksJson: "",
     time: null as TimeInfo | null,
@@ -76,6 +77,7 @@ export function useDirectOverlay(
     if (!active) return;
     s.loading = true;
     s.endedFired = false;
+    s.nearEndLogged = false;
     s.tracks = null;
     s.tracksJson = "";
     s.time = null;
@@ -89,6 +91,9 @@ export function useDirectOverlay(
             s.loadingCbs.forEach((cb) => cb(false));
           } else if (!s.loading && st.ended) {
             if (metaRef.current?.live === false) {
+              console.info(
+                `[vod] EOF: ended=${st.ended} presenting=${st.presenting} pos=${st.pos} dur=${st.dur} fired=${s.endedFired}`,
+              );
               // VOD reaching EOF is COMPLETION, not death — the live path
               // below would reload the file and end at a "not responding"
               // card. Fire the handler once; the Stream screen exits.
@@ -110,6 +115,21 @@ export function useDirectOverlay(
             s.tracksJson = tj;
             s.tracks = { audio: st.audio, subs: st.subs };
             s.tracksCbs.forEach((cb) => cb(s.tracks));
+          }
+          // Near-end diagnostic (VOD EOF investigation, v0.3.0): one
+          // status snapshot as the clock approaches the end.
+          if (
+            !s.nearEndLogged &&
+            metaRef.current?.live === false &&
+            st.pos != null &&
+            st.dur != null &&
+            st.dur > 0 &&
+            st.dur - st.pos < 3
+          ) {
+            s.nearEndLogged = true;
+            console.info(
+              `[vod] near-end: pos=${st.pos} dur=${st.dur} presenting=${st.presenting} ended=${st.ended} loading=${s.loading}`,
+            );
           }
           // The playback clock, for the VOD scrubber. Live streams have no
           // usable duration — the overlay only renders it when dur > 0.

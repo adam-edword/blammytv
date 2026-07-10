@@ -461,6 +461,9 @@ export function StreamScreen() {
       // 0:00, and the progress tick then shredding the saved position.
       onEnded: () => {
         const p = playingRef.current;
+        console.info(
+          `[vod] onEnded: episodeId=${p?.episodeId ?? "none"} seasons=${p?.item.seasons.length ?? -1}`,
+        );
         if (p) {
           const e = loadWatching().find((x) => x.id === p.item.id);
           if (e?.durSec)
@@ -468,6 +471,7 @@ export function StreamScreen() {
           if (p.episodeId) {
             markWatched(p.item.id, p.episodeId);
             const nxt = nextEpisode(p.item.seasons, p.episodeId);
+            console.info(`[vod] next episode: ${nxt?.episode.id ?? "none"}`);
             if (nxt) {
               setUpNext({ item: p.item, ...nxt });
               return; // stage stays; the Up Next card takes over
@@ -1229,6 +1233,9 @@ function ContinueCard({
         ) : (
           <span className="continue-card__art continue-card__art--empty" />
         )}
+        <span className="continue-card__cue" aria-hidden>
+          <PlayIcon size={36} />
+        </span>
         {entry.posSec && entry.durSec ? (
           <span className="continue-card__progress" aria-hidden>
             <span
