@@ -24,7 +24,11 @@ import {
 } from "./source";
 import { nextEpisode } from "./mapper";
 import { getAniskipRanges, type SkipRange } from "./aniskip";
-import { onOpenRequest, takeOpenRequest } from "./openRequest";
+import {
+  onOpenRequest,
+  requestReturnToDiscover,
+  takeOpenRequest,
+} from "./openRequest";
 import { loadWatched, markWatched } from "./watched";
 import { loadAioUrl } from "../settings/aiostreams";
 import {
@@ -215,11 +219,20 @@ export function StreamScreen() {
     fwdStack.current = [];
     setView(next);
   }, []);
+  // Set when the current stack was seeded by a Discover hand-off: backing
+  // all the way out returns to Discover (where the pick was made), not
+  // Stream home. The ref dies with the screen, so a real Stream visit
+  // never inherits it.
+  const handoffRef = useRef(false);
   const goBack = useCallback(() => {
     const prev = backStack.current.pop();
     if (!prev) return;
     fwdStack.current.push(viewRef.current);
     setView(prev);
+    if (handoffRef.current && backStack.current.length === 0) {
+      handoffRef.current = false;
+      requestReturnToDiscover();
+    }
   }, []);
   const goForward = useCallback(() => {
     const next = fwdStack.current.pop();
@@ -297,7 +310,10 @@ export function StreamScreen() {
   useEffect(() => {
     const consume = () => {
       const item = takeOpenRequest();
-      if (item) void open(item);
+      if (item) {
+        handoffRef.current = true;
+        void open(item);
+      }
     };
     consume();
     return onOpenRequest(consume);

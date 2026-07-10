@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ChipTabs } from "../../ui/ChipTabs";
 import {
   loadCardMeta,
@@ -13,6 +13,7 @@ import {
   genreArtwork,
   interleave,
   loadDiscover,
+  resolveGenreArt,
   servesGenre,
   type DiscoverConfig,
 } from "./data";
@@ -66,11 +67,24 @@ export function DiscoverScreen() {
   }, []);
 
   // Rail wallpapers: dealt once per visit (deliberately random — fresh
-  // art each time the tab opens), from the Stream tab's cached catalog.
-  const art = useMemo(
-    () => (cfg.status === "ready" ? genreArtwork(cfg.cfg.genres) : new Map()),
-    [cfg],
-  );
+  // art each time the tab opens) from known backdrops; genres the cache
+  // can't cover yet backfill async via one full-meta fetch each, and the
+  // learned art persists so next visit paints synchronously.
+  const [art, setArt] = useState<Map<string, string>>(() => new Map());
+  useEffect(() => {
+    if (cfg.status !== "ready") return;
+    let stale = false;
+    const first = genreArtwork(cfg.cfg.genres);
+    setArt(first);
+    const missing = cfg.cfg.genres.filter((g) => !first.has(g));
+    if (missing.length)
+      void resolveGenreArt(missing, (g, src) => {
+        if (!stale) setArt((prev) => new Map(prev).set(g, src));
+      });
+    return () => {
+      stale = true;
+    };
+  }, [cfg]);
 
   // ---- The grid feed: per-type skip cursors, interleaved for "all".
   // Everything lives in refs except the rendered list; reqId guards

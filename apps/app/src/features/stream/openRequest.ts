@@ -10,6 +10,7 @@ import type { VodItem } from "./model";
  */
 
 const EVENT = "blammytv:open-in-stream";
+const RETURN_EVENT = "blammytv:return-to-discover";
 let pending: VodItem | null = null;
 
 export function requestOpenInStream(item: VodItem): void {
@@ -26,4 +27,15 @@ export function takeOpenRequest(): VodItem | null {
 export function onOpenRequest(cb: () => void): () => void {
   window.addEventListener(EVENT, cb);
   return () => window.removeEventListener(EVENT, cb);
+}
+
+/** Backing all the way out of a handed-off detail page returns to the
+ * Discover tab (where the pick was made), not the Stream home. */
+export function requestReturnToDiscover(): void {
+  window.dispatchEvent(new CustomEvent(RETURN_EVENT));
+}
+
+export function onReturnRequest(cb: () => void): () => void {
+  window.addEventListener(RETURN_EVENT, cb);
+  return () => window.removeEventListener(RETURN_EVENT, cb);
 }
