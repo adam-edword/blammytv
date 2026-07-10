@@ -210,6 +210,7 @@ export function AppHeader({
                 if (e.key === "Escape") {
                   setQuery("");
                   setSearchQuery("");
+                  e.currentTarget.blur();
                 }
               }}
             />

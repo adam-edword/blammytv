@@ -593,7 +593,11 @@ export function TheaterOverlay({
           setShowStats((v) => !v);
           break;
         case "escape":
+          // VOD: Escape TOGGLES theater↔fullscreen and can never leave
+          // the player — the ✕ is the only exit. Live keeps the ladder
+          // (menu → exit fullscreen → collapse to mini).
           if (menuRef.current) setMenu(null);
+          else if (vod) toggleFullscreen();
           else if (fsNow()) api()?.exitFullscreen?.();
           else api()?.collapse?.();
           break;
@@ -603,7 +607,7 @@ export function TheaterOverlay({
       wake();
       return true;
     },
-    [doSeek, fsNow, miniNow, toggleFullscreen, togglePlay, wake],
+    [doSeek, fsNow, miniNow, toggleFullscreen, togglePlay, vod, wake],
   );
 
   useEffect(() => {

@@ -53,6 +53,10 @@ export function App() {
     if (!isTauri()) return;
     const onKey = async (e: KeyboardEvent) => {
       if (e.key !== "F11" && e.key !== "Escape") return;
+      // The VOD player owns Escape (theater↔fullscreen toggle through its
+      // own state machine) — exiting OS fullscreen from here would desync
+      // playing.mode and fight the overlay's toggle.
+      if (e.key === "Escape" && document.getElementById("inv-chrome")) return;
       const win = getCurrentWindow();
       const full = await win.isFullscreen();
       if (e.key === "F11") {
