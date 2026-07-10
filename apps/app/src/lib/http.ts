@@ -61,7 +61,7 @@ export async function httpGetJson<T>(
     if (!is403 || !opts?.browserRetryOn403 || !isTauri()) throw e;
     try {
       const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`, { cause: e });
       body = await res.text();
     } catch (retryErr) {
       // Diagnosable from a screenshot: real Chrome was ALSO rejected, so
