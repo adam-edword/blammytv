@@ -18,11 +18,6 @@ export type Section = "live" | "stream";
  * lands with its spec. */
 export type StreamTab = "home" | "discover";
 
-const SECTIONS: Array<{ key: Section; label: string }> = [
-  { key: "live", label: "Live TV" },
-  { key: "stream", label: "Stream" },
-];
-
 const RAIL: Array<{ key: StreamTab; label: string }> = [
   { key: "home", label: "Home" },
   { key: "discover", label: "Discover" },
@@ -167,32 +162,42 @@ export function AppHeader({
         >
           <SearchIcon />
         </button>
-        {SECTIONS.map((s, i) => (
-          <span key={s.key} className="header__tab-slot">
-            <button
-              type="button"
-              className={
-                "header__tab" +
-                (s.key === section ? " header__tab--active" : "")
-              }
-              onClick={() => onSection(s.key)}
-            >
-              {s.label}
-            </button>
-            {/* The design keeps a fixed divider between Live TV and the rest. */}
-            {i === 0 && <span className="header__divider">|</span>}
-          </span>
-        ))}
-        {/* The Stream sub-rail: the section's actual pages, plus the
-          * search slot at its end. COLLAPSED — not unmounted — on Live
-          * TV, so the section-switch animation (phase 2) is pure CSS
-          * width/opacity on .header__rail--off. */}
-        <div
-          className={
-            "header__rail" + (section === "live" ? " header__rail--off" : "")
-          }
-          aria-hidden={section === "live"}
-        >
+        <span className="header__tab-slot">
+          <button
+            type="button"
+            className={
+              "header__tab" + (section === "live" ? " header__tab--active" : "")
+            }
+            onClick={() => onSection("live")}
+          >
+            Live TV
+          </button>
+          {/* The design keeps a fixed divider between Live TV and the rest. */}
+          <span className="header__divider">|</span>
+        </span>
+        {/* Stream tab + its sub-rail grouped, so their gap tunes
+          * independently of the tab cluster's 20px rhythm. */}
+        <div className="header__streamgroup">
+          <button
+            type="button"
+            className={
+              "header__tab" +
+              (section === "stream" ? " header__tab--active" : "")
+            }
+            onClick={() => onSection("stream")}
+          >
+            Stream
+          </button>
+          {/* The Stream sub-rail: the section's actual pages, plus the
+            * search slot at its end. COLLAPSED — not unmounted — on Live
+            * TV, so the section-switch animation (phase 2) is pure CSS
+            * width/opacity on .header__rail--off. */}
+          <div
+            className={
+              "header__rail" + (section === "live" ? " header__rail--off" : "")
+            }
+            aria-hidden={section === "live"}
+          >
           {/* The SAME chip slider used in Settings/Discover/the Live
             * sidebar — sliding raised thumb and all — minus the track
             * background. (Collapsed rail = visibility:hidden, which also
@@ -249,6 +254,7 @@ export function AppHeader({
               />
             </span>
           </span>
+          </div>
         </div>
       </nav>
 

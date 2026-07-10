@@ -429,11 +429,18 @@ button {
  * animate the collapse and let the centered tab cluster glide. Overflow
  * stays visible while open (the search pill hangs off its slot
  * absolutely and must not clip). */
+/* Stream tab + rail live in one group, OUTSIDE the tab cluster's 20px
+ * gap rhythm, so the tab→rail distance is this margin alone. */
+.header__streamgroup {
+  display: flex;
+  align-items: center;
+}
 .header__rail {
   display: flex;
   align-items: center;
   gap: 4px;
   margin-left: 8px;
+  margin-top: 3px;
   max-width: 480px;
 }
 .header__rail--off {
