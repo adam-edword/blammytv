@@ -329,13 +329,30 @@ button {
   width: min(320px, 22vw);
   padding: 6px 14px 6px 12px;
   border-radius: 1000px;
-  border: 1px solid var(--border-strong, rgba(255, 255, 255, 0.14));
+  /* Resting: just the icon — border and text hidden. Hover teases the
+   * placeholder at half strength; focus (click) brings the border back
+   * and the text to full. */
+  border: 1px solid transparent;
   background: color-mix(in srgb, var(--bg) 72%, transparent);
   backdrop-filter: blur(8px);
   transition: border-color 150ms ease;
 }
 .header__searchpill:focus-within {
   border-color: var(--accent);
+}
+.header__searchinput {
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+.header__searchpill:hover .header__searchinput {
+  opacity: 0.5;
+}
+/* Full strength while focused — and whenever a query is typed, so an
+ * active search never renders as an invisible string. */
+.header__searchpill:focus-within .header__searchinput,
+.header__searchpill:has(.header__searchinput:not(:placeholder-shown))
+  .header__searchinput {
+  opacity: 1;
 }
 .header__searchpill svg {
   flex-shrink: 0;
