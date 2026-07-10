@@ -106,6 +106,29 @@ export function metaPreviewToVod(m: MetaPreview): VodItem {
   };
 }
 
+/**
+ * The episode a returning viewer should land on: the last-played episode
+ * while it's unfinished (resume it), the one after it once finished, else
+ * the first unwatched episode in season order (specials never count).
+ * Null = fresh series or everything watched.
+ */
+export function nextUpEpisode(
+  seasons: Season[],
+  watched: Set<string>,
+  last?: { episodeId?: string; finished: boolean },
+): string | null {
+  if (last?.episodeId) {
+    if (!last.finished) return last.episodeId;
+    const nxt = nextEpisode(seasons, last.episodeId);
+    if (nxt) return nxt.episode.id;
+  }
+  for (const s of seasons) {
+    if (s.number === 0) continue;
+    for (const e of s.episodes) if (!watched.has(e.id)) return e.id;
+  }
+  return null;
+}
+
 /** Group a series' flat `videos` list into ordered seasons, dropping
  * unreleased episodes and putting season 0 ("Specials") first. */
 export function mapSeasons(videos: StremioVideo[]): Season[] {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mapSeasons, mapStreams, metaPreviewToVod, metaToVod, nextEpisode } from "./mapper";
+import { mapSeasons, mapStreams, metaPreviewToVod, metaToVod, nextEpisode, nextUpEpisode } from "./mapper";
 
 describe("mapStreams", () => {
   it("filters to http streams, preserves addon order, parses quality/cached/lines", () => {
@@ -151,5 +151,45 @@ describe("nextEpisode", () => {
   it("ends at the series end and never rolls INTO specials", () => {
     expect(nextEpisode(seasons, "x:2:1")).toBeNull();
     expect(nextEpisode(seasons, "nope")).toBeNull();
+  });
+});
+
+describe("nextUpEpisode", () => {
+  const seasons = mapSeasons([
+    { id: "tt1:0:1", season: 0, episode: 1, name: "Special" },
+    { id: "tt1:1:1", season: 1, episode: 1, name: "a" },
+    { id: "tt1:1:2", season: 1, episode: 2, name: "b" },
+    { id: "tt1:2:1", season: 2, episode: 1, name: "c" },
+  ]);
+
+  it("resumes an unfinished last-played episode", () => {
+    expect(
+      nextUpEpisode(seasons, new Set(), {
+        episodeId: "tt1:1:2",
+        finished: false,
+      }),
+    ).toBe("tt1:1:2");
+  });
+
+  it("advances past a finished last-played episode", () => {
+    expect(
+      nextUpEpisode(seasons, new Set(["tt1:1:2"]), {
+        episodeId: "tt1:1:2",
+        finished: true,
+      }),
+    ).toBe("tt1:2:1");
+  });
+
+  it("falls back to the first unwatched, skipping specials", () => {
+    expect(nextUpEpisode(seasons, new Set(["tt1:1:1"]))).toBe("tt1:1:2");
+    expect(nextUpEpisode(seasons, new Set())).toBe("tt1:1:1");
+  });
+
+  it("null when everything is watched (and after the finale)", () => {
+    const all = new Set(["tt1:1:1", "tt1:1:2", "tt1:2:1"]);
+    expect(nextUpEpisode(seasons, all)).toBeNull();
+    expect(
+      nextUpEpisode(seasons, all, { episodeId: "tt1:2:1", finished: true }),
+    ).toBeNull();
   });
 });

@@ -761,6 +761,12 @@
   margin-top: 10px;
 }
 
+/* Next-up episode: the one smart-resume points at (accent ring, same
+ * selected-language as the Discover genre card). */
+.episode-card--next {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
 /* Watched checkmark, top-right of the still. */
 .episode-card__seen {
   position: absolute;

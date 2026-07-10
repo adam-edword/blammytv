@@ -22,7 +22,7 @@ import {
   resolveVodItem,
   resolveVodSources,
 } from "./source";
-import { nextEpisode } from "./mapper";
+import { nextEpisode, nextUpEpisode } from "./mapper";
 import { getAniskipRanges, type SkipRange } from "./aniskip";
 import {
   onOpenRequest,
@@ -752,6 +752,7 @@ export function StreamScreen() {
   useEffect(() => {
     if (!playing || playing.popped || !isTauri()) return;
     const itemId = playing.item.id;
+    const episodeId = playing.episodeId;
     const id = window.setInterval(() => {
       tauriMpvStatus()
         .then((st) => {
@@ -759,6 +760,17 @@ export function StreamScreen() {
             setWatching(
               updateWatchingProgress(itemId, st.pos, st.dur ?? undefined),
             );
+          // 90% through = watched, same threshold resumePoint treats as
+          // finished — credits-skippers and next-episode jumps get their
+          // checkmarks without reaching hard EOF (markWatched dedupes).
+          if (
+            episodeId &&
+            st.pos != null &&
+            st.dur != null &&
+            st.dur > 0 &&
+            st.pos >= st.dur * 0.9
+          )
+            markWatched(itemId, episodeId);
         })
         .catch(() => {});
     }, 5000);
@@ -1722,12 +1734,31 @@ function Episodes({
     info: { season: number; episode: number; title: string },
   ) => void;
 }) {
-  const [seasonIdx, setSeasonIdx] = useState(0);
-  const season =
-    item.seasons[Math.min(seasonIdx, Math.max(0, item.seasons.length - 1))];
   // Watched ledger (checkmarks). Re-read per mount — playback marks land
   // between visits to this screen.
   const watched = useMemo(() => loadWatched(item.id), [item.id]);
+  // Next up: the episode after the last one watched/played (the CW entry
+  // knows exactly where you are; the ledger covers checkmark-only state).
+  const nextUp = useMemo(() => {
+    const entry = loadWatching().find((w) => w.id === item.id);
+    const finished =
+      !!entry?.posSec && !!entry?.durSec && entry.posSec >= entry.durSec * 0.9;
+    return nextUpEpisode(
+      item.seasons,
+      watched,
+      entry ? { episodeId: entry.episodeId, finished } : undefined,
+    );
+  }, [item, watched]);
+  // Smart resume: open on the season you're actually in, not Season 1.
+  const [seasonIdx, setSeasonIdx] = useState(() => {
+    if (!nextUp) return 0;
+    const idx = item.seasons.findIndex((se) =>
+      se.episodes.some((e) => e.id === nextUp),
+    );
+    return idx >= 0 ? idx : 0;
+  });
+  const season =
+    item.seasons[Math.min(seasonIdx, Math.max(0, item.seasons.length - 1))];
   return (
     <div className="vod-detail">
       {item.backdrop && (
@@ -1771,7 +1802,10 @@ function Episodes({
                 <button
                   key={e.id}
                   type="button"
-                  className="episode-card"
+                  className={
+                    "episode-card" +
+                    (e.id === nextUp ? " episode-card--next" : "")
+                  }
                   onClick={() =>
                     onPick(e.id, `S${season.number} · E${e.number} — ${e.title}`, {
                       season: season.number,
