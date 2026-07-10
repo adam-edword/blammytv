@@ -1407,6 +1407,10 @@ export function Card({
   metaFields: CardMetaField[];
   onOpen: (i: VodItem) => void;
 }) {
+  // Real catalogs carry poster URLs of wildly varying health — a broken
+  // one falls back to the lettermark like a missing one does, instead of
+  // the browser's broken-image box (same pattern as the guide's logos).
+  const [broken, setBroken] = useState(false);
   const meta = cardMetaLine(metaFields, {
     rating: item.rating,
     year: item.year,
@@ -1416,12 +1420,13 @@ export function Card({
   });
   return (
     <button type="button" className="stream-card" onClick={() => onOpen(item)}>
-      {item.poster ? (
+      {item.poster && !broken ? (
         <img
           className="stream-card__poster"
           src={item.poster}
           alt=""
           loading="lazy"
+          onError={() => setBroken(true)}
         />
       ) : (
         <span className="stream-card__mono">{item.title.slice(0, 1)}</span>

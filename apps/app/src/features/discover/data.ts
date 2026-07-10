@@ -275,9 +275,13 @@ export async function resolveGenreArt(
     const serving = cfg.catalogs.filter((c) => servesGenre(c, genre));
     if (serving.length === 0) return;
     // Rotation, not randomness (see artCatalogFor). A catalog whose feed
-    // yields no usable backdrop advances the rotation and tries the next.
+    // yields no usable backdrop advances the rotation and falls back to
+    // the next — through EVERY serving catalog if needed (a genre only
+    // renders the flat card when no source anywhere has art for it).
+    // metaBudget bounds the worst case: 3 draws per catalog, ~12 total.
     let n = cached?.n ?? 0;
-    for (let hop = 0; hop < Math.min(serving.length, 3); hop++, n++) {
+    let metaBudget = 12;
+    for (let hop = 0; hop < serving.length && metaBudget > 0; hop++, n++) {
       const cat = artCatalogFor(serving, genre, n);
       const res = await fetchCatalog(
         cfg.manifestUrl,
@@ -286,9 +290,14 @@ export async function resolveGenreArt(
         catalogExtra(genre, 0),
       ).catch(() => null);
       const pool = (res?.metas ?? []).filter((m) => m?.id && m?.name);
-      for (let attempt = 0; attempt < 3 && pool.length > 0; attempt++) {
+      for (
+        let attempt = 0;
+        attempt < 3 && pool.length > 0 && metaBudget > 0;
+        attempt++
+      ) {
         const [pick] = pool.splice(Math.floor(Math.random() * pool.length), 1);
         const known = artMemo().byId[pick.id];
+        if (!known) metaBudget--;
         const url =
           known ??
           (await fetchMeta(cfg.manifestUrl, cat.type, pick.id)

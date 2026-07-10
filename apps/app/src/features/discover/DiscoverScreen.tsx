@@ -225,6 +225,15 @@ export function DiscoverScreen() {
                       alt=""
                       loading="lazy"
                       draggable={false}
+                      // Dead art URL → the flat card, not a broken-image box.
+                      onError={() =>
+                        setArt((prev) => {
+                          if (prev.get(g) !== bg) return prev;
+                          const next = new Map(prev);
+                          next.delete(g);
+                          return next;
+                        })
+                      }
                     />
                   )}
                   <span className="genre-card__scrim" aria-hidden />
