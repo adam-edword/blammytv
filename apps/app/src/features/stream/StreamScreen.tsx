@@ -82,6 +82,8 @@ export function StreamScreen() {
     label?: string;
     episodeInfo?: { season: number; episode: number; title: string };
     resumeAt?: number;
+    /** theater = fills the APP WINDOW; fullscreen = OS fullscreen. */
+    mode: "theater" | "fullscreen";
     /** Playing in the PiP window: the stage stays (black), video doesn't. */
     popped?: boolean;
   } | null>(null);
@@ -103,7 +105,8 @@ export function StreamScreen() {
       const prev = loadWatching().find((e) => e.id === p.item.id);
       const resumeAt = resumePoint(prev, p.episodeId);
       const sameEp = !p.episodeId || prev?.episodeId === p.episodeId;
-      setPlayingRaw({ ...p, resumeAt });
+      // Playback opens in THEATER (fills the app window); f goes OS-full.
+      setPlayingRaw({ ...p, resumeAt, mode: "theater" });
       setWatching(
         recordWatching({
           id: p.item.id,
@@ -249,6 +252,12 @@ export function StreamScreen() {
     setPlaying(null);
     if (isTauri()) void tauriSetFullscreen(false).catch(() => {});
   }, [setPlaying]);
+  // Theater ↔ OS-fullscreen. State flips in the pure updater; the window
+  // call rides outside it.
+  const setVodMode = useCallback((mode: "theater" | "fullscreen") => {
+    setPlayingRaw((p) => (p && p.mode !== mode ? { ...p, mode } : p));
+    if (isTauri()) void tauriSetFullscreen(mode === "fullscreen").catch(() => {});
+  }, []);
   const playMeta = playing
     ? {
         channelName: playing.item.title,
@@ -266,9 +275,9 @@ export function StreamScreen() {
     {
       onClose: stop,
       onExpand: () => {},
-      onCollapse: stop, // t / collapse = leave playback back to the catalog
-      onFullscreen: () => {},
-      onExitFullscreen: stop,
+      onCollapse: stop, // t / ✕ in theater = back to the catalog
+      onFullscreen: () => setVodMode("fullscreen"),
+      onExitFullscreen: () => setVodMode("theater"),
       // Same open sequence Live uses: heal the shell's clip hole BEFORE
       // Rust tears the video child down (losing that race flashes the
       // desktop through the still-cut hole), then popout_open captures
@@ -354,15 +363,21 @@ export function StreamScreen() {
     host.id = "inv-chrome";
     chromeHostRef.current = host;
   }
+  // One mount per stream (url key, NOT the playing identity — mode/pip
+  // flips must not re-force the window state setVodMode owns). The initial
+  // mode is applied here off the ref.
+  const playingUrl = playing?.url ?? null;
   useEffect(() => {
     const host = chromeHostRef.current;
-    if (!host || !playing) return;
+    if (!host || !playingUrl) return;
     document.body.appendChild(host);
-    void tauriSetFullscreen(true).catch(() => {});
+    void tauriSetFullscreen(
+      playingRef.current?.mode === "fullscreen",
+    ).catch(() => {});
     return () => {
       host.remove();
     };
-  }, [playing]);
+  }, [playingUrl]);
 
   if (playing && isTauri()) {
     return (
@@ -372,7 +387,7 @@ export function StreamScreen() {
         {!playing.popped &&
           chromeHostRef.current &&
           createPortal(
-            <TheaterOverlay frame="fullscreen" playbackKey={playing.url} />,
+            <TheaterOverlay frame={playing.mode} playbackKey={playing.url} />,
             chromeHostRef.current,
           )}
         {playing.popped && (

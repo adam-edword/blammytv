@@ -562,8 +562,8 @@ export function TheaterOverlay({
 
       <div className="theater-topscrim" aria-hidden />
 
-      {/* VOD: no favorites and no theater state — the star and the
-        * fullscreen toggle are live-only chrome. */}
+      {/* VOD: no favorites — the star is live-only chrome. (The
+        * fullscreen toggle applies to both: VOD theater ↔ OS fullscreen.) */}
       {!vod && (
         <div className="theater-topleft" data-interactive>
           <button
@@ -587,16 +587,14 @@ export function TheaterOverlay({
         >
           <PopoutIcon size={20} />
         </button>
-        {!vod && (
-          <button
-            type="button"
-            className="player__btn player__btn--glass"
-            aria-label={fs ? "Exit fullscreen" : "Fullscreen"}
-            onClick={toggleFullscreen}
-          >
-            {fs ? <ExitFullscreenIcon size={20} /> : <FullscreenIcon size={20} />}
-          </button>
-        )}
+        <button
+          type="button"
+          className="player__btn player__btn--glass"
+          aria-label={fs ? "Exit fullscreen" : "Fullscreen"}
+          onClick={toggleFullscreen}
+        >
+          {fs ? <ExitFullscreenIcon size={20} /> : <FullscreenIcon size={20} />}
+        </button>
         <button
           type="button"
           className="player__btn player__btn--glass"
