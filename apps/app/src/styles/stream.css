@@ -472,7 +472,9 @@
   color: rgba(242, 242, 244, 0.8);
   background: #00000050;
   backdrop-filter: blur(16px);
+  transition: background 140ms ease;
 }
+.vod-detail__pills span:hover { background: rgba(0, 0, 0, 0.6); }
 
 /* ---- source rail ---- */
 .vod-sources {
@@ -558,7 +560,9 @@
   background: #00000050;
   backdrop-filter: blur(16px);
   cursor: pointer;
+  transition: background 140ms ease;
 }
+.season-chip:not(.season-chip--on):hover { background: rgba(0, 0, 0, 0.6); }
 /* Active chip speaks the app's button language (btn-primary's surface
  * + full-saturation accent border), not a solid accent fill. */
 .season-chip--on {
@@ -614,7 +618,7 @@
   z-index: 1;
   display: grid;
   place-items: center;
-  color: #fff;
+  color: rgba(255, 255, 255, 0.75);
   opacity: 0;
   transition: opacity 150ms ease;
 }
