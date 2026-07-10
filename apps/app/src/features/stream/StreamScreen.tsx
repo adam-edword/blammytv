@@ -300,6 +300,19 @@ export function StreamScreen() {
         if (isTauri()) void tauriSetFullscreen(false).catch(() => {});
       },
       onToggleFavorite: () => {},
+      // Natural end of the file: mark the entry finished (full bar; next
+      // play starts over) and exit to the source screen. Without this,
+      // EOF took the live-death path — watchdog reload, restart at 0:00,
+      // and the progress tick then shredding the saved position.
+      onEnded: () => {
+        const p = playingRef.current;
+        if (p) {
+          const e = loadWatching().find((x) => x.id === p.item.id);
+          if (e?.durSec)
+            setWatching(updateWatchingProgress(p.item.id, e.durSec, e.durSec));
+        }
+        stop();
+      },
     },
   );
   if (isTauri() && playing) setOverlayApiOverride(directApi);
@@ -370,22 +383,39 @@ export function StreamScreen() {
   }, [playing]);
   // "Bring It Back": read the popout's position, close it silently (no
   // popout-closed event — stop_popout takes ownership first), resume here.
+  // Fallback chain: live read → last 1s-poll value → the watch entry —
+  // a fresh read that RESOLVES 0.0 (popout died under the click) must not
+  // discard a whole PiP session's worth of polled progress.
   const bringBack = useCallback(async () => {
     const p = playingRef.current;
     if (!p?.popped) return;
-    let pos = popPosRef.current;
+    let pos = 0;
     try {
       pos = await tauriPopoutPos();
     } catch {
-      /* fall back to the last polled position */
+      /* fall through the chain */
     }
+    if (!(pos > 0)) pos = popPosRef.current;
     await tauriPopoutStop().catch(() => {});
+    const fallback =
+      pos > 0
+        ? undefined
+        : resumePoint(loadWatching().find((e) => e.id === p.item.id));
     setPlayingRaw({
       ...p,
       popped: false,
-      resumeAt: pos > 0 ? Math.max(0, pos - 1) : p.resumeAt,
+      resumeAt: pos > 0 ? Math.max(0, pos - 1) : (fallback ?? p.resumeAt),
     });
   }, []);
+  // Unmounting this screen while popped (any escape hatch to another tab)
+  // must not orphan the pop-out: nothing would track it, and LiveScreen's
+  // popout-closed listener would misread its close as a live reclaim.
+  useEffect(
+    () => () => {
+      if (playingRef.current?.popped) void tauriPopoutStop().catch(() => {});
+    },
+    [],
+  );
 
   // Progress tick: every 5s while playing, mirror pos/dur into the watch
   // entry — powers resume and the Continue Watching progress bar.

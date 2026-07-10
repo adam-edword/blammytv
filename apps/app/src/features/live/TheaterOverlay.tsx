@@ -656,6 +656,7 @@ export function TheaterOverlay({
                 className="theater-seek__track theater-seek__track--vod"
                 ref={seekTrackRef}
                 onPointerDown={(e) => {
+                  if (e.button !== 0) return; // left button scrubs, only
                   e.currentTarget.setPointerCapture(e.pointerId);
                   setScrub(scrubFrac(e.clientX));
                 }}

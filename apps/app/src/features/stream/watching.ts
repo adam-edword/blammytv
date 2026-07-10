@@ -77,7 +77,7 @@ export function resumePoint(
   e: WatchEntry | undefined,
   episodeId?: string,
 ): number | undefined {
-  if (!e?.posSec || e.posSec < 60) return undefined;
+  if (!e?.posSec || e.posSec <= 60) return undefined;
   if (episodeId && e.episodeId !== episodeId) return undefined;
   if (e.durSec && e.posSec > e.durSec * 0.95) return undefined;
   return Math.max(0, e.posSec - 3);

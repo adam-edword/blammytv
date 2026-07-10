@@ -181,19 +181,26 @@ pub fn play_popout(url: &str, start: f64) -> Result<(), String> {
                     break;
                 }
             }
-            // Destroy only if POPOUT still holds this handle (else stop_popout
-            // already took ownership — avoid a double terminate_destroy).
+            // This thread is the handle's SOLE destroyer: terminate_destroy
+            // concurrent with wait_event on the same handle is forbidden by
+            // libmpv, so stop_popout() sends `quit` and lets us tear down
+            // after SHUTDOWN. POPOUT ownership only decides whether the
+            // close was user-driven (✕/taskbar/q → emit, so React reclaims)
+            // or programmatic (already taken → stay silent; the button
+            // drives the reclaim itself).
             let mut g = POPOUT.lock().unwrap();
             let ours = g.as_ref().map(|p| p.0 as usize) == Some(h as usize);
-            let taken = if ours { g.take() } else { None };
+            if ours {
+                g.take();
+            }
             drop(g);
-            if let Some(p) = taken {
-                // Best-effort final position BEFORE destroy — the handle is
-                // still valid post-SHUTDOWN; a quitting core may return
+            let pos = if ours {
+                // Best-effort final position BEFORE destroy — post-SHUTDOWN
+                // reads are contract-legal; a quitting core may return
                 // nothing, and 0.0 tells the frontend "no reading".
                 let name = CString::new("time-pos").unwrap();
-                let ptr = (l.get_property_string)(p.0, name.as_ptr());
-                let pos = if ptr.is_null() {
+                let ptr = (l.get_property_string)(h, name.as_ptr());
+                if ptr.is_null() {
                     0.0
                 } else {
                     let s = std::ffi::CStr::from_ptr(ptr)
@@ -201,13 +208,12 @@ pub fn play_popout(url: &str, start: f64) -> Result<(), String> {
                         .into_owned();
                     (l.free)(ptr as *mut c_void);
                     s.parse::<f64>().unwrap_or(0.0)
-                };
-                (l.terminate_destroy)(p.0);
-                // The user closed the popout window (we still owned it) → tell
-                // React to bring the in-app player back, with where it got to.
-                // A programmatic stop_popout() takes ownership first, so
-                // `taken` is None there and we stay silent (the button drives
-                // the reclaim itself).
+                }
+            } else {
+                0.0
+            };
+            (l.terminate_destroy)(h);
+            if ours {
                 crate::emit_ui_pos("popout-closed", pos);
             }
         });
@@ -216,8 +222,18 @@ pub fn play_popout(url: &str, start: f64) -> Result<(), String> {
 }
 
 pub fn stop_popout() {
-    if let (Some(p), Some(l)) = (POPOUT.lock().unwrap().take(), LIB.get()) {
-        unsafe { (l.terminate_destroy)(p.0) };
+    // Programmatic close (Bring It Back / a new play while popped): take
+    // the handle out of POPOUT so the watcher stays silent, then ask mpv
+    // to QUIT — the watcher, the sole wait_event-er, performs the destroy
+    // on SHUTDOWN. Destroying here raced its blocked wait_event on the
+    // same handle (forbidden by libmpv) on every Bring It Back.
+    let taken = POPOUT.lock().unwrap().take();
+    if let (Some(p), Some(l)) = (taken, LIB.get()) {
+        unsafe {
+            let cmd = CString::new("quit").unwrap();
+            let args = [cmd.as_ptr(), std::ptr::null()];
+            (l.command)(p.0, args.as_ptr());
+        }
     }
 }
 
@@ -348,10 +364,8 @@ pub fn seek(delta: f64) {
     }
 }
 
-/// Absolute seek to a position in seconds (for scrubbing).
-/// Unused since the overlay-webview bridge died (v0.2.0 comp.rs deletion);
-/// kept for the VOD seekbar the Stream tab will need.
-#[allow(dead_code)]
+/// Absolute seek to a position in seconds — the VOD scrubber's verb
+/// (mpv_seek_abs command, live since v0.2.47).
 pub fn seek_abs(pos: f64) {
     let g = PLAYER.lock().unwrap();
     if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {

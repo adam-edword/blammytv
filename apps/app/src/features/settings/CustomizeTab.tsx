@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { remove as removeStored } from "../../lib/storage";
 import { HexColorInput, HexColorPicker } from "react-colorful";
 import { CheckIcon, EyeDropperIcon } from "../../ui/icons";
 import { ChipTabs } from "../../ui/ChipTabs";
@@ -214,6 +215,9 @@ export function CustomizeTab() {
     savePlaylists([]);
     saveAioUrl("");
     saveHeroSources([]);
+    // The catalog mirror embeds the manifest URL (a credential) in its
+    // key — an explicit credential clear must take it too.
+    removeStored("vodCache");
   };
 
   return (

@@ -463,9 +463,10 @@ async fn http_get(
     // close on channel load, the terminal doesn't). Headers-vs-body split
     // separates connect/TTFB from download+decode; the frontend's own [live]
     // timer wraps this whole invoke, so (frontend − total here) = IPC-bridge
-    // cost of hauling the decoded string into the webview. URL is logged
-    // without its query string — credentials live there.
-    let short = url.split('?').next().unwrap_or(&url).to_string();
+    // cost of hauling the decoded string into the webview. ONLY the origin
+    // is logged: AIOStreams embeds the user's config (a credential) in the
+    // PATH, not just the query string.
+    let short: String = url.splitn(4, '/').take(3).collect::<Vec<_>>().join("/");
     let t0 = std::time::Instant::now();
     let mut req = http_client()
         .get(&url)

@@ -57,7 +57,14 @@ interface DiskVod {
 }
 function diskLoad(key: string): { at: number; data: VodData } | null {
   const d = loadStored<DiskVod | null>(DISK_KEY, DISK_VERSION, null);
-  if (!d || d.key !== key || !Array.isArray(d.items)) return null;
+  if (
+    !d ||
+    d.key !== key ||
+    !Array.isArray(d.items) ||
+    !Array.isArray(d.rows) ||
+    !Array.isArray(d.featured)
+  )
+    return null;
   return {
     at: d.at,
     data: {
@@ -105,8 +112,10 @@ export async function loadVod(force = false): Promise<VodData> {
   inflight = record;
   try {
     const data = await record.promise;
-    // Only successful, non-empty builds are worth pinning for the TTL.
-    if (!data.error && data.items.size > 0) {
+    // Only successful, non-empty builds are worth pinning for the TTL —
+    // and only if the config hasn't moved on while this one was in flight
+    // (a late finisher must not clobber a newer build's cache/mirror).
+    if (!data.error && data.items.size > 0 && configKey() === key) {
       const at = Date.now();
       cache = { key, at, data };
       diskSave(key, at, data);
@@ -170,6 +179,11 @@ export async function buildVod(
     rowPools.set(cat.id, itemIds);
   }
 
+  // The build's identity, from its OWN args — sampling configKey() after
+  // the awaits raced a mid-build config change (the enrichment could then
+  // notify/mirror an old catalog under the NEW config's key).
+  const buildKey = JSON.stringify([manifestUrl, heroSources]);
+
   const sourceIds = heroSources.length ? heroSources : defaultHero(rows);
   const featured = await buildFeatured(
     manifestUrl,
@@ -182,15 +196,18 @@ export async function buildVod(
   // Rows paint NOW; the hero picks enrich (backdrop + synopsis) in the
   // background, notifying subscribers as each lands.
   const data: VodData = { items, rows, featured };
-  void enrichFeatured(manifestUrl, data);
+  void enrichFeatured(manifestUrl, data, buildKey);
   return data;
 }
 
 /** Best-effort full-meta fetch for each hero pick, mutating the shared
  * items map in place. Notifies only while the build is still current —
  * a config change mid-flight must not repaint the new UI with old data. */
-async function enrichFeatured(manifestUrl: string, data: VodData): Promise<void> {
-  const buildKey = configKey();
+async function enrichFeatured(
+  manifestUrl: string,
+  data: VodData,
+  buildKey: string,
+): Promise<void> {
   await Promise.all(
     data.featured.map(async (id) => {
       const kind = data.items.get(id)?.kind ?? "movie";

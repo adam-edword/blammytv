@@ -32,3 +32,11 @@ export function save<T>(key: string, version: number, data: T): void {
     /* storage unavailable — it just won't persist */
   }
 }
+
+export function remove(key: string): void {
+  try {
+    localStorage.removeItem(PREFIX + key);
+  } catch {
+    /* storage unavailable — nothing to remove */
+  }
+}
