@@ -198,7 +198,7 @@ export function StreamScreen() {
     setView(next);
   }, []);
   useEffect(() => {
-    if (playing && !playing.popped) return; // browsing while popped keeps nav
+    if (playing) return;
     // MouseEvent.button: 3 = back (mouse 4), 4 = forward (mouse 5).
     // preventDefault on BOTH phases or WebView2 walks its own history.
     const onButton = (e: MouseEvent) => {
@@ -428,16 +428,50 @@ export function StreamScreen() {
     };
   }, [playingUrl, popped]);
 
-  if (playing && !playing.popped && isTauri()) {
+  if (playing && isTauri()) {
     return (
-      <div className="vod-stage">
+      <div className={"vod-stage" + (playing.popped ? " vod-stage--popped" : "")}>
         <div id="player-slot" className="vod-stage__slot" />
-        <InvertedPlayer url={playing.url} squared />
-        {chromeHostRef.current &&
+        {!playing.popped && <InvertedPlayer url={playing.url} squared />}
+        {!playing.popped &&
+          chromeHostRef.current &&
           createPortal(
             <TheaterOverlay frame={playing.mode} playbackKey={playing.url} />,
             chromeHostRef.current,
           )}
+        {playing.popped && (
+          <div className="vod-pip">
+            {(playing.item.logo ?? playing.item.poster) && (
+              <img
+                className="vod-pip__logo"
+                src={playing.item.logo ?? playing.item.poster}
+                alt=""
+                aria-hidden
+              />
+            )}
+            <p className="vod-pip__hint">Player popped out</p>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => void bringBack()}
+            >
+              Bring It Back
+            </button>
+            {/* ✕ = done with the pop-out too: close it and land on the
+              * source selector (the view under the stage). */}
+            <button
+              type="button"
+              className="player__btn player__btn--glass vod-pip__close"
+              aria-label="Close pop-out"
+              onClick={() => {
+                void tauriPopoutStop().catch(() => {});
+                stop();
+              }}
+            >
+              <CloseIcon size={20} />
+            </button>
+          </div>
+        )}
       </div>
     );
   }
@@ -482,29 +516,6 @@ export function StreamScreen() {
             })
           }
         />
-      )}
-      {/* Popped out: the app stays fully usable; this floating card is the
-        * way home (Bring It Back reclaims in-place; ✕ just dismisses — the
-        * pop-out keeps playing on its own). */}
-      {playing?.popped && isTauri() && (
-        <div className="vod-popcard" data-interactive>
-          <span className="vod-popcard__label">Player popped out</span>
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={() => void bringBack()}
-          >
-            Bring It Back
-          </button>
-          <button
-            type="button"
-            className="player__btn player__btn--glass"
-            aria-label="Dismiss"
-            onClick={stop}
-          >
-            <CloseIcon size={18} />
-          </button>
-        </div>
       )}
       {view.at === "sources" && (
         <Detail
