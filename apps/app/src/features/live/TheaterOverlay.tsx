@@ -8,6 +8,11 @@ import {
   type OverlayMetaField,
 } from "../settings/overlayMeta";
 import { loadSourceFailover } from "../settings/failover";
+import {
+  loadSkipBehavior,
+  onSkipBehaviorChange,
+  type SkipBehavior,
+} from "../settings/skipBehavior";
 import { StatsOverlay } from "./StatsOverlay";
 import {
   CcIcon,
@@ -61,6 +66,8 @@ export type OverlayFrame = "mini" | "theater" | "fullscreen";
  * false "Skip Intro" over real content is worse than a missing one. */
 const SKIP_RX =
   /\b(intro|opening|op|recap|previously|credits|ending|ed|outro|preview)\b/i;
+const CREDITS_RX = /credits|ending|outro|\bed\b/i;
+const PREVIEW_RX = /preview/i;
 function skipLabel(title: string): string {
   if (/recap|previously/i.test(title)) return "Skip Recap";
   if (/credits|ending|outro|\bed\b/i.test(title)) return "Skip Credits";
@@ -174,6 +181,12 @@ export function TheaterOverlay({
     const off = api()?.onTime?.(setTime);
     return () => off?.();
   }, []);
+  // Skip chip behavior (Settings → Skip Behavior) — flips live.
+  const [skipBehavior, setSkipBehavior] = useState<SkipBehavior>(
+    loadSkipBehavior,
+  );
+  useEffect(() => onSkipBehaviorChange(setSkipBehavior), []);
+
   // File chapter markers — the Skip Intro data source (Phase 1: named
   // chapters; aniskip comes later).
   const [chapters, setChapters] = useState<ChapterInfo[]>(
@@ -449,19 +462,43 @@ export function TheaterOverlay({
         : 0;
 
   // Inside a skip-worthy chapter right now? (Bounded: a "chapter" covering
-  // half the file is mislabeled content, not an intro.)
+  // half the file is mislabeled content, not an intro.) "combine" merges a
+  // run of consecutive credits/preview chapters into one jump.
   let skip: { label: string; to: number } | null = null;
-  if (vod && time && time.dur > 0 && chapters.length > 1) {
+  if (
+    skipBehavior !== "hidden" &&
+    vod &&
+    time &&
+    time.dur > 0 &&
+    chapters.length > 1
+  ) {
     const idx = chapters.findIndex(
       (c, i) =>
         time.pos >= c.start &&
         (i + 1 >= chapters.length || time.pos < chapters[i + 1].start),
     );
     if (idx >= 0 && SKIP_RX.test(chapters[idx].title)) {
+      const tailish = (t: string) => CREDITS_RX.test(t) || PREVIEW_RX.test(t);
+      let last = idx;
+      if (skipBehavior === "combine" && tailish(chapters[idx].title)) {
+        while (
+          last + 1 < chapters.length &&
+          tailish(chapters[last + 1].title)
+        )
+          last++;
+      }
       const end =
-        idx + 1 < chapters.length ? chapters[idx + 1].start : time.dur;
-      if (end - chapters[idx].start < time.dur * 0.5)
-        skip = { label: skipLabel(chapters[idx].title), to: end };
+        last + 1 < chapters.length ? chapters[last + 1].start : time.dur;
+      if (end - chapters[idx].start < time.dur * 0.5) {
+        const span = chapters.slice(idx, last + 1).map((c) => c.title);
+        const label =
+          last > idx &&
+          span.some((t) => CREDITS_RX.test(t)) &&
+          span.some((t) => PREVIEW_RX.test(t))
+            ? "Skip Credits & Preview"
+            : skipLabel(chapters[idx].title);
+        skip = { label, to: end };
+      }
     }
   }
 

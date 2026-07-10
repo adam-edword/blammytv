@@ -29,6 +29,12 @@ import {
   saveRowCap,
 } from "./rowCap";
 import { loadSourceFailover, saveSourceFailover } from "./failover";
+import { ChipTabs } from "../../ui/ChipTabs";
+import {
+  loadSkipBehavior,
+  saveSkipBehavior,
+  type SkipBehavior,
+} from "./skipBehavior";
 
 type Catalogs =
   | { status: "idle" | "loading" }
@@ -196,6 +202,8 @@ export function AioStreamsTab() {
   // Catalog row size + auto source-failover.
   const [rowCap, setRowCap] = useState<number>(loadRowCap);
   const [failover, setFailover] = useState<boolean>(loadSourceFailover);
+  const [skipBehavior, setSkipBehavior] =
+    useState<SkipBehavior>(loadSkipBehavior);
 
   const items = catalogs.status === "ready" ? catalogs.items : [];
   const byKey = new Map(items.map((c) => [c.key, c]));
@@ -432,6 +440,33 @@ export function AioStreamsTab() {
                 saveSourceFailover(next);
               }}
               label="Auto source failover"
+            />
+          </div>
+        </section>
+      )}
+
+      {savedUrl && (
+        <section className="settings-section">
+          <div className="customize-row">
+            <div>
+              <h4 className="customize-row__title">Skip Behavior</h4>
+              <p className="settings__section-note settings__section-note--dim">
+                The Skip Intro/Recap/Credits button over playback (from the
+                file&rsquo;s chapters). Combine merges back-to-back credits
+                and preview into one jump.
+              </p>
+            </div>
+            <ChipTabs
+              tabs={[
+                { key: "hidden", label: "Hidden" },
+                { key: "normal", label: "Normal" },
+                { key: "combine", label: "Combine Credits & Preview" },
+              ]}
+              active={skipBehavior}
+              onChange={(k: SkipBehavior) => {
+                setSkipBehavior(k);
+                saveSkipBehavior(k);
+              }}
             />
           </div>
         </section>
