@@ -23,3 +23,14 @@ export function saveUiScale(scale: UiScale): void {
 export function applyUiScale(scale: UiScale): void {
   document.documentElement.style.zoom = String(scale);
 }
+
+/** The active root zoom, for code that crosses coordinate spaces.
+ * getBoundingClientRect returns VISUAL (zoom-included) viewport px, but any
+ * CSS length written on an element inside the zoomed root is re-multiplied
+ * by the zoom at paint — so clip-paths and fixed positioning built from
+ * measured rects must divide by this first. (Verified against Chromium:
+ * a slot laid out at 100px reads back 120px at zoom 1.2, and a fixed
+ * element given left:120px paints at 144px.) */
+export function currentZoom(): number {
+  return Number(document.documentElement.style.zoom || 1) || 1;
+}

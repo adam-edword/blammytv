@@ -6,6 +6,7 @@ import {
   type CompRect,
 } from "../../lib/tauri";
 import { holeClip } from "./hole";
+import { currentZoom } from "../settings/uiScale";
 
 /* The geometry driver (descended from the old build's CompositionPreview).
  * mpv renders into a rect we push in PHYSICAL device pixels, so we measure
@@ -25,6 +26,9 @@ const RADIUS_CSS = 12;
 const SLOT_ID = "player-slot";
 
 function measure(el: HTMLElement, squared: boolean): CompRect {
+  // Rects are VISUAL viewport px (UI-scale zoom included), so × dpr is the
+  // physical rect regardless of zoom. Only the radius needs the zoom
+  // factor: the slot's CSS radius is a pre-zoom unit.
   const r = el.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
   return {
@@ -33,7 +37,7 @@ function measure(el: HTMLElement, squared: boolean): CompRect {
     w: Math.round(r.width * dpr),
     h: Math.round(r.height * dpr),
     // Theater/fullscreen fill to edges (square); only the mini box is rounded.
-    radius: squared ? 0 : Math.round(RADIUS_CSS * dpr),
+    radius: squared ? 0 : Math.round(RADIUS_CSS * currentZoom() * dpr),
   };
 }
 
@@ -88,16 +92,22 @@ export function InvertedPlayer({
             // No parking here: modals portal OUT of the shell and paint
             // above the hole, so the video keeps playing behind them —
             // the point of the whole inversion.
-            const b = el.getBoundingClientRect(); // hole + chrome are CSS px
+            //
+            // The rect is VISUAL viewport px, but the clip-path on the
+            // (zoomed) shell and the fixed chrome are re-multiplied by the
+            // UI-scale zoom at paint — divide into pre-zoom units first,
+            // or at 120% the hole lands 20% down-right of the video.
+            const z = currentZoom();
+            const b = el.getBoundingClientRect();
             const next = {
-              l: b.left,
-              t: b.top,
-              r: b.left + b.width,
-              b: b.top + b.height,
+              l: b.left / z,
+              t: b.top / z,
+              r: (b.left + b.width) / z,
+              b: (b.top + b.height) / z,
             };
             const rad = fsRef.current ? 0 : RADIUS_CSS;
-            const W = window.innerWidth;
-            const H = window.innerHeight;
+            const W = window.innerWidth / z;
+            const H = window.innerHeight / z;
             // Phase 1: clamp the hole to old∩new — the video covers that
             // overlap at every moment of the move, so nothing can peek
             // through while the native rect lands. Disjoint jump → the
