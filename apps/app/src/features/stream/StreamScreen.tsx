@@ -23,6 +23,7 @@ import {
   resolveVodSources,
 } from "./source";
 import { nextEpisode } from "./mapper";
+import { getAniskipRanges, type SkipRange } from "./aniskip";
 import { loadWatched, markWatched } from "./watched";
 import { loadAioUrl } from "../settings/aiostreams";
 import {
@@ -447,6 +448,26 @@ export function StreamScreen() {
     [setPlaying, open],
   );
 
+  // Skip Intro Phase 2: exact AniSkip intervals for the playing episode,
+  // resolved async (imdb → MAL via the cached mapping index, then one API
+  // call). Everything fails soft to the chapter heuristics in the overlay.
+  const [aniSkips, setAniSkips] = useState<SkipRange[] | null>(null);
+  useEffect(() => {
+    setAniSkips(null);
+    const p = playingRef.current;
+    if (!p) return;
+    let stale = false;
+    getAniskipRanges(p.item, p.episodeId).then(
+      (r) => {
+        if (!stale && r.length) setAniSkips(r);
+      },
+      () => {},
+    );
+    return () => {
+      stale = true;
+    };
+  }, [playing?.url, playing?.episodeId]);
+
   // In-playback source panel: slides over the video (which keeps playing);
   // picking a source switches the stream at the current position. Sources
   // resolve fresh on every open — debrid links are short-lived.
@@ -495,6 +516,7 @@ export function StreamScreen() {
         title: playing.label ?? playing.item.title,
         description: playing.item.synopsis,
         live: false,
+        skips: aniSkips ?? undefined,
         vod: playing.episodeInfo
           ? {
               ...playing.episodeInfo,

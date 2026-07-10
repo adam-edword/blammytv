@@ -75,6 +75,13 @@ function skipLabel(title: string): string {
   return "Skip Intro";
 }
 
+/** AniSkip type → chip label (op/ed/mixed-op/mixed-ed/recap). */
+function remoteSkipLabel(type: string): string {
+  if (type === "recap") return "Skip Recap";
+  if (type.endsWith("ed")) return "Skip Credits";
+  return "Skip Intro";
+}
+
 /** "1:23" / "12:34" / "1:02:07" — hours only when they exist. */
 function fmtClock(s: number): string {
   const t = Math.max(0, Math.floor(s));
@@ -461,11 +468,24 @@ export function TheaterOverlay({
         ? Math.min(100, (time.pos / time.dur) * 100)
         : 0;
 
-  // Inside a skip-worthy chapter right now? (Bounded: a "chapter" covering
-  // half the file is mislabeled content, not an intro.) "combine" merges a
-  // run of consecutive credits/preview chapters into one jump.
+  // Inside a skip-worthy window right now? Exact AniSkip intervals (pushed
+  // via meta.skips) take precedence — they're community-timed, not guessed
+  // from chapter titles. Chapter heuristics remain the fallback. (Bounded:
+  // a window covering half the file is mislabeled content, not an intro.)
+  // "combine" merges a run of consecutive credits/preview chapters into
+  // one jump.
   let skip: { label: string; to: number } | null = null;
+  if (skipBehavior !== "hidden" && vod && time && time.dur > 0) {
+    const r = meta?.skips?.find(
+      (s) =>
+        time.pos >= s.start &&
+        time.pos < s.end &&
+        s.end - s.start < time.dur * 0.5,
+    );
+    if (r) skip = { label: remoteSkipLabel(r.type), to: Math.min(r.end, time.dur) };
+  }
   if (
+    !skip &&
     skipBehavior !== "hidden" &&
     vod &&
     time &&
