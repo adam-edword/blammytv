@@ -8,6 +8,7 @@ import { load, save } from "../../lib/storage";
 import { loadAioUrl } from "../settings/aiostreams";
 import { metaPreviewToVod } from "../stream/mapper";
 import type { VodItem } from "../stream/model";
+import { peekVod } from "../stream/source";
 
 /**
  * Discover's data seam: one primary browseable catalog per content type
@@ -218,6 +219,62 @@ export async function fetchDiscoverPage(
   return (res.metas ?? [])
     .filter((m) => m?.id && m?.name)
     .map(metaPreviewToVod);
+}
+
+/** Cursor/done key for a catalog. Id ALONE collides: Cinemeta-style
+ * manifests reuse one id ("top") for the movie AND series catalog. */
+export const catKey = (c: Pick<DiscoverCatalog, "type" | "id">): string =>
+  `${c.type}:${c.id}`;
+
+export interface GridSeed {
+  /** Interleaved + deduped, ready to render. */
+  items: VodItem[];
+  /** catKey → how many items the cache already covers; infinite scroll
+   * resumes each catalog's skip cursor from there. */
+  cursors: Record<string, number>;
+}
+
+/**
+ * Seed the UNFILTERED grid from the Stream tab's cache: its rows are the
+ * same browseable catalogs' first rowCap items, already fetched (and
+ * disk-hydrated) — re-requesting them made the tab feel slow. Genre and
+ * search grids can't seed (those are SERVER-side filters; the cache only
+ * holds each feed's first slice — client-filtering it would show "Comedy
+ * = whatever comedies made the top 40" and quietly lie).
+ */
+export function seedFromStream(
+  cfg: DiscoverConfig,
+  filter: "all" | "movie" | "series",
+): GridSeed | null {
+  const data = peekVod();
+  if (!data || data.rows.length === 0) return null;
+  const lists: VodItem[][] = [];
+  const cursors: Record<string, number> = {};
+  for (const row of data.rows) {
+    const items = row.itemIds
+      .map((id) => data.items.get(id))
+      .filter((i): i is VodItem => !!i);
+    if (items.length === 0) continue;
+    // Rows are single-catalog, single-type; the row id carries the
+    // catalog id (aio:<id>) and the items carry the type.
+    const type = items[0].kind;
+    if (filter !== "all" && type !== filter) continue;
+    const catId = row.id.replace(/^aio:/, "");
+    const cat = cfg.catalogs.find((c) => c.id === catId && c.type === type);
+    if (!cat) continue; // row's catalog no longer in the manifest
+    cursors[catKey(cat)] = items.length;
+    lists.push(items);
+  }
+  if (lists.length === 0) return null;
+  const seen = new Set<string>();
+  return {
+    items: interleave(...lists).filter((i) => {
+      if (seen.has(i.id)) return false;
+      seen.add(i.id);
+      return true;
+    }),
+    cursors,
+  };
 }
 
 /** Round-robin merge across any number of feeds — the "conglomerate"

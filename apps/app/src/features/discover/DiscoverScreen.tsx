@@ -9,6 +9,7 @@ import { Card, RowScroller } from "../stream/StreamScreen";
 import { requestOpenInStream } from "../stream/openRequest";
 import type { VodItem } from "../stream/model";
 import {
+  catKey,
   fetchDiscoverPage,
   genreArtTitle,
   genreArtwork,
@@ -17,6 +18,7 @@ import {
   loadDiscover,
   resolveGenreArt,
   searchDiscover,
+  seedFromStream,
   type DiscoverConfig,
 } from "./data";
 import { getSearchQuery, onSearchQueryChange } from "./searchQuery";
@@ -143,6 +145,20 @@ export function DiscoverScreen() {
         cursors.current = {};
         doneRef.current = {};
         seenRef.current = new Set();
+        // The UNFILTERED grid seeds instantly from the Stream tab's cache
+        // (same catalogs, already fetched); each catalog's skip cursor
+        // starts past the cached depth so infinite scroll continues on
+        // the network from there. Genre grids always fetch (server-side
+        // filter — see seedFromStream).
+        const seed = genre === null ? seedFromStream(cfg.cfg, filter) : null;
+        if (seed) {
+          cursors.current = { ...seed.cursors };
+          for (const i of seed.items) seenRef.current.add(i.id);
+          setItems(seed.items);
+          setPhase("idle");
+          busyRef.current = false; // early return skips the finally below
+          return;
+        }
         setItems([]);
         setPhase("first");
       } else {
@@ -150,7 +166,7 @@ export function DiscoverScreen() {
       }
       try {
         const active = gridCatalogs(cfg.cfg.catalogs, filter, genre).filter(
-          (c) => !doneRef.current[c.id],
+          (c) => !doneRef.current[catKey(c)],
         );
         if (active.length === 0) {
           if (reqId === reqIdRef.current) setPhase("done");
@@ -158,15 +174,16 @@ export function DiscoverScreen() {
         }
         const pages = await Promise.all(
           active.map((c) =>
-            fetchDiscoverPage(cfg.cfg, c, genre, cursors.current[c.id] ?? 0)
+            fetchDiscoverPage(cfg.cfg, c, genre, cursors.current[catKey(c)] ?? 0)
               .then((page) => ({ c, page }))
               .catch(() => ({ c, page: [] as VodItem[] })),
           ),
         );
         if (reqId !== reqIdRef.current) return; // filter changed mid-flight
         for (const { c, page } of pages) {
-          cursors.current[c.id] = (cursors.current[c.id] ?? 0) + page.length;
-          if (page.length === 0) doneRef.current[c.id] = true;
+          cursors.current[catKey(c)] =
+            (cursors.current[catKey(c)] ?? 0) + page.length;
+          if (page.length === 0) doneRef.current[catKey(c)] = true;
         }
         const merged = interleave(...pages.map((p) => p.page)).filter((i) => {
           if (seenRef.current.has(i.id)) return false;
