@@ -101,6 +101,9 @@ export function StreamScreen() {
       } | null,
     ) => {
       if (!p) return setPlayingRaw(null);
+      // Starting a new play while a pop-out runs would double the provider
+      // connections — reel the pop-out in first (silent close).
+      if (playingRef.current?.popped) void tauriPopoutStop().catch(() => {});
       // Resume decision reads the entry BEFORE this play overwrites it —
       // same title (and, for series, same episode) picks up a few seconds
       // before where it left off.
@@ -195,7 +198,7 @@ export function StreamScreen() {
     setView(next);
   }, []);
   useEffect(() => {
-    if (playing) return;
+    if (playing && !playing.popped) return; // browsing while popped keeps nav
     // MouseEvent.button: 3 = back (mouse 4), 4 = forward (mouse 5).
     // preventDefault on BOTH phases or WebView2 walks its own history.
     const onButton = (e: MouseEvent) => {
@@ -407,13 +410,15 @@ export function StreamScreen() {
     host.id = "inv-chrome";
     chromeHostRef.current = host;
   }
-  // One mount per stream (url key, NOT the playing identity — mode/pip
-  // flips must not re-force the window state setVodMode owns). The initial
-  // mode is applied here off the ref.
+  // One mount per stream (url key, NOT the playing identity — mode flips
+  // must not re-force the window state setVodMode owns). While popped the
+  // host comes DOWN: an empty full-window layer above the app swallowed
+  // every click. The initial mode is applied here off the ref.
   const playingUrl = playing?.url ?? null;
+  const popped = !!playing?.popped;
   useEffect(() => {
     const host = chromeHostRef.current;
-    if (!host || !playingUrl) return;
+    if (!host || !playingUrl || popped) return;
     document.body.appendChild(host);
     void tauriSetFullscreen(
       playingRef.current?.mode === "fullscreen",
@@ -421,47 +426,18 @@ export function StreamScreen() {
     return () => {
       host.remove();
     };
-  }, [playingUrl]);
+  }, [playingUrl, popped]);
 
-  if (playing && isTauri()) {
+  if (playing && !playing.popped && isTauri()) {
     return (
       <div className="vod-stage">
         <div id="player-slot" className="vod-stage__slot" />
-        {!playing.popped && <InvertedPlayer url={playing.url} squared />}
-        {!playing.popped &&
-          chromeHostRef.current &&
+        <InvertedPlayer url={playing.url} squared />
+        {chromeHostRef.current &&
           createPortal(
             <TheaterOverlay frame={playing.mode} playbackKey={playing.url} />,
             chromeHostRef.current,
           )}
-        {playing.popped && (
-          <div className="vod-pip">
-            {(playing.item.logo ?? playing.item.poster) && (
-              <img
-                className="vod-pip__logo"
-                src={playing.item.logo ?? playing.item.poster}
-                alt=""
-                aria-hidden
-              />
-            )}
-            <p className="vod-pip__hint">Player popped out.</p>
-            <button
-              type="button"
-              className="btn-primary"
-              onClick={() => void bringBack()}
-            >
-              Bring It Back
-            </button>
-            <button
-              type="button"
-              className="player__btn player__btn--glass vod-pip__close"
-              aria-label="Back to catalog"
-              onClick={stop}
-            >
-              <CloseIcon size={20} />
-            </button>
-          </div>
-        )}
       </div>
     );
   }
@@ -506,6 +482,29 @@ export function StreamScreen() {
             })
           }
         />
+      )}
+      {/* Popped out: the app stays fully usable; this floating card is the
+        * way home (Bring It Back reclaims in-place; ✕ just dismisses — the
+        * pop-out keeps playing on its own). */}
+      {playing?.popped && isTauri() && (
+        <div className="vod-popcard" data-interactive>
+          <span className="vod-popcard__label">Player popped out</span>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => void bringBack()}
+          >
+            Bring It Back
+          </button>
+          <button
+            type="button"
+            className="player__btn player__btn--glass"
+            aria-label="Dismiss"
+            onClick={stop}
+          >
+            <CloseIcon size={18} />
+          </button>
+        </div>
       )}
       {view.at === "sources" && (
         <Detail
