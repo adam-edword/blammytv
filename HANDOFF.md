@@ -193,7 +193,8 @@ overlay verbs mapped: close/collapse/exitFullscreen all stop back to the
 catalog). Verified: 9 unit tests + scripts/verify-stream.mjs 8/8 vs
 scripts/fake-aio.mjs (:8084). NEXT (S2): VOD scrubber chrome in
 TheaterOverlay (mpv seek_abs is waiting Rust-side, needs an mpv_seek_abs
-command), watch-progress/Continue-Watching, pagination + search, nav
+command), watch-progress/Continue-Watching, pagination + search, an
+episode search within a series (Adam wants it "eventually"), nav
 glass re-enable (base.css comment) now that scrolling content exists.
 NOTE: repo branches cleaned 2026-07-09; work continues on
 blammytv-0.3.0-push (old branch list is in the session log; android-tv

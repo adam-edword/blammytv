@@ -395,8 +395,11 @@
 .vod-detail__scrim {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to right, rgba(0, 0, 0, 0.9) 30%, rgba(0, 0, 0, 0.45)),
-    linear-gradient(to top, rgba(0, 0, 0, 0.85), transparent 50%);
+  background: radial-gradient(
+    67.05% 78.72% at 70.13% 43.38%,
+    rgba(11, 11, 14, 0) 0%,
+    rgba(11, 11, 14, 0.8) 100%
+  );
 }
 .vod-detail__body {
   position: relative;
@@ -404,30 +407,47 @@
   display: grid;
   grid-template-columns: 1fr 420px;
   gap: 28px;
-  padding: calc(var(--header-h, 76px) + 12px) 32px 32px;
-  overflow-y: auto;
+  padding: calc(var(--header-h, 76px) + 12px) 7% 32px 32px;
+  /* The page itself never scrolls on the source screen — only the rail. */
+  overflow: hidden;
   color: #f2f2f4;
 }
 .vod-detail__body--episodes {
   grid-template-columns: 1fr;
   align-content: start;
+  overflow-y: auto;
 }
 .vod-detail__info {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  margin-bottom: 7%;
+  margin-left: 7%;
+  align-items: flex-end;
+  justify-content: center;
+  max-width: 66ch;
+}
+/* The episodes page keeps its top-left header — the flex-end/7% layout
+ * above is tuned for the source screen. */
+.vod-detail__body--episodes .vod-detail__info {
+  margin: 0;
   align-items: flex-start;
-  max-width: 56ch;
+  justify-content: flex-start;
 }
 .vod-back {
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: 13px;
-  color: rgba(242, 242, 244, 0.7);
+  font-size: 15px;
+  color: var(--text);
+  background: var(--surface-raised);
+  border: 0.5px solid var(--border-raised);
+  border-radius: 25px;
+  padding: 9px 14px;
   cursor: pointer;
+  transition: filter 150ms ease;
 }
-.vod-back:hover { color: #fff; }
-.vod-detail__logo { max-width: 320px; max-height: 110px; object-fit: contain; }
+.vod-back:hover { filter: brightness(1.35); }
+.vod-detail__logo { max-width: 500px; max-height: 300px; object-fit: contain; }
 .vod-detail__title {
   font-family: var(--font-headline);
   font-weight: 700;
@@ -437,18 +457,20 @@
 .vod-detail__episode {
   font-family: var(--font-headline);
   font-weight: 700;
-  color: var(--accent, #c22727);
+  font-size: 31px;
+  color: #fff;
+  margin: 0;
 }
-.vod-detail__meta { color: rgba(242, 242, 244, 0.65); font-size: 14px; }
-.vod-detail__synopsis { font-size: 15px; line-height: 1.5; color: rgba(242, 242, 244, 0.85); }
+.vod-detail__meta { color: rgba(242, 242, 244, 0.65); font-size: 18px; }
+.vod-detail__synopsis { font-size: 18px; line-height: 1.5; margin: 6px 0; color: rgba(242, 242, 244, 0.85); }
 .vod-detail__pills { display: flex; gap: 8px; flex-wrap: wrap; }
 .vod-detail__pills span {
-  font-size: 12px;
-  padding: 4px 10px;
+  font-size: 15px;
+  padding: 9px 15px;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.25);
   color: rgba(242, 242, 244, 0.8);
-  background: rgba(255, 255, 255, 0.08);
+  background: #00000050;
   backdrop-filter: blur(16px);
 }
 
@@ -458,39 +480,42 @@
   flex-direction: column;
   gap: 10px;
   min-width: 0;
+  /* Rail-only scrolling: the grid row is viewport-bounded (body overflow
+   * hidden), the overflow lives here. */
+  min-height: 0;
+  overflow-y: auto;
 }
 .vod-sources h3 {
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: 16px;
+  font-size: 21px;
+  margin: 0;
 }
 .vod-sources__note { color: rgba(242, 242, 244, 0.6); font-size: 14px; }
 /* Figma 133-721 source card: a glass slab with the quality in its own
  * raised block left, the addon's meta lines beside it, play glyph right. */
 .vod-source {
   display: flex;
-  gap: 16px;
+  gap: 0px;
   align-items: center;
-  padding: 10px 16px 10px 10px;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.07);
+  padding: 16px 16px 16px 10px;
+  border-radius: 1000px;
+  background: #00000050;
   border: 1px solid rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(18px);
   cursor: pointer;
   text-align: left;
   transition: background 140ms ease;
 }
-.vod-source:hover { background: rgba(255, 255, 255, 0.14); }
+.vod-source:hover { background: rgba(255, 255, 255, 0.08); }
 .vod-source__quality {
   flex-shrink: 0;
   align-self: stretch;
   min-width: 104px;
-  padding: 18px 16px;
-  border-radius: 14px;
-  background: rgba(0, 0, 0, 0.38);
+  padding: 0 16px;
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: 17px;
+  font-size: 21px;
   color: #fff;
   display: flex;
   align-items: center;
@@ -525,54 +550,95 @@
 .season-chip {
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: 13px;
-  padding: 7px 14px;
+  font-size: 15px;
+  padding: 9px 15px;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   color: rgba(242, 242, 244, 0.75);
-  background: rgba(255, 255, 255, 0.08);
+  background: #00000050;
   backdrop-filter: blur(16px);
   cursor: pointer;
 }
+/* Active chip speaks the app's button language (btn-primary's surface
+ * + full-saturation accent border), not a solid accent fill. */
 .season-chip--on {
-  background: var(--accent, #c22727);
-  border-color: transparent;
-  color: #fff;
+  background: var(--accent-surface);
+  border: 0.5px solid var(--accent);
+  color: var(--text);
 }
 .episode-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 14px;
 }
 .episode-card {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   text-align: left;
   padding: 10px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.06);
+  border-radius: 35px;
+  background: #00000050;
   border: 1px solid rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(18px);
   cursor: pointer;
   transition: background 140ms ease;
 }
 .episode-card:hover { background: rgba(255, 255, 255, 0.12); }
+.episode-card__thumb {
+  position: relative;
+  display: block;
+}
 .episode-card img {
   width: 100%;
   aspect-ratio: 16 / 9;
   object-fit: cover;
-  border-radius: 8px;
+  border-radius: 21px;
   background: rgba(0, 0, 0, 0.4);
+  display: block;
+}
+/* Hovering the still: a light dim + centered play cue. */
+.episode-card__thumb::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 21px;
+  background: rgba(0, 0, 0, 0.2);
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+.episode-card__thumb:hover::after { opacity: 1; }
+.episode-card__cue {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+.episode-card__thumb:hover .episode-card__cue { opacity: 1; }
+/* Number inline with the title up top; the air date pins to the bottom. */
+.episode-card__text {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  min-width: 0;
 }
 .episode-card__num {
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: 12px;
+  font-size: 15px;
   color: var(--accent, #c22727);
+  flex-shrink: 0;
 }
-.episode-card__title { font-size: 14px; color: #f2f2f4; }
-.episode-card__date { font-size: 12px; color: rgba(242, 242, 244, 0.55); }
+.episode-card__title { font-size: 15px; color: #f2f2f4; }
+.episode-card__date {
+  font-size: 12px;
+  color: rgba(242, 242, 244, 0.55);
+  margin-top: auto;
+}
 
 /* ---- fullscreen VOD stage ---- */
 .vod-stage { position: fixed; inset: 0; }

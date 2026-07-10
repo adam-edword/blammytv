@@ -916,7 +916,11 @@ function Episodes({
           <button type="button" className="vod-back" onClick={onBack}>
             ← Back
           </button>
-          <h2 className="vod-detail__title">{item.title}</h2>
+          {item.logo ? (
+            <img className="vod-detail__logo" src={item.logo} alt={item.title} />
+          ) : (
+            <h2 className="vod-detail__title">{item.title}</h2>
+          )}
           {item.synopsis && (
             <p className="vod-detail__synopsis">{item.synopsis}</p>
           )}
@@ -949,9 +953,18 @@ function Episodes({
                     onPick(e.id, `S${season.number} · E${e.number} — ${e.title}`)
                   }
                 >
-                  {e.still && <img src={e.still} alt="" loading="lazy" />}
-                  <span className="episode-card__num">E{e.number}</span>
-                  <span className="episode-card__title">{e.title}</span>
+                  {e.still && (
+                    <span className="episode-card__thumb">
+                      <img src={e.still} alt="" loading="lazy" />
+                      <span className="episode-card__cue" aria-hidden>
+                        <PlayIcon size={36} />
+                      </span>
+                    </span>
+                  )}
+                  <span className="episode-card__text">
+                    <span className="episode-card__num">E{e.number}</span>
+                    <span className="episode-card__title">{e.title}</span>
+                  </span>
                   {e.airDate && (
                     <span className="episode-card__date">{e.airDate}</span>
                   )}
