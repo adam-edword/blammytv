@@ -42,6 +42,12 @@
     width 220ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Trackless variant (the header's Stream rail): same chips, same sliding
+ * thumb, no track behind them — the pills float on the header. */
+.chip-tabs--bare {
+  background: transparent;
+}
+
 /* Toggle: a text-less chip rail. Same track color, inset, radius, and slide
  * curve as .chip-tabs; the white squircle thumb is the "chip". On floods the
  * track with the accent. */

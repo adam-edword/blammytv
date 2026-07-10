@@ -11,10 +11,13 @@ export function ChipTabs<K extends string>({
   tabs,
   active,
   onChange,
+  className,
 }: {
   tabs: ReadonlyArray<{ key: K; label: ReactNode; ariaLabel?: string }>;
   active: K;
   onChange: (key: K) => void;
+  /** Modifier classes, e.g. "chip-tabs--bare" (trackless header rail). */
+  className?: string;
 }) {
   // Position the thumb off the active button's measured offsets.
   const railRef = useRef<HTMLDivElement>(null);
@@ -50,7 +53,10 @@ export function ChipTabs<K extends string>({
   }, [active]);
 
   return (
-    <div className="chip-tabs" ref={railRef}>
+    <div
+      className={"chip-tabs" + (className ? ` ${className}` : "")}
+      ref={railRef}
+    >
       {thumb && (
         <span
           className="chip-tabs__thumb"

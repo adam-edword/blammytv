@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AccountIcon, SearchIcon, SettingsIcon } from "../ui/icons";
+import { ChipTabs } from "../ui/ChipTabs";
 import { setSearchQuery } from "../features/discover/searchQuery";
 import { UpdateChip } from "./UpdateChip";
 import { formatClock } from "../lib/time";
@@ -192,28 +193,24 @@ export function AppHeader({
           }
           aria-hidden={section === "live"}
         >
-          {RAIL.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              className={
-                "header__pill" +
-                (t.key === streamTab ? " header__pill--active" : "")
+          {/* The SAME chip slider used in Settings/Discover/the Live
+            * sidebar — sliding raised thumb and all — minus the track
+            * background. (Collapsed rail = visibility:hidden, which also
+            * drops the chips from the tab order.) */}
+          <ChipTabs
+            tabs={RAIL}
+            active={streamTab}
+            className="chip-tabs--bare"
+            onChange={(t) => {
+              // The Discover PILL means browse: clear any active search
+              // so it never lands (or stays) on stale results.
+              if (t === "discover") {
+                setQuery("");
+                setSearchQuery("");
               }
-              tabIndex={section === "live" ? -1 : 0}
-              onClick={() => {
-                // The Discover PILL means browse: clear any active search
-                // so it never lands (or stays) on stale results.
-                if (t.key === "discover") {
-                  setQuery("");
-                  setSearchQuery("");
-                }
-                onStreamTab(t.key);
-              }}
-            >
-              {t.label}
-            </button>
-          ))}
+              onStreamTab(t);
+            }}
+          />
           {/* The search PILL. The in-flow slot stays icon-sized; the
             * actual pill renders absolutely off that anchor and extends
             * rightward over empty header space. */}

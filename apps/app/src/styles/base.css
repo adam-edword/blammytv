@@ -443,28 +443,8 @@ button {
   visibility: hidden;
   overflow: hidden;
 }
-.header__pill {
-  font-family: var(--font-headline);
-  font-weight: 600;
-  font-size: 15px;
-  letter-spacing: 0.2px;
-  white-space: nowrap;
-  color: var(--text);
-  opacity: 0.4;
-  padding: 7px 15px;
-  border-radius: 999px;
-  transition: opacity 120ms ease, background 120ms ease;
-}
-.header__pill:hover {
-  opacity: 0.75;
-}
-.header__pill--active {
-  opacity: 1;
-  font-weight: 700;
-  /* Theme-aware chip: dark text over light theme mixes dark, and vice
-   * versa — same trick the tokened Discover surfaces use. */
-  background: color-mix(in srgb, var(--text) 13%, transparent);
-}
+/* The rail's chips come from the shared ChipTabs primitive (ui.css) with
+ * the chip-tabs--bare modifier — nothing header-specific to style here. */
 
 .header__actions {
   display: flex;
