@@ -90,6 +90,15 @@ export interface StremioStream {
     videoSize?: number;
     filename?: string;
   };
+  /** AIOStreams extension: structured stream facts, independent of the
+   * user's formatter text. The server includes it when the client's
+   * User-Agent carries an `AIOStreams/` token (see fetchStreams) or the
+   * instance config forces it. `service.cached` is the authoritative
+   * debrid cache flag — the formatter's ⚡ is only a fallback. */
+  streamData?: {
+    type?: string;
+    service?: { id?: string; cached?: boolean };
+  };
 }
 
 export interface CatalogResponse {
@@ -157,6 +166,18 @@ export function fetchMeta(
   );
 }
 
+/** AIOStreams gates its structured `streamData` on the request UA containing
+ * "AIOStreams/" (its own frontend's marker; server code: stream.ts route,
+ * `req.headers['user-agent']?.includes('AIOStreams/')`). Appending the token
+ * to the normal Chrome UA keeps the browser-shaped string WAF-safe while
+ * opting into the richer response. Rust-side, per-request headers replace
+ * same-named client defaults, so only this call presents the token. */
+const STREAMS_UA = {
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+    "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 AIOStreams/compat",
+};
+
 /** Resolve playable sources for a title (`tt123`) or episode (`tt123:1:2`). */
 export function fetchStreams(
   manifestUrl: string,
@@ -165,7 +186,7 @@ export function fetchStreams(
 ): Promise<StreamResponse> {
   return httpGetJson<StreamResponse>(
     `${addonBase(manifestUrl)}/stream/${encSegment(type)}/${encSegment(id)}.json`,
-    undefined,
+    STREAMS_UA,
     BROWSER_RETRY,
   );
 }

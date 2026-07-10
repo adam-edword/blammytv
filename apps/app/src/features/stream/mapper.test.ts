@@ -42,6 +42,35 @@ describe("mapStreams", () => {
     ]);
     expect(out.map((s) => s.quality)).toEqual(["720p", "2160p", "SD"]);
   });
+
+  it("prefers structured streamData.service.cached over formatter text", () => {
+    const out = mapStreams([
+      // Custom formatter without ⚡, but structured says cached.
+      {
+        name: "RD 1080p",
+        url: "http://h/a.mp4",
+        streamData: { type: "debrid", service: { id: "realdebrid", cached: true } },
+      },
+      // ⚡ present but structured says NOT cached — structure wins.
+      {
+        name: "⚡ decorative",
+        url: "http://h/b.mp4",
+        streamData: { type: "debrid", service: { id: "realdebrid", cached: false } },
+      },
+      // No service info at all → falls back to text sniffing.
+      { name: "plain", url: "http://h/c.mp4", streamData: { type: "http" } },
+    ]);
+    expect(out.map((s) => s.cached)).toEqual([true, false, false]);
+  });
+
+  it("recognizes Torrentio-style [XX+] cached markers", () => {
+    const out = mapStreams([
+      { name: "[RD+] Movie 1080p", url: "http://h/a.mp4" },
+      { name: "[TB+] Movie 4K", url: "http://h/b.mp4" },
+      { name: "[RD download] Movie", url: "http://h/c.mp4" },
+    ]);
+    expect(out.map((s) => s.cached)).toEqual([true, true, false]);
+  });
 });
 
 describe("mapSeasons", () => {

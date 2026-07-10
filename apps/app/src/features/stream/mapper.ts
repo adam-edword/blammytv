@@ -30,10 +30,31 @@ export function mapStream(s: StremioStream): StreamSource {
   return {
     id: hash(s.url ?? s.behaviorHints?.filename ?? name),
     quality: resolutionOf(binge) ?? qualityLabel(name),
-    cached: /⚡/u.test(name) || /⚡/u.test(s.description ?? ""),
+    cached: isCached(s, name),
     lines: sourceLines(s),
     streamUrl: s.url as string,
   };
+}
+
+/** Torrentio-style cached markers: "[RD+]", "[AD+]", "[TB+]"… (uncached
+ * renders as "[RD download]" — no plus). */
+const SERVICE_PLUS_RX = /\[[A-Z]{2,3}\+\]/;
+
+/** Debrid-cached detection. Auto-play trusts this flag (v0.3.5 never
+ * touches uncached sources), so precision matters:
+ *  1. AIOStreams' structured `streamData.service.cached` when present —
+ *    formatter-independent truth (users customize their format strings,
+ *    and not every format keeps the ⚡).
+ *  2. Text fallback for older instances / other addons: the ⚡ marker
+ *    (AIOStreams default formats) or a "[XX+]" tag (Torrentio family). */
+function isCached(s: StremioStream, name: string): boolean {
+  const svc = s.streamData?.service;
+  if (typeof svc?.cached === "boolean") return svc.cached;
+  return (
+    /⚡/u.test(name) ||
+    /⚡/u.test(s.description ?? "") ||
+    SERVICE_PLUS_RX.test(name)
+  );
 }
 
 /** Display lines straight from the addon's formatter (its `description`). */
