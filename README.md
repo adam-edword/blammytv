@@ -9,6 +9,10 @@
 
 ---
 
+> **Disclaimer — bring your own content.** BlammyTV is a **player application only**. It does not provide, host, sell, or link to any content, channels, playlists, streams, or subscriptions, and it ships with none built in. You must supply your own sources — your own M3U playlists, Xtream Codes credentials, Stalker portal accounts, and AIOStreams manifest — obtained from providers you have the legal right to use. You are solely responsible for the content you access with it; the developers have no affiliation with, and no control over, any provider.
+
+---
+
 ## Download & install (Windows)
 
 1. **Download** the latest installer from the [**Releases page**](https://github.com/adam-edword/blammytv/releases/latest) — grab `BlammyTV_<version>_x64-setup.exe` under *Assets*.
@@ -20,7 +24,7 @@ From there the app **updates itself** — new versions install on launch, or on 
 
 ## What it is
 
-BlammyTV is a streaming client built for one job: making live TV and on-demand feel effortless in a single app. Live channels come from IPTV sources (Xtream Codes panels, M3U playlists, Stalker portals); movies and shows resolve on demand through AIOStreams + debrid. There's a full EPG guide, a "now playing" hero with a live mini-player, and a native libmpv player that does real 4K60 and HDR.
+BlammyTV is a streaming *client* built for one job: making live TV and on-demand feel effortless in a single app. It plays **your** sources — live channels from the IPTV credentials you add (Xtream Codes panels, M3U playlists, Stalker portals), movies and shows resolved through **your** AIOStreams manifest + debrid accounts. The app itself contains and provides no content whatsoever. What it brings is the experience: a full EPG guide, a "now playing" hero with a live mini-player, and a native libmpv player that does real 4K60 and HDR.
 
 It's **self-contained** — there's no server to run and no account to create. The app builds its catalog on-device from your sources, fetching directly from the Rust side so it isn't blocked by browser CORS. Sideload-only (store review isn't worth the hassle), and the whole design goal is a **boomer-proof** experience: simple enough that anyone can pick it up and just watch, no manual required.
 
