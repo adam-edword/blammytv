@@ -36,7 +36,7 @@ import {
   updateWatchingProgress,
   type WatchEntry,
 } from "./watching";
-import { tauriMpvStatus } from "../../lib/tauri";
+import { tauriMpvStatus, tauriPopoutOpen } from "../../lib/tauri";
 
 /**
  * The Stream tab: AIOStreams-powered movies + series. A featured hero, then
@@ -263,7 +263,18 @@ export function StreamScreen() {
       onCollapse: stop, // t / collapse = leave playback back to the catalog
       onFullscreen: () => {},
       onExitFullscreen: stop,
-      onPopout: () => {},
+      // Same sequence Live uses: heal the shell's clip hole BEFORE Rust
+      // tears the video child down (losing that race flashes the desktop
+      // through the still-cut hole), then popout_open captures time-pos
+      // natively so the PiP resumes exactly there. Back in the catalog,
+      // Continue Watching picks up within the 5s progress tick.
+      onPopout: () => {
+        if (!playing) return;
+        const shell = document.querySelector<HTMLElement>(".app-shell");
+        if (shell) shell.style.clipPath = "";
+        void tauriPopoutOpen(playing.url).catch(() => {});
+        stop();
+      },
       onToggleFavorite: () => {},
     },
   );

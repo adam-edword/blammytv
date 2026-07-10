@@ -562,17 +562,21 @@ export function TheaterOverlay({
 
       <div className="theater-topscrim" aria-hidden />
 
-      <div className="theater-topleft" data-interactive>
-        <button
-          type="button"
-          className={"player__btn player__btn--glass" + (fav ? " is-fav" : "")}
-          aria-label={fav ? "Remove from favorites" : "Add to favorites"}
-          aria-pressed={fav}
-          onClick={toggleFav}
-        >
-          {fav ? <RainbowStarIcon size={20} /> : <StarIcon size={20} />}
-        </button>
-      </div>
+      {/* VOD: no favorites and no theater state — the star and the
+        * fullscreen toggle are live-only chrome. */}
+      {!vod && (
+        <div className="theater-topleft" data-interactive>
+          <button
+            type="button"
+            className={"player__btn player__btn--glass" + (fav ? " is-fav" : "")}
+            aria-label={fav ? "Remove from favorites" : "Add to favorites"}
+            aria-pressed={fav}
+            onClick={toggleFav}
+          >
+            {fav ? <RainbowStarIcon size={20} /> : <StarIcon size={20} />}
+          </button>
+        </div>
+      )}
 
       <div className="theater-topright" data-interactive>
         <button
@@ -583,14 +587,16 @@ export function TheaterOverlay({
         >
           <PopoutIcon size={20} />
         </button>
-        <button
-          type="button"
-          className="player__btn player__btn--glass"
-          aria-label={fs ? "Exit fullscreen" : "Fullscreen"}
-          onClick={toggleFullscreen}
-        >
-          {fs ? <ExitFullscreenIcon size={20} /> : <FullscreenIcon size={20} />}
-        </button>
+        {!vod && (
+          <button
+            type="button"
+            className="player__btn player__btn--glass"
+            aria-label={fs ? "Exit fullscreen" : "Fullscreen"}
+            onClick={toggleFullscreen}
+          >
+            {fs ? <ExitFullscreenIcon size={20} /> : <FullscreenIcon size={20} />}
+          </button>
+        )}
         <button
           type="button"
           className="player__btn player__btn--glass"
