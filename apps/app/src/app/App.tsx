@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { isTauri } from "../lib/tauri";
-import { AppHeader, type TabKey } from "./AppHeader";
+import { AppHeader, type Section, type StreamTab } from "./AppHeader";
 import { WelcomeAnimation } from "./WelcomeAnimation";
 import { shouldPlayWelcome } from "./welcome";
 import { LiveScreen } from "../features/live/LiveScreen";
@@ -15,24 +15,47 @@ import {
 } from "../features/stream/openRequest";
 
 export function App() {
-  const [tab, setTab] = useState<TabKey>(loadStartupTab);
+  // Nav is two facts, not one: which SIDE of the app (Live TV vs Stream)
+  // and which Stream PAGE (the pill rail). streamTab survives a trip to
+  // Live TV — coming back lands where you were; the startup setting only
+  // decides the launch position. (The stored value stays the flat
+  // three-way enum: it's a launch preference, mapped here at boot.)
+  const [section, setSection] = useState<Section>(() =>
+    loadStartupTab() === "live" ? "live" : "stream",
+  );
+  const [streamTab, setStreamTab] = useState<StreamTab>(() =>
+    loadStartupTab() === "discover" ? "discover" : "home",
+  );
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Boot animation: plays over the shell while it loads, once per launch.
   const [welcome, setWelcome] = useState(shouldPlayWelcome);
 
-  // Tab switches are instant: leaving Live unmounts LiveScreen, whose
+  // Section switches are instant: leaving Live unmounts LiveScreen, whose
   // InvertedPlayer cleanup heals the shell's clip hole SYNCHRONOUSLY (before
   // the next paint) and fires inv_stop without waiting. The video child sits
   // BELOW the webview, so once the hole is gone it has nothing to show
   // through — the old await-the-teardown dance existed only because the comp
   // layer floated above the UI.
-  const changeTab = setTab;
 
-  // Discover hands a picked title to the Stream tab (detail + playback
-  // live there) — the mailbox holds the item; we just flip the tab.
-  // Backing all the way out of that hand-off flips back to Discover.
-  useEffect(() => onOpenRequest(() => setTab("stream")), []);
-  useEffect(() => onReturnRequest(() => setTab("discover")), []);
+  // Discover hands a picked title to Stream Home (detail + playback live
+  // there) — the mailbox holds the item; we just flip the nav. Backing
+  // all the way out of that hand-off flips back to Discover.
+  useEffect(
+    () =>
+      onOpenRequest(() => {
+        setSection("stream");
+        setStreamTab("home");
+      }),
+    [],
+  );
+  useEffect(
+    () =>
+      onReturnRequest(() => {
+        setSection("stream");
+        setStreamTab("discover");
+      }),
+    [],
+  );
 
   // While a modal is open, flag the root: the video keeps playing behind it
   // (it's below the webview), and the player chrome fades out via CSS so it
@@ -76,17 +99,19 @@ export function App() {
   return (
     <div className="app-shell">
       <AppHeader
-        active={tab}
-        onChange={changeTab}
+        section={section}
+        streamTab={streamTab}
+        onSection={setSection}
+        onStreamTab={setStreamTab}
         onOpenSettings={() => setSettingsOpen(true)}
       />
       <main className="app-main">
-        {tab === "live" ? (
+        {section === "live" ? (
           <LiveScreen modalOpen={settingsOpen} />
-        ) : tab === "stream" ? (
-          <StreamScreen />
-        ) : (
+        ) : streamTab === "discover" ? (
           <DiscoverScreen />
+        ) : (
+          <StreamScreen />
         )}
       </main>
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}

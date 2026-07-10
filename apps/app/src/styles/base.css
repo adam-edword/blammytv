@@ -423,6 +423,49 @@ button {
   opacity: 0.3;
 }
 
+/* Stream sub-rail: the section's pages as pills (rail itself has no
+ * background; only the ACTIVE pill gets a chip), search slot at the end.
+ * Collapsed via max-width — not display — on Live TV, so phase 2 can
+ * animate the collapse and let the centered tab cluster glide. Overflow
+ * stays visible while open (the search pill hangs off its slot
+ * absolutely and must not clip). */
+.header__rail {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  max-width: 480px;
+}
+.header__rail--off {
+  max-width: 0;
+  margin-left: 0;
+  opacity: 0;
+  visibility: hidden;
+  overflow: hidden;
+}
+.header__pill {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  color: var(--text);
+  opacity: 0.4;
+  padding: 7px 15px;
+  border-radius: 999px;
+  transition: opacity 120ms ease, background 120ms ease;
+}
+.header__pill:hover {
+  opacity: 0.75;
+}
+.header__pill--active {
+  opacity: 1;
+  font-weight: 700;
+  /* Theme-aware chip: dark text over light theme mixes dark, and vice
+   * versa — same trick the tokened Discover surfaces use. */
+  background: color-mix(in srgb, var(--text) 13%, transparent);
+}
+
 .header__actions {
   display: flex;
   align-items: center;

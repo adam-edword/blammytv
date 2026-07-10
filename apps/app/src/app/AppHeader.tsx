@@ -9,11 +9,21 @@ import {
   onClockFormatChange,
 } from "../features/settings/clockFormat";
 
-export type TabKey = "live" | "stream" | "discover";
+/** The app's two SIDES. "Stream" in the top nav is a section header,
+ * not a page — the pill rail below picks the actual Stream page. */
+export type Section = "live" | "stream";
+/** The Stream section's pages (the pill rail). Adding one = a new entry
+ * here + in RAIL + a screen in App's switch — nothing else. "mylist"
+ * lands with its spec. */
+export type StreamTab = "home" | "discover";
 
-const TABS: Array<{ key: TabKey; label: string }> = [
+const SECTIONS: Array<{ key: Section; label: string }> = [
   { key: "live", label: "Live TV" },
   { key: "stream", label: "Stream" },
+];
+
+const RAIL: Array<{ key: StreamTab; label: string }> = [
+  { key: "home", label: "Home" },
   { key: "discover", label: "Discover" },
 ];
 
@@ -43,12 +53,16 @@ function useClock(): string {
 }
 
 export function AppHeader({
-  active,
-  onChange,
+  section,
+  streamTab,
+  onSection,
+  onStreamTab,
   onOpenSettings,
 }: {
-  active: TabKey;
-  onChange: (tab: TabKey) => void;
+  section: Section;
+  streamTab: StreamTab;
+  onSection: (s: Section) => void;
+  onStreamTab: (t: StreamTab) => void;
   onOpenSettings: () => void;
 }) {
   const clock = useClock();
@@ -61,7 +75,7 @@ export function AppHeader({
   // typing in another field, never while a player is up (its own keys
   // win; #inv-chrome existing = playback chrome mounted).
   useEffect(() => {
-    if (active === "live") return;
+    if (section === "live") return;
     const onKey = (e: KeyboardEvent) => {
       const slash =
         e.key === "/" && !e.ctrlKey && !e.metaKey && !e.altKey;
@@ -85,7 +99,7 @@ export function AppHeader({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [active]);
+  }, [section]);
 
   // The header floats over the tabs; publish its measured height so tabs
   // that shouldn't start underneath can offset themselves (--header-h).
@@ -140,85 +154,105 @@ export function AppHeader({
         <button
           type="button"
           className={
-            "header__search" + (active === "live" ? "" : " header__search--off")
+            "header__search" +
+            (section === "live" ? "" : " header__search--off")
           }
           aria-label="Search channels"
-          aria-hidden={active !== "live"}
-          tabIndex={active === "live" ? 0 : -1}
+          aria-hidden={section !== "live"}
+          tabIndex={section === "live" ? 0 : -1}
           /* Deliberately INERT: this is the live-channel search slot,
            * completely unlinked from the VOD pill (jumping a TV user to
            * Discover was wrong). Wire it when TV search exists. */
         >
           <SearchIcon />
         </button>
-        {TABS.map((tab, i) => (
-          <span key={tab.key} className="header__tab-slot">
+        {SECTIONS.map((s, i) => (
+          <span key={s.key} className="header__tab-slot">
             <button
               type="button"
               className={
-                "header__tab" + (tab.key === active ? " header__tab--active" : "")
+                "header__tab" +
+                (s.key === section ? " header__tab--active" : "")
               }
-              onClick={() => {
-                // The Discover TAB means browse: clear any active search
-                // so it never lands (or stays) on stale results.
-                if (tab.key === "discover") {
-                  setQuery("");
-                  setSearchQuery("");
-                }
-                onChange(tab.key);
-              }}
+              onClick={() => onSection(s.key)}
             >
-              {tab.label}
+              {s.label}
             </button>
             {/* The design keeps a fixed divider between Live TV and the rest. */}
             {i === 0 && <span className="header__divider">|</span>}
           </span>
         ))}
-        {/* VOD side: the search PILL. The in-flow slot stays icon-sized
-          * (mirrors the TV icon, keeping the tab cluster symmetric and
-          * immobile); the actual pill renders absolutely off that anchor
-          * and extends rightward over empty header space. */}
-        <span
+        {/* The Stream sub-rail: the section's actual pages, plus the
+          * search slot at its end. COLLAPSED — not unmounted — on Live
+          * TV, so the section-switch animation (phase 2) is pure CSS
+          * width/opacity on .header__rail--off. */}
+        <div
           className={
-            "header__searchslot" +
-            (active === "live" ? " header__search--off" : "")
+            "header__rail" + (section === "live" ? " header__rail--off" : "")
           }
-          aria-hidden={active === "live"}
+          aria-hidden={section === "live"}
         >
-          {/* The whole pill focuses the input — the icon is the visible
-            * target when everything else is hidden at rest. */}
-          <span
-            className="header__searchpill"
-            onClick={() => searchInputRef.current?.focus()}
-          >
-            <SearchIcon aria-hidden />
-            <input
-              ref={searchInputRef}
-              className="header__searchinput"
-              type="search"
-              placeholder="Search movies & series…"
-              value={query}
-              tabIndex={active === "live" ? -1 : 0}
-              aria-label="Search movies and series"
-              onChange={(e) => {
-                setQuery(e.target.value);
-                setSearchQuery(e.target.value);
-                // Typing from the Stream tab lands you where results are.
-                if (active !== "discover") onChange("discover");
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  // Ours alone: without stopPropagation the App-level
-                  // listener also exits OS fullscreen on the same press.
-                  e.stopPropagation();
+          {RAIL.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              className={
+                "header__pill" +
+                (t.key === streamTab ? " header__pill--active" : "")
+              }
+              tabIndex={section === "live" ? -1 : 0}
+              onClick={() => {
+                // The Discover PILL means browse: clear any active search
+                // so it never lands (or stays) on stale results.
+                if (t.key === "discover") {
                   setQuery("");
                   setSearchQuery("");
-                  e.currentTarget.blur();
                 }
+                onStreamTab(t.key);
               }}
-            />
+            >
+              {t.label}
+            </button>
+          ))}
+          {/* The search PILL. The in-flow slot stays icon-sized; the
+            * actual pill renders absolutely off that anchor and extends
+            * rightward over empty header space. */}
+          <span className="header__searchslot">
+            {/* The whole pill focuses the input — the icon is the visible
+              * target when everything else is hidden at rest. */}
+            <span
+              className="header__searchpill"
+              onClick={() => searchInputRef.current?.focus()}
+            >
+              <SearchIcon aria-hidden />
+              <input
+                ref={searchInputRef}
+                className="header__searchinput"
+                type="search"
+                placeholder="Search movies & series…"
+                value={query}
+                tabIndex={section === "live" ? -1 : 0}
+                aria-label="Search movies and series"
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setSearchQuery(e.target.value);
+                  // Typing from any Stream page lands where results are.
+                  if (streamTab !== "discover") onStreamTab("discover");
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    // Ours alone: without stopPropagation the App-level
+                    // listener also exits OS fullscreen on the same press.
+                    e.stopPropagation();
+                    setQuery("");
+                    setSearchQuery("");
+                    e.currentTarget.blur();
+                  }
+                }}
+              />
+            </span>
           </span>
-        </span>
+        </div>
       </nav>
 
       <div className="header__right">
