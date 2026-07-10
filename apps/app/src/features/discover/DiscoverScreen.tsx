@@ -50,6 +50,13 @@ export function DiscoverScreen() {
   );
   const [metaFields, setMetaFields] = useState<CardMetaField[]>(loadCardMeta);
   useEffect(() => onCardMetaChange(setMetaFields), []);
+  // "All Content" mixes movies and series in one grid — the card meta
+  // always says which is which there, whatever the Card Details setting.
+  // The single-type views stay on the user's configured fields.
+  const gridMetaFields =
+    filter === "all" && !metaFields.includes("kind")
+      ? [...metaFields, "kind" as const]
+      : metaFields;
 
   useEffect(() => {
     let stale = false;
@@ -266,7 +273,7 @@ export function DiscoverScreen() {
               <Card
                 key={item.id}
                 item={item}
-                metaFields={metaFields}
+                metaFields={gridMetaFields}
                 onOpen={open}
               />
             ))}
