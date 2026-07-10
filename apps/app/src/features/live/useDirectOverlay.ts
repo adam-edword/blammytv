@@ -109,8 +109,9 @@ export function useDirectOverlay(
             } else {
               // Mid-play death: we were presenting, now mpv hit EOF/idle.
               // Flip loading back true so TheaterOverlay's tune watchdog
-              // re-arms and runs its silent goLive-reload escalation (then
-              // the dead card).
+              // re-arms — live runs its silent goLive-reload escalation;
+              // VOD waits its longer window then shows the dead card
+              // (no auto-reload: each reload is a debrid request).
               s.loading = true;
               s.loadingCbs.forEach((cb) => cb(true));
             }

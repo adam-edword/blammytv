@@ -236,9 +236,20 @@ export function TheaterOverlay({
    * when mpv reports EOF/idle (`ended`). */
   const TUNE_RETRIES = 2;
   const STALL_MS = 10_000;
+  /** VOD gets its own profile: NO auto-reload, longer window. Re-loadfile
+   * restarts a debrid download from byte zero (self-defeating for a big
+   * remux that's merely slow to open), and every attempt is another
+   * request against the user's debrid account — the 10s live cadence
+   * burst-requested one file enough to get a real account rate-limited.
+   * Slow VOD opens just wait; a genuinely dead source gets the honest
+   * card (Retry / Try next available source) after the window. */
+  const VOD_STALL_MS = 40_000;
   const [tune, setTune] = useState<"waiting" | "retrying" | "dead">("waiting");
   const [tuneAttempt, setTuneAttempt] = useState(0); // manual Retry re-arms
   const retriesRef = useRef(0);
+  // meta arrives a tick after mount; the flip false→true re-arms the
+  // pending timer with the VOD window before the 10s live one can fire.
+  const vodSrc = meta?.live === false;
   useEffect(() => {
     if (!loading) {
       retriesRef.current = 0;
@@ -248,7 +259,7 @@ export function TheaterOverlay({
     let id = 0;
     const arm = () => {
       id = window.setTimeout(() => {
-        if (retriesRef.current < TUNE_RETRIES) {
+        if (!vodSrc && retriesRef.current < TUNE_RETRIES) {
           retriesRef.current += 1;
           setTune("retrying");
           api()?.goLive?.();
@@ -256,11 +267,11 @@ export function TheaterOverlay({
         } else {
           setTune("dead");
         }
-      }, STALL_MS);
+      }, vodSrc ? VOD_STALL_MS : STALL_MS);
     };
     arm();
     return () => window.clearTimeout(id);
-  }, [loading, tuneAttempt]);
+  }, [loading, tuneAttempt, vodSrc]);
   // VOD auto-failover (Settings → AIOStreams, off by default): the moment
   // the watchdog declares the source dead, jump to the next candidate.
   const vodDeadRef = useRef(false);

@@ -262,22 +262,24 @@ export function StreamScreen() {
     }
   }, [navigate]);
 
-  // Hero "Watch Now": resolve fresh sources and play the best one straight
-  // away (first cached — the addon's ranking within that — else first
-  // overall). No sources → fall through to the detail page instead.
+  // Hero "Watch Now": resolve fresh sources and play the best CACHED one
+  // straight away (the addon's ranking within cached). Auto-play NEVER
+  // touches an uncached source: opening one tells debrid to start
+  // downloading a torrent, no frame arrives for minutes, and a burst of
+  // those requests rate-limited a real account. No cached source → the
+  // detail page, where uncached is a visible, deliberate click.
   const watchNow = useCallback(
     async (item: VodItem) => {
       if (item.kind === "series") return open(item); // series always browse
       setResolving({ art: item.logo ?? item.poster, title: item.title });
       try {
         const sources = await resolveVodSources("movie", item.id);
-        const idx = Math.max(0, sources.findIndex((s) => s.cached));
-        const pick = sources[idx];
-        if (pick)
+        const idx = sources.findIndex((s) => s.cached);
+        if (idx >= 0)
           return setPlaying({
-            url: pick.streamUrl,
+            url: sources[idx].streamUrl,
             item,
-            queue: sources.filter((_, i) => i !== idx),
+            queue: sources.filter((s, i) => i !== idx && s.cached),
           });
       } catch {
         /* fall through to detail */
@@ -320,16 +322,16 @@ export function StreamScreen() {
       };
       try {
         const sources = await resolveVodSources("series", episode.id);
-        const idx = Math.max(0, sources.findIndex((s) => s.cached));
-        const pick = sources[idx];
-        if (pick) {
+        // Cached only — see watchNow. No cached → the source screen below.
+        const idx = sources.findIndex((s) => s.cached);
+        if (idx >= 0) {
           setPlaying({
-            url: pick.streamUrl,
+            url: sources[idx].streamUrl,
             item,
             label,
             episodeId: episode.id,
             episodeInfo: info,
-            queue: sources.filter((_, i) => i !== idx),
+            queue: sources.filter((s, i) => i !== idx && s.cached),
           });
           return;
         }
@@ -372,12 +374,18 @@ export function StreamScreen() {
     if (upNext && countdown === 0) void playUpNext();
   }, [countdown, upNext, playUpNext]);
 
-  // Source failover: play the next candidate from the queue at (about)
-  // the position the dying source reached. Empty queue → exit cleanly.
+  // Source failover: play the next CACHED candidate from the queue at
+  // (about) the position the dying source reached. Uncached candidates are
+  // skipped for the same reason auto-play never picks them (see watchNow) —
+  // auto-pick queues are already cached-only, but the panel's queue keeps
+  // the full list. No cached candidate left → exit cleanly.
   const tryNextSource = useCallback(() => {
     const p = playingRef.current;
     if (!p) return;
-    const [next, ...rest] = p.queue ?? [];
+    const q = p.queue ?? [];
+    const nextIdx = q.findIndex((s) => s.cached);
+    const next = nextIdx >= 0 ? q[nextIdx] : undefined;
+    const rest = nextIdx >= 0 ? q.slice(nextIdx + 1) : [];
     if (!next) {
       setPlaying(null);
       if (isTauri()) void tauriSetFullscreen(false).catch(() => {});
@@ -414,28 +422,45 @@ export function StreamScreen() {
         setResolving(null);
         return;
       }
+      const episodeInfo =
+        entry.season != null && entry.episode != null
+          ? {
+              season: entry.season,
+              episode: entry.episode,
+              title: entry.epTitle ?? "",
+            }
+          : undefined;
       try {
         const sources = await resolveVodSources(
           kind,
           entry.episodeId ?? item.id,
         );
-        const idx = Math.max(0, sources.findIndex((s) => s.cached));
-        const pick = sources[idx];
-        if (pick) {
+        // Cached only — see watchNow. This is the path that got a real
+        // account rate-limited: quick-resume auto-played an uncached
+        // source sight-unseen, then the tune watchdog re-requested it.
+        const idx = sources.findIndex((s) => s.cached);
+        if (idx >= 0) {
           setPlaying({
-            url: pick.streamUrl,
+            url: sources[idx].streamUrl,
             item,
             label: entry.label,
             episodeId: entry.episodeId,
-            episodeInfo:
-              entry.season != null && entry.episode != null
-                ? {
-                    season: entry.season,
-                    episode: entry.episode,
-                    title: entry.epTitle ?? "",
-                  }
-                : undefined,
-            queue: sources.filter((_, i) => i !== idx),
+            episodeInfo,
+            queue: sources.filter((s, i) => i !== idx && s.cached),
+          });
+          return;
+        }
+        // Nothing cached: land the episode's own source screen so the
+        // pick (with its missing ⚡) is deliberate; movies get the detail
+        // page below, which shows the same list.
+        if (entry.episodeId) {
+          setResolving(null);
+          navigate({
+            at: "sources",
+            item,
+            episodeId: entry.episodeId,
+            episodeLabel: entry.label,
+            episodeInfo,
           });
           return;
         }
@@ -445,7 +470,7 @@ export function StreamScreen() {
       setResolving(null);
       void open(item);
     },
-    [setPlaying, open],
+    [setPlaying, open, navigate],
   );
 
   // Skip Intro Phase 2: exact AniSkip intervals for the playing episode,
