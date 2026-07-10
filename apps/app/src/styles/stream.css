@@ -475,9 +475,7 @@
   color: rgba(242, 242, 244, 0.8);
   background: #00000050;
   backdrop-filter: blur(16px);
-  transition: background 140ms ease;
 }
-.vod-detail__pills span:hover { background: rgba(0, 0, 0, 0.6); }
 
 /* ---- source rail ---- */
 .vod-sources {
