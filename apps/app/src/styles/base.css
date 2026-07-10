@@ -328,15 +328,18 @@ button {
   gap: 9px;
   width: min(320px, 22vw);
   padding: 6px 14px 6px 12px;
+  margin-top: 2px;
   border-radius: 1000px;
   /* Resting: just the icon — border and text hidden. Hover teases the
-   * placeholder at half strength; focus (click) brings the border back
-   * and the text to full. */
-  border: 1px solid transparent;
+   * accent border + placeholder at half strength; focus (click) goes
+   * full: text and icon at 1. Constant 1.5px border (transparent at
+   * rest) so no state change ever shifts layout. */
+  border: 1.5px solid transparent;
   background: color-mix(in srgb, var(--bg) 72%, transparent);
   backdrop-filter: blur(8px);
   transition: border-color 150ms ease;
 }
+.header__searchpill:hover,
 .header__searchpill:focus-within {
   border-color: var(--accent);
 }
@@ -356,9 +359,13 @@ button {
 }
 .header__searchpill svg {
   flex-shrink: 0;
-  width: 15px;
-  height: 15px;
+  width: 23px;
+  height: 22px;
   opacity: 0.45;
+  transition: opacity 150ms ease;
+}
+.header__searchpill:focus-within svg {
+  opacity: 1;
 }
 .header__searchinput {
   flex: 1;
