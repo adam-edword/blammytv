@@ -1,0 +1,11 @@
+{
+  "version": "0.3.1",
+  "notes": "Fixes the Stream catalog failing with HTTP 403 on some machines: when the addon rejects the app's native connection, the request now retries through the built-in browser engine automatically.",
+  "pub_date": "2026-07-10T16:53:21Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUM0VOOGtCK0hUWDRrUVorMHhVbS9YSGtUayt3LzBNTEJqc0FDdzlMclBLRmJ0RDhtb3cwamFwYkwrMHMwSk10WDBpeFNrak5HQTVwWUJBWmlONTVxNkJuT1diYUo3ZndjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgzNzAyMzczCWZpbGU6QmxhbW15VFZfMC4zLjFfeDY0LXNldHVwLmV4ZQpBYmNsQTkvRC9xV2cvRjZNdTRXWXJQNU0rVUJNdzNuVEY0OHRZMHBma2c5aUZFcWJndFduekIvYjgvZW5nVGFqaEpBWnlkOUpuOWxXaHh4ODFEQ1FCZz09Cg==",
+      "url": "https://github.com/adam-edword/blammytv/releases/download/v0.3.1/BlammyTV_0.3.1_x64-setup.exe"
+    }
+  }
+}
