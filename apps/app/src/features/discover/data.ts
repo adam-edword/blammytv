@@ -154,12 +154,14 @@ export function interleave<T>(...lists: T[][]): T[] {
  * before.
  */
 const ART_KEY = "discoverArt";
-const ART_VERSION = 3; // v3: any-catalog sourced (v2 art was dealt first-catalog-only)
+const ART_VERSION = 4; // v4: rotating catalog pick (random pick favored
+// whichever flavor dominates the manifest — mostly-anime lists kept
+// dealing mostly-anime art)
 const ART_ID_CAP = 600;
 const ART_TTL_MS = 50 * 3600_000;
 interface ArtMemo {
   byId: Record<string, string>;
-  lastByGenre: Record<string, { url: string; at: number }>;
+  lastByGenre: Record<string, { url: string; at: number; n: number }>;
 }
 let artMem: ArtMemo | null = null;
 
@@ -171,14 +173,35 @@ function artMemo(): ArtMemo {
   return artMem;
 }
 
-function rememberArt(id: string, genre: string, url: string): void {
+function rememberArt(id: string, genre: string, url: string, n: number): void {
   const m = artMemo();
   m.byId[id] = url;
   const keys = Object.keys(m.byId);
   // Cheap cap: drop oldest-inserted keys (object key order) past the cap.
   for (let i = 0; i < keys.length - ART_ID_CAP; i++) delete m.byId[keys[i]];
-  m.lastByGenre[genre.toLowerCase()] = { url, at: Date.now() };
+  m.lastByGenre[genre.toLowerCase()] = { url, at: Date.now(), n };
   save(ART_KEY, ART_VERSION, m);
+}
+
+/** djb2 — stable per-genre stagger for the catalog rotation. */
+function hashStr(s: string): number {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = (h * 33 + s.charCodeAt(i)) >>> 0;
+  return h;
+}
+
+/** The catalog a genre's Nth deal draws from. A RANDOM pick was won by
+ * whatever flavor dominates the manifest (five anime lists outvote one
+ * general list five rolls to one); rotation guarantees every serving
+ * catalog gets its turn, and the per-genre hash stagger spreads the
+ * FIRST deal across the whole list so the rail is mixed from day one.
+ * Exported for tests. */
+export function artCatalogFor(
+  serving: DiscoverCatalog[],
+  genre: string,
+  n: number,
+): DiscoverCatalog {
+  return serving[(hashStr(genre.toLowerCase()) + n) % serving.length];
 }
 
 /** Instant paint: each genre's cached art, whatever its age — staleness
@@ -212,26 +235,31 @@ export async function resolveGenreArt(
     if (cached && Date.now() - cached.at < ART_TTL_MS) return;
     const serving = cfg.catalogs.filter((c) => servesGenre(c, genre));
     if (serving.length === 0) return;
-    const cat = serving[Math.floor(Math.random() * serving.length)];
-    const res = await fetchCatalog(
-      cfg.manifestUrl,
-      cat.type,
-      cat.id,
-      catalogExtra(genre, 0),
-    ).catch(() => null);
-    const pool = (res?.metas ?? []).filter((m) => m?.id && m?.name);
-    for (let attempt = 0; attempt < 3 && pool.length > 0; attempt++) {
-      const [pick] = pool.splice(Math.floor(Math.random() * pool.length), 1);
-      const known = artMemo().byId[pick.id];
-      const url =
-        known ??
-        (await fetchMeta(cfg.manifestUrl, cat.type, pick.id)
-          .then((r) => r.meta?.background)
-          .catch(() => undefined));
-      if (url) {
-        rememberArt(pick.id, genre, url);
-        onArt(genre, url);
-        return;
+    // Rotation, not randomness (see artCatalogFor). A catalog whose feed
+    // yields no usable backdrop advances the rotation and tries the next.
+    let n = cached?.n ?? 0;
+    for (let hop = 0; hop < Math.min(serving.length, 3); hop++, n++) {
+      const cat = artCatalogFor(serving, genre, n);
+      const res = await fetchCatalog(
+        cfg.manifestUrl,
+        cat.type,
+        cat.id,
+        catalogExtra(genre, 0),
+      ).catch(() => null);
+      const pool = (res?.metas ?? []).filter((m) => m?.id && m?.name);
+      for (let attempt = 0; attempt < 3 && pool.length > 0; attempt++) {
+        const [pick] = pool.splice(Math.floor(Math.random() * pool.length), 1);
+        const known = artMemo().byId[pick.id];
+        const url =
+          known ??
+          (await fetchMeta(cfg.manifestUrl, cat.type, pick.id)
+            .then((r) => r.meta?.background)
+            .catch(() => undefined));
+        if (url) {
+          rememberArt(pick.id, genre, url, n + 1);
+          onArt(genre, url);
+          return;
+        }
       }
     }
   };

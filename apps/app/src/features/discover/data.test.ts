@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  artCatalogFor,
   catalogExtra,
   gridCatalogs,
   interleave,
@@ -103,6 +104,29 @@ describe("servesGenre", () => {
     expect(servesGenre(cat, "Anime")).toBe(false);
     // A catalog with no declared genres can't be filtered at all.
     expect(servesGenre({ ...cat, genres: [] }, "Action")).toBe(false);
+  });
+});
+
+describe("artCatalogFor", () => {
+  const serving = [
+    { type: "movie" as const, id: "a", genres: [] },
+    { type: "movie" as const, id: "b", genres: [] },
+    { type: "movie" as const, id: "c", genres: [] },
+  ];
+
+  it("rotates through every serving catalog as deals advance", () => {
+    const seq = [0, 1, 2, 3].map((n) => artCatalogFor(serving, "Action", n).id);
+    expect(new Set(seq.slice(0, 3)).size).toBe(3); // all three, in some order
+    expect(seq[3]).toBe(seq[0]); // wraps
+  });
+
+  it("staggers different genres to different starting catalogs", () => {
+    const starts = new Set(
+      ["Action", "Comedy", "Drama", "Crime", "Family", "History"].map(
+        (g) => artCatalogFor(serving, g, 0).id,
+      ),
+    );
+    expect(starts.size).toBeGreaterThan(1); // not everyone starts at "a"
   });
 });
 
