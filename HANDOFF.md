@@ -330,14 +330,25 @@ sections annotated, TheaterOverlay/player.css/tauri.ts/mpv.rs headers).
      injection is reworked). Needs on-device verification against
      Adam's real providers before shipping — a too-tight CSP silently
      breaks posters/EPG.
-6. **PRE-1.0 GATE: Trakt / MyAnimeList integrations** (Adam, 2026-07-11:
+6. **PRE-1.0 GATE: Windows code signing** (agreed 2026-07-11, prompted
+   by the Bobby saga — unsigned binaries are second-class to AV
+   web-shields, and "Unknown publisher" is a conversion tax once themes
+   cost money). Order of attack: check Azure Trusted Signing
+   eligibility for individuals (~$10/mo, no hardware token, signtool →
+   Tauri signCommand) → else Certum indie/OV (~$70-300/yr, hardware key
+   required since 2023, name-in-UAC but SmartScreen reputation still
+   accrues per-cert) → EV only if an LLC exists anyway (also relevant
+   to the Stripe theme business). SEPARATE from updater minisign — that
+   stays. Wire into release.ps1: sign app exe + installer in the same
+   one-build flow.
+7. **PRE-1.0 GATE: Trakt / MyAnimeList integrations** (Adam, 2026-07-11:
    "maybe that's a pre 1.0 gate. one of the last things we tackle").
    Scope when it lands: watchlist/custom-list sync (My List's
    snapshot+membership model maps onto Trakt lists), watched-history
    push, MAL for the anime lists. Design decisions until then should not
    preclude it — keep My List entries keyed by imdb id (Trakt speaks
    imdb/tmdb; the aniskip index already maps imdb→MAL).
-7. **POST-V1: hero slider click-and-drag** (Adam-approved 2026-07-10).
+8. **POST-V1: hero slider click-and-drag** (Adam-approved 2026-07-10).
    Vibe-checked as "somewhat simple": the virtual-index moving-window
    architecture is drag-friendly (drag = live px offset on the card
    positions, commit index ±1 or snap back on release; index−1 already
