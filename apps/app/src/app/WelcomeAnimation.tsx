@@ -41,7 +41,17 @@ function lockupVars(): CSSProperties {
   } as CSSProperties;
 }
 
-export function WelcomeAnimation({ onDone }: { onDone: () => void }) {
+export function WelcomeAnimation({
+  onDone,
+  intro = true,
+}: {
+  onDone: () => void;
+  /** Cold boots fade+unblur the gradient in during the opening hold.
+   * The onboarding hand-off passes false: its finale already resolved
+   * onto this exact sharp frame — fading it back in would break the
+   * seam. */
+  intro?: boolean;
+}) {
   const [leaving, setLeaving] = useState(false);
   const [vars, setVars] = useState(lockupVars);
 
@@ -71,7 +81,11 @@ export function WelcomeAnimation({ onDone }: { onDone: () => void }) {
 
   return (
     <div
-      className={"welcome-overlay" + (leaving ? " is-leaving" : "")}
+      className={
+        "welcome-overlay" +
+        (intro ? " welcome-overlay--intro" : "") +
+        (leaving ? " is-leaving" : "")
+      }
       style={vars}
       onTransitionEnd={(e) => {
         if (leaving && e.target === e.currentTarget) onDone();

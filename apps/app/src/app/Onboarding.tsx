@@ -238,7 +238,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
         </div>
         <button
           type="button"
-          className="onb-btn"
+          className="onb-btn onb-btn--hero"
           style={idx(1)}
           onClick={advance}
         >

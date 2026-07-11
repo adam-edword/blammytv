@@ -45,6 +45,27 @@
   animation: welcome-frame-shrink 2000ms 700ms both;
 }
 
+/* Cold boot (v0.4.15): the gradient frame fades in from 0 WHILE
+ * unblurring to 0 during the opening hold, so it never pops in as a
+ * solid. Runs alongside the shrink (disjoint properties). Absent on
+ * the onboarding hand-off — WelcomeAnimation gets intro={false} there
+ * because its finale already ends on this sharp frame. */
+.welcome-overlay--intro .welcome-backdrop {
+  animation:
+    welcome-intro 700ms cubic-bezier(0.33, 0, 0.3, 1) both,
+    welcome-frame-shrink 2000ms 700ms both;
+}
+@keyframes welcome-intro {
+  from {
+    opacity: 0;
+    filter: blur(80px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0px);
+  }
+}
+
 /* The gradient's sweep angle, registered so it interpolates — the spin
  * animates the paint alone; the shape never rotates. */
 @property --welcome-grad-angle {

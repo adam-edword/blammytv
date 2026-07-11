@@ -39,6 +39,9 @@ export function App() {
   const [welcome, setWelcome] = useState(
     () => !shouldShowOnboarding() && shouldPlayWelcome(),
   );
+  // Cold boots fade the boot gradient in; the onboarding hand-off must
+  // not (its finale already landed on the sharp frame).
+  const [welcomeIntro, setWelcomeIntro] = useState(true);
 
   // Section switches are instant: leaving Live unmounts LiveScreen, whose
   // InvertedPlayer cleanup heals the shell's clip hole SYNCHRONOUSLY (before
@@ -137,7 +140,12 @@ export function App() {
         )}
       </main>
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
-      {welcome && <WelcomeAnimation onDone={() => setWelcome(false)} />}
+      {welcome && (
+        <WelcomeAnimation
+          intro={welcomeIntro}
+          onDone={() => setWelcome(false)}
+        />
+      )}
       {onboarding && (
         <Onboarding
           onDone={() => {
@@ -145,6 +153,7 @@ export function App() {
             // render the onboarding unmounts — no flash of the app between
             // them. Reduced-motion users skip the boot animation, as ever.
             setOnboarding(false);
+            setWelcomeIntro(false);
             setWelcome(
               !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
             );

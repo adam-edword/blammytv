@@ -32,6 +32,10 @@
   transition:
     filter 1300ms cubic-bezier(0.7, 0, 0.25, 1),
     inset 1300ms cubic-bezier(0.7, 0, 0.25, 1);
+  /* Ease in on load instead of popping. fill-mode BACKWARDS, not both:
+   * a filled animation keeps beating normal styles after it finishes,
+   * which would pin opacity and break the finale's transitions. */
+  animation: onb-glow-in 1600ms ease-out backwards;
 }
 .onb.is-finale .onb-backdrop {
   inset: 0;
@@ -88,6 +92,16 @@
     radial-gradient(circle at 3px 3px, rgba(255, 255, 255, 0.022) 1px, transparent 1.3px);
   background-size: 4px 4px, 8px 8px;
   transition: opacity 900ms ease;
+  animation: onb-glow-in 1600ms ease-out backwards;
+}
+
+@keyframes onb-glow-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 .onb.is-finale .onb-dither {
   opacity: 0;
@@ -117,6 +131,16 @@
 .onb-stage.is-out > * {
   animation: onb-out 300ms cubic-bezier(0.55, 0, 0.55, 0.2) both;
   animation-delay: calc(var(--i, 0) * 30ms);
+}
+
+/* Step 0's slow reveal (Adam, v0.4.15): the lockup drifts in on its
+ * own, hangs alone for a beat, and only then does the button arrive.
+ * (--i stagger still positions everything else.) */
+.onb-stage.is-in > .onb-lockup {
+  animation-duration: 1200ms;
+}
+.onb-stage.is-in > .onb-btn--hero {
+  animation-delay: 2400ms;
 }
 
 @keyframes onb-in {
@@ -377,7 +401,12 @@
  * fire its transitionend (App waits on it) — near-instant, not none. */
 @media (prefers-reduced-motion: reduce) {
   .onb-stage.is-in > *,
-  .onb-stage.is-out > * {
+  .onb-stage.is-out > *,
+  /* Restated: these rules are MORE specific than the wildcard above. */
+  .onb-stage.is-in > .onb-lockup,
+  .onb-stage.is-in > .onb-btn--hero,
+  .onb-backdrop,
+  .onb-dither {
     animation: none;
   }
   .onb-backdrop,
