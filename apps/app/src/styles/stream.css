@@ -495,6 +495,12 @@
 .vod-more .media-row__arrow--right {
   right: calc(7% + 434px);
 }
+/* The arrows' only reveal rule is .media-row:hover — this shelf has no
+ * .media-row ancestor, so they stayed invisible-but-clickable phantom
+ * circles over the posters (fleet finding). Reveal on shelf hover. */
+.vod-more:hover .media-row__arrow {
+  opacity: 1;
+}
 .vod-more__card {
   flex: 0 0 auto;
   width: 170px;
@@ -597,6 +603,10 @@
   overflow-y: auto;
   padding-top: calc(var(--header-h, 76px) + 12px);
   padding-bottom: 32px;
+  /* This variant IS the scroll container: the base body's
+   * pointer-events:none (the vod-more sandwich) made its scrollbar
+   * un-grabbable and killed wheel over the grid gaps (fleet finding). */
+  pointer-events: auto;
 }
 .vod-detail__info {
   display: flex;
@@ -632,6 +642,10 @@
   margin: 0;
   align-items: flex-start;
   justify-content: flex-start;
+  /* The episodes BODY already pads for the header — the base info rule
+   * gaining its own header padding doubled the clearance to ~172px and
+   * shrank the visible episode list (fleet finding). */
+  padding-top: 0;
 }
 /* Same glass language as the pills/chips on these screens: #00000050,
  * blur, and the shared darkening hover. */

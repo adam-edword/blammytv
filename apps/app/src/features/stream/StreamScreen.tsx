@@ -142,6 +142,10 @@ export function StreamScreen() {
       }
       setUpNext(null);
       setUpNextMini(null);
+      // A dismissal only scopes to the credits of the play it happened
+      // in — a NEW playback (even a rewatch of the same episode) gets
+      // its mini card back.
+      miniDismissedRef.current = null;
       setResolving(null);
       // Starting a new play while a pop-out runs would double the provider
       // connections — reel the pop-out in first (silent close).
@@ -340,8 +344,14 @@ export function StreamScreen() {
     const consume = () => {
       const item = takeOpenRequest();
       if (item) {
-        handoffRef.current = true;
-        void cardOpen(item);
+        void cardOpen(item).then(() => {
+          // Only a hand-off that actually NAVIGATED owes a
+          // return-to-origin on back-out. One-click play can resolve
+          // straight to playback with no view pushed — a leaked true
+          // here teleported a later, unrelated back-out to
+          // Discover/My List (fleet finding).
+          handoffRef.current = backStack.current.length > 0;
+        });
       }
     };
     consume();
@@ -1771,14 +1781,25 @@ function ContinueCard({
 // ---------------------------------------------------------------------------
 
 /** One Discover-config resolve per session for the More Like This rows
- * (loadDiscover refetches the manifest otherwise); failures clear the
- * memo so a later detail visit can retry. */
-let discoverCfgPromise: Promise<DiscoverConfig> | null = null;
-const discoverCfg = (): Promise<DiscoverConfig> =>
-  (discoverCfgPromise ??= loadDiscover().catch((e) => {
-    discoverCfgPromise = null;
-    throw e;
-  }));
+ * (loadDiscover refetches the manifest otherwise). Keyed by the stored
+ * AIOStreams URL: a session-lifetime memo kept querying a REPLACED
+ * manifest — resending the old credential-bearing URL — until app
+ * restart (fleet finding). Failures clear the entry for retry. */
+let discoverCfgCache: {
+  url: string;
+  promise: Promise<DiscoverConfig>;
+} | null = null;
+function discoverCfg(): Promise<DiscoverConfig> {
+  const url = loadAioUrl();
+  if (!discoverCfgCache || discoverCfgCache.url !== url) {
+    const promise = loadDiscover().catch((e: unknown) => {
+      if (discoverCfgCache?.promise === promise) discoverCfgCache = null;
+      throw e;
+    });
+    discoverCfgCache = { url, promise };
+  }
+  return discoverCfgCache.promise;
+}
 
 /** Genre pills on the detail screens — each one jumps to Discover with
  * that genre selected (the mailbox flips the nav; DiscoverScreen drains
@@ -1931,7 +1952,10 @@ function Detail({
           {item.synopsis && (
             <p className="vod-detail__synopsis">{item.synopsis}</p>
           )}
-          <SaveButton item={item} />
+          {/* key: More Like This navigates Detail-to-Detail in the SAME
+            instance - without a remount the lazy saved-state kept the
+            previous title's answer and toggles corrupted My List. */}
+          <SaveButton key={item.id} item={item} />
           <GenrePills genres={item.genres} />
         </div>
         <div className="vod-sources">
@@ -2029,6 +2053,11 @@ function Episodes({
     );
   }, [item, watched]);
   // Smart resume: open on the season you're actually in, not Season 1.
+  // The screen mounts with the LIGHTWEIGHT item (seasons: []) and the
+  // full meta lands async — the initializer alone always saw an empty
+  // list and parked everyone on Specials/Season 1 (fleet finding). The
+  // effect syncs once the seasons arrive, standing down after a manual
+  // season pick.
   const [seasonIdx, setSeasonIdx] = useState(() => {
     if (!nextUp) return 0;
     const idx = item.seasons.findIndex((se) =>
@@ -2036,6 +2065,14 @@ function Episodes({
     );
     return idx >= 0 ? idx : 0;
   });
+  const pickedSeasonRef = useRef(false);
+  useEffect(() => {
+    if (pickedSeasonRef.current || !nextUp) return;
+    const idx = item.seasons.findIndex((se) =>
+      se.episodes.some((e) => e.id === nextUp),
+    );
+    if (idx >= 0) setSeasonIdx(idx);
+  }, [item, nextUp]);
   const season =
     item.seasons[Math.min(seasonIdx, Math.max(0, item.seasons.length - 1))];
   return (
@@ -2062,7 +2099,10 @@ function Episodes({
               With {item.cast.slice(0, 6).join(", ")}
             </p>
           )}
-          <SaveButton item={item} />
+          {/* key: More Like This navigates Detail-to-Detail in the SAME
+            instance - without a remount the lazy saved-state kept the
+            previous title's answer and toggles corrupted My List. */}
+          <SaveButton key={item.id} item={item} />
           <GenrePills genres={item.genres} />
         </div>
         {item.seasons.length === 0 ? (
@@ -2077,7 +2117,10 @@ function Episodes({
                   className={
                     "season-chip" + (i === seasonIdx ? " season-chip--on" : "")
                   }
-                  onClick={() => setSeasonIdx(i)}
+                  onClick={() => {
+                    pickedSeasonRef.current = true; // user override wins
+                    setSeasonIdx(i);
+                  }}
                 >
                   {s.name}
                 </button>

@@ -61,6 +61,12 @@
   backdrop-filter: blur(10px);
   border: 1px solid #ffffff40;
 }
+/* Adam's glass spec above is tuned for the dark header — over the light
+ * one both the gray wash and the white border vanish (fleet finding). */
+:root[data-theme="light"] .chip-tabs--bare .chip-tabs__thumb {
+  background: rgba(40, 42, 52, 0.12);
+  border-color: rgba(0, 0, 0, 0.28);
+}
 
 /* Toggle: a text-less chip rail. Same track color, inset, radius, and slide
  * curve as .chip-tabs; the white squircle thumb is the "chip". On floods the
@@ -242,7 +248,10 @@
 :root[data-accent-style="aurora"] .btn-primary {
   border: 1px solid transparent;
   /* Adam's exact recipe: the 0.29-alpha conic over black (the HDR-badge
-   * construction), full-strength ring on the same angle. */
+   * construction), full-strength ring on the same angle. The face is
+   * BLACK in every theme, so the label pins light — light theme's
+   * var(--text) was near-black-on-black (fleet finding). */
+  color: #f2f2f4;
   background:
     var(--accent-image) padding-box,
     linear-gradient(#000, #000) padding-box,
@@ -273,9 +282,22 @@
     linear-gradient(#101014, #101014) padding-box;
   border-color: #ffffff2e;
 }
+/* The cell face is dark in every theme — pin its text light (light
+ * theme's var(--text) titles went dark-on-dark; fleet finding). */
+:root[data-accent-style="aurora"] .guide__cell--live * {
+  color: #f2f2f4;
+}
 :root[data-accent-style="aurora"] .hero__channel {
   background: var(--accent-ring-image);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+}
+/* Pastel gradient text washes out on the light background — fall back
+ * to the flat aurora hue there. */
+:root[data-theme="light"][data-accent-style="aurora"] .hero__channel {
+  background: none;
+  -webkit-background-clip: initial;
+  background-clip: initial;
+  color: var(--accent);
 }

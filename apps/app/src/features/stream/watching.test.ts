@@ -53,6 +53,10 @@ describe("resumePoint", () => {
   it("starts over when barely started or effectively finished", () => {
     expect(resumePoint(entry({ posSec: 45 }))).toBeUndefined();
     expect(resumePoint(entry({ posSec: 5900, durSec: 6000 }))).toBeUndefined();
+    // 90% is the ledger/retirement threshold — resumePoint must agree,
+    // or a "finished" movie resumes into its own credits on rewatch.
+    expect(resumePoint(entry({ posSec: 5500, durSec: 6000 }))).toBeUndefined();
+    expect(resumePoint(entry({ posSec: 5300, durSec: 6000 }))).toBe(5297);
     expect(resumePoint(undefined)).toBeUndefined();
     expect(resumePoint(entry({}))).toBeUndefined();
   });

@@ -85,8 +85,8 @@ export function AppHeader({
   const searchChipRef = useRef<HTMLSpanElement>(null);
   useLayoutEffect(() => {
     if (!searchOpen) return;
+    const chip = searchChipRef.current;
     const fit = () => {
-      const chip = searchChipRef.current;
       const right = document.querySelector(".header__right");
       if (!chip || !right) return;
       const gap =
@@ -98,7 +98,15 @@ export function AppHeader({
     };
     fit();
     window.addEventListener("resize", fit);
-    return () => window.removeEventListener("resize", fit);
+    return () => {
+      window.removeEventListener("resize", fit);
+      // Drop the measured width on blur: the blurred-with-query state
+      // keeps the input visible, and a stale wide measure (taken before
+      // a window shrink, or mid rail-expansion) overlapped — and stole
+      // clicks from — the right-side header controls. The CSS fallback
+      // min(240px, 17vw) covers that state instead.
+      chip?.style.removeProperty("--search-w");
+    };
   }, [searchOpen]);
 
   // `/`, Ctrl+K, Ctrl+F focus the pill — VOD side only, never while
@@ -289,8 +297,11 @@ export function AppHeader({
                   onChange={(e) => {
                     setQuery(e.target.value);
                     setSearchQuery(e.target.value);
-                    // Typing from any Stream page lands where results are.
-                    if (streamTab !== "discover") onStreamTab("discover");
+                    // Typing from any Stream page lands where results
+                    // are — but CLEARING (the × button, backspace to
+                    // empty) must not yank the user off their page.
+                    if (e.target.value !== "" && streamTab !== "discover")
+                      onStreamTab("discover");
                   }}
                   onKeyDown={(e) => {
                     if (e.key === "Escape") {

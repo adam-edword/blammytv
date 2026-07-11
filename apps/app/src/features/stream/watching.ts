@@ -76,16 +76,18 @@ export function updateWatchingProgress(
 }
 
 /** Where to resume this entry, or undefined for start-from-zero: needs a
- * meaningful position (>60s in), not effectively finished (<95% when the
- * duration is known), and — for series — the SAME episode. Rewinds a few
- * seconds so the cut lands before where you left off. */
+ * meaningful position (>60s in), not effectively finished (≥90% when the
+ * duration is known — the SAME threshold as the watched ledger and
+ * retiredFromContinue, so a "finished" title always restarts instead of
+ * resuming into its own credits), and — for series — the SAME episode.
+ * Rewinds a few seconds so the cut lands before where you left off. */
 export function resumePoint(
   e: WatchEntry | undefined,
   episodeId?: string,
 ): number | undefined {
   if (!e?.posSec || e.posSec <= 60) return undefined;
   if (episodeId && e.episodeId !== episodeId) return undefined;
-  if (e.durSec && e.posSec > e.durSec * 0.95) return undefined;
+  if (e.durSec && e.posSec >= e.durSec * 0.9) return undefined;
   return Math.max(0, e.posSec - 3);
 }
 

@@ -57,20 +57,8 @@ export function DiscoverScreen() {
   const [cfg, setCfg] = useState<Cfg>({ status: "loading" });
   const [filter, setFilter] = useState<TypeFilter>("all");
   const [genre, setGenre] = useState<string | null>(null);
-  // Genre hand-off (a detail-screen genre pill): drain on mount and on
-  // the event; arriving means BROWSING, so any active search clears.
-  // The raw genre may not match the rail's casing (or exist at all) —
-  // the reconcile effect below normalizes once the config is ready.
-  useEffect(() => {
-    const consume = () => {
-      const g = takeGenreRequest();
-      if (!g) return;
-      setSearchQuery("");
-      setGenre(g);
-    };
-    consume();
-    return onGenreRequest(consume);
-  }, []);
+  const cfgRef = useRef(cfg);
+  cfgRef.current = cfg;
   useEffect(() => {
     if (cfg.status !== "ready" || !genre) return;
     const match = cfg.cfg.genres.find(
@@ -100,6 +88,35 @@ export function DiscoverScreen() {
   // grid step aside); clearing or Escape returns to browsing.
   const [query, setQuery] = useState(getSearchQuery);
   useEffect(() => onSearchQueryChange(setQuery), []);
+  // Genre hand-off (a detail-screen genre pill): drain on mount and on
+  // the event; arriving means BROWSING, so any active search clears —
+  // the STORE (for the header's mirror) and the LOCAL state directly.
+  // Direct, because the store's clear event can fire before this
+  // component's subscription exists (mount-time effect ordering): the
+  // fleet caught the hand-off rendering stale search results whenever
+  // the chain started from an active search. Normalizes against the
+  // rail's casing here when the config is already ready (skips a
+  // wasted raw-genre fetch round); the reconcile effect above covers
+  // the not-yet-ready mount, unknown genres → unfiltered.
+  useEffect(() => {
+    const consume = () => {
+      const g = takeGenreRequest();
+      if (!g) return;
+      setSearchQuery("");
+      setQuery("");
+      const c = cfgRef.current;
+      if (c.status === "ready") {
+        const match = c.cfg.genres.find(
+          (x) => x.toLowerCase() === g.toLowerCase(),
+        );
+        setGenre(match ?? null);
+      } else {
+        setGenre(g);
+      }
+    };
+    consume();
+    return onGenreRequest(consume);
+  }, []);
   const q = query.trim();
   const searching = q.length >= 2;
   const [results, setResults] = useState<VodItem[] | null>(null);

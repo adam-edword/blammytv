@@ -370,8 +370,6 @@ button {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .header__rail,
-  .header__rail--off,
   .header__searchinput,
   .header__searchchip {
     transition: none;
@@ -456,6 +454,15 @@ button {
     max-width 400ms cubic-bezier(0.56, 0, 0.5, 0.99),
     opacity 180ms ease,
     visibility 0s 400ms;
+}
+/* AFTER the rail rules on purpose: media queries add no cascade weight,
+ * so an earlier reduced-motion override lost to these on source order
+ * (fleet finding — the glide still animated under reduced motion). */
+@media (prefers-reduced-motion: reduce) {
+  .header__rail,
+  .header__rail--off {
+    transition: none;
+  }
 }
 /* The rail's chips come from the shared ChipTabs primitive (ui.css) with
  * the chip-tabs--bare modifier — nothing header-specific to style here. */
