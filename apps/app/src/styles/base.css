@@ -400,6 +400,12 @@ button {
   opacity: 1;
 }
 
+/* Clicking would be a no-op (already at Stream Home) — hold full
+ * strength on hover instead of teasing the 0.6 dim. */
+.header__tab--inert:hover {
+  opacity: 1;
+}
+
 .header__divider {
   font-family: var(--font-text);
   font-weight: 200;

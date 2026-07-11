@@ -402,13 +402,13 @@
 .continue-card--holding .continue-card__art { filter: brightness(0.5); }
 .continue-card--holding .continue-card__hold { opacity: 1; }
 
-/* Clearlogo over the art: centered horizontally, lower-middle — under
- * the hover play cue's dead-center spot. */
+/* Clearlogo over the art: dead center, both axes — the hover play cue
+ * (z-index 1) paints ABOVE it. */
 .continue-card__logo {
   position: absolute;
   left: 50%;
-  top: 58%;
-  transform: translateX(-50%);
+  top: 50%;
+  transform: translate(-50%, -50%);
   max-width: 55%;
   max-height: 28%;
   object-fit: contain;

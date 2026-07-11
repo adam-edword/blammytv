@@ -186,9 +186,20 @@ export function AppHeader({
             type="button"
             className={
               "header__tab" +
-              (section === "stream" ? " header__tab--active" : "")
+              (section === "stream" ? " header__tab--active" : "") +
+              // Already at Stream Home = the button is a no-op; don't
+              // tease a hover change that clicking won't honor.
+              (section === "stream" && streamTab === "home"
+                ? " header__tab--inert"
+                : "")
             }
-            onClick={() => onSection("stream")}
+            onClick={() => {
+              // From Live, entering the section restores the last page
+              // (the remember behavior); within the section, Stream is
+              // the "back to Home" shortcut.
+              if (section === "stream") onStreamTab("home");
+              else onSection("stream");
+            }}
           >
             Stream
           </button>
