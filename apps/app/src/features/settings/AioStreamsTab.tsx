@@ -2,7 +2,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CheckIcon, ChevronIcon, CloseIcon, CopyIcon } from "../../ui/icons";
 import { fetchAioCatalogs, type AioCatalog } from "../../data/aiostreams";
-import { probeAioStreams, type ProbeStep } from "./aioProbe";
+import { probeAioStreams, probeVerdict, type ProbeStep } from "./aioProbe";
 import {
   isValidManifestUrl,
   loadAioUrl,
@@ -52,13 +52,30 @@ export function AioStreamsTab() {
   const dirty = url.trim() !== savedUrl;
   const id = useId();
 
+  // Connection test (the Bobby-403 debugging affordance) — runs the
+  // app's real fetch paths and reports per-endpoint results, scrubbed.
+  const [probe, setProbe] = useState<ProbeStep[] | null>(null);
+  const [probing, setProbing] = useState(false);
+  const runProbe = (target: string) => {
+    setProbing(true);
+    setProbe(null);
+    probeAioStreams(target)
+      .then(setProbe)
+      .finally(() => setProbing(false));
+  };
+
   // Submitting an emptied field removes the saved manifest (that's what
   // makes the in-field clear meaningful).
   const submittable = url.trim() === "" || isValidManifestUrl(url);
   const submit = () => {
     if (!submittable) return;
     saveAioUrl(url);
-    setSavedUrl(url.trim());
+    const next = url.trim();
+    setSavedUrl(next);
+    // A bad instance should be caught HERE, at setup, not on the first
+    // Discover visit — auto-run the Connection Test on every new URL.
+    if (next) runProbe(next);
+    else setProbe(null);
   };
 
   const [copied, setCopied] = useState(false);
@@ -214,10 +231,6 @@ export function AioStreamsTab() {
   };
   const [failover, setFailover] = useState<boolean>(loadSourceFailover);
 
-  // Connection test (the Bobby-403 debugging affordance) — runs the
-  // app's real fetch paths and reports per-endpoint results, scrubbed.
-  const [probe, setProbe] = useState<ProbeStep[] | null>(null);
-  const [probing, setProbing] = useState(false);
   const [skipBehavior, setSkipBehavior] =
     useState<SkipBehavior>(loadSkipBehavior);
 
@@ -294,34 +307,33 @@ export function AioStreamsTab() {
             type="button"
             className="btn-primary"
             disabled={probing}
-            onClick={() => {
-              setProbing(true);
-              setProbe(null);
-              probeAioStreams(savedUrl)
-                .then(setProbe)
-                .finally(() => setProbing(false));
-            }}
+            onClick={() => runProbe(savedUrl)}
           >
             {probing ? "Testing…" : "Run Connection Test"}
           </button>
           {probe && (
-            <ul className="aio-probe">
-              {probe.map((s) => (
-                <li
-                  key={s.label}
-                  className={"aio-probe__row" + (s.ok ? "" : " aio-probe__row--bad")}
-                >
-                  <span className="aio-probe__mark">{s.ok ? "✓" : "✗"}</span>
-                  <span className="aio-probe__label">{s.label}</span>
-                  <span className="aio-probe__detail">
-                    {s.detail}
-                    {s.forensic && (
-                      <span className="aio-probe__forensic">{s.forensic}</span>
-                    )}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <>
+              <ul className="aio-probe">
+                {probe.map((s) => (
+                  <li
+                    key={s.label}
+                    className={"aio-probe__row" + (s.ok ? "" : " aio-probe__row--bad")}
+                  >
+                    <span className="aio-probe__mark">{s.ok ? "✓" : "✗"}</span>
+                    <span className="aio-probe__label">{s.label}</span>
+                    <span className="aio-probe__detail">
+                      {s.detail}
+                      {s.forensic && (
+                        <span className="aio-probe__forensic">{s.forensic}</span>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              {probeVerdict(probe) && (
+                <p className="aio-probe__verdict">{probeVerdict(probe)}</p>
+              )}
+            </>
           )}
         </section>
       )}

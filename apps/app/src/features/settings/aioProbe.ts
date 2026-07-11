@@ -65,6 +65,38 @@ async function forensicFor(url: string): Promise<string | undefined> {
   return `answered HTTP ${f.status}${parts.length ? " — " + parts.join(" · ") : ""}`;
 }
 
+/** One plain-language conclusion under the result rows, rendered only
+ * for failure patterns we've conclusively diagnosed before. The Bobby
+ * saga's ending, distilled: `cf-mitigated: challenge` means the
+ * instance's host demands an interactive browser check — nothing on the
+ * user's machine OR in this app can pass it (it hits Stremio-style
+ * clients generally), so the app should say that outright instead of
+ * letting the user chase proxies and antivirus for a week. Verdicts we
+ * can't stand behind render nothing — the forensic line still shows. */
+export function probeVerdict(steps: ProbeStep[]): string | undefined {
+  const failed = steps.filter((s) => !s.ok);
+  if (failed.length === 0) return undefined;
+  const forensics = failed.map((s) => s.forensic ?? "").join(" ");
+  if (/cf-mitigated: challenge/i.test(forensics) || /Just a moment/i.test(forensics)) {
+    return (
+      "This instance sits behind Cloudflare bot protection, which is " +
+      "challenging app traffic from your network. That can't be fixed " +
+      "from your machine or by this app — it affects Stremio-style " +
+      "clients generally. Ask whoever hosts the instance to exempt it " +
+      "from bot protection, or move your config to another instance."
+    );
+  }
+  if (failed.some((s) => /HTTP 40[13]\b/.test(s.detail))) {
+    return (
+      "The instance rejected the request. If this URL worked before, " +
+      "your config link may have expired or been regenerated — re-copy " +
+      "the manifest URL from your instance's configure page and submit " +
+      "it again."
+    );
+  }
+  return undefined;
+}
+
 export async function probeAioStreams(
   manifestUrl: string,
 ): Promise<ProbeStep[]> {
