@@ -133,14 +133,15 @@
   animation-delay: calc(var(--i, 0) * 30ms);
 }
 
-/* Step 0's slow reveal (Adam, v0.4.15): the lockup drifts in on its
- * own, hangs alone for a beat, and only then does the button arrive.
+/* Step 0's slow reveal (Adam, v0.4.16): glow first — the stage opens
+ * on it alone — then the lockup at 650ms, then the button at 2s.
  * (--i stagger still positions everything else.) */
 .onb-stage.is-in > .onb-lockup {
   animation-duration: 1200ms;
+  animation-delay: 650ms;
 }
 .onb-stage.is-in > .onb-btn--hero {
-  animation-delay: 2400ms;
+  animation-delay: 2000ms;
 }
 
 @keyframes onb-in {
