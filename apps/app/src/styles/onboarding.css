@@ -107,6 +107,35 @@
   opacity: 0;
 }
 
+/* The Get Started hover glow, unhooked from the button and handed to
+ * the cursor: a soft light that trails the pointer (lerped in the
+ * component's rAF loop). Sits under the content, over the dither.
+ * Hidden until the pointer first moves, and gone for the finale. */
+.onb-cursor-glow {
+  position: absolute;
+  top: -180px;
+  left: -180px;
+  width: 360px;
+  height: 360px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.09),
+    rgba(255, 255, 255, 0.03) 42%,
+    transparent 66%
+  );
+  opacity: 0;
+  transition: opacity 700ms ease;
+  will-change: transform;
+}
+.onb-cursor-glow.is-live {
+  opacity: 1;
+}
+.onb.is-finale .onb-cursor-glow {
+  opacity: 0;
+}
+
 /* ---- Step content ---------------------------------------------------- */
 
 .onb-stage {

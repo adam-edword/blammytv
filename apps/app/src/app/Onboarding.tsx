@@ -116,26 +116,53 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
 
   // The glow's heartbeat: angle integrates a velocity that eases toward
   // either the drift speed or, right after an advance, the burst speed.
+  // The same loop lerps the cursor glow toward the pointer — one rAF,
+  // and reduced-motion drops ALL of it (decorative only; the glow must
+  // not appear stuck at 0,0 for those users).
+  const cursorRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     let raf = 0;
     let last = performance.now();
     let angle = 0;
     let vel = BASE_DEG_S;
+    let target: { x: number; y: number } | null = null;
+    let pos: { x: number; y: number } | null = null;
+    const onMove = (e: PointerEvent) => {
+      target = { x: e.clientX, y: e.clientY };
+    };
+    window.addEventListener("pointermove", onMove);
     const tick = (now: number) => {
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
-      const target = now < burstUntil.current ? BURST_DEG_S : BASE_DEG_S;
-      vel += (target - vel) * Math.min(1, dt * 7);
+      const speed = now < burstUntil.current ? BURST_DEG_S : BASE_DEG_S;
+      vel += (speed - vel) * Math.min(1, dt * 7);
       angle = (angle + vel * dt) % 360;
       gradRef.current?.style.setProperty(
         "--welcome-grad-angle",
         `${90 + angle}deg`,
       );
+      if (target) {
+        // First sighting jumps straight to the pointer — no sweep in
+        // from the corner.
+        if (!pos) {
+          pos = { ...target };
+          cursorRef.current?.classList.add("is-live");
+        } else {
+          pos.x += (target.x - pos.x) * Math.min(1, dt * 9);
+          pos.y += (target.y - pos.y) * Math.min(1, dt * 9);
+        }
+        if (cursorRef.current) {
+          cursorRef.current.style.transform = `translate3d(${pos.x}px, ${pos.y}px, 0)`;
+        }
+      }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("pointermove", onMove);
+    };
   }, []);
 
   const think = () => {
@@ -386,6 +413,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
         <div className="onb-screen" />
       </div>
       <div className="onb-dither" />
+      <div ref={cursorRef} className="onb-cursor-glow" aria-hidden />
       {!finale && (
         <div
           key={step}
