@@ -857,14 +857,14 @@
 /* Slightly-glassy surfaces inside the settings card (Adam, v0.4.2):
  * the solid --surface blocks read heavy over the frosted card — let
  * the card's glass breathe through instead. color-mix keeps the tint
- * theme-true (dark: smoky black; light: milky white); the thumb/chips
- * ABOVE these stay solid for contrast. */
+ * theme-true originally; Adam's trim (v0.4.3): black glass at 65%,
+ * both themes. Thumbs/chips ABOVE these stay solid for contrast. */
 .settings .settings-input,
 .settings .chip-tabs,
 .settings .playlist-row,
 .settings .source-list,
 .settings .accent-popover__dropper,
 .settings .accent-popover__hex input {
-  background: color-mix(in srgb, var(--surface) 52%, transparent);
+  background: color-mix(in srgb, #000000 65%, transparent);
   backdrop-filter: blur(14px);
 }
