@@ -241,37 +241,36 @@
  * quality-badge rings already use (border-image can't round corners). */
 :root[data-accent-style="aurora"] .btn-primary {
   border: 1px solid transparent;
+  /* Adam's exact recipe: the 0.29-alpha conic over black (the HDR-badge
+   * construction), full-strength ring on the same angle. */
   background:
     var(--accent-image) padding-box,
-    linear-gradient(rgba(32, 32, 40, 0.72), rgba(32, 32, 40, 0.72))
-      padding-box,
+    linear-gradient(#000, #000) padding-box,
     var(--accent-ring-image) border-box;
-  backdrop-filter: blur(12px);
 }
 
-/* Aurora picker swatch: the ring at full strength (the low-alpha wash
- * over a dark base read as a black box at swatch size). Doubled class
- * beats .accent-swatch's own background regardless of file order. */
+/* Aurora picker swatch: wash over black in the middle, full-strength
+ * ring in the border — SAME conic, same angle, so ring and fill line
+ * up. Always-visible (the --aurora-* constants exist under any accent).
+ * Doubled class beats .accent-swatch's own background/border. */
 .accent-swatch.accent-swatch--aurora {
-  background: conic-gradient(
-    from 210deg,
-    #e879f9,
-    #818cf8 25%,
-    #38bdf8 50%,
-    #4ade80 72%,
-    #f472b6 90%,
-    #e879f9
-  );
+  border-color: transparent;
+  background:
+    var(--aurora-image) padding-box,
+    linear-gradient(#000, #000) padding-box,
+    var(--aurora-ring) border-box;
 }
 
 /* EPG under Aurora: the live cell wears the wash over glass; the
  * now-playing channel name becomes gradient TEXT (its channel-number
  * chip keeps its own explicit colors). */
 :root[data-accent-style="aurora"] .guide__cell--live {
+  /* Repeating linear, not conic — the sweep smeared across long
+   * programmes. Fixed 650px period: narrow cells get a slice, wide
+   * cells cycle smoothly. */
   background:
-    var(--accent-image) padding-box,
-    linear-gradient(rgba(32, 32, 40, 0.55), rgba(32, 32, 40, 0.55))
-      padding-box;
+    var(--aurora-stripe) padding-box,
+    linear-gradient(#101014, #101014) padding-box;
   border-color: #ffffff2e;
 }
 :root[data-accent-style="aurora"] .hero__channel {

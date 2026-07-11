@@ -130,25 +130,41 @@
  * var(--accent-image, <flat fallback>) degrades to the classic look.
  * The subtle multi-hue wash (violet / blue / green) mirrors the
  * reference: dark glass with color breathing through, not a rainbow. */
+/* The aurora gradients are CONSTANTS (defined always, so the picker
+ * swatch can wear them even while a flat accent is active). Adam's
+ * exact rainbow — the HDR badge's conic from the Figma dev-mode export;
+ * the ring is the same stops at full strength, same angle, so ring and
+ * fill line up. */
+:root {
+  --aurora-image: conic-gradient(
+    from -57deg at 49.88% 50.33%,
+    rgba(255, 155, 155, 0.29) 73.094deg,
+    rgba(134, 150, 255, 0.29) 144.393deg,
+    rgba(132, 255, 169, 0.29) 214.689deg,
+    rgba(255, 229, 127, 0.29) 288.252deg,
+    rgba(255, 123, 246, 0.29) 359.73deg
+  );
+  --aurora-ring: conic-gradient(
+    from -57deg at 49.88% 50.33%,
+    #ff9b9b 73.094deg,
+    #8696ff 144.393deg,
+    #84ffa9 214.689deg,
+    #ffe57f 288.252deg,
+    #ff7bf6 359.73deg
+  );
+  /* Repeating LINEAR variant for long horizontal surfaces (EPG cells) —
+   * the conic sweep read as a smeared blob across a 4-hour programme. */
+  --aurora-stripe: repeating-linear-gradient(
+    100deg,
+    rgba(255, 155, 155, 0.2) 0,
+    rgba(134, 150, 255, 0.2) 130px,
+    rgba(132, 255, 169, 0.2) 260px,
+    rgba(255, 229, 127, 0.2) 390px,
+    rgba(255, 123, 246, 0.2) 520px,
+    rgba(255, 155, 155, 0.2) 650px
+  );
+}
 :root[data-accent-style="aurora"] {
-  /* ANGULAR (conic) per Adam — both loop back to the start color so
-   * there's no hard seam. The fill is the ring at low alpha. */
-  --accent-image: conic-gradient(
-    from 200deg at 50% 40%,
-    rgba(232, 121, 249, 0.3),
-    rgba(129, 140, 248, 0.28) 22%,
-    rgba(56, 189, 248, 0.24) 48%,
-    rgba(74, 222, 128, 0.24) 70%,
-    rgba(244, 114, 182, 0.28) 92%,
-    rgba(232, 121, 249, 0.3)
-  );
-  --accent-ring-image: conic-gradient(
-    from 200deg at 50% 50%,
-    #e879f9,
-    #818cf8 22%,
-    #38bdf8 48%,
-    #4ade80 70%,
-    #f472b6 92%,
-    #e879f9
-  );
+  --accent-image: var(--aurora-image);
+  --accent-ring-image: var(--aurora-ring);
 }
