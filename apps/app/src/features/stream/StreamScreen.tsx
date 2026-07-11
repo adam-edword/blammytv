@@ -32,6 +32,7 @@ import {
 import { loadWatched, markWatched } from "./watched";
 import { inMyList, toggleMyList } from "./myList";
 import { loadAioUrl } from "../settings/aiostreams";
+import { loadOneClickPlay } from "../settings/oneClickPlay";
 import {
   cardMetaLine,
   loadCardMeta,
@@ -311,20 +312,32 @@ export function StreamScreen() {
     [open, setPlaying],
   );
 
-  // Discover → Stream handoff: drain the mailbox on mount (the tab switch
-  // mounts this screen after the request was parked) and on the event
-  // (already-on-Stream case).
+  // Card click: browse — or, with the opt-in setting on, straight to
+  // playback for MOVIES (watchNow falls back to the detail page when
+  // nothing's cached; series always browse). Read at click time so the
+  // Settings toggle applies without a remount.
+  const cardOpen = useCallback(
+    (item: VodItem) =>
+      loadOneClickPlay() && item.kind === "movie"
+        ? watchNow(item)
+        : open(item),
+    [watchNow, open],
+  );
+
+  // Discover/My List → Stream handoff: drain the mailbox on mount (the
+  // tab switch mounts this screen after the request was parked) and on
+  // the event (already-on-Stream case). One-click play applies here too.
   useEffect(() => {
     const consume = () => {
       const item = takeOpenRequest();
       if (item) {
         handoffRef.current = true;
-        void open(item);
+        void cardOpen(item);
       }
     };
     consume();
     return onOpenRequest(consume);
-  }, [open]);
+  }, [cardOpen]);
 
   // ---- Playback: fullscreen through the shared inverted player. The
   // overlay's meta is minimal VOD shape (live:false, no programme). ----
@@ -1086,7 +1099,7 @@ export function StreamScreen() {
       {view.at === "home" && (
         <Home
           load={load}
-          onOpen={open}
+          onOpen={cardOpen}
           onWatchNow={watchNow}
           watching={watching}
           onClearWatching={(id) => setWatching(clearWatching(id))}

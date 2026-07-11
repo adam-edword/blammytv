@@ -29,6 +29,7 @@ import {
   loadShowChannelNumber,
   saveShowChannelNumber,
 } from "./channelNumber";
+import { loadOneClickPlay, saveOneClickPlay } from "./oneClickPlay";
 import { UpdatesSection } from "./UpdatesSection";
 import {
   applyCornerStyle,
@@ -179,6 +180,13 @@ export function CustomizeTab() {
     saveShowChannelNumber(next);
   };
 
+  const [oneClick, setOneClick] = useState<boolean>(loadOneClickPlay);
+  const toggleOneClick = () => {
+    const next = !oneClick;
+    setOneClick(next);
+    saveOneClickPlay(next);
+  };
+
   /** Back to factory appearance: default accent (custom slot cleared),
    * dark theme, squircle corners, 100% scale, 12h clock, open on Live,
    * channel numbers shown. */
@@ -262,6 +270,22 @@ export function CustomizeTab() {
             on={chanNum}
             onChange={toggleChanNum}
             label="Show channel numbers"
+          />
+        </div>
+
+        <div className="customize-row">
+          <div>
+            <h4 className="customize-row__title">One-Click Play</h4>
+            <p className="settings__section-note settings__section-note--dim">
+              Clicking a movie card plays the best cached source right
+              away. Series still browse; no cached source falls back to
+              the detail page.
+            </p>
+          </div>
+          <Toggle
+            on={oneClick}
+            onChange={toggleOneClick}
+            label="One-click play"
           />
         </div>
       </section>
