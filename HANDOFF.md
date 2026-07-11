@@ -291,15 +291,28 @@ sections annotated, TheaterOverlay/player.css/tauri.ts/mpv.rs headers).
      theme on a TV app because the internet blipped. Don't escalate
      into DRM: CSS is copyable; price low, make buying nicer than
      pirating.
-   - Hosting shape (agreed 2026-07-11): payments + key issue/validate =
-     the MoR's built-in license API (never self-host key generation;
-     never publish a readable key list — validation is key-in,
-     yes/no-out). Adam's Oracle box serves only the PAYLOADS: a tiny
-     service that re-validates the key against the MoR server-side,
-     then streams the theme CSS; Caddy for HTTPS, rate-limit the
-     endpoint. Fail-open caching means box uptime only gates NEW
-     activations. (Cloudflare Worker + R2 is the zero-maintenance
-     alternative if the box ever annoys him.)
+   - NO ACCOUNTS — Adam's explicit call (2026-07-11): the license key
+     IS the credential. No signup/login/password anywhere; the MoR
+     checkout email is their receipt flow, not an app account; the
+     payload service stays STATELESS (no PII on the box, ever). New
+     machine = paste the key again; per-key activation limits handle
+     sharing. Trakt/MAL later are the user's own third-party accounts
+     via OAuth device-code — we still operate no account system.
+   - Hosting shape (updated 2026-07-11 — Adam's call: STRIPE, not a
+     merchant-of-record; "the tax is probably negligible" = accepted
+     risk at hobby scale, revisit if volume or EU share grows: EU VAT
+     technically applies from €0 for digital goods, some US states
+     have 200-transaction nexus). Stripe has NO license API, so the
+     Oracle box owns keys end-to-end: Stripe Checkout → webhook → box
+     generates the key (stored WITHOUT buyer identity — the key list
+     stays PII-free; Stripe's dashboard is the purchase↔person record
+     for manual lost-key support) → success page shows the key. App
+     activation = key → box /validate (activation cap in SQLite) →
+     theme payload CSS. SQLite key DB NEEDS A BACKUP STORY — a dead
+     disk must not orphan every sold key (nightly dump off-box).
+     Never publish a readable key list; validation is key-in,
+     yes/no-out. Caddy HTTPS, rate-limited. Fail-open caching
+     unchanged: box uptime only gates NEW activations.
    - "Can the backend overwrite/hack the theme?" Provider-controlled
      strings (channel names, EPG, addon metas) never reach HTML/CSS
      sinks (React escaping; zero innerHTML/dangerouslySetInnerHTML in
