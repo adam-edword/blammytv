@@ -48,7 +48,44 @@ export function saveCustomAccent(hex: string): void {
   save(CUSTOM_KEY, VERSION, hex.toLowerCase());
 }
 
-/** Push the accent into CSS; every derived shade follows via color-mix. */
+/**
+ * Accent STYLE: "flat" = a single hex feeds everything (the classic
+ * system); "aurora" = gradient-capable surfaces read the gradient
+ * tokens (tokens.css, scoped to [data-accent-style="aurora"]) while
+ * everything thin — progress bars, box-shadow rings, text accents —
+ * falls back to a representative flat hue through the SAME --accent
+ * feed. Elements needing special treatment use classes scoped under
+ * the root attribute (see the Aurora block in ui.css).
+ */
+export type AccentStyle = "flat" | "aurora";
+
+/** The flat hue thin consumers read while Aurora is active. */
+export const AURORA_HUE = "#8b5cf6";
+
+const STYLE_KEY = "accent-style";
+
+export function loadAccentStyle(): AccentStyle {
+  return load<string>(STYLE_KEY, VERSION, "flat") === "aurora"
+    ? "aurora"
+    : "flat";
+}
+
+export function saveAccentStyle(style: AccentStyle): void {
+  save(STYLE_KEY, VERSION, style);
+}
+
+/** Push the accent into CSS; every derived shade follows via color-mix.
+ * Also stands DOWN aurora — picking any flat color exits the style. */
 export function applyAccent(hex: string): void {
-  document.documentElement.style.setProperty("--accent", hex);
+  const root = document.documentElement;
+  delete root.dataset.accentStyle;
+  root.style.setProperty("--accent", hex);
+}
+
+/** Enter the Aurora style: gradient tokens activate via the root
+ * attribute; --accent becomes the representative hue. */
+export function applyAurora(): void {
+  const root = document.documentElement;
+  root.dataset.accentStyle = "aurora";
+  root.style.setProperty("--accent", AURORA_HUE);
 }

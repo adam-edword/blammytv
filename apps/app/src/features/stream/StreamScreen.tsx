@@ -1933,31 +1933,6 @@ function Detail({
           )}
           <SaveButton item={item} />
           <GenrePills genres={item.genres} />
-          {more.length > 0 && (
-            <div className="vod-more">
-              <h4 className="vod-more__title">More Like This</h4>
-              {/* Same shelf mechanics as the home rows: RowScroller's
-                * arrows, edge scrims, and click-and-drag. */}
-              <RowScroller>
-                {more.map((v) => (
-                  <button
-                    key={v.id}
-                    type="button"
-                    className="vod-more__card"
-                    title={v.title}
-                    onClick={() => onOpenItem?.(v)}
-                  >
-                    <img
-                      src={v.poster}
-                      alt={v.title}
-                      loading="lazy"
-                      draggable={false}
-                    />
-                  </button>
-                ))}
-              </RowScroller>
-            </div>
-          )}
         </div>
         <div className="vod-sources">
           <h3>Sources</h3>
@@ -1992,6 +1967,33 @@ function Detail({
             ))}
         </div>
       </div>
+      {/* Full-width band BELOW the body — the info column clipped it
+        * (66ch cap + internal scroll ate horizontal overflow). First
+        * card aligns with the info text; scrolled cards run to the true
+        * viewport edge (no left fade), fade on the right only. */}
+      {more.length > 0 && (
+        <div className="vod-more">
+          <h4 className="vod-more__title">More Like This</h4>
+          <RowScroller>
+            {more.map((v) => (
+              <button
+                key={v.id}
+                type="button"
+                className="vod-more__card"
+                title={v.title}
+                onClick={() => onOpenItem?.(v)}
+              >
+                <img
+                  src={v.poster}
+                  alt={v.title}
+                  loading="lazy"
+                  draggable={false}
+                />
+              </button>
+            ))}
+          </RowScroller>
+        </div>
+      )}
     </div>
   );
 }

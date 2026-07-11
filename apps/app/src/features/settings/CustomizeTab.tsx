@@ -7,10 +7,14 @@ import { Toggle } from "../../ui/Toggle";
 import {
   ACCENT_PRESETS,
   applyAccent,
+  applyAurora,
   loadAccent,
+  loadAccentStyle,
   loadCustomAccent,
   saveAccent,
+  saveAccentStyle,
   saveCustomAccent,
+  type AccentStyle,
 } from "./accent";
 import { applyTheme, loadTheme, saveTheme, type Theme } from "./theme";
 import {
@@ -94,16 +98,26 @@ export function CustomizeTab() {
   const [custom, setCustom] = useState(loadCustomAccent);
   // Only "active" when the accent is the custom colour AND not also a preset —
   // otherwise a custom hex that happens to equal a preset lights up both swatches.
+  const [accentStyle, setAccentStyle] =
+    useState<AccentStyle>(loadAccentStyle);
   const isCustomActive =
     custom !== "" &&
     accent === custom &&
+    accentStyle !== "aurora" &&
     !ACCENT_PRESETS.some((p) => p.hex === accent);
 
   const pick = (hex: string) => {
     const value = hex.toLowerCase();
     setAccent(value);
     saveAccent(value);
-    applyAccent(value);
+    applyAccent(value); // also exits aurora
+    setAccentStyle("flat");
+    saveAccentStyle("flat");
+  };
+  const pickAurora = () => {
+    setAccentStyle("aurora");
+    saveAccentStyle("aurora");
+    applyAurora();
   };
 
   const pickCustom = (hex: string) => {
@@ -309,18 +323,33 @@ export function CustomizeTab() {
                 key={p.hex}
                 type="button"
                 role="radio"
-                aria-checked={p.hex === accent}
+                aria-checked={p.hex === accent && accentStyle !== "aurora"}
                 aria-label={p.name}
                 title={p.name}
                 className="accent-swatch"
                 style={swatchStyle(p.hex)}
                 onClick={() => pick(p.hex)}
               >
-                {p.hex === accent && (
+                {p.hex === accent && accentStyle !== "aurora" && (
                   <CheckIcon className="accent-swatch__check" />
                 )}
               </button>
             ))}
+            {/* Aurora: gradient surfaces where they fit, the violet
+              * fallback hue everywhere thin (see accent.ts). */}
+            <button
+              type="button"
+              role="radio"
+              aria-checked={accentStyle === "aurora"}
+              aria-label="Aurora"
+              title="Aurora (gradient)"
+              className="accent-swatch accent-swatch--aurora"
+              onClick={pickAurora}
+            >
+              {accentStyle === "aurora" && (
+                <CheckIcon className="accent-swatch__check" />
+              )}
+            </button>
             {/* Clicking applies the remembered custom color right away and
                 opens our own picker popover (changes apply live). */}
             <button

@@ -13,7 +13,12 @@ import "./styles/welcome.css";
 import { App } from "./app/App";
 import { TheaterOverlay } from "./features/live/TheaterOverlay";
 import { isTauri } from "./lib/tauri";
-import { applyAccent, loadAccent } from "./features/settings/accent";
+import {
+  applyAccent,
+  applyAurora,
+  loadAccent,
+  loadAccentStyle,
+} from "./features/settings/accent";
 import { applyTheme, loadTheme } from "./features/settings/theme";
 import { applyUiScale, loadUiScale } from "./features/settings/uiScale";
 import {
@@ -22,7 +27,8 @@ import {
 } from "./features/settings/cornerStyle";
 
 // Apply saved appearance before first paint so nothing flashes.
-applyAccent(loadAccent());
+if (loadAccentStyle() === "aurora") applyAurora();
+else applyAccent(loadAccent());
 applyTheme(loadTheme());
 applyUiScale(loadUiScale());
 applyCornerStyle(loadCornerStyle());

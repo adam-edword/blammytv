@@ -233,3 +233,27 @@
       )
       border-box;
 }
+
+/* ---------- Aurora tweaks (special classes) ----------
+ * Only elements that can take the gradient opt in here; everything else
+ * keeps reading the flat --accent hue applyAurora sets. The glass fill +
+ * iridescent ring is the padding-box/border-box two-layer technique the
+ * quality-badge rings already use (border-image can't round corners). */
+:root[data-accent-style="aurora"] .btn-primary {
+  border: 1px solid transparent;
+  background:
+    var(--accent-image) padding-box,
+    linear-gradient(rgba(32, 32, 40, 0.72), rgba(32, 32, 40, 0.72))
+      padding-box,
+    var(--accent-ring-image) border-box;
+  backdrop-filter: blur(12px);
+}
+
+/* Aurora picker swatch: the wash in miniature. */
+.accent-swatch--aurora {
+  background:
+    radial-gradient(120% 120% at 20% 20%, #a855f7, transparent 62%),
+    radial-gradient(120% 120% at 85% 30%, #3b82f6, transparent 62%),
+    radial-gradient(130% 130% at 60% 92%, #4ade80, transparent 62%),
+    #26262e;
+}

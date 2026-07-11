@@ -423,51 +423,58 @@
   color: rgba(242, 242, 244, 0.55);
 }
 
-/* More Like This: poster shelf at the bottom of the info column — the
- * detail page itself never scrolls, so the shelf is capped at half the
- * viewport and scrolls itself through RowScroller (same arrows, edge
- * scrims, and click-and-drag as the home rows). */
+/* More Like This: full-width band under the detail body. The title and
+ * first card align with the info text (7% + 32px); scrolled cards run
+ * to the TRUE viewport edge on the left (scroll-padding rides inside
+ * the scroll content), and the right edge fades the cards themselves
+ * out via mask — the shared scrims paint --bg slabs over backdrop art. */
 .vod-more {
-  margin-top: 18px;
+  flex: none;
   min-width: 0;
-  max-width: 50vw;
+  padding-bottom: 18px;
+  z-index: 1; /* above the backdrop/scrim layers */
 }
+/* Info-text alignment: the info column's 7% margin resolves against the
+ * GRID COLUMN (0.93W - 480px), not the page — so text x = 32px +
+ * 0.07(0.93W - 480) = 6.51vw - 1.6px. The shelf spans the page, so it
+ * reproduces that expression directly. */
 .vod-more__title {
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 14px;
-  margin-bottom: 6px;
+  margin: 0 0 4px calc(6.51% - 1.6px);
   color: rgba(242, 242, 244, 0.8);
 }
-/* RowScroller's viewport bleeds -28px for the page rows; inside the
- * info column that would poke past the backdrop text — neutralize, and
- * give the scroller headroom so the hover lift never clips against the
- * scroll container. */
 .vod-more .media-row__viewport {
   margin: 0;
 }
 .vod-more .media-row__scroller {
-  padding: 10px 2px 10px;
-  /* Edge fade via mask — the shared scrims paint --bg gradients, which
-   * read as black slabs over the backdrop art. A mask fades the CARDS
-   * themselves to transparent instead (the opacity fade). */
+  padding: 10px 96px 10px calc(6.51% - 1.6px);
+  scrollbar-width: none;
   -webkit-mask-image: linear-gradient(
     to right,
-    transparent 0,
-    #000 10px,
-    #000 calc(100% - 52px),
+    #000 0,
+    #000 calc(100% - 80px),
     transparent 100%
   );
   mask-image: linear-gradient(
     to right,
-    transparent 0,
-    #000 10px,
-    #000 calc(100% - 52px),
+    #000 0,
+    #000 calc(100% - 80px),
     transparent 100%
   );
 }
+.vod-more .media-row__scroller::-webkit-scrollbar {
+  display: none;
+}
 .vod-more .media-row__scrim {
   display: none;
+}
+/* With the shelf below, the info column's roomy 7% bottom margin is
+ * what clipped the genre pills at 900px-tall windows — trade it for a
+ * tight one only when the shelf is present. */
+.vod-detail:has(.vod-more) .vod-detail__info {
+  margin-bottom: 14px;
 }
 .vod-more__card {
   flex: 0 0 auto;
@@ -531,6 +538,10 @@
   min-height: 0;
   overflow: hidden;
   background: var(--surface);
+  /* Column layout so the More Like This band can sit BELOW the body at
+   * full window width (inside the info column it got clipped). */
+  display: flex;
+  flex-direction: column;
 }
 .vod-detail__backdrop {
   position: absolute;
@@ -550,7 +561,8 @@
 }
 .vod-detail__body {
   position: relative;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: 1fr 420px;
   gap: 28px;
