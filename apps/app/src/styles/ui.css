@@ -44,7 +44,9 @@
 
 /* Trackless variant (the header's Stream rail): same chips, same sliding
  * thumb, no track behind them — the pills float on the header. Labels
- * ride Regular (the Bold-12 rule is for tracked rails over surfaces). */
+ * ride Regular (the Bold-12 rule is for tracked rails over surfaces).
+ * The thumb goes GLASS here: content scrolls under the floating header,
+ * so it frosts what's beneath instead of sitting flat. */
 .chip-tabs--bare {
   background: transparent;
 }
@@ -55,6 +57,9 @@
 .chip-tabs--bare .chip-tabs__thumb {
   top: 4px;
   bottom: 3px;
+  background: rgba(170, 170, 170, 0.19);
+  backdrop-filter: blur(10px);
+  border: 1px solid #ffffff40;
 }
 
 /* Toggle: a text-less chip rail. Same track color, inset, radius, and slide

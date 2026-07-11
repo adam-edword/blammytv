@@ -11,6 +11,7 @@ import { DiscoverScreen } from "../features/discover/DiscoverScreen";
 import { SettingsModal } from "../features/settings/SettingsModal";
 import { loadStartupTab } from "../features/settings/startupTab";
 import {
+  onGenreRequest,
   onOpenRequest,
   onReturnRequest,
 } from "../features/stream/openRequest";
@@ -54,6 +55,16 @@ export function App() {
       onReturnRequest((from) => {
         setSection("stream");
         setStreamTab(from);
+      }),
+    [],
+  );
+  // A genre pill on the detail screens → Discover, that genre selected
+  // (DiscoverScreen drains the mailbox itself).
+  useEffect(
+    () =>
+      onGenreRequest(() => {
+        setSection("stream");
+        setStreamTab("discover");
       }),
     [],
   );

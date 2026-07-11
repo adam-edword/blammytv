@@ -26,6 +26,7 @@ import { nextEpisode, nextUpEpisode, pickCachedIndex } from "./mapper";
 import { getAniskipRanges, type SkipRange } from "./aniskip";
 import {
   onOpenRequest,
+  requestDiscoverGenre,
   requestReturnToDiscover,
   takeOpenRequest,
 } from "./openRequest";
@@ -1779,6 +1780,27 @@ const discoverCfg = (): Promise<DiscoverConfig> =>
     throw e;
   }));
 
+/** Genre pills on the detail screens — each one jumps to Discover with
+ * that genre selected (the mailbox flips the nav; DiscoverScreen drains
+ * and normalizes casing/unknowns itself). */
+function GenrePills({ genres }: { genres: string[] }) {
+  if (genres.length === 0) return null;
+  return (
+    <div className="vod-detail__pills">
+      {genres.slice(0, 5).map((g) => (
+        <button
+          key={g}
+          type="button"
+          title={`Browse ${g} in Discover`}
+          onClick={() => requestDiscoverGenre(g)}
+        >
+          {g}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /** "+ My List" / "✓ My List" toggle on the detail screens — feeds the
  * Stream section's My List grid. Re-reads per mount; state is local
  * (the grid re-reads storage when IT mounts). */
@@ -1832,11 +1854,15 @@ function Detail({
     (async () => {
       try {
         const cfg = await discoverCfg();
-        const cats = gridCatalogs(cfg.catalogs, item.kind, moreGenre).slice(
-          0,
-          2,
-        );
-        if (cats.length === 0) return;
+        const serving = gridCatalogs(cfg.catalogs, item.kind, moreGenre);
+        if (serving.length === 0) return;
+        // Spread across the WHOLE manifest, capped — anchoring to the
+        // first catalogs recommended anime for everything on a manifest
+        // that leads with two anime lists (the Discover grid's old
+        // anchoring bug, same class).
+        const MAXC = 6;
+        const step = Math.max(1, Math.ceil(serving.length / MAXC));
+        const cats = serving.filter((_, i) => i % step === 0).slice(0, MAXC);
         const pages = await Promise.all(
           cats.map((c) =>
             fetchDiscoverPage(cfg, c, moreGenre, 0).catch(() => []),
@@ -1848,7 +1874,7 @@ function Detail({
           if (seen.has(v.id) || !v.poster) continue;
           seen.add(v.id);
           picks.push(v);
-          if (picks.length >= 12) break;
+          if (picks.length >= 18) break;
         }
         if (!stale) setMore(picks);
       } catch {
@@ -1906,17 +1932,13 @@ function Detail({
             <p className="vod-detail__synopsis">{item.synopsis}</p>
           )}
           <SaveButton item={item} />
-          {item.genres.length > 0 && (
-            <div className="vod-detail__pills">
-              {item.genres.slice(0, 5).map((g) => (
-                <span key={g}>{g}</span>
-              ))}
-            </div>
-          )}
+          <GenrePills genres={item.genres} />
           {more.length > 0 && (
             <div className="vod-more">
               <h4 className="vod-more__title">More Like This</h4>
-              <div className="vod-more__row">
+              {/* Same shelf mechanics as the home rows: RowScroller's
+                * arrows, edge scrims, and click-and-drag. */}
+              <RowScroller>
                 {more.map((v) => (
                   <button
                     key={v.id}
@@ -1933,7 +1955,7 @@ function Detail({
                     />
                   </button>
                 ))}
-              </div>
+              </RowScroller>
             </div>
           )}
         </div>
@@ -2039,6 +2061,7 @@ function Episodes({
             </p>
           )}
           <SaveButton item={item} />
+          <GenrePills genres={item.genres} />
         </div>
         {item.seasons.length === 0 ? (
           <p className="vod-sources__note">Loading episodes…</p>

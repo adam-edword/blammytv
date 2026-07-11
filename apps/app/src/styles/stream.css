@@ -423,34 +423,56 @@
   color: rgba(242, 242, 244, 0.55);
 }
 
-/* More Like This: compact poster strip at the bottom of the info column
- * — the detail page itself never scrolls, so the strip stays small and
- * scrolls horizontally on its own. */
+/* More Like This: poster shelf at the bottom of the info column — the
+ * detail page itself never scrolls, so the shelf is capped at half the
+ * viewport and scrolls itself through RowScroller (same arrows, edge
+ * scrims, and click-and-drag as the home rows). */
 .vod-more {
   margin-top: 18px;
   min-width: 0;
+  max-width: 50vw;
 }
 .vod-more__title {
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 14px;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
   color: rgba(242, 242, 244, 0.8);
 }
-.vod-more__row {
-  display: flex;
-  gap: 10px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  padding-bottom: 4px;
+/* RowScroller's viewport bleeds -28px for the page rows; inside the
+ * info column that would poke past the backdrop text — neutralize, and
+ * give the scroller headroom so the hover lift never clips against the
+ * scroll container. */
+.vod-more .media-row__viewport {
+  margin: 0;
 }
-.vod-more__row::-webkit-scrollbar {
+.vod-more .media-row__scroller {
+  padding: 10px 2px 10px;
+  /* Edge fade via mask — the shared scrims paint --bg gradients, which
+   * read as black slabs over the backdrop art. A mask fades the CARDS
+   * themselves to transparent instead (the opacity fade). */
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 10px,
+    #000 calc(100% - 52px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 10px,
+    #000 calc(100% - 52px),
+    transparent 100%
+  );
+}
+.vod-more .media-row__scrim {
   display: none;
 }
 .vod-more__card {
   flex: 0 0 auto;
-  width: 92px;
-  border-radius: 12px;
+  width: 170px;
+  border-radius: 30px;
   overflow: hidden;
   border: 1px solid var(--border-strong, rgba(255, 255, 255, 0.14));
   transition: transform 140ms ease;
@@ -551,8 +573,26 @@
   margin-bottom: 7%;
   margin-left: 7%;
   align-items: flex-start;
-  justify-content: flex-end;
+  /* Bottom-anchored via the :first-child auto margin below, NOT
+   * justify-content:flex-end — flex-end + overflow spills content
+   * ABOVE the container unscrollably (the Back button vanished under
+   * the header brand when the More Like This shelf grew the column).
+   * Auto margins resolve to 0 on overflow, so: short content sits at
+   * the bottom as designed, tall content top-anchors and scrolls. */
+  justify-content: flex-start;
   max-width: 66ch;
+  padding-top: calc(var(--header-h, 76px) + 8px);
+  overflow-y: auto;
+  scrollbar-width: none;
+  min-height: 0;
+}
+.vod-detail__info::-webkit-scrollbar {
+  display: none;
+}
+.vod-detail__body:not(.vod-detail__body--episodes)
+  .vod-detail__info
+  > :first-child {
+  margin-top: auto;
 }
 /* The episodes page keeps its top-left header — the flex-end/7% layout
  * above is tuned for the source screen. */
@@ -594,7 +634,8 @@
 .vod-detail__meta { color: rgba(242, 242, 244, 0.65); font-size: 18px; }
 .vod-detail__synopsis { font-size: 18px; line-height: 1.5; margin: 6px 0; color: rgba(242, 242, 244, 0.85); }
 .vod-detail__pills { display: flex; gap: 8px; flex-wrap: wrap; }
-.vod-detail__pills span {
+/* Buttons now — each pill jumps to Discover with its genre selected. */
+.vod-detail__pills button {
   font-size: 15px;
   padding: 9px 15px;
   border-radius: 999px;
@@ -602,6 +643,12 @@
   color: rgba(242, 242, 244, 0.8);
   background: #00000050;
   backdrop-filter: blur(16px);
+  cursor: pointer;
+  transition: border-color 140ms ease, color 140ms ease;
+}
+.vod-detail__pills button:hover {
+  border-color: var(--accent);
+  color: #f2f2f4;
 }
 
 /* ---- source rail ---- */

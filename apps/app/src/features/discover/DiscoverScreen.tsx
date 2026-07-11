@@ -6,7 +6,11 @@ import {
   type CardMetaField,
 } from "../settings/cardMeta";
 import { Card, RowScroller } from "../stream/StreamScreen";
-import { requestOpenInStream } from "../stream/openRequest";
+import {
+  onGenreRequest,
+  requestOpenInStream,
+  takeGenreRequest,
+} from "../stream/openRequest";
 import type { VodItem } from "../stream/model";
 import {
   catKey,
@@ -21,7 +25,11 @@ import {
   seedFromStream,
   type DiscoverConfig,
 } from "./data";
-import { getSearchQuery, onSearchQueryChange } from "./searchQuery";
+import {
+  getSearchQuery,
+  onSearchQueryChange,
+  setSearchQuery,
+} from "./searchQuery";
 import { scrubbedMessage } from "../../lib/errors";
 
 /**
@@ -49,6 +57,30 @@ export function DiscoverScreen() {
   const [cfg, setCfg] = useState<Cfg>({ status: "loading" });
   const [filter, setFilter] = useState<TypeFilter>("all");
   const [genre, setGenre] = useState<string | null>(null);
+  // Genre hand-off (a detail-screen genre pill): drain on mount and on
+  // the event; arriving means BROWSING, so any active search clears.
+  // The raw genre may not match the rail's casing (or exist at all) —
+  // the reconcile effect below normalizes once the config is ready.
+  useEffect(() => {
+    const consume = () => {
+      const g = takeGenreRequest();
+      if (!g) return;
+      setSearchQuery("");
+      setGenre(g);
+    };
+    consume();
+    return onGenreRequest(consume);
+  }, []);
+  useEffect(() => {
+    if (cfg.status !== "ready" || !genre) return;
+    const match = cfg.cfg.genres.find(
+      (x) => x.toLowerCase() === genre.toLowerCase(),
+    );
+    // Unknown genre → unfiltered browse (an empty "phantom genre" grid
+    // would read as broken); casing differences adopt the rail's.
+    if (match === undefined) setGenre(null);
+    else if (match !== genre) setGenre(match);
+  }, [cfg, genre]);
   const [items, setItems] = useState<VodItem[]>([]);
   const [phase, setPhase] = useState<"first" | "more" | "idle" | "done">(
     "first",

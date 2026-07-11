@@ -2,7 +2,10 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AccountIcon, SearchIcon, SettingsIcon } from "../ui/icons";
 import { ChipTabs } from "../ui/ChipTabs";
 import { currentZoom } from "../features/settings/uiScale";
-import { setSearchQuery } from "../features/discover/searchQuery";
+import {
+  onSearchQueryChange,
+  setSearchQuery,
+} from "../features/discover/searchQuery";
 import { UpdateChip } from "./UpdateChip";
 import { formatClock } from "../lib/time";
 import { APP_VERSION } from "../lib/version";
@@ -66,6 +69,9 @@ export function AppHeader({
   // Controlled mirror of the shared search store (the store is the truth
   // DiscoverScreen renders from; local state keeps the input snappy).
   const [query, setQuery] = useState("");
+  // Mirror store-side clears too (e.g. a genre pill hand-off clears the
+  // search) — otherwise the input shows stale text over browse results.
+  useEffect(() => onSearchQueryChange(setQuery), []);
   const searchInputRef = useRef<HTMLInputElement>(null);
   // While the search input is focused the rail's thumb parks on the
   // search chip (thumbKey) — the thumb tracks where your INPUT goes;

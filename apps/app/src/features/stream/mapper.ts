@@ -102,7 +102,7 @@ export function metaToVod(m: MetaDetail): VodItem {
     runtimeMin: parseRuntime(m.runtime),
     synopsis: m.description,
     genres: m.genres ?? [],
-    cast: castNames(m.cast),
+    cast: castNames(m.cast, m.links),
     seasons: kind === "series" ? mapSeasons(m.videos ?? []) : [],
   };
 }
@@ -237,10 +237,19 @@ function parseRuntime(v?: string): number | undefined {
   return total > 0 ? total : undefined;
 }
 
-function castNames(cast: MetaDetail["cast"]): string[] {
-  if (!cast) return [];
-  return cast
+/** People from the legacy `cast` array, else from modern Cinemeta-style
+ * `links` entries with category "Cast" (some metas only ship links). */
+function castNames(
+  cast: MetaDetail["cast"],
+  links?: MetaDetail["links"],
+): string[] {
+  const fromCast = (cast ?? [])
     .map((c) => (typeof c === "string" ? c : c?.name))
+    .filter((n): n is string => Boolean(n));
+  if (fromCast.length > 0) return fromCast.slice(0, 20);
+  return (links ?? [])
+    .filter((l) => /^cast$/i.test(l?.category ?? ""))
+    .map((l) => l.name)
     .filter((n): n is string => Boolean(n))
     .slice(0, 20);
 }

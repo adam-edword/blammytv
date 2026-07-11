@@ -275,11 +275,10 @@ export function CustomizeTab() {
 
         <div className="customize-row">
           <div>
-            <h4 className="customize-row__title">One-Click Play</h4>
+            <h4 className="customize-row__title">One-Click Play Movies</h4>
             <p className="settings__section-note settings__section-note--dim">
-              Clicking a movie card plays the best cached source right
-              away. Series still browse; no cached source falls back to
-              the detail page.
+              Clicking a movie poster card plays the best source right
+              away, and it will never play an uncached source.
             </p>
           </div>
           <Toggle

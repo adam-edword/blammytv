@@ -38,6 +38,28 @@ export function onOpenRequest(cb: () => void): () => void {
   return () => window.removeEventListener(EVENT, cb);
 }
 
+/** Genre hand-off: a genre pill on the detail screens opens Discover
+ * with that genre selected. Same mailbox pattern as the item hand-off —
+ * the nav flip unmounts/mounts DiscoverScreen, which drains on mount. */
+const GENRE_EVENT = "blammytv:open-genre-in-discover";
+let pendingGenre: string | null = null;
+
+export function requestDiscoverGenre(genre: string): void {
+  pendingGenre = genre;
+  window.dispatchEvent(new CustomEvent(GENRE_EVENT));
+}
+
+export function takeGenreRequest(): string | null {
+  const g = pendingGenre;
+  pendingGenre = null;
+  return g;
+}
+
+export function onGenreRequest(cb: () => void): () => void {
+  window.addEventListener(GENRE_EVENT, cb);
+  return () => window.removeEventListener(GENRE_EVENT, cb);
+}
+
 /** Backing all the way out of a handed-off detail page returns to the
  * grid where the pick was made (Discover or My List), not Stream home. */
 export function requestReturnToDiscover(): void {

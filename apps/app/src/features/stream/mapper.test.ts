@@ -153,6 +153,22 @@ describe("metaToVod", () => {
     expect(v.backdrop).toBe("http://h/bg.png");
     expect(v.cast).toEqual(["A", "B"]);
   });
+
+  it("falls back to Cast links when meta.cast is absent", () => {
+    const v = metaToVod({
+      id: "tt9",
+      type: "movie",
+      name: "Linked",
+      links: [
+        { category: "Cast", name: "Keanu Reeves" },
+        { category: "Genres", name: "Comedy" },
+        { category: "cast", name: "Cameron Diaz" },
+        { category: "Cast" }, // nameless → dropped
+      ],
+      videos: [],
+    });
+    expect(v.cast).toEqual(["Keanu Reeves", "Cameron Diaz"]);
+  });
 });
 
 describe("metaPreviewToVod", () => {

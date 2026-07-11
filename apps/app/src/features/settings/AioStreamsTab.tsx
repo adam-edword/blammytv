@@ -199,8 +199,18 @@ export function AioStreamsTab() {
     );
   };
 
-  // Catalog row size + auto source-failover.
+  // Catalog row size + auto source-failover. The slider steps by 5;
+  // clicking the number swaps it for a type-in field (fine tune).
   const [rowCap, setRowCap] = useState<number>(loadRowCap);
+  const [capDraft, setCapDraft] = useState<string | null>(null);
+  const commitCap = () => {
+    if (capDraft !== null) {
+      const n = Number(capDraft);
+      if (Number.isFinite(n) && capDraft.trim() !== "")
+        setRowCap(saveRowCap(n)); // clamps to 10–100
+    }
+    setCapDraft(null);
+  };
   const [failover, setFailover] = useState<boolean>(loadSourceFailover);
   const [skipBehavior, setSkipBehavior] =
     useState<SkipBehavior>(loadSkipBehavior);
@@ -417,7 +427,32 @@ export function AioStreamsTab() {
               aria-label="Titles per row"
               onChange={(e) => setRowCap(saveRowCap(Number(e.target.value)))}
             />
-            <span className="rowcap__value">{rowCap}</span>
+            {capDraft !== null ? (
+              <input
+                className="rowcap__value rowcap__value--edit"
+                type="number"
+                min={ROW_CAP_MIN}
+                max={ROW_CAP_MAX}
+                value={capDraft}
+                autoFocus
+                aria-label="Titles per row (exact)"
+                onChange={(e) => setCapDraft(e.target.value)}
+                onBlur={commitCap}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") commitCap();
+                  if (e.key === "Escape") setCapDraft(null);
+                }}
+              />
+            ) : (
+              <button
+                type="button"
+                className="rowcap__value rowcap__value--btn"
+                title="Click to type an exact value"
+                onClick={() => setCapDraft(String(rowCap))}
+              >
+                {rowCap}
+              </button>
+            )}
           </div>
         </section>
       )}
@@ -428,8 +463,9 @@ export function AioStreamsTab() {
             <div>
               <h4 className="customize-row__title">Auto Source Failover</h4>
               <p className="settings__section-note settings__section-note--dim">
-                When a source dies mid-play, jump to the next available one
-                automatically. Off shows a button instead.
+                When a source dies mid-play, jump to the next available
+                cached one automatically — an uncached source is never
+                auto-played. Off shows a button instead.
               </p>
             </div>
             <Toggle

@@ -59,6 +59,9 @@ export interface MetaDetail extends MetaPreview {
   director?: string;
   year?: string | number;
   cast?: Array<{ name: string; character?: string; photo?: string }> | string[];
+  /** Modern Cinemeta-style metas carry people/genres as link objects
+   * instead of (or alongside) the legacy arrays. */
+  links?: Array<{ category?: string; name?: string; url?: string }>;
   /** Series only: the flat episode list across all seasons. */
   videos?: StremioVideo[];
 }
