@@ -1686,6 +1686,18 @@ function ContinueCard({
         ) : (
           <span className="continue-card__art continue-card__art--empty" />
         )}
+        {/* Clearlogo over the art, lower-middle — sits UNDER the hover
+          * play cue (which is dead center), never fighting it. */}
+        {entry.logo && (
+          <img
+            className="continue-card__logo"
+            src={entry.logo}
+            alt=""
+            aria-hidden
+            loading="lazy"
+            draggable={false}
+          />
+        )}
         <span className="continue-card__cue" aria-hidden>
           <PlayIcon size={36} />
         </span>

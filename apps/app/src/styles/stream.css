@@ -402,6 +402,21 @@
 .continue-card--holding .continue-card__art { filter: brightness(0.5); }
 .continue-card--holding .continue-card__hold { opacity: 1; }
 
+/* Clearlogo over the art: centered horizontally, lower-middle — under
+ * the hover play cue's dead-center spot. */
+.continue-card__logo {
+  position: absolute;
+  left: 50%;
+  top: 58%;
+  transform: translateX(-50%);
+  max-width: 55%;
+  max-height: 28%;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.6));
+  pointer-events: none;
+  transition: opacity 150ms ease;
+}
+
 /* ---- detail page ---- */
 /* Detail + episodes fill the whole window (`.stream--full` drops the
  * scroll-box padding) — the backdrop runs to the edges and under the
@@ -902,6 +917,19 @@
 .continue-card:hover .continue-card__cue { opacity: 1; }
 .continue-card__sources:hover { background: rgba(0, 0, 0, 0.75); }
 .continue-card { cursor: pointer; }
+/* While the hold-to-clear overlay is up it OWNS the card: the hover
+ * cue/scrim, Sources chip, and logo stand down (the play cue painted
+ * over the "Keep holding to clear" message — hover is always true
+ * while holding). The :hover variants out-rank the hover rules above;
+ * z-index 2 keeps the message on top even mid-fade. */
+.continue-card--holding .continue-card__hold { z-index: 2; }
+.continue-card--holding:hover .continue-card__cue,
+.continue-card--holding:hover .continue-card__artwrap::after,
+.continue-card--holding:hover .continue-card__sources,
+.continue-card--holding .continue-card__logo {
+  opacity: 0;
+}
+.continue-card--holding .continue-card__sources { pointer-events: none; }
 
 /* In-playback source panel: slides in from the right over the video
  * (which keeps playing). Lives in the chrome portal, above the hole. */
