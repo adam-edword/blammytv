@@ -3,6 +3,7 @@ import {
   loadWatching,
   recordWatching,
   resumePoint,
+  retiredFromContinue,
   updateWatchingProgress,
   type WatchEntry,
 } from "./watching";
@@ -22,6 +23,28 @@ const entry = (over: Partial<WatchEntry>): WatchEntry => ({
 });
 
 beforeEach(() => store.clear());
+
+describe("retiredFromContinue", () => {
+  it("retires finished movies, keeps everything else", () => {
+    // Movie ≥90% → retired from the CW row.
+    expect(retiredFromContinue(entry({ posSec: 5400, durSec: 5700 }))).toBe(
+      true,
+    );
+    // Movie mid-way → stays.
+    expect(retiredFromContinue(entry({ posSec: 1200, durSec: 5700 }))).toBe(
+      false,
+    );
+    // Series entry (even a finished episode) → stays; smart resume
+    // rolls it to the next episode instead.
+    expect(
+      retiredFromContinue(
+        entry({ episodeId: "tt1:1:2", posSec: 5400, durSec: 5700 }),
+      ),
+    ).toBe(false);
+    // No clocks yet → stays.
+    expect(retiredFromContinue(entry({}))).toBe(false);
+  });
+});
 
 describe("resumePoint", () => {
   it("resumes a meaningful position, rewound a few seconds", () => {

@@ -34,6 +34,13 @@ import { inMyList, toggleMyList } from "./myList";
 import { loadAioUrl } from "../settings/aiostreams";
 import { loadOneClickPlay } from "../settings/oneClickPlay";
 import {
+  fetchDiscoverPage,
+  gridCatalogs,
+  interleave,
+  loadDiscover,
+  type DiscoverConfig,
+} from "../discover/data";
+import {
   cardMetaLine,
   loadCardMeta,
   onCardMetaChange,
@@ -44,6 +51,7 @@ import {
   loadWatching,
   recordWatching,
   resumePoint,
+  retiredFromContinue,
   updateWatchingProgress,
   type WatchEntry,
 } from "./watching";
@@ -1119,6 +1127,7 @@ export function StreamScreen() {
         <Detail
           item={view.item}
           onBack={goBack}
+          onOpenItem={open}
           onPlaySource={(s, queue) =>
             setPlaying({
               url: s.streamUrl,
@@ -1215,17 +1224,20 @@ function Home({
   const featured = data.featured
     .map((id) => data.items.get(id))
     .filter((v): v is VodItem => !!v);
+  // Finished movies retire from Continue Watching (display-only filter —
+  // the entry survives for resume bookkeeping).
+  const activeWatching = watching.filter((e) => !retiredFromContinue(e));
   return (
     <>
       {featured.length > 0 && (
         <Hero items={featured} onOpen={onOpen} onWatchNow={onWatchNow} />
       )}
       <div className="stream__rows">
-        {watching.length > 0 && (
+        {activeWatching.length > 0 && (
           <section className="media-row">
             <h3 className="media-row__title">Continue Watching</h3>
             <RowScroller>
-              {watching.map((e) => (
+              {activeWatching.map((e) => (
                 <ContinueCard
                   key={e.id}
                   entry={e}
@@ -1662,6 +1674,15 @@ function ContinueCard({
     genre: entry.genre,
     kind: entry.kind,
   });
+  // "42m left" from the progress clocks — only while genuinely mid-way
+  // (finished movies retire from the row entirely; see Home's filter).
+  const leftMin =
+    entry.posSec && entry.durSec && entry.posSec < entry.durSec * 0.9
+      ? Math.max(1, Math.round((entry.durSec - entry.posSec) / 60))
+      : null;
+  const metaLine = [meta, leftMin != null ? `${leftMin}m left` : null]
+    .filter(Boolean)
+    .join(" · ");
   const [holding, setHolding] = useState(false);
   const timer = useRef(0);
   const held = useRef(false);
@@ -1741,12 +1762,22 @@ function ContinueCard({
         Keep holding to clear
       </span>
       <span className="stream-card__name">{entry.title}</span>
-      {meta && <span className="stream-card__meta">{meta}</span>}
+      {metaLine && <span className="stream-card__meta">{metaLine}</span>}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
+
+/** One Discover-config resolve per session for the More Like This rows
+ * (loadDiscover refetches the manifest otherwise); failures clear the
+ * memo so a later detail visit can retry. */
+let discoverCfgPromise: Promise<DiscoverConfig> | null = null;
+const discoverCfg = (): Promise<DiscoverConfig> =>
+  (discoverCfgPromise ??= loadDiscover().catch((e) => {
+    discoverCfgPromise = null;
+    throw e;
+  }));
 
 /** "+ My List" / "✓ My List" toggle on the detail screens — feeds the
  * Stream section's My List grid. Re-reads per mount; state is local
@@ -1775,16 +1806,59 @@ function Detail({
   episodeLabel,
   onBack,
   onPlaySource,
+  onOpenItem,
 }: {
   item: VodItem;
   episodeId?: string;
   episodeLabel?: string;
   onBack: () => void;
   onPlaySource: (s: StreamSource, queue: StreamSource[]) => void;
+  /** Enables the More Like This strip (movie detail only). */
+  onOpenItem?: (i: VodItem) => void;
 }) {
   const [sources, setSources] = useState<StreamSource[] | null | "failed">(
     null,
   );
+  // More Like This: first-genre neighbors from the user's own catalogs
+  // (Discover's conglomerate machinery), current title excluded. Movie
+  // detail only — the episode source screen stays utilitarian. Pure
+  // garnish: any failure just means no row.
+  const [more, setMore] = useState<VodItem[]>([]);
+  const moreGenre = item.genres[0];
+  useEffect(() => {
+    setMore([]);
+    if (episodeId || !onOpenItem || !moreGenre) return;
+    let stale = false;
+    (async () => {
+      try {
+        const cfg = await discoverCfg();
+        const cats = gridCatalogs(cfg.catalogs, item.kind, moreGenre).slice(
+          0,
+          2,
+        );
+        if (cats.length === 0) return;
+        const pages = await Promise.all(
+          cats.map((c) =>
+            fetchDiscoverPage(cfg, c, moreGenre, 0).catch(() => []),
+          ),
+        );
+        const seen = new Set([item.id]);
+        const picks: VodItem[] = [];
+        for (const v of interleave(...pages)) {
+          if (seen.has(v.id) || !v.poster) continue;
+          seen.add(v.id);
+          picks.push(v);
+          if (picks.length >= 12) break;
+        }
+        if (!stale) setMore(picks);
+      } catch {
+        /* no row */
+      }
+    })();
+    return () => {
+      stale = true;
+    };
+  }, [item.id, item.kind, moreGenre, episodeId, onOpenItem]);
   useEffect(() => {
     let stale = false;
     setSources(null);
@@ -1823,6 +1897,11 @@ function Detail({
               .filter(Boolean)
               .join(" · ")}
           </p>
+          {item.cast.length > 0 && (
+            <p className="vod-detail__castline">
+              With {item.cast.slice(0, 6).join(", ")}
+            </p>
+          )}
           {item.synopsis && (
             <p className="vod-detail__synopsis">{item.synopsis}</p>
           )}
@@ -1832,6 +1911,29 @@ function Detail({
               {item.genres.slice(0, 5).map((g) => (
                 <span key={g}>{g}</span>
               ))}
+            </div>
+          )}
+          {more.length > 0 && (
+            <div className="vod-more">
+              <h4 className="vod-more__title">More Like This</h4>
+              <div className="vod-more__row">
+                {more.map((v) => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    className="vod-more__card"
+                    title={v.title}
+                    onClick={() => onOpenItem?.(v)}
+                  >
+                    <img
+                      src={v.poster}
+                      alt={v.title}
+                      loading="lazy"
+                      draggable={false}
+                    />
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -1930,6 +2032,11 @@ function Episodes({
           )}
           {item.synopsis && (
             <p className="vod-detail__synopsis">{item.synopsis}</p>
+          )}
+          {item.cast.length > 0 && (
+            <p className="vod-detail__castline">
+              With {item.cast.slice(0, 6).join(", ")}
+            </p>
           )}
           <SaveButton item={item} />
         </div>

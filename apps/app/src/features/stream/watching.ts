@@ -88,3 +88,14 @@ export function resumePoint(
   if (e.durSec && e.posSec > e.durSec * 0.95) return undefined;
   return Math.max(0, e.posSec - 3);
 }
+
+/** Finished MOVIES leave the Continue Watching row (≥90% — the same
+ * threshold the watched ledger uses); a rewatch starts from any other
+ * card. Series entries always stay: smart resume rolls them forward to
+ * the next episode instead. The entry itself is kept (display filter
+ * only) so nothing is lost if the threshold ever changes. */
+export function retiredFromContinue(e: WatchEntry): boolean {
+  return (
+    !e.episodeId && !!e.posSec && !!e.durSec && e.posSec >= e.durSec * 0.9
+  );
+}

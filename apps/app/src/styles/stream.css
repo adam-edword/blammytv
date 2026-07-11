@@ -417,6 +417,54 @@
   transition: opacity 150ms ease;
 }
 
+/* Cast line: quiet credit under the meta. */
+.vod-detail__castline {
+  font-size: 13px;
+  color: rgba(242, 242, 244, 0.55);
+}
+
+/* More Like This: compact poster strip at the bottom of the info column
+ * — the detail page itself never scrolls, so the strip stays small and
+ * scrolls horizontally on its own. */
+.vod-more {
+  margin-top: 18px;
+  min-width: 0;
+}
+.vod-more__title {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 10px;
+  color: rgba(242, 242, 244, 0.8);
+}
+.vod-more__row {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 4px;
+}
+.vod-more__row::-webkit-scrollbar {
+  display: none;
+}
+.vod-more__card {
+  flex: 0 0 auto;
+  width: 92px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border-strong, rgba(255, 255, 255, 0.14));
+  transition: transform 140ms ease;
+}
+.vod-more__card:hover {
+  transform: translateY(-3px);
+}
+.vod-more__card img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+}
+
 /* "+ My List" toggle on the detail screens. Saved state trades the plus
  * for an accent check and keeps the ring. */
 .vod-save {
