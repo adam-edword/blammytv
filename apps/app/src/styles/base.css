@@ -317,7 +317,7 @@ button {
   position: relative;
   display: flex;
   align-items: center;
-  padding: 6px 9px;
+  /* Padding comes from the shared .chip-tabs--bare tab rule. */
   cursor: pointer;
   transition: opacity 150ms ease;
 }
@@ -418,7 +418,7 @@ button {
 .header__streamgroup {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 8px;
 }
 .header__rail {
   display: flex;

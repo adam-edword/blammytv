@@ -50,6 +50,11 @@
 }
 .chip-tabs--bare .chip-tabs__tab {
   font-weight: 400;
+  padding: 6px 12px;
+}
+.chip-tabs--bare .chip-tabs__thumb {
+  top: 4px;
+  bottom: 3px;
 }
 
 /* Toggle: a text-less chip rail. Same track color, inset, radius, and slide
