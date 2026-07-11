@@ -428,11 +428,18 @@
  * to the TRUE viewport edge on the left (scroll-padding rides inside
  * the scroll content), and the right edge fades the cards themselves
  * out via mask — the shared scrims paint --bg slabs over backdrop art. */
+.vod-detail__body > * {
+  pointer-events: auto;
+}
 .vod-more {
-  flex: none;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
   min-width: 0;
   padding-bottom: 18px;
-  z-index: 1; /* above the backdrop/scrim layers */
+  /* Above the backdrop/scrim, UNDER the body (sources rail on top). */
+  z-index: 0;
 }
 /* Info-text alignment: the info column's 7% margin resolves against the
  * GRID COLUMN (0.93W - 480px), not the page — so text x = 32px +
@@ -473,11 +480,15 @@
 .vod-more .media-row__scrim {
   display: none;
 }
-/* With the shelf below, the info column's roomy 7% bottom margin is
- * what clipped the genre pills at 900px-tall windows — trade it for a
- * tight one only when the shelf is present. */
+/* The shelf overlays the page bottom — the info column reserves its
+ * height (≈ title + 255px cards + paddings) so text never sits under
+ * the cards; the 7% bottom margin trades down to keep the pills clear
+ * at 900px-tall windows. */
 .vod-detail:has(.vod-more) .vod-detail__info {
-  margin-bottom: 14px;
+  /* MARGIN, not padding: padding extends the column's hit-box over the
+   * shelf and eats its card clicks (the info column is a pointer-events
+   * child of the click-transparent body). */
+  margin-bottom: 330px;
 }
 /* The right nudge arrow parks LEFT of the sources panel — under it,
  * it was unreachable glass-on-glass. */
@@ -546,10 +557,6 @@
   min-height: 0;
   overflow: hidden;
   background: var(--surface);
-  /* Column layout so the More Like This band can sit BELOW the body at
-   * full window width (inside the info column it got clipped). */
-  display: flex;
-  flex-direction: column;
 }
 .vod-detail__backdrop {
   position: absolute;
@@ -569,8 +576,13 @@
 }
 .vod-detail__body {
   position: relative;
-  flex: 1;
-  min-height: 0;
+  height: 100%;
+  /* ABOVE the More Like This layer: the sources rail runs full height
+   * and the shelf's cards pass UNDER its glass. The body itself is
+   * click-transparent so the shelf stays interactive through the empty
+   * grid space; its children restore their own hit-testing. */
+  z-index: 1;
+  pointer-events: none;
   display: grid;
   grid-template-columns: 1fr 420px;
   gap: 28px;
