@@ -60,10 +60,12 @@ const CORNER_TABS: Array<{ key: CornerStyle; label: string }> = [
   { key: "sharp", label: "Sharp" },
 ];
 
+// Labels mirror the nav hierarchy (v0.3.37+): Discover is a Stream page,
+// so the option says where it actually lands.
 const STARTUP_TABS: Array<{ key: StartupTab; label: string }> = [
   { key: "live", label: "Live TV" },
-  { key: "stream", label: "Stream" },
-  { key: "discover", label: "Discover" },
+  { key: "stream", label: "Stream · Home" },
+  { key: "discover", label: "Stream · Discover" },
 ];
 
 /** The native screen eyedropper (Chromium/WebView2; absent elsewhere, so the

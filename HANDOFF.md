@@ -275,7 +275,14 @@ sections annotated, TheaterOverlay/player.css/tauri.ts/mpv.rs headers).
    shipped headless via mpv_status (v0.1.133), and the WM_SETCURSOR /
    DComp corner-clip / switch-gap items dissolved with the comp.rs
    deletion (v0.1.135). Post-1.0 headliner: recording to disk.
-5. **POST-V1: hero slider click-and-drag** (Adam-approved 2026-07-10).
+5. **PRE-1.0 GATE: Trakt / MyAnimeList integrations** (Adam, 2026-07-11:
+   "maybe that's a pre 1.0 gate. one of the last things we tackle").
+   Scope when it lands: watchlist/custom-list sync (My List's
+   snapshot+membership model maps onto Trakt lists), watched-history
+   push, MAL for the anime lists. Design decisions until then should not
+   preclude it — keep My List entries keyed by imdb id (Trakt speaks
+   imdb/tmdb; the aniskip index already maps imdb→MAL).
+6. **POST-V1: hero slider click-and-drag** (Adam-approved 2026-07-10).
    Vibe-checked as "somewhat simple": the virtual-index moving-window
    architecture is drag-friendly (drag = live px offset on the card
    positions, commit index ±1 or snap back on release; index−1 already

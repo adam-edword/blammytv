@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AccountIcon, SearchIcon, SettingsIcon } from "../ui/icons";
 import { ChipTabs } from "../ui/ChipTabs";
+import { currentZoom } from "../features/settings/uiScale";
 import { setSearchQuery } from "../features/discover/searchQuery";
 import { UpdateChip } from "./UpdateChip";
 import { formatClock } from "../lib/time";
@@ -70,6 +71,29 @@ export function AppHeader({
   // search chip (thumbKey) — the thumb tracks where your INPUT goes;
   // `streamTab` stays the truth of which page is showing.
   const [searchOpen, setSearchOpen] = useState(false);
+  // Fit the floating input to the space actually available before the
+  // right-side controls — 240px is a ceiling, not a promise. At 125% UI
+  // scale on a narrow window the fixed width overran the settings icon
+  // by 200+px. gBCR is visual (zoom-included) px; ÷zoom converts back
+  // to the CSS px the width style is written in (see uiScale.ts).
+  const searchChipRef = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    if (!searchOpen) return;
+    const fit = () => {
+      const chip = searchChipRef.current;
+      const right = document.querySelector(".header__right");
+      if (!chip || !right) return;
+      const gap =
+        (right.getBoundingClientRect().left -
+          chip.getBoundingClientRect().right) /
+        currentZoom();
+      const w = Math.max(48, Math.min(240, gap - 18));
+      chip.style.setProperty("--search-w", `${w}px`);
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, [searchOpen]);
 
   // `/`, Ctrl+K, Ctrl+F focus the pill — VOD side only, never while
   // typing in another field, never while a player is up (its own keys
@@ -240,6 +264,7 @@ export function AppHeader({
               /* A span, not a button — buttons can't contain inputs.
                * Clicking anywhere on the chip focuses the input. */
               <span
+                ref={searchChipRef}
                 className="chip-tabs__tab header__searchchip"
                 data-tab="search"
                 onClick={() => searchInputRef.current?.focus()}

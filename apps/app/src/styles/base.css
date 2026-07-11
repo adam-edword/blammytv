@@ -334,7 +334,10 @@ button {
   left: calc(100% + 6px);
   top: 50%;
   transform: translateY(-50%);
-  width: min(240px, 17vw);
+  /* AppHeader measures the real gap to the right controls on open and
+   * writes --search-w (zoom-corrected); the fallback covers the
+   * blurred-with-query state before any measure. */
+  width: var(--search-w, min(240px, 17vw));
   background: none;
   border: none;
   outline: none;
