@@ -103,6 +103,18 @@ function coverVars(): CSSProperties {
 
 const idx = (i: number) => ({ "--i": String(i) }) as CSSProperties;
 
+/** Ask password managers to leave these fields alone — provider URLs
+ * and panel logins aren't web accounts, and the injected autofill
+ * chrome was visually disruptive mid-flow (each vendor reads its own
+ * attribute; autocomplete="off" alone is widely ignored). */
+const PM_IGNORE = {
+  "data-1p-ignore": "",
+  "data-lpignore": "true",
+  "data-bwignore": "true",
+  "data-protonpass-ignore": "true",
+  "data-form-type": "other",
+} as const;
+
 function raceTimeout<T>(p: Promise<T>, msg: string): Promise<T> {
   return Promise.race([
     p,
@@ -119,6 +131,19 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   const [phase, setPhase] = useState<"in" | "out">("in");
   const [finale, setFinale] = useState(false);
   const [vars, setVars] = useState(coverVars);
+  // Once a step's entrance has played, the animations are REMOVED
+  // (is-settled): password-manager extensions inject DOM when a field
+  // focuses, and that style invalidation replayed the filled entrance
+  // animations (Adam's repro). Settled elements have nothing to replay.
+  const [settled, setSettled] = useState(false);
+  useEffect(() => {
+    if (phase !== "in") return;
+    setSettled(false);
+    // Past the longest entrance tail: step 0's button lands at ~2.7s,
+    // every other step by ~1.4s.
+    const t = window.setTimeout(() => setSettled(true), step === 0 ? 2900 : 1600);
+    return () => window.clearTimeout(t);
+  }, [step, phase]);
 
   const gradRef = useRef<HTMLDivElement>(null);
   const burstUntil = useRef(0);
@@ -244,7 +269,12 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   const primaryRef = useRef<() => void>(() => {});
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Enter" || e.repeat) return;
+      if (e.repeat) return;
+      if (e.key === "Escape") {
+        retreatRef.current();
+        return;
+      }
+      if (e.key !== "Enter") return;
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "BUTTON") return;
       primaryRef.current();
@@ -274,6 +304,19 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     window.clearTimeout(swapTimer.current);
     swapTimer.current = window.setTimeout(() => setFinale(true), SWAP_MS);
   };
+
+  /** One step back — no "thinking" burst; that's forward energy. */
+  const retreat = () => {
+    if (phase === "out" || finale || step === 0) return;
+    setPhase("out");
+    window.clearTimeout(swapTimer.current);
+    swapTimer.current = window.setTimeout(() => {
+      setStep((s) => s - 1);
+      setPhase("in");
+    }, SWAP_MS);
+  };
+  const retreatRef = useRef(retreat);
+  retreatRef.current = retreat;
 
   // --- Streams step: input + REAL verification --------------------------
   const [manifest, setManifest] = useState(loadAioUrl);
@@ -538,6 +581,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           aria-invalid={showManifestHint || undefined}
           spellCheck={false}
           autoComplete="off"
+          {...PM_IGNORE}
           disabled={streamsChecking}
           autoFocus
         />
@@ -599,6 +643,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                 placeholder="http://panel.example.com:8080"
                 spellCheck={false}
                 autoComplete="off"
+          {...PM_IGNORE}
                 disabled={tvChecking}
                 autoFocus
               />
@@ -613,6 +658,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                   placeholder="Username"
                   spellCheck={false}
                   autoComplete="off"
+          {...PM_IGNORE}
                   disabled={tvChecking}
                 />
                 <input
@@ -624,6 +670,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                   onBlur={() => setTvTouched(true)}
                   placeholder="Password"
                   autoComplete="off"
+          {...PM_IGNORE}
                   disabled={tvChecking}
                 />
               </div>
@@ -639,6 +686,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               placeholder="https://example.com/playlist.m3u8"
               spellCheck={false}
               autoComplete="off"
+          {...PM_IGNORE}
               disabled={tvChecking}
               autoFocus
             />
@@ -654,6 +702,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                 placeholder="http://portal.example.com/c/"
                 spellCheck={false}
                 autoComplete="off"
+          {...PM_IGNORE}
                 disabled={tvChecking}
                 autoFocus
               />
@@ -667,6 +716,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                 placeholder="00:1A:79:12:34:56"
                 spellCheck={false}
                 autoComplete="off"
+          {...PM_IGNORE}
                 disabled={tvChecking}
               />
             </div>
@@ -825,10 +875,19 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
       {!finale && (
         <div
           key={step}
-          className={"onb-stage " + (phase === "in" ? "is-in" : "is-out")}
+          className={
+            "onb-stage " +
+            (phase === "in" ? "is-in" : "is-out") +
+            (settled && phase === "in" ? " is-settled" : "")
+          }
         >
           {content}
         </div>
+      )}
+      {!finale && step > 0 && (
+        <button type="button" className="onb-back" onClick={retreat}>
+          &larr; Back
+        </button>
       )}
       {!finale && step < LAST_STEP && (
         <button type="button" className="onb-skip" onClick={finish}>

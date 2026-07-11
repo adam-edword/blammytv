@@ -175,6 +175,19 @@
   animation-delay: 2000ms;
 }
 
+/* Entrances play ONCE: after the step settles, the animations are
+ * removed entirely — password-manager extensions inject DOM on field
+ * focus, and that invalidation replayed still-filled animations. A
+ * settled element has no animation left to replay. */
+.onb-stage.is-in.is-settled > *,
+.onb-stage.is-in.is-settled > .onb-lockup,
+.onb-stage.is-in.is-settled > .onb-btn--hero {
+  animation: none;
+  opacity: 1;
+  transform: none;
+  filter: none;
+}
+
 @keyframes onb-in {
   from {
     opacity: 0;
@@ -474,6 +487,29 @@
 .onb-swatch:focus-visible {
   outline: 2px solid rgba(255, 255, 255, 0.7);
   outline-offset: 3px;
+}
+
+/* Back (bottom-left) mirrors Skip (bottom-right). Escape works too. */
+.onb-back {
+  position: absolute;
+  left: 26px;
+  bottom: 22px;
+  z-index: 2;
+  padding: 8px 14px;
+  border: 0;
+  background: none;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 14px;
+  cursor: pointer;
+  transition: color 160ms ease;
+}
+.onb-back:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
+.onb-back:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.4);
+  outline-offset: 2px;
+  border-radius: 8px;
 }
 
 .onb-skip {
