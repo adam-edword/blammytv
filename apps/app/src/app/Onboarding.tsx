@@ -30,10 +30,16 @@ import {
   type StartupTab,
 } from "../features/settings/startupTab";
 import {
+  EMPTY_PLAYLIST_FORM,
+  KIND_TABS,
   addPlaylist,
-  isHttpUrl,
+  draftFrom,
+  isFormComplete,
   loadPlaylists,
   savePlaylists,
+  type PlaylistDraft,
+  type PlaylistFormState,
+  type PlaylistKind,
 } from "../features/settings/playlists";
 import {
   probeAioStreams,
@@ -41,6 +47,8 @@ import {
   type ProbeStep,
 } from "../features/settings/aioProbe";
 import { authenticate } from "../data/xtream";
+import { discoverEndpoint } from "../data/stalker";
+import { httpGetText } from "../lib/http";
 import { scrubbedMessage } from "../lib/errors";
 import { ChipTabs } from "../ui/ChipTabs";
 import { markOnboarded } from "./onboardingGate";
@@ -341,29 +349,81 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     if (e.key === "Enter" && !e.repeat) continueStreams();
   };
 
-  // --- Live TV step: Xtream creds + REAL verification -------------------
-  const [tvServer, setTvServer] = useState("");
-  const [tvUser, setTvUser] = useState("");
-  const [tvPass, setTvPass] = useState("");
+  // --- Live TV step: kind rail + per-kind REAL verification -------------
+  const [tvKind, setTvKind] = useState<PlaylistKind>("xtream");
+  const [tvForm, setTvForm] = useState<PlaylistFormState>(EMPTY_PLAYLIST_FORM);
   const [tvTouched, setTvTouched] = useState(false);
   const [tvChecking, setTvChecking] = useState(false);
   const [tvMsg, setTvMsg] = useState<VerifyMsg>(null);
   const [tvFailed, setTvFailed] = useState(false);
-  const tvEmpty = !tvServer.trim() && !tvUser.trim() && !tvPass.trim();
-  const tvComplete =
-    isHttpUrl(tvServer) && tvUser.trim() !== "" && tvPass.trim() !== "";
+  const setTv = (field: keyof PlaylistFormState) => (value: string) => {
+    setTvForm((f) => ({ ...f, [field]: value }));
+    setTvMsg(null);
+    setTvFailed(false);
+  };
+  const switchTvKind = (k: PlaylistKind) => {
+    if (tvChecking) return;
+    setTvKind(k);
+    setTvTouched(false);
+    setTvMsg(null);
+    setTvFailed(false);
+  };
+  const tvEmpty =
+    tvKind === "xtream"
+      ? !tvForm.server.trim() && !tvForm.username.trim() && !tvForm.password
+      : tvKind === "m3u"
+        ? !tvForm.url.trim()
+        : !tvForm.portal.trim() && !tvForm.mac.trim();
+  const tvComplete = isFormComplete(tvKind, tvForm);
   const showTvHint = tvTouched && !tvEmpty && !tvComplete && tvMsg === null;
+  const TV_HINTS: Record<PlaylistKind, string> = {
+    xtream:
+      "Fill in all three — server URL (with http), username, and password — or leave them all empty to skip.",
+    m3u: "That needs a full playlist URL, starting with http(s).",
+    stalker:
+      "Fill in both — portal URL (with http) and the MAC address — or leave them empty to skip.",
+  };
 
-  const saveTvPlaylist = () => {
-    savePlaylists(
-      addPlaylist(loadPlaylists(), {
-        kind: "xtream",
-        name: "",
-        server: tvServer.trim().replace(/\/+$/, ""),
-        username: tvUser.trim(),
-        password: tvPass.trim(),
-      }),
-    );
+  /** Verify with the kind's REAL client, resolving to the draft to save
+   * (stalker keeps the discovered endpoint so first load skips the
+   * probe, same as the Settings add-form). */
+  const verifyTv = (): Promise<PlaylistDraft> => {
+    const draft = draftFrom(tvKind, tvForm);
+    switch (draft.kind) {
+      case "xtream":
+        return raceTimeout(
+          authenticate({
+            ...draft,
+            id: "onboarding-probe",
+            name: "probe",
+            enabled: true,
+          }),
+          "Couldn't reach the panel — it didn't answer in time.",
+        ).then(() => draft);
+      case "m3u":
+        return raceTimeout(
+          httpGetText(draft.url),
+          "Couldn't reach the playlist — it didn't answer in time.",
+        ).then((text) => {
+          if (!text.trimStart().startsWith("#EXTM3U")) {
+            throw new Error("That URL didn't return an M3U playlist.");
+          }
+          return draft;
+        });
+      case "stalker":
+        return raceTimeout(
+          discoverEndpoint({
+            ...draft,
+            id: "onboarding-probe",
+            name: "probe",
+            enabled: true,
+          }),
+          "Couldn't reach the portal — it didn't answer in time.",
+        ).then((endpoint) => ({ ...draft, endpoint }));
+    }
+  };
+  const saveTvDraft = (draft: PlaylistDraft) => {
+    savePlaylists(addPlaylist(loadPlaylists(), draft));
   };
   const continueTv = () => {
     if (tvChecking || phase === "out" || finale) return;
@@ -378,20 +438,9 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     setTvChecking(true);
     setTvMsg(null);
     thinkHard();
-    raceTimeout(
-      authenticate({
-        kind: "xtream",
-        id: "onboarding-probe",
-        name: "probe",
-        enabled: true,
-        server: tvServer.trim().replace(/\/+$/, ""),
-        username: tvUser.trim(),
-        password: tvPass.trim(),
-      }),
-      "Couldn't reach the panel — it didn't answer in time.",
-    )
-      .then(() => {
-        saveTvPlaylist();
+    verifyTv()
+      .then((draft) => {
+        saveTvDraft(draft);
         setTvMsg({ ok: true, text: "Connected — your channels are in." });
         window.clearTimeout(autoTimer.current);
         autoTimer.current = window.setTimeout(advance, VERIFIED_DWELL_MS);
@@ -407,7 +456,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   };
   const ghostTv = () => {
     if (tvChecking) return;
-    if (tvFailed && tvComplete) saveTvPlaylist();
+    if (tvFailed && tvComplete) saveTvDraft(draftFrom(tvKind, tvForm));
     advance();
   };
   const onTvKey = (e: ReactKeyboardEvent<HTMLInputElement>) => {
@@ -531,65 +580,101 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           Connect Live TV
         </h1>
         <p className="onb-sub" style={idx(1)}>
-          Add your Xtream playlist to light up channels and the guide.
-          Other formats (M3U, Stalker) live in Settings &rarr; Playlists.
+          Light up channels and the guide — pick the format your provider
+          gave you.
         </p>
-        <div className="onb-fields" style={idx(2)}>
-          <input
-            className="onb-input"
-            type="text"
-            value={tvServer}
-            onChange={(e) => {
-              setTvServer(e.target.value);
-              setTvMsg(null);
-              setTvFailed(false);
-            }}
-            onKeyDown={onTvKey}
-            onBlur={() => setTvTouched(true)}
-            placeholder="http://panel.example.com:8080"
-            spellCheck={false}
-            autoComplete="off"
-            disabled={tvChecking}
-            autoFocus
-          />
-          <div className="onb-fields__row">
+        <div className="onb-chips" style={idx(2)}>
+          <ChipTabs tabs={KIND_TABS} active={tvKind} onChange={switchTvKind} />
+        </div>
+        <div className="onb-fields" style={idx(3)}>
+          {tvKind === "xtream" ? (
+            <>
+              <input
+                className="onb-input"
+                type="text"
+                value={tvForm.server}
+                onChange={(e) => setTv("server")(e.target.value)}
+                onKeyDown={onTvKey}
+                onBlur={() => setTvTouched(true)}
+                placeholder="http://panel.example.com:8080"
+                spellCheck={false}
+                autoComplete="off"
+                disabled={tvChecking}
+                autoFocus
+              />
+              <div className="onb-fields__row">
+                <input
+                  className="onb-input"
+                  type="text"
+                  value={tvForm.username}
+                  onChange={(e) => setTv("username")(e.target.value)}
+                  onKeyDown={onTvKey}
+                  onBlur={() => setTvTouched(true)}
+                  placeholder="Username"
+                  spellCheck={false}
+                  autoComplete="off"
+                  disabled={tvChecking}
+                />
+                <input
+                  className="onb-input"
+                  type="password"
+                  value={tvForm.password}
+                  onChange={(e) => setTv("password")(e.target.value)}
+                  onKeyDown={onTvKey}
+                  onBlur={() => setTvTouched(true)}
+                  placeholder="Password"
+                  autoComplete="off"
+                  disabled={tvChecking}
+                />
+              </div>
+            </>
+          ) : tvKind === "m3u" ? (
             <input
               className="onb-input"
               type="text"
-              value={tvUser}
-              onChange={(e) => {
-                setTvUser(e.target.value);
-                setTvMsg(null);
-                setTvFailed(false);
-              }}
+              value={tvForm.url}
+              onChange={(e) => setTv("url")(e.target.value)}
               onKeyDown={onTvKey}
               onBlur={() => setTvTouched(true)}
-              placeholder="Username"
+              placeholder="https://example.com/playlist.m3u8"
               spellCheck={false}
               autoComplete="off"
               disabled={tvChecking}
+              autoFocus
             />
-            <input
-              className="onb-input"
-              type="password"
-              value={tvPass}
-              onChange={(e) => {
-                setTvPass(e.target.value);
-                setTvMsg(null);
-                setTvFailed(false);
-              }}
-              onKeyDown={onTvKey}
-              onBlur={() => setTvTouched(true)}
-              placeholder="Password"
-              autoComplete="off"
-              disabled={tvChecking}
-            />
-          </div>
+          ) : (
+            <div className="onb-fields__row">
+              <input
+                className="onb-input"
+                type="text"
+                value={tvForm.portal}
+                onChange={(e) => setTv("portal")(e.target.value)}
+                onKeyDown={onTvKey}
+                onBlur={() => setTvTouched(true)}
+                placeholder="http://portal.example.com/c/"
+                spellCheck={false}
+                autoComplete="off"
+                disabled={tvChecking}
+                autoFocus
+              />
+              <input
+                className="onb-input"
+                type="text"
+                value={tvForm.mac}
+                onChange={(e) => setTv("mac")(e.target.value)}
+                onKeyDown={onTvKey}
+                onBlur={() => setTvTouched(true)}
+                placeholder="00:1A:79:12:34:56"
+                spellCheck={false}
+                autoComplete="off"
+                disabled={tvChecking}
+              />
+            </div>
+          )}
         </div>
         {showTvHint && (
           <p className="onb-hint" role="alert">
-            Fill in all three — server URL (with http), username, and
-            password — or leave them all empty to skip.
+            {TV_HINTS[tvKind]}
           </p>
         )}
         {tvMsg && (
@@ -600,7 +685,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
             {tvMsg.text}
           </p>
         )}
-        <div className="onb-row" style={idx(3)}>
+        <div className="onb-row" style={idx(4)}>
           <button
             type="button"
             className="onb-btn"

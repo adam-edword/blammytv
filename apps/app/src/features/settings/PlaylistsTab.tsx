@@ -4,10 +4,13 @@ import { Toggle } from "../../ui/Toggle";
 import { ChevronIcon, CloseIcon } from "../../ui/icons";
 import { fetchLiveCategories, type XtreamCategory } from "../../data/xtream";
 import {
+  EMPTY_PLAYLIST_FORM as EMPTY_FORM,
   KIND_LABELS,
+  KIND_TABS,
   addPlaylist,
+  draftFrom,
+  isFormComplete as isComplete,
   isCategoryHidden,
-  isHttpUrl,
   loadPlaylists,
   playlistSource,
   removePlaylist,
@@ -15,7 +18,7 @@ import {
   toggleHiddenCategory,
   togglePlaylist,
   type Playlist,
-  type PlaylistDraft,
+  type PlaylistFormState,
   type PlaylistKind,
 } from "./playlists";
 import { loadShowAdult, saveShowAdult } from "./adultFilter";
@@ -27,11 +30,7 @@ type Categories =
   | { status: "ready"; items: XtreamCategory[] }
   | { status: "error" };
 
-const KIND_TABS: Array<{ key: PlaylistKind; label: string }> = [
-  { key: "xtream", label: KIND_LABELS.xtream },
-  { key: "m3u", label: KIND_LABELS.m3u },
-  { key: "stalker", label: KIND_LABELS.stalker },
-];
+// KIND_TABS + the form model live in playlists.ts — shared with onboarding.
 
 const DESCRIPTIONS: Record<PlaylistKind, string> = {
   xtream:
@@ -41,57 +40,9 @@ const DESCRIPTIONS: Record<PlaylistKind, string> = {
     "Connect a Stalker/MAG portal — the portal URL and the MAC address your provider registered.",
 };
 
-interface FormState {
-  name: string;
-  server: string;
-  username: string;
-  password: string;
-  url: string;
-  portal: string;
-  mac: string;
-}
-
-const EMPTY_FORM: FormState = {
-  name: "",
-  server: "",
-  username: "",
-  password: "",
-  url: "",
-  portal: "",
-  mac: "",
-};
-
-function draftFrom(kind: PlaylistKind, f: FormState): PlaylistDraft {
-  switch (kind) {
-    case "xtream":
-      return {
-        kind,
-        name: f.name,
-        server: f.server.trim(),
-        username: f.username.trim(),
-        password: f.password,
-      };
-    case "m3u":
-      return { kind, name: f.name, url: f.url.trim() };
-    case "stalker":
-      return { kind, name: f.name, portal: f.portal.trim(), mac: f.mac.trim() };
-  }
-}
-
-function isComplete(kind: PlaylistKind, f: FormState): boolean {
-  switch (kind) {
-    case "xtream":
-      return isHttpUrl(f.server) && f.username.trim() !== "" && f.password !== "";
-    case "m3u":
-      return isHttpUrl(f.url);
-    case "stalker":
-      return isHttpUrl(f.portal) && f.mac.trim() !== "";
-  }
-}
-
 export function PlaylistsTab() {
   const [kind, setKind] = useState<PlaylistKind>("xtream");
-  const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [form, setForm] = useState<PlaylistFormState>(EMPTY_FORM);
   const [playlists, setPlaylists] = useState<Playlist[]>(loadPlaylists);
   const [showAdult, setShowAdult] = useState<boolean>(loadShowAdult);
   // Per-playlist load/guide status off the last catalog load — this is how
@@ -130,7 +81,7 @@ export function PlaylistsTab() {
       );
   };
 
-  const set = (field: keyof FormState) => (value: string) =>
+  const set = (field: keyof PlaylistFormState) => (value: string) =>
     setForm((f) => ({ ...f, [field]: value }));
 
   const add = () => {

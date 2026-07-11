@@ -58,6 +58,76 @@ export const KIND_LABELS: Record<PlaylistKind, string> = {
   stalker: "Stalker/MAG",
 };
 
+/** Picker options — ONE list for Settings and onboarding. */
+export const KIND_TABS: Array<{ key: PlaylistKind; label: string }> = [
+  { key: "xtream", label: KIND_LABELS.xtream },
+  { key: "m3u", label: KIND_LABELS.m3u },
+  { key: "stalker", label: KIND_LABELS.stalker },
+];
+
+/** The add-form's field bag — a superset across kinds, shared by the
+ * Settings form and onboarding so the two can never drift. */
+export interface PlaylistFormState {
+  name: string;
+  server: string;
+  username: string;
+  password: string;
+  url: string;
+  portal: string;
+  mac: string;
+}
+
+export const EMPTY_PLAYLIST_FORM: PlaylistFormState = {
+  name: "",
+  server: "",
+  username: "",
+  password: "",
+  url: "",
+  portal: "",
+  mac: "",
+};
+
+export function draftFrom(
+  kind: PlaylistKind,
+  f: PlaylistFormState,
+): PlaylistDraft {
+  switch (kind) {
+    case "xtream":
+      return {
+        kind,
+        name: f.name,
+        server: f.server.trim(),
+        username: f.username.trim(),
+        password: f.password,
+      };
+    case "m3u":
+      return { kind, name: f.name, url: f.url.trim() };
+    case "stalker":
+      return {
+        kind,
+        name: f.name,
+        portal: f.portal.trim(),
+        mac: f.mac.trim(),
+      };
+  }
+}
+
+export function isFormComplete(
+  kind: PlaylistKind,
+  f: PlaylistFormState,
+): boolean {
+  switch (kind) {
+    case "xtream":
+      return (
+        isHttpUrl(f.server) && f.username.trim() !== "" && f.password !== ""
+      );
+    case "m3u":
+      return isHttpUrl(f.url);
+    case "stalker":
+      return isHttpUrl(f.portal) && f.mac.trim() !== "";
+  }
+}
+
 /** The address shown under a playlist's name in the list. */
 export function playlistSource(p: Playlist): string {
   switch (p.kind) {
