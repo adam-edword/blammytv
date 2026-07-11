@@ -15,6 +15,7 @@ import {
   applyAccent,
   loadAccent,
   saveAccent,
+  saveAccentStyle,
 } from "../features/settings/accent";
 import { markOnboarded } from "./onboarding";
 
@@ -39,8 +40,9 @@ import { markOnboarded } from "./onboarding";
 const BASE_DEG_S = 7;
 const BURST_DEG_S = 320;
 const BURST_MS = 700;
-/** Content out-transition before the step swaps (matches onb-out). */
-const SWAP_MS = 340;
+/** Content out-transition before the step swaps: onb-out is 300ms and
+ * the last staggered child starts at +90ms — swap after the full tail. */
+const SWAP_MS = 400;
 
 /** --s carries the boot mock's 1920×1080 cover factor so the finale's
  * sharp frame lands EXACTLY on WelcomeAnimation's first frame. */
@@ -86,6 +88,18 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
 
   useEffect(() => () => window.clearTimeout(swapTimer.current), []);
 
+  // The app shell behind the overlay must be unreachable: without
+  // `inert`, Tab walks into the invisible header and Enter activates
+  // hidden controls (review finding — opening Settings UNDER the
+  // overlay). Chromium/WebView2 support inert natively.
+  useEffect(() => {
+    const els = document.querySelectorAll<HTMLElement>(
+      ".app-shell > .header, .app-shell > .app-main",
+    );
+    els.forEach((el) => el.setAttribute("inert", ""));
+    return () => els.forEach((el) => el.removeAttribute("inert"));
+  }, []);
+
   // The glow's heartbeat: angle integrates a velocity that eases toward
   // either the drift speed or, right after an advance, the burst speed.
   useEffect(() => {
@@ -114,13 +128,16 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     burstUntil.current = performance.now() + BURST_MS;
   };
 
-  // Enter advances every step (the input's own handler covers itself) —
-  // via a ref so one listener always sees the current step's action.
+  // Enter advances every step — via a ref so one listener always sees
+  // the current step's action. Repeat is ignored (holding Enter must
+  // not blow through the whole flow), and INPUT/BUTTON targets handle
+  // Enter natively (a focused swatch must pick, not pick-and-advance).
   const primaryRef = useRef<() => void>(() => {});
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Enter") return;
-      if ((e.target as HTMLElement).tagName === "INPUT") return;
+      if (e.key !== "Enter" || e.repeat) return;
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "BUTTON") return;
       primaryRef.current();
     };
     window.addEventListener("keydown", onKey);
@@ -131,6 +148,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     if (phase === "out" || finale) return;
     think();
     setPhase("out");
+    window.clearTimeout(swapTimer.current);
     swapTimer.current = window.setTimeout(() => {
       setStep((s) => s + 1);
       setPhase("in");
@@ -138,25 +156,35 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   };
 
   const finish = () => {
-    if (finale) return;
+    // Same in-flight guard as advance: Skip during a swap must not arm
+    // a second timer over the first (step-flash + orphaned timeout).
+    if (phase === "out" || finale) return;
     markOnboarded();
     think();
     setPhase("out");
+    window.clearTimeout(swapTimer.current);
     swapTimer.current = window.setTimeout(() => setFinale(true), SWAP_MS);
   };
 
   // --- Streams step state ---------------------------------------------
   const [manifest, setManifest] = useState(loadAioUrl);
+  // The invalid hint waits for a submit attempt or blur — flashing an
+  // error while someone is mid-typing a URL is noise, not help.
+  const [manifestTouched, setManifestTouched] = useState(false);
   const manifestTrimmed = manifest.trim();
   const manifestOk =
     manifestTrimmed === "" || isValidManifestUrl(manifestTrimmed);
+  const showManifestHint = manifestTouched && !manifestOk;
   const continueStreams = () => {
-    if (!manifestOk) return;
+    if (!manifestOk) {
+      setManifestTouched(true);
+      return;
+    }
     if (manifestTrimmed) saveAioUrl(manifestTrimmed);
     advance();
   };
   const onManifestKey = (e: ReactKeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") continueStreams();
+    if (e.key === "Enter" && !e.repeat) continueStreams();
   };
 
   // --- Accent step state ----------------------------------------------
@@ -164,6 +192,10 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   const pickAccent = (hex: string) => {
     setAccent(hex);
     saveAccent(hex);
+    // Persist the style too, like CustomizeTab: applyAccent stands
+    // aurora down in the DOM, and storage must agree or the next
+    // launch silently re-applies aurora (forced-replay edge).
+    saveAccentStyle("flat");
     applyAccent(hex);
   };
 
@@ -201,17 +233,25 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           You can always set this up later in Settings.
         </p>
         <input
-          className="onb-input"
+          className={"onb-input" + (showManifestHint ? " is-invalid" : "")}
           style={idx(2)}
           type="text"
           value={manifest}
           onChange={(e) => setManifest(e.target.value)}
           onKeyDown={onManifestKey}
+          onBlur={() => setManifestTouched(true)}
           placeholder="https://aiostreams.example.com/…/manifest.json"
+          aria-invalid={showManifestHint || undefined}
           spellCheck={false}
           autoComplete="off"
           autoFocus
         />
+        {showManifestHint && (
+          <p className="onb-hint" role="alert">
+            That doesn&rsquo;t look like a manifest URL — it should start
+            with http(s) and end in /manifest.json.
+          </p>
+        )}
         <div className="onb-row" style={idx(3)}>
           <button
             type="button"
@@ -235,11 +275,18 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           Pick an accent. There&rsquo;s plenty more to customize in
           Settings — including something hidden.
         </p>
-        <div className="onb-swatches" style={idx(2)}>
+        <div
+          className="onb-swatches"
+          style={idx(2)}
+          role="radiogroup"
+          aria-label="Accent color"
+        >
           {ACCENT_PRESETS.map((p) => (
             <button
               key={p.hex}
               type="button"
+              role="radio"
+              aria-checked={accent === p.hex}
               className={
                 "onb-swatch" + (accent === p.hex ? " is-on" : "")
               }

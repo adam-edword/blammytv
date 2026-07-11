@@ -21,16 +21,19 @@
 .onb-backdrop {
   position: absolute;
   inset: -96px;
-  /* brightness keeps the halo QUIET, per the mock — the finale lifts it
-   * back to full so the sharp boot frame arrives at brand strength. */
-  filter: blur(84px) saturate(1.5) brightness(0.6) contrast(1.2);
+  /* brightness keeps the halo QUIET, per the mock — the boot paint is
+   * pastel and must STAY pastel (no saturation push; review finding);
+   * the finale lifts back to full so the sharp frame arrives at brand
+   * strength. Blur scales down with the window so small viewports keep
+   * a dark center. */
+  filter: blur(clamp(56px, 6vw, 84px)) saturate(1.05) brightness(0.65);
   transition:
     filter 1300ms cubic-bezier(0.7, 0, 0.25, 1),
     inset 1300ms cubic-bezier(0.7, 0, 0.25, 1);
 }
 .onb.is-finale .onb-backdrop {
   inset: 0;
-  filter: blur(0px) saturate(1) brightness(1) contrast(1);
+  filter: blur(0px) saturate(1) brightness(1);
 }
 
 /* The rotation is velocity-driven from the component's rAF loop (base
@@ -46,7 +49,8 @@
  * lets the glow bleed softly inward like the mock. */
 .onb-screen {
   position: absolute;
-  inset: 176px;
+  /* Viewport-relative: the glow band must not flood a small window. */
+  inset: clamp(110px, 19vmin, 200px);
   border-radius: 64px;
   background: #000;
   corner-shape: superellipse(1.58);
@@ -182,7 +186,7 @@
 .onb-title {
   margin: 0;
   font-family: var(--font-headline);
-  font-size: 46px;
+  font-size: clamp(48px, 4.2vw, 64px);
   font-weight: 700;
   letter-spacing: -0.8px;
   color: #fff;
@@ -191,7 +195,7 @@
 .onb-sub {
   margin: 0;
   max-width: 52ch;
-  font-size: 16px;
+  font-size: 17px;
   line-height: 1.55;
   color: rgba(255, 255, 255, 0.62);
   text-wrap: balance;
@@ -251,10 +255,13 @@
   border-radius: 8px;
 }
 
+/* Stacked, both on the center axis — the primary CTA must not shift
+ * off-axis (or between steps) because a ghost sibling shares its row. */
 .onb-row {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 14px;
+  gap: 6px;
   margin-top: 4px;
 }
 .onb-row .onb-btn {
@@ -264,18 +271,26 @@
 .onb-input {
   width: min(560px, 82vw);
   margin-top: 10px;
-  padding: 13px 16px;
+  padding: 13px 18px;
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.045);
   backdrop-filter: blur(10px);
   color: #fff;
   font-size: 15px;
-  text-align: center;
+  text-align: left;
   transition: border-color 180ms ease, background 180ms ease;
 }
 .onb-input::placeholder {
-  color: rgba(255, 255, 255, 0.28);
+  color: rgba(255, 255, 255, 0.42);
+}
+.onb-input.is-invalid {
+  border-color: rgba(255, 120, 120, 0.55);
+}
+.onb-hint {
+  margin: 8px 0 0;
+  font-size: 13.5px;
+  color: rgba(255, 150, 150, 0.9);
 }
 .onb-input:focus {
   outline: none;
@@ -300,14 +315,16 @@
     box-shadow 180ms ease;
 }
 .onb-swatch:hover {
-  transform: scale(1.15);
+  transform: scale(1.08);
 }
+/* Selection must beat hover, and the pick gets a visible payoff: the
+ * chosen color blooms around its swatch. */
 .onb-swatch.is-on {
-  transform: scale(1.12);
+  transform: scale(1.2);
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.25),
-    0 0 0 2px #000,
-    0 0 0 4px #fff;
+    0 0 0 3px #fff,
+    0 0 22px 4px color-mix(in srgb, var(--accent) 65%, transparent);
 }
 .onb-swatch:focus-visible {
   outline: 2px solid rgba(255, 255, 255, 0.7);
@@ -322,8 +339,8 @@
   padding: 8px 14px;
   border: 0;
   background: none;
-  color: rgba(255, 255, 255, 0.34);
-  font-size: 13.5px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 14px;
   cursor: pointer;
   transition: color 160ms ease;
 }

@@ -8,7 +8,10 @@ const KEY = "btv:onboarded";
 /**
  * First run = never completed onboarding AND no sources configured.
  * The sources check covers everyone who set the app up before this
- * feature existed — they never see it. `?onboarding=1` forces a replay
+ * feature existed — anyone with a manifest or playlist never sees it.
+ * (A pre-existing user with NO sources at all gets one skippable
+ * pass — acceptable: the flow is also a fine "get set up" screen for
+ * them.) `?onboarding=1` forces a replay
  * for testing/demos, same pattern as `?welcome=1`. Pure — the flag is
  * stamped by `markOnboarded` when the user finishes, not here
  * (StrictMode calls useState initializers twice).
