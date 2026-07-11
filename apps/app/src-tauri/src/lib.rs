@@ -528,6 +528,78 @@ async fn http_get(
     Ok(tauri::ipc::Response::new(body.to_vec()))
 }
 
+/// Forensic GET for the settings Connection Test. Unlike `http_get`, a
+/// non-2xx status is DATA here, not an error: the point is to answer "WHO
+/// rejected this request" from a tester's screenshot — a WAF in front of
+/// the instance (`server: cloudflare` + `cf-mitigated: challenge`) reads
+/// completely differently from the instance itself or an antivirus
+/// web-shield forging responses locally. Same shared client as `http_get`,
+/// so the probe receives the same treatment as real app traffic. Returns a
+/// JSON string: `{ status, headers: <identifying subset>, bodyHead }`.
+/// The URL is a credential: any echo of its path/query is cut from the
+/// body head before it leaves this function, and the frontend scrubs again
+/// before display.
+#[tauri::command]
+async fn http_probe(url: String) -> Result<String, String> {
+    let mut res = http_client()
+        .get(&url)
+        .header(
+            reqwest::header::ACCEPT,
+            "application/json, text/plain, */*",
+        )
+        .header(reqwest::header::ACCEPT_LANGUAGE, "en-US,en;q=0.9")
+        .send()
+        .await
+        // Transport errors echo the URL (reqwest appends it) — callers
+        // must scrub, same contract as http_get.
+        .map_err(|e| e.to_string())?;
+    let status = res.status().as_u16();
+    // Headers that identify the responder and nothing else — a full dump
+    // could carry Set-Cookie or other reflected values.
+    const KEEP: [&str; 8] = [
+        "server",
+        "via",
+        "cf-ray",
+        "cf-mitigated",
+        "cf-cache-status",
+        "x-served-by",
+        "x-powered-by",
+        "content-type",
+    ];
+    let mut headers = serde_json::Map::new();
+    for name in KEEP {
+        if let Some(v) = res.headers().get(name).and_then(|v| v.to_str().ok()) {
+            headers.insert(name.to_string(), serde_json::Value::from(v));
+        }
+    }
+    // Enough body to recognize a block page; never the whole response.
+    let mut body: Vec<u8> = Vec::new();
+    while body.len() < 600 {
+        match res.chunk().await {
+            Ok(Some(c)) => body.extend_from_slice(&c),
+            _ => break,
+        }
+    }
+    body.truncate(600);
+    let mut head = String::from_utf8_lossy(&body).into_owned();
+    // Error pages love echoing the request back at you.
+    if let Ok(parsed) = reqwest::Url::parse(&url) {
+        head = head.replace(&url, "[url]");
+        if parsed.path().len() > 1 {
+            head = head.replace(parsed.path(), "[path]");
+        }
+        if let Some(q) = parsed.query() {
+            if !q.is_empty() {
+                head = head.replace(q, "[query]");
+            }
+        }
+    }
+    Ok(
+        serde_json::json!({ "status": status, "headers": headers, "bodyHead": head })
+            .to_string(),
+    )
+}
+
 // Self-update: check GitHub Releases (see tauri.conf.json > plugins.updater) for
 // a newer signed build. Returns the new version string when one is available.
 #[tauri::command]
@@ -641,6 +713,7 @@ pub fn run() {
             mpv_frost_rect,
             mpv_snapshot,
             http_get,
+            http_probe,
             check_update,
             install_update
         ])

@@ -313,7 +313,12 @@ export function AioStreamsTab() {
                 >
                   <span className="aio-probe__mark">{s.ok ? "✓" : "✗"}</span>
                   <span className="aio-probe__label">{s.label}</span>
-                  <span className="aio-probe__detail">{s.detail}</span>
+                  <span className="aio-probe__detail">
+                    {s.detail}
+                    {s.forensic && (
+                      <span className="aio-probe__forensic">{s.forensic}</span>
+                    )}
+                  </span>
                 </li>
               ))}
             </ul>

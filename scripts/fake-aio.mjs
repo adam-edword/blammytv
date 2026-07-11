@@ -210,6 +210,9 @@ http
   .createServer((req, res) => {
     const url = new URL(req.url, `http://localhost:${PORT}`);
     res.setHeader("Access-Control-Allow-Origin", "*");
+    // Let browser-mode E2Es read the forensic headers below (the Rust
+    // path sees them regardless; only fetch() is CORS-gated).
+    res.setHeader("Access-Control-Expose-Headers", "*");
     // Approve any CORS preflight wholesale.
     if (req.method === "OPTIONS") {
       res.setHeader(
@@ -221,6 +224,21 @@ http
       return res.end();
     }
     console.log(`${req.method} ${url.pathname}`);
+
+    // A fake Cloudflare challenge (the Bobby-403 shape): any path under
+    // /cf/ answers 403 with the identifying headers, so the Connection
+    // Test's forensic line is E2E-able browser-side.
+    if (url.pathname.startsWith("/cf/")) {
+      res.statusCode = 403;
+      res.setHeader("Content-Type", "text/html; charset=UTF-8");
+      res.setHeader("Server", "cloudflare");
+      res.setHeader("Cf-Mitigated", "challenge");
+      res.setHeader("Cf-Ray", "0000feedfacef00d-FAKE");
+      return res.end(
+        "<!DOCTYPE html><html><head><title>Just a moment...</title></head>" +
+          "<body>Checking your browser before accessing</body></html>",
+      );
+    }
 
     if (url.pathname.startsWith("/poster/") || url.pathname.startsWith("/bg/")) {
       res.setHeader("Content-Type", "image/png");

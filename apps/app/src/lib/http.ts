@@ -37,6 +37,40 @@ export async function httpGetText(
   return res.text();
 }
 
+/** What a failed endpoint's response says about WHO sent it. */
+export interface HttpForensics {
+  status: number;
+  headers: Record<string, string>;
+  bodyHead: string;
+}
+
+/**
+ * Forensic GET for the settings Connection Test: unlike httpGetText, a
+ * non-2xx status is the ANSWER here, not an error — returns the status,
+ * responder-identifying headers, and the first bytes of the body, so a
+ * failed test row can say who rejected the request (a WAF in front of the
+ * instance vs the instance itself vs a local AV web-shield). The Rust path
+ * sees every header; the browser fallback (dev/E2E) only the CORS-exposed
+ * ones. Returns null on transport failure — the step's own error already
+ * tells that story. Callers must scrub bodyHead before display.
+ */
+export async function httpProbe(url: string): Promise<HttpForensics | null> {
+  try {
+    if (isTauri()) {
+      const raw = await invoke<string>("http_probe", { url });
+      return JSON.parse(raw) as HttpForensics;
+    }
+    const res = await fetch(url);
+    const headers: Record<string, string> = {};
+    res.headers.forEach((v, k) => {
+      headers[k] = v;
+    });
+    return { status: res.status, headers, bodyHead: (await res.text()).slice(0, 600) };
+  } catch {
+    return null;
+  }
+}
+
 /** GET and parse JSON. A non-JSON body (a proxy/captive-portal HTML page, a
  * panel error page served with 200) throws a named error naming the real
  * failure instead of an opaque "Unexpected token '<'" SyntaxError. */

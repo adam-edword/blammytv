@@ -853,6 +853,14 @@
   color: var(--text-muted);
   overflow-wrap: anywhere;
 }
+/* Failure forensics: what the rejecting response identified itself as
+ * (server/cf-* headers + how the body starts) — the line that names the
+ * gatekeeper in a tester's screenshot. */
+.aio-probe__forensic {
+  display: block;
+  font-size: 12.5px;
+  opacity: 0.75;
+}
 
 /* Slightly-glassy surfaces inside the settings card (Adam, v0.4.2):
  * the solid --surface blocks read heavy over the frosted card — let
