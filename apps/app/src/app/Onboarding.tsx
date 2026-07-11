@@ -18,19 +18,13 @@ import {
   saveAccentStyle,
 } from "../features/settings/accent";
 import {
+  STARTUP_TABS,
   loadStartupTab,
   saveStartupTab,
   type StartupTab,
 } from "../features/settings/startupTab";
 import { ChipTabs } from "../ui/ChipTabs";
 import { markOnboarded } from "./onboardingGate";
-
-/* Same rail + labels as Settings > Customize > Startup Tab. */
-const STARTUP_TABS: Array<{ key: StartupTab; label: string }> = [
-  { key: "live", label: "Live TV" },
-  { key: "stream", label: "Stream · Home" },
-  { key: "discover", label: "Stream · Discover" },
-];
 
 /**
  * First-run onboarding (Adam's mockup, 2026-07-11): the boot animation's

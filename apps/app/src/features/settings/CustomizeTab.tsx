@@ -45,6 +45,7 @@ import {
   type CornerStyle,
 } from "./cornerStyle";
 import {
+  STARTUP_TABS,
   loadStartupTab,
   saveStartupTab,
   type StartupTab,
@@ -68,13 +69,7 @@ const CORNER_TABS: Array<{ key: CornerStyle; label: string }> = [
   { key: "sharp", label: "Sharp" },
 ];
 
-// Labels mirror the nav hierarchy (v0.3.37+): Discover is a Stream page,
-// so the option says where it actually lands.
-const STARTUP_TABS: Array<{ key: StartupTab; label: string }> = [
-  { key: "live", label: "Live TV" },
-  { key: "stream", label: "Stream · Home" },
-  { key: "discover", label: "Stream · Discover" },
-];
+// STARTUP_TABS lives in startupTab.ts — one list shared with onboarding.
 
 /** The native screen eyedropper. NOT in the Tauri app: WebView2 exposes
  * the constructor (feature-detection passes) but open()'s pick mode can
