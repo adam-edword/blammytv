@@ -37,7 +37,7 @@ import { markOnboarded } from "./onboardingGate";
  * animation speeds.
  */
 
-const BASE_DEG_S = 7;
+const BASE_DEG_S = 16;
 const BURST_DEG_S = 320;
 const BURST_MS = 700;
 /** Content out-transition before the step swaps: onb-out is 300ms and

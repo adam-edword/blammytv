@@ -20,13 +20,16 @@
  * finale transitions BOTH the blur and the geometry in one movement. */
 .onb-backdrop {
   position: absolute;
-  inset: -96px;
+  /* Oversize must stay >= the max blur radius, or the blur samples
+   * transparent past the edge and the glow dies at the border. */
+  inset: -176px;
   /* Pure blur, NO color math (Adam: the glow is the exact logo
    * colors). brightness/saturate tweaks over black turn the pastel
    * boot paint into jewel/neon tones — quietness comes from the band
-   * width and blur spread instead. Blur scales down with the window
-   * so small viewports keep a dark center. */
-  filter: blur(clamp(56px, 6vw, 84px));
+   * width and blur spread instead (Adam, v0.4.11: an ACCENT, not an
+   * element — doubled blur, slimmer band). Blur scales down with the
+   * window so small viewports keep a dark center. */
+  filter: blur(clamp(112px, 12vw, 168px));
   transition:
     filter 1300ms cubic-bezier(0.7, 0, 0.25, 1),
     inset 1300ms cubic-bezier(0.7, 0, 0.25, 1);
@@ -49,8 +52,10 @@
  * lets the glow bleed softly inward like the mock. */
 .onb-screen {
   position: absolute;
-  /* Viewport-relative: the glow band must not flood a small window. */
-  inset: clamp(110px, 19vmin, 200px);
+  /* Relative to the oversized backdrop: 176px cancels the overhang,
+   * the clamp is the actual gradient band visible from the viewport
+   * edge — kept slim, the heavy blur does the spreading. */
+  inset: calc(176px + clamp(32px, 5vmin, 56px));
   border-radius: 64px;
   background: #000;
   corner-shape: superellipse(1.58);
