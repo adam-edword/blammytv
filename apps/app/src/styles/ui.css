@@ -249,11 +249,34 @@
   backdrop-filter: blur(12px);
 }
 
-/* Aurora picker swatch: the wash in miniature. */
-.accent-swatch--aurora {
+/* Aurora picker swatch: the ring at full strength (the low-alpha wash
+ * over a dark base read as a black box at swatch size). Doubled class
+ * beats .accent-swatch's own background regardless of file order. */
+.accent-swatch.accent-swatch--aurora {
+  background: conic-gradient(
+    from 210deg,
+    #e879f9,
+    #818cf8 25%,
+    #38bdf8 50%,
+    #4ade80 72%,
+    #f472b6 90%,
+    #e879f9
+  );
+}
+
+/* EPG under Aurora: the live cell wears the wash over glass; the
+ * now-playing channel name becomes gradient TEXT (its channel-number
+ * chip keeps its own explicit colors). */
+:root[data-accent-style="aurora"] .guide__cell--live {
   background:
-    radial-gradient(120% 120% at 20% 20%, #a855f7, transparent 62%),
-    radial-gradient(120% 120% at 85% 30%, #3b82f6, transparent 62%),
-    radial-gradient(130% 130% at 60% 92%, #4ade80, transparent 62%),
-    #26262e;
+    var(--accent-image) padding-box,
+    linear-gradient(rgba(32, 32, 40, 0.55), rgba(32, 32, 40, 0.55))
+      padding-box;
+  border-color: #ffffff2e;
+}
+:root[data-accent-style="aurora"] .hero__channel {
+  background: var(--accent-ring-image);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
