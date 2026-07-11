@@ -17,7 +17,20 @@ import {
   saveAccent,
   saveAccentStyle,
 } from "../features/settings/accent";
+import {
+  loadStartupTab,
+  saveStartupTab,
+  type StartupTab,
+} from "../features/settings/startupTab";
+import { ChipTabs } from "../ui/ChipTabs";
 import { markOnboarded } from "./onboardingGate";
+
+/* Same rail + labels as Settings > Customize > Startup Tab. */
+const STARTUP_TABS: Array<{ key: StartupTab; label: string }> = [
+  { key: "live", label: "Live TV" },
+  { key: "stream", label: "Stream · Home" },
+  { key: "discover", label: "Stream · Discover" },
+];
 
 /**
  * First-run onboarding (Adam's mockup, 2026-07-11): the boot animation's
@@ -82,7 +95,14 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   handoffRef.current = handoff;
   useEffect(() => {
     if (!finale) return;
-    const t = window.setTimeout(() => handoffRef.current(), 1900);
+    // Reduced motion runs 1ms transitions, which Chromium sometimes
+    // coalesces into no transition at all (no transitionend) — the
+    // watchdog must then fire fast, not after a 1.9s dead stare.
+    const grace = window.matchMedia("(prefers-reduced-motion: reduce)")
+      .matches
+      ? 350
+      : 1900;
+    const t = window.setTimeout(() => handoffRef.current(), grace);
     return () => window.clearTimeout(t);
   }, [finale]);
 
@@ -199,10 +219,18 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     applyAccent(hex);
   };
 
+  // --- Startup tab step state ------------------------------------------
+  const [startup, setStartup] = useState<StartupTab>(loadStartupTab);
+  const pickStartup = (tab: StartupTab) => {
+    setStartup(tab);
+    saveStartupTab(tab);
+  };
+
   primaryRef.current =
     step === 0 ? advance
     : step === 1 ? continueStreams
     : step === 2 ? advance
+    : step === 3 ? advance
     : finish;
 
   const content =
@@ -306,6 +334,31 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           Continue
         </button>
       </>
+    ) : step === 3 ? (
+      <>
+        <h1 className="onb-title" style={idx(0)}>
+          Where should we start?
+        </h1>
+        <p className="onb-sub" style={idx(1)}>
+          The screen BlammyTV opens on. You can change it anytime in
+          Settings.
+        </p>
+        <div className="onb-chips" style={idx(2)}>
+          <ChipTabs
+            tabs={STARTUP_TABS}
+            active={startup}
+            onChange={pickStartup}
+          />
+        </div>
+        <button
+          type="button"
+          className="onb-btn"
+          style={idx(3)}
+          onClick={advance}
+        >
+          Continue
+        </button>
+      </>
     ) : (
       <>
         <h1 className="onb-title" style={idx(0)}>
@@ -347,7 +400,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           {content}
         </div>
       )}
-      {!finale && step < 3 && (
+      {!finale && step < 4 && (
         <button type="button" className="onb-skip" onClick={finish}>
           Skip setup
         </button>

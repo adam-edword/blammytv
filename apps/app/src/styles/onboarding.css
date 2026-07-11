@@ -309,6 +309,15 @@
   background: rgba(255, 255, 255, 0.07);
 }
 
+/* The startup-tab rail: the shared ChipTabs, given a touch of air.
+ * Its default track/thumb styling already reads right on black. */
+.onb-chips {
+  margin-top: 12px;
+}
+.onb-chips .chip-tabs__tab {
+  font-size: 15px;
+}
+
 .onb-swatches {
   display: flex;
   gap: 14px;
