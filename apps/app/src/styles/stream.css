@@ -449,7 +449,10 @@
   margin: 0;
 }
 .vod-more .media-row__scroller {
-  padding: 10px 96px 10px calc(6.51% - 1.6px);
+  /* Right padding = the sources panel's footprint (7% page pad + 420px
+   * rail + breathing): cards pass UNDER the glass panel while
+   * scrolling, but the LAST card can always scroll fully clear of it. */
+  padding: 10px calc(7% + 444px) 10px calc(6.51% - 1.6px);
   scrollbar-width: none;
   -webkit-mask-image: linear-gradient(
     to right,
@@ -475,6 +478,11 @@
  * tight one only when the shelf is present. */
 .vod-detail:has(.vod-more) .vod-detail__info {
   margin-bottom: 14px;
+}
+/* The right nudge arrow parks LEFT of the sources panel — under it,
+ * it was unreachable glass-on-glass. */
+.vod-more .media-row__arrow--right {
+  right: calc(7% + 434px);
 }
 .vod-more__card {
   flex: 0 0 auto;
