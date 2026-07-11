@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { isTauri } from "../../lib/tauri";
 import { remove as removeStored } from "../../lib/storage";
 import { HexColorInput, HexColorPicker } from "react-colorful";
 import { CheckIcon, EyeDropperIcon } from "../../ui/icons";
@@ -75,14 +76,17 @@ const STARTUP_TABS: Array<{ key: StartupTab; label: string }> = [
   { key: "discover", label: "Stream · Discover" },
 ];
 
-/** The native screen eyedropper (Chromium/WebView2; absent elsewhere, so the
- * button only renders when supported). Not yet in TS's DOM lib. */
+/** The native screen eyedropper. NOT in the Tauri app: WebView2 exposes
+ * the constructor (feature-detection passes) but open()'s pick mode can
+ * never settle — input stays captured and the whole client freezes
+ * (Bobby, v0.4.0). Browser/dev only until the platform verifies clean;
+ * the popover keeps the full wheel + hex input either way. */
 interface EyeDropperApi {
   open(): Promise<{ sRGBHex: string }>;
 }
-const eyeDropperCtor = (
-  window as { EyeDropper?: new () => EyeDropperApi }
-).EyeDropper;
+const eyeDropperCtor = isTauri()
+  ? undefined
+  : (window as { EyeDropper?: new () => EyeDropperApi }).EyeDropper;
 
 /** Swatch look: the color's 16% surface tint as fill, the pure color as the
  * border — the same recipe the accent family uses app-wide (--mix-base keeps

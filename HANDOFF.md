@@ -27,7 +27,12 @@ weighs as much as switcher parity. NOT a living-room/TV-remote product.
   GitHub's digest), manifest at releases/v0.3.0/latest.json, attached to
   the release. Both installs updated via the chip. Natives sit at 0.3.0
   now; dev bumps are 0.3.x in the three frontend files ONLY.
-- OPEN: Bobby's AIOStreams manifest 403s in-app (same server as Adam's,
+- OPEN: Bobby's AIOStreams 403 (persists on 0.4.0, catalogs at least; his
+  eyedropper freeze is FIXED in v0.4.1 - WebView2 exposes EyeDropper but
+  open() never settles, so it's browser-only now). v0.4.1 ships a
+  Connection Test in Settings -> AIOStreams (same fetch paths as the
+  app, per-endpoint results, URL-scrubbed) - next step is Bobby's
+  screenshot of it. Prior state: manifest 403s in-app (same server as Adam's,
   Adam's works; browser test was confounded — likely a STALE saved
   config URL; awaiting his fresh-URL re-paste). Cargo.lock churn from
   Adam's release build still uncommitted on his machine.

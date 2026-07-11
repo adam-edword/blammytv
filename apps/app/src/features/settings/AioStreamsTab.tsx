@@ -2,6 +2,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CheckIcon, ChevronIcon, CloseIcon, CopyIcon } from "../../ui/icons";
 import { fetchAioCatalogs, type AioCatalog } from "../../data/aiostreams";
+import { probeAioStreams, type ProbeStep } from "./aioProbe";
 import {
   isValidManifestUrl,
   loadAioUrl,
@@ -212,6 +213,11 @@ export function AioStreamsTab() {
     setCapDraft(null);
   };
   const [failover, setFailover] = useState<boolean>(loadSourceFailover);
+
+  // Connection test (the Bobby-403 debugging affordance) — runs the
+  // app's real fetch paths and reports per-endpoint results, scrubbed.
+  const [probe, setProbe] = useState<ProbeStep[] | null>(null);
+  const [probing, setProbing] = useState(false);
   const [skipBehavior, setSkipBehavior] =
     useState<SkipBehavior>(loadSkipBehavior);
 
@@ -275,6 +281,45 @@ export function AioStreamsTab() {
           {dirty || !savedUrl ? "Submit" : "Saved"}
         </button>
       </section>
+
+      {savedUrl && (
+        <section className="settings-section">
+          <h3 className="settings-section__list-title">Connection Test</h3>
+          <p className="settings__section-note settings__section-note--dim">
+            Checks your instance the same way the app talks to it —
+            manifest, a catalog page, and a stream lookup. Screenshot the
+            result when reporting a problem; it never shows your URL.
+          </p>
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={probing}
+            onClick={() => {
+              setProbing(true);
+              setProbe(null);
+              probeAioStreams(savedUrl)
+                .then(setProbe)
+                .finally(() => setProbing(false));
+            }}
+          >
+            {probing ? "Testing…" : "Run Connection Test"}
+          </button>
+          {probe && (
+            <ul className="aio-probe">
+              {probe.map((s) => (
+                <li
+                  key={s.label}
+                  className={"aio-probe__row" + (s.ok ? "" : " aio-probe__row--bad")}
+                >
+                  <span className="aio-probe__mark">{s.ok ? "✓" : "✗"}</span>
+                  <span className="aio-probe__label">{s.label}</span>
+                  <span className="aio-probe__detail">{s.detail}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
 
       {savedUrl && (
         <section className="settings-section">

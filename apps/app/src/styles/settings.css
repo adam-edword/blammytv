@@ -820,3 +820,36 @@
 .rowcap__value--edit::-webkit-outer-spin-button {
   -webkit-appearance: none;
 }
+
+/* AIOStreams connection test: per-endpoint result rows, scrubbed. */
+.aio-probe {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  list-style: none;
+  padding: 0;
+}
+.aio-probe__row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 14px;
+}
+.aio-probe__mark {
+  color: #2cad57;
+  font-weight: 700;
+  min-width: 14px;
+}
+.aio-probe__row--bad .aio-probe__mark {
+  color: var(--accent, #c22727);
+}
+.aio-probe__label {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.aio-probe__detail {
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
