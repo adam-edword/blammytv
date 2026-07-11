@@ -308,74 +308,33 @@ button {
   pointer-events: none;
 }
 
-/* VOD-side search pill. The SLOT is in-flow and icon-sized (mirrors the
- * TV icon, so the centered tab cluster is symmetric and never moves);
- * the PILL hangs off it absolutely and grows rightward over empty
- * header space. */
-.header__searchslot {
-  position: relative;
-  width: 17px;
-  height: 32px;
-  flex-shrink: 0;
-}
-.header__searchpill {
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
+/* Search chip: the rail's LAST CHIP (rendered via ChipTabs' trailing
+ * slot). At rest it's just the icon; focus — or an active query —
+ * widens the input in-flow, and the ChipTabs thumb slides onto and
+ * stretches with the chip (thumbKey="search" while focused): the thumb
+ * IS the focus background. Hover ring is a box-shadow so no state ever
+ * shifts layout. */
+.header__searchchip {
   display: flex;
   align-items: center;
-  gap: 9px;
-  width: min(320px, 22vw);
-  padding: 6px 14px 6px 12px;
-  border-radius: 1000px;
-  /* Resting: just the icon — border and text hidden. Hover teases a
-   * soft white border + placeholder at half strength; focus (click)
-   * raises the pill to the chip-thumb surface with text and icon at 1.
-   * Constant 1px border (transparent at rest) so no state change ever
-   * shifts layout. */
-  border: 1px solid transparent;
-  /* Background only while FOCUSED — a resting glass blob reads as a
-   * mystery box over bright content scrolling under the nav. */
-  background: transparent;
+  gap: 8px;
   cursor: pointer;
-  transition: border-color 150ms ease, background 150ms ease;
+  transition: box-shadow 150ms ease, opacity 150ms ease;
 }
-.header__searchpill:hover {
-  border-color: #ffffff40;
+.header__searchchip:hover {
+  box-shadow: inset 0 0 0 1px #ffffff40;
 }
-.header__searchpill:focus-within {
-  /* Same raised surface as the chip-tabs thumb — the pill reads as one
-   * family with the rail. */
-  background: #2a2a2a;
+.header__searchchip:focus-within {
   cursor: text;
-}
-.header__searchinput {
-  opacity: 0;
-  transition: opacity 150ms ease;
-}
-.header__searchpill:hover .header__searchinput {
-  opacity: 0.5;
-}
-/* Full strength while focused — and whenever a query is typed, so an
- * active search never renders as an invisible string. */
-.header__searchpill:focus-within .header__searchinput,
-.header__searchpill:has(.header__searchinput:not(:placeholder-shown))
-  .header__searchinput {
   opacity: 1;
 }
-.header__searchpill svg {
+.header__searchchip svg {
   flex-shrink: 0;
-  width: 23px;
-  height: 22px;
-  opacity: 0.45;
-  transition: opacity 150ms ease;
-}
-.header__searchpill:focus-within svg {
-  opacity: 1;
+  width: 18px;
+  height: 18px;
 }
 .header__searchinput {
-  flex: 1;
+  width: 0;
   min-width: 0;
   background: none;
   border: none;
@@ -383,12 +342,36 @@ button {
   color: var(--text);
   font: inherit;
   font-size: 12px;
+  opacity: 0;
+  transition:
+    width 300ms cubic-bezier(0.56, 0, 0.5, 0.99),
+    opacity 200ms ease;
+}
+/* Expanded while focused — and whenever a query is typed, so an active
+ * search never collapses into an invisible string on blur. */
+.header__searchchip:focus-within .header__searchinput,
+.header__searchchip:has(.header__searchinput:not(:placeholder-shown))
+  .header__searchinput {
+  width: min(240px, 17vw);
+  opacity: 1;
+}
+.header__searchchip:has(.header__searchinput:not(:placeholder-shown)) {
+  opacity: 1;
 }
 .header__searchinput::placeholder {
   color: var(--text-muted);
 }
 .header__searchinput::-webkit-search-cancel-button {
   cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .header__rail,
+  .header__rail--off,
+  .header__searchinput,
+  .header__searchchip {
+    transition: none;
+  }
 }
 
 .header__tab-slot {
@@ -439,15 +422,31 @@ button {
 .header__rail {
   display: flex;
   align-items: center;
-  gap: 4px;
   margin-top: 3px;
-  max-width: 480px;
+  max-width: 520px;
+  /* Everything inside is in-flow now (the search input expands as a
+   * chip), so the rail can clip permanently — its own collapse/expand
+   * reads as a wipe instead of chips poking out mid-transition. */
+  overflow: hidden;
+  /* The Live↔Stream glide. Width rides the Figma curve; the chips fade
+   * in slightly late so the wipe leads and the labels land into place.
+   * The centered tab cluster slides over for free — the grid re-centers
+   * as the rail's width animates. */
+  transition:
+    max-width 480ms cubic-bezier(0.56, 0, 0.5, 0.99),
+    opacity 260ms ease 140ms,
+    visibility 0s;
 }
 .header__rail--off {
   max-width: 0;
   opacity: 0;
   visibility: hidden;
-  overflow: hidden;
+  /* Collapse: fade leads, wipe follows; visibility flips only after the
+   * width lands so the fade-out is visible. */
+  transition:
+    max-width 400ms cubic-bezier(0.56, 0, 0.5, 0.99),
+    opacity 180ms ease,
+    visibility 0s 400ms;
 }
 /* The rail's chips come from the shared ChipTabs primitive (ui.css) with
  * the chip-tabs--bare modifier — nothing header-specific to style here. */

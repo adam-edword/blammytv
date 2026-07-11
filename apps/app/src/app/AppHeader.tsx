@@ -66,6 +66,10 @@ export function AppHeader({
   // DiscoverScreen renders from; local state keeps the input snappy).
   const [query, setQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
+  // While the search input is focused the rail's thumb parks on the
+  // search chip (thumbKey) — the thumb tracks where your INPUT goes;
+  // `streamTab` stays the truth of which page is showing.
+  const [searchOpen, setSearchOpen] = useState(false);
 
   // `/`, Ctrl+K, Ctrl+F focus the pill — VOD side only, never while
   // typing in another field, never while a player is up (its own keys
@@ -200,12 +204,16 @@ export function AppHeader({
           >
           {/* The SAME chip slider used in Settings/Discover/the Live
             * sidebar — sliding raised thumb and all — minus the track
-            * background. (Collapsed rail = visibility:hidden, which also
+            * background. The search input is the rail's LAST CHIP:
+            * focusing it slides (and stretches) the thumb onto it via
+            * thumbKey; blur/Escape sends the thumb home to the page
+            * pill. (Collapsed rail = visibility:hidden, which also
             * drops the chips from the tab order.) */}
           <ChipTabs
             tabs={RAIL}
             active={streamTab}
             className="chip-tabs--bare"
+            thumbKey={searchOpen ? "search" : undefined}
             onChange={(t) => {
               // The Discover PILL means browse: clear any active search
               // so it never lands (or stays) on stale results.
@@ -215,45 +223,45 @@ export function AppHeader({
               }
               onStreamTab(t);
             }}
+            trailing={
+              /* A span, not a button — buttons can't contain inputs.
+               * Clicking anywhere on the chip focuses the input. */
+              <span
+                className="chip-tabs__tab header__searchchip"
+                data-tab="search"
+                onClick={() => searchInputRef.current?.focus()}
+              >
+                <SearchIcon aria-hidden />
+                <input
+                  ref={searchInputRef}
+                  className="header__searchinput"
+                  type="search"
+                  placeholder="Search movies & series…"
+                  value={query}
+                  tabIndex={section === "live" ? -1 : 0}
+                  aria-label="Search movies and series"
+                  onFocus={() => setSearchOpen(true)}
+                  onBlur={() => setSearchOpen(false)}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setSearchQuery(e.target.value);
+                    // Typing from any Stream page lands where results are.
+                    if (streamTab !== "discover") onStreamTab("discover");
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      // Ours alone: without stopPropagation the App-level
+                      // listener also exits OS fullscreen on the same press.
+                      e.stopPropagation();
+                      setQuery("");
+                      setSearchQuery("");
+                      e.currentTarget.blur();
+                    }
+                  }}
+                />
+              </span>
+            }
           />
-          {/* The search PILL. The in-flow slot stays icon-sized; the
-            * actual pill renders absolutely off that anchor and extends
-            * rightward over empty header space. */}
-          <span className="header__searchslot">
-            {/* The whole pill focuses the input — the icon is the visible
-              * target when everything else is hidden at rest. */}
-            <span
-              className="header__searchpill"
-              onClick={() => searchInputRef.current?.focus()}
-            >
-              <SearchIcon aria-hidden />
-              <input
-                ref={searchInputRef}
-                className="header__searchinput"
-                type="search"
-                placeholder="Search movies & series…"
-                value={query}
-                tabIndex={section === "live" ? -1 : 0}
-                aria-label="Search movies and series"
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  setSearchQuery(e.target.value);
-                  // Typing from any Stream page lands where results are.
-                  if (streamTab !== "discover") onStreamTab("discover");
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") {
-                    // Ours alone: without stopPropagation the App-level
-                    // listener also exits OS fullscreen on the same press.
-                    e.stopPropagation();
-                    setQuery("");
-                    setSearchQuery("");
-                    e.currentTarget.blur();
-                  }
-                }}
-              />
-            </span>
-          </span>
           </div>
         </div>
       </nav>

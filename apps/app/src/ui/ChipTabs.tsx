@@ -12,12 +12,23 @@ export function ChipTabs<K extends string>({
   active,
   onChange,
   className,
+  thumbKey,
+  trailing,
 }: {
   tabs: ReadonlyArray<{ key: K; label: ReactNode; ariaLabel?: string }>;
   active: K;
   onChange: (key: K) => void;
   /** Modifier classes, e.g. "chip-tabs--bare" (trackless header rail). */
   className?: string;
+  /** Park the thumb on this data-tab instead of `active` — the header
+   * rail slides it onto the search chip while its input is focused.
+   * The thumb is presentation; `active` stays the truth of which page
+   * is showing. */
+  thumbKey?: string;
+  /** Extra chip(s) after the tabs, inside the rail — give them a
+   * data-tab to be thumb-targetable (they're observed for resize like
+   * the buttons, so a width-morphing chip drags the thumb with it). */
+  trailing?: ReactNode;
 }) {
   // Position the thumb off the active button's measured offsets.
   const railRef = useRef<HTMLDivElement>(null);
@@ -27,10 +38,9 @@ export function ChipTabs<K extends string>({
   useLayoutEffect(() => {
     const rail = railRef.current;
     if (!rail) return;
+    const target = thumbKey ?? active;
     const measure = () => {
-      const btn = rail.querySelector<HTMLButtonElement>(
-        `[data-tab="${active}"]`,
-      );
+      const btn = rail.querySelector<HTMLElement>(`[data-tab="${target}"]`);
       if (btn) setThumb({ left: btn.offsetLeft, width: btn.offsetWidth });
     };
     measure();
@@ -44,13 +54,13 @@ export function ChipTabs<K extends string>({
     const ro = new ResizeObserver(measure);
     ro.observe(rail);
     rail
-      .querySelectorAll<HTMLButtonElement>("[data-tab]")
+      .querySelectorAll<HTMLElement>("[data-tab]")
       .forEach((btn) => ro.observe(btn));
     return () => {
       alive = false;
       ro.disconnect();
     };
-  }, [active]);
+  }, [active, thumbKey]);
 
   return (
     <div
@@ -78,6 +88,7 @@ export function ChipTabs<K extends string>({
           {tab.label}
         </button>
       ))}
+      {trailing}
     </div>
   );
 }
