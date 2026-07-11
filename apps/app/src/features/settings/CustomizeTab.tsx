@@ -28,6 +28,7 @@ import {
   type UiScale,
 } from "./uiScale";
 import {
+  CLOCK_TABS,
   loadClockFormat,
   saveClockFormat,
   type ClockFormat,
@@ -58,10 +59,7 @@ const SCALE_TABS = UI_SCALES.map((s) => ({
   label: `${Math.round(s * 100)}%`,
 }));
 
-const CLOCK_TABS: Array<{ key: ClockFormat; label: string }> = [
-  { key: "12h", label: "12h" },
-  { key: "24h", label: "24h" },
-];
+// CLOCK_TABS lives in clockFormat.ts — one list shared with onboarding.
 
 const CORNER_TABS: Array<{ key: CornerStyle; label: string }> = [
   { key: "squircle", label: "Squircle" },

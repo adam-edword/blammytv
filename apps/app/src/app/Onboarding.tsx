@@ -18,11 +18,30 @@ import {
   saveAccentStyle,
 } from "../features/settings/accent";
 import {
+  CLOCK_TABS,
+  loadClockFormat,
+  saveClockFormat,
+  type ClockFormat,
+} from "../features/settings/clockFormat";
+import {
   STARTUP_TABS,
   loadStartupTab,
   saveStartupTab,
   type StartupTab,
 } from "../features/settings/startupTab";
+import {
+  addPlaylist,
+  isHttpUrl,
+  loadPlaylists,
+  savePlaylists,
+} from "../features/settings/playlists";
+import {
+  probeAioStreams,
+  probeVerdict,
+  type ProbeStep,
+} from "../features/settings/aioProbe";
+import { authenticate } from "../data/xtream";
+import { scrubbedMessage } from "../lib/errors";
 import { ChipTabs } from "../ui/ChipTabs";
 import { markOnboarded } from "./onboardingGate";
 
@@ -35,6 +54,16 @@ import { markOnboarded } from "./onboardingGate";
  * so the glow resolves into the boot frame, and App swaps in
  * WelcomeAnimation in the same render — the boot animation IS the
  * onboarding's last scene.
+ *
+ * The source steps VERIFY, not just collect (v0.4.21): Continue runs
+ * the real connection machinery (probeAioStreams for AIOStreams — the
+ * same path as Settings' Connection Test, Cloudflare verdicts and all;
+ * authenticate() for Xtream) while the glow spins "thinking". Success
+ * saves and auto-advances; failure shows the verdict and offers
+ * "Continue anyway" — verification must never hard-wall onboarding.
+ *
+ * Steps: 0 logo · 1 streams · 2 live tv · 3 accent+clock · 4 startup
+ * tab · 5 done (mini nav map + go-explore-Settings nudge).
  *
  * The glow reuses welcome.css's gradient classes (geometry + brand
  * paint, verbatim); onboarding.css only overrides its fixed-speed spin,
@@ -50,6 +79,12 @@ const BURST_MS = 700;
 /** Content out-transition before the step swaps: onb-out is 300ms and
  * the last staggered child starts at +90ms — swap after the full tail. */
 const SWAP_MS = 400;
+/** How long a verification may hold the step before it reads as hung. */
+const VERIFY_TIMEOUT_MS = 12_000;
+/** Success message dwell before the step auto-advances. */
+const VERIFIED_DWELL_MS = 750;
+
+const LAST_STEP = 5;
 
 /** --s carries the boot mock's 1920×1080 cover factor so the finale's
  * sharp frame lands EXACTLY on WelcomeAnimation's first frame. */
@@ -60,6 +95,17 @@ function coverVars(): CSSProperties {
 
 const idx = (i: number) => ({ "--i": String(i) }) as CSSProperties;
 
+function raceTimeout<T>(p: Promise<T>, msg: string): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<never>((_, reject) =>
+      window.setTimeout(() => reject(new Error(msg)), VERIFY_TIMEOUT_MS),
+    ),
+  ]);
+}
+
+type VerifyMsg = { ok: boolean; text: string } | null;
+
 export function Onboarding({ onDone }: { onDone: () => void }) {
   const [step, setStep] = useState(0);
   const [phase, setPhase] = useState<"in" | "out">("in");
@@ -69,6 +115,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   const gradRef = useRef<HTMLDivElement>(null);
   const burstUntil = useRef(0);
   const swapTimer = useRef(0);
+  const autoTimer = useRef(0);
 
   useEffect(() => {
     const onResize = () => setVars(coverVars());
@@ -100,7 +147,13 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     return () => window.clearTimeout(t);
   }, [finale]);
 
-  useEffect(() => () => window.clearTimeout(swapTimer.current), []);
+  useEffect(
+    () => () => {
+      window.clearTimeout(swapTimer.current);
+      window.clearTimeout(autoTimer.current);
+    },
+    [],
+  );
 
   // The app shell behind the overlay must be unreachable: without
   // `inert`, Tab walks into the invisible header and Enter activates
@@ -168,6 +221,13 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   const think = () => {
     burstUntil.current = performance.now() + BURST_MS;
   };
+  /** Verifications hold the spin the whole time they run. */
+  const thinkHard = () => {
+    burstUntil.current = performance.now() + 60_000;
+  };
+  const thinkDone = () => {
+    burstUntil.current = performance.now() + 400;
+  };
 
   // Enter advances every step — via a ref so one listener always sees
   // the current step's action. Repeat is ignored (holding Enter must
@@ -207,28 +267,154 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     swapTimer.current = window.setTimeout(() => setFinale(true), SWAP_MS);
   };
 
-  // --- Streams step state ---------------------------------------------
+  // --- Streams step: input + REAL verification --------------------------
   const [manifest, setManifest] = useState(loadAioUrl);
   // The invalid hint waits for a submit attempt or blur — flashing an
   // error while someone is mid-typing a URL is noise, not help.
   const [manifestTouched, setManifestTouched] = useState(false);
+  const [streamsChecking, setStreamsChecking] = useState(false);
+  const [streamsMsg, setStreamsMsg] = useState<VerifyMsg>(null);
+  const [streamsFailed, setStreamsFailed] = useState(false);
   const manifestTrimmed = manifest.trim();
   const manifestOk =
     manifestTrimmed === "" || isValidManifestUrl(manifestTrimmed);
-  const showManifestHint = manifestTouched && !manifestOk;
+  const showManifestHint =
+    manifestTouched && !manifestOk && streamsMsg === null;
+
   const continueStreams = () => {
+    if (streamsChecking || phase === "out" || finale) return;
     if (!manifestOk) {
       setManifestTouched(true);
       return;
     }
-    if (manifestTrimmed) saveAioUrl(manifestTrimmed);
+    if (!manifestTrimmed) {
+      advance();
+      return;
+    }
+    setStreamsChecking(true);
+    setStreamsMsg(null);
+    thinkHard();
+    raceTimeout(
+      probeAioStreams(manifestTrimmed),
+      "Couldn't reach the instance — it didn't answer in time.",
+    )
+      .then((steps: ProbeStep[]) => {
+        if (steps[0]?.ok) {
+          saveAioUrl(manifestTrimmed);
+          const n = /(\d+) catalog/.exec(steps[0].detail)?.[1];
+          setStreamsMsg({
+            ok: true,
+            text: `Connected${n ? ` — ${n} catalogs found` : ""}. Nice.`,
+          });
+          window.clearTimeout(autoTimer.current);
+          autoTimer.current = window.setTimeout(advance, VERIFIED_DWELL_MS);
+        } else {
+          setStreamsFailed(true);
+          setStreamsMsg({
+            ok: false,
+            text:
+              probeVerdict(steps) ??
+              steps[0]?.detail ??
+              "The instance rejected the connection.",
+          });
+        }
+      })
+      .catch((e: unknown) => {
+        setStreamsFailed(true);
+        setStreamsMsg({ ok: false, text: scrubbedMessage(e) });
+      })
+      .finally(() => {
+        setStreamsChecking(false);
+        thinkDone();
+      });
+  };
+  const ghostStreams = () => {
+    if (streamsChecking) return;
+    // After a failed check, the ghost saves what they typed anyway —
+    // verification must never hard-wall onboarding.
+    if (streamsFailed && manifestTrimmed && manifestOk) {
+      saveAioUrl(manifestTrimmed);
+    }
     advance();
   };
   const onManifestKey = (e: ReactKeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.repeat) continueStreams();
   };
 
-  // --- Accent step state ----------------------------------------------
+  // --- Live TV step: Xtream creds + REAL verification -------------------
+  const [tvServer, setTvServer] = useState("");
+  const [tvUser, setTvUser] = useState("");
+  const [tvPass, setTvPass] = useState("");
+  const [tvTouched, setTvTouched] = useState(false);
+  const [tvChecking, setTvChecking] = useState(false);
+  const [tvMsg, setTvMsg] = useState<VerifyMsg>(null);
+  const [tvFailed, setTvFailed] = useState(false);
+  const tvEmpty = !tvServer.trim() && !tvUser.trim() && !tvPass.trim();
+  const tvComplete =
+    isHttpUrl(tvServer) && tvUser.trim() !== "" && tvPass.trim() !== "";
+  const showTvHint = tvTouched && !tvEmpty && !tvComplete && tvMsg === null;
+
+  const saveTvPlaylist = () => {
+    savePlaylists(
+      addPlaylist(loadPlaylists(), {
+        kind: "xtream",
+        name: "",
+        server: tvServer.trim().replace(/\/+$/, ""),
+        username: tvUser.trim(),
+        password: tvPass.trim(),
+      }),
+    );
+  };
+  const continueTv = () => {
+    if (tvChecking || phase === "out" || finale) return;
+    if (tvEmpty) {
+      advance();
+      return;
+    }
+    if (!tvComplete) {
+      setTvTouched(true);
+      return;
+    }
+    setTvChecking(true);
+    setTvMsg(null);
+    thinkHard();
+    raceTimeout(
+      authenticate({
+        kind: "xtream",
+        id: "onboarding-probe",
+        name: "probe",
+        enabled: true,
+        server: tvServer.trim().replace(/\/+$/, ""),
+        username: tvUser.trim(),
+        password: tvPass.trim(),
+      }),
+      "Couldn't reach the panel — it didn't answer in time.",
+    )
+      .then(() => {
+        saveTvPlaylist();
+        setTvMsg({ ok: true, text: "Connected — your channels are in." });
+        window.clearTimeout(autoTimer.current);
+        autoTimer.current = window.setTimeout(advance, VERIFIED_DWELL_MS);
+      })
+      .catch((e: unknown) => {
+        setTvFailed(true);
+        setTvMsg({ ok: false, text: scrubbedMessage(e) });
+      })
+      .finally(() => {
+        setTvChecking(false);
+        thinkDone();
+      });
+  };
+  const ghostTv = () => {
+    if (tvChecking) return;
+    if (tvFailed && tvComplete) saveTvPlaylist();
+    advance();
+  };
+  const onTvKey = (e: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && !e.repeat) continueTv();
+  };
+
+  // --- Accent + clock step ----------------------------------------------
   const [accent, setAccent] = useState(loadAccent);
   const pickAccent = (hex: string) => {
     setAccent(hex);
@@ -239,8 +425,13 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     saveAccentStyle("flat");
     applyAccent(hex);
   };
+  const [clock, setClock] = useState<ClockFormat>(loadClockFormat);
+  const pickClock = (next: ClockFormat) => {
+    setClock(next);
+    saveClockFormat(next);
+  };
 
-  // --- Startup tab step state ------------------------------------------
+  // --- Startup tab step ---------------------------------------------------
   const [startup, setStartup] = useState<StartupTab>(loadStartupTab);
   const pickStartup = (tab: StartupTab) => {
     setStartup(tab);
@@ -250,8 +441,9 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   primaryRef.current =
     step === 0 ? advance
     : step === 1 ? continueStreams
-    : step === 2 ? advance
+    : step === 2 ? continueTv
     : step === 3 ? advance
+    : step === 4 ? advance
     : finish;
 
   const content =
@@ -278,21 +470,26 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           Bring your streams
         </h1>
         <p className="onb-sub" style={idx(1)}>
-          Paste your AIOStreams manifest URL to power movies and series.
-          You can always set this up later in Settings.
+          Paste your AIOStreams manifest URL to power movies and series —
+          we&rsquo;ll check the connection for real before moving on.
         </p>
         <input
           className={"onb-input" + (showManifestHint ? " is-invalid" : "")}
           style={idx(2)}
           type="text"
           value={manifest}
-          onChange={(e) => setManifest(e.target.value)}
+          onChange={(e) => {
+            setManifest(e.target.value);
+            setStreamsMsg(null);
+            setStreamsFailed(false);
+          }}
           onKeyDown={onManifestKey}
           onBlur={() => setManifestTouched(true)}
           placeholder="https://aiostreams.example.com/…/manifest.json"
           aria-invalid={showManifestHint || undefined}
           spellCheck={false}
           autoComplete="off"
+          disabled={streamsChecking}
           autoFocus
         />
         {showManifestHint && (
@@ -301,21 +498,128 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
             with http(s) and end in /manifest.json.
           </p>
         )}
+        {streamsMsg && (
+          <p
+            className={"onb-hint" + (streamsMsg.ok ? " onb-hint--ok" : "")}
+            role={streamsMsg.ok ? "status" : "alert"}
+          >
+            {streamsMsg.text}
+          </p>
+        )}
         <div className="onb-row" style={idx(3)}>
           <button
             type="button"
             className="onb-btn"
-            disabled={!manifestOk}
+            disabled={!manifestOk || streamsChecking}
             onClick={continueStreams}
           >
-            Continue
+            {streamsChecking ? "Connecting…" : "Continue"}
           </button>
-          <button type="button" className="onb-ghost" onClick={advance}>
-            I&rsquo;ll do this later
+          <button
+            type="button"
+            className="onb-ghost"
+            disabled={streamsChecking}
+            onClick={ghostStreams}
+          >
+            {streamsFailed ? "Continue anyway" : "I’ll do this later"}
           </button>
         </div>
       </>
     ) : step === 2 ? (
+      <>
+        <h1 className="onb-title" style={idx(0)}>
+          Connect Live TV
+        </h1>
+        <p className="onb-sub" style={idx(1)}>
+          Add your Xtream playlist to light up channels and the guide.
+          Other formats (M3U, Stalker) live in Settings &rarr; Playlists.
+        </p>
+        <div className="onb-fields" style={idx(2)}>
+          <input
+            className="onb-input"
+            type="text"
+            value={tvServer}
+            onChange={(e) => {
+              setTvServer(e.target.value);
+              setTvMsg(null);
+              setTvFailed(false);
+            }}
+            onKeyDown={onTvKey}
+            onBlur={() => setTvTouched(true)}
+            placeholder="http://panel.example.com:8080"
+            spellCheck={false}
+            autoComplete="off"
+            disabled={tvChecking}
+            autoFocus
+          />
+          <div className="onb-fields__row">
+            <input
+              className="onb-input"
+              type="text"
+              value={tvUser}
+              onChange={(e) => {
+                setTvUser(e.target.value);
+                setTvMsg(null);
+                setTvFailed(false);
+              }}
+              onKeyDown={onTvKey}
+              onBlur={() => setTvTouched(true)}
+              placeholder="Username"
+              spellCheck={false}
+              autoComplete="off"
+              disabled={tvChecking}
+            />
+            <input
+              className="onb-input"
+              type="password"
+              value={tvPass}
+              onChange={(e) => {
+                setTvPass(e.target.value);
+                setTvMsg(null);
+                setTvFailed(false);
+              }}
+              onKeyDown={onTvKey}
+              onBlur={() => setTvTouched(true)}
+              placeholder="Password"
+              autoComplete="off"
+              disabled={tvChecking}
+            />
+          </div>
+        </div>
+        {showTvHint && (
+          <p className="onb-hint" role="alert">
+            Fill in all three — server URL (with http), username, and
+            password — or leave them all empty to skip.
+          </p>
+        )}
+        {tvMsg && (
+          <p
+            className={"onb-hint" + (tvMsg.ok ? " onb-hint--ok" : "")}
+            role={tvMsg.ok ? "status" : "alert"}
+          >
+            {tvMsg.text}
+          </p>
+        )}
+        <div className="onb-row" style={idx(3)}>
+          <button
+            type="button"
+            className="onb-btn"
+            disabled={(!tvEmpty && !tvComplete) || tvChecking}
+            onClick={continueTv}
+          >
+            {tvChecking ? "Connecting…" : "Continue"}
+          </button>
+          <button
+            type="button"
+            className="onb-ghost"
+            disabled={tvChecking}
+            onClick={ghostTv}
+          >
+            {tvFailed ? "Add anyway" : "I’ll do this later"}
+          </button>
+        </div>
+      </>
+    ) : step === 3 ? (
       <>
         <h1 className="onb-title" style={idx(0)}>
           Make it yours
@@ -346,16 +650,20 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
             />
           ))}
         </div>
+        <div className="onb-chips onb-chips--labeled" style={idx(3)}>
+          <span className="onb-chips__label">Clock</span>
+          <ChipTabs tabs={CLOCK_TABS} active={clock} onChange={pickClock} />
+        </div>
         <button
           type="button"
           className="onb-btn"
-          style={idx(3)}
+          style={idx(4)}
           onClick={advance}
         >
           Continue
         </button>
       </>
-    ) : step === 3 ? (
+    ) : step === 4 ? (
       <>
         <h1 className="onb-title" style={idx(0)}>
           Where should we start?
@@ -385,13 +693,28 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
         <h1 className="onb-title" style={idx(0)}>
           You&rsquo;re all set
         </h1>
-        <p className="onb-sub" style={idx(1)}>
-          Enjoy the show.
+        <div className="onb-map" style={idx(1)}>
+          <div className="onb-map__col">
+            <span className="onb-map__pill onb-map__pill--solid">
+              Live TV
+            </span>
+            <p className="onb-map__caption">Channels &amp; guide</p>
+          </div>
+          <div className="onb-map__col">
+            <span className="onb-map__pill">Stream</span>
+            <p className="onb-map__caption">
+              Home &middot; Discover &middot; My List
+            </p>
+          </div>
+        </div>
+        <p className="onb-sub" style={idx(2)}>
+          Tip: Settings holds a lot more to make BlammyTV yours — sources,
+          themes, playback, and a few surprises.
         </p>
         <button
           type="button"
           className="onb-btn"
-          style={idx(2)}
+          style={idx(3)}
           onClick={finish}
         >
           Enter BlammyTV
@@ -422,7 +745,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           {content}
         </div>
       )}
-      {!finale && step < 4 && (
+      {!finale && step < LAST_STEP && (
         <button type="button" className="onb-skip" onClick={finish}>
           Skip setup
         </button>

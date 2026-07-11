@@ -358,6 +358,65 @@
   margin: 8px 0 0;
   font-size: 13.5px;
   color: rgba(255, 150, 150, 0.9);
+  max-width: 64ch;
+}
+/* Verification succeeded — the beat before the step advances itself. */
+.onb-hint--ok {
+  color: rgba(150, 235, 175, 0.95);
+}
+
+/* Live TV credentials: server on top, user/pass sharing a row. */
+.onb-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(560px, 82vw);
+  margin-top: 10px;
+}
+.onb-fields .onb-input {
+  width: 100%;
+  margin-top: 0;
+}
+.onb-fields__row {
+  display: flex;
+  gap: 10px;
+}
+.onb-fields__row .onb-input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Finale mini-map: the nav model in five seconds. */
+.onb-map {
+  display: flex;
+  gap: 34px;
+  margin: 14px 0 6px;
+}
+.onb-map__col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.onb-map__pill {
+  padding: 9px 20px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  font-family: var(--font-headline);
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+}
+.onb-map__pill--solid {
+  background: #fff;
+  border-color: #fff;
+  color: #000;
+}
+.onb-map__caption {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
 }
 .onb-input:focus {
   outline: none;
@@ -372,6 +431,16 @@
 }
 .onb-chips .chip-tabs__tab {
   font-size: 15px;
+}
+.onb-chips--labeled {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 2px;
+}
+.onb-chips__label {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .onb-swatches {

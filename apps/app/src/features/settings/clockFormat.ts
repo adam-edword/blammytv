@@ -5,6 +5,12 @@ import { load, save } from "../../lib/storage";
 
 export type ClockFormat = "12h" | "24h";
 
+/** Picker options — ONE list for Settings and onboarding. */
+export const CLOCK_TABS: Array<{ key: ClockFormat; label: string }> = [
+  { key: "12h", label: "12h" },
+  { key: "24h", label: "24h" },
+];
+
 const KEY = "clockFormat";
 const VERSION = 1;
 const EVENT = "blammytv:clock-format";
