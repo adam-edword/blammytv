@@ -275,14 +275,42 @@ sections annotated, TheaterOverlay/player.css/tauri.ts/mpv.rs headers).
    shipped headless via mpv_status (v0.1.133), and the WM_SETCURSOR /
    DComp corner-clip / switch-gap items dissolved with the comp.rs
    deletion (v0.1.135). Post-1.0 headliner: recording to disk.
-5. **PRE-1.0 GATE: Trakt / MyAnimeList integrations** (Adam, 2026-07-11:
+5. **PRE-1.0 GATE: Paid themes** (Adam, 2026-07-11: free app, themes
+   behind a paywall). Architecture notes agreed in-session:
+   - Mechanism = the Aurora pattern generalized: a theme is a named
+     token bundle scoped under a root attribute (data-theme-pack), with
+     per-element tweak classes where needed. Cheap to build; the real
+     per-theme cost is design QA across light/dark and every surface
+     (the Aurora light-theme fleet findings are the cautionary tale).
+   - Paywall reality: client-side checks on a local desktop app are
+     honor-system. The meaningful gate is DON'T SHIP LOCKED BITS —
+     paid theme payloads (token CSS) download from a server only
+     against a valid license key. Merchant-of-record licensing
+     (LemonSqueezy/Paddle style) for key issue + validation; cache the
+     entitlement locally and FAIL OPEN offline — never brick a paid
+     theme on a TV app because the internet blipped. Don't escalate
+     into DRM: CSS is copyable; price low, make buying nicer than
+     pirating.
+   - "Can the backend overwrite/hack the theme?" Provider-controlled
+     strings (channel names, EPG, addon metas) never reach HTML/CSS
+     sinks (React escaping; zero innerHTML/dangerouslySetInnerHTML in
+     app code — fleet-audited 2026-07-11), and theme storage keys are
+     only written by Settings code. The gap: tauri.conf.json has
+     "csp": null. PRE-1.0 HARDENING: set a strict CSP (script-src
+     'self'; img-src needs http:/https:/data: because panel posters
+     are arbitrary user-configured hosts, often plain http; connect-src
+     likewise broad; style-src needs 'unsafe-inline' unless Vite style
+     injection is reworked). Needs on-device verification against
+     Adam's real providers before shipping — a too-tight CSP silently
+     breaks posters/EPG.
+6. **PRE-1.0 GATE: Trakt / MyAnimeList integrations** (Adam, 2026-07-11:
    "maybe that's a pre 1.0 gate. one of the last things we tackle").
    Scope when it lands: watchlist/custom-list sync (My List's
    snapshot+membership model maps onto Trakt lists), watched-history
    push, MAL for the anime lists. Design decisions until then should not
    preclude it — keep My List entries keyed by imdb id (Trakt speaks
    imdb/tmdb; the aniskip index already maps imdb→MAL).
-6. **POST-V1: hero slider click-and-drag** (Adam-approved 2026-07-10).
+7. **POST-V1: hero slider click-and-drag** (Adam-approved 2026-07-10).
    Vibe-checked as "somewhat simple": the virtual-index moving-window
    architecture is drag-friendly (drag = live px offset on the card
    positions, commit index ±1 or snap back on release; index−1 already
