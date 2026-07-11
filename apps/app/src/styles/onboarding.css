@@ -21,19 +21,19 @@
 .onb-backdrop {
   position: absolute;
   inset: -96px;
-  /* brightness keeps the halo QUIET, per the mock — the boot paint is
-   * pastel and must STAY pastel (no saturation push; review finding);
-   * the finale lifts back to full so the sharp frame arrives at brand
-   * strength. Blur scales down with the window so small viewports keep
-   * a dark center. */
-  filter: blur(clamp(56px, 6vw, 84px)) saturate(1.05) brightness(0.65);
+  /* Pure blur, NO color math (Adam: the glow is the exact logo
+   * colors). brightness/saturate tweaks over black turn the pastel
+   * boot paint into jewel/neon tones — quietness comes from the band
+   * width and blur spread instead. Blur scales down with the window
+   * so small viewports keep a dark center. */
+  filter: blur(clamp(56px, 6vw, 84px));
   transition:
     filter 1300ms cubic-bezier(0.7, 0, 0.25, 1),
     inset 1300ms cubic-bezier(0.7, 0, 0.25, 1);
 }
 .onb.is-finale .onb-backdrop {
   inset: 0;
-  filter: blur(0px) saturate(1) brightness(1);
+  filter: blur(0px);
 }
 
 /* The rotation is velocity-driven from the component's rAF loop (base
