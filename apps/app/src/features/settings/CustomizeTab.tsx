@@ -8,12 +8,14 @@ import {
   ACCENT_PRESETS,
   applyAccent,
   applyAurora,
+  isAuroraUnlocked,
   loadAccent,
   loadAccentStyle,
   loadCustomAccent,
   saveAccent,
   saveAccentStyle,
   saveCustomAccent,
+  unlockAurora,
   type AccentStyle,
 } from "./accent";
 import { applyTheme, loadTheme, saveTheme, type Theme } from "./theme";
@@ -100,6 +102,10 @@ export function CustomizeTab() {
   // otherwise a custom hex that happens to equal a preset lights up both swatches.
   const [accentStyle, setAccentStyle] =
     useState<AccentStyle>(loadAccentStyle);
+  // The egg swatch: hidden until unlocked (spam-clicking Custom ×10;
+  // aurora already running also counts — never lock out an active style).
+  const [auroraUnlocked, setAuroraUnlocked] = useState(isAuroraUnlocked);
+  const eggRef = useRef({ n: 0, at: 0 });
   const isCustomActive =
     custom !== "" &&
     accent === custom &&
@@ -336,20 +342,23 @@ export function CustomizeTab() {
               </button>
             ))}
             {/* Aurora: gradient surfaces where they fit, the violet
-              * fallback hue everywhere thin (see accent.ts). */}
-            <button
-              type="button"
-              role="radio"
-              aria-checked={accentStyle === "aurora"}
-              aria-label="Aurora"
-              title="Aurora (gradient)"
-              className="accent-swatch accent-swatch--aurora"
-              onClick={pickAurora}
-            >
-              {accentStyle === "aurora" && (
-                <CheckIcon className="accent-swatch__check" />
-              )}
-            </button>
+              * fallback hue everywhere thin (see accent.ts). EASTER
+              * EGG — renders only once the Konami code has landed. */}
+            {auroraUnlocked && (
+              <button
+                type="button"
+                role="radio"
+                aria-checked={accentStyle === "aurora"}
+                aria-label="Aurora"
+                title="Aurora (gradient)"
+                className="accent-swatch accent-swatch--aurora"
+                onClick={pickAurora}
+              >
+                {accentStyle === "aurora" && (
+                  <CheckIcon className="accent-swatch__check" />
+                )}
+              </button>
+            )}
             {/* Clicking applies the remembered custom color right away and
                 opens our own picker popover (changes apply live). */}
             <button
@@ -361,6 +370,23 @@ export function CustomizeTab() {
               }
               title="Custom"
               onClick={() => {
+                // EASTER EGG: spam-clicking Custom 10 times (rapid-fire,
+                // <800ms between clicks) unlocks — and flips on — the
+                // Aurora gradient accent. The reveal is the whole app
+                // changing under the click.
+                const now = Date.now();
+                eggRef.current =
+                  now - eggRef.current.at < 800
+                    ? { n: eggRef.current.n + 1, at: now }
+                    : { n: 1, at: now };
+                if (eggRef.current.n >= 10) {
+                  eggRef.current = { n: 0, at: 0 };
+                  unlockAurora();
+                  setAuroraUnlocked(true);
+                  pickAurora();
+                  setPickerOpen(false);
+                  return;
+                }
                 if (custom) pick(custom);
                 setPickerOpen((o) => !o);
               }}

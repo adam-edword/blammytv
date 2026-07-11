@@ -89,3 +89,17 @@ export function applyAurora(): void {
   root.dataset.accentStyle = "aurora";
   root.style.setProperty("--accent", AURORA_HUE);
 }
+
+/** Aurora is an EASTER EGG: the swatch only appears in the picker once
+ * the Custom chip has been spam-clicked ×10 (CustomizeTab counts).
+ * Anyone already running aurora counts as unlocked — never lock
+ * someone out of a style they're using. */
+const EGG_KEY = "auroraUnlocked";
+
+export function isAuroraUnlocked(): boolean {
+  return load<boolean>(EGG_KEY, VERSION, false) || loadAccentStyle() === "aurora";
+}
+
+export function unlockAurora(): void {
+  save(EGG_KEY, VERSION, true);
+}
