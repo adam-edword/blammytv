@@ -291,6 +291,15 @@ sections annotated, TheaterOverlay/player.css/tauri.ts/mpv.rs headers).
      theme on a TV app because the internet blipped. Don't escalate
      into DRM: CSS is copyable; price low, make buying nicer than
      pirating.
+   - Hosting shape (agreed 2026-07-11): payments + key issue/validate =
+     the MoR's built-in license API (never self-host key generation;
+     never publish a readable key list — validation is key-in,
+     yes/no-out). Adam's Oracle box serves only the PAYLOADS: a tiny
+     service that re-validates the key against the MoR server-side,
+     then streams the theme CSS; Caddy for HTTPS, rate-limit the
+     endpoint. Fail-open caching means box uptime only gates NEW
+     activations. (Cloudflare Worker + R2 is the zero-maintenance
+     alternative if the box ever annoys him.)
    - "Can the backend overwrite/hack the theme?" Provider-controlled
      strings (channel names, EPG, addon metas) never reach HTML/CSS
      sinks (React escaping; zero innerHTML/dangerouslySetInnerHTML in
