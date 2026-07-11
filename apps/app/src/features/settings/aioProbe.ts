@@ -91,7 +91,9 @@ export function probeVerdict(steps: ProbeStep[]): string | undefined {
       "The instance rejected the request. If this URL worked before, " +
       "your config link may have expired or been regenerated — re-copy " +
       "the manifest URL from your instance's configure page and submit " +
-      "it again."
+      "it again. If the error persists, the problem is on the server " +
+      "hosting your manifest — ask its operator to check for a firewall " +
+      "or bot protection blocking app traffic."
     );
   }
   return undefined;

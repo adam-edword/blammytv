@@ -51,6 +51,7 @@ describe("probeVerdict", () => {
       },
     ]);
     expect(v).toMatch(/expired or been regenerated/);
+    expect(v).toMatch(/If the error persists.*server.*hosting your manifest/);
   });
 
   it("stays silent on failures it can't diagnose", () => {

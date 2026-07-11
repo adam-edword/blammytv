@@ -352,7 +352,17 @@ sections annotated, TheaterOverlay/player.css/tauri.ts/mpv.rs headers).
    accrues per-cert) → EV only if an LLC exists anyway (also relevant
    to the Stripe theme business). SEPARATE from updater minisign — that
    stays. Wire into release.ps1: sign app exe + installer in the same
-   one-build flow.
+   one-build flow. Scope check: signing earns LOCAL trust only
+   (SmartScreen/AV read the exe); it changes NOTHING about server-side
+   bot walls — a signed build sends byte-identical traffic, so a
+   Cloudflare challenge fires exactly the same (Adam asked 2026-07-11).
+   WATCH-ITEM (not a gate): Web Bot Auth — IETF HTTP Message
+   Signatures, Cloudflare-backed — is the emerging "verified client"
+   mechanism (Ed25519-signed requests + registered public key, works
+   from any IP). Today it's gatekept to cloud AI agents; Verified Bots
+   proper needs fixed egress IPs a desktop app can never have. If
+   registration opens to desktop clients, BlammyTV is well-positioned
+   (Ed25519 infra in-house). Re-evaluate near 1.0.
 7. **PRE-1.0 GATE: Trakt / MyAnimeList integrations** (Adam, 2026-07-11:
    "maybe that's a pre 1.0 gate. one of the last things we tackle").
    Scope when it lands: watchlist/custom-list sync (My List's
