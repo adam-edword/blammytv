@@ -4,6 +4,8 @@ import { isTauri } from "../lib/tauri";
 import { AppHeader, type Section, type StreamTab } from "./AppHeader";
 import { WelcomeAnimation } from "./WelcomeAnimation";
 import { shouldPlayWelcome } from "./welcome";
+import { Onboarding } from "./Onboarding";
+import { shouldShowOnboarding } from "./onboarding";
 import { LiveScreen } from "../features/live/LiveScreen";
 import { StreamScreen } from "../features/stream/StreamScreen";
 import { MyListScreen } from "../features/stream/MyListScreen";
@@ -29,8 +31,14 @@ export function App() {
     loadStartupTab() === "discover" ? "discover" : "home",
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // First-run onboarding sits over everything and ENDS with the boot
+  // animation (its finale sharpens the blurred glow into the boot frame,
+  // then hands off) — so when onboarding is up, welcome waits for it.
+  const [onboarding, setOnboarding] = useState(shouldShowOnboarding);
   // Boot animation: plays over the shell while it loads, once per launch.
-  const [welcome, setWelcome] = useState(shouldPlayWelcome);
+  const [welcome, setWelcome] = useState(
+    () => !shouldShowOnboarding() && shouldPlayWelcome(),
+  );
 
   // Section switches are instant: leaving Live unmounts LiveScreen, whose
   // InvertedPlayer cleanup heals the shell's clip hole SYNCHRONOUSLY (before
@@ -130,6 +138,19 @@ export function App() {
       </main>
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
       {welcome && <WelcomeAnimation onDone={() => setWelcome(false)} />}
+      {onboarding && (
+        <Onboarding
+          onDone={() => {
+            // One batched update: the boot animation mounts in the same
+            // render the onboarding unmounts — no flash of the app between
+            // them. Reduced-motion users skip the boot animation, as ever.
+            setOnboarding(false);
+            setWelcome(
+              !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+            );
+          }}
+        />
+      )}
     </div>
   );
 }
