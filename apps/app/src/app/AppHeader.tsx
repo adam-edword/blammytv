@@ -204,11 +204,13 @@ export function AppHeader({
           >
           {/* The SAME chip slider used in Settings/Discover/the Live
             * sidebar — sliding raised thumb and all — minus the track
-            * background. The search input is the rail's LAST CHIP:
-            * focusing it slides (and stretches) the thumb onto it via
-            * thumbKey; blur/Escape sends the thumb home to the page
-            * pill. (Collapsed rail = visibility:hidden, which also
-            * drops the chips from the tab order.) */}
+            * background. The search chip is the rail's LAST CHIP, an
+            * icon square: focusing slides the thumb behind the ICON via
+            * thumbKey, while the input floats off the chip absolutely
+            * (bare text box, no layout impact — the nav never moves);
+            * blur/Escape sends the thumb home to the page pill.
+            * (Collapsed rail = visibility:hidden, which also drops the
+            * chips from the tab order.) */}
           <ChipTabs
             tabs={RAIL}
             active={streamTab}
