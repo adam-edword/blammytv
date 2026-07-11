@@ -113,10 +113,10 @@
  * Hidden until the pointer first moves, and gone for the finale. */
 .onb-cursor-glow {
   position: absolute;
-  top: -180px;
-  left: -180px;
-  width: 360px;
-  height: 360px;
+  top: -60px;
+  left: -60px;
+  width: 120px;
+  height: 120px;
   border-radius: 50%;
   pointer-events: none;
   background: radial-gradient(
