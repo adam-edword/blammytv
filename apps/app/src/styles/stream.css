@@ -417,6 +417,37 @@
   transition: opacity 150ms ease;
 }
 
+/* "+ My List" toggle on the detail screens. Saved state trades the plus
+ * for an accent check and keeps the ring. */
+.vod-save {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  transition: background 140ms ease, border-color 140ms ease;
+}
+.vod-save:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+.vod-save--on {
+  border-color: var(--accent);
+}
+.vod-save--on svg {
+  color: var(--accent);
+}
+.vod-save span {
+  font-size: 16px;
+  line-height: 1;
+}
+
 /* ---- detail page ---- */
 /* Detail + episodes fill the whole window (`.stream--full` drops the
  * scroll-box padding) — the backdrop runs to the edges and under the

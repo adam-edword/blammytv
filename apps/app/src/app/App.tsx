@@ -6,6 +6,7 @@ import { WelcomeAnimation } from "./WelcomeAnimation";
 import { shouldPlayWelcome } from "./welcome";
 import { LiveScreen } from "../features/live/LiveScreen";
 import { StreamScreen } from "../features/stream/StreamScreen";
+import { MyListScreen } from "../features/stream/MyListScreen";
 import { DiscoverScreen } from "../features/discover/DiscoverScreen";
 import { SettingsModal } from "../features/settings/SettingsModal";
 import { loadStartupTab } from "../features/settings/startupTab";
@@ -50,9 +51,9 @@ export function App() {
   );
   useEffect(
     () =>
-      onReturnRequest(() => {
+      onReturnRequest((from) => {
         setSection("stream");
-        setStreamTab("discover");
+        setStreamTab(from);
       }),
     [],
   );
@@ -110,6 +111,8 @@ export function App() {
           <LiveScreen modalOpen={settingsOpen} />
         ) : streamTab === "discover" ? (
           <DiscoverScreen />
+        ) : streamTab === "mylist" ? (
+          <MyListScreen />
         ) : (
           <StreamScreen />
         )}

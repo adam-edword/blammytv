@@ -430,7 +430,7 @@ button {
   display: flex;
   align-items: center;
   margin-top: 3px;
-  max-width: 260px;
+  max-width: 340px;
   /* The Live↔Stream glide (the Figma motion: nav slides over while the
    * rail fades in). Width rides the Figma curve; the chips fade in
    * slightly late and land into place. The centered tab cluster slides

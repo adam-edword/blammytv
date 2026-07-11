@@ -14,13 +14,13 @@ import {
  * not a page — the pill rail below picks the actual Stream page. */
 export type Section = "live" | "stream";
 /** The Stream section's pages (the pill rail). Adding one = a new entry
- * here + in RAIL + a screen in App's switch — nothing else. "mylist"
- * lands with its spec. */
-export type StreamTab = "home" | "discover";
+ * here + in RAIL + a screen in App's switch — nothing else. */
+export type StreamTab = "home" | "discover" | "mylist";
 
 const RAIL: Array<{ key: StreamTab; label: string }> = [
   { key: "home", label: "Home" },
   { key: "discover", label: "Discover" },
+  { key: "mylist", label: "My List" },
 ];
 
 /** Live clock, minute-accurate (the header shows no seconds). Follows the

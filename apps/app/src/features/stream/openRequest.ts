@@ -13,8 +13,17 @@ const EVENT = "blammytv:open-in-stream";
 const RETURN_EVENT = "blammytv:return-to-discover";
 let pending: VodItem | null = null;
 
-export function requestOpenInStream(item: VodItem): void {
+/** Which grid the hand-off came from — backing all the way out returns
+ * THERE, not to a hardcoded tab. */
+export type OpenOrigin = "discover" | "mylist";
+let origin: OpenOrigin = "discover";
+
+export function requestOpenInStream(
+  item: VodItem,
+  from: OpenOrigin = "discover",
+): void {
   pending = item;
+  origin = from;
   window.dispatchEvent(new CustomEvent(EVENT));
 }
 
@@ -30,12 +39,14 @@ export function onOpenRequest(cb: () => void): () => void {
 }
 
 /** Backing all the way out of a handed-off detail page returns to the
- * Discover tab (where the pick was made), not the Stream home. */
+ * grid where the pick was made (Discover or My List), not Stream home. */
 export function requestReturnToDiscover(): void {
-  window.dispatchEvent(new CustomEvent(RETURN_EVENT));
+  window.dispatchEvent(new CustomEvent(RETURN_EVENT, { detail: origin }));
 }
 
-export function onReturnRequest(cb: () => void): () => void {
-  window.addEventListener(RETURN_EVENT, cb);
-  return () => window.removeEventListener(RETURN_EVENT, cb);
+export function onReturnRequest(cb: (from: OpenOrigin) => void): () => void {
+  const handler = (e: Event) =>
+    cb(((e as CustomEvent).detail as OpenOrigin) ?? "discover");
+  window.addEventListener(RETURN_EVENT, handler);
+  return () => window.removeEventListener(RETURN_EVENT, handler);
 }

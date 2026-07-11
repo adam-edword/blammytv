@@ -30,6 +30,7 @@ import {
   takeOpenRequest,
 } from "./openRequest";
 import { loadWatched, markWatched } from "./watched";
+import { inMyList, toggleMyList } from "./myList";
 import { loadAioUrl } from "../settings/aiostreams";
 import {
   cardMetaLine,
@@ -1734,6 +1735,24 @@ function ContinueCard({
 
 // ---------------------------------------------------------------------------
 
+/** "+ My List" / "✓ My List" toggle on the detail screens — feeds the
+ * Stream section's My List grid. Re-reads per mount; state is local
+ * (the grid re-reads storage when IT mounts). */
+function SaveButton({ item }: { item: VodItem }) {
+  const [saved, setSaved] = useState(() => inMyList(item.id));
+  return (
+    <button
+      type="button"
+      className={"vod-save" + (saved ? " vod-save--on" : "")}
+      onClick={() => setSaved(toggleMyList(item))}
+    >
+      {saved ? <CheckIcon size={15} /> : <span aria-hidden>+</span>} My List
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
 /** Detail page: backdrop + info left, the addon's pre-ranked sources right.
  * For an episode, `episodeId` scopes the source resolve. Sources re-resolve
  * on every open — debrid links can be short-lived. */
@@ -1794,6 +1813,7 @@ function Detail({
           {item.synopsis && (
             <p className="vod-detail__synopsis">{item.synopsis}</p>
           )}
+          <SaveButton item={item} />
           {item.genres.length > 0 && (
             <div className="vod-detail__pills">
               {item.genres.slice(0, 5).map((g) => (
@@ -1898,6 +1918,7 @@ function Episodes({
           {item.synopsis && (
             <p className="vod-detail__synopsis">{item.synopsis}</p>
           )}
+          <SaveButton item={item} />
         </div>
         {item.seasons.length === 0 ? (
           <p className="vod-sources__note">Loading episodes…</p>
