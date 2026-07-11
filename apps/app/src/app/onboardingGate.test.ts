@@ -20,7 +20,7 @@ vi.stubGlobal("localStorage", {
 const loc = { search: "" };
 vi.stubGlobal("window", { location: loc });
 
-import { markOnboarded, shouldShowOnboarding } from "./onboarding";
+import { markOnboarded, shouldShowOnboarding } from "./onboardingGate";
 
 // The gate must be quiet for everyone who set the app up before
 // onboarding existed (they have sources but no flag), and loud only on

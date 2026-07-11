@@ -17,7 +17,7 @@ import {
   saveAccent,
   saveAccentStyle,
 } from "../features/settings/accent";
-import { markOnboarded } from "./onboarding";
+import { markOnboarded } from "./onboardingGate";
 
 /**
  * First-run onboarding (Adam's mockup, 2026-07-11): the boot animation's

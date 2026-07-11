@@ -5,7 +5,7 @@ import { AppHeader, type Section, type StreamTab } from "./AppHeader";
 import { WelcomeAnimation } from "./WelcomeAnimation";
 import { shouldPlayWelcome } from "./welcome";
 import { Onboarding } from "./Onboarding";
-import { shouldShowOnboarding } from "./onboarding";
+import { shouldShowOnboarding } from "./onboardingGate";
 import { LiveScreen } from "../features/live/LiveScreen";
 import { StreamScreen } from "../features/stream/StreamScreen";
 import { MyListScreen } from "../features/stream/MyListScreen";
