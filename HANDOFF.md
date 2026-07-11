@@ -27,29 +27,27 @@ weighs as much as switcher parity. NOT a living-room/TV-remote product.
   GitHub's digest), manifest at releases/v0.3.0/latest.json, attached to
   the release. Both installs updated via the chip. Natives sit at 0.3.0
   now; dev bumps are 0.3.x in the three frontend files ONLY.
-- ~~OPEN~~ DIAGNOSED (2026-07-11): Bobby's AIOStreams 403 = **Cloudflare
-  bot challenge**, proven by his `curl -v` (HTTP 403 + `server:
-  cloudflare` + `cf-mitigated: challenge`, Ray ID a199ff57884452c0-EWR).
-  The origin never sees the request; the challenge fires on IP-reputation
-  x client-fingerprint, which is why Adam's machine passes with the same
-  URLs and why Bobby's Stremio (different fingerprint) slips through.
-  His machine is CLEAN: no proxy (netsh + Settings verified), WPAD-off
-  made no difference, AV never mattered. FIX lives in the Cloudflare
-  account owning blammy.org's DNS — a FRIEND's, not Adam's; Adam asked
-  him (2026-07-11, answer pending). The knob: Security -> Events, search
-  the Ray ID to see which product fired; likely Bots -> Bot Fight Mode
-  OFF (free plan can't scope/exempt it), else a Configuration Rule
-  setting Security Level "Essentially Off" for the subdomain. Fallback
-  if the friend won't: Bobby recreates his config on another instance.
-  NO app-side fix — auto-solving challenges is bot-wall evasion, and a
-  solved cookie couldn't ride our fetch anyway (ACAO:* forbids
-  credentialed requests). v0.4.4 ships Connection Test FORENSICS so this
-  never needs curl again: Rust http_probe (non-2xx = data; status +
-  server/cf-* headers + 600B body head, URL scrubbed both sides) renders
-  "answered HTTP 403 - server: cloudflare - cf-mitigated: challenge"
-  under failed rows. (Eyedropper freeze FIXED v0.4.1 - WebView2 exposes
-  EyeDropper but open() never settles, browser-only now.) Cargo.lock
-  churn from Adam's release build still uncommitted on his machine.
+- ~~OPEN~~ **CLOSED (2026-07-11)**: Bobby's AIOStreams 403 = **Cloudflare
+  bot challenge on the blammy.org zone**, proven twice over. (1) His
+  `curl -v`: HTTP 403 + `server: cloudflare` + `cf-mitigated: challenge`
+  (Ray ID a199ff57884452c0-EWR) — a JS challenge no non-browser client
+  can pass; fires on IP-reputation, which is why Adam's machine passed
+  with the same URLs and nothing client-side (headers, UA, even the
+  real-Chrome webview retry) could ever fix it. (2) The instance was
+  re-hosted on a NEW server (zone owner declined to touch his Cloudflare
+  settings) and Bobby's same app + config + machine immediately worked.
+  His machine was clean the whole time: no proxy (netsh + Settings
+  verified), WPAD-off no difference, AV never involved. Lessons kept:
+  NO app-side fix exists for `cf-mitigated: challenge` — auto-solving
+  is bot-wall evasion, and a solved cookie couldn't ride our fetch
+  anyway (ACAO:* forbids credentialed requests). v0.4.4 shipped
+  Connection Test FORENSICS so the next one never needs curl: Rust
+  http_probe (non-2xx = data; status + server/cf-* headers + 600B body
+  head, URL scrubbed both sides) renders "answered HTTP 403 - server:
+  cloudflare - cf-mitigated: challenge" under failed rows. (Eyedropper
+  freeze FIXED v0.4.1 - WebView2 exposes EyeDropper but open() never
+  settles, browser-only now.) Cargo.lock churn from Adam's release
+  build still uncommitted on his machine.
 - The 0.3.0 cycle's scars worth remembering: PS 5.1 reads BOM-less UTF-8
   as ANSI, so em-dashes in .ps1 strings become closing quotes (release.ps1
   is pure ASCII now); anything drawn over the video MUST portal into
