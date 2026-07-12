@@ -35,6 +35,14 @@ ENV NODE_ENV=production
 ENV DB_PATH=/data/keybox.db
 WORKDIR /app
 
+# curl for the healthcheck. The slim image ships neither curl nor wget, and
+# Coolify's UI healthcheck shells out to one of them inside the container
+# (our HEALTHCHECK below uses it too) — without it Coolify reports the
+# container unhealthy and rolls the deploy back even though the server is up.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends curl \
+  && rm -rf /var/lib/apt/lists/*
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json ./
 COPY src ./src
@@ -52,10 +60,10 @@ RUN mkdir -p /data && chown -R node:node /data
 VOLUME /data
 EXPOSE 8390
 
-# node:*-slim has no curl, so the HEALTHCHECK uses Node's built-in fetch
-# (Node 22) instead of shelling out to a tool that isn't installed.
+# Matches what Coolify's UI healthcheck runs (curl, installed above), so
+# both the Docker-native and Coolify health signals agree.
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:8390/healthz').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+  CMD curl -fsS http://127.0.0.1:8390/healthz || exit 1
 
 # NO `USER node` here — intentionally. The container starts as ROOT so it
 # can chown a freshly provisioned /data volume that arrived root-owned
