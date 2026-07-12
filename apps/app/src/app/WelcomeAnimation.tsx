@@ -4,11 +4,12 @@ import { bootVars, markWelcomePlayed } from "./welcome";
 
 /** Cold-boot overlay: a thin host around the ONE-PIECE BootScene (the
  * same component and boot.css keyframes onboarding's finale plays —
- * one spec everywhere, no twins). The launch opens as a miniature of
- * the onboarding finale (Adam's pick): the overlay fades in over the
- * loading shell with the scene in its drifting idle state, breathes
- * for a beat, then plays the full unwind → unblur → shrink → lockup
- * timeline and fades off the app.
+ * one spec everywhere, no twins). The overlay itself is OPAQUE BLACK
+ * from the first frame — it mounts in the app's first render and the
+ * shell must never peek through (v0.4.42). The entrance is the
+ * scene's own: the sheet fades in over black in its drifting idle
+ * state, breathes for a beat, then plays the full unwind → unblur →
+ * shrink → lockup timeline and fades off the app.
  *
  * Unlike onboarding's finale, a cold boot is SKIPPABLE on any input —
  * the boot must never stand between the user and the app. Leaving is

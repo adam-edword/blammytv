@@ -15,12 +15,29 @@ Audience: switchers from other Windows IPTV clients, Stremio users, ideally
 both — and explicitly *inviting to newcomers*; first-five-minutes activation
 weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
-## Live state (2026-07-12, dev v0.4.41 — ONE-PIECE BOOT, old endgame back)
+## Live state (2026-07-12, dev v0.4.42 — ONE-PIECE BOOT, old endgame back)
 
-- Dev is **v0.4.41**; natives sit at 0.4.0 (released). All suites green:
+- Dev is **v0.4.42**; natives sit at 0.4.0 (released). All suites green:
   units 204/204, onboarding E2E 44/44 (blur-safety frame sampler +
   cold-boot skip/spin guards added), discover 59/59, credits 6/6,
   probe 5/5.
+- **v0.4.42: cold boot opaque from frame one + true-black backdrop
+  (Adam's report: the stream page flashed before the intro).**
+  WelcomeAnimation mounts in the app's FIRST render, but .boot-overlay
+  entered via @starting-style opacity 0→1 (400ms) — the shell was
+  visible THROUGH it for the first frames. The @starting-style
+  entrance on the overlay root is GONE: the overlay is opaque from its
+  first frame and the entrance is the scene's own (the sheet's
+  existing 0→0.5 fade plays over black). RULE: a full-screen host that
+  exists to hide the app must never animate its own opacity IN —
+  entrance fades belong to the scene inside it (exit fades are fine).
+  Both hosts' backgrounds are now TRUE BLACK #000 (was the mock's
+  #0b0b0e; Adam's call) — .boot-overlay AND .onb stay identical so the
+  shared scene's surroundings never differ between surfaces. Also
+  added pointer-events:none to .boot-overlay.is-leaving (mirrors the
+  .onb audit find). Headless proof: first-frame computed opacity "1" +
+  rgb(0,0,0) on the natural (unforced) cold-boot path; frame-0
+  screenshot fully covered.
 - **v0.4.41: thin border + y-centered lockup + the OLD endgame motion
   (Adam's pass on 0.4.40: "feels super good" + three tweaks).**
   - **Border**: screen inset 71.5/72·s → **36.5/35·s** — the old

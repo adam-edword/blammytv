@@ -47,20 +47,20 @@
  * Single dark layer ⇒ the v0.4.38 crossfade-coverage failure class is
  * structurally unreachable. */
 
-/* Cold-boot host (WelcomeAnimation). Onboarding's host is .onb. */
+/* Cold-boot host (WelcomeAnimation). Onboarding's host is .onb.
+ * OPAQUE FROM THE FIRST FRAME: it mounts in the app's first render and
+ * must never let the shell show through — the old @starting-style
+ * opacity entrance exposed the stream page for its first frames
+ * (v0.4.42 fix, Adam's report). The entrance is the scene's own: the
+ * sheet fades in over this black. True black per Adam (was #0b0b0e). */
 .boot-overlay {
   position: fixed;
   inset: 0;
   z-index: 1000;
   overflow: hidden;
-  background: #0b0b0e;
+  background: #000;
   opacity: 1;
   transition: opacity 400ms ease;
-}
-@starting-style {
-  .boot-overlay {
-    opacity: 0;
-  }
 }
 .boot-overlay.is-leaving {
   opacity: 0;
