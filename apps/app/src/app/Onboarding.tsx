@@ -239,6 +239,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     let raf = 0;
     let last = performance.now();
+    let lastAngleWrite = "";
     let target: { x: number; y: number } | null = null;
     let pos: { x: number; y: number } | null = null;
     const onMove = (e: PointerEvent) => {
@@ -277,10 +278,15 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
         velRef.current += (speed - velRef.current) * Math.min(1, dt * 7);
         angleRef.current = angleRef.current + velRef.current * dt;
       }
-      gradRef.current?.style.setProperty(
-        "--welcome-grad-angle",
-        `${90 + (angleRef.current % 360)}deg`,
-      );
+      // Write only on CHANGE (quantized to 0.01°): once the finale
+      // parks, redundant per-frame writes were forcing style recalc +
+      // full re-raster of the blurred layer (in-app flicker), and they
+      // also thrash the devtools styles pane.
+      const next = `${(90 + (angleRef.current % 360)).toFixed(2)}deg`;
+      if (next !== lastAngleWrite) {
+        lastAngleWrite = next;
+        gradRef.current?.style.setProperty("--welcome-grad-angle", next);
+      }
       if (target) {
         // First sighting jumps straight to the pointer — no sweep in
         // from the corner.

@@ -21,14 +21,19 @@
 .onb-backdrop {
   position: absolute;
   /* Oversize must stay >= the max blur radius, or the blur samples
-   * transparent past the edge and the glow dies at the border. */
-  inset: -240px;
+   * transparent past the edge and the glow dies at the border. Kept
+   * TIGHT to the blur: every extra pixel is raster area the finale
+   * re-blurs per frame (the in-app flicker, v0.4.26). */
+  inset: -184px;
   /* Pure blur, NO color math on the paint itself (Adam: the glow is
    * the exact logo colors) — quietness comes from band width, blur
    * spread, and the gradient's own 0.5 opacity (v0.4.12), which the
    * finale lifts back to full brand strength. Blur scales down with
    * the window so small viewports keep a dark center. */
-  filter: blur(clamp(150px, 16vw, 220px));
+  filter: blur(clamp(120px, 13vw, 176px));
+  /* The finale animates this filter — keep the layer promoted so the
+   * blur-down runs composited instead of re-rastering on main. */
+  will-change: filter;
   transition:
     filter 1300ms cubic-bezier(0.7, 0, 0.25, 1),
     inset 1300ms cubic-bezier(0.7, 0, 0.25, 1);
@@ -62,10 +67,10 @@
  * lets the glow bleed softly inward like the mock. */
 .onb-screen {
   position: absolute;
-  /* Relative to the oversized backdrop: 240px cancels the overhang,
+  /* Relative to the oversized backdrop: 184px cancels the overhang,
    * the clamp is the actual gradient band visible from the viewport
    * edge — kept slim, the heavy blur does the spreading. */
-  inset: calc(240px + clamp(32px, 5vmin, 56px));
+  inset: calc(184px + clamp(32px, 5vmin, 56px));
   border-radius: 64px;
   background: #000;
   corner-shape: superellipse(1.58);
