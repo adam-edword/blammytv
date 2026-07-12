@@ -230,17 +230,22 @@
     --onb-veil-inset-y 550ms cubic-bezier(0.33, 0, 0.3, 1),
     --onb-veil-feather 550ms cubic-bezier(0.33, 0, 0.3, 1),
     --onb-veil-lift 550ms cubic-bezier(0.33, 0, 0.3, 1),
-    opacity 150ms ease 420ms;
+    opacity 100ms ease 540ms;
 }
 /* The un-feather: the black contour (inset + feather) recedes from the
  * steps-band's 260px and LANDS exactly on the screen edge (35/36.5 ×
  * --s) as the feather tightens to 12px, the edge-lift drops to 0, and
- * the .onb-screen seat arrives beneath it. The late 150ms opacity fade
- * then dissolves the veil's last residue — the 12px fringe outside the
+ * the .onb-screen seat arrives beneath it. ONLY THEN (delay 540ms >
+ * the vars' 550ms track, seat already landed) does a quick opacity
+ * fade dissolve the veil's last residue — the 12px fringe outside the
  * screen edge and the square-ish corner slivers the two-ramp intersect
- * can't round — leaving the seat's true superellipse corners. By 570ms
- * the scene is the boot's first frame exactly; the mimic mounts at
- * 650ms over identical pixels. */
+ * can't round — leaving the seat's true superellipse corners. The fade
+ * must NEVER start while the seat is still traveling: mid-morph the
+ * seat's hard edge sits under the veil's opaque interior, and dropping
+ * the veil's opacity early exposes it through the soft band (Adam's
+ * repro: a sharp inner rectangle snapping in before the border
+ * solidifies). Fade done by 640ms; the mimic mounts at 650ms over
+ * identical pixels. */
 .onb.is-finale .onb-veil {
   --onb-veil-inset-x: calc(35px * var(--s) - 12px);
   --onb-veil-inset-y: calc(36.5px * var(--s) - 12px);

@@ -15,11 +15,21 @@ Audience: switchers from other Windows IPTV clients, Stremio users, ideally
 both — and explicitly *inviting to newcomers*; first-five-minutes activation
 weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
-## Live state (2026-07-12, dev v0.4.33 — ONBOARDING ERA)
+## Live state (2026-07-12, dev v0.4.34 — ONBOARDING ERA)
 
-- Dev is **v0.4.33**; natives sit at 0.4.0 (released). All suites green:
+- Dev is **v0.4.34**; natives sit at 0.4.0 (released). All suites green:
   units 204/204, onboarding E2E 38/38, discover 59/59, credits 6/6,
   probe 5/5.
+- **v0.4.34: morph fade-timing fix (Adam's frame-grab: a hard inner
+  rectangle snapped in before the border solidified).** The veil's
+  residue fade started at 420ms — while the .onb-screen seat was still
+  traveling — so dropping the veil's opacity exposed the seat's hard
+  edge through the still-soft band. The fade now waits for the seat to
+  LAND (100ms ease, delay 540ms > the vars' 550ms track, done by 640ms
+  < the mimic's 650ms mount): the only thing it ever reveals is the
+  final screen edge, and the only thing it dissolves is the 12px fringe
+  + corner slivers. Invariant to keep: the veil must stay at opacity 1
+  for as long as the seat is moving.
 - **v0.4.33: THE FINALE IS A SEAMLESS MORPH (Adam: "there shouldn't
   ever be a transition to the boot animation" — v0.4.32's condense was
   a crossfade with mismatched gradients).** Three constructions make
