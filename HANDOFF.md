@@ -22,9 +22,18 @@ we can consider onboarding done") after his Windows pass on the full
 stack: one-piece boot motion, old released endgame spring, thin border,
 splash-sized y-centered lockup, 0.5 idle glow, flash-free opaque cold
 boot on true black. Treat the boot/onboarding surface as FROZEN — no
-further motion changes without a fresh ask from Adam. Still queued
-(unchanged): the uiScale ≠ 1 bootVars visual/layout-px bug, the
-committed raster-throttle E2E harness.
+further motion changes without a fresh ask from Adam.
+- **uiScale × boot, Adam's decision (supersedes the old queued fix):
+  UI scale should simply NOT affect the intro/onboarding screens** —
+  don't make bootVars zoom-aware ("feels like that would complicate
+  things & doesn't need to happen"). When picked up, EXEMPT the
+  overlays from the root zoom instead: counter-zoom `.onb` and
+  `.boot-overlay` (zoom: 1/scale via a root-published var) and size
+  bootVars from the true window (innerWidth × currentZoom()), or
+  temporarily reset the root zoom while the opaque overlay is up
+  (restore before any leave fade — the app beneath is visible then).
+  Low priority: at zoom 1 nothing is wrong today.
+- Still queued (unchanged): the committed raster-throttle E2E harness.
 
 - Dev is **v0.4.42**; natives sit at 0.4.0 (released). All suites green:
   units 204/204, onboarding E2E 44/44 (blur-safety frame sampler +
@@ -223,11 +232,13 @@ committed raster-throttle E2E harness.
     2000 boot + 700 end-hold with the 450ms app-reveal fade overlapping
     its last 200ms ≈ 4.0s finale (was 4.8s+).
   - Emil Kowalski's design-eng skills added to .claude/skills (Adam).
-  - QUEUED: latent uiScale bug — lockupVars computes from visual
+  - QUEUED (SUPERSEDED — see the v0.4.42 sign-off entry: Adam decided
+    UI scale should not affect these screens at all; exempt the
+    overlays from the root zoom, do NOT zoom-correct the math):
+    latent uiScale bug — lockupVars computes from visual
     innerWidth but elements lay out in innerWidth/zoom, z-distorting
     the boot lockup's end scale under UI scale ≠ 1 (geometry-agent
-    find; affects the real boot too; fix = divide by currentZoom() in
-    one shared helper, verify with zoomed screenshots first). Also
+    find; affects the real boot too). Also
     queued: a raster-throttled E2E harness (--slow-down-raster-scale-
     factor) so stale-tile artifact classes become testable headless.
 - **v0.4.35: the morph geometry moved to JS (Adam's frame-by-frame after
