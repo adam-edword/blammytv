@@ -15,7 +15,81 @@ Audience: switchers from other Windows IPTV clients, Stremio users, ideally
 both — and explicitly *inviting to newcomers*; first-five-minutes activation
 weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
-## Live state (2026-07-10, v0.3.0 RELEASED)
+## Live state (2026-07-12, dev v0.4.30 — ONBOARDING ERA)
+
+- Dev is **v0.4.30** on `blammytv-0.4.0-push`; natives sit at 0.4.0
+  (released). All suites green at hand-off: units 204/204, onboarding
+  E2E 36/36, discover 59/59, credits 6/6, probe 5/5.
+- **FIRST-RUN ONBOARDING is built** (v0.4.7→v0.4.30, Adam's mockup: dither
+  field + blurred aurora glow + Arc-style choreography). Files:
+  `app/Onboarding.tsx`, `app/onboardingGate.ts` (NOT onboarding.ts —
+  Windows case-collision with Onboarding.tsx black-screened the app once;
+  vite tries .ts before .tsx and Windows matches case-insensitively.
+  NEVER create same-dir files differing only in case), `styles/
+  onboarding.css`, Replay button in CustomizeTab.
+- Onboarding architecture (each piece exists because something broke):
+  - **Glow disc** (.onb-glowdisc): 150vmax circle, conic in welcome stops,
+    blurred ONCE, rotated by TRANSFORM from the rAF loop (filter runs
+    before transform → compositor spins a cached texture, zero repaints).
+    Every rotating-from-angle version re-rasterized the mega-blur per
+    frame and FLICKERED on real hardware during fast spins. Chromium
+    re-rasterizes filtered layers on content change; Firefox/WebRender
+    doesn't — test perf verdicts on WebView2, not Firefox. NO
+    will-change:filter on big blurs (GPU-composited mega-blur smears —
+    Adam key-framed it).
+  - **Finale**: content out → gradlayer (the welcome composite at its
+    NATIVE 90deg — never rotated, seam correct by construction)
+    crossfades in over the disc UNDER full blur (300ms) → delayed
+    (450ms) blur/inset transitions sharpen static content onto the boot
+    frame → double-buffered hand-off (WelcomeAnimation mounts UNDER the
+    opaque overlay, release ~90ms later; backdrop swaps blur(0) for
+    filter:none first). Boot animation gets intro={false} there (cold
+    boots fade+unblur in via welcome-overlay--intro).
+  - **Steps** (0-5): logo (glow solo 1.2s → lockup 1.8s rise → button
+    2s) · streams (manifest input + REAL probeAioStreams verify, verdict
+    on failure, "Continue anyway" ghost) · Live TV (KIND_TABS rail;
+    xtream=authenticate(), m3u=fetch+#EXTM3U check, stalker=
+    discoverEndpoint() with endpoint persisted) · accent+clock ·
+    startup tab · nav map + Settings nudge. Verification never
+    hard-walls; empty = skip; 12s timeouts; successes save + auto-
+    advance (750ms dwell).
+  - **Hardening**: entrance animations REMOVED after settle (password-
+    manager DOM injection replayed filled animations — Adam's PM repro);
+    PM_IGNORE attrs on all inputs; app shell inert behind the overlay;
+    Enter drives steps (repeat-guarded, INPUT/BUTTON excluded); Back
+    bottom-left + Escape; finale watchdog (350ms reduced-motion / 1900ms).
+  - **Gate policy (v0.4.25, Adam)**: btv:onboarded flag is the ONLY
+    suppressor — every existing user sees the flow ONCE (showcase);
+    everything pre-fills, sources only get ADDED. ?onboarding=1 forces.
+    Settings → Customize → Replay Onboarding (does NOT clear the flag).
+  - **Shared option lists** (Adam's drift concern): STARTUP_TABS
+    (startupTab.ts), CLOCK_TABS (clockFormat.ts), KIND_TABS + form model
+    (playlists.ts) — Settings and onboarding import the same lists.
+- **E2E suites moved INTO scripts/** (they lived in the session
+  scratchpad, which dies with the container): verify-onboarding (36,
+  FAST=1 runs core walk only), verify-discover (59), verify-credits,
+  verify-probe, verify-conns, verify-watchdog, verify-aniskip-chip.
+  Run: build+`pnpm preview --port 4173` (from apps/app), fixtures
+  fake-aio :8084 / fake-panel :8081 / fake-m3u :8082, then
+  `PW_FROM=<dir-with-node_modules>/x.js node scripts/verify-*.mjs`
+  (playwright-core resolution, repo convention). App-booting harnesses
+  MUST stamp localStorage `btv:onboarded=1` or the showcase intercepts.
+- **OPEN at hand-off**: (1) Adam verifying v0.4.30 in-app — if the
+  finale STILL flickers, the documented last resort is merging a boot-
+  animation mimic into onboarding itself (one component, no swap);
+  every cheaper class (repaint storm, GPU blur smear, swap teardown,
+  spin re-raster) has been eliminated in turn. (2) No 0.4.x release cut
+  yet — testers are on 0.4.0; eyedropper fix + Connection Test +
+  onboarding all wait on the next release. (3) The 0.5/0.6 roadmap
+  slates proposed to Adam (0.5 = product: Ctrl+K palette + onboarding
+  polish + My List multi-lists + aurora sweep; 0.6+ = themes/Stripe,
+  signing, Trakt) — not yet blessed into ROADMAP.
+- v0.4.4-0.4.6 also shipped: Connection Test forensics (Rust http_probe:
+  non-2xx = data, gatekeeper headers + scrubbed body head) + plain-
+  language verdicts + auto-run on manifest submit. Bobby's 403 CLOSED
+  (Cloudflare challenge on the friend's zone; re-host confirmed).
+
+## Prior state (2026-07-10, v0.3.0 RELEASED)
 
 - **Branch `blammytv-0.4.0-push`** — the working branch since the v0.3.0
   release; never push elsewhere. (History: claude/blammytv-rebuild-… →
