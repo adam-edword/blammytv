@@ -15,11 +15,26 @@ Audience: switchers from other Windows IPTV clients, Stremio users, ideally
 both — and explicitly *inviting to newcomers*; first-five-minutes activation
 weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
-## Live state (2026-07-12, dev v0.4.34 — ONBOARDING ERA)
+## Live state (2026-07-12, dev v0.4.35 — ONBOARDING ERA)
 
-- Dev is **v0.4.34**; natives sit at 0.4.0 (released). All suites green:
+- Dev is **v0.4.35**; natives sit at 0.4.0 (released). All suites green:
   units 204/204, onboarding E2E 38/38, discover 59/59, credits 6/6,
   probe 5/5.
+- **v0.4.35: the morph geometry moved to JS (Adam's frame-by-frame after
+  v0.4.34: the seat's hard edge STILL poked through the soft band on his
+  WebView2, while headless Chromium — computed-value dumps + screenshots
+  — provably kept the invariant).** Diagnosis from his frames: both the
+  seat and the veil animated smoothly, but on DIFFERENT effective curves
+  — his engine's registered-custom-property transitions don't track the
+  seat's standard `inset` transition, so the trajectories desynced.
+  Fix: the rAF loop now drives ALL morph geometry (veil inset-x/y,
+  feather, lift + seat inset) from ONE clock and ONE easing
+  (easeInOutCubic over MORPH_MS 550), written as inline styles per
+  frame — the containment invariant cannot desync across engines by
+  construction. Only the residue fade stays a CSS transition (plain
+  opacity, delay 540ms). RULE: never drive the morph with CSS
+  transitions on custom properties; typed-property interpolation is
+  engine-sensitive on WebView2.
 - **v0.4.34: morph fade-timing fix (Adam's frame-grab: a hard inner
   rectangle snapped in before the border solidified).** The veil's
   residue fade started at 420ms — while the .onb-screen seat was still

@@ -99,10 +99,8 @@
   border-radius: 30px;
   background: #000;
   corner-shape: superellipse(1.58);
-  transition: inset 550ms cubic-bezier(0.33, 0, 0.3, 1);
-}
-.onb.is-finale .onb-screen {
-  inset: calc(36.5px * var(--s)) calc(35px * var(--s));
+  /* Slid out to the boot screen's geometry BY JS (the rAF morph — see
+   * .onb-veil's comment; no CSS transition on purpose). */
 }
 
 /* The dark center: a fullscreen black sheet whose EDGES are carved
@@ -225,32 +223,25 @@
       rgba(0, 0, 0, var(--onb-veil-lift)) calc(100% - var(--onb-veil-inset-y))
     );
   mask-composite: intersect;
-  transition:
-    --onb-veil-inset-x 550ms cubic-bezier(0.33, 0, 0.3, 1),
-    --onb-veil-inset-y 550ms cubic-bezier(0.33, 0, 0.3, 1),
-    --onb-veil-feather 550ms cubic-bezier(0.33, 0, 0.3, 1),
-    --onb-veil-lift 550ms cubic-bezier(0.33, 0, 0.3, 1),
-    opacity 100ms ease 540ms;
+  transition: opacity 100ms ease 540ms;
 }
-/* The un-feather: the black contour (inset + feather) recedes from the
- * steps-band's 260px and LANDS exactly on the screen edge (35/36.5 ×
- * --s) as the feather tightens to 12px, the edge-lift drops to 0, and
- * the .onb-screen seat arrives beneath it. ONLY THEN (delay 540ms >
- * the vars' 550ms track, seat already landed) does a quick opacity
- * fade dissolve the veil's last residue — the 12px fringe outside the
- * screen edge and the square-ish corner slivers the two-ramp intersect
- * can't round — leaving the seat's true superellipse corners. The fade
- * must NEVER start while the seat is still traveling: mid-morph the
- * seat's hard edge sits under the veil's opaque interior, and dropping
- * the veil's opacity early exposes it through the soft band (Adam's
- * repro: a sharp inner rectangle snapping in before the border
- * solidifies). Fade done by 640ms; the mimic mounts at 650ms over
- * identical pixels. */
+/* The un-feather is DRIVEN FROM JS (Onboarding.tsx's rAF loop): the
+ * black contour (inset + feather) recedes from the steps-band's 260px
+ * and LANDS exactly on the screen edge as the feather tightens to 12px
+ * and the edge-lift drops to 0, while the .onb-screen seat slides out
+ * beneath it — all five values from ONE clock and ONE easing, written
+ * as inline styles per frame. (v0.4.33-34 used CSS transitions on the
+ * registered properties; on Adam's WebView2 they ran on a different
+ * effective curve than the seat's standard inset transition, the
+ * trajectories desynced, and the seat's hard edge poked through the
+ * still-soft band. Do NOT reintroduce CSS transitions for the morph
+ * geometry.) Only the residue fade stays in CSS — plain opacity, with
+ * its 540ms delay AFTER the geometry lands: it only ever dissolves the
+ * 12px fringe outside the screen edge and the square-ish corner
+ * slivers the two-ramp intersect can't round, leaving the seat's true
+ * superellipse corners. Fade done by 640ms; the mimic mounts at 650ms
+ * over identical pixels. */
 .onb.is-finale .onb-veil {
-  --onb-veil-inset-x: calc(35px * var(--s) - 12px);
-  --onb-veil-inset-y: calc(36.5px * var(--s) - 12px);
-  --onb-veil-feather: 12px;
-  --onb-veil-lift: 0;
   opacity: 0;
 }
 
@@ -919,19 +910,13 @@
     transition-duration: 1ms;
   }
   /* No boot mimic plays here — the finale is a quick fade to the app —
-   * so the condense must NOT run: without the mimic the un-feathered
-   * veil would flash the bare gradient center. */
+   * so the condense must NOT run: without the mimic the un-veiled
+   * center would flash the bare gradient. (The rAF morph never runs
+   * under reduced motion; only these CSS pieces need reverting.) */
   .onb.is-finale .onb-aurora {
     opacity: 0.5;
   }
   .onb.is-finale .onb-veil {
-    --onb-veil-inset-x: 0px;
-    --onb-veil-inset-y: 0px;
-    --onb-veil-feather: 260px;
-    --onb-veil-lift: 0.4;
     opacity: 1;
-  }
-  .onb.is-finale .onb-screen {
-    inset: 300px;
   }
 }

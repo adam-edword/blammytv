@@ -114,8 +114,12 @@ const BOOT_START_HOLD_MS = 700; // twins welcome.css's timeline delay
 const BOOT_TIMELINE_MS = 2000;
 const BOOT_END_HOLD_MS = 1000;
 const RELEASE_FADE_MS = 450;
-/** The morph's length: veil/dither transitions run 550-600ms; the
- * spin-down lands by ~600ms. The mimic mounts here. */
+/** The morph track: veil un-feather + screen-seat slide, driven per
+ * frame from the rAF loop (one clock, one easing — see morphStartRef).
+ * The veil's residue fade (CSS, plain opacity) waits for it at 540ms. */
+const MORPH_MS = 550;
+/** The morph's length: geometry lands at 550ms, residue fade done by
+ * ~640ms; the spin-down lands by ~600ms. The mimic mounts here. */
 const CONDENSE_MS = 650;
 /** Backdrop teardown, hidden under the opaque mimic (v0.4.29's
  * double-buffer lesson: never tear down what is visible). */
@@ -185,6 +189,17 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   }, [step, phase]);
 
   const discRef = useRef<HTMLDivElement>(null);
+  const veilRef = useRef<HTMLDivElement>(null);
+  const screenRef = useRef<HTMLDivElement>(null);
+  /** Finale morph clock — set when the finale starts; the rAF loop
+   * drives ALL the morph geometry (veil mask vars + screen-seat inset)
+   * from this one clock with one easing. CSS transitions were tried
+   * first (v0.4.33-34) and desynced on Adam's WebView2: registered-
+   * custom-property transitions ran on a different effective curve
+   * than the seat's standard inset transition, so the seat's hard edge
+   * poked through the still-soft veil mid-morph. One clock, one curve,
+   * inline writes — the containment invariant can't desync. */
+  const morphStartRef = useRef<number | null>(null);
   const burstUntil = useRef(0);
   const swapTimer = useRef(0);
   const autoTimer = useRef(0);
@@ -218,6 +233,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     // un-feathers into the screen — and this launch's boot is the
     // mimic, so the real one must not replay.
     spinDownRef.current = true;
+    morphStartRef.current = performance.now();
     markWelcomePlayed();
     // The boot timeline runs from the mimic's mount at CONDENSE_MS.
     const settleMs = reducedMotion
@@ -323,6 +339,32 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
       if (next !== lastAngleWrite) {
         lastAngleWrite = next;
         if (discRef.current) discRef.current.style.transform = next;
+      }
+      // The finale morph: veil mask geometry + screen-seat inset, all
+      // from ONE eased progress so the seat provably never leaves the
+      // veil's opaque interior (gap = 40px × (1 - e), 0 only at e = 1).
+      if (morphStartRef.current !== null) {
+        const p = Math.min(1, (now - morphStartRef.current) / MORPH_MS);
+        // easeInOutCubic — any single monotone curve preserves the
+        // invariant; what broke v0.4.33-34 was TWO curves.
+        const e =
+          p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+        const s = Math.max(
+          window.innerWidth / 1920,
+          window.innerHeight / 1080,
+        );
+        const lerp = (a: number, b: number) => a + (b - a) * e;
+        if (veilRef.current) {
+          const st = veilRef.current.style;
+          st.setProperty("--onb-veil-inset-x", `${lerp(0, 35 * s - 12)}px`);
+          st.setProperty("--onb-veil-inset-y", `${lerp(0, 36.5 * s - 12)}px`);
+          st.setProperty("--onb-veil-feather", `${lerp(260, 12)}px`);
+          st.setProperty("--onb-veil-lift", String(lerp(0.4, 0)));
+        }
+        if (screenRef.current) {
+          screenRef.current.style.inset = `${lerp(300, 36.5 * s)}px ${lerp(300, 35 * s)}px`;
+        }
+        if (p >= 1) morphStartRef.current = null;
       }
       if (target) {
         // First sighting jumps straight to the pointer — no sweep in
@@ -985,10 +1027,10 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
             </div>
           </div>
           {/* The screen's seat: always mounted, parked deep inside the
-           * veil's opaque interior; the finale slides it out to the
+           * veil's opaque interior; the rAF morph slides it out to the
            * boot screen's geometry under the receding contour. */}
-          <div className="onb-screen" aria-hidden />
-          <div className="onb-veil" aria-hidden />
+          <div ref={screenRef} className="onb-screen" aria-hidden />
+          <div ref={veilRef} className="onb-veil" aria-hidden />
           <div className="onb-dither" />
           <div ref={cursorRef} className="onb-cursor-glow" aria-hidden />
         </>
