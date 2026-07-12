@@ -21,6 +21,14 @@ import {
 } from "./accent";
 import { applyTheme, loadTheme, saveTheme, type Theme } from "./theme";
 import {
+  DEFAULT_PACK,
+  THEME_PACKS,
+  applyThemePack,
+  loadThemePack,
+  saveThemePack,
+  type ThemePackId,
+} from "./themePacks";
+import {
   UI_SCALES,
   applyUiScale,
   loadUiScale,
@@ -70,6 +78,15 @@ const CORNER_TABS: Array<{ key: CornerStyle; label: string }> = [
 
 // STARTUP_TABS lives in startupTab.ts — one list shared with onboarding.
 
+type CustomizeSection = "general" | "theme" | "display";
+
+// The pill IS the header now — no per-section h3 alongside these.
+const SECTION_TABS: Array<{ key: CustomizeSection; label: string }> = [
+  { key: "general", label: "General" },
+  { key: "theme", label: "Theme" },
+  { key: "display", label: "Display" },
+];
+
 /** The native screen eyedropper. NOT in the Tauri app: WebView2 exposes
  * the constructor (feature-detection passes) but open()'s pick mode can
  * never settle — input stays captured and the whole client freezes
@@ -93,6 +110,9 @@ function swatchStyle(hex: string) {
 }
 
 export function CustomizeTab() {
+  // Which pill is showing — ephemeral, always opens back on General.
+  const [sec, setSec] = useState<CustomizeSection>("general");
+
   const [accent, setAccent] = useState(loadAccent);
   // The custom slot keeps its color even while a preset is selected.
   const [custom, setCustom] = useState(loadCustomAccent);
@@ -165,6 +185,18 @@ export function CustomizeTab() {
     applyTheme(next);
   };
 
+  const [pack, setPack] = useState<ThemePackId>(loadThemePack);
+  const activePack = THEME_PACKS.find((p) => p.id === pack) ?? THEME_PACKS[0];
+  const pickPack = (id: ThemePackId) => {
+    setPack(id);
+    saveThemePack(id);
+    applyThemePack(id);
+    // Dead-combo rule: a dark-only pack under the light theme is an
+    // unsupported combination — force dark rather than leave it on screen.
+    const meta = THEME_PACKS.find((p) => p.id === id);
+    if (meta && !meta.supportsLight && theme === "light") pickTheme("dark");
+  };
+
   const [scale, setScale] = useState<UiScale>(loadUiScale);
   const pickScale = (next: UiScale) => {
     setScale(next);
@@ -206,12 +238,15 @@ export function CustomizeTab() {
   };
 
   /** Back to factory appearance: default accent (custom slot cleared),
-   * dark theme, squircle corners, 100% scale, 12h clock, open on Live,
-   * channel numbers shown. */
+   * default theme pack, dark theme, squircle corners, 100% scale, 12h
+   * clock, open on Live, channel numbers shown. */
   const reset = () => {
     pick(ACCENT_PRESETS[0].hex);
     setCustom("");
     saveCustomAccent("");
+    setPack(DEFAULT_PACK);
+    saveThemePack(DEFAULT_PACK);
+    applyThemePack(DEFAULT_PACK);
     pickTheme("dark");
     pickCorners("squircle");
     pickScale(1);
@@ -250,241 +285,294 @@ export function CustomizeTab() {
 
   return (
     <>
-      <section className="settings-section">
-        <h3 className="settings__section-title">General</h3>
+      <div className="customize-rail">
+        <ChipTabs tabs={SECTION_TABS} active={sec} onChange={setSec} />
+      </div>
 
-        <div className="customize-row">
-          <div>
-            <h4 className="customize-row__title">Clock Format</h4>
-            <p className="settings__section-note settings__section-note--dim">
-              How the header clock reads.
-            </p>
+      {sec === "general" && (
+        <section className="settings-section">
+          <div className="customize-row">
+            <div>
+              <h4 className="customize-row__title">Clock Format</h4>
+              <p className="settings__section-note settings__section-note--dim">
+                How the header clock reads.
+              </p>
+            </div>
+            <ChipTabs tabs={CLOCK_TABS} active={clock} onChange={pickClock} />
           </div>
-          <ChipTabs tabs={CLOCK_TABS} active={clock} onChange={pickClock} />
-        </div>
 
-        <div className="customize-row">
-          <div>
-            <h4 className="customize-row__title">Startup Tab</h4>
-            <p className="settings__section-note settings__section-note--dim">
-              Where the app opens.
-            </p>
+          <div className="customize-row">
+            <div>
+              <h4 className="customize-row__title">Startup Tab</h4>
+              <p className="settings__section-note settings__section-note--dim">
+                Where the app opens.
+              </p>
+            </div>
+            <ChipTabs
+              tabs={STARTUP_TABS}
+              active={startup}
+              onChange={pickStartup}
+            />
           </div>
-          <ChipTabs
-            tabs={STARTUP_TABS}
-            active={startup}
-            onChange={pickStartup}
-          />
-        </div>
 
-        <div className="customize-row">
-          <div>
-            <h4 className="customize-row__title">Channel Numbers</h4>
-            <p className="settings__section-note settings__section-note--dim">
-              Show the provider&rsquo;s channel number beside the name.
-            </p>
+          <div className="customize-row">
+            <div>
+              <h4 className="customize-row__title">Channel Numbers</h4>
+              <p className="settings__section-note settings__section-note--dim">
+                Show the provider&rsquo;s channel number beside the name.
+              </p>
+            </div>
+            <Toggle
+              on={chanNum}
+              onChange={toggleChanNum}
+              label="Show channel numbers"
+            />
           </div>
-          <Toggle
-            on={chanNum}
-            onChange={toggleChanNum}
-            label="Show channel numbers"
-          />
-        </div>
 
-        <div className="customize-row">
-          <div>
-            <h4 className="customize-row__title">One-Click Play Movies</h4>
-            <p className="settings__section-note settings__section-note--dim">
-              Clicking a movie poster card plays the best source right
-              away, and it will never play an uncached source.
-            </p>
+          <div className="customize-row">
+            <div>
+              <h4 className="customize-row__title">One-Click Play Movies</h4>
+              <p className="settings__section-note settings__section-note--dim">
+                Clicking a movie poster card plays the best source right
+                away, and it will never play an uncached source.
+              </p>
+            </div>
+            <Toggle
+              on={oneClick}
+              onChange={toggleOneClick}
+              label="One-click play"
+            />
           </div>
-          <Toggle
-            on={oneClick}
-            onChange={toggleOneClick}
-            label="One-click play"
-          />
-        </div>
-      </section>
+        </section>
+      )}
 
-      <section className="settings-section">
-        <h3 className="settings__section-title">Theme</h3>
-
-        <div className="customize-row">
-          <div>
-            <h4 className="customize-row__title">Accent Color</h4>
-            <p className="settings__section-note settings__section-note--dim">
-              Used for highlights, toggles, and buttons across the app.
-            </p>
-          </div>
-          <div
-            className="accent-row"
-            role="radiogroup"
-            aria-label="Accent color"
-          >
-            {ACCENT_PRESETS.map((p) => (
+      {sec === "theme" && (
+        <section className="settings-section">
+          <h3 className="settings-section__list-title">Theme</h3>
+          <p className="settings__section-note settings__section-note--dim">
+            Swaps the whole palette in one tap — accent and light/dark still
+            layer on top.
+          </p>
+          <div className="pack-row" role="radiogroup" aria-label="Theme pack">
+            {THEME_PACKS.map((p) => (
               <button
-                key={p.hex}
+                key={p.id}
                 type="button"
                 role="radio"
-                aria-checked={p.hex === accent && accentStyle !== "aurora"}
-                aria-label={p.name}
-                title={p.name}
-                className="accent-swatch"
-                style={swatchStyle(p.hex)}
-                onClick={() => pick(p.hex)}
+                aria-checked={p.id === pack}
+                title={p.blurb}
+                data-pack={p.id}
+                className={
+                  "pack-card" + (p.id === pack ? " pack-card--active" : "")
+                }
+                onClick={() => pickPack(p.id)}
               >
-                {p.hex === accent && accentStyle !== "aurora" && (
-                  <CheckIcon className="accent-swatch__check" />
-                )}
+                <span
+                  className="pack-card__preview"
+                  style={{ background: p.preview.bg }}
+                >
+                  <span
+                    className="pack-card__surface"
+                    style={{ background: p.preview.surface }}
+                  />
+                  <span
+                    className="pack-card__accent"
+                    style={{ background: p.preview.accent }}
+                  />
+                </span>
+                <span className="pack-card__name">{p.name}</span>
               </button>
             ))}
-            {/* Aurora: gradient surfaces where they fit, the violet
-              * fallback hue everywhere thin (see accent.ts). EASTER
-              * EGG — renders only once the Konami code has landed. */}
-            {auroraUnlocked && (
+          </div>
+
+          <div className="customize-row">
+            <div>
+              <h4 className="customize-row__title">Accent Color</h4>
+              <p className="settings__section-note settings__section-note--dim">
+                Used for highlights, toggles, and buttons across the app.
+              </p>
+            </div>
+            <div
+              className="accent-row"
+              role="radiogroup"
+              aria-label="Accent color"
+            >
+              {ACCENT_PRESETS.map((p) => (
+                <button
+                  key={p.hex}
+                  type="button"
+                  role="radio"
+                  aria-checked={p.hex === accent && accentStyle !== "aurora"}
+                  aria-label={p.name}
+                  title={p.name}
+                  className="accent-swatch"
+                  style={swatchStyle(p.hex)}
+                  onClick={() => pick(p.hex)}
+                >
+                  {p.hex === accent && accentStyle !== "aurora" && (
+                    <CheckIcon className="accent-swatch__check" />
+                  )}
+                </button>
+              ))}
+              {/* Aurora: gradient surfaces where they fit, the violet
+                * fallback hue everywhere thin (see accent.ts). EASTER
+                * EGG — renders only once the Konami code has landed. */}
+              {auroraUnlocked && (
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={accentStyle === "aurora"}
+                  aria-label="Aurora"
+                  title="Aurora (gradient)"
+                  className="accent-swatch accent-swatch--aurora"
+                  onClick={pickAurora}
+                >
+                  {accentStyle === "aurora" && (
+                    <CheckIcon className="accent-swatch__check" />
+                  )}
+                </button>
+              )}
+              {/* Clicking applies the remembered custom color right away and
+                  opens our own picker popover (changes apply live). */}
               <button
                 type="button"
-                role="radio"
-                aria-checked={accentStyle === "aurora"}
-                aria-label="Aurora"
-                title="Aurora (gradient)"
-                className="accent-swatch accent-swatch--aurora"
-                onClick={pickAurora}
-              >
-                {accentStyle === "aurora" && (
-                  <CheckIcon className="accent-swatch__check" />
-                )}
-              </button>
-            )}
-            {/* Clicking applies the remembered custom color right away and
-                opens our own picker popover (changes apply live). */}
-            <button
-              type="button"
-              ref={chipRef}
-              className={
-                "accent-custom" +
-                (isCustomActive ? " accent-custom--active" : "")
-              }
-              title="Custom"
-              onClick={() => {
-                // EASTER EGG: spam-clicking Custom 10 times (rapid-fire,
-                // <800ms between clicks) unlocks — and flips on — the
-                // Aurora gradient accent. The reveal is the whole app
-                // changing under the click.
-                const now = Date.now();
-                eggRef.current =
-                  now - eggRef.current.at < 800
-                    ? { n: eggRef.current.n + 1, at: now }
-                    : { n: 1, at: now };
-                if (eggRef.current.n >= 10) {
-                  eggRef.current = { n: 0, at: 0 };
-                  unlockAurora();
-                  setAuroraUnlocked(true);
-                  pickAurora();
-                  setPickerOpen(false);
-                  return;
+                ref={chipRef}
+                className={
+                  "accent-custom" +
+                  (isCustomActive ? " accent-custom--active" : "")
                 }
-                if (custom) pick(custom);
-                setPickerOpen((o) => !o);
-              }}
-            >
-              <span
-                className="accent-swatch"
-                style={custom ? swatchStyle(custom) : undefined}
+                title="Custom"
+                onClick={() => {
+                  // EASTER EGG: spam-clicking Custom 10 times (rapid-fire,
+                  // <800ms between clicks) unlocks — and flips on — the
+                  // Aurora gradient accent. The reveal is the whole app
+                  // changing under the click.
+                  const now = Date.now();
+                  eggRef.current =
+                    now - eggRef.current.at < 800
+                      ? { n: eggRef.current.n + 1, at: now }
+                      : { n: 1, at: now };
+                  if (eggRef.current.n >= 10) {
+                    eggRef.current = { n: 0, at: 0 };
+                    unlockAurora();
+                    setAuroraUnlocked(true);
+                    pickAurora();
+                    setPickerOpen(false);
+                    return;
+                  }
+                  if (custom) pick(custom);
+                  setPickerOpen((o) => !o);
+                }}
               >
-                {isCustomActive && (
-                  <CheckIcon className="accent-swatch__check" />
-                )}
-              </span>
-              Custom
-            </button>
-            {pickerOpen && (
-              <div className="accent-popover" ref={popRef}>
-                <HexColorPicker
-                  color={custom || accent}
-                  onChange={pickCustom}
-                />
-                <div className="accent-popover__row">
-                  {eyeDropperCtor && (
-                    <button
-                      type="button"
-                      className="accent-popover__dropper"
-                      aria-label="Pick a color from the screen"
-                      title="Pick from screen"
-                      onClick={async () => {
-                        try {
-                          const { sRGBHex } = await new eyeDropperCtor().open();
-                          pickCustom(sRGBHex);
-                        } catch {
-                          /* user cancelled the eyedropper */
-                        }
-                      }}
-                    >
-                      <EyeDropperIcon />
-                    </button>
+                <span
+                  className="accent-swatch"
+                  style={custom ? swatchStyle(custom) : undefined}
+                >
+                  {isCustomActive && (
+                    <CheckIcon className="accent-swatch__check" />
                   )}
-                  <div className="accent-popover__hex">
-                    <span className="accent-popover__hash">#</span>
-                    <HexColorInput
-                      color={custom || accent}
-                      onChange={pickCustom}
-                      aria-label="Custom accent hex value"
-                    />
+                </span>
+                Custom
+              </button>
+              {pickerOpen && (
+                <div className="accent-popover" ref={popRef}>
+                  <HexColorPicker
+                    color={custom || accent}
+                    onChange={pickCustom}
+                  />
+                  <div className="accent-popover__row">
+                    {eyeDropperCtor && (
+                      <button
+                        type="button"
+                        className="accent-popover__dropper"
+                        aria-label="Pick a color from the screen"
+                        title="Pick from screen"
+                        onClick={async () => {
+                          try {
+                            const { sRGBHex } = await new eyeDropperCtor().open();
+                            pickCustom(sRGBHex);
+                          } catch {
+                            /* user cancelled the eyedropper */
+                          }
+                        }}
+                      >
+                        <EyeDropperIcon />
+                      </button>
+                    )}
+                    <div className="accent-popover__hex">
+                      <span className="accent-popover__hash">#</span>
+                      <HexColorInput
+                        color={custom || accent}
+                        onChange={pickCustom}
+                        aria-label="Custom accent hex value"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
 
-        <div className="customize-row">
-          <div>
-            <h4 className="customize-row__title">Light Theme</h4>
-            <p className="settings__section-note settings__section-note--dim">
-              Flip the whole app to a light palette.
-            </p>
+          <div className="customize-row">
+            <div>
+              <h4 className="customize-row__title">Light Theme</h4>
+              <p className="settings__section-note settings__section-note--dim">
+                {activePack.supportsLight
+                  ? "Flip the whole app to a light palette."
+                  : `${activePack.name} is dark-only.`}
+              </p>
+            </div>
+            <div
+              className={
+                "toggle-disable-wrap" +
+                (activePack.supportsLight ? "" : " toggle-disable-wrap--off")
+              }
+            >
+              <Toggle
+                on={theme === "light"}
+                onChange={(on) => {
+                  if (!activePack.supportsLight) return;
+                  pickTheme(on ? "light" : "dark");
+                }}
+                label="Light theme"
+              />
+            </div>
           </div>
-          <Toggle
-            on={theme === "light"}
-            onChange={(on) => pickTheme(on ? "light" : "dark")}
-            label="Light theme"
-          />
-        </div>
-      </section>
+        </section>
+      )}
 
-      <section className="settings-section">
-        <h3 className="settings__section-title">Display</h3>
-
-        <div className="customize-row">
-          <div>
-            <h4 className="customize-row__title">UI Scale</h4>
-            <p className="settings__section-note settings__section-note--dim">
-              Make everything bigger or smaller.
-            </p>
+      {sec === "display" && (
+        <section className="settings-section">
+          <div className="customize-row">
+            <div>
+              <h4 className="customize-row__title">UI Scale</h4>
+              <p className="settings__section-note settings__section-note--dim">
+                Make everything bigger or smaller.
+              </p>
+            </div>
+            <ChipTabs
+              tabs={SCALE_TABS}
+              active={String(scale)}
+              onChange={(key) => pickScale(Number(key) as UiScale)}
+            />
           </div>
-          <ChipTabs
-            tabs={SCALE_TABS}
-            active={String(scale)}
-            onChange={(key) => pickScale(Number(key) as UiScale)}
-          />
-        </div>
 
-        <div className="customize-row">
-          <div>
-            <h4 className="customize-row__title">Corner Style</h4>
-            <p className="settings__section-note settings__section-note--dim">
-              The shape of every corner in the app.
-            </p>
+          <div className="customize-row">
+            <div>
+              <h4 className="customize-row__title">Corner Style</h4>
+              <p className="settings__section-note settings__section-note--dim">
+                The shape of every corner in the app.
+              </p>
+            </div>
+            <ChipTabs
+              tabs={CORNER_TABS}
+              active={corners}
+              onChange={pickCorners}
+            />
           </div>
-          <ChipTabs
-            tabs={CORNER_TABS}
-            active={corners}
-            onChange={pickCorners}
-          />
-        </div>
 
-      </section>
+        </section>
+      )}
 
       <section className="settings-section">
         <div className="customize-row">

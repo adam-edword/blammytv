@@ -493,13 +493,22 @@ instead, and record why here.
 4. ~~**Stream tab (AIOStreams)** — re-enable the nav glass~~ ✅ live in
    base.css (`--card-glass` fill); Adam signed off the look (2026-07-12).
 
-## Post-onboarding slate (Adam, 2026-07-12)
+## The themes era (Adam, 2026-07-12 — supersedes the post-onboarding slate)
 
-Onboarding + boot declared DONE at v0.4.42/43; v0.4.43 is the release
-carrying it to testers. Next up, blessed by Adam:
-- **0.5 (product)**: My List multi-lists, aurora sweep. **Ctrl+K command
-  palette CUT** ("i dont really want that") — do not build it.
-- **0.6+**: themes + Stripe, code signing, Trakt.
+Onboarding + boot declared DONE and shipped as v0.4.43. Version scheme
+reset: v0.4.43 "should've been 0.5.0" (tag stays — never re-tag a shipped
+release); dev jumps to 0.5.0. The line:
+- **0.5.x — making themes work**: ① theme-pack engine + free built-in
+  packs + Customize pill-rail restructure (this slice, v0.5.0); ② Stripe
+  Checkout + Oracle-box key service (/validate + payload host) + app-side
+  license entry with fail-open entitlement cache; ③ CSP hardening
+  (pre-1.0 gate #5's tail) + theme catalog design QA (Adam's Figma
+  palettes replace the sample packs).
+- **0.6.0 — the themes release.**
+- **1.0 gates**: My List multi-lists (moved here from the 0.5 slate,
+  Adam 2026-07-12), paid themes shipped, Windows code signing, CSP.
+- **Ctrl+K command palette CUT** ("i dont really want that") — do not
+  build it. Aurora sweep stays slated, unowned.
 
 Slated for later, user-approved: ambient backdrop setting, motion toggle,
 timeshift, programme-level selection in the hero, M3U folder editor in

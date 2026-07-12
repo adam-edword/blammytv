@@ -411,6 +411,95 @@
   border-color: color-mix(in srgb, var(--text) 30%, transparent);
 }
 
+/* Divides Customize into General/Theme/Display pills (Adam: "like m3u/
+ * xtream/stalker"). Sits above the active section rather than inside it
+ * (PlaylistsTab's kind rail is the inline variant) — display:flex keeps
+ * the chip-tabs track shrink-wrapped instead of stretching the settings__body
+ * flex column's default align-items: stretch across the full card width. */
+.customize-rail {
+  display: flex;
+}
+
+/* Wraps a Toggle when its control is unreachable for the active pack
+ * (light theme under a dark-only pack). Same dim reading as
+ * .settings__section-note--dim; pointer-events:none does the disabling
+ * since Toggle has no disabled prop of its own. */
+.toggle-disable-wrap--off {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* -------------------------------------------------------- theme packs */
+
+.pack-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  width: 100%;
+}
+
+.pack-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 96px;
+  padding: 10px 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-chip);
+  transition: border-color 150ms ease;
+}
+
+.pack-card:hover {
+  border-color: var(--border-strong);
+}
+
+/* Same ring idiom as the app's other "this one's active" cards (discover
+ * season chips, stream's now-playing thumb): box-shadow, not border, so
+ * it doesn't shove the layout. */
+.pack-card--active {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+/* Mini surface preview: bg panel, a smaller surface chip, an accent dot —
+ * all three from the pack's own metadata (artwork, not theme tokens). */
+.pack-card__preview {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+  height: 44px;
+  border-radius: 10px;
+  padding: 6px;
+  overflow: hidden;
+  /* Inset hairlines keep the near-black previews (classic/void on a
+   * near-black card) reading as panels, not holes. */
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.pack-card__surface {
+  width: 60%;
+  height: 55%;
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.pack-card__accent {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.pack-card__name {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 12px;
+}
+
 /* A label + control row inside a section (e.g. the theme toggle). */
 .customize-row {
   display: flex;

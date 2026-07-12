@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import "./fonts";
 import "./styles/tokens.css";
+import "./styles/packs.css";
 import "./styles/base.css";
 import "./styles/ui.css";
 import "./styles/settings.css";
@@ -21,6 +22,7 @@ import {
   loadAccentStyle,
 } from "./features/settings/accent";
 import { applyTheme, loadTheme } from "./features/settings/theme";
+import { applyThemePack, loadThemePack } from "./features/settings/themePacks";
 import { applyUiScale, loadUiScale } from "./features/settings/uiScale";
 import {
   applyCornerStyle,
@@ -31,6 +33,7 @@ import {
 if (loadAccentStyle() === "aurora") applyAurora();
 else applyAccent(loadAccent());
 applyTheme(loadTheme());
+applyThemePack(loadThemePack());
 applyUiScale(loadUiScale());
 applyCornerStyle(loadCornerStyle());
 

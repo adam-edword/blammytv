@@ -1,0 +1,106 @@
+/**
+ * Theme packs: token overrides scoped under [data-theme-pack="<id>"]
+ * (themePacks.ts, applyThemePack). Loaded after tokens.css so packs win the
+ * cascade on the tokens they touch; anything a pack doesn't set falls
+ * through to the tokens.css default untouched.
+ *
+ * THIS IS THE PAID-PAYLOAD FORMAT. A future paid pack ships as CSS text
+ * fetched over the network and handed to injectPackCss() verbatim — same
+ * shape as the blocks below: one root-attribute selector, only tokens that
+ * already exist in tokens.css, nothing else. Keep every block in this file
+ * to that contract so it stays a working reference for that payload shape.
+ *
+ * Packs override ONLY themable color tokens: surfaces, borders, glass,
+ * text tiers. Never --accent (the Customize picker owns it, packs don't),
+ * never shape/spring/type tokens (those aren't part of a pack's identity).
+ *
+ * "classic" sets no attribute at all — it IS the tokens.css default, so
+ * there's no block for it here.
+ */
+
+/* Void: OLED true black. --bg is already #000000 in tokens.css, so Void's
+   whole identity is crushed surfaces sitting just barely above it. */
+:root[data-theme-pack="void"] {
+  --surface: #050505;
+  --surface-track: #050505;
+  --surface-puck: #0a0a0a;
+  --surface-raised: #101010;
+  --border: rgba(255, 255, 255, 0.06);
+  --border-strong: rgba(255, 255, 255, 0.12);
+  --border-raised: #2a2a2a;
+  --border-input: rgba(255, 255, 255, 0.08);
+  --card-glass:
+    linear-gradient(rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.06)),
+    linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6));
+  --text: #eceef2;
+  --text-muted: #8f8f95;
+  --text-dim: #3a3a3a;
+  --text-ghost: rgba(255, 255, 255, 0.15);
+  color-scheme: dark;
+}
+
+/* Slate: cool graphite, blue-cast surfaces (GitHub-dark territory) with
+   blue-tinted hairlines throughout. */
+:root[data-theme-pack="slate"] {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface-track: #0d1117;
+  --surface-puck: #1c2128;
+  --surface-raised: #21262d;
+  --border: rgba(110, 140, 190, 0.14);
+  --border-strong: rgba(110, 140, 190, 0.22);
+  --border-raised: #30363d;
+  --border-input: rgba(110, 140, 190, 0.16);
+  --card-glass:
+    linear-gradient(rgba(140, 170, 255, 0.06), rgba(140, 170, 255, 0.06)),
+    linear-gradient(rgba(3, 7, 12, 0.55), rgba(3, 7, 12, 0.55));
+  --text: #c9d1d9;
+  --text-muted: #7d8590;
+  --text-dim: #3d434b;
+  --text-ghost: rgba(180, 200, 230, 0.18);
+  color-scheme: dark;
+}
+
+/* Paper (dark axis): warm charcoal, the low-light half of the pack that
+   proves both axes work off one id. */
+:root[data-theme-pack="paper"] {
+  --bg: #141210;
+  --surface: #1c1916;
+  --surface-track: #141210;
+  --surface-puck: #221e1a;
+  --surface-raised: #2b2620;
+  --border: rgba(255, 235, 210, 0.09);
+  --border-strong: rgba(255, 235, 210, 0.16);
+  --border-raised: #4a4238;
+  --border-input: rgba(255, 235, 210, 0.11);
+  --card-glass:
+    linear-gradient(rgba(255, 244, 225, 0.07), rgba(255, 244, 225, 0.07)),
+    linear-gradient(rgba(20, 16, 12, 0.5), rgba(20, 16, 12, 0.5));
+  --text: #f1e9dc;
+  --text-muted: #a89e8f;
+  --text-dim: #554d42;
+  --text-ghost: rgba(255, 235, 210, 0.2);
+  color-scheme: dark;
+}
+
+/* Paper (light axis): warm cream, the variant that actually motivated
+   supportsLight — the identity the pack is designed to be judged by. */
+:root[data-theme-pack="paper"][data-theme="light"] {
+  --bg: #f6f1e7;
+  --surface: #fffdf8;
+  --surface-track: #ece4d4;
+  --surface-puck: #ece4d4;
+  --surface-raised: #f4eee0;
+  --border: rgba(90, 70, 40, 0.12);
+  --border-strong: rgba(90, 70, 40, 0.18);
+  --border-raised: #d8cdb8;
+  --border-input: rgba(90, 70, 40, 0.14);
+  --card-glass:
+    linear-gradient(rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.7)),
+    linear-gradient(rgba(255, 250, 240, 0.35), rgba(255, 250, 240, 0.35));
+  --text: #2c2317;
+  --text-muted: #6b6153;
+  --text-dim: #b8ac97;
+  --text-ghost: rgba(90, 70, 40, 0.25);
+  color-scheme: light;
+}

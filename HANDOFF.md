@@ -15,7 +15,51 @@ Audience: switchers from other Windows IPTV clients, Stremio users, ideally
 both — and explicitly *inviting to newcomers*; first-five-minutes activation
 weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
-## Live state (2026-07-12, v0.4.43 RELEASED — the onboarding release)
+## Live state (2026-07-12, dev v0.5.0 — THE THEMES ERA)
+
+- **Version scheme reset (Adam)**: v0.4.43 "should've been 0.5.0"; the
+  tag stays, dev jumps to 0.5.0. 0.5.x = making themes work; 0.6.0 =
+  themes release. My List multi-lists → 1.0 gate. Working branch is now
+  **blammy-tv-0.6.0-themes-push** (Adam's naming, cut from f02fa9c);
+  the claude/onboarding-glow-rebuild-k3vd2u branch mirrors it.
+- **v0.5.0: THEME-PACK ENGINE + Customize pill rail (the 0.5.x opener).**
+  Built by 3 Sonnet agents under Fable PM (Adam's token-saving model —
+  keep it for big pushes; integration review caught one real bug:
+  classic was marked dark-only, which would have disabled the Light
+  toggle for everyone).
+  - A pack = token-override block `:root[data-theme-pack="<id>"]` in
+    styles/packs.css (+ `[data-theme="light"]` variant if supportsLight)
+    — the Aurora pattern generalized, per pre-1.0 gate #5. THIS FILE'S
+    BLOCK SHAPE IS THE PAID-PAYLOAD FORMAT; `injectPackCss(id, css)` in
+    themePacks.ts is the seam the future fetch-and-unlock flow calls
+    (create-or-replace <style data-pack-css>, unit-tested). Packs
+    override ONLY surfaces/borders/glass/text — never --accent (user-
+    owned), never shape/spring/type. "classic" = no attribute.
+  - Sample packs (placeholders; Adam's Figma redesigns them pre-0.6.0):
+    void (OLED crushed surfaces, dark-only), slate (graphite blue-cast,
+    dark-only), paper (warm cream light + warm charcoal dark,
+    supportsLight). loadThemePack returns unknown ids as-is (forward-
+    compat with paid ids); applying one is harmless by construction.
+  - Customize restructured (Adam: "like m3u/xtream/stalker"): ChipTabs
+    pill rail General | Theme | Display, one section at a time,
+    ephemeral state; utilities (Replay/Updates/Reset) persistent below.
+    Pack cards = radiogroup, preview swatches from metadata (sanctioned
+    raw hex), active = accent ring. Dark-only pack + light theme =
+    dead combo: picking one flips dark; the Light toggle wraps in
+    .toggle-disable-wrap--off (Toggle has no disabled prop) with a
+    "<Pack> is dark-only." note. Reset also resets the pack.
+  - Verified: NEW scripts/verify-themes.mjs 24/24 (rail, cards,
+    persistence-before-first-paint, dark-only interplay, reset,
+    synthetic payload via dataset attr + scoped CSS, no section dupes);
+    onboarding 47/47 (boot is pack-invariant — fixed brand artwork);
+    units 213/213 (9 new); tsc/eslint clean; visual sweep screenshots
+    of all packs across Live + Settings (paper-light flips the whole
+    app cream; no raw-hex leaks spotted).
+  - NEXT in 0.5.x: ② Stripe Checkout + Oracle-box key service
+    (/validate + payload host) + app-side license entry with fail-open
+    entitlement cache; ③ CSP hardening + Adam's real theme designs.
+
+## Prior state (2026-07-12, v0.4.43 RELEASED — the onboarding release)
 
 - **Taskbar-icon report DIAGNOSED, no code change (2026-07-12)**: Adam's
   Windows taskbar showed the old logo "since the logo changed". Data:
