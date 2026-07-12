@@ -61,6 +61,11 @@
   background: #000;
   opacity: 1;
   transition: opacity 400ms ease;
+  /* EXEMPT from UI scale: counter-zoom the root's zoom (uiScale.ts
+   * publishes the inverse) so 1 local px = 1 true px in here at any
+   * scale notch — bootVars' innerWidth-based geometry then needs no
+   * zoom correction. Keep identical on .onb. */
+  zoom: var(--ui-zoom-inverse, 1);
 }
 .boot-overlay.is-leaving {
   opacity: 0;

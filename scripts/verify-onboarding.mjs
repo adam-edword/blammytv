@@ -441,6 +441,43 @@ if (!FAST) {
   await page.close();
 }
 
+// 11. UI-scale exemption (v0.4.43, Adam's call): the boot/onboarding
+//     overlays counter-zoom the root zoom, so their geometry is
+//     IDENTICAL at every scale notch. uiScale persists across
+//     sessions, so a scaled cold boot is the common case. gBCR is
+//     visual px — the exempt overlays must measure the same values a
+//     zoom-1 run produces (screen inset 35·s per side; splash mark
+//     76px fixed).
+if (!FAST) {
+  const uiScale = JSON.stringify({ v: 1, data: 1.2 });
+  const page = await newPage({ "btv:onboarded": "1", "blammytv.uiScale": uiScale });
+  await page.goto("http://localhost:4173/?welcome=1");
+  await page.waitForSelector(".boot-overlay", { timeout: 8000 });
+  const geo = await page.evaluate(() => {
+    const s = Math.max(innerWidth / 1920, innerHeight / 1167);
+    const f = document.querySelector(".boot-frame").getBoundingClientRect();
+    const scr = document.querySelector(".boot-screen").getBoundingClientRect();
+    return {
+      zoom: document.documentElement.style.zoom,
+      frameFull: Math.abs(f.width - innerWidth) < 1 && Math.abs(f.height - innerHeight) < 1,
+      insetOk: Math.abs(scr.x - 35 * s) < 1 && Math.abs(innerWidth - scr.right - 35 * s) < 1,
+    };
+  });
+  check("ui scale 1.2: root zoom applied but the boot frame fills the true viewport",
+    geo.zoom === "1.2" && geo.frameFull, JSON.stringify(geo));
+  check("ui scale 1.2: screen inset is the true-px 35·s (zoom-invariant)",
+    geo.insetOk, JSON.stringify(geo));
+  await page.close();
+
+  const onb = await newPage({ "blammytv.uiScale": uiScale });
+  await onb.goto("http://localhost:4173/?onboarding=1");
+  await onb.waitForSelector(".onb-mark", { timeout: 8000 });
+  const markW = await onb.$eval(".onb-mark", (el) => el.getBoundingClientRect().width);
+  check("ui scale 1.2: splash mark still 76 visual px (onboarding exempt)",
+    Math.abs(markW - 76) < 1, String(markW));
+  await onb.close();
+}
+
 await browser.close();
 const pass = results.filter(Boolean).length;
 console.log(`${pass}/${results.length}`);

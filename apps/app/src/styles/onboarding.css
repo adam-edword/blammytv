@@ -13,6 +13,10 @@
   inset: 0;
   z-index: 1000;
   overflow: hidden;
+  /* EXEMPT from UI scale — same counter-zoom as .boot-overlay (see
+   * boot.css); also keeps the cursor glow's clientX math honest at
+   * zoom ≠ 1. */
+  zoom: var(--ui-zoom-inverse, 1);
   /* True black (v0.4.42, Adam's call — was the mock's #0b0b0e), kept
    * identical to .boot-overlay so the shared scene's surroundings never
    * differ between surfaces. */

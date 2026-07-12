@@ -22,6 +22,17 @@ export function saveUiScale(scale: UiScale): void {
 
 export function applyUiScale(scale: UiScale): void {
   document.documentElement.style.zoom = String(scale);
+  // The boot/onboarding overlays are EXEMPT from UI scale (Adam's
+  // call, v0.4.43): they counter-zoom with this inverse so their
+  // geometry is identical at every scale notch. zoom persists across
+  // sessions, so a scaled cold boot is the common case, not an edge.
+  // Verified model (headless): innerWidth ignores root zoom (true
+  // device-independent px); an element at net zoom 1 lays out in
+  // exactly those px, so bootVars needs no correction.
+  document.documentElement.style.setProperty(
+    "--ui-zoom-inverse",
+    String(1 / scale),
+  );
 }
 
 /** The active root zoom, for code that crosses coordinate spaces.

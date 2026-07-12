@@ -15,7 +15,7 @@ Audience: switchers from other Windows IPTV clients, Stremio users, ideally
 both — and explicitly *inviting to newcomers*; first-five-minutes activation
 weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
-## Live state (2026-07-12, dev v0.4.42 — ONBOARDING DECLARED DONE)
+## Live state (2026-07-12, dev v0.4.43 — ONBOARDING DECLARED DONE)
 
 **Adam signed off the onboarding/boot experience at v0.4.42** ("i think
 we can consider onboarding done") after his Windows pass on the full
@@ -23,16 +23,21 @@ stack: one-piece boot motion, old released endgame spring, thin border,
 splash-sized y-centered lockup, 0.5 idle glow, flash-free opaque cold
 boot on true black. Treat the boot/onboarding surface as FROZEN — no
 further motion changes without a fresh ask from Adam.
-- **uiScale × boot, Adam's decision (supersedes the old queued fix):
-  UI scale should simply NOT affect the intro/onboarding screens** —
-  don't make bootVars zoom-aware ("feels like that would complicate
-  things & doesn't need to happen"). When picked up, EXEMPT the
-  overlays from the root zoom instead: counter-zoom `.onb` and
-  `.boot-overlay` (zoom: 1/scale via a root-published var) and size
-  bootVars from the true window (innerWidth × currentZoom()), or
-  temporarily reset the root zoom while the opaque overlay is up
-  (restore before any leave fade — the app beneath is visible then).
-  Low priority: at zoom 1 nothing is wrong today.
+- **v0.4.43: boot/onboarding EXEMPT from UI scale (Adam: "people will
+  change the zoom which persists on sessions, so any new boots will
+  load with ui scale ≠ 1").** Implemented as counter-zoom: applyUiScale
+  publishes `--ui-zoom-inverse` on the root; `.boot-overlay` and `.onb`
+  set `zoom: var(--ui-zoom-inverse, 1)` → net zoom 1 inside, so 1
+  local px = 1 true px and bootVars' innerWidth math needs NO
+  correction. Empirical model (headless, verified before building):
+  innerWidth IGNORES root zoom (true device-independent px); a plain
+  fixed overlay inside zoom 1.2 lays out at innerWidth/1.2 local px
+  (the old distortion); at net zoom 1 a 100px box paints at exactly
+  100 visual px. Side effect: the cursor glow's clientX lerp is now
+  correct at zoom ≠ 1 too (clientX is true px). E2E §11 guards it
+  (47 checks now): at uiScale 1.2 the boot frame fills the true
+  viewport, the screen inset is true-px 35·s, the splash mark is 76
+  visual px. This closes the uiScale×boot item for good.
 - Still queued (unchanged): the committed raster-throttle E2E harness.
 
 - Dev is **v0.4.42**; natives sit at 0.4.0 (released). All suites green:
