@@ -19,12 +19,87 @@ App: paste key -> POST /validate -> entitlement (pass / owned theme ids)
 App: GET /payload/:themeId (with key + machine headers) -> theme CSS
 ```
 
-SQLite (WAL mode) holds `keys` and `activations`. Caddy terminates HTTPS
-and reverse-proxies to this process. The app's own fail-open caching is
-what keeps a paid theme usable if the box is briefly down — this box only
-gates **new** activations, never already-cached ones.
+SQLite (WAL mode) holds `keys` and `activations`, on a `/data` volume so it
+survives container restarts and redeploys. Deployed as a container behind
+Coolify's own reverse proxy, which terminates HTTPS for
+`https://themes.eddtv.org` — see the Coolify section below, which is the
+box's actual deploy path. The app's own fail-open caching is what keeps a
+paid theme usable if the box is briefly down — this box only gates **new**
+activations, never already-cached ones.
 
-## Deploy runbook (Oracle Cloud box)
+## Deploy: Docker
+
+Build and run directly, without Coolify, for local testing or a one-off box:
+
+```bash
+docker build -t keybox services/keybox
+docker run -d \
+  --name keybox \
+  -p 8390:8390 \
+  -e STRIPE_API_KEY=sk_live_xxx \
+  -e STRIPE_WEBHOOK_SECRET=whsec_xxx \
+  -v keybox-data:/data \
+  keybox
+```
+
+Three env vars matter:
+
+- `STRIPE_API_KEY` — secret key (`sk_live_...` / `sk_test_...`)
+- `STRIPE_WEBHOOK_SECRET` — signing secret from the webhook endpoint (`whsec_...`)
+- `DB_PATH` — baked into the image as `/data/keybox.db`; only override it if
+  you're doing something unusual (it must stay under the `/data` volume
+  mount or the db won't persist).
+
+`-v keybox-data:/data` is not optional — see **Persistent Storage** below
+for why.
+
+## Deploy: Coolify (the box's real setup)
+
+This is how keybox actually runs on the Oracle VPS at
+`https://themes.eddtv.org`. Coolify supplies its own reverse proxy and
+handles TLS (Let's Encrypt) automatically — you do not need Caddy, nginx,
+or any cert config on top of it.
+
+1. **Create Resource** -> **Public/Private Repository** -> point it at this
+   repo.
+2. **Build Pack**: `Dockerfile`.
+3. **Base Directory**: `services/keybox` (this is a monorepo — Coolify
+   needs to know the Dockerfile and build context live here, not at the
+   repo root).
+4. **Port**: `8390` (matches the image's `EXPOSE`).
+5. **Domain**: attach `https://themes.eddtv.org`. Coolify's proxy issues
+   and renews the certificate; nothing else to configure.
+6. **Environment Variables**: set `STRIPE_API_KEY` and
+   `STRIPE_WEBHOOK_SECRET`. `DB_PATH` is already baked into the image
+   (`/data/keybox.db`) — don't set it unless you're deviating from the
+   volume layout below.
+7. **Persistent Storage — THE CRITICAL STEP**: add a volume mounted at
+   `/data`. **Without this, the key database dies with the container on
+   every redeploy** — every key ever issued, gone, with no way to recover
+   who owns what. This is not a "nice to have"; it's the entire reason the
+   image declares `VOLUME /data` instead of writing next to the code.
+   Prefer Coolify's **Volume Mount** type: named volumes copy `/data`'s
+   ownership from the image on first use, so the non-root `node` user can
+   write. If you use a **Directory Mount** (host path bind) instead, the
+   host directory keeps its own ownership — `chown 1000:1000` it on the
+   host once, or the server can't create the db and the container
+   crash-loops on first boot.
+8. **Health check path**: `/healthz`. This matches the Dockerfile's own
+   `HEALTHCHECK` and is unauthenticated, unrate-limited, and CORS-free by
+   design — it's meant to be hit constantly.
+9. **Scheduled Task**: add a Coolify scheduled command running
+   `node scripts/backup.mjs` daily. It writes a timestamped snapshot into
+   `/data/backups` on the same volume and prunes anything older than 30
+   days. **Local-only backups don't survive a dead disk** — periodically
+   copy `/data/backups` off the box (Coolify's file browser, `docker cp`
+   from the host, rclone, whatever's convenient) the same way
+   `scripts/backup.sh`'s bare-metal cron job expected an off-box copy. See
+   the Backups section below.
+
+### Bare-metal alternative
+
+<details>
+<summary>Running keybox directly on a box with systemd, no container — expand if you're not using Coolify/Docker</summary>
 
 ### 1. Node 22
 
@@ -95,7 +170,10 @@ sudo systemctl enable --now keybox
 sudo systemctl status keybox
 ```
 
-### 5. Caddyfile snippet
+### 5. Caddy
+
+Caddy is unnecessary under Coolify (its proxy already does TLS) — this is
+only relevant for the bare-metal path above.
 
 ```caddyfile
 themes.eddtv.org {
@@ -106,7 +184,21 @@ themes.eddtv.org {
 Caddy handles HTTPS (Let's Encrypt) automatically — no cert config needed
 here.
 
-### 6. Stripe setup
+### Backups (bare-metal)
+
+`scripts/backup.sh` takes a consistent `sqlite3 .backup` snapshot (safe
+against a live WAL-mode db), prunes local copies older than 30 days, and
+has a commented-out `rclone`/`scp` line for the off-box copy — **uncomment
+and configure one of those**, since local-only backups don't survive a
+dead disk. Cron:
+
+```
+17 3 * * * /opt/blammytv/services/keybox/scripts/backup.sh /var/lib/keybox/keybox.db /var/lib/keybox/backups >> /var/log/keybox-backup.log 2>&1
+```
+
+</details>
+
+## Stripe setup
 
 1. **Products/Prices** — in the Stripe Dashboard, create:
    - One Product "BlammyTV Themes Pass" with one Price (one-time payment).
@@ -137,7 +229,7 @@ here.
    - Events: `checkout.session.completed`
    - Copy the signing secret into `STRIPE_WEBHOOK_SECRET`.
 
-### 7. Test-mode walkthrough
+## Test-mode walkthrough
 
 ```bash
 # Terminal 1 — run keybox locally against test-mode keys
@@ -161,20 +253,28 @@ curl -s -X POST localhost:8390/validate \
   -d '{"key":"BTV-XXXX-XXXX-XXXX-XXXX","machine":"test-machine"}'
 ```
 
-### 8. Backups
+## Backups
 
-`scripts/backup.sh` takes a consistent `sqlite3 .backup` snapshot (safe
-against a live WAL-mode db), prunes local copies older than 30 days, and
-has a commented-out `rclone`/`scp` line for the off-box copy — **uncomment
-and configure one of those**, since local-only backups don't survive a
-dead disk. Cron:
+Two ways to run keybox, two backup scripts:
 
-```
-17 3 * * * /opt/blammytv/services/keybox/scripts/backup.sh /var/lib/keybox/keybox.db /var/lib/keybox/backups >> /var/log/keybox-backup.log 2>&1
-```
+- **Container (Coolify/Docker)**: `scripts/backup.mjs`. The runtime image
+  (`node:22-bookworm-slim`) has no `sqlite3` CLI, so this reuses the
+  already-installed `better-sqlite3` dependency's own `.backup()` API
+  instead — same online-backup semantics, safe against a live WAL-mode db.
+  Writes `${BACKUP_DIR:-/data/backups}/keybox-<ISO-date>.db` and prunes
+  anything older than 30 days. Wire it up as a Coolify Scheduled Task (see
+  the Coolify section above) — daily is enough.
+- **Bare-metal**: `scripts/backup.sh`, driven by cron. See the bare-metal
+  section above.
+
+Either way: **local-only backups don't survive a dead disk.** Periodically
+copy the backup directory (`/data/backups` in the container, whatever
+`BACKUP_DIR` resolves to on bare metal) off the box.
 
 ## API surface
 
+- `GET /healthz` — liveness/readiness check for Coolify and the container's
+  own `HEALTHCHECK`. `{"ok":true}`, unauthenticated, no rate limit.
 - `POST /webhook` — Stripe webhook target. Verifies signature, issues a
   key on `checkout.session.completed` (idempotent per session).
 - `GET /success?session_id=...` — Checkout `success_url` target. Shows the
@@ -195,8 +295,20 @@ dead disk. Cron:
 - **Key-in, yes/no-out.** `/validate` and `/payload` never expose a key
   list, a count of keys, or any other key's existence. A miss just says
   "unknown" — same as a hit that's out of activations.
+- **CORS is intentionally permissive on the app-facing routes only.**
+  `/validate` and `/payload/:themeId` answer with
+  `Access-Control-Allow-Origin: *` because the desktop app calls this
+  server cross-origin from a Tauri/Vite WebView. `*` is correct here, not
+  a shortcut: neither route reads cookies or any other ambient browser
+  credential — entitlement rides values the caller must already hold (the
+  license key, an activated machine id) — so there's nothing a third-party
+  page can trick a browser into leaking. `/webhook` (Stripe,
+  server-to-server) and `/success` (top-level navigation) get no CORS
+  headers at all, since neither is ever fetched cross-origin.
 - **Rate-limited.** A hand-rolled per-IP token bucket (30 req/min, no
-  dependency) guards `/validate` and `/payload`.
+  dependency) guards `/validate` and `/payload`. CORS preflights
+  (`OPTIONS`) are answered before they ever reach the limiter, so a
+  browser's own preflighting can't burn a caller's budget.
 - **Activation cap.** 3 machines per key, tracked by an opaque
   app-generated machine id (never a hardware serial or anything
   personally identifying). Re-validating an already-registered machine is

@@ -50,6 +50,50 @@ function makeRateLimiter() {
 }
 
 /* ------------------------------------------------------------------ */
+/* CORS: only for the two app-facing endpoints, /validate and         */
+/* /payload/:themeId. The desktop app calls this server cross-origin  */
+/* from a Tauri/Vite WebView (http://tauri.localhost in prod,         */
+/* http://localhost:4173 in dev), so without explicit CORS headers    */
+/* every fetch the app makes fails in the browser before it ever      */
+/* reaches this process.                                              */
+/*                                                                     */
+/* Access-Control-Allow-Origin: * is deliberate, not a shortcut. These */
+/* routes never read cookies or any other ambient browser credential — */
+/* entitlement rides explicit values the caller must already possess   */
+/* (the license key in the POST body, x-license-key/x-machine          */
+/* headers), so there is nothing a page on another origin can trick a   */
+/* victim's browser into sending on its behalf. `*` can't leak a        */
+/* session the requester doesn't already hold.                          */
+/*                                                                     */
+/* /webhook (Stripe calling server-to-server, never a browser) and     */
+/* /success (a top-level navigation target, never fetched) don't get   */
+/* this middleware — they were never broken by CORS and giving them    */
+/* permissive headers would just be needless surface area.             */
+/* ------------------------------------------------------------------ */
+const APP_CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "content-type,x-license-key,x-machine",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+};
+
+function appCors(req, res, next) {
+  for (const [header, value] of Object.entries(APP_CORS_HEADERS)) {
+    res.setHeader(header, value);
+  }
+  next();
+}
+
+/* Preflight responder: a bare 204 carrying the CORS headers above and
+ * nothing else. Registered as its own OPTIONS route (not folded into the
+ * POST/GET handlers below), which means an OPTIONS request never reaches
+ * `rateLimit` at all — it's a different HTTP method, so Express routes it
+ * to this handler instead of the rate-limited one. A browser can send
+ * unlimited preflights without ever burning a token or seeing a 429. */
+function preflight(req, res) {
+  res.status(204).end();
+}
+
+/* ------------------------------------------------------------------ */
 /* HTML pages for /success. Inline CSS, no assets, dark to match the  */
 /* app. The key is server-generated (Crockford32 + dashes) so it      */
 /* can't carry HTML-breaking characters, but it's escaped anyway.     */
@@ -159,6 +203,21 @@ export function makeApp({ db, stripe, catalog, webhookSecret }) {
 
   const rateLimit = makeRateLimiter();
 
+  /* GET /healthz — Coolify's health check and the Dockerfile HEALTHCHECK
+   * hit this. No rate limit (health checks poll frequently and must never
+   * compete with real traffic for budget) and no CORS needed (never
+   * fetched from a browser), though the headers are harmless if it ever is. */
+  app.get("/healthz", (req, res) => {
+    res.status(200).json({ ok: true });
+  });
+
+  /* CORS preflights for the two app-facing routes. See the appCors /
+   * preflight comments above for why these exist, why `*` is correct, and
+   * why registering them as their own OPTIONS routes keeps them off the
+   * rate limiter. */
+  app.options("/validate", appCors, preflight);
+  app.options("/payload/:themeId", appCors, preflight);
+
   /* POST /webhook — raw body required for Stripe signature verification.
    * Registered before the global express.json() below so it never sees
    * a pre-parsed body. */
@@ -210,7 +269,7 @@ export function makeApp({ db, stripe, catalog, webhookSecret }) {
     return res.status(200).send(successPage(record.key));
   });
 
-  app.post("/validate", rateLimit, (req, res) => {
+  app.post("/validate", appCors, rateLimit, (req, res) => {
     const { key, machine } = req.body ?? {};
     if (
       typeof key !== "string" ||
@@ -244,7 +303,7 @@ export function makeApp({ db, stripe, catalog, webhookSecret }) {
     }
   });
 
-  app.get("/payload/:themeId", rateLimit, (req, res) => {
+  app.get("/payload/:themeId", appCors, rateLimit, (req, res) => {
     // themeId is only ever used to look itself up in the catalog allowlist;
     // the actual filesystem path is built from catalog.getTheme(...).id,
     // never from req.params directly, so a traversal string just misses

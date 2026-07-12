@@ -1,4 +1,6 @@
 import Database from "better-sqlite3";
+import { mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 import { generateKey } from "./keygen.js";
 
 /**
@@ -32,6 +34,17 @@ CREATE TABLE IF NOT EXISTS activations (
 export const ACTIVATION_LIMIT = 3;
 
 export function openDb(path) {
+  // A fresh container's /data volume mount is an empty directory the first
+  // time it's ever attached — nothing has created it yet. better-sqlite3
+  // will happily create the .db file itself, but not a missing parent
+  // directory, so without this the very first boot against a brand-new
+  // volume crashes. ":memory:" (tests) and bare filenames (no directory
+  // component) both no-op here — mkdirSync("", ...) would throw, so guard it.
+  const dir = dirname(path);
+  if (path !== ":memory:" && dir && dir !== ".") {
+    mkdirSync(dir, { recursive: true });
+  }
+
   const db = new Database(path);
   db.pragma("journal_mode = WAL");
   db.exec(SCHEMA);

@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
-# keybox backup: nightly sqlite3 .backup + 30-day local prune.
+# keybox backup (bare-metal): nightly sqlite3 .backup + 30-day local prune.
+#
+# Running keybox in the container? Use scripts/backup.mjs instead — the
+# node:22-bookworm-slim runtime image has no `sqlite3` CLI, so this script
+# won't run there. backup.mjs does the same job (online .backup + 30-day
+# prune) with the better-sqlite3 dependency already installed for the
+# server itself. This script is for the bare-metal/systemd deploy path
+# only — see README.md.
 #
 # The key DB is the ONLY record of which keys exist (Stripe's dashboard is
 # the purchase<->person record, but it has no idea what key a webhook

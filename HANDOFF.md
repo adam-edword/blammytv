@@ -15,7 +15,43 @@ Audience: switchers from other Windows IPTV clients, Stremio users, ideally
 both — and explicitly *inviting to newcomers*; first-five-minutes activation
 weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
-## Live state (2026-07-12, dev v0.5.1 — THE THEMES ERA)
+## Live state (2026-07-12, dev v0.5.2 — THE THEMES ERA)
+
+- **v0.5.2b: keybox CONTAINERIZED for Coolify (Adam runs Coolify on the
+  Oracle VPS; DNS for themes.eddtv.org already set).** Sonnet agent +
+  PM review. Dockerfile (node:22-bookworm-slim multi-stage, non-root,
+  VOLUME /data, fetch-based HEALTHCHECK), .dockerignore, scripts/
+  backup.mjs (better-sqlite3 .backup API — containers have no sqlite3
+  CLI), README rewritten Coolify-first (Build Pack Dockerfile, Base
+  Dir services/keybox, port 8390, env vars, /data persistent storage
+  BOLDED as critical, /healthz health check, daily backup Scheduled
+  Task; bare-metal systemd kept in a <details>).
+  - **REAL BUG CAUGHT during this pass: the production server had NO
+    CORS** — the app's cross-origin WebView fetch would have failed on
+    first real deploy (the E2E tested against the CORS-enabled FIXTURE
+    — a masked integration gap; lesson: fixtures must not be more
+    permissive than production). Fixed: CORS (* origin — no cookies,
+    entitlement rides explicit headers) on /validate + /payload only,
+    preflights answered 204 before the rate limiter; /webhook and
+    /success deliberately bare. Plus GET /healthz and mkdir-on-boot
+    for a fresh /data volume. Keybox tests 21 → 27/27.
+  - **PM review caught a second real bug in the agent's Dockerfile**:
+    chown /data was placed AFTER the VOLUME declaration — Docker
+    discards post-VOLUME changes to the path, so a fresh named volume
+    would arrive root-owned and the non-root process would crash-loop
+    on first boot. Moved above VOLUME; README notes the Directory-
+    Mount (bind) variant needs a host-side chown 1000:1000.
+  - **UNVERIFIED (sandbox limitation, be honest on first deploy)**:
+    the docker build itself — this sandbox's proxy blocks every
+    registry blob host (Docker Hub AND the ECR mirror), so the image
+    was never built. Everything else verified at process level (27/27
+    incl. new CORS/healthz tests, curl transcript, restart-persistence
+    sim). THE one first-deploy watch item: better-sqlite3's glibc
+    prebuild resolving inside the image (same platform combo resolves
+    it in dev; if the build log shows node-gyp/prebuild-install
+    failure, the Dockerfile comment says exactly what to add).
+
+## Prior state (2026-07-12, dev v0.5.1 — THE THEMES ERA)
 
 - **v0.5.1: THE PAID PLUMBING (0.5.x step ②)** — Stripe → keybox →
   app unlock, built by 3 Sonnet agents under Fable PM (one agent even
