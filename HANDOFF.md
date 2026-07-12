@@ -15,12 +15,28 @@ Audience: switchers from other Windows IPTV clients, Stremio users, ideally
 both — and explicitly *inviting to newcomers*; first-five-minutes activation
 weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
-## Live state (2026-07-12, dev v0.4.39 — ONE-PIECE BOOT)
+## Live state (2026-07-12, dev v0.4.40 — ONE-PIECE BOOT, full-circle landing)
 
-- Dev is **v0.4.39**; natives sit at 0.4.0 (released). All suites green:
+- Dev is **v0.4.40**; natives sit at 0.4.0 (released). All suites green:
   units 204/204, onboarding E2E 44/44 (blur-safety frame sampler +
   cold-boot skip/spin guards added), discover 59/59, credits 6/6,
   probe 5/5.
+- **v0.4.40: quieter idle glow + FULL-CIRCLE LANDING (Adam's tweaks).**
+  `.boot-sheet` idle opacity 0.65→0.5 (still rides to 1 during P1 —
+  the is-landing/landed/shrink rule was already there). The finale's
+  end lockup now lands EXACTLY in the onboarding splash lockup's
+  footprint, measured from the rendered splash (not eyeballed): tile
+  121→76·s, hole 68.57→43.07·s (same 0.5667 ratio), wordmark
+  116.22→84px·s / tracking −1.7·s / line-height 1 (mirrors .onb-word),
+  end translate (−302.5, 0)→(−213.59, −51.5)·s, wordmark left
+  −214→−157.59·s, slide-in +120.24→+86.9·s. The 51.5·s vertical drift
+  rides the SHRINK segment so the slide stays purely horizontal.
+  Splash is fixed-px, boot scales with --s ⇒ exact match at s=1,
+  "a little bigger" on larger windows — Adam's spec verbatim.
+  Headless proof at 1920×1167 (s=1): tile 76.0×76.0 @ (746.4, 532.0)
+  vs splash mark (746.4, 532.7); wordmark box 409.2×84.0 with left
+  edge and v-center equal to .onb-word within 0.7px. Blur-safety
+  choreography untouched (only end-state numbers changed).
 - **v0.4.39: ONE SPEC — the one-piece boot motion (Adam's Figma mock,
   "Wireframe - 5" node 272:1000, 2530ms; plan-mode approved).** Adam's
   definitive statement of the desire: "ITS ALL ONE PIECE, NO

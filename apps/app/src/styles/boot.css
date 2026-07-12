@@ -14,13 +14,20 @@
  *
  * The timeline (fractions of 2530ms):
  *   P1 landing 0→830ms: the sheet unwinds to rotation 0 (rAF, ≥1.5
- *      turns), brightens 0.65→1, scaleY settles 1.15→1 (runs to
+ *      turns), brightens 0.5→1, scaleY settles 1.15→1 (runs to
  *      1490ms); the screen UNBLURS 108.4px·s→0 with its geometry
  *      FROZEN. All the softness in the design is this one blur.
- *   P2 shrink 830→1490ms: frame→121·s tile, screen→68.57·s hole,
- *      concentric, plain ease-in-out (the old sampled spring is gone).
- *   P3 slide 1490→2000ms: lockup eases 302.5·s left; wordmark fades
- *      and slides in from +120.24·s.
+ *   P2 shrink 830→1490ms: frame→76·s tile, screen→43.07·s hole,
+ *      near-concentric (drifting 51.5·s up), plain ease-in-out.
+ *   P3 slide 1490→2000ms: lockup eases 213.6·s left; wordmark fades
+ *      and slides in from +86.9·s.
+ *
+ * FULL-CIRCLE LANDING (v0.4.40): the end lockup is sized and placed to
+ * land EXACTLY in the onboarding splash lockup's footprint at s=1
+ * (76px mark, 84px wordmark, 18px gap, lockup center 51.5px above
+ * viewport center — measured from the rendered splash, not eyeballed).
+ * The splash is fixed-px while this scales with --s, so on larger
+ * windows the finale lands "a little bigger" — Adam's spec verbatim.
  *   P4 hold →2530ms, then the host's release fade.
  *
  * BLUR RULES (the v0.4.26-30 war's terms for readmitting filter):
@@ -94,7 +101,7 @@
   width: calc(2803.7px * var(--s));
   height: calc(2538.1px * var(--s));
   margin: calc(-1269.05px * var(--s)) 0 0 calc(-1401.85px * var(--s));
-  opacity: 0.65;
+  opacity: 0.5;
   will-change: transform;
   /* Idle entrance pace (onboarding's slow reveal); the landing rule
    * below retargets this same transition — transitions, never
@@ -189,18 +196,20 @@
   animation: btv-boot-screen 1700ms both;
 }
 
-/* THE WORDMARK: persistent, hidden until the slide phase reveals it. */
+/* THE WORDMARK: persistent, hidden until the slide phase reveals it.
+ * Metrics mirror the splash's .onb-word (84px, -1.7px tracking) at the
+ * splash's measured position, ·s. */
 .boot-wordmark {
   position: absolute;
-  top: 50%;
-  left: calc(50% - 214px * var(--s));
+  top: calc(50% - 51.5px * var(--s));
+  left: calc(50% - 157.59px * var(--s));
   margin: 0;
-  transform: translateY(-50%) translateX(calc(120.24px * var(--s)));
+  transform: translateY(-50%) translateX(calc(86.9px * var(--s)));
   font-family: var(--font-headline);
-  font-size: calc(116.22px * var(--s));
+  font-size: calc(84px * var(--s));
   font-weight: 700;
-  letter-spacing: calc(-2.32px * var(--s));
-  line-height: normal;
+  letter-spacing: calc(-1.7px * var(--s));
+  line-height: 1;
   white-space: nowrap;
   color: #fff;
   opacity: 0;
@@ -221,24 +230,27 @@
 
 /* The shrink + slide, one keyframe set per actor (attached at 830ms;
  * segments land at 38.82% = 1490ms and 68.82% = 2000ms of the 1700ms
- * track — the mock's P2/P3 boundaries). translateX precedes scale so
- * the travel is in screen pixels. Every keyframe restates
+ * track — the mock's P2/P3 boundaries). translate precedes scale so
+ * the travel is in screen pixels. The 51.5·s vertical drift rides the
+ * shrink (invisible inside that much motion) so the slide stays purely
+ * horizontal, matching the wordmark's track. Every keyframe restates
  * border-radius so it can't drift back to the base value. Percentage
  * radii keep the corners circular under the non-uniform scale. */
 @keyframes btv-boot-frame {
   0% {
-    transform: translateX(0) scale(1, 1);
+    transform: translate(0, 0) scale(1, 1);
     border-radius: calc(33px * var(--s));
     animation-timing-function: cubic-bezier(0.42, 0, 0.58, 1);
   }
   38.82% {
-    transform: translateX(0) scale(var(--tv-sx), var(--tv-sy));
+    transform: translate(0, calc(-51.5px * var(--s)))
+      scale(var(--tv-sx), var(--tv-sy));
     border-radius: 32.5%;
     animation-timing-function: cubic-bezier(0.42, 0, 0.58, 1);
   }
   68.82%,
   100% {
-    transform: translateX(calc(-302.5px * var(--s)))
+    transform: translate(calc(-213.59px * var(--s)), calc(-51.5px * var(--s)))
       scale(var(--tv-sx), var(--tv-sy));
     border-radius: 32.5%;
   }
@@ -246,18 +258,19 @@
 
 @keyframes btv-boot-screen {
   0% {
-    transform: translateX(0) scale(1, 1);
+    transform: translate(0, 0) scale(1, 1);
     border-radius: calc(44px * var(--s));
     animation-timing-function: cubic-bezier(0.42, 0, 0.58, 1);
   }
   38.82% {
-    transform: translateX(0) scale(var(--scr-sx), var(--scr-sy));
+    transform: translate(0, calc(-51.5px * var(--s)))
+      scale(var(--scr-sx), var(--scr-sy));
     border-radius: 27.5%;
     animation-timing-function: cubic-bezier(0.42, 0, 0.58, 1);
   }
   68.82%,
   100% {
-    transform: translateX(calc(-302.5px * var(--s)))
+    transform: translate(calc(-213.59px * var(--s)), calc(-51.5px * var(--s)))
       scale(var(--scr-sx), var(--scr-sy));
     border-radius: 27.5%;
   }
@@ -267,7 +280,7 @@
   0%,
   38.82% {
     opacity: 0;
-    transform: translateY(-50%) translateX(calc(120.24px * var(--s)));
+    transform: translateY(-50%) translateX(calc(86.9px * var(--s)));
     animation-timing-function: cubic-bezier(0.42, 0, 0.58, 1);
   }
   68.82%,

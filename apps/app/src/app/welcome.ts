@@ -9,12 +9,14 @@ const PLAYED_KEY = "btv:welcome-played";
 
 /** Design space: Adam's Figma motion mock ("Wireframe - 5", node
  * 272:1000, the one-piece boot spec) — a 1920×1167 canvas. All boot
- * geometry below is native to it:
- * - the frame shrinks to a 121px logo tile whose center sits 302.5px
- *   left of canvas center;
+ * geometry below is native to it. v0.4.40 resizes the END LOCKUP to
+ * the onboarding splash's measured footprint (full-circle landing —
+ * the finale lands where the splash lockup stood, same size at s=1):
+ * - the frame shrinks to a 76px logo tile whose center sits 213.59px
+ *   left of and 51.5px above canvas center;
  * - the black screen (the frame's 72/71.5-inset rect) shrinks to a
- *   68.57px hole concentric with the tile;
- * - the wordmark (116.22px Stack Sans Headline) slides in from +120.24.
+ *   43.07px hole concentric with the tile (the mock's 68.57/121 ratio);
+ * - the wordmark (84px Stack Sans Headline) slides in from +86.9.
  * The starting frame is the viewport itself, so the shrink's end scale
  * depends on the window: compute the per-axis factors that land the
  * viewport-sized elements on the fixed lockup geometry. --s carries the
@@ -24,8 +26,8 @@ const PLAYED_KEY = "btv:welcome-played";
  * zoom ≠ 1 these mix visual and layout px — see HANDOFF.) */
 const DESIGN_W = 1920;
 const DESIGN_H = 1167;
-const TILE = 121; // final frame tile (square)
-const HOLE = 68.57; // final screen hole (square)
+const TILE = 76; // final frame tile (square) — splash .onb-mark size
+const HOLE = 43.07; // final screen hole (square) — TILE × 68.57/121
 const INSET_X = 144; // left + right screen inset (72 each)
 const INSET_Y = 143; // top + bottom screen inset (71.5 each)
 
