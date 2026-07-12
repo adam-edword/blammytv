@@ -15,7 +15,49 @@ Audience: switchers from other Windows IPTV clients, Stremio users, ideally
 both — and explicitly *inviting to newcomers*; first-five-minutes activation
 weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
-## Live state (2026-07-12, dev v0.5.0 — THE THEMES ERA)
+## Live state (2026-07-12, dev v0.5.1 — THE THEMES ERA)
+
+- **v0.5.1: THE PAID PLUMBING (0.5.x step ②)** — Stripe → keybox →
+  app unlock, built by 3 Sonnet agents under Fable PM (one agent even
+  ran the parallel agent's E2E mid-build and fixed its own UI bug).
+  Adam's product calls: BOTH a lifetime Themes Pass AND per-theme
+  purchases; activation cap 3 machines.
+  - **services/keybox/** (NEW workspace pkg): Express + better-sqlite3
+    + stripe. POST /webhook (sig-verified; checkout.session.completed
+    → price-id→entitlement via catalog.json → BTV-XXXX key, PII-free,
+    replay-safe), GET /success?session_id (shows the key), POST
+    /validate {key,machine} → {ok,pass,themes:[metas]} (3-machine cap
+    in SQLite), GET /payload/:id (entitlement+activation gated CSS,
+    allowlist path handling), hand-rolled per-IP rate limit. 21/21
+    node:test + live curl smoke. README = Oracle-box runbook (systemd,
+    Caddy, Stripe products/webhook, stripe listen walkthrough, backup
+    cron); scripts/backup.sh (the dead-disk requirement). Sample paid
+    theme "nebula" (violet-noir) payload in the packs.css contract.
+  - **App (license.ts)**: anonymous machineId, key normalize/shape-
+    check before network, activate() → validate + fetch payloads →
+    injectPackCss + cache; FAIL-OPEN startup applyInstalledPacks()
+    re-injects from localStorage with NO network (main.tsx, pre-paint);
+    background revalidate never clears state except explicit
+    unknown_key. Customize Theme pill: pack row = THEME_PACKS ∪
+    installed; "Premium Themes" row (key input + Activate + plain-
+    language errors; licensed → "Themes Pass active"/count + Remove
+    license which also resets an active premium pack). 16 new units.
+  - **DEFAULT_KEYBOX is a PLACEHOLDER** ("themes.blammy.example") —
+    Adam picks the real domain at deploy; localStorage
+    "blammytv.keyboxUrl" (raw, no envelope) is the dev/test override.
+    Stripe price ids in catalog.json are placeholders too.
+  - Verified end-to-end: scripts/fake-keybox.mjs (:8085) +
+    verify-license.mjs 14/14 (activation, pack join, token applies,
+    reload persistence, DEAD-SERVER fail-open, all three error copies,
+    solo entitlement, full deactivate teardown, malformed-key never
+    hits the network via /__count); verify-themes 24/24; onboarding
+    47/47; units 229/229; keybox 21/21; tsc/eslint clean.
+  - NEXT in 0.5.x: deploy keybox to the Oracle box (README runbook),
+    create real Stripe products + paste price ids, pick the domain +
+    set DEFAULT_KEYBOX, buy-link UI once purchase links exist, CSP
+    hardening, Adam's real theme designs.
+
+## Prior state (2026-07-12, dev v0.5.0 — THE THEMES ERA)
 
 - **Version scheme reset (Adam)**: v0.4.43 "should've been 0.5.0"; the
   tag stays, dev jumps to 0.5.0. 0.5.x = making themes work; 0.6.0 =

@@ -28,6 +28,7 @@ import {
   applyCornerStyle,
   loadCornerStyle,
 } from "./features/settings/cornerStyle";
+import { applyInstalledPacks } from "./features/settings/license";
 
 // Apply saved appearance before first paint so nothing flashes.
 if (loadAccentStyle() === "aurora") applyAurora();
@@ -36,6 +37,8 @@ applyTheme(loadTheme());
 applyThemePack(loadThemePack());
 applyUiScale(loadUiScale());
 applyCornerStyle(loadCornerStyle());
+// Paid theme CSS, purely from cache — see license.ts's fail-open comment.
+applyInstalledPacks();
 
 const root = ReactDOM.createRoot(document.getElementById("root")!);
 

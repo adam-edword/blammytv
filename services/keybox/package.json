@@ -1,0 +1,19 @@
+{
+  "name": "@blammytv/keybox",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BlammyTV theme-license server: Stripe Checkout -> webhook -> key issuance -> /validate + /payload host.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.10.0",
+    "express": "^4.21.2",
+    "stripe": "^17.5.0"
+  }
+}

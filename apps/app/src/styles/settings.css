@@ -960,6 +960,70 @@
   line-height: 1.45;
 }
 
+/* -------------------------------------------------------- premium themes */
+
+/* Right side of the "Premium Themes" customize-row: the form (or Remove
+ * button) plus its own status line stacked together, so the row's
+ * space-between still treats this as ONE flex item on the far edge. */
+.license-control {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.license-form {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Overrides settings-input's flex:1/width:100% (both classes are single
+ * selectors of equal specificity — this rule wins by coming later in the
+ * file) so the key field sizes to the key, not the row. */
+.license-input {
+  flex: 0 0 220px;
+  width: auto;
+  font-family: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
+  font-size: 13px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.license-input::placeholder {
+  text-transform: none;
+}
+
+/* Quiet text button — same idiom as .chip-select__add (muted, brightens
+ * on hover, no fill), since removing a license is reversible and doesn't
+ * warrant danger-zone weight. */
+.license-remove {
+  flex-shrink: 0;
+  padding: 8px 4px;
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-muted);
+  transition: color 150ms ease;
+}
+
+.license-remove:hover {
+  color: var(--text);
+}
+
+/* activate()'s result line — same reading as onboarding's .onb-hint, in
+ * this card's token vocabulary instead of onboarding's fixed rgba pair. */
+.license-status {
+  margin: 0;
+  font-size: 13.5px;
+  color: #e25b5b;
+  max-width: 64ch;
+}
+
+.license-status--ok {
+  color: #2cad57;
+}
+
 /* Slightly-glassy surfaces inside the settings card (Adam, v0.4.2):
  * the solid --surface blocks read heavy over the frosted card — let
  * the card's glass breathe through instead. color-mix keeps the tint

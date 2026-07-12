@@ -27,7 +27,15 @@ import {
   loadThemePack,
   saveThemePack,
   type ThemePackId,
+  type ThemePackMeta,
 } from "./themePacks";
+import {
+  activate,
+  deactivate,
+  installedPacks,
+  licenseStatus,
+  type LicenseStatus,
+} from "./license";
 import {
   UI_SCALES,
   applyUiScale,
@@ -185,16 +193,63 @@ export function CustomizeTab() {
     applyTheme(next);
   };
 
+  // Installed paid packs (cached CSS a licensed key unlocked) join the
+  // built-in THEME_PACKS in the picker — refreshed after activate/deactivate
+  // since neither one remounts this component.
+  const [installed, setInstalled] = useState<ThemePackMeta[]>(installedPacks);
+  const [license, setLicense] = useState<LicenseStatus>(licenseStatus);
+  const allPacks: ThemePackMeta[] = [
+    ...THEME_PACKS,
+    ...installed.filter((p) => !THEME_PACKS.some((b) => b.id === p.id)),
+  ];
+
   const [pack, setPack] = useState<ThemePackId>(loadThemePack);
-  const activePack = THEME_PACKS.find((p) => p.id === pack) ?? THEME_PACKS[0];
+  const activePack = allPacks.find((p) => p.id === pack) ?? THEME_PACKS[0];
   const pickPack = (id: ThemePackId) => {
     setPack(id);
     saveThemePack(id);
     applyThemePack(id);
     // Dead-combo rule: a dark-only pack under the light theme is an
     // unsupported combination — force dark rather than leave it on screen.
-    const meta = THEME_PACKS.find((p) => p.id === id);
+    const meta = allPacks.find((p) => p.id === id);
     if (meta && !meta.supportsLight && theme === "light") pickTheme("dark");
+  };
+
+  // Premium Themes: key input + Activate, or the licensed summary +
+  // Remove. Reversible by re-pasting the key, so Remove needs no confirm.
+  const [licenseInput, setLicenseInput] = useState("");
+  const [activating, setActivating] = useState(false);
+  const [activateMsg, setActivateMsg] = useState<{
+    ok: boolean;
+    text: string;
+  } | null>(null);
+
+  const submitLicense = async () => {
+    const key = licenseInput.trim();
+    if (!key || activating) return;
+    setActivating(true);
+    setActivateMsg(null);
+    const result = await activate(key);
+    setActivating(false);
+    if (result.ok) {
+      setLicenseInput("");
+      setInstalled(installedPacks());
+      setLicense(licenseStatus());
+      setActivateMsg({ ok: true, text: "Themes unlocked." });
+    } else {
+      setActivateMsg({ ok: false, text: result.message });
+    }
+  };
+
+  const removeLicense = () => {
+    deactivate();
+    setInstalled(installedPacks());
+    setLicense(licenseStatus());
+    setActivateMsg(null);
+    // deactivate() may have force-reset the active pack (dataset + storage)
+    // if it was one of the ones this key licensed — pull the local state
+    // back in sync with it.
+    setPack(loadThemePack());
   };
 
   const [scale, setScale] = useState<UiScale>(loadUiScale);
@@ -354,7 +409,7 @@ export function CustomizeTab() {
             layer on top.
           </p>
           <div className="pack-row" role="radiogroup" aria-label="Theme pack">
-            {THEME_PACKS.map((p) => (
+            {allPacks.map((p) => (
               <button
                 key={p.id}
                 type="button"
@@ -383,6 +438,73 @@ export function CustomizeTab() {
                 <span className="pack-card__name">{p.name}</span>
               </button>
             ))}
+          </div>
+
+          <div className="customize-row">
+            <div>
+              <h4 className="customize-row__title">Premium Themes</h4>
+              <p className="settings__section-note settings__section-note--dim">
+                {license.active
+                  ? license.pass
+                    ? "Themes Pass active."
+                    : `${license.installedCount} theme${
+                        license.installedCount === 1 ? "" : "s"
+                      } unlocked.`
+                  : "Paste a license key to unlock paid theme packs."}
+              </p>
+            </div>
+            <div className="license-control">
+              {license.active ? (
+                <button
+                  type="button"
+                  className="license-remove"
+                  onClick={removeLicense}
+                >
+                  Remove license
+                </button>
+              ) : (
+                <div className="license-form">
+                  <input
+                    className="settings-input license-input"
+                    type="text"
+                    value={licenseInput}
+                    onChange={(e) => setLicenseInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") void submitLicense();
+                    }}
+                    placeholder="BTV-XXXX-XXXX-XXXX-XXXX"
+                    spellCheck={false}
+                    autoComplete="off"
+                    data-1p-ignore=""
+                    data-lpignore="true"
+                    data-protonpass-ignore="true"
+                    disabled={activating}
+                  />
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    disabled={activating || !licenseInput.trim()}
+                    onClick={() => void submitLicense()}
+                  >
+                    {activating ? "Activating…" : "Activate"}
+                  </button>
+                </div>
+              )}
+              {/* Nested inside the SAME row as the input/button (not a
+                * floating sibling) so the feedback reads as belonging to
+                * the control that produced it. */}
+              {activateMsg && (
+                <p
+                  className={
+                    "license-status" +
+                    (activateMsg.ok ? " license-status--ok" : "")
+                  }
+                  role={activateMsg.ok ? "status" : "alert"}
+                >
+                  {activateMsg.text}
+                </p>
+              )}
+            </div>
           </div>
 
           <div className="customize-row">

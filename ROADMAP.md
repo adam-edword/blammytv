@@ -506,7 +506,8 @@ release); dev jumps to 0.5.0. The line:
   palettes replace the sample packs).
 - **0.6.0 — the themes release.**
 - **1.0 gates**: My List multi-lists (moved here from the 0.5 slate,
-  Adam 2026-07-12), paid themes shipped, Windows code signing, CSP.
+  Adam 2026-07-12), a **Sports tab in Live TV** (Adam 2026-07-12 — no
+  design yet), paid themes shipped, Windows code signing, CSP.
 - **Ctrl+K command palette CUT** ("i dont really want that") — do not
   build it. Aurora sweep stays slated, unowned.
 

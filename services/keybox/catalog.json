@@ -1,0 +1,13 @@
+{
+  "passPriceIds": ["price_PASS_PLACEHOLDER"],
+  "themes": [
+    {
+      "id": "nebula",
+      "name": "Nebula",
+      "blurb": "Deep violet-noir — crushed indigo surfaces under a faint stellar haze.",
+      "supportsLight": false,
+      "preview": { "bg": "#0a0612", "surface": "#120c1f", "accent": "#c22727" },
+      "priceIds": ["price_NEBULA_PLACEHOLDER"]
+    }
+  ]
+}

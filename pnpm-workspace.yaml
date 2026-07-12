@@ -1,6 +1,8 @@
 packages:
   - apps/*
+  - services/*
 
 # Packages allowed to run install/build scripts (pnpm blocks them by default).
 onlyBuiltDependencies:
   - esbuild
+  - better-sqlite3

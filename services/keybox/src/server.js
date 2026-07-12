@@ -1,0 +1,360 @@
+import express from "express";
+import Stripe from "stripe";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+
+import { openDb, createKey, findBySession, getKey, touchActivation, isActivated } from "./db.js";
+import { loadCatalog } from "./catalog.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PAYLOADS_DIR = path.join(__dirname, "..", "payloads");
+
+/* ------------------------------------------------------------------ */
+/* Rate limiting: hand-rolled per-IP token bucket, no dependency.     */
+/* 30 requests/min, refilled continuously (not reset in a fixed       */
+/* window) so a burst right at a window boundary can't double up.     */
+/* ------------------------------------------------------------------ */
+const RATE_LIMIT_CAPACITY = 30;
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const BUCKET_PRUNE_THRESHOLD = 5000;
+
+function makeRateLimiter() {
+  const buckets = new Map();
+
+  return function rateLimit(req, res, next) {
+    const ip = req.ip ?? req.socket?.remoteAddress ?? "unknown";
+    const now = Date.now();
+    let bucket = buckets.get(ip);
+    if (!bucket) {
+      bucket = { tokens: RATE_LIMIT_CAPACITY, updatedAt: now };
+      buckets.set(ip, bucket);
+    }
+    const elapsedMs = now - bucket.updatedAt;
+    const refill = (elapsedMs / RATE_LIMIT_WINDOW_MS) * RATE_LIMIT_CAPACITY;
+    bucket.tokens = Math.min(RATE_LIMIT_CAPACITY, bucket.tokens + refill);
+    bucket.updatedAt = now;
+
+    if (bucket.tokens < 1) {
+      return res.status(429).json({ ok: false, reason: "rate_limited" });
+    }
+    bucket.tokens -= 1;
+
+    if (buckets.size > BUCKET_PRUNE_THRESHOLD) {
+      for (const [key, b] of buckets) {
+        if (now - b.updatedAt > RATE_LIMIT_WINDOW_MS * 2) buckets.delete(key);
+      }
+    }
+    next();
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* HTML pages for /success. Inline CSS, no assets, dark to match the  */
+/* app. The key is server-generated (Crockford32 + dashes) so it      */
+/* can't carry HTML-breaking characters, but it's escaped anyway.     */
+/* ------------------------------------------------------------------ */
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function pageShell(bodyHtml) {
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BlammyTV</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0a0a0c;
+    color: #f2f2f5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 24px;
+  }
+  .card {
+    width: 100%;
+    max-width: 480px;
+    background: #141416;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px;
+    padding: 32px;
+    text-align: center;
+  }
+  h1 { font-size: 20px; margin: 0 0 8px; }
+  p { color: #a2a2a2; font-size: 14px; line-height: 1.5; margin: 0 0 20px; }
+  .key {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 20px;
+    letter-spacing: 0.05em;
+    background: #0f0f0f;
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+    user-select: all;
+    word-break: break-all;
+  }
+  button {
+    appearance: none;
+    border: none;
+    border-radius: 10px;
+    background: #c22727;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 12px 20px;
+    cursor: pointer;
+    width: 100%;
+  }
+  button:active { opacity: 0.85; }
+  .hint { margin-top: 16px; font-size: 13px; color: #6b6b6f; }
+</style>
+</head>
+<body>
+<div class="card">
+${bodyHtml}
+</div>
+</body>
+</html>`;
+}
+
+function successPage(key) {
+  const safeKey = escapeHtml(key);
+  return pageShell(`
+  <h1>Your theme key</h1>
+  <p>This key unlocks your purchase in BlammyTV. Save it somewhere safe &mdash; it's the only credential you'll get.</p>
+  <div class="key" id="key">${safeKey}</div>
+  <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('key').textContent.trim()).then(() => { this.textContent = 'Copied'; setTimeout(() => { this.textContent = 'Copy key'; }, 1500); })">Copy key</button>
+  <p class="hint">Paste this into BlammyTV &rarr; Settings &rarr; Customize &rarr; Theme.</p>
+`);
+}
+
+function pendingPage() {
+  return pageShell(`
+  <h1>Still processing&hellip;</h1>
+  <p>Your purchase is being confirmed. This usually takes a few seconds &mdash; refresh in a moment.</p>
+`);
+}
+
+/* ------------------------------------------------------------------ */
+/* App factory. Exported for tests: pass an in-memory db and a        */
+/* stubbed stripe object.                                             */
+/* ------------------------------------------------------------------ */
+export function makeApp({ db, stripe, catalog, webhookSecret }) {
+  const app = express();
+  app.set("trust proxy", true);
+
+  const rateLimit = makeRateLimiter();
+
+  /* POST /webhook — raw body required for Stripe signature verification.
+   * Registered before the global express.json() below so it never sees
+   * a pre-parsed body. */
+  app.post(
+    "/webhook",
+    express.raw({ type: "application/json" }),
+    async (req, res) => {
+      let event;
+      try {
+        const sig = req.headers["stripe-signature"];
+        event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+      } catch (err) {
+        return res.status(400).send("webhook signature verification failed");
+      }
+
+      if (event.type === "checkout.session.completed") {
+        try {
+          await handleCheckoutCompleted({ db, stripe, catalog, session: event.data.object });
+        } catch (err) {
+          console.error("keybox: failed to process checkout.session.completed", err);
+          // Non-2xx makes Stripe retry; createKey is idempotent on session id
+          // so a retry is safe and we'd rather retry than silently drop a sale.
+          return res.status(500).json({ received: false });
+        }
+      }
+
+      return res.status(200).json({ received: true });
+    },
+  );
+
+  app.use(express.json());
+
+  app.get("/success", (req, res) => {
+    const sessionId = req.query.session_id;
+    if (typeof sessionId !== "string" || sessionId.length === 0) {
+      return res.status(200).send(pendingPage());
+    }
+
+    let record = null;
+    try {
+      record = findBySession(db, sessionId);
+    } catch (err) {
+      console.error("keybox: /success lookup failed", err);
+    }
+
+    if (!record) {
+      return res.status(200).send(pendingPage());
+    }
+    return res.status(200).send(successPage(record.key));
+  });
+
+  app.post("/validate", rateLimit, (req, res) => {
+    const { key, machine } = req.body ?? {};
+    if (
+      typeof key !== "string" ||
+      typeof machine !== "string" ||
+      key.length === 0 ||
+      key.length > 64 ||
+      machine.length === 0 ||
+      machine.length > 64
+    ) {
+      return res.status(400).json({ ok: false, reason: "malformed_request" });
+    }
+
+    try {
+      const record = getKey(db, key);
+      if (!record) {
+        return res.status(200).json({ ok: false, reason: "unknown_key" });
+      }
+
+      const activation = touchActivation(db, key, machine);
+      if (activation.limit) {
+        return res.status(200).json({ ok: false, reason: "activation_limit" });
+      }
+
+      const pass = record.kind === "pass";
+      const themeIds = pass ? catalog.allThemeIds : record.themes;
+      const themes = themeIds.map((id) => catalog.getTheme(id)).filter(Boolean);
+      return res.status(200).json({ ok: true, pass, themes });
+    } catch (err) {
+      console.error("keybox: /validate failed", err);
+      return res.status(500).json({ ok: false, reason: "internal_error" });
+    }
+  });
+
+  app.get("/payload/:themeId", rateLimit, (req, res) => {
+    // themeId is only ever used to look itself up in the catalog allowlist;
+    // the actual filesystem path is built from catalog.getTheme(...).id,
+    // never from req.params directly, so a traversal string just misses
+    // the catalog lookup and 404s before touching the filesystem.
+    const theme = catalog.getTheme(req.params.themeId);
+    if (!theme) {
+      return res.status(404).json({ ok: false, reason: "unknown_theme" });
+    }
+
+    const key = req.header("x-license-key");
+    const machine = req.header("x-machine");
+    if (!key || !machine) {
+      return res.status(403).json({ ok: false, reason: "not_entitled" });
+    }
+
+    try {
+      const record = getKey(db, key);
+      if (!record) {
+        return res.status(403).json({ ok: false, reason: "not_entitled" });
+      }
+
+      const entitled = record.kind === "pass" || record.themes.includes(theme.id);
+      if (!entitled || !isActivated(db, key, machine)) {
+        return res.status(403).json({ ok: false, reason: "not_entitled" });
+      }
+
+      const css = readFileSync(path.join(PAYLOADS_DIR, `${theme.id}.css`), "utf8");
+      res.setHeader("Content-Type", "text/css; charset=utf-8");
+      return res.status(200).send(css);
+    } catch (err) {
+      console.error(`keybox: failed to serve payload for theme ${theme.id}`, err);
+      return res.status(404).json({ ok: false, reason: "unknown_theme" });
+    }
+  });
+
+  // Normalizes malformed JSON bodies (express.json() throws a SyntaxError)
+  // and any other unexpected error into a safe, internals-free response.
+  app.use((err, req, res, next) => {
+    if (err?.type === "entity.parse.failed" || err instanceof SyntaxError) {
+      return res.status(400).json({ ok: false, reason: "malformed_request" });
+    }
+    console.error("keybox: unhandled error", err);
+    return res.status(500).json({ ok: false, reason: "internal_error" });
+  });
+
+  return app;
+}
+
+async function handleCheckoutCompleted({ db, stripe, catalog, session }) {
+  const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
+
+  let isPass = false;
+  const themeIds = new Set();
+  for (const item of lineItems.data) {
+    const priceId = item.price?.id;
+    if (!priceId) continue;
+    if (catalog.isPassPriceId(priceId)) {
+      isPass = true;
+      continue;
+    }
+    const themeId = catalog.themeIdForPriceId(priceId);
+    if (themeId) {
+      themeIds.add(themeId);
+    } else {
+      console.warn(`keybox: unknown price id ${priceId} in session ${session.id}, ignoring`);
+    }
+  }
+
+  if (!isPass && themeIds.size === 0) {
+    console.warn(`keybox: session ${session.id} had no recognized line items; not issuing a key`);
+    return;
+  }
+
+  createKey(db, {
+    kind: isPass ? "pass" : "themes",
+    themes: isPass ? [] : Array.from(themeIds),
+    session: session.id,
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* Main entry: `node src/server.js`.                                  */
+/* ------------------------------------------------------------------ */
+function main() {
+  const PORT = process.env.PORT ? Number(process.env.PORT) : 8390;
+  const STRIPE_API_KEY = process.env.STRIPE_API_KEY;
+  const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
+  const DB_PATH = process.env.DB_PATH || "./keybox.db";
+
+  if (!STRIPE_API_KEY) {
+    console.error("keybox: STRIPE_API_KEY env var is required");
+    process.exit(1);
+  }
+  if (!STRIPE_WEBHOOK_SECRET) {
+    console.error("keybox: STRIPE_WEBHOOK_SECRET env var is required");
+    process.exit(1);
+  }
+
+  const db = openDb(DB_PATH);
+  const stripe = new Stripe(STRIPE_API_KEY);
+  const catalog = loadCatalog();
+
+  const app = makeApp({ db, stripe, catalog, webhookSecret: STRIPE_WEBHOOK_SECRET });
+  app.listen(PORT, () => {
+    console.log(`keybox listening on :${PORT} (db: ${DB_PATH})`);
+  });
+}
+
+const isMainModule =
+  process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+if (isMainModule) {
+  main();
+}
