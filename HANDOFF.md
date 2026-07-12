@@ -17,6 +17,21 @@ weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
 ## Live state (2026-07-12, v0.4.43 RELEASED — the onboarding release)
 
+- **Taskbar-icon report DIAGNOSED, no code change (2026-07-12)**: Adam's
+  Windows taskbar showed the old logo "since the logo changed". Data:
+  the bundled icon set (src-tauri/icons) was regenerated WITH the logo
+  at v0.1.107 and pixel-diffs identical to public/logo.png (1.78%
+  differing px, mean channel delta 0.7 — resampling noise; both holes
+  transparent). The exe resource has been correct in every release
+  since. Root cause: Windows icon-cache staleness — the pin cached the
+  icon at install time and the exe path never changes across updates;
+  a running window grouped onto a pin shows the PIN's cached icon.
+  Tester-facing fix, least→most invasive: (1) unpin + re-pin; (2)
+  `ie4uinit.exe -show` + restart Explorer; (3) delete
+  %LOCALAPPDATA%\Microsoft\Windows\Explorer\iconcache*.db with
+  Explorer stopped. Fallback only if a full cache rebuild still shows
+  the old mark: `pnpm tauri icon` from logo.svg@1024 so the resource
+  bytes change, ship next release.
 - **v0.4.43 SHIPPED 2026-07-12**: tag v0.4.43 ("v0.4.43 - Onboarding"),
   set-as-latest ✓ (releases/latest/download/latest.json serves the
   0.4.43 manifest — confirmed live). Signature FULLY VERIFIED from this
