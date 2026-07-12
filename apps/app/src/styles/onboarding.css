@@ -15,47 +15,86 @@
   color: #fff;
 }
 
-/* Oversized past the viewport so the blur never samples transparent
- * edges — the glow stays saturated right up to the window border. The
- * finale transitions BOTH the blur and the geometry in one movement. */
-.onb-backdrop {
+/* THE LIVING GLOW (v0.4.30): a disc bigger than any viewport diagonal,
+ * conic-painted with the exact welcome stops, blurred ONCE — rotation
+ * is transform-only, so the compositor spins the cached blurred
+ * texture with zero repaints (filter applies before transform). This
+ * is what killed the spin flicker: no version of a rotating
+ * from-angle conic can avoid re-rasterizing the mega-blur per frame.
+ * Centered via margins, NOT translate — the rAF loop owns transform. */
+.onb-glowdisc {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 150vmax;
+  height: 150vmax;
+  margin: -75vmax 0 0 -75vmax;
+  border-radius: 50%;
+  opacity: 0.5;
+  background: conic-gradient(
+    from 0deg,
+    #ff9b9b -4.8706%,
+    #ff8bc9 3.8928%,
+    #ff7bf6 12.656%,
+    #c388fb 21.574%,
+    #8696ff 30.493%,
+    #85cbd4 40.25%,
+    #84ffa9 50.008%,
+    #c1f294 62.55%,
+    #ffe57f 75.091%,
+    #ff9b9b 95.129%,
+    #ff8bc9 103.89%,
+    #ff7bf6 112.66%
+  );
+  filter: blur(clamp(120px, 13vw, 176px));
+  animation: onb-glow-in 1600ms ease-out backwards;
+  transition: opacity 300ms ease;
+}
+.onb.is-finale .onb-glowdisc {
+  opacity: 0;
+}
+
+/* The dark center while the disc is the glow: same geometry the
+ * gradlayer's screen will occupy, soft-edged by its own STATIC blur
+ * (cached — nothing here ever animates except the finale fade). */
+.onb-cover {
+  position: absolute;
+  inset: clamp(32px, 5vmin, 56px);
+  border-radius: 64px;
+  background: #000;
+  corner-shape: superellipse(1.58);
+  filter: blur(clamp(90px, 10vw, 140px));
+  transition: opacity 300ms ease;
+}
+.onb.is-finale .onb-cover {
+  opacity: 0;
+}
+
+/* THE BOOT PAINT: the welcome composite (gradient at its native 90deg
+ * initial — never rotated, never rewritten — plus the black screen),
+ * hidden through the steps and crossfaded in UNDER full blur at the
+ * finale, where disc-wash and welcome-wash are indistinguishable. The
+ * delayed blur/inset transitions then run on fully static content. */
+.onb-gradlayer {
   position: absolute;
   /* Oversize must stay >= the max blur radius, or the blur samples
-   * transparent past the edge and the glow dies at the border. Kept
-   * TIGHT to the blur: every extra pixel is raster area the finale
-   * re-blurs per frame (the in-app flicker, v0.4.26). */
+   * transparent past the edge and the glow dies at the border. */
   inset: -184px;
-  /* Pure blur, NO color math on the paint itself (Adam: the glow is
-   * the exact logo colors) — quietness comes from band width, blur
-   * spread, and the gradient's own 0.5 opacity (v0.4.12), which the
-   * finale lifts back to full brand strength. Blur scales down with
-   * the window so small viewports keep a dark center. */
+  opacity: 0;
   filter: blur(clamp(120px, 13vw, 176px));
-  /* NO will-change here — promoting this layer (v0.4.26) moved the
-   * mega-blur onto the GPU compositor, whose downsampled/edge-clamped
-   * blur produced the washed-out gradient flashes Adam key-framed
-   * (bright smear flooding the top third, alternating frames). The
-   * two-phase finale already keeps content static during the filter
-   * transition, so main-thread blurring of a parked paint is calm. */
-  /* The 450ms delay is finale phase 1: the gradient angle glides to
-   * the boot frame's 90deg and PARKS first, so this filter transition
-   * animates STATIC content (compositor-only — the repaint-per-frame
-   * flicker fix, v0.4.27). Delay must match GLIDE_MS in Onboarding.tsx. */
   transition:
+    opacity 300ms ease,
     filter 1000ms cubic-bezier(0.7, 0, 0.25, 1) 450ms,
     inset 1000ms cubic-bezier(0.7, 0, 0.25, 1) 450ms;
-  /* Ease in on load instead of popping. fill-mode BACKWARDS, not both:
-   * a filled animation keeps beating normal styles after it finishes,
-   * which would pin opacity and break the finale's transitions. */
-  animation: onb-glow-in 1600ms ease-out backwards;
 }
-.onb.is-finale .onb-backdrop {
+.onb.is-finale .onb-gradlayer {
+  opacity: 1;
   inset: 0;
   filter: blur(0px);
 }
 /* Landed: drop the filter entirely (blur(0) still rasterizes through a
  * filter layer) so the hand-off releases plain painted content. */
-.onb.is-finale .onb-backdrop.is-frozen {
+.onb.is-finale .onb-gradlayer.is-frozen {
   filter: none;
   transition: none;
 }
@@ -74,15 +113,14 @@
   opacity: 1;
 }
 
-/* The dark screen over the gradient: during onboarding it leaves a fat
- * glow band; the finale tightens it onto the boot frame. The band and
- * screen blur TOGETHER (both live inside .onb-backdrop), which is what
- * lets the glow bleed softly inward like the mock. */
+/* The dark screen inside the gradlayer: hidden with it through the
+ * steps (the .onb-cover plays this role meanwhile), then the finale
+ * tightens it onto the boot frame while the composite sharpens. */
 .onb-screen {
   position: absolute;
-  /* Relative to the oversized backdrop: 184px cancels the overhang,
-   * the clamp is the actual gradient band visible from the viewport
-   * edge — kept slim, the heavy blur does the spreading. */
+  /* Relative to the oversized gradlayer: 184px cancels the overhang,
+   * the clamp matches .onb-cover's viewport geometry exactly, so the
+   * crossfade swaps two blacks in the same place. */
   inset: calc(184px + clamp(32px, 5vmin, 56px));
   border-radius: 64px;
   background: #000;
@@ -560,15 +598,17 @@
   /* Restated: these rules are MORE specific than the wildcard above. */
   .onb-stage.is-in > .onb-lockup,
   .onb-stage.is-in > .onb-btn--hero,
-  .onb-backdrop,
+  .onb-glowdisc,
   .onb-dither {
     animation: none;
   }
-  .onb-backdrop,
+  .onb-glowdisc,
+  .onb-cover,
+  .onb-gradlayer,
   .onb-screen,
   .onb-dither,
   .onb .welcome-gradient {
     transition-duration: 1ms;
-    transition-delay: 0ms; /* no phase-1 wait — there's no glide either */
+    transition-delay: 0ms; /* no phase-1 wait — there's no spin either */
   }
 }

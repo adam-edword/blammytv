@@ -84,16 +84,18 @@ import { markOnboarded } from "./onboardingGate";
 const BASE_DEG_S = 16;
 const BURST_DEG_S = 320;
 const BURST_MS = 700;
-/** The finale is TWO phases (v0.4.27, the flicker fix): first the
- * angle glides to the boot animation's opening 90deg and PARKS
- * (450ms, blur untouched), THEN the blur/inset/opacity transitions run
- * — on completely static content, so the compositor animates the
- * filter without a single repaint. Rewriting the gradient angle DURING
- * the filter transition was invalidating the blurred layer every
- * frame: that was the in-app flicker. The paint sits still through
- * the blur-down and WelcomeAnimation starts its spin from the same
- * angle at mount, exactly like a cold boot. */
-const GLIDE_MS = 450; // must match the transition-delay in onboarding.css
+/** Glow architecture (v0.4.30, the definitive flicker fix): rotation
+ * NEVER repaints. The living glow is a viewport-covering DISC whose
+ * conic paint is filtered once and rotated via transform — filter
+ * applies before transform per spec, so the compositor spins a cached
+ * blurred texture on the GPU. Rewriting a conic's from-angle (all
+ * prior versions) re-rasterized the mega-blur every frame; on real
+ * hardware the fast spins dropped frames and flickered. The welcome
+ * paint (the boot animation's exact composite, born at its 90deg
+ * initial — no angle writes, no seam math) sits at opacity 0 until
+ * the finale crossfades it in UNDER full blur, where the two washes
+ * are indistinguishable; the blur-down then runs on static content
+ * and the double-buffered hand-off releases it. */
 /** Content out-transition before the step swaps: onb-out is 300ms and
  * the last staggered child starts at +90ms — swap after the full tail. */
 const SWAP_MS = 400;
@@ -155,20 +157,14 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     return () => window.clearTimeout(t);
   }, [step, phase]);
 
-  const gradRef = useRef<HTMLDivElement>(null);
+  const discRef = useRef<HTMLDivElement>(null);
   const burstUntil = useRef(0);
   const swapTimer = useRef(0);
   const autoTimer = useRef(0);
-  // Live angle/velocity in refs so the finale planner can read them.
   const angleRef = useRef(0);
   const velRef = useRef(BASE_DEG_S);
-  /** Finale glide plan: Hermite from (a0, v0) to (aT, boot speed). */
-  const glideRef = useRef<{
-    start: number;
-    a0: number;
-    v0: number;
-    aT: number;
-  } | null>(null);
+  /** Finale: the disc spins down to rest while it crossfades away. */
+  const spinDownRef = useRef(false);
 
   useEffect(() => {
     const onResize = () => setVars(coverVars());
@@ -194,18 +190,8 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   handoffRef.current = handoff;
   useEffect(() => {
     if (!finale) return;
-    // Plan the glide onto the boot animation's opening angle: land at
-    // the next full turn (var == the 90deg initial) and park BEFORE
-    // the delayed blur transition begins.
-    const a0 = angleRef.current;
-    const v0 = velRef.current;
-    const minTravel = Math.max(60, (v0 * GLIDE_MS) / 2000);
-    glideRef.current = {
-      start: performance.now(),
-      a0,
-      v0,
-      aT: Math.ceil((a0 + minTravel) / 360) * 360,
-    };
+    // The disc eases to a stop while the crossfade hides it.
+    spinDownRef.current = true;
     // Reduced motion runs 1ms transitions, which Chromium sometimes
     // coalesces into no transition at all (no transitionend) — the
     // watchdog must then fire fast, not after a 1.9s dead stare.
@@ -257,38 +243,21 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     const tick = (now: number) => {
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
-      const glide = glideRef.current;
-      if (glide) {
-        // Finale phase 1: cubic Hermite from (a0, v0) to (aT, rest)
-        // over GLIDE_MS, then PARK — the delayed blur transition runs
-        // on static content, and WelcomeAnimation opens on this exact
-        // angle however late it mounts.
-        const t = now - glide.start;
-        if (t < GLIDE_MS) {
-          const s = t / GLIDE_MS;
-          const s2 = s * s;
-          const s3 = s2 * s;
-          const v0ms = glide.v0 / 1000;
-          angleRef.current =
-            (2 * s3 - 3 * s2 + 1) * glide.a0 +
-            (s3 - 2 * s2 + s) * GLIDE_MS * v0ms +
-            (-2 * s3 + 3 * s2) * glide.aT;
-        } else {
-          angleRef.current = glide.aT;
-        }
-      } else {
-        const speed = now < burstUntil.current ? BURST_DEG_S : BASE_DEG_S;
-        velRef.current += (speed - velRef.current) * Math.min(1, dt * 7);
-        angleRef.current = angleRef.current + velRef.current * dt;
-      }
-      // Write only on CHANGE (quantized to 0.01°): once the finale
-      // parks, redundant per-frame writes were forcing style recalc +
-      // full re-raster of the blurred layer (in-app flicker), and they
-      // also thrash the devtools styles pane.
-      const next = `${(90 + (angleRef.current % 360)).toFixed(2)}deg`;
+      // Velocity model: drift, burst on advances, spin-down at finale.
+      const speed = spinDownRef.current
+        ? 0
+        : now < burstUntil.current
+          ? BURST_DEG_S
+          : BASE_DEG_S;
+      velRef.current += (speed - velRef.current) * Math.min(1, dt * 7);
+      angleRef.current = angleRef.current + velRef.current * dt;
+      // Transform-only rotation: the disc's blurred texture is cached
+      // (filter runs BEFORE transform) — the compositor rotates it on
+      // the GPU with zero repaints. Write only on visible change.
+      const next = `rotate(${(angleRef.current % 360).toFixed(2)}deg)`;
       if (next !== lastAngleWrite) {
         lastAngleWrite = next;
-        gradRef.current?.style.setProperty("--welcome-grad-angle", next);
+        if (discRef.current) discRef.current.style.transform = next;
       }
       if (target) {
         // First sighting jumps straight to the pointer — no sweep in
@@ -932,14 +901,16 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
 
   return (
     <div className={"onb" + (finale ? " is-finale" : "")} style={vars}>
+      <div className="onb-glowdisc" ref={discRef} aria-hidden />
+      <div className="onb-cover" aria-hidden />
       <div
-        className={"onb-backdrop" + (frozen ? " is-frozen" : "")}
+        className={"onb-gradlayer" + (frozen ? " is-frozen" : "")}
         onTransitionEnd={(e) => {
           if (finale && e.propertyName === "filter") handoff();
         }}
       >
         <div className="welcome-gradient-fit">
-          <div className="welcome-gradient" ref={gradRef} />
+          <div className="welcome-gradient" />
         </div>
         <div className="onb-screen" />
       </div>
