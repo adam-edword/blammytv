@@ -17,6 +17,24 @@ weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
 ## Live state (2026-07-12, dev v0.5.2 — THE THEMES ERA)
 
+- **v0.5.2c: keybox self-heals /data volume ownership (fixes the first
+  real Coolify deploy).** The image built clean on eddtv (better-sqlite3
+  glibc prebuild resolved — risk retired) but crash-looped with
+  SQLITE_CANTOPEN: the non-root `node` user couldn't write the
+  root-owned mounted /data. Fix (standard container pattern, in-process
+  so no gosu in the slim image): Dockerfile drops `USER node` so the
+  container starts as ROOT; server.js `ensureDataDirAndDropPrivs()`
+  mkdir+chown /data to 1000:1000 then setgid/setuid down to node before
+  serving. Any Coolify mount type now works with no host chown (README
+  updated). VERIFIED for real: this sandbox runs as uid 0, so the boot
+  test exercised the actual root→chown→drop→open-db path against a fresh
+  nested dir — server dropped to uid 1000, db files created owned 1000,
+  /healthz 200. Keybox tests still 27/27. Coolify: no config change,
+  just redeploy. (Earlier deploy-config gotchas Adam hit, for the
+  record: must target branch blammy-tv-0.6.0-themes-push not main
+  — keybox isn't on main; Base Directory = /services/keybox, Dockerfile
+  Location = /Dockerfile; healthcheck HTTP port 8390 path /healthz,
+  blank response-text.)
 - **v0.5.2b: keybox CONTAINERIZED for Coolify (Adam runs Coolify on the
   Oracle VPS; DNS for themes.eddtv.org already set).** Sonnet agent +
   PM review. Dockerfile (node:22-bookworm-slim multi-stage, non-root,

@@ -44,15 +44,10 @@ COPY scripts/backup.mjs ./scripts/backup.mjs
 
 # /data is where the sqlite db and its backups live — it must be the
 # Coolify/Docker persistent volume mount point, or the key database dies
-# with the container on every redeploy.
-#
-# ORDER MATTERS: the mkdir/chown must run BEFORE the VOLUME declaration.
-# Docker discards changes made to a path AFTER it is declared a volume
-# (documented Dockerfile behavior), so a chown below VOLUME would silently
-# vanish — a fresh named volume would then copy root-owned /data from the
-# image and the non-root `node` process could never write the db (first
-# boot = crash loop). Named volumes copy this path's content+ownership on
-# first use; bind/directory mounts do NOT (see the README's Coolify note).
+# with the container on every redeploy. The build-time chown helps the
+# named-volume case (Docker copies this ownership into an empty named
+# volume on first mount); it does NOT reach a root-owned bind/directory
+# mount — server.js handles that at boot (see below).
 RUN mkdir -p /data && chown -R node:node /data
 VOLUME /data
 EXPOSE 8390
@@ -62,7 +57,10 @@ EXPOSE 8390
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:8390/healthz').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
 
-# Run as the non-root `node` user baked into the official image (uid 1000).
-USER node
-
+# NO `USER node` here — intentionally. The container starts as ROOT so it
+# can chown a freshly provisioned /data volume that arrived root-owned
+# (Coolify does this regardless of mount type). server.js's
+# ensureDataDirAndDropPrivs() fixes /data ownership and then setuid/setgid
+# DROPS to the node user (uid 1000) before serving a single request — so
+# runtime is still unprivileged, without needing gosu in the slim image.
 CMD ["node", "src/server.js"]

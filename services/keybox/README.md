@@ -78,12 +78,11 @@ or any cert config on top of it.
    every redeploy** — every key ever issued, gone, with no way to recover
    who owns what. This is not a "nice to have"; it's the entire reason the
    image declares `VOLUME /data` instead of writing next to the code.
-   Prefer Coolify's **Volume Mount** type: named volumes copy `/data`'s
-   ownership from the image on first use, so the non-root `node` user can
-   write. If you use a **Directory Mount** (host path bind) instead, the
-   host directory keeps its own ownership — `chown 1000:1000` it on the
-   host once, or the server can't create the db and the container
-   crash-loops on first boot.
+   Either mount type works — **Volume Mount** (named) or **Directory
+   Mount** (host path). The container starts as root, fixes `/data`
+   ownership on boot, then drops to the unprivileged `node` user before
+   serving anything, so there's no host-side `chown` step whichever you
+   pick. Just make sure the destination path is exactly `/data`.
 8. **Health check path**: `/healthz`. This matches the Dockerfile's own
    `HEALTHCHECK` and is unauthenticated, unrate-limited, and CORS-free by
    design — it's meant to be hit constantly.

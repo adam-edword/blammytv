@@ -1,6 +1,6 @@
 import express from "express";
 import Stripe from "stripe";
-import { readFileSync } from "node:fs";
+import { readFileSync, mkdirSync, chownSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
@@ -384,6 +384,41 @@ async function handleCheckoutCompleted({ db, stripe, catalog, session }) {
   });
 }
 
+/* The `node` user's fixed ids in the node:*-bookworm images. */
+const NODE_UID = 1000;
+const NODE_GID = 1000;
+
+/**
+ * Make the DB directory writable, then drop root — the standard container
+ * "start privileged, fix the mount, step down" pattern, done in-process so
+ * the slim image needs no gosu/su-exec.
+ *
+ * The image starts as root (no USER in the Dockerfile) BECAUSE a freshly
+ * provisioned /data volume can arrive root-owned (Coolify does this), and
+ * only root can chown it. We create + chown the dir to the `node` user,
+ * then setgid/setuid down to it before a single request is served or a
+ * byte is written. If chown/setuid ever fails unexpectedly we exit non-zero
+ * rather than silently keep root. When NOT root (local dev, `node --test`)
+ * this is a no-op and behavior is unchanged.
+ */
+function ensureDataDirAndDropPrivs(dbPath) {
+  if (process.getuid?.() !== 0) return;
+  const dir = path.dirname(dbPath);
+  try {
+    if (dir && dir !== ".") {
+      mkdirSync(dir, { recursive: true });
+      chownSync(dir, NODE_UID, NODE_GID);
+    }
+    // gid before uid: once uid drops, the process can't change its gid.
+    process.setgid(NODE_GID);
+    process.setuid(NODE_UID);
+    console.log(`keybox: ${dir} prepared, dropped to uid ${NODE_UID}`);
+  } catch (err) {
+    console.error("keybox: failed to prepare /data and drop privileges", err);
+    process.exit(1);
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /* Main entry: `node src/server.js`.                                  */
 /* ------------------------------------------------------------------ */
@@ -392,6 +427,9 @@ function main() {
   const STRIPE_API_KEY = process.env.STRIPE_API_KEY;
   const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
   const DB_PATH = process.env.DB_PATH || "./keybox.db";
+
+  // Settle the data dir + privileges before anything touches disk.
+  ensureDataDirAndDropPrivs(DB_PATH);
 
   if (!STRIPE_API_KEY) {
     console.error("keybox: STRIPE_API_KEY env var is required");
