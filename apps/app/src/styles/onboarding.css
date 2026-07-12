@@ -1,49 +1,19 @@
-/* First-run onboarding (Onboarding.tsx). The backdrop is a living
- * aurora — the brand's color sweep drifting around the viewport edges
- * over a Bayer-style dither field — built from ZERO filters (v0.4.31).
- * Five fix-versions (v0.4.26→30) each fought a symptom of animating
- * giant blur() layers on Chromium (per-frame re-raster, GPU smear,
- * first-visible raster storm); the rebuild removes the primitive.
- *
- * v0.4.36 — PERSISTENT SCENE GRAPH + EMERGENCE (the ends of the
- * v0.4.31-35 war, per the four-agent review; Adam's pick):
- * - The boot animation's three actors — .onb-frame (gradient frame),
- *   .onb-screen (black screen), .onb-wordmark — exist in the overlay's
- *   scene graph BEFORE they are needed and never remount. "There
- *   shouldn't ever be a transition" is true in the DOM itself: the
- *   finale toggles classes on settled nodes; nothing mounts, nothing
- *   swaps, no fresh fullscreen layer is ever born mid-sequence.
- * - The aurora's paint IS the boot gradient (welcome-gradient classes,
- *   spin frozen at its native 90deg, scaled up — a conic depends on
- *   angle only, so scaling about its center changes nothing), and the
- *   rAF spin-down lands the disc on rotation 0 mod 360: the boot's
- *   exact first-frame paint, by construction.
- * - The condense is a SEQUENCED EMERGENCE, all opacity on painted-once
- *   layers: the sharp screen fades UP at its final geometry first
- *   (black over black in the center; pressing the glow band outward),
- *   THEN the veil releases the border and the frame ignites, the
- *   aurora brightening throughout. Sequenced because complementary
- *   fades multiply — a crossfade dips center coverage to ~75% and
- *   bleeds the aurora through the whole center (v0.4.37's regression,
- *   Adam's repro). NOTHING moves a boundary, NOTHING repaints per
- *   frame, and no region's luminance ever moves the wrong way —
- *   v0.4.33-35 morphed the veil's mask geometry instead, and every
- *   artifact Adam caught (curve desync, premature fade, fringe/corner
- *   residue, stale mask tiles) traced to that one per-frame-raster
- *   construct. The worst possible failure here is a briefly-wrong
- *   BRIGHTNESS; a wrong SHAPE is no longer expressible.
- * - At the boot phase (is-boot) the frame/screen/wordmark simply run
- *   the onb-boot-* keyframes (twin copies of welcome.css) with a
- *   SHORTER 300ms hold — intentional divergence from the cold boot's
- *   700ms: that hold exists to establish a frame the viewer has never
- *   seen, and this viewer stared at it through the whole flow. */
+/* First-run onboarding (Onboarding.tsx) — steps-content styling only.
+ * The backdrop is the ONE-PIECE boot scene (BootScene.tsx + boot.css,
+ * Adam's Figma spec 272:1000): the steps float over frame zero of the
+ * boot timeline itself — the drifting brand-conic sheet and the
+ * blur-softened black screen — plus the dither field and cursor glow
+ * styled here. The finale plays the timeline forward on the same
+ * nodes; there is no second animation and nothing ever mounts. All
+ * boot-motion rules live in boot.css; this file must never grow
+ * backdrop/actor styles again. */
 
 .onb {
   position: fixed;
   inset: 0;
   z-index: 1000;
   overflow: hidden;
-  background: #000;
+  background: #0b0b0e;
   color: #fff;
   transition: opacity 400ms ease;
 }
@@ -56,196 +26,6 @@
 .onb.is-leaving {
   opacity: 0;
   pointer-events: none;
-}
-
-/* THE FRAME: the boot animation's gradient frame itself, alive from
- * the overlay's first render. During the steps it is an inert
- * full-viewport container (border-radius 0 → a rectangular clip that
- * costs nothing) holding the rotating aurora; at the boot phase it
- * runs the frame-shrink keyframes — the same node, no mount, no
- * hand-off. TWIN of welcome.css's .welcome-backdrop. */
-.onb-frame {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  /* Brand corner profile, pinned exactly as welcome.css pins it. */
-  corner-shape: superellipse(1.32);
-}
-.onb.is-boot .onb-frame {
-  animation: onb-boot-frame-shrink 2000ms 300ms both;
-}
-
-/* THE AURORA: a wrapper spun transform-only from the rAF loop, whose
- * paint is the BOOT GRADIENT ITSELF — welcome.css's gradient classes,
- * verbatim, with the spin frozen (rotation comes from the wrapper's
- * transform instead) and the fit scaled 2.1× cover so the paint out-
- * reaches the viewport's circumscribed circle at every rotation. A
- * conic is a function of angle only, so scaling it about its center
- * changes NOTHING visually — during the steps the backdrop shows the
- * boot paint rotated by the drift angle, and when the finale's
- * spin-down lands on 0 mod 360 it IS the boot's first-frame gradient,
- * pixel for pixel. The dark center comes from the VEIL below; the
- * paint fills the whole viewport, exactly like the old blurred disc.
- * will-change pins the layer (child included — the frozen gradient
- * rasters once) so the rAF rotation never repaints. Centered via
- * margins, NOT translate — the rAF loop owns transform. NEVER put a
- * mask/filter on this element or a wrapper around it. */
-.onb-aurora {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 150vmax;
-  height: 150vmax;
-  margin: -75vmax 0 0 -75vmax;
-  opacity: 0.5;
-  will-change: transform;
-  /* Entrance via @starting-style + this transition (NOT an animation:
-   * a running entrance animation would preempt the emergence's opacity
-   * transition on this same property — a user can Skip well inside the
-   * 1600ms window, and transitions retarget smoothly where animations
-   * fight; audit find, v0.4.37). */
-  transition: opacity 1600ms ease-out;
-}
-.onb-aurora .welcome-gradient-fit {
-  transform: translate(-50%, -50%) scale(calc(var(--s) * 2.1));
-}
-/* The boot's own 5s hue spin would repaint the huge cached layer every
- * frame — frozen here at its native 90deg during the steps. */
-.onb-aurora .welcome-gradient {
-  animation: none;
-}
-/* The condense: the glow does not fade away — it RESOLVES to the boot
- * frame's full strength while the spin-down lands the paint on the
- * boot's angle. (Emergence pace overrides the slow entrance pace.) */
-.onb.is-finale .onb-aurora {
-  opacity: 1;
-  transition-duration: 600ms;
-}
-/* Boot phase: the paint drops to the boot's exact cover scale (pixel-
- * identical — conic scale-invariance; a stale frame during the layer's
- * one re-raster shows the same pixels) and the boot's own 5s hue spin
- * resumes from its native 90deg — exact cold-boot parity, same
- * bounded repaint the real boot performs. */
-.onb.is-boot .onb-aurora .welcome-gradient-fit {
-  transform: translate(-50%, -50%) scale(var(--s));
-}
-.onb.is-boot .onb-aurora .welcome-gradient {
-  animation: welcome-gradient-spin 5s linear infinite;
-}
-
-/* THE SCREEN: the boot animation's black screen itself, alive from the
- * overlay's first render at its EXACT final geometry (TWIN of
- * welcome.css's .welcome-screen first frame) — invisible through the
- * steps, faded up by the emergence. Its geometry NEVER changes; there
- * is no boundary to land, nothing to desync, and its engine-snapped
- * painted edge (true superellipse corners) is the frame's edge from
- * the first frame it is visible. At the boot phase it runs the
- * screen-shrink keyframes — same node, no mount. */
-.onb-screen {
-  position: absolute;
-  inset: calc(36.5px * var(--s)) calc(35px * var(--s));
-  border-radius: 30px;
-  background: #000;
-  corner-shape: superellipse(1.58);
-  opacity: 0;
-  /* The emergence is SEQUENCED, not crossfaded (v0.4.38 — Adam's
-   * repro): two complementary fades multiply, so a veil-out/screen-in
-   * crossfade dips the center's coverage to ~75% at the midpoint and
-   * bleeds the full-brightness aurora through the WHOLE center for
-   * ~300ms. Order fixes it: the screen fades in FIRST (black over the
-   * veil's black center — invisible; over the glow band it darkens
-   * monotonically, pressing the light outward into the frame), and
-   * only then does the veil release the border. No region's luminance
-   * ever moves the wrong way, and the center NEVER dips. */
-  transition: opacity 320ms ease;
-}
-.onb.is-finale .onb-screen {
-  opacity: 1;
-}
-.onb.is-boot .onb-screen {
-  animation: onb-boot-screen-shrink 2000ms 300ms both;
-}
-
-/* THE WORDMARK: the boot's lockup text, in the DOM from first render
- * like its siblings (the text layer rasters ages before its reveal —
- * no fresh-layer bet). Base opacity 0; only the is-boot keyframes ever
- * show it. TWIN of welcome.css's .welcome-wordmark. */
-.onb-wordmark {
-  position: absolute;
-  top: 50%;
-  left: calc(50% - 204px * var(--s));
-  margin: 0;
-  transform: translateY(-50%);
-  font-family: var(--font-headline);
-  font-size: calc(110px * var(--s));
-  font-weight: 700;
-  letter-spacing: calc(-2.2px * var(--s));
-  line-height: normal;
-  white-space: nowrap;
-  color: #fff;
-  opacity: 0;
-}
-.onb.is-boot .onb-wordmark {
-  animation: onb-boot-wordmark-in 2000ms 300ms both;
-}
-
-/* The dark center: a fullscreen black sheet whose EDGES are carved
- * away by two intersecting linear-gradient masks (a horizontal ramp ×
- * a vertical ramp). The product reproduces what the old blurred cover
- * did: a soft rectangle-following falloff — most open in the corners
- * (both ramps low there), a ~260px feathered band along every edge,
- * solid black center — no box silhouette, no filter.
- * (mask-composite: intersect is Chromium 120+; WebView2 evergreen is
- * far past that.)
- *
- * The mask is STATIC, forever (v0.4.36). It rasterizes once and never
- * again; the finale only fades this element's opacity while the sharp
- * .onb-screen fades up beneath it — the emergence. v0.4.33-35 animated
- * this mask's geometry per frame instead ("the un-feather"), and every
- * artifact Adam caught on his WebView2 traced to that: a fullscreen
- * mask re-raster 60×/s whose landing had to agree with a separately-
- * painted edge to the pixel. Do NOT reintroduce animated mask
- * geometry here — softness may only ever change via opacity. */
-.onb-veil {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: #000;
-  mask-image:
-    linear-gradient(
-      to right,
-      rgba(0, 0, 0, 0.4) 0,
-      rgba(0, 0, 0, 0.628) 78px,
-      rgba(0, 0, 0, 0.868) 161px,
-      #000 260px,
-      #000 calc(100% - 260px),
-      rgba(0, 0, 0, 0.868) calc(100% - 161px),
-      rgba(0, 0, 0, 0.628) calc(100% - 78px),
-      rgba(0, 0, 0, 0.4) 100%
-    ),
-    linear-gradient(
-      to bottom,
-      rgba(0, 0, 0, 0.4) 0,
-      rgba(0, 0, 0, 0.628) 78px,
-      rgba(0, 0, 0, 0.868) 161px,
-      #000 260px,
-      #000 calc(100% - 260px),
-      rgba(0, 0, 0, 0.868) calc(100% - 161px),
-      rgba(0, 0, 0, 0.628) calc(100% - 78px),
-      rgba(0, 0, 0, 0.4) 100%
-    );
-  mask-composite: intersect;
-  /* Phase two of the sequenced emergence (see .onb-screen): the veil
-   * releases the border only AFTER the screen is up — delay 240ms
-   * (screen is ≥90% by then; worst-case center dip ≤ ~1.5%), done by
-   * 620ms, inside the 650ms boot flip. */
-  transition: opacity 380ms ease 240ms;
-}
-/* The emergence: the softness dissolves AFTER the sharp screen has
- * faded up at its final geometry, while the aurora brightens — all
- * opacity, on layers whose geometry never changes. */
-.onb.is-finale .onb-veil {
-  opacity: 0;
 }
 
 /* Bayer-flavored dither field: a 4px dot lattice the glow shines
@@ -269,158 +49,13 @@
   transition-duration: 600ms;
 }
 
-/* Backdrop entrance: @starting-style + the transitions above, so each
- * layer fades toward its OWN base opacity (aurora 0.5, dither 1) and a
- * finale that arrives mid-entrance RETARGETS smoothly — an entrance
- * ANIMATION would keep owning `opacity` and stall the emergence (the
- * v0.4.31 shared-keyframe bright-snap was the two-stop cousin of the
- * same mistake). */
+/* Dither entrance: @starting-style + the transition above, so a
+ * finale that arrives mid-entrance RETARGETS smoothly (entrance
+ * ANIMATIONS on finale-managed opacity are banned — v0.4.37). The
+ * sheet's own entrance lives in boot.css. */
 @starting-style {
-  .onb-aurora,
   .onb-dither {
     opacity: 0;
-  }
-}
-
-/* ---- The boot keyframes (is-boot phase) ---------------------------------
- * TWIN of welcome.css. The keyframes below are COPIES of the boot
- * animation's (welcome-frame-shrink / welcome-screen-shrink /
- * welcome-wordmark-in), driven by the same shared geometry vars
- * (lockupVars in welcome.ts). If the boot timeline ever changes,
- * UPDATE BOTH FILES. Kept as a copy on purpose (Adam's call):
- * onboarding must never mount WelcomeAnimation.
- *
- * They attach to the PERSISTENT .onb-frame/.onb-screen/.onb-wordmark
- * nodes via .onb.is-boot (rules above) — no extra subtree, no mount.
- * The attachment delay is 300ms, an INTENTIONAL divergence from the
- * cold boot's 700ms hold: that hold establishes a frame the viewer has
- * never seen, and this viewer stared at it through the whole flow.
- * The boot phase is NOT input-skippable — the step actions all no-op
- * once `finale` is set, and no skip listener exists here on purpose. */
-@keyframes onb-boot-frame-shrink {
-  0% {
-    transform: translateX(0) scale(1, 1);
-    border-radius: 0px;
-    animation-timing-function: cubic-bezier(0.5, 0, 0.5, 1);
-  }
-  36.86% {
-    transform: translateX(0) scale(var(--tv-sx), var(--tv-sy));
-    border-radius: 32.5%;
-    animation-timing-function: linear;
-  }
-  43.42% {
-    transform: translateX(0) scale(var(--tv-sx), var(--tv-sy));
-    border-radius: 32.5%;
-    animation-timing-function: linear(
-      0,
-      0.0403 3%,
-      0.1374 6%,
-      0.2633 9%,
-      0.3978 12%,
-      0.5278 15%,
-      0.6452 18%,
-      0.7458 21%,
-      0.8283 24%,
-      0.8933 27%,
-      0.9423 30%,
-      0.9775 33%,
-      1.0014 36%,
-      1.0164 39%,
-      1.0247 42%,
-      1.028 45%,
-      1.0281 48%,
-      1.026 51%,
-      1.0227 54%,
-      1.019 57%,
-      1.0152 60%,
-      1.0106 64%,
-      1.0068 68%,
-      1.0039 72%,
-      1.0018 76%,
-      1.0005 80%,
-      0.9997 84%,
-      0.9993 88%,
-      0.9992 92%,
-      0.9992 96%,
-      0.9993 100%
-    );
-  }
-  92.79%,
-  100% {
-    transform: translateX(calc(-284px * var(--s)))
-      scale(var(--tv-sx), var(--tv-sy));
-    border-radius: 32.5%;
-  }
-}
-
-@keyframes onb-boot-screen-shrink {
-  0% {
-    transform: translateX(0) scale(1, 1);
-    border-radius: 30px;
-    animation-timing-function: cubic-bezier(0.5, 0, 0.5, 1);
-  }
-  36.78% {
-    transform: translateX(0) scale(var(--scr-sx), var(--scr-sy));
-    border-radius: 27.5%;
-    animation-timing-function: linear;
-  }
-  43.42% {
-    transform: translateX(0) scale(var(--scr-sx), var(--scr-sy));
-    border-radius: 27.5%;
-    animation-timing-function: linear(
-      0,
-      0.0403 3%,
-      0.1374 6%,
-      0.2633 9%,
-      0.3978 12%,
-      0.5278 15%,
-      0.6452 18%,
-      0.7458 21%,
-      0.8283 24%,
-      0.8933 27%,
-      0.9423 30%,
-      0.9775 33%,
-      1.0014 36%,
-      1.0164 39%,
-      1.0247 42%,
-      1.028 45%,
-      1.0281 48%,
-      1.026 51%,
-      1.0227 54%,
-      1.019 57%,
-      1.0152 60%,
-      1.0106 64%,
-      1.0068 68%,
-      1.0039 72%,
-      1.0018 76%,
-      1.0005 80%,
-      0.9997 84%,
-      0.9993 88%,
-      0.9992 92%,
-      0.9992 96%,
-      0.9993 100%
-    );
-  }
-  92.79%,
-  100% {
-    transform: translateX(calc(-284px * var(--s)))
-      scale(var(--scr-sx), var(--scr-sy));
-    border-radius: 27.5%;
-  }
-}
-
-@keyframes onb-boot-wordmark-in {
-  0% {
-    opacity: 0;
-    animation-timing-function: linear;
-  }
-  58.65% {
-    opacity: 0;
-    animation-timing-function: cubic-bezier(0.5, 0, 0.5, 1);
-  }
-  92.5%,
-  100% {
-    opacity: 1;
   }
 }
 
@@ -866,25 +501,9 @@
   /* NOT .onb itself: the overlay's release fade is exactly the kind of
    * comprehension-aiding opacity transition reduced motion KEEPS
    * (guidance: remove movement, keep gentle fades). */
-  .onb-aurora,
-  .onb-veil,
-  .onb-dither,
-  .onb-screen {
+  .onb-dither {
     transition-duration: 1ms;
   }
-  /* No boot phase plays here — the finale is a quick fade to the app —
-   * so the emergence must NOT run: revert every is-finale end-state
-   * (the veil stays up, the screen stays hidden, the aurora stays at
-   * its steps brightness). is-boot is never set under reduced motion
-   * (the component gates it), so the keyframe attachments need no
-   * revert. */
-  .onb.is-finale .onb-aurora {
-    opacity: 0.5;
-  }
-  .onb.is-finale .onb-veil {
-    opacity: 1;
-  }
-  .onb.is-finale .onb-screen {
-    opacity: 0;
-  }
+  /* The boot scene's own reduced-motion handling lives in boot.css;
+   * the hosts never start the finale timeline under reduced motion. */
 }

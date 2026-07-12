@@ -9,7 +9,7 @@ import "./styles/live.css";
 import "./styles/player.css";
 import "./styles/stream.css";
 import "./styles/discover.css";
-import "./styles/welcome.css";
+import "./styles/boot.css";
 import "./styles/onboarding.css";
 import { App } from "./app/App";
 import { TheaterOverlay } from "./features/live/TheaterOverlay";

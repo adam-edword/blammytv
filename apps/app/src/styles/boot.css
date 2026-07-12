@@ -1,0 +1,299 @@
+/* THE ONE-PIECE BOOT MOTION (BootScene.tsx) — Adam's Figma spec
+ * ("Wireframe - 5", node 272:1000, 2530ms timeline), v0.4.39.
+ *
+ * One scene, two surfaces: Onboarding renders it persistently under the
+ * steps (its backdrop IS frame zero of this timeline), and cold boots
+ * render it inside .boot-overlay (WelcomeAnimation, a thin wrapper).
+ * There are no twins anymore — these are the only boot keyframes.
+ *
+ * The actors (all persistent — nothing ever mounts mid-sequence):
+ *   .boot-frame    viewport wrapper (overflow clip; becomes the tile)
+ *     .boot-sheet  oversized rotator carrying the STATIC brand conic
+ *   .boot-screen   solid-black rounded rect, blur-softened during idle
+ *   .boot-wordmark the lockup text, hidden until the slide
+ *
+ * The timeline (fractions of 2530ms):
+ *   P1 landing 0→830ms: the sheet unwinds to rotation 0 (rAF, ≥1.5
+ *      turns), brightens 0.65→1, scaleY settles 1.15→1 (runs to
+ *      1490ms); the screen UNBLURS 108.4px·s→0 with its geometry
+ *      FROZEN. All the softness in the design is this one blur.
+ *   P2 shrink 830→1490ms: frame→121·s tile, screen→68.57·s hole,
+ *      concentric, plain ease-in-out (the old sampled spring is gone).
+ *   P3 slide 1490→2000ms: lockup eases 302.5·s left; wordmark fades
+ *      and slides in from +120.24·s.
+ *   P4 hold →2530ms, then the host's release fade.
+ *
+ * BLUR RULES (the v0.4.26-30 war's terms for readmitting filter):
+ * blur lives ONLY on the solid-black screen; it is STATIC during idle
+ * (rasters once); it animates ONLY while the screen's geometry is
+ * frozen (P1); NO will-change:filter (v0.4.28); the moment it reaches
+ * 0 it is swapped to filter:none (v0.4.30 — a 0px blur still forces a
+ * filter layer), one full frame BEFORE any geometry moves (is-landed →
+ * is-shrink on consecutive rAF ticks). "No gradient animation": the
+ * conic paint is static forever — no hue spin, nothing repaints.
+ * Single dark layer ⇒ the v0.4.38 crossfade-coverage failure class is
+ * structurally unreachable. */
+
+/* Cold-boot host (WelcomeAnimation). Onboarding's host is .onb. */
+.boot-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  overflow: hidden;
+  background: #0b0b0e;
+  opacity: 1;
+  transition: opacity 400ms ease;
+}
+@starting-style {
+  .boot-overlay {
+    opacity: 0;
+  }
+}
+.boot-overlay.is-leaving {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* The scene wrapper carries the phase classes without adding a paint
+ * layer of its own. */
+.boot-scene {
+  display: contents;
+}
+
+/* THE FRAME: the viewport itself during idle (radius 0 — a rectangular
+ * clip that costs nothing), the logo tile at the end. Brand corner
+ * profile pinned (fitted superellipse, v0.1.124 — the mock's nominal
+ * radii are wireframe approximations of exactly this artwork). */
+.boot-frame {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  corner-shape: superellipse(1.32);
+}
+.boot-scene.is-landed .boot-frame,
+.boot-scene.is-shrink .boot-frame {
+  /* The mock pops the frame's corners on at the landing instant. */
+  border-radius: calc(33px * var(--s));
+}
+.boot-scene.is-shrink .boot-frame {
+  animation: btv-boot-frame 1700ms both;
+}
+
+/* THE SHEET: an oversized rotator (2438×2207 design px × 1.15 rotation
+ * safety — free, because a conic's color depends only on direction
+ * from its center, so uniform scale about it changes nothing) carrying
+ * the brand conic. The rAF loop owns transform (drift + thinking
+ * bursts + the quintic landing); will-change pins the layer and the
+ * STATIC paint rasters once — rotation never repaints. Centered via
+ * margins, NOT translate. NEVER put a mask or filter on this element
+ * or any wrapper around it. */
+.boot-sheet {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(2803.7px * var(--s));
+  height: calc(2538.1px * var(--s));
+  margin: calc(-1269.05px * var(--s)) 0 0 calc(-1401.85px * var(--s));
+  opacity: 0.65;
+  will-change: transform;
+  /* Idle entrance pace (onboarding's slow reveal); the landing rule
+   * below retargets this same transition — transitions, never
+   * entrance animations, so an early finale retargets smoothly
+   * (v0.4.37 rule). */
+  transition: opacity 1600ms ease-out;
+}
+@starting-style {
+  .boot-sheet {
+    opacity: 0;
+  }
+}
+/* Cold boots enter faster — the overlay itself is also fading in. */
+.boot-overlay .boot-sheet {
+  transition-duration: 450ms;
+}
+/* P1: the sheet resolves to full strength while the rAF unwind lands
+ * the rotation on the boot paint's native angle. */
+.boot-scene.is-landing .boot-sheet,
+.boot-scene.is-landed .boot-sheet,
+.boot-scene.is-shrink .boot-sheet {
+  opacity: 1;
+  transition: opacity 830ms cubic-bezier(0.5, 0, 0.5, 1);
+}
+
+/* The paint: the brand conic VERBATIM (Figma's angular gradient with
+ * its paint transform, reproduced as the exported matrix — see the
+ * original v0.1.x fit), in its native 1920×1080 fit box, cover-scaled
+ * to out-reach the sheet. STATIC — from 90deg is a literal; the hue
+ * spin is gone from the product. */
+.boot-paint-fit {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 1920px;
+  height: 1080px;
+  transform: translate(-50%, -50%) scale(calc(var(--s) * 2.4));
+}
+.boot-paint {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 281.43px;
+  height: 281.43px;
+  transform-origin: 0 0;
+  transform: matrix(141.62, 64.542, -114.74, 79.662, 964.59, 542.58)
+    translate(-140.72px, -140.72px);
+  background: conic-gradient(
+    from 90deg,
+    #ff9b9b -4.8706%,
+    #ff8bc9 3.8928%,
+    #ff7bf6 12.656%,
+    #c388fb 21.574%,
+    #8696ff 30.493%,
+    #85cbd4 40.25%,
+    #84ffa9 50.008%,
+    #c1f294 62.55%,
+    #ffe57f 75.091%,
+    #ff9b9b 95.129%,
+    #ff8bc9 103.89%,
+    #ff7bf6 112.66%
+  );
+}
+
+/* THE SCREEN: one solid-black rounded rect is the idle darkener AND
+ * the boot screen. Idle: geometry static, blur static (rasters once).
+ * P1 animates ONLY the filter; the radius pre-snaps 100→44 at the same
+ * recalc (invisible under 108px of blur) so geometry stays literally
+ * frozen for the whole animated-blur window. */
+.boot-screen {
+  position: absolute;
+  inset: calc(71.5px * var(--s)) calc(72px * var(--s));
+  border-radius: calc(100px * var(--s));
+  background: #000;
+  corner-shape: superellipse(1.58);
+  filter: blur(calc(108.4px * var(--s)));
+}
+.boot-scene.is-landing .boot-screen {
+  border-radius: calc(44px * var(--s));
+  animation: btv-screen-unblur 830ms cubic-bezier(0.5, 0, 0.5, 1) both;
+}
+/* Landed: kill the filter NODE, not just the radius — blur(0) still
+ * forces a rasterized filter layer (v0.4.30). Geometry starts moving
+ * only at is-shrink, one rAF tick later. */
+.boot-scene.is-landed .boot-screen,
+.boot-scene.is-shrink .boot-screen {
+  border-radius: calc(44px * var(--s));
+  animation: none;
+  filter: none;
+}
+.boot-scene.is-shrink .boot-screen {
+  animation: btv-boot-screen 1700ms both;
+}
+
+/* THE WORDMARK: persistent, hidden until the slide phase reveals it. */
+.boot-wordmark {
+  position: absolute;
+  top: 50%;
+  left: calc(50% - 214px * var(--s));
+  margin: 0;
+  transform: translateY(-50%) translateX(calc(120.24px * var(--s)));
+  font-family: var(--font-headline);
+  font-size: calc(116.22px * var(--s));
+  font-weight: 700;
+  letter-spacing: calc(-2.32px * var(--s));
+  line-height: normal;
+  white-space: nowrap;
+  color: #fff;
+  opacity: 0;
+}
+.boot-scene.is-shrink .boot-wordmark {
+  animation: btv-boot-wordmark 1700ms both;
+}
+
+/* The unblur: filter is the ONLY property this animates. */
+@keyframes btv-screen-unblur {
+  from {
+    filter: blur(calc(108.4px * var(--s)));
+  }
+  to {
+    filter: blur(0px);
+  }
+}
+
+/* The shrink + slide, one keyframe set per actor (attached at 830ms;
+ * segments land at 38.82% = 1490ms and 68.82% = 2000ms of the 1700ms
+ * track — the mock's P2/P3 boundaries). translateX precedes scale so
+ * the travel is in screen pixels. Every keyframe restates
+ * border-radius so it can't drift back to the base value. Percentage
+ * radii keep the corners circular under the non-uniform scale. */
+@keyframes btv-boot-frame {
+  0% {
+    transform: translateX(0) scale(1, 1);
+    border-radius: calc(33px * var(--s));
+    animation-timing-function: cubic-bezier(0.42, 0, 0.58, 1);
+  }
+  38.82% {
+    transform: translateX(0) scale(var(--tv-sx), var(--tv-sy));
+    border-radius: 32.5%;
+    animation-timing-function: cubic-bezier(0.42, 0, 0.58, 1);
+  }
+  68.82%,
+  100% {
+    transform: translateX(calc(-302.5px * var(--s)))
+      scale(var(--tv-sx), var(--tv-sy));
+    border-radius: 32.5%;
+  }
+}
+
+@keyframes btv-boot-screen {
+  0% {
+    transform: translateX(0) scale(1, 1);
+    border-radius: calc(44px * var(--s));
+    animation-timing-function: cubic-bezier(0.42, 0, 0.58, 1);
+  }
+  38.82% {
+    transform: translateX(0) scale(var(--scr-sx), var(--scr-sy));
+    border-radius: 27.5%;
+    animation-timing-function: cubic-bezier(0.42, 0, 0.58, 1);
+  }
+  68.82%,
+  100% {
+    transform: translateX(calc(-302.5px * var(--s)))
+      scale(var(--scr-sx), var(--scr-sy));
+    border-radius: 27.5%;
+  }
+}
+
+@keyframes btv-boot-wordmark {
+  0%,
+  38.82% {
+    opacity: 0;
+    transform: translateY(-50%) translateX(calc(120.24px * var(--s)));
+    animation-timing-function: cubic-bezier(0.42, 0, 0.58, 1);
+  }
+  68.82%,
+  100% {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+  }
+}
+
+/* Reduced motion: no boot playback happens on either surface (the
+ * hosts gate it), so this only needs the idle state safe: no
+ * decorative 108px filter (a static soft shadow approximates the
+ * darkener's soft edge for free), instant entrance, and belt-and-
+ * braces animation kills. The hosts' release fades stay full length —
+ * comprehension-aiding opacity is what reduced motion KEEPS. */
+@media (prefers-reduced-motion: reduce) {
+  .boot-sheet {
+    transition-duration: 1ms;
+  }
+  .boot-screen {
+    filter: none;
+    box-shadow: 0 0 calc(140px * var(--s)) calc(30px * var(--s)) rgba(0, 0, 0, 0.9);
+  }
+  .boot-frame,
+  .boot-screen,
+  .boot-wordmark {
+    animation: none;
+  }
+}

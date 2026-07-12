@@ -15,11 +15,55 @@ Audience: switchers from other Windows IPTV clients, Stremio users, ideally
 both — and explicitly *inviting to newcomers*; first-five-minutes activation
 weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
-## Live state (2026-07-12, dev v0.4.38 — ONBOARDING ERA)
+## Live state (2026-07-12, dev v0.4.39 — ONE-PIECE BOOT)
 
-- Dev is **v0.4.38**; natives sit at 0.4.0 (released). All suites green:
-  units 204/204, onboarding E2E 40/40, discover 59/59, credits 6/6,
+- Dev is **v0.4.39**; natives sit at 0.4.0 (released). All suites green:
+  units 204/204, onboarding E2E 44/44 (blur-safety frame sampler +
+  cold-boot skip/spin guards added), discover 59/59, credits 6/6,
   probe 5/5.
+- **v0.4.39: ONE SPEC — the one-piece boot motion (Adam's Figma mock,
+  "Wireframe - 5" node 272:1000, 2530ms; plan-mode approved).** Adam's
+  definitive statement of the desire: "ITS ALL ONE PIECE, NO
+  TRANSITIONING INTO A SEPARATE ANIMATION FOR FINALE" + "no gradient
+  animation". The steps backdrop IS frame zero of the boot timeline;
+  the finale plays it forward on the same nodes. NEW: BootScene.tsx +
+  boot.css (one component, one stylesheet, both surfaces — onboarding
+  finale AND cold boot; WelcomeAnimation is now a ~80-line host; the
+  TWIN-copy problem is deleted, not managed). welcome.css is GONE.
+  - **Sheet**: oversized (2438×2207 design ×1.15 rotation safety, new
+    design space 1920×1167, bootVars in welcome.ts) STATIC brand conic
+    — no hue spin anywhere anymore; rAF drift/bursts as before; steps
+    opacity 0.65/scaleY 1.15 per mock; root bg #0b0b0e.
+  - **Screen**: ONE solid-black rounded rect = idle darkener AND boot
+    screen. Idle softness = STATIC blur(108.4px·s) — LITERAL FILTER,
+    readmitted under the war's terms (Adam's explicit call): solid
+    color only, static during idle (rasters ONCE — CDP trace: 0
+    Paint/RasterTask over 2s drift), animates ONLY while geometry is
+    frozen (P1 unblur, 830ms), NO will-change:filter (v0.4.28),
+    swapped to filter:none the frame it lands (v0.4.30), one full rAF
+    tick before any geometry moves. E2E now samples every finale frame
+    and asserts geometry never changed under a live filter.
+  - **Timeline** (one clock — BootScene's rAF): P1 0-830ms unwind
+    (quintic Hermite from live angle+velocity, ≥1.5 forward turns,
+    lands EXACTLY 0 = the static paint's native angle) + brighten +
+    unblur; P2 830-1490 shrink to the 121·s tile / 68.57·s hole (plain
+    ease-in-out — the sampled-spring linear() is dead); P3 1490-2000
+    slide left 302.5·s + wordmark (116.22·s) fades/slides in; P4 hold;
+    release fade overlaps the tail. Onboarding finale non-skippable;
+    cold boot = 400ms fade-in + 500ms drift + same timeline, skippable
+    on any input.
+  - Kept: dither + cursor glow (steps garnish, fade at landing, swept
+    at 900ms), fitted superellipse/32.5%/27.5% corner profile (the
+    mock's nominal radii are wireframe approximations of the logo).
+  - RULES now: no gradient/paint animation ever; blur only under the
+    frozen-geometry contract above; single dark layer (crossfade
+    coverage math is structurally unreachable); one rAF clock owns all
+    JS motion; boot.css is the ONLY home for boot-motion styles.
+  - Queued: uiScale≠1 bug carries into bootVars unchanged; raster-
+    throttle harness still unbuilt (did a manual CDP trace this pass).
+  - AWAITING Adam's Windows pass: steps shimmer (static blur must not
+    re-filter while the sheet spins), unwind from mid-burst, the
+    landing, shrink at 125% DPI/HDR, cold-boot feel + skip.
 - **v0.4.38: the emergence is SEQUENCED, not crossfaded (Adam's repro:
   the whole center flashed a muddy aurora wash mid-finale).** The
   crossfade math was knowable and got waved off: two complementary

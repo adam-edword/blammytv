@@ -146,45 +146,85 @@ if (!FAST) {
   const nudge = await page.$$eval(".onb-sub", (els) => els.map((e) => e.textContent).join(" "));
   check("finale shows the nav map + Settings nudge",
     /Live TV/.test(mapText) && /Discover/.test(mapText) && /Settings holds a lot more/.test(nudge));
+  // The ONE-PIECE finale (v0.4.39, Figma 272:1000): the steps backdrop
+  // is frame zero of the boot timeline; the finale plays it forward on
+  // the same persistent nodes. Sample the screen EVERY FRAME from here:
+  // the blur-safety contract says its geometry may only ever change on
+  // frames where the filter is already none.
+  await page.evaluate(() => {
+    const w = window;
+    w.__bootSamples = [];
+    const probe = () => {
+      const scr = document.querySelector(".boot-screen");
+      if (scr) {
+        const cs = getComputedStyle(scr);
+        w.__bootSamples.push({
+          f: cs.filter,
+          t: cs.transform,
+          w: scr.getBoundingClientRect().width,
+        });
+      }
+      if (w.__bootSamples.length < 400 && document.querySelector(".onb")) {
+        requestAnimationFrame(probe);
+      }
+    };
+    requestAnimationFrame(probe);
+  });
+  const stepsBlur = await page.$eval(".boot-screen", (el) => {
+    const cs = getComputedStyle(el);
+    return { filter: cs.filter, willChange: cs.willChange };
+  });
+  check("steps: the screen is blur-softened, no will-change:filter",
+    /blur\(/.test(stepsBlur.filter) && !/filter/.test(stepsBlur.willChange),
+    JSON.stringify(stepsBlur));
   await page.getByRole("button", { name: "Enter BlammyTV" }).click();
-  // v0.4.36: the boot plays on PERSISTENT nodes via the is-boot class —
-  // nothing mounts, and the real boot animation must never appear.
-  const booted = await page
-    .waitForSelector(".onb.is-boot", { timeout: 10000 })
+  const landed = await page
+    .waitForSelector(".boot-scene.is-landed, .boot-scene.is-shrink", { timeout: 10000 })
     .then(() => true)
     .catch(() => false);
-  check("finale enters the boot phase on the persistent nodes", booted);
-  check("the real boot animation never mounts", !(await page.$(".welcome-overlay")));
-  // Emergence landed: the persistent screen is fully up at its final
-  // geometry and the boot keyframes are attached to the frame.
-  const emerged = await page.evaluate(() => {
-    const scr = document.querySelector(".onb-screen");
-    const frame = document.querySelector(".onb-frame");
+  check("finale lands the one-piece timeline", landed);
+  check("the cold-boot overlay never mounts", !(await page.$(".boot-overlay")));
+  const afterLand = await page.evaluate(() => {
+    const scr = document.querySelector(".boot-screen");
+    const frame = document.querySelector(".boot-frame");
     return {
-      screenOpacity: scr ? getComputedStyle(scr).opacity : null,
+      filter: scr ? getComputedStyle(scr).filter : null,
       frameAnim: frame ? getComputedStyle(frame).animationName : null,
     };
   });
-  check("emergence landed: screen opaque, boot keyframes on the frame",
-    emerged.screenOpacity === "1" && /onb-boot-frame-shrink/.test(emerged.frameAnim ?? ""),
-    JSON.stringify(emerged));
-  // The spent steps-backdrop (veil/dither) unmounts shortly after.
-  const swept = await page
-    .waitForFunction(() => !document.querySelector(".onb-veil"), null, { timeout: 3000 })
+  await page.waitForSelector(".boot-scene.is-shrink", { timeout: 3000 }).catch(() => null);
+  const shrinkAnim = await page.$eval(".boot-frame", (el) => getComputedStyle(el).animationName).catch(() => "");
+  check("landed: filter torn down to none, shrink keyframes attach",
+    afterLand.filter === "none" && /btv-boot-frame/.test(shrinkAnim ?? ""),
+    JSON.stringify({ ...afterLand, shrinkAnim }));
+  // Blur-safety contract: geometry never changed on any frame that
+  // still had a live filter.
+  const samples = await page.evaluate(() => window.__bootSamples ?? []);
+  const baseline = samples.find((s) => /blur\(/.test(s.f));
+  const violation = samples.find(
+    (s) => /blur\(/.test(s.f) && baseline &&
+      (s.t !== baseline.t || Math.abs(s.w - baseline.w) > 0.5),
+  );
+  check("blur safety: geometry frozen on every blurred frame",
+    samples.length > 10 && !violation,
+    `samples=${samples.length}${violation ? " VIOLATION " + JSON.stringify(violation) : ""}`);
+  // The steps garnish (dither) unmounts at the sweep.
+  const sweptOk = await page
+    .waitForFunction(() => !document.querySelector(".onb-dither"), null, { timeout: 3000 })
     .then(() => true)
     .catch(() => false);
-  check("steps backdrop swept after the emergence", swept);
-  // The overlay releases itself once the lockup settles (~650+300+2000
-  // +500ms after the content swap) and the fade completes.
+  check("steps garnish swept after the landing", sweptOk);
+  // The overlay releases itself once the lockup holds (~2330ms after
+  // the content swap) and the fade completes.
   const released = await page
     .waitForFunction(() => !document.querySelector(".onb"), null, { timeout: 9000 })
     .then(() => true)
     .catch(() => false);
   const state = await page.evaluate(() => ({
     onboarded: localStorage.getItem("btv:onboarded"),
-    welcomeUp: !!document.querySelector(".welcome-overlay"),
+    welcomeUp: !!document.querySelector(".boot-overlay"),
   }));
-  check("completion persisted, overlay released, no boot after the finale",
+  check("completion persisted, overlay released, no cold boot after the finale",
     state.onboarded === "1" && released && !state.welcomeUp,
     JSON.stringify({ ...state, released }));
   await page.close();
@@ -271,21 +311,27 @@ if (!FAST) {
   await page.close();
 }
 
-// 6. Skip setup: straight to the finale boot phase, nothing saved, marked done.
+// 6. Skip setup: straight to the one-piece finale, nothing saved, marked
+//    done — and the finale is NOT input-skippable (unlike a cold boot).
 if (!FAST) {
   const page = await newPage();
   await page.goto("http://localhost:4173/?onboarding=1");
   await page.waitForSelector(".onb");
   await page.getByRole("button", { name: "Skip setup" }).click();
-  const booted = await page.waitForSelector(".onb.is-boot", { timeout: 10000 }).then(() => true).catch(() => false);
+  const landing = await page.waitForSelector(".boot-scene.is-landing", { timeout: 10000 }).then(() => true).catch(() => false);
+  // Input during the finale must not dismiss the overlay.
+  await page.keyboard.press("Enter");
+  await page.mouse.click(800, 450);
+  await page.waitForTimeout(250);
+  const stillUp = await page.evaluate(() => !!document.querySelector(".onb"));
   const state = await page.evaluate(() => ({
     onboarded: localStorage.getItem("btv:onboarded"),
     aio: localStorage.getItem("blammytv.aiostreams"),
-    welcomeUp: !!document.querySelector(".welcome-overlay"),
+    welcomeUp: !!document.querySelector(".boot-overlay"),
   }));
-  check("skip: marked done, no manifest saved, the boot phase plays (no real boot)",
-    booted && state.onboarded === "1" && state.aio === null && !state.welcomeUp,
-    JSON.stringify(state));
+  check("skip: marked done, nothing saved, finale plays and is not skippable",
+    landing && stillUp && state.onboarded === "1" && state.aio === null && !state.welcomeUp,
+    JSON.stringify({ ...state, landing, stillUp }));
   await page.close();
 }
 
@@ -303,19 +349,19 @@ if (!FAST) {
   await page.waitForSelector(".onb-chips:not(.onb-chips--labeled)", { timeout: 8000 });
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.getByRole("button", { name: "Enter BlammyTV" }).click();
-  // No boot phase for reduced motion: the finale is a quick fade to the app.
+  // No timeline for reduced motion: the finale is a quick fade to the app.
   await page.waitForTimeout(300);
-  const bootClass = await page.evaluate(() =>
-    !!document.querySelector(".onb.is-boot"));
+  const landingClass = await page.evaluate(() =>
+    !!document.querySelector(".boot-scene.is-landing"));
   await page.waitForTimeout(1200);
   const state = await page.evaluate(() => ({
     onbGone: !document.querySelector(".onb"),
-    welcomeUp: !!document.querySelector(".welcome-overlay"),
+    welcomeUp: !!document.querySelector(".boot-overlay"),
     onboarded: localStorage.getItem("btv:onboarded"),
   }));
-  check("reduced motion: completes instantly, no boot phase, no boot animation",
-    state.onbGone && !state.welcomeUp && !bootClass && state.onboarded === "1",
-    JSON.stringify({ ...state, bootClass }));
+  check("reduced motion: completes instantly, timeline never starts",
+    state.onbGone && !state.welcomeUp && !landingClass && state.onboarded === "1",
+    JSON.stringify({ ...state, landingClass }));
   await page.close();
 }
 
@@ -340,35 +386,51 @@ if (!FAST) {
   await page.close();
 }
 
-// 9. Cold boot: the REAL WelcomeAnimation still works — onboarding's boot phase uses
-//    keyframe COPIES, so nothing else exercises these styles. Assert the backdrop's
-//    rule actually APPLIES (v0.4.31 shipped with the whole rule dead: a
-//    star-slash inside a comment terminated it early and the parser ate
-//    .welcome-backdrop — fullscreen unshrunk gradient, Adam's repro),
-//    and that the frame-shrink really lands on the lockup tile.
+// 9. Cold boot: the same one-piece scene plays inside .boot-overlay
+//    (mini steps-state entrance → full timeline). Assert the frame's
+//    rule actually APPLIES (the v0.4.32 star-slash lesson: a dead rule
+//    must never ship green), the shrink really lands on the tile, the
+//    paint carries no infinite animation (the hue spin is dead), and
+//    skip-on-input works.
 if (!FAST) {
   const page = await newPage({ "btv:onboarded": "1" });
   await page.goto("http://localhost:4173/?welcome=1");
-  await page.waitForSelector(".welcome-overlay", { timeout: 8000 });
-  const applied = await page.$eval(".welcome-backdrop", (el) => {
-    const cs = getComputedStyle(el);
-    return {
-      h: el.getBoundingClientRect().height,
-      anim: cs.animationName,
-    };
-  });
-  check("cold boot: backdrop rule applies (styles parsed, shrink armed)",
-    applied.h > 100 && /welcome-frame-shrink/.test(applied.anim),
+  await page.waitForSelector(".boot-overlay", { timeout: 8000 });
+  const applied = await page.$eval(".boot-frame", (el) => ({
+    h: el.getBoundingClientRect().height,
+    screenBlur: getComputedStyle(document.querySelector(".boot-screen")).filter,
+  }));
+  check("cold boot: scene styles apply (frame full-size, screen blurred)",
+    applied.h > 100 && /blur\(/.test(applied.screenBlur),
     JSON.stringify(applied));
-  // Past the shrink's landing (~700ms delay + 737ms track): the frame
-  // must have left fullscreen for the tile.
-  await page.waitForTimeout(2200);
-  const shrunk = await page.$eval(".welcome-backdrop", (el) => {
+  const spins = await page.evaluate(() =>
+    document.getAnimations().some((a) =>
+      a.effect?.getTiming?.().iterations === Infinity));
+  check("cold boot: no infinite paint animation (hue spin is dead)", !spins);
+  // Entrance (900ms) + landing (830ms) + shrink lands 660ms later: the
+  // frame must have left fullscreen for the tile.
+  await page.waitForTimeout(3000);
+  const shrunk = await page.$eval(".boot-frame", (el) => {
     const r = el.getBoundingClientRect();
     return { w: r.width, h: r.height };
   });
-  check("cold boot: the gradient frame actually shrinks into the lockup",
+  check("cold boot: the frame shrinks into the lockup tile",
     shrunk.w < 300 && shrunk.h < 300, JSON.stringify(shrunk));
+  await page.close();
+}
+
+// 10. Cold boot skip: any input dismisses it immediately.
+if (!FAST) {
+  const page = await newPage({ "btv:onboarded": "1" });
+  await page.goto("http://localhost:4173/?welcome=1");
+  await page.waitForSelector(".boot-overlay", { timeout: 8000 });
+  await page.waitForTimeout(400);
+  await page.keyboard.press("Escape");
+  const gone = await page
+    .waitForFunction(() => !document.querySelector(".boot-overlay"), null, { timeout: 2500 })
+    .then(() => true)
+    .catch(() => false);
+  check("cold boot: input skips it immediately", gone);
   await page.close();
 }
 

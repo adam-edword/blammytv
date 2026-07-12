@@ -1,63 +1,81 @@
-import { useEffect, useState } from "react";
-import { lockupVars, markWelcomePlayed } from "./welcome";
+import { useEffect, useRef, useState } from "react";
+import { BootScene, BOOT_TIMELINE_MS, type BootSceneHandle } from "./BootScene";
+import { bootVars, markWelcomePlayed } from "./welcome";
 
-/** The Figma timeline ("BTV WELCOME ANIMATION", 194:1158) runs 2000ms:
- * the viewport-filling TV shrinks into the logo mark (~0–737ms), springs
- * left (~868–1856ms) and the wordmark fades in beside it (~1173–1850ms).
- * The opening TV fades+unblurs in and sits START_HOLD_MS first (welcome.css
- * delays the timeline to match), the finished lockup sits END_HOLD_MS, then
- * the overlay fades out over the app.
+/** Cold-boot overlay: a thin host around the ONE-PIECE BootScene (the
+ * same component and boot.css keyframes onboarding's finale plays —
+ * one spec everywhere, no twins). The launch opens as a miniature of
+ * the onboarding finale (Adam's pick): the overlay fades in over the
+ * loading shell with the scene in its drifting idle state, breathes
+ * for a beat, then plays the full unwind → unblur → shrink → lockup
+ * timeline and fades off the app.
  *
- * TWIN: onboarding's finale plays a copy of this timeline (onb-boot-* in
- * onboarding.css) — if the boot animation ever changes, update both. The
- * lockup geometry itself is shared (lockupVars in welcome.ts). */
-const TIMELINE_MS = 2000;
-const START_HOLD_MS = 700;
-const END_HOLD_MS = 1000;
+ * Unlike onboarding's finale, a cold boot is SKIPPABLE on any input —
+ * the boot must never stand between the user and the app. Leaving is
+ * pure root opacity, so skipping mid-anything is safe. */
+const ENTRANCE_MS = 400;
+const DRIFT_MS = 500;
+const END_FADE_OVERLAP_MS = 200;
+const FADE_MS = 450;
 
 export function WelcomeAnimation({ onDone }: { onDone: () => void }) {
   const [leaving, setLeaving] = useState(false);
-  const [vars, setVars] = useState(lockupVars);
+  const [vars, setVars] = useState(bootVars);
+  const bootRef = useRef<BootSceneHandle>(null);
+  const doneRef = useRef(false);
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
 
   useEffect(() => {
     markWelcomePlayed();
   }, []);
 
   useEffect(() => {
-    const onResize = () => setVars(lockupVars());
+    const onResize = () => setVars(bootVars());
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  // Leave when the lockup has settled — or immediately on any input, so the
-  // boot animation never stands between the user and the app.
+  // Leave when the lockup has settled (the fade overlaps its hold's
+  // tail) — or immediately on any input.
   useEffect(() => {
     const skip = () => setLeaving(true);
-    const timer = setTimeout(skip, START_HOLD_MS + TIMELINE_MS + END_HOLD_MS);
+    const start = window.setTimeout(
+      () => bootRef.current?.beginFinale(),
+      ENTRANCE_MS + DRIFT_MS,
+    );
+    const leave = window.setTimeout(
+      skip,
+      ENTRANCE_MS + DRIFT_MS + BOOT_TIMELINE_MS - END_FADE_OVERLAP_MS,
+    );
     window.addEventListener("pointerdown", skip);
     window.addEventListener("keydown", skip);
     return () => {
-      clearTimeout(timer);
+      window.clearTimeout(start);
+      window.clearTimeout(leave);
       window.removeEventListener("pointerdown", skip);
       window.removeEventListener("keydown", skip);
     };
   }, []);
 
+  // The exit is time-boxed, never transitionend-dependent (Chromium can
+  // swallow transitionend in occluded windows — old scar).
+  useEffect(() => {
+    if (!leaving) return;
+    const t = window.setTimeout(() => {
+      if (doneRef.current) return;
+      doneRef.current = true;
+      onDoneRef.current();
+    }, FADE_MS);
+    return () => window.clearTimeout(t);
+  }, [leaving]);
+
   return (
     <div
-      className={"welcome-overlay" + (leaving ? " is-leaving" : "")}
+      className={"boot-overlay" + (leaving ? " is-leaving" : "")}
       style={vars}
-      onTransitionEnd={(e) => {
-        if (leaving && e.target === e.currentTarget) onDone();
-      }}
     >
-      <div className="welcome-backdrop">
-        <div className="welcome-gradient-fit">
-          <div className="welcome-gradient" />
-        </div>
-      </div>
-      <div className="welcome-screen" />
-      <p className="welcome-wordmark">BlammyTV</p>
+      <BootScene ref={bootRef} />
     </div>
   );
 }

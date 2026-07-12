@@ -52,80 +52,40 @@ import { httpGetText } from "../lib/http";
 import { scrubbedMessage } from "../lib/errors";
 import { ChipTabs } from "../ui/ChipTabs";
 import { markOnboarded } from "./onboardingGate";
-import { lockupVars, markWelcomePlayed } from "./welcome";
+import { bootVars, markWelcomePlayed } from "./welcome";
+import { BootScene, BOOT_TIMELINE_MS, type BootSceneHandle } from "./BootScene";
 
 /**
- * First-run onboarding (Adam's mockup, 2026-07-11; backdrop rebuilt
- * ground-up in v0.4.31, finished in v0.4.36): a living aurora — the
- * brand's color sweep drifting around the viewport edges over a
- * Bayer-style dither field. Each advance gives it a quick "thinking"
- * spin; the finale condenses the glow into the boot animation's
- * opening frame and plays the boot timeline on the overlay's own
- * persistent nodes, then fades to the app — the boot animation IS the
- * onboarding's last scene, and nothing ever mounts for it.
+ * First-run onboarding (Adam's mockup 2026-07-11; ONE-PIECE boot motion
+ * per his Figma spec, v0.4.39): the backdrop IS frame zero of the boot
+ * timeline — BootScene's oversized brand-conic sheet drifting at 65%
+ * over a blur-softened black screen, under a Bayer dither field. Each
+ * advance gives the sheet a quick "thinking" spin; the finale simply
+ * plays the timeline forward (unwind → unblur → shrink → lockup) on
+ * the same persistent nodes, then fades to the app. There is no second
+ * animation and nothing ever mounts — see BootScene.tsx / boot.css.
  *
  * The source steps VERIFY, not just collect (v0.4.21): Continue runs
  * the real connection machinery (probeAioStreams for AIOStreams — the
  * same path as Settings' Connection Test, Cloudflare verdicts and all;
- * authenticate() for Xtream) while the glow spins "thinking". Success
+ * authenticate() for Xtream) while the sheet spins "thinking". Success
  * saves and auto-advances; failure shows the verdict and offers
  * "Continue anyway" — verification must never hard-wall onboarding.
  *
  * Steps: 0 logo · 1 streams · 2 live tv · 3 accent+clock · 4 startup
  * tab · 5 done (mini nav map + go-explore-Settings nudge).
  *
- * The aurora's rotation is velocity-driven from a rAF loop: base speed
- * is a slow drift, each advance sets a burst target and the velocity
- * eases toward it and back — no snapping between two animation speeds.
+ * Unlike a cold boot, the finale is NOT input-skippable (Adam's call:
+ * it's the earned finale, not a wait).
  */
 
-const BASE_DEG_S = 16;
-const BURST_DEG_S = 320;
-const BURST_MS = 700;
-/** Glow architecture: NO FILTERS, ANYWHERE on the backdrop. Five
- * versions of flicker fixes (v0.4.26→30) all fought the same sin —
- * animating giant blur() layers on Chromium — so the v0.4.31 rebuild
- * removed the primitive itself. The aurora is the boot's own gradient
- * spun transform-only from the rAF loop; a static intersect-masked
- * veil darkens the center. Nothing re-rasterizes, smears, or
- * raster-storms; once the finale condenses, the spent backdrop layers
- * unmount and the rAF loop stops.
- *
- * The finale never hands off to anything (v0.4.36, PERSISTENT SCENE
- * GRAPH + EMERGENCE — the four-agent review's verdict, Adam's pick):
- * the boot animation's three actors (.onb-frame / .onb-screen /
- * .onb-wordmark) live in THIS component's DOM from first render and
- * never remount. The finale is two class flips on settled nodes:
- * is-finale runs the emergence — the sharp screen fades UP at its
- * final geometry while the soft veil and dither dissolve, the aurora
- * brightens to full, and the rAF spring lands the disc's rotation on
- * 0 mod 360 (= the boot gradient's native angle, so the paint IS the
- * boot's first frame) — all opacity/transform on painted-once layers,
- * no moving boundaries, no per-frame raster (v0.4.33-35 morphed the
- * veil's mask geometry per frame instead; every artifact Adam caught
- * traced to it). is-boot then attaches the onb-boot-* keyframes
- * (welcome.css twins) to the same nodes, the paint drops to cover
- * scale (invisible — conic scale-invariance) and the boot's hue spin
- * resumes: the boot plays with no mount having ever occurred. Unlike
- * a cold boot, the finale is NOT input-skippable (Adam's call: it's
- * the earned finale, not a wait). */
-/** The boot phase's opening hold — an INTENTIONAL divergence from the
- * cold boot's 700ms: that hold establishes a frame the viewer has
- * never seen; this viewer stared at it through the whole flow. */
-const BOOT_HOLD_MS = 300;
-const BOOT_TIMELINE_MS = 2000;
-/** Lockup dwell after the boot timeline settles... */
-const BOOT_END_HOLD_MS = 700;
-/** ...with the app-reveal fade OVERLAPPING its tail — the app
+/** The app-reveal fade OVERLAPS the boot hold's tail — the app
  * materializing beneath the settled lockup is itself the reveal. */
 const RELEASE_OVERLAP_MS = 200;
 const RELEASE_FADE_MS = 450;
-/** The emergence's length: the 600ms opacity fades and the spring
- * landing are done; the boot phase starts here. */
-const CONDENSE_MS = 650;
-/** Spent backdrop teardown (veil/dither/cursor, all at opacity 0 —
- * removing invisible layers reveals nothing). */
-const BACKDROP_RELEASE_MS = 750;
+/** Dither + cursor glow are fully faded (830ms landing) here — unmount
+ * the spent layers (removing invisible layers reveals nothing). */
+const SWEEP_MS = 900;
 /** Content out-transition before the step swaps: onb-out is 300ms and
  * the last staggered child starts at +90ms — swap after the full tail. */
 const SWAP_MS = 400;
@@ -165,19 +125,11 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   const [step, setStep] = useState(0);
   const [phase, setPhase] = useState<"in" | "out">("in");
   const [finale, setFinale] = useState(false);
-  /** The emergence has landed on the boot's first frame: is-boot
-   * attaches the boot keyframes to the persistent nodes. Nothing
-   * mounts — two class strings change on a settled scene. */
-  const [bootPhase, setBootPhase] = useState(false);
-  /** 100ms later: the spent backdrop layers UNMOUNT (all at opacity 0
-   * — removing invisible layers reveals nothing) and the rAF loop
-   * stops. Invisible zombie layers (a 150vmax pinned texture still
-   * receiving transform writes) are exactly the compositor-churn class
-   * Adam's machine punishes. */
-  const [condensed, setCondensed] = useState(false);
+  /** Dither + cursor glow have fully faded — unmount them. */
+  const [swept, setSwept] = useState(false);
   /** The overlay's exit fade — set once the boot lockup has settled. */
   const [leaving, setLeaving] = useState(false);
-  const [vars, setVars] = useState(lockupVars);
+  const [vars, setVars] = useState(bootVars);
   // Once a step's entrance has played, the animations are REMOVED
   // (is-settled): password-manager extensions inject DOM when a field
   // focuses, and that style invalidation replayed the filled entrance
@@ -192,17 +144,12 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     return () => window.clearTimeout(t);
   }, [step, phase]);
 
-  const discRef = useRef<HTMLDivElement>(null);
-  const burstUntil = useRef(0);
+  const bootRef = useRef<BootSceneHandle>(null);
   const swapTimer = useRef(0);
   const autoTimer = useRef(0);
-  const angleRef = useRef(0);
-  const velRef = useRef(BASE_DEG_S);
-  /** Finale: the disc spins down to rest while it crossfades away. */
-  const spinDownRef = useRef(false);
 
   useEffect(() => {
-    const onResize = () => setVars(lockupVars());
+    const onResize = () => setVars(bootVars());
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
@@ -222,26 +169,18 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   onDoneRef.current = onDone;
   useEffect(() => {
     if (!finale) return;
-    // The aurora spring-lands on the boot's gradient angle while the
-    // emergence fades run — and this launch's boot is the boot phase,
-    // so the real one must not replay.
-    spinDownRef.current = true;
+    // This launch's boot IS the one-piece finale — the cold-boot
+    // overlay must not replay on relaunch.
     markWelcomePlayed();
-    // The boot timeline runs from the is-boot flip at CONDENSE_MS; the
-    // overlay fade OVERLAPS the end-hold's tail (the app materializing
-    // beneath the settled lockup is itself the reveal).
+    // The scene plays the whole 2530ms mock timeline; the overlay fade
+    // OVERLAPS its hold's tail (the app materializing beneath the
+    // settled lockup is itself the reveal). Reduced motion: BootScene
+    // never plays — quick fade to the app.
+    if (!reducedMotion) bootRef.current?.beginFinale();
     const leaveMs = reducedMotion
       ? 100
-      : CONDENSE_MS +
-        BOOT_HOLD_MS +
-        BOOT_TIMELINE_MS +
-        BOOT_END_HOLD_MS -
-        RELEASE_OVERLAP_MS;
-    const boot = window.setTimeout(() => setBootPhase(true), CONDENSE_MS);
-    const sweep = window.setTimeout(
-      () => setCondensed(true),
-      BACKDROP_RELEASE_MS,
-    );
+      : BOOT_TIMELINE_MS - RELEASE_OVERLAP_MS;
+    const sweep = window.setTimeout(() => setSwept(true), SWEEP_MS);
     const leave = window.setTimeout(() => setLeaving(true), leaveMs);
     const done = window.setTimeout(() => {
       if (doneRef.current) return;
@@ -249,7 +188,6 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
       onDoneRef.current();
     }, leaveMs + RELEASE_FADE_MS);
     return () => {
-      window.clearTimeout(boot);
       window.clearTimeout(sweep);
       window.clearTimeout(leave);
       window.clearTimeout(done);
@@ -276,101 +214,40 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     return () => els.forEach((el) => el.removeAttribute("inert"));
   }, []);
 
-  // The glow's heartbeat: angle integrates a velocity that eases toward
-  // either the drift speed or, right after an advance, the burst speed.
-  // The same loop lerps the cursor glow toward the pointer — one rAF,
-  // and reduced-motion drops ALL of it (decorative only; the glow must
-  // not appear stuck at 0,0 for those users).
+  // The cursor glow lerps toward the pointer ON BOOTSCENE'S CLOCK
+  // (onTick — one rAF loop, ever). Reduced-motion never runs the loop,
+  // so the glow stays hidden rather than stuck at 0,0.
   const cursorRef = useRef<HTMLDivElement>(null);
+  const pointerRef = useRef<{ x: number; y: number } | null>(null);
+  const glowPosRef = useRef<{ x: number; y: number } | null>(null);
   useEffect(() => {
-    // Once the condense retires the backdrop layers there is nothing
-    // left to animate — the loop must not tick under the boot phase.
-    if (condensed) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    let raf = 0;
-    let last = performance.now();
-    let lastAngleWrite = "";
-    /** Spin-down landing angle — the nearest full turn, chosen once. */
-    let landTarget: number | null = null;
-    let target: { x: number; y: number } | null = null;
-    let pos: { x: number; y: number } | null = null;
     const onMove = (e: PointerEvent) => {
-      target = { x: e.clientX, y: e.clientY };
+      pointerRef.current = { x: e.clientX, y: e.clientY };
     };
     window.addEventListener("pointermove", onMove);
-    const tick = (now: number) => {
-      const dt = Math.min(0.05, (now - last) / 1000);
-      last = now;
-      if (spinDownRef.current) {
-        // Finale spin-down: don't just brake — LAND. A critically
-        // damped spring takes the disc (velocity-continuous, from
-        // drift or mid-burst alike) to the NEAREST full turn, where
-        // its frozen boot paint sits at the boot's native angle — so
-        // the boot phase opens pixel-for-pixel on it. ω=12 puts
-        // the residual under a couple hundredths of a degree by the
-        // is-boot flip at CONDENSE_MS.
-        if (landTarget === null) {
-          landTarget = Math.round(angleRef.current / 360) * 360;
-        }
-        const W = 12;
-        velRef.current +=
-          (W * W * (landTarget - angleRef.current) - 2 * W * velRef.current) *
-          dt;
-        angleRef.current += velRef.current * dt;
-        if (
-          Math.abs(landTarget - angleRef.current) < 0.05 &&
-          Math.abs(velRef.current) < 0.5
-        ) {
-          angleRef.current = landTarget;
-          velRef.current = 0;
-        }
-      } else {
-        // Velocity model: drift, burst on advances.
-        const speed = now < burstUntil.current ? BURST_DEG_S : BASE_DEG_S;
-        velRef.current += (speed - velRef.current) * Math.min(1, dt * 7);
-        angleRef.current = angleRef.current + velRef.current * dt;
-      }
-      // Transform-only rotation: the compositor spins the disc's cached
-      // (unfiltered, painted-once) texture on the GPU with zero
-      // repaints. Write only on visible change.
-      const next = `rotate(${(angleRef.current % 360).toFixed(2)}deg)`;
-      if (next !== lastAngleWrite) {
-        lastAngleWrite = next;
-        if (discRef.current) discRef.current.style.transform = next;
-      }
-      if (target) {
-        // First sighting jumps straight to the pointer — no sweep in
-        // from the corner.
-        if (!pos) {
-          pos = { ...target };
-          cursorRef.current?.classList.add("is-live");
-        } else {
-          pos.x += (target.x - pos.x) * Math.min(1, dt * 9);
-          pos.y += (target.y - pos.y) * Math.min(1, dt * 9);
-        }
-        if (cursorRef.current) {
-          cursorRef.current.style.transform = `translate3d(${pos.x}px, ${pos.y}px, 0)`;
-        }
-      }
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener("pointermove", onMove);
-    };
-  }, [condensed]);
+    return () => window.removeEventListener("pointermove", onMove);
+  }, []);
+  const cursorTick = (_now: number, dt: number) => {
+    const target = pointerRef.current;
+    if (!target || !cursorRef.current) return;
+    let pos = glowPosRef.current;
+    if (!pos) {
+      // First sighting jumps straight to the pointer — no sweep in
+      // from the corner.
+      pos = { ...target };
+      glowPosRef.current = pos;
+      cursorRef.current.classList.add("is-live");
+    } else {
+      pos.x += (target.x - pos.x) * Math.min(1, dt * 9);
+      pos.y += (target.y - pos.y) * Math.min(1, dt * 9);
+    }
+    cursorRef.current.style.transform = `translate3d(${pos.x}px, ${pos.y}px, 0)`;
+  };
 
-  const think = () => {
-    burstUntil.current = performance.now() + BURST_MS;
-  };
+  const think = () => bootRef.current?.think();
   /** Verifications hold the spin the whole time they run. */
-  const thinkHard = () => {
-    burstUntil.current = performance.now() + 60_000;
-  };
-  const thinkDone = () => {
-    burstUntil.current = performance.now() + 400;
-  };
+  const thinkHard = () => bootRef.current?.thinkHard();
+  const thinkDone = () => bootRef.current?.thinkDone();
 
   // Enter advances every step — via a ref so one listener always sees
   // the current step's action. Repeat is ignored (holding Enter must
@@ -983,32 +860,18 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
       className={
         "onb" +
         (finale ? " is-finale" : "") +
-        (bootPhase && !reducedMotion ? " is-boot" : "") +
         (leaving ? " is-leaving" : "")
       }
       style={vars}
     >
-      {/* The PERSISTENT boot actors: frame (holding the aurora), screen
-       * and wordmark live from first render to the app reveal — the
-       * finale only flips classes on them. Nothing ever mounts. */}
-      <div className="onb-frame" aria-hidden>
-        <div className="onb-aurora" ref={discRef}>
-          {/* The boot's own paint, spin-frozen during the steps —
-           * rotation comes from the rAF transform on the wrapper. */}
-          <div className="welcome-gradient-fit">
-            <div className="welcome-gradient" />
-          </div>
-        </div>
-      </div>
-      <div className="onb-screen" aria-hidden />
-      <p className="onb-wordmark" aria-hidden>
-        BlammyTV
-      </p>
-      {/* The spent steps-backdrop unmounts at BACKDROP_RELEASE_MS — all
-       * three are at opacity 0 by then; removal reveals nothing. */}
-      {!condensed && (
+      {/* THE one-piece boot scene: the steps backdrop is frame zero of
+       * the boot timeline; the finale just plays it forward. Persistent
+       * from first render to the app reveal — nothing ever mounts. */}
+      <BootScene ref={bootRef} onTick={cursorTick} />
+      {/* Steps-only garnish; fades during the landing, unmounts at the
+       * sweep (both at opacity 0 by then — removal reveals nothing). */}
+      {!swept && (
         <>
-          <div className="onb-veil" aria-hidden />
           <div className="onb-dither" />
           <div ref={cursorRef} className="onb-cursor-glow" aria-hidden />
         </>

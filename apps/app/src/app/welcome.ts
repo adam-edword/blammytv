@@ -1,40 +1,44 @@
-/** Launch gate + shared geometry for the welcome/boot animation (see
- * WelcomeAnimation.tsx — and Onboarding.tsx, whose finale plays twin
- * copies of the boot keyframes over the same geometry). */
+/** Launch gate + shared geometry for the ONE-PIECE boot motion (see
+ * BootScene.tsx — rendered persistently by Onboarding.tsx and, for cold
+ * boots, by WelcomeAnimation.tsx; both play the same boot.css keyframes
+ * over the vars computed here). */
 
 import type { CSSProperties } from "react";
 
 const PLAYED_KEY = "btv:welcome-played";
 
-/** End-state lockup geometry, in the mock's 1920×1080 pixels (see
- * welcome.css). The icon lands on the brand logo ("Subtract", 186:794) at
- * 0.48×: a 96px square tile with a 54.4px square hole (the logo's 200px
- * tile / 113.333px hole). The screen's frame is 36.5/35px thick at start. */
-const DESIGN_W = 1920;
-const DESIGN_H = 1080;
-const ICON_W = 96;
-const ICON_H = 96;
-const HOLE_W = 54.4;
-const HOLE_H = 54.4;
-const FRAME_X = 70; // left + right frame thickness
-const FRAME_Y = 73; // top + bottom frame thickness
-
-/** The starting TV is the viewport itself, so the shrink's end scale
+/** Design space: Adam's Figma motion mock ("Wireframe - 5", node
+ * 272:1000, the one-piece boot spec) — a 1920×1167 canvas. All boot
+ * geometry below is native to it:
+ * - the frame shrinks to a 121px logo tile whose center sits 302.5px
+ *   left of canvas center;
+ * - the black screen (the frame's 72/71.5-inset rect) shrinks to a
+ *   68.57px hole concentric with the tile;
+ * - the wordmark (116.22px Stack Sans Headline) slides in from +120.24.
+ * The starting frame is the viewport itself, so the shrink's end scale
  * depends on the window: compute the per-axis factors that land the
  * viewport-sized elements on the fixed lockup geometry. --s carries the
  * mock's cover factor so the lockup itself sizes like the design.
- * SHARED between the boot animation and onboarding's boot phase — the
- * keyframes are twins (copied), but the geometry must never drift. */
-export function lockupVars(): CSSProperties {
+ * SHARED by both boot surfaces — geometry must never drift.
+ * (Known queued issue, carried over from lockupVars: under uiScale
+ * zoom ≠ 1 these mix visual and layout px — see HANDOFF.) */
+const DESIGN_W = 1920;
+const DESIGN_H = 1167;
+const TILE = 121; // final frame tile (square)
+const HOLE = 68.57; // final screen hole (square)
+const INSET_X = 144; // left + right screen inset (72 each)
+const INSET_Y = 143; // top + bottom screen inset (71.5 each)
+
+export function bootVars(): CSSProperties {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   const s = Math.max(vw / DESIGN_W, vh / DESIGN_H);
   return {
     "--s": String(s),
-    "--tv-sx": String((ICON_W * s) / vw),
-    "--tv-sy": String((ICON_H * s) / vh),
-    "--scr-sx": String((HOLE_W * s) / (vw - FRAME_X * s)),
-    "--scr-sy": String((HOLE_H * s) / (vh - FRAME_Y * s)),
+    "--tv-sx": String((TILE * s) / vw),
+    "--tv-sy": String((TILE * s) / vh),
+    "--scr-sx": String((HOLE * s) / (vw - INSET_X * s)),
+    "--scr-sy": String((HOLE * s) / (vh - INSET_Y * s)),
   } as CSSProperties;
 }
 
