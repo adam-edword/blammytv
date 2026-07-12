@@ -180,9 +180,14 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   // Chromium can swallow it (hidden/occluded window) — the timer makes
   // sure nobody is ever stranded on a finished onboarding.
   const doneRef = useRef(false);
+  // Post-landing: filter:none (a 0px blur still forces a rasterized
+  // filter layer; none makes the final frames plain painted content,
+  // so the release has no layer teardown to flicker through).
+  const [frozen, setFrozen] = useState(false);
   const handoff = () => {
     if (doneRef.current) return;
     doneRef.current = true;
+    setFrozen(true);
     onDone();
   };
   const handoffRef = useRef(handoff);
@@ -928,7 +933,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   return (
     <div className={"onb" + (finale ? " is-finale" : "")} style={vars}>
       <div
-        className="onb-backdrop"
+        className={"onb-backdrop" + (frozen ? " is-frozen" : "")}
         onTransitionEnd={(e) => {
           if (finale && e.propertyName === "filter") handoff();
         }}

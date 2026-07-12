@@ -53,6 +53,12 @@
   inset: 0;
   filter: blur(0px);
 }
+/* Landed: drop the filter entirely (blur(0) still rasterizes through a
+ * filter layer) so the hand-off releases plain painted content. */
+.onb.is-finale .onb-backdrop.is-frozen {
+  filter: none;
+  transition: none;
+}
 
 /* The rotation is velocity-driven from the component's rAF loop (base
  * drift + "thinking" bursts) — the fixed-speed boot spin must not

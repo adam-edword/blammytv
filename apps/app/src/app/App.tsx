@@ -160,14 +160,19 @@ export function App() {
       {onboarding && (
         <Onboarding
           onDone={() => {
-            // One batched update: the boot animation mounts in the same
-            // render the onboarding unmounts — no flash of the app between
-            // them. Reduced-motion users skip the boot animation, as ever.
-            setOnboarding(false);
+            // Double-buffered hand-off: the boot animation mounts UNDER
+            // the parked onboarding frame (identical pixels — Onboarding
+            // renders later in this JSX, so it stays on top), and the
+            // overlay releases ~2 frames later. The unmount then only
+            // REVEALS a matching frame instead of tearing down and
+            // rebuilding compositor layers in one commit — the last
+            // flicker class Adam could still trigger. Reduced-motion
+            // users skip the boot animation, as ever.
             setWelcomeIntro(false);
             setWelcome(
               !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
             );
+            window.setTimeout(() => setOnboarding(false), 90);
           }}
         />
       )}
