@@ -84,6 +84,13 @@ import { markOnboarded } from "./onboardingGate";
 const BASE_DEG_S = 16;
 const BURST_DEG_S = 320;
 const BURST_MS = 700;
+/** The boot animation's gradient facts (welcome.css): the paint starts
+ * at the @property initial 90deg and spins 360° per 5s. The finale
+ * glides our angle to land EXACTLY there, moving at exactly that
+ * speed, the moment WelcomeAnimation takes over — position and
+ * velocity both continuous, so the hand-off has no snap. */
+const BOOT_SPIN_DEG_S = 72;
+const FINALE_MS = 1300; // matches the backdrop transition duration
 /** Content out-transition before the step swaps: onb-out is 300ms and
  * the last staggered child starts at +90ms — swap after the full tail. */
 const SWAP_MS = 400;
@@ -149,6 +156,16 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   const burstUntil = useRef(0);
   const swapTimer = useRef(0);
   const autoTimer = useRef(0);
+  // Live angle/velocity in refs so the finale planner can read them.
+  const angleRef = useRef(0);
+  const velRef = useRef(BASE_DEG_S);
+  /** Finale glide plan: Hermite from (a0, v0) to (aT, boot speed). */
+  const glideRef = useRef<{
+    start: number;
+    a0: number;
+    v0: number;
+    aT: number;
+  } | null>(null);
 
   useEffect(() => {
     const onResize = () => setVars(coverVars());
@@ -169,6 +186,18 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   handoffRef.current = handoff;
   useEffect(() => {
     if (!finale) return;
+    // Plan the glide onto the boot animation's opening angle: land at
+    // the next full turn (var == the 90deg initial) exactly when the
+    // backdrop transition ends, arriving at the boot spin's speed.
+    const a0 = angleRef.current;
+    const v0 = velRef.current;
+    const minTravel = Math.max(100, (v0 * FINALE_MS) / 2000);
+    glideRef.current = {
+      start: performance.now(),
+      a0,
+      v0,
+      aT: Math.ceil((a0 + minTravel) / 360) * 360,
+    };
     // Reduced motion runs 1ms transitions, which Chromium sometimes
     // coalesces into no transition at all (no transitionend) — the
     // watchdog must then fire fast, not after a 1.9s dead stare.
@@ -210,8 +239,6 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     let raf = 0;
     let last = performance.now();
-    let angle = 0;
-    let vel = BASE_DEG_S;
     let target: { x: number; y: number } | null = null;
     let pos: { x: number; y: number } | null = null;
     const onMove = (e: PointerEvent) => {
@@ -221,12 +248,38 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     const tick = (now: number) => {
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
-      const speed = now < burstUntil.current ? BURST_DEG_S : BASE_DEG_S;
-      vel += (speed - vel) * Math.min(1, dt * 7);
-      angle = (angle + vel * dt) % 360;
+      const glide = glideRef.current;
+      if (glide) {
+        // Finale: cubic Hermite from (a0, v0) to (aT, boot speed) over
+        // FINALE_MS — angle AND angular velocity are continuous into
+        // WelcomeAnimation's own spin. Past T, keep moving at boot
+        // speed (the watchdog window) so the paint never stalls.
+        const t = now - glide.start;
+        if (t < FINALE_MS) {
+          const s = t / FINALE_MS;
+          const s2 = s * s;
+          const s3 = s2 * s;
+          const v0ms = glide.v0 / 1000;
+          const vTms = BOOT_SPIN_DEG_S / 1000;
+          angleRef.current =
+            (2 * s3 - 3 * s2 + 1) * glide.a0 +
+            (s3 - 2 * s2 + s) * FINALE_MS * v0ms +
+            (-2 * s3 + 3 * s2) * glide.aT +
+            (s3 - s2) * FINALE_MS * vTms;
+        } else {
+          // HOLD the landing frame: however late WelcomeAnimation
+          // mounts (slow frame, watchdog), its opening angle is exactly
+          // where we're parked — position continuity beats motion here.
+          angleRef.current = glide.aT;
+        }
+      } else {
+        const speed = now < burstUntil.current ? BURST_DEG_S : BASE_DEG_S;
+        velRef.current += (speed - velRef.current) * Math.min(1, dt * 7);
+        angleRef.current = angleRef.current + velRef.current * dt;
+      }
       gradRef.current?.style.setProperty(
         "--welcome-grad-angle",
-        `${90 + angle}deg`,
+        `${90 + (angleRef.current % 360)}deg`,
       );
       if (target) {
         // First sighting jumps straight to the pointer — no sweep in
