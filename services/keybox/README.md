@@ -72,7 +72,10 @@ or any cert config on top of it.
 6. **Environment Variables**: set `STRIPE_API_KEY` and
    `STRIPE_WEBHOOK_SECRET`. `DB_PATH` is already baked into the image
    (`/data/keybox.db`) — don't set it unless you're deviating from the
-   volume layout below.
+   volume layout below. Optionally set `RESEND_API_KEY`, `EMAIL_FROM`, and
+   `EMAIL_REPLY_TO` for key-delivery email — see **Email delivery
+   (optional)** below; leave all three unset and the box runs exactly as
+   before.
 7. **Persistent Storage — THE CRITICAL STEP**: add a volume mounted at
    `/data`. **Without this, the key database dies with the container on
    every redeploy** — every key ever issued, gone, with no way to recover
@@ -228,6 +231,46 @@ dead disk. Cron:
    - Events: `checkout.session.completed`
    - Copy the signing secret into `STRIPE_WEBHOOK_SECRET`.
 
+## Email delivery (optional)
+
+The `/success` page is the actual delivery guarantee for a license key — it
+always works with zero configuration. Email is a **best-effort backup on
+top of that**, not a replacement: it exists so a buyer who closes the tab
+before it loads, or whose redirect silently fails, doesn't lose their key.
+If it's unconfigured, misconfigured, or a send fails outright, key issuance
+and the webhook's 200 response are completely unaffected — the only
+symptom is a log line and no email.
+
+No new dependency: delivery is a single `fetch` to Resend's HTTP API
+(`src/mailer.js`), same "no dotenv, no SDK" philosophy as the rest of this
+service.
+
+1. **Create a Resend account** — [resend.com](https://resend.com). The free
+   tier (3,000 emails/month, 100/day) is enough for this box's volume.
+2. **Verify your sending domain** (e.g. `eddtv.org`) — Resend gives you
+   DKIM/SPF/DMARC DNS records to add once; verification usually completes
+   within minutes.
+3. **Set environment variables** (Docker `-e`, Coolify's Environment
+   Variables panel, or the systemd unit's `Environment=` lines — same
+   place as `STRIPE_API_KEY`):
+   - `RESEND_API_KEY` — Resend's API key (`re_...`).
+   - `EMAIL_FROM` — e.g. `BlammyTV <keys@eddtv.org>`. The address must be on
+     the domain you verified in step 2, or Resend will reject the send.
+   - `EMAIL_REPLY_TO` — optional. If set, it's both the `Reply-To` header
+     and what the email body invites the buyer to use for support; if
+     unset, the email doesn't mention a support address at all.
+
+Leave `RESEND_API_KEY` or `EMAIL_FROM` unset (either one is enough) and
+`createMailer` returns a no-op that logs once and skips sending — no crash,
+no missing-env exit. This mirrors how the rest of the service treats
+optional config, and it's what lets `node --test` and any local dev boot
+run with zero email setup.
+
+No buyer email is ever written to the database — see the PII section
+below. The address is read once from the Checkout session
+(`customer_details.email`) at webhook time and only ever passed to the
+`fetch` call.
+
 ## Test-mode walkthrough
 
 ```bash
@@ -290,7 +333,12 @@ copy the backup directory (`/data/backups` in the container, whatever
   address — just the key, its entitlement, and a Stripe *session* id
   (which exists only for webhook idempotency and the success-page lookup,
   not as a buyer record). If you need to help someone recover a lost key,
-  look up their payment in the Stripe Dashboard, not this database.
+  look up their payment in the Stripe Dashboard, not this database. This
+  holds even with email delivery configured (see **Email delivery
+  (optional)** above): the buyer's address is read transiently off the
+  Checkout session at webhook time, passed straight to Resend, and never
+  written anywhere — `keys.emailed_at` records only a timestamp, never the
+  address it was sent to.
 - **Key-in, yes/no-out.** `/validate` and `/payload` never expose a key
   list, a count of keys, or any other key's existence. A miss just says
   "unknown" — same as a hit that's out of activations.

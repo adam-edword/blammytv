@@ -4,8 +4,9 @@ import { readFileSync, mkdirSync, chownSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-import { openDb, createKey, findBySession, getKey, touchActivation, isActivated } from "./db.js";
+import { openDb, createKey, findBySession, getKey, touchActivation, isActivated, markEmailed } from "./db.js";
 import { loadCatalog } from "./catalog.js";
+import { createMailer } from "./mailer.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PAYLOADS_DIR = path.join(__dirname, "..", "payloads");
@@ -197,7 +198,16 @@ function pendingPage() {
 /* App factory. Exported for tests: pass an in-memory db and a        */
 /* stubbed stripe object.                                             */
 /* ------------------------------------------------------------------ */
-export function makeApp({ db, stripe, catalog, webhookSecret }) {
+// Default mailer for callers (including existing tests) that don't care
+// about email delivery: same shape as a real mailer's return value, so
+// handleCheckoutCompleted's success path is identical either way.
+const NOOP_MAILER = {
+  async sendKeyEmail() {
+    return { sent: false, reason: "not_configured" };
+  },
+};
+
+export function makeApp({ db, stripe, catalog, webhookSecret, mailer = NOOP_MAILER }) {
   const app = express();
   app.set("trust proxy", true);
 
@@ -235,7 +245,7 @@ export function makeApp({ db, stripe, catalog, webhookSecret }) {
 
       if (event.type === "checkout.session.completed") {
         try {
-          await handleCheckoutCompleted({ db, stripe, catalog, session: event.data.object });
+          await handleCheckoutCompleted({ db, stripe, catalog, mailer, session: event.data.object });
         } catch (err) {
           console.error("keybox: failed to process checkout.session.completed", err);
           // Non-2xx makes Stripe retry; createKey is idempotent on session id
@@ -352,7 +362,7 @@ export function makeApp({ db, stripe, catalog, webhookSecret }) {
   return app;
 }
 
-async function handleCheckoutCompleted({ db, stripe, catalog, session }) {
+async function handleCheckoutCompleted({ db, stripe, catalog, mailer, session }) {
   const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
 
   let isPass = false;
@@ -377,11 +387,46 @@ async function handleCheckoutCompleted({ db, stripe, catalog, session }) {
     return;
   }
 
-  createKey(db, {
+  const record = createKey(db, {
     kind: isPass ? "pass" : "themes",
     themes: isPass ? [] : Array.from(themeIds),
     session: session.id,
   });
+
+  // emailedAt gates this on top of createKey's own session-id idempotency:
+  // a webhook replay for an already-emailed session hits this same code
+  // path again (createKey just returns the existing row) and must not
+  // re-send. The buyer email is read straight off the Checkout session and
+  // never persisted — see the PII-free comment on db.js's SCHEMA.
+  const to = session.customer_details?.email ?? session.customer_email;
+  if (record.emailedAt == null && to) {
+    const themeNames = isPass
+      ? catalog.themes.map((t) => t.name)
+      : Array.from(themeIds)
+          .map((id) => catalog.getTheme(id)?.name)
+          .filter(Boolean);
+
+    try {
+      const result = await mailer.sendKeyEmail({ to, key: record.key, kind: record.kind, themeNames });
+      // Only the no-op mailer resolves (rather than throws) without sending
+      // — {sent:false, reason:"not_configured"}. Marking emailed_at there
+      // would be a lie (no email went out) and would permanently block a
+      // real send if Resend gets configured later and this session's
+      // webhook is ever replayed from the Stripe dashboard.
+      if (result?.sent) {
+        markEmailed(db, record.key);
+      }
+    } catch (err) {
+      // Best-effort only: the /success page is the real delivery guarantee,
+      // so a send failure must never fail the webhook or block key issuance.
+      // emailed_at stays NULL, so a future replay of this same session (if
+      // Stripe ever retries) gets another shot at sending it.
+      console.error(
+        `keybox: key email FAILED for session ${session.id} (key still retrievable via /success)`,
+        err,
+      );
+    }
+  }
 }
 
 /* The `node` user's fixed ids in the node:*-bookworm images. */
@@ -443,8 +488,15 @@ function main() {
   const db = openDb(DB_PATH);
   const stripe = new Stripe(STRIPE_API_KEY);
   const catalog = loadCatalog();
+  // Unset RESEND_API_KEY/EMAIL_FROM -> createMailer's no-op path. Email
+  // delivery is optional by design; see README's "Email delivery" section.
+  const mailer = createMailer({
+    apiKey: process.env.RESEND_API_KEY,
+    from: process.env.EMAIL_FROM,
+    replyTo: process.env.EMAIL_REPLY_TO,
+  });
 
-  const app = makeApp({ db, stripe, catalog, webhookSecret: STRIPE_WEBHOOK_SECRET });
+  const app = makeApp({ db, stripe, catalog, webhookSecret: STRIPE_WEBHOOK_SECRET, mailer });
   app.listen(PORT, () => {
     console.log(`keybox listening on :${PORT} (db: ${DB_PATH})`);
   });

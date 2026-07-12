@@ -20,7 +20,8 @@ CREATE TABLE IF NOT EXISTS keys (
   kind TEXT NOT NULL CHECK(kind IN ('pass','themes')),
   themes TEXT NOT NULL DEFAULT '[]',
   created_at INTEGER NOT NULL,
-  stripe_session TEXT UNIQUE
+  stripe_session TEXT UNIQUE,
+  emailed_at INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS activations (
@@ -48,6 +49,19 @@ export function openDb(path) {
   const db = new Database(path);
   db.pragma("journal_mode = WAL");
   db.exec(SCHEMA);
+
+  // CREATE TABLE IF NOT EXISTS never alters an existing table, so adding
+  // emailed_at to SCHEMA above only takes effect on a brand-new database.
+  // The live production DB already has a `keys` table without that column —
+  // this runtime migration is what actually adds it there. Guarded by
+  // table_info so it's a no-op (and safe to run on every boot) once the
+  // column exists, whether it got there via this ALTER or via CREATE TABLE
+  // on a fresh db.
+  const columns = db.prepare("PRAGMA table_info(keys)").all();
+  if (!columns.some((c) => c.name === "emailed_at")) {
+    db.exec("ALTER TABLE keys ADD COLUMN emailed_at INTEGER");
+  }
+
   return db;
 }
 
@@ -120,7 +134,18 @@ function rowToKey(row) {
     themes: JSON.parse(row.themes),
     createdAt: row.created_at,
     stripeSession: row.stripe_session,
+    emailedAt: row.emailed_at,
   };
+}
+
+/**
+ * Mark a key as having had its delivery email sent (or attempted-and-given-
+ * up-on — callers only call this on success). Separate from createKey
+ * because the email send happens after the key already exists and must
+ * never block or fail key creation itself.
+ */
+export function markEmailed(db, key) {
+  db.prepare(`UPDATE keys SET emailed_at = ? WHERE key = ?`).run(Date.now(), key);
 }
 
 export function activationCount(db, key) {
