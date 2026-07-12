@@ -147,13 +147,35 @@ if (!FAST) {
   check("finale shows the nav map + Settings nudge",
     /Live TV/.test(mapText) && /Discover/.test(mapText) && /Settings holds a lot more/.test(nudge));
   await page.getByRole("button", { name: "Enter BlammyTV" }).click();
-  // v0.4.31: the finale plays an in-component boot MIMIC — the real boot
-  // animation must never mount after onboarding.
-  const mimic = await page.waitForSelector(".onb-boot", { timeout: 10000 }).then(() => true).catch(() => false);
-  check("finale mounts the boot mimic inside the overlay", mimic);
+  // v0.4.36: the boot plays on PERSISTENT nodes via the is-boot class —
+  // nothing mounts, and the real boot animation must never appear.
+  const booted = await page
+    .waitForSelector(".onb.is-boot", { timeout: 10000 })
+    .then(() => true)
+    .catch(() => false);
+  check("finale enters the boot phase on the persistent nodes", booted);
   check("the real boot animation never mounts", !(await page.$(".welcome-overlay")));
-  // The overlay releases itself once the mimic's lockup settles
-  // (~700+2000+1000ms after the content swap) and the fade completes.
+  // Emergence landed: the persistent screen is fully up at its final
+  // geometry and the boot keyframes are attached to the frame.
+  const emerged = await page.evaluate(() => {
+    const scr = document.querySelector(".onb-screen");
+    const frame = document.querySelector(".onb-frame");
+    return {
+      screenOpacity: scr ? getComputedStyle(scr).opacity : null,
+      frameAnim: frame ? getComputedStyle(frame).animationName : null,
+    };
+  });
+  check("emergence landed: screen opaque, boot keyframes on the frame",
+    emerged.screenOpacity === "1" && /onb-boot-frame-shrink/.test(emerged.frameAnim ?? ""),
+    JSON.stringify(emerged));
+  // The spent steps-backdrop (veil/dither) unmounts shortly after.
+  const swept = await page
+    .waitForFunction(() => !document.querySelector(".onb-veil"), null, { timeout: 3000 })
+    .then(() => true)
+    .catch(() => false);
+  check("steps backdrop swept after the emergence", swept);
+  // The overlay releases itself once the lockup settles (~650+300+2000
+  // +500ms after the content swap) and the fade completes.
   const released = await page
     .waitForFunction(() => !document.querySelector(".onb"), null, { timeout: 9000 })
     .then(() => true)
@@ -162,7 +184,7 @@ if (!FAST) {
     onboarded: localStorage.getItem("btv:onboarded"),
     welcomeUp: !!document.querySelector(".welcome-overlay"),
   }));
-  check("completion persisted, overlay released, no boot after the mimic",
+  check("completion persisted, overlay released, no boot after the finale",
     state.onboarded === "1" && released && !state.welcomeUp,
     JSON.stringify({ ...state, released }));
   await page.close();
@@ -249,25 +271,25 @@ if (!FAST) {
   await page.close();
 }
 
-// 6. Skip setup: straight to the finale mimic, nothing saved, marked done.
+// 6. Skip setup: straight to the finale boot phase, nothing saved, marked done.
 if (!FAST) {
   const page = await newPage();
   await page.goto("http://localhost:4173/?onboarding=1");
   await page.waitForSelector(".onb");
   await page.getByRole("button", { name: "Skip setup" }).click();
-  const mimic = await page.waitForSelector(".onb-boot", { timeout: 10000 }).then(() => true).catch(() => false);
+  const booted = await page.waitForSelector(".onb.is-boot", { timeout: 10000 }).then(() => true).catch(() => false);
   const state = await page.evaluate(() => ({
     onboarded: localStorage.getItem("btv:onboarded"),
     aio: localStorage.getItem("blammytv.aiostreams"),
     welcomeUp: !!document.querySelector(".welcome-overlay"),
   }));
-  check("skip: marked done, no manifest saved, the mimic plays (no real boot)",
-    mimic && state.onboarded === "1" && state.aio === null && !state.welcomeUp,
+  check("skip: marked done, no manifest saved, the boot phase plays (no real boot)",
+    booted && state.onboarded === "1" && state.aio === null && !state.welcomeUp,
     JSON.stringify(state));
   await page.close();
 }
 
-// 7. Reduced motion: full skip-through works, no boot mimic, quick release.
+// 7. Reduced motion: full skip-through works, no boot phase, quick release.
 if (!FAST) {
   const page = await newPage({}, { reducedMotion: "reduce" });
   await page.goto("http://localhost:4173/?onboarding=1");
@@ -281,18 +303,19 @@ if (!FAST) {
   await page.waitForSelector(".onb-chips:not(.onb-chips--labeled)", { timeout: 8000 });
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.getByRole("button", { name: "Enter BlammyTV" }).click();
-  // No mimic for reduced motion: the finale is a quick fade to the app.
+  // No boot phase for reduced motion: the finale is a quick fade to the app.
   await page.waitForTimeout(300);
-  const mimicMounted = await page.evaluate(() => !!document.querySelector(".onb-boot"));
+  const bootClass = await page.evaluate(() =>
+    !!document.querySelector(".onb.is-boot"));
   await page.waitForTimeout(1200);
   const state = await page.evaluate(() => ({
     onbGone: !document.querySelector(".onb"),
     welcomeUp: !!document.querySelector(".welcome-overlay"),
     onboarded: localStorage.getItem("btv:onboarded"),
   }));
-  check("reduced motion: completes instantly, no mimic, no boot animation",
-    state.onbGone && !state.welcomeUp && !mimicMounted && state.onboarded === "1",
-    JSON.stringify({ ...state, mimicMounted }));
+  check("reduced motion: completes instantly, no boot phase, no boot animation",
+    state.onbGone && !state.welcomeUp && !bootClass && state.onboarded === "1",
+    JSON.stringify({ ...state, bootClass }));
   await page.close();
 }
 

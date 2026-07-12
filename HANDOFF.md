@@ -15,11 +15,55 @@ Audience: switchers from other Windows IPTV clients, Stremio users, ideally
 both — and explicitly *inviting to newcomers*; first-five-minutes activation
 weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
-## Live state (2026-07-12, dev v0.4.35 — ONBOARDING ERA)
+## Live state (2026-07-12, dev v0.4.36 — ONBOARDING ERA)
 
-- Dev is **v0.4.35**; natives sit at 0.4.0 (released). All suites green:
-  units 204/204, onboarding E2E 38/38, discover 59/59, credits 6/6,
-  probe 5/5.
+- Dev is **v0.4.36**; natives sit at 0.4.0 (released). All suites green:
+  units 204/204, onboarding E2E 40/40 (two new emergence guards),
+  discover 59/59, credits 6/6, probe 5/5.
+- **v0.4.36: PERSISTENT SCENE GRAPH + EMERGENCE — the finale end-state
+  (four-agent review; Adam picked "emergence + endgame now" + the
+  tightened timeline).** After v0.4.35 the residual artifact on Adam's
+  machine was diagnosed by the agents as INHERENT to animated mask
+  geometry: (a) the landing parked a by-design 12px fringe + square
+  corner slivers OUTSIDE the final edge until a wall-clock fade (worse
+  at 125% DPI/HDR; my own CSS comment described a tuck the code never
+  did); (b) the per-frame fullscreen mask re-raster can present STALE
+  TILES against the seat's current geometry under load — headless
+  screenshots synchronize with raster and structurally cannot see this,
+  which is why every "fixed" verdict shipped green. Conclusion: the
+  un-feather violated the rebuild's own law (nothing repaints per
+  frame). v0.4.36 finishes the law:
+  - **Persistent scene graph**: .onb-frame (holding the aurora),
+    .onb-screen, .onb-wordmark are the BOOT'S OWN ACTORS, in the DOM
+    from first render to app reveal. The finale flips two classes
+    (is-finale → is-boot); NOTHING ever mounts/remounts — no fresh
+    fullscreen layer is born anywhere in the sequence (the old mimic
+    mount was the last raster-timing bet).
+  - **Emergence**: the veil's mask is STATIC FOREVER (rasterizes once);
+    the finale is all opacity on painted-once layers — screen fades up
+    AT ITS FINAL GEOMETRY, veil/dither dissolve, aurora brightens
+    0.5→1, rAF spring lands rotation on 0 mod 360 (= the boot paint's
+    native angle). No moving boundaries: a wrong SHAPE is no longer
+    expressible; worst failure = briefly wrong brightness. RULE: never
+    reintroduce animated mask geometry or any per-frame-raster
+    primitive to the backdrop, bounded or not.
+  - **is-boot**: attaches onb-boot-* keyframes (welcome.css twins) to
+    the same nodes with a 300ms hold (INTENTIONAL divergence from the
+    cold boot's 700ms — this viewer stared at the frame all flow); the
+    paint drops to cover scale (invisible, conic scale-invariance) and
+    welcome-gradient-spin resumes = exact cold-boot parity. Flip
+    measured invisible (0.069% pixel delta, spin drift included).
+  - **Timeline tightened** (Adam approved): 650 condense + 300 hold +
+    2000 boot + 700 end-hold with the 450ms app-reveal fade overlapping
+    its last 200ms ≈ 4.0s finale (was 4.8s+).
+  - Emil Kowalski's design-eng skills added to .claude/skills (Adam).
+  - QUEUED: latent uiScale bug — lockupVars computes from visual
+    innerWidth but elements lay out in innerWidth/zoom, z-distorting
+    the boot lockup's end scale under UI scale ≠ 1 (geometry-agent
+    find; affects the real boot too; fix = divide by currentZoom() in
+    one shared helper, verify with zoomed screenshots first). Also
+    queued: a raster-throttled E2E harness (--slow-down-raster-scale-
+    factor) so stale-tile artifact classes become testable headless.
 - **v0.4.35: the morph geometry moved to JS (Adam's frame-by-frame after
   v0.4.34: the seat's hard edge STILL poked through the soft band on his
   WebView2, while headless Chromium — computed-value dumps + screenshots
