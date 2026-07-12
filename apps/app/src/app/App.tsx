@@ -32,8 +32,8 @@ export function App() {
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
   // First-run onboarding sits over everything and ENDS with its own
-  // boot-animation mimic (v0.4.31) — it owns that launch's boot, so
-  // welcome never follows it.
+  // boot phase (the boot's actors live inside the overlay, v0.4.36) —
+  // it owns that launch's boot, so welcome never follows it.
   const [onboarding, setOnboarding] = useState(shouldShowOnboarding);
   // Boot animation: plays over the shell while it loads, once per launch.
   const [welcome, setWelcome] = useState(

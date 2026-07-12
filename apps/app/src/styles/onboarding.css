@@ -42,11 +42,15 @@
   color: #fff;
   transition: opacity 400ms ease;
 }
-/* The release: the mimic's lockup has settled; fade the whole overlay
- * off the already-rendered app. Plain paint everywhere — no filter
- * layers exist to tear down. */
+/* The release: the boot lockup has settled; fade the whole overlay off
+ * the already-rendered app. Plain paint everywhere — no filter layers
+ * exist to tear down. pointer-events: none the moment the fade starts:
+ * the fade (400ms) finishes before onDone unmounts (450ms), and a
+ * fully-transparent overlay must not eat clicks meant for the app
+ * (audit find, v0.4.37). */
 .onb.is-leaving {
   opacity: 0;
+  pointer-events: none;
 }
 
 /* THE FRAME: the boot animation's gradient frame itself, alive from
@@ -90,8 +94,12 @@
   margin: -75vmax 0 0 -75vmax;
   opacity: 0.5;
   will-change: transform;
-  animation: onb-fade-in 1600ms ease-out backwards;
-  transition: opacity 600ms ease;
+  /* Entrance via @starting-style + this transition (NOT an animation:
+   * a running entrance animation would preempt the emergence's opacity
+   * transition on this same property — a user can Skip well inside the
+   * 1600ms window, and transitions retarget smoothly where animations
+   * fight; audit find, v0.4.37). */
+  transition: opacity 1600ms ease-out;
 }
 .onb-aurora .welcome-gradient-fit {
   transform: translate(-50%, -50%) scale(calc(var(--s) * 2.1));
@@ -103,9 +111,10 @@
 }
 /* The condense: the glow does not fade away — it RESOLVES to the boot
  * frame's full strength while the spin-down lands the paint on the
- * boot's angle. */
+ * boot's angle. (Emergence pace overrides the slow entrance pace.) */
 .onb.is-finale .onb-aurora {
   opacity: 1;
+  transition-duration: 600ms;
 }
 /* Boot phase: the paint drops to the boot's exact cover scale (pixel-
  * identical — conic scale-invariance; a stale frame during the layer's
@@ -143,10 +152,10 @@
   animation: onb-boot-screen-shrink 2000ms 300ms both;
 }
 
-/* THE WORDMARK: the boot's lockup text, mounted at the finale (2.7s
- * before it is ever visible — the text layer rasters long before its
- * fade-in, no fresh-layer bet). Base opacity 0; the boot keyframes own
- * its reveal. TWIN of welcome.css's .welcome-wordmark. */
+/* THE WORDMARK: the boot's lockup text, in the DOM from first render
+ * like its siblings (the text layer rasters ages before its reveal —
+ * no fresh-layer bet). Base opacity 0; only the is-boot keyframes ever
+ * show it. TWIN of welcome.css's .welcome-wordmark. */
 .onb-wordmark {
   position: absolute;
   top: 50%;
@@ -229,24 +238,28 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
+  opacity: 1;
   background-image:
     radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.05) 1px, transparent 1.3px),
     radial-gradient(circle at 3px 3px, rgba(255, 255, 255, 0.022) 1px, transparent 1.3px);
   background-size: 4px 4px, 8px 8px;
-  transition: opacity 600ms ease;
-  animation: onb-fade-in 1600ms ease-out backwards;
+  /* Entrance via @starting-style, same reasoning as the aurora's. */
+  transition: opacity 1600ms ease-out;
 }
 .onb.is-finale .onb-dither {
   opacity: 0;
+  transition-duration: 600ms;
 }
 
-/* Entrance fade, shared by the backdrop layers. FROM-only on purpose:
- * each element fills toward its OWN base opacity (aurora 0.5, dither
- * 1) — the old two-stop version hard-coded `to {opacity: 1}` and made
- * the half-strength glow enter at double brightness for 1600ms, then
- * snap down when the animation ended. */
-@keyframes onb-fade-in {
-  from {
+/* Backdrop entrance: @starting-style + the transitions above, so each
+ * layer fades toward its OWN base opacity (aurora 0.5, dither 1) and a
+ * finale that arrives mid-entrance RETARGETS smoothly — an entrance
+ * ANIMATION would keep owning `opacity` and stall the emergence (the
+ * v0.4.31 shared-keyframe bright-snap was the two-stop cousin of the
+ * same mistake). */
+@starting-style {
+  .onb-aurora,
+  .onb-dither {
     opacity: 0;
   }
 }
@@ -260,7 +273,7 @@
  * onboarding must never mount WelcomeAnimation.
  *
  * They attach to the PERSISTENT .onb-frame/.onb-screen/.onb-wordmark
- * nodes via .onb.is-boot (rules above) — no mimic subtree, no mount.
+ * nodes via .onb.is-boot (rules above) — no extra subtree, no mount.
  * The attachment delay is 300ms, an INTENTIONAL divergence from the
  * cold boot's 700ms hold: that hold establishes a frame the viewer has
  * never seen, and this viewer stared at it through the whole flow.
@@ -821,7 +834,7 @@
 }
 
 /* Reduced motion: no entrance choreography, and the finale is a quick
- * fade to the app (the component never mounts the boot mimic; its
+ * fade to the app (the component never enters the boot phase; its
  * timers run near-instant). Everything here is on plain timers now —
  * nothing waits on transitionend. */
 @media (prefers-reduced-motion: reduce) {
@@ -829,15 +842,16 @@
   .onb-stage.is-out > *,
   /* Restated: these rules are MORE specific than the wildcard above. */
   .onb-stage.is-in > .onb-lockup,
-  .onb-stage.is-in > .onb-btn--hero,
-  .onb-aurora,
-  .onb-dither {
+  .onb-stage.is-in > .onb-btn--hero {
     animation: none;
   }
-  .onb,
+  /* NOT .onb itself: the overlay's release fade is exactly the kind of
+   * comprehension-aiding opacity transition reduced motion KEEPS
+   * (guidance: remove movement, keep gentle fades). */
   .onb-aurora,
   .onb-veil,
-  .onb-dither {
+  .onb-dither,
+  .onb-screen {
     transition-duration: 1ms;
   }
   /* No boot phase plays here — the finale is a quick fade to the app —

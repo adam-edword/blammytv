@@ -15,11 +15,46 @@ Audience: switchers from other Windows IPTV clients, Stremio users, ideally
 both — and explicitly *inviting to newcomers*; first-five-minutes activation
 weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
-## Live state (2026-07-12, dev v0.4.36 — ONBOARDING ERA)
+## Live state (2026-07-12, dev v0.4.37 — ONBOARDING ERA)
 
-- Dev is **v0.4.36**; natives sit at 0.4.0 (released). All suites green:
+- Dev is **v0.4.37**; natives sit at 0.4.0 (released). All suites green:
   units 204/204, onboarding E2E 40/40 (two new emergence guards),
   discover 59/59, credits 6/6, probe 5/5.
+- **v0.4.37: audit fixes (two Sonnet agents reviewed v0.4.36 — one
+  adversarial, one against the Emil Kowalski motion standards now in
+  .claude/skills):**
+  - **Entrance animation/transition collision (real bug, reachable):**
+    the aurora/dither entrance was a 1600ms CSS ANIMATION while the
+    emergence is a TRANSITION on the same `opacity` — a running
+    animation preempts a transition, so Skip inside the first 1.6s
+    stalled/desynced the emergence. Entrances are now @starting-style +
+    transitions (1600ms base, is-finale overrides to 600ms) — a
+    mid-entrance finale RETARGETS smoothly (verified empirically).
+    RULE: entrance effects on emergence-managed properties must be
+    transitions, never animations.
+  - **Reduced motion kept the release fade** (dropped `.onb` from the
+    1ms transition-duration list): guidance keeps comprehension-aiding
+    opacity fades; the 400ms release fits before the 550ms unmount.
+    `.onb-screen` added to the 1ms list (defensive).
+  - **`.onb.is-leaving` gets pointer-events: none** — the overlay is
+    fully transparent 50ms before onDone unmounts it and must not eat
+    clicks meant for the app.
+  - **Wordmark now truly persistent** (rendered from first render like
+    frame/screen, base opacity 0) — the "nothing ever mounts" claim is
+    now literally true; and all stale "mimic"-era comments purged
+    across Onboarding.tsx / onboarding.css / App.tsx / welcome.ts
+    (the audit's top find: comments contradicting code, this repo's
+    twice-burned failure mode).
+  - Provenance note: the flip/mount pixel-delta measurements quoted in
+    these entries (0.05-0.07%) came from session-local pixelmatch
+    harnesses against `pnpm preview`, not from anything committed; a
+    committed screenshot-diff + raster-throttle harness stays QUEUED.
+  - Motion-review taste items (NOT applied — they alter Adam-approved
+    steps feel; his call): stagger 90ms→~65ms (standards say 30-80);
+    onb-out's curve reads ease-in-shaped, could be ease-out; onb-btn
+    180ms→160ms; hover rules ungated by (hover:hover); swatch :active
+    squish; emergence `ease` → the steps' signature cubic-bezier(0.22,
+    1, 0.36, 1) for vocabulary cohesion.
 - **v0.4.36: PERSISTENT SCENE GRAPH + EMERGENCE — the finale end-state
   (four-agent review; Adam picked "emergence + endgame now" + the
   tightened timeline).** After v0.4.35 the residual artifact on Adam's

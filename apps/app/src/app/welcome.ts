@@ -1,6 +1,6 @@
 /** Launch gate + shared geometry for the welcome/boot animation (see
- * WelcomeAnimation.tsx — and Onboarding.tsx, whose finale plays a mimic
- * copy of the boot timeline over the same geometry). */
+ * WelcomeAnimation.tsx — and Onboarding.tsx, whose finale plays twin
+ * copies of the boot keyframes over the same geometry). */
 
 import type { CSSProperties } from "react";
 
@@ -23,7 +23,7 @@ const FRAME_Y = 73; // top + bottom frame thickness
  * depends on the window: compute the per-axis factors that land the
  * viewport-sized elements on the fixed lockup geometry. --s carries the
  * mock's cover factor so the lockup itself sizes like the design.
- * SHARED between the boot animation and onboarding's finale mimic — the
+ * SHARED between the boot animation and onboarding's boot phase — the
  * keyframes are twins (copied), but the geometry must never drift. */
 export function lockupVars(): CSSProperties {
   const vw = window.innerWidth;

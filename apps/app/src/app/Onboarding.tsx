@@ -56,13 +56,13 @@ import { lockupVars, markWelcomePlayed } from "./welcome";
 
 /**
  * First-run onboarding (Adam's mockup, 2026-07-11; backdrop rebuilt
- * ground-up in v0.4.31): a living aurora — the brand's color sweep
- * drifting around the viewport edges over a Bayer-style dither field.
- * Each advance gives it a quick "thinking" spin; the finale condenses
- * the glow into the boot animation's opening frame and plays an
- * onboarding-owned MIMIC of the whole boot timeline, then fades to the
- * app — the boot animation IS the onboarding's last scene, and no
- * separate component ever mounts for it.
+ * ground-up in v0.4.31, finished in v0.4.36): a living aurora — the
+ * brand's color sweep drifting around the viewport edges over a
+ * Bayer-style dither field. Each advance gives it a quick "thinking"
+ * spin; the finale condenses the glow into the boot animation's
+ * opening frame and plays the boot timeline on the overlay's own
+ * persistent nodes, then fades to the app — the boot animation IS the
+ * onboarding's last scene, and nothing ever mounts for it.
  *
  * The source steps VERIFY, not just collect (v0.4.21): Continue runs
  * the real connection machinery (probeAioStreams for AIOStreams — the
@@ -82,17 +82,14 @@ import { lockupVars, markWelcomePlayed } from "./welcome";
 const BASE_DEG_S = 16;
 const BURST_DEG_S = 320;
 const BURST_MS = 700;
-/** Glow architecture (v0.4.31 rebuild, geometry fixed in v0.4.32): NO
- * FILTERS, ANYWHERE on the backdrop. Five versions of flicker fixes
- * (v0.4.26→30) all fought the same sin — animating giant blur() layers
- * on Chromium — so the rebuild removes the primitive itself. The aurora
- * is ONE unfiltered conic disc (oklab sweep, unmasked — it paints the
- * whole viewport like the old blurred disc did), spun transform-only
- * from the rAF loop; a static veil in the old cover's exact rounded-
- * rect geometry darkens the center, its softness box-shadow math
- * instead of blur. With no filter there is nothing to re-rasterize,
- * smear, or raster-storm; once the finale condenses, the backdrop
- * layers unmount outright and the rAF loop stops.
+/** Glow architecture: NO FILTERS, ANYWHERE on the backdrop. Five
+ * versions of flicker fixes (v0.4.26→30) all fought the same sin —
+ * animating giant blur() layers on Chromium — so the v0.4.31 rebuild
+ * removed the primitive itself. The aurora is the boot's own gradient
+ * spun transform-only from the rAF loop; a static intersect-masked
+ * veil darkens the center. Nothing re-rasterizes, smears, or
+ * raster-storms; once the finale condenses, the spent backdrop layers
+ * unmount and the rAF loop stops.
  *
  * The finale never hands off to anything (v0.4.36, PERSISTENT SCENE
  * GRAPH + EMERGENCE — the four-agent review's verdict, Adam's pick):
@@ -178,7 +175,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
    * receiving transform writes) are exactly the compositor-churn class
    * Adam's machine punishes. */
   const [condensed, setCondensed] = useState(false);
-  /** The overlay's exit fade — set once the mimic's lockup has settled. */
+  /** The overlay's exit fade — set once the boot lockup has settled. */
   const [leaving, setLeaving] = useState(false);
   const [vars, setVars] = useState(lockupVars);
   // Once a step's entrance has played, the animations are REMOVED
@@ -211,7 +208,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   }, []);
 
   /** Fixed at mount, like the rAF gate below: reduced-motion users get a
-   * quick fade to the app instead of the boot mimic. */
+   * quick fade to the app instead of the boot phase. */
   const reducedMotion = useRef(
     window.matchMedia("(prefers-reduced-motion: reduce)").matches,
   ).current;
@@ -287,7 +284,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   const cursorRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     // Once the condense retires the backdrop layers there is nothing
-    // left to animate — the loop must not tick under the boot mimic.
+    // left to animate — the loop must not tick under the boot phase.
     if (condensed) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     let raf = 0;
@@ -309,9 +306,9 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
         // damped spring takes the disc (velocity-continuous, from
         // drift or mid-burst alike) to the NEAREST full turn, where
         // its frozen boot paint sits at the boot's native angle — so
-        // the mimic's first frame matches pixel-for-pixel. ω=12 puts
+        // the boot phase opens pixel-for-pixel on it. ω=12 puts
         // the residual under a couple hundredths of a degree by the
-        // mimic's mount at CONDENSE_MS.
+        // is-boot flip at CONDENSE_MS.
         if (landTarget === null) {
           landTarget = Math.round(angleRef.current / 360) * 360;
         }
@@ -1004,11 +1001,9 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
         </div>
       </div>
       <div className="onb-screen" aria-hidden />
-      {finale && !reducedMotion && (
-        <p className="onb-wordmark" aria-hidden>
-          BlammyTV
-        </p>
-      )}
+      <p className="onb-wordmark" aria-hidden>
+        BlammyTV
+      </p>
       {/* The spent steps-backdrop unmounts at BACKDROP_RELEASE_MS — all
        * three are at opacity 0 by then; removal reveals nothing. */}
       {!condensed && (

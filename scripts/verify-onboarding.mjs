@@ -340,8 +340,8 @@ if (!FAST) {
   await page.close();
 }
 
-// 9. Cold boot: the REAL WelcomeAnimation still works — the mimic is a
-//    COPY, so nothing else exercises these styles. Assert the backdrop's
+// 9. Cold boot: the REAL WelcomeAnimation still works — onboarding's boot phase uses
+//    keyframe COPIES, so nothing else exercises these styles. Assert the backdrop's
 //    rule actually APPLIES (v0.4.31 shipped with the whole rule dead: a
 //    star-slash inside a comment terminated it early and the parser ate
 //    .welcome-backdrop — fullscreen unshrunk gradient, Adam's repro),
