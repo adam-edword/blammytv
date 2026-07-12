@@ -36,7 +36,11 @@
  * TWIN: onboarding's finale plays a COPY of this timeline (the onb-boot-*
  * keyframes in onboarding.css) — the hand-off to this component is gone
  * (v0.4.31); if the boot timeline ever changes, UPDATE BOTH files. The
- * geometry vars (--s/--tv-*/--scr-*) are shared via welcome.ts. */
+ * geometry vars (--s, --tv-sx/sy, --scr-sx/sy) are shared via welcome.ts.
+ * (NEVER write "--tv-*" then a slash in a comment: the star-slash pair
+ * TERMINATES it, the tail leaks out as garbage CSS, and the parser eats
+ * the next rule whole — v0.4.31 shipped with .welcome-backdrop dead and
+ * the boot animation broken exactly this way.) */
 .welcome-backdrop {
   position: absolute;
   inset: 0;

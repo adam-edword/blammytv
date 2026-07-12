@@ -24,16 +24,18 @@
   opacity: 0;
 }
 
-/* THE AURORA (v0.4.31): one unfiltered disc, spun transform-only from
- * the rAF loop. The conic sweep interpolates in oklab (the hue seams
- * the old mega-blur used to smooth), and the radial annulus mask —
- * ON the disc itself, so it rasterizes into the same cached layer and
- * rotates with it (rotationally symmetric: invisible) — feathers the
- * color into a soft band. will-change pins the layer so the rAF
- * rotation never re-rasters. Centered via margins, NOT translate —
- * the rAF loop owns transform. NEVER put a mask/filter on a wrapper
- * around this element: flattening it into a parent's layer brings the
- * per-frame repaint back. */
+/* THE AURORA (v0.4.31, geometry fixed in v0.4.32): one unfiltered disc,
+ * spun transform-only from the rAF loop. The conic sweep interpolates
+ * in oklab (the hue seams the old mega-blur used to smooth); the dark
+ * center comes from the VEIL below — the disc itself paints the whole
+ * viewport, exactly like the old blurred disc did. (v0.4.31 masked the
+ * disc into a circular annulus instead: a circle in disc-space samples
+ * anisotropically in viewport-space — full color at the side edges,
+ * nearly none at top/bottom — and read as a dim OVAL, Adam's repro.)
+ * will-change pins the layer so the rAF rotation never re-rasters.
+ * Centered via margins, NOT translate — the rAF loop owns transform.
+ * NEVER put a mask/filter on a wrapper around this element: flattening
+ * it into a parent's layer brings the per-frame repaint back. */
 .onb-aurora {
   position: absolute;
   left: 50%;
@@ -59,26 +61,6 @@
     #ff8bc9 103.89%,
     #ff7bf6 112.66%
   );
-  -webkit-mask-image: radial-gradient(
-    closest-side,
-    transparent 0%,
-    transparent 32%,
-    rgba(0, 0, 0, 0.5) 44%,
-    #000 54%,
-    #000 68%,
-    rgba(0, 0, 0, 0.4) 78%,
-    transparent 86%
-  );
-  mask-image: radial-gradient(
-    closest-side,
-    transparent 0%,
-    transparent 32%,
-    rgba(0, 0, 0, 0.5) 44%,
-    #000 54%,
-    #000 68%,
-    rgba(0, 0, 0, 0.4) 78%,
-    transparent 86%
-  );
   animation: onb-fade-in 1600ms ease-out backwards;
   transition: opacity 600ms ease;
 }
@@ -86,24 +68,49 @@
   opacity: 0;
 }
 
-/* The dark center: a STATIC viewport-fitted elliptical veil over the
- * aurora, playing the old rounded-rect cover's role, aspect-correct at
- * any window shape. Nothing here ever animates except the finale fade. */
+/* The dark center: a fullscreen black sheet whose EDGES are carved
+ * away by two intersecting linear-gradient masks (a horizontal ramp ×
+ * a vertical ramp). The product reproduces what the old blurred cover
+ * did: a soft rectangle-following falloff — most open in the corners
+ * (both ramps low there), a ~200px feathered band along every edge,
+ * solid black center — with the exact profile in the stops, no box
+ * silhouette, no filter. Static: the mask rasterizes once into the
+ * layer; nothing here ever animates except the finale fade.
+ * (mask-composite: intersect is Chromium 120+; WebView2 evergreen is
+ * far past that.) */
 .onb-veil {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  /* farthest-CORNER metric: edge midpoints sit at ~71%, corners at
-   * 100% — so the stops can hold the edges mostly dark while the
-   * corners keep the most color, like the old blurred cover did. */
-  background: radial-gradient(
-    farthest-corner at 50% 50%,
-    #000 40%,
-    rgba(0, 0, 0, 0.96) 58%,
-    rgba(0, 0, 0, 0.82) 71%,
-    rgba(0, 0, 0, 0.3) 88%,
-    transparent 100%
-  );
+  background: #000;
+  mask-image:
+    linear-gradient(
+      to right,
+      rgba(0, 0, 0, 0.4) 0,
+      rgba(0, 0, 0, 0.62) 70px,
+      rgba(0, 0, 0, 0.86) 140px,
+      rgba(0, 0, 0, 0.97) 200px,
+      #000 260px,
+      #000 calc(100% - 260px),
+      rgba(0, 0, 0, 0.97) calc(100% - 200px),
+      rgba(0, 0, 0, 0.86) calc(100% - 140px),
+      rgba(0, 0, 0, 0.62) calc(100% - 70px),
+      rgba(0, 0, 0, 0.4) 100%
+    ),
+    linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.4) 0,
+      rgba(0, 0, 0, 0.62) 70px,
+      rgba(0, 0, 0, 0.86) 140px,
+      rgba(0, 0, 0, 0.97) 200px,
+      #000 260px,
+      #000 calc(100% - 260px),
+      rgba(0, 0, 0, 0.97) calc(100% - 200px),
+      rgba(0, 0, 0, 0.86) calc(100% - 140px),
+      rgba(0, 0, 0, 0.62) calc(100% - 70px),
+      rgba(0, 0, 0, 0.4) 100%
+    );
+  mask-composite: intersect;
   transition: opacity 600ms ease;
 }
 .onb.is-finale .onb-veil {
@@ -156,6 +163,12 @@
  * unfiltered paint, cheap to repaint, exactly like the real boot).
  * The mimic is NOT input-skippable — the step actions all no-op once
  * `finale` is set, and no skip listener exists here on purpose. */
+/* Fade-in is opacity ONLY (v0.4.32): the v0.4.31 wrapper also ran a
+ * scale settle, whose end collapsed the wrapper's compositor layer
+ * 100ms before the children's shrink animations promoted new ones —
+ * exactly the promotion-flip churn that produced stale-layer artifacts
+ * on Adam's machine through v0.4.26-29. The boot's own motion sells
+ * the resolve; the wrapper only fades. */
 .onb-boot {
   position: absolute;
   inset: 0;
@@ -164,11 +177,6 @@
 @keyframes onb-boot-in {
   from {
     opacity: 0;
-    transform: scale(1.02);
-  }
-  to {
-    opacity: 1;
-    transform: none;
   }
 }
 

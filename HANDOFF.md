@@ -15,11 +15,41 @@ Audience: switchers from other Windows IPTV clients, Stremio users, ideally
 both — and explicitly *inviting to newcomers*; first-five-minutes activation
 weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
-## Live state (2026-07-12, dev v0.4.31 — ONBOARDING ERA)
+## Live state (2026-07-12, dev v0.4.32 — ONBOARDING ERA)
 
-- Dev is **v0.4.31** on `blammytv-0.4.0-push`; natives sit at 0.4.0
-  (released). All suites green: units 204/204, onboarding E2E 36/36,
+- Dev is **v0.4.32**; natives sit at 0.4.0 (released). All suites green:
+  units 204/204, onboarding E2E 38/38 (two new cold-boot guards),
   discover 59/59, credits 6/6, probe 5/5.
+- **v0.4.32: THE TWO v0.4.31 SHIP-BREAKERS FIXED (Adam's repro:
+  onboarding "just an oval", boot animation broken).**
+  1. **Boot animation was killed by a COMMENT.** welcome.css's TWIN
+     comment wrote `(--s/--tv-*/--scr-*)` — the star-slash inside
+     `--tv-*/` TERMINATED the comment; the tail leaked out as garbage
+     CSS and the parser ate the ENTIRE `.welcome-backdrop` rule
+     (proven: computed animationName "none", rect 1600×0; the unclipped
+     gradient child painted fullscreen while screen/wordmark animated —
+     Adam's exact screenshot). Comment reworded; E2E section 9 now
+     asserts the backdrop rule APPLIES and the frame really shrinks, so
+     a dead rule can never ship green again. Lesson: never write `*/`
+     inside a CSS comment; a per-file open/close count catches it
+     (`grep -o "/\*" f | wc -l` vs `"\*/"`).
+  2. **The "oval": v0.4.31's disc mask was a circle in DISC-space** —
+     sampled anisotropically by the viewport (full color at the side
+     edges, none at top/bottom) — and its elliptical veil held
+     everything dim. Rebuilt to the v0.4.30 look, still zero-filter:
+     the disc is UNMASKED (paints the whole viewport, like the old
+     blurred disc); the dark center is a fullscreen black veil carved
+     by TWO INTERSECTING linear-gradient masks (x-ramp × y-ramp,
+     mask-composite: intersect — rectangle-following ~200px feathered
+     band, corners most open, no box silhouette, static/painted-once).
+     Side-by-side vs a v0.4.30 worktree build: matches.
+  Also hardened the finale for Adam's compositor-artifact-prone
+  machine: backdrop layers (aurora/veil/dither/cursor glow) UNMOUNT
+  650ms into the finale and the rAF loop stops — the mimic plays over
+  plain black, no invisible pinned 150vmax layer still receiving
+  transform writes; the mimic wrapper's fade-in is opacity-only (the
+  v0.4.31 scale settle collapsed its layer 100ms before the children's
+  shrink promoted new ones — v0.4.26-29-class promotion churn).
 - **v0.4.31: ONBOARDING BACKDROP REBUILT GROUND-UP (Adam's call after
   v0.4.30 still misbehaved in-app: start glow double-bright then
   snapping down at 1.6s — a shared entrance keyframe hard-coded

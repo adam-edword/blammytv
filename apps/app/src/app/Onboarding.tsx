@@ -82,15 +82,17 @@ import { lockupVars, markWelcomePlayed } from "./welcome";
 const BASE_DEG_S = 16;
 const BURST_DEG_S = 320;
 const BURST_MS = 700;
-/** Glow architecture (v0.4.31, the ground-up rebuild): NO FILTERS,
- * ANYWHERE on the backdrop. Five versions of flicker fixes (v0.4.26→30)
- * all fought the same sin — animating giant blur() layers on Chromium —
- * so the rebuild removes the primitive itself. The aurora is ONE
- * unfiltered conic disc whose softness is gradient/mask math (oklab
- * sweep + a radial annulus mask baked into the disc's own layer), spun
- * transform-only from the rAF loop; a static elliptical veil darkens
- * the center (viewport-shaped, replacing the old blurred cover). With
- * no filter there is nothing to re-rasterize, smear, or raster-storm.
+/** Glow architecture (v0.4.31 rebuild, geometry fixed in v0.4.32): NO
+ * FILTERS, ANYWHERE on the backdrop. Five versions of flicker fixes
+ * (v0.4.26→30) all fought the same sin — animating giant blur() layers
+ * on Chromium — so the rebuild removes the primitive itself. The aurora
+ * is ONE unfiltered conic disc (oklab sweep, unmasked — it paints the
+ * whole viewport like the old blurred disc did), spun transform-only
+ * from the rAF loop; a static veil in the old cover's exact rounded-
+ * rect geometry darkens the center, its softness box-shadow math
+ * instead of blur. With no filter there is nothing to re-rasterize,
+ * smear, or raster-storm; once the finale condenses, the backdrop
+ * layers unmount outright and the rAF loop stops.
  *
  * The finale no longer hands off to WelcomeAnimation: it plays an
  * onboarding-owned MIMIC copy of the boot timeline (onb-boot-* in
@@ -142,6 +144,12 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   const [step, setStep] = useState(0);
   const [phase, setPhase] = useState<"in" | "out">("in");
   const [finale, setFinale] = useState(false);
+  /** Condense finished (aurora/veil/dither fully faded): the backdrop
+   * layers UNMOUNT and the rAF loop stops, so the boot mimic plays over
+   * plain black with zero stale layers underneath. Invisible zombie
+   * layers (a 150vmax pinned texture still receiving transform writes)
+   * are exactly the compositor-churn class Adam's machine punishes. */
+  const [condensed, setCondensed] = useState(false);
   /** The overlay's exit fade — set once the mimic's lockup has settled. */
   const [leaving, setLeaving] = useState(false);
   const [vars, setVars] = useState(lockupVars);
@@ -196,6 +204,9 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     const settleMs = reducedMotion
       ? 100
       : BOOT_START_HOLD_MS + BOOT_TIMELINE_MS + BOOT_END_HOLD_MS;
+    // Past the 600ms backdrop fades (and inside the mimic's 700ms
+    // opening hold): drop the spent layers before the boot moves.
+    const condense = window.setTimeout(() => setCondensed(true), 650);
     const leave = window.setTimeout(() => setLeaving(true), settleMs);
     const done = window.setTimeout(() => {
       if (doneRef.current) return;
@@ -203,6 +214,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
       onDoneRef.current();
     }, settleMs + RELEASE_FADE_MS);
     return () => {
+      window.clearTimeout(condense);
       window.clearTimeout(leave);
       window.clearTimeout(done);
     };
@@ -235,6 +247,9 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   // not appear stuck at 0,0 for those users).
   const cursorRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    // Once the condense retires the backdrop layers there is nothing
+    // left to animate — the loop must not tick under the boot mimic.
+    if (condensed) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     let raf = 0;
     let last = performance.now();
@@ -256,9 +271,9 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           : BASE_DEG_S;
       velRef.current += (speed - velRef.current) * Math.min(1, dt * 7);
       angleRef.current = angleRef.current + velRef.current * dt;
-      // Transform-only rotation: the disc's blurred texture is cached
-      // (filter runs BEFORE transform) — the compositor rotates it on
-      // the GPU with zero repaints. Write only on visible change.
+      // Transform-only rotation: the compositor spins the disc's cached
+      // (unfiltered, painted-once) texture on the GPU with zero
+      // repaints. Write only on visible change.
       const next = `rotate(${(angleRef.current % 360).toFixed(2)}deg)`;
       if (next !== lastAngleWrite) {
         lastAngleWrite = next;
@@ -285,7 +300,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
       cancelAnimationFrame(raf);
       window.removeEventListener("pointermove", onMove);
     };
-  }, []);
+  }, [condensed]);
 
   const think = () => {
     burstUntil.current = performance.now() + BURST_MS;
@@ -913,10 +928,16 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
       }
       style={vars}
     >
-      <div className="onb-aurora" ref={discRef} aria-hidden />
-      <div className="onb-veil" aria-hidden />
-      <div className="onb-dither" />
-      <div ref={cursorRef} className="onb-cursor-glow" aria-hidden />
+      {/* Backdrop layers unmount once the condense finishes: the mimic
+       * must play over plain black, not over invisible pinned layers. */}
+      {!condensed && (
+        <>
+          <div className="onb-aurora" ref={discRef} aria-hidden />
+          <div className="onb-veil" aria-hidden />
+          <div className="onb-dither" />
+          <div ref={cursorRef} className="onb-cursor-glow" aria-hidden />
+        </>
+      )}
       {finale && !reducedMotion && (
         <div className="onb-boot" aria-hidden>
           <div className="onb-boot__frame">

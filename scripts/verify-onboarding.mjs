@@ -317,6 +317,38 @@ if (!FAST) {
   await page.close();
 }
 
+// 9. Cold boot: the REAL WelcomeAnimation still works — the mimic is a
+//    COPY, so nothing else exercises these styles. Assert the backdrop's
+//    rule actually APPLIES (v0.4.31 shipped with the whole rule dead: a
+//    star-slash inside a comment terminated it early and the parser ate
+//    .welcome-backdrop — fullscreen unshrunk gradient, Adam's repro),
+//    and that the frame-shrink really lands on the lockup tile.
+if (!FAST) {
+  const page = await newPage({ "btv:onboarded": "1" });
+  await page.goto("http://localhost:4173/?welcome=1");
+  await page.waitForSelector(".welcome-overlay", { timeout: 8000 });
+  const applied = await page.$eval(".welcome-backdrop", (el) => {
+    const cs = getComputedStyle(el);
+    return {
+      h: el.getBoundingClientRect().height,
+      anim: cs.animationName,
+    };
+  });
+  check("cold boot: backdrop rule applies (styles parsed, shrink armed)",
+    applied.h > 100 && /welcome-frame-shrink/.test(applied.anim),
+    JSON.stringify(applied));
+  // Past the shrink's landing (~700ms delay + 737ms track): the frame
+  // must have left fullscreen for the tile.
+  await page.waitForTimeout(2200);
+  const shrunk = await page.$eval(".welcome-backdrop", (el) => {
+    const r = el.getBoundingClientRect();
+    return { w: r.width, h: r.height };
+  });
+  check("cold boot: the gradient frame actually shrinks into the lockup",
+    shrunk.w < 300 && shrunk.h < 300, JSON.stringify(shrunk));
+  await page.close();
+}
+
 await browser.close();
 const pass = results.filter(Boolean).length;
 console.log(`${pass}/${results.length}`);
