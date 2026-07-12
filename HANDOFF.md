@@ -15,7 +15,16 @@ Audience: switchers from other Windows IPTV clients, Stremio users, ideally
 both — and explicitly *inviting to newcomers*; first-five-minutes activation
 weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
-## Live state (2026-07-12, dev v0.4.42 — ONE-PIECE BOOT, old endgame back)
+## Live state (2026-07-12, dev v0.4.42 — ONBOARDING DECLARED DONE)
+
+**Adam signed off the onboarding/boot experience at v0.4.42** ("i think
+we can consider onboarding done") after his Windows pass on the full
+stack: one-piece boot motion, old released endgame spring, thin border,
+splash-sized y-centered lockup, 0.5 idle glow, flash-free opaque cold
+boot on true black. Treat the boot/onboarding surface as FROZEN — no
+further motion changes without a fresh ask from Adam. Still queued
+(unchanged): the uiScale ≠ 1 bootVars visual/layout-px bug, the
+committed raster-throttle E2E harness.
 
 - Dev is **v0.4.42**; natives sit at 0.4.0 (released). All suites green:
   units 204/204, onboarding E2E 44/44 (blur-safety frame sampler +
