@@ -1,5 +1,6 @@
 /* THE ONE-PIECE BOOT MOTION (BootScene.tsx) — Adam's Figma spec
- * ("Wireframe - 5", node 272:1000, 2530ms timeline), v0.4.39.
+ * ("Wireframe - 5", node 272:1000; endgame re-married to the old
+ * released welcome's motion in v0.4.41 — 3200ms total).
  *
  * One scene, two surfaces: Onboarding renders it persistently under the
  * steps (its backdrop IS frame zero of this timeline), and cold boots
@@ -12,22 +13,27 @@
  *   .boot-screen   solid-black rounded rect, blur-softened during idle
  *   .boot-wordmark the lockup text, hidden until the slide
  *
- * The timeline (fractions of 2530ms):
+ * The timeline (of 3200ms total):
  *   P1 landing 0→830ms: the sheet unwinds to rotation 0 (rAF, ≥1.5
  *      turns), brightens 0.5→1, scaleY settles 1.15→1 (runs to
  *      1490ms); the screen UNBLURS 108.4px·s→0 with its geometry
  *      FROZEN. All the softness in the design is this one blur.
- *   P2 shrink 830→1490ms: frame→76·s tile, screen→43.07·s hole,
- *      near-concentric (drifting 51.5·s up), plain ease-in-out.
- *   P3 slide 1490→2000ms: lockup eases 213.6·s left; wordmark fades
- *      and slides in from +86.9·s.
+ *   P2 shrink 830→1567ms: frame→76·s tile, screen→43.07·s hole,
+ *      concentric, ease-in-out; ~130ms hold on the landed tile.
+ *   P3 spring 1698→2686ms: the lockup springs 213.59·s left on the
+ *      OLD released welcome's sampled spring (~2.8% overshoot); the
+ *      wordmark is a PURE fade (no slide), 2003→2680ms — the v0.4.0
+ *      endgame motion Adam asked back (v0.4.41), replacing the mock's
+ *      short ease+slide.
+ *   P4 hold →3200ms, then the host's release fade.
  *
- * FULL-CIRCLE LANDING (v0.4.40): the end lockup is sized and placed to
- * land EXACTLY in the onboarding splash lockup's footprint at s=1
- * (76px mark, 84px wordmark, 18px gap, lockup center 51.5px above
- * viewport center — measured from the rendered splash, not eyeballed).
- * The splash is fixed-px while this scales with --s, so on larger
- * windows the finale lands "a little bigger" — Adam's spec verbatim.
+ * FULL-CIRCLE LANDING (v0.4.40, y-centered in v0.4.41): the end lockup
+ * is sized to the onboarding splash lockup (76px mark, 84px wordmark,
+ * 18px gap — measured from the rendered splash, not eyeballed) and
+ * sits y-centered in the viewport (Adam's call over the splash's
+ * 51.5px-high position). The splash is fixed-px while this scales with
+ * --s, so on larger windows the finale lands "a little bigger" —
+ * Adam's spec verbatim.
  *   P4 hold →2530ms, then the host's release fade.
  *
  * BLUR RULES (the v0.4.26-30 war's terms for readmitting filter):
@@ -83,7 +89,7 @@
   border-radius: calc(33px * var(--s));
 }
 .boot-scene.is-shrink .boot-frame {
-  animation: btv-boot-frame 1700ms both;
+  animation: btv-boot-frame 2000ms both;
 }
 
 /* THE SHEET: an oversized rotator (2438×2207 design px × 1.15 rotation
@@ -173,7 +179,10 @@
  * frozen for the whole animated-blur window. */
 .boot-screen {
   position: absolute;
-  inset: calc(71.5px * var(--s)) calc(72px * var(--s));
+  /* The old released welcome's frame thickness (36.5/35·s at the design
+   * size) — v0.4.41 halved the mock's 71.5/72, per Adam ("pretty
+   * thicc"); the idle glow ring thins with it (his explicit trade). */
+  inset: calc(36.5px * var(--s)) calc(35px * var(--s));
   border-radius: calc(100px * var(--s));
   background: #000;
   corner-shape: superellipse(1.58);
@@ -193,18 +202,19 @@
   filter: none;
 }
 .boot-scene.is-shrink .boot-screen {
-  animation: btv-boot-screen 1700ms both;
+  animation: btv-boot-screen 2000ms both;
 }
 
-/* THE WORDMARK: persistent, hidden until the slide phase reveals it.
- * Metrics mirror the splash's .onb-word (84px, -1.7px tracking) at the
- * splash's measured position, ·s. */
+/* THE WORDMARK: persistent, hidden until the spring phase fades it in
+ * (a PURE fade at its final position — the old released motion; the
+ * mock's slide-in died in v0.4.41). Metrics mirror the splash's
+ * .onb-word (84px, -1.7px tracking), ·s. */
 .boot-wordmark {
   position: absolute;
-  top: calc(50% - 51.5px * var(--s));
+  top: 50%;
   left: calc(50% - 157.59px * var(--s));
   margin: 0;
-  transform: translateY(-50%) translateX(calc(86.9px * var(--s)));
+  transform: translateY(-50%);
   font-family: var(--font-headline);
   font-size: calc(84px * var(--s));
   font-weight: 700;
@@ -215,7 +225,7 @@
   opacity: 0;
 }
 .boot-scene.is-shrink .boot-wordmark {
-  animation: btv-boot-wordmark 1700ms both;
+  animation: btv-boot-wordmark 2000ms both;
 }
 
 /* The unblur: filter is the ONLY property this animates. */
@@ -228,29 +238,68 @@
   }
 }
 
-/* The shrink + slide, one keyframe set per actor (attached at 830ms;
- * segments land at 38.82% = 1490ms and 68.82% = 2000ms of the 1700ms
- * track — the mock's P2/P3 boundaries). translate precedes scale so
- * the travel is in screen pixels. The 51.5·s vertical drift rides the
- * shrink (invisible inside that much motion) so the slide stays purely
- * horizontal, matching the wordmark's track. Every keyframe restates
- * border-radius so it can't drift back to the base value. Percentage
- * radii keep the corners circular under the non-uniform scale. */
+/* The shrink + spring, one keyframe set per actor (attached at 830ms).
+ * This is the OLD released welcome's endgame track VERBATIM (v0.4.41 —
+ * Adam asked the v0.4.0 motion back over the mock's short ease+slide):
+ * on the 2000ms track, scale eases in-out and lands at 36.86% (737ms),
+ * holds a beat, then the leftward move runs 43.42%→92.79% (868→1856ms)
+ * on Figma's sampled spring response curve
+ * `1 - e^(-7.6657t)·(cos(6.7605t) + 1.1339·sin(6.7605t))` — ~2.8%
+ * overshoot settling back. translate precedes scale so the travel is
+ * in screen pixels. Every keyframe restates border-radius so it can't
+ * drift back to the base value. Percentage radii keep the corners
+ * circular under the non-uniform scale. */
 @keyframes btv-boot-frame {
   0% {
-    transform: translate(0, 0) scale(1, 1);
+    transform: translateX(0) scale(1, 1);
     border-radius: calc(33px * var(--s));
-    animation-timing-function: cubic-bezier(0.42, 0, 0.58, 1);
+    animation-timing-function: cubic-bezier(0.5, 0, 0.5, 1);
   }
-  38.82% {
-    transform: translate(0, calc(-51.5px * var(--s)))
-      scale(var(--tv-sx), var(--tv-sy));
+  36.86% {
+    transform: translateX(0) scale(var(--tv-sx), var(--tv-sy));
     border-radius: 32.5%;
-    animation-timing-function: cubic-bezier(0.42, 0, 0.58, 1);
+    animation-timing-function: linear;
   }
-  68.82%,
+  43.42% {
+    transform: translateX(0) scale(var(--tv-sx), var(--tv-sy));
+    border-radius: 32.5%;
+    animation-timing-function: linear(
+      0,
+      0.0403 3%,
+      0.1374 6%,
+      0.2633 9%,
+      0.3978 12%,
+      0.5278 15%,
+      0.6452 18%,
+      0.7458 21%,
+      0.8283 24%,
+      0.8933 27%,
+      0.9423 30%,
+      0.9775 33%,
+      1.0014 36%,
+      1.0164 39%,
+      1.0247 42%,
+      1.028 45%,
+      1.0281 48%,
+      1.026 51%,
+      1.0227 54%,
+      1.019 57%,
+      1.0152 60%,
+      1.0106 64%,
+      1.0068 68%,
+      1.0039 72%,
+      1.0018 76%,
+      1.0005 80%,
+      0.9997 84%,
+      0.9993 88%,
+      0.9992 92%,
+      0.9992 96%,
+      0.9993 100%
+    );
+  }
+  92.79%,
   100% {
-    transform: translate(calc(-213.59px * var(--s)), calc(-51.5px * var(--s)))
+    transform: translateX(calc(-213.59px * var(--s)))
       scale(var(--tv-sx), var(--tv-sy));
     border-radius: 32.5%;
   }
@@ -258,35 +307,74 @@
 
 @keyframes btv-boot-screen {
   0% {
-    transform: translate(0, 0) scale(1, 1);
+    transform: translateX(0) scale(1, 1);
     border-radius: calc(44px * var(--s));
-    animation-timing-function: cubic-bezier(0.42, 0, 0.58, 1);
+    animation-timing-function: cubic-bezier(0.5, 0, 0.5, 1);
   }
-  38.82% {
-    transform: translate(0, calc(-51.5px * var(--s)))
-      scale(var(--scr-sx), var(--scr-sy));
+  36.78% {
+    transform: translateX(0) scale(var(--scr-sx), var(--scr-sy));
     border-radius: 27.5%;
-    animation-timing-function: cubic-bezier(0.42, 0, 0.58, 1);
+    animation-timing-function: linear;
   }
-  68.82%,
+  43.42% {
+    transform: translateX(0) scale(var(--scr-sx), var(--scr-sy));
+    border-radius: 27.5%;
+    animation-timing-function: linear(
+      0,
+      0.0403 3%,
+      0.1374 6%,
+      0.2633 9%,
+      0.3978 12%,
+      0.5278 15%,
+      0.6452 18%,
+      0.7458 21%,
+      0.8283 24%,
+      0.8933 27%,
+      0.9423 30%,
+      0.9775 33%,
+      1.0014 36%,
+      1.0164 39%,
+      1.0247 42%,
+      1.028 45%,
+      1.0281 48%,
+      1.026 51%,
+      1.0227 54%,
+      1.019 57%,
+      1.0152 60%,
+      1.0106 64%,
+      1.0068 68%,
+      1.0039 72%,
+      1.0018 76%,
+      1.0005 80%,
+      0.9997 84%,
+      0.9993 88%,
+      0.9992 92%,
+      0.9992 96%,
+      0.9993 100%
+    );
+  }
+  92.79%,
   100% {
-    transform: translate(calc(-213.59px * var(--s)), calc(-51.5px * var(--s)))
+    transform: translateX(calc(-213.59px * var(--s)))
       scale(var(--scr-sx), var(--scr-sy));
     border-radius: 27.5%;
   }
 }
 
+/* The old wordmark reveal: opacity alone, at the final position —
+ * fades in while the lockup springs past underneath it. */
 @keyframes btv-boot-wordmark {
-  0%,
-  38.82% {
+  0% {
     opacity: 0;
-    transform: translateY(-50%) translateX(calc(86.9px * var(--s)));
-    animation-timing-function: cubic-bezier(0.42, 0, 0.58, 1);
+    animation-timing-function: linear;
   }
-  68.82%,
+  58.65% {
+    opacity: 0;
+    animation-timing-function: cubic-bezier(0.5, 0, 0.5, 1);
+  }
+  92.5%,
   100% {
     opacity: 1;
-    transform: translateY(-50%) translateX(0);
   }
 }
 

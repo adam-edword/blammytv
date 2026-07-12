@@ -36,8 +36,11 @@ const BURST_MS = 700;
 export const LAND_MS = 830;
 /** scaleY 1.15→1 settles here (mock track runs past the landing). */
 export const SETTLE_MS = 1490;
-/** Full mock timeline (hosts time their release from this). */
-export const BOOT_TIMELINE_MS = 2530;
+/** Full timeline (hosts time their release from this): 830ms landing
+ * + the 2000ms shrink/spring track (motion ends at 2686 — the old
+ * released spring runs to 92.79%) + a ~370ms hold on the settled
+ * lockup. */
+export const BOOT_TIMELINE_MS = 3200;
 /** Extra forward travel guaranteed by the unwind (~1.5 turns). */
 const UNWIND_MIN_DEG = 540;
 

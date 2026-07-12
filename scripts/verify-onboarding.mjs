@@ -407,13 +407,20 @@ if (!FAST) {
     document.getAnimations().some((a) =>
       a.effect?.getTiming?.().iterations === Infinity));
   check("cold boot: no infinite paint animation (hue spin is dead)", !spins);
-  // Entrance (900ms) + landing (830ms) + shrink lands 660ms later: the
-  // frame must have left fullscreen for the tile.
-  await page.waitForTimeout(3000);
-  const shrunk = await page.$eval(".boot-frame", (el) => {
-    const r = el.getBoundingClientRect();
-    return { w: r.width, h: r.height };
-  });
+  // Entrance (900ms) + landing (830ms) + concentric shrink lands 737ms
+  // later; the spring settles by ~3590 abs. Poll from the CDP side —
+  // headless suspends the page's frame pipeline (rAF + animation
+  // timeline) when nothing external touches it, so a fixed
+  // waitForTimeout can measure a frozen mid-animation frame; each
+  // polled evaluate wakes the renderer.
+  let shrunk = { w: Infinity, h: Infinity };
+  for (let i = 0; i < 100 && !(shrunk.w < 300 && shrunk.h < 300); i++) {
+    await page.waitForTimeout(100);
+    shrunk = await page.$eval(".boot-frame", (el) => {
+      const r = el.getBoundingClientRect();
+      return { w: r.width, h: r.height };
+    }).catch(() => shrunk);
+  }
   check("cold boot: the frame shrinks into the lockup tile",
     shrunk.w < 300 && shrunk.h < 300, JSON.stringify(shrunk));
   await page.close();

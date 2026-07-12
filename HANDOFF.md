@@ -15,12 +15,42 @@ Audience: switchers from other Windows IPTV clients, Stremio users, ideally
 both — and explicitly *inviting to newcomers*; first-five-minutes activation
 weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
-## Live state (2026-07-12, dev v0.4.40 — ONE-PIECE BOOT, full-circle landing)
+## Live state (2026-07-12, dev v0.4.41 — ONE-PIECE BOOT, old endgame back)
 
-- Dev is **v0.4.40**; natives sit at 0.4.0 (released). All suites green:
+- Dev is **v0.4.41**; natives sit at 0.4.0 (released). All suites green:
   units 204/204, onboarding E2E 44/44 (blur-safety frame sampler +
   cold-boot skip/spin guards added), discover 59/59, credits 6/6,
   probe 5/5.
+- **v0.4.41: thin border + y-centered lockup + the OLD endgame motion
+  (Adam's pass on 0.4.40: "feels super good" + three tweaks).**
+  - **Border**: screen inset 71.5/72·s → **36.5/35·s** — the old
+    released welcome's exact frame thickness ("pretty thicc" fixed).
+    The idle glow ring thins with it (blur contract: same geometry
+    idle→landing) — Adam's explicit trade. Blur stays 108.4·s: a 64·s
+    variant was screenshotted side-by-side and the difference was
+    marginal; 108.4 keeps the design's softness and still reads.
+    welcome.ts INSET_X/Y 144/143 → 70/73.
+  - **Y-center**: the v0.4.40 −51.5·s footprint offset died; the end
+    lockup sits dead-center (sizes + x keep the splash match).
+  - **Old endgame motion PORTED VERBATIM** from welcome.css@ca5877c
+    (Adam: the mock's short ease+slide "not great"): 2000ms track —
+    shrink eases in-out to 36.86% (737ms), ~130ms hold, then the
+    leftward move 43.42→92.79% (868→1856ms) on the sampled spring
+    linear() (~2.8% overshoot, settles back); the wordmark is a PURE
+    opacity fade at its final position (58.65→92.5%, no slide).
+    BOOT_TIMELINE_MS 2530 → **3200** (830 landing + 2000 track + ~370
+    hold). Blur choreography untouched. Headless proof: spring peak
+    −219.48px vs theoretical −219.6 (1.028 × −213.59), end −213.59;
+    wordmark never carries a translateX; lockup y-center exact.
+  - **RULE (headless E2E)**: headless Chromium SUSPENDS the page's
+    frame pipeline (rAF + the animation timeline; timers keep running)
+    when nothing external touches the page — in-page rAF/interval
+    samplers see animations "freeze" mid-flight, and fixed
+    waitForTimeout+measure patterns read frozen frames. Poll from the
+    CDP side (each evaluate wakes the renderer) — §9's tile assert now
+    does; the rAF-driven phase flips (landed/shrink) also run ~400ms
+    late under throttle, so never assert boot phases against absolute
+    wall-clock times.
 - **v0.4.40: quieter idle glow + FULL-CIRCLE LANDING (Adam's tweaks).**
   `.boot-sheet` idle opacity 0.65→0.5 (still rides to 1 during P1 —
   the is-landing/landed/shrink rule was already there). The finale's
