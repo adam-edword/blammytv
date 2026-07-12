@@ -98,7 +98,7 @@ sudo systemctl status keybox
 ### 5. Caddyfile snippet
 
 ```caddyfile
-themes.blammy.example {
+themes.eddtv.org {
   reverse_proxy 127.0.0.1:8390
 }
 ```
@@ -124,7 +124,7 @@ here.
    own Checkout Session creation, but either way the success URL must be:
 
    ```
-   https://themes.blammy.example/success?session_id={CHECKOUT_SESSION_ID}
+   https://themes.eddtv.org/success?session_id={CHECKOUT_SESSION_ID}
    ```
 
    (For Payment Links: Payment Link settings -> "After payment" -> Redirect
@@ -133,7 +133,7 @@ here.
 
 3. **Webhook endpoint** — Dashboard -> Developers -> Webhooks -> Add
    endpoint:
-   - URL: `https://themes.blammy.example/webhook`
+   - URL: `https://themes.eddtv.org/webhook`
    - Events: `checkout.session.completed`
    - Copy the signing secret into `STRIPE_WEBHOOK_SECRET`.
 

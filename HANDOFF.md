@@ -42,10 +42,11 @@ weighs as much as switcher parity. NOT a living-room/TV-remote product.
     installed; "Premium Themes" row (key input + Activate + plain-
     language errors; licensed → "Themes Pass active"/count + Remove
     license which also resets an active premium pack). 16 new units.
-  - **DEFAULT_KEYBOX is a PLACEHOLDER** ("themes.blammy.example") —
-    Adam picks the real domain at deploy; localStorage
-    "blammytv.keyboxUrl" (raw, no envelope) is the dev/test override.
-    Stripe price ids in catalog.json are placeholders too.
+  - **DEFAULT_KEYBOX is REAL as of v0.5.2: https://themes.eddtv.org**
+    (Adam's domain, subdomain shape his pick). localStorage
+    "blammytv.keyboxUrl" (raw, no envelope) stays the dev/test
+    override. Remaining deploy blockers: DNS for the subdomain, deploy
+    the keybox per its README, real Stripe price ids in catalog.json.
   - Verified end-to-end: scripts/fake-keybox.mjs (:8085) +
     verify-license.mjs 14/14 (activation, pack join, token applies,
     reload persistence, DEAD-SERVER fail-open, all three error copies,

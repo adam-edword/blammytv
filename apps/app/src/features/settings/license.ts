@@ -35,9 +35,8 @@ import {
  *     -> 403
  */
 
-/** Placeholder host — FLAGGED TO OWNER: swap for the real keybox once it
- * ships. */
-export const DEFAULT_KEYBOX = "https://themes.blammy.example";
+/** The production keybox (Adam's domain, 2026-07-12). */
+export const DEFAULT_KEYBOX = "https://themes.eddtv.org";
 
 const KEYBOX_OVERRIDE_KEY = "blammytv.keyboxUrl";
 
