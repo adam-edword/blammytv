@@ -17,6 +17,28 @@ weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
 ## Live state (2026-07-12, dev v0.5.2 — THE THEMES ERA)
 
+- **🟢 PAID BACKEND LIVE & PROVEN END-TO-END (test mode, 2026-07-12).**
+  The keybox runs in production on Coolify at https://themes.eddtv.org
+  (container, /data volume, healthcheck via curl, self-healing volume
+  perms). A real test-mode purchase completed the WHOLE chain: Stripe
+  Checkout → webhook (checkout.session.completed) → key minted (price
+  ids in catalog.json matched) → **key delivered BOTH by Resend email
+  (verified eddtv.org sender, landed in inbox) AND the /success page**.
+  Adam confirmed: "email landed in inbox and success page worked."
+  Env live in Coolify: STRIPE_API_KEY, STRIPE_WEBHOOK_SECRET,
+  RESEND_API_KEY, EMAIL_FROM (+ optional EMAIL_REPLY_TO). Stripe
+  webhook endpoint + Payment Link configured.
+  - **STILL TEST MODE** — real revenue needs a live Stripe account
+    (Adam: not opening one until the marketing site exists) → swap
+    catalog.json price ids to live ids + set live STRIPE_API_KEY/webhook
+    secret when that happens. Also confirm the Payment Link's
+    after-payment redirect points at
+    themes.eddtv.org/success?session_id={CHECKOUT_SESSION_ID}.
+  - **NOT YET DONE**: in-app activation test (paste a real key in the
+    themes-branch build → Nebula unlocks — needs the dev build or a
+    0.5.x release, since released 0.4.43 has no themes UI); the
+    marketing/download site (Adam's stated go-live blocker); real theme
+    designs to replace the sample packs (void/slate/paper/nebula).
 - **v0.5.2c: keybox self-heals /data volume ownership (fixes the first
   real Coolify deploy).** The image built clean on eddtv (better-sqlite3
   glibc prebuild resolved — risk retired) but crash-looped with
