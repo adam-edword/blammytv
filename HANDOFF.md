@@ -15,11 +15,26 @@ Audience: switchers from other Windows IPTV clients, Stremio users, ideally
 both — and explicitly *inviting to newcomers*; first-five-minutes activation
 weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
-## Live state (2026-07-12, dev v0.4.37 — ONBOARDING ERA)
+## Live state (2026-07-12, dev v0.4.38 — ONBOARDING ERA)
 
-- Dev is **v0.4.37**; natives sit at 0.4.0 (released). All suites green:
-  units 204/204, onboarding E2E 40/40 (two new emergence guards),
-  discover 59/59, credits 6/6, probe 5/5.
+- Dev is **v0.4.38**; natives sit at 0.4.0 (released). All suites green:
+  units 204/204, onboarding E2E 40/40, discover 59/59, credits 6/6,
+  probe 5/5.
+- **v0.4.38: the emergence is SEQUENCED, not crossfaded (Adam's repro:
+  the whole center flashed a muddy aurora wash mid-finale).** The
+  crossfade math was knowable and got waved off: two complementary
+  opacity fades MULTIPLY — at the midpoint the center's coverage
+  (veil×screen stack) dips to ~75%, bleeding the full-brightness aurora
+  through the entire center for ~300ms (subtle at 1600×900 headless;
+  ugly on a big HDR display). Fix: the screen fades in FIRST (320ms —
+  black over the veil's black center = invisible; over the glow band it
+  darkens monotonically, pressing the light out into the frame), THEN
+  the veil releases the border (380ms, delay 240ms, done by 620ms <
+  the 650ms boot flip). Verified with per-region luminance sampling:
+  center pinned at 0.0 the whole emergence, band monotone down, border
+  monotone up. RULE: complementary fades over a bright layer must be
+  SEQUENCED so combined coverage never dips — check the
+  1-(1-a)(1-b) arithmetic before shipping any crossfade.
 - **v0.4.37: audit fixes (two Sonnet agents reviewed v0.4.36 — one
   adversarial, one against the Emil Kowalski motion standards now in
   .claude/skills):**

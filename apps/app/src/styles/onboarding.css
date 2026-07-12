@@ -18,10 +18,15 @@
  *   angle only, so scaling about its center changes nothing), and the
  *   rAF spin-down lands the disc on rotation 0 mod 360: the boot's
  *   exact first-frame paint, by construction.
- * - The condense is an EMERGENCE, all opacity on painted-once layers:
- *   the sharp screen fades UP through the glow at its final geometry
- *   while the soft veil and dither dissolve and the aurora brightens
- *   to full. NOTHING moves a boundary and NOTHING repaints per frame —
+ * - The condense is a SEQUENCED EMERGENCE, all opacity on painted-once
+ *   layers: the sharp screen fades UP at its final geometry first
+ *   (black over black in the center; pressing the glow band outward),
+ *   THEN the veil releases the border and the frame ignites, the
+ *   aurora brightening throughout. Sequenced because complementary
+ *   fades multiply — a crossfade dips center coverage to ~75% and
+ *   bleeds the aurora through the whole center (v0.4.37's regression,
+ *   Adam's repro). NOTHING moves a boundary, NOTHING repaints per
+ *   frame, and no region's luminance ever moves the wrong way —
  *   v0.4.33-35 morphed the veil's mask geometry instead, and every
  *   artifact Adam caught (curve desync, premature fade, fringe/corner
  *   residue, stale mask tiles) traced to that one per-frame-raster
@@ -143,7 +148,16 @@
   background: #000;
   corner-shape: superellipse(1.58);
   opacity: 0;
-  transition: opacity 600ms ease;
+  /* The emergence is SEQUENCED, not crossfaded (v0.4.38 — Adam's
+   * repro): two complementary fades multiply, so a veil-out/screen-in
+   * crossfade dips the center's coverage to ~75% at the midpoint and
+   * bleeds the full-brightness aurora through the WHOLE center for
+   * ~300ms. Order fixes it: the screen fades in FIRST (black over the
+   * veil's black center — invisible; over the glow band it darkens
+   * monotonically, pressing the light outward into the frame), and
+   * only then does the veil release the border. No region's luminance
+   * ever moves the wrong way, and the center NEVER dips. */
+  transition: opacity 320ms ease;
 }
 .onb.is-finale .onb-screen {
   opacity: 1;
@@ -221,11 +235,15 @@
       rgba(0, 0, 0, 0.4) 100%
     );
   mask-composite: intersect;
-  transition: opacity 600ms ease;
+  /* Phase two of the sequenced emergence (see .onb-screen): the veil
+   * releases the border only AFTER the screen is up — delay 240ms
+   * (screen is ≥90% by then; worst-case center dip ≤ ~1.5%), done by
+   * 620ms, inside the 650ms boot flip. */
+  transition: opacity 380ms ease 240ms;
 }
-/* The emergence: the softness dissolves while the sharp screen fades
- * up at its final geometry and the aurora brightens — all opacity, on
- * layers whose geometry never changes. */
+/* The emergence: the softness dissolves AFTER the sharp screen has
+ * faded up at its final geometry, while the aurora brightens — all
+ * opacity, on layers whose geometry never changes. */
 .onb.is-finale .onb-veil {
   opacity: 0;
 }
