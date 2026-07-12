@@ -15,7 +15,22 @@ Audience: switchers from other Windows IPTV clients, Stremio users, ideally
 both — and explicitly *inviting to newcomers*; first-five-minutes activation
 weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
-## Live state (2026-07-12, dev v0.4.43 — ONBOARDING DECLARED DONE)
+## Live state (2026-07-12, dev v0.4.43 — RELEASE PREPPED)
+
+- **v0.4.43 RELEASE PREPPED (Adam: "lets release").** Natives bumped to
+  0.4.43 (tauri.conf.json, Cargo.toml, Cargo.lock — the release-commit
+  pattern; frontend three were already there). Release notes drafted
+  and handed to Adam (onboarding, one-piece boot, Connection Test
+  forensics, fixes). Adam builds signed on Windows per RELEASING.md
+  (scripts/release.ps1) and publishes tag v0.4.43 + exe + latest.json,
+  "set as latest" ticked. Note: Adam said "release 0.4.42" but dev had
+  already moved to 0.4.43 (same content + the uiScale exemption he
+  asked for) — released as 0.4.43 so the tag matches the build.
+- **Slate decisions (Adam, 2026-07-12)**: Ctrl+K palette CUT. "Update
+  banner UI" and "stream nav glass" were STALE roadmap lines — both
+  shipped long ago (UpdateChip v0.2.0; glass live in base.css). 0.5 =
+  My List multi-lists + aurora sweep. See ROADMAP "Post-onboarding
+  slate".
 
 **Adam signed off the onboarding/boot experience at v0.4.42** ("i think
 we can consider onboarding done") after his Windows pass on the full

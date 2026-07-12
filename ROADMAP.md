@@ -467,8 +467,9 @@ instead, and record why here.
 
 1. ~~**Native player Phase 3**~~ ✅ popout/PiP shipped (now `popout_open` +
    `popout_pos`/`popout_stop` reclaim, `popout-closed`); track menus shipped
-   v0.1.110. Remaining from this bullet: the update banner
-   (`check_update`/`install_update` exist Rust-side, no UI yet).
+   v0.1.110. ~~Remaining: the update banner~~ ✅ shipped v0.2.0
+   (UpdateChip.tsx — header glass chip, one-click install-and-relaunch;
+   testers have been updating through it since).
 2. ~~**Native (Rust) pass**~~ ✅ dissolved by the v0.1.135 comp.rs deletion —
    WM_SETCURSOR / DComp corner clip / async-close switch-gap all died with
    the overlay subsystem.
@@ -489,8 +490,16 @@ instead, and record why here.
    scripts/verify-stalker.mjs 4/4, 8 adapter/source unit tests. NOT yet
    proven against a real portal — endpoint probing + get_epg_info period
    semantics are the fields to watch on first live use.
-4. **Stream tab (AIOStreams)** — re-enable the nav glass (commented in
-   base.css) once scrolling content exists.
+4. ~~**Stream tab (AIOStreams)** — re-enable the nav glass~~ ✅ live in
+   base.css (`--card-glass` fill); Adam signed off the look (2026-07-12).
+
+## Post-onboarding slate (Adam, 2026-07-12)
+
+Onboarding + boot declared DONE at v0.4.42/43; v0.4.43 is the release
+carrying it to testers. Next up, blessed by Adam:
+- **0.5 (product)**: My List multi-lists, aurora sweep. **Ctrl+K command
+  palette CUT** ("i dont really want that") — do not build it.
+- **0.6+**: themes + Stripe, code signing, Trakt.
 
 Slated for later, user-approved: ambient backdrop setting, motion toggle,
 timeshift, programme-level selection in the hero, M3U folder editor in
