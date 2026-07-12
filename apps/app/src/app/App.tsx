@@ -31,17 +31,14 @@ export function App() {
     loadStartupTab() === "discover" ? "discover" : "home",
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
-  // First-run onboarding sits over everything and ENDS with the boot
-  // animation (its finale sharpens the blurred glow into the boot frame,
-  // then hands off) — so when onboarding is up, welcome waits for it.
+  // First-run onboarding sits over everything and ENDS with its own
+  // boot-animation mimic (v0.4.31) — it owns that launch's boot, so
+  // welcome never follows it.
   const [onboarding, setOnboarding] = useState(shouldShowOnboarding);
   // Boot animation: plays over the shell while it loads, once per launch.
   const [welcome, setWelcome] = useState(
     () => !shouldShowOnboarding() && shouldPlayWelcome(),
   );
-  // Cold boots fade the boot gradient in; the onboarding hand-off must
-  // not (its finale already landed on the sharp frame).
-  const [welcomeIntro, setWelcomeIntro] = useState(true);
 
   // Settings → Customize → "Replay Onboarding": mount the flow over the
   // app on demand (the completed flag stays — see onboardingGate).
@@ -151,31 +148,8 @@ export function App() {
         )}
       </main>
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
-      {welcome && (
-        <WelcomeAnimation
-          intro={welcomeIntro}
-          onDone={() => setWelcome(false)}
-        />
-      )}
-      {onboarding && (
-        <Onboarding
-          onDone={() => {
-            // Double-buffered hand-off: the boot animation mounts UNDER
-            // the parked onboarding frame (identical pixels — Onboarding
-            // renders later in this JSX, so it stays on top), and the
-            // overlay releases ~2 frames later. The unmount then only
-            // REVEALS a matching frame instead of tearing down and
-            // rebuilding compositor layers in one commit — the last
-            // flicker class Adam could still trigger. Reduced-motion
-            // users skip the boot animation, as ever.
-            setWelcomeIntro(false);
-            setWelcome(
-              !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-            );
-            window.setTimeout(() => setOnboarding(false), 90);
-          }}
-        />
-      )}
+      {welcome && <WelcomeAnimation onDone={() => setWelcome(false)} />}
+      {onboarding && <Onboarding onDone={() => setOnboarding(false)} />}
     </div>
   );
 }

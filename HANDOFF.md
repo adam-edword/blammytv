@@ -15,11 +15,35 @@ Audience: switchers from other Windows IPTV clients, Stremio users, ideally
 both — and explicitly *inviting to newcomers*; first-five-minutes activation
 weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
-## Live state (2026-07-12, dev v0.4.30 — ONBOARDING ERA)
+## Live state (2026-07-12, dev v0.4.31 — ONBOARDING ERA)
 
-- Dev is **v0.4.30** on `blammytv-0.4.0-push`; natives sit at 0.4.0
-  (released). All suites green at hand-off: units 204/204, onboarding
-  E2E 36/36, discover 59/59, credits 6/6, probe 5/5.
+- Dev is **v0.4.31** on `blammytv-0.4.0-push`; natives sit at 0.4.0
+  (released). All suites green: units 204/204, onboarding E2E 36/36,
+  discover 59/59, credits 6/6, probe 5/5.
+- **v0.4.31: ONBOARDING BACKDROP REBUILT GROUND-UP (Adam's call after
+  v0.4.30 still misbehaved in-app: start glow double-bright then
+  snapping down at 1.6s — a shared entrance keyframe hard-coded
+  `to {opacity:1}` over the disc's 0.5 base — plus finale brightness
+  jump + whole-frame flashes).** The new engine has ZERO filters on the
+  backdrop: the aurora is ONE unfiltered conic disc (oklab sweep +
+  radial annulus mask baked into the disc's own rotating layer,
+  will-change:transform) over a static viewport-fitted elliptical veil
+  (farthest-corner stops: edges dark, corners most color — the old
+  blurred-cover look, aspect-correct). Entrance keyframe is FROM-only
+  (fills to each layer's own opacity). The finale plays an
+  **in-component boot MIMIC** (onb-boot-* keyframes in onboarding.css,
+  TWIN COPIES of welcome.css — Adam's call, update both if the boot
+  changes; geometry vars shared via lockupVars in welcome.ts) — no
+  WelcomeAnimation mount, no double-buffer, no transitionend watchdog,
+  plain timers. The mimic is NOT input-skippable (cold-boot skip
+  unchanged). Reduced motion: quick fade to app, no mimic. App.tsx lost
+  welcomeIntro/90ms-hand-off; WelcomeAnimation lost the intro prop
+  (cold boots always fade in). Measured in headless Chromium: idle
+  drift = 0 Paint/0 RasterTask over 120 frames (UpdateLayer only);
+  entrance + finale luminance curves smooth, no snap/flash frames;
+  mimic lockup geometry pixel-exact vs the boot's numbers. AWAITING
+  Adam's in-app Windows pass — the machine that overturned every prior
+  "fixed" verdict.
 - **FIRST-RUN ONBOARDING is built** (v0.4.7→v0.4.30, Adam's mockup: dither
   field + blurred aurora glow + Arc-style choreography). Files:
   `app/Onboarding.tsx`, `app/onboardingGate.ts` (NOT onboarding.ts —

@@ -52,16 +52,17 @@ import { httpGetText } from "../lib/http";
 import { scrubbedMessage } from "../lib/errors";
 import { ChipTabs } from "../ui/ChipTabs";
 import { markOnboarded } from "./onboardingGate";
+import { lockupVars, markWelcomePlayed } from "./welcome";
 
 /**
- * First-run onboarding (Adam's mockup, 2026-07-11): the boot animation's
- * opening frame — full-viewport gradient with the black screen inset —
- * lives BEHIND the whole flow, blurred into a soft aurora glow around
- * the edges, over a Bayer-style dither field. Each advance gives the
- * glow a quick "thinking" spin; the finale animates the blur down to 0
- * so the glow resolves into the boot frame, and App swaps in
- * WelcomeAnimation in the same render — the boot animation IS the
- * onboarding's last scene.
+ * First-run onboarding (Adam's mockup, 2026-07-11; backdrop rebuilt
+ * ground-up in v0.4.31): a living aurora — the brand's color sweep
+ * drifting around the viewport edges over a Bayer-style dither field.
+ * Each advance gives it a quick "thinking" spin; the finale condenses
+ * the glow into the boot animation's opening frame and plays an
+ * onboarding-owned MIMIC of the whole boot timeline, then fades to the
+ * app — the boot animation IS the onboarding's last scene, and no
+ * separate component ever mounts for it.
  *
  * The source steps VERIFY, not just collect (v0.4.21): Continue runs
  * the real connection machinery (probeAioStreams for AIOStreams — the
@@ -73,29 +74,35 @@ import { markOnboarded } from "./onboardingGate";
  * Steps: 0 logo · 1 streams · 2 live tv · 3 accent+clock · 4 startup
  * tab · 5 done (mini nav map + go-explore-Settings nudge).
  *
- * The glow reuses welcome.css's gradient classes (geometry + brand
- * paint, verbatim); onboarding.css only overrides its fixed-speed spin,
- * because the rotation here is velocity-driven from a rAF loop: base
- * speed is a slow drift, each advance sets a burst target and the
- * velocity eases toward it and back — no snapping between two
- * animation speeds.
+ * The aurora's rotation is velocity-driven from a rAF loop: base speed
+ * is a slow drift, each advance sets a burst target and the velocity
+ * eases toward it and back — no snapping between two animation speeds.
  */
 
 const BASE_DEG_S = 16;
 const BURST_DEG_S = 320;
 const BURST_MS = 700;
-/** Glow architecture (v0.4.30, the definitive flicker fix): rotation
- * NEVER repaints. The living glow is a viewport-covering DISC whose
- * conic paint is filtered once and rotated via transform — filter
- * applies before transform per spec, so the compositor spins a cached
- * blurred texture on the GPU. Rewriting a conic's from-angle (all
- * prior versions) re-rasterized the mega-blur every frame; on real
- * hardware the fast spins dropped frames and flickered. The welcome
- * paint (the boot animation's exact composite, born at its 90deg
- * initial — no angle writes, no seam math) sits at opacity 0 until
- * the finale crossfades it in UNDER full blur, where the two washes
- * are indistinguishable; the blur-down then runs on static content
- * and the double-buffered hand-off releases it. */
+/** Glow architecture (v0.4.31, the ground-up rebuild): NO FILTERS,
+ * ANYWHERE on the backdrop. Five versions of flicker fixes (v0.4.26→30)
+ * all fought the same sin — animating giant blur() layers on Chromium —
+ * so the rebuild removes the primitive itself. The aurora is ONE
+ * unfiltered conic disc whose softness is gradient/mask math (oklab
+ * sweep + a radial annulus mask baked into the disc's own layer), spun
+ * transform-only from the rAF loop; a static elliptical veil darkens
+ * the center (viewport-shaped, replacing the old blurred cover). With
+ * no filter there is nothing to re-rasterize, smear, or raster-storm.
+ *
+ * The finale no longer hands off to WelcomeAnimation: it plays an
+ * onboarding-owned MIMIC copy of the boot timeline (onb-boot-* in
+ * onboarding.css — TWIN of welcome.css, update both) inside this same
+ * overlay, then fades to the app. One component owns first frame to
+ * reveal; the double-buffer/watchdog machinery is gone. Unlike a cold
+ * boot, the mimic is NOT input-skippable (Adam's call: it's the earned
+ * finale, not a wait). */
+const BOOT_START_HOLD_MS = 700; // twins welcome.css's timeline delay
+const BOOT_TIMELINE_MS = 2000;
+const BOOT_END_HOLD_MS = 1000;
+const RELEASE_FADE_MS = 450;
 /** Content out-transition before the step swaps: onb-out is 300ms and
  * the last staggered child starts at +90ms — swap after the full tail. */
 const SWAP_MS = 400;
@@ -105,13 +112,6 @@ const VERIFY_TIMEOUT_MS = 12_000;
 const VERIFIED_DWELL_MS = 750;
 
 const LAST_STEP = 5;
-
-/** --s carries the boot mock's 1920×1080 cover factor so the finale's
- * sharp frame lands EXACTLY on WelcomeAnimation's first frame. */
-function coverVars(): CSSProperties {
-  const s = Math.max(window.innerWidth / 1920, window.innerHeight / 1080);
-  return { "--s": String(s) } as CSSProperties;
-}
 
 const idx = (i: number) => ({ "--i": String(i) }) as CSSProperties;
 
@@ -142,7 +142,9 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   const [step, setStep] = useState(0);
   const [phase, setPhase] = useState<"in" | "out">("in");
   const [finale, setFinale] = useState(false);
-  const [vars, setVars] = useState(coverVars);
+  /** The overlay's exit fade — set once the mimic's lockup has settled. */
+  const [leaving, setLeaving] = useState(false);
+  const [vars, setVars] = useState(lockupVars);
   // Once a step's entrance has played, the animations are REMOVED
   // (is-settled): password-manager extensions inject DOM when a field
   // focuses, and that style invalidation replayed the filled entrance
@@ -167,41 +169,44 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   const spinDownRef = useRef(false);
 
   useEffect(() => {
-    const onResize = () => setVars(coverVars());
+    const onResize = () => setVars(lockupVars());
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  // Hand off exactly once. transitionend is the intended trigger, but
-  // Chromium can swallow it (hidden/occluded window) — the timer makes
-  // sure nobody is ever stranded on a finished onboarding.
+  /** Fixed at mount, like the rAF gate below: reduced-motion users get a
+   * quick fade to the app instead of the boot mimic. */
+  const reducedMotion = useRef(
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+  ).current;
+
+  // Finish exactly once, on plain timers — nothing here waits on
+  // transitionend anymore (the blur transition it guarded is gone), so
+  // nothing can be swallowed. onDone rides a ref so a parent re-render
+  // mid-finale can't restart the timers.
   const doneRef = useRef(false);
-  // Post-landing: filter:none (a 0px blur still forces a rasterized
-  // filter layer; none makes the final frames plain painted content,
-  // so the release has no layer teardown to flicker through).
-  const [frozen, setFrozen] = useState(false);
-  const handoff = () => {
-    if (doneRef.current) return;
-    doneRef.current = true;
-    setFrozen(true);
-    onDone();
-  };
-  const handoffRef = useRef(handoff);
-  handoffRef.current = handoff;
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
   useEffect(() => {
     if (!finale) return;
-    // The disc eases to a stop while the crossfade hides it.
+    // The aurora eases to a stop while the mimic crossfades in over it,
+    // and this launch's boot is the mimic — the real one must not replay.
     spinDownRef.current = true;
-    // Reduced motion runs 1ms transitions, which Chromium sometimes
-    // coalesces into no transition at all (no transitionend) — the
-    // watchdog must then fire fast, not after a 1.9s dead stare.
-    const grace = window.matchMedia("(prefers-reduced-motion: reduce)")
-      .matches
-      ? 350
-      : 1900;
-    const t = window.setTimeout(() => handoffRef.current(), grace);
-    return () => window.clearTimeout(t);
-  }, [finale]);
+    markWelcomePlayed();
+    const settleMs = reducedMotion
+      ? 100
+      : BOOT_START_HOLD_MS + BOOT_TIMELINE_MS + BOOT_END_HOLD_MS;
+    const leave = window.setTimeout(() => setLeaving(true), settleMs);
+    const done = window.setTimeout(() => {
+      if (doneRef.current) return;
+      doneRef.current = true;
+      onDoneRef.current();
+    }, settleMs + RELEASE_FADE_MS);
+    return () => {
+      window.clearTimeout(leave);
+      window.clearTimeout(done);
+    };
+  }, [finale, reducedMotion]);
 
   useEffect(
     () => () => {
@@ -900,22 +905,29 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     );
 
   return (
-    <div className={"onb" + (finale ? " is-finale" : "")} style={vars}>
-      <div className="onb-glowdisc" ref={discRef} aria-hidden />
-      <div className="onb-cover" aria-hidden />
-      <div
-        className={"onb-gradlayer" + (frozen ? " is-frozen" : "")}
-        onTransitionEnd={(e) => {
-          if (finale && e.propertyName === "filter") handoff();
-        }}
-      >
-        <div className="welcome-gradient-fit">
-          <div className="welcome-gradient" />
-        </div>
-        <div className="onb-screen" />
-      </div>
+    <div
+      className={
+        "onb" +
+        (finale ? " is-finale" : "") +
+        (leaving ? " is-leaving" : "")
+      }
+      style={vars}
+    >
+      <div className="onb-aurora" ref={discRef} aria-hidden />
+      <div className="onb-veil" aria-hidden />
       <div className="onb-dither" />
       <div ref={cursorRef} className="onb-cursor-glow" aria-hidden />
+      {finale && !reducedMotion && (
+        <div className="onb-boot" aria-hidden>
+          <div className="onb-boot__frame">
+            <div className="welcome-gradient-fit">
+              <div className="welcome-gradient" />
+            </div>
+          </div>
+          <div className="onb-boot__screen" />
+          <p className="onb-boot__wordmark">BlammyTV</p>
+        </div>
+      )}
       {!finale && (
         <div
           key={step}

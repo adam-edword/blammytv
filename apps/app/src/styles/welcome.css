@@ -30,7 +30,13 @@
  * three timeline animations share a 700ms delay ("both" holds the first
  * frame through it), so the opening TV sits a beat — gradient already
  * turning — before the shrink; the component's exit timer adds the
- * matching hold on the finished lockup. */
+ * matching hold on the finished lockup. The welcome-intro track fades+
+ * unblurs the frame in during that hold, so it never pops in as a solid.
+ *
+ * TWIN: onboarding's finale plays a COPY of this timeline (the onb-boot-*
+ * keyframes in onboarding.css) — the hand-off to this component is gone
+ * (v0.4.31); if the boot timeline ever changes, UPDATE BOTH files. The
+ * geometry vars (--s/--tv-*/--scr-*) are shared via welcome.ts. */
 .welcome-backdrop {
   position: absolute;
   inset: 0;
@@ -42,19 +48,11 @@
    * outline (figma-squircle algorithm, smoothing 0.6) — see v0.1.124.
    * Engines without corner-shape fall back to plain round. */
   corner-shape: superellipse(1.32);
-  animation: welcome-frame-shrink 2000ms 700ms both;
-}
-
-/* Cold boot (v0.4.15): the gradient frame fades in from 0 WHILE
- * unblurring to 0 during the opening hold, so it never pops in as a
- * solid. Runs alongside the shrink (disjoint properties). Absent on
- * the onboarding hand-off — WelcomeAnimation gets intro={false} there
- * because its finale already ends on this sharp frame. */
-.welcome-overlay--intro .welcome-backdrop {
   animation:
     welcome-intro 700ms cubic-bezier(0.33, 0, 0.3, 1) both,
     welcome-frame-shrink 2000ms 700ms both;
 }
+
 @keyframes welcome-intro {
   from {
     opacity: 0;

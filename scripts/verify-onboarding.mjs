@@ -147,19 +147,24 @@ if (!FAST) {
   check("finale shows the nav map + Settings nudge",
     /Live TV/.test(mapText) && /Discover/.test(mapText) && /Settings holds a lot more/.test(nudge));
   await page.getByRole("button", { name: "Enter BlammyTV" }).click();
-  const welcomed = await page.waitForSelector(".welcome-overlay", { timeout: 10000 }).then(() => true).catch(() => false);
-  check("finale hands off to the boot animation", welcomed);
-  check("hand-off welcome skips the cold-boot intro (seam stays sharp)",
-    welcomed && await page.$eval(".welcome-overlay", (el) => !el.className.includes("--intro")));
-  // Double-buffered hand-off: the overlay releases ~90ms AFTER the boot
-  // animation mounts beneath it — wait for the release, don't demand it.
+  // v0.4.31: the finale plays an in-component boot MIMIC — the real boot
+  // animation must never mount after onboarding.
+  const mimic = await page.waitForSelector(".onb-boot", { timeout: 10000 }).then(() => true).catch(() => false);
+  check("finale mounts the boot mimic inside the overlay", mimic);
+  check("the real boot animation never mounts", !(await page.$(".welcome-overlay")));
+  // The overlay releases itself once the mimic's lockup settles
+  // (~700+2000+1000ms after the content swap) and the fade completes.
   const released = await page
-    .waitForFunction(() => !document.querySelector(".onb"), null, { timeout: 5000 })
+    .waitForFunction(() => !document.querySelector(".onb"), null, { timeout: 9000 })
     .then(() => true)
     .catch(() => false);
-  const onboarded = await page.evaluate(() => localStorage.getItem("btv:onboarded"));
-  check("completion persisted, overlay released after the hand-off",
-    onboarded === "1" && released, JSON.stringify({ onboarded, released }));
+  const state = await page.evaluate(() => ({
+    onboarded: localStorage.getItem("btv:onboarded"),
+    welcomeUp: !!document.querySelector(".welcome-overlay"),
+  }));
+  check("completion persisted, overlay released, no boot after the mimic",
+    state.onboarded === "1" && released && !state.welcomeUp,
+    JSON.stringify({ ...state, released }));
   await page.close();
 }
 
@@ -244,23 +249,25 @@ if (!FAST) {
   await page.close();
 }
 
-// 6. Skip setup: straight to finale, nothing saved, still marked done.
+// 6. Skip setup: straight to the finale mimic, nothing saved, marked done.
 if (!FAST) {
   const page = await newPage();
   await page.goto("http://localhost:4173/?onboarding=1");
   await page.waitForSelector(".onb");
   await page.getByRole("button", { name: "Skip setup" }).click();
-  const welcomed = await page.waitForSelector(".welcome-overlay", { timeout: 10000 }).then(() => true).catch(() => false);
+  const mimic = await page.waitForSelector(".onb-boot", { timeout: 10000 }).then(() => true).catch(() => false);
   const state = await page.evaluate(() => ({
     onboarded: localStorage.getItem("btv:onboarded"),
     aio: localStorage.getItem("blammytv.aiostreams"),
+    welcomeUp: !!document.querySelector(".welcome-overlay"),
   }));
-  check("skip: marked done, no manifest saved, boot animation plays",
-    welcomed && state.onboarded === "1" && state.aio === null, JSON.stringify(state));
+  check("skip: marked done, no manifest saved, the mimic plays (no real boot)",
+    mimic && state.onboarded === "1" && state.aio === null && !state.welcomeUp,
+    JSON.stringify(state));
   await page.close();
 }
 
-// 7. Reduced motion: full skip-through works, no boot animation.
+// 7. Reduced motion: full skip-through works, no boot mimic, quick release.
 if (!FAST) {
   const page = await newPage({}, { reducedMotion: "reduce" });
   await page.goto("http://localhost:4173/?onboarding=1");
@@ -274,14 +281,18 @@ if (!FAST) {
   await page.waitForSelector(".onb-chips:not(.onb-chips--labeled)", { timeout: 8000 });
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.getByRole("button", { name: "Enter BlammyTV" }).click();
-  await page.waitForTimeout(1500);
+  // No mimic for reduced motion: the finale is a quick fade to the app.
+  await page.waitForTimeout(300);
+  const mimicMounted = await page.evaluate(() => !!document.querySelector(".onb-boot"));
+  await page.waitForTimeout(1200);
   const state = await page.evaluate(() => ({
     onbGone: !document.querySelector(".onb"),
     welcomeUp: !!document.querySelector(".welcome-overlay"),
     onboarded: localStorage.getItem("btv:onboarded"),
   }));
-  check("reduced motion: completes instantly, no boot animation",
-    state.onbGone && !state.welcomeUp && state.onboarded === "1", JSON.stringify(state));
+  check("reduced motion: completes instantly, no mimic, no boot animation",
+    state.onbGone && !state.welcomeUp && !mimicMounted && state.onboarded === "1",
+    JSON.stringify({ ...state, mimicMounted }));
   await page.close();
 }
 
