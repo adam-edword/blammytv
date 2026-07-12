@@ -84,13 +84,16 @@ import { markOnboarded } from "./onboardingGate";
 const BASE_DEG_S = 16;
 const BURST_DEG_S = 320;
 const BURST_MS = 700;
-/** The boot animation's gradient facts (welcome.css): the paint starts
- * at the @property initial 90deg and spins 360° per 5s. The finale
- * glides our angle to land EXACTLY there, moving at exactly that
- * speed, the moment WelcomeAnimation takes over — position and
- * velocity both continuous, so the hand-off has no snap. */
-const BOOT_SPIN_DEG_S = 72;
-const FINALE_MS = 1300; // matches the backdrop transition duration
+/** The finale is TWO phases (v0.4.27, the flicker fix): first the
+ * angle glides to the boot animation's opening 90deg and PARKS
+ * (450ms, blur untouched), THEN the blur/inset/opacity transitions run
+ * — on completely static content, so the compositor animates the
+ * filter without a single repaint. Rewriting the gradient angle DURING
+ * the filter transition was invalidating the blurred layer every
+ * frame: that was the in-app flicker. The paint sits still through
+ * the blur-down and WelcomeAnimation starts its spin from the same
+ * angle at mount, exactly like a cold boot. */
+const GLIDE_MS = 450; // must match the transition-delay in onboarding.css
 /** Content out-transition before the step swaps: onb-out is 300ms and
  * the last staggered child starts at +90ms — swap after the full tail. */
 const SWAP_MS = 400;
@@ -187,11 +190,11 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   useEffect(() => {
     if (!finale) return;
     // Plan the glide onto the boot animation's opening angle: land at
-    // the next full turn (var == the 90deg initial) exactly when the
-    // backdrop transition ends, arriving at the boot spin's speed.
+    // the next full turn (var == the 90deg initial) and park BEFORE
+    // the delayed blur transition begins.
     const a0 = angleRef.current;
     const v0 = velRef.current;
-    const minTravel = Math.max(100, (v0 * FINALE_MS) / 2000);
+    const minTravel = Math.max(60, (v0 * GLIDE_MS) / 2000);
     glideRef.current = {
       start: performance.now(),
       a0,
@@ -251,26 +254,21 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
       last = now;
       const glide = glideRef.current;
       if (glide) {
-        // Finale: cubic Hermite from (a0, v0) to (aT, boot speed) over
-        // FINALE_MS — angle AND angular velocity are continuous into
-        // WelcomeAnimation's own spin. Past T, keep moving at boot
-        // speed (the watchdog window) so the paint never stalls.
+        // Finale phase 1: cubic Hermite from (a0, v0) to (aT, rest)
+        // over GLIDE_MS, then PARK — the delayed blur transition runs
+        // on static content, and WelcomeAnimation opens on this exact
+        // angle however late it mounts.
         const t = now - glide.start;
-        if (t < FINALE_MS) {
-          const s = t / FINALE_MS;
+        if (t < GLIDE_MS) {
+          const s = t / GLIDE_MS;
           const s2 = s * s;
           const s3 = s2 * s;
           const v0ms = glide.v0 / 1000;
-          const vTms = BOOT_SPIN_DEG_S / 1000;
           angleRef.current =
             (2 * s3 - 3 * s2 + 1) * glide.a0 +
-            (s3 - 2 * s2 + s) * FINALE_MS * v0ms +
-            (-2 * s3 + 3 * s2) * glide.aT +
-            (s3 - s2) * FINALE_MS * vTms;
+            (s3 - 2 * s2 + s) * GLIDE_MS * v0ms +
+            (-2 * s3 + 3 * s2) * glide.aT;
         } else {
-          // HOLD the landing frame: however late WelcomeAnimation
-          // mounts (slow frame, watchdog), its opening angle is exactly
-          // where we're parked — position continuity beats motion here.
           angleRef.current = glide.aT;
         }
       } else {
