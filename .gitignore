@@ -29,3 +29,6 @@ dist-ssr/
 # libmpv runtime DLL (place locally for tauri build; not committed)
 **/src-tauri/*.dll
 website/landing.html
+
+# E2E suites screenshot into cwd - never commit those
+/*.png
