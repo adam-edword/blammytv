@@ -15,17 +15,22 @@ Audience: switchers from other Windows IPTV clients, Stremio users, ideally
 both — and explicitly *inviting to newcomers*; first-five-minutes activation
 weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
-## Live state (2026-07-12, dev v0.4.43 — RELEASE PREPPED)
+## Live state (2026-07-12, v0.4.43 RELEASED — the onboarding release)
 
-- **v0.4.43 RELEASE PREPPED (Adam: "lets release").** Natives bumped to
-  0.4.43 (tauri.conf.json, Cargo.toml, Cargo.lock — the release-commit
-  pattern; frontend three were already there). Release notes drafted
-  and handed to Adam (onboarding, one-piece boot, Connection Test
-  forensics, fixes). Adam builds signed on Windows per RELEASING.md
-  (scripts/release.ps1) and publishes tag v0.4.43 + exe + latest.json,
-  "set as latest" ticked. Note: Adam said "release 0.4.42" but dev had
-  already moved to 0.4.43 (same content + the uiScale exemption he
-  asked for) — released as 0.4.43 so the tag matches the build.
+- **v0.4.43 SHIPPED 2026-07-12**: tag v0.4.43 ("v0.4.43 - Onboarding"),
+  set-as-latest ✓ (releases/latest/download/latest.json serves the
+  0.4.43 manifest — confirmed live). Signature FULLY VERIFIED from this
+  session against the published exe (38,910,385 bytes, blake2b-512
+  e39df5e9…, Ed25519 valid against tauri.conf's pubkey; trusted-comment
+  signature also valid; key id f710df2407e1d35f matches — checked
+  pre-publish from the .sig alone, a trick worth repeating: the key-id
+  check needs no exe). latest.json was generated this session from
+  Adam's uploaded .sig. Natives now sit at 0.4.43. Carries: full
+  onboarding + one-piece boot, Connection Test forensics, eyedropper/
+  black-screen fixes, settings glass, uiScale exemption. Note: Adam
+  said "release 0.4.42" but dev had already moved to 0.4.43 (same
+  content + the uiScale exemption) — released as 0.4.43 so the tag
+  matches the build.
 - **Slate decisions (Adam, 2026-07-12)**: Ctrl+K palette CUT. "Update
   banner UI" and "stream nav glass" were STALE roadmap lines — both
   shipped long ago (UpdateChip v0.2.0; glass live in base.css). 0.5 =
