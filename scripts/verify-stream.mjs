@@ -17,6 +17,7 @@ const check = (name, ok, extra = "") => {
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 const page = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
 await page.addInitScript(() => {
+  localStorage.setItem("btv:onboarded", "1");
   localStorage.setItem("blammytv.aiostreams", JSON.stringify({ v: 1, data: "http://localhost:8084/manifest.json" }));
   sessionStorage.setItem("btv:welcome-played", "1");
 });

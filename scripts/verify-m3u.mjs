@@ -40,6 +40,7 @@ const browser = await chromium.launch({
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
 const page = await ctx.newPage();
 await page.addInitScript((pl) => {
+  localStorage.setItem("btv:onboarded", "1");
   localStorage.setItem("blammytv.playlists", JSON.stringify(pl));
 }, PLAYLIST);
 await page.goto(URL);

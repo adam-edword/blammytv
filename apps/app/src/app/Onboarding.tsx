@@ -448,6 +448,9 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   // --- Live TV step: kind rail + per-kind REAL verification -------------
   const [tvKind, setTvKind] = useState<PlaylistKind>("xtream");
   const [tvForm, setTvForm] = useState<PlaylistFormState>(EMPTY_PLAYLIST_FORM);
+  // Replay/showcase runs (existing users): their playlists are intact —
+  // say so, so nobody re-enters credentials and duplicates a source.
+  const [existingTvCount] = useState(() => loadPlaylists().length);
   const [tvTouched, setTvTouched] = useState(false);
   const [tvChecking, setTvChecking] = useState(false);
   const [tvMsg, setTvMsg] = useState<VerifyMsg>(null);
@@ -680,6 +683,14 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           Light up channels and the guide — pick the format your provider
           gave you.
         </p>
+        {existingTvCount > 0 && (
+          <p className="onb-hint onb-hint--ok" style={idx(2)}>
+            {existingTvCount === 1
+              ? "1 playlist is"
+              : `${existingTvCount} playlists are`}{" "}
+            already connected — adding another is optional.
+          </p>
+        )}
         <div className="onb-chips" style={idx(2)}>
           <ChipTabs tabs={KIND_TABS} active={tvKind} onChange={switchTvKind} />
         </div>

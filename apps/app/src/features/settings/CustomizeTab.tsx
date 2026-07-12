@@ -53,6 +53,7 @@ import {
 } from "./startupTab";
 import { savePlaylists } from "./playlists";
 import { saveAioUrl, saveHeroSources } from "./aiostreams";
+import { requestOnboardingReplay } from "../../app/onboardingGate";
 
 const SCALE_TABS = UI_SCALES.map((s) => ({
   key: String(s),
@@ -483,6 +484,24 @@ export function CustomizeTab() {
           />
         </div>
 
+      </section>
+
+      <section className="settings-section">
+        <div className="customize-row">
+          <div>
+            <h4 className="customize-row__title">Replay Onboarding</h4>
+            <p className="settings__section-note settings__section-note--dim">
+              Walk through the welcome setup again. Nothing gets reset.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={requestOnboardingReplay}
+          >
+            Replay
+          </button>
+        </div>
       </section>
 
       <UpdatesSection />

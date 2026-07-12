@@ -47,6 +47,7 @@ async function loadApp(showAdult) {
   const page = await ctx.newPage();
   await page.addInitScript(
     ({ pl, show }) => {
+      localStorage.setItem("btv:onboarded", "1");
       localStorage.setItem("blammytv.playlists", JSON.stringify(pl));
       if (show !== null)
         localStorage.setItem(

@@ -5,7 +5,7 @@ import { AppHeader, type Section, type StreamTab } from "./AppHeader";
 import { WelcomeAnimation } from "./WelcomeAnimation";
 import { shouldPlayWelcome } from "./welcome";
 import { Onboarding } from "./Onboarding";
-import { shouldShowOnboarding } from "./onboardingGate";
+import { onOnboardingReplay, shouldShowOnboarding } from "./onboardingGate";
 import { LiveScreen } from "../features/live/LiveScreen";
 import { StreamScreen } from "../features/stream/StreamScreen";
 import { MyListScreen } from "../features/stream/MyListScreen";
@@ -42,6 +42,17 @@ export function App() {
   // Cold boots fade the boot gradient in; the onboarding hand-off must
   // not (its finale already landed on the sharp frame).
   const [welcomeIntro, setWelcomeIntro] = useState(true);
+
+  // Settings → Customize → "Replay Onboarding": mount the flow over the
+  // app on demand (the completed flag stays — see onboardingGate).
+  useEffect(
+    () =>
+      onOnboardingReplay(() => {
+        setSettingsOpen(false);
+        setOnboarding(true);
+      }),
+    [],
+  );
 
   // Section switches are instant: leaving Live unmounts LiveScreen, whose
   // InvertedPlayer cleanup heals the shell's clip hole SYNCHRONOUSLY (before
