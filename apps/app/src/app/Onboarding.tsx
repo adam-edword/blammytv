@@ -100,11 +100,26 @@ const BURST_MS = 700;
  * overlay, then fades to the app. One component owns first frame to
  * reveal; the double-buffer/watchdog machinery is gone. Unlike a cold
  * boot, the mimic is NOT input-skippable (Adam's call: it's the earned
- * finale, not a wait). */
+ * finale, not a wait).
+ *
+ * v0.4.33 — the condense is a seamless MORPH (Adam: "there shouldn't
+ * ever be a transition"): the aurora carries the boot's own gradient
+ * (spin frozen; the rAF spin-down eases the disc onto rotation 0 mod
+ * 360 = the boot's native angle) while it brightens to full and the
+ * veil's mask un-feathers into the screen rect. By CONDENSE_MS the
+ * scene IS the boot's first frame; the mimic then mounts over
+ * identical pixels and the spent backdrop is torn down 100ms later,
+ * hidden beneath it. */
 const BOOT_START_HOLD_MS = 700; // twins welcome.css's timeline delay
 const BOOT_TIMELINE_MS = 2000;
 const BOOT_END_HOLD_MS = 1000;
 const RELEASE_FADE_MS = 450;
+/** The morph's length: veil/dither transitions run 550-600ms; the
+ * spin-down lands by ~600ms. The mimic mounts here. */
+const CONDENSE_MS = 650;
+/** Backdrop teardown, hidden under the opaque mimic (v0.4.29's
+ * double-buffer lesson: never tear down what is visible). */
+const BACKDROP_RELEASE_MS = 750;
 /** Content out-transition before the step swaps: onb-out is 300ms and
  * the last staggered child starts at +90ms — swap after the full tail. */
 const SWAP_MS = 400;
@@ -144,11 +159,13 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   const [step, setStep] = useState(0);
   const [phase, setPhase] = useState<"in" | "out">("in");
   const [finale, setFinale] = useState(false);
-  /** Condense finished (aurora/veil/dither fully faded): the backdrop
-   * layers UNMOUNT and the rAF loop stops, so the boot mimic plays over
-   * plain black with zero stale layers underneath. Invisible zombie
-   * layers (a 150vmax pinned texture still receiving transform writes)
-   * are exactly the compositor-churn class Adam's machine punishes. */
+  /** The morph has landed on the boot's first frame: mount the mimic
+   * (over pixel-identical content — invisible by construction). */
+  const [mimicUp, setMimicUp] = useState(false);
+  /** 100ms later: the spent backdrop layers UNMOUNT (hidden beneath
+   * the opaque mimic) and the rAF loop stops. Invisible zombie layers
+   * (a 150vmax pinned texture still receiving transform writes) are
+   * exactly the compositor-churn class Adam's machine punishes. */
   const [condensed, setCondensed] = useState(false);
   /** The overlay's exit fade — set once the mimic's lockup has settled. */
   const [leaving, setLeaving] = useState(false);
@@ -197,16 +214,20 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   onDoneRef.current = onDone;
   useEffect(() => {
     if (!finale) return;
-    // The aurora eases to a stop while the mimic crossfades in over it,
-    // and this launch's boot is the mimic — the real one must not replay.
+    // The aurora eases onto the boot's gradient angle while the veil
+    // un-feathers into the screen — and this launch's boot is the
+    // mimic, so the real one must not replay.
     spinDownRef.current = true;
     markWelcomePlayed();
+    // The boot timeline runs from the mimic's mount at CONDENSE_MS.
     const settleMs = reducedMotion
       ? 100
-      : BOOT_START_HOLD_MS + BOOT_TIMELINE_MS + BOOT_END_HOLD_MS;
-    // Past the 600ms backdrop fades (and inside the mimic's 700ms
-    // opening hold): drop the spent layers before the boot moves.
-    const condense = window.setTimeout(() => setCondensed(true), 650);
+      : CONDENSE_MS + BOOT_START_HOLD_MS + BOOT_TIMELINE_MS + BOOT_END_HOLD_MS;
+    const mimic = window.setTimeout(() => setMimicUp(true), CONDENSE_MS);
+    const sweep = window.setTimeout(
+      () => setCondensed(true),
+      BACKDROP_RELEASE_MS,
+    );
     const leave = window.setTimeout(() => setLeaving(true), settleMs);
     const done = window.setTimeout(() => {
       if (doneRef.current) return;
@@ -214,7 +235,8 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
       onDoneRef.current();
     }, settleMs + RELEASE_FADE_MS);
     return () => {
-      window.clearTimeout(condense);
+      window.clearTimeout(mimic);
+      window.clearTimeout(sweep);
       window.clearTimeout(leave);
       window.clearTimeout(done);
     };
@@ -254,6 +276,8 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     let raf = 0;
     let last = performance.now();
     let lastAngleWrite = "";
+    /** Spin-down landing angle — the nearest full turn, chosen once. */
+    let landTarget: number | null = null;
     let target: { x: number; y: number } | null = null;
     let pos: { x: number; y: number } | null = null;
     const onMove = (e: PointerEvent) => {
@@ -263,14 +287,35 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     const tick = (now: number) => {
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
-      // Velocity model: drift, burst on advances, spin-down at finale.
-      const speed = spinDownRef.current
-        ? 0
-        : now < burstUntil.current
-          ? BURST_DEG_S
-          : BASE_DEG_S;
-      velRef.current += (speed - velRef.current) * Math.min(1, dt * 7);
-      angleRef.current = angleRef.current + velRef.current * dt;
+      if (spinDownRef.current) {
+        // Finale spin-down: don't just brake — LAND. A critically
+        // damped spring takes the disc (velocity-continuous, from
+        // drift or mid-burst alike) to the NEAREST full turn, where
+        // its frozen boot paint sits at the boot's native angle — so
+        // the mimic's first frame matches pixel-for-pixel. ω=12 puts
+        // the residual under a couple hundredths of a degree by the
+        // mimic's mount at CONDENSE_MS.
+        if (landTarget === null) {
+          landTarget = Math.round(angleRef.current / 360) * 360;
+        }
+        const W = 12;
+        velRef.current +=
+          (W * W * (landTarget - angleRef.current) - 2 * W * velRef.current) *
+          dt;
+        angleRef.current += velRef.current * dt;
+        if (
+          Math.abs(landTarget - angleRef.current) < 0.05 &&
+          Math.abs(velRef.current) < 0.5
+        ) {
+          angleRef.current = landTarget;
+          velRef.current = 0;
+        }
+      } else {
+        // Velocity model: drift, burst on advances.
+        const speed = now < burstUntil.current ? BURST_DEG_S : BASE_DEG_S;
+        velRef.current += (speed - velRef.current) * Math.min(1, dt * 7);
+        angleRef.current = angleRef.current + velRef.current * dt;
+      }
       // Transform-only rotation: the compositor spins the disc's cached
       // (unfiltered, painted-once) texture on the GPU with zero
       // repaints. Write only on visible change.
@@ -928,17 +973,27 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
       }
       style={vars}
     >
-      {/* Backdrop layers unmount once the condense finishes: the mimic
-       * must play over plain black, not over invisible pinned layers. */}
+      {/* Backdrop layers unmount 100ms after the mimic mounts — the
+       * teardown happens beneath its opaque, pixel-identical frame. */}
       {!condensed && (
         <>
-          <div className="onb-aurora" ref={discRef} aria-hidden />
+          <div className="onb-aurora" ref={discRef} aria-hidden>
+            {/* The boot's own paint, spin-frozen — rotation comes from
+             * the rAF transform on the wrapper. */}
+            <div className="welcome-gradient-fit">
+              <div className="welcome-gradient" />
+            </div>
+          </div>
+          {/* The screen's seat: always mounted, parked deep inside the
+           * veil's opaque interior; the finale slides it out to the
+           * boot screen's geometry under the receding contour. */}
+          <div className="onb-screen" aria-hidden />
           <div className="onb-veil" aria-hidden />
           <div className="onb-dither" />
           <div ref={cursorRef} className="onb-cursor-glow" aria-hidden />
         </>
       )}
-      {finale && !reducedMotion && (
+      {finale && mimicUp && !reducedMotion && (
         <div className="onb-boot" aria-hidden>
           <div className="onb-boot__frame">
             <div className="welcome-gradient-fit">

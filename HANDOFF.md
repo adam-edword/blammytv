@@ -15,11 +15,43 @@ Audience: switchers from other Windows IPTV clients, Stremio users, ideally
 both — and explicitly *inviting to newcomers*; first-five-minutes activation
 weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
-## Live state (2026-07-12, dev v0.4.32 — ONBOARDING ERA)
+## Live state (2026-07-12, dev v0.4.33 — ONBOARDING ERA)
 
-- Dev is **v0.4.32**; natives sit at 0.4.0 (released). All suites green:
-  units 204/204, onboarding E2E 38/38 (two new cold-boot guards),
-  discover 59/59, credits 6/6, probe 5/5.
+- Dev is **v0.4.33**; natives sit at 0.4.0 (released). All suites green:
+  units 204/204, onboarding E2E 38/38, discover 59/59, credits 6/6,
+  probe 5/5.
+- **v0.4.33: THE FINALE IS A SEAMLESS MORPH (Adam: "there shouldn't
+  ever be a transition to the boot animation" — v0.4.32's condense was
+  a crossfade with mismatched gradients).** Three constructions make
+  the mimic's mount pixel-identical (measured: 0.06% of pixels differ
+  across the mount boundary in headless Chromium):
+  1. **The aurora's paint IS the boot gradient** — welcome-gradient
+     classes verbatim inside the disc, spin frozen at its native 90deg
+     (`.onb-aurora .welcome-gradient { animation: none }`), fit scaled
+     2.1×cover (a conic depends on angle only → scaling about its
+     center changes nothing; 2.1 outreaches the viewport's circumcircle
+     at every rotation/aspect). Steps drift = this paint rotated by the
+     rAF angle; zero repaints (child is static, wrapper rotates).
+  2. **The spin-down LANDS**: a critically-damped spring (ω=12,
+     velocity-continuous from drift or mid-burst) takes the disc to the
+     NEAREST full turn — rotation 0 = the boot's first-frame gradient
+     exactly. Lands < 0.05deg by CONDENSE_MS (650ms).
+  3. **The veil un-feathers into the screen**: its mask geometry rides
+     four registered @properties (inset-x/y, feather, lift) that
+     TRANSITION 550ms — the 260px soft band tightens to a 12px edge
+     landing exactly on the screen inset — while the .onb-screen seat
+     (boot screen twin, always mounted, parked at inset 300px inside
+     the veil's opaque interior) slides out beneath it on the same
+     curve (gap = 40px×(1−e), zero only at the end). A late 150ms
+     opacity fade (delay 420ms) dissolves the veil's last 12px fringe
+     and the square-ish corner slivers the two-ramp intersect can't
+     round, leaving the seat's true superellipse corners. Meanwhile the
+     aurora BRIGHTENS 0.5→1 (the glow resolves, not fades).
+  Mimic mounts at 650ms with NO entrance animation (pixels identical);
+  backdrop tears down at 750ms UNDER the opaque mimic (v0.4.29 lesson);
+  settle/leave timers shifted by CONDENSE_MS. Reduced motion: media
+  block reverts all condense end-states (no mimic mounts — the morph
+  would flash the bare gradient center).
 - **v0.4.32: THE TWO v0.4.31 SHIP-BREAKERS FIXED (Adam's repro:
   onboarding "just an oval", boot animation broken).**
   1. **Boot animation was killed by a COMMENT.** welcome.css's TWIN

@@ -6,7 +6,22 @@
  * first-visible raster storm); the rebuild removes the primitive:
  * softness is gradient/mask math, and every large layer animates
  * transform/opacity only. The finale plays an in-component MIMIC of
- * the boot animation (onb-boot-* below) — no hand-off. */
+ * the boot animation (onb-boot-* below) — no hand-off.
+ *
+ * v0.4.33: the finale is a seamless MORPH, not a crossfade (Adam: "there
+ * shouldn't ever be a transition"). Three constructions make the mimic's
+ * first frame pixel-identical to the condensed backdrop, so the mount is
+ * invisible:
+ * 1. The aurora's paint IS the boot gradient (welcome-gradient classes,
+ *    spin frozen at its native 90deg, scaled up — a conic depends on
+ *    angle only, so scaling about its center changes nothing).
+ * 2. The rAF spin-down eases the disc to rotation 0 mod 360: the paint
+ *    lands EXACTLY on the boot's first-frame orientation.
+ * 3. The veil's mask geometry (registered custom properties) tightens
+ *    from the soft steps-band into the screen rect and tucks INSIDE it;
+ *    a real .onb-screen rect (the boot screen's twin) sits beneath, so
+ *    the visible dark region is union(veil, screen) — it morphs
+ *    continuously from feathered rectangle to the exact screen shape. */
 
 .onb {
   position: fixed;
@@ -24,18 +39,21 @@
   opacity: 0;
 }
 
-/* THE AURORA (v0.4.31, geometry fixed in v0.4.32): one unfiltered disc,
- * spun transform-only from the rAF loop. The conic sweep interpolates
- * in oklab (the hue seams the old mega-blur used to smooth); the dark
- * center comes from the VEIL below — the disc itself paints the whole
- * viewport, exactly like the old blurred disc did. (v0.4.31 masked the
- * disc into a circular annulus instead: a circle in disc-space samples
- * anisotropically in viewport-space — full color at the side edges,
- * nearly none at top/bottom — and read as a dim OVAL, Adam's repro.)
- * will-change pins the layer so the rAF rotation never re-rasters.
- * Centered via margins, NOT translate — the rAF loop owns transform.
- * NEVER put a mask/filter on a wrapper around this element: flattening
- * it into a parent's layer brings the per-frame repaint back. */
+/* THE AURORA: a wrapper spun transform-only from the rAF loop, whose
+ * paint is the BOOT GRADIENT ITSELF — welcome.css's gradient classes,
+ * verbatim, with the spin frozen (rotation comes from the wrapper's
+ * transform instead) and the fit scaled 2.1× cover so the paint out-
+ * reaches the viewport's circumscribed circle at every rotation. A
+ * conic is a function of angle only, so scaling it about its center
+ * changes NOTHING visually — during the steps the backdrop shows the
+ * boot paint rotated by the drift angle, and when the finale's
+ * spin-down lands on 0 mod 360 it IS the boot's first-frame gradient,
+ * pixel for pixel. The dark center comes from the VEIL below; the
+ * paint fills the whole viewport, exactly like the old blurred disc.
+ * will-change pins the layer (child included — the frozen gradient
+ * rasters once) so the rAF rotation never repaints. Centered via
+ * margins, NOT translate — the rAF loop owns transform. NEVER put a
+ * mask/filter on this element or a wrapper around it. */
 .onb-aurora {
   position: absolute;
   left: 50%;
@@ -43,77 +61,191 @@
   width: 150vmax;
   height: 150vmax;
   margin: -75vmax 0 0 -75vmax;
-  border-radius: 50%;
   opacity: 0.5;
   will-change: transform;
-  background: conic-gradient(
-    from 0deg in oklab,
-    #ff9b9b -4.8706%,
-    #ff8bc9 3.8928%,
-    #ff7bf6 12.656%,
-    #c388fb 21.574%,
-    #8696ff 30.493%,
-    #85cbd4 40.25%,
-    #84ffa9 50.008%,
-    #c1f294 62.55%,
-    #ffe57f 75.091%,
-    #ff9b9b 95.129%,
-    #ff8bc9 103.89%,
-    #ff7bf6 112.66%
-  );
   animation: onb-fade-in 1600ms ease-out backwards;
   transition: opacity 600ms ease;
 }
+.onb-aurora .welcome-gradient-fit {
+  transform: translate(-50%, -50%) scale(calc(var(--s) * 2.1));
+}
+/* The boot's own 5s hue spin would repaint the huge cached layer every
+ * frame — frozen here at its native 90deg; the mimic's copy (below,
+ * outside the aurora) spins normally from its mount. */
+.onb-aurora .welcome-gradient {
+  animation: none;
+}
+/* The condense: the glow does not fade away — it RESOLVES to the boot
+ * frame's full strength while the spin-down lands the paint on the
+ * boot's angle. */
 .onb.is-finale .onb-aurora {
-  opacity: 0;
+  opacity: 1;
+}
+
+/* The boot screen's seat: parked DEEP inside the veil's fully-opaque
+ * interior (inset 300px > the veil's 260px black-zone start) through
+ * all the steps, so it is never visible; the finale slides it out to
+ * the boot screen's exact geometry on the same curve the veil's
+ * contour recedes on. The two are tuned so the seat's hard edge stays
+ * inside the veil's opaque region for the WHOLE morph (gap = 40px ×
+ * (1 - progress), zero only at the very end): the visible boundary is
+ * always the veil's softening contour, and when it lands on the screen
+ * edge the seat is already there beneath it, rounded superellipse
+ * corners and all (TWIN of .onb-boot__screen / welcome.css's
+ * .welcome-screen first frame). */
+.onb-screen {
+  position: absolute;
+  inset: 300px;
+  border-radius: 30px;
+  background: #000;
+  corner-shape: superellipse(1.58);
+  transition: inset 550ms cubic-bezier(0.33, 0, 0.3, 1);
+}
+.onb.is-finale .onb-screen {
+  inset: calc(36.5px * var(--s)) calc(35px * var(--s));
 }
 
 /* The dark center: a fullscreen black sheet whose EDGES are carved
  * away by two intersecting linear-gradient masks (a horizontal ramp ×
  * a vertical ramp). The product reproduces what the old blurred cover
  * did: a soft rectangle-following falloff — most open in the corners
- * (both ramps low there), a ~200px feathered band along every edge,
- * solid black center — with the exact profile in the stops, no box
- * silhouette, no filter. Static: the mask rasterizes once into the
- * layer; nothing here ever animates except the finale fade.
+ * (both ramps low there), a ~250px feathered band along every edge,
+ * solid black center — no box silhouette, no filter.
  * (mask-composite: intersect is Chromium 120+; WebView2 evergreen is
- * far past that.) */
+ * far past that.)
+ *
+ * The mask geometry rides four REGISTERED custom properties so the
+ * finale can transition them: the feathered band un-feathers and the
+ * whole silhouette tightens past the screen edge until the veil tucks
+ * fully INSIDE the .onb-screen rect beneath it (inset overshoots the
+ * screen's by 40px > its corner radius). The visible dark region —
+ * union(veil, screen) — therefore morphs CONTINUOUSLY from the soft
+ * steps-band into the boot screen's exact shape and edges: no fade, no
+ * pop, the corners round themselves as the veil recedes through the
+ * screen boundary. Transitioning registered properties repaints the
+ * mask each frame — one element, ~550ms, bounded, then static. */
+@property --onb-veil-inset-x {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --onb-veil-inset-y {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --onb-veil-feather {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 260px;
+}
+@property --onb-veil-lift {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0.4;
+}
 .onb-veil {
   position: absolute;
   inset: 0;
   pointer-events: none;
   background: #000;
+  --onb-veil-inset-x: 0px;
+  --onb-veil-inset-y: 0px;
+  --onb-veil-feather: 260px;
+  --onb-veil-lift: 0.4;
   mask-image:
     linear-gradient(
       to right,
-      rgba(0, 0, 0, 0.4) 0,
-      rgba(0, 0, 0, 0.62) 70px,
-      rgba(0, 0, 0, 0.86) 140px,
-      rgba(0, 0, 0, 0.97) 200px,
-      #000 260px,
-      #000 calc(100% - 260px),
-      rgba(0, 0, 0, 0.97) calc(100% - 200px),
-      rgba(0, 0, 0, 0.86) calc(100% - 140px),
-      rgba(0, 0, 0, 0.62) calc(100% - 70px),
-      rgba(0, 0, 0, 0.4) 100%
+      rgba(0, 0, 0, var(--onb-veil-lift)) var(--onb-veil-inset-x),
+      rgba(
+          0,
+          0,
+          0,
+          calc(var(--onb-veil-lift) + (1 - var(--onb-veil-lift)) * 0.38)
+        )
+        calc(var(--onb-veil-inset-x) + var(--onb-veil-feather) * 0.3),
+      rgba(
+          0,
+          0,
+          0,
+          calc(var(--onb-veil-lift) + (1 - var(--onb-veil-lift)) * 0.78)
+        )
+        calc(var(--onb-veil-inset-x) + var(--onb-veil-feather) * 0.62),
+      #000 calc(var(--onb-veil-inset-x) + var(--onb-veil-feather)),
+      #000 calc(100% - var(--onb-veil-inset-x) - var(--onb-veil-feather)),
+      rgba(
+          0,
+          0,
+          0,
+          calc(var(--onb-veil-lift) + (1 - var(--onb-veil-lift)) * 0.78)
+        )
+        calc(100% - var(--onb-veil-inset-x) - var(--onb-veil-feather) * 0.62),
+      rgba(
+          0,
+          0,
+          0,
+          calc(var(--onb-veil-lift) + (1 - var(--onb-veil-lift)) * 0.38)
+        )
+        calc(100% - var(--onb-veil-inset-x) - var(--onb-veil-feather) * 0.3),
+      rgba(0, 0, 0, var(--onb-veil-lift)) calc(100% - var(--onb-veil-inset-x))
     ),
     linear-gradient(
       to bottom,
-      rgba(0, 0, 0, 0.4) 0,
-      rgba(0, 0, 0, 0.62) 70px,
-      rgba(0, 0, 0, 0.86) 140px,
-      rgba(0, 0, 0, 0.97) 200px,
-      #000 260px,
-      #000 calc(100% - 260px),
-      rgba(0, 0, 0, 0.97) calc(100% - 200px),
-      rgba(0, 0, 0, 0.86) calc(100% - 140px),
-      rgba(0, 0, 0, 0.62) calc(100% - 70px),
-      rgba(0, 0, 0, 0.4) 100%
+      rgba(0, 0, 0, var(--onb-veil-lift)) var(--onb-veil-inset-y),
+      rgba(
+          0,
+          0,
+          0,
+          calc(var(--onb-veil-lift) + (1 - var(--onb-veil-lift)) * 0.38)
+        )
+        calc(var(--onb-veil-inset-y) + var(--onb-veil-feather) * 0.3),
+      rgba(
+          0,
+          0,
+          0,
+          calc(var(--onb-veil-lift) + (1 - var(--onb-veil-lift)) * 0.78)
+        )
+        calc(var(--onb-veil-inset-y) + var(--onb-veil-feather) * 0.62),
+      #000 calc(var(--onb-veil-inset-y) + var(--onb-veil-feather)),
+      #000 calc(100% - var(--onb-veil-inset-y) - var(--onb-veil-feather)),
+      rgba(
+          0,
+          0,
+          0,
+          calc(var(--onb-veil-lift) + (1 - var(--onb-veil-lift)) * 0.78)
+        )
+        calc(100% - var(--onb-veil-inset-y) - var(--onb-veil-feather) * 0.62),
+      rgba(
+          0,
+          0,
+          0,
+          calc(var(--onb-veil-lift) + (1 - var(--onb-veil-lift)) * 0.38)
+        )
+        calc(100% - var(--onb-veil-inset-y) - var(--onb-veil-feather) * 0.3),
+      rgba(0, 0, 0, var(--onb-veil-lift)) calc(100% - var(--onb-veil-inset-y))
     );
   mask-composite: intersect;
-  transition: opacity 600ms ease;
+  transition:
+    --onb-veil-inset-x 550ms cubic-bezier(0.33, 0, 0.3, 1),
+    --onb-veil-inset-y 550ms cubic-bezier(0.33, 0, 0.3, 1),
+    --onb-veil-feather 550ms cubic-bezier(0.33, 0, 0.3, 1),
+    --onb-veil-lift 550ms cubic-bezier(0.33, 0, 0.3, 1),
+    opacity 150ms ease 420ms;
 }
+/* The un-feather: the black contour (inset + feather) recedes from the
+ * steps-band's 260px and LANDS exactly on the screen edge (35/36.5 ×
+ * --s) as the feather tightens to 12px, the edge-lift drops to 0, and
+ * the .onb-screen seat arrives beneath it. The late 150ms opacity fade
+ * then dissolves the veil's last residue — the 12px fringe outside the
+ * screen edge and the square-ish corner slivers the two-ramp intersect
+ * can't round — leaving the seat's true superellipse corners. By 570ms
+ * the scene is the boot's first frame exactly; the mimic mounts at
+ * 650ms over identical pixels. */
 .onb.is-finale .onb-veil {
+  --onb-veil-inset-x: calc(35px * var(--s) - 12px);
+  --onb-veil-inset-y: calc(36.5px * var(--s) - 12px);
+  --onb-veil-feather: 12px;
+  --onb-veil-lift: 0;
   opacity: 0;
 }
 
@@ -156,28 +288,21 @@
  * (Adam's call): onboarding must never mount WelcomeAnimation, and the
  * two may diverge stylistically someday.
  *
- * The wrapper fades in with a slight scale settle over the aurora's
- * fade-out (the condense) during the mimic's opening hold; the shrink
- * then runs exactly like a cold boot. The gradient paint reuses
- * welcome.css's classes verbatim (geometry + conic + 5s spin — plain
- * unfiltered paint, cheap to repaint, exactly like the real boot).
+ * The wrapper has NO entrance (v0.4.33): it mounts once the condense
+ * has landed the backdrop on the boot's first frame — same gradient at
+ * the same angle (spin-down lands 0 mod 360; a conic is scale-
+ * invariant), same screen rect (.onb-screen twin), wordmark opening at
+ * opacity 0 — so its first paint is pixel-identical to what is already
+ * on screen and the mount is invisible. The backdrop unmounts 100ms
+ * later UNDER the opaque mimic (v0.4.29's double-buffer lesson: only
+ * ever tear down what is hidden). The gradient paint reuses
+ * welcome.css's classes verbatim (geometry + conic + 5s spin from
+ * mount — plain unfiltered paint, exactly like the real boot).
  * The mimic is NOT input-skippable — the step actions all no-op once
  * `finale` is set, and no skip listener exists here on purpose. */
-/* Fade-in is opacity ONLY (v0.4.32): the v0.4.31 wrapper also ran a
- * scale settle, whose end collapsed the wrapper's compositor layer
- * 100ms before the children's shrink animations promoted new ones —
- * exactly the promotion-flip churn that produced stale-layer artifacts
- * on Adam's machine through v0.4.26-29. The boot's own motion sells
- * the resolve; the wrapper only fades. */
 .onb-boot {
   position: absolute;
   inset: 0;
-  animation: onb-boot-in 600ms cubic-bezier(0.33, 0, 0.3, 1) both;
-}
-@keyframes onb-boot-in {
-  from {
-    opacity: 0;
-  }
 }
 
 .onb-boot__frame {
@@ -787,5 +912,21 @@
   .onb-veil,
   .onb-dither {
     transition-duration: 1ms;
+  }
+  /* No boot mimic plays here — the finale is a quick fade to the app —
+   * so the condense must NOT run: without the mimic the un-feathered
+   * veil would flash the bare gradient center. */
+  .onb.is-finale .onb-aurora {
+    opacity: 0.5;
+  }
+  .onb.is-finale .onb-veil {
+    --onb-veil-inset-x: 0px;
+    --onb-veil-inset-y: 0px;
+    --onb-veil-feather: 260px;
+    --onb-veil-lift: 0.4;
+    opacity: 1;
+  }
+  .onb.is-finale .onb-screen {
+    inset: 300px;
   }
 }
