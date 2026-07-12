@@ -31,9 +31,12 @@
    * finale lifts back to full brand strength. Blur scales down with
    * the window so small viewports keep a dark center. */
   filter: blur(clamp(120px, 13vw, 176px));
-  /* The finale animates this filter — keep the layer promoted so the
-   * blur-down runs composited instead of re-rastering on main. */
-  will-change: filter;
+  /* NO will-change here — promoting this layer (v0.4.26) moved the
+   * mega-blur onto the GPU compositor, whose downsampled/edge-clamped
+   * blur produced the washed-out gradient flashes Adam key-framed
+   * (bright smear flooding the top third, alternating frames). The
+   * two-phase finale already keeps content static during the filter
+   * transition, so main-thread blurring of a parked paint is calm. */
   /* The 450ms delay is finale phase 1: the gradient angle glides to
    * the boot frame's 90deg and PARKS first, so this filter transition
    * animates STATIC content (compositor-only — the repaint-per-frame
