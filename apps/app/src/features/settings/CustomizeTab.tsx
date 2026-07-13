@@ -401,6 +401,70 @@ export function CustomizeTab() {
         </section>
       )}
 
+      {/* App-level, not per-appearance-axis — only shown under General so it
+       * doesn't repeat across the Theme/Display tabs. */}
+      {sec === "general" && (
+        <>
+          <section className="settings-section">
+            <div className="customize-row">
+              <div>
+                <h4 className="customize-row__title">Replay Onboarding</h4>
+                <p className="settings__section-note settings__section-note--dim">
+                  Walk through the welcome setup again. Nothing gets reset.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={requestOnboardingReplay}
+              >
+                Replay
+              </button>
+            </div>
+          </section>
+
+          <UpdatesSection />
+
+          <section className="settings-section">
+            <div className="danger-zone">
+              <h3 className="danger-zone__title">Danger Zone</h3>
+
+              <div className="customize-row">
+                <div>
+                  <h4 className="customize-row__title">Reset Appearance</h4>
+                  <p className="settings__section-note settings__section-note--dim">
+                    Accent, theme, corners, scale, clock, and startup tab back
+                    to defaults.
+                  </p>
+                </div>
+                <button type="button" className="btn-danger" onClick={reset}>
+                  Reset
+                </button>
+              </div>
+
+              <div className="customize-row">
+                <div>
+                  <h4 className="customize-row__title">Clear All Login Info</h4>
+                  <p className="settings__section-note settings__section-note--dim">
+                    Removes every playlist and your AIOStreams manifest from
+                    this device.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className={
+                    "btn-danger" + (clearArmed ? " btn-danger--armed" : "")
+                  }
+                  onClick={clearLogins}
+                >
+                  {clearArmed ? "Click again to confirm" : "Clear…"}
+                </button>
+              </div>
+            </div>
+          </section>
+        </>
+      )}
+
       {sec === "theme" && (
         <section className="settings-section">
           <h3 className="settings-section__list-title">Theme</h3>
@@ -695,64 +759,6 @@ export function CustomizeTab() {
 
         </section>
       )}
-
-      <section className="settings-section">
-        <div className="customize-row">
-          <div>
-            <h4 className="customize-row__title">Replay Onboarding</h4>
-            <p className="settings__section-note settings__section-note--dim">
-              Walk through the welcome setup again. Nothing gets reset.
-            </p>
-          </div>
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={requestOnboardingReplay}
-          >
-            Replay
-          </button>
-        </div>
-      </section>
-
-      <UpdatesSection />
-
-      <section className="settings-section">
-        <div className="danger-zone">
-          <h3 className="danger-zone__title">Danger Zone</h3>
-
-          <div className="customize-row">
-            <div>
-              <h4 className="customize-row__title">Reset Appearance</h4>
-              <p className="settings__section-note settings__section-note--dim">
-                Accent, theme, corners, scale, clock, and startup tab back to
-                defaults.
-              </p>
-            </div>
-            <button type="button" className="btn-danger" onClick={reset}>
-              Reset
-            </button>
-          </div>
-
-          <div className="customize-row">
-            <div>
-              <h4 className="customize-row__title">Clear All Login Info</h4>
-              <p className="settings__section-note settings__section-note--dim">
-                Removes every playlist and your AIOStreams manifest from this
-                device.
-              </p>
-            </div>
-            <button
-              type="button"
-              className={
-                "btn-danger" + (clearArmed ? " btn-danger--armed" : "")
-              }
-              onClick={clearLogins}
-            >
-              {clearArmed ? "Click again to confirm" : "Clear…"}
-            </button>
-          </div>
-        </div>
-      </section>
     </>
   );
 }

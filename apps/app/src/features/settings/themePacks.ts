@@ -42,7 +42,7 @@ export const THEME_PACKS: ReadonlyArray<ThemePackMeta> = [
   },
   {
     id: "void",
-    name: "Void",
+    name: "OLED",
     blurb: "OLED true black with crushed, inky surfaces.",
     supportsLight: false,
     preview: { bg: "#000000", surface: "#050505", accent: PREVIEW_ACCENT },

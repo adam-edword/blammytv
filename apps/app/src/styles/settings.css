@@ -436,6 +436,11 @@
   flex-wrap: wrap;
   gap: 12px;
   width: 100%;
+  /* .settings__body scrolls (overflow-y: auto forces overflow-x: auto too,
+   * per spec), which clips the leftmost card's active box-shadow ring flush
+   * against the row's edge. A little inset gives the 2px ring room to
+   * render — cheaper than un-scrolling the ancestor for one ring. */
+  padding: 2px;
 }
 
 .pack-card {
