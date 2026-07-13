@@ -55,18 +55,17 @@
     line-height: 1.5;
   }
   /* Dither field — the app's Bayer-flavored dot lattice (onboarding.css
-   * .onb-dither): a 4px white-dot grid plus a fainter 8px one. Rendered as
-   * a fixed top overlay (pointer-events:none) so it stays put while
-   * scrolling AND self-masks: white dots read as grain over the dark
-   * background but disappear over the bright screenshots. */
+   * .onb-dither): a 4px white-dot grid plus a fainter 8px one. Fixed so
+   * the grain stays put while scrolling; z-index 0 sits it behind the
+   * content (.page, z-index 1), so it grains the dark background only. */
   .site-dither {
     position: fixed;
     inset: 0;
-    z-index: 3;
+    z-index: 0;
     pointer-events: none;
     background-image:
-      radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.14) 1px, transparent 1.4px),
-      radial-gradient(circle at 3px 3px, rgba(255, 255, 255, 0.06) 1px, transparent 1.4px);
+      radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.03) 1px, transparent 1.4px),
+      radial-gradient(circle at 3px 3px, rgba(255, 255, 255, 0.03) 1px, transparent 1.4px);
     background-size: 4px 4px, 8px 8px;
   }
   .page { position: relative; z-index: 1; }
