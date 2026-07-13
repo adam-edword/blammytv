@@ -28,7 +28,12 @@ dist-ssr/
 
 # libmpv runtime DLL (place locally for tauri build; not committed)
 **/src-tauri/*.dll
+/libmpv-2.dll
 website/landing.html
+
+# tauri generated output (android project + capability schemas; regenerated
+# by `tauri android init` / build — not source)
+**/src-tauri/gen/
 
 # E2E suites screenshot into cwd - never commit those
 /*.png
