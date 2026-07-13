@@ -282,11 +282,14 @@
   @media (max-width: 860px) { .setup__grid { grid-template-columns: 1fr; } }
 
   /* ---- Feature rows -------------------------------------------------- */
-  .features { padding: 60px 0; display: flex; flex-direction: column; gap: 140px; }
-  .feature { display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 70px; position: relative; }
+  .features { padding: 60px 0; display: flex; flex-direction: column; gap: 150px; }
+  /* Text column is narrower than the media (Figma ~515:803 ≈ 5:8). Reversed
+   * rows swap the ratio so the window stays on the wide side. */
+  .feature { display: grid; grid-template-columns: 5fr 8fr; align-items: center; gap: 62px; position: relative; }
+  .feature--reverse { grid-template-columns: 8fr 5fr; }
   .feature .glow { width: 640px; height: 380px; opacity: .18; }
   .feature__text h2 { font-size: clamp(32px, 4.6vw, 48px); }
-  .feature__text p { color: rgba(255,255,255,.5); font-size: 20px; margin-top: 20px; max-width: 34ch; }
+  .feature__text p { color: rgba(255,255,255,.5); font-size: 20px; margin-top: 20px; max-width: 515px; letter-spacing: -0.02em; }
   .feature--reverse .feature__media { order: -1; }
   .feature--reverse .glow { left: -80px; }
   .feature:not(.feature--reverse) .glow { right: -80px; }
