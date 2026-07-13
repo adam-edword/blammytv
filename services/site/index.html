@@ -92,7 +92,7 @@
   .btn {
     display: inline-flex; align-items: center; gap: 10px;
     font-family: var(--font-h); font-weight: 700; font-size: 18px;
-    padding: 12px 20px; border-radius: 12px; cursor: pointer; border: 0;
+    padding: 12px 20px; border-radius: var(--radius); cursor: pointer; border: 0;
     transition: transform .12s ease, filter .12s ease;
   }
   .btn:hover { transform: translateY(-1px); filter: brightness(1.08); }
@@ -120,10 +120,16 @@
   header.nav {
     position: sticky; top: 16px; z-index: 50;
   }
+  /* Bare over the hero; the glass fill + border + blur fade in on scroll
+   * (JS toggles .scrolled on header.nav past a few px). */
   .nav__bar {
     display: flex; align-items: center; justify-content: space-between;
-    background: var(--nav); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 16px 28px; backdrop-filter: blur(12px);
+    background: transparent; border: 1px solid transparent;
+    border-radius: var(--radius); padding: 16px 28px;
+    transition: background 250ms ease, border-color 250ms ease, backdrop-filter 250ms ease;
+  }
+  .nav.scrolled .nav__bar {
+    background: var(--nav); border-color: var(--border); backdrop-filter: blur(12px);
   }
   .nav__brand { display: flex; align-items: center; gap: 12px; font-family: var(--font-h); font-weight: 700; font-size: 24px; }
   .nav__brand .mark { width: 28px; height: 28px; }
@@ -556,5 +562,16 @@
 </footer>
 
 </div><!-- /.page -->
+
+<script>
+  // Nav is bare over the hero; add .scrolled once the page moves so the
+  // glass fill + border fade in (see .nav.scrolled .nav__bar).
+  (function () {
+    var nav = document.querySelector('.nav');
+    var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+</script>
 </body>
 </html>
