@@ -299,7 +299,10 @@
   @media (max-width: 860px) { .setup__grid { grid-template-columns: 1fr; } }
 
   /* ---- Feature rows -------------------------------------------------- */
-  .features { padding: 60px 0; display: flex; flex-direction: column; gap: 150px; }
+  /* The gap must live on the element that directly holds the .feature rows
+   * (the inner .wrap), not on .features whose only child is that .wrap. */
+  .features { padding: 60px 0; }
+  .features .wrap { display: flex; flex-direction: column; gap: 150px; }
   /* Text column narrower than the media, but wide enough (~515px at desktop)
    * that the headings wrap like the Figma instead of breaking mid-word.
    * Reversed rows swap the ratio so the window stays on the wide side. */
