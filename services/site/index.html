@@ -78,7 +78,7 @@
     pointer-events: none;
     background-image:
       radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.03) 1px, transparent 0px),
-      radial-gradient(circle at 3px 3px, rgba(255, 255, 255, 0.03) 1px, transparent 0px);
+      radial-gradient(circle at 3px 3px, rgba(6, 6, 9, 1) 1px, transparent 0px);
     background-size: 4px 4px, 8px 8px;
   }
   .page { position: relative; z-index: 1; }
@@ -176,12 +176,88 @@
     border: 1px solid var(--border); border-radius: 16px; overflow: hidden;
     background: #000; box-shadow: 0 30px 80px rgba(0,0,0,.5);
   }
-  .browser__bar { height: 26px; background: #1f1f1f; display: flex; align-items: center; gap: 7px; padding-left: 12px; }
-  .browser__bar i { width: 8px; height: 8px; border-radius: 50%; background: rgba(217,217,217,.25); }
+  /* Windows caption controls (minimize / maximize / close), top-right —
+   * matching the app (a Windows app) and the Figma. Drawn purely from the
+   * three <i> elements so the markup stays the same everywhere. */
+  .browser__bar { height: 26px; background: #1f1f1f; display: flex; align-items: center; justify-content: flex-end; gap: 17px; padding-right: 15px; }
+  .browser__bar i { width: 11px; height: 11px; position: relative; opacity: .55; }
+  .browser__bar i::before, .browser__bar i::after { content: ""; position: absolute; background: #d9d9d9; }
+  /* minimize — a single bottom line */
+  .browser__bar i:nth-child(1)::before { left: 0; right: 0; bottom: 2px; height: 1.5px; }
+  /* maximize — a square outline (::before is a bordered box, not a fill) */
+  .browser__bar i:nth-child(2)::before { inset: 1px 0; border: 1.5px solid #d9d9d9; background: none; border-radius: 1px; }
+  /* close — an X from two rotated bars */
+  .browser__bar i:nth-child(3)::before, .browser__bar i:nth-child(3)::after { left: 50%; top: 0; width: 1.5px; height: 12px; }
+  .browser__bar i:nth-child(3)::before { transform: translateX(-50%) rotate(45deg); }
+  .browser__bar i:nth-child(3)::after { transform: translateX(-50%) rotate(-45deg); }
   .browser img { width: 100%; display: block; }
 
   .hero__shots { margin-top: 60px; position: relative; z-index: 1; }
   .hero__shots .browser { max-width: 1120px; margin-inline: auto; }
+
+  /* ---- Hero Slider (rotating app previews) --------------------------- */
+  /* Coverflow carousel: the centered slide is full-size with the brand
+   * rainbow glow behind it; neighbors scale down, dim, and peek from the
+   * edges. Full-bleed (100vw) so the side slides run off screen; the JS
+   * (see bottom) rotates roles every few seconds. --slide-w drives the
+   * window size and, with the 16:9 shots, the container height. */
+  /* Center window is ~62vw to match the Figma ratio (1170/1920), which leaves
+   * room for the side windows to peek with a small gap. Wider on small
+   * screens so it stays legible. */
+  .hero__slider {
+    --slide-w: min(1120px, 62vw);
+    --slide-h: calc(var(--slide-w) * 0.5625 + 26px);
+    position: relative;
+    width: 100vw; left: 50%; transform: translateX(-50%);
+    height: calc(var(--slide-h) + 150px);
+    overflow: hidden;
+  }
+  @media (max-width: 760px) { .hero__slider { --slide-w: 86vw; } }
+  /* Rainbow halo, fixed at centre — the rotating slides pass in front of it,
+   * so it always sits behind whichever slide is active. Sized just over the
+   * window so the conic reads as a rim around all four edges. */
+  .hero__slider .slider__glow {
+    position: absolute; top: 50%; left: 50%;
+    width: var(--slide-w); height: calc(var(--slide-w) * 0.62);
+    transform: translate(-50%, -50%);
+    background: var(--brand); filter: blur(95px);
+    opacity: .5; border-radius: 50%;
+    z-index: 0; pointer-events: none;
+  }
+  .hero__slider .slide {
+    position: absolute; top: 50%; left: 50%;
+    width: var(--slide-w);
+    transform: translate(-50%, -50%) scale(.87);
+    opacity: 0; z-index: 0; pointer-events: none;
+    transition: transform .7s cubic-bezier(.4, 0, .2, 1), opacity .6s ease, filter .6s ease;
+    will-change: transform, opacity;
+  }
+  .hero__slider .slide .browser { box-shadow: 0 40px 90px rgba(0, 0, 0, .55); }
+  .hero__slider .slide.is-active {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1; z-index: 3;
+  }
+  /* Neighbors: 87% scale (Figma 1018/1170), offset ~0.97w so a small gap sits
+   * between them and the center window, then dimmed. */
+  .hero__slider .slide.is-prev {
+    transform: translate(calc(-50% - var(--slide-w) * 0.97), -50%) scale(.87);
+    opacity: .5; z-index: 2; filter: brightness(.5);
+  }
+  .hero__slider .slide.is-next {
+    transform: translate(calc(-50% + var(--slide-w) * 0.97), -50%) scale(.87);
+    opacity: .5; z-index: 2; filter: brightness(.5);
+  }
+  /* Off-stage slots (opacity 0) — slides enter/exit through these, and the
+   * ring's wrap-around jump happens here, unseen. */
+  .hero__slider .slide.is-far-l {
+    transform: translate(calc(-50% - var(--slide-w) * 1.85), -50%) scale(.82); opacity: 0;
+  }
+  .hero__slider .slide.is-far-r {
+    transform: translate(calc(-50% + var(--slide-w) * 1.85), -50%) scale(.82); opacity: 0;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hero__slider .slide { transition: opacity .3s ease; }
+  }
 
   /* ---- Setup (3-up) -------------------------------------------------- */
   .setup { padding: 120px 0 40px; text-align: center; }
@@ -354,9 +430,16 @@
     </div>
 
     <div class="hero__shots">
-      <div class="browser">
-        <div class="browser__bar"><i></i><i></i><i></i></div>
-        <img src="assets/shot-live.png" alt="BlammyTV Live TV guide" />
+      <div class="hero__slider" role="group" aria-roledescription="carousel" aria-label="BlammyTV app previews">
+        <div class="slider__glow" aria-hidden="true"></div>
+        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/shot-live.png" alt="BlammyTV live TV guide" /></div></div>
+        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/shot-discover.png" alt="BlammyTV discover grid" /></div></div>
+        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/shot-stream.png" alt="BlammyTV stream home" /></div></div>
+        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/shot-themes.png" alt="BlammyTV theme customization" /></div></div>
+        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/shot-live.png" alt="" aria-hidden="true" /></div></div>
+        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/shot-discover.png" alt="" aria-hidden="true" /></div></div>
+        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/shot-stream.png" alt="" aria-hidden="true" /></div></div>
+        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/shot-themes.png" alt="" aria-hidden="true" /></div></div>
       </div>
     </div>
   </div>
@@ -591,6 +674,48 @@
     var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+
+  // Hero slider — coverflow carousel. Each slide's role (active / prev /
+  // next / off-stage) is derived from its ring-distance to the active
+  // index, so rotation is just `active++`. Needs >=5 slides for the
+  // wrap-around jump to stay hidden off-stage (we ship 8).
+  (function () {
+    var slider = document.querySelector('.hero__slider');
+    if (!slider) return;
+    var slides = Array.prototype.slice.call(slider.querySelectorAll('.slide'));
+    var n = slides.length;
+    if (!n) return;
+    var active = 0;
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function render() {
+      for (var i = 0; i < n; i++) {
+        var d = ((i - active) % n + n) % n;   // 0..n-1
+        if (d > n / 2) d -= n;                 // signed distance, (-n/2, n/2]
+        var cls = 'slide';
+        if (d === 0) cls += ' is-active';
+        else if (d === -1) cls += ' is-prev';
+        else if (d === 1) cls += ' is-next';
+        else cls += d < 0 ? ' is-far-l' : ' is-far-r';
+        slides[i].className = cls;
+      }
+    }
+    render();
+
+    var timer = null;
+    function stop() { if (timer) { clearInterval(timer); timer = null; } }
+    function start() {
+      if (reduce || timer) return;
+      timer = setInterval(function () { active = (active + 1) % n; render(); }, 4200);
+    }
+
+    start();
+    slider.addEventListener('mouseenter', stop);
+    slider.addEventListener('mouseleave', start);
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) stop(); else start();
+    });
   })();
 </script>
 </body>
