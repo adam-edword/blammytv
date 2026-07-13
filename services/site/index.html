@@ -45,10 +45,10 @@
       #ff9b9b, #ff8bc9, #ff7bf6, #c388fb, #8696ff,
       #85cbd4, #84ffa9, #c1f294, #ffe57f, #ff9b9b);
     --brand-linear: linear-gradient(110deg, #ff9b9b, #ff7bf6, #8696ff, #84ffa9, #ffe57f);
-    --rainbow-background: conic-gradient(from 0deg at 50% 50%, rgba(255, 155, 155, 0.29) 0deg, rgba(255, 123, 246, 0.29) 72deg, rgba(134, 150, 255, 0.29) 144deg, rgba(132, 255, 169, 0.29) 216deg, rgba(255, 229, 127, 0.29) 288deg, rgba(255, 155, 155, 0.29) 360deg);
+    --rainbow-background: conic-gradient(from 0deg at 50% 50%, #FF9B9B4A 0deg, #FF7BF64A 72deg, #8696FF4A 144deg, #84FFA94A 216deg, #FFE57F4A 288deg, #FF9B9B4A 360deg);
     /* Same conic as --rainbow-background, full opacity — for use as a
      * gradient stroke (a faint 0.29 stroke would vanish into the fill). */
-    --rainbow-stroke: conic-gradient(from 0deg at 50% 50%, rgb(255, 155, 155) 0deg, rgb(255, 123, 246) 72deg, rgb(134, 150, 255) 144deg, rgb(132, 255, 169) 216deg, rgb(255, 229, 127) 288deg, rgb(255, 155, 155) 360deg);
+    --rainbow-stroke: conic-gradient(from 0deg at 50% 50%, #FF9B9B 0deg, #FF7BF6 72deg, #8696FF 144deg, #84FFA9 216deg, #FFE57F 288deg, #FF9B9B 360deg);
   }
 
   *, *::before, *::after {
@@ -104,7 +104,8 @@
     color: #fff; position: relative; isolation: isolate;
     /* Faint rainbow conic over solid black (layers paint top-first), so the
      * gradient tints a black button rather than showing the hero through. */
-    background: var(--rainbow-background), #000;
+    background: var(--rainbow-background), #00000085;
+    backdrop-filter: blur(8px);
   }
   /* Gradient stroke: the conic painted only in a 1px ring via a mask that
    * subtracts the padding-box from the border-box. Respects border-radius
