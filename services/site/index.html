@@ -19,6 +19,10 @@
     src: url("assets/stack-sans-headline-700.woff2") format("woff2"); }
   @font-face { font-family: "Stack Sans Text"; font-weight: 400; font-display: swap;
     src: url("assets/stack-sans-text-400.woff2") format("woff2"); }
+  @font-face { font-family: "Stack Sans Text"; font-weight: 600; font-display: swap;
+    src: url("assets/stack-sans-text-600.woff2") format("woff2"); }
+  @font-face { font-family: "Stack Sans Text"; font-weight: 700; font-display: swap;
+    src: url("assets/stack-sans-text-700.woff2") format("woff2"); }
 
   /* ---- Design tokens (from the Figma spec) -------------------------- */
   :root {
@@ -262,14 +266,19 @@
   /* ---- Setup (3-up) -------------------------------------------------- */
   .setup { padding: 120px 0 40px; text-align: center; }
   .setup h2 { font-size: clamp(34px, 5vw, 48px); }
-  .setup__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 48px; }
+  .setup__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; margin-top: 44px; }
+  /* Card radius 20px (Figma), --card bg, --border, backdrop blur — matching
+   * the Boomer Proof cards exactly. */
   .setup__card {
-    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
-    padding: 40px 24px; backdrop-filter: blur(8px);
+    background: var(--card); border: 1px solid var(--border); border-radius: 20px;
+    padding: 36px 24px; backdrop-filter: blur(8.75px);
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
   }
-  .setup__card h3 { font-family: var(--font-h); font-weight: 600; font-size: 26px; }
-  .setup__card p { color: var(--muted); font-size: 16px; margin-top: 10px; }
-  .setup__foot { color: var(--dim); font-size: 16px; margin-top: 36px; }
+  /* Card title is Stack Sans Text Bold 29px (not the Headline font) per the
+   * Figma spec; subtitle is Text Regular 16px --muted. */
+  .setup__card h3 { font-family: var(--font-t); font-weight: 700; font-size: 29px; letter-spacing: -0.02em; }
+  .setup__card p { color: var(--muted); font-size: 16px; margin-top: 10px; letter-spacing: -0.02em; }
+  .setup__foot { color: var(--dim); font-size: 16px; margin-top: 28px; letter-spacing: -0.02em; }
   @media (max-width: 860px) { .setup__grid { grid-template-columns: 1fr; } }
 
   /* ---- Feature rows -------------------------------------------------- */
