@@ -203,6 +203,20 @@
   .browser__bar i:nth-child(3)::after { transform: translateX(-50%) rotate(-45deg); }
   .browser img { width: 100%; display: block; }
 
+  /* Cross-fading image stack for feature showcases. Put any number of <img>
+   * inside a .browser__slides and the JS rotates through them. The quick
+   * fade-in + slow fade-out means the incoming shot covers before the
+   * outgoing one leaves, so the window never flashes its black background. */
+  .browser__slides { position: relative; aspect-ratio: 16 / 9; }
+  .browser__slides > img {
+    position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+    opacity: 0; transition: opacity 1.2s ease;
+  }
+  /* z-index keeps the incoming (active) image on top so it always fades in
+   * over the outgoing one — clean even on the last->first wrap. */
+  .browser__slides > img.is-on { opacity: 1; z-index: 2; transition: opacity .6s ease; }
+  @media (prefers-reduced-motion: reduce) { .browser__slides > img { transition: none; } }
+
   .hero__shots { margin-top: 60px; position: relative; z-index: 1; }
   .hero__shots .browser { max-width: 1120px; margin-inline: auto; }
 
@@ -342,7 +356,7 @@
    * bug". An inset ring defines the edge from inside, so the fill reaches the
    * true outer edge (no rim) while dark cards still get their outline. */
   .theme {
-    box-shadow: inset 0 0 0 1px var(--border); border-radius: 20px;
+    box-shadow: inset 0 0 0 1px var(--border); border-radius: 30px;
     text-align: left; min-height: 78px;
     display: flex; align-items: center; justify-content: space-between; padding: 20px 24px;
   }
@@ -376,7 +390,7 @@
    * so the 1px transparent border reveals the rainbow. */
   .pass {
     margin: 40px auto 0; max-width: 770px; text-align: left; position: relative;
-    border: 1px solid transparent; border-radius: 20px; padding: 30px 34px;
+    border: 1px solid transparent; border-radius: 40px; padding: 30px 34px;
     background:
       radial-gradient(120% 140% at 50% 50%, rgba(255,123,246,.12), rgba(134,150,255,.10) 50%, rgba(132,255,169,.10) 80%, transparent) padding-box,
       linear-gradient(rgba(19,19,21,.9) 0 0) padding-box,
@@ -510,15 +524,16 @@
     <div class="hero__shots">
       <div class="hero__slider" role="group" aria-roledescription="carousel" aria-label="BlammyTV app previews">
         <div class="slider__glow" aria-hidden="true"></div>
-        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/shot-live.png" alt="BlammyTV live TV guide" /></div></div>
-        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/shot-discover.png" alt="BlammyTV discover grid" /></div></div>
-        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/shot-stream.png" alt="BlammyTV stream home" /></div></div>
-        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/shot-themes.png" alt="BlammyTV theme customization" /></div></div>
-        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/shot-live.png" alt="" aria-hidden="true" /></div></div>
-        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/shot-discover.png" alt="" aria-hidden="true" /></div></div>
-        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/shot-stream.png" alt="" aria-hidden="true" /></div></div>
-        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/shot-themes.png" alt="" aria-hidden="true" /></div></div>
-      </div>
+        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/Guide.jpg" alt="BlammyTV live TV guide" /></div></div>
+        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/Guide_Theater.jpg" alt="BlammyTV discover grid" /></div></div>
+        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/Stream_Home.jpg" alt="BlammyTV stream home" /></div></div>
+        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/Stream_Player.jpg" alt="BlammyTV theme customization" /></div></div>
+        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/Stream_Discover.jpg" alt="BlammyTV theme customization" /></div></div>
+        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/Guide.jpg" alt="BlammyTV live TV guide" /></div></div>
+        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/Guide_Theater.jpg" alt="BlammyTV discover grid" /></div></div>
+        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/Stream_Home.jpg" alt="BlammyTV stream home" /></div></div>
+        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/Stream_Player.jpg" alt="BlammyTV theme customization" /></div></div>
+        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/Stream_Discover.jpg" alt="BlammyTV theme customization" /></div></div>      </div>
     </div>
   </div>
 </section>
@@ -555,7 +570,16 @@
         <p>Full EPG with now &amp; next, hover-preview, favorites, recents, and more.</p>
       </div>
       <div class="feature__media shot">
-        <div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/shot-live.png" alt="Live TV guide" /></div>
+        <div class="browser">
+          <div class="browser__bar"><i></i><i></i><i></i></div>
+          <!-- Rotating showcase: the shots below cross-fade. Swap these
+               placeholders for the real "Good Looking Guide" images (any count). -->
+          <div class="browser__slides">
+            <img src="assets/shot-live.png" alt="BlammyTV live TV guide" />
+            <img src="assets/shot-discover.png" alt="" aria-hidden="true" />
+            <img src="assets/shot-stream.png" alt="" aria-hidden="true" />
+          </div>
+        </div>
       </div>
     </div>
 
@@ -565,7 +589,16 @@
         <p>AIOStreams powered. BlammyTV brings a beautiful hero slider sourced by your catalogs, customizable home and discover pages, and integrated list features like Trakt.</p>
       </div>
       <div class="feature__media shot">
-        <div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/shot-stream.png" alt="Stream home with hero slider" /></div>
+        <div class="browser">
+          <div class="browser__bar"><i></i><i></i><i></i></div>
+          <!-- Rotating showcase: swap these placeholders for the real
+               Stremio-like / VOD images (any count). -->
+          <div class="browser__slides">
+            <img src="assets/shot-stream.png" alt="BlammyTV stream home with hero slider" />
+            <img src="assets/shot-discover.png" alt="" aria-hidden="true" />
+            <img src="assets/shot-themes.png" alt="" aria-hidden="true" />
+          </div>
+        </div>
       </div>
     </div>
 
@@ -585,7 +618,16 @@
         <p>BlammyTV was built with elegance and premium at front of mind, but I still wanted tons of customizability. There's plenty of tweaks to be made in-app, and themes available for purchase to make it truly yours.</p>
       </div>
       <div class="feature__media shot">
-        <div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/shot-themes.png" alt="Theme customization in Settings" /></div>
+        <div class="browser">
+          <div class="browser__bar"><i></i><i></i><i></i></div>
+          <!-- Rotating showcase: swap these placeholders for the real
+               themes / customization images (any count). -->
+          <div class="browser__slides">
+            <img src="assets/shot-themes.png" alt="BlammyTV theme customization" />
+            <img src="assets/shot-live.png" alt="" aria-hidden="true" />
+            <img src="assets/shot-discover.png" alt="" aria-hidden="true" />
+          </div>
+        </div>
       </div>
     </div>
 
@@ -804,6 +846,32 @@
     slider.addEventListener('mouseleave', start);
     document.addEventListener('visibilitychange', function () {
       if (document.hidden) stop(); else start();
+    });
+  })();
+
+  // Feature showcases — cross-fade through the <img>s in each .browser__slides.
+  // Any number of images works; a single image just shows statically.
+  (function () {
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    Array.prototype.forEach.call(document.querySelectorAll('.browser__slides'), function (stack) {
+      var imgs = Array.prototype.slice.call(stack.querySelectorAll('img'));
+      if (!imgs.length) return;
+      imgs[0].classList.add('is-on');
+      if (reduce || imgs.length < 2) return;
+      var i = 0, timer = null;
+      function tick() {
+        imgs[i].classList.remove('is-on');
+        i = (i + 1) % imgs.length;
+        imgs[i].classList.add('is-on');
+      }
+      function start() { if (!timer) timer = setInterval(tick, 4800); }
+      function stop() { if (timer) { clearInterval(timer); timer = null; } }
+      start();
+      stack.addEventListener('mouseenter', stop);
+      stack.addEventListener('mouseleave', start);
+      document.addEventListener('visibilitychange', function () {
+        if (document.hidden) stop(); else start();
+      });
     });
   })();
 </script>
