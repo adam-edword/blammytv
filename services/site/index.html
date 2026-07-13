@@ -102,7 +102,9 @@
   .btn:hover { transform: translateY(-1px); filter: brightness(1.08); }
   .btn--download {
     color: #fff; position: relative; isolation: isolate;
-    background: var(--rainbow-background);
+    /* Faint rainbow conic over solid black (layers paint top-first), so the
+     * gradient tints a black button rather than showing the hero through. */
+    background: var(--rainbow-background), #000;
   }
   /* Gradient stroke: the conic painted only in a 1px ring via a mask that
    * subtracts the padding-box from the border-box. Respects border-radius
