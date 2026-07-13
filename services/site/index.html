@@ -207,7 +207,7 @@
    * inside a .browser__slides and the JS rotates through them. The quick
    * fade-in + slow fade-out means the incoming shot covers before the
    * outgoing one leaves, so the window never flashes its black background. */
-  .browser__slides { position: relative; aspect-ratio: 16 / 9; }
+  .browser__slides { position: relative; aspect-ratio: 3 / 1.6; }
   .browser__slides > img {
     position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
     opacity: 0; transition: opacity 1.2s ease;
@@ -371,9 +371,9 @@
   /* Blurb bottom-left, price bottom-right on the same line (Figma). */
   .theme__blurb { color: rgba(255,255,255,.9); font-size: 16px; letter-spacing: -0.02em; padding-right: 72px; }
   .t-blammy { background: #0b0b0e; }
-  .t-classic { background: linear-gradient(160deg, #0e0e0f 55%, #fff 55%); }
+  .t-classic { background: linear-gradient(130deg, #0e0e0f 53%, #fff 53%); }
   .t-oled { background: rgba(0,0,0,.55); }
-  .t-paper { background: linear-gradient(160deg, #141210 55%, #f6f1e7 55%); }
+  .t-paper { background: linear-gradient(130deg, #141210 53%, #f6f1e7 53%); }
   .t-terminal { background: #002d04; }
   .t-terminal .theme__name { font-family: var(--font-m); color: #0f3; font-weight: 700; }
   /* Sketchbook: faint dot-grid texture (Figma). */
@@ -402,20 +402,21 @@
   .pass h3 { font-family: var(--font-t); font-weight: 700; font-size: 48px; letter-spacing: -0.02em; }
   .pass p { color: #fff; font-size: 16px; margin-top: 10px; max-width: 34ch; letter-spacing: -0.02em; }
   .pass .price-big { font-family: var(--font-t); font-weight: 700; font-size: 35px; margin-top: 14px; background: var(--price-grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .pass .btn { margin-top: 20px; }
+  .pass .btn { margin-top: 20px; user-select: none; opacity: 0.4;}
+  .pass .btn:hover {cursor: default; transform: translateY(0); opacity: 0.4;}
   .pass .fine { font-family: var(--font-m); font-size: 12px; color: rgba(255,255,255,.85); margin-top: 16px; letter-spacing: 0; }
   /* Supporters theme preview (nested rainbow-bordered card). */
   .pass__preview {
-    border: 1px solid transparent; border-radius: 20px;
+    border: 1px solid transparent; border-radius: 30px;
     background: linear-gradient(#131313 0 0) padding-box, var(--brand) border-box;
     padding: 22px 24px; min-height: 240px;
     display: flex; flex-direction: column; justify-content: flex-end; gap: 18px;
   }
   .pass__swatches { display: flex; align-items: center; justify-content: space-between; }
   /* Pill: rainbow-bordered black swatch; chip: bright rainbow swatch (Figma). */
-  .pass__pill { width: 133px; height: 42px; border: 1px solid transparent; border-radius: 12px;
+  .pass__pill { width: 133px; height: 42px; border: 1px solid transparent; border-radius: 122px;
     background: linear-gradient(#000 0 0) padding-box, var(--brand) border-box; }
-  .pass__chip { width: 48px; height: 42px; border: 1px solid transparent; border-radius: 12px;
+  .pass__chip { width: 48px; height: 42px; border: 1px solid transparent; border-radius: 100px;
     background: var(--brand) padding-box, var(--brand) border-box; }
   .pass__srow { display: flex; align-items: flex-end; justify-content: space-between; }
   .pass__sname { font-family: var(--font-t); font-weight: 700; font-size: 29px; color: #fff; display: inline-flex; align-items: center; gap: 8px; letter-spacing: -0.02em; }
@@ -524,16 +525,16 @@
     <div class="hero__shots">
       <div class="hero__slider" role="group" aria-roledescription="carousel" aria-label="BlammyTV app previews">
         <div class="slider__glow" aria-hidden="true"></div>
-        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/Guide.jpg" alt="BlammyTV live TV guide" /></div></div>
-        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/Guide_Theater.jpg" alt="BlammyTV discover grid" /></div></div>
-        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/Stream_Home.jpg" alt="BlammyTV stream home" /></div></div>
-        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/Stream_Player.jpg" alt="BlammyTV theme customization" /></div></div>
-        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/Stream_Discover.jpg" alt="BlammyTV theme customization" /></div></div>
-        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/Guide.jpg" alt="BlammyTV live TV guide" /></div></div>
-        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/Guide_Theater.jpg" alt="BlammyTV discover grid" /></div></div>
-        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/Stream_Home.jpg" alt="BlammyTV stream home" /></div></div>
-        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/Stream_Player.jpg" alt="BlammyTV theme customization" /></div></div>
-        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/Stream_Discover.jpg" alt="BlammyTV theme customization" /></div></div>      </div>
+        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/Guide.png" alt="BlammyTV live TV guide" /></div></div>
+        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/Guide_Theater.png" alt="BlammyTV discover grid" /></div></div>
+        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/Stream_Home.png" alt="BlammyTV stream home" /></div></div>
+        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/Stream_Player.png" alt="BlammyTV theme customization" /></div></div>
+        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/Stream_Discover.png" alt="BlammyTV theme customization" /></div></div>
+        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/Guide.png" alt="BlammyTV live TV guide" /></div></div>
+        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/Guide_Theater.png" alt="BlammyTV discover grid" /></div></div>
+        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/Stream_Home.png" alt="BlammyTV stream home" /></div></div>
+        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/Stream_Player.png" alt="BlammyTV theme customization" /></div></div>
+        <div class="slide"><div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/Stream_Discover.png" alt="BlammyTV theme customization" /></div></div>      </div>
     </div>
   </div>
 </section>
@@ -575,9 +576,8 @@
           <!-- Rotating showcase: the shots below cross-fade. Swap these
                placeholders for the real "Good Looking Guide" images (any count). -->
           <div class="browser__slides">
-            <img src="assets/shot-live.png" alt="BlammyTV live TV guide" />
-            <img src="assets/shot-discover.png" alt="" aria-hidden="true" />
-            <img src="assets/shot-stream.png" alt="" aria-hidden="true" />
+            <img src="assets/Guide.png" alt="BlammyTV live TV guide" />
+            <img src="assets/Guide_Theater.png" alt="" aria-hidden="true" />
           </div>
         </div>
       </div>
@@ -594,9 +594,8 @@
           <!-- Rotating showcase: swap these placeholders for the real
                Stremio-like / VOD images (any count). -->
           <div class="browser__slides">
-            <img src="assets/shot-stream.png" alt="BlammyTV stream home with hero slider" />
-            <img src="assets/shot-discover.png" alt="" aria-hidden="true" />
-            <img src="assets/shot-themes.png" alt="" aria-hidden="true" />
+            <img src="assets/Stream_Home.png" alt="BlammyTV stream home with hero slider" />
+            <img src="assets/Stream_Discover.png" alt="" aria-hidden="true" />
           </div>
         </div>
       </div>
@@ -608,7 +607,7 @@
         <p>BlammyTV comes with mpv installed for actual native content viewing for TV and VOD.</p>
       </div>
       <div class="feature__media shot">
-        <div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/shot-discover.png" alt="Discover grid" /></div>
+        <div class="browser"><div class="browser__bar"><i></i><i></i><i></i></div><img src="assets/Stream_Player.png" alt="Discover grid" /></div>
       </div>
     </div>
 
@@ -623,9 +622,10 @@
           <!-- Rotating showcase: swap these placeholders for the real
                themes / customization images (any count). -->
           <div class="browser__slides">
-            <img src="assets/shot-themes.png" alt="BlammyTV theme customization" />
-            <img src="assets/shot-live.png" alt="" aria-hidden="true" />
-            <img src="assets/shot-discover.png" alt="" aria-hidden="true" />
+            <img src="assets/Theme_Nebula.png" alt="BlammyTV theme customization" />
+            <img src="assets/Theme_OLED.png" alt="" aria-hidden="true" />
+            <img src="assets/Theme_Paper.png" alt="" aria-hidden="true" />
+            <img src="assets/Theme_Paper_Light.png" alt="" aria-hidden="true" />
           </div>
         </div>
       </div>
@@ -638,7 +638,7 @@
 <section class="themes" id="themes">
   <div class="wrap">
     <h2>Glow Up with Themes.</h2>
-    <p class="themes__lede">Enjoy 4 included themes and accent customization for free, or grab some <span class="grad-text">premium themes</span> to level yo shit up. The app is free, so this is the best way to support me!</p>
+    <p class="themes__lede">Enjoy 4 included themes and accent customization for free, or grab some <span class="grad-text">premium themes</span> (coming soon) to level yo shit up. The app is free, so this is the best way to support me!</p>
 
     <div class="themes__grid">
       <!-- Free row -->
@@ -676,7 +676,7 @@
         <p>Unlocks every theme, plus a special supporters theme!</p>
         <div class="price-big">$12.50</div>
         <!-- TEST-MODE Stripe link — swap for the live Payment Link before go-live. -->
-        <a class="btn btn--download" href="https://buy.stripe.com/test_00wcMY6hq75NakJ3YigMw00" target="_blank" rel="noopener">Get the Themes Pass</a>
+        <a class="btn btn--download" rel="noopener">Coming Soon</a>
         <div class="fine">Lasts Forever · One Time Purchase · 3 Devices</div>
       </div>
       <!-- Supporters theme preview -->
