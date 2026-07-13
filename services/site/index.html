@@ -218,23 +218,27 @@
     position: relative;
     width: 100vw; left: 50%; transform: translateX(-50%);
     height: calc(var(--slide-h) + 150px);
-    overflow: hidden;
+    /* clip the side slides horizontally, but let the centre glow bleed
+     * vertically so it isn't cut off top/bottom (clip + visible is preserved,
+     * unlike hidden + visible). */
+    overflow-x: clip; overflow-y: visible;
   }
   @media (max-width: 760px) { .hero__slider { --slide-w: 86vw; } }
   /* Rainbow halo, fixed at centre — the rotating slides pass in front of it,
-   * so it always sits behind whichever slide is active. Sized just over the
-   * window so the conic reads as a rim around all four edges. */
+   * so it always sits behind whichever slide is active. A rounded rectangle
+   * sized to the card (not an oval) + a modest blur, so the halo follows the
+   * window silhouette. */
   .hero__slider .slider__glow {
     position: absolute; top: 50%; left: 50%;
-    width: var(--slide-w); height: calc(var(--slide-w) * 0.62);
+    width: var(--slide-w); height: var(--slide-h);
     transform: translate(-50%, -50%);
     /* Own conic (NOT the global --brand, which drives the logo/buttons) so the
      * hues land where the Figma has them: blue top, green right, orange
      * bottom, magenta left. */
     background: conic-gradient(from 0deg at 50% 50%,
       #8696ff 0deg, #84ffa9 90deg, #ffb98a 180deg, #ff7bf6 270deg, #8696ff 360deg);
-    filter: blur(95px);
-    opacity: .5; border-radius: 50%;
+    filter: blur(65px);
+    opacity: .58; border-radius: 26px;
     z-index: 0; pointer-events: none;
   }
   .hero__slider .slide {
@@ -301,12 +305,18 @@
    * Reversed rows swap the ratio so the window stays on the wide side. */
   .feature { display: grid; grid-template-columns: 5.5fr 8fr; align-items: center; gap: 62px; position: relative; }
   .feature--reverse { grid-template-columns: 8fr 5.5fr; }
-  .feature .glow { width: 640px; height: 380px; opacity: .28; }
+  /* Rainbow glow rim matching the window's rectangle: a blurred copy of the
+   * window box sits behind it (inset 0 -> inherits the card's dims), so the
+   * halo follows the card silhouette instead of being an oval blob. */
+  .feature__media { isolation: isolate; }
+  .feature__media::before {
+    content: ""; position: absolute; inset: 0; z-index: -1;
+    border-radius: 18px; background: var(--brand);
+    filter: blur(56px); opacity: .5; pointer-events: none;
+  }
   .feature__text h2 { font-size: clamp(32px, 4.6vw, 48px); }
   .feature__text p { color: rgba(255,255,255,.5); font-size: 20px; margin-top: 20px; max-width: 515px; letter-spacing: -0.02em; }
   .feature--reverse .feature__media { order: -1; }
-  .feature--reverse .glow { left: -80px; }
-  .feature:not(.feature--reverse) .glow { right: -80px; }
   @media (max-width: 900px) {
     .feature, .feature--reverse { grid-template-columns: 1fr; gap: 28px; }
     .feature--reverse .feature__media { order: 0; }
@@ -468,7 +478,6 @@
 
 <!-- ============================ HERO ============================ -->
 <section class="hero" id="top">
-  <div class="glow"></div>
   <div class="wrap">
     <div class="hero-logo-wrap">
     <img class="mark hero__mark" src="assets/logo.png" alt="BlammyTV logo" />
@@ -527,7 +536,6 @@
   <div class="wrap">
 
     <div class="feature">
-      <div class="glow"></div>
       <div class="feature__text">
         <h2>A Good Looking Guide</h2>
         <p>Full EPG with now &amp; next, hover-preview, favorites, recents, and more.</p>
@@ -538,7 +546,6 @@
     </div>
 
     <div class="feature feature--reverse">
-      <div class="glow"></div>
       <div class="feature__text">
         <h2>Upgraded Stremio-like VOD System</h2>
         <p>AIOStreams powered. BlammyTV brings a beautiful hero slider sourced by your catalogs, customizable home and discover pages, and integrated list features like Trakt.</p>
@@ -549,7 +556,6 @@
     </div>
 
     <div class="feature">
-      <div class="glow"></div>
       <div class="feature__text">
         <h2>Native Viewing Experience</h2>
         <p>BlammyTV comes with mpv installed for actual native content viewing for TV and VOD.</p>
@@ -560,7 +566,6 @@
     </div>
 
     <div class="feature feature--reverse">
-      <div class="glow"></div>
       <div class="feature__text">
         <h2>Elegant, Premium, Yours!</h2>
         <p>BlammyTV was built with elegance and premium at front of mind, but I still wanted tons of customizability. There's plenty of tweaks to be made in-app, and themes available for purchase to make it truly yours.</p>
