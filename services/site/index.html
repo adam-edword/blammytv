@@ -224,7 +224,12 @@
     position: absolute; top: 50%; left: 50%;
     width: var(--slide-w); height: calc(var(--slide-w) * 0.62);
     transform: translate(-50%, -50%);
-    background: var(--brand); filter: blur(95px);
+    /* Own conic (NOT the global --brand, which drives the logo/buttons) so the
+     * hues land where the Figma has them: blue top, green right, orange
+     * bottom, magenta left. */
+    background: conic-gradient(from 0deg at 50% 50%,
+      #8696ff 0deg, #84ffa9 90deg, #ffb98a 180deg, #ff7bf6 270deg, #8696ff 360deg);
+    filter: blur(95px);
     opacity: .5; border-radius: 50%;
     z-index: 0; pointer-events: none;
   }
@@ -234,7 +239,6 @@
     transform: translate(-50%, -50%) scale(.87);
     opacity: 0; z-index: 0; pointer-events: none;
     transition: transform .7s cubic-bezier(.4, 0, .2, 1), opacity .6s ease, filter .6s ease;
-    will-change: transform, opacity;
   }
   .hero__slider .slide .browser { box-shadow: 0 40px 90px rgba(0, 0, 0, .55); }
   .hero__slider .slide.is-active {
@@ -243,13 +247,16 @@
   }
   /* Neighbors: 87% scale (Figma 1018/1170), offset ~0.97w so a small gap sits
    * between them and the center window, then dimmed. */
+  /* Neighbors read as dim dark window slabs (Figma): keep the frame visible
+   * (higher opacity) but darken the screenshot content so it's a flat, quiet
+   * slab rather than a legible screenshot. */
   .hero__slider .slide.is-prev {
     transform: translate(calc(-50% - var(--slide-w) * 0.97), -50%) scale(.87);
-    opacity: .5; z-index: 2; filter: brightness(.5);
+    opacity: .82; z-index: 2; filter: brightness(.5) saturate(.85);
   }
   .hero__slider .slide.is-next {
     transform: translate(calc(-50% + var(--slide-w) * 0.97), -50%) scale(.87);
-    opacity: .5; z-index: 2; filter: brightness(.5);
+    opacity: .82; z-index: 2; filter: brightness(.5) saturate(.85);
   }
   /* Off-stage slots (opacity 0) — slides enter/exit through these, and the
    * ring's wrap-around jump happens here, unseen. */
