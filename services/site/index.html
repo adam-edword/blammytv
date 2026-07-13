@@ -98,10 +98,8 @@
   .btn:hover { transform: translateY(-1px); filter: brightness(1.08); }
   .btn--download {
     color: #fff; position: relative; isolation: isolate;
-    border: 1px solid #ffaeae;
-    background:
-      radial-gradient(120% 160% at 50% 50%, rgba(255,123,246,.22), rgba(134,150,255,.22) 45%, rgba(132,255,169,.18) 70%, transparent),
-      #000;
+    border: 1px solid #FFFFFF90;
+    background: conic-gradient(from 0deg at 50% 50%, rgba(255, 155, 155, 0.29) 0deg, rgba(255, 123, 246, 0.29) 72deg, rgba(134, 150, 255, 0.29) 144deg, rgba(132, 255, 169, 0.29) 216deg, rgba(255, 229, 127, 0.29) 288deg, rgba(255, 155, 155, 0.29) 360deg);
   }
   .btn--glass {
     color: #fff; background: rgba(37,37,37,.4);
@@ -151,6 +149,7 @@
     position: relative; z-index: 1;
   }
   .hero__cta { display: flex; gap: 16px; justify-content: center; margin-top: 34px; position: relative; z-index: 1; flex-wrap: wrap; }
+  .hero-logo-wrap {display:flex; gap: 16px; justify-content: center; align-items: center;}
 
   /* ---- Browser mockup ------------------------------------------------ */
   .shot { position: relative; }
@@ -321,8 +320,10 @@
 <section class="hero" id="top">
   <div class="glow"></div>
   <div class="wrap">
+    <div class="hero-logo-wrap">
     <img class="mark hero__mark" src="assets/logo.png" alt="BlammyTV logo" />
     <h1>BlammyTV</h1>
+    </div>
     <p class="lede">A free, elegant, premium IPTV and Stremio player. Bring your own playlists and AIOStreams manifest and enjoy all your content in one beautiful app.</p>
     <div class="hero__cta">
       <a class="btn btn--download" href="#download">
