@@ -336,12 +336,13 @@
 
   .themes__grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-top: 48px; }
   /* Card radius 20px + Text Bold names (29px) / tags (22px), per Figma. */
-  /* No overflow:hidden or backdrop-filter here — the card backgrounds already
-   * clip to the radius on their own, and that trio (overflow + backdrop-filter
-   * + squircle corner-shape) is what produced the corner/border artifact on
-   * the light-gradient cards (Classic/Paper). */
+  /* Edge is an INSET box-shadow ring, not a border. A semi-transparent white
+   * border sits over the two-tone gradient (Classic/Paper) and reads as a
+   * bright rim on the dark half / vanishes on the light half — the "border
+   * bug". An inset ring defines the edge from inside, so the fill reaches the
+   * true outer edge (no rim) while dark cards still get their outline. */
   .theme {
-    border: 1px solid var(--border); border-radius: 20px;
+    box-shadow: inset 0 0 0 1px var(--border); border-radius: 20px;
     text-align: left; min-height: 78px;
     display: flex; align-items: center; justify-content: space-between; padding: 20px 24px;
   }
@@ -441,17 +442,20 @@
   .faq__list { max-width: 1200px; margin-inline: auto; display: flex; flex-direction: column; gap: 16px; }
   details.qa {
     background: rgba(19,19,21,.25); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 26px 44px; backdrop-filter: blur(8px);
+    border-radius: var(--radius); backdrop-filter: blur(8px);
   }
+  /* Padding lives on the summary (and answer) — not the details — so the whole
+   * closed box is a clickable toggle target, not just the text row. */
   details.qa summary {
+    padding: 26px 44px;
     list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between;
     font-family: var(--font-h); font-weight: 600; font-size: 24px; gap: 20px;
   }
   details.qa summary::-webkit-details-marker { display: none; }
   details.qa summary .chev { transition: transform .2s ease; flex: none; }
   details.qa[open] summary .chev { transform: rotate(180deg); }
-  details.qa p { color: rgba(255,255,255,.6); font-size: 17px; margin-top: 16px; max-width: 80ch; }
-  @media (max-width: 620px) { details.qa { padding: 22px; border-radius: var(--radius); } details.qa summary { font-size: 19px; } }
+  details.qa p { color: rgba(255,255,255,.6); font-size: 17px; margin: 0; padding: 0 44px 26px; max-width: 80ch; }
+  @media (max-width: 620px) { details.qa summary { padding: 22px; font-size: 19px; } details.qa p { padding: 0 22px 22px; } }
 
   /* ---- Footer -------------------------------------------------------- */
   footer { padding: 60px 0 80px; border-top: 1px solid var(--border); margin-top: 80px; }
