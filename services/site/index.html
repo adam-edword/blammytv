@@ -49,6 +49,8 @@
       #ff9b9b, #ff8bc9, #ff7bf6, #c388fb, #8696ff,
       #85cbd4, #84ffa9, #c1f294, #ffe57f, #ff9b9b);
     --brand-linear: linear-gradient(110deg, #ff9b9b, #ff7bf6, #8696ff, #84ffa9, #ffe57f);
+    /* Price text: green/teal-dominant (the Figma prices read green, not blue). */
+    --price-grad: linear-gradient(115deg, #84ffa9 0%, #85cbd4 48%, #8696ff 100%);
     --rainbow-background: conic-gradient(from 0deg at 50% 50%, #FF9B9B4A 0deg, #FF7BF64A 72deg, #8696FF4A 144deg, #84FFA94A 216deg, #FFE57F4A 288deg, #FF9B9B4A 360deg);
     /* Same conic as --rainbow-background, full opacity — for use as a
      * gradient stroke (a faint 0.29 stroke would vanish into the fill). */
@@ -63,7 +65,7 @@
   }
   /* Base color on the root so it paints the canvas; the dither pseudo can
    * then sit above it without background-propagation hiding it. */
-  html { scroll-behavior: smooth; background: var(--bg); }
+  html { scroll-behavior: smooth; background: var(--bg); overflow-x: clip; }
   body {
     color: var(--text);
     font-family: var(--font-t);
@@ -172,7 +174,9 @@
     position: relative; z-index: 1;
   }
   .hero__cta { display: flex; gap: 16px; justify-content: center; margin-top: 34px; position: relative; z-index: 1; flex-wrap: wrap; }
-  .hero-logo-wrap {display:flex; gap: 16px; justify-content: center; align-items: center;}
+  /* wrap so the logo + wordmark stack instead of overflowing on narrow
+   * screens (prevents the page from expanding past the viewport width). */
+  .hero-logo-wrap {display:flex; gap: 16px; justify-content: center; align-items: center; flex-wrap: wrap;}
 
   /* ---- Browser mockup ------------------------------------------------ */
   .shot { position: relative; }
@@ -279,7 +283,9 @@
   .setup__card {
     background: var(--card); border: 1px solid var(--border); border-radius: 20px;
     padding: 36px 24px; backdrop-filter: blur(8.75px);
-    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    /* Vertically center the content; keep children full-width so text wraps
+     * (align-items:center would shrink them to max-content and overflow). */
+    display: flex; flex-direction: column; justify-content: center;
   }
   /* Card title is Stack Sans Text Bold 29px (not the Headline font) per the
    * Figma spec; subtitle is Text Regular 16px --muted. */
@@ -322,22 +328,24 @@
   .theme__name { font-family: var(--font-t); font-weight: 700; font-size: 29px; letter-spacing: -0.02em; }
   .theme__tag { font-family: var(--font-t); font-weight: 700; font-size: 22px; color: #878787; letter-spacing: -0.02em; }
   .theme--sample {
+    position: relative;
     flex-direction: column; align-items: flex-start; justify-content: flex-end;
     min-height: 220px; gap: 6px;
   }
   .theme--sample .theme__tag { color: var(--pink); font-weight: 700; align-self: flex-end; }
-  .theme__blurb { color: rgba(255,255,255,.9); font-size: 16px; letter-spacing: -0.02em; }
+  /* Blurb bottom-left, price bottom-right on the same line (Figma). */
+  .theme__blurb { color: rgba(255,255,255,.9); font-size: 16px; letter-spacing: -0.02em; padding-right: 72px; }
   .t-blammy { background: #0b0b0e; }
   .t-classic { background: linear-gradient(160deg, #0e0e0f 55%, #fff 55%); }
   .t-oled { background: rgba(0,0,0,.55); }
   .t-paper { background: linear-gradient(160deg, #141210 55%, #f6f1e7 55%); }
   .t-terminal { background: #002d04; }
   .t-terminal .theme__name { font-family: var(--font-m); color: #0f3; font-weight: 700; }
-  .t-sketch { background: #141210; }
+  /* Sketchbook: faint dot-grid texture (Figma). */
+  .t-sketch { background: #141210; background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,.13) 1px, transparent 0); background-size: 13px 13px; }
   .t-dither { background: linear-gradient(220deg, rgba(255,119,0,.28), rgba(255,217,0,.28)); }
   .t-kawaii { background: linear-gradient(223deg, #b9004a, #530028); }
-  .theme--sample .price { font-family: var(--font-t); font-weight: 700; font-size: 22px; }
-  .theme--sample .price { background: var(--brand-linear); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .theme--sample .price { position: absolute; right: 24px; bottom: 20px; font-family: var(--font-t); font-weight: 700; font-size: 22px; background: var(--price-grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
   @media (max-width: 980px) { .themes__grid { grid-template-columns: repeat(2, 1fr); } }
   @media (max-width: 560px) { .themes__grid { grid-template-columns: 1fr; } }
 
@@ -350,7 +358,7 @@
     border: 1px solid transparent; border-radius: 20px; padding: 30px 34px;
     background:
       radial-gradient(120% 140% at 50% 50%, rgba(255,123,246,.12), rgba(134,150,255,.10) 50%, rgba(132,255,169,.10) 80%, transparent) padding-box,
-      linear-gradient(rgba(19,19,21,.25) 0 0) padding-box,
+      linear-gradient(rgba(19,19,21,.9) 0 0) padding-box,
       var(--brand) border-box;
     backdrop-filter: blur(8.75px);
     display: grid; grid-template-columns: 1fr 350px; gap: 22px; align-items: stretch;
@@ -358,7 +366,7 @@
   .pass__info { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; }
   .pass h3 { font-family: var(--font-t); font-weight: 700; font-size: 48px; letter-spacing: -0.02em; }
   .pass p { color: #fff; font-size: 16px; margin-top: 10px; max-width: 34ch; letter-spacing: -0.02em; }
-  .pass .price-big { font-family: var(--font-t); font-weight: 700; font-size: 35px; margin-top: 14px; background: var(--brand-linear); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .pass .price-big { font-family: var(--font-t); font-weight: 700; font-size: 35px; margin-top: 14px; background: var(--price-grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
   .pass .btn { margin-top: 20px; }
   .pass .fine { font-family: var(--font-m); font-size: 12px; color: rgba(255,255,255,.85); margin-top: 16px; letter-spacing: 0; }
   /* Supporters theme preview (nested rainbow-bordered card). */
@@ -369,13 +377,15 @@
     display: flex; flex-direction: column; justify-content: flex-end; gap: 18px;
   }
   .pass__swatches { display: flex; align-items: center; justify-content: space-between; }
-  .pass__pill { width: 133px; height: 42px; background: #000; border: 1px solid var(--pink); border-radius: 12px; }
-  .pass__chip { width: 48px; height: 42px; border: 1px solid var(--pink); border-radius: 12px;
-    background: conic-gradient(from 90deg, rgba(255,123,246,.3), rgba(134,150,255,.3), rgba(132,255,169,.3), rgba(255,229,127,.3), rgba(255,123,246,.3)); }
+  /* Pill: rainbow-bordered black swatch; chip: bright rainbow swatch (Figma). */
+  .pass__pill { width: 133px; height: 42px; border: 1px solid transparent; border-radius: 12px;
+    background: linear-gradient(#000 0 0) padding-box, var(--brand) border-box; }
+  .pass__chip { width: 48px; height: 42px; border: 1px solid transparent; border-radius: 12px;
+    background: var(--brand) padding-box, var(--brand) border-box; }
   .pass__srow { display: flex; align-items: flex-end; justify-content: space-between; }
   .pass__sname { font-family: var(--font-t); font-weight: 700; font-size: 29px; color: #fff; display: inline-flex; align-items: center; gap: 8px; letter-spacing: -0.02em; }
   .pass__sname svg { width: 22px; height: 22px; }
-  .pass__sprice { font-family: var(--font-t); font-weight: 700; font-size: 22px; background: var(--brand-linear); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .pass__sprice { font-family: var(--font-t); font-weight: 700; font-size: 22px; background: var(--price-grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
   @media (max-width: 640px) { .pass { grid-template-columns: 1fr; text-align: center; padding: 28px; } .pass__info { align-items: center; } }
 
   /* ---- App pricing band --------------------------------------------- */
@@ -391,8 +401,9 @@
     background: rgba(19,19,21,.25); backdrop-filter: blur(8px);
     padding: 64px 24px;
   }
-  /* Glow sits along the bottom edge (Figma), bleeding up into the card. */
-  .download__card .glow { width: 1000px; height: 520px; left: 50%; top: auto; bottom: -260px; transform: translateX(-50%); opacity: .3; }
+  /* Glow hugs the bottom edge (Figma): shorter + lower so the saturated band
+   * lands on the bottom rather than washing up into the middle. */
+  .download__card .glow { width: 1000px; height: 360px; left: 50%; top: auto; bottom: -170px; transform: translateX(-50%); opacity: .38; }
   .download__card > * { position: relative; z-index: 1; }
   /* Logo sits to the LEFT of the wordmark (horizontal), matching the Figma. */
   .download__head { display: flex; align-items: center; justify-content: center; gap: 20px; }
@@ -644,7 +655,7 @@
       <div class="download__meta">Free · Auto-Updates · Windows 10/11 (64-bit)</div>
       <div>
         <a class="btn btn--download" href="https://github.com/adam-edword/blammytv/releases/latest" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 3h8v8H3zM13 3h8v8h-8zM3 13h8v8H3zM13 13h8v8h-8z"/></svg>
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="width:18px;height:18px"><path d="M3 5.4l7.4-1.02v6.94H3V5.4zm8.3-1.14L21 3v8.28h-9.7V4.26zM3 12.32h7.4v6.94L3 18.24v-5.92zm8.3 0H21V21l-9.7-1.32v-7.36z"/></svg>
           Download
         </a>
       </div>
