@@ -45,6 +45,10 @@
       #ff9b9b, #ff8bc9, #ff7bf6, #c388fb, #8696ff,
       #85cbd4, #84ffa9, #c1f294, #ffe57f, #ff9b9b);
     --brand-linear: linear-gradient(110deg, #ff9b9b, #ff7bf6, #8696ff, #84ffa9, #ffe57f);
+    --rainbow-background: conic-gradient(from 0deg at 50% 50%, rgba(255, 155, 155, 0.29) 0deg, rgba(255, 123, 246, 0.29) 72deg, rgba(134, 150, 255, 0.29) 144deg, rgba(132, 255, 169, 0.29) 216deg, rgba(255, 229, 127, 0.29) 288deg, rgba(255, 155, 155, 0.29) 360deg);
+    /* Same conic as --rainbow-background, full opacity — for use as a
+     * gradient stroke (a faint 0.29 stroke would vanish into the fill). */
+    --rainbow-stroke: conic-gradient(from 0deg at 50% 50%, rgb(255, 155, 155) 0deg, rgb(255, 123, 246) 72deg, rgb(134, 150, 255) 144deg, rgb(132, 255, 169) 216deg, rgb(255, 229, 127) 288deg, rgb(255, 155, 155) 360deg);
   }
 
   *, *::before, *::after {
@@ -98,8 +102,20 @@
   .btn:hover { transform: translateY(-1px); filter: brightness(1.08); }
   .btn--download {
     color: #fff; position: relative; isolation: isolate;
-    border: 1px solid #FFFFFF90;
-    background: conic-gradient(from 0deg at 50% 50%, rgba(255, 155, 155, 0.29) 0deg, rgba(255, 123, 246, 0.29) 72deg, rgba(134, 150, 255, 0.29) 144deg, rgba(132, 255, 169, 0.29) 216deg, rgba(255, 229, 127, 0.29) 288deg, rgba(255, 155, 155, 0.29) 360deg);
+    background: var(--rainbow-background);
+  }
+  /* Gradient stroke: the conic painted only in a 1px ring via a mask that
+   * subtracts the padding-box from the border-box. Respects border-radius
+   * (inherit) and the squircle corner-shape (from the global *::before). */
+  .btn--download::before {
+    content: ""; position: absolute; inset: 0; z-index: -1;
+    border-radius: inherit; padding: 1px;
+    background: var(--rainbow-stroke);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
+    pointer-events: none;
   }
   .btn--glass {
     color: #fff; background: rgba(37,37,37,.4);
@@ -142,7 +158,7 @@
   /* ---- Hero ---------------------------------------------------------- */
   .hero { text-align: center; padding: 90px 0 40px; position: relative; }
   .hero .glow { width: 1100px; height: 520px; left: 50%; top: 160px; transform: translateX(-50%); opacity: .38; }
-  .hero__mark { width: 108px; height: 108px; margin: 0 auto 22px; position: relative; z-index: 1; }
+  .hero__mark { width: 108px; height: 108px; position: relative; z-index: 1; }
   .hero h1 { font-size: clamp(64px, 11vw, 116px); position: relative; z-index: 1; }
   .hero p.lede {
     max-width: 720px; margin: 22px auto 0; font-size: 20px; color: rgba(255,255,255,.8);
