@@ -36,8 +36,10 @@
     --font-h: "Stack Sans Headline", "Segoe UI", system-ui, sans-serif;
     --font-t: "Stack Sans Text", "Segoe UI", system-ui, sans-serif;
     --font-m: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
-    /* Squircle corner profile — same as the app (tokens.css --corner). */
+    /* Squircle corner profile + card radius — same as the app
+     * (tokens.css --corner / --radius-card). */
     --corner: superellipse(2);
+    --radius: 25px;
     /* The brand conic — the app's own logo/boot palette. */
     --brand: conic-gradient(from 90deg,
       #ff9b9b, #ff8bc9, #ff7bf6, #c388fb, #8696ff,
@@ -121,7 +123,7 @@
   .nav__bar {
     display: flex; align-items: center; justify-content: space-between;
     background: var(--nav); border: 1px solid var(--border);
-    border-radius: 20px; padding: 16px 28px; backdrop-filter: blur(12px);
+    border-radius: var(--radius); padding: 16px 28px; backdrop-filter: blur(12px);
   }
   .nav__brand { display: flex; align-items: center; gap: 12px; font-family: var(--font-h); font-weight: 700; font-size: 24px; }
   .nav__brand .mark { width: 28px; height: 28px; }
@@ -147,7 +149,7 @@
   /* ---- Browser mockup ------------------------------------------------ */
   .shot { position: relative; }
   .browser {
-    border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+    border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
     background: #000; box-shadow: 0 30px 80px rgba(0,0,0,.5);
   }
   .browser__bar { height: 26px; background: #1f1f1f; display: flex; align-items: center; gap: 7px; padding-left: 12px; }
@@ -162,7 +164,7 @@
   .setup h2 { font-size: clamp(34px, 5vw, 48px); }
   .setup__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 48px; }
   .setup__card {
-    background: var(--card); border: 1px solid var(--border); border-radius: 20px;
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
     padding: 40px 24px; backdrop-filter: blur(9px);
   }
   .setup__card h3 { font-family: var(--font-h); font-weight: 600; font-size: 26px; }
@@ -192,7 +194,7 @@
 
   .themes__grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-top: 48px; }
   .theme {
-    border: 1px solid var(--border); border-radius: 20px; overflow: hidden;
+    border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
     backdrop-filter: blur(9px); text-align: left; min-height: 78px;
     display: flex; align-items: center; justify-content: space-between; padding: 20px 24px;
   }
@@ -221,7 +223,7 @@
   /* ---- Themes Pass --------------------------------------------------- */
   .pass {
     margin: 40px auto 0; max-width: 770px; text-align: left; position: relative;
-    border: 1px solid var(--pink); border-radius: 20px; padding: 32px 40px;
+    border: 1px solid var(--pink); border-radius: var(--radius); padding: 32px 40px;
     background:
       radial-gradient(120% 140% at 50% 50%, rgba(255,123,246,.12), rgba(134,150,255,.10) 50%, rgba(132,255,169,.10) 80%, transparent),
       rgba(19,19,21,.25);
@@ -244,7 +246,7 @@
   .download { padding: 20px 0 40px; }
   .download__card {
     position: relative; overflow: hidden; text-align: center;
-    border: 1px solid var(--border); border-radius: 40px;
+    border: 1px solid var(--border); border-radius: var(--radius);
     background: rgba(19,19,21,.25); backdrop-filter: blur(9px);
     padding: 80px 24px;
   }
@@ -264,7 +266,7 @@
   .faq__list { max-width: 1200px; margin-inline: auto; display: flex; flex-direction: column; gap: 16px; }
   details.qa {
     background: rgba(19,19,21,.25); border: 1px solid var(--border);
-    border-radius: 28px; padding: 26px 44px; backdrop-filter: blur(9px);
+    border-radius: var(--radius); padding: 26px 44px; backdrop-filter: blur(9px);
   }
   details.qa summary {
     list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between;
@@ -274,7 +276,7 @@
   details.qa summary .chev { transition: transform .2s ease; flex: none; }
   details.qa[open] summary .chev { transform: rotate(180deg); }
   details.qa p { color: rgba(255,255,255,.6); font-size: 17px; margin-top: 16px; max-width: 80ch; }
-  @media (max-width: 620px) { details.qa { padding: 22px; border-radius: 22px; } details.qa summary { font-size: 19px; } }
+  @media (max-width: 620px) { details.qa { padding: 22px; border-radius: var(--radius); } details.qa summary { font-size: 19px; } }
 
   /* ---- Footer -------------------------------------------------------- */
   footer { padding: 60px 0 80px; border-top: 1px solid var(--border); margin-top: 80px; }
