@@ -290,11 +290,12 @@
 
   /* ---- Feature rows -------------------------------------------------- */
   .features { padding: 60px 0; display: flex; flex-direction: column; gap: 150px; }
-  /* Text column is narrower than the media (Figma ~515:803 ≈ 5:8). Reversed
-   * rows swap the ratio so the window stays on the wide side. */
-  .feature { display: grid; grid-template-columns: 5fr 8fr; align-items: center; gap: 62px; position: relative; }
-  .feature--reverse { grid-template-columns: 8fr 5fr; }
-  .feature .glow { width: 640px; height: 380px; opacity: .18; }
+  /* Text column narrower than the media, but wide enough (~515px at desktop)
+   * that the headings wrap like the Figma instead of breaking mid-word.
+   * Reversed rows swap the ratio so the window stays on the wide side. */
+  .feature { display: grid; grid-template-columns: 5.5fr 8fr; align-items: center; gap: 62px; position: relative; }
+  .feature--reverse { grid-template-columns: 8fr 5.5fr; }
+  .feature .glow { width: 640px; height: 380px; opacity: .28; }
   .feature__text h2 { font-size: clamp(32px, 4.6vw, 48px); }
   .feature__text p { color: rgba(255,255,255,.5); font-size: 20px; margin-top: 20px; max-width: 515px; letter-spacing: -0.02em; }
   .feature--reverse .feature__media { order: -1; }
@@ -388,11 +389,14 @@
     position: relative; overflow: hidden; text-align: center;
     border: 1px solid var(--border); border-radius: var(--radius);
     background: rgba(19,19,21,.25); backdrop-filter: blur(8px);
-    padding: 80px 24px;
+    padding: 64px 24px;
   }
-  .download__card .glow { width: 1000px; height: 560px; left: 50%; top: 40%; transform: translate(-50%,-50%); opacity: .28; }
+  /* Glow sits along the bottom edge (Figma), bleeding up into the card. */
+  .download__card .glow { width: 1000px; height: 520px; left: 50%; top: auto; bottom: -260px; transform: translateX(-50%); opacity: .3; }
   .download__card > * { position: relative; z-index: 1; }
-  .download__mark { width: 96px; height: 96px; margin: 0 auto 14px; }
+  /* Logo sits to the LEFT of the wordmark (horizontal), matching the Figma. */
+  .download__head { display: flex; align-items: center; justify-content: center; gap: 20px; }
+  .download__mark { width: 100px; height: 100px; }
   .download__card h2 { font-size: clamp(56px, 9vw, 116px); }
   .download__meta { font-family: var(--font-m); font-size: 12px; color: #fff; margin-top: 10px; letter-spacing: 0; }
   .download__card .btn { margin-top: 26px; }
@@ -633,12 +637,14 @@
   <div class="wrap">
     <div class="download__card">
       <div class="glow"></div>
-      <img class="mark download__mark" src="assets/logo.png" alt="" />
-      <h2>BlammyTV</h2>
+      <div class="download__head">
+        <img class="mark download__mark" src="assets/logo.png" alt="" />
+        <h2>BlammyTV</h2>
+      </div>
       <div class="download__meta">Free · Auto-Updates · Windows 10/11 (64-bit)</div>
       <div>
         <a class="btn btn--download" href="https://github.com/adam-edword/blammytv/releases/latest" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-5-5m5 5l5-5M4 21h16"/></svg>
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 3h8v8H3zM13 3h8v8h-8zM3 13h8v8H3zM13 13h8v8h-8z"/></svg>
           Download
         </a>
       </div>
