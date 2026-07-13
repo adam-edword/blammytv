@@ -36,6 +36,8 @@
     --font-h: "Stack Sans Headline", "Segoe UI", system-ui, sans-serif;
     --font-t: "Stack Sans Text", "Segoe UI", system-ui, sans-serif;
     --font-m: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    /* Squircle corner profile — same as the app (tokens.css --corner). */
+    --corner: superellipse(2);
     /* The brand conic — the app's own logo/boot palette. */
     --brand: conic-gradient(from 90deg,
       #ff9b9b, #ff8bc9, #ff7bf6, #c388fb, #8696ff,
@@ -43,7 +45,12 @@
     --brand-linear: linear-gradient(110deg, #ff9b9b, #ff7bf6, #8696ff, #84ffa9, #ffe57f);
   }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+  *, *::before, *::after {
+    box-sizing: border-box; margin: 0; padding: 0;
+    /* Squircle corners everywhere a border-radius exists, matching the app
+     * (base.css). No-op on engines without corner-shape — plain round. */
+    corner-shape: var(--corner);
+  }
   /* Base color on the root so it paints the canvas; the dither pseudo can
    * then sit above it without background-propagation hiding it. */
   html { scroll-behavior: smooth; background: var(--bg); }
