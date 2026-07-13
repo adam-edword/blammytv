@@ -44,15 +44,32 @@
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html { scroll-behavior: smooth; }
+  /* Base color on the root so it paints the canvas; the dither pseudo can
+   * then sit above it without background-propagation hiding it. */
+  html { scroll-behavior: smooth; background: var(--bg); }
   body {
-    background: var(--bg);
     color: var(--text);
     font-family: var(--font-t);
     -webkit-font-smoothing: antialiased;
     overflow-x: hidden;
     line-height: 1.5;
   }
+  /* Dither field — the app's Bayer-flavored dot lattice (onboarding.css
+   * .onb-dither): a 4px white-dot grid plus a fainter 8px one. Rendered as
+   * a fixed top overlay (pointer-events:none) so it stays put while
+   * scrolling AND self-masks: white dots read as grain over the dark
+   * background but disappear over the bright screenshots. */
+  .site-dither {
+    position: fixed;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.14) 1px, transparent 1.4px),
+      radial-gradient(circle at 3px 3px, rgba(255, 255, 255, 0.06) 1px, transparent 1.4px);
+    background-size: 4px 4px, 8px 8px;
+  }
+  .page { position: relative; z-index: 1; }
   a { color: inherit; text-decoration: none; }
   img { display: block; max-width: 100%; }
 
@@ -267,6 +284,8 @@
 </style>
 </head>
 <body>
+<div class="site-dither" aria-hidden="true"></div>
+<div class="page">
 
 <!-- ============================ NAV ============================ -->
 <header class="nav">
@@ -528,5 +547,6 @@
   </div>
 </footer>
 
+</div><!-- /.page -->
 </body>
 </html>
