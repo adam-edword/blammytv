@@ -37,7 +37,12 @@
  * transform. ---- */
 .shero {
   position: relative;
-  height: 80vh;
+  /* True 80vh at every UI-scale notch. UI scale applies CSS `zoom` to the
+   * root (uiScale.ts), and vh is NOT divided by zoom — so a bare 80vh paints
+   * as 80vh × scale (96vh at 1.2, spilling past the viewport). Multiplying by
+   * --ui-zoom-inverse (= 1/scale, set alongside the zoom) cancels it back to a
+   * physical 80vh. Verified headless: 80vh→768px at zoom 1.2 vs 640px here. */
+  height: calc(80vh * var(--ui-zoom-inverse, 1));
   margin: 0 -28px;
   /* Clip the sliding track horizontally ONLY — `hidden` would force the
    * y-axis too and guillotine the active card's glow into a rectangle.
