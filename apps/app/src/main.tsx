@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import "./fonts";
 import "./styles/tokens.css";
 import "./styles/packs.css";
+import "./styles/intense-packs.css";
 import "./styles/base.css";
 import "./styles/ui.css";
 import "./styles/settings.css";

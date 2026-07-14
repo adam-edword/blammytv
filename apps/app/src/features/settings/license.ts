@@ -1,8 +1,10 @@
 import { load, remove, save } from "../../lib/storage";
 import {
+  BUNDLED_INTENSE_IDS,
   DEFAULT_PACK,
+  INTENSE_PACKS,
+  THEME_PACKS,
   applyThemePack,
-  injectPackCss,
   loadThemePack,
   saveThemePack,
   type ThemePackId,
@@ -10,29 +12,26 @@ import {
 } from "./themePacks";
 
 /**
- * Paid theme unlock. Talks to the "keybox" (a small license server built in
- * parallel with this module — see the contract below) to turn a purchased
- * key into installed theme-pack CSS. Two constraints shape everything here:
+ * Paid theme unlock. Talks to the "keybox" (a small license server) to turn a
+ * purchased key into an entitlement. Two constraints shape everything here:
  *
- * - FAIL-OPEN: once a theme is unlocked, it must keep rendering with the
- *   network dead, the keybox down, or a rate limit in the way.
- *   applyInstalledPacks() (called from main.tsx before first paint) is
- *   entirely local — it never awaits a fetch before painting, and its
- *   optional background revalidate can only ever refresh or leave state
- *   alone, never brick a theme someone already owns (see revalidate()).
+ * - FAIL-OPEN: intense theme CSS is BUNDLED in the app (styles/
+ *   intense-packs.css), not fetched — so a dead network / dead keybox can
+ *   never blank a theme. The license only decides whether a paid pack may
+ *   PERSIST; the CSS is always present. applyInstalledPacks() (main.tsx,
+ *   before first paint) is entirely local and can only ever demote a pack
+ *   the machine doesn't own — never brick one it does.
  * - ANONYMOUS: machineId() is a random UUID, not a hardware fingerprint —
  *   it exists only so the keybox can count activations per key.
  *
  * Server contract (a separate service, not this app's own backend):
  *   POST {keyboxUrl()}/validate  {key, machine}
  *     -> 200 {ok:true, pass, themes: ThemePackMeta[]}  (themes = every
- *        pack the key entitles, not just the one being activated)
+ *        pack the key entitles; pass = a Themes Pass, which owns them all)
  *     -> 200 {ok:false, reason: "unknown_key" | "activation_limit"}
  *     -> 429 on rate limit
- *   GET {keyboxUrl()}/payload/{themeId}
- *     headers {x-license-key, x-machine}
- *     -> 200 text/css (a `:root[data-theme-pack="<id>"]{...}` block)
- *     -> 403
+ * The keybox's GET /payload/:id (CSS delivery) is no longer consumed — themes
+ * ship bundled — but stays server-side for older clients.
  */
 
 /** The production keybox (Adam's domain, 2026-07-12). */
@@ -54,6 +53,8 @@ export function keyboxUrl(): string {
 const MACHINE_KEY = "license.machine";
 const KEY_KEY = "license.key";
 const ENTITLEMENT_KEY = "license.entitlement";
+/** Legacy: builds before the bundled-themes shift cached fetched payload CSS
+ * here. Nothing writes it now; clearLicenseState purges any stale copy. */
 const PAYLOADS_KEY = "license.payloads";
 const VERSION = 1;
 
@@ -124,46 +125,13 @@ async function callValidate(key: string): Promise<ValidateResponse | null> {
   }
 }
 
-async function fetchPayload(
-  themeId: ThemePackId,
-  key: string,
-): Promise<string> {
-  const res = await fetch(
-    `${keyboxUrl()}/payload/${encodeURIComponent(themeId)}`,
-    { headers: { "x-license-key": key, "x-machine": machineId() } },
-  );
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.text();
-}
-
-/** Fetch every entitled theme's CSS, store the ones that land, and inject
- * them live. Partial failure is expected (one payload host hiccup
- * shouldn't cost the whole activation) — Promise.allSettled, not
- * Promise.all; whatever already landed in a previous call stays cached. */
-async function fetchAndStorePayloads(
-  themes: ThemePackMeta[],
-  key: string,
-): Promise<void> {
-  const results = await Promise.allSettled(
-    themes.map(async (t) => ({ id: t.id, css: await fetchPayload(t.id, key) })),
-  );
-  const payloads = load<Record<string, string>>(PAYLOADS_KEY, VERSION, {});
-  for (const r of results) {
-    if (r.status === "fulfilled") {
-      payloads[r.value.id] = r.value.css;
-      injectPackCss(r.value.id, r.value.css);
-    }
-  }
-  save(PAYLOADS_KEY, VERSION, payloads);
-}
-
 export type ActivateResult =
   | { ok: true; themes: string[] }
   | { ok: false; message: string };
 
-/** Normalize/validate the shape, hit /validate, and on success fetch and
- * inject every entitled theme's CSS before resolving — the picker never
- * renders a "licensed but blank" card. */
+/** Normalize/validate the shape, hit /validate, and on success record the
+ * entitlement. No CSS is fetched — the themes are bundled; the entitlement
+ * only unlocks the right to persist them (see ownsPack). */
 export async function activate(rawKey: string): Promise<ActivateResult> {
   const key = normalizeKey(rawKey);
   if (!isValidKeyShape(key)) {
@@ -189,19 +157,31 @@ export async function activate(rawKey: string): Promise<ActivateResult> {
     at: Date.now(),
   };
   save(ENTITLEMENT_KEY, VERSION, entitlement);
-  await fetchAndStorePayloads(body.themes, key);
 
   return { ok: true, themes: body.themes.map((t) => t.id) };
 }
 
-/** Entitled themes this build can actually render — the entitlement lists
- * everything a key unlocks, but only ids with a cached payload have CSS to
- * show (a payload fetch can fail even after a successful activate()). */
+/** Does this machine own (may persist) the given pack? Free THEME_PACKS are
+ * always owned; a bundled intense pack is owned iff the current entitlement
+ * is a pass or explicitly lists it. No network — reads the cached
+ * entitlement, so it holds offline (fail-open). */
+export function ownsPack(id: ThemePackId): boolean {
+  if (THEME_PACKS.some((p) => p.id === id)) return true;
+  const entitlement = load<Entitlement | null>(ENTITLEMENT_KEY, VERSION, null);
+  if (!entitlement) return false;
+  return entitlement.pass || entitlement.themes.some((t) => t.id === id);
+}
+
+/** Owned intense packs this build can render — pass owns every bundled one;
+ * otherwise the entitled ids intersected with what's bundled (entitlement can
+ * list ids a stale build predates). Returns our own local metas (price etc.),
+ * not the keybox's. */
 export function installedPacks(): ThemePackMeta[] {
   const entitlement = load<Entitlement | null>(ENTITLEMENT_KEY, VERSION, null);
   if (!entitlement) return [];
-  const payloads = load<Record<string, string>>(PAYLOADS_KEY, VERSION, {});
-  return entitlement.themes.filter((t) => t.id in payloads);
+  if (entitlement.pass) return [...INTENSE_PACKS];
+  const owned = new Set(entitlement.themes.map((t) => t.id));
+  return INTENSE_PACKS.filter((p) => owned.has(p.id));
 }
 
 export interface LicenseStatus {
@@ -227,29 +207,41 @@ export function licenseStatus(): LicenseStatus {
 
 /**
  * FAIL-OPEN STARTUP PATH — call before first paint, alongside the other
- * applyX() calls in main.tsx. Re-injects every cached payload straight
- * from localStorage; NO network is involved, so a dead connection (or a
- * dead keybox) can never brick a theme someone already paid for.
+ * applyX() calls in main.tsx. Intense CSS is bundled, so there is nothing to
+ * inject; this only guards persistence: if the saved pack is an intense one
+ * the machine no longer owns (de-licensed on another machine, entitlement
+ * cleared, or forced via devtools), demote it to the default so a paid look
+ * doesn't keep painting for free.
  *
- * Then, only if the browser reports it's online, kicks an unawaited
- * background revalidate to pick up entitlement changes (a renewed key, a
- * newly-added pack). It can only ever refresh local state or leave it
- * alone — see revalidate()'s own comment for the one exception.
+ * Then, only if online, kicks an unawaited background revalidate to pick up
+ * entitlement changes. It can only refresh cached entitlement or — on an
+ * explicit unknown_key — clear it and demote; a network blip never touches
+ * state.
  */
 export function applyInstalledPacks(): void {
-  const payloads = load<Record<string, string>>(PAYLOADS_KEY, VERSION, {});
-  for (const [id, css] of Object.entries(payloads)) injectPackCss(id, css);
+  demoteIfUnowned();
 
   if (typeof navigator !== "undefined" && navigator.onLine) {
     void revalidate();
   }
 }
 
+/** If the persisted pack is a bundled intense one this machine doesn't own,
+ * snap back to the default (DOM + storage). No-op for free packs and for
+ * owned intense packs. */
+function demoteIfUnowned(): void {
+  const current = loadThemePack();
+  if (BUNDLED_INTENSE_IDS.has(current) && !ownsPack(current)) {
+    applyThemePack(DEFAULT_PACK);
+    saveThemePack(DEFAULT_PACK);
+  }
+}
+
 /** Background revalidate: silent on every failure. The ONE case allowed to
  * clear local state is an explicit {ok:false, reason:"unknown_key"} — the
  * keybox affirmatively saying this key doesn't exist. Rate limits, network
- * blips, and activation_limit all leave cached themes exactly as they
- * were; a temporary hiccup must never cost someone a theme they own. */
+ * blips, and activation_limit all leave the cached entitlement (and the
+ * pack on screen) exactly as they were. */
 async function revalidate(): Promise<void> {
   const key = load<string>(KEY_KEY, VERSION, "");
   if (!key) return;
@@ -257,7 +249,10 @@ async function revalidate(): Promise<void> {
     const body = await callValidate(key);
     if (body === null) return;
     if (!body.ok) {
-      if (body.reason === "unknown_key") clearLicenseState();
+      if (body.reason === "unknown_key") {
+        clearLicenseState();
+        demoteIfUnowned();
+      }
       return;
     }
     const entitlement: Entitlement = {
@@ -266,33 +261,26 @@ async function revalidate(): Promise<void> {
       at: Date.now(),
     };
     save(ENTITLEMENT_KEY, VERSION, entitlement);
-    await fetchAndStorePayloads(body.themes, key);
   } catch {
-    /* stays silent — the cached theme already on screen is unaffected */
+    /* stays silent — the bundled theme already on screen is unaffected */
   }
 }
 
 function clearLicenseState(): void {
-  const payloads = load<Record<string, string>>(PAYLOADS_KEY, VERSION, {});
-  for (const id of Object.keys(payloads)) {
-    document.head.querySelector(`style[data-pack-css="${id}"]`)?.remove();
-  }
   remove(KEY_KEY);
   remove(ENTITLEMENT_KEY);
-  remove(PAYLOADS_KEY);
+  remove(PAYLOADS_KEY); // purge any legacy fetched-payload cache
 }
 
-/** Reversible by re-pasting the key, so no confirmation step. Falls back
- * to the default pack if the one on screen was one of the ones this key
- * licensed. */
+/** Reversible by re-pasting the key, so no confirmation step. Falls back to
+ * the default pack if the active one was a bundled intense pack (clearing the
+ * license means it's no longer owned). */
 export function deactivate(): void {
-  const entitlement = load<Entitlement | null>(ENTITLEMENT_KEY, VERSION, null);
-  const wasActive =
-    entitlement?.themes.some((t) => t.id === loadThemePack()) ?? false;
+  const wasIntense = BUNDLED_INTENSE_IDS.has(loadThemePack());
 
   clearLicenseState();
 
-  if (wasActive) {
+  if (wasIntense) {
     applyThemePack(DEFAULT_PACK);
     saveThemePack(DEFAULT_PACK);
   }

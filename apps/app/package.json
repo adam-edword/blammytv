@@ -14,6 +14,7 @@
   "dependencies": {
     "@fontsource/stack-sans-headline": "^5.2.1",
     "@fontsource/stack-sans-text": "^5.2.1",
+    "@fontsource/vt323": "^5.2.7",
     "react": "^18.3.1",
     "react-colorful": "^5.7.0",
     "react-dom": "^18.3.1"

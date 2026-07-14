@@ -22,6 +22,7 @@ import {
 import { applyTheme, loadTheme, saveTheme, type Theme } from "./theme";
 import {
   DEFAULT_PACK,
+  INTENSE_PACKS,
   THEME_PACKS,
   applyThemePack,
   loadThemePack,
@@ -32,8 +33,8 @@ import {
 import {
   activate,
   deactivate,
-  installedPacks,
   licenseStatus,
+  ownsPack,
   type LicenseStatus,
 } from "./license";
 import {
@@ -193,26 +194,41 @@ export function CustomizeTab() {
     applyTheme(next);
   };
 
-  // Installed paid packs (cached CSS a licensed key unlocked) join the
-  // built-in THEME_PACKS in the picker — refreshed after activate/deactivate
-  // since neither one remounts this component.
-  const [installed, setInstalled] = useState<ThemePackMeta[]>(installedPacks);
+  // Every pack is shown and previewable: the four free packs plus every
+  // bundled intense pack. Ownership (ownsPack) only decides whether picking
+  // one COMMITS or is an ephemeral preview — it never hides a card.
+  // licenseStatus refreshes the lock badges + the "Themes Pass active" line
+  // after activate/deactivate (ownsPack reads storage; a setState re-runs it).
   const [license, setLicense] = useState<LicenseStatus>(licenseStatus);
   const allPacks: ThemePackMeta[] = [
     ...THEME_PACKS,
-    ...installed.filter((p) => !THEME_PACKS.some((b) => b.id === p.id)),
+    ...INTENSE_PACKS.filter((p) => !THEME_PACKS.some((b) => b.id === p.id)),
   ];
 
-  const [pack, setPack] = useState<ThemePackId>(loadThemePack);
+  // Seed from the live DOM (not storage) so the selected card stays in sync
+  // with an in-flight preview if this tab remounts while Settings stays open.
+  const [pack, setPack] = useState<ThemePackId>(
+    () =>
+      (document.documentElement.dataset.themePack as ThemePackId) ||
+      DEFAULT_PACK,
+  );
   const activePack = allPacks.find((p) => p.id === pack) ?? THEME_PACKS[0];
   const pickPack = (id: ThemePackId) => {
-    setPack(id);
-    saveThemePack(id);
+    // Always apply live — the full look (colors + bg + fonts + hovers).
     applyThemePack(id);
-    // Dead-combo rule: a dark-only pack under the light theme is an
-    // unsupported combination — force dark rather than leave it on screen.
+    setPack(id);
     const meta = allPacks.find((p) => p.id === id);
-    if (meta && !meta.supportsLight && theme === "light") pickTheme("dark");
+    // Dead-combo: a dark-only pack under the light theme forces dark.
+    const forceDark = !!meta && !meta.supportsLight && theme === "light";
+    if (ownsPack(id)) {
+      // Commit — persists across Settings close and restarts.
+      saveThemePack(id);
+      if (forceDark) pickTheme("dark");
+    } else if (forceDark) {
+      // Preview only: reflect dark in the DOM WITHOUT persisting; the
+      // SettingsModal close handler restores the committed pack + axis.
+      applyTheme("dark");
+    }
   };
 
   // Premium Themes: key input + Activate, or the licensed summary +
@@ -233,7 +249,6 @@ export function CustomizeTab() {
     setActivating(false);
     if (result.ok) {
       setLicenseInput("");
-      setInstalled(installedPacks());
       setLicense(licenseStatus());
       setActivateMsg({ ok: true, text: "Themes unlocked." });
     } else {
@@ -243,7 +258,6 @@ export function CustomizeTab() {
 
   const removeLicense = () => {
     deactivate();
-    setInstalled(installedPacks());
     setLicense(licenseStatus());
     setActivateMsg(null);
     // deactivate() may have force-reset the active pack (dataset + storage)
@@ -473,36 +487,64 @@ export function CustomizeTab() {
             layer on top.
           </p>
           <div className="pack-row" role="radiogroup" aria-label="Theme pack">
-            {allPacks.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                role="radio"
-                aria-checked={p.id === pack}
-                title={p.blurb}
-                data-pack={p.id}
-                className={
-                  "pack-card" + (p.id === pack ? " pack-card--active" : "")
-                }
-                onClick={() => pickPack(p.id)}
-              >
-                <span
-                  className="pack-card__preview"
-                  style={{ background: p.preview.bg }}
+            {allPacks.map((p) => {
+              const locked = !!p.premium && !ownsPack(p.id);
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={p.id === pack}
+                  title={p.blurb}
+                  data-pack={p.id}
+                  className={
+                    "pack-card" +
+                    (p.id === pack ? " pack-card--active" : "") +
+                    (locked ? " pack-card--locked" : "")
+                  }
+                  onClick={() => pickPack(p.id)}
                 >
                   <span
-                    className="pack-card__surface"
-                    style={{ background: p.preview.surface }}
-                  />
-                  <span
-                    className="pack-card__accent"
-                    style={{ background: p.preview.accent }}
-                  />
-                </span>
-                <span className="pack-card__name">{p.name}</span>
-              </button>
-            ))}
+                    className="pack-card__preview"
+                    style={{ background: p.preview.bg }}
+                  >
+                    <span
+                      className="pack-card__surface"
+                      style={{ background: p.preview.surface }}
+                    />
+                    <span
+                      className="pack-card__accent"
+                      style={{ background: p.preview.accent }}
+                    />
+                    {locked && (
+                      <span className="pack-card__lock">{p.price}</span>
+                    )}
+                  </span>
+                  <span className="pack-card__name">{p.name}</span>
+                </button>
+              );
+            })}
           </div>
+
+          {/* Unlock affordance: shown only while an unowned premium pack is
+              being PREVIEWED (picked but not owned). It reverts on Settings
+              close (SettingsModal); this is the "keep it" path. */}
+          {activePack.premium && !ownsPack(activePack.id) && (
+            <div className="pack-preview-note" role="status">
+              <span>
+                Previewing <strong>{activePack.name}</strong> — reverts when you
+                close Settings.
+              </span>
+              <a
+                className="btn-primary pack-preview-note__buy"
+                href={activePack.buyUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Unlock to keep · {activePack.price}
+              </a>
+            </div>
+          )}
 
           <div className="customize-row">
             <div>

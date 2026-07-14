@@ -24,6 +24,15 @@ export type ThemePackMeta = {
    * red: packs never own --accent, so the swatch shows the same accent
    * every pack will actually render with. */
   preview: { bg: string; surface: string; accent: string };
+  /** Paid pack (an intense theme). Free THEME_PACKS omit it. Drives the
+   * lock badge + the preview-vs-commit branch in CustomizeTab: a premium
+   * pack the machine doesn't own can be PREVIEWED live but never persisted
+   * (see license.ts ownsPack). */
+  premium?: boolean;
+  /** Display price for the card, e.g. "$2.50". Premium packs only. */
+  price?: string;
+  /** Per-theme checkout link for "Unlock to keep". Premium packs only. */
+  buyUrl?: string;
 };
 
 export const DEFAULT_PACK: ThemePackId = "classic";
@@ -62,6 +71,43 @@ export const THEME_PACKS: ReadonlyArray<ThemePackMeta> = [
     preview: { bg: "#f6f1e7", surface: "#fffdf8", accent: PREVIEW_ACCENT },
   },
 ];
+
+/** Paid, intense themes — BUNDLED in the app (styles/intense-packs.css), not
+ * fetched. Every one is always shown in the picker and previewable without a
+ * key; ownership (license.ts) only decides whether picking one persists.
+ * A pack's block existing here + in intense-packs.css is the whole contract;
+ * BUNDLED_INTENSE_IDS is the set the build can actually render. */
+export const INTENSE_PACKS: ReadonlyArray<ThemePackMeta> = [
+  {
+    id: "terminal",
+    name: "Terminal",
+    blurb: "Green-phosphor CRT — bitmap type, dither grain, glowing hovers.",
+    supportsLight: false,
+    preview: { bg: "#020a05", surface: "#0a2c16", accent: PREVIEW_ACCENT },
+    premium: true,
+    price: "$2.50",
+    // TEST-mode placeholder — swap for the real per-theme Payment Link at
+    // go-live (the site's Themes Pass link today; no per-theme links yet).
+    buyUrl: "https://buy.stripe.com/test_00wcMY6hq75NakJ3YigMw00",
+  },
+  {
+    id: "nebula",
+    name: "Nebula",
+    blurb: "Deep violet-noir with a faint stellar haze.",
+    supportsLight: false,
+    preview: { bg: "#0a0612", surface: "#1f1430", accent: PREVIEW_ACCENT },
+    premium: true,
+    price: "$2.50",
+    buyUrl: "https://buy.stripe.com/test_00wcMY6hq75NakJ3YigMw00",
+  },
+];
+
+/** Ids intense-packs.css actually defines a renderable block for — the guard
+ * that entitlement (which can list ids this build predates) only surfaces
+ * packs this build can paint. */
+export const BUNDLED_INTENSE_IDS: ReadonlySet<ThemePackId> = new Set(
+  INTENSE_PACKS.map((p) => p.id),
+);
 
 const KEY = "themePack";
 const VERSION = 1;

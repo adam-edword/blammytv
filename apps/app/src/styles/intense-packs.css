@@ -1,0 +1,128 @@
+/**
+ * Intense theme packs — the WIDENED contract.
+ *
+ * Loaded after packs.css (main.tsx), same cascade tier: after tokens.css,
+ * before the feature sheets. packs.css stays FROZEN as the color-only
+ * reference / network-payload shape; intense themes deliberately go beyond
+ * it and live here so the two contracts stay legible.
+ *
+ * Unlike packs.css, an intense block scoped under
+ * :root[data-theme-pack="<id>"] MAY also:
+ *   (a) re-point the family tokens --font-headline / --font-text /
+ *       --font-mono to a BUNDLED family (see fonts.ts). Family only — sizes
+ *       and weights are per-component, never tokenized. Always keep a system
+ *       fallback so an unloaded face degrades gracefully.
+ *   (b) set the background-layer tokens --pack-bg-image / --pack-bg-size /
+ *       --pack-bg-blend / --pack-bg-opacity, painted by the shared
+ *       .app-shell::before seam in base.css. Themes do NOT author their own
+ *       positioned background element — they only feed the seam.
+ *   (c) write SCOPED descendant hover/glow rules, e.g.
+ *       :root[data-theme-pack="x"] .stream-card:hover { ... }. Class surface
+ *       is stable semantic BEM, so any component is reachable with no JSX
+ *       change. A hover rule may carry its OWN transition.
+ *
+ * WebView2 guardrails (load-bearing — see live.css:742, stream.css:274/719,
+ * boot.css): hovers use opacity / transform / static box-shadow / static
+ * background only. NEVER animate filter or backdrop-filter, and never add
+ * will-change that promotes a compositor layer — WebView2 reuses stale
+ * rasters. Glow = static box-shadow or a pre-rendered gradient toggled by
+ * opacity, not an animated blur.
+ *
+ * These blocks are BUNDLED (not fetched) — the whole app ships them so any
+ * theme is previewable offline with no key. The license gates whether a
+ * theme PERSISTS, not whether its CSS exists (license.ts, ownsPack).
+ */
+
+/* ============================ Terminal ============================
+   Green-phosphor CRT. The reference intense theme: it exercises all three
+   axes at once — a bundled bitmap face (VT323), a dithered phosphor-grain
+   background layer, and green-glow hovers. Dark-only. */
+:root[data-theme-pack="terminal"] {
+  /* Palette — phosphor green on green-black. */
+  --bg: #020a05;
+  --surface: #04140a;
+  --surface-track: #020a05;
+  --surface-puck: #072010;
+  --surface-raised: #0a2c16;
+  --border: rgba(80, 255, 130, 0.16);
+  --border-strong: rgba(80, 255, 130, 0.28);
+  --border-raised: #1c5a30;
+  --border-input: rgba(80, 255, 130, 0.18);
+  --card-glass:
+    linear-gradient(rgba(80, 255, 130, 0.07), rgba(80, 255, 130, 0.07)),
+    linear-gradient(rgba(2, 10, 5, 0.6), rgba(2, 10, 5, 0.6));
+  --text: #4dff86;
+  --text-muted: #2fa85a;
+  --text-dim: #176b30;
+  --text-ghost: rgba(80, 255, 130, 0.2);
+  color-scheme: dark;
+
+  /* Font (a) — VT323 everywhere for the full CRT commitment. */
+  --font-headline: "VT323", ui-monospace, "Cascadia Code", Menlo, monospace;
+  --font-text: "VT323", ui-monospace, "Cascadia Code", Menlo, monospace;
+  --font-mono: "VT323", ui-monospace, "Cascadia Code", Menlo, monospace;
+
+  /* Background (b) — a green phosphor dither grain (the onboarding
+     .onb-dither dot lattice, tinted green), screen-blended for a faint glow.
+     Static; the seam never animates it. */
+  --pack-bg-image:
+    radial-gradient(circle at 1px 1px, rgba(80, 255, 130, 0.13) 1px, transparent 1.3px),
+    radial-gradient(circle at 3px 3px, rgba(80, 255, 130, 0.06) 1px, transparent 1.3px);
+  --pack-bg-size: 4px 4px, 8px 8px;
+  --pack-bg-blend: screen;
+  --pack-bg-opacity: 0.55;
+}
+
+/* Hovers (c) — static green glow, each with its own transition. Overrides
+   the base filter/opacity hovers rather than animating filter. */
+:root[data-theme-pack="terminal"] .stream-card:hover,
+:root[data-theme-pack="terminal"] .continue-card:hover,
+:root[data-theme-pack="terminal"] .vod-more__card:hover {
+  box-shadow:
+    0 0 0 1px rgba(80, 255, 130, 0.6),
+    0 0 16px rgba(80, 255, 130, 0.32);
+  transition: box-shadow 140ms ease, transform 140ms ease;
+}
+
+:root[data-theme-pack="terminal"] .guide__cell:hover {
+  /* Drop the base brightness filter for a crisp phosphor outline instead. */
+  filter: none;
+  box-shadow: inset 0 0 0 1px rgba(80, 255, 130, 0.55);
+  transition: box-shadow 140ms ease;
+}
+
+:root[data-theme-pack="terminal"] .header__tab:hover,
+:root[data-theme-pack="terminal"] .live-folder:hover {
+  text-shadow: 0 0 8px rgba(80, 255, 130, 0.7);
+  transition: text-shadow 140ms ease;
+}
+
+/* The active guide row and now-playing name earn a steady phosphor glow. */
+:root[data-theme-pack="terminal"] .hero__channel,
+:root[data-theme-pack="terminal"] .guide__cell--live {
+  text-shadow: 0 0 6px rgba(80, 255, 130, 0.45);
+}
+
+/* ============================ Nebula ============================
+   Deep violet-noir — migrated from the keybox payload (payloads/nebula.css)
+   to a bundled block. Colors only for now; it rides the widened engine but
+   doesn't (yet) use fonts/bg/hovers. Dark-only. */
+:root[data-theme-pack="nebula"] {
+  --bg: #0a0612;
+  --surface: #120c1f;
+  --surface-track: #0a0612;
+  --surface-puck: #170f26;
+  --surface-raised: #1f1430;
+  --border: rgba(186, 148, 255, 0.1);
+  --border-strong: rgba(186, 148, 255, 0.18);
+  --border-raised: #3a2a52;
+  --border-input: rgba(186, 148, 255, 0.12);
+  --card-glass:
+    linear-gradient(rgba(190, 150, 255, 0.07), rgba(190, 150, 255, 0.07)),
+    linear-gradient(rgba(10, 6, 18, 0.55), rgba(10, 6, 18, 0.55));
+  --text: #ece6f7;
+  --text-muted: #9a8fb3;
+  --text-dim: #4a3f5e;
+  --text-ghost: rgba(190, 150, 255, 0.18);
+  color-scheme: dark;
+}

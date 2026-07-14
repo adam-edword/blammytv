@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  BUNDLED_INTENSE_IDS,
   DEFAULT_PACK,
+  INTENSE_PACKS,
   THEME_PACKS,
   applyThemePack,
   injectPackCss,
@@ -89,6 +91,25 @@ describe("themePacks", () => {
       "slate",
       "paper",
     ]);
+  });
+
+  it("exposes bundled intense packs, all premium with a price + buy url", () => {
+    expect(INTENSE_PACKS.map((p) => p.id)).toEqual(["terminal", "nebula"]);
+    for (const p of INTENSE_PACKS) {
+      expect(p.premium).toBe(true);
+      expect(p.price).toBeTruthy();
+      expect(p.buyUrl).toBeTruthy();
+    }
+    // Free packs are never premium (drives the preview-vs-commit branch).
+    expect(THEME_PACKS.every((p) => !p.premium)).toBe(true);
+  });
+
+  it("BUNDLED_INTENSE_IDS is exactly the intense pack ids", () => {
+    expect([...BUNDLED_INTENSE_IDS].sort()).toEqual(
+      INTENSE_PACKS.map((p) => p.id).sort(),
+    );
+    expect(BUNDLED_INTENSE_IDS.has("terminal")).toBe(true);
+    expect(BUNDLED_INTENSE_IDS.has("void")).toBe(false);
   });
 
   it("applies a pack via the root dataset attribute", () => {

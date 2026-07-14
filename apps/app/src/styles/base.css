@@ -67,6 +67,30 @@ button {
   display: flex;
   flex-direction: column;
   height: 100%;
+  /* Establish a stacking context so the theme background layer (::before,
+     z-index:-1) sits above the shell's own bg fill but below all content,
+     and its mix-blend-mode can't bleed onto the native video behind the
+     shell in invert-player mode. */
+  isolation: isolate;
+}
+
+/* Intense-theme background layer. A no-op by default (opacity:0), so classic
+   and the four simple packs render byte-identically; an intense pack
+   (intense-packs.css) sets the --pack-bg-* tokens to paint a dither/texture.
+   Lives on .app-shell (NOT body) so in invert-player mode it sits inside the
+   clip-path video hole and never occludes the player. z-index:-1 keeps it
+   under the non-positioned .app-main content; static raster only (no
+   animation) per the WebView2 stale-raster scars. */
+.app-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: var(--pack-bg-image, none);
+  background-size: var(--pack-bg-size, auto);
+  mix-blend-mode: var(--pack-bg-blend, normal);
+  opacity: var(--pack-bg-opacity, 0);
 }
 
 /* Inverted-layer player (THE architecture; see inv.rs). The OS window is transparent

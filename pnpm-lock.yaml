@@ -38,6 +38,9 @@ importers:
       '@fontsource/stack-sans-text':
         specifier: ^5.2.1
         version: 5.2.1
+      '@fontsource/vt323':
+        specifier: ^5.2.7
+        version: 5.2.7
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -352,6 +355,9 @@ packages:
 
   '@fontsource/stack-sans-text@5.2.1':
     resolution: {integrity: sha512-ir7IsU6RGo9XOmRBnCdNzSLWAqdOl2Gdab63khjK8w9kN900OmOn3ebXj0bWf1wLQx1hTSpJnJMlB1ijBaH0lw==}
+
+  '@fontsource/vt323@5.2.7':
+    resolution: {integrity: sha512-8JTMM23vMhQxin9Cn/ijty8cNwXW4INrln0VAJ2227Rz0CVfkzM3qr3l/CqudZJ6BXCnbCGUTdf2ym3cTNex8A==}
 
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
@@ -1890,6 +1896,8 @@ snapshots:
   '@fontsource/stack-sans-headline@5.2.1': {}
 
   '@fontsource/stack-sans-text@5.2.1': {}
+
+  '@fontsource/vt323@5.2.7': {}
 
   '@humanfs/core@0.19.2':
     dependencies:

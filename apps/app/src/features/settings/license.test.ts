@@ -12,43 +12,11 @@ vi.stubGlobal("localStorage", {
   removeItem: (k: string) => void store.delete(k),
 });
 
-interface FakeStyle {
-  dataset: Record<string, string>;
-  textContent: string;
-  remove: () => void;
-}
-
+// Intense theme CSS is bundled, not injected — the only DOM this module
+// touches now is documentElement.dataset (applyThemePack sets/clears the
+// data-theme-pack attribute for the demotion path).
 const fakeDocumentElement = { dataset: {} as Record<string, string> };
-const fakeHeadChildren: FakeStyle[] = [];
-const fakeHead = {
-  children: fakeHeadChildren,
-  appendChild(el: FakeStyle) {
-    fakeHeadChildren.push(el);
-    return el;
-  },
-  querySelector(selector: string): FakeStyle | null {
-    const match = /style\[data-pack-css="([^"]+)"\]/.exec(selector);
-    if (!match) return null;
-    return fakeHeadChildren.find((el) => el.dataset.packCss === match[1]) ?? null;
-  },
-};
-
-vi.stubGlobal("document", {
-  documentElement: fakeDocumentElement,
-  head: fakeHead,
-  createElement(tag: string): FakeStyle {
-    void tag; // always "style" here — no need to branch on it
-    const el: FakeStyle = {
-      dataset: {},
-      textContent: "",
-      remove: () => {
-        const i = fakeHeadChildren.indexOf(el);
-        if (i >= 0) fakeHeadChildren.splice(i, 1);
-      },
-    };
-    return el;
-  },
-});
+vi.stubGlobal("document", { documentElement: fakeDocumentElement });
 
 vi.stubGlobal("navigator", { onLine: true });
 
@@ -64,9 +32,11 @@ import {
   licenseStatus,
   machineId,
   normalizeKey,
+  ownsPack,
 } from "./license";
 import {
   DEFAULT_PACK,
+  INTENSE_PACKS,
   applyThemePack,
   loadThemePack,
   saveThemePack,
@@ -74,14 +44,18 @@ import {
 } from "./themePacks";
 
 const GOOD_KEY = "BTV-AAAA-BBBB-CCCC-DDDD";
-const NEON_CSS = ':root[data-theme-pack="neon"]{--surface:#111}';
-const THEMES: ThemePackMeta[] = [
+
+// The keybox entitlement lists real bundled ids. terminal is our reference
+// intense pack; installedPacks() maps owned ids back to our LOCAL metas.
+const TERMINAL_META = INTENSE_PACKS.find((p) => p.id === "terminal")!;
+const NEBULA_META = INTENSE_PACKS.find((p) => p.id === "nebula")!;
+const ENTITLED: ThemePackMeta[] = [
   {
-    id: "neon",
-    name: "Neon",
-    blurb: "A paid pack.",
+    id: "terminal",
+    name: "Terminal",
+    blurb: "keybox meta",
     supportsLight: false,
-    preview: { bg: "#000000", surface: "#111111", accent: "#c22727" },
+    preview: { bg: "#000", surface: "#111", accent: "#c22727" },
   },
 ];
 
@@ -94,32 +68,20 @@ function jsonResponse(status: number, body: unknown): Response {
   } as Response;
 }
 
-function textResponse(status: number, body: string): Response {
-  return {
-    ok: status >= 200 && status < 300,
-    status,
-    text: async () => body,
-    json: async () => {
-      throw new Error("not json");
-    },
-  } as unknown as Response;
-}
-
 /** Lets a fire-and-forget background revalidate (applyInstalledPacks)
- * settle before assertions run — it goes through a handful of microtask
- * hops (fetch -> json -> the payload fetches), so a macrotask flush is
- * the reliable way to wait it out. */
+ * settle before assertions run. */
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
-/** Activates a fresh license against a mocked keybox, the way a real
- * activate() call would populate storage — used as setup for tests that
- * exercise deactivate()/revalidate() against already-licensed state. */
-async function activateNeon(): Promise<void> {
+/** Activates a fresh license (entitles "terminal") against a mocked keybox,
+ * the way a real activate() would populate storage. */
+async function activateTerminal(pass = false): Promise<void> {
   fetchMock.mockImplementation((url: string) => {
     if (String(url).endsWith("/validate")) {
-      return Promise.resolve(jsonResponse(200, { ok: true, pass: false, themes: THEMES }));
+      return Promise.resolve(
+        jsonResponse(200, { ok: true, pass, themes: pass ? [] : ENTITLED }),
+      );
     }
-    return Promise.resolve(textResponse(200, NEON_CSS));
+    throw new Error(`unexpected fetch: ${url}`);
   });
   const result = await activate(GOOD_KEY);
   expect(result.ok).toBe(true);
@@ -129,7 +91,6 @@ async function activateNeon(): Promise<void> {
 beforeEach(() => {
   store.clear();
   delete fakeDocumentElement.dataset.themePack;
-  fakeHeadChildren.length = 0;
   fetchMock.mockReset();
 });
 
@@ -146,7 +107,6 @@ describe("normalizeKey / isValidKeyShape", () => {
     expect(isValidKeyShape("NOT-A-KEY")).toBe(false);
     expect(isValidKeyShape("BTV-AAAA-BBBB-CCCC")).toBe(false);
     expect(isValidKeyShape("BTV-AAAA-BBBB-CCCC-DDDDD")).toBe(false);
-    // Shape-check runs post-normalize; lowercase alone must fail here.
     expect(isValidKeyShape("btv-aaaa-bbbb-cccc-dddd")).toBe(false);
   });
 });
@@ -169,30 +129,30 @@ describe("activate", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("happy path: normalizes, stores key/entitlement/payloads, and injects css", async () => {
+  it("happy path: normalizes, stores entitlement, and fetches NO payload", async () => {
     fetchMock.mockImplementation((url: string) => {
       if (String(url).endsWith("/validate")) {
         return Promise.resolve(
-          jsonResponse(200, { ok: true, pass: false, themes: THEMES }),
+          jsonResponse(200, { ok: true, pass: false, themes: ENTITLED }),
         );
       }
-      expect(String(url)).toContain("/payload/neon");
-      return Promise.resolve(textResponse(200, NEON_CSS));
+      throw new Error(`unexpected fetch (no payload should be fetched): ${url}`);
     });
 
     const result = await activate("  btv-aaaa-bbbb-cccc-dddd  ");
 
-    expect(result).toEqual({ ok: true, themes: ["neon"] });
-    expect(installedPacks()).toEqual(THEMES);
+    expect(result).toEqual({ ok: true, themes: ["terminal"] });
+    // Bundled CSS — installedPacks returns our LOCAL meta for the owned id.
+    expect(installedPacks()).toEqual([TERMINAL_META]);
     expect(licenseStatus()).toEqual({
       active: true,
       pass: false,
       installedCount: 1,
     });
-    const styleEl = fakeHead.querySelector('style[data-pack-css="neon"]');
-    expect(styleEl?.textContent).toBe(NEON_CSS);
+    // Only /validate is ever called — no /payload.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0][0])).toContain("/validate");
 
-    // The validate call carried the normalized key and a machine id.
     const [, validateInit] = fetchMock.mock.calls[0];
     const sentBody = JSON.parse(validateInit.body as string);
     expect(sentBody.key).toBe(GOOD_KEY);
@@ -245,32 +205,72 @@ describe("activate", () => {
   });
 });
 
+describe("ownsPack", () => {
+  it("free packs are always owned, even with no license", () => {
+    expect(ownsPack("void")).toBe(true);
+    expect(ownsPack("classic")).toBe(true);
+  });
+
+  it("an intense pack is unowned without an entitlement", () => {
+    expect(ownsPack("terminal")).toBe(false);
+  });
+
+  it("owns exactly the entitled intense ids after activation", async () => {
+    await activateTerminal();
+    expect(ownsPack("terminal")).toBe(true);
+    expect(ownsPack("nebula")).toBe(false);
+  });
+
+  it("a pass owns every intense pack", async () => {
+    await activateTerminal(true);
+    expect(ownsPack("terminal")).toBe(true);
+    expect(ownsPack("nebula")).toBe(true);
+  });
+});
+
+describe("installedPacks", () => {
+  it("returns owned bundled metas, and every intense pack for a pass", async () => {
+    await activateTerminal();
+    expect(installedPacks()).toEqual([TERMINAL_META]);
+  });
+
+  it("a pass installs every bundled intense pack", async () => {
+    await activateTerminal(true);
+    expect(installedPacks()).toEqual([TERMINAL_META, NEBULA_META]);
+  });
+});
+
 describe("applyInstalledPacks (fail-open startup path)", () => {
-  it("re-injects cached payloads synchronously with fetch entirely unavailable", async () => {
-    await activateNeon();
-    // Simulate a fresh page load: the head is empty again, exactly as it
-    // is before main.tsx runs, but the cached payload from a PRIOR session
-    // is already in localStorage.
-    fakeHeadChildren.length = 0;
+  it("a bundled owned pack still renders on reload with the keybox dead", async () => {
+    await activateTerminal();
+    saveThemePack("terminal");
+    applyThemePack("terminal");
     fetchMock.mockImplementation(() => {
       throw new Error("no network");
     });
 
     applyInstalledPacks();
-
-    // Synchronous — the cached CSS is back on the page before this line
-    // runs, with no fetch having resolved.
-    const styleEl = fakeHead.querySelector('style[data-pack-css="neon"]');
-    expect(styleEl?.textContent).toBe(NEON_CSS);
-
-    // The doomed background revalidate settles silently; nothing throws
-    // out of applyInstalledPacks and the cached state survives.
     await flush();
-    expect(installedPacks()).toEqual(THEMES);
+
+    // Owned via cached entitlement — never demoted, no fetch needed.
+    expect(loadThemePack()).toBe("terminal");
+    expect(fakeDocumentElement.dataset.themePack).toBe("terminal");
+  });
+
+  it("demotes a persisted-but-unowned intense pack to the default", () => {
+    // No entitlement on file, but the pack was forced (e.g. via devtools).
+    saveThemePack("terminal");
+    applyThemePack("terminal");
+
+    applyInstalledPacks();
+
+    expect(loadThemePack()).toBe(DEFAULT_PACK);
+    expect(fakeDocumentElement.dataset.themePack).toBeUndefined();
   });
 
   it("skips the background revalidate entirely while offline", async () => {
-    await activateNeon();
+    await activateTerminal();
+    saveThemePack("terminal");
     vi.stubGlobal("navigator", { onLine: false });
 
     applyInstalledPacks();
@@ -281,7 +281,8 @@ describe("applyInstalledPacks (fail-open startup path)", () => {
   });
 
   it("background revalidate leaves state alone on activation_limit", async () => {
-    await activateNeon();
+    await activateTerminal();
+    saveThemePack("terminal");
     fetchMock.mockResolvedValue(
       jsonResponse(200, { ok: false, reason: "activation_limit" }),
     );
@@ -289,12 +290,14 @@ describe("applyInstalledPacks (fail-open startup path)", () => {
     applyInstalledPacks();
     await flush();
 
-    expect(installedPacks()).toEqual(THEMES);
-    expect(fakeHead.querySelector('style[data-pack-css="neon"]')).not.toBeNull();
+    expect(ownsPack("terminal")).toBe(true);
+    expect(loadThemePack()).toBe("terminal");
   });
 
-  it("background revalidate clears state only on an explicit unknown_key", async () => {
-    await activateNeon();
+  it("background revalidate clears entitlement and demotes on unknown_key", async () => {
+    await activateTerminal();
+    saveThemePack("terminal");
+    applyThemePack("terminal");
     fetchMock.mockResolvedValue(
       jsonResponse(200, { ok: false, reason: "unknown_key" }),
     );
@@ -303,28 +306,28 @@ describe("applyInstalledPacks (fail-open startup path)", () => {
     await flush();
 
     expect(installedPacks()).toEqual([]);
-    expect(fakeHead.querySelector('style[data-pack-css="neon"]')).toBeNull();
+    expect(ownsPack("terminal")).toBe(false);
+    expect(loadThemePack()).toBe(DEFAULT_PACK);
   });
 });
 
 describe("deactivate", () => {
-  it("clears storage and style elements, and resets the active pack if it was licensed", async () => {
-    await activateNeon();
-    saveThemePack("neon");
-    applyThemePack("neon");
-    expect(fakeDocumentElement.dataset.themePack).toBe("neon");
+  it("clears storage and resets the active pack if it was a bundled intense one", async () => {
+    await activateTerminal();
+    saveThemePack("terminal");
+    applyThemePack("terminal");
+    expect(fakeDocumentElement.dataset.themePack).toBe("terminal");
 
     deactivate();
 
     expect(installedPacks()).toEqual([]);
     expect(licenseStatus().active).toBe(false);
-    expect(fakeHead.querySelector('style[data-pack-css="neon"]')).toBeNull();
     expect(loadThemePack()).toBe(DEFAULT_PACK);
     expect(fakeDocumentElement.dataset.themePack).toBeUndefined();
   });
 
-  it("leaves the active pack alone if a different pack was on screen", async () => {
-    await activateNeon();
+  it("leaves the active pack alone if a free pack was on screen", async () => {
+    await activateTerminal();
     saveThemePack("void");
     applyThemePack("void");
 

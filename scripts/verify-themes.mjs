@@ -84,16 +84,17 @@ const readState = (page) => page.evaluate(() => ({
 
   await openTheme(page);
   const cards = page.locator(".pack-card");
-  const cardCount = await cards.count();
   const dataPacks = await cards.evaluateAll((els) => els.map((el) => el.getAttribute("data-pack")).sort());
-  check("Theme pill shows 4 pack cards for classic/void/slate/paper",
-    cardCount === 4 && JSON.stringify(dataPacks) === JSON.stringify(["classic", "paper", "slate", "void"]),
+  // Intense packs (terminal/nebula) now share this row; the regression check
+  // is that the four FREE packs are all present + default-active below.
+  check("Theme pill shows the 4 free pack cards (classic/void/slate/paper)",
+    ["classic", "paper", "slate", "void"].every((id) => dataPacks.includes(id)),
     JSON.stringify(dataPacks));
   const classicActive = await page.locator('.pack-card[data-pack="classic"]').evaluate((el) => el.classList.contains("pack-card--active"));
   check("classic is the active pack by default", classicActive);
 
-  check("Reset Appearance utility row also visible on Theme pill",
-    await resetRow(page).isVisible().catch(() => false));
+  check("Reset Appearance utility row is scoped to General (absent on Theme pill)",
+    (await resetRow(page).count()) === 0);
 
   const before = await readState(page);
   await page.locator('.pack-card[data-pack="void"]').click();
@@ -185,12 +186,16 @@ const readState = (page) => page.evaluate(() => ({
   await openTheme(page);
   await page.locator('.pack-card[data-pack="void"]').click();
   await page.waitForFunction(() => document.documentElement.dataset.themePack === "void", null, { timeout: 5000 }).catch(() => null);
+  // Reset Appearance is an app-level utility under the General pill now.
+  await pill(page, "General").click();
+  await page.waitForSelector(".pack-row", { state: "detached", timeout: 5000 }).catch(() => null);
   await resetRow(page).getByRole("button").click();
   await page.waitForFunction(() => !document.documentElement.dataset.themePack, null, { timeout: 5000 }).catch(() => null);
   const afterReset = await page.evaluate(() => ({
     pack: document.documentElement.dataset.themePack ?? null,
     theme: document.documentElement.dataset.theme ?? null,
   }));
+  await openTheme(page);
   const classicActive = await page.locator('.pack-card[data-pack="classic"]').evaluate((el) => el.classList.contains("pack-card--active")).catch(() => false);
   check("Reset Appearance: themePack attr removed, classic active, light off",
     afterReset.pack === null && afterReset.theme !== "light" && classicActive,
@@ -234,9 +239,12 @@ const readState = (page) => page.evaluate(() => ({
   await pill(page, "Theme").click();
   await page.waitForSelector(".pack-row", { timeout: 5000 });
   const secondCount = await page.locator(".pack-card").count();
+  // Utility rows (Reset) live under General now — flip there to count them.
+  await pill(page, "General").click();
+  await page.waitForSelector(".pack-row", { state: "detached", timeout: 5000 }).catch(() => null);
   const resetRowCount = await resetRow(page).count();
   check("switching pills back and forth doesn't duplicate the pack row or utility rows",
-    firstCount === 4 && secondCount === 4 && resetRowCount === 1,
+    firstCount === 6 && secondCount === 6 && resetRowCount === 1,
     `first=${firstCount} second=${secondCount} resetRows=${resetRowCount}`);
   await page.close();
 }

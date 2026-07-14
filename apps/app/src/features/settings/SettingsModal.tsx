@@ -5,6 +5,12 @@ import { ChipTabs } from "../../ui/ChipTabs";
 import { PlaylistsTab } from "./PlaylistsTab";
 import { AioStreamsTab } from "./AioStreamsTab";
 import { CustomizeTab } from "./CustomizeTab";
+import {
+  DEFAULT_PACK,
+  applyThemePack,
+  loadThemePack,
+} from "./themePacks";
+import { applyTheme, loadTheme } from "./theme";
 
 type SettingsTab = "playlists" | "aiostreams" | "customize";
 
@@ -27,6 +33,25 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  // Theme-preview boundary. Customize applies a picked pack live but only
+  // COMMITS (writes storage) the ones the machine owns — an unowned pack is
+  // an ephemeral preview. Persisted storage is therefore always the committed
+  // baseline, so on modal close (this effect's cleanup — fires on ✕/backdrop/
+  // Escape, NOT on tab switches, since this component only unmounts when
+  // settingsOpen flips) we snap the DOM back to persisted if a preview is
+  // live. No mount snapshot needed; reading storage is StrictMode-safe.
+  useEffect(() => {
+    return () => {
+      const persisted = loadThemePack();
+      const live =
+        (document.documentElement.dataset.themePack as string) ?? DEFAULT_PACK;
+      if (live !== persisted) {
+        applyThemePack(persisted);
+        applyTheme(loadTheme());
+      }
+    };
+  }, []);
 
   // Portaled OUT of .app-shell: with the inverted player, the shell carries
   // a clip-path hole where the video shows — a modal rendered inside it

@@ -77,9 +77,14 @@
     1
   );
 
-  /* Type */
+  /* Type. Families only — sizes/weights are per-component, not tokenized.
+     An intense theme (intense-packs.css) may re-point any of these three to
+     a bundled family; --font-mono defaults to the system stack so classic
+     carries no font cost for it. */
   --font-headline: "Stack Sans Headline", "Segoe UI", system-ui, sans-serif;
   --font-text: "Stack Sans Text", "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", "Segoe UI Mono", Menlo, Consolas,
+    monospace;
 
   color-scheme: dark;
 }

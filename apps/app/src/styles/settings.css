@@ -505,6 +505,52 @@
   font-size: 12px;
 }
 
+/* Price/lock chip on an unowned premium (intense) pack's preview — top-right,
+   over the swatch. Owned packs and free packs render no chip. */
+.pack-card__lock {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 2px 6px;
+  border-radius: var(--radius-badge);
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid var(--border-strong);
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 10px;
+  line-height: 1.4;
+  color: #fff;
+  backdrop-filter: blur(4px);
+}
+
+/* The "you're previewing an unowned pack" banner + buy CTA, shown under the
+   pack row only while an unowned premium pack is the live preview. */
+.pack-preview-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  width: 100%;
+  margin-top: 4px;
+  padding: 12px 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.pack-preview-note strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.pack-preview-note__buy {
+  flex: none;
+  text-decoration: none;
+}
+
 /* A label + control row inside a section (e.g. the theme toggle). */
 .customize-row {
   display: flex;
