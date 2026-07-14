@@ -16,6 +16,18 @@ themselves on next launch.
 3. Keep `blammytv.key` and its password **safe and private** — never commit them.
    Lose the private key and existing installs can't accept updates (they'd need a
    fresh manual install with a new key).
+   **BACK UP the key file AND its password to 2+ durable places (password
+   manager + external/cloud).** This is the one irreplaceable artifact — it is
+   not in git and lives only at `%USERPROFILE%\.tauri\blammytv.key`.
+
+> **KEY ROTATED 2026-07 (Windows reinstall).** The original updater key
+> `5FD3E10724DF10F7` (id `f710df2407e1d35f`) was lost when the build machine
+> was wiped without a backup. A new keypair `163EBD51B4EE3232` was minted and
+> its public half now lives in tauri.conf.json. **Consequence:** every install
+> shipped before **v0.5.4** has the OLD pubkey compiled in and CANNOT
+> auto-update to v0.5.4 or later — those users must **manually reinstall
+> v0.5.4's `-setup.exe` once**, after which auto-update resumes on the new key.
+> v0.5.4 is the first release signed with the new key.
 
 ## Hard-won rules (2026-07-09, the first rebuild release)
 

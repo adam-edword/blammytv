@@ -15,7 +15,28 @@ Audience: switchers from other Windows IPTV clients, Stremio users, ideally
 both — and explicitly *inviting to newcomers*; first-five-minutes activation
 weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
-## Live state (2026-07-12, dev v0.5.2 — THE THEMES ERA)
+## Live state (2026-07-14, dev v0.5.4 — THE THEMES ERA)
+
+- **🔑 UPDATER SIGNING KEY ROTATED (2026-07-14, Windows reinstall).** The
+  original updater key `f710df2407e1d35f` (`5FD3E10724DF10F7`) was LOST when
+  Adam's build machine was wiped with no backup. A new keypair
+  `163EBD51B4EE3232` was minted (Adam holds the private half at
+  `%USERPROFILE%\.tauri\blammytv.key`, now backed up) and its public half is in
+  tauri.conf.json as of **v0.5.4**. **Every pre-0.5.4 install cannot
+  auto-update across the key change** — those users must manually reinstall
+  v0.5.4's `-setup.exe` ONCE, then auto-update resumes. v0.5.4 is the first
+  release on the new key and carries the intense-themes work (909e9f6). See
+  RELEASING.md's rotation note. (Old `verify-vs-tauri.conf pubkey` checks below
+  that cite `f710df2407e1d35f` predate the rotation.)
+- **v0.5.3 → shipped as v0.5.4: intense theme packs + live-preview-before-buy
+  (909e9f6).** Widened the theme engine past color-only: a pack can now swap
+  fonts, paint a dithered/textured background layer (.app-shell::before), and
+  restyle per-component hovers. All intense CSS is BUNDLED (not keybox-
+  delivered) so any theme previews live/offline with no key; the license now
+  gates PERSISTENCE not delivery (license.ts ownsPack). Terminal reference
+  theme (VT323 CRT font + phosphor dither + glowing hovers) + Nebula migrated
+  to bundled. 240 units, E2E 24/24 + 18/18 + 13/13. One manual Tauri smoke
+  left: invert-player video-hole vs the bg layer.
 
 - **🟢 PAID BACKEND LIVE & PROVEN END-TO-END (test mode, 2026-07-12).**
   The keybox runs in production on Coolify at https://themes.eddtv.org

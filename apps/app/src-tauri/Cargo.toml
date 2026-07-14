@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "0.5.2"
+version = "0.5.4"
 description = "Self-contained desktop IPTV/VOD client (Xtream Codes + AIOStreams/debrid)."
 authors = ["adam-edword"]
 license = ""
