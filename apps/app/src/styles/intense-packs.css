@@ -196,3 +196,51 @@
     animation: none;
   }
 }
+
+/* --- Supporter EPG glass -------------------------------------------------
+   Drop the time ruler's solid-black band and frost every EPG surface so the
+   drifting aura reads *through* the guide. All scoped to supporter — no other
+   pack changes. Frost = var(--card-glass) (the settings-card recipe: a
+   translucent black wash) over a STATIC backdrop blur. Static only, per the
+   WebView2 guardrails above — the blur never animates; only what's behind it
+   (aura + scrolling cells) moves, which is inherent to backdrop-filter, not a
+   filter animation.
+
+   The guide glass reveals the app AURA, never live mpv video (the video only
+   shows behind #player-slot / the hero preview), so no data-frost fallback is
+   needed here.
+
+   The sticky occluders (channel column + ruler corner) stay
+   translucent-not-transparent: scrolling cells behind them read as a soft
+   frosted blur instead of bleeding through sharp. */
+
+/* The time ruler: was a solid --bg black box. Transparent so the ticks float
+   over the aura. The corner below still occludes ticks sliding under the
+   channel column (as frosted glass, not black). */
+:root[data-theme-pack="supporter"] .guide__ruler {
+  background: transparent;
+}
+
+:root[data-theme-pack="supporter"] .live-sidebar,
+:root[data-theme-pack="supporter"] .mode-rail,
+:root[data-theme-pack="supporter"] .guide__corner,
+:root[data-theme-pack="supporter"] .guide__channel,
+:root[data-theme-pack="supporter"] .guide__card,
+:root[data-theme-pack="supporter"] .guide__cell,
+:root[data-theme-pack="supporter"] .guide__cell--blank {
+  background: var(--card-glass);
+  backdrop-filter: blur(10px);
+}
+
+/* The now-airing cell keeps its accent identity, but frosted: an accent wash
+   layered over the same glass (listed AFTER the generic cell rule so it wins
+   at equal specificity). */
+:root[data-theme-pack="supporter"] .guide__cell--live {
+  background:
+    linear-gradient(
+      color-mix(in srgb, var(--accent) 24%, transparent),
+      color-mix(in srgb, var(--accent) 24%, transparent)
+    ),
+    var(--card-glass);
+  backdrop-filter: blur(10px);
+}
