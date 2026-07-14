@@ -126,3 +126,73 @@
   --text-ghost: rgba(190, 150, 255, 0.18);
   color-scheme: dark;
 }
+
+/* ============================ Supporter ============================
+   The Themes-Pass secret theme. Classic palette UNCHANGED (no token
+   overrides) + the marketing site's background: a white dither dot field
+   over a slowly drifting brand rainbow aura.
+
+   Two background layers on .app-shell, both cut by the inverted-player
+   clip-path hole (it's an inline style on .app-shell, so it clips the
+   pseudo-elements too — the aura never paints over live mpv video):
+     ::before (z-index -1, the shared seam) = the dither grain.
+     ::after  (z-index -2, this theme only) = the rainbow aura, BEHIND the
+              grain so the dots sit over the glow.
+
+   The aura animates TRANSFORM ONLY (rotate + a gentle scale breathe), the
+   WebView2-safe pattern from boot.css: a static-painted gradient with a
+   STATIC blur rasters once and the transform never repaints. NEVER animate
+   filter here. If the static blur ever misbehaves in WebView2, drop the
+   `filter` line — the vignette + conic alone still read as an aura. */
+:root[data-theme-pack="supporter"] {
+  /* Dither — the site's faint white dot lattice, on the ::before seam. */
+  --pack-bg-image:
+    radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.05) 1px, transparent 1.3px),
+    radial-gradient(circle at 3px 3px, rgba(255, 255, 255, 0.022) 1px, transparent 1.3px);
+  --pack-bg-size: 4px 4px, 8px 8px;
+  --pack-bg-opacity: 1;
+}
+
+/* The rainbow aura. --aurora-ring is the brand conic defined on :root. The
+   radial vignette (viewport-relative vmax units) fades it into --bg so it
+   reads as a centered glow, not a full-screen wash. Oversized + centered so
+   the rotate/scale drift never reveals an edge; scoped overflow:clip on the
+   shell contains it in dev (production's clip-path already does). */
+:root[data-theme-pack="supporter"] .app-shell::after {
+  content: "";
+  position: absolute;
+  inset: -30%;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 50%, transparent 0 16vmax, var(--bg) 56vmax),
+    var(--aurora-ring);
+  filter: blur(64px);
+  opacity: 0.55;
+  will-change: transform;
+  animation: supporter-aura-drift 52s linear infinite;
+}
+
+:root[data-theme-pack="supporter"] .app-shell {
+  overflow: clip; /* contain the oversized aura (not a transform — sticky-safe) */
+}
+
+@keyframes supporter-aura-drift {
+  0% {
+    transform: rotate(0deg) scale(1.08);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.16);
+  }
+  100% {
+    transform: rotate(360deg) scale(1.08);
+  }
+}
+
+/* House convention: kill the drift under reduced motion, keep the static
+   aura (restated after the animated rule — media queries add no specificity). */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme-pack="supporter"] .app-shell::after {
+    animation: none;
+  }
+}

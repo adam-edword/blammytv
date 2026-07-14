@@ -93,15 +93,27 @@ describe("themePacks", () => {
     ]);
   });
 
-  it("exposes bundled intense packs, all premium with a price + buy url", () => {
-    expect(INTENSE_PACKS.map((p) => p.id)).toEqual(["terminal", "nebula"]);
-    for (const p of INTENSE_PACKS) {
-      expect(p.premium).toBe(true);
+  it("exposes bundled intense packs, all premium", () => {
+    expect(INTENSE_PACKS.map((p) => p.id)).toEqual([
+      "terminal",
+      "nebula",
+      "supporter",
+    ]);
+    for (const p of INTENSE_PACKS) expect(p.premium).toBe(true);
+    // Free packs are never premium (drives the preview-vs-commit branch).
+    expect(THEME_PACKS.every((p) => !p.premium)).toBe(true);
+  });
+
+  it("individually-sold packs have a price + buy url; the Pass-only secret has neither", () => {
+    const supporter = INTENSE_PACKS.find((p) => p.id === "supporter");
+    expect(supporter?.passOnly).toBe(true);
+    // Never sold per-theme — only via the Pass — so no price/buy link.
+    expect(supporter?.buyUrl).toBeUndefined();
+    // Every non-passOnly premium pack IS individually buyable.
+    for (const p of INTENSE_PACKS.filter((p) => !p.passOnly)) {
       expect(p.price).toBeTruthy();
       expect(p.buyUrl).toBeTruthy();
     }
-    // Free packs are never premium (drives the preview-vs-commit branch).
-    expect(THEME_PACKS.every((p) => !p.premium)).toBe(true);
   });
 
   it("BUNDLED_INTENSE_IDS is exactly the intense pack ids", () => {

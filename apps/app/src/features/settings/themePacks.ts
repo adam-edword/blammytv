@@ -33,6 +33,10 @@ export type ThemePackMeta = {
   price?: string;
   /** Per-theme checkout link for "Unlock to keep". Premium packs only. */
   buyUrl?: string;
+  /** Pass-exclusive secret theme: hidden from the picker entirely until the
+   * machine holds a Themes Pass (no preview, no per-theme purchase). Also
+   * draws the supporter heart on its card. */
+  passOnly?: boolean;
 };
 
 export const DEFAULT_PACK: ThemePackId = "classic";
@@ -99,6 +103,18 @@ export const INTENSE_PACKS: ReadonlyArray<ThemePackMeta> = [
     premium: true,
     price: "$2.50",
     buyUrl: "https://buy.stripe.com/test_00wcMY6hq75NakJ3YigMw00",
+  },
+  {
+    // The secret supporters theme — classic + the site's drifting rainbow
+    // aura. Pass-exclusive: no buyUrl (never sold per-theme), passOnly hides
+    // it until a Themes Pass is active.
+    id: "supporter",
+    name: "Supporter",
+    blurb: "A thank-you for Pass holders — classic with a living rainbow aura.",
+    supportsLight: false,
+    preview: { bg: "#0b0b0e", surface: "#1a1030", accent: PREVIEW_ACCENT },
+    premium: true,
+    passOnly: true,
   },
 ];
 

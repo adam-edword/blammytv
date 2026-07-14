@@ -49,6 +49,7 @@ const GOOD_KEY = "BTV-AAAA-BBBB-CCCC-DDDD";
 // intense pack; installedPacks() maps owned ids back to our LOCAL metas.
 const TERMINAL_META = INTENSE_PACKS.find((p) => p.id === "terminal")!;
 const NEBULA_META = INTENSE_PACKS.find((p) => p.id === "nebula")!;
+const SUPPORTER_META = INTENSE_PACKS.find((p) => p.id === "supporter")!;
 const ENTITLED: ThemePackMeta[] = [
   {
     id: "terminal",
@@ -234,9 +235,9 @@ describe("installedPacks", () => {
     expect(installedPacks()).toEqual([TERMINAL_META]);
   });
 
-  it("a pass installs every bundled intense pack", async () => {
+  it("a pass installs every bundled intense pack (incl. the secret one)", async () => {
     await activateTerminal(true);
-    expect(installedPacks()).toEqual([TERMINAL_META, NEBULA_META]);
+    expect(installedPacks()).toEqual([TERMINAL_META, NEBULA_META, SUPPORTER_META]);
   });
 });
 

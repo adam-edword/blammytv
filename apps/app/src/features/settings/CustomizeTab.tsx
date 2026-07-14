@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { isTauri } from "../../lib/tauri";
 import { remove as removeStored } from "../../lib/storage";
 import { HexColorInput, HexColorPicker } from "react-colorful";
-import { CheckIcon, EyeDropperIcon } from "../../ui/icons";
+import { CheckIcon, EyeDropperIcon, HeartIcon } from "../../ui/icons";
 import { ChipTabs } from "../../ui/ChipTabs";
 import { Toggle } from "../../ui/Toggle";
 import {
@@ -202,7 +202,13 @@ export function CustomizeTab() {
   const [license, setLicense] = useState<LicenseStatus>(licenseStatus);
   const allPacks: ThemePackMeta[] = [
     ...THEME_PACKS,
-    ...INTENSE_PACKS.filter((p) => !THEME_PACKS.some((b) => b.id === p.id)),
+    ...INTENSE_PACKS.filter(
+      (p) =>
+        !THEME_PACKS.some((b) => b.id === p.id) &&
+        // Secret Pass-only theme (Supporter) stays hidden until a Themes Pass
+        // is active — never shown or previewable to anyone else.
+        (!p.passOnly || license.pass),
+    ),
   ];
 
   // Seed from the live DOM (not storage) so the selected card stays in sync
@@ -518,6 +524,11 @@ export function CustomizeTab() {
                     />
                     {locked && (
                       <span className="pack-card__lock">{p.price}</span>
+                    )}
+                    {p.passOnly && (
+                      <span className="pack-card__heart" aria-hidden="true">
+                        <HeartIcon size={13} />
+                      </span>
                     )}
                   </span>
                   <span className="pack-card__name">{p.name}</span>

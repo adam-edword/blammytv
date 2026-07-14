@@ -191,6 +191,63 @@ for (const method of ["close-button", "backdrop", "escape"]) {
   await page.close();
 }
 
+// 5: the secret "Supporter" theme is hidden without a Pass.
+{
+  const page = await newPage();
+  await openTheme(page);
+  const count = await page.locator('.pack-card[data-pack="supporter"]').count();
+  check("Supporter is hidden from the picker without a Themes Pass", count === 0);
+  await page.close();
+}
+
+// 6: with a Pass it appears (hearted), commits, and its aura + dither render;
+//    reduced motion stops the drift.
+{
+  const passEntitlement = JSON.stringify({
+    v: 1,
+    data: { pass: true, themes: [], at: 1 },
+  });
+  const page = await newPage({
+    "blammytv.license.key": JSON.stringify({ v: 1, data: "BTV-AAAA-BBBB-CCCC-DDDD" }),
+    "blammytv.license.entitlement": passEntitlement,
+  });
+  await openTheme(page);
+
+  const card = page.locator('.pack-card[data-pack="supporter"]');
+  check("Supporter appears once a Pass is active", (await card.count()) === 1);
+  check("Supporter card wears the heart",
+    (await card.locator(".pack-card__heart").count()) === 1);
+
+  await pickCard(page, "supporter");
+  const stored = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem("blammytv.themePack") ?? "null"));
+  check("owning Supporter (via the Pass) commits it",
+    JSON.stringify(stored) === JSON.stringify({ v: 1, data: "supporter" }),
+    JSON.stringify(stored));
+
+  const aura = await page.evaluate(() => {
+    const shell = document.querySelector(".app-shell");
+    const after = getComputedStyle(shell, "::after");
+    const before = getComputedStyle(shell, "::before");
+    return {
+      afterOpacity: parseFloat(after.opacity),
+      afterAnim: after.animationName,
+      beforeImage: before.backgroundImage,
+    };
+  });
+  check("the rainbow aura (::after) paints and drifts",
+    aura.afterOpacity > 0 && aura.afterAnim && aura.afterAnim !== "none",
+    JSON.stringify({ o: aura.afterOpacity, a: aura.afterAnim }));
+  check("the dither (::before) paints under Supporter",
+    !!aura.beforeImage && aura.beforeImage !== "none");
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const reduced = await page.evaluate(() =>
+    getComputedStyle(document.querySelector(".app-shell"), "::after").animationName);
+  check("reduced-motion stops the aura drift", reduced === "none", String(reduced));
+  await page.close();
+}
+
 await browser.close();
 const pass = results.filter(Boolean).length;
 console.log(`${pass}/${results.length}`);

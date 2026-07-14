@@ -523,6 +523,19 @@
   backdrop-filter: blur(4px);
 }
 
+/* Supporters mark on the secret (Pass-only) theme's preview — top-right,
+   over the swatch, in the brand pink. It's only ever shown to Pass holders
+   (who own it), so it never collides with the price/lock chip. */
+.pack-card__heart {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  color: #ff7bf6;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.6));
+}
+
 /* The "you're previewing an unowned pack" banner + buy CTA, shown under the
    pack row only while an unowned premium pack is the live preview. */
 .pack-preview-note {
