@@ -98,6 +98,29 @@ or any cert config on top of it.
    `scripts/backup.sh`'s bare-metal cron job expected an off-box copy. See
    the Backups section below.
 
+## Admin CLI (see / mint / revoke keys)
+
+The keys live in `/data/keybox.db` and the slim image has no `sqlite3` CLI and
+Coolify has no DB viewer, so `scripts/admin.mjs` is how you inspect and manage
+them. Run it **inside the container** — Coolify's app **Terminal**, or
+`docker exec -it <container> node scripts/admin.mjs …` (it reads the same
+`DB_PATH`, default `/data/keybox.db`):
+
+```
+node scripts/admin.mjs list                 # every key + its activation count
+node scripts/admin.mjs mint                 # mint an UNLIMITED admin/comp key
+node scripts/admin.mjs revoke BTV-XXXX-...   # delete a key (and its activations)
+```
+
+- **`mint`** issues a `pass` key (unlocks **every** theme) with **unlimited**
+  machine activations and no Stripe session — a comp/admin key. Paste it into
+  the app (Settings → Customize → Theme → Premium Themes → Activate).
+- ⚠️ **Security:** a minted key is a **free master-unlock that bypasses
+  Stripe** (no revenue by design). It's crypto-random/unguessable, but anyone
+  who holds it unlocks everything on unlimited machines — keep it private, and
+  `revoke` it immediately if it leaks. Normal purchased keys are unaffected
+  (they still cap at 3 machines).
+
 ### Bare-metal alternative
 
 <details>

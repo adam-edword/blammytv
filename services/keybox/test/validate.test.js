@@ -122,3 +122,18 @@ test("validate: activation cap allows 3 machines, rejects a 4th, and existing ma
   assert.equal(again.status, 200);
   assert.equal(again.body.ok, true);
 });
+
+test("validate: an unlimited (admin) key activates far past the 3-machine cap", async (t) => {
+  const { db, server, base } = await startApp();
+  t.after(() => server.close());
+
+  const { key } = createKey(db, { kind: "pass", unlimited: true, session: null });
+
+  // Five distinct machines — a normal key would be rejected on the 4th.
+  for (const machine of ["m1", "m2", "m3", "m4", "m5"]) {
+    const { status, body } = await validate(base, { key, machine });
+    assert.equal(status, 200);
+    assert.equal(body.ok, true, `machine ${machine} should activate on an unlimited key`);
+    assert.equal(body.pass, true);
+  }
+});

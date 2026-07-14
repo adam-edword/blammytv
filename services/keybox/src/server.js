@@ -4,7 +4,7 @@ import { readFileSync, mkdirSync, chownSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-import { openDb, createKey, findBySession, getKey, touchActivation, isActivated, markEmailed } from "./db.js";
+import { openDb, createKey, findBySession, getKey, touchActivation, isActivated, markEmailed, ACTIVATION_LIMIT } from "./db.js";
 import { loadCatalog } from "./catalog.js";
 import { createMailer } from "./mailer.js";
 
@@ -298,7 +298,13 @@ export function makeApp({ db, stripe, catalog, webhookSecret, mailer = NOOP_MAIL
         return res.status(200).json({ ok: false, reason: "unknown_key" });
       }
 
-      const activation = touchActivation(db, key, machine);
+      // Admin/comp keys (unlimited) bypass the per-key machine cap.
+      const activation = touchActivation(
+        db,
+        key,
+        machine,
+        record.unlimited ? Infinity : ACTIVATION_LIMIT,
+      );
       if (activation.limit) {
         return res.status(200).json({ ok: false, reason: "activation_limit" });
       }

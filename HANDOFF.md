@@ -17,6 +17,18 @@ weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
 ## Live state (2026-07-14, dev v0.5.4 — THE THEMES ERA)
 
+- **🗝️ KEYBOX ADMIN CLI + unlimited keys (2026-07-14).** `services/keybox/
+  scripts/admin.mjs` — `list` (see every key; the DB is otherwise invisible —
+  no sqlite3 CLI in the slim image, no Coolify DB viewer), `mint` (a `pass` key
+  with a new per-key `unlimited` flag → unlocks all themes on UNLIMITED
+  machines, bypassing the 3-cap; comp/admin use), `revoke <key>`. Run it in the
+  Coolify container Terminal (`node scripts/admin.mjs …`, DB_PATH=/data/
+  keybox.db). Schema gained `unlimited INTEGER DEFAULT 0` (runtime-migrated like
+  emailed_at); `/validate` passes Infinity to touchActivation for unlimited
+  keys; Dockerfile now COPYs admin.mjs. Tests 34 → 39. **Security:** a minted
+  key is a free master-unlock (no Stripe) — keep private, `revoke` if leaked.
+  **Deploy step:** redeploy keybox on Coolify, then `node scripts/admin.mjs
+  mint` in the container to get the key.
 - **🔑 UPDATER SIGNING KEY ROTATED (2026-07-14, Windows reinstall).** The
   original updater key `f710df2407e1d35f` (`5FD3E10724DF10F7`) was LOST when
   Adam's build machine was wiped with no backup. A new keypair

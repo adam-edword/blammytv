@@ -21,7 +21,8 @@ CREATE TABLE IF NOT EXISTS keys (
   themes TEXT NOT NULL DEFAULT '[]',
   created_at INTEGER NOT NULL,
   stripe_session TEXT UNIQUE,
-  emailed_at INTEGER
+  emailed_at INTEGER,
+  unlimited INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS activations (
@@ -61,6 +62,12 @@ export function openDb(path) {
   if (!columns.some((c) => c.name === "emailed_at")) {
     db.exec("ALTER TABLE keys ADD COLUMN emailed_at INTEGER");
   }
+  // Same story for `unlimited` (added after emailed_at): CREATE TABLE won't
+  // add it to the live production DB. ADD COLUMN with a NOT NULL DEFAULT is
+  // legal and back-fills every existing row with 0 (a normal, capped key).
+  if (!columns.some((c) => c.name === "unlimited")) {
+    db.exec("ALTER TABLE keys ADD COLUMN unlimited INTEGER NOT NULL DEFAULT 0");
+  }
 
   return db;
 }
@@ -71,24 +78,25 @@ export function openDb(path) {
  * instead of minting a second one. Retries key generation on the (astronomically
  * unlikely) chance of a PK collision.
  */
-export function createKey(db, { kind, themes = [], session }) {
+export function createKey(db, { kind, themes = [], session, unlimited = false }) {
   if (session) {
     const existing = findBySession(db, session);
     if (existing) return existing;
   }
 
   const insert = db.prepare(
-    `INSERT INTO keys (key, kind, themes, created_at, stripe_session)
-     VALUES (?, ?, ?, ?, ?)`,
+    `INSERT INTO keys (key, kind, themes, created_at, stripe_session, unlimited)
+     VALUES (?, ?, ?, ?, ?, ?)`,
   );
 
   const themesJson = JSON.stringify(themes);
   const createdAt = Date.now();
+  const unlimitedFlag = unlimited ? 1 : 0;
 
   for (let attempt = 0; attempt < 10; attempt++) {
     const key = generateKey();
     try {
-      insert.run(key, kind, themesJson, createdAt, session ?? null);
+      insert.run(key, kind, themesJson, createdAt, session ?? null, unlimitedFlag);
       return getKey(db, key);
     } catch (err) {
       // PK collision on `key` — regenerate and retry. A UNIQUE collision on
@@ -135,6 +143,7 @@ function rowToKey(row) {
     createdAt: row.created_at,
     stripeSession: row.stripe_session,
     emailedAt: row.emailed_at,
+    unlimited: Boolean(row.unlimited),
   };
 }
 
@@ -158,16 +167,18 @@ export function activationCount(db, key) {
 /**
  * Register (key, machine) as activated. Idempotent: re-touching an already-
  * registered machine always succeeds and never counts against the cap.
- * A brand-new machine that would push the count past ACTIVATION_LIMIT is
- * rejected with {limit:true} instead of being written.
+ * A brand-new machine that would push the count past `limit` is rejected with
+ * {limit:true} instead of being written. `limit` defaults to ACTIVATION_LIMIT
+ * so every existing caller is unchanged; an unlimited (admin) key passes
+ * Infinity, so the count check never trips.
  */
-export function touchActivation(db, key, machine) {
+export function touchActivation(db, key, machine, limit = ACTIVATION_LIMIT) {
   const already = db
     .prepare(`SELECT 1 FROM activations WHERE key = ? AND machine = ?`)
     .get(key, machine);
   if (already) return { ok: true };
 
-  if (activationCount(db, key) >= ACTIVATION_LIMIT) {
+  if (activationCount(db, key) >= limit) {
     return { limit: true };
   }
 
@@ -175,6 +186,34 @@ export function touchActivation(db, key, machine) {
     `INSERT INTO activations (key, machine, first_seen) VALUES (?, ?, ?)`,
   ).run(key, machine, Date.now());
   return { ok: true };
+}
+
+/**
+ * Every key with its live activation count — the read behind `admin.mjs list`
+ * (the keys are otherwise invisible: no sqlite3 CLI in the image, no DB viewer
+ * in Coolify). Newest first.
+ */
+export function listKeys(db) {
+  const rows = db
+    .prepare(
+      `SELECT k.*, (SELECT COUNT(*) FROM activations a WHERE a.key = k.key)
+         AS activation_count
+       FROM keys k
+       ORDER BY k.created_at DESC, k.rowid DESC`,
+    )
+    .all();
+  return rows.map((row) => ({ ...rowToKey(row), activationCount: row.activation_count }));
+}
+
+/**
+ * Revoke a key everywhere: drop the key row and all of its activations.
+ * Returns true if a key row was actually deleted. Used by `admin.mjs revoke`
+ * for a leaked/comp key.
+ */
+export function deleteKey(db, key) {
+  db.prepare(`DELETE FROM activations WHERE key = ?`).run(key);
+  const info = db.prepare(`DELETE FROM keys WHERE key = ?`).run(key);
+  return info.changes > 0;
 }
 
 export function isActivated(db, key, machine) {

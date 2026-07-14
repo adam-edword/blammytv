@@ -49,6 +49,7 @@ COPY src ./src
 COPY payloads ./payloads
 COPY catalog.json ./catalog.json
 COPY scripts/backup.mjs ./scripts/backup.mjs
+COPY scripts/admin.mjs ./scripts/admin.mjs
 
 # /data is where the sqlite db and its backups live — it must be the
 # Coolify/Docker persistent volume mount point, or the key database dies
