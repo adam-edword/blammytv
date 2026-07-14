@@ -253,9 +253,8 @@
   backdrop-filter: blur(10px);
 }
 
-/* Kill the hero title's right-edge fade box: it painted a solid --bg (black)
-   patch that read as a floating dark rectangle over the glass. Fade to the
-   same faint glass tint instead so it blends. */
+/* Remove the hero title's right-edge fade entirely for this theme: it painted
+   a floating dark rectangle over the glass. No fade — the title just renders. */
 :root[data-theme-pack="supporter"] .hero__title-wrap::after {
-  background: linear-gradient(to right, transparent, #00000040) !important;
+  display: none !important;
 }
