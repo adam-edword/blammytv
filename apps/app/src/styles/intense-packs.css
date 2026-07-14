@@ -258,3 +258,21 @@
 :root[data-theme-pack="supporter"] .hero__title-wrap::after {
   display: none !important;
 }
+
+/* Stream catalog rows: drop the edge fade scrims — they fade cards into a
+   solid --bg (black), which reads as dark smudges at the row edges over the
+   aura. Cards run clean to the edge instead. */
+:root[data-theme-pack="supporter"] .media-row__scrim {
+  display: none !important;
+}
+
+/* ...and let the catalog rows bleed to the true window edge, behind the thin
+   page scrollbar. The viewport already reaches the window edge (its -28px
+   margin clears the scrollbar gutter); the only remaining inset is the
+   scroller's own 28px right padding — drop it so the last card runs under the
+   scrollbar. Left padding stays (keeps the first card aligned with the page).
+   Scoped to .stream__rows so the detail-page "More Like This" rail (its own
+   masked RowScroller) is untouched. Verified: no horizontal scrollbar. */
+:root[data-theme-pack="supporter"] .stream__rows .media-row__scroller {
+  padding-right: 0 !important;
+}
