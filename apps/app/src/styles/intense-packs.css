@@ -151,6 +151,11 @@
     radial-gradient(circle at 3px 3px, rgba(255, 255, 255, 0.022) 1px, transparent 1.3px);
   --pack-bg-size: 4px 4px, 8px 8px;
   --pack-bg-opacity: 1;
+
+  /* Lift the dimmest text tier (ruler ticks, hero synopsis + time) to a light
+     gray — #494949 was near-invisible over the aura. Its only three consumers
+     are exactly those guide/hero elements (live.css), so this is surgical. */
+  --text-dim: rgba(255, 255, 255, 0.75);
 }
 
 /* The rainbow aura. --aurora-ring is the brand conic defined on :root. The
@@ -214,21 +219,24 @@
    translucent-not-transparent: scrolling cells behind them read as a soft
    frosted blur instead of bleeding through sharp. */
 
-/* The time ruler: was a solid --bg black box. Transparent so the ticks float
-   over the aura. The corner below still occludes ticks sliding under the
-   channel column (as frosted glass, not black). */
-:root[data-theme-pack="supporter"] .guide__ruler {
-  background: transparent;
+/* The time ruler, the channel-column strip, and its top corner were solid --bg
+   black. Transparent so the ticks and channel cards float over the aura — the
+   column itself carries no background; only the cards do. (Program cells that
+   slide under the sticky column now read through the glass cards, blurred.) */
+:root[data-theme-pack="supporter"] .guide__ruler,
+:root[data-theme-pack="supporter"] .guide__corner,
+:root[data-theme-pack="supporter"] .guide__channel {
+  background: transparent !important;
 }
 
+/* Frosted glass on every EPG panel + card. Flat #00000040 (25% black) over the
+   static blur — lighter than the default card-glass so the aura reads through. */
 :root[data-theme-pack="supporter"] .live-sidebar,
 :root[data-theme-pack="supporter"] .mode-rail,
-:root[data-theme-pack="supporter"] .guide__corner,
-:root[data-theme-pack="supporter"] .guide__channel,
 :root[data-theme-pack="supporter"] .guide__card,
 :root[data-theme-pack="supporter"] .guide__cell,
 :root[data-theme-pack="supporter"] .guide__cell--blank {
-  background: var(--card-glass);
+  background: #00000040 !important;
   backdrop-filter: blur(10px);
 }
 
@@ -241,6 +249,13 @@
       color-mix(in srgb, var(--accent) 24%, transparent),
       color-mix(in srgb, var(--accent) 24%, transparent)
     ),
-    var(--card-glass);
+    #00000040 !important;
   backdrop-filter: blur(10px);
+}
+
+/* Kill the hero title's right-edge fade box: it painted a solid --bg (black)
+   patch that read as a floating dark rectangle over the glass. Fade to the
+   same faint glass tint instead so it blends. */
+:root[data-theme-pack="supporter"] .hero__title-wrap::after {
+  background: linear-gradient(to right, transparent, #00000040) !important;
 }
