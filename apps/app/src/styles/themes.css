@@ -161,9 +161,12 @@
   display: flex;
   gap: 20px;
   overflow-x: auto;
-  padding-bottom: 6px;
-  /* Let the last card breathe from the scroll end. */
-  scroll-padding: 2px;
+  /* The scroll box clips the active card's 2px ring at the row edges (the
+   * old .pack-row bug) — pad the clip box out past the ring and pull the
+   * row back with matching negative margins so nothing shifts visually. */
+  padding: 4px 4px 6px;
+  margin: -4px -4px 0;
+  scroll-padding: 4px;
 }
 
 /* ---- Theme cards ---- */
