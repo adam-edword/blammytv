@@ -252,3 +252,30 @@
 :root[data-theme-pack="supporter"] .stream__rows .media-row__scroller {
   padding-right: 0 !important;
 }
+
+/* ============================ BlammyTV ============================
+   The free DEFAULT pack (id "slate", packs.css owns its tokens). These few
+   scoped component rules ride the widened contract: hand-tuned guide
+   surfaces (Adam's spec) that the token seam can't express — the cell and
+   card fills sit between the pack's own surface tiers.
+
+   .guide__cell is out-specified here vs live.css's .guide__cell--live, so
+   the now-airing cell is excluded to keep its accent fill. */
+:root[data-theme-pack="slate"] .live-sidebar {
+  background: #0f0f15;
+}
+
+:root[data-theme-pack="slate"] .guide__card {
+  background: #15151a;
+}
+
+/* :not() args add their specificity, so blank must be excluded here too —
+   a trailing .guide__cell--blank rule alone would lose this tie. */
+:root[data-theme-pack="slate"]
+  .guide__cell:not(.guide__cell--live):not(.guide__cell--blank) {
+  background: #1e1e25;
+}
+
+:root[data-theme-pack="slate"] .guide__cell--blank {
+  background: #ffffff05;
+}

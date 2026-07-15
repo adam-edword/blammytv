@@ -209,12 +209,13 @@
   display: flex;
   gap: 10px;
   overflow-x: auto;
-  /* The scroll box clips the active card's 2px ring at the row edges (the
-   * old .pack-row bug) — pad the clip box out past the ring and pull the
-   * row back with matching negative margins so nothing shifts visually. */
-  padding: 4px 4px 6px;
-  margin: -4px -4px 0;
-  scroll-padding: 4px;
+  /* Bleed past the panel's 39px side padding so scrolled cards run to the
+   * modal's edges; the first card still aligns with the content (the padding
+   * puts it back at 39px). The extra 4px of top padding keeps the active
+   * card's 2px ring out of the scroll box's clip (the old .pack-row bug). */
+  padding: 4px 39px 6px;
+  margin: -4px -39px 0;
+  scroll-padding: 39px;
 }
 
 /* ---- Theme cards ---- */
@@ -427,11 +428,13 @@
   cursor: pointer;
   padding: 0;
 }
-/* Drifting rainbow aura (static here — a modal card, not the live shell). */
+/* Rainbow aura (static here — a modal card, not the live shell). Inset
+ * positive 10% so the glow sits inside the card and fades toward its
+ * edges instead of washing them out. */
 .pass-supporter::before {
   content: "";
   position: absolute;
-  inset: -25%;
+  inset: 10%;
   background: var(--aurora-ring);
   filter: blur(80px);
   opacity: 0.5;
