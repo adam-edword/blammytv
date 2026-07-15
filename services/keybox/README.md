@@ -107,11 +107,20 @@ them. Run it **inside the container** — Coolify's app **Terminal**, or
 `DB_PATH`, default `/data/keybox.db`):
 
 ```
-node scripts/admin.mjs list                 # every key + its activation count
+node scripts/admin.mjs list                 # every key + activation count + buyer email
 node scripts/admin.mjs mint                 # mint an UNLIMITED admin/comp key
 node scripts/admin.mjs revoke BTV-XXXX-...   # delete a key (and its activations)
+node scripts/admin.mjs email a@b.com        # every key bought by that email
 ```
 
+- **Buyer emails come from Stripe, not the DB.** The database is PII-free by
+  design (see SECURITY below) — no email is stored anywhere. `list` and
+  `email` resolve each purchased key's buyer live from Stripe via the key's
+  stored Checkout *session* id, using the same `STRIPE_API_KEY` the server
+  already has in the container env; nothing is written back. Minted/manual
+  keys have no session and show `— (manual key, no buyer)`. Without
+  `STRIPE_API_KEY` in the env, `list` still works (email column shows
+  `unknown`) and `email` refuses to run.
 - **`mint`** issues a `pass` key (unlocks **every** theme) with **unlimited**
   machine activations and no Stripe session — a comp/admin key. Paste it into
   the app (Settings → Customize → Theme → Premium Themes → Activate).

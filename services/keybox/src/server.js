@@ -239,7 +239,7 @@ export function makeApp({ db, stripe, catalog, webhookSecret, mailer = NOOP_MAIL
       try {
         const sig = req.headers["stripe-signature"];
         event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
-      } catch (err) {
+      } catch (_err) {
         return res.status(400).send("webhook signature verification failed");
       }
 
@@ -357,7 +357,9 @@ export function makeApp({ db, stripe, catalog, webhookSecret, mailer = NOOP_MAIL
 
   // Normalizes malformed JSON bodies (express.json() throws a SyntaxError)
   // and any other unexpected error into a safe, internals-free response.
-  app.use((err, req, res, next) => {
+  // eslint may not see it used, but express dispatches error middleware by
+  // arity — the 4th parameter must exist even though it's never called.
+  app.use((err, req, res, _next) => {
     if (err?.type === "entity.parse.failed" || err instanceof SyntaxError) {
       return res.status(400).json({ ok: false, reason: "malformed_request" });
     }

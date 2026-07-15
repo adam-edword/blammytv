@@ -9,9 +9,11 @@ import {
   getKey,
   activationCount,
 } from "../src/db.js";
+import { resolveEmails, keysForEmail } from "../scripts/admin.mjs";
 
-// The db-layer behaviour behind scripts/admin.mjs (mint/list/revoke) and the
-// unlimited-key activation bypass.
+// The db-layer behaviour behind scripts/admin.mjs (mint/list/revoke), the
+// unlimited-key activation bypass, and the CLI's Stripe-backed buyer-email
+// lookup (list's email column + the `email <ADDRESS>` command).
 
 test("createKey: unlimited flag round-trips (and defaults to false)", () => {
   const db = openDb(":memory:");
@@ -75,4 +77,55 @@ test("deleteKey: revokes the key and all its activations", () => {
 
   // Revoking a nonexistent key is a no-op that reports false.
   assert.equal(deleteKey(db, "BTV-0000-0000-0000-0000"), false);
+});
+
+// Stub Stripe client: emails keyed by session id; sessions absent from the
+// table throw, like a real retrieve() on an unknown/foreign-mode session.
+function stubStripe(emailBySession, calls = []) {
+  return {
+    checkout: {
+      sessions: {
+        retrieve: async (id) => {
+          calls.push(id);
+          if (!(id in emailBySession)) throw new Error(`No such checkout.session: ${id}`);
+          return { customer_details: { email: emailBySession[id] } };
+        },
+      },
+    },
+  };
+}
+
+test("resolveEmails: one fetch per distinct session; failures and manual keys stay out of the map", async () => {
+  const calls = [];
+  const stripe = stubStripe({ cs_1: "buyer@site.test", cs_2: null }, calls);
+  const keys = [
+    { key: "K1", stripeSession: "cs_1" },
+    { key: "K2", stripeSession: "cs_1" }, // same session as K1 — deduped
+    { key: "K3", stripeSession: null }, // manual/minted — never queried
+    { key: "K4", stripeSession: "cs_2" }, // session exists but has no email
+    { key: "K5", stripeSession: "cs_gone" }, // retrieve throws
+  ];
+
+  const emails = await resolveEmails(stripe, keys);
+  assert.equal(emails.get("cs_1"), "buyer@site.test");
+  assert.equal(emails.get("cs_2"), null); // looked up, no email
+  assert.equal(emails.has("cs_gone"), false); // lookup failed
+  assert.deepEqual(calls.sort(), ["cs_1", "cs_2", "cs_gone"]); // cs_1 once, null never
+});
+
+test("keysForEmail: matches case-insensitively, skips manual keys and failed lookups", async () => {
+  const stripe = stubStripe({ cs_a: "Buyer@Site.test", cs_b: "other@site.test" });
+  const keys = [
+    { key: "KA", stripeSession: "cs_a" },
+    { key: "KB", stripeSession: "cs_b" },
+    { key: "KM", stripeSession: null },
+    { key: "KX", stripeSession: "cs_gone" },
+  ];
+  const emails = await resolveEmails(stripe, keys);
+
+  assert.deepEqual(
+    keysForEmail(keys, emails, "  buyer@site.TEST ").map((k) => k.key),
+    ["KA"],
+  );
+  assert.deepEqual(keysForEmail(keys, emails, "nobody@site.test"), []);
 });

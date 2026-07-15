@@ -46,10 +46,16 @@ export default tseslint.config(
   },
 
   // Node ESM scripts (build helpers, this config, the fake test panels,
-  // the website builder).
+  // the website builder) and the keybox service (node server + its scripts
+  // and tests — all ESM via "type": "module").
   {
-    files: ["*.mjs", "scripts/**/*.mjs", "website/**/*.mjs"],
+    files: ["*.mjs", "scripts/**/*.mjs", "website/**/*.mjs", "services/**/*.{js,mjs}"],
     languageOptions: { globals: { ...globals.node } },
+    rules: {
+      // Same _-prefix escape hatch the TS side gets: express error middleware
+      // must keep 4 params, and some catch bindings are intentionally unread.
+      "no-unused-vars": unusedVars,
+    },
   },
 
   // Playwright verify scripts run in node but serialize callbacks into the
