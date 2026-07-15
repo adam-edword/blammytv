@@ -35,15 +35,15 @@ importers:
       '@fontsource/fredoka':
         specifier: ^5.2.10
         version: 5.2.10
-      '@fontsource/playfair-display':
-        specifier: ^5.2.8
-        version: 5.2.8
       '@fontsource/stack-sans-headline':
         specifier: ^5.2.1
         version: 5.2.1
       '@fontsource/stack-sans-text':
         specifier: ^5.2.1
         version: 5.2.1
+      '@fontsource/unbounded':
+        specifier: ^5.2.8
+        version: 5.2.8
       '@fontsource/vt323':
         specifier: ^5.2.7
         version: 5.2.7
@@ -359,14 +359,14 @@ packages:
   '@fontsource/fredoka@5.2.10':
     resolution: {integrity: sha512-DyzPCmTf0PkBbAu+gNvnPzfD/dYIXlyp+Zcb76jEQyt/vmRKGZgkH8FFF9W2sICDaA5p+GLk1XGFjWh5PPX+lg==}
 
-  '@fontsource/playfair-display@5.2.8':
-    resolution: {integrity: sha512-fUEhib70SszNhQVsGbUMSsWJhr7Je0rdeuZdtGpDNu0GKF1xJM8QhpI/y0pckU25GcChXm9TLOmeZupkvvZo2g==}
-
   '@fontsource/stack-sans-headline@5.2.1':
     resolution: {integrity: sha512-rzY0whRXQAaz5qWB3wdsjdI6Y4PsuZEwKk8lijrVVc41sNOutDHvvG8wBQ2rX139g6KNQQcq1slSvGw7U3V5Yw==}
 
   '@fontsource/stack-sans-text@5.2.1':
     resolution: {integrity: sha512-ir7IsU6RGo9XOmRBnCdNzSLWAqdOl2Gdab63khjK8w9kN900OmOn3ebXj0bWf1wLQx1hTSpJnJMlB1ijBaH0lw==}
+
+  '@fontsource/unbounded@5.2.8':
+    resolution: {integrity: sha512-tBHtKB+s5tKvQXEWy5h86sDY5hzVLsEbW6TGphSjUY9b/gawUPvXv5vFS4ZdPbGDcvSqMMy6eXkqdcsKI29dig==}
 
   '@fontsource/vt323@5.2.7':
     resolution: {integrity: sha512-8JTMM23vMhQxin9Cn/ijty8cNwXW4INrln0VAJ2227Rz0CVfkzM3qr3l/CqudZJ6BXCnbCGUTdf2ym3cTNex8A==}
@@ -1907,11 +1907,11 @@ snapshots:
 
   '@fontsource/fredoka@5.2.10': {}
 
-  '@fontsource/playfair-display@5.2.8': {}
-
   '@fontsource/stack-sans-headline@5.2.1': {}
 
   '@fontsource/stack-sans-text@5.2.1': {}
+
+  '@fontsource/unbounded@5.2.8': {}
 
   '@fontsource/vt323@5.2.7': {}
 

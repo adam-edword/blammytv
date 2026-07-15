@@ -26,11 +26,11 @@ import "@fontsource/stack-sans-headline/700.css";
 import "@fontsource/stack-sans-text/200.css";
 import "@fontsource/stack-sans-text/400.css";
 import "@fontsource/vt323/400.css";
-// Dither's editorial face — bold, high-contrast serif for headlines only
-// (body text stays Stack Sans; all-serif body read like a novel).
-import "@fontsource/playfair-display/500.css";
-import "@fontsource/playfair-display/600.css";
-import "@fontsource/playfair-display/700.css";
+// Dither's display face — wide geometric sans, bold yet elegant, headlines
+// only (body text stays Stack Sans).
+import "@fontsource/unbounded/400.css";
+import "@fontsource/unbounded/600.css";
+import "@fontsource/unbounded/700.css";
 // Kawaii's rounded, chubby face.
 import "@fontsource/fredoka/400.css";
 import "@fontsource/fredoka/600.css";
