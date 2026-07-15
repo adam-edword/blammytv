@@ -98,6 +98,8 @@ describe("themePacks", () => {
   it("exposes bundled intense packs, all premium", () => {
     expect(INTENSE_PACKS.map((p) => p.id)).toEqual([
       "terminal",
+      "dither",
+      "kawaii",
       "supporter",
     ]);
     for (const p of INTENSE_PACKS) expect(p.premium).toBe(true);

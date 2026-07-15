@@ -541,3 +541,33 @@
   align-items: center;
   gap: 16px;
 }
+
+/* ---- Premium card art skins (the JSX sets background-COLOR only, so these
+ * can layer imagery on top) ---- */
+.tcard__art[data-pack-art="dither"] {
+  background-image:
+    radial-gradient(
+      circle at 2px 2px,
+      rgba(255, 255, 255, 0.14) 1.6px,
+      transparent 2px
+    ),
+    linear-gradient(128deg, #000000 31%, #1f1f1f 66%);
+  background-size:
+    7px 7px,
+    100% 100%;
+}
+
+.tcard__art[data-pack-art="kawaii"] {
+  background-image: linear-gradient(235deg, #ffc1e9 0%, #ba76ff 100%);
+}
+
+/* The mock's kawaii chip wears a pale-yellow ring instead of the white one. */
+.tcard__art[data-pack-art="kawaii"] .tcard__chip {
+  border-color: #fff587;
+}
+
+/* Pass-active thank-you: the heart rides inline with the title. */
+.themes-pass__heart {
+  color: #ff7bf6;
+  vertical-align: -3px;
+}

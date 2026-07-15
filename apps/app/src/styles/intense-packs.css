@@ -279,3 +279,111 @@
 :root[data-theme-pack="slate"] .guide__cell--blank {
   background: #ffffff05;
 }
+
+/* ============================ Dither ============================
+   1-bit print-press halftone: a coarse two-scale dot matrix screened over
+   pure black, with a faint diagonal lift toward the corner (the card mock's
+   #000 -> #1f1f1f sweep). Monochrome everything; hovers are crisp white
+   rings, no glow, like ink on a plate. Dark-only. */
+:root[data-theme-pack="dither"] {
+  --bg: #000000;
+  --surface: #161616;
+  --surface-track: #0a0a0a;
+  --surface-puck: #1f1f1f;
+  --surface-raised: #2b2b2b;
+  --border: rgba(255, 255, 255, 0.12);
+  --border-strong: rgba(255, 255, 255, 0.22);
+  --border-raised: #3d3d3d;
+  --border-input: rgba(255, 255, 255, 0.14);
+  --card-glass:
+    linear-gradient(rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.09)),
+    linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.55));
+  --text: #f5f5f5;
+  --text-muted: #9a9a9a;
+  --text-dim: #454545;
+  --text-ghost: rgba(255, 255, 255, 0.2);
+  color-scheme: dark;
+
+  /* Background (b) — two dot lattices at offset scales (the interference is
+     the halftone read) over a diagonal #000 -> #242424 sweep. Static. */
+  --pack-bg-image:
+    radial-gradient(circle at 2px 2px, rgba(255, 255, 255, 0.15) 1.6px, transparent 2px),
+    radial-gradient(circle at 3px 3px, rgba(255, 255, 255, 0.06) 1.6px, transparent 2px),
+    linear-gradient(128deg, #000000 30%, #242424 100%);
+  --pack-bg-size: 7px 7px, 13px 13px, 100% 100%;
+  --pack-bg-opacity: 1;
+}
+
+/* Hovers (c) — a crisp mono ring; drop the base brightness filter. */
+:root[data-theme-pack="dither"] .stream-card:hover,
+:root[data-theme-pack="dither"] .continue-card:hover,
+:root[data-theme-pack="dither"] .vod-more__card:hover {
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.75);
+  transition: box-shadow 120ms ease, transform 140ms ease;
+}
+
+:root[data-theme-pack="dither"] .guide__cell:hover {
+  filter: none;
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.6);
+  transition: box-shadow 120ms ease;
+}
+
+/* ============================ Kawaii ============================
+   Pastel pink dreamland (the mock's #FFC1E9 -> #BA76FF wash): a light
+   lavender-pink palette with deep-plum text, soft drifting blush blobs on
+   the seam, and a pale-yellow sparkle ring (#FFF587, the mock chip's
+   border) on hovers. Inherently light — but its own axis, so the dark/light
+   pill stays off (supportsLight: false). */
+:root[data-theme-pack="kawaii"] {
+  --bg: #e9a3ef;
+  --surface: #f5c0f2;
+  --surface-track: #dd93e4;
+  --surface-puck: #e2a4f7;
+  --surface-raised: #f8d7fa;
+  --border: rgba(96, 22, 108, 0.18);
+  --border-strong: rgba(96, 22, 108, 0.28);
+  --border-raised: #d9a0e8;
+  --border-input: rgba(96, 22, 108, 0.2);
+  --card-glass:
+    linear-gradient(rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.5)),
+    linear-gradient(rgba(255, 220, 250, 0.35), rgba(255, 220, 250, 0.35));
+  --text: #47104f;
+  --text-muted: #7d3f8a;
+  --text-dim: #b981c4;
+  --text-ghost: rgba(71, 16, 79, 0.28);
+  /* Accent surfaces tint toward white on this light palette (the pack sets
+     no data-theme, so tokens.css would otherwise leave this #000). */
+  --mix-base: #ffffff;
+  color-scheme: light;
+
+  /* Background (b) — big soft blush/lavender blobs, the mock's blobby wash.
+     Alpha layers over the flat --bg so solid occluders stay seamless. */
+  --pack-bg-image:
+    radial-gradient(42vmax 34vmax at 85% 6%, rgba(255, 105, 200, 0.3), transparent 70%),
+    radial-gradient(50vmax 40vmax at 5% 95%, rgba(150, 85, 255, 0.32), transparent 70%),
+    radial-gradient(36vmax 30vmax at 45% 40%, rgba(255, 255, 255, 0.2), transparent 70%);
+  --pack-bg-size: 100% 100%, 100% 100%, 100% 100%;
+  --pack-bg-opacity: 1;
+}
+
+/* Hovers (c) — the pale-yellow sparkle ring. */
+:root[data-theme-pack="kawaii"] .stream-card:hover,
+:root[data-theme-pack="kawaii"] .continue-card:hover,
+:root[data-theme-pack="kawaii"] .vod-more__card:hover {
+  box-shadow:
+    0 0 0 1.5px #fff587,
+    0 0 14px rgba(255, 245, 135, 0.55);
+  transition: box-shadow 140ms ease, transform 140ms ease;
+}
+
+:root[data-theme-pack="kawaii"] .guide__cell:hover {
+  filter: none;
+  box-shadow: inset 0 0 0 1.5px #fff587;
+  transition: box-shadow 140ms ease;
+}
+
+:root[data-theme-pack="kawaii"] .header__tab:hover,
+:root[data-theme-pack="kawaii"] .live-folder:hover {
+  text-shadow: 0 0 8px rgba(255, 245, 135, 0.8);
+  transition: text-shadow 140ms ease;
+}

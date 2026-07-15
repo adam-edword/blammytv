@@ -119,6 +119,26 @@ export const INTENSE_PACKS: ReadonlyArray<ThemePackMeta> = [
     buyUrl: "https://buy.stripe.com/test_00wcMY6hq75NakJ3YigMw00",
   },
   {
+    id: "dither",
+    name: "Dither",
+    blurb: "1-bit print-press halftone — a dot matrix screened over pure black.",
+    supportsLight: false,
+    preview: { bg: "#000000", surface: "#1e1e1e", accent: PREVIEW_ACCENT },
+    premium: true,
+    price: "$2.50",
+    buyUrl: "https://buy.stripe.com/test_00wcMY6hq75NakJ3YigMw00",
+  },
+  {
+    id: "kawaii",
+    name: "Kawaii ⸜(｡˃ ᵕ ˂ )⸝♡",
+    blurb: "Pastel pink dreamland — soft lavender blobs and a sparkle on every hover.",
+    supportsLight: false,
+    preview: { bg: "#e9a3ef", surface: "#ce7bff", accent: PREVIEW_ACCENT },
+    premium: true,
+    price: "$2.50",
+    buyUrl: "https://buy.stripe.com/test_00wcMY6hq75NakJ3YigMw00",
+  },
+  {
     // The secret supporters theme — classic + the site's drifting rainbow
     // aura. Pass-exclusive: no buyUrl (never sold per-theme), passOnly hides
     // it until a Themes Pass is active.

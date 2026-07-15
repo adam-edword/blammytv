@@ -276,7 +276,9 @@ export function ThemesModal({ onClose }: { onClose: () => void }) {
         <span
           className="tcard__art tcard__art--premium"
           data-pack-art={p.id}
-          style={{ background: p.preview.bg }}
+          // backgroundColor (not the shorthand) so the per-pack art skins in
+          // themes.css can layer a background-image over it.
+          style={{ backgroundColor: p.preview.bg }}
         >
           <span
             className="tcard__chip"
@@ -540,24 +542,41 @@ export function ThemesModal({ onClose }: { onClose: () => void }) {
 
         {/* ---- Themes Pass ---- */}
         <section className="themes-pass">
-          <div className="themes-pass__info">
-            <h3 className="themes-pass__title">Themes Pass</h3>
-            <p className="themes-pass__blurb">
-              Unlocks every theme, plus a special supporters theme!
-            </p>
-            <p className="themes-pass__price">{THEMES_PASS.price}</p>
-            <a
-              className="themes-pass__cta"
-              href={THEMES_PASS.buyUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Get the Themes Pass
-            </a>
-            <p className="themes-pass__fine">
-              Lasts Forever · One Time Purchase · 3 Devices
-            </p>
-          </div>
+          {license.pass ? (
+            /* Pass active: the pitch becomes a thank-you. */
+            <div className="themes-pass__info">
+              <h3 className="themes-pass__title">
+                Thank You{" "}
+                <HeartIcon size={34} className="themes-pass__heart" />
+              </h3>
+              <p className="themes-pass__blurb">
+                Your Themes Pass unlocks every theme on this device — including
+                the Supporters theme, made just for you.
+              </p>
+              <p className="themes-pass__fine">
+                Themes Pass active · Lasts Forever
+              </p>
+            </div>
+          ) : (
+            <div className="themes-pass__info">
+              <h3 className="themes-pass__title">Themes Pass</h3>
+              <p className="themes-pass__blurb">
+                Unlocks every theme, plus a special supporters theme!
+              </p>
+              <p className="themes-pass__price">{THEMES_PASS.price}</p>
+              <a
+                className="themes-pass__cta"
+                href={THEMES_PASS.buyUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Get the Themes Pass
+              </a>
+              <p className="themes-pass__fine">
+                Lasts Forever · One Time Purchase · 3 Devices
+              </p>
+            </div>
+          )}
 
           {supporter && (
             <button
@@ -579,9 +598,11 @@ export function ThemesModal({ onClose }: { onClose: () => void }) {
                   Supporters
                   <HeartIcon size={18} className="pass-supporter__heart" />
                 </span>
-                <span className="pass-supporter__price">
-                  {THEMES_PASS.price}*
-                </span>
+                {!license.pass && (
+                  <span className="pass-supporter__price">
+                    {THEMES_PASS.price}*
+                  </span>
+                )}
               </span>
             </button>
           )}
