@@ -7,6 +7,7 @@ import {
   ACCENT_PRESETS,
   applyAccent,
   saveAccent,
+  saveAccentPairedBy,
   saveAccentStyle,
   saveCustomAccent,
 } from "./accent";
@@ -135,6 +136,7 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
     saveAccent(ACCENT_PRESETS[0].hex);
     applyAccent(ACCENT_PRESETS[0].hex); // also exits aurora
     saveAccentStyle("flat");
+    saveAccentPairedBy(""); // factory accent = no pack pairing
     saveCustomAccent("");
     saveThemePack(DEFAULT_PACK);
     applyThemePack(DEFAULT_PACK);

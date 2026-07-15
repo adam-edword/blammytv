@@ -550,12 +550,15 @@
 }
 
 .tcard__art[data-pack-art="kawaii"] {
-  background-image: linear-gradient(235deg, #ffc1e9 0%, #ba76ff 100%);
+  background-image:
+    radial-gradient(80% 90% at 85% 8%, rgba(242, 160, 194, 0.45), transparent 70%),
+    radial-gradient(90% 90% at 8% 95%, rgba(150, 110, 255, 0.38), transparent 70%),
+    linear-gradient(#15111f, #15111f);
 }
 
-/* The mock's kawaii chip wears a pale-yellow ring instead of the white one. */
+/* The candy chip wears the pack's pink ring. */
 .tcard__art[data-pack-art="kawaii"] .tcard__chip {
-  border-color: #fff587;
+  border-color: #f2a0c2;
 }
 
 /* Pass-active thank-you: the heart rides inline with the title. */

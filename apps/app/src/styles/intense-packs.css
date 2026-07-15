@@ -331,65 +331,129 @@
 }
 
 /* ============================ Kawaii ============================
-   Pastel pink dreamland (the mock's #FFC1E9 -> #BA76FF wash): a light
-   lavender-pink palette with deep-plum text, soft drifting blush blobs on
-   the seam, and a pale-yellow sparkle ring (#FFF587, the mock chip's
-   border) on hovers. Inherently light — but its own axis, so the dark/light
-   pill stays off (supportsLight: false). */
+   Midnight candy (v2, from Adam's mock): a deep navy-plum base with pastel
+   pink candy on top. The pink IS the look, so the pack carries a
+   pairedAccent (#f2a0c2, applied by ThemesModal's option-3 pairing — only
+   while the user is on the default accent). Chubby Fredoka type, soft
+   pastel cloud blobs on the seam, candy guide cells (pale periwinkle with
+   navy text; the airing cell bright pink), pink sparkle hovers, and a star
+   riding the now-line. Dark-only. */
 :root[data-theme-pack="kawaii"] {
-  --bg: #e9a3ef;
-  --surface: #f5c0f2;
-  --surface-track: #dd93e4;
-  --surface-puck: #e2a4f7;
-  --surface-raised: #f8d7fa;
-  --border: rgba(96, 22, 108, 0.18);
-  --border-strong: rgba(96, 22, 108, 0.28);
-  --border-raised: #d9a0e8;
-  --border-input: rgba(96, 22, 108, 0.2);
+  --bg: #15111f;
+  --surface: #221b33;
+  --surface-track: #191424;
+  --surface-puck: #2a2240;
+  --surface-raised: #362b50;
+  --border: rgba(233, 214, 255, 0.12);
+  --border-strong: rgba(233, 214, 255, 0.2);
+  --border-raised: #4a3d68;
+  --border-input: rgba(233, 214, 255, 0.14);
   --card-glass:
-    linear-gradient(rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.5)),
-    linear-gradient(rgba(255, 220, 250, 0.35), rgba(255, 220, 250, 0.35));
-  --text: #47104f;
-  --text-muted: #7d3f8a;
-  --text-dim: #b981c4;
-  --text-ghost: rgba(71, 16, 79, 0.28);
-  /* Accent surfaces tint toward white on this light palette (the pack sets
-     no data-theme, so tokens.css would otherwise leave this #000). */
-  --mix-base: #ffffff;
-  color-scheme: light;
+    linear-gradient(rgba(242, 160, 194, 0.08), rgba(242, 160, 194, 0.08)),
+    linear-gradient(rgba(21, 17, 31, 0.6), rgba(21, 17, 31, 0.6));
+  --text: #f6f0fc;
+  --text-muted: #b4a7cc;
+  --text-dim: #5c4f78;
+  --text-ghost: rgba(246, 240, 252, 0.22);
+  /* Accent surfaces tint toward the plum ground, not pure black. */
+  --mix-base: #15111f;
+  color-scheme: dark;
 
   /* Font (a) — Fredoka, the rounded chubby face (bundled via fonts.ts). */
   --font-headline: "Fredoka", "Segoe UI", system-ui, sans-serif;
   --font-text: "Fredoka", "Segoe UI", system-ui, sans-serif;
 
-  /* Background (b) — big soft blush/lavender blobs, the mock's blobby wash.
-     Alpha layers over the flat --bg so solid occluders stay seamless. */
+  /* Background (b) — soft pastel clouds glowing out of the plum night. */
   --pack-bg-image:
-    radial-gradient(42vmax 34vmax at 85% 6%, rgba(255, 105, 200, 0.3), transparent 70%),
-    radial-gradient(50vmax 40vmax at 5% 95%, rgba(150, 85, 255, 0.32), transparent 70%),
-    radial-gradient(36vmax 30vmax at 45% 40%, rgba(255, 255, 255, 0.2), transparent 70%);
+    radial-gradient(42vmax 34vmax at 85% 4%, rgba(242, 160, 194, 0.16), transparent 70%),
+    radial-gradient(50vmax 40vmax at 4% 96%, rgba(150, 110, 255, 0.15), transparent 70%),
+    radial-gradient(30vmax 24vmax at 55% 45%, rgba(255, 255, 255, 0.05), transparent 70%);
   --pack-bg-size: 100% 100%, 100% 100%, 100% 100%;
   --pack-bg-opacity: 1;
 }
 
-/* Hovers (c) — the pale-yellow sparkle ring. */
+/* Candy guide cells (the mock's signature): programme cells flip LIGHT —
+   pale periwinkle with navy text — while the chrome stays plum. The airing
+   cell goes bright candy pink. :not() args add their specificity, so live
+   and blank are excluded here rather than re-overridden after. */
+:root[data-theme-pack="kawaii"]
+  .guide__cell:not(.guide__cell--live):not(.guide__cell--blank) {
+  background: #e9e9f7;
+  border-color: rgba(21, 17, 31, 0.1);
+}
+
+:root[data-theme-pack="kawaii"]
+  .guide__cell:not(.guide__cell--live):not(.guide__cell--blank)
+  .guide__cell-title {
+  color: #26203c;
+}
+
+:root[data-theme-pack="kawaii"]
+  .guide__cell:not(.guide__cell--live):not(.guide__cell--blank)
+  .guide__cell-time {
+  color: #6a628e;
+}
+
+:root[data-theme-pack="kawaii"] .guide__cell--live {
+  background: #f2a0c2;
+  border-color: #f8c0d6;
+}
+
+:root[data-theme-pack="kawaii"] .guide__cell--live .guide__cell-title {
+  color: #59132f;
+}
+
+:root[data-theme-pack="kawaii"] .guide__cell--live .guide__cell-time {
+  color: #8f3a5e;
+}
+
+:root[data-theme-pack="kawaii"] .guide__cell--blank {
+  background: rgba(233, 233, 247, 0.05);
+}
+
+/* The selected sidebar folder wears the candy pink too (color-only — the
+   row's geometry/behavior is untouched). */
+:root[data-theme-pack="kawaii"] .live-folder--active {
+  background: #f2a0c2;
+  border-color: #f8c0d6;
+  color: #3a1226;
+}
+
+/* A star rides the now-line (the mock's cutest detail). The plum outline
+   keeps it legible even when it overlaps a pink airing cell. */
+:root[data-theme-pack="kawaii"] .guide__nowline::after {
+  content: "\2605";
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 17px;
+  line-height: 1;
+  color: var(--accent);
+  text-shadow:
+    0 0 3px #15111f,
+    0 0 3px #15111f,
+    0 0 10px color-mix(in srgb, var(--accent) 90%, transparent);
+}
+
+/* Hovers (c) — the pink sparkle ring. */
 :root[data-theme-pack="kawaii"] .stream-card:hover,
 :root[data-theme-pack="kawaii"] .continue-card:hover,
 :root[data-theme-pack="kawaii"] .vod-more__card:hover {
   box-shadow:
-    0 0 0 1.5px #fff587,
-    0 0 14px rgba(255, 245, 135, 0.55);
+    0 0 0 1.5px #f2a0c2,
+    0 0 14px rgba(242, 160, 194, 0.55);
   transition: box-shadow 140ms ease, transform 140ms ease;
 }
 
 :root[data-theme-pack="kawaii"] .guide__cell:hover {
   filter: none;
-  box-shadow: inset 0 0 0 1.5px #fff587;
+  box-shadow: inset 0 0 0 1.5px #f2a0c2;
   transition: box-shadow 140ms ease;
 }
 
 :root[data-theme-pack="kawaii"] .header__tab:hover,
 :root[data-theme-pack="kawaii"] .live-folder:hover {
-  text-shadow: 0 0 8px rgba(255, 245, 135, 0.8);
+  text-shadow: 0 0 8px rgba(242, 160, 194, 0.8);
   transition: text-shadow 140ms ease;
 }

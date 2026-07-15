@@ -211,6 +211,27 @@ for (const method of ["close-button", "backdrop", "escape"]) {
   await page.close();
 }
 
+// 8: accent pairing (option 3) — kawaii SUGGESTS pink: applied live on
+// preview (nothing persisted), un-applied when moving to an unpaired pack,
+// and gone after close. A hand-picked accent would block pairing entirely.
+{
+  const page = await newPage();
+  await openThemes(page);
+  const accent = () => page.evaluate(() =>
+    getComputedStyle(document.documentElement).getPropertyValue("--accent").trim());
+  check("accent starts on the default red", (await accent()) === "#c22727", await accent());
+  await pick(page, "kawaii");
+  check("kawaii preview pairs the pink accent live", (await accent()) === "#f2a0c2", await accent());
+  check("pairing preview persists nothing",
+    (await page.evaluate(() => localStorage.getItem("blammytv.accent"))) === null);
+  await pick(page, "terminal");
+  check("moving to an unpaired preview restores the default", (await accent()) === "#c22727", await accent());
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(300);
+  check("after close the accent is still the persisted default", (await accent()) === "#c22727", await accent());
+  await page.close();
+}
+
 await browser.close();
 const pass = results.filter(Boolean).length;
 console.log(`${pass}/${results.length}`);

@@ -38,6 +38,12 @@ export type ThemePackMeta = {
    * machine holds a Themes Pass (no preview, no per-theme purchase). Also
    * draws the supporter heart on its card. */
   passOnly?: boolean;
+  /** SUGGESTED accent (option-3 pairing): committing this pack applies the
+   * hex — but only while the accent is still the default red or another
+   * pack's pairing. A hand-picked accent is never touched (accent.ts,
+   * accent-paired-by). Certain packs' looks are designed around an accent
+   * (Kawaii's pink); this keeps the accent system user-owned. */
+  pairedAccent?: string;
 };
 
 /** The brand default is BlammyTV (id "slate" for stored-pref compat).
@@ -131,12 +137,13 @@ export const INTENSE_PACKS: ReadonlyArray<ThemePackMeta> = [
   {
     id: "kawaii",
     name: "Kawaii ⸜(｡˃ ᵕ ˂ )⸝♡",
-    blurb: "Pastel pink dreamland — soft lavender blobs and a sparkle on every hover.",
+    blurb: "Midnight candy — pastel pink on a plum sky, chubby type, a star on the now-line.",
     supportsLight: false,
-    preview: { bg: "#e9a3ef", surface: "#ce7bff", accent: PREVIEW_ACCENT },
+    preview: { bg: "#15111f", surface: "#e9e9f7", accent: "#f2a0c2" },
     premium: true,
     price: "$2.50",
     buyUrl: "https://buy.stripe.com/test_00wcMY6hq75NakJ3YigMw00",
+    pairedAccent: "#f2a0c2",
   },
   {
     // The secret supporters theme — classic + the site's drifting rainbow

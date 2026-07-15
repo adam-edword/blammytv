@@ -90,6 +90,25 @@ export function applyAurora(): void {
   root.style.setProperty("--accent", AURORA_HUE);
 }
 
+/**
+ * Pack-paired accent bookkeeping (option 3): a theme pack may SUGGEST an
+ * accent (ThemePackMeta.pairedAccent). Committing such a pack applies it —
+ * but only while the accent is still the default red or a previous pack's
+ * pairing; a hand-picked accent is never touched. This key records which
+ * pack's pairing is active ("" = none) so committing an unpaired pack can
+ * restore the default, and any manual accent pick clears it (the user's
+ * choice always wins from then on).
+ */
+const PAIRED_KEY = "accent-paired-by";
+
+export function loadAccentPairedBy(): string {
+  return load<string>(PAIRED_KEY, VERSION, "");
+}
+
+export function saveAccentPairedBy(packId: string): void {
+  save(PAIRED_KEY, VERSION, packId);
+}
+
 /** Aurora is an EASTER EGG: the swatch only appears in the picker once
  * the Custom chip has been spam-clicked ×10 (CustomizeTab counts).
  * Anyone already running aurora counts as unlocked — never lock

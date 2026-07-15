@@ -13,13 +13,16 @@ import {
 import { isTauri } from "../../lib/tauri";
 import {
   ACCENT_PRESETS,
+  DEFAULT_ACCENT,
   applyAccent,
   applyAurora,
   isAuroraUnlocked,
   loadAccent,
+  loadAccentPairedBy,
   loadAccentStyle,
   loadCustomAccent,
   saveAccent,
+  saveAccentPairedBy,
   saveAccentStyle,
   saveCustomAccent,
   unlockAurora,
@@ -87,6 +90,18 @@ export function ThemesModal({ onClose }: { onClose: () => void }) {
     accentStyle !== "aurora" &&
     !ACCENT_PRESETS.some((p) => p.hex === accent);
 
+  // True while an UNOWNED pack's paired accent is applied to the DOM only
+  // (nothing saved) — so picking an unpaired pack or closing the modal knows
+  // to snap the accent back to the persisted one.
+  const livePaired = useRef(false);
+  const restorePersistedAccent = () => {
+    if (loadAccentStyle() === "aurora") applyAurora();
+    else applyAccent(loadAccent());
+    setAccent(loadAccent());
+    setAccentStyle(loadAccentStyle());
+    livePaired.current = false;
+  };
+
   const pick = (hex: string) => {
     const value = hex.toLowerCase();
     setAccent(value);
@@ -94,11 +109,16 @@ export function ThemesModal({ onClose }: { onClose: () => void }) {
     applyAccent(value); // also exits aurora
     setAccentStyle("flat");
     saveAccentStyle("flat");
+    // A hand-picked accent always wins — end any pack pairing.
+    saveAccentPairedBy("");
+    livePaired.current = false;
   };
   const pickAurora = () => {
     setAccentStyle("aurora");
     saveAccentStyle("aurora");
     applyAurora();
+    saveAccentPairedBy("");
+    livePaired.current = false;
   };
   const pickCustom = (hex: string) => {
     const value = hex.toLowerCase();
@@ -165,11 +185,46 @@ export function ThemesModal({ onClose }: { onClose: () => void }) {
     setPack(id);
     const meta = allPacks.find((p) => p.id === id);
     const forceDark = !!meta && !meta.supportsLight && theme === "light";
-    if (ownsPack(id)) {
+    const owns = ownsPack(id);
+    if (owns) {
       saveThemePack(id); // commit
       if (forceDark) pickTheme("dark");
     } else if (forceDark) {
       applyTheme("dark"); // preview dark WITHOUT persisting; unmount reverts
+    }
+
+    // Accent pairing (option 3): a pack may SUGGEST an accent, applied only
+    // while the user is on the default red or a previous pack's pairing — a
+    // hand-picked accent is never touched. Owned picks persist the pairing;
+    // unowned previews apply it to the DOM only (unmount snaps back).
+    const pairable =
+      loadAccentStyle() !== "aurora" &&
+      (loadAccent() === DEFAULT_ACCENT || loadAccentPairedBy() !== "");
+    if (meta?.pairedAccent && pairable) {
+      applyAccent(meta.pairedAccent);
+      setAccent(meta.pairedAccent);
+      setAccentStyle("flat");
+      if (owns) {
+        saveAccent(meta.pairedAccent);
+        saveAccentStyle("flat");
+        saveAccentPairedBy(id);
+        livePaired.current = false;
+      } else {
+        livePaired.current = true;
+      }
+    } else if (!meta?.pairedAccent) {
+      if (owns && loadAccentPairedBy() !== "") {
+        // Committed move onto an unpaired pack: the pairing ends, back to
+        // the default accent.
+        saveAccent(DEFAULT_ACCENT);
+        saveAccentPairedBy("");
+        applyAccent(DEFAULT_ACCENT);
+        setAccent(DEFAULT_ACCENT);
+        livePaired.current = false;
+      } else if (livePaired.current) {
+        // Preview moved off the paired pack: un-apply the live-only accent.
+        restorePersistedAccent();
+      }
     }
   };
 
@@ -223,6 +278,9 @@ export function ThemesModal({ onClose }: { onClose: () => void }) {
         applyThemePack(persisted);
         applyTheme(loadTheme());
       }
+      // A live-only paired accent (unowned preview) reverts with the pack.
+      if (loadAccentStyle() === "aurora") applyAurora();
+      else applyAccent(loadAccent());
     };
   }, []);
 
