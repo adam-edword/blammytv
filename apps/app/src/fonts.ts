@@ -26,11 +26,11 @@ import "@fontsource/stack-sans-headline/700.css";
 import "@fontsource/stack-sans-text/200.css";
 import "@fontsource/stack-sans-text/400.css";
 import "@fontsource/vt323/400.css";
-// Dither's face — a designed typewriter mono (photocopy/print voice),
-// headlines only (body text stays Stack Sans). Unbounded stays in
-// package.json unimported — Adam likes it; it's waiting for its theme.
-import "@fontsource/space-mono/400.css";
-import "@fontsource/space-mono/700.css";
+// Dither's face — Syne (Adam's pick), 700 ONLY: with a single bundled
+// weight, every headline weight request resolves to it, so all headings
+// render bold. Body text stays Stack Sans. Unbounded stays in package.json
+// unimported — Adam likes it; it's waiting for its theme.
+import "@fontsource/syne/700.css";
 // Kawaii's rounded, chubby face.
 import "@fontsource/fredoka/400.css";
 import "@fontsource/fredoka/600.css";
