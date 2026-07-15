@@ -511,6 +511,7 @@ export function ThemesModal({ onClose }: { onClose: () => void }) {
               onClick={() => pickPack(supporter.id)}
             >
               <span className="pass-supporter__chip" />
+              <span className="pass-supporter__mini" />
               <span className="pass-supporter__foot">
                 <span className="pass-supporter__name">
                   Supporters
