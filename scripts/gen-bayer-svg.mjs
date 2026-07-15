@@ -20,7 +20,7 @@ import { dirname } from "node:path";
 
 const W = 1920;
 const H = 1080;
-const CELL = 6; // dither pixel, in viewBox units (~6px at 1080p cover)
+const CELL = 2; // dither pixel, in viewBox units (~2px at 1080p cover)
 const TILE = CELL * 4;
 const DARK = "#000000";
 const LIT = "#1f1f1f";
