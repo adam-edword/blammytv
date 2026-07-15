@@ -24,7 +24,25 @@ const CELL = 2; // dither pixel, in viewBox units (~2px at 1080p cover)
 const TILE = CELL * 4;
 const DARK = "#000000";
 const LIT = "#1f1f1f";
-const ANGLE = 38; // band axis rotation (deg) — the mock's ~128deg CSS sweep
+
+// Blob field (v3): instead of one linear sweep, the luminance comes from a
+// handful of soft radial blobs. Each blob's level-k region is a shrinking
+// concentric ellipse (luminance falls off linearly with distance), and
+// because Bayer levels are NESTED (level k's lit cells contain level j's for
+// k > j), overlapping blobs union into exactly max(level) — no field math
+// needed. Hand-placed for composition; deterministic.
+const BLOBS = [
+  // big hotspot, upper right (the mock's bright corner)
+  { cx: 1660, cy: 140, rx: 760, ry: 620, rot: -24, level: 16 },
+  // broad glow, lower left
+  { cx: 240, cy: 960, rx: 640, ry: 520, rot: 18, level: 12 },
+  // quiet mid-left haze
+  { cx: 620, cy: 380, rx: 470, ry: 360, rot: -12, level: 7 },
+  // lower-right shoulder
+  { cx: 1420, cy: 920, rx: 420, ry: 330, rot: 30, level: 9 },
+  // small top-center accent
+  { cx: 980, cy: 170, rx: 280, ry: 220, rot: 8, level: 6 },
+];
 
 // The canonical 4x4 Bayer threshold matrix.
 const BAYER = [
@@ -50,25 +68,21 @@ for (let k = 1; k <= LEVELS; k++) {
   defs += `<pattern id="l${k}" width="${TILE}" height="${TILE}" patternUnits="userSpaceOnUse"><g fill="${LIT}">${cells}</g></pattern>`;
 }
 
-// Band clip rects: laid along a rotated axis through the viewport centre,
-// long enough to cover the corners at any rotation (the diagonal).
-const DIAG = Math.ceil(Math.hypot(W, H)); // 2203
-const SPAN = DIAG + TILE * 2;
-const bandW = SPAN / (LEVELS + 1); // 17 slots: base + 16 lit levels
-const cx = W / 2;
-const cy = H / 2;
-for (let k = 1; k <= LEVELS; k++) {
-  // Band k starts where level k begins; the LAST band extends to the end so
-  // the brightest corner is fully lit rather than falling back to base.
-  const x0 = -SPAN / 2 + bandW * k;
-  const w = k === LEVELS ? SPAN - bandW * k : bandW;
-  defs += `<clipPath id="c${k}"><rect x="${(cx + x0).toFixed(1)}" y="${cy - SPAN / 2}" width="${w.toFixed(1)}" height="${SPAN}" transform="rotate(${ANGLE} ${cx} ${cy})"/></clipPath>`;
-}
-
+// Blob contour clips: each blob's luminance falls off linearly from its
+// centre, so its level-k iso-region is a concentric ellipse shrunk by
+// (1 - (k-1)/level). One clipPath + one pattern-filled rect per (blob, k);
+// nested Bayer levels make overlaps compose to max(level) for free.
 let body = `<rect width="${W}" height="${H}" fill="${DARK}"/>`;
-for (let k = 1; k <= LEVELS; k++) {
-  body += `<rect width="${W}" height="${H}" fill="url(#l${k})" clip-path="url(#c${k})"/>`;
-}
+BLOBS.forEach((b, i) => {
+  for (let k = 1; k <= b.level; k++) {
+    const f = 1 - (k - 1) / b.level;
+    const rx = (b.rx * f).toFixed(1);
+    const ry = (b.ry * f).toFixed(1);
+    const id = `b${i}k${k}`;
+    defs += `<clipPath id="${id}"><ellipse cx="${b.cx}" cy="${b.cy}" rx="${rx}" ry="${ry}" transform="rotate(${b.rot} ${b.cx} ${b.cy})"/></clipPath>`;
+    body += `<rect width="${W}" height="${H}" fill="url(#l${Math.min(k, LEVELS)})" clip-path="url(#${id})"/>`;
+  }
+});
 
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice"><defs>${defs}</defs>${body}</svg>`;
 

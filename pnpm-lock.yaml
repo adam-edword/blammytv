@@ -35,9 +35,9 @@ importers:
       '@fontsource/fredoka':
         specifier: ^5.2.10
         version: 5.2.10
-      '@fontsource/pixelify-sans':
-        specifier: ^5.2.7
-        version: 5.2.7
+      '@fontsource/playfair-display':
+        specifier: ^5.2.8
+        version: 5.2.8
       '@fontsource/stack-sans-headline':
         specifier: ^5.2.1
         version: 5.2.1
@@ -359,8 +359,8 @@ packages:
   '@fontsource/fredoka@5.2.10':
     resolution: {integrity: sha512-DyzPCmTf0PkBbAu+gNvnPzfD/dYIXlyp+Zcb76jEQyt/vmRKGZgkH8FFF9W2sICDaA5p+GLk1XGFjWh5PPX+lg==}
 
-  '@fontsource/pixelify-sans@5.2.7':
-    resolution: {integrity: sha512-F/UuV2M9poAj/BJ5/6u95mOy6ptp8/+dpfnxh4TFzKeAB+vdanAjQ8fLJcS0q+WHYgesRRxPwNFr2Pqm18CVGg==}
+  '@fontsource/playfair-display@5.2.8':
+    resolution: {integrity: sha512-fUEhib70SszNhQVsGbUMSsWJhr7Je0rdeuZdtGpDNu0GKF1xJM8QhpI/y0pckU25GcChXm9TLOmeZupkvvZo2g==}
 
   '@fontsource/stack-sans-headline@5.2.1':
     resolution: {integrity: sha512-rzY0whRXQAaz5qWB3wdsjdI6Y4PsuZEwKk8lijrVVc41sNOutDHvvG8wBQ2rX139g6KNQQcq1slSvGw7U3V5Yw==}
@@ -1907,7 +1907,7 @@ snapshots:
 
   '@fontsource/fredoka@5.2.10': {}
 
-  '@fontsource/pixelify-sans@5.2.7': {}
+  '@fontsource/playfair-display@5.2.8': {}
 
   '@fontsource/stack-sans-headline@5.2.1': {}
 

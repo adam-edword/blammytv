@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@fontsource/fredoka": "^5.2.10",
-    "@fontsource/pixelify-sans": "^5.2.7",
+    "@fontsource/playfair-display": "^5.2.8",
     "@fontsource/stack-sans-headline": "^5.2.1",
     "@fontsource/stack-sans-text": "^5.2.1",
     "@fontsource/vt323": "^5.2.7",
