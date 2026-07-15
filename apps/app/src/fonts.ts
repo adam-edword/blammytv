@@ -26,3 +26,11 @@ import "@fontsource/stack-sans-headline/700.css";
 import "@fontsource/stack-sans-text/200.css";
 import "@fontsource/stack-sans-text/400.css";
 import "@fontsource/vt323/400.css";
+// Dither's 1-bit face (pixel grid, but readable at body sizes).
+import "@fontsource/pixelify-sans/400.css";
+import "@fontsource/pixelify-sans/600.css";
+import "@fontsource/pixelify-sans/700.css";
+// Kawaii's rounded, chubby face.
+import "@fontsource/fredoka/400.css";
+import "@fontsource/fredoka/600.css";
+import "@fontsource/fredoka/700.css";

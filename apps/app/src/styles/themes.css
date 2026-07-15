@@ -545,16 +545,8 @@
 /* ---- Premium card art skins (the JSX sets background-COLOR only, so these
  * can layer imagery on top) ---- */
 .tcard__art[data-pack-art="dither"] {
-  background-image:
-    radial-gradient(
-      circle at 2px 2px,
-      rgba(255, 255, 255, 0.14) 1.6px,
-      transparent 2px
-    ),
-    linear-gradient(128deg, #000000 31%, #1f1f1f 66%);
-  background-size:
-    7px 7px,
-    100% 100%;
+  background-image: url("../assets/dither-bayer.svg");
+  background-size: cover;
 }
 
 .tcard__art[data-pack-art="kawaii"] {
