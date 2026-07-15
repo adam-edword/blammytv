@@ -125,6 +125,15 @@ export const BUNDLED_INTENSE_IDS: ReadonlySet<ThemePackId> = new Set(
   INTENSE_PACKS.map((p) => p.id),
 );
 
+/** The Themes Pass: unlocks every premium theme plus the secret Supporter
+ * theme, in one purchase. Price/link shown on the Themes panel's Pass block.
+ * buyUrl is the same TEST Payment Link the per-theme buttons use today —
+ * swap for the real Pass link at go-live. */
+export const THEMES_PASS = {
+  price: "$12.50",
+  buyUrl: "https://buy.stripe.com/test_00wcMY6hq75NakJ3YigMw00",
+} as const;
+
 const KEY = "themePack";
 const VERSION = 1;
 

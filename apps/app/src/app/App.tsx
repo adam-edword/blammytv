@@ -11,6 +11,7 @@ import { StreamScreen } from "../features/stream/StreamScreen";
 import { MyListScreen } from "../features/stream/MyListScreen";
 import { DiscoverScreen } from "../features/discover/DiscoverScreen";
 import { SettingsModal } from "../features/settings/SettingsModal";
+import { ThemesModal } from "../features/settings/ThemesModal";
 import { loadStartupTab } from "../features/settings/startupTab";
 import {
   onGenreRequest,
@@ -31,6 +32,11 @@ export function App() {
     loadStartupTab() === "discover" ? "discover" : "home",
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // The Themes panel pops OUT of Settings: opening it closes Settings, and
+  // closing it returns to the app (Adam's call). Mutually exclusive with
+  // Settings, so only one .settings card is ever mounted (the live-video
+  // frost region measures ".settings" — see LiveScreen).
+  const [themesOpen, setThemesOpen] = useState(false);
   // First-run onboarding sits over everything and ENDS with its own
   // boot phase (the boot's actors live inside the overlay, v0.4.36) —
   // it owns that launch's boot, so welcome never follows it.
@@ -93,12 +99,12 @@ export function App() {
   // doesn't read through the glass (see player.css [data-native-hidden]).
   useEffect(() => {
     const root = document.documentElement;
-    if (settingsOpen) root.dataset.nativeHidden = "1";
+    if (settingsOpen || themesOpen) root.dataset.nativeHidden = "1";
     else delete root.dataset.nativeHidden;
     return () => {
       delete root.dataset.nativeHidden;
     };
-  }, [settingsOpen]);
+  }, [settingsOpen, themesOpen]);
 
   // F11 toggles fullscreen; Escape always exits it. The window-state
   // plugin restores fullscreen across launches, so without this there's
@@ -138,7 +144,7 @@ export function App() {
       />
       <main className="app-main">
         {section === "live" ? (
-          <LiveScreen modalOpen={settingsOpen} />
+          <LiveScreen modalOpen={settingsOpen || themesOpen} />
         ) : streamTab === "discover" ? (
           <DiscoverScreen />
         ) : streamTab === "mylist" ? (
@@ -147,7 +153,16 @@ export function App() {
           <StreamScreen />
         )}
       </main>
-      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen && (
+        <SettingsModal
+          onClose={() => setSettingsOpen(false)}
+          onOpenThemes={() => {
+            setSettingsOpen(false);
+            setThemesOpen(true);
+          }}
+        />
+      )}
+      {themesOpen && <ThemesModal onClose={() => setThemesOpen(false)} />}
       {welcome && <WelcomeAnimation onDone={() => setWelcome(false)} />}
       {onboarding && <Onboarding onDone={() => setOnboarding(false)} />}
     </div>

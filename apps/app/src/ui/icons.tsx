@@ -346,6 +346,15 @@ export function CheckIcon({ size = 16, className }: IconProps) {
   );
 }
 
+/** Box-with-arrow — "opens an external checkout link" on premium theme prices. */
+export function ExternalLinkIcon({ size = 16, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <path d="M15 3h6v6M10 14 21 3M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" />
+    </Svg>
+  );
+}
+
 /** Edit / Pipette — the color-picker eyedropper. */
 export function EyeDropperIcon({ size = 16, className }: IconProps) {
   return (

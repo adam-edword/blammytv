@@ -5,12 +5,6 @@ import { ChipTabs } from "../../ui/ChipTabs";
 import { PlaylistsTab } from "./PlaylistsTab";
 import { AioStreamsTab } from "./AioStreamsTab";
 import { CustomizeTab } from "./CustomizeTab";
-import {
-  DEFAULT_PACK,
-  applyThemePack,
-  loadThemePack,
-} from "./themePacks";
-import { applyTheme, loadTheme } from "./theme";
 
 type SettingsTab = "playlists" | "aiostreams" | "customize";
 
@@ -21,9 +15,16 @@ const TABS: Array<{ key: SettingsTab; label: string }> = [
 ];
 
 /** The floating settings card from the redesign: title left, chip-tab rail
- * center, close right. Playlists and AIOStreams are live; Customize fills in
- * later. */
-export function SettingsModal({ onClose }: { onClose: () => void }) {
+ * center, close right. Themes are no longer a tab here — Customize carries a
+ * launcher that pops the standalone Themes panel out (onOpenThemes), and the
+ * theme preview/commit/revert boundary lives in that panel now. */
+export function SettingsModal({
+  onClose,
+  onOpenThemes,
+}: {
+  onClose: () => void;
+  onOpenThemes: () => void;
+}) {
   const [tab, setTab] = useState<SettingsTab>("playlists");
 
   useEffect(() => {
@@ -33,25 +34,6 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
-
-  // Theme-preview boundary. Customize applies a picked pack live but only
-  // COMMITS (writes storage) the ones the machine owns — an unowned pack is
-  // an ephemeral preview. Persisted storage is therefore always the committed
-  // baseline, so on modal close (this effect's cleanup — fires on ✕/backdrop/
-  // Escape, NOT on tab switches, since this component only unmounts when
-  // settingsOpen flips) we snap the DOM back to persisted if a preview is
-  // live. No mount snapshot needed; reading storage is StrictMode-safe.
-  useEffect(() => {
-    return () => {
-      const persisted = loadThemePack();
-      const live =
-        (document.documentElement.dataset.themePack as string) ?? DEFAULT_PACK;
-      if (live !== persisted) {
-        applyThemePack(persisted);
-        applyTheme(loadTheme());
-      }
-    };
-  }, []);
 
   // Portaled OUT of .app-shell: with the inverted player, the shell carries
   // a clip-path hole where the video shows — a modal rendered inside it
@@ -81,7 +63,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         <div className="settings__body">
           {tab === "playlists" && <PlaylistsTab />}
           {tab === "aiostreams" && <AioStreamsTab />}
-          {tab === "customize" && <CustomizeTab />}
+          {tab === "customize" && <CustomizeTab onOpenThemes={onOpenThemes} />}
         </div>
       </section>
     </div>,

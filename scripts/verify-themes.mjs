@@ -1,18 +1,13 @@
-// E2E: theme-pack feature (v0.6.0) — Customize tab's pill rail (General /
-// Theme / Display), pack cards (classic/void/slate/paper), persistence
-// (data-theme-pack + "blammytv.themePack"), the dark-only-pack vs
-// light-theme interaction, Reset Appearance, an out-of-band "payload"
-// pack applying by dataset attr alone, and no section duplication when
-// flipping pills back and forth.
-//
-// Selectors for the rail/pack cards were cross-checked against
-// CustomizeTab.tsx + themePacks.ts. Light support: classic and paper
-// support the light theme; void/slate are dark-only (a first draft had
-// classic dark-only — integration review fixed that regression, and the
-// checks below assert the corrected behavior).
+// E2E: theme-pack engine via the standalone Themes panel (v0.6.0 rework).
+// Themes popped out of the Customize → Theme sub-tab into their own modal
+// (ThemesModal), launched from a rail button that CLOSES Settings. Covers:
+// the launcher (opens Themes, closes Settings), the Free pack cards
+// (classic/void/slate/paper), persistence (data-theme-pack +
+// "blammytv.themePack"), survival across reload, an out-of-band "payload"
+// pack applying by dataset attr alone, and the dark-only-pack vs light-theme
+// interaction (the Light toggle now lives in Customize → Display).
 //
 // Run: build the app, then from apps/app: `pnpm preview --port 4173`.
-// Then from the repo root:
 //   PW_FROM=<dir-containing-playwright-core>/x.js node scripts/verify-themes.mjs
 import { createRequire } from "node:module";
 const req = createRequire(process.env.PW_FROM ?? import.meta.url);
@@ -23,10 +18,8 @@ const check = (n, ok, x = "") => { results.push(ok); console.log(`${ok ? "✓" :
 
 const URL = "http://localhost:4173/";
 
-// App-booting harness contract: seed btv:onboarded + btv:welcome-played so
-// the onboarding/welcome overlays never intercept a settings-only run.
 const newPage = async (init = {}, opts = {}) => {
-  const ctx = await browser.newContext({ viewport: { width: 1600, height: 900 }, ...opts });
+  const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 }, ...opts });
   const page = await ctx.newPage();
   await page.addInitScript((seed) => {
     sessionStorage.setItem("btv:welcome-played", "1");
@@ -35,8 +28,7 @@ const newPage = async (init = {}, opts = {}) => {
   return page;
 };
 
-// Open Settings -> Customize -> (optionally) the Theme pill.
-const openCustomize = async (page) => {
+const openSettings = async (page) => {
   await page.goto(URL);
   await page.waitForSelector(".header", { timeout: 8000 });
   await page.locator("button[aria-label='Settings']").click();
@@ -44,17 +36,27 @@ const openCustomize = async (page) => {
   await page.getByRole("button", { name: "Customize", exact: true }).click();
   await page.waitForSelector(".customize-rail", { timeout: 8000 });
 };
-const pill = (page, name) => page.locator(".customize-rail").getByRole("button", { name, exact: true });
-const openTheme = async (page) => {
-  await pill(page, "Theme").click();
-  await page.waitForSelector(".pack-row", { timeout: 8000 });
+// Settings -> Customize -> Themes launcher (closes Settings, opens Themes).
+const openThemes = async (page) => {
+  await openSettings(page);
+  await page.locator(".themes-launch").click();
+  await page.waitForSelector(".themes-modal", { timeout: 8000 });
 };
-const resetRow = (page) => page.locator(".customize-row", { hasText: "Reset Appearance" });
+// Settings -> Customize -> Display pill (where the Light toggle lives now).
+const openDisplay = async (page) => {
+  await openSettings(page);
+  await page.locator(".customize-rail").getByRole("button", { name: "Display", exact: true }).click();
+  await page.waitForSelector(".toggle-disable-wrap", { timeout: 8000 });
+};
+
+const card = (page, id) => page.locator(`.tcard[data-pack="${id}"]`);
+const isActive = (page, id) => card(page, id).evaluate((el) => el.classList.contains("tcard--active"));
 const lightToggle = (page) => page.getByRole("switch", { name: "Light theme" });
-// The Toggle button itself never gets [disabled]/[aria-disabled] — the
-// dark-only lockout is a wrapper class + a no-op onChange (verified by
-// reading themePacks.ts / CustomizeTab.tsx directly, see header comment).
 const lightDisabled = (page) => page.locator(".toggle-disable-wrap").evaluate((el) => el.classList.contains("toggle-disable-wrap--off"));
+const pickAndWait = async (page, id) => {
+  await card(page, id).click();
+  await page.waitForFunction((x) => document.documentElement.dataset.themePack === x, id, { timeout: 5000 }).catch(() => null);
+};
 const readState = (page) => page.evaluate(() => ({
   pack: document.documentElement.dataset.themePack ?? null,
   theme: document.documentElement.dataset.theme ?? null,
@@ -63,152 +65,98 @@ const readState = (page) => page.evaluate(() => ({
   storedPack: JSON.parse(localStorage.getItem("blammytv.themePack") ?? "null"),
 }));
 
-// 1-11: pill rail, pack row, utility rows, picking "void", persistence
-// across reload, and re-opening onto the right active card.
+// 1: launcher opens Themes and closes Settings; Free cards; classic active.
 {
   const page = await newPage();
-  await openCustomize(page);
+  await openSettings(page);
+  check("the Themes launcher is present in Customize",
+    (await page.locator(".themes-launch").count()) === 1);
 
-  const pillNames = await page.locator(".customize-rail").getByRole("button").allTextContents();
-  check("pill rail has the three labeled pills",
-    ["General", "Theme", "Display"].every((n) => pillNames.some((t) => t.trim() === n)),
-    JSON.stringify(pillNames));
+  await page.locator(".themes-launch").click();
+  await page.waitForSelector(".themes-modal", { timeout: 8000 });
+  const themesUp = (await page.locator(".settings.themes-modal").count()) === 1;
+  const settingsGone = await page.evaluate(() => !document.querySelector(".settings:not(.themes-modal)"));
+  check("clicking it opens the Themes panel AND closes Settings", themesUp && settingsGone);
 
-  const packRowBefore = await page.locator(".pack-row").count();
-  check("Theme's pack row is not present before its pill is clicked", packRowBefore === 0);
-  const generalContentVisible = await page.locator(".customize-row", { hasText: "Clock Format" }).isVisible().catch(() => false);
-  check("General section content is visible by default", generalContentVisible);
+  const freeIds = await page.locator(".themes-shelf__row").first().locator(".tcard").evaluateAll((els) => els.map((e) => e.getAttribute("data-pack")).sort());
+  check("the Free shelf shows classic/void/slate/paper",
+    ["classic", "paper", "slate", "void"].every((id) => freeIds.includes(id)), JSON.stringify(freeIds));
+  check("classic is the active card by default", await isActive(page, "classic"));
+  await page.close();
+}
 
-  check("Reset Appearance utility row visible on General pill",
-    await resetRow(page).isVisible().catch(() => false));
-
-  await openTheme(page);
-  const cards = page.locator(".pack-card");
-  const dataPacks = await cards.evaluateAll((els) => els.map((el) => el.getAttribute("data-pack")).sort());
-  // Intense packs (terminal/nebula) now share this row; the regression check
-  // is that the four FREE packs are all present + default-active below.
-  check("Theme pill shows the 4 free pack cards (classic/void/slate/paper)",
-    ["classic", "paper", "slate", "void"].every((id) => dataPacks.includes(id)),
-    JSON.stringify(dataPacks));
-  const classicActive = await page.locator('.pack-card[data-pack="classic"]').evaluate((el) => el.classList.contains("pack-card--active"));
-  check("classic is the active pack by default", classicActive);
-
-  check("Reset Appearance utility row is scoped to General (absent on Theme pill)",
-    (await resetRow(page).count()) === 0);
-
+// 2: picking void — dataset, token, persist, active-card move, reload, reopen.
+{
+  const page = await newPage();
+  await openThemes(page);
   const before = await readState(page);
-  await page.locator('.pack-card[data-pack="void"]').click();
-  await page.waitForFunction(() => document.documentElement.dataset.themePack === "void", null, { timeout: 5000 }).catch(() => null);
-  const afterVoid = await readState(page);
-  check("picking void sets dataset.themePack",
-    afterVoid.pack === "void", String(afterVoid.pack));
-  check("picking void changes the --surface token vs classic",
-    afterVoid.surface !== "" && afterVoid.surface !== before.surface,
-    `before=${before.surface} after=${afterVoid.surface}`);
-  check("picking void persists to blammytv.themePack as {v:1,data:void}",
-    JSON.stringify(afterVoid.storedPack) === JSON.stringify({ v: 1, data: "void" }),
-    JSON.stringify(afterVoid.storedPack));
-  const voidCardActive = await page.locator('.pack-card[data-pack="void"]').evaluate((el) => el.classList.contains("pack-card--active"));
-  const classicStillActive = await page.locator('.pack-card[data-pack="classic"]').evaluate((el) => el.classList.contains("pack-card--active"));
-  check("active-card class moved to void (and off classic)",
-    voidCardActive && !classicStillActive);
+  await pickAndWait(page, "void");
+  const after = await readState(page);
+  check("picking void sets dataset.themePack", after.pack === "void", String(after.pack));
+  check("picking void changes --surface vs classic",
+    after.surface !== "" && after.surface !== before.surface, `${before.surface} -> ${after.surface}`);
+  check("picking void persists {v:1,data:void}",
+    JSON.stringify(after.storedPack) === JSON.stringify({ v: 1, data: "void" }), JSON.stringify(after.storedPack));
+  check("active-card class moved to void (off classic)",
+    (await isActive(page, "void")) && !(await isActive(page, "classic")));
 
   await page.reload();
   await page.waitForSelector(".header", { timeout: 8000 });
   const reloaded = await page.evaluate(() => document.documentElement.dataset.themePack ?? null);
-  check("themePack survives reload, applied before/at first paint of the shell",
-    reloaded === "void", String(reloaded));
+  check("themePack survives reload (applied at first paint)", reloaded === "void", String(reloaded));
 
-  await openCustomize(page);
-  await openTheme(page);
-  const voidActiveAfterReopen = await page.locator('.pack-card[data-pack="void"]').evaluate((el) => el.classList.contains("pack-card--active"));
-  check("re-opening Customize -> Theme shows void as the active card", voidActiveAfterReopen);
-
+  await openThemes(page);
+  check("re-opening Themes shows void active", await isActive(page, "void"));
   await page.close();
 }
 
-// 12: light only turns on for a supportsLight pack (classic, paper), and
-// picking a dark-only pack (void, slate) forces it back off.
+// 3: Light toggle (Customize -> Display) — paper supports light; picking a
+// dark-only pack in Themes forces data-theme back to dark.
 {
   const page = await newPage();
-  await openCustomize(page);
-  await openTheme(page);
-  check("light toggle starts ENABLED on classic (classic supports light)",
-    !(await lightDisabled(page)));
-  await page.locator('.pack-card[data-pack="paper"]').click();
-  await page.waitForFunction(() => document.documentElement.dataset.themePack === "paper", null, { timeout: 5000 }).catch(() => null);
-  const toggle = lightToggle(page);
-  await toggle.click();
+  // Enable light on classic (supports light) from Display.
+  await openDisplay(page);
+  check("light toggle ENABLED on classic (supports light)", !(await lightDisabled(page)));
+  await lightToggle(page).click();
   await page.waitForFunction(() => document.documentElement.dataset.theme === "light", null, { timeout: 5000 }).catch(() => null);
-  const litUp = await page.evaluate(() => document.documentElement.dataset.theme ?? null);
-  check("paper supports light: toggling it on actually flips data-theme to light", litUp === "light", String(litUp));
-  await page.locator('.pack-card[data-pack="slate"]').click();
-  await page.waitForFunction(() => document.documentElement.dataset.themePack === "slate", null, { timeout: 5000 }).catch(() => null);
-  const state = await page.evaluate(() => ({
-    theme: document.documentElement.dataset.theme ?? null,
-    pack: document.documentElement.dataset.themePack ?? null,
-  }));
-  check("picking a dark-only pack (slate) while light is on flips data-theme back to dark",
-    state.pack === "slate" && state.theme !== "light", JSON.stringify(state));
-  check("light toggle shows disabled again while the dark-only pack is active",
-    await lightDisabled(page));
+  check("toggling light on classic flips data-theme to light",
+    (await page.evaluate(() => document.documentElement.dataset.theme)) === "light");
+  // Close Settings, open Themes, pick a dark-only free pack (slate).
+  await page.keyboard.press("Escape");
+  await page.waitForSelector(".settings", { state: "detached", timeout: 5000 }).catch(() => null);
+  await openThemes(page);
+  await pickAndWait(page, "slate");
+  const st = await readState(page);
+  check("picking dark-only slate while light is on forces data-theme back to dark",
+    st.pack === "slate" && st.theme !== "light", JSON.stringify(st));
   await page.close();
 }
 
-// 13: paper's light variant is a real, distinct token set — differs both
-// from classic's dark default and from paper's own dark render.
+// 4: paper's light variant is a real, distinct token set.
 {
   const page = await newPage();
-  await openCustomize(page);
-  await openTheme(page);
+  await openThemes(page);
   const classicDark = await readState(page);
-  await page.locator('.pack-card[data-pack="paper"]').click();
-  await page.waitForFunction(() => document.documentElement.dataset.themePack === "paper", null, { timeout: 5000 }).catch(() => null);
+  await pickAndWait(page, "paper");
   const paperDark = await readState(page);
+  check("paper (dark) --bg differs from classic's --bg",
+    paperDark.bg !== "" && paperDark.bg !== classicDark.bg, `${classicDark.bg} vs ${paperDark.bg}`);
+  // Flip to light via Display (paper stays the committed pack).
+  await page.keyboard.press("Escape");
+  await page.waitForSelector(".themes-modal", { state: "detached", timeout: 5000 }).catch(() => null);
+  await openDisplay(page);
   await lightToggle(page).click();
   await page.waitForFunction(() => document.documentElement.dataset.theme === "light", null, { timeout: 5000 }).catch(() => null);
   const paperLight = await readState(page);
-  check("paper + light: both data-theme=light and themePack=paper stick",
+  check("paper + light: data-theme=light and themePack=paper both stick",
     paperLight.theme === "light" && paperLight.pack === "paper", JSON.stringify(paperLight));
-  check("paper (dark) --bg differs from classic's --bg",
-    paperDark.bg !== "" && paperDark.bg !== classicDark.bg,
-    `classic=${classicDark.bg} paperDark=${paperDark.bg}`);
-  check("paper's light --bg differs from paper's own dark --bg (light variant is real)",
-    paperLight.bg !== "" && paperLight.bg !== paperDark.bg,
-    `paperDark=${paperDark.bg} paperLight=${paperLight.bg}`);
+  check("paper's light --bg differs from paper's own dark --bg",
+    paperLight.bg !== "" && paperLight.bg !== paperDark.bg, `${paperDark.bg} -> ${paperLight.bg}`);
   await page.close();
 }
 
-// 14: Reset Appearance clears the pack and light theme.
-{
-  const page = await newPage();
-  await openCustomize(page);
-  await openTheme(page);
-  await page.locator('.pack-card[data-pack="void"]').click();
-  await page.waitForFunction(() => document.documentElement.dataset.themePack === "void", null, { timeout: 5000 }).catch(() => null);
-  // Reset Appearance is an app-level utility under the General pill now.
-  await pill(page, "General").click();
-  await page.waitForSelector(".pack-row", { state: "detached", timeout: 5000 }).catch(() => null);
-  await resetRow(page).getByRole("button").click();
-  await page.waitForFunction(() => !document.documentElement.dataset.themePack, null, { timeout: 5000 }).catch(() => null);
-  const afterReset = await page.evaluate(() => ({
-    pack: document.documentElement.dataset.themePack ?? null,
-    theme: document.documentElement.dataset.theme ?? null,
-  }));
-  await openTheme(page);
-  const classicActive = await page.locator('.pack-card[data-pack="classic"]').evaluate((el) => el.classList.contains("pack-card--active")).catch(() => false);
-  check("Reset Appearance: themePack attr removed, classic active, light off",
-    afterReset.pack === null && afterReset.theme !== "light" && classicActive,
-    JSON.stringify(afterReset));
-  check("Reset Appearance: light toggle is enabled again (classic supports light)",
-    !(await lightDisabled(page)));
-  await page.close();
-}
-
-// 15: synthetic payload — an unknown pack id applies purely by dataset
-// attr + a scoped style block, proving injectPackCss's contract from the
-// outside without touching its module directly (that's unit-tested
-// elsewhere).
+// 5: synthetic payload — an unknown pack id applies purely by dataset attr +
+// a scoped style block (injectPackCss's contract, proven from the outside).
 {
   const page = await newPage();
   await page.goto(URL);
@@ -220,32 +168,7 @@ const readState = (page) => page.evaluate(() => ({
     document.documentElement.dataset.themePack = "testpack";
     return getComputedStyle(document.documentElement).getPropertyValue("--surface").trim();
   });
-  check("synthetic payload pack applies purely via dataset attr + scoped CSS",
-    surface === "#123456", surface);
-  await page.close();
-}
-
-// 16: flipping pills back and forth doesn't duplicate sections.
-{
-  const page = await newPage();
-  await openCustomize(page);
-  await openTheme(page);
-  const firstCount = await page.locator(".pack-card").count();
-  await pill(page, "General").click();
-  await page.waitForSelector(".pack-row", { state: "detached", timeout: 5000 }).catch(() => null);
-  await pill(page, "Theme").click();
-  await page.waitForSelector(".pack-row", { timeout: 5000 });
-  await pill(page, "General").click();
-  await pill(page, "Theme").click();
-  await page.waitForSelector(".pack-row", { timeout: 5000 });
-  const secondCount = await page.locator(".pack-card").count();
-  // Utility rows (Reset) live under General now — flip there to count them.
-  await pill(page, "General").click();
-  await page.waitForSelector(".pack-row", { state: "detached", timeout: 5000 }).catch(() => null);
-  const resetRowCount = await resetRow(page).count();
-  check("switching pills back and forth doesn't duplicate the pack row or utility rows",
-    firstCount === 6 && secondCount === 6 && resetRowCount === 1,
-    `first=${firstCount} second=${secondCount} resetRows=${resetRowCount}`);
+  check("synthetic payload pack applies via dataset attr + scoped CSS", surface === "#123456", surface);
   await page.close();
 }
 

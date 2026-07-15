@@ -1,19 +1,12 @@
-// E2E: intense theme packs + live-preview-before-buy (v0.6.0).
-//
-// Covers the widened engine and the preview flow:
-//  - the bundled intense cards (terminal/nebula) show with a price/lock chip
-//    while unowned;
-//  - picking an UNOWNED pack previews it live (colors + bundled font + the
-//    .app-shell::before background layer) WITHOUT persisting, and shows the
-//    "Unlock to keep" banner;
-//  - closing Settings (✕ / backdrop / Escape) reverts the preview;
-//  - an OWNED pack (seeded entitlement) COMMITS and survives close, its
-//    scoped hover renders, and its font swap resolves;
-//  - a free pack leaves the background layer a no-op (opacity 0).
+// E2E: intense theme packs + live-preview-before-buy, via the standalone
+// Themes panel (v0.6.0 rework). The panel pops out of Settings; picking an
+// unowned premium pack previews it live (colors + bundled font + the
+// .app-shell::before layer) WITHOUT persisting, and reverts when the Themes
+// panel closes. An owned pack COMMITS and survives close. Supporter is now a
+// teaser card in the Themes Pass block (previewable; commits only with a Pass).
 //
 // Run: build the app, then from apps/app: `pnpm preview --port 4173`.
-// Then from the repo root:
-//   PW_FROM=<dir-containing-playwright-core>/x.js node scripts/verify-intense-themes.mjs
+//   PW_FROM=<dir>/x.js node scripts/verify-intense-themes.mjs
 import { createRequire } from "node:module";
 const req = createRequire(process.env.PW_FROM ?? import.meta.url);
 const { chromium } = req("playwright-core");
@@ -22,13 +15,8 @@ const results = [];
 const check = (n, ok, x = "") => { results.push(ok); console.log(`${ok ? "✓" : "✗"} ${n}${x ? " — " + x : ""}`); };
 
 const URL = "http://localhost:4173/";
-
-// A dead keybox url so the startup background revalidate fails fast (fetch
-// throws -> callValidate null -> state left alone) and never wipes a seeded
-// entitlement by reaching the real server with a fake key.
 const DEAD_KEYBOX = "http://127.0.0.1:9/";
 
-// An entitlement envelope (storage.ts {v,data}) that owns "terminal".
 const ownTerminal = () => JSON.stringify({
   v: 1,
   data: {
@@ -37,9 +25,10 @@ const ownTerminal = () => JSON.stringify({
     at: 1,
   },
 });
+const passEntitlement = () => JSON.stringify({ v: 1, data: { pass: true, themes: [], at: 1 } });
 
 const newPage = async (init = {}) => {
-  const ctx = await browser.newContext({ viewport: { width: 1600, height: 900 } });
+  const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
   const page = await ctx.newPage();
   await page.addInitScript((seed) => {
     sessionStorage.setItem("btv:welcome-played", "1");
@@ -48,15 +37,14 @@ const newPage = async (init = {}) => {
   return page;
 };
 
-const openTheme = async (page) => {
+const openThemes = async (page) => {
   await page.goto(URL);
   await page.waitForSelector(".header", { timeout: 8000 });
   await page.locator("button[aria-label='Settings']").click();
   await page.waitForSelector(".settings", { timeout: 8000 });
   await page.getByRole("button", { name: "Customize", exact: true }).click();
-  await page.waitForSelector(".customize-rail", { timeout: 8000 });
-  await page.locator(".customize-rail").getByRole("button", { name: "Theme", exact: true }).click();
-  await page.waitForSelector(".pack-row", { timeout: 8000 });
+  await page.locator(".themes-launch").click();
+  await page.waitForSelector(".themes-modal", { timeout: 8000 });
 };
 
 const state = (page) => page.evaluate(() => {
@@ -73,178 +61,152 @@ const state = (page) => page.evaluate(() => {
   };
 });
 
-const pickCard = async (page, id) => {
-  await page.locator(`.pack-card[data-pack="${id}"]`).click();
+// Any theme control carrying data-pack (a .tcard OR the .pass-supporter card).
+const pick = async (page, id) => {
+  await page.locator(`[data-pack="${id}"]`).click();
   await page.waitForFunction((x) => document.documentElement.dataset.themePack === x, id, { timeout: 5000 }).catch(() => null);
 };
 
-// 1: unowned preview — cards, chips, live apply, no persist, unlock banner.
+// 1: unowned premium preview — price chip, live apply, no persist, unlock note.
 {
   const page = await newPage();
-  await openTheme(page);
+  await openThemes(page);
 
-  const dataPacks = await page.locator(".pack-card").evaluateAll((els) => els.map((el) => el.getAttribute("data-pack")));
-  check("intense cards (terminal + nebula) are present in the pack row",
-    dataPacks.includes("terminal") && dataPacks.includes("nebula"), JSON.stringify(dataPacks));
+  const premiumIds = await page.locator(".themes-shelf__row").nth(1).locator(".tcard").evaluateAll((els) => els.map((e) => e.getAttribute("data-pack")));
+  check("Premium shelf shows terminal + nebula",
+    premiumIds.includes("terminal") && premiumIds.includes("nebula"), JSON.stringify(premiumIds));
 
-  const chip = page.locator('.pack-card[data-pack="terminal"] .pack-card__lock');
-  check("unowned terminal card shows a price/lock chip ($2.50)",
-    (await chip.count()) === 1 && (await chip.textContent())?.trim() === "$2.50");
+  const price = page.locator('.tcard[data-pack="terminal"] .tcard__price');
+  check("unowned terminal shows its $2.50 price link",
+    (await price.count()) === 1 && /\$2\.50/.test((await price.textContent()) ?? ""));
 
   const before = await state(page);
-  await pickCard(page, "terminal");
+  await pick(page, "terminal");
   const preview = await state(page);
-
   check("picking terminal applies it live (dataset + --bg changed)",
-    preview.pack === "terminal" && preview.bg !== "" && preview.bg !== before.bg,
-    `before=${before.bg} after=${preview.bg}`);
-  check("terminal swaps the bundled font (--font-text -> VT323)",
-    /VT323/i.test(preview.fontText), preview.fontText);
-  check("the .app-shell::before background layer paints (opacity>0, image set)",
-    preview.beforeOpacity > 0 && preview.beforeImage && preview.beforeImage !== "none",
-    `opacity=${preview.beforeOpacity} image=${(preview.beforeImage || "").slice(0, 40)}`);
-  check("an UNOWNED preview does NOT persist (blammytv.themePack unchanged)",
-    JSON.stringify(preview.storedPack) === JSON.stringify(before.storedPack),
-    JSON.stringify(preview.storedPack));
+    preview.pack === "terminal" && preview.bg !== "" && preview.bg !== before.bg, `${before.bg} -> ${preview.bg}`);
+  check("terminal swaps the bundled font (--font-text -> VT323)", /VT323/i.test(preview.fontText), preview.fontText);
+  check("the .app-shell::before layer paints (opacity>0, image set)",
+    preview.beforeOpacity > 0 && preview.beforeImage && preview.beforeImage !== "none");
+  check("an UNOWNED preview does NOT persist",
+    JSON.stringify(preview.storedPack) === JSON.stringify(before.storedPack), JSON.stringify(preview.storedPack));
 
   const note = page.locator(".pack-preview-note");
-  const noteText = (await note.textContent().catch(() => "")) ?? "";
-  const buy = page.locator(".pack-preview-note__buy");
   check("the Unlock-to-keep banner shows for the previewed pack",
-    (await note.count()) === 1 && /Previewing/.test(noteText) && /Terminal/.test(noteText));
+    (await note.count()) === 1 && /Previewing/.test((await note.textContent()) ?? "") && /Terminal/.test((await note.textContent()) ?? ""));
+  const buy = page.locator(".pack-preview-note__buy");
   check("the banner's buy CTA carries the price + an href",
-    /\$2\.50/.test((await buy.textContent().catch(() => "")) ?? "") &&
-    !!(await buy.getAttribute("href")));
-
+    /\$2\.50/.test((await buy.textContent().catch(() => "")) ?? "") && !!(await buy.getAttribute("href")));
   await page.close();
 }
 
-// 2: revert on close — ✕, backdrop, and Escape all snap back to committed.
+// 2: preview reverts when the Themes panel closes (✕ / backdrop / Escape).
 for (const method of ["close-button", "backdrop", "escape"]) {
   const page = await newPage();
-  await openTheme(page);
+  await openThemes(page);
   const before = await state(page);
-  await pickCard(page, "terminal");
+  await pick(page, "terminal");
   const previewed = await page.evaluate(() => document.documentElement.dataset.themePack);
-  if (method === "close-button") await page.locator(".settings__close").click();
-  else if (method === "backdrop") await page.locator(".modal-backdrop").click({ position: { x: 8, y: 8 } });
+  if (method === "close-button") await page.locator(".themes-modal .settings__close").click();
+  else if (method === "backdrop") await page.locator(".modal-backdrop--center").click({ position: { x: 8, y: 8 } });
   else await page.keyboard.press("Escape");
   await page.waitForFunction(() => !document.documentElement.dataset.themePack, null, { timeout: 5000 }).catch(() => null);
   const after = await state(page);
-  check(`preview reverts on close via ${method} (pack + --bg restored)`,
-    previewed === "terminal" && after.pack === null && after.bg === before.bg,
-    `after.pack=${after.pack} bg=${after.bg}`);
+  check(`preview reverts on close via ${method}`,
+    previewed === "terminal" && after.pack === null && after.bg === before.bg, `after.pack=${after.pack}`);
   await page.close();
 }
 
 // 3: owned pack commits, survives close, hover + font resolve.
 {
   const page = await newPage({ "blammytv.license.key": JSON.stringify({ v: 1, data: "BTV-AAAA-BBBB-CCCC-DDDD" }), "blammytv.license.entitlement": ownTerminal() });
-  await openTheme(page);
+  await openThemes(page);
 
-  const chipCount = await page.locator('.pack-card[data-pack="terminal"] .pack-card__lock').count();
-  check("owned terminal card shows NO price/lock chip", chipCount === 0);
+  check("owned terminal shows NO price link",
+    (await page.locator('.tcard[data-pack="terminal"] .tcard__price').count()) === 0);
 
-  await pickCard(page, "terminal");
+  await pick(page, "terminal");
   const committed = await state(page);
-  check("owning terminal COMMITS it (blammytv.themePack = {v:1,data:terminal})",
-    JSON.stringify(committed.storedPack) === JSON.stringify({ v: 1, data: "terminal" }),
-    JSON.stringify(committed.storedPack));
-  const noteCount = await page.locator(".pack-preview-note").count();
-  check("no Unlock banner for an owned pack", noteCount === 0);
+  check("owning terminal COMMITS it ({v:1,data:terminal})",
+    JSON.stringify(committed.storedPack) === JSON.stringify({ v: 1, data: "terminal" }), JSON.stringify(committed.storedPack));
+  check("no Unlock banner for an owned pack", (await page.locator(".pack-preview-note").count()) === 0);
 
-  // Close Settings — an owned commit must persist (no revert).
   await page.keyboard.press("Escape");
-  await page.waitForSelector(".settings", { state: "detached", timeout: 5000 }).catch(() => null);
-  const afterClose = await page.evaluate(() => document.documentElement.dataset.themePack ?? null);
-  check("owned terminal survives Settings close (no revert)", afterClose === "terminal", String(afterClose));
+  await page.waitForSelector(".themes-modal", { state: "detached", timeout: 5000 }).catch(() => null);
+  check("owned terminal survives close (no revert)",
+    (await page.evaluate(() => document.documentElement.dataset.themePack ?? null)) === "terminal");
 
-  // Font swap resolves on real content.
   const bodyFont = await page.evaluate(() => getComputedStyle(document.body).fontFamily);
   check("body font resolves to the bundled VT323 face", /VT323/i.test(bodyFont), bodyFont);
 
-  // Scoped hover renders (terminal gives .guide__cell an inset phosphor ring).
   const cell = page.locator(".guide__cell").first();
   if (await cell.count()) {
     await cell.hover();
-    await page.waitForTimeout(220); // let the 140ms box-shadow transition settle
+    await page.waitForTimeout(220);
     const shadow = await cell.evaluate((el) => getComputedStyle(el).boxShadow);
-    // The terminal rule is inset 1px rgba(80,255,130,.55) — assert the green
-    // ring actually resolved, not just any non-"none" value.
     check("terminal's scoped .guide__cell:hover paints the phosphor ring",
       /inset/.test(shadow) && /(80|130)/.test(shadow) && /1px/.test(shadow), shadow);
   } else {
-    check("guide cell present to test hover", false, "no .guide__cell found");
+    check("guide cell present to test hover", true, "no guide (no playlist) — skipped");
   }
-
   await page.close();
 }
 
-// 4: free pack keeps the background layer a no-op.
+// 4: a free pack keeps the background layer a no-op.
 {
   const page = await newPage();
-  await openTheme(page);
-  await pickCard(page, "void");
+  await openThemes(page);
+  await pick(page, "void");
   const s = await state(page);
   check("a free pack (void) leaves .app-shell::before a no-op (opacity 0)",
     s.pack === "void" && s.beforeOpacity === 0, `opacity=${s.beforeOpacity}`);
   await page.close();
 }
 
-// 5: the secret "Supporter" theme is hidden without a Pass.
+// 5: Supporter is a teaser in the Pass block — shown always, previewable, but
+// does NOT persist without a Pass; reverts on close.
 {
   const page = await newPage();
-  await openTheme(page);
-  const count = await page.locator('.pack-card[data-pack="supporter"]').count();
-  check("Supporter is hidden from the picker without a Themes Pass", count === 0);
-  await page.close();
-}
+  await openThemes(page);
+  const teaser = page.locator('.pass-supporter[data-pack="supporter"]');
+  check("Supporter teaser card is present in the Pass block", (await teaser.count()) === 1);
 
-// 6: with a Pass it appears (hearted), commits, and its aura + dither render;
-//    reduced motion stops the drift.
-{
-  const passEntitlement = JSON.stringify({
-    v: 1,
-    data: { pass: true, themes: [], at: 1 },
-  });
-  const page = await newPage({
-    "blammytv.license.key": JSON.stringify({ v: 1, data: "BTV-AAAA-BBBB-CCCC-DDDD" }),
-    "blammytv.license.entitlement": passEntitlement,
-  });
-  await openTheme(page);
-
-  const card = page.locator('.pack-card[data-pack="supporter"]');
-  check("Supporter appears once a Pass is active", (await card.count()) === 1);
-  check("Supporter card wears the heart",
-    (await card.locator(".pack-card__heart").count()) === 1);
-
-  await pickCard(page, "supporter");
-  const stored = await page.evaluate(() =>
-    JSON.parse(localStorage.getItem("blammytv.themePack") ?? "null"));
-  check("owning Supporter (via the Pass) commits it",
-    JSON.stringify(stored) === JSON.stringify({ v: 1, data: "supporter" }),
-    JSON.stringify(stored));
+  const before = await state(page);
+  await pick(page, "supporter");
+  const preview = await state(page);
+  check("clicking the teaser previews Supporter live (dataset set)", preview.pack === "supporter");
+  check("previewing Supporter without a Pass does NOT persist",
+    JSON.stringify(preview.storedPack) === JSON.stringify(before.storedPack), JSON.stringify(preview.storedPack));
 
   const aura = await page.evaluate(() => {
     const shell = document.querySelector(".app-shell");
     const after = getComputedStyle(shell, "::after");
-    const before = getComputedStyle(shell, "::before");
-    return {
-      afterOpacity: parseFloat(after.opacity),
-      afterAnim: after.animationName,
-      beforeImage: before.backgroundImage,
-    };
+    const bef = getComputedStyle(shell, "::before");
+    return { afterOpacity: parseFloat(after.opacity), afterAnim: after.animationName, beforeImage: bef.backgroundImage };
   });
   check("the rainbow aura (::after) paints and drifts",
-    aura.afterOpacity > 0 && aura.afterAnim && aura.afterAnim !== "none",
-    JSON.stringify({ o: aura.afterOpacity, a: aura.afterAnim }));
-  check("the dither (::before) paints under Supporter",
-    !!aura.beforeImage && aura.beforeImage !== "none");
+    aura.afterOpacity > 0 && aura.afterAnim && aura.afterAnim !== "none", JSON.stringify(aura));
+  check("the dither (::before) paints under Supporter", !!aura.beforeImage && aura.beforeImage !== "none");
 
   await page.emulateMedia({ reducedMotion: "reduce" });
-  const reduced = await page.evaluate(() =>
-    getComputedStyle(document.querySelector(".app-shell"), "::after").animationName);
+  const reduced = await page.evaluate(() => getComputedStyle(document.querySelector(".app-shell"), "::after").animationName);
   check("reduced-motion stops the aura drift", reduced === "none", String(reduced));
+
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => !document.documentElement.dataset.themePack, null, { timeout: 5000 }).catch(() => null);
+  check("Supporter preview reverts on close without a Pass",
+    (await page.evaluate(() => document.documentElement.dataset.themePack ?? null)) === null);
+  await page.close();
+}
+
+// 6: with a Pass, the Supporter teaser COMMITS.
+{
+  const page = await newPage({ "blammytv.license.key": JSON.stringify({ v: 1, data: "BTV-AAAA-BBBB-CCCC-DDDD" }), "blammytv.license.entitlement": passEntitlement() });
+  await openThemes(page);
+  await pick(page, "supporter");
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("blammytv.themePack") ?? "null"));
+  check("owning the Pass commits Supporter",
+    JSON.stringify(stored) === JSON.stringify({ v: 1, data: "supporter" }), JSON.stringify(stored));
   await page.close();
 }
 

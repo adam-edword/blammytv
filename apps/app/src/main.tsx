@@ -7,6 +7,7 @@ import "./styles/intense-packs.css";
 import "./styles/base.css";
 import "./styles/ui.css";
 import "./styles/settings.css";
+import "./styles/themes.css";
 import "./styles/live.css";
 import "./styles/player.css";
 import "./styles/stream.css";
