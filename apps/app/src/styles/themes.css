@@ -36,9 +36,10 @@
     filter 140ms ease,
     transform 140ms ease;
 }
+/* Brightness only — a translate here got clipped by the settings body's
+ * scroll box (the launcher is its first child, flush with the clip edge). */
 .themes-launch:hover {
   filter: brightness(1.12);
-  transform: translateY(-1px);
 }
 .themes-launch__text {
   display: flex;
@@ -117,13 +118,20 @@
   border-top: 1px solid var(--border-strong);
 }
 
-/* ---- Accent ---- */
+/* ---- Topline: Accent (left) + Theme Style (right) ---- */
+.themes-topline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  width: 100%;
+}
 .themes-accent {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: 4px;
-  width: 100%;
+  min-width: 0;
 }
 .themes-accent__title {
   margin: 0;
@@ -133,14 +141,54 @@
 }
 .themes-accent .accent-row {
   margin-top: 8px;
-  justify-content: center;
   flex-wrap: wrap;
 }
-/* The picker popover is absolutely placed off the Custom chip; center it under
- * the row so it doesn't spill off the modal edge. */
-.themes-accent .accent-popover {
-  left: 50%;
-  transform: translateX(-50%);
+/* Right column mirrors the accent column, flush right. */
+.themes-style {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* Sun/moon pill slider. */
+.theme-pill {
+  margin-top: 8px;
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--surface-puck);
+  border-radius: 999px;
+}
+.theme-pill__seg {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 30px;
+  border-radius: 999px;
+  color: var(--text);
+  opacity: 0.45;
+  cursor: pointer;
+  transition:
+    opacity 150ms ease,
+    background 150ms ease;
+}
+.theme-pill__seg:hover {
+  opacity: 0.85;
+}
+.theme-pill__seg--active {
+  opacity: 1;
+  background: var(--surface-raised);
+  border: 0.5px solid var(--border-raised);
+}
+/* Dark-only pack: the sun can't be picked. */
+.theme-pill__seg--off {
+  opacity: 0.2;
+  cursor: default;
+}
+.theme-pill__seg--off:hover {
+  opacity: 0.2;
 }
 
 /* ---- Free / Premium shelves ---- */
@@ -159,7 +207,7 @@
 }
 .themes-shelf__row {
   display: flex;
-  gap: 20px;
+  gap: 10px;
   overflow-x: auto;
   /* The scroll box clips the active card's 2px ring at the row edges (the
    * old .pack-row bug) — pad the clip box out past the ring and pull the
@@ -191,7 +239,7 @@
 .tcard__art {
   position: relative;
   height: 124px;
-  border-radius: var(--radius-card);
+  border-radius: 45px;
   overflow: hidden;
   border: 1px solid var(--border);
   transition:
@@ -210,8 +258,7 @@
   position: absolute;
   inset: 54.8% 42.94% 8.9% 6.78%;
   border-radius: var(--radius-chip);
-  /* Brand pink, per the mock — every card's chip wears it. */
-  border: 1px solid #ff7bf6;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(3px);
 }
 .tcard--premium .tcard__chip {
@@ -236,9 +283,12 @@
 .tcard__foot {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
-  padding: 0 4px;
+  width: 100%;
+  padding: 0 10px;
+}
+.tcard__foot .tcard__price {
+  margin-left: auto; /* price + link icon pinned to the right edge */
 }
 .tcard__price {
   display: inline-flex;
@@ -315,19 +365,39 @@
   display: inline-flex;
   align-items: center;
   padding: 12px 18px;
-  border-radius: var(--radius-chip);
+  /* Same radius as the app's standard buttons (.btn-primary). */
+  border-radius: 25px;
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 18px;
   color: var(--text);
-  /* Per the mock: a soft pink hairline over a faint rainbow wash on black
-   * (the conic dimmed under a heavy dark layer). */
-  border: 1px solid #ffaeae;
-  background:
-    linear-gradient(rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.62)),
-    var(--aurora-ring);
+  /* The site's smooth loop conic: faint wash over black for the fill, plus
+   * a full-strength 1px gradient ring via the masked ::before (the
+   * .btn--download recipe from services/site). */
+  position: relative;
+  isolation: isolate;
+  border: none;
+  background: var(--rainbow-background), #00000085;
   text-decoration: none;
   transition: filter 140ms ease;
+}
+.themes-pass__cta::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  padding: 1px;
+  background: var(--rainbow-stroke);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
 }
 .themes-pass__cta:hover {
   filter: brightness(1.25);
@@ -346,10 +416,14 @@
   flex: 0 0 355px;
   width: 355px;
   min-height: 282px;
-  border-radius: var(--radius-card);
+  border-radius: 45px;
   overflow: hidden;
-  border: 1px solid #ff7bf6;
-  background: #0b0b0e;
+  /* Smooth-loop gradient border: dark fill clipped to the padding box, the
+   * site conic showing only through the 1px border ring. */
+  border: 1px solid transparent;
+  background:
+    linear-gradient(#0b0b0e, #0b0b0e) padding-box,
+    var(--rainbow-stroke) border-box;
   cursor: pointer;
   padding: 0;
 }
@@ -394,13 +468,14 @@
   width: 133px;
   height: 45px;
   border-radius: var(--radius-chip);
-  border: 1px solid #ff7bf6;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(0, 0, 0, 0.39);
   backdrop-filter: blur(3px);
   z-index: 1;
 }
 
-/* The small rainbow mini-chip right of the sample chip (Figma 305:1286). */
+/* The small rainbow mini-chip right of the sample chip (Figma 305:1286):
+   smooth conic wash fill + a 1px gradient ring, both the site recipe. */
 .pass-supporter__mini {
   position: absolute;
   right: 20px;
@@ -408,10 +483,11 @@
   width: 57px;
   height: 45px;
   border-radius: var(--radius-chip);
-  border: 1px solid #ffaeae;
+  border: 1px solid transparent;
   background:
-    linear-gradient(rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.62)),
-    var(--aurora-ring);
+    linear-gradient(#00000085, #00000085) padding-box,
+    var(--rainbow-background) padding-box,
+    var(--rainbow-stroke) border-box;
   z-index: 1;
 }
 .pass-supporter__foot {
@@ -431,7 +507,7 @@
   gap: 8px;
   font-family: var(--font-text);
   font-weight: 800;
-  font-size: 29px;
+  font-size: 18px; /* matches the Get-the-Themes-Pass button text */
   letter-spacing: -0.58px;
   color: #fff;
 }

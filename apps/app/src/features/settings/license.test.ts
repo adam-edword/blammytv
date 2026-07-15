@@ -48,7 +48,6 @@ const GOOD_KEY = "BTV-AAAA-BBBB-CCCC-DDDD";
 // The keybox entitlement lists real bundled ids. terminal is our reference
 // intense pack; installedPacks() maps owned ids back to our LOCAL metas.
 const TERMINAL_META = INTENSE_PACKS.find((p) => p.id === "terminal")!;
-const NEBULA_META = INTENSE_PACKS.find((p) => p.id === "nebula")!;
 const SUPPORTER_META = INTENSE_PACKS.find((p) => p.id === "supporter")!;
 const ENTITLED: ThemePackMeta[] = [
   {
@@ -210,6 +209,8 @@ describe("ownsPack", () => {
   it("free packs are always owned, even with no license", () => {
     expect(ownsPack("void")).toBe(true);
     expect(ownsPack("classic")).toBe(true);
+    // Nebula went free in v0.6.0.
+    expect(ownsPack("nebula")).toBe(true);
   });
 
   it("an intense pack is unowned without an entitlement", () => {
@@ -219,13 +220,13 @@ describe("ownsPack", () => {
   it("owns exactly the entitled intense ids after activation", async () => {
     await activateTerminal();
     expect(ownsPack("terminal")).toBe(true);
-    expect(ownsPack("nebula")).toBe(false);
+    expect(ownsPack("supporter")).toBe(false);
   });
 
   it("a pass owns every intense pack", async () => {
     await activateTerminal(true);
     expect(ownsPack("terminal")).toBe(true);
-    expect(ownsPack("nebula")).toBe(true);
+    expect(ownsPack("supporter")).toBe(true);
   });
 });
 
@@ -237,7 +238,7 @@ describe("installedPacks", () => {
 
   it("a pass installs every bundled intense pack (incl. the secret one)", async () => {
     await activateTerminal(true);
-    expect(installedPacks()).toEqual([TERMINAL_META, NEBULA_META, SUPPORTER_META]);
+    expect(installedPacks()).toEqual([TERMINAL_META, SUPPORTER_META]);
   });
 });
 
@@ -266,7 +267,9 @@ describe("applyInstalledPacks (fail-open startup path)", () => {
     applyInstalledPacks();
 
     expect(loadThemePack()).toBe(DEFAULT_PACK);
-    expect(fakeDocumentElement.dataset.themePack).toBeUndefined();
+    // The default (BlammyTV/slate) is a real attribute pack now, not the
+    // attribute-less classic.
+    expect(fakeDocumentElement.dataset.themePack).toBe(DEFAULT_PACK);
   });
 
   it("skips the background revalidate entirely while offline", async () => {
@@ -324,7 +327,7 @@ describe("deactivate", () => {
     expect(installedPacks()).toEqual([]);
     expect(licenseStatus().active).toBe(false);
     expect(loadThemePack()).toBe(DEFAULT_PACK);
-    expect(fakeDocumentElement.dataset.themePack).toBeUndefined();
+    expect(fakeDocumentElement.dataset.themePack).toBe(DEFAULT_PACK);
   });
 
   it("leaves the active pack alone if a free pack was on screen", async () => {

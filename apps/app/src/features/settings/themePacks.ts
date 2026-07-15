@@ -22,8 +22,9 @@ export type ThemePackMeta = {
   /** Swatch hexes for the picker card. Raw hex is fine here — it's preview
    * chrome, not themable UI color. accent mirrors the app's own default
    * red: packs never own --accent, so the swatch shows the same accent
-   * every pack will actually render with. */
-  preview: { bg: string; surface: string; accent: string };
+   * every pack will actually render with. lightBg (packs with a light axis
+   * only) drives the diagonal dark/light split on the picker card. */
+  preview: { bg: string; surface: string; accent: string; lightBg?: string };
   /** Paid pack (an intense theme). Free THEME_PACKS omit it. Drives the
    * lock badge + the preview-vs-commit branch in CustomizeTab: a premium
    * pack the machine doesn't own can be PREVIEWED live but never persisted
@@ -39,19 +40,37 @@ export type ThemePackMeta = {
   passOnly?: boolean;
 };
 
-export const DEFAULT_PACK: ThemePackId = "classic";
+/** The brand default is BlammyTV (id "slate" for stored-pref compat).
+ * "classic" is still the no-attribute pack — the raw tokens.css palette —
+ * so applyThemePack special-cases CLASSIC_PACK, not DEFAULT_PACK. */
+export const DEFAULT_PACK: ThemePackId = "slate";
+export const CLASSIC_PACK: ThemePackId = "classic";
 
 const PREVIEW_ACCENT = "#c22727";
 
 export const THEME_PACKS: ReadonlyArray<ThemePackMeta> = [
   {
+    // Kept id "slate" (a rename would orphan stored prefs); the look is the
+    // brand neutral dark now, not the old blue graphite.
+    id: "slate",
+    name: "BlammyTV",
+    blurb: "The BlammyTV signature look — soft neutral dark.",
+    supportsLight: false,
+    preview: { bg: "#0b0b0e", surface: "#1e1e25", accent: PREVIEW_ACCENT },
+  },
+  {
     id: "classic",
     name: "Classic",
-    blurb: "The original BlammyTV look, pure black and untouched.",
-    // Classic IS today's look — tokens.css's light override is its light
+    blurb: "The original BlammyTV look, near-black and untouched.",
+    // Classic IS the raw tokens — tokens.css's light override is its light
     // variant, so the Light toggle must stay live on it.
     supportsLight: true,
-    preview: { bg: "#000000", surface: "#0f0f0f", accent: PREVIEW_ACCENT },
+    preview: {
+      bg: "#050505",
+      surface: "#333333",
+      accent: PREVIEW_ACCENT,
+      lightBg: "#efefef",
+    },
   },
   {
     id: "void",
@@ -61,18 +80,23 @@ export const THEME_PACKS: ReadonlyArray<ThemePackMeta> = [
     preview: { bg: "#000000", surface: "#050505", accent: PREVIEW_ACCENT },
   },
   {
-    id: "slate",
-    name: "Slate",
-    blurb: "Cool graphite with a blue-tinted edge.",
-    supportsLight: false,
-    preview: { bg: "#0d1117", surface: "#161b22", accent: PREVIEW_ACCENT },
-  },
-  {
     id: "paper",
     name: "Paper",
     blurb: "Warm cream by day, warm charcoal by night.",
     supportsLight: true,
-    preview: { bg: "#f6f1e7", surface: "#fffdf8", accent: PREVIEW_ACCENT },
+    preview: {
+      bg: "#1a1917",
+      surface: "#fffdf8",
+      accent: PREVIEW_ACCENT,
+      lightBg: "#f6f1e7",
+    },
+  },
+  {
+    id: "nebula",
+    name: "Nebula",
+    blurb: "Deep violet-noir with a faint stellar haze.",
+    supportsLight: false,
+    preview: { bg: "#0a0612", surface: "#1f1430", accent: PREVIEW_ACCENT },
   },
 ];
 
@@ -92,16 +116,6 @@ export const INTENSE_PACKS: ReadonlyArray<ThemePackMeta> = [
     price: "$2.50",
     // TEST-mode placeholder — swap for the real per-theme Payment Link at
     // go-live (the site's Themes Pass link today; no per-theme links yet).
-    buyUrl: "https://buy.stripe.com/test_00wcMY6hq75NakJ3YigMw00",
-  },
-  {
-    id: "nebula",
-    name: "Nebula",
-    blurb: "Deep violet-noir with a faint stellar haze.",
-    supportsLight: false,
-    preview: { bg: "#0a0612", surface: "#1f1430", accent: PREVIEW_ACCENT },
-    premium: true,
-    price: "$2.50",
     buyUrl: "https://buy.stripe.com/test_00wcMY6hq75NakJ3YigMw00",
   },
   {
@@ -150,7 +164,8 @@ export function saveThemePack(id: ThemePackId): void {
 }
 
 export function applyThemePack(id: ThemePackId): void {
-  if (id === DEFAULT_PACK) {
+  // Classic (not the default!) is the attribute-less pack — it IS tokens.css.
+  if (id === CLASSIC_PACK) {
     delete document.documentElement.dataset.themePack;
   } else {
     document.documentElement.dataset.themePack = id;

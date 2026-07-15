@@ -73,8 +73,8 @@ const pick = async (page, id) => {
   await openThemes(page);
 
   const premiumIds = await page.locator(".themes-shelf__row").nth(1).locator(".tcard").evaluateAll((els) => els.map((e) => e.getAttribute("data-pack")));
-  check("Premium shelf shows terminal + nebula",
-    premiumIds.includes("terminal") && premiumIds.includes("nebula"), JSON.stringify(premiumIds));
+  check("Premium shelf shows terminal (nebula went free in v0.6.0)",
+    premiumIds.includes("terminal") && !premiumIds.includes("nebula"), JSON.stringify(premiumIds));
 
   const price = page.locator('.tcard[data-pack="terminal"] .tcard__price');
   check("unowned terminal shows its $2.50 price link",
@@ -110,10 +110,11 @@ for (const method of ["close-button", "backdrop", "escape"]) {
   if (method === "close-button") await page.locator(".themes-modal .settings__close").click();
   else if (method === "backdrop") await page.locator(".modal-backdrop--center").click({ position: { x: 8, y: 8 } });
   else await page.keyboard.press("Escape");
-  await page.waitForFunction(() => !document.documentElement.dataset.themePack, null, { timeout: 5000 }).catch(() => null);
+  // Reverts to the persisted default — BlammyTV/slate, a real attribute pack.
+  await page.waitForFunction(() => document.documentElement.dataset.themePack === "slate", null, { timeout: 5000 }).catch(() => null);
   const after = await state(page);
   check(`preview reverts on close via ${method}`,
-    previewed === "terminal" && after.pack === null && after.bg === before.bg, `after.pack=${after.pack}`);
+    previewed === "terminal" && after.pack === "slate" && after.bg === before.bg, `after.pack=${after.pack}`);
   await page.close();
 }
 
@@ -193,9 +194,9 @@ for (const method of ["close-button", "backdrop", "escape"]) {
   check("reduced-motion stops the aura drift", reduced === "none", String(reduced));
 
   await page.keyboard.press("Escape");
-  await page.waitForFunction(() => !document.documentElement.dataset.themePack, null, { timeout: 5000 }).catch(() => null);
+  await page.waitForFunction(() => document.documentElement.dataset.themePack === "slate", null, { timeout: 5000 }).catch(() => null);
   check("Supporter preview reverts on close without a Pass",
-    (await page.evaluate(() => document.documentElement.dataset.themePack ?? null)) === null);
+    (await page.evaluate(() => document.documentElement.dataset.themePack ?? null)) === "slate");
   await page.close();
 }
 

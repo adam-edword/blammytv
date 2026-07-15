@@ -42,17 +42,11 @@ const openThemes = async (page) => {
   await page.locator(".themes-launch").click();
   await page.waitForSelector(".themes-modal", { timeout: 8000 });
 };
-// Settings -> Customize -> Display pill (where the Light toggle lives now).
-const openDisplay = async (page) => {
-  await openSettings(page);
-  await page.locator(".customize-rail").getByRole("button", { name: "Display", exact: true }).click();
-  await page.waitForSelector(".toggle-disable-wrap", { timeout: 8000 });
-};
-
 const card = (page, id) => page.locator(`.tcard[data-pack="${id}"]`);
 const isActive = (page, id) => card(page, id).evaluate((el) => el.classList.contains("tcard--active"));
-const lightToggle = (page) => page.getByRole("switch", { name: "Light theme" });
-const lightDisabled = (page) => page.locator(".toggle-disable-wrap").evaluate((el) => el.classList.contains("toggle-disable-wrap--off"));
+// The sun/moon pill in the Themes panel (light/dark moved there in v0.6.0).
+const sunSeg = (page) => page.locator('.theme-pill [aria-label="Light mode"]');
+const sunOff = (page) => sunSeg(page).evaluate((el) => el.classList.contains("theme-pill__seg--off"));
 const pickAndWait = async (page, id) => {
   await card(page, id).click();
   await page.waitForFunction((x) => document.documentElement.dataset.themePack === x, id, { timeout: 5000 }).catch(() => null);
@@ -79,9 +73,9 @@ const readState = (page) => page.evaluate(() => ({
   check("clicking it opens the Themes panel AND closes Settings", themesUp && settingsGone);
 
   const freeIds = await page.locator(".themes-shelf__row").first().locator(".tcard").evaluateAll((els) => els.map((e) => e.getAttribute("data-pack")).sort());
-  check("the Free shelf shows classic/void/slate/paper",
-    ["classic", "paper", "slate", "void"].every((id) => freeIds.includes(id)), JSON.stringify(freeIds));
-  check("classic is the active card by default", await isActive(page, "classic"));
+  check("the Free shelf shows slate/classic/void/paper/nebula",
+    ["slate", "classic", "void", "paper", "nebula"].every((id) => freeIds.includes(id)), JSON.stringify(freeIds));
+  check("BlammyTV (slate) is the active card by default", await isActive(page, "slate"));
   await page.close();
 }
 
@@ -110,25 +104,24 @@ const readState = (page) => page.evaluate(() => ({
   await page.close();
 }
 
-// 3: Light toggle (Customize -> Display) — paper supports light; picking a
-// dark-only pack in Themes forces data-theme back to dark.
+// 3: the Theme Style pill (in the Themes panel) — the default BlammyTV/slate
+// is dark-only (sun disabled); classic enables it; a dark-only pick while
+// light is on forces data-theme back to dark.
 {
   const page = await newPage();
-  // Enable light on classic (supports light) from Display.
-  await openDisplay(page);
-  check("light toggle ENABLED on classic (supports light)", !(await lightDisabled(page)));
-  await lightToggle(page).click();
-  await page.waitForFunction(() => document.documentElement.dataset.theme === "light", null, { timeout: 5000 }).catch(() => null);
-  check("toggling light on classic flips data-theme to light",
-    (await page.evaluate(() => document.documentElement.dataset.theme)) === "light");
-  // Close Settings, open Themes, pick a dark-only free pack (slate).
-  await page.keyboard.press("Escape");
-  await page.waitForSelector(".settings", { state: "detached", timeout: 5000 }).catch(() => null);
   await openThemes(page);
-  await pickAndWait(page, "slate");
+  check("sun is DISABLED on the dark-only default (BlammyTV)", await sunOff(page));
+  await card(page, "classic").click();
+  await page.waitForFunction(() => !document.documentElement.dataset.themePack, null, { timeout: 5000 }).catch(() => null);
+  check("picking classic enables the sun", !(await sunOff(page)));
+  await sunSeg(page).click();
+  await page.waitForFunction(() => document.documentElement.dataset.theme === "light", null, { timeout: 5000 }).catch(() => null);
+  check("sun flips data-theme to light",
+    (await page.evaluate(() => document.documentElement.dataset.theme)) === "light");
+  await pickAndWait(page, "void");
   const st = await readState(page);
-  check("picking dark-only slate while light is on forces data-theme back to dark",
-    st.pack === "slate" && st.theme !== "light", JSON.stringify(st));
+  check("picking dark-only void while light is on forces data-theme back to dark",
+    st.pack === "void" && st.theme !== "light", JSON.stringify(st));
   await page.close();
 }
 
@@ -141,11 +134,8 @@ const readState = (page) => page.evaluate(() => ({
   const paperDark = await readState(page);
   check("paper (dark) --bg differs from classic's --bg",
     paperDark.bg !== "" && paperDark.bg !== classicDark.bg, `${classicDark.bg} vs ${paperDark.bg}`);
-  // Flip to light via Display (paper stays the committed pack).
-  await page.keyboard.press("Escape");
-  await page.waitForSelector(".themes-modal", { state: "detached", timeout: 5000 }).catch(() => null);
-  await openDisplay(page);
-  await lightToggle(page).click();
+  // Flip to light with the sun pill (paper stays the committed pack).
+  await sunSeg(page).click();
   await page.waitForFunction(() => document.documentElement.dataset.theme === "light", null, { timeout: 5000 }).catch(() => null);
   const paperLight = await readState(page);
   check("paper + light: data-theme=light and themePack=paper both stick",

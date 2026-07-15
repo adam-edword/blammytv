@@ -11,7 +11,7 @@
  */
 :root {
   /* Surfaces */
-  --bg: #000000;
+  --bg: #050505; /* classic's near-black (true #000 belongs to OLED/void) */
   --surface: #0f0f0f; /* inputs, rows */
   --surface-track: #0f0f0f; /* chip-rail track (darker than the card) */
   --surface-puck: #1c1c1c; /* rail track sitting ON a --surface panel */
@@ -172,4 +172,29 @@
 :root[data-accent-style="aurora"] {
   --accent-image: var(--aurora-image);
   --accent-ring-image: var(--aurora-ring);
+}
+
+/* The WEBSITE's smooth brand conic (services/site/index.html): starts and
+ * ends on the same stop (#FF9B9B), so the sweep loops with no visible seam —
+ * unlike --aurora-ring, whose start/end differ. background = the 29%-alpha
+ * wash for fills over black; stroke = full strength for gradient borders. */
+:root {
+  --rainbow-background: conic-gradient(
+    from 0deg at 50% 50%,
+    #ff9b9b4a 0deg,
+    #ff7bf64a 72deg,
+    #8696ff4a 144deg,
+    #84ffa94a 216deg,
+    #ffe57f4a 288deg,
+    #ff9b9b4a 360deg
+  );
+  --rainbow-stroke: conic-gradient(
+    from 0deg at 50% 50%,
+    #ff9b9b 0deg,
+    #ff7bf6 72deg,
+    #8696ff 144deg,
+    #84ffa9 216deg,
+    #ffe57f 288deg,
+    #ff9b9b 360deg
+  );
 }

@@ -5,17 +5,17 @@
 //   node scripts/fake-keybox.mjs        → keybox on :8085
 //
 // Known test keys (see scripts/verify-license.mjs for the full E2E):
-//   BTV-TEST-PASS-0000-0000 → ok, pass:true,  entitled to nebula + ember
-//   BTV-TEST-SOLO-0000-0000 → ok, pass:false, entitled to nebula only
+//   BTV-TEST-PASS-0000-0000 → ok, pass:true,  entitled to terminal + ember
+//   BTV-TEST-SOLO-0000-0000 → ok, pass:false, entitled to terminal only
 //   BTV-TEST-FULL-0000-0000 → ok:false, reason:"activation_limit"
 //   anything else            → ok:false, reason:"unknown_key"
 //
 // Theme metas match the app's ThemePackMeta shape (id, name, blurb,
 // supportsLight, preview:{bg,surface,accent}) — see
-// apps/app/src/features/settings/themePacks.ts. nebula and ember are both
+// apps/app/src/features/settings/themePacks.ts. terminal and ember are both
 // invented, dark-only packs (supportsLight:false).
 //
-// GET /payload/nebula and /payload/ember require headers x-license-key (one
+// GET /payload/terminal and /payload/ember require headers x-license-key (one
 // of the ok keys above, entitled to that theme) + x-machine (any non-empty
 // value accepted — this fixture doesn't model per-machine activation
 // counts, only the flat entitlement table below) and answer with the
@@ -30,8 +30,8 @@ import http from "node:http";
 const PORT = 8085;
 
 const THEMES = {
-  nebula: {
-    id: "nebula",
+  terminal: {
+    id: "terminal",
     name: "Nebula",
     blurb:
       "Deep violet-noir — crushed indigo surfaces under a faint stellar haze.",
@@ -52,14 +52,14 @@ const THEMES = {
 // services/keybox/payloads/*.css numbers) — verify-license.mjs asserts
 // against these exact hexes.
 const PAYLOADS = {
-  nebula: ':root[data-theme-pack="nebula"]{--surface:#14101d;--bg:#0a0713;}',
+  terminal: ':root[data-theme-pack="terminal"]{--surface:#14101d;--bg:#0a0713;}',
   ember: ':root[data-theme-pack="ember"]{--surface:#1d130d;--bg:#120b08;}',
 };
 
 // key -> { ok:true, pass, themeIds } | { ok:false, reason }
 const KEYS = {
-  "BTV-TEST-PASS-0000-0000": { ok: true, pass: true, themeIds: ["nebula", "ember"] },
-  "BTV-TEST-SOLO-0000-0000": { ok: true, pass: false, themeIds: ["nebula"] },
+  "BTV-TEST-PASS-0000-0000": { ok: true, pass: true, themeIds: ["terminal", "ember"] },
+  "BTV-TEST-SOLO-0000-0000": { ok: true, pass: false, themeIds: ["terminal"] },
   "BTV-TEST-FULL-0000-0000": { ok: false, reason: "activation_limit" },
 };
 

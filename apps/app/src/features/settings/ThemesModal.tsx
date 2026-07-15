@@ -7,6 +7,8 @@ import {
   ExternalLinkIcon,
   EyeDropperIcon,
   HeartIcon,
+  MoonIcon,
+  SunIcon,
 } from "../../ui/icons";
 import { isTauri } from "../../lib/tauri";
 import {
@@ -25,7 +27,7 @@ import {
 } from "./accent";
 import { applyTheme, loadTheme, saveTheme, type Theme } from "./theme";
 import {
-  DEFAULT_PACK,
+  CLASSIC_PACK,
   INTENSE_PACKS,
   THEME_PACKS,
   THEMES_PASS,
@@ -148,10 +150,12 @@ export function ThemesModal({ onClose }: { onClose: () => void }) {
   const premiumPacks = INTENSE_PACKS.filter((p) => !p.passOnly);
   const supporter = INTENSE_PACKS.find((p) => p.passOnly);
 
+  // No dataset attribute = classic (the attribute-less pack), NOT the
+  // default — BlammyTV/slate is the default and always sets the attribute.
   const [pack, setPack] = useState<ThemePackId>(
     () =>
       (document.documentElement.dataset.themePack as ThemePackId) ||
-      DEFAULT_PACK,
+      CLASSIC_PACK,
   );
   const activePack = allPacks.find((p) => p.id === pack) ?? THEME_PACKS[0];
   const previewing = activePack.premium && !ownsPack(activePack.id);
@@ -214,7 +218,7 @@ export function ThemesModal({ onClose }: { onClose: () => void }) {
     return () => {
       const persisted = loadThemePack();
       const live =
-        (document.documentElement.dataset.themePack as string) ?? DEFAULT_PACK;
+        (document.documentElement.dataset.themePack as string) ?? CLASSIC_PACK;
       if (live !== persisted) {
         applyThemePack(persisted);
         applyTheme(loadTheme());
@@ -233,7 +237,16 @@ export function ThemesModal({ onClose }: { onClose: () => void }) {
       className={"tcard tcard--free" + (p.id === pack ? " tcard--active" : "")}
       onClick={() => pickPack(p.id)}
     >
-      <span className="tcard__art" style={{ background: p.preview.bg }}>
+      <span
+        className="tcard__art"
+        style={{
+          // A pack with a light axis shows both halves on a hard diagonal
+          // split (the mock's Mono/Paper cards); dark-only packs stay flat.
+          background: p.preview.lightBg
+            ? `linear-gradient(125deg, ${p.preview.bg} 50%, ${p.preview.lightBg} 50%)`
+            : p.preview.bg,
+        }}
+      >
         <span
           className="tcard__chip"
           style={{ background: p.preview.surface }}
@@ -309,7 +322,8 @@ export function ThemesModal({ onClose }: { onClose: () => void }) {
           </button>
         </header>
 
-        {/* ---- Accent ---- */}
+        {/* ---- Topline: Accent (left) + Theme Style (right) ---- */}
+        <div className="themes-topline">
         <section className="themes-accent">
           <h3 className="themes-accent__title">Accent</h3>
           <p className="settings__section-note settings__section-note--dim">
@@ -427,6 +441,54 @@ export function ThemesModal({ onClose }: { onClose: () => void }) {
             )}
           </div>
         </section>
+
+        <section className="themes-style">
+          <h3 className="themes-accent__title">Theme Style</h3>
+          <p className="settings__section-note settings__section-note--dim">
+            Light or Dark mode
+          </p>
+          <div
+            className="theme-pill"
+            role="radiogroup"
+            aria-label="Theme style"
+            title={
+              activePack.supportsLight
+                ? undefined
+                : `${activePack.name} is dark-only.`
+            }
+          >
+            <button
+              type="button"
+              role="radio"
+              aria-checked={theme === "light"}
+              aria-label="Light mode"
+              className={
+                "theme-pill__seg" +
+                (theme === "light" ? " theme-pill__seg--active" : "") +
+                (activePack.supportsLight ? "" : " theme-pill__seg--off")
+              }
+              onClick={() => {
+                if (activePack.supportsLight) pickTheme("light");
+              }}
+            >
+              <SunIcon size={17} />
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={theme === "dark"}
+              aria-label="Dark mode"
+              className={
+                "theme-pill__seg" +
+                (theme === "dark" ? " theme-pill__seg--active" : "")
+              }
+              onClick={() => pickTheme("dark")}
+            >
+              <MoonIcon size={15} />
+            </button>
+          </div>
+        </section>
+        </div>
 
         <hr className="themes-divider" />
 

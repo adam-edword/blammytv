@@ -69,9 +69,9 @@ describe("themePacks", () => {
     fakeHeadChildren.length = 0;
   });
 
-  it("defaults to classic", () => {
-    expect(loadThemePack()).toBe("classic");
-    expect(DEFAULT_PACK).toBe("classic");
+  it("defaults to BlammyTV (id slate)", () => {
+    expect(loadThemePack()).toBe("slate");
+    expect(DEFAULT_PACK).toBe("slate");
   });
 
   it("round-trips a saved pack", () => {
@@ -84,19 +84,20 @@ describe("themePacks", () => {
     expect(loadThemePack()).toBe("neon-2027");
   });
 
-  it("lists classic first, then void, slate, paper", () => {
+  it("lists BlammyTV (slate) first, then classic, void, paper, nebula", () => {
     expect(THEME_PACKS.map((p) => p.id)).toEqual([
+      "slate",
       "classic",
       "void",
-      "slate",
       "paper",
+      "nebula",
     ]);
+    expect(THEME_PACKS[0].name).toBe("BlammyTV");
   });
 
   it("exposes bundled intense packs, all premium", () => {
     expect(INTENSE_PACKS.map((p) => p.id)).toEqual([
       "terminal",
-      "nebula",
       "supporter",
     ]);
     for (const p of INTENSE_PACKS) expect(p.premium).toBe(true);

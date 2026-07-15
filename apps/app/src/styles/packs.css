@@ -18,9 +18,10 @@
  * there's no block for it here.
  */
 
-/* Void: OLED true black. --bg is already #000000 in tokens.css, so Void's
-   whole identity is crushed surfaces sitting just barely above it. */
+/* Void: OLED true black. Classic moved up to #050505, so Void now pins
+   --bg to genuine #000 — its identity is crushed surfaces just above it. */
 :root[data-theme-pack="void"] {
+  --bg: #000000;
   --surface: #050505;
   --surface-track: #050505;
   --surface-puck: #0a0a0a;
@@ -39,25 +40,48 @@
   color-scheme: dark;
 }
 
-/* Slate: cool graphite, blue-cast surfaces (GitHub-dark territory) with
-   blue-tinted hairlines throughout. */
+/* BlammyTV (id "slate", kept for stored-pref compat): the brand default —
+   a soft neutral dark, #0B0B0E ground with #1E1E25 accents (Adam's spec,
+   v0.6.0). Replaces the old blue-graphite Slate. */
 :root[data-theme-pack="slate"] {
-  --bg: #0d1117;
-  --surface: #161b22;
-  --surface-track: #0d1117;
-  --surface-puck: #1c2128;
-  --surface-raised: #21262d;
-  --border: rgba(110, 140, 190, 0.14);
-  --border-strong: rgba(110, 140, 190, 0.22);
-  --border-raised: #30363d;
-  --border-input: rgba(110, 140, 190, 0.16);
+  --bg: #0b0b0e;
+  --surface: #1e1e25;
+  --surface-track: #121216;
+  --surface-puck: #26262e;
+  --surface-raised: #2e2e38;
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  --border-raised: #3a3a45;
+  --border-input: rgba(255, 255, 255, 0.12);
   --card-glass:
-    linear-gradient(rgba(140, 170, 255, 0.06), rgba(140, 170, 255, 0.06)),
-    linear-gradient(rgba(3, 7, 12, 0.55), rgba(3, 7, 12, 0.55));
-  --text: #c9d1d9;
-  --text-muted: #7d8590;
-  --text-dim: #3d434b;
-  --text-ghost: rgba(180, 200, 230, 0.18);
+    linear-gradient(rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.08)),
+    linear-gradient(rgba(11, 11, 14, 0.55), rgba(11, 11, 14, 0.55));
+  --text: #f2f2f5;
+  --text-muted: #a2a2ab;
+  --text-dim: #4a4a55;
+  --text-ghost: rgba(255, 255, 255, 0.2);
+  color-scheme: dark;
+}
+
+/* Nebula: deep violet-noir with a faint stellar haze. Free as of v0.6.0
+   (was premium) — colors only, so it lives in the free-pack contract file. */
+:root[data-theme-pack="nebula"] {
+  --bg: #0a0612;
+  --surface: #120c1f;
+  --surface-track: #0a0612;
+  --surface-puck: #170f26;
+  --surface-raised: #1f1430;
+  --border: rgba(186, 148, 255, 0.1);
+  --border-strong: rgba(186, 148, 255, 0.18);
+  --border-raised: #3a2a52;
+  --border-input: rgba(186, 148, 255, 0.12);
+  --card-glass:
+    linear-gradient(rgba(190, 150, 255, 0.07), rgba(190, 150, 255, 0.07)),
+    linear-gradient(rgba(10, 6, 18, 0.55), rgba(10, 6, 18, 0.55));
+  --text: #ece6f7;
+  --text-muted: #9a8fb3;
+  --text-dim: #4a3f5e;
+  --text-ghost: rgba(190, 150, 255, 0.18);
   color-scheme: dark;
 }
 

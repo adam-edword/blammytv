@@ -103,30 +103,6 @@
   text-shadow: 0 0 6px rgba(80, 255, 130, 0.45);
 }
 
-/* ============================ Nebula ============================
-   Deep violet-noir — migrated from the keybox payload (payloads/nebula.css)
-   to a bundled block. Colors only for now; it rides the widened engine but
-   doesn't (yet) use fonts/bg/hovers. Dark-only. */
-:root[data-theme-pack="nebula"] {
-  --bg: #0a0612;
-  --surface: #120c1f;
-  --surface-track: #0a0612;
-  --surface-puck: #170f26;
-  --surface-raised: #1f1430;
-  --border: rgba(186, 148, 255, 0.1);
-  --border-strong: rgba(186, 148, 255, 0.18);
-  --border-raised: #3a2a52;
-  --border-input: rgba(186, 148, 255, 0.12);
-  --card-glass:
-    linear-gradient(rgba(190, 150, 255, 0.07), rgba(190, 150, 255, 0.07)),
-    linear-gradient(rgba(10, 6, 18, 0.55), rgba(10, 6, 18, 0.55));
-  --text: #ece6f7;
-  --text-muted: #9a8fb3;
-  --text-dim: #4a3f5e;
-  --text-ghost: rgba(190, 150, 255, 0.18);
-  color-scheme: dark;
-}
-
 /* ============================ Supporter ============================
    The Themes-Pass secret theme. Classic palette UNCHANGED (no token
    overrides) + the marketing site's background: a white dither dot field

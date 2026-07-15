@@ -29,9 +29,10 @@ const SOLO_KEY = "BTV-TEST-SOLO-0000-0000";
 const FULL_KEY = "BTV-TEST-FULL-0000-0000";
 const UNKNOWN_KEY = "BTV-TEST-NOPE-0000-0000";
 
-// nebula's BUNDLED --surface (intense-packs.css) — proves it renders from the
-// bundle, not a payload.
-const NEBULA_SURFACE = "#120c1f";
+// terminal's BUNDLED --surface (intense-packs.css) — proves it renders from
+// the bundle, not a payload. (nebula went free in v0.6.0; terminal is the
+// reference premium now.)
+const TERMINAL_SURFACE = "#04140a";
 
 const newPage = async (init = {}, opts = {}) => {
   const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 }, ...opts });
@@ -58,7 +59,7 @@ const licenseRow = (page) => page.locator(".themes-license");
 const keyInput = (page) => licenseRow(page).getByPlaceholder("BTV-XXXX-XXXX-XXXX-XXXX");
 const activateBtn = (page) => licenseRow(page).getByRole("button", { name: "Activate", exact: true });
 const removeBtn = (page) => licenseRow(page).getByRole("button", { name: "Remove license" });
-const nebulaLock = (page) => page.locator('.tcard[data-pack="nebula"] .tcard__price');
+const terminalLock = (page) => page.locator('.tcard[data-pack="terminal"] .tcard__price');
 
 const activate = async (page, key) => {
   await keyInput(page).fill(key);
@@ -82,7 +83,7 @@ const waitForRowText = async (page, substring, timeoutMs = 5000) => {
   return text;
 };
 
-// 1-6: nebula present-but-locked; activating PASS unlocks it (price gone,
+// 1-6: terminal present-but-locked; activating PASS unlocks it (price gone,
 // Remove state); picking it COMMITS the bundled render; survives a reload.
 let snapshot;
 {
@@ -91,40 +92,40 @@ let snapshot;
 
   check("the license row is present in the Themes panel",
     await licenseRow(page).isVisible().catch(() => false));
-  check("nebula shows a price link while unowned", (await nebulaLock(page).count()) === 1);
+  check("terminal shows a price link while unowned", (await terminalLock(page).count()) === 1);
 
   await activate(page, PASS_KEY);
   await removeBtn(page).waitFor({ timeout: 8000 }).catch(() => null);
   check("activating a valid key (PASS) shows the unlocked state (Remove license)",
     await removeBtn(page).isVisible().catch(() => false));
-  check("nebula's price link is gone once owned", (await nebulaLock(page).count()) === 0);
+  check("terminal's price link is gone once owned", (await terminalLock(page).count()) === 0);
 
-  await page.locator('.tcard[data-pack="nebula"]').click();
-  await page.waitForFunction(() => document.documentElement.dataset.themePack === "nebula", null, { timeout: 5000 }).catch(() => null);
+  await page.locator('.tcard[data-pack="terminal"]').click();
+  await page.waitForFunction(() => document.documentElement.dataset.themePack === "terminal", null, { timeout: 5000 }).catch(() => null);
   const state = await readState(page);
-  check("owning nebula COMMITS it (dataset + bundled --surface + persisted)",
-    state.pack === "nebula" && state.surface === NEBULA_SURFACE &&
-      JSON.stringify(state.storedPack) === JSON.stringify({ v: 1, data: "nebula" }), JSON.stringify(state));
+  check("owning terminal COMMITS it (dataset + bundled --surface + persisted)",
+    state.pack === "terminal" && state.surface === TERMINAL_SURFACE &&
+      JSON.stringify(state.storedPack) === JSON.stringify({ v: 1, data: "terminal" }), JSON.stringify(state));
 
   await page.reload();
   await page.waitForSelector(".header", { timeout: 8000 });
   const reloaded = await readState(page);
-  check("nebula survives a reload with the fixture still up",
-    reloaded.pack === "nebula" && reloaded.surface === NEBULA_SURFACE, JSON.stringify(reloaded));
+  check("terminal survives a reload with the fixture still up",
+    reloaded.pack === "terminal" && reloaded.surface === TERMINAL_SURFACE, JSON.stringify(reloaded));
 
   snapshot = await page.evaluate(() => ({ ...localStorage }));
   await page.close();
 }
 
-// 7: fail-open — owned entitlement + nebula selected, DEAD keybox host still
-// renders nebula from the BUNDLE (no cache needed).
+// 7: fail-open — owned entitlement + terminal selected, DEAD keybox host still
+// renders terminal from the BUNDLE (no cache needed).
 {
   const page = await newPage({ ...snapshot, "blammytv.keyboxUrl": DEAD_KEYBOX_URL });
   await page.goto(URL);
   await page.waitForSelector(".header", { timeout: 8000 });
   const state = await readState(page);
-  check("fail-open: dead keybox host still renders bundled nebula",
-    state.pack === "nebula" && state.surface === NEBULA_SURFACE, JSON.stringify(state));
+  check("fail-open: dead keybox host still renders bundled terminal",
+    state.pack === "terminal" && state.surface === TERMINAL_SURFACE, JSON.stringify(state));
   await page.close();
 }
 
@@ -135,7 +136,7 @@ let snapshot;
   await activate(page, UNKNOWN_KEY);
   const text = await waitForRowText(page, "wasn't recognized");
   check("unknown key shows the \"wasn't recognized\" error and stays unowned",
-    text.includes("wasn't recognized") && (await nebulaLock(page).count()) === 1, text);
+    text.includes("wasn't recognized") && (await terminalLock(page).count()) === 1, text);
   await page.close();
 }
 
@@ -150,13 +151,13 @@ let snapshot;
   await page.close();
 }
 
-// 10: solo key -> nebula owned (its price link clears).
+// 10: solo key -> terminal owned (its price link clears).
 {
   const page = await newPage();
   await openThemes(page);
   await activate(page, SOLO_KEY);
   await removeBtn(page).waitFor({ timeout: 8000 }).catch(() => null);
-  check("solo key unlocks nebula (price link clears)", (await nebulaLock(page).count()) === 0);
+  check("solo key unlocks terminal (price link clears)", (await terminalLock(page).count()) === 0);
   await page.close();
 }
 
@@ -167,17 +168,17 @@ let snapshot;
   await openThemes(page);
   await activate(page, PASS_KEY);
   await removeBtn(page).waitFor({ timeout: 8000 }).catch(() => null);
-  await page.locator('.tcard[data-pack="nebula"]').click();
-  await page.waitForFunction(() => document.documentElement.dataset.themePack === "nebula", null, { timeout: 5000 }).catch(() => null);
+  await page.locator('.tcard[data-pack="terminal"]').click();
+  await page.waitForFunction(() => document.documentElement.dataset.themePack === "terminal", null, { timeout: 5000 }).catch(() => null);
 
   await removeBtn(page).click();
   await keyInput(page).waitFor({ timeout: 8000 }).catch(() => null);
-  check("Remove license: row returns to the key-input state, nebula re-locks",
-    (await keyInput(page).isVisible().catch(() => false)) && (await nebulaLock(page).count()) === 1);
+  check("Remove license: row returns to the key-input state, terminal re-locks",
+    (await keyInput(page).isVisible().catch(() => false)) && (await terminalLock(page).count()) === 1);
 
   const state = await readState(page);
-  check("Remove license: active premium pack resets to classic (dataset removed)",
-    state.pack === null, String(state.pack));
+  check("Remove license: active premium pack resets to the default (BlammyTV)",
+    state.pack === "slate", String(state.pack));
   await page.close();
 }
 

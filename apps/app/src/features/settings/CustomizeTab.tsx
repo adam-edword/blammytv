@@ -10,13 +10,10 @@ import {
   saveAccentStyle,
   saveCustomAccent,
 } from "./accent";
-import { applyTheme, loadTheme, saveTheme, type Theme } from "./theme";
+import { applyTheme, saveTheme, type Theme } from "./theme";
 import {
   DEFAULT_PACK,
-  INTENSE_PACKS,
-  THEME_PACKS,
   applyThemePack,
-  loadThemePack,
   saveThemePack,
 } from "./themePacks";
 import {
@@ -78,23 +75,16 @@ const SECTION_TABS: Array<{ key: CustomizeSection; label: string }> = [
   { key: "display", label: "Display" },
 ];
 
-const ALL_PACKS = [...THEME_PACKS, ...INTENSE_PACKS];
-
 export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
   // Which pill is showing — ephemeral, always opens back on General.
   const [sec, setSec] = useState<CustomizeSection>("general");
 
-  // Light/dark axis (moved here from the old Theme sub-tab). The active pack
-  // may be dark-only, which disables the toggle. Themes is a separate modal
-  // that closes Settings, so the committed pack in storage is authoritative.
-  const [theme, setTheme] = useState<Theme>(loadTheme);
+  // Light/dark axis state exists only so reset() can force dark — the user
+  // control (the Theme Style pill) lives in the Themes panel now.
   const pickTheme = (next: Theme) => {
-    setTheme(next);
     saveTheme(next);
     applyTheme(next);
   };
-  const activePack =
-    ALL_PACKS.find((p) => p.id === loadThemePack()) ?? THEME_PACKS[0];
 
   const [scale, setScale] = useState<UiScale>(loadUiScale);
   const pickScale = (next: UiScale) => {
@@ -325,32 +315,7 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
 
       {sec === "display" && (
         <section className="settings-section">
-          <div className="customize-row">
-            <div>
-              <h4 className="customize-row__title">Light Theme</h4>
-              <p className="settings__section-note settings__section-note--dim">
-                {activePack.supportsLight
-                  ? "Flip the whole app to a light palette."
-                  : `${activePack.name} is dark-only.`}
-              </p>
-            </div>
-            <div
-              className={
-                "toggle-disable-wrap" +
-                (activePack.supportsLight ? "" : " toggle-disable-wrap--off")
-              }
-            >
-              <Toggle
-                on={theme === "light"}
-                onChange={(on) => {
-                  if (!activePack.supportsLight) return;
-                  pickTheme(on ? "light" : "dark");
-                }}
-                label="Light theme"
-              />
-            </div>
-          </div>
-
+          {/* Light/Dark now lives in the Themes panel (Theme Style pill). */}
           <div className="customize-row">
             <div>
               <h4 className="customize-row__title">UI Scale</h4>
