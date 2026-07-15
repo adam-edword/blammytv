@@ -202,10 +202,13 @@
   height: 183px;
 }
 
-/* The little sample chip (a frosted pill lower-left of the art). */
+/* The little sample chip (a frosted pill lower-left of the art). Figma's
+ * chip inset is relative to the full 162px card GROUP (art + label zone);
+ * recomputed here against the 124px art box alone so it sits lower-left,
+ * not mid-card. */
 .tcard__chip {
   position: absolute;
-  inset: 41.98% 42.94% 30.25% 6.78%;
+  inset: 54.8% 42.94% 8.9% 6.78%;
   border-radius: 12px;
   border: 1px solid var(--border-strong);
   backdrop-filter: blur(3px);
