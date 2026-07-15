@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@fontsource/fredoka": "^5.2.10",
+    "@fontsource/space-mono": "^5.2.9",
     "@fontsource/stack-sans-headline": "^5.2.1",
     "@fontsource/stack-sans-text": "^5.2.1",
     "@fontsource/unbounded": "^5.2.8",

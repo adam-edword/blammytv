@@ -35,6 +35,9 @@ importers:
       '@fontsource/fredoka':
         specifier: ^5.2.10
         version: 5.2.10
+      '@fontsource/space-mono':
+        specifier: ^5.2.9
+        version: 5.2.9
       '@fontsource/stack-sans-headline':
         specifier: ^5.2.1
         version: 5.2.1
@@ -358,6 +361,9 @@ packages:
 
   '@fontsource/fredoka@5.2.10':
     resolution: {integrity: sha512-DyzPCmTf0PkBbAu+gNvnPzfD/dYIXlyp+Zcb76jEQyt/vmRKGZgkH8FFF9W2sICDaA5p+GLk1XGFjWh5PPX+lg==}
+
+  '@fontsource/space-mono@5.2.9':
+    resolution: {integrity: sha512-b61faFOHEISQ/pD25G+cfGY9o/WW6lRv6hBQQfpWvEJ4y1V+S4gmth95EVyBE2VL3qDYHeVQ8nBzrplzdXTDDg==}
 
   '@fontsource/stack-sans-headline@5.2.1':
     resolution: {integrity: sha512-rzY0whRXQAaz5qWB3wdsjdI6Y4PsuZEwKk8lijrVVc41sNOutDHvvG8wBQ2rX139g6KNQQcq1slSvGw7U3V5Yw==}
@@ -1906,6 +1912,8 @@ snapshots:
       levn: 0.4.1
 
   '@fontsource/fredoka@5.2.10': {}
+
+  '@fontsource/space-mono@5.2.9': {}
 
   '@fontsource/stack-sans-headline@5.2.1': {}
 
