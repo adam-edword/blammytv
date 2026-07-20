@@ -84,16 +84,15 @@
   overflow-y: auto;
 }
 
-/* Sections keep their natural height — except one hosting an expanded
- * source list, which may shrink so the list inside scrolls. */
-.settings__body > .settings-section:has(.source-list) {
-  min-height: 0;
-}
-
+/* The expanded folder editor does NOT unlock section/item shrinking any
+ * more (the old min-height:0 pair): with the tools + Save bar around the
+ * list, over-shrinking compressed the section AROUND its content and the
+ * next section's rows overlapped the Save bar (e2e-caught). Sections keep
+ * their natural height; the list caps itself at 60vh and the settings
+ * body's scroll fallback absorbs the rest. */
 .playlist-item:has(.source-list) {
   display: flex;
   flex-direction: column;
-  min-height: 0;
 }
 
 /* Sections sit under a hairline divider (per the design). */
@@ -651,13 +650,64 @@
   padding: 14px 20px;
 }
 
+/* Folder editor shell: tools pinned above the scrolling list, the
+ * Save/Discard bar pinned below it (the list alone scrolls). */
+.source-editor {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  /* NO min-height:0 here (the default auto floor is the point): the editor
+   * shrinks only until the list inside hits its own floor — the list is the
+   * squeeze absorber (flex rule below) — and past that the settings body's
+   * scroll fallback takes over. An unfloored editor shrank below its
+   * content and spilled the Save bar onto the next section (e2e-caught). */
+}
+
+.source-editor .source-list {
+  flex: 1 1 auto;
+  min-height: 120px;
+}
+
 /* Folder-editor tools: search narrows the list; the button toggles every
  * row the search leaves visible (all of them with an empty query). */
 .source-tools {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 2px 2px 6px;
+  padding: 8px 2px 6px;
+}
+
+/* Staged-edit bar — appears only while the draft diverges from what's
+ * saved. Save persists (and refreshes Live); Discard snaps the draft back. */
+.source-save {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 8px 2px 2px;
+}
+
+.source-save__note {
+  margin-right: auto;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.source-save__discard {
+  padding: 7px 14px;
+  border-radius: var(--radius-chip);
+  background: var(--surface-raised);
+  border: 0.5px solid var(--border-raised);
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  transition: filter 140ms ease;
+}
+
+.source-save__discard:hover {
+  filter: brightness(1.3);
 }
 
 .source-tools__search {

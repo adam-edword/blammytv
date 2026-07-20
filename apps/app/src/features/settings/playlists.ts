@@ -206,6 +206,19 @@ export function setCategoriesHidden(
   });
 }
 
+/** Replace a playlist's hidden set wholesale — the folder editor's SAVE:
+ * its draft carries the full hidden set (including ids the adult filter
+ * keeps out of view), so a straight replace loses nothing. */
+export function setHiddenCategories(
+  list: Playlist[],
+  playlistId: string,
+  hiddenIds: string[],
+): Playlist[] {
+  return list.map((p) =>
+    p.id === playlistId ? { ...p, hiddenCategories: [...hiddenIds] } : p,
+  );
+}
+
 export function isHttpUrl(value: string): boolean {
   try {
     const url = new URL(value.trim());

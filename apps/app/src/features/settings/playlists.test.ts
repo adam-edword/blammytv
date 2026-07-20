@@ -9,6 +9,7 @@ import {
   togglePlaylist,
   type Playlist,
   setCategoriesHidden,
+  setHiddenCategories,
 } from "./playlists";
 
 const draft = (name = "") => ({
@@ -113,5 +114,32 @@ describe("setCategoriesHidden (batch, drives the folder editor's toggle-all)", (
     let list = [...base(), ...base()];
     list = setCategoriesHidden(list, list[0].id, ["x"], true);
     expect(list[1].hiddenCategories ?? []).toEqual([]);
+  });
+});
+
+describe("setHiddenCategories (wholesale, the folder editor's Save)", () => {
+  it("replaces the hidden set for the addressed playlist only", () => {
+    let list = [
+      ...addPlaylist([], {
+        kind: "xtream",
+        name: "A",
+        server: "http://a.example",
+        username: "u",
+        password: "p",
+      }),
+      ...addPlaylist([], {
+        kind: "xtream",
+        name: "B",
+        server: "http://b.example",
+        username: "u",
+        password: "p",
+      }),
+    ];
+    list = setCategoriesHidden(list, list[1].id, ["z"], true);
+    list = setHiddenCategories(list, list[0].id, ["a", "b"]);
+    expect(list[0].hiddenCategories).toEqual(["a", "b"]);
+    expect(list[1].hiddenCategories).toEqual(["z"]);
+    list = setHiddenCategories(list, list[0].id, []);
+    expect(list[0].hiddenCategories).toEqual([]);
   });
 });

@@ -10,13 +10,11 @@ import {
   addPlaylist,
   draftFrom,
   isFormComplete as isComplete,
-  isCategoryHidden,
   loadPlaylists,
   playlistSource,
   removePlaylist,
   savePlaylists,
-  setCategoriesHidden,
-  toggleHiddenCategory,
+  setHiddenCategories,
   togglePlaylist,
   type Playlist,
   type PlaylistFormState,
@@ -253,13 +251,8 @@ export function PlaylistsTab() {
                   playlist={p}
                   categories={categories[p.id]}
                   showAdult={showAdult}
-                  onToggle={(categoryId) =>
-                    update(toggleHiddenCategory(playlists, p.id, categoryId))
-                  }
-                  onSetMany={(categoryIds, hidden) =>
-                    update(
-                      setCategoriesHidden(playlists, p.id, categoryIds, hidden),
-                    )
+                  onSave={(hiddenIds) =>
+                    update(setHiddenCategories(playlists, p.id, hiddenIds))
                   }
                 />
               )}
@@ -299,22 +292,28 @@ export function PlaylistsTab() {
 
 /** The expanded folder list under a playlist row: every category from the
  * provider with a visibility toggle — off keeps it out of the Live sidebar.
- * The tools row searches the list and toggles every VISIBLE row at once. */
+ * Edits are STAGED: toggles (and toggle-all) mutate a local draft, and the
+ * Save/Discard bar appears once it diverges from what's persisted. Nothing
+ * touches storage (or the Live sidebar) until Save. Collapsing the editor
+ * or closing Settings discards an unsaved draft. */
 function FolderEditor({
   playlist,
   categories,
   showAdult,
-  onToggle,
-  onSetMany,
+  onSave,
 }: {
   playlist: Playlist;
   categories: Categories | undefined;
   showAdult: boolean;
-  onToggle: (categoryId: string) => void;
-  onSetMany: (categoryIds: string[], hidden: boolean) => void;
+  onSave: (hiddenIds: string[]) => void;
 }) {
-  // Before the early returns — hooks must run on every render.
+  // Before the early returns — hooks must run on every render. The draft
+  // seeds from the FULL persisted hidden set, so ids the adult filter keeps
+  // out of view survive a save untouched.
   const [query, setQuery] = useState("");
+  const [draft, setDraft] = useState<ReadonlySet<string>>(
+    () => new Set(playlist.hiddenCategories ?? []),
+  );
   if (playlist.kind !== "xtream") {
     return (
       <div className="source-list source-list--note">
@@ -367,9 +366,29 @@ function FolderEditor({
   const visible = needle
     ? items.filter((c) => c.name.toLowerCase().includes(needle))
     : items;
-  const allShown = visible.every((c) => !isCategoryHidden(playlist, c.id));
+  const allShown = visible.every((c) => !draft.has(c.id));
+
+  const persisted = new Set(playlist.hiddenCategories ?? []);
+  const dirty =
+    draft.size !== persisted.size || [...draft].some((id) => !persisted.has(id));
+
+  const toggleOne = (id: string) => {
+    const next = new Set(draft);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setDraft(next);
+  };
+  const setMany = (ids: string[], hide: boolean) => {
+    const next = new Set(draft);
+    for (const id of ids) {
+      if (hide) next.add(id);
+      else next.delete(id);
+    }
+    setDraft(next);
+  };
+
   return (
-    <div className="source-list">
+    <div className="source-editor">
       <div className="source-tools">
         <input
           className="settings-input source-tools__search"
@@ -385,33 +404,54 @@ function FolderEditor({
           type="button"
           className="source-tools__all"
           disabled={visible.length === 0}
-          onClick={() => onSetMany(visible.map((c) => c.id), allShown)}
+          onClick={() => setMany(visible.map((c) => c.id), allShown)}
         >
           {allShown ? "Hide all" : "Show all"}
         </button>
       </div>
-      {visible.length === 0 && (
-        <p className="settings__section-note settings__section-note--dim">
-          No folders match “{query.trim()}”.
-        </p>
-      )}
-      {visible.map((c) => (
-        <div key={c.id} className="source-row">
-          <span className="source-row__name">{c.name}</span>
-          <Toggle
-            small
-            on={!isCategoryHidden(playlist, c.id)}
-            onChange={() => onToggle(c.id)}
-            label={`Show ${c.name} in Live TV`}
-          />
+      <div className="source-list">
+        {visible.length === 0 && (
+          <p className="settings__section-note settings__section-note--dim">
+            No folders match “{query.trim()}”.
+          </p>
+        )}
+        {visible.map((c) => (
+          <div key={c.id} className="source-row">
+            <span className="source-row__name">{c.name}</span>
+            <Toggle
+              small
+              on={!draft.has(c.id)}
+              onChange={() => toggleOne(c.id)}
+              label={`Show ${c.name} in Live TV`}
+            />
+          </div>
+        ))}
+        {adultHidden > 0 && (
+          <p className="settings__section-note settings__section-note--dim">
+            {adultHidden} adult {adultHidden === 1 ? "folder" : "folders"} hidden
+            — turn on “Show adult content” below to manage{" "}
+            {adultHidden === 1 ? "it" : "them"}.
+          </p>
+        )}
+      </div>
+      {dirty && (
+        <div className="source-save">
+          <span className="source-save__note">Unsaved changes</span>
+          <button
+            type="button"
+            className="source-save__discard"
+            onClick={() => setDraft(new Set(playlist.hiddenCategories ?? []))}
+          >
+            Discard
+          </button>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => onSave([...draft])}
+          >
+            Save
+          </button>
         </div>
-      ))}
-      {adultHidden > 0 && (
-        <p className="settings__section-note settings__section-note--dim">
-          {adultHidden} adult {adultHidden === 1 ? "folder" : "folders"} hidden
-          — turn on “Show adult content” below to manage{" "}
-          {adultHidden === 1 ? "it" : "them"}.
-        </p>
       )}
     </div>
   );
