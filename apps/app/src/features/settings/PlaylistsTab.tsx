@@ -408,6 +408,26 @@ function FolderEditor({
         >
           {allShown ? "Hide all" : "Show all"}
         </button>
+        {dirty && (
+          <>
+            <button
+              type="button"
+              className="source-tools__discard"
+              onClick={() =>
+                setDraft(new Set(playlist.hiddenCategories ?? []))
+              }
+            >
+              Discard
+            </button>
+            <button
+              type="button"
+              className="btn-primary source-tools__save"
+              onClick={() => onSave([...draft])}
+            >
+              Save
+            </button>
+          </>
+        )}
       </div>
       <div className="source-list">
         {visible.length === 0 && (
@@ -434,25 +454,6 @@ function FolderEditor({
           </p>
         )}
       </div>
-      {dirty && (
-        <div className="source-save">
-          <span className="source-save__note">Unsaved changes</span>
-          <button
-            type="button"
-            className="source-save__discard"
-            onClick={() => setDraft(new Set(playlist.hiddenCategories ?? []))}
-          >
-            Discard
-          </button>
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={() => onSave([...draft])}
-          >
-            Save
-          </button>
-        </div>
-      )}
     </div>
   );
 }
