@@ -15,6 +15,7 @@ import {
   playlistSource,
   removePlaylist,
   savePlaylists,
+  setCategoriesHidden,
   toggleHiddenCategory,
   togglePlaylist,
   type Playlist,
@@ -255,6 +256,11 @@ export function PlaylistsTab() {
                   onToggle={(categoryId) =>
                     update(toggleHiddenCategory(playlists, p.id, categoryId))
                   }
+                  onSetMany={(categoryIds, hidden) =>
+                    update(
+                      setCategoriesHidden(playlists, p.id, categoryIds, hidden),
+                    )
+                  }
                 />
               )}
             </div>
@@ -292,18 +298,23 @@ export function PlaylistsTab() {
 }
 
 /** The expanded folder list under a playlist row: every category from the
- * provider with a visibility toggle — off keeps it out of the Live sidebar. */
+ * provider with a visibility toggle — off keeps it out of the Live sidebar.
+ * The tools row searches the list and toggles every VISIBLE row at once. */
 function FolderEditor({
   playlist,
   categories,
   showAdult,
   onToggle,
+  onSetMany,
 }: {
   playlist: Playlist;
   categories: Categories | undefined;
   showAdult: boolean;
   onToggle: (categoryId: string) => void;
+  onSetMany: (categoryIds: string[], hidden: boolean) => void;
 }) {
+  // Before the early returns — hooks must run on every render.
+  const [query, setQuery] = useState("");
   if (playlist.kind !== "xtream") {
     return (
       <div className="source-list source-list--note">
@@ -350,9 +361,41 @@ function FolderEditor({
     ? categories.items
     : categories.items.filter((c) => !isAdultCategory(c));
   const adultHidden = categories.items.length - items.length;
+  // "Visible" = what the search currently leaves in the list — the whole
+  // list with an empty query. Toggle-all acts on exactly these rows.
+  const needle = query.trim().toLowerCase();
+  const visible = needle
+    ? items.filter((c) => c.name.toLowerCase().includes(needle))
+    : items;
+  const allShown = visible.every((c) => !isCategoryHidden(playlist, c.id));
   return (
     <div className="source-list">
-      {items.map((c) => (
+      <div className="source-tools">
+        <input
+          className="settings-input source-tools__search"
+          type="search"
+          value={query}
+          placeholder="Search folders…"
+          aria-label={`Search ${playlist.name} folders`}
+          spellCheck={false}
+          autoComplete="off"
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        <button
+          type="button"
+          className="source-tools__all"
+          disabled={visible.length === 0}
+          onClick={() => onSetMany(visible.map((c) => c.id), allShown)}
+        >
+          {allShown ? "Hide all" : "Show all"}
+        </button>
+      </div>
+      {visible.length === 0 && (
+        <p className="settings__section-note settings__section-note--dim">
+          No folders match “{query.trim()}”.
+        </p>
+      )}
+      {visible.map((c) => (
         <div key={c.id} className="source-row">
           <span className="source-row__name">{c.name}</span>
           <Toggle

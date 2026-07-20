@@ -8,6 +8,7 @@ import {
   toggleHiddenCategory,
   togglePlaylist,
   type Playlist,
+  setCategoriesHidden,
 } from "./playlists";
 
 const draft = (name = "") => ({
@@ -79,5 +80,38 @@ describe("hidden categories", () => {
     const legacy = addPlaylist([], draft(), "a")[0];
     delete (legacy as { hiddenCategories?: string[] }).hiddenCategories;
     expect(isCategoryHidden(legacy, "anything")).toBe(false);
+  });
+});
+
+describe("setCategoriesHidden (batch, drives the folder editor's toggle-all)", () => {
+  const base = () =>
+    addPlaylist([], {
+      kind: "xtream",
+      name: "TV",
+      server: "http://x.example",
+      username: "u",
+      password: "p",
+    });
+
+  it("hides many at once and unions with existing hidden ids", () => {
+    let list = base();
+    const id = list[0].id;
+    list = toggleHiddenCategory(list, id, "a");
+    list = setCategoriesHidden(list, id, ["b", "c", "a"], true);
+    expect([...(list[0].hiddenCategories ?? [])].sort()).toEqual(["a", "b", "c"]);
+  });
+
+  it("shows many at once, leaving unrelated hidden ids alone", () => {
+    let list = base();
+    const id = list[0].id;
+    list = setCategoriesHidden(list, id, ["a", "b", "c"], true);
+    list = setCategoriesHidden(list, id, ["a", "c"], false);
+    expect(list[0].hiddenCategories).toEqual(["b"]);
+  });
+
+  it("touches only the addressed playlist", () => {
+    let list = [...base(), ...base()];
+    list = setCategoriesHidden(list, list[0].id, ["x"], true);
+    expect(list[1].hiddenCategories ?? []).toEqual([]);
   });
 });

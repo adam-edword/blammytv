@@ -186,6 +186,26 @@ export function toggleHiddenCategory(
 }
 
 /** Light URL check for server/playlist/portal fields. */
+/** Batch visibility: hide or show MANY categories in one pass — the
+ * folder editor's "toggle all" acts on every visible (searched) row, and
+ * looping toggleHiddenCategory would clobber itself through stale state. */
+export function setCategoriesHidden(
+  list: Playlist[],
+  playlistId: string,
+  categoryIds: string[],
+  hidden: boolean,
+): Playlist[] {
+  return list.map((p) => {
+    if (p.id !== playlistId) return p;
+    const current = new Set(p.hiddenCategories ?? []);
+    for (const id of categoryIds) {
+      if (hidden) current.add(id);
+      else current.delete(id);
+    }
+    return { ...p, hiddenCategories: [...current] };
+  });
+}
+
 export function isHttpUrl(value: string): boolean {
   try {
     const url = new URL(value.trim());
