@@ -28,6 +28,10 @@ tauri-plugin-window-state = "2"
 # Self-update from GitHub Releases (auto-check on launch + manual button).
 # Driven from Rust commands (below) so no JS plugin packages are needed.
 tauri-plugin-updater = "2"
+# System-browser hand-off for the theme checkout links (the webview blocks
+# target=_blank by design). Same no-JS-package pattern as the updater: one
+# Rust command below, no capability JSON, no npm plugin.
+tauri-plugin-opener = "2"
 # Rust-side HTTP so the app can reach AIOStreams/Xtream without browser CORS.
 # native-tls = Windows Schannel (same TLS stack as curl/Edge), so the TLS
 # fingerprint looks like a normal Windows client — some Cloudflare-fronted hosts

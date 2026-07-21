@@ -7,6 +7,20 @@ export function isTauri(): boolean {
   return "__TAURI_INTERNALS__" in window;
 }
 
+/** Open an https URL in the SYSTEM browser. The webview blocks target=_blank
+ * navigation by design, so anchors to checkout links etc. must route through
+ * the open_external command (lib.rs) — plain window.open in the browser dev
+ * build. Fire-and-forget; failures only log. */
+export function openExternal(url: string): void {
+  if (isTauri()) {
+    invoke("open_external", { url }).catch((err) =>
+      console.error("openExternal failed", err),
+    );
+  } else {
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+}
+
 /**
  * The native player (Windows, inv.rs). mpv renders into a child HWND at a
  * rect we supply, parked below the transparent webview. Rust never scales,

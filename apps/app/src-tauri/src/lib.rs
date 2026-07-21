@@ -647,11 +647,26 @@ async fn install_update(app: tauri::AppHandle) -> Result<(), String> {
     }
 }
 
+// Buy links: open a checkout URL in the SYSTEM browser. The webview blocks
+// target=_blank navigation by design, so this command is the app's only
+// external-nav path. https-only — nothing else has business leaving the app.
+#[tauri::command]
+fn open_external(app: tauri::AppHandle, url: String) -> Result<(), String> {
+    if !url.starts_with("https://") {
+        return Err("only https urls can be opened".into());
+    }
+    use tauri_plugin_opener::OpenerExt;
+    app.opener()
+        .open_url(url, None::<&str>)
+        .map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             use tauri::Manager;
             let _ = APP.set(app.handle().clone());
@@ -692,6 +707,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            open_external,
             popout_open,
             popout_pos,
             popout_stop,

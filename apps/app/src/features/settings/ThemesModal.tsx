@@ -10,7 +10,7 @@ import {
   MoonIcon,
   SunIcon,
 } from "../../ui/icons";
-import { isTauri } from "../../lib/tauri";
+import { isTauri, openExternal } from "../../lib/tauri";
 import {
   ACCENT_PRESETS,
   DEFAULT_ACCENT,
@@ -351,7 +351,13 @@ export function ThemesModal({ onClose }: { onClose: () => void }) {
               href={p.buyUrl}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                // The webview swallows target=_blank — hand off to the
+                // system browser (keep the href for semantics/tests).
+                e.stopPropagation();
+                e.preventDefault();
+                if (p.buyUrl) openExternal(p.buyUrl);
+              }}
             >
               {p.price} <ExternalLinkIcon size={15} />
             </a>
@@ -590,6 +596,10 @@ export function ThemesModal({ onClose }: { onClose: () => void }) {
               href={activePack.buyUrl}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={(e) => {
+                e.preventDefault();
+                if (activePack.buyUrl) openExternal(activePack.buyUrl);
+              }}
             >
               Unlock to keep · {activePack.price}
             </a>
@@ -627,6 +637,10 @@ export function ThemesModal({ onClose }: { onClose: () => void }) {
                 href={THEMES_PASS.buyUrl}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  openExternal(THEMES_PASS.buyUrl);
+                }}
               >
                 Get the Themes Pass
               </a>
