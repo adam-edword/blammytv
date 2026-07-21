@@ -1,5 +1,7 @@
 {
-  "passPriceIds": [],
+  "passPriceIds": [
+    "price_1TvjXq6Dz0VXTJF2fPS033af"
+  ],
   "themes": [
     {
       "id": "terminal",
@@ -11,7 +13,9 @@
         "surface": "#04140a",
         "accent": "#c22727"
       },
-      "priceIds": []
+      "priceIds": [
+        "price_1TvjXr6Dz0VXTJF2ANto6Rh9"
+      ]
     },
     {
       "id": "dither",
@@ -23,7 +27,9 @@
         "surface": "#161616",
         "accent": "#c22727"
       },
-      "priceIds": []
+      "priceIds": [
+        "price_1TvjXt6Dz0VXTJF2pl2PboD5"
+      ]
     },
     {
       "id": "kawaii",
@@ -35,7 +41,9 @@
         "surface": "#e9e9f7",
         "accent": "#f2a0c2"
       },
-      "priceIds": []
+      "priceIds": [
+        "price_1TvjXu6Dz0VXTJF22sm42Fss"
+      ]
     }
   ]
 }

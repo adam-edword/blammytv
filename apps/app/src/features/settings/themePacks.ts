@@ -120,9 +120,9 @@ export const INTENSE_PACKS: ReadonlyArray<ThemePackMeta> = [
     preview: { bg: "#020a05", surface: "#0a2c16", accent: PREVIEW_ACCENT },
     premium: true,
     price: "$2.50",
-    // TEST-mode placeholder — swap for the real per-theme Payment Link at
-    // go-live (the site's Themes Pass link today; no per-theme links yet).
-    buyUrl: "https://buy.stripe.com/test_00wcMY6hq75NakJ3YigMw00",
+    // TEST-mode Payment Link from setup-stripe.mjs — rerun with sk_live and
+    // swap these four urls (+ catalog.json price ids) at go-live.
+    buyUrl: "https://buy.stripe.com/test_bJecMYgW42PxdwV3YigMw02",
   },
   {
     id: "dither",
@@ -132,7 +132,7 @@ export const INTENSE_PACKS: ReadonlyArray<ThemePackMeta> = [
     preview: { bg: "#000000", surface: "#1e1e1e", accent: PREVIEW_ACCENT },
     premium: true,
     price: "$2.50",
-    buyUrl: "https://buy.stripe.com/test_00wcMY6hq75NakJ3YigMw00",
+    buyUrl: "https://buy.stripe.com/test_28E7sEdJS4XF64t8eygMw03",
   },
   {
     id: "kawaii",
@@ -142,7 +142,7 @@ export const INTENSE_PACKS: ReadonlyArray<ThemePackMeta> = [
     preview: { bg: "#15111f", surface: "#e9e9f7", accent: "#f2a0c2" },
     premium: true,
     price: "$2.50",
-    buyUrl: "https://buy.stripe.com/test_00wcMY6hq75NakJ3YigMw00",
+    buyUrl: "https://buy.stripe.com/test_28E6oA5dm0HpfF31QagMw04",
     pairedAccent: "#f2a0c2",
   },
   {
@@ -172,7 +172,7 @@ export const BUNDLED_INTENSE_IDS: ReadonlySet<ThemePackId> = new Set(
  * swap for the real Pass link at go-live. */
 export const THEMES_PASS = {
   price: "$12.50",
-  buyUrl: "https://buy.stripe.com/test_00wcMY6hq75NakJ3YigMw00",
+  buyUrl: "https://buy.stripe.com/test_eVq8wIaxG0HpcsReCWgMw01",
 } as const;
 
 const KEY = "themePack";
