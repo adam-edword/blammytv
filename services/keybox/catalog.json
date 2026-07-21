@@ -1,13 +1,41 @@
 {
-  "passPriceIds": ["price_1TsVYb6Dz0VXTJF2YnzgA9OS"],
+  "passPriceIds": [],
   "themes": [
     {
-      "id": "nebula",
-      "name": "Nebula",
-      "blurb": "Deep violet-noir — crushed indigo surfaces under a faint stellar haze.",
+      "id": "terminal",
+      "name": "Terminal",
+      "blurb": "Green-phosphor CRT — bitmap type, dither grain, glowing hovers.",
       "supportsLight": false,
-      "preview": { "bg": "#0a0612", "surface": "#120c1f", "accent": "#c22727" },
-      "priceIds": ["price_1TruhB6Dz0VXTJF2X3ioiojM"]
+      "preview": {
+        "bg": "#020a05",
+        "surface": "#04140a",
+        "accent": "#c22727"
+      },
+      "priceIds": []
+    },
+    {
+      "id": "dither",
+      "name": "Dither",
+      "blurb": "1-bit ordered dithering — a Bayer field over pure black, bold Syne headlines.",
+      "supportsLight": false,
+      "preview": {
+        "bg": "#000000",
+        "surface": "#161616",
+        "accent": "#c22727"
+      },
+      "priceIds": []
+    },
+    {
+      "id": "kawaii",
+      "name": "Kawaii ⸜(｡˃ ᵕ ˂ )⸝♡",
+      "blurb": "Midnight candy — pastel pink on a plum sky, chubby type.",
+      "supportsLight": false,
+      "preview": {
+        "bg": "#15111f",
+        "surface": "#e9e9f7",
+        "accent": "#f2a0c2"
+      },
+      "priceIds": []
     }
   ]
 }

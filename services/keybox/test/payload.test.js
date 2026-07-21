@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { openDb, createKey, touchActivation } from "../src/db.js";
-import { loadCatalog } from "../src/catalog.js";
+import { buildCatalog } from "../src/catalog.js";
 import { makeApp } from "../src/server.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -15,7 +15,22 @@ const NEBULA_CSS = readFileSync(
 
 async function startApp() {
   const db = openDb(":memory:");
-  const catalog = loadCatalog(); // real catalog.json — nebula.css exists on disk for it
+  // Fixture catalog: /payload is a LEGACY endpoint (the app bundles its
+  // theme CSS now), so these tests pin their own nebula entry against the
+  // payloads/nebula.css fixture file instead of the live sales catalog.
+  const catalog = buildCatalog({
+    passPriceIds: ["price_pass_fixture"],
+    themes: [
+      {
+        id: "nebula",
+        name: "Nebula",
+        blurb: "fixture",
+        supportsLight: false,
+        preview: { bg: "#0a0612", surface: "#120c1f", accent: "#c22727" },
+        priceIds: ["price_nebula_fixture"],
+      },
+    ],
+  });
   const stripe = { webhooks: {}, checkout: { sessions: {} } };
   const app = makeApp({ db, stripe, catalog, webhookSecret: "whsec_unused" });
   const server = app.listen(0);

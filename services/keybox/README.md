@@ -98,6 +98,32 @@ or any cert config on top of it.
    `scripts/backup.sh`'s bare-metal cron job expected an off-box copy. See
    the Backups section below.
 
+## Going live (selling the themes)
+
+Everything server-side already works end-to-end (webhook -> key -> /success
+page + optional email). Going live is DATA: real Stripe objects and their ids
+in two places. `scripts/setup-stripe.mjs` creates all of it in one idempotent
+command:
+
+1. In Coolify, set `STRIPE_API_KEY` to the LIVE secret key (`sk_live_...`)
+   and redeploy so the container has it. (Run with the test key first for a
+   full dry run — the script builds the identical store in test mode.)
+2. In the container Terminal: `node scripts/setup-stripe.mjs`. It creates —
+   or finds, on rerun — the four products (Themes Pass $12.50; Terminal /
+   Dither / Kawaii $2.50), their prices, Payment Links redirecting to
+   `/success?session_id={CHECKOUT_SESSION_ID}`, and the `/webhook` endpoint
+   for `checkout.session.completed`.
+3. **The webhook signing secret prints ONCE, at creation** — set it as
+   `STRIPE_WEBHOOK_SECRET` in Coolify immediately and redeploy.
+4. Paste the script's final JSON back into the repo: `priceIds` +
+   `passPriceIds` into `catalog.json` (this file is ALSO the Pass's
+   entitlement list — keep every sellable theme in it), and the Payment Link
+   URLs into the app's `themePacks.ts` `buyUrl`s / `THEMES_PASS.buyUrl`.
+   Commit, redeploy keybox, ship an app release.
+5. Verify with a real (or test-mode) purchase: link -> pay -> /success shows
+   a key -> paste into the app -> theme commits. `node scripts/admin.mjs
+   list` shows the minted key with the buyer's email.
+
 ## Admin CLI (see / mint / revoke keys)
 
 The keys live in `/data/keybox.db` and the slim image has no `sqlite3` CLI and
