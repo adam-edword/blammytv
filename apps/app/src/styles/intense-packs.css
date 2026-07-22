@@ -457,3 +457,57 @@
   text-shadow: 0 0 8px rgba(242, 160, 194, 0.8);
   transition: text-shadow 140ms ease;
 }
+
+/* ============================ Streamy ============================
+   A loving nod to that other streaming client: the deep indigo board,
+   surfaces a half-step more violet, the signature purple accent (paired —
+   #7b5bf5 applies via the option-3 accent pairing unless the user has
+   their own), and the same type family the real thing uses (Plus Jakarta
+   Sans). A soft violet glow crowns the top of the board via the seam.
+   Dark-only. */
+:root[data-theme-pack="streamy"] {
+  --bg: #0c0a1f;
+  --surface: #1a1740;
+  --surface-track: #120f30;
+  --surface-puck: #221e50;
+  --surface-raised: #2b2660;
+  --border: rgba(123, 91, 245, 0.16);
+  --border-strong: rgba(123, 91, 245, 0.26);
+  --border-raised: #3d3576;
+  --border-input: rgba(123, 91, 245, 0.18);
+  --card-glass:
+    linear-gradient(rgba(123, 91, 245, 0.1), rgba(123, 91, 245, 0.1)),
+    linear-gradient(rgba(12, 10, 31, 0.6), rgba(12, 10, 31, 0.6));
+  --text: #f2f1f9;
+  --text-muted: #8f8bb0;
+  --text-dim: #46436b;
+  --text-ghost: rgba(242, 241, 249, 0.2);
+  color-scheme: dark;
+
+  /* Font (a) — Plus Jakarta Sans everywhere, like the real client. */
+  --font-headline: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  --font-text: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+
+  /* Background (b) — the board's crowning violet glow, top center. */
+  --pack-bg-image:
+    radial-gradient(60vmax 34vmax at 50% -6%, rgba(123, 91, 245, 0.22), transparent 70%),
+    radial-gradient(46vmax 30vmax at 88% 104%, rgba(90, 60, 200, 0.14), transparent 70%);
+  --pack-bg-size: 100% 100%, 100% 100%;
+  --pack-bg-opacity: 1;
+}
+
+/* Hovers (c) — a quiet violet ring, the client's focused-card read. */
+:root[data-theme-pack="streamy"] .stream-card:hover,
+:root[data-theme-pack="streamy"] .continue-card:hover,
+:root[data-theme-pack="streamy"] .vod-more__card:hover {
+  box-shadow:
+    0 0 0 1.5px rgba(123, 91, 245, 0.65),
+    0 0 16px rgba(123, 91, 245, 0.3);
+  transition: box-shadow 140ms ease, transform 140ms ease;
+}
+
+:root[data-theme-pack="streamy"] .guide__cell:hover {
+  filter: none;
+  box-shadow: inset 0 0 0 1.5px rgba(123, 91, 245, 0.55);
+  transition: box-shadow 140ms ease;
+}

@@ -35,6 +35,9 @@ importers:
       '@fontsource/fredoka':
         specifier: ^5.2.10
         version: 5.2.10
+      '@fontsource/plus-jakarta-sans':
+        specifier: ^5.3.0
+        version: 5.3.0
       '@fontsource/stack-sans-headline':
         specifier: ^5.2.1
         version: 5.2.1
@@ -361,6 +364,9 @@ packages:
 
   '@fontsource/fredoka@5.2.10':
     resolution: {integrity: sha512-DyzPCmTf0PkBbAu+gNvnPzfD/dYIXlyp+Zcb76jEQyt/vmRKGZgkH8FFF9W2sICDaA5p+GLk1XGFjWh5PPX+lg==}
+
+  '@fontsource/plus-jakarta-sans@5.3.0':
+    resolution: {integrity: sha512-9WRw3G74Ve4cyPApAZSXLPY5DiLOZXDn7Q7dIBjFBpA0Pj56ljDItEdy2UUajjJxRuTg2HkMLO5C3K2nAQORWg==}
 
   '@fontsource/stack-sans-headline@5.2.1':
     resolution: {integrity: sha512-rzY0whRXQAaz5qWB3wdsjdI6Y4PsuZEwKk8lijrVVc41sNOutDHvvG8wBQ2rX139g6KNQQcq1slSvGw7U3V5Yw==}
@@ -1912,6 +1918,8 @@ snapshots:
       levn: 0.4.1
 
   '@fontsource/fredoka@5.2.10': {}
+
+  '@fontsource/plus-jakarta-sans@5.3.0': {}
 
   '@fontsource/stack-sans-headline@5.2.1': {}
 

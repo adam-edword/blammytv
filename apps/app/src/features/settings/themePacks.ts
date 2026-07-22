@@ -145,6 +145,19 @@ export const INTENSE_PACKS: ReadonlyArray<ThemePackMeta> = [
     pairedAccent: "#f2a0c2",
   },
   {
+    id: "streamy",
+    name: "Streamy",
+    blurb: "That other client — deep indigo board, violet glow, familiar type.",
+    supportsLight: false,
+    preview: { bg: "#0c0a1f", surface: "#221e50", accent: "#7b5bf5" },
+    premium: true,
+    price: "$2.50",
+    // PENDING: swap for the live Payment Link after rerunning
+    // setup-stripe.mjs (streamy was added to its ITEMS).
+    buyUrl: "https://buy.stripe.com/PENDING_STREAMY",
+    pairedAccent: "#7b5bf5",
+  },
+  {
     // The secret supporters theme — classic + the site's drifting rainbow
     // aura. Pass-exclusive: no buyUrl (never sold per-theme), passOnly hides
     // it until a Themes Pass is active.

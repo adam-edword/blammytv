@@ -35,3 +35,7 @@ import "@fontsource/syne/700.css";
 import "@fontsource/fredoka/400.css";
 import "@fontsource/fredoka/600.css";
 import "@fontsource/fredoka/700.css";
+// Streamy's face — the same family the real client uses.
+import "@fontsource/plus-jakarta-sans/400.css";
+import "@fontsource/plus-jakarta-sans/600.css";
+import "@fontsource/plus-jakarta-sans/700.css";

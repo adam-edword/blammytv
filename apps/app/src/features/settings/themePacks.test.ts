@@ -100,6 +100,7 @@ describe("themePacks", () => {
       "terminal",
       "dither",
       "kawaii",
+      "streamy",
       "supporter",
     ]);
     for (const p of INTENSE_PACKS) expect(p.premium).toBe(true);

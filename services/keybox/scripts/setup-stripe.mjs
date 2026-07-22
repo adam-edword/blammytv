@@ -34,6 +34,7 @@ const ITEMS = [
   { key: "terminal", name: "BlammyTV Theme — Terminal", amount: 250 },
   { key: "dither", name: "BlammyTV Theme — Dither", amount: 250 },
   { key: "kawaii", name: "BlammyTV Theme — Kawaii", amount: 250 },
+  { key: "streamy", name: "BlammyTV Theme — Streamy", amount: 250 },
 ];
 
 async function findProduct(itemKey) {
