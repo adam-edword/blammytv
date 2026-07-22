@@ -1577,7 +1577,7 @@ function Hero({
                 // card covering its footprint at full lean.
                 scale={reducedMotion ? 1 : 1.005}
                 perspective={2500}
-                transitionSpeed={650}
+                transitionSpeed={1000}
               >
               {(item.backdrop ?? item.poster) && (
                 <img
