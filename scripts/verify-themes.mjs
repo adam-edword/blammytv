@@ -73,8 +73,8 @@ const readState = (page) => page.evaluate(() => ({
   check("clicking it opens the Themes panel AND closes Settings", themesUp && settingsGone);
 
   const freeIds = await page.locator(".themes-shelf__row").first().locator(".tcard").evaluateAll((els) => els.map((e) => e.getAttribute("data-pack")).sort());
-  check("the Free shelf shows slate/classic/void/paper/nebula",
-    ["slate", "classic", "void", "paper", "nebula"].every((id) => freeIds.includes(id)), JSON.stringify(freeIds));
+  check("the Free shelf shows slate/classic/void/paper/streamy",
+    ["slate", "classic", "void", "paper", "streamy"].every((id) => freeIds.includes(id)), JSON.stringify(freeIds));
   check("BlammyTV (slate) is the active card by default", await isActive(page, "slate"));
   await page.close();
 }

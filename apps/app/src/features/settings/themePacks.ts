@@ -38,10 +38,6 @@ export type ThemePackMeta = {
    * machine holds a Themes Pass (no preview, no per-theme purchase). Also
    * draws the supporter heart on its card. */
   passOnly?: boolean;
-  /** Premium-SHELF theme that costs nothing: listed and styled with the
-   * premium roster, but owned by everyone (license.ts ownsPack) — picking
-   * it commits like a free pack. No price/buyUrl. */
-  freebie?: boolean;
   /** SUGGESTED accent (option-3 pairing): committing this pack applies the
    * hex — but only while the accent is still the default red or another
    * pack's pairing. A hand-picked accent is never touched (accent.ts,
@@ -102,11 +98,14 @@ export const THEME_PACKS: ReadonlyArray<ThemePackMeta> = [
     },
   },
   {
-    id: "nebula",
-    name: "Nebula",
-    blurb: "Deep violet-noir with a faint stellar haze.",
+    // Free, but built on the widened contract (fonts + seam gradient live
+    // in intense-packs.css) — free vs paid is metadata, not CSS location.
+    id: "streamy",
+    name: "Streamy",
+    blurb: "That other client — deep indigo board, violet glow, familiar type.",
     supportsLight: false,
-    preview: { bg: "#0a0612", surface: "#1f1430", accent: PREVIEW_ACCENT },
+    preview: { bg: "#131126", surface: "#1d1a38", accent: "#7b5bf5" },
+    pairedAccent: "#7b5bf5",
   },
 ];
 
@@ -147,16 +146,6 @@ export const INTENSE_PACKS: ReadonlyArray<ThemePackMeta> = [
     price: "$2.50",
     buyUrl: "https://buy.stripe.com/cNi4gs42v7DZ773bmQ0Fi04",
     pairedAccent: "#f2a0c2",
-  },
-  {
-    id: "streamy",
-    name: "Streamy",
-    blurb: "That other client — deep indigo board, violet glow, familiar type.",
-    supportsLight: false,
-    preview: { bg: "#131126", surface: "#1d1a38", accent: "#7b5bf5" },
-    premium: true,
-    freebie: true,
-    pairedAccent: "#7b5bf5",
   },
   {
     // The secret supporters theme — classic + the site's drifting rainbow
