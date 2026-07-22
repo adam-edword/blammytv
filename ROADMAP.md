@@ -529,12 +529,15 @@ logo.svg swap + the drop-woff Vite plugin — and the CSS quality batch:
 status tokens, glass dedup, supporter hover + !important trim), plus all of
 P1 (playMeta/Card render storms, Stream-empty state, Continue-Watching
 keyboard, playlist arm/confirm delete, tooltips, disabled no-op buttons).
-**Still open: the P2 tier** (retry buttons on Stream/Discover errors,
-Discover failure-vs-empty, focus-visible theming outside Live, ChipTabs
-ARIA, quick-resume silent failure, credential-scrubber tests, sidebar
-memoization, the two TTL-cache implementations, Card/RowScroller extraction,
-z-index scale, glass-chip dedup, dither/kawaii occluders — that last one is
-a per-pack design call, not mechanical). To-do, in no order yet:
+**P2 executed same day (v0.6.3, commits ebb7e91..ad1e56e):** scrubber +
+stremio-path tests, retry buttons everywhere Live had one, Discover
+failure-vs-empty honesty, quick-resume/episodes silent failures fixed,
+app-wide themed focus ring + chip aria-pressed, SidebarSources memoized.
+**Still open (refactor-grade, unscheduled):** the two TTL-cache
+implementations, Card/RowScroller extraction out of StreamScreen, popout
+wiring dedup, z-index scale, the 5x glass-chip recipe, brand-gradient
+dedup — and the dither/kawaii occluders, a per-pack design call for Adam,
+not mechanical. To-do, in no order yet:
 
 - [ ] **Right-click to hide a source folder.** Right-clicking a playlist
       source folder in the Live sidebar (e.g. "4K / UHD Channels") offers
