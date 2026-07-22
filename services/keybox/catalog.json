@@ -51,8 +51,8 @@
       "blurb": "That other client — deep indigo board, violet glow, familiar type.",
       "supportsLight": false,
       "preview": {
-        "bg": "#0c0a1f",
-        "surface": "#221e50",
+        "bg": "#0d0b1e",
+        "surface": "#1d1a38",
         "accent": "#7b5bf5"
       },
       "priceIds": []

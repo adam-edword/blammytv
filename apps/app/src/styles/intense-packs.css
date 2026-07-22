@@ -488,10 +488,17 @@
   --font-headline: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
   --font-text: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
 
-  /* Background (b) — the board's crowning violet glow, top center. */
+  /* Background (b) — the client's board gradient: a violet wash strongest
+     at the top, fading down into the navy ground, plus a soft crown glow.
+     Alpha layers over flat --bg so solid occluders stay seamless. */
   --pack-bg-image:
-    radial-gradient(60vmax 34vmax at 50% -6%, rgba(123, 91, 245, 0.22), transparent 70%),
-    radial-gradient(46vmax 30vmax at 88% 104%, rgba(90, 60, 200, 0.14), transparent 70%);
+    linear-gradient(
+      180deg,
+      rgba(88, 76, 160, 0.24) 0%,
+      rgba(88, 76, 160, 0.08) 36%,
+      transparent 62%
+    ),
+    radial-gradient(60vmax 34vmax at 50% -6%, rgba(123, 91, 245, 0.16), transparent 70%);
   --pack-bg-size: 100% 100%, 100% 100%;
   --pack-bg-opacity: 1;
 }
