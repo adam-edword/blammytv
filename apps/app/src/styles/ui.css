@@ -145,6 +145,36 @@
   }
 }
 
+/* ---- Keyboard focus — the Live a11y batch's themed ring, app-wide.
+ * Live's own list stays in live.css; this covers the surfaces the
+ * v0.1.98 pass never reached (Stream, Discover, My List, header,
+ * settings). :focus-visible only — no ring on plain mouse clicks. */
+.stream-card:focus-visible,
+.continue-card:focus-visible,
+.shero__card:focus-visible,
+.shero__btn-quiet:focus-visible,
+.genre-card:focus-visible,
+.chip-tabs__tab:focus-visible,
+.header__tab:focus-visible,
+.header__action:focus-visible,
+.header__search:focus-visible,
+.header__searchinput:focus-visible,
+.vod-source:focus-visible,
+.vod-sources__retry:focus-visible,
+.vod-back:focus-visible,
+.season-chip:focus-visible,
+.episode-card:focus-visible,
+.media-row__arrow:focus-visible,
+.continue-card__sources-btn:focus-visible,
+.btn-primary:focus-visible,
+.btn-danger:focus-visible,
+.playlist-row__delete:focus-visible,
+.settings-input:focus-visible,
+.settings__close:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* Visually hidden, screen-reader audible — the skeleton grids' status
  * line (aria-hidden art needs a textual twin). */
 .vh {

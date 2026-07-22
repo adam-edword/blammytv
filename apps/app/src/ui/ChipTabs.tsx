@@ -80,6 +80,7 @@ export function ChipTabs<K extends string>({
           type="button"
           data-tab={tab.key}
           aria-label={tab.ariaLabel}
+          aria-pressed={tab.key === active}
           className={
             "chip-tabs__tab" + (tab.key === active ? " chip-tabs__tab--active" : "")
           }

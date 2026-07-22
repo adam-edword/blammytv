@@ -2334,6 +2334,7 @@ function Episodes({
                   className={
                     "season-chip" + (i === seasonIdx ? " season-chip--on" : "")
                   }
+                  aria-pressed={i === seasonIdx}
                   onClick={() => {
                     pickedSeasonRef.current = true; // user override wins
                     setSeasonIdx(i);
