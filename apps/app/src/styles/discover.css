@@ -38,7 +38,7 @@
   display: grid;
   place-items: center;
   cursor: pointer;
-  transition: transform var(--dur-hover) ease;
+  transition: transform 160ms var(--ease-out);
 }
 .genre-card:hover {
   transform: translateY(-3px);
@@ -154,4 +154,10 @@
   font-family: var(--font-headline);
   font-weight: 600;
   font-size: 28px;
+}
+
+/* ---- Press feedback (motion plan 001): settles from the -3px hover
+ * lift, not a jump to origin. ---- */
+.genre-card:active {
+  transform: translateY(-1px) scale(0.98);
 }

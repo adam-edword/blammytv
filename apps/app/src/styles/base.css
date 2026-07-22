@@ -366,7 +366,6 @@ button {
   position: absolute;
   left: calc(100% + 6px);
   top: 50%;
-  transform: translateY(-50%);
   /* AppHeader measures the real gap to the right controls on open and
    * writes --search-w (zoom-corrected); the fallback covers the
    * blurred-with-query state before any measure. */
@@ -379,7 +378,12 @@ button {
   font-size: 12px;
   opacity: 0;
   pointer-events: none;
-  transition: opacity var(--dur-hover) ease;
+  /* Reveal slides 6px out of its chip (motion plan 002) — the translateY
+   * is the vertical centering and must ride along in every state. */
+  transform: translateY(-50%) translateX(-6px);
+  transition:
+    opacity var(--dur-hover) ease,
+    transform 150ms var(--ease-out);
 }
 /* Hover teases the placeholder at half strength; focus — and any typed
  * query — goes full, so an active search never renders invisible. */
@@ -391,6 +395,7 @@ button {
   .header__searchinput {
   opacity: 1;
   pointer-events: auto;
+  transform: translateY(-50%) translateX(0);
 }
 .header__searchchip:has(.header__searchinput:not(:placeholder-shown)) {
   opacity: 1;
@@ -421,7 +426,8 @@ button {
   font-size: 21px;
   letter-spacing: 0.42px;
   opacity: 0.3;
-  transition: opacity var(--dur-hover) ease;
+  transition: opacity var(--dur-hover) ease,
+    transform 160ms var(--ease-out);
 }
 
 .header__tab:hover {
@@ -577,7 +583,20 @@ button {
         #85cbd4, #84ffa9, #c1f294, #ffe57f, #ff9b9b
       ) border-box;
   animation: update-ring-turn 9s linear infinite;
-  transition: filter var(--dur-hover) ease;
+  transition: filter var(--dur-hover) ease,
+    transform 160ms var(--ease-out);
+
+  transform-origin: top center;
+  /* Entrance (motion plan 002). Close stays instant — deliberate. */
+  transition:
+    opacity 260ms var(--ease-out),
+    transform 260ms var(--ease-out);
+}
+@starting-style {
+  .update-chip {
+    opacity: 0;
+    transform: scale(0.9) translateY(-4px);
+  }
 }
 .update-chip:hover { filter: brightness(1.25); }
 .update-chip--busy { cursor: progress; }
@@ -601,4 +620,24 @@ button {
 
 @media (prefers-reduced-motion: reduce) {
   .update-chip, .update-chip__dot { animation: none; }
+}
+
+/* ---- Press feedback (motion plan 001). ---- */
+.header__tab:active {
+  transform: scale(0.97);
+}
+.update-chip:active {
+  transform: scale(0.97);
+}
+
+/* Reduced motion: the update chip's entrance keeps its fade only. */
+@media (prefers-reduced-motion: reduce) {
+  .update-chip {
+    transition: opacity 260ms var(--ease-out);
+  }
+  @starting-style {
+    .update-chip {
+      transform: none;
+    }
+  }
 }

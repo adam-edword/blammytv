@@ -73,7 +73,8 @@
   opacity: 0.45;
   transition:
     opacity var(--dur-hover) ease,
-    background var(--dur-hover) ease;
+    background var(--dur-hover) ease,
+    transform 160ms var(--ease-out);
 }
 
 .live-collapse:hover {
@@ -136,7 +137,8 @@
   font-size: 15px;
   color: var(--text);
   opacity: 0.5;
-  transition: opacity var(--dur-hover) ease;
+  transition: opacity var(--dur-hover) ease,
+    transform 160ms var(--ease-out);
 }
 
 .mode-rail__chip:hover {
@@ -465,7 +467,8 @@
   cursor: pointer;
   transition:
     border-color var(--dur-hover) ease,
-    background var(--dur-hover) ease;
+    background var(--dur-hover) ease,
+    transform 160ms var(--ease-out);
 }
 
 .live-status__retry:hover {
@@ -594,7 +597,8 @@
   border: 1px solid var(--border);
   border-radius: 20px;
   overflow: hidden;
-  transition: border-color var(--dur-hover) ease;
+  transition: border-color var(--dur-hover) ease,
+    transform 160ms var(--ease-out);
 }
 
 /* No visual selected state on channel cards — the hero (and later the
@@ -670,7 +674,8 @@
   height: 24px;
   color: var(--text); /* the ghost fills with currentColor */
   opacity: 0;
-  transition: opacity var(--dur-hover) ease;
+  transition: opacity var(--dur-hover) ease,
+    transform 160ms var(--ease-out);
 }
 
 .guide__channel:hover .guide__fav,
@@ -715,7 +720,8 @@
   border: 1.5px solid color-mix(in srgb, var(--text) 4%, transparent);
   border-radius: 20px;
   overflow: hidden;
-  transition: filter var(--dur-hover) ease;
+  transition: filter var(--dur-hover) ease,
+    transform 160ms var(--ease-out);
 }
 
 .guide__cell:hover {
@@ -1071,4 +1077,24 @@
 .guide-resize:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
+}
+
+/* ---- Press feedback (motion plan 001). Cards/cells 0.98, chips 0.97,
+ * the tiny star dips deeper to read; its press composes with the
+ * centering translate. ---- */
+.guide__cell:active {
+  transform: scale(0.98);
+}
+.guide__card:active {
+  transform: scale(0.98);
+}
+.mode-rail__chip:active {
+  transform: scale(0.97);
+}
+.live-collapse:active,
+.live-status__retry:active {
+  transform: scale(0.97);
+}
+.guide__fav:active {
+  transform: translateY(-68%) scale(0.9);
 }

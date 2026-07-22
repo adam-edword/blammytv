@@ -31,6 +31,18 @@
   border-radius: 26px;
   padding: 32px 39px;
   box-shadow: 0 -13px 72.6px rgba(0, 0, 0, 0.73);
+  /* Entrance (motion plan 002): grows from the top-right, toward the
+   * gear that opened it. Close stays instant — deliberate asymmetry. */
+  transform-origin: top right;
+  transition:
+    opacity var(--dur-enter) var(--ease-out),
+    transform var(--dur-enter) var(--ease-out);
+}
+@starting-style {
+  .settings {
+    opacity: 0;
+    transform: scale(0.97) translateY(-8px);
+  }
 }
 
 /* Frost unavailable (older bundled mpv / vo without PARAM shaders) while
@@ -60,7 +72,8 @@
   display: grid;
   place-items: center;
   opacity: 0.3;
-  transition: opacity var(--dur-hover) ease;
+  transition: opacity var(--dur-hover) ease,
+    transform 160ms var(--ease-out);
 }
 
 .settings__close:hover {
@@ -325,6 +338,17 @@
   border: 1px solid var(--border-strong);
   border-radius: 16px;
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+
+  transform-origin: top right;
+  transition:
+    opacity 150ms var(--ease-out),
+    transform 150ms var(--ease-out);
+}
+@starting-style {
+  .accent-popover {
+    opacity: 0;
+    transform: scale(0.95) translateY(-4px);
+  }
 }
 
 .accent-popover .react-colorful {
@@ -495,7 +519,8 @@
   padding: 8px 14px;
   transition:
     filter var(--dur-hover) ease,
-    background var(--dur-hover) ease;
+    background var(--dur-hover) ease,
+    transform 160ms var(--ease-out);
 }
 
 .btn-danger:hover {
@@ -576,7 +601,8 @@
   font-size: 13px;
   color: var(--text);
   cursor: pointer;
-  transition: filter var(--dur-hover) ease;
+  transition: filter var(--dur-hover) ease,
+    transform 160ms var(--ease-out);
 }
 
 .source-tools__discard:hover,
@@ -715,6 +741,17 @@
   border: 1px solid var(--border-strong);
   border-radius: 16px;
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+
+  transform-origin: top left;
+  transition:
+    opacity 150ms var(--ease-out),
+    transform 150ms var(--ease-out);
+}
+@starting-style {
+  .chip-select__menu {
+    opacity: 0;
+    transform: scale(0.95) translateY(-4px);
+  }
 }
 
 .chip-select__option {
@@ -834,7 +871,8 @@
   display: grid;
   place-items: center;
   opacity: 0.5;
-  transition: opacity var(--dur-hover) ease;
+  transition: opacity var(--dur-hover) ease,
+    transform 160ms var(--ease-out);
 }
 
 .playlist-row__delete:hover {
@@ -1053,4 +1091,36 @@
 .settings .accent-popover__hex input {
   background: color-mix(in srgb, #000000 65%, transparent);
   backdrop-filter: blur(14px);
+}
+
+/* ---- Press feedback (motion plan 001). Tiny icons dip deeper (0.9);
+ * the custom accent chip keeps its documented transform:none. ---- */
+.settings__close:active,
+.playlist-row__delete:active,
+.accent-swatch:active {
+  transform: scale(0.9);
+}
+.btn-danger:active,
+.source-tools__discard:active,
+.source-tools__all:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.accent-custom .accent-swatch:active {
+  transform: none;
+}
+
+/* Reduced motion: entrances keep their fade, drop the movement. */
+@media (prefers-reduced-motion: reduce) {
+  .settings,
+  .accent-popover,
+  .chip-select__menu {
+    transition: opacity var(--dur-enter) var(--ease-out);
+  }
+  @starting-style {
+    .settings,
+    .accent-popover,
+    .chip-select__menu {
+      transform: none;
+    }
+  }
 }

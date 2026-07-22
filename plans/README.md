@@ -12,8 +12,8 @@ Run with `improve-animations execute <plan>` or hand to any agent.
 
 | Plan | Title | Severity | Status |
 | --- | --- | --- | --- |
-| [001](001-press-feedback.md) | Add press feedback to every pressable surface | HIGH | TODO |
-| [002](002-overlay-popover-entrances.md) | Give every overlay, popover, and chip a real entrance | HIGH | TODO |
+| [001](001-press-feedback.md) | Add press feedback to every pressable surface | HIGH | DONE (wave B) |
+| [002](002-overlay-popover-entrances.md) | Give every overlay, popover, and chip a real entrance | HIGH | DONE (wave B; feel-gate = the @starting-style WebView2 smoke test) |
 | [003](003-vod-source-panel-transitions.md) | Make the VOD source panel interruptible, with a real exit | MEDIUM | TODO |
 | [004](004-motion-tokens.md) | Motion tokens: shared easing curves and duration tiers | HIGH | DONE (wave A) |
 | [005](005-thumb-physics.md) | Unify sliding-thumb physics; Toggle off layout properties | HIGH | DONE (wave A; feel-gate: ChipTabs thumb 300→380ms per Adam — spring kept, on watch) |

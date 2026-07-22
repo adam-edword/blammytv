@@ -34,7 +34,7 @@
   border: 1.5px solid transparent;
   transition:
     filter var(--dur-hover) ease,
-    transform var(--dur-hover) ease;
+    transform 160ms var(--ease-out);
 }
 /* Brightness only — a translate here got clipped by the settings body's
  * scroll box (the launcher is its first child, flush with the clip edge). */
@@ -172,7 +172,8 @@
   cursor: pointer;
   transition:
     opacity var(--dur-hover) ease,
-    background var(--dur-hover) ease;
+    background var(--dur-hover) ease,
+    transform 160ms var(--ease-out);
 }
 .theme-pill__seg:hover {
   opacity: 0.85;
@@ -245,7 +246,7 @@
   border: 1px solid var(--border);
   transition:
     box-shadow var(--dur-hover) ease,
-    transform var(--dur-hover) ease;
+    transform 160ms var(--ease-out);
 }
 .tcard--premium .tcard__art {
   height: 183px;
@@ -570,4 +571,33 @@
 .themes-pass__heart {
   color: #ff7bf6;
   vertical-align: -3px;
+}
+
+/* ---- Press feedback (motion plan 001): settles from the -2px hover
+ * lift, not a jump to origin. ---- */
+.tcard:active .tcard__art {
+  transform: translateY(-1px) scale(0.98);
+}
+.theme-pill__seg:active,
+.themes-launch:active {
+  transform: scale(0.98);
+}
+
+/* Entrance (motion plan 002): the Themes card rides .settings' entrance
+ * but is a CENTERED modal — origin resets to center, no translate. */
+.themes-modal {
+  transform-origin: center;
+}
+@starting-style {
+  .themes-modal {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  @starting-style {
+    .themes-modal {
+      transform: none;
+    }
+  }
 }

@@ -22,7 +22,8 @@
   border-radius: var(--radius-chip);
   color: var(--text);
   opacity: 0.5;
-  transition: opacity var(--dur-hover) ease;
+  transition: opacity var(--dur-hover) ease,
+    transform 160ms var(--ease-out);
 }
 
 .chip-tabs__tab:hover,
@@ -130,7 +131,8 @@
   border: 0.5px solid var(--accent);
   border-radius: 25px;
   padding: 9px 14px;
-  transition: filter var(--dur-hover) ease, opacity var(--dur-hover) ease;
+  transition: filter var(--dur-hover) ease, opacity var(--dur-hover) ease,
+    transform 160ms var(--ease-out);
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -348,4 +350,24 @@
   -webkit-background-clip: initial;
   background-clip: initial;
   color: var(--accent);
+}
+
+/* ---- Press feedback (motion plan 001): scale-down only — shrinking
+ * never clips inside scroll boxes. Small controls 0.97, thumb dips
+ * deeper (it's 26px). The dip rides the thumb's own spring so press
+ * and slide share one motion. ---- */
+.chip-tabs__tab:active {
+  transform: scale(0.97);
+}
+.btn-primary:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.toggle:active .toggle__thumb {
+  transform: scale(0.94);
+}
+.toggle--on:active .toggle__thumb {
+  transform: translateX(22px) scale(0.94);
+}
+.toggle--sm.toggle--on:active .toggle__thumb {
+  transform: translateX(16px) scale(0.94);
 }
