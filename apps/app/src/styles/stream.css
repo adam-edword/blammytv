@@ -135,6 +135,12 @@
   position: absolute;
   inset: 0;
 }
+/* Glare exists on every slide (the lib only creates it when enabled at
+ * MOUNT, and slides mount non-active — so the prop can't gate by card).
+ * Visibility gates here instead: only the center card gets the sheen. */
+.shero__card:not(.shero__card--active) .shero__tilt .glare-wrapper {
+  display: none;
+}
 .shero__art {
   position: absolute;
   inset: 0;

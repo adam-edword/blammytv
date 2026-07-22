@@ -1579,9 +1579,14 @@ function Hero({
                 perspective={2500}
                 transitionSpeed={1000}
                 // Faint — text and buttons live on this card, so the
-                // sheen must never read as glare over UI.
-                glareEnable={active && !reducedMotion}
-                glareMaxOpacity={0.08}
+                // sheen must never read as glare over UI. MUST be
+                // constant: the lib creates the glare element only if
+                // enabled AT MOUNT, and slides mount non-active (the
+                // pre-decode window) — so gating on `active` here means
+                // no glare ever exists. CSS hides it on non-active
+                // cards instead (.shero__card rule).
+                glareEnable={!reducedMotion}
+                glareMaxOpacity={0.12}
                 glarePosition="all"
                 glareBorderRadius="60px"
               >
