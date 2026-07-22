@@ -518,7 +518,10 @@ Settings, favorites drag-handle UI (data layer shipped v0.1.133).
 ## 0.7.0 — the polish push (branch `blammytv-0.7.0-push`, Adam 2026-07-22)
 
 v0.6.0 (Apple TV parallax) shipped. This cycle is small features and edits
-that really polish the app. To-do, in no order yet:
+that really polish the app. **Full polish audit ran 2026-07-22** (6 dimensions,
+adversarially verified, 53 findings): `docs/polish-audit-0.7.0.md` — P1 is
+user-visible small fixes, P2 scheduled work, P3 a mechanical hygiene batch.
+An animations audit ran separately (Adam's session). To-do, in no order yet:
 
 - [ ] **Right-click to hide a source folder.** Right-clicking a playlist
       source folder in the Live sidebar (e.g. "4K / UHD Channels") offers
