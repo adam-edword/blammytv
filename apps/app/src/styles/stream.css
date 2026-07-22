@@ -71,17 +71,21 @@
   border-radius: 90px;
   pointer-events: none;
   opacity: 0.8; /* Adam's final trim on the whole light layer */
-  /* Feathered window: the box reaches ~90px past the card on the sides
-   * and ~52px vertically, and the feather eats only the outer half of
-   * that — so a real halo band survives at strength. (The first feather
-   * pass swallowed the whole halo: 70px falloff on a 24px overscan.) */
+  /* Feathered window. The feather now spans the WHOLE overscan (210px
+   * sides / ~112px vertical) and keeps fading under the card: the old
+   * 180/120px feathers left a full-strength halo band whose plateau
+   * edge — plus the fade running out in a straight line — read as a
+   * masked rectangle on bright backdrops (Adam, the Ponyo sky). With
+   * the fade starting at the card edge there is no plateau to trace;
+   * cost is a slightly dimmer halo at the rim (bump the box opacity
+   * above if it reads too faint now). */
   -webkit-mask-image:
-    linear-gradient(to right, transparent, #000 180px, #000 calc(100% - 180px), transparent),
-    linear-gradient(to bottom, transparent, #000 120px, #000 calc(100% - 120px), transparent);
+    linear-gradient(to right, transparent, #000 280px, #000 calc(100% - 280px), transparent),
+    linear-gradient(to bottom, transparent, #000 170px, #000 calc(100% - 170px), transparent);
   -webkit-mask-composite: source-in;
   mask-image:
-    linear-gradient(to right, transparent, #000 180px, #000 calc(100% - 180px), transparent),
-    linear-gradient(to bottom, transparent, #000 120px, #000 calc(100% - 120px), transparent);
+    linear-gradient(to right, transparent, #000 280px, #000 calc(100% - 280px), transparent),
+    linear-gradient(to bottom, transparent, #000 170px, #000 calc(100% - 170px), transparent);
   mask-composite: intersect;
 }
 .shero__glowtrack {
