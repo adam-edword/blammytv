@@ -308,7 +308,9 @@
  * CSS adds the depth cue — a shadow that swells while the poster floats. */
 .stream-card__tilt {
   border-radius: 25px;
-  transition: box-shadow 300ms ease;
+  /* 650ms-ish settle, matched to the Tilt transitionSpeed — the shadow
+   * swells at the same pace the poster leans in. */
+  transition: box-shadow 450ms ease;
 }
 .stream-card:hover .stream-card__tilt {
   box-shadow: 0 14px 32px -12px color-mix(in srgb, #000 45%, transparent);
