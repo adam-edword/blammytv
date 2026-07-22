@@ -53,6 +53,9 @@ importers:
       '@fontsource/vt323':
         specifier: ^5.2.7
         version: 5.2.7
+      '@tauri-apps/api':
+        specifier: ^2.11.0
+        version: 2.11.0
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -66,9 +69,6 @@ importers:
         specifier: ^1.7.333
         version: 1.7.333(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
     devDependencies:
-      '@tauri-apps/api':
-        specifier: ^2.11.0
-        version: 2.11.0
       '@tauri-apps/cli':
         specifier: ^2.11.2
         version: 2.11.2

@@ -175,7 +175,7 @@ export function AppHeader({
         {/* Logo + wordmark grouped so their gap tunes independently of the
           * clock's spacing off the lockup. */}
         <div className="header__lockup">
-          <img className="header__logo" src="/logo.png" alt="" />
+          <img className="header__logo" src="/logo.svg" alt="" />
           <div className="header__title">
             <span className="header__name">BlammyTV</span>
             <span className="header__version">v{APP_VERSION}</span>
