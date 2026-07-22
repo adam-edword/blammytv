@@ -74,7 +74,10 @@
   /* Feathered window: the box reaches ~90px past the card on the sides
    * and ~52px vertically, and the feather eats only the outer half of
    * that — so a real halo band survives at strength. (The first feather
-   * pass swallowed the whole halo: 70px falloff on a 24px overscan.) */
+   * pass swallowed the whole halo: 70px falloff on a 24px overscan.)
+   * Don't chase halo-shape artifacts here — the "bright rim on hover"
+   * was the tilted card's projection exposing the glow behind its own
+   * edge; the Tilt scale bump covers it (see Hero). */
   -webkit-mask-image:
     linear-gradient(to right, transparent, #000 180px, #000 calc(100% - 180px), transparent),
     linear-gradient(to bottom, transparent, #000 120px, #000 calc(100% - 120px), transparent);
@@ -125,6 +128,19 @@
   transform: translateZ(0);
 }
 .shero__card--active { cursor: pointer; }
+/* The Apple TV lean's transform surface: fills the slide, so the art/
+ * scrim/text inside keep their exact geometry. react-parallax-tilt owns
+ * this element's transform — the slide div above stays carousel-only. */
+.shero__tilt {
+  position: absolute;
+  inset: 0;
+}
+/* Glare exists on every slide (the lib only creates it when enabled at
+ * MOUNT, and slides mount non-active — so the prop can't gate by card).
+ * Visibility gates here instead: only the center card gets the sheen. */
+.shero__card:not(.shero__card--active) .shero__tilt .glare-wrapper {
+  display: none;
+}
 .shero__art {
   position: absolute;
   inset: 0;
@@ -208,7 +224,8 @@
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 41px;
-  margin-bottom: 16px;
+  /* 2px here + the scroller's 18px hover headroom = the old 16px+4px gap. */
+  margin-bottom: 2px;
 }
 /* The viewport owns the page-padding bleed + anchors scrims/arrows. */
 .media-row__viewport {
@@ -219,7 +236,10 @@
   display: flex;
   gap: 16px;
   overflow-x: auto;
-  padding: 4px 28px 10px;
+  /* Top headroom for the tilt/scale hover — a 1.04× poster grows ~9px
+   * upward and overflow-x:auto forces overflow-y to clip (spec quirk).
+   * The title's margin shrinks to keep the visual rhythm unchanged. */
+  padding: 18px 28px 10px;
 }
 /* Mid-drag: the row scrolls under the cursor — suppress hover lifts and
  * accidental selection so the gesture reads as grabbing the shelf. */
@@ -295,9 +315,23 @@
   gap: 8px;
   text-align: left;
   cursor: pointer;
-  transition: transform 140ms ease;
+  /* The tilted/scaled poster must outrank shelf neighbours, or its
+   * near edge slides UNDER the next card. */
+  position: relative;
 }
-.stream-card:hover { transform: translateY(-3px); }
+.stream-card:hover { z-index: 2; }
+/* react-parallax-tilt owns this wrapper's transform (tilt + scale + glare);
+ * CSS adds the depth cue — a shadow that swells while the poster floats. */
+.stream-card__tilt {
+  border-radius: 25px;
+  /* 650ms-ish settle, matched to the Tilt transitionSpeed — the shadow
+   * swells at the same pace the poster leans in. */
+  transition: box-shadow 450ms ease;
+}
+.stream-card:hover .stream-card__tilt {
+  box-shadow: 0 14px 32px -12px color-mix(in srgb, #000 45%, transparent);
+}
+.stream-card__poster { display: block; }
 .stream-card__poster,
 .stream-card__mono {
   width: 300px;

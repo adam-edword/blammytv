@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { CheckIcon, ChevronIcon, CloseIcon, PlayIcon } from "../../ui/icons";
+import Tilt from "react-parallax-tilt";
 import { createPortal } from "react-dom";
 import { isTauri, tauriSetFullscreen } from "../../lib/tauri";
 import { setOverlayApiOverride } from "../live/overlayApi";
@@ -1476,6 +1477,11 @@ function Hero({
   const m = heroMargin(width);
   const cardW = Math.max(0, width - 2 * m);
   const step = cardW + HERO_GAP;
+  // The hero's Apple TV lean rides an inner wrapper (see .shero__tilt) —
+  // the slide div's transform is carousel geometry and stays untouched.
+  const reducedMotion = useRef(
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+  ).current;
 
   // Window of live slots around the current one: both neighbors visible,
   // one extra each side so a slide-in mounts before it enters the frame.
@@ -1528,6 +1534,19 @@ function Hero({
       </div>
       <div
         className="shero__track"
+        // react-parallax-tilt caches each card's rect on mouseenter, and
+        // a slide moves cards WITHOUT re-firing enter (the pointer never
+        // "leaves" per the hover state) — so every slid card tilts
+        // against a rect that's stale by one step, pinning the math at
+        // its clamp (reads as a dead hover; only the never-slid first
+        // card worked). The lib re-measures on window resize, so poke
+        // that when the track's own slide settles. Guard target +
+        // property: transitionend bubbles up from the tilt wrappers.
+        onTransitionEnd={(e) => {
+          if (e.target === e.currentTarget && e.propertyName === "transform") {
+            window.dispatchEvent(new Event("resize"));
+          }
+        }}
         style={{
           transform: `translateX(${m - v * step}px)`,
           transition: animReady ? undefined : "none",
@@ -1552,6 +1571,38 @@ function Hero({
               // buttons stopPropagation, so Watch Now stays instant-play).
               onClick={() => (active ? onOpen(item) : setV(slot))}
             >
+              {/* Tilt wraps art+scrim+text but NOT the card div (its
+                * left/width + translateZ(0) are the carousel's geometry)
+                * and not the ::after glow — ambient light shouldn't
+                * rotate with the object. Active card only: a peeking
+                * neighbor pivots around an offscreen center and reads
+                * broken. At this size 0.5° is plenty (Adam — 2° read as
+                * a barn door); no scale (neighbors peek right beside
+                * it), no glare (text lives here). */}
+              <Tilt
+                className="shero__tilt"
+                tiltEnable={active && !reducedMotion}
+                tiltMaxAngleX={0.5}
+                tiltMaxAngleY={0.5}
+                // Tilting shrinks the projection on the receding side a
+                // couple px, unveiling the bright glow behind the card's
+                // own edge (read as a rim). The hair of scale keeps the
+                // card covering its footprint at full lean.
+                scale={reducedMotion ? 1 : 1.005}
+                perspective={2500}
+                transitionSpeed={1000}
+                // Faint — text and buttons live on this card, so the
+                // sheen must never read as glare over UI. MUST be
+                // constant: the lib creates the glare element only if
+                // enabled AT MOUNT, and slides mount non-active (the
+                // pre-decode window) — so gating on `active` here means
+                // no glare ever exists. CSS hides it on non-active
+                // cards instead (.shero__card rule).
+                glareEnable={!reducedMotion}
+                glareMaxOpacity={0.12}
+                glarePosition="all"
+                glareBorderRadius="60px"
+              >
               {(item.backdrop ?? item.poster) && (
                 <img
                   className="shero__art"
@@ -1612,6 +1663,7 @@ function Hero({
                   </button>
                 </div>
               </div>
+              </Tilt>
             </div>
           );
         })}
@@ -1643,20 +1695,39 @@ export function Card({
     genre: item.genres[0],
     kind: item.kind,
   });
+  // Apple TV-style pointer tilt on the poster only — the title/meta below
+  // stay planted. Angles well under the library's 20° default: the real
+  // thing is a gentle lean, not a flip. OS-level reduced-motion wins.
+  const reducedMotion = useRef(
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+  ).current;
   return (
     <button type="button" className="stream-card" onClick={() => onOpen(item)}>
-      {item.poster && !broken ? (
-        <img
-          className="stream-card__poster"
-          src={item.poster}
-          alt=""
-          loading="lazy"
-          draggable={false}
-          onError={() => setBroken(true)}
-        />
-      ) : (
-        <span className="stream-card__mono">{item.title.slice(0, 1)}</span>
-      )}
+      <Tilt
+        className="stream-card__tilt"
+        tiltEnable={!reducedMotion}
+        tiltMaxAngleX={5}
+        tiltMaxAngleY={5}
+        scale={reducedMotion ? 1 : 1.03}
+        transitionSpeed={650}
+        glareEnable={!reducedMotion}
+        glareMaxOpacity={0.12}
+        glarePosition="all"
+        glareBorderRadius="25px"
+      >
+        {item.poster && !broken ? (
+          <img
+            className="stream-card__poster"
+            src={item.poster}
+            alt=""
+            loading="lazy"
+            draggable={false}
+            onError={() => setBroken(true)}
+          />
+        ) : (
+          <span className="stream-card__mono">{item.title.slice(0, 1)}</span>
+        )}
+      </Tilt>
       <span className="stream-card__name">{item.title}</span>
       {meta && <span className="stream-card__meta">{meta}</span>}
     </button>
