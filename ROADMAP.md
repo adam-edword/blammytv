@@ -515,6 +515,21 @@ Slated for later, user-approved: ambient backdrop setting, motion toggle,
 timeshift, programme-level selection in the hero, M3U folder editor in
 Settings, favorites drag-handle UI (data layer shipped v0.1.133).
 
+## 0.7.0 — the polish push (branch `blammytv-0.7.0-push`, Adam 2026-07-22)
+
+v0.6.0 (Apple TV parallax) shipped. This cycle is small features and edits
+that really polish the app. To-do, in no order yet:
+
+- [ ] **Right-click to hide a source folder.** Right-clicking a playlist
+      source folder in the Live sidebar (e.g. "4K / UHD Channels") offers
+      "Hide folder" — one-by-one hiding without a trip to Settings. Should
+      write the same per-playlist `hiddenCategories` set the Settings
+      folder-visibility editor uses (folders + their channels + EPG drop
+      together via `source.ts#droppedCategories`) and emit the
+      playlists-change signal so Live refreshes silently. Needs a small
+      custom context menu (no native menus in the webview); include an
+      obvious un-hide path (Settings editor already lists hidden folders).
+
 **Live-tab accessibility pass — LANDED (v0.1.98).** The batch from the v0.1.71
 audit: keyboard-operable channel-column resize separator (`role=separator` +
 `tabindex` + arrow/Home/End + `aria-value*`); roving-tabindex + arrow-key
