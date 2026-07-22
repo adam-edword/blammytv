@@ -19,6 +19,7 @@ const REDUCED_MOTION = window.matchMedia(
 ).matches;
 import { createPortal } from "react-dom";
 import { isTauri, tauriSetFullscreen } from "../../lib/tauri";
+import { scrubbedMessage } from "../../lib/errors";
 import { setOverlayApiOverride } from "../live/overlayApi";
 import { InvertedPlayer } from "../live/InvertedPlayer";
 import { TheaterOverlay } from "../live/TheaterOverlay";
@@ -224,8 +225,11 @@ export function StreamScreen() {
           prev.status === "ready"
             ? prev
             : {
+                // Route through the scrubber like Discover — transport
+                // errors echo the full manifest URL (a credential) and
+                // this string renders on screen.
                 status: "error",
-                message: e instanceof Error ? e.message : String(e),
+                message: scrubbedMessage(e),
               },
         ),
     );
