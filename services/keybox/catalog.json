@@ -1,6 +1,6 @@
 {
   "passPriceIds": [
-    "price_1TvjXq6Dz0VXTJF2fPS033af"
+    "price_1TvowF65BvgMWSEiTB4ZQ9od"
   ],
   "themes": [
     {
@@ -14,7 +14,7 @@
         "accent": "#c22727"
       },
       "priceIds": [
-        "price_1TvjXr6Dz0VXTJF2ANto6Rh9"
+        "price_1TvowG65BvgMWSEieCxYn7vY"
       ]
     },
     {
@@ -28,7 +28,7 @@
         "accent": "#c22727"
       },
       "priceIds": [
-        "price_1TvjXt6Dz0VXTJF2pl2PboD5"
+        "price_1TvowI65BvgMWSEiJNmZwZSL"
       ]
     },
     {
@@ -42,7 +42,7 @@
         "accent": "#f2a0c2"
       },
       "priceIds": [
-        "price_1TvjXu6Dz0VXTJF22sm42Fss"
+        "price_1TvowJ65BvgMWSEiBm0QTIcz"
       ]
     }
   ]
