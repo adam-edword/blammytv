@@ -1,5 +1,6 @@
 import {
   Fragment,
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -188,6 +189,128 @@ function ModeRail({
   );
 }
 
+/** The source/folder rail, extracted + memoized: LiveScreen re-renders on
+ * every guide hover-preview and folded-rail tooltip move, and this list
+ * (groups x folders, splitTitleEmoji per folder) re-rendered every time.
+ * Every prop is identity-stable across preview/tip churn (useConnections
+ * documents its stable Map; the callbacks are useCallback'd), so memo
+ * skips it entirely in the hottest interaction path. */
+const SidebarSources = memo(function SidebarSources({
+  groups,
+  conns,
+  closedGroups,
+  folder,
+  collapsed,
+  onToggleGroup,
+  onPickFolder,
+  onTip,
+}: {
+  groups: LiveData["groups"];
+  conns: ReturnType<typeof useConnections>;
+  closedGroups: Set<string>;
+  folder: string | null;
+  collapsed: boolean;
+  onToggleGroup: (id: string) => void;
+  onPickFolder: (id: string, active: boolean) => void;
+  onTip: (t: { label: string; x: number; y: number } | null) => void;
+}) {
+  return (
+    <div className="live-sidebar__list">
+      {groups.map((g) => {
+        const open = !closedGroups.has(g.id);
+        const c = conns.get(g.id);
+        return (
+          <Fragment key={g.id}>
+            <button
+              type="button"
+              className="live-group"
+              aria-expanded={open}
+              onClick={() => onToggleGroup(g.id)}
+            >
+              <ChevronIcon
+                className={
+                  "live-group__caret" +
+                  (open ? "" : " live-group__caret--closed")
+                }
+              />
+              {g.name}
+              {/* Connection usage (Xtream only) — accent at the cap,
+               * when the number is the reason a stream won't open. */}
+              {c && !collapsed && (
+                <span
+                  className={
+                    "live-conns" + (c.active >= c.max ? " live-conns--full" : "")
+                  }
+                  title={`${c.active} of ${c.max} connections in use`}
+                >
+                  {c.active}/{c.max}
+                </span>
+              )}
+            </button>
+            {g.error && !collapsed && (
+              <p className="live-group__error">
+                Couldn&rsquo;t load this playlist — {g.error}
+              </p>
+            )}
+            {open && g.folders.length > 0 && (
+              <div
+                className="live-sidebar__folders"
+                onScroll={() => onTip(null)}
+              >
+                {g.folders.map((f) => {
+                  const { emoji, label } = splitTitleEmoji(f.name);
+                  const active = folder === f.id;
+                  return (
+                    <button
+                      key={f.id}
+                      type="button"
+                      aria-label={label}
+                      aria-current={active ? "true" : undefined}
+                      // Expanded, long names fade at the edge — a native
+                      // tooltip makes the full name recoverable. Folded,
+                      // the custom .live-tip owns that, so skip it.
+                      title={collapsed ? undefined : label}
+                      className={
+                        "live-folder" + (active ? " live-folder--active" : "")
+                      }
+                      onClick={() => onPickFolder(f.id, active)}
+                      onMouseEnter={(e) => {
+                        if (!collapsed) return;
+                        const r = e.currentTarget.getBoundingClientRect();
+                        // Fixed positioning lives in the zoomed
+                        // coordinate space (see the settings
+                        // dropdown), so unscale.
+                        const zoom = Number(
+                          document.documentElement.style.zoom || 1,
+                        );
+                        onTip({
+                          label,
+                          x: r.right / zoom + 12,
+                          y: (r.top + r.height / 2) / zoom,
+                        });
+                      }}
+                      onMouseLeave={() => onTip(null)}
+                    >
+                      {emoji ? (
+                        <span className="live-folder__emoji" aria-hidden>
+                          {emoji}
+                        </span>
+                      ) : (
+                        <TvIcon className="live-folder__icon" />
+                      )}
+                      <span className="live-folder__name">{label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </Fragment>
+        );
+      })}
+    </div>
+  );
+});
+
 export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   const [mode, setMode] = useState<Mode>("playlist");
   const [collapsed, setCollapsed] = useState(false);
@@ -197,6 +320,27 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
    * scrolling list can't clip it). */
   const [tip, setTip] = useState<{ label: string; x: number; y: number } | null>(
     null,
+  );
+  // Stable handlers for the memoized SidebarSources (setTip is stable by
+  // construction; these two must be too or the memo is defeated).
+  const toggleGroup = useCallback(
+    (id: string) =>
+      setClosedGroups((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      }),
+    [],
+  );
+  const pickFolder = useCallback(
+    (id: string, active: boolean) => {
+      setFolder(active ? null : id);
+      // A folded-rail click tunes the EPG to this source. (Identity only
+      // changes on collapse toggles — rare, never the hover-churn path.)
+      if (collapsed) setMode("playlist");
+    },
+    [collapsed],
   );
   // Resume the last-watched channel (recents[0]) so a tab switch or app
   // restart doesn't dump the selection back on the catalog's first row.
@@ -601,117 +745,16 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
          * just lose their labels, so the icons never move and scroll
          * position survives. Folded, it doubles as a quick-switch rail. */}
         {(collapsed || mode === "playlist") && ready && (
-          <div className="live-sidebar__list">
-            {ready.groups.map((g) => {
-              const open = !closedGroups.has(g.id);
-              const c = conns.get(g.id);
-              return (
-                <Fragment key={g.id}>
-                  <button
-                    type="button"
-                    className="live-group"
-                    aria-expanded={open}
-                    onClick={() =>
-                      setClosedGroups((prev) => {
-                        const next = new Set(prev);
-                        if (next.has(g.id)) next.delete(g.id);
-                        else next.add(g.id);
-                        return next;
-                      })
-                    }
-                  >
-                    <ChevronIcon
-                      className={
-                        "live-group__caret" +
-                        (open ? "" : " live-group__caret--closed")
-                      }
-                    />
-                    {g.name}
-                    {/* Connection usage (Xtream only) — accent at the cap,
-                     * when the number is the reason a stream won't open. */}
-                    {c && !collapsed && (
-                      <span
-                        className={
-                          "live-conns" +
-                          (c.active >= c.max ? " live-conns--full" : "")
-                        }
-                        title={`${c.active} of ${c.max} connections in use`}
-                      >
-                        {c.active}/{c.max}
-                      </span>
-                    )}
-                  </button>
-                  {g.error && !collapsed && (
-                    <p className="live-group__error">
-                      Couldn&rsquo;t load this playlist — {g.error}
-                    </p>
-                  )}
-                  {open && g.folders.length > 0 && (
-                    <div
-                      className="live-sidebar__folders"
-                      onScroll={() => setTip(null)}
-                    >
-                      {g.folders.map((f) => {
-                        const { emoji, label } = splitTitleEmoji(f.name);
-                        const active = folder === f.id;
-                        return (
-                          <button
-                            key={f.id}
-                            type="button"
-                            aria-label={label}
-                            aria-current={active ? "true" : undefined}
-                            // Expanded, long names fade at the edge — a native
-                            // tooltip makes the full name recoverable. Folded,
-                            // the custom .live-tip owns that, so skip it.
-                            title={collapsed ? undefined : label}
-                            className={
-                              "live-folder" +
-                              (active ? " live-folder--active" : "")
-                            }
-                            onClick={() => {
-                              setFolder(active ? null : f.id);
-                              // A folded-rail click tunes the EPG to this
-                              // source.
-                              if (collapsed) setMode("playlist");
-                            }}
-                            onMouseEnter={(e) => {
-                              if (!collapsed) return;
-                              const r =
-                                e.currentTarget.getBoundingClientRect();
-                              // Fixed positioning lives in the zoomed
-                              // coordinate space (see the settings
-                              // dropdown), so unscale.
-                              const zoom = Number(
-                                document.documentElement.style.zoom || 1,
-                              );
-                              setTip({
-                                label,
-                                x: r.right / zoom + 12,
-                                y: (r.top + r.height / 2) / zoom,
-                              });
-                            }}
-                            onMouseLeave={() => setTip(null)}
-                          >
-                            {emoji ? (
-                              <span
-                                className="live-folder__emoji"
-                                aria-hidden
-                              >
-                                {emoji}
-                              </span>
-                            ) : (
-                              <TvIcon className="live-folder__icon" />
-                            )}
-                            <span className="live-folder__name">{label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </Fragment>
-              );
-            })}
-          </div>
+          <SidebarSources
+            groups={ready.groups}
+            conns={conns}
+            closedGroups={closedGroups}
+            folder={folder}
+            collapsed={collapsed}
+            onToggleGroup={toggleGroup}
+            onPickFolder={pickFolder}
+            onTip={setTip}
+          />
         )}
 
         {!collapsed && mode !== "playlist" && (
