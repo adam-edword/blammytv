@@ -212,7 +212,7 @@
   border-radius: 25px;
   padding: 9px 14px;
   cursor: pointer;
-  transition: filter 150ms ease;
+  transition: filter var(--dur-hover) ease;
 }
 .shero__btn-quiet:hover { filter: brightness(1.35); }
 
@@ -289,7 +289,7 @@
   color: var(--text);
   cursor: pointer;
   opacity: 0;
-  transition: opacity 180ms ease, filter 140ms ease;
+  transition: opacity 180ms ease, filter var(--dur-hover) ease;
 }
 .media-row:hover .media-row__arrow { opacity: 1; }
 .media-row__arrow:hover { filter: brightness(1.4); }
@@ -381,7 +381,7 @@
   gap: 8px;
   text-align: left;
   cursor: pointer;
-  transition: transform 140ms ease;
+  transition: transform var(--dur-hover) ease;
 }
 .continue-card:hover { transform: translateY(-3px); }
 .continue-card__art {
@@ -455,7 +455,7 @@
   object-fit: contain;
   filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.6));
   pointer-events: none;
-  transition: opacity 150ms ease;
+  transition: opacity var(--dur-hover) ease;
 }
 
 /* Cast line: quiet credit under the meta. */
@@ -548,7 +548,7 @@
   border-radius: 30px;
   overflow: hidden;
   border: 1px solid var(--border-strong, rgba(255, 255, 255, 0.14));
-  transition: transform 140ms ease;
+  transition: transform var(--dur-hover) ease;
 }
 .vod-more__card:hover {
   transform: translateY(-3px);
@@ -575,7 +575,7 @@
   color: var(--text);
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.18);
-  transition: background 140ms ease, border-color 140ms ease;
+  transition: background var(--dur-hover) ease, border-color var(--dur-hover) ease;
 }
 .vod-save:hover {
   background: rgba(255, 255, 255, 0.16);
@@ -701,7 +701,7 @@
   padding: 9px 15px;
   backdrop-filter: blur(16px);
   cursor: pointer;
-  transition: background 140ms ease;
+  transition: background var(--dur-hover) ease;
 }
 .vod-back:hover { background: rgba(0, 0, 0, 0.6); }
 .vod-detail__logo { max-width: 500px; max-height: 300px; object-fit: contain; }
@@ -731,7 +731,7 @@
   background: #00000050;
   backdrop-filter: blur(16px);
   cursor: pointer;
-  transition: border-color 140ms ease, color 140ms ease;
+  transition: border-color var(--dur-hover) ease, color var(--dur-hover) ease;
 }
 .vod-detail__pills button:hover {
   border-color: var(--accent);
@@ -786,7 +786,7 @@
   backdrop-filter: blur(18px);
   cursor: pointer;
   text-align: left;
-  transition: background 140ms ease;
+  transition: background var(--dur-hover) ease;
 }
 .vod-source:hover { background: rgba(0, 0, 0, 0.6); }
 .vod-source__quality {
@@ -822,7 +822,7 @@
 .vod-source__play {
   flex-shrink: 0;
   opacity: 0.7;
-  transition: opacity 140ms ease;
+  transition: opacity var(--dur-hover) ease;
 }
 .vod-source:hover .vod-source__play { opacity: 1; }
 
@@ -839,7 +839,7 @@
   background: #00000050;
   backdrop-filter: blur(16px);
   cursor: pointer;
-  transition: background 140ms ease;
+  transition: background var(--dur-hover) ease;
 }
 .season-chip:not(.season-chip--on):hover { background: rgba(0, 0, 0, 0.6); }
 /* Active chip speaks the app's button language (btn-primary's surface
@@ -865,7 +865,7 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(18px);
   cursor: pointer;
-  transition: background 140ms ease;
+  transition: background var(--dur-hover) ease;
 }
 .episode-card:hover { background: rgba(0, 0, 0, 0.6); }
 .episode-card__thumb {
@@ -888,7 +888,7 @@
   border-radius: 21px;
   background: rgba(0, 0, 0, 0.4);
   opacity: 0;
-  transition: opacity 150ms ease;
+  transition: opacity var(--dur-hover) ease;
 }
 .episode-card:hover .episode-card__thumb::after { opacity: 1; }
 .episode-card__cue {
@@ -899,7 +899,7 @@
   place-items: center;
   color: rgba(255, 255, 255, 0.75);
   opacity: 0;
-  transition: opacity 150ms ease;
+  transition: opacity var(--dur-hover) ease;
 }
 .episode-card:hover .episode-card__cue { opacity: 1; }
 /* Number runs INLINE with the title (one text flow, so a wrapping title
@@ -1101,7 +1101,7 @@
   border: 1px solid rgba(255, 255, 255, 0.18);
   backdrop-filter: blur(14px);
   opacity: 0;
-  transition: opacity 150ms ease, background 140ms ease;
+  transition: opacity var(--dur-hover) ease, background var(--dur-hover) ease;
 }
 .continue-card:hover .continue-card__sources { opacity: 1; }
 /* Keyboard parity with the hover reveal (the guide-star :focus-within
@@ -1115,7 +1115,7 @@
   border-radius: 25px;
   background: rgba(0, 0, 0, 0.4);
   opacity: 0;
-  transition: opacity 150ms ease;
+  transition: opacity var(--dur-hover) ease;
   pointer-events: none;
 }
 .continue-card:hover .continue-card__artwrap::after { opacity: 1; }
@@ -1127,7 +1127,7 @@
   place-items: center;
   color: rgba(255, 255, 255, 0.75);
   opacity: 0;
-  transition: opacity 150ms ease;
+  transition: opacity var(--dur-hover) ease;
   pointer-events: none;
 }
 .continue-card:hover .continue-card__cue { opacity: 1; }
@@ -1174,7 +1174,7 @@
   background: rgba(0, 0, 0, 0.72);
   border: 1px solid rgba(255, 255, 255, 0.14);
   backdrop-filter: blur(18px);
-  animation: vod-panel-in 260ms cubic-bezier(0.3, 0.05, 0.2, 1);
+  animation: vod-panel-in var(--dur-panel) var(--ease-out);
 }
 @keyframes vod-panel-in {
   from {

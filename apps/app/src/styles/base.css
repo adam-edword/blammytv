@@ -316,7 +316,7 @@ button {
   color: inherit;
   cursor: pointer;
   opacity: 0.3;
-  transition: opacity 150ms ease;
+  transition: opacity var(--dur-hover) ease;
 }
 .header__search svg {
   width: 17px;
@@ -352,7 +352,7 @@ button {
   align-items: center;
   /* Padding comes from the shared .chip-tabs--bare tab rule. */
   cursor: pointer;
-  transition: opacity 150ms ease;
+  transition: opacity var(--dur-hover) ease;
 }
 .header__searchchip:focus-within {
   opacity: 1;
@@ -379,7 +379,7 @@ button {
   font-size: 12px;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 150ms ease;
+  transition: opacity var(--dur-hover) ease;
 }
 /* Hover teases the placeholder at half strength; focus — and any typed
  * query — goes full, so an active search never renders invisible. */
@@ -421,7 +421,7 @@ button {
   font-size: 21px;
   letter-spacing: 0.42px;
   opacity: 0.3;
-  transition: opacity 120ms ease;
+  transition: opacity var(--dur-hover) ease;
 }
 
 .header__tab:hover {
@@ -511,7 +511,7 @@ button {
 .header__action {
   display: grid;
   place-items: center;
-  transition: filter 120ms ease;
+  transition: filter var(--dur-hover) ease;
 }
 
 /* The cluster sits at 0.3 opacity, so hover brightens the icon itself. */
@@ -577,7 +577,7 @@ button {
         #85cbd4, #84ffa9, #c1f294, #ffe57f, #ff9b9b
       ) border-box;
   animation: update-ring-turn 9s linear infinite;
-  transition: filter 140ms ease;
+  transition: filter var(--dur-hover) ease;
 }
 .update-chip:hover { filter: brightness(1.25); }
 .update-chip--busy { cursor: progress; }
