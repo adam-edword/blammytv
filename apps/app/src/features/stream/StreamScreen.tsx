@@ -1,4 +1,5 @@
 import {
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -9,6 +10,13 @@ import {
 } from "react";
 import { CheckIcon, ChevronIcon, CloseIcon, PlayIcon } from "../../ui/icons";
 import Tilt from "react-parallax-tilt";
+
+// Fixed-at-mount OS motion preference (the Onboarding pattern): read ONCE at
+// module load — a useRef(initializer-arg) re-evaluated matchMedia on every
+// render of every Card.
+const REDUCED_MOTION = window.matchMedia(
+  "(prefers-reduced-motion: reduce)",
+).matches;
 import { createPortal } from "react-dom";
 import { isTauri, tauriSetFullscreen } from "../../lib/tauri";
 import { setOverlayApiOverride } from "../live/overlayApi";
@@ -627,24 +635,31 @@ export function StreamScreen() {
       resumeAt: at,
     });
   }, []);
-  const playMeta = playing
-    ? {
-        channelName: playing.item.title,
-        logo: playing.item.logo ?? playing.item.poster,
-        title: playing.label ?? playing.item.title,
-        description: playing.item.synopsis,
-        live: false,
-        skips: aniSkips ?? undefined,
-        vod: playing.episodeInfo
-          ? {
-              ...playing.episodeInfo,
-              hasNext:
-                !!playing.episodeId &&
-                !!nextEpisode(playing.item.seasons, playing.episodeId),
-            }
-          : undefined,
-      }
-    : null;
+  // Memoized: rebuilt-per-render meta used to re-render the whole theater
+  // chrome through useDirectOverlay's identity-keyed effect (see LiveScreen's
+  // twin note).
+  const playMeta = useMemo(
+    () =>
+      playing
+        ? {
+            channelName: playing.item.title,
+            logo: playing.item.logo ?? playing.item.poster,
+            title: playing.label ?? playing.item.title,
+            description: playing.item.synopsis,
+            live: false,
+            skips: aniSkips ?? undefined,
+            vod: playing.episodeInfo
+              ? {
+                  ...playing.episodeInfo,
+                  hasNext:
+                    !!playing.episodeId &&
+                    !!nextEpisode(playing.item.seasons, playing.episodeId),
+                }
+              : undefined,
+          }
+        : null,
+    [playing, aniSkips],
+  );
   const directApi = useDirectOverlay(
     isTauri() && !!playing && !playing.popped,
     playing?.url ?? null,
@@ -1479,9 +1494,7 @@ function Hero({
   const step = cardW + HERO_GAP;
   // The hero's Apple TV lean rides an inner wrapper (see .shero__tilt) —
   // the slide div's transform is carousel geometry and stays untouched.
-  const reducedMotion = useRef(
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-  ).current;
+  const reducedMotion = REDUCED_MOTION;
 
   // Window of live slots around the current one: both neighbors visible,
   // one extra each side so a slide-in mounts before it enters the frame.
@@ -1674,7 +1687,11 @@ function Hero({
   );
 }
 
-export function Card({
+/** Memoized: mapped by the hundreds across Stream rows, Discover's
+ * infinite grid and My List, each wrapping a stateful Tilt — parent
+ * re-renders (search keystrokes, enrichment passes) must not re-render
+ * every mounted card. Callers keep metaFields/onOpen identities stable. */
+export const Card = memo(function Card({
   item,
   metaFields,
   onOpen,
@@ -1700,9 +1717,7 @@ export function Card({
   // Apple TV-style pointer tilt on the poster only — the title/meta below
   // stay planted. Angles well under the library's 20° default: the real
   // thing is a gentle lean, not a flip. OS-level reduced-motion wins.
-  const reducedMotion = useRef(
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-  ).current;
+  const reducedMotion = REDUCED_MOTION;
   return (
     <button type="button" className="stream-card" onClick={() => onOpen(item)}>
       <Tilt
@@ -1734,7 +1749,7 @@ export function Card({
       {meta && <span className="stream-card__meta">{meta}</span>}
     </button>
   );
-}
+});
 
 /** Continue Watching card: landscape art, meta line, HOLD to clear (the
  * Figma interaction — a click opens, a ~1s press-and-hold removes). */

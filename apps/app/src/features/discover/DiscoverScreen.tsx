@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChipTabs } from "../../ui/ChipTabs";
 import {
   loadCardMeta,
@@ -78,10 +78,15 @@ export function DiscoverScreen() {
   // "All Content" mixes movies and series in one grid — the card meta
   // always says which is which there, whatever the Card Details setting.
   // The single-type views stay on the user's configured fields.
-  const gridMetaFields =
-    filter === "all" && !metaFields.includes("kind")
-      ? [...metaFields, "kind" as const]
-      : metaFields;
+  // Stable identity: Card is memoized — a fresh array here per render
+  // would re-render the whole mounted grid on every keystroke/append.
+  const gridMetaFields = useMemo(
+    () =>
+      filter === "all" && !metaFields.includes("kind")
+        ? [...metaFields, "kind" as const]
+        : metaFields,
+    [filter, metaFields],
+  );
 
   // ---- Search: debounced, across every search-capable catalog of the
   // filtered type. Two+ characters enters search mode (rail + browse

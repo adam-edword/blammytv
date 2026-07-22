@@ -415,20 +415,31 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   }, [playing, heroId]);
   playUrlRef.current = playUrl;
   heroIdRef.current = heroChannel?.id;
-  const playMeta = (() => {
+  // The overlay meta's clock: a 30s pulse (plus a fresh beat on tune-in) so
+  // the memoized meta below still tracks programme rollover. Without the
+  // memo, this object rebuilt on EVERY render — each guide hover-preview
+  // re-rendered the whole theater chrome through useDirectOverlay's
+  // identity-keyed meta effect.
+  const [metaNow, setMetaNow] = useState(() => new Date());
+  useEffect(() => {
+    if (!playUrl) return;
+    setMetaNow(new Date());
+    const id = window.setInterval(() => setMetaNow(new Date()), 30_000);
+    return () => window.clearInterval(id);
+  }, [playUrl]);
+  const playMeta = useMemo(() => {
     if (!playUrl || !ready || !heroChannel) return null;
-    const at = new Date();
     const airing = (ready.programmes.get(heroChannel.id) ?? NO_PROGRAMMES).find(
-      (p) => p.start <= at && at < p.end,
+      (p) => p.start <= metaNow && metaNow < p.end,
     );
     return buildMeta(
       heroChannel,
       airing,
-      at,
+      metaNow,
       undefined,
       favorites.includes(heroChannel.id),
     );
-  })();
+  }, [playUrl, ready, heroChannel, favorites, metaNow]);
 
   // Inline chrome for the inverted player: a direct OverlayApi (mpv commands
   // + a status poll) injected into TheaterOverlay, which renders into a
