@@ -71,22 +71,16 @@
   border-radius: 90px;
   pointer-events: none;
   opacity: 0.8; /* Adam's final trim on the whole light layer */
-  /* Feathered window. The feather now spans the WHOLE overscan (210px
-   * sides / ~112px vertical) and keeps fading under the card: the old
-   * 180/120px feathers left a full-strength halo band whose plateau
-   * edge — plus the fade running out in a straight line — read as a
-   * masked rectangle on bright backdrops (Adam, the Ponyo sky). With
-   * the fade starting at the card edge there is no plateau to trace;
-   * cost is a slightly dimmer halo at the rim (bump the box opacity
-   * above if it reads too faint now). */
-  -webkit-mask-image:
-    linear-gradient(to right, transparent, #000 280px, #000 calc(100% - 280px), transparent),
-    linear-gradient(to bottom, transparent, #000 170px, #000 calc(100% - 170px), transparent);
-  -webkit-mask-composite: source-in;
-  mask-image:
-    linear-gradient(to right, transparent, #000 280px, #000 calc(100% - 280px), transparent),
-    linear-gradient(to bottom, transparent, #000 170px, #000 calc(100% - 170px), transparent);
-  mask-composite: intersect;
+  /* Radial window. Linear-gradient feathers can't unsquare this halo:
+   * the blurred art's own edge hugs the card rect, so any rectangular
+   * mask leaves a rim you can trace on bright backdrops (Adam, the
+   * Ponyo sky — verified in a rendered harness; widening the feathers
+   * changed nothing). One elliptical falloff instead: light pools at
+   * the edge midpoints and dies into the corners, like a real halo.
+   * The ellipse never clips the CARD's corners visibly — that region
+   * sits behind the opaque card. */
+  -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 55%, transparent 98%);
+  mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 55%, transparent 98%);
 }
 .shero__glowtrack {
   position: absolute;
