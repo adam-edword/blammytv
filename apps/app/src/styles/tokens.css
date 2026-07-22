@@ -43,6 +43,13 @@
   --text-dim: #494949; /* quietest tier (hero synopsis/meta) */
   --text-ghost: rgba(255, 255, 255, 0.2); /* placeholders */
 
+  /* Status — deliberately UNTHEMED constants: danger must read as danger
+   * under any pack (the settings danger-zone's documented fixed-red rule).
+   * Onboarding's pastel error/ok pair stays separate — light-on-black. */
+  --danger: #c22727;
+  --danger-text: #e25b5b;
+  --ok: #2cad57;
+
   /* Shape */
   --radius-card: 25px;
   --radius-chip: 16px;
