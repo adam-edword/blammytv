@@ -2,7 +2,8 @@
 
 Output of the `improve-animations` audit at commit `018a8f4` (2026-07-22). The full
 verified findings table is in [audit-report.md](audit-report.md) — 71 findings that
-survived adversarial verification, out of 77 raised.
+survived adversarial verification, out of 77 raised. The execution rollout (waves,
+feel-gates, risks) is in [OP-PLAN.md](OP-PLAN.md).
 
 Each plan is self-contained: an executor with zero context can run one end-to-end.
 Run with `improve-animations execute <plan>` or hand to any agent.
