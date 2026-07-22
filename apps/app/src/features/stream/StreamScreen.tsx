@@ -1575,7 +1575,7 @@ function Hero({
                 // couple px, unveiling the bright glow behind the card's
                 // own edge (read as a rim). The hair of scale keeps the
                 // card covering its footprint at full lean.
-                scale={reducedMotion ? 1 : 1.01}
+                scale={reducedMotion ? 1 : 1.005}
                 perspective={2500}
                 transitionSpeed={650}
               >
