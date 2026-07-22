@@ -1578,6 +1578,12 @@ function Hero({
                 scale={reducedMotion ? 1 : 1.005}
                 perspective={2500}
                 transitionSpeed={1000}
+                // Faint — text and buttons live on this card, so the
+                // sheen must never read as glare over UI.
+                glareEnable={active && !reducedMotion}
+                glareMaxOpacity={0.08}
+                glarePosition="all"
+                glareBorderRadius="60px"
               >
               {(item.backdrop ?? item.poster) && (
                 <img
