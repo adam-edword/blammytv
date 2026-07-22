@@ -1563,13 +1563,14 @@ function Hero({
                 * and not the ::after glow — ambient light shouldn't
                 * rotate with the object. Active card only: a peeking
                 * neighbor pivots around an offscreen center and reads
-                * broken. At this size 2° is plenty; no scale (neighbors
-                * peek right beside it), no glare (text lives here). */}
+                * broken. At this size 0.5° is plenty (Adam — 2° read as
+                * a barn door); no scale (neighbors peek right beside
+                * it), no glare (text lives here). */}
               <Tilt
                 className="shero__tilt"
                 tiltEnable={active && !reducedMotion}
-                tiltMaxAngleX={1.5}
-                tiltMaxAngleY={2}
+                tiltMaxAngleX={0.5}
+                tiltMaxAngleY={0.5}
                 perspective={2500}
                 transitionSpeed={650}
               >
