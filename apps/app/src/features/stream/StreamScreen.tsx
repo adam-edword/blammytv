@@ -1534,6 +1534,19 @@ function Hero({
       </div>
       <div
         className="shero__track"
+        // react-parallax-tilt caches each card's rect on mouseenter, and
+        // a slide moves cards WITHOUT re-firing enter (the pointer never
+        // "leaves" per the hover state) — so every slid card tilts
+        // against a rect that's stale by one step, pinning the math at
+        // its clamp (reads as a dead hover; only the never-slid first
+        // card worked). The lib re-measures on window resize, so poke
+        // that when the track's own slide settles. Guard target +
+        // property: transitionend bubbles up from the tilt wrappers.
+        onTransitionEnd={(e) => {
+          if (e.target === e.currentTarget && e.propertyName === "transform") {
+            window.dispatchEvent(new Event("resize"));
+          }
+        }}
         style={{
           transform: `translateX(${m - v * step}px)`,
           transition: animReady ? undefined : "none",
