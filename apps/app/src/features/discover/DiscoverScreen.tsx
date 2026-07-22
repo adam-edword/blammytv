@@ -124,7 +124,10 @@ export function DiscoverScreen() {
   }, []);
   const q = query.trim();
   const searching = q.length >= 2;
-  const [results, setResults] = useState<VodItem[] | null>(null);
+  // "failed" is distinct from [] — a network failure must not render the
+  // definitive "No results" copy (the audit's false-authority finding).
+  const [results, setResults] = useState<VodItem[] | "failed" | null>(null);
+  const [searchTick, setSearchTick] = useState(0);
   useEffect(() => {
     if (!searching || cfg.status !== "ready") {
       setResults(null);
@@ -135,16 +138,18 @@ export function DiscoverScreen() {
     const t = window.setTimeout(() => {
       searchDiscover(cfg.cfg, filter, q).then(
         (r) => !stale && setResults(r),
-        () => !stale && setResults([]),
+        () => !stale && setResults("failed"),
       );
     }, 350);
     return () => {
       stale = true;
       window.clearTimeout(t);
     };
-  }, [cfg, filter, q, searching]);
+  }, [cfg, filter, q, searching, searchTick]);
 
 
+  // Bumped by the error state's Try-again — re-runs the config load.
+  const [cfgTick, setCfgTick] = useState(0);
   useEffect(() => {
     let stale = false;
     loadDiscover().then(
@@ -161,7 +166,7 @@ export function DiscoverScreen() {
     return () => {
       stale = true;
     };
-  }, []);
+  }, [cfgTick]);
 
   // Rail wallpapers: last visit's art paints instantly, then EVERY genre
   // draws a fresh random title from its own catalog feed and swaps to
@@ -186,6 +191,7 @@ export function DiscoverScreen() {
   // ---- The grid feed: per-type skip cursors, interleaved for "all".
   // Everything lives in refs except the rendered list; reqId guards
   // against a stale page landing after a filter/genre switch.
+  const [gridFailed, setGridFailed] = useState(false);
   const cursors = useRef<Record<string, number>>({});
   const doneRef = useRef<Record<string, boolean>>({});
   const seenRef = useRef<Set<string>>(new Set());
@@ -259,6 +265,10 @@ export function DiscoverScreen() {
           if (at > 0) merged.unshift(...merged.splice(at, 1));
         }
         setItems((prev) => (reset ? merged : [...prev, ...merged]));
+        // Every page null = nothing was HEARD, not "the catalog is empty" —
+        // a reset in that state renders the honest failure note instead of
+        // the definitive empty-catalog copy.
+        if (reset) setGridFailed(pages.every(({ page }) => page === null));
         const exhausted = pages.every(
           ({ page }) => page !== null && page.length === 0,
         );
@@ -317,7 +327,18 @@ export function DiscoverScreen() {
         ) : (
           <>
             <h2>Couldn&rsquo;t load Discover.</h2>
-            <p className="discover__note">{cfg.message}</p>
+            <p className="discover__note" role="alert">
+              {cfg.message}
+            </p>
+            <p>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => setCfgTick((t) => t + 1)}
+              >
+                Try again
+              </button>
+            </p>
           </>
         )}
       </div>
@@ -338,7 +359,20 @@ export function DiscoverScreen() {
         <section className="discover__gridwrap">
           <h3 className="media-row__title">Results for “{q}”</h3>
           {results === null ? (
-            <p className="discover__note">Searching…</p>
+            <p className="discover__note" role="status">
+              Searching…
+            </p>
+          ) : results === "failed" ? (
+            <p className="discover__note" role="alert">
+              Search didn&rsquo;t go through.{" "}
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => setSearchTick((t) => t + 1)}
+              >
+                Try again
+              </button>
+            </p>
           ) : results.length === 0 ? (
             <p className="discover__note">No results for “{q}”.</p>
           ) : (
@@ -403,11 +437,27 @@ export function DiscoverScreen() {
           {genre ?? (filter === "movie" ? "Movies" : filter === "series" ? "Series" : "Popular")}
         </h3>
         {phase === "first" ? (
-          <div className="disc-grid" aria-hidden>
+          <>
+            <p className="vh" role="status">
+              Loading the catalog…
+            </p>
+            <div className="disc-grid" aria-hidden>
             {Array.from({ length: 12 }, (_, i) => (
               <div key={i} className="disc-skel" />
             ))}
-          </div>
+            </div>
+          </>
+        ) : items.length === 0 && gridFailed ? (
+          <p className="discover__note" role="alert">
+            Discover didn&rsquo;t load — the catalog never answered.{" "}
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => void loadMore(true)}
+            >
+              Try again
+            </button>
+          </p>
         ) : items.length === 0 ? (
           <p className="discover__note">
             Nothing here — the catalog returned no titles
@@ -425,7 +475,11 @@ export function DiscoverScreen() {
             ))}
           </div>
         )}
-        {phase === "more" && <p className="discover__note">Loading more…</p>}
+        {phase === "more" && (
+          <p className="discover__note" role="status">
+            Loading more…
+          </p>
+        )}
         <div ref={sentinelRef} className="discover__sentinel" aria-hidden />
       </section>
         </>

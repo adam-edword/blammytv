@@ -335,7 +335,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     thinkHard();
     raceTimeout(
       probeAioStreams(manifestTrimmed),
-      "Couldn't reach the instance — it didn't answer in time.",
+      "Couldn’t reach the instance — it didn’t answer in time.",
     )
       .then((steps: ProbeStep[]) => {
         if (steps[0]?.ok) {
@@ -432,12 +432,12 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
             name: "probe",
             enabled: true,
           }),
-          "Couldn't reach the panel — it didn't answer in time.",
+          "Couldn’t reach the panel — it didn’t answer in time.",
         ).then(() => draft);
       case "m3u":
         return raceTimeout(
           httpGetText(draft.url),
-          "Couldn't reach the playlist — it didn't answer in time.",
+          "Couldn’t reach the playlist — it didn’t answer in time.",
         ).then((text) => {
           if (!text.trimStart().startsWith("#EXTM3U")) {
             throw new Error("That URL didn't return an M3U playlist.");
@@ -452,7 +452,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
             name: "probe",
             enabled: true,
           }),
-          "Couldn't reach the portal — it didn't answer in time.",
+          "Couldn’t reach the portal — it didn’t answer in time.",
         ).then((endpoint) => ({ ...draft, endpoint }));
     }
   };

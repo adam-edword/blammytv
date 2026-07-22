@@ -145,6 +145,19 @@
   }
 }
 
+/* Visually hidden, screen-reader audible — the skeleton grids' status
+ * line (aria-hidden art needs a textual twin). */
+.vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* ---------- Quality badges (Figma 126:856) ---------- */
 
 /* 23x12 pills: tier gradient at ~30% over black, Bold 8.2px (Figma spec

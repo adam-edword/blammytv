@@ -212,7 +212,7 @@ export function PlaylistsTab() {
                     if (g?.error)
                       return (
                         <span className="playlist-row__status playlist-row__status--error">
-                          Couldn't load — {g.error}
+                          Couldn&rsquo;t load — {g.error}
                         </span>
                       );
                     if (g?.epgError)
@@ -370,7 +370,7 @@ function FolderEditor({
     return (
       <div className="source-list source-list--note">
         <p className="settings__section-note settings__section-note--dim">
-          Couldn't reach the server. Check the playlist's credentials — and
+          Couldn&rsquo;t reach the server. Check the playlist&rsquo;s credentials — and
           note the browser dev build can be blocked by CORS where the desktop
           app isn't.
         </p>

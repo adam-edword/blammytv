@@ -643,7 +643,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
                   </button>
                   {g.error && !collapsed && (
                     <p className="live-group__error">
-                      Couldn't load this playlist — {g.error}
+                      Couldn&rsquo;t load this playlist — {g.error}
                     </p>
                   )}
                   {open && g.folders.length > 0 && (
@@ -741,7 +741,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
             role="alert"
           >
             <p>
-              Couldn't load your playlists — {live.message}. Check them in
+              Couldn&rsquo;t load your playlists — {live.message}. Check them in
               Settings → Playlists.
             </p>
             <button
@@ -758,7 +758,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
           (ready.groups.find((g) => g.error) ? (
             <div className="live-status live-status--error" role="alert">
               <p>
-                Couldn't load your playlists —{" "}
+                Couldn&rsquo;t load your playlists —{" "}
                 {ready.groups.find((g) => g.error)!.error}. Check them in
                 Settings → Playlists.
               </p>

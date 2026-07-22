@@ -205,6 +205,8 @@ export function StreamScreen() {
       onVodUpdate((data) => setLoad({ status: "ready", data: { ...data } })),
     [],
   );
+  // Bumped by the error state's Try-again — re-runs the load effect.
+  const [vodTick, setVodTick] = useState(0);
   useEffect(() => {
     let stale = false;
     loadVod().then(
@@ -236,7 +238,7 @@ export function StreamScreen() {
     return () => {
       stale = true;
     };
-  }, []);
+  }, [vodTick]);
 
   // Back/forward history over the view state — the ← Back buttons and the
   // mouse side buttons (4 = back, 5 = forward) all walk the same stacks.
@@ -607,6 +609,7 @@ export function StreamScreen() {
   useEffect(() => {
     if (!playing) setPanelOpen(false);
   }, [playing]);
+  const [panelTick, setPanelTick] = useState(0);
   useEffect(() => {
     if (!panelOpen) return;
     const p = playingRef.current;
@@ -620,7 +623,7 @@ export function StreamScreen() {
     return () => {
       stale = true;
     };
-  }, [panelOpen]);
+  }, [panelOpen, panelTick]);
   const pickPanelSource = useCallback((src: StreamSource, all: StreamSource[]) => {
     const p = playingRef.current;
     if (!p) return;
@@ -953,10 +956,21 @@ export function StreamScreen() {
               </div>
               <div className="vod-panel__list">
                 {panelSources === null && (
-                  <p className="vod-sources__note">Finding sources…</p>
+                  <p className="vod-sources__note" role="status">
+                    Finding sources…
+                  </p>
                 )}
                 {panelSources === "failed" && (
-                  <p className="vod-sources__note">Couldn&rsquo;t load sources.</p>
+                  <p className="vod-sources__note" role="alert">
+                    Couldn&rsquo;t load sources.{" "}
+                    <button
+                      type="button"
+                      className="vod-sources__retry"
+                      onClick={() => setPanelTick((t) => t + 1)}
+                    >
+                      Try again
+                    </button>
+                  </p>
                 )}
                 {Array.isArray(panelSources) &&
                   panelSources.map((src) => (
@@ -1143,6 +1157,7 @@ export function StreamScreen() {
       {view.at === "home" && (
         <Home
           load={load}
+          onRetry={() => setVodTick((t) => t + 1)}
           onOpen={cardOpen}
           onWatchNow={watchNow}
           watching={watching}
@@ -1222,6 +1237,7 @@ function Home({
   onClearWatching,
   onOpenWatching,
   onSourcesWatching,
+  onRetry,
 }: {
   load: Load;
   onOpen: (i: VodItem) => void;
@@ -1230,6 +1246,7 @@ function Home({
   onClearWatching: (id: string) => void;
   onOpenWatching: (e: WatchEntry) => void;
   onSourcesWatching: (e: WatchEntry) => void;
+  onRetry: () => void;
 }) {
   // Which details the cards show — flips live while Settings is open.
   const [metaFields, setMetaFields] = useState<CardMetaField[]>(loadCardMeta);
@@ -1247,13 +1264,22 @@ function Home({
   }
   if (load.status === "loading")
     return (
-      <div className="stream__note stream__note--dim">Loading your catalog…</div>
+      <div className="stream__note stream__note--dim" role="status">
+        Loading your catalog…
+      </div>
     );
   if (load.status === "error")
     return (
-      <div className="stream__note">
-        <h2>Couldn't load your catalog.</h2>
+      <div className="stream__note" role="alert">
+        <h2>Couldn&rsquo;t load your catalog.</h2>
         <p>{load.message}. Check the manifest URL in Settings → AIOStreams.</p>
+        {/* Live's error states retry; siblings match (the audit's
+          * dead-end finding). */}
+        <p>
+          <button type="button" className="btn-primary" onClick={onRetry}>
+            Try again
+          </button>
+        </p>
       </div>
     );
   const { data } = load;
@@ -2035,6 +2061,7 @@ function Detail({
       stale = true;
     };
   }, [item.id, item.kind, moreGenre, episodeId, onOpenItem]);
+  const [sourcesTick, setSourcesTick] = useState(0);
   useEffect(() => {
     let stale = false;
     setSources(null);
@@ -2045,7 +2072,7 @@ function Detail({
     return () => {
       stale = true;
     };
-  }, [item.kind, item.id, episodeId]);
+  }, [item.kind, item.id, episodeId, sourcesTick]);
 
   return (
     <div className="vod-detail">
@@ -2090,10 +2117,21 @@ function Detail({
         <div className="vod-sources">
           <h3>Sources</h3>
           {sources === null && (
-            <p className="vod-sources__note">Finding sources…</p>
+            <p className="vod-sources__note" role="status">
+              Finding sources…
+            </p>
           )}
           {sources === "failed" && (
-            <p className="vod-sources__note">Couldn't load sources.</p>
+            <p className="vod-sources__note" role="alert">
+              Couldn&rsquo;t load sources.{" "}
+              <button
+                type="button"
+                className="vod-sources__retry"
+                onClick={() => setSourcesTick((t) => t + 1)}
+              >
+                Try again
+              </button>
+            </p>
           )}
           {Array.isArray(sources) && sources.length === 0 && (
             <p className="vod-sources__note">No sources available.</p>

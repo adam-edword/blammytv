@@ -772,6 +772,24 @@
   font-size: 21px;
   margin: 0;
 }
+/* Inline retry beside a failed-note — quiet, accent-voiced. */
+.vod-sources__retry {
+  padding: 4px 12px;
+  margin-left: 6px;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-chip);
+  background: var(--accent-surface);
+  color: var(--text);
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color var(--dur-hover) ease;
+}
+.vod-sources__retry:hover {
+  border-color: var(--accent-border-hover);
+}
+
 .vod-sources__note { color: rgba(242, 242, 244, 0.6); font-size: 14px; }
 /* Figma 133-721 source card: a glass slab with the quality in its own
  * raised block left, the addon's meta lines beside it, play glyph right. */
