@@ -208,7 +208,8 @@
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 41px;
-  margin-bottom: 16px;
+  /* 2px here + the scroller's 18px hover headroom = the old 16px+4px gap. */
+  margin-bottom: 2px;
 }
 /* The viewport owns the page-padding bleed + anchors scrims/arrows. */
 .media-row__viewport {
@@ -219,7 +220,10 @@
   display: flex;
   gap: 16px;
   overflow-x: auto;
-  padding: 4px 28px 10px;
+  /* Top headroom for the tilt/scale hover — a 1.04× poster grows ~9px
+   * upward and overflow-x:auto forces overflow-y to clip (spec quirk).
+   * The title's margin shrinks to keep the visual rhythm unchanged. */
+  padding: 18px 28px 10px;
 }
 /* Mid-drag: the row scrolls under the cursor — suppress hover lifts and
  * accidental selection so the gesture reads as grabbing the shelf. */
@@ -295,9 +299,21 @@
   gap: 8px;
   text-align: left;
   cursor: pointer;
-  transition: transform 140ms ease;
+  /* The tilted/scaled poster must outrank shelf neighbours, or its
+   * near edge slides UNDER the next card. */
+  position: relative;
 }
-.stream-card:hover { transform: translateY(-3px); }
+.stream-card:hover { z-index: 2; }
+/* react-parallax-tilt owns this wrapper's transform (tilt + scale + glare);
+ * CSS adds the depth cue — a shadow that swells while the poster floats. */
+.stream-card__tilt {
+  border-radius: 25px;
+  transition: box-shadow 300ms ease;
+}
+.stream-card:hover .stream-card__tilt {
+  box-shadow: 0 14px 32px -12px color-mix(in srgb, #000 45%, transparent);
+}
+.stream-card__poster { display: block; }
 .stream-card__poster,
 .stream-card__mono {
   width: 300px;

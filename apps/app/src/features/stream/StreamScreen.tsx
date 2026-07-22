@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { CheckIcon, ChevronIcon, CloseIcon, PlayIcon } from "../../ui/icons";
+import Tilt from "react-parallax-tilt";
 import { createPortal } from "react-dom";
 import { isTauri, tauriSetFullscreen } from "../../lib/tauri";
 import { setOverlayApiOverride } from "../live/overlayApi";
@@ -1643,20 +1644,38 @@ export function Card({
     genre: item.genres[0],
     kind: item.kind,
   });
+  // Apple TV-style pointer tilt on the poster only — the title/meta below
+  // stay planted. Angles well under the library's 20° default: the real
+  // thing is a gentle lean, not a flip. OS-level reduced-motion wins.
+  const reducedMotion = useRef(
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+  ).current;
   return (
     <button type="button" className="stream-card" onClick={() => onOpen(item)}>
-      {item.poster && !broken ? (
-        <img
-          className="stream-card__poster"
-          src={item.poster}
-          alt=""
-          loading="lazy"
-          draggable={false}
-          onError={() => setBroken(true)}
-        />
-      ) : (
-        <span className="stream-card__mono">{item.title.slice(0, 1)}</span>
-      )}
+      <Tilt
+        className="stream-card__tilt"
+        tiltEnable={!reducedMotion}
+        tiltMaxAngleX={5}
+        tiltMaxAngleY={5}
+        scale={reducedMotion ? 1 : 1.03}
+        glareEnable={!reducedMotion}
+        glareMaxOpacity={0.12}
+        glarePosition="all"
+        glareBorderRadius="25px"
+      >
+        {item.poster && !broken ? (
+          <img
+            className="stream-card__poster"
+            src={item.poster}
+            alt=""
+            loading="lazy"
+            draggable={false}
+            onError={() => setBroken(true)}
+          />
+        ) : (
+          <span className="stream-card__mono">{item.title.slice(0, 1)}</span>
+        )}
+      </Tilt>
       <span className="stream-card__name">{item.title}</span>
       {meta && <span className="stream-card__meta">{meta}</span>}
     </button>
