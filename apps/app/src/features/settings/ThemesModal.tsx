@@ -297,13 +297,17 @@ export function ThemesModal({ onClose }: { onClose: () => void }) {
     >
       <span
         className="tcard__art"
-        style={{
+        data-pack-art={p.id}
+        style={
           // A pack with a light axis shows both halves on a hard diagonal
-          // split (the mock's Mono/Paper cards); dark-only packs stay flat.
-          background: p.preview.lightBg
-            ? `linear-gradient(125deg, ${p.preview.bg} 50%, ${p.preview.lightBg} 50%)`
-            : p.preview.bg,
-        }}
+          // split (the mock's Mono/Paper cards); dark-only packs get a flat
+          // COLOR so a per-pack art skin (themes.css) can layer imagery.
+          p.preview.lightBg
+            ? {
+                backgroundImage: `linear-gradient(125deg, ${p.preview.bg} 50%, ${p.preview.lightBg} 50%)`,
+              }
+            : { backgroundColor: p.preview.bg }
+        }
       >
         <span
           className="tcard__chip"
@@ -345,7 +349,6 @@ export function ThemesModal({ onClose }: { onClose: () => void }) {
         </span>
         <span className="tcard__foot">
           <span className="tcard__name">{p.name}</span>
-          {p.freebie && <span className="tcard__price">Free</span>}
           {!owned && p.buyUrl && (
             <a
               className="tcard__price"

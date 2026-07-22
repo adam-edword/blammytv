@@ -50,7 +50,6 @@ const GOOD_KEY = "BTV-AAAA-BBBB-CCCC-DDDD";
 const TERMINAL_META = INTENSE_PACKS.find((p) => p.id === "terminal")!;
 const DITHER_META = INTENSE_PACKS.find((p) => p.id === "dither")!;
 const KAWAII_META = INTENSE_PACKS.find((p) => p.id === "kawaii")!;
-const STREAMY_META = INTENSE_PACKS.find((p) => p.id === "streamy")!;
 const SUPPORTER_META = INTENSE_PACKS.find((p) => p.id === "supporter")!;
 const ENTITLED: ThemePackMeta[] = [
   {
@@ -212,9 +211,7 @@ describe("ownsPack", () => {
   it("free packs are always owned, even with no license", () => {
     expect(ownsPack("void")).toBe(true);
     expect(ownsPack("classic")).toBe(true);
-    // Nebula went free in v0.6.0.
-    expect(ownsPack("nebula")).toBe(true);
-    // Streamy is a premium-shelf FREEBIE — owned by everyone too.
+    // Streamy lives on the free shelf (replaced nebula).
     expect(ownsPack("streamy")).toBe(true);
   });
 
@@ -243,7 +240,7 @@ describe("installedPacks", () => {
 
   it("a pass installs every bundled intense pack (incl. the secret one)", async () => {
     await activateTerminal(true);
-    expect(installedPacks()).toEqual([TERMINAL_META, DITHER_META, KAWAII_META, STREAMY_META, SUPPORTER_META]);
+    expect(installedPacks()).toEqual([TERMINAL_META, DITHER_META, KAWAII_META, SUPPORTER_META]);
   });
 });
 

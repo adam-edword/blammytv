@@ -84,13 +84,13 @@ describe("themePacks", () => {
     expect(loadThemePack()).toBe("neon-2027");
   });
 
-  it("lists BlammyTV (slate) first, then classic, void, paper, nebula", () => {
+  it("lists BlammyTV (slate) first, then classic, void, paper, streamy", () => {
     expect(THEME_PACKS.map((p) => p.id)).toEqual([
       "slate",
       "classic",
       "void",
       "paper",
-      "nebula",
+      "streamy",
     ]);
     expect(THEME_PACKS[0].name).toBe("BlammyTV");
   });
@@ -100,7 +100,6 @@ describe("themePacks", () => {
       "terminal",
       "dither",
       "kawaii",
-      "streamy",
       "supporter",
     ]);
     for (const p of INTENSE_PACKS) expect(p.premium).toBe(true);
@@ -113,15 +112,10 @@ describe("themePacks", () => {
     expect(supporter?.passOnly).toBe(true);
     // Never sold per-theme — only via the Pass — so no price/buy link.
     expect(supporter?.buyUrl).toBeUndefined();
-    // Every non-passOnly, non-freebie premium pack IS individually buyable.
-    for (const p of INTENSE_PACKS.filter((p) => !p.passOnly && !p.freebie)) {
+    // Every non-passOnly premium pack IS individually buyable.
+    for (const p of INTENSE_PACKS.filter((p) => !p.passOnly)) {
       expect(p.price).toBeTruthy();
       expect(p.buyUrl).toBeTruthy();
-    }
-    // Freebies (premium shelf, no charge) carry neither.
-    for (const p of INTENSE_PACKS.filter((p) => p.freebie)) {
-      expect(p.price).toBeUndefined();
-      expect(p.buyUrl).toBeUndefined();
     }
   });
 
