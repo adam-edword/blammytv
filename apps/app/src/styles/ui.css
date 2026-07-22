@@ -37,9 +37,13 @@
   background: var(--surface-raised);
   border: 0.5px solid var(--border-raised);
   border-radius: var(--radius-chip);
+  /* 380ms — the spring's designed pairing (tokens.css) and the mode
+   * rail's speed. 300ms read as a twitchy overshoot (Adam, wave-A
+   * feel-gate). If the spring still doesn't sit right here, the next
+   * stop is var(--ease-drawer) at the same duration, no bounce. */
   transition:
-    left 300ms var(--spring),
-    width 300ms var(--spring);
+    left 380ms var(--spring),
+    width 380ms var(--spring);
 }
 
 /* Trackless variant (the header's Stream rail): same chips, same sliding
