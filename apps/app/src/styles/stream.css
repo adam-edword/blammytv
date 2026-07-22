@@ -1104,6 +1104,9 @@
   transition: opacity 150ms ease, background 140ms ease;
 }
 .continue-card:hover .continue-card__sources { opacity: 1; }
+/* Keyboard parity with the hover reveal (the guide-star :focus-within
+ * pattern from the Live a11y sweep) — the chip nests a real button. */
+.continue-card:focus-within .continue-card__sources { opacity: 1; }
 /* Same hover treatment as episode stills: 0.4 dim + centered play cue. */
 .continue-card__artwrap::after {
   content: "";

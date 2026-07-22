@@ -501,6 +501,7 @@ export const Guide = memo(function Guide({
                 <button
                   type="button"
                   className="guide__card"
+                  title={channel.name}
                   aria-current={selected ? "true" : undefined}
                   aria-label={
                     channel.quality

@@ -325,6 +325,15 @@ button {
 .header__search:hover {
   opacity: 0.8;
 }
+
+/* The inert live-search slot: same no-tease treatment as .header__action. */
+.header__search:disabled {
+  cursor: default;
+  opacity: 0.3;
+}
+.header__search:disabled:hover {
+  opacity: 0.3;
+}
 /* visibility (not display): the hidden twin keeps its space so the tab
  * cluster never shifts when the icon swaps sides. */
 .header__search--off {
@@ -508,6 +517,16 @@ button {
 /* The cluster sits at 0.3 opacity, so hover brightens the icon itself. */
 .header__action:hover {
   filter: brightness(2);
+}
+
+/* Not-yet-wired controls (Profile) keep their slot but stop teasing:
+ * no pointer, no hover brighten, quieter at rest. */
+.header__action:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+.header__action:disabled:hover {
+  filter: none;
 }
 
 .header__action svg {

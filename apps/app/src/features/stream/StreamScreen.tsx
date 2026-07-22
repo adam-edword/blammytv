@@ -971,7 +971,12 @@ export function StreamScreen() {
                         {src.quality}
                         {src.cached && <span className="vod-source__zap">⚡</span>}
                       </span>
-                      <span className="vod-source__lines">
+                      {/* Ellipsized release lines get the full text back
+                        * as a tooltip — it's what the user picks BY. */}
+                      <span
+                        className="vod-source__lines"
+                        title={src.lines.join("\n")}
+                      >
                         {src.lines.slice(0, 2).map((l, i) => (
                           <span key={i}>{l}</span>
                         ))}
@@ -1254,6 +1259,23 @@ function Home({
   // Finished movies retire from Continue Watching (display-only filter —
   // the entry survives for resume bookkeeping).
   const activeWatching = watching.filter((e) => !retiredFromContinue(e));
+  // A "ready" catalog can still be EMPTY (buildVod swallows per-catalog
+  // failures into empty rows) — without this branch that rendered a
+  // completely blank tab. Discover and Live both narrate the same state.
+  if (
+    featured.length === 0 &&
+    activeWatching.length === 0 &&
+    data.rows.every((r) => r.itemIds.length === 0)
+  )
+    return (
+      <div className="stream__note">
+        <h2>Nothing came back from your catalogs.</h2>
+        <p>
+          The manifest loaded but every catalog returned empty. Check the
+          manifest in Settings → AIOStreams, or just try again in a minute.
+        </p>
+      </div>
+    );
   return (
     <>
       {featured.length > 0 && (
@@ -1719,7 +1741,12 @@ export const Card = memo(function Card({
   // thing is a gentle lean, not a flip. OS-level reduced-motion wins.
   const reducedMotion = REDUCED_MOTION;
   return (
-    <button type="button" className="stream-card" onClick={() => onOpen(item)}>
+    <button
+      type="button"
+      className="stream-card"
+      title={item.title}
+      onClick={() => onOpen(item)}
+    >
       <Tilt
         className="stream-card__tilt"
         tiltEnable={!reducedMotion}
@@ -1811,7 +1838,17 @@ function ContinueCard({
         if (!held.current) onOpen();
       }}
       onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") onOpen();
+        if (e.key === "Enter" || e.key === " ") {
+          // Space also pages the scroll container without this.
+          e.preventDefault();
+          onOpen();
+        }
+        // The pointer path clears via press-and-hold; this is the
+        // keyboard's equivalent (the a11y sweep pattern from Live).
+        if (e.key === "Delete" || e.key === "Backspace") {
+          e.preventDefault();
+          onClear();
+        }
       }}
     >
       <span className="continue-card__artwrap">
@@ -2069,7 +2106,7 @@ function Detail({
                   {s.quality}
                   {s.cached && <span className="vod-source__zap">⚡</span>}
                 </span>
-                <span className="vod-source__lines">
+                <span className="vod-source__lines" title={s.lines.join("\n")}>
                   {s.lines.slice(0, 3).map((l, i) => (
                     <span key={i}>{l}</span>
                   ))}

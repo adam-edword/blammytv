@@ -846,6 +846,16 @@
   height: 13px;
 }
 
+/* Armed (first click): the ✕ becomes a "Sure?" in the danger voice —
+ * the Customize clear-logins arm/confirm language, on the row scale. */
+.playlist-row__delete--armed {
+  opacity: 1;
+  color: var(--danger-text);
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 12px;
+}
+
 /* Load/guide status under a playlist's source line — the reportable reason
  * when everything says "No Information" (installed builds have no console). */
 .playlist-row__status {
