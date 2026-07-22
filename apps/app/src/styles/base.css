@@ -1,4 +1,4 @@
-/* App shell: reset, header, placeholders. Shared primitives live in ui.css,
+/* App shell: reset and header. Shared primitives live in ui.css,
  * feature styles in their own sheets (settings.css, …). */
 
 *,
@@ -513,32 +513,6 @@ button {
 .header__action svg {
   width: 25px;
   height: 25px;
-}
-
-/* ----------------------------------------------------------- placeholder */
-
-.placeholder {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  text-align: center;
-  padding: 24px;
-}
-
-.placeholder__title {
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 28px;
-  margin: 0;
-}
-
-.placeholder__note {
-  color: var(--text-muted);
-  max-width: 44ch;
-  margin: 0;
 }
 
 /* ------------------------------------------------- update chip (header) */

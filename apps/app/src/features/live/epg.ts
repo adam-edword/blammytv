@@ -14,7 +14,7 @@ export function windowStart(now: Date): Date {
   return start;
 }
 
-export function windowEnd(start: Date): Date {
+function windowEnd(start: Date): Date {
   return new Date(start.getTime() + GUIDE_HOURS * 60 * 60_000);
 }
 

@@ -8,11 +8,11 @@ import type { LiveData, Programme, Quality } from "./model";
  * when no real playlist is configured (see source.ts).
  */
 
-export const MOCK_PLAYLIST_NAME = "Meteor";
+const MOCK_PLAYLIST_NAME = "Meteor";
 
 /* A few titles carry emojis the way real provider categories do, to
  * exercise the emoji-icon path; the rest fall back to the tv icon. */
-export const MOCK_FOLDERS = [
+const MOCK_FOLDERS = [
   "🏆 World Cup 2026",
   "FIFA World Cup 2026 Men",
   "FIFA Women's World Cup",
@@ -111,7 +111,7 @@ const DURATIONS = [45, 75, 90, 135];
 
 /** Programme blocks for one channel, tiled back from the guide window's
  * start so the first cell usually began before the window (like real EPG). */
-export function programmesFor(
+function programmesFor(
   channelIndex: number,
   now: Date,
   hours = 5,

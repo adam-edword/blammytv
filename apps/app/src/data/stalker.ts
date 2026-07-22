@@ -55,7 +55,9 @@ interface Session {
 }
 const sessions = new Map<string, Session>();
 
-/** Drop a playlist's cached session (tests, or a Settings credential edit). */
+/** Drop a playlist's cached session. Unwired groundwork: nothing calls this
+ * yet — the intended caller is the Settings credential-edit path (a stale
+ * ~1h session survives a credential change until then). */
 export function resetStalkerSession(playlistId: string): void {
   sessions.delete(playlistId);
 }
@@ -88,7 +90,7 @@ function stalkerHeaders(
 
 /** Pure URL builder: one endpoint, action params, the JsHttpRequest
  * transport marker (the response is JSON despite the "xml" token). */
-export function actionUrl(
+function actionUrl(
   base: string,
   params: Record<string, string>,
 ): string {
@@ -391,7 +393,8 @@ export async function fetchEpg(
 }
 
 /** Per-channel short EPG (now + next few) — the lazy fallback when a portal
- * ignores get_epg_info. */
+ * ignores get_epg_info. Unwired groundwork (docs/stalker-implementation.md's
+ * recommended EPG strategy); keep until Stalker is proven on a real portal. */
 export async function fetchShortEpg(
   p: StalkerPlaylist,
   channelId: string,

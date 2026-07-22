@@ -33,9 +33,9 @@ const BASE_DEG_S = 16;
 const BURST_DEG_S = 320;
 const BURST_MS = 700;
 /** P1 length: the unwind + unblur. */
-export const LAND_MS = 830;
+const LAND_MS = 830;
 /** scaleY 1.15→1 settles here (mock track runs past the landing). */
-export const SETTLE_MS = 1490;
+const SETTLE_MS = 1490;
 /** Full timeline (hosts time their release from this): 830ms landing
  * + the 2000ms shrink/spring track (motion ends at 2686 — the old
  * released spring runs to 92.79%) + a ~370ms hold on the settled

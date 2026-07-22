@@ -172,15 +172,6 @@ export function StatsIcon({ size = 20, className }: IconProps) {
   );
 }
 
-/** Edit / Pencil */
-export function PencilIcon({ size = 16, className }: IconProps) {
-  return (
-    <Svg size={size} className={className}>
-      <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-    </Svg>
-  );
-}
-
 /** Interface / Sidebar — collapse/expand the side panel. */
 /** Next episode — filled play glyph against an end bar (YouTube-style). */
 export function NextEpisodeIcon({ size = 20, className }: IconProps) {
@@ -214,15 +205,6 @@ export function TvIcon({ size = 16, className }: IconProps) {
     <Svg size={size} className={className}>
       <rect x="2" y="7" width="20" height="14" rx="2" />
       <path d="M16 3L12 7L8 3" />
-    </Svg>
-  );
-}
-
-/** Interface / Square — the folder rows' placeholder mark (per the design). */
-export function SquareIcon({ size = 15, className }: IconProps) {
-  return (
-    <Svg size={size} className={className}>
-      <rect x="4" y="4" width="16" height="16" rx="3" />
     </Svg>
   );
 }
@@ -422,17 +404,6 @@ export function PlayIcon({ size = 20, className }: IconProps) {
   );
 }
 
-/** Interface / Info (i in a circle). */
-export function InfoIcon({ size = 20, className }: IconProps) {
-  return (
-    <Svg size={size} className={className}>
-      <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z" />
-      <path d="M12 11v5" />
-      <path d="M12 8h.01" />
-    </Svg>
-  );
-}
-
 /** Media / Pause */
 export function PauseIcon({ size = 20, className }: IconProps) {
   return (
@@ -498,14 +469,3 @@ export function ExitFullscreenIcon({ size = 20, className }: IconProps) {
   );
 }
 
-/** Episodes / source list (playlist with a play marker). */
-export function ListIcon({ size = 20, className }: IconProps) {
-  return (
-    <Svg size={size} className={className}>
-      <line x1="4" y1="7" x2="20" y2="7" />
-      <line x1="4" y1="12" x2="13" y2="12" />
-      <line x1="4" y1="17" x2="13" y2="17" />
-      <path d="M17 13.2v5.6l4-2.8z" fill="currentColor" stroke="none" />
-    </Svg>
-  );
-}

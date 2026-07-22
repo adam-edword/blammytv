@@ -11,7 +11,7 @@ export const ROW_CAP_MIN = 10;
 export const ROW_CAP_MAX = 100;
 const DEFAULT = 40;
 
-export function clampRowCap(n: number): number {
+function clampRowCap(n: number): number {
   if (!Number.isFinite(n)) return DEFAULT;
   return Math.min(ROW_CAP_MAX, Math.max(ROW_CAP_MIN, Math.round(n)));
 }

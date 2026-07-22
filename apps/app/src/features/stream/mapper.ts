@@ -24,7 +24,7 @@ export function mapStreams(streams: StremioStream[]): StreamSource[] {
   return streams.filter((s) => isHttp(s.url)).map(mapStream);
 }
 
-export function mapStream(s: StremioStream): StreamSource {
+function mapStream(s: StremioStream): StreamSource {
   const name = (s.name ?? "").trim();
   const binge = s.behaviorHints?.bingeGroup ?? "";
   return {

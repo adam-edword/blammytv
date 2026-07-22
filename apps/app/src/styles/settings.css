@@ -419,122 +419,6 @@
   display: flex;
 }
 
-/* Wraps a Toggle when its control is unreachable for the active pack
- * (light theme under a dark-only pack). Same dim reading as
- * .settings__section-note--dim; pointer-events:none does the disabling
- * since Toggle has no disabled prop of its own. */
-.toggle-disable-wrap--off {
-  opacity: 0.4;
-  pointer-events: none;
-}
-
-/* -------------------------------------------------------- theme packs */
-
-.pack-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  width: 100%;
-  /* .settings__body scrolls (overflow-y: auto forces overflow-x: auto too,
-   * per spec), which clips the leftmost card's active box-shadow ring flush
-   * against the row's edge. A little inset gives the 2px ring room to
-   * render — cheaper than un-scrolling the ancestor for one ring. */
-  padding: 2px;
-}
-
-.pack-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  width: 96px;
-  padding: 10px 8px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-chip);
-  transition: border-color 150ms ease;
-}
-
-.pack-card:hover {
-  border-color: var(--border-strong);
-}
-
-/* Same ring idiom as the app's other "this one's active" cards (discover
- * season chips, stream's now-playing thumb): box-shadow, not border, so
- * it doesn't shove the layout. */
-.pack-card--active {
-  box-shadow: 0 0 0 2px var(--accent);
-}
-
-/* Mini surface preview: bg panel, a smaller surface chip, an accent dot —
- * all three from the pack's own metadata (artwork, not theme tokens). */
-.pack-card__preview {
-  position: relative;
-  display: flex;
-  align-items: flex-end;
-  width: 100%;
-  height: 44px;
-  border-radius: 10px;
-  padding: 6px;
-  overflow: hidden;
-  /* Inset hairlines keep the near-black previews (classic/void on a
-   * near-black card) reading as panels, not holes. */
-  box-shadow: inset 0 0 0 1px var(--border);
-}
-
-.pack-card__surface {
-  width: 60%;
-  height: 55%;
-  border-radius: 6px;
-  box-shadow: inset 0 0 0 1px var(--border);
-}
-
-.pack-card__accent {
-  position: absolute;
-  right: 6px;
-  bottom: 6px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-}
-
-.pack-card__name {
-  font-family: var(--font-headline);
-  font-weight: 600;
-  font-size: 12px;
-}
-
-/* Price/lock chip on an unowned premium (intense) pack's preview — top-right,
-   over the swatch. Owned packs and free packs render no chip. */
-.pack-card__lock {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  padding: 2px 6px;
-  border-radius: var(--radius-badge);
-  background: rgba(0, 0, 0, 0.55);
-  border: 1px solid var(--border-strong);
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 10px;
-  line-height: 1.4;
-  color: #fff;
-  backdrop-filter: blur(4px);
-}
-
-/* Supporters mark on the secret (Pass-only) theme's preview — top-right,
-   over the swatch, in the brand pink. It's only ever shown to Pass holders
-   (who own it), so it never collides with the price/lock chip. */
-.pack-card__heart {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  display: grid;
-  place-items: center;
-  color: #ff7bf6;
-  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.6));
-}
-
 /* The "you're previewing an unowned pack" banner + buy CTA, shown under the
    pack row only while an unowned premium pack is the live preview. */
 .pack-preview-note {
@@ -1109,16 +993,6 @@
 }
 
 /* -------------------------------------------------------- premium themes */
-
-/* Right side of the "Premium Themes" customize-row: the form (or Remove
- * button) plus its own status line stacked together, so the row's
- * space-between still treats this as ONE flex item on the far edge. */
-.license-control {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-}
 
 .license-form {
   display: flex;

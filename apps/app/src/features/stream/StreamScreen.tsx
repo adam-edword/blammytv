@@ -1573,12 +1573,14 @@ function Hero({
             >
               {/* Tilt wraps art+scrim+text but NOT the card div (its
                 * left/width + translateZ(0) are the carousel's geometry)
-                * and not the ::after glow — ambient light shouldn't
-                * rotate with the object. Active card only: a peeking
+                * and not the .shero__glowbox layer behind the track —
+                * ambient light shouldn't rotate with the object. Active
+                * card only: a peeking
                 * neighbor pivots around an offscreen center and reads
                 * broken. At this size 0.5° is plenty (Adam — 2° read as
-                * a barn door); no scale (neighbors peek right beside
-                * it), no glare (text lives here). */}
+                * a barn door); scale is a hair (1.005) — just enough to
+                * keep the leaning card covering the glow behind its own
+                * edge; glare is faint (text lives here). */}
               <Tilt
                 className="shero__tilt"
                 tiltEnable={active && !reducedMotion}

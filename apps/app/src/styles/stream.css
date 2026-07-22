@@ -119,8 +119,10 @@
   top: 22px;
   bottom: 22px;
   border-radius: 60px;
-  /* No overflow:hidden here — it would clip the ::after glow. The
-   * rounding lives on the art/scrim layers instead. */
+  /* No overflow:hidden here — it would clip the Tilt lean/scale (the
+   * .shero__tilt wrapper grows past the box on hover). The rounding
+   * lives on the art/scrim layers instead; the ambient glow is the
+   * separate .shero__glowbox layer behind the track. */
   background: var(--surface);
   cursor: pointer;
   /* Own compositor layer: the rounded content rides the track's

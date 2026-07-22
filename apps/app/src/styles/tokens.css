@@ -36,18 +36,12 @@
   --accent-surface: color-mix(in srgb, var(--accent) 16%, var(--mix-base));
   --accent-border: color-mix(in srgb, var(--accent) 36%, transparent);
   --accent-border-hover: color-mix(in srgb, var(--accent) 51%, black);
-  --accent-dim: color-mix(in srgb, var(--accent) 79%, black);
 
   /* Text */
   --text: #f2f2f5;
   --text-muted: #a2a2a2;
   --text-dim: #494949; /* quietest tier (hero synopsis/meta) */
   --text-ghost: rgba(255, 255, 255, 0.2); /* placeholders */
-
-  /* Quality-badge borders (fills are per-badge gradients) */
-  --badge-4k: #ff7bf6;
-  --badge-fhd: #ffe57f;
-  --badge-hd: #242424;
 
   /* Shape */
   --radius-card: 25px;
