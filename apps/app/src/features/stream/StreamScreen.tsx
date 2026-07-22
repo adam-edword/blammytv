@@ -292,12 +292,15 @@ export function StreamScreen() {
     };
   }, [playing, goBack, goForward]);
 
-  const open = useCallback(async (item: VodItem) => {
-    // Show the lightweight item immediately; swap in the full detail
-    // (synopsis, cast, seasons) when it lands. Failure keeps the light one.
-    navigate(
-      item.kind === "series" ? { at: "episodes", item } : { at: "title", item },
-    );
+  // Whether the CURRENT detail's full-meta resolve settled — Detail's
+  // episodes area turns "Loading episodes…" into the truth ("couldn't
+  // load" with retry, or "none listed") instead of loading forever.
+  const [metaState, setMetaState] = useState<{
+    id: string;
+    s: "pending" | "failed" | "ready";
+  } | null>(null);
+  const resolveIntoView = useCallback(async (item: VodItem) => {
+    setMetaState({ id: item.id, s: "pending" });
     try {
       const full = await resolveVodItem(item.kind, item.id);
       if (full)
@@ -306,10 +309,20 @@ export function StreamScreen() {
             ? { ...v, item: full }
             : v,
         );
+      setMetaState({ id: item.id, s: "ready" });
     } catch {
-      /* best-effort: the light item still renders */
+      // Best-effort: the light item still renders; Detail offers retry.
+      setMetaState({ id: item.id, s: "failed" });
     }
-  }, [navigate]);
+  }, []);
+  const open = useCallback(async (item: VodItem) => {
+    // Show the lightweight item immediately; swap in the full detail
+    // (synopsis, cast, seasons) when it lands. Failure keeps the light one.
+    navigate(
+      item.kind === "series" ? { at: "episodes", item } : { at: "title", item },
+    );
+    await resolveIntoView(item);
+  }, [navigate, resolveIntoView]);
 
   // Hero "Watch Now": resolve fresh sources and play the best CACHED one
   // straight away (the addon's ranking within cached). Auto-play NEVER
@@ -524,7 +537,20 @@ export function StreamScreen() {
           setResolving((r) => (r ? { ...r, art: full.logo } : r));
       }
       if (!item) {
+        // Resolve failed: land the detail page with the light entry data
+        // instead of silently bouncing back to Home — Detail shows the
+        // honest error + retry (metaState) from open()'s resolve.
         setResolving(null);
+        void open({
+          id: entry.id,
+          title: entry.title,
+          kind,
+          ...(entry.art ? { backdrop: entry.art } : {}),
+          ...(entry.logo ? { logo: entry.logo } : {}),
+          genres: [],
+          cast: [],
+          seasons: [],
+        });
         return;
       }
       const episodeInfo =
@@ -1192,6 +1218,8 @@ export function StreamScreen() {
       {view.at === "episodes" && (
         <Episodes
           item={view.item}
+          metaState={metaState?.id === view.item.id ? metaState.s : "ready"}
+          onRetryMeta={() => void resolveIntoView(view.item)}
           onBack={goBack}
           onPick={(episodeId, episodeLabel, episodeInfo) =>
             navigate({
@@ -2193,10 +2221,15 @@ function Detail({
 
 function Episodes({
   item,
+  metaState = "ready",
+  onRetryMeta,
   onBack,
   onPick,
 }: {
   item: VodItem;
+  /** Whether the full-meta resolve for THIS item settled (see open()). */
+  metaState?: "pending" | "failed" | "ready";
+  onRetryMeta?: () => void;
   onBack: () => void;
   onPick: (
     episodeId: string,
@@ -2273,7 +2306,24 @@ function Episodes({
           <GenrePills genres={item.genres} />
         </div>
         {item.seasons.length === 0 ? (
-          <p className="vod-sources__note">Loading episodes…</p>
+          metaState === "failed" ? (
+            <p className="vod-sources__note" role="alert">
+              Couldn&rsquo;t load episodes.{" "}
+              <button
+                type="button"
+                className="vod-sources__retry"
+                onClick={onRetryMeta}
+              >
+                Try again
+              </button>
+            </p>
+          ) : metaState === "ready" ? (
+            <p className="vod-sources__note">No episodes listed.</p>
+          ) : (
+            <p className="vod-sources__note" role="status">
+              Loading episodes…
+            </p>
+          )
         ) : (
           <>
             <div className="season-bar">
