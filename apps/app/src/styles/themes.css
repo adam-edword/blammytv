@@ -561,6 +561,11 @@
   border-color: #f2a0c2;
 }
 
+/* Streamy's card shows the client's exact board gradient. */
+.tcard__art[data-pack-art="streamy"] {
+  background-image: linear-gradient(72deg, #0c0b11 1.05%, #1a173e 100%);
+}
+
 /* Pass-active thank-you: the heart rides inline with the title. */
 .themes-pass__heart {
   color: #ff7bf6;

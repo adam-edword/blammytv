@@ -149,7 +149,7 @@ export const INTENSE_PACKS: ReadonlyArray<ThemePackMeta> = [
     name: "Streamy",
     blurb: "That other client — deep indigo board, violet glow, familiar type.",
     supportsLight: false,
-    preview: { bg: "#0d0b1e", surface: "#1d1a38", accent: "#7b5bf5" },
+    preview: { bg: "#131126", surface: "#1d1a38", accent: "#7b5bf5" },
     premium: true,
     price: "$2.50",
     // PENDING: swap for the live Payment Link after rerunning
