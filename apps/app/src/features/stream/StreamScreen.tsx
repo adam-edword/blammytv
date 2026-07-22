@@ -1477,6 +1477,11 @@ function Hero({
   const m = heroMargin(width);
   const cardW = Math.max(0, width - 2 * m);
   const step = cardW + HERO_GAP;
+  // The hero's Apple TV lean rides an inner wrapper (see .shero__tilt) —
+  // the slide div's transform is carousel geometry and stays untouched.
+  const reducedMotion = useRef(
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+  ).current;
 
   // Window of live slots around the current one: both neighbors visible,
   // one extra each side so a slide-in mounts before it enters the frame.
@@ -1553,6 +1558,21 @@ function Hero({
               // buttons stopPropagation, so Watch Now stays instant-play).
               onClick={() => (active ? onOpen(item) : setV(slot))}
             >
+              {/* Tilt wraps art+scrim+text but NOT the card div (its
+                * left/width + translateZ(0) are the carousel's geometry)
+                * and not the ::after glow — ambient light shouldn't
+                * rotate with the object. Active card only: a peeking
+                * neighbor pivots around an offscreen center and reads
+                * broken. At this size 2° is plenty; no scale (neighbors
+                * peek right beside it), no glare (text lives here). */}
+              <Tilt
+                className="shero__tilt"
+                tiltEnable={active && !reducedMotion}
+                tiltMaxAngleX={1.5}
+                tiltMaxAngleY={2}
+                perspective={2500}
+                transitionSpeed={650}
+              >
               {(item.backdrop ?? item.poster) && (
                 <img
                   className="shero__art"
@@ -1613,6 +1633,7 @@ function Hero({
                   </button>
                 </div>
               </div>
+              </Tilt>
             </div>
           );
         })}

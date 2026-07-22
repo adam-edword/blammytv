@@ -125,6 +125,13 @@
   transform: translateZ(0);
 }
 .shero__card--active { cursor: pointer; }
+/* The Apple TV lean's transform surface: fills the slide, so the art/
+ * scrim/text inside keep their exact geometry. react-parallax-tilt owns
+ * this element's transform — the slide div above stays carousel-only. */
+.shero__tilt {
+  position: absolute;
+  inset: 0;
+}
 .shero__art {
   position: absolute;
   inset: 0;
