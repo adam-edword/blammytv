@@ -16,8 +16,61 @@ themselves on next launch.
 3. Keep `blammytv.key` and its password **safe and private** — never commit them.
    Lose the private key and existing installs can't accept updates (they'd need a
    fresh manual install with a new key).
+   **BACK UP the key file AND its password to 2+ durable places (password
+   manager + external/cloud).** This is the one irreplaceable artifact — it is
+   not in git and lives only at `%USERPROFILE%\.tauri\blammytv.key`.
+
+> **KEY ROTATED 2026-07 (Windows reinstall).** The original updater key
+> `5FD3E10724DF10F7` (id `f710df2407e1d35f`) was lost when the build machine
+> was wiped without a backup. A new keypair `163EBD51B4EE3232` was minted and
+> its public half now lives in tauri.conf.json. **Consequence:** every install
+> shipped before **v0.5.4** has the OLD pubkey compiled in and CANNOT
+> auto-update to v0.5.4 or later — those users must **manually reinstall
+> v0.5.4's `-setup.exe` once**, after which auto-update resumes on the new key.
+> v0.5.4 is the first release signed with the new key.
+
+## Hard-won rules (2026-07-09, the first rebuild release)
+
+- **Dev bumps touch only the three frontend files** (root+app package.json,
+  version.ts). Cargo.toml + tauri.conf.json stay at the LAST RELEASED
+  version between releases — touching either makes every `git pull`
+  recompile Rust for no reason. They jump straight to the new version in
+  the release commit itself.
+
+- **One shell, one build, one upload.** The `TAURI_SIGNING_*` env vars die
+  with the PowerShell window; a rebuild without them produces an UNSIGNED
+  exe and errors only at the end. Never mix an exe and a `.sig` from
+  different builds — every build makes a new pair, and the updater
+  rejects a mismatched one (correctly).
+- **The 0.2.x tag namespace up to v0.2.4a is BURNED** by the pre-rebuild
+  app's releases. Never reuse an existing tag: GitHub attaches your
+  release to the old tag/commit, silently refuses same-name asset uploads
+  until the old asset is deleted, and the old releases' own latest.json
+  manifests make `releases/latest` ambiguous. The rebuild line continues
+  from v0.2.5.
+- **Always tick "Set as the latest release"** when publishing — it pins
+  what `releases/latest/download/latest.json` (the URL every installed
+  app polls) resolves to, deterministically.
+- Verification is cheap: the sig math can be checked against the uploaded
+  exe before shipping the manifest (blake2b-512 of the file, Ed25519
+  against tauri.conf's pubkey — the remote session does this on request).
 
 ## Per release
+
+**Lazy path:** `.\scripts\release.ps1` does steps 2 of the below in one go —
+prompts for the key password (never echoed), builds signed NSIS, wipes the
+env vars, and puts the `.sig` on the clipboard. Steps 0 (libmpv refresh),
+1 (version bump) and 3+ (publish) still apply.
+
+
+0. **Refresh the bundled libmpv** (the installer ships
+   `apps/app/src-tauri/libmpv-2.dll` via `tauri.windows.conf.json`; the DLL
+   is gitignored, so each release machine keeps its own copy current):
+   ```powershell
+   node scripts/fetch-libmpv.mjs   # needs 7-Zip; prints manual steps if not
+   ```
+   The app degrades gracefully on older mpv builds (e.g. the settings-glass
+   frost needs gpu-next; without it the card goes solid) — but ship current.
 
 1. **Bump the version** in all four spots (they must agree — the updater compares
    against `tauri.conf.json`):

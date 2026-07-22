@@ -1,0 +1,1188 @@
+/* The floating settings card (Figma 131:787 / 131:819). */
+
+/* No dim — the design floats the glass card straight over the content
+ * (the card's own backdrop blur provides the separation). */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  /* Above everything: the floating header (20), the theater backdrop (40),
+   * and the inverted player's inline chrome host (45). */
+  z-index: 60;
+  display: flex;
+  /* Top-right float, per the Figma (centered for a stretch in v0.1.120-136;
+   * Adam moved it back 2026-07-09). The region frost follows the card's
+   * measured rect, so position doesn't matter to the glass. */
+  justify-content: flex-end;
+  align-items: flex-start;
+  padding: 88px 48px;
+}
+
+/* Glass card: 10% white over 45% black, blurred backdrop. Grows with its
+ * content down to near the window bottom; interior lists scroll, the card
+ * itself doesn't. */
+.settings {
+  width: min(786px, 100%);
+  max-height: calc(100vh - 136px);
+  display: flex;
+  flex-direction: column;
+  background: var(--card-glass);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border-strong);
+  border-radius: 26px;
+  padding: 32px 39px;
+  box-shadow: 0 -13px 72.6px rgba(0, 0, 0, 0.73);
+}
+
+/* Frost unavailable (older bundled mpv / vo without PARAM shaders) while
+ * live video plays behind the card: glass over an unblurred moving picture
+ * is unreadable, so the card goes solid. LiveScreen stamps data-frost="0"
+ * on the root exactly in that case. */
+:root[data-frost="0"] .settings {
+  background: var(--bg);
+  backdrop-filter: none;
+}
+
+.settings__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.settings__title {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 32px;
+  margin: 0;
+}
+
+.settings__close {
+  display: grid;
+  place-items: center;
+  opacity: 0.3;
+  transition: opacity 150ms ease;
+}
+
+.settings__close:hover {
+  opacity: 1;
+}
+
+.settings__close svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* Scrolls only as a fallback (tabs with no inner scroller on a short
+ * window); when a folder list is open, the list itself absorbs the squeeze. */
+.settings__body {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  margin-top: 40px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* The expanded folder editor does NOT unlock section/item shrinking any
+ * more (the old min-height:0 pair): with the tools + Save bar around the
+ * list, over-shrinking compressed the section AROUND its content and the
+ * next section's rows overlapped the Save bar (e2e-caught). Sections keep
+ * their natural height; the list caps itself at 60vh and the settings
+ * body's scroll fallback absorbs the rest. */
+.playlist-item:has(.source-list) {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Sections sit under a hairline divider (per the design). */
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+  border-top: 1px solid var(--border-strong);
+  padding-top: 20px;
+}
+
+.settings__section-title {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 32px;
+  margin: 0;
+}
+
+.settings-section__list-title {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 21px;
+  margin: 0;
+}
+
+.settings__section-note {
+  font-size: 15px;
+  margin: 0;
+  max-width: 52ch;
+  line-height: 1.45;
+}
+
+.settings__section-note--dim {
+  opacity: 0.4;
+}
+
+/* ------------------------------------------------------------- add form */
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  width: 100%;
+}
+
+.settings-form__row {
+  display: flex;
+  gap: 12px;
+}
+
+/* Label-above-input field. Placeholders show example values, not names. */
+.settings-field {
+  flex: 1;
+  min-width: 1px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-field__label {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 12px;
+  opacity: 0.6;
+  padding-left: 6px;
+}
+
+.settings-input {
+  flex: 1;
+  min-width: 1px;
+  width: 100%;
+  font-family: var(--font-text);
+  font-size: 15px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-card);
+  padding: 11px 12px;
+  outline: none;
+  /* Long values (manifest URLs) truncate with an ellipsis instead of
+   * clipping at the corner; the browser lifts it while editing. */
+  text-overflow: ellipsis;
+}
+
+.settings-input::placeholder {
+  color: var(--text-ghost);
+}
+
+/* In-field tools (copy/clear), revealed on hover or focus. */
+.settings-field__control {
+  position: relative;
+  display: flex;
+  width: 100%;
+}
+
+/* The tools sit on an opaque puck that fades in over the text: surface-
+ * colored with a soft left-edge gradient scrim (no reserved padding, so
+ * the unhovered field looks untouched and just ellipsizes). */
+.settings-field__tools {
+  position: absolute;
+  right: 1px;
+  top: 1px;
+  bottom: 1px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 10px 0 5px;
+  border-radius: 0 24px 24px 0;
+  background: var(--surface);
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+/* The fade lives just outside the puck's left edge. */
+.settings-field__tools::before {
+  content: "";
+  position: absolute;
+  right: 100%;
+  top: 0;
+  bottom: 0;
+  width: 24px;
+  background: linear-gradient(to right, transparent, var(--surface));
+}
+
+.settings-field__control:hover .settings-field__tools,
+.settings-field__control:focus-within .settings-field__tools {
+  opacity: 1;
+}
+
+.settings-field__tool {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  opacity: 0.55;
+  transition:
+    opacity 150ms ease,
+    background 150ms ease;
+}
+
+.settings-field__tool:hover {
+  opacity: 1;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.settings-field__tool svg {
+  width: 14px;
+  height: 14px;
+}
+
+.settings-input:focus {
+  border-color: color-mix(in srgb, var(--text) 30%, transparent);
+}
+
+/* ------------------------------------------------------- accent picker */
+
+.accent-row {
+  position: relative; /* anchors the custom-picker popover */
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+/* Swatch: dark 16% fill, pure-color border (set inline per color); the
+ * active one carries a white check. The custom chip's mini swatch is the
+ * same element — neutral until a custom color has ever been picked. */
+.accent-swatch {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 12px;
+  border: 2px solid var(--border-strong);
+  background: var(--surface);
+  transition: transform 120ms ease;
+  cursor: pointer;
+}
+
+.accent-swatch:hover {
+  transform: scale(1.1);
+}
+
+.accent-swatch__check {
+  width: 14px;
+  height: 14px;
+  color: var(--text);
+}
+
+/* The custom chip: mini swatch + label. */
+.accent-custom {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 7px 0 3px;
+  background: var(--surface-raised);
+  border: 0.5px solid var(--border-raised);
+  border-radius: 25px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: filter 120ms ease;
+}
+
+.accent-custom:hover {
+  filter: brightness(1.2);
+}
+
+/* Chip-hosted swatch shouldn't scale independently of its chip. */
+.accent-custom .accent-swatch:hover {
+  transform: none;
+}
+
+/* Our color-picker popover (react-colorful dressed in app tokens). */
+.accent-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  background: var(--card-glass);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border-strong);
+  border-radius: 16px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+}
+
+.accent-popover .react-colorful {
+  width: 220px;
+  height: 180px;
+}
+
+.accent-popover .react-colorful__saturation {
+  border-radius: 12px;
+  border-bottom: none;
+  margin-bottom: 12px;
+}
+
+.accent-popover .react-colorful__hue {
+  height: 14px;
+  border-radius: 999px;
+}
+
+.accent-popover .react-colorful__pointer {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #fff;
+  corner-shape: round; /* keep the drag thumbs perfectly circular */
+}
+
+/* Bottom row: eyedropper left, hex input right. */
+.accent-popover__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.accent-popover__dropper {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border-input);
+  opacity: 0.75;
+  transition: opacity 150ms ease;
+}
+
+.accent-popover__dropper:hover {
+  opacity: 1;
+}
+
+.accent-popover__dropper svg {
+  width: 15px;
+  height: 15px;
+}
+
+.accent-popover__hex {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.accent-popover__hash {
+  opacity: 0.5;
+}
+
+.accent-popover__hex input {
+  width: 100%;
+  font-family: var(--font-text);
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-input);
+  border-radius: 10px;
+  padding: 6px 10px;
+  outline: none;
+  text-transform: lowercase;
+}
+
+.accent-popover__hex input:focus {
+  border-color: color-mix(in srgb, var(--text) 30%, transparent);
+}
+
+/* Divides Customize into General/Theme/Display pills (Adam: "like m3u/
+ * xtream/stalker"). Sits above the active section rather than inside it
+ * (PlaylistsTab's kind rail is the inline variant) — display:flex keeps
+ * the chip-tabs track shrink-wrapped instead of stretching the settings__body
+ * flex column's default align-items: stretch across the full card width. */
+.customize-rail {
+  display: flex;
+}
+
+/* Wraps a Toggle when its control is unreachable for the active pack
+ * (light theme under a dark-only pack). Same dim reading as
+ * .settings__section-note--dim; pointer-events:none does the disabling
+ * since Toggle has no disabled prop of its own. */
+.toggle-disable-wrap--off {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* -------------------------------------------------------- theme packs */
+
+.pack-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  width: 100%;
+  /* .settings__body scrolls (overflow-y: auto forces overflow-x: auto too,
+   * per spec), which clips the leftmost card's active box-shadow ring flush
+   * against the row's edge. A little inset gives the 2px ring room to
+   * render — cheaper than un-scrolling the ancestor for one ring. */
+  padding: 2px;
+}
+
+.pack-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 96px;
+  padding: 10px 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-chip);
+  transition: border-color 150ms ease;
+}
+
+.pack-card:hover {
+  border-color: var(--border-strong);
+}
+
+/* Same ring idiom as the app's other "this one's active" cards (discover
+ * season chips, stream's now-playing thumb): box-shadow, not border, so
+ * it doesn't shove the layout. */
+.pack-card--active {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+/* Mini surface preview: bg panel, a smaller surface chip, an accent dot —
+ * all three from the pack's own metadata (artwork, not theme tokens). */
+.pack-card__preview {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+  height: 44px;
+  border-radius: 10px;
+  padding: 6px;
+  overflow: hidden;
+  /* Inset hairlines keep the near-black previews (classic/void on a
+   * near-black card) reading as panels, not holes. */
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.pack-card__surface {
+  width: 60%;
+  height: 55%;
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.pack-card__accent {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.pack-card__name {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 12px;
+}
+
+/* Price/lock chip on an unowned premium (intense) pack's preview — top-right,
+   over the swatch. Owned packs and free packs render no chip. */
+.pack-card__lock {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 2px 6px;
+  border-radius: var(--radius-badge);
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid var(--border-strong);
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 10px;
+  line-height: 1.4;
+  color: #fff;
+  backdrop-filter: blur(4px);
+}
+
+/* Supporters mark on the secret (Pass-only) theme's preview — top-right,
+   over the swatch, in the brand pink. It's only ever shown to Pass holders
+   (who own it), so it never collides with the price/lock chip. */
+.pack-card__heart {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  color: #ff7bf6;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.6));
+}
+
+/* The "you're previewing an unowned pack" banner + buy CTA, shown under the
+   pack row only while an unowned premium pack is the live preview. */
+.pack-preview-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  width: 100%;
+  margin-top: 4px;
+  padding: 12px 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.pack-preview-note strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.pack-preview-note__buy {
+  flex: none;
+  text-decoration: none;
+}
+
+/* A label + control row inside a section (e.g. the theme toggle). */
+.customize-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 20px;
+}
+
+.customize-row__title {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 15px;
+  margin: 0 0 2px;
+}
+
+/* Danger zone: destructive actions live behind a red hairline. The red is
+ * fixed (not the accent) so danger reads as danger under any theme. */
+.danger-zone {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px 22px 22px;
+  border: 1px solid rgba(194, 39, 39, 0.45);
+  border-radius: var(--radius-card);
+}
+
+.danger-zone__title {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 15px;
+  color: #e04b4b;
+  margin: 0;
+}
+
+.btn-danger {
+  flex-shrink: 0;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text);
+  background: color-mix(in srgb, #c22727 16%, var(--mix-base));
+  border: 0.5px solid #c22727;
+  border-radius: 25px;
+  padding: 8px 14px;
+  transition:
+    filter 150ms ease,
+    background 150ms ease;
+}
+
+.btn-danger:hover {
+  filter: brightness(1.35);
+}
+
+.btn-danger--armed {
+  background: color-mix(in srgb, #c22727 45%, var(--mix-base));
+}
+
+/* -------------------------------------------------------- playlist list */
+
+.playlist-item {
+  width: 100%;
+}
+
+/* Expanded folder list: scrollable, with a floor so it never collapses;
+ * grows up to 60vh when the window allows. */
+.source-list {
+  margin-top: 6px;
+  width: 100%;
+  min-height: 160px;
+  max-height: 60vh;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-card);
+  padding: 8px 6px;
+}
+
+.source-list--note {
+  min-height: 0;
+}
+
+.source-list--note {
+  padding: 14px 20px;
+}
+
+/* Folder editor shell: tools pinned above the scrolling list, the
+ * Save/Discard bar pinned below it (the list alone scrolls). */
+.source-editor {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  /* NO min-height:0 here (the default auto floor is the point): the editor
+   * shrinks only until the list inside hits its own floor — the list is the
+   * squeeze absorber (flex rule below) — and past that the settings body's
+   * scroll fallback takes over. An unfloored editor shrank below its
+   * content and spilled the Save bar onto the next section (e2e-caught). */
+}
+
+.source-editor .source-list {
+  flex: 1 1 auto;
+  min-height: 120px;
+}
+
+/* Folder-editor tools: search narrows the list; the button toggles every
+ * row the search leaves visible (all of them with an empty query). */
+.source-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 2px 6px;
+}
+
+/* Staged-edit buttons — INLINE with the search/toggle-all row, appearing
+ * only while the draft diverges. Save persists (and refreshes Live);
+ * Discard snaps the draft back. */
+.source-tools__discard {
+  flex-shrink: 0;
+  padding: 7px 14px;
+  border-radius: var(--radius-chip);
+  background: var(--surface-raised);
+  border: 0.5px solid var(--border-raised);
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  transition: filter 140ms ease;
+}
+
+.source-tools__discard:hover {
+  filter: brightness(1.3);
+}
+
+.source-tools__save {
+  flex-shrink: 0;
+  padding: 7px 16px;
+  font-size: 13px;
+}
+
+.source-tools__search {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 12px;
+  font-size: 13px;
+}
+
+.source-tools__all {
+  flex-shrink: 0;
+  padding: 7px 14px;
+  border-radius: var(--radius-chip);
+  background: var(--surface-raised);
+  border: 0.5px solid var(--border-raised);
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  transition: filter 140ms ease;
+}
+
+.source-tools__all:hover {
+  filter: brightness(1.3);
+}
+
+.source-tools__all:disabled {
+  opacity: 0.4;
+  cursor: default;
+  filter: none;
+}
+
+.source-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 14px;
+  border-radius: 14px;
+}
+
+.source-row:hover {
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+}
+
+.source-row__name {
+  font-family: var(--font-headline);
+  font-weight: 400;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-row__type {
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.35;
+}
+
+/* Chip-select: removable source chips + an "add sources" dropdown. */
+.chip-select {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.source-chip {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 12px 8px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border-input);
+  border-radius: 25px;
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.source-chip__x {
+  display: grid;
+  place-items: center;
+  opacity: 0.45;
+  transition: opacity 150ms ease;
+}
+
+.source-chip__x:hover {
+  opacity: 1;
+}
+
+.source-chip__x svg {
+  width: 12px;
+  height: 12px;
+}
+
+.chip-select__add {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px 8px 16px;
+  border-radius: 25px;
+  border: 1px solid transparent;
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-muted);
+  transition:
+    color 150ms ease,
+    border-color 150ms ease;
+}
+
+.chip-select__add:hover,
+.chip-select__add[aria-expanded="true"] {
+  color: var(--text);
+  border-color: var(--border-input);
+}
+
+.chip-select__add svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* Portaled to <body> so it can overhang the settings card's scroll box;
+ * positioned from the add button's rect (top/left set inline). MUST sit
+ * above the settings backdrop (z 60): below it, the menu paints behind
+ * the card AND clicks land on the backdrop — which closes Settings. */
+.chip-select__menu {
+  position: fixed;
+  z-index: 70;
+  min-width: 300px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 6px;
+  background: var(--card-glass);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border-strong);
+  border-radius: 16px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+}
+
+.chip-select__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 12px;
+  font-family: var(--font-headline);
+  font-weight: 400;
+  font-size: 14px;
+  text-align: left;
+}
+
+.chip-select__option:hover {
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+}
+
+/* Card Details: multi-toggle chips, source-chip metrics — off ones sit
+ * dim and borderless, on ones read like a selected source chip. */
+.meta-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.meta-pick__chip {
+  padding: 8px 16px;
+  border-radius: 25px;
+  border: 1px solid transparent;
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-muted);
+  transition:
+    color 150ms ease,
+    border-color 150ms ease,
+    background-color 150ms ease;
+}
+
+.meta-pick__chip:hover {
+  color: var(--text);
+}
+
+.meta-pick__chip[aria-pressed="true"] {
+  color: var(--text);
+  background: var(--surface);
+  border-color: var(--border-input);
+}
+
+.playlist-row__expand {
+  display: grid;
+  place-items: center;
+  opacity: 0.5;
+  transition:
+    opacity 150ms ease,
+    transform 220ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Chevron points down closed, up open. */
+.playlist-row__expand--open {
+  transform: rotate(180deg);
+}
+
+.playlist-row__expand:hover {
+  opacity: 1;
+}
+
+.playlist-row__expand svg {
+  width: 16px;
+  height: 16px;
+}
+
+.playlist-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-card);
+  padding: 11px 20px;
+}
+
+.playlist-row__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.playlist-row__name {
+  font-family: var(--font-headline);
+  font-weight: 400;
+  font-size: 15px;
+}
+
+.playlist-row__source {
+  font-family: var(--font-headline);
+  font-weight: 400;
+  font-size: 12px;
+  opacity: 0.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playlist-row__actions {
+  display: flex;
+  align-items: center;
+  gap: 19px;
+}
+
+.playlist-row__delete {
+  display: grid;
+  place-items: center;
+  opacity: 0.5;
+  transition: opacity 150ms ease;
+}
+
+.playlist-row__delete:hover {
+  opacity: 1;
+}
+
+.playlist-row__delete svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* Load/guide status under a playlist's source line — the reportable reason
+ * when everything says "No Information" (installed builds have no console). */
+.playlist-row__status {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.playlist-row__status--error {
+  color: #e25b5b;
+}
+
+/* Neutral action pill (Settings → Updates), the btn-danger shape without
+ * the alarm. The accent variant is the "an update is ready" state. */
+.settings-button {
+  flex-shrink: 0;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface-raised);
+  border: 0.5px solid var(--border-raised);
+  border-radius: 25px;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: filter 150ms ease;
+}
+.settings-button:hover:not(:disabled) { filter: brightness(1.25); }
+.settings-button:disabled { cursor: default; opacity: 0.7; }
+.settings-button--accent {
+  background: color-mix(in srgb, var(--accent) 22%, var(--mix-base));
+  border-color: var(--accent);
+}
+
+/* Catalog Row Size slider. */
+.rowcap {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.rowcap__slider {
+  flex: 1;
+  max-width: 340px;
+  accent-color: var(--accent, #c22727);
+}
+.rowcap__value {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 15px;
+  min-width: 3ch;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Row-cap number: click to fine-tune (the slider steps by 5). */
+.rowcap__value--btn {
+  background: none;
+  border: none;
+  padding: 2px 6px;
+  border-radius: 8px;
+  color: inherit;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+.rowcap__value--btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+.rowcap__value--edit {
+  width: 64px;
+  padding: 2px 6px;
+  border-radius: 8px;
+  border: 1px solid var(--accent);
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  outline: none;
+}
+.rowcap__value--edit::-webkit-inner-spin-button,
+.rowcap__value--edit::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+}
+
+/* AIOStreams connection test: per-endpoint result rows, scrubbed. */
+.aio-probe {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  list-style: none;
+  padding: 0;
+}
+.aio-probe__row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 14px;
+}
+.aio-probe__mark {
+  color: #2cad57;
+  font-weight: 700;
+  min-width: 14px;
+}
+.aio-probe__row--bad .aio-probe__mark {
+  color: var(--accent, #c22727);
+}
+.aio-probe__label {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.aio-probe__detail {
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+/* Failure forensics: what the rejecting response identified itself as
+ * (server/cf-* headers + how the body starts) — the line that names the
+ * gatekeeper in a tester's screenshot. */
+.aio-probe__forensic {
+  display: block;
+  font-size: 12.5px;
+  opacity: 0.75;
+}
+/* Plain-language conclusion for conclusively-diagnosed failure shapes
+ * (e.g. a Cloudflare challenge) — the actionable sentence, so users
+ * aren't left decoding headers. */
+.aio-probe__verdict {
+  margin: 10px 0 0;
+  max-width: 68ch;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+/* -------------------------------------------------------- premium themes */
+
+/* Right side of the "Premium Themes" customize-row: the form (or Remove
+ * button) plus its own status line stacked together, so the row's
+ * space-between still treats this as ONE flex item on the far edge. */
+.license-control {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.license-form {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Overrides settings-input's flex:1/width:100% (both classes are single
+ * selectors of equal specificity — this rule wins by coming later in the
+ * file) so the key field sizes to the key, not the row. */
+.license-input {
+  flex: 0 0 220px;
+  width: auto;
+  font-family: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
+  font-size: 13px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.license-input::placeholder {
+  text-transform: none;
+}
+
+/* Quiet text button — same idiom as .chip-select__add (muted, brightens
+ * on hover, no fill), since removing a license is reversible and doesn't
+ * warrant danger-zone weight. */
+.license-remove {
+  flex-shrink: 0;
+  padding: 8px 4px;
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-muted);
+  transition: color 150ms ease;
+}
+
+.license-remove:hover {
+  color: var(--text);
+}
+
+/* activate()'s result line — same reading as onboarding's .onb-hint, in
+ * this card's token vocabulary instead of onboarding's fixed rgba pair. */
+.license-status {
+  margin: 0;
+  font-size: 13.5px;
+  color: #e25b5b;
+  max-width: 64ch;
+}
+
+.license-status--ok {
+  color: #2cad57;
+}
+
+/* Slightly-glassy surfaces inside the settings card (Adam, v0.4.2):
+ * the solid --surface blocks read heavy over the frosted card — let
+ * the card's glass breathe through instead. color-mix keeps the tint
+ * theme-true originally; Adam's trim (v0.4.3): black glass at 65%,
+ * both themes. Thumbs/chips ABOVE these stay solid for contrast. */
+.settings .settings-input,
+.settings .chip-tabs,
+.settings .playlist-row,
+.settings .source-list,
+.settings .accent-popover__dropper,
+.settings .accent-popover__hex input {
+  background: color-mix(in srgb, #000000 65%, transparent);
+  backdrop-filter: blur(14px);
+}

@@ -10,6 +10,11 @@ dist-ssr/
 # tauri (added later)
 **/src-tauri/target/
 
+# verify-script screenshots (verify-stream.mjs drops them in cwd unless
+# SHOT_DIR points elsewhere)
+/stream-home.png
+/stream-detail.png
+
 # editor / os
 .DS_Store
 .vscode/*
@@ -23,3 +28,16 @@ dist-ssr/
 
 # libmpv runtime DLL (place locally for tauri build; not committed)
 **/src-tauri/*.dll
+/libmpv-2.dll
+website/landing.html
+
+# tauri generated output (android project + capability schemas; regenerated
+# by `tauri android init` / build — not source)
+**/src-tauri/gen/
+
+# E2E suites screenshot into cwd - never commit those
+/*.png
+
+# E2E suites screenshot into cwd; discover writes into undefined/ when
+# its output dir env is unset
+undefined/

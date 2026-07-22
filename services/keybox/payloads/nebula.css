@@ -1,0 +1,25 @@
+/* Nebula: deep violet-noir. Crushed indigo surfaces, faint stellar-haze
+   hairlines, and a cool lavender text tier — dark-only (no light axis).
+   Paid theme payload; served verbatim by GET /payload/nebula and handed to
+   injectPackCss() by the app. Matches apps/app/src/styles/packs.css's
+   contract: one root-attribute selector, only tokens that already exist in
+   tokens.css, nothing else (never --accent, never shape/spring/type). */
+:root[data-theme-pack="nebula"] {
+  --bg: #0a0612;
+  --surface: #120c1f;
+  --surface-track: #0a0612;
+  --surface-puck: #170f26;
+  --surface-raised: #1f1430;
+  --border: rgba(186, 148, 255, 0.1);
+  --border-strong: rgba(186, 148, 255, 0.18);
+  --border-raised: #3a2a52;
+  --border-input: rgba(186, 148, 255, 0.12);
+  --card-glass:
+    linear-gradient(rgba(190, 150, 255, 0.07), rgba(190, 150, 255, 0.07)),
+    linear-gradient(rgba(10, 6, 18, 0.55), rgba(10, 6, 18, 0.55));
+  --text: #ece6f7;
+  --text-muted: #9a8fb3;
+  --text-dim: #4a3f5e;
+  --text-ghost: rgba(190, 150, 255, 0.18);
+  color-scheme: dark;
+}

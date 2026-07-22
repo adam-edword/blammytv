@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "0.2.4"
+version = "0.5.4"
 description = "Self-contained desktop IPTV/VOD client (Xtream Codes + AIOStreams/debrid)."
 authors = ["adam-edword"]
 license = ""
@@ -23,35 +23,32 @@ log = "0.4"
 tauri = { version = "2.11.2", features = [] }
 tauri-plugin-log = "2"
 # Remember window size/position/maximized across launches. First run (no saved
-# state) falls back to the config's maximized:true; afterwards it restores.
+# state) opens maximized (see the setup hook in lib.rs); afterwards it restores.
 tauri-plugin-window-state = "2"
 # Self-update from GitHub Releases (auto-check on launch + manual button).
 # Driven from Rust commands (below) so no JS plugin packages are needed.
 tauri-plugin-updater = "2"
+# System-browser hand-off for the theme checkout links (the webview blocks
+# target=_blank by design). Same no-JS-package pattern as the updater: one
+# Rust command below, no capability JSON, no npm plugin.
+tauri-plugin-opener = "2"
 # Rust-side HTTP so the app can reach AIOStreams/Xtream without browser CORS.
 # native-tls = Windows Schannel (same TLS stack as curl/Edge), so the TLS
 # fingerprint looks like a normal Windows client — some Cloudflare-fronted hosts
 # 403 rustls's distinct fingerprint even when the headers are browser-like.
 # Schannel ships with Windows, so the bundle stays self-contained.
-reqwest = { version = "0.12", default-features = false, features = ["native-tls"] }
+# gzip/brotli/deflate: xmltv.php serves ~20:1-compressible XML — without these
+# we downloaded the whole guide raw (the load-time killer). reqwest sends the
+# Accept-Encoding and transparently decodes only when these features are on.
+reqwest = { version = "0.12", default-features = false, features = ["native-tls", "gzip", "brotli", "deflate"] }
 libloading = "0.8"
 
-# The Telly-way composition spike (Windows): composition-hosted WebView2 +
-# DirectComposition over a native mpv child window. These are already in the
-# tree via Tauri; pin them as direct deps with the features we need.
+# Native child-window plumbing for the inverted player (inv.rs): create the
+# mpv child HWND and pin it to the bottom of the z-order. Already in the tree
+# via Tauri; pinned as a direct dep with just the features inv.rs uses. (The
+# WebView2/DirectComposition set died with comp.rs at the v0.2.0 deletion.)
 [target.'cfg(windows)'.dependencies]
-webview2-com = "0.38"
 windows = { version = "0.61", features = [
     "Win32_Foundation",
-    "Win32_Graphics_Direct3D",
-    "Win32_Graphics_Direct3D11",
-    "Win32_Graphics_Dxgi",
-    "Win32_Graphics_Dxgi_Common",
-    "Win32_Graphics_DirectComposition",
-    "Win32_Graphics_Gdi",
     "Win32_UI_WindowsAndMessaging",
-    "Win32_UI_Input_KeyboardAndMouse",
-    "Win32_System_Com",
-    "Win32_System_WinRT",
-    "Win32_UI_Shell",
 ] }

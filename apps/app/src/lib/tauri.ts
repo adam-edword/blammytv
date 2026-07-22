@@ -2,100 +2,219 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
-/** A rectangle in physical pixels — where the native mpv layer should sit. */
+/** True when running inside the Tauri shell (vs. a plain browser tab). */
+export function isTauri(): boolean {
+  return "__TAURI_INTERNALS__" in window;
+}
+
+/** Open an https URL in the SYSTEM browser. The webview blocks target=_blank
+ * navigation by design, so anchors to checkout links etc. must route through
+ * the open_external command (lib.rs) — plain window.open in the browser dev
+ * build. Fire-and-forget; failures only log. */
+export function openExternal(url: string): void {
+  if (isTauri()) {
+    invoke("open_external", { url }).catch((err) =>
+      console.error("openExternal failed", err),
+    );
+  } else {
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+}
+
+/**
+ * The native player (Windows, inv.rs). mpv renders into a child HWND at a
+ * rect we supply, parked below the transparent webview. Rust never scales,
+ * so every rect is in PHYSICAL DEVICE PIXELS — callers multiply CSS px by
+ * devicePixelRatio themselves (radius included; it only feeds the rAF
+ * change-detection key in InvertedPlayer — the DOM hole rounds itself from
+ * RADIUS_CSS, and the native rect is always square).
+ */
 export interface CompRect {
   x: number;
   y: number;
   w: number;
   h: number;
-  radius: number; // corner radius in physical px (0 = sharp)
+  radius: number;
 }
 
-/** True when running inside the Tauri shell (vs Electron or a plain browser). */
-export const isTauri = (): boolean =>
-  typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+/** Metadata shown by the player chrome over the video (TheaterOverlay). */
+export interface TheaterMeta {
+  channelName: string;
+  logo?: string;
+  title?: string;
+  description?: string;
+  /** CONTENT TYPE: true = live TV, false = VOD. The overlay derives its
+   * whole chrome from `live === false` (star vs VOD buttons, live bar vs
+   * scrubber, watchdog profile) — never derive this from EPG coverage. */
+  live?: boolean;
+  sourceName?: string;
+  /** VOD episode identity, structured — the overlay's granular meta
+   * toggles (S-number / E-number / episode title) compose their own line
+   * from these instead of a pre-baked label. Absent for movies. */
+  vod?: { season?: number; episode?: number; title?: string; hasNext?: boolean };
+  /** Exact skip intervals from AniSkip (seconds; op/ed/mixed-op/mixed-ed/
+   * recap). When present they take precedence over chapter heuristics for
+   * the Skip chip. Arrives async — pushed via a meta update mid-play. */
+  skips?: Array<{ type: string; start: number; end: number }>;
+  /** Airing programme's start label + progress (0–100) for the LIVE bar.
+   * Frozen at open time (meta is pushed once), refreshed on channel change. */
+  startLabel?: string;
+  progressPct?: number;
+  /** Whether the channel is starred — seeds the overlay's favorite button.
+   * Read at open time; the overlay tracks its own state after a toggle. */
+  favorite?: boolean;
+}
 
-/** Forward a captured keyboard shortcut into the composition overlay. */
-export const tauriCompKey = (key: string) =>
-  invoke("comp_key", { key }) as Promise<void>;
+/** Pop the stream out into mpv's own floating window (PiP). Rust tears the
+ * in-app player down first (one provider connection at a time) and captures
+ * the position so the popout resumes there, then plays in a separate mpv
+ * instance the in-app teardown can't kill. */
+export function tauriPopoutOpen(url: string): Promise<void> {
+  return invoke("popout_open", { url });
+}
+/** Current popout playback position (seconds; 0 when none) — polled while
+ * popped so a reclaim resumes at the right spot (old-app pattern). */
+export function tauriPopoutPos(): Promise<number> {
+  return invoke("popout_pos");
+}
+/** Close the popout window programmatically (the "Bring It Back" button).
+ * Silent — no popout-closed event; the caller drives the reclaim. */
+export function tauriPopoutStop(): Promise<void> {
+  return invoke("popout_stop");
+}
 
-/**
- * Open the native composition player: mpv renders into `rect` (physical px — the
- * preview box, or the full window) with the transparent overlay (TheaterOverlay)
- * composited on top. `meta` is pushed to the overlay over the postMessage bridge.
- */
-export const tauriCompTheater = (
-  url: string,
-  meta: unknown,
-  rect: CompRect,
-  start = 0,
-) => {
-  const overlayUrl = `${window.location.origin}/?overlay=1&composited=1`;
-  const metaJson = meta ? JSON.stringify(meta) : "";
-  return invoke("comp_theater", {
-    url,
-    overlayUrl,
-    metaJson,
-    x: rect.x,
-    y: rect.y,
-    w: rect.w,
-    h: rect.h,
-    radius: rect.radius,
-    start,
-  }) as Promise<void>;
-};
+/* ---- The player (inv.rs): video child at the bottom of the z-order,
+ * chrome is ordinary React in the main webview, driving mpv through the
+ * commands below. Rects PHYSICAL px. ---- */
 
-/** Move/resize the native layer to follow its in-app box (or expand to full). */
-export const tauriCompSetRect = (rect: CompRect) =>
-  invoke("comp_set_rect", {
-    x: rect.x,
-    y: rect.y,
-    w: rect.w,
-    h: rect.h,
-    radius: rect.radius,
-  }) as Promise<void>;
+export function tauriInvOpen(url: string, rect: CompRect): Promise<void> {
+  return invoke("inv_open", { url, x: rect.x, y: rect.y, w: rect.w, h: rect.h });
+}
+export function tauriInvSetRect(rect: CompRect): Promise<void> {
+  return invoke("inv_set_rect", { x: rect.x, y: rect.y, w: rect.w, h: rect.h });
+}
+export function tauriInvStop(): Promise<void> {
+  return invoke("inv_stop");
+}
 
-/** Tear down the native composition player and free the window. */
-export const tauriCompStop = () => invoke("comp_stop") as Promise<void>;
+export function tauriMpvPause(paused: boolean): Promise<void> {
+  return invoke("mpv_pause", { paused });
+}
+export function tauriMpvMute(muted: boolean): Promise<void> {
+  return invoke("mpv_mute", { muted });
+}
+export function tauriMpvVolume(vol: number): Promise<void> {
+  return invoke("mpv_volume", { vol: Math.round(vol) });
+}
+export function tauriMpvSeek(delta: number): Promise<void> {
+  return invoke("mpv_seek", { delta });
+}
+/** Absolute seek (seconds) — the VOD scrubber. */
+export function tauriMpvSeekAbs(pos: number): Promise<void> {
+  return invoke("mpv_seek_abs", { pos });
+}
+/** Playback speed multiplier — the VOD speed menu. */
+export function tauriMpvSetSpeed(speed: number): Promise<void> {
+  return invoke("mpv_set_speed", { speed });
+}
+export function tauriMpvGoLive(): Promise<void> {
+  return invoke("mpv_go_live");
+}
+export function tauriMpvTrack(kind: "audio" | "sub", id: string): Promise<void> {
+  return invoke("mpv_track", { kind, id });
+}
+/** GPU frost on the whole picture (inverted path, modal open): DOM blur
+ * can't sample the native video, so mpv blurs itself via a user shader. */
+export function tauriMpvBlur(on: boolean): Promise<void> {
+  return invoke("mpv_blur", { on });
+}
+/** Region frost: GPU-blur ONLY the video rectangle under a modal card —
+ * live glass. Load/clear the shader once with `tauriMpvFrost` (resolves
+ * FALSE when the running mpv can't do it — PARAM shaders need gpu-next —
+ * so callers can downgrade the card to solid); move the rect with
+ * `tauriMpvFrostRect` (pure uniform update, UI-rate safe). */
+export function tauriMpvFrost(on: boolean): Promise<boolean> {
+  return invoke("mpv_frost", { on });
+}
+export function tauriMpvFrostRect(
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+): Promise<void> {
+  return invoke("mpv_frost_rect", { x0, y0, x1, y1 });
+}
+/** One tone-mapped frame of the playing video, as a PNG blob (raw-bytes
+ * IPC, same path as http_get). DORMANT — kept for future thumbnails. */
+export async function tauriMpvSnapshot(): Promise<Blob> {
+  const raw = await invoke<unknown>("mpv_snapshot");
+  return new Blob([raw as ArrayBuffer], { type: "image/png" });
+}
 
-const onCompEvent = (event: string, cb: () => void): (() => void) => {
-  const un = listen(event, () => cb());
+/** One poll of the inverted player's status (replaces the overlay bridge's
+ * loading/time/tracks pushes). `presenting` = mpv has put up a frame. */
+export interface MpvStatus {
+  pos: number | null;
+  dur: number | null;
+  presenting: boolean;
+  /** Mid-play death: the stream reached EOF or mpv fell back to idle. */
+  ended: boolean;
+  audio: Array<{ id: number; label: string; lang: string; selected: boolean }>;
+  subs: Array<{ id: number; label: string; lang: string; selected: boolean }>;
+  /** File chapter markers (absent on pre-chapter Rust builds). */
+  chapters?: Array<{ title: string; start: number }>;
+}
+export async function tauriMpvStatus(): Promise<MpvStatus> {
+  return JSON.parse(await invoke<string>("mpv_status")) as MpvStatus;
+}
+
+/** Playback telemetry for the "stats for nerds" overlay. Every field is
+ * best-effort — mpv omits any property a given stream/decoder doesn't expose,
+ * so all are optional. Bitrates are bits/sec; `cache` is seconds; `videoW`/
+ * `videoH` are the decoded picture size, `width`/`height` the output size. */
+export interface MpvStats {
+  videoCodec?: string;
+  videoW?: number;
+  videoH?: number;
+  fps?: number;
+  videoBitrate?: number;
+  audioCodec?: string;
+  audioBitrate?: number;
+  hwdec?: string;
+  dropped?: number;
+  cache?: number;
+  width?: number;
+  height?: number;
+}
+export async function tauriMpvStats(): Promise<MpvStats> {
+  return JSON.parse(await invoke<string>("mpv_stats")) as MpvStats;
+}
+
+/** OS-window fullscreen (hides the title bar so the player fills the monitor). */
+export function tauriSetFullscreen(on: boolean): Promise<void> {
+  return getCurrentWindow().setFullscreen(on);
+}
+
+/** The floating PiP window was closed by the user (✕ / taskbar / q) — the app
+ * should bring the stream back into the in-app player. The payload is the
+ * popout's final position in seconds (VOD resume); undefined when the
+ * quitting mpv core couldn't report one. */
+export function onPopoutClosed(cb: (pos?: number) => void): () => void {
+  const un = listen<unknown>("popout-closed", (e) =>
+    cb(typeof e.payload === "number" && e.payload > 0 ? e.payload : undefined),
+  );
   return () => void un.then((f) => f());
-};
+}
 
-/** Fired when the overlay's ✕ closes the native player — drop back to the guide. */
-export const onCompClosed = (cb: () => void) => onCompEvent("comp-closed", cb);
-/** Fired when the mini preview is clicked — enter theater (fullscreen) mode. */
-export const onCompExpand = (cb: () => void) => onCompEvent("comp-expand", cb);
-/** Fired when theater is exited — collapse back to the mini preview. */
-export const onCompCollapse = (cb: () => void) =>
-  onCompEvent("comp-collapse", cb);
-/** Fired when the overlay's fullscreen button is pressed (enter fullscreen). */
-export const onCompFullscreen = (cb: () => void) =>
-  onCompEvent("comp-fullscreen", cb);
-/** Fired when fullscreen is exited (back to theater). */
-export const onCompExitFullscreen = (cb: () => void) =>
-  onCompEvent("comp-exit-fullscreen", cb);
-/** Fired when the overlay's popout button is pressed. */
-export const onCompPopout = (cb: () => void) => onCompEvent("comp-popout", cb);
-/** Fired when the overlay's episodes/sources panel button is pressed. */
-export const onCompPanel = (cb: () => void) => onCompEvent("comp-panel", cb);
-/** Fired when the user closes the popout window (✕/taskbar) — bring it back. */
-export const onPopoutClosed = (cb: () => void) =>
-  onCompEvent("popout-closed", cb);
+/** Ask GitHub Releases (via tauri-plugin-updater) whether a newer signed
+ * build exists. Resolves with its version string, or null when current. */
+export function tauriCheckUpdate(): Promise<string | null> {
+  return invoke("check_update");
+}
 
-/** Tear down the composition player and play in mpv's own floating window (PiP). */
-export const tauriCompPopout = (url: string) =>
-  invoke("comp_popout", { url }) as Promise<void>;
-
-/** Current popout playback position (seconds), to reclaim it in-app. */
-export const tauriPopoutPos = () => invoke("popout_pos") as Promise<number>;
-
-/** Close the popout window (used by the in-app "Bring it back" button). */
-export const tauriPopoutStop = () => invoke("popout_stop") as Promise<void>;
-
-/** Take the OS window in/out of true fullscreen (over the taskbar/nav). */
-export const tauriSetFullscreen = (on: boolean) =>
-  void getCurrentWindow()
-    .setFullscreen(on)
-    .catch(() => {});
+/** Download + install the pending update, then relaunch into it. On
+ * success the app restarts and this never resolves; a rejection means the
+ * download/install failed and the caller may retry. */
+export function tauriInstallUpdate(): Promise<void> {
+  return invoke("install_update");
+}

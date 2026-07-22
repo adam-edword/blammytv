@@ -1,0 +1,72 @@
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import { CloseIcon } from "../../ui/icons";
+import { ChipTabs } from "../../ui/ChipTabs";
+import { PlaylistsTab } from "./PlaylistsTab";
+import { AioStreamsTab } from "./AioStreamsTab";
+import { CustomizeTab } from "./CustomizeTab";
+
+type SettingsTab = "playlists" | "aiostreams" | "customize";
+
+const TABS: Array<{ key: SettingsTab; label: string }> = [
+  { key: "playlists", label: "Playlists" },
+  { key: "aiostreams", label: "AIOStreams" },
+  { key: "customize", label: "Customize" },
+];
+
+/** The floating settings card from the redesign: title left, chip-tab rail
+ * center, close right. Themes are no longer a tab here — Customize carries a
+ * launcher that pops the standalone Themes panel out (onOpenThemes), and the
+ * theme preview/commit/revert boundary lives in that panel now. */
+export function SettingsModal({
+  onClose,
+  onOpenThemes,
+}: {
+  onClose: () => void;
+  onOpenThemes: () => void;
+}) {
+  const [tab, setTab] = useState<SettingsTab>("playlists");
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  // Portaled OUT of .app-shell: with the inverted player, the shell carries
+  // a clip-path hole where the video shows — a modal rendered inside it
+  // would have that hole cut through its middle. On body, the modal paints
+  // above everything and the video keeps playing behind the backdrop.
+  return createPortal(
+    <div className="modal-backdrop" onClick={onClose}>
+      <section
+        className="settings"
+        role="dialog"
+        aria-label="Settings"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="settings__header">
+          <h2 className="settings__title">Settings</h2>
+          <ChipTabs tabs={TABS} active={tab} onChange={setTab} />
+          <button
+            type="button"
+            className="settings__close"
+            aria-label="Close settings"
+            onClick={onClose}
+          >
+            <CloseIcon />
+          </button>
+        </header>
+
+        <div className="settings__body">
+          {tab === "playlists" && <PlaylistsTab />}
+          {tab === "aiostreams" && <AioStreamsTab />}
+          {tab === "customize" && <CustomizeTab onOpenThemes={onOpenThemes} />}
+        </div>
+      </section>
+    </div>,
+    document.body,
+  );
+}

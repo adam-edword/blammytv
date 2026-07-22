@@ -6,12 +6,36 @@
  * matters for a sideload-only client. Vite fingerprints and bundles the woff2
  * files referenced by these stylesheets.
  *
- * Only the weights actually used in styles.css are imported, to keep the bundle
- * lean: Headline 200/500/600/700, Text 200/400.
+ * Only the weights the redesign actually uses are imported, to keep the bundle
+ * lean: Headline 200 (ExtraLight), 300 (Light), 400 (Regular),
+ * 600 (SemiBold), 700 (Bold), Text 200/400.
+ *
+ * Theme-pack display faces are bundled here too (same offline/CSP-safe
+ * Fontsource mechanism) so an intense theme can re-point --font-* to one
+ * without a runtime fetch. They cost their woff2 in the bundle whether or
+ * not a theme using them is active — acceptable, since any theme is
+ * previewable, so no bundled face is ever truly dead weight. VT323 is the
+ * Terminal pack's CRT face (single 400 weight — a bitmap font has no real
+ * weight axis).
  */
 import "@fontsource/stack-sans-headline/200.css";
-import "@fontsource/stack-sans-headline/500.css";
+import "@fontsource/stack-sans-headline/300.css";
+import "@fontsource/stack-sans-headline/400.css";
 import "@fontsource/stack-sans-headline/600.css";
 import "@fontsource/stack-sans-headline/700.css";
 import "@fontsource/stack-sans-text/200.css";
 import "@fontsource/stack-sans-text/400.css";
+import "@fontsource/vt323/400.css";
+// Dither's face — Syne (Adam's pick), 700 ONLY: with a single bundled
+// weight, every headline weight request resolves to it, so all headings
+// render bold. Body text stays Stack Sans. Unbounded stays in package.json
+// unimported — Adam likes it; it's waiting for its theme.
+import "@fontsource/syne/700.css";
+// Kawaii's rounded, chubby face.
+import "@fontsource/fredoka/400.css";
+import "@fontsource/fredoka/600.css";
+import "@fontsource/fredoka/700.css";
+// Streamy's face — the same family the real client uses.
+import "@fontsource/plus-jakarta-sans/400.css";
+import "@fontsource/plus-jakarta-sans/600.css";
+import "@fontsource/plus-jakarta-sans/700.css";

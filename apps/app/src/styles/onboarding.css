@@ -1,0 +1,516 @@
+/* First-run onboarding (Onboarding.tsx) — steps-content styling only.
+ * The backdrop is the ONE-PIECE boot scene (BootScene.tsx + boot.css,
+ * Adam's Figma spec 272:1000): the steps float over frame zero of the
+ * boot timeline itself — the drifting brand-conic sheet and the
+ * blur-softened black screen — plus the dither field and cursor glow
+ * styled here. The finale plays the timeline forward on the same
+ * nodes; there is no second animation and nothing ever mounts. All
+ * boot-motion rules live in boot.css; this file must never grow
+ * backdrop/actor styles again. */
+
+.onb {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  overflow: hidden;
+  /* EXEMPT from UI scale — same counter-zoom as .boot-overlay (see
+   * boot.css); also keeps the cursor glow's clientX math honest at
+   * zoom ≠ 1. */
+  zoom: var(--ui-zoom-inverse, 1);
+  /* True black (v0.4.42, Adam's call — was the mock's #0b0b0e), kept
+   * identical to .boot-overlay so the shared scene's surroundings never
+   * differ between surfaces. */
+  background: #000;
+  color: #fff;
+  transition: opacity 400ms ease;
+}
+/* The release: the boot lockup has settled; fade the whole overlay off
+ * the already-rendered app. Plain paint everywhere — no filter layers
+ * exist to tear down. pointer-events: none the moment the fade starts:
+ * the fade (400ms) finishes before onDone unmounts (450ms), and a
+ * fully-transparent overlay must not eat clicks meant for the app
+ * (audit find, v0.4.37). */
+.onb.is-leaving {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Bayer-flavored dither field: a 4px dot lattice the glow shines
+ * through, plus a coarser 8px counter-grid so the texture doesn't read
+ * as a flat halftone. Fades out with the finale — the boot frame is
+ * clean brand artwork. */
+.onb-dither {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 1;
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.05) 1px, transparent 1.3px),
+    radial-gradient(circle at 3px 3px, rgba(255, 255, 255, 0.022) 1px, transparent 1.3px);
+  background-size: 4px 4px, 8px 8px;
+  /* Entrance via @starting-style, same reasoning as the aurora's. */
+  transition: opacity 1600ms ease-out;
+}
+.onb.is-finale .onb-dither {
+  opacity: 0;
+  transition-duration: 600ms;
+}
+
+/* Dither entrance: @starting-style + the transition above, so a
+ * finale that arrives mid-entrance RETARGETS smoothly (entrance
+ * ANIMATIONS on finale-managed opacity are banned — v0.4.37). The
+ * sheet's own entrance lives in boot.css. */
+@starting-style {
+  .onb-dither {
+    opacity: 0;
+  }
+}
+
+/* The Get Started hover glow, unhooked from the button and handed to
+ * the cursor: a soft light that trails the pointer (lerped in the
+ * component's rAF loop). Sits under the content, over the dither.
+ * Hidden until the pointer first moves, and gone for the finale. */
+.onb-cursor-glow {
+  position: absolute;
+  top: -60px;
+  left: -60px;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.09),
+    rgba(255, 255, 255, 0.03) 42%,
+    transparent 66%
+  );
+  opacity: 0;
+  transition: opacity 700ms ease;
+  will-change: transform;
+}
+.onb-cursor-glow.is-live {
+  opacity: 1;
+}
+.onb.is-finale .onb-cursor-glow {
+  opacity: 0;
+}
+
+/* ---- Step content ---------------------------------------------------- */
+
+.onb-stage {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 48px;
+  text-align: center;
+}
+
+/* Arc-style entrances: rise + sharpen from a slight blur, staggered by
+ * each child's --i. Leaving runs the same idea, faster and upward. */
+.onb-stage.is-in > * {
+  animation: onb-in 640ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--i, 0) * 90ms);
+}
+.onb-stage.is-out > * {
+  animation: onb-out 300ms cubic-bezier(0.55, 0, 0.55, 0.2) both;
+  animation-delay: calc(var(--i, 0) * 30ms);
+}
+
+/* Step 0's slow reveal (Adam, v0.4.17): glow first — the stage opens
+ * on it alone — then the lockup at 1.2s, then the button at 2s.
+ * (--i stagger still positions everything else.) */
+.onb-stage.is-in > .onb-lockup {
+  /* One long breath: the whole onb-in track (fade + rise + sharpen)
+   * stretches across the full 1.8s. */
+  animation-duration: 1800ms;
+  animation-delay: 1200ms;
+}
+.onb-stage.is-in > .onb-btn--hero {
+  animation-delay: 2000ms;
+}
+
+/* Entrances play ONCE: after the step settles, the animations are
+ * removed entirely — password-manager extensions inject DOM on field
+ * focus, and that invalidation replayed still-filled animations. A
+ * settled element has no animation left to replay. */
+.onb-stage.is-in.is-settled > *,
+.onb-stage.is-in.is-settled > .onb-lockup,
+.onb-stage.is-in.is-settled > .onb-btn--hero {
+  animation: none;
+  opacity: 1;
+  transform: none;
+  filter: none;
+}
+
+@keyframes onb-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+@keyframes onb-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-14px);
+    filter: blur(6px);
+  }
+}
+
+/* ---- Lockup (step one, per the mock) --------------------------------- */
+
+.onb-lockup {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 26px;
+}
+.onb-mark {
+  position: relative;
+  width: 76px;
+  height: 76px;
+  border-radius: 32.5%;
+  corner-shape: superellipse(1.32);
+  background: conic-gradient(
+    from 320deg,
+    #ff9b9b -4.8706%,
+    #ff8bc9 3.8928%,
+    #ff7bf6 12.656%,
+    #c388fb 21.574%,
+    #8696ff 30.493%,
+    #85cbd4 40.25%,
+    #84ffa9 50.008%,
+    #c1f294 62.55%,
+    #ffe57f 75.091%,
+    #ff9b9b 95.129%,
+    #ff8bc9 103.89%,
+    #ff7bf6 112.66%
+  );
+  display: grid;
+  place-items: center;
+}
+.onb-mark__hole {
+  width: 43px;
+  height: 43px;
+  border-radius: 27.5%;
+  corner-shape: superellipse(1.58);
+  background: #000;
+}
+.onb-word {
+  font-family: var(--font-headline);
+  font-size: 84px;
+  font-weight: 700;
+  letter-spacing: -1.7px;
+  line-height: 1;
+  color: #fff;
+}
+
+/* ---- Type ------------------------------------------------------------ */
+
+.onb-title {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-size: clamp(48px, 4.2vw, 64px);
+  font-weight: 700;
+  letter-spacing: -0.8px;
+  color: #fff;
+  text-wrap: balance;
+}
+.onb-sub {
+  margin: 0;
+  max-width: 52ch;
+  font-size: 17px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.62);
+  text-wrap: balance;
+}
+
+/* ---- Controls --------------------------------------------------------- */
+
+.onb-btn {
+  margin-top: 14px;
+  padding: 12px 30px;
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+  color: #000;
+  font-family: var(--font-headline);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 180ms ease,
+    opacity 180ms ease;
+}
+.onb-btn:hover {
+  transform: scale(1.04);
+  box-shadow: 0 6px 30px rgba(255, 255, 255, 0.22);
+}
+.onb-btn:active {
+  transform: scale(0.98);
+}
+.onb-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+  transform: none;
+  box-shadow: none;
+}
+.onb-btn:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.7);
+  outline-offset: 3px;
+}
+
+.onb-ghost {
+  padding: 12px 18px;
+  border: 0;
+  background: none;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 14.5px;
+  cursor: pointer;
+  transition: color 160ms ease;
+}
+.onb-ghost:hover {
+  color: rgba(255, 255, 255, 0.85);
+}
+.onb-ghost:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.4);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* Stacked, both on the center axis — the primary CTA must not shift
+ * off-axis (or between steps) because a ghost sibling shares its row. */
+.onb-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+.onb-row .onb-btn {
+  margin-top: 0;
+}
+
+.onb-input {
+  width: min(560px, 82vw);
+  margin-top: 10px;
+  padding: 13px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.045);
+  backdrop-filter: blur(10px);
+  color: #fff;
+  font-size: 15px;
+  text-align: left;
+  transition: border-color 180ms ease, background 180ms ease;
+}
+.onb-input::placeholder {
+  color: rgba(255, 255, 255, 0.42);
+}
+.onb-input.is-invalid {
+  border-color: rgba(255, 120, 120, 0.55);
+}
+.onb-hint {
+  margin: 8px 0 0;
+  font-size: 13.5px;
+  color: rgba(255, 150, 150, 0.9);
+  max-width: 64ch;
+}
+/* Verification succeeded — the beat before the step advances itself. */
+.onb-hint--ok {
+  color: rgba(150, 235, 175, 0.95);
+}
+
+/* Live TV credentials: server on top, user/pass sharing a row. */
+.onb-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(560px, 82vw);
+  margin-top: 10px;
+}
+.onb-fields .onb-input {
+  width: 100%;
+  margin-top: 0;
+}
+.onb-fields__row {
+  display: flex;
+  gap: 10px;
+}
+.onb-fields__row .onb-input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Finale mini-map: the nav model in five seconds. */
+.onb-map {
+  display: flex;
+  gap: 34px;
+  margin: 14px 0 6px;
+}
+.onb-map__col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.onb-map__pill {
+  padding: 9px 20px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  font-family: var(--font-headline);
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+}
+.onb-map__pill--solid {
+  background: #fff;
+  border-color: #fff;
+  color: #000;
+}
+.onb-map__caption {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+}
+.onb-input:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* The startup-tab rail: the shared ChipTabs, given a touch of air.
+ * Its default track/thumb styling already reads right on black. */
+.onb-chips {
+  margin-top: 12px;
+}
+.onb-chips .chip-tabs__tab {
+  font-size: 15px;
+}
+.onb-chips--labeled {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 2px;
+}
+.onb-chips__label {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.onb-swatches {
+  display: flex;
+  gap: 14px;
+  margin-top: 12px;
+}
+.onb-swatch {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+  transition:
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 180ms ease;
+}
+.onb-swatch:hover {
+  transform: scale(1.08);
+}
+/* Selection must beat hover, and the pick gets a visible payoff: the
+ * chosen color blooms around its swatch. */
+.onb-swatch.is-on {
+  transform: scale(1.2);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.25),
+    0 0 0 3px #fff,
+    0 0 22px 4px color-mix(in srgb, var(--accent) 65%, transparent);
+}
+.onb-swatch:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.7);
+  outline-offset: 3px;
+}
+
+/* Back (bottom-left) mirrors Skip (bottom-right). Escape works too. */
+.onb-back {
+  position: absolute;
+  left: 26px;
+  bottom: 22px;
+  z-index: 2;
+  padding: 8px 14px;
+  border: 0;
+  background: none;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 14px;
+  cursor: pointer;
+  transition: color 160ms ease;
+}
+.onb-back:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
+.onb-back:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.4);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+.onb-skip {
+  position: absolute;
+  right: 26px;
+  bottom: 22px;
+  z-index: 2;
+  padding: 8px 14px;
+  border: 0;
+  background: none;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 14px;
+  cursor: pointer;
+  transition: color 160ms ease;
+}
+.onb-skip:hover {
+  color: rgba(255, 255, 255, 0.75);
+}
+.onb-skip:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.4);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* Reduced motion: no entrance choreography, and the finale is a quick
+ * fade to the app (the component never enters the boot phase; its
+ * timers run near-instant). Everything here is on plain timers now —
+ * nothing waits on transitionend. */
+@media (prefers-reduced-motion: reduce) {
+  .onb-stage.is-in > *,
+  .onb-stage.is-out > *,
+  /* Restated: these rules are MORE specific than the wildcard above. */
+  .onb-stage.is-in > .onb-lockup,
+  .onb-stage.is-in > .onb-btn--hero {
+    animation: none;
+  }
+  /* NOT .onb itself: the overlay's release fade is exactly the kind of
+   * comprehension-aiding opacity transition reduced motion KEEPS
+   * (guidance: remove movement, keep gentle fades). */
+  .onb-dither {
+    transition-duration: 1ms;
+  }
+  /* The boot scene's own reduced-motion handling lives in boot.css;
+   * the hosts never start the finale timeline under reduced motion. */
+}

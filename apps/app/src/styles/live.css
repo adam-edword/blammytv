@@ -1,0 +1,1073 @@
+/* Live tab. Rebuilding section by section — currently: the sidebar. */
+
+/* No padding except the floating nav's height: the EPG grid must reach
+ * the screen edges; the sidebar carries its own margins instead. */
+.live {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 14px;
+  padding-top: var(--header-h, 103px);
+}
+
+/* ------------------------------------------------------------- sidebar */
+
+/* The sidebar panel (values tuned by hand in devtools): surface fill,
+ * hairline border, radius concentric with the rail (18px + 2px padding). */
+.live-sidebar {
+  /* 252px = the panel's true rendered width before it was ever clamped
+   * (mode rail 206 + collapse button + gaps + padding/border) — the old
+   * nominal 230 basis was always overruled by the rail's intrinsic size.
+   * Fixed hard: a flex item's min-width defaults to auto, so one long
+   * provider category name would otherwise push the panel wide open.
+   * Long names fade out at the edge instead (below). */
+  flex: 0 0 252px;
+  min-width: 0;
+  max-width: 252px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  padding: 2px;
+  margin: 0 0 12px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+}
+
+/* Folded and idle the panel chrome disappears; hovering anywhere on the
+ * rail fades it back. border-color (not none) keeps the 1px geometry so
+ * the icons don't shift. */
+.live-sidebar--collapsed {
+  flex: 0 0 auto;
+  background: none;
+  border-color: transparent;
+  transition:
+    background 200ms ease,
+    border-color 200ms ease;
+}
+
+.live-sidebar--collapsed:hover {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+/* Top row: collapse ghost + mode rail share the line; the rail takes
+ * whatever width is left. Folded, only the ghost remains. */
+.live-sidebar__top {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Collapse: a quiet ghost icon, same spot whether the sidebar is open or
+ * folded. */
+.live-collapse {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 37px;
+  height: 40px; /* matches the rail's height so the row reads as one band */
+  border-radius: var(--radius-chip);
+  opacity: 0.45;
+  transition:
+    opacity 150ms ease,
+    background 150ms ease;
+}
+
+.live-collapse:hover {
+  opacity: 1;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.live-collapse svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Mode rail, the Claude-app way: buttons snap to their new size instantly
+ * (labels show/hide with no width animation); the single indicator element
+ * glides to the settled target via transform+width on the spring. */
+.mode-rail {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 3px;
+  padding: 2px;
+  background: var(--surface-puck);
+  border-radius: 18px;
+}
+
+.mode-rail__indicator {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 0;
+  border-radius: var(--radius-chip);
+  background: var(--surface-raised);
+  border: 0.5px solid var(--border-raised);
+  will-change: transform, width;
+  transition:
+    transform 380ms var(--spring),
+    width 380ms var(--spring);
+}
+
+.mode-rail__indicator--snap {
+  transition: none;
+}
+
+.mode-rail__chip {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 36px;
+  padding: 0 11px;
+  border-radius: var(--radius-chip);
+  white-space: nowrap;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text);
+  opacity: 0.5;
+  transition: opacity 150ms ease;
+}
+
+.mode-rail__chip:hover {
+  opacity: 0.85;
+}
+
+.mode-rail__chip--active {
+  opacity: 1;
+}
+
+.mode-rail__chip svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+/* Labels collapse instantly (the indicator masks the snap); the incoming
+ * label fades in as the pill arrives. */
+.mode-rail__label {
+  display: none;
+}
+
+.mode-rail__chip--active .mode-rail__label {
+  display: inline-grid;
+  justify-items: center;
+  animation: mode-label-in 100ms ease-out backwards;
+}
+
+/* The stacked label lines share one cell; ghosts hold the widest width so
+ * the pill never changes size between modes. */
+.mode-rail__label-line {
+  grid-area: 1 / 1;
+}
+
+.mode-rail__label-line--ghost {
+  visibility: hidden;
+}
+
+@keyframes mode-label-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mode-rail__indicator {
+    transition: none;
+  }
+
+  .mode-rail__chip--active .mode-rail__label {
+    animation: none;
+  }
+}
+
+/* --------------------------------------------------- playlist group */
+
+.live-sidebar__list {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.live-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent);
+  padding: 4px 6px 2px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  transition: color 150ms ease;
+}
+
+.live-group:hover {
+  color: var(--text);
+}
+
+.live-group__caret {
+  flex-shrink: 0;
+  width: 13px;
+  height: 13px;
+  transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Connection usage pill ("2/5") on a source header. Quiet by default;
+ * accent when every connection is in use — the moment it matters. */
+.live-conns {
+  flex-shrink: 0;
+  margin-left: 2px;
+  padding: 1px 7px;
+  border-radius: 1000px;
+  background: #00000050;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.live-conns--full {
+  background: var(--accent-surface);
+  color: var(--accent);
+}
+
+.live-group__caret--closed {
+  transform: rotate(-90deg);
+}
+
+/* One playlist failing shouldn't look like an empty folder list. */
+.live-group__error {
+  margin: 0 6px 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.live-sidebar__folders {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Folder rows: placeholder square + name; red fill = selected, red border
+ * = hover (Figma 126:403). */
+.live-folder {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  text-align: left;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text);
+  border: 1px solid transparent;
+  border-radius: var(--radius-chip);
+  padding: 8px 10px;
+  /* Fixed so the label can't drive row height — folded rows (label
+   * hidden) must keep identical geometry or the icons drift. flex-shrink 0
+   * is the half that matters: the list overflows its scrollport, and a
+   * shrinkable row compresses to min-content — ~36px WITH a label, bare
+   * icon height without one, which shifted every icon up on collapse. */
+  flex-shrink: 0;
+  height: 36px;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease;
+}
+
+.live-folder:hover {
+  border-color: var(--accent-border-hover);
+}
+
+.live-folder--active {
+  background: var(--accent-surface);
+  border-color: var(--accent-border);
+}
+
+.live-folder__icon {
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+/* Emoji lifted from the source title; same slot width as the tv icon so
+ * labels line up across rows. */
+.live-folder__emoji {
+  flex-shrink: 0;
+  width: 16px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.live-folder__name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  /* Long names fade out at the row's edge (same treatment as guide cards).
+   * The name box always spans to the row's end, so the fade zone sits at a
+   * fixed spot — short names never reach it and render untouched. */
+  mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent);
+}
+
+.live-sidebar__note {
+  margin: 4px 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* ------------------------------------------------- collapsed icon rail */
+
+/* Folded, the same list narrows to a quiet icon rail: the header text and
+ * row labels drop out, but the rows themselves keep their geometry so the
+ * emoji/icons stay pixel-fixed through the toggle. */
+.live-sidebar--collapsed .live-group {
+  /* Keep the height (so rows don't shift up) but surrender the width —
+   * otherwise the hidden playlist name holds the rail wide open. */
+  visibility: hidden;
+  width: 0;
+  padding-inline: 0;
+  white-space: nowrap;
+}
+
+.live-sidebar--collapsed .live-folder__name {
+  display: none;
+}
+
+.live-sidebar--collapsed .live-sidebar__folders {
+  scrollbar-width: none;
+}
+
+.live-sidebar--collapsed .live-folder {
+  opacity: 0.45;
+  transition:
+    opacity 150ms ease,
+    border-color 120ms ease,
+    background 120ms ease;
+}
+
+.live-sidebar--collapsed .live-folder:hover {
+  opacity: 1;
+  border-color: transparent; /* opacity is the hover cue when folded */
+}
+
+.live-sidebar--collapsed .live-folder--active,
+.live-sidebar--collapsed .live-folder--active:hover {
+  opacity: 1;
+  border-color: var(--accent-border);
+}
+
+/* Source-name tooltip beside the folded rail. */
+.live-tip {
+  position: fixed;
+  z-index: 40;
+  transform: translateY(-50%);
+  padding: 6px 12px;
+  background: var(--surface-raised);
+  border: 0.5px solid var(--border-raised);
+  border-radius: 10px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text);
+  white-space: nowrap;
+  pointer-events: none;
+  animation: tip-in 120ms ease;
+}
+
+@keyframes tip-in {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) translateX(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-tip {
+    animation: none;
+  }
+}
+
+/* ------------------------------------------------------------- main */
+
+.live-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Empty modes (no favorites / no recents yet). */
+.guide-empty {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  font-size: 14px;
+  opacity: 0.6;
+}
+
+/* Whole-tab states: loading, playlist failure, nothing configured. */
+.live-status {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  gap: 14px;
+  padding: 0 48px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 14px;
+  opacity: 0.6;
+}
+
+/* A real failure shouldn't whisper like the idle "Loading…" hint. */
+.live-status--error {
+  color: var(--text);
+  opacity: 1;
+}
+
+.live-status__retry {
+  padding: 8px 18px;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-chip);
+  background: var(--accent-surface);
+  color: var(--text);
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease;
+}
+
+.live-status__retry:hover {
+  border-color: var(--accent);
+}
+
+/* -------------------------------------------------------------- guide */
+
+/* One scroll container for both axes: the ruler pins to the top and the
+ * channel column pins to the left via position:sticky, so nothing can
+ * desync from the cells. z ladder: cells (0) → now-line (1) → channel
+ * column (2) → ruler (3, its corner above the ticks). */
+/* Non-scrolling shell: hosts the column-resize handle so it can overlay
+ * the card/lane boundary without riding the horizontal pan. */
+.guide-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  margin-top: 16px;
+  display: flex;
+}
+
+.guide {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* Drag handle for the channel-card column width (the old build's): a
+ * 10px grab strip centered on the 8px gutter, showing a 2px accent line
+ * on hover/drag. */
+.guide-resize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--guide-card-w, 189px) + 4px);
+  width: 10px;
+  transform: translateX(-50%);
+  cursor: col-resize;
+  z-index: 4;
+  touch-action: none;
+}
+
+.guide-resize::after {
+  content: "";
+  position: absolute;
+  inset: 0 calc(50% - 1px);
+  background: transparent;
+  transition: background 120ms ease;
+}
+
+.guide-resize:hover::after,
+.guide-resize--active::after {
+  background: var(--accent);
+}
+
+.guide__canvas {
+  position: relative;
+}
+
+.guide__ruler {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--bg);
+}
+
+.guide__tick {
+  position: absolute;
+  top: 2px;
+  font-family: var(--font-headline);
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* Blanks out ticks sliding beneath the channel column. */
+.guide__corner {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  height: 100%;
+  background: var(--bg);
+}
+
+.guide__row {
+  display: flex; /* sticky channel + the lane; no gap — the gutter lives
+                    inside the channel column so cells align with the ruler */
+}
+
+.guide__lane {
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* ------------------------------------------------ guide channel column */
+
+/* Sticky, opaque, and a hair wider than the card so cells vanish under
+ * it instead of peeking through the gutter. */
+.guide__channel {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  display: flex;
+  /* Card width + the 8px gutter (kept inside the occluder). Driven by the
+   * resizable column (JS sets --guide-card-w on .guide-wrap). */
+  width: calc(var(--guide-card-w, 189px) + 8px);
+  height: 100%;
+  padding-right: 8px;
+  padding-bottom: 8px; /* the row gap, kept inside the occluder */
+  background: var(--bg);
+}
+
+.guide__card {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px 0 5px;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  overflow: hidden;
+  transition: border-color 120ms ease;
+}
+
+/* No visual selected state on channel cards — the hero (and later the
+ * mini-player) already shows the selection; a ring here read as noise.
+ * The --selected class stays on the element if a designed cue lands. */
+
+/* Mock logo slot: portrait tile with the channel initial until real
+ * channel art lands. */
+/* Free-floating logo, no chrome — real channel art carries its own shape
+ * (user-tuned 44x64). */
+.guide__logo {
+  flex-shrink: 0;
+  width: 44px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text);
+  overflow: hidden;
+}
+
+/* Real playlists bring stream_icon art of every shape; contain it. */
+.guide__logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 2px;
+}
+
+.guide__card-meta {
+  /* Fills the card so percentage widths on the name resolve against a
+   * stable box — shrink-to-fit here made the starred reservation subtract
+   * from the name's own width, truncating short names to a letter. */
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+
+.guide__card-name {
+  max-width: 100%;
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* Starred cards reserve the star's lane: the name's box ends before the
+ * star, so the measured fade completes clear of it (Figma 131:248) —
+ * toggling re-renders, which re-measures the clip. */
+.guide__channel--starred .guide__card-name {
+  max-width: calc(100% - 30px);
+}
+
+/* Favorite star, three states (Figma 131:213/230/248): card hover shows
+ * a faint ghost, hovering the star itself swaps to the rainbow-ringed
+ * hollow, and starred keeps the filled rainbow star visible. */
+.guide__fav {
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  transform: translateY(-68%);
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  color: var(--text); /* the ghost fills with currentColor */
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.guide__channel:hover .guide__fav,
+/* Keyboard parity: reveal the star when anything in the row (its card or the
+ * star itself) has focus, so it's reachable without a mouse. */
+.guide__channel:focus-within .guide__fav,
+.guide__fav:focus-visible,
+.guide__fav--on {
+  opacity: 1;
+}
+
+.guide__fav svg {
+  width: 21px;
+  height: 21px;
+}
+
+.guide__fav .guide__fav-hot {
+  display: none;
+}
+
+.guide__fav:hover .guide__fav-idle {
+  display: none;
+}
+
+.guide__fav:hover .guide__fav-hot {
+  display: block;
+}
+
+/* --------------------------------------------------------- guide cells */
+
+.guide__cell {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 0 12px 0 16px;
+  text-align: left;
+  background: var(--surface-puck);
+  border: 1.5px solid color-mix(in srgb, var(--text) 4%, transparent);
+  border-radius: 20px;
+  overflow: hidden;
+  transition: filter 120ms ease;
+}
+
+.guide__cell:hover {
+  filter: brightness(1.25);
+}
+
+/* Real guides carry hundreds of rows — let the browser skip painting the
+ * cells scrolled off-screen. Geometry is inline (width) + fixed height, so
+ * only off-screen contents are skipped. Pinned cells always render, and
+ * blank lanes are excluded because their label is position:sticky — the
+ * layout containment implied by content-visibility would scope the sticky
+ * to the cell and shove the label 213px inward. */
+.guide__cell:not(.guide__cell--pinned):not(.guide__cell--blank) {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 60px;
+}
+
+/* The airing cell docked at the lane edge: position:sticky so the left
+ * edge and text ride the compositor (zero scroll lag); per-frame onScroll
+ * drives its width so the right edge stays anchored in canvas space —
+ * a real box, so real superellipse corners and truthful text clipping. */
+.guide__cell--pinned {
+  position: sticky;
+  z-index: 1;
+  /* No will-change: forcing the pinned cell onto its own compositor layer
+   * made WebView2 reuse a stale raster offset when a cell swaps
+   * absolute -> sticky mid-scroll — text painted at its pre-pin position
+   * inside the correctly-placed box (geometry clean, pixels wrong). */
+}
+
+.guide__cell--live {
+  background: var(--accent-surface);
+  border: 1px solid var(--accent-border);
+}
+
+.guide__cell--blank {
+  background: var(--surface);
+  border: 1.5px dashed color-mix(in srgb, var(--accent) 24%, var(--mix-base));
+  font-family: var(--font-headline);
+  font-weight: 500;
+  font-size: 15px;
+  color: var(--text-muted);
+  /* overflow:hidden would make the cell the sticky label's scroll
+   * container (killing the hug); nothing here needs clipping anyway. */
+  overflow: visible;
+}
+
+/* Cell bodies are static: the pinned cell owns the edge-hugging behavior
+ * (the straddling programme is always the pinned one). Only blank lanes —
+ * which are never pinned — keep a sticky label so "No Information" hugs
+ * the scrollport until the lane's far edge pushes it away. */
+.guide__cell-body {
+  min-width: 0;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.guide__cell--blank .guide__cell-body {
+  position: sticky;
+}
+
+.guide__cell-title {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text);
+  min-width: 0;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.guide__cell-time {
+  font-family: var(--font-headline);
+  font-weight: 500;
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Measured fade: applied only when the text actually overflows (see
+ * clipTitle in Guide.tsx) — the text fades out at the right edge rather
+ * than truncating, and stays consistent as a pinned cell narrows. */
+.guide__cell-title.is-clipped,
+.guide__card-name.is-clipped {
+  mask-image: linear-gradient(to right, #000 calc(100% - 26px), transparent);
+}
+
+/* ----------------------------------------------------------- now-line */
+
+.guide__nowline {
+  position: absolute;
+  bottom: 0;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* -------------------------------------------------------------- hero */
+
+/* Now Playing (Figma 133:479): preview slot + programme details. The
+ * height is pinned to the preview's 16:9 box — real EPG synopses run to
+ * paragraphs, and letting them grow the hero resized the player and
+ * shoved the guide down mid-hover (endless hover churn). Long copy clamps
+ * instead (see .hero__synopsis). */
+.hero {
+  display: flex;
+  gap: 25px;
+  align-items: stretch;
+  height: calc(494px * 9 / 16);
+  padding-right: 50px;
+}
+
+/* The mpv slot, exactly 16:9. Nothing can render over the native player,
+ * so no inner effects — just a white bezel that appears on hover
+ * (transparent otherwise, keeping the geometry fixed). The accent-tinted
+ * gradient is the "off air" placeholder the video replaces. */
+.hero__preview {
+  flex-shrink: 0;
+  width: 494px;
+  aspect-ratio: 16 / 9;
+  /* Plain black slate with a hairline edge: this is what shows before/while
+   * a channel loads and during a channel switch (the mpv layer covers it
+   * once video arrives). Black + a faint border reads as an idle player, not
+   * the accent "glitch" the old gradient looked like mid-switch. */
+  border: 1px solid #ffffff10;
+  border-radius: 12px;
+  background: #000;
+  cursor: pointer;
+}
+
+/* ---- Theater / fullscreen ----
+ * Theater covers only the EPG: the guide and hero details fold away and the
+ * player grows to fill the main content area, but the header and sidebar stay
+ * fully visible so you can flip channels while watching. The mpv layer follows
+ * the #player-slot (=.hero__preview) box via the rAF driver. Fullscreen fills
+ * the whole viewport, squared off (fixed, no transform — a transformed
+ * ancestor would trap the fixed child). */
+.live--theater .hero__details,
+.live--theater .guide-wrap,
+.live--theater .guide-empty {
+  display: none;
+}
+
+/* Hero grows to own the main column and centres the player in it. The 12px
+ * bottom/right inset mirrors the sidebar's own margin (0 0 12px 12px), so the
+ * player breathes on the free edges (the left already has the .live gap). */
+.live--theater .hero {
+  flex: 1;
+  height: auto;
+  gap: 0;
+  padding: 0 12px 12px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Size context for the player's container-query fit below. */
+  container-type: size;
+}
+
+/* The box HUGS the 16:9 picture — the largest 16:9 rect that fits the main
+ * area, centred. mpv fills a matching-aspect box exactly (no letterbox), so
+ * the video's corners land ON the container corners, which is where the
+ * overlay paints its rounded-corner wedges. A fill-the-rectangle box instead
+ * letterboxed the video mid-container, leaving the real corners square and the
+ * wedges stranded in the black bars. (Non-16:9 channels still letterbox inside
+ * this box — the fully robust fix rounds mpv's real output rect natively.) */
+.live--theater .hero__preview {
+  width: min(100cqw, calc(100cqh * 16 / 9));
+  height: auto;
+  aspect-ratio: 16 / 9;
+  border: none;
+  border-radius: 0;
+}
+
+.live--fullscreen .hero__preview {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  max-width: none;
+  transform: none;
+  aspect-ratio: auto;
+  border-radius: 0;
+  z-index: 200;
+}
+
+
+.hero__details {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 6px;
+}
+
+.hero__live {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  background: var(--accent-surface);
+  border: 0.5px solid var(--accent);
+  border-radius: 20px;
+  font-family: var(--font-text);
+  font-weight: 700;
+  font-size: 17px;
+  color: var(--text);
+}
+
+.hero__live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+}
+
+/* One line under a right-edge fade, like the title — real provider names
+ * run long, and a wrapped channel line stole a synopsis line's worth of
+ * the hero's pinned height. The box stretches to the details' full width
+ * so the fade zone sits at the container edge: names that don't reach it
+ * render untouched (a shrink-to-fit box always "overflows" its own mask). */
+.hero__channel {
+  margin-top: 16px;
+  align-self: stretch;
+  white-space: nowrap;
+  overflow: hidden;
+  mask-image: linear-gradient(to right, #000 calc(100% - 100px), transparent);
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 21px;
+  letter-spacing: 1.26px;
+  color: var(--accent);
+}
+
+/* Provider channel number: a quiet dark chip after the name (Adam's mock —
+ * "#137", gray on black, never fighting the accent-colored name). */
+.hero__number {
+  display: inline-block;
+  margin-left: 12px;
+  padding: 1px 10px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  font-size: 15px;
+  letter-spacing: 0.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  vertical-align: 2px;
+}
+
+/* Long titles run under a right-edge fade instead of wrapping. */
+.hero__title-wrap {
+  position: relative;
+  align-self: stretch;
+  overflow: hidden;
+}
+
+.hero__title-wrap::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 151px;
+  background: linear-gradient(to right, transparent, var(--bg));
+  pointer-events: none;
+}
+
+.hero__title {
+  margin: 16px 0 0;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 41px;
+  line-height: 1.35;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.hero__synopsis {
+  margin: 6px 0 0;
+  font-family: var(--font-text);
+  font-size: 16px;
+  line-height: 1.3;
+  color: var(--text-dim);
+  /* Full hero width, clamped: whatever doesn't fit the pinned height
+   * truncates with an ellipsis instead of growing the section.
+   * flex-shrink 0 keeps the clamp honest — overflow:hidden makes this the
+   * column's squeezable child, and a squeezed clamp box cuts its own
+   * ellipsis line in half. */
+  flex-shrink: 0;
+  align-self: stretch;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+}
+
+.hero__meta {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.hero__time {
+  font-family: var(--font-headline);
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.hero__bar {
+  flex: 1;
+  min-width: 0;
+  height: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.hero__bar-fill {
+  height: 100%;
+  background: var(--accent);
+}
+
+/* ---- Keyboard focus (a11y batch) ----
+ * One themed ring for every interactive Live control. :focus-visible shows it
+ * for keyboard / assistive-tech users without ringing on plain mouse clicks.
+ * Accent-derived so it lands in both dark and light themes. */
+.mode-rail__chip:focus-visible,
+.live-collapse:focus-visible,
+.live-group:focus-visible,
+.live-folder:focus-visible,
+.guide__card:focus-visible,
+.guide__fav:focus-visible,
+.guide__cell:focus-visible,
+.live-status__retry:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+/* The resize separator is a hairline strip; inset the ring so it stays on it. */
+.guide-resize:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}

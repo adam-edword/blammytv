@@ -1,0 +1,531 @@
+/**
+ * Intense theme packs — the WIDENED contract.
+ *
+ * Loaded after packs.css (main.tsx), same cascade tier: after tokens.css,
+ * before the feature sheets. packs.css stays FROZEN as the color-only
+ * reference / network-payload shape; intense themes deliberately go beyond
+ * it and live here so the two contracts stay legible.
+ *
+ * Unlike packs.css, an intense block scoped under
+ * :root[data-theme-pack="<id>"] MAY also:
+ *   (a) re-point the family tokens --font-headline / --font-text /
+ *       --font-mono to a BUNDLED family (see fonts.ts). Family only — sizes
+ *       and weights are per-component, never tokenized. Always keep a system
+ *       fallback so an unloaded face degrades gracefully.
+ *   (b) set the background-layer tokens --pack-bg-image / --pack-bg-size /
+ *       --pack-bg-blend / --pack-bg-opacity, painted by the shared
+ *       .app-shell::before seam in base.css. Themes do NOT author their own
+ *       positioned background element — they only feed the seam.
+ *   (c) write SCOPED descendant hover/glow rules, e.g.
+ *       :root[data-theme-pack="x"] .stream-card:hover { ... }. Class surface
+ *       is stable semantic BEM, so any component is reachable with no JSX
+ *       change. A hover rule may carry its OWN transition.
+ *
+ * WebView2 guardrails (load-bearing — see live.css:742, stream.css:274/719,
+ * boot.css): hovers use opacity / transform / static box-shadow / static
+ * background only. NEVER animate filter or backdrop-filter, and never add
+ * will-change that promotes a compositor layer — WebView2 reuses stale
+ * rasters. Glow = static box-shadow or a pre-rendered gradient toggled by
+ * opacity, not an animated blur.
+ *
+ * These blocks are BUNDLED (not fetched) — the whole app ships them so any
+ * theme is previewable offline with no key. The license gates whether a
+ * theme PERSISTS, not whether its CSS exists (license.ts, ownsPack).
+ */
+
+/* ============================ Terminal ============================
+   Green-phosphor CRT. The reference intense theme: it exercises all three
+   axes at once — a bundled bitmap face (VT323), a dithered phosphor-grain
+   background layer, and green-glow hovers. Dark-only. */
+:root[data-theme-pack="terminal"] {
+  /* Palette — phosphor green on green-black. */
+  --bg: #020a05;
+  --surface: #04140a;
+  --surface-track: #020a05;
+  --surface-puck: #072010;
+  --surface-raised: #0a2c16;
+  --border: rgba(80, 255, 130, 0.16);
+  --border-strong: rgba(80, 255, 130, 0.28);
+  --border-raised: #1c5a30;
+  --border-input: rgba(80, 255, 130, 0.18);
+  --card-glass:
+    linear-gradient(rgba(80, 255, 130, 0.07), rgba(80, 255, 130, 0.07)),
+    linear-gradient(rgba(2, 10, 5, 0.6), rgba(2, 10, 5, 0.6));
+  --text: #4dff86;
+  --text-muted: #2fa85a;
+  --text-dim: #176b30;
+  --text-ghost: rgba(80, 255, 130, 0.2);
+  color-scheme: dark;
+
+  /* Font (a) — VT323 everywhere for the full CRT commitment. */
+  --font-headline: "VT323", ui-monospace, "Cascadia Code", Menlo, monospace;
+  --font-text: "VT323", ui-monospace, "Cascadia Code", Menlo, monospace;
+  --font-mono: "VT323", ui-monospace, "Cascadia Code", Menlo, monospace;
+
+  /* Background (b) — a green phosphor dither grain (the onboarding
+     .onb-dither dot lattice, tinted green), screen-blended for a faint glow.
+     Static; the seam never animates it. */
+  --pack-bg-image:
+    radial-gradient(circle at 1px 1px, rgba(80, 255, 130, 0.13) 1px, transparent 1.3px),
+    radial-gradient(circle at 3px 3px, rgba(80, 255, 130, 0.06) 1px, transparent 1.3px);
+  --pack-bg-size: 4px 4px, 8px 8px;
+  --pack-bg-blend: screen;
+  --pack-bg-opacity: 0.55;
+}
+
+/* Hovers (c) — static green glow, each with its own transition. Overrides
+   the base filter/opacity hovers rather than animating filter. Rings sit on
+   the POSTER/ART element, not the card — the card wraps the caption text
+   too, and a ring around that read as a stray box (Adam). vod-more cards
+   ARE bare posters, so they keep the ring directly. */
+:root[data-theme-pack="terminal"] .stream-card:hover .stream-card__poster,
+:root[data-theme-pack="terminal"] .stream-card:hover .stream-card__mono,
+:root[data-theme-pack="terminal"] .continue-card:hover .continue-card__artwrap,
+:root[data-theme-pack="terminal"] .vod-more__card:hover {
+  box-shadow:
+    0 0 0 1px rgba(80, 255, 130, 0.6),
+    0 0 16px rgba(80, 255, 130, 0.32);
+  transition: box-shadow 140ms ease, transform 140ms ease;
+}
+
+:root[data-theme-pack="terminal"] .guide__cell:hover {
+  /* Drop the base brightness filter for a crisp phosphor outline instead. */
+  filter: none;
+  box-shadow: inset 0 0 0 1px rgba(80, 255, 130, 0.55);
+  transition: box-shadow 140ms ease;
+}
+
+:root[data-theme-pack="terminal"] .header__tab:hover,
+:root[data-theme-pack="terminal"] .live-folder:hover {
+  text-shadow: 0 0 8px rgba(80, 255, 130, 0.7);
+  transition: text-shadow 140ms ease;
+}
+
+/* The active guide row and now-playing name earn a steady phosphor glow. */
+:root[data-theme-pack="terminal"] .hero__channel,
+:root[data-theme-pack="terminal"] .guide__cell--live {
+  text-shadow: 0 0 6px rgba(80, 255, 130, 0.45);
+}
+
+/* ============================ Supporter ============================
+   The Themes-Pass secret theme. Classic palette UNCHANGED (no token
+   overrides) + the marketing site's background: a white dither dot field
+   over a slowly drifting brand rainbow aura.
+
+   Two background layers on .app-shell, both cut by the inverted-player
+   clip-path hole (it's an inline style on .app-shell, so it clips the
+   pseudo-elements too — the aura never paints over live mpv video):
+     ::before (z-index -1, the shared seam) = the dither grain.
+     ::after  (z-index -2, this theme only) = the rainbow aura, BEHIND the
+              grain so the dots sit over the glow.
+
+   The aura animates TRANSFORM ONLY (rotate + a gentle scale breathe), the
+   WebView2-safe pattern from boot.css: a static-painted gradient with a
+   STATIC blur rasters once and the transform never repaints. NEVER animate
+   filter here. If the static blur ever misbehaves in WebView2, drop the
+   `filter` line — the vignette + conic alone still read as an aura. */
+:root[data-theme-pack="supporter"] {
+  /* Dither — the site's faint white dot lattice, on the ::before seam. */
+  --pack-bg-image:
+    radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.05) 1px, transparent 1.3px),
+    radial-gradient(circle at 3px 3px, rgba(255, 255, 255, 0.022) 1px, transparent 1.3px);
+  --pack-bg-size: 4px 4px, 8px 8px;
+  --pack-bg-opacity: 1;
+
+  /* Lift the dimmest text tier (ruler ticks, hero synopsis + time) to a light
+     gray — #494949 was near-invisible over the aura. Its only three consumers
+     are exactly those guide/hero elements (live.css), so this is surgical. */
+  --text-dim: rgba(255, 255, 255, 0.75);
+}
+
+/* The rainbow aura. --aurora-ring is the brand conic defined on :root. The
+   radial vignette (viewport-relative vmax units) fades it into --bg so it
+   reads as a centered glow, not a full-screen wash. Oversized + centered so
+   the rotate/scale drift never reveals an edge; scoped overflow:clip on the
+   shell contains it in dev (production's clip-path already does). */
+:root[data-theme-pack="supporter"] .app-shell::after {
+  content: "";
+  position: absolute;
+  inset: -30%;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 50%, transparent 0 16vmax, var(--bg) 56vmax),
+    var(--aurora-ring);
+  filter: blur(64px);
+  opacity: 0.55;
+  will-change: transform;
+  animation: supporter-aura-drift 52s linear infinite;
+}
+
+:root[data-theme-pack="supporter"] .app-shell {
+  overflow: clip; /* contain the oversized aura (not a transform — sticky-safe) */
+}
+
+@keyframes supporter-aura-drift {
+  0% {
+    transform: rotate(0deg) scale(1.08);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.16);
+  }
+  100% {
+    transform: rotate(360deg) scale(1.08);
+  }
+}
+
+/* House convention: kill the drift under reduced motion, keep the static
+   aura (restated after the animated rule — media queries add no specificity). */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme-pack="supporter"] .app-shell::after {
+    animation: none;
+  }
+}
+
+/* --- Supporter EPG glass -------------------------------------------------
+   Drop the time ruler's solid-black band and frost every EPG surface so the
+   drifting aura reads *through* the guide. All scoped to supporter — no other
+   pack changes. Frost = var(--card-glass) (the settings-card recipe: a
+   translucent black wash) over a STATIC backdrop blur. Static only, per the
+   WebView2 guardrails above — the blur never animates; only what's behind it
+   (aura + scrolling cells) moves, which is inherent to backdrop-filter, not a
+   filter animation.
+
+   The guide glass reveals the app AURA, never live mpv video (the video only
+   shows behind #player-slot / the hero preview), so no data-frost fallback is
+   needed here.
+
+   The sticky occluders (channel column + ruler corner) stay
+   translucent-not-transparent: scrolling cells behind them read as a soft
+   frosted blur instead of bleeding through sharp. */
+
+/* The time ruler, the channel-column strip, and its top corner were solid --bg
+   black. Transparent so the ticks and channel cards float over the aura — the
+   column itself carries no background; only the cards do. (Program cells that
+   slide under the sticky column now read through the glass cards, blurred.) */
+:root[data-theme-pack="supporter"] .guide__ruler,
+:root[data-theme-pack="supporter"] .guide__corner,
+:root[data-theme-pack="supporter"] .guide__channel {
+  background: transparent !important;
+}
+
+/* Frosted glass on every EPG panel + card. Flat #00000040 (25% black) over the
+   static blur — lighter than the default card-glass so the aura reads through. */
+:root[data-theme-pack="supporter"] .live-sidebar,
+:root[data-theme-pack="supporter"] .mode-rail,
+:root[data-theme-pack="supporter"] .guide__card,
+:root[data-theme-pack="supporter"] .guide__cell,
+:root[data-theme-pack="supporter"] .guide__cell--blank {
+  background: #00000040 !important;
+  backdrop-filter: blur(10px);
+}
+
+/* The now-airing cell keeps its accent identity, but frosted: an accent wash
+   layered over the same glass (listed AFTER the generic cell rule so it wins
+   at equal specificity). */
+:root[data-theme-pack="supporter"] .guide__cell--live {
+  background:
+    linear-gradient(
+      color-mix(in srgb, var(--accent) 24%, transparent),
+      color-mix(in srgb, var(--accent) 24%, transparent)
+    ),
+    #00000040 !important;
+  backdrop-filter: blur(10px);
+}
+
+/* Remove the hero title's right-edge fade entirely for this theme: it painted
+   a floating dark rectangle over the glass. No fade — the title just renders. */
+:root[data-theme-pack="supporter"] .hero__title-wrap::after {
+  display: none !important;
+}
+
+/* Stream catalog rows: drop the edge fade scrims — they fade cards into a
+   solid --bg (black), which reads as dark smudges at the row edges over the
+   aura. Cards run clean to the edge instead. */
+:root[data-theme-pack="supporter"] .media-row__scrim {
+  display: none !important;
+}
+
+/* ...and let the catalog rows bleed to the true window edge, behind the thin
+   page scrollbar. The viewport already reaches the window edge (its -28px
+   margin clears the scrollbar gutter); the only remaining inset is the
+   scroller's own 28px right padding — drop it so the last card runs under the
+   scrollbar. Left padding stays (keeps the first card aligned with the page).
+   Scoped to .stream__rows so the detail-page "More Like This" rail (its own
+   masked RowScroller) is untouched. Verified: no horizontal scrollbar. */
+:root[data-theme-pack="supporter"] .stream__rows .media-row__scroller {
+  padding-right: 0 !important;
+}
+
+/* ============================ BlammyTV ============================
+   The free DEFAULT pack (id "slate", packs.css owns its tokens). These few
+   scoped component rules ride the widened contract: hand-tuned guide
+   surfaces (Adam's spec) that the token seam can't express — the cell and
+   card fills sit between the pack's own surface tiers.
+
+   .guide__cell is out-specified here vs live.css's .guide__cell--live, so
+   the now-airing cell is excluded to keep its accent fill. */
+:root[data-theme-pack="slate"] .live-sidebar {
+  background: #0f0f15;
+}
+
+:root[data-theme-pack="slate"] .guide__card {
+  background: #15151a;
+}
+
+/* :not() args add their specificity, so blank must be excluded here too —
+   a trailing .guide__cell--blank rule alone would lose this tie. */
+:root[data-theme-pack="slate"]
+  .guide__cell:not(.guide__cell--live):not(.guide__cell--blank) {
+  background: #1e1e25;
+}
+
+:root[data-theme-pack="slate"] .guide__cell--blank {
+  background: #ffffff05;
+}
+
+/* ============================ Dither ============================
+   1-bit ordered dithering: a REAL 4x4 Bayer dither of a #000 -> #1F1F1F
+   diagonal gradient (generated by scripts/gen-bayer-svg.mjs into a bundled
+   vector asset — see that script for the construction, per the Bayer refs).
+   Bold Syne headlines, monochrome surfaces, crisp white hover rings, no
+   glow — ink on a plate. Dark-only. */
+:root[data-theme-pack="dither"] {
+  --bg: #000000;
+  --surface: #161616;
+  --surface-track: #0a0a0a;
+  --surface-puck: #1f1f1f;
+  --surface-raised: #2b2b2b;
+  --border: rgba(255, 255, 255, 0.12);
+  --border-strong: rgba(255, 255, 255, 0.22);
+  --border-raised: #3d3d3d;
+  --border-input: rgba(255, 255, 255, 0.14);
+  --card-glass:
+    linear-gradient(rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.09)),
+    linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.55));
+  --text: #f5f5f5;
+  --text-muted: #9a9a9a;
+  --text-dim: #454545;
+  --text-ghost: rgba(255, 255, 255, 0.2);
+  color-scheme: dark;
+
+  /* Font (a) — Syne on headlines (700 is the only bundled weight, so every
+     heading renders bold — Adam's spec). Body text stays the clean sans. */
+  --font-headline: "Syne", "Segoe UI", system-ui, sans-serif;
+
+  /* Background (b) — the Bayer-dithered gradient asset. cover keeps the
+     dither pixels square (uniform scale + crop) at any window aspect. */
+  --pack-bg-image: url("../assets/dither-bayer.svg");
+  --pack-bg-size: cover;
+  --pack-bg-opacity: 1;
+}
+
+/* Hovers (c) — a crisp mono ring; drop the base brightness filter. */
+:root[data-theme-pack="dither"] .stream-card:hover .stream-card__poster,
+:root[data-theme-pack="dither"] .stream-card:hover .stream-card__mono,
+:root[data-theme-pack="dither"] .continue-card:hover .continue-card__artwrap,
+:root[data-theme-pack="dither"] .vod-more__card:hover {
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.75);
+  transition: box-shadow 120ms ease, transform 140ms ease;
+}
+
+:root[data-theme-pack="dither"] .guide__cell:hover {
+  filter: none;
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.6);
+  transition: box-shadow 120ms ease;
+}
+
+/* ============================ Kawaii ============================
+   Midnight candy (v2, from Adam's mock): a deep navy-plum base with pastel
+   pink candy on top. The pink IS the look, so the pack carries a
+   pairedAccent (#f2a0c2, applied by ThemesModal's option-3 pairing — only
+   while the user is on the default accent). Chubby Fredoka type, soft
+   pastel cloud blobs on the seam, candy guide cells (pale periwinkle with
+   navy text; the airing cell bright pink), pink sparkle hovers, and a star
+   riding the now-line. Dark-only. */
+:root[data-theme-pack="kawaii"] {
+  --bg: #15111f;
+  --surface: #221b33;
+  --surface-track: #191424;
+  --surface-puck: #2a2240;
+  --surface-raised: #362b50;
+  --border: rgba(233, 214, 255, 0.12);
+  --border-strong: rgba(233, 214, 255, 0.2);
+  --border-raised: #4a3d68;
+  --border-input: rgba(233, 214, 255, 0.14);
+  --card-glass:
+    linear-gradient(rgba(242, 160, 194, 0.08), rgba(242, 160, 194, 0.08)),
+    linear-gradient(rgba(21, 17, 31, 0.6), rgba(21, 17, 31, 0.6));
+  --text: #f6f0fc;
+  --text-muted: #b4a7cc;
+  --text-dim: #5c4f78;
+  --text-ghost: rgba(246, 240, 252, 0.22);
+  /* Accent surfaces tint toward the plum ground, not pure black. */
+  --mix-base: #15111f;
+  color-scheme: dark;
+
+  /* Font (a) — Fredoka, the rounded chubby face (bundled via fonts.ts). */
+  --font-headline: "Fredoka", "Segoe UI", system-ui, sans-serif;
+  --font-text: "Fredoka", "Segoe UI", system-ui, sans-serif;
+
+  /* Background (b) — soft pastel clouds glowing out of the plum night. */
+  --pack-bg-image:
+    radial-gradient(42vmax 34vmax at 85% 4%, rgba(242, 160, 194, 0.16), transparent 70%),
+    radial-gradient(50vmax 40vmax at 4% 96%, rgba(150, 110, 255, 0.15), transparent 70%),
+    radial-gradient(30vmax 24vmax at 55% 45%, rgba(255, 255, 255, 0.05), transparent 70%);
+  --pack-bg-size: 100% 100%, 100% 100%, 100% 100%;
+  --pack-bg-opacity: 1;
+}
+
+/* Candy guide cells (the mock's signature): programme cells flip LIGHT —
+   pale periwinkle with navy text — while the chrome stays plum. The airing
+   cell goes bright candy pink. :not() args add their specificity, so live
+   and blank are excluded here rather than re-overridden after. */
+:root[data-theme-pack="kawaii"]
+  .guide__cell:not(.guide__cell--live):not(.guide__cell--blank) {
+  background: #e9e9f7;
+  border-color: rgba(21, 17, 31, 0.1);
+}
+
+:root[data-theme-pack="kawaii"]
+  .guide__cell:not(.guide__cell--live):not(.guide__cell--blank)
+  .guide__cell-title {
+  color: #26203c;
+}
+
+:root[data-theme-pack="kawaii"]
+  .guide__cell:not(.guide__cell--live):not(.guide__cell--blank)
+  .guide__cell-time {
+  color: #6a628e;
+}
+
+:root[data-theme-pack="kawaii"] .guide__cell--live {
+  background: #f2a0c2;
+  border-color: #f8c0d6;
+}
+
+:root[data-theme-pack="kawaii"] .guide__cell--live .guide__cell-title {
+  color: #59132f;
+}
+
+:root[data-theme-pack="kawaii"] .guide__cell--live .guide__cell-time {
+  color: #8f3a5e;
+}
+
+:root[data-theme-pack="kawaii"] .guide__cell--blank {
+  background: rgba(233, 233, 247, 0.05);
+}
+
+/* The selected sidebar folder wears the candy pink too (color-only — the
+   row's geometry/behavior is untouched). */
+:root[data-theme-pack="kawaii"] .live-folder--active {
+  background: #f2a0c2;
+  border-color: #f8c0d6;
+  color: #3a1226;
+}
+
+/* A star rides the now-line (the mock's cutest detail). The plum outline
+   keeps it legible even when it overlaps a pink airing cell. */
+:root[data-theme-pack="kawaii"] .guide__nowline::after {
+  content: "\2605";
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 17px;
+  line-height: 1;
+  color: var(--accent);
+  text-shadow:
+    0 0 3px #15111f,
+    0 0 3px #15111f,
+    0 0 10px color-mix(in srgb, var(--accent) 90%, transparent);
+}
+
+/* Hovers (c) — the pink sparkle ring. */
+:root[data-theme-pack="kawaii"] .stream-card:hover .stream-card__poster,
+:root[data-theme-pack="kawaii"] .stream-card:hover .stream-card__mono,
+:root[data-theme-pack="kawaii"] .continue-card:hover .continue-card__artwrap,
+:root[data-theme-pack="kawaii"] .vod-more__card:hover {
+  box-shadow:
+    0 0 0 1.5px #f2a0c2,
+    0 0 14px rgba(242, 160, 194, 0.55);
+  transition: box-shadow 140ms ease, transform 140ms ease;
+}
+
+:root[data-theme-pack="kawaii"] .guide__cell:hover {
+  filter: none;
+  box-shadow: inset 0 0 0 1.5px #f2a0c2;
+  transition: box-shadow 140ms ease;
+}
+
+:root[data-theme-pack="kawaii"] .header__tab:hover,
+:root[data-theme-pack="kawaii"] .live-folder:hover {
+  text-shadow: 0 0 8px rgba(242, 160, 194, 0.8);
+  transition: text-shadow 140ms ease;
+}
+
+/* ============================ Streamy ============================
+   A loving nod to that other streaming client: the deep indigo board,
+   surfaces a half-step more violet, the signature purple accent (paired —
+   #7b5bf5 applies via the option-3 accent pairing unless the user has
+   their own), and the same type family the real thing uses (Plus Jakarta
+   Sans). A soft violet glow crowns the top of the board via the seam.
+   Dark-only. */
+:root[data-theme-pack="streamy"] {
+  --bg: #0c0a1f;
+  --surface: #1a1740;
+  --surface-track: #120f30;
+  --surface-puck: #221e50;
+  --surface-raised: #2b2660;
+  --border: rgba(123, 91, 245, 0.16);
+  --border-strong: rgba(123, 91, 245, 0.26);
+  --border-raised: #3d3576;
+  --border-input: rgba(123, 91, 245, 0.18);
+  --card-glass:
+    linear-gradient(rgba(123, 91, 245, 0.1), rgba(123, 91, 245, 0.1)),
+    linear-gradient(rgba(12, 10, 31, 0.6), rgba(12, 10, 31, 0.6));
+  --text: #f2f1f9;
+  --text-muted: #8f8bb0;
+  --text-dim: #46436b;
+  --text-ghost: rgba(242, 241, 249, 0.2);
+  color-scheme: dark;
+
+  /* Font (a) — Plus Jakarta Sans everywhere, like the real client. */
+  --font-headline: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  --font-text: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+
+  /* Background (b) — the client's EXACT board gradient (Adam, from the
+     real app's CSS): dark bottom-left rising to indigo top-right. Opaque,
+     so the guide's solid occluders get a scoped glass treatment below. */
+  --pack-bg-image: linear-gradient(72deg, #0c0b11 1.05%, #1a173e 100%);
+  --pack-bg-size: 100% 100%;
+  --pack-bg-opacity: 1;
+}
+
+/* Hovers (c) — a quiet violet ring, the client's focused-card read. */
+:root[data-theme-pack="streamy"] .stream-card:hover .stream-card__poster,
+:root[data-theme-pack="streamy"] .stream-card:hover .stream-card__mono,
+:root[data-theme-pack="streamy"] .continue-card:hover .continue-card__artwrap,
+:root[data-theme-pack="streamy"] .vod-more__card:hover {
+  box-shadow:
+    0 0 0 1.5px rgba(123, 91, 245, 0.65),
+    0 0 16px rgba(123, 91, 245, 0.3);
+  transition: box-shadow 140ms ease, transform 140ms ease;
+}
+
+:root[data-theme-pack="streamy"] .guide__cell:hover {
+  filter: none;
+  box-shadow: inset 0 0 0 1.5px rgba(123, 91, 245, 0.55);
+  transition: box-shadow 140ms ease;
+}
+
+/* The board gradient is OPAQUE and diagonal, so the guide's flat --bg
+   occluders would read as dark patches against the indigo corner. Frost
+   them instead (the Supporter recipe — static backdrop blur, WebView2-safe):
+   they still hide the cells scrolling beneath, but blend with the sweep. */
+:root[data-theme-pack="streamy"] .guide__ruler,
+:root[data-theme-pack="streamy"] .guide__corner,
+:root[data-theme-pack="streamy"] .guide__channel {
+  background: rgba(12, 11, 17, 0.45);
+  backdrop-filter: blur(10px);
+}

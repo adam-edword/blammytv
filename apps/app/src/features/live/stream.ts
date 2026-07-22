@@ -1,0 +1,221 @@
+import type { TheaterMeta } from "../../lib/tauri";
+import { createLink } from "../../data/stalker";
+import {
+  loadPlaylists,
+  type StalkerPlaylist,
+  type XtreamPlaylist,
+} from "../settings/playlists";
+import { progress as epgProgress } from "./epg";
+import type { Channel, Programme } from "./model";
+
+/**
+ * Rebuild a playable Xtream live URL from a channel id. The new model doesn't
+ * store the URL (or even the raw stream_id) on the channel — ids are
+ * namespaced `<playlistId>:<streamId>`, so we split that back apart and look
+ * the credentials up from the saved playlist. Returns null when the id isn't a
+ * real Xtream channel (the mock catalog, or a playlist that's since gone).
+ *
+ * Format (classic Xtream, credentials in the path):
+ *   {server}/live/{username}/{password}/{streamId}.{liveExt}
+ */
+export function channelStreamUrl(channelId: string): string | null {
+  const sep = channelId.indexOf(":");
+  if (sep < 0) return null; // mock ids ("ch0") have no playlist prefix
+  const playlistId = channelId.slice(0, sep);
+  const streamId = channelId.slice(sep + 1);
+  if (!streamId) return null;
+
+  const playlist = loadPlaylists().find(
+    (p): p is XtreamPlaylist =>
+      p.id === playlistId && p.kind === "xtream",
+  );
+  if (!playlist) return null;
+
+  const base = playlist.server.trim().replace(/\/+$/, "");
+  const u = encodeURIComponent(playlist.username);
+  const p = encodeURIComponent(playlist.password);
+  const ext = (playlist.liveExt || "ts").replace(/^\./, "");
+  return `${base}/live/${u}/${p}/${streamId}.${ext}`;
+}
+
+/**
+ * Resolve a channel to its playable URL — the async front door the player
+ * uses. Three shapes, cheapest first:
+ *   - a carried direct URL (M3U) is returned as-is;
+ *   - a Stalker channel's opaque `streamCmd` is exchanged via create_link on
+ *     EVERY call: the returned URL holds a short-lived play_token, so it is
+ *     never cached — re-resolve on each play and on any player reload;
+ *   - otherwise the pure Xtream builder (null for mock ids / gone playlists).
+ */
+export async function resolveStreamUrl(
+  channel: Channel,
+): Promise<string | null> {
+  if (channel.url) return channel.url;
+  if (channel.streamCmd) {
+    const sep = channel.id.indexOf(":");
+    if (sep < 0) return null;
+    const playlistId = channel.id.slice(0, sep);
+    const playlist = loadPlaylists().find(
+      (p): p is StalkerPlaylist => p.id === playlistId && p.kind === "stalker",
+    );
+    if (!playlist) return null;
+    return createLink(playlist, channel.streamCmd);
+  }
+  return channelStreamUrl(channel.id);
+}
+
+/* ---------------------------------------------------------------------------
+ * CATCH-UP / TIMESHIFT — SHELVED, groundwork kept (see also model.Channel
+ * .archiveDays and source.archiveDaysOf).
+ *
+ * What's proven and ready:
+ *   - Providers flag catch-up per stream via get_live_streams'
+ *     `tv_archive` (0/1) + `tv_archive_duration` (days, string-typed). We parse
+ *     these into Channel.archiveDays.
+ *   - The builder below produces the two standard Xtream/XUI timeshift URLs.
+ *
+ * Why it's shelved (verified 2026-07, don't re-derive from scratch): the test
+ * provider advertises `tv_archive:1` on ~383 UK channels but does NOT serve
+ * playable archive. Confirmed four ways — our probe returned `200 · 0B` at
+ * every past offset (−65m … −2d) and both schemes; mpv perma-loaded; the M3U
+ * declared no `catchup-source` anywhere; and the reference app (Desktop Telly)
+ * got a BLACK SCREEN on catch-up too, using a provider-native, AES-obfuscated
+ * `/live/play/<encrypted-token>/<id>` URL (not constructible from creds). The
+ * EPG loads past *listings* (metadata) but the *video* archive isn't there.
+ *
+ * To finish the feature when a provider that genuinely serves catch-up is
+ * available:
+ *   1. Verify that provider serves standard timeshift (curl the builder's URL
+ *      → expect video bytes, not an empty 200). If it uses an encrypted-token
+ *      scheme like the test provider, this builder won't help — that needs
+ *      separate reverse-engineering and probably isn't worth it.
+ *   2. Settle the TimeshiftTz question against it (see below) — the ONE thing
+ *      only a live archive can answer. Flip the default once.
+ *   3. Wire the UI: a Timeshift panel in the right-of-hero space. Clicking a
+ *      past programme on an `archiveDays > 0` channel calls this builder
+ *      (start = programme.start, durationMins = programme length) and feeds the
+ *      URL to InvertedPlayer, exactly as the live path does. The LIVE button
+ *      already returns to the live edge, so that's the "exit catch-up" action.
+ *      Clamp requests away from the last few minutes (the newest segment may
+ *      not be written yet).
+ * ------------------------------------------------------------------------- */
+
+/** Which wall-clock the panel expects in a timeshift URL — the one thing only
+ * a live, real archive can settle: panels disagree on whether the start
+ * timestamp is the server's local time or UTC. Isolated here so flipping the
+ * default is a one-line change once verified. */
+export type TimeshiftTz = "utc" | "local";
+
+const pad = (n: number) => String(n).padStart(2, "0");
+
+/** Format an instant as the panel's `YYYY-MM-DD:HH-MM`, in either UTC or the
+ * machine's local wall-clock. Seconds are dropped — timeshift granularity is
+ * the minute. */
+export function formatTimeshiftStamp(at: Date, tz: TimeshiftTz): string {
+  const [y, mo, d, h, mi] =
+    tz === "utc"
+      ? [
+          at.getUTCFullYear(),
+          at.getUTCMonth() + 1,
+          at.getUTCDate(),
+          at.getUTCHours(),
+          at.getUTCMinutes(),
+        ]
+      : [
+          at.getFullYear(),
+          at.getMonth() + 1,
+          at.getDate(),
+          at.getHours(),
+          at.getMinutes(),
+        ];
+  return `${y}-${pad(mo)}-${pad(d)}:${pad(h)}-${pad(mi)}`;
+}
+
+/** The two standard timeshift URL schemes Xtream/XUI panels ship. Which one a
+ * given panel honors varies, so the builder supports both:
+ *   - "path": {server}/timeshift/{u}/{p}/{mins}/{stamp}/{id}.{ext}
+ *   - "php":  {server}/streaming/timeshift.php?username&password&stream&start&duration
+ */
+export type TimeshiftFormat = "path" | "php";
+
+/**
+ * Rebuild a playable Xtream *timeshift* (catch-up) URL for a past slot on a
+ * channel. Same id→credentials lookup as the live builder; returns null for
+ * non-Xtream ids or a since-removed playlist.
+ *
+ * `durationMins` is the LENGTH of the requested playback (the programme's
+ * runtime), not the archive depth; `start` is the programme's start moment.
+ */
+export function catchupStreamUrl(
+  channelId: string,
+  start: Date,
+  durationMins: number,
+  tz: TimeshiftTz = "utc",
+  format: TimeshiftFormat = "path",
+): string | null {
+  const sep = channelId.indexOf(":");
+  if (sep < 0) return null;
+  const playlistId = channelId.slice(0, sep);
+  const streamId = channelId.slice(sep + 1);
+  if (!streamId) return null;
+
+  const playlist = loadPlaylists().find(
+    (p): p is XtreamPlaylist => p.id === playlistId && p.kind === "xtream",
+  );
+  if (!playlist) return null;
+
+  const mins = Math.max(1, Math.round(durationMins));
+  const base = playlist.server.trim().replace(/\/+$/, "");
+  const stamp = formatTimeshiftStamp(start, tz);
+
+  if (format === "php") {
+    const qs = new URLSearchParams({
+      username: playlist.username,
+      password: playlist.password,
+      stream: streamId,
+      start: stamp,
+      duration: String(mins),
+    });
+    return `${base}/streaming/timeshift.php?${qs}`;
+  }
+
+  const u = encodeURIComponent(playlist.username);
+  const p = encodeURIComponent(playlist.password);
+  const ext = (playlist.liveExt || "ts").replace(/^\./, "");
+  return `${base}/timeshift/${u}/${p}/${mins}/${stamp}/${streamId}.${ext}`;
+}
+
+/** The overlay's now-playing metadata for a channel + its airing programme. */
+export function buildMeta(
+  channel: Channel,
+  programme: Programme | undefined,
+  now: Date,
+  sourceName?: string,
+  favorite?: boolean,
+): TheaterMeta {
+  let progressPct: number | undefined;
+  let startLabel: string | undefined;
+  if (programme) {
+    progressPct = epgProgress(programme.start, programme.end, now) * 100;
+    startLabel = programme.start.toLocaleTimeString([], {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  }
+  return {
+    channelName: channel.name,
+    logo: channel.logo,
+    title: programme?.title,
+    description: programme?.synopsis,
+    // CONTENT TYPE, not "airing now": the overlay flips its whole chrome
+    // (star vs VOD buttons, live bar vs scrubber, watchdog profile) on
+    // `live === false`. Deriving this from EPG coverage turned every
+    // guide-less channel into a VOD player — a live channel is live
+    // whether or not the guide knows what's on.
+    live: true,
+    sourceName,
+    startLabel,
+    progressPct,
+    favorite,
+  };
+}

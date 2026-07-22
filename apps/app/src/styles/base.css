@@ -1,0 +1,611 @@
+/* App shell: reset, header, placeholders. Shared primitives live in ui.css,
+ * feature styles in their own sheets (settings.css, …). */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  /* Squircle corners everywhere a border-radius exists (no-op otherwise). */
+  corner-shape: var(--corner);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-text);
+  font-weight: 400;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Scrollbars everywhere: slim rounded thumb over nothing — no track, no
+ * buttons, no corner square. (WebView2 is Chromium, so the -webkit-
+ * pseudo-elements are the whole story; don't add scrollbar-color, which
+ * would switch these rules off.) */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+  background: transparent;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text) 20%, transparent);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--text) 38%, transparent);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.app-shell {
+  position: relative; /* anchors the floating header */
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  /* Establish a stacking context so the theme background layer (::before,
+     z-index:-1) sits above the shell's own bg fill but below all content,
+     and its mix-blend-mode can't bleed onto the native video behind the
+     shell in invert-player mode. */
+  isolation: isolate;
+}
+
+/* Intense-theme background layer. A no-op by default (opacity:0), so classic
+   and the four simple packs render byte-identically; an intense pack
+   (intense-packs.css) sets the --pack-bg-* tokens to paint a dither/texture.
+   Lives on .app-shell (NOT body) so in invert-player mode it sits inside the
+   clip-path video hole and never occludes the player. z-index:-1 keeps it
+   under the non-positioned .app-main content; static raster only (no
+   animation) per the WebView2 stale-raster scars. */
+.app-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: var(--pack-bg-image, none);
+  background-size: var(--pack-bg-size, auto);
+  mix-blend-mode: var(--pack-bg-blend, normal);
+  opacity: var(--pack-bg-opacity, 0);
+}
+
+/* Inverted-layer player (THE architecture; see inv.rs). The OS window is transparent
+ * (tauri.conf) and, with the flag on, the shell — not body — paints the app
+ * background, so the player driver can cut a clip-path hole through
+ * .app-shell where the bottom-parked native video shows through. Without
+ * the flag these rules are inert and body's own bg keeps painting. */
+:root.invert-player,
+:root.invert-player body {
+  background: transparent;
+}
+
+:root.invert-player .app-shell {
+  background: var(--bg);
+}
+
+.app-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+/* ---------------------------------------------------------------- header */
+
+/* The nav floats over the tabs so scrolling content can pass behind it.
+ * Tabs that shouldn't start underneath offset themselves with
+ * var(--header-h), published by AppHeader from its measured height. */
+.header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  /* Equal 1fr flanks center the tabs on the TRUE window midline —
+   * flex space-between let the wider brand block shove the nav right. */
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: flex-start;
+  padding: 27px 17px;
+  /* Subtle scrim so the nav reads over bright content scrolling under
+   * it; fades out just past the header's own height. */
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--bg) 72%, transparent),
+    transparent
+  );
+  /* The gradient must not eat clicks below the nav's actual controls. */
+  pointer-events: none;
+}
+.header > * {
+  pointer-events: auto;
+}
+
+/* Nav glass: the same treatment as the settings card (--card-glass fill +
+ * uniform 10px backdrop blur) as one flat window — no progression. mpv
+ * video never sits under the nav, so backdrop-filter is safe here. */
+.header__veil {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100%;
+  z-index: -1;
+  pointer-events: none;
+  /* Temporarily bare — the glass tint reads as frost even over the plain
+   * background. Re-enable when Stream's scrolling content needs it:
+  background: var(--card-glass);
+  backdrop-filter: blur(10px);
+  */
+}
+
+.header__veil i {
+  position: absolute;
+  inset: 0;
+}
+
+/* Progressive-blur experiment, parked (mock Frame 34): seven layers with
+ * climbing radii and overlapping to-top masks — the codepen recipe,
+ * mirrored. Never matched the mock's feel; kept for a future attempt.
+
+.header__veil {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--bg) 60%, transparent),
+    color-mix(in srgb, var(--bg) 25%, transparent) 40%,
+    transparent 75%
+  );
+}
+
+.header__veil i:nth-child(1) {
+  backdrop-filter: blur(1px);
+  mask-image: linear-gradient(
+    to top,
+    transparent,
+    #000 10%,
+    #000 30%,
+    transparent 40%
+  );
+}
+
+.header__veil i:nth-child(2) {
+  backdrop-filter: blur(2px);
+  mask-image: linear-gradient(
+    to top,
+    transparent 10%,
+    #000 20%,
+    #000 40%,
+    transparent 50%
+  );
+}
+
+.header__veil i:nth-child(3) {
+  backdrop-filter: blur(4px);
+  mask-image: linear-gradient(
+    to top,
+    transparent 15%,
+    #000 30%,
+    #000 50%,
+    transparent 60%
+  );
+}
+
+.header__veil i:nth-child(4) {
+  backdrop-filter: blur(6px);
+  mask-image: linear-gradient(
+    to top,
+    transparent 20%,
+    #000 40%,
+    #000 60%,
+    transparent 70%
+  );
+}
+
+.header__veil i:nth-child(5) {
+  backdrop-filter: blur(8px);
+  mask-image: linear-gradient(
+    to top,
+    transparent 40%,
+    #000 60%,
+    #000 80%,
+    transparent 90%
+  );
+}
+
+.header__veil i:nth-child(6) {
+  backdrop-filter: blur(12px);
+  mask-image: linear-gradient(to top, transparent 60%, #000 80%);
+}
+
+.header__veil i:nth-child(7) {
+  backdrop-filter: blur(16px);
+  mask-image: linear-gradient(to top, transparent 70%, #000 100%);
+}
+*/
+
+.header__brand {
+  display: flex;
+  align-items: center;
+  gap: 15px; /* lockup ↔ clock */
+}
+
+.header__lockup {
+  display: flex;
+  align-items: center;
+  gap: 5px; /* logo ↔ wordmark, tuned independently of the clock */
+}
+
+.header__logo {
+  width: 35px;
+  height: 28px;
+  object-fit: contain;
+}
+
+.header__title {
+  position: relative; /* the version hangs below without adding height */
+  display: flex;
+  flex-direction: column;
+}
+
+.header__name {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 26px;
+  line-height: 34px;
+}
+
+/* Out of flow so the brand block stays one 34px line — the nav's shared
+ * centerline ignores the version entirely. */
+.header__version {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  font-family: var(--font-headline);
+  font-weight: 200;
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.35;
+}
+
+.header__clock {
+  font-family: var(--font-headline);
+  font-weight: 200;
+  font-size: 26px;
+  line-height: 34px;
+  opacity: 0.3;
+}
+
+/* Tabs and actions share the brand name's 34px line: same height,
+ * contents centered, so all three clusters sit on one centerline. */
+.header__tabs {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  height: 34px;
+}
+
+.header__search {
+  display: grid;
+  place-items: center;
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.3;
+  transition: opacity 150ms ease;
+}
+.header__search svg {
+  width: 17px;
+  height: 17px;
+}
+.header__search:hover {
+  opacity: 0.8;
+}
+/* visibility (not display): the hidden twin keeps its space so the tab
+ * cluster never shifts when the icon swaps sides. */
+.header__search--off {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Search chip: the rail's LAST CHIP (rendered via ChipTabs' trailing
+ * slot) — an icon-sized SQUARE. Focusing slides the ChipTabs thumb
+ * behind the icon (thumbKey="search"); the input is a bare text box
+ * floating to the chip's right, absolutely positioned over empty
+ * header space, so opening search never moves the nav. */
+.header__searchchip {
+  position: relative;
+  display: flex;
+  align-items: center;
+  /* Padding comes from the shared .chip-tabs--bare tab rule. */
+  cursor: pointer;
+  transition: opacity 150ms ease;
+}
+.header__searchchip:focus-within {
+  opacity: 1;
+}
+.header__searchchip svg {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+}
+.header__searchinput {
+  position: absolute;
+  left: calc(100% + 6px);
+  top: 50%;
+  transform: translateY(-50%);
+  /* AppHeader measures the real gap to the right controls on open and
+   * writes --search-w (zoom-corrected); the fallback covers the
+   * blurred-with-query state before any measure. */
+  width: var(--search-w, min(240px, 17vw));
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms ease;
+}
+/* Hover teases the placeholder at half strength; focus — and any typed
+ * query — goes full, so an active search never renders invisible. */
+.header__searchchip:hover .header__searchinput {
+  opacity: 0.5;
+}
+.header__searchchip:focus-within .header__searchinput,
+.header__searchchip:has(.header__searchinput:not(:placeholder-shown))
+  .header__searchinput {
+  opacity: 1;
+  pointer-events: auto;
+}
+.header__searchchip:has(.header__searchinput:not(:placeholder-shown)) {
+  opacity: 1;
+}
+.header__searchinput::placeholder {
+  color: var(--text-muted);
+}
+.header__searchinput::-webkit-search-cancel-button {
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .header__searchinput,
+  .header__searchchip {
+    transition: none;
+  }
+}
+
+.header__tab-slot {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.header__tab {
+  font-family: var(--font-headline);
+  font-weight: 300;
+  font-size: 21px;
+  letter-spacing: 0.42px;
+  opacity: 0.3;
+  transition: opacity 120ms ease;
+}
+
+.header__tab:hover {
+  opacity: 0.6;
+}
+
+.header__tab--active {
+  font-weight: 700;
+  letter-spacing: 0;
+  opacity: 1;
+}
+
+/* Clicking would be a no-op (already at Stream Home) — hold full
+ * strength on hover instead of teasing the 0.6 dim. */
+.header__tab--inert:hover {
+  opacity: 1;
+}
+
+.header__divider {
+  font-family: var(--font-text);
+  font-weight: 200;
+  font-size: 32px;
+  opacity: 0.3;
+}
+
+/* Stream sub-rail: the section's pages as pills (rail itself has no
+ * background; only the ACTIVE pill gets a chip), search slot at the end.
+ * Collapsed via max-width — not display — on Live TV, so phase 2 can
+ * animate the collapse and let the centered tab cluster glide. Overflow
+ * stays visible while open (the search pill hangs off its slot
+ * absolutely and must not clip). */
+/* Stream tab + rail live in one group, OUTSIDE the tab cluster's 20px
+ * gap rhythm, so the tab→rail distance is this margin alone. */
+.header__streamgroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.header__rail {
+  display: flex;
+  align-items: center;
+  margin-top: 3px;
+  max-width: 340px;
+  /* The Live↔Stream glide (the Figma motion: nav slides over while the
+   * rail fades in). Width rides the Figma curve; the chips fade in
+   * slightly late and land into place. The centered tab cluster slides
+   * over for free — the grid re-centers as the rail's width animates.
+   * Overflow stays VISIBLE while open: the search input floats off the
+   * rail absolutely (so focusing search never moves the nav) and must
+   * not clip; the fade carries the expand, --off clips the collapse. */
+  transition:
+    max-width 480ms cubic-bezier(0.56, 0, 0.5, 0.99),
+    opacity 260ms ease 140ms,
+    visibility 0s;
+}
+.header__rail--off {
+  max-width: 0;
+  opacity: 0;
+  visibility: hidden;
+  /* Collapse: fade leads, wipe follows; visibility flips only after the
+   * width lands so the fade-out is visible. */
+  transition:
+    max-width 400ms cubic-bezier(0.56, 0, 0.5, 0.99),
+    opacity 180ms ease,
+    visibility 0s 400ms;
+}
+/* AFTER the rail rules on purpose: media queries add no cascade weight,
+ * so an earlier reduced-motion override lost to these on source order
+ * (fleet finding — the glide still animated under reduced motion). */
+@media (prefers-reduced-motion: reduce) {
+  .header__rail,
+  .header__rail--off {
+    transition: none;
+  }
+}
+/* The rail's chips come from the shared ChipTabs primitive (ui.css) with
+ * the chip-tabs--bare modifier — nothing header-specific to style here. */
+
+.header__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 34px;
+  opacity: 0.3;
+}
+
+.header__action {
+  display: grid;
+  place-items: center;
+  transition: filter 120ms ease;
+}
+
+/* The cluster sits at 0.3 opacity, so hover brightens the icon itself. */
+.header__action:hover {
+  filter: brightness(2);
+}
+
+.header__action svg {
+  width: 25px;
+  height: 25px;
+}
+
+/* ----------------------------------------------------------- placeholder */
+
+.placeholder {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  padding: 24px;
+}
+
+.placeholder__title {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 28px;
+  margin: 0;
+}
+
+.placeholder__note {
+  color: var(--text-muted);
+  max-width: 44ch;
+  margin: 0;
+}
+
+/* ------------------------------------------------- update chip (header) */
+
+/* Right-side header group: the update chip at full strength beside the
+ * dimmed icon cluster. */
+.header__right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  justify-self: end;
+}
+
+/* The sweep angle, registered so the ring's spin interpolates. */
+@property --update-ring {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 90deg;
+}
+
+/* A glass pill wearing the brand gradient as a slow-turning 1.5px ring —
+ * the boot logo's sweep, reused to mean "something new is here". The inner
+ * fill paints over padding-box so the gradient survives only as the rim. */
+.update-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border: 1.5px solid transparent;
+  border-radius: 999px;
+  font-family: var(--font-headline);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--text);
+  cursor: pointer;
+  background:
+    linear-gradient(color-mix(in srgb, var(--bg) 82%, transparent),
+        color-mix(in srgb, var(--bg) 82%, transparent)) padding-box,
+    conic-gradient(
+        from var(--update-ring),
+        #ff9b9b, #ff8bc9, #ff7bf6, #c388fb, #8696ff,
+        #85cbd4, #84ffa9, #c1f294, #ffe57f, #ff9b9b
+      ) border-box;
+  animation: update-ring-turn 9s linear infinite;
+  transition: filter 140ms ease;
+}
+.update-chip:hover { filter: brightness(1.25); }
+.update-chip--busy { cursor: progress; }
+@keyframes update-ring-turn { to { --update-ring: 450deg; } }
+
+/* The pulse dot: same gradient family, breathing while idle, steady spin
+ * read while installing (motion = work happening). */
+.update-chip__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: conic-gradient(#ff8bc9, #8696ff, #84ffa9, #ffe57f, #ff8bc9);
+  animation: update-dot-pulse 2.4s ease-in-out infinite;
+}
+.update-chip--busy .update-chip__dot { animation: update-dot-spin 900ms linear infinite; }
+@keyframes update-dot-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50% { transform: scale(1.35); opacity: 1; }
+}
+@keyframes update-dot-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .update-chip, .update-chip__dot { animation: none; }
+}

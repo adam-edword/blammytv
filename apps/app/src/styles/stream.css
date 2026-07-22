@@ -1,0 +1,1223 @@
+/* The Stream tab: AIOStreams movies + series. Hero carousel, poster rows,
+ * detail page with the addon's pre-ranked source rail, episode grid. */
+
+.stream {
+  /* Full window width regardless of content — as a flex child of
+   * .app-main it otherwise sizes to max-content and a sparse detail
+   * page collapses into a left-hand strip. */
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  padding: calc(var(--header-h, 76px) + 8px) 28px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.stream__note {
+  margin: auto;
+  max-width: 48ch;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.stream__note h2 {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 28px;
+}
+.stream__note p { color: var(--text-muted); }
+.stream__note--dim { color: var(--text-muted); }
+
+/* ---- featured hero (Figma 133-721): 90vh sliding track, 60px-radius
+ * cards, neighbors peeking with a 30px gap. Escapes .stream's padding so
+ * the peeks bleed to the window edges. Geometry (card width / offset) is
+ * measured + set inline by the component; the track only animates
+ * transform. ---- */
+.shero {
+  position: relative;
+  /* True 80vh at every UI-scale notch. UI scale applies CSS `zoom` to the
+   * root (uiScale.ts), and vh is NOT divided by zoom — so a bare 80vh paints
+   * as 80vh × scale (96vh at 1.2, spilling past the viewport). Multiplying by
+   * --ui-zoom-inverse (= 1/scale, set alongside the zoom) cancels it back to a
+   * physical 80vh. Verified headless: 80vh→768px at zoom 1.2 vs 640px here. */
+  height: calc(80vh * var(--ui-zoom-inverse, 1));
+  margin: 0 -28px;
+  /* Clip the sliding track horizontally ONLY — `hidden` would force the
+   * y-axis too and guillotine the active card's glow into a rectangle.
+   * `clip` leaves overflow-y genuinely visible. */
+  overflow-x: clip;
+  overflow-y: visible;
+  flex-shrink: 0;
+}
+.shero__track {
+  position: absolute;
+  inset: 0;
+  z-index: 1; /* above the glow box */
+  transition: transform 650ms cubic-bezier(0.45, 0.05, 0.2, 1);
+  will-change: transform;
+}
+/* The shadow slider's stationary window (left/width inline from measured
+ * geometry): clips a second, blurred copy of the track. The imgs' own
+ * 70px blur softens their edges well inside the clip, so the box edge
+ * never reads hard. */
+.shero__glowbox {
+  position: absolute;
+  top: -90px;
+  bottom: -90px;
+  z-index: 0;
+  overflow: hidden;
+  border-radius: 90px;
+  pointer-events: none;
+  opacity: 0.8; /* Adam's final trim on the whole light layer */
+  /* Feathered window: the box reaches ~90px past the card on the sides
+   * and ~52px vertically, and the feather eats only the outer half of
+   * that — so a real halo band survives at strength. (The first feather
+   * pass swallowed the whole halo: 70px falloff on a 24px overscan.) */
+  -webkit-mask-image:
+    linear-gradient(to right, transparent, #000 180px, #000 calc(100% - 180px), transparent),
+    linear-gradient(to bottom, transparent, #000 120px, #000 calc(100% - 120px), transparent);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to right, transparent, #000 180px, #000 calc(100% - 180px), transparent),
+    linear-gradient(to bottom, transparent, #000 120px, #000 calc(100% - 120px), transparent);
+  mask-composite: intersect;
+}
+.shero__glowtrack {
+  position: absolute;
+  inset: 0;
+  transition: transform 650ms cubic-bezier(0.45, 0.05, 0.2, 1);
+  will-change: transform;
+}
+.shero__glowbox img {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 60px;
+  filter: blur(70px) saturate(1.4);
+  /* Neighbor light rests dim; the incoming slide's light fades up fast
+   * and undelayed, while the OUTGOING one holds until the slide's final
+   * stretch (350ms delay on the way down) — light leads the arrival and
+   * trails the departure. */
+  opacity: 0.3;
+  transition: opacity 300ms ease 350ms;
+}
+.shero__glowbox img.shero__glow--lit {
+  opacity: 0.7;
+  transition: opacity 300ms ease;
+}
+/* Slides are absolutely placed on the track at slot * step (inline left) —
+ * the infinite window repositions freely. Vertical inset gives the active
+ * card's glow room to breathe inside the clipped section. */
+.shero__card {
+  position: absolute;
+  top: 22px;
+  bottom: 22px;
+  border-radius: 60px;
+  /* No overflow:hidden here — it would clip the ::after glow. The
+   * rounding lives on the art/scrim layers instead. */
+  background: var(--surface);
+  cursor: pointer;
+  /* Own compositor layer: the rounded content rides the track's
+   * transform without re-rasterizing every frame. */
+  transform: translateZ(0);
+}
+.shero__card--active { cursor: pointer; }
+.shero__art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 60px; /* the card itself no longer clips (glow) */
+}
+.shero__scrim {
+  position: absolute;
+  inset: 0;
+  border-radius: 60px;
+  background:
+    linear-gradient(to top, rgba(0, 0, 0, 0.72), transparent 45%),
+    linear-gradient(to right, rgba(0, 0, 0, 0.5), transparent 55%);
+}
+.shero__text {
+  position: absolute;
+  left: 56px;
+  bottom: 52px;
+  max-width: 52ch;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: #f2f2f4;
+}
+/* Clearlogo title art when the addon provides it; text is the fallback. */
+.shero__logo {
+  max-width: 420px;
+  max-height: 160px;
+  object-fit: contain;
+  object-position: left bottom;
+}
+.shero__title {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: clamp(44px, 6vw, 92px);
+  letter-spacing: -0.02em;
+  line-height: 0.98;
+  color: #f5eecf;
+}
+.shero__synopsis {
+  font-size: 15px;
+  line-height: 1.5;
+  color: rgba(242, 242, 244, 0.85);
+  max-width: 48ch;
+  display: -webkit-box;
+  -webkit-line-clamp: 10;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.shero__meta {
+  font-size: 14px;
+  color: rgba(242, 242, 244, 0.6);
+  white-space: pre;
+}
+.shero__rating { color: #ffd166; }
+.shero__actions { display: flex; gap: 10px; margin-top: 6px; }
+/* The neutral sibling of .btn-primary (ui.css) — identical metrics. */
+.shero__btn-quiet {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text);
+  background: var(--surface-raised);
+  border: 0.5px solid var(--border-raised);
+  border-radius: 25px;
+  padding: 9px 14px;
+  cursor: pointer;
+  transition: filter 150ms ease;
+}
+.shero__btn-quiet:hover { filter: brightness(1.35); }
+
+/* ---- rows ---- */
+.stream__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+.media-row__title {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 41px;
+  margin-bottom: 16px;
+}
+/* The viewport owns the page-padding bleed + anchors scrims/arrows. */
+.media-row__viewport {
+  position: relative;
+  margin: 0 -28px;
+}
+.media-row__scroller {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding: 4px 28px 10px;
+}
+/* Mid-drag: the row scrolls under the cursor — suppress hover lifts and
+ * accidental selection so the gesture reads as grabbing the shelf. */
+.media-row__scroller.is-dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+.media-row__scroller.is-dragging * {
+  pointer-events: none;
+}
+/* Edge scrims: only lit when content actually hides that way. */
+.media-row__scrim {
+  position: absolute;
+  top: 0;
+  bottom: 10px;
+  width: 100px;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 250ms ease;
+}
+.media-row__scrim--left {
+  left: 0;
+  background: linear-gradient(to right, var(--bg), transparent);
+}
+.media-row__scrim--right {
+  right: 0;
+  background: linear-gradient(to left, var(--bg), transparent);
+}
+.media-row__scrim.is-on { opacity: 1; }
+/* Nudge arrows: glass circles over the artwork band, revealed on row
+ * hover (they only render at all when scrolling that way is possible). */
+.media-row__arrow {
+  position: absolute;
+  top: calc(50% - 46px);
+  z-index: 3;
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 180ms ease, filter 140ms ease;
+}
+.media-row:hover .media-row__arrow { opacity: 1; }
+.media-row__arrow:hover { filter: brightness(1.4); }
+.media-row__arrow--left { left: 14px; }
+.media-row__arrow--right { right: 14px; }
+.media-row__arrow svg { width: 18px; height: 18px; }
+.media-row__arrow--left svg { transform: rotate(90deg); }
+.media-row__arrow--right svg { transform: rotate(-90deg); }
+/* Row scrollbars: Chromium/WebView2 won't repaint scrollbar pseudos on
+ * ancestor hover or custom-property changes (verified on a real install
+ * — only direct thumb hover ever restyled), so no fade is possible.
+ * Instead: always present but VERY quiet, brightening only under the
+ * cursor (the one interaction that reliably repaints). */
+.media-row__scroller::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+.media-row__scroller::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--text) 30%, transparent);
+}
+.stream-card {
+  flex: 0 0 auto;
+  width: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 140ms ease;
+}
+.stream-card:hover { transform: translateY(-3px); }
+.stream-card__poster,
+.stream-card__mono {
+  width: 300px;
+  aspect-ratio: 2 / 3;
+  border-radius: 25px;
+  object-fit: cover;
+  background: var(--surface);
+}
+.stream-card__mono {
+  display: grid;
+  place-items: center;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 42px;
+  color: var(--text-muted);
+}
+.stream-card__name {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 18px;
+  color: var(--text);
+  /* Bound the clamp box or a long title re-widens the auto-width card. */
+  max-width: 300px;
+  /* Wrap inside the card's width — a long title must never widen the
+   * card (it stretched the whole flex item before). Two lines, then …. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.stream-card__meta {
+  font-size: 15px;
+  max-width: 300px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Continue Watching: landscape cards + the press-and-hold clear. The hold
+ * label fades in while the art dims; releasing early opens as a click. */
+.continue-card {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 140ms ease;
+}
+.continue-card:hover { transform: translateY(-3px); }
+.continue-card__art {
+  height: 300px;
+  width: auto;
+  border-radius: 25px;
+  object-fit: cover;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  transition: filter 300ms ease;
+}
+.continue-card__art--empty { display: block; }
+.continue-card__hold {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 300px;
+  border-radius: 25px;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 14px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  transition: opacity 250ms ease;
+  pointer-events: none;
+}
+/* Art width now follows the image's own aspect at 300px tall; bound the
+ * text so a long title can't stretch the auto-width card further. */
+.continue-card .stream-card__name,
+.continue-card .stream-card__meta {
+  max-width: 533px;
+}
+/* Art + progress bar share a positioning box (art width is intrinsic). */
+.continue-card__artwrap {
+  position: relative;
+  display: block;
+  width: fit-content;
+}
+.continue-card__progress {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.25);
+  overflow: hidden;
+}
+.continue-card__progress span {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent, #c22727);
+}
+.continue-card--holding .continue-card__art { filter: brightness(0.5); }
+.continue-card--holding .continue-card__hold { opacity: 1; }
+
+/* Clearlogo over the art: dead center, both axes — the hover play cue
+ * (z-index 1) paints ABOVE it. */
+.continue-card__logo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 55%;
+  max-height: 28%;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.6));
+  pointer-events: none;
+  transition: opacity 150ms ease;
+}
+
+/* Cast line: quiet credit under the meta. */
+.vod-detail__castline {
+  font-size: 13px;
+  color: rgba(242, 242, 244, 0.55);
+}
+
+/* More Like This: full-width band under the detail body. The title and
+ * first card align with the info text (7% + 32px); scrolled cards run
+ * to the TRUE viewport edge on the left (scroll-padding rides inside
+ * the scroll content), and the right edge fades the cards themselves
+ * out via mask — the shared scrims paint --bg slabs over backdrop art. */
+.vod-detail__body > * {
+  pointer-events: auto;
+}
+.vod-more {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  min-width: 0;
+  padding-bottom: 18px;
+  /* Above the backdrop/scrim, UNDER the body (sources rail on top). */
+  z-index: 0;
+}
+/* Info-text alignment: the info column's 7% margin resolves against the
+ * GRID COLUMN (0.93W - 480px), not the page — so text x = 32px +
+ * 0.07(0.93W - 480) = 6.51vw - 1.6px. The shelf spans the page, so it
+ * reproduces that expression directly. */
+.vod-more__title {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 14px;
+  margin: 0 0 4px calc(6.51% - 1.6px);
+  color: rgba(242, 242, 244, 0.8);
+}
+.vod-more .media-row__viewport {
+  margin: 0;
+}
+.vod-more .media-row__scroller {
+  /* Right padding = the sources panel's footprint (7% page pad + 420px
+   * rail + breathing): cards pass UNDER the glass panel while
+   * scrolling, but the LAST card can always scroll fully clear of it. */
+  padding: 10px calc(7% + 444px) 10px calc(6.51% - 1.6px);
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(
+    to right,
+    #000 0,
+    #000 calc(100% - 80px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    #000 0,
+    #000 calc(100% - 80px),
+    transparent 100%
+  );
+}
+.vod-more .media-row__scroller::-webkit-scrollbar {
+  display: none;
+}
+.vod-more .media-row__scrim {
+  display: none;
+}
+/* The shelf overlays the page bottom — the info column reserves its
+ * height (≈ title + 255px cards + paddings) so text never sits under
+ * the cards; the 7% bottom margin trades down to keep the pills clear
+ * at 900px-tall windows. */
+.vod-detail:has(.vod-more) .vod-detail__info {
+  /* MARGIN, not padding: padding extends the column's hit-box over the
+   * shelf and eats its card clicks (the info column is a pointer-events
+   * child of the click-transparent body). */
+  margin-bottom: 330px;
+}
+/* The right nudge arrow parks LEFT of the sources panel — under it,
+ * it was unreachable glass-on-glass. */
+.vod-more .media-row__arrow--right {
+  right: calc(7% + 434px);
+}
+/* The arrows' only reveal rule is .media-row:hover — this shelf has no
+ * .media-row ancestor, so they stayed invisible-but-clickable phantom
+ * circles over the posters (fleet finding). Reveal on shelf hover. */
+.vod-more:hover .media-row__arrow {
+  opacity: 1;
+}
+.vod-more__card {
+  flex: 0 0 auto;
+  width: 170px;
+  border-radius: 30px;
+  overflow: hidden;
+  border: 1px solid var(--border-strong, rgba(255, 255, 255, 0.14));
+  transition: transform 140ms ease;
+}
+.vod-more__card:hover {
+  transform: translateY(-3px);
+}
+.vod-more__card img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+}
+
+/* "+ My List" toggle on the detail screens. Saved state trades the plus
+ * for an accent check and keeps the ring. */
+.vod-save {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  transition: background 140ms ease, border-color 140ms ease;
+}
+.vod-save:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+.vod-save--on {
+  border-color: var(--accent);
+}
+.vod-save--on svg {
+  color: var(--accent);
+}
+.vod-save span {
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* ---- detail page ---- */
+/* Detail + episodes fill the whole window (`.stream--full` drops the
+ * scroll-box padding) — the backdrop runs to the edges and under the
+ * floating header; the body pads itself clear of it. */
+.stream--full {
+  padding: 0;
+}
+.vod-detail {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--surface);
+}
+.vod-detail__backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.vod-detail__scrim {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    67.05% 78.72% at 70.13% 43.38%,
+    rgba(11, 11, 14, 0) 0%,
+    rgba(11, 11, 14, 0.8) 100%
+  );
+}
+.vod-detail__body {
+  position: relative;
+  height: 100%;
+  /* ABOVE the More Like This layer: the sources rail runs full height
+   * and the shelf's cards pass UNDER its glass. The body itself is
+   * click-transparent so the shelf stays interactive through the empty
+   * grid space; its children restore their own hit-testing. */
+  z-index: 1;
+  pointer-events: none;
+  display: grid;
+  grid-template-columns: 1fr 420px;
+  gap: 28px;
+  padding: 0 7% 0 32px;
+  /* The page itself never scrolls on the source screen — only the rail. */
+  overflow: hidden;
+  color: #f2f2f4;
+}
+.vod-detail__body--episodes {
+  grid-template-columns: 1fr;
+  align-content: start;
+  overflow-y: auto;
+  padding-top: calc(var(--header-h, 76px) + 12px);
+  padding-bottom: 32px;
+  /* This variant IS the scroll container: the base body's
+   * pointer-events:none (the vod-more sandwich) made its scrollbar
+   * un-grabbable and killed wheel over the grid gaps (fleet finding). */
+  pointer-events: auto;
+}
+.vod-detail__info {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 7%;
+  margin-left: 7%;
+  align-items: flex-start;
+  /* Bottom-anchored via the :first-child auto margin below, NOT
+   * justify-content:flex-end — flex-end + overflow spills content
+   * ABOVE the container unscrollably (the Back button vanished under
+   * the header brand when the More Like This shelf grew the column).
+   * Auto margins resolve to 0 on overflow, so: short content sits at
+   * the bottom as designed, tall content top-anchors and scrolls. */
+  justify-content: flex-start;
+  max-width: 66ch;
+  padding-top: calc(var(--header-h, 76px) + 8px);
+  overflow-y: auto;
+  scrollbar-width: none;
+  min-height: 0;
+}
+.vod-detail__info::-webkit-scrollbar {
+  display: none;
+}
+.vod-detail__body:not(.vod-detail__body--episodes)
+  .vod-detail__info
+  > :first-child {
+  margin-top: auto;
+}
+/* The episodes page keeps its top-left header — the flex-end/7% layout
+ * above is tuned for the source screen. */
+.vod-detail__body--episodes .vod-detail__info {
+  margin: 0;
+  align-items: flex-start;
+  justify-content: flex-start;
+  /* The episodes BODY already pads for the header — the base info rule
+   * gaining its own header padding doubled the clearance to ~172px and
+   * shrank the visible episode list (fleet finding). */
+  padding-top: 0;
+}
+/* Same glass language as the pills/chips on these screens: #00000050,
+ * blur, and the shared darkening hover. */
+.vod-back {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text);
+  background: #00000050;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  padding: 9px 15px;
+  backdrop-filter: blur(16px);
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+.vod-back:hover { background: rgba(0, 0, 0, 0.6); }
+.vod-detail__logo { max-width: 500px; max-height: 300px; object-fit: contain; }
+.vod-detail__title {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: clamp(26px, 3vw, 42px);
+  letter-spacing: -0.02em;
+}
+.vod-detail__episode {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 31px;
+  color: #fff;
+  margin: 0;
+}
+.vod-detail__meta { color: rgba(242, 242, 244, 0.65); font-size: 18px; }
+.vod-detail__synopsis { font-size: 18px; line-height: 1.5; margin: 6px 0; color: rgba(242, 242, 244, 0.85); }
+.vod-detail__pills { display: flex; gap: 8px; flex-wrap: wrap; }
+/* Buttons now — each pill jumps to Discover with its genre selected. */
+.vod-detail__pills button {
+  font-size: 15px;
+  padding: 9px 15px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: rgba(242, 242, 244, 0.8);
+  background: #00000050;
+  backdrop-filter: blur(16px);
+  cursor: pointer;
+  transition: border-color 140ms ease, color 140ms ease;
+}
+.vod-detail__pills button:hover {
+  border-color: var(--accent);
+  color: #f2f2f4;
+}
+
+/* ---- source rail ---- */
+.vod-sources {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  /* Rail-only scrolling: the grid row is viewport-bounded (body overflow
+   * hidden), the overflow lives here. */
+  min-height: 0;
+  overflow-y: auto;
+  /* Content padding, not container position: at rest the rail starts
+   * below the header exactly as before, but scrolled cards bleed past
+   * it to the viewport top (and off the bottom). */
+  padding-top: calc(var(--header-h, 76px) + 12px);
+  /* Breathing room between the cards and the scrollbar; a dab at the
+   * bottom so the last card isn't flush when scrolled to the end. */
+  padding-right: 12px;
+  padding-bottom: 16px;
+  /* Hidden-until-hover via standard scrollbar-color — unlike the
+   * ::-webkit-scrollbar pseudos (which WebView2 won't repaint on
+   * ancestor hover; see the row scrollbars), this rides the normal
+   * style system. */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+.vod-sources:hover {
+  scrollbar-color: color-mix(in srgb, var(--text) 28%, transparent) transparent;
+}
+.vod-sources h3 {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 21px;
+  margin: 0;
+}
+.vod-sources__note { color: rgba(242, 242, 244, 0.6); font-size: 14px; }
+/* Figma 133-721 source card: a glass slab with the quality in its own
+ * raised block left, the addon's meta lines beside it, play glyph right. */
+.vod-source {
+  display: flex;
+  gap: 0px;
+  align-items: center;
+  padding: 16px 16px 16px 10px;
+  border-radius: 1000px;
+  background: #00000050;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(18px);
+  cursor: pointer;
+  text-align: left;
+  transition: background 140ms ease;
+}
+.vod-source:hover { background: rgba(0, 0, 0, 0.6); }
+.vod-source__quality {
+  flex-shrink: 0;
+  align-self: stretch;
+  min-width: 104px;
+  padding: 0 16px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 21px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.vod-source__zap { color: #ffe57f; }
+.vod-source__lines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(242, 242, 244, 0.75);
+}
+.vod-source__lines span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vod-source__play {
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: opacity 140ms ease;
+}
+.vod-source:hover .vod-source__play { opacity: 1; }
+
+/* ---- episodes ---- */
+.season-bar { display: flex; gap: 8px; flex-wrap: wrap; }
+.season-chip {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 15px;
+  padding: 9px 15px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(242, 242, 244, 0.75);
+  background: #00000050;
+  backdrop-filter: blur(16px);
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+.season-chip:not(.season-chip--on):hover { background: rgba(0, 0, 0, 0.6); }
+/* Active chip speaks the app's button language (btn-primary's surface
+ * + full-saturation accent border), not a solid accent fill. */
+.season-chip--on {
+  background: var(--accent-surface);
+  border: 0.5px solid var(--accent);
+  color: var(--text);
+}
+.episode-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+.episode-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+  padding: 10px;
+  border-radius: 35px;
+  background: #00000050;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(18px);
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+.episode-card:hover { background: rgba(0, 0, 0, 0.6); }
+.episode-card__thumb {
+  position: relative;
+  display: block;
+}
+.episode-card img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 21px;
+  background: rgba(0, 0, 0, 0.4);
+  display: block;
+}
+/* Hovering the still: a light dim + centered play cue. */
+.episode-card__thumb::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 21px;
+  background: rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+.episode-card:hover .episode-card__thumb::after { opacity: 1; }
+.episode-card__cue {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.75);
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+.episode-card:hover .episode-card__cue { opacity: 1; }
+/* Number runs INLINE with the title (one text flow, so a wrapping title
+ * continues under the E-chip, no hanging indent); date pins to the
+ * card bottom. */
+.episode-card__text {
+  display: block;
+  margin-left: 5px;
+  min-width: 0;
+}
+.episode-card__num {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--accent, #c22727);
+  margin-right: 8px;
+}
+.episode-card__title { font-size: 15px; color: #f2f2f4; }
+.episode-card__date {
+  font-size: 12px;
+  color: rgba(242, 242, 244, 0.55);
+  margin-top: auto;
+  margin-left: 5px;
+}
+
+/* Up Next (series EOF): fixed card above the player chrome (z 45),
+ * below modals (60). */
+.upnext {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  /* Opaque base: mpv's gray idle fill must never peek through the hole
+   * while the wallpaper art loads (or when an item has none). */
+  background: #000;
+}
+/* Backdrop wallpaper + detail-page-style radial scrim, under the text.
+ * z -1: positioned layers otherwise paint ABOVE the in-flow text (the
+ * card rendered as art-only). .upnext is a stacking context (fixed,
+ * z 50), so -1 stays above its black base but below the content. */
+.upnext__art {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.upnext__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(0, 0, 0, 0.55),
+    rgba(0, 0, 0, 0.85)
+  );
+}
+.upnext__eyebrow {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent, #c22727);
+}
+.upnext__title {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: clamp(24px, 3vw, 40px);
+  color: #f2f2f4;
+  max-width: 70vw;
+  text-align: center;
+}
+.upnext__count {
+  font-size: 15px;
+  color: rgba(242, 242, 244, 0.65);
+  font-variant-numeric: tabular-nums;
+}
+.upnext__actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+}
+/* Next episode's still on the EOF card — same radius language as the
+ * Stream cards. */
+.upnext__still {
+  width: min(36vw, 440px);
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: var(--radius-card, 14px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
+}
+
+/* Mini Up Next: corner popup while the CREDITS still play (the full
+ * .upnext takeover is reserved for true EOF). Sits ABOVE the skip chip
+ * (bottom 190) so "Skip Credits" and the card coexist. */
+.upnext-mini {
+  position: fixed;
+  right: 44px;
+  bottom: 262px;
+  z-index: 46;
+  display: flex;
+  align-items: stretch;
+  width: 380px;
+  border-radius: var(--radius-card, 14px);
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+.upnext-mini__thumb {
+  width: 128px;
+  flex: none;
+  object-fit: cover;
+}
+.upnext-mini__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 40px 12px 14px;
+}
+.upnext-mini__eyebrow {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent, #c22727);
+}
+.upnext-mini__title {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1.25;
+  color: #f2f2f4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.upnext-mini__actions {
+  margin-top: 6px;
+}
+.upnext-mini__actions .btn-primary {
+  padding: 8px 18px;
+  font-size: 13px;
+}
+.upnext-mini__close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+}
+
+/* Next-up episode: the one smart-resume points at (accent ring, same
+ * selected-language as the Discover genre card). */
+.episode-card--next {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+/* Watched checkmark, top-right of the still. */
+.episode-card__seen {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent, #c22727);
+  color: #fff;
+}
+
+/* Continue-card escape hatch to the source screen: glass chip, top-right
+ * of the art, revealed on card hover. */
+.continue-card__sources {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--text);
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(14px);
+  opacity: 0;
+  transition: opacity 150ms ease, background 140ms ease;
+}
+.continue-card:hover .continue-card__sources { opacity: 1; }
+/* Same hover treatment as episode stills: 0.4 dim + centered play cue. */
+.continue-card__artwrap::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 25px;
+  background: rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  transition: opacity 150ms ease;
+  pointer-events: none;
+}
+.continue-card:hover .continue-card__artwrap::after { opacity: 1; }
+.continue-card__cue {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.75);
+  opacity: 0;
+  transition: opacity 150ms ease;
+  pointer-events: none;
+}
+.continue-card:hover .continue-card__cue { opacity: 1; }
+.continue-card__sources:hover { background: rgba(0, 0, 0, 0.75); }
+.continue-card { cursor: pointer; }
+/* While the hold-to-clear overlay is up it OWNS the card: the hover
+ * cue/scrim, Sources chip, and logo stand down (the play cue painted
+ * over the "Keep holding to clear" message — hover is always true
+ * while holding). The :hover variants out-rank the hover rules above;
+ * z-index 2 keeps the message on top even mid-fade. */
+.continue-card--holding .continue-card__hold { z-index: 2; }
+.continue-card--holding:hover .continue-card__cue,
+.continue-card--holding:hover .continue-card__artwrap::after,
+.continue-card--holding:hover .continue-card__sources,
+.continue-card--holding .continue-card__logo {
+  opacity: 0;
+}
+.continue-card--holding .continue-card__sources { pointer-events: none; }
+
+/* In-playback source panel: slides in from the right over the video
+ * (which keeps playing). Lives in the chrome portal, above the hole. */
+
+/* Invisible click-away layer under the panel: a click anywhere off the
+ * panel closes it instead of reaching the overlay (which would pause). */
+.vod-panel__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  background: transparent;
+}
+
+.vod-panel {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  bottom: 16px;
+  width: min(420px, 86vw);
+  z-index: 46;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 26px;
+  background: rgba(0, 0, 0, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(18px);
+  animation: vod-panel-in 260ms cubic-bezier(0.3, 0.05, 0.2, 1);
+}
+@keyframes vod-panel-in {
+  from {
+    transform: translateX(40px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vod-panel {
+    animation: none;
+  }
+}
+.vod-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.vod-panel__head h3 {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 21px;
+}
+.vod-panel__list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+.vod-panel__list:hover {
+  scrollbar-color: color-mix(in srgb, var(--text) 28%, transparent) transparent;
+}
+/* The one that's playing right now: accent ring, like the app's active
+ * chips. */
+.vod-source--current {
+  border: 0.5px solid var(--accent, #c22727);
+  background: var(--accent-surface);
+}
+
+/* ---- fullscreen VOD stage ---- */
+/* Popped-out surface: the stage stays fullscreen and black, ABOVE the
+ * floating header (z 20) — the app is deliberately not browsable while
+ * the PiP plays. Bring It Back reclaims in-place; ✕ closes the pop-out
+ * and lands on the source selector underneath. */
+.vod-stage--popped {
+  z-index: 30;
+  background: #000;
+}
+.vod-pip {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+}
+.vod-pip__logo {
+  width: clamp(220px, 30vw, 420px);
+  max-height: 32vh;
+  object-fit: contain;
+  opacity: 0.45;
+}
+.vod-pip__hint {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 15px;
+  color: rgba(242, 242, 244, 0.55);
+}
+.vod-pip__close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+}
+
+.vod-stage { position: fixed; inset: 0; }
+.vod-stage__slot { position: absolute; inset: 0; }

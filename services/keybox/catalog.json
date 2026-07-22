@@ -1,0 +1,49 @@
+{
+  "passPriceIds": [
+    "price_1TvowF65BvgMWSEiTB4ZQ9od"
+  ],
+  "themes": [
+    {
+      "id": "terminal",
+      "name": "Terminal",
+      "blurb": "Green-phosphor CRT — bitmap type, dither grain, glowing hovers.",
+      "supportsLight": false,
+      "preview": {
+        "bg": "#020a05",
+        "surface": "#04140a",
+        "accent": "#c22727"
+      },
+      "priceIds": [
+        "price_1TvowG65BvgMWSEieCxYn7vY"
+      ]
+    },
+    {
+      "id": "dither",
+      "name": "Dither",
+      "blurb": "1-bit ordered dithering — a Bayer field over pure black, bold Syne headlines.",
+      "supportsLight": false,
+      "preview": {
+        "bg": "#000000",
+        "surface": "#161616",
+        "accent": "#c22727"
+      },
+      "priceIds": [
+        "price_1TvowI65BvgMWSEiJNmZwZSL"
+      ]
+    },
+    {
+      "id": "kawaii",
+      "name": "Kawaii ⸜(｡˃ ᵕ ˂ )⸝♡",
+      "blurb": "Midnight candy — pastel pink on a plum sky, chubby type.",
+      "supportsLight": false,
+      "preview": {
+        "bg": "#15111f",
+        "surface": "#e9e9f7",
+        "accent": "#f2a0c2"
+      },
+      "priceIds": [
+        "price_1TvowJ65BvgMWSEiBm0QTIcz"
+      ]
+    }
+  ]
+}

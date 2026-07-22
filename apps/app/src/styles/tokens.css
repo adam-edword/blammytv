@@ -1,0 +1,200 @@
+/**
+ * Design tokens, extracted from the "IPTV EPG Redesign" Figma file.
+ *
+ * Sources: header (133:416), channel cards + badges (126:784, 126:856),
+ * playlist items (126:403). The red family is built around #c22727 — the
+ * accent the app has always used — so the brand carries over.
+ *
+ * Theme: dark is the design's native palette (defaults below); the light
+ * override at the bottom swaps every theme-dependent token. Components must
+ * only use tokens for themable color — no raw hex for surfaces/text/borders.
+ */
+:root {
+  /* Surfaces */
+  --bg: #050505; /* classic's near-black (true #000 belongs to OLED/void) */
+  --surface: #0f0f0f; /* inputs, rows */
+  --surface-track: #0f0f0f; /* chip-rail track (darker than the card) */
+  --surface-puck: #1c1c1c; /* rail track sitting ON a --surface panel */
+  --surface-raised: #2a2a2a; /* chip thumb, custom-accent chip */
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.2); /* dividers, card edge */
+  --border-raised: #494949; /* hairline on raised chips */
+  --border-input: rgba(255, 255, 255, 0.14);
+
+  /* The settings card's glass: 10% white over 45% black (light flips it). */
+  --card-glass:
+    linear-gradient(rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.1)),
+    linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.45));
+
+  /* Accent family. Only --accent is ever set (the Customize picker overrides
+     it on :root); the shades below derive from it. The mix percentages are
+     exact for the design's red: #1f0606 = 16%, #631414 = 51%, #991f1f = 79%,
+     border = 36% alpha. --mix-base flips per theme so the accent surface
+     stays a tint of the background. */
+  --mix-base: #000000;
+  --accent: #c22727;
+  --accent-surface: color-mix(in srgb, var(--accent) 16%, var(--mix-base));
+  --accent-border: color-mix(in srgb, var(--accent) 36%, transparent);
+  --accent-border-hover: color-mix(in srgb, var(--accent) 51%, black);
+  --accent-dim: color-mix(in srgb, var(--accent) 79%, black);
+
+  /* Text */
+  --text: #f2f2f5;
+  --text-muted: #a2a2a2;
+  --text-dim: #494949; /* quietest tier (hero synopsis/meta) */
+  --text-ghost: rgba(255, 255, 255, 0.2); /* placeholders */
+
+  /* Quality-badge borders (fills are per-badge gradients) */
+  --badge-4k: #ff7bf6;
+  --badge-fhd: #ffe57f;
+  --badge-hd: #242424;
+
+  /* Shape */
+  --radius-card: 25px;
+  --radius-chip: 16px;
+  --radius-badge: 3.4px;
+  /* Squircle corner profile. Applied globally in base.css so every rounded
+     corner in the app shares it. Chromium 139+ / current WebView2; engines
+     without corner-shape fall back to plain round corners. */
+  --corner: superellipse(2);
+
+  /* Spring easing (Claude-app feel): accelerate, overshoot ~4%, settle.
+     A linear() approximation of a gentle spring — pair with ~380ms. */
+  --spring: linear(
+    0,
+    0.037 1.9%,
+    0.153 4.1%,
+    0.417 7.6%,
+    0.72 11.6%,
+    0.888 14.4%,
+    0.984 17.1%,
+    1.033 19.9%,
+    1.044 22.8%,
+    1.036 26.8%,
+    1.005 35.6%,
+    0.997 41.6%,
+    0.999 51%,
+    1
+  );
+
+  /* Type. Families only — sizes/weights are per-component, not tokenized.
+     An intense theme (intense-packs.css) may re-point any of these three to
+     a bundled family; --font-mono defaults to the system stack so classic
+     carries no font cost for it. */
+  --font-headline: "Stack Sans Headline", "Segoe UI", system-ui, sans-serif;
+  --font-text: "Stack Sans Text", "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", "Segoe UI Mono", Menlo, Consolas,
+    monospace;
+
+  color-scheme: dark;
+}
+
+/* Corner styles (Customize): round swaps the superellipse profile; sharp
+   additionally zeroes every radius — the one sanctioned !important, since
+   it must beat each component's own border-radius. */
+:root[data-corners="round"],
+:root[data-corners="sharp"] {
+  --corner: round;
+}
+
+:root[data-corners="sharp"] *,
+:root[data-corners="sharp"] *::before,
+:root[data-corners="sharp"] *::after {
+  border-radius: 0 !important;
+}
+
+/* Light theme (palette carried over from the old app). */
+:root[data-theme="light"] {
+  --bg: #f3f4f7;
+  --surface: #ffffff;
+  --surface-track: #e2e4ea;
+  --surface-puck: #e2e4ea;
+  --surface-raised: #f5f6f9;
+  --border: rgba(0, 0, 0, 0.1);
+  --border-strong: rgba(0, 0, 0, 0.15);
+  --border-raised: #c9cdd6;
+  --border-input: rgba(0, 0, 0, 0.12);
+
+  --card-glass:
+    linear-gradient(rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.72)),
+    linear-gradient(rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.3));
+
+  --mix-base: #ffffff;
+
+  --text: #16171d;
+  --text-muted: #5b606e;
+  --text-dim: #b3b7c2;
+  --text-ghost: rgba(0, 0, 0, 0.25);
+
+  color-scheme: light;
+}
+
+/* ---------- Aurora accent style ----------
+ * Gradient tokens, active only under the root attribute (applyAurora).
+ * Flat accents never define these, so any rule written as
+ * var(--accent-image, <flat fallback>) degrades to the classic look.
+ * The subtle multi-hue wash (violet / blue / green) mirrors the
+ * reference: dark glass with color breathing through, not a rainbow. */
+/* The aurora gradients are CONSTANTS (defined always, so the picker
+ * swatch can wear them even while a flat accent is active). Adam's
+ * exact rainbow — the HDR badge's conic from the Figma dev-mode export;
+ * the ring is the same stops at full strength, same angle, so ring and
+ * fill line up. */
+:root {
+  --aurora-image: conic-gradient(
+    from -57deg at 49.88% 50.33%,
+    rgba(255, 155, 155, 0.29) 73.094deg,
+    rgba(134, 150, 255, 0.29) 144.393deg,
+    rgba(132, 255, 169, 0.29) 214.689deg,
+    rgba(255, 229, 127, 0.29) 288.252deg,
+    rgba(255, 123, 246, 0.29) 359.73deg
+  );
+  --aurora-ring: conic-gradient(
+    from -57deg at 49.88% 50.33%,
+    #ff9b9b 73.094deg,
+    #8696ff 144.393deg,
+    #84ffa9 214.689deg,
+    #ffe57f 288.252deg,
+    #ff7bf6 359.73deg
+  );
+  /* Repeating LINEAR variant for long horizontal surfaces (EPG cells) —
+   * the conic sweep read as a smeared blob across a 4-hour programme. */
+  --aurora-stripe: repeating-linear-gradient(
+    100deg,
+    rgba(255, 155, 155, 0.2) 0,
+    rgba(134, 150, 255, 0.2) 130px,
+    rgba(132, 255, 169, 0.2) 260px,
+    rgba(255, 229, 127, 0.2) 390px,
+    rgba(255, 123, 246, 0.2) 520px,
+    rgba(255, 155, 155, 0.2) 650px
+  );
+}
+:root[data-accent-style="aurora"] {
+  --accent-image: var(--aurora-image);
+  --accent-ring-image: var(--aurora-ring);
+}
+
+/* The WEBSITE's smooth brand conic (services/site/index.html): starts and
+ * ends on the same stop (#FF9B9B), so the sweep loops with no visible seam —
+ * unlike --aurora-ring, whose start/end differ. background = the 29%-alpha
+ * wash for fills over black; stroke = full strength for gradient borders. */
+:root {
+  --rainbow-background: conic-gradient(
+    from 0deg at 50% 50%,
+    #ff9b9b4a 0deg,
+    #ff7bf64a 72deg,
+    #8696ff4a 144deg,
+    #84ffa94a 216deg,
+    #ffe57f4a 288deg,
+    #ff9b9b4a 360deg
+  );
+  --rainbow-stroke: conic-gradient(
+    from 0deg at 50% 50%,
+    #ff9b9b 0deg,
+    #ff7bf6 72deg,
+    #8696ff 144deg,
+    #84ffa9 216deg,
+    #ffe57f 288deg,
+    #ff9b9b 360deg
+  );
+}

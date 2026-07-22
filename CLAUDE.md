@@ -50,6 +50,30 @@ tech wins — no framework-of-the-month, no clever abstractions for hypothetical
 reuse. When a task matches an installed Claude Code skill (security review,
 design review, etc.), use the skill instead of re-implementing.
 
+## Delegation — orchestrate by task shape, not by default
+
+Standing permission to run subagents/workflows underneath the main session — no
+need to ask first — **when the task shape actually benefits:**
+
+- **Research & evaluation** — comparing libraries, studying how other apps solve
+  a problem. Parallel readers, synthesize on top.
+- **Broad audits** — security review, perf sweep, dead-code hunt. Fan out by
+  dimension, adversarially verify findings, report only what survives.
+- **Fresh-eyes review before a release** — a reviewer agent's lack of our
+  context is a feature: it can't rationalize our decisions.
+- **Big mechanical sweeps** — migrations, renames, test backfill, where the
+  work-list is known and the items are independent.
+
+**Stay hands-on for surgical, diagnostic, context-heavy work** — the
+measure→fix→retest loop that most changes here are. Accumulated context is the
+asset: the v0.1.106 disk cache caught a StrictMode race only because the same
+head fixed it in v0.1.104. Subagents start blank — briefing them on a one-file
+fix costs more than it buys.
+
+Delegation never dilutes the agreements above: agent findings get verified
+before acting on them, and the main session owns the synthesis, the decision,
+and the commit.
+
 ## Completion status
 
 End every task with one of:
@@ -64,10 +88,13 @@ End every task with one of:
 ## After every task — commit, push, report what to restart
 
 1. **Commit and push.** Stage, write a clear message, push. Don't wait to be asked.
-2. **Say what to restart.** State exactly what needs rebuilding/restarting for the
-   change to take effect — e.g. `pnpm tauri build` for native changes, or "`pnpm
-   dev` hot-reloads it" for frontend-only — with the commands. If nothing needs
-   restarting, say so.
+2. **Say what to restart — one line, terminal-ready.** End with a single line I
+   can act on without thinking, in exactly this shape:
+   - Frontend-only (hot-reloads): `Pushed v0.x.x — `git pull` to hot reload`
+   - Native/Rust (needs rebuild): `Pushed v0.x.x — `git pull` and `pnpm tauri dev`, needs rebuild`
+
+   Use the real version number, pick the line that matches the change, and give
+   the exact commands. If nothing needs restarting, say that instead.
 
 ## Safety
 

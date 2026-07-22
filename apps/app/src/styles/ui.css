@@ -1,0 +1,303 @@
+/* Shared primitives: chip rail, toggle, primary button. */
+
+/* Chip rail: near-black track; the raised #2a2a2a chip is a single thumb
+ * that slides under the active label. Text is Bold 12 on every chip,
+ * inactive labels dimmed. */
+.chip-tabs {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: var(--surface-track);
+  border-radius: 18px;
+  padding: 2px;
+}
+
+.chip-tabs__tab {
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 12px;
+  padding: 6px 15px;
+  border-radius: var(--radius-chip);
+  color: var(--text);
+  opacity: 0.5;
+  transition: opacity 150ms ease;
+}
+
+.chip-tabs__tab:hover,
+.chip-tabs__tab--active {
+  opacity: 1;
+}
+
+.chip-tabs__thumb {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  background: var(--surface-raised);
+  border: 0.5px solid var(--border-raised);
+  border-radius: var(--radius-chip);
+  transition:
+    left 220ms cubic-bezier(0.4, 0, 0.2, 1),
+    width 220ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Trackless variant (the header's Stream rail): same chips, same sliding
+ * thumb, no track behind them — the pills float on the header. Labels
+ * ride Regular (the Bold-12 rule is for tracked rails over surfaces).
+ * The thumb goes GLASS here: content scrolls under the floating header,
+ * so it frosts what's beneath instead of sitting flat. */
+.chip-tabs--bare {
+  background: transparent;
+}
+.chip-tabs--bare .chip-tabs__tab {
+  font-weight: 400;
+  padding: 6px 12px;
+}
+.chip-tabs--bare .chip-tabs__thumb {
+  top: 4px;
+  bottom: 3px;
+  background: rgba(170, 170, 170, 0.19);
+  backdrop-filter: blur(10px);
+  border: 1px solid #ffffff40;
+}
+/* Adam's glass spec above is tuned for the dark header — over the light
+ * one both the gray wash and the white border vanish (fleet finding). */
+:root[data-theme="light"] .chip-tabs--bare .chip-tabs__thumb {
+  background: rgba(40, 42, 52, 0.12);
+  border-color: rgba(0, 0, 0, 0.28);
+}
+
+/* Toggle: a text-less chip rail. Same track color, inset, radius, and slide
+ * curve as .chip-tabs; the white squircle thumb is the "chip". On floods the
+ * track with the accent. */
+.toggle {
+  position: relative;
+  width: 52px;
+  height: 30px;
+  border-radius: 18px;
+  background: var(--surface-track);
+  transition: background 220ms ease;
+}
+
+.toggle__thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-chip);
+  background: #ffffff;
+  border: 0.5px solid rgba(0, 0, 0, 0.12);
+  transition: left 220ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.toggle--on {
+  background: var(--accent);
+}
+
+.toggle--on .toggle__thumb {
+  left: 24px;
+}
+
+/* Dense-list variant. */
+.toggle--sm {
+  width: 40px;
+  height: 24px;
+}
+
+.toggle--sm .toggle__thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 12px;
+}
+
+.toggle--sm.toggle--on .toggle__thumb {
+  left: 18px;
+}
+
+/* Primary action button (Figma "Add Playlist"/"Submit"). */
+.btn-primary {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text);
+  background: var(--accent-surface);
+  border: 0.5px solid var(--accent);
+  border-radius: 25px;
+  padding: 9px 14px;
+  transition: filter 150ms ease, opacity 150ms ease;
+}
+
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.35);
+}
+
+.btn-primary:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chip-tabs__thumb,
+  .toggle__thumb {
+    transition: none;
+  }
+}
+
+/* ---------- Quality badges (Figma 126:856) ---------- */
+
+/* 23x12 pills: tier gradient at ~30% over black, Bold 7.2px. The ring is
+ * the old build's technique — a transparent border revealing a gradient
+ * clipped to the border-box — because sub-pixel solid borders render
+ * mushy, and the design's rings are themselves gradients. Layers:
+ * fill (padding-box) over black (padding-box) over ring (border-box).
+ * Deliberately unthemed — they read as hardware markings. */
+.badge {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.6px 4.4px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 8.2px;
+  line-height: 1;
+  color: #fff;
+}
+
+/* Fill gradients verbatim from the Figma dev-mode export; rings are the
+ * same stops at full strength. */
+.badge--4k {
+  background:
+    linear-gradient(
+        277deg,
+        rgba(255, 123, 246, 0.29) 4.71%,
+        rgba(134, 150, 255, 0.29) 28.92%,
+        rgba(132, 255, 169, 0.29) 54.03%,
+        rgba(255, 229, 127, 0.29) 77.78%,
+        rgba(255, 155, 155, 0.29) 97.96%
+      )
+      padding-box,
+    linear-gradient(#000, #000) padding-box,
+    linear-gradient(
+        277deg,
+        #ff7bf6 4.71%,
+        #8696ff 28.92%,
+        #84ffa9 54.03%,
+        #ffe57f 77.78%,
+        #ff9b9b 97.96%
+      )
+      border-box;
+}
+
+.badge--fhd {
+  background:
+    linear-gradient(
+        236deg,
+        rgba(255, 229, 127, 0.3) 8.39%,
+        rgba(179, 87, 0, 0.3) 88%
+      )
+      padding-box,
+    linear-gradient(#000, #000) padding-box,
+    linear-gradient(236deg, #ffe57f 8.39%, #b35700 88%) border-box;
+}
+
+.badge--hd {
+  background:
+    linear-gradient(
+        284deg,
+        rgba(255, 255, 255, 0.3) 0%,
+        rgba(49, 49, 49, 0.3) 96.81%
+      )
+      padding-box,
+    linear-gradient(#000, #000) padding-box,
+    linear-gradient(284deg, #fff 0%, #313131 96.81%) border-box;
+}
+
+.badge--hdr {
+  background:
+    conic-gradient(
+        from -57deg at 50% 50%,
+        rgba(255, 123, 246, 0.29) 3.46deg,
+        rgba(134, 150, 255, 0.29) 93.46deg,
+        rgba(132, 255, 169, 0.29) 190.38deg,
+        rgba(255, 229, 127, 0.29) 282.12deg,
+        rgba(255, 155, 155, 0.29) 353.08deg
+      )
+      padding-box,
+    linear-gradient(#000, #000) padding-box,
+    conic-gradient(
+        from -57deg at 50% 50%,
+        #ff7bf6 3.46deg,
+        #8696ff 93.46deg,
+        #84ffa9 190.38deg,
+        #ffe57f 282.12deg,
+        #ff9b9b 353.08deg
+      )
+      border-box;
+}
+
+/* ---------- Aurora tweaks (special classes) ----------
+ * Only elements that can take the gradient opt in here; everything else
+ * keeps reading the flat --accent hue applyAurora sets. The glass fill +
+ * iridescent ring is the padding-box/border-box two-layer technique the
+ * quality-badge rings already use (border-image can't round corners). */
+:root[data-accent-style="aurora"] .btn-primary {
+  border: 1px solid transparent;
+  /* Adam's exact recipe: the 0.29-alpha conic over black (the HDR-badge
+   * construction), full-strength ring on the same angle. The face is
+   * BLACK in every theme, so the label pins light — light theme's
+   * var(--text) was near-black-on-black (fleet finding). */
+  color: #f2f2f4;
+  background:
+    var(--accent-image) padding-box,
+    linear-gradient(#000, #000) padding-box,
+    var(--accent-ring-image) border-box;
+}
+
+/* Aurora picker swatch: wash over black in the middle, full-strength
+ * ring in the border — SAME conic, same angle, so ring and fill line
+ * up. Always-visible (the --aurora-* constants exist under any accent).
+ * Doubled class beats .accent-swatch's own background/border. */
+.accent-swatch.accent-swatch--aurora {
+  border-color: transparent;
+  background:
+    var(--aurora-image) padding-box,
+    linear-gradient(#000, #000) padding-box,
+    var(--aurora-ring) border-box;
+}
+
+/* EPG under Aurora: the live cell wears the wash over glass; the
+ * now-playing channel name becomes gradient TEXT (its channel-number
+ * chip keeps its own explicit colors). */
+:root[data-accent-style="aurora"] .guide__cell--live {
+  /* Repeating linear, not conic — the sweep smeared across long
+   * programmes. Fixed 650px period: narrow cells get a slice, wide
+   * cells cycle smoothly. */
+  background:
+    var(--aurora-stripe) padding-box,
+    linear-gradient(#101014, #101014) padding-box;
+  border-color: #ffffff2e;
+}
+/* The cell face is dark in every theme — pin its text light (light
+ * theme's var(--text) titles went dark-on-dark; fleet finding). */
+:root[data-accent-style="aurora"] .guide__cell--live * {
+  color: #f2f2f4;
+}
+:root[data-accent-style="aurora"] .hero__channel {
+  background: var(--accent-ring-image);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+/* Pastel gradient text washes out on the light background — fall back
+ * to the flat aurora hue there. */
+:root[data-theme="light"][data-accent-style="aurora"] .hero__channel {
+  background: none;
+  -webkit-background-clip: initial;
+  background-clip: initial;
+  color: var(--accent);
+}

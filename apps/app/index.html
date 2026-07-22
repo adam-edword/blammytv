@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/png" href="/logo.png" />
     <title>BlammyTV</title>
+    <!-- Paint black before any CSS loads so there's no white flash between
+         the window appearing and the app's first render. The Tauri window's
+         backgroundColor covers the same gap at the native/webview layer. -->
+    <style>
+      html {
+        background: #000;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

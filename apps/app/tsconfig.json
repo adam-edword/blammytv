@@ -3,11 +3,7 @@
   "compilerOptions": {
     "noEmit": true,
     "jsx": "react-jsx",
-    "types": ["vite/client"],
-    "baseUrl": ".",
-    "paths": {
-      "@blammytv/shared": ["../../packages/shared/src/index.ts"]
-    }
+    "types": ["vite/client"]
   },
   "include": ["src"]
 }

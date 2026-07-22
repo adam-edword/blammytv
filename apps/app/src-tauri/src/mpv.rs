@@ -1,8 +1,8 @@
 // Minimal libmpv binding loaded at runtime from libmpv-2.dll (the same DLL the
 // Electron addon used). Runtime loading avoids build-time linking against mpv.
 //
-// Two instances: the composition PLAYER (rendered into a `--wid` child window,
-// see comp.rs) and the POPOUT PiP (mpv's own floating window).
+// Two instances: the in-app PLAYER (rendered into a `--wid` child window,
+// see inv.rs) and the POPOUT PiP (mpv's own floating window).
 
 use libloading::Library;
 use std::ffi::CString;
@@ -113,8 +113,8 @@ struct Player(Handle);
 unsafe impl Send for Player {}
 
 static PLAYER: Mutex<Option<Player>> = Mutex::new(None);
-// The popout PiP runs as its OWN mpv instance, separate from the composition
-// PLAYER — so tearing down the in-app player (close_theater/stop) can't kill it.
+// The popout PiP runs as its OWN mpv instance, separate from the in-app
+// PLAYER — so tearing down the in-app player (inv::close/stop) can't kill it.
 static POPOUT: Mutex<Option<Player>> = Mutex::new(None);
 
 /// Play in mpv's own floating window (PiP): on-top, half-size, separate instance.
@@ -130,7 +130,10 @@ pub fn play_popout(url: &str, start: f64) -> Result<(), String> {
             let (ck, cv) = (CString::new(k).unwrap(), CString::new(v).unwrap());
             (l.set_option_string)(h, ck.as_ptr(), cv.as_ptr());
         };
-        set("force-window", "yes");
+        // "immediate": the PiP window appears BEFORE the stream opens —
+        // debrid URLs can take seconds to probe, and "yes" kept the window
+        // invisible until first frame (read as a 5-10s dead click).
+        set("force-window", "immediate");
         // Float above the app at a sensible size, else it opens behind BlammyTV.
         set("ontop", "yes");
         set("autofit", "50%");
@@ -178,19 +181,40 @@ pub fn play_popout(url: &str, start: f64) -> Result<(), String> {
                     break;
                 }
             }
-            // Destroy only if POPOUT still holds this handle (else stop_popout
-            // already took ownership — avoid a double terminate_destroy).
+            // This thread is the handle's SOLE destroyer: terminate_destroy
+            // concurrent with wait_event on the same handle is forbidden by
+            // libmpv, so stop_popout() sends `quit` and lets us tear down
+            // after SHUTDOWN. POPOUT ownership only decides whether the
+            // close was user-driven (✕/taskbar/q → emit, so React reclaims)
+            // or programmatic (already taken → stay silent; the button
+            // drives the reclaim itself).
             let mut g = POPOUT.lock().unwrap();
             let ours = g.as_ref().map(|p| p.0 as usize) == Some(h as usize);
-            let taken = if ours { g.take() } else { None };
+            if ours {
+                g.take();
+            }
             drop(g);
-            if let Some(p) = taken {
-                (l.terminate_destroy)(p.0);
-                // The user closed the popout window (we still owned it) → tell
-                // React to bring the in-app player back. A programmatic
-                // stop_popout() takes ownership first, so `taken` is None there
-                // and we stay silent (the button drives the reclaim itself).
-                crate::emit_comp("popout-closed");
+            let pos = if ours {
+                // Best-effort final position BEFORE destroy — post-SHUTDOWN
+                // reads are contract-legal; a quitting core may return
+                // nothing, and 0.0 tells the frontend "no reading".
+                let name = CString::new("time-pos").unwrap();
+                let ptr = (l.get_property_string)(h, name.as_ptr());
+                if ptr.is_null() {
+                    0.0
+                } else {
+                    let s = std::ffi::CStr::from_ptr(ptr)
+                        .to_string_lossy()
+                        .into_owned();
+                    (l.free)(ptr as *mut c_void);
+                    s.parse::<f64>().unwrap_or(0.0)
+                }
+            } else {
+                0.0
+            };
+            (l.terminate_destroy)(h);
+            if ours {
+                crate::emit_ui_pos("popout-closed", pos);
             }
         });
     }
@@ -198,18 +222,31 @@ pub fn play_popout(url: &str, start: f64) -> Result<(), String> {
 }
 
 pub fn stop_popout() {
-    if let (Some(p), Some(l)) = (POPOUT.lock().unwrap().take(), LIB.get()) {
-        unsafe { (l.terminate_destroy)(p.0) };
+    // Programmatic close (Bring It Back / a new play while popped): take
+    // the handle out of POPOUT so the watcher stays silent, then ask mpv
+    // to QUIT — the watcher, the sole wait_event-er, performs the destroy
+    // on SHUTDOWN. Destroying here raced its blocked wait_event on the
+    // same handle (forbidden by libmpv) on every Bring It Back.
+    let taken = POPOUT.lock().unwrap().take();
+    if let (Some(p), Some(l)) = (taken, LIB.get()) {
+        unsafe {
+            let cmd = CString::new("quit").unwrap();
+            let args = [cmd.as_ptr(), std::ptr::null()];
+            (l.command)(p.0, args.as_ptr());
+        }
     }
 }
 
-/// Render into an existing child window (`--wid`) instead of mpv's own — for the
-/// Tauri composition path: native video in a child HWND, webview composited over.
+/// Render into an existing child window (`--wid`) instead of mpv's own —
+/// the in-app player: native video in a child HWND at the bottom of the
+/// z-order (inv.rs), under the transparent UI webview.
 ///
-/// `composited` forces the bitblt present model (`d3d11-flip=no`) so a DComp layer
-/// can be drawn over the video. Left off, mpv uses its default flip model — which
-/// is what actually shows video when embedded; bitblt into a `--wid` child often
-/// renders nothing.
+/// `composited` forces the bitblt present model (`d3d11-flip=no`) so a DComp
+/// layer can be drawn over the video — a relic of the deleted comp.rs path;
+/// the sole surviving caller (inv.rs) passes false, keeping mpv's default
+/// flip model (the quality path, and what actually shows video embedded).
+/// `start` resumes at a position; inv.rs currently always passes 0.0, so
+/// popout reclaim rejoins at the live edge, not the captured position.
 pub fn play_wid(url: &str, wid: isize, composited: bool, start: f64) -> Result<(), String> {
     let l = lib()?;
     stop();
@@ -327,7 +364,8 @@ pub fn seek(delta: f64) {
     }
 }
 
-/// Absolute seek to a position in seconds (for scrubbing).
+/// Absolute seek to a position in seconds — the VOD scrubber's verb
+/// (mpv_seek_abs command, live since v0.2.47).
 pub fn seek_abs(pos: f64) {
     let g = PLAYER.lock().unwrap();
     if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {
@@ -336,6 +374,33 @@ pub fn seek_abs(pos: f64) {
             let d = CString::new(format!("{pos}")).unwrap();
             let abs = CString::new("absolute").unwrap();
             let args = [cmd.as_ptr(), d.as_ptr(), abs.as_ptr(), std::ptr::null()];
+            (l.command)(p.0, args.as_ptr());
+        }
+    }
+}
+
+/// "Go to live" for a live stream: reload the current URL on the composition
+/// PLAYER. A forward seek can't reach the live edge (mpv never pulled the data
+/// between the playback buffer and now), so we re-`loadfile` the same path,
+/// which restarts at the newest segment. Player-level options (wid, d3d11-flip,
+/// volume) persist across loadfile, so only the video rebuffers — the overlay
+/// stays put. Reversible: drop this and the goLive bridge/handler to restore
+/// the old (non-functional) forward-seek behavior.
+pub fn reload_live() {
+    // get_property locks PLAYER and releases before we re-lock below.
+    let url = match get_property("path") {
+        Some(u) => u,
+        None => return,
+    };
+    let g = PLAYER.lock().unwrap();
+    if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {
+        unsafe {
+            let cmd = CString::new("loadfile").unwrap();
+            let curl = match CString::new(url) {
+                Ok(c) => c,
+                Err(_) => return,
+            };
+            let args = [cmd.as_ptr(), curl.as_ptr(), std::ptr::null()];
             (l.command)(p.0, args.as_ptr());
         }
     }
@@ -375,6 +440,28 @@ pub fn track_list() -> Vec<TrackInfo> {
         .collect()
 }
 
+pub struct ChapterInfo {
+    pub title: String,
+    pub start: f64,
+}
+
+/// The file's chapter markers (the Skip Intro data source: scene files
+/// often name them "Intro"/"OP"/"Recap"). Same per-index sub-property
+/// pattern as track_list; bounded in case a broken mux reports absurdity.
+pub fn chapter_list() -> Vec<ChapterInfo> {
+    let count = get_property("chapter-list/count")
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(0);
+    (0..count.min(128))
+        .map(|i| ChapterInfo {
+            title: get_property(&format!("chapter-list/{i}/title")).unwrap_or_default(),
+            start: get_property(&format!("chapter-list/{i}/time"))
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(0.0),
+        })
+        .collect()
+}
+
 /// Set a string property on the player (no-op if there's no player).
 fn set_prop(name: &str, value: &str) {
     let g = PLAYER.lock().unwrap();
@@ -400,9 +487,51 @@ pub fn set_track(kind: &str, id: &str) {
     set_prop(prop, id);
 }
 
-/// Playback speed multiplier (1.0 = normal).
+/// Playback speed multiplier (1.0 = normal) — the VOD speed menu
+/// (mpv_set_speed command).
 pub fn set_speed(speed: f64) {
     set_prop("speed", &speed.to_string());
+}
+
+/// Set the GPU post-process shader chain (absolute path to a .glsl user
+/// shader, or empty to clear). Runtime-safe: the vo reconfigures mid-play.
+/// Used by the inverted player's frost-behind-modal (lib.rs `mpv_blur`).
+pub fn set_glsl_shaders(path: &str) {
+    set_prop("glsl-shaders", path);
+}
+
+/// Set shader tunables (`glsl-shader-opts`, "name=value,..."): updates
+/// //!PARAM uniforms in the loaded chain WITHOUT reloading it — the cheap
+/// per-frame-safe path for the moving frost rect (gpu-next required for
+/// PARAM; Adam runs mpv 0.41-dev, where it's the default vo).
+pub fn set_shader_opts(opts: &str) {
+    set_prop("glsl-shader-opts", opts);
+}
+
+/// Write one tone-mapped frame of the current video to `path` (format from
+/// the extension; "video" = no OSD). mpv_command is synchronous, so the
+/// file exists when this returns true. Used for the frozen-frame glass
+/// behind modals (lib.rs `mpv_snapshot`).
+pub fn screenshot_to_file(path: &str) -> bool {
+    let g = PLAYER.lock().unwrap();
+    if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {
+        unsafe {
+            let cmd = CString::new("screenshot-to-file").unwrap();
+            let cpath = match CString::new(path) {
+                Ok(c) => c,
+                Err(_) => return false,
+            };
+            let flags = CString::new("video").unwrap();
+            let args = [
+                cmd.as_ptr(),
+                cpath.as_ptr(),
+                flags.as_ptr(),
+                std::ptr::null(),
+            ];
+            return (l.command)(p.0, args.as_ptr()) >= 0;
+        }
+    }
+    false
 }
 
 /// Read an mpv property as a string (via the player mutex, so it's safe against

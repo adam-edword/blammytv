@@ -1,0 +1,848 @@
+/* Player chrome for the inline (inverted-layer) player: the video child sits
+ * BELOW the transparent main webview, and this chrome floats over the clip
+ * hole in #inv-chrome. The .is-overlay rules exist only for the ?overlay=1
+ * test harness (see main.tsx). Three states: mini / theater / fullscreen. */
+.is-overlay,
+.is-overlay body {
+  background: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ---- Tune-in surface: branded ident + watchdog states over the black box
+ * while a channel opens. pointer-events only on the dead-state card (Retry),
+ * so the rest never blocks the click-through logic. ---- */
+.tune {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 14px;
+  pointer-events: none;
+}
+
+.tune__ident {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.tune__logo {
+  width: clamp(48px, 9vw, 88px);
+  height: clamp(48px, 9vw, 88px);
+  object-fit: contain;
+  filter: drop-shadow(0 4px 18px rgba(0, 0, 0, 0.6));
+}
+
+.tune__channel {
+  font: 600 clamp(15px, 2vw, 22px) / 1.2 system-ui, sans-serif;
+  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.tune__title {
+  font: 400 clamp(12px, 1.4vw, 15px) / 1.3 system-ui, sans-serif;
+  color: rgba(255, 255, 255, 0.62);
+  max-width: 44ch;
+  text-align: center;
+}
+
+.tune__status {
+  font: 600 clamp(12px, 1.5vw, 16px) / 1 system-ui, sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.75);
+  animation: tune-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes tune-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.tune__dead {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.tune__dead-msg {
+  margin: 0;
+  font: 400 clamp(13px, 1.5vw, 16px) / 1.4 system-ui, sans-serif;
+  color: rgba(255, 255, 255, 0.85);
+  text-align: center;
+  max-width: 34ch;
+}
+
+.tune__retry {
+  font: 600 14px / 1 system-ui, sans-serif;
+  color: #fff;
+  padding: 10px 26px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.tune__retry:hover {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+/* Mini box: shrink the ident, drop the programme line (done in JSX), and keep
+ * everything clear of the play/✕ buttons. */
+/* VOD loading: solid black, nothing but the title art, breathing. */
+.tune--vod {
+  background: #000;
+}
+.tune__vodlogo {
+  width: clamp(260px, 40vw, 560px);
+  max-height: 40vh;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 28px rgba(0, 0, 0, 0.6));
+  animation: tune-breathe 2.8s ease-in-out infinite;
+}
+.tune__vodtitle {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: clamp(34px, 5vw, 72px);
+  line-height: 1.05;
+  color: #f2f2f4;
+  text-align: center;
+  max-width: 70vw;
+  animation: tune-breathe 2.8s ease-in-out infinite;
+}
+@keyframes tune-breathe {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tune__vodlogo,
+  .tune__vodtitle {
+    animation: none;
+    opacity: 0.85;
+  }
+}
+
+.tune--compact {
+  gap: 8px;
+}
+
+.tune--compact .tune__logo {
+  width: 40px;
+  height: 40px;
+}
+
+.tune--compact .tune__channel {
+  font-size: 13px;
+}
+
+.tune--compact .tune__status {
+  font-size: 10px;
+}
+
+.tune--compact .tune__dead-msg {
+  font-size: 12px;
+}
+
+.tune--compact .tune__retry {
+  padding: 7px 18px;
+  font-size: 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tune__status {
+    animation-duration: 3s;
+  }
+}
+
+/* ---- Mini overlay: click anywhere expands to theater; play/pause + ✕ float
+ * over the video and fade in on hover, with a white edge ring. ---- */
+.mini-overlay {
+  position: fixed;
+  inset: 0;
+  box-sizing: border-box;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.mini-overlay:hover {
+  border-color: rgba(255, 255, 255, 0.92);
+}
+
+/* Same glassy treatment as the theater top buttons (circular, translucent,
+ * backdrop-blur, soft rim), but these keep the mini's fade-in-on-hover. */
+.overlay__btn {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.32);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  backdrop-filter: blur(14px) saturate(1.2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 2px 12px rgba(0, 0, 0, 0.32);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    opacity 140ms ease;
+}
+
+.mini-overlay:hover .overlay__btn {
+  opacity: 1;
+}
+
+.overlay__btn:hover {
+  background: rgba(0, 0, 0, 0.46);
+  border-color: rgba(255, 255, 255, 0.26);
+}
+
+.overlay__play {
+  left: 14px;
+  bottom: 14px;
+}
+
+.mini-overlay__close {
+  top: 14px;
+  right: 14px;
+}
+
+/* ---- Theater / fullscreen chrome ---- */
+.theater-overlay {
+  position: fixed;
+  inset: 0;
+  color: #fff;
+  font-family: var(--font-text);
+}
+
+/* Inline (inverted-player) chrome host: CompositionPlayer keeps this fixed
+ * box glued to the slot rect, and the overlay's fixed-inset roots become
+ * absolute so they fill the BOX, not the viewport. Above the theater
+ * backdrop (40), below the settings modal (60). */
+#inv-chrome {
+  position: fixed;
+  z-index: 45;
+}
+
+#inv-chrome .mini-overlay,
+#inv-chrome .theater-overlay,
+#inv-chrome .tune {
+  position: absolute;
+}
+
+/* Player chrome bows out while a modal covers the app: no player shows its
+ * transport bar behind a settings sheet, and hiding it leaves only frosted
+ * video under the card — cleaner than blurring DOM chrome. */
+#inv-chrome .mini-overlay,
+#inv-chrome .theater-overlay {
+  transition: opacity 0.2s ease;
+}
+
+:root[data-native-hidden] #inv-chrome .mini-overlay,
+:root[data-native-hidden] #inv-chrome .theater-overlay {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* While a modal covers the app (root carries data-native-hidden), the
+ * video KEEPS PLAYING — mpv GPU-frosts only the region under the card
+ * (LiveScreen drives it) and this ::after adds a light dim so the card
+ * pops without hiding the picture. Radius matches the rounded hole. */
+#inv-chrome {
+  border-radius: 12px;
+}
+
+#inv-chrome::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0);
+  transition: background 0.2s ease;
+}
+
+/* Modal open: light dim over the still-playing video. (A whole-rim inset
+ * feather was tried for the hole-edge seam under the card and read as a
+ * giant vignette — v0.1.127, reverted. If the seam matters, the fix must
+ * be scoped to the card∩rim region only.) */
+:root[data-native-hidden] #inv-chrome::after {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* Fake rounded video corners. The mpv child presents a flip-model swapchain
+ * DWM composites directly, so neither SetWindowRgn (round_child) nor a CSS
+ * radius on the slot clips the picture — the video corners are always sharp.
+ * This transparent overlay sits pixel-aligned over the video, so we paint the
+ * four corner triangles in the app background: outside the arc = --bg (blends
+ * into the chrome around the inset player), inside = transparent (video shows).
+ * Windowed theater only — fullscreen fills the monitor, no corners to round. */
+.theater-overlay:not(.theater-overlay--fs)::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  --r: 12px;
+  background:
+    radial-gradient(var(--r) at bottom right, #0000 98%, var(--bg)) top left /
+      var(--r) var(--r) no-repeat,
+    radial-gradient(var(--r) at bottom left, #0000 98%, var(--bg)) top right /
+      var(--r) var(--r) no-repeat,
+    radial-gradient(var(--r) at top right, #0000 98%, var(--bg)) bottom left /
+      var(--r) var(--r) no-repeat,
+    radial-gradient(var(--r) at top left, #0000 98%, var(--bg)) bottom right /
+      var(--r) var(--r) no-repeat;
+}
+
+/* Sharp corner setting zeroes the fake rounding too. */
+:root[data-corners="sharp"] .theater-overlay::before {
+  display: none;
+}
+
+.player__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  opacity: 0.85;
+  transition:
+    opacity 0.12s ease,
+    background 0.12s ease;
+}
+
+.player__btn:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.player__btn--play {
+  width: 48px;
+  height: 48px;
+}
+
+/* Glassy floating buttons (the top clusters over bare video). Circular,
+ * frosted: the backdrop-filter blurs the picture behind them where WebView2
+ * composition allows it; the translucent fill keeps them readable regardless.
+ * A soft top highlight + drop shadow gives the pill some depth. */
+.player__btn--glass {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  backdrop-filter: blur(14px) saturate(1.2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 2px 12px rgba(0, 0, 0, 0.32);
+}
+
+.player__btn--glass:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.46);
+  border-color: rgba(255, 255, 255, 0.26);
+}
+
+/* Favorited: warm the rim so the state reads even at a glance. */
+.player__btn--glass.is-fav {
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(0, 0, 0, 0.42);
+}
+
+.player__volume {
+  width: 96px;
+  height: 4px;
+  accent-color: #fff;
+  cursor: pointer;
+}
+
+/* Top clusters (favorite left; pip + fullscreen + close right), auto-hide with
+ * the chrome. Both float over bare video, so their buttons are glassy. */
+.theater-topleft,
+.theater-topright {
+  position: absolute;
+  top: 16px;
+  z-index: 3;
+  display: flex;
+  gap: 10px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.theater-topleft {
+  left: 20px;
+}
+
+.theater-topright {
+  right: 20px;
+}
+
+.player--active .theater-topleft,
+.player--active .theater-topright {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Top scrim: a soft gradient behind the floating top buttons, mirroring the
+ * bottom bar so the icons stay legible over bright video. Auto-hides too. */
+.theater-topscrim {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 120px;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.75) 0%,
+    transparent 100%
+  );
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.player--active .theater-topscrim {
+  opacity: 1;
+}
+
+/* Bottom bar: meta + LIVE position + transport/volume. */
+.theater-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 96px 40px 30px;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.75) 0%,
+    transparent 100%
+  );
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.player--active .theater-bar {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.theater-bar__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  max-width: 760px;
+}
+
+/* Channel logo, sitting above the programme text. Unboxed (per the hero
+ * treatment) — just the mark, scaled to a fixed height. */
+.theater-bar__logo {
+  height: 112px;
+  width: auto;
+  max-width: 320px;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.theater-bar__text {
+  min-width: 0;
+}
+
+.theater-bar__chan {
+  margin: 0 0 6px;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.theater-bar__name {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.9px;
+  color: var(--accent);
+}
+
+.theater-bar__source {
+  font-family: var(--font-headline);
+  font-weight: 500;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.theater-bar__title {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: clamp(22px, 2.4vw, 32px);
+  line-height: 1.1;
+  color: #fff;
+}
+
+.theater-bar__desc {
+  margin: 6px 0 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.72);
+  max-width: 720px;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.theater-seek {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.theater-seek__track {
+  position: relative;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.theater-seek__fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--accent);
+  border-radius: 3px;
+}
+
+.theater-seek__knob {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  corner-shape: round;
+  background: #fff;
+  transform: translate(-50%, -50%);
+}
+
+/* VOD variant: the rail is a real scrubber. The ::before fattens the hit
+ * area without changing the 5px visual. */
+.theater-seek__track--vod {
+  cursor: pointer;
+  touch-action: none;
+}
+.theater-seek__track--vod::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -9px;
+  bottom: -9px;
+}
+
+.theater-seek__labels {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.theater-seek__live {
+  color: var(--accent);
+}
+
+.theater-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.theater-controls__group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Jump-to-live pill. The dot glows red at the live edge and dims when the
+ * indicator says we've fallen behind (a rewind/skip-back). */
+.theater-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: 10px;
+  padding: 6px 13px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.62);
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.7px;
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+
+.theater-live:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+
+.theater-live__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.35;
+  transition:
+    opacity 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.theater-live.is-live {
+  color: #fff;
+}
+
+.theater-live.is-live .theater-live__dot {
+  opacity: 1;
+  box-shadow: 0 0 7px var(--accent);
+}
+
+/* ---- Audio / subtitle track menus. The wrapper anchors a glass popover above
+ * its button; entries are radio-style with a check on the selected track. ---- */
+.theater-tracks {
+  position: relative;
+  display: flex;
+}
+
+.player__btn.is-open {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* Grayed out when there's nothing to choose (one audio track / no subs). */
+.player__btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+  background: transparent;
+}
+
+.track-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+  z-index: 5;
+  min-width: 190px;
+  max-width: 300px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 6px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(0, 0, 0, 0.55);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  backdrop-filter: blur(18px) saturate(1.2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 8px 28px rgba(0, 0, 0, 0.45);
+}
+
+.track-menu__head {
+  margin: 4px 10px 6px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.track-menu__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  font: 500 13px / 1.2 var(--font-text);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+
+.track-menu__item:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.track-menu__item.is-selected {
+  color: #fff;
+}
+
+.track-menu__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.theater-vol {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.theater-vol__slider {
+  width: 96px;
+}
+
+/* ---- Stats-for-nerds overlay: a compact glass telemetry panel pinned
+ * top-left of the player, just below the favorite button. Persists while
+ * toggled (independent of the auto-hiding chrome). Glassy like the track
+ * menus; values in a tabular monospace so they don't jitter as they tick. ---- */
+.stats-overlay {
+  position: absolute;
+  top: 66px;
+  left: 20px;
+  z-index: 4;
+  min-width: 208px;
+  max-width: 300px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(0, 0, 0, 0.55);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  backdrop-filter: blur(18px) saturate(1.2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 8px 28px rgba(0, 0, 0, 0.45);
+  color: #fff;
+}
+
+.stats-overlay__head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 8px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.stats-overlay__empty {
+  margin: 0;
+  font: 500 12px / 1.3 var(--font-text);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.stats-overlay__list {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 16px;
+}
+
+/* Each row lets its dt/dd drop straight into the shared grid columns. */
+.stats-overlay__row {
+  display: contents;
+}
+
+.stats-overlay__key {
+  font: 500 12px / 1.5 var(--font-text);
+  color: rgba(255, 255, 255, 0.6);
+  white-space: nowrap;
+}
+
+.stats-overlay__val {
+  margin: 0;
+  justify-self: end;
+  text-align: right;
+  font-family: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+}
+
+/* Speed button: text glyph in the icon row (VOD only). */
+.player__btn--speed {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 14px;
+  min-width: 40px;
+}
+
+/* Skip Intro/Recap/Credits chip: Netflix corner, visible whenever the
+ * clock is inside a skip-worthy chapter — independent of the auto-hiding
+ * chrome. */
+.skip-chip {
+  position: fixed;
+  right: 44px;
+  bottom: 190px;
+  z-index: 46;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text);
+  padding: 12px 24px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(16px);
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+.skip-chip:hover {
+  background: rgba(0, 0, 0, 0.85);
+}

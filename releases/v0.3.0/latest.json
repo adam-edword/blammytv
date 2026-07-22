@@ -1,0 +1,11 @@
+{
+  "version": "0.3.0",
+  "notes": "The Stream update: a full movies & series home (featured slider, catalog rows, detail and episode screens), playback built for bingeing - scrubber with resume, Up Next autoplay, Skip Intro from file chapters, next-episode button, playback speed, an in-playback source switcher, and pop-out picture-in-picture that picks up where it left off. Plus customizable card and player info, catalog row size, and optional automatic source failover.",
+  "pub_date": "2026-07-10T16:05:48Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUM0VOOGtCK0hUWDhmNnRtNzlQN3c0aXRrbk41Y2QxZGg3ZlpIOWhMRlQ0OXhaeGQ3bWRzMVlpS3Boc205UWF1ZFBGZjRnUlcrbWd3MmF3YjRjZ3dzUEtwemU1TisyM3dBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgzNjk5NDc2CWZpbGU6QmxhbW15VFZfMC4zLjBfeDY0LXNldHVwLmV4ZQo4VmwxL1k4TFVXbnhsSW9nRG5JeGFrTUF3SWpqYmNxYm5kWXZlT3lFTDljNTJFTks4YlZKNDVIUFRjYkh2Vjh2SElsT1VORkZ2dFc1Q3AvYXczUDhBZz09Cg==",
+      "url": "https://github.com/adam-edword/blammytv/releases/download/v0.3.0/BlammyTV_0.3.0_x64-setup.exe"
+    }
+  }
+}
