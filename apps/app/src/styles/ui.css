@@ -147,7 +147,8 @@
 
 /* ---------- Quality badges (Figma 126:856) ---------- */
 
-/* 23x12 pills: tier gradient at ~30% over black, Bold 7.2px. The ring is
+/* 23x12 pills: tier gradient at ~30% over black, Bold 8.2px (Figma spec
+ * 7.2px; bumped one px for legibility — geometry still lands 23x12). The ring is
  * the old build's technique — a transparent border revealing a gradient
  * clipped to the border-box — because sub-pixel solid borders render
  * mushy, and the design's rings are themselves gradients. Layers:

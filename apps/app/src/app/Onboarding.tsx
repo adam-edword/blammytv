@@ -172,7 +172,8 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     // This launch's boot IS the one-piece finale — the cold-boot
     // overlay must not replay on relaunch.
     markWelcomePlayed();
-    // The scene plays the whole 2530ms mock timeline; the overlay fade
+    // The scene plays the whole boot timeline (P4 hold ends ~3200ms,
+    // see boot.css's spec); the overlay fade
     // OVERLAPS its hold's tail (the app materializing beneath the
     // settled lockup is itself the reveal). Reduced motion: BootScene
     // never plays — quick fade to the app.

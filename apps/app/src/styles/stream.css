@@ -30,7 +30,7 @@
 .stream__note p { color: var(--text-muted); }
 .stream__note--dim { color: var(--text-muted); }
 
-/* ---- featured hero (Figma 133-721): 90vh sliding track, 60px-radius
+/* ---- featured hero (Figma 133-721): 80vh sliding track, 60px-radius
  * cards, neighbors peeking with a 30px gap. Escapes .stream's padding so
  * the peeks bleed to the window edges. Geometry (card width / offset) is
  * measured + set inline by the component; the track only animates
@@ -326,8 +326,8 @@
  * CSS adds the depth cue — a shadow that swells while the poster floats. */
 .stream-card__tilt {
   border-radius: 25px;
-  /* 650ms-ish settle, matched to the Tilt transitionSpeed — the shadow
-   * swells at the same pace the poster leans in. */
+  /* 450ms — deliberately quicker than the Tilt's 650ms transitionSpeed
+   * (tuned in b243bb5): the shadow leads, the lean settles into it. */
   transition: box-shadow 450ms ease;
 }
 .stream-card:hover .stream-card__tilt {
@@ -438,7 +438,7 @@
   display: block;
   height: 100%;
   border-radius: 2px;
-  background: var(--accent, #c22727);
+  background: var(--accent);
 }
 .continue-card--holding .continue-card__art { filter: brightness(0.5); }
 .continue-card--holding .continue-card__hold { opacity: 1; }
@@ -914,7 +914,7 @@
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 15px;
-  color: var(--accent, #c22727);
+  color: var(--accent);
   margin-right: 8px;
 }
 .episode-card__title { font-size: 15px; color: #f2f2f4; }
@@ -968,7 +968,7 @@
   font-size: 14px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--accent, #c22727);
+  color: var(--accent);
 }
 .upnext__title {
   font-family: var(--font-headline);
@@ -994,7 +994,7 @@
   width: min(36vw, 440px);
   aspect-ratio: 16 / 9;
   object-fit: cover;
-  border-radius: var(--radius-card, 14px);
+  border-radius: var(--radius-card);
   border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
 }
@@ -1010,7 +1010,7 @@
   display: flex;
   align-items: stretch;
   width: 380px;
-  border-radius: var(--radius-card, 14px);
+  border-radius: var(--radius-card);
   overflow: hidden;
   background: rgba(0, 0, 0, 0.72);
   border: 1px solid rgba(255, 255, 255, 0.16);
@@ -1036,7 +1036,7 @@
   font-size: 11px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--accent, #c22727);
+  color: var(--accent);
 }
 .upnext-mini__title {
   font-family: var(--font-headline);
@@ -1081,7 +1081,7 @@
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: var(--accent, #c22727);
+  background: var(--accent);
   color: #fff;
 }
 
@@ -1215,7 +1215,7 @@
 /* The one that's playing right now: accent ring, like the app's active
  * chips. */
 .vod-source--current {
-  border: 0.5px solid var(--accent, #c22727);
+  border: 0.5px solid var(--accent);
   background: var(--accent-surface);
 }
 

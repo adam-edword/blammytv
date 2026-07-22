@@ -905,7 +905,7 @@
 .rowcap__slider {
   flex: 1;
   max-width: 340px;
-  accent-color: var(--accent, #c22727);
+  accent-color: var(--accent);
 }
 .rowcap__value {
   font-family: var(--font-headline);
@@ -963,7 +963,7 @@
   min-width: 14px;
 }
 .aio-probe__row--bad .aio-probe__mark {
-  color: var(--accent, #c22727);
+  color: var(--accent);
 }
 .aio-probe__label {
   font-family: var(--font-headline);
