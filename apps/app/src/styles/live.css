@@ -71,8 +71,8 @@
   border-radius: var(--radius-chip);
   opacity: 0.45;
   transition:
-    opacity 150ms ease,
-    background 150ms ease;
+    opacity var(--dur-hover) ease,
+    background var(--dur-hover) ease;
 }
 
 .live-collapse:hover {
@@ -135,7 +135,7 @@
   font-size: 15px;
   color: var(--text);
   opacity: 0.5;
-  transition: opacity 150ms ease;
+  transition: opacity var(--dur-hover) ease;
 }
 
 .mode-rail__chip:hover {
@@ -219,7 +219,7 @@
   letter-spacing: 1.6px;
   text-transform: uppercase;
   color: var(--text-muted);
-  transition: color 150ms ease;
+  transition: color var(--dur-hover) ease;
 }
 
 .live-group:hover {
@@ -230,7 +230,7 @@
   flex-shrink: 0;
   width: 13px;
   height: 13px;
-  transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform var(--dur-enter) var(--ease-in-out);
 }
 
 /* Connection usage pill ("2/5") on a source header. Quiet by default;
@@ -295,8 +295,8 @@
   flex-shrink: 0;
   height: 36px;
   transition:
-    border-color 120ms ease,
-    background 120ms ease;
+    border-color var(--dur-hover) ease,
+    background var(--dur-hover) ease;
 }
 
 .live-folder:hover {
@@ -365,9 +365,9 @@
 .live-sidebar--collapsed .live-folder {
   opacity: 0.45;
   transition:
-    opacity 150ms ease,
-    border-color 120ms ease,
-    background 120ms ease;
+    opacity var(--dur-hover) ease,
+    border-color var(--dur-hover) ease,
+    background var(--dur-hover) ease;
 }
 
 .live-sidebar--collapsed .live-folder:hover {
@@ -396,7 +396,7 @@
   color: var(--text);
   white-space: nowrap;
   pointer-events: none;
-  animation: tip-in 120ms ease;
+  animation: tip-in var(--dur-hover) var(--ease-out);
 }
 
 @keyframes tip-in {
@@ -463,8 +463,8 @@
   font-size: 13px;
   cursor: pointer;
   transition:
-    border-color 120ms ease,
-    background 120ms ease;
+    border-color var(--dur-hover) ease,
+    background var(--dur-hover) ease;
 }
 
 .live-status__retry:hover {
@@ -514,7 +514,7 @@
   position: absolute;
   inset: 0 calc(50% - 1px);
   background: transparent;
-  transition: background 120ms ease;
+  transition: background var(--dur-hover) ease;
 }
 
 .guide-resize:hover::after,
@@ -593,7 +593,7 @@
   border: 1px solid var(--border);
   border-radius: 20px;
   overflow: hidden;
-  transition: border-color 120ms ease;
+  transition: border-color var(--dur-hover) ease;
 }
 
 /* No visual selected state on channel cards — the hero (and later the
@@ -669,7 +669,7 @@
   height: 24px;
   color: var(--text); /* the ghost fills with currentColor */
   opacity: 0;
-  transition: opacity 120ms ease;
+  transition: opacity var(--dur-hover) ease;
 }
 
 .guide__channel:hover .guide__fav,
@@ -714,7 +714,7 @@
   border: 1.5px solid color-mix(in srgb, var(--text) 4%, transparent);
   border-radius: 20px;
   overflow: hidden;
-  transition: filter 120ms ease;
+  transition: filter var(--dur-hover) ease;
 }
 
 .guide__cell:hover {

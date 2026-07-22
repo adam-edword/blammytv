@@ -15,8 +15,8 @@ Run with `improve-animations execute <plan>` or hand to any agent.
 | [001](001-press-feedback.md) | Add press feedback to every pressable surface | HIGH | TODO |
 | [002](002-overlay-popover-entrances.md) | Give every overlay, popover, and chip a real entrance | HIGH | TODO |
 | [003](003-vod-source-panel-transitions.md) | Make the VOD source panel interruptible, with a real exit | MEDIUM | TODO |
-| [004](004-motion-tokens.md) | Motion tokens: shared easing curves and duration tiers | HIGH | TODO |
-| [005](005-thumb-physics.md) | Unify sliding-thumb physics; Toggle off layout properties | HIGH | TODO |
+| [004](004-motion-tokens.md) | Motion tokens: shared easing curves and duration tiers | HIGH | DONE (wave A) |
+| [005](005-thumb-physics.md) | Unify sliding-thumb physics; Toggle off layout properties | HIGH | DONE (wave A, trace pending) |
 | [006](006-reduced-motion-pass.md) | Close the reduced-motion gaps | HIGH | TODO |
 | [007](007-hold-to-clear-progress.md) | Hold-to-clear: show the hold's progress | MEDIUM | TODO |
 

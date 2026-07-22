@@ -77,6 +77,17 @@
     1
   );
 
+  /* Motion. Strong curves (built-in ease/linear are too weak for deliberate
+     motion); durations in three tiers — hover/color, entrances/popovers,
+     panels/drawers. UI stays under 300ms; boot/onboarding/welcome are exempt
+     surfaces and keep their own timing. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-hover: 140ms;
+  --dur-enter: 200ms;
+  --dur-panel: 260ms;
+
   /* Type. Families only — sizes/weights are per-component, not tokenized.
      An intense theme (intense-packs.css) may re-point any of these three to
      a bundled family; --font-mono defaults to the system stack so classic

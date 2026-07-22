@@ -1,6 +1,6 @@
 # 004 — Motion tokens: shared easing curves and duration tiers
 
-- **Status**: TODO
+- **Status**: DONE (wave A) — executor notes: vod-panel-in tokenized to `var(--dur-panel) var(--ease-out)` (superseded by plan 003's full conversion); deliberately left unmigrated: live.css sidebar chrome 200ms, mode-label-in (choreographed with the mode rail), stream.css scrim/hold 250–300ms (plan-007 territory), toggle track 220ms (plan-005 pairing), ambient loops. Tilt pair at 300/300 pending its feel-gate.
 - **Commit**: 018a8f4
 - **Severity**: HIGH
 - **Category**: Cohesion & tokens

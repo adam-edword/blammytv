@@ -92,7 +92,7 @@
   background: rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(10px);
   cursor: pointer;
-  transition: background 120ms ease, border-color 120ms ease;
+  transition: background var(--dur-hover) ease, border-color var(--dur-hover) ease;
 }
 
 .tune__retry:hover {
@@ -207,9 +207,9 @@
   cursor: pointer;
   opacity: 0;
   transition:
-    background 120ms ease,
-    border-color 120ms ease,
-    opacity 140ms ease;
+    background var(--dur-hover) ease,
+    border-color var(--dur-hover) ease,
+    opacity var(--dur-hover) ease;
 }
 
 .mini-overlay:hover .overlay__btn {
@@ -259,7 +259,7 @@
  * video under the card — cleaner than blurring DOM chrome. */
 #inv-chrome .mini-overlay,
 #inv-chrome .theater-overlay {
-  transition: opacity 0.2s ease;
+  transition: opacity var(--dur-enter) ease;
 }
 
 :root[data-native-hidden] #inv-chrome .mini-overlay,
@@ -283,7 +283,7 @@
   border-radius: inherit;
   pointer-events: none;
   background: rgba(0, 0, 0, 0);
-  transition: background 0.2s ease;
+  transition: background var(--dur-enter) ease;
 }
 
 /* Modal open: light dim over the still-playing video. (A whole-rim inset
@@ -337,8 +337,8 @@
   cursor: pointer;
   opacity: 0.85;
   transition:
-    opacity 0.12s ease,
-    background 0.12s ease;
+    opacity var(--dur-hover) ease,
+    background var(--dur-hover) ease;
 }
 
 .player__btn:hover {
@@ -399,7 +399,7 @@
   gap: 10px;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.25s ease;
+  transition: opacity var(--dur-enter) ease;
 }
 
 .theater-topleft {
@@ -432,7 +432,7 @@
     transparent 100%
   );
   opacity: 0;
-  transition: opacity 0.25s ease;
+  transition: opacity var(--dur-enter) ease;
 }
 
 .player--active .theater-topscrim {
@@ -457,7 +457,7 @@
   );
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.25s ease;
+  transition: opacity var(--dur-enter) ease;
 }
 
 .player--active .theater-bar {
@@ -621,8 +621,8 @@
   letter-spacing: 0.7px;
   cursor: pointer;
   transition:
-    background 0.12s ease,
-    color 0.12s ease;
+    background var(--dur-hover) ease,
+    color var(--dur-hover) ease;
 }
 
 .theater-live:hover {
@@ -637,8 +637,8 @@
   background: var(--accent);
   opacity: 0.35;
   transition:
-    opacity 0.2s ease,
-    box-shadow 0.2s ease;
+    opacity var(--dur-enter) ease,
+    box-shadow var(--dur-enter) ease;
 }
 
 .theater-live.is-live {
@@ -714,8 +714,8 @@
   text-align: left;
   cursor: pointer;
   transition:
-    background 0.12s ease,
-    color 0.12s ease;
+    background var(--dur-hover) ease,
+    color var(--dur-hover) ease;
 }
 
 .track-menu__item:hover {
@@ -841,7 +841,7 @@
   border: 1px solid rgba(255, 255, 255, 0.22);
   backdrop-filter: blur(16px);
   cursor: pointer;
-  transition: background 140ms ease;
+  transition: background var(--dur-hover) ease;
 }
 .skip-chip:hover {
   background: rgba(0, 0, 0, 0.85);

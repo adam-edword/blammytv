@@ -1709,7 +1709,7 @@ export function Card({
         tiltMaxAngleX={5}
         tiltMaxAngleY={5}
         scale={reducedMotion ? 1 : 1.03}
-        transitionSpeed={650}
+        transitionSpeed={300}
         glareEnable={!reducedMotion}
         glareMaxOpacity={0.12}
         glarePosition="all"

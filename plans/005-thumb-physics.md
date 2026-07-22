@@ -1,6 +1,6 @@
 # 005 — Unify sliding-thumb physics; take the Toggle off layout properties
 
-- **Status**: TODO
+- **Status**: DONE (steps 1–2, wave A); step-3 trace deferred to the owner's machine — record below
 - **Commit**: 018a8f4
 - **Severity**: HIGH (frequency) / MEDIUM (risk-adjusted)
 - **Category**: Performance / Cohesion & tokens
@@ -85,10 +85,15 @@ This gives all three thumbs the same spring family. (Mode rail stays 380ms — i
 
 ## Verification
 
-- **Mechanical**: `pnpm --filter @blammytv/app lint`; `grep -n "left 2" apps/app/src/styles/ui.css` shows `left: 2px` still present exactly twice (base thumb positions), and `grep -n "transition: left" styles/ui.css` returns nothing.
+- **Mechanical**: `pnpm --filter @blammytv/app lint`; `grep -n "left: 2px" apps/app/src/styles/ui.css` shows exactly one hit (the `.toggle__thumb` base position — the ChipTabs thumb gets `left` from inline styles, not CSS), and `grep -n "transition: left" apps/app/src/styles/ui.css` returns nothing. (Corrected post-execution: the original text had a wrong grep pattern, a wrong path, and a wrong count.)
 - **Feel check** (Animations panel at 10%):
   - Toggle: thumb glides with a slight overshoot and settle; flipping rapidly retargets mid-flight, never jumps.
   - Toggle `--sm` variant lands exactly at its old resting spot (18px visual left edge).
   - ChipTabs (settings tabs + header rail): thumb now lands with the same spring settle as the Live mode rail; focus the header search — the thumb still tracks the chip's width morph live.
   - Reduced motion emulated: both thumbs snap instantly (existing gate).
 - **Done when**: all four feel checks pass and the trace result is recorded.
+
+## Trace result
+
+Deferred — requires the app running on the owner's machine (wave A feel-gate).
+Record max Layout ms/frame during a chip switch on the Live screen here.
