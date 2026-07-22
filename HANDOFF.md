@@ -15,8 +15,18 @@ Audience: switchers from other Windows IPTV clients, Stremio users, ideally
 both — and explicitly *inviting to newcomers*; first-five-minutes activation
 weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
-## Live state (2026-07-14, dev v0.5.4 — THE THEMES ERA)
+## Live state (2026-07-22, dev v0.6.2 — the 0.7.0 polish + motion push)
 
+- **🎬 MOTION AUDIT WAVE A LANDED (2026-07-22).** A parallel motion-audit
+  workstream (71 verified findings → 7 plans → 3-wave rollout, all under
+  `plans/`) merged its first wave into `blammytv-0.7.0-push` at v0.6.2:
+  motion tokens in tokens.css (`--ease-*`, `--dur-*` — **use these, no
+  literal curves/durations in new CSS**), app-wide duration migration, and
+  spring-unified thumbs. Waves B (press feedback + overlay entrances) and C
+  pend Adam's feel-gate. **If you are the polish-audit session, read
+  `docs/motion-audit-handoff.md` before touching any transition/animation**
+  — it lists merge resolutions, the one open tilt-tuning question, and the
+  do-not-touch list.
 - **🗝️ KEYBOX ADMIN CLI + unlimited keys (2026-07-14).** `services/keybox/
   scripts/admin.mjs` — `list` (see every key; the DB is otherwise invisible —
   no sqlite3 CLI in the slim image, no Coolify DB viewer), `mint` (a `pass` key
