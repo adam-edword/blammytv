@@ -521,7 +521,20 @@ v0.6.0 (Apple TV parallax) shipped. This cycle is small features and edits
 that really polish the app. **Full polish audit ran 2026-07-22** (6 dimensions,
 adversarially verified, 53 findings): `docs/polish-audit-0.7.0.md` — P1 is
 user-visible small fixes, P2 scheduled work, P3 a mechanical hygiene batch.
-An animations audit ran separately (Adam's session). To-do, in no order yet:
+An animations audit ran separately (Adam's session).
+
+**Audit execution, same day (v0.6.1):** all of P3 landed (4 sweep commits:
+dead code −233 lines, comment drift, debloat — dist 2.3MB→1.1MB via the
+logo.svg swap + the drop-woff Vite plugin — and the CSS quality batch:
+status tokens, glass dedup, supporter hover + !important trim), plus all of
+P1 (playMeta/Card render storms, Stream-empty state, Continue-Watching
+keyboard, playlist arm/confirm delete, tooltips, disabled no-op buttons).
+**Still open: the P2 tier** (retry buttons on Stream/Discover errors,
+Discover failure-vs-empty, focus-visible theming outside Live, ChipTabs
+ARIA, quick-resume silent failure, credential-scrubber tests, sidebar
+memoization, the two TTL-cache implementations, Card/RowScroller extraction,
+z-index scale, glass-chip dedup, dither/kawaii occluders — that last one is
+a per-pack design call, not mechanical). To-do, in no order yet:
 
 - [ ] **Right-click to hide a source folder.** Right-clicking a playlist
       source folder in the Live sidebar (e.g. "4K / UHD Channels") offers
