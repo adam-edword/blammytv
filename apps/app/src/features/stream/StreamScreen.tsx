@@ -1571,6 +1571,11 @@ function Hero({
                 tiltEnable={active && !reducedMotion}
                 tiltMaxAngleX={0.5}
                 tiltMaxAngleY={0.5}
+                // Tilting shrinks the projection on the receding side a
+                // couple px, unveiling the bright glow behind the card's
+                // own edge (read as a rim). The hair of scale keeps the
+                // card covering its footprint at full lean.
+                scale={reducedMotion ? 1 : 1.01}
                 perspective={2500}
                 transitionSpeed={650}
               >

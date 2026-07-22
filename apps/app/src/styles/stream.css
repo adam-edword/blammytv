@@ -71,16 +71,21 @@
   border-radius: 90px;
   pointer-events: none;
   opacity: 0.8; /* Adam's final trim on the whole light layer */
-  /* Radial window. Linear-gradient feathers can't unsquare this halo:
-   * the blurred art's own edge hugs the card rect, so any rectangular
-   * mask leaves a rim you can trace on bright backdrops (Adam, the
-   * Ponyo sky — verified in a rendered harness; widening the feathers
-   * changed nothing). One elliptical falloff instead: light pools at
-   * the edge midpoints and dies into the corners, like a real halo.
-   * The ellipse never clips the CARD's corners visibly — that region
-   * sits behind the opaque card. */
-  -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 55%, transparent 98%);
-  mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 55%, transparent 98%);
+  /* Feathered window: the box reaches ~90px past the card on the sides
+   * and ~52px vertically, and the feather eats only the outer half of
+   * that — so a real halo band survives at strength. (The first feather
+   * pass swallowed the whole halo: 70px falloff on a 24px overscan.)
+   * Don't chase halo-shape artifacts here — the "bright rim on hover"
+   * was the tilted card's projection exposing the glow behind its own
+   * edge; the Tilt scale bump covers it (see Hero). */
+  -webkit-mask-image:
+    linear-gradient(to right, transparent, #000 180px, #000 calc(100% - 180px), transparent),
+    linear-gradient(to bottom, transparent, #000 120px, #000 calc(100% - 120px), transparent);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to right, transparent, #000 180px, #000 calc(100% - 180px), transparent),
+    linear-gradient(to bottom, transparent, #000 120px, #000 calc(100% - 120px), transparent);
+  mask-composite: intersect;
 }
 .shero__glowtrack {
   position: absolute;
