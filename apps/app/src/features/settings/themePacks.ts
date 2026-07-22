@@ -38,6 +38,10 @@ export type ThemePackMeta = {
    * machine holds a Themes Pass (no preview, no per-theme purchase). Also
    * draws the supporter heart on its card. */
   passOnly?: boolean;
+  /** Premium-SHELF theme that costs nothing: listed and styled with the
+   * premium roster, but owned by everyone (license.ts ownsPack) — picking
+   * it commits like a free pack. No price/buyUrl. */
+  freebie?: boolean;
   /** SUGGESTED accent (option-3 pairing): committing this pack applies the
    * hex — but only while the accent is still the default red or another
    * pack's pairing. A hand-picked accent is never touched (accent.ts,
@@ -151,10 +155,7 @@ export const INTENSE_PACKS: ReadonlyArray<ThemePackMeta> = [
     supportsLight: false,
     preview: { bg: "#131126", surface: "#1d1a38", accent: "#7b5bf5" },
     premium: true,
-    price: "$2.50",
-    // PENDING: swap for the live Payment Link after rerunning
-    // setup-stripe.mjs (streamy was added to its ITEMS).
-    buyUrl: "https://buy.stripe.com/PENDING_STREAMY",
+    freebie: true,
     pairedAccent: "#7b5bf5",
   },
   {

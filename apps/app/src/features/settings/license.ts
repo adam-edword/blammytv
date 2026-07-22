@@ -166,6 +166,8 @@ export async function activate(rawKey: string): Promise<ActivateResult> {
  * is a pass or explicitly lists it. No network — reads the cached
  * entitlement, so it holds offline (fail-open). */
 export function ownsPack(id: ThemePackId): boolean {
+  // Premium-shelf freebies are owned by everyone.
+  if (INTENSE_PACKS.find((p) => p.id === id)?.freebie) return true;
   if (THEME_PACKS.some((p) => p.id === id)) return true;
   const entitlement = load<Entitlement | null>(ENTITLEMENT_KEY, VERSION, null);
   if (!entitlement) return false;

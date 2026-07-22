@@ -345,6 +345,7 @@ export function ThemesModal({ onClose }: { onClose: () => void }) {
         </span>
         <span className="tcard__foot">
           <span className="tcard__name">{p.name}</span>
+          {p.freebie && <span className="tcard__price">Free</span>}
           {!owned && p.buyUrl && (
             <a
               className="tcard__price"

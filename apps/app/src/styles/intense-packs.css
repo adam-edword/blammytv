@@ -74,9 +74,13 @@
 }
 
 /* Hovers (c) — static green glow, each with its own transition. Overrides
-   the base filter/opacity hovers rather than animating filter. */
-:root[data-theme-pack="terminal"] .stream-card:hover,
-:root[data-theme-pack="terminal"] .continue-card:hover,
+   the base filter/opacity hovers rather than animating filter. Rings sit on
+   the POSTER/ART element, not the card — the card wraps the caption text
+   too, and a ring around that read as a stray box (Adam). vod-more cards
+   ARE bare posters, so they keep the ring directly. */
+:root[data-theme-pack="terminal"] .stream-card:hover .stream-card__poster,
+:root[data-theme-pack="terminal"] .stream-card:hover .stream-card__mono,
+:root[data-theme-pack="terminal"] .continue-card:hover .continue-card__artwrap,
 :root[data-theme-pack="terminal"] .vod-more__card:hover {
   box-shadow:
     0 0 0 1px rgba(80, 255, 130, 0.6),
@@ -317,8 +321,9 @@
 }
 
 /* Hovers (c) — a crisp mono ring; drop the base brightness filter. */
-:root[data-theme-pack="dither"] .stream-card:hover,
-:root[data-theme-pack="dither"] .continue-card:hover,
+:root[data-theme-pack="dither"] .stream-card:hover .stream-card__poster,
+:root[data-theme-pack="dither"] .stream-card:hover .stream-card__mono,
+:root[data-theme-pack="dither"] .continue-card:hover .continue-card__artwrap,
 :root[data-theme-pack="dither"] .vod-more__card:hover {
   box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.75);
   transition: box-shadow 120ms ease, transform 140ms ease;
@@ -437,8 +442,9 @@
 }
 
 /* Hovers (c) — the pink sparkle ring. */
-:root[data-theme-pack="kawaii"] .stream-card:hover,
-:root[data-theme-pack="kawaii"] .continue-card:hover,
+:root[data-theme-pack="kawaii"] .stream-card:hover .stream-card__poster,
+:root[data-theme-pack="kawaii"] .stream-card:hover .stream-card__mono,
+:root[data-theme-pack="kawaii"] .continue-card:hover .continue-card__artwrap,
 :root[data-theme-pack="kawaii"] .vod-more__card:hover {
   box-shadow:
     0 0 0 1.5px #f2a0c2,
@@ -497,8 +503,9 @@
 }
 
 /* Hovers (c) — a quiet violet ring, the client's focused-card read. */
-:root[data-theme-pack="streamy"] .stream-card:hover,
-:root[data-theme-pack="streamy"] .continue-card:hover,
+:root[data-theme-pack="streamy"] .stream-card:hover .stream-card__poster,
+:root[data-theme-pack="streamy"] .stream-card:hover .stream-card__mono,
+:root[data-theme-pack="streamy"] .continue-card:hover .continue-card__artwrap,
 :root[data-theme-pack="streamy"] .vod-more__card:hover {
   box-shadow:
     0 0 0 1.5px rgba(123, 91, 245, 0.65),

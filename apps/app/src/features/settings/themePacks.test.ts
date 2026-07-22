@@ -113,10 +113,15 @@ describe("themePacks", () => {
     expect(supporter?.passOnly).toBe(true);
     // Never sold per-theme — only via the Pass — so no price/buy link.
     expect(supporter?.buyUrl).toBeUndefined();
-    // Every non-passOnly premium pack IS individually buyable.
-    for (const p of INTENSE_PACKS.filter((p) => !p.passOnly)) {
+    // Every non-passOnly, non-freebie premium pack IS individually buyable.
+    for (const p of INTENSE_PACKS.filter((p) => !p.passOnly && !p.freebie)) {
       expect(p.price).toBeTruthy();
       expect(p.buyUrl).toBeTruthy();
+    }
+    // Freebies (premium shelf, no charge) carry neither.
+    for (const p of INTENSE_PACKS.filter((p) => p.freebie)) {
+      expect(p.price).toBeUndefined();
+      expect(p.buyUrl).toBeUndefined();
     }
   });
 

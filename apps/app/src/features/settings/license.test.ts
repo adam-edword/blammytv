@@ -214,6 +214,8 @@ describe("ownsPack", () => {
     expect(ownsPack("classic")).toBe(true);
     // Nebula went free in v0.6.0.
     expect(ownsPack("nebula")).toBe(true);
+    // Streamy is a premium-shelf FREEBIE — owned by everyone too.
+    expect(ownsPack("streamy")).toBe(true);
   });
 
   it("an intense pack is unowned without an entitlement", () => {
