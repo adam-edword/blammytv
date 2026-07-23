@@ -597,9 +597,7 @@
   border: 1px solid var(--border);
   border-radius: 20px;
   overflow: hidden;
-  transition:
-    border-color var(--dur-hover) ease,
-    filter var(--dur-hover) ease;
+  transition: border-color var(--dur-hover) ease;
 }
 
 /* No visual selected state on channel cards — the hero (and later the
@@ -1079,17 +1077,30 @@
   outline-offset: -1px;
 }
 
-/* ---- Press feedback (motion plan 001; EPG rethought at the wave-B
- * feel-gate). Guide cells/cards are WIDE tiles in a shared-edge grid —
- * a scale press slid their edges while neighbors held still and read
- * as the cell detaching (Adam). Tiles get a SURFACE press instead:
- * darken below rest, like being pushed into the board. Chips and the
- * star keep the scale dip (compact, self-contained). ---- */
-.guide__cell:active {
-  filter: brightness(0.82);
+/* ---- Press feedback (motion plan 001; EPG re-thought twice at the
+ * wave-B feel-gate). Guide cells/cards are WIDE tiles in a shared-edge
+ * grid — a scale press read as the cell detaching, and a brightness
+ * press dimmed the TEXT and barely read on the dark accent surface
+ * (Adam). Final form: a 0.2 black background overlay — presses the
+ * surface only, text never dims, identical on accent --live cells.
+ * Instant on (background-image isn't transitioned) — presses snap,
+ * releases too. Chips and the star keep the scale dip. ---- */
+/* The card's glare host: carries the button's inner flex layout (the
+ * button now has one child) and the rounded, positioned box the glare
+ * overlay clips to. Hover-only sheen — the glare tracks the pointer. */
+.guide__card-shine {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  border-radius: 20px;
 }
+
+.guide__cell:active,
 .guide__card:active {
-  filter: brightness(0.82);
+  background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2));
 }
 .mode-rail__chip:active {
   transform: scale(0.97);

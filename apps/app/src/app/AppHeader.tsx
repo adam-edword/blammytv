@@ -54,6 +54,7 @@ function useClock(): string {
 
 export function AppHeader({
   section,
+  showLive,
   streamTab,
   onSection,
   onStreamTab,
@@ -61,6 +62,8 @@ export function AppHeader({
 }: {
   section: Section;
   streamTab: StreamTab;
+  /** Live tab renders only while a live source is configured. */
+  showLive: boolean;
   onSection: (s: Section) => void;
   onStreamTab: (t: StreamTab) => void;
   onOpenSettings: () => void;
@@ -207,19 +210,23 @@ export function AppHeader({
         >
           <SearchIcon />
         </button>
-        <span className="header__tab-slot">
-          <button
-            type="button"
-            className={
-              "header__tab" + (section === "live" ? " header__tab--active" : "")
-            }
-            onClick={() => onSection("live")}
-          >
-            Live TV
-          </button>
-          {/* The design keeps a fixed divider between Live TV and the rest. */}
-          <span className="header__divider">|</span>
-        </span>
+        {showLive && (
+          <span className="header__tab-slot">
+            <button
+              type="button"
+              className={
+                "header__tab" +
+                (section === "live" ? " header__tab--active" : "")
+              }
+              onClick={() => onSection("live")}
+            >
+              Live TV
+            </button>
+            {/* The design keeps a fixed divider between Live TV and the
+              * rest. */}
+            <span className="header__divider">|</span>
+          </span>
+        )}
         {/* Stream tab + its sub-rail grouped, so their gap tunes
           * independently of the tab cluster's 20px rhythm. */}
         <div className="header__streamgroup">

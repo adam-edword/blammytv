@@ -1,3 +1,4 @@
+import Tilt from "react-parallax-tilt";
 import {
   memo,
   useCallback,
@@ -31,6 +32,12 @@ import {
   xForTime,
 } from "./epg";
 import type { Channel, Programme } from "./model";
+
+// Fixed-at-mount OS motion preference (the StreamScreen pattern): read once
+// at module load.
+const REDUCED_MOTION = window.matchMedia(
+  "(prefers-reduced-motion: reduce)",
+).matches;
 
 /* Grid geometry (Figma 133:500): 189px channel cards, 8px gutters, 60px
  * rows under the ruler. One scroll container; the ruler and channel column
@@ -510,13 +517,28 @@ export const Guide = memo(function Guide({
                   }
                   onClick={() => onSelect(channel.id)}
                 >
-                  <CardLogo key={channel.logo ?? ""} channel={channel} />
-                  <span className="guide__card-meta">
-                    <span className="guide__card-name">{channel.name}</span>
-                    {channel.quality && (
-                      <QualityBadge quality={channel.quality} />
-                    )}
-                  </span>
+                  {/* Glare-only Tilt: the posters' pointer sheen without
+                    * the lean — tiles in a grid must not move (the EPG
+                    * press lesson). tiltEnable stays false; glareEnable
+                    * is constant from mount (the lib only creates the
+                    * glare element then — see the Hero note). */}
+                  <Tilt
+                    className="guide__card-shine"
+                    tiltEnable={false}
+                    glareEnable={!REDUCED_MOTION}
+                    glareMaxOpacity={0.12}
+                    glarePosition="all"
+                    glareBorderRadius="20px"
+                    transitionSpeed={650}
+                  >
+                    <CardLogo key={channel.logo ?? ""} channel={channel} />
+                    <span className="guide__card-meta">
+                      <span className="guide__card-name">{channel.name}</span>
+                      {channel.quality && (
+                        <QualityBadge quality={channel.quality} />
+                      )}
+                    </span>
+                  </Tilt>
                 </button>
                 <button
                   type="button"

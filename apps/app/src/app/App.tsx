@@ -7,6 +7,10 @@ import { shouldPlayWelcome } from "./welcome";
 import { Onboarding } from "./Onboarding";
 import { onOnboardingReplay, shouldShowOnboarding } from "./onboardingGate";
 import { LiveScreen } from "../features/live/LiveScreen";
+import {
+  loadPlaylists,
+  onPlaylistsChange,
+} from "../features/settings/playlists";
 import { StreamScreen } from "../features/stream/StreamScreen";
 import { MyListScreen } from "../features/stream/MyListScreen";
 import { DiscoverScreen } from "../features/discover/DiscoverScreen";
@@ -25,9 +29,25 @@ export function App() {
   // Live TV — coming back lands where you were; the startup setting only
   // decides the launch position. (The stored value stays the flat
   // three-way enum: it's a launch preference, mapped here at boot.)
-  const [section, setSection] = useState<Section>(() =>
-    loadStartupTab() === "live" ? "live" : "stream",
+  // The Live tab exists only while a live source (any playlist kind) is
+  // configured — without one it showed the mock catalog to real users.
+  // Adding a playlist in Settings reveals the tab live; removing the last
+  // one hides it and bounces the section to Stream.
+  const [hasLiveSource, setHasLiveSource] = useState(
+    () => loadPlaylists().length > 0,
   );
+  useEffect(
+    () => onPlaylistsChange(() => setHasLiveSource(loadPlaylists().length > 0)),
+    [],
+  );
+  const [section, setSection] = useState<Section>(() =>
+    loadStartupTab() === "live" && loadPlaylists().length > 0
+      ? "live"
+      : "stream",
+  );
+  useEffect(() => {
+    if (!hasLiveSource) setSection((s) => (s === "live" ? "stream" : s));
+  }, [hasLiveSource]);
   const [streamTab, setStreamTab] = useState<StreamTab>(() =>
     loadStartupTab() === "discover" ? "discover" : "home",
   );
@@ -137,6 +157,7 @@ export function App() {
     <div className="app-shell">
       <AppHeader
         section={section}
+        showLive={hasLiveSource}
         streamTab={streamTab}
         onSection={setSection}
         onStreamTab={setStreamTab}
