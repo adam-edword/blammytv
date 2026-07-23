@@ -1910,8 +1910,15 @@ function ContinueCard({
   const [holding, setHolding] = useState(false);
   const timer = useRef(0);
   const held = useRef(false);
+  // A press longer than this is a HOLD (the clear gesture, abandoned or
+  // not) — releasing must never fall through to opening the show. Under
+  // it, it's a click and opens. The holdbar is ~1/3 full at the cutoff,
+  // so the visual and the intent boundary roughly agree (Adam).
+  const CLICK_MAX_MS = 350;
+  const pressAt = useRef(0);
   const start = () => {
     held.current = false;
+    pressAt.current = Date.now();
     setHolding(true);
     timer.current = window.setTimeout(() => {
       held.current = true;
@@ -1923,6 +1930,8 @@ function ContinueCard({
     window.clearTimeout(timer.current);
     setHolding(false);
   };
+  const wasClick = () =>
+    !held.current && Date.now() - pressAt.current < CLICK_MAX_MS;
   return (
     // div+role, not <button>: the Sources chip nests a real button inside.
     <div
@@ -1933,7 +1942,7 @@ function ContinueCard({
       onPointerUp={cancel}
       onPointerLeave={cancel}
       onClick={() => {
-        if (!held.current) onOpen();
+        if (wasClick()) onOpen();
       }}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
