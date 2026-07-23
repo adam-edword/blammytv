@@ -184,19 +184,10 @@
    shows behind #player-slot / the hero preview), so no data-frost fallback is
    needed here.
 
-   The sticky occluders (channel column + ruler corner) stay
-   translucent-not-transparent: scrolling cells behind them read as a soft
-   frosted blur instead of bleeding through sharp. */
-
-/* The time ruler, the channel-column strip, and its top corner were solid --bg
-   black. Transparent so the ticks and channel cards float over the aura — the
-   column itself carries no background; only the cards do. (Program cells that
-   slide under the sticky column now read through the glass cards, blurred.) */
-:root[data-theme-pack="supporter"] .guide__ruler,
-:root[data-theme-pack="supporter"] .guide__corner,
-:root[data-theme-pack="supporter"] .guide__channel {
-  background: transparent;
-}
+   The guide's ruler/corner/channel strips are transparent in the BASE
+   sheet (the floating-guide look, all themes) — no override needed; the
+   aura shows through, and program cells sliding under the sticky column
+   read through the glass CARDS, blurred. */
 
 /* Frosted glass on every EPG panel + card. Flat #00000040 (25% black) over the
    static blur — lighter than the default card-glass so the aura reads through. */
@@ -486,16 +477,9 @@
   transition: box-shadow var(--dur-hover) ease;
 }
 
-/* The board gradient is OPAQUE and diagonal, so the guide's flat --bg
-   occluders would read as dark patches against the indigo corner. Frost
-   them instead (the Supporter recipe — static backdrop blur, WebView2-safe):
-   they still hide the cells scrolling beneath, but blend with the sweep. */
-:root[data-theme-pack="streamy"] .guide__ruler,
-:root[data-theme-pack="streamy"] .guide__corner,
-:root[data-theme-pack="streamy"] .guide__channel {
-  background: rgba(12, 11, 17, 0.45);
-  backdrop-filter: blur(10px);
-}
+/* The guide's ruler/corner/channel strips are transparent in the BASE
+   sheet now (floating-guide look, all themes) — the old frosted occluders
+   here predate that and read as bars against the sweep. */
 
 /* Press restatements (wave-B feel-gate + the pre-release review):
  * live.css's base overlay press loses wherever a pack re-backgrounds

@@ -530,20 +530,14 @@
   position: relative;
 }
 
+/* NO background, on every theme (feel-gate: even the translucent scrim
+ * read as a bar over textured backgrounds). The ticks ride brighter text
+ * instead; rows vertically scrolled under the band overlap them for a
+ * moment — accepted trade for the floating look. */
 .guide__ruler {
   position: sticky;
   top: 0;
   z-index: 3;
-  /* The header's scrim recipe, not a solid slab: rows scroll under the
-   * sticky ruler, so the ticks need occlusion — but a flat var(--bg) bar
-   * reads as a black stripe on textured themes. Strong at the top (the
-   * ticks sit at top: 2px) and fading out, so the theme breathes through
-   * while anything sliding beneath the text line stays dimmed. */
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--bg) 88%, transparent) 60%,
-    transparent
-  );
 }
 
 .guide__tick {
@@ -552,23 +546,21 @@
   font-family: var(--font-headline);
   font-weight: 500;
   font-size: 13px;
-  color: var(--text-dim);
+  /* Brighter than --text-dim: with no bar behind them, the ticks carry
+   * their own readability over any theme's texture. */
+  color: var(--text);
+  opacity: 0.75;
   white-space: nowrap;
 }
 
-/* Blanks out ticks sliding beneath the channel column — same scrim
- * recipe as the ruler so the two are seamless (88% at the tick line is
- * enough to swallow the 13px dim tick text passing under). */
+/* Keeps ticks' sticky geometry over the channel column; transparent like
+ * the ruler (ticks now just slide across the band, over the theme). Kept
+ * as an element for packs that restyle it. */
 .guide__corner {
   position: sticky;
   left: 0;
   z-index: 1;
   height: 100%;
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--bg) 88%, transparent) 60%,
-    transparent
-  );
 }
 
 .guide__row {
@@ -583,20 +575,21 @@
 
 /* ------------------------------------------------ guide channel column */
 
-/* Sticky, opaque, and a hair wider than the card so cells vanish under
- * it instead of peeking through the gutter. */
+/* Sticky, a hair wider than the card. TRANSPARENT on every theme
+ * (feel-gate): the cards themselves (var(--surface)) occlude cells
+ * sliding beneath — only the 8px gutter lets them peek through, which
+ * reads as content passing behind a floating column. */
 .guide__channel {
   position: sticky;
   left: 0;
   z-index: 2;
   display: flex;
-  /* Card width + the 8px gutter (kept inside the occluder). Driven by the
-   * resizable column (JS sets --guide-card-w on .guide-wrap). */
+  /* Card width + the 8px gutter. Driven by the resizable column
+   * (JS sets --guide-card-w on .guide-wrap). */
   width: calc(var(--guide-card-w, 189px) + 8px);
   height: 100%;
   padding-right: 8px;
-  padding-bottom: 8px; /* the row gap, kept inside the occluder */
-  background: var(--bg);
+  padding-bottom: 8px; /* the row gap */
 }
 
 .guide__card {
