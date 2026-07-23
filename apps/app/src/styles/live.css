@@ -597,8 +597,9 @@
   border: 1px solid var(--border);
   border-radius: 20px;
   overflow: hidden;
-  transition: border-color var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
+  transition:
+    border-color var(--dur-hover) ease,
+    filter var(--dur-hover) ease;
 }
 
 /* No visual selected state on channel cards — the hero (and later the
@@ -720,8 +721,7 @@
   border: 1.5px solid color-mix(in srgb, var(--text) 4%, transparent);
   border-radius: 20px;
   overflow: hidden;
-  transition: filter var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
+  transition: filter var(--dur-hover) ease;
 }
 
 .guide__cell:hover {
@@ -1079,14 +1079,17 @@
   outline-offset: -1px;
 }
 
-/* ---- Press feedback (motion plan 001). Cards/cells 0.98, chips 0.97,
- * the tiny star dips deeper to read; its press composes with the
- * centering translate. ---- */
+/* ---- Press feedback (motion plan 001; EPG rethought at the wave-B
+ * feel-gate). Guide cells/cards are WIDE tiles in a shared-edge grid —
+ * a scale press slid their edges while neighbors held still and read
+ * as the cell detaching (Adam). Tiles get a SURFACE press instead:
+ * darken below rest, like being pushed into the board. Chips and the
+ * star keep the scale dip (compact, self-contained). ---- */
 .guide__cell:active {
-  transform: scale(0.98);
+  filter: brightness(0.82);
 }
 .guide__card:active {
-  transform: scale(0.98);
+  filter: brightness(0.82);
 }
 .mode-rail__chip:active {
   transform: scale(0.97);

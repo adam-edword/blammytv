@@ -502,3 +502,16 @@
   background: rgba(12, 11, 17, 0.45);
   backdrop-filter: blur(10px);
 }
+
+/* Press on guide cells under the intense packs (wave-B feel-gate): the
+ * ring hovers set filter:none, so live.css's brightness press is inert
+ * here. A static background-image dim presses instead — instant swap,
+ * no filter animation (supporter's cells are backdrop-filtered; see the
+ * guardrails above). --live cells keep their accent identity. */
+:root[data-theme-pack="terminal"] .guide__cell:active:not(.guide__cell--live),
+:root[data-theme-pack="dither"] .guide__cell:active:not(.guide__cell--live),
+:root[data-theme-pack="kawaii"] .guide__cell:active:not(.guide__cell--live),
+:root[data-theme-pack="streamy"] .guide__cell:active:not(.guide__cell--live),
+:root[data-theme-pack="supporter"] .guide__cell:active:not(.guide__cell--live) {
+  background-image: linear-gradient(rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.22));
+}

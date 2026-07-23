@@ -12,7 +12,7 @@ Run with `improve-animations execute <plan>` or hand to any agent.
 
 | Plan | Title | Severity | Status |
 | --- | --- | --- | --- |
-| [001](001-press-feedback.md) | Add press feedback to every pressable surface | HIGH | DONE (wave B) |
+| [001](001-press-feedback.md) | Add press feedback to every pressable surface | HIGH | DONE (wave B; feel-gate: EPG tiles re-pressed as brightness dip, not scale — wide shared-edge tiles read as detaching when scaled (Adam)) |
 | [002](002-overlay-popover-entrances.md) | Give every overlay, popover, and chip a real entrance | HIGH | DONE (wave B; feel-gate = the @starting-style WebView2 smoke test) |
 | [003](003-vod-source-panel-transitions.md) | Make the VOD source panel interruptible, with a real exit | MEDIUM | TODO |
 | [004](004-motion-tokens.md) | Motion tokens: shared easing curves and duration tiers | HIGH | DONE (wave A) |
