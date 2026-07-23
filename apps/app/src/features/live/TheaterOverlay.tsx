@@ -144,6 +144,18 @@ export function TheaterOverlay({
   const [tracks, setTracks] = useState<Tracks | null>(
     () => api()?.getTracks?.() ?? null,
   );
+  // New file = new track list, but the bridge only pushes it a poll later.
+  // Drop the stale list IN RENDER (before effects fire), or the VOD apply
+  // effect below would burn its once-per-key guard matching remembered
+  // languages against the PREVIOUS episode's tracks — and then skip the
+  // real list when it lands, resetting subs at every episode boundary.
+  // (The bridge resets its dedupe json on the same URL change, so the
+  // fresh list always re-pushes even when it's identical.)
+  const [tracksKey, setTracksKey] = useState(playbackKey);
+  if (playbackKey !== tracksKey) {
+    setTracksKey(playbackKey);
+    setTracks(null);
+  }
   const [menu, setMenu] = useState<"audio" | "subs" | "speed" | null>(null);
   // Stats-for-nerds panel (theater/fullscreen only). Telemetry comes straight
   // from the mpv_stats Tauri command, so it's gated on running in the shell.

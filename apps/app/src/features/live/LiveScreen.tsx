@@ -438,8 +438,8 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   useEffect(() => () => window.clearTimeout(toastTimer.current), []);
   const hideFolderNow = useCallback(
     (groupId: string, folderId: string, name: string) => {
-      // The mock catalog (and any group without a stored playlist) has
-      // nothing to persist into — a hide there would toast a lie.
+      // A group without a stored playlist has nothing to persist into —
+      // a hide there would toast a lie.
       if (!loadPlaylists().some((p) => p.id === groupId)) return;
       // folder.id is `${playlistId}:${categoryId}` (source.ts#folderId);
       // hiddenCategories stores the RAW category id — slice by the known
@@ -539,8 +539,9 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
     programme: Programme | null;
   } | null>(null);
 
-  // The live catalog: real Xtream playlists when any are configured, the
-  // bundled mock otherwise. Loaded once up front (the old build's proven
+  // The live catalog, from the configured playlists (this screen only
+  // renders with at least one enabled). Loaded once up front (the old
+  // build's proven
   // strategy), served from the session cache on remounts (tab switches
   // unmount this screen), and re-fetched when the playlists change in
   // Settings.
@@ -739,7 +740,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   // its URL, Xtream rebuilds it synchronously under the hood, and Stalker
   // exchanges the channel's cmd via create_link — so the URL lands in state
   // one tick later and the player mounts then (imperceptible for the sync
-  // kinds). A null url (mock catalog, browser build, resolve failure) means
+  // kinds). A null url (browser build, resolve failure) means
   // no player mounts. Keyed on the channel ID, not the object — a background
   // data refresh must not re-resolve (a fresh Stalker link would rebuild the
   // player mid-watch); the ref carries the current object into the effect.
@@ -1099,8 +1100,8 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
               }
             />
             {/* Headless: opens mpv into #player-slot and follows the box.
-             * Only in Tauri with a real stream URL, so browser/mock is
-             * untouched. */}
+             * Only in Tauri with a real stream URL, so the browser build
+             * is untouched. */}
             {playUrl && (
               <InvertedPlayer
                 url={playUrl}
