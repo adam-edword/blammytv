@@ -51,6 +51,18 @@
       scale(0.965);
   }
 }
+/* Exit (Adam): quick fade + slight scale-down — the system responding,
+ * not performing. Overrides the entrance's 460ms drawer transition and
+ * swallows input while departing. */
+.settings--closing {
+  opacity: 0;
+  transform: perspective(1400px) rotateX(0deg) translateY(0) scale(0.97);
+  transition:
+    opacity 150ms var(--ease-out),
+    transform 150ms var(--ease-out);
+  pointer-events: none;
+}
+
 /* Phase two: the card lands, THEN its direct children (header/body — not
  * inner controls) rise into it. Two-phase arrival is the intent signal. */
 .settings > * {
@@ -1144,5 +1156,9 @@
     .chip-select__menu {
       transform: none;
     }
+  }
+  .settings--closing {
+    transform: none;
+    transition: opacity 150ms var(--ease-out);
   }
 }

@@ -597,6 +597,11 @@
     transform: scale(0.96);
   }
 }
+/* Exit: the resting transform above out-cascades .settings--closing's
+ * (same specificity, later file) — restate the centered scale-down. */
+.themes-modal.settings--closing {
+  transform: scale(0.97);
+}
 @media (prefers-reduced-motion: reduce) {
   @starting-style {
     .themes-modal {

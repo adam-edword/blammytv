@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useClosingExit } from "./useClosingExit";
 import { createPortal } from "react-dom";
 import { HexColorInput, HexColorPicker } from "react-colorful";
 import {
@@ -261,13 +262,15 @@ export function ThemesModal({ onClose }: { onClose: () => void }) {
   };
 
   // ---- modal lifecycle: Esc closes; unmount reverts a live preview -------
+  const { closing, requestClose } = useClosingExit(onClose);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") requestClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+    // requestClose carries its own closing guard; re-binding is harmless.
+  });
 
   useEffect(() => {
     return () => {
@@ -372,9 +375,11 @@ export function ThemesModal({ onClose }: { onClose: () => void }) {
   };
 
   return createPortal(
-    <div className="modal-backdrop modal-backdrop--center" onClick={onClose}>
+    <div className="modal-backdrop modal-backdrop--center" onClick={requestClose}>
       <section
-        className="settings themes-modal"
+        className={
+          "settings themes-modal" + (closing ? " settings--closing" : "")
+        }
         role="dialog"
         aria-label="Themes"
         onClick={(e) => e.stopPropagation()}
@@ -386,7 +391,7 @@ export function ThemesModal({ onClose }: { onClose: () => void }) {
             type="button"
             className="settings__close"
             aria-label="Close themes"
-            onClick={onClose}
+            onClick={requestClose}
           >
             <CloseIcon />
           </button>
