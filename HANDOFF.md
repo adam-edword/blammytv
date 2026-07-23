@@ -15,7 +15,20 @@ Audience: switchers from other Windows IPTV clients, Stremio users, ideally
 both — and explicitly *inviting to newcomers*; first-five-minutes activation
 weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
-## Live state (2026-07-22, dev v0.6.2 — the 0.7.0 polish + motion push)
+## Live state (2026-07-23, dev v0.6.20 — 0.7.0 scope COMPLETE, pre-release)
+
+**All three motion waves are LANDED** (plans/README.md has per-plan status),
+the polish audit (P1+P2+P3) is fully executed, and the 0.7.0 features are
+shipped: hover-eye + right-click hide-folder with undo toast and optimistic
+filtering, Live-tab gating on enabled playlists, the first-frame hole gate
+(desktop-through-the-hole fix), modal sheet-drop entrance + 150ms exits,
+EPG surface press + pointer spotlight, hold-to-clear progress + 350ms
+click/hold classifier. A fresh-eyes pre-release review (31 verified
+findings) was executed on 2026-07-23 — see the review-fix commit. Remaining
+before tag: Adam's Windows pass + the release drill (versions incl.
+tauri.conf/Cargo jump at the release commit).
+
+## Historical (2026-07-22, dev v0.6.2 — superseded by the above)
 
 - **🎬 MOTION AUDIT WAVE A LANDED (2026-07-22).** A parallel motion-audit
   workstream (71 verified findings → 7 plans → 3-wave rollout, all under

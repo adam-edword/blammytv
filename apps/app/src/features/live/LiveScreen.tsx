@@ -385,8 +385,20 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
     name: string;
   } | null>(null);
   const folderMenuRef = useRef<HTMLDivElement | null>(null);
+  const folderMenuRef2 = useRef<typeof folderMenu>(null);
+  folderMenuRef2.current = folderMenu;
+  /** K: the element that invoked the menu — focus returns to it on close
+   * (Escape/click-away/hide), so keyboard users keep their place. */
+  const menuInvokerRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     if (!folderMenu) return;
+    // Capture the invoker once per open (the folder row still holds focus
+    // at this point; the menu's autoFocus steals it a tick later).
+    if (!(menuInvokerRef.current instanceof HTMLElement))
+      menuInvokerRef.current =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null;
     const onDown = (e: MouseEvent) => {
       if (!folderMenuRef.current?.contains(e.target as Node))
         setFolderMenu(null);
@@ -400,6 +412,15 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
       document.removeEventListener("mousedown", onDown);
       window.removeEventListener("keydown", onKey);
     };
+  }, [folderMenu]);
+  // Focus returns to the invoking row when the menu closes (it may be
+  // gone after a hide — closest surviving ancestor list handles that by
+  // simply not focusing).
+  useEffect(() => {
+    if (folderMenu) return;
+    const el = menuInvokerRef.current;
+    menuInvokerRef.current = null;
+    if (el && el.isConnected) el.focus();
   }, [folderMenu]);
   /** Optimistically-hidden folder ids: a hide must vanish INSTANTLY, but
    * hiddenCategories is part of the disk-cache fingerprint, so the real
@@ -417,6 +438,9 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   useEffect(() => () => window.clearTimeout(toastTimer.current), []);
   const hideFolderNow = useCallback(
     (groupId: string, folderId: string, name: string) => {
+      // The mock catalog (and any group without a stored playlist) has
+      // nothing to persist into — a hide there would toast a lie.
+      if (!loadPlaylists().some((p) => p.id === groupId)) return;
       // folder.id is `${playlistId}:${categoryId}` (source.ts#folderId);
       // hiddenCategories stores the RAW category id — slice by the known
       // playlist prefix. Same store + signal as the Settings editor, so
@@ -446,11 +470,33 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
     },
     [],
   );
+  // NOT inside the setFolderMenu updater: updaters must be pure
+  // (StrictMode double-invokes them — a toggle inside ran twice and the
+  // hide silently un-persisted; the codebase documented this exact bug
+  // class on StreamScreen's Back pop).
+  /** G: clamp to the viewport (fixed coords, zoomed space) so a
+   * bottom-edge right-click can't push the menu off-screen. */
+  const openFolderMenu = useCallback(
+    (m: {
+      x: number;
+      y: number;
+      groupId: string;
+      folderId: string;
+      name: string;
+    }) => {
+      const zoom = Number(document.documentElement.style.zoom || 1);
+      setFolderMenu({
+        ...m,
+        x: Math.min(m.x, window.innerWidth / zoom - 300),
+        y: Math.min(m.y, window.innerHeight / zoom - 96),
+      });
+    },
+    [],
+  );
   const hideFolder = useCallback(() => {
-    setFolderMenu((m) => {
-      if (m) hideFolderNow(m.groupId, m.folderId, m.name);
-      return null;
-    });
+    const m = folderMenuRef2.current;
+    setFolderMenu(null);
+    if (m) hideFolderNow(m.groupId, m.folderId, m.name);
   }, [hideFolderNow]);
 
   // Stable handlers for the memoized SidebarSources (setTip is stable by
@@ -563,14 +609,20 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   useEffect(() => {
     if (live.status !== "ready") return;
     const { channels, groups } = live.data;
-    if (channels.length && !channels.some((c) => c.id === channelId))
+    if (channels.length && !channels.some((c) => c.id === channelId)) {
+      // The selected channel vanished (hidden/removed). Adopting the
+      // catalog's first channel is fine for a parked selection — but if
+      // it was PLAYING, auto-tuning an unrelated channel is a jumpscare:
+      // stop instead (hiding the folder you're watching means stop).
+      if (playing) setPlaying(false);
       setChannelId(channels[0].id);
+    }
     if (
       folder &&
       !groups.some((g) => g.folders.some((f) => f.id === folder))
     )
       setFolder(null);
-  }, [live, channelId, folder]);
+  }, [live, channelId, folder, playing]);
 
   // Favorites and recents live here (not in the guide) because the modes
   // filter on them. Selecting a channel records it as recent.
@@ -919,7 +971,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
             onToggleGroup={toggleGroup}
             onPickFolder={pickFolder}
             onTip={setTip}
-            onFolderMenu={setFolderMenu}
+            onFolderMenu={openFolderMenu}
             onHideFolder={hideFolderNow}
           />
         )}
@@ -939,41 +991,52 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
         </div>
       )}
 
-      {folderMenu && (
-        <div
-          ref={folderMenuRef}
-          className="folder-menu"
-          role="menu"
-          aria-label={`${folderMenu.name} options`}
-          style={{ left: folderMenu.x, top: folderMenu.y }}
-        >
-          <button
-            type="button"
-            role="menuitem"
-            className="folder-menu__item"
-            autoFocus
-            onClick={hideFolder}
+      {/* Portaled: fixed overlays inside .app-shell get cut by the
+        * player's clip hole (theater mode carved the toast/menu away). */}
+      {folderMenu &&
+        createPortal(
+          <div
+            ref={folderMenuRef}
+            className="folder-menu"
+            role="menu"
+            aria-label={`${folderMenu.name} options`}
+            style={{ left: folderMenu.x, top: folderMenu.y }}
           >
-            Hide &ldquo;{folderMenu.name}&rdquo;
-          </button>
-          <p className="folder-menu__hint">
-            Unhide any time in Settings &rarr; Playlists.
-          </p>
-        </div>
-      )}
+            <button
+              type="button"
+              role="menuitem"
+              className="folder-menu__item"
+              aria-describedby="folder-menu-hint"
+              autoFocus
+              onClick={hideFolder}
+            >
+              Hide &ldquo;{folderMenu.name}&rdquo;
+            </button>
+            <p
+              className="folder-menu__hint"
+              id="folder-menu-hint"
+              role="none"
+            >
+              Unhide any time in Settings &rarr; Playlists.
+            </p>
+          </div>,
+          document.body,
+        )}
 
-      {toast && (
-        <div className="live-toast" role="status">
-          <span className="live-toast__msg">{toast.msg}</span>
-          <button
-            type="button"
-            className="live-toast__undo"
-            onClick={toast.undo}
-          >
-            Undo
-          </button>
-        </div>
-      )}
+      {toast &&
+        createPortal(
+          <div className="live-toast" role="status">
+            <span className="live-toast__msg">{toast.msg}</span>
+            <button
+              type="button"
+              className="live-toast__undo"
+              onClick={toast.undo}
+            >
+              Undo
+            </button>
+          </div>,
+          document.body,
+        )}
 
       <div className="live-main">
         {live.status === "loading" && (

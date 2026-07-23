@@ -863,11 +863,11 @@
   border: 1px solid rgba(255, 255, 255, 0.22);
   backdrop-filter: blur(16px);
   cursor: pointer;
-  transition: background var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
 
   /* Entrance (motion plan 002). Close stays instant — deliberate. */
+  /* ONE declaration (a duplicate killed the hover background fade). */
   transition:
+    background var(--dur-hover) ease,
     opacity 200ms var(--ease-out),
     transform 200ms var(--ease-out);
 }

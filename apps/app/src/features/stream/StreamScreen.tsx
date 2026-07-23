@@ -309,10 +309,17 @@ export function StreamScreen() {
             ? { ...v, item: full }
             : v,
         );
-      setMetaState({ id: item.id, s: "ready" });
+      // Only the resolve for the item still being tracked may settle the
+      // state — a slow resolve for a LEFT screen was clobbering the next
+      // screen's pending into a false "No episodes listed".
+      setMetaState((m) =>
+        m?.id === item.id ? { id: item.id, s: "ready" } : m,
+      );
     } catch {
       // Best-effort: the light item still renders; Detail offers retry.
-      setMetaState({ id: item.id, s: "failed" });
+      setMetaState((m) =>
+        m?.id === item.id ? { id: item.id, s: "failed" } : m,
+      );
     }
   }, []);
   const open = useCallback(async (item: VodItem) => {
@@ -1930,8 +1937,14 @@ function ContinueCard({
     window.clearTimeout(timer.current);
     setHolding(false);
   };
-  const wasClick = () =>
-    !held.current && Date.now() - pressAt.current < CLICK_MAX_MS;
+  const wasClick = () => {
+    // No pointerdown preceded this click (screen-reader / synthetic
+    // activation) — it IS a click; the 350ms rule only judges presses.
+    if (pressAt.current === 0) return !held.current;
+    const ok = !held.current && Date.now() - pressAt.current < CLICK_MAX_MS;
+    pressAt.current = 0;
+    return ok;
+  };
   return (
     // div+role, not <button>: the Sources chip nests a real button inside.
     <div
@@ -1945,6 +1958,9 @@ function ContinueCard({
         if (wasClick()) onOpen();
       }}
       onKeyDown={(e) => {
+        // Keys aimed at the nested Sources chip (a real button) must not
+        // bubble into card actions — Enter there was quick-resuming.
+        if (e.target !== e.currentTarget) return;
         if (e.key === "Enter" || e.key === " ") {
           // Space also pages the scroll container without this.
           e.preventDefault();

@@ -547,7 +547,20 @@ not mechanical. To-do, in no order yet:
       together; Live refreshes silently on the playlists-change signal);
       hiding the currently-filtered folder clears the filter. Keyboard
       menu-key anchors on the row; Escape/click-away dismiss; plan-002
-      entrance language, instant close.
+      entrance language, instant close. **Follow-ups (same cycle):** hover
+      EYE on folder rows (guide-star pattern) as the primary path with a
+      bottom-center undo TOAST; optimistic pending-hidden filtering (the
+      hide pipeline is a full cache-fingerprint reload — seconds — so the
+      sidebar AND guide filter instantly and reconcile on land); portaled
+      menu/toast (clip-hole safe) + focus restore + viewport clamp.
+
+Also landed this cycle (post-audit): the first-frame hole gate (tune no
+longer shows the DESKTOP through the shell's clip hole — InvertedPlayer
+holds it closed until mpv presents), Live tab gated on ENABLED playlists
+(kills the mock-catalog leak), abandoned-hold click classifier (350ms),
+modal sheet-drop entrance + quick exits, EPG surface press + pointer
+spotlight (1000px/0.07), and the 2026-07-23 fresh-eyes pre-release review
+(31 verified findings, all executed — see the review-fix commit).
 
 **Live-tab accessibility pass — LANDED (v0.1.98).** The batch from the v0.1.71
 audit: keyboard-operable channel-column resize separator (`role=separator` +

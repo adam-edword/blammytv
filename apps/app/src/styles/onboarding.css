@@ -428,7 +428,7 @@
   cursor: pointer;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
   transition:
-    transform 160ms var(--ease-out), 1, 0.36, 1),
+    transform 160ms var(--ease-out),
     box-shadow 180ms ease;
 }
 .onb-swatch:hover {

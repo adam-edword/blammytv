@@ -33,17 +33,14 @@ export function App() {
   // configured — without one it showed the mock catalog to real users.
   // Adding a playlist in Settings reveals the tab live; removing the last
   // one hides it and bounces the section to Stream.
-  const [hasLiveSource, setHasLiveSource] = useState(
-    () => loadPlaylists().length > 0,
-  );
+  const hasEnabledPlaylist = () => loadPlaylists().some((p) => p.enabled);
+  const [hasLiveSource, setHasLiveSource] = useState(hasEnabledPlaylist);
   useEffect(
-    () => onPlaylistsChange(() => setHasLiveSource(loadPlaylists().length > 0)),
+    () => onPlaylistsChange(() => setHasLiveSource(hasEnabledPlaylist())),
     [],
   );
   const [section, setSection] = useState<Section>(() =>
-    loadStartupTab() === "live" && loadPlaylists().length > 0
-      ? "live"
-      : "stream",
+    loadStartupTab() === "live" && hasEnabledPlaylist() ? "live" : "stream",
   );
   useEffect(() => {
     if (!hasLiveSource) setSection((s) => (s === "live" ? "stream" : s));

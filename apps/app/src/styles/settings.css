@@ -37,7 +37,9 @@
    * hinge around its top edge (perspective() self-applied; the resting
    * transform keeps the same function list so the pair interpolates).
    * Its CONTENT then settles in ~70ms behind it — see .settings > *.
-   * Close stays instant — deliberate asymmetry. */
+   * The exit is .settings--closing below: 150ms fade + settle — the
+   * asymmetry is 460ms in, 150ms out (NOT instant; do not delete the
+   * closing state as dead code). */
   transform-origin: top right;
   transform: perspective(1400px) rotateX(0deg) translateY(0) scale(1);
   transition:

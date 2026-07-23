@@ -503,12 +503,23 @@
   backdrop-filter: blur(10px);
 }
 
-/* Press on supporter's guide cells (wave-B feel-gate): live.css's base
- * overlay press loses to this pack's higher-specificity background
- * SHORTHAND (which resets background-image), so the dim is restated
- * here. The other packs keep the base cell background and ride the
- * base rule. Static swap — no filter animation on backdrop-filtered
- * cells (guardrails above). */
-:root[data-theme-pack="supporter"] .guide__cell:active:not(.guide__cell--live) {
+/* Press restatements (wave-B feel-gate + the pre-release review):
+ * live.css's base overlay press loses wherever a pack re-backgrounds
+ * the surface with a higher-specificity SHORTHAND (which resets
+ * background-image) — supporter/slate/kawaii cells, slate/supporter
+ * channel cards. Static swap — no filter animation on supporter's
+ * backdrop-filtered cells (guardrails above). Kawaii's light candy
+ * cells press with a gentler dim. */
+:root[data-theme-pack="supporter"] .guide__cell:active:not(.guide__cell--live),
+:root[data-theme-pack="slate"]
+  .guide__cell:active:not(.guide__cell--live):not(.guide__cell--blank) {
+  background-image: linear-gradient(rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.22));
+}
+:root[data-theme-pack="kawaii"]
+  .guide__cell:active:not(.guide__cell--live):not(.guide__cell--blank) {
+  background-image: linear-gradient(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.1));
+}
+:root[data-theme-pack="slate"] .guide__card:active,
+:root[data-theme-pack="supporter"] .guide__card:active {
   background-image: linear-gradient(rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.22));
 }

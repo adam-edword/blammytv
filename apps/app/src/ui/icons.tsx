@@ -364,6 +364,7 @@ export function ExternalLinkIcon({ size = 16, className }: IconProps) {
 }
 
 /** Edit / Pipette — the color-picker eyedropper. */
+/* (pipette doc comment restored below — EyeOffIcon slotted in above it) */
 /** Crossed-out eye — the sidebar's hover-revealed "hide this folder". */
 export function EyeOffIcon({ size = 16, className }: IconProps) {
   return (

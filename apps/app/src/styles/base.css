@@ -583,12 +583,14 @@ button {
         #85cbd4, #84ffa9, #c1f294, #ffe57f, #ff9b9b
       ) border-box;
   animation: update-ring-turn 9s linear infinite;
-  transition: filter var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
 
   transform-origin: top center;
   /* Entrance (motion plan 002). Close stays instant — deliberate. */
+  /* ONE declaration — a second transition: in this rule silently killed
+   * the hover filter fade (last-wins). Press transform rides the
+   * entrance duration deliberately: this chip appears rarely. */
   transition:
+    filter var(--dur-hover) ease,
     opacity 260ms var(--ease-out),
     transform 260ms var(--ease-out);
 }

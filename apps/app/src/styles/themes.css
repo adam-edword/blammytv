@@ -603,6 +603,13 @@
   transform: scale(0.97);
 }
 @media (prefers-reduced-motion: reduce) {
+  /* Fade-only exit: without this the restated scale above SNAPS (the
+   * reduced-motion transition covers opacity only). */
+  .themes-modal.settings--closing {
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
   @starting-style {
     .themes-modal {
       transform: none;
