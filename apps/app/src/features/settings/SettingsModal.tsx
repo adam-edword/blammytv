@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { CloseIcon } from "../../ui/icons";
+import { useClosingExit } from "./useClosingExit";
 import { ChipTabs } from "../../ui/ChipTabs";
 import { PlaylistsTab } from "./PlaylistsTab";
 import { AioStreamsTab } from "./AioStreamsTab";
@@ -26,23 +27,26 @@ export function SettingsModal({
   onOpenThemes: () => void;
 }) {
   const [tab, setTab] = useState<SettingsTab>("playlists");
+  const { closing, requestClose } = useClosingExit(onClose);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") requestClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+    // requestClose is stable-enough (state guard inside); re-binding per
+    // closing flip is harmless.
+  });
 
   // Portaled OUT of .app-shell: with the inverted player, the shell carries
   // a clip-path hole where the video shows — a modal rendered inside it
   // would have that hole cut through its middle. On body, the modal paints
   // above everything and the video keeps playing behind the backdrop.
   return createPortal(
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop" onClick={requestClose}>
       <section
-        className="settings"
+        className={"settings" + (closing ? " settings--closing" : "")}
         role="dialog"
         aria-label="Settings"
         onClick={(e) => e.stopPropagation()}
@@ -54,7 +58,7 @@ export function SettingsModal({
             type="button"
             className="settings__close"
             aria-label="Close settings"
-            onClick={onClose}
+            onClick={requestClose}
           >
             <CloseIcon />
           </button>

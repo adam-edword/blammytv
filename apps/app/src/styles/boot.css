@@ -34,7 +34,6 @@
  * 51.5px-high position). The splash is fixed-px while this scales with
  * --s, so on larger windows the finale lands "a little bigger" —
  * Adam's spec verbatim.
- *   P4 hold →2530ms, then the host's release fade.
  *
  * BLUR RULES (the v0.4.26-30 war's terms for readmitting filter):
  * blur lives ONLY on the solid-black screen; it is STATIC during idle

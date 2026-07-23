@@ -35,14 +35,14 @@ import {
  */
 
 /** The production keybox (Adam's domain, 2026-07-12). */
-export const DEFAULT_KEYBOX = "https://themes.eddtv.org";
+const DEFAULT_KEYBOX = "https://themes.eddtv.org";
 
 const KEYBOX_OVERRIDE_KEY = "blammytv.keyboxUrl";
 
 /** Dev/test seam: a RAW localStorage string, not one of storage.ts's
  * {v,data} envelopes — pointing the app at a local fake keybox is one
  * `localStorage.setItem("blammytv.keyboxUrl", …)` call, not a migration. */
-export function keyboxUrl(): string {
+function keyboxUrl(): string {
   try {
     return localStorage.getItem(KEYBOX_OVERRIDE_KEY) || DEFAULT_KEYBOX;
   } catch {

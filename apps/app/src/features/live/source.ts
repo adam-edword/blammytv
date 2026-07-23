@@ -24,15 +24,14 @@ import { isAdultCategory, isAdultStream, nameLooksAdult } from "./adult";
 import { diskGet, diskPut } from "./diskCache";
 import { normalizeProgrammes } from "./epg";
 import { parseM3U } from "./m3u";
-import { mockLive } from "./mock";
 import type { Channel, LiveData, LiveGroup, Programme } from "./model";
 import { extractQuality } from "./quality";
 import { parseXmltv } from "./xmltv";
 
 /**
  * The seam between the Live tab and where its data comes from. With no
- * enabled playlists the bundled mock catalog loads instead, so the tab is
- * always a working dev harness. Real sources follow the old build's proven
+ * enabled playlists the result is empty (the tab hides itself in that
+ * state). Real sources follow the old build's proven
  * strategy: everything is fetched up front (categories + all streams in two
  * calls, then the full XMLTV document), and each playlist is best-effort —
  * one failing source (or its EPG) never sinks the others.
@@ -203,7 +202,10 @@ async function doLoad(
 ): Promise<LiveData> {
   let data: LiveData;
   if (playlists.length === 0) {
-    data = mockLive(now);
+    // Unreachable in normal use — the Live tab hides without an enabled
+    // source — but load() is also called by refresh paths, so keep the
+    // empty shape rather than throwing.
+    data = { groups: [], channels: [], programmes: new Map() };
   } else {
     data = { groups: [], channels: [], programmes: new Map() };
     // Stage narration is a single last-writer-wins label, so it only makes

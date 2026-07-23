@@ -142,7 +142,7 @@ async function doLoad(): Promise<VodData> {
 }
 
 /** Build the whole browse surface from the addon manifest. */
-export async function buildVod(
+async function buildVod(
   manifestUrl: string,
   heroSources: string[] = [],
   rowCap = 40,
@@ -362,7 +362,7 @@ async function buildFeatured(
 }
 
 /** Round-robin across shuffled pools, deduped, until `count` or dry. */
-export function pickEven(pools: string[][], count: number): string[] {
+function pickEven(pools: string[][], count: number): string[] {
   const order = shuffle(pools.map((p) => shuffle([...p])));
   const out: string[] = [];
   const seen = new Set<string>();

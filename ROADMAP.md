@@ -515,6 +515,53 @@ Slated for later, user-approved: ambient backdrop setting, motion toggle,
 timeshift, programme-level selection in the hero, M3U folder editor in
 Settings, favorites drag-handle UI (data layer shipped v0.1.133).
 
+## 0.7.0 — the polish push (branch `blammytv-0.7.0-push`, Adam 2026-07-22)
+
+v0.6.0 (Apple TV parallax) shipped. This cycle is small features and edits
+that really polish the app. **Full polish audit ran 2026-07-22** (6 dimensions,
+adversarially verified, 53 findings): `docs/polish-audit-0.7.0.md` — P1 is
+user-visible small fixes, P2 scheduled work, P3 a mechanical hygiene batch.
+An animations audit ran separately (Adam's session).
+
+**Audit execution, same day (v0.6.1):** all of P3 landed (4 sweep commits:
+dead code −233 lines, comment drift, debloat — dist 2.3MB→1.1MB via the
+logo.svg swap + the drop-woff Vite plugin — and the CSS quality batch:
+status tokens, glass dedup, supporter hover + !important trim), plus all of
+P1 (playMeta/Card render storms, Stream-empty state, Continue-Watching
+keyboard, playlist arm/confirm delete, tooltips, disabled no-op buttons).
+**P2 executed same day (v0.6.3, commits ebb7e91..ad1e56e):** scrubber +
+stremio-path tests, retry buttons everywhere Live had one, Discover
+failure-vs-empty honesty, quick-resume/episodes silent failures fixed,
+app-wide themed focus ring + chip aria-pressed, SidebarSources memoized.
+**Still open (refactor-grade, unscheduled):** the two TTL-cache
+implementations, Card/RowScroller extraction out of StreamScreen, popout
+wiring dedup, z-index scale, the 5x glass-chip recipe, brand-gradient
+dedup — and the dither/kawaii occluders, a per-pack design call for Adam,
+not mechanical. To-do, in no order yet:
+
+- [x] **Right-click to hide a source folder.** ✅ SHIPPED v0.6.15 —
+      cursor-anchored glass context menu on the Live sidebar folders
+      ("Hide <name>" + an unhide hint pointing at Settings → Playlists).
+      Writes the same per-playlist `hiddenCategories` via
+      toggleHiddenCategory + savePlaylists (folders/channels/EPG drop
+      together; Live refreshes silently on the playlists-change signal);
+      hiding the currently-filtered folder clears the filter. Keyboard
+      menu-key anchors on the row; Escape/click-away dismiss; plan-002
+      entrance language, instant close. **Follow-ups (same cycle):** hover
+      EYE on folder rows (guide-star pattern) as the primary path with a
+      bottom-center undo TOAST; optimistic pending-hidden filtering (the
+      hide pipeline is a full cache-fingerprint reload — seconds — so the
+      sidebar AND guide filter instantly and reconcile on land); portaled
+      menu/toast (clip-hole safe) + focus restore + viewport clamp.
+
+Also landed this cycle (post-audit): the first-frame hole gate (tune no
+longer shows the DESKTOP through the shell's clip hole — InvertedPlayer
+holds it closed until mpv presents), Live tab gated on ENABLED playlists
+(kills the mock-catalog leak), abandoned-hold click classifier (350ms),
+modal sheet-drop entrance + quick exits, EPG surface press + pointer
+spotlight (1000px/0.07), and the 2026-07-23 fresh-eyes pre-release review
+(31 verified findings, all executed — see the review-fix commit).
+
 **Live-tab accessibility pass — LANDED (v0.1.98).** The batch from the v0.1.71
 audit: keyboard-operable channel-column resize separator (`role=separator` +
 `tabindex` + arrow/Home/End + `aria-value*`); roving-tabindex + arrow-key

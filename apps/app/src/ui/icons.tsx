@@ -172,15 +172,6 @@ export function StatsIcon({ size = 20, className }: IconProps) {
   );
 }
 
-/** Edit / Pencil */
-export function PencilIcon({ size = 16, className }: IconProps) {
-  return (
-    <Svg size={size} className={className}>
-      <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-    </Svg>
-  );
-}
-
 /** Interface / Sidebar — collapse/expand the side panel. */
 /** Next episode — filled play glyph against an end bar (YouTube-style). */
 export function NextEpisodeIcon({ size = 20, className }: IconProps) {
@@ -214,15 +205,6 @@ export function TvIcon({ size = 16, className }: IconProps) {
     <Svg size={size} className={className}>
       <rect x="2" y="7" width="20" height="14" rx="2" />
       <path d="M16 3L12 7L8 3" />
-    </Svg>
-  );
-}
-
-/** Interface / Square — the folder rows' placeholder mark (per the design). */
-export function SquareIcon({ size = 15, className }: IconProps) {
-  return (
-    <Svg size={size} className={className}>
-      <rect x="4" y="4" width="16" height="16" rx="3" />
     </Svg>
   );
 }
@@ -382,6 +364,16 @@ export function ExternalLinkIcon({ size = 16, className }: IconProps) {
 }
 
 /** Edit / Pipette — the color-picker eyedropper. */
+/* (pipette doc comment restored below — EyeOffIcon slotted in above it) */
+/** Crossed-out eye — the sidebar's hover-revealed "hide this folder". */
+export function EyeOffIcon({ size = 16, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <path d="M3 3l18 18M10.6 5.1A9.8 9.8 0 0 1 12 5c7 0 10 7 10 7a16.2 16.2 0 0 1-3.2 4.2M6.6 6.6A16.4 16.4 0 0 0 2 12s3 7 10 7c1.8 0 3.4-.5 4.7-1.2M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+    </Svg>
+  );
+}
+
 export function EyeDropperIcon({ size = 16, className }: IconProps) {
   return (
     <Svg size={size} className={className}>
@@ -419,17 +411,6 @@ export function PlayIcon({ size = 20, className }: IconProps) {
     >
       <path d="M8 5.14v13.72a1 1 0 0 0 1.54.84l10.8-6.86a1 1 0 0 0 0-1.68L9.54 4.3A1 1 0 0 0 8 5.14z" />
     </svg>
-  );
-}
-
-/** Interface / Info (i in a circle). */
-export function InfoIcon({ size = 20, className }: IconProps) {
-  return (
-    <Svg size={size} className={className}>
-      <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z" />
-      <path d="M12 11v5" />
-      <path d="M12 8h.01" />
-    </Svg>
   );
 }
 
@@ -498,14 +479,3 @@ export function ExitFullscreenIcon({ size = 20, className }: IconProps) {
   );
 }
 
-/** Episodes / source list (playlist with a play marker). */
-export function ListIcon({ size = 20, className }: IconProps) {
-  return (
-    <Svg size={size} className={className}>
-      <line x1="4" y1="7" x2="20" y2="7" />
-      <line x1="4" y1="12" x2="13" y2="12" />
-      <line x1="4" y1="17" x2="13" y2="17" />
-      <path d="M17 13.2v5.6l4-2.8z" fill="currentColor" stroke="none" />
-    </Svg>
-  );
-}

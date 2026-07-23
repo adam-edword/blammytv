@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card } from "./StreamScreen";
 import { loadMyList, type ListEntry } from "./myList";
 import { requestOpenInStream } from "./openRequest";
@@ -41,9 +41,15 @@ export function MyListScreen() {
   useEffect(() => onCardMetaChange(setMetaFields), []);
   // Movies and series mix in one grid — always say which is which
   // (same rule as Discover's All Content).
-  const gridMetaFields = metaFields.includes("kind")
-    ? metaFields
-    : [...metaFields, "kind" as const];
+  const gridMetaFields = useMemo(
+    () =>
+      metaFields.includes("kind")
+        ? metaFields
+        : [...metaFields, "kind" as const],
+    [metaFields],
+  );
+  // Stable per-entry items — Card is memoized and toItem builds objects.
+  const items = useMemo(() => entries.map(toItem), [entries]);
 
   const open = useCallback(
     (item: VodItem) => requestOpenInStream(item, "mylist"),
@@ -65,10 +71,10 @@ export function MyListScreen() {
     <div className="discover">
       <section className="discover__gridwrap">
         <div className="disc-grid">
-          {entries.map((e) => (
+          {items.map((item) => (
             <Card
-              key={e.id}
-              item={toItem(e)}
+              key={item.id}
+              item={item}
               metaFields={gridMetaFields}
               onOpen={open}
             />

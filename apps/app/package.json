@@ -1,6 +1,6 @@
 {
   "name": "@blammytv/app",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -19,13 +19,13 @@
     "@fontsource/syne": "^5.2.7",
     "@fontsource/unbounded": "^5.2.8",
     "@fontsource/vt323": "^5.2.7",
+    "@tauri-apps/api": "^2.11.0",
     "react": "^18.3.1",
     "react-colorful": "^5.7.0",
     "react-dom": "^18.3.1",
     "react-parallax-tilt": "^1.7.333"
   },
   "devDependencies": {
-    "@tauri-apps/api": "^2.11.0",
     "@tauri-apps/cli": "^2.11.2",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",

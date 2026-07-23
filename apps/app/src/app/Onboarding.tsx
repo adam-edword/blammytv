@@ -172,7 +172,8 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     // This launch's boot IS the one-piece finale — the cold-boot
     // overlay must not replay on relaunch.
     markWelcomePlayed();
-    // The scene plays the whole 2530ms mock timeline; the overlay fade
+    // The scene plays the whole boot timeline (P4 hold ends ~3200ms,
+    // see boot.css's spec); the overlay fade
     // OVERLAPS its hold's tail (the app materializing beneath the
     // settled lockup is itself the reveal). Reduced motion: BootScene
     // never plays — quick fade to the app.
@@ -334,7 +335,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     thinkHard();
     raceTimeout(
       probeAioStreams(manifestTrimmed),
-      "Couldn't reach the instance — it didn't answer in time.",
+      "Couldn’t reach the instance — it didn’t answer in time.",
     )
       .then((steps: ProbeStep[]) => {
         if (steps[0]?.ok) {
@@ -431,12 +432,12 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
             name: "probe",
             enabled: true,
           }),
-          "Couldn't reach the panel — it didn't answer in time.",
+          "Couldn’t reach the panel — it didn’t answer in time.",
         ).then(() => draft);
       case "m3u":
         return raceTimeout(
           httpGetText(draft.url),
-          "Couldn't reach the playlist — it didn't answer in time.",
+          "Couldn’t reach the playlist — it didn’t answer in time.",
         ).then((text) => {
           if (!text.trimStart().startsWith("#EXTM3U")) {
             throw new Error("That URL didn't return an M3U playlist.");
@@ -451,7 +452,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
             name: "probe",
             enabled: true,
           }),
-          "Couldn't reach the portal — it didn't answer in time.",
+          "Couldn’t reach the portal — it didn’t answer in time.",
         ).then((endpoint) => ({ ...draft, endpoint }));
     }
   };

@@ -428,7 +428,7 @@
   cursor: pointer;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
   transition:
-    transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 160ms var(--ease-out),
     box-shadow 180ms ease;
 }
 .onb-swatch:hover {
@@ -513,4 +513,10 @@
   }
   /* The boot scene's own reduced-motion handling lives in boot.css;
    * the hosts never start the finale timeline under reduced motion. */
+}
+
+/* ---- Press feedback (motion plan 001) — the .onb-btn exemplar's
+ * sibling. ---- */
+.onb-swatch:active {
+  transform: scale(0.97);
 }

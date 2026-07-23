@@ -30,7 +30,7 @@
 .stream__note p { color: var(--text-muted); }
 .stream__note--dim { color: var(--text-muted); }
 
-/* ---- featured hero (Figma 133-721): 90vh sliding track, 60px-radius
+/* ---- featured hero (Figma 133-721): 80vh sliding track, 60px-radius
  * cards, neighbors peeking with a 30px gap. Escapes .stream's padding so
  * the peeks bleed to the window edges. Geometry (card width / offset) is
  * measured + set inline by the component; the track only animates
@@ -119,8 +119,10 @@
   top: 22px;
   bottom: 22px;
   border-radius: 60px;
-  /* No overflow:hidden here — it would clip the ::after glow. The
-   * rounding lives on the art/scrim layers instead. */
+  /* No overflow:hidden here — it would clip the Tilt lean/scale (the
+   * .shero__tilt wrapper grows past the box on hover). The rounding
+   * lives on the art/scrim layers instead; the ambient glow is the
+   * separate .shero__glowbox layer behind the track. */
   background: var(--surface);
   cursor: pointer;
   /* Own compositor layer: the rounded content rides the track's
@@ -210,7 +212,7 @@
   border-radius: 25px;
   padding: 9px 14px;
   cursor: pointer;
-  transition: filter 150ms ease;
+  transition: filter var(--dur-hover) ease;
 }
 .shero__btn-quiet:hover { filter: brightness(1.35); }
 
@@ -250,26 +252,15 @@
 .media-row__scroller.is-dragging * {
   pointer-events: none;
 }
-/* Edge scrims: only lit when content actually hides that way. */
-.media-row__scrim {
-  position: absolute;
-  top: 0;
-  bottom: 10px;
-  width: 100px;
-  z-index: 2;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 250ms ease;
-}
-.media-row__scrim--left {
-  left: 0;
-  background: linear-gradient(to right, var(--bg), transparent);
-}
-.media-row__scrim--right {
-  right: 0;
-  background: linear-gradient(to left, var(--bg), transparent);
-}
-.media-row__scrim.is-on { opacity: 1; }
+/* No edge scrims (feel-gate, same class as the hero-title/time-rail
+ * fixes): they painted var(--bg) gradients over the row edges, which on
+ * textured themes read as dark slabs floating over the pattern. The
+ * cut-off card at the edge + the hover arrows are the "more content"
+ * affordance — the Supporter pack shipped scrimless first and it holds.
+ * A mask-image dissolve on the scrollers was measured instead and
+ * REJECTED: the scroll bench (8 masked rows) dropped from a locked
+ * 16.7ms/frame to 25.5ms avg / 41.7ms p95 under software compositing —
+ * compositor risk this surface can't afford. */
 /* Nudge arrows: glass circles over the artwork band, revealed on row
  * hover (they only render at all when scrolling that way is possible). */
 .media-row__arrow {
@@ -287,7 +278,7 @@
   color: var(--text);
   cursor: pointer;
   opacity: 0;
-  transition: opacity 180ms ease, filter 140ms ease;
+  transition: opacity 180ms ease, filter var(--dur-hover) ease;
 }
 .media-row:hover .media-row__arrow { opacity: 1; }
 .media-row__arrow:hover { filter: brightness(1.4); }
@@ -318,14 +309,15 @@
   /* The tilted/scaled poster must outrank shelf neighbours, or its
    * near edge slides UNDER the next card. */
   position: relative;
+  transition: transform 160ms var(--ease-out);
 }
 .stream-card:hover { z-index: 2; }
 /* react-parallax-tilt owns this wrapper's transform (tilt + scale + glare);
  * CSS adds the depth cue — a shadow that swells while the poster floats. */
 .stream-card__tilt {
   border-radius: 25px;
-  /* 650ms-ish settle, matched to the Tilt transitionSpeed — the shadow
-   * swells at the same pace the poster leans in. */
+  /* 450ms — deliberately quicker than the Tilt's 650ms transitionSpeed
+   * (tuned in b243bb5): the shadow leads, the lean settles into it. */
   transition: box-shadow 450ms ease;
 }
 .stream-card:hover .stream-card__tilt {
@@ -379,7 +371,7 @@
   gap: 8px;
   text-align: left;
   cursor: pointer;
-  transition: transform 140ms ease;
+  transition: transform 160ms var(--ease-out);
 }
 .continue-card:hover { transform: translateY(-3px); }
 .continue-card__art {
@@ -417,6 +409,30 @@
   max-width: 533px;
 }
 /* Art + progress bar share a positioning box (art width is intrinsic). */
+/* Hold-to-clear progress: fills linearly over EXACTLY the 1000ms hold
+ * timer in StreamScreen (the animation IS the countdown — keep it under
+ * reduced motion, it carries information). A transition, not a keyframe:
+ * releasing early RETREATS from the current fill (200ms, the system's
+ * snap) instead of vanishing. */
+.continue-card__holdbar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  z-index: 2;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  transition: transform 200ms var(--ease-out);
+  pointer-events: none;
+}
+.continue-card--holding .continue-card__holdbar {
+  transform: scaleX(1);
+  /* must match the 1000ms hold timer in StreamScreen */
+  transition: transform 1000ms linear;
+}
+
 .continue-card__artwrap {
   position: relative;
   display: block;
@@ -436,7 +452,7 @@
   display: block;
   height: 100%;
   border-radius: 2px;
-  background: var(--accent, #c22727);
+  background: var(--accent);
 }
 .continue-card--holding .continue-card__art { filter: brightness(0.5); }
 .continue-card--holding .continue-card__hold { opacity: 1; }
@@ -453,7 +469,7 @@
   object-fit: contain;
   filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.6));
   pointer-events: none;
-  transition: opacity 150ms ease;
+  transition: opacity var(--dur-hover) ease;
 }
 
 /* Cast line: quiet credit under the meta. */
@@ -516,9 +532,6 @@
 .vod-more .media-row__scroller::-webkit-scrollbar {
   display: none;
 }
-.vod-more .media-row__scrim {
-  display: none;
-}
 /* The shelf overlays the page bottom — the info column reserves its
  * height (≈ title + 255px cards + paddings) so text never sits under
  * the cards; the 7% bottom margin trades down to keep the pills clear
@@ -546,7 +559,7 @@
   border-radius: 30px;
   overflow: hidden;
   border: 1px solid var(--border-strong, rgba(255, 255, 255, 0.14));
-  transition: transform 140ms ease;
+  transition: transform var(--dur-hover) ease;
 }
 .vod-more__card:hover {
   transform: translateY(-3px);
@@ -573,7 +586,7 @@
   color: var(--text);
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.18);
-  transition: background 140ms ease, border-color 140ms ease;
+  transition: background var(--dur-hover) ease, border-color var(--dur-hover) ease;
 }
 .vod-save:hover {
   background: rgba(255, 255, 255, 0.16);
@@ -640,7 +653,10 @@
   grid-template-columns: 1fr;
   align-content: start;
   overflow-y: auto;
-  padding-top: calc(var(--header-h, 76px) + 12px);
+  /* Header clearance + the pinned Back button's footprint (~40px pill
+   * + breathing room) — the button sits at header + 12px and content
+   * must start below it. */
+  padding-top: calc(var(--header-h, 76px) + 64px);
   padding-bottom: 32px;
   /* This variant IS the scroll container: the base body's
    * pointer-events:none (the vod-more sandwich) made its scrollbar
@@ -662,7 +678,9 @@
    * the bottom as designed, tall content top-anchors and scrolls. */
   justify-content: flex-start;
   max-width: 66ch;
-  padding-top: calc(var(--header-h, 76px) + 8px);
+  /* Only bites when the column overflows (auto margins collapse to 0 and
+   * it top-anchors) — clear the header AND the pinned Back button. */
+  padding-top: calc(var(--header-h, 76px) + 64px);
   overflow-y: auto;
   scrollbar-width: none;
   min-height: 0;
@@ -685,10 +703,29 @@
    * gaining its own header padding doubled the clearance to ~172px and
    * shrank the visible episode list (fleet finding). */
   padding-top: 0;
+  /* INCOMPRESSIBLE here, unlike the source screen: the base rule's
+   * overflow-y:auto + min-height:0 give this grid item an automatic
+   * minimum of 0, so the tall episode grid starves its row during track
+   * sizing and the whole metadata block collapses into a ~120px
+   * internally-scrolling slice (clipped logo, hidden synopsis —
+   * measured in the layout harness). The episodes BODY is the one
+   * scroller; this column must always take its content height. */
+  overflow-y: visible;
+  min-height: auto;
 }
 /* Same glass language as the pills/chips on these screens: #00000050,
- * blur, and the shared darkening hover. */
+ * blur, and the shared darkening hover. PINNED to .vod-detail (a direct
+ * child, not part of the info flow): the source screen bottom-anchors
+ * its info column and the episodes screen top-anchors under the header,
+ * which put the in-flow button in two different places — absolute at the
+ * page's top-left gives it ONE spot on both, and on episodes it no
+ * longer scrolls away with the list. Above the body layer (z-index 1)
+ * so the pointer-events sandwich can't eat its clicks. */
 .vod-back {
+  position: absolute;
+  top: calc(var(--header-h, 76px) + 12px);
+  left: 32px;
+  z-index: 2;
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 15px;
@@ -699,7 +736,8 @@
   padding: 9px 15px;
   backdrop-filter: blur(16px);
   cursor: pointer;
-  transition: background 140ms ease;
+  transition: background var(--dur-hover) ease,
+    transform 160ms var(--ease-out);
 }
 .vod-back:hover { background: rgba(0, 0, 0, 0.6); }
 .vod-detail__logo { max-width: 500px; max-height: 300px; object-fit: contain; }
@@ -729,7 +767,7 @@
   background: #00000050;
   backdrop-filter: blur(16px);
   cursor: pointer;
-  transition: border-color 140ms ease, color 140ms ease;
+  transition: border-color var(--dur-hover) ease, color var(--dur-hover) ease;
 }
 .vod-detail__pills button:hover {
   border-color: var(--accent);
@@ -770,6 +808,24 @@
   font-size: 21px;
   margin: 0;
 }
+/* Inline retry beside a failed-note — quiet, accent-voiced. */
+.vod-sources__retry {
+  padding: 4px 12px;
+  margin-left: 6px;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-chip);
+  background: var(--accent-surface);
+  color: var(--text);
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color var(--dur-hover) ease;
+}
+.vod-sources__retry:hover {
+  border-color: var(--accent-border-hover);
+}
+
 .vod-sources__note { color: rgba(242, 242, 244, 0.6); font-size: 14px; }
 /* Figma 133-721 source card: a glass slab with the quality in its own
  * raised block left, the addon's meta lines beside it, play glyph right. */
@@ -784,7 +840,8 @@
   backdrop-filter: blur(18px);
   cursor: pointer;
   text-align: left;
-  transition: background 140ms ease;
+  transition: background var(--dur-hover) ease,
+    transform 160ms var(--ease-out);
 }
 .vod-source:hover { background: rgba(0, 0, 0, 0.6); }
 .vod-source__quality {
@@ -820,7 +877,7 @@
 .vod-source__play {
   flex-shrink: 0;
   opacity: 0.7;
-  transition: opacity 140ms ease;
+  transition: opacity var(--dur-hover) ease;
 }
 .vod-source:hover .vod-source__play { opacity: 1; }
 
@@ -837,7 +894,8 @@
   background: #00000050;
   backdrop-filter: blur(16px);
   cursor: pointer;
-  transition: background 140ms ease;
+  transition: background var(--dur-hover) ease,
+    transform 160ms var(--ease-out);
 }
 .season-chip:not(.season-chip--on):hover { background: rgba(0, 0, 0, 0.6); }
 /* Active chip speaks the app's button language (btn-primary's surface
@@ -863,7 +921,8 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(18px);
   cursor: pointer;
-  transition: background 140ms ease;
+  transition: background var(--dur-hover) ease,
+    transform 160ms var(--ease-out);
 }
 .episode-card:hover { background: rgba(0, 0, 0, 0.6); }
 .episode-card__thumb {
@@ -886,7 +945,7 @@
   border-radius: 21px;
   background: rgba(0, 0, 0, 0.4);
   opacity: 0;
-  transition: opacity 150ms ease;
+  transition: opacity var(--dur-hover) ease;
 }
 .episode-card:hover .episode-card__thumb::after { opacity: 1; }
 .episode-card__cue {
@@ -897,7 +956,7 @@
   place-items: center;
   color: rgba(255, 255, 255, 0.75);
   opacity: 0;
-  transition: opacity 150ms ease;
+  transition: opacity var(--dur-hover) ease;
 }
 .episode-card:hover .episode-card__cue { opacity: 1; }
 /* Number runs INLINE with the title (one text flow, so a wrapping title
@@ -912,7 +971,7 @@
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 15px;
-  color: var(--accent, #c22727);
+  color: var(--accent);
   margin-right: 8px;
 }
 .episode-card__title { font-size: 15px; color: #f2f2f4; }
@@ -966,7 +1025,7 @@
   font-size: 14px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--accent, #c22727);
+  color: var(--accent);
 }
 .upnext__title {
   font-family: var(--font-headline);
@@ -992,7 +1051,7 @@
   width: min(36vw, 440px);
   aspect-ratio: 16 / 9;
   object-fit: cover;
-  border-radius: var(--radius-card, 14px);
+  border-radius: var(--radius-card);
   border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
 }
@@ -1008,12 +1067,24 @@
   display: flex;
   align-items: stretch;
   width: 380px;
-  border-radius: var(--radius-card, 14px);
+  border-radius: var(--radius-card);
   overflow: hidden;
   background: rgba(0, 0, 0, 0.72);
   border: 1px solid rgba(255, 255, 255, 0.16);
   backdrop-filter: blur(16px);
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+
+  transform-origin: bottom right;
+  /* Entrance (motion plan 002). Close stays instant — deliberate. */
+  transition:
+    opacity 260ms var(--ease-out),
+    transform 260ms var(--ease-out);
+}
+@starting-style {
+  .upnext-mini {
+    opacity: 0;
+    transform: scale(0.97) translateY(12px);
+  }
 }
 .upnext-mini__thumb {
   width: 128px;
@@ -1034,7 +1105,7 @@
   font-size: 11px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--accent, #c22727);
+  color: var(--accent);
 }
 .upnext-mini__title {
   font-family: var(--font-headline);
@@ -1079,7 +1150,7 @@
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: var(--accent, #c22727);
+  background: var(--accent);
   color: #fff;
 }
 
@@ -1099,9 +1170,12 @@
   border: 1px solid rgba(255, 255, 255, 0.18);
   backdrop-filter: blur(14px);
   opacity: 0;
-  transition: opacity 150ms ease, background 140ms ease;
+  transition: opacity var(--dur-hover) ease, background var(--dur-hover) ease;
 }
 .continue-card:hover .continue-card__sources { opacity: 1; }
+/* Keyboard parity with the hover reveal (the guide-star :focus-within
+ * pattern from the Live a11y sweep) — the chip nests a real button. */
+.continue-card:focus-within .continue-card__sources { opacity: 1; }
 /* Same hover treatment as episode stills: 0.4 dim + centered play cue. */
 .continue-card__artwrap::after {
   content: "";
@@ -1110,7 +1184,7 @@
   border-radius: 25px;
   background: rgba(0, 0, 0, 0.4);
   opacity: 0;
-  transition: opacity 150ms ease;
+  transition: opacity var(--dur-hover) ease;
   pointer-events: none;
 }
 .continue-card:hover .continue-card__artwrap::after { opacity: 1; }
@@ -1122,7 +1196,7 @@
   place-items: center;
   color: rgba(255, 255, 255, 0.75);
   opacity: 0;
-  transition: opacity 150ms ease;
+  transition: opacity var(--dur-hover) ease;
   pointer-events: none;
 }
 .continue-card:hover .continue-card__cue { opacity: 1; }
@@ -1169,21 +1243,46 @@
   background: rgba(0, 0, 0, 0.72);
   border: 1px solid rgba(255, 255, 255, 0.14);
   backdrop-filter: blur(18px);
-  animation: vod-panel-in 260ms cubic-bezier(0.3, 0.05, 0.2, 1);
+  /* Transitions, not keyframes: reopening mid-close RETARGETS from the
+   * panel's current position (keyframes restart from off-screen). Enter
+   * rides the drawer curve; exit is the system's snappier response. */
+  transition:
+    transform var(--dur-panel) var(--ease-drawer),
+    opacity var(--dur-panel) var(--ease-drawer);
 }
-@keyframes vod-panel-in {
-  from {
+@starting-style {
+  .vod-panel {
     transform: translateX(40px);
     opacity: 0;
   }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
+}
+.vod-panel--closing {
+  transform: translateX(40px);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 180ms var(--ease-out),
+    opacity 180ms var(--ease-out);
+}
+/* The backdrop is deliberately transparent (no dim), so there's nothing
+ * to fade — it just stops eating clicks while the panel departs. */
+.vod-panel__backdrop--closing {
+  pointer-events: none;
 }
 @media (prefers-reduced-motion: reduce) {
-  .vod-panel {
-    animation: none;
+  /* Keep a fade — a full-height panel hard-cutting is worse than the
+   * movement it replaces. */
+  .vod-panel,
+  .vod-panel--closing {
+    transition: opacity 200ms ease;
+  }
+  @starting-style {
+    .vod-panel {
+      transform: none;
+    }
+  }
+  .vod-panel--closing {
+    transform: none;
   }
 }
 .vod-panel__head {
@@ -1213,7 +1312,7 @@
 /* The one that's playing right now: accent ring, like the app's active
  * chips. */
 .vod-source--current {
-  border: 0.5px solid var(--accent, #c22727);
+  border: 0.5px solid var(--accent);
   background: var(--accent-surface);
 }
 
@@ -1255,3 +1354,47 @@
 
 .vod-stage { position: fixed; inset: 0; }
 .vod-stage__slot { position: absolute; inset: 0; }
+
+/* ---- Press feedback (motion plan 001). The poster press lives on the
+ * CARD, not .stream-card__tilt — react-parallax-tilt drives the wrapper's
+ * transform inline, and inline always beats a stylesheet :active. The
+ * hover-lifted continue card settles to -1px, not a jump to origin. ---- */
+.stream-card:active {
+  transform: scale(0.98);
+}
+.continue-card:active {
+  transform: translateY(-1px) scale(0.98);
+}
+.vod-source:active,
+.episode-card:active,
+.season-chip:active,
+.vod-back:active {
+  transform: scale(0.97);
+}
+
+/* Reduced motion: the Up Next card's entrance keeps its fade only. */
+@media (prefers-reduced-motion: reduce) {
+  .upnext-mini {
+    transition: opacity 260ms var(--ease-out);
+  }
+  @starting-style {
+    .upnext-mini {
+      transform: none;
+    }
+  }
+}
+
+/* Reduced motion (motion plan 006): the hero's near-fullscreen slide
+ * snaps instead (the glow's opacity crossfade stays — it keeps the
+ * change comprehensible); hover LIFTS drop, press dips stay (:active
+ * is feedback), brightness/shadow hovers untouched. */
+@media (prefers-reduced-motion: reduce) {
+  .shero__track,
+  .shero__glowtrack {
+    transition: none;
+  }
+  .continue-card:hover:not(:active),
+  .vod-more__card:hover:not(:active) {
+    transform: none;
+  }
+}

@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { ChipTabs } from "../../ui/ChipTabs";
 import { Toggle } from "../../ui/Toggle";
 import { ChevronIcon, CloseIcon } from "../../ui/icons";
@@ -55,6 +55,12 @@ export function PlaylistsTab() {
   // Per-playlist folder editor: which row is expanded, and each row's
   // fetched category list (kept per id so re-expanding is instant).
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  // Deleting a playlist takes stored credentials + folder curation with it —
+  // same destructive class as Customize's "Clear All Login Info", so it
+  // speaks the same two-click arm/confirm language (4s to change your mind).
+  const [armedDeleteId, setArmedDeleteId] = useState<string | null>(null);
+  const armTimer = useRef(0);
+  useEffect(() => () => window.clearTimeout(armTimer.current), []);
   const [categories, setCategories] = useState<Record<string, Categories>>({});
 
   const update = (list: Playlist[]) => {
@@ -206,7 +212,7 @@ export function PlaylistsTab() {
                     if (g?.error)
                       return (
                         <span className="playlist-row__status playlist-row__status--error">
-                          Couldn't load — {g.error}
+                          Couldn&rsquo;t load — {g.error}
                         </span>
                       );
                     if (g?.epgError)
@@ -238,11 +244,38 @@ export function PlaylistsTab() {
                   </button>
                   <button
                     type="button"
-                    className="playlist-row__delete"
-                    aria-label={`Delete ${p.name}`}
-                    onClick={() => update(removePlaylist(playlists, p.id))}
+                    className={
+                      "playlist-row__delete" +
+                      (armedDeleteId === p.id
+                        ? " playlist-row__delete--armed"
+                        : "")
+                    }
+                    aria-label={
+                      armedDeleteId === p.id
+                        ? `Click again to remove ${p.name}`
+                        : `Delete ${p.name}`
+                    }
+                    title={
+                      armedDeleteId === p.id
+                        ? "Click again to remove"
+                        : undefined
+                    }
+                    onClick={() => {
+                      if (armedDeleteId !== p.id) {
+                        setArmedDeleteId(p.id);
+                        window.clearTimeout(armTimer.current);
+                        armTimer.current = window.setTimeout(
+                          () => setArmedDeleteId(null),
+                          4000,
+                        );
+                        return;
+                      }
+                      window.clearTimeout(armTimer.current);
+                      setArmedDeleteId(null);
+                      update(removePlaylist(playlists, p.id));
+                    }}
                   >
-                    <CloseIcon />
+                    {armedDeleteId === p.id ? "Sure?" : <CloseIcon />}
                   </button>
                 </div>
               </div>
@@ -337,7 +370,7 @@ function FolderEditor({
     return (
       <div className="source-list source-list--note">
         <p className="settings__section-note settings__section-note--dim">
-          Couldn't reach the server. Check the playlist's credentials — and
+          Couldn&rsquo;t reach the server. Check the playlist&rsquo;s credentials — and
           note the browser dev build can be blocked by CORS where the desktop
           app isn't.
         </p>

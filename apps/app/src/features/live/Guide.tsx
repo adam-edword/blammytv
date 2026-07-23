@@ -32,6 +32,20 @@ import {
 } from "./epg";
 import type { Channel, Programme } from "./model";
 
+/** Pointer spotlight on programme cells: writes the cursor's cell-local
+ * position into CSS vars; the ::after light circle rides them via
+ * transform (compositor-side — no repaint per move, per the WebView2
+ * guardrails). clientX and the rect share the zoomed visual space while
+ * the vars are consumed in element-local CSS px, so unscale (the
+ * folded-rail tooltip's pattern). Reduced motion hides the light in CSS. */
+function shineMove(e: React.MouseEvent<HTMLElement>) {
+  const el = e.currentTarget;
+  const r = el.getBoundingClientRect();
+  const zoom = Number(document.documentElement.style.zoom || 1);
+  el.style.setProperty("--mx", `${(e.clientX - r.left) / zoom}px`);
+  el.style.setProperty("--my", `${(e.clientY - r.top) / zoom}px`);
+}
+
 /* Grid geometry (Figma 133:500): 189px channel cards, 8px gutters, 60px
  * rows under the ruler. One scroll container; the ruler and channel column
  * pin via position:sticky, so they can never desync from the cells.
@@ -431,10 +445,17 @@ export const Guide = memo(function Guide({
   const cellClass = (b: Block) =>
     "guide__cell" + (b.live ? " guide__cell--live" : "");
 
+  /* The pointer spotlight host (v3 of the cell sheen: the library glare
+   * was a full-card sweep — Adam wants the light local to the cursor).
+   * Absolute over the cell's padding box, restating its layout; the pin
+   * system styles the CELL and finds .guide__cell-body by querySelector
+   * (depth-agnostic) — both unaffected. Blank lanes stay light-free. */
   const cellBody = (b: Block) => (
-    <span className="guide__cell-body">
-      <span className="guide__cell-title">{b.p.title}</span>
-      <span className="guide__cell-time">{range(b.p.start, b.p.end)}</span>
+    <span className="guide__cell-shine" onMouseMove={shineMove}>
+      <span className="guide__cell-body">
+        <span className="guide__cell-title">{b.p.title}</span>
+        <span className="guide__cell-time">{range(b.p.start, b.p.end)}</span>
+      </span>
     </span>
   );
 
@@ -501,6 +522,7 @@ export const Guide = memo(function Guide({
                 <button
                   type="button"
                   className="guide__card"
+                  title={channel.name}
                   aria-current={selected ? "true" : undefined}
                   aria-label={
                     channel.quality

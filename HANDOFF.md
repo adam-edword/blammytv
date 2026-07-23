@@ -15,8 +15,31 @@ Audience: switchers from other Windows IPTV clients, Stremio users, ideally
 both — and explicitly *inviting to newcomers*; first-five-minutes activation
 weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
-## Live state (2026-07-14, dev v0.5.4 — THE THEMES ERA)
+## Live state (2026-07-23, dev v0.6.20 — 0.7.0 scope COMPLETE, pre-release)
 
+**All three motion waves are LANDED** (plans/README.md has per-plan status),
+the polish audit (P1+P2+P3) is fully executed, and the 0.7.0 features are
+shipped: hover-eye + right-click hide-folder with undo toast and optimistic
+filtering, Live-tab gating on enabled playlists, the first-frame hole gate
+(desktop-through-the-hole fix), modal sheet-drop entrance + 150ms exits,
+EPG surface press + pointer spotlight, hold-to-clear progress + 350ms
+click/hold classifier. A fresh-eyes pre-release review (31 verified
+findings) was executed on 2026-07-23 — see the review-fix commit. Remaining
+before tag: Adam's Windows pass + the release drill (versions incl.
+tauri.conf/Cargo jump at the release commit).
+
+## Historical (2026-07-22, dev v0.6.2 — superseded by the above)
+
+- **🎬 MOTION AUDIT WAVE A LANDED (2026-07-22).** A parallel motion-audit
+  workstream (71 verified findings → 7 plans → 3-wave rollout, all under
+  `plans/`) merged its first wave into `blammytv-0.7.0-push` at v0.6.2:
+  motion tokens in tokens.css (`--ease-*`, `--dur-*` — **use these, no
+  literal curves/durations in new CSS**), app-wide duration migration, and
+  spring-unified thumbs. Waves B (press feedback + overlay entrances) and C
+  pend Adam's feel-gate. **If you are the polish-audit session, read
+  `docs/motion-audit-handoff.md` before touching any transition/animation**
+  — it lists merge resolutions, the one open tilt-tuning question, and the
+  do-not-touch list.
 - **🗝️ KEYBOX ADMIN CLI + unlimited keys (2026-07-14).** `services/keybox/
   scripts/admin.mjs` — `list` (see every key; the DB is otherwise invisible —
   no sqlite3 CLI in the slim image, no Coolify DB viewer), `mint` (a `pass` key

@@ -207,7 +207,7 @@ export function servesGenre(cat: DiscoverCatalog, genre: string | null): boolean
 /** The catalog's OWN casing for a rail genre ("comedy" catalog asked for
  * "Comedy" returns empty on case-sensitive addons) — matching is
  * case-insensitive, the request must not be. */
-export function genreForCatalog(
+function genreForCatalog(
   cat: DiscoverCatalog,
   genre: string | null,
 ): string | null {

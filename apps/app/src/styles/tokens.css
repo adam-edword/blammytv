@@ -36,7 +36,6 @@
   --accent-surface: color-mix(in srgb, var(--accent) 16%, var(--mix-base));
   --accent-border: color-mix(in srgb, var(--accent) 36%, transparent);
   --accent-border-hover: color-mix(in srgb, var(--accent) 51%, black);
-  --accent-dim: color-mix(in srgb, var(--accent) 79%, black);
 
   /* Text */
   --text: #f2f2f5;
@@ -44,10 +43,12 @@
   --text-dim: #494949; /* quietest tier (hero synopsis/meta) */
   --text-ghost: rgba(255, 255, 255, 0.2); /* placeholders */
 
-  /* Quality-badge borders (fills are per-badge gradients) */
-  --badge-4k: #ff7bf6;
-  --badge-fhd: #ffe57f;
-  --badge-hd: #242424;
+  /* Status — deliberately UNTHEMED constants: danger must read as danger
+   * under any pack (the settings danger-zone's documented fixed-red rule).
+   * Onboarding's pastel error/ok pair stays separate — light-on-black. */
+  --danger: #c22727;
+  --danger-text: #e25b5b;
+  --ok: #2cad57;
 
   /* Shape */
   --radius-card: 25px;
@@ -76,6 +77,17 @@
     0.999 51%,
     1
   );
+
+  /* Motion. Strong curves (built-in ease/linear are too weak for deliberate
+     motion); durations in three tiers — hover/color, entrances/popovers,
+     panels/drawers. UI stays under 300ms; boot/onboarding/welcome are exempt
+     surfaces and keep their own timing. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-hover: 140ms;
+  --dur-enter: 200ms;
+  --dur-panel: 260ms;
 
   /* Type. Families only — sizes/weights are per-component, not tokenized.
      An intense theme (intense-packs.css) may re-point any of these three to

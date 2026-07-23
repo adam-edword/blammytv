@@ -1,4 +1,5 @@
 import {
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -9,8 +10,16 @@ import {
 } from "react";
 import { CheckIcon, ChevronIcon, CloseIcon, PlayIcon } from "../../ui/icons";
 import Tilt from "react-parallax-tilt";
+
+// Fixed-at-mount OS motion preference (the Onboarding pattern): read ONCE at
+// module load — a useRef(initializer-arg) re-evaluated matchMedia on every
+// render of every Card.
+const REDUCED_MOTION = window.matchMedia(
+  "(prefers-reduced-motion: reduce)",
+).matches;
 import { createPortal } from "react-dom";
 import { isTauri, tauriSetFullscreen } from "../../lib/tauri";
+import { scrubbedMessage } from "../../lib/errors";
 import { setOverlayApiOverride } from "../live/overlayApi";
 import { InvertedPlayer } from "../live/InvertedPlayer";
 import { TheaterOverlay } from "../live/TheaterOverlay";
@@ -196,6 +205,8 @@ export function StreamScreen() {
       onVodUpdate((data) => setLoad({ status: "ready", data: { ...data } })),
     [],
   );
+  // Bumped by the error state's Try-again — re-runs the load effect.
+  const [vodTick, setVodTick] = useState(0);
   useEffect(() => {
     let stale = false;
     loadVod().then(
@@ -216,15 +227,18 @@ export function StreamScreen() {
           prev.status === "ready"
             ? prev
             : {
+                // Route through the scrubber like Discover — transport
+                // errors echo the full manifest URL (a credential) and
+                // this string renders on screen.
                 status: "error",
-                message: e instanceof Error ? e.message : String(e),
+                message: scrubbedMessage(e),
               },
         ),
     );
     return () => {
       stale = true;
     };
-  }, []);
+  }, [vodTick]);
 
   // Back/forward history over the view state — the ← Back buttons and the
   // mouse side buttons (4 = back, 5 = forward) all walk the same stacks.
@@ -278,12 +292,15 @@ export function StreamScreen() {
     };
   }, [playing, goBack, goForward]);
 
-  const open = useCallback(async (item: VodItem) => {
-    // Show the lightweight item immediately; swap in the full detail
-    // (synopsis, cast, seasons) when it lands. Failure keeps the light one.
-    navigate(
-      item.kind === "series" ? { at: "episodes", item } : { at: "title", item },
-    );
+  // Whether the CURRENT detail's full-meta resolve settled — Detail's
+  // episodes area turns "Loading episodes…" into the truth ("couldn't
+  // load" with retry, or "none listed") instead of loading forever.
+  const [metaState, setMetaState] = useState<{
+    id: string;
+    s: "pending" | "failed" | "ready";
+  } | null>(null);
+  const resolveIntoView = useCallback(async (item: VodItem) => {
+    setMetaState({ id: item.id, s: "pending" });
     try {
       const full = await resolveVodItem(item.kind, item.id);
       if (full)
@@ -292,10 +309,27 @@ export function StreamScreen() {
             ? { ...v, item: full }
             : v,
         );
+      // Only the resolve for the item still being tracked may settle the
+      // state — a slow resolve for a LEFT screen was clobbering the next
+      // screen's pending into a false "No episodes listed".
+      setMetaState((m) =>
+        m?.id === item.id ? { id: item.id, s: "ready" } : m,
+      );
     } catch {
-      /* best-effort: the light item still renders */
+      // Best-effort: the light item still renders; Detail offers retry.
+      setMetaState((m) =>
+        m?.id === item.id ? { id: item.id, s: "failed" } : m,
+      );
     }
-  }, [navigate]);
+  }, []);
+  const open = useCallback(async (item: VodItem) => {
+    // Show the lightweight item immediately; swap in the full detail
+    // (synopsis, cast, seasons) when it lands. Failure keeps the light one.
+    navigate(
+      item.kind === "series" ? { at: "episodes", item } : { at: "title", item },
+    );
+    await resolveIntoView(item);
+  }, [navigate, resolveIntoView]);
 
   // Hero "Watch Now": resolve fresh sources and play the best CACHED one
   // straight away (the addon's ranking within cached). Auto-play NEVER
@@ -510,7 +544,20 @@ export function StreamScreen() {
           setResolving((r) => (r ? { ...r, art: full.logo } : r));
       }
       if (!item) {
+        // Resolve failed: land the detail page with the light entry data
+        // instead of silently bouncing back to Home — Detail shows the
+        // honest error + retry (metaState) from open()'s resolve.
         setResolving(null);
+        void open({
+          id: entry.id,
+          title: entry.title,
+          kind,
+          ...(entry.art ? { backdrop: entry.art } : {}),
+          ...(entry.logo ? { logo: entry.logo } : {}),
+          genres: [],
+          cast: [],
+          seasons: [],
+        });
         return;
       }
       const episodeInfo =
@@ -588,13 +635,24 @@ export function StreamScreen() {
   // In-playback source panel: slides over the video (which keeps playing);
   // picking a source switches the stream at the current position. Sources
   // resolve fresh on every open — debrid links are short-lived.
-  const [panelOpen, setPanelOpen] = useState(false);
+  // Three-state so close ANIMATES: the closing panel stays mounted until
+  // its transition ends; reopening mid-close retargets from wherever it is.
+  const [panelState, setPanelState] = useState<"open" | "closing" | null>(
+    null,
+  );
+  const panelOpen = panelState === "open";
+  const closePanel = useCallback(
+    () => setPanelState((s) => (s === "open" ? "closing" : s)),
+    [],
+  );
   const [panelSources, setPanelSources] = useState<
     StreamSource[] | null | "failed"
   >(null);
   useEffect(() => {
-    if (!playing) setPanelOpen(false);
+    // Playback gone = the portal host is gone: drop the panel instantly.
+    if (!playing) setPanelState(null);
   }, [playing]);
+  const [panelTick, setPanelTick] = useState(0);
   useEffect(() => {
     if (!panelOpen) return;
     const p = playingRef.current;
@@ -608,11 +666,12 @@ export function StreamScreen() {
     return () => {
       stale = true;
     };
-  }, [panelOpen]);
-  const pickPanelSource = useCallback((src: StreamSource, all: StreamSource[]) => {
+  }, [panelOpen, panelTick]);
+  const pickPanelSource = useCallback(
+    (src: StreamSource, all: StreamSource[]) => {
     const p = playingRef.current;
     if (!p) return;
-    setPanelOpen(false);
+    closePanel();
     if (src.streamUrl === p.url) return; // already playing this one
     const entry = loadWatching().find((e) => e.id === p.item.id);
     const at =
@@ -626,25 +685,34 @@ export function StreamScreen() {
       queue: all.filter((s) => s.id !== src.id && s.streamUrl !== p.url),
       resumeAt: at,
     });
-  }, []);
-  const playMeta = playing
-    ? {
-        channelName: playing.item.title,
-        logo: playing.item.logo ?? playing.item.poster,
-        title: playing.label ?? playing.item.title,
-        description: playing.item.synopsis,
-        live: false,
-        skips: aniSkips ?? undefined,
-        vod: playing.episodeInfo
-          ? {
-              ...playing.episodeInfo,
-              hasNext:
-                !!playing.episodeId &&
-                !!nextEpisode(playing.item.seasons, playing.episodeId),
-            }
-          : undefined,
-      }
-    : null;
+  },
+    [closePanel],
+  );
+  // Memoized: rebuilt-per-render meta used to re-render the whole theater
+  // chrome through useDirectOverlay's identity-keyed effect (see LiveScreen's
+  // twin note).
+  const playMeta = useMemo(
+    () =>
+      playing
+        ? {
+            channelName: playing.item.title,
+            logo: playing.item.logo ?? playing.item.poster,
+            title: playing.label ?? playing.item.title,
+            description: playing.item.synopsis,
+            live: false,
+            skips: aniSkips ?? undefined,
+            vod: playing.episodeInfo
+              ? {
+                  ...playing.episodeInfo,
+                  hasNext:
+                    !!playing.episodeId &&
+                    !!nextEpisode(playing.item.seasons, playing.episodeId),
+                }
+              : undefined,
+          }
+        : null,
+    [playing, aniSkips],
+  );
   const directApi = useDirectOverlay(
     isTauri() && !!playing && !playing.popped,
     playing?.url ?? null,
@@ -707,7 +775,8 @@ export function StreamScreen() {
         const nxt = nextEpisode(p.item.seasons, p.episodeId);
         if (nxt) void playEpisode(p.item, nxt.season, nxt.episode);
       },
-      onSourcePanel: () => setPanelOpen((o) => !o),
+      onSourcePanel: () =>
+        setPanelState((st) => (st === "open" ? "closing" : "open")),
       // Credits started/ended (overlay's AniSkip/chapter clock): pop the
       // corner Up Next while the episode still plays — never for movies,
       // never re-popping one the user dismissed this cycle.
@@ -722,6 +791,11 @@ export function StreamScreen() {
     },
   );
   if (isTauri() && playing) setOverlayApiOverride(directApi);
+  // First-frame gate for the shell hole (see InvertedPlayer.ready): the
+  // status poll's loading signal — true re-arms on every play, false on
+  // mpv's first presented frame.
+  const [videoReady, setVideoReady] = useState(false);
+  useEffect(() => directApi.onLoading((v) => setVideoReady(!v)), [directApi]);
 
   // Resume-from-position: one absolute seek on the first presented frame
   // (seeking before the file loads is a no-op mpv-side).
@@ -899,14 +973,16 @@ export function StreamScreen() {
     return (
       <div className={"vod-stage" + (playing.popped ? " vod-stage--popped" : "")}>
         <div id="player-slot" className="vod-stage__slot" />
-        {!playing.popped && <InvertedPlayer url={playing.url} squared />}
+        {!playing.popped && (
+          <InvertedPlayer url={playing.url} squared ready={videoReady} />
+        )}
         {!playing.popped &&
           chromeHostRef.current &&
           createPortal(
             <TheaterOverlay frame={playing.mode} playbackKey={playing.url} />,
             chromeHostRef.current,
           )}
-        {panelOpen &&
+        {panelState &&
           !playing.popped &&
           chromeHostRef.current &&
           createPortal(
@@ -916,28 +992,54 @@ export function StreamScreen() {
                 * pauses on clicks OUTSIDE [data-interactive]) — a click
                 * off the panel closes the panel, nothing else. */}
               <div
-                className="vod-panel__backdrop"
+                className={
+                  "vod-panel__backdrop" +
+                  (panelState === "closing"
+                    ? " vod-panel__backdrop--closing"
+                    : "")
+                }
                 data-interactive
-                onClick={() => setPanelOpen(false)}
+                onClick={closePanel}
               />
-              <div className="vod-panel" data-interactive>
+              <div
+                className={
+                  "vod-panel" +
+                  (panelState === "closing" ? " vod-panel--closing" : "")
+                }
+                data-interactive
+                onTransitionEnd={(e) => {
+                  if (panelState === "closing" && e.target === e.currentTarget)
+                    setPanelState(null);
+                }}
+              >
               <div className="vod-panel__head">
                 <h3>Sources</h3>
                 <button
                   type="button"
                   className="player__btn player__btn--glass"
                   aria-label="Close sources"
-                  onClick={() => setPanelOpen(false)}
+                  onClick={closePanel}
                 >
                   <CloseIcon size={18} />
                 </button>
               </div>
               <div className="vod-panel__list">
                 {panelSources === null && (
-                  <p className="vod-sources__note">Finding sources…</p>
+                  <p className="vod-sources__note" role="status">
+                    Finding sources…
+                  </p>
                 )}
                 {panelSources === "failed" && (
-                  <p className="vod-sources__note">Couldn&rsquo;t load sources.</p>
+                  <p className="vod-sources__note" role="alert">
+                    Couldn&rsquo;t load sources.{" "}
+                    <button
+                      type="button"
+                      className="vod-sources__retry"
+                      onClick={() => setPanelTick((t) => t + 1)}
+                    >
+                      Try again
+                    </button>
+                  </p>
                 )}
                 {Array.isArray(panelSources) &&
                   panelSources.map((src) => (
@@ -956,7 +1058,12 @@ export function StreamScreen() {
                         {src.quality}
                         {src.cached && <span className="vod-source__zap">⚡</span>}
                       </span>
-                      <span className="vod-source__lines">
+                      {/* Ellipsized release lines get the full text back
+                        * as a tooltip — it's what the user picks BY. */}
+                      <span
+                        className="vod-source__lines"
+                        title={src.lines.join("\n")}
+                      >
                         {src.lines.slice(0, 2).map((l, i) => (
                           <span key={i}>{l}</span>
                         ))}
@@ -1028,7 +1135,7 @@ export function StreamScreen() {
           * fullscreen EOF card and while the source panel is open. */}
         {upNextMini &&
           !upNext &&
-          !panelOpen &&
+          !panelState &&
           !playing.popped &&
           chromeHostRef.current &&
           createPortal(
@@ -1119,6 +1226,7 @@ export function StreamScreen() {
       {view.at === "home" && (
         <Home
           load={load}
+          onRetry={() => setVodTick((t) => t + 1)}
           onOpen={cardOpen}
           onWatchNow={watchNow}
           watching={watching}
@@ -1153,6 +1261,8 @@ export function StreamScreen() {
       {view.at === "episodes" && (
         <Episodes
           item={view.item}
+          metaState={metaState?.id === view.item.id ? metaState.s : "ready"}
+          onRetryMeta={() => void resolveIntoView(view.item)}
           onBack={goBack}
           onPick={(episodeId, episodeLabel, episodeInfo) =>
             navigate({
@@ -1198,6 +1308,7 @@ function Home({
   onClearWatching,
   onOpenWatching,
   onSourcesWatching,
+  onRetry,
 }: {
   load: Load;
   onOpen: (i: VodItem) => void;
@@ -1206,6 +1317,7 @@ function Home({
   onClearWatching: (id: string) => void;
   onOpenWatching: (e: WatchEntry) => void;
   onSourcesWatching: (e: WatchEntry) => void;
+  onRetry: () => void;
 }) {
   // Which details the cards show — flips live while Settings is open.
   const [metaFields, setMetaFields] = useState<CardMetaField[]>(loadCardMeta);
@@ -1223,13 +1335,22 @@ function Home({
   }
   if (load.status === "loading")
     return (
-      <div className="stream__note stream__note--dim">Loading your catalog…</div>
+      <div className="stream__note stream__note--dim" role="status">
+        Loading your catalog…
+      </div>
     );
   if (load.status === "error")
     return (
-      <div className="stream__note">
-        <h2>Couldn't load your catalog.</h2>
+      <div className="stream__note" role="alert">
+        <h2>Couldn&rsquo;t load your catalog.</h2>
         <p>{load.message}. Check the manifest URL in Settings → AIOStreams.</p>
+        {/* Live's error states retry; siblings match (the audit's
+          * dead-end finding). */}
+        <p>
+          <button type="button" className="btn-primary" onClick={onRetry}>
+            Try again
+          </button>
+        </p>
       </div>
     );
   const { data } = load;
@@ -1239,6 +1360,23 @@ function Home({
   // Finished movies retire from Continue Watching (display-only filter —
   // the entry survives for resume bookkeeping).
   const activeWatching = watching.filter((e) => !retiredFromContinue(e));
+  // A "ready" catalog can still be EMPTY (buildVod swallows per-catalog
+  // failures into empty rows) — without this branch that rendered a
+  // completely blank tab. Discover and Live both narrate the same state.
+  if (
+    featured.length === 0 &&
+    activeWatching.length === 0 &&
+    data.rows.every((r) => r.itemIds.length === 0)
+  )
+    return (
+      <div className="stream__note">
+        <h2>Nothing came back from your catalogs.</h2>
+        <p>
+          The manifest loaded but every catalog returned empty. Check the
+          manifest in Settings → AIOStreams, or just try again in a minute.
+        </p>
+      </div>
+    );
   return (
     <>
       {featured.length > 0 && (
@@ -1315,7 +1453,11 @@ export function RowScroller({ children }: { children: ReactNode }) {
   const nudge = (dir: 1 | -1) =>
     ref.current?.scrollBy({
       left: dir * ref.current.clientWidth * 0.75,
-      behavior: "smooth",
+      // Chromium does NOT auto-disable programmatic smooth scroll under
+      // reduced motion — branch it (the app's inline matchMedia idiom).
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth",
     });
   // Click-and-drag scrolling: pointer deltas map 1:1 onto scrollLeft (no
   // physics — native feel only). Past a small slop the gesture is a DRAG:
@@ -1382,14 +1524,6 @@ export function RowScroller({ children }: { children: ReactNode }) {
       >
         {children}
       </div>
-      <div
-        className={"media-row__scrim media-row__scrim--left" + (can.left ? " is-on" : "")}
-        aria-hidden
-      />
-      <div
-        className={"media-row__scrim media-row__scrim--right" + (can.right ? " is-on" : "")}
-        aria-hidden
-      />
       {can.left && (
         <button
           type="button"
@@ -1479,9 +1613,7 @@ function Hero({
   const step = cardW + HERO_GAP;
   // The hero's Apple TV lean rides an inner wrapper (see .shero__tilt) —
   // the slide div's transform is carousel geometry and stays untouched.
-  const reducedMotion = useRef(
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-  ).current;
+  const reducedMotion = REDUCED_MOTION;
 
   // Window of live slots around the current one: both neighbors visible,
   // one extra each side so a slide-in mounts before it enters the frame.
@@ -1573,12 +1705,14 @@ function Hero({
             >
               {/* Tilt wraps art+scrim+text but NOT the card div (its
                 * left/width + translateZ(0) are the carousel's geometry)
-                * and not the ::after glow — ambient light shouldn't
-                * rotate with the object. Active card only: a peeking
+                * and not the .shero__glowbox layer behind the track —
+                * ambient light shouldn't rotate with the object. Active
+                * card only: a peeking
                 * neighbor pivots around an offscreen center and reads
                 * broken. At this size 0.5° is plenty (Adam — 2° read as
-                * a barn door); no scale (neighbors peek right beside
-                * it), no glare (text lives here). */}
+                * a barn door); scale is a hair (1.005) — just enough to
+                * keep the leaning card covering the glow behind its own
+                * edge; glare is faint (text lives here). */}
               <Tilt
                 className="shero__tilt"
                 tiltEnable={active && !reducedMotion}
@@ -1672,7 +1806,11 @@ function Hero({
   );
 }
 
-export function Card({
+/** Memoized: mapped by the hundreds across Stream rows, Discover's
+ * infinite grid and My List, each wrapping a stateful Tilt — parent
+ * re-renders (search keystrokes, enrichment passes) must not re-render
+ * every mounted card. Callers keep metaFields/onOpen identities stable. */
+export const Card = memo(function Card({
   item,
   metaFields,
   onOpen,
@@ -1698,11 +1836,14 @@ export function Card({
   // Apple TV-style pointer tilt on the poster only — the title/meta below
   // stay planted. Angles well under the library's 20° default: the real
   // thing is a gentle lean, not a flip. OS-level reduced-motion wins.
-  const reducedMotion = useRef(
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-  ).current;
+  const reducedMotion = REDUCED_MOTION;
   return (
-    <button type="button" className="stream-card" onClick={() => onOpen(item)}>
+    <button
+      type="button"
+      className="stream-card"
+      title={item.title}
+      onClick={() => onOpen(item)}
+    >
       <Tilt
         className="stream-card__tilt"
         tiltEnable={!reducedMotion}
@@ -1732,7 +1873,7 @@ export function Card({
       {meta && <span className="stream-card__meta">{meta}</span>}
     </button>
   );
-}
+});
 
 /** Continue Watching card: landscape art, meta line, HOLD to clear (the
  * Figma interaction — a click opens, a ~1s press-and-hold removes). */
@@ -1768,8 +1909,15 @@ function ContinueCard({
   const [holding, setHolding] = useState(false);
   const timer = useRef(0);
   const held = useRef(false);
+  // A press longer than this is a HOLD (the clear gesture, abandoned or
+  // not) — releasing must never fall through to opening the show. Under
+  // it, it's a click and opens. The holdbar is ~1/3 full at the cutoff,
+  // so the visual and the intent boundary roughly agree (Adam).
+  const CLICK_MAX_MS = 350;
+  const pressAt = useRef(0);
   const start = () => {
     held.current = false;
+    pressAt.current = Date.now();
     setHolding(true);
     timer.current = window.setTimeout(() => {
       held.current = true;
@@ -1781,6 +1929,14 @@ function ContinueCard({
     window.clearTimeout(timer.current);
     setHolding(false);
   };
+  const wasClick = () => {
+    // No pointerdown preceded this click (screen-reader / synthetic
+    // activation) — it IS a click; the 350ms rule only judges presses.
+    if (pressAt.current === 0) return !held.current;
+    const ok = !held.current && Date.now() - pressAt.current < CLICK_MAX_MS;
+    pressAt.current = 0;
+    return ok;
+  };
   return (
     // div+role, not <button>: the Sources chip nests a real button inside.
     <div
@@ -1791,13 +1947,27 @@ function ContinueCard({
       onPointerUp={cancel}
       onPointerLeave={cancel}
       onClick={() => {
-        if (!held.current) onOpen();
+        if (wasClick()) onOpen();
       }}
       onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") onOpen();
+        // Keys aimed at the nested Sources chip (a real button) must not
+        // bubble into card actions — Enter there was quick-resuming.
+        if (e.target !== e.currentTarget) return;
+        if (e.key === "Enter" || e.key === " ") {
+          // Space also pages the scroll container without this.
+          e.preventDefault();
+          onOpen();
+        }
+        // The pointer path clears via press-and-hold; this is the
+        // keyboard's equivalent (the a11y sweep pattern from Live).
+        if (e.key === "Delete" || e.key === "Backspace") {
+          e.preventDefault();
+          onClear();
+        }
       }}
     >
       <span className="continue-card__artwrap">
+        <span className="continue-card__holdbar" aria-hidden />
         {entry.art ? (
           <img className="continue-card__art" src={entry.art} alt="" loading="lazy" draggable={false} />
         ) : (
@@ -1977,6 +2147,7 @@ function Detail({
       stale = true;
     };
   }, [item.id, item.kind, moreGenre, episodeId, onOpenItem]);
+  const [sourcesTick, setSourcesTick] = useState(0);
   useEffect(() => {
     let stale = false;
     setSources(null);
@@ -1987,7 +2158,7 @@ function Detail({
     return () => {
       stale = true;
     };
-  }, [item.kind, item.id, episodeId]);
+  }, [item.kind, item.id, episodeId, sourcesTick]);
 
   return (
     <div className="vod-detail">
@@ -1995,11 +2166,11 @@ function Detail({
         <img className="vod-detail__backdrop" src={item.backdrop} alt="" />
       )}
       <div className="vod-detail__scrim" aria-hidden />
+      <button type="button" className="vod-back" onClick={onBack}>
+        ← Back
+      </button>
       <div className="vod-detail__body">
         <div className="vod-detail__info">
-          <button type="button" className="vod-back" onClick={onBack}>
-            ← Back
-          </button>
           {item.logo ? (
             <img className="vod-detail__logo" src={item.logo} alt={item.title} />
           ) : (
@@ -2032,10 +2203,21 @@ function Detail({
         <div className="vod-sources">
           <h3>Sources</h3>
           {sources === null && (
-            <p className="vod-sources__note">Finding sources…</p>
+            <p className="vod-sources__note" role="status">
+              Finding sources…
+            </p>
           )}
           {sources === "failed" && (
-            <p className="vod-sources__note">Couldn't load sources.</p>
+            <p className="vod-sources__note" role="alert">
+              Couldn&rsquo;t load sources.{" "}
+              <button
+                type="button"
+                className="vod-sources__retry"
+                onClick={() => setSourcesTick((t) => t + 1)}
+              >
+                Try again
+              </button>
+            </p>
           )}
           {Array.isArray(sources) && sources.length === 0 && (
             <p className="vod-sources__note">No sources available.</p>
@@ -2052,7 +2234,7 @@ function Detail({
                   {s.quality}
                   {s.cached && <span className="vod-source__zap">⚡</span>}
                 </span>
-                <span className="vod-source__lines">
+                <span className="vod-source__lines" title={s.lines.join("\n")}>
                   {s.lines.slice(0, 3).map((l, i) => (
                     <span key={i}>{l}</span>
                   ))}
@@ -2097,10 +2279,15 @@ function Detail({
 
 function Episodes({
   item,
+  metaState = "ready",
+  onRetryMeta,
   onBack,
   onPick,
 }: {
   item: VodItem;
+  /** Whether the full-meta resolve for THIS item settled (see open()). */
+  metaState?: "pending" | "failed" | "ready";
+  onRetryMeta?: () => void;
   onBack: () => void;
   onPick: (
     episodeId: string,
@@ -2152,11 +2339,11 @@ function Episodes({
         <img className="vod-detail__backdrop" src={item.backdrop} alt="" />
       )}
       <div className="vod-detail__scrim" aria-hidden />
+      <button type="button" className="vod-back" onClick={onBack}>
+        ← Back
+      </button>
       <div className="vod-detail__body vod-detail__body--episodes">
         <div className="vod-detail__info">
-          <button type="button" className="vod-back" onClick={onBack}>
-            ← Back
-          </button>
           {item.logo ? (
             <img className="vod-detail__logo" src={item.logo} alt={item.title} />
           ) : (
@@ -2177,7 +2364,24 @@ function Episodes({
           <GenrePills genres={item.genres} />
         </div>
         {item.seasons.length === 0 ? (
-          <p className="vod-sources__note">Loading episodes…</p>
+          metaState === "failed" ? (
+            <p className="vod-sources__note" role="alert">
+              Couldn&rsquo;t load episodes.{" "}
+              <button
+                type="button"
+                className="vod-sources__retry"
+                onClick={onRetryMeta}
+              >
+                Try again
+              </button>
+            </p>
+          ) : metaState === "ready" ? (
+            <p className="vod-sources__note">No episodes listed.</p>
+          ) : (
+            <p className="vod-sources__note" role="status">
+              Loading episodes…
+            </p>
+          )
         ) : (
           <>
             <div className="season-bar">
@@ -2188,6 +2392,7 @@ function Episodes({
                   className={
                     "season-chip" + (i === seasonIdx ? " season-chip--on" : "")
                   }
+                  aria-pressed={i === seasonIdx}
                   onClick={() => {
                     pickedSeasonRef.current = true; // user override wins
                     setSeasonIdx(i);

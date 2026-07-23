@@ -31,6 +31,52 @@
   border-radius: 26px;
   padding: 32px 39px;
   box-shadow: 0 -13px 72.6px rgba(0, 0, 0, 0.73);
+  /* Entrance (motion plan 002, redesigned at the feel-gate — the stock
+   * scale+8px hop read as an afterthought). "The gear drops its sheet":
+   * the card descends from the gear on the drawer curve with a 4deg
+   * hinge around its top edge (perspective() self-applied; the resting
+   * transform keeps the same function list so the pair interpolates).
+   * Its CONTENT then settles in ~70ms behind it — see .settings > *.
+   * The exit is .settings--closing below: 150ms fade + settle — the
+   * asymmetry is 460ms in, 150ms out (NOT instant; do not delete the
+   * closing state as dead code). */
+  transform-origin: top right;
+  transform: perspective(1400px) rotateX(0deg) translateY(0) scale(1);
+  transition:
+    opacity 240ms var(--ease-out),
+    transform 460ms var(--ease-drawer);
+}
+@starting-style {
+  .settings {
+    opacity: 0;
+    transform: perspective(1400px) rotateX(-4deg) translateY(-22px)
+      scale(0.965);
+  }
+}
+/* Exit (Adam): quick fade + slight scale-down — the system responding,
+ * not performing. Overrides the entrance's 460ms drawer transition and
+ * swallows input while departing. */
+.settings--closing {
+  opacity: 0;
+  transform: perspective(1400px) rotateX(0deg) translateY(0) scale(0.97);
+  transition:
+    opacity 150ms var(--ease-out),
+    transform 150ms var(--ease-out);
+  pointer-events: none;
+}
+
+/* Phase two: the card lands, THEN its direct children (header/body — not
+ * inner controls) rise into it. Two-phase arrival is the intent signal. */
+.settings > * {
+  transition:
+    opacity 340ms var(--ease-out) 70ms,
+    transform 340ms var(--ease-out) 70ms;
+}
+@starting-style {
+  .settings > * {
+    opacity: 0;
+    transform: translateY(10px);
+  }
 }
 
 /* Frost unavailable (older bundled mpv / vo without PARAM shaders) while
@@ -60,7 +106,8 @@
   display: grid;
   place-items: center;
   opacity: 0.3;
-  transition: opacity 150ms ease;
+  transition: opacity var(--dur-hover) ease,
+    transform 160ms var(--ease-out);
 }
 
 .settings__close:hover {
@@ -205,7 +252,7 @@
   border-radius: 0 24px 24px 0;
   background: var(--surface);
   opacity: 0;
-  transition: opacity 150ms ease;
+  transition: opacity var(--dur-hover) ease;
 }
 
 /* The fade lives just outside the puck's left edge. */
@@ -232,8 +279,8 @@
   border-radius: 10px;
   opacity: 0.55;
   transition:
-    opacity 150ms ease,
-    background 150ms ease;
+    opacity var(--dur-hover) ease,
+    background var(--dur-hover) ease;
 }
 
 .settings-field__tool:hover {
@@ -270,7 +317,7 @@
   border-radius: 12px;
   border: 2px solid var(--border-strong);
   background: var(--surface);
-  transition: transform 120ms ease;
+  transition: transform var(--dur-hover) ease;
   cursor: pointer;
 }
 
@@ -298,7 +345,7 @@
   font-weight: 700;
   font-size: 13px;
   cursor: pointer;
-  transition: filter 120ms ease;
+  transition: filter var(--dur-hover) ease;
 }
 
 .accent-custom:hover {
@@ -325,6 +372,17 @@
   border: 1px solid var(--border-strong);
   border-radius: 16px;
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+
+  transform-origin: top right;
+  transition:
+    opacity 150ms var(--ease-out),
+    transform 150ms var(--ease-out);
+}
+@starting-style {
+  .accent-popover {
+    opacity: 0;
+    transform: scale(0.95) translateY(-4px);
+  }
 }
 
 .accent-popover .react-colorful {
@@ -367,7 +425,7 @@
   background: var(--surface);
   border: 1px solid var(--border-input);
   opacity: 0.75;
-  transition: opacity 150ms ease;
+  transition: opacity var(--dur-hover) ease;
 }
 
 .accent-popover__dropper:hover {
@@ -417,122 +475,6 @@
  * flex column's default align-items: stretch across the full card width. */
 .customize-rail {
   display: flex;
-}
-
-/* Wraps a Toggle when its control is unreachable for the active pack
- * (light theme under a dark-only pack). Same dim reading as
- * .settings__section-note--dim; pointer-events:none does the disabling
- * since Toggle has no disabled prop of its own. */
-.toggle-disable-wrap--off {
-  opacity: 0.4;
-  pointer-events: none;
-}
-
-/* -------------------------------------------------------- theme packs */
-
-.pack-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  width: 100%;
-  /* .settings__body scrolls (overflow-y: auto forces overflow-x: auto too,
-   * per spec), which clips the leftmost card's active box-shadow ring flush
-   * against the row's edge. A little inset gives the 2px ring room to
-   * render — cheaper than un-scrolling the ancestor for one ring. */
-  padding: 2px;
-}
-
-.pack-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  width: 96px;
-  padding: 10px 8px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-chip);
-  transition: border-color 150ms ease;
-}
-
-.pack-card:hover {
-  border-color: var(--border-strong);
-}
-
-/* Same ring idiom as the app's other "this one's active" cards (discover
- * season chips, stream's now-playing thumb): box-shadow, not border, so
- * it doesn't shove the layout. */
-.pack-card--active {
-  box-shadow: 0 0 0 2px var(--accent);
-}
-
-/* Mini surface preview: bg panel, a smaller surface chip, an accent dot —
- * all three from the pack's own metadata (artwork, not theme tokens). */
-.pack-card__preview {
-  position: relative;
-  display: flex;
-  align-items: flex-end;
-  width: 100%;
-  height: 44px;
-  border-radius: 10px;
-  padding: 6px;
-  overflow: hidden;
-  /* Inset hairlines keep the near-black previews (classic/void on a
-   * near-black card) reading as panels, not holes. */
-  box-shadow: inset 0 0 0 1px var(--border);
-}
-
-.pack-card__surface {
-  width: 60%;
-  height: 55%;
-  border-radius: 6px;
-  box-shadow: inset 0 0 0 1px var(--border);
-}
-
-.pack-card__accent {
-  position: absolute;
-  right: 6px;
-  bottom: 6px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-}
-
-.pack-card__name {
-  font-family: var(--font-headline);
-  font-weight: 600;
-  font-size: 12px;
-}
-
-/* Price/lock chip on an unowned premium (intense) pack's preview — top-right,
-   over the swatch. Owned packs and free packs render no chip. */
-.pack-card__lock {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  padding: 2px 6px;
-  border-radius: var(--radius-badge);
-  background: rgba(0, 0, 0, 0.55);
-  border: 1px solid var(--border-strong);
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 10px;
-  line-height: 1.4;
-  color: #fff;
-  backdrop-filter: blur(4px);
-}
-
-/* Supporters mark on the secret (Pass-only) theme's preview — top-right,
-   over the swatch, in the brand pink. It's only ever shown to Pass holders
-   (who own it), so it never collides with the price/lock chip. */
-.pack-card__heart {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  display: grid;
-  place-items: center;
-  color: #ff7bf6;
-  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.6));
 }
 
 /* The "you're previewing an unowned pack" banner + buy CTA, shown under the
@@ -595,7 +537,7 @@
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 15px;
-  color: #e04b4b;
+  color: var(--danger-text);
   margin: 0;
 }
 
@@ -605,13 +547,14 @@
   font-weight: 700;
   font-size: 13px;
   color: var(--text);
-  background: color-mix(in srgb, #c22727 16%, var(--mix-base));
-  border: 0.5px solid #c22727;
+  background: color-mix(in srgb, var(--danger) 16%, var(--mix-base));
+  border: 0.5px solid var(--danger);
   border-radius: 25px;
   padding: 8px 14px;
   transition:
-    filter 150ms ease,
-    background 150ms ease;
+    filter var(--dur-hover) ease,
+    background var(--dur-hover) ease,
+    transform 160ms var(--ease-out);
 }
 
 .btn-danger:hover {
@@ -619,7 +562,7 @@
 }
 
 .btn-danger--armed {
-  background: color-mix(in srgb, #c22727 45%, var(--mix-base));
+  background: color-mix(in srgb, var(--danger) 45%, var(--mix-base));
 }
 
 /* -------------------------------------------------------- playlist list */
@@ -679,8 +622,9 @@
 
 /* Staged-edit buttons — INLINE with the search/toggle-all row, appearing
  * only while the draft diverges. Save persists (and refreshes Live);
- * Discard snaps the draft back. */
-.source-tools__discard {
+ * Discard snaps the draft back. Discard and toggle-all share one recipe. */
+.source-tools__discard,
+.source-tools__all {
   flex-shrink: 0;
   padding: 7px 14px;
   border-radius: var(--radius-chip);
@@ -691,10 +635,12 @@
   font-size: 13px;
   color: var(--text);
   cursor: pointer;
-  transition: filter 140ms ease;
+  transition: filter var(--dur-hover) ease,
+    transform 160ms var(--ease-out);
 }
 
-.source-tools__discard:hover {
+.source-tools__discard:hover,
+.source-tools__all:hover {
   filter: brightness(1.3);
 }
 
@@ -709,24 +655,6 @@
   min-width: 0;
   padding: 7px 12px;
   font-size: 13px;
-}
-
-.source-tools__all {
-  flex-shrink: 0;
-  padding: 7px 14px;
-  border-radius: var(--radius-chip);
-  background: var(--surface-raised);
-  border: 0.5px solid var(--border-raised);
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 13px;
-  color: var(--text);
-  cursor: pointer;
-  transition: filter 140ms ease;
-}
-
-.source-tools__all:hover {
-  filter: brightness(1.3);
 }
 
 .source-tools__all:disabled {
@@ -792,7 +720,7 @@
   display: grid;
   place-items: center;
   opacity: 0.45;
-  transition: opacity 150ms ease;
+  transition: opacity var(--dur-hover) ease;
 }
 
 .source-chip__x:hover {
@@ -816,8 +744,8 @@
   font-size: 14px;
   color: var(--text-muted);
   transition:
-    color 150ms ease,
-    border-color 150ms ease;
+    color var(--dur-hover) ease,
+    border-color var(--dur-hover) ease;
 }
 
 .chip-select__add:hover,
@@ -847,6 +775,17 @@
   border: 1px solid var(--border-strong);
   border-radius: 16px;
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+
+  transform-origin: top left;
+  transition:
+    opacity 150ms var(--ease-out),
+    transform 150ms var(--ease-out);
+}
+@starting-style {
+  .chip-select__menu {
+    opacity: 0;
+    transform: scale(0.95) translateY(-4px);
+  }
 }
 
 .chip-select__option {
@@ -884,9 +823,9 @@
   font-size: 14px;
   color: var(--text-muted);
   transition:
-    color 150ms ease,
-    border-color 150ms ease,
-    background-color 150ms ease;
+    color var(--dur-hover) ease,
+    border-color var(--dur-hover) ease,
+    background-color var(--dur-hover) ease;
 }
 
 .meta-pick__chip:hover {
@@ -904,8 +843,8 @@
   place-items: center;
   opacity: 0.5;
   transition:
-    opacity 150ms ease,
-    transform 220ms cubic-bezier(0.4, 0, 0.2, 1);
+    opacity var(--dur-hover) ease,
+    transform var(--dur-enter) var(--ease-in-out);
 }
 
 /* Chevron points down closed, up open. */
@@ -966,7 +905,8 @@
   display: grid;
   place-items: center;
   opacity: 0.5;
-  transition: opacity 150ms ease;
+  transition: opacity var(--dur-hover) ease,
+    transform 160ms var(--ease-out);
 }
 
 .playlist-row__delete:hover {
@@ -978,6 +918,16 @@
   height: 13px;
 }
 
+/* Armed (first click): the ✕ becomes a "Sure?" in the danger voice —
+ * the Customize clear-logins arm/confirm language, on the row scale. */
+.playlist-row__delete--armed {
+  opacity: 1;
+  color: var(--danger-text);
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 12px;
+}
+
 /* Load/guide status under a playlist's source line — the reportable reason
  * when everything says "No Information" (installed builds have no console). */
 .playlist-row__status {
@@ -987,7 +937,7 @@
   margin-top: 2px;
 }
 .playlist-row__status--error {
-  color: #e25b5b;
+  color: var(--danger-text);
 }
 
 /* Neutral action pill (Settings → Updates), the btn-danger shape without
@@ -1003,7 +953,7 @@
   border-radius: 25px;
   padding: 8px 14px;
   cursor: pointer;
-  transition: filter 150ms ease;
+  transition: filter var(--dur-hover) ease;
 }
 .settings-button:hover:not(:disabled) { filter: brightness(1.25); }
 .settings-button:disabled { cursor: default; opacity: 0.7; }
@@ -1021,7 +971,7 @@
 .rowcap__slider {
   flex: 1;
   max-width: 340px;
-  accent-color: var(--accent, #c22727);
+  accent-color: var(--accent);
 }
 .rowcap__value {
   font-family: var(--font-headline);
@@ -1039,7 +989,7 @@
   border-radius: 8px;
   color: inherit;
   cursor: pointer;
-  transition: background 120ms ease;
+  transition: background var(--dur-hover) ease;
 }
 .rowcap__value--btn:hover {
   background: rgba(255, 255, 255, 0.1);
@@ -1074,12 +1024,12 @@
   font-size: 14px;
 }
 .aio-probe__mark {
-  color: #2cad57;
+  color: var(--ok);
   font-weight: 700;
   min-width: 14px;
 }
 .aio-probe__row--bad .aio-probe__mark {
-  color: var(--accent, #c22727);
+  color: var(--accent);
 }
 .aio-probe__label {
   font-family: var(--font-headline);
@@ -1109,16 +1059,6 @@
 }
 
 /* -------------------------------------------------------- premium themes */
-
-/* Right side of the "Premium Themes" customize-row: the form (or Remove
- * button) plus its own status line stacked together, so the row's
- * space-between still treats this as ONE flex item on the far edge. */
-.license-control {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-}
 
 .license-form {
   display: flex;
@@ -1152,7 +1092,7 @@
   font-weight: 600;
   font-size: 13px;
   color: var(--text-muted);
-  transition: color 150ms ease;
+  transition: color var(--dur-hover) ease;
 }
 
 .license-remove:hover {
@@ -1164,12 +1104,12 @@
 .license-status {
   margin: 0;
   font-size: 13.5px;
-  color: #e25b5b;
+  color: var(--danger-text);
   max-width: 64ch;
 }
 
 .license-status--ok {
-  color: #2cad57;
+  color: var(--ok);
 }
 
 /* Slightly-glassy surfaces inside the settings card (Adam, v0.4.2):
@@ -1185,4 +1125,50 @@
 .settings .accent-popover__hex input {
   background: color-mix(in srgb, #000000 65%, transparent);
   backdrop-filter: blur(14px);
+}
+
+/* ---- Press feedback (motion plan 001). Tiny icons dip deeper (0.9);
+ * the custom accent chip keeps its documented transform:none. ---- */
+.settings__close:active,
+.playlist-row__delete:active,
+.accent-swatch:active {
+  transform: scale(0.9);
+}
+.btn-danger:active,
+.source-tools__discard:active,
+.source-tools__all:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.accent-custom .accent-swatch:active {
+  transform: none;
+}
+
+/* Reduced motion: entrances keep their fade, drop the movement. */
+@media (prefers-reduced-motion: reduce) {
+  .settings,
+  .settings > *,
+  .accent-popover,
+  .chip-select__menu {
+    transition: opacity var(--dur-enter) var(--ease-out);
+  }
+  @starting-style {
+    .settings,
+    .settings > *,
+    .accent-popover,
+    .chip-select__menu {
+      transform: none;
+    }
+  }
+  .settings--closing {
+    transform: none;
+    transition: opacity 150ms var(--ease-out);
+  }
+}
+
+/* Reduced motion (motion plan 006): the swatch's hover grow drops; the
+ * press dip stays. */
+@media (prefers-reduced-motion: reduce) {
+  .accent-swatch:hover:not(:active) {
+    transform: none;
+  }
 }

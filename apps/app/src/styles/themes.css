@@ -33,8 +33,8 @@
     var(--aurora-ring) border-box;
   border: 1.5px solid transparent;
   transition:
-    filter 140ms ease,
-    transform 140ms ease;
+    filter var(--dur-hover) ease,
+    transform 160ms var(--ease-out);
 }
 /* Brightness only — a translate here got clipped by the settings body's
  * scroll box (the launcher is its first child, flush with the clip edge). */
@@ -171,8 +171,9 @@
   opacity: 0.45;
   cursor: pointer;
   transition:
-    opacity 150ms ease,
-    background 150ms ease;
+    opacity var(--dur-hover) ease,
+    background var(--dur-hover) ease,
+    transform 160ms var(--ease-out);
 }
 .theme-pill__seg:hover {
   opacity: 0.85;
@@ -244,8 +245,8 @@
   overflow: hidden;
   border: 1px solid var(--border);
   transition:
-    box-shadow 140ms ease,
-    transform 140ms ease;
+    box-shadow var(--dur-hover) ease,
+    transform 160ms var(--ease-out);
 }
 .tcard--premium .tcard__art {
   height: 183px;
@@ -306,7 +307,7 @@
   text-decoration-color: rgba(132, 255, 169, 0.6);
   text-underline-offset: 3px;
   cursor: pointer;
-  transition: filter 140ms ease;
+  transition: filter var(--dur-hover) ease;
 }
 .tcard__price:hover {
   filter: brightness(1.2);
@@ -380,7 +381,7 @@
   border: none;
   background: var(--rainbow-background), #00000085;
   text-decoration: none;
-  transition: filter 140ms ease;
+  transition: filter var(--dur-hover) ease;
 }
 .themes-pass__cta::before {
   content: "";
@@ -570,4 +571,55 @@
 .themes-pass__heart {
   color: #ff7bf6;
   vertical-align: -3px;
+}
+
+/* ---- Press feedback (motion plan 001): settles from the -2px hover
+ * lift, not a jump to origin. ---- */
+.tcard:active .tcard__art {
+  transform: translateY(-1px) scale(0.98);
+}
+.theme-pill__seg:active,
+.themes-launch:active {
+  transform: scale(0.98);
+}
+
+/* Entrance (motion plan 002): the Themes card rides .settings' entrance
+ * (drawer timing + the two-phase content settle) but is a CENTERED
+ * modal — no hinge, no descent; it condenses from center. Restates the
+ * resting transform so the pair interpolates as one function list. */
+.themes-modal {
+  transform-origin: center;
+  transform: scale(1);
+}
+@starting-style {
+  .themes-modal {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+/* Exit: the resting transform above out-cascades .settings--closing's
+ * (same specificity, later file) — restate the centered scale-down. */
+.themes-modal.settings--closing {
+  transform: scale(0.97);
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Fade-only exit: without this the restated scale above SNAPS (the
+   * reduced-motion transition covers opacity only). */
+  .themes-modal.settings--closing {
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  @starting-style {
+    .themes-modal {
+      transform: none;
+    }
+  }
+}
+
+/* Reduced motion (motion plan 006): the art lift drops; press stays. */
+@media (prefers-reduced-motion: reduce) {
+  .tcard:hover:not(:active) .tcard__art {
+    transform: none;
+  }
 }

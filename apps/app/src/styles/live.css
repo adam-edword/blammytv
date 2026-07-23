@@ -1,4 +1,5 @@
-/* Live tab. Rebuilding section by section — currently: the sidebar. */
+/* Live tab: sidebar + icon rail, guide (channel column, cells, now-line),
+ * hero, theater/fullscreen geometry, and the a11y focus rings. */
 
 /* No padding except the floating nav's height: the EPG grid must reach
  * the screen edges; the sidebar carries its own margins instead. */
@@ -7,7 +8,7 @@
   min-width: 0;
   display: flex;
   gap: 14px;
-  padding-top: var(--header-h, 103px);
+  padding-top: var(--header-h, 76px);
 }
 
 /* ------------------------------------------------------------- sidebar */
@@ -71,8 +72,9 @@
   border-radius: var(--radius-chip);
   opacity: 0.45;
   transition:
-    opacity 150ms ease,
-    background 150ms ease;
+    opacity var(--dur-hover) ease,
+    background var(--dur-hover) ease,
+    transform 160ms var(--ease-out);
 }
 
 .live-collapse:hover {
@@ -135,7 +137,8 @@
   font-size: 15px;
   color: var(--text);
   opacity: 0.5;
-  transition: opacity 150ms ease;
+  transition: opacity var(--dur-hover) ease,
+    transform 160ms var(--ease-out);
 }
 
 .mode-rail__chip:hover {
@@ -219,7 +222,7 @@
   letter-spacing: 1.6px;
   text-transform: uppercase;
   color: var(--text-muted);
-  transition: color 150ms ease;
+  transition: color var(--dur-hover) ease;
 }
 
 .live-group:hover {
@@ -230,7 +233,7 @@
   flex-shrink: 0;
   width: 13px;
   height: 13px;
-  transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform var(--dur-enter) var(--ease-in-out);
 }
 
 /* Connection usage pill ("2/5") on a source header. Quiet by default;
@@ -295,8 +298,8 @@
   flex-shrink: 0;
   height: 36px;
   transition:
-    border-color 120ms ease,
-    background 120ms ease;
+    border-color var(--dur-hover) ease,
+    background var(--dur-hover) ease;
 }
 
 .live-folder:hover {
@@ -365,9 +368,9 @@
 .live-sidebar--collapsed .live-folder {
   opacity: 0.45;
   transition:
-    opacity 150ms ease,
-    border-color 120ms ease,
-    background 120ms ease;
+    opacity var(--dur-hover) ease,
+    border-color var(--dur-hover) ease,
+    background var(--dur-hover) ease;
 }
 
 .live-sidebar--collapsed .live-folder:hover {
@@ -396,7 +399,7 @@
   color: var(--text);
   white-space: nowrap;
   pointer-events: none;
-  animation: tip-in 120ms ease;
+  animation: tip-in var(--dur-hover) var(--ease-out);
 }
 
 @keyframes tip-in {
@@ -463,8 +466,9 @@
   font-size: 13px;
   cursor: pointer;
   transition:
-    border-color 120ms ease,
-    background 120ms ease;
+    border-color var(--dur-hover) ease,
+    background var(--dur-hover) ease,
+    transform 160ms var(--ease-out);
 }
 
 .live-status__retry:hover {
@@ -514,7 +518,7 @@
   position: absolute;
   inset: 0 calc(50% - 1px);
   background: transparent;
-  transition: background 120ms ease;
+  transition: background var(--dur-hover) ease;
 }
 
 .guide-resize:hover::after,
@@ -526,11 +530,14 @@
   position: relative;
 }
 
+/* NO background, on every theme (feel-gate: even the translucent scrim
+ * read as a bar over textured backgrounds). The ticks ride brighter text
+ * instead; rows vertically scrolled under the band overlap them for a
+ * moment — accepted trade for the floating look. */
 .guide__ruler {
   position: sticky;
   top: 0;
   z-index: 3;
-  background: var(--bg);
 }
 
 .guide__tick {
@@ -539,17 +546,21 @@
   font-family: var(--font-headline);
   font-weight: 500;
   font-size: 13px;
-  color: var(--text-dim);
+  /* Brighter than --text-dim: with no bar behind them, the ticks carry
+   * their own readability over any theme's texture. */
+  color: var(--text);
+  opacity: 0.75;
   white-space: nowrap;
 }
 
-/* Blanks out ticks sliding beneath the channel column. */
+/* Keeps ticks' sticky geometry over the channel column; transparent like
+ * the ruler (ticks now just slide across the band, over the theme). Kept
+ * as an element for packs that restyle it. */
 .guide__corner {
   position: sticky;
   left: 0;
   z-index: 1;
   height: 100%;
-  background: var(--bg);
 }
 
 .guide__row {
@@ -564,20 +575,21 @@
 
 /* ------------------------------------------------ guide channel column */
 
-/* Sticky, opaque, and a hair wider than the card so cells vanish under
- * it instead of peeking through the gutter. */
+/* Sticky, a hair wider than the card. TRANSPARENT on every theme
+ * (feel-gate): the cards themselves (var(--surface)) occlude cells
+ * sliding beneath — only the 8px gutter lets them peek through, which
+ * reads as content passing behind a floating column. */
 .guide__channel {
   position: sticky;
   left: 0;
   z-index: 2;
   display: flex;
-  /* Card width + the 8px gutter (kept inside the occluder). Driven by the
-   * resizable column (JS sets --guide-card-w on .guide-wrap). */
+  /* Card width + the 8px gutter. Driven by the resizable column
+   * (JS sets --guide-card-w on .guide-wrap). */
   width: calc(var(--guide-card-w, 189px) + 8px);
   height: 100%;
   padding-right: 8px;
-  padding-bottom: 8px; /* the row gap, kept inside the occluder */
-  background: var(--bg);
+  padding-bottom: 8px; /* the row gap */
 }
 
 .guide__card {
@@ -593,7 +605,7 @@
   border: 1px solid var(--border);
   border-radius: 20px;
   overflow: hidden;
-  transition: border-color 120ms ease;
+  transition: border-color var(--dur-hover) ease;
 }
 
 /* No visual selected state on channel cards — the hero (and later the
@@ -669,7 +681,8 @@
   height: 24px;
   color: var(--text); /* the ghost fills with currentColor */
   opacity: 0;
-  transition: opacity 120ms ease;
+  transition: opacity var(--dur-hover) ease,
+    transform 160ms var(--ease-out);
 }
 
 .guide__channel:hover .guide__fav,
@@ -714,7 +727,7 @@
   border: 1.5px solid color-mix(in srgb, var(--text) 4%, transparent);
   border-radius: 20px;
   overflow: hidden;
-  transition: filter 120ms ease;
+  transition: filter var(--dur-hover) ease;
 }
 
 .guide__cell:hover {
@@ -975,20 +988,18 @@
   vertical-align: 2px;
 }
 
-/* Long titles run under a right-edge fade instead of wrapping. */
+/* Long titles run under a right-edge fade instead of wrapping. A MASK,
+ * not a painted-over gradient: the old ::after painted var(--bg) over the
+ * edge, which on textured themes (dither dots, kawaii) rendered as a
+ * floating dark box over the pattern — worst when the title was short
+ * and nothing sat under it. Masking fades the text itself, so it's
+ * invisible on any background (same pattern as the guide-card and
+ * channel-name fades above). */
 .hero__title-wrap {
   position: relative;
   align-self: stretch;
   overflow: hidden;
-}
-
-.hero__title-wrap::after {
-  content: "";
-  position: absolute;
-  inset: 0 0 0 auto;
-  width: 151px;
-  background: linear-gradient(to right, transparent, var(--bg));
-  pointer-events: none;
+  mask-image: linear-gradient(to right, #000 calc(100% - 151px), transparent);
 }
 
 .hero__title {
@@ -1070,4 +1081,250 @@
 .guide-resize:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
+}
+
+/* ---- Press feedback (motion plan 001; EPG re-thought twice at the
+ * wave-B feel-gate). Guide cells/cards are WIDE tiles in a shared-edge
+ * grid — a scale press read as the cell detaching, and a brightness
+ * press dimmed the TEXT and barely read on the dark accent surface
+ * (Adam). Final form: a 0.2 black background overlay — presses the
+ * surface only, text never dims, identical on accent --live cells.
+ * Instant on (background-image isn't transitioned) — presses snap,
+ * releases too. Chips and the star keep the scale dip. ---- */
+/* Folder row: the button + its hover eye (the guide__channel/__fav
+ * pattern brought to the sidebar). */
+.live-folder-row {
+  position: relative;
+  display: block;
+}
+.live-folder-row .live-folder {
+  width: 100%;
+}
+/* The hover eye: hidden until the row is hovered or keyboard-focused
+ * (the star's reveal rules). Sits over the name's fade-out edge. */
+.live-folder__hide {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  opacity: 0;
+  transition:
+    opacity var(--dur-hover) ease,
+    color var(--dur-hover) ease,
+    transform 160ms var(--ease-out);
+}
+.live-folder-row:hover .live-folder__hide,
+.live-folder-row:focus-within .live-folder__hide {
+  opacity: 1;
+}
+.live-folder__hide:hover {
+  color: var(--text);
+}
+.live-folder__hide:active {
+  transform: translateY(-50%) scale(0.9);
+}
+.live-folder__hide svg {
+  width: 15px;
+  height: 15px;
+}
+.live-folder__hide:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Bottom-center toast (the hide confirmation + its Undo): the player
+ * popovers' glass; enters like the skip-chip (drift up + fade),
+ * departs instantly with its state. */
+.live-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(0, 0, 0, 0.55);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  backdrop-filter: blur(18px) saturate(1.2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 8px 28px rgba(0, 0, 0, 0.45);
+  transform: translateX(-50%);
+  transition:
+    opacity 200ms var(--ease-out),
+    transform 200ms var(--ease-out);
+}
+@starting-style {
+  .live-toast {
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px);
+  }
+}
+.live-toast__msg {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 13.5px;
+  color: #fff;
+  max-width: 44ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.live-toast__undo {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 6px;
+  transition: filter var(--dur-hover) ease;
+}
+.live-toast__undo:hover {
+  filter: brightness(1.35);
+}
+.live-toast__undo:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-toast {
+    transition: opacity 200ms var(--ease-out);
+  }
+  @starting-style {
+    .live-toast {
+      transform: translateX(-50%);
+    }
+  }
+}
+
+/* Folder context menu (right-click → Hide): the player popovers' glass,
+ * cursor-anchored. Entrance per the motion plan-002 language; close is
+ * instant (asymmetry). Fixed coords arrive pre-unscaled (zoomed space —
+ * the tooltip's pattern). */
+.folder-menu {
+  position: fixed;
+  z-index: 30;
+  min-width: 200px;
+  max-width: 280px;
+  padding: 6px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(0, 0, 0, 0.55);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  backdrop-filter: blur(18px) saturate(1.2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 8px 28px rgba(0, 0, 0, 0.45);
+  transform-origin: top left;
+  transition:
+    opacity 150ms var(--ease-out),
+    transform 150ms var(--ease-out);
+}
+@starting-style {
+  .folder-menu {
+    opacity: 0;
+    transform: scale(0.95) translateY(-4px);
+  }
+}
+.folder-menu__item {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  text-align: left;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: background var(--dur-hover) ease;
+}
+.folder-menu__item:hover,
+.folder-menu__item:focus-visible {
+  background: rgba(255, 255, 255, 0.12);
+}
+.folder-menu__hint {
+  margin: 2px 10px 4px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+@media (prefers-reduced-motion: reduce) {
+  .folder-menu {
+    transition: opacity 150ms var(--ease-out);
+  }
+  @starting-style {
+    .folder-menu {
+      transform: none;
+    }
+  }
+}
+
+/* The programme cell's spotlight host: absolute over the cell's padding
+ * box, restating the cell's own layout so the body sits exactly where it
+ * did. The light is a fixed 240px radial circle riding the pointer via
+ * transform (vars from Guide's shineMove) — compositor-side movement,
+ * clipped by the cell's overflow:hidden. Fades in on cell hover. */
+.guide__cell-shine {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 0 12px 0 16px;
+  overflow: hidden;
+}
+.guide__cell-shine::after {
+  content: "";
+  position: absolute;
+  top: -500px;
+  left: -500px;
+  width: 1000px;
+  height: 1000px;
+  pointer-events: none;
+  background: radial-gradient(
+    circle closest-side,
+    rgba(255, 255, 255, 0.07),
+    transparent
+  );
+  transform: translate(var(--mx, -9999px), var(--my, -9999px));
+  opacity: 0;
+  transition: opacity 300ms var(--ease-out);
+}
+.guide__cell:hover .guide__cell-shine::after {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .guide__cell-shine::after {
+    display: none;
+  }
+}
+
+.guide__cell:active,
+.guide__card:active {
+  background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2));
+}
+.mode-rail__chip:active {
+  transform: scale(0.97);
+}
+.live-collapse:active,
+.live-status__retry:active {
+  transform: scale(0.97);
+}
+.guide__fav:active {
+  transform: translateY(-68%) scale(0.9);
 }

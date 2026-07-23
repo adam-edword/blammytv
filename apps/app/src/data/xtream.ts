@@ -97,11 +97,11 @@ export function liveCategoriesUrl(p: XtreamPlaylist): string {
   return playerApiUrl(p, { action: "get_live_categories" });
 }
 
-export function liveStreamsUrl(p: XtreamPlaylist): string {
+function liveStreamsUrl(p: XtreamPlaylist): string {
   return playerApiUrl(p, { action: "get_live_streams" });
 }
 
-export function xmltvUrl(p: XtreamPlaylist): string {
+function xmltvUrl(p: XtreamPlaylist): string {
   const base = p.server.trim().replace(/\/+$/, "");
   const qs = new URLSearchParams({
     username: p.username,

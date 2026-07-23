@@ -18,11 +18,18 @@
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 12px;
+  /* Labels never wrap: the header rail animates max-width past widths
+   * narrower than the chips, and a wrapping label ("My List") reflows
+   * to two lines mid-glide. nowrap pins min-content at full label
+   * width, so the cluster overflows the growing box (overflow is
+   * visible; the delayed fade carries the reveal) instead of reflowing. */
+  white-space: nowrap;
   padding: 6px 15px;
   border-radius: var(--radius-chip);
   color: var(--text);
   opacity: 0.5;
-  transition: opacity 150ms ease;
+  transition: opacity var(--dur-hover) ease,
+    transform 160ms var(--ease-out);
 }
 
 .chip-tabs__tab:hover,
@@ -37,9 +44,13 @@
   background: var(--surface-raised);
   border: 0.5px solid var(--border-raised);
   border-radius: var(--radius-chip);
+  /* 380ms — the spring's designed pairing (tokens.css) and the mode
+   * rail's speed. 300ms read as a twitchy overshoot (Adam, wave-A
+   * feel-gate). If the spring still doesn't sit right here, the next
+   * stop is var(--ease-drawer) at the same duration, no bounce. */
   transition:
-    left 220ms cubic-bezier(0.4, 0, 0.2, 1),
-    width 220ms cubic-bezier(0.4, 0, 0.2, 1);
+    left 380ms var(--spring),
+    width 380ms var(--spring);
 }
 
 /* Trackless variant (the header's Stream rail): same chips, same sliding
@@ -89,7 +100,7 @@
   border-radius: var(--radius-chip);
   background: #ffffff;
   border: 0.5px solid rgba(0, 0, 0, 0.12);
-  transition: left 220ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 260ms var(--spring);
 }
 
 .toggle--on {
@@ -97,7 +108,7 @@
 }
 
 .toggle--on .toggle__thumb {
-  left: 24px;
+  transform: translateX(22px);
 }
 
 /* Dense-list variant. */
@@ -113,7 +124,7 @@
 }
 
 .toggle--sm.toggle--on .toggle__thumb {
-  left: 18px;
+  transform: translateX(16px);
 }
 
 /* Primary action button (Figma "Add Playlist"/"Submit"). */
@@ -126,7 +137,8 @@
   border: 0.5px solid var(--accent);
   border-radius: 25px;
   padding: 9px 14px;
-  transition: filter 150ms ease, opacity 150ms ease;
+  transition: filter var(--dur-hover) ease, opacity var(--dur-hover) ease,
+    transform 160ms var(--ease-out);
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -145,9 +157,54 @@
   }
 }
 
+/* ---- Keyboard focus — the Live a11y batch's themed ring, app-wide.
+ * Live's own list stays in live.css; this covers the surfaces the
+ * v0.1.98 pass never reached (Stream, Discover, My List, header,
+ * settings). :focus-visible only — no ring on plain mouse clicks. Text
+ * inputs are deliberately absent: browsers grant them :focus-visible on
+ * MOUSE focus too, which ringed the borderless search field while
+ * typing; their own focus styling carries them. */
+.stream-card:focus-visible,
+.continue-card:focus-visible,
+.shero__card:focus-visible,
+.shero__btn-quiet:focus-visible,
+.genre-card:focus-visible,
+.chip-tabs__tab:focus-visible,
+.header__tab:focus-visible,
+.header__action:focus-visible,
+.header__search:focus-visible,
+.vod-source:focus-visible,
+.vod-sources__retry:focus-visible,
+.vod-back:focus-visible,
+.season-chip:focus-visible,
+.episode-card:focus-visible,
+.media-row__arrow:focus-visible,
+.continue-card__sources-btn:focus-visible,
+.btn-primary:focus-visible,
+.btn-danger:focus-visible,
+.playlist-row__delete:focus-visible,
+.settings__close:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Visually hidden, screen-reader audible — the skeleton grids' status
+ * line (aria-hidden art needs a textual twin). */
+.vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* ---------- Quality badges (Figma 126:856) ---------- */
 
-/* 23x12 pills: tier gradient at ~30% over black, Bold 7.2px. The ring is
+/* 23x12 pills: tier gradient at ~30% over black, Bold 8.2px (Figma spec
+ * 7.2px; bumped one px for legibility — geometry still lands 23x12). The ring is
  * the old build's technique — a transparent border revealing a gradient
  * clipped to the border-box — because sub-pixel solid borders render
  * mushy, and the design's rings are themselves gradients. Layers:
@@ -300,4 +357,30 @@
   -webkit-background-clip: initial;
   background-clip: initial;
   color: var(--accent);
+}
+
+/* ---- Press feedback (motion plan 001): scale-down only — shrinking
+ * never clips inside scroll boxes. Small controls 0.97, thumb dips
+ * deeper (it's 26px). The dip rides the thumb's own spring so press
+ * and slide share one motion. ---- */
+.chip-tabs__tab:active {
+  transform: scale(0.97);
+}
+/* The header search chip is a chip-tabs__tab, but pressing it means
+ * "put the caret in the input" — scaling the chip mid-click dragged its
+ * absolutely-positioned input around under the cursor. No press here. */
+.header__searchchip:active {
+  transform: none;
+}
+.btn-primary:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.toggle:active .toggle__thumb {
+  transform: scale(0.94);
+}
+.toggle--on:active .toggle__thumb {
+  transform: translateX(22px) scale(0.94);
+}
+.toggle--sm.toggle--on:active .toggle__thumb {
+  transform: translateX(16px) scale(0.94);
 }

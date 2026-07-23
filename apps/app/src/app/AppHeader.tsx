@@ -54,6 +54,7 @@ function useClock(): string {
 
 export function AppHeader({
   section,
+  showLive,
   streamTab,
   onSection,
   onStreamTab,
@@ -61,6 +62,8 @@ export function AppHeader({
 }: {
   section: Section;
   streamTab: StreamTab;
+  /** Live tab renders only while a live source is configured. */
+  showLive: boolean;
   onSection: (s: Section) => void;
   onStreamTab: (t: StreamTab) => void;
   onOpenSettings: () => void;
@@ -175,7 +178,7 @@ export function AppHeader({
         {/* Logo + wordmark grouped so their gap tunes independently of the
           * clock's spacing off the lockup. */}
         <div className="header__lockup">
-          <img className="header__logo" src="/logo.png" alt="" />
+          <img className="header__logo" src="/logo.svg" alt="" />
           <div className="header__title">
             <span className="header__name">BlammyTV</span>
             <span className="header__version">v{APP_VERSION}</span>
@@ -197,26 +200,33 @@ export function AppHeader({
           }
           aria-label="Search channels"
           aria-hidden={section !== "live"}
-          tabIndex={section === "live" ? 0 : -1}
+          tabIndex={-1}
           /* Deliberately INERT: this is the live-channel search slot,
            * completely unlinked from the VOD pill (jumping a TV user to
-           * Discover was wrong). Wire it when TV search exists. */
+           * Discover was wrong). Wire it when TV search exists — until
+           * then it reads disabled instead of teasing a dead click. */
+          disabled
+          title="Coming soon"
         >
           <SearchIcon />
         </button>
-        <span className="header__tab-slot">
-          <button
-            type="button"
-            className={
-              "header__tab" + (section === "live" ? " header__tab--active" : "")
-            }
-            onClick={() => onSection("live")}
-          >
-            Live TV
-          </button>
-          {/* The design keeps a fixed divider between Live TV and the rest. */}
-          <span className="header__divider">|</span>
-        </span>
+        {showLive && (
+          <span className="header__tab-slot">
+            <button
+              type="button"
+              className={
+                "header__tab" +
+                (section === "live" ? " header__tab--active" : "")
+              }
+              onClick={() => onSection("live")}
+            >
+              Live TV
+            </button>
+            {/* The design keeps a fixed divider between Live TV and the
+              * rest. */}
+            <span className="header__divider">|</span>
+          </span>
+        )}
         {/* Stream tab + its sub-rail grouped, so their gap tunes
           * independently of the tab cluster's 20px rhythm. */}
         <div className="header__streamgroup">
@@ -326,7 +336,15 @@ export function AppHeader({
           * update should read at full strength. */}
         <UpdateChip />
         <div className="header__actions">
-          <button type="button" className="header__action" aria-label="Profile">
+          {/* Future cosmetic feature (README) — disabled until wired so the
+            * hover doesn't tease a click that does nothing. */}
+          <button
+            type="button"
+            className="header__action"
+            aria-label="Profile"
+            disabled
+            title="Coming soon"
+          >
             <AccountIcon />
           </button>
           <button

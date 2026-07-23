@@ -50,14 +50,23 @@ function measure(el: HTMLElement, squared: boolean): CompRect {
 export function InvertedPlayer({
   url,
   squared = false,
+  ready = true,
 }: {
   url: string;
   /** Drops the corner radius to 0 (theater/fullscreen fill to edges). Read
    * live in the rAF so a toggle re-rects without restarting playback. */
   squared?: boolean;
+  /** Video is PRESENTING (the mpv_status first-frame signal). Until then
+   * the hole stays closed — mpv opens and rects land behind the intact
+   * opaque shell, so a slow tune shows the app's own black slot + tune
+   * ident instead of the DESKTOP through a hole with no video behind it
+   * (the first-open gap the old∩new two-phase never covered). */
+  ready?: boolean;
 }) {
   const fsRef = useRef(squared);
   fsRef.current = squared;
+  const readyRef = useRef(ready);
+  readyRef.current = ready;
 
   // Effect keyed on `url`: a channel switch tears the player fully down
   // (cleanup inv_stop) and rebuilds after the debounce, so mpv never plays
@@ -85,7 +94,9 @@ export function InvertedPlayer({
         const rect = measure(el, fsRef.current);
         // Window dims ride the key: the inverted hole's outer path needs
         // them, so a resize that somehow keeps the slot rect still re-clips.
-        const key = `${rect.x},${rect.y},${rect.w},${rect.h},${rect.radius},${window.innerWidth}x${window.innerHeight}`;
+        // Readiness rides the key: the flip to presenting must re-run the
+        // cut with otherwise-unchanged geometry.
+        const key = `${rect.x},${rect.y},${rect.w},${rect.h},${rect.radius},${window.innerWidth}x${window.innerHeight},${readyRef.current ? 1 : 0}`;
         if (rect.w > 0 && rect.h > 0 && key !== last) {
           last = key;
           {
@@ -122,7 +133,7 @@ export function InvertedPlayer({
                   }
                 : next;
               shell.style.clipPath =
-                ix.r > ix.l && ix.b > ix.t
+                readyRef.current && ix.r > ix.l && ix.b > ix.t
                   ? holeClip(ix.l, ix.t, ix.r, ix.b, rad, W, H)
                   : "";
             }
@@ -136,7 +147,7 @@ export function InvertedPlayer({
               window.clearTimeout(settleTimer);
               settleTimer = window.setTimeout(() => {
                 hole = next;
-                if (shell)
+                if (shell && readyRef.current)
                   shell.style.clipPath = holeClip(
                     next.l,
                     next.t,

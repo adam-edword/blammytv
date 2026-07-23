@@ -38,7 +38,7 @@
   display: grid;
   place-items: center;
   cursor: pointer;
-  transition: transform 140ms ease;
+  transition: transform 160ms var(--ease-out);
 }
 .genre-card:hover {
   transform: translateY(-3px);
@@ -51,7 +51,7 @@
   object-fit: cover;
   /* Each visit deals a fresh random title — the swap fades in over the
    * previous art (the img remounts when src changes). */
-  animation: genre-art-in 450ms ease;
+  animation: genre-art-in 250ms var(--ease-out);
 }
 @keyframes genre-art-in {
   from {
@@ -71,7 +71,7 @@
   position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.45);
-  transition: background 140ms ease;
+  transition: background var(--dur-hover) ease;
 }
 /* Darkening-hover family — the SELECTED card is exempt, like
  * .season-chip--on: hovering what you just chose must not re-dim it. */
@@ -154,4 +154,18 @@
   font-family: var(--font-headline);
   font-weight: 600;
   font-size: 28px;
+}
+
+/* ---- Press feedback (motion plan 001): settles from the -3px hover
+ * lift, not a jump to origin. ---- */
+.genre-card:active {
+  transform: translateY(-1px) scale(0.98);
+}
+
+/* Reduced motion (motion plan 006): the lift drops, the press dip and
+ * the brightness hover stay. */
+@media (prefers-reduced-motion: reduce) {
+  .genre-card:hover:not(:active) {
+    transform: none;
+  }
 }

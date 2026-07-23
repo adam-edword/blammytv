@@ -60,7 +60,7 @@ export function saveCustomAccent(hex: string): void {
 export type AccentStyle = "flat" | "aurora";
 
 /** The flat hue thin consumers read while Aurora is active. */
-export const AURORA_HUE = "#8b5cf6";
+const AURORA_HUE = "#8b5cf6";
 
 const STYLE_KEY = "accent-style";
 

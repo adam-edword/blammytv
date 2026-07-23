@@ -1,5 +1,6 @@
 import {
   Fragment,
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -10,6 +11,7 @@ import {
 } from "react";
 import {
   ChevronIcon,
+  EyeOffIcon,
   PanelIcon,
   RainbowStarIcon,
   RecentsIcon,
@@ -34,7 +36,12 @@ import { useDirectOverlay } from "./useDirectOverlay";
 /** Native player present (the inverted layer is THE architecture; in a
  * plain browser tab there is no player at all). */
 const INV = isTauri();
-import { onPlaylistsChange } from "../settings/playlists";
+import {
+  loadPlaylists,
+  onPlaylistsChange,
+  savePlaylists,
+  toggleHiddenCategory,
+} from "../settings/playlists";
 import { InvertedPlayer } from "./InvertedPlayer";
 import { useConnections } from "./connections";
 import { splitTitleEmoji } from "./emoji";
@@ -188,6 +195,176 @@ function ModeRail({
   );
 }
 
+/** The source/folder rail, extracted + memoized: LiveScreen re-renders on
+ * every guide hover-preview and folded-rail tooltip move, and this list
+ * (groups x folders, splitTitleEmoji per folder) re-rendered every time.
+ * Every prop is identity-stable across preview/tip churn (useConnections
+ * documents its stable Map; the callbacks are useCallback'd), so memo
+ * skips it entirely in the hottest interaction path. */
+const SidebarSources = memo(function SidebarSources({
+  groups,
+  conns,
+  closedGroups,
+  folder,
+  collapsed,
+  onToggleGroup,
+  onPickFolder,
+  onTip,
+  onFolderMenu,
+  onHideFolder,
+}: {
+  groups: LiveData["groups"];
+  conns: ReturnType<typeof useConnections>;
+  closedGroups: Set<string>;
+  folder: string | null;
+  collapsed: boolean;
+  onToggleGroup: (id: string) => void;
+  onPickFolder: (id: string, active: boolean) => void;
+  onTip: (t: { label: string; x: number; y: number } | null) => void;
+  /** Right-click on a folder: open the hide menu at the cursor. */
+  onFolderMenu: (m: {
+    x: number;
+    y: number;
+    groupId: string;
+    folderId: string;
+    name: string;
+  }) => void;
+  /** The hover eye: hide this folder right now (toast carries the undo). */
+  onHideFolder: (groupId: string, folderId: string, name: string) => void;
+}) {
+  return (
+    <div className="live-sidebar__list">
+      {groups.map((g) => {
+        const open = !closedGroups.has(g.id);
+        const c = conns.get(g.id);
+        return (
+          <Fragment key={g.id}>
+            <button
+              type="button"
+              className="live-group"
+              aria-expanded={open}
+              onClick={() => onToggleGroup(g.id)}
+            >
+              <ChevronIcon
+                className={
+                  "live-group__caret" +
+                  (open ? "" : " live-group__caret--closed")
+                }
+              />
+              {g.name}
+              {/* Connection usage (Xtream only) — accent at the cap,
+               * when the number is the reason a stream won't open. */}
+              {c && !collapsed && (
+                <span
+                  className={
+                    "live-conns" + (c.active >= c.max ? " live-conns--full" : "")
+                  }
+                  title={`${c.active} of ${c.max} connections in use`}
+                >
+                  {c.active}/{c.max}
+                </span>
+              )}
+            </button>
+            {g.error && !collapsed && (
+              <p className="live-group__error">
+                Couldn&rsquo;t load this playlist — {g.error}
+              </p>
+            )}
+            {open && g.folders.length > 0 && (
+              <div
+                className="live-sidebar__folders"
+                onScroll={() => onTip(null)}
+              >
+                {g.folders.map((f) => {
+                  const { emoji, label } = splitTitleEmoji(f.name);
+                  const active = folder === f.id;
+                  return (
+                    <span className="live-folder-row" key={f.id}>
+                      <button
+                        type="button"
+                        aria-label={label}
+                        aria-current={active ? "true" : undefined}
+                        // Expanded, long names fade at the edge — a native
+                        // tooltip makes the full name recoverable. Folded,
+                        // the custom .live-tip owns that, so skip it.
+                        title={collapsed ? undefined : label}
+                        className={
+                          "live-folder" +
+                          (active ? " live-folder--active" : "")
+                        }
+                        onClick={() => onPickFolder(f.id, active)}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          onTip(null);
+                          // Fixed-position coords live in the zoomed space
+                          // (the tooltip's pattern). Keyboard menu key sends
+                          // 0,0 — anchor on the row instead.
+                          const zoom = Number(
+                            document.documentElement.style.zoom || 1,
+                          );
+                          const r = e.currentTarget.getBoundingClientRect();
+                          const cx = e.clientX || r.right - 8;
+                          const cy = e.clientY || r.top + r.height / 2;
+                          onFolderMenu({
+                            x: cx / zoom,
+                            y: cy / zoom,
+                            groupId: g.id,
+                            folderId: f.id,
+                            name: label,
+                          });
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!collapsed) return;
+                          const r = e.currentTarget.getBoundingClientRect();
+                          // Fixed positioning lives in the zoomed
+                          // coordinate space (see the settings
+                          // dropdown), so unscale.
+                          const zoom = Number(
+                            document.documentElement.style.zoom || 1,
+                          );
+                          onTip({
+                            label,
+                            x: r.right / zoom + 12,
+                            y: (r.top + r.height / 2) / zoom,
+                          });
+                        }}
+                        onMouseLeave={() => onTip(null)}
+                      >
+                        {emoji ? (
+                          <span className="live-folder__emoji" aria-hidden>
+                            {emoji}
+                          </span>
+                        ) : (
+                          <TvIcon className="live-folder__icon" />
+                        )}
+                        <span className="live-folder__name">{label}</span>
+                      </button>
+                      {/* The hover eye (the guide-star pattern): hides this
+                        * folder in one click; the toast carries the undo.
+                        * No room folded — the context menu covers there. */}
+                      {!collapsed && (
+                        <button
+                          type="button"
+                          className="live-folder__hide"
+                          aria-label={`Hide ${label}`}
+                          title={`Hide ${label}`}
+                          onClick={() => onHideFolder(g.id, f.id, label)}
+                        >
+                          <EyeOffIcon />
+                        </button>
+                      )}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+          </Fragment>
+        );
+      })}
+    </div>
+  );
+});
+
 export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   const [mode, setMode] = useState<Mode>("playlist");
   const [collapsed, setCollapsed] = useState(false);
@@ -197,6 +374,151 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
    * scrolling list can't clip it). */
   const [tip, setTip] = useState<{ label: string; x: number; y: number } | null>(
     null,
+  );
+  /** The folder context menu (right-click → Hide): cursor-anchored, one
+   * action. Unhide lives in Settings → Playlists' folder editor. */
+  const [folderMenu, setFolderMenu] = useState<{
+    x: number;
+    y: number;
+    groupId: string;
+    folderId: string;
+    name: string;
+  } | null>(null);
+  const folderMenuRef = useRef<HTMLDivElement | null>(null);
+  const folderMenuRef2 = useRef<typeof folderMenu>(null);
+  folderMenuRef2.current = folderMenu;
+  /** K: the element that invoked the menu — focus returns to it on close
+   * (Escape/click-away/hide), so keyboard users keep their place. */
+  const menuInvokerRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!folderMenu) return;
+    // Capture the invoker once per open (the folder row still holds focus
+    // at this point; the menu's autoFocus steals it a tick later).
+    if (!(menuInvokerRef.current instanceof HTMLElement))
+      menuInvokerRef.current =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null;
+    const onDown = (e: MouseEvent) => {
+      if (!folderMenuRef.current?.contains(e.target as Node))
+        setFolderMenu(null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFolderMenu(null);
+    };
+    document.addEventListener("mousedown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [folderMenu]);
+  // Focus returns to the invoking row when the menu closes (it may be
+  // gone after a hide — closest surviving ancestor list handles that by
+  // simply not focusing).
+  useEffect(() => {
+    if (folderMenu) return;
+    const el = menuInvokerRef.current;
+    menuInvokerRef.current = null;
+    if (el && el.isConnected) el.focus();
+  }, [folderMenu]);
+  /** Optimistically-hidden folder ids: a hide must vanish INSTANTLY, but
+   * hiddenCategories is part of the disk-cache fingerprint, so the real
+   * pipeline is a debounced full reload (seconds). This set filters the
+   * sidebar AND the guide's channels immediately; entries dissolve when a
+   * landed reload no longer carries the folder (the applied signal). */
+  const [pendingHidden, setPendingHidden] = useState<Set<string>>(
+    () => new Set(),
+  );
+  /** Bottom-center toast — one at a time, 5s, Undo restores the folder. */
+  const [toast, setToast] = useState<{ msg: string; undo: () => void } | null>(
+    null,
+  );
+  const toastTimer = useRef(0);
+  useEffect(() => () => window.clearTimeout(toastTimer.current), []);
+  const hideFolderNow = useCallback(
+    (groupId: string, folderId: string, name: string) => {
+      // A group without a stored playlist has nothing to persist into —
+      // a hide there would toast a lie.
+      if (!loadPlaylists().some((p) => p.id === groupId)) return;
+      // folder.id is `${playlistId}:${categoryId}` (source.ts#folderId);
+      // hiddenCategories stores the RAW category id — slice by the known
+      // playlist prefix. Same store + signal as the Settings editor, so
+      // folders/channels/EPG drop together and Live refreshes silently.
+      const catId = folderId.slice(groupId.length + 1);
+      savePlaylists(toggleHiddenCategory(loadPlaylists(), groupId, catId));
+      setPendingHidden((prev) => new Set(prev).add(folderId));
+      // Hiding the folder you're filtered to: back to the full guide.
+      setFolder((f) => (f === folderId ? null : f));
+      setToast({
+        msg: `Hid “${name}”`,
+        undo: () => {
+          savePlaylists(
+            toggleHiddenCategory(loadPlaylists(), groupId, catId),
+          );
+          setPendingHidden((prev) => {
+            const next = new Set(prev);
+            next.delete(folderId);
+            return next;
+          });
+          window.clearTimeout(toastTimer.current);
+          setToast(null);
+        },
+      });
+      window.clearTimeout(toastTimer.current);
+      toastTimer.current = window.setTimeout(() => setToast(null), 5000);
+    },
+    [],
+  );
+  // NOT inside the setFolderMenu updater: updaters must be pure
+  // (StrictMode double-invokes them — a toggle inside ran twice and the
+  // hide silently un-persisted; the codebase documented this exact bug
+  // class on StreamScreen's Back pop).
+  /** G: clamp to the viewport (fixed coords, zoomed space) so a
+   * bottom-edge right-click can't push the menu off-screen. */
+  const openFolderMenu = useCallback(
+    (m: {
+      x: number;
+      y: number;
+      groupId: string;
+      folderId: string;
+      name: string;
+    }) => {
+      const zoom = Number(document.documentElement.style.zoom || 1);
+      setFolderMenu({
+        ...m,
+        x: Math.min(m.x, window.innerWidth / zoom - 300),
+        y: Math.min(m.y, window.innerHeight / zoom - 96),
+      });
+    },
+    [],
+  );
+  const hideFolder = useCallback(() => {
+    const m = folderMenuRef2.current;
+    setFolderMenu(null);
+    if (m) hideFolderNow(m.groupId, m.folderId, m.name);
+  }, [hideFolderNow]);
+
+  // Stable handlers for the memoized SidebarSources (setTip is stable by
+  // construction; these two must be too or the memo is defeated).
+  const toggleGroup = useCallback(
+    (id: string) =>
+      setClosedGroups((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      }),
+    [],
+  );
+  const pickFolder = useCallback(
+    (id: string, active: boolean) => {
+      setFolder(active ? null : id);
+      // A folded-rail click tunes the EPG to this source. (Identity only
+      // changes on collapse toggles — rare, never the hover-churn path.)
+      if (collapsed) setMode("playlist");
+    },
+    [collapsed],
   );
   // Resume the last-watched channel (recents[0]) so a tab switch or app
   // restart doesn't dump the selection back on the catalog's first row.
@@ -217,8 +539,9 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
     programme: Programme | null;
   } | null>(null);
 
-  // The live catalog: real Xtream playlists when any are configured, the
-  // bundled mock otherwise. Loaded once up front (the old build's proven
+  // The live catalog, from the configured playlists (this screen only
+  // renders with at least one enabled). Loaded once up front (the old
+  // build's proven
   // strategy), served from the session cache on remounts (tab switches
   // unmount this screen), and re-fetched when the playlists change in
   // Settings.
@@ -287,14 +610,20 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   useEffect(() => {
     if (live.status !== "ready") return;
     const { channels, groups } = live.data;
-    if (channels.length && !channels.some((c) => c.id === channelId))
+    if (channels.length && !channels.some((c) => c.id === channelId)) {
+      // The selected channel vanished (hidden/removed). Adopting the
+      // catalog's first channel is fine for a parked selection — but if
+      // it was PLAYING, auto-tuning an unrelated channel is a jumpscare:
+      // stop instead (hiding the folder you're watching means stop).
+      if (playing) setPlaying(false);
       setChannelId(channels[0].id);
+    }
     if (
       folder &&
       !groups.some((g) => g.folders.some((f) => f.id === folder))
     )
       setFolder(null);
-  }, [live, channelId, folder]);
+  }, [live, channelId, folder, playing]);
 
   // Favorites and recents live here (not in the guide) because the modes
   // filter on them. Selecting a channel records it as recent.
@@ -335,9 +664,28 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   // along. Memoized: a fresh identity per render would bust the guide's
   // memoization on every hover-preview update (it re-renders constantly
   // while scrolling with the cursor over cells).
+  // Entries dissolve once a landed reload no longer carries the folder.
+  useEffect(() => {
+    if (live.status !== "ready") return;
+    setPendingHidden((prev) => {
+      if (prev.size === 0) return prev;
+      const still = new Set(
+        [...prev].filter((id) =>
+          live.data.groups.some((g) => g.folders.some((f) => f.id === id)),
+        ),
+      );
+      return still.size === prev.size ? prev : still;
+    });
+  }, [live]);
+
   const visible = useMemo(() => {
     if (live.status !== "ready") return [];
-    const { channels, programmes } = live.data;
+    const { programmes } = live.data;
+    // Optimistic hide: a just-hidden folder's channels drop NOW; the
+    // debounced reload catches up and the pending set dissolves.
+    const channels = pendingHidden.size
+      ? live.data.channels.filter((c) => !pendingHidden.has(c.folderId))
+      : live.data.channels;
     const attach = (c: Channel) => ({
       channel: c,
       programmes: programmes.get(c.id) ?? NO_PROGRAMMES,
@@ -358,9 +706,18 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
     return channels
       .filter((c) => !folder || c.folderId === folder)
       .map(attach);
-  }, [live, mode, folder, favorites, recents]);
+  }, [live, mode, folder, favorites, recents, pendingHidden]);
 
   const ready = live.status === "ready" ? live.data : null;
+  // The sidebar's groups with pending-hidden folders already gone.
+  const visibleGroups = useMemo(() => {
+    if (!ready) return null;
+    if (pendingHidden.size === 0) return ready.groups;
+    return ready.groups.map((g) => ({
+      ...g,
+      folders: g.folders.filter((f) => !pendingHidden.has(f.id)),
+    }));
+  }, [ready, pendingHidden]);
   // Memoized: hover previews re-render this screen constantly, and a scan
   // over a six-figure channel list per render is real time.
   const heroChannel = useMemo(
@@ -383,7 +740,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   // its URL, Xtream rebuilds it synchronously under the hood, and Stalker
   // exchanges the channel's cmd via create_link — so the URL lands in state
   // one tick later and the player mounts then (imperceptible for the sync
-  // kinds). A null url (mock catalog, browser build, resolve failure) means
+  // kinds). A null url (browser build, resolve failure) means
   // no player mounts. Keyed on the channel ID, not the object — a background
   // data refresh must not re-resolve (a fresh Stalker link would rebuild the
   // player mid-watch); the ref carries the current object into the effect.
@@ -415,20 +772,31 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   }, [playing, heroId]);
   playUrlRef.current = playUrl;
   heroIdRef.current = heroChannel?.id;
-  const playMeta = (() => {
+  // The overlay meta's clock: a 30s pulse (plus a fresh beat on tune-in) so
+  // the memoized meta below still tracks programme rollover. Without the
+  // memo, this object rebuilt on EVERY render — each guide hover-preview
+  // re-rendered the whole theater chrome through useDirectOverlay's
+  // identity-keyed meta effect.
+  const [metaNow, setMetaNow] = useState(() => new Date());
+  useEffect(() => {
+    if (!playUrl) return;
+    setMetaNow(new Date());
+    const id = window.setInterval(() => setMetaNow(new Date()), 30_000);
+    return () => window.clearInterval(id);
+  }, [playUrl]);
+  const playMeta = useMemo(() => {
     if (!playUrl || !ready || !heroChannel) return null;
-    const at = new Date();
     const airing = (ready.programmes.get(heroChannel.id) ?? NO_PROGRAMMES).find(
-      (p) => p.start <= at && at < p.end,
+      (p) => p.start <= metaNow && metaNow < p.end,
     );
     return buildMeta(
       heroChannel,
       airing,
-      at,
+      metaNow,
       undefined,
       favorites.includes(heroChannel.id),
     );
-  })();
+  }, [playUrl, ready, heroChannel, favorites, metaNow]);
 
   // Inline chrome for the inverted player: a direct OverlayApi (mpv commands
   // + a status poll) injected into TheaterOverlay, which renders into a
@@ -490,6 +858,11 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
       );
     },
   });
+  // First-frame gate for the shell hole (see InvertedPlayer.ready): the
+  // status poll's loading signal — true re-arms on every tune, false on
+  // mpv's first presented frame.
+  const [videoReady, setVideoReady] = useState(false);
+  useEffect(() => directApi.onLoading((v) => setVideoReady(!v)), [directApi]);
   // Must be set before TheaterOverlay renders (its state initializers read
   // the api synchronously); idempotent, so the render-path call is safe.
   if (INV) setOverlayApiOverride(directApi);
@@ -590,117 +963,18 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
          * just lose their labels, so the icons never move and scroll
          * position survives. Folded, it doubles as a quick-switch rail. */}
         {(collapsed || mode === "playlist") && ready && (
-          <div className="live-sidebar__list">
-            {ready.groups.map((g) => {
-              const open = !closedGroups.has(g.id);
-              const c = conns.get(g.id);
-              return (
-                <Fragment key={g.id}>
-                  <button
-                    type="button"
-                    className="live-group"
-                    aria-expanded={open}
-                    onClick={() =>
-                      setClosedGroups((prev) => {
-                        const next = new Set(prev);
-                        if (next.has(g.id)) next.delete(g.id);
-                        else next.add(g.id);
-                        return next;
-                      })
-                    }
-                  >
-                    <ChevronIcon
-                      className={
-                        "live-group__caret" +
-                        (open ? "" : " live-group__caret--closed")
-                      }
-                    />
-                    {g.name}
-                    {/* Connection usage (Xtream only) — accent at the cap,
-                     * when the number is the reason a stream won't open. */}
-                    {c && !collapsed && (
-                      <span
-                        className={
-                          "live-conns" +
-                          (c.active >= c.max ? " live-conns--full" : "")
-                        }
-                        title={`${c.active} of ${c.max} connections in use`}
-                      >
-                        {c.active}/{c.max}
-                      </span>
-                    )}
-                  </button>
-                  {g.error && !collapsed && (
-                    <p className="live-group__error">
-                      Couldn't load this playlist — {g.error}
-                    </p>
-                  )}
-                  {open && g.folders.length > 0 && (
-                    <div
-                      className="live-sidebar__folders"
-                      onScroll={() => setTip(null)}
-                    >
-                      {g.folders.map((f) => {
-                        const { emoji, label } = splitTitleEmoji(f.name);
-                        const active = folder === f.id;
-                        return (
-                          <button
-                            key={f.id}
-                            type="button"
-                            aria-label={label}
-                            aria-current={active ? "true" : undefined}
-                            // Expanded, long names fade at the edge — a native
-                            // tooltip makes the full name recoverable. Folded,
-                            // the custom .live-tip owns that, so skip it.
-                            title={collapsed ? undefined : label}
-                            className={
-                              "live-folder" +
-                              (active ? " live-folder--active" : "")
-                            }
-                            onClick={() => {
-                              setFolder(active ? null : f.id);
-                              // A folded-rail click tunes the EPG to this
-                              // source.
-                              if (collapsed) setMode("playlist");
-                            }}
-                            onMouseEnter={(e) => {
-                              if (!collapsed) return;
-                              const r =
-                                e.currentTarget.getBoundingClientRect();
-                              // Fixed positioning lives in the zoomed
-                              // coordinate space (see the settings
-                              // dropdown), so unscale.
-                              const zoom = Number(
-                                document.documentElement.style.zoom || 1,
-                              );
-                              setTip({
-                                label,
-                                x: r.right / zoom + 12,
-                                y: (r.top + r.height / 2) / zoom,
-                              });
-                            }}
-                            onMouseLeave={() => setTip(null)}
-                          >
-                            {emoji ? (
-                              <span
-                                className="live-folder__emoji"
-                                aria-hidden
-                              >
-                                {emoji}
-                              </span>
-                            ) : (
-                              <TvIcon className="live-folder__icon" />
-                            )}
-                            <span className="live-folder__name">{label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </Fragment>
-              );
-            })}
-          </div>
+          <SidebarSources
+            groups={visibleGroups ?? ready.groups}
+            conns={conns}
+            closedGroups={closedGroups}
+            folder={folder}
+            collapsed={collapsed}
+            onToggleGroup={toggleGroup}
+            onPickFolder={pickFolder}
+            onTip={setTip}
+            onFolderMenu={openFolderMenu}
+            onHideFolder={hideFolderNow}
+          />
         )}
 
         {!collapsed && mode !== "playlist" && (
@@ -718,6 +992,53 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
         </div>
       )}
 
+      {/* Portaled: fixed overlays inside .app-shell get cut by the
+        * player's clip hole (theater mode carved the toast/menu away). */}
+      {folderMenu &&
+        createPortal(
+          <div
+            ref={folderMenuRef}
+            className="folder-menu"
+            role="menu"
+            aria-label={`${folderMenu.name} options`}
+            style={{ left: folderMenu.x, top: folderMenu.y }}
+          >
+            <button
+              type="button"
+              role="menuitem"
+              className="folder-menu__item"
+              aria-describedby="folder-menu-hint"
+              autoFocus
+              onClick={hideFolder}
+            >
+              Hide &ldquo;{folderMenu.name}&rdquo;
+            </button>
+            <p
+              className="folder-menu__hint"
+              id="folder-menu-hint"
+              role="none"
+            >
+              Unhide any time in Settings &rarr; Playlists.
+            </p>
+          </div>,
+          document.body,
+        )}
+
+      {toast &&
+        createPortal(
+          <div className="live-toast" role="status">
+            <span className="live-toast__msg">{toast.msg}</span>
+            <button
+              type="button"
+              className="live-toast__undo"
+              onClick={toast.undo}
+            >
+              Undo
+            </button>
+          </div>,
+          document.body,
+        )}
+
       <div className="live-main">
         {live.status === "loading" && (
           <div className="live-status" role="status" aria-live="polite">
@@ -730,7 +1051,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
             role="alert"
           >
             <p>
-              Couldn't load your playlists — {live.message}. Check them in
+              Couldn&rsquo;t load your playlists — {live.message}. Check them in
               Settings → Playlists.
             </p>
             <button
@@ -747,7 +1068,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
           (ready.groups.find((g) => g.error) ? (
             <div className="live-status live-status--error" role="alert">
               <p>
-                Couldn't load your playlists —{" "}
+                Couldn&rsquo;t load your playlists —{" "}
                 {ready.groups.find((g) => g.error)!.error}. Check them in
                 Settings → Playlists.
               </p>
@@ -779,10 +1100,14 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
               }
             />
             {/* Headless: opens mpv into #player-slot and follows the box.
-             * Only in Tauri with a real stream URL, so browser/mock is
-             * untouched. */}
+             * Only in Tauri with a real stream URL, so the browser build
+             * is untouched. */}
             {playUrl && (
-              <InvertedPlayer url={playUrl} squared={theater || fullscreen} />
+              <InvertedPlayer
+                url={playUrl}
+                squared={theater || fullscreen}
+                ready={videoReady}
+              />
             )}
             {/* Inverted path: the player chrome lives in the main webview,
              * portaled outside the shell so the clip hole can't cut it. */}

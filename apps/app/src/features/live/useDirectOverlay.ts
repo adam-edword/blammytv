@@ -65,6 +65,7 @@ export function useDirectOverlay(
     endedFired: false,
     tracks: null as Tracks | null,
     tracksJson: "",
+    metaJson: "",
     time: null as TimeInfo | null,
     chapters: [] as ChapterInfo[],
     chaptersJson: "",
@@ -75,9 +76,16 @@ export function useDirectOverlay(
     timeCbs: new Set<(t: TimeInfo | null) => void>(),
   }).current;
 
-  // Meta pushes (open, channel switch, programme rollover).
+  // Meta pushes (open, channel switch, programme rollover). Hosts rebuild
+  // the meta object per render, so identity alone would fan every host
+  // re-render (worst: per guide hover-preview) out into a full chrome
+  // re-render — compare by VALUE (the tracksJson trick) and notify only
+  // on real change.
   useEffect(() => {
     metaRef.current = meta;
+    const json = JSON.stringify(meta);
+    if (json === s.metaJson) return;
+    s.metaJson = json;
     s.metaCbs.forEach((cb) => cb(meta));
   }, [meta, s]);
 
