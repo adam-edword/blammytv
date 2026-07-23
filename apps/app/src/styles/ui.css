@@ -18,6 +18,12 @@
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 12px;
+  /* Labels never wrap: the header rail animates max-width past widths
+   * narrower than the chips, and a wrapping label ("My List") reflows
+   * to two lines mid-glide. nowrap pins min-content at full label
+   * width, so the cluster overflows the growing box (overflow is
+   * visible; the delayed fade carries the reveal) instead of reflowing. */
+  white-space: nowrap;
   padding: 6px 15px;
   border-radius: var(--radius-chip);
   color: var(--text);
