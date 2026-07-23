@@ -770,6 +770,11 @@ export function StreamScreen() {
     },
   );
   if (isTauri() && playing) setOverlayApiOverride(directApi);
+  // First-frame gate for the shell hole (see InvertedPlayer.ready): the
+  // status poll's loading signal — true re-arms on every play, false on
+  // mpv's first presented frame.
+  const [videoReady, setVideoReady] = useState(false);
+  useEffect(() => directApi.onLoading((v) => setVideoReady(!v)), [directApi]);
 
   // Resume-from-position: one absolute seek on the first presented frame
   // (seeking before the file loads is a no-op mpv-side).
@@ -947,7 +952,9 @@ export function StreamScreen() {
     return (
       <div className={"vod-stage" + (playing.popped ? " vod-stage--popped" : "")}>
         <div id="player-slot" className="vod-stage__slot" />
-        {!playing.popped && <InvertedPlayer url={playing.url} squared />}
+        {!playing.popped && (
+          <InvertedPlayer url={playing.url} squared ready={videoReady} />
+        )}
         {!playing.popped &&
           chromeHostRef.current &&
           createPortal(

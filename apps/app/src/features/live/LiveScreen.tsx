@@ -645,6 +645,11 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
       );
     },
   });
+  // First-frame gate for the shell hole (see InvertedPlayer.ready): the
+  // status poll's loading signal — true re-arms on every tune, false on
+  // mpv's first presented frame.
+  const [videoReady, setVideoReady] = useState(false);
+  useEffect(() => directApi.onLoading((v) => setVideoReady(!v)), [directApi]);
   // Must be set before TheaterOverlay renders (its state initializers read
   // the api synchronously); idempotent, so the render-path call is safe.
   if (INV) setOverlayApiOverride(directApi);
@@ -836,7 +841,11 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
              * Only in Tauri with a real stream URL, so browser/mock is
              * untouched. */}
             {playUrl && (
-              <InvertedPlayer url={playUrl} squared={theater || fullscreen} />
+              <InvertedPlayer
+                url={playUrl}
+                squared={theater || fullscreen}
+                ready={videoReady}
+              />
             )}
             {/* Inverted path: the player chrome lives in the main webview,
              * portaled outside the shell so the clip hole can't cut it. */}
