@@ -703,6 +703,15 @@
    * gaining its own header padding doubled the clearance to ~172px and
    * shrank the visible episode list (fleet finding). */
   padding-top: 0;
+  /* INCOMPRESSIBLE here, unlike the source screen: the base rule's
+   * overflow-y:auto + min-height:0 give this grid item an automatic
+   * minimum of 0, so the tall episode grid starves its row during track
+   * sizing and the whole metadata block collapses into a ~120px
+   * internally-scrolling slice (clipped logo, hidden synopsis —
+   * measured in the layout harness). The episodes BODY is the one
+   * scroller; this column must always take its content height. */
+  overflow-y: visible;
+  min-height: auto;
 }
 /* Same glass language as the pills/chips on these screens: #00000050,
  * blur, and the shared darkening hover. PINNED to .vod-detail (a direct
