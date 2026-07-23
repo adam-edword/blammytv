@@ -43,7 +43,8 @@ and the agreed order of what's next. Update this file as sections land.
   domain shape (Channel/Programme/LiveData, ids namespaced
   `<playlistId>:<streamId>`); `source.ts#loadLive()` is the seam — real
   playlists when configured, `mockLive()` otherwise, so the mock stays the
-  dev harness. Strategy is the old build's, confirmed on origin/main:
+  dev harness *(historical — the mock was removed in 0.7.0; empty LiveData
+  on zero playlists, and the Live tab hides itself)*. Strategy is the old build's, confirmed on origin/main:
   authenticate → `get_live_categories` + `get_live_streams` (all streams,
   two calls) → full `xmltv.php` parsed with DOMParser (`xmltv.ts`, windowed
   −1h..+12h, filler titles dropped, matched by `epg_channel_id`). Per-source
@@ -515,7 +516,7 @@ Slated for later, user-approved: ambient backdrop setting, motion toggle,
 timeshift, programme-level selection in the hero, M3U folder editor in
 Settings, favorites drag-handle UI (data layer shipped v0.1.133).
 
-## 0.7.0 — the polish push (branch `blammytv-0.7.0-push`, Adam 2026-07-22)
+## 0.7.0 — the polish push — ✅ RELEASED 2026-07-23 (tag v0.7.0 @ main)
 
 v0.6.0 (Apple TV parallax) shipped. This cycle is small features and edits
 that really polish the app. **Full polish audit ran 2026-07-22** (6 dimensions,
@@ -561,6 +562,34 @@ holds it closed until mpv presents), Live tab gated on ENABLED playlists
 modal sheet-drop entrance + quick exits, EPG surface press + pointer
 spotlight (1000px/0.07), and the 2026-07-23 fresh-eyes pre-release review
 (31 verified findings, all executed — see the review-fix commit).
+
+**Release tail (v0.6.21→27, all feel-gated; details in HANDOFF Live
+state):** mock EPG deleted for real; caption/audio/speed persistence
+across episodes (stale-tracks race in TheaterOverlay); chip-label nowrap;
+hero-title fade → mask; floating guide (scrimless time rail + channel
+column, all themes); Stream row edge scrims removed all themes (mask
+alternative bench-rejected — numbers in stream.css); Back button pinned on
+source+episodes; episodes metadata un-crushed (grid auto-minimum-0
+compression). Released 2026-07-23: tag v0.7.0 @ main, sig-verified
+installer + latest.json, updater live.
+
+## Next after 0.7.0 (queued, unowned — fork a fresh branch off main)
+
+- **Refactor batch (invisible, do early in the cycle while the tree is
+  quiet):** unify the two TTL-cache implementations; extract Card +
+  RowScroller out of StreamScreen (~2400 lines); dedupe the popout wiring
+  (LiveScreen + StreamScreen carry the same heal-hole sequence); a z-index
+  scale; dedupe the 5x glass-chip recipe and brand gradients; TheaterOverlay
+  chrome re-renders on every 500ms VOD clock tick (cheap but noisy).
+- **Wave-D motion candidates** (table rows in `plans/audit-report.md`):
+  Discover search result-collapse, Settings→Themes hand-off, settings
+  tab-content swap, view-navigation crossfades, folded-rail tooltip replay,
+  guide star feedback, update-chip spin.
+- **Adam design calls:** dither/kawaii guide occluders (per-pack);
+  favorites drag-handle UI in the guide (data layer shipped v0.1.133 —
+  virtualized-grid scar territory, plan carefully).
+- **1.0 gates unchanged:** My List multi-lists, Sports tab in Live TV,
+  paid themes shipped, Windows code signing, CSP.
 
 **Live-tab accessibility pass — LANDED (v0.1.98).** The batch from the v0.1.71
 audit: keyboard-operable channel-column resize separator (`role=separator` +

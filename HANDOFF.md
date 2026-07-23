@@ -15,7 +15,54 @@ Audience: switchers from other Windows IPTV clients, Stremio users, ideally
 both — and explicitly *inviting to newcomers*; first-five-minutes activation
 weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
-## Live state (2026-07-23, dev v0.6.20 — 0.7.0 scope COMPLETE, pre-release)
+## Live state (2026-07-23, v0.7.0 RELEASED — the polish push shipped)
+
+**v0.7.0 is published**: tag `v0.7.0` @ main (`4c250a5`), release "v0.7.0 |
+Polish" with `BlammyTV_0.7.0_x64-setup.exe` + `latest.json` (sig verified —
+key `45443232eeb451bd3e16`, embedded filename matched). Updater path live
+for 0.6.0 installs. All version files at 0.7.0 including Cargo.toml/
+Cargo.lock (which had sat at 0.5.4 since that milestone). The tag push
+403'd through the git proxy again — created at publish via the web UI, same
+as 0.6.0; expect this every release.
+
+**Post-review fix train (v0.6.21→27), all feel-gated by Adam:**
+- Mock EPG deleted (`mock.ts` gone; `source.ts` returns empty LiveData on
+  zero playlists — unreachable in normal use, the tab hides).
+- Caption/audio/speed persistence across episodes FIXED: the playbackPrefs
+  system was fully wired but a stale-tracks race burned the once-per-key
+  apply guard (bridge resets its track cache on URL change without
+  notifying; overlay applied prefs against the previous episode's list).
+  Fix = render-time `setTracks(null)` on playbackKey change in
+  TheaterOverlay (state-from-props reset, runs before effects).
+- Chip labels `white-space: nowrap` ("My List" wrapped mid header-rail
+  glide).
+- Hero-title edge fade → MASK (was a painted var(--bg) gradient — a dark
+  box over textured themes). Same mask pattern as guide-card fades.
+- **Floating guide (all themes):** time rail, its corner, and the channel
+  column strip carry NO background; ticks brightened to var(--text)/0.75;
+  supporter's transparent override and streamy's frosted occluders deleted
+  (base now matches/supersedes).
+- **Stream row edge scrims REMOVED (all themes)** — last member of the
+  paint-var(--bg)-over-texture bug class. The mask alternative was
+  measured and REJECTED: 8 masked scrollers took the scroll bench from a
+  locked 16.7ms/frame to 25.5 avg / 41.7 p95 (numbers recorded in a
+  stream.css comment). Cut-off edge cards + hover arrows carry the
+  affordance; vod-more keeps its single masked scroller.
+- Back button pinned absolute top-left on BOTH source + episodes screens
+  (was in-flow in two differently-anchored columns); clearances bumped to
+  header+64px.
+- Episodes metadata un-crushed: the base info rule's overflow-y:auto +
+  min-height:0 gave the grid item an automatic minimum of 0, so the tall
+  episode grid compressed the metadata row to a ~120px internal scroller
+  (clipped logo, hidden synopsis) — latent pre-0.6.26, exposed by the
+  Back-button clearance. Episodes variant now overflow-y:visible +
+  min-height:auto; reproduced and verified in a Playwright layout harness
+  against the built CSS.
+
+**Next-cycle queue** lives in ROADMAP ("Next after 0.7.0"). Fork the next
+working branch off main.
+
+## Historical (2026-07-23, dev v0.6.20 — superseded by the above)
 
 **All three motion waves are LANDED** (plans/README.md has per-plan status),
 the polish audit (P1+P2+P3) is fully executed, and the 0.7.0 features are
