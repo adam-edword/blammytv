@@ -1085,17 +1085,17 @@
  * surface only, text never dims, identical on accent --live cells.
  * Instant on (background-image isn't transitioned) — presses snap,
  * releases too. Chips and the star keep the scale dip. ---- */
-/* The card's glare host: carries the button's inner flex layout (the
- * button now has one child) and the rounded, positioned box the glare
- * overlay clips to. Hover-only sheen — the glare tracks the pointer. */
-.guide__card-shine {
-  position: relative;
+/* The programme cell's glare host: absolute over the cell's padding box,
+ * restating the cell's own layout so the body sits exactly where it did.
+ * The cell's overflow:hidden clips the sheen to its superellipse. */
+.guide__cell-shine {
+  position: absolute;
+  inset: 0;
   display: flex;
-  align-items: center;
-  gap: 6px;
-  flex: 1;
-  min-width: 0;
-  border-radius: 20px;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 0 12px 0 16px;
 }
 
 .guide__cell:active,

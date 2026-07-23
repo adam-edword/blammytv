@@ -438,11 +438,27 @@ export const Guide = memo(function Guide({
   const cellClass = (b: Block) =>
     "guide__cell" + (b.live ? " guide__cell--live" : "");
 
+  /* Glare-only Tilt: the posters' pointer sheen on the programme cell,
+   * without the lean — tiles must not move (the press lesson). The
+   * wrapper is absolute over the cell's padding box and restates the
+   * cell's layout, so the body renders exactly where it did; the pin
+   * system styles the CELL and finds .guide__cell-body by querySelector
+   * (depth-agnostic) — both unaffected. Blank lanes stay glare-free. */
   const cellBody = (b: Block) => (
-    <span className="guide__cell-body">
-      <span className="guide__cell-title">{b.p.title}</span>
-      <span className="guide__cell-time">{range(b.p.start, b.p.end)}</span>
-    </span>
+    <Tilt
+      className="guide__cell-shine"
+      tiltEnable={false}
+      glareEnable={!REDUCED_MOTION}
+      glareMaxOpacity={0.12}
+      glarePosition="all"
+      glareBorderRadius="20px"
+      transitionSpeed={650}
+    >
+      <span className="guide__cell-body">
+        <span className="guide__cell-title">{b.p.title}</span>
+        <span className="guide__cell-time">{range(b.p.start, b.p.end)}</span>
+      </span>
+    </Tilt>
   );
 
   return (
@@ -517,28 +533,13 @@ export const Guide = memo(function Guide({
                   }
                   onClick={() => onSelect(channel.id)}
                 >
-                  {/* Glare-only Tilt: the posters' pointer sheen without
-                    * the lean — tiles in a grid must not move (the EPG
-                    * press lesson). tiltEnable stays false; glareEnable
-                    * is constant from mount (the lib only creates the
-                    * glare element then — see the Hero note). */}
-                  <Tilt
-                    className="guide__card-shine"
-                    tiltEnable={false}
-                    glareEnable={!REDUCED_MOTION}
-                    glareMaxOpacity={0.12}
-                    glarePosition="all"
-                    glareBorderRadius="20px"
-                    transitionSpeed={650}
-                  >
-                    <CardLogo key={channel.logo ?? ""} channel={channel} />
-                    <span className="guide__card-meta">
-                      <span className="guide__card-name">{channel.name}</span>
-                      {channel.quality && (
-                        <QualityBadge quality={channel.quality} />
-                      )}
-                    </span>
-                  </Tilt>
+                  <CardLogo key={channel.logo ?? ""} channel={channel} />
+                  <span className="guide__card-meta">
+                    <span className="guide__card-name">{channel.name}</span>
+                    {channel.quality && (
+                      <QualityBadge quality={channel.quality} />
+                    )}
+                  </span>
                 </button>
                 <button
                   type="button"
