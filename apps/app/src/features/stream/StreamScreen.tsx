@@ -628,12 +628,22 @@ export function StreamScreen() {
   // In-playback source panel: slides over the video (which keeps playing);
   // picking a source switches the stream at the current position. Sources
   // resolve fresh on every open — debrid links are short-lived.
-  const [panelOpen, setPanelOpen] = useState(false);
+  // Three-state so close ANIMATES: the closing panel stays mounted until
+  // its transition ends; reopening mid-close retargets from wherever it is.
+  const [panelState, setPanelState] = useState<"open" | "closing" | null>(
+    null,
+  );
+  const panelOpen = panelState === "open";
+  const closePanel = useCallback(
+    () => setPanelState((s) => (s === "open" ? "closing" : s)),
+    [],
+  );
   const [panelSources, setPanelSources] = useState<
     StreamSource[] | null | "failed"
   >(null);
   useEffect(() => {
-    if (!playing) setPanelOpen(false);
+    // Playback gone = the portal host is gone: drop the panel instantly.
+    if (!playing) setPanelState(null);
   }, [playing]);
   const [panelTick, setPanelTick] = useState(0);
   useEffect(() => {
@@ -650,10 +660,11 @@ export function StreamScreen() {
       stale = true;
     };
   }, [panelOpen, panelTick]);
-  const pickPanelSource = useCallback((src: StreamSource, all: StreamSource[]) => {
+  const pickPanelSource = useCallback(
+    (src: StreamSource, all: StreamSource[]) => {
     const p = playingRef.current;
     if (!p) return;
-    setPanelOpen(false);
+    closePanel();
     if (src.streamUrl === p.url) return; // already playing this one
     const entry = loadWatching().find((e) => e.id === p.item.id);
     const at =
@@ -667,7 +678,9 @@ export function StreamScreen() {
       queue: all.filter((s) => s.id !== src.id && s.streamUrl !== p.url),
       resumeAt: at,
     });
-  }, []);
+  },
+    [closePanel],
+  );
   // Memoized: rebuilt-per-render meta used to re-render the whole theater
   // chrome through useDirectOverlay's identity-keyed effect (see LiveScreen's
   // twin note).
@@ -755,7 +768,8 @@ export function StreamScreen() {
         const nxt = nextEpisode(p.item.seasons, p.episodeId);
         if (nxt) void playEpisode(p.item, nxt.season, nxt.episode);
       },
-      onSourcePanel: () => setPanelOpen((o) => !o),
+      onSourcePanel: () =>
+        setPanelState((st) => (st === "open" ? "closing" : "open")),
       // Credits started/ended (overlay's AniSkip/chapter clock): pop the
       // corner Up Next while the episode still plays — never for movies,
       // never re-popping one the user dismissed this cycle.
@@ -961,7 +975,7 @@ export function StreamScreen() {
             <TheaterOverlay frame={playing.mode} playbackKey={playing.url} />,
             chromeHostRef.current,
           )}
-        {panelOpen &&
+        {panelState &&
           !playing.popped &&
           chromeHostRef.current &&
           createPortal(
@@ -971,18 +985,33 @@ export function StreamScreen() {
                 * pauses on clicks OUTSIDE [data-interactive]) — a click
                 * off the panel closes the panel, nothing else. */}
               <div
-                className="vod-panel__backdrop"
+                className={
+                  "vod-panel__backdrop" +
+                  (panelState === "closing"
+                    ? " vod-panel__backdrop--closing"
+                    : "")
+                }
                 data-interactive
-                onClick={() => setPanelOpen(false)}
+                onClick={closePanel}
               />
-              <div className="vod-panel" data-interactive>
+              <div
+                className={
+                  "vod-panel" +
+                  (panelState === "closing" ? " vod-panel--closing" : "")
+                }
+                data-interactive
+                onTransitionEnd={(e) => {
+                  if (panelState === "closing" && e.target === e.currentTarget)
+                    setPanelState(null);
+                }}
+              >
               <div className="vod-panel__head">
                 <h3>Sources</h3>
                 <button
                   type="button"
                   className="player__btn player__btn--glass"
                   aria-label="Close sources"
-                  onClick={() => setPanelOpen(false)}
+                  onClick={closePanel}
                 >
                   <CloseIcon size={18} />
                 </button>
@@ -1099,7 +1128,7 @@ export function StreamScreen() {
           * fullscreen EOF card and while the source panel is open. */}
         {upNextMini &&
           !upNext &&
-          !panelOpen &&
+          !panelState &&
           !playing.popped &&
           chromeHostRef.current &&
           createPortal(
@@ -1417,7 +1446,11 @@ export function RowScroller({ children }: { children: ReactNode }) {
   const nudge = (dir: 1 | -1) =>
     ref.current?.scrollBy({
       left: dir * ref.current.clientWidth * 0.75,
-      behavior: "smooth",
+      // Chromium does NOT auto-disable programmatic smooth scroll under
+      // reduced motion — branch it (the app's inline matchMedia idiom).
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth",
     });
   // Click-and-drag scrolling: pointer deltas map 1:1 onto scrollLeft (no
   // physics — native feel only). Past a small slop the gesture is a DRAG:
@@ -1917,6 +1950,7 @@ function ContinueCard({
       }}
     >
       <span className="continue-card__artwrap">
+        <span className="continue-card__holdbar" aria-hidden />
         {entry.art ? (
           <img className="continue-card__art" src={entry.art} alt="" loading="lazy" draggable={false} />
         ) : (

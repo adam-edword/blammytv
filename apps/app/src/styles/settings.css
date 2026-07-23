@@ -1162,3 +1162,11 @@
     transition: opacity 150ms var(--ease-out);
   }
 }
+
+/* Reduced motion (motion plan 006): the swatch's hover grow drops; the
+ * press dip stays. */
+@media (prefers-reduced-motion: reduce) {
+  .accent-swatch:hover:not(:active) {
+    transform: none;
+  }
+}

@@ -420,6 +420,30 @@
   max-width: 533px;
 }
 /* Art + progress bar share a positioning box (art width is intrinsic). */
+/* Hold-to-clear progress: fills linearly over EXACTLY the 1000ms hold
+ * timer in StreamScreen (the animation IS the countdown — keep it under
+ * reduced motion, it carries information). A transition, not a keyframe:
+ * releasing early RETREATS from the current fill (200ms, the system's
+ * snap) instead of vanishing. */
+.continue-card__holdbar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  z-index: 2;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  transition: transform 200ms var(--ease-out);
+  pointer-events: none;
+}
+.continue-card--holding .continue-card__holdbar {
+  transform: scaleX(1);
+  /* must match the 1000ms hold timer in StreamScreen */
+  transition: transform 1000ms linear;
+}
+
 .continue-card__artwrap {
   position: relative;
   display: block;
@@ -1209,21 +1233,46 @@
   background: rgba(0, 0, 0, 0.72);
   border: 1px solid rgba(255, 255, 255, 0.14);
   backdrop-filter: blur(18px);
-  animation: vod-panel-in var(--dur-panel) var(--ease-out);
+  /* Transitions, not keyframes: reopening mid-close RETARGETS from the
+   * panel's current position (keyframes restart from off-screen). Enter
+   * rides the drawer curve; exit is the system's snappier response. */
+  transition:
+    transform var(--dur-panel) var(--ease-drawer),
+    opacity var(--dur-panel) var(--ease-drawer);
 }
-@keyframes vod-panel-in {
-  from {
+@starting-style {
+  .vod-panel {
     transform: translateX(40px);
     opacity: 0;
   }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
+}
+.vod-panel--closing {
+  transform: translateX(40px);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 180ms var(--ease-out),
+    opacity 180ms var(--ease-out);
+}
+/* The backdrop is deliberately transparent (no dim), so there's nothing
+ * to fade — it just stops eating clicks while the panel departs. */
+.vod-panel__backdrop--closing {
+  pointer-events: none;
 }
 @media (prefers-reduced-motion: reduce) {
-  .vod-panel {
-    animation: none;
+  /* Keep a fade — a full-height panel hard-cutting is worse than the
+   * movement it replaces. */
+  .vod-panel,
+  .vod-panel--closing {
+    transition: opacity 200ms ease;
+  }
+  @starting-style {
+    .vod-panel {
+      transform: none;
+    }
+  }
+  .vod-panel--closing {
+    transform: none;
   }
 }
 .vod-panel__head {
@@ -1322,5 +1371,20 @@
     .upnext-mini {
       transform: none;
     }
+  }
+}
+
+/* Reduced motion (motion plan 006): the hero's near-fullscreen slide
+ * snaps instead (the glow's opacity crossfade stays — it keeps the
+ * change comprehensible); hover LIFTS drop, press dips stay (:active
+ * is feedback), brightness/shadow hovers untouched. */
+@media (prefers-reduced-motion: reduce) {
+  .shero__track,
+  .shero__glowtrack {
+    transition: none;
+  }
+  .continue-card:hover:not(:active),
+  .vod-more__card:hover:not(:active) {
+    transform: none;
   }
 }

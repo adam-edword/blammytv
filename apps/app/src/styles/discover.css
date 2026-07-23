@@ -161,3 +161,11 @@
 .genre-card:active {
   transform: translateY(-1px) scale(0.98);
 }
+
+/* Reduced motion (motion plan 006): the lift drops, the press dip and
+ * the brightness hover stay. */
+@media (prefers-reduced-motion: reduce) {
+  .genre-card:hover:not(:active) {
+    transform: none;
+  }
+}

@@ -609,3 +609,10 @@
     }
   }
 }
+
+/* Reduced motion (motion plan 006): the art lift drops; press stays. */
+@media (prefers-reduced-motion: reduce) {
+  .tcard:hover:not(:active) .tcard__art {
+    transform: none;
+  }
+}

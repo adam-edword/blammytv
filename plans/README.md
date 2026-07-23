@@ -14,11 +14,11 @@ Run with `improve-animations execute <plan>` or hand to any agent.
 | --- | --- | --- | --- |
 | [001](001-press-feedback.md) | Add press feedback to every pressable surface | HIGH | DONE (wave B; feel-gate: EPG tiles re-pressed as brightness dip, not scale — wide shared-edge tiles read as detaching when scaled (Adam)) |
 | [002](002-overlay-popover-entrances.md) | Give every overlay, popover, and chip a real entrance | HIGH | DONE (wave B; feel-gate = the @starting-style WebView2 smoke test) |
-| [003](003-vod-source-panel-transitions.md) | Make the VOD source panel interruptible, with a real exit | MEDIUM | TODO |
+| [003](003-vod-source-panel-transitions.md) | Make the VOD source panel interruptible, with a real exit | MEDIUM | DONE (wave C) |
 | [004](004-motion-tokens.md) | Motion tokens: shared easing curves and duration tiers | HIGH | DONE (wave A) |
 | [005](005-thumb-physics.md) | Unify sliding-thumb physics; Toggle off layout properties | HIGH | DONE (wave A; feel-gate: ChipTabs thumb 300→380ms per Adam — spring kept, on watch) |
-| [006](006-reduced-motion-pass.md) | Close the reduced-motion gaps | HIGH | TODO |
-| [007](007-hold-to-clear-progress.md) | Hold-to-clear: show the hold's progress | MEDIUM | TODO |
+| [006](006-reduced-motion-pass.md) | Close the reduced-motion gaps | HIGH | DONE (wave C; hover gates written :hover:not(:active) — the wave-B press dips out-cascaded naive gates) |
+| [007](007-hold-to-clear-progress.md) | Hold-to-clear: show the hold's progress | MEDIUM | DONE (wave C) |
 
 ## Recommended execution order & dependencies
 
