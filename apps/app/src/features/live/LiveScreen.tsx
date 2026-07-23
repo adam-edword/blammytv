@@ -35,7 +35,12 @@ import { useDirectOverlay } from "./useDirectOverlay";
 /** Native player present (the inverted layer is THE architecture; in a
  * plain browser tab there is no player at all). */
 const INV = isTauri();
-import { onPlaylistsChange } from "../settings/playlists";
+import {
+  loadPlaylists,
+  onPlaylistsChange,
+  savePlaylists,
+  toggleHiddenCategory,
+} from "../settings/playlists";
 import { InvertedPlayer } from "./InvertedPlayer";
 import { useConnections } from "./connections";
 import { splitTitleEmoji } from "./emoji";
@@ -204,6 +209,7 @@ const SidebarSources = memo(function SidebarSources({
   onToggleGroup,
   onPickFolder,
   onTip,
+  onFolderMenu,
 }: {
   groups: LiveData["groups"];
   conns: ReturnType<typeof useConnections>;
@@ -213,6 +219,14 @@ const SidebarSources = memo(function SidebarSources({
   onToggleGroup: (id: string) => void;
   onPickFolder: (id: string, active: boolean) => void;
   onTip: (t: { label: string; x: number; y: number } | null) => void;
+  /** Right-click on a folder: open the hide menu at the cursor. */
+  onFolderMenu: (m: {
+    x: number;
+    y: number;
+    groupId: string;
+    folderId: string;
+    name: string;
+  }) => void;
 }) {
   return (
     <div className="live-sidebar__list">
@@ -274,6 +288,26 @@ const SidebarSources = memo(function SidebarSources({
                         "live-folder" + (active ? " live-folder--active" : "")
                       }
                       onClick={() => onPickFolder(f.id, active)}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        onTip(null);
+                        // Fixed-position coords live in the zoomed space
+                        // (the tooltip's pattern). Keyboard menu key sends
+                        // 0,0 — anchor on the row instead.
+                        const zoom = Number(
+                          document.documentElement.style.zoom || 1,
+                        );
+                        const r = e.currentTarget.getBoundingClientRect();
+                        const cx = e.clientX || r.right - 8;
+                        const cy = e.clientY || r.top + r.height / 2;
+                        onFolderMenu({
+                          x: cx / zoom,
+                          y: cy / zoom,
+                          groupId: g.id,
+                          folderId: f.id,
+                          name: label,
+                        });
+                      }}
                       onMouseEnter={(e) => {
                         if (!collapsed) return;
                         const r = e.currentTarget.getBoundingClientRect();
@@ -321,6 +355,49 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   const [tip, setTip] = useState<{ label: string; x: number; y: number } | null>(
     null,
   );
+  /** The folder context menu (right-click → Hide): cursor-anchored, one
+   * action. Unhide lives in Settings → Playlists' folder editor. */
+  const [folderMenu, setFolderMenu] = useState<{
+    x: number;
+    y: number;
+    groupId: string;
+    folderId: string;
+    name: string;
+  } | null>(null);
+  const folderMenuRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!folderMenu) return;
+    const onDown = (e: MouseEvent) => {
+      if (!folderMenuRef.current?.contains(e.target as Node))
+        setFolderMenu(null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFolderMenu(null);
+    };
+    document.addEventListener("mousedown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [folderMenu]);
+  const hideFolder = useCallback(() => {
+    setFolderMenu((m) => {
+      if (!m) return null;
+      // folder.id is `${playlistId}:${categoryId}` (source.ts#folderId);
+      // hiddenCategories stores the RAW category id — slice by the known
+      // playlist prefix. Same store + signal as the Settings editor, so
+      // folders/channels/EPG drop together and Live refreshes silently.
+      const catId = m.folderId.slice(m.groupId.length + 1);
+      savePlaylists(
+        toggleHiddenCategory(loadPlaylists(), m.groupId, catId),
+      );
+      // Hiding the folder you're filtered to: back to the full guide.
+      setFolder((f) => (f === m.folderId ? null : f));
+      return null;
+    });
+  }, []);
+
   // Stable handlers for the memoized SidebarSources (setTip is stable by
   // construction; these two must be too or the memo is defeated).
   const toggleGroup = useCallback(
@@ -759,6 +836,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
             onToggleGroup={toggleGroup}
             onPickFolder={pickFolder}
             onTip={setTip}
+            onFolderMenu={setFolderMenu}
           />
         )}
 
@@ -774,6 +852,29 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
       {collapsed && tip && (
         <div className="live-tip" style={{ left: tip.x, top: tip.y }} aria-hidden>
           {tip.label}
+        </div>
+      )}
+
+      {folderMenu && (
+        <div
+          ref={folderMenuRef}
+          className="folder-menu"
+          role="menu"
+          aria-label={`${folderMenu.name} options`}
+          style={{ left: folderMenu.x, top: folderMenu.y }}
+        >
+          <button
+            type="button"
+            role="menuitem"
+            className="folder-menu__item"
+            autoFocus
+            onClick={hideFolder}
+          >
+            Hide &ldquo;{folderMenu.name}&rdquo;
+          </button>
+          <p className="folder-menu__hint">
+            Unhide any time in Settings &rarr; Playlists.
+          </p>
         </div>
       )}
 

@@ -539,15 +539,15 @@ wiring dedup, z-index scale, the 5x glass-chip recipe, brand-gradient
 dedup — and the dither/kawaii occluders, a per-pack design call for Adam,
 not mechanical. To-do, in no order yet:
 
-- [ ] **Right-click to hide a source folder.** Right-clicking a playlist
-      source folder in the Live sidebar (e.g. "4K / UHD Channels") offers
-      "Hide folder" — one-by-one hiding without a trip to Settings. Should
-      write the same per-playlist `hiddenCategories` set the Settings
-      folder-visibility editor uses (folders + their channels + EPG drop
-      together via `source.ts#droppedCategories`) and emit the
-      playlists-change signal so Live refreshes silently. Needs a small
-      custom context menu (no native menus in the webview); include an
-      obvious un-hide path (Settings editor already lists hidden folders).
+- [x] **Right-click to hide a source folder.** ✅ SHIPPED v0.6.15 —
+      cursor-anchored glass context menu on the Live sidebar folders
+      ("Hide <name>" + an unhide hint pointing at Settings → Playlists).
+      Writes the same per-playlist `hiddenCategories` via
+      toggleHiddenCategory + savePlaylists (folders/channels/EPG drop
+      together; Live refreshes silently on the playlists-change signal);
+      hiding the currently-filtered folder clears the filter. Keyboard
+      menu-key anchors on the row; Escape/click-away dismiss; plan-002
+      entrance language, instant close.
 
 **Live-tab accessibility pass — LANDED (v0.1.98).** The batch from the v0.1.71
 audit: keyboard-operable channel-column resize separator (`role=separator` +
