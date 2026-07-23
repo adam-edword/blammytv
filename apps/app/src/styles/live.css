@@ -534,7 +534,16 @@
   position: sticky;
   top: 0;
   z-index: 3;
-  background: var(--bg);
+  /* The header's scrim recipe, not a solid slab: rows scroll under the
+   * sticky ruler, so the ticks need occlusion — but a flat var(--bg) bar
+   * reads as a black stripe on textured themes. Strong at the top (the
+   * ticks sit at top: 2px) and fading out, so the theme breathes through
+   * while anything sliding beneath the text line stays dimmed. */
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--bg) 88%, transparent) 60%,
+    transparent
+  );
 }
 
 .guide__tick {
@@ -547,13 +556,19 @@
   white-space: nowrap;
 }
 
-/* Blanks out ticks sliding beneath the channel column. */
+/* Blanks out ticks sliding beneath the channel column — same scrim
+ * recipe as the ruler so the two are seamless (88% at the tick line is
+ * enough to swallow the 13px dim tick text passing under). */
 .guide__corner {
   position: sticky;
   left: 0;
   z-index: 1;
   height: 100%;
-  background: var(--bg);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--bg) 88%, transparent) 60%,
+    transparent
+  );
 }
 
 .guide__row {
@@ -980,20 +995,18 @@
   vertical-align: 2px;
 }
 
-/* Long titles run under a right-edge fade instead of wrapping. */
+/* Long titles run under a right-edge fade instead of wrapping. A MASK,
+ * not a painted-over gradient: the old ::after painted var(--bg) over the
+ * edge, which on textured themes (dither dots, kawaii) rendered as a
+ * floating dark box over the pattern — worst when the title was short
+ * and nothing sat under it. Masking fades the text itself, so it's
+ * invisible on any background (same pattern as the guide-card and
+ * channel-name fades above). */
 .hero__title-wrap {
   position: relative;
   align-self: stretch;
   overflow: hidden;
-}
-
-.hero__title-wrap::after {
-  content: "";
-  position: absolute;
-  inset: 0 0 0 auto;
-  width: 151px;
-  background: linear-gradient(to right, transparent, var(--bg));
-  pointer-events: none;
+  mask-image: linear-gradient(to right, #000 calc(100% - 151px), transparent);
 }
 
 .hero__title {

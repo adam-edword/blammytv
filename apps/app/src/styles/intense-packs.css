@@ -224,12 +224,6 @@
   backdrop-filter: blur(10px);
 }
 
-/* Remove the hero title's right-edge fade entirely for this theme: it painted
-   a floating dark rectangle over the glass. No fade — the title just renders. */
-:root[data-theme-pack="supporter"] .hero__title-wrap::after {
-  display: none;
-}
-
 /* Stream catalog rows: drop the edge fade scrims — they fade cards into a
    solid --bg (black), which reads as dark smudges at the row edges over the
    aura. Cards run clean to the edge instead. */
