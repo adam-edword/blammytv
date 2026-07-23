@@ -1103,14 +1103,14 @@
 .guide__cell-shine::after {
   content: "";
   position: absolute;
-  top: -120px;
-  left: -120px;
-  width: 240px;
-  height: 240px;
+  top: -320px;
+  left: -320px;
+  width: 640px;
+  height: 640px;
   pointer-events: none;
   background: radial-gradient(
     circle closest-side,
-    rgba(255, 255, 255, 0.14),
+    rgba(255, 255, 255, 0.12),
     transparent
   );
   transform: translate(var(--mx, -9999px), var(--my, -9999px));
