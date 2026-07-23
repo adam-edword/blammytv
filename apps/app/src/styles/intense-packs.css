@@ -215,12 +215,8 @@
   backdrop-filter: blur(10px);
 }
 
-/* Stream catalog rows: drop the edge fade scrims — they fade cards into a
-   solid --bg (black), which reads as dark smudges at the row edges over the
-   aura. Cards run clean to the edge instead. */
-:root[data-theme-pack="supporter"] .media-row__scrim {
-  display: none;
-}
+/* Stream catalog row edge scrims are gone in the BASE sheet (all themes)
+   — this pack dropped them first; cards run clean to the edge. */
 
 /* ...and let the catalog rows bleed to the true window edge, behind the thin
    page scrollbar. The viewport already reaches the window edge (its -28px

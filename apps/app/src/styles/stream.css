@@ -252,26 +252,15 @@
 .media-row__scroller.is-dragging * {
   pointer-events: none;
 }
-/* Edge scrims: only lit when content actually hides that way. */
-.media-row__scrim {
-  position: absolute;
-  top: 0;
-  bottom: 10px;
-  width: 100px;
-  z-index: 2;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 250ms ease;
-}
-.media-row__scrim--left {
-  left: 0;
-  background: linear-gradient(to right, var(--bg), transparent);
-}
-.media-row__scrim--right {
-  right: 0;
-  background: linear-gradient(to left, var(--bg), transparent);
-}
-.media-row__scrim.is-on { opacity: 1; }
+/* No edge scrims (feel-gate, same class as the hero-title/time-rail
+ * fixes): they painted var(--bg) gradients over the row edges, which on
+ * textured themes read as dark slabs floating over the pattern. The
+ * cut-off card at the edge + the hover arrows are the "more content"
+ * affordance — the Supporter pack shipped scrimless first and it holds.
+ * A mask-image dissolve on the scrollers was measured instead and
+ * REJECTED: the scroll bench (8 masked rows) dropped from a locked
+ * 16.7ms/frame to 25.5ms avg / 41.7ms p95 under software compositing —
+ * compositor risk this surface can't afford. */
 /* Nudge arrows: glass circles over the artwork band, revealed on row
  * hover (they only render at all when scrolling that way is possible). */
 .media-row__arrow {
@@ -541,9 +530,6 @@
   );
 }
 .vod-more .media-row__scroller::-webkit-scrollbar {
-  display: none;
-}
-.vod-more .media-row__scrim {
   display: none;
 }
 /* The shelf overlays the page bottom — the info column reserves its

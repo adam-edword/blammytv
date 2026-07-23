@@ -1524,14 +1524,6 @@ export function RowScroller({ children }: { children: ReactNode }) {
       >
         {children}
       </div>
-      <div
-        className={"media-row__scrim media-row__scrim--left" + (can.left ? " is-on" : "")}
-        aria-hidden
-      />
-      <div
-        className={"media-row__scrim media-row__scrim--right" + (can.right ? " is-on" : "")}
-        aria-hidden
-      />
       {can.left && (
         <button
           type="button"
