@@ -2166,11 +2166,11 @@ function Detail({
         <img className="vod-detail__backdrop" src={item.backdrop} alt="" />
       )}
       <div className="vod-detail__scrim" aria-hidden />
+      <button type="button" className="vod-back" onClick={onBack}>
+        ← Back
+      </button>
       <div className="vod-detail__body">
         <div className="vod-detail__info">
-          <button type="button" className="vod-back" onClick={onBack}>
-            ← Back
-          </button>
           {item.logo ? (
             <img className="vod-detail__logo" src={item.logo} alt={item.title} />
           ) : (
@@ -2339,11 +2339,11 @@ function Episodes({
         <img className="vod-detail__backdrop" src={item.backdrop} alt="" />
       )}
       <div className="vod-detail__scrim" aria-hidden />
+      <button type="button" className="vod-back" onClick={onBack}>
+        ← Back
+      </button>
       <div className="vod-detail__body vod-detail__body--episodes">
         <div className="vod-detail__info">
-          <button type="button" className="vod-back" onClick={onBack}>
-            ← Back
-          </button>
           {item.logo ? (
             <img className="vod-detail__logo" src={item.logo} alt={item.title} />
           ) : (

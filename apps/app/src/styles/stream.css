@@ -653,7 +653,10 @@
   grid-template-columns: 1fr;
   align-content: start;
   overflow-y: auto;
-  padding-top: calc(var(--header-h, 76px) + 12px);
+  /* Header clearance + the pinned Back button's footprint (~40px pill
+   * + breathing room) — the button sits at header + 12px and content
+   * must start below it. */
+  padding-top: calc(var(--header-h, 76px) + 64px);
   padding-bottom: 32px;
   /* This variant IS the scroll container: the base body's
    * pointer-events:none (the vod-more sandwich) made its scrollbar
@@ -675,7 +678,9 @@
    * the bottom as designed, tall content top-anchors and scrolls. */
   justify-content: flex-start;
   max-width: 66ch;
-  padding-top: calc(var(--header-h, 76px) + 8px);
+  /* Only bites when the column overflows (auto margins collapse to 0 and
+   * it top-anchors) — clear the header AND the pinned Back button. */
+  padding-top: calc(var(--header-h, 76px) + 64px);
   overflow-y: auto;
   scrollbar-width: none;
   min-height: 0;
@@ -700,8 +705,18 @@
   padding-top: 0;
 }
 /* Same glass language as the pills/chips on these screens: #00000050,
- * blur, and the shared darkening hover. */
+ * blur, and the shared darkening hover. PINNED to .vod-detail (a direct
+ * child, not part of the info flow): the source screen bottom-anchors
+ * its info column and the episodes screen top-anchors under the header,
+ * which put the in-flow button in two different places — absolute at the
+ * page's top-left gives it ONE spot on both, and on episodes it no
+ * longer scrolls away with the list. Above the body layer (z-index 1)
+ * so the pointer-events sandwich can't eat its clicks. */
 .vod-back {
+  position: absolute;
+  top: calc(var(--header-h, 76px) + 12px);
+  left: 32px;
+  z-index: 2;
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 15px;
