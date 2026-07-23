@@ -584,14 +584,17 @@
 }
 
 /* Entrance (motion plan 002): the Themes card rides .settings' entrance
- * but is a CENTERED modal — origin resets to center, no translate. */
+ * (drawer timing + the two-phase content settle) but is a CENTERED
+ * modal — no hinge, no descent; it condenses from center. Restates the
+ * resting transform so the pair interpolates as one function list. */
 .themes-modal {
   transform-origin: center;
+  transform: scale(1);
 }
 @starting-style {
   .themes-modal {
     opacity: 0;
-    transform: scale(0.97);
+    transform: scale(0.96);
   }
 }
 @media (prefers-reduced-motion: reduce) {

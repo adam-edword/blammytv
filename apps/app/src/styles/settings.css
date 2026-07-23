@@ -31,17 +31,37 @@
   border-radius: 26px;
   padding: 32px 39px;
   box-shadow: 0 -13px 72.6px rgba(0, 0, 0, 0.73);
-  /* Entrance (motion plan 002): grows from the top-right, toward the
-   * gear that opened it. Close stays instant — deliberate asymmetry. */
+  /* Entrance (motion plan 002, redesigned at the feel-gate — the stock
+   * scale+8px hop read as an afterthought). "The gear drops its sheet":
+   * the card descends from the gear on the drawer curve with a 4deg
+   * hinge around its top edge (perspective() self-applied; the resting
+   * transform keeps the same function list so the pair interpolates).
+   * Its CONTENT then settles in ~70ms behind it — see .settings > *.
+   * Close stays instant — deliberate asymmetry. */
   transform-origin: top right;
+  transform: perspective(1400px) rotateX(0deg) translateY(0) scale(1);
   transition:
-    opacity var(--dur-enter) var(--ease-out),
-    transform var(--dur-enter) var(--ease-out);
+    opacity 240ms var(--ease-out),
+    transform 460ms var(--ease-drawer);
 }
 @starting-style {
   .settings {
     opacity: 0;
-    transform: scale(0.97) translateY(-8px);
+    transform: perspective(1400px) rotateX(-4deg) translateY(-22px)
+      scale(0.965);
+  }
+}
+/* Phase two: the card lands, THEN its direct children (header/body — not
+ * inner controls) rise into it. Two-phase arrival is the intent signal. */
+.settings > * {
+  transition:
+    opacity 340ms var(--ease-out) 70ms,
+    transform 340ms var(--ease-out) 70ms;
+}
+@starting-style {
+  .settings > * {
+    opacity: 0;
+    transform: translateY(10px);
   }
 }
 
@@ -1112,12 +1132,14 @@
 /* Reduced motion: entrances keep their fade, drop the movement. */
 @media (prefers-reduced-motion: reduce) {
   .settings,
+  .settings > *,
   .accent-popover,
   .chip-select__menu {
     transition: opacity var(--dur-enter) var(--ease-out);
   }
   @starting-style {
     .settings,
+    .settings > *,
     .accent-popover,
     .chip-select__menu {
       transform: none;
