@@ -401,6 +401,14 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
       window.removeEventListener("keydown", onKey);
     };
   }, [folderMenu]);
+  /** Optimistically-hidden folder ids: a hide must vanish INSTANTLY, but
+   * hiddenCategories is part of the disk-cache fingerprint, so the real
+   * pipeline is a debounced full reload (seconds). This set filters the
+   * sidebar AND the guide's channels immediately; entries dissolve when a
+   * landed reload no longer carries the folder (the applied signal). */
+  const [pendingHidden, setPendingHidden] = useState<Set<string>>(
+    () => new Set(),
+  );
   /** Bottom-center toast — one at a time, 5s, Undo restores the folder. */
   const [toast, setToast] = useState<{ msg: string; undo: () => void } | null>(
     null,
@@ -415,6 +423,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
       // folders/channels/EPG drop together and Live refreshes silently.
       const catId = folderId.slice(groupId.length + 1);
       savePlaylists(toggleHiddenCategory(loadPlaylists(), groupId, catId));
+      setPendingHidden((prev) => new Set(prev).add(folderId));
       // Hiding the folder you're filtered to: back to the full guide.
       setFolder((f) => (f === folderId ? null : f));
       setToast({
@@ -423,6 +432,11 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
           savePlaylists(
             toggleHiddenCategory(loadPlaylists(), groupId, catId),
           );
+          setPendingHidden((prev) => {
+            const next = new Set(prev);
+            next.delete(folderId);
+            return next;
+          });
           window.clearTimeout(toastTimer.current);
           setToast(null);
         },
@@ -597,9 +611,28 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   // along. Memoized: a fresh identity per render would bust the guide's
   // memoization on every hover-preview update (it re-renders constantly
   // while scrolling with the cursor over cells).
+  // Entries dissolve once a landed reload no longer carries the folder.
+  useEffect(() => {
+    if (live.status !== "ready") return;
+    setPendingHidden((prev) => {
+      if (prev.size === 0) return prev;
+      const still = new Set(
+        [...prev].filter((id) =>
+          live.data.groups.some((g) => g.folders.some((f) => f.id === id)),
+        ),
+      );
+      return still.size === prev.size ? prev : still;
+    });
+  }, [live]);
+
   const visible = useMemo(() => {
     if (live.status !== "ready") return [];
-    const { channels, programmes } = live.data;
+    const { programmes } = live.data;
+    // Optimistic hide: a just-hidden folder's channels drop NOW; the
+    // debounced reload catches up and the pending set dissolves.
+    const channels = pendingHidden.size
+      ? live.data.channels.filter((c) => !pendingHidden.has(c.folderId))
+      : live.data.channels;
     const attach = (c: Channel) => ({
       channel: c,
       programmes: programmes.get(c.id) ?? NO_PROGRAMMES,
@@ -620,9 +653,18 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
     return channels
       .filter((c) => !folder || c.folderId === folder)
       .map(attach);
-  }, [live, mode, folder, favorites, recents]);
+  }, [live, mode, folder, favorites, recents, pendingHidden]);
 
   const ready = live.status === "ready" ? live.data : null;
+  // The sidebar's groups with pending-hidden folders already gone.
+  const visibleGroups = useMemo(() => {
+    if (!ready) return null;
+    if (pendingHidden.size === 0) return ready.groups;
+    return ready.groups.map((g) => ({
+      ...g,
+      folders: g.folders.filter((f) => !pendingHidden.has(f.id)),
+    }));
+  }, [ready, pendingHidden]);
   // Memoized: hover previews re-render this screen constantly, and a scan
   // over a six-figure channel list per render is real time.
   const heroChannel = useMemo(
@@ -869,7 +911,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
          * position survives. Folded, it doubles as a quick-switch rail. */}
         {(collapsed || mode === "playlist") && ready && (
           <SidebarSources
-            groups={ready.groups}
+            groups={visibleGroups ?? ready.groups}
             conns={conns}
             closedGroups={closedGroups}
             folder={folder}
