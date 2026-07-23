@@ -1085,6 +1085,123 @@
  * surface only, text never dims, identical on accent --live cells.
  * Instant on (background-image isn't transitioned) — presses snap,
  * releases too. Chips and the star keep the scale dip. ---- */
+/* Folder row: the button + its hover eye (the guide__channel/__fav
+ * pattern brought to the sidebar). */
+.live-folder-row {
+  position: relative;
+  display: block;
+}
+.live-folder-row .live-folder {
+  width: 100%;
+}
+/* The hover eye: hidden until the row is hovered or keyboard-focused
+ * (the star's reveal rules). Sits over the name's fade-out edge. */
+.live-folder__hide {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  opacity: 0;
+  transition:
+    opacity var(--dur-hover) ease,
+    color var(--dur-hover) ease,
+    transform 160ms var(--ease-out);
+}
+.live-folder-row:hover .live-folder__hide,
+.live-folder-row:focus-within .live-folder__hide {
+  opacity: 1;
+}
+.live-folder__hide:hover {
+  color: var(--text);
+}
+.live-folder__hide:active {
+  transform: translateY(-50%) scale(0.9);
+}
+.live-folder__hide svg {
+  width: 15px;
+  height: 15px;
+}
+.live-folder__hide:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Bottom-center toast (the hide confirmation + its Undo): the player
+ * popovers' glass; enters like the skip-chip (drift up + fade),
+ * departs instantly with its state. */
+.live-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(0, 0, 0, 0.55);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  backdrop-filter: blur(18px) saturate(1.2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 8px 28px rgba(0, 0, 0, 0.45);
+  transform: translateX(-50%);
+  transition:
+    opacity 200ms var(--ease-out),
+    transform 200ms var(--ease-out);
+}
+@starting-style {
+  .live-toast {
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px);
+  }
+}
+.live-toast__msg {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 13.5px;
+  color: #fff;
+  max-width: 44ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.live-toast__undo {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 6px;
+  transition: filter var(--dur-hover) ease;
+}
+.live-toast__undo:hover {
+  filter: brightness(1.35);
+}
+.live-toast__undo:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-toast {
+    transition: opacity 200ms var(--ease-out);
+  }
+  @starting-style {
+    .live-toast {
+      transform: translateX(-50%);
+    }
+  }
+}
+
 /* Folder context menu (right-click → Hide): the player popovers' glass,
  * cursor-anchored. Entrance per the motion plan-002 language; close is
  * instant (asymmetry). Fixed coords arrive pre-unscaled (zoomed space —

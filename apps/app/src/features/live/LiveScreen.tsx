@@ -11,6 +11,7 @@ import {
 } from "react";
 import {
   ChevronIcon,
+  EyeOffIcon,
   PanelIcon,
   RainbowStarIcon,
   RecentsIcon,
@@ -210,6 +211,7 @@ const SidebarSources = memo(function SidebarSources({
   onPickFolder,
   onTip,
   onFolderMenu,
+  onHideFolder,
 }: {
   groups: LiveData["groups"];
   conns: ReturnType<typeof useConnections>;
@@ -227,6 +229,8 @@ const SidebarSources = memo(function SidebarSources({
     folderId: string;
     name: string;
   }) => void;
+  /** The hover eye: hide this folder right now (toast carries the undo). */
+  onHideFolder: (groupId: string, folderId: string, name: string) => void;
 }) {
   return (
     <div className="live-sidebar__list">
@@ -275,65 +279,81 @@ const SidebarSources = memo(function SidebarSources({
                   const { emoji, label } = splitTitleEmoji(f.name);
                   const active = folder === f.id;
                   return (
-                    <button
-                      key={f.id}
-                      type="button"
-                      aria-label={label}
-                      aria-current={active ? "true" : undefined}
-                      // Expanded, long names fade at the edge — a native
-                      // tooltip makes the full name recoverable. Folded,
-                      // the custom .live-tip owns that, so skip it.
-                      title={collapsed ? undefined : label}
-                      className={
-                        "live-folder" + (active ? " live-folder--active" : "")
-                      }
-                      onClick={() => onPickFolder(f.id, active)}
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        onTip(null);
-                        // Fixed-position coords live in the zoomed space
-                        // (the tooltip's pattern). Keyboard menu key sends
-                        // 0,0 — anchor on the row instead.
-                        const zoom = Number(
-                          document.documentElement.style.zoom || 1,
-                        );
-                        const r = e.currentTarget.getBoundingClientRect();
-                        const cx = e.clientX || r.right - 8;
-                        const cy = e.clientY || r.top + r.height / 2;
-                        onFolderMenu({
-                          x: cx / zoom,
-                          y: cy / zoom,
-                          groupId: g.id,
-                          folderId: f.id,
-                          name: label,
-                        });
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!collapsed) return;
-                        const r = e.currentTarget.getBoundingClientRect();
-                        // Fixed positioning lives in the zoomed
-                        // coordinate space (see the settings
-                        // dropdown), so unscale.
-                        const zoom = Number(
-                          document.documentElement.style.zoom || 1,
-                        );
-                        onTip({
-                          label,
-                          x: r.right / zoom + 12,
-                          y: (r.top + r.height / 2) / zoom,
-                        });
-                      }}
-                      onMouseLeave={() => onTip(null)}
-                    >
-                      {emoji ? (
-                        <span className="live-folder__emoji" aria-hidden>
-                          {emoji}
-                        </span>
-                      ) : (
-                        <TvIcon className="live-folder__icon" />
+                    <span className="live-folder-row" key={f.id}>
+                      <button
+                        type="button"
+                        aria-label={label}
+                        aria-current={active ? "true" : undefined}
+                        // Expanded, long names fade at the edge — a native
+                        // tooltip makes the full name recoverable. Folded,
+                        // the custom .live-tip owns that, so skip it.
+                        title={collapsed ? undefined : label}
+                        className={
+                          "live-folder" +
+                          (active ? " live-folder--active" : "")
+                        }
+                        onClick={() => onPickFolder(f.id, active)}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          onTip(null);
+                          // Fixed-position coords live in the zoomed space
+                          // (the tooltip's pattern). Keyboard menu key sends
+                          // 0,0 — anchor on the row instead.
+                          const zoom = Number(
+                            document.documentElement.style.zoom || 1,
+                          );
+                          const r = e.currentTarget.getBoundingClientRect();
+                          const cx = e.clientX || r.right - 8;
+                          const cy = e.clientY || r.top + r.height / 2;
+                          onFolderMenu({
+                            x: cx / zoom,
+                            y: cy / zoom,
+                            groupId: g.id,
+                            folderId: f.id,
+                            name: label,
+                          });
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!collapsed) return;
+                          const r = e.currentTarget.getBoundingClientRect();
+                          // Fixed positioning lives in the zoomed
+                          // coordinate space (see the settings
+                          // dropdown), so unscale.
+                          const zoom = Number(
+                            document.documentElement.style.zoom || 1,
+                          );
+                          onTip({
+                            label,
+                            x: r.right / zoom + 12,
+                            y: (r.top + r.height / 2) / zoom,
+                          });
+                        }}
+                        onMouseLeave={() => onTip(null)}
+                      >
+                        {emoji ? (
+                          <span className="live-folder__emoji" aria-hidden>
+                            {emoji}
+                          </span>
+                        ) : (
+                          <TvIcon className="live-folder__icon" />
+                        )}
+                        <span className="live-folder__name">{label}</span>
+                      </button>
+                      {/* The hover eye (the guide-star pattern): hides this
+                        * folder in one click; the toast carries the undo.
+                        * No room folded — the context menu covers there. */}
+                      {!collapsed && (
+                        <button
+                          type="button"
+                          className="live-folder__hide"
+                          aria-label={`Hide ${label}`}
+                          title={`Hide ${label}`}
+                          onClick={() => onHideFolder(g.id, f.id, label)}
+                        >
+                          <EyeOffIcon />
+                        </button>
                       )}
-                      <span className="live-folder__name">{label}</span>
-                    </button>
+                    </span>
                   );
                 })}
               </div>
@@ -381,22 +401,43 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
       window.removeEventListener("keydown", onKey);
     };
   }, [folderMenu]);
-  const hideFolder = useCallback(() => {
-    setFolderMenu((m) => {
-      if (!m) return null;
+  /** Bottom-center toast — one at a time, 5s, Undo restores the folder. */
+  const [toast, setToast] = useState<{ msg: string; undo: () => void } | null>(
+    null,
+  );
+  const toastTimer = useRef(0);
+  useEffect(() => () => window.clearTimeout(toastTimer.current), []);
+  const hideFolderNow = useCallback(
+    (groupId: string, folderId: string, name: string) => {
       // folder.id is `${playlistId}:${categoryId}` (source.ts#folderId);
       // hiddenCategories stores the RAW category id — slice by the known
       // playlist prefix. Same store + signal as the Settings editor, so
       // folders/channels/EPG drop together and Live refreshes silently.
-      const catId = m.folderId.slice(m.groupId.length + 1);
-      savePlaylists(
-        toggleHiddenCategory(loadPlaylists(), m.groupId, catId),
-      );
+      const catId = folderId.slice(groupId.length + 1);
+      savePlaylists(toggleHiddenCategory(loadPlaylists(), groupId, catId));
       // Hiding the folder you're filtered to: back to the full guide.
-      setFolder((f) => (f === m.folderId ? null : f));
+      setFolder((f) => (f === folderId ? null : f));
+      setToast({
+        msg: `Hid “${name}”`,
+        undo: () => {
+          savePlaylists(
+            toggleHiddenCategory(loadPlaylists(), groupId, catId),
+          );
+          window.clearTimeout(toastTimer.current);
+          setToast(null);
+        },
+      });
+      window.clearTimeout(toastTimer.current);
+      toastTimer.current = window.setTimeout(() => setToast(null), 5000);
+    },
+    [],
+  );
+  const hideFolder = useCallback(() => {
+    setFolderMenu((m) => {
+      if (m) hideFolderNow(m.groupId, m.folderId, m.name);
       return null;
     });
-  }, []);
+  }, [hideFolderNow]);
 
   // Stable handlers for the memoized SidebarSources (setTip is stable by
   // construction; these two must be too or the memo is defeated).
@@ -837,6 +878,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
             onPickFolder={pickFolder}
             onTip={setTip}
             onFolderMenu={setFolderMenu}
+            onHideFolder={hideFolderNow}
           />
         )}
 
@@ -875,6 +917,19 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
           <p className="folder-menu__hint">
             Unhide any time in Settings &rarr; Playlists.
           </p>
+        </div>
+      )}
+
+      {toast && (
+        <div className="live-toast" role="status">
+          <span className="live-toast__msg">{toast.msg}</span>
+          <button
+            type="button"
+            className="live-toast__undo"
+            onClick={toast.undo}
+          >
+            Undo
+          </button>
         </div>
       )}
 

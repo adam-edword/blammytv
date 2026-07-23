@@ -364,6 +364,15 @@ export function ExternalLinkIcon({ size = 16, className }: IconProps) {
 }
 
 /** Edit / Pipette — the color-picker eyedropper. */
+/** Crossed-out eye — the sidebar's hover-revealed "hide this folder". */
+export function EyeOffIcon({ size = 16, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <path d="M3 3l18 18M10.6 5.1A9.8 9.8 0 0 1 12 5c7 0 10 7 10 7a16.2 16.2 0 0 1-3.2 4.2M6.6 6.6A16.4 16.4 0 0 0 2 12s3 7 10 7c1.8 0 3.4-.5 4.7-1.2M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+    </Svg>
+  );
+}
+
 export function EyeDropperIcon({ size = 16, className }: IconProps) {
   return (
     <Svg size={size} className={className}>
