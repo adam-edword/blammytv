@@ -1120,6 +1120,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
                     fullscreen ? "fullscreen" : theater ? "theater" : "mini"
                   }
                   playbackKey={playUrl}
+                  vod={false}
                 />,
                 chromeHostRef.current,
               )}
