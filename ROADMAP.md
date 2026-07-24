@@ -596,7 +596,7 @@ Full detail in HANDOFF's Live state. **This is why the bridge-seam audit
 below exists:** both escaped the polish audit AND the 31-finding
 pre-release review, because those swept UI/CSS, not bridge timing.
 
-## 0.7.11 — the fix train (RELEASED 2026-07-24)
+## 0.7.11: the fix train (RELEASED 2026-07-24)
 
 The playback-bridge audit (four dimensions, all 7 findings shipped) plus
 the guide-load fix. Per-finding detail lives in HANDOFF. Two things worth
