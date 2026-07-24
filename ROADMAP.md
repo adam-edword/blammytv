@@ -634,8 +634,13 @@ once-per-8-hours cost rather than per launch.
 
 - **0.8.0 needs a headline.** 0.7.11 was deliberately a PATCH: a fix train
   with no feature, where the previous two minors each had one. Two-tier
-  updates is the obvious candidate (below); pair it with a real feature
-  off the 1.0 list.
+  updates is the obvious candidate and is now PLANNED in
+  `plans/008-two-tier-updates.md`; pair it with a real feature off the 1.0
+  list. **Phase 0 of that plan is a decision gate**: whether the frontend
+  can be served from disk WITHOUT changing the page origin. All persisted
+  state (playlist credentials, the Themes Pass license key, watch history,
+  the guide cache) is origin-partitioned, so the answer changes the cost of
+  the whole feature. Verify it before writing anything else.
 - **EPG coverage question (open, cheap):** 248 guides for 1920 channels,
   13%, out of a 97MB file. Could be normal for a big provider (24/7 and
   PPV feeds carry no EPG ids) or the id matching could be discarding most

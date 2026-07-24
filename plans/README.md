@@ -19,6 +19,7 @@ Run with `improve-animations execute <plan>` or hand to any agent.
 | [005](005-thumb-physics.md) | Unify sliding-thumb physics; Toggle off layout properties | HIGH | DONE (wave A; feel-gate: ChipTabs thumb 300→380ms per Adam, spring kept, on watch) |
 | [006](006-reduced-motion-pass.md) | Close the reduced-motion gaps | HIGH | DONE (wave C; hover gates written :hover:not(:active), the wave-B press dips out-cascaded naive gates) |
 | [007](007-hold-to-clear-progress.md) | Hold-to-clear: show the hold's progress | MEDIUM | DONE (wave C) |
+| [008](008-two-tier-updates.md) | Two-tier updates: a frontend hot channel behind the installer | MEDIUM | PLANNED (0.8.0 candidate; **Phase 0 is a decision gate**, see the plan) |
 
 ## Recommended execution order & dependencies
 
