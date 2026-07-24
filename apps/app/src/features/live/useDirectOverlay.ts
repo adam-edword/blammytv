@@ -193,7 +193,11 @@ export function useDirectOverlay(
         else void tauriMpvGoLive().catch(() => {});
       },
       setMouseIgnore: () => {}, // real DOM above the video — clicks just work
-      getMeta: () => Promise.resolve(metaRef.current),
+      // Read the ref AT RESOLUTION, not at call: the overlay calls this in
+      // its mount effect, BEFORE this hook's meta effect has stored the
+      // first meta — a call-time capture resolves null after the real push
+      // and clobbers it (first-playback-of-session live-chrome bug).
+      getMeta: () => Promise.resolve().then(() => metaRef.current),
       onMeta: sub(s.metaCbs),
       getLoading: () => s.loading,
       onLoading: sub(s.loadingCbs),
