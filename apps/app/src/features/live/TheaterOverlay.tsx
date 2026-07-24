@@ -1375,8 +1375,8 @@ function TuneCard({
         <div className="tune__dead" data-interactive>
           <p className="tune__dead-msg">
             {vod
-              ? "This source isn\u2019t responding \u2014 it\u2019s the stream, not you."
-              : "This channel isn\u2019t responding \u2014 it\u2019s the stream, not you."}
+              ? "This source isn\u2019t responding. It\u2019s the stream, not you."
+              : "This channel isn\u2019t responding. It\u2019s the stream, not you."}
           </p>
           <button type="button" className="tune__retry" onClick={onRetry}>
             Retry
