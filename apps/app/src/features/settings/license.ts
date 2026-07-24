@@ -100,7 +100,7 @@ interface ValidateFail {
 type ValidateResponse = ValidateOk | ValidateFail;
 
 const NETWORK_MESSAGE =
-  "Couldn't reach the theme server — check your connection and try again";
+  "Couldn't reach the theme server. Check your connection and try again";
 
 /** POST /validate. Returns null on any transport/shape failure (network
  * down, a non-2xx status incl. 429, an unparseable body) — every caller
@@ -146,7 +146,7 @@ export async function activate(rawKey: string): Promise<ActivateResult> {
       message:
         body.reason === "activation_limit"
           ? "This key is already active on 3 machines"
-          : "That key wasn't recognized — check for typos",
+          : "That key wasn't recognized. Check for typos",
     };
   }
 

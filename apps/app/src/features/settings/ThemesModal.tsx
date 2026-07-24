@@ -597,7 +597,7 @@ export function ThemesModal({ onClose }: { onClose: () => void }) {
         {previewing && activePack.buyUrl && (
           <div className="pack-preview-note" role="status">
             <span>
-              Previewing <strong>{activePack.name}</strong> — reverts when you
+              Previewing <strong>{activePack.name}</strong>. Reverts when you
               close Themes.
             </span>
             <a
@@ -627,7 +627,7 @@ export function ThemesModal({ onClose }: { onClose: () => void }) {
                 <HeartIcon size={34} className="themes-pass__heart" />
               </h3>
               <p className="themes-pass__blurb">
-                Your Themes Pass unlocks every theme on this device — including
+                Your Themes Pass unlocks every theme on this device, including
                 the Supporters theme, made just for you.
               </p>
               <p className="themes-pass__fine">

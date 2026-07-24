@@ -81,5 +81,5 @@ export function overlayHeading(
     .filter(Boolean)
     .join(" · ");
   const title = on.has("title") ? ((vod ? vod.title : fallbackTitle) ?? "") : "";
-  return [se, title].filter(Boolean).join(" — ");
+  return [se, title].filter(Boolean).join(": ");
 }

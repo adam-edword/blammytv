@@ -335,7 +335,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     thinkHard();
     raceTimeout(
       probeAioStreams(manifestTrimmed),
-      "Couldn’t reach the instance — it didn’t answer in time.",
+      "Couldn’t reach the instance. It didn’t answer in time.",
     )
       .then((steps: ProbeStep[]) => {
         if (steps[0]?.ok) {
@@ -343,7 +343,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           const n = /(\d+) catalog/.exec(steps[0].detail)?.[1];
           setStreamsMsg({
             ok: true,
-            text: `Connected${n ? ` — ${n} catalogs found` : ""}. Nice.`,
+            text: `Connected${n ? `, ${n} catalogs found` : ""}. Nice.`,
           });
           window.clearTimeout(autoTimer.current);
           autoTimer.current = window.setTimeout(advance, VERIFIED_DWELL_MS);
@@ -412,10 +412,10 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   const showTvHint = tvTouched && !tvEmpty && !tvComplete && tvMsg === null;
   const TV_HINTS: Record<PlaylistKind, string> = {
     xtream:
-      "Fill in all three — server URL (with http), username, and password — or leave them all empty to skip.",
+      "Fill in all three: server URL (with http), username, and password. Or leave them all empty to skip.",
     m3u: "That needs a full playlist URL, starting with http(s).",
     stalker:
-      "Fill in both — portal URL (with http) and the MAC address — or leave them empty to skip.",
+      "Fill in both: portal URL (with http) and the MAC address. Or leave them empty to skip.",
   };
 
   /** Verify with the kind's REAL client, resolving to the draft to save
@@ -432,12 +432,12 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
             name: "probe",
             enabled: true,
           }),
-          "Couldn’t reach the panel — it didn’t answer in time.",
+          "Couldn’t reach the panel. It didn’t answer in time.",
         ).then(() => draft);
       case "m3u":
         return raceTimeout(
           httpGetText(draft.url),
-          "Couldn’t reach the playlist — it didn’t answer in time.",
+          "Couldn’t reach the playlist. It didn’t answer in time.",
         ).then((text) => {
           if (!text.trimStart().startsWith("#EXTM3U")) {
             throw new Error("That URL didn't return an M3U playlist.");
@@ -452,7 +452,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
             name: "probe",
             enabled: true,
           }),
-          "Couldn’t reach the portal — it didn’t answer in time.",
+          "Couldn’t reach the portal. It didn’t answer in time.",
         ).then((endpoint) => ({ ...draft, endpoint }));
     }
   };
@@ -475,7 +475,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     verifyTv()
       .then((draft) => {
         saveTvDraft(draft);
-        setTvMsg({ ok: true, text: "Connected — your channels are in." });
+        setTvMsg({ ok: true, text: "Connected. Your channels are in." });
         window.clearTimeout(autoTimer.current);
         autoTimer.current = window.setTimeout(advance, VERIFIED_DWELL_MS);
       })
@@ -553,8 +553,8 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           Bring your streams
         </h1>
         <p className="onb-sub" style={idx(1)}>
-          Paste your AIOStreams manifest URL to power movies and series —
-          we&rsquo;ll check the connection for real before moving on.
+          Paste your AIOStreams manifest URL to power movies and series.
+          We&rsquo;ll check the connection for real before moving on.
         </p>
         <input
           className={"onb-input" + (showManifestHint ? " is-invalid" : "")}
@@ -578,7 +578,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
         />
         {showManifestHint && (
           <p className="onb-hint" role="alert">
-            That doesn&rsquo;t look like a manifest URL — it should start
+            That doesn&rsquo;t look like a manifest URL. It should start
             with http(s) and end in /manifest.json.
           </p>
         )}
@@ -615,7 +615,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           Connect Live TV
         </h1>
         <p className="onb-sub" style={idx(1)}>
-          Light up channels and the guide — pick the format your provider
+          Light up channels and the guide. Pick the format your provider
           gave you.
         </p>
         {existingTvCount > 0 && (
@@ -623,7 +623,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
             {existingTvCount === 1
               ? "1 playlist is"
               : `${existingTvCount} playlists are`}{" "}
-            already connected — adding another is optional.
+            already connected. Adding another is optional.
           </p>
         )}
         <div className="onb-chips" style={idx(2)}>
@@ -760,7 +760,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
         </h1>
         <p className="onb-sub" style={idx(1)}>
           Pick an accent. There&rsquo;s plenty more to customize in
-          Settings — including something hidden.
+          Settings, including something hidden.
         </p>
         <div
           className="onb-swatches"
@@ -842,7 +842,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           </div>
         </div>
         <p className="onb-sub" style={idx(2)}>
-          Tip: Settings holds a lot more to make BlammyTV yours — sources,
+          Tip: Settings holds a lot more to make BlammyTV yours: sources,
           themes, playback, and a few surprises.
         </p>
         <button

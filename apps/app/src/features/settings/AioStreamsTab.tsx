@@ -299,7 +299,7 @@ export function AioStreamsTab() {
         <section className="settings-section">
           <h3 className="settings-section__list-title">Connection Test</h3>
           <p className="settings__section-note settings__section-note--dim">
-            Checks your instance the same way the app talks to it —
+            Checks your instance the same way the app talks to it:
             manifest, a catalog page, and a stream lookup. Screenshot the
             result when reporting a problem; it never shows your URL.
           </p>
@@ -352,7 +352,7 @@ export function AioStreamsTab() {
           )}
           {catalogs.status === "error" && (
             <p className="settings__section-note settings__section-note--dim">
-              Couldn&rsquo;t reach the manifest. Check the URL — and note the
+              Couldn&rsquo;t reach the manifest. Check the URL, and note the
               browser dev build can be blocked by CORS where the desktop app
               isn't.
             </p>
@@ -526,7 +526,7 @@ export function AioStreamsTab() {
               <h4 className="customize-row__title">Auto Source Failover</h4>
               <p className="settings__section-note settings__section-note--dim">
                 When a source dies mid-play, jump to the next available
-                cached one automatically — an uncached source is never
+                cached one automatically. An uncached source is never
                 auto-played. Off shows a button instead.
               </p>
             </div>

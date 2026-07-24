@@ -62,7 +62,7 @@ async function forensicFor(url: string): Promise<string | undefined> {
     .trim()
     .slice(0, 140);
   if (head) parts.push(`body starts "${head}"`);
-  return `answered HTTP ${f.status}${parts.length ? " — " + parts.join(" · ") : ""}`;
+  return `answered HTTP ${f.status}${parts.length ? ", " + parts.join(" · ") : ""}`;
 }
 
 /** One plain-language conclusion under the result rows, rendered only
@@ -81,7 +81,7 @@ export function probeVerdict(steps: ProbeStep[]): string | undefined {
     return (
       "This instance sits behind Cloudflare bot protection, which is " +
       "challenging app traffic from your network. That can't be fixed " +
-      "from your machine or by this app — it affects Stremio-style " +
+      "from your machine or by this app. It affects Stremio-style " +
       "clients generally. Ask whoever hosts the instance to exempt it " +
       "from bot protection, or move your config to another instance."
     );
@@ -89,10 +89,10 @@ export function probeVerdict(steps: ProbeStep[]): string | undefined {
   if (failed.some((s) => /HTTP 40[13]\b/.test(s.detail))) {
     return (
       "The instance rejected the request. If this URL worked before, " +
-      "your config link may have expired or been regenerated — re-copy " +
+      "your config link may have expired or been regenerated. Re-copy " +
       "the manifest URL from your instance's configure page and submit " +
       "it again. If the error persists, the problem is on the server " +
-      "hosting your manifest — ask its operator to check for a firewall " +
+      "hosting your manifest. Ask its operator to check for a firewall " +
       "or bot protection blocking app traffic."
     );
   }
@@ -113,7 +113,7 @@ export async function probeAioStreams(
     steps.push({
       label: "Manifest",
       ok: true,
-      detail: `OK — ${catalogs.length} catalog${catalogs.length === 1 ? "" : "s"}`,
+      detail: `OK, ${catalogs.length} catalog${catalogs.length === 1 ? "" : "s"}`,
     });
   } catch (e) {
     const detail = scrubbedMessage(e);
@@ -141,7 +141,7 @@ export async function probeAioStreams(
       steps.push({
         label: `Catalog (${firstCatalog.type}/${firstCatalog.id})`,
         ok: true,
-        detail: `OK — ${n} title${n === 1 ? "" : "s"}`,
+        detail: `OK, ${n} title${n === 1 ? "" : "s"}`,
       });
     } catch (e) {
       const detail = scrubbedMessage(e);
@@ -167,7 +167,7 @@ export async function probeAioStreams(
     steps.push({
       label: "Streams (test title)",
       ok: true,
-      detail: `OK — ${n} source${n === 1 ? "" : "s"}`,
+      detail: `OK, ${n} source${n === 1 ? "" : "s"}`,
     });
   } catch (e) {
     const detail = scrubbedMessage(e);

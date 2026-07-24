@@ -267,7 +267,7 @@ const SidebarSources = memo(function SidebarSources({
             </button>
             {g.error && !collapsed && (
               <p className="live-group__error">
-                Couldn&rsquo;t load this playlist — {g.error}
+                Couldn&rsquo;t load this playlist: {g.error}
               </p>
             )}
             {open && g.folders.length > 0 && (
@@ -1051,7 +1051,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
             role="alert"
           >
             <p>
-              Couldn&rsquo;t load your playlists — {live.message}. Check them in
+              Couldn&rsquo;t load your playlists: {live.message}. Check them in
               Settings → Playlists.
             </p>
             <button
@@ -1068,7 +1068,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
           (ready.groups.find((g) => g.error) ? (
             <div className="live-status live-status--error" role="alert">
               <p>
-                Couldn&rsquo;t load your playlists —{" "}
+                Couldn&rsquo;t load your playlists:{" "}
                 {ready.groups.find((g) => g.error)!.error}. Check them in
                 Settings → Playlists.
               </p>
@@ -1128,9 +1128,9 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
               <div className="guide-empty">
                 <p>
                   {mode === "favorites"
-                    ? "Nothing starred yet — hover a channel card and hit the star."
+                    ? "Nothing starred yet. Hover a channel card and hit the star."
                     : mode === "recents"
-                      ? "Nothing watched yet — recents fill in as you tune around."
+                      ? "Nothing watched yet. Recents fill in as you tune around."
                       : "No channels in this folder."}
                 </p>
               </div>

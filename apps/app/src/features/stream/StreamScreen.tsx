@@ -437,7 +437,7 @@ export function StreamScreen() {
       // playing now — captured before setResolving/setPlaying churn it.
       const stickyGroup = playingRef.current?.bingeGroup;
       setResolving({ art: item.logo ?? item.poster, title: item.title });
-      const label = `S${season.number} · E${episode.number} — ${episode.title}`;
+      const label = `S${season.number} · E${episode.number}: ${episode.title}`;
       const info = {
         season: season.number,
         episode: episode.number,
@@ -1178,7 +1178,7 @@ export function StreamScreen() {
               )}
               <p className="upnext__eyebrow">Up next</p>
               <h2 className="upnext__title">
-                S{upNext.season.number} · E{upNext.episode.number} —{" "}
+                S{upNext.season.number} · E{upNext.episode.number}:{" "}
                 {upNext.episode.title}
               </h2>
               <p className="upnext__count">Playing in {countdown}s</p>
@@ -1222,7 +1222,7 @@ export function StreamScreen() {
               <div className="upnext-mini__body">
                 <p className="upnext-mini__eyebrow">Up next</p>
                 <p className="upnext-mini__title">
-                  S{upNextMini.season.number} · E{upNextMini.episode.number} —{" "}
+                  S{upNextMini.season.number} · E{upNextMini.episode.number}:{" "}
                   {upNextMini.episode.title}
                 </p>
                 <div className="upnext-mini__actions">
@@ -2483,7 +2483,7 @@ function Episodes({
                     (e.id === nextUp ? " episode-card--next" : "")
                   }
                   onClick={() =>
-                    onPick(e.id, `S${season.number} · E${e.number} — ${e.title}`, {
+                    onPick(e.id, `S${season.number} · E${e.number}: ${e.title}`, {
                       season: season.number,
                       episode: e.number,
                       title: e.title,

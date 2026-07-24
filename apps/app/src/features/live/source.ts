@@ -315,7 +315,7 @@ async function buildXtreamSource(
       else if (programmes.size === 0)
         epgError = `the guide downloaded (${(xml.length / 1e6).toFixed(1)}MB) but matched none of the channels`;
     } catch (err) {
-      epgError = `guide download failed — ${msg(err)}`;
+      epgError = `guide download failed: ${msg(err)}`;
       console.warn(`[live] EPG failed for "${p.name}": ${msg(err)}`);
     }
 
@@ -444,7 +444,7 @@ async function buildM3uSource(
         if (programmes.size === 0)
           epgError = "the guide downloaded but matched none of the channels";
       } catch (err) {
-        epgError = `guide download failed — ${msg(err)}`;
+        epgError = `guide download failed: ${msg(err)}`;
         console.warn(`[live] EPG failed for "${p.name}": ${msg(err)}`);
       }
     } else if (!epgUrl) {
@@ -567,7 +567,7 @@ async function buildStalkerSource(
       if (programmes.size === 0)
         epgError = "the portal returned no guide data (get_epg_info empty)";
     } catch (err) {
-      epgError = `guide download failed — ${msg(err)}`;
+      epgError = `guide download failed: ${msg(err)}`;
       console.warn(`[live] EPG failed for "${p.name}": ${msg(err)}`);
     }
 

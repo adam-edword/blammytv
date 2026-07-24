@@ -449,7 +449,7 @@ export function DiscoverScreen() {
           </>
         ) : items.length === 0 && gridFailed ? (
           <p className="discover__note" role="alert">
-            Discover didn&rsquo;t load — the catalog never answered.{" "}
+            Discover didn&rsquo;t load. The catalog never answered.{" "}
             <button
               type="button"
               className="btn-primary"
@@ -460,7 +460,7 @@ export function DiscoverScreen() {
           </p>
         ) : items.length === 0 ? (
           <p className="discover__note">
-            Nothing here — the catalog returned no titles
+            Nothing here. The catalog returned no titles
             {genre ? ` for ${genre}` : ""}.
           </p>
         ) : (
