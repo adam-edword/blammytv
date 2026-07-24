@@ -15,7 +15,50 @@ Audience: switchers from other Windows IPTV clients, Stremio users, ideally
 both, and explicitly *inviting to newcomers*; first-five-minutes activation
 weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
-## Live state (2026-07-24, v0.7.2 RELEASED, playback-bridge patch)
+## Live state (2026-07-24, v0.7.11 RELEASED, the fix train)
+
+**v0.7.11 is published** (tag @ main `7509672`, sig-verified, updater
+live). Deliberately a PATCH, not 0.8.0: Adam's call, and the right one.
+This was a fix train with no headline feature, and the previous two minors
+each had one. **0.8.0 should earn its number** (two-tier updates is the
+obvious headline). This release is also the first whose installs are
+performed by 0.7.2's quiet-mode updater, so no installer window.
+
+Shipped in it, in rough order of user impact:
+
+- **Two data-loss fixes.** A source dying mid-movie wiped the saved
+  Continue Watching position (Retry re-loadfiled a dead debrid url at byte
+  0, then the 5s progress tick overwrote the real position with ~3s, which
+  reads as "not started"). And a death with no clock was read as
+  COMPLETION: markWatched, watch entry pushed to full, Up Next auto-rolling
+  the next episode. Retry now re-RESOLVES; completion now requires a clock
+  that reached the end.
+- **First launch 77s → ~4s.** doLoad awaited a ~100MB xmltv before
+  resolving, so the whole catalog sat behind the slowest possible byte.
+  Now two-phase: builders return the guide as a PROMISE, channels resolve
+  immediately, and a detached phase republishes a complete LiveData and
+  announces it (the same path the disk hydrate already used). See ROADMAP
+  for the four details worth not re-deriving.
+- **Desktop through the clip hole between episodes.** The hole gate rode
+  `loading`, but readiness is "is there a picture", which is NOT the same
+  question. At completion those diverge: the completion branch leaves
+  `loading` false deliberately (flipping it would put a reconnecting card
+  over Up Next), so the hole stayed cut over an mpv sitting at EOF.
+- The rest of the bridge audit: prefs guard no longer spent on an empty
+  track list, watchdog resets between streams, volume/mute persisted,
+  clicking the loading ident no longer pauses mpv (which could kill a
+  healthy stream), one mpv instance enforced in `play_wid`.
+- No em dashes in user-facing copy, or in any markdown in the repo.
+
+**Diagnostics now shipping (console only, both dormant until relevant):**
+`[tune-diag]` prints mpv's raw properties at three moments (presenting /
+watchdog escalation / 3s post-reload); `[live-cache]` reports disk hit,
+miss-with-reason, and write success or failure. Both exist to answer
+open questions from ordinary use, and the first already proved that
+debrid sources DO report duration (which is the evidence the completion
+guard leans on).
+
+## Historical (2026-07-24, v0.7.2 RELEASED, playback-bridge patch)
 
 **v0.7.2 is published** (tag @ main `62f65e8`, sig-verified, updater live;
 0.7.0 shipped hours earlier, see below). Contents:

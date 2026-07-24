@@ -596,12 +596,62 @@ Full detail in HANDOFF's Live state. **This is why the bridge-seam audit
 below exists:** both escaped the polish audit AND the 31-finding
 pre-release review, because those swept UI/CSS, not bridge timing.
 
-## Next after 0.7.0 (queued, unowned: fork a fresh branch off main)
+## 0.7.11 — the fix train (RELEASED 2026-07-24)
 
-- **Playback-bridge seam audit (IN FLIGHT 2026-07-24)**: four dimensions:
-  async/lifecycle races, cross-instance state sync, error/watchdog paths,
-  and the Rust command layer + its contract with the frontend. Findings
-  get verified in the main session before any fix lands.
+The playback-bridge audit (four dimensions, all 7 findings shipped) plus
+the guide-load fix. Per-finding detail lives in HANDOFF. Two things worth
+carrying forward as RULES rather than history:
+
+- **Readiness is "is there a picture", not "is it loading".** Those two
+  answers diverge at completion, and conflating them is what put the
+  DESKTOP on screen between episodes.
+- **Never spend a once-per-file guard on data that has not arrived.**
+  `mpv_status` always returns `audio: []`/`subs: []`, never null, so an
+  empty-but-truthy track list burned the prefs guard while the file was
+  still demuxing. A slow open is the NORMAL case for debrid, not an edge.
+
+**The guide load is now two-phase** (source.ts). Four details that cost
+real thinking, so do not re-derive them:
+1. Publish a NEW LiveData, never mutate. The screen holds the old one in
+   state and would never see an in-place edit.
+2. The channels-only snapshot is NOT written to disk. Persisting it would
+   let the next launch hydrate a guideless catalog and then sit through
+   the whole download again, silently undoing the entire benefit.
+3. The detached phase needs its own catch: it outlives its caller, so a
+   throw there becomes an unhandled rejection.
+4. `announceRefresh()` guards `window` because that dispatch fires from
+   the detached promise, and vitest runs in node.
+
+Measured, so nobody re-opens it: the provider's guide is 97.2MB and takes
+76.7s, headers back in 122ms. Compression is ALREADY working (the client
+sets gzip/brotli/deflate, and reqwest stripping content-length is the
+app's own documented signal that it decompressed), so 97.2MB is the
+DECOMPRESSED size and there is no transfer win sitting there. The disk
+cache is confirmed working too (HIT, 7ms writes), so this is a
+once-per-8-hours cost rather than per launch.
+
+## Next (queued, unowned: fork a fresh branch off main)
+
+- **0.8.0 needs a headline.** 0.7.11 was deliberately a PATCH: a fix train
+  with no feature, where the previous two minors each had one. Two-tier
+  updates is the obvious candidate (below); pair it with a real feature
+  off the 1.0 list.
+- **EPG coverage question (open, cheap):** 248 guides for 1920 channels,
+  13%, out of a 97MB file. Could be normal for a big provider (24/7 and
+  PPV feeds carry no EPG ids) or the id matching could be discarding most
+  of that download. One look decides between "the provider's guide is
+  thin" and "we throw most of it away".
+- **Bridge items still open**, each needing the shipped `[tune-diag]` to
+  fire during a real stall: `reload_live()` early-returns when `path` is
+  unset, which is plausibly the state at death, so the live watchdog's
+  "reconnecting" escalation may do nothing for 30s; whether a death shows
+  as `idle-active` or `eof-reached`; and whether `aid`/`sid`/`speed`
+  survive a same-url reload (speed has NO reconcile channel, so a
+  divergence there is permanent and silent).
+- **`mpv_frost` downgrade (needs no measurement):** it conflates "no
+  player yet" with "this mpv cannot frost", so opening Settings during a
+  tune drops that modal to a solid background for its whole session. The
+  frontend can just re-arm on presenting.
 
 - **Refactor batch (invisible, do early in the cycle while the tree is
   quiet):** unify the two TTL-cache implementations; extract Card +
