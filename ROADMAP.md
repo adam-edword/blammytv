@@ -588,6 +588,22 @@ installer + latest.json, updater live.
 - **Adam design calls:** dither/kawaii guide occluders (per-pack);
   favorites drag-handle UI in the guide (data layer shipped v0.1.133 —
   virtualized-grid scar territory, plan carefully).
+- **Two-tier updates (Adam 2026-07-24, from a friend's suggestion —
+  0.8 candidate, plan doc BEFORE building; it touches the updater trust
+  path):** (1) *Frontend hot channel* — releases also ship a signed zip of
+  dist/ (~1-2MB); when the update's NATIVE version matches the installed
+  one, the app downloads it, verifies against the existing minisign key,
+  unpacks to a versioned app-data dir, flips a pointer, and reloads the
+  webview — no process exit, ~1s UI blink, mpv (a native child) survives.
+  Needs: serve UI from disk (custom protocol or app-URL switch), Rust-side
+  minisign verify, keep-last-version rollback with the baked-in frontend
+  as the always-there fallback, a nativeVersion field in latest.json, and
+  release-drill changes (build+sign+upload the zip). (2) *Quiet native
+  installs* — `plugins.updater.windows.installMode: "quiet"` in
+  tauri.conf.json (one line, next release build): NSIS /S, no progress
+  window; truly silent because we install per-user (no UAC). Rust-touching
+  updates always require the exit-install-relaunch cycle — Windows locks a
+  running exe; the hot channel is how MOST updates stop needing it.
 - **1.0 gates unchanged:** My List multi-lists, Sports tab in Live TV,
   paid themes shipped, Windows code signing, CSP.
 
