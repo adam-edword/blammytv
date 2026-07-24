@@ -757,11 +757,12 @@ export function StreamScreen() {
         : null,
     [playing, aniSkips],
   );
+  // Identity of the CURRENT stream. reloadTick rides it so a Retry counts
+  // as a new stream even when the re-resolve returned the identical url.
+  const streamKey = playing ? `${playing.url}#${playing.reloadTick ?? 0}` : null;
   const directApi = useDirectOverlay(
     isTauri() && !!playing && !playing.popped,
-    // reloadTick rides the reset key so a Retry re-arms loading/tracks/
-    // time even when the re-resolve returned the identical url.
-    playing ? `${playing.url}#${playing.reloadTick ?? 0}` : null,
+    streamKey,
     playMeta,
     {
       onClose: stop,
@@ -796,6 +797,16 @@ export function StreamScreen() {
       // this, EOF took the live-death path — watchdog reload, restart at
       // 0:00, and the progress tick then shredding the saved position.
       onEnded: () => {
+        // The picture is GONE the instant the file completes, so close the
+        // clip hole. The completion branch deliberately leaves the bridge's
+        // `loading` false (flipping it would re-arm the tune watchdog and
+        // put a "reconnecting" card over the Up Next countdown), and the
+        // hole gate rode `loading` alone — so it stayed CUT over an mpv
+        // sitting at EOF with no video: the DESKTOP showed through for the
+        // whole countdown plus the next episode's resolve. Readiness is
+        // about "is there a picture", which is not the same question as
+        // "is it loading".
+        setVideoReady(false);
         setUpNextMini(null); // the fullscreen card takes over at true EOF
         const p = playingRef.current;
         if (p) {
@@ -846,6 +857,17 @@ export function StreamScreen() {
   // mpv's first presented frame.
   const [videoReady, setVideoReady] = useState(false);
   useEffect(() => directApi.onLoading((v) => setVideoReady(!v)), [directApi]);
+  // A NEW stream is not ready, from the very render that carries it. The
+  // bridge's loading re-arm lives in a parent effect, and child effects run
+  // first, so InvertedPlayer would open the new url and cut the hole while
+  // the PREVIOUS stream's ready=true was still in force. Belt to the
+  // onEnded braces above: that covers completion, this covers every other
+  // switch (episode pick, failover, panel source, Retry).
+  const [readyKey, setReadyKey] = useState(streamKey);
+  if (streamKey !== readyKey) {
+    setReadyKey(streamKey);
+    setVideoReady(false);
+  }
 
   // Resume-from-position: one absolute seek on the first presented frame
   // (seeking before the file loads is a no-op mpv-side).
@@ -1048,7 +1070,7 @@ export function StreamScreen() {
               frame={playing.mode}
               // Same reason: the overlay keys its watchdog/track/prefs
               // resets on this, and a retry IS a new stream.
-              playbackKey={`${playing.url}#${playing.reloadTick ?? 0}`}
+              playbackKey={streamKey}
               vod
             />,
             chromeHostRef.current,
