@@ -573,7 +573,35 @@ source+episodes; episodes metadata un-crushed (grid auto-minimum-0
 compression). Released 2026-07-23: tag v0.7.0 @ main, sig-verified
 installer + latest.json, updater live.
 
+## 0.7.1–0.7.2 — playback-bridge patch (RELEASED 2026-07-24)
+
+Two post-release bugs, same family (async state racing a FRESH mpv
+instance), both found by Adam within hours of 0.7.0:
+
+- **VOD rendered the LIVE chrome.** Mode was inferred from async bridge
+  meta; late/clobbered meta defaulted to live. Now the HOST declares mode
+  via a `vod` prop (synchronous, structural) — and it gates more than
+  looks: prefs-apply, the tune watchdog window (10s live + goLive reload
+  retries vs the patient 40s VOD wait — i.e. wasted debrid requests), and
+  dead-source failover. Root cause under it: `getMeta` captured its ref at
+  call time and resolved a stale `null` after the real push, with a
+  JSON-dedupe that never re-pushes. **Rule: never infer playback mode (or
+  any load-bearing state) from async meta — declare it.**
+- **Volume/mute died on episode change** — the push raced the mpv spawn
+  and landed on the dying instance; React state kept the slider looking
+  correct. Re-pushed on `loading` → false.
+- Plus quiet update installs (see the two-tier item below).
+
+Full detail in HANDOFF's Live state. **This is why the bridge-seam audit
+below exists:** both escaped the polish audit AND the 31-finding
+pre-release review, because those swept UI/CSS, not bridge timing.
+
 ## Next after 0.7.0 (queued, unowned — fork a fresh branch off main)
+
+- **Playback-bridge seam audit (IN FLIGHT 2026-07-24)** — four dimensions:
+  async/lifecycle races, cross-instance state sync, error/watchdog paths,
+  and the Rust command layer + its contract with the frontend. Findings
+  get verified in the main session before any fix lands.
 
 - **Refactor batch (invisible, do early in the cycle while the tree is
   quiet):** unify the two TTL-cache implementations; extract Card +

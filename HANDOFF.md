@@ -15,7 +15,50 @@ Audience: switchers from other Windows IPTV clients, Stremio users, ideally
 both — and explicitly *inviting to newcomers*; first-five-minutes activation
 weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
-## Live state (2026-07-23, v0.7.0 RELEASED — the polish push shipped)
+## Live state (2026-07-24, v0.7.2 RELEASED — playback-bridge patch)
+
+**v0.7.2 is published** (tag @ main `62f65e8`, sig-verified, updater live;
+0.7.0 shipped hours earlier — see below). Contents:
+
+- **VOD showed the LIVE player** (Adam's repro: update → relaunch → open a
+  show → live chrome). TWO layers, both fixed:
+  1. *Structural:* TheaterOverlay INFERRED live-vs-VOD from async bridge
+     meta (`meta?.live === false`) — late meta defaulted to LIVE. It now
+     takes a **`vod` prop** the host declares synchronously (StreamScreen
+     `vod`, LiveScreen `vod={false}`); the prop wins for chrome, the
+     prefs-apply gate, the tune watchdog window, and dead-source failover.
+     Meta-sniffing survives ONLY for the hostless legacy overlay-webview
+     entry in main.tsx. **Never infer playback MODE from async meta again.**
+  2. *Root cause:* `getMeta` captured `metaRef.current` at CALL time into
+     `Promise.resolve`. TheaterOverlay's mount effect (child effects run
+     before parent effects) called it before the host's meta effect stored
+     the first meta, so it resolved `null` AFTER the real push and
+     clobbered it — and the JSON-dedupe never re-pushes, so meta stayed
+     null. Only the FIRST playback per session was affected (later ones
+     captured the previous meta, already VOD-shaped), which is why it hid
+     for so long. Fixed at both ends: ref read at RESOLUTION time, and the
+     consumer ignores the seed if a push beat it.
+- **Volume/mute didn't survive episode changes** — the push on stream-key
+  change raced the fresh mpv spawn (VOD URLs resolve async; the command
+  hit the dying instance while the new one came up at default 100%). The
+  slider position was React state so it LOOKED right. Now also re-pushed
+  on `loading` → false (the "new instance is really presenting" signal).
+  Audited siblings: speed + track selection apply on the new track list
+  landing (post-spawn by construction), so only volume/mute raced.
+- **Quiet update installs**: `plugins.updater.windows.installMode:
+  "quiet"` (NSIS /S — no wizard, no progress window; truly silent because
+  the bundle is per-user, so no UAC). Takes effect for installs PERFORMED
+  BY 0.7.2's updater — the hop onto 0.7.2 itself still showed the old
+  passive window.
+
+**In flight:** a four-dimension audit of the playback-bridge seam (async
+races, cross-instance state sync, error/watchdog paths, the Rust command
+layer) — commissioned because two bugs of the SAME family (async state
+racing a fresh mpv instance) escaped both the polish audit and the
+31-finding pre-release review, which swept UI/CSS rather than bridge
+timing contracts.
+
+## Historical (2026-07-23, v0.7.0 RELEASED — the polish push shipped)
 
 **v0.7.0 is published**: tag `v0.7.0` @ main (`4c250a5`), release "v0.7.0 |
 Polish" with `BlammyTV_0.7.0_x64-setup.exe` + `latest.json` (sig verified —
