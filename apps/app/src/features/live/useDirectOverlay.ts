@@ -109,16 +109,25 @@ export function useDirectOverlay(
             s.loading = false;
             s.loadingCbs.forEach((cb) => cb(false));
           } else if (!s.loading && st.ended) {
+            // COMPLETION requires positive proof: a clock that reached the
+            // end. `!s.time` used to count as proof, which inverted the
+            // guard exactly when it mattered — no clock means the source
+            // died before one ever arrived (a debrid 403 seconds in), and
+            // that took the completion path: markWatched, the watch entry
+            // pushed to dur/dur, Up Next auto-rolling the next episode,
+            // and the real resume position gone. Duration DOES land for
+            // normal sources (the VOD scrubber is proof), so "no clock at
+            // EOF" is a death, not a finish. Worst case if a genuinely
+            // durationless file completes: a dead card at its end instead
+            // of Up Next — the right way to be wrong, since it keeps the
+            // user's position instead of destroying it.
+            const t = s.time;
             if (
               metaRef.current?.live === false &&
-              (!s.time || s.time.dur <= 0 || s.time.pos >= s.time.dur * 0.9)
+              !!t &&
+              t.dur > 0 &&
+              t.pos >= t.dur * 0.9
             ) {
-              // VOD reaching EOF near the end is COMPLETION. The clock
-              // guard matters: a debrid stream dying at 40% also reports
-              // `ended`, and the completion path would mark it watched,
-              // roll Up Next, and shred the resume position — that case
-              // falls through to the death branch (VOD watchdog → dead
-              // card with Retry / Try next source).
               if (!s.endedFired) {
                 s.endedFired = true;
                 h.current.onEnded?.();

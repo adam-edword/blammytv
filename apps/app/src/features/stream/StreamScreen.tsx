@@ -68,6 +68,7 @@ import {
 } from "./watching";
 import {
   onPopoutClosed,
+  tauriMpvGoLive,
   tauriMpvStatus,
   tauriPopoutOpen,
   tauriPopoutPos,
@@ -119,6 +120,10 @@ export function StreamScreen() {
     /** The playing source's binge key — episode rolls stay in-group. */
     bingeGroup?: string;
     resumeAt?: number;
+    /** Bumped by Retry. A re-resolve can hand back the SAME url string,
+     * and url is what the player and the overlay key on — without this
+     * the restart would be a no-op. */
+    reloadTick?: number;
     /** theater = fills the APP WINDOW; fullscreen = OS fullscreen. */
     mode: "theater" | "fullscreen";
     /** Playing in the PiP window: the stage stays (black), video doesn't. */
@@ -524,6 +529,45 @@ export function StreamScreen() {
     });
   }, [setPlaying]);
 
+  // VOD "Retry" (the dead card) = re-RESOLVE, not re-loadfile. mpv's
+  // reload replays the SAME debrid url, which the addon layer hands out
+  // fresh per open and which is usually the very thing that expired — so
+  // it costs a request that cannot succeed. Worse, it restarts at byte 0
+  // and the 5s progress tick then overwrites the saved position with ~3s
+  // (posSec <= 60 reads as "not started"), so a died-at-45-minutes movie
+  // came back to a wiped Continue Watching entry. Resolving fresh gets a
+  // live url and restarts where the user actually was — the same shape
+  // tryNextSource/pickPanelSource already use, aimed at the BEST current
+  // candidate rather than the next one. Falls back to the plain mpv
+  // reload if resolution fails, so Retry is never a dead button.
+  const retrySource = useCallback(() => {
+    const p = playingRef.current;
+    if (!p) return;
+    const entry = loadWatching().find((e) => e.id === p.item.id);
+    const at =
+      entry?.posSec && entry.posSec > 10
+        ? Math.max(0, entry.posSec - 3)
+        : p.resumeAt;
+    void resolveVodSources(p.item.kind, p.episodeId ?? p.item.id).then(
+      (list) => {
+        const pick = list.find((s) => s.cached) ?? list[0];
+        if (!pick) {
+          void tauriMpvGoLive().catch(() => {});
+          return;
+        }
+        setPlayingRaw({
+          ...p,
+          url: pick.streamUrl,
+          bingeGroup: pick.bingeGroup,
+          queue: list.filter((s) => s.id !== pick.id && s.cached),
+          resumeAt: at,
+          reloadTick: (p.reloadTick ?? 0) + 1,
+        });
+      },
+      () => void tauriMpvGoLive().catch(() => {}),
+    );
+  }, []);
+
   // Continue Watching quick-resume: one click straight into playback
   // (sources resolve fresh; first cached wins). Any miss falls back to
   // the detail/source screen.
@@ -715,12 +759,18 @@ export function StreamScreen() {
   );
   const directApi = useDirectOverlay(
     isTauri() && !!playing && !playing.popped,
-    playing?.url ?? null,
+    // reloadTick rides the reset key so a Retry re-arms loading/tracks/
+    // time even when the re-resolve returned the identical url.
+    playing ? `${playing.url}#${playing.reloadTick ?? 0}` : null,
     playMeta,
     {
       onClose: stop,
       onExpand: () => {},
       onCollapse: stop, // t / ✕ in theater = back to the catalog
+      // VOD has no live edge — goLive reaches this handler ONLY as the
+      // dead card's Retry (the watchdog's silent reload escalation is
+      // gated on !vodSrc), so it re-resolves instead of re-loadfiling.
+      onGoLive: retrySource,
       onFullscreen: () => setVodMode("fullscreen"),
       onExitFullscreen: () => setVodMode("theater"),
       // Same open sequence Live uses: heal the shell's clip hole BEFORE
@@ -814,8 +864,16 @@ export function StreamScreen() {
       if (!l) fire();
     });
     // popped in the deps: returning from the PiP remounts playback and
-    // must re-arm the one-shot seek.
-  }, [playing?.url, playing?.resumeAt, playing?.popped, directApi]);
+    // must re-arm the one-shot seek. reloadTick likewise — a Retry can
+    // re-resolve to the same url, and without it the one-shot stays spent
+    // and the retry silently restarts at 0:00.
+  }, [
+    playing?.url,
+    playing?.resumeAt,
+    playing?.popped,
+    playing?.reloadTick,
+    directApi,
+  ]);
 
   // PiP closed → bring playback back in-app, resuming where the popout
   // got to (its final position rides the event; the watch entry catches
@@ -974,12 +1032,25 @@ export function StreamScreen() {
       <div className={"vod-stage" + (playing.popped ? " vod-stage--popped" : "")}>
         <div id="player-slot" className="vod-stage__slot" />
         {!playing.popped && (
-          <InvertedPlayer url={playing.url} squared ready={videoReady} />
+          <InvertedPlayer
+            // Remount on Retry: a re-resolve can return the same url, and
+            // InvertedPlayer only re-opens when the url changes.
+            key={playing.reloadTick ?? 0}
+            url={playing.url}
+            squared
+            ready={videoReady}
+          />
         )}
         {!playing.popped &&
           chromeHostRef.current &&
           createPortal(
-            <TheaterOverlay frame={playing.mode} playbackKey={playing.url} vod />,
+            <TheaterOverlay
+              frame={playing.mode}
+              // Same reason: the overlay keys its watchdog/track/prefs
+              // resets on this, and a retry IS a new stream.
+              playbackKey={`${playing.url}#${playing.reloadTick ?? 0}`}
+              vod
+            />,
             chromeHostRef.current,
           )}
         {panelState &&
