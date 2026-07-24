@@ -73,6 +73,13 @@ export function onLiveRefreshed(cb: () => void): () => void {
   window.addEventListener(REFRESHED_EVENT, cb);
   return () => window.removeEventListener(REFRESHED_EVENT, cb);
 }
+/** The webview always has a window; vitest's node environment does not, and
+ * this fires from a detached promise where a throw would surface as an
+ * unhandled rejection rather than a test failure. */
+function announceRefresh() {
+  if (typeof window !== "undefined")
+    window.dispatchEvent(new CustomEvent(REFRESHED_EVENT));
+}
 
 /** Persist off the critical path: a structured-clone write of a ~15MB graph
  * costs real main-thread time, so let the first paint settle first. */
@@ -97,14 +104,26 @@ function refreshInBackground(playlists: LoadableSource[], key: string) {
   inflight = record;
   promise
     .then((data) => {
-      if (data.channels.length > 0)
-        window.dispatchEvent(new CustomEvent(REFRESHED_EVENT));
+      if (data.channels.length > 0) announceRefresh();
     })
     .catch(() => {})
     .finally(() => {
       if (inflight === record) inflight = null;
     });
 }
+
+/** The GUIDE half of a source build, resolved separately from the channel
+ * half. A big provider's xmltv is ~100MB and takes a MINUTE to arrive, while
+ * the catalog behind it is ready in seconds — so the builders hand this back
+ * as a promise instead of awaiting it, doLoad returns the channels
+ * immediately, and the programmes are merged in when they land (same
+ * announce-and-re-read path the disk hydrate already uses). */
+type EpgPhase = { programmes: Map<string, Programme[]>; epgError?: string };
+type SourceBuild = {
+  group: LiveGroup;
+  channels: Channel[];
+  epg: Promise<EpgPhase>;
+};
 
 /** Enabled sources: all three kinds load through the same pipeline. */
 type LoadableSource = XtreamPlaylist | M3uPlaylist | StalkerPlaylist;
@@ -232,9 +251,32 @@ async function doLoad(
     for (const src of built) {
       data.groups.push(src.group);
       data.channels = data.channels.concat(src.channels);
-      for (const [id, list] of src.programmes)
-        data.programmes.set(id, normalizeProgrammes(list));
     }
+    // The guide is still in the air. Channels render now (empty lanes read
+    // as "No Information", which the guide already handles), and when the
+    // programmes land we publish a NEW LiveData and announce it — the same
+    // re-read the disk hydrate uses. A new object, not a mutation: the
+    // screen holds this one in state and would never see an in-place edit.
+    data.guidePending = true;
+    void Promise.all(built.map((b) => b.epg)).then((phases) => {
+      const groups = built.map((b, i) =>
+        phases[i].epgError
+          ? { ...b.group, epgError: phases[i].epgError }
+          : b.group,
+      );
+      const programmes = new Map<string, Programme[]>();
+      for (const phase of phases)
+        for (const [id, list] of phase.programmes)
+          programmes.set(id, normalizeProgrammes(list));
+      const full: LiveData = { groups, channels: data.channels, programmes };
+      if (full.channels.length === 0) return;
+      const at = Date.now();
+      cache = { key, at, data: full };
+      scheduleDiskPut(key, at, full);
+      announceRefresh();
+    }).catch((err) => {
+      console.warn("[live] guide phase failed:", err);
+    });
   }
 
   // A total failure (no channels at all) stays uncached so the next mount
@@ -243,7 +285,10 @@ async function doLoad(
   if (data.channels.length > 0) {
     const at = Date.now();
     cache = { key, at, data };
-    if (playlists.length > 0) scheduleDiskPut(key, at, data);
+    // NO disk write here any more: this snapshot has no guide yet, and
+    // persisting it would let the next launch hydrate a guideless catalog
+    // and then sit through the whole download again. The guide phase above
+    // writes the complete record once the programmes land.
   }
   return data;
 }
@@ -257,11 +302,7 @@ async function buildXtreamSource(
   p: XtreamPlaylist,
   now: Date,
   onStage?: (label: string) => void,
-): Promise<{
-  group: LiveGroup;
-  channels: Channel[];
-  programmes: Map<string, Programme[]>;
-}> {
+): Promise<SourceBuild> {
   try {
     onStage?.(`Signing in to ${p.name}…`);
     await authenticate(p);
@@ -296,40 +337,45 @@ async function buildXtreamSource(
     // it. Whatever goes wrong lands on group.epgError so an installed user
     // can read the reason in Settings → Playlists (the console is invisible
     // in a packaged build).
-    let programmes = new Map<string, Programme[]>();
-    let epgError: string | undefined;
-    try {
-      onStage?.(`Downloading the ${p.name} TV guide…`);
-      await breathe();
-      const xml = await xmlPromise; // in flight since right after sign-in
-      const fetched = performance.now();
-      onStage?.(`Reading the ${p.name} TV guide…`);
-      await breathe();
-      const index = epgIndex(streams, p, hidden, !showAdult);
-      programmes = parseXmltv(xml, index, now);
-      console.info(
-        `[live] ${p.name}: xmltv ${(xml.length / 1e6).toFixed(1)}MB in ${Math.round(fetched - xmlT0)}ms (overlapped), parsed EPG for ${programmes.size} channels in ${Math.round(performance.now() - fetched)}ms`,
-      );
-      if (index.size === 0)
-        epgError = "the panel's channels carry no EPG ids to match a guide";
-      else if (programmes.size === 0)
-        epgError = `the guide downloaded (${(xml.length / 1e6).toFixed(1)}MB) but matched none of the channels`;
-    } catch (err) {
-      epgError = `guide download failed: ${msg(err)}`;
-      console.warn(`[live] EPG failed for "${p.name}": ${msg(err)}`);
-    }
+    // NOT awaited: this is the minute-long half. The channel list below
+    // returns without it and doLoad merges the programmes when they land.
+    const epg = (async (): Promise<EpgPhase> => {
+      try {
+        const xml = await xmlPromise; // in flight since right after sign-in
+        const fetched = performance.now();
+        await breathe(); // parseXmltv blocks for seconds on a big document
+        const index = epgIndex(streams, p, hidden, !showAdult);
+        const programmes = parseXmltv(xml, index, now);
+        console.info(
+          `[live] ${p.name}: xmltv ${(xml.length / 1e6).toFixed(1)}MB in ${Math.round(fetched - xmlT0)}ms (overlapped), parsed EPG for ${programmes.size} channels in ${Math.round(performance.now() - fetched)}ms`,
+        );
+        if (index.size === 0)
+          return {
+            programmes,
+            epgError: "the panel's channels carry no EPG ids to match a guide",
+          };
+        if (programmes.size === 0)
+          return {
+            programmes,
+            epgError: `the guide downloaded (${(xml.length / 1e6).toFixed(1)}MB) but matched none of the channels`,
+          };
+        return { programmes };
+      } catch (err) {
+        console.warn(`[live] EPG failed for "${p.name}": ${msg(err)}`);
+        return {
+          programmes: new Map(),
+          epgError: `guide download failed: ${msg(err)}`,
+        };
+      }
+    })();
 
-    return {
-      group: { id: p.id, name: p.name, folders, ...(epgError ? { epgError } : {}) },
-      channels,
-      programmes,
-    };
+    return { group: { id: p.id, name: p.name, folders }, channels, epg };
   } catch (err) {
     console.error(`[live] playlist "${p.name}" failed: ${msg(err)}`);
     return {
       group: { id: p.id, name: p.name, folders: [], error: msg(err) },
       channels: [],
-      programmes: new Map(),
+      epg: Promise.resolve({ programmes: new Map() }),
     };
   }
 }
@@ -366,11 +412,7 @@ async function buildM3uSource(
   p: M3uPlaylist,
   now: Date,
   onStage?: (label: string) => void,
-): Promise<{
-  group: LiveGroup;
-  channels: Channel[];
-  programmes: Map<string, Programme[]>;
-}> {
+): Promise<SourceBuild> {
   try {
     onStage?.(`Downloading ${p.name}…`);
     const t = performance.now();
@@ -430,40 +472,45 @@ async function buildM3uSource(
     // EPG is best-effort — only when the playlist declares one AND some
     // channel carries a tvg-id to match against. Reasons land on epgError
     // for Settings → Playlists.
-    let programmes = new Map<string, Programme[]>();
-    let epgError: string | undefined;
     const epgUrl = m3uEpgUrl(text);
-    if (epgUrl && epgIdx.size > 0) {
+    const epg = (async (): Promise<EpgPhase> => {
+      const none = new Map<string, Programme[]>();
+      if (!epgUrl)
+        return {
+          programmes: none,
+          epgError: "the playlist declares no guide (no url-tvg header)",
+        };
+      if (epgIdx.size === 0)
+        return {
+          programmes: none,
+          epgError: "no channel carries a tvg-id to match the guide against",
+        };
       try {
-        onStage?.(`Downloading the ${p.name} TV guide…`);
-        await breathe();
         const xml = await httpGetText(epgUrl, undefined, 180);
-        onStage?.(`Reading the ${p.name} TV guide…`);
-        await breathe();
-        programmes = parseXmltv(xml, epgIdx, now);
-        if (programmes.size === 0)
-          epgError = "the guide downloaded but matched none of the channels";
+        await breathe(); // parseXmltv blocks for seconds on a big document
+        const programmes = parseXmltv(xml, epgIdx, now);
+        return programmes.size === 0
+          ? {
+              programmes,
+              epgError: "the guide downloaded but matched none of the channels",
+            }
+          : { programmes };
       } catch (err) {
-        epgError = `guide download failed: ${msg(err)}`;
         console.warn(`[live] EPG failed for "${p.name}": ${msg(err)}`);
+        return {
+          programmes: none,
+          epgError: `guide download failed: ${msg(err)}`,
+        };
       }
-    } else if (!epgUrl) {
-      epgError = "the playlist declares no guide (no url-tvg header)";
-    } else {
-      epgError = "no channel carries a tvg-id to match the guide against";
-    }
+    })();
 
-    return {
-      group: { id: p.id, name: p.name, folders, ...(epgError ? { epgError } : {}) },
-      channels,
-      programmes,
-    };
+    return { group: { id: p.id, name: p.name, folders }, channels, epg };
   } catch (err) {
     console.error(`[live] playlist "${p.name}" failed: ${msg(err)}`);
     return {
       group: { id: p.id, name: p.name, folders: [], error: msg(err) },
       channels: [],
-      programmes: new Map(),
+      epg: Promise.resolve({ programmes: new Map() }),
     };
   }
 }
@@ -479,11 +526,7 @@ async function buildStalkerSource(
   p: StalkerPlaylist,
   now: Date,
   onStage?: (label: string) => void,
-): Promise<{
-  group: LiveGroup;
-  channels: Channel[];
-  programmes: Map<string, Programme[]>;
-}> {
+): Promise<SourceBuild> {
   try {
     onStage?.(`Signing in to ${p.name}…`);
     const genres = await fetchStalkerGenres(p);
@@ -534,54 +577,55 @@ async function buildStalkerSource(
     // EPG is best-effort. The portal returns UNIX-second programmes keyed by
     // channel id; clamp to the same window parseXmltv keeps (−1h..+12h) —
     // `period`'s unit is portal-dependent, so the clamp is client-side.
-    const programmes = new Map<string, Programme[]>();
-    let epgError: string | undefined;
-    try {
-      onStage?.(`Downloading the ${p.name} TV guide…`);
-      await breathe();
-      const epg = await fetchStalkerEpg(p);
-      const winStart = now.getTime() - 3600_000;
-      const winEnd = now.getTime() + 12 * 3600_000;
-      for (const [chId, rows] of epg) {
-        if (!kept.has(chId)) continue;
-        const list: Programme[] = [];
-        for (const r of rows) {
-          const start = new Date(r.start * 1000);
-          const end = new Date(r.stop * 1000);
-          if (end.getTime() <= winStart || start.getTime() >= winEnd) continue;
-          list.push({
-            title: r.title,
-            ...(r.synopsis ? { synopsis: r.synopsis } : {}),
-            start,
-            end,
-          });
+    const epg = (async (): Promise<EpgPhase> => {
+      const programmes = new Map<string, Programme[]>();
+      try {
+        const rowsById = await fetchStalkerEpg(p);
+        const winStart = now.getTime() - 3600_000;
+        const winEnd = now.getTime() + 12 * 3600_000;
+        for (const [chId, rows] of rowsById) {
+          if (!kept.has(chId)) continue;
+          const list: Programme[] = [];
+          for (const r of rows) {
+            const start = new Date(r.start * 1000);
+            const end = new Date(r.stop * 1000);
+            if (end.getTime() <= winStart || start.getTime() >= winEnd) continue;
+            list.push({
+              title: r.title,
+              ...(r.synopsis ? { synopsis: r.synopsis } : {}),
+              start,
+              end,
+            });
+          }
+          if (list.length) {
+            list.sort((a, b) => a.start.getTime() - b.start.getTime());
+            programmes.set(channelId(p.id, chId), list);
+          }
         }
-        if (list.length) {
-          list.sort((a, b) => a.start.getTime() - b.start.getTime());
-          programmes.set(channelId(p.id, chId), list);
-        }
+        console.info(`[live] ${p.name}: EPG for ${programmes.size} channels`);
+        return programmes.size === 0
+          ? {
+              programmes,
+              epgError:
+                "the portal returned no guide data (get_epg_info empty)",
+            }
+          : { programmes };
+      } catch (err) {
+        console.warn(`[live] EPG failed for "${p.name}": ${msg(err)}`);
+        return {
+          programmes: new Map(),
+          epgError: `guide download failed: ${msg(err)}`,
+        };
       }
-      console.info(
-        `[live] ${p.name}: EPG for ${programmes.size} channels`,
-      );
-      if (programmes.size === 0)
-        epgError = "the portal returned no guide data (get_epg_info empty)";
-    } catch (err) {
-      epgError = `guide download failed: ${msg(err)}`;
-      console.warn(`[live] EPG failed for "${p.name}": ${msg(err)}`);
-    }
+    })();
 
-    return {
-      group: { id: p.id, name: p.name, folders, ...(epgError ? { epgError } : {}) },
-      channels,
-      programmes,
-    };
+    return { group: { id: p.id, name: p.name, folders }, channels, epg };
   } catch (err) {
     console.error(`[live] playlist "${p.name}" failed: ${msg(err)}`);
     return {
       group: { id: p.id, name: p.name, folders: [], error: msg(err) },
       channels: [],
-      programmes: new Map(),
+      epg: Promise.resolve({ programmes: new Map() }),
     };
   }
 }

@@ -418,6 +418,10 @@
 /* ------------------------------------------------------------- main */
 
 .live-main {
+  /* Positioning context for the guide-pending chip, which floats over the
+   * guide's corner rather than sitting in flow (the guide is a scroll
+   * container; an in-flow note would shift every row when it vanishes). */
+  position: relative;
   flex: 1;
   min-width: 0;
   display: flex;
@@ -1327,4 +1331,56 @@
 }
 .guide__fav:active {
   transform: translateY(-68%) scale(0.9);
+}
+
+/* "Guide still downloading…" — the catalog renders without waiting on a
+ * ~100MB xmltv, so this explains the temporarily-empty lanes. Deliberately
+ * quiet: a corner chip, not a banner. It sits over the guide's bottom-right
+ * rather than displacing it, because the guide is a scroll container and
+ * anything in flow would shift the rows when it disappears. */
+.guide-pending {
+  position: absolute;
+  right: 18px;
+  bottom: 14px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 7px 13px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(8px);
+  font-size: 12px;
+  color: var(--text-dim);
+  pointer-events: none;
+  animation: guide-pending-in var(--dur-enter) var(--ease-out) both;
+}
+@keyframes guide-pending-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+/* Slow pulse: alive without being a spinner competing for attention. */
+.guide-pending__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: guide-pending-pulse 1.6s var(--ease-in-out) infinite;
+}
+@keyframes guide-pending-pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .guide-pending {
+    animation: none;
+  }
+  .guide-pending__dot {
+    animation: none;
+  }
 }

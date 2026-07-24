@@ -1145,6 +1145,17 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
                 onPreview={setPreview}
               />
             )}
+            {/* The catalog no longer waits on the guide (a big provider's
+             * xmltv is ~100MB and takes a minute), so say so — otherwise a
+             * screen of "No Information" lanes reads as a provider with no
+             * guide at all. Clears itself when the programmes land and the
+             * refresh event re-reads. */}
+            {live.status === "ready" && live.data.guidePending && (
+              <p className="guide-pending" role="status">
+                <span className="guide-pending__dot" aria-hidden />
+                Guide still downloading…
+              </p>
+            )}
           </>
         )}
       </div>

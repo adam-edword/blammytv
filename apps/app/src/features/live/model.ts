@@ -66,4 +66,9 @@ export interface LiveData {
   /** Channel id → programmes sorted by start. Missing/empty means the
    * channel renders a "No Information" lane. */
   programmes: Map<string, Programme[]>;
+  /** Channels arrived but the guide is STILL DOWNLOADING (source.ts returns
+   * the catalog without waiting on a ~100MB xmltv). The empty lanes are
+   * temporary, so the UI says so rather than letting them read as "this
+   * provider has no guide". Absent once the programmes land. */
+  guidePending?: boolean;
 }
