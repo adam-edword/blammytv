@@ -323,6 +323,45 @@ fn mpv_snapshot() -> Result<tauri::ipc::Response, String> {
 /// whether mpv is
 /// actually presenting (core-idle == "no" ⇒ first frame has landed), and the
 /// audio/sub track lists.
+/// RAW property snapshot for diagnosing tune failures. Deliberately separate
+/// from mpv_status: that runs every 500ms and each property is an FFI call, so
+/// this is only ever invoked on the rare paths (first presented frame, and the
+/// watchdog's escalation) where the answer is worth the cost.
+///
+/// It exists to settle four questions the code cannot answer by inspection:
+///   - is `path` still set when a stream dies? `reload_live()` early-returns
+///     without it, which would make the live watchdog's "reconnecting" pass
+///     and the dead card's Retry silent no-ops.
+///   - does a death arrive as `idle-active` or `eof-reached`? (Same question,
+///     other side: idle means the file unloaded and `path` is gone.)
+///   - do real sources report `duration`? The completion-vs-death guard leans
+///     on the clock existing.
+///   - do `aid`/`sid`/`speed` survive a same-url reload? Nothing re-applies
+///     them, and `speed` has no reconcile channel at all.
+/// `current-vo` rides along for the frost question (it reads as unset before
+/// the first frame, which permanently downgrades the Settings glass).
+#[tauri::command]
+fn mpv_diag() -> String {
+    let p = |k: &str| mpv::get_property(k).unwrap_or_else(|| "<none>".into());
+    serde_json::json!({
+        "path": p("path"),
+        "core-idle": p("core-idle"),
+        "idle-active": p("idle-active"),
+        "eof-reached": p("eof-reached"),
+        "pause": p("pause"),
+        "time-pos": p("time-pos"),
+        "duration": p("duration"),
+        "speed": p("speed"),
+        "aid": p("aid"),
+        "sid": p("sid"),
+        "current-vo": p("current-vo"),
+        "file-format": p("file-format"),
+        "demuxer-cache-time": p("demuxer-cache-time"),
+        "track-list/count": p("track-list/count"),
+    })
+    .to_string()
+}
+
 #[tauri::command]
 fn mpv_status() -> String {
     let pos = mpv::get_property("time-pos").and_then(|s| s.parse::<f64>().ok());
@@ -724,6 +763,7 @@ pub fn run() {
             mpv_track,
             mpv_status,
             mpv_stats,
+            mpv_diag,
             mpv_blur,
             mpv_frost,
             mpv_frost_rect,

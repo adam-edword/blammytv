@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { isTauri, type TheaterMeta } from "../../lib/tauri";
+import { isTauri, tauriMpvDiag, type TheaterMeta } from "../../lib/tauri";
 import { api, type ChapterInfo, type TimeInfo, type Tracks } from "./overlayApi";
 import {
   loadOverlayMeta,
@@ -294,6 +294,20 @@ export function TheaterOverlay({
   // requests); the meta flip false→true still re-arms for the no-host
   // legacy entry.
   const vodSrc = vodProp ?? meta?.live === false;
+  // Tune diagnostic. Prints mpv's RAW state at the three moments that
+  // answer the open bridge questions, and nowhere else (never on the 500ms
+  // poll): when a stream first presents (the healthy baseline: does
+  // duration land? are aid/sid set? is current-vo up?), when the watchdog
+  // escalates (is `path` still set, i.e. can reload_live do anything at
+  // all? is the death idle-active or eof-reached?), and 3s after a reload
+  // (do aid/sid/speed survive a same-url loadfile?).
+  // Read the pairs together: baseline vs escalation vs post-reload.
+  const diag = useCallback((phase: string) => {
+    if (!isTauri()) return;
+    void tauriMpvDiag()
+      .then((d) => console.info(`[tune-diag] ${phase}`, d))
+      .catch(() => {});
+  }, []);
   // A stream change MUST reset the watchdog, and it can't ride `loading`
   // to do it: the bridge re-arms by pushing loading=true, so if it was
   // ALREADY true (switching away from a stream still tuning, or from a
@@ -314,15 +328,21 @@ export function TheaterOverlay({
     if (!loading) {
       retriesRef.current = 0;
       setTune("waiting");
+      diag("presenting"); // healthy baseline for the comparisons below
       return;
     }
     let id = 0;
+    let after = 0;
     const arm = () => {
       id = window.setTimeout(() => {
+        diag(vodSrc ? "vod-stall" : `live-stall#${retriesRef.current + 1}`);
         if (!vodSrc && retriesRef.current < TUNE_RETRIES) {
           retriesRef.current += 1;
           setTune("retrying");
           api()?.goLive?.();
+          // Long enough for a reload to have taken hold, short enough to
+          // land before the next stall window closes.
+          after = window.setTimeout(() => diag("post-reload"), 3000);
           arm();
         } else {
           setTune("dead");
@@ -330,8 +350,11 @@ export function TheaterOverlay({
       }, vodSrc ? VOD_STALL_MS : STALL_MS);
     };
     arm();
-    return () => window.clearTimeout(id);
-  }, [loading, tuneAttempt, vodSrc, playbackKey]);
+    return () => {
+      window.clearTimeout(id);
+      window.clearTimeout(after);
+    };
+  }, [loading, tuneAttempt, vodSrc, playbackKey, diag]);
   // VOD auto-failover (Settings → AIOStreams, off by default): the moment
   // the watchdog declares the source dead, jump to the next candidate.
   const vodDeadRef = useRef(false);
