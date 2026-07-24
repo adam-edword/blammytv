@@ -17,6 +17,13 @@ export interface PlaybackPrefs {
   subLang?: string;
   /** Last chosen playback rate. */
   speed?: number;
+  /** Output level, 0-1. Unlike the fields above this is device-level, not
+   * VOD-only: it rides EVERY playback (live included). Volume lived only
+   * in component state, so the popout round-trip — which unmounts the
+   * chrome — restored 100% and pushed it to mpv. */
+  volume?: number;
+  /** Muted, same scope as volume. */
+  muted?: boolean;
 }
 
 const KEY = "playbackPrefs";
