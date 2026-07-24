@@ -99,12 +99,20 @@ function fmtClock(s: number): string {
 export function TheaterOverlay({
   frame,
   playbackKey,
+  vod: vodProp,
 }: {
   frame?: OverlayFrame;
   /** Inline mode: changes when the stream does. The overlay webview was
    * rebuilt per channel, so its state reset for free — inline, the same
    * component instance survives the switch and must resync itself. */
   playbackKey?: string | null;
+  /** Chrome mode, declared BY THE HOST. The hosts know statically what
+   * they play (StreamScreen = VOD, LiveScreen = live) — inferring this
+   * from bridge meta meant any hiccup in meta delivery flipped a VOD
+   * into live chrome (LIVE pill, pegged bar, no scrubber) and skipped
+   * the subtitle-prefs apply. Meta remains the fallback only for the
+   * legacy overlay-webview entry (main.tsx), which has no host. */
+  vod?: boolean;
 } = {}) {
   const [meta, setMeta] = useState<TheaterMeta | null>(null);
   const metaRefForDead = useRef<TheaterMeta | null>(null);
@@ -173,11 +181,23 @@ export function TheaterOverlay({
   }, [frame]);
 
   // Meta + loading from the bridge (getLoading is a SYNC boolean).
+  // Subscribe FIRST, and never let the async seed overwrite a pushed
+  // value: this mount effect runs before the bridge host's meta effect,
+  // so the seed promise can resolve a PRE-push snapshot after the real
+  // push already landed (the first-playback-of-session live-chrome bug).
   useEffect(() => {
     const a = api();
     if (!a) return;
-    a.getMeta().then(setMeta).catch(() => {});
-    const offMeta = a.onMeta(setMeta);
+    let pushed = false;
+    const offMeta = a.onMeta((m) => {
+      pushed = true;
+      setMeta(m);
+    });
+    a.getMeta()
+      .then((m) => {
+        if (!pushed) setMeta(m);
+      })
+      .catch(() => {});
     setLoading(a.getLoading());
     const offLoading = a.onLoading(setLoading);
     return () => {
@@ -265,9 +285,11 @@ export function TheaterOverlay({
   const [tune, setTune] = useState<"waiting" | "retrying" | "dead">("waiting");
   const [tuneAttempt, setTuneAttempt] = useState(0); // manual Retry re-arms
   const retriesRef = useRef(0);
-  // meta arrives a tick after mount; the flip false→true re-arms the
-  // pending timer with the VOD window before the 10s live one can fire.
-  const vodSrc = meta?.live === false;
+  // The host's declaration wins (meta can be late — a VOD misread as live
+  // here would goLive()-reload it on the 10s window, burning debrid
+  // requests); the meta flip false→true still re-arms for the no-host
+  // legacy entry.
+  const vodSrc = vodProp ?? meta?.live === false;
   useEffect(() => {
     if (!loading) {
       retriesRef.current = 0;
@@ -294,7 +316,7 @@ export function TheaterOverlay({
   // the watchdog declares the source dead, jump to the next candidate.
   const vodDeadRef = useRef(false);
   useEffect(() => {
-    const isVod = metaRefForDead.current?.live === false;
+    const isVod = vodProp ?? metaRefForDead.current?.live === false;
     if (tune !== "dead" || !isVod) {
       vodDeadRef.current = false;
       return;
@@ -302,7 +324,7 @@ export function TheaterOverlay({
     if (vodDeadRef.current) return;
     vodDeadRef.current = true;
     if (loadSourceFailover()) api()?.nextSource?.();
-  }, [tune]);
+  }, [tune, vodProp]);
 
   const retryTune = useCallback(() => {
     retriesRef.current = 0;
@@ -344,6 +366,20 @@ export function TheaterOverlay({
     api()?.setVolume(Math.round(volumeRef.current * 100));
     api()?.setMute(mutedRef.current);
   }, [playbackKey]);
+  // …and AGAIN when the new instance actually presents: the key-change
+  // push above races the fresh mpv process (VOD URLs resolve async — the
+  // command can land on the dying instance while the new one spawns at
+  // default 100%). The bar position survived but the audible volume
+  // didn't. loading→false is the one signal the instance is really up;
+  // re-pushing after a mid-play rebuffer is idempotent. Track selection
+  // and speed don't need this — they apply on the new instance's track
+  // list landing (see the prefs effect below), which is already
+  // post-spawn by construction.
+  useEffect(() => {
+    if (loading) return;
+    api()?.setVolume(Math.round(volumeRef.current * 100));
+    api()?.setMute(mutedRef.current);
+  }, [loading]);
 
   // An open track menu holds the chrome awake (read off a ref so wake stays
   // stable); closing it restarts the idle timer the menu was holding.
@@ -505,9 +541,10 @@ export function TheaterOverlay({
   // indicator is an honest read of "are we live" without polling mpv.
   const atLive = livePct >= 99;
 
-  // VOD (Stream tab sets live:false): the seek row is a real scrubber and
-  // the LIVE affordances disappear.
-  const vod = meta?.live === false;
+  // VOD: the seek row is a real scrubber and the LIVE affordances
+  // disappear. The host's declaration wins; meta only decides for the
+  // legacy no-host entry.
+  const vod = vodProp ?? meta?.live === false;
   vodRef.current = vod;
 
   // VOD continuity, apply side: once per FILE, when its track list first

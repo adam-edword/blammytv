@@ -979,7 +979,7 @@ export function StreamScreen() {
         {!playing.popped &&
           chromeHostRef.current &&
           createPortal(
-            <TheaterOverlay frame={playing.mode} playbackKey={playing.url} />,
+            <TheaterOverlay frame={playing.mode} playbackKey={playing.url} vod />,
             chromeHostRef.current,
           )}
         {panelState &&
