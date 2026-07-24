@@ -142,7 +142,18 @@ export function InvertedPlayer({
               : ((opened = true), tauriInvOpen(url, rect));
             // Phase 2: once the native move has landed (plus a frame for
             // its present), open the full hole and snap the chrome to it.
-            void move.catch(() => {}).then(() => {
+            void move
+              .catch((e) => {
+                // Rust builds a precise message here (which libmpv-2.dll
+                // paths it tried, mpv_create/initialize/loadfile failure),
+                // and it used to die in this catch. With no player, every
+                // property reads empty, so the seam cannot tell a local
+                // failure from a slow stream and the user is eventually
+                // told "it's the stream, not you" — the exact opposite of
+                // the truth. Surface it instead.
+                console.error("[inv] player open/move failed:", e);
+              })
+              .then(() => {
               if (disposed) return;
               window.clearTimeout(settleTimer);
               settleTimer = window.setTimeout(() => {

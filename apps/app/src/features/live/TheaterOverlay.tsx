@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { isTauri, type TheaterMeta } from "../../lib/tauri";
+import { isTauri, tauriMpvDiag, type TheaterMeta } from "../../lib/tauri";
 import { api, type ChapterInfo, type TimeInfo, type Tracks } from "./overlayApi";
 import {
   loadOverlayMeta,
@@ -119,8 +119,12 @@ export function TheaterOverlay({
   metaRefForDead.current = meta;
   const [loading, setLoading] = useState(() => api()?.getLoading() ?? true);
   const [paused, setPaused] = useState(false);
-  const [volume, setVolume] = useState(1);
-  const [muted, setMuted] = useState(false);
+  // Seeded from prefs, not from 1/false: this component unmounts on the
+  // popout round-trip (and on a tab bounce), and a fresh mount doesn't
+  // just FORGET the level — its [volume, muted] effect PUSHES the default
+  // 100%/unmuted down to mpv.
+  const [volume, setVolume] = useState(() => loadPlaybackPrefs().volume ?? 1);
+  const [muted, setMuted] = useState(() => !!loadPlaybackPrefs().muted);
   // Live-edge position (%). Full = at the live edge; seeking back walks it
   // left, forward walks it toward live. mpv exposes no live position for a
   // live stream, so this is a client-side indicator that tracks the seeks.
@@ -290,19 +294,55 @@ export function TheaterOverlay({
   // requests); the meta flip false→true still re-arms for the no-host
   // legacy entry.
   const vodSrc = vodProp ?? meta?.live === false;
+  // Tune diagnostic. Prints mpv's RAW state at the three moments that
+  // answer the open bridge questions, and nowhere else (never on the 500ms
+  // poll): when a stream first presents (the healthy baseline: does
+  // duration land? are aid/sid set? is current-vo up?), when the watchdog
+  // escalates (is `path` still set, i.e. can reload_live do anything at
+  // all? is the death idle-active or eof-reached?), and 3s after a reload
+  // (do aid/sid/speed survive a same-url loadfile?).
+  // Read the pairs together: baseline vs escalation vs post-reload.
+  const diag = useCallback((phase: string) => {
+    if (!isTauri()) return;
+    void tauriMpvDiag()
+      .then((d) => console.info(`[tune-diag] ${phase}`, d))
+      .catch(() => {});
+  }, []);
+  // A stream change MUST reset the watchdog, and it can't ride `loading`
+  // to do it: the bridge re-arms by pushing loading=true, so if it was
+  // ALREADY true (switching away from a stream still tuning, or from a
+  // dead one) React bails on the identical value, the effect below never
+  // re-runs, and `tune` stays "dead". The next stream then renders the
+  // dead card instantly while it loads normally, gets zero silent
+  // retries (retriesRef still exhausted), and on VOD can never fail over
+  // again — that effect keys on `tune`, which no longer changes.
+  const [tuneKey, setTuneKey] = useState(playbackKey);
+  if (playbackKey !== tuneKey) {
+    setTuneKey(playbackKey);
+    setTune("waiting");
+  }
+  useEffect(() => {
+    retriesRef.current = 0;
+  }, [playbackKey]);
   useEffect(() => {
     if (!loading) {
       retriesRef.current = 0;
       setTune("waiting");
+      diag("presenting"); // healthy baseline for the comparisons below
       return;
     }
     let id = 0;
+    let after = 0;
     const arm = () => {
       id = window.setTimeout(() => {
+        diag(vodSrc ? "vod-stall" : `live-stall#${retriesRef.current + 1}`);
         if (!vodSrc && retriesRef.current < TUNE_RETRIES) {
           retriesRef.current += 1;
           setTune("retrying");
           api()?.goLive?.();
+          // Long enough for a reload to have taken hold, short enough to
+          // land before the next stall window closes.
+          after = window.setTimeout(() => diag("post-reload"), 3000);
           arm();
         } else {
           setTune("dead");
@@ -310,8 +350,11 @@ export function TheaterOverlay({
       }, vodSrc ? VOD_STALL_MS : STALL_MS);
     };
     arm();
-    return () => window.clearTimeout(id);
-  }, [loading, tuneAttempt, vodSrc]);
+    return () => {
+      window.clearTimeout(id);
+      window.clearTimeout(after);
+    };
+  }, [loading, tuneAttempt, vodSrc, playbackKey, diag]);
   // VOD auto-failover (Settings → AIOStreams, off by default): the moment
   // the watchdog declares the source dead, jump to the next candidate.
   const vodDeadRef = useRef(false);
@@ -348,6 +391,10 @@ export function TheaterOverlay({
   useEffect(() => {
     api()?.setVolume(Math.round(volume * 100));
     api()?.setMute(muted);
+    // Persist on a trailing edge — the cleanup cancels the pending write,
+    // so a slider drag stores once at rest instead of on every frame.
+    const t = window.setTimeout(() => rememberPlayback({ volume, muted }), 400);
+    return () => window.clearTimeout(t);
   }, [volume, muted]);
 
   // Channel switch (inline): the fresh mpv instance starts unpaused at the
@@ -511,7 +558,18 @@ export function TheaterOverlay({
   // setState updater (updaters must be pure — StrictMode double-invokes them).
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
+  const loadingRef = useRef(loading);
+  loadingRef.current = loading;
   const togglePlay = useCallback(() => {
+    // NEVER while tuning. mpv reports core-idle="yes" when PAUSED, and the
+    // bridge reads core-idle to decide "has the first frame landed" — so a
+    // pause before the picture arrives makes `presenting` unreachable: the
+    // clip hole stays shut, loading never clears, and the watchdog
+    // eventually declares a perfectly healthy stream dead (on VOD that also
+    // burns an auto-failover onto a different source). Reachable by
+    // clicking the loading ident — a natural "is this alive?" reflex — and
+    // by space/k, so the gate lives here rather than on one entry point.
+    if (loadingRef.current) return;
     const next = !pausedRef.current;
     setPaused(next);
     api()?.setPause(next);
@@ -552,55 +610,84 @@ export function TheaterOverlay({
   // a fresh mpv instance — without this, subs/speed die at each episode
   // boundary). Runs once per playbackKey, before any user pick for the
   // file; explicit picks afterward both win and update the memory.
+  // PER-DIMENSION, and never spent on an EMPTY list. mpv_status always
+  // returns audio:[] / subs:[] (never null), so the first poll after a
+  // stream change pushes an empty-but-TRUTHY list while the file is still
+  // demuxing — a single once-per-file guard was spent right there, matched
+  // nothing, and then early-returned forever when the real list landed.
+  // (That window is the normal case for debrid VOD, which opens well past
+  // one 500ms poll.) Audio and subs also settle their flags separately, so
+  // a subtitle track that demuxes a beat after the audio still gets its
+  // preference applied.
   const appliedKeyRef = useRef<string | null>(null);
+  const appliedRef = useRef({ audio: false, sub: false, speed: false });
   useEffect(() => {
     if (!vod || !tracks) return;
     const key = playbackKey ?? "mount";
-    if (appliedKeyRef.current === key) return;
-    appliedKeyRef.current = key;
+    if (appliedKeyRef.current !== key) {
+      appliedKeyRef.current = key;
+      appliedRef.current = { audio: false, sub: false, speed: false };
+    }
+    const done = appliedRef.current;
+    if (done.audio && done.sub && done.speed) return;
     const prefs = loadPlaybackPrefs();
-    if (prefs.audioLang) {
-      const t = matchTrack(tracks.audio, prefs.audioLang);
-      if (t && !t.selected) {
-        api()?.selectAudio?.(t.id);
-        setTracks(
-          (prev) =>
-            prev && {
-              ...prev,
-              audio: prev.audio.map((a) => ({ ...a, selected: a.id === t.id })),
-            },
-        );
+    if (!done.audio && tracks.audio.length > 0) {
+      done.audio = true;
+      if (prefs.audioLang) {
+        const t = matchTrack(tracks.audio, prefs.audioLang);
+        if (t && !t.selected) {
+          api()?.selectAudio?.(t.id);
+          setTracks(
+            (prev) =>
+              prev && {
+                ...prev,
+                audio: prev.audio.map((a) => ({
+                  ...a,
+                  selected: a.id === t.id,
+                })),
+              },
+          );
+        }
       }
     }
-    if (prefs.subLang === "off") {
-      if (tracks.subs.some((x) => x.selected)) {
-        api()?.selectSub?.("no");
-        setTracks(
-          (prev) =>
-            prev && {
-              ...prev,
-              subs: prev.subs.map((x) => ({ ...x, selected: false })),
-            },
-        );
-      }
-    } else if (prefs.subLang) {
-      const t = matchTrack(tracks.subs, prefs.subLang);
-      if (t && !t.selected) {
-        api()?.selectSub?.(t.id);
-        setTracks(
-          (prev) =>
-            prev && {
-              ...prev,
-              subs: prev.subs.map((x) => ({ ...x, selected: x.id === t.id })),
-            },
-        );
+    if (!done.sub && tracks.subs.length > 0) {
+      done.sub = true;
+      if (prefs.subLang === "off") {
+        if (tracks.subs.some((x) => x.selected)) {
+          api()?.selectSub?.("no");
+          setTracks(
+            (prev) =>
+              prev && {
+                ...prev,
+                subs: prev.subs.map((x) => ({ ...x, selected: false })),
+              },
+          );
+        }
+      } else if (prefs.subLang) {
+        const t = matchTrack(tracks.subs, prefs.subLang);
+        if (t && !t.selected) {
+          api()?.selectSub?.(t.id);
+          setTracks(
+            (prev) =>
+              prev && {
+                ...prev,
+                subs: prev.subs.map((x) => ({ ...x, selected: x.id === t.id })),
+              },
+          );
+        }
       }
     }
-    if (prefs.speed && prefs.speed !== 1) {
-      setSpeed(prefs.speed);
-      api()?.setSpeed?.(prefs.speed);
+    // Speed waits for the instance to actually present: setSpeed on a
+    // handle that isn't stored yet is a silent no-op Rust-side, and
+    // mpv_status carries no rate field to correct the UI afterwards.
+    if (!done.speed && !loading) {
+      done.speed = true;
+      if (prefs.speed && prefs.speed !== 1) {
+        setSpeed(prefs.speed);
+        api()?.setSpeed?.(prefs.speed);
+      }
     }
-  }, [vod, tracks, playbackKey]);
+  }, [vod, tracks, playbackKey, loading]);
   const vodPct =
     scrub !== null
       ? scrub * 100
@@ -1311,8 +1398,8 @@ function TuneCard({
         <div className="tune__dead" data-interactive>
           <p className="tune__dead-msg">
             {vod
-              ? "This source isn\u2019t responding \u2014 it\u2019s the stream, not you."
-              : "This channel isn\u2019t responding \u2014 it\u2019s the stream, not you."}
+              ? "This source isn\u2019t responding. It\u2019s the stream, not you."
+              : "This channel isn\u2019t responding. It\u2019s the stream, not you."}
           </p>
           <button type="button" className="tune__retry" onClick={onRetry}>
             Retry

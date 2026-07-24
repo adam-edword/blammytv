@@ -250,6 +250,19 @@ pub fn stop_popout() {
 pub fn play_wid(url: &str, wid: isize, composited: bool, start: f64) -> Result<(), String> {
     let l = lib()?;
     stop();
+    // ...and the PiP too. One provider connection at a time is the app-wide
+    // invariant, but it was enforced per-CALLER: popout_open tears the in-app
+    // player down, play_popout defends against a stale popout, and StreamScreen
+    // calls popout_stop — while LiveScreen has no popped state at all. So the
+    // reverse edge was missing: pop out a live channel (whose stated purpose is
+    // browsing the EPG), click any channel in the guide — the intended next
+    // action — and both instances ran. Double audio, two connections, and an
+    // outright failed tune on a max_connections=1 line. Enforcing it HERE makes
+    // it structural: nothing can start in-app playback and leave the PiP up.
+    // Safe against deadlock — PLAYER and POPOUT are independent mutexes, stop()
+    // has released its guard, and stop_popout() drops POPOUT's before issuing
+    // the quit. A no-op when nothing is popped out (the common path).
+    stop_popout();
     unsafe {
         let h = (l.create)();
         if h.is_null() {

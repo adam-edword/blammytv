@@ -97,6 +97,16 @@ export function tauriInvStop(): Promise<void> {
   return invoke("inv_stop");
 }
 
+/** Raw mpv property snapshot, for the tune diagnostic. Every value is a
+ * string ("<none>" when mpv has no answer, which is itself the signal for
+ * several of the questions this exists to settle). Called only on rare
+ * paths, never on the 500ms status poll. */
+export function tauriMpvDiag(): Promise<Record<string, string>> {
+  return invoke<string>("mpv_diag").then(
+    (s) => JSON.parse(s) as Record<string, string>,
+  );
+}
+
 export function tauriMpvPause(paused: boolean): Promise<void> {
   return invoke("mpv_pause", { paused });
 }

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { LiveData } from "./model";
 
 // The Stalker branch of loadLive end-to-end: a saved Stalker playlist + a
 // mocked httpGetJson playing portal, with disk/adult stubbed. Asserts the
@@ -86,6 +87,19 @@ function installPortal() {
   });
 }
 
+/** Wait for the detached guide phase to republish the catalog. The refresh
+ * announcement it fires is a window event, and these tests run in node, so
+ * poll the cache instead of listening. Bounded so a regression fails the
+ * test rather than hanging it. */
+async function flushGuide(peek: () => LiveData | null): Promise<LiveData> {
+  for (let i = 0; i < 20; i++) {
+    await new Promise((r) => setTimeout(r, 0));
+    const d = peek();
+    if (d && !d.guidePending) return d;
+  }
+  throw new Error("guide phase never republished the catalog");
+}
+
 describe("loadLive Stalker path", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -95,8 +109,12 @@ describe("loadLive Stalker path", () => {
   });
 
   it("maps genres/channels/EPG and drops adult content on both axes", async () => {
-    const { loadLive } = await import("./source");
+    const { loadLive, peekLive } = await import("./source");
     const data = await loadLive(NOW);
+    // The catalog no longer waits on the guide (a big provider's xmltv is a
+    // minute of download), so loadLive resolves with channels and flags the
+    // guide as still coming; the programmes land afterwards.
+    expect(data.guidePending).toBe(true);
     // The name-adult genre is gone; only News remains as a folder.
     expect(data.groups[0].folders).toEqual([{ id: "s1:1", name: "News" }]);
     expect(data.groups[0].error).toBeUndefined();
@@ -109,11 +127,16 @@ describe("loadLive Stalker path", () => {
       folderId: "s1:1",
       streamCmd: "ffconc http://p/ch/101",
     });
+    // Guide phase: it republishes a complete LiveData into the cache, so
+    // read it back the way the screen does (peekLive on the refresh
+    // announcement) rather than off the first resolve.
+    const full = await flushGuide(peekLive);
+    expect(full.guidePending).toBeUndefined();
     // EPG: namespaced key, window-clamped (the ancient rerun is gone), and
     // no listings for dropped channels.
-    const progs = data.programmes.get("s1:101")!;
+    const progs = full.programmes.get("s1:101")!;
     expect(progs.map((p) => p.title)).toEqual(["The Brief"]);
-    expect(data.programmes.has("s1:103")).toBe(false);
+    expect(full.programmes.has("s1:103")).toBe(false);
   });
 
   it("keeps adult genres and censored channels when the filter is off", async () => {

@@ -68,6 +68,7 @@ import {
 } from "./watching";
 import {
   onPopoutClosed,
+  tauriMpvGoLive,
   tauriMpvStatus,
   tauriPopoutOpen,
   tauriPopoutPos,
@@ -119,6 +120,10 @@ export function StreamScreen() {
     /** The playing source's binge key — episode rolls stay in-group. */
     bingeGroup?: string;
     resumeAt?: number;
+    /** Bumped by Retry. A re-resolve can hand back the SAME url string,
+     * and url is what the player and the overlay key on — without this
+     * the restart would be a no-op. */
+    reloadTick?: number;
     /** theater = fills the APP WINDOW; fullscreen = OS fullscreen. */
     mode: "theater" | "fullscreen";
     /** Playing in the PiP window: the stage stays (black), video doesn't. */
@@ -432,7 +437,7 @@ export function StreamScreen() {
       // playing now — captured before setResolving/setPlaying churn it.
       const stickyGroup = playingRef.current?.bingeGroup;
       setResolving({ art: item.logo ?? item.poster, title: item.title });
-      const label = `S${season.number} · E${episode.number} — ${episode.title}`;
+      const label = `S${season.number} · E${episode.number}: ${episode.title}`;
       const info = {
         season: season.number,
         episode: episode.number,
@@ -523,6 +528,45 @@ export function StreamScreen() {
       resumeAt: at,
     });
   }, [setPlaying]);
+
+  // VOD "Retry" (the dead card) = re-RESOLVE, not re-loadfile. mpv's
+  // reload replays the SAME debrid url, which the addon layer hands out
+  // fresh per open and which is usually the very thing that expired — so
+  // it costs a request that cannot succeed. Worse, it restarts at byte 0
+  // and the 5s progress tick then overwrites the saved position with ~3s
+  // (posSec <= 60 reads as "not started"), so a died-at-45-minutes movie
+  // came back to a wiped Continue Watching entry. Resolving fresh gets a
+  // live url and restarts where the user actually was — the same shape
+  // tryNextSource/pickPanelSource already use, aimed at the BEST current
+  // candidate rather than the next one. Falls back to the plain mpv
+  // reload if resolution fails, so Retry is never a dead button.
+  const retrySource = useCallback(() => {
+    const p = playingRef.current;
+    if (!p) return;
+    const entry = loadWatching().find((e) => e.id === p.item.id);
+    const at =
+      entry?.posSec && entry.posSec > 10
+        ? Math.max(0, entry.posSec - 3)
+        : p.resumeAt;
+    void resolveVodSources(p.item.kind, p.episodeId ?? p.item.id).then(
+      (list) => {
+        const pick = list.find((s) => s.cached) ?? list[0];
+        if (!pick) {
+          void tauriMpvGoLive().catch(() => {});
+          return;
+        }
+        setPlayingRaw({
+          ...p,
+          url: pick.streamUrl,
+          bingeGroup: pick.bingeGroup,
+          queue: list.filter((s) => s.id !== pick.id && s.cached),
+          resumeAt: at,
+          reloadTick: (p.reloadTick ?? 0) + 1,
+        });
+      },
+      () => void tauriMpvGoLive().catch(() => {}),
+    );
+  }, []);
 
   // Continue Watching quick-resume: one click straight into playback
   // (sources resolve fresh; first cached wins). Any miss falls back to
@@ -713,14 +757,21 @@ export function StreamScreen() {
         : null,
     [playing, aniSkips],
   );
+  // Identity of the CURRENT stream. reloadTick rides it so a Retry counts
+  // as a new stream even when the re-resolve returned the identical url.
+  const streamKey = playing ? `${playing.url}#${playing.reloadTick ?? 0}` : null;
   const directApi = useDirectOverlay(
     isTauri() && !!playing && !playing.popped,
-    playing?.url ?? null,
+    streamKey,
     playMeta,
     {
       onClose: stop,
       onExpand: () => {},
       onCollapse: stop, // t / ✕ in theater = back to the catalog
+      // VOD has no live edge — goLive reaches this handler ONLY as the
+      // dead card's Retry (the watchdog's silent reload escalation is
+      // gated on !vodSrc), so it re-resolves instead of re-loadfiling.
+      onGoLive: retrySource,
       onFullscreen: () => setVodMode("fullscreen"),
       onExitFullscreen: () => setVodMode("theater"),
       // Same open sequence Live uses: heal the shell's clip hole BEFORE
@@ -746,6 +797,16 @@ export function StreamScreen() {
       // this, EOF took the live-death path — watchdog reload, restart at
       // 0:00, and the progress tick then shredding the saved position.
       onEnded: () => {
+        // The picture is GONE the instant the file completes, so close the
+        // clip hole. The completion branch deliberately leaves the bridge's
+        // `loading` false (flipping it would re-arm the tune watchdog and
+        // put a "reconnecting" card over the Up Next countdown), and the
+        // hole gate rode `loading` alone — so it stayed CUT over an mpv
+        // sitting at EOF with no video: the DESKTOP showed through for the
+        // whole countdown plus the next episode's resolve. Readiness is
+        // about "is there a picture", which is not the same question as
+        // "is it loading".
+        setVideoReady(false);
         setUpNextMini(null); // the fullscreen card takes over at true EOF
         const p = playingRef.current;
         if (p) {
@@ -796,6 +857,17 @@ export function StreamScreen() {
   // mpv's first presented frame.
   const [videoReady, setVideoReady] = useState(false);
   useEffect(() => directApi.onLoading((v) => setVideoReady(!v)), [directApi]);
+  // A NEW stream is not ready, from the very render that carries it. The
+  // bridge's loading re-arm lives in a parent effect, and child effects run
+  // first, so InvertedPlayer would open the new url and cut the hole while
+  // the PREVIOUS stream's ready=true was still in force. Belt to the
+  // onEnded braces above: that covers completion, this covers every other
+  // switch (episode pick, failover, panel source, Retry).
+  const [readyKey, setReadyKey] = useState(streamKey);
+  if (streamKey !== readyKey) {
+    setReadyKey(streamKey);
+    setVideoReady(false);
+  }
 
   // Resume-from-position: one absolute seek on the first presented frame
   // (seeking before the file loads is a no-op mpv-side).
@@ -814,8 +886,16 @@ export function StreamScreen() {
       if (!l) fire();
     });
     // popped in the deps: returning from the PiP remounts playback and
-    // must re-arm the one-shot seek.
-  }, [playing?.url, playing?.resumeAt, playing?.popped, directApi]);
+    // must re-arm the one-shot seek. reloadTick likewise — a Retry can
+    // re-resolve to the same url, and without it the one-shot stays spent
+    // and the retry silently restarts at 0:00.
+  }, [
+    playing?.url,
+    playing?.resumeAt,
+    playing?.popped,
+    playing?.reloadTick,
+    directApi,
+  ]);
 
   // PiP closed → bring playback back in-app, resuming where the popout
   // got to (its final position rides the event; the watch entry catches
@@ -974,12 +1054,25 @@ export function StreamScreen() {
       <div className={"vod-stage" + (playing.popped ? " vod-stage--popped" : "")}>
         <div id="player-slot" className="vod-stage__slot" />
         {!playing.popped && (
-          <InvertedPlayer url={playing.url} squared ready={videoReady} />
+          <InvertedPlayer
+            // Remount on Retry: a re-resolve can return the same url, and
+            // InvertedPlayer only re-opens when the url changes.
+            key={playing.reloadTick ?? 0}
+            url={playing.url}
+            squared
+            ready={videoReady}
+          />
         )}
         {!playing.popped &&
           chromeHostRef.current &&
           createPortal(
-            <TheaterOverlay frame={playing.mode} playbackKey={playing.url} vod />,
+            <TheaterOverlay
+              frame={playing.mode}
+              // Same reason: the overlay keys its watchdog/track/prefs
+              // resets on this, and a retry IS a new stream.
+              playbackKey={streamKey}
+              vod
+            />,
             chromeHostRef.current,
           )}
         {panelState &&
@@ -1107,7 +1200,7 @@ export function StreamScreen() {
               )}
               <p className="upnext__eyebrow">Up next</p>
               <h2 className="upnext__title">
-                S{upNext.season.number} · E{upNext.episode.number} —{" "}
+                S{upNext.season.number} · E{upNext.episode.number}:{" "}
                 {upNext.episode.title}
               </h2>
               <p className="upnext__count">Playing in {countdown}s</p>
@@ -1151,7 +1244,7 @@ export function StreamScreen() {
               <div className="upnext-mini__body">
                 <p className="upnext-mini__eyebrow">Up next</p>
                 <p className="upnext-mini__title">
-                  S{upNextMini.season.number} · E{upNextMini.episode.number} —{" "}
+                  S{upNextMini.season.number} · E{upNextMini.episode.number}:{" "}
                   {upNextMini.episode.title}
                 </p>
                 <div className="upnext-mini__actions">
@@ -2412,7 +2505,7 @@ function Episodes({
                     (e.id === nextUp ? " episode-card--next" : "")
                   }
                   onClick={() =>
-                    onPick(e.id, `S${season.number} · E${e.number} — ${e.title}`, {
+                    onPick(e.id, `S${season.number} · E${e.number}: ${e.title}`, {
                       season: season.number,
                       episode: e.number,
                       title: e.title,

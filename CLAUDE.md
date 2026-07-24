@@ -1,10 +1,10 @@
-# BlammyTV — working agreements
+# BlammyTV: working agreements
 
-## Don't guess — be confident before committing to an option
+## Don't guess: be confident before committing to an option
 
 No guessing. Before committing to an approach or making a code change, be
 genuinely confident it's the right call. If you're not sure, work it out in chat
-first — questions, back-and-forth, weighing real options — and land on a decision
+first (questions, back-and-forth, weighing real options) and land on a decision
 you can defend before touching code. A wrong guess that ships costs far more than
 a few extra messages. Hold an opinion and state it; don't hedge your way into a
 change you're not actually sure about.
@@ -16,7 +16,7 @@ data (next section); when it's a judgment call, reason it to confidence or ask
 ## Confirm with data before significant changes
 
 Before a non-trivial code change to explain or fix a behavior, **confirm the
-cause with real data — don't assume.** Add a diagnostic (log the actual state,
+cause with real data. Don't assume.** Add a diagnostic (log the actual state,
 read the real values, reproduce the signal) and let the data drive the fix.
 
 Two models from this project:
@@ -32,42 +32,42 @@ obvious edits don't need a ceremony; uncertain or significant ones do.
 
 ## Confusion Protocol
 
-On high-stakes ambiguity — two plausible architectures, a request that
+On high-stakes ambiguity: two plausible architectures, a request that
 contradicts an existing pattern, a destructive op with unclear scope, or missing
-context that would change the approach — STOP. Name the ambiguity in one
+context that would change the approach. STOP. Name the ambiguity in one
 sentence, present 2-3 options with real trade-offs (not a fake spread), and ask.
 Don't guess on architectural decisions. Doesn't apply to routine, obvious changes.
 
 ## Search before building
 
-1. **Tried-and-true** — is there a standard library or pattern for this? Use it.
-2. **New-and-popular** — a newer library with real traction? Evaluate it.
-3. **First-principles** — does the conventional approach actually apply? If our
+1. **Tried-and-true**: is there a standard library or pattern for this? Use it.
+2. **New-and-popular**: a newer library with real traction? Evaluate it.
+3. **First-principles**: does the conventional approach actually apply? If our
    case is genuinely different, document WHY before writing custom code.
 
 Default to Layer 1. Don't reinvent what a library already does. Simplest vanilla
-tech wins — no framework-of-the-month, no clever abstractions for hypothetical
+tech wins: no framework-of-the-month, no clever abstractions for hypothetical
 reuse. When a task matches an installed Claude Code skill (security review,
 design review, etc.), use the skill instead of re-implementing.
 
-## Delegation — orchestrate by task shape, not by default
+## Delegation: orchestrate by task shape, not by default
 
-Standing permission to run subagents/workflows underneath the main session — no
-need to ask first — **when the task shape actually benefits:**
+Standing permission to run subagents/workflows underneath the main session (no
+need to ask first) **when the task shape actually benefits:**
 
-- **Research & evaluation** — comparing libraries, studying how other apps solve
+- **Research & evaluation**: comparing libraries, studying how other apps solve
   a problem. Parallel readers, synthesize on top.
-- **Broad audits** — security review, perf sweep, dead-code hunt. Fan out by
+- **Broad audits**: security review, perf sweep, dead-code hunt. Fan out by
   dimension, adversarially verify findings, report only what survives.
-- **Fresh-eyes review before a release** — a reviewer agent's lack of our
+- **Fresh-eyes review before a release**, a reviewer agent's lack of our
   context is a feature: it can't rationalize our decisions.
-- **Big mechanical sweeps** — migrations, renames, test backfill, where the
+- **Big mechanical sweeps**: migrations, renames, test backfill, where the
   work-list is known and the items are independent.
 
-**Stay hands-on for surgical, diagnostic, context-heavy work** — the
+**Stay hands-on for surgical, diagnostic, context-heavy work**: the
 measure→fix→retest loop that most changes here are. Accumulated context is the
 asset: the v0.1.106 disk cache caught a StrictMode race only because the same
-head fixed it in v0.1.104. Subagents start blank — briefing them on a one-file
+head fixed it in v0.1.104. Subagents start blank. Briefing them on a one-file
 fix costs more than it buys.
 
 Delegation never dilutes the agreements above: agent findings get verified
@@ -77,18 +77,18 @@ and the commit.
 ## Completion status
 
 End every task with one of:
-- **DONE** — all steps complete, evidence for every claim, ready to merge.
-- **DONE_WITH_CONCERNS** — complete, but with issues worth knowing; list each with
+- **DONE**: all steps complete, evidence for every claim, ready to merge.
+- **DONE_WITH_CONCERNS**: complete, but with issues worth knowing; list each with
   severity and a proposed follow-up.
-- **BLOCKED** — can't proceed; state what's blocking and what was tried.
-- **NEEDS_CONTEXT** — missing info; state exactly what's needed.
+- **BLOCKED**: can't proceed; state what's blocking and what was tried.
+- **NEEDS_CONTEXT**: missing info; state exactly what's needed.
 
 "Partially done" isn't a status. Honesty about incompleteness beats pretending.
 
-## After every task — commit, push, report what to restart
+## After every task: commit, push, report what to restart
 
 1. **Commit and push.** Stage, write a clear message, push. Don't wait to be asked.
-2. **Say what to restart — one line, terminal-ready.** End with a single line I
+2. **Say what to restart: one line, terminal-ready.** End with a single line I
    can act on without thinking, in exactly this shape:
    - Frontend-only (hot-reloads): `Pushed v0.x.x — `git pull` to hot reload`
    - Native/Rust (needs rebuild): `Pushed v0.x.x — `git pull` and `pnpm tauri dev`, needs rebuild`

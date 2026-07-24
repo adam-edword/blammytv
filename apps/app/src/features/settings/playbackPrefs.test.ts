@@ -53,3 +53,24 @@ describe("prefs store", () => {
     expect(loadPlaybackPrefs()).toEqual({ subLang: "off", speed: 1.5 });
   });
 });
+
+describe("volume/mute prefs", () => {
+  beforeEach(() => store.clear());
+
+  it("round-trips volume and mute alongside the VOD fields", () => {
+    rememberPlayback({ subLang: "eng" });
+    rememberPlayback({ volume: 0.15, muted: true });
+    const p = loadPlaybackPrefs();
+    expect(p.volume).toBe(0.15);
+    expect(p.muted).toBe(true);
+    expect(p.subLang).toBe("eng"); // merge, not replace
+  });
+
+  it("reads absent volume as undefined so the caller can default to 1", () => {
+    expect(loadPlaybackPrefs().volume).toBeUndefined();
+    // volume 0 must survive as 0 — a `?? 1` default only fires on absence,
+    // so a muted-by-slider user doesn't get reset to full on remount.
+    rememberPlayback({ volume: 0 });
+    expect(loadPlaybackPrefs().volume ?? 1).toBe(0);
+  });
+});

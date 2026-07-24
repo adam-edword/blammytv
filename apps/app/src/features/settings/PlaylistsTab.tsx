@@ -33,10 +33,10 @@ type Categories =
 
 const DESCRIPTIONS: Record<PlaylistKind, string> = {
   xtream:
-    "Connect an Xtream Codes account — the server URL, username, and password from your provider.",
+    "Connect an Xtream Codes account: the server URL, username, and password from your provider.",
   m3u: "Point at an M3U playlist URL from your provider. EPG data comes along when the playlist links it.",
   stalker:
-    "Connect a Stalker/MAG portal — the portal URL and the MAC address your provider registered.",
+    "Connect a Stalker/MAG portal: the portal URL and the MAC address your provider registered.",
 };
 
 export function PlaylistsTab() {
@@ -196,7 +196,7 @@ export function PlaylistsTab() {
         <h3 className="settings-section__list-title">Your Playlists</h3>
         {playlists.length === 0 ? (
           <p className="settings__section-note settings__section-note--dim">
-            Nothing here yet — add your first playlist above.
+            Nothing here yet. Add your first playlist above.
           </p>
         ) : (
           playlists.map((p) => (
@@ -212,7 +212,7 @@ export function PlaylistsTab() {
                     if (g?.error)
                       return (
                         <span className="playlist-row__status playlist-row__status--error">
-                          Couldn&rsquo;t load — {g.error}
+                          Couldn&rsquo;t load: {g.error}
                         </span>
                       );
                     if (g?.epgError)
@@ -301,7 +301,7 @@ export function PlaylistsTab() {
             <div className="playlist-row__text">
               <span className="playlist-row__name">Show adult content</span>
               <span className="playlist-row__source">
-                Off keeps adult folders and channels out of Live TV — flagged
+                Off keeps adult folders and channels out of Live TV. Flagged
                 by your provider, or caught by name.
               </span>
             </div>
@@ -370,7 +370,7 @@ function FolderEditor({
     return (
       <div className="source-list source-list--note">
         <p className="settings__section-note settings__section-note--dim">
-          Couldn&rsquo;t reach the server. Check the playlist&rsquo;s credentials — and
+          Couldn&rsquo;t reach the server. Check the playlist&rsquo;s credentials, and
           note the browser dev build can be blocked by CORS where the desktop
           app isn't.
         </p>
@@ -482,7 +482,7 @@ function FolderEditor({
         {adultHidden > 0 && (
           <p className="settings__section-note settings__section-note--dim">
             {adultHidden} adult {adultHidden === 1 ? "folder" : "folders"} hidden
-            — turn on “Show adult content” below to manage{" "}
+            · turn on “Show adult content” below to manage{" "}
             {adultHidden === 1 ? "it" : "them"}.
           </p>
         )}

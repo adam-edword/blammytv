@@ -60,7 +60,7 @@ export const THEME_PACKS: ReadonlyArray<ThemePackMeta> = [
     // brand neutral dark now, not the old blue graphite.
     id: "slate",
     name: "BlammyTV",
-    blurb: "The BlammyTV signature look — soft neutral dark.",
+    blurb: "The BlammyTV signature look: soft neutral dark.",
     supportsLight: false,
     preview: { bg: "#0b0b0e", surface: "#1e1e25", accent: PREVIEW_ACCENT },
   },
@@ -102,7 +102,7 @@ export const THEME_PACKS: ReadonlyArray<ThemePackMeta> = [
     // in intense-packs.css) — free vs paid is metadata, not CSS location.
     id: "streamy",
     name: "Streamy",
-    blurb: "That other client — deep indigo board, violet glow, familiar type.",
+    blurb: "That other client: deep indigo board, violet glow, familiar type.",
     supportsLight: false,
     preview: { bg: "#131126", surface: "#1d1a38", accent: "#7b5bf5" },
     pairedAccent: "#7b5bf5",
@@ -118,7 +118,7 @@ export const INTENSE_PACKS: ReadonlyArray<ThemePackMeta> = [
   {
     id: "terminal",
     name: "Terminal",
-    blurb: "Green-phosphor CRT — bitmap type, dither grain, glowing hovers.",
+    blurb: "Green-phosphor CRT: bitmap type, dither grain, glowing hovers.",
     supportsLight: false,
     preview: { bg: "#020a05", surface: "#0a2c16", accent: PREVIEW_ACCENT },
     premium: true,
@@ -129,7 +129,7 @@ export const INTENSE_PACKS: ReadonlyArray<ThemePackMeta> = [
   {
     id: "dither",
     name: "Dither",
-    blurb: "1-bit print-press halftone — a dot matrix screened over pure black.",
+    blurb: "1-bit print-press halftone: a dot matrix screened over pure black.",
     supportsLight: false,
     preview: { bg: "#000000", surface: "#1e1e1e", accent: PREVIEW_ACCENT },
     premium: true,
@@ -139,7 +139,7 @@ export const INTENSE_PACKS: ReadonlyArray<ThemePackMeta> = [
   {
     id: "kawaii",
     name: "Kawaii ⸜(｡˃ ᵕ ˂ )⸝♡",
-    blurb: "Midnight candy — pastel pink on a plum sky, chubby type, a star on the now-line.",
+    blurb: "Midnight candy: pastel pink on a plum sky, chubby type, a star on the now-line.",
     supportsLight: false,
     preview: { bg: "#15111f", surface: "#e9e9f7", accent: "#f2a0c2" },
     premium: true,
@@ -153,7 +153,7 @@ export const INTENSE_PACKS: ReadonlyArray<ThemePackMeta> = [
     // it until a Themes Pass is active.
     id: "supporter",
     name: "Supporter",
-    blurb: "A thank-you for Pass holders — classic with a living rainbow aura.",
+    blurb: "A thank-you for Pass holders: classic with a living rainbow aura.",
     supportsLight: false,
     preview: { bg: "#0b0b0e", surface: "#1a1030", accent: PREVIEW_ACCENT },
     premium: true,

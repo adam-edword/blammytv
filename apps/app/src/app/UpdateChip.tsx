@@ -67,14 +67,14 @@ export function UpdateChip() {
       }}
       title={
         busy
-          ? "Downloading and installing — the app restarts by itself"
+          ? "Downloading and installing. The app restarts by itself"
           : "Download and restart into the new version"
       }
     >
       <span className="update-chip__dot" aria-hidden />
       {phase.at === "ready" && <>v{phase.version} ready</>}
       {phase.at === "installing" && <>Installing…</>}
-      {phase.at === "error" && <>Update failed — retry</>}
+      {phase.at === "error" && <>Update failed, retry</>}
     </button>
   );
 }

@@ -1,8 +1,8 @@
 # contributing
 
 welcome! this is a **pnpm monorepo**. the high-level architecture (a
-**self-contained** desktop client — Xtream Codes for live TV, AIOStreams + debrid
-for movies/shows, a native libmpv player) is in the [README](./README.md) — worth
+**self-contained** desktop client: Xtream Codes for live TV, AIOStreams + debrid
+for movies/shows, a native libmpv player) is in the [README](./README.md), worth
 reading first.
 
 ## prerequisites
@@ -10,7 +10,7 @@ reading first.
 - **node 22+** and **pnpm 10+** (`corepack enable` will get you the pinned pnpm)
 - everything installs from the root: `pnpm install`
 - the native Windows app additionally needs the **Rust toolchain** + the Tauri
-  prerequisites and a local `libmpv-2.dll` — see [RELEASING.md](./RELEASING.md).
+  prerequisites and a local `libmpv-2.dll`, see [RELEASING.md](./RELEASING.md).
 
 ## the loop
 
@@ -24,30 +24,30 @@ reading first.
 | `pnpm build` | build everything |
 
 `pnpm <cmd>` at the root fans out across the workspace, so a new package that
-defines `typecheck` / `lint` / `test` is picked up automatically — including by CI.
+defines `typecheck` / `lint` / `test` is picked up automatically, including by CI.
 
 ## conventions
 
-- **branches & PRs** — branch off `main`, open a PR back into `main`. CI
+- **branches & PRs**: branch off `main`, open a PR back into `main`. CI
   (`.github/workflows/ci.yml`) runs typecheck + lint + test on every PR; keep it
   green.
-- **the app is self-contained and on-device** — live TV comes from the user's
+- **the app is self-contained and on-device**: live TV comes from the user's
   playlists, VOD from their AIOStreams manifest, both fetched via the Rust layer.
   domain types live next to the feature that owns them (`apps/app/src/features/*`).
 - **secrets live on-device, and never get committed.** the AIOStreams manifest URL
   (which embeds debrid keys) and Xtream credentials are stored in the user's
-  `localStorage` and read by the Rust layer at request time — they are *not*
+  `localStorage` and read by the Rust layer at request time. They are *not*
   baked into the build or sent anywhere we don't control. never commit
   credentials, `.env` files, or the updater signing key (only the **public**
   minisign key belongs in the repo).
-- **style is enforced, not argued** — `eslint.config.mjs` + `tsconfig.base.json`
+- **style is enforced, not argued**: `eslint.config.mjs` + `tsconfig.base.json`
   (strict, no unused locals/params). run `pnpm lint` / `pnpm typecheck` before a PR.
-- **tests** — pure logic gets a `*.test.ts` next to it (see `apps/app/src/lib`).
+- **tests**: pure logic gets a `*.test.ts` next to it (see `apps/app/src/lib`).
 
 ## adding a new app (e.g. a Next.js app)
 
 the workspace globs `apps/*` (`pnpm-workspace.yaml`), so a new `apps/web/` joins
-automatically — no registration needed. a few things to wire up:
+automatically, no registration needed. a few things to wire up:
 
 1. **tsconfig.** extend the repo base so strictness/casing stay consistent, then
    layer Next's needs on top:
@@ -81,5 +81,5 @@ automatically — no registration needed. a few things to wire up:
    Next dep needs one (e.g. `sharp`), add it to `onlyBuiltDependencies` in
    `pnpm-workspace.yaml` (where `esbuild` already lives).
 
-that's it — `pnpm install`, the SessionStart hook, and CI all extend to the new
+that's it: `pnpm install`, the SessionStart hook, and CI all extend to the new
 package without further setup.
