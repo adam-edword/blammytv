@@ -181,11 +181,23 @@ export function TheaterOverlay({
   }, [frame]);
 
   // Meta + loading from the bridge (getLoading is a SYNC boolean).
+  // Subscribe FIRST, and never let the async seed overwrite a pushed
+  // value: this mount effect runs before the bridge host's meta effect,
+  // so the seed promise can resolve a PRE-push snapshot after the real
+  // push already landed (the first-playback-of-session live-chrome bug).
   useEffect(() => {
     const a = api();
     if (!a) return;
-    a.getMeta().then(setMeta).catch(() => {});
-    const offMeta = a.onMeta(setMeta);
+    let pushed = false;
+    const offMeta = a.onMeta((m) => {
+      pushed = true;
+      setMeta(m);
+    });
+    a.getMeta()
+      .then((m) => {
+        if (!pushed) setMeta(m);
+      })
+      .catch(() => {});
     setLoading(a.getLoading());
     const offLoading = a.onLoading(setLoading);
     return () => {
@@ -354,6 +366,20 @@ export function TheaterOverlay({
     api()?.setVolume(Math.round(volumeRef.current * 100));
     api()?.setMute(mutedRef.current);
   }, [playbackKey]);
+  // …and AGAIN when the new instance actually presents: the key-change
+  // push above races the fresh mpv process (VOD URLs resolve async — the
+  // command can land on the dying instance while the new one spawns at
+  // default 100%). The bar position survived but the audible volume
+  // didn't. loading→false is the one signal the instance is really up;
+  // re-pushing after a mid-play rebuffer is idempotent. Track selection
+  // and speed don't need this — they apply on the new instance's track
+  // list landing (see the prefs effect below), which is already
+  // post-spawn by construction.
+  useEffect(() => {
+    if (loading) return;
+    api()?.setVolume(Math.round(volumeRef.current * 100));
+    api()?.setMute(mutedRef.current);
+  }, [loading]);
 
   // An open track menu holds the chrome awake (read off a ref so wake stays
   // stable); closing it restarts the idle timer the menu was holding.
