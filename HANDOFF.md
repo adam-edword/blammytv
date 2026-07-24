@@ -51,12 +51,69 @@ weighs as much as switcher parity. NOT a living-room/TV-remote product.
   BY 0.7.2's updater — the hop onto 0.7.2 itself still showed the old
   passive window.
 
-**In flight:** a four-dimension audit of the playback-bridge seam (async
-races, cross-instance state sync, error/watchdog paths, the Rust command
-layer) — commissioned because two bugs of the SAME family (async state
-racing a fresh mpv instance) escaped both the polish audit and the
-31-finding pre-release review, which swept UI/CSS rather than bridge
-timing contracts.
+**Playback-bridge audit — COMPLETE, all 7 acted on (v0.7.3-0.7.5, branch
+`blammytv-0.7.3-bridge`).** Four dimensions (async races, cross-instance
+state sync, error/watchdog paths, Rust command layer); every finding
+re-verified against the code in the main session before any fix. Where
+two or three dimensions converged independently, the finding was real
+every time. Commissioned because two bugs of the same family escaped both
+the polish audit and the 31-finding pre-release review — those swept
+UI/CSS, not bridge timing contracts.
+
+1. **VOD track prefs were still broken after v0.7.2** — that fix moved
+   the failure rather than curing it. `mpv_status` ALWAYS returns
+   `audio:[]`/`subs:[]` (never null), so the first poll after a stream
+   change pushes an empty-but-TRUTHY list while the file demuxes; the
+   once-per-file guard was spent there and early-returned forever when
+   the real list landed. Guard is now per-dimension and never spent on an
+   empty list. **The debrid slow-open is the NORMAL case, not an edge.**
+2. **Tune watchdog never reset between streams** — it can't ride
+   `loading` (the bridge re-arms by pushing `true`; React bails on the
+   identical value, so the effect never re-runs). `tune` stayed "dead":
+   next stream showed the dead card instantly, got zero silent retries,
+   and VOD could never fail over again. Reset rides `playbackKey`.
+3. **Volume/mute lived only in component state**, which the popout
+   round-trip destroys — and a fresh mount PUSHES 100%/unmuted to mpv.
+   Now in playbackPrefs (trailing-edge debounced), seeded on mount.
+4. **Clicking the loading ident paused mpv** — and mpv reports
+   `core-idle: "yes"` while PAUSED, which is the exact property the
+   bridge reads to detect the first frame. So the natural "is it alive?"
+   click made `presenting` unreachable → hole never opens → watchdog
+   declares a HEALTHY stream dead (burning a VOD failover). Gated inside
+   `togglePlay`, covering space/k too.
+5. **VOD Retry re-loadfiled a dead debrid url at byte 0**, and the 5s
+   progress tick then overwrote the saved position with ~3s (`posSec <=
+   60` reads as "not started") — a died-at-45-minutes movie came back
+   with a wiped Continue Watching entry. Retry now RE-RESOLVES. Note
+   `reloadTick`: a re-resolve can return the SAME url string, and url is
+   what the player, overlay and bridge reset-key all key on — without it
+   the fix would be a silent no-op.
+6. **Completion required no proof** — `!s.time` counted as "finished",
+   inverting the guard exactly when it mattered (no clock = died before
+   one arrived), taking markWatched + dur/dur + Up Next auto-roll. Now
+   completion needs a clock that reached the end; no-clock-at-EOF is a
+   death. Evidence duration lands normally: the VOD scrubber works.
+7. **Starting in-app playback didn't stop a LIVE popout** (Rust). The
+   one-connection invariant was enforced per-CALLER — `popout_open` tears
+   down in-app, `play_popout` defends itself, StreamScreen calls
+   `popout_stop`, but LiveScreen has no popped state. Pop out a live
+   channel, click another channel → two instances, two provider
+   connections, outright failure on a `max_connections=1` line. Now
+   structural: `stop_popout()` at the top of `play_wid`.
+
+**Known-open from the audit, NOT fixed (each needs a measurement first —
+one diagnostic logging `mpv_status` + `path` at the moment the tune card
+escalates settles all of them):** `reload_live()` early-returns when
+`path` is unset, which is likely the state at death — so the live
+watchdog's "reconnecting" escalation may do literally nothing for 30s;
+`mpv_frost` conflates "no player yet" with "can't frost", so opening
+Settings during a tune permanently downgrades that modal's glass;
+`inv_open` failures are swallowed (`opened` is set before the promise
+settles), so a missing `libmpv-2.dll` presents as "the stream isn't
+responding — it's not you", the exact opposite of the truth; and
+`mpv_status` is neither atomic nor instance-tagged (an epoch bumped in
+`play_wid` would let the frontend discard stale replies structurally
+rather than inferring from `presenting`).
 
 ## Historical (2026-07-23, v0.7.0 RELEASED — the polish push shipped)
 
