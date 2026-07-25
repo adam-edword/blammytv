@@ -33,7 +33,10 @@ const CACHE_TTL_MS = 30 * 60_000;
 let cache: { key: string; at: number; data: VodData } | null = null;
 let inflight: { key: string; promise: Promise<VodData> } | null = null;
 
-const configKey = () =>
+/** The identity of the catalog a screen is showing. Exported because the
+ * home tab's remembered scroll offset is only meaningful against the same
+ * one: a changed addon, hero set or row cap re-lays the whole page. */
+export const configKey = () =>
   JSON.stringify([loadAioUrl(), loadHeroSources(), loadRowCap()]);
 
 /** Hero picks enrich in the background after the rows resolve — subscribe

@@ -27,12 +27,14 @@ import { TheaterOverlay } from "../live/TheaterOverlay";
 import { useDirectOverlay } from "../live/useDirectOverlay";
 import type { Episode, Season, StreamSource, VodData, VodItem } from "./model";
 import {
+  configKey,
   loadVod,
   onVodUpdate,
   peekVod,
   resolveVodItem,
   resolveVodSources,
 } from "./source";
+import { readStreamScroll, saveStreamScroll } from "./session";
 import { nextEpisode, nextUpEpisode, pickCachedIndex } from "./mapper";
 import { getAniskipRanges, type SkipRange } from "./aniskip";
 import {
@@ -142,7 +144,22 @@ export function StreamScreen() {
     depth,
     capture: captureScroll,
     restore: restoreScroll,
+    restoreTo,
   } = useViewStack<View>({ at: "home" });
+  // Home's scroll offset outlives this screen: a tab flip unmounts it, and
+  // landing back at the top of the rows every time is the same annoyance
+  // that back used to have. Mirrored on scroll rather than read at cleanup,
+  // because an unmount cleanup runs after React has detached the ref.
+  const homeScroll = useRef(readStreamScroll(configKey()));
+  useEffect(() => {
+    if (homeScroll.current) restoreTo(homeScroll.current);
+    // Mount only: later runs would yank the user back to a stale offset.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(
+    () => () => saveStreamScroll(configKey(), homeScroll.current),
+    [],
+  );
   // Between "user clicked play" and "sources resolved": the player-style
   // black screen with the art breathing, INSTANTLY — a quick-resume /
   // Watch Now click must never sit on a dead screen for seconds.
@@ -1357,6 +1374,11 @@ export function StreamScreen() {
     <div
       ref={scrollRef}
       className={"stream" + (view.at === "home" ? "" : " stream--full")}
+      onScroll={(e) => {
+        // Home only: the detail screens share this container, and their
+        // offsets mean nothing to the row grid.
+        if (view.at === "home") homeScroll.current = e.currentTarget.scrollTop;
+      }}
     >
       {view.at === "home" && (
         <Home
