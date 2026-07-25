@@ -4,6 +4,7 @@ import { Card, ContinueCard, RowScroller } from "./StreamScreen";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { useMouseNav } from "../../lib/mouseNav";
 import { useViewStack } from "../../lib/viewStack";
+import { NameField } from "../../ui/NameField";
 import {
   createList,
   deleteList,
@@ -430,51 +431,5 @@ function ListCard({
         {count} {count === 1 ? "title" : "titles"}
       </span>
     </button>
-  );
-}
-
-/** A single-line name field that behaves the way people expect one to:
- * focused and selected on appear, Enter commits, Escape cancels, and
- * clicking away commits rather than silently discarding what was typed.
- *
- * Replaces window.prompt, which is the one surface in the app that cannot
- * be styled and which breaks the frame at precisely the moment the user is
- * making something. */
-function NameField({
-  initial,
-  placeholder,
-  onCommit,
-  onCancel,
-  className,
-}: {
-  initial: string;
-  placeholder?: string;
-  onCommit: (value: string) => void;
-  onCancel: () => void;
-  className?: string;
-}) {
-  const ref = useRef<HTMLInputElement | null>(null);
-  useEffect(() => {
-    ref.current?.focus();
-    ref.current?.select();
-  }, []);
-  return (
-    <input
-      ref={ref}
-      type="text"
-      className={className}
-      defaultValue={initial}
-      placeholder={placeholder}
-      maxLength={60}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") onCommit(e.currentTarget.value);
-        // Escape must not also close the modal/tab behind this field.
-        if (e.key === "Escape") {
-          e.stopPropagation();
-          onCancel();
-        }
-      }}
-      onBlur={(e) => onCommit(e.currentTarget.value)}
-    />
   );
 }

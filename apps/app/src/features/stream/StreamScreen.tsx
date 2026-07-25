@@ -35,6 +35,7 @@ import {
   resolveVodSources,
 } from "./source";
 import { readStreamScroll, saveStreamScroll } from "./session";
+import { SaveButton } from "./SaveButton";
 import { nextEpisode, nextUpEpisode, pickCachedIndex } from "./mapper";
 import { getAniskipRanges, type SkipRange } from "./aniskip";
 import {
@@ -46,7 +47,6 @@ import {
   takeResumeRequest,
 } from "./openRequest";
 import { loadWatched, markWatched } from "./watched";
-import { inMyList, toggleMyList } from "./myList";
 import { loadAioUrl } from "../settings/aiostreams";
 import { loadOneClickPlay } from "../settings/oneClickPlay";
 import {
@@ -2219,22 +2219,6 @@ function GenrePills({ genres }: { genres: string[] }) {
         </button>
       ))}
     </div>
-  );
-}
-
-/** "+ My List" / "✓ My List" toggle on the detail screens — feeds the
- * Stream section's My List grid. Re-reads per mount; state is local
- * (the grid re-reads storage when IT mounts). */
-function SaveButton({ item }: { item: VodItem }) {
-  const [saved, setSaved] = useState(() => inMyList(item.id));
-  return (
-    <button
-      type="button"
-      className={"vod-save" + (saved ? " vod-save--on" : "")}
-      onClick={() => setSaved(toggleMyList(item))}
-    >
-      {saved ? <CheckIcon size={15} /> : <span aria-hidden>+</span>} My List
-    </button>
   );
 }
 

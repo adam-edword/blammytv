@@ -143,6 +143,17 @@ describe("lists", () => {
     expect(m.loadLists()[0].entries.map((e) => e.id)).toEqual(["x2", "x1"]);
   });
 
+  it("snapshots the card fields, leaving absent optionals absent", async () => {
+    const m = await import("./lists");
+    const a = m.createList("A");
+    m.addToList(a.id, { ...ITEM, year: 2020, rating: 8.1 });
+    const e = m.loadLists()[0].entries[0];
+    expect(e).toMatchObject({ poster: "p.jpg", year: 2020, rating: 8.1 });
+    // No undefined keys in storage (inherited from the pre-009 shape).
+    expect("runtimeMin" in e).toBe(false);
+    expect("logo" in e).toBe(false);
+  });
+
   it("removes a title from one list without touching the others", async () => {
     const m = await import("./lists");
     const a = m.createList("A");

@@ -1,6 +1,9 @@
 # 009: Library: multiple lists, and a home for everything you've watched
 
-- **Status**: PLANNED. The visible half of 0.8.0 (plan 008 is the plumbing).
+- **Status**: IN PROGRESS. Phases 1 to 4 shipped (data layer + migration,
+  Library screen, list management, save affordance). Phase 5 (polish and
+  empty states) is what remains. The visible half of 0.8.0 (plan 008 is the
+  plumbing).
 - **Severity**: MEDIUM (feature, not a defect)
 - **Category**: Stream section / saved content
 - **Estimated scope**: new data layer + migration, one screen rebuilt with a
@@ -114,7 +117,10 @@ yes/no question has to change.
    language and the existing Card and RowScroller.
 3. **List management.** Create, rename, delete, set cover. Reuse the Live
    sidebar's portaled context-menu pattern rather than inventing one.
-4. **Save affordance.** Split button and picker on the detail screen.
+4. **Save affordance.** Split button and picker on the detail screen. The
+   main half saves to the default list; with the title already in exactly
+   one list it removes it, and in two or more it opens the picker rather
+   than wiping it out of all of them on one click.
 5. **Polish.** Empty states (no lists, empty list, empty history), the "+"
    card, and the reduced-motion pass on anything new.
 
