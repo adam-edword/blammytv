@@ -1526,3 +1526,44 @@
     transform: none;
   }
 }
+
+/* The in-app name field. Replaces window.prompt for creating and renaming
+ * lists: a native dialog is the one surface the app cannot style, and it
+ * interrupts exactly when someone is making something. */
+.library__heading-input,
+.library__new-input {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  padding: 6px 12px;
+  outline: none;
+}
+.library__heading-input {
+  font-size: clamp(20px, 2vw, 28px);
+  letter-spacing: -0.01em;
+  min-width: 12ch;
+}
+.library__new-input {
+  width: 100%;
+  font-size: 14px;
+  text-align: center;
+}
+/* While typing, the "+" card holds its grid slot so the row cannot reflow
+ * under the cursor mid-keystroke. */
+.library__new--editing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  border-style: solid;
+  border-color: var(--accent);
+  cursor: default;
+}
+/* Armed delete, same language as Settings' Clear All Login Info. */
+.library__action--armed {
+  border-color: var(--danger);
+  color: var(--danger-text);
+}

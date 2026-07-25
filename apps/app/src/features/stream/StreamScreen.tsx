@@ -10,13 +10,12 @@ import {
 } from "react";
 import { CheckIcon, ChevronIcon, CloseIcon, PlayIcon } from "../../ui/icons";
 import Tilt from "react-parallax-tilt";
+import { REDUCED_MOTION } from "../../lib/reducedMotion";
 
 // Fixed-at-mount OS motion preference (the Onboarding pattern): read ONCE at
 // module load — a useRef(initializer-arg) re-evaluated matchMedia on every
 // render of every Card.
-const REDUCED_MOTION = window.matchMedia(
-  "(prefers-reduced-motion: reduce)",
-).matches;
+
 import { createPortal } from "react-dom";
 import { isTauri, tauriSetFullscreen } from "../../lib/tauri";
 import { scrubbedMessage } from "../../lib/errors";

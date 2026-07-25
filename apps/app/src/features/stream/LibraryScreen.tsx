@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Tilt from "react-parallax-tilt";
 import { Card, ContinueCard, RowScroller } from "./StreamScreen";
+import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import {
   createList,
   deleteList,
@@ -117,35 +119,55 @@ export function LibraryScreen() {
   );
   const refresh = useCallback(() => setLists(loadLists()), []);
 
-  const newList = useCallback(() => {
-    const name = window.prompt("Name this list");
-    if (name?.trim()) {
-      createList(name);
-      refresh();
-    }
-  }, [refresh]);
+  // Naming happens IN the grid, not in a Chromium dialog: a native prompt
+  // is the one thing on screen the app cannot style, and it breaks the
+  // frame at exactly the moment the user is making something.
+  const [creating, setCreating] = useState(false);
+  const [renaming, setRenaming] = useState(false);
 
-  const rename = useCallback(
-    (l: UserList) => {
-      const name = window.prompt("Rename list", l.name);
-      if (name?.trim()) {
-        renameList(l.id, name);
+  const commitNew = useCallback(
+    (name: string) => {
+      setCreating(false);
+      if (name.trim()) {
+        createList(name);
         refresh();
       }
     },
     [refresh],
   );
 
+  const commitRename = useCallback(
+    (id: string, name: string) => {
+      setRenaming(false);
+      if (name.trim()) {
+        renameList(id, name);
+        refresh();
+      }
+    },
+    [refresh],
+  );
+
+  // Deleting takes two clicks and self-disarms, the same shape as Settings'
+  // Clear All Login Info. One pattern for destructive actions, and no
+  // native confirm.
+  const [delArmed, setDelArmed] = useState(false);
+  const delTimer = useRef(0);
+  useEffect(() => () => window.clearTimeout(delTimer.current), []);
   const remove = useCallback(
     (l: UserList) => {
-      if (!window.confirm(`Delete “${l.name}”? The titles in it are not
-deleted from anywhere else.`))
+      if (!delArmed) {
+        setDelArmed(true);
+        window.clearTimeout(delTimer.current);
+        delTimer.current = window.setTimeout(() => setDelArmed(false), 4000);
         return;
+      }
+      window.clearTimeout(delTimer.current);
+      setDelArmed(false);
       deleteList(l.id);
       setView({ at: "root" });
       refresh();
     },
-    [refresh],
+    [delArmed, refresh],
   );
 
   const pickCover = useCallback(
@@ -187,9 +209,18 @@ deleted from anywhere else.`))
           >
             ← Back
           </button>
-          <h2 className="library__heading">
-            {isHistory ? "Library" : list?.name}
-          </h2>
+          {!isHistory && list && renaming ? (
+            <NameField
+              initial={list.name}
+              onCommit={(v) => commitRename(list.id, v)}
+              onCancel={() => setRenaming(false)}
+              className="library__heading-input"
+            />
+          ) : (
+            <h2 className="library__heading">
+              {isHistory ? "Library" : list?.name}
+            </h2>
+          )}
           {!isHistory && list && (
             <div className="library__bar-actions">
               <button
@@ -202,16 +233,19 @@ deleted from anywhere else.`))
               <button
                 type="button"
                 className="library__action"
-                onClick={() => rename(list)}
+                onClick={() => setRenaming(true)}
               >
                 Rename
               </button>
               <button
                 type="button"
-                className="library__action library__action--danger"
+                className={
+                  "library__action library__action--danger" +
+                  (delArmed ? " library__action--armed" : "")
+                }
                 onClick={() => remove(list)}
               >
-                Delete
+                {delArmed ? "Click again to confirm" : "Delete"}
               </button>
             </div>
           )}
@@ -300,12 +334,28 @@ deleted from anywhere else.`))
               onOpen={() => setView({ at: "list", id: l.id })}
             />
           ))}
-          <button type="button" className="library__new" onClick={newList}>
-            <span className="library__new-plus" aria-hidden>
-              +
-            </span>
-            New list
-          </button>
+          {creating ? (
+            <div className="library__new library__new--editing">
+              <NameField
+                initial=""
+                placeholder="List name"
+                onCommit={commitNew}
+                onCancel={() => setCreating(false)}
+                className="library__new-input"
+              />
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="library__new"
+              onClick={() => setCreating(true)}
+            >
+              <span className="library__new-plus" aria-hidden>
+                +
+              </span>
+              New list
+            </button>
+          )}
         </div>
       </section>
     </div>
@@ -335,10 +385,22 @@ function ListCard({
       title={name}
       onClick={onOpen}
     >
-      {/* Same structure as a poster card so the grid reads as one object
-        * language. No Tilt: these are destinations, not titles, and the
-        * lean belongs to the thing you actually play. */}
-      <span className="stream-card__tilt library__cover">
+      {/* A poster card in every respect, lean and glare included: the grid
+        * reads as one object language, so a list should not feel like a
+        * different KIND of thing from the titles inside it. Props match
+        * Card exactly rather than being re-tuned here. */}
+      <Tilt
+        className="stream-card__tilt library__cover"
+        tiltEnable={!REDUCED_MOTION}
+        tiltMaxAngleX={5}
+        tiltMaxAngleY={5}
+        scale={REDUCED_MOTION ? 1 : 1.03}
+        transitionSpeed={650}
+        glareEnable={!REDUCED_MOTION}
+        glareMaxOpacity={0.12}
+        glarePosition="all"
+        glareBorderRadius="25px"
+      >
         {art && !broken ? (
           <img
             className="stream-card__poster"
@@ -351,11 +413,57 @@ function ListCard({
         ) : (
           <span className="stream-card__mono">{name.slice(0, 1)}</span>
         )}
-      </span>
+      </Tilt>
       <span className="stream-card__name">{name}</span>
       <span className="stream-card__meta">
         {count} {count === 1 ? "title" : "titles"}
       </span>
     </button>
+  );
+}
+
+/** A single-line name field that behaves the way people expect one to:
+ * focused and selected on appear, Enter commits, Escape cancels, and
+ * clicking away commits rather than silently discarding what was typed.
+ *
+ * Replaces window.prompt, which is the one surface in the app that cannot
+ * be styled and which breaks the frame at precisely the moment the user is
+ * making something. */
+function NameField({
+  initial,
+  placeholder,
+  onCommit,
+  onCancel,
+  className,
+}: {
+  initial: string;
+  placeholder?: string;
+  onCommit: (value: string) => void;
+  onCancel: () => void;
+  className?: string;
+}) {
+  const ref = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    ref.current?.focus();
+    ref.current?.select();
+  }, []);
+  return (
+    <input
+      ref={ref}
+      type="text"
+      className={className}
+      defaultValue={initial}
+      placeholder={placeholder}
+      maxLength={60}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") onCommit(e.currentTarget.value);
+        // Escape must not also close the modal/tab behind this field.
+        if (e.key === "Escape") {
+          e.stopPropagation();
+          onCancel();
+        }
+      }}
+      onBlur={(e) => onCommit(e.currentTarget.value)}
+    />
   );
 }
