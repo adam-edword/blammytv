@@ -487,8 +487,11 @@ export function TheaterOverlay({
     // re-applied on the next episode's fresh mpv instance.
     if (vodRef.current) {
       const t = tracksRef.current?.audio.find((a) => a.id === id);
-      if (t?.lang || t?.label)
-        rememberPlayback({ audioLang: t.lang || t.label });
+      // "" when the track names no language at all: that CLEARS the memory
+      // rather than leaving it. Skipping the write instead left the previous
+      // file's preference armed, so the next episode re-applied it straight
+      // over the choice the user had just made.
+      rememberPlayback({ audioLang: t?.lang || t?.label || "" });
     }
     setTracks(
       (prev) =>
@@ -505,8 +508,9 @@ export function TheaterOverlay({
       if (id === null) rememberPlayback({ subLang: "off" });
       else {
         const t = tracksRef.current?.subs.find((x) => x.id === id);
-        if (t?.lang || t?.label)
-          rememberPlayback({ subLang: t.lang || t.label });
+        // "" clears, same reason as chooseAudio: a nameless pick must not
+        // leave the previous file's preference armed to override it.
+        rememberPlayback({ subLang: t?.lang || t?.label || "" });
       }
     }
     setTracks(

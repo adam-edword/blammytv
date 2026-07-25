@@ -56,7 +56,62 @@ The client rule is one line: **apply the hot bundle only when
 through to the native channel. That makes a frontend bundle that assumes a
 new Rust command structurally unable to land on an app that lacks it.
 
-## Phase 0: the decision gate (do this FIRST, alone)
+## Phase 0: the decision gate — ANSWERED 2026-07-24, and it is option 1
+
+**Verdict: YES. Tauri exposes exactly the hook we need, and the origin
+never changes. Option (1) below is live; options (2) and (3) are dead and
+kept only so nobody re-litigates them.**
+
+Verified against the vendored source of the pinned version
+(`tauri-2.11.3`, from the local cargo registry, not from memory):
+
+- `tauri::Context::set_assets(Box<dyn Assets<R>>) -> Box<dyn Assets<R>>`
+  (`tauri/src/lib.rs:423`) swaps the asset provider and **returns the
+  previous one**. Its own doc comment says: *"Replace the [`Assets`]
+  implementation and returns the previous value so you can use it as a
+  fallback if desired."* That is precisely this feature.
+- `pub trait Assets<R>` (`tauri/src/lib.rs:313`) is public and small:
+  `get(&AssetKey) -> Option<Cow<'_, [u8]>>`, `iter()`, `csp_hashes()`,
+  plus a defaulted `setup()`.
+- The request path resolves through it (`tauri/src/manager/mod.rs:411+`
+  calls `assets.get(...)`), so replacing the provider changes only WHERE
+  the bytes come from. The scheme, host and therefore the **origin are
+  untouched**, which means localStorage and IndexedDB are untouched. No
+  migration, and none of the credential/license risk that made options 2
+  and 3 expensive.
+
+Integration point is `lib.rs:776`, `.run(tauri::generate_context!())`.
+Because `set_assets` hands back the old provider, taking ownership of the
+embedded one needs a two-step swap:
+
+```rust
+let mut ctx = tauri::generate_context!();
+let embedded = ctx.set_assets(Box::new(NoAssets));         // take it out
+ctx.set_assets(Box::new(StagedAssets::new(dir, embedded))); // wrap it back
+```
+
+`StagedAssets::get` tries the staged directory first and delegates to
+`embedded` on any miss, so a partial bundle degrades to the built-in file
+rather than a blank screen. `setup()` and `iter()` delegate too.
+
+Three things this turned up that the rest of the plan must respect:
+
+- **CSP and this feature are on a collision course.** `csp_hashes()` is
+  computed at BUILD time for the embedded HTML. Tightening CSP is a 1.0
+  gate; if it lands as hash-based, a staged `index.html` can never satisfy
+  hashes generated for a different build. Decide CSP as nonce-based or
+  hash-free, or ship hashes inside the bundle manifest. **Do not let the
+  CSP work happen without reading this.**
+- **Dev mode never exercises this path.** `is_dev()` serves from `devUrl`,
+  so assets are only consulted in release builds. Testing the hot channel
+  requires a real `pnpm tauri build`, not `tauri dev`.
+- `get` returns `Cow<'_, [u8]>` borrowed from `&self`; file reads are owned
+  data, so `Cow::Owned` is the return, which is fine. Reading from disk per
+  request is acceptable for a handful of files (OS page cache), and can be
+  memoised later if it ever shows up in a profile.
+
+<details>
+<summary>Original framing of the question, kept for context</summary>
 
 **Question: can the app serve its frontend from disk without changing the
 page's ORIGIN?**
@@ -98,6 +153,10 @@ Three candidate answers, in order of preference:
 **Do not write any of Phase 1+ until Phase 0 has an answer.** If the answer
 is (2) or (3), stop and re-plan: the cost profile changes completely and
 this may no longer be the right thing to build next.
+
+</details>
+
+**Gate result: option (1) confirmed. Phase 1+ is unblocked.**
 
 ## Phase 1: verified staging (Rust)
 

@@ -37,10 +37,63 @@ export function rememberPlayback(patch: Partial<PlaybackPrefs>): void {
   save(KEY, VERSION, { ...loadPlaybackPrefs(), ...patch });
 }
 
-/** ISO-ish language normalization: "eng" / "en" / "en-US" all agree.
- * Conservative — an empty/unknown lang never matches anything. */
+/** Language NAMES as providers write them, mapped to the same codes. A
+ * remux often ships tracks with an empty `lang` and only a human label
+ * ("English SDH", "Japanese (FLAC 2.0)"), so a pick on one file was stored
+ * as a name and could never match the next file's `eng`. Normalizing both
+ * sides to one key is what makes a remembered choice survive an episode
+ * boundary on those files. */
+const NAMES: Record<string, string> = {
+  english: "en",
+  japanese: "ja",
+  spanish: "es",
+  castilian: "es",
+  french: "fr",
+  german: "de",
+  italian: "it",
+  portuguese: "pt",
+  brazilian: "pt",
+  russian: "ru",
+  korean: "ko",
+  chinese: "zh",
+  mandarin: "zh",
+  cantonese: "zh",
+  dutch: "nl",
+  polish: "pl",
+  turkish: "tr",
+  arabic: "ar",
+  hindi: "hi",
+  swedish: "sv",
+  norwegian: "no",
+  danish: "da",
+  finnish: "fi",
+  czech: "cs",
+  greek: "el",
+  hebrew: "he",
+  thai: "th",
+  vietnamese: "vi",
+  indonesian: "id",
+  ukrainian: "uk",
+  romanian: "ro",
+  hungarian: "hu",
+};
+
+/** ISO-ish language normalization: "eng", "en", "en-US", and "English SDH"
+ * all agree. Conservative: an empty or unrecognized value never matches
+ * anything, so a wrong guess can't hijack a track the user didn't pick. */
 function langKey(s: string): string {
-  const base = s.trim().toLowerCase().split(/[-_]/)[0];
+  // Labels carry decoration the language never does: "English (AC3 5.1)",
+  // "Japanese [Dub]", "Spanish - Latin America". Take the leading word and
+  // let the tables below decide whether it means anything.
+  const head = s
+    .trim()
+    .toLowerCase()
+    .replace(/[([].*$/, "")
+    .split(/[-_,/|]/)[0]
+    .trim()
+    .split(/\s+/)[0];
+  if (!head) return "";
+  if (NAMES[head]) return NAMES[head];
   // Two- and three-letter codes for the same language share a prefix in
   // practice (en/eng, ja/jpn is the exception handled by the alias map).
   const ALIAS: Record<string, string> = {
@@ -57,8 +110,15 @@ function langKey(s: string): string {
     chi: "zh",
     zho: "zh",
   };
-  if (ALIAS[base]) return ALIAS[base];
-  return base.length === 3 ? base.slice(0, 2) : base;
+  if (ALIAS[head]) return ALIAS[head];
+  // Only code-shaped leftovers are keys. A stray word ("commentary",
+  // "forced") must NOT become a matchable key, or it would collide with
+  // the same word on an unrelated track.
+  return head.length === 2 || head.length === 3
+    ? head.length === 3
+      ? head.slice(0, 2)
+      : head
+    : "";
 }
 
 /** The track matching a remembered language, if any. Lang field first,
