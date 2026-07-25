@@ -45,6 +45,14 @@ tauri-plugin-opener = "2"
 # Accept-Encoding and transparently decodes only when these features are on.
 reqwest = { version = "0.12", default-features = false, features = ["native-tls", "gzip", "brotli", "deflate"] }
 libloading = "0.8"
+# All three are ALREADY compiled into the tree via tauri-plugin-updater, so
+# these direct deps cost no new download. frontend.rs verifies a staged
+# bundle with the same minisign key as the installer, then unpacks tar.gz
+# (zip is NOT in the tree; these are).
+minisign-verify = "0.2"
+base64 = "0.22"
+tar = "0.4"
+flate2 = "1"
 
 # Native child-window plumbing for the inverted player (inv.rs): create the
 # mpv child HWND and pin it to the bottom of the z-order. Already in the tree

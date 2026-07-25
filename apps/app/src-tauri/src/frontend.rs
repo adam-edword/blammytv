@@ -236,3 +236,232 @@ impl<R: Runtime> Assets<R> for StagedAssets<R> {
         self.embedded.setup(app);
     }
 }
+
+// ---------------------------------------------------------------- install
+
+/// Verify and stage a downloaded bundle (plan 008, phase 1b).
+///
+/// Order matters and is the whole security property: the signature is
+/// checked against the SAME key as the installer BEFORE a single byte is
+/// unpacked, and the new version is assembled in a temp directory that only
+/// becomes active once it is complete. Nothing here can damage the running
+/// frontend, because nothing writes over it.
+///
+/// `pubkey_b64` is the value already in tauri.conf.json (base64 of a
+/// minisign public-key FILE, so it carries an untrusted-comment line that
+/// has to be skipped). `sig_b64` is the .sig file's contents, same shape as
+/// the ones the release drill already verifies by hand.
+fn verify(pubkey_b64: &str, sig_b64: &str, bytes: &[u8]) -> Result<(), String> {
+    use base64::Engine;
+    let b64 = base64::engine::general_purpose::STANDARD;
+    let key_file = b64
+        .decode(pubkey_b64.trim())
+        .map_err(|_| "public key is not valid base64".to_string())?;
+    let key_txt =
+        String::from_utf8(key_file).map_err(|_| "public key is not text".to_string())?;
+    // minisign key files are: untrusted comment line, then the key.
+    let key_line = key_txt
+        .lines()
+        .nth(1)
+        .ok_or_else(|| "public key has no key line".to_string())?;
+    let pk = minisign_verify::PublicKey::from_base64(key_line.trim())
+        .map_err(|e| format!("bad public key: {e}"))?;
+
+    let sig_file = b64
+        .decode(sig_b64.trim())
+        .map_err(|_| "signature is not valid base64".to_string())?;
+    let sig_txt =
+        String::from_utf8(sig_file).map_err(|_| "signature is not text".to_string())?;
+    let sig = minisign_verify::Signature::decode(&sig_txt)
+        .map_err(|e| format!("bad signature: {e}"))?;
+
+    pk.verify(bytes, &sig, false)
+        .map_err(|_| "signature does not match this bundle".to_string())
+}
+
+/// Unpack a verified tar.gz into `dir`, refusing any entry that escapes it.
+///
+/// A tar can name `../../anything`; this is the one place that matters, so
+/// every path is checked component by component rather than trusting the
+/// archive or the extractor.
+fn unpack(bytes: &[u8], dir: &Path) -> Result<(), String> {
+    let mut archive = tar::Archive::new(flate2::read::GzDecoder::new(bytes));
+    let entries = archive.entries().map_err(|e| e.to_string())?;
+    for entry in entries {
+        let mut entry = entry.map_err(|e| e.to_string())?;
+        let path = entry.path().map_err(|e| e.to_string())?.into_owned();
+        if path
+            .components()
+            .any(|c| !matches!(c, std::path::Component::Normal(_)))
+        {
+            return Err(format!("archive entry escapes its directory: {path:?}"));
+        }
+        let out = dir.join(&path);
+        if let Some(parent) = out.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+        entry.unpack(&out).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// Stage a bundle so the NEXT resolve() serves it.
+///
+/// Deliberately does not touch the running frontend: it stages and points,
+/// and phase 3 owns when that pointer is acted on. Refuses a quarantined
+/// version outright, so a bundle that already failed to boot cannot be
+/// re-downloaded into the same failure on a loop.
+pub fn stage(version: &str, pubkey_b64: &str, sig_b64: &str, bytes: &[u8]) -> Result<(), String> {
+    if version.is_empty()
+        || version
+            .contains(|c: char| !c.is_ascii_alphanumeric() && c != '.' && c != '-')
+    {
+        return Err("refusing an unreasonable version string".into());
+    }
+    let root = root().ok_or_else(|| "no data directory".to_string())?;
+    let mut active = read_active(&root);
+    if active.quarantined.contains(&version.to_string()) {
+        return Err(format!("{version} previously failed to boot"));
+    }
+
+    verify(pubkey_b64, sig_b64, bytes)?;
+
+    // Assemble beside the target, then swap in. A half-unpacked directory
+    // must never be reachable by resolve().
+    let staging = root.join(format!(".incoming-{version}"));
+    let _ = std::fs::remove_dir_all(&staging);
+    std::fs::create_dir_all(&staging).map_err(|e| e.to_string())?;
+    if let Err(e) = unpack(bytes, &staging) {
+        let _ = std::fs::remove_dir_all(&staging);
+        return Err(e);
+    }
+    if !staging.join("index.html").is_file() {
+        let _ = std::fs::remove_dir_all(&staging);
+        return Err("bundle has no index.html".into());
+    }
+
+    let dest = root.join(version);
+    let _ = std::fs::remove_dir_all(&dest);
+    std::fs::rename(&staging, &dest).map_err(|e| e.to_string())?;
+
+    // Point at it. `previous` is only advanced by frontend_ready, so the
+    // fallback stays the last version KNOWN to boot, not merely the last
+    // one installed.
+    active.version = version.to_string();
+    write_active(&root, &active);
+
+    // Keep the active one and the known-good fallback; sweep the rest.
+    if let Ok(rd) = std::fs::read_dir(&root) {
+        for e in rd.flatten() {
+            let name = e.file_name().to_string_lossy().to_string();
+            let keep = name == active.version || name == active.previous || name == ACTIVE || name == SENTINEL;
+            if !keep && e.path().is_dir() {
+                let _ = std::fs::remove_dir_all(e.path());
+            }
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    /// Build a tar.gz in memory with the given (path, contents) entries.
+    fn targz(files: &[(&str, &[u8])]) -> Vec<u8> {
+        let mut tar = tar::Builder::new(Vec::new());
+        for (name, body) in files {
+            let mut h = tar::Header::new_gnu();
+            h.set_size(body.len() as u64);
+            h.set_mode(0o644);
+            h.set_cksum();
+            tar.append_data(&mut h, name, *body).unwrap();
+        }
+        let raw = tar.into_inner().unwrap();
+        let mut gz = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
+        gz.write_all(&raw).unwrap();
+        gz.finish().unwrap()
+    }
+
+    /// A tar entry whose NAME is written straight into the header, bypassing
+    /// the builder's own validation.
+    ///
+    /// `Builder::append_data` refuses a non-relative path outright ("paths in
+    /// archives must be relative"), so it cannot produce the archive this
+    /// test needs. That is a property of the writer, not of tar: a hostile
+    /// archive built by anything else can and does carry `../` entries, which
+    /// is exactly why `unpack` checks every component itself.
+    fn targz_named(name: &str, body: &[u8]) -> Vec<u8> {
+        let mut h = tar::Header::new_gnu();
+        {
+            let raw = h.as_gnu_mut().unwrap();
+            let bytes = name.as_bytes();
+            raw.name[..bytes.len()].copy_from_slice(bytes);
+        }
+        h.set_size(body.len() as u64);
+        h.set_mode(0o644);
+        h.set_cksum();
+        let mut tar = tar::Builder::new(Vec::new());
+        tar.append(&h, body).unwrap();
+        let raw = tar.into_inner().unwrap();
+        let mut gz = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
+        gz.write_all(&raw).unwrap();
+        gz.finish().unwrap()
+    }
+
+    fn tmpdir(tag: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("blammytv-test-{tag}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    #[test]
+    fn unpacks_a_normal_bundle() {
+        let dir = tmpdir("ok");
+        let gz = targz(&[("index.html", b"<html>" as &[u8]), ("assets/app.js", b"x")]);
+        unpack(&gz, &dir).unwrap();
+        assert!(dir.join("index.html").is_file());
+        assert!(dir.join("assets/app.js").is_file());
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// The one that matters. A tar can name anything it likes, including a
+    /// path that climbs out of the directory it is being unpacked into.
+    #[test]
+    fn refuses_an_entry_that_escapes_the_directory() {
+        let dir = tmpdir("escape");
+        let gz = targz_named("../escaped.txt", b"nope");
+        let err = unpack(&gz, &dir).unwrap_err();
+        assert!(err.contains("escapes"), "unexpected error: {err}");
+        assert!(!dir.parent().unwrap().join("escaped.txt").exists());
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn refuses_an_absolute_entry() {
+        let dir = tmpdir("abs");
+        let gz = targz_named("/tmp/blammytv-absolute-escape", b"nope");
+        assert!(unpack(&gz, &dir).is_err());
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// A version string becomes a DIRECTORY NAME, so it is path input.
+    #[test]
+    fn refuses_a_version_that_is_not_a_version() {
+        for bad in ["", "../evil", "a/b", "1.0;rm", "..\\evil"] {
+            assert!(
+                stage(bad, "x", "y", b"z").is_err(),
+                "accepted a bad version: {bad:?}"
+            );
+        }
+    }
+
+    /// Corrupt signatures must be rejected before anything is unpacked.
+    #[test]
+    fn rejects_a_bundle_whose_signature_does_not_verify() {
+        let err = verify("bm90LWEta2V5", "bm90LWEtc2ln", b"payload").unwrap_err();
+        assert!(!err.is_empty());
+    }
+}

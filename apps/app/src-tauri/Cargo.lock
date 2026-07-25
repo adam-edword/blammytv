@@ -79,11 +79,15 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 name = "app"
 version = "0.7.11"
 dependencies = [
+ "base64 0.22.1",
+ "flate2",
  "libloading 0.8.9",
  "log",
+ "minisign-verify",
  "reqwest 0.12.28",
  "serde",
  "serde_json",
+ "tar",
  "tauri",
  "tauri-build",
  "tauri-plugin-log",
