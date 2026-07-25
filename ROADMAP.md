@@ -630,7 +630,24 @@ DECOMPRESSED size and there is no transfer win sitting there. The disk
 cache is confirmed working too (HIT, 7ms writes), so this is a
 once-per-8-hours cost rather than per launch.
 
-## Next (queued, unowned: fork a fresh branch off main)
+## 0.8.0 scope (SET by Adam 2026-07-24, branch `blammytv-0.8.0-push`)
+
+Headline is the Library work; everything else is supporting. Framed that
+way deliberately: 0.7.11 was a fix train with no feature, and a release
+needs something a user can point at.
+
+| Item | Plan | Notes |
+| --- | --- | --- |
+| **Library: multiple lists + watch history** | 009 | THE feature. Tab renamed Library, Discover-shaped layout, CW row on top, lists grid below, built-in uncapped Library card. |
+| Two-tier updates | 008 | Plumbing. Invisible to users except that later updates stop being 35MB installers. |
+| Per-show playback prefs | - | Today one global preference, so an anime and a Western show fight over it. Real but small data-model change. |
+| Favorites drag-to-reorder in the guide | - | Data layer shipped v0.1.133 (`reorderFavorite`); only the UI is left. **NOT a quick win**: the guide grid is virtualized and carries the pinned-cell scars, which is exactly why this was deferred the first time. |
+| `mpv_frost` downgrade fix | - | Genuinely small. Opening Settings mid-tune reads `current-vo` before the video exists, so the modal loses its glass for that whole session. Re-arm on presenting. |
+
+**Cut from 0.8.0:** the Sports tab (no design exists yet; it stays a 1.0
+gate).
+
+## Next after 0.8.0 (queued, unowned)
 
 - **0.8.0 needs a headline.** 0.7.11 was deliberately a PATCH: a fix train
   with no feature, where the previous two minors each had one. Two-tier
