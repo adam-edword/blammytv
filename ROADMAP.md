@@ -704,8 +704,32 @@ gate).
   window; truly silent because we install per-user (no UAC). Rust-touching
   updates always require the exit-install-relaunch cycle: Windows locks a
   running exe; the hot channel is how MOST updates stop needing it.
-- **1.0 gates unchanged:** My List multi-lists, Sports tab in Live TV,
-  paid themes shipped, Windows code signing, CSP.
+- **Third-party tracking sync (Trakt et al), 0.9/1.0 candidate (Adam asked
+  2026-07-24, deliberately NOT in 0.8).** The question was whether to design
+  for it now so the Library does not have to be reshaped later. Checked, and
+  **the expensive part is already done by accident**: item ids are
+  Stremio-convention IMDB ids (`tt2560140`), so every ListEntry and
+  WatchEntry ever stored is already keyed by the identifier Trakt, Simkl,
+  TMDB and MAL all accept or map from. Retrofitting external ids into
+  records users saved months ago is the one thing that would be impossible
+  later, and it is a non-issue. Supporting evidence: aniskip already
+  resolves IMDB → MAL for skip timings, WatchEntry already carries
+  season/episode/position (which is a scrobble payload), and `UserList.id`
+  is stable and independent of the name, so a `remoteId` can be added
+  without disturbing anything. **So there is nothing to do in the data
+  model, and no reason to rush it.** What remains is a feature comparable in
+  size to the Library itself: OAuth device flow plus token storage/refresh
+  (a token is a credential), rate limits, offline queueing, and the actually
+  hard part, two-way conflict resolution (a title local-but-removed-remotely
+  has no obviously correct winner). Trakt first if any: it is the default in
+  the Stremio/Kodi world and its device-code flow needs no redirect URI,
+  which suits a desktop app. Simkl is the near-equivalent with better anime
+  coverage. Cheap special case worth remembering: anime-only scrobbling to
+  MAL/AniList would be unusually inexpensive given the MAL resolution
+  already in the tree.
+- **1.0 gates:** Sports tab in Live TV, paid themes shipped, Windows code
+  signing, CSP. (My List multi-lists moves OUT of this list: it is the 0.8.0
+  headline, see plan 009.)
 
 **Live-tab accessibility pass: LANDED (v0.1.98).** The batch from the v0.1.71
 audit: keyboard-operable channel-column resize separator (`role=separator` +
