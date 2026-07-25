@@ -125,3 +125,50 @@ describe("matchTrack across label-only tracks", () => {
     expect(matchTrack([track(1, "eng")], "")).toBeUndefined();
   });
 });
+
+describe("per-show prefs", () => {
+  beforeEach(() => store.clear());
+
+  it("keeps two shows from fighting over one answer", () => {
+    // The case this exists for: an anime wants Japanese audio, a Western
+    // show wants English, and one global answer means whichever you touched
+    // last wins on both.
+    rememberPlayback({ audioLang: "jpn", subLang: "eng" }, "tt-anime");
+    rememberPlayback({ audioLang: "eng", subLang: "off" }, "tt-western");
+    expect(loadPlaybackPrefs("tt-anime")).toMatchObject({
+      audioLang: "jpn",
+      subLang: "eng",
+    });
+    expect(loadPlaybackPrefs("tt-western")).toMatchObject({
+      audioLang: "eng",
+      subLang: "off",
+    });
+  });
+
+  it("falls back to the global answer for a show never touched", () => {
+    rememberPlayback({ subLang: "eng" }, "tt-known");
+    // A brand new show inherits the usual answer rather than nothing.
+    expect(loadPlaybackPrefs("tt-new").subLang).toBe("eng");
+  });
+
+  it("keeps volume and mute global, never per-show", () => {
+    rememberPlayback({ volume: 0.2, muted: true }, "tt-a");
+    // Device-level: the room you are in, not the thing you are watching.
+    expect(loadPlaybackPrefs("tt-b").volume).toBe(0.2);
+    expect(loadPlaybackPrefs().volume).toBe(0.2);
+  });
+
+  it("does not write a show record for a volume-only change", () => {
+    rememberPlayback({ volume: 0.5 }, "tt-a");
+    expect(store.get("blammytv.playbackPrefsByShow")).toBeUndefined();
+  });
+
+  it("evicts least-recently-set shows past the cap", () => {
+    for (let i = 0; i < 130; i++)
+      rememberPlayback({ subLang: `l${i}` }, `tt-${i}`);
+    // The oldest are gone (falling back to global), the newest survive.
+    expect(loadPlaybackPrefs("tt-129").subLang).toBe("l129");
+    const raw = store.get("blammytv.playbackPrefsByShow")!;
+    expect(Object.keys(JSON.parse(raw).data.byId).length).toBeLessThanOrEqual(120);
+  });
+});

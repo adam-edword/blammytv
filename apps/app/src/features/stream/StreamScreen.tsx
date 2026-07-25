@@ -1095,6 +1095,7 @@ export function StreamScreen() {
               // Same reason: the overlay keys its watchdog/track/prefs
               // resets on this, and a retry IS a new stream.
               playbackKey={streamKey}
+              showId={playing.item.id}
               vod
             />,
             chromeHostRef.current,

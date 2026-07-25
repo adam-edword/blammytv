@@ -99,9 +99,15 @@ function fmtClock(s: number): string {
 export function TheaterOverlay({
   frame,
   playbackKey,
+  showId,
   vod: vodProp,
 }: {
   frame?: OverlayFrame;
+  /** VOD only: the TITLE this playback belongs to, so track and speed
+   * choices are remembered per show rather than as one global answer that
+   * an anime and a Western show fight over. Absent = global only, which is
+   * what live TV wants. */
+  showId?: string;
   /** Inline mode: changes when the stream does. The overlay webview was
    * rebuilt per channel, so its state reset for free — inline, the same
    * component instance survives the switch and must resync itself. */
@@ -251,7 +257,7 @@ export function TheaterOverlay({
   const pickSpeed = useCallback((sp: number) => {
     setSpeed(sp);
     api()?.setSpeed?.(sp);
-    if (vodRef.current) rememberPlayback({ speed: sp });
+    if (vodRef.current) rememberPlayback({ speed: sp }, showRef.current);
     setMenu(null);
   }, []);
   // Scrub-in-progress fraction (0..1); null = not scrubbing. While held,
@@ -479,6 +485,9 @@ export function TheaterOverlay({
   // let the 500ms mpv_status poll confirm (it re-pushes when mpv's `selected`
   // flags change, which also corrects us if mpv rejected the switch).
   const vodRef = useRef(false); // mirrors `vod` for the stable callbacks
+  // Read through a ref: the choose* callbacks are deliberately stable.
+  const showRef = useRef(showId);
+  showRef.current = showId;
   const tracksRef = useRef<Tracks | null>(null);
   tracksRef.current = tracks;
   const chooseAudio = useCallback((id: number) => {
@@ -491,7 +500,7 @@ export function TheaterOverlay({
       // rather than leaving it. Skipping the write instead left the previous
       // file's preference armed, so the next episode re-applied it straight
       // over the choice the user had just made.
-      rememberPlayback({ audioLang: t?.lang || t?.label || "" });
+      rememberPlayback({ audioLang: t?.lang || t?.label || "" }, showRef.current);
     }
     setTracks(
       (prev) =>
@@ -505,12 +514,12 @@ export function TheaterOverlay({
   const chooseSub = useCallback((id: number | null) => {
     api()?.selectSub?.(id === null ? "no" : id);
     if (vodRef.current) {
-      if (id === null) rememberPlayback({ subLang: "off" });
+      if (id === null) rememberPlayback({ subLang: "off" }, showRef.current);
       else {
         const t = tracksRef.current?.subs.find((x) => x.id === id);
         // "" clears, same reason as chooseAudio: a nameless pick must not
         // leave the previous file's preference armed to override it.
-        rememberPlayback({ subLang: t?.lang || t?.label || "" });
+        rememberPlayback({ subLang: t?.lang || t?.label || "" }, showRef.current);
       }
     }
     setTracks(
@@ -634,7 +643,7 @@ export function TheaterOverlay({
     }
     const done = appliedRef.current;
     if (done.audio && done.sub && done.speed) return;
-    const prefs = loadPlaybackPrefs();
+    const prefs = loadPlaybackPrefs(showRef.current);
     if (!done.audio && tracks.audio.length > 0) {
       done.audio = true;
       if (prefs.audioLang) {

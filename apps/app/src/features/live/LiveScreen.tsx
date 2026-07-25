@@ -888,10 +888,16 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   // pure uniform update, rAF-throttled — no reloads, no stale rects. The
   // rect hugs the card exactly (no pad), so the frost never halos.
   useEffect(() => {
-    if (!modalOpen || !INV || !playUrlRef.current) return;
+    if (!modalOpen || !INV || !playUrlRef.current || !videoReady) return;
     // data-frost signals capability to CSS: "0" downgrades the settings
     // card to a solid background (glass over un-frostable live video is
     // unreadable). Absent = normal glass (no video, or frost active).
+    //
+    // Gated on videoReady, and in the deps below, because `current-vo` is
+    // UNSET until mpv has a video output. Asking during a tune therefore
+    // answered "cannot frost" for a player that frosts perfectly well, and
+    // nothing re-asked: opening Settings while a channel buffered downgraded
+    // that whole modal session to a solid card.
     void tauriMpvFrost(true)
       .then((ok) => {
         document.documentElement.dataset.frost = ok ? "1" : "0";
@@ -930,7 +936,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
       delete document.documentElement.dataset.frost;
       void tauriMpvFrost(false).catch(() => {});
     };
-  }, [modalOpen]);
+  }, [modalOpen, videoReady]);
 
   return (
     <div
