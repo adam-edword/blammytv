@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Tilt from "react-parallax-tilt";
 import { Card, ContinueCard, RowScroller } from "./StreamScreen";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
+import { useMouseNav } from "../../lib/mouseNav";
 import {
   createList,
   deleteList,
@@ -113,6 +114,26 @@ export function LibraryScreen() {
     [watching],
   );
 
+  // Back/forward over the two view levels. Same rule Stream follows: the
+  // committed view is mirrored in a ref rather than read inside a setView
+  // updater, because StrictMode double-invokes updaters and a side effect
+  // in there runs twice.
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  const lastListRef = useRef<string | null>(null);
+  const goBack = useCallback(() => {
+    const v = viewRef.current;
+    if (v.at === "root") return;
+    lastListRef.current = v.id;
+    setView({ at: "root" });
+  }, []);
+  const goForward = useCallback(() => {
+    if (viewRef.current.at !== "root") return;
+    const id = lastListRef.current;
+    if (id) setView({ at: "list", id });
+  }, []);
+  useMouseNav(goBack, goForward);
+
   const openItem = useCallback(
     (item: VodItem) => requestOpenInStream(item, "mylist"),
     [],
@@ -164,6 +185,8 @@ export function LibraryScreen() {
       window.clearTimeout(delTimer.current);
       setDelArmed(false);
       deleteList(l.id);
+      // Nothing to go forward to: the list this would return to is gone.
+      lastListRef.current = null;
       setView({ at: "root" });
       refresh();
     },
@@ -202,11 +225,7 @@ export function LibraryScreen() {
     return (
       <div className="discover library">
         <div className="library__bar">
-          <button
-            type="button"
-            className="vod-back"
-            onClick={() => setView({ at: "root" })}
-          >
+          <button type="button" className="vod-back" onClick={goBack}>
             ← Back
           </button>
           {!isHistory && list && renaming ? (

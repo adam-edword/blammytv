@@ -158,28 +158,6 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
         </section>
       )}
 
-      {/* Reset Appearance stays with the things it resets. Updates, Replay
-        * Onboarding and Clear All Login Info moved to General: they are app
-        * management, not personalization. */}
-      <section className="settings-section">
-        <div className="danger-zone">
-          <h3 className="danger-zone__title">Danger Zone</h3>
-              <div className="customize-row">
-                <div>
-                  <h4 className="customize-row__title">Reset Appearance</h4>
-                  <p className="settings__section-note settings__section-note--dim">
-                    Accent, theme, corners, scale, and clock back to
-                    defaults.
-                  </p>
-                </div>
-                <button type="button" className="btn-danger" onClick={reset}>
-                  Reset
-                </button>
-              </div>
-
-        </div>
-      </section>
-
       {(
         <section className="settings-section">
           {/* Light/Dark now lives in the Themes panel (Theme Style pill). */}
@@ -212,6 +190,27 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
           </div>
         </section>
       )}
+
+      {/* Danger Zone is always the last section in a tab. Reset Appearance
+        * stays here with the things it resets. Updates, Replay Onboarding and
+        * Clear All Login Info moved to General: app management, not
+        * personalization. */}
+      <section className="settings-section">
+        <div className="danger-zone">
+          <h3 className="danger-zone__title">Danger Zone</h3>
+          <div className="customize-row">
+            <div>
+              <h4 className="customize-row__title">Reset Appearance</h4>
+              <p className="settings__section-note settings__section-note--dim">
+                Accent, theme, corners, scale, and clock back to defaults.
+              </p>
+            </div>
+            <button type="button" className="btn-danger" onClick={reset}>
+              Reset
+            </button>
+          </div>
+        </div>
+      </section>
     </>
   );
 }

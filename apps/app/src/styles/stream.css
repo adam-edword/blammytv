@@ -1411,7 +1411,18 @@
   align-items: center;
   gap: 14px;
   flex-wrap: wrap;
-  margin-bottom: 18px;
+  /* Clear of the floating header: the Discover page shape this borrows
+   * pads for the header, but the bar is the first thing in it and was
+   * sitting right against that boundary. */
+  margin: 10px 0 22px;
+}
+/* .vod-back is ABSOLUTE by design on the detail screens (v0.6.26 pinned it
+ * so source and episodes share one spot). Reused inside this flex row it
+ * left the flow entirely and landed on top of the heading. Put it back in
+ * line here; the detail screens keep their pinned version. */
+.library__bar .vod-back {
+  position: static;
+  flex-shrink: 0;
 }
 .library__heading {
   margin: 0;

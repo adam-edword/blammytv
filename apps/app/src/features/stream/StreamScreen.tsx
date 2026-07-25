@@ -11,6 +11,7 @@ import {
 import { CheckIcon, ChevronIcon, CloseIcon, PlayIcon } from "../../ui/icons";
 import Tilt from "react-parallax-tilt";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
+import { useMouseNav } from "../../lib/mouseNav";
 
 // Fixed-at-mount OS motion preference (the Onboarding pattern): read ONCE at
 // module load — a useRef(initializer-arg) re-evaluated matchMedia on every
@@ -281,22 +282,7 @@ export function StreamScreen() {
     backStack.current.push(viewRef.current);
     setView(next);
   }, []);
-  useEffect(() => {
-    if (playing) return;
-    // MouseEvent.button: 3 = back (mouse 4), 4 = forward (mouse 5).
-    // preventDefault on BOTH phases or WebView2 walks its own history.
-    const onButton = (e: MouseEvent) => {
-      if (e.button !== 3 && e.button !== 4) return;
-      e.preventDefault();
-      if (e.type === "mouseup") (e.button === 3 ? goBack : goForward)();
-    };
-    window.addEventListener("mousedown", onButton);
-    window.addEventListener("mouseup", onButton);
-    return () => {
-      window.removeEventListener("mousedown", onButton);
-      window.removeEventListener("mouseup", onButton);
-    };
-  }, [playing, goBack, goForward]);
+  useMouseNav(goBack, goForward, !playing);
 
   // Whether the CURRENT detail's full-meta resolve settled — Detail's
   // episodes area turns "Loading episodes…" into the truth ("couldn't
