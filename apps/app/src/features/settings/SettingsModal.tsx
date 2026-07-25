@@ -6,13 +6,29 @@ import { ChipTabs } from "../../ui/ChipTabs";
 import { PlaylistsTab } from "./PlaylistsTab";
 import { AioStreamsTab } from "./AioStreamsTab";
 import { CustomizeTab } from "./CustomizeTab";
+import { GeneralTab } from "./GeneralTab";
 
-type SettingsTab = "playlists" | "aiostreams" | "customize";
+/**
+ * Three questions, one tab each: where content comes from (Media), how the
+ * app behaves and is managed (General), and how it looks (Customize).
+ *
+ * The old rail was Playlists / AIOStreams / Customize, which asked the user
+ * to know that "the place your app updates live" was under Customize, next
+ * to accent colours. Media groups the two source screens behind one heading
+ * and keeps their own tabs one level down.
+ */
+type SettingsTab = "media" | "general" | "customize";
+type MediaTab = "playlists" | "aiostreams";
 
 const TABS: Array<{ key: SettingsTab; label: string }> = [
+  { key: "media", label: "Media" },
+  { key: "general", label: "General" },
+  { key: "customize", label: "Customize" },
+];
+
+const MEDIA_TABS: Array<{ key: MediaTab; label: string }> = [
   { key: "playlists", label: "Playlists" },
   { key: "aiostreams", label: "AIOStreams" },
-  { key: "customize", label: "Customize" },
 ];
 
 /** The floating settings card from the redesign: title left, chip-tab rail
@@ -26,7 +42,10 @@ export function SettingsModal({
   onClose: () => void;
   onOpenThemes: () => void;
 }) {
-  const [tab, setTab] = useState<SettingsTab>("playlists");
+  const [tab, setTab] = useState<SettingsTab>("media");
+  // Ephemeral, like Customize's old inner rail: Media always opens on
+  // Playlists rather than remembering where you were last time.
+  const [media, setMedia] = useState<MediaTab>("playlists");
   const { closing, requestClose } = useClosingExit(onClose);
 
   useEffect(() => {
@@ -65,8 +84,16 @@ export function SettingsModal({
         </header>
 
         <div className="settings__body">
-          {tab === "playlists" && <PlaylistsTab />}
-          {tab === "aiostreams" && <AioStreamsTab />}
+          {tab === "media" && (
+            <>
+              <div className="customize-rail">
+                <ChipTabs tabs={MEDIA_TABS} active={media} onChange={setMedia} />
+              </div>
+              {media === "playlists" && <PlaylistsTab />}
+              {media === "aiostreams" && <AioStreamsTab />}
+            </>
+          )}
+          {tab === "general" && <GeneralTab />}
           {tab === "customize" && <CustomizeTab onOpenThemes={onOpenThemes} />}
         </div>
       </section>
