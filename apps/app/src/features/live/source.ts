@@ -26,7 +26,7 @@ import { normalizeProgrammes } from "./epg";
 import { parseM3U } from "./m3u";
 import type { Channel, LiveData, LiveGroup, Programme } from "./model";
 import { extractQuality } from "./quality";
-import { parseXmltv } from "./xmltv";
+import { parseXmltv, type XmltvStats } from "./xmltv";
 
 /**
  * The seam between the Live tab and where its data comes from. With no
@@ -345,9 +345,28 @@ async function buildXtreamSource(
         const fetched = performance.now();
         await breathe(); // parseXmltv blocks for seconds on a big document
         const index = epgIndex(streams, p, hidden, !showAdult);
-        const programmes = parseXmltv(xml, index, now);
+        const stats: XmltvStats = {
+          guideChannels: 0,
+          unmatchedOurs: [],
+          unmatchedTheirs: [],
+        };
+        const programmes = parseXmltv(xml, index, now, stats);
         console.info(
           `[live] ${p.name}: xmltv ${(xml.length / 1e6).toFixed(1)}MB in ${Math.round(fetched - xmlT0)}ms (overlapped), parsed EPG for ${programmes.size} channels in ${Math.round(performance.now() - fetched)}ms`,
+        );
+        // Coverage, because "248 guides for 1920 channels" has two very
+        // different explanations. `channels with an epg id` vs `matched`
+        // says whether the panel even claims a guide for them; the two
+        // unmatched samples side by side reveal a case/format mismatch,
+        // which would mean the data is in the download and we are
+        // discarding it.
+        console.info(
+          `[live] ${p.name}: EPG coverage — ${channels.length} channels, ` +
+            `${index.size} carry an epg id, guide declares ${stats.guideChannels}, ` +
+            `${programmes.size} matched`,
+          stats.unmatchedOurs.length || stats.unmatchedTheirs.length
+            ? { ourIdsWithNoGuide: stats.unmatchedOurs, guideIdsWeNeverUsed: stats.unmatchedTheirs }
+            : "(everything matched)",
         );
         if (index.size === 0)
           return {

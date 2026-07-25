@@ -12,16 +12,32 @@ import type { Programme } from "./model";
 const PAST_MS = 60 * 60 * 1000;
 const FUTURE_MS = 12 * 60 * 60 * 1000;
 
+/** Why a guide matched as few channels as it did. Matching is EXACT string
+ * equality between the panel's `epg_channel_id` and the document's
+ * `channel` attribute, so a provider that disagrees with itself about case
+ * or formatting loses those channels silently. These counts separate "the
+ * guide genuinely has nothing for those channels" from "it has the data
+ * and we failed to match it", which are completely different problems. */
+export interface XmltvStats {
+  /** Distinct channel ids the document declares. */
+  guideChannels: number;
+  /** Our ids that found nothing, and theirs we never used. Samples only. */
+  unmatchedOurs: string[];
+  unmatchedTheirs: string[];
+}
+
 /**
  * Parse an XMLTV document into per-channel programme lists.
  *
  * @param byEpgId epg channel id → our channel ids (one EPG feed can back
  *   several channels, e.g. the same channel in two categories).
+ * @param stats optional out-param, filled with match diagnostics.
  */
 export function parseXmltv(
   xml: string,
   byEpgId: Map<string, string[]>,
   now: Date,
+  stats?: XmltvStats,
 ): Map<string, Programme[]> {
   const out = new Map<string, Programme[]>();
   if (byEpgId.size === 0) return out;
@@ -36,6 +52,18 @@ export function parseXmltv(
 
   const from = now.getTime() - PAST_MS;
   const to = now.getTime() + FUTURE_MS;
+
+  // Only when asked: which of their ids we never used. Cheap (a Set of the
+  // document's <channel> ids), and it is the difference between a thin
+  // guide and a matching bug.
+  const theirs = stats
+    ? new Set(
+        Array.from(doc.getElementsByTagName("channel"))
+          .map((c) => c.getAttribute("id") ?? "")
+          .filter(Boolean),
+      )
+    : null;
+  if (stats && theirs) stats.guideChannels = theirs.size;
 
   for (const prog of Array.from(doc.getElementsByTagName("programme"))) {
     const targets = byEpgId.get(prog.getAttribute("channel") ?? "");
@@ -67,6 +95,19 @@ export function parseXmltv(
 
   for (const list of out.values())
     list.sort((a, b) => a.start.getTime() - b.start.getTime());
+  if (stats && theirs) {
+    // Ours that got nothing: the guide either lacks them or spells them
+    // differently. Theirs we never touched: data sitting unused. Comparing
+    // the two samples side by side is what reveals a case/format mismatch.
+    for (const id of byEpgId.keys()) {
+      if (stats.unmatchedOurs.length >= 6) break;
+      if (!theirs.has(id)) stats.unmatchedOurs.push(id);
+    }
+    for (const id of theirs) {
+      if (stats.unmatchedTheirs.length >= 6) break;
+      if (!byEpgId.has(id)) stats.unmatchedTheirs.push(id);
+    }
+  }
   return out;
 }
 
