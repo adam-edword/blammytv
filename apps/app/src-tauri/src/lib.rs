@@ -1,3 +1,4 @@
+mod frontend;
 mod mpv;
 #[cfg(windows)]
 mod inv;
@@ -771,8 +772,24 @@ pub fn run() {
             http_get,
             http_probe,
             check_update,
-            install_update
+            install_update,
+            frontend::frontend_ready
         ])
-        .run(tauri::generate_context!())
+        .run(context())
         .expect("error while running tauri application");
+}
+
+/// The app context, with the frontend hot channel's asset provider spliced
+/// in when a staged bundle is active (plan 008). Untouched otherwise: the
+/// swap only happens when there is something staged to serve, so the normal
+/// path is byte-for-byte the stock embedded one.
+fn context() -> tauri::Context<tauri::Wry> {
+    let mut ctx = tauri::generate_context!();
+    if let Some(dir) = frontend::resolve() {
+        // Two-step: set_assets returns the PREVIOUS provider, and that is
+        // the embedded one we need to keep as the per-file fallback.
+        let embedded = ctx.set_assets(Box::new(frontend::Placeholder));
+        ctx.set_assets(Box::new(frontend::StagedAssets::new(Some(dir), embedded)));
+    }
+    ctx
 }

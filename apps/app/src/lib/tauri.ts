@@ -107,6 +107,20 @@ export function tauriMpvDiag(): Promise<Record<string, string>> {
   );
 }
 
+/** Tell the native side this frontend booted far enough to run code.
+ *
+ * Only meaningful for a STAGED frontend (plan 008): the native side arms a
+ * sentinel before serving one, and a sentinel still present at the next
+ * startup means that bundle never got this far, so it is quarantined and
+ * rolled back. Serving the embedded frontend, this is a no-op.
+ *
+ * The update mechanism ships inside the thing being updated, so this call
+ * is the only evidence the native side gets that a bundle is not bricked.
+ * Do not move it behind a route, a data load, or anything that can fail. */
+export function tauriFrontendReady(): Promise<void> {
+  return invoke("frontend_ready");
+}
+
 export function tauriMpvPause(paused: boolean): Promise<void> {
   return invoke("mpv_pause", { paused });
 }

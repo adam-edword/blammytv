@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { isTauri } from "../lib/tauri";
+import { isTauri, tauriFrontendReady } from "../lib/tauri";
 import { AppHeader, type Section, type StreamTab } from "./AppHeader";
 import { WelcomeAnimation } from "./WelcomeAnimation";
 import { shouldPlayWelcome } from "./welcome";
@@ -45,6 +45,14 @@ export function App() {
   useEffect(() => {
     if (!hasLiveSource) setSection((s) => (s === "live" ? "stream" : s));
   }, [hasLiveSource]);
+  // Report a live frontend to the native side exactly once (plan 008). If
+  // this app is running from a STAGED bundle, the absence of this call at
+  // the next startup is what marks that bundle bad and rolls it back, so it
+  // deliberately sits at the top of the tree with no dependency on routing,
+  // data, or anything else that could legitimately fail.
+  useEffect(() => {
+    if (isTauri()) void tauriFrontendReady().catch(() => {});
+  }, []);
   const [streamTab, setStreamTab] = useState<StreamTab>(() =>
     loadStartupTab() === "discover" ? "discover" : "home",
   );

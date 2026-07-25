@@ -18,6 +18,9 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2.6.2", features = [] }
 
 [dependencies]
+# Already in the tree via tauri-plugin-updater, so a direct dep costs no
+# new download; frontend.rs derives on its active.json record.
+serde = { version = "1", features = ["derive"] }
 serde_json = "1.0"
 log = "0.4"
 tauri = { version = "2.11.2", features = [] }
