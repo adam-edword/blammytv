@@ -31,6 +31,10 @@ import {
   setSearchQuery,
 } from "./searchQuery";
 import { scrubbedMessage } from "../../lib/errors";
+import { useMouseNav } from "../../lib/mouseNav";
+import { useViewStack } from "../../lib/viewStack";
+import { loadAioUrl } from "../settings/aiostreams";
+import { readDiscoverSession, saveDiscoverSession } from "./session";
 
 /**
  * Discover: search-free exploration of the addon's catalogs. A pill
@@ -41,6 +45,11 @@ import { scrubbedMessage } from "../../lib/errors";
  */
 
 type TypeFilter = "all" | "movie" | "series";
+
+/** What Discover is showing: the type pill and the selected genre. Search
+ * is deliberately NOT in here — it changes per keystroke, and a history
+ * entry per character is not a page. */
+type DiscoverView = { filter: TypeFilter; genre: string | null };
 
 const FILTER_TABS = [
   { key: "all", label: "All Content" },
@@ -54,9 +63,38 @@ type Cfg =
   | { status: "error"; message: string };
 
 export function DiscoverScreen() {
+  // Where this tab was when it was last unmounted (a tab flip). Read once,
+  // at mount: everything below seeds from it instead of starting over.
+  const sessionRef = useRef(readDiscoverSession(loadAioUrl()));
+  const session = sessionRef.current;
   const [cfg, setCfg] = useState<Cfg>({ status: "loading" });
-  const [filter, setFilter] = useState<TypeFilter>("all");
-  const [genre, setGenre] = useState<string | null>(null);
+  // Picking a genre or a type is a PAGE change here, not just a filter
+  // flip: the grid it produces is what you were looking at, so back has to
+  // be able to return to it (with the scroll position it had). Both live in
+  // the shared view stack for that reason.
+  const {
+    view,
+    scrollRef,
+    navigate,
+    goBack,
+    goForward,
+    replace: replaceView,
+    restoreTo,
+  } = useViewStack<DiscoverView>(() =>
+    session
+      ? { filter: session.filter, genre: session.genre }
+      : { filter: "all", genre: null },
+  );
+  const { filter, genre } = view;
+  const setFilter = useCallback(
+    (next: TypeFilter) => navigate({ filter: next, genre }),
+    [navigate, genre],
+  );
+  const setGenre = useCallback(
+    (next: string | null) => navigate({ filter, genre: next }),
+    [navigate, filter],
+  );
+  useMouseNav(goBack, goForward);
   const cfgRef = useRef(cfg);
   cfgRef.current = cfg;
   useEffect(() => {
@@ -65,13 +103,15 @@ export function DiscoverScreen() {
       (x) => x.toLowerCase() === genre.toLowerCase(),
     );
     // Unknown genre → unfiltered browse (an empty "phantom genre" grid
-    // would read as broken); casing differences adopt the rail's.
-    if (match === undefined) setGenre(null);
-    else if (match !== genre) setGenre(match);
-  }, [cfg, genre]);
-  const [items, setItems] = useState<VodItem[]>([]);
+    // would read as broken); casing differences adopt the rail's. Both are
+    // corrections to the page you are on, so they replace rather than push:
+    // a normalized genre must not become its own history entry.
+    if (match === undefined) replaceView((v) => ({ ...v, genre: null }));
+    else if (match !== genre) replaceView((v) => ({ ...v, genre: match }));
+  }, [cfg, genre, replaceView]);
+  const [items, setItems] = useState<VodItem[]>(session?.items ?? []);
   const [phase, setPhase] = useState<"first" | "more" | "idle" | "done">(
-    "first",
+    session ? (session.exhausted ? "done" : "idle") : "first",
   );
   const [metaFields, setMetaFields] = useState<CardMetaField[]>(loadCardMeta);
   useEffect(() => onCardMetaChange(setMetaFields), []);
@@ -110,18 +150,20 @@ export function DiscoverScreen() {
       setSearchQuery("");
       setQuery("");
       const c = cfgRef.current;
+      // Arriving from another tab: this IS the page, so it replaces rather
+      // than pushing a phantom "no genre" entry behind itself.
       if (c.status === "ready") {
         const match = c.cfg.genres.find(
           (x) => x.toLowerCase() === g.toLowerCase(),
         );
-        setGenre(match ?? null);
+        replaceView((v) => ({ ...v, genre: match ?? null }));
       } else {
-        setGenre(g);
+        replaceView((v) => ({ ...v, genre: g }));
       }
     };
     consume();
     return onGenreRequest(consume);
-  }, []);
+  }, [replaceView]);
   const q = query.trim();
   const searching = q.length >= 2;
   // "failed" is distinct from [] — a network failure must not render the
@@ -192,9 +234,9 @@ export function DiscoverScreen() {
   // Everything lives in refs except the rendered list; reqId guards
   // against a stale page landing after a filter/genre switch.
   const [gridFailed, setGridFailed] = useState(false);
-  const cursors = useRef<Record<string, number>>({});
-  const doneRef = useRef<Record<string, boolean>>({});
-  const seenRef = useRef<Set<string>>(new Set());
+  const cursors = useRef<Record<string, number>>({ ...(session?.cursors ?? {}) });
+  const doneRef = useRef<Record<string, boolean>>({ ...(session?.done ?? {}) });
+  const seenRef = useRef<Set<string>>(new Set(session?.seen ?? []));
   const busyRef = useRef(false);
   const reqIdRef = useRef(0);
 
@@ -286,7 +328,18 @@ export function DiscoverScreen() {
   // Reset + first page on any config/filter/genre change. busyRef can
   // block the reset while a stale page is in flight — bump the reqId
   // FIRST so the stale request self-discards, then retry next tick.
+  //
+  // A restored session skips exactly one reset: the one the config landing
+  // triggers on mount. Without that, the feed we just restored would be
+  // thrown away and refetched, which is the whole thing this avoids. It is
+  // keyed on the config being ready because the runs before that return
+  // immediately and reset nothing.
+  const skipReset = useRef(session !== null);
   useEffect(() => {
+    if (cfgRef.current.status === "ready" && skipReset.current) {
+      skipReset.current = false;
+      return;
+    }
     reqIdRef.current++;
     busyRef.current = false;
     void loadMore(true);
@@ -312,6 +365,46 @@ export function DiscoverScreen() {
   }, [loadMore, phase, searching]);
 
   const open = useCallback((item: VodItem) => requestOpenInStream(item), []);
+
+  // Put the restored position back once the grid it belongs to is on
+  // screen. The items rendered on the first commit, so this normally lands
+  // immediately; the stack's retry covers art that is still sizing.
+  useEffect(() => {
+    if (session?.scroll) restoreTo(session.scroll);
+    // Mount only: a later run would yank the user back to a stale offset.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Snapshot on the way out (a tab flip unmounts this screen). Everything
+  // is read through refs so the cleanup sees the last committed values
+  // rather than the ones captured when the effect was set up. The scroll
+  // offset is mirrored as it happens rather than read from the element at
+  // cleanup time: an unmount cleanup runs in the passive phase, after React
+  // has already detached the ref, so scrollRef would be null exactly when
+  // it matters.
+  const lastScroll = useRef(session?.scroll ?? 0);
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+  const phaseRef = useRef(phase);
+  phaseRef.current = phase;
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  useEffect(
+    () => () => {
+      saveDiscoverSession({
+        key: loadAioUrl(),
+        filter: viewRef.current.filter,
+        genre: viewRef.current.genre,
+        items: itemsRef.current,
+        cursors: { ...cursors.current },
+        done: { ...doneRef.current },
+        seen: [...seenRef.current],
+        exhausted: phaseRef.current === "done",
+        scroll: lastScroll.current,
+      });
+    },
+    [],
+  );
 
   if (cfg.status === "error") {
     return (
@@ -346,7 +439,13 @@ export function DiscoverScreen() {
   }
 
   return (
-    <div className="discover">
+    <div
+      ref={scrollRef}
+      className="discover"
+      onScroll={(e) => {
+        lastScroll.current = e.currentTarget.scrollTop;
+      }}
+    >
       <div className="discover__toggle">
         <ChipTabs
           tabs={FILTER_TABS}

@@ -3,6 +3,7 @@ import Tilt from "react-parallax-tilt";
 import { Card, ContinueCard, RowScroller } from "./StreamScreen";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { useMouseNav } from "../../lib/mouseNav";
+import { useViewStack } from "../../lib/viewStack";
 import {
   createList,
   deleteList,
@@ -94,7 +95,15 @@ function toCover(file: File): Promise<string> {
 export function LibraryScreen() {
   const [lists, setLists] = useState<UserList[]>(loadLists);
   const [watching, setWatching] = useState<WatchEntry[]>(loadWatching);
-  const [view, setView] = useState<View>({ at: "root" });
+  const {
+    view,
+    scrollRef,
+    navigate,
+    goBack,
+    goForward,
+    replace: replaceView,
+    reset: resetHistory,
+  } = useViewStack<View>({ at: "root" });
   const [metaFields, setMetaFields] = useState<CardMetaField[]>(loadCardMeta);
   useEffect(() => onCardMetaChange(setMetaFields), []);
 
@@ -114,24 +123,6 @@ export function LibraryScreen() {
     [watching],
   );
 
-  // Back/forward over the two view levels. Same rule Stream follows: the
-  // committed view is mirrored in a ref rather than read inside a setView
-  // updater, because StrictMode double-invokes updaters and a side effect
-  // in there runs twice.
-  const viewRef = useRef(view);
-  viewRef.current = view;
-  const lastListRef = useRef<string | null>(null);
-  const goBack = useCallback(() => {
-    const v = viewRef.current;
-    if (v.at === "root") return;
-    lastListRef.current = v.id;
-    setView({ at: "root" });
-  }, []);
-  const goForward = useCallback(() => {
-    if (viewRef.current.at !== "root") return;
-    const id = lastListRef.current;
-    if (id) setView({ at: "list", id });
-  }, []);
   useMouseNav(goBack, goForward);
 
   const openItem = useCallback(
@@ -185,12 +176,13 @@ export function LibraryScreen() {
       window.clearTimeout(delTimer.current);
       setDelArmed(false);
       deleteList(l.id);
-      // Nothing to go forward to: the list this would return to is gone.
-      lastListRef.current = null;
-      setView({ at: "root" });
+      // History would point at a list that no longer exists, so it goes
+      // with it: back and forward both land on the root.
+      resetHistory();
+      replaceView({ at: "root" });
       refresh();
     },
-    [delArmed, refresh],
+    [delArmed, refresh, resetHistory, replaceView],
   );
 
   const pickCover = useCallback(
@@ -219,11 +211,11 @@ export function LibraryScreen() {
     const list = lists.find((l) => l.id === view.id);
     if (!isHistory && !list) {
       // Deleted from under us; the root is always a valid place to be.
-      setView({ at: "root" });
+      replaceView({ at: "root" });
       return null;
     }
     return (
-      <div className="discover library">
+      <div ref={scrollRef} className="discover library">
         <div className="library__bar">
           <button type="button" className="vod-back" onClick={goBack}>
             ← Back
@@ -316,7 +308,7 @@ export function LibraryScreen() {
 
   // ---- root ----
   return (
-    <div className="discover library">
+    <div ref={scrollRef} className="discover library">
       {active.length > 0 && (
         <section className="media-row">
           <h3 className="media-row__title">Continue Watching</h3>
@@ -342,7 +334,7 @@ export function LibraryScreen() {
             name="Library"
             count={watching.length}
             art={watching.find((e) => e.art)?.art}
-            onOpen={() => setView({ at: "list", id: HISTORY })}
+            onOpen={() => navigate({ at: "list", id: HISTORY })}
           />
           {lists.map((l) => (
             <ListCard
@@ -350,7 +342,7 @@ export function LibraryScreen() {
               name={l.name}
               count={l.entries.length}
               art={listArt(l)}
-              onOpen={() => setView({ at: "list", id: l.id })}
+              onOpen={() => navigate({ at: "list", id: l.id })}
             />
           ))}
           {creating ? (

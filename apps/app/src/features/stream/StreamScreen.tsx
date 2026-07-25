@@ -12,6 +12,7 @@ import { CheckIcon, ChevronIcon, CloseIcon, PlayIcon } from "../../ui/icons";
 import Tilt from "react-parallax-tilt";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { useMouseNav } from "../../lib/mouseNav";
+import { useViewStack } from "../../lib/viewStack";
 
 // Fixed-at-mount OS motion preference (the Onboarding pattern): read ONCE at
 // module load — a useRef(initializer-arg) re-evaluated matchMedia on every
@@ -110,7 +111,6 @@ export function StreamScreen() {
     const cached = peekVod();
     return cached ? { status: "ready", data: cached } : { status: "loading" };
   });
-  const [view, setView] = useState<View>({ at: "home" });
   const [playing, setPlayingRaw] = useState<{
     url: string;
     item: VodItem;
@@ -132,6 +132,17 @@ export function StreamScreen() {
     popped?: boolean;
   } | null>(null);
   const [watching, setWatching] = useState<WatchEntry[]>(loadWatching);
+  const {
+    view,
+    scrollRef,
+    navigate: push,
+    goBack: popBack,
+    goForward,
+    replace: replaceView,
+    depth,
+    capture: captureScroll,
+    restore: restoreScroll,
+  } = useViewStack<View>({ at: "home" });
   // Between "user clicked play" and "sources resolved": the player-style
   // black screen with the art breathing, INSTANTLY — a quick-resume /
   // Watch Now click must never sit on a dead screen for seconds.
@@ -157,6 +168,10 @@ export function StreamScreen() {
         setResolving(null);
         return setPlayingRaw(null);
       }
+      // The stage replaces this whole tree, so the scroll container that
+      // comes back afterwards is a NEW element at the top. Remember where
+      // we were now, while the old one is still mounted.
+      captureScroll();
       setUpNext(null);
       setUpNextMini(null);
       // A dismissal only scopes to the credits of the play it happened
@@ -202,7 +217,7 @@ export function StreamScreen() {
         }),
       );
     },
-    [],
+    [captureScroll],
   );
 
   // Hero picks enrich after the rows land — repaint as each arrives (the
@@ -247,41 +262,33 @@ export function StreamScreen() {
     };
   }, [vodTick]);
 
-  // Back/forward history over the view state — the ← Back buttons and the
-  // mouse side buttons (4 = back, 5 = forward) all walk the same stacks.
-  // Stack mutation stays OUTSIDE the setView updaters: updaters must be
-  // pure (StrictMode double-invokes them — a pop inside ran twice and Back
-  // became a no-op in dev). viewRef mirrors the committed view instead.
-  const backStack = useRef<View[]>([]);
-  const fwdStack = useRef<View[]>([]);
-  const viewRef = useRef(view);
-  viewRef.current = view;
-  const navigate = useCallback((next: View) => {
-    backStack.current.push(viewRef.current);
-    fwdStack.current = [];
-    setView(next);
-  }, []);
-  // Set when the current stack was seeded by a Discover hand-off: backing
-  // all the way out returns to Discover (where the pick was made), not
-  // Stream home. The ref dies with the screen, so a real Stream visit
-  // never inherits it.
+  // Set when the current stack was seeded by a Discover/My List hand-off:
+  // backing all the way out returns THERE, not to Stream home. The ref dies
+  // with the screen, so a real Stream visit never inherits it.
   const handoffRef = useRef(false);
+  // Armed for the duration of a hand-off's open attempt. The FIRST navigate
+  // inside that window is the one the hand-off caused, so the return flag
+  // arms synchronously with the push. It used to be set after the open
+  // promise settled, which meant backing out during the full-meta resolve
+  // (seconds, on a cold addon) left it false and dumped you on Stream home.
+  const handoffArm = useRef(false);
+  const navigate = useCallback(
+    (next: View) => {
+      if (handoffArm.current) {
+        handoffArm.current = false;
+        handoffRef.current = true;
+      }
+      push(next);
+    },
+    [push],
+  );
   const goBack = useCallback(() => {
-    const prev = backStack.current.pop();
-    if (!prev) return;
-    fwdStack.current.push(viewRef.current);
-    setView(prev);
-    if (handoffRef.current && backStack.current.length === 0) {
+    if (!popBack()) return;
+    if (handoffRef.current && depth() === 0) {
       handoffRef.current = false;
       requestReturnToDiscover();
     }
-  }, []);
-  const goForward = useCallback(() => {
-    const next = fwdStack.current.pop();
-    if (!next) return;
-    backStack.current.push(viewRef.current);
-    setView(next);
-  }, []);
+  }, [popBack, depth]);
   useMouseNav(goBack, goForward, !playing);
 
   // Whether the CURRENT detail's full-meta resolve settled — Detail's
@@ -296,7 +303,9 @@ export function StreamScreen() {
     try {
       const full = await resolveVodItem(item.kind, item.id);
       if (full)
-        setView((v) =>
+        // Full meta landing is a correction to the page you are on, not a
+        // navigation: it must not push history or move the scroll.
+        replaceView((v) =>
           (v.at === "title" || v.at === "episodes") && v.item.id === item.id
             ? { ...v, item: full }
             : v,
@@ -313,7 +322,7 @@ export function StreamScreen() {
         m?.id === item.id ? { id: item.id, s: "failed" } : m,
       );
     }
-  }, []);
+  }, [replaceView]);
   const open = useCallback(async (item: VodItem) => {
     // Show the lightweight item immediately; swap in the full detail
     // (synopsis, cast, seasons) when it lands. Failure keeps the light one.
@@ -332,6 +341,9 @@ export function StreamScreen() {
   const watchNow = useCallback(
     async (item: VodItem) => {
       if (item.kind === "series") return open(item); // series always browse
+      // The resolving screen unmounts this tree too — same reason as
+      // setPlaying, same fix.
+      captureScroll();
       setResolving({ art: item.logo ?? item.poster, title: item.title });
       try {
         const sources = await resolveVodSources("movie", item.id);
@@ -349,7 +361,7 @@ export function StreamScreen() {
       setResolving(null);
       void open(item);
     },
-    [open, setPlaying],
+    [open, setPlaying, captureScroll],
   );
 
   // Card click: browse — or, with the opt-in setting on, straight to
@@ -371,13 +383,15 @@ export function StreamScreen() {
     const consume = () => {
       const item = takeOpenRequest();
       if (item) {
-        void cardOpen(item).then(() => {
-          // Only a hand-off that actually NAVIGATED owes a
-          // return-to-origin on back-out. One-click play can resolve
-          // straight to playback with no view pushed — a leaked true
-          // here teleported a later, unrelated back-out to
-          // Discover/My List (fleet finding).
-          handoffRef.current = backStack.current.length > 0;
+        // Arm for the duration of the open attempt: navigate() claims it on
+        // the push. Only a hand-off that actually NAVIGATED owes a
+        // return-to-origin on back-out — one-click play can resolve straight
+        // to playback with no view pushed, and a leaked true there
+        // teleported a later, unrelated back-out to Discover/My List (fleet
+        // finding). Disarming on settle closes that window.
+        handoffArm.current = true;
+        void cardOpen(item).finally(() => {
+          handoffArm.current = false;
         });
       }
     };
@@ -567,6 +581,7 @@ export function StreamScreen() {
   const quickResume = useCallback(
     async (entry: WatchEntry, known?: VodItem) => {
       const kind = entry.kind ?? (entry.episodeId ? "series" : "movie");
+      captureScroll();
       setResolving({
         art: known?.logo ?? entry.logo ?? known?.poster ?? entry.art,
         title: entry.title,
@@ -646,7 +661,7 @@ export function StreamScreen() {
       setResolving(null);
       void open(item);
     },
-    [setPlaying, open, navigate],
+    [setPlaying, open, navigate, captureScroll],
   );
 
   // Skip Intro Phase 2: exact AniSkip intervals for the playing episode,
@@ -699,7 +714,13 @@ export function StreamScreen() {
       if (!entry) return;
       const l = loadRef.current;
       const item = l.status === "ready" ? l.data.items.get(entry.id) : undefined;
-      void quickResume(entry, item);
+      // Same arming as the item mailbox: a resume that falls back to a
+      // detail or source screen owes a return to the Library on back-out.
+      // One that goes straight to playback pushes nothing and owes nothing.
+      handoffArm.current = true;
+      void quickResume(entry, item).finally(() => {
+        handoffArm.current = false;
+      });
     };
     consume();
     return onResumeRequest(consume);
@@ -1039,6 +1060,14 @@ export function StreamScreen() {
     };
   }, [playingUrl, popped]);
 
+  // Coming back off the stage (playback ended, or a resolve fell through to
+  // a browse screen): the scroll container is a fresh element, so put the
+  // captured position back. Layout effect so it lands before the paint.
+  const staged = playing != null || resolving != null;
+  useLayoutEffect(() => {
+    if (!staged) restoreScroll();
+  }, [staged, restoreScroll]);
+
   if (resolving && !playing && isTauri()) {
     return (
       <div className="vod-stage vod-stage--popped">
@@ -1325,7 +1354,10 @@ export function StreamScreen() {
   return (
     // Off home, the detail/episode screens go full-bleed: no scroll-box
     // padding, backdrop to the window edges, under the floating header.
-    <div className={"stream" + (view.at === "home" ? "" : " stream--full")}>
+    <div
+      ref={scrollRef}
+      className={"stream" + (view.at === "home" ? "" : " stream--full")}
+    >
       {view.at === "home" && (
         <Home
           load={load}
