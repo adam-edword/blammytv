@@ -1398,3 +1398,131 @@
     transform: none;
   }
 }
+
+/* ---- Library (plan 009) ----
+ * Discover's page shape, so the classes above do most of the work. Only
+ * the bits Discover has no equivalent for live here. */
+
+/* The drill-down header: Back, the list's name, and its actions on one
+ * line. The Back control reuses .vod-back, so it matches the detail
+ * screens rather than inventing a third back affordance. */
+.library__bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.library__heading {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: clamp(20px, 2vw, 28px);
+  letter-spacing: -0.01em;
+}
+.library__bar-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+.library__action {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 13px;
+  padding: 7px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    background var(--dur-hover) ease,
+    border-color var(--dur-hover) ease,
+    transform 160ms var(--ease-out);
+}
+.library__action:hover {
+  background: var(--surface-raised);
+}
+.library__action:active {
+  transform: scale(0.97);
+}
+.library__action--danger:hover {
+  border-color: var(--danger);
+  color: var(--danger-text);
+}
+
+/* A list card is a poster card whose "poster" is the cover. The cover box
+ * inherits the card's aspect and radius from .stream-card__tilt; this only
+ * supplies a resting surface for the lettermark fallback. */
+.library__cover {
+  display: grid;
+  place-items: center;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+/* The "+" card sits in the same grid track as the list cards, so it has to
+ * carry the poster aspect itself rather than collapsing to its text. */
+.library__new {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  aspect-ratio: 2 / 3;
+  border-radius: 25px;
+  border: 1px dashed var(--border-strong);
+  background: none;
+  color: var(--text-muted);
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition:
+    color var(--dur-hover) ease,
+    border-color var(--dur-hover) ease,
+    background var(--dur-hover) ease;
+}
+.library__new:hover {
+  color: var(--text);
+  border-color: var(--text-muted);
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+}
+.library__new-plus {
+  font-size: 34px;
+  line-height: 1;
+  font-weight: 300;
+}
+
+/* Remove-from-list: revealed on card hover, like the guide's favourite
+ * star. Absolute so it can never displace the card's own layout. */
+.library__item {
+  position: relative;
+}
+.library__remove {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: #00000080;
+  backdrop-filter: blur(10px);
+  color: #f2f2f4;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 11px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--dur-hover) ease;
+}
+.library__item:hover .library__remove,
+.library__remove:focus-visible {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .library__action:active {
+    transform: none;
+  }
+}

@@ -24,7 +24,7 @@ export type StreamTab = "home" | "discover" | "mylist";
 const RAIL: Array<{ key: StreamTab; label: string }> = [
   { key: "home", label: "Home" },
   { key: "discover", label: "Discover" },
-  { key: "mylist", label: "My List" },
+  { key: "mylist", label: "Library" },
 ];
 
 /** Live clock, minute-accurate (the header shows no seconds). Follows the

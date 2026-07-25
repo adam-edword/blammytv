@@ -36,9 +36,11 @@ import { nextEpisode, nextUpEpisode, pickCachedIndex } from "./mapper";
 import { getAniskipRanges, type SkipRange } from "./aniskip";
 import {
   onOpenRequest,
+  onResumeRequest,
   requestDiscoverGenre,
   requestReturnToDiscover,
   takeOpenRequest,
+  takeResumeRequest,
 } from "./openRequest";
 import { loadWatched, markWatched } from "./watched";
 import { inMyList, toggleMyList } from "./myList";
@@ -398,6 +400,7 @@ export function StreamScreen() {
     return onOpenRequest(consume);
   }, [cardOpen]);
 
+
   // ---- Playback: fullscreen through the shared inverted player. The
   // overlay's meta is minimal VOD shape (live:false, no programme). ----
   const stop = useCallback(() => {
@@ -571,6 +574,11 @@ export function StreamScreen() {
   // Continue Watching quick-resume: one click straight into playback
   // (sources resolve fresh; first cached wins). Any miss falls back to
   // the detail/source screen.
+  // Read by the Library's resume drain: that effect must not re-run (and
+  // re-consume the mailbox) every time the catalog updates.
+  const loadRef = useRef(load);
+  loadRef.current = load;
+
   const quickResume = useCallback(
     async (entry: WatchEntry, known?: VodItem) => {
       const kind = entry.kind ?? (entry.episodeId ? "series" : "movie");
@@ -696,6 +704,22 @@ export function StreamScreen() {
     // Playback gone = the portal host is gone: drop the panel instantly.
     if (!playing) setPanelState(null);
   }, [playing]);
+  // The Library tab's Continue Watching cards resume through here: playback
+  // lives on this screen, so that tab asks rather than plays. Same
+  // mount-and-event drain as the item mailbox above, because the tab flip
+  // unmounts the asker before a bare event could be heard.
+  useEffect(() => {
+    const consume = () => {
+      const entry = takeResumeRequest();
+      if (!entry) return;
+      const l = loadRef.current;
+      const item = l.status === "ready" ? l.data.items.get(entry.id) : undefined;
+      void quickResume(entry, item);
+    };
+    consume();
+    return onResumeRequest(consume);
+  }, [quickResume]);
+
   const [panelTick, setPanelTick] = useState(0);
   useEffect(() => {
     if (!panelOpen) return;
@@ -1969,8 +1993,10 @@ export const Card = memo(function Card({
 });
 
 /** Continue Watching card: landscape art, meta line, HOLD to clear (the
- * Figma interaction — a click opens, a ~1s press-and-hold removes). */
-function ContinueCard({
+ * Figma interaction — a click opens, a ~1s press-and-hold removes).
+ * EXPORTED because the Library tab shows the same row: one implementation,
+ * or every future card fix has to be made twice. */
+export function ContinueCard({
   entry,
   metaFields,
   onOpen,

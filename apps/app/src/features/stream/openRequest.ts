@@ -1,4 +1,5 @@
 import type { VodItem } from "./model";
+import type { WatchEntry } from "./watching";
 
 /**
  * Cross-tab mailbox: Discover picks a title, the Stream tab plays host
@@ -36,6 +37,33 @@ export function takeOpenRequest(): VodItem | null {
 export function onOpenRequest(cb: () => void): () => void {
   window.addEventListener(EVENT, cb);
   return () => window.removeEventListener(EVENT, cb);
+}
+
+/**
+ * Resume hand-off: the Library tab's Continue Watching cards. Same reason
+ * as the item mailbox above, and deliberately the same shape: playback
+ * lives in StreamScreen, so the Library asks rather than plays. Carries the
+ * whole WatchEntry because quick-resume needs the position and the episode
+ * identity, not just an id.
+ */
+const RESUME_EVENT = "blammytv:resume-in-stream";
+let pendingResume: WatchEntry | null = null;
+
+export function requestResumeInStream(entry: WatchEntry): void {
+  pendingResume = entry;
+  origin = "mylist";
+  window.dispatchEvent(new CustomEvent(RESUME_EVENT));
+}
+
+export function takeResumeRequest(): WatchEntry | null {
+  const p = pendingResume;
+  pendingResume = null;
+  return p;
+}
+
+export function onResumeRequest(cb: () => void): () => void {
+  window.addEventListener(RESUME_EVENT, cb);
+  return () => window.removeEventListener(RESUME_EVENT, cb);
 }
 
 /** Genre hand-off: a genre pill on the detail screens opens Discover

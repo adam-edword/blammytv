@@ -12,7 +12,7 @@ import {
   onPlaylistsChange,
 } from "../features/settings/playlists";
 import { StreamScreen } from "../features/stream/StreamScreen";
-import { MyListScreen } from "../features/stream/MyListScreen";
+import { LibraryScreen } from "../features/stream/LibraryScreen";
 import { DiscoverScreen } from "../features/discover/DiscoverScreen";
 import { SettingsModal } from "../features/settings/SettingsModal";
 import { ThemesModal } from "../features/settings/ThemesModal";
@@ -174,7 +174,7 @@ export function App() {
         ) : streamTab === "discover" ? (
           <DiscoverScreen />
         ) : streamTab === "mylist" ? (
-          <MyListScreen />
+          <LibraryScreen />
         ) : (
           <StreamScreen />
         )}
