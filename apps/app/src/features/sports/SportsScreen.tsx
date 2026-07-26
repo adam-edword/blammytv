@@ -14,16 +14,29 @@ import type { Game } from "./model";
  * times and a game silently jumped rows when it started. A day is a
  * timeline, so it is drawn as one.
  *
- * The row opens centred on NOW, which is the live game or, when nothing is
- * on, the one that finished last. Otherwise it would open on breakfast.
+ * The row opens on NOW, which is the live game or, when nothing is on, the
+ * one that finished last. Otherwise it would open on breakfast. That game
+ * sits near the LEFT rather than mid-screen: everything to its right is
+ * still to come, which is what the row is for, and centring it would spend
+ * half the screen on games already played.
  *
  * The row reuses Stream's RowScroller so the scroll behaviour, the fade and
  * the drag-to-scroll are the same object language as everywhere else.
  */
+/**
+ * How far in from the row's left edge the anchor game sits, in px.
+ *
+ * Not zero: the previous game peeks past it, which is what says the day
+ * carries on behind you rather than starting here.
+ */
+const LEAD = 96;
+
 export function SportsScreen() {
   const { games, state } = useGames();
 
-  const today = [...games].sort((a, b) => a.start.getTime() - b.start.getTime());
+  const today = games
+    .filter(isToday)
+    .sort((a, b) => a.start.getTime() - b.start.getTime());
   const anchor = nowish(today);
   const live = today.some((g) => g.state === "live");
 
@@ -46,7 +59,7 @@ export function SportsScreen() {
     // smoothly: this is where the row starts, not somewhere it travels to.
     const c = card.getBoundingClientRect();
     const b = box.getBoundingClientRect();
-    box.scrollLeft += c.left + c.width / 2 - (b.left + b.width / 2);
+    box.scrollLeft += c.left - b.left - LEAD;
   }, [anchor]);
 
   return (
@@ -77,6 +90,23 @@ export function SportsScreen() {
         </p>
       )}
     </div>
+  );
+}
+
+/**
+ * Whether a game belongs on today's row.
+ *
+ * The endpoint is not a promise about today. A league between matchdays
+ * answers with its NEXT one, which is how a Premier League fixture 26 days
+ * out turned up under "Today's Games" wearing nothing but a kick-off time.
+ *
+ * Anything actually live counts whatever the date says: a game that started
+ * at 11pm yesterday and is still going is on now.
+ */
+function isToday(game: Game): boolean {
+  return (
+    game.state === "live" ||
+    game.start.toDateString() === new Date().toDateString()
   );
 }
 
