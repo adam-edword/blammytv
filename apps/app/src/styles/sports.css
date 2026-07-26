@@ -177,15 +177,24 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+  /* Shrink to the NAME's width and centre that block in the half. Without
+   * this the block fills its whole 1fr track, so aligning the tag to an
+   * edge would fling it at the card's edge instead of the name's. */
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
 }
-/* Centred in their own half rather than pushed to the card's edges: at
- * this width the outer alignment left the names marooned away from the
- * score they belong to. The tag rides above the name, so it centres with
- * it. */
-.gamecard__team--home,
+/* The BLOCK centres in its half (the names were marooned at the card's
+ * edges before), but the tag hangs off the name's OUTER edge: left of the
+ * home name, right of the away one, mirroring across the score. Centring
+ * the tag too left it floating in the middle of a much wider word. */
+.gamecard__team--home {
+  align-items: flex-start;
+  text-align: left;
+}
 .gamecard__team--away {
-  align-items: center;
-  text-align: center;
+  align-items: flex-end;
+  text-align: right;
 }
 .gamecard__abbr {
   font-family: var(--font-headline);
