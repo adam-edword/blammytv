@@ -25,23 +25,6 @@ export function WashVeil({
 }
 
 /**
- * How many copies of the crest make the progressive blur.
- *
- * There is no such thing as a gradient blur in CSS: `filter: blur()` is one
- * radius for the whole element. The way to fake it is to stack the same
- * image at climbing radii and mask each copy to its own band, so the sharp
- * copy shows where the crest sits and the soft ones take over as it runs
- * toward the text. Three is enough for the bands to read as continuous;
- * more is just more layers to composite, on every card in the row.
- *
- * The app's other progressive blur (the header veil) stacks
- * `backdrop-filter` instead, and is parked because it never looked right.
- * That technique blurs whatever happens to be behind it. This one blurs a
- * known image, which is why it can be aimed.
- */
-const MARK_STEPS = [1, 2, 3];
-
-/**
  * The colour behind one half of a game card: the competitor's mark, blurred
  * hard and bled off its own edge, over a tint of the team colour.
  *
@@ -67,11 +50,7 @@ export function Wash({
         // standing in for it, and running both puts a flat wash over the
         // one thing with any detail in it.
         <span className="gamewash__crest">
-          {MARK_STEPS.map((step) => (
-            <span key={step} className={`gamewash__layer gamewash__layer--${step}`}>
-              <img className="gamewash__mark" src={team.logo} alt="" loading="lazy" />
-            </span>
-          ))}
+          <img className="gamewash__mark" src={team.logo} alt="" loading="lazy" />
         </span>
       ) : (
         team.color && (

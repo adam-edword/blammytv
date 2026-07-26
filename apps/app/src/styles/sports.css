@@ -167,10 +167,10 @@
     var(--team, transparent) 100%
   );
 }
-/* The crest, as a progressive blur.
+/* The crest.
  *
  * Its own box, exactly HALF the card, because the wash it lives in is
- * 81.6% wide and runs 27% past the centre line: that overlap is what makes
+ * 81.6% wide and runs 27% past the centre line: that overlap is what made
  * the two crests collide in the middle. The colours are meant to blend
  * there; two logos on top of each other are not.
  *
@@ -186,8 +186,6 @@
   left: 6.13%;
   width: 61.27%;
   overflow: hidden;
-  /* Once, here, rather than on each copy: three stacked copies at 0.55
-   * each would compound wherever their masks overlap. */
   opacity: 0.55;
 }
 .gamewash--away .gamewash__crest {
@@ -199,7 +197,11 @@
  * that what shows is a crop of its middle.
  *
  * Aligned to the INNER edge, so it hangs off the card's outer edge rather
- * than floating in the middle of its half. */
+ * than floating in the middle of its half.
+ *
+ * One blur for the whole crest, at the export's 10px. This was briefly
+ * three masked copies at climbing radii, faking a gradient blur, which is
+ * a lot of machinery to look fussier than one honest radius. */
 .gamewash__mark {
   position: absolute;
   top: 50%;
@@ -207,104 +209,29 @@
   height: 204%;
   width: auto;
   transform: translateY(-50%);
+  filter: blur(calc(7px * var(--sports-scale))) saturate(1.15);
 }
 .gamewash--away .gamewash__mark {
   right: auto;
   left: 0;
 }
 
-/* The progression. Three copies at climbing radii, each masked to its own
- * band: untouched at the card's outer edge, dissolving as it runs toward
- * the score. CSS has no gradient blur; this is how you fake one.
- *
- * The masks are on the LAYERS, not on the images. A layer is exactly the
- * half-card, so a band means the same thing on both card sizes; the image
- * inside it is wider than the box by whatever its aspect happens to be. */
-.gamewash__layer {
-  position: absolute;
-  inset: 0;
-}
-.gamewash__layer--1 {
-  -webkit-mask-image: linear-gradient(to right, #000 38%, transparent 58%);
-  mask-image: linear-gradient(to right, #000 38%, transparent 58%);
-}
-.gamewash__layer--2 {
-  -webkit-mask-image: linear-gradient(
-    to right,
-    transparent 34%,
-    #000 54%,
-    #000 72%,
-    transparent 88%
-  );
-  mask-image: linear-gradient(
-    to right,
-    transparent 34%,
-    #000 54%,
-    #000 72%,
-    transparent 88%
-  );
-}
-.gamewash__layer--3 {
-  -webkit-mask-image: linear-gradient(to right, transparent 68%, #000 86%);
-  mask-image: linear-gradient(to right, transparent 68%, #000 86%);
-}
-/* Mirrored, so both halves blur toward the middle of the card. */
-.gamewash--away .gamewash__layer--1 {
-  -webkit-mask-image: linear-gradient(to left, #000 38%, transparent 58%);
-  mask-image: linear-gradient(to left, #000 38%, transparent 58%);
-}
-.gamewash--away .gamewash__layer--2 {
-  -webkit-mask-image: linear-gradient(
-    to left,
-    transparent 34%,
-    #000 54%,
-    #000 72%,
-    transparent 88%
-  );
-  mask-image: linear-gradient(
-    to left,
-    transparent 34%,
-    #000 54%,
-    #000 72%,
-    transparent 88%
-  );
-}
-.gamewash--away .gamewash__layer--3 {
-  -webkit-mask-image: linear-gradient(to left, transparent 68%, #000 86%);
-  mask-image: linear-gradient(to left, transparent 68%, #000 86%);
-}
-
-/* The radii themselves. The first is ZERO on purpose: the outer edge is
- * where the crest is meant to be a crest, and anything above zero there
- * reads as a smudge that got away. */
-.gamewash__layer--1 .gamewash__mark {
-  filter: saturate(1.15);
-}
-.gamewash__layer--2 .gamewash__mark {
-  filter: blur(calc(7px * var(--sports-scale))) saturate(1.15);
-}
-.gamewash__layer--3 .gamewash__mark {
-  filter: blur(calc(18px * var(--sports-scale))) saturate(1.15);
-}
-/* Smaller card, smaller crest, same softness relative to it. */
-.upcard .gamewash__layer--2 .gamewash__mark {
-  filter: blur(calc(2.8px * var(--sports-scale))) saturate(1.15);
-}
-.upcard .gamewash__layer--3 .gamewash__mark {
-  filter: blur(calc(7px * var(--sports-scale))) saturate(1.15);
+/* Smaller card, smaller crest: enough of the mark to read as itself
+ * without the card becoming the logo. The blur comes down with it, so the
+ * softness stays the same fraction of the crest. */
+.upcard .gamewash__mark {
+  height: 125%;
+  filter: blur(calc(2.9px * var(--sports-scale))) saturate(1.15);
 }
 
 /* The veil is a second copy of both washes, laid over the text for the
- * colour it lends them. It takes the softest copy only: three more sharp
- * layers per card is the most expensive thing on the row, and at this
- * radius the crest reads as colour rather than as shapes over the text. */
-.gameveil .gamewash__layer--1,
-.gameveil .gamewash__layer--2 {
-  display: none;
+ * colour it lends them. It takes the crest much softer: at the radius
+ * below it reads as colour rather than as shapes sitting on the text. */
+.gameveil .gamewash__mark {
+  filter: blur(calc(20px * var(--sports-scale))) saturate(1.15);
 }
-.gameveil .gamewash__layer--3 {
-  -webkit-mask-image: none;
-  mask-image: none;
+.upcard .gameveil .gamewash__mark {
+  filter: blur(calc(9px * var(--sports-scale))) saturate(1.15);
 }
 
 /* The wash laid back over the finished card, so the text picks up a hint of
