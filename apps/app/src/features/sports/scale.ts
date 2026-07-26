@@ -7,7 +7,7 @@
  * react-parallax-tilt takes its glare radius as a string prop, so that one
  * value cannot come from CSS.
  */
-export const SPORTS_SCALE = 1.75;
+export const SPORTS_SCALE = 1.5;
 
 /** A radius in px, scaled, as the string the Tilt prop wants. */
 export const scaledRadius = (base: number): string =>
