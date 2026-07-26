@@ -1,4 +1,4 @@
-import type { Game } from "./model";
+import type { Competitor, Game } from "./model";
 
 /**
  * Stand-in games so the hub can be built and looked at before the schedule
@@ -57,3 +57,70 @@ export const PLACEHOLDER_GAMES: Game[] = [
     channels: [],
   },
 ];
+
+/** A day's worth of fixtures, enough to make the row actually scroll. Built
+ * from a handful of matchups rather than typed out twenty times: the point
+ * of this data is the LAYOUT under pressure (long names, a full row, mixed
+ * leagues), not the realism of any one game. */
+const MATCHUPS: Array<[Competitor, Competitor, string, Game["sport"]]> = [
+  [
+    { name: "Brazil", abbr: "BRA", color: "1b7a3f" },
+    { name: "Canada", abbr: "CAN", color: "a8232b" },
+    "FIFA World Cup",
+    "soccer",
+  ],
+  [
+    { name: "Cubs", abbr: "CHC", color: "0e3386" },
+    { name: "Pirates", abbr: "PIT", color: "c6a10a" },
+    "MLB",
+    "baseball",
+  ],
+  [
+    { name: "Argentina", abbr: "ARG", color: "5fa8d3" },
+    { name: "Germany", abbr: "GER", color: "3b3b3b" },
+    "UEFA Euro",
+    "soccer",
+  ],
+  [
+    { name: "France", abbr: "FRA", color: "1f3a93" },
+    { name: "Japan", abbr: "JPN", color: "b0303a" },
+    "Copa America",
+    "soccer",
+  ],
+  [
+    { name: "Italy", abbr: "ITA", color: "1f6f4a" },
+    { name: "Mexico", abbr: "MEX", color: "1a7a3e" },
+    "CONCACAF Gold Cup",
+    "soccer",
+  ],
+  [
+    { name: "Manchester City", abbr: "MCI", color: "6cabdd" },
+    { name: "Wolverhampton", abbr: "WOL", color: "fdb913" },
+    "Premier League",
+    "soccer",
+  ],
+];
+
+const clock = (d: Date) =>
+  d
+    .toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+    .replace(/\s/g, "");
+
+export const PLACEHOLDER_UPCOMING: Game[] = Array.from({ length: 20 }, (_, i) => {
+  const [home, away, league, sport] = MATCHUPS[i % MATCHUPS.length];
+  // Staggered through the evening so the times read like a real schedule
+  // rather than twenty identical chips.
+  const start = new Date(Date.now() + (45 + i * 25) * 60_000);
+  return {
+    id: `ph-up-${i}`,
+    sport,
+    league,
+    state: "pre",
+    start,
+    status: clock(start),
+    home,
+    away,
+    broadcasts: [],
+    channels: [],
+  };
+});

@@ -1,6 +1,7 @@
 import Tilt from "react-parallax-tilt";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
-import type { Competitor, Game } from "./model";
+import { Wash } from "./Wash";
+import type { Game } from "./model";
 
 /**
  * A live game, as one wide card (plan 010).
@@ -15,25 +16,6 @@ import type { Competitor, Game } from "./model";
  * cover all of them ends up covering none of them well, so `sport` picks a
  * layout rather than a set of flags.
  */
-
-/** The wash behind each half: the competitor's mark, blurred hard and
- * bled off its own edge, tinted by the team colour. A missing logo leaves
- * the tint, which is why the tint is a separate layer. */
-function Wash({ side, team }: { side: "home" | "away"; team: Competitor }) {
-  return (
-    <span className={`gamecard__wash gamecard__wash--${side}`} aria-hidden>
-      {team.color && (
-        <span
-          className="gamecard__tint"
-          style={{ background: `#${team.color}` }}
-        />
-      )}
-      {team.logo && (
-        <img className="gamecard__mark" src={team.logo} alt="" loading="lazy" />
-      )}
-    </span>
-  );
-}
 
 export function GameCard({
   game,

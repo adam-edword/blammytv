@@ -33,6 +33,8 @@
  * Scoped here rather than widened globally: every other row is correct. */
 .sports .media-row__scroller {
   padding-top: 14px;
+  /* Sized for the LIVE card's shadow, which is the deeper of the two. Both
+   * rows share this rule; the upcoming card simply has room to spare. */
   padding-bottom: 30px;
 }
 
@@ -79,33 +81,36 @@
 
 /* Each half's wash: the team's mark blurred hard and bled off its own
  * edge, over a tint of the team colour. Two layers, not one, so a missing
- * logo still leaves the colour rather than a black void. */
-.gamecard__wash {
+ * logo still leaves the colour rather than a black void.
+ *
+ * Shared by both card sizes; the blur radius is set per card below,
+ * because a 26px blur on a 235px card is most of the card. */
+.gamewash {
   position: absolute;
   top: 0;
   bottom: 0;
   width: 58%;
   overflow: hidden;
 }
-.gamecard__wash--home {
+.gamewash--home {
   left: 0;
   /* Fades out toward the centre so the two halves meet without a seam. */
   -webkit-mask-image: linear-gradient(to right, #000 25%, transparent 100%);
   mask-image: linear-gradient(to right, #000 25%, transparent 100%);
 }
-.gamecard__wash--away {
+.gamewash--away {
   right: 0;
   -webkit-mask-image: linear-gradient(to left, #000 25%, transparent 100%);
   mask-image: linear-gradient(to left, #000 25%, transparent 100%);
 }
-.gamecard__tint {
+.gamewash__tint {
   position: absolute;
   inset: 0;
   opacity: 0.55;
 }
 /* Oversized and blurred: this is a wash, not a logo. Scaled past the edge
  * so the blur never reveals a soft border where the image ends. */
-.gamecard__mark {
+.gamewash__mark {
   position: absolute;
   top: 50%;
   left: 0;
@@ -115,9 +120,12 @@
   filter: blur(26px) saturate(1.15);
   opacity: 0.85;
 }
-.gamecard__wash--away .gamecard__mark {
+.gamewash--away .gamewash__mark {
   left: auto;
   right: 0;
+}
+.upcard .gamewash__mark {
+  filter: blur(14px) saturate(1.15);
 }
 
 /* Readability floor. The washes are arbitrary team colours, so the text
@@ -269,6 +277,123 @@
 
 @media (prefers-reduced-motion: reduce) {
   .gamecard__tilt {
+    transition: none;
+  }
+}
+
+/* ------------------------------------------------------- upcoming card */
+
+/* A fixture that has not started. Same object as the live card, smaller
+ * and quieter: no score, no clock, no carriage line, because none of those
+ * are true yet. */
+.upcard {
+  flex: 0 0 auto;
+  width: 235px;
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+.upcard:hover {
+  z-index: 2;
+}
+.upcard__tilt {
+  position: relative;
+  display: block;
+  height: 132px;
+  /* Keep glareBorderRadius in UpcomingCard in step with this. */
+  border-radius: 30px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: #0b0b0d;
+  transition: box-shadow 450ms ease;
+}
+.upcard:hover .upcard__tilt {
+  box-shadow: 0 12px 26px -10px color-mix(in srgb, #000 55%, transparent);
+}
+/* Heavier than the live card's: at this size the washes cover most of the
+ * card, and the names sit right on top of them. */
+.upcard__scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      to right,
+      rgba(0, 0, 0, 0.66) 0%,
+      rgba(0, 0, 0, 0.8) 45%,
+      rgba(0, 0, 0, 0.8) 55%,
+      rgba(0, 0, 0, 0.66) 100%
+    ),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.5));
+}
+.upcard__body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  height: 100%;
+  padding: 14px 14px 12px;
+}
+.upcard__time {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 13px;
+  color: #fff;
+}
+/* The matchup. Equal halves so the centre line stays put whatever the
+ * names are, and each half ellipsises inside its own track rather than
+ * pushing the other one over. */
+.upcard__teams {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+.upcard__team {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.upcard__team--away {
+  align-items: flex-end;
+  text-align: right;
+}
+.upcard__abbr {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 8.5px;
+  letter-spacing: 0.07em;
+  color: rgba(255, 255, 255, 0.45);
+}
+.upcard__name {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 19px;
+  line-height: 1.1;
+  color: #fff;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.upcard__league {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 8.5px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .upcard__tilt {
     transition: none;
   }
 }
