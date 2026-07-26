@@ -2,6 +2,15 @@ import type { CSSProperties } from "react";
 import type { Competitor } from "./model";
 
 /**
+ * The layers of the crest's progressive blur. Empty on purpose: each one is
+ * a backdrop-filter with its own radius and band, all of it in sports.css,
+ * where the numbers can be read next to the measurements that chose them.
+ * Six is what the falloff needs; the count only lives here because CSS
+ * cannot conjure elements.
+ */
+const HAZE_LAYERS = [1, 2, 3, 4, 5, 6];
+
+/**
  * The same washes, laid back over the FINISHED card at low opacity.
  *
  * Adam's Figma trick: the text underneath picks up a hint of each team's
@@ -51,6 +60,15 @@ export function Wash({
         // one thing with any detail in it.
         <span className="gamewash__crest">
           <img className="gamewash__mark" src={team.logo} alt="" loading="lazy" />
+          {/* The progressive blur. Each <i> blurs the already-blurred
+            * result beneath it, so the radii compound into one continuous
+            * dissolve; the stylesheet owns the radius and the band of
+            * each. Live card only, and priced there: see sports.css. */}
+          <span className="gamewash__haze">
+            {HAZE_LAYERS.map((layer) => (
+              <i key={layer} />
+            ))}
+          </span>
         </span>
       ) : (
         team.color && (

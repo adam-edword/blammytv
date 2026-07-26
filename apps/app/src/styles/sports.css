@@ -209,12 +209,225 @@
   height: 204%;
   width: auto;
   transform: translateY(-50%);
-  filter: blur(calc(7px * var(--sports-scale))) saturate(1.15);
+  /* Sharp. On the live card the haze above supplies every bit of the blur,
+   * progressively; the small card overrides this with one flat radius. */
+  filter: saturate(1.15);
 }
 .gamewash--away .gamewash__mark {
   right: auto;
   left: 0;
 }
+
+/* The progressive blur, on the LIVE card only.
+ *
+ * Technique lifted from Progressive-Acrylic (MIT, ysfemreAlbyrk), not the
+ * package: it builds its layers in JS per element, and 60 instances of a
+ * four-layer acrylic stack (blur, luminosity, tint, noise) is a lot of
+ * machinery for the one layer we want. The maths below is theirs.
+ *
+ * What makes it better than the hand-rolled version this replaces:
+ * backdrop-filter COMPOUNDS. Each layer blurs the already-blurred result
+ * beneath it, so the falloff is continuous instead of a cross-fade between
+ * independent copies. Radii double per layer and the bands crowd toward
+ * the centre, which is what makes it read as one smooth dissolve.
+ *
+ * Measured, 27 upcoming cards over 100 scrolled frames (headless software
+ * raster, so read the ratio and not the absolute): one flat blur held 16ms
+ * a frame, three layers cost 25ms, eight cost 48ms. Backdrop cost scales
+ * with AREA, so the live card is the expensive one: five of them at six
+ * layers came to 45ms. That is why this is scoped to the live row, which
+ * is three to five cards on a normal day, and why the upcoming card keeps
+ * one flat radius. It would be invisible there anyway: half of a 315px
+ * card is 157px, and a six-band gradient across that is not a gradient.
+ *
+ * If the live row ever janks on a real GPU, delete the haze span in
+ * Wash.tsx and this block goes dead with it. */
+.gamewash__haze {
+  position: absolute;
+  inset: 0;
+}
+.gamewash__haze i {
+  position: absolute;
+  inset: 0;
+}
+/* The small card takes none of it: one radius, set above. */
+.upcard .gamewash__haze {
+  display: none;
+}
+/* Nor does the veil, which is already the softest copy of the crest. */
+.gameveil .gamewash__haze {
+  display: none;
+}
+
+.gamecard .gamewash__haze i:nth-child(1) {
+  backdrop-filter: blur(calc(0.63px * var(--sports-scale)));
+  -webkit-backdrop-filter: blur(calc(0.63px * var(--sports-scale)));
+}
+.gamewash--home .gamewash__haze i:nth-child(1) {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 1) 2.8%
+  );
+  mask-image: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 1) 2.8%
+  );
+}
+.gamewash--away .gamewash__haze i:nth-child(1) {
+  -webkit-mask-image: linear-gradient(
+    to left,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 1) 2.8%
+  );
+  mask-image: linear-gradient(
+    to left,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 1) 2.8%
+  );
+}
+.gamecard .gamewash__haze i:nth-child(2) {
+  backdrop-filter: blur(calc(1.25px * var(--sports-scale)));
+  -webkit-backdrop-filter: blur(calc(1.25px * var(--sports-scale)));
+}
+.gamewash--home .gamewash__haze i:nth-child(2) {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0) 2.8%,
+    rgba(0, 0, 0, 1) 11.1%
+  );
+  mask-image: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0) 2.8%,
+    rgba(0, 0, 0, 1) 11.1%
+  );
+}
+.gamewash--away .gamewash__haze i:nth-child(2) {
+  -webkit-mask-image: linear-gradient(
+    to left,
+    rgba(0, 0, 0, 0) 2.8%,
+    rgba(0, 0, 0, 1) 11.1%
+  );
+  mask-image: linear-gradient(
+    to left,
+    rgba(0, 0, 0, 0) 2.8%,
+    rgba(0, 0, 0, 1) 11.1%
+  );
+}
+.gamecard .gamewash__haze i:nth-child(3) {
+  backdrop-filter: blur(calc(2.5px * var(--sports-scale)));
+  -webkit-backdrop-filter: blur(calc(2.5px * var(--sports-scale)));
+}
+.gamewash--home .gamewash__haze i:nth-child(3) {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0) 11.1%,
+    rgba(0, 0, 0, 1) 25%
+  );
+  mask-image: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0) 11.1%,
+    rgba(0, 0, 0, 1) 25%
+  );
+}
+.gamewash--away .gamewash__haze i:nth-child(3) {
+  -webkit-mask-image: linear-gradient(
+    to left,
+    rgba(0, 0, 0, 0) 11.1%,
+    rgba(0, 0, 0, 1) 25%
+  );
+  mask-image: linear-gradient(
+    to left,
+    rgba(0, 0, 0, 0) 11.1%,
+    rgba(0, 0, 0, 1) 25%
+  );
+}
+.gamecard .gamewash__haze i:nth-child(4) {
+  backdrop-filter: blur(calc(5px * var(--sports-scale)));
+  -webkit-backdrop-filter: blur(calc(5px * var(--sports-scale)));
+}
+.gamewash--home .gamewash__haze i:nth-child(4) {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0) 25%,
+    rgba(0, 0, 0, 1) 44.4%
+  );
+  mask-image: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0) 25%,
+    rgba(0, 0, 0, 1) 44.4%
+  );
+}
+.gamewash--away .gamewash__haze i:nth-child(4) {
+  -webkit-mask-image: linear-gradient(
+    to left,
+    rgba(0, 0, 0, 0) 25%,
+    rgba(0, 0, 0, 1) 44.4%
+  );
+  mask-image: linear-gradient(
+    to left,
+    rgba(0, 0, 0, 0) 25%,
+    rgba(0, 0, 0, 1) 44.4%
+  );
+}
+.gamecard .gamewash__haze i:nth-child(5) {
+  backdrop-filter: blur(calc(10px * var(--sports-scale)));
+  -webkit-backdrop-filter: blur(calc(10px * var(--sports-scale)));
+}
+.gamewash--home .gamewash__haze i:nth-child(5) {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0) 44.4%,
+    rgba(0, 0, 0, 1) 69.4%
+  );
+  mask-image: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0) 44.4%,
+    rgba(0, 0, 0, 1) 69.4%
+  );
+}
+.gamewash--away .gamewash__haze i:nth-child(5) {
+  -webkit-mask-image: linear-gradient(
+    to left,
+    rgba(0, 0, 0, 0) 44.4%,
+    rgba(0, 0, 0, 1) 69.4%
+  );
+  mask-image: linear-gradient(
+    to left,
+    rgba(0, 0, 0, 0) 44.4%,
+    rgba(0, 0, 0, 1) 69.4%
+  );
+}
+.gamecard .gamewash__haze i:nth-child(6) {
+  backdrop-filter: blur(calc(20px * var(--sports-scale)));
+  -webkit-backdrop-filter: blur(calc(20px * var(--sports-scale)));
+}
+.gamewash--home .gamewash__haze i:nth-child(6) {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0) 69.4%,
+    rgba(0, 0, 0, 1) 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0) 69.4%,
+    rgba(0, 0, 0, 1) 100%
+  );
+}
+.gamewash--away .gamewash__haze i:nth-child(6) {
+  -webkit-mask-image: linear-gradient(
+    to left,
+    rgba(0, 0, 0, 0) 69.4%,
+    rgba(0, 0, 0, 1) 100%
+  );
+  mask-image: linear-gradient(
+    to left,
+    rgba(0, 0, 0, 0) 69.4%,
+    rgba(0, 0, 0, 1) 100%
+  );
+}
+
 
 /* Smaller card, smaller crest: enough of the mark to read as itself
  * without the card becoming the logo. The blur comes down with it, so the
