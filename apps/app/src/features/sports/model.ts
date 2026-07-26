@@ -11,6 +11,16 @@
 export interface Competitor {
   /** "Brazil", "Chicago Cubs". */
   name: string;
+  /**
+   * The name a broadcast would say: "Cubs", "Man City". ESPN calls this
+   * shortDisplayName and every schedule source has some version of it,
+   * because no sports UI has ever had room for the full one.
+   *
+   * The small card prefers it, the wide card does not use it. Optional
+   * because a source may not carry one, and for most competitors ("Brazil")
+   * it is the same string as the name.
+   */
+  shortName?: string;
   /** "BRA", "CHC". The card shows this above the name. */
   abbr: string;
   /** Crest, flag or team mark. Doubles as the card's background wash. */

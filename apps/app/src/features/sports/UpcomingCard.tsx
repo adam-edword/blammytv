@@ -26,12 +26,13 @@ export function UpcomingCard({
   onOpen?: (game: Game) => void;
 }) {
   const { home, away } = game;
-  // Two names in half a small card each: this is where a club with a long
-  // name gets cut off, so the pair is fitted to the halves it has.
-  const [homeName, awayName] = useFitText<HTMLSpanElement>(
-    home.name,
-    away.name,
-  );
+  // Half a small card each, so this takes the broadcast name where there is
+  // one: "Man City" is what a viewer scanning fixtures reads anyway, and no
+  // font size makes "Manchester City" fit in 97px. The fit below is the
+  // safety net for whatever the feed still sends long.
+  const homeText = home.shortName ?? home.name;
+  const awayText = away.shortName ?? away.name;
+  const [homeName, awayName] = useFitText<HTMLSpanElement>(homeText, awayText);
   return (
     <button
       type="button"
@@ -61,13 +62,13 @@ export function UpcomingCard({
             <span className="upcard__team">
               <span className="upcard__abbr">{home.abbr}</span>
               <span className="upcard__name" ref={homeName}>
-                {home.name}
+                {homeText}
               </span>
             </span>
             <span className="upcard__team upcard__team--away">
               <span className="upcard__abbr">{away.abbr}</span>
               <span className="upcard__name" ref={awayName}>
-                {away.name}
+                {awayText}
               </span>
             </span>
           </span>

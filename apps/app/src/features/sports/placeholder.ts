@@ -61,7 +61,11 @@ export const PLACEHOLDER_GAMES: Game[] = [
 /** A day's worth of fixtures, enough to make the row actually scroll. Built
  * from a handful of matchups rather than typed out twenty times: the point
  * of this data is the LAYOUT under pressure (long names, a full row, mixed
- * leagues), not the realism of any one game. */
+ * leagues), not the realism of any one game.
+ *
+ * The long names carry a short one the way a real payload does, so the small
+ * card can show "Man City" while the wide card shows the club. The ones
+ * without a short name are the pressure: they are what the fit is for. */
 const MATCHUPS: Array<[Competitor, Competitor, string, Game["sport"]]> = [
   [
     { name: "Brazil", abbr: "BRA", color: "1b7a3f" },
@@ -70,8 +74,13 @@ const MATCHUPS: Array<[Competitor, Competitor, string, Game["sport"]]> = [
     "soccer",
   ],
   [
-    { name: "Cubs", abbr: "CHC", color: "0e3386" },
-    { name: "Pirates", abbr: "PIT", color: "c6a10a" },
+    { name: "Chicago Cubs", shortName: "Cubs", abbr: "CHC", color: "0e3386" },
+    {
+      name: "Pittsburgh Pirates",
+      shortName: "Pirates",
+      abbr: "PIT",
+      color: "c6a10a",
+    },
     "MLB",
     "baseball",
   ],
@@ -94,8 +103,18 @@ const MATCHUPS: Array<[Competitor, Competitor, string, Game["sport"]]> = [
     "soccer",
   ],
   [
-    { name: "Manchester City", abbr: "MCI", color: "6cabdd" },
-    { name: "Wolverhampton", abbr: "WOL", color: "fdb913" },
+    {
+      name: "Manchester City",
+      shortName: "Man City",
+      abbr: "MCI",
+      color: "6cabdd",
+    },
+    {
+      name: "Wolverhampton Wanderers",
+      shortName: "Wolves",
+      abbr: "WOL",
+      color: "fdb913",
+    },
     "Premier League",
     "soccer",
   ],
