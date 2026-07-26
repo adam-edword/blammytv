@@ -4,12 +4,8 @@ import { ChipTabs } from "../../ui/ChipTabs";
 import { Toggle } from "../../ui/Toggle";
 import { loadOneClickPlay, saveOneClickPlay } from "./oneClickPlay";
 import { UpdatesSection } from "./UpdatesSection";
-import {
-  STARTUP_TABS,
-  loadStartupTab,
-  saveStartupTab,
-  type StartupTab,
-} from "./startupTab";
+import { PlaylistsTab } from "./PlaylistsTab";
+import { AioStreamsTab } from "./AioStreamsTab";
 import { savePlaylists } from "./playlists";
 import { loadAioUrl, saveAioUrl, saveHeroSources } from "./aiostreams";
 import { loadSourceFailover, saveSourceFailover } from "./failover";
@@ -21,20 +17,24 @@ import {
 import { requestOnboardingReplay } from "../../app/onboardingGate";
 
 /**
- * General: how the app BEHAVES, and how it is managed.
+ * General: where content comes from, what happens when it plays, and how
+ * the app is managed. Three groups, in that order, with the Danger Zone
+ * last as it is in every tab.
  *
- * Split out of Customize, which had grown into a pile of unrelated things:
- * app updates and the Danger Zone sat beside accent colours, so the tab
- * answered two different questions at once. The rule now is that Media is
- * where content comes from, General is behaviour and app management, and
- * Customize is only how the app looks.
+ * Sources absorbed what used to be its own Media tab. Connecting a playlist
+ * or a manifest is a one-time setup, so it earns a section rather than a
+ * third of the rail, and the Live TV / Stream split it needs is the same
+ * split Customize uses one tab over: one mental model, two places.
  */
+const SOURCE_TABS = [
+  { key: "live", label: "Live TV" },
+  { key: "stream", label: "Stream" },
+] as const;
+
 export function GeneralTab() {
-  const [startup, setStartup] = useState<StartupTab>(loadStartupTab);
-  const pickStartup = (next: StartupTab) => {
-    setStartup(next);
-    saveStartupTab(next);
-  };
+  // Ephemeral: Sources always opens on Live TV rather than remembering
+  // where you were, the same rule the old Media rail followed.
+  const [source, setSource] = useState<"live" | "stream">("live");
 
   const [oneClick, setOneClick] = useState<boolean>(loadOneClickPlay);
   const toggleOneClick = () => {
@@ -78,21 +78,17 @@ export function GeneralTab() {
 
   return (
     <>
-      <section className="settings-section">
-        <div className="customize-row">
-          <div>
-            <h4 className="customize-row__title">Startup Tab</h4>
-            <p className="settings__section-note settings__section-note--dim">
-              Where the app opens.
-            </p>
-          </div>
-          <ChipTabs
-            tabs={STARTUP_TABS}
-            active={startup}
-            onChange={pickStartup}
-          />
-        </div>
+      {/* Where content comes from. The two source screens are unchanged;
+        * they just sit behind a pill here instead of behind a tab. */}
+      <h3 className="settings__group">Sources</h3>
+      <div className="customize-rail">
+        <ChipTabs tabs={SOURCE_TABS} active={source} onChange={setSource} />
+      </div>
+      {source === "live" ? <PlaylistsTab /> : <AioStreamsTab />}
 
+      {/* What happens when it plays. */}
+      <h3 className="settings__group">Playback</h3>
+      <section className="settings-section">
         <div className="customize-row">
           <div>
             <h4 className="customize-row__title">One-Click Play Movies</h4>

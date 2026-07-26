@@ -159,6 +159,24 @@
   margin: 0;
 }
 
+/* Heading over a RUN of sections (Sources, Playback, Interface, Media).
+ * Whatever follows drops its own top rule, because the heading is already
+ * the divider — a rule immediately under a heading reads as a stray line. */
+.settings__group {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 32px;
+  margin: 30px 0 0;
+}
+.settings__group:first-child {
+  margin-top: 0;
+}
+.settings__group + .settings-section,
+.settings__group + .customize-rail + .settings-section {
+  border-top: none;
+  padding-top: 0;
+}
+
 .settings-section__list-title {
   font-family: var(--font-headline);
   font-weight: 700;

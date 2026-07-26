@@ -3,6 +3,13 @@ import { ChevronIcon } from "../../ui/icons";
 import { ChipTabs } from "../../ui/ChipTabs";
 import { Toggle } from "../../ui/Toggle";
 import { loadAioUrl } from "./aiostreams";
+import { HeroSourcesSection } from "./HeroSourcesSection";
+import {
+  STARTUP_TABS,
+  loadStartupTab,
+  saveStartupTab,
+  type StartupTab,
+} from "./startupTab";
 import {
   CARD_META_FIELDS,
   loadCardMeta,
@@ -67,6 +74,14 @@ const CORNER_TABS: Array<{ key: CornerStyle; label: string }> = [
   { key: "sharp", label: "Sharp" },
 ];
 
+/** The same Live TV / Stream split General's Sources uses. One mental
+ * model: the app has two content worlds, and each tab says its piece about
+ * both. */
+const WORLD_TABS = [
+  { key: "stream", label: "Stream" },
+  { key: "live", label: "Live TV" },
+] as const;
+
 // STARTUP_TABS lives in startupTab.ts — one list shared with onboarding.
 
 // Themes are their own pop-out panel now — the old "Theme" pill is gone; the
@@ -78,6 +93,15 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
     saveTheme(next);
     applyTheme(next);
   };
+
+  const [startup, setStartup] = useState<StartupTab>(loadStartupTab);
+  const pickStartup = (next: StartupTab) => {
+    setStartup(next);
+    saveStartupTab(next);
+  };
+
+  // Ephemeral, like General's Sources: always opens on Stream.
+  const [world, setWorld] = useState<"stream" | "live">("stream");
 
   const [scale, setScale] = useState<UiScale>(loadUiScale);
   const pickScale = (next: UiScale) => {
@@ -150,8 +174,9 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
 
   /** Back to factory appearance: default accent (custom slot cleared),
    * default theme pack, dark theme, squircle corners, 100% scale, 12h
-   * clock, channel numbers shown. Startup Tab is NOT reset here any more:
-   * it moved to General, and this button resets appearance. Accent + pack reset go
+   * clock, channel numbers shown. Startup Tab is NOT reset, even though it
+   * is displayed on this tab: it decides where the app OPENS, which is
+   * behaviour, and this button promises appearance. Accent + pack reset go
    * straight through the storage/apply seams (their live state lives in the
    * Themes panel, which isn't mounted here). */
   const reset = () => {
@@ -186,68 +211,74 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
       </button>
 
 
-      {(
-        <section className="settings-section">
-          <div className="customize-row">
-            <div>
-              <h4 className="customize-row__title">Clock Format</h4>
-              <p className="settings__section-note settings__section-note--dim">
-                How the header clock reads.
-              </p>
-            </div>
-            <ChipTabs tabs={CLOCK_TABS} active={clock} onChange={pickClock} />
+      {/* Applies everywhere, whichever side of the app you are on. Named
+        * Interface rather than General so it does not collide with the
+        * General TAB one level up. */}
+      <h3 className="settings__group">Interface</h3>
+      <section className="settings-section">
+        <div className="customize-row">
+          <div>
+            <h4 className="customize-row__title">Startup Tab</h4>
+            <p className="settings__section-note settings__section-note--dim">
+              Where the app opens.
+            </p>
           </div>
+          <ChipTabs tabs={STARTUP_TABS} active={startup} onChange={pickStartup} />
+        </div>
 
-          <div className="customize-row">
-            <div>
-              <h4 className="customize-row__title">Channel Numbers</h4>
-              <p className="settings__section-note settings__section-note--dim">
-                Show the provider&rsquo;s channel number beside the name.
-              </p>
-            </div>
-            <Toggle
-              on={chanNum}
-              onChange={toggleChanNum}
-              label="Show channel numbers"
-            />
+        <div className="customize-row">
+          <div>
+            <h4 className="customize-row__title">Clock Format</h4>
+            <p className="settings__section-note settings__section-note--dim">
+              How the header clock reads.
+            </p>
           </div>
+          <ChipTabs tabs={CLOCK_TABS} active={clock} onChange={pickClock} />
+        </div>
+
+        <div className="customize-row">
+          <div>
+            <h4 className="customize-row__title">UI Scale</h4>
+            <p className="settings__section-note settings__section-note--dim">
+              Make everything bigger or smaller.
+            </p>
+          </div>
+          <ChipTabs
+            tabs={SCALE_TABS}
+            active={String(scale)}
+            onChange={(key) => pickScale(Number(key) as UiScale)}
+          />
+        </div>
+
+        <div className="customize-row">
+          <div>
+            <h4 className="customize-row__title">Corner Style</h4>
+            <p className="settings__section-note settings__section-note--dim">
+              The shape of every corner in the app.
+            </p>
+          </div>
+          <ChipTabs tabs={CORNER_TABS} active={corners} onChange={pickCorners} />
+        </div>
+      </section>
+
+      {/* Per-world look, behind the same pill General's Sources uses. */}
+      <h3 className="settings__group">Media</h3>
+      <div className="customize-rail">
+        <ChipTabs tabs={WORLD_TABS} active={world} onChange={setWorld} />
+      </div>
+
+      {world === "stream" && !hasAddon && (
+        <section className="settings-section">
+          <p className="settings__section-note settings__section-note--dim">
+            Connect an AIOStreams manifest under General &rarr; Sources and
+            these appear.
+          </p>
         </section>
       )}
 
-      {(
-        <section className="settings-section">
-          {/* Light/Dark now lives in the Themes panel (Theme Style pill). */}
-          <div className="customize-row">
-            <div>
-              <h4 className="customize-row__title">UI Scale</h4>
-              <p className="settings__section-note settings__section-note--dim">
-                Make everything bigger or smaller.
-              </p>
-            </div>
-            <ChipTabs
-              tabs={SCALE_TABS}
-              active={String(scale)}
-              onChange={(key) => pickScale(Number(key) as UiScale)}
-            />
-          </div>
+      {world === "stream" && hasAddon && <HeroSourcesSection />}
 
-          <div className="customize-row">
-            <div>
-              <h4 className="customize-row__title">Corner Style</h4>
-              <p className="settings__section-note settings__section-note--dim">
-                The shape of every corner in the app.
-              </p>
-            </div>
-            <ChipTabs
-              tabs={CORNER_TABS}
-              active={corners}
-              onChange={pickCorners}
-            />
-          </div>
-        </section>
-      )}
-
-      {hasAddon && (
+      {world === "stream" && hasAddon && (
         <section className="settings-section">
           <h3 className="settings-section__list-title">Card Details</h3>
           <p className="settings__section-note settings__section-note--dim">
@@ -270,7 +301,7 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
         </section>
       )}
 
-      {hasAddon && (
+      {world === "stream" && hasAddon && (
         <section className="settings-section">
           <h3 className="settings-section__list-title">Player Overlay</h3>
           <p className="settings__section-note settings__section-note--dim">
@@ -292,7 +323,7 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
         </section>
       )}
 
-      {hasAddon && (
+      {world === "stream" && hasAddon && (
         <section className="settings-section">
           <h3 className="settings-section__list-title">Catalog Row Size</h3>
           <p className="settings__section-note settings__section-note--dim">
@@ -336,6 +367,24 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
                 {rowCap}
               </button>
             )}
+          </div>
+        </section>
+      )}
+
+      {world === "live" && (
+        <section className="settings-section">
+          <div className="customize-row">
+            <div>
+              <h4 className="customize-row__title">Channel Numbers</h4>
+              <p className="settings__section-note settings__section-note--dim">
+                Show the provider&rsquo;s channel number beside the name.
+              </p>
+            </div>
+            <Toggle
+              on={chanNum}
+              onChange={toggleChanNum}
+              label="Show channel numbers"
+            />
           </div>
         </section>
       )}

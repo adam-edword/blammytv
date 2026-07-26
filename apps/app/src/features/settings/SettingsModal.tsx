@@ -3,39 +3,29 @@ import { createPortal } from "react-dom";
 import { CloseIcon } from "../../ui/icons";
 import { useClosingExit } from "./useClosingExit";
 import { ChipTabs } from "../../ui/ChipTabs";
-import { PlaylistsTab } from "./PlaylistsTab";
-import { AioStreamsTab } from "./AioStreamsTab";
 import { CustomizeTab } from "./CustomizeTab";
 import { GeneralTab } from "./GeneralTab";
 
 /**
- * Three questions, one tab each: where content comes from (Media), how the
- * app behaves and is managed (General), and how it looks (Customize).
+ * Two questions, one tab each: what the app DOES (General) and how it LOOKS
+ * (Customize). Everything is filed by that question, never by which screen
+ * it happens to affect.
  *
- * The old rail was Playlists / AIOStreams / Customize, which asked the user
- * to know that "the place your app updates live" was under Customize, next
- * to accent colours. Media groups the two source screens behind one heading
- * and keeps their own tabs one level down.
+ * The rail was Playlists / AIOStreams / Customize once, which asked the
+ * user to know that "the place your app updates live" was under Customize,
+ * next to accent colours. Then Media / General / Customize, which still
+ * spent a third of the rail on a screen most people touch once. Sources is
+ * a section inside General now.
  *
- * The split is by QUESTION, not by which screen a setting happens to affect.
- * The AIOStreams tab is the connection to an addon and nothing else: what
- * its catalogs look like (card details, player overlay, row size) sits in
- * Customize, and how playback behaves (skip behaviour, source failover)
- * sits in General, both alongside the settings they resemble rather than
- * the credential that enables them.
+ * Both tabs carry the same Live TV / Stream pill for the parts that differ
+ * per world (General: where content comes from; Customize: how that content
+ * looks). One mental model, said twice, rather than two filing systems.
  */
-type SettingsTab = "media" | "general" | "customize";
-type MediaTab = "playlists" | "aiostreams";
+type SettingsTab = "general" | "customize";
 
 const TABS: Array<{ key: SettingsTab; label: string }> = [
-  { key: "media", label: "Media" },
   { key: "general", label: "General" },
   { key: "customize", label: "Customize" },
-];
-
-const MEDIA_TABS: Array<{ key: MediaTab; label: string }> = [
-  { key: "playlists", label: "Playlists" },
-  { key: "aiostreams", label: "AIOStreams" },
 ];
 
 /** The floating settings card from the redesign: title left, chip-tab rail
@@ -49,10 +39,7 @@ export function SettingsModal({
   onClose: () => void;
   onOpenThemes: () => void;
 }) {
-  const [tab, setTab] = useState<SettingsTab>("media");
-  // Ephemeral, like Customize's old inner rail: Media always opens on
-  // Playlists rather than remembering where you were last time.
-  const [media, setMedia] = useState<MediaTab>("playlists");
+  const [tab, setTab] = useState<SettingsTab>("general");
   const { closing, requestClose } = useClosingExit(onClose);
 
   useEffect(() => {
@@ -91,15 +78,6 @@ export function SettingsModal({
         </header>
 
         <div className="settings__body">
-          {tab === "media" && (
-            <>
-              <div className="customize-rail">
-                <ChipTabs tabs={MEDIA_TABS} active={media} onChange={setMedia} />
-              </div>
-              {media === "playlists" && <PlaylistsTab />}
-              {media === "aiostreams" && <AioStreamsTab />}
-            </>
-          )}
           {tab === "general" && <GeneralTab />}
           {tab === "customize" && <CustomizeTab onOpenThemes={onOpenThemes} />}
         </div>

@@ -2403,12 +2403,29 @@ function Detail({
                 title={v.title}
                 onClick={() => onOpenItem?.(v)}
               >
-                <img
-                  src={v.poster}
-                  alt={v.title}
-                  loading="lazy"
-                  draggable={false}
-                />
+                {/* Same lean and glare as every other poster in the app.
+                  * Props match Card exactly, except the glare radius, which
+                  * tracks THIS card's corner (30px) — the glare layer is
+                  * clipped by its own radius, not the button's. */}
+                <Tilt
+                  className="vod-more__tilt"
+                  tiltEnable={!REDUCED_MOTION}
+                  tiltMaxAngleX={5}
+                  tiltMaxAngleY={5}
+                  scale={REDUCED_MOTION ? 1 : 1.03}
+                  transitionSpeed={650}
+                  glareEnable={!REDUCED_MOTION}
+                  glareMaxOpacity={0.12}
+                  glarePosition="all"
+                  glareBorderRadius="30px"
+                >
+                  <img
+                    src={v.poster}
+                    alt={v.title}
+                    loading="lazy"
+                    draggable={false}
+                  />
+                </Tilt>
               </button>
             ))}
           </RowScroller>

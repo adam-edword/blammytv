@@ -556,10 +556,23 @@
 .vod-more__card {
   flex: 0 0 auto;
   width: 170px;
+  /* The lean lives on the inner tilt layer now, so the button itself must
+   * NOT clip: overflow:hidden here would cut the corners off a rotated
+   * child and square them mid-lean. The radius and the ring move inward
+   * with the shape they belong to. */
+  border-radius: 30px;
+  transition: transform var(--dur-hover) ease;
+}
+.vod-more__tilt {
   border-radius: 30px;
   overflow: hidden;
   border: 1px solid var(--border-strong, rgba(255, 255, 255, 0.14));
-  transition: transform var(--dur-hover) ease;
+  /* Quicker than the Tilt's 650ms lean, same as the catalog cards: the
+   * shadow leads and the lean settles into it. */
+  transition: box-shadow 450ms ease;
+}
+.vod-more__card:hover .vod-more__tilt {
+  box-shadow: 0 14px 32px -12px color-mix(in srgb, #000 45%, transparent);
 }
 .vod-more__card:hover {
   transform: translateY(-3px);
