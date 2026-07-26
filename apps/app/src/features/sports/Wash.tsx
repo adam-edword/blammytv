@@ -5,10 +5,10 @@ import type { Competitor } from "./model";
  * The layers of the crest's progressive blur. Empty on purpose: each one is
  * a backdrop-filter with its own radius and band, all of it in sports.css,
  * where the numbers can be read next to the measurements that chose them.
- * Four is what the falloff needs; the count only lives here because CSS
+ * Eight is what the falloff needs; the count only lives here because CSS
  * cannot conjure elements.
  */
-const HAZE_LAYERS = [1, 2, 3, 4];
+const HAZE_LAYERS = [1, 2, 3, 4, 5, 6, 7, 8];
 
 /**
  * The same washes, laid back over the FINISHED card at low opacity.

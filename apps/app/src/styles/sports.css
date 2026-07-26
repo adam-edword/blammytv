@@ -234,20 +234,19 @@
  * Measured, 27 upcoming cards over 100 scrolled frames (headless software
  * raster, so read the ratio and not the absolute): one flat blur held 16ms
  * a frame, three layers cost 25ms, eight cost 48ms. Backdrop cost scales
- * with AREA, so the live card is the expensive one: five of them at six
- * layers came to 47ms, at four layers 39ms. That is why this is scoped to
- * the live row, which is three to five cards on a normal day, and why the
- * upcoming card keeps one flat radius. It would be invisible there anyway:
- * half of a 315px card is 157px, and a banded gradient across that is not
- * a gradient.
+ * with AREA, so the live card is the expensive one: five of them cost 35ms
+ * at four layers and 52ms at eight, against 16ms with no haze. That is why
+ * this is scoped to the live row, which is three to five cards on a normal
+ * day, and why the upcoming card keeps one flat radius. It would be
+ * invisible there anyway: half of a 315px card is 157px, and a banded
+ * gradient across that is not a gradient.
  *
- * FOUR layers, not the eight the recipe defaults to. The two SMALLEST came
- * out first: at 0.6px and 1.2px they were below the threshold of doing
- * anything, and rendering the ladder with and without them is the same
- * picture. Dropping the two largest instead is NOT the same picture, which
- * was the obvious-sounding guess (the centre scrim covers where they land)
- * and it is wrong: the card goes visibly crisp through the middle.
- * Keep the ceiling, drop the floor.
+ * EIGHT layers, the recipe's own default, and the count is about the BANDS
+ * rather than the radii. More layers subdivide the same falloff more
+ * finely, so the steps stop being visible as steps; the extra radii at the
+ * sharp end are far too small to change a pixel on their own. A four-layer
+ * ladder rendered identically to six in a still frame here and still read
+ * as banded on a real display, which is the more reliable instrument.
  *
  * If the live row ever janks on a real GPU, delete the haze span in
  * Wash.tsx and this block goes dead with it. */
@@ -269,114 +268,226 @@
 }
 
 .gamecard .gamewash__haze i:nth-child(1) {
-  backdrop-filter: blur(calc(2.5px * var(--sports-scale)));
-  -webkit-backdrop-filter: blur(calc(2.5px * var(--sports-scale)));
+  backdrop-filter: blur(calc(0.117px * var(--sports-scale)));
+  -webkit-backdrop-filter: blur(calc(0.117px * var(--sports-scale)));
 }
 .gamewash--home .gamewash__haze i:nth-child(1) {
   -webkit-mask-image: linear-gradient(
     to right,
     rgba(0, 0, 0, 0) 0.0%,
-    rgba(0, 0, 0, 1) 6.2%
+    rgba(0, 0, 0, 1) 1.6%
   );
   mask-image: linear-gradient(
     to right,
     rgba(0, 0, 0, 0) 0.0%,
-    rgba(0, 0, 0, 1) 6.2%
+    rgba(0, 0, 0, 1) 1.6%
   );
 }
 .gamewash--away .gamewash__haze i:nth-child(1) {
   -webkit-mask-image: linear-gradient(
     to left,
     rgba(0, 0, 0, 0) 0.0%,
-    rgba(0, 0, 0, 1) 6.2%
+    rgba(0, 0, 0, 1) 1.6%
   );
   mask-image: linear-gradient(
     to left,
     rgba(0, 0, 0, 0) 0.0%,
-    rgba(0, 0, 0, 1) 6.2%
+    rgba(0, 0, 0, 1) 1.6%
   );
 }
 .gamecard .gamewash__haze i:nth-child(2) {
-  backdrop-filter: blur(calc(5.0px * var(--sports-scale)));
-  -webkit-backdrop-filter: blur(calc(5.0px * var(--sports-scale)));
+  backdrop-filter: blur(calc(0.234px * var(--sports-scale)));
+  -webkit-backdrop-filter: blur(calc(0.234px * var(--sports-scale)));
 }
 .gamewash--home .gamewash__haze i:nth-child(2) {
   -webkit-mask-image: linear-gradient(
     to right,
-    rgba(0, 0, 0, 0) 6.2%,
-    rgba(0, 0, 0, 1) 25.0%
+    rgba(0, 0, 0, 0) 1.6%,
+    rgba(0, 0, 0, 1) 6.2%
   );
   mask-image: linear-gradient(
     to right,
-    rgba(0, 0, 0, 0) 6.2%,
-    rgba(0, 0, 0, 1) 25.0%
+    rgba(0, 0, 0, 0) 1.6%,
+    rgba(0, 0, 0, 1) 6.2%
   );
 }
 .gamewash--away .gamewash__haze i:nth-child(2) {
   -webkit-mask-image: linear-gradient(
     to left,
-    rgba(0, 0, 0, 0) 6.2%,
-    rgba(0, 0, 0, 1) 25.0%
+    rgba(0, 0, 0, 0) 1.6%,
+    rgba(0, 0, 0, 1) 6.2%
   );
   mask-image: linear-gradient(
     to left,
-    rgba(0, 0, 0, 0) 6.2%,
-    rgba(0, 0, 0, 1) 25.0%
+    rgba(0, 0, 0, 0) 1.6%,
+    rgba(0, 0, 0, 1) 6.2%
   );
 }
 .gamecard .gamewash__haze i:nth-child(3) {
-  backdrop-filter: blur(calc(10.0px * var(--sports-scale)));
-  -webkit-backdrop-filter: blur(calc(10.0px * var(--sports-scale)));
+  backdrop-filter: blur(calc(0.469px * var(--sports-scale)));
+  -webkit-backdrop-filter: blur(calc(0.469px * var(--sports-scale)));
 }
 .gamewash--home .gamewash__haze i:nth-child(3) {
   -webkit-mask-image: linear-gradient(
     to right,
-    rgba(0, 0, 0, 0) 25.0%,
-    rgba(0, 0, 0, 1) 56.2%
+    rgba(0, 0, 0, 0) 6.2%,
+    rgba(0, 0, 0, 1) 14.1%
   );
   mask-image: linear-gradient(
     to right,
-    rgba(0, 0, 0, 0) 25.0%,
-    rgba(0, 0, 0, 1) 56.2%
+    rgba(0, 0, 0, 0) 6.2%,
+    rgba(0, 0, 0, 1) 14.1%
   );
 }
 .gamewash--away .gamewash__haze i:nth-child(3) {
   -webkit-mask-image: linear-gradient(
     to left,
-    rgba(0, 0, 0, 0) 25.0%,
-    rgba(0, 0, 0, 1) 56.2%
+    rgba(0, 0, 0, 0) 6.2%,
+    rgba(0, 0, 0, 1) 14.1%
   );
   mask-image: linear-gradient(
     to left,
-    rgba(0, 0, 0, 0) 25.0%,
-    rgba(0, 0, 0, 1) 56.2%
+    rgba(0, 0, 0, 0) 6.2%,
+    rgba(0, 0, 0, 1) 14.1%
   );
 }
 .gamecard .gamewash__haze i:nth-child(4) {
-  backdrop-filter: blur(calc(20.0px * var(--sports-scale)));
-  -webkit-backdrop-filter: blur(calc(20.0px * var(--sports-scale)));
+  backdrop-filter: blur(calc(0.938px * var(--sports-scale)));
+  -webkit-backdrop-filter: blur(calc(0.938px * var(--sports-scale)));
 }
 .gamewash--home .gamewash__haze i:nth-child(4) {
   -webkit-mask-image: linear-gradient(
     to right,
-    rgba(0, 0, 0, 0) 56.2%,
-    rgba(0, 0, 0, 1) 100.0%
+    rgba(0, 0, 0, 0) 14.1%,
+    rgba(0, 0, 0, 1) 25.0%
   );
   mask-image: linear-gradient(
     to right,
-    rgba(0, 0, 0, 0) 56.2%,
-    rgba(0, 0, 0, 1) 100.0%
+    rgba(0, 0, 0, 0) 14.1%,
+    rgba(0, 0, 0, 1) 25.0%
   );
 }
 .gamewash--away .gamewash__haze i:nth-child(4) {
   -webkit-mask-image: linear-gradient(
     to left,
+    rgba(0, 0, 0, 0) 14.1%,
+    rgba(0, 0, 0, 1) 25.0%
+  );
+  mask-image: linear-gradient(
+    to left,
+    rgba(0, 0, 0, 0) 14.1%,
+    rgba(0, 0, 0, 1) 25.0%
+  );
+}
+.gamecard .gamewash__haze i:nth-child(5) {
+  backdrop-filter: blur(calc(1.875px * var(--sports-scale)));
+  -webkit-backdrop-filter: blur(calc(1.875px * var(--sports-scale)));
+}
+.gamewash--home .gamewash__haze i:nth-child(5) {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0) 25.0%,
+    rgba(0, 0, 0, 1) 39.1%
+  );
+  mask-image: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0) 25.0%,
+    rgba(0, 0, 0, 1) 39.1%
+  );
+}
+.gamewash--away .gamewash__haze i:nth-child(5) {
+  -webkit-mask-image: linear-gradient(
+    to left,
+    rgba(0, 0, 0, 0) 25.0%,
+    rgba(0, 0, 0, 1) 39.1%
+  );
+  mask-image: linear-gradient(
+    to left,
+    rgba(0, 0, 0, 0) 25.0%,
+    rgba(0, 0, 0, 1) 39.1%
+  );
+}
+.gamecard .gamewash__haze i:nth-child(6) {
+  backdrop-filter: blur(calc(3.75px * var(--sports-scale)));
+  -webkit-backdrop-filter: blur(calc(3.75px * var(--sports-scale)));
+}
+.gamewash--home .gamewash__haze i:nth-child(6) {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0) 39.1%,
+    rgba(0, 0, 0, 1) 56.2%
+  );
+  mask-image: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0) 39.1%,
+    rgba(0, 0, 0, 1) 56.2%
+  );
+}
+.gamewash--away .gamewash__haze i:nth-child(6) {
+  -webkit-mask-image: linear-gradient(
+    to left,
+    rgba(0, 0, 0, 0) 39.1%,
+    rgba(0, 0, 0, 1) 56.2%
+  );
+  mask-image: linear-gradient(
+    to left,
+    rgba(0, 0, 0, 0) 39.1%,
+    rgba(0, 0, 0, 1) 56.2%
+  );
+}
+.gamecard .gamewash__haze i:nth-child(7) {
+  backdrop-filter: blur(calc(7.5px * var(--sports-scale)));
+  -webkit-backdrop-filter: blur(calc(7.5px * var(--sports-scale)));
+}
+.gamewash--home .gamewash__haze i:nth-child(7) {
+  -webkit-mask-image: linear-gradient(
+    to right,
     rgba(0, 0, 0, 0) 56.2%,
-    rgba(0, 0, 0, 1) 100.0%
+    rgba(0, 0, 0, 1) 76.6%
+  );
+  mask-image: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0) 56.2%,
+    rgba(0, 0, 0, 1) 76.6%
+  );
+}
+.gamewash--away .gamewash__haze i:nth-child(7) {
+  -webkit-mask-image: linear-gradient(
+    to left,
+    rgba(0, 0, 0, 0) 56.2%,
+    rgba(0, 0, 0, 1) 76.6%
   );
   mask-image: linear-gradient(
     to left,
     rgba(0, 0, 0, 0) 56.2%,
+    rgba(0, 0, 0, 1) 76.6%
+  );
+}
+.gamecard .gamewash__haze i:nth-child(8) {
+  backdrop-filter: blur(calc(15.0px * var(--sports-scale)));
+  -webkit-backdrop-filter: blur(calc(15.0px * var(--sports-scale)));
+}
+.gamewash--home .gamewash__haze i:nth-child(8) {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0) 76.6%,
+    rgba(0, 0, 0, 1) 100.0%
+  );
+  mask-image: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0) 76.6%,
+    rgba(0, 0, 0, 1) 100.0%
+  );
+}
+.gamewash--away .gamewash__haze i:nth-child(8) {
+  -webkit-mask-image: linear-gradient(
+    to left,
+    rgba(0, 0, 0, 0) 76.6%,
+    rgba(0, 0, 0, 1) 100.0%
+  );
+  mask-image: linear-gradient(
+    to left,
+    rgba(0, 0, 0, 0) 76.6%,
     rgba(0, 0, 0, 1) 100.0%
   );
 }
