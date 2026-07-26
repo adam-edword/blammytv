@@ -132,8 +132,6 @@
    * and this is the one dimmer. Over the export's 0.2 for the same reason
    * as the offset: on a real screen, at 0.2, there was nothing there. */
   opacity: 0.5;
-  /* Softens the ramp's own edges, as in the Figma. */
-  filter: blur(calc(8px * var(--sports-scale)));
 }
 /* Fade toward the centre so the two halves meet without a seam. HORIZONTAL,
  * whatever the colour is doing: see --sports-wash-angle. */
@@ -152,6 +150,10 @@
 .gamewash__tint {
   position: absolute;
   inset: 0;
+  /* The Figma's softening, on the COLOUR only. It used to sit on the whole
+   * wash, where it stacked on top of every crest copy and flattened the
+   * progression: the sharp step came out at 14px. */
+  filter: blur(calc(8px * var(--sports-scale)));
   background: linear-gradient(
     var(--sports-wash-angle),
     transparent 0%,
@@ -165,24 +167,104 @@
     var(--team, transparent) 100%
   );
 }
-/* Oversized and blurred: this is a wash, not a logo. Scaled past the edge
- * so the blur never reveals a soft border where the image ends. */
+/* The crest, as a progressive blur.
+ *
+ * Sized to the card's HEIGHT (the Figma's 387 on a 190 card), not stretched
+ * to its width: at width, a square crest is magnified so far past the card
+ * that what shows is a crop of its middle, which is the unrecognisable
+ * blobs the first real-data pass produced. Centred just inside its own
+ * outer edge, as in the export.
+ *
+ * Three copies at climbing radii, each masked to its own band: sharp where
+ * the crest lives, dissolving as it runs toward the score. CSS has no
+ * gradient blur, and this is the way to fake one. See MARK_STEPS in
+ * Wash.tsx. */
 .gamewash__mark {
   position: absolute;
   top: 50%;
-  left: 0;
-  width: 118%;
-  transform: translateY(-50%) scale(1.35);
-  object-fit: cover;
-  filter: blur(calc(26px * var(--sports-scale))) saturate(1.15);
-  opacity: 0.85;
+  left: 13.5%;
+  height: 204%;
+  width: auto;
+  transform: translate(-50%, -50%);
+  /* Under the tint's, and about the export's 0.2 once the wash's own 0.5
+   * is applied. A crest that competes with the score is a crest that has
+   * stopped being a background. */
+  opacity: 0.55;
 }
 .gamewash--away .gamewash__mark {
-  left: auto;
-  right: 0;
+  left: 86.5%;
 }
-.upcard .gamewash__mark {
-  filter: blur(calc(14px * var(--sports-scale))) saturate(1.15);
+
+.gamewash__mark--1 {
+  filter: blur(calc(2px * var(--sports-scale))) saturate(1.15);
+  -webkit-mask-image: linear-gradient(to right, #000 38%, transparent 58%);
+  mask-image: linear-gradient(to right, #000 38%, transparent 58%);
+}
+.gamewash__mark--2 {
+  filter: blur(calc(7px * var(--sports-scale))) saturate(1.15);
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 34%,
+    #000 54%,
+    #000 72%,
+    transparent 88%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 34%,
+    #000 54%,
+    #000 72%,
+    transparent 88%
+  );
+}
+.gamewash__mark--3 {
+  filter: blur(calc(18px * var(--sports-scale))) saturate(1.15);
+  -webkit-mask-image: linear-gradient(to right, transparent 68%, #000 86%);
+  mask-image: linear-gradient(to right, transparent 68%, #000 86%);
+}
+
+/* Mirrored, so both halves blur toward the middle of the card. */
+.gamewash--away .gamewash__mark--1 {
+  -webkit-mask-image: linear-gradient(to left, #000 38%, transparent 58%);
+  mask-image: linear-gradient(to left, #000 38%, transparent 58%);
+}
+.gamewash--away .gamewash__mark--2 {
+  -webkit-mask-image: linear-gradient(
+    to left,
+    transparent 34%,
+    #000 54%,
+    #000 72%,
+    transparent 88%
+  );
+  mask-image: linear-gradient(
+    to left,
+    transparent 34%,
+    #000 54%,
+    #000 72%,
+    transparent 88%
+  );
+}
+.gamewash--away .gamewash__mark--3 {
+  -webkit-mask-image: linear-gradient(to left, transparent 68%, #000 86%);
+  mask-image: linear-gradient(to left, transparent 68%, #000 86%);
+}
+
+/* Smaller card, smaller crest, and the same softness relative to it. */
+.upcard .gamewash__mark--1 {
+  filter: blur(calc(0.8px * var(--sports-scale))) saturate(1.15);
+}
+.upcard .gamewash__mark--2 {
+  filter: blur(calc(2.8px * var(--sports-scale))) saturate(1.15);
+}
+.upcard .gamewash__mark--3 {
+  filter: blur(calc(7px * var(--sports-scale))) saturate(1.15);
+}
+
+/* The veil is a second copy of both washes over the text, for the colour it
+ * lends. It does not need the crest, and three more blurred layers per card
+ * is the most expensive thing on the row. */
+.gameveil .gamewash__mark {
+  display: none;
 }
 
 /* The wash laid back over the finished card, so the text picks up a hint of
