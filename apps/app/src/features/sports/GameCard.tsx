@@ -5,6 +5,7 @@ import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { scaledRadius } from "./scale";
 import { Badge } from "./Badge";
 import { Wash, WashVeil } from "./Wash";
+import type { Side } from "./Wash";
 import type { Game } from "./model";
 
 /**
@@ -40,6 +41,7 @@ export function GameCard({
   // Roomier than the small card, so this rarely fires, but a long name
   // still must not take room from the score.
   const [homeName, awayName] = useFitText<HTMLSpanElement>(homeText, awayText);
+  const lost = loser(game);
   // What the bottom-right says. One channel names it; several advertise the
   // choice, because being able to hop is the reason to use this tab. "Live
   // on" only where it is true: a game at 8:30 is not live on anything yet.
@@ -83,8 +85,8 @@ export function GameCard({
         glarePosition="all"
         glareBorderRadius={scaledRadius(45)}
       >
-        <Wash side="home" team={home} />
-        <Wash side="away" team={away} />
+        <Wash side="home" team={home} lost={lost === "home"} />
+        <Wash side="away" team={away} lost={lost === "away"} />
         <span className="gamecard__scrim" aria-hidden />
 
         <span className="gamecard__body">
@@ -166,10 +168,26 @@ export function GameCard({
             </span>
           )}
         </span>
-        <WashVeil home={home} away={away} />
+        <WashVeil home={home} away={away} lost={lost} />
       </Tilt>
     </button>
   );
+}
+
+/**
+ * Which side lost, once there is such a thing.
+ *
+ * Only when it is over: a team trailing in the third is not losing, it is
+ * behind, and draining the colour out of them mid-game would both be a
+ * lie and flicker every time the score moved. A draw has no loser either,
+ * which soccer needs and the others never hit.
+ */
+function loser(game: Game): Side | undefined {
+  if (game.state !== "final") return undefined;
+  const h = game.home.score;
+  const a = game.away.score;
+  if (h === undefined || a === undefined || h === a) return undefined;
+  return h < a ? "home" : "away";
 }
 
 function PinIcon() {

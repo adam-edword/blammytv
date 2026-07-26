@@ -133,6 +133,18 @@
    * as the offset: on a real screen, at 0.2, there was nothing there. */
   opacity: 0.5;
 }
+/* Beaten, and the game is over: the colour drains out of that half and the
+ * winner is the only side of the card still in colour. Says who won before
+ * the score has been read.
+ *
+ * One inherited custom property rather than a filter override per layer,
+ * because the crest, the tint and the veil's copy each already carry a
+ * filter of their own and would otherwise fight over specificity. The
+ * sharp badge keeps its colour: that one is identification, not result. */
+.gamewash--lost {
+  --wash-saturation: 0;
+}
+
 /* Fade toward the centre so the two halves meet without a seam. HORIZONTAL,
  * whatever the colour is doing: see --sports-wash-angle. */
 .gamewash--home {
@@ -153,7 +165,8 @@
   /* The Figma's softening, on the COLOUR only. It used to sit on the whole
    * wash, where it stacked on top of every crest copy and flattened the
    * progression: the sharp step came out at 14px. */
-  filter: blur(calc(8px * var(--sports-scale)));
+  filter: blur(calc(8px * var(--sports-scale)))
+    saturate(var(--wash-saturation, 1.15));
   background: linear-gradient(
     var(--sports-wash-angle),
     transparent 0%,
@@ -211,7 +224,7 @@
   transform: translateY(-50%);
   /* Sharp. On the live card the haze above supplies every bit of the blur,
    * progressively; the small card overrides this with one flat radius. */
-  filter: saturate(1.15);
+  filter: saturate(var(--wash-saturation, 1.15));
 }
 .gamewash--away .gamewash__mark {
   right: auto;
@@ -545,10 +558,12 @@
  * colour it lends them. It takes the crest much softer: at the radius
  * below it reads as colour rather than as shapes sitting on the text. */
 .gameveil .gamewash__mark {
-  filter: blur(calc(20px * var(--sports-scale))) saturate(1.15);
+  filter: blur(calc(20px * var(--sports-scale)))
+    saturate(var(--wash-saturation, 1.15));
 }
 .upcard .gameveil .gamewash__mark {
-  filter: blur(calc(9px * var(--sports-scale))) saturate(1.15);
+  filter: blur(calc(9px * var(--sports-scale)))
+    saturate(var(--wash-saturation, 1.15));
 }
 
 /* The wash laid back over the finished card, so the text picks up a hint of

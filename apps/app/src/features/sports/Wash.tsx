@@ -21,17 +21,21 @@ const HAZE_LAYERS = [1, 2, 3, 4, 5, 6, 7, 8];
 export function WashVeil({
   home,
   away,
+  lost,
 }: {
   home: Competitor;
   away: Competitor;
+  lost?: Side;
 }) {
   return (
     <span className="gameveil" aria-hidden>
-      <Wash side="home" team={home} />
-      <Wash side="away" team={away} />
+      <Wash side="home" team={home} lost={lost === "home"} />
+      <Wash side="away" team={away} lost={lost === "away"} />
     </span>
   );
 }
+
+export type Side = "home" | "away";
 
 /**
  * The colour behind one half of a game card: the competitor's mark, blurred
@@ -48,12 +52,18 @@ export function WashVeil({
 export function Wash({
   side,
   team,
+  lost,
 }: {
-  side: "home" | "away";
+  side: Side;
   team: Competitor;
+  /** Beaten, and the game is over. Drains the colour out of this half. */
+  lost?: boolean;
 }) {
   return (
-    <span className={`gamewash gamewash--${side}`} aria-hidden>
+    <span
+      className={`gamewash gamewash--${side}${lost ? " gamewash--lost" : ""}`}
+      aria-hidden
+    >
       {team.logo ? (
         // The crest is the background, on its own. The colour was only ever
         // standing in for it, and running both puts a flat wash over the
