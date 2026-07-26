@@ -135,9 +135,12 @@ export function SaveButton({ item }: { item: VodItem }) {
   );
 
   const saved = inIds.length > 0;
+  // "Library" is what the tab is called, so that is where a user thinks
+  // this puts things. Which LIST inside it only becomes worth naming once
+  // the title is actually in one.
   const label =
     inIds.length === 0
-      ? "Save"
+      ? "Add to Library"
       : inIds.length === 1
         ? `In ${lists.find((l) => l.id === inIds[0])?.name ?? "list"}`
         : `In ${inIds.length} lists`;

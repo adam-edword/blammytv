@@ -572,23 +572,7 @@
 }
 
 /* Save control on the detail screens. Saved state trades the plus for an
- * accent check and keeps the ring. Two buttons reading as one pill: the
- * main half saves to the default list, the chevron opens the list picker. */
-.vod-save-split {
-  align-self: flex-start;
-  display: inline-flex;
-}
-.vod-save-split .vod-save {
-  align-self: auto;
-  border-radius: 999px 0 0 999px;
-  padding-right: 14px;
-}
-.vod-save__more {
-  padding: 8px 12px;
-  border-radius: 0 999px 999px 0;
-  /* Overlap the seam so the two 1px borders do not read as 2px. */
-  margin-left: -1px;
-}
+ * accent check and keeps the ring. */
 .vod-save {
   align-self: flex-start;
   display: inline-flex;
@@ -617,9 +601,38 @@
   font-size: 16px;
   line-height: 1;
 }
-/* The chevron is an icon, not a glyph — exempt from the "+" sizing above. */
-.vod-save__more span {
+
+/* The split control: two buttons reading as ONE pill. The main half saves
+ * to the default list, the chevron opens the list picker.
+ *
+ * These rules must sit AFTER the .vod-save block and be scoped to the
+ * wrapper: at equal specificity the later rule wins, and .vod-save was
+ * handing the chevron back its full radius and padding, which is what made
+ * the two halves read as two separate buttons with a gouge between them. */
+.vod-save-split {
+  align-self: flex-start;
+  display: inline-flex;
+}
+.vod-save-split .vod-save {
+  align-self: auto;
+  /* Square on the inside edge so the two halves meet as one shape. */
+  border-radius: 999px 0 0 999px;
+  padding-right: 14px;
+}
+.vod-save-split .vod-save__more {
+  padding: 8px 13px;
+  border-radius: 0 999px 999px 0;
+  /* Overlap the seam so the two 1px borders do not read as 2px. */
+  margin-left: -1px;
+}
+/* The chevron is an icon, not the "+" glyph the sizing above is for. */
+.vod-save-split .vod-save__more span {
   font-size: inherit;
+}
+/* Saved: the accent ring belongs to the whole control, not one half, or
+ * the seam shows one lit edge against one dim one. */
+.vod-save-split:has(.vod-save--on) .vod-save {
+  border-color: var(--accent);
 }
 
 /* List picker: the chevron's menu. Portaled to the body (a fixed overlay
