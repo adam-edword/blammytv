@@ -16,6 +16,13 @@ import { GeneralTab } from "./GeneralTab";
  * to know that "the place your app updates live" was under Customize, next
  * to accent colours. Media groups the two source screens behind one heading
  * and keeps their own tabs one level down.
+ *
+ * The split is by QUESTION, not by which screen a setting happens to affect.
+ * The AIOStreams tab is the connection to an addon and nothing else: what
+ * its catalogs look like (card details, player overlay, row size) sits in
+ * Customize, and how playback behaves (skip behaviour, source failover)
+ * sits in General, both alongside the settings they resemble rather than
+ * the credential that enables them.
  */
 type SettingsTab = "media" | "general" | "customize";
 type MediaTab = "playlists" | "aiostreams";

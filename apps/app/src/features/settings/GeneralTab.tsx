@@ -11,7 +11,13 @@ import {
   type StartupTab,
 } from "./startupTab";
 import { savePlaylists } from "./playlists";
-import { saveAioUrl, saveHeroSources } from "./aiostreams";
+import { loadAioUrl, saveAioUrl, saveHeroSources } from "./aiostreams";
+import { loadSourceFailover, saveSourceFailover } from "./failover";
+import {
+  loadSkipBehavior,
+  saveSkipBehavior,
+  type SkipBehavior,
+} from "./skipBehavior";
 import { requestOnboardingReplay } from "../../app/onboardingGate";
 
 /**
@@ -36,6 +42,15 @@ export function GeneralTab() {
     setOneClick(next);
     saveOneClickPlay(next);
   };
+
+  // Playback behaviour, moved off the AIOStreams tab: what happens during a
+  // play is behaviour, not a property of where the stream came from. Still
+  // gated on a configured manifest, because without one there is no VOD
+  // playback for either setting to govern. Read once per mount, so adding a
+  // manifest reveals them the next time Settings opens.
+  const hasAddon = useRef(loadAioUrl() !== "").current;
+  const [failover, setFailover] = useState<boolean>(loadSourceFailover);
+  const [skip, setSkip] = useState<SkipBehavior>(loadSkipBehavior);
 
   // Clearing credentials is destructive, so it takes two clicks: arm, then
   // confirm within a few seconds.
@@ -92,6 +107,53 @@ export function GeneralTab() {
             label="One-click play"
           />
         </div>
+
+        {hasAddon && (
+          <div className="customize-row">
+            <div>
+              <h4 className="customize-row__title">Auto Source Failover</h4>
+              <p className="settings__section-note settings__section-note--dim">
+                When a source dies mid-play, jump to the next available cached
+                one automatically. An uncached source is never auto-played. Off
+                shows a button instead.
+              </p>
+            </div>
+            <Toggle
+              on={failover}
+              onChange={() => {
+                const next = !failover;
+                setFailover(next);
+                saveSourceFailover(next);
+              }}
+              label="Auto source failover"
+            />
+          </div>
+        )}
+
+        {hasAddon && (
+          <div className="customize-row">
+            <div>
+              <h4 className="customize-row__title">Skip Behavior</h4>
+              <p className="settings__section-note settings__section-note--dim">
+                The Skip Intro/Recap/Credits button over playback (from the
+                file&rsquo;s chapters). Combine merges back-to-back credits and
+                preview into one jump.
+              </p>
+            </div>
+            <ChipTabs
+              tabs={[
+                { key: "hidden", label: "Hidden" },
+                { key: "normal", label: "Normal" },
+                { key: "combine", label: "Combine Credits & Preview" },
+              ]}
+              active={skip}
+              onChange={(k: SkipBehavior) => {
+                setSkip(k);
+                saveSkipBehavior(k);
+              }}
+            />
+          </div>
+        )}
       </section>
 
       <section className="settings-section">

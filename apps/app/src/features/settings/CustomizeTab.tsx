@@ -1,7 +1,21 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ChevronIcon } from "../../ui/icons";
 import { ChipTabs } from "../../ui/ChipTabs";
 import { Toggle } from "../../ui/Toggle";
+import { loadAioUrl } from "./aiostreams";
+import {
+  CARD_META_FIELDS,
+  loadCardMeta,
+  saveCardMeta,
+  type CardMetaField,
+} from "./cardMeta";
+import {
+  OVERLAY_META_FIELDS,
+  loadOverlayMeta,
+  saveOverlayMeta,
+  type OverlayMetaField,
+} from "./overlayMeta";
+import { ROW_CAP_MAX, ROW_CAP_MIN, loadRowCap, saveRowCap } from "./rowCap";
 import {
   ACCENT_PRESETS,
   applyAccent,
@@ -90,6 +104,48 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
     const next = !chanNum;
     setChanNum(next);
     saveShowChannelNumber(next);
+  };
+
+  // What the catalog surfaces SHOW, moved off the AIOStreams tab: these
+  // describe the app's appearance, not the connection that feeds it. Still
+  // gated on a configured manifest, because with none there are no cards,
+  // no VOD overlay and no rows for them to govern. Read once per mount, so
+  // adding a manifest reveals them the next time Settings opens.
+  const hasAddon = useRef(loadAioUrl() !== "").current;
+
+  const [metaFields, setMetaFields] = useState<CardMetaField[]>(loadCardMeta);
+  const toggleMeta = (key: CardMetaField) => {
+    setMetaFields(
+      saveCardMeta(
+        metaFields.includes(key)
+          ? metaFields.filter((k) => k !== key)
+          : [...metaFields, key],
+      ),
+    );
+  };
+
+  const [overlayFields, setOverlayFields] =
+    useState<OverlayMetaField[]>(loadOverlayMeta);
+  const toggleOverlay = (key: OverlayMetaField) => {
+    setOverlayFields(
+      saveOverlayMeta(
+        overlayFields.includes(key)
+          ? overlayFields.filter((k) => k !== key)
+          : [...overlayFields, key],
+      ),
+    );
+  };
+
+  // The slider steps by 5; clicking the number swaps it for a type-in field.
+  const [rowCap, setRowCap] = useState<number>(loadRowCap);
+  const [capDraft, setCapDraft] = useState<string | null>(null);
+  const commitCap = () => {
+    if (capDraft !== null) {
+      const n = Number(capDraft);
+      if (Number.isFinite(n) && capDraft.trim() !== "")
+        setRowCap(saveRowCap(n)); // clamps to 10-100
+    }
+    setCapDraft(null);
   };
 
   /** Back to factory appearance: default accent (custom slot cleared),
@@ -187,6 +243,99 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
               active={corners}
               onChange={pickCorners}
             />
+          </div>
+        </section>
+      )}
+
+      {hasAddon && (
+        <section className="settings-section">
+          <h3 className="settings-section__list-title">Card Details</h3>
+          <p className="settings__section-note settings__section-note--dim">
+            What shows under a card&rsquo;s title in the Stream rows. Runtime
+            only appears where the catalog provides it.
+          </p>
+          <div className="meta-pick" role="group" aria-label="Card details">
+            {CARD_META_FIELDS.map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                className="meta-pick__chip"
+                aria-pressed={metaFields.includes(f.key)}
+                onClick={() => toggleMeta(f.key)}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {hasAddon && (
+        <section className="settings-section">
+          <h3 className="settings-section__list-title">Player Overlay</h3>
+          <p className="settings__section-note settings__section-note--dim">
+            What shows beside the title art while a movie or episode plays.
+          </p>
+          <div className="meta-pick" role="group" aria-label="Player overlay">
+            {OVERLAY_META_FIELDS.map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                className="meta-pick__chip"
+                aria-pressed={overlayFields.includes(f.key)}
+                onClick={() => toggleOverlay(f.key)}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {hasAddon && (
+        <section className="settings-section">
+          <h3 className="settings-section__list-title">Catalog Row Size</h3>
+          <p className="settings__section-note settings__section-note--dim">
+            How many titles each row loads. A higher cap results in longer load
+            times.
+          </p>
+          <div className="rowcap">
+            <input
+              className="rowcap__slider"
+              type="range"
+              min={ROW_CAP_MIN}
+              max={ROW_CAP_MAX}
+              step={5}
+              value={rowCap}
+              aria-label="Titles per row"
+              onChange={(e) => setRowCap(saveRowCap(Number(e.target.value)))}
+            />
+            {capDraft !== null ? (
+              <input
+                className="rowcap__value rowcap__value--edit"
+                type="number"
+                min={ROW_CAP_MIN}
+                max={ROW_CAP_MAX}
+                value={capDraft}
+                autoFocus
+                aria-label="Titles per row (exact)"
+                onChange={(e) => setCapDraft(e.target.value)}
+                onBlur={commitCap}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") commitCap();
+                  if (e.key === "Escape") setCapDraft(null);
+                }}
+              />
+            ) : (
+              <button
+                type="button"
+                className="rowcap__value rowcap__value--btn"
+                title="Click to type an exact value"
+                onClick={() => setCapDraft(String(rowCap))}
+              >
+                {rowCap}
+              </button>
+            )}
           </div>
         </section>
       )}
