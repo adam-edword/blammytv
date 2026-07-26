@@ -248,6 +248,12 @@
  * ladder rendered identically to six in a still frame here and still read
  * as banded on a real display, which is the more reliable instrument.
  *
+ * The cost is bounded by what is ON SCREEN, not by the row's length:
+ * fifteen live cards measured 63ms against five at 49ms, because Chromium
+ * only paints the two or so that fit. content-visibility was tried here to
+ * bound it further and measured slightly WORSE, so it is deliberately not
+ * used. A busy Saturday is therefore not much dearer than a quiet Tuesday.
+ *
  * If the live row ever janks on a real GPU, delete the haze span in
  * Wash.tsx and this block goes dead with it. */
 .gamewash__haze {
