@@ -1,6 +1,29 @@
 import type { Competitor } from "./model";
 
 /**
+ * The same washes, laid back over the FINISHED card at low opacity.
+ *
+ * Adam's Figma trick: the text underneath picks up a hint of each team's
+ * colour instead of sitting on it as pure white, so the two halves read as
+ * belonging to their sides. It has to be the last thing in the card and it
+ * must never take a click, which is the whole of its CSS.
+ */
+export function WashVeil({
+  home,
+  away,
+}: {
+  home: Competitor;
+  away: Competitor;
+}) {
+  return (
+    <span className="gameveil" aria-hidden>
+      <Wash side="home" team={home} />
+      <Wash side="away" team={away} />
+    </span>
+  );
+}
+
+/**
  * The colour behind one half of a game card: the competitor's mark, blurred
  * hard and bled off its own edge, over a tint of the team colour.
  *

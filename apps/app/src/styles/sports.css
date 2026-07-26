@@ -11,7 +11,7 @@
    * read against the header's "Live TV | Stream" (21px) rather than
    * against their own card, so a card resize must not drift them apart or
    * away from that relationship. */
-  --sports-name: 25px;
+  --sports-name: 28px;
   /* Tags (BRA) and every metadata line, on both cards. One value rather
    * than the six near-misses this started as; a third of the name was too
    * small to read once it was on a real screen. */
@@ -148,6 +148,17 @@
 }
 .upcard .gamewash__mark {
   filter: blur(calc(14px * var(--sports-scale))) saturate(1.15);
+}
+
+/* The wash laid back over the finished card, so the text picks up a hint of
+ * each team's colour rather than sitting on it as flat white. Last in the
+ * DOM (it has to paint over the content) and inert (it covers every hit
+ * target on the card, including the card itself). */
+.gameveil {
+  position: absolute;
+  inset: 0;
+  opacity: 0.2;
+  pointer-events: none;
 }
 
 /* Readability floor. The washes are arbitrary team colours, so the text
@@ -323,7 +334,9 @@
  * are true yet. */
 .upcard {
   flex: 0 0 auto;
-  width: calc(235px * var(--sports-scale));
+  /* Absolute, not scaled: this is the width Adam measured off the Figma,
+   * and the card is now sized by that rather than by the geometry knob. */
+  width: 265px;
   padding: 0;
   border: none;
   background: none;

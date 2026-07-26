@@ -1,7 +1,7 @@
 import Tilt from "react-parallax-tilt";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { scaledRadius } from "./scale";
-import { Wash } from "./Wash";
+import { Wash, WashVeil } from "./Wash";
 import type { Game } from "./model";
 
 /**
@@ -62,6 +62,7 @@ export function UpcomingCard({
           </span>
           <span className="upcard__league">{game.league}</span>
         </span>
+        <WashVeil home={home} away={away} />
       </Tilt>
     </button>
   );
