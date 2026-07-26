@@ -27,11 +27,9 @@ import type { Game } from "./model";
  * it: the two share the wash and nothing else, and a single component
  * branching on state would be mostly branches.
  *
- * UNREFERENCED at the moment, and deliberately kept. Today's row merged
- * into one guide-style timeline of wide cards, which is where the small
- * card used to be used. It is what the "Tomorrow" and later-day rows in
- * the design are drawn with, and those are waiting on the adapter being
- * able to ask for a date other than today. Delete it if that changes.
+ * A finished game is dimmed as a whole and the beaten side is set in a
+ * light weight, so a grid of results can be read for who won without
+ * reading a single number.
  */
 export function UpcomingCard({
   game,
@@ -52,7 +50,7 @@ export function UpcomingCard({
   return (
     <button
       type="button"
-      className="upcard"
+      className={"upcard" + (game.state === "final" ? " upcard--final" : "")}
       title={`${home.name} vs ${away.name}`}
       onClick={() => onOpen?.(game)}
     >
@@ -79,7 +77,11 @@ export function UpcomingCard({
         <span className="upcard__body">
           <span className="upcard__time">{game.status}</span>
           <span className="upcard__teams">
-            <span className="upcard__team">
+            <span
+              className={
+                "upcard__team" + (lost === "home" ? " upcard__team--lost" : "")
+              }
+            >
               <Badge team={home} />
               <span className="upcard__label">
                 <span className="upcard__abbr">{home.abbr}</span>
@@ -89,7 +91,12 @@ export function UpcomingCard({
               </span>
               {scored && <span className="upcard__score">{home.score ?? 0}</span>}
             </span>
-            <span className="upcard__team upcard__team--away">
+            <span
+              className={
+                "upcard__team upcard__team--away" +
+                (lost === "away" ? " upcard__team--lost" : "")
+              }
+            >
               <Badge team={away} />
               <span className="upcard__label">
                 <span className="upcard__abbr">{away.abbr}</span>

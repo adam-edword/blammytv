@@ -24,12 +24,15 @@ import type { Game } from "./model";
  */
 
 /**
- * How far in from the row's left edge the anchor game sits, in px.
+ * How far in from the row's left edge the anchor game sits, when the
+ * stylesheet has not been read yet. The real value is --sports-lead, which
+ * also sizes the scroller's trailing padding; taking it from there is what
+ * keeps the two ends of that arrangement agreeing.
  *
  * Not zero: the previous game peeks past it, which is what says the day
  * carries on behind you rather than starting here.
  */
-const LEAD = 96;
+const LEAD_FALLBACK = 96;
 
 export function SportsScreen() {
   const { days, state } = useGames();
@@ -54,9 +57,13 @@ export function SportsScreen() {
     // Measured off rectangles rather than offsetLeft, which is relative to
     // whichever ancestor happens to be positioned. Instantly, not
     // smoothly: this is where the row starts, not somewhere it travels to.
+    const lead =
+      Number.parseFloat(
+        getComputedStyle(box).getPropertyValue("--sports-lead"),
+      ) || LEAD_FALLBACK;
     const c = card.getBoundingClientRect();
     const b = box.getBoundingClientRect();
-    box.scrollLeft += c.left - b.left - LEAD;
+    box.scrollLeft += c.left - b.left - lead;
   }, [anchor]);
 
   const anything = days.some((d) => d.games.length > 0);

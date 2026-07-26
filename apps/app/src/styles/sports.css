@@ -29,6 +29,11 @@
    * one corner, so it leaves a hard vertical edge down the rest of the
    * wash's inner boundary. That was the seam. */
   --sports-wash-angle: 311deg;
+  /* How far in from the row's left edge the anchor game sits. Read from
+   * here by SportsScreen rather than typed twice: the scroller's trailing
+   * padding is derived from it, and the two must agree or the last card
+   * cannot reach the position the other half is aiming for. */
+  --sports-lead: 96px;
 }
 
 .sports {
@@ -68,6 +73,32 @@
   /* Sized for the LIVE card's shadow, which is the deeper of the two. Both
    * rows share this rule; the upcoming card simply has room to spare. */
   padding-bottom: calc(30px * var(--sports-scale));
+  /* Room to scroll PAST the last game, so the last card of the day can
+   * still reach the anchor position instead of jamming against the right
+   * edge. Without it, a day whose live game is the last one opens with
+   * that game pinned right, which is the one place the eye is not.
+   *
+   * 100% here is the row's own visible width, so this is "the viewport,
+   * less one card, less the lead" — exactly the slack needed and no more,
+   * floored at the row's normal padding for short days. */
+  padding-right: max(
+    28px,
+    calc(100% - (552px * var(--sports-scale)) - var(--sports-lead))
+  );
+}
+
+/* Done, and reading as done. Half a stop of black over the whole card,
+ * text included: in a grid where most of the day is finished, the ones
+ * still to come should be the ones that catch the eye.
+ *
+ * On the tilt rather than the button, so it clips to the card's corners,
+ * and as its last child so it covers the veil too. */
+.upcard--final .upcard__tilt::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  pointer-events: none;
 }
 
 /* A day, all of it, rather than a slice of it you have to drag through.
@@ -907,6 +938,15 @@
   flex: 1;
   min-width: 0;
 }
+/* The beaten side, set light against the winner's bold. Weight rather than
+ * colour: a grid of finished games can then be read for who won without
+ * reading a number, and it survives the dimming below, which a difference
+ * in brightness would not. */
+.upcard__team--lost .upcard__name,
+.upcard__team--lost .upcard__score {
+  font-weight: 300;
+}
+
 /* At the far end of its own row, as a scorecard has it. Same size as the
  * name it sits beside: this card is for reading a day, not for staring at
  * one result. */
