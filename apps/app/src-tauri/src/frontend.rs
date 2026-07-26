@@ -508,6 +508,14 @@ fn manifest_url_from(endpoint: &str) -> Option<String> {
 /// Is this manifest worth staging? The `nativeVersion` gate is the whole
 /// safety property of the hot channel, so it lives in one testable place
 /// rather than inline in a network call nothing can exercise.
+///
+/// `serving` must be the frontend version ACTUALLY on screen. Serving the
+/// embedded bundle that is the native version, not "": a native release
+/// publishes a `frontend.json` naming its own version, and treating
+/// "embedded" as "no version" made that manifest look like an update to
+/// every fresh install. They would each download a byte-for-byte copy of
+/// the frontend already inside their binary and then serve it through the
+/// staged path, for nothing.
 fn should_stage(m: &Manifest, native: &str, serving: &str, pending: &str) -> bool {
     m.native_version == native && m.version != serving && m.version != pending
 }
@@ -544,7 +552,14 @@ pub async fn frontend_check(app: tauri::AppHandle) -> Result<String, String> {
     // unable to land: anything that does not match falls through to the
     // native channel rather than being forced on.
     let status = frontend_status();
-    if !should_stage(&m, &native_version, &status.serving, &status.pending) {
+    // Empty = serving the bundle compiled into this binary, whose version
+    // is by definition the native version.
+    let serving = if status.serving.is_empty() {
+        native_version.as_str()
+    } else {
+        status.serving.as_str()
+    };
+    if !should_stage(&m, &native_version, serving, &status.pending) {
         return Ok(String::new());
     }
 
@@ -682,6 +697,11 @@ mod tests {
         // Already serving it, or already staged: nothing to do.
         assert!(!should_stage(&manifest("0.8.1", "0.8.0"), "0.8.0", "0.8.1", ""));
         assert!(!should_stage(&manifest("0.8.1", "0.8.0"), "0.8.0", "", "0.8.1"));
+        // A native release publishes a frontend.json naming its OWN
+        // version. A fresh install of that release is already running that
+        // exact frontend, so there is nothing to fetch — the caller passes
+        // the native version as `serving` when serving embedded.
+        assert!(!should_stage(&manifest("0.8.0", "0.8.0"), "0.8.0", "0.8.0", ""));
     }
 
     /// The gate has to hold at SERVE time, not only at download time: a
