@@ -6,7 +6,7 @@
  * KEEP IN SYNC with SPORTS_SCALE in features/sports/scale.ts: the tilt
  * library takes its glare radius as a string prop, which cannot read CSS. */
 .sports {
-  --sports-scale: 1.5;
+  --sports-scale: 1.42;
 }
 
 .sports {
