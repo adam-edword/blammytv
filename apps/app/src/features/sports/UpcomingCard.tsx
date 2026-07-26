@@ -1,4 +1,5 @@
 import Tilt from "react-parallax-tilt";
+import { useFitText } from "../../lib/fitText";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { scaledRadius } from "./scale";
 import { Wash, WashVeil } from "./Wash";
@@ -25,6 +26,12 @@ export function UpcomingCard({
   onOpen?: (game: Game) => void;
 }) {
   const { home, away } = game;
+  // Two names in half a small card each: this is where a club with a long
+  // name gets cut off, so the pair is fitted to the halves it has.
+  const [homeName, awayName] = useFitText<HTMLSpanElement>(
+    home.name,
+    away.name,
+  );
   return (
     <button
       type="button"
@@ -53,11 +60,15 @@ export function UpcomingCard({
           <span className="upcard__teams">
             <span className="upcard__team">
               <span className="upcard__abbr">{home.abbr}</span>
-              <span className="upcard__name">{home.name}</span>
+              <span className="upcard__name" ref={homeName}>
+                {home.name}
+              </span>
             </span>
             <span className="upcard__team upcard__team--away">
               <span className="upcard__abbr">{away.abbr}</span>
-              <span className="upcard__name">{away.name}</span>
+              <span className="upcard__name" ref={awayName}>
+                {away.name}
+              </span>
             </span>
           </span>
           <span className="upcard__league">{game.league}</span>

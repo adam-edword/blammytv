@@ -382,7 +382,10 @@
   align-items: center;
   justify-content: space-between;
   height: 100%;
-  padding: calc(14px * var(--sports-scale)) calc(14px * var(--sports-scale)) calc(12px * var(--sports-scale));
+  /* Wider at the sides than top and bottom: the names run into the card's
+   * corners otherwise, and a name is the one thing on this card with no
+   * room to spare. */
+  padding: calc(14px * var(--sports-scale)) calc(18px * var(--sports-scale)) calc(12px * var(--sports-scale));
 }
 .upcard__time {
   font-family: var(--font-headline);
@@ -391,13 +394,13 @@
   color: #fff;
 }
 /* The matchup. Equal halves so the centre line stays put whatever the
- * names are, and each half ellipsises inside its own track rather than
- * pushing the other one over. */
+ * names are, and each half fits inside its own track (useFitText, then the
+ * ellipsis) rather than pushing the other one over. */
 .upcard__teams {
   display: grid;
   grid-template-columns: 1fr 1fr;
   align-items: center;
-  gap: calc(8px * var(--sports-scale));
+  gap: calc(12px * var(--sports-scale));
   width: 100%;
 }
 .upcard__team {

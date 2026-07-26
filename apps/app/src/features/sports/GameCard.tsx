@@ -1,4 +1,5 @@
 import Tilt from "react-parallax-tilt";
+import { useFitText } from "../../lib/fitText";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { scaledRadius } from "./scale";
 import { Wash, WashVeil } from "./Wash";
@@ -26,6 +27,12 @@ export function GameCard({
   onOpen?: (game: Game) => void;
 }) {
   const { home, away } = game;
+  // Roomier than the small card, so this rarely fires, but the same names
+  // arrive here and the score is never allowed to give up room for them.
+  const [homeName, awayName] = useFitText<HTMLSpanElement>(
+    home.name,
+    away.name,
+  );
   // What the bottom-right says. One channel names it; several advertise the
   // choice, because being able to hop is the reason to use this tab.
   const carriage =
@@ -72,7 +79,9 @@ export function GameCard({
         <span className="gamecard__body">
           <span className="gamecard__team gamecard__team--home">
             <span className="gamecard__abbr">{home.abbr}</span>
-            <span className="gamecard__name">{home.name}</span>
+            <span className="gamecard__name" ref={homeName}>
+              {home.name}
+            </span>
           </span>
 
           <span className="gamecard__center">
@@ -89,7 +98,9 @@ export function GameCard({
 
           <span className="gamecard__team gamecard__team--away">
             <span className="gamecard__abbr">{away.abbr}</span>
-            <span className="gamecard__name">{away.name}</span>
+            <span className="gamecard__name" ref={awayName}>
+              {away.name}
+            </span>
           </span>
         </span>
 
