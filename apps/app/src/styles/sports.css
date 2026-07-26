@@ -12,6 +12,14 @@
    * against their own card, so a card resize must not drift them apart or
    * away from that relationship. */
   --sports-name: 25px;
+  /* The score, pinned for the same reason the names are: it is the biggest
+   * thing on the card and its relationship to the name (roughly 2x) is the
+   * point, so it must not move when the cards resize. */
+  --sports-score: 48px;
+  /* Tags (BRA) and every metadata line: a third of the team name, so the
+   * card has two type sizes with a clear ratio between them instead of six
+   * near-misses. Derived, not typed, so it tracks the name. */
+  --sports-meta: calc(var(--sports-name) / 3);
 }
 
 .sports {
@@ -184,7 +192,7 @@
 .gamecard__abbr {
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: calc(11px * var(--sports-scale));
+  font-size: var(--sports-meta);
   letter-spacing: 0.06em;
   color: rgba(255, 255, 255, 0.45);
   margin-bottom: 1px;
@@ -220,7 +228,7 @@
   gap: calc(10px * var(--sports-scale));
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: calc(46px * var(--sports-scale));
+  font-size: var(--sports-score);
   line-height: 1;
   color: #fff;
   /* Scores change mid-game; tabular figures stop the card twitching when
@@ -229,12 +237,14 @@
 }
 .gamecard__dash {
   color: rgba(255, 255, 255, 0.5);
-  font-size: calc(34px * var(--sports-scale));
+  /* Kept as a ratio of the score rather than its own number: the separator
+   * only ever needs to sit a step under the digits it separates. */
+  font-size: calc(var(--sports-score) * 0.72);
 }
 .gamecard__league {
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: calc(10px * var(--sports-scale));
+  font-size: var(--sports-meta);
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.5);
@@ -253,7 +263,7 @@
   padding: 0 calc(20px * var(--sports-scale)) calc(14px * var(--sports-scale));
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: calc(10.5px * var(--sports-scale));
+  font-size: var(--sports-meta);
   letter-spacing: 0.07em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.55);
@@ -285,7 +295,7 @@
   background: #ff4b4b;
 }
 .gamecard__more {
-  font-size: calc(13px * var(--sports-scale));
+  font-size: calc(var(--sports-meta) * 1.25);
   line-height: 1;
   opacity: 0.7;
 }
@@ -379,7 +389,7 @@
 .upcard__abbr {
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: calc(8.5px * var(--sports-scale));
+  font-size: var(--sports-meta);
   letter-spacing: 0.07em;
   color: rgba(255, 255, 255, 0.45);
 }
@@ -397,7 +407,7 @@
 .upcard__league {
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: calc(8.5px * var(--sports-scale));
+  font-size: var(--sports-meta);
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.45);
