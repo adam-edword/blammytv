@@ -129,6 +129,25 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  /* Bleed through the card's bottom padding and carry the same 32px INSIDE
+   * the scroller instead. Scrolling content then runs to the card's bottom
+   * edge rather than being guillotined 32px short of it, while the last row
+   * still comes to rest clear of the edge.
+   *
+   * A negative margin rather than editing .settings: the Themes panel wears
+   * that class too and scrolls itself, so dropping the padding there would
+   * shove ITS last row against the card edge. */
+  margin-bottom: -32px;
+  padding-bottom: 32px;
+}
+/* Content dissolves as it passes under the header instead of being cut at
+ * the scroll box edge. Set only once something IS scrolled up there: an
+ * always-on mask would fade the first row while it sits at rest. The flag
+ * is written straight to the DOM by the body's scroll handler — no state,
+ * so no re-render per scroll event. */
+.settings__body[data-scrolled] {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 34px);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 34px);
 }
 
 /* The expanded folder editor does NOT unlock section/item shrinking any

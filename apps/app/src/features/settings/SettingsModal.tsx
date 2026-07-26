@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CloseIcon } from "../../ui/icons";
 import { useClosingExit } from "./useClosingExit";
@@ -42,6 +42,24 @@ export function SettingsModal({
   const [tab, setTab] = useState<SettingsTab>("general");
   const { closing, requestClose } = useClosingExit(onClose);
 
+  // Top-fade flag, written straight to the DOM: this fires on every scroll
+  // frame, and routing it through state would re-render the whole settings
+  // tree for a value only CSS reads.
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const markScrolled = (el: HTMLDivElement) => {
+    if (el.scrollTop > 4) el.dataset.scrolled = "1";
+    else delete el.dataset.scrolled;
+  };
+  // A new tab starts at the top, and its flag starts clear: shrinking
+  // content can leave scrollTop clamped without firing a scroll event, and
+  // a stale flag fades the first row of a page nobody scrolled.
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    el.scrollTop = 0;
+    delete el.dataset.scrolled;
+  }, [tab]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") requestClose();
@@ -77,7 +95,11 @@ export function SettingsModal({
           </button>
         </header>
 
-        <div className="settings__body">
+        <div
+          className="settings__body"
+          ref={bodyRef}
+          onScroll={(e) => markScrolled(e.currentTarget)}
+        >
           {tab === "general" && <GeneralTab />}
           {tab === "customize" && <CustomizeTab onOpenThemes={onOpenThemes} />}
         </div>
