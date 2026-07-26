@@ -3,8 +3,12 @@ import { APP_VERSION } from "../../lib/version";
 import {
   isTauri,
   tauriCheckUpdate,
+  tauriFrontendApply,
+  tauriFrontendCheck,
+  tauriFrontendStatus,
   tauriInstallUpdate,
 } from "../../lib/tauri";
+import { isPlaying } from "../../lib/playingNow";
 
 /**
  * Settings → Updates: the manual sibling of the header's UpdateChip. Shows
@@ -23,6 +27,17 @@ type Phase =
 
 export function UpdatesSection() {
   const [phase, setPhase] = useState<Phase>({ at: "idle" });
+  // Hot channel (plan 008): a staged frontend waiting to be served. It
+  // applies on the next launch whether or not anyone touches this row —
+  // that alone is the bulk of the win — so the button is an accelerator,
+  // not a requirement.
+  const [pending, setPending] = useState("");
+  useEffect(() => {
+    if (isTauri())
+      void tauriFrontendStatus()
+        .then((s) => setPending(s.pending))
+        .catch(() => {});
+  }, []);
   // "You're up to date" fades back to the plain button after a beat.
   const revertTimer = useRef(0);
   useEffect(() => () => window.clearTimeout(revertTimer.current), []);
@@ -31,6 +46,12 @@ export function UpdatesSection() {
 
   const check = () => {
     setPhase({ at: "checking" });
+    // The hot channel first: a frontend-only release never appears in
+    // latest.json, so checking only the native side would report "up to
+    // date" while a bundle sat waiting to be fetched.
+    void tauriFrontendCheck()
+      .then((v) => v && setPending(v))
+      .catch(() => {});
     tauriCheckUpdate().then(
       (version) => {
         if (version) setPhase({ at: "found", version });
@@ -69,7 +90,9 @@ export function UpdatesSection() {
       <div>
         <h4 className="customize-row__title">BlammyTV v{APP_VERSION}</h4>
         <p className="settings__section-note settings__section-note--dim">
-          {phase.at === "found"
+          {pending
+            ? `Version ${pending} is ready. It applies the next time you open BlammyTV.`
+            : phase.at === "found"
             ? `Version ${phase.version} is ready to install.`
             : phase.at === "installing"
               ? "Downloading and installing. The app restarts by itself."
@@ -78,7 +101,28 @@ export function UpdatesSection() {
                 : "Updates install themselves with one click and keep your playlists."}
         </p>
       </div>
-      {phase.at === "found" || phase.at === "installing" ? (
+      {pending ? (
+        // Restarting mid-playback would kill the stream to save a wait
+        // that costs nothing — the update lands on the next launch either
+        // way. Read at click time, so starting playback after Settings
+        // opened still counts.
+        <button
+          type="button"
+          className="settings-button settings-button--accent"
+          onClick={() => {
+            if (isPlaying()) return;
+            void tauriFrontendApply().catch(() => {});
+          }}
+          disabled={isPlaying()}
+          title={
+            isPlaying()
+              ? "Finish watching first — this applies on its own next launch"
+              : undefined
+          }
+        >
+          Restart now
+        </button>
+      ) : phase.at === "found" || phase.at === "installing" ? (
         <button
           type="button"
           className="settings-button settings-button--accent"

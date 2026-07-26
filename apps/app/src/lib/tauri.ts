@@ -121,6 +121,32 @@ export function tauriFrontendReady(): Promise<void> {
   return invoke("frontend_ready");
 }
 
+/** Hot channel (plan 008): check for a newer FRONTEND bundle and stage it.
+ *
+ * Takes no arguments on purpose. The manifest URL, the verifying key and
+ * the native version all come from the binary's own config on the Rust
+ * side: the frontend is the thing being replaced, so it gets no say in
+ * what replaces it. Resolves with the staged version, or "" for nothing to
+ * do (including the common case of a bundle built against different Rust,
+ * which falls through to the native installer channel). */
+export function tauriFrontendCheck(): Promise<string> {
+  return invoke<string>("frontend_check");
+}
+
+/** What the hot channel is serving and what is waiting for next launch. */
+export function tauriFrontendStatus(): Promise<{
+  serving: string;
+  pending: string;
+}> {
+  return invoke("frontend_status");
+}
+
+/** Apply a staged frontend by restarting. Never resolves on success: the
+ * process is replaced. Only call with nothing playing. */
+export function tauriFrontendApply(): Promise<void> {
+  return invoke("frontend_apply");
+}
+
 export function tauriMpvPause(paused: boolean): Promise<void> {
   return invoke("mpv_pause", { paused });
 }

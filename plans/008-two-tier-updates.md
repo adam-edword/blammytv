@@ -1,8 +1,11 @@
 # 008: Two-tier updates: a frontend hot channel behind the installer
 
-- **Status**: PLANNED. Not started. **Phase 0 is a decision gate**, see below:
-  the whole shape of this depends on one fact about Tauri v2 that must be
-  verified before any of it is built.
+- **Status**: BUILT, unproven on Windows. Phases 0-3 are in the tree: the
+  gate is answered, staging + failsafe landed v0.7.14, and the network half
+  plus the apply policy landed v0.7.33. What remains is not code but
+  EVIDENCE: none of it has run in a release build, because `is_dev()` serves
+  from `devUrl` and this path is only reachable from `pnpm tauri build`. The
+  first frontend-only release is the acceptance test.
 - **Severity**: MEDIUM (no user-visible bug; compounding leverage)
 - **Category**: Release pipeline / updater
 - **Estimated scope**: Rust (protocol handler, verify, staging, failsafe) +
@@ -199,10 +202,18 @@ keeps playing underneath it**, because mpv is a native child window owned by
 Rust, not by the page. Recommended policy instead:
 
 - Stage silently, always.
-- **If nothing is playing**: the update chip becomes "Reload to update", a
-  sub-second operation.
+- **If nothing is playing**: offer to apply now.
 - **If something is playing**: hold it. Apply on next launch, which is
   instant and involves no installer at all.
+
+**Built as a RESTART, not a webview reload** (2026-07-26). The plan asked
+for a reload and the risks section below explains why that is the dangerous
+half of this feature: the page owns the clip hole, mpv is a native child
+React cleanup may never get to release, and a reload landing between the two
+puts the desktop on screen. A restart tears down through the path every exit
+already takes, and the saving that matters (no 35MB download, no installer,
+no elevation) is identical. The reload is a later optimisation, and it needs
+a Windows session to prove, not an argument.
 
 Default to applying at next launch even if the user never clicks. That
 alone removes the 35MB download, the installer, and the relaunch, which is

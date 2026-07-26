@@ -458,7 +458,7 @@ fn mpv_stats() -> String {
 /// One process-wide HTTP client so back-to-back fetches (categories, streams,
 /// the big xmltv) reuse the connection pool + TLS session instead of redoing a
 /// TCP+TLS handshake every call. Built once, lazily.
-fn http_client() -> &'static reqwest::Client {
+pub(crate) fn http_client() -> &'static reqwest::Client {
     use std::sync::OnceLock;
     static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
     CLIENT.get_or_init(|| {
@@ -773,7 +773,10 @@ pub fn run() {
             http_probe,
             check_update,
             install_update,
-            frontend::frontend_ready
+            frontend::frontend_ready,
+            frontend::frontend_status,
+            frontend::frontend_check,
+            frontend::frontend_apply
         ])
         .run(context())
         .expect("error while running tauri application");

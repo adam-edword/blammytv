@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { isTauri, tauriFrontendReady } from "../lib/tauri";
+import {
+  isTauri,
+  tauriFrontendCheck,
+  tauriFrontendReady,
+} from "../lib/tauri";
 import { AppHeader, type Section, type StreamTab } from "./AppHeader";
 import { WelcomeAnimation } from "./WelcomeAnimation";
 import { shouldPlayWelcome } from "./welcome";
@@ -52,6 +56,23 @@ export function App() {
   // data, or anything else that could legitimately fail.
   useEffect(() => {
     if (isTauri()) void tauriFrontendReady().catch(() => {});
+  }, []);
+  // Stage a newer frontend in the background, always and silently (plan
+  // 008 phase 3). Nothing about the running app changes: staging only
+  // decides what the NEXT launch serves, so there is no reload to schedule
+  // and nothing to interrupt. Ordered after frontend_ready on purpose —
+  // this boot proves itself before it is allowed to queue a successor.
+  //
+  // Deliberately fire-and-forget: the hot channel failing is a
+  // non-event (the native updater is still there), and a launch must never
+  // wait on a network call to paint.
+  useEffect(() => {
+    if (!isTauri()) return;
+    const t = window.setTimeout(
+      () => void tauriFrontendCheck().catch(() => {}),
+      4000,
+    );
+    return () => window.clearTimeout(t);
   }, []);
   const [streamTab, setStreamTab] = useState<StreamTab>(() =>
     loadStartupTab() === "discover" ? "discover" : "home",

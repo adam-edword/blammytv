@@ -1,13 +1,21 @@
-//! The frontend hot channel's READ half (plan 008, phase 1a).
+//! The frontend hot channel (plan 008).
 //!
 //! Most releases here change nothing native (v0.7.11 shipped 11 patch
 //! versions; two touched this crate), yet every one costs a 35MB installer
 //! and a restart. `dist/` is ~1.1MB. This module lets a verified, staged
 //! copy of the frontend be served INSTEAD of the one baked into the binary.
 //!
-//! It does not download anything yet. That is deliberate: the recovery path
-//! lands before the install path, so at no point does a way to stage a
-//! bundle exist without a way to escape a bad one.
+//! The recovery path landed BEFORE the install path (v0.7.14 vs v0.7.33),
+//! so at no point did a way to stage a bundle exist without a way to escape
+//! a bad one.
+//!
+//! ## What applies, and when
+//!
+//! Staging never touches the running app: it unpacks beside the live bundle
+//! and moves a pointer, and the next `resolve()` acts on it. So the default
+//! is "applies on next launch", with a restart offered as an accelerator.
+//! Not a webview reload — see `frontend_apply` for why that is the one part
+//! of the plan that was deliberately not built.
 //!
 //! ## Why this can serve from disk at all
 //!
@@ -95,6 +103,11 @@ fn write_active(root: &Path, a: &Active) {
     }
 }
 
+/// What this run is actually serving, recorded by `resolve()`. Empty means
+/// the embedded bundle. Read by `frontend_status` so the UI can tell a
+/// staged-and-pending version from the one already on screen.
+static SERVING: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+
 /// Decide what to serve for THIS run, applying the failsafe.
 ///
 /// Returns the directory to serve from, or `None` for the embedded assets.
@@ -121,6 +134,7 @@ pub fn resolve() -> Option<PathBuf> {
     }
 
     if active.version.is_empty() || active.quarantined.contains(&active.version) {
+        let _ = SERVING.set(String::new());
         return None;
     }
     let dir = root.join(&active.version);
@@ -130,6 +144,7 @@ pub fn resolve() -> Option<PathBuf> {
         eprintln!("[frontend] {} is missing index.html; using embedded", active.version);
         active.version.clear();
         write_active(&root, &active);
+        let _ = SERVING.set(String::new());
         return None;
     }
 
@@ -137,6 +152,7 @@ pub fn resolve() -> Option<PathBuf> {
     let _ = std::fs::create_dir_all(&root);
     let _ = std::fs::write(&sentinel, active.version.as_bytes());
     eprintln!("[frontend] serving staged {}", active.version);
+    let _ = SERVING.set(active.version.clone());
     Some(dir)
 }
 
@@ -363,6 +379,157 @@ pub fn stage(version: &str, pubkey_b64: &str, sig_b64: &str, bytes: &[u8]) -> Re
     Ok(())
 }
 
+/// Apply a staged frontend now, by restarting the app.
+///
+/// NOT a webview reload. Plan 008 sketched one, and it is genuinely faster,
+/// but the page owns the clip hole the video shows through and mpv is a
+/// native child window that React's cleanup would not get a chance to tear
+/// down. A reload that lands with the hole cut and no page to own it puts
+/// the DESKTOP on screen — the exact bug fixed twice already. A restart
+/// tears everything down through the path the app already exercises on
+/// every exit, and still skips the 35MB installer, which was the point.
+///
+/// The caller only offers this when nothing is playing; this is the last
+/// line of defence, not the policy.
+#[tauri::command]
+pub fn frontend_apply(app: tauri::AppHandle) {
+    app.restart();
+}
+
+/// The published `frontend.json`, alongside `latest.json` on a release.
+#[derive(serde::Deserialize)]
+pub struct Manifest {
+    /// The frontend build this bundle is.
+    pub version: String,
+    /// The native build it REQUIRES. The whole safety property of the hot
+    /// channel is this field, so it is checked in Rust, never in the
+    /// frontend that is asking to be replaced.
+    #[serde(rename = "nativeVersion")]
+    pub native_version: String,
+    pub url: String,
+    pub signature: String,
+}
+
+/// What the UI needs to describe the hot channel in one call.
+#[derive(serde::Serialize, Default)]
+pub struct Status {
+    /// Frontend version being served right now. Empty = the embedded one.
+    pub serving: String,
+    /// Staged and waiting for the next launch. Empty = nothing pending.
+    pub pending: String,
+}
+
+#[tauri::command]
+pub fn frontend_status() -> Status {
+    let serving = SERVING.get().cloned().unwrap_or_default();
+    let Some(root) = root() else {
+        return Status { serving, pending: String::new() };
+    };
+    let active = read_active(&root);
+    // active.version is what the NEXT resolve() will serve. Different from
+    // what this run is serving means something was staged since boot.
+    let pending = if active.version != serving { active.version } else { String::new() };
+    Status { serving, pending }
+}
+
+/// The hot channel's manifest URL and verification key, both derived from
+/// the SAME updater config that drives the native channel.
+///
+/// One trust root, one place to rotate it. The manifest sits beside
+/// `latest.json` in the release, so the URL is that endpoint with its last
+/// segment swapped — deriving it means a moved release URL cannot leave the
+/// two channels pointing at different places.
+fn channel_config(app: &tauri::AppHandle) -> Result<(String, String), String> {
+    let plugins = &app.config().plugins;
+    let updater = plugins
+        .0
+        .get("updater")
+        .ok_or_else(|| "no updater config".to_string())?;
+    let pubkey = updater
+        .get("pubkey")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| "no updater pubkey".to_string())?
+        .to_string();
+    let endpoint = updater
+        .get("endpoints")
+        .and_then(|v| v.as_array())
+        .and_then(|a| a.first())
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| "no updater endpoint".to_string())?;
+    let url = manifest_url_from(endpoint)
+        .ok_or_else(|| "updater endpoint has no path".to_string())?;
+    Ok((url, pubkey))
+}
+
+/// `.../latest/download/latest.json` -> `.../latest/download/frontend.json`.
+fn manifest_url_from(endpoint: &str) -> Option<String> {
+    let (base, last) = endpoint.rsplit_once('/')?;
+    if last.is_empty() || !base.contains("://") {
+        return None;
+    }
+    Some(format!("{base}/frontend.json"))
+}
+
+/// Is this manifest worth staging? The `nativeVersion` gate is the whole
+/// safety property of the hot channel, so it lives in one testable place
+/// rather than inline in a network call nothing can exercise.
+fn should_stage(m: &Manifest, native: &str, serving: &str, pending: &str) -> bool {
+    m.native_version == native && m.version != serving && m.version != pending
+}
+
+/// Check the hot channel and stage a newer frontend if there is one.
+///
+/// Returns the staged version, or an empty string for "nothing to do".
+/// Every rejection is a normal outcome, not an error: a mismatched
+/// `nativeVersion` simply means this release goes through the installer
+/// instead, which is the native updater's job and already works.
+///
+/// Takes NOTHING from the caller: the manifest URL, the public key and the
+/// native version are all read from the binary's own config here. The
+/// frontend is the thing being replaced, so it does not get a say in what
+/// replaces it.
+#[tauri::command]
+pub async fn frontend_check(app: tauri::AppHandle) -> Result<String, String> {
+    let (manifest_url, pubkey) = channel_config(&app)?;
+    let native_version = env!("CARGO_PKG_VERSION").to_string();
+    let client = crate::http_client();
+    let text = client
+        .get(&manifest_url)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?
+        .error_for_status()
+        .map_err(|e| e.to_string())?
+        .text()
+        .await
+        .map_err(|e| e.to_string())?;
+    let m: Manifest = serde_json::from_str(&text).map_err(|e| e.to_string())?;
+
+    // The gate. A bundle built against different Rust must be structurally
+    // unable to land: anything that does not match falls through to the
+    // native channel rather than being forced on.
+    let status = frontend_status();
+    if !should_stage(&m, &native_version, &status.serving, &status.pending) {
+        return Ok(String::new());
+    }
+
+    let bytes = client
+        .get(&m.url)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?
+        .error_for_status()
+        .map_err(|e| e.to_string())?
+        .bytes()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    // stage() verifies the signature before it unpacks a byte, and refuses
+    // a version that has already failed a boot.
+    stage(&m.version, &pubkey, &m.signature, &bytes)?;
+    Ok(m.version)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -455,6 +622,47 @@ mod tests {
                 stage(bad, "x", "y", b"z").is_err(),
                 "accepted a bad version: {bad:?}"
             );
+        }
+    }
+
+    fn manifest(version: &str, native: &str) -> Manifest {
+        Manifest {
+            version: version.into(),
+            native_version: native.into(),
+            url: "https://example.test/f.tar.gz".into(),
+            signature: "sig".into(),
+        }
+    }
+
+    /// The gate that makes a frontend built against different Rust unable
+    /// to land. Everything else about this feature is a convenience; this
+    /// is the part that keeps it safe.
+    #[test]
+    fn stages_only_a_bundle_built_for_this_native_version() {
+        assert!(should_stage(&manifest("0.8.1", "0.8.0"), "0.8.0", "", ""));
+        // Built against newer Rust: the installer channel's problem.
+        assert!(!should_stage(&manifest("0.9.0", "0.9.0"), "0.8.0", "", ""));
+        // Built against older Rust: equally refused, not "close enough".
+        assert!(!should_stage(&manifest("0.8.1", "0.7.0"), "0.8.0", "", ""));
+        // Already serving it, or already staged: nothing to do.
+        assert!(!should_stage(&manifest("0.8.1", "0.8.0"), "0.8.0", "0.8.1", ""));
+        assert!(!should_stage(&manifest("0.8.1", "0.8.0"), "0.8.0", "", "0.8.1"));
+    }
+
+    /// The two channels must resolve from the same release, so the hot
+    /// manifest is derived from the updater endpoint rather than written
+    /// out twice and left to drift.
+    #[test]
+    fn derives_the_manifest_url_from_the_updater_endpoint() {
+        assert_eq!(
+            manifest_url_from(
+                "https://github.com/adam-edword/blammytv/releases/latest/download/latest.json"
+            )
+            .unwrap(),
+            "https://github.com/adam-edword/blammytv/releases/latest/download/frontend.json"
+        );
+        for bad in ["", "latest.json", "https://host/", "no-slashes"] {
+            assert!(manifest_url_from(bad).is_none(), "accepted {bad:?}");
         }
     }
 

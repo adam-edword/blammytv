@@ -116,6 +116,79 @@ env vars, and puts the `.sig` on the clipboard. Steps 0 (libmpv refresh),
    `https://github.com/adam-edword/blammytv/releases/latest/download/latest.json`,
    so the latest published release's `latest.json` is what every install sees.
 
+## Frontend-only release (the hot channel, plan 008)
+
+Most releases change nothing native. Those do not need an installer at all:
+the app can fetch a ~1MB signed frontend bundle and serve it on the next
+launch. Same signing key, same trust root, separate manifest.
+
+**Use this path only when `apps/app/src-tauri/` is untouched since the last
+native release.** If any Rust, mpv, installer or updater config changed, it
+is a native release, full stop — the `nativeVersion` gate below will refuse
+the bundle anyway, but do not make the app prove it for you.
+
+1. **Bump the three frontend files only** (root + app `package.json`,
+   `version.ts`). `tauri.conf.json` and `Cargo.toml` stay where the last
+   NATIVE release left them: their version is what the bundle must declare
+   as `nativeVersion`, and it is what the native updater compares.
+
+2. **Build and pack** (from `apps/app`):
+   ```powershell
+   pnpm build
+   tar -czf frontend-<version>.tar.gz -C dist .
+   ```
+   **tar.gz, not zip**, and the archive's paths are relative to `dist/` so
+   `index.html` sits at the archive root. The unpacker refuses absolute
+   paths and anything containing `..`, so a wrongly-rooted archive fails
+   closed rather than scattering files.
+
+3. **Sign it with the same key:**
+   ```powershell
+   $env:TAURI_SIGNING_PRIVATE_KEY = Get-Content $HOME\.tauri\blammytv.key -Raw
+   $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = "<password>"
+   pnpm tauri signer sign frontend-<version>.tar.gz
+   ```
+   Produces `frontend-<version>.tar.gz.sig`, the same shape as the
+   installer's.
+
+4. **Write `frontend.json`:**
+   ```json
+   {
+     "version": "<frontend version>",
+     "nativeVersion": "<tauri.conf.json version, unchanged>",
+     "url": "https://github.com/adam-edword/blammytv/releases/download/v<version>/frontend-<version>.tar.gz",
+     "signature": "<full contents of the .tar.gz.sig file>"
+   }
+   ```
+
+5. **Publish the release with the bundle, the `.sig` and `frontend.json`.**
+   **Do NOT upload a `latest.json`.** That file is the native updater's
+   trigger; omitting it is what keeps the installer channel quiet. Still
+   tick "Set as the latest release", because the hot channel resolves its
+   manifest from `releases/latest/download/` too.
+
+6. **Verify before publishing**, exactly as for an installer: the remote
+   session checks the `.sig` against the uploaded bundle on request. The app
+   verifies too and refuses to unpack a byte on mismatch, but a bad bundle
+   should never reach a user in the first place.
+
+**Native releases additionally publish a `frontend.json`** whose
+`nativeVersion` equals the new native version, so a user who installs it
+starts receiving hot updates for that line.
+
+### What the app does with it
+
+- Checks a few seconds after launch, silently. A mismatched `nativeVersion`
+  is a no-op, not an error: that release goes through the installer.
+- Verified, unpacked beside the live one, then pointed at. The running app
+  is never modified.
+- Applied on the **next launch**. Settings offers a "Restart now"
+  accelerator, disabled while something is playing.
+- If a staged bundle fails to boot, the next launch quarantines it and
+  falls back — previous bundle first, then the one built into the binary.
+  That is why `frontend_ready` is called at the React root with nothing in
+  front of it.
+
 ## Notes
 
 - The installer is **unsigned for Windows SmartScreen** (separate from updater
