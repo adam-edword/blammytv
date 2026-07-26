@@ -638,11 +638,17 @@ needs something a user can point at.
 
 | Item | Plan | Notes |
 | --- | --- | --- |
-| **Library: multiple lists + watch history** | 009 | THE feature. Tab renamed Library, Discover-shaped layout, CW row on top, lists grid below, built-in uncapped Library card. |
-| Two-tier updates | 008 | Plumbing. Invisible to users except that later updates stop being 35MB installers. |
-| Per-show playback prefs | - | Today one global preference, so an anime and a Western show fight over it. Real but small data-model change. |
-| Favorites drag-to-reorder in the guide | - | Data layer shipped v0.1.133 (`reorderFavorite`); only the UI is left. **NOT a quick win**: the guide grid is virtualized and carries the pinned-cell scars, which is exactly why this was deferred the first time. |
-| `mpv_frost` downgrade fix | - | Genuinely small. Opening Settings mid-tune reads `current-vo` before the video exists, so the modal loses its glass for that whole session. Re-arm on presenting. |
+| **Library: multiple lists + watch history** | 009 | **SHIPPED.** THE feature. Tab renamed Library, Discover-shaped layout, CW row on top, lists grid below, built-in uncapped Library card, split save button with list picker. Plan 009 is COMPLETE. |
+| Two-tier updates | 008 | **BUILT, DORMANT.** Phases 0-3 in the tree. No `frontend.json` is published yet, so nothing fetches anything; the first frontend-only release is the acceptance test. |
+| Per-show playback prefs | - | **SHIPPED v0.7.17.** `playbackPrefsByShow`, LRU-capped. Volume/mute stay global (device-level, not show-level). |
+| Favorites drag-to-reorder in the guide | - | **CUT from 0.8.0** (Adam, 2026-07-26). Data layer still sits there unused since v0.1.133 (`reorderFavorite` + tests, no caller). Deferred for the same reason as last time: the guide grid is virtualized and carries the pinned-cell scars, and a half-right drag in a virtualized list is worse than none. Wants a session that STARTS with it. |
+| `mpv_frost` downgrade fix | - | **SHIPPED v0.7.17.** The frost ask is gated on `videoReady` and re-asked, so opening Settings mid-tune no longer downgrades the card for the whole session. |
+
+**Also in 0.8.0, unplanned but shipped:** the Settings IA rebuild (three
+tabs to two, filed by question rather than by screen), real back/forward
+with scroll restoration on every screen, mouse side-button nav everywhere,
+and the save-affordance rewrite that fixed a live bug where saving from a
+title page wrote to the pre-009 key the Library does not read.
 
 **Cut from 0.8.0:** the Sports tab (no design exists yet; it stays a 1.0
 gate).
