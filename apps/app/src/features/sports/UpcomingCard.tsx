@@ -2,8 +2,9 @@ import Tilt from "react-parallax-tilt";
 import { useFitText } from "../../lib/fitText";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { scaledRadius } from "./scale";
+import { Badge } from "./Badge";
 import { Wash, WashVeil } from "./Wash";
-import type { Competitor, Game } from "./model";
+import type { Game } from "./model";
 
 /**
  * A game that has not started, as a small card (plan 010).
@@ -94,33 +95,5 @@ export function UpcomingCard({
         <WashVeil home={home} away={away} />
       </Tilt>
     </button>
-  );
-}
-
-/**
- * The team's mark, small and sharp, at the card's outer edge.
- *
- * Prefers the inverted version, because a mark drawn this small on a
- * near-black card has to survive on its own and several are all but
- * invisible otherwise (see Competitor.logoDark). That one is derived from a
- * URL pattern rather than given, and it 404s for some clubs, so a failure
- * falls back to the mark we were actually handed. `failed` guards the
- * fallback from failing in turn and looping.
- */
-function Badge({ team }: { team: Competitor }) {
-  if (!team.logo) return null;
-  return (
-    <img
-      className="upcard__badge"
-      src={team.logoDark ?? team.logo}
-      alt=""
-      loading="lazy"
-      onError={(e) => {
-        const img = e.currentTarget;
-        if (img.dataset.failed || !team.logo || img.src === team.logo) return;
-        img.dataset.failed = "1";
-        img.src = team.logo;
-      }}
-    />
   );
 }

@@ -2,6 +2,7 @@ import Tilt from "react-parallax-tilt";
 import { useFitText } from "../../lib/fitText";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { scaledRadius } from "./scale";
+import { Badge } from "./Badge";
 import { Wash, WashVeil } from "./Wash";
 import type { Game } from "./model";
 
@@ -80,9 +81,12 @@ export function GameCard({
 
         <span className="gamecard__body">
           <span className="gamecard__team gamecard__team--home">
-            <span className="gamecard__abbr">{home.abbr}</span>
-            <span className="gamecard__name" ref={homeName}>
-              {homeText}
+            <Badge team={home} />
+            <span className="gamecard__label">
+              <span className="gamecard__abbr">{home.abbr}</span>
+              <span className="gamecard__name" ref={homeName}>
+                {homeText}
+              </span>
             </span>
           </span>
 
@@ -99,9 +103,12 @@ export function GameCard({
           </span>
 
           <span className="gamecard__team gamecard__team--away">
-            <span className="gamecard__abbr">{away.abbr}</span>
-            <span className="gamecard__name" ref={awayName}>
-              {awayText}
+            <Badge team={away} />
+            <span className="gamecard__label">
+              <span className="gamecard__abbr">{away.abbr}</span>
+              <span className="gamecard__name" ref={awayName}>
+                {awayText}
+              </span>
             </span>
           </span>
         </span>
