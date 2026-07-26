@@ -264,14 +264,14 @@
  * independent copies. Radii double per layer and the bands crowd toward
  * the centre, which is what makes it read as one smooth dissolve.
  *
- * Measured over 100 scrolled frames (headless software raster, so read
- * the ratios and not the absolutes). 27 upcoming cards: 16ms a frame flat,
- * 25ms at three layers, 51ms at eight. Five live cards: 16ms flat, 35ms at
- * four layers, 52ms at eight. The two rows land in the same place despite
- * the live card being four times the area, because backdrop cost follows
- * the pixels actually on screen and more small cards fit than large ones.
- * Both rows carry it; the ceiling is set per card, since it should scale
- * with the crest rather than be shared.
+ * The WIDE card only, and that is a measurement. Backdrop cost follows the
+ * pixels on screen, and only two or three wide cards fit at once where a
+ * grid of small ones puts eighteen there. Over 100 scrolled frames of a
+ * full page, 15 wide cards and 45 small: 120ms a frame with the ladder on
+ * both, 20.7ms with it on the wide cards only, 16.4ms with none anywhere.
+ * The small card keeps the crest at one flat radius, which costs nothing.
+ *
+ * (Headless software raster, so read the ratios and not the absolutes.)
  *
  * EIGHT layers, the recipe's own default, and the count is about the BANDS
  * rather than the radii. More layers subdivide the same falloff more
@@ -533,6 +533,21 @@
  * softness stays the same fraction of the crest. */
 .upcard .gamewash__mark {
   height: 125%;
+  /* One flat radius, not the ladder. See the haze block above for why the
+   * small card cannot have the progressive version. */
+  filter: blur(calc(2.9px * var(--sports-scale)))
+    saturate(var(--wash-saturation, 1.15));
+}
+/* The small card takes none of the haze. Measured, 45 of them in a grid
+ * over 100 scrolled frames: 125ms a frame with the ladder, 16.7ms with one
+ * flat blur, and 16.4ms with no background at all. The ladder is the whole
+ * cost and the crest itself is free, so the art stays and the layers go.
+ *
+ * It is a grid that makes the difference, not the card. Backdrop cost
+ * follows what is ON SCREEN, and a grid puts four times as many cards
+ * there as a row does. */
+.upcard .gamewash__haze {
+  display: none;
 }
 
 /* The same ladder on the small card, at its own ceiling. Scaling 15px by
@@ -541,39 +556,6 @@
  * so its crest wants to stay a shape rather than dissolve. 3px. The masks
  * are shared with the live card above, since a band is a fraction of the
  * half and means the same thing at either size. */
-.upcard .gamewash__haze i:nth-child(1) {
-  backdrop-filter: blur(calc(0.023px * var(--sports-scale)));
-  -webkit-backdrop-filter: blur(calc(0.023px * var(--sports-scale)));
-}
-.upcard .gamewash__haze i:nth-child(2) {
-  backdrop-filter: blur(calc(0.047px * var(--sports-scale)));
-  -webkit-backdrop-filter: blur(calc(0.047px * var(--sports-scale)));
-}
-.upcard .gamewash__haze i:nth-child(3) {
-  backdrop-filter: blur(calc(0.094px * var(--sports-scale)));
-  -webkit-backdrop-filter: blur(calc(0.094px * var(--sports-scale)));
-}
-.upcard .gamewash__haze i:nth-child(4) {
-  backdrop-filter: blur(calc(0.188px * var(--sports-scale)));
-  -webkit-backdrop-filter: blur(calc(0.188px * var(--sports-scale)));
-}
-.upcard .gamewash__haze i:nth-child(5) {
-  backdrop-filter: blur(calc(0.375px * var(--sports-scale)));
-  -webkit-backdrop-filter: blur(calc(0.375px * var(--sports-scale)));
-}
-.upcard .gamewash__haze i:nth-child(6) {
-  backdrop-filter: blur(calc(0.75px * var(--sports-scale)));
-  -webkit-backdrop-filter: blur(calc(0.75px * var(--sports-scale)));
-}
-.upcard .gamewash__haze i:nth-child(7) {
-  backdrop-filter: blur(calc(1.5px * var(--sports-scale)));
-  -webkit-backdrop-filter: blur(calc(1.5px * var(--sports-scale)));
-}
-.upcard .gamewash__haze i:nth-child(8) {
-  backdrop-filter: blur(calc(3.0px * var(--sports-scale)));
-  -webkit-backdrop-filter: blur(calc(3.0px * var(--sports-scale)));
-}
-
 /* The veil is a second copy of both washes, laid over the text for the
  * colour it lends them. It takes the crest much softer: at the radius
  * below it reads as colour rather than as shapes sitting on the text. */
