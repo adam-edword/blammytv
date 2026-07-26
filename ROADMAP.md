@@ -650,8 +650,11 @@ with scroll restoration on every screen, mouse side-button nav everywhere,
 and the save-affordance rewrite that fixed a live bug where saving from a
 title page wrote to the pre-009 key the Library does not read.
 
-**Cut from 0.8.0:** the Sports tab (no design exists yet; it stays a 1.0
-gate).
+**Cut from 0.8.0:** the Sports tab. It is now the **0.9.0 headline** and has
+a design: see `plans/010-sports.md` (Adam 2026-07-27, US first, all major US
+leagues plus Premier League and F1, modelled on ScoreBox's cross-reference of
+a broadcast schedule against your own channels). Phase 0 of that plan is a
+gate: whether a free keyless schedule carries the US network per fixture.
 
 ## Next after 0.8.0 (queued, unowned)
 
@@ -733,7 +736,7 @@ gate).
   coverage. Cheap special case worth remembering: anime-only scrobbling to
   MAL/AniList would be unusually inexpensive given the MAL resolution
   already in the tree.
-- **1.0 gates:** Sports tab in Live TV, paid themes shipped, Windows code
+- **1.0 gates:** paid themes shipped, Windows code
   signing, CSP. (My List multi-lists moves OUT of this list: it is the 0.8.0
   headline, see plan 009.)
 

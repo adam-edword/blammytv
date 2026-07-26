@@ -21,6 +21,7 @@ Run with `improve-animations execute <plan>` or hand to any agent.
 | [007](007-hold-to-clear-progress.md) | Hold-to-clear: show the hold's progress | MEDIUM | DONE (wave C) |
 | [008](008-two-tier-updates.md) | Two-tier updates: a frontend hot channel behind the installer | MEDIUM | BUILT, unproven (phases 0-3 in tree; first frontend-only release is the acceptance test) |
 | [009](009-library-and-lists.md) | Library: multiple lists, and a home for everything you've watched | MEDIUM | COMPLETE (0.8.0 headline feature) |
+| [010](010-sports.md) | Sports: a hub for what is on right now | MEDIUM | PLANNED (0.9.0 headline; phase 0 is a gate) |
 
 ## Recommended execution order & dependencies
 
