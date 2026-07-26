@@ -64,15 +64,18 @@
 .chip-tabs--bare .chip-tabs__tab {
   font-weight: 400;
   padding: 6px 12px;
-  /* Pin the chip to the height of an ICON chip (18px) rather than letting
-   * it size to its text (~14px line box). The Stream rail ends in the
-   * search chip, so its container was 4px taller than the Live rail's,
-   * which is text only — same CSS, different content, two rails that did
-   * not match. Height now comes from the rule, not from what happens to
-   * be inside. */
+  /* Pin every chip to the height an ICON chip takes, so a rail's height
+   * comes from this rule and not from whatever happens to be inside it.
+   * The Stream rail ends in the search chip (18px icon + 12px padding =
+   * 30px); a text chip is 26px, which left the two header rails 4px apart.
+   *
+   * 30, not 18: box-sizing is border-box app-wide, so min-height is the
+   * BORDER box. 18px here was under the natural 26px and did nothing at
+   * all (measured in Chromium, not guessed, after the first attempt at
+   * this failed exactly that way). */
   display: inline-flex;
   align-items: center;
-  min-height: 18px;
+  min-height: 30px;
 }
 .chip-tabs--bare .chip-tabs__thumb {
   top: 4px;
