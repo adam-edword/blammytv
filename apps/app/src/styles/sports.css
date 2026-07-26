@@ -24,6 +24,18 @@
   box-shadow: 0 0 10px rgba(255, 75, 75, 0.75);
 }
 
+/* The shared row pads 18px top / 10px bottom, which is tuned for a poster's
+ * shadow (0 14px 32px -12px) and for the card name sitting below the art.
+ * A game card is all art with a bigger shadow (0 18px 40px -14px), whose
+ * outer edge lands 24px below the box: 18 offset + 20 half-blur - 14
+ * spread. overflow-x:auto forces overflow-y to clip (spec quirk, already
+ * noted on the shared rule), so anything past the padding is guillotined.
+ * Scoped here rather than widened globally: every other row is correct. */
+.sports .media-row__scroller {
+  padding-top: 14px;
+  padding-bottom: 30px;
+}
+
 /* ---------------------------------------------------------------- card */
 
 /* One game. The whole thing is the button: the object is the GAME, and
