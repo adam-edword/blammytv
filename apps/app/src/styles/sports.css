@@ -834,7 +834,11 @@
 .upcard__tilt {
   position: relative;
   display: block;
-  height: calc(132px * var(--sports-scale));
+  /* 132 before, which measured as three pixels of slack: the status, the
+   * teams and the league were jammed together with only their own paddings
+   * between them, and space-between had nothing left to distribute. This
+   * gives it about thirty, which is roughly fifteen between each. */
+  height: calc(150px * var(--sports-scale));
   /* Keep glareBorderRadius in UpcomingCard in step with this. */
   border-radius: calc(30px * var(--sports-scale));
   overflow: hidden;
@@ -885,6 +889,9 @@
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: calc(13px * var(--sports-scale));
+  /* A scoreboard's own voice. Kick-off times are already uppercase, so
+   * this only really shows on "Final" and on a live clock. */
+  text-transform: uppercase;
   color: #fff;
 }
 /* The matchup, staggered: home to the top left, away to the bottom right.
@@ -938,6 +945,21 @@
   flex: 1;
   min-width: 0;
 }
+/* A game with a score squares up: the away row stops hanging off the right
+ * and lines up under the home row, which puts both marks on one edge and
+ * both numbers in a column on the other. Numbers are for comparing, and
+ * comparing them across a diagonal is work.
+ *
+ * The stagger stays for fixtures, where there is nothing to compare. */
+.upcard--scored .upcard__team--away {
+  align-self: stretch;
+  flex-direction: row;
+}
+.upcard--scored .upcard__team--away .upcard__label {
+  align-items: flex-start;
+  text-align: left;
+}
+
 /* The beaten side, set light against the winner's bold. Weight rather than
  * colour: a grid of finished games can then be read for who won without
  * reading a number, and it survives the dimming below, which a difference

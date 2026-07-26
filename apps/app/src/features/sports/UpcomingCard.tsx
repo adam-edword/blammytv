@@ -15,13 +15,18 @@ import type { Game } from "./model";
  * it never carries is the "live on" line: this card is for reading a day,
  * and the wide card in the row above is where a game is chosen.
  *
- * The two sides are STAGGERED, home to the top left and away to the bottom
+ * A fixture is STAGGERED, home to the top left and away to the bottom
  * right, rather than split down the middle. Two reasons, and the first is
  * the one that matters: split, each name got 123px and the long ones had to
  * be shrunk to fit. Staggered, each gets the card less one badge, about
  * 210px, and "Wolverhampton" measures 211px at full size. The fit is back
  * to being a safety net. The second is that a diagonal reads as a matchup,
  * where a symmetric split reads as two columns.
+ *
+ * A game with a SCORE squares up instead: both marks left, both names on
+ * one edge, both numbers in a column on the other. Numbers are compared,
+ * and comparing them across a diagonal is work. The stagger is for the
+ * cards where there is nothing to compare yet.
  *
  * Same object as the live card, smaller and quieter. Not a variant flag on
  * it: the two share the wash and nothing else, and a single component
@@ -46,11 +51,18 @@ export function UpcomingCard({
   const awayText = away.shortName ?? away.name;
   const [homeName, awayName] = useFitText<HTMLSpanElement>(homeText, awayText);
   const lost = loser(game);
+  // Live or finished: there is a score, so the card squares up.
   const scored = game.state !== "pre";
   return (
     <button
       type="button"
-      className={"upcard" + (game.state === "final" ? " upcard--final" : "")}
+      className={
+        "upcard" +
+        // Two layouts, not two components: a game with numbers on it reads
+        // as a table, a fixture without reads as a matchup.
+        (scored ? " upcard--scored" : "") +
+        (game.state === "final" ? " upcard--final" : "")
+      }
       title={`${home.name} vs ${away.name}`}
       onClick={() => onOpen?.(game)}
     >
