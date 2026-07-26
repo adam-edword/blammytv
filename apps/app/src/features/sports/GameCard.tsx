@@ -65,8 +65,10 @@ export function GameCard({
         * Degrees are not the unit that matters: a 650px card sweeps far
         * more pixels at its corners than a 300px poster does at the same
         * angle, so matching the poster's 5deg here read as a barn door.
-        * Radius tracks THIS card's corner: the glare layer is clipped by
-        * its own, not by the button's. */}
+        * The glare is lighter than a poster's for the same reason: it
+        * sweeps a much larger area, so the same opacity reads as a much
+        * brighter wipe. Radius tracks THIS card's corner (45px, matching
+        * .gamecard__tilt) because the glare layer carries its own clip. */}
       <Tilt
         className="gamecard__tilt"
         tiltEnable={!REDUCED_MOTION}
@@ -75,9 +77,9 @@ export function GameCard({
         scale={REDUCED_MOTION ? 1 : 1.01}
         transitionSpeed={650}
         glareEnable={!REDUCED_MOTION}
-        glareMaxOpacity={0.12}
+        glareMaxOpacity={0.07}
         glarePosition="all"
-        glareBorderRadius="24px"
+        glareBorderRadius="45px"
       >
         <Wash side="home" team={home} />
         <Wash side="away" team={away} />

@@ -62,7 +62,10 @@
   position: relative;
   display: block;
   height: 195px;
-  border-radius: 24px;
+  /* Keep glareBorderRadius in GameCard in step with this: the glare is its
+   * own layer with its own clip, so a mismatch shows as a square sheen
+   * poking out of a round corner. */
+  border-radius: 45px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.07);
   background: #0b0b0d;
