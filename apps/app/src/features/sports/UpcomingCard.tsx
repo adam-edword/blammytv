@@ -1,5 +1,6 @@
 import Tilt from "react-parallax-tilt";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
+import { scaledRadius } from "./scale";
 import { Wash } from "./Wash";
 import type { Game } from "./model";
 
@@ -41,7 +42,7 @@ export function UpcomingCard({
         glareEnable={!REDUCED_MOTION}
         glareMaxOpacity={0.09}
         glarePosition="all"
-        glareBorderRadius="30px"
+        glareBorderRadius={scaledRadius(30)}
       >
         <Wash side="home" team={home} />
         <Wash side="away" team={away} />

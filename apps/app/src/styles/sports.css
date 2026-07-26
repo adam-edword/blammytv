@@ -1,5 +1,13 @@
 /* The Sports hub (plan 010). Borrows Discover's page shape and Stream's
- * row, so only the game card itself is new here. */
+ * row, so only the game card itself is new here.
+ *
+ * Every card dimension below is expressed against --sports-scale, so the
+ * whole hub resizes from one number instead of a sweep of magic values.
+ * KEEP IN SYNC with SPORTS_SCALE in features/sports/scale.ts: the tilt
+ * library takes its glare radius as a string prop, which cannot read CSS. */
+.sports {
+  --sports-scale: 1.75;
+}
 
 .sports {
   /* Discover's padding clears the floating header; the hub is a plain
@@ -32,10 +40,10 @@
  * noted on the shared rule), so anything past the padding is guillotined.
  * Scoped here rather than widened globally: every other row is correct. */
 .sports .media-row__scroller {
-  padding-top: 14px;
+  padding-top: calc(14px * var(--sports-scale));
   /* Sized for the LIVE card's shadow, which is the deeper of the two. Both
    * rows share this rule; the upcoming card simply has room to spare. */
-  padding-bottom: 30px;
+  padding-bottom: calc(30px * var(--sports-scale));
 }
 
 /* ---------------------------------------------------------------- card */
@@ -44,8 +52,8 @@
  * every click on it means "watch this". */
 .gamecard {
   flex: 0 0 auto;
-  width: 650px;
-  max-width: 78vw;
+  width: calc(650px * var(--sports-scale));
+  max-width: 92vw;
   padding: 0;
   border: none;
   background: none;
@@ -63,11 +71,11 @@
 .gamecard__tilt {
   position: relative;
   display: block;
-  height: 195px;
+  height: calc(195px * var(--sports-scale));
   /* Keep glareBorderRadius in GameCard in step with this: the glare is its
    * own layer with its own clip, so a mismatch shows as a square sheen
    * poking out of a round corner. */
-  border-radius: 45px;
+  border-radius: calc(45px * var(--sports-scale));
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.07);
   background: #0b0b0d;
@@ -76,7 +84,7 @@
   transition: box-shadow 450ms ease;
 }
 .gamecard:hover .gamecard__tilt {
-  box-shadow: 0 18px 40px -14px color-mix(in srgb, #000 55%, transparent);
+  box-shadow: 0 calc(18px * var(--sports-scale)) calc(40px * var(--sports-scale)) calc(-14px * var(--sports-scale)) color-mix(in srgb, #000 55%, transparent);
 }
 
 /* Each half's wash: the team's mark blurred hard and bled off its own
@@ -117,7 +125,7 @@
   width: 118%;
   transform: translateY(-50%) scale(1.35);
   object-fit: cover;
-  filter: blur(26px) saturate(1.15);
+  filter: blur(calc(26px * var(--sports-scale))) saturate(1.15);
   opacity: 0.85;
 }
 .gamewash--away .gamewash__mark {
@@ -125,7 +133,7 @@
   right: 0;
 }
 .upcard .gamewash__mark {
-  filter: blur(14px) saturate(1.15);
+  filter: blur(calc(14px * var(--sports-scale))) saturate(1.15);
 }
 
 /* Readability floor. The washes are arbitrary team colours, so the text
@@ -149,9 +157,9 @@
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: 18px;
+  gap: calc(18px * var(--sports-scale));
   height: 100%;
-  padding: 0 30px 18px;
+  padding: 0 calc(30px * var(--sports-scale)) calc(18px * var(--sports-scale));
 }
 
 .gamecard__team {
@@ -169,7 +177,7 @@
 .gamecard__abbr {
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: 11px;
+  font-size: calc(11px * var(--sports-scale));
   letter-spacing: 0.06em;
   color: rgba(255, 255, 255, 0.45);
   margin-bottom: 1px;
@@ -177,7 +185,7 @@
 .gamecard__name {
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: 29px;
+  font-size: calc(29px * var(--sports-scale));
   line-height: 1.05;
   color: #fff;
   /* Long club names must shrink the wash, never the score. */
@@ -196,16 +204,16 @@
 .gamecard__status {
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: 15px;
+  font-size: calc(15px * var(--sports-scale));
   color: #fff;
 }
 .gamecard__score {
   display: flex;
   align-items: baseline;
-  gap: 10px;
+  gap: calc(10px * var(--sports-scale));
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: 46px;
+  font-size: calc(46px * var(--sports-scale));
   line-height: 1;
   color: #fff;
   /* Scores change mid-game; tabular figures stop the card twitching when
@@ -214,16 +222,16 @@
 }
 .gamecard__dash {
   color: rgba(255, 255, 255, 0.5);
-  font-size: 34px;
+  font-size: calc(34px * var(--sports-scale));
 }
 .gamecard__league {
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: 10px;
+  font-size: calc(10px * var(--sports-scale));
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.5);
-  margin-top: 6px;
+  margin-top: calc(6px * var(--sports-scale));
 }
 
 .gamecard__foot {
@@ -234,11 +242,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 0 20px 14px;
+  gap: calc(12px * var(--sports-scale));
+  padding: 0 calc(20px * var(--sports-scale)) calc(14px * var(--sports-scale));
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: 10.5px;
+  font-size: calc(10.5px * var(--sports-scale));
   letter-spacing: 0.07em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.55);
@@ -246,7 +254,7 @@
 .gamecard__venue {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: calc(5px * var(--sports-scale));
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -255,7 +263,7 @@
 .gamecard__carriage {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: calc(6px * var(--sports-scale));
   flex-shrink: 0;
   color: rgba(255, 255, 255, 0.8);
 }
@@ -264,13 +272,13 @@
   color: rgba(255, 255, 255, 0.38);
 }
 .gamecard__dot {
-  width: 5px;
-  height: 5px;
+  width: calc(5px * var(--sports-scale));
+  height: calc(5px * var(--sports-scale));
   border-radius: 50%;
   background: #ff4b4b;
 }
 .gamecard__more {
-  font-size: 13px;
+  font-size: calc(13px * var(--sports-scale));
   line-height: 1;
   opacity: 0.7;
 }
@@ -288,7 +296,7 @@
  * are true yet. */
 .upcard {
   flex: 0 0 auto;
-  width: 235px;
+  width: calc(235px * var(--sports-scale));
   padding: 0;
   border: none;
   background: none;
@@ -301,16 +309,16 @@
 .upcard__tilt {
   position: relative;
   display: block;
-  height: 132px;
+  height: calc(132px * var(--sports-scale));
   /* Keep glareBorderRadius in UpcomingCard in step with this. */
-  border-radius: 30px;
+  border-radius: calc(30px * var(--sports-scale));
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.07);
   background: #0b0b0d;
   transition: box-shadow 450ms ease;
 }
 .upcard:hover .upcard__tilt {
-  box-shadow: 0 12px 26px -10px color-mix(in srgb, #000 55%, transparent);
+  box-shadow: 0 calc(12px * var(--sports-scale)) calc(26px * var(--sports-scale)) calc(-10px * var(--sports-scale)) color-mix(in srgb, #000 55%, transparent);
 }
 /* Heavier than the live card's: at this size the washes cover most of the
  * card, and the names sit right on top of them. */
@@ -334,12 +342,12 @@
   align-items: center;
   justify-content: space-between;
   height: 100%;
-  padding: 14px 14px 12px;
+  padding: calc(14px * var(--sports-scale)) calc(14px * var(--sports-scale)) calc(12px * var(--sports-scale));
 }
 .upcard__time {
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: 13px;
+  font-size: calc(13px * var(--sports-scale));
   color: #fff;
 }
 /* The matchup. Equal halves so the centre line stays put whatever the
@@ -349,7 +357,7 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   align-items: center;
-  gap: 8px;
+  gap: calc(8px * var(--sports-scale));
   width: 100%;
 }
 .upcard__team {
@@ -364,14 +372,14 @@
 .upcard__abbr {
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: 8.5px;
+  font-size: calc(8.5px * var(--sports-scale));
   letter-spacing: 0.07em;
   color: rgba(255, 255, 255, 0.45);
 }
 .upcard__name {
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: 19px;
+  font-size: calc(19px * var(--sports-scale));
   line-height: 1.1;
   color: #fff;
   max-width: 100%;
@@ -382,7 +390,7 @@
 .upcard__league {
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: 8.5px;
+  font-size: calc(8.5px * var(--sports-scale));
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.45);

@@ -1,5 +1,6 @@
 import Tilt from "react-parallax-tilt";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
+import { scaledRadius } from "./scale";
 import { Wash } from "./Wash";
 import type { Game } from "./model";
 
@@ -49,8 +50,9 @@ export function GameCard({
         * angle, so matching the poster's 5deg here read as a barn door.
         * The glare is lighter than a poster's for the same reason: it
         * sweeps a much larger area, so the same opacity reads as a much
-        * brighter wipe. Radius tracks THIS card's corner (45px, matching
-        * .gamecard__tilt) because the glare layer carries its own clip. */}
+        * brighter wipe. Radius tracks THIS card's corner because the glare
+        * layer carries its own clip, and it is computed from the same
+        * scale the stylesheet uses rather than typed twice. */}
       <Tilt
         className="gamecard__tilt"
         tiltEnable={!REDUCED_MOTION}
@@ -61,7 +63,7 @@ export function GameCard({
         glareEnable={!REDUCED_MOTION}
         glareMaxOpacity={0.07}
         glarePosition="all"
-        glareBorderRadius="45px"
+        glareBorderRadius={scaledRadius(45)}
       >
         <Wash side="home" team={home} />
         <Wash side="away" team={away} />
