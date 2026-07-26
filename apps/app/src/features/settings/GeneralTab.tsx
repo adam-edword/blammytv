@@ -1,25 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import { remove as removeStored } from "../../lib/storage";
 import { ChipTabs } from "../../ui/ChipTabs";
-import { Toggle } from "../../ui/Toggle";
-import { loadOneClickPlay, saveOneClickPlay } from "./oneClickPlay";
 import { UpdatesSection } from "./UpdatesSection";
 import { PlaylistsTab } from "./PlaylistsTab";
 import { AioStreamsTab } from "./AioStreamsTab";
 import { savePlaylists } from "./playlists";
-import { loadAioUrl, saveAioUrl, saveHeroSources } from "./aiostreams";
-import { loadSourceFailover, saveSourceFailover } from "./failover";
-import {
-  loadSkipBehavior,
-  saveSkipBehavior,
-  type SkipBehavior,
-} from "./skipBehavior";
+import { saveAioUrl, saveHeroSources } from "./aiostreams";
 import { requestOnboardingReplay } from "../../app/onboardingGate";
 
 /**
- * General: where content comes from, what happens when it plays, and how
- * the app is managed. Three groups, in that order, with the Danger Zone
- * last as it is in every tab.
+ * General: where content comes from, and how the app is managed. Anything
+ * that belongs to ONE side of the app (how Stream looks, how it plays)
+ * lives under Customize with the rest of that world; what is left here is
+ * the connection itself and app-level management, Danger Zone last as in
+ * every tab.
  *
  * Sources absorbed what used to be its own Media tab. Connecting a playlist
  * or a manifest is a one-time setup, so it earns a section rather than a
@@ -35,22 +29,6 @@ export function GeneralTab() {
   // Ephemeral: Sources always opens on Live TV rather than remembering
   // where you were, the same rule the old Media rail followed.
   const [source, setSource] = useState<"live" | "stream">("live");
-
-  const [oneClick, setOneClick] = useState<boolean>(loadOneClickPlay);
-  const toggleOneClick = () => {
-    const next = !oneClick;
-    setOneClick(next);
-    saveOneClickPlay(next);
-  };
-
-  // Playback behaviour, moved off the AIOStreams tab: what happens during a
-  // play is behaviour, not a property of where the stream came from. Still
-  // gated on a configured manifest, because without one there is no VOD
-  // playback for either setting to govern. Read once per mount, so adding a
-  // manifest reveals them the next time Settings opens.
-  const hasAddon = useRef(loadAioUrl() !== "").current;
-  const [failover, setFailover] = useState<boolean>(loadSourceFailover);
-  const [skip, setSkip] = useState<SkipBehavior>(loadSkipBehavior);
 
   // Clearing credentials is destructive, so it takes two clicks: arm, then
   // confirm within a few seconds.
@@ -85,72 +63,6 @@ export function GeneralTab() {
         <ChipTabs tabs={SOURCE_TABS} active={source} onChange={setSource} />
       </div>
       {source === "live" ? <PlaylistsTab /> : <AioStreamsTab />}
-
-      {/* What happens when it plays. */}
-      <h3 className="settings__group">Playback</h3>
-      <section className="settings-section">
-        <div className="customize-row">
-          <div>
-            <h4 className="customize-row__title">One-Click Play Movies</h4>
-            <p className="settings__section-note settings__section-note--dim">
-              Clicking a movie poster card plays the best source right away,
-              and it will never play an uncached source.
-            </p>
-          </div>
-          <Toggle
-            on={oneClick}
-            onChange={toggleOneClick}
-            label="One-click play"
-          />
-        </div>
-
-        {hasAddon && (
-          <div className="customize-row">
-            <div>
-              <h4 className="customize-row__title">Auto Source Failover</h4>
-              <p className="settings__section-note settings__section-note--dim">
-                When a source dies mid-play, jump to the next available cached
-                one automatically. An uncached source is never auto-played. Off
-                shows a button instead.
-              </p>
-            </div>
-            <Toggle
-              on={failover}
-              onChange={() => {
-                const next = !failover;
-                setFailover(next);
-                saveSourceFailover(next);
-              }}
-              label="Auto source failover"
-            />
-          </div>
-        )}
-
-        {hasAddon && (
-          <div className="customize-row">
-            <div>
-              <h4 className="customize-row__title">Skip Behavior</h4>
-              <p className="settings__section-note settings__section-note--dim">
-                The Skip Intro/Recap/Credits button over playback (from the
-                file&rsquo;s chapters). Combine merges back-to-back credits and
-                preview into one jump.
-              </p>
-            </div>
-            <ChipTabs
-              tabs={[
-                { key: "hidden", label: "Hidden" },
-                { key: "normal", label: "Normal" },
-                { key: "combine", label: "Combine Credits & Preview" },
-              ]}
-              active={skip}
-              onChange={(k: SkipBehavior) => {
-                setSkip(k);
-                saveSkipBehavior(k);
-              }}
-            />
-          </div>
-        )}
-      </section>
 
       <section className="settings-section">
         <div className="customize-row">
