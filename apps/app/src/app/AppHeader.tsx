@@ -236,7 +236,8 @@ export function AppHeader({
             {/* The Live rail sits BEFORE its tab, mirroring Stream's which
               * sits after: the two rails open outward from the divider, so
               * the section you are in expands away from the middle. Same
-              * collapse mechanism, same curve. */}
+              * chips, same bare (trackless) styling, same collapse curve —
+              * one rail component wearing one look, on both sides. */}
             <div
               className={
                 "header__rail header__rail--live" +
@@ -247,6 +248,7 @@ export function AppHeader({
               <ChipTabs
                 tabs={LIVE_RAIL}
                 active={liveTab}
+                className="chip-tabs--bare"
                 onChange={onLiveTab}
               />
             </div>

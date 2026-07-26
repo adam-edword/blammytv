@@ -476,12 +476,10 @@ button {
   color: rgba(255, 255, 255, 0.75);
 }
 
-/* The Live rail mirrors the Stream one but opens to the LEFT of its tab,
- * so the two rails expand outward from the divider. It keeps the chip
- * track (Stream's is bare) because it sits alone out there with no tab
- * cluster to read against. */
+/* The Live rail mirrors the Stream one and opens to the LEFT of its tab,
+ * so the two rails expand outward from the divider. Everything else is
+ * inherited from .header__rail on purpose: same metrics, same curve. */
 .header__rail--live {
-  margin-top: 0;
   margin-right: 4px;
 }
 

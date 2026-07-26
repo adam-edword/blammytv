@@ -61,14 +61,18 @@ export function GameCard({
       title={`${home.name} vs ${away.name}`}
       onClick={() => onOpen?.(game)}
     >
-      {/* Same lean and glare as every other card in the app. Radius tracks
-        * THIS card's corner: the glare layer is clipped by its own. */}
+      {/* Same lean and glare as the poster cards, at a much smaller angle.
+        * Degrees are not the unit that matters: a 650px card sweeps far
+        * more pixels at its corners than a 300px poster does at the same
+        * angle, so matching the poster's 5deg here read as a barn door.
+        * Radius tracks THIS card's corner: the glare layer is clipped by
+        * its own, not by the button's. */}
       <Tilt
         className="gamecard__tilt"
         tiltEnable={!REDUCED_MOTION}
-        tiltMaxAngleX={4}
-        tiltMaxAngleY={4}
-        scale={REDUCED_MOTION ? 1 : 1.02}
+        tiltMaxAngleX={1.5}
+        tiltMaxAngleY={1.5}
+        scale={REDUCED_MOTION ? 1 : 1.01}
         transitionSpeed={650}
         glareEnable={!REDUCED_MOTION}
         glareMaxOpacity={0.12}
