@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import type { Competitor } from "./model";
 
 /**
@@ -45,7 +46,12 @@ export function Wash({
   return (
     <span className={`gamewash gamewash--${side}`} aria-hidden>
       {team.color && (
-        <span className="gamewash__tint" style={{ background: `#${team.color}` }} />
+        <span
+          className="gamewash__tint"
+          // The colour, not the gradient: the card decides which way it
+          // runs, and that differs by side.
+          style={{ "--team": `#${team.color}` } as CSSProperties}
+        />
       )}
       {team.logo && (
         <img className="gamewash__mark" src={team.logo} alt="" loading="lazy" />
