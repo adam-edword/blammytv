@@ -177,6 +177,12 @@ function toCompetitor(raw: RawCompetitor): Competitor {
     shortName: t.shortDisplayName,
     abbr: t.abbreviation ?? "",
     logo: t.logo,
+    // ESPN serves the inverted mark at the same path with the size segment
+    // swapped. It is not in the payload and it does not exist for every
+    // club, so this is a derivation with a fallback rather than a promise.
+    logoDark: t.logo?.includes("/500/")
+      ? t.logo.replace("/500/", "/500-dark/")
+      : undefined,
     // ESPN sends hex without the hash, which is what the card wants.
     color: t.color,
     score: Number.isFinite(score) ? score : undefined,

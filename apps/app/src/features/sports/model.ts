@@ -25,6 +25,23 @@ export interface Competitor {
   abbr: string;
   /** Crest, flag or team mark. Doubles as the card's background wash. */
   logo?: string;
+  /**
+   * The same mark, inverted for a dark background (ESPN's "500-dark").
+   *
+   * Needed because a mark drawn small and sharp on a near-black card has
+   * to survive on its own: measured over the opaque pixels, the Yankees'
+   * default mark averages luminance 27 and the Rays' 70, against a card at
+   * 15. Teams whose mark already reads on dark (the Cubs) get a
+   * byte-identical file, so preferring this one costs nothing.
+   *
+   * The blurred background wash keeps `logo`: there the point is the
+   * colour, not the shape.
+   *
+   * Optional and not always present even when `logo` is: the pattern held
+   * for every US league checked and 404s for some soccer clubs, so
+   * whatever paints it needs a fallback.
+   */
+  logoDark?: string;
   /** Team colour, used for the card's tint. Hex, no leading #. */
   color?: string;
   score?: number;

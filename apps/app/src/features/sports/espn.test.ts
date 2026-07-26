@@ -38,6 +38,32 @@ describe("toGames", () => {
     expect(live.home.color).toMatch(/^[0-9a-f]{6}$/);
     expect(live.home.logo).toMatch(/^https:\/\/a\.espncdn\.com\//);
     expect(live.away.logo).toMatch(/^https:\/\/a\.espncdn\.com\//);
+    // The inverted mark, for the badge on a near-black card.
+    expect(live.home.logo).toContain("/500/");
+    expect(live.home.logoDark).toBe(live.home.logo!.replace("/500/", "/500-dark/"));
+  });
+
+  it("leaves logoDark unset when the path has no size to swap", () => {
+    const odd = {
+      leagues: [{ abbreviation: "MLB" }],
+      events: [
+        {
+          ...mlb.events[0],
+          competitions: [
+            {
+              ...mlb.events[0].competitions[0],
+              competitors: mlb.events[0].competitions[0].competitors.map((c) => ({
+                ...c,
+                team: { ...c.team, logo: "https://example.test/crest.png" },
+              })),
+            },
+          ],
+        },
+      ],
+    };
+    const [game] = toGames(odd, league("mlb"));
+    expect(game.home.logo).toBe("https://example.test/crest.png");
+    expect(game.home.logoDark).toBeUndefined();
   });
 
   it("maps all three of ESPN's states", () => {

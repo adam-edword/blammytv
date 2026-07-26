@@ -3,7 +3,7 @@ import { useFitText } from "../../lib/fitText";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { scaledRadius } from "./scale";
 import { Wash, WashVeil } from "./Wash";
-import type { Game } from "./model";
+import type { Competitor, Game } from "./model";
 
 /**
  * A game that has not started, as a small card (plan 010).
@@ -14,8 +14,16 @@ import type { Game } from "./model";
  * what competition it belongs to, which is exactly what someone scanning a
  * day of fixtures is reading for.
  *
- * Same object, smaller and quieter. Not a variant flag on the live card:
- * the two share the wash and nothing else, and a single component
+ * The two sides are STAGGERED, home to the top left and away to the bottom
+ * right, rather than split down the middle. Two reasons, and the first is
+ * the one that matters: split, each name got 123px and the long ones had to
+ * be shrunk to fit. Staggered, each gets the card less one badge, about
+ * 210px, and "Wolverhampton" measures 211px at full size. The fit is back
+ * to being a safety net. The second is that a diagonal reads as a matchup,
+ * where a symmetric split reads as two columns.
+ *
+ * Same object as the live card, smaller and quieter. Not a variant flag on
+ * it: the two share the wash and nothing else, and a single component
  * branching on state would be mostly branches.
  */
 export function UpcomingCard({
@@ -27,9 +35,8 @@ export function UpcomingCard({
 }) {
   const { home, away } = game;
   // Half a small card each, so this takes the broadcast name where there is
-  // one: "Man City" is what a viewer scanning fixtures reads anyway, and no
-  // font size makes "Manchester City" fit in 97px. The fit below is the
-  // safety net for whatever the feed still sends long.
+  // one: "Man City" is what a viewer scanning fixtures reads anyway. The
+  // fit below is the safety net for whatever the feed still sends long.
   const homeText = home.shortName ?? home.name;
   const awayText = away.shortName ?? away.name;
   const [homeName, awayName] = useFitText<HTMLSpanElement>(homeText, awayText);
@@ -64,15 +71,21 @@ export function UpcomingCard({
           <span className="upcard__time">{game.status}</span>
           <span className="upcard__teams">
             <span className="upcard__team">
-              <span className="upcard__abbr">{home.abbr}</span>
-              <span className="upcard__name" ref={homeName}>
-                {homeText}
+              <Badge team={home} />
+              <span className="upcard__label">
+                <span className="upcard__abbr">{home.abbr}</span>
+                <span className="upcard__name" ref={homeName}>
+                  {homeText}
+                </span>
               </span>
             </span>
             <span className="upcard__team upcard__team--away">
-              <span className="upcard__abbr">{away.abbr}</span>
-              <span className="upcard__name" ref={awayName}>
-                {awayText}
+              <Badge team={away} />
+              <span className="upcard__label">
+                <span className="upcard__abbr">{away.abbr}</span>
+                <span className="upcard__name" ref={awayName}>
+                  {awayText}
+                </span>
               </span>
             </span>
           </span>
@@ -81,5 +94,33 @@ export function UpcomingCard({
         <WashVeil home={home} away={away} />
       </Tilt>
     </button>
+  );
+}
+
+/**
+ * The team's mark, small and sharp, at the card's outer edge.
+ *
+ * Prefers the inverted version, because a mark drawn this small on a
+ * near-black card has to survive on its own and several are all but
+ * invisible otherwise (see Competitor.logoDark). That one is derived from a
+ * URL pattern rather than given, and it 404s for some clubs, so a failure
+ * falls back to the mark we were actually handed. `failed` guards the
+ * fallback from failing in turn and looping.
+ */
+function Badge({ team }: { team: Competitor }) {
+  if (!team.logo) return null;
+  return (
+    <img
+      className="upcard__badge"
+      src={team.logoDark ?? team.logo}
+      alt=""
+      loading="lazy"
+      onError={(e) => {
+        const img = e.currentTarget;
+        if (img.dataset.failed || !team.logo || img.src === team.logo) return;
+        img.dataset.failed = "1";
+        img.src = team.logo;
+      }}
+    />
   );
 }

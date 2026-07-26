@@ -822,14 +822,16 @@
   font-size: calc(13px * var(--sports-scale));
   color: #fff;
 }
-/* The matchup. Equal halves so the centre line stays put whatever the
- * names are, and each half fits inside its own track (useFitText, then the
- * ellipsis) rather than pushing the other one over. */
+/* The matchup, staggered: home to the top left, away to the bottom right.
+ *
+ * Not a split down the middle. Split, each name had 123px to live in and
+ * the long ones had to be shrunk; this way each gets the card less one
+ * badge, about 210px, which is what "Wolverhampton" measures at full size.
+ * The diagonal also reads as a matchup rather than as two columns. */
 .upcard__teams {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  align-items: center;
-  gap: calc(12px * var(--sports-scale));
+  display: flex;
+  flex-direction: column;
+  gap: calc(6px * var(--sports-scale));
   width: 100%;
   /* Space-between owns the rest of the column, so this reads as the names
    * lifting off the league line rather than as a gap under them. */
@@ -837,10 +839,30 @@
 }
 .upcard__team {
   display: flex;
+  align-items: center;
+  gap: calc(9px * var(--sports-scale));
+  min-width: 0;
+  max-width: 100%;
+}
+/* Mirrored rather than reordered in the markup: the mark stays the first
+ * thing in the DOM for both sides, so the away row is still read as
+ * badge-then-name by anything that is not looking at the pixels. */
+.upcard__team--away {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+.upcard__badge {
+  flex: 0 0 auto;
+  width: calc(30px * var(--sports-scale));
+  height: calc(30px * var(--sports-scale));
+  object-fit: contain;
+}
+.upcard__label {
+  display: flex;
   flex-direction: column;
   min-width: 0;
 }
-.upcard__team--away {
+.upcard__team--away .upcard__label {
   align-items: flex-end;
   text-align: right;
 }
