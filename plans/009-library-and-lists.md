@@ -1,9 +1,8 @@
 # 009: Library: multiple lists, and a home for everything you've watched
 
-- **Status**: IN PROGRESS. Phases 1 to 4 shipped (data layer + migration,
-  Library screen, list management, save affordance). Phase 5 (polish and
-  empty states) is what remains. The visible half of 0.8.0 (plan 008 is the
-  plumbing).
+- **Status**: COMPLETE. All five phases shipped: data layer + migration,
+  Library screen, list management, save affordance, polish. The visible half
+  of 0.8.0 (plan 008 is the plumbing).
 - **Severity**: MEDIUM (feature, not a defect)
 - **Category**: Stream section / saved content
 - **Estimated scope**: new data layer + migration, one screen rebuilt with a
@@ -122,7 +121,10 @@ yes/no question has to change.
    one list it removes it, and in two or more it opens the picker rather
    than wiping it out of all of them on one click.
 5. **Polish.** Empty states (no lists, empty list, empty history), the "+"
-   card, and the reduced-motion pass on anything new.
+   card, and the reduced-motion pass on anything new. The built-in Library
+   card only appears once there IS history: a card reading "0 titles" is a
+   dead end, and the first-run note above the grid says what the page is
+   for instead.
 
 ## Risks
 

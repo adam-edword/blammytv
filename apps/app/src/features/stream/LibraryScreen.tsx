@@ -266,7 +266,7 @@ export function LibraryScreen() {
           <p className="discover__note">
             {isHistory
               ? "Nothing watched yet. Anything you start shows up here."
-              : "This list is empty. Save a title from its page to add it."}
+              : "This list is empty. Open a title and use Add to Library to put it here."}
           </p>
         ) : (
           <div className="disc-grid">
@@ -330,13 +330,26 @@ export function LibraryScreen() {
 
       <section className="library__lists">
         <h3 className="media-row__title">Your lists</h3>
+        {/* Nothing watched and nothing saved: say what this page is FOR.
+          * The "+" card stays, so the empty state is still a place you can
+          * act from rather than a dead end. */}
+        {watching.length === 0 && lists.length === 0 && (
+          <p className="discover__note library__empty">
+            Anything you start watching lands in your Library on its own. Make
+            a list to keep the things you want to come back to.
+          </p>
+        )}
         <div className="disc-grid">
-          <ListCard
-            name="Library"
-            count={watching.length}
-            art={watching.find((e) => e.art)?.art}
-            onOpen={() => navigate({ at: "list", id: HISTORY })}
-          />
+          {/* Only once there IS history: a built-in card reading "0 titles"
+            * is a dead end, and the note above already explains it. */}
+          {watching.length > 0 && (
+            <ListCard
+              name="Library"
+              count={watching.length}
+              art={watching.find((e) => e.art)?.art}
+              onOpen={() => navigate({ at: "list", id: HISTORY })}
+            />
+          )}
           {lists.map((l) => (
             <ListCard
               key={l.id}
