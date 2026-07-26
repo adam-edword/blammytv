@@ -379,7 +379,7 @@
   flex: 0 0 auto;
   /* Absolute, not scaled: this is the width Adam measured off the Figma,
    * and the card is now sized by that rather than by the geometry knob. */
-  width: 265px;
+  width: 315px;
   padding: 0;
   border: none;
   background: none;
@@ -446,6 +446,9 @@
   align-items: center;
   gap: calc(12px * var(--sports-scale));
   width: 100%;
+  /* Space-between owns the rest of the column, so this reads as the names
+   * lifting off the league line rather than as a gap under them. */
+  margin-bottom: 12px;
 }
 .upcard__team {
   display: flex;

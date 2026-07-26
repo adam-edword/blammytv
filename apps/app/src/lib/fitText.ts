@@ -17,9 +17,9 @@ import type { RefObject } from "react";
 /**
  * Never shrink past this share of the stylesheet's size.
  *
- * Measured, at 28px in the 265px upcoming card, each name gets 97px of
+ * Measured, at 28px in the 315px upcoming card, each name gets 123px of
  * track: "Brazil" needs 76px and "Manchester City" needs 216px. Fitting
- * every name would put that one at 13px beside a neighbour at 28px, and type
+ * every name would put that one at 16px beside a neighbour at 28px, and type
  * that ragged reads as broken rather than as fitted. So the shrink stops
  * here (about 17px) and the ellipsis takes anything past it.
  *
