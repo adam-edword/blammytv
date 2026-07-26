@@ -134,13 +134,18 @@ export function HeroSourcesSection() {
   const byKey = new Map(items.map((c) => [c.key, c]));
   const available = items.filter((c) => !selected.includes(c.key));
 
+  // Renders as a stack, not a section: it is one control among several in
+  // Customize's Stream panel, and its own rule and 21px heading made a
+  // list of settings read as a list of pages.
   return (
-    <section className="settings-section">
-      <h3 className="settings-section__list-title">Hero Slider Sources</h3>
-      <p className="settings__section-note settings__section-note--dim">
-        The catalogs the hero pulls from, spread evenly and shuffled on each
-        load. Leave empty for the default mix of everything.
-      </p>
+    <div className="customize-stack">
+      <div>
+        <h4 className="customize-row__title">Hero Slider Sources</h4>
+        <p className="settings__section-note settings__section-note--dim">
+          The catalogs the hero pulls from, shuffled each load. Empty uses a
+          mix of everything.
+        </p>
+      </div>
       {catalogs.status === "loading" && (
         <p className="settings__section-note settings__section-note--dim">
           Loading catalogs…
@@ -214,6 +219,6 @@ export function HeroSourcesSection() {
           )}
         </div>
       )}
-    </section>
+    </div>
   );
 }

@@ -291,97 +291,104 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
         </section>
       )}
 
-      {world === "stream" && hasAddon && <HeroSourcesSection />}
-
+      {/* One section, not five. Each control keeps its own label, but the
+        * 21px block headings and the rule between every one of them made a
+        * seven-item panel read like seven pages. Chip groups stack (they are
+        * too wide to sit beside a label); everything else is a normal row. */}
       {world === "stream" && hasAddon && (
         <section className="settings-section">
-          <h3 className="settings-section__list-title">Card Details</h3>
-          <p className="settings__section-note settings__section-note--dim">
-            What shows under a card&rsquo;s title in the Stream rows. Runtime
-            only appears where the catalog provides it.
-          </p>
-          <div className="meta-pick" role="group" aria-label="Card details">
-            {CARD_META_FIELDS.map((f) => (
-              <button
-                key={f.key}
-                type="button"
-                className="meta-pick__chip"
-                aria-pressed={metaFields.includes(f.key)}
-                onClick={() => toggleMeta(f.key)}
-              >
-                {f.label}
-              </button>
-            ))}
+          <HeroSourcesSection />
+
+          <div className="customize-stack">
+            <div>
+              <h4 className="customize-row__title">Card Details</h4>
+              <p className="settings__section-note settings__section-note--dim">
+                Under a card&rsquo;s title. Runtime shows only where the catalog
+                provides it.
+              </p>
+            </div>
+            <div className="meta-pick" role="group" aria-label="Card details">
+              {CARD_META_FIELDS.map((f) => (
+                <button
+                  key={f.key}
+                  type="button"
+                  className="meta-pick__chip"
+                  aria-pressed={metaFields.includes(f.key)}
+                  onClick={() => toggleMeta(f.key)}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
           </div>
-        </section>
-      )}
 
-      {world === "stream" && hasAddon && (
-        <section className="settings-section">
-          <h3 className="settings-section__list-title">Player Overlay</h3>
-          <p className="settings__section-note settings__section-note--dim">
-            What shows beside the title art while a movie or episode plays.
-          </p>
-          <div className="meta-pick" role="group" aria-label="Player overlay">
-            {OVERLAY_META_FIELDS.map((f) => (
-              <button
-                key={f.key}
-                type="button"
-                className="meta-pick__chip"
-                aria-pressed={overlayFields.includes(f.key)}
-                onClick={() => toggleOverlay(f.key)}
-              >
-                {f.label}
-              </button>
-            ))}
+          <div className="customize-stack">
+            <div>
+              <h4 className="customize-row__title">Player Overlay</h4>
+              <p className="settings__section-note settings__section-note--dim">
+                Beside the title art during playback.
+              </p>
+            </div>
+            <div className="meta-pick" role="group" aria-label="Player overlay">
+              {OVERLAY_META_FIELDS.map((f) => (
+                <button
+                  key={f.key}
+                  type="button"
+                  className="meta-pick__chip"
+                  aria-pressed={overlayFields.includes(f.key)}
+                  onClick={() => toggleOverlay(f.key)}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
           </div>
-        </section>
-      )}
 
-      {world === "stream" && hasAddon && (
-        <section className="settings-section">
-          <h3 className="settings-section__list-title">Catalog Row Size</h3>
-          <p className="settings__section-note settings__section-note--dim">
-            How many titles each row loads. A higher cap results in longer load
-            times.
-          </p>
-          <div className="rowcap">
-            <input
-              className="rowcap__slider"
-              type="range"
-              min={ROW_CAP_MIN}
-              max={ROW_CAP_MAX}
-              step={5}
-              value={rowCap}
-              aria-label="Titles per row"
-              onChange={(e) => setRowCap(saveRowCap(Number(e.target.value)))}
-            />
-            {capDraft !== null ? (
+          <div className="customize-row">
+            <div>
+              <h4 className="customize-row__title">Catalog Row Size</h4>
+              <p className="settings__section-note settings__section-note--dim">
+                Titles per row. A higher cap means longer loads.
+              </p>
+            </div>
+            <div className="rowcap">
               <input
-                className="rowcap__value rowcap__value--edit"
-                type="number"
+                className="rowcap__slider"
+                type="range"
                 min={ROW_CAP_MIN}
                 max={ROW_CAP_MAX}
-                value={capDraft}
-                autoFocus
-                aria-label="Titles per row (exact)"
-                onChange={(e) => setCapDraft(e.target.value)}
-                onBlur={commitCap}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") commitCap();
-                  if (e.key === "Escape") setCapDraft(null);
-                }}
+                step={5}
+                value={rowCap}
+                aria-label="Titles per row"
+                onChange={(e) => setRowCap(saveRowCap(Number(e.target.value)))}
               />
-            ) : (
-              <button
-                type="button"
-                className="rowcap__value rowcap__value--btn"
-                title="Click to type an exact value"
-                onClick={() => setCapDraft(String(rowCap))}
-              >
-                {rowCap}
-              </button>
-            )}
+              {capDraft !== null ? (
+                <input
+                  className="rowcap__value rowcap__value--edit"
+                  type="number"
+                  min={ROW_CAP_MIN}
+                  max={ROW_CAP_MAX}
+                  value={capDraft}
+                  autoFocus
+                  aria-label="Titles per row (exact)"
+                  onChange={(e) => setCapDraft(e.target.value)}
+                  onBlur={commitCap}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") commitCap();
+                    if (e.key === "Escape") setCapDraft(null);
+                  }}
+                />
+              ) : (
+                <button
+                  type="button"
+                  className="rowcap__value rowcap__value--btn"
+                  title="Click to type an exact value"
+                  onClick={() => setCapDraft(String(rowCap))}
+                >
+                  {rowCap}
+                </button>
+              )}
+            </div>
           </div>
         </section>
       )}
@@ -392,8 +399,8 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
             <div>
               <h4 className="customize-row__title">One-Click Play Movies</h4>
               <p className="settings__section-note settings__section-note--dim">
-                Clicking a movie poster card plays the best source right away,
-                and it will never play an uncached source.
+                Clicking a movie plays the best cached source right away.
+                Uncached is never auto-played.
               </p>
             </div>
             <Toggle
@@ -411,9 +418,8 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
             <div>
               <h4 className="customize-row__title">Auto Source Failover</h4>
               <p className="settings__section-note settings__section-note--dim">
-                When a source dies mid-play, jump to the next available cached
-                one automatically. An uncached source is never auto-played. Off
-                shows a button instead.
+                A source dying mid-play jumps to the next cached one. Off shows
+                a button instead.
               </p>
             </div>
             <Toggle
@@ -431,9 +437,8 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
             <div>
               <h4 className="customize-row__title">Skip Behavior</h4>
               <p className="settings__section-note settings__section-note--dim">
-                The Skip Intro/Recap/Credits button over playback (from the
-                file&rsquo;s chapters). Combine merges back-to-back credits and
-                preview into one jump.
+                The Skip Intro/Recap/Credits button, from the file&rsquo;s
+                chapters. Combine merges credits and preview into one jump.
               </p>
             </div>
             <ChipTabs

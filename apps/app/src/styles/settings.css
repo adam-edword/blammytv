@@ -539,6 +539,16 @@
   margin: 0 0 2px;
 }
 
+/* A setting whose control is too wide to sit beside its label — a chip
+ * group, a chip-select. Same label typography as .customize-row, control
+ * underneath, so a panel mixing the two still reads as one list. */
+.customize-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
 /* Danger zone: destructive actions live behind a red hairline. The red is
  * fixed (not the accent) so danger reads as danger under any theme. */
 .danger-zone {
