@@ -62,6 +62,31 @@ export function SaveButton({ item }: { item: VodItem }) {
   const close = useCallback(() => {
     setAnchor(null);
     setCreating(false);
+    // Focus goes back where it came from, or it lands on <body> and the
+    // next Tab starts over at the top of the page.
+    btnRef.current?.querySelector("button")?.focus();
+  }, []);
+
+  /** The menu's focusable rows, in visual order. Read from the DOM at press
+   * time rather than tracked in state: the list changes as lists are
+   * created and as the New-list field replaces its own row. */
+  const rows = () =>
+    Array.from(
+      menuRef.current?.querySelectorAll<HTMLButtonElement>("button") ?? [],
+    );
+
+  const moveFocus = useCallback((delta: number, to?: "first" | "last") => {
+    const items = rows();
+    if (items.length === 0) return;
+    const at = items.indexOf(document.activeElement as HTMLButtonElement);
+    const next =
+      to === "first"
+        ? 0
+        : to === "last"
+          ? items.length - 1
+          : // Wraps: a menu this short is faster to circle than to reverse.
+            (at + delta + items.length) % items.length;
+    items[next]?.focus();
   }, []);
 
   // Click-away and Escape, plus the same portal reasoning as the Live
@@ -75,7 +100,23 @@ export function SaveButton({ item }: { item: VodItem }) {
         close();
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
+      if (e.key === "Escape") return close();
+      // Only while the menu owns focus: the detail page behind it has its
+      // own arrow-key meaning and must keep it.
+      if (!menuRef.current?.contains(document.activeElement)) return;
+      // ...and not while naming a new list. In a text field the arrows
+      // belong to the caret, and Home/End to the line.
+      if (document.activeElement instanceof HTMLInputElement) return;
+      const move: Record<string, () => void> = {
+        ArrowDown: () => moveFocus(1),
+        ArrowUp: () => moveFocus(-1),
+        Home: () => moveFocus(0, "first"),
+        End: () => moveFocus(0, "last"),
+      };
+      const fn = move[e.key];
+      if (!fn) return;
+      e.preventDefault(); // arrows would scroll the page under the menu
+      fn();
     };
     // The coordinates are measured once, so a scroll would leave the menu
     // floating away from its button. Close instead of chasing it.
@@ -87,7 +128,13 @@ export function SaveButton({ item }: { item: VodItem }) {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("scroll", close, true);
     };
-  }, [anchor, close]);
+  }, [anchor, close, moveFocus]);
+
+  // Opening with the keyboard has to land somewhere: the first row. Runs on
+  // every open, and after the menu has rendered, so the rows exist.
+  useEffect(() => {
+    if (anchor) rows()[0]?.focus();
+  }, [anchor]);
 
   const openPicker = useCallback(() => {
     const r = btnRef.current?.getBoundingClientRect();

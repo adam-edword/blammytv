@@ -53,6 +53,13 @@ export function recordWatching(entry: WatchEntry): WatchEntry[] {
   return list;
 }
 
+/** Forget everything watched. Returns the (empty) list so callers set
+ * state from the same value the store now holds, as clearWatching does. */
+export function clearAllWatching(): WatchEntry[] {
+  save(KEY, VERSION, []);
+  return [];
+}
+
 export function clearWatching(id: string): WatchEntry[] {
   const list = loadWatching().filter((e) => e.id !== id);
   save(KEY, VERSION, list);

@@ -19,6 +19,7 @@ import type { ListEntry } from "./myList";
 import { requestOpenInStream, requestResumeInStream } from "./openRequest";
 import type { VodItem } from "./model";
 import {
+  clearAllWatching,
   clearWatching,
   loadWatching,
   retiredFromContinue,
@@ -160,22 +161,33 @@ export function LibraryScreen() {
     [refresh],
   );
 
-  // Deleting takes two clicks and self-disarms, the same shape as Settings'
-  // Clear All Login Info. One pattern for destructive actions, and no
-  // native confirm.
-  const [delArmed, setDelArmed] = useState(false);
+  // Destructive actions take two clicks and self-disarm, the same shape as
+  // Settings' Clear All Login Info. One pattern, no native confirm. `armed`
+  // holds WHICH action is armed, so arming one disarms the other rather
+  // than leaving two live triggers on the same bar.
+  const [armed, setArmed] = useState<"delete" | "history" | null>(null);
   const delTimer = useRef(0);
   useEffect(() => () => window.clearTimeout(delTimer.current), []);
+  const arm = useCallback((which: "delete" | "history") => {
+    setArmed(which);
+    window.clearTimeout(delTimer.current);
+    delTimer.current = window.setTimeout(() => setArmed(null), 4000);
+  }, []);
+  const disarm = useCallback(() => {
+    window.clearTimeout(delTimer.current);
+    setArmed(null);
+  }, []);
+
+  const clearHistory = useCallback(() => {
+    if (armed !== "history") return arm("history");
+    disarm();
+    setWatching(clearAllWatching());
+  }, [armed, arm, disarm]);
+
   const remove = useCallback(
     (l: UserList) => {
-      if (!delArmed) {
-        setDelArmed(true);
-        window.clearTimeout(delTimer.current);
-        delTimer.current = window.setTimeout(() => setDelArmed(false), 4000);
-        return;
-      }
-      window.clearTimeout(delTimer.current);
-      setDelArmed(false);
+      if (armed !== "delete") return arm("delete");
+      disarm();
       deleteList(l.id);
       // History would point at a list that no longer exists, so it goes
       // with it: back and forward both land on the root.
@@ -183,7 +195,7 @@ export function LibraryScreen() {
       replaceView({ at: "root" });
       refresh();
     },
-    [delArmed, refresh, resetHistory, replaceView],
+    [armed, arm, disarm, refresh, resetHistory, replaceView],
   );
 
   const pickCover = useCallback(
@@ -233,6 +245,22 @@ export function LibraryScreen() {
               {isHistory ? "Library" : list?.name}
             </h2>
           )}
+          {isHistory && watching.length > 0 && (
+            <div className="library__bar-actions">
+              <button
+                type="button"
+                className={
+                  "library__action library__action--danger" +
+                  (armed === "history" ? " library__action--armed" : "")
+                }
+                onClick={clearHistory}
+              >
+                {armed === "history"
+                  ? "Click again to confirm"
+                  : "Clear history"}
+              </button>
+            </div>
+          )}
           {!isHistory && list && (
             <div className="library__bar-actions">
               <button
@@ -253,11 +281,11 @@ export function LibraryScreen() {
                 type="button"
                 className={
                   "library__action library__action--danger" +
-                  (delArmed ? " library__action--armed" : "")
+                  (armed === "delete" ? " library__action--armed" : "")
                 }
                 onClick={() => remove(list)}
               >
-                {delArmed ? "Click again to confirm" : "Delete"}
+                {armed === "delete" ? "Click again to confirm" : "Delete"}
               </button>
             </div>
           )}
