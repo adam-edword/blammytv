@@ -1635,10 +1635,36 @@ export function RowScroller({ children }: { children: ReactNode }) {
     justDragged.current = false;
     drag.current = { x: e.clientX, left: el.scrollLeft, moved: false };
   };
+  /** Drop a gesture whose end we never saw. Deliberately does NOT arm the
+   * click latch: there is no trailing click to swallow. */
+  const abandonDrag = () => {
+    drag.current = null;
+    ref.current?.classList.remove("is-dragging");
+  };
+  // Losing the window mid-drag is the common way an up event goes missing,
+  // and `lostpointercapture` covers the OS releasing capture on its own.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    window.addEventListener("blur", abandonDrag);
+    el.addEventListener("lostpointercapture", abandonDrag);
+    return () => {
+      window.removeEventListener("blur", abandonDrag);
+      el.removeEventListener("lostpointercapture", abandonDrag);
+    };
+  }, []);
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const d = drag.current;
     const el = ref.current;
     if (!d || !el) return;
+    // This fires on plain HOVER too, not only mid-drag. If the terminating
+    // pointerup never arrived — alt-tab away with the button down and the
+    // OS can drop pointer capture without one — `drag` stays armed, and
+    // the next hover starts a phantom drag whose .is-dragging sets
+    // pointer-events:none on the whole row. Hover then looks broken until
+    // some later drag happens to end cleanly. No buttons down means the
+    // gesture is over, whatever events did or did not arrive.
+    if (e.buttons === 0) return abandonDrag();
     const dx = e.clientX - d.x;
     if (!d.moved && Math.abs(dx) < 6) return; // click slop
     if (!d.moved) {
