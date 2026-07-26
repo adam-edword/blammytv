@@ -90,7 +90,12 @@ export function GameCard({
         <span className="gamecard__scrim" aria-hidden />
 
         <span className="gamecard__body">
-          <span className="gamecard__team gamecard__team--home">
+          <span
+            className={
+              "gamecard__team gamecard__team--home" +
+              (lost === "home" ? " gamecard__team--lost" : "")
+            }
+          >
             <Badge team={home} />
             <span className="gamecard__label">
               <span className="gamecard__abbr">{home.abbr}</span>
@@ -113,17 +118,36 @@ export function GameCard({
             </span>
             {game.state !== "pre" && (
               <span className="gamecard__score">
-                <span className="gamecard__num">{home.score ?? 0}</span>
+                <span
+                  className={
+                    "gamecard__num" +
+                    (lost === "home" ? " gamecard__num--lost" : "")
+                  }
+                >
+                  {home.score ?? 0}
+                </span>
                 <span className="gamecard__dash" aria-hidden>
                   -
                 </span>
-                <span className="gamecard__num">{away.score ?? 0}</span>
+                <span
+                  className={
+                    "gamecard__num" +
+                    (lost === "away" ? " gamecard__num--lost" : "")
+                  }
+                >
+                  {away.score ?? 0}
+                </span>
               </span>
             )}
             <span className="gamecard__league">{game.league}</span>
           </span>
 
-          <span className="gamecard__team gamecard__team--away">
+          <span
+            className={
+              "gamecard__team gamecard__team--away" +
+              (lost === "away" ? " gamecard__team--lost" : "")
+            }
+          >
             <Badge team={away} />
             <span className="gamecard__label">
               <span className="gamecard__abbr">{away.abbr}</span>

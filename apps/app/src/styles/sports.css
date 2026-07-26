@@ -12,6 +12,9 @@
    * against their own card, so a card resize must not drift them apart or
    * away from that relationship. */
   --sports-name: 28px;
+  /* The beaten team's name. Slightly under the winner's, which with the
+   * lighter weight is what makes a result readable without the score. */
+  --sports-name-lost: 26px;
   /* Tags (BRA) and every metadata line, on both cards. One value rather
    * than the six near-misses this started as; a third of the name was too
    * small to read once it was on a real screen. */
@@ -960,12 +963,20 @@
   text-align: left;
 }
 
-/* The beaten side, set light against the winner's bold. Weight rather than
- * colour: a grid of finished games can then be read for who won without
- * reading a number, and it survives the dimming below, which a difference
- * in brightness would not. */
+/* The beaten side, set light and a little smaller against the winner's
+ * bold. Weight and size rather than colour: a finished game can then be
+ * read for who won without reading a number, and both survive the dimming
+ * of a final, which a difference in brightness would not.
+ *
+ * Both cards, one rule. They name their parts differently but they are
+ * saying the same thing, and two copies of this would drift. */
 .upcard__team--lost .upcard__name,
-.upcard__team--lost .upcard__score {
+.gamecard__team--lost .gamecard__name {
+  font-weight: 300;
+  font-size: var(--sports-name-lost);
+}
+.upcard__team--lost .upcard__score,
+.gamecard__num--lost {
   font-weight: 300;
 }
 
