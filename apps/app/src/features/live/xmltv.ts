@@ -1,4 +1,5 @@
 import type { Programme } from "./model";
+import { EPG_KEEP_AHEAD_MS } from "./epgWindow";
 
 /**
  * XMLTV parsing, ported from the old build's proven mapper: the panel's
@@ -8,9 +9,18 @@ import type { Programme } from "./model";
  */
 
 /** Keep an hour of history (the guide window opens slightly in the past)
- * and half a day of future listings. */
+ * and enough future listings that a snapshot stays USEFUL for as long as it
+ * is allowed to be served.
+ *
+ * These two numbers are a pair. The disk cache hydrates a snapshot up to
+ * `DISK_MAX_AGE_MS` old; keeping less future than that means an old
+ * snapshot loads instantly and shows a screen of "No Information", which is
+ * the failure it was meant to prevent. The extra 4h is the guide's own
+ * visible window, so even a snapshot at the very edge of its life still
+ * fills the screen. Import rather than re-declare: two constants that must
+ * agree are one constant. */
 const PAST_MS = 60 * 60 * 1000;
-const FUTURE_MS = 12 * 60 * 60 * 1000;
+const FUTURE_MS = EPG_KEEP_AHEAD_MS;
 
 /** Why a guide matched as few channels as it did. Matching is EXACT string
  * equality between the panel's `epg_channel_id` and the document's

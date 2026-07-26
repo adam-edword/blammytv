@@ -60,11 +60,11 @@ let inflight: {
   stages: Set<(label: string) => void>;
 } | null = null;
 
-/** How old a DISK snapshot may be and still hydrate the guide instantly.
- * The EPG we keep covers fetch−1h..fetch+12h, and the guide window shows
- * now..now+4h — at 8h old the cached listings still fill the whole window
- * while the background refresh replaces them. */
-const DISK_MAX_AGE_MS = 8 * 3600_000;
+/** How old a DISK snapshot may be and still hydrate the guide instantly,
+ * and how much schedule it keeps so that stays true. See epgWindow.ts: the
+ * two are a pair, and were previously not (an 8h cache carrying 12h of
+ * listings happened to work; a 40h one carrying 12h would not). */
+import { DISK_MAX_AGE_MS, EPG_KEEP_AHEAD_MS } from "./epgWindow";
 
 /** Fired after a BACKGROUND refresh lands fresh data in the memory cache —
  * the Live screen re-reads it silently (same path as playlist edits). */
@@ -196,6 +196,12 @@ export async function loadLive(
         // overlapping programmes; re-normalizing is cheap and idempotent.
         for (const [id, list] of disk.data.programmes)
           disk.data.programmes.set(id, normalizeProgrammes(list));
+        // A snapshot old enough to have run out of schedule renders as a
+        // screen of "No Information" — the exact thing a cold load looks
+        // like, with nothing to say a refresh is in flight. Say it. A guide
+        // that still covers now stays quiet: the refresh behind it is
+        // genuinely nothing the user needs to know about.
+        if (!coversNow(disk.data, now)) disk.data.guidePending = true;
         cache = { key, at: disk.at, data: disk.data };
         refreshInBackground(playlists, key); // replaces this record's slot
         return disk.data;
@@ -291,6 +297,23 @@ async function doLoad(
     // writes the complete record once the programmes land.
   }
   return data;
+}
+
+/** Does this snapshot still have a schedule for right now?
+ *
+ * The disk window is wide (40h) because a stale guide beats a minute of
+ * empty lanes, and xmltv files normally carry days. "Normally" is the catch:
+ * a provider publishing only 24h of schedule leaves a 30h-old snapshot
+ * technically loaded and practically empty. One programme covering `now`
+ * anywhere in the catalog is enough to call it live — this answers "is
+ * there a guide" and not "is every channel covered", which is a different
+ * question with its own diagnostic. */
+function coversNow(data: LiveData, now: Date): boolean {
+  const t = now.getTime();
+  for (const list of data.programmes.values())
+    for (const p of list)
+      if (p.start.getTime() <= t && p.end.getTime() > t) return true;
+  return false;
 }
 
 /** Yield a macrotask so the loading UI can paint between blocking stages
@@ -594,14 +617,14 @@ async function buildStalkerSource(
     }
 
     // EPG is best-effort. The portal returns UNIX-second programmes keyed by
-    // channel id; clamp to the same window parseXmltv keeps (−1h..+12h) —
+    // channel id; clamp to the same window parseXmltv keeps —
     // `period`'s unit is portal-dependent, so the clamp is client-side.
     const epg = (async (): Promise<EpgPhase> => {
       const programmes = new Map<string, Programme[]>();
       try {
         const rowsById = await fetchStalkerEpg(p);
         const winStart = now.getTime() - 3600_000;
-        const winEnd = now.getTime() + 12 * 3600_000;
+        const winEnd = now.getTime() + EPG_KEEP_AHEAD_MS;
         for (const [chId, rows] of rowsById) {
           if (!kept.has(chId)) continue;
           const list: Programme[] = [];

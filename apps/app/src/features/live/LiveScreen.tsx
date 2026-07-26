@@ -1149,6 +1149,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
                 onSelect={selectChannel}
                 onToggleFavorite={handleToggleFavorite}
                 onPreview={setPreview}
+                guidePending={live.status === "ready" && !!live.data.guidePending}
               />
             )}
             {/* The catalog no longer waits on the guide (a big provider's

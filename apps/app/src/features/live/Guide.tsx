@@ -173,10 +173,16 @@ export const Guide = memo(function Guide({
   onSelect,
   onToggleFavorite,
   onPreview,
+  guidePending = false,
 }: {
   channels: Array<{ channel: Channel; programmes: Programme[] }>;
   selectedId: string;
   favorites: string[];
+  /** The guide is still downloading. An empty lane then means "not here
+   * YET", and the lane is where the user is looking — the corner chip that
+   * said so was missed entirely (Adam, 2026-07-26: "every row just said no
+   * information"). */
+  guidePending?: boolean;
   /** Changes when the viewed list changes for a reason that should scroll
    * back to the top (folder or mode switch) — but NOT when the same list's
    * contents shift (starring a channel), so that never yanks the scroll. */
@@ -574,7 +580,11 @@ export const Guide = memo(function Guide({
                     type="button"
                     className="guide__cell guide__cell--blank"
                     style={{ left: 0, width: laneW - CELL_GAP }}
-                    aria-label={`${channel.name}, no programme information`}
+                    aria-label={`${channel.name}, ${
+                      guidePending
+                        ? "guide still loading"
+                        : "no programme information"
+                    }`}
                     onClick={() => onSelect(channel.id)}
                     onMouseEnter={() =>
                       onPreview({ channel, programme: null })
@@ -584,7 +594,7 @@ export const Guide = memo(function Guide({
                       className="guide__cell-body"
                       style={{ left: laneX + 16 }}
                     >
-                      No Information
+                      {guidePending ? "Loading guide…" : "No Information"}
                     </span>
                   </button>
                 ) : (
