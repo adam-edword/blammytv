@@ -27,12 +27,14 @@ export function GameCard({
   onOpen?: (game: Game) => void;
 }) {
   const { home, away } = game;
-  // Roomier than the small card, so this rarely fires, but the same names
-  // arrive here and the score is never allowed to give up room for them.
-  const [homeName, awayName] = useFitText<HTMLSpanElement>(
-    home.name,
-    away.name,
-  );
+  // The broadcast name, as on the small card: "Seahawks" is what a screen
+  // full of games should say, and the full club name only ever pushed the
+  // score around. The tooltip still carries both in full.
+  const homeText = home.shortName ?? home.name;
+  const awayText = away.shortName ?? away.name;
+  // Roomier than the small card, so this rarely fires, but a long name
+  // still must not take room from the score.
+  const [homeName, awayName] = useFitText<HTMLSpanElement>(homeText, awayText);
   // What the bottom-right says. One channel names it; several advertise the
   // choice, because being able to hop is the reason to use this tab.
   const carriage =
@@ -80,7 +82,7 @@ export function GameCard({
           <span className="gamecard__team gamecard__team--home">
             <span className="gamecard__abbr">{home.abbr}</span>
             <span className="gamecard__name" ref={homeName}>
-              {home.name}
+              {homeText}
             </span>
           </span>
 
@@ -99,7 +101,7 @@ export function GameCard({
           <span className="gamecard__team gamecard__team--away">
             <span className="gamecard__abbr">{away.abbr}</span>
             <span className="gamecard__name" ref={awayName}>
-              {away.name}
+              {awayText}
             </span>
           </span>
         </span>

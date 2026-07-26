@@ -169,39 +169,66 @@
 }
 /* The crest, as a progressive blur.
  *
- * Sized to the card's HEIGHT (the Figma's 387 on a 190 card), not stretched
- * to its width: at width, a square crest is magnified so far past the card
- * that what shows is a crop of its middle, which is the unrecognisable
- * blobs the first real-data pass produced. Centred just inside its own
- * outer edge, as in the export.
+ * Its own box, exactly HALF the card, because the wash it lives in is
+ * 81.6% wide and runs 27% past the centre line: that overlap is what makes
+ * the two crests collide in the middle. The colours are meant to blend
+ * there; two logos on top of each other are not.
  *
- * Three copies at climbing radii, each masked to its own band: sharp where
- * the crest lives, dissolving as it runs toward the score. CSS has no
- * gradient blur, and this is the way to fake one. See MARK_STEPS in
- * Wash.tsx. */
+ * The percentages convert the card's halves into the wash box's own
+ * coordinates. Home spans card -5%..76.6%, so card 0% is 6.13% along it and
+ * card 50% is 67.4%. Away spans 23.4%..105%, so its half starts at 32.6%.
+ * If the wash's width or offset changes, these change with it.
+ */
+.gamewash__crest {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 6.13%;
+  width: 61.27%;
+  overflow: hidden;
+  /* Once, here, rather than on each copy: three stacked copies at 0.55
+   * each would compound wherever their masks overlap. */
+  opacity: 0.55;
+}
+.gamewash--away .gamewash__crest {
+  left: 32.6%;
+}
+
+/* Sized to the card's HEIGHT (the Figma's 387 on a 190 card), not stretched
+ * to its width: at width, a square crest is magnified so far past the card
+ * that what shows is a crop of its middle.
+ *
+ * Aligned to the INNER edge, so it hangs off the card's outer edge rather
+ * than floating in the middle of its half. */
 .gamewash__mark {
   position: absolute;
   top: 50%;
-  left: 13.5%;
+  right: 0;
   height: 204%;
   width: auto;
-  transform: translate(-50%, -50%);
-  /* Under the tint's, and about the export's 0.2 once the wash's own 0.5
-   * is applied. A crest that competes with the score is a crest that has
-   * stopped being a background. */
-  opacity: 0.55;
+  transform: translateY(-50%);
 }
 .gamewash--away .gamewash__mark {
-  left: 86.5%;
+  right: auto;
+  left: 0;
 }
 
-.gamewash__mark--1 {
-  filter: blur(calc(2px * var(--sports-scale))) saturate(1.15);
+/* The progression. Three copies at climbing radii, each masked to its own
+ * band: untouched at the card's outer edge, dissolving as it runs toward
+ * the score. CSS has no gradient blur; this is how you fake one.
+ *
+ * The masks are on the LAYERS, not on the images. A layer is exactly the
+ * half-card, so a band means the same thing on both card sizes; the image
+ * inside it is wider than the box by whatever its aspect happens to be. */
+.gamewash__layer {
+  position: absolute;
+  inset: 0;
+}
+.gamewash__layer--1 {
   -webkit-mask-image: linear-gradient(to right, #000 38%, transparent 58%);
   mask-image: linear-gradient(to right, #000 38%, transparent 58%);
 }
-.gamewash__mark--2 {
-  filter: blur(calc(7px * var(--sports-scale))) saturate(1.15);
+.gamewash__layer--2 {
   -webkit-mask-image: linear-gradient(
     to right,
     transparent 34%,
@@ -217,18 +244,16 @@
     transparent 88%
   );
 }
-.gamewash__mark--3 {
-  filter: blur(calc(18px * var(--sports-scale))) saturate(1.15);
+.gamewash__layer--3 {
   -webkit-mask-image: linear-gradient(to right, transparent 68%, #000 86%);
   mask-image: linear-gradient(to right, transparent 68%, #000 86%);
 }
-
 /* Mirrored, so both halves blur toward the middle of the card. */
-.gamewash--away .gamewash__mark--1 {
+.gamewash--away .gamewash__layer--1 {
   -webkit-mask-image: linear-gradient(to left, #000 38%, transparent 58%);
   mask-image: linear-gradient(to left, #000 38%, transparent 58%);
 }
-.gamewash--away .gamewash__mark--2 {
+.gamewash--away .gamewash__layer--2 {
   -webkit-mask-image: linear-gradient(
     to left,
     transparent 34%,
@@ -244,27 +269,42 @@
     transparent 88%
   );
 }
-.gamewash--away .gamewash__mark--3 {
+.gamewash--away .gamewash__layer--3 {
   -webkit-mask-image: linear-gradient(to left, transparent 68%, #000 86%);
   mask-image: linear-gradient(to left, transparent 68%, #000 86%);
 }
 
-/* Smaller card, smaller crest, and the same softness relative to it. */
-.upcard .gamewash__mark--1 {
-  filter: blur(calc(0.8px * var(--sports-scale))) saturate(1.15);
+/* The radii themselves. The first is ZERO on purpose: the outer edge is
+ * where the crest is meant to be a crest, and anything above zero there
+ * reads as a smudge that got away. */
+.gamewash__layer--1 .gamewash__mark {
+  filter: saturate(1.15);
 }
-.upcard .gamewash__mark--2 {
+.gamewash__layer--2 .gamewash__mark {
+  filter: blur(calc(7px * var(--sports-scale))) saturate(1.15);
+}
+.gamewash__layer--3 .gamewash__mark {
+  filter: blur(calc(18px * var(--sports-scale))) saturate(1.15);
+}
+/* Smaller card, smaller crest, same softness relative to it. */
+.upcard .gamewash__layer--2 .gamewash__mark {
   filter: blur(calc(2.8px * var(--sports-scale))) saturate(1.15);
 }
-.upcard .gamewash__mark--3 {
+.upcard .gamewash__layer--3 .gamewash__mark {
   filter: blur(calc(7px * var(--sports-scale))) saturate(1.15);
 }
 
-/* The veil is a second copy of both washes over the text, for the colour it
- * lends. It does not need the crest, and three more blurred layers per card
- * is the most expensive thing on the row. */
-.gameveil .gamewash__mark {
+/* The veil is a second copy of both washes, laid over the text for the
+ * colour it lends them. It takes the softest copy only: three more sharp
+ * layers per card is the most expensive thing on the row, and at this
+ * radius the crest reads as colour rather than as shapes over the text. */
+.gameveil .gamewash__layer--1,
+.gameveil .gamewash__layer--2 {
   display: none;
+}
+.gameveil .gamewash__layer--3 {
+  -webkit-mask-image: none;
+  mask-image: none;
 }
 
 /* The wash laid back over the finished card, so the text picks up a hint of

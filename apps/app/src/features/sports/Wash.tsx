@@ -62,24 +62,27 @@ export function Wash({
 }) {
   return (
     <span className={`gamewash gamewash--${side}`} aria-hidden>
-      {team.color && (
-        <span
-          className="gamewash__tint"
-          // The colour, not the gradient: the card decides which way it
-          // runs, and that differs by side.
-          style={{ "--team": `#${team.color}` } as CSSProperties}
-        />
-      )}
-      {team.logo &&
-        MARK_STEPS.map((step) => (
-          <img
-            key={step}
-            className={`gamewash__mark gamewash__mark--${step}`}
-            src={team.logo}
-            alt=""
-            loading="lazy"
+      {team.logo ? (
+        // The crest is the background, on its own. The colour was only ever
+        // standing in for it, and running both puts a flat wash over the
+        // one thing with any detail in it.
+        <span className="gamewash__crest">
+          {MARK_STEPS.map((step) => (
+            <span key={step} className={`gamewash__layer gamewash__layer--${step}`}>
+              <img className="gamewash__mark" src={team.logo} alt="" loading="lazy" />
+            </span>
+          ))}
+        </span>
+      ) : (
+        team.color && (
+          <span
+            className="gamewash__tint"
+            // The colour, not the gradient: the card decides which way it
+            // runs, and that differs by side.
+            style={{ "--team": `#${team.color}` } as CSSProperties}
           />
-        ))}
+        )
+      )}
     </span>
   );
 }
