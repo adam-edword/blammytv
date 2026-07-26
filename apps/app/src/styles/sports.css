@@ -12,10 +12,13 @@
    * against their own card, so a card resize must not drift them apart or
    * away from that relationship. */
   --sports-name: 25px;
-  /* Tags (BRA) and every metadata line: a third of the team name, so the
-   * card carries two type sizes with a clear ratio instead of six
-   * near-misses. Derived, not typed, so it tracks the name. */
-  --sports-meta: calc(var(--sports-name) / 3);
+  /* Tags (BRA) and every metadata line, on both cards. One value rather
+   * than the six near-misses this started as; a third of the name was too
+   * small to read once it was on a real screen. */
+  --sports-meta: 12px;
+  /* Pinned like the name: its relationship to the name is the point, so it
+   * must not move when the cards resize. */
+  --sports-score: 52px;
 }
 
 .sports {
@@ -235,7 +238,7 @@
   gap: calc(10px * var(--sports-scale));
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: calc(46px * var(--sports-scale));
+  font-size: var(--sports-score);
   line-height: 1;
   color: #fff;
   /* Scores change mid-game; tabular figures stop the card twitching when
@@ -244,7 +247,9 @@
 }
 .gamecard__dash {
   color: rgba(255, 255, 255, 0.5);
-  font-size: calc(34px * var(--sports-scale));
+  /* A ratio of the score rather than its own number: the separator only
+   * ever needs to sit a step under the digits it separates. */
+  font-size: calc(var(--sports-score) * 0.72);
 }
 .gamecard__league {
   font-family: var(--font-headline);
