@@ -121,27 +121,29 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  /* Figma's proportions: 191 wide on a 234 card, hung 75px off its own
-   * outer edge, ending at the centre line. The colour's peak is therefore
-   * OFF the card and what shows is the middle of the ramp, which is why it
-   * reads as a wash and not as a corner. */
+  /* Figma's 191 on a 234 card, but hung only just off its own outer edge
+   * rather than the export's 75px. Pushed that far out, the card only ever
+   * saw the tail of the ramp and the colours read as grey. The two halves
+   * overlap across the middle now and blend there, which the horizontal
+   * fade below makes safe. */
   width: 81.6%;
   overflow: hidden;
   /* The whole thing is a hint. Every number under here is at full strength
-   * and this is the one dimmer. */
-  opacity: 0.2;
+   * and this is the one dimmer. Over the export's 0.2 for the same reason
+   * as the offset: on a real screen, at 0.2, there was nothing there. */
+  opacity: 0.5;
   /* Softens the ramp's own edges, as in the Figma. */
   filter: blur(calc(8px * var(--sports-scale)));
 }
 /* Fade toward the centre so the two halves meet without a seam. HORIZONTAL,
  * whatever the colour is doing: see --sports-wash-angle. */
 .gamewash--home {
-  left: -32%;
+  left: -5%;
   -webkit-mask-image: linear-gradient(to right, #000 0%, transparent 100%);
   mask-image: linear-gradient(to right, #000 0%, transparent 100%);
 }
 .gamewash--away {
-  right: -32%;
+  right: -5%;
   -webkit-mask-image: linear-gradient(to left, #000 0%, transparent 100%);
   mask-image: linear-gradient(to left, #000 0%, transparent 100%);
 }
@@ -191,9 +193,9 @@
   position: absolute;
   inset: 0;
   /* Reads as about a tenth of the team colour over the text, the same as
-   * it always has: the wash under it carries its own 0.2, and these
+   * it always has: the wash under it carries its own 0.5, and these
    * multiply. */
-  opacity: 0.5;
+  opacity: 0.2;
   pointer-events: none;
 }
 
