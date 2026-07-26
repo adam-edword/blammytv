@@ -1,17 +1,21 @@
+import { useEffect, useRef } from "react";
 import { RowScroller } from "../stream/StreamScreen";
 import { GameCard } from "./GameCard";
-import { UpcomingCard } from "./UpcomingCard";
 import { useGames } from "./useGames";
+import type { Game } from "./model";
 
 /**
  * The Sports hub (plan 010): games as the objects, your channels hanging
  * off them.
  *
- * Two sections so far: what is on now, and what is on later. Finished games
- * arrive from the source too and are not drawn yet; they want their own row
- * and their own card state, which is a design still in progress. The
- * day-by-day rows below Later Today are the same row with a different
- * slice, so there is nothing to learn from building them twice.
+ * ONE row for the day, in kick-off order, the way a guide reads: finished,
+ * then whatever is on, then what is still to come. Games were split into
+ * three rows by state before, which meant the same day was told three
+ * times and a game silently jumped rows when it started. A day is a
+ * timeline, so it is drawn as one.
+ *
+ * The row opens centred on NOW, which is the live game or, when nothing is
+ * on, the one that finished last. Otherwise it would open on breakfast.
  *
  * The row reuses Stream's RowScroller so the scroll behaviour, the fade and
  * the drag-to-scroll are the same object language as everywhere else.
@@ -19,62 +23,51 @@ import { useGames } from "./useGames";
 export function SportsScreen() {
   const { games, state } = useGames();
 
-  const live = games.filter((g) => g.state === "live");
-  const upcoming = games
-    .filter((g) => g.state === "pre")
-    .sort((a, b) => a.start.getTime() - b.start.getTime());
-  // Most recent first: the game that just ended is the one being looked
-  // for, not the lunchtime kickoff.
-  const finished = games
-    .filter((g) => g.state === "final")
-    .sort((a, b) => b.start.getTime() - a.start.getTime());
+  const today = [...games].sort((a, b) => a.start.getTime() - b.start.getTime());
+  const anchor = nowish(today);
+  const live = today.some((g) => g.state === "live");
+
+  const row = useRef<HTMLDivElement>(null);
+  // The id we last scrolled to, NOT a "did it once" flag: the board
+  // refreshes every 90 seconds, and re-centring on each of those would
+  // shove the row out from under anyone reading it. It moves when the
+  // anchor genuinely changes, which is when a game starts or ends.
+  const centred = useRef<string | null>(null);
+  useEffect(() => {
+    if (!anchor || centred.current === anchor.id) return;
+    const card = row.current?.querySelector<HTMLElement>(
+      `[data-game="${anchor.id}"]`,
+    );
+    const box = card?.closest<HTMLElement>(".media-row__scroller");
+    if (!card || !box) return;
+    centred.current = anchor.id;
+    // Measured off rectangles rather than offsetLeft, which is relative to
+    // whichever ancestor happens to be positioned. Instantly, not
+    // smoothly: this is where the row starts, not somewhere it travels to.
+    const c = card.getBoundingClientRect();
+    const b = box.getBoundingClientRect();
+    box.scrollLeft += c.left + c.width / 2 - (b.left + b.width / 2);
+  }, [anchor]);
 
   return (
     <div className="discover sports">
-      {/* A "Live Games" heading over an empty row reads as broken, so each
-       * section only exists once it has something in it. */}
-      {live.length > 0 && (
-        <section className="media-row">
+      {today.length > 0 && (
+        <section className="media-row" ref={row}>
           <h3 className="media-row__title sports__title">
-            <span className="sports__live-dot" aria-hidden />
-            Live Games
+            {/* The pip is a claim about the world, so it only appears when
+              * something is actually on. */}
+            {live && <span className="sports__live-dot" aria-hidden />}
+            Today&rsquo;s Games
           </h3>
           <RowScroller>
-            {live.map((g) => (
+            {today.map((g) => (
               <GameCard key={g.id} game={g} />
             ))}
           </RowScroller>
         </section>
       )}
 
-      {upcoming.length > 0 && (
-        <section className="media-row">
-          <h3 className="media-row__title sports__title">Later Today</h3>
-          <RowScroller>
-            {upcoming.map((g) => (
-              <UpcomingCard key={g.id} game={g} />
-            ))}
-          </RowScroller>
-        </section>
-      )}
-
-      {/* Last, under what is on and what is coming. A finished game cannot
-        * be watched, so it is reference rather than an offer: by the time
-        * the evening's baseball is all final it is most of the day's
-        * sport, and a hub with nothing to say about it is a hub that looks
-        * broken. */}
-      {finished.length > 0 && (
-        <section className="media-row">
-          <h3 className="media-row__title sports__title">Final Scores</h3>
-          <RowScroller>
-            {finished.map((g) => (
-              <GameCard key={g.id} game={g} />
-            ))}
-          </RowScroller>
-        </section>
-      )}
-
-      {games.length === 0 && (
+      {today.length === 0 && (
         <p className="sports__note">
           {state === "loading"
             ? "Loading today's games…"
@@ -84,5 +77,19 @@ export function SportsScreen() {
         </p>
       )}
     </div>
+  );
+}
+
+/**
+ * The game the row should open on: whatever is live, and failing that the
+ * one that finished most recently, and failing that the next to start.
+ *
+ * In kick-off order already, so the last final is the latest one.
+ */
+function nowish(today: Game[]): Game | undefined {
+  return (
+    today.find((g) => g.state === "live") ??
+    today.filter((g) => g.state === "final").at(-1) ??
+    today.find((g) => g.state === "pre")
   );
 }

@@ -1,5 +1,6 @@
 import Tilt from "react-parallax-tilt";
 import { useFitText } from "../../lib/fitText";
+import { formatClock } from "../../lib/time";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { scaledRadius } from "./scale";
 import { Badge } from "./Badge";
@@ -7,17 +8,20 @@ import { Wash, WashVeil } from "./Wash";
 import type { Game } from "./model";
 
 /**
- * A live game, as one wide card (plan 010).
+ * A game on today's row, as one wide card (plan 010).
+ *
+ * ONE card for all three states, because the row it lives in is the day in
+ * order and a game crosses those states while you are looking at it. What
+ * changes is only what the middle column can honestly say:
+ *
+ *   pre    the kick-off time, and no score, because there is not one
+ *   live   the clock and the running score
+ *   final  "Final" and the score it finished on
  *
  * The whole card is the target: the object here is the GAME, and every
  * click means "watch this", so there is nothing else on it to hit. Which
  * channel it tunes is a decision the card makes on your behalf, and the
  * player's channel rail is where that decision gets revised.
- *
- * Soccer only for now. Every sport reads its clock and its score
- * differently (quarters, innings, minutes, laps), and one card trying to
- * cover all of them ends up covering none of them well, so `sport` picks a
- * layout rather than a set of flags.
  */
 
 export function GameCard({
@@ -37,20 +41,24 @@ export function GameCard({
   // still must not take room from the score.
   const [homeName, awayName] = useFitText<HTMLSpanElement>(homeText, awayText);
   // What the bottom-right says. One channel names it; several advertise the
-  // choice, because being able to hop is the reason to use this tab.
+  // choice, because being able to hop is the reason to use this tab. "Live
+  // on" only where it is true: a game at 8:30 is not live on anything yet.
+  const on = game.state === "live" ? "Live on" : "On";
   const carriage =
     game.channels.length === 0
       ? game.broadcasts.length > 0
         ? `On ${game.broadcasts[0]}`
         : "Not on your channels"
       : game.channels.length === 1
-        ? `Live on ${game.channels[0].name}`
-        : `Live on ${game.channels.length} channels`;
+        ? `${on} ${game.channels[0].name}`
+        : `${on} ${game.channels.length} channels`;
 
   return (
     <button
       type="button"
       className="gamecard"
+      // The row centres itself on one of these; see SportsScreen.
+      data-game={game.id}
       title={`${home.name} vs ${away.name}`}
       onClick={() => onOpen?.(game)}
     >
@@ -91,14 +99,25 @@ export function GameCard({
           </span>
 
           <span className="gamecard__center">
-            <span className="gamecard__status">{game.status}</span>
-            <span className="gamecard__score">
-              <span className="gamecard__num">{home.score ?? 0}</span>
-              <span className="gamecard__dash" aria-hidden>
-                -
-              </span>
-              <span className="gamecard__num">{away.score ?? 0}</span>
+            <span
+              className={
+                "gamecard__status" +
+                // Alone in the column when there is no score under it, so
+                // it takes the weight the score would have carried.
+                (game.state === "pre" ? " gamecard__status--alone" : "")
+              }
+            >
+              {game.status}
             </span>
+            {game.state !== "pre" && (
+              <span className="gamecard__score">
+                <span className="gamecard__num">{home.score ?? 0}</span>
+                <span className="gamecard__dash" aria-hidden>
+                  -
+                </span>
+                <span className="gamecard__num">{away.score ?? 0}</span>
+              </span>
+            )}
             <span className="gamecard__league">{game.league}</span>
           </span>
 
@@ -120,10 +139,15 @@ export function GameCard({
               {game.venue}
             </span>
           )}
-          {/* A finished game has nothing to tune into, so it says nothing
-           * about channels. "On MLB.TV" under a full-time score would be
-           * an invitation to watch something that is already over. */}
-          {game.state !== "final" && (
+          {/* A finished game has nothing to tune into, so it says when it
+           * started instead of where to watch it: "On MLB.TV" under a
+           * full-time score is an invitation to watch something already
+           * over. ESPN carries no end time, or this would say that. */}
+          {game.state === "final" ? (
+            <span className="gamecard__carriage gamecard__carriage--none">
+              Started {formatClock(game.start)}
+            </span>
+          ) : (
             <span
               className={
                 "gamecard__carriage" +

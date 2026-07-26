@@ -674,6 +674,12 @@
   font-size: calc(15px * var(--sports-scale));
   color: #fff;
 }
+/* The kick-off time when it is the only thing in the column: no score
+ * under it, so it carries the weight the score would have. */
+.gamecard__status--alone {
+  font-size: calc(26px * var(--sports-scale));
+}
+
 .gamecard__score {
   display: flex;
   align-items: baseline;

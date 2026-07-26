@@ -26,6 +26,12 @@ import type { Game } from "./model";
  * Same object as the live card, smaller and quieter. Not a variant flag on
  * it: the two share the wash and nothing else, and a single component
  * branching on state would be mostly branches.
+ *
+ * UNREFERENCED at the moment, and deliberately kept. Today's row merged
+ * into one guide-style timeline of wide cards, which is where the small
+ * card used to be used. It is what the "Tomorrow" and later-day rows in
+ * the design are drawn with, and those are waiting on the adapter being
+ * able to ask for a date other than today. Delete it if that changes.
  */
 export function UpcomingCard({
   game,
