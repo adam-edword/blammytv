@@ -218,7 +218,7 @@
   left: 0;
 }
 
-/* The progressive blur, on the LIVE card only.
+/* The progressive blur, on both cards.
  *
  * Technique lifted from Progressive-Acrylic (MIT, ysfemreAlbyrk), not the
  * package: it builds its layers in JS per element, and 60 instances of a
@@ -231,15 +231,14 @@
  * independent copies. Radii double per layer and the bands crowd toward
  * the centre, which is what makes it read as one smooth dissolve.
  *
- * Measured, 27 upcoming cards over 100 scrolled frames (headless software
- * raster, so read the ratio and not the absolute): one flat blur held 16ms
- * a frame, three layers cost 25ms, eight cost 48ms. Backdrop cost scales
- * with AREA, so the live card is the expensive one: five of them cost 35ms
- * at four layers and 52ms at eight, against 16ms with no haze. That is why
- * this is scoped to the live row, which is three to five cards on a normal
- * day, and why the upcoming card keeps one flat radius. It would be
- * invisible there anyway: half of a 315px card is 157px, and a banded
- * gradient across that is not a gradient.
+ * Measured over 100 scrolled frames (headless software raster, so read
+ * the ratios and not the absolutes). 27 upcoming cards: 16ms a frame flat,
+ * 25ms at three layers, 51ms at eight. Five live cards: 16ms flat, 35ms at
+ * four layers, 52ms at eight. The two rows land in the same place despite
+ * the live card being four times the area, because backdrop cost follows
+ * the pixels actually on screen and more small cards fit than large ones.
+ * Both rows carry it; the ceiling is set per card, since it should scale
+ * with the crest rather than be shared.
  *
  * EIGHT layers, the recipe's own default, and the count is about the BANDS
  * rather than the radii. More layers subdivide the same falloff more
@@ -254,8 +253,10 @@
  * bound it further and measured slightly WORSE, so it is deliberately not
  * used. A busy Saturday is therefore not much dearer than a quiet Tuesday.
  *
- * If the live row ever janks on a real GPU, delete the haze span in
- * Wash.tsx and this block goes dead with it. */
+ * If a row ever janks on a real GPU, delete the haze span in Wash.tsx and
+ * this whole block goes dead with it. The ceiling and the scope are the
+ * other two levers; the layer COUNT is not, because cutting it is what
+ * brings the banding back. */
 .gamewash__haze {
   position: absolute;
   inset: 0;
@@ -263,10 +264,6 @@
 .gamewash__haze i {
   position: absolute;
   inset: 0;
-}
-/* The small card takes none of it: one radius, set above. */
-.upcard .gamewash__haze {
-  display: none;
 }
 /* Nor does the veil, which is already the softest copy of the crest. */
 .gameveil .gamewash__haze {
@@ -503,7 +500,44 @@
  * softness stays the same fraction of the crest. */
 .upcard .gamewash__mark {
   height: 125%;
-  filter: blur(calc(2.9px * var(--sports-scale))) saturate(1.15);
+}
+
+/* The same ladder on the small card, at a ceiling scaled to ITS crest. The
+ * live crest is 565px wide and tops out at 15px, so 2.65% of its own
+ * width; this one is 234px, which is 6px. The masks are shared with the
+ * live card above: a band is a fraction of the half, so it means the same
+ * thing at either size. */
+.upcard .gamewash__haze i:nth-child(1) {
+  backdrop-filter: blur(calc(0.047px * var(--sports-scale)));
+  -webkit-backdrop-filter: blur(calc(0.047px * var(--sports-scale)));
+}
+.upcard .gamewash__haze i:nth-child(2) {
+  backdrop-filter: blur(calc(0.094px * var(--sports-scale)));
+  -webkit-backdrop-filter: blur(calc(0.094px * var(--sports-scale)));
+}
+.upcard .gamewash__haze i:nth-child(3) {
+  backdrop-filter: blur(calc(0.188px * var(--sports-scale)));
+  -webkit-backdrop-filter: blur(calc(0.188px * var(--sports-scale)));
+}
+.upcard .gamewash__haze i:nth-child(4) {
+  backdrop-filter: blur(calc(0.375px * var(--sports-scale)));
+  -webkit-backdrop-filter: blur(calc(0.375px * var(--sports-scale)));
+}
+.upcard .gamewash__haze i:nth-child(5) {
+  backdrop-filter: blur(calc(0.75px * var(--sports-scale)));
+  -webkit-backdrop-filter: blur(calc(0.75px * var(--sports-scale)));
+}
+.upcard .gamewash__haze i:nth-child(6) {
+  backdrop-filter: blur(calc(1.5px * var(--sports-scale)));
+  -webkit-backdrop-filter: blur(calc(1.5px * var(--sports-scale)));
+}
+.upcard .gamewash__haze i:nth-child(7) {
+  backdrop-filter: blur(calc(3.0px * var(--sports-scale)));
+  -webkit-backdrop-filter: blur(calc(3.0px * var(--sports-scale)));
+}
+.upcard .gamewash__haze i:nth-child(8) {
+  backdrop-filter: blur(calc(6.0px * var(--sports-scale)));
+  -webkit-backdrop-filter: blur(calc(6.0px * var(--sports-scale)));
 }
 
 /* The veil is a second copy of both washes, laid over the text for the
