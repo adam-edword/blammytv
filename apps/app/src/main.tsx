@@ -11,6 +11,7 @@ import "./styles/themes.css";
 import "./styles/live.css";
 import "./styles/player.css";
 import "./styles/stream.css";
+import "./styles/sports.css";
 import "./styles/discover.css";
 import "./styles/boot.css";
 import "./styles/onboarding.css";

@@ -1,0 +1,259 @@
+/* The Sports hub (plan 010). Borrows Discover's page shape and Stream's
+ * row, so only the game card itself is new here. */
+
+.sports {
+  /* Discover's padding clears the floating header; the hub is a plain
+   * scroll page under it. */
+  padding-top: calc(var(--header-h, 76px) + 18px);
+}
+
+.sports__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 25px;
+}
+
+/* The live pip. Fixed red rather than the accent: "live" is a state of the
+ * world, not a themeable decoration, and it reads the same on every pack. */
+.sports__live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ff4b4b;
+  box-shadow: 0 0 10px rgba(255, 75, 75, 0.75);
+}
+
+/* ---------------------------------------------------------------- card */
+
+/* One game. The whole thing is the button: the object is the GAME, and
+ * every click on it means "watch this". */
+.gamecard {
+  flex: 0 0 auto;
+  width: 650px;
+  max-width: 78vw;
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+.gamecard:hover {
+  z-index: 2;
+}
+
+/* The tilt layer owns the clip, the ring and the shadow, because the
+ * button must NOT clip: overflow:hidden on a parent squares off the
+ * corners of a rotated child mid-lean (same lesson as the More Like This
+ * row). */
+.gamecard__tilt {
+  position: relative;
+  display: block;
+  height: 195px;
+  border-radius: 24px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: #0b0b0d;
+  /* Quicker than the 650ms lean so the shadow leads and the card settles
+   * into it, matching the poster cards. */
+  transition: box-shadow 450ms ease;
+}
+.gamecard:hover .gamecard__tilt {
+  box-shadow: 0 18px 40px -14px color-mix(in srgb, #000 55%, transparent);
+}
+
+/* Each half's wash: the team's mark blurred hard and bled off its own
+ * edge, over a tint of the team colour. Two layers, not one, so a missing
+ * logo still leaves the colour rather than a black void. */
+.gamecard__wash {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 58%;
+  overflow: hidden;
+}
+.gamecard__wash--home {
+  left: 0;
+  /* Fades out toward the centre so the two halves meet without a seam. */
+  -webkit-mask-image: linear-gradient(to right, #000 25%, transparent 100%);
+  mask-image: linear-gradient(to right, #000 25%, transparent 100%);
+}
+.gamecard__wash--away {
+  right: 0;
+  -webkit-mask-image: linear-gradient(to left, #000 25%, transparent 100%);
+  mask-image: linear-gradient(to left, #000 25%, transparent 100%);
+}
+.gamecard__tint {
+  position: absolute;
+  inset: 0;
+  opacity: 0.55;
+}
+/* Oversized and blurred: this is a wash, not a logo. Scaled past the edge
+ * so the blur never reveals a soft border where the image ends. */
+.gamecard__mark {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 118%;
+  transform: translateY(-50%) scale(1.35);
+  object-fit: cover;
+  filter: blur(26px) saturate(1.15);
+  opacity: 0.85;
+}
+.gamecard__wash--away .gamecard__mark {
+  left: auto;
+  right: 0;
+}
+
+/* Readability floor. The washes are arbitrary team colours, so the text
+ * needs its own guaranteed contrast rather than trusting them. */
+.gamecard__scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      to right,
+      rgba(0, 0, 0, 0.62) 0%,
+      rgba(0, 0, 0, 0.78) 42%,
+      rgba(0, 0, 0, 0.78) 58%,
+      rgba(0, 0, 0, 0.62) 100%
+    ),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.15), rgba(0, 0, 0, 0.55));
+}
+
+.gamecard__body {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 18px;
+  height: 100%;
+  padding: 0 30px 18px;
+}
+
+.gamecard__team {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.gamecard__team--home {
+  align-items: flex-start;
+}
+.gamecard__team--away {
+  align-items: flex-end;
+  text-align: right;
+}
+.gamecard__abbr {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.45);
+  margin-bottom: 1px;
+}
+.gamecard__name {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 29px;
+  line-height: 1.05;
+  color: #fff;
+  /* Long club names must shrink the wash, never the score. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.gamecard__center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.gamecard__status {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 15px;
+  color: #fff;
+}
+.gamecard__score {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 46px;
+  line-height: 1;
+  color: #fff;
+  /* Scores change mid-game; tabular figures stop the card twitching when
+   * a 1 becomes a 4. */
+  font-variant-numeric: tabular-nums;
+}
+.gamecard__dash {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 34px;
+}
+.gamecard__league {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 6px;
+}
+
+.gamecard__foot {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 20px 14px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 10.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+.gamecard__venue {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gamecard__carriage {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.8);
+}
+/* No match is a real state, not an error: dim it, do not shout. */
+.gamecard__carriage--none {
+  color: rgba(255, 255, 255, 0.38);
+}
+.gamecard__dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #ff4b4b;
+}
+.gamecard__more {
+  font-size: 13px;
+  line-height: 1;
+  opacity: 0.7;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gamecard__tilt {
+    transition: none;
+  }
+}

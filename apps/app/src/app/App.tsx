@@ -5,12 +5,18 @@ import {
   tauriFrontendCheck,
   tauriFrontendReady,
 } from "../lib/tauri";
-import { AppHeader, type Section, type StreamTab } from "./AppHeader";
+import {
+  AppHeader,
+  type LiveTab,
+  type Section,
+  type StreamTab,
+} from "./AppHeader";
 import { WelcomeAnimation } from "./WelcomeAnimation";
 import { shouldPlayWelcome } from "./welcome";
 import { Onboarding } from "./Onboarding";
 import { onOnboardingReplay, shouldShowOnboarding } from "./onboardingGate";
 import { LiveScreen } from "../features/live/LiveScreen";
+import { SportsScreen } from "../features/sports/SportsScreen";
 import {
   loadPlaylists,
   onPlaylistsChange,
@@ -77,6 +83,10 @@ export function App() {
   const [streamTab, setStreamTab] = useState<StreamTab>(() =>
     loadStartupTab() === "discover" ? "discover" : "home",
   );
+  // Which Live page is showing. Ephemeral like the Stream rail's memory:
+  // it survives a trip to Stream, and Live always opens on the Guide at
+  // launch rather than dropping someone into Sports.
+  const [liveTab, setLiveTab] = useState<LiveTab>("guide");
   const [settingsOpen, setSettingsOpen] = useState(false);
   // The Themes panel pops OUT of Settings: opening it closes Settings, and
   // closing it returns to the app (Adam's call). Mutually exclusive with
@@ -185,13 +195,19 @@ export function App() {
         section={section}
         showLive={hasLiveSource}
         streamTab={streamTab}
+        liveTab={liveTab}
         onSection={setSection}
         onStreamTab={setStreamTab}
+        onLiveTab={setLiveTab}
         onOpenSettings={() => setSettingsOpen(true)}
       />
       <main className="app-main">
         {section === "live" ? (
-          <LiveScreen modalOpen={settingsOpen || themesOpen} />
+          liveTab === "sports" ? (
+            <SportsScreen />
+          ) : (
+            <LiveScreen modalOpen={settingsOpen || themesOpen} />
+          )
         ) : streamTab === "discover" ? (
           <DiscoverScreen />
         ) : streamTab === "mylist" ? (

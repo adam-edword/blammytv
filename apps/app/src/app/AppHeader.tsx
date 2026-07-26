@@ -21,6 +21,23 @@ export type Section = "live" | "stream";
  * here + in RAIL + a screen in App's switch — nothing else. */
 export type StreamTab = "home" | "discover" | "mylist";
 
+/** The Live side's pages, mirroring the Stream rail. Sports is plan 010,
+ * shipped behind a BETA badge while its data source is still a bet. */
+export type LiveTab = "guide" | "sports";
+
+const LIVE_RAIL = [
+  { key: "guide" as const, label: "Guide" },
+  {
+    key: "sports" as const,
+    label: (
+      <>
+        Sports <span className="chip-beta">BETA</span>
+      </>
+    ),
+    ariaLabel: "Sports (beta)",
+  },
+];
+
 const RAIL: Array<{ key: StreamTab; label: string }> = [
   { key: "home", label: "Home" },
   { key: "discover", label: "Discover" },
@@ -58,14 +75,18 @@ export function AppHeader({
   streamTab,
   onSection,
   onStreamTab,
+  liveTab,
+  onLiveTab,
   onOpenSettings,
 }: {
   section: Section;
   streamTab: StreamTab;
+  liveTab: LiveTab;
   /** Live tab renders only while a live source is configured. */
   showLive: boolean;
   onSection: (s: Section) => void;
   onStreamTab: (t: StreamTab) => void;
+  onLiveTab: (t: LiveTab) => void;
   onOpenSettings: () => void;
 }) {
   const clock = useClock();
@@ -212,6 +233,23 @@ export function AppHeader({
         </button>
         {showLive && (
           <span className="header__tab-slot">
+            {/* The Live rail sits BEFORE its tab, mirroring Stream's which
+              * sits after: the two rails open outward from the divider, so
+              * the section you are in expands away from the middle. Same
+              * collapse mechanism, same curve. */}
+            <div
+              className={
+                "header__rail header__rail--live" +
+                (section === "stream" ? " header__rail--off" : "")
+              }
+              aria-hidden={section === "stream"}
+            >
+              <ChipTabs
+                tabs={LIVE_RAIL}
+                active={liveTab}
+                onChange={onLiveTab}
+              />
+            </div>
             <button
               type="button"
               className={

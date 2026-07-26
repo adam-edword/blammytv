@@ -461,6 +461,30 @@ button {
  * absolutely and must not clip). */
 /* Stream tab + rail live in one group, OUTSIDE the tab cluster's 20px
  * gap rhythm, so the tab→rail distance is this margin alone. */
+/* BETA badge inside a rail chip. Sized off the chip's own text so it rides
+ * the label rather than setting the chip's height. */
+.chip-beta {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.14);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  vertical-align: 2px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* The Live rail mirrors the Stream one but opens to the LEFT of its tab,
+ * so the two rails expand outward from the divider. It keeps the chip
+ * track (Stream's is bare) because it sits alone out there with no tab
+ * cluster to read against. */
+.header__rail--live {
+  margin-top: 0;
+  margin-right: 4px;
+}
+
 .header__streamgroup {
   display: flex;
   align-items: center;
