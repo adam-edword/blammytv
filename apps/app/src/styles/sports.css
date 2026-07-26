@@ -19,6 +19,11 @@
   /* Pinned like the name: its relationship to the name is the point, so it
    * must not move when the cards resize. */
   --sports-score: 52px;
+  /* Which way each team's colour runs. 90deg is straight across (where
+   * this started); past that it tilts, so the home colour is strongest at
+   * the TOP left and the away colour at the BOTTOM right, as in the Figma.
+   * The away half takes this + 180deg, so one number turns both. */
+  --sports-wash-angle: 125deg;
 }
 
 .sports {
@@ -116,14 +121,33 @@
 }
 .gamewash--home {
   left: 0;
-  /* Fades out toward the centre so the two halves meet without a seam. */
-  -webkit-mask-image: linear-gradient(to right, #000 25%, transparent 100%);
-  mask-image: linear-gradient(to right, #000 25%, transparent 100%);
+  /* Fades out toward the centre so the two halves meet without a seam, on
+   * the diagonal so the colour has a corner to come from. */
+  -webkit-mask-image: linear-gradient(
+    var(--sports-wash-angle),
+    #000 25%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    var(--sports-wash-angle),
+    #000 25%,
+    transparent 100%
+  );
 }
 .gamewash--away {
   right: 0;
-  -webkit-mask-image: linear-gradient(to left, #000 25%, transparent 100%);
-  mask-image: linear-gradient(to left, #000 25%, transparent 100%);
+  /* The same line, run the other way: the two halves stay antiparallel at
+   * any angle, which is what keeps the seam invisible. */
+  -webkit-mask-image: linear-gradient(
+    calc(var(--sports-wash-angle) + 180deg),
+    #000 25%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    calc(var(--sports-wash-angle) + 180deg),
+    #000 25%,
+    transparent 100%
+  );
 }
 .gamewash__tint {
   position: absolute;

@@ -287,17 +287,9 @@
 .media-row__arrow svg { width: 18px; height: 18px; }
 .media-row__arrow--left svg { transform: rotate(90deg); }
 .media-row__arrow--right svg { transform: rotate(-90deg); }
-/* Row scrollbars: Chromium/WebView2 won't repaint scrollbar pseudos on
- * ancestor hover or custom-property changes (verified on a real install
- * — only direct thumb hover ever restyled), so no fade is possible.
- * Instead: always present but VERY quiet, brightening only under the
- * cursor (the one interaction that reliably repaints). */
-.media-row__scroller::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--text) 8%, transparent);
-}
-.media-row__scroller::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--text) 30%, transparent);
-}
+/* Row scrollbars used to be styled here, very quiet and brightening under
+ * the cursor. There is no horizontal scrollbar anywhere in the app now
+ * (base.css); the row is moved by drag, wheel and its arrows. */
 .stream-card {
   flex: 0 0 auto;
   width: auto;
@@ -941,9 +933,10 @@
   padding-right: 12px;
   padding-bottom: 16px;
   /* Hidden-until-hover via standard scrollbar-color — unlike the
-   * ::-webkit-scrollbar pseudos (which WebView2 won't repaint on
-   * ancestor hover; see the row scrollbars), this rides the normal
-   * style system. */
+   * ::-webkit-scrollbar pseudos, which WebView2 won't repaint on ancestor
+   * hover or on a custom-property change (verified on a real install: only
+   * direct thumb hover ever restyled), this rides the normal style
+   * system. */
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
 }

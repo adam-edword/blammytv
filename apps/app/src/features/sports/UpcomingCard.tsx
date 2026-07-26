@@ -40,12 +40,16 @@ export function UpcomingCard({
       title={`${home.name} vs ${away.name}`}
       onClick={() => onOpen?.(game)}
     >
+      {/* Steeper than the live card's 1.5deg, and deliberately so: degrees
+        * are not the unit that matters, pixels swept at the corner are. At
+        * a third of the live card's width the same angle is a third of the
+        * movement, which read as glare with no card under it. */}
       <Tilt
         className="upcard__tilt"
         tiltEnable={!REDUCED_MOTION}
-        tiltMaxAngleX={3}
-        tiltMaxAngleY={3}
-        scale={REDUCED_MOTION ? 1 : 1.02}
+        tiltMaxAngleX={7}
+        tiltMaxAngleY={7}
+        scale={REDUCED_MOTION ? 1 : 1.03}
         transitionSpeed={650}
         glareEnable={!REDUCED_MOTION}
         glareMaxOpacity={0.09}

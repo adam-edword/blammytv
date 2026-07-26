@@ -53,6 +53,21 @@ body {
   background: transparent;
 }
 
+/* No horizontal scrollbars, anywhere. Every sideways scroller in the app is
+ * a row of cards, driven by drag, wheel and its own arrow buttons, and the
+ * bar under it was never the way anyone moved it: it only ate height off
+ * the card shadows. Vertical bars stay; they are how you know a page runs
+ * past the fold.
+ *
+ * Axis-qualified rather than a blanket hide because the guide scrolls both
+ * ways and still wants its vertical bar. `height: 0` is the mechanism the
+ * rule above already relies on; `display: none` is the documented spelling
+ * and covers the same ground twice on purpose. */
+::-webkit-scrollbar:horizontal {
+  height: 0;
+  display: none;
+}
+
 button {
   font: inherit;
   color: inherit;
