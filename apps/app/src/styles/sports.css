@@ -70,6 +70,26 @@
   padding-bottom: calc(30px * var(--sports-scale));
 }
 
+/* A day, all of it, rather than a slice of it you have to drag through.
+ * The row above answers "what is on now"; this answers "what is on", which
+ * is a question about a whole day and so wants a shape without an edge you
+ * scroll off.
+ *
+ * auto-fill rather than auto-fit: on a wide screen a short day should stay
+ * as cards at their own size, not stretch four fixtures across 2000px. */
+.sports__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(315px, 1fr));
+  gap: calc(16px * var(--sports-scale));
+  /* Headroom for the tilt and the shadow, same as the row's. */
+  padding: 14px 0 calc(20px * var(--sports-scale));
+}
+/* In the grid the card takes the track rather than its own fixed width;
+ * everything inside it is proportional, so it stretches cleanly. */
+.sports__grid .upcard {
+  width: 100%;
+}
+
 /* ---------------------------------------------------------------- card */
 
 /* One game. The whole thing is the button: the object is the GAME, and
@@ -899,7 +919,22 @@
 .upcard__label {
   display: flex;
   flex-direction: column;
+  /* Takes the slack, which pushes the score to the row's outer end and
+   * hands the leftovers to the name. Works unchanged in the away row's
+   * row-reverse, where "outer end" is the other side. */
+  flex: 1;
   min-width: 0;
+}
+/* At the far end of its own row, as a scorecard has it. Same size as the
+ * name it sits beside: this card is for reading a day, not for staring at
+ * one result. */
+.upcard__score {
+  flex: 0 0 auto;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: var(--sports-name);
+  line-height: 1.1;
+  color: #fff;
 }
 .upcard__team--away .upcard__label {
   align-items: flex-end;

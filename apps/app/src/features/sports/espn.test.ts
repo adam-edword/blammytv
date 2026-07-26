@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LEAGUES, toGames } from "./espn";
+import { LEAGUES, espnDate, toGames } from "./espn";
 import epl from "./fixtures/epl-scoreboard.json";
 import mlb from "./fixtures/mlb-scoreboard.json";
 import nfl from "./fixtures/nfl-scoreboard.json";
@@ -111,5 +111,20 @@ describe("toGames", () => {
   it("survives a payload with no events at all (out of season)", () => {
     expect(toGames({ events: [] }, league("nhl"))).toEqual([]);
     expect(toGames({}, league("nhl"))).toEqual([]);
+  });
+});
+
+describe("espnDate", () => {
+  it("formats from local parts, zero-padded", () => {
+    expect(espnDate(new Date(2026, 6, 26))).toBe("20260726");
+    expect(espnDate(new Date(2026, 0, 5))).toBe("20260105");
+    expect(espnDate(new Date(2026, 11, 31))).toBe("20261231");
+  });
+
+  it("takes the local day, not the UTC one", () => {
+    // 11pm on the 26th somewhere west of Greenwich is the 27th in UTC.
+    // Whose Tuesday it is comes from the person asking.
+    const late = new Date(2026, 6, 26, 23, 30);
+    expect(espnDate(late)).toBe("20260726");
   });
 });

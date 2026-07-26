@@ -78,16 +78,36 @@ interface RawCompetitor {
 }
 
 /**
+ * A date as the endpoint wants it: YYYYMMDD, built from LOCAL parts.
+ *
+ * Local rather than UTC because the question being asked is "what is on
+ * Tuesday", and whose Tuesday that is comes from the person asking, not
+ * from Greenwich.
+ */
+export function espnDate(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}`;
+}
+
+/**
  * One league's scoreboard as games, or an empty list.
  *
  * A league that is out of season answers 200 with no events, which is the
  * normal case for most of the year and not an error.
+ *
+ * Without a date it answers for today, and "today" is its own idea, not
+ * necessarily yours: a league between matchdays hands back its NEXT one,
+ * which can be a month away. Whatever asks for a specific day should also
+ * check that it got that day.
  */
 export async function fetchLeague(
   league: (typeof LEAGUES)[number],
-  signal?: AbortSignal,
+  { date, signal }: { date?: Date; signal?: AbortSignal } = {},
 ): Promise<Game[]> {
-  const res = await fetch(`${BASE}/${league.path}/scoreboard`, { signal });
+  const url =
+    `${BASE}/${league.path}/scoreboard` +
+    (date ? `?dates=${espnDate(date)}` : "");
+  const res = await fetch(url, { signal });
   if (!res.ok) throw new Error(`ESPN ${league.key}: HTTP ${res.status}`);
   return toGames((await res.json()) as RawScoreboard, league);
 }
@@ -97,9 +117,11 @@ export async function fetchLeague(
  * board with four sports on it beats an error page because the NHL is
  * having a bad night.
  */
-export async function fetchGames(signal?: AbortSignal): Promise<Game[]> {
+export async function fetchGames(
+  opts: { date?: Date; signal?: AbortSignal } = {},
+): Promise<Game[]> {
   const settled = await Promise.allSettled(
-    LEAGUES.map((l) => fetchLeague(l, signal)),
+    LEAGUES.map((l) => fetchLeague(l, opts)),
   );
   return settled.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
 }

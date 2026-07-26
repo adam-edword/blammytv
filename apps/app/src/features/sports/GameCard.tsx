@@ -5,7 +5,7 @@ import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { scaledRadius } from "./scale";
 import { Badge } from "./Badge";
 import { Wash, WashVeil } from "./Wash";
-import type { Side } from "./Wash";
+import { loser } from "./result";
 import type { Game } from "./model";
 
 /**
@@ -172,22 +172,6 @@ export function GameCard({
       </Tilt>
     </button>
   );
-}
-
-/**
- * Which side lost, once there is such a thing.
- *
- * Only when it is over: a team trailing in the third is not losing, it is
- * behind, and draining the colour out of them mid-game would both be a
- * lie and flicker every time the score moved. A draw has no loser either,
- * which soccer needs and the others never hit.
- */
-function loser(game: Game): Side | undefined {
-  if (game.state !== "final") return undefined;
-  const h = game.home.score;
-  const a = game.away.score;
-  if (h === undefined || a === undefined || h === a) return undefined;
-  return h < a ? "home" : "away";
 }
 
 function PinIcon() {

@@ -4,16 +4,16 @@ import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { scaledRadius } from "./scale";
 import { Badge } from "./Badge";
 import { Wash, WashVeil } from "./Wash";
+import { loser } from "./result";
 import type { Game } from "./model";
 
 /**
- * A game that has not started, as a small card (plan 010).
+ * A game as a small card, for a day at a glance (plan 010).
  *
- * The live card's information does not exist yet: no score, no clock, and
- * no "live on" line, because which channel carries it is only worth
- * claiming once it is on. What is left is the matchup, when it starts, and
- * what competition it belongs to, which is exactly what someone scanning a
- * day of fixtures is reading for.
+ * The day grids use it for every state, so it carries a score once there is
+ * one, at the outer end of each team's row where a scorecard puts it. What
+ * it never carries is the "live on" line: this card is for reading a day,
+ * and the wide card in the row above is where a game is chosen.
  *
  * The two sides are STAGGERED, home to the top left and away to the bottom
  * right, rather than split down the middle. Two reasons, and the first is
@@ -47,6 +47,8 @@ export function UpcomingCard({
   const homeText = home.shortName ?? home.name;
   const awayText = away.shortName ?? away.name;
   const [homeName, awayName] = useFitText<HTMLSpanElement>(homeText, awayText);
+  const lost = loser(game);
+  const scored = game.state !== "pre";
   return (
     <button
       type="button"
@@ -70,8 +72,8 @@ export function UpcomingCard({
         glarePosition="all"
         glareBorderRadius={scaledRadius(30)}
       >
-        <Wash side="home" team={home} />
-        <Wash side="away" team={away} />
+        <Wash side="home" team={home} lost={lost === "home"} />
+        <Wash side="away" team={away} lost={lost === "away"} />
         <span className="upcard__scrim" aria-hidden />
 
         <span className="upcard__body">
@@ -85,6 +87,7 @@ export function UpcomingCard({
                   {homeText}
                 </span>
               </span>
+              {scored && <span className="upcard__score">{home.score ?? 0}</span>}
             </span>
             <span className="upcard__team upcard__team--away">
               <Badge team={away} />
@@ -94,11 +97,12 @@ export function UpcomingCard({
                   {awayText}
                 </span>
               </span>
+              {scored && <span className="upcard__score">{away.score ?? 0}</span>}
             </span>
           </span>
           <span className="upcard__league">{game.league}</span>
         </span>
-        <WashVeil home={home} away={away} />
+        <WashVeil home={home} away={away} lost={lost} />
       </Tilt>
     </button>
   );
