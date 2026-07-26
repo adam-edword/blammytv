@@ -1,0 +1,82 @@
+{
+ "leagues": [
+  {
+   "id": "700",
+   "name": "English Premier League",
+   "abbreviation": "Premier League",
+   "slug": "eng.1"
+  }
+ ],
+ "events": [
+  {
+   "id": "401879301",
+   "date": "2026-08-21T19:00Z",
+   "name": "Coventry City at Arsenal",
+   "shortName": "COV @ ARS",
+   "competitions": [
+    {
+     "id": "401879301",
+     "status": {
+      "type": {
+       "id": "1",
+       "name": "STATUS_SCHEDULED",
+       "state": "pre",
+       "completed": false,
+       "description": "Scheduled",
+       "detail": "Fri, August 21st at 3:00 PM EDT",
+       "shortDetail": "Scheduled"
+      }
+     },
+     "venue": {
+      "id": "2267",
+      "fullName": "Emirates Stadium",
+      "address": {
+       "city": "London",
+       "country": "England"
+      }
+     },
+     "broadcasts": [
+      {
+       "market": "national",
+       "names": [
+        "USA Net"
+       ]
+      }
+     ],
+     "competitors": [
+      {
+       "id": "359",
+       "homeAway": "home",
+       "score": "0",
+       "team": {
+        "id": "359",
+        "displayName": "Arsenal",
+        "shortDisplayName": "Arsenal",
+        "name": "Arsenal",
+        "abbreviation": "ARS",
+        "color": "e20520",
+        "alternateColor": "003399",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/359.png"
+       }
+      },
+      {
+       "id": "388",
+       "homeAway": "away",
+       "score": "0",
+       "team": {
+        "id": "388",
+        "displayName": "Coventry City",
+        "shortDisplayName": "Coventry",
+        "name": "Coventry City",
+        "abbreviation": "COV",
+        "color": "87cced",
+        "alternateColor": "ffffff",
+        "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/388.png"
+       }
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

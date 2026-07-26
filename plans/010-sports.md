@@ -101,6 +101,30 @@ Four requirements, and a candidate has to meet all four:
 **Pass** (broadcast populated for most US-rights fixtures): build phase 1
 against ESPN behind an adapter interface.
 
+### Result: PASS, run 2026-07-26
+
+| League | Events | Carrying a broadcast name | Values |
+| --- | --- | --- | --- |
+| NFL | 16 | **16/16** | NBC, FOX, CBS, Netflix |
+| MLB | 15 | **15/15** | MLB.TV, MASN, Peacock, Marquee Sports Net, SNY |
+| Premier League | 1 | **1/1** | USA Net |
+| NBA | 2 | 0/2 | (out of season) |
+| NHL | 7 | 0/7 | (out of season) |
+
+41 events mapped across the five leagues, 0 missing a crest, 0 missing a
+team colour. Two findings beyond the gate itself:
+
+- **The names are matchable.** They are broadcaster names, not codes, and a
+  game carries the national feed plus a regional one per side, so the
+  matcher gets several chances per game rather than one.
+- **F1 is confirmed as its own shape**: one event with **22 competitors**
+  and no home/away. It stays out of the league registry until it has a
+  card. Everything else here is two-sided.
+
+Also settled: CORS is open (`access-control-allow-origin: *`), so the
+adapter runs in the webview and needs no Rust round-trip. Real responses
+are checked in beside the adapter, pruned to the paths it reads.
+
 **Fail or thin**, in preference order:
 
 - **A curated network map shipped with the app.** Rights are stable within a

@@ -1,0 +1,238 @@
+{
+ "leagues": [
+  {
+   "id": "10",
+   "name": "Major League Baseball",
+   "abbreviation": "MLB",
+   "slug": "mlb"
+  }
+ ],
+ "events": [
+  {
+   "id": "401816266",
+   "date": "2026-07-26T17:35Z",
+   "name": "Atlanta Braves at Baltimore Orioles",
+   "shortName": "ATL @ BAL",
+   "competitions": [
+    {
+     "id": "401816266",
+     "status": {
+      "type": {
+       "id": "2",
+       "name": "STATUS_IN_PROGRESS",
+       "state": "in",
+       "completed": false,
+       "description": "In Progress",
+       "detail": "Bottom 11th",
+       "shortDetail": "Bot 11th"
+      }
+     },
+     "venue": {
+      "id": "1",
+      "fullName": "Oriole Park at Camden Yards",
+      "address": {
+       "city": "Baltimore",
+       "state": "Maryland"
+      },
+      "indoor": false
+     },
+     "broadcasts": [
+      {
+       "market": "national",
+       "names": [
+        "MLB.TV"
+       ]
+      },
+      {
+       "market": "away",
+       "names": [
+        "BravesVision"
+       ]
+      },
+      {
+       "market": "home",
+       "names": [
+        "MASN"
+       ]
+      }
+     ],
+     "competitors": [
+      {
+       "id": "1",
+       "homeAway": "home",
+       "score": "2",
+       "team": {
+        "id": "1",
+        "displayName": "Baltimore Orioles",
+        "shortDisplayName": "Orioles",
+        "name": "Orioles",
+        "abbreviation": "BAL",
+        "color": "df4601",
+        "alternateColor": "000000",
+        "logo": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/bal.png"
+       }
+      },
+      {
+       "id": "15",
+       "homeAway": "away",
+       "score": "3",
+       "team": {
+        "id": "15",
+        "displayName": "Atlanta Braves",
+        "shortDisplayName": "Braves",
+        "name": "Braves",
+        "abbreviation": "ATL",
+        "color": "0c2340",
+        "alternateColor": "ba0c2f",
+        "logo": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/atl.png"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "401816268",
+   "date": "2026-07-26T16:15Z",
+   "name": "Cleveland Guardians at Tampa Bay Rays",
+   "shortName": "CLE @ TB",
+   "competitions": [
+    {
+     "id": "401816268",
+     "status": {
+      "type": {
+       "id": "3",
+       "name": "STATUS_FINAL",
+       "state": "post",
+       "completed": true,
+       "description": "Final",
+       "detail": "Final",
+       "shortDetail": "Final"
+      }
+     },
+     "venue": {
+      "id": "31",
+      "fullName": "Tropicana Field",
+      "address": {
+       "city": "St. Petersburg",
+       "state": "Florida"
+      },
+      "indoor": true
+     },
+     "broadcasts": [
+      {
+       "market": "national",
+       "names": [
+        "Peacock"
+       ]
+      }
+     ],
+     "competitors": [
+      {
+       "id": "30",
+       "homeAway": "home",
+       "score": "1",
+       "team": {
+        "id": "30",
+        "displayName": "Tampa Bay Rays",
+        "shortDisplayName": "Rays",
+        "name": "Rays",
+        "abbreviation": "TB",
+        "color": "092c5c",
+        "alternateColor": "8fbce6",
+        "logo": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/tb.png"
+       }
+      },
+      {
+       "id": "5",
+       "homeAway": "away",
+       "score": "0",
+       "team": {
+        "id": "5",
+        "displayName": "Cleveland Guardians",
+        "shortDisplayName": "Guardians",
+        "name": "Guardians",
+        "abbreviation": "CLE",
+        "color": "002b5c",
+        "alternateColor": "e31937",
+        "logo": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/cle.png"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "401816271",
+   "date": "2026-07-26T23:20Z",
+   "name": "New York Yankees at Philadelphia Phillies",
+   "shortName": "NYY @ PHI",
+   "competitions": [
+    {
+     "id": "401816271",
+     "status": {
+      "type": {
+       "id": "1",
+       "name": "STATUS_SCHEDULED",
+       "state": "pre",
+       "completed": false,
+       "description": "Scheduled",
+       "detail": "Scheduled",
+       "shortDetail": "7/26 - 7:20 PM EDT"
+      }
+     },
+     "venue": {
+      "id": "84",
+      "fullName": "Citizens Bank Park",
+      "address": {
+       "city": "Philadelphia",
+       "state": "Pennsylvania"
+      },
+      "indoor": false
+     },
+     "broadcasts": [
+      {
+       "market": "national",
+       "names": [
+        "NBC",
+        "Peacock"
+       ]
+      }
+     ],
+     "competitors": [
+      {
+       "id": "22",
+       "homeAway": "home",
+       "score": "0",
+       "team": {
+        "id": "22",
+        "displayName": "Philadelphia Phillies",
+        "shortDisplayName": "Phillies",
+        "name": "Phillies",
+        "abbreviation": "PHI",
+        "color": "e81828",
+        "alternateColor": "003278",
+        "logo": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/phi.png"
+       }
+      },
+      {
+       "id": "10",
+       "homeAway": "away",
+       "score": "0",
+       "team": {
+        "id": "10",
+        "displayName": "New York Yankees",
+        "shortDisplayName": "Yankees",
+        "name": "Yankees",
+        "abbreviation": "NYY",
+        "color": "132448",
+        "alternateColor": "c4ced4",
+        "logo": "https://a.espncdn.com/i/teamlogos/mlb/500/scoreboard/nyy.png"
+       }
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

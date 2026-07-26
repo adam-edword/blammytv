@@ -495,3 +495,13 @@
     transition: none;
   }
 }
+
+/* The hub with nothing on it: loading, unreachable, or a genuinely empty
+ * day. One line rather than a designed empty state, which is a later
+ * phase. */
+.sports__note {
+  padding: 40px 0;
+  color: rgba(255, 255, 255, 0.45);
+  font-family: var(--font-headline);
+  font-weight: 600;
+}
