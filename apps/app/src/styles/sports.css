@@ -472,6 +472,17 @@
   position: absolute;
   inset: 0;
   background:
+    /* The card's own colour, solid down the middle and gone by either
+     * edge, so the art belongs to the outer thirds and the score sits on
+     * clean background. The export does the same thing per half; one
+     * symmetric ramp across the whole card is the same picture with one
+     * layer instead of two. */
+    linear-gradient(
+      to right,
+      rgba(15, 15, 15, 0) 0%,
+      #0f0f0f 50%,
+      rgba(15, 15, 15, 0) 100%
+    ),
     linear-gradient(
       to right,
       rgba(0, 0, 0, 0.2) 0%,
@@ -672,6 +683,14 @@
   position: absolute;
   inset: 0;
   background:
+    /* Same ramp as the live card: art at the edges, card colour under the
+     * kick-off time. */
+    linear-gradient(
+      to right,
+      rgba(15, 15, 15, 0) 0%,
+      #0f0f0f 50%,
+      rgba(15, 15, 15, 0) 100%
+    ),
     linear-gradient(
       to right,
       rgba(0, 0, 0, 0.22) 0%,
