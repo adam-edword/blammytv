@@ -102,7 +102,7 @@
   border-radius: calc(45px * var(--sports-scale));
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.07);
-  background: #0b0b0d;
+  background: #0f0f0f;
   /* Quicker than the 650ms lean so the shadow leads and the card settles
    * into it, matching the poster cards. */
   transition: box-shadow 450ms ease;
@@ -446,7 +446,7 @@
   border-radius: calc(30px * var(--sports-scale));
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.07);
-  background: #0b0b0d;
+  background: #0f0f0f;
   transition: box-shadow 450ms ease;
 }
 .upcard:hover .upcard__tilt {
