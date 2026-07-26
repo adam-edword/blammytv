@@ -23,6 +23,11 @@ export function SportsScreen() {
   const upcoming = games
     .filter((g) => g.state === "pre")
     .sort((a, b) => a.start.getTime() - b.start.getTime());
+  // Most recent first: the game that just ended is the one being looked
+  // for, not the lunchtime kickoff.
+  const finished = games
+    .filter((g) => g.state === "final")
+    .sort((a, b) => b.start.getTime() - a.start.getTime());
 
   return (
     <div className="discover sports">
@@ -48,6 +53,22 @@ export function SportsScreen() {
           <RowScroller>
             {upcoming.map((g) => (
               <UpcomingCard key={g.id} game={g} />
+            ))}
+          </RowScroller>
+        </section>
+      )}
+
+      {/* Last, under what is on and what is coming. A finished game cannot
+        * be watched, so it is reference rather than an offer: by the time
+        * the evening's baseball is all final it is most of the day's
+        * sport, and a hub with nothing to say about it is a hub that looks
+        * broken. */}
+      {finished.length > 0 && (
+        <section className="media-row">
+          <h3 className="media-row__title sports__title">Final Scores</h3>
+          <RowScroller>
+            {finished.map((g) => (
+              <GameCard key={g.id} game={g} />
             ))}
           </RowScroller>
         </section>

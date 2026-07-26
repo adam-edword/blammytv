@@ -55,14 +55,14 @@ export function GameCard({
       onClick={() => onOpen?.(game)}
     >
       {/* Same lean and glare as the poster cards, at a much smaller angle.
-        * Degrees are not the unit that matters: a 650px card sweeps far
-        * more pixels at its corners than a 300px poster does at the same
-        * angle, so matching the poster's 5deg here read as a barn door.
-        * The glare is lighter than a poster's for the same reason: it
-        * sweeps a much larger area, so the same opacity reads as a much
-        * brighter wipe. Radius tracks THIS card's corner because the glare
-        * layer carries its own clip, and it is computed from the same
-        * scale the stylesheet uses rather than typed twice. */}
+       * Degrees are not the unit that matters: a 650px card sweeps far
+       * more pixels at its corners than a 300px poster does at the same
+       * angle, so matching the poster's 5deg here read as a barn door.
+       * The glare is lighter than a poster's for the same reason: it
+       * sweeps a much larger area, so the same opacity reads as a much
+       * brighter wipe. Radius tracks THIS card's corner because the glare
+       * layer carries its own clip, and it is computed from the same
+       * scale the stylesheet uses rather than typed twice. */}
       <Tilt
         className="gamecard__tilt"
         tiltEnable={!REDUCED_MOTION}
@@ -120,22 +120,27 @@ export function GameCard({
               {game.venue}
             </span>
           )}
-          <span
-            className={
-              "gamecard__carriage" +
-              (game.channels.length === 0 ? " gamecard__carriage--none" : "")
-            }
-          >
-            {game.state === "live" && game.channels.length > 0 && (
-              <span className="gamecard__dot" aria-hidden />
-            )}
-            {carriage}
-            {game.channels.length > 1 && (
-              <span className="gamecard__more" aria-hidden>
-                &rsaquo;
-              </span>
-            )}
-          </span>
+          {/* A finished game has nothing to tune into, so it says nothing
+           * about channels. "On MLB.TV" under a full-time score would be
+           * an invitation to watch something that is already over. */}
+          {game.state !== "final" && (
+            <span
+              className={
+                "gamecard__carriage" +
+                (game.channels.length === 0 ? " gamecard__carriage--none" : "")
+              }
+            >
+              {game.state === "live" && game.channels.length > 0 && (
+                <span className="gamecard__dot" aria-hidden />
+              )}
+              {carriage}
+              {game.channels.length > 1 && (
+                <span className="gamecard__more" aria-hidden>
+                  &rsaquo;
+                </span>
+              )}
+            </span>
+          )}
         </span>
         <WashVeil home={home} away={away} />
       </Tilt>
