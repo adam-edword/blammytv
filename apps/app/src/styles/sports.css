@@ -7,6 +7,11 @@
  * library takes its glare radius as a string prop, which cannot read CSS. */
 .sports {
   --sports-scale: 1.42;
+  /* Team names are pinned, not scaled, and both cards share this: they
+   * read against the header's "Live TV | Stream" (21px) rather than
+   * against their own card, so a card resize must not drift them apart or
+   * away from that relationship. */
+  --sports-name: 25px;
 }
 
 .sports {
@@ -19,7 +24,9 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 25px;
+  /* A quarter up from the 25px first pass. Independent of --sports-scale:
+   * a section heading belongs to the PAGE, not to the cards under it. */
+  font-size: 31px;
 }
 
 /* The live pip. Fixed red rather than the accent: "live" is a state of the
@@ -185,7 +192,7 @@
 .gamecard__name {
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: calc(29px * var(--sports-scale));
+  font-size: var(--sports-name);
   line-height: 1.05;
   color: #fff;
   /* Long club names must shrink the wash, never the score. */
@@ -379,7 +386,7 @@
 .upcard__name {
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: calc(19px * var(--sports-scale));
+  font-size: var(--sports-name);
   line-height: 1.1;
   color: #fff;
   max-width: 100%;
