@@ -502,42 +502,43 @@
   height: 125%;
 }
 
-/* The same ladder on the small card, at a ceiling scaled to ITS crest. The
- * live crest is 565px wide and tops out at 15px, so 2.65% of its own
- * width; this one is 234px, which is 6px. The masks are shared with the
- * live card above: a band is a fraction of the half, so it means the same
- * thing at either size. */
+/* The same ladder on the small card, at its own ceiling. Scaling 15px by
+ * the crest widths (565px live, 234px here) suggests 6px, and 6px was too
+ * intense on a real screen: the small card is read at a glance, in a row,
+ * so its crest wants to stay a shape rather than dissolve. 3px. The masks
+ * are shared with the live card above, since a band is a fraction of the
+ * half and means the same thing at either size. */
 .upcard .gamewash__haze i:nth-child(1) {
+  backdrop-filter: blur(calc(0.023px * var(--sports-scale)));
+  -webkit-backdrop-filter: blur(calc(0.023px * var(--sports-scale)));
+}
+.upcard .gamewash__haze i:nth-child(2) {
   backdrop-filter: blur(calc(0.047px * var(--sports-scale)));
   -webkit-backdrop-filter: blur(calc(0.047px * var(--sports-scale)));
 }
-.upcard .gamewash__haze i:nth-child(2) {
+.upcard .gamewash__haze i:nth-child(3) {
   backdrop-filter: blur(calc(0.094px * var(--sports-scale)));
   -webkit-backdrop-filter: blur(calc(0.094px * var(--sports-scale)));
 }
-.upcard .gamewash__haze i:nth-child(3) {
+.upcard .gamewash__haze i:nth-child(4) {
   backdrop-filter: blur(calc(0.188px * var(--sports-scale)));
   -webkit-backdrop-filter: blur(calc(0.188px * var(--sports-scale)));
 }
-.upcard .gamewash__haze i:nth-child(4) {
+.upcard .gamewash__haze i:nth-child(5) {
   backdrop-filter: blur(calc(0.375px * var(--sports-scale)));
   -webkit-backdrop-filter: blur(calc(0.375px * var(--sports-scale)));
 }
-.upcard .gamewash__haze i:nth-child(5) {
+.upcard .gamewash__haze i:nth-child(6) {
   backdrop-filter: blur(calc(0.75px * var(--sports-scale)));
   -webkit-backdrop-filter: blur(calc(0.75px * var(--sports-scale)));
 }
-.upcard .gamewash__haze i:nth-child(6) {
+.upcard .gamewash__haze i:nth-child(7) {
   backdrop-filter: blur(calc(1.5px * var(--sports-scale)));
   -webkit-backdrop-filter: blur(calc(1.5px * var(--sports-scale)));
 }
-.upcard .gamewash__haze i:nth-child(7) {
+.upcard .gamewash__haze i:nth-child(8) {
   backdrop-filter: blur(calc(3.0px * var(--sports-scale)));
   -webkit-backdrop-filter: blur(calc(3.0px * var(--sports-scale)));
-}
-.upcard .gamewash__haze i:nth-child(8) {
-  backdrop-filter: blur(calc(6.0px * var(--sports-scale)));
-  -webkit-backdrop-filter: blur(calc(6.0px * var(--sports-scale)));
 }
 
 /* The veil is a second copy of both washes, laid over the text for the
