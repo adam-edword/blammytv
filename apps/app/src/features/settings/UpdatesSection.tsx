@@ -62,50 +62,49 @@ export function UpdatesSection() {
     );
   };
 
+  // A row, not a section with its own 32px heading: it sits inside
+  // General's "App" group, whose heading already does that job.
   return (
-    <section className="settings-section">
-      <h3 className="settings__section-title">Updates</h3>
-      <div className="customize-row">
-        <div>
-          <h4 className="customize-row__title">BlammyTV v{APP_VERSION}</h4>
-          <p className="settings__section-note settings__section-note--dim">
-            {phase.at === "found"
-              ? `Version ${phase.version} is ready to install.`
-              : phase.at === "installing"
-                ? "Downloading and installing. The app restarts by itself."
-                : phase.at === "error"
-                  ? `Update check hit a snag: ${phase.message}`
-                  : "Updates install themselves with one click and keep your playlists."}
-          </p>
-        </div>
-        {phase.at === "found" || phase.at === "installing" ? (
-          <button
-            type="button"
-            className="settings-button settings-button--accent"
-            disabled={phase.at === "installing"}
-            onClick={() => phase.at === "found" && install(phase.version)}
-          >
-            {phase.at === "installing"
-              ? "Installing…"
-              : `Install v${phase.version}`}
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="settings-button"
-            disabled={phase.at === "checking"}
-            onClick={check}
-          >
-            {phase.at === "checking"
-              ? "Checking…"
-              : phase.at === "current"
-                ? "You're up to date ✓"
-                : phase.at === "error"
-                  ? "Try again"
-                  : "Check for updates"}
-          </button>
-        )}
+    <div className="customize-row">
+      <div>
+        <h4 className="customize-row__title">BlammyTV v{APP_VERSION}</h4>
+        <p className="settings__section-note settings__section-note--dim">
+          {phase.at === "found"
+            ? `Version ${phase.version} is ready to install.`
+            : phase.at === "installing"
+              ? "Downloading and installing. The app restarts by itself."
+              : phase.at === "error"
+                ? `Update check hit a snag: ${phase.message}`
+                : "Updates install themselves with one click and keep your playlists."}
+        </p>
       </div>
-    </section>
+      {phase.at === "found" || phase.at === "installing" ? (
+        <button
+          type="button"
+          className="settings-button settings-button--accent"
+          disabled={phase.at === "installing"}
+          onClick={() => phase.at === "found" && install(phase.version)}
+        >
+          {phase.at === "installing"
+            ? "Installing…"
+            : `Install v${phase.version}`}
+        </button>
+      ) : (
+        <button
+          type="button"
+          className="settings-button"
+          disabled={phase.at === "checking"}
+          onClick={check}
+        >
+          {phase.at === "checking"
+            ? "Checking…"
+            : phase.at === "current"
+              ? "You're up to date ✓"
+              : phase.at === "error"
+                ? "Try again"
+                : "Check for updates"}
+        </button>
+      )}
+    </div>
   );
 }

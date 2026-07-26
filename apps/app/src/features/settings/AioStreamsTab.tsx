@@ -49,7 +49,7 @@ export function AioStreamsTab() {
   return (
     <>
       <section className="settings-section">
-        <h3 className="settings__section-title">AIOStreams Manifest</h3>
+        <h3 className="settings-section__list-title">AIOStreams Manifest</h3>
         <p className="settings__section-note">
           Paste your AIOStreams manifest URL. It powers the movies and series
           under the Stream tab.

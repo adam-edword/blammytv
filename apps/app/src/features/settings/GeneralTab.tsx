@@ -64,7 +64,12 @@ export function GeneralTab() {
       </div>
       {source === "live" ? <PlaylistsTab /> : <AioStreamsTab />}
 
+      {/* Same shape as Customize: a group heading, then ONE section holding
+        * every setting in it as a row. */}
+      <h3 className="settings__group">App</h3>
       <section className="settings-section">
+        <UpdatesSection />
+
         <div className="customize-row">
           <div>
             <h4 className="customize-row__title">Replay Onboarding</h4>
@@ -81,8 +86,6 @@ export function GeneralTab() {
           </button>
         </div>
       </section>
-
-      <UpdatesSection />
 
       <section className="settings-section">
         <div className="danger-zone">

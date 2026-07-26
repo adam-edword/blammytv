@@ -99,7 +99,7 @@ export function PlaylistsTab() {
     <>
       <section className="settings-section">
         <ChipTabs tabs={KIND_TABS} active={kind} onChange={setKind} />
-        <h3 className="settings__section-title">
+        <h3 className="settings-section__list-title">
           Add {KIND_LABELS[kind]} Playlist
         </h3>
         <p className="settings__section-note">{DESCRIPTIONS[kind]}</p>

@@ -293,8 +293,10 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
 
       {/* One section, not five. Each control keeps its own label, but the
         * 21px block headings and the rule between every one of them made a
-        * seven-item panel read like seven pages. Chip groups stack (they are
-        * too wide to sit beside a label); everything else is a normal row. */}
+        * seven-item panel read like seven pages. ONE section for the whole
+        * panel: look first, then playback, with no rule between them —
+        * they are one list of Stream settings, not two topics. Chip groups
+        * stack (too wide to sit beside a label); the rest are normal rows. */}
       {world === "stream" && hasAddon && (
         <section className="settings-section">
           <HeroSourcesSection />
@@ -390,11 +392,7 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
               )}
             </div>
           </div>
-        </section>
-      )}
 
-      {world === "stream" && hasAddon && (
-        <section className="settings-section">
           <div className="customize-row">
             <div>
               <h4 className="customize-row__title">One-Click Play Movies</h4>
