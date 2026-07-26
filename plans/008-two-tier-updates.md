@@ -243,6 +243,13 @@ already the bulk of the win.
 - **Do not ship a hot bundle built against different Rust.** The
   `nativeVersion` gate is the whole safety property. It must be enforced in
   Rust, not just in the frontend that is asking to be replaced.
+  **And it must be enforced at SERVE time, not only at download time**
+  (caught 2026-07-26, by Adam asking why the version display would ever be
+  ambiguous). A bundle that passed the gate when it was staged stops being
+  legitimate the moment a native installer lands underneath it, which is the
+  likely sequence rather than an exotic one: everyone on the hot channel
+  eventually takes a native update. `active.json` records the native version
+  a bundle was staged for, and `resolve()` re-checks it on every boot.
 
 ## Release drill changes
 

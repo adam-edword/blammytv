@@ -188,6 +188,11 @@ starts receiving hot updates for that line.
   falls back — previous bundle first, then the one built into the binary.
   That is why `frontend_ready` is called at the React root with nothing in
   front of it.
+- **A native install resets the hot channel.** The bundle a user is running
+  was gated against the native version they had; once an installer lands,
+  that pairing is gone, so the app goes back to the frontend built into the
+  new binary and re-checks from there. So a native release's frontend must
+  be complete on its own, which it always is: it is just `dist/`.
 
 ## Notes
 

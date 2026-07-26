@@ -65,6 +65,15 @@ pub struct Active {
     /// Versions that failed to boot. Never served, never re-staged.
     #[serde(default)]
     pub quarantined: Vec<String>,
+    /// The NATIVE version `version` was built against.
+    ///
+    /// The download gate refuses a bundle built for different Rust, but a
+    /// bundle that was legitimate when it was staged stops being so the
+    /// moment a native installer lands underneath it. Empty (an older
+    /// record, or none) reads as "unknown", which is treated as a mismatch:
+    /// falling back to the embedded frontend is always safe.
+    #[serde(default)]
+    pub native: String,
 }
 
 /// Where staged frontends live. Resolved WITHOUT an AppHandle, because the
@@ -130,6 +139,23 @@ pub fn resolve() -> Option<PathBuf> {
         }
         active.version = std::mem::take(&mut active.previous);
         let _ = std::fs::remove_file(&sentinel);
+        write_active(&root, &active);
+    }
+
+    // A native update landed under a staged bundle. The pairing the
+    // download gate enforced no longer holds, so nothing staged for the old
+    // native version may be served — including the rollback target, which
+    // was built for it too. Start clean on the embedded frontend; the next
+    // check stages a bundle for THIS native version. Quarantine goes with
+    // it: those failures belonged to a pairing that no longer exists.
+    if !active.version.is_empty() && active.native != env!("CARGO_PKG_VERSION") {
+        eprintln!(
+            "[frontend] {} was built for native {}, now on {}; using embedded",
+            active.version,
+            if active.native.is_empty() { "?" } else { &active.native },
+            env!("CARGO_PKG_VERSION")
+        );
+        active = Active::default();
         write_active(&root, &active);
     }
 
@@ -327,7 +353,13 @@ fn unpack(bytes: &[u8], dir: &Path) -> Result<(), String> {
 /// and phase 3 owns when that pointer is acted on. Refuses a quarantined
 /// version outright, so a bundle that already failed to boot cannot be
 /// re-downloaded into the same failure on a loop.
-pub fn stage(version: &str, pubkey_b64: &str, sig_b64: &str, bytes: &[u8]) -> Result<(), String> {
+pub fn stage(
+    version: &str,
+    native_version: &str,
+    pubkey_b64: &str,
+    sig_b64: &str,
+    bytes: &[u8],
+) -> Result<(), String> {
     if version.is_empty()
         || version
             .contains(|c: char| !c.is_ascii_alphanumeric() && c != '.' && c != '-')
@@ -364,6 +396,9 @@ pub fn stage(version: &str, pubkey_b64: &str, sig_b64: &str, bytes: &[u8]) -> Re
     // fallback stays the last version KNOWN to boot, not merely the last
     // one installed.
     active.version = version.to_string();
+    // Recorded so resolve() can re-check the pairing on every boot, not
+    // just at download time: a native installer can land in between.
+    active.native = native_version.to_string();
     write_active(&root, &active);
 
     // Keep the active one and the known-good fallback; sweep the rest.
@@ -526,7 +561,7 @@ pub async fn frontend_check(app: tauri::AppHandle) -> Result<String, String> {
 
     // stage() verifies the signature before it unpacks a byte, and refuses
     // a version that has already failed a boot.
-    stage(&m.version, &pubkey, &m.signature, &bytes)?;
+    stage(&m.version, &native_version, &pubkey, &m.signature, &bytes)?;
     Ok(m.version)
 }
 
@@ -619,7 +654,7 @@ mod tests {
     fn refuses_a_version_that_is_not_a_version() {
         for bad in ["", "../evil", "a/b", "1.0;rm", "..\\evil"] {
             assert!(
-                stage(bad, "x", "y", b"z").is_err(),
+                stage(bad, "0.8.0", "x", "y", b"z").is_err(),
                 "accepted a bad version: {bad:?}"
             );
         }
@@ -647,6 +682,26 @@ mod tests {
         // Already serving it, or already staged: nothing to do.
         assert!(!should_stage(&manifest("0.8.1", "0.8.0"), "0.8.0", "0.8.1", ""));
         assert!(!should_stage(&manifest("0.8.1", "0.8.0"), "0.8.0", "", "0.8.1"));
+    }
+
+    /// The gate has to hold at SERVE time, not only at download time: a
+    /// native installer can land underneath a bundle that was perfectly
+    /// legitimate when it was staged. Exercised through the record rather
+    /// than through resolve(), which reads a real data dir.
+    #[test]
+    fn a_bundle_staged_for_another_native_version_is_not_served() {
+        let stale = Active {
+            version: "0.8.2".into(),
+            previous: "0.8.1".into(),
+            quarantined: vec![],
+            native: "0.8.0".into(),
+        };
+        assert!(stale.native != "0.9.0", "the case resolve() must catch");
+        // An older record predates the field entirely. Unknown pairing is
+        // treated as a mismatch, never as "probably fine".
+        let legacy: Active = serde_json::from_str(r#"{"version":"0.8.2"}"#).unwrap();
+        assert_eq!(legacy.native, "");
+        assert!(legacy.native != env!("CARGO_PKG_VERSION"));
     }
 
     /// The two channels must resolve from the same release, so the hot
