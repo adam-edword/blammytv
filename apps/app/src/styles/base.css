@@ -464,7 +464,8 @@ button {
 /* BETA badge inside a rail chip. Sized off the chip's own text so it rides
  * the label rather than setting the chip's height. */
 .chip-beta {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
   margin-left: 5px;
   padding: 1px 4px;
   border-radius: 4px;
@@ -472,7 +473,10 @@ button {
   font-size: 8px;
   font-weight: 700;
   letter-spacing: 0.08em;
-  vertical-align: 2px;
+  /* line-height 1 and inline-flex, so the badge rides inside the chip's
+   * line box instead of growing it: the two rails have to stay the same
+   * height, and this chip is the only one with anything but text in it. */
+  line-height: 1;
   color: rgba(255, 255, 255, 0.75);
 }
 
