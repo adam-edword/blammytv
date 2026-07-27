@@ -1411,28 +1411,12 @@
   transform: translate(-50%, -50%);
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  /* Glass rather than a solid chip: the rail is a list of surfaces and one
-   * opaque white disc in it reads as a different material. A translucent
-   * pane keeps it part of the row it sits on.
-   *
-   * NO backdrop-filter, deliberately. The first draft had one, and over
-   * this row it is provably a no-op: --sportsrail-bg is a flat solid, and
-   * blurring a flat colour returns that colour. Every pixel of the effect
-   * comes from the translucency, the hairline and the shadow. Given the
-   * live card's haze measured 7x the frame cost of the same row without
-   * it, a filter that cannot change a pixel is not worth carrying.
-   *
-   * If the rail ever gains a gradient or sits over artwork, this is the
-   * line to revisit. */
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  box-shadow:
-    0 2px 10px rgba(0, 0, 0, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  /* No disc behind it any more (Adam). The glass shape carries itself, and
+   * a pane inside a pane was two materials doing one job. What the circle
+   * was really providing was separation from the row, so that moves onto
+   * the mark as a shadow. */
   color: #fff;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.55));
   opacity: 0;
   transition: opacity 140ms ease;
 }
