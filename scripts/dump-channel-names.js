@@ -63,19 +63,46 @@
   }));
 
   const json = JSON.stringify(out, null, 1);
-  const sports = out.filter((c) => /sport|espn|sky|bt |dazn|nfl|nba|mlb|nhl|fox|tnt|usa/i.test(c.folder + " " + c.name));
-  console.log(`${out.length} channels, ${sports.length} look sports-ish.`);
-  console.log("Folders:", [...new Set(out.map((c) => c.folder))].sort());
+
+  // Per folder, which is the more useful shape: it says at a glance where
+  // the sport lives and how big each category is.
+  const perFolder = {};
+  for (const c of out) perFolder[c.folder] = (perFolder[c.folder] || 0) + 1;
+  console.log(`${out.length} channels in ${Object.keys(perFolder).length} folders`);
+  console.table(
+    Object.entries(perFolder)
+      .sort((a, b) => b[1] - a[1])
+      .map(([folder, channels]) => ({ folder, channels })),
+  );
+
+  // ALWAYS park it on window first. Everything below can fail for reasons
+  // that have nothing to do with the dump: DevTools' copy() is not reliably
+  // in scope inside an async function, and navigator.clipboard refuses when
+  // the console has focus rather than the page. If both miss, the global is
+  // still there and `copy(__channels)` typed at the prompt always works.
+  window.__channels = json;
 
   try {
-    // DevTools' own helper: puts the whole dump on the clipboard.
-    copy(json);
-    console.log("Copied to clipboard. Paste it into a file.");
+    await navigator.clipboard.writeText(json);
+    console.log("On your clipboard. Paste it into a file.");
+    return;
   } catch {
-    console.log("copy() unavailable, falling back to a download.");
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([json], { type: "application/json" }));
-    a.download = "channels.json";
-    a.click();
+    /* Focus is on DevTools, not the page. Fall through. */
   }
+  try {
+    copy(json);
+    console.log("On your clipboard. Paste it into a file.");
+    return;
+  } catch {
+    /* Command-line API out of scope here. Fall through. */
+  }
+  console.log(
+    "Could not reach the clipboard from in here. Two ways out:\n" +
+      "  1. Type this at the console prompt:   copy(__channels)\n" +
+      "  2. Or check your Downloads folder for channels.json",
+  );
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([json], { type: "application/json" }));
+  a.download = "channels.json";
+  a.click();
 })();
