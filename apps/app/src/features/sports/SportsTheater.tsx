@@ -163,7 +163,14 @@ function Rail({ channel }: { channel: Match }) {
 
 function PlayIcon() {
   return (
-    <svg width="11" height="13" viewBox="0 0 11 13" aria-hidden focusable="false">
+    <svg
+      className="sportsrail__go"
+      width="11"
+      height="13"
+      viewBox="0 0 11 13"
+      aria-hidden
+      focusable="false"
+    >
       <path d="M1 1.5v10l9-5-9-5Z" fill="currentColor" />
     </svg>
   );

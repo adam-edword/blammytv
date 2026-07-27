@@ -1391,6 +1391,17 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* The play mark, held at its own size.
+ *
+ * Without this it SHRANK: flex distributes the squeeze across everything
+ * that can take it, and an <svg> can, so a row with a long channel name
+ * rendered the arrow at 4.94px against 11px on a short one. It read as the
+ * confidence column shifting, which is what sent us looking at the number
+ * first. The logo and the badge were already pinned; this had no class to
+ * pin it with. */
+.sportsrail__go {
+  flex: 0 0 auto;
+}
 /* Says what it knows and what it cannot do yet, rather than showing an
  * empty box that looks broken. */
 .sportstheater__empty {
