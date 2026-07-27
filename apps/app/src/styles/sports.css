@@ -1367,7 +1367,13 @@
   padding: 14px 16px;
   border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 16px;
-  background: #131316;
+  /* The row's own surface, named because the confidence number sits ON the
+   * bar and has to punch through it in exactly this colour. Two copies of
+   * one value is how they drift apart later; see the v0.8.1 guide cache
+   * bug, which was a retention window and a cache age in different files
+   * with nothing linking them. */
+  --sportsrail-bg: #131316;
+  background: var(--sportsrail-bg);
   color: #fff;
   font-family: var(--font-headline);
   font-weight: 700;
@@ -1454,16 +1460,25 @@
   flex: 0 0 auto;
 }
 .sportsrail__score {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  /* The number sits ON the bar, not beside it (Adam's Figma). Stacked
+   * rather than side by side: two things reading one measurement should
+   * occupy one place, and the pair was otherwise the widest column in a row
+   * whose subject is the channel name. */
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 32px;
+  min-width: 42px;
   margin-left: auto;
   flex: 0 0 auto;
 }
 .sportsrail__bar {
-  position: relative;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
   width: 3px;
-  height: 26px;
   border-radius: 100px;
   /* The track is the unfilled remainder, so a 20% bar still reads as a
    * measurement against a scale rather than as a stray dash. */
@@ -1479,12 +1494,17 @@
   background: currentColor;
 }
 .sportsrail__pct {
+  position: relative;
+  /* The row's own background, so the number interrupts the bar cleanly
+   * instead of sitting on top of it. Taken from the token above rather than
+   * repeated, so restyling the rail cannot leave this behind. */
+  background: var(--sportsrail-bg);
+  padding: 1px 3px;
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 11px;
   font-variant-numeric: tabular-nums;
-  min-width: 30px;
-  text-align: right;
+  line-height: 1;
 }
 .sportsrail__score.is-sure {
   color: #34d17e;
