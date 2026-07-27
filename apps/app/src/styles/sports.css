@@ -914,10 +914,28 @@
   font-size: 21.3px;
   color: #fff;
 }
-/* The kick-off time when it is the only thing in the column: no score
- * under it, so it carries the weight the score would have. */
+/* The kick-off time when it is the only thing in the column.
+ *
+ * It used to take the weight the score would have had, at 1.32x the team
+ * names, and that read as the time being the point of the card. It is not:
+ * on a fixture the TEAMS are the point and the time is when to come back.
+ * Adam's ratio off the Figma, and written as the ratio rather than the
+ * number it works out to, because that relationship is the spec and the
+ * name size is the thing it hangs off. */
 .gamecard__status--alone {
-  font-size: 36.92px;
+  font-size: calc(var(--sports-name) / 1.27);
+}
+/* Closer to the competition line than a scored card is, so the two read as
+ * one block rather than as a time with a caption. Only in this state: with
+ * a score between them they need the room. */
+.gamecard__status--alone + .gamecard__league {
+  margin-top: 4.26px;
+}
+/* And the block sits lower. Centring it on the names put it high, because
+ * the names are one line and this is two; dropping it lines the time up
+ * against the names rather than above them. */
+.gamecard__center:has(.gamecard__status--alone) {
+  transform: translateY(6px);
 }
 
 .gamecard__score {
