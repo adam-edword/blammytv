@@ -1334,8 +1334,15 @@
   flex-direction: column;
   min-width: 0;
 }
+/* text-align, NOT align-items: flex-end.
+ *
+ * Both put the type on the right, and only one of them lets it be measured.
+ * align-items: flex-end makes each line fit-content, so a name too wide for
+ * the label does not clip, it hangs out of the label's left side and over
+ * the gap between the teams. Nothing reports an overflow, so useFitText
+ * never sees it and never shrinks the group. Stretched, the line takes the
+ * label's width and clips inside it, which is the signal the fit reads. */
 .matchup__label--away {
-  align-items: flex-end;
   text-align: right;
 }
 .matchup__abbr {
@@ -1436,6 +1443,35 @@
   color: rgba(255, 255, 255, 0.45);
   font-size: 13px;
   line-height: 1.5;
+}
+
+/* The same card, sized for a 360px panel instead of a 315px grid track.
+ *
+ * Scoped to the theater rather than changed at the source: on the board the
+ * compact line stands in for a full card and is read against one, so its
+ * type is tied to that card's. In the panel it is a list of other games
+ * beside the one you are watching, six of them in a column, and it is read
+ * against the rail rows above it. Same component, different neighbours.
+ *
+ * The taller box with smaller type is the whole point: the line stops being
+ * a tight band of text and gets room around it. */
+.sportstheater .compactcard {
+  height: 65px;
+}
+.sportstheater .compactcard__status,
+.sportstheater .compactcard__league,
+.sportstheater .compactcard__abbr {
+  font-size: 13px;
+}
+/* The crest holds its size while the box grows around it.
+ *
+ * The mark is a percentage of the row's height, so a 48.28px row taking 65
+ * scales the art up by a third with it, and a wash that was a hint behind
+ * the type becomes the loudest thing in the panel. 193% of 65 is the same
+ * 125px the board draws, so the extra height goes to the type as room
+ * rather than to the art as volume. */
+.sportstheater .compactcard .gamewash__mark {
+  height: 193%;
 }
 
 .sportstheater__scores {

@@ -96,6 +96,34 @@ describe("toGames", () => {
     );
   });
 
+  it("drops why a live game is stopped, keeping where it is up to", () => {
+    const delayed = (detail: string) => ({
+      leagues: [{ abbreviation: "MLB" }],
+      events: [
+        {
+          ...mlb.events[0],
+          competitions: [
+            {
+              ...mlb.events[0].competitions[0],
+              status: { type: { state: "in", shortDetail: detail } },
+            },
+          ],
+        },
+      ],
+    });
+    expect(toGames(delayed("Delayed, Top 1st"), league("mlb"))[0].status).toBe(
+      "Top 1st",
+    );
+    expect(toGames(delayed("Rain Delay, Bot 3rd"), league("mlb"))[0].status).toBe(
+      "Bot 3rd",
+    );
+    // The clock on its own is untouched, whatever shape the sport gives it.
+    expect(toGames(delayed("Bot 7th"), league("mlb"))[0].status).toBe("Bot 7th");
+    expect(toGames(delayed("45'+2"), league("epl"))[0].status).toBe("45'+2");
+    // Nothing behind the comma to keep: the delay is all that is known.
+    expect(toGames(delayed("Delayed"), league("mlb"))[0].status).toBe("Delayed");
+  });
+
   it("gives an unstarted game the local kick-off time, not ESPN's", () => {
     // Soccer's own shortDetail here is the useless "Scheduled".
     const [game] = toGames(epl, league("epl"));

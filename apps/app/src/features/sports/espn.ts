@@ -188,10 +188,18 @@ function toGame(
  * it got there ("Final/11", "Final/OT", "Final/SO") and the card only
  * claims that it is over. Trimmed rather than replaced with "Final", so
  * that anything else the post state carries survives intact.
+ *
+ * A live game is trimmed at the comma, for the same reason from the other
+ * end. ESPN prefixes the clock with why it is not running ("Delayed, Top
+ * 1st", "Rain Delay, Bot 3rd"), and the answer to "where is this game up
+ * to" is the part after the comma. The prefix is a story about the weather.
+ * Everything ESPN says without a comma is already the clock ("Bot 7th",
+ * "Q3 4:11", "45'+2"), and a bare "Delayed" with no clock behind it keeps
+ * its word, because then it is the only thing known.
  */
 function statusText(state: GameState, start: Date, shortDetail?: string): string {
   if (state === "final") return (shortDetail ?? "").split("/")[0].trim();
-  if (state === "live") return shortDetail ?? "";
+  if (state === "live") return (shortDetail ?? "").split(",").pop()?.trim() ?? "";
   return start
     .toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
     .replace(/\s/g, "");

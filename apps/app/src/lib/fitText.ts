@@ -83,13 +83,25 @@ export function useFitText<T extends HTMLElement>(
   useLayoutEffect(() => {
     const fit = () => {
       let ratio = 1;
+      // EVERY line goes back to full size before ANY is measured, and the two
+      // steps cannot be folded into one loop.
+      //
+      // Both numbers are read with the type at full size: the live card's
+      // team block is `width: fit-content`, so its box follows the text and
+      // measuring the room after a shrink would measure the shrink.
+      //
+      // Splitting the loops matters wherever the group SHARES a box. In the
+      // theater's matchup the two names sit in one flex row and take their
+      // width from each other, so resetting one and measuring it while the
+      // other is still shrunk reads room that the other line is about to
+      // take back. Measured: the first name reported as fitting, the group
+      // came out at ratio 1, and the reset left both at full size with the
+      // first clipped. On a card each name owns its own column, which is why
+      // this went unnoticed.
+      for (const ref of els) if (ref.current) ref.current.style.fontSize = "";
       for (const ref of els) {
         const el = ref.current;
         if (!el) continue;
-        // Both numbers are read with the type at full size. The live card's
-        // team block is `width: fit-content`, so its box follows the text:
-        // measuring the room after a shrink would measure the shrink.
-        el.style.fontSize = "";
         const natural = el.scrollWidth;
         const room = el.clientWidth;
         // No layout at all (jsdom, or a card in a hidden tab). Leave the
