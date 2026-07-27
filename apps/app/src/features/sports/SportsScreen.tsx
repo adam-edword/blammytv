@@ -6,6 +6,7 @@ import {
 } from "../settings/compactResults";
 import { CompactCard } from "./CompactCard";
 import { GameCard } from "./GameCard";
+import { SportsTheater } from "./SportsTheater";
 import { UpcomingCard } from "./UpcomingCard";
 import { useGames } from "./useGames";
 import type { Day } from "./useGames";
@@ -26,6 +27,11 @@ import type { Game } from "./model";
  *
  * Today appears in both. That is not duplication: the row answers a
  * question about now and the grid answers one about the day.
+ *
+ * Opening a game replaces the board with the theater. Two modes and no
+ * third: a small player on the board would either compete with the board
+ * or be too small to be worth the room, and the board is already where you
+ * go to stop watching.
  */
 
 /**
@@ -75,12 +81,30 @@ export function SportsScreen() {
   // Read once and kept here: it is a display choice about this screen, so
   // it belongs to the screen rather than to every card in it.
   const [compact, setCompact] = useState(loadCompactResults);
+  // The game being watched, or nothing. Deliberately NOT in the view stack:
+  // this is a mode of one screen, and its own Escape and mouse-back close
+  // it without touching where you came from to get here.
+  const [open, setOpen] = useState<Game | null>(null);
   const toggleCompact = () => {
     setCompact((on) => {
       saveCompactResults(!on);
       return !on;
     });
   };
+
+  if (open) {
+    // Re-read from the refreshed board, so a score on the theater's own
+    // header keeps moving; fall back to the game as opened if it drops off
+    // the day (it will not, but the board is a network read).
+    const current = today.find((g) => g.id === open.id) ?? open;
+    return (
+      <SportsTheater
+        game={current}
+        others={today.filter((g) => g.state === "live" && g.id !== current.id)}
+        onClose={() => setOpen(null)}
+      />
+    );
+  }
 
   return (
     <div className="discover sports">
@@ -94,7 +118,7 @@ export function SportsScreen() {
           </h3>
           <RowScroller>
             {today.map((g) => (
-              <GameCard key={g.id} game={g} />
+              <GameCard key={g.id} game={g} onOpen={setOpen} />
             ))}
           </RowScroller>
         </section>
@@ -126,9 +150,9 @@ export function SportsScreen() {
               <div className="sports__grid">
                 {day.games.map((g) =>
                   compact && g.state === "final" ? (
-                    <CompactCard key={g.id} game={g} />
+                    <CompactCard key={g.id} game={g} onOpen={setOpen} />
                   ) : (
-                    <UpcomingCard key={g.id} game={g} />
+                    <UpcomingCard key={g.id} game={g} onOpen={setOpen} />
                   ),
                 )}
               </div>
