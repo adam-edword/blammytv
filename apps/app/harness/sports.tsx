@@ -1,0 +1,182 @@
+import React from "react";
+import ReactDOM from "react-dom/client";
+import "../src/fonts";
+import "../src/styles/tokens.css";
+import "../src/styles/packs.css";
+import "../src/styles/base.css";
+import "../src/styles/ui.css";
+import "../src/styles/themes.css";
+import "../src/styles/live.css";
+import "../src/styles/stream.css";
+import "../src/styles/sports.css";
+import "../src/styles/discover.css";
+import { SportsScreen } from "../src/features/sports/SportsScreen";
+import { applyAccent, loadAccent } from "../src/features/settings/accent";
+import { applyTheme, loadTheme } from "../src/features/settings/theme";
+import epl from "./fixtures/epl.json";
+import mlb from "./fixtures/mlb.json";
+import nba from "./fixtures/nba.json";
+import nfl from "./fixtures/nfl.json";
+import nhl from "./fixtures/nhl.json";
+
+/**
+ * Layout rig for the Sports hub. Dev-server only: this is its own Vite
+ * entry rather than a flag on main.tsx, because the fixtures below would
+ * otherwise be bundled into the shipping app.
+ *
+ * It exists to answer questions about GEOMETRY at a given viewport, which
+ * is not a thing the unit tests can see and not a thing worth guessing at.
+ * The hub was designed on a 4K panel and most people are on 1920x1080, and
+ * the only honest way to know what that costs is to render it and measure.
+ *
+ *   pnpm --filter blammytv-app dev
+ *   http://localhost:1420/harness/sports.html
+ *
+ * WHAT IS REAL: the components, the stylesheet, the team names, crests,
+ * colours, venues, broadcasts and scores. Five real slates, 42 games,
+ * pruned to the paths espn.ts reads (same treatment as the test fixtures).
+ *
+ * WHAT IS STAGED: the dates and the states. The slates are real past days,
+ * so left alone every card would be a Final on a date the hub filters out.
+ * They get restamped onto the day being asked for and dealt states so that
+ * all three card layouts are on screen at once, which is the point: a rig
+ * that only ever shows one of the three cannot tell you the other two fit.
+ */
+
+/** ESPN's own words for a game in progress. Only the sport knows how it
+ * counts, and the wide card's centre column is sized around these. */
+const LIVE_DETAIL: Record<string, string> = {
+  nfl: "3rd 07:22",
+  nba: "Q3 4:11",
+  mlb: "Bot 7th",
+  nhl: "2nd 12:04",
+  epl: "63'",
+};
+
+/**
+ * Only the two paths this file rewrites. Everything else in a slate is
+ * passed through untouched, so it does not need naming here: espn.ts owns
+ * the real shape and this rig has no business restating it.
+ */
+interface Slate {
+  events?: {
+    competitions: { status?: { type?: { shortDetail?: string } } }[];
+  }[];
+}
+
+const SLATES: Record<string, Slate> = { nfl, nba, mlb, nhl, epl };
+
+/**
+ * Where in the day a game kicks off. Wrapped inside the day on purpose: an
+ * unwrapped `11 + i` runs past midnight for a 15-game MLB slate, and those
+ * games then land on TOMORROW and get filtered straight back out, which
+ * quietly shrinks the board you thought you were measuring.
+ */
+function startHour(index: number) {
+  return 11 + (index % 12);
+}
+
+/**
+ * Deal a day's events across the three states, BY KICK-OFF TIME.
+ *
+ * Off the clock rather than off the index, because that is the one property
+ * a real board has that a shuffled one does not: games that started earlier
+ * are further along. Dealing by index instead interleaves finals and
+ * fixtures once several leagues are merged and sorted, which makes the
+ * grids look far more ragged than they ever are in life. The rig has to be
+ * wrong in ways that do not matter, and that one matters.
+ *
+ * Only today gets a mix; later days are entirely fixtures, which is what a
+ * board two days out actually looks like.
+ */
+function stateFor(dayOffset: number, index: number) {
+  if (dayOffset > 0) return "pre";
+  const hour = startHour(index);
+  if (hour < 15) return "post";
+  if (hour < 18) return "in";
+  return "pre";
+}
+
+/** The requested day as a local Date, from the endpoint's own YYYYMMDD. */
+function parseDates(url: string): Date {
+  const raw = new URL(url, location.origin).searchParams.get("dates");
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (!raw || raw.length !== 8) return today;
+  return new Date(
+    Number(raw.slice(0, 4)),
+    Number(raw.slice(4, 6)) - 1,
+    Number(raw.slice(6, 8)),
+  );
+}
+
+function restamp(slate: Slate, league: string, day: Date) {
+  const midnight = new Date();
+  midnight.setHours(0, 0, 0, 0);
+  const dayOffset = Math.round(
+    (day.getTime() - midnight.getTime()) / (24 * 3600_000),
+  );
+  const events = slate.events ?? [];
+  return {
+    ...slate,
+    events: events.map((e, i) => {
+      const state = stateFor(dayOffset, i);
+      // Spread across the day, so the row is a day in order rather than a
+      // stack of games all at the same minute.
+      const start = new Date(day);
+      start.setHours(startHour(i), (i * 25) % 60, 0, 0);
+      const c = e.competitions[0];
+      return {
+        ...e,
+        date: start.toISOString(),
+        competitions: [
+          {
+            ...c,
+            status: {
+              type: {
+                state,
+                shortDetail:
+                  state === "in"
+                    ? LIVE_DETAIL[league]
+                    : (c.status?.type?.shortDetail ?? "Final"),
+              },
+            },
+          },
+        ],
+      };
+    }),
+  };
+}
+
+/**
+ * Stand in for ESPN, and only for ESPN: crests still come off the real CDN,
+ * because a card measured without its art is not the card.
+ */
+const realFetch = window.fetch.bind(window);
+window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+  const url =
+    typeof input === "string"
+      ? input
+      : input instanceof URL
+        ? input.href
+        : input.url;
+  const m = /sports\/[^/]+\/([^/]+)\/scoreboard/.exec(url);
+  // ESPN's soccer path is the competition code, not our key.
+  const key =
+    m && Object.keys(SLATES).find((k) => k === m[1] || (m[1] === "eng.1" && k === "epl"));
+  if (!key) return realFetch(input, init);
+  return Promise.resolve(
+    new Response(JSON.stringify(restamp(SLATES[key], key, parseDates(url))), {
+      headers: { "content-type": "application/json" },
+    }),
+  );
+};
+
+applyAccent(loadAccent());
+applyTheme(loadTheme());
+
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <SportsScreen />
+  </React.StrictMode>,
+);
