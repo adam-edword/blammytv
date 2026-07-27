@@ -44,7 +44,7 @@ export function CompactCard({
       <span className="compactcard__game">
         {/* Mark and tag are one thing, so they sit together and the gaps
           * that matter are the ones between the three groups. */}
-        <span className="compactcard__side">
+        <span className="compactcard__side compactcard__side--home">
           <Badge team={home} />
           <span
             className={
@@ -65,7 +65,7 @@ export function CompactCard({
             {away.score ?? 0}
           </span>
         </span>
-        <span className="compactcard__side">
+        <span className="compactcard__side compactcard__side--away">
           <span
             className={
               "compactcard__abbr" + (lost === "away" ? " is-lost" : "")

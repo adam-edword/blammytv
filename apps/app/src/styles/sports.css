@@ -253,15 +253,27 @@
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: calc(11px * var(--sports-scale));
   min-width: 0;
 }
+/* Both sides take equal space and push their contents AGAINST the score.
+ * Two effects, and both are what "evenly spaced" turns out to mean here:
+ * the gap either side of the score is the same 16px whatever the tags
+ * weigh, and the score lands at the same x on every card, so a column of
+ * results reads down as well as across. The slack goes to the outer edges,
+ * where nothing is lining up against anything. */
 .compactcard__side {
   display: flex;
+  flex: 1;
   align-items: center;
   gap: calc(4px * var(--sports-scale));
   min-width: 0;
+}
+.compactcard__side--home {
+  justify-content: flex-end;
+}
+.compactcard__side--away {
+  justify-content: flex-start;
 }
 .compactcard__abbr {
   font-family: var(--font-headline);
@@ -278,6 +290,9 @@
   font-weight: 700;
   /* A pixel over the status, so the number leads without shouting. */
   font-size: calc(var(--compact-status) + 1px);
+  /* Every digit the same width, so "6 - 1" and "12 - 3" occupy the same
+   * box and a narrow 1 does not leave a hole beside it. */
+  font-variant-numeric: tabular-nums;
   color: #fff;
 }
 .compactcard__dash {
