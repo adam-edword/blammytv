@@ -242,7 +242,7 @@
   font-size: var(--sports-meta);
   letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.45);
+  color: #fff;
   text-align: right;
 }
 /* The matchup, centred in what the two labels leave. The gap here is
@@ -253,15 +253,15 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: calc(11px * var(--sports-scale));
+  gap: 4px;
   min-width: 0;
 }
 /* Both sides take equal space and push their contents AGAINST the score.
  * Two effects, and both are what "evenly spaced" turns out to mean here:
- * the gap either side of the score is the same 16px whatever the tags
- * weigh, and the score lands at the same x on every card, so a column of
- * results reads down as well as across. The slack goes to the outer edges,
- * where nothing is lining up against anything. */
+ * the gap either side of the score is the same whatever the tags weigh,
+ * and the score lands at the same x on every card, so a column of results
+ * reads down as well as across. The slack goes to the outer edges, where
+ * nothing is lining up against anything. */
 .compactcard__side {
   display: flex;
   flex: 1;
