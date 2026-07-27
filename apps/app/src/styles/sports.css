@@ -107,6 +107,13 @@
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
   pointer-events: none;
+  /* Same curve as the card's own shadow, so the lift and the clearing read
+   * as one gesture rather than two things happening at once. */
+  transition: opacity 450ms ease;
+}
+/* Reaching for a result should show it to you properly. */
+.upcard--final:hover .upcard__tilt::after {
+  opacity: 0;
 }
 
 /* A day, all of it, rather than a slice of it you have to drag through.
@@ -845,11 +852,10 @@
 .upcard__tilt {
   position: relative;
   display: block;
-  /* 132 before, which measured as three pixels of slack: the status, the
-   * teams and the league were jammed together with only their own paddings
-   * between them, and space-between had nothing left to distribute. This
-   * gives it about thirty, which is roughly fifteen between each. */
-  height: calc(150px * var(--sports-scale));
+  /* Shorter than it was, because the status and the competition moved onto
+   * one line across the top instead of taking a row each at either end.
+   * The card gives back the height that saved. */
+  height: calc(114px * var(--sports-scale));
   /* Keep glareBorderRadius in UpcomingCard in step with this. */
   border-radius: calc(30px * var(--sports-scale));
   overflow: hidden;
@@ -888,8 +894,6 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: space-between;
   height: 100%;
   /* Wider at the sides than top and bottom: the names run into the card's
    * corners otherwise, and a name is the one thing on this card with no
@@ -915,14 +919,23 @@
  * the long ones had to be shrunk; this way each gets the card less one
  * badge, about 210px, which is what "Wolverhampton" measures at full size.
  * The diagonal also reads as a matchup rather than as two columns. */
+/* Status left, competition right, on one line. */
+.upcard__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+}
+/* Takes whatever the head leaves and centres itself in it, so the matchup
+ * sits in the card's optical middle rather than hanging off the header. */
 .upcard__teams {
   display: flex;
+  flex: 1;
   flex-direction: column;
+  justify-content: center;
   gap: calc(6px * var(--sports-scale));
   width: 100%;
-  /* Space-between owns the rest of the column, so this reads as the names
-   * lifting off the league line rather than as a gap under them. */
-  margin-bottom: 12px;
 }
 .upcard__team {
   display: flex;

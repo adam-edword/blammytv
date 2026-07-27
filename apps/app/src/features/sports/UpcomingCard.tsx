@@ -87,9 +87,15 @@ export function UpcomingCard({
         <span className="upcard__scrim" aria-hidden />
 
         <span className="upcard__body">
-          <span className="upcard__time">
-            {game.state === "live" && <span className="gamepip" aria-hidden />}
-            {game.status}
+          {/* Status and competition on one line across the top, which buys
+            * the height the card gives back and reads as a scoreboard's
+            * header rather than as two stray labels. */}
+          <span className="upcard__head">
+            <span className="upcard__time">
+              {game.state === "live" && <span className="gamepip" aria-hidden />}
+              {game.status}
+            </span>
+            <span className="upcard__league">{game.league}</span>
           </span>
           <span className="upcard__teams">
             <span
@@ -122,7 +128,6 @@ export function UpcomingCard({
               {scored && <span className="upcard__score">{away.score ?? 0}</span>}
             </span>
           </span>
-          <span className="upcard__league">{game.league}</span>
         </span>
         <WashVeil home={home} away={away} lost={lost} />
       </Tilt>
