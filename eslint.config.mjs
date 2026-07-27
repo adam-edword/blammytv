@@ -64,4 +64,13 @@ export default tseslint.config(
     files: ["scripts/verify-*.mjs"],
     languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
+
+  // The channel dump is not run, it is PASTED into the app's DevTools
+  // console, so it executes in the page and node globals are the wrong set
+  // entirely. `copy` is DevTools' own clipboard helper and exists nowhere
+  // else, which is exactly why the script has two fallbacks behind it.
+  {
+    files: ["scripts/dump-channel-names.js"],
+    languageOptions: { globals: { ...globals.browser, copy: "readonly" } },
+  },
 );

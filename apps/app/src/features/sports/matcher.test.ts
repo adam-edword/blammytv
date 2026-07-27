@@ -1,0 +1,223 @@
+import { describe, expect, it } from "vitest";
+import { matchGame, matchNetwork, normalize, tokens } from "./matcher";
+import type { Tunable } from "./matcher";
+import channels from "./fixtures/channels.json";
+import vocabulary from "./fixtures/broadcast-names.json";
+
+/**
+ * The matcher, against both real corpora.
+ *
+ * Every channel name quoted here is verbatim from a 1,875-channel dump and
+ * every network name is verbatim from ESPN. That is the whole point: the
+ * difficulty of this problem is entirely in the shapes real providers use,
+ * and a test written against invented names would prove nothing.
+ *
+ * The last block is a floor on the measured hit rate, so that a change which
+ * quietly makes the matcher worse fails here rather than on a Sunday.
+ */
+
+let next = 0;
+const chan = (name: string, quality: string | null = null): Tunable => ({
+  id: `c${next++}`,
+  name,
+  quality,
+});
+
+/** The real dump, as the matcher takes it. */
+const ALL: Tunable[] = channels.map((c, i) => ({
+  id: `dump-${i}`,
+  name: c.name,
+  quality: c.quality,
+}));
+
+describe("normalize", () => {
+  it("drops the country prefix a playlist adds and a schedule never has", () => {
+    expect(normalize("US: ESPN")).toBe("espn");
+    expect(normalize("UK: Sky Sports F1")).toBe("sky sports f1");
+    expect(normalize("MY| Astro SuperSports")).toBe("astro supersports");
+  });
+
+  it("does not eat a real word that starts with a country code", () => {
+    // The prefix only counts when punctuation closes it.
+    expect(normalize("USA Network")).toBe("usa network");
+    expect(normalize("US: Indiana Sports")).toBe("indiana sports");
+  });
+
+  it("drops resolution badges wherever they sit", () => {
+    expect(normalize("US: Fox Sports 1 HD")).toBe("fox sports 1");
+    expect(normalize("US: FOX Sports 2 FHD")).toBe("fox sports 2");
+    expect(normalize("ESPN 4K UHD")).toBe("espn");
+    expect(normalize("US: Willow HD")).toBe("willow");
+  });
+
+  it("keeps the plus, because ESPN+ is not ESPN", () => {
+    expect(tokens("ESPN+").has("espn+")).toBe(true);
+    expect(tokens("ESPN+").has("espn")).toBe(false);
+  });
+});
+
+describe("matchNetwork", () => {
+  it("finds the obvious one", () => {
+    const list = [chan("US: ESPN"), chan("US: MLB Network"), chan("US: MASN")];
+    expect(matchNetwork("MASN", list).map((c) => c.name)).toEqual(["US: MASN"]);
+  });
+
+  it("REFUSES to let a network swallow its numbered sibling", () => {
+    // The mistake the plan has warned about from the start.
+    const list = [chan("US: ESPN 2"), chan("US: ESPN U"), chan("US: ESPN News")];
+    expect(matchNetwork("ESPN", list)).toEqual([]);
+    expect(matchNetwork("ESPN 2", list).map((c) => c.name)).toEqual(["US: ESPN 2"]);
+  });
+
+  it("does not let FOX become Fox Sports 1", () => {
+    const list = [chan("US: Fox Sports 1 HD"), chan("US: FOX Sports 2 FHD")];
+    expect(matchNetwork("FOX", list)).toEqual([]);
+  });
+
+  it("does not let MSG become MSG 2", () => {
+    const list = [chan("US: MSG 2"), chan("US: MSGSN2")];
+    expect(matchNetwork("MSG", list)).toEqual([]);
+  });
+
+  it("allows extra WORDS, because a playlist says more than a schedule", () => {
+    const list = [chan("US: Chicago Sports Network CHSN")];
+    expect(matchNetwork("CHSN", list)).toHaveLength(1);
+  });
+
+  it("expands the shortenings the schedule uses", () => {
+    expect(matchNetwork("NFL Net", [chan("US: NFL Network")])).toHaveLength(1);
+    expect(matchNetwork("MLBN", [chan("US: MLB Network")])).toHaveLength(1);
+    expect(
+      matchNetwork("Marquee Sports Net", [chan("US: Marquee Sports Network")]),
+    ).toHaveLength(1);
+    expect(
+      matchNetwork("NBC Sports BA", [chan("US: NBC Sports Bay Area")]),
+    ).toHaveLength(1);
+    expect(
+      matchNetwork("NBC Sports Phil", [chan("US: NBC Sports Philadelphia")]),
+    ).toHaveLength(1);
+    expect(
+      matchNetwork("MNMT", [chan("US: Monumental Sports Network")]),
+    ).toHaveLength(1);
+  });
+
+  it("meets SportsNet in the middle, one word on one side and two on the other", () => {
+    expect(
+      matchNetwork("SportsNet PIT", [chan("US: AT&T SportsNet Pittsburgh")]),
+    ).toHaveLength(1);
+    expect(
+      matchNetwork("SNY", [chan("US: SportsNet New York SNY")]),
+    ).toHaveLength(1);
+  });
+
+  it("does not let MSG become MSG Western New York", () => {
+    // A region is not a decoration, it is a different feed of the same
+    // brand, and tuning the wrong one is the failure that costs trust.
+    const list = [chan("US: MSG Western New York"), chan("US: MSG")];
+    expect(matchNetwork("MSG", list).map((c) => c.name)).toEqual(["US: MSG"]);
+  });
+
+  it("puts the exact name before one carrying only shelf words", () => {
+    const list = [chan("US: The MASN Network"), chan("US: MASN")];
+    expect(matchNetwork("MASN", list).map((c) => c.name)).toEqual([
+      "US: MASN",
+      "US: The MASN Network",
+    ]);
+  });
+
+  it("reads a trailing acronym as the brand, but not a trailing attribution", () => {
+    expect(matchNetwork("CHSN", [chan("US: Chicago Sports Network CHSN")])).toHaveLength(1);
+    // Real name from the dump: an event listing that merely says who is
+    // showing it. Matching this would put a Summer League feed on an NBA
+    // game card.
+    expect(
+      matchNetwork("ESPN", [chan("NBA 02: NBA Las Vegas Summer League 2026 - ESPN")]),
+    ).toEqual([]);
+  });
+
+  it("offers the better picture first within each of those", () => {
+    const list = [chan("US: ESPN"), chan("US: ESPN FHD", "FHD"), chan("US: ESPN", "4K")];
+    // An unbadged channel sorts LAST, not middle: a known FHD beats an
+    // unknown, because the unknown is as likely to be SD as anything.
+    expect(matchNetwork("ESPN", list).map((c) => c.quality)).toEqual([
+      "4K",
+      "FHD",
+      null,
+    ]);
+  });
+
+  it("refuses the WORD-qualified siblings too, not just the numbered ones", () => {
+    const list = [
+      chan("US: NESN Plus"),
+      chan("US: Bein Sports Xtra"),
+      chan("US: Big Ten Network Overflow 2"),
+      chan("US: Spectrum Sportsnet Alternate"),
+    ];
+    expect(matchNetwork("NESN", list)).toEqual([]);
+    expect(matchNetwork("Bein Sports", list)).toEqual([]);
+    expect(matchNetwork("Big Ten Network", list)).toEqual([]);
+  });
+
+  it("has nothing to say about a name nobody carries", () => {
+    // Peacock is a real answer to "where is this game", just not one that is
+    // a channel. No denylist: it simply matches nothing.
+    expect(matchNetwork("Peacock", ALL)).toEqual([]);
+    expect(matchNetwork("Netflix", ALL)).toEqual([]);
+  });
+
+  it("ignores an empty or punctuation-only network name", () => {
+    expect(matchNetwork("", ALL)).toEqual([]);
+    expect(matchNetwork("  -  ", ALL)).toEqual([]);
+  });
+});
+
+describe("matchGame", () => {
+  it("gathers every network a game is on, national feed first", () => {
+    const list = [chan("US: MASN"), chan("US: MLB Network")];
+    expect(matchGame(["MLBN", "MASN"], list).map((c) => c.name)).toEqual([
+      "US: MLB Network",
+      "US: MASN",
+    ]);
+  });
+
+  it("does not offer the same channel twice", () => {
+    const espn = chan("US: ESPN");
+    expect(matchGame(["ESPN", "ESPN"], [espn])).toHaveLength(1);
+  });
+
+  it("is empty for a game with no networks at all", () => {
+    expect(matchGame([], ALL)).toEqual([]);
+  });
+});
+
+describe("against the real corpora", () => {
+  const names: string[] = vocabulary.names.map((n) => n.name);
+
+  it("matches the broadcasters this catalog genuinely carries", () => {
+    const hit = names.filter((n) => matchNetwork(n, ALL).length > 0);
+    // Measured 2026-07-27: 24 of the 92 names. Every one was checked by
+    // hand and is correct; the earlier looser rule reached 27 by counting
+    // three false positives. The rest are absent from the catalog rather
+    // than missed, see plan 010. A FLOOR, so a regression fails here.
+    expect(hit.length).toBeGreaterThanOrEqual(24);
+  });
+
+  it("never matches a network to a numbered sibling anywhere in the dump", () => {
+    // The whole corpus, not a hand-picked pair: for every match, the digits
+    // in the channel's name must be the digits the schedule asked for.
+    const digits = (s: string) => [...tokens(s)].filter((w) => /^\d+$/.test(w)).sort();
+    for (const n of names) {
+      for (const c of matchNetwork(n, ALL)) {
+        expect(digits(c.name), `${n} -> ${c.name}`).toEqual(digits(n));
+      }
+    }
+  });
+
+  it("keeps ESPN off ESPN+ and ESPN U in the real dump", () => {
+    const got = matchNetwork("ESPN", ALL).map((c) => c.name);
+    expect(got.length).toBeGreaterThan(0);
+    for (const name of got) {
+      expect(name).not.toMatch(/ESPN\s*(\+|U|News|2)\b/i);
+    }
+  });
+});

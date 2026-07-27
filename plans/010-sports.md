@@ -210,7 +210,17 @@ only the 60 that are not streaming-only and could therefore ever match:
 | Matcher | Reachable broadcasters matched |
 | --- | --- |
 | Normalize + exact token set | 16/60 (27%) |
-| ...plus alias expansion | **25/60 (42%)** |
+| ...plus alias expansion | 25/60 (42%) |
+| ...**as shipped, false positives removed** | **24/60 (40%)** |
+
+The last row is lower than the one above it on purpose. Allowing a network
+name to be a SUBSET of a channel's name reached 27 names, and three of
+those were wrong: `NBC` was matching NBC Sports Bay Area, Boston and eight
+more, `Sportsnet` was matching eighteen channels, and `ESPN` was matching
+an event listing called "NBA Las Vegas Summer League 2026 - ESPN". Every
+one of the 24 that remain has been checked by hand and is right. A wrong
+channel is worse than no channel, and this is that rule costing three
+points.
 
 Alias expansion is ESPN's abbreviations against a playlist's full words:
 `NFL Net` to `NFL Network`, `MLBN` to `MLB Network`, `NBC Sports BA` to
@@ -314,11 +324,11 @@ interface Carriage {
    answering "give me today's fixtures for these leagues". Verified against
    the real endpoints. Deliberately throwaway-able.
    `espn.ts`, five leagues, three real responses as fixtures, 12 tests.
-2. **NEXT, and blocked on a playlist snapshot.** **The matcher, tests
-   first.** Network name to channel list, against a real playlist snapshot
-   as a fixture file. No UI. This is where the feature is won or lost and it
-   is testable without a screen. The schedule half of the corpus is already
-   checked in; see "One side of it" above.
+2. **DONE as pure logic, not yet wired.** **The matcher, tests first.**
+   `matcher.ts`, 24 tests against both real corpora. It takes its channel
+   list as an argument, so the open question above about hidden folders is
+   the caller's to answer and does not block it. What remains is the wiring:
+   resolving `Game.channels` at render time against the live catalog.
 3. **MOSTLY DONE.** **The hub, read only.** Cards, sections, no tuning.
    Proves the shape. Today as a row in kick-off order, centred on whatever
    is on now, plus a grid per day for three days. Three card sizes, one per
