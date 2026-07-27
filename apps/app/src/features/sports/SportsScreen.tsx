@@ -75,7 +75,7 @@ export function SportsScreen() {
           <h3 className="media-row__title sports__title">
             {/* The pip is a claim about the world, so it only appears when
               * something is actually on. */}
-            {live && <span className="sports__live-dot" aria-hidden />}
+            {live && <span className="gamepip" aria-hidden />}
             Today&rsquo;s Games
           </h3>
           <RowScroller>

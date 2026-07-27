@@ -87,7 +87,10 @@ export function UpcomingCard({
         <span className="upcard__scrim" aria-hidden />
 
         <span className="upcard__body">
-          <span className="upcard__time">{game.status}</span>
+          <span className="upcard__time">
+            {game.state === "live" && <span className="gamepip" aria-hidden />}
+            {game.status}
+          </span>
           <span className="upcard__teams">
             <span
               className={

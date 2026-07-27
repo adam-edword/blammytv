@@ -114,6 +114,9 @@ export function GameCard({
                 (game.state === "pre" ? " gamecard__status--alone" : "")
               }
             >
+              {game.state === "live" && (
+                <span className="gamepip" aria-hidden />
+              )}
               {game.status}
             </span>
             {game.state !== "pre" && (

@@ -54,9 +54,14 @@
   font-size: 31px;
 }
 
-/* The live pip. Fixed red rather than the accent: "live" is a state of the
- * world, not a themeable decoration, and it reads the same on every pack. */
-.sports__live-dot {
+/* The live pip, wherever "on now" is being claimed: the section heading,
+ * and beside the clock on a game that is actually running.
+ *
+ * Fixed red rather than the accent: "live" is a state of the world, not a
+ * themeable decoration, and it reads the same on every pack. One class for
+ * all three places, so the claim looks identical wherever it is made. */
+.gamepip {
+  flex: 0 0 auto;
   width: 7px;
   height: 7px;
   border-radius: 50%;
@@ -720,6 +725,9 @@
   gap: 2px;
 }
 .gamecard__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: calc(15px * var(--sports-scale));
@@ -889,6 +897,10 @@
   padding: calc(14px * var(--sports-scale)) calc(18px * var(--sports-scale)) calc(12px * var(--sports-scale));
 }
 .upcard__time {
+  /* Inline-flex so the pip sits on the clock's line rather than above it. */
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: calc(13px * var(--sports-scale));
