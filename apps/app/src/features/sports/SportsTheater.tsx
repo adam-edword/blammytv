@@ -63,6 +63,11 @@ export function SportsTheater({
       <aside className="sportstheater__side">
         <Matchup game={game} />
 
+        {/* The scroller is INSIDE the panel rather than being it, so the
+          * matchup above can spill its crests past every edge. A scroll
+          * container clips on both axes, so anything that must overflow
+          * cannot live in one. */}
+        <div className="sportstheater__list">
         {/* Every channel of yours carrying this game. Empty until the
           * matcher exists (plan 010 phase 2): the schedule names networks
           * ("NBC", "MASN") and only a matcher can turn those into your own
@@ -91,6 +96,7 @@ export function SportsTheater({
             ))}
           </section>
         )}
+        </div>
       </aside>
 
       {/* The hole. InvertedPlayer glues mpv to whatever box carries this id
