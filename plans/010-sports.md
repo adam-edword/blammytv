@@ -250,35 +250,34 @@ how clever it is. **That is an open decision, recorded below, and it should
 be settled before the matcher is written**, because it changes what the
 matcher searches.
 
-### Open: what may the matcher search?
+### Decided: what the matcher searches
 
-A game on FOX with FOX hidden from the guide is the case this turns on.
+**Adam, 2026-07-27: hidden folders count, but only as a fallback.** If
+anything in a VISIBLE folder carries the game, that is the whole answer and
+the hidden ones are never mentioned. Only when nothing visible carries it do
+they appear. Decided per game, not per network: a game on FOX and MASN with
+only MASN visible offers MASN alone.
 
-1. **Visible channels only.** Consistent with the existing rule, and that
-   rule is deliberate. Costs most of a Sunday NFL slate reading "not on your
-   channels" when the channel does exist behind a hidden folder.
-2. **Every channel, hidden or not.** Sports is a different lens on the same
-   catalog, and hiding is about guide clutter rather than entitlement. But
-   it quietly overrides an explicit user choice and could tune a channel
-   somebody hid on purpose.
-3. **Visible first, then offer the hidden ones.** "3 hidden folders carry
-   this game" with a way to un-hide. Honest, keeps the user's choice, and
-   costs a step at the moment they most want none.
+The reasoning is which case each choice serves. The common case is that a
+folder was hidden precisely so it would stop being seen, and the rare case
+is the Sunday where the only copy of a game is inside one. Ranking hidden
+channels below visible ones in a single list would serve the rare case by
+spoiling the common one; a fallback serves the rare case and is invisible
+the rest of the time.
 
-- **Normalize both sides.** Strip country prefixes (`US|`, `USA:`), quality
-  suffixes (`HD`, `FHD`, `4K`, `1080`), separators, and the unicode lookalikes
-  providers love (`ᴴᴰ`). `extractQuality` and the emoji handling already in
-  the Live pipeline do part of this; extend rather than duplicate.
-- **Match on the normalized token set**, not on substring containment.
-  Substrings are how "ESPN" matches "ESPNU" and puts the wrong game on screen.
-- **Several matches is a success, not an ambiguity.** Show them all, ordered
-  by quality, exactly like the source rail.
-- **Zero matches is honest.** "No channel of yours is carrying this" beats a
-  guess. Offer a search box into the channel list so the user can look.
-- **A wrong match must be correctable, and the correction must stick.** Store
-  it keyed by NETWORK, not by fixture: teaching the app once that `CBS` means
-  `US| CBS HD` should hold for every CBS game forever. This is also the
-  graceful degradation path if broadcast data is thin.
+**This needed a pipeline change, because hidden channels never used to
+exist.** `mapStreams` drops them at load, and that rule stands for the
+guide. They now come back on a separate list, `LiveData.hidden`, which the
+sports matcher is the only reader of: the guide, sidebar, search,
+favourites and recents all read `channels` and see exactly what they did
+before.
+
+**One trap, found by a test that failed for the right reason.**
+`droppedCategories` returns the user's hidden folders and the categories
+the ADULT FILTER hid, added together. Reusing that set would have made the
+sports hub a way around the adult filter. `mapHiddenStreams` therefore
+starts from the user's own list and subtracts the adult categories back
+out, and a test holds it there.
 
 ## Where it lives
 

@@ -122,6 +122,8 @@ type EpgPhase = { programmes: Map<string, Programme[]>; epgError?: string };
 type SourceBuild = {
   group: LiveGroup;
   channels: Channel[];
+  /** Only the Xtream builder fills this; see LiveData.hidden. */
+  hidden?: Channel[];
   epg: Promise<EpgPhase>;
 };
 
@@ -257,6 +259,8 @@ async function doLoad(
     for (const src of built) {
       data.groups.push(src.group);
       data.channels = data.channels.concat(src.channels);
+      if (src.hidden?.length)
+        data.hidden = (data.hidden ?? []).concat(src.hidden);
     }
     // The guide is still in the air. Channels render now (empty lanes read
     // as "No Information", which the guide already handles), and when the
@@ -274,7 +278,12 @@ async function doLoad(
       for (const phase of phases)
         for (const [id, list] of phase.programmes)
           programmes.set(id, normalizeProgrammes(list));
-      const full: LiveData = { groups, channels: data.channels, programmes };
+      const full: LiveData = {
+        groups,
+        channels: data.channels,
+        hidden: data.hidden,
+        programmes,
+      };
       if (full.channels.length === 0) return;
       const at = Date.now();
       cache = { key, at, data: full };
@@ -355,6 +364,9 @@ async function buildXtreamSource(
       .filter((c) => !hidden.has(c.id))
       .map((c) => ({ id: folderId(p.id, c.id), name: c.name }));
     const channels = mapStreams(streams, p, hidden, !showAdult);
+    // What the hidden folders are holding, for the sports matcher's
+    // fallback and nothing else. Same adult filter as above.
+    const hiddenChannels = mapHiddenStreams(streams, p, cats, showAdult);
 
     // EPG is best-effort — channels still render "No Information" without
     // it. Whatever goes wrong lands on group.epgError so an installed user
@@ -411,7 +423,12 @@ async function buildXtreamSource(
       }
     })();
 
-    return { group: { id: p.id, name: p.name, folders }, channels, epg };
+    return {
+      group: { id: p.id, name: p.name, folders },
+      channels,
+      hidden: hiddenChannels,
+      epg,
+    };
   } catch (err) {
     console.error(`[live] playlist "${p.name}" failed: ${msg(err)}`);
     return {
@@ -707,18 +724,59 @@ export function mapStreams(
         !hidden.has(String(s.category_id ?? "")) &&
         !(hideAdult && isAdultStream(s)),
     )
-    .map((s) => {
-      const name = s.name?.trim() || `Channel ${s.stream_id}`;
-      return {
-        id: channelId(p.id, s.stream_id),
-        name,
-        quality: extractQuality(name),
-        folderId: folderId(p.id, s.category_id),
-        logo: validUrl(s.stream_icon),
-        archiveDays: archiveDaysOf(s),
-        number: channelNumber(s),
-      };
-    });
+    .map((s) => toChannel(s, p));
+}
+
+/**
+ * The channels a hidden folder is hiding, for the Sports hub alone.
+ *
+ * The rule above stands for the guide: hiding a folder hides its content.
+ * But a GAME is a different question from a channel list, and a Sunday
+ * where the only copy of the game sits in a folder you muted is exactly
+ * when the app should still be able to find it. So the sports matcher gets
+ * to look here, after it has failed to find anything visible, and nothing
+ * else reads this list (see LiveData.hidden).
+ *
+ * The adult filter is NOT a folder preference and is not relaxed here: it
+ * stays applied exactly as it is above, so this cannot become a back door
+ * to content the filter is holding back.
+ */
+export function mapHiddenStreams(
+  streams: XtreamStream[],
+  p: XtreamPlaylist,
+  cats: XtreamCategory[] = [],
+  showAdult = false,
+): Channel[] {
+  // Deliberately NOT droppedCategories. That set is two different things
+  // added together: folders the USER hid, and categories the ADULT FILTER
+  // hid. Only the first is a preference about clutter that a game may
+  // reasonably look past; the second is the filter doing its job, and
+  // searching it would turn the sports hub into a way around it. So this
+  // starts from the user's own list and subtracts the adult ones back out.
+  const userHidden = new Set(p.hiddenCategories ?? []);
+  if (!showAdult)
+    for (const c of cats) if (isAdultCategory(c)) userHidden.delete(c.id);
+  if (userHidden.size === 0) return [];
+  return streams
+    .filter(
+      (s) =>
+        userHidden.has(String(s.category_id ?? "")) &&
+        !(!showAdult && isAdultStream(s)),
+    )
+    .map((s) => toChannel(s, p));
+}
+
+function toChannel(s: XtreamStream, p: XtreamPlaylist): Channel {
+  const name = s.name?.trim() || `Channel ${s.stream_id}`;
+  return {
+    id: channelId(p.id, s.stream_id),
+    name,
+    quality: extractQuality(name),
+    folderId: folderId(p.id, s.category_id),
+    logo: validUrl(s.stream_icon),
+    archiveDays: archiveDaysOf(s),
+    number: channelNumber(s),
+  };
 }
 
 /** Provider channel number (Xtream `num`), coerced from the panel's

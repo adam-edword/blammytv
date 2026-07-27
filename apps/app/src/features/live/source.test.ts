@@ -5,6 +5,7 @@ import {
   channelNumber,
   droppedCategories,
   epgIndex,
+  mapHiddenStreams,
   mapStreams,
 } from "./source";
 
@@ -43,6 +44,20 @@ describe("mapStreams", () => {
   });
 
   it("drops streams in hidden categories entirely", () => {
+    const chans = mapStreams(
+      [
+        { stream_id: 1, name: "Keep", category_id: "7" },
+        { stream_id: 2, name: "Hide", category_id: "13" },
+      ],
+      playlist({ hiddenCategories: ["13"] }),
+    );
+    expect(chans.map((c) => c.name)).toEqual(["Keep"]);
+  });
+
+  it("still drops them from the catalog now that sports can see them", () => {
+    // mapHiddenStreams exists, but it is a SEPARATE list: the guide, the
+    // sidebar, search and favourites all read this one and none of them may
+    // start showing a folder the user hid.
     const chans = mapStreams(
       [
         { stream_id: 1, name: "Keep", category_id: "7" },
@@ -209,5 +224,80 @@ describe("epgIndex", () => {
       playlist({ hiddenCategories: ["13"] }),
     );
     expect(idx.size).toBe(0);
+  });
+});
+
+describe("mapHiddenStreams", () => {
+  const streams = [
+    { stream_id: 1, name: "US: ESPN", category_id: "7" },
+    { stream_id: 2, name: "US: FOX", category_id: "13" },
+    { stream_id: 3, name: "US: CBS HD", category_id: "13" },
+  ];
+
+  it("returns exactly what the hidden folders are holding", () => {
+    const chans = mapHiddenStreams(streams, playlist({ hiddenCategories: ["13"] }));
+    expect(chans.map((c) => c.name)).toEqual(["US: FOX", "US: CBS HD"]);
+  });
+
+  it("maps them the same way as a visible channel", () => {
+    const [, cbs] = mapHiddenStreams(
+      streams,
+      playlist({ hiddenCategories: ["13"] }),
+    );
+    expect(cbs).toEqual({
+      id: "pl1:3",
+      name: "US: CBS HD",
+      quality: "HD",
+      folderId: "pl1:13",
+      logo: undefined,
+      archiveDays: 0,
+    });
+  });
+
+  it("is empty when nothing is hidden, rather than being everything", () => {
+    expect(mapHiddenStreams(streams, playlist())).toEqual([]);
+  });
+
+  it("drops an adult-FLAGGED stream out of a folder the user hid", () => {
+    const withAdult = [
+      ...streams,
+      { stream_id: 4, name: "Some Channel", category_id: "13", is_adult: 1 },
+    ];
+    const chans = mapHiddenStreams(
+      withAdult,
+      playlist({ hiddenCategories: ["13"] }),
+    );
+    expect(chans.map((c) => c.name)).toEqual(["US: FOX", "US: CBS HD"]);
+  });
+
+  it("REFUSES to search an adult category, even if the user also hid it", () => {
+    // The failure this guards: droppedCategories folds adult categories in
+    // with the user's hidden ones, so reusing that set here would have made
+    // the sports matcher a way around the adult filter.
+    const chans = mapHiddenStreams(
+      [{ stream_id: 5, name: "Anything", category_id: "99" }],
+      playlist({ hiddenCategories: ["99"] }),
+      [{ id: "99", name: "XXX Adult", adult: false }],
+      false,
+    );
+    expect(chans).toEqual([]);
+  });
+
+  it("searches that same category once the filter is off", () => {
+    const chans = mapHiddenStreams(
+      [{ stream_id: 5, name: "Anything", category_id: "99" }],
+      playlist({ hiddenCategories: ["99"] }),
+      [{ id: "99", name: "XXX Adult", adult: false }],
+      true,
+    );
+    expect(chans.map((c) => c.name)).toEqual(["Anything"]);
+  });
+
+  it("never overlaps the visible catalog", () => {
+    const p = playlist({ hiddenCategories: ["13"] });
+    const visible = new Set(mapStreams(streams, p).map((c) => c.id));
+    for (const c of mapHiddenStreams(streams, p)) {
+      expect(visible.has(c.id)).toBe(false);
+    }
   });
 });

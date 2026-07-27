@@ -22,6 +22,14 @@ export interface Tunable {
   name: string;
   /** "4K" | "HDR" | "FHD" | "HD" | null, as extractQuality reports it. */
   quality: string | null;
+  /**
+   * In a folder the user has hidden from the guide.
+   *
+   * Hiding a folder is about what the guide is cluttered with, and a game is
+   * a different question from a channel list, so these still count. They
+   * just count LAST: see `matchGame`.
+   */
+  hidden?: boolean;
 }
 
 /**
@@ -193,19 +201,30 @@ export function matchNetwork(network: string, channels: Tunable[]): Tunable[] {
  * named for it.
  *
  * De-duplicated by channel id, keeping the order the networks came in, so a
- * game's national feed is offered before a regional one. The caller decides
- * WHICH channels are in scope; that is a question about hidden folders and
- * it does not belong to the matching.
+ * game's national feed is offered before a regional one.
+ *
+ * HIDDEN FOLDERS ARE A FALLBACK, NOT A TIER. If anything in a visible folder
+ * carries this game, that is the whole answer and the hidden ones are never
+ * mentioned; only when nothing visible carries it do they appear. Adam's
+ * call, and it is the right one for a reason worth writing down: the common
+ * case is that the user hid a folder precisely so they would stop seeing it,
+ * and the rare case is a Sunday where the only copy of the game is in there.
+ * Mixing the two would serve the rare case by spoiling the common one.
+ *
+ * Note this is decided per GAME and not per network. A game on FOX and MASN
+ * with only MASN visible offers MASN alone: something visible carries it, so
+ * the question of hidden folders never arises.
  */
 export function matchGame(networks: string[], channels: Tunable[]): Tunable[] {
   const seen = new Set<string>();
-  const out: Tunable[] = [];
+  const visible: Tunable[] = [];
+  const hidden: Tunable[] = [];
   for (const network of networks) {
     for (const c of matchNetwork(network, channels)) {
       if (seen.has(c.id)) continue;
       seen.add(c.id);
-      out.push(c);
+      (c.hidden ? hidden : visible).push(c);
     }
   }
-  return out;
+  return visible.length > 0 ? visible : hidden;
 }

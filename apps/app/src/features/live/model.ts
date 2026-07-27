@@ -66,6 +66,16 @@ export interface LiveData {
   /** Channel id → programmes sorted by start. Missing/empty means the
    * channel renders a "No Information" lane. */
   programmes: Map<string, Programme[]>;
+  /**
+   * Channels sitting in folders the user hid, for the Sports hub only.
+   *
+   * Not part of the catalog: the guide, the sidebar, search, favourites and
+   * recents all read `channels` and none of them may see these. It exists
+   * because a game is a different question from a channel list, and the
+   * matcher falls back to it when nothing visible carries a game (plan 010).
+   * Absent for M3U and Stalker sources, which have no hidden categories.
+   */
+  hidden?: Channel[];
   /** Channels arrived but the guide is STILL DOWNLOADING (source.ts returns
    * the catalog without waiting on a ~100MB xmltv). The empty lanes are
    * temporary, so the UI says so rather than letting them read as "this

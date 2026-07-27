@@ -188,6 +188,45 @@ describe("matchGame", () => {
   it("is empty for a game with no networks at all", () => {
     expect(matchGame([], ALL)).toEqual([]);
   });
+
+  describe("hidden folders", () => {
+    const buried = (name: string): Tunable => ({ ...chan(name), hidden: true });
+
+    it("never mentions a hidden channel when a visible one carries the game", () => {
+      const list = [buried("US: MASN"), chan("US: MLB Network")];
+      expect(matchGame(["MLBN", "MASN"], list).map((c) => c.name)).toEqual([
+        "US: MLB Network",
+      ]);
+    });
+
+    it("falls back to hidden when nothing visible carries it", () => {
+      // The Sunday case: the only copy of the game is in a folder you hid.
+      const list = [buried("US: FOX"), chan("US: MLB Network")];
+      expect(matchGame(["FOX"], list).map((c) => c.name)).toEqual(["US: FOX"]);
+    });
+
+    it("decides per game, not per network", () => {
+      // MASN is visible, so FOX being buried never comes up at all.
+      const list = [buried("US: FOX"), chan("US: MASN")];
+      expect(matchGame(["FOX", "MASN"], list).map((c) => c.name)).toEqual([
+        "US: MASN",
+      ]);
+    });
+
+    it("still ranks the fallback by quality", () => {
+      const list = [buried("US: FOX"), { ...buried("US: FOX"), quality: "4K" }];
+      expect(matchGame(["FOX"], list).map((c) => c.quality)).toEqual([
+        "4K",
+        null,
+      ]);
+    });
+
+    it("is empty when neither visible nor hidden carries it", () => {
+      expect(matchGame(["Peacock"], [buried("US: MASN"), chan("US: ESPN")])).toEqual(
+        [],
+      );
+    });
+  });
 });
 
 describe("against the real corpora", () => {
