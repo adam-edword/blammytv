@@ -1297,6 +1297,22 @@
   min-width: 0;
   overflow-y: auto;
   scrollbar-width: none;
+  /* Room for a rail row to lean without losing its corners.
+   *
+   * overflow-y: auto is not one-sided: the spec computes overflow-x to auto
+   * as well once the other axis is not visible, so this box clips
+   * horizontally too, which is where the clipping showed.
+   *
+   * 8px because the spill is NOT symmetric. Halving the width a lean adds
+   * says 3px a side, and that is the wrong sum: perspective swings one edge
+   * toward the viewer and the other away, so the bounding box shifts as
+   * well as grows and the leading edge takes about 4.6px on its own. 5px
+   * left 0.37px of slack, which is not slack. Checked at all four corners
+   * of the deflection rather than one.
+   *
+   * Padding rather than a negative margin on the rows: every child insets
+   * equally, so the matchup header and the rail stay on the same edges. */
+  padding: 8px;
 }
 
 /* The matchup, bled to the panel's edges: the wash is the header's
