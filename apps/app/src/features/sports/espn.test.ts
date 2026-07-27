@@ -72,6 +72,30 @@ describe("toGames", () => {
     expect(games.find((g) => g.state === "final")!.status).toBe("Final");
   });
 
+  it("trims how a final got there, keeping only that it is over", () => {
+    const overtime = (detail: string) => ({
+      leagues: [{ abbreviation: "MLB" }],
+      events: [
+        {
+          ...mlb.events[0],
+          competitions: [
+            {
+              ...mlb.events[0].competitions[0],
+              status: { type: { state: "post", shortDetail: detail } },
+            },
+          ],
+        },
+      ],
+    });
+    expect(toGames(overtime("Final/11"), league("mlb"))[0].status).toBe("Final");
+    expect(toGames(overtime("Final/OT"), league("nfl"))[0].status).toBe("Final");
+    expect(toGames(overtime("Final"), league("mlb"))[0].status).toBe("Final");
+    // Anything else the post state carries survives.
+    expect(toGames(overtime("Postponed"), league("mlb"))[0].status).toBe(
+      "Postponed",
+    );
+  });
+
   it("gives an unstarted game the local kick-off time, not ESPN's", () => {
     // Soccer's own shortDetail here is the useless "Scheduled".
     const [game] = toGames(epl, league("epl"));

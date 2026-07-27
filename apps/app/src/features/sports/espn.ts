@@ -183,9 +183,15 @@ function toGame(
  * started gets the local kick-off time instead: ESPN's own is either the
  * useless "Scheduled" (soccer) or a US-Eastern wall time with the date
  * stapled on (NFL), and neither is what someone scanning tonight wants.
+ *
+ * A finished game is trimmed at the slash: ESPN qualifies it with however
+ * it got there ("Final/11", "Final/OT", "Final/SO") and the card only
+ * claims that it is over. Trimmed rather than replaced with "Final", so
+ * that anything else the post state carries survives intact.
  */
 function statusText(state: GameState, start: Date, shortDetail?: string): string {
-  if (state !== "pre") return shortDetail ?? "";
+  if (state === "final") return (shortDetail ?? "").split("/")[0].trim();
+  if (state === "live") return shortDetail ?? "";
   return start
     .toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
     .replace(/\s/g, "");

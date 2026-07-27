@@ -198,7 +198,7 @@
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: calc(12px * var(--sports-scale));
+  gap: calc(15px * var(--sports-scale));
   width: 100%;
   height: calc(34px * var(--sports-scale));
   padding: 0 calc(14px * var(--sports-scale));
@@ -245,13 +245,22 @@
   color: rgba(255, 255, 255, 0.45);
   text-align: right;
 }
-/* The matchup, centred in what the two labels leave. */
+/* The matchup, centred in what the two labels leave. The gap here is
+ * between GROUPS, each of which is a mark and its tag; those two belong
+ * together and were reading as four separate things fighting for the same
+ * spacing. */
 .compactcard__game {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: calc(8px * var(--sports-scale));
+  gap: calc(11px * var(--sports-scale));
+  min-width: 0;
+}
+.compactcard__side {
+  display: flex;
+  align-items: center;
+  gap: calc(4px * var(--sports-scale));
   min-width: 0;
 }
 .compactcard__abbr {
