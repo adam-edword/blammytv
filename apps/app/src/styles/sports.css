@@ -924,12 +924,19 @@
  * name size is the thing it hangs off. */
 .gamecard__status--alone {
   font-size: calc(var(--sports-name) / 1.27);
+  /* No leading under the digits. Most of the space between the time and
+   * the competition line was never the margin below, it was this: at the
+   * default the font reserves about 5px of descender room that a string of
+   * digits and capitals never uses. Closing it is what actually tightens
+   * the pair, and it costs no position, because the block is centred and
+   * shrinks around its own middle. */
+  line-height: 1;
 }
 /* Closer to the competition line than a scored card is, so the two read as
  * one block rather than as a time with a caption. Only in this state: with
  * a score between them they need the room. */
 .gamecard__status--alone + .gamecard__league {
-  margin-top: 4.26px;
+  margin-top: 2.13px;
 }
 /* And the block sits lower. Centring it on the names put it high, because
  * the names are one line and this is two; dropping it lines the time up
