@@ -41,7 +41,11 @@ export function SportsTheater({
     if (!catalog) return [];
     // Channels naming this exact fixture first, then whatever carries the
     // networks the schedule listed. Same order the card counts them in.
-    const named = matchEvent([game.home.name, game.away.name], game.start, catalog);
+    const named = matchEvent(
+      [game.home.name, game.away.name],
+      game.start,
+      catalog,
+    );
     const seen = new Set(named.map((c) => c.id));
     return [
       ...named,
@@ -63,16 +67,11 @@ export function SportsTheater({
       <aside className="sportstheater__side">
         <Matchup game={game} />
 
-        {/* The scroller is INSIDE the panel rather than being it, so the
-          * matchup above can spill its crests past every edge. A scroll
-          * container clips on both axes, so anything that must overflow
-          * cannot live in one. */}
-        <div className="sportstheater__list">
         {/* Every channel of yours carrying this game. Empty until the
-          * matcher exists (plan 010 phase 2): the schedule names networks
-          * ("NBC", "MASN") and only a matcher can turn those into your own
-          * channels. The card's "Live on 3 channels" is a promise that
-          * lands here. */}
+         * matcher exists (plan 010 phase 2): the schedule names networks
+         * ("NBC", "MASN") and only a matcher can turn those into your own
+         * channels. The card's "Live on 3 channels" is a promise that
+         * lands here. */}
         <nav className="sportstheater__rail">
           {matches.length > 0 ? (
             matches.map((c) => <Rail key={c.id} channel={c} />)
@@ -96,12 +95,11 @@ export function SportsTheater({
             ))}
           </section>
         )}
-        </div>
       </aside>
 
       {/* The hole. InvertedPlayer glues mpv to whatever box carries this id
-        * and follows it every frame, so this needs no wiring beyond
-        * existing: it stays an empty slate until a channel is chosen. */}
+       * and follows it every frame, so this needs no wiring beyond
+       * existing: it stays an empty slate until a channel is chosen. */}
       <div className="sportstheater__stage">
         <div id="player-slot" className="sportstheater__slot" />
       </div>
@@ -118,20 +116,24 @@ export function SportsTheater({
  */
 function Rail({ channel }: { channel: Match }) {
   const band =
-    channel.confidence >= 85 ? "sure" : channel.confidence >= 60 ? "likely" : "doubt";
+    channel.confidence >= 85
+      ? "sure"
+      : channel.confidence >= 60
+        ? "likely"
+        : "doubt";
   return (
     <button type="button" className="sportsrail" title={channel.name}>
       {/* The same lean and glare the cards use, rather than a play glyph.
-        * The row IS a card, so it should answer the pointer the way the
-        * other cards do; a third affordance invented only for this list was
-        * one too many.
-        *
-        * The angles are deliberately NOT the cards' numbers. Degrees are
-        * not the unit that matters, pixels swept at the corner are, and
-        * this row is a very different shape: 340px wide against 62px tall.
-        * Half-width times sin(3deg) is 8.9px and half-height times sin(6deg)
-        * is 3.2px, which lands on the wide card's own 10.3 and 3.6. Copying
-        * its 1.5deg would have been almost no movement at this size. */}
+       * The row IS a card, so it should answer the pointer the way the
+       * other cards do; a third affordance invented only for this list was
+       * one too many.
+       *
+       * The angles are deliberately NOT the cards' numbers. Degrees are
+       * not the unit that matters, pixels swept at the corner are, and
+       * this row is a very different shape: 340px wide against 62px tall.
+       * Half-width times sin(3deg) is 8.9px and half-height times sin(6deg)
+       * is 3.2px, which lands on the wide card's own 10.3 and 3.6. Copying
+       * its 1.5deg would have been almost no movement at this size. */}
       <Tilt
         className="sportsrail__tilt"
         tiltEnable={!REDUCED_MOTION}
@@ -145,15 +147,20 @@ function Rail({ channel }: { channel: Match }) {
         glareBorderRadius="16px"
       >
         {channel.logo && (
-          <img className="sportsrail__logo" src={channel.logo} alt="" loading="lazy" />
+          <img
+            className="sportsrail__logo"
+            src={channel.logo}
+            alt=""
+            loading="lazy"
+          />
         )}
         <span className="sportsrail__name">{channel.name}</span>
         {channel.quality && (
           <span className="sportsrail__badge">{channel.quality}</span>
         )}
         {/* The score stays put now. It used to stand aside for the play
-          * mark; with the lean carrying the affordance there is nothing to
-          * stand aside for, so the number stays readable throughout. */}
+         * mark; with the lean carrying the affordance there is nothing to
+         * stand aside for, so the number stays readable throughout. */}
         <span className={`sportsrail__score is-${band}`}>
           <span className="sportsrail__bar" aria-hidden>
             <i style={{ height: `${channel.confidence}%` }} />

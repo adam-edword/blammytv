@@ -130,10 +130,7 @@
    * 100% here is the row's own visible width, so this is "the viewport,
    * less one card, less the lead" — exactly the slack needed and no more,
    * floored at the row's normal padding for short days. */
-  padding-right: max(
-    28px,
-    calc(100% - 783.84px - var(--sports-lead))
-  );
+  padding-right: max(28px, calc(100% - 783.84px - var(--sports-lead)));
 }
 
 /* Done, and reading as done. Half a stop of black over the whole card,
@@ -353,7 +350,8 @@
   transition: box-shadow 450ms ease;
 }
 .gamecard:hover .gamecard__tilt {
-  box-shadow: 0 25.56px 56.8px -19.88px color-mix(in srgb, #000 55%, transparent);
+  box-shadow: 0 25.56px 56.8px -19.88px
+    color-mix(in srgb, #000 55%, transparent);
 }
 
 /* Each half's wash: the team's mark blurred hard and bled off its own
@@ -410,8 +408,7 @@
   /* The Figma's softening, on the COLOUR only. It used to sit on the whole
    * wash, where it stacked on top of every crest copy and flattened the
    * progression: the sharp step came out at 14px. */
-  filter: blur(11.36px)
-    saturate(var(--wash-saturation, 1.15));
+  filter: blur(11.36px) saturate(var(--wash-saturation, 1.15));
   background: linear-gradient(
     var(--sports-wash-angle),
     transparent 0%,
@@ -531,24 +528,24 @@
 .gamewash--home .gamewash__haze i:nth-child(1) {
   -webkit-mask-image: linear-gradient(
     to right,
-    rgba(0, 0, 0, 0) 0.0%,
+    rgba(0, 0, 0, 0) 0%,
     rgba(0, 0, 0, 1) 1.6%
   );
   mask-image: linear-gradient(
     to right,
-    rgba(0, 0, 0, 0) 0.0%,
+    rgba(0, 0, 0, 0) 0%,
     rgba(0, 0, 0, 1) 1.6%
   );
 }
 .gamewash--away .gamewash__haze i:nth-child(1) {
   -webkit-mask-image: linear-gradient(
     to left,
-    rgba(0, 0, 0, 0) 0.0%,
+    rgba(0, 0, 0, 0) 0%,
     rgba(0, 0, 0, 1) 1.6%
   );
   mask-image: linear-gradient(
     to left,
-    rgba(0, 0, 0, 0) 0.0%,
+    rgba(0, 0, 0, 0) 0%,
     rgba(0, 0, 0, 1) 1.6%
   );
 }
@@ -616,24 +613,24 @@
   -webkit-mask-image: linear-gradient(
     to right,
     rgba(0, 0, 0, 0) 14.1%,
-    rgba(0, 0, 0, 1) 25.0%
+    rgba(0, 0, 0, 1) 25%
   );
   mask-image: linear-gradient(
     to right,
     rgba(0, 0, 0, 0) 14.1%,
-    rgba(0, 0, 0, 1) 25.0%
+    rgba(0, 0, 0, 1) 25%
   );
 }
 .gamewash--away .gamewash__haze i:nth-child(4) {
   -webkit-mask-image: linear-gradient(
     to left,
     rgba(0, 0, 0, 0) 14.1%,
-    rgba(0, 0, 0, 1) 25.0%
+    rgba(0, 0, 0, 1) 25%
   );
   mask-image: linear-gradient(
     to left,
     rgba(0, 0, 0, 0) 14.1%,
-    rgba(0, 0, 0, 1) 25.0%
+    rgba(0, 0, 0, 1) 25%
   );
 }
 .gamecard .gamewash__haze i:nth-child(5) {
@@ -643,24 +640,24 @@
 .gamewash--home .gamewash__haze i:nth-child(5) {
   -webkit-mask-image: linear-gradient(
     to right,
-    rgba(0, 0, 0, 0) 25.0%,
+    rgba(0, 0, 0, 0) 25%,
     rgba(0, 0, 0, 1) 39.1%
   );
   mask-image: linear-gradient(
     to right,
-    rgba(0, 0, 0, 0) 25.0%,
+    rgba(0, 0, 0, 0) 25%,
     rgba(0, 0, 0, 1) 39.1%
   );
 }
 .gamewash--away .gamewash__haze i:nth-child(5) {
   -webkit-mask-image: linear-gradient(
     to left,
-    rgba(0, 0, 0, 0) 25.0%,
+    rgba(0, 0, 0, 0) 25%,
     rgba(0, 0, 0, 1) 39.1%
   );
   mask-image: linear-gradient(
     to left,
-    rgba(0, 0, 0, 0) 25.0%,
+    rgba(0, 0, 0, 0) 25%,
     rgba(0, 0, 0, 1) 39.1%
   );
 }
@@ -728,24 +725,24 @@
   -webkit-mask-image: linear-gradient(
     to right,
     rgba(0, 0, 0, 0) 76.6%,
-    rgba(0, 0, 0, 1) 100.0%
+    rgba(0, 0, 0, 1) 100%
   );
   mask-image: linear-gradient(
     to right,
     rgba(0, 0, 0, 0) 76.6%,
-    rgba(0, 0, 0, 1) 100.0%
+    rgba(0, 0, 0, 1) 100%
   );
 }
 .gamewash--away .gamewash__haze i:nth-child(8) {
   -webkit-mask-image: linear-gradient(
     to left,
     rgba(0, 0, 0, 0) 76.6%,
-    rgba(0, 0, 0, 1) 100.0%
+    rgba(0, 0, 0, 1) 100%
   );
   mask-image: linear-gradient(
     to left,
     rgba(0, 0, 0, 0) 76.6%,
-    rgba(0, 0, 0, 1) 100.0%
+    rgba(0, 0, 0, 1) 100%
   );
 }
 
@@ -756,8 +753,7 @@
   height: 125%;
   /* One flat radius, not the ladder. See the haze block above for why the
    * small card cannot have the progressive version. */
-  filter: blur(4.118px)
-    saturate(var(--wash-saturation, 1.15));
+  filter: blur(4.118px) saturate(var(--wash-saturation, 1.15));
 }
 /* The small card takes none of the haze, and does not render it either:
  * Wash only emits the layers for the wide card. Measured, 45 of them in a
@@ -780,12 +776,10 @@
  * colour it lends them. It takes the crest much softer: at the radius
  * below it reads as colour rather than as shapes sitting on the text. */
 .gameveil .gamewash__mark {
-  filter: blur(28.4px)
-    saturate(var(--wash-saturation, 1.15));
+  filter: blur(28.4px) saturate(var(--wash-saturation, 1.15));
 }
 .upcard .gameveil .gamewash__mark {
-  filter: blur(12.78px)
-    saturate(var(--wash-saturation, 1.15));
+  filter: blur(12.78px) saturate(var(--wash-saturation, 1.15));
 }
 
 /* The wash laid back over the finished card, so the text picks up a hint of
@@ -1065,7 +1059,8 @@
   transition: box-shadow 450ms ease;
 }
 .upcard:hover .upcard__tilt {
-  box-shadow: 0 17.04px 36.92px -14.2px color-mix(in srgb, #000 55%, transparent);
+  box-shadow: 0 17.04px 36.92px -14.2px
+    color-mix(in srgb, #000 55%, transparent);
 }
 /* A shade heavier than the live card's: at this size the washes cover most
  * of the card, and the names sit right on top of them. Cut with it, for
@@ -1102,8 +1097,7 @@
   /* Wider at the sides than top and bottom: the names run into the card's
    * corners otherwise, and a name is the one thing on this card with no
    * room to spare. */
-  padding: 19.88px 25.56px
-    24.14px;
+  padding: 19.88px 25.56px 24.14px;
 }
 .upcard__time {
   /* Inline-flex so the pip sits on the clock's line rather than above it. */
@@ -1295,16 +1289,9 @@
   flex-direction: column;
   gap: 18px;
   min-width: 0;
-  /* NOT a scroller. The matchup's crests have to run past this panel's
-   * edges, and a scroll container clips on both axes, so the scrolling
-   * moved to .sportstheater__list below and this stays open. */
-  overflow: visible;
-  /* Unused now that the panel does not clip, kept as the note it is: room
-   * for a rail row to lean without losing its corners.
-   *
-   * overflow-y: auto is not one-sided: the spec computes overflow-x to auto
-   * as well once the other axis is not visible, so this box clips
-   * horizontally too, which is where the clipping showed.
+  overflow-y: auto;
+  scrollbar-width: none;
+  /* Room for a rail row to lean without losing its corners.
    *
    * 8px because the spill is NOT symmetric. Halving the width a lean adds
    * says 3px a side, and that is the wrong sum: perspective swings one edge
@@ -1314,132 +1301,27 @@
    * of the deflection rather than one.
    *
    * Padding rather than a negative margin on the rows: every child insets
-   * equally, so the matchup header and the rail stay on the same edges. */
+   * equally, so the matchup header and the rail stay on the same edges.
+   *
+   * The panel is a scroll container again, and can be, because the matchup
+   * no longer has art to run past its edges. Worth remembering if anything
+   * ever does: overflow-y: auto is not one-sided, the spec computes
+   * overflow-x to auto as well, so a vertical scroller clips both ways. */
   padding: 8px;
 }
 
-/* The matchup, bled to the panel's edges: the wash is the header's
- * background rather than something drawn inside a card. */
-/* Everything under the matchup scrolls; the matchup itself does not, so it
- * can overflow. The padding is the room a rail row needs to lean without
- * losing its corners: overflow-y is not one-sided, the spec computes
- * overflow-x to auto as well, so this box clips both ways. 8px because the
- * spill is not symmetric, perspective shifts the box as well as growing it
- * and the leading edge takes about 4.6px alone. */
-.sportstheater__list {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  padding: 8px;
-  margin: -8px;
-  overflow-y: auto;
-  scrollbar-width: none;
-}
-
-/* The matchup at the head of the panel. NOT a card, per the Figma: no
- * border, no radius, no lean. It bleeds to the panel's edges, so the
- * negative margin takes back the padding the panel carries for the rail's
- * lean. That works rather than overflowing because padding sits INSIDE a
- * scroll container's clip box. */
+/* The matchup at the head of the panel: the two teams, and nothing else.
+ *
+ * No wash, no crest art, no scrim, and so no box of its own either. It is a
+ * line of type on the panel's background, aligned to the same edges as the
+ * rail rows below it, which is why the padding is vertical only. */
 .matchup {
-  position: relative;
-  flex: 0 0 auto;
-  margin: -8px -8px 0;
-  padding: 34px 20px 40px;
-  overflow: hidden;
-}
-/* Darkening behind the names, and nothing else now.
- *
- * It used to also end the art, fading it into the background at the
- * header's bottom. The mask does that job since the crests stopped being
- * clipped, and a scrim still sized to the old box drew its own rectangle
- * across the middle of the larger art. So it takes the same stretched box
- * as the wash and starts and ends at nothing: a band, not an edge. */
-.matchup__scrim {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: -85%;
-  bottom: -55%;
-  background: linear-gradient(
-    to bottom,
-    transparent 0%,
-    rgba(0, 0, 0, 0.3) 32%,
-    rgba(0, 0, 0, 0.45) 58%,
-    transparent 84%
-  );
-}
-/* THE CRESTS ARE NOT CLIPPED HERE, and that is the whole difference from a
- * card.
- *
- * On a card the wash is a texture inside a box: .gamewash and
- * .gamewash__crest both hide their overflow so the art stops at the card's
- * corners. In the theater the crest IS the art, and the Figma runs it past
- * every edge it meets, cut only by the player. So all three boxes open up,
- * and the panel above stopped being a scroll container for the same reason.
- *
- * What still bounds it is the horizontal fade already on the wash and the
- * scrim below, which is the right kind of edge: a dissolve rather than a
- * cut. */
-.matchup,
-.matchup .gamewash,
-.matchup .gamewash__crest {
-  overflow: visible;
-}
-/* Bigger than a card's, because it has room to be now. The mark hangs off
- * its own half and the two lean past the panel's edges. */
-.matchup .gamewash__mark {
-  height: 190%;
-}
-/* The mask is the real clip, not overflow.
- *
- * A mask paints only inside its own box: everything outside it is
- * transparent whatever overflow says, so opening the boxes above got the
- * crests past the sides and left a hard line across the top, because the
- * wash's box stopped at the header's edge.
- *
- * So the wash stretches well past the header, and the mask gains a second,
- * vertical layer to dissolve what it now covers. Composited as an
- * intersection, so a pixel needs both fades to survive: horizontal toward
- * the centre as before, vertical toward nothing at either end. No edge left
- * to cut against. */
-.matchup .gamewash {
-  top: -85%;
-  bottom: -55%;
-}
-.matchup .gamewash--home {
-  -webkit-mask-image:
-    linear-gradient(to right, #000 0%, transparent 100%),
-    linear-gradient(to bottom, transparent 0%, #000 30%, #000 55%, transparent 80%);
-  mask-image:
-    linear-gradient(to right, #000 0%, transparent 100%),
-    linear-gradient(to bottom, transparent 0%, #000 30%, #000 55%, transparent 80%);
-  -webkit-mask-composite: source-in;
-  mask-composite: intersect;
-}
-.matchup .gamewash--away {
-  -webkit-mask-image:
-    linear-gradient(to left, #000 0%, transparent 100%),
-    linear-gradient(to bottom, transparent 0%, #000 30%, #000 55%, transparent 80%);
-  mask-image:
-    linear-gradient(to left, #000 0%, transparent 100%),
-    linear-gradient(to bottom, transparent 0%, #000 30%, #000 55%, transparent 80%);
-  -webkit-mask-composite: source-in;
-  mask-composite: intersect;
-}
-
-/* IN LINE, facing each other. The small card stacks them on a diagonal
- * because two names splitting a 315px box get 123px each and the long ones
- * have to shrink; hanging them off opposite corners buys each the full
- * width. That is a grid problem and this is not a grid. */
-.matchup__row {
-  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
+  flex: 0 0 auto;
+  padding: 10px 2px 2px;
 }
 .matchup__team {
   display: flex;
