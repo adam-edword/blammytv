@@ -1,12 +1,13 @@
 /* The Sports hub (plan 010). Borrows Discover's page shape and Stream's
  * row, so only the game card itself is new here.
  *
- * Every card dimension below is expressed against --sports-scale, so the
- * whole hub resizes from one number instead of a sweep of magic values.
- * KEEP IN SYNC with SPORTS_SCALE in features/sports/scale.ts: the tilt
- * library takes its glare radius as a string prop, which cannot read CSS. */
+ * Dimensions were expressed against a --sports-scale multiplier while the
+ * cards were being sized, and are literal now that they are settled. The
+ * knob had stopped earning its keep: the sizes had been tuned individually
+ * past the point where one number moved them together, and it forced a
+ * copy of itself in TypeScript because the tilt library takes its glare
+ * radius as a string prop that cannot read CSS. */
 .sports {
-  --sports-scale: 1.42;
   /* Team names are pinned, not scaled, and both cards share this: they
    * read against the header's "Live TV | Stream" (21px) rather than
    * against their own card, so a card resize must not drift them apart or
@@ -89,8 +90,8 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  /* A quarter up from the 25px first pass. Independent of --sports-scale:
-   * a section heading belongs to the PAGE, not to the cards under it. */
+  /* A quarter up from the 25px first pass, and it never rode the card
+   * scale: a section heading belongs to the PAGE, not to the cards. */
   font-size: 31px;
 }
 
@@ -117,10 +118,10 @@
  * noted on the shared rule), so anything past the padding is guillotined.
  * Scoped here rather than widened globally: every other row is correct. */
 .sports .media-row__scroller {
-  padding-top: calc(14px * var(--sports-scale));
+  padding-top: 19.88px;
   /* Sized for the LIVE card's shadow, which is the deeper of the two. Both
    * rows share this rule; the upcoming card simply has room to spare. */
-  padding-bottom: calc(30px * var(--sports-scale));
+  padding-bottom: 42.6px;
   /* Room to scroll PAST the last game, so the last card of the day can
    * still reach the anchor position instead of jamming against the right
    * edge. Without it, a day whose live game is the last one opens with
@@ -131,7 +132,7 @@
    * floored at the row's normal padding for short days. */
   padding-right: max(
     28px,
-    calc(100% - (552px * var(--sports-scale)) - var(--sports-lead))
+    calc(100% - 783.84px - var(--sports-lead))
   );
 }
 
@@ -170,9 +171,9 @@
   /* Compact lines and full cards share the grid, so a row is as tall as
    * its tallest card. Without this the short ones stretch to match it. */
   align-items: start;
-  gap: calc(16px * var(--sports-scale));
+  gap: 22.72px;
   /* Headroom for the tilt and the shadow, same as the row's. */
-  padding: 14px 0 calc(20px * var(--sports-scale));
+  padding: 14px 0 28.4px;
 }
 /* In the grid the card takes the track rather than its own fixed width;
  * everything inside it is proportional, so it stretches cleanly. */
@@ -193,17 +194,18 @@
   /* The status sets the line's scale, and the score is one pixel over it.
    * Same size as the full card's status, so a grid of mixed cards reads
    * with one voice rather than two. */
-  --compact-status: calc(13px * var(--sports-scale));
+  --compact-status: 18.46px;
   position: relative;
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: calc(15px * var(--sports-scale));
+  gap: 21.3px;
   width: 100%;
-  height: calc(34px * var(--sports-scale));
-  padding: 0 calc(14px * var(--sports-scale));
+  height: 48.28px;
+  padding: 0 19.88px;
   border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: calc(14px * var(--sports-scale));
+  /* A full pill: nothing here is a rectangle with corners, it is a line. */
+  border-radius: 100px;
   background: #0f0f0f;
   overflow: hidden;
   text-align: left;
@@ -266,7 +268,7 @@
   display: flex;
   flex: 1;
   align-items: center;
-  gap: calc(4px * var(--sports-scale));
+  gap: 5.68px;
   min-width: 0;
 }
 .compactcard__side--home {
@@ -285,7 +287,7 @@
 .compactcard__score {
   display: flex;
   align-items: center;
-  gap: calc(5px * var(--sports-scale));
+  gap: 7.1px;
   font-family: var(--font-headline);
   font-weight: 700;
   /* A pixel over the status, so the number leads without shouting. */
@@ -305,7 +307,7 @@
 }
 /* Smaller mark for a smaller line. */
 .compactcard .gamebadge {
-  width: calc(20px * var(--sports-scale));
+  width: 28.4px;
 }
 /* The wash is a hint at this size: mostly it is the two team colours at
  * either end of a dark pill. */
@@ -319,7 +321,7 @@
  * every click on it means "watch this". */
 .gamecard {
   flex: 0 0 auto;
-  width: calc(552px * var(--sports-scale));
+  width: 783.84px;
   max-width: 92vw;
   padding: 0;
   border: none;
@@ -338,11 +340,11 @@
 .gamecard__tilt {
   position: relative;
   display: block;
-  height: calc(195px * var(--sports-scale));
+  height: 276.9px;
   /* Keep glareBorderRadius in GameCard in step with this: the glare is its
    * own layer with its own clip, so a mismatch shows as a square sheen
    * poking out of a round corner. */
-  border-radius: calc(45px * var(--sports-scale));
+  border-radius: 63.9px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.07);
   background: #0f0f0f;
@@ -351,7 +353,7 @@
   transition: box-shadow 450ms ease;
 }
 .gamecard:hover .gamecard__tilt {
-  box-shadow: 0 calc(18px * var(--sports-scale)) calc(40px * var(--sports-scale)) calc(-14px * var(--sports-scale)) color-mix(in srgb, #000 55%, transparent);
+  box-shadow: 0 25.56px 56.8px -19.88px color-mix(in srgb, #000 55%, transparent);
 }
 
 /* Each half's wash: the team's mark blurred hard and bled off its own
@@ -408,7 +410,7 @@
   /* The Figma's softening, on the COLOUR only. It used to sit on the whole
    * wash, where it stacked on top of every crest copy and flattened the
    * progression: the sharp step came out at 14px. */
-  filter: blur(calc(8px * var(--sports-scale)))
+  filter: blur(11.36px)
     saturate(var(--wash-saturation, 1.15));
   background: linear-gradient(
     var(--sports-wash-angle),
@@ -527,8 +529,8 @@
 }
 
 .gamecard .gamewash__haze i:nth-child(1) {
-  backdrop-filter: blur(calc(0.117px * var(--sports-scale)));
-  -webkit-backdrop-filter: blur(calc(0.117px * var(--sports-scale)));
+  backdrop-filter: blur(0.16614px);
+  -webkit-backdrop-filter: blur(0.16614px);
 }
 .gamewash--home .gamewash__haze i:nth-child(1) {
   -webkit-mask-image: linear-gradient(
@@ -555,8 +557,8 @@
   );
 }
 .gamecard .gamewash__haze i:nth-child(2) {
-  backdrop-filter: blur(calc(0.234px * var(--sports-scale)));
-  -webkit-backdrop-filter: blur(calc(0.234px * var(--sports-scale)));
+  backdrop-filter: blur(0.33228px);
+  -webkit-backdrop-filter: blur(0.33228px);
 }
 .gamewash--home .gamewash__haze i:nth-child(2) {
   -webkit-mask-image: linear-gradient(
@@ -583,8 +585,8 @@
   );
 }
 .gamecard .gamewash__haze i:nth-child(3) {
-  backdrop-filter: blur(calc(0.469px * var(--sports-scale)));
-  -webkit-backdrop-filter: blur(calc(0.469px * var(--sports-scale)));
+  backdrop-filter: blur(0.66598px);
+  -webkit-backdrop-filter: blur(0.66598px);
 }
 .gamewash--home .gamewash__haze i:nth-child(3) {
   -webkit-mask-image: linear-gradient(
@@ -611,8 +613,8 @@
   );
 }
 .gamecard .gamewash__haze i:nth-child(4) {
-  backdrop-filter: blur(calc(0.938px * var(--sports-scale)));
-  -webkit-backdrop-filter: blur(calc(0.938px * var(--sports-scale)));
+  backdrop-filter: blur(1.33196px);
+  -webkit-backdrop-filter: blur(1.33196px);
 }
 .gamewash--home .gamewash__haze i:nth-child(4) {
   -webkit-mask-image: linear-gradient(
@@ -639,8 +641,8 @@
   );
 }
 .gamecard .gamewash__haze i:nth-child(5) {
-  backdrop-filter: blur(calc(1.875px * var(--sports-scale)));
-  -webkit-backdrop-filter: blur(calc(1.875px * var(--sports-scale)));
+  backdrop-filter: blur(2.6625px);
+  -webkit-backdrop-filter: blur(2.6625px);
 }
 .gamewash--home .gamewash__haze i:nth-child(5) {
   -webkit-mask-image: linear-gradient(
@@ -667,8 +669,8 @@
   );
 }
 .gamecard .gamewash__haze i:nth-child(6) {
-  backdrop-filter: blur(calc(3.75px * var(--sports-scale)));
-  -webkit-backdrop-filter: blur(calc(3.75px * var(--sports-scale)));
+  backdrop-filter: blur(5.325px);
+  -webkit-backdrop-filter: blur(5.325px);
 }
 .gamewash--home .gamewash__haze i:nth-child(6) {
   -webkit-mask-image: linear-gradient(
@@ -695,8 +697,8 @@
   );
 }
 .gamecard .gamewash__haze i:nth-child(7) {
-  backdrop-filter: blur(calc(7.5px * var(--sports-scale)));
-  -webkit-backdrop-filter: blur(calc(7.5px * var(--sports-scale)));
+  backdrop-filter: blur(10.65px);
+  -webkit-backdrop-filter: blur(10.65px);
 }
 .gamewash--home .gamewash__haze i:nth-child(7) {
   -webkit-mask-image: linear-gradient(
@@ -723,8 +725,8 @@
   );
 }
 .gamecard .gamewash__haze i:nth-child(8) {
-  backdrop-filter: blur(calc(15.0px * var(--sports-scale)));
-  -webkit-backdrop-filter: blur(calc(15.0px * var(--sports-scale)));
+  backdrop-filter: blur(21.3px);
+  -webkit-backdrop-filter: blur(21.3px);
 }
 .gamewash--home .gamewash__haze i:nth-child(8) {
   -webkit-mask-image: linear-gradient(
@@ -758,7 +760,7 @@
   height: 125%;
   /* One flat radius, not the ladder. See the haze block above for why the
    * small card cannot have the progressive version. */
-  filter: blur(calc(2.9px * var(--sports-scale)))
+  filter: blur(4.118px)
     saturate(var(--wash-saturation, 1.15));
 }
 /* The small card takes none of the haze. Measured, 45 of them in a grid
@@ -783,11 +785,11 @@
  * colour it lends them. It takes the crest much softer: at the radius
  * below it reads as colour rather than as shapes sitting on the text. */
 .gameveil .gamewash__mark {
-  filter: blur(calc(20px * var(--sports-scale)))
+  filter: blur(28.4px)
     saturate(var(--wash-saturation, 1.15));
 }
 .upcard .gameveil .gamewash__mark {
-  filter: blur(calc(9px * var(--sports-scale)))
+  filter: blur(12.78px)
     saturate(var(--wash-saturation, 1.15));
 }
 
@@ -842,15 +844,15 @@
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: calc(18px * var(--sports-scale));
+  gap: 25.56px;
   height: 100%;
-  padding: 0 calc(30px * var(--sports-scale)) calc(18px * var(--sports-scale));
+  padding: 0 42.6px 25.56px;
 }
 
 .gamecard__team {
   display: flex;
   align-items: center;
-  gap: calc(9px * var(--sports-scale));
+  gap: 12.78px;
   min-width: 0;
   /* Shrink to the NAME's width and centre that block in the half. Without
    * this the block fills its whole 1fr track, so aligning the tag to an
@@ -914,19 +916,19 @@
   gap: 8px;
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: calc(15px * var(--sports-scale));
+  font-size: 21.3px;
   color: #fff;
 }
 /* The kick-off time when it is the only thing in the column: no score
  * under it, so it carries the weight the score would have. */
 .gamecard__status--alone {
-  font-size: calc(26px * var(--sports-scale));
+  font-size: 36.92px;
 }
 
 .gamecard__score {
   display: flex;
   align-items: baseline;
-  gap: calc(10px * var(--sports-scale));
+  gap: 14.2px;
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: var(--sports-score);
@@ -949,7 +951,7 @@
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.5);
-  margin-top: calc(6px * var(--sports-scale));
+  margin-top: 8.52px;
 }
 
 .gamecard__foot {
@@ -960,8 +962,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: calc(12px * var(--sports-scale));
-  padding: 0 calc(20px * var(--sports-scale)) calc(14px * var(--sports-scale));
+  gap: 17.04px;
+  padding: 0 28.4px 19.88px;
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: var(--sports-meta);
@@ -972,7 +974,7 @@
 .gamecard__venue {
   display: inline-flex;
   align-items: center;
-  gap: calc(5px * var(--sports-scale));
+  gap: 7.1px;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -981,7 +983,7 @@
 .gamecard__carriage {
   display: inline-flex;
   align-items: center;
-  gap: calc(6px * var(--sports-scale));
+  gap: 8.52px;
   flex-shrink: 0;
   color: rgba(255, 255, 255, 0.8);
 }
@@ -990,8 +992,8 @@
   color: rgba(255, 255, 255, 0.38);
 }
 .gamecard__dot {
-  width: calc(5px * var(--sports-scale));
-  height: calc(5px * var(--sports-scale));
+  width: 7.1px;
+  height: 7.1px;
   border-radius: 50%;
   background: #ff4b4b;
 }
@@ -1034,16 +1036,16 @@
    * The card gives back the height that saved, less the air below the
    * header and along the bottom edge: at 114 the whole thing came to four
    * pixels of slack and the last row sat right on the card's edge. */
-  height: calc(128px * var(--sports-scale));
+  height: 181.76px;
   /* Keep glareBorderRadius in UpcomingCard in step with this. */
-  border-radius: calc(30px * var(--sports-scale));
+  border-radius: 42.6px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.07);
   background: #0f0f0f;
   transition: box-shadow 450ms ease;
 }
 .upcard:hover .upcard__tilt {
-  box-shadow: 0 calc(12px * var(--sports-scale)) calc(26px * var(--sports-scale)) calc(-10px * var(--sports-scale)) color-mix(in srgb, #000 55%, transparent);
+  box-shadow: 0 17.04px 36.92px -14.2px color-mix(in srgb, #000 55%, transparent);
 }
 /* A shade heavier than the live card's: at this size the washes cover most
  * of the card, and the names sit right on top of them. Cut with it, for
@@ -1075,13 +1077,13 @@
   flex-direction: column;
   /* Air under the header, so it reads as a header rather than as the first
    * line of the matchup. */
-  gap: calc(8px * var(--sports-scale));
+  gap: 11.36px;
   height: 100%;
   /* Wider at the sides than top and bottom: the names run into the card's
    * corners otherwise, and a name is the one thing on this card with no
    * room to spare. */
-  padding: calc(14px * var(--sports-scale)) calc(18px * var(--sports-scale))
-    calc(17px * var(--sports-scale));
+  padding: 19.88px 25.56px
+    24.14px;
 }
 .upcard__time {
   /* Inline-flex so the pip sits on the clock's line rather than above it. */
@@ -1090,7 +1092,7 @@
   gap: 7px;
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: calc(13px * var(--sports-scale));
+  font-size: 18.46px;
   /* A scoreboard's own voice. Kick-off times are already uppercase, so
    * this only really shows on "Final" and on a live clock. */
   text-transform: uppercase;
@@ -1117,13 +1119,13 @@
   flex: 1;
   flex-direction: column;
   justify-content: center;
-  gap: calc(6px * var(--sports-scale));
+  gap: 8.52px;
   width: 100%;
 }
 .upcard__team {
   display: flex;
   align-items: center;
-  gap: calc(9px * var(--sports-scale));
+  gap: 12.78px;
   min-width: 0;
   max-width: 100%;
 }
@@ -1143,7 +1145,7 @@
  * just above the label, which is abbr plus name at about 43. */
 .gamebadge {
   flex: 0 0 auto;
-  width: calc(32px * var(--sports-scale));
+  width: 45.44px;
   height: auto;
   object-fit: contain;
 }
