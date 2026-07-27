@@ -160,7 +160,9 @@ function Rail({ channel }: { channel: Match }) {
           <i style={{ height: `${channel.confidence}%` }} />
         </span>
         <span className="sportsrail__pct">{channel.confidence}%</span>
-        <PlayIcon />
+        <span className="sportsrail__go" aria-hidden>
+          <PlayIcon />
+        </span>
       </span>
     </button>
   );
@@ -168,14 +170,7 @@ function Rail({ channel }: { channel: Match }) {
 
 function PlayIcon() {
   return (
-    <svg
-      className="sportsrail__go"
-      width="13"
-      height="15"
-      viewBox="0 0 11 13"
-      aria-hidden
-      focusable="false"
-    >
+    <svg width="11" height="13" viewBox="0 0 11 13" aria-hidden focusable="false">
       <path d="M1 1.5v10l9-5-9-5Z" fill="currentColor" />
     </svg>
   );
