@@ -2,10 +2,8 @@ import { useEffect, useMemo } from "react";
 import Tilt from "react-parallax-tilt";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { useMouseNav } from "../../lib/mouseNav";
-import { Badge } from "./Badge";
+import { Matchup } from "./Matchup";
 import { CompactCard } from "./CompactCard";
-import { Wash } from "./Wash";
-import { loser } from "./result";
 import { matchEvent, matchGame } from "./matcher";
 import type { Catalog, Match } from "./matcher";
 import type { Game } from "./model";
@@ -39,8 +37,6 @@ export function SportsTheater({
   catalog: Catalog | null;
   onClose: () => void;
 }) {
-  const { home, away } = game;
-  const lost = loser(game);
   const matches = useMemo(() => {
     if (!catalog) return [];
     // Channels naming this exact fixture first, then whatever carries the
@@ -65,33 +61,7 @@ export function SportsTheater({
   return (
     <div className="sportstheater">
       <aside className="sportstheater__side">
-        {/* The matchup, bled to the panel's edges. Same wash as the cards,
-          * without the card. */}
-        <header className="sportstheater__game">
-          <Wash side="home" team={home} lost={lost === "home"} />
-          <Wash side="away" team={away} lost={lost === "away"} />
-          <span className="sportstheater__scrim" aria-hidden />
-          <span className="sportstheater__teams">
-            <span className="sportstheater__team">
-              <Badge team={home} />
-              <span className="sportstheater__label">
-                <span className="sportstheater__abbr">{home.abbr}</span>
-                <span className="sportstheater__name">
-                  {home.shortName ?? home.name}
-                </span>
-              </span>
-            </span>
-            <span className="sportstheater__team">
-              <span className="sportstheater__label sportstheater__label--away">
-                <span className="sportstheater__abbr">{away.abbr}</span>
-                <span className="sportstheater__name">
-                  {away.shortName ?? away.name}
-                </span>
-              </span>
-              <Badge team={away} />
-            </span>
-          </span>
-        </header>
+        <Matchup game={game} />
 
         {/* Every channel of yours carrying this game. Empty until the
           * matcher exists (plan 010 phase 2): the schedule names networks

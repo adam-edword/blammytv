@@ -1317,14 +1317,12 @@
 
 /* The matchup, bled to the panel's edges: the wash is the header's
  * background rather than something drawn inside a card. */
-/* The matchup. NOT a card, per the Figma: it is the head of the panel, so
- * it bleeds to the panel's edges rather than sitting in a rounded box
- * inside them.
- *
- * The negative margin takes back the padding the panel carries for the
- * rail's lean. Padding is inside the scroll container's clip box, so
- * reaching into it bleeds to the panel edge without being cut off. */
-.sportstheater__game {
+/* The matchup at the head of the panel. NOT a card, per the Figma: no
+ * border, no radius, no lean. It bleeds to the panel's edges, so the
+ * negative margin takes back the padding the panel carries for the rail's
+ * lean. That works rather than overflowing because padding sits INSIDE a
+ * scroll container's clip box. */
+.matchup {
   position: relative;
   flex: 0 0 auto;
   margin: -8px -8px 0;
@@ -1332,11 +1330,9 @@
   overflow: hidden;
 }
 /* A card could stop with a hard edge because its corners said where it
- * ended. A bleed cannot: without this the art would end on a straight
- * horizontal line across the panel. So the scrim carries it the whole way
- * down to the panel's own background, and the art dissolves instead of
- * stopping. */
-.sportstheater__scrim {
+ * ended. A bleed cannot, so the scrim carries the art all the way down to
+ * the panel's own background and it dissolves instead of stopping. */
+.matchup__scrim {
   position: absolute;
   inset: 0;
   background: linear-gradient(
@@ -1346,44 +1342,56 @@
     var(--bg) 100%
   );
 }
-.sportstheater__teams {
+/* IN LINE, facing each other. The small card stacks them on a diagonal
+ * because two names splitting a 315px box get 123px each and the long ones
+ * have to shrink; hanging them off opposite corners buys each the full
+ * width. That is a grid problem and this is not a grid. */
+.matchup__row {
   position: relative;
   display: flex;
-  flex-direction: column;
-  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
 }
-.sportstheater__team {
+.matchup__team {
   display: flex;
   align-items: center;
-  gap: 13px;
+  gap: 11px;
+  min-width: 0;
 }
-/* The away side hangs off the right, the same diagonal the small card
- * uses, so the two read as the same object at different sizes. */
-.sportstheater__team:last-child {
-  justify-content: flex-end;
-}
-.sportstheater__label {
+.matchup__label {
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
-.sportstheater__label--away {
+.matchup__label--away {
   align-items: flex-end;
   text-align: right;
 }
-.sportstheater__abbr {
+.matchup__abbr {
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: var(--sports-meta);
   letter-spacing: 0.07em;
   color: rgba(255, 255, 255, 0.45);
 }
-.sportstheater__name {
+.matchup__name {
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: var(--sports-name);
+  /* Under the cards' --sports-name: two names share this row where a card
+   * gives each its own. Sized by measurement, see the commit. */
+  font-size: 21px;
   line-height: 1.1;
   color: #fff;
+  /* Wrapping is the FIRST answer to a long name, not shrinking: in line the
+   * two names get about 110px each, and "Golden Knights" reads perfectly
+   * well over two lines at full size where shrunk to one it would not.
+   *
+   * overflow: hidden is what lets useFitText see the case wrapping cannot
+   * help with, a single word longer than the column. Four clubs across the
+   * five leagues are in that position, "Diamondbacks" the worst at 173px,
+   * and they are the only ones that shrink. */
+  overflow: hidden;
 }
 
 /* Your channels carrying this game. */
