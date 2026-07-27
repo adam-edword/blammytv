@@ -185,10 +185,30 @@ const SCORE = {
   loose: 40,
   /** Deduction when one of OUR expansions was needed to make them meet. */
   aliased: -15,
+  /**
+   * Only the BRAND of a product name matched: "MLB.TV" reaching "MLB
+   * Network" through "MLB".
+   *
+   * Low on purpose, because it is usually the wrong channel and we know
+   * why. MLB.TV is the out-of-market package and MLB Network is a national
+   * cable channel; a schedule naming the former is telling you the game is
+   * NOT on the latter. But when the right feed dies mid-innings, the same
+   * league's channel is the best of the remaining guesses, and a rail is
+   * the place to offer a guess with its odds written on it.
+   */
+  stem: 30,
 };
 
-/** Below this, a match is not worth a viewer's attention. */
-export const MIN_CONFIDENCE = 40;
+/**
+ * Below this, a match is not worth a viewer's attention.
+ *
+ * Set under the stem tier deliberately. Adam's rule, and it is an
+ * operational one rather than an aesthetic one: IPTV streams die mid-game,
+ * so a rail with five imperfect options beats a rail with two perfect ones
+ * that have both gone dark. Being wrong is recoverable when the score says
+ * so; having nothing to try is not.
+ */
+export const MIN_CONFIDENCE = 25;
 
 /**
  * A card may only claim a game is "on" a channel it is this sure about.
@@ -296,6 +316,35 @@ export function indexChannels(channels: Tunable[]): Catalog {
   return { byToken, size: channels.length };
 }
 
+/**
+ * The smallest bucket that could contain a match, or nothing when one of
+ * the words appears in no channel at all.
+ */
+function narrow(catalog: Catalog, want: Set<string>): Entry[] | undefined {
+  let best: Entry[] | undefined;
+  for (const w of want) {
+    const list = catalog.byToken.get(w);
+    if (!list) return undefined;
+    if (!best || list.length < best.length) best = list;
+  }
+  return best;
+}
+
+/**
+ * The brand inside a product name: MLB.TV is MLB, Mavs.com is Mavs.
+ *
+ * Only for names shaped like a service, so this cannot quietly shorten an
+ * ordinary broadcaster. Returns nothing when there is no brand left over.
+ */
+function stem(want: Set<string>): Set<string> | null {
+  if (want.size < 2) return null;
+  const words = [...want];
+  const last = words[words.length - 1];
+  if (last !== "tv" && last !== "com") return null;
+  const rest = new Set(words.slice(0, -1));
+  return rest.size > 0 ? rest : null;
+}
+
 /** Accepts a plain list too, which is what every test and small caller has. */
 function asCatalog(source: Tunable[] | Catalog): Catalog {
   return Array.isArray(source) ? indexChannels(source) : source;
@@ -326,17 +375,15 @@ export function matchNetwork(
     [...want].join(" ");
   const catalog = asCatalog(source);
   // Every word must be present, so start from whichever is rarest and the
-  // rest of the catalog is never touched.
-  let candidates: Entry[] | undefined;
-  for (const w of want) {
-    const list = catalog.byToken.get(w);
-    if (!list) return [];
-    if (!candidates || list.length < candidates.length) candidates = list;
-  }
-  if (!candidates) return [];
+  // rest of the catalog is never touched. A word that appears in NO channel
+  // means nothing can match the full name; it does NOT mean we are done,
+  // because the brand pass below may still find something. "MLB.TV" fails
+  // here on "tv" and succeeds there on "mlb".
+  const candidates = narrow(catalog, want);
 
   const out: Match[] = [];
-  for (const { channel, ids } of candidates) {
+  const seen = new Set<string>();
+  for (const { channel, ids } of candidates ?? []) {
     let best = 0;
     ids.forEach((id, i) => {
       best = Math.max(best, carries(want, id, i > 0));
@@ -344,7 +391,22 @@ export function matchNetwork(
     if (best === 0) continue;
     const confidence = Math.max(0, best + (aliased ? SCORE.aliased : 0));
     if (confidence < MIN_CONFIDENCE) continue;
+    seen.add(channel.id);
     out.push({ ...channel, confidence });
+  }
+
+  // Second pass on the brand alone, for the games whose only listed
+  // broadcaster is a streaming product. Capped at the stem score however
+  // cleanly the shortened name happens to fit: the doubt is in having
+  // dropped a word, not in what is left.
+  const brand = stem(want);
+  if (brand) {
+    for (const { channel, ids } of narrow(catalog, brand) ?? []) {
+      if (seen.has(channel.id)) continue;
+      if (!ids.some((id, i) => carries(brand, id, i > 0) > 0)) continue;
+      seen.add(channel.id);
+      out.push({ ...channel, confidence: SCORE.stem });
+    }
   }
   // Surest first; a better picture breaks the tie.
   return out.sort(
@@ -469,6 +531,10 @@ export function matchGame(
   // schedule's order, then everything doubtful, in the schedule's order.
   return [
     ...out.filter((c) => c.confidence >= CARD_CONFIDENCE),
-    ...out.filter((c) => c.confidence < CARD_CONFIDENCE),
+    // Below the card's bar the schedule's ordering has stopped meaning
+    // much: these are all guesses, so the best guess goes first.
+    ...out
+      .filter((c) => c.confidence < CARD_CONFIDENCE)
+      .sort((a, b) => b.confidence - a.confidence || rank(a.quality) - rank(b.quality)),
   ];
 }

@@ -332,6 +332,29 @@ them card-worthy. The one addition is `Rangers Sports Network` finding
 throwing away. `NBC` returns 10 rows, 1 card-worthy and 9 doubtful, which
 is the Telly-shaped list and exactly what the score is for.
 
+### Decided: the rail goes wide, the card stays narrow
+
+**Adam, 2026-07-27: "more to choose from is always preferred when sources
+go awry."** An operational argument rather than an aesthetic one, and it
+is right: IPTV streams die mid-game, so a rail with five imperfect options
+beats one with two perfect ones that have both gone dark. Being wrong is
+recoverable when the score says so; having nothing left to try is not.
+
+So a third tier, the BRAND of a product name: `MLB.TV` reaches `MLB
+Network` through `MLB`, at 30. This is what Telly does for every match, and
+it is usually the wrong channel for a reason we can state: a schedule
+naming the out-of-market package is telling you the game is not on the
+national one. It is offered anyway, last, with its odds on it.
+
+Only names shaped like a service (`X.TV`, `X.com`) may shorten, so an
+ordinary broadcaster cannot quietly lose a word. And the guess stays a
+guess however cleanly the short name fits: the doubt is in having dropped
+`.TV`, not in what is left.
+
+Measured on today's real slate, per game: 5 to 9 rail rows, of which 2 to 5
+are card-worthy. Diamondbacks at Pirates went from zero rows to five, the
+top two being the actual per-game feeds.
+
 ### Decided: what the matcher searches
 
 **Adam, 2026-07-27: hidden folders count, but only as a fallback.** If

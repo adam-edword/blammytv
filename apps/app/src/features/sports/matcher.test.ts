@@ -277,6 +277,41 @@ describe("against the real corpora", () => {
   });
 });
 
+describe("the brand-stem fallback", () => {
+  it("reaches a league's own channel when the schedule only names a service", () => {
+    // ESPN says this game is on MLB.TV and nothing else. Nothing carries
+    // MLB.TV, but the league's channels are the best remaining guess.
+    const list = [chan("US: MLB Network"), chan("US: The MLB Channel")];
+    const got = matchNetwork("MLB.TV", list);
+    expect(got).toHaveLength(2);
+    expect(got.every((c) => c.confidence === 30)).toBe(true);
+  });
+
+  it("keeps the guess a guess, however cleanly the short name fits", () => {
+    // "MLB" against "MLB Network" is a tidy fit, but the doubt is in having
+    // dropped ".TV", not in what is left, so it must not score as a match.
+    expect(matchNetwork("MLB.TV", [chan("US: MLB Network")])[0].confidence).toBe(30);
+    expect(matchNetwork("MLB Network", [chan("US: MLB Network")])[0].confidence).toBe(100);
+  });
+
+  it("only shortens names shaped like a service", () => {
+    // Not every multi-word broadcaster gets to drop its last word.
+    expect(matchNetwork("NBC Sports", [chan("US: NBC")])).toEqual([]);
+    expect(matchNetwork("Fox Sports", [chan("US: Fox")])).toEqual([]);
+  });
+
+  it("does not offer a stem match twice", () => {
+    const list = [chan("US: MLB Network")];
+    expect(matchNetwork("MLB.TV", list)).toHaveLength(1);
+  });
+
+  it("puts the best guess first once everything is a guess", () => {
+    const list = [chan("US: MLB Network"), chan("US: Texas Rangers Sports Network")];
+    const got = matchGame(["MLB.TV", "Rangers Sports Network"], list);
+    expect(got.map((c) => c.confidence)).toEqual([40, 30]);
+  });
+});
+
 describe("matchEvent", () => {
   // The real thing, verbatim from the dump.
   const REAL = "MLB 05 | Arizona Diamondbacks at Pittsburgh Pirates HOME 27 Jul 06:40 PM ET";
