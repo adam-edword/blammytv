@@ -200,9 +200,60 @@ Three traps the corpus already shows:
   masquerading as the cable channel, which is exactly the ESPN/ESPNU class
   of false positive this plan already warns about.
 
-**Still missing: the other side.** Adam's own channel names. Until those are
-a fixture next to this one there is a corpus for the schedule and nothing to
-join it to, so the matcher stays unwritten.
+### The other side, dumped 2026-07-27
+
+Adam's own channels, via `scripts/dump-channel-names.js`, checked in as
+`fixtures/channels.json`: **1,875 channels across 22 folders**, names and
+folders only, no urls. Measured against the 92 ESPN names above, counting
+only the 60 that are not streaming-only and could therefore ever match:
+
+| Matcher | Reachable broadcasters matched |
+| --- | --- |
+| Normalize + exact token set | 16/60 (27%) |
+| ...plus alias expansion | **25/60 (42%)** |
+
+Alias expansion is ESPN's abbreviations against a playlist's full words:
+`NFL Net` to `NFL Network`, `MLBN` to `MLB Network`, `NBC Sports BA` to
+`NBC Sports Bay Area`, `SN` to `Sports Network`, `SportsNet PIT` to
+`SportsNet Pittsburgh`. That is 15 points available in code and nothing
+else is, which is the point of measuring before writing it.
+
+**The remaining 35 misses are not an algorithm problem, and this is the
+finding that matters.** They split cleanly:
+
+- **National broadcast networks**: ABC, USA Net, Universo, Tele, TVA. These
+  carry most of the NFL, NBA and Premier League national windows. None of
+  them is in the catalog at all.
+- **Regionals and local call signs**: 11 `FanDuel SN` feeds, 9 call signs
+  (`KNTV`, `WKYC 3`, `KUSA-TV (9NEWS)`), `MSG2`, `MASN2`, `Root Sports NW`,
+  `Spectrum Sports Net`. No channel carries them.
+
+**Why they are absent: the catalog is 9% of the provider.** The load logs
+240 categories and 20,548 streams; 1,875 channels survive, because
+`droppedCategories` removes every hidden category and hiding a folder hides
+its content, not just its sidebar row. 218 of 240 categories are hidden, and
+the general-entertainment folders that carry ABC and USA Network are among
+them.
+
+So the matcher's ceiling is set by which categories are un-hidden, not by
+how clever it is. **That is an open decision, recorded below, and it should
+be settled before the matcher is written**, because it changes what the
+matcher searches.
+
+### Open: what may the matcher search?
+
+A game on FOX with FOX hidden from the guide is the case this turns on.
+
+1. **Visible channels only.** Consistent with the existing rule, and that
+   rule is deliberate. Costs most of a Sunday NFL slate reading "not on your
+   channels" when the channel does exist behind a hidden folder.
+2. **Every channel, hidden or not.** Sports is a different lens on the same
+   catalog, and hiding is about guide clutter rather than entitlement. But
+   it quietly overrides an explicit user choice and could tune a channel
+   somebody hid on purpose.
+3. **Visible first, then offer the hidden ones.** "3 hidden folders carry
+   this game" with a way to un-hide. Honest, keeps the user's choice, and
+   costs a step at the moment they most want none.
 
 - **Normalize both sides.** Strip country prefixes (`US|`, `USA:`), quality
   suffixes (`HD`, `FHD`, `4K`, `1080`), separators, and the unicode lookalikes
