@@ -110,11 +110,27 @@ describe("matchNetwork", () => {
     ).toHaveLength(1);
   });
 
-  it("does not let MSG become MSG Western New York", () => {
-    // A region is not a decoration, it is a different feed of the same
-    // brand, and tuning the wrong one is the failure that costs trust.
+  it("ranks a regional variant well below the bare name", () => {
+    // A region might be a different feed or might be the same one, so it is
+    // shown with its doubt on it rather than dropped. The bare name wins.
     const list = [chan("US: MSG Western New York"), chan("US: MSG")];
-    expect(matchNetwork("MSG", list).map((c) => c.name)).toEqual(["US: MSG"]);
+    const got = matchNetwork("MSG", list);
+    expect(got.map((c) => c.name)).toEqual(["US: MSG", "US: MSG Western New York"]);
+    expect(got[0].confidence).toBe(100);
+    expect(got[1].confidence).toBe(40);
+  });
+
+  it("scores by HOW the match was made", () => {
+    expect(matchNetwork("MASN", [chan("US: MASN")])[0].confidence).toBe(100);
+    expect(
+      matchNetwork("CHSN", [chan("US: Chicago Sports Network CHSN")])[0].confidence,
+    ).toBe(90);
+    expect(
+      matchNetwork("MASN", [chan("US: The MASN Network")])[0].confidence,
+    ).toBe(85);
+    // MLBN only reaches MLB Network through our own alias table, so it is
+    // docked for being our claim rather than either side's.
+    expect(matchNetwork("MLBN", [chan("US: MLB Network")])[0].confidence).toBe(85);
   });
 
   it("puts the exact name before one carrying only shelf words", () => {

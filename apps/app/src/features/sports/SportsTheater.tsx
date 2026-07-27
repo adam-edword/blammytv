@@ -1,9 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useMouseNav } from "../../lib/mouseNav";
 import { Badge } from "./Badge";
 import { CompactCard } from "./CompactCard";
 import { Wash } from "./Wash";
 import { loser } from "./result";
+import { matchGame } from "./matcher";
+import type { Catalog, Match } from "./matcher";
 import type { Game } from "./model";
 
 /**
@@ -23,15 +25,24 @@ import type { Game } from "./model";
 export function SportsTheater({
   game,
   others,
+  catalog,
   onClose,
 }: {
   game: Game;
   /** The other games on now, to switch to. Not this one. */
   others: Game[];
+  /** The user's channels. The rail resolves its own, rather than taking the
+   * card's list: the card counts only what it is sure of, and the rail is
+   * the one place a doubtful match can be shown honestly, with its score. */
+  catalog: Catalog | null;
   onClose: () => void;
 }) {
   const { home, away } = game;
   const lost = loser(game);
+  const matches = useMemo(
+    () => (catalog ? matchGame(game.broadcasts, catalog) : []),
+    [game, catalog],
+  );
 
   useMouseNav(onClose);
   useEffect(() => {
@@ -79,17 +90,12 @@ export function SportsTheater({
           * channels. The card's "Live on 3 channels" is a promise that
           * lands here. */}
         <nav className="sportstheater__rail">
-          {game.channels.length > 0 ? (
-            game.channels.map((c) => (
-              <button type="button" className="sportsrail" key={c.id}>
-                <span className="sportsrail__name">{c.name}</span>
-                <PlayIcon />
-              </button>
-            ))
+          {matches.length > 0 ? (
+            matches.map((c) => <Rail key={c.id} channel={c} />)
           ) : (
             <p className="sportstheater__empty">
               {game.broadcasts.length > 0
-                ? `On ${game.broadcasts.join(", ")}. Matching your channels isn't built yet.`
+                ? `On ${game.broadcasts.join(", ")}. None of your channels carry it.`
                 : "No broadcast listed for this game."}
             </p>
           )}
@@ -115,6 +121,36 @@ export function SportsTheater({
         <div id="player-slot" className="sportstheater__slot" />
       </div>
     </div>
+  );
+}
+
+/**
+ * One channel, with how sure we are that it is the right one.
+ *
+ * The score is the point. Everything here would once have been dropped or
+ * shown without qualification; a number lets a doubtful match be offered
+ * honestly instead of either hidden or dressed up as certain.
+ */
+function Rail({ channel }: { channel: Match }) {
+  const band =
+    channel.confidence >= 85 ? "sure" : channel.confidence >= 60 ? "likely" : "doubt";
+  return (
+    <button type="button" className="sportsrail" title={channel.name}>
+      {channel.logo && (
+        <img className="sportsrail__logo" src={channel.logo} alt="" loading="lazy" />
+      )}
+      <span className="sportsrail__name">{channel.name}</span>
+      {channel.quality && (
+        <span className="sportsrail__badge">{channel.quality}</span>
+      )}
+      <span className={`sportsrail__score is-${band}`}>
+        <span className="sportsrail__bar" aria-hidden>
+          <i style={{ height: `${channel.confidence}%` }} />
+        </span>
+        <span className="sportsrail__pct">{channel.confidence}%</span>
+      </span>
+      <PlayIcon />
+    </button>
   );
 }
 

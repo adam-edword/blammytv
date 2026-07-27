@@ -112,6 +112,7 @@ export function SportsScreen() {
       <SportsTheater
         game={current}
         others={today.filter((g) => g.state === "live" && g.id !== current.id)}
+        catalog={catalog}
         onClose={() => setOpen(null)}
       />
     );

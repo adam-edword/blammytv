@@ -51,11 +51,13 @@ export function useCatalog(): Catalog | null {
         id: c.id,
         name: c.name,
         quality: c.quality,
+        logo: c.logo,
       })),
       ...(live.hidden ?? []).map((c) => ({
         id: c.id,
         name: c.name,
         quality: c.quality,
+        logo: c.logo,
         hidden: true,
       })),
     ];

@@ -264,6 +264,39 @@ memoised on the LiveData object.
 | resolve 42 games | **2.1ms** | **4.7ms** |
 | resolve 42 games, no index | 286ms | 3,681ms |
 
+### Decided: matches are scored, not just accepted
+
+**Adam, 2026-07-27, after seeing Telly's picker.** The matcher was binary
+and deliberately strict, so everything it returned was high confidence by
+construction and a score would have been decoration. Scoring is worth
+having only because it lets DOUBTFUL matches be shown instead of dropped.
+
+That reads against this plan's own rule, "prefer showing fewer, surer
+matches", so the line is drawn differently rather than moved:
+
+- **Rejected**, whatever else agrees: anything carrying a qualifier the
+  network name does not. ESPN 2, ESPN U, NESN Plus, Bein Sports Xtra are
+  not doubtful, they are definitively other channels.
+- **Scored**: everything else, from how the match was made. 100 the names
+  agree; 90 agreed on a trailing acronym; 85 the channel only carried shelf
+  words; 40 it shares the name but carries words that might mean another
+  feed. Minus 15 wherever one of our own aliases was needed, because that
+  is our claim rather than either side's.
+
+The rule the plan was protecting is that a wrong channel must not be
+presented as right. A 40% row in a rail is not that.
+
+**The card and the rail read the same list differently.** A card counts
+only matches at 70 or better, so "Live on 3 channels" stays a promise. The
+rail shows everything with its score visible, which is the one place doubt
+can be stated rather than hidden.
+
+Measured over the corpora: 25 of ESPN's names now find something, 24 of
+them card-worthy. The one addition is `Rangers Sports Network` finding
+`US: Texas Rangers Sports Network` at 40%, a correct match strict mode was
+throwing away. `NBC` returns 10 rows, 1 card-worthy and 9 doubtful, which
+is the Telly-shaped list and exactly what the score is for.
+
 ### Decided: what the matcher searches
 
 **Adam, 2026-07-27: hidden folders count, but only as a fallback.** If

@@ -30,6 +30,14 @@ export interface Tunable {
    * just count LAST: see `matchGame`.
    */
   hidden?: boolean;
+  /** Provider artwork, for the rail. */
+  logo?: string;
+}
+
+/** A channel that carries a game, and how sure we are of it. */
+export interface Match extends Tunable {
+  /** 0-100. See SCORE for where each number comes from. */
+  confidence: number;
 }
 
 /**
@@ -125,6 +133,70 @@ export function tokens(name: string): Set<string> {
 const NOISE = new Set(["at", "t", "the", "network", "event", "only"]);
 
 /**
+ * Words that make a channel DIFFERENT rather than merely uncertain.
+ *
+ * The line this file draws: reject what we know is another channel, score
+ * what we are only unsure about. ESPN 2, ESPN U, NESN Plus, Bein Sports
+ * Xtra and Big Ten Network Overflow 2 are not doubtful matches for their
+ * bare names, they are definitively other channels, and no confidence
+ * number makes showing them useful. Every one of these came off the dump.
+ */
+const QUALIFIERS = new Set([
+  "u",
+  "news",
+  "plus",
+  "+",
+  "alt",
+  "alternate",
+  "overflow",
+  "backup",
+  "xtra",
+  "extra",
+  "espanol",
+  "deportes",
+  "multiview",
+  "hq",
+  "insider",
+  "now",
+]);
+
+const isQualifier = (w: string) => /^\d+$/.test(w) || QUALIFIERS.has(w);
+
+/**
+ * How sure we are, 0 to 100, and where each number comes from.
+ *
+ * Derived from HOW the match was made rather than invented, so every score
+ * is a fact about the two names rather than a feeling. A viewer reading
+ * "40%" is being told the truth: this shares the broadcaster's name but
+ * carries words that could mean a different feed of it.
+ */
+const SCORE = {
+  /** The names agree once the country prefix and quality badge come off. */
+  exact: 100,
+  /** Agreed on the acronym a provider appends after spelling the brand out. */
+  acronym: 90,
+  /** Agreed, and the channel only carried shelf words extra ("AT&T", "The"). */
+  shelf: 85,
+  /**
+   * Shares the name but carries words that distinguish nothing we know of:
+   * "NBC" against "NBC Sports Bay Area". Probably a different feed, possibly
+   * the same one. Shown, ranked last, and never counted on a card.
+   */
+  loose: 40,
+  /** Deduction when one of OUR expansions was needed to make them meet. */
+  aliased: -15,
+};
+
+/** Below this, a match is not worth a viewer's attention. */
+export const MIN_CONFIDENCE = 40;
+
+/**
+ * A card may only claim a game is "on" a channel it is this sure about.
+ * Loose matches still appear in the rail, where the score is visible.
+ */
+export const CARD_CONFIDENCE = 70;
+
+/**
  * A channel's names, plural.
  *
  * Providers write a broadcaster out and then append its acronym: "Chicago
@@ -164,9 +236,19 @@ const same = (a: Set<string>, b: Set<string>) =>
  * and one line: whatever distinguishes siblings must be identical on both
  * sides, so a bare name only ever finds a bare channel.
  */
-function carries(want: Set<string>, channel: Set<string>): boolean {
-  if (![...want].every((w) => channel.has(w))) return false;
-  return [...channel].every((w) => want.has(w) || NOISE.has(w));
+function carries(
+  want: Set<string>,
+  channel: Set<string>,
+  viaAcronym: boolean,
+): number {
+  if (![...want].every((w) => channel.has(w))) return 0;
+  const extras = [...channel].filter((w) => !want.has(w));
+  // A qualifier is not doubt, it is a different channel. Rejected outright,
+  // whatever else agrees.
+  if (extras.some(isQualifier)) return 0;
+  if (extras.length === 0) return viaAcronym ? SCORE.acronym : SCORE.exact;
+  if (extras.every((w) => NOISE.has(w))) return SCORE.shelf;
+  return SCORE.loose;
 }
 
 /**
@@ -235,9 +317,13 @@ const rank = (q: string | null) => (q ? (QUALITY_RANK[q] ?? 4) : 5);
 export function matchNetwork(
   network: string,
   source: Tunable[] | Catalog,
-): Tunable[] {
+): Match[] {
   const want = tokens(network);
   if (want.size === 0) return [];
+  // Whether our own alias table was needed to get here. That is a claim we
+  // made rather than something either side said, so it costs confidence.
+  const aliased = normalize(network).split(" ").filter(Boolean).join(" ") !==
+    [...want].join(" ");
   const catalog = asCatalog(source);
   // Every word must be present, so start from whichever is rarest and the
   // rest of the catalog is never touched.
@@ -249,14 +335,21 @@ export function matchNetwork(
   }
   if (!candidates) return [];
 
-  const exact: Tunable[] = [];
-  const partial: Tunable[] = [];
+  const out: Match[] = [];
   for (const { channel, ids } of candidates) {
-    if (!ids.some((t) => carries(want, t))) continue;
-    (ids.some((t) => same(want, t)) ? exact : partial).push(channel);
+    let best = 0;
+    ids.forEach((id, i) => {
+      best = Math.max(best, carries(want, id, i > 0));
+    });
+    if (best === 0) continue;
+    const confidence = Math.max(0, best + (aliased ? SCORE.aliased : 0));
+    if (confidence < MIN_CONFIDENCE) continue;
+    out.push({ ...channel, confidence });
   }
-  const byQuality = (a: Tunable, b: Tunable) => rank(a.quality) - rank(b.quality);
-  return [...exact.sort(byQuality), ...partial.sort(byQuality)];
+  // Surest first; a better picture breaks the tie.
+  return out.sort(
+    (a, b) => b.confidence - a.confidence || rank(a.quality) - rank(b.quality),
+  );
 }
 
 /**
@@ -281,11 +374,11 @@ export function matchNetwork(
 export function matchGame(
   networks: string[],
   source: Tunable[] | Catalog,
-): Tunable[] {
+): Match[] {
   const catalog = asCatalog(source);
   const seen = new Set<string>();
-  const visible: Tunable[] = [];
-  const hidden: Tunable[] = [];
+  const visible: Match[] = [];
+  const hidden: Match[] = [];
   for (const network of networks) {
     for (const c of matchNetwork(network, catalog)) {
       if (seen.has(c.id)) continue;
@@ -293,5 +386,17 @@ export function matchGame(
       (c.hidden ? hidden : visible).push(c);
     }
   }
-  return visible.length > 0 ? visible : hidden;
+  const out = visible.length > 0 ? visible : hidden;
+  // NOT sorted by confidence outright. The order the networks arrived in is
+  // the schedule's own priority, national feed before regional, and that is
+  // better information about what someone wants to watch than a naming
+  // detail is. Sorting purely by score put an exactly-named regional above
+  // an alias-matched national one, which is the wrong answer.
+  //
+  // So confidence only decides the BAND: everything we are sure of, in the
+  // schedule's order, then everything doubtful, in the schedule's order.
+  return [
+    ...out.filter((c) => c.confidence >= CARD_CONFIDENCE),
+    ...out.filter((c) => c.confidence < CARD_CONFIDENCE),
+  ];
 }

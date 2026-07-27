@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { onDay } from "./day";
 import { fetchGames } from "./espn";
-import { matchGame } from "./matcher";
+import { CARD_CONFIDENCE, matchGame } from "./matcher";
 import type { Catalog } from "./matcher";
 import type { Game } from "./model";
 
@@ -148,7 +148,12 @@ export function keepStable(prev: Game[], next: Game[]): Game[] {
 export function withChannels(games: Game[], catalog: Catalog | null): Game[] {
   if (!catalog) return games;
   return games.map((game) => {
-    const found = matchGame(game.broadcasts, catalog);
+    // The CARD only counts what we are sure of. A 40% match is a candidate
+    // for the rail, where its score is visible; putting it behind "Live on
+    // 3 channels" would be the silent wrongness plan 010 warns about.
+    const found = matchGame(game.broadcasts, catalog).filter(
+      (c) => c.confidence >= CARD_CONFIDENCE,
+    );
     const channels = found.map((c) => ({ id: c.id, name: c.name }));
     const hiddenOnly = found.length > 0 && found.every((c) => c.hidden);
     const unchanged =
