@@ -1,3 +1,4 @@
+import { memo } from "react";
 import Tilt from "react-parallax-tilt";
 import { useFitText } from "../../lib/fitText";
 import { formatClock } from "../../lib/time";
@@ -24,7 +25,7 @@ import type { Game } from "./model";
  * player's channel rail is where that decision gets revised.
  */
 
-export function GameCard({
+function GameCardImpl({
   game,
   onOpen,
 }: {
@@ -85,8 +86,8 @@ export function GameCard({
         glarePosition="all"
         glareBorderRadius="63.9px"
       >
-        <Wash side="home" team={home} lost={lost === "home"} />
-        <Wash side="away" team={away} lost={lost === "away"} />
+        <Wash side="home" team={home} lost={lost === "home"} haze />
+        <Wash side="away" team={away} lost={lost === "away"} haze />
         <span className="gamecard__scrim" aria-hidden />
 
         <span className="gamecard__body">
@@ -220,3 +221,12 @@ function PinIcon() {
     </svg>
   );
 }
+
+/**
+ * Memoised on the game's identity. The board rebuilds its games from
+ * fresh JSON every 90 seconds and almost none of them have changed;
+ * useGames carries the unchanged ones forward as the SAME object so a
+ * plain shallow compare is enough here. Without it a quiet tick
+ * re-rendered every card on screen and rewrote every tilt transform.
+ */
+export const GameCard = memo(GameCardImpl);

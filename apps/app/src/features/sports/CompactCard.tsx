@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Badge } from "./Badge";
 import { Wash } from "./Wash";
 import { loser } from "./result";
@@ -19,7 +20,7 @@ import type { Game } from "./model";
  * and this is a record of something that already happened. It also keeps a
  * long column of them cheap.
  */
-export function CompactCard({
+function CompactCardImpl({
   game,
   onOpen,
 }: {
@@ -81,3 +82,12 @@ export function CompactCard({
     </button>
   );
 }
+
+/**
+ * Memoised on the game's identity. The board rebuilds its games from
+ * fresh JSON every 90 seconds and almost none of them have changed;
+ * useGames carries the unchanged ones forward as the SAME object so a
+ * plain shallow compare is enough here. Without it a quiet tick
+ * re-rendered every card on screen and rewrote every tilt transform.
+ */
+export const CompactCard = memo(CompactCardImpl);

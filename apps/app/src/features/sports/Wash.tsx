@@ -53,11 +53,22 @@ export function Wash({
   side,
   team,
   lost,
+  haze,
 }: {
   side: Side;
   team: Competitor;
   /** Beaten, and the game is over. Drains the colour out of this half. */
   lost?: boolean;
+  /**
+   * Render the progressive blur. The WIDE CARD only.
+   *
+   * A prop rather than a stylesheet rule, because `display: none` still
+   * costs a React element and a DOM node for each of the eight, and only
+   * one of the three places this component is used ever paints them.
+   * Measured on the layout rig: emitting them everywhere put 5,024 of
+   * these in a 42-game board and hid 4,352 of them again.
+   */
+  haze?: boolean;
 }) {
   return (
     <span
@@ -74,11 +85,13 @@ export function Wash({
             * result beneath it, so the radii compound into one continuous
             * dissolve; the stylesheet owns the radius and the band of
             * each. Live card only, and priced there: see sports.css. */}
-          <span className="gamewash__haze">
-            {HAZE_LAYERS.map((layer) => (
-              <i key={layer} />
-            ))}
-          </span>
+          {haze && (
+            <span className="gamewash__haze">
+              {HAZE_LAYERS.map((layer) => (
+                <i key={layer} />
+              ))}
+            </span>
+          )}
         </span>
       ) : (
         team.color && (

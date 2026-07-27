@@ -1,3 +1,4 @@
+import { memo } from "react";
 import Tilt from "react-parallax-tilt";
 import { useFitText } from "../../lib/fitText";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
@@ -35,7 +36,7 @@ import type { Game } from "./model";
  * light weight, so a grid of results can be read for who won without
  * reading a single number.
  */
-export function UpcomingCard({
+function UpcomingCardImpl({
   game,
   onOpen,
 }: {
@@ -133,3 +134,12 @@ export function UpcomingCard({
     </button>
   );
 }
+
+/**
+ * Memoised on the game's identity. The board rebuilds its games from
+ * fresh JSON every 90 seconds and almost none of them have changed;
+ * useGames carries the unchanged ones forward as the SAME object so a
+ * plain shallow compare is enough here. Without it a quiet tick
+ * re-rendered every card on screen and rewrote every tilt transform.
+ */
+export const UpcomingCard = memo(UpcomingCardImpl);

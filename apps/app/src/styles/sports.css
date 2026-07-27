@@ -523,10 +523,6 @@
   position: absolute;
   inset: 0;
 }
-/* Nor does the veil, which is already the softest copy of the crest. */
-.gameveil .gamewash__haze {
-  display: none;
-}
 
 .gamecard .gamewash__haze i:nth-child(1) {
   backdrop-filter: blur(0.16614px);
@@ -763,17 +759,16 @@
   filter: blur(4.118px)
     saturate(var(--wash-saturation, 1.15));
 }
-/* The small card takes none of the haze. Measured, 45 of them in a grid
- * over 100 scrolled frames: 125ms a frame with the ladder, 16.7ms with one
- * flat blur, and 16.4ms with no background at all. The ladder is the whole
- * cost and the crest itself is free, so the art stays and the layers go.
+/* The small card takes none of the haze, and does not render it either:
+ * Wash only emits the layers for the wide card. Measured, 45 of them in a
+ * grid over 100 scrolled frames: 125ms a frame with the ladder, 16.7ms
+ * with one flat blur, and 16.4ms with no background at all. The ladder is
+ * the whole cost and the crest itself is free, so the art stays and the
+ * layers go.
  *
  * It is a grid that makes the difference, not the card. Backdrop cost
  * follows what is ON SCREEN, and a grid puts four times as many cards
  * there as a row does. */
-.upcard .gamewash__haze {
-  display: none;
-}
 
 /* The same ladder on the small card, at its own ceiling. Scaling 15px by
  * the crest widths (565px live, 234px here) suggests 6px, and 6px was too
