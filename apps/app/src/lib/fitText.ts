@@ -43,6 +43,34 @@ const MIN_RATIO = 0.6;
  * render, and passing them is what re-measures when the game changes under
  * a recycled card. The count must not change between renders.
  */
+/**
+ * How far past its box a line may sit before we call it clipped.
+ *
+ * Sub-pixel, because that is the scale the problem lives at: the browser
+ * draws the ellipsis the moment the run is wider than the box AT ALL, and
+ * scrollWidth/clientWidth are integers, so a line 0.7px over reports as
+ * fitting exactly. This is the tolerance for "close enough that another
+ * pass would only chase rounding".
+ */
+const SLACK = 0.05;
+
+/** How many corrective passes before we accept what we have. Measured over
+ * the five leagues' names, every group settles on the first or second. */
+const PASSES = 3;
+
+/**
+ * The width of the actual glyph run, sub-pixel.
+ *
+ * A Range over the contents measures the text rather than the box it is
+ * clipped into, which is the only way to see an overflow smaller than a
+ * pixel. `scrollWidth` rounds and hides exactly the case that matters.
+ */
+function runWidth(el: HTMLElement): number {
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  return range.getBoundingClientRect().width;
+}
+
 export function useFitText<T extends HTMLElement>(
   ...texts: string[]
 ): RefObject<T>[] {
@@ -73,13 +101,38 @@ export function useFitText<T extends HTMLElement>(
       }
       if (ratio === 1) return;
       ratio = Math.max(ratio, MIN_RATIO);
-      for (const ref of els) {
-        const el = ref.current;
-        if (!el) continue;
-        // Width is close enough to linear in size for one pass: a second
-        // would move it by a fraction of a pixel.
-        const max = Number.parseFloat(getComputedStyle(el).fontSize);
-        el.style.fontSize = `${(max * ratio).toFixed(2)}px`;
+
+      // The stylesheet's size for each line, read once: after the first
+      // apply, getComputedStyle would return the size we just wrote.
+      const maxes = els.map((ref) =>
+        ref.current
+          ? Number.parseFloat(getComputedStyle(ref.current).fontSize)
+          : 0,
+      );
+      const apply = (r: number) => {
+        els.forEach((ref, i) => {
+          if (ref.current) ref.current.style.fontSize = `${(maxes[i] * r).toFixed(2)}px`;
+        });
+      };
+      apply(ratio);
+
+      // Width is only ALMOST linear in size: glyph advances round, so a
+      // ratio derived at full size can still land a fraction of a pixel
+      // over, and a fraction over is a full ellipsis on screen. Correct
+      // against what actually got drawn, which is also why this measures
+      // the glyph run rather than the rounded scrollWidth.
+      for (let pass = 1; pass < PASSES && ratio > MIN_RATIO; pass++) {
+        let worst = 1;
+        for (const ref of els) {
+          const el = ref.current;
+          if (!el) continue;
+          const need = runWidth(el);
+          const room = el.getBoundingClientRect().width;
+          if (need > room + SLACK && need > 0) worst = Math.min(worst, room / need);
+        }
+        if (worst === 1) break;
+        ratio = Math.max(ratio * worst, MIN_RATIO);
+        apply(ratio);
       }
     };
 
