@@ -1,5 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { RowScroller } from "../stream/StreamScreen";
+import {
+  loadCompactResults,
+  saveCompactResults,
+} from "../settings/compactResults";
+import { CompactCard } from "./CompactCard";
 import { GameCard } from "./GameCard";
 import { UpcomingCard } from "./UpcomingCard";
 import { useGames } from "./useGames";
@@ -67,6 +72,15 @@ export function SportsScreen() {
   }, [anchor]);
 
   const anything = days.some((d) => d.games.length > 0);
+  // Read once and kept here: it is a display choice about this screen, so
+  // it belongs to the screen rather than to every card in it.
+  const [compact, setCompact] = useState(loadCompactResults);
+  const toggleCompact = () => {
+    setCompact((on) => {
+      saveCompactResults(!on);
+      return !on;
+    });
+  };
 
   return (
     <div className="discover sports">
@@ -90,13 +104,33 @@ export function SportsScreen() {
         (day) =>
           day.games.length > 0 && (
             <section className="media-row" key={day.date.toDateString()}>
-              <h3 className="media-row__title sports__title">
-                {dayLabel(day.date)}
-              </h3>
+              <div className="sports__head">
+                <h3 className="media-row__title sports__title">
+                  {dayLabel(day.date)}
+                </h3>
+                {/* Only where it would do something. A day with nothing
+                  * finished on it has no results to compact. */}
+                {day.games.some((g) => g.state === "final") && (
+                  <button
+                    type="button"
+                    className={
+                      "sports__toggle" + (compact ? " is-on" : "")
+                    }
+                    onClick={toggleCompact}
+                    aria-pressed={compact}
+                  >
+                    Compact results
+                  </button>
+                )}
+              </div>
               <div className="sports__grid">
-                {day.games.map((g) => (
-                  <UpcomingCard key={g.id} game={g} />
-                ))}
+                {day.games.map((g) =>
+                  compact && g.state === "final" ? (
+                    <CompactCard key={g.id} game={g} />
+                  ) : (
+                    <UpcomingCard key={g.id} game={g} />
+                  ),
+                )}
               </div>
             </section>
           ),

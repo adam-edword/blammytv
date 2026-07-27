@@ -45,6 +45,46 @@
   padding-top: calc(var(--header-h, 76px) + 18px);
 }
 
+/* A day's heading and its one control, on a line. */
+.sports__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+/* Quiet by design: it is a preference about how a grid is drawn, not an
+ * action, so it should be findable without competing with the day it sits
+ * beside. Pressed reads as brighter, which is the direction the grid goes
+ * when it is off. */
+.sports__toggle {
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 999px;
+  background: none;
+  color: rgba(255, 255, 255, 0.45);
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    color 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease;
+}
+.sports__toggle:hover {
+  color: rgba(255, 255, 255, 0.75);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.sports__toggle.is-on {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--accent, #fff) 18%, transparent);
+  color: #fff;
+}
+
 .sports__title {
   display: flex;
   align-items: center;
@@ -127,6 +167,9 @@
 .sports__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(315px, 1fr));
+  /* Compact lines and full cards share the grid, so a row is as tall as
+   * its tallest card. Without this the short ones stretch to match it. */
+  align-items: start;
   gap: calc(16px * var(--sports-scale));
   /* Headroom for the tilt and the shadow, same as the row's. */
   padding: 14px 0 calc(20px * var(--sports-scale));
@@ -135,6 +178,108 @@
  * everything inside it is proportional, so it stretches cleanly. */
 .sports__grid .upcard {
   width: 100%;
+}
+
+/* A finished game as one line, when compact results are on.
+ *
+ * Its own element rather than a modifier on the small card: it says the
+ * same things in a different order with different parts, and branching one
+ * component that far apart is mostly branches. It shares the wash, the
+ * badge and the loser's weight, which is what keeps them family.
+ *
+ * No tilt layer, so this IS the clipping box. Nothing here rotates, so
+ * there is no corner to square off. */
+.compactcard {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: calc(12px * var(--sports-scale));
+  width: 100%;
+  height: calc(34px * var(--sports-scale));
+  padding: 0 calc(14px * var(--sports-scale));
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: calc(14px * var(--sports-scale));
+  background: #0f0f0f;
+  overflow: hidden;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 200ms ease;
+}
+.compactcard:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+}
+/* Lighter than the full card's: there is less art showing and the text sits
+ * right on it. */
+.compactcard__scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      to right,
+      rgba(15, 15, 15, 0) 0%,
+      #0f0f0f 50%,
+      rgba(15, 15, 15, 0) 100%
+    ),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.15), rgba(0, 0, 0, 0.3));
+}
+.compactcard__status,
+.compactcard__league {
+  position: relative;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: var(--sports-meta);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.compactcard__status {
+  color: #fff;
+}
+.compactcard__league {
+  color: rgba(255, 255, 255, 0.45);
+  text-align: right;
+}
+/* The matchup, centred in what the two labels leave. */
+.compactcard__game {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(8px * var(--sports-scale));
+  min-width: 0;
+}
+.compactcard__abbr {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: var(--sports-meta);
+  letter-spacing: 0.07em;
+  color: rgba(255, 255, 255, 0.55);
+}
+.compactcard__score {
+  display: flex;
+  align-items: center;
+  gap: calc(5px * var(--sports-scale));
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: calc(19px * var(--sports-scale));
+  color: #fff;
+}
+.compactcard__dash {
+  opacity: 0.25;
+}
+/* The beaten side, as on the full card: lighter, not dimmer. */
+.compactcard .is-lost {
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.65);
+}
+/* Smaller mark for a smaller line. */
+.compactcard .gamebadge {
+  width: calc(20px * var(--sports-scale));
+}
+/* The wash is a hint at this size: mostly it is the two team colours at
+ * either end of a dark pill. */
+.compactcard .gamewash__mark {
+  height: 260%;
 }
 
 /* ---------------------------------------------------------------- card */
