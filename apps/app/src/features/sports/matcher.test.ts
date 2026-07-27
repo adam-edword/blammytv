@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { matchGame, matchNetwork, normalize, tokens } from "./matcher";
+import { matchEvent, matchGame, matchNetwork, normalize, tokens } from "./matcher";
 import type { Tunable } from "./matcher";
 import channels from "./fixtures/channels.json";
 import vocabulary from "./fixtures/broadcast-names.json";
@@ -273,6 +273,67 @@ describe("against the real corpora", () => {
     expect(got.length).toBeGreaterThan(0);
     for (const name of got) {
       expect(name).not.toMatch(/ESPN\s*(\+|U|News|2)\b/i);
+    }
+  });
+});
+
+describe("matchEvent", () => {
+  // The real thing, verbatim from the dump.
+  const REAL = "MLB 05 | Arizona Diamondbacks at Pittsburgh Pirates HOME 27 Jul 06:40 PM ET";
+  const AWAY = "MLB 06 | Arizona Diamondbacks at Pittsburgh Pirates AWAY 27 Jul 06:40 PM ET";
+  // 27 Jul 2026, 18:40 US Eastern, as an absolute instant.
+  const start = new Date("2026-07-27T22:40:00Z");
+  const teams = ["Pittsburgh Pirates", "Arizona Diamondbacks"];
+
+  it("finds the channel that names this exact fixture", () => {
+    const got = matchEvent(teams, start, [chan(REAL), chan(AWAY), chan("US: ESPN")]);
+    expect(got.map((c) => c.name)).toEqual([REAL, AWAY]);
+    expect(got[0].confidence).toBe(100);
+  });
+
+  it("ignores the date, feed number and booth, which are not the fixture", () => {
+    // The network matcher would reject all of these as extra words. Here
+    // they are exactly what a per-game channel is made of.
+    expect(matchEvent(teams, start, [chan(REAL)])).toHaveLength(1);
+  });
+
+  it("will not offer yesterday's feed of the same fixture", () => {
+    // Two clubs play three nights running and these channels rotate daily,
+    // so the date is the only thing separating them.
+    const yesterday = new Date("2026-07-26T22:40:00Z");
+    expect(matchEvent(teams, yesterday, [chan(REAL), chan(AWAY)])).toEqual([]);
+  });
+
+  it("reads the date in US Eastern, which is what the provider stamps", () => {
+    // 00:40 UTC on the 28th is still the 27th at 20:40 in New York.
+    const lateNight = new Date("2026-07-28T00:40:00Z");
+    expect(matchEvent(teams, lateNight, [chan(REAL)])).toHaveLength(1);
+  });
+
+  it("accepts a channel that carries no date at all", () => {
+    const undated = chan("MLB | Arizona Diamondbacks at Pittsburgh Pirates");
+    expect(matchEvent(teams, start, [undated])).toHaveLength(1);
+  });
+
+  it("needs BOTH clubs, because one is every game they play", () => {
+    const onlyOne = chan("MLB 09 | Pittsburgh Pirates at Chicago Cubs 27 Jul");
+    expect(matchEvent(teams, start, [onlyOne])).toEqual([]);
+  });
+
+  it("has nothing to say when the provider carries no per-game channels", () => {
+    expect(matchEvent(teams, start, [chan("US: ESPN"), chan("US: MLB Network")])).toEqual([]);
+  });
+
+  it("finds every game on a real slate", () => {
+    // The measurement that justified building this: against the real dump,
+    // every MLB game that day had a dedicated feed.
+    const slate: [string, string][] = [
+      ["Pittsburgh Pirates", "Arizona Diamondbacks"],
+      ["Detroit Tigers", "Baltimore Orioles"],
+      ["Texas Rangers", "Seattle Mariners"],
+    ];
+    for (const pair of slate) {
+      expect(matchEvent(pair, start, ALL).length, pair.join(" v ")).toBeGreaterThan(0);
     }
   });
 });

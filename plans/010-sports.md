@@ -264,6 +264,41 @@ memoised on the LiveData object.
 | resolve 42 games | **2.1ms** | **4.7ms** |
 | resolve 42 games, no index | 286ms | 3,681ms |
 
+### The second join: channels that name the FIXTURE
+
+**Found 2026-07-27, by asking why Telly showed five sources for a game we
+showed none for.** Adam's provider carries a channel per out-of-market
+game:
+
+```
+MLB 05 | Arizona Diamondbacks at Pittsburgh Pirates HOME 27 Jul 06:40 PM ET
+```
+
+There is no broadcaster in that string, so the network matcher is
+structurally blind to it however good it gets. Matching the TEAMS finds it,
+and finds the RIGHT thing: ESPN listed that game as being on MLB.TV, the
+out-of-market package, and this channel is that package's feed of that
+game.
+
+Measured on a real slate, before and after: **4 of 12 of today's MLB games
+found a channel by network alone; 12 of 12 find one once fixtures are
+matched.**
+
+What Telly does instead is map `MLB.tv` to any channel containing "MLB",
+which returned MLB Network, The MLB Channel, MLB Channel, US: MLB and
+Tubi: MLB. That is a worse answer wearing a confident face: MLB.TV is the
+out-of-market package and MLB Network is a national cable channel, and
+ESPN named the former precisely BECAUSE the game was not nationally
+televised. Those five are mostly not showing it.
+
+The rule is deliberately the opposite of the network matcher's. There,
+extra words are suspicious because they distinguish sibling channels; here
+they are the date, the feed number and which booth it is, so they are
+expected and ignored. Both clubs must be named, which no other fixture can
+accidentally satisfy, and the date must agree because two clubs play three
+nights running and these channels rotate daily. Read in US Eastern, which
+is the clock the provider stamps them with.
+
 ### Decided: matches are scored, not just accepted
 
 **Adam, 2026-07-27, after seeing Telly's picker.** The matcher was binary

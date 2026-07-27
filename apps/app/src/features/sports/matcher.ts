@@ -353,6 +353,78 @@ export function matchNetwork(
 }
 
 /**
+ * Channels that name THIS FIXTURE, rather than the network showing it.
+ *
+ * A different join, and on some providers a far better one. Adam's carries
+ * a per-game channel for every out-of-market game:
+ *
+ *   MLB 05 | Arizona Diamondbacks at Pittsburgh Pirates HOME 27 Jul 06:40 PM ET
+ *
+ * There is no broadcaster in that string at all, so the network matcher is
+ * structurally blind to it however clever it gets. Matching the TEAMS finds
+ * it, and finds the right one: ESPN said this game was on MLB.TV, which is
+ * the out-of-market package, and this channel IS that package's feed of
+ * this game. Measured against a real slate, 12 of 12 games had one.
+ *
+ * The rule is deliberately different from the network matcher's. There,
+ * extra words are suspicious because they distinguish sibling channels;
+ * here they are the date, the feed number and which booth it is, so they
+ * are expected and ignored. What matters is that BOTH clubs are named,
+ * which no other fixture can accidentally satisfy.
+ */
+export function matchEvent(
+  teams: string[],
+  start: Date,
+  source: Tunable[] | Catalog,
+): Match[] {
+  const want = new Set<string>();
+  for (const team of teams) for (const w of tokens(team)) want.add(w);
+  // One club's name alone is every game they play this month.
+  if (teams.length < 2 || want.size < 2) return [];
+  const catalog = asCatalog(source);
+  let candidates: Entry[] | undefined;
+  for (const w of want) {
+    const list = catalog.byToken.get(w);
+    if (!list) return [];
+    if (!candidates || list.length < candidates.length) candidates = list;
+  }
+  if (!candidates) return [];
+
+  const out: Match[] = [];
+  for (const { channel, ids } of candidates) {
+    const all = ids[0];
+    if (![...want].every((w) => all.has(w))) continue;
+    if (!sameDay(channel.name, start)) continue;
+    out.push({ ...channel, confidence: SCORE.exact });
+  }
+  return out.sort((a, b) => rank(a.quality) - rank(b.quality));
+}
+
+/**
+ * Does a dated channel name refer to the same day as this kick-off?
+ *
+ * These channels are rotated daily and two clubs play three nights running,
+ * so without this a Tuesday card would happily offer Monday's feed. Read in
+ * US Eastern because that is the clock the provider stamps them with ("06:40
+ * PM ET"), not the viewer's.
+ *
+ * A name with no date in it passes: the check is here to rule out the WRONG
+ * day, not to require that every provider stamps one.
+ */
+function sameDay(name: string, start: Date): boolean {
+  const m = /\b(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i.exec(name);
+  if (!m) return true;
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    day: "numeric",
+    month: "short",
+  }).formatToParts(start);
+  const day = parts.find((p) => p.type === "day")?.value;
+  const month = parts.find((p) => p.type === "month")?.value?.toLowerCase();
+  return Number(m[1]) === Number(day) && m[2].toLowerCase() === month;
+}
+
+/**
  * Every channel of yours carrying a game, given the networks the schedule
  * named for it.
  *

@@ -4,7 +4,7 @@ import { Badge } from "./Badge";
 import { CompactCard } from "./CompactCard";
 import { Wash } from "./Wash";
 import { loser } from "./result";
-import { matchGame } from "./matcher";
+import { matchEvent, matchGame } from "./matcher";
 import type { Catalog, Match } from "./matcher";
 import type { Game } from "./model";
 
@@ -39,10 +39,17 @@ export function SportsTheater({
 }) {
   const { home, away } = game;
   const lost = loser(game);
-  const matches = useMemo(
-    () => (catalog ? matchGame(game.broadcasts, catalog) : []),
-    [game, catalog],
-  );
+  const matches = useMemo(() => {
+    if (!catalog) return [];
+    // Channels naming this exact fixture first, then whatever carries the
+    // networks the schedule listed. Same order the card counts them in.
+    const named = matchEvent([game.home.name, game.away.name], game.start, catalog);
+    const seen = new Set(named.map((c) => c.id));
+    return [
+      ...named,
+      ...matchGame(game.broadcasts, catalog).filter((c) => !seen.has(c.id)),
+    ];
+  }, [game, catalog]);
 
   useMouseNav(onClose);
   useEffect(() => {

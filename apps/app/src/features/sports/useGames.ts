@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { onDay } from "./day";
 import { fetchGames } from "./espn";
-import { CARD_CONFIDENCE, matchGame } from "./matcher";
+import { CARD_CONFIDENCE, matchEvent, matchGame } from "./matcher";
 import type { Catalog } from "./matcher";
 import type { Game } from "./model";
 
@@ -151,9 +151,15 @@ export function withChannels(games: Game[], catalog: Catalog | null): Game[] {
     // The CARD only counts what we are sure of. A 40% match is a candidate
     // for the rail, where its score is visible; putting it behind "Live on
     // 3 channels" would be the silent wrongness plan 010 warns about.
-    const found = matchGame(game.broadcasts, catalog).filter(
-      (c) => c.confidence >= CARD_CONFIDENCE,
-    );
+    // A channel that names THIS fixture beats any channel that merely
+    // carries the network showing it, so it goes first and is never
+    // displaced by a national feed's ordering.
+    const named = matchEvent([game.home.name, game.away.name], game.start, catalog);
+    const seen = new Set(named.map((c) => c.id));
+    const found = [
+      ...named,
+      ...matchGame(game.broadcasts, catalog).filter((c) => !seen.has(c.id)),
+    ].filter((c) => c.confidence >= CARD_CONFIDENCE);
     const channels = found.map((c) => ({ id: c.id, name: c.name }));
     const hiddenOnly = found.length > 0 && found.every((c) => c.hidden);
     const unchanged =
