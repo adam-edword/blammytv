@@ -96,6 +96,7 @@ export function SportsTheater({
           * ("NBC", "MASN") and only a matcher can turn those into your own
           * channels. The card's "Live on 3 channels" is a promise that
           * lands here. */}
+        {matches.length > 0 && <GlassDefs />}
         <nav className="sportstheater__rail">
           {matches.length > 0 ? (
             matches.map((c) => <Rail key={c.id} channel={c} />)
@@ -168,10 +169,48 @@ function Rail({ channel }: { channel: Match }) {
   );
 }
 
+/**
+ * The play mark's gradient, defined once for the whole rail.
+ *
+ * A shared <defs> rather than one inside every row's icon: the fill is
+ * referenced by id, and repeating that id down a list of channels would be
+ * invalid and leaves the browser to guess which one wins.
+ */
+function GlassDefs() {
+  return (
+    <svg width="0" height="0" aria-hidden focusable="false" style={{ position: "absolute" }}>
+      <defs>
+        <linearGradient id="sportsrail-glass" x1="0" y1="0" x2="0.4" y2="1">
+          <stop offset="0" stopColor="#fff" stopOpacity="0.62" />
+          <stop offset="1" stopColor="#fff" stopOpacity="0.16" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+
+/**
+ * Glass, faked rather than refracted.
+ *
+ * A real refraction needs something behind it worth bending, and on a
+ * near-black row there is nothing: a triangular window with
+ * backdrop-filter: brightness() over this surface renders as a dim grey
+ * shape you can barely find. Same lesson as the button's own dropped blur.
+ *
+ * So the depth is drawn instead: a body that falls from 62% to 16% white
+ * across the diagonal, and a bright edge to catch the light. On a dark UI
+ * that reads as glass and stays legible, which the honest version does not.
+ */
 function PlayIcon() {
   return (
     <svg width="11" height="13" viewBox="0 0 11 13" aria-hidden focusable="false">
-      <path d="M1 1.5v10l9-5-9-5Z" fill="currentColor" />
+      <path
+        d="M1 1.5v10l9-5-9-5Z"
+        fill="url(#sportsrail-glass)"
+        stroke="rgba(255,255,255,0.8)"
+        strokeWidth="0.9"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
