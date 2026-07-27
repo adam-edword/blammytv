@@ -1418,6 +1418,74 @@
  * flex item with no width pinned, it SHRANK to 4.94px on rows with long
  * names while rendering at 11px on short ones, and that read as the
  * confidence column wobbling. */
+/* Says what it knows and what it cannot do yet, rather than showing an
+ * empty box that looks broken. */
+.sportstheater__empty {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.sportstheater__scores {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sportstheater__heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 0 2px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 21px;
+  color: #fff;
+}
+
+/* The stage. The slot is what InvertedPlayer measures and glues mpv to, so
+ * its radius has to match what the hole is cut with. Black rather than a
+ * gradient: this is what shows before video arrives, and it should read as
+ * an idle player rather than as decoration. */
+.sportstheater__stage {
+  flex: 1;
+  display: flex;
+  min-width: 0;
+}
+.sportstheater__slot {
+  flex: 1;
+  border: 1px solid #ffffff10;
+  border-radius: 18px;
+  background: #000;
+}
+
+/* The channel rail's confidence column (Adam's Figma).
+ *
+ * A vertical bar rather than a horizontal one because the row is already a
+ * left-to-right sentence (art, name, badge) and a horizontal bar would read
+ * as another word in it. Standing up, it reads as a gauge beside the
+ * sentence instead of part of it.
+ *
+ * Three bands, not a gradient: the number is derived from a handful of
+ * discrete match reasons (see SCORE in matcher.ts), so a continuous ramp
+ * would imply a precision it does not have. */
+.sportsrail__logo {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+.sportsrail__badge {
+  padding: 2px 7px;
+  border-radius: 100px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.75);
+  flex: 0 0 auto;
+}
 .sportsrail__score {
   /* The number sits ON the bar, not beside it (Adam's Figma). Stacked
    * rather than side by side: two things reading one measurement should
