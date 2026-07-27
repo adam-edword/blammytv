@@ -1,7 +1,9 @@
 # 010: Sports: a hub for what is on right now
 
-- **Status**: PLANNED. **Phase 0 is a decision gate**, see below: everything
-  downstream depends on one field existing in one payload.
+- **Status**: IN PROGRESS. Phase 0 passed (2026-07-26), phase 1 shipped, phase
+  3 is most of the way there and phase 4 has its shell. **Phase 2, the
+  matcher, is next and is the one that decides whether any of this is worth
+  having.**
 - **Severity**: MEDIUM (feature, not a defect)
 - **Category**: Live TV / sports
 - **Estimated scope**: a schedule source, a matcher against the user's own
@@ -138,9 +140,9 @@ are checked in beside the adapter, pruned to the paths it reads.
 - **Our own aggregation service.** Correct, durable, and a different project.
   If we get here, stop and re-plan rather than drifting into running a backend.
 
-**Do not write phase 1 until this is answered.** The blocked sandbox could not
-verify it (network policy denies that host), so it needs one browser tab on a
-machine that can reach it.
+Those three stay on the shelf. The gate passed, so none of them is needed
+now, and they are kept because the endpoint is undocumented and could still
+close on us.
 
 ## The join, which is the hard part
 
@@ -152,6 +154,55 @@ fixture.broadcasts[] ──→ network names ──→ your channel list
 Nobody's playlist names channels the way a schedule names networks. The
 matcher is the feature, and it is pure logic, so it is the part that gets
 tests before it gets a screen.
+
+### One side of it, harvested 2026-07-27
+
+The gate run only proved the field was populated. This run asks what is
+actually IN it, so the matcher can be written against the real vocabulary
+rather than against four names we happened to see.
+
+Eleven in-season league-days pulled (most leagues are out of season in late
+July, so the dates were chosen to land on real fixtures): **95 events, and
+95 of them carry at least one broadcast name.** 92 distinct names, checked
+in verbatim as `fixtures/broadcast-names.json` with the league, market and
+media type each was seen under. That file is the corpus the matcher's tests
+get written against.
+
+**Settled: `broadcasts[].names` is the right field to read.** There is a
+second list, `geoBroadcasts[]`, and it looked richer. Compared across all 95
+events it adds exactly one name we do not already have (`ERADM`, ESPN Radio,
+which is unwatchable and unwanted) and it loses two we do (`MLB.TV`,
+`NBA League Pass`). The adapter stays as it is.
+
+The names fall into five shapes, and each one is a rule:
+
+| Shape | Examples | What the matcher does |
+| --- | --- | --- |
+| National networks | FOX, CBS, NBC, ABC, ESPN | The whole point. These are in everyone's playlist and they are what a token match is for. |
+| Streaming-only | MLB.TV, ESPN+, Peacock, Netflix, Prime Video, NBA League Pass, Hulu, `Twins.TV`, `Mavs.com` | **Will never match a channel and must not be tried.** Roughly a third of the corpus. A game on these only is honestly "not on your channels". |
+| Regional sports nets | FanDuel SN SE, NBC Sports BA, Sportsnet LA, MASN, NESN, MSG | Heavily abbreviated and the hardest case. `FanDuel SN` alone appears with 11 different suffixes. |
+| Local call signs | `KTVD-TV (My20)`, `WKYC 3`, `KUSA-TV (9NEWS)`, `WBFS` | Call sign plus a channel number, sometimes a brand in brackets. Needs the brackets stripped before anything else. |
+| Radio | ERADM | Dropped. Only reachable via `geoBroadcasts`, which we do not read. |
+
+Three traps the corpus already shows:
+
+- **ESPN is not internally consistent about case.** `Peacock` comes back
+  typed `STREAMING` on one game and `Streaming` on another. Fold case on
+  both sides before comparing anything.
+- **Names collide across leagues.** `MSG` is both an NBA and an NHL feed,
+  `NBC` appears under three leagues, `FanDuel SN DET` under three. The
+  matcher's key is the network name and nothing else, which is what makes a
+  taught correction hold everywhere, but it means league cannot be used to
+  disambiguate a name.
+- **Punctuation is load-bearing and inconsistent**: `ESPN+`, `MASN2`,
+  `MAS+`, `Space City Home (Alt.)`, `Spectrum Sports Net +`. A normalizer
+  that strips `+` turns `ESPN+` into `ESPN`, which is the streaming service
+  masquerading as the cable channel, which is exactly the ESPN/ESPNU class
+  of false positive this plan already warns about.
+
+**Still missing: the other side.** Adam's own channel names. Until those are
+a fixture next to this one there is a corpus for the schedule and nothing to
+join it to, so the matcher stays unwritten.
 
 - **Normalize both sides.** Strip country prefixes (`US|`, `USA:`), quality
   suffixes (`HD`, `FHD`, `4K`, `1080`), separators, and the unicode lookalikes
@@ -208,18 +259,36 @@ interface Carriage {
 
 ## Phases
 
-1. **Source adapter + the gate.** One module behind an interface, answering
-   "give me today's fixtures for these leagues". Verified against the real
-   endpoints. Deliberately throwaway-able.
-2. **The matcher, tests first.** Network name to channel list, against a real
-   playlist snapshot as a fixture file. No UI. This is where the feature is
-   won or lost and it is testable without a screen.
-3. **The hub, read only.** Cards, sections, no tuning. Proves the shape.
-4. **Tuning.** Click a channel, play it. Reuse the existing player path and
-   the failover language from the VOD source rail.
+1. **DONE.** **Source adapter + the gate.** One module behind an interface,
+   answering "give me today's fixtures for these leagues". Verified against
+   the real endpoints. Deliberately throwaway-able.
+   `espn.ts`, five leagues, three real responses as fixtures, 12 tests.
+2. **NEXT, and blocked on a playlist snapshot.** **The matcher, tests
+   first.** Network name to channel list, against a real playlist snapshot
+   as a fixture file. No UI. This is where the feature is won or lost and it
+   is testable without a screen. The schedule half of the corpus is already
+   checked in; see "One side of it" above.
+3. **MOSTLY DONE.** **The hub, read only.** Cards, sections, no tuning.
+   Proves the shape. Today as a row in kick-off order, centred on whatever
+   is on now, plus a grid per day for three days. Three card sizes, one per
+   job: wide for the row, small for the grids, a compact line for finished
+   games. Still to come: the filters below, and a way to reach further than
+   three days.
+4. **SHELL ONLY.** **Tuning.** Click a channel, play it. Reuse the existing
+   player path and the failover language from the VOD source rail.
+   The theater exists and cuts the player's hole; its channel rail is empty
+   until phase 2 fills it, and it says so rather than pretending.
 5. **Filters.** Leagues and teams, persisted, hub opens on what you follow.
 6. **Polish.** Empty states (no leagues followed, nothing on today, no
    channels matched), refresh cadence, reduced motion.
+
+**The order changed, deliberately.** Phase 3 was built before phase 2
+against real ESPN data with `channels: []` on every game, because the cards
+had a lot of design in them and a screen you can look at is worth more than
+a matcher you cannot see. The cost of that choice is that the hub currently
+promises carriage it cannot deliver, which is why every surface that would
+name a channel says what it actually knows instead ("On FOX", "Not on your
+channels", and the theater's own empty rail).
 
 ## Risks and scars
 

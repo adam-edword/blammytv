@@ -6,6 +6,7 @@ import {
 } from "../settings/compactResults";
 import { CompactCard } from "./CompactCard";
 import { GameCard } from "./GameCard";
+import { dayLabel, nowish } from "./day";
 import { SportsTheater } from "./SportsTheater";
 import { UpcomingCard } from "./UpcomingCard";
 import { useGames } from "./useGames";
@@ -170,40 +171,6 @@ export function SportsScreen() {
         </p>
       )}
     </div>
-  );
-}
-
-/**
- * What a day's grid is called. The first two get their names; after that a
- * weekday is not enough on its own, because "Wednesday" alone could be any
- * of them.
- */
-function dayLabel(date: Date): string {
-  const midnight = new Date();
-  midnight.setHours(0, 0, 0, 0);
-  const days = Math.round(
-    (date.getTime() - midnight.getTime()) / (24 * 3600_000),
-  );
-  if (days === 0) return "Today";
-  if (days === 1) return "Tomorrow";
-  return date.toLocaleDateString(undefined, {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  });
-}
-
-/**
- * The game the row should open on: whatever is live, and failing that the
- * one that finished most recently, and failing that the next to start.
- *
- * In kick-off order already, so the last final is the latest one.
- */
-function nowish(today: Game[]): Game | undefined {
-  return (
-    today.find((g) => g.state === "live") ??
-    today.filter((g) => g.state === "final").at(-1) ??
-    today.find((g) => g.state === "pre")
   );
 }
 

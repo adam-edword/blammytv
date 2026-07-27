@@ -1,0 +1,1286 @@
+{
+  "harvested": "2026-07-27",
+  "source": "site.api.espn.com scoreboard, competitions[0].broadcasts[].names",
+  "events": 95,
+  "sources": [
+    {
+      "league": "epl",
+      "date": "20250920",
+      "events": 7
+    },
+    {
+      "league": "epl",
+      "date": "20260103",
+      "events": 4
+    },
+    {
+      "league": "mlb",
+      "date": "20250815",
+      "events": 15
+    },
+    {
+      "league": "mlb",
+      "date": "20260726",
+      "events": 15
+    },
+    {
+      "league": "nba",
+      "date": "20251225",
+      "events": 5
+    },
+    {
+      "league": "nba",
+      "date": "20260115",
+      "events": 9
+    },
+    {
+      "league": "nfl",
+      "date": "20250907",
+      "events": 13
+    },
+    {
+      "league": "nfl",
+      "date": "20251012",
+      "events": 12
+    },
+    {
+      "league": "nfl",
+      "date": "20251225",
+      "events": 3
+    },
+    {
+      "league": "nhl",
+      "date": "20251120",
+      "events": 12
+    },
+    {
+      "league": "nhl",
+      "date": "20260210",
+      "events": 0
+    }
+  ],
+  "names": [
+    {
+      "name": "ABC",
+      "count": 5,
+      "leagues": [
+        "nba"
+      ],
+      "markets": [
+        "national"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "Altitude Sports",
+      "count": 1,
+      "leagues": [
+        "nhl"
+      ],
+      "markets": [
+        "home"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "Angels.TV",
+      "count": 1,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "away"
+      ],
+      "kinds": [
+        "Streaming"
+      ]
+    },
+    {
+      "name": "Apple TV",
+      "count": 2,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "national"
+      ],
+      "kinds": [
+        "Streaming"
+      ]
+    },
+    {
+      "name": "Arizona's Family 3TV",
+      "count": 1,
+      "leagues": [
+        "nba"
+      ],
+      "markets": [
+        "away"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "BlazerVision",
+      "count": 1,
+      "leagues": [
+        "nba"
+      ],
+      "markets": [
+        "home"
+      ],
+      "kinds": [
+        "Streaming"
+      ]
+    },
+    {
+      "name": "BravesVision",
+      "count": 1,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "away"
+      ],
+      "kinds": [
+        "Streaming"
+      ]
+    },
+    {
+      "name": "Brewers.TV",
+      "count": 1,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "home"
+      ],
+      "kinds": [
+        "Streaming"
+      ]
+    },
+    {
+      "name": "Cardinals.TV",
+      "count": 1,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "home"
+      ],
+      "kinds": [
+        "Streaming"
+      ]
+    },
+    {
+      "name": "CBS",
+      "count": 11,
+      "leagues": [
+        "nfl"
+      ],
+      "markets": [
+        "national"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "CHSN",
+      "count": 3,
+      "leagues": [
+        "mlb",
+        "nhl"
+      ],
+      "markets": [
+        "away",
+        "home"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "CLEGuardians.TV",
+      "count": 1,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "home"
+      ],
+      "kinds": [
+        "Streaming"
+      ]
+    },
+    {
+      "name": "DBACKS.TV",
+      "count": 2,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "away"
+      ],
+      "kinds": [
+        "Streaming"
+      ]
+    },
+    {
+      "name": "ESPN",
+      "count": 5,
+      "leagues": [
+        "nba"
+      ],
+      "markets": [
+        "national"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "ESPN Unlmtd",
+      "count": 1,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "national"
+      ],
+      "kinds": [
+        "Streaming"
+      ]
+    },
+    {
+      "name": "ESPN+",
+      "count": 12,
+      "leagues": [
+        "nhl"
+      ],
+      "markets": [
+        "national"
+      ],
+      "kinds": [
+        "Streaming"
+      ]
+    },
+    {
+      "name": "FanDuel SN DET",
+      "count": 3,
+      "leagues": [
+        "mlb",
+        "nba",
+        "nhl"
+      ],
+      "markets": [
+        "away",
+        "home"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "FanDuel SN FL",
+      "count": 2,
+      "leagues": [
+        "mlb",
+        "nba"
+      ],
+      "markets": [
+        "away",
+        "home"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "FanDuel SN KC",
+      "count": 1,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "home"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "FanDuel SN MW",
+      "count": 2,
+      "leagues": [
+        "mlb",
+        "nhl"
+      ],
+      "markets": [
+        "away",
+        "home"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "FanDuel SN OH",
+      "count": 1,
+      "leagues": [
+        "nhl"
+      ],
+      "markets": [
+        "away"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "FanDuel SN OK",
+      "count": 1,
+      "leagues": [
+        "nba"
+      ],
+      "markets": [
+        "away"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "FanDuel SN SE",
+      "count": 3,
+      "leagues": [
+        "mlb",
+        "nba"
+      ],
+      "markets": [
+        "away"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "FanDuel SN South",
+      "count": 1,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "away"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "FanDuel SN Sun",
+      "count": 2,
+      "leagues": [
+        "mlb",
+        "nba"
+      ],
+      "markets": [
+        "away",
+        "home"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "FanDuel SN SW",
+      "count": 1,
+      "leagues": [
+        "nba"
+      ],
+      "markets": [
+        "home"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "FanDuel SN West",
+      "count": 1,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "away"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "FanDuel SN WI",
+      "count": 1,
+      "leagues": [
+        "nba"
+      ],
+      "markets": [
+        "away"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "FOX",
+      "count": 11,
+      "leagues": [
+        "nfl"
+      ],
+      "markets": [
+        "national"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "Hulu",
+      "count": 2,
+      "leagues": [
+        "nhl"
+      ],
+      "markets": [
+        "national"
+      ],
+      "kinds": [
+        "Streaming"
+      ]
+    },
+    {
+      "name": "Jazz+",
+      "count": 1,
+      "leagues": [
+        "nba"
+      ],
+      "markets": [
+        "away"
+      ],
+      "kinds": [
+        "Streaming"
+      ]
+    },
+    {
+      "name": "KFAA-TV",
+      "count": 1,
+      "leagues": [
+        "nba"
+      ],
+      "markets": [
+        "home"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "KHN",
+      "count": 1,
+      "leagues": [
+        "nhl"
+      ],
+      "markets": [
+        "away"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "KJZZ-TV",
+      "count": 1,
+      "leagues": [
+        "nba"
+      ],
+      "markets": [
+        "away"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "KNTV",
+      "count": 1,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "home"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "KONG",
+      "count": 1,
+      "leagues": [
+        "nhl"
+      ],
+      "markets": [
+        "away"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "KTVD-TV (My20)",
+      "count": 2,
+      "leagues": [
+        "mlb",
+        "nhl"
+      ],
+      "markets": [
+        "home"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "KUNP 16",
+      "count": 1,
+      "leagues": [
+        "nba"
+      ],
+      "markets": [
+        "home"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "KUSA-TV (9NEWS)",
+      "count": 1,
+      "leagues": [
+        "nhl"
+      ],
+      "markets": [
+        "home"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "Mariners.TV",
+      "count": 1,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "away"
+      ],
+      "kinds": [
+        "Streaming"
+      ]
+    },
+    {
+      "name": "Marlins.TV",
+      "count": 1,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "home"
+      ],
+      "kinds": [
+        "Streaming"
+      ]
+    },
+    {
+      "name": "Marquee Sports Net",
+      "count": 2,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "away",
+        "home"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "MAS+",
+      "count": 1,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "away"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "MASN",
+      "count": 2,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "home"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "MASN2",
+      "count": 1,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "away"
+      ],
+      "kinds": [
+        "Streaming"
+      ]
+    },
+    {
+      "name": "Mavs.com",
+      "count": 1,
+      "leagues": [
+        "nba"
+      ],
+      "markets": [
+        "home"
+      ],
+      "kinds": [
+        "Streaming"
+      ]
+    },
+    {
+      "name": "MLB.TV",
+      "count": 26,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "away",
+        "national"
+      ],
+      "kinds": [
+        "Streaming"
+      ]
+    },
+    {
+      "name": "MLBN",
+      "count": 5,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "national"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "MNMT",
+      "count": 1,
+      "leagues": [
+        "nhl"
+      ],
+      "markets": [
+        "away"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "MSG",
+      "count": 2,
+      "leagues": [
+        "nba",
+        "nhl"
+      ],
+      "markets": [
+        "away"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "MSG2",
+      "count": 1,
+      "leagues": [
+        "nhl"
+      ],
+      "markets": [
+        "away"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "MSGSN",
+      "count": 1,
+      "leagues": [
+        "nhl"
+      ],
+      "markets": [
+        "away"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "Nationals.TV",
+      "count": 1,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "home"
+      ],
+      "kinds": [
+        "Streaming"
+      ]
+    },
+    {
+      "name": "NBA League Pass",
+      "count": 6,
+      "leagues": [
+        "nba"
+      ],
+      "markets": [
+        "away"
+      ],
+      "kinds": []
+    },
+    {
+      "name": "NBC",
+      "count": 4,
+      "leagues": [
+        "epl",
+        "mlb",
+        "nfl"
+      ],
+      "markets": [
+        "national"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "NBC Sports BA",
+      "count": 2,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "home"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "NBC Sports BO",
+      "count": 1,
+      "leagues": [
+        "nba"
+      ],
+      "markets": [
+        "away"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "NBC Sports CA",
+      "count": 2,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "away",
+        "home"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "NBC Sports Phil",
+      "count": 2,
+      "leagues": [
+        "mlb",
+        "nhl"
+      ],
+      "markets": [
+        "away",
+        "home"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "NESN",
+      "count": 2,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "home"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "Netflix",
+      "count": 2,
+      "leagues": [
+        "nfl"
+      ],
+      "markets": [
+        "national"
+      ],
+      "kinds": [
+        "Streaming"
+      ]
+    },
+    {
+      "name": "NFL Net",
+      "count": 1,
+      "leagues": [
+        "nfl"
+      ],
+      "markets": [
+        "national"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "NFL+",
+      "count": 1,
+      "leagues": [
+        "nfl"
+      ],
+      "markets": [
+        "national"
+      ],
+      "kinds": [
+        "Streaming"
+      ]
+    },
+    {
+      "name": "Padres.TV",
+      "count": 2,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "away"
+      ],
+      "kinds": [
+        "Streaming"
+      ]
+    },
+    {
+      "name": "Peacock",
+      "count": 7,
+      "leagues": [
+        "epl",
+        "mlb"
+      ],
+      "markets": [
+        "national"
+      ],
+      "kinds": [
+        "STREAMING",
+        "Streaming"
+      ]
+    },
+    {
+      "name": "Prime Video",
+      "count": 4,
+      "leagues": [
+        "nba",
+        "nfl"
+      ],
+      "markets": [
+        "national"
+      ],
+      "kinds": [
+        "Streaming"
+      ]
+    },
+    {
+      "name": "Rangers Sports Network",
+      "count": 1,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "home"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "Reds.TV",
+      "count": 1,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "away"
+      ],
+      "kinds": [
+        "Streaming"
+      ]
+    },
+    {
+      "name": "Rockies.TV",
+      "count": 2,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "away",
+        "home"
+      ],
+      "kinds": [
+        "Streaming"
+      ]
+    },
+    {
+      "name": "Root Sports NW",
+      "count": 1,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "away"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "Royals.TV",
+      "count": 1,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "away"
+      ],
+      "kinds": [
+        "Streaming"
+      ]
+    },
+    {
+      "name": "Scripps Sports",
+      "count": 2,
+      "leagues": [
+        "nhl"
+      ],
+      "markets": [
+        "away",
+        "home"
+      ],
+      "kinds": [
+        "Streaming"
+      ]
+    },
+    {
+      "name": "SNY",
+      "count": 2,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "home"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "Space City Home (Alt.)",
+      "count": 1,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "home"
+      ],
+      "kinds": [
+        "Streaming"
+      ]
+    },
+    {
+      "name": "Space City Home Network",
+      "count": 2,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "home"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "Spectrum Sports Net",
+      "count": 1,
+      "leagues": [
+        "nba"
+      ],
+      "markets": [
+        "home"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "Spectrum Sports Net +",
+      "count": 1,
+      "leagues": [
+        "nba"
+      ],
+      "markets": [
+        "home"
+      ],
+      "kinds": [
+        "Streaming"
+      ]
+    },
+    {
+      "name": "Sportsnet",
+      "count": 1,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "away"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "Sportsnet LA",
+      "count": 2,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "away",
+        "home"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "SportsNet PIT",
+      "count": 1,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "away"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "Suns Live",
+      "count": 1,
+      "leagues": [
+        "nba"
+      ],
+      "markets": [
+        "away"
+      ],
+      "kinds": [
+        "Streaming"
+      ]
+    },
+    {
+      "name": "Tele",
+      "count": 1,
+      "leagues": [
+        "epl"
+      ],
+      "markets": [
+        "national"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "Tigers.TV",
+      "count": 1,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "home"
+      ],
+      "kinds": [
+        "Streaming"
+      ]
+    },
+    {
+      "name": "TVA",
+      "count": 1,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "away"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "Twins.TV",
+      "count": 2,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "home"
+      ],
+      "kinds": [
+        "Streaming"
+      ]
+    },
+    {
+      "name": "Universo",
+      "count": 5,
+      "leagues": [
+        "epl"
+      ],
+      "markets": [
+        "national"
+      ],
+      "kinds": [
+        "STREAMING"
+      ]
+    },
+    {
+      "name": "USA Net",
+      "count": 6,
+      "leagues": [
+        "epl"
+      ],
+      "markets": [
+        "national"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "Utah 16",
+      "count": 1,
+      "leagues": [
+        "nhl"
+      ],
+      "markets": [
+        "home"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "Victory+",
+      "count": 2,
+      "leagues": [
+        "nhl"
+      ],
+      "markets": [
+        "away",
+        "home"
+      ],
+      "kinds": [
+        "Streaming"
+      ]
+    },
+    {
+      "name": "WBFS",
+      "count": 1,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "away"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "WKYC 3",
+      "count": 1,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "home"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    },
+    {
+      "name": "YES",
+      "count": 1,
+      "leagues": [
+        "mlb"
+      ],
+      "markets": [
+        "away"
+      ],
+      "kinds": [
+        "TV"
+      ]
+    }
+  ]
+}

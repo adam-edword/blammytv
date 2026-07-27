@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { onDay } from "./day";
 import { fetchGames } from "./espn";
 import type { Game } from "./model";
 
@@ -95,24 +96,4 @@ export function useGames(dayCount = DAYS) {
   }, [dayCount]);
 
   return { days, state };
-}
-
-/**
- * The games that actually belong to a day, in kick-off order.
- *
- * Asking for a date is not the same as being given it. A league between
- * matchdays answers with its NEXT one whatever you asked for, which is how
- * a Premier League fixture 26 days out turned up under "Today".
- *
- * `keepLive` is for today only: a game that started at 11pm yesterday and
- * is still going is on now, whatever the date on it says.
- */
-function onDay(games: Game[], date: Date, keepLive: boolean): Game[] {
-  const key = date.toDateString();
-  return games
-    .filter(
-      (g) =>
-        g.start.toDateString() === key || (keepLive && g.state === "live"),
-    )
-    .sort((a, b) => a.start.getTime() - b.start.getTime());
 }
