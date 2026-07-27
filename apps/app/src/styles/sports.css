@@ -107,13 +107,14 @@
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
   pointer-events: none;
-  /* Same curve as the card's own shadow, so the lift and the clearing read
-   * as one gesture rather than two things happening at once. */
-  transition: opacity 450ms ease;
+  /* Coming BACK is the slow half: the card settling out of your way. */
+  transition: opacity 320ms ease;
 }
-/* Reaching for a result should show it to you properly. */
+/* Reaching for a result should show it to you properly, and quickly. The
+ * duration lives on the hover rule, so it governs the clearing only. */
 .upcard--final:hover .upcard__tilt::after {
   opacity: 0;
+  transition-duration: 130ms;
 }
 
 /* A day, all of it, rather than a slice of it you have to drag through.
@@ -854,8 +855,10 @@
   display: block;
   /* Shorter than it was, because the status and the competition moved onto
    * one line across the top instead of taking a row each at either end.
-   * The card gives back the height that saved. */
-  height: calc(114px * var(--sports-scale));
+   * The card gives back the height that saved, less the air below the
+   * header and along the bottom edge: at 114 the whole thing came to four
+   * pixels of slack and the last row sat right on the card's edge. */
+  height: calc(128px * var(--sports-scale));
   /* Keep glareBorderRadius in UpcomingCard in step with this. */
   border-radius: calc(30px * var(--sports-scale));
   overflow: hidden;
@@ -894,11 +897,15 @@
   position: relative;
   display: flex;
   flex-direction: column;
+  /* Air under the header, so it reads as a header rather than as the first
+   * line of the matchup. */
+  gap: calc(8px * var(--sports-scale));
   height: 100%;
   /* Wider at the sides than top and bottom: the names run into the card's
    * corners otherwise, and a name is the one thing on this card with no
    * room to spare. */
-  padding: calc(14px * var(--sports-scale)) calc(18px * var(--sports-scale)) calc(12px * var(--sports-scale));
+  padding: calc(14px * var(--sports-scale)) calc(18px * var(--sports-scale))
+    calc(17px * var(--sports-scale));
 }
 .upcard__time {
   /* Inline-flex so the pip sits on the clock's line rather than above it. */
