@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { onDay } from "./day";
 import { fetchGames } from "./espn";
+import { matchGame } from "./matcher";
+import type { Catalog } from "./matcher";
 import type { Game } from "./model";
 
 /** How often a mounted hub re-reads TODAY. Later days do not move. */
@@ -129,5 +131,30 @@ export function keepStable(prev: Game[], next: Game[]): Game[] {
     // cards read is JSON. An unstable key order cannot arise because both
     // objects are built by the same mapper.
     return old && JSON.stringify(old) === JSON.stringify(game) ? old : game;
+  });
+}
+
+/**
+ * Fill in each game's channels from the user's catalog.
+ *
+ * Kept OUT of the fetching hook on purpose: the schedule and the channel
+ * list arrive on their own schedules, and folding them together would mean
+ * re-reading ESPN every time the guide refreshed.
+ *
+ * Identity is preserved where the answer has not changed, for the same
+ * reason keepStable exists: the cards are memoised on it, and a board whose
+ * channels resolved identically must not re-render.
+ */
+export function withChannels(games: Game[], catalog: Catalog | null): Game[] {
+  if (!catalog) return games;
+  return games.map((game) => {
+    const found = matchGame(game.broadcasts, catalog);
+    const channels = found.map((c) => ({ id: c.id, name: c.name }));
+    const hiddenOnly = found.length > 0 && found.every((c) => c.hidden);
+    const unchanged =
+      channels.length === game.channels.length &&
+      channels.every((c, i) => c.id === game.channels[i].id) &&
+      hiddenOnly === (game.hiddenOnly ?? false);
+    return unchanged ? game : { ...game, channels, hiddenOnly };
   });
 }

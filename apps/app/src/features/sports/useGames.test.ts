@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { keepStable } from "./useGames";
+import { keepStable, withChannels } from "./useGames";
+import { indexChannels } from "./matcher";
 import type { Game } from "./model";
 
 /**
@@ -88,5 +89,66 @@ describe("keepStable", () => {
   it("takes the whole list on the first load", () => {
     const next = [game("a")];
     expect(keepStable([], next)).toBe(next);
+  });
+});
+
+describe("withChannels", () => {
+  const cat = (...names: { name: string; hidden?: boolean }[]) =>
+    indexChannels(
+      names.map((n, i) => ({
+        id: `ch${i}`,
+        name: n.name,
+        quality: null,
+        hidden: n.hidden,
+      })),
+    );
+
+  it("fills in the channels carrying a game", () => {
+    const [g] = withChannels(
+      [game("a", { broadcasts: ["MASN"] })],
+      cat({ name: "US: MASN" }),
+    );
+    expect(g.channels.map((c) => c.name)).toEqual(["US: MASN"]);
+    expect(g.hiddenOnly).toBe(false);
+  });
+
+  it("leaves a game alone when nothing carries it", () => {
+    const before = game("a", { broadcasts: ["Peacock"] });
+    const [g] = withChannels([before], cat({ name: "US: MASN" }));
+    expect(g.channels).toEqual([]);
+    // Untouched object: nothing about it changed, so no card re-renders.
+    expect(g).toBe(before);
+  });
+
+  it("flags a game whose only copy is in a hidden folder", () => {
+    const [g] = withChannels(
+      [game("a", { broadcasts: ["MASN"] })],
+      cat({ name: "US: MASN", hidden: true }),
+    );
+    expect(g.channels).toHaveLength(1);
+    expect(g.hiddenOnly).toBe(true);
+  });
+
+  it("does not flag it when something visible also carries it", () => {
+    const [g] = withChannels(
+      [game("a", { broadcasts: ["MASN", "MLBN"] })],
+      cat({ name: "US: MASN", hidden: true }, { name: "US: MLB Network" }),
+    );
+    expect(g.channels.map((c) => c.name)).toEqual(["US: MLB Network"]);
+    expect(g.hiddenOnly).toBe(false);
+  });
+
+  it("hands back the SAME object when the answer has not changed", () => {
+    // The cards are memoised on identity, so re-resolving an unchanged
+    // board must not produce new props. Same reason keepStable exists.
+    const c = cat({ name: "US: MASN" });
+    const once = withChannels([game("a", { broadcasts: ["MASN"] })], c);
+    const twice = withChannels(once, c);
+    expect(twice[0]).toBe(once[0]);
+  });
+
+  it("passes everything through untouched before the catalog loads", () => {
+    const games = [game("a", { broadcasts: ["MASN"] })];
+    expect(withChannels(games, null)).toBe(games);
   });
 });

@@ -1,9 +1,8 @@
 # 010: Sports: a hub for what is on right now
 
-- **Status**: IN PROGRESS. Phase 0 passed (2026-07-26), phase 1 shipped, phase
-  3 is most of the way there and phase 4 has its shell. **Phase 2, the
-  matcher, is next and is the one that decides whether any of this is worth
-  having.**
+- **Status**: IN PROGRESS. Phases 0, 1 and 2 done; phase 3 most of the way;
+  phase 4 has its shell. **The join works: games now carry real channels.**
+  Next is tuning (phase 4 proper), then filters.
 - **Severity**: MEDIUM (feature, not a defect)
 - **Category**: Live TV / sports
 - **Estimated scope**: a schedule source, a matcher against the user's own
@@ -250,6 +249,21 @@ how clever it is. **That is an open decision, recorded below, and it should
 be settled before the matcher is written**, because it changes what the
 matcher searches.
 
+### Performance, measured
+
+Resolving a board is games times networks times channels, and on a 20,548
+channel catalog the naive loop takes **3.7 seconds**. An inverted index from
+word to channels makes it **4.7ms**, because every word of a network's name
+must be present and so the rarest of them rules out almost everything before
+any comparison happens. The index costs 100ms to build, once per catalog,
+memoised on the LiveData object.
+
+| | 1,875 channels | 20,548 channels |
+| --- | --- | --- |
+| build the index, once | 13.6ms | 100.2ms |
+| resolve 42 games | **2.1ms** | **4.7ms** |
+| resolve 42 games, no index | 286ms | 3,681ms |
+
 ### Decided: what the matcher searches
 
 **Adam, 2026-07-27: hidden folders count, but only as a fallback.** If
@@ -323,11 +337,10 @@ interface Carriage {
    answering "give me today's fixtures for these leagues". Verified against
    the real endpoints. Deliberately throwaway-able.
    `espn.ts`, five leagues, three real responses as fixtures, 12 tests.
-2. **DONE as pure logic, not yet wired.** **The matcher, tests first.**
-   `matcher.ts`, 24 tests against both real corpora. It takes its channel
-   list as an argument, so the open question above about hidden folders is
-   the caller's to answer and does not block it. What remains is the wiring:
-   resolving `Game.channels` at render time against the live catalog.
+2. **DONE.** **The matcher, tests first.** `matcher.ts` against both real
+   corpora, wired through `catalog.ts` and `withChannels`. Cards carry real
+   channels. Measured end to end on a real MLB slate: Cubs v Pirates finds
+   three, Nationals v Phillies finds MASN and NBC Sports Philadelphia.
 3. **MOSTLY DONE.** **The hub, read only.** Cards, sections, no tuning.
    Proves the shape. Today as a row in kick-off order, centred on whatever
    is on now, plus a grid per day for three days. Three card sizes, one per

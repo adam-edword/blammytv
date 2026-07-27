@@ -46,14 +46,19 @@ function GameCardImpl({
   // choice, because being able to hop is the reason to use this tab. "Live
   // on" only where it is true: a game at 8:30 is not live on anything yet.
   const on = game.state === "live" ? "Live on" : "On";
+  // A match found only in a folder the viewer hid says so. It is still
+  // offered, because they asked for the game and this is the only copy of
+  // it, but calling it "Live on 1 channel" would be a small lie about a
+  // folder somebody muted deliberately.
+  const where = game.hiddenOnly ? "in a hidden folder" : "";
   const carriage =
     game.channels.length === 0
       ? game.broadcasts.length > 0
         ? `On ${game.broadcasts[0]}`
         : "Not on your channels"
       : game.channels.length === 1
-        ? `${on} ${game.channels[0].name}`
-        : `${on} ${game.channels.length} channels`;
+        ? `${on} ${game.channels[0].name}${where && ` ${where}`}`
+        : `${on} ${game.channels.length} channels${where && ` ${where}`}`;
 
   return (
     <button

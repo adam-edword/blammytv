@@ -74,4 +74,10 @@ export interface Game {
    * a stale channel id plays the wrong thing. Empty until the matcher
    * exists (plan 010 phase 2). */
   channels: { id: string; name: string }[];
+  /**
+   * The channels above were all found in folders the user HID, because
+   * nothing visible carried this game (plan 010's fallback). The card says
+   * so rather than quietly offering a folder someone muted on purpose.
+   */
+  hiddenOnly?: boolean;
 }

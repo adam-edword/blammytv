@@ -169,6 +169,56 @@ function carries(want: Set<string>, channel: Set<string>): boolean {
   return [...channel].every((w) => want.has(w) || NOISE.has(w));
 }
 
+/**
+ * A channel and every name it answers to, worked out once.
+ *
+ * The naive shape of this is a nested loop, and on a real catalog that is
+ * roughly forty games times three networks times twenty thousand channels.
+ * Tokenizing inside that loop is the whole cost, so it happens here instead
+ * and the loop only compares sets.
+ */
+interface Entry {
+  channel: Tunable;
+  ids: Set<string>[];
+}
+
+/**
+ * The catalog, arranged so a network name does not have to look at all of
+ * it.
+ *
+ * A match needs EVERY word of the network's name present in the channel, so
+ * any one of those words is enough to rule out almost everything: "ESPN"
+ * asks for the handful of channels containing "espn" rather than reading
+ * twenty thousand names. Built once per catalog, reused for every game.
+ */
+export interface Catalog {
+  byToken: Map<string, Entry[]>;
+  size: number;
+}
+
+export function indexChannels(channels: Tunable[]): Catalog {
+  const byToken = new Map<string, Entry[]>();
+  for (const channel of channels) {
+    const ids = identities(channel.name);
+    const entry: Entry = { channel, ids };
+    // Union across identities, so a channel is filed once per distinct word
+    // however many names it answers to.
+    const words = new Set<string>();
+    for (const id of ids) for (const w of id) words.add(w);
+    for (const w of words) {
+      const list = byToken.get(w);
+      if (list) list.push(entry);
+      else byToken.set(w, [entry]);
+    }
+  }
+  return { byToken, size: channels.length };
+}
+
+/** Accepts a plain list too, which is what every test and small caller has. */
+function asCatalog(source: Tunable[] | Catalog): Catalog {
+  return Array.isArray(source) ? indexChannels(source) : source;
+}
+
 /** 4K beats HDR beats FHD beats HD, as the Live pipeline already ranks it. */
 const QUALITY_RANK: Record<string, number> = { "4K": 0, HDR: 1, FHD: 2, HD: 3 };
 const rank = (q: string | null) => (q ? (QUALITY_RANK[q] ?? 4) : 5);
@@ -182,15 +232,28 @@ const rank = (q: string | null) => (q ? (QUALITY_RANK[q] ?? 4) : 5);
  * first. Several answers is a success and not an ambiguity: a game on three
  * of your channels is three chances at one that is not buffering.
  */
-export function matchNetwork(network: string, channels: Tunable[]): Tunable[] {
+export function matchNetwork(
+  network: string,
+  source: Tunable[] | Catalog,
+): Tunable[] {
   const want = tokens(network);
   if (want.size === 0) return [];
+  const catalog = asCatalog(source);
+  // Every word must be present, so start from whichever is rarest and the
+  // rest of the catalog is never touched.
+  let candidates: Entry[] | undefined;
+  for (const w of want) {
+    const list = catalog.byToken.get(w);
+    if (!list) return [];
+    if (!candidates || list.length < candidates.length) candidates = list;
+  }
+  if (!candidates) return [];
+
   const exact: Tunable[] = [];
   const partial: Tunable[] = [];
-  for (const c of channels) {
-    const ids = identities(c.name);
+  for (const { channel, ids } of candidates) {
     if (!ids.some((t) => carries(want, t))) continue;
-    (ids.some((t) => same(want, t)) ? exact : partial).push(c);
+    (ids.some((t) => same(want, t)) ? exact : partial).push(channel);
   }
   const byQuality = (a: Tunable, b: Tunable) => rank(a.quality) - rank(b.quality);
   return [...exact.sort(byQuality), ...partial.sort(byQuality)];
@@ -215,12 +278,16 @@ export function matchNetwork(network: string, channels: Tunable[]): Tunable[] {
  * with only MASN visible offers MASN alone: something visible carries it, so
  * the question of hidden folders never arises.
  */
-export function matchGame(networks: string[], channels: Tunable[]): Tunable[] {
+export function matchGame(
+  networks: string[],
+  source: Tunable[] | Catalog,
+): Tunable[] {
+  const catalog = asCatalog(source);
   const seen = new Set<string>();
   const visible: Tunable[] = [];
   const hidden: Tunable[] = [];
   for (const network of networks) {
-    for (const c of matchNetwork(network, channels)) {
+    for (const c of matchNetwork(network, catalog)) {
       if (seen.has(c.id)) continue;
       seen.add(c.id);
       (c.hidden ? hidden : visible).push(c);
