@@ -190,6 +190,10 @@
  * No tilt layer, so this IS the clipping box. Nothing here rotates, so
  * there is no corner to square off. */
 .compactcard {
+  /* The status sets the line's scale, and the score is one pixel over it.
+   * Same size as the full card's status, so a grid of mixed cards reads
+   * with one voice rather than two. */
+  --compact-status: calc(13px * var(--sports-scale));
   position: relative;
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -223,7 +227,14 @@
     ),
     linear-gradient(to bottom, rgba(0, 0, 0, 0.15), rgba(0, 0, 0, 0.3));
 }
-.compactcard__status,
+.compactcard__status {
+  position: relative;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: var(--compact-status);
+  text-transform: uppercase;
+  color: #fff;
+}
 .compactcard__league {
   position: relative;
   font-family: var(--font-headline);
@@ -231,11 +242,6 @@
   font-size: var(--sports-meta);
   letter-spacing: 0.07em;
   text-transform: uppercase;
-}
-.compactcard__status {
-  color: #fff;
-}
-.compactcard__league {
   color: rgba(255, 255, 255, 0.45);
   text-align: right;
 }
@@ -261,7 +267,8 @@
   gap: calc(5px * var(--sports-scale));
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: calc(19px * var(--sports-scale));
+  /* A pixel over the status, so the number leads without shouting. */
+  font-size: calc(var(--compact-status) + 1px);
   color: #fff;
 }
 .compactcard__dash {
