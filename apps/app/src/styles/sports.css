@@ -1360,13 +1360,28 @@
   gap: 10px;
 }
 .sportsrail {
+  /* A bare wrapper, exactly like .gamecard: the tilt inside carries the
+   * surface, because it is the thing that leans and the glare clips to it. */
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+.sportsrail__tilt {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   padding: 14px 16px;
   border: 1px solid rgba(255, 255, 255, 0.07);
+  /* Keep glareBorderRadius in SportsTheater in step with this: the glare is
+   * its own layer with its own clip, so a mismatch shows as a square sheen
+   * poking out of a round corner. */
   border-radius: 16px;
+  overflow: hidden;
   /* The row's own surface, named because the confidence number sits ON the
    * bar and has to punch through it in exactly this colour. Two copies of
    * one value is how they drift apart later; see the v0.8.1 guide cache
@@ -1378,13 +1393,12 @@
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 15px;
-  text-align: left;
-  cursor: pointer;
   transition: border-color 180ms ease;
 }
-.sportsrail:hover {
+.sportsrail:hover .sportsrail__tilt {
   border-color: rgba(255, 255, 255, 0.2);
 }
+
 .sportsrail__name {
   min-width: 0;
   overflow: hidden;
@@ -1404,111 +1418,6 @@
  * flex item with no width pinned, it SHRANK to 4.94px on rows with long
  * names while rendering at 11px on short ones, and that read as the
  * confidence column wobbling. */
-.sportsrail__go {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  display: grid;
-  place-items: center;
-  /* No disc behind it any more (Adam). The glass shape carries itself, and
-   * a pane inside a pane was two materials doing one job. What the circle
-   * was really providing was separation from the row, so that moves onto
-   * the mark as a shadow. */
-  color: #fff;
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.55));
-  opacity: 0;
-  transition: opacity 140ms ease;
-}
-/* A triangle centred by its box sits left of centre by eye, because its
- * mass is on the flat side. */
-.sportsrail__go svg {
-  margin-left: 1px;
-}
-.sportsrail__bar,
-.sportsrail__pct {
-  transition: opacity 140ms ease;
-}
-/* focus-visible as well as hover, or the rail has no affordance at all for
- * anyone arriving by keyboard. */
-.sportsrail:hover .sportsrail__bar,
-.sportsrail:hover .sportsrail__pct,
-.sportsrail:focus-visible .sportsrail__bar,
-.sportsrail:focus-visible .sportsrail__pct {
-  opacity: 0;
-}
-.sportsrail:hover .sportsrail__go,
-.sportsrail:focus-visible .sportsrail__go {
-  opacity: 1;
-}
-/* Says what it knows and what it cannot do yet, rather than showing an
- * empty box that looks broken. */
-.sportstheater__empty {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.45);
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.sportstheater__scores {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.sportstheater__heading {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 6px 0 2px;
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 21px;
-  color: #fff;
-}
-
-/* The stage. The slot is what InvertedPlayer measures and glues mpv to, so
- * its radius has to match what the hole is cut with. Black rather than a
- * gradient: this is what shows before video arrives, and it should read as
- * an idle player rather than as decoration. */
-.sportstheater__stage {
-  flex: 1;
-  display: flex;
-  min-width: 0;
-}
-.sportstheater__slot {
-  flex: 1;
-  border: 1px solid #ffffff10;
-  border-radius: 18px;
-  background: #000;
-}
-
-/* The channel rail's confidence column (Adam's Figma).
- *
- * A vertical bar rather than a horizontal one because the row is already a
- * left-to-right sentence (art, name, badge) and a horizontal bar would read
- * as another word in it. Standing up, it reads as a gauge beside the
- * sentence instead of part of it.
- *
- * Three bands, not a gradient: the number is derived from a handful of
- * discrete match reasons (see SCORE in matcher.ts), so a continuous ramp
- * would imply a precision it does not have. */
-.sportsrail__logo {
-  width: 34px;
-  height: 34px;
-  object-fit: contain;
-  flex: 0 0 auto;
-}
-.sportsrail__badge {
-  padding: 2px 7px;
-  border-radius: 100px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  color: rgba(255, 255, 255, 0.75);
-  flex: 0 0 auto;
-}
 .sportsrail__score {
   /* The number sits ON the bar, not beside it (Adam's Figma). Stacked
    * rather than side by side: two things reading one measurement should

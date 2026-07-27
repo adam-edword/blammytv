@@ -1,4 +1,6 @@
 import { useEffect, useMemo } from "react";
+import Tilt from "react-parallax-tilt";
+import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { useMouseNav } from "../../lib/mouseNav";
 import { Badge } from "./Badge";
 import { CompactCard } from "./CompactCard";
@@ -96,7 +98,6 @@ export function SportsTheater({
           * ("NBC", "MASN") and only a matcher can turn those into your own
           * channels. The card's "Live on 3 channels" is a promise that
           * lands here. */}
-        {matches.length > 0 && <GlassDefs />}
         <nav className="sportstheater__rail">
           {matches.length > 0 ? (
             matches.map((c) => <Rail key={c.id} channel={c} />)
@@ -144,73 +145,46 @@ function Rail({ channel }: { channel: Match }) {
     channel.confidence >= 85 ? "sure" : channel.confidence >= 60 ? "likely" : "doubt";
   return (
     <button type="button" className="sportsrail" title={channel.name}>
-      {channel.logo && (
-        <img className="sportsrail__logo" src={channel.logo} alt="" loading="lazy" />
-      )}
-      <span className="sportsrail__name">{channel.name}</span>
-      {channel.quality && (
-        <span className="sportsrail__badge">{channel.quality}</span>
-      )}
-      {/* The score and the action share one slot. The number is what you
-        * need BEFORE deciding; the moment you are pointing at this row it
-        * has done its job, so it stands aside for the play mark. The mark
-        * takes the band's colour, so the confidence survives the swap as
-        * colour even though the digits go. */}
-      <span className={`sportsrail__score is-${band}`}>
-        <span className="sportsrail__bar" aria-hidden>
-          <i style={{ height: `${channel.confidence}%` }} />
+      {/* The same lean and glare the cards use, rather than a play glyph.
+        * The row IS a card, so it should answer the pointer the way the
+        * other cards do; a third affordance invented only for this list was
+        * one too many.
+        *
+        * The angles are deliberately NOT the cards' numbers. Degrees are
+        * not the unit that matters, pixels swept at the corner are, and
+        * this row is a very different shape: 340px wide against 62px tall.
+        * Half-width times sin(3deg) is 8.9px and half-height times sin(6deg)
+        * is 3.2px, which lands on the wide card's own 10.3 and 3.6. Copying
+        * its 1.5deg would have been almost no movement at this size. */}
+      <Tilt
+        className="sportsrail__tilt"
+        tiltEnable={!REDUCED_MOTION}
+        tiltMaxAngleX={6}
+        tiltMaxAngleY={3}
+        scale={REDUCED_MOTION ? 1 : 1.015}
+        transitionSpeed={650}
+        glareEnable={!REDUCED_MOTION}
+        glareMaxOpacity={0.1}
+        glarePosition="all"
+        glareBorderRadius="16px"
+      >
+        {channel.logo && (
+          <img className="sportsrail__logo" src={channel.logo} alt="" loading="lazy" />
+        )}
+        <span className="sportsrail__name">{channel.name}</span>
+        {channel.quality && (
+          <span className="sportsrail__badge">{channel.quality}</span>
+        )}
+        {/* The score stays put now. It used to stand aside for the play
+          * mark; with the lean carrying the affordance there is nothing to
+          * stand aside for, so the number stays readable throughout. */}
+        <span className={`sportsrail__score is-${band}`}>
+          <span className="sportsrail__bar" aria-hidden>
+            <i style={{ height: `${channel.confidence}%` }} />
+          </span>
+          <span className="sportsrail__pct">{channel.confidence}%</span>
         </span>
-        <span className="sportsrail__pct">{channel.confidence}%</span>
-        <span className="sportsrail__go" aria-hidden>
-          <PlayIcon />
-        </span>
-      </span>
+      </Tilt>
     </button>
-  );
-}
-
-/**
- * The play mark's gradient, defined once for the whole rail.
- *
- * A shared <defs> rather than one inside every row's icon: the fill is
- * referenced by id, and repeating that id down a list of channels would be
- * invalid and leaves the browser to guess which one wins.
- */
-function GlassDefs() {
-  return (
-    <svg width="0" height="0" aria-hidden focusable="false" style={{ position: "absolute" }}>
-      <defs>
-        <linearGradient id="sportsrail-glass" x1="0" y1="0" x2="0.4" y2="1">
-          <stop offset="0" stopColor="#fff" stopOpacity="0.62" />
-          <stop offset="1" stopColor="#fff" stopOpacity="0.16" />
-        </linearGradient>
-      </defs>
-    </svg>
-  );
-}
-
-/**
- * Glass, faked rather than refracted.
- *
- * A real refraction needs something behind it worth bending, and on a
- * near-black row there is nothing: a triangular window with
- * backdrop-filter: brightness() over this surface renders as a dim grey
- * shape you can barely find. Same lesson as the button's own dropped blur.
- *
- * So the depth is drawn instead: a body that falls from 62% to 16% white
- * across the diagonal, and a bright edge to catch the light. On a dark UI
- * that reads as glass and stays legible, which the honest version does not.
- */
-function PlayIcon() {
-  return (
-    <svg width="18" height="21" viewBox="0 0 11 13" aria-hidden focusable="false">
-      <path
-        d="M1 1.5v10l9-5-9-5Z"
-        fill="url(#sportsrail-glass)"
-        stroke="rgba(255,255,255,0.8)"
-        strokeWidth="0.9"
-        strokeLinejoin="round"
-      />
-    </svg>
   );
 }
