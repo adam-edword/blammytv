@@ -1391,16 +1391,42 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* The play mark, held at its own size.
+/* The play mark, stacked ON the confidence score rather than sitting after
+ * it (Adam's call).
  *
- * Without this it SHRANK: flex distributes the squeeze across everything
- * that can take it, and an <svg> can, so a row with a long channel name
- * rendered the arrow at 4.94px against 11px on a short one. It read as the
- * confidence column shifting, which is what sent us looking at the number
- * first. The logo and the badge were already pinned; this had no class to
- * pin it with. */
+ * Two things it fixes at once. The row is already a button, so a separate
+ * arrow implied IT was the target and competed for the eye at exactly the
+ * spot the score needs it. And it was taking ~24px from the channel name,
+ * which on a per-game feed is the only text distinguishing one row from
+ * the next ("... HOME" against "... AWAY").
+ *
+ * It is out of flow now, which also settles an older bug for good: as a
+ * flex item with no width pinned, it SHRANK to 4.94px on rows with long
+ * names while rendering at 11px on short ones, and that read as the
+ * confidence column wobbling. */
 .sportsrail__go {
-  flex: 0 0 auto;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+.sportsrail__bar,
+.sportsrail__pct {
+  transition: opacity 140ms ease;
+}
+/* focus-visible as well as hover, or the rail has no affordance at all for
+ * anyone arriving by keyboard. */
+.sportsrail:hover .sportsrail__bar,
+.sportsrail:hover .sportsrail__pct,
+.sportsrail:focus-visible .sportsrail__bar,
+.sportsrail:focus-visible .sportsrail__pct {
+  opacity: 0;
+}
+.sportsrail:hover .sportsrail__go,
+.sportsrail:focus-visible .sportsrail__go {
+  opacity: 1;
 }
 /* Says what it knows and what it cannot do yet, rather than showing an
  * empty box that looks broken. */

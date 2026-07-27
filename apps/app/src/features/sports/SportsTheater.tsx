@@ -150,13 +150,18 @@ function Rail({ channel }: { channel: Match }) {
       {channel.quality && (
         <span className="sportsrail__badge">{channel.quality}</span>
       )}
+      {/* The score and the action share one slot. The number is what you
+        * need BEFORE deciding; the moment you are pointing at this row it
+        * has done its job, so it stands aside for the play mark. The mark
+        * takes the band's colour, so the confidence survives the swap as
+        * colour even though the digits go. */}
       <span className={`sportsrail__score is-${band}`}>
         <span className="sportsrail__bar" aria-hidden>
           <i style={{ height: `${channel.confidence}%` }} />
         </span>
         <span className="sportsrail__pct">{channel.confidence}%</span>
+        <PlayIcon />
       </span>
-      <PlayIcon />
     </button>
   );
 }
@@ -165,8 +170,8 @@ function PlayIcon() {
   return (
     <svg
       className="sportsrail__go"
-      width="11"
-      height="13"
+      width="13"
+      height="15"
       viewBox="0 0 11 13"
       aria-hidden
       focusable="false"
