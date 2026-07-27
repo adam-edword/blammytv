@@ -1317,17 +1317,34 @@
 
 /* The matchup, bled to the panel's edges: the wash is the header's
  * background rather than something drawn inside a card. */
+/* The matchup. NOT a card, per the Figma: it is the head of the panel, so
+ * it bleeds to the panel's edges rather than sitting in a rounded box
+ * inside them.
+ *
+ * The negative margin takes back the padding the panel carries for the
+ * rail's lean. Padding is inside the scroll container's clip box, so
+ * reaching into it bleeds to the panel edge without being cut off. */
 .sportstheater__game {
   position: relative;
   flex: 0 0 auto;
-  padding: 26px 4px;
+  margin: -8px -8px 0;
+  padding: 34px 20px 40px;
   overflow: hidden;
-  border-radius: 18px;
 }
+/* A card could stop with a hard edge because its corners said where it
+ * ended. A bleed cannot: without this the art would end on a straight
+ * horizontal line across the panel. So the scrim carries it the whole way
+ * down to the panel's own background, and the art dissolves instead of
+ * stopping. */
 .sportstheater__scrim {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.55));
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.25) 0%,
+    rgba(0, 0, 0, 0.45) 52%,
+    var(--bg) 100%
+  );
 }
 .sportstheater__teams {
   position: relative;
