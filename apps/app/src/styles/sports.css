@@ -1500,6 +1500,13 @@
    * repeated, so restyling the rail cannot leave this behind. */
   background: var(--sportsrail-bg);
   padding: 1px 3px;
+  /* Sized for "100%" and centred, so every row's number occupies the same
+   * box. Tabular figures keep the digits an even width; this keeps the
+   * STRING an even width, which is the part that was moving, because a
+   * three-character score centred in the column sits at different edges
+   * from a four-character one and the pair read as misaligned down a list. */
+  min-width: 42px;
+  text-align: center;
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 11px;
