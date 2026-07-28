@@ -1,8 +1,8 @@
 # 010: Sports: a hub for what is on right now
 
-- **Status**: IN PROGRESS. Phases 0, 1 and 2 done; phase 3 most of the way;
-  phase 4 has its shell. **The join works: games now carry real channels.**
-  Next is tuning (phase 4 proper), then filters.
+- **Status**: IN PROGRESS. Phases 0, 1, 2 and 4 done; phase 3 most of the
+  way. **The join works and the rail plays: a game is now one click from
+  a picture.** Next is filters (phase 5).
 - **Severity**: MEDIUM (feature, not a defect)
 - **Category**: Live TV / sports
 - **Estimated scope**: a schedule source, a matcher against the user's own
@@ -438,10 +438,22 @@ interface Carriage {
    job: wide for the row, small for the grids, a compact line for finished
    games. Still to come: the filters below, and a way to reach further than
    three days.
-4. **SHELL ONLY.** **Tuning.** Click a channel, play it. Reuse the existing
-   player path and the failover language from the VOD source rail.
-   The theater exists and cuts the player's hole; its channel rail is empty
-   until phase 2 fills it, and it says so rather than pretending.
+4. **DONE.** **Tuning.** Click a channel, play it. The existing player path
+   reused whole rather than reimplemented: `resolveStreamUrl` for the URL,
+   `InvertedPlayer` for the hole, `useDirectOverlay` + `TheaterOverlay` for
+   the chrome. The theater is the third host of that stack and behaves like
+   the other two, which is the point.
+
+   Two things it does that the others do not, both because the subject here
+   is a GAME rather than a channel: switching game stops playback (a Cubs
+   feed under a Blue Jays matchup is worse than silence), and the chrome's
+   title line is the fixture rather than the EPG's "MLB Baseball".
+
+   The failover language from the VOD source rail is NOT here. The rail
+   already shows every match with its confidence, so choosing another feed
+   is picking a different row rather than pressing "next source"; whether
+   the dead-stream card should also step down the rail on its own is a
+   separate question and is not answered yet.
 5. **Filters.** Leagues and teams, persisted, hub opens on what you follow.
 6. **Polish.** Empty states (no leagues followed, nothing on today, no
    channels matched), refresh cadence, reduced motion.

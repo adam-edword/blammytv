@@ -1419,6 +1419,13 @@
 .sportsrail:hover .sportsrail__tilt {
   border-color: rgba(255, 255, 255, 0.2);
 }
+/* The row that is playing. The accent on the border rather than a badge or
+ * a glyph: the rail is a list of one-line rows and the only thing it has
+ * to say is WHICH, which an edge says without taking a column. */
+.sportsrail.is-on .sportsrail__tilt {
+  border-color: color-mix(in srgb, var(--accent, #fff) 55%, transparent);
+  background: color-mix(in srgb, var(--accent, #fff) 7%, var(--sportsrail-bg));
+}
 
 .sportsrail__name {
   min-width: 0;
@@ -1531,11 +1538,31 @@
   display: flex;
   min-width: 0;
 }
+/* The radius is repeated in SportsTheater as SLOT_RADIUS, and has to be:
+ * the picture is a native window BELOW the page, showing through a hole cut
+ * at this rect, and the hole is rounded by a number pushed from JS. A border
+ * curving one way around a picture cut the other is the failure. */
 .sportstheater__slot {
   flex: 1;
   border: 1px solid #ffffff10;
   border-radius: 18px;
   background: #000;
+}
+
+/* Fullscreen: the picture takes the window and everything beside it goes.
+ * The panel is HIDDEN rather than slid off, because a native video window
+ * cannot be overlapped, so there is no arrangement where both the picture
+ * fills the screen and the rail still shows. */
+.sportstheater--full {
+  padding: 0;
+  gap: 0;
+}
+.sportstheater--full .sportstheater__side {
+  display: none;
+}
+.sportstheater--full .sportstheater__slot {
+  border: none;
+  border-radius: 0;
 }
 
 /* The channel rail's confidence column (Adam's Figma).

@@ -2,7 +2,31 @@ import { useEffect, useMemo, useState } from "react";
 import { loadLive, onLiveRefreshed, peekLive } from "../live/source";
 import { indexChannels } from "./matcher";
 import type { Catalog, Tunable } from "./matcher";
-import type { LiveData } from "../live/model";
+import type { Channel, LiveData } from "../live/model";
+
+/**
+ * The full channel behind a match, looked up at PLAY time.
+ *
+ * The matcher works on Tunable, which is a name, a quality and an id and
+ * deliberately nothing else: it is a pure function over strings and has no
+ * business carrying stream credentials around. Playing needs the real
+ * Channel, so the id goes back to the catalog here.
+ *
+ * At play time rather than at match time, and the plan says why: "playlists
+ * change under us and a stale channel id plays the wrong thing". peekLive
+ * is the same warm cache the guide reads, so this is a lookup rather than a
+ * load, and a null means the catalog moved under the rail — which is
+ * exactly when we should not play something.
+ */
+export function tunedChannel(id: string): Channel | null {
+  const live = peekLive();
+  if (!live) return null;
+  return (
+    live.channels.find((c) => c.id === id) ??
+    live.hidden?.find((c) => c.id === id) ??
+    null
+  );
+}
 
 /**
  * The user's channels, arranged for the matcher (plan 010 phase 2).

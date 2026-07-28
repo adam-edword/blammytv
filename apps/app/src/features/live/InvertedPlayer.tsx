@@ -21,11 +21,12 @@ import { currentZoom } from "../settings/uiScale";
  * .app-shell (the window's only opaque layer, see base.css .invert-player)
  * exactly at the slot. */
 const OPEN_DEBOUNCE_MS = 150;
-/** CSS corner radius of #player-slot — keep in sync with .hero__preview. */
+/** CSS corner radius of #player-slot — keep in sync with .hero__preview.
+ * A host whose slot is rounded differently passes its own; see `radius`. */
 const RADIUS_CSS = 12;
 const SLOT_ID = "player-slot";
 
-function measure(el: HTMLElement, squared: boolean): CompRect {
+function measure(el: HTMLElement, squared: boolean, radius: number): CompRect {
   // Rects are VISUAL viewport px (UI-scale zoom included), so × dpr is the
   // physical rect regardless of zoom. Only the radius needs the zoom
   // factor: the slot's CSS radius is a pre-zoom unit.
@@ -37,7 +38,7 @@ function measure(el: HTMLElement, squared: boolean): CompRect {
     w: Math.round(r.width * dpr),
     h: Math.round(r.height * dpr),
     // Theater/fullscreen fill to edges (square); only the mini box is rounded.
-    radius: squared ? 0 : Math.round(RADIUS_CSS * currentZoom() * dpr),
+    radius: squared ? 0 : Math.round(radius * currentZoom() * dpr),
   };
 }
 
@@ -50,9 +51,16 @@ function measure(el: HTMLElement, squared: boolean): CompRect {
 export function InvertedPlayer({
   url,
   squared = false,
+  radius = RADIUS_CSS,
   ready = true,
 }: {
   url: string;
+  /** The slot's own CSS corner radius, when it is not squared. Two things
+   * are rounded by this number and they have to agree: the rect mpv draws
+   * into, and the clip hole cut through the shell above it. A host whose
+   * slot is not the hero's 12px says so, or its border traces one curve
+   * around a picture cut to another. */
+  radius?: number;
   /** Drops the corner radius to 0 (theater/fullscreen fill to edges). Read
    * live in the rAF so a toggle re-rects without restarting playback. */
   squared?: boolean;
@@ -65,6 +73,10 @@ export function InvertedPlayer({
 }) {
   const fsRef = useRef(squared);
   fsRef.current = squared;
+  // Read live in the rAF for the same reason `squared` is: a host that
+  // reshapes its slot must re-rect, not restart playback.
+  const radiusRef = useRef(radius);
+  radiusRef.current = radius;
   const readyRef = useRef(ready);
   readyRef.current = ready;
 
@@ -91,7 +103,7 @@ export function InvertedPlayer({
     const tick = () => {
       const el = document.getElementById(SLOT_ID);
       if (el) {
-        const rect = measure(el, fsRef.current);
+        const rect = measure(el, fsRef.current, radiusRef.current);
         // Window dims ride the key: the inverted hole's outer path needs
         // them, so a resize that somehow keeps the slot rect still re-clips.
         // Readiness rides the key: the flip to presenting must re-run the
@@ -116,7 +128,7 @@ export function InvertedPlayer({
               r: (b.left + b.width) / z,
               b: (b.top + b.height) / z,
             };
-            const rad = fsRef.current ? 0 : RADIUS_CSS;
+            const rad = fsRef.current ? 0 : radiusRef.current;
             const W = window.innerWidth / z;
             const H = window.innerHeight / z;
             // Phase 1: clamp the hole to old∩new — the video covers that
