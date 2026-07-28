@@ -245,6 +245,16 @@ export function tauriSetFullscreen(on: boolean): Promise<void> {
   return getCurrentWindow().setFullscreen(on);
 }
 
+/** Is the WINDOW fullscreen right now?
+ *
+ * The window is the truth and a component's own flag is not: F11 is handled
+ * at app level and the window-state plugin restores fullscreen across
+ * launches, so a screen that only remembers what it was told can be
+ * fullscreen without knowing it. Ask before acting on it. */
+export function tauriIsFullscreen(): Promise<boolean> {
+  return getCurrentWindow().isFullscreen();
+}
+
 /** The floating PiP window was closed by the user (✕ / taskbar / q) — the app
  * should bring the stream back into the in-app player. The payload is the
  * popout's final position in seconds (VOD resume); undefined when the

@@ -6,6 +6,7 @@ import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { useMouseNav } from "../../lib/mouseNav";
 import {
   isTauri,
+  tauriIsFullscreen,
   tauriMpvGoLive,
   tauriPopoutOpen,
   tauriSetFullscreen,
@@ -150,24 +151,46 @@ export function SportsTheater({
     setTuned(null);
   }, []);
 
-  // Switching games switches the subject, and the channel belonged to the
-  // old one. Nothing carries over: a Cubs feed playing under a Blue Jays
-  // matchup is worse than silence.
-  useEffect(() => stop(), [game.id, stop]);
-
-  // OPENING THE THEATER PUTS THE GAME ON. The rules live in autoplay.ts,
-  // which owns every reason not to; `armed` is the caller's half of it.
-  //
-  // `matches` is in the deps rather than just the id because a cold start
-  // renders before the catalog loads: this has to fire when the channels
-  // ARRIVE, not only when the game changes.
+  /**
+   * The subject changed, so decide again what is playing. ONE effect, and
+   * it has to be one.
+   *
+   * This was two — stop on game change, autoplay on matches — and under
+   * StrictMode the pair raced and autoplay never survived it. React
+   * double-invokes effects on mount, so the order was: stop, autoplay
+   * (tune fires, resolve in flight), then stop AGAIN, then autoplay sees
+   * itself already armed and declines. The second stop cleared `want`, and
+   * when the resolve landed the guard that exists to drop a stale tune
+   * dropped the only real one. Autoplay was dead on arrival while clicking
+   * the same top row by hand worked perfectly, because a click has no
+   * second effect running behind it.
+   *
+   * Both halves are now guarded by what actually happened rather than by a
+   * dependency array: `subject` is the game we last cleared for, `armed`
+   * the game we last auto-played for. A repeat invocation with the same
+   * game does nothing, which is the property StrictMode is checking for.
+   *
+   * They are two refs rather than one because they legitimately disagree:
+   * a finished game gets cleared and never armed, and a cold start clears
+   * on mount and arms later, when the catalog finally lands. That second
+   * case is also why `matches` is in the deps and not just the id.
+   */
+  const subject = useRef<string | null>(null);
   const armed = useRef<string | null>(null);
   useEffect(() => {
+    // A channel belongs to the game it was matched to. Nothing carries
+    // over: a Cubs feed under a Blue Jays matchup is worse than silence.
+    if (subject.current !== game.id) {
+      subject.current = game.id;
+      stop();
+    }
+    // OPENING THE THEATER PUTS THE GAME ON. Every reason not to lives in
+    // autoplay.ts; `armed` is this side's half of it.
     const pick = autoPlay(game, matches, armed.current);
     if (!pick) return;
     armed.current = game.id;
     tune(pick);
-  }, [game, matches, tune]);
+  }, [game, matches, tune, stop]);
 
   const meta = useMemo<TheaterMeta | null>(
     () =>
@@ -268,20 +291,39 @@ export function SportsTheater({
 
   useMouseNav(onClose);
   useEffect(() => {
+    /**
+     * Escape leaves fullscreen first and the theater second, and the test
+     * for "am I fullscreen" is THE WINDOW, not this component's flag.
+     *
+     * The flag is only true when fullscreen was entered through the
+     * overlay's own button. F11 is handled at app level and the
+     * window-state plugin restores fullscreen across launches, so the
+     * window can be fullscreen while this component has no idea — and then
+     * one Escape dropped the window out of fullscreen (App's handler) AND
+     * left the hub (this one), which is exactly what it looked like.
+     *
+     * App.tsx already takes the window out of fullscreen on Escape, so
+     * this does not have to. All it has to do is not ALSO leave.
+     */
     const onKey = (e: KeyboardEvent) => {
-      // Fullscreen swallows Escape for itself: leaving the theater from
-      // there would drop the window out of fullscreen and the hub at once.
       if (e.key !== "Escape") return;
-      if (fullscreen) {
-        setFullscreen(false);
-        void tauriSetFullscreen(false).catch(() => {});
+      if (!isTauri()) {
+        onClose();
         return;
       }
-      onClose();
+      void tauriIsFullscreen().then(
+        (full) => {
+          if (full) setFullscreen(false);
+          else onClose();
+        },
+        // No answer from the window: closing on a maybe would be the bad
+        // half of the bug again, so stay put.
+        () => undefined,
+      );
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, fullscreen]);
+  }, [onClose]);
 
   // Leaving the theater with the window still in OS fullscreen would strand
   // the whole app there, with no player left to take it out.
