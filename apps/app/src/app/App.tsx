@@ -162,28 +162,31 @@ export function App() {
     };
   }, [settingsOpen, themesOpen]);
 
-  // F11 toggles fullscreen; Escape always exits it. The window-state
-  // plugin restores fullscreen across launches, so without this there's
-  // no way out from inside the app.
+  // Escape always exits fullscreen. The window-state plugin restores
+  // fullscreen across launches, so without this there's no way out from
+  // inside the app.
+  //
+  // F11 USED TO TOGGLE IT, and does not any more. The players own
+  // fullscreen through their own state machines — the screen's layout, the
+  // mpv rect and the clip hole all move with it — and a key that flipped
+  // the WINDOW behind their backs left them describing a shape the window
+  // no longer had. The sports theater is where that showed: fullscreen by
+  // F11 left the panel drawn beside a picture that had gone fullscreen
+  // without it. Entering fullscreen is the player's button; this is only
+  // the way out.
   useEffect(() => {
     if (!isTauri()) return;
     const onKey = async (e: KeyboardEvent) => {
-      if (e.key !== "F11" && e.key !== "Escape") return;
+      if (e.key !== "Escape") return;
       // The VOD player owns Escape (theater↔fullscreen toggle through its
       // own state machine) — exiting OS fullscreen from here would desync
       // playing.mode and fight the overlay's toggle.
       // Keyed on the VOD STAGE, not #inv-chrome: Live mounts its chrome
       // host on mount whether or not anything plays, and the host check
       // ate Live's Escape-exits-fullscreen everywhere.
-      if (e.key === "Escape" && document.querySelector(".vod-stage")) return;
+      if (document.querySelector(".vod-stage")) return;
       const win = getCurrentWindow();
-      const full = await win.isFullscreen();
-      if (e.key === "F11") {
-        e.preventDefault();
-        void win.setFullscreen(!full);
-      } else if (full) {
-        void win.setFullscreen(false);
-      }
+      if (await win.isFullscreen()) void win.setFullscreen(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

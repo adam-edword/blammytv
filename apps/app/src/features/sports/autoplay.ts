@@ -39,3 +39,23 @@ export function autoPlay(
   // an autoplay one.
   return matches[0] ?? null;
 }
+
+/**
+ * The next feed to try after this one failed.
+ *
+ * The rail is the failover list, which is the whole reason it shows every
+ * match with a number instead of only the confident ones: a game on three
+ * of your channels is three chances at one that is not buffering. Stepping
+ * DOWN it rather than restarting at the top is what makes a chain of dead
+ * sources terminate — each attempt starts below the last, so the worst case
+ * is one pass through the rail and then an honest dead card.
+ *
+ * Null at the end of the list, and null for a feed that is not on the rail
+ * at all (the catalog can be rebuilt under a playing stream). Both mean the
+ * same thing to the caller: stop stepping and let the card stand.
+ */
+export function nextSource(matches: Match[], playing: string): Match | null {
+  const at = matches.findIndex((m) => m.id === playing);
+  if (at < 0) return null;
+  return matches[at + 1] ?? null;
+}

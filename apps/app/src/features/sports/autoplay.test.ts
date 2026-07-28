@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { autoPlay } from "./autoplay";
+import { autoPlay, nextSource } from "./autoplay";
 import type { Match } from "./matcher";
 
 const chan = (id: string, confidence = 90): Match => ({
@@ -44,5 +44,24 @@ describe("autoPlay", () => {
     // an empty rail and the caller asks again when channels arrive.
     expect(autoPlay(game("live"), [], null)).toBeNull();
     expect(autoPlay(game("live"), [chan("marquee")], null)).not.toBeNull();
+  });
+});
+
+describe("nextSource", () => {
+  const rail = [chan("a"), chan("b"), chan("c")];
+
+  it("steps DOWN the rail, so a chain of dead sources terminates", () => {
+    expect(nextSource(rail, "a")?.id).toBe("b");
+    expect(nextSource(rail, "b")?.id).toBe("c");
+    // One pass and then the honest card, rather than a loop back to the
+    // top and round again forever.
+    expect(nextSource(rail, "c")).toBeNull();
+  });
+
+  it("stops when the playing feed is not on the rail", () => {
+    // The catalog can be rebuilt under a playing stream; guessing a
+    // position in a list this feed is not in would restart at the top.
+    expect(nextSource(rail, "gone")).toBeNull();
+    expect(nextSource([], "a")).toBeNull();
   });
 });

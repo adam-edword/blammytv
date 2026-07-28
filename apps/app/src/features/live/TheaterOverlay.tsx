@@ -361,18 +361,26 @@ export function TheaterOverlay({
       window.clearTimeout(after);
     };
   }, [loading, tuneAttempt, vodSrc, playbackKey, diag]);
-  // VOD auto-failover (Settings → AIOStreams, off by default): the moment
-  // the watchdog declares the source dead, jump to the next candidate.
+  // Auto-failover: the moment the watchdog declares the source dead, jump
+  // to the next candidate.
+  //
+  // Two different gates, because the two hosts mean different things by a
+  // list of sources. VOD's is opt-in (Settings → AIOStreams, off by
+  // default): a debrid retry costs a request against the user's account.
+  // A live host's is not: the sports rail exists precisely so a game on
+  // three of your channels is three chances at one that is not buffering,
+  // and a host with nothing to fail over to has no handler, so the call
+  // below is a no-op for Live TV.
   const vodDeadRef = useRef(false);
   useEffect(() => {
-    const isVod = vodProp ?? metaRefForDead.current?.live === false;
-    if (tune !== "dead" || !isVod) {
+    if (tune !== "dead") {
       vodDeadRef.current = false;
       return;
     }
     if (vodDeadRef.current) return;
     vodDeadRef.current = true;
-    if (loadSourceFailover()) api()?.nextSource?.();
+    const isVod = vodProp ?? metaRefForDead.current?.live === false;
+    if (!isVod || loadSourceFailover()) api()?.nextSource?.();
   }, [tune, vodProp]);
 
   const retryTune = useCallback(() => {
@@ -1417,7 +1425,11 @@ function TuneCard({
           <button type="button" className="tune__retry" onClick={onRetry}>
             Retry
           </button>
-          {vod && api()?.nextSource && (
+          {/* Offered whenever the HOST has a list to step down, VOD or
+            * not: the sports rail is exactly that. It used to be gated on
+            * `vod` because the api's nextSource was always defined and so
+            * could not be asked. */}
+          {api()?.nextSource && (
             <button
               type="button"
               className="tune__retry"

@@ -31,7 +31,10 @@ export interface DirectOverlayHandlers {
   /** VOD only: the file played to its END. Without this, EOF takes the
    * live-death path — watchdog reload, then a "not responding" card. */
   onEnded?: () => void;
-  /** VOD only: switch to the next available source (failover). */
+  /** Switch to the next available source (failover). Providing this is
+   * what tells the overlay a source LIST exists: it auto-steps on a dead
+   * stream and offers the manual button. VOD's stepping is additionally
+   * gated on a setting, because a debrid retry costs a request. */
   onNextSource?: () => void;
   /** VOD series: jump straight to the next episode. */
   onNextEpisode?: () => void;
@@ -167,6 +170,11 @@ export function useDirectOverlay(
     return () => window.clearInterval(id);
   }, [active, resetKey, s]);
 
+  // Whether the HOST has a source list at all. A capability, not state:
+  // no host grows or loses one mid-playback, so it is read once and the
+  // api object stays the single stable identity the overlay depends on.
+  const hasNext = !!handlers.onNextSource;
+
   return useMemo<OverlayApi>(() => {
     const sub =
       <T,>(set: Set<(v: T) => void>) =>
@@ -184,7 +192,13 @@ export function useDirectOverlay(
       seek: (d) => void tauriMpvSeek(d).catch(() => {}),
       seekAbs: (p) => void tauriMpvSeekAbs(p).catch(() => {}),
       setSpeed: (sp) => void tauriMpvSetSpeed(sp).catch(() => {}),
-      nextSource: () => h.current.onNextSource?.(),
+      // PRESENT ONLY IF THE HOST OFFERS ONE, because its presence is the
+      // question the dead card asks before drawing a "try the next source"
+      // button. Bound to a handler that might be undefined, it was always
+      // truthy and always answered yes, so the button had to be gated on
+      // "is this VOD" instead — which is not the same question, and is why
+      // a live host with a real source list could not show it.
+      nextSource: hasNext ? () => h.current.onNextSource?.() : undefined,
       nextEpisode: () => h.current.onNextEpisode?.(),
       sourcePanel: () => h.current.onSourcePanel?.(),
       creditsWindow: (active) => h.current.onCreditsWindow?.(active),
@@ -218,5 +232,5 @@ export function useDirectOverlay(
       getChapters: () => s.chapters,
       onChapters: sub(s.chapterCbs),
     };
-  }, [s]);
+  }, [s, hasNext]);
 }

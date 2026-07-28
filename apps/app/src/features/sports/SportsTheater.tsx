@@ -20,7 +20,7 @@ import { resolveStreamUrl } from "../live/stream";
 import { loadFavorites, toggleFavorite } from "../live/favorites";
 import { Matchup } from "./Matchup";
 import { CompactCard } from "./CompactCard";
-import { autoPlay } from "./autoplay";
+import { autoPlay, nextSource } from "./autoplay";
 import { tunedChannel } from "./catalog";
 import { matchEvent, matchGame } from "./matcher";
 import type { Catalog, Match } from "./matcher";
@@ -152,6 +152,28 @@ export function SportsTheater({
   }, []);
 
   /**
+   * FAILOVER: this feed is dead, so try the next one down the rail.
+   *
+   * Called by the overlay the moment its watchdog gives up, which is
+   * already after two silent reloads of the same URL — so by the time this
+   * runs, "reload it again" has been tried and answered.
+   *
+   * Read through a ref rather than closed over, because this handler is
+   * held by useDirectOverlay for the life of the playback and the rail is
+   * rebuilt whenever the catalog refreshes behind it.
+   */
+  const railRef = useRef(matches);
+  railRef.current = matches;
+  const failover = useCallback(() => {
+    const t = tunedRef.current;
+    if (!t) return;
+    const next = nextSource(railRef.current, t.id);
+    // End of the rail: nothing left to try, so let the overlay's dead card
+    // stand rather than starting the same walk over.
+    if (next) tune(next);
+  }, [tune]);
+
+  /**
    * The subject changed, so decide again what is playing. ONE effect, and
    * it has to be one.
    *
@@ -241,6 +263,9 @@ export function SportsTheater({
       // Persists inside; the overlay tracks its own state after a toggle.
       if (t) toggleFavorite(loadFavorites(), t.id);
     },
+    // The rail IS the failover list. Live TV has no equivalent and so
+    // passes no handler, which is what keeps this change to this screen.
+    onNextSource: failover,
     // Go-live on a Stalker channel has to re-resolve: the playing URL's
     // play_token is short-lived and mpv's in-place reload of a stale one is
     // a guaranteed 403. A changed URL rebuilds the player; anything else
