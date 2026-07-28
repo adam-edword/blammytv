@@ -19,6 +19,7 @@ import { resolveStreamUrl } from "../live/stream";
 import { loadFavorites, toggleFavorite } from "../live/favorites";
 import { Matchup } from "./Matchup";
 import { CompactCard } from "./CompactCard";
+import { autoPlay } from "./autoplay";
 import { tunedChannel } from "./catalog";
 import { matchEvent, matchGame } from "./matcher";
 import type { Catalog, Match } from "./matcher";
@@ -153,6 +154,20 @@ export function SportsTheater({
   // old one. Nothing carries over: a Cubs feed playing under a Blue Jays
   // matchup is worse than silence.
   useEffect(() => stop(), [game.id, stop]);
+
+  // OPENING THE THEATER PUTS THE GAME ON. The rules live in autoplay.ts,
+  // which owns every reason not to; `armed` is the caller's half of it.
+  //
+  // `matches` is in the deps rather than just the id because a cold start
+  // renders before the catalog loads: this has to fire when the channels
+  // ARRIVE, not only when the game changes.
+  const armed = useRef<string | null>(null);
+  useEffect(() => {
+    const pick = autoPlay(game, matches, armed.current);
+    if (!pick) return;
+    armed.current = game.id;
+    tune(pick);
+  }, [game, matches, tune]);
 
   const meta = useMemo<TheaterMeta | null>(
     () =>

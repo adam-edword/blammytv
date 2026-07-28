@@ -64,7 +64,7 @@ const catalog = indexChannels(
     (c, i): Tunable => ({
       id: `rig-${i}`,
       name: c.name,
-      quality: c.quality ?? undefined,
+      quality: c.quality,
       logo: LOGO,
     }),
   ),
