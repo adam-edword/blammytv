@@ -247,24 +247,33 @@
   gap: 4px;
   min-width: 0;
 }
-/* Both sides take equal space and push their contents AGAINST the score.
- * Two effects, and both are what "evenly spaced" turns out to mean here:
- * the gap either side of the score is the same whatever the tags weigh,
- * and the score lands at the same x on every card, so a column of results
- * reads down as well as across. The slack goes to the outer edges, where
- * nothing is lining up against anything. */
+/* The scoreline hangs off the card's RIGHT edge, and the slack collects on
+ * the left where nothing is lining up against anything.
+ *
+ * Both sides used to take equal space and push their contents against the
+ * score, which split the slack between the two outer edges. That reads as
+ * an even card in isolation and as a mistake in a column: the away crest
+ * floated 20px short of the edge on a narrow scoreline and 3px short on a
+ * wide one, so the right edge of the list wobbled row to row while the
+ * card's own border stayed straight beside it.
+ *
+ * So only the home side flexes. The away side takes its own width, which
+ * pins the crest at the padding, and every row's scoreline now ends on the
+ * same x. What moves instead is the score's left edge, with the digits: a
+ * three-digit basketball score reaches further left than a baseball one,
+ * which is the honest place for that difference to show. */
 .compactcard__side {
   display: flex;
-  flex: 1;
   align-items: center;
   gap: 5.68px;
   min-width: 0;
 }
 .compactcard__side--home {
+  flex: 1;
   justify-content: flex-end;
 }
 .compactcard__side--away {
-  justify-content: flex-start;
+  flex: 0 0 auto;
 }
 .compactcard__abbr {
   font-family: var(--font-headline);
