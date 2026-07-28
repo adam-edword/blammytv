@@ -9,12 +9,20 @@ import type { Game } from "./model";
  *
  * By the evening a day is mostly results, and fifteen full cards for games
  * already played bury the two still to come. This says the same thing in a
- * quarter of the height: who played, what it finished, and where it was.
+ * quarter of the height: who played, and what it finished.
  *
  * Abbreviations rather than names, because the crest is right beside them
  * and "CHC" next to the Cubs' mark is not ambiguous at this size. The
  * beaten side keeps the light weight it has on the full card, so a column
  * of these still reads for who won without reading a number.
+ *
+ * NO LEAGUE TAG, unlike either full card. It is the one thing on the line
+ * whose width is not bounded by the sport: "MLB" is three characters and
+ * "Premier League" is fourteen, with FIFA's competition names longer
+ * still. Measured, it took 117.5px of a 344px row and pushed the scoreline
+ * out of its own column and under the crest beside it. It is also the
+ * least load-bearing thing here, since every mark on the line already says
+ * which sport this is.
  *
  * No tilt and no glare: those are for something you are choosing between,
  * and this is a record of something that already happened. It also keeps a
@@ -77,8 +85,6 @@ function CompactCardImpl({
           <Badge team={away} />
         </span>
       </span>
-
-      <span className="compactcard__league">{game.league}</span>
     </button>
   );
 }

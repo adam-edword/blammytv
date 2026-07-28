@@ -53,6 +53,24 @@ export function SportsTheater({
     ];
   }, [game, catalog]);
 
+  /**
+   * The other live games, by league, in the order their first one started.
+   *
+   * A Map keyed on the league name, because it keeps insertion order: the
+   * board hands `others` over sorted by kick-off, so the league whose games
+   * began earliest heads the list and every group keeps that order inside
+   * itself. Nothing here re-sorts, which is the point.
+   */
+  const groups = useMemo(() => {
+    const by = new Map<string, Game[]>();
+    for (const g of others) {
+      const seen = by.get(g.league);
+      if (seen) seen.push(g);
+      else by.set(g.league, [g]);
+    }
+    return [...by];
+  }, [others]);
+
   useMouseNav(onClose);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -84,14 +102,24 @@ export function SportsTheater({
           )}
         </nav>
 
-        {others.length > 0 && (
+        {groups.length > 0 && (
           <section className="sportstheater__scores">
             <h3 className="sportstheater__heading">
               <span className="gamepip" aria-hidden />
               Live Scores
             </h3>
-            {others.map((g) => (
-              <CompactCard key={g.id} game={g} />
+            {/* The league, said once over its games instead of on every
+              * line. The rows lost their own tag because it was the one
+              * thing on them whose width the sport did not bound; as a
+              * heading it has the whole width and can say "Premier League"
+              * in full. */}
+            {groups.map(([league, games]) => (
+              <div className="sportstheater__group" key={league}>
+                <h4 className="sportstheater__league">{league}</h4>
+                {games.map((g) => (
+                  <CompactCard key={g.id} game={g} />
+                ))}
+              </div>
             ))}
           </section>
         )}

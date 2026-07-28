@@ -194,7 +194,9 @@
   --compact-status: 18.46px;
   position: relative;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  /* The clock, then everything else. The third track was the league tag,
+   * which is gone: see CompactCard for why. */
+  grid-template-columns: auto 1fr;
   align-items: center;
   gap: 21.3px;
   width: 100%;
@@ -233,16 +235,6 @@
   font-size: var(--compact-status);
   text-transform: uppercase;
   color: #fff;
-}
-.compactcard__league {
-  position: relative;
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: var(--sports-meta);
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: #fff;
-  text-align: right;
 }
 /* The matchup, centred in what the two labels leave. The gap here is
  * between GROUPS, each of which is a mark and its tag; those two belong
@@ -1459,7 +1451,6 @@
   height: 65px;
 }
 .sportstheater .compactcard__status,
-.sportstheater .compactcard__league,
 .sportstheater .compactcard__abbr {
   font-size: 13px;
 }
@@ -1488,6 +1479,29 @@
   font-weight: 700;
   font-size: 21px;
   color: #fff;
+}
+/* One league's games. Its own box rather than rows and headings sharing the
+ * section's gap, so the space above a heading can be larger than the space
+ * between two rows: that difference is what makes the grouping visible. */
+.sportstheater__group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+/* The tag that used to sit on every row, said once.
+ *
+ * Deliberately the same treatment it had there, 13px uppercase with the
+ * same tracking, because it is the same information in a new place. Quiet
+ * rather than white: it divides the list, it does not head it, and the 21px
+ * "Live Scores" above is what heads it. */
+.sportstheater__league {
+  margin: 8px 0 0;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
 }
 
 /* The stage. The slot is what InvertedPlayer measures and glues mpv to, so
