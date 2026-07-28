@@ -1399,7 +1399,9 @@
   /* Keep glareBorderRadius in SportsTheater in step with this: the glare is
    * its own layer with its own clip, so a mismatch shows as a square sheen
    * poking out of a round corner. */
-  border-radius: 16px;
+  /* A pill, like the compact line below it. Both are rows in the same
+   * column and neither is a rectangle with corners. */
+  border-radius: 100px;
   overflow: hidden;
   /* The row's own surface, named because the confidence number sits ON the
    * bar and has to punch through it in exactly this colour. Two copies of
@@ -1488,6 +1490,13 @@
   font-weight: 700;
   font-size: 21px;
   color: #fff;
+}
+/* The lean around a live score. A bare wrapper: the card inside keeps its
+ * own surface and its own pill, and this exists only to be the thing that
+ * rotates and the box the glare clips to. Sized by the card, so the two
+ * shapes cannot disagree. */
+.scorelean {
+  display: block;
 }
 /* One league's games. Its own box rather than rows and headings sharing the
  * section's gap, so the space above a heading can be larger than the space

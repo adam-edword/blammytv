@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from "react";
+import type { ReactNode } from "react";
 import Tilt from "react-parallax-tilt";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { useMouseNav } from "../../lib/mouseNav";
@@ -26,6 +27,7 @@ export function SportsTheater({
   game,
   others,
   catalog,
+  onOpen,
   onClose,
 }: {
   game: Game;
@@ -35,6 +37,10 @@ export function SportsTheater({
    * card's list: the card counts only what it is sure of, and the rail is
    * the one place a doubtful match can be shown honestly, with its score. */
   catalog: Catalog | null;
+  /** Switch the theater to another game, from the live scores below. The
+   * same handler the board opens a card with, so switching in here and
+   * arriving from out there land in exactly the same place. */
+  onOpen: (game: Game) => void;
   onClose: () => void;
 }) {
   const matches = useMemo(() => {
@@ -116,8 +122,20 @@ export function SportsTheater({
             {groups.map(([league, games]) => (
               <div className="sportstheater__group" key={league}>
                 <h4 className="sportstheater__league">{league}</h4>
+                {/* Leaning, and live. On the board a compact line is a
+                  * finished game and answers the pointer with nothing,
+                  * because there is nothing to choose. Here every one of
+                  * them is a game running right now that you can switch
+                  * to, so it gets the rail's lean and the rail's glare and
+                  * opens on click.
+                  *
+                  * The lean is a wrapper rather than something inside the
+                  * card: the card is shared with the board, and the board's
+                  * copies should stay flat and cheap. */}
                 {games.map((g) => (
-                  <CompactCard key={g.id} game={g} />
+                  <Lean className="scorelean" key={g.id}>
+                    <CompactCard game={g} onOpen={onOpen} />
+                  </Lean>
                 ))}
               </div>
             ))}
@@ -151,29 +169,7 @@ function Rail({ channel }: { channel: Match }) {
         : "doubt";
   return (
     <button type="button" className="sportsrail" title={channel.name}>
-      {/* The same lean and glare the cards use, rather than a play glyph.
-       * The row IS a card, so it should answer the pointer the way the
-       * other cards do; a third affordance invented only for this list was
-       * one too many.
-       *
-       * The angles are deliberately NOT the cards' numbers. Degrees are
-       * not the unit that matters, pixels swept at the corner are, and
-       * this row is a very different shape: 340px wide against 62px tall.
-       * Half-width times sin(3deg) is 8.9px and half-height times sin(6deg)
-       * is 3.2px, which lands on the wide card's own 10.3 and 3.6. Copying
-       * its 1.5deg would have been almost no movement at this size. */}
-      <Tilt
-        className="sportsrail__tilt"
-        tiltEnable={!REDUCED_MOTION}
-        tiltMaxAngleX={6}
-        tiltMaxAngleY={3}
-        scale={REDUCED_MOTION ? 1 : 1.015}
-        transitionSpeed={650}
-        glareEnable={!REDUCED_MOTION}
-        glareMaxOpacity={0.1}
-        glarePosition="all"
-        glareBorderRadius="16px"
-      >
+      <Lean className="sportsrail__tilt">
         {channel.logo && (
           <img
             className="sportsrail__logo"
@@ -195,7 +191,50 @@ function Rail({ channel }: { channel: Match }) {
           </span>
           <span className="sportsrail__pct">{channel.confidence}%</span>
         </span>
-      </Tilt>
+      </Lean>
     </button>
+  );
+}
+
+/**
+ * The panel's lean and glare, over anything row-shaped in it.
+ *
+ * One component rather than the props twice, because both users are the
+ * same shape to within a few pixels: the channel row is 344x62 and the
+ * score line 344x65. Tilt reads its angles as degrees and the eye reads
+ * them as pixels swept at the corner, so two rows this alike must not be
+ * given different numbers.
+ *
+ * The angles are deliberately NOT the cards' numbers. Half-width times
+ * sin(3deg) is 8.9px and half-height times sin(6deg) is 3.2px, which lands
+ * on the wide card's own 10.3 and 3.6. Copying its 1.5deg would have been
+ * almost no movement at this size.
+ *
+ * The glare's radius is the pill's, and both rows are pills. It is its own
+ * layer with its own clip, so a mismatch shows as a square sheen poking out
+ * of a round corner.
+ */
+function Lean({
+  className,
+  children,
+}: {
+  className: string;
+  children: ReactNode;
+}) {
+  return (
+    <Tilt
+      className={className}
+      tiltEnable={!REDUCED_MOTION}
+      tiltMaxAngleX={6}
+      tiltMaxAngleY={3}
+      scale={REDUCED_MOTION ? 1 : 1.015}
+      transitionSpeed={650}
+      glareEnable={!REDUCED_MOTION}
+      glareMaxOpacity={0.1}
+      glarePosition="all"
+      glareBorderRadius="100px"
+    >
+      {children}
+    </Tilt>
   );
 }

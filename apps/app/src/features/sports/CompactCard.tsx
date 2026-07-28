@@ -24,9 +24,11 @@ import type { Game } from "./model";
  * least load-bearing thing here, since every mark on the line already says
  * which sport this is.
  *
- * No tilt and no glare: those are for something you are choosing between,
- * and this is a record of something that already happened. It also keeps a
- * long column of them cheap.
+ * No tilt and no glare of its own: those are for something you are choosing
+ * between, and on the board this is a record of something that already
+ * happened. It also keeps a long column of them cheap. The theater's live
+ * scores ARE a choice, so they wrap this in the panel's Lean from the
+ * outside rather than the card growing a mode.
  */
 function CompactCardImpl({
   game,
