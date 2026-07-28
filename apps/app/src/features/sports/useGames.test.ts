@@ -16,6 +16,7 @@ const game = (id: string, over: Partial<Game> = {}): Game => ({
   id,
   sport: "baseball",
   league: "MLB",
+  leagueKey: "mlb",
   state: "live",
   start: new Date(2026, 6, 26, 19),
   status: "Bot 7th",

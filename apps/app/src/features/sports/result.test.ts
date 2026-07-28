@@ -21,6 +21,7 @@ const game = (state: GameState, home?: number, away?: number): Game => ({
   id: "g",
   sport: "soccer",
   league: "Premier League",
+  leagueKey: "epl",
   state,
   start: new Date(2026, 6, 26, 15),
   status: "",

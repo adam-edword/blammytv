@@ -9,6 +9,21 @@
 
 /** Enough to draw a competitor: everything else is decoration. */
 export interface Competitor {
+  /**
+   * The source's own id for this club, and the ONLY stable way to name one.
+   *
+   * Not the abbreviation. Those are league-scoped ("SEA" is the Mariners,
+   * the Seahawks and the Kraken) and, worse, they move: a rebrand or a
+   * relocation rewrites them, and anything the user SAVED against one goes
+   * quietly dead. Backfilling the harness fixtures showed the churn is real
+   * rather than theoretical, with four clubs across two leagues whose
+   * abbreviations no longer resolve against the current season.
+   *
+   * Optional, because it is the source's field and not ours to promise.
+   * Every real capture has one; anything that keys off it must handle a
+   * competitor that does not.
+   */
+  id?: string;
   /** "Brazil", "Chicago Cubs". */
   name: string;
   /**
@@ -57,6 +72,15 @@ export interface Game {
   sport: "soccer" | "football" | "basketball" | "baseball" | "hockey" | "f1";
   /** Display name of the competition: "FIFA World Cup", "MLB". */
   league: string;
+  /**
+   * Our own key for the competition: "mlb", "epl". The stable half of the
+   * pair, and the one anything persisted should use — `league` is a display
+   * string from the source and can be reworded without warning.
+   *
+   * Also what makes a club's id unique: source ids are numbered per league,
+   * so MLB's 1 and NFL's 1 are different teams entirely.
+   */
+  leagueKey: string;
   state: GameState;
   /** Absolute kickoff. Everything renders in local time from this. */
   start: Date;

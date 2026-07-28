@@ -69,6 +69,7 @@ interface RawCompetitor {
   homeAway?: string;
   score?: string;
   team?: {
+    id?: string;
     displayName?: string;
     shortDisplayName?: string;
     abbreviation?: string;
@@ -159,6 +160,7 @@ function toGame(
     id: `espn-${league.key}-${event.id}`,
     sport: league.sport,
     league: leagueName,
+    leagueKey: league.key,
     state,
     start,
     status: statusText(state, start, comp.status?.type?.shortDetail),
@@ -209,6 +211,7 @@ function toCompetitor(raw: RawCompetitor): Competitor {
   const t = raw.team ?? {};
   const score = Number(raw.score);
   return {
+    id: t.id,
     name: t.displayName ?? t.shortDisplayName ?? "",
     shortName: t.shortDisplayName,
     abbr: t.abbreviation ?? "",

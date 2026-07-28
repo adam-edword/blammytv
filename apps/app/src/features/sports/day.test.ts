@@ -20,6 +20,7 @@ const game = (
   id,
   sport: "baseball",
   league: "MLB",
+  leagueKey: "mlb",
   state,
   start,
   status: "",
