@@ -5,7 +5,9 @@ import {
   saveCompactResults,
 } from "../settings/compactResults";
 import { CompactCard } from "./CompactCard";
+import { RaceCard } from "./RaceCard";
 import { SportsSidebar } from "./SportsSidebar";
+import { useRaces } from "./race";
 import { isFollowed, loadFollows } from "./follows";
 import { GameCard } from "./GameCard";
 import { dayLabel, nowish } from "./day";
@@ -83,6 +85,10 @@ export function SportsScreen() {
   }, [raw, catalog, follows, narrowed]);
   /** Every club the board LOADED, ahead of the filter. */
   const clubPool = useMemo(() => raw.flatMap((d) => d.games), [raw]);
+  /* TEMPORARY: this weekend's F1 sessions, at the head of today's grid, so
+   * the race card can be looked at in the app while the racing adapter is
+   * written. It fetches on its own and joins nothing; see race.ts. */
+  const races = useRaces();
   const today = days[0]?.games ?? [];
   const anchor = nowish(today);
   const live = today.some((g) => g.state === "live");
@@ -192,6 +198,9 @@ export function SportsScreen() {
                 )}
               </div>
               <div className="sports__grid">
+                {/* TEMPORARY, today only: see race.ts. */}
+                {day === days[0] &&
+                  races.map((r) => <RaceCard key={r.id} race={r} />)}
                 {day.games.map((g) =>
                   compact && g.state === "final" ? (
                     <CompactCard key={g.id} game={g} onOpen={setOpen} />
