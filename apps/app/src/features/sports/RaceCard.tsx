@@ -94,9 +94,17 @@ export function RaceCard({ race }: { race: Race }) {
         : "LIVE"
       : race.time;
   return (
-    <button
-      type="button"
-      className={"racecard" + (race.state === "final" ? " racecard--final" : "")}
+    /* A DIV with no click, like the weekend card beside it, and for now
+     * for the same reason: nothing is wired up to open a session. It was a
+     * <button> with a pointer cursor and no onClick, so it looked exactly
+     * as clickable as every game card next to it, took keyboard focus and
+     * swallowed Enter. Becomes a button again when racing reaches the
+     * theater (plan 010, A7). */
+    <div
+      className={
+        "racecard racecard--flat" +
+        (race.state === "final" ? " racecard--final" : "")
+      }
       title={`${race.place} ${race.session}`}
     >
       {/* The small card's lean and glare, to its own numbers. This sits in
@@ -195,6 +203,6 @@ export function RaceCard({ race }: { race: Race }) {
           )}
         </span>
       </Tilt>
-    </button>
+    </div>
   );
 }

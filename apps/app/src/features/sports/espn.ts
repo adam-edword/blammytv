@@ -107,7 +107,16 @@ interface RawEvent {
 interface RawCompetition {
   id?: string;
   date?: string;
-  status?: { type?: { state?: string; shortDetail?: string } };
+  status?: {
+    type?: {
+      state?: string;
+      /** False on postponed, suspended, retired and walkover, all of which
+       * arrive as state "post". See toGame. */
+      completed?: boolean;
+      detail?: string;
+      shortDetail?: string;
+    };
+  };
   venue?: { fullName?: string; address?: { city?: string } };
   broadcasts?: { names?: string[] }[];
   competitors?: RawCompetitor[];
@@ -192,7 +201,19 @@ export async function fetchGames(
   const settled = await Promise.allSettled(
     LEAGUES.map((l) => fetchLeague(l, opts)),
   );
-  return settled.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
+  const ok = settled.filter((r) => r.status === "fulfilled");
+  // EVERY league failing is not a quiet day, it is an outage, and the two
+  // looked identical: allSettled never rejects, so the screen's own
+  // "Couldn't reach the schedule" could not render and a dead connection
+  // was reported as "Nothing on today". On a Saturday that is simply false.
+  //
+  // One league failing still degrades quietly, which is the paragraph above
+  // and still right: a board with four sports on it beats an error page
+  // because the NHL is having a bad night.
+  if (settled.length > 0 && ok.length === 0) {
+    throw new Error("every league failed");
+  }
+  return ok.flatMap((r) => (r as PromiseFulfilledResult<Game[]>).value);
 }
 
 /** The mapping, split out so the tests can run it on a saved response. */
@@ -289,7 +310,22 @@ function toGame(
   const start = new Date(comp.date ?? event.date ?? "");
   if (Number.isNaN(start.getTime())) return null;
 
-  const state = STATES[comp.status?.type?.state ?? ""] ?? "pre";
+  /**
+   * POSTPONED IS NOT A RESULT, and ESPN files it as one.
+   *
+   * A postponed game comes back with state "post" and a 0-0 line, so it
+   * mapped straight to `final` and the board drew it as a finished nil-nil
+   * draw: dimmed, collapsed into a compact result, and beaten by nobody.
+   * Real example, ATL @ NYM on 2026-07-28.
+   *
+   * `completed` is the boolean that separates them and it is already in
+   * every response. A `post` that never completed has not been played, so
+   * it reads as one that has not happened yet, and it keeps ESPN's own word
+   * for why rather than showing a kick-off time that is no longer true.
+   */
+  const raw = comp.status?.type;
+  const abandoned = raw?.state === "post" && raw?.completed === false;
+  const state = abandoned ? "pre" : (STATES[raw?.state ?? ""] ?? "pre");
   return {
     id: `espn-${league.key}-${event.id}${suffix ? `-${suffix}` : ""}`,
     sport: league.sport,
@@ -297,7 +333,9 @@ function toGame(
     leagueKey: league.key,
     state,
     start,
-    status: statusText(state, start, comp.status?.type?.shortDetail),
+    status: abandoned
+      ? (raw?.shortDetail ?? raw?.detail ?? "Postponed")
+      : statusText(state, start, raw?.shortDetail),
     home: toCompetitor(home, away),
     away: toCompetitor(away, home),
     venue: comp.venue?.fullName ?? comp.venue?.address?.city,

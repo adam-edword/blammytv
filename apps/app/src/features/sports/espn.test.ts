@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LEAGUES, espnDate, toGames } from "./espn";
+import { LEAGUES, espnDate, fetchGames, toGames } from "./espn";
 import epl from "./fixtures/epl-scoreboard.json";
 import mlb from "./fixtures/mlb-scoreboard.json";
 import nfl from "./fixtures/nfl-scoreboard.json";
@@ -262,6 +262,75 @@ describe("toGames leaves single match events exactly as they were", () => {
     const league = LEAGUES.find((l) => l.key === "epl")!;
     for (const g of toGames(epl, league)) {
       expect(g.id).toMatch(/^espn-epl-\d+$/);
+    }
+  });
+});
+
+describe("a game that was never played", () => {
+  /** ESPN files a postponement as state "post" with a 0-0 line. */
+  const postponed = () => ({
+    leagues: [{ abbreviation: "MLB" }],
+    events: [
+      {
+        id: "401800000",
+        date: "2026-07-28T23:10Z",
+        competitions: [
+          {
+            status: {
+              type: {
+                state: "post",
+                completed: false,
+                detail: "Postponed",
+                shortDetail: "Postponed",
+              },
+            },
+            competitors: [
+              { homeAway: "home", score: "0", team: { id: "1", displayName: "Mets", abbreviation: "NYM" } },
+              { homeAway: "away", score: "0", team: { id: "2", displayName: "Braves", abbreviation: "ATL" } },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  it("is not a result", () => {
+    // It used to map straight to `final` and draw as a finished nil-nil
+    // draw: dimmed, collapsed into a compact line, beaten by nobody.
+    const g = toGames(postponed(), LEAGUES.find((l) => l.key === "mlb")!)[0];
+    expect(g.state).not.toBe("final");
+    expect(g.state).toBe("pre");
+  });
+
+  it("says why, rather than showing a kick-off time that is no longer true", () => {
+    const g = toGames(postponed(), LEAGUES.find((l) => l.key === "mlb")!)[0];
+    expect(g.status).toBe("Postponed");
+  });
+
+  it("still treats a completed game as final", () => {
+    const done = postponed();
+    done.events[0].competitions[0].status.type = {
+      state: "post",
+      completed: true,
+      detail: "Final",
+      shortDetail: "Final",
+    };
+    const g = toGames(done, LEAGUES.find((l) => l.key === "mlb")!)[0];
+    expect(g.state).toBe("final");
+  });
+});
+
+describe("fetchGames on a total outage", () => {
+  it("distinguishes an outage from a quiet day", async () => {
+    // allSettled never rejects, so every league failing used to arrive as
+    // an empty board and the screen said "Nothing on today" at a dead
+    // connection. One league failing must still degrade quietly.
+    const real = globalThis.fetch;
+    globalThis.fetch = (() => Promise.reject(new Error("offline"))) as never;
+    try {
+      await expect(fetchGames()).rejects.toThrow();
+    } finally {
+      globalThis.fetch = real;
     }
   });
 });

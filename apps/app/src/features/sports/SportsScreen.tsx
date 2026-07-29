@@ -143,8 +143,9 @@ export function SportsScreen() {
   };
 
   if (open) {
-    // Re-read from the refreshed board, so a score on the theater's own
-    // header keeps moving; fall back to the game as opened if it drops off
+    // Re-read from the refreshed board so the theater follows the game's
+    // STATE, not its score: the header carries two badges and two names and
+    // no numbers at all. Fall back to the game as opened if it drops off
     // the day (it will not, but the board is a network read).
     const current = today.find((g) => g.id === open.id) ?? open;
     return (
