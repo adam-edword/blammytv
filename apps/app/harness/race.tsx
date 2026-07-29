@@ -157,6 +157,11 @@ const weekends: Weekend[] = [
 export function Rig() {
   return (
     <div
+      // `sports` MATTERS, it is not decoration. --sports-name and the rest
+      // are scoped to it, so without it every card here renders its country
+      // at the 16px inherited fallback instead of the app's 28px, and the
+      // rig quietly answers the wrong question about what fits.
+      className="sports"
       style={{
         display: "grid",
         gridTemplateColumns: "repeat(auto-fill, minmax(383px, 1fr))",

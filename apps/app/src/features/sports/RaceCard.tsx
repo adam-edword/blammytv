@@ -1,6 +1,7 @@
 import Tilt from "react-parallax-tilt";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { art, flagArt } from "./circuits";
+import { shortPlace } from "./placeName";
 
 /**
  * A race session, as a card (plan 010, Adam's Figma).
@@ -119,7 +120,10 @@ export function RaceCard({ race }: { race: Race }) {
               dangerouslySetInnerHTML={{ __html: track }}
             />
           )}
-          <span className="racecard__place-name">{race.place}</span>
+          {/* Coded past eight characters, same as the weekend card: this
+            * is the same column at the same size, so it has the same
+            * problem. See placeName. */}
+          <span className="racecard__place-name">{shortPlace(race.place)}</span>
           <span className="racecard__session">{race.session}</span>
         </span>
       </Tilt>

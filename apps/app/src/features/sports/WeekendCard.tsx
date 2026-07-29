@@ -1,6 +1,7 @@
 import Tilt from "react-parallax-tilt";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { art, flagArt } from "./circuits";
+import { shortPlace } from "./placeName";
 
 /**
  * A race weekend before it starts, as a card (plan 010, Adam's Figma).
@@ -124,9 +125,12 @@ export function WeekendCard({ weekend }: { weekend: Weekend }) {
               dangerouslySetInnerHTML={{ __html: track }}
             />
           )}
-          {/* Where the session card puts its session. There is no one
-            * session this card is about, so the line goes to the track. */}
-          <span className="racecard__place-name">{weekend.place}</span>
+          {/* Coded past eight characters, because most country names are
+            * one word and a long one has nowhere to wrap; see placeName.
+            * The full name stays on the card's tooltip. */}
+          <span className="racecard__place-name">
+            {shortPlace(weekend.place)}
+          </span>
           {weekend.track && (
             <span className="weekend__circuit">{weekend.track}</span>
           )}
