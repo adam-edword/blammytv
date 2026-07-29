@@ -3,11 +3,9 @@ import {
   memo,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
-  type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import {
   ChevronIcon,
@@ -18,6 +16,7 @@ import {
   StarIcon,
   TvIcon,
 } from "../../ui/icons";
+import { ModeRail, type RailMode } from "../../ui/ModeRail";
 import {
   isTauri,
   onPopoutClosed,
@@ -55,10 +54,15 @@ import { buildMeta, resolveStreamUrl } from "./stream";
 
 type Mode = "playlist" | "favorites" | "recents";
 
-const MODES: Array<{ key: Mode; label: string }> = [
-  { key: "playlist", label: "Playlist" },
-  { key: "favorites", label: "Favorites" },
-  { key: "recents", label: "Recents" },
+const MODES: RailMode<Mode>[] = [
+  { key: "playlist", label: "Playlist", icon: () => <TvIcon /> },
+  {
+    key: "favorites",
+    label: "Favorites",
+    // The star is the one mark that changes when selected.
+    icon: (active) => (active ? <RainbowStarIcon /> : <StarIcon />),
+  },
+  { key: "recents", label: "Recents", icon: () => <RecentsIcon /> },
 ];
 
 type LoadState =
@@ -67,133 +71,6 @@ type LoadState =
   | { status: "error"; message: string };
 
 const NO_PROGRAMMES: Programme[] = [];
-
-function ModeIcon({ mode, active }: { mode: Mode; active: boolean }) {
-  if (mode === "playlist") return <TvIcon />;
-  if (mode === "favorites") return active ? <RainbowStarIcon /> : <StarIcon />;
-  return <RecentsIcon />;
-}
-
-/** The mode rail, built to the Claude app's actual mechanics (verified from
- * its DOM): buttons resize INSTANTLY when the label collapses/expands, and a
- * single indicator element glides to the settled target via transform+width.
- * One animated element, exact one-shot measurement, nothing to chase. */
-function ModeRail({
-  mode,
-  onChange,
-}: {
-  mode: Mode;
-  onChange: (m: Mode) => void;
-}) {
-  const railRef = useRef<HTMLDivElement>(null);
-  const [ind, setInd] = useState({ x: 0, w: 0, snap: true });
-
-  // Roving-tabindex arrow-key navigation (WAI-ARIA tablist): only the active
-  // tab is in the tab order; arrows move selection AND focus, Home/End jump to
-  // the ends.
-  const onKey = (e: ReactKeyboardEvent<HTMLButtonElement>) => {
-    const i = MODES.findIndex((m) => m.key === mode);
-    let next: number;
-    if (e.key === "ArrowRight" || e.key === "ArrowDown")
-      next = (i + 1) % MODES.length;
-    else if (e.key === "ArrowLeft" || e.key === "ArrowUp")
-      next = (i - 1 + MODES.length) % MODES.length;
-    else if (e.key === "Home") next = 0;
-    else if (e.key === "End") next = MODES.length - 1;
-    else return;
-    e.preventDefault();
-    const key = MODES[next].key;
-    onChange(key);
-    railRef.current
-      ?.querySelector<HTMLButtonElement>(`[data-mode="${key}"]`)
-      ?.focus();
-  };
-
-  useLayoutEffect(() => {
-    const rail = railRef.current;
-    if (!rail) return;
-    const measure = (snap: boolean) => {
-      const btn = rail.querySelector<HTMLButtonElement>(
-        `[data-mode="${mode}"]`,
-      );
-      if (btn) {
-        setInd((prev) => ({
-          x: btn.offsetLeft,
-          w: btn.offsetWidth,
-          // First placement snaps into position; later ones glide.
-          snap: snap || prev.w === 0,
-        }));
-      }
-    };
-    measure(false);
-    // Font load / rail resize move the settled targets — reposition
-    // without animating.
-    let alive = true;
-    document.fonts?.ready.then(() => {
-      if (alive) measure(true);
-    });
-    const ro = new ResizeObserver(() => measure(true));
-    ro.observe(rail);
-    return () => {
-      alive = false;
-      ro.disconnect();
-    };
-  }, [mode]);
-
-  return (
-    <div className="mode-rail" role="tablist" ref={railRef}>
-      <div
-        className={
-          "mode-rail__indicator" +
-          (ind.snap ? " mode-rail__indicator--snap" : "")
-        }
-        style={{
-          transform: `translateX(${ind.x}px)`,
-          width: ind.w,
-          visibility: ind.w ? "visible" : "hidden",
-        }}
-        aria-hidden
-      />
-      {MODES.map((m) => {
-        const active = m.key === mode;
-        return (
-          <button
-            key={m.key}
-            type="button"
-            role="tab"
-            data-mode={m.key}
-            aria-selected={active}
-            aria-label={m.label}
-            tabIndex={active ? 0 : -1}
-            className={
-              "mode-rail__chip" + (active ? " mode-rail__chip--active" : "")
-            }
-            onClick={() => onChange(m.key)}
-            onKeyDown={onKey}
-          >
-            <ModeIcon mode={m.key} active={active} />
-            {/* All three labels stack in one grid cell so the active pill
-             * is the same width in every mode — otherwise space-between
-             * nudges the idle icons as the pill's label length changes. */}
-            <span className="mode-rail__label" aria-hidden>
-              {MODES.map((x) => (
-                <span
-                  key={x.key}
-                  className={
-                    "mode-rail__label-line" +
-                    (x.key === m.key ? "" : " mode-rail__label-line--ghost")
-                  }
-                >
-                  {x.label}
-                </span>
-              ))}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 /** The source/folder rail, extracted + memoized: LiveScreen re-renders on
  * every guide hover-preview and folded-rail tooltip move, and this list
@@ -962,7 +839,9 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
           >
             <PanelIcon />
           </button>
-          {!collapsed && <ModeRail mode={mode} onChange={setMode} />}
+          {!collapsed && (
+            <ModeRail modes={MODES} mode={mode} onChange={setMode} />
+          )}
         </div>
 
         {/* The source list stays mounted through collapse — the same rows

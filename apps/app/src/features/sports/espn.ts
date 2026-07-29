@@ -42,6 +42,22 @@ export const LEAGUES = [
 
 export type LeagueKey = (typeof LEAGUES)[number]["key"];
 
+/**
+ * What to CALL each league where there are no games to ask.
+ *
+ * The board takes its league line from the response, which is right there
+ * and is the source's own wording. The sidebar cannot: it offers all five
+ * whether or not any of them is playing tonight, and a league out of season
+ * answers with nothing to read a name out of.
+ */
+export const LEAGUE_NAMES: Record<LeagueKey, string> = {
+  nfl: "NFL",
+  nba: "NBA",
+  mlb: "MLB",
+  nhl: "NHL",
+  epl: "Premier League",
+};
+
 /** ESPN's three states, in this app's words. */
 const STATES: Record<string, GameState> = {
   pre: "pre",

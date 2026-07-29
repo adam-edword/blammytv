@@ -5,6 +5,8 @@ import {
   saveCompactResults,
 } from "../settings/compactResults";
 import { CompactCard } from "./CompactCard";
+import { SportsSidebar } from "./SportsSidebar";
+import { isFollowed, loadFollows } from "./follows";
 import { GameCard } from "./GameCard";
 import { dayLabel, nowish } from "./day";
 import { SportsTheater } from "./SportsTheater";
@@ -54,10 +56,33 @@ export function SportsScreen() {
   // a 42-game board costs 4.7ms against a 20k-channel index and 3.7 SECONDS
   // without one, so it must not happen per render.
   const catalog = useCatalog();
-  const days = useMemo(
-    () => raw.map((d) => ({ ...d, games: withChannels(d.games, catalog) })),
-    [raw, catalog],
-  );
+  /**
+   * What you follow, and therefore what the board shows.
+   *
+   * FOLLOWING IS FILTERING, in the plan's own words. Nothing followed means
+   * nothing is narrowed: an empty store shows the whole board, so first run
+   * is a full screen rather than an empty one asking to be configured.
+   *
+   * Applied AFTER withChannels rather than before, which costs a little
+   * matcher work on games that are about to be dropped and buys the club
+   * list its full set — the sidebar offers every club the board loaded, not
+   * only the ones already surviving the filter it is trying to change.
+   */
+  const [follows, setFollows] = useState(loadFollows);
+  const narrowed = follows.leagues.length > 0 || follows.teams.length > 0;
+  const days = useMemo(() => {
+    const withChans = raw.map((d) => ({
+      ...d,
+      games: withChannels(d.games, catalog),
+    }));
+    if (!narrowed) return withChans;
+    return withChans.map((d) => ({
+      ...d,
+      games: d.games.filter((g) => isFollowed(g, follows)),
+    }));
+  }, [raw, catalog, follows, narrowed]);
+  /** Every club the board LOADED, ahead of the filter. */
+  const clubPool = useMemo(() => raw.flatMap((d) => d.games), [raw]);
   const today = days[0]?.games ?? [];
   const anchor = nowish(today);
   const live = today.some((g) => g.state === "live");
@@ -120,7 +145,13 @@ export function SportsScreen() {
   }
 
   return (
-    <div className="discover sports">
+    <div className="sportsboard">
+      <SportsSidebar
+        games={clubPool}
+        follows={follows}
+        onFollows={setFollows}
+      />
+      <div className="discover sports sportsboard__main">
       {today.length > 0 && (
         <section className="media-row" ref={row}>
           <h3 className="media-row__title sports__title">
@@ -179,9 +210,12 @@ export function SportsScreen() {
             ? "Loading today's games…"
             : state === "error"
               ? "Couldn't reach the schedule. Trying again shortly."
-              : "Nothing on today."}
+              : narrowed
+                ? "Nothing on for what you follow. Widen it in the sidebar."
+                : "Nothing on today."}
         </p>
       )}
+      </div>
     </div>
   );
 }

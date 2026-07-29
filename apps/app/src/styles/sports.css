@@ -1655,3 +1655,47 @@
 .sportsrail__score.is-doubt {
   color: #e05c5c;
 }
+
+/* ------------------------------------------------------- board + sidebar */
+
+/* The board, beside what narrows it. Live TV's arrangement, which is Adam's
+ * call and the right one: this answers the same question that sidebar does,
+ * so it should not be a second control that nearly matches.
+ *
+ * Fixed to the viewport rather than flowing, because the two columns scroll
+ * SEPARATELY — a long club list must not drag the board's rows past the top
+ * of the screen, and forty games must not push the sidebar off the bottom. */
+.sportsboard {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  min-height: 0;
+  padding-top: calc(var(--header-h, 76px) + 12px);
+}
+/* The board keeps its own page padding (.sports pads for the header), so
+ * that is taken back here: the header clearance now belongs to the column
+ * arrangement above, not to the scrolling content inside it. */
+.sportsboard__main {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding-top: 0;
+  padding-right: 28px;
+  padding-left: 22px;
+  scrollbar-width: none;
+}
+
+/* The sidebar is Live TV's, reused whole. Only the things that belong to
+ * this screen's arrangement are set here. */
+.sportsside {
+  margin: 0 0 12px 12px;
+}
+/* A club's crest, in the mark slot the folder icon usually holds. Same
+ * 16px box, so a list of clubs and a list of leagues line their labels up
+ * at exactly the same x. */
+.sportsside__crest {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
