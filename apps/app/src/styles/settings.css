@@ -171,12 +171,6 @@
   padding-top: 20px;
 }
 
-.settings__section-title {
-  font-family: var(--font-headline);
-  font-weight: 600;
-  font-size: 32px;
-  margin: 0;
-}
 
 /* Heading over a RUN of sections (Sources, Playback, Interface, Media).
  * Whatever follows drops its own top rule, because the heading is already
@@ -634,9 +628,6 @@
 
 .source-list--note {
   min-height: 0;
-}
-
-.source-list--note {
   padding: 14px 20px;
 }
 

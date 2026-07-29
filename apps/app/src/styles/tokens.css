@@ -53,7 +53,6 @@
   /* Shape */
   --radius-card: 25px;
   --radius-chip: 16px;
-  --radius-badge: 3.4px;
   /* Squircle corner profile. Applied globally in base.css so every rounded
      corner in the app shares it. Chromium 139+ / current WebView2; engines
      without corner-shape fall back to plain round corners. */

@@ -54,6 +54,28 @@ const MAJOR = new Set(["Qual", "Race"]);
 const RACES = new Set(["Race", "SR"]);
 
 /**
+ * What the abbreviations mean, for the tooltip.
+ *
+ * The source gives an abbreviation and NOTHING else: `type.text` and
+ * `type.name` are both absent, so every expansion here is ours.
+ *
+ * The card keeps the short form, and that is measured rather than lazy. At
+ * the board's narrowest 315px track, "SPRINT" pushes the country 4.3px past
+ * the card's padding and "SPRINT QUAL" makes it overlap the schedule by
+ * 9.9px. So the long name lives on the row's tooltip, where it costs no
+ * width at all.
+ */
+const SESSION_NAMES: Record<string, string> = {
+  FP1: "Free Practice 1",
+  FP2: "Free Practice 2",
+  FP3: "Free Practice 3",
+  QUAL: "Qualifying",
+  RACE: "Race",
+  SS: "Sprint Qualifying",
+  SR: "Sprint Race",
+};
+
+/**
  * The race distance, if the source happens to say it.
  *
  * IT USUALLY WILL NOT. Measured over a full season, the scoreboard carries
@@ -135,12 +157,16 @@ function ahead(event: RawEvent, midnight: Date): boolean {
 /** A weekend's sessions as a schedule, for the one card that precedes them. */
 function toWeekend(event: RawEvent, series: string): Weekend {
   const comps = event.competitions ?? [];
-  const sessions: Session[] = comps.map((c) => ({
-    label: (c.type?.abbreviation ?? "?").toUpperCase(),
-    day: weekday(c.date),
-    time: time(c.date),
-    major: MAJOR.has(c.type?.abbreviation ?? ""),
-  }));
+  const sessions: Session[] = comps.map((c) => {
+    const label = (c.type?.abbreviation ?? "?").toUpperCase();
+    return {
+      label,
+      full: SESSION_NAMES[label],
+      day: weekday(c.date),
+      time: time(c.date),
+      major: MAJOR.has(c.type?.abbreviation ?? ""),
+    };
+  });
   // RACE DAY, which is what a person means by the date of a Grand Prix.
   // By label rather than by position: the sessions arrive in order today,
   // but the label is the thing that actually says which one is the race.

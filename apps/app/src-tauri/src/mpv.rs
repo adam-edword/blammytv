@@ -508,7 +508,8 @@ pub fn set_speed(speed: f64) {
 
 /// Set the GPU post-process shader chain (absolute path to a .glsl user
 /// shader, or empty to clear). Runtime-safe: the vo reconfigures mid-play.
-/// Used by the inverted player's frost-behind-modal (lib.rs `mpv_blur`).
+/// Used by the inverted player's region frost (lib.rs `mpv_frost`), and by
+/// the dormant whole-picture `mpv_blur` beside it.
 pub fn set_glsl_shaders(path: &str) {
     set_prop("glsl-shaders", path);
 }

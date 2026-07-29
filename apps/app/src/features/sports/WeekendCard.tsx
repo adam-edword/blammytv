@@ -26,6 +26,14 @@ import { shortPlace } from "./placeName";
 export interface Session {
   /** As the source abbreviates it: "FP1", "Qual", "Race", "SS", "SR". */
   label: string;
+  /**
+   * What that stands for, for the tooltip: "Sprint Qualifying".
+   *
+   * On hover rather than on the row, and that is measured. At the board's
+   * narrowest track, printing "SPRINT QUAL" makes the country name overlap
+   * the schedule by 10px. Absent for a label we have no expansion for.
+   */
+  full?: string;
   /** "FRI". */
   day: string;
   /** "1:00PM". Already formatted; this card never does its own clock. */
@@ -113,6 +121,10 @@ export function WeekendCard({ weekend }: { weekend: Weekend }) {
               // FP1/FP1/FP1/Qual/Race, so three rows share one. The
               // position in the weekend is the identity here.
               key={`${s.label}-${i}`}
+              // The source ships an abbreviation and no expansion at all,
+              // so SS and SR would otherwise be unreadable to anyone who
+              // does not already follow the sport.
+              title={s.full}
             >
               <span className="weekend__label">{s.label}</span>
               <span className="weekend__when">

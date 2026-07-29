@@ -41,6 +41,3 @@ export function readDiscoverSession(key: string): DiscoverSession | null {
   return held && held.key === key ? held : null;
 }
 
-export function clearDiscoverSession(): void {
-  held = null;
-}

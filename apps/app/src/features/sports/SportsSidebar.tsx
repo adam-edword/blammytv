@@ -1,4 +1,8 @@
 import { useMemo, useState } from "react";
+import {
+  loadSidebarCollapsed,
+  saveSidebarCollapsed,
+} from "../settings/sportsSidebar";
 import { ModeRail, type RailMode } from "../../ui/ModeRail";
 import { PanelIcon, RecentsIcon, StarIcon, TvIcon } from "../../ui/icons";
 import { LEAGUE_LOGOS, LEAGUE_NAMES, LEAGUES } from "./espn";
@@ -46,7 +50,9 @@ export function SportsSidebar({
   onFollows: (next: Follows) => void;
 }) {
   const [mode, setMode] = useState<Mode>("leagues");
-  const [collapsed, setCollapsed] = useState(false);
+  // Read once and written on every toggle. Collapsing this is a statement
+  // about how you want to use the screen, so it should outlive the visit.
+  const [collapsed, setCollapsed] = useState(loadSidebarCollapsed);
 
   /**
    * The clubs to offer, from the games the board actually loaded.
@@ -84,7 +90,12 @@ export function SportsSidebar({
           className="live-collapse"
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           aria-expanded={!collapsed}
-          onClick={() => setCollapsed((c) => !c)}
+          onClick={() =>
+            setCollapsed((c) => {
+              saveSidebarCollapsed(!c);
+              return !c;
+            })
+          }
         >
           <PanelIcon />
         </button>
