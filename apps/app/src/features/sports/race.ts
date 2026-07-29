@@ -44,11 +44,42 @@ const STATES: Record<string, Race["state"]> = {
  */
 const MAJOR = new Set(["Qual", "Race"]);
 
+/**
+ * The sessions that are actually races, and so count laps.
+ *
+ * The Grand Prix and, on the six sprint weekends, the sprint. Practice and
+ * qualifying have a lap number too, but it is whatever lap the session
+ * happens to have reached and it is not a thing anyone is counting.
+ */
+const RACES = new Set(["Race", "SR"]);
+
+/**
+ * The race distance, if the source happens to say it.
+ *
+ * IT USUALLY WILL NOT. Measured over a full season, the scoreboard carries
+ * `status.period` — a lap NUMBER — and no total anywhere: a search of
+ * every key in a finished Grand Prix for lap, team or constructor returns
+ * nothing. ESPN's own live text is the only place a total could appear,
+ * and F1 is not running, so this cannot be confirmed from here.
+ *
+ * Hence a parse rather than a field, and an optional answer. The card
+ * reads "LAP 41 / 72" when this finds a total and "LAP 41" when it does
+ * not, and the second is a normal state rather than a broken one.
+ */
+function lapTotal(session: RawSession): number | undefined {
+  const text = `${session.status?.type?.shortDetail ?? ""} ${session.status?.type?.detail ?? ""}`;
+  const found = /lap\s*\d+\s*(?:\/|of)\s*(\d+)/i.exec(text);
+  return found ? Number(found[1]) : undefined;
+}
+
 /** Only the paths this file reads, same discipline as espn.ts. */
 interface RawSession {
   date?: string;
   type?: { abbreviation?: string };
-  status?: { type?: { state?: string } };
+  status?: {
+    period?: number;
+    type?: { state?: string; detail?: string; shortDetail?: string };
+  };
   competitors?: {
     order?: number;
     athlete?: { displayName?: string; flag?: { href?: string } };
@@ -146,8 +177,13 @@ function toSessions(event: RawEvent, series: string): Race[] {
     // The country, not the circuit: "Hungary" is what a person calls the
     // weekend, and the circuit's own name is on the art behind it.
     place: event.circuit?.address?.country ?? "",
+    track: event.circuit?.fullName,
     circuitId: event.circuit?.id,
     time: time(session.date),
+    day: weekday(session.date),
+    race: RACES.has(session.type?.abbreviation ?? ""),
+    lap: session.status?.period,
+    laps: lapTotal(session),
     state: STATES[session.status?.type?.state ?? ""] ?? "pre",
     top: (session.competitors ?? [])
       .slice()

@@ -59,11 +59,10 @@ export interface Weekend {
   /** The circuit id, for the art and the flag. Absent outside F1. */
   circuitId?: string;
   /**
-   * The weekend's first day, formatted: "SEP 4".
+   * RACE DAY, formatted: "AUG 23".
    *
-   * The first rather than the race day, so every row below reads FORWARD
-   * from it and the card needs no arithmetic to be understood. Race day
-   * would put the header after three of the five rows it heads.
+   * Not the first day. It is what a person means by the date of a Grand
+   * Prix, and the rows below carry their own days anyway.
    */
   date: string;
   /** In order, first session to last. Always five, measured over a season. */
@@ -74,7 +73,13 @@ export function WeekendCard({ weekend }: { weekend: Weekend }) {
   const track = art(weekend.circuitId);
   const flag = flagArt(weekend.circuitId);
   return (
-    <button type="button" className="racecard" title={`${weekend.place} weekend`}>
+    /* A DIV, not a button, and that is the point rather than a detail.
+     * There is nothing to open: the weekend has not started, so there is no
+     * session to watch and no source to tune. A button that does nothing
+     * still takes keyboard focus and still promises something, so this is
+     * not one — see the cursor in the stylesheet. It keeps the lean and the
+     * glare, which are about the card being a card. */
+    <div className="racecard racecard--flat" title={`${weekend.place} weekend`}>
       {/* The session card's lean and glare, to the value. Same grid, same
         * size, same object: a weekend that tilted differently from the
         * sessions it becomes would read as a different kind of thing. */}
@@ -136,6 +141,6 @@ export function WeekendCard({ weekend }: { weekend: Weekend }) {
           )}
         </span>
       </Tilt>
-    </button>
+    </div>
   );
 }

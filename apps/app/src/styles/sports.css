@@ -1809,6 +1809,13 @@
 .racecard:hover {
   z-index: 2;
 }
+/* A card with nothing to open. The weekend card is the only one: its
+ * sessions have not started, so there is no source to tune and no game to
+ * watch. It is a div rather than a button for the same reason, and this is
+ * the half of that the mouse can see. */
+.racecard--flat {
+  cursor: default;
+}
 .racecard__tilt {
   position: relative;
   display: grid;
@@ -1894,6 +1901,50 @@
   letter-spacing: 0.07em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.4);
+}
+
+/* The race distance, beside the lap being run.
+ *
+ * A step back, because the two numbers are not the same kind of thing: the
+ * lap changes and is what you are reading, the total is the thing it is
+ * measured against and is the same all afternoon. */
+.racecard__laps {
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* An upcoming session: its name, and when.
+ *
+ * Where the podium goes, at the weight the podium had, because it is the
+ * same column answering the same question — what is this card about — for
+ * a session that has not run and so has nothing to rank.
+ *
+ * No offset for the header, unlike the podium: an upcoming card HAS no
+ * header, so this centres on the card the way the country opposite it
+ * does, and the two line up. */
+.racecard__ahead {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  white-space: nowrap;
+}
+.racecard__ahead-name {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  /* The country's size. The session is what this card is about in the way
+   * the country is what the other half is about, so they weigh the same. */
+  font-size: var(--sports-name);
+  line-height: 1.05;
+  text-transform: uppercase;
+  color: #fff;
+}
+.racecard__ahead-when {
+  margin-top: 2px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 /* The podium. A list, because that is what it is.

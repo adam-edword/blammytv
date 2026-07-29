@@ -10,7 +10,6 @@ import "../src/styles/sports.css";
 import { RaceCard, type Race } from "../src/features/sports/RaceCard";
 import { WeekendCard, type Weekend } from "../src/features/sports/WeekendCard";
 import { toBoard } from "../src/features/sports/race";
-import { driverCode } from "../src/features/sports/driverCode";
 import circuits from "../src/features/sports/circuits/index.json";
 import { applyAccent, loadAccent } from "../src/features/settings/accent";
 import { applyTheme, loadTheme } from "../src/features/settings/theme";
@@ -28,50 +27,16 @@ import f1 from "./fixtures/f1.json";
  * see a card would be the wrong place for it.
  */
 
-const STATES: Record<string, Race["state"]> = { pre: "pre", in: "live", post: "final" };
-
-interface RawSession {
-  date?: string;
-  type?: { abbreviation?: string };
-  status?: { type?: { state?: string } };
-  competitors?: {
-    order?: number;
-    athlete?: { displayName?: string; flag?: { href?: string } };
-  }[];
-}
-
-function toRaces(): Race[] {
-  const event = (f1.events ?? [])[0] as unknown as {
-    id: string;
-    circuit?: { id?: string; address?: { country?: string } };
-    competitions?: RawSession[];
-  };
-  const series = f1.leagues?.[0]?.name ?? "Formula 1";
-  return (event.competitions ?? []).map((s, i) => ({
-    id: `${event.id}-${i}`,
-    series,
-    session: s.type?.abbreviation ?? "Session",
-    place: event.circuit?.address?.country ?? "",
-    circuitId: event.circuit?.id,
-    time: new Date(s.date ?? "").toLocaleTimeString([], {
-      hour: "numeric",
-      minute: "2-digit",
-    }),
-    state: STATES[s.status?.type?.state ?? ""] ?? "pre",
-    top: (s.competitors ?? [])
-      .slice()
-      .sort((a, b) => (a.order ?? 99) - (b.order ?? 99))
-      .slice(0, 3)
-      .map((c, n) => ({
-        place: c.order ?? n + 1,
-        name: c.athlete?.displayName ?? "",
-        code: driverCode(c.athlete?.displayName ?? ""),
-        mark: c.athlete?.flag?.href,
-      })),
-  }));
-}
-
-const races = toRaces();
+/**
+ * The REAL mapper, not a copy of it.
+ *
+ * This rig used to carry its own toRaces, and a second mapper is a second
+ * thing to keep in step: the moment the card grew a field the copy stopped
+ * compiling, which is the good outcome, but it would just as easily have
+ * gone on producing stale shapes. Dated past the fixture so toBoard sends
+ * every event down the SESSION branch.
+ */
+const races: Race[] = toBoard(f1 as never, new Date("2027-01-01")).sessions;
 
 applyAccent(loadAccent());
 applyTheme(loadTheme());
@@ -100,18 +65,36 @@ const everywhere: Race[] = Object.entries(circuits.circuits).map(
 );
 
 /**
- * The same session in all three states, side by side.
+ * The same session in every state it can be in, side by side.
  *
- * Measured off the real payload rather than invented: an UPCOMING session
- * comes back with `competitors` of length ZERO, so its podium column is
- * empty here because it is empty there. That gap is the state Adam is
- * designing; the row exists so the other two can be judged against it.
+ * Four, not three, and the split is Adam's: an upcoming session, a live
+ * RACE, a live practice or qualifying, and a finished one. The middle two
+ * differ only in the header, and that is the whole reason they are two —
+ * a race counts laps and nothing else does.
+ *
+ * The upcoming one has an EMPTY podium because the real payload has one:
+ * measured, a `pre` session returns `competitors` of length zero.
  */
 const base = races[Math.min(4, races.length - 1)];
-const threeStates: Race[] = [
-  { ...base, id: "st-pre", session: "Race", state: "pre", time: "9:00 AM", top: [] },
-  { ...base, id: "st-live", session: "Race", state: "live", time: "LAP 32" },
-  { ...base, id: "st-final", session: "Race", state: "final", time: "FINAL" },
+const states: Race[] = [
+  {
+    ...base,
+    id: "st-pre",
+    session: "Race",
+    state: "pre",
+    day: "SAT",
+    time: "11:30AM",
+    track: "Hungaroring",
+    top: [],
+  },
+  // A live race that knows its distance, and one that does not. The total
+  // is optional in the model because the scoreboard has no field for it;
+  // both readings have to look deliberate.
+  { ...base, id: "st-live-race", session: "Race", state: "live", race: true, lap: 41, laps: 72 },
+  { ...base, id: "st-live-nolaps", session: "Race", state: "live", race: true, lap: 41, laps: undefined },
+  // Practice and qualifying: no lap worth counting, so it just says live.
+  { ...base, id: "st-live-fp", session: "FP1", state: "live", race: false, lap: 33 },
+  { ...base, id: "st-final", session: "Qual", state: "final" },
 ];
 
 /**
@@ -174,7 +157,7 @@ export function Rig() {
       {weekends.map((w) => (
         <WeekendCard key={w.id} weekend={w} />
       ))}
-      {threeStates.map((r) => (
+      {states.map((r) => (
         <RaceCard key={r.id} race={r} />
       ))}
       {everywhere.map((r) => (

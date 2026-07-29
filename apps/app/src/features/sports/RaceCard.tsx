@@ -43,11 +43,34 @@ export interface Race {
   session: string;
   /** Where, in one word: "Hungary". */
   place: string;
+  /** The circuit's own name, for the upcoming card's second line. */
+  track?: string;
   /** The circuit id, for the art and the flag. Absent outside F1. */
   circuitId?: string;
   /** Kick-off, already formatted: this card never does its own clock. */
   time: string;
+  /** "SAT". Only the upcoming card shows it; the rest are on the day. */
+  day: string;
   state: "pre" | "live" | "final";
+  /**
+   * Is this a RACE, as opposed to practice or qualifying?
+   *
+   * The Grand Prix and the sprint both are. It decides which live header
+   * the card gets: a race counts laps, and nothing else does.
+   */
+  race: boolean;
+  /**
+   * The lap being run, and the number there are.
+   *
+   * `laps` is OPTIONAL and that is not tidiness. The scoreboard carries a
+   * lap NUMBER (status.period) and no total anywhere in the payload; the
+   * total only appears if ESPN writes it into the status text, which
+   * cannot be checked from here because F1 is not running. So the card
+   * shows "LAP 41 / 72" when it is told the total and "LAP 41" when it is
+   * not, and neither is a broken state.
+   */
+  lap?: number;
+  laps?: number;
   /** The podium, or as much of it as exists yet. */
   top: Entrant[];
 }
@@ -55,6 +78,21 @@ export interface Race {
 export function RaceCard({ race }: { race: Race }) {
   const track = art(race.circuitId);
   const flag = flagArt(race.circuitId);
+  const upcoming = race.state === "pre";
+  /**
+   * What the top-left says.
+   *
+   * A live RACE counts laps, because that is the question during one and
+   * the only session where it has an answer. A live practice or qualifying
+   * has no lap to be on that means anything, so it just says it is live.
+   * Anything not running says when it was.
+   */
+  const header =
+    race.state === "live"
+      ? race.race && race.lap != null
+        ? `LAP ${race.lap}`
+        : "LIVE"
+      : race.time;
   return (
     <button
       type="button"
@@ -89,26 +127,49 @@ export function RaceCard({ race }: { race: Race }) {
         {flag && (
           <img className="racecard__flag" src={flag} alt="" aria-hidden loading="lazy" />
         )}
-        <span className="racecard__clock">
-          {race.state === "live" && <span className="gamepip" aria-hidden />}
-          {race.time}
-        </span>
+        {/* Nothing has run, so there is no header: an upcoming session puts
+          * its name and its time in the body, where the podium would be.
+          * See the block below. */}
+        {!upcoming && (
+          <span className="racecard__clock">
+            {race.state === "live" && <span className="gamepip" aria-hidden />}
+            {header}
+            {/* The distance, quieter than the lap being run. The lap is the
+              * live number; the total is the thing it is measured against
+              * and does not change. */}
+            {header.startsWith("LAP") && race.laps != null && (
+              <span className="racecard__laps"> / {race.laps}</span>
+            )}
+          </span>
+        )}
         <span className="racecard__series">{race.series}</span>
 
-        {/* The order IS the content, so it gets the reading side. */}
-        <ol className="racecard__podium">
-          {race.top.slice(0, 3).map((e) => (
-            <li className="racecard__slot" key={e.place}>
-              <span className="racecard__place">{e.place}</span>
-              {e.mark ? (
-                <img className="racecard__mark" src={e.mark} alt="" loading="lazy" />
-              ) : (
-                <span className="racecard__mark" aria-hidden />
-              )}
-              <span className="racecard__code">{e.code}</span>
-            </li>
-          ))}
-        </ol>
+        {upcoming ? (
+          /* The session, at the weight the podium would have had. It is the
+           * only thing this card knows that the weekend card did not
+           * already say, so it gets the room. */
+          <span className="racecard__ahead">
+            <span className="racecard__ahead-name">{race.session}</span>
+            <span className="racecard__ahead-when">
+              {race.day} {race.time}
+            </span>
+          </span>
+        ) : (
+          /* The order IS the content, so it gets the reading side. */
+          <ol className="racecard__podium">
+            {race.top.slice(0, 3).map((e) => (
+              <li className="racecard__slot" key={e.place}>
+                <span className="racecard__place">{e.place}</span>
+                {e.mark ? (
+                  <img className="racecard__mark" src={e.mark} alt="" loading="lazy" />
+                ) : (
+                  <span className="racecard__mark" aria-hidden />
+                )}
+                <span className="racecard__code">{e.code}</span>
+              </li>
+            ))}
+          </ol>
+        )}
 
         <span className="racecard__where">
           {/* Behind the words rather than beside them: it is the one piece
@@ -124,7 +185,14 @@ export function RaceCard({ race }: { race: Race }) {
             * is the same column at the same size, so it has the same
             * problem. See placeName. */}
           <span className="racecard__place-name">{shortPlace(race.place)}</span>
-          <span className="racecard__session">{race.session}</span>
+          {/* The session has moved to the body on an upcoming card, so this
+            * line is free for the track. Once it is running the session is
+            * the thing you need here and the track is on the art. */}
+          {upcoming ? (
+            race.track && <span className="weekend__circuit">{race.track}</span>
+          ) : (
+            <span className="racecard__session">{race.session}</span>
+          )}
         </span>
       </Tilt>
     </button>
