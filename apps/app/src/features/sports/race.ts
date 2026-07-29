@@ -285,6 +285,37 @@ export function nextUp(
 
 /** The current weekend's cards, or nothing. A racing league being out of
  * season is the normal case for most of the year, not an error. */
+/**
+ * The season, fetched at most once a run.
+ *
+ * A SEASON, which is 3.5MB of JSON, and the screen is unmounted every time
+ * you flip to the Guide. Without this, every visit to the tab re-fetched
+ * and re-parsed all of it to pull out the two weekends that matter, which
+ * is 12 to 18ms of main thread parse on top of the download.
+ *
+ * A calendar is the right thing to hold: it is fixed months ahead, and the
+ * live half of a weekend, the state and the order, is read from it fresh
+ * each time by nextUp rather than cached here. The cost of a stale
+ * calendar is a session appearing an hour late in its own listing; the
+ * cost of not caching is paying for a season on every tab flip.
+ *
+ * Deliberately for the life of the process, like the guide's own session
+ * cache in live/source.ts, which exists for exactly this reason.
+ */
+let season: Promise<RawRace | null> | null = null;
+
+function seasonOnce(year: number, signal: AbortSignal): Promise<RawRace | null> {
+  season ??= fetch(URL(year), { signal })
+    .then((r) => (r.ok ? (r.json() as Promise<RawRace>) : null))
+    // A failed load must not be remembered as an answer, or the tab is
+    // empty until the app restarts.
+    .catch(() => {
+      season = null;
+      return null;
+    });
+  return season;
+}
+
 export function useRaces(): { weekends: Weekend[]; sessions: Race[] } {
   const [board, setBoard] = useState<{ weekends: Weekend[]; sessions: Race[] }>({
     weekends: [],
@@ -292,9 +323,10 @@ export function useRaces(): { weekends: Weekend[]; sessions: Race[] } {
   });
   useEffect(() => {
     const stop = new AbortController();
-    fetch(URL(new Date().getFullYear()), { signal: stop.signal })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((raw: RawRace | null) => raw && setBoard(nextUp(raw)))
+    void seasonOnce(new Date().getFullYear(), stop.signal)
+      .then((raw) => {
+        if (raw && !stop.signal.aborted) setBoard(nextUp(raw));
+      })
       .catch(() => undefined);
     return () => stop.abort();
   }, []);

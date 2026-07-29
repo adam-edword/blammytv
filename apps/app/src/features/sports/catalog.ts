@@ -39,6 +39,16 @@ export function tunedChannel(id: string): Channel | null {
  * flagged so `matchGame` can prefer the former; see LiveData.hidden for why
  * that list exists at all.
  */
+/**
+ * The channel index, per guide.
+ *
+ * Keyed on the LiveData object itself, which is the thing the index is a
+ * function of: the guide is replaced wholesale by a refresh, so a new
+ * object is exactly when a rebuild is owed and a WeakMap lets the old one
+ * be collected with it.
+ */
+const INDEXES = new WeakMap<LiveData, Catalog>();
+
 export function useCatalog(): Catalog | null {
   // peekLive is synchronous and usually warm, because the guide has almost
   // always loaded before anyone reaches this tab. Starting from it means the
@@ -70,6 +80,14 @@ export function useCatalog(): Catalog | null {
 
   return useMemo(() => {
     if (!live) return null;
+    // Across MOUNTS, not just across renders. useMemo dies with the
+    // component, and App unmounts this screen every time you flip to the
+    // Guide, so a useMemo alone rebuilt the whole index on each visit:
+    // measured at 50 to 86ms on a 20,548 channel catalog, for a pure
+    // function of an object that had not changed. Weak so a replaced guide
+    // takes its index with it.
+    const seen = INDEXES.get(live);
+    if (seen) return seen;
     const tunables: Tunable[] = [
       ...live.channels.map((c) => ({
         id: c.id,
@@ -89,6 +107,8 @@ export function useCatalog(): Catalog | null {
     // to resolve a 42-game board against it. The same board without the
     // index takes 3.7 SECONDS, which is the whole reason this is memoised
     // on the LiveData object rather than rebuilt per render.
-    return indexChannels(tunables);
+    const built = indexChannels(tunables);
+    INDEXES.set(live, built);
+    return built;
   }, [live]);
 }
