@@ -90,8 +90,27 @@ const everywhere: Race[] = Object.entries(circuits.circuits).map(
     place: c.country ?? c.name,
     session: "Race",
     time: `${1 + (i % 12)}:00 PM`,
+    // Undimmed on purpose: the fixture's sessions are all finished, and a
+    // sheet for judging 24 flag washes must not view every one of them
+    // through the finished state's 50% black.
+    state: "live",
   }),
 );
+
+/**
+ * The same session in all three states, side by side.
+ *
+ * Measured off the real payload rather than invented: an UPCOMING session
+ * comes back with `competitors` of length ZERO, so its podium column is
+ * empty here because it is empty there. That gap is the state Adam is
+ * designing; the row exists so the other two can be judged against it.
+ */
+const base = races[Math.min(4, races.length - 1)];
+const threeStates: Race[] = [
+  { ...base, id: "st-pre", session: "Race", state: "pre", time: "9:00 AM", top: [] },
+  { ...base, id: "st-live", session: "Race", state: "live", time: "LAP 32" },
+  { ...base, id: "st-final", session: "Race", state: "final", time: "FINAL" },
+];
 
 export function Rig() {
   return (
@@ -105,6 +124,9 @@ export function Rig() {
         minHeight: "100vh",
       }}
     >
+      {threeStates.map((r) => (
+        <RaceCard key={r.id} race={r} />
+      ))}
       {everywhere.map((r) => (
         <RaceCard key={r.id} race={r} />
       ))}

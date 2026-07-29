@@ -55,7 +55,11 @@ export function RaceCard({ race }: { race: Race }) {
   const track = art(race.circuitId);
   const flag = flagArt(race.circuitId);
   return (
-    <button type="button" className="racecard" title={`${race.place} ${race.session}`}>
+    <button
+      type="button"
+      className={"racecard" + (race.state === "final" ? " racecard--final" : "")}
+      title={`${race.place} ${race.session}`}
+    >
       {/* The small card's lean and glare, to its own numbers. This sits in
         * the same grid as the small card and is the same size, so it leans
         * the same amount: a card that tilted differently from the one

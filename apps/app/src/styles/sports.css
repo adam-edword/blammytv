@@ -1832,6 +1832,31 @@
   box-shadow: 0 17.04px 36.92px -14.2px
     color-mix(in srgb, #000 55%, transparent);
 }
+
+/* A finished session, held back until you reach for it.
+ *
+ * The small card's treatment to the value, and that is the point rather
+ * than a shortcut: a grid mixes race cards and fixture cards, and a result
+ * you have not looked at yet should be equally covered whichever card it
+ * is on. Anything else reads as one of them being broken.
+ *
+ * Over the tilt layer, so it dims the flag and the track with everything
+ * else; on the button it would sit outside the rotation and slide off the
+ * card's corner as it leans. */
+.racecard--final .racecard__tilt::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  /* Coming BACK is the slow half: the card settling out of your way. */
+  transition: opacity 320ms ease;
+}
+/* Reaching for a result should show it to you properly, and quickly. */
+.racecard--final:hover .racecard__tilt::after {
+  opacity: 0;
+  transition-duration: 130ms;
+}
 /* The small card's status, to the pixel: this is the same line saying the
  * same kind of thing, and two clocks a pixel apart in one grid is the sort
  * of difference that reads as a mistake rather than as a decision. */
