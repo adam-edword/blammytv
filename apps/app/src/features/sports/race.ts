@@ -17,7 +17,16 @@ import type { Session, Weekend } from "./WeekendCard";
  * art; there is no reason to fetch six leagues to look at one card.
  */
 
-const URL = "https://site.api.espn.com/apis/site/v2/sports/racing/f1/scoreboard";
+/**
+ * The WHOLE season, not the bare scoreboard.
+ *
+ * The bare one answers with the current weekend only, and for most of the
+ * year that weekend has already run — so the weekend card, which is the
+ * shape for a weekend that has NOT run, could never appear. A season is one
+ * request and holds both sides of the split.
+ */
+const URL = (year: number) =>
+  `https://site.api.espn.com/apis/site/v2/sports/racing/f1/scoreboard?dates=${year}`;
 
 const STATES: Record<string, Race["state"]> = {
   pre: "pre",
@@ -79,6 +88,17 @@ function firstDay(event: RawEvent): Date | undefined {
     .map((c) => new Date(c.date ?? "").getTime())
     .filter((t) => Number.isFinite(t));
   return times.length ? startOfDay(new Date(Math.min(...times))) : undefined;
+}
+
+/**
+ * Has this weekend not started yet?
+ *
+ * An event with no usable dates counts as started, because a weekend card
+ * with no schedule on it is the one thing that card cannot be.
+ */
+function ahead(event: RawEvent, midnight: Date): boolean {
+  const first = firstDay(event);
+  return !!first && midnight.getTime() < first.getTime();
 }
 
 /** A weekend's sessions as a schedule, for the one card that precedes them. */
@@ -161,16 +181,41 @@ export function toBoard(
   const weekends: Weekend[] = [];
   const sessions: Race[] = [];
   for (const event of raw.events ?? []) {
-    const first = firstDay(event);
-    // No usable dates: treat it as running, because a weekend card with no
-    // schedule on it is the one thing this card cannot be.
-    if (first && midnight.getTime() < first.getTime()) {
-      weekends.push(toWeekend(event, series));
-    } else {
-      sessions.push(...toSessions(event, series));
-    }
+    if (ahead(event, midnight)) weekends.push(toWeekend(event, series));
+    else sessions.push(...toSessions(event, series));
   }
   return { weekends, sessions };
+}
+
+/**
+ * What a board should actually carry, out of a whole season.
+ *
+ * A season is 24 weekends and 120 sessions, and by July most of it has
+ * happened; mapping the lot would drop sixty-five finished practice cards
+ * onto today's grid. Two events are the ones with anything to say right
+ * now: the most recent to have STARTED, whose sessions are the ones with
+ * live and final states on them, and the next one still ahead, which is the
+ * weekend card.
+ *
+ * TEMPORARY in its placement rather than its logic — the real adapter will
+ * put each session on its own day instead of at the head of today — but the
+ * choice of which two weekends matter is the same either way.
+ *
+ * Events arrive in calendar order, so the last started and the first ahead
+ * are the two ends of the split.
+ */
+export function nextUp(
+  raw: RawRace,
+  today = new Date(),
+): { weekends: Weekend[]; sessions: Race[] } {
+  const midnight = startOfDay(today);
+  const events = raw.events ?? [];
+  const running = events.filter((e) => !ahead(e, midnight)).at(-1);
+  const upcoming = events.find((e) => ahead(e, midnight));
+  return toBoard(
+    { ...raw, events: [running, upcoming].filter((e): e is RawEvent => !!e) },
+    today,
+  );
 }
 
 /** The current weekend's cards, or nothing. A racing league being out of
@@ -182,9 +227,9 @@ export function useRaces(): { weekends: Weekend[]; sessions: Race[] } {
   });
   useEffect(() => {
     const stop = new AbortController();
-    fetch(URL, { signal: stop.signal })
+    fetch(URL(new Date().getFullYear()), { signal: stop.signal })
       .then((r) => (r.ok ? r.json() : null))
-      .then((raw: RawRace | null) => raw && setBoard(toBoard(raw)))
+      .then((raw: RawRace | null) => raw && setBoard(nextUp(raw)))
       .catch(() => undefined);
     return () => stop.abort();
   }, []);

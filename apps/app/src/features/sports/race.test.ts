@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toBoard } from "./race";
+import { nextUp, toBoard } from "./race";
 
 /**
  * The split rule, which is the one part of the racing mapping with a right
@@ -142,6 +142,75 @@ describe("toBoard", () => {
 
   it("answers empty for a league that is out of season", () => {
     expect(toBoard({}, at("2026-01-01T00:00"))).toEqual({
+      weekends: [],
+      sessions: [],
+    });
+  });
+});
+
+/** A whole season, the way the year fetch answers: events in calendar order. */
+const season = (...starts: string[]) => ({
+  leagues: [{ name: "Formula 1" }],
+  events: starts.map((day, n) => ({
+    id: `e${n}`,
+    circuit: { id: "613", address: { country: `Round ${n}` } },
+    competitions: [
+      ["FP1", `${day}T10:30`],
+      ["FP2", `${day}T14:00`],
+      ["FP3", `${day}T18:00`],
+      ["Qual", `${day}T20:00`],
+      ["Race", `${day}T22:00`],
+    ].map(([abbreviation, date]) => ({
+      date,
+      type: { abbreviation },
+      status: { type: { state: "pre" } },
+      competitors: [],
+    })),
+  })),
+});
+
+describe("nextUp", () => {
+  it("keeps the weekend just gone and the one still ahead, out of a whole season", () => {
+    // Six rounds; four have been and gone. Mapping the lot would put
+    // twenty finished session cards on today's grid.
+    const { weekends, sessions } = nextUp(
+      season(
+        "2026-03-06",
+        "2026-04-10",
+        "2026-05-15",
+        "2026-06-19",
+        "2026-08-21",
+        "2026-09-25",
+      ),
+      at("2026-07-29T12:00"),
+    );
+    // The one ahead is the NEXT, not the last of the season.
+    expect(weekends.map((w) => w.place)).toEqual(["Round 4"]);
+    // The one just gone is the most RECENT, not the first of the season.
+    expect(new Set(sessions.map((s) => s.place))).toEqual(new Set(["Round 3"]));
+    expect(sessions).toHaveLength(5);
+  });
+
+  it("carries a weekend card alone before the season has started", () => {
+    const { weekends, sessions } = nextUp(
+      season("2026-03-06", "2026-04-10"),
+      at("2026-01-15T12:00"),
+    );
+    expect(weekends.map((w) => w.place)).toEqual(["Round 0"]);
+    expect(sessions).toHaveLength(0);
+  });
+
+  it("carries sessions alone once the last round has started", () => {
+    const { weekends, sessions } = nextUp(
+      season("2026-03-06", "2026-12-06"),
+      at("2026-12-06T09:00"),
+    );
+    expect(weekends).toHaveLength(0);
+    expect(new Set(sessions.map((s) => s.place))).toEqual(new Set(["Round 1"]));
+  });
+
+  it("answers empty out of season", () => {
+    expect(nextUp({}, at("2026-01-01T00:00"))).toEqual({
       weekends: [],
       sessions: [],
     });
