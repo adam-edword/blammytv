@@ -2,6 +2,7 @@ import { memo } from "react";
 import Tilt from "react-parallax-tilt";
 import { useFitText } from "../../lib/fitText";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
+import { tooEarly } from "./day";
 import { Badge } from "./Badge";
 import { Wash, WashVeil } from "./Wash";
 import { loser } from "./result";
@@ -53,6 +54,7 @@ function UpcomingCardImpl({
   const lost = loser(game);
   // Live or finished: there is a score, so the card squares up.
   const scored = game.state !== "pre";
+  const early = tooEarly(game);
   return (
     <button
       type="button"
@@ -61,9 +63,16 @@ function UpcomingCardImpl({
         // Two layouts, not two components: a game with numbers on it reads
         // as a table, a fixture without reads as a matchup.
         (scored ? " upcard--scored" : "") +
-        (game.state === "final" ? " upcard--final" : "")
+        (game.state === "final" ? " upcard--final" : "") +
+        (early ? " sportscard--early" : "")
       }
       title={`${home.name} vs ${away.name}`}
+      // Too far out to be an action. See tooEarly: opening it would tune a
+      // channel and label the chrome with a fixture that has not happened.
+      // `disabled` rather than a bare missing handler, so it leaves the tab
+      // order and announces itself instead of looking live and doing
+      // nothing.
+      disabled={early}
       onClick={() => onOpen?.(game)}
     >
       {/* Steeper than the live card's 1.5deg, and deliberately so: degrees

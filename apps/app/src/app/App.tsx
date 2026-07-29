@@ -87,6 +87,17 @@ export function App() {
   // it survives a trip to Stream, and Live always opens on the Guide at
   // launch rather than dropping someone into Sports.
   const [liveTab, setLiveTab] = useState<LiveTab>("guide");
+  /**
+   * Bumped when the Sports chip is pressed, including when it is ALREADY
+   * the tab.
+   *
+   * That press is the only thing on screen that looks like the way out of
+   * the theater, and it did nothing: setLiveTab with the value it already
+   * has, so React bails out and the mode below never hears about it. A
+   * counter is what carries "pressed again" when the state itself does not
+   * change.
+   */
+  const [sportsHome, setSportsHome] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   // The Themes panel pops OUT of Settings: opening it closes Settings, and
   // closing it returns to the app (Adam's call). Mutually exclusive with
@@ -201,13 +212,16 @@ export function App() {
         liveTab={liveTab}
         onSection={setSection}
         onStreamTab={setStreamTab}
-        onLiveTab={setLiveTab}
+        onLiveTab={(t) => {
+          if (t === "sports") setSportsHome((n) => n + 1);
+          setLiveTab(t);
+        }}
         onOpenSettings={() => setSettingsOpen(true)}
       />
       <main className="app-main">
         {section === "live" ? (
           liveTab === "sports" ? (
-            <SportsScreen />
+            <SportsScreen home={sportsHome} />
           ) : (
             <LiveScreen modalOpen={settingsOpen || themesOpen} />
           )

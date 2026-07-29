@@ -65,3 +65,29 @@ export function nowish(today: Game[]): Game | undefined {
     today.find((g) => g.state === "pre")
   );
 }
+
+/**
+ * How far ahead a game stops being something you can open.
+ *
+ * Sixteen hours, Adam's number, and it lands where it should: anything
+ * later today stays openable, and tomorrow's grid does not.
+ */
+export const OPEN_LEAD_MS = 16 * 3600_000;
+
+/**
+ * Is this game too far away to open?
+ *
+ * Opening one used to tune the best channel and label the chrome with the
+ * fixture, so clicking a game two days out played whatever that network
+ * was showing this afternoon under the title of a match that had not
+ * happened. The card is careful about this and the destination was not.
+ *
+ * A card that fails this is not an action yet. It is where a "remind me"
+ * will go once notifications exist; until then it simply does not click.
+ */
+export function tooEarly(game: Game, now = new Date()): boolean {
+  return (
+    game.state === "pre" &&
+    game.start.getTime() - now.getTime() > OPEN_LEAD_MS
+  );
+}

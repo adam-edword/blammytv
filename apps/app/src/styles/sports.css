@@ -2168,3 +2168,17 @@
    * instead of a race card sitting proud of the ones beside it. */
   width: 100%;
 }
+
+/* A card that is not an action yet.
+ *
+ * Games more than sixteen hours out do not open: opening one tuned a
+ * channel and put the fixture's name on the chrome, so a match two days
+ * away played that network's afternoon instead. The button is `disabled`,
+ * which takes it out of the tab order and tells a screen reader; this is
+ * only the half the pointer can see.
+ *
+ * It keeps its lean and its glare. The card is still worth looking at, and
+ * this is where a "remind me" will go once notifications exist. */
+.sportscard--early {
+  cursor: default;
+}

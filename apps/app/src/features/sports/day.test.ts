@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dayLabel, nowish, onDay } from "./day";
+import { dayLabel, nowish, onDay , tooEarly } from "./day";
 import type { Game, GameState } from "./model";
 
 /**
@@ -156,5 +156,32 @@ describe("nowish", () => {
 
   it("has no answer for an empty day", () => {
     expect(nowish([])).toBeUndefined();
+  });
+});
+
+describe("tooEarly", () => {
+  const at = (h: number): Game =>
+    ({
+      state: "pre",
+      start: new Date(Date.now() + h * 3600_000),
+    }) as Game;
+
+  it("lets you open anything later today", () => {
+    expect(tooEarly(at(1))).toBe(false);
+    expect(tooEarly(at(15))).toBe(false);
+  });
+
+  it("stops you opening tomorrow's fixtures", () => {
+    // Opening one tuned the best channel and titled the chrome with a
+    // fixture that had not happened.
+    expect(tooEarly(at(17))).toBe(true);
+    expect(tooEarly(at(48))).toBe(true);
+  });
+
+  it("never blocks a game that is on or finished", () => {
+    // A live game is by definition not ahead of us, and a final has a
+    // result worth reaching even though it will not autoplay.
+    expect(tooEarly({ ...at(48), state: "live" } as Game)).toBe(false);
+    expect(tooEarly({ ...at(48), state: "final" } as Game)).toBe(false);
   });
 });

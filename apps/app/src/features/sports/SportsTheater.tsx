@@ -384,9 +384,12 @@ export function SportsTheater({
             ))
           ) : (
             <p className="sportstheater__empty">
-              {game.broadcasts.length > 0
-                ? `On ${game.broadcasts.join(", ")}. None of your channels carry it.`
-                : "No broadcast listed for this game."}
+              {/* Same three states as the card: unknown is not none. */}
+              {game.channelsPending
+                ? "Checking your channels\u2026"
+                : game.broadcasts.length > 0
+                  ? `On ${game.broadcasts.join(", ")}. None of your channels carry it.`
+                  : "No broadcast listed for this game."}
             </p>
           )}
         </nav>

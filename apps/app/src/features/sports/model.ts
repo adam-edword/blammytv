@@ -82,6 +82,16 @@ export interface Game {
    */
   leagueKey: string;
   state: GameState;
+  /**
+   * The channel list has not loaded yet, so carriage is UNKNOWN.
+   *
+   * Distinct from "no channel carries this". A cold start on the Sports tab
+   * reaches the board before the 20k channel guide is parsed, and for that
+   * window the cards were flatly asserting "Not on your channels" with no
+   * basis for it. `null` already means "not yet" everywhere else in this
+   * feature; this carries that meaning as far as the card.
+   */
+  channelsPending?: boolean;
   /** Absolute kickoff. Everything renders in local time from this. */
   start: Date;
   /** The short status string, already formatted by the adapter because

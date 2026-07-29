@@ -3,6 +3,7 @@ import Tilt from "react-parallax-tilt";
 import { useFitText } from "../../lib/fitText";
 import { formatClock } from "../../lib/time";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
+import { tooEarly } from "./day";
 import { Badge } from "./Badge";
 import { Wash, WashVeil } from "./Wash";
 import { loser } from "./result";
@@ -51,8 +52,10 @@ function GameCardImpl({
   // it, but calling it "Live on 1 channel" would be a small lie about a
   // folder somebody muted deliberately.
   const where = game.hiddenOnly ? "in a hidden folder" : "";
-  const carriage =
-    game.channels.length === 0
+  const early = tooEarly(game);
+  const carriage = game.channelsPending
+    ? "Checking your channels\u2026"
+    : game.channels.length === 0
       ? game.broadcasts.length > 0
         ? `On ${game.broadcasts[0]}`
         : "Not on your channels"
@@ -63,10 +66,16 @@ function GameCardImpl({
   return (
     <button
       type="button"
-      className="gamecard"
+      className={"gamecard" + (early ? " sportscard--early" : "")}
       // The row centres itself on one of these; see SportsScreen.
       data-game={game.id}
       title={`${home.name} vs ${away.name}`}
+      // Too far out to be an action. See tooEarly: opening it would tune a
+      // channel and label the chrome with a fixture that has not happened.
+      // `disabled` rather than a bare missing handler, so it leaves the tab
+      // order and announces itself instead of looking live and doing
+      // nothing.
+      disabled={early}
       onClick={() => onOpen?.(game)}
     >
       {/* Same lean and glare as the poster cards, at a much smaller angle.

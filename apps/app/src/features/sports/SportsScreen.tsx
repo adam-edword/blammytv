@@ -52,7 +52,7 @@ import type { Game } from "./model";
  */
 const LEAD_FALLBACK = 96;
 
-export function SportsScreen() {
+export function SportsScreen({ home }: { home?: number } = {}) {
   const { days: raw, state } = useGames();
   // The schedule and the channel list arrive independently, so they are
   // joined here rather than inside either one. Memoised on both: resolving
@@ -135,6 +135,21 @@ export function SportsScreen() {
   // this is a mode of one screen, and its own Escape and mouse-back close
   // it without touching where you came from to get here.
   const [open, setOpen] = useState<Game | null>(null);
+  /**
+   * Pressing the Sports chip returns to the board.
+   *
+   * It is the only thing on screen that looks like a way out of the
+   * theater, and while the theater was open it did nothing at all: the tab
+   * was already "sports", so setting it again changed no state. The header
+   * counts the press instead, and this closes on the count changing. Skips
+   * the first run, which is the mount.
+   */
+  const pressed = useRef(home);
+  useEffect(() => {
+    if (pressed.current === home) return;
+    pressed.current = home;
+    setOpen(null);
+  }, [home]);
   const toggleCompact = () => {
     setCompact((on) => {
       saveCompactResults(!on);

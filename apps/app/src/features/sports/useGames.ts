@@ -146,7 +146,13 @@ export function keepStable(prev: Game[], next: Game[]): Game[] {
  * channels resolved identically must not re-render.
  */
 export function withChannels(games: Game[], catalog: Catalog | null): Game[] {
-  if (!catalog) return games;
+  // Not "no channels": not KNOWN yet. The cards say so rather than
+  // guessing, and identity is preserved so this costs no re-render once the
+  // guide lands and the flag clears.
+  if (!catalog)
+    return games.map((g) =>
+      g.channelsPending ? g : { ...g, channelsPending: true },
+    );
   return games.map((game) => {
     // The CARD only counts what we are sure of. A 40% match is a candidate
     // for the rail, where its score is visible; putting it behind "Live on
@@ -165,7 +171,10 @@ export function withChannels(games: Game[], catalog: Catalog | null): Game[] {
     const unchanged =
       channels.length === game.channels.length &&
       channels.every((c, i) => c.id === game.channels[i].id) &&
-      hiddenOnly === (game.hiddenOnly ?? false);
-    return unchanged ? game : { ...game, channels, hiddenOnly };
+      hiddenOnly === (game.hiddenOnly ?? false) &&
+      !game.channelsPending;
+    return unchanged
+      ? game
+      : { ...game, channels, hiddenOnly, channelsPending: false };
   });
 }
