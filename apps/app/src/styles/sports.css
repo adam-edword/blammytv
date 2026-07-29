@@ -83,7 +83,7 @@
 .sports__toggle.is-on {
   border-color: transparent;
   background: color-mix(in srgb, var(--accent, #fff) 18%, transparent);
-  color: #fff;
+  color: var(--text);
 }
 
 .sports__title {
@@ -1262,7 +1262,10 @@
  * phase. */
 .sports__note {
   padding: 40px 0;
-  color: rgba(255, 255, 255, 0.45);
+  /* The whole loading, error and empty state. It was white on the themed
+   * page: 1.04:1 in the light packs, so the board's only explanation of
+   * itself was invisible in them. */
+  color: var(--text-muted);
   font-family: var(--font-headline);
   font-weight: 600;
 }
@@ -2181,4 +2184,26 @@
  * this is where a "remind me" will go once notifications exist. */
 .sportscard--early {
   cursor: default;
+}
+
+/* The tilt library writes will-change and a 650ms transition inline on
+ * hover even with tiltEnable false, which overrides this card's own border
+ * and shadow timings. The game and small cards already have this twin; the
+ * race card was missed. */
+@media (prefers-reduced-motion: reduce) {
+  .racecard__tilt {
+    will-change: auto;
+    transition:
+      border-color 200ms ease,
+      box-shadow 450ms ease;
+  }
+}
+
+/* Reaching for a result with the KEYBOARD should clear the dim too. It was
+ * hover only, so tabbing a grid of finished games never revealed one. */
+.upcard--final:focus-visible .upcard__tilt::after,
+.upcard--final:has(:focus-visible) .upcard__tilt::after,
+.racecard--final:focus-visible .racecard__tilt::after {
+  opacity: 0;
+  transition-duration: 130ms;
 }

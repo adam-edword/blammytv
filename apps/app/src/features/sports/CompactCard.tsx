@@ -44,6 +44,11 @@ function CompactCardImpl({
       type="button"
       className="compactcard"
       title={`${home.name} vs ${away.name}`}
+      // Read out as "BOT 7TH CIN 8 10 MIL" without this: both scores in
+
+      // the middle, attached to neither side.
+
+      aria-label={`${game.home.name} ${game.home.score ?? 0}, ${game.away.name} ${game.away.score ?? 0}. ${game.status}. ${game.league}.`}
       onClick={() => onOpen?.(game)}
     >
       <Wash side="home" team={home} lost={lost === "home"} />

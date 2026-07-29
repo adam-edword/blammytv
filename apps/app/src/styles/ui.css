@@ -192,6 +192,17 @@
 .episode-card:focus-visible,
 .media-row__arrow:focus-visible,
 .continue-card__sources:focus-visible,
+/* Sports. Every surface here fell through to the UA's 1px ring, which was
+ * visible but was not this one, and it showed worst in the sports sidebar
+ * where the Teams rows get the accent ring and the League tiles beside them
+ * did not. The cards' visible surface is a child __tilt layer, so the ring
+ * sits on the untransformed button box, the same as .stream-card. */
+.gamecard:focus-visible,
+.upcard:focus-visible,
+.compactcard:focus-visible,
+.leaguetile:focus-visible,
+.sports__toggle:focus-visible,
+.sportsrail:focus-visible,
 .btn-primary:focus-visible,
 .btn-danger:focus-visible,
 .playlist-row__delete:focus-visible,

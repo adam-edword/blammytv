@@ -70,6 +70,15 @@ function GameCardImpl({
       // The row centres itself on one of these; see SportsScreen.
       data-game={game.id}
       title={`${home.name} vs ${away.name}`}
+      // The scoreline does NOT survive the DOM order: the dash is
+      // aria-hidden, so the two numbers collapse together between the two
+      // names and neither is attached to a team. The one thing this card
+      // exists to say was the one thing lost. Same shape as Guide.tsx.
+      aria-label={
+        game.state === "pre"
+          ? `${home.name} versus ${away.name}. ${game.status}. ${game.league}. ${carriage}`
+          : `${home.name} ${home.score ?? 0}, ${away.name} ${away.score ?? 0}. ${game.status}. ${game.league}. ${carriage}`
+      }
       // Too far out to be an action. See tooEarly: opening it would tune a
       // channel and label the chrome with a fixture that has not happened.
       // `disabled` rather than a bare missing handler, so it leaves the tab

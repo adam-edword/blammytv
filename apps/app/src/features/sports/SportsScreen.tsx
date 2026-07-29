@@ -249,7 +249,13 @@ export function SportsScreen({ home }: { home?: number } = {}) {
       )}
 
       {!anything && (
-        <p className="sports__note">
+        <p
+          className="sports__note"
+          // Swaps between loading, failed and empty with no announcement,
+          // so after first paint none of it reached a screen reader.
+          // DiscoverScreen already splits it exactly this way.
+          role={state === "error" ? "alert" : "status"}
+        >
           {state === "loading"
             ? "Loading today's games…"
             : state === "error"
