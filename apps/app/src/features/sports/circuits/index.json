@@ -1,0 +1,125 @@
+{
+ "year": 2026,
+ "circuits": {
+  "601": {
+   "layout": "melbourne-2",
+   "name": "Melbourne Grand Prix Circuit",
+   "country": "Australia"
+  },
+  "603": {
+   "layout": "bahrain-1",
+   "name": "Bahrain International Circuit",
+   "country": "Bahrain"
+  },
+  "605": {
+   "layout": "madring-1",
+   "name": "Madring",
+   "country": "Spain"
+  },
+  "606": {
+   "layout": "monaco-6",
+   "name": "Circuit de Monaco",
+   "country": "Monaco"
+  },
+  "607": {
+   "layout": "baku-1",
+   "name": "Baku City Circuit",
+   "country": "Azerbaijan"
+  },
+  "608": {
+   "layout": "montreal-6",
+   "name": "Circuit Gilles-Villeneuve",
+   "country": "Canada"
+  },
+  "609": {
+   "layout": "austin-1",
+   "name": "Circuit of the Americas",
+   "country": "USA"
+  },
+  "611": {
+   "layout": "silverstone-8",
+   "name": "Silverstone Circuit",
+   "country": "Britain"
+  },
+  "613": {
+   "layout": "hungaroring-3",
+   "name": "Hungaroring",
+   "country": "Hungary"
+  },
+  "615": {
+   "layout": "monza-7",
+   "name": "Autodromo Nazionale Monza",
+   "country": "Italy"
+  },
+  "616": {
+   "layout": "spa-francorchamps-4",
+   "name": "Circuit de Spa-Francorchamps",
+   "country": "Belgium"
+  },
+  "617": {
+   "layout": "interlagos-2",
+   "name": "Autodromo Jose Carlos Pace",
+   "country": "Brazil"
+  },
+  "618": {
+   "layout": "suzuka-2",
+   "name": "Suzuka International Racing Course",
+   "country": "Japan"
+  },
+  "619": {
+   "layout": "shanghai-1",
+   "name": "Shanghai International Circuit",
+   "country": "China"
+  },
+  "740": {
+   "layout": "marina-bay-4",
+   "name": "Marina Bay Street Circuit",
+   "country": "Singapore"
+  },
+  "744": {
+   "layout": "yas-marina-2",
+   "name": "Yas Marina Circuit",
+   "country": "United Arab Emirates"
+  },
+  "779": {
+   "layout": "spielberg-3",
+   "name": "Red Bull Ring",
+   "country": "Austria"
+  },
+  "782": {
+   "layout": "mexico-city-3",
+   "name": "Autodromo Hermanos Rodriguez",
+   "country": "Mexico"
+  },
+  "1102": {
+   "layout": "zandvoort-5",
+   "name": "Circuit Park Zandvoort",
+   "country": "Netherlands"
+  },
+  "4069": {
+   "layout": "jeddah-1",
+   "name": "Jeddah Street Circuit",
+   "country": "Saudi Arabia"
+  },
+  "4211": {
+   "layout": "lusail-1",
+   "name": "Losail International Circuit",
+   "country": "Qatar"
+  },
+  "4243": {
+   "layout": "miami-1",
+   "name": "Miami International Autodrome",
+   "country": "USA"
+  },
+  "4250": {
+   "layout": "las-vegas-1",
+   "name": "Las Vegas Street Circuit",
+   "country": "USA"
+  },
+  "5826": {
+   "layout": "catalunya-6",
+   "name": "Circuit de Catalunya",
+   "country": "Spain"
+  }
+ }
+}
