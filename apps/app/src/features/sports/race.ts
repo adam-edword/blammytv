@@ -56,7 +56,7 @@ interface RawSession {
 }
 interface RawEvent {
   id?: string;
-  circuit?: { id?: string; address?: { country?: string } };
+  circuit?: { id?: string; fullName?: string; address?: { country?: string } };
   competitions?: RawSession[];
 }
 interface RawRace {
@@ -119,6 +119,9 @@ function toWeekend(event: RawEvent, series: string): Weekend {
     id: `wk-${event.id ?? "race"}`,
     series,
     place: event.circuit?.address?.country ?? "",
+    // From the payload rather than the vendored index, so a circuit whose
+    // art we have not got still gets named.
+    track: event.circuit?.fullName,
     circuitId: event.circuit?.id,
     date: new Date(race?.date ?? "")
       .toLocaleDateString([], { month: "short", day: "numeric" })

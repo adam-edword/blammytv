@@ -1813,11 +1813,19 @@
   position: relative;
   display: grid;
   grid-template-columns: auto 1fr;
-  grid-template-rows: auto 1fr;
   align-items: center;
-  gap: 4px 14px;
+  column-gap: 14px;
   height: 181px;
-  padding: 15px 25.56px 5px;
+  /* SYMMETRIC, so "centred" in this box means centred on the card. The
+   * header's 15px has not gone anywhere — it moved onto the header, which
+   * is now out of flow so that it cannot push the body down.
+   *
+   * It used to be a row of the grid, and that put the right-hand column's
+   * centre 19px below the card's: half the header, half the row gap, half
+   * the difference between 15 and 5. A single big word sitting off-centre
+   * in its own half of a card is the sort of thing you see without being
+   * able to say why. */
+  padding: 5px 25.56px;
   border: 1px solid rgba(255, 255, 255, 0.07);
   /* Keep glareBorderRadius in RaceCard in step with this. */
   border-radius: 42.6px;
@@ -1861,6 +1869,9 @@
  * same kind of thing, and two clocks a pixel apart in one grid is the sort
  * of difference that reads as a mistake rather than as a decision. */
 .racecard__clock {
+  position: absolute;
+  top: 15px;
+  left: 25.56px;
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -1870,8 +1881,13 @@
   text-transform: uppercase;
   color: #fff;
 }
+/* Out of flow with the clock, and above the art: the body now fills the
+ * whole card, so the track outline reaches up behind this line. */
 .racecard__series {
-  justify-self: end;
+  position: absolute;
+  top: 15px;
+  right: 25.56px;
+  z-index: 1;
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: var(--sports-meta);
@@ -1880,13 +1896,20 @@
   color: rgba(255, 255, 255, 0.4);
 }
 
-/* The podium. A list, because that is what it is. */
+/* The podium. A list, because that is what it is.
+ *
+ * The offset is what keeps the LEFT column clear of the header while the
+ * right one ignores it. They cannot both be centred on their own terms:
+ * five schedule rows are 107px in a 181px card, so a column centred on the
+ * card starts at 37px, which is exactly where the header ends. The name
+ * gets the card's centre line and the list gets the room under the
+ * header. */
 .racecard__podium {
   display: flex;
   flex-direction: column;
   justify-content: center;
   gap: 0;
-  margin: 0;
+  margin: 32px 0 0;
   padding: 0;
   list-style: none;
 }
@@ -1973,7 +1996,9 @@
   flex-direction: column;
   justify-content: center;
   gap: 0;
-  margin: 0;
+  /* Clears the out-of-flow header; see .racecard__podium for why the two
+   * columns are not centred on the same line. */
+  margin: 32px 0 0;
   padding: 0;
   list-style: none;
   white-space: nowrap;
@@ -2010,7 +2035,8 @@
   opacity: 0.78;
 }
 
-/* Where, over the track. */
+/* Where, over the track. Centred on the card, which is the whole reason
+ * the header is out of flow above. */
 .racecard__where {
   position: relative;
   display: flex;
@@ -2049,6 +2075,26 @@
   text-transform: uppercase;
   color: #fff;
 }
+/* The circuit's own name, under the country, on the weekend card only.
+ *
+ * Quieter than the session line it sits in place of, and it has to be: the
+ * names run to 34 characters ("Suzuka International Racing Course") in a
+ * column about 180px wide, so this wraps where a session abbreviation
+ * never would. Balanced rather than ragged, because a two-line name that
+ * breaks after one word reads as a mistake. */
+.weekend__circuit {
+  position: relative;
+  max-width: 100%;
+  margin-top: 4px;
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 11.5px;
+  line-height: 1.25;
+  text-align: center;
+  text-wrap: balance;
+  color: rgba(255, 255, 255, 0.55);
+}
+
 .racecard__session {
   position: relative;
   margin-top: 3px;

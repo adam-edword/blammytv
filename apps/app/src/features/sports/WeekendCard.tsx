@@ -46,6 +46,15 @@ export interface Weekend {
   series: string;
   /** Where, in one word: "Hungary". */
   place: string;
+  /**
+   * The circuit's own name: "Circuit Park Zandvoort".
+   *
+   * The weekend card's alone. A session card has its session under the
+   * country and there is no room for both; a weekend has no one session,
+   * so the line is free and the track is the next thing you would want to
+   * know. Optional because only F1 names its circuit at all.
+   */
+  track?: string;
   /** The circuit id, for the art and the flag. Absent outside F1. */
   circuitId?: string;
   /**
@@ -115,9 +124,12 @@ export function WeekendCard({ weekend }: { weekend: Weekend }) {
               dangerouslySetInnerHTML={{ __html: track }}
             />
           )}
-          {/* No session line under it, unlike the race card: there is no one
-            * session this card is about. The name gets the room back. */}
+          {/* Where the session card puts its session. There is no one
+            * session this card is about, so the line goes to the track. */}
           <span className="racecard__place-name">{weekend.place}</span>
+          {weekend.track && (
+            <span className="weekend__circuit">{weekend.track}</span>
+          )}
         </span>
       </Tilt>
     </button>

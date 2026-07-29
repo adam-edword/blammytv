@@ -128,6 +128,19 @@ const threeStates: Race[] = [
 const sprint = { ...f1, events: [{ ...(f1.events ?? [])[0] }] } as never;
 const weekends: Weekend[] = [
   ...toBoard(f1 as never, new Date("2025-01-01")).weekends,
+  /* The LONGEST track name on the calendar and the shortest, because the
+   * name is the one thing on this card whose width the source picks. The
+   * spread is 7 characters ("Madring") to 34, in a column about 180px
+   * wide, so the long one has to wrap and the short one must not look
+   * stranded. */
+  ...toBoard(f1 as never, new Date("2025-01-01")).weekends.flatMap((w) =>
+    ["Suzuka International Racing Course", "Madring"].map((track, n) => ({
+      ...w,
+      id: `name-${n}`,
+      place: n ? "Spain" : "Japan",
+      track,
+    })),
+  ),
   ...toBoard(sprint, new Date("2025-01-01")).weekends.map((w, i) => ({
     ...w,
     id: `sprint-${i}`,
