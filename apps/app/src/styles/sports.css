@@ -1881,34 +1881,36 @@
   color: #fff;
 }
 
-/* The host country's colours, under the right half.
+/* The host country's colours, hugging the right edge.
  *
- * Blurred past recognition on purpose. This is the flag as a WASH, the same
- * move the game cards make with a crest: a legible flag behind white type
- * would be a second thing to read, where a bloom of the right colours is
- * just the card knowing where it is.
+ * The flag itself, not a bloom of it: at 15% it is a tint rather than a
+ * picture, so it can stay sharp and still sit behind type. A left-to-right
+ * gradient carries it in from nothing, so there is no edge where the wash
+ * starts.
  *
- * Masked rather than faded with a scrim over the top, because a scrim has
- * to match the card's own background to disappear into it and this way
- * nothing has to match anything. */
+ * Masked rather than covered with a scrim, because a scrim has to match the
+ * card's own background to disappear into it and a mask has to match
+ * nothing.
+ */
 .racecard__flag {
   position: absolute;
-  inset: 0 0 0 40%;
+  inset: 0 0 0 32%;
   overflow: hidden;
   border-radius: inherit;
   pointer-events: none;
-  -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 55%);
-  mask-image: linear-gradient(to right, transparent 0%, #000 55%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 100%);
+  mask-image: linear-gradient(to right, transparent 0%, #000 100%);
 }
 .racecard__flag img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  filter: blur(26px) saturate(1.35);
-  opacity: 0.42;
-  /* The blur samples past the edges and leaves them pale; growing the image
-   * past its box puts that softness outside the card instead. */
-  transform: scale(1.5);
+  opacity: 0.15;
+  /* The flag is LETTERBOXED inside a 500x500 canvas: measured, its ink runs
+   * about 65 to 435 across, so object-fit: cover still leaves a transparent
+   * strip down each side and the tint would stop short of both edges.
+   * Zooming past the box puts the empty margin outside it. */
+  transform: scale(1.45);
 }
 
 /* Where, over the track. */

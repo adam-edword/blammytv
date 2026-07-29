@@ -54,13 +54,9 @@ export function RaceCard({ race }: { race: Race }) {
   const flag = race.circuitId ? circuit(race.circuitId)?.flag : undefined;
   return (
     <button type="button" className="racecard" title={`${race.place} ${race.session}`}>
-      {/* The host country's colours, over the half the place name sits on.
-        * The card was all greys and a couple of driver flags, and a race
-        * has a country in a way a fixture between two clubs does not.
-        *
-        * Blurred past recognition on purpose: this is the flag as a wash,
-        * the same idea the game cards use with a crest, and a legible flag
-        * behind white type would be a second thing to read. */}
+      {/* The host country's colours, hugging the right edge. The card was
+        * all greys and a couple of driver flags, and a race has a country
+        * in a way a fixture between two clubs does not. */}
       {flag && (
         <span className="racecard__flag" aria-hidden>
           <img src={flag} alt="" loading="lazy" />
