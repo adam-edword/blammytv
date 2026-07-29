@@ -1776,3 +1776,139 @@
   text-align: center;
   color: var(--text);
 }
+
+/* ------------------------------------------------------------ race card */
+
+/* A race session, to Adam's Figma. TEMPORARY, alongside RaceCard.tsx.
+ *
+ * Two columns and they are not equal on purpose: the ORDER is the content,
+ * so it takes the reading side, and the place takes the rest with the track
+ * behind it. Grid rather than flex because the clock and the series line
+ * sit above both columns and should not be a third row of boxes. */
+.racecard {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto 1fr;
+  align-items: center;
+  gap: 6px 18px;
+  width: 460px;
+  height: 230px;
+  padding: 18px 22px 22px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 22px;
+  background: #0f0f0f;
+  overflow: hidden;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 200ms ease;
+}
+.racecard:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+}
+.racecard__clock {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 17px;
+  color: #fff;
+}
+.racecard__series {
+  justify-self: end;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* The podium. A list, because that is what it is. */
+.racecard__podium {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 22px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.racecard__slot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+/* The number is a label, not a score: it says which row you are on and
+ * then gets out of the way. Tabular so 1, 2 and 3 hold one column. */
+.racecard__place {
+  width: 10px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.3);
+}
+/* A country flag, since the source carries no constructor. Fixed box so a
+ * missing one leaves the codes lined up rather than shunted left. */
+.racecard__mark {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 20px;
+  object-fit: contain;
+}
+.racecard__code {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 21px;
+  letter-spacing: 0.02em;
+  color: #fff;
+}
+
+/* Where, over the track. */
+.racecard__where {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+/* Behind the words, and quiet: it is the one thing on this card that is
+ * decoration. currentColor is what the vendored files are drawn in, so the
+ * colour is set here and every theme pack follows. */
+.racecard__track {
+  position: absolute;
+  /* BIGGER than its box, and bled past the card's edge on purpose. The art
+   * keeps its aspect ratio, so a box the shape of this column fits it to
+   * the short side and leaves a small drawing floating in a wide space.
+   * Overflowing the column instead lets the height do the sizing, and the
+   * card's own overflow: hidden trims what runs past the corner. */
+  inset: -34px -46px;
+  display: block;
+  color: rgba(255, 255, 255, 0.15);
+  pointer-events: none;
+}
+.racecard__track svg {
+  width: 100%;
+  height: 100%;
+}
+.racecard__place-name {
+  position: relative;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 34px;
+  line-height: 1;
+  text-align: center;
+  text-transform: uppercase;
+  color: #fff;
+}
+.racecard__session {
+  position: relative;
+  margin-top: 4px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 17px;
+  color: rgba(255, 255, 255, 0.75);
+}

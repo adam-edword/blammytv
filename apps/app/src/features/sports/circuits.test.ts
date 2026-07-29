@@ -18,7 +18,7 @@ describe("the vendored circuits", () => {
     for (const id of ids) expect(art(id), id).toBeTruthy();
   });
 
-  it("gives ONE stroked path on a 500 canvas, in currentColor", () => {
+  it("gives ONE stroked path, viewBoxed, in currentColor", () => {
     // All three matter and all three were learned the hard way. The
     // library's -outline styles are TWO paths, a wide stroke with a
     // narrower one inside, and both colours are literals — right on
@@ -27,7 +27,12 @@ describe("the vendored circuits", () => {
     // the colour and every theme pack get the right one for free.
     for (const id of ids) {
       const svg = art(id)!;
-      expect(svg, id).toContain('width="500"');
+      // A viewBox and NOT a fixed width, which is the whole difference
+      // between art that scales into a card and art that gets cropped at
+      // 500 user units. The library ships width/height and no viewBox,
+      // despite its README; the harvest swaps them.
+      expect(svg, id).toContain('viewBox="0 0 500 500"');
+      expect(svg, id).not.toContain('width="500"');
       expect(svg.match(/<path/g), id).toHaveLength(1);
       expect(svg, id).toContain("stroke:currentColor");
       expect(svg, id).not.toMatch(/stroke:#[0-9a-f]/i);

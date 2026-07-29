@@ -133,10 +133,19 @@ for (const [id, c] of tracks) {
   // the right one for free. The file ships a literal white otherwise, and
   // a track that is white on every pack is a track drawn once and themed
   // never.
-  const svg = (await get(`${ART}/${layout.layoutId}.svg`)).replace(
-    /stroke:#fff/g,
-    "stroke:currentColor",
-  );
+  const svg = (await get(`${ART}/${layout.layoutId}.svg`))
+    .replace(/stroke:#fff/g, "stroke:currentColor")
+    // A viewBox, WHICH THE FILES DO NOT HAVE. The library's README says
+    // its SVGO config preserves one; the files ship width/height and no
+    // viewBox at all. Without it the art has no intrinsic scale, so a box
+    // told to be 100% wide crops the drawing at 500 user units instead of
+    // fitting it — which looks like a broken asset and is a missing
+    // attribute. The fixed width and height go with it, so the card sizes
+    // this the way it sizes everything else.
+    .replace(
+      /<svg([^>]*?)\s+width="500"\s+height="500"/,
+      '<svg$1 viewBox="0 0 500 500"',
+    );
   await writeFile(new URL(`${layout.layoutId}.svg`, OUT), svg);
   map[id] = { layout: layout.layoutId, name: c.fullName, country: c.address?.country };
 }
