@@ -6,6 +6,7 @@ import {
 } from "../settings/compactResults";
 import { CompactCard } from "./CompactCard";
 import { RaceCard } from "./RaceCard";
+import { WeekendCard } from "./WeekendCard";
 import { SportsSidebar } from "./SportsSidebar";
 import { useRaces } from "./race";
 import { isFollowed, loadFollows } from "./follows";
@@ -85,10 +86,14 @@ export function SportsScreen() {
   }, [raw, catalog, follows, narrowed]);
   /** Every club the board LOADED, ahead of the filter. */
   const clubPool = useMemo(() => raw.flatMap((d) => d.games), [raw]);
-  /* TEMPORARY: this weekend's F1 sessions, at the head of today's grid, so
-   * the race card can be looked at in the app while the racing adapter is
-   * written. It fetches on its own and joins nothing; see race.ts. */
-  const races = useRaces();
+  /* TEMPORARY: F1's cards at the head of today's grid, so they can be
+   * looked at in the app while the racing adapter is written. It fetches
+   * on its own and joins nothing; see race.ts.
+   *
+   * A weekend is ONE card until the day its first session runs, and its
+   * five sessions from then on. */
+  const { weekends, sessions: races } = useRaces();
+  const racing = weekends.length + races.length;
   const today = days[0]?.games ?? [];
   const anchor = nowish(today);
   const live = today.some((g) => g.state === "live");
@@ -122,7 +127,7 @@ export function SportsScreen() {
   // The `|| races` half is TEMPORARY, with the grid gate below: a board
   // showing race cards is not a board with nothing on it, and saying so
   // under them would read as a bug.
-  const anything = days.some((d) => d.games.length > 0) || races.length > 0;
+  const anything = days.some((d) => d.games.length > 0) || racing > 0;
   // Read once and kept here: it is a display choice about this screen, so
   // it belongs to the screen rather than to every card in it.
   const [compact, setCompact] = useState(loadCompactResults);
@@ -186,7 +191,7 @@ export function SportsScreen() {
           // it. Goes away when racing is a real adapter and its sessions
           // are just games in the day.
           (day.games.length > 0 ||
-            (day === days[0] && races.length > 0)) && (
+            (day === days[0] && racing > 0)) && (
             <section className="media-row" key={day.date.toDateString()}>
               <div className="sports__head">
                 <h3 className="media-row__title sports__title">
@@ -209,6 +214,10 @@ export function SportsScreen() {
               </div>
               <div className="sports__grid">
                 {/* TEMPORARY, today only: see race.ts. */}
+                {day === days[0] &&
+                  weekends.map((w) => (
+                    <WeekendCard key={w.id} weekend={w} />
+                  ))}
                 {day === days[0] &&
                   races.map((r) => <RaceCard key={r.id} race={r} />)}
                 {day.games.map((g) =>

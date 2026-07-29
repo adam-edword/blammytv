@@ -8,6 +8,8 @@ import "../src/styles/ui.css";
 import "../src/styles/themes.css";
 import "../src/styles/sports.css";
 import { RaceCard, type Race } from "../src/features/sports/RaceCard";
+import { WeekendCard, type Weekend } from "../src/features/sports/WeekendCard";
+import { toBoard } from "../src/features/sports/race";
 import { driverCode } from "../src/features/sports/driverCode";
 import circuits from "../src/features/sports/circuits/index.json";
 import { applyAccent, loadAccent } from "../src/features/settings/accent";
@@ -112,6 +114,33 @@ const threeStates: Race[] = [
   { ...base, id: "st-final", session: "Race", state: "final", time: "FINAL" },
 ];
 
+/**
+ * The weekend card, through the REAL mapper rather than a rig one.
+ *
+ * Dated a year back so toBoard's split sends every event down the weekend
+ * branch: the fixture's own weekend is finished, and the branch worth
+ * looking at here is the one the fixture cannot reach.
+ *
+ * Both weekend shapes, because there are two and only two: the ordinary
+ * FP1/FP2/FP3/Qual/Race, and the sprint FP1/SS/SR/Qual/Race, where the
+ * greyed SR is an actual race with points. Adam's call, made against that.
+ */
+const sprint = { ...f1, events: [{ ...(f1.events ?? [])[0] }] } as never;
+const weekends: Weekend[] = [
+  ...toBoard(f1 as never, new Date("2025-01-01")).weekends,
+  ...toBoard(sprint, new Date("2025-01-01")).weekends.map((w, i) => ({
+    ...w,
+    id: `sprint-${i}`,
+    sessions: w.sessions.map((s, n) =>
+      n === 1
+        ? { ...s, label: "SS", major: false }
+        : n === 2
+          ? { ...s, label: "SR", major: false }
+          : s,
+    ),
+  })),
+];
+
 export function Rig() {
   return (
     <div
@@ -124,6 +153,9 @@ export function Rig() {
         minHeight: "100vh",
       }}
     >
+      {weekends.map((w) => (
+        <WeekendCard key={w.id} weekend={w} />
+      ))}
       {threeStates.map((r) => (
         <RaceCard key={r.id} race={r} />
       ))}

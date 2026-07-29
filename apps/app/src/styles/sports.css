@@ -1960,6 +1960,56 @@
   mask-image: linear-gradient(to right, transparent, #000);
 }
 
+/* The weekend's schedule, in the podium's column.
+ *
+ * FIVE rows where the podium has three, in the same height, so the row is
+ * the thing that gives: no badge, no number, one line each. Measured over
+ * a full season it is always exactly five — 17 weekends of FP1/FP2/FP3/
+ * Qual/Race and 6 sprint ones of FP1/SS/SR/Qual/Race — so this never has
+ * to cope with a sixth.
+ */
+.weekend__list {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  white-space: nowrap;
+}
+/* A step back by default, and that is the whole ramp: practice is quiet,
+ * qualifying and the race are not. Fixed by session type rather than by
+ * what has run, because nothing has run while this card is on screen. */
+.weekend__row {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  font-family: var(--font-headline);
+  line-height: 1.62;
+  color: rgba(255, 255, 255, 0.38);
+}
+.weekend__row--major {
+  color: #fff;
+}
+/* The label carries the weight; the day and time are the detail hanging
+ * off it. Not a fixed column: the labels run FP1 to QUAL and lining the
+ * times up would leave a channel of air down the middle of a card that is
+ * already mostly air. */
+.weekend__label {
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+.weekend__when {
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.01em;
+  /* Half a step behind its own label on both rows, so the major/minor ramp
+   * survives inside a row as well as between them. */
+  opacity: 0.78;
+}
+
 /* Where, over the track. */
 .racecard__where {
   position: relative;
