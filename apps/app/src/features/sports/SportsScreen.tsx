@@ -119,7 +119,10 @@ export function SportsScreen() {
     box.scrollLeft += c.left - b.left - lead;
   }, [anchor]);
 
-  const anything = days.some((d) => d.games.length > 0);
+  // The `|| races` half is TEMPORARY, with the grid gate below: a board
+  // showing race cards is not a board with nothing on it, and saying so
+  // under them would read as a bug.
+  const anything = days.some((d) => d.games.length > 0) || races.length > 0;
   // Read once and kept here: it is a display choice about this screen, so
   // it belongs to the screen rather than to every card in it.
   const [compact, setCompact] = useState(loadCompactResults);
@@ -176,7 +179,14 @@ export function SportsScreen() {
 
       {days.map(
         (day) =>
-          day.games.length > 0 && (
+          // TEMPORARY, the `|| races` half: the race cards hang off today's
+          // grid, so a today with no TEAM games took the whole section down
+          // and the races with it — which is exactly what you get the
+          // moment a league is followed and today's fixtures fall outside
+          // it. Goes away when racing is a real adapter and its sessions
+          // are just games in the day.
+          (day.games.length > 0 ||
+            (day === days[0] && races.length > 0)) && (
             <section className="media-row" key={day.date.toDateString()}>
               <div className="sports__head">
                 <h3 className="media-row__title sports__title">

@@ -1,3 +1,5 @@
+import Tilt from "react-parallax-tilt";
+import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { art, flagArt } from "./circuits";
 
 /**
@@ -54,46 +56,69 @@ export function RaceCard({ race }: { race: Race }) {
   const flag = flagArt(race.circuitId);
   return (
     <button type="button" className="racecard" title={`${race.place} ${race.session}`}>
-      {/* The host country's colours, hugging the right edge. The card was
-        * all greys and a couple of driver flags, and a race has a country
-        * in a way a fixture between two clubs does not. */}
-      {flag && (
-        <img className="racecard__flag" src={flag} alt="" aria-hidden loading="lazy" />
-      )}
-      <span className="racecard__clock">
-        {race.state === "live" && <span className="gamepip" aria-hidden />}
-        {race.time}
-      </span>
-      <span className="racecard__series">{race.series}</span>
-
-      {/* The order IS the content, so it gets the reading side. */}
-      <ol className="racecard__podium">
-        {race.top.slice(0, 3).map((e) => (
-          <li className="racecard__slot" key={e.place}>
-            <span className="racecard__place">{e.place}</span>
-            {e.mark ? (
-              <img className="racecard__mark" src={e.mark} alt="" loading="lazy" />
-            ) : (
-              <span className="racecard__mark" aria-hidden />
-            )}
-            <span className="racecard__code">{e.code}</span>
-          </li>
-        ))}
-      </ol>
-
-      <span className="racecard__where">
-        {/* Behind the words rather than beside them: it is the one piece
-          * here that is decoration, and it has to be able to be missing. */}
-        {track && (
-          <span
-            className="racecard__track"
-            aria-hidden
-            dangerouslySetInnerHTML={{ __html: track }}
-          />
+      {/* The small card's lean and glare, to its own numbers. This sits in
+        * the same grid as the small card and is the same size, so it leans
+        * the same amount: a card that tilted differently from the one
+        * beside it would read as a different kind of object rather than as
+        * the same object about a different sport.
+        *
+        * The tilt layer is the card SURFACE, not a wrapper around it. That
+        * is what gives the glare something to clip to, and it is why the
+        * radius is repeated here — the library draws its own layer and
+        * cannot read the CSS. Keep it in step with .racecard__tilt. */}
+      <Tilt
+        className="racecard__tilt"
+        tiltEnable={!REDUCED_MOTION}
+        tiltMaxAngleX={7}
+        tiltMaxAngleY={7}
+        scale={REDUCED_MOTION ? 1 : 1.03}
+        transitionSpeed={650}
+        glareEnable={!REDUCED_MOTION}
+        glareMaxOpacity={0.09}
+        glarePosition="all"
+        glareBorderRadius="42.6px"
+      >
+        {/* The host country's colours, hugging the right edge. The card was
+          * all greys and a couple of driver flags, and a race has a country
+          * in a way a fixture between two clubs does not. */}
+        {flag && (
+          <img className="racecard__flag" src={flag} alt="" aria-hidden loading="lazy" />
         )}
-        <span className="racecard__place-name">{race.place}</span>
-        <span className="racecard__session">{race.session}</span>
-      </span>
+        <span className="racecard__clock">
+          {race.state === "live" && <span className="gamepip" aria-hidden />}
+          {race.time}
+        </span>
+        <span className="racecard__series">{race.series}</span>
+
+        {/* The order IS the content, so it gets the reading side. */}
+        <ol className="racecard__podium">
+          {race.top.slice(0, 3).map((e) => (
+            <li className="racecard__slot" key={e.place}>
+              <span className="racecard__place">{e.place}</span>
+              {e.mark ? (
+                <img className="racecard__mark" src={e.mark} alt="" loading="lazy" />
+              ) : (
+                <span className="racecard__mark" aria-hidden />
+              )}
+              <span className="racecard__code">{e.code}</span>
+            </li>
+          ))}
+        </ol>
+
+        <span className="racecard__where">
+          {/* Behind the words rather than beside them: it is the one piece
+            * here that is decoration, and it has to be able to be missing. */}
+          {track && (
+            <span
+              className="racecard__track"
+              aria-hidden
+              dangerouslySetInnerHTML={{ __html: track }}
+            />
+          )}
+          <span className="racecard__place-name">{race.place}</span>
+          <span className="racecard__session">{race.session}</span>
+        </span>
+      </Tilt>
     </button>
   );
 }

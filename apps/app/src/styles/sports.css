@@ -1790,26 +1790,47 @@
  * Shorter than the small card, per the Figma, and it can afford to be:
  * three short rows and a place name against that card's two full names and
  * a score. */
+/* Split the same way the small card is, and for the same reason: the
+ * button is a hit area with no paint on it, and the tilt layer IS the
+ * card. The glare is the library's own layer inside that, so it needs a
+ * box with the card's radius to clip to; painting the surface on the
+ * button would leave the glare rotating over a square corner. */
 .racecard {
+  flex: 0 0 auto;
+  width: 460px;
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+/* Lifted over its neighbours while it leans, so the corner that comes
+ * forward is not cut off by the card next to it. */
+.racecard:hover {
+  z-index: 2;
+}
+.racecard__tilt {
   position: relative;
   display: grid;
   grid-template-columns: auto 1fr;
   grid-template-rows: auto 1fr;
   align-items: center;
   gap: 4px 14px;
-  width: 460px;
   height: 181px;
   padding: 15px 25.56px 5px;
   border: 1px solid rgba(255, 255, 255, 0.07);
+  /* Keep glareBorderRadius in RaceCard in step with this. */
   border-radius: 42.6px;
   background: #0f0f0f;
   overflow: hidden;
-  text-align: left;
-  cursor: pointer;
-  transition: border-color 200ms ease;
+  transition:
+    border-color 200ms ease,
+    box-shadow 450ms ease;
 }
-.racecard:hover {
+.racecard:hover .racecard__tilt {
   border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 17.04px 36.92px -14.2px
+    color-mix(in srgb, #000 55%, transparent);
 }
 /* The small card's status, to the pixel: this is the same line saying the
  * same kind of thing, and two clocks a pixel apart in one grid is the sort
