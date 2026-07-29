@@ -147,12 +147,18 @@ export function keepStable(prev: Game[], next: Game[]): Game[] {
  */
 export function withChannels(games: Game[], catalog: Catalog | null): Game[] {
   // Not "no channels": not KNOWN yet. The cards say so rather than
-  // guessing, and identity is preserved so this costs no re-render once the
-  // guide lands and the flag clears.
-  if (!catalog)
+  // guessing.
+  //
+  // Identity is preserved as carefully here as on the resolved path below,
+  // and for the same reason: the cards are memoised on it. Marking is a
+  // one-time transition, so once every game carries the flag this returns
+  // the array it was given and a refresh mid-load re-renders nothing.
+  if (!catalog) {
+    if (games.every((g) => g.channelsPending)) return games;
     return games.map((g) =>
       g.channelsPending ? g : { ...g, channelsPending: true },
     );
+  }
   return games.map((game) => {
     // The CARD only counts what we are sure of. A 40% match is a candidate
     // for the rail, where its score is visible; putting it behind "Live on

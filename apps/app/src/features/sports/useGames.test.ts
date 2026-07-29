@@ -148,8 +148,26 @@ describe("withChannels", () => {
     expect(twice[0]).toBe(once[0]);
   });
 
-  it("passes everything through untouched before the catalog loads", () => {
+  it("marks games as PENDING before the catalog loads, rather than as uncarried", () => {
+    // A cold start reaches the board before a 20k channel guide is parsed.
+    // Saying "Not on your channels" in that window is a claim with nothing
+    // behind it, so the cards get a third state instead.
     const games = [game("a", { broadcasts: ["MASN"] })];
+    const out = withChannels(games, null);
+    expect(out[0].channelsPending).toBe(true);
+    expect(out[0].channels).toEqual([]);
+  });
+
+  it("keeps array identity once everything is marked", () => {
+    // The cards are memoised on it. Marking is a one-time transition, so a
+    // refresh while the guide is still loading must re-render nothing.
+    const games = withChannels([game("a", { broadcasts: ["MASN"] })], null);
     expect(withChannels(games, null)).toBe(games);
+  });
+
+  it("clears the flag once the catalog answers", () => {
+    const pending = withChannels([game("a", { broadcasts: ["MASN"] })], null);
+    const resolved = withChannels(pending, indexChannels([]));
+    expect(resolved[0].channelsPending).toBe(false);
   });
 });
