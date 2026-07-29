@@ -1,0 +1,987 @@
+{
+ "sports": [
+  {
+   "key": "soccer",
+   "name": "Soccer",
+   "leagues": [
+    {
+     "path": "soccer/ger.2",
+     "label": "2. Bundesliga",
+     "name": "German 2. Bundesliga",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500/97.png"
+    },
+    {
+     "path": "soccer/aus.1",
+     "label": "A-League Men",
+     "name": "Australian A-League Men",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/1308.png"
+    },
+    {
+     "path": "soccer/afc.asian.cup",
+     "label": "AFC Asian Cup",
+     "name": "AFC Asian Cup",
+     "logo": "https://a.espncdn.com/combiner/i?img=/i/leaguelogos/soccer/500-dark/2243.png"
+    },
+    {
+     "path": "soccer/afc.champions",
+     "label": "AFC Champions League Elite",
+     "name": "AFC Champions League Elite",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/2200.png"
+    },
+    {
+     "path": "soccer/afc.cup",
+     "label": "AFC Champions League Two",
+     "name": "AFC Champions League Two",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/2243.png"
+    },
+    {
+     "path": "soccer/caf.nations",
+     "label": "Africa Cup of Nations",
+     "name": "Africa Cup of Nations",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/76.png"
+    },
+    {
+     "path": "soccer/arg.1",
+     "label": "Argentine LPF",
+     "name": "Argentine Liga Profesional de Fútbol",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/1.png"
+    },
+    {
+     "path": "soccer/aut.1",
+     "label": "Austrian Bundesliga",
+     "name": "Austrian Bundesliga",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/5.png"
+    },
+    {
+     "path": "soccer/bel.1",
+     "label": "Belgian Pro League",
+     "name": "Belgian Pro League",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/6.png"
+    },
+    {
+     "path": "soccer/bol.1",
+     "label": "Bolivian Liga Profesional",
+     "name": "Bolivian Liga Profesional",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/1949.png"
+    },
+    {
+     "path": "soccer/bra.1",
+     "label": "Brazil Serie A",
+     "name": "Brazilian Serie A",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/85.png"
+    },
+    {
+     "path": "soccer/ger.1",
+     "label": "Bundesliga",
+     "name": "German Bundesliga",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/10.png"
+    },
+    {
+     "path": "soccer/caf.champions",
+     "label": "CAF Champions League",
+     "name": "CAF Champions League",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/2391.png"
+    },
+    {
+     "path": "soccer/caf.confed",
+     "label": "CAF Confederation Cup",
+     "name": "CAF Confederation Cup",
+     "logo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/default-team-logo-500.png&w=100&h=100"
+    },
+    {
+     "path": "soccer/eng.league_cup",
+     "label": "Carabao Cup",
+     "name": "English Carabao Cup",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/41.png"
+    },
+    {
+     "path": "soccer/chi.1",
+     "label": "Chilean Primera",
+     "name": "Chilean Primera División",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/86.png"
+    },
+    {
+     "path": "soccer/chn.1",
+     "label": "Chinese Super League",
+     "name": "Chinese Super League",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/2350.png"
+    },
+    {
+     "path": "soccer/club.friendly",
+     "label": "Club Friendly",
+     "name": "Club Friendly"
+    },
+    {
+     "path": "soccer/fifa.cwc",
+     "label": "Club World Cup",
+     "name": "FIFA Club World Cup",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/1932.png"
+    },
+    {
+     "path": "soccer/cze.1",
+     "label": "CMFS",
+     "name": "Gambrinus Liga",
+     "logo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/default-team-logo-500.png&w=100&h=100"
+    },
+    {
+     "path": "soccer/col.1",
+     "label": "Colombian Primera A",
+     "name": "Colombian Primera A",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/1543.png"
+    },
+    {
+     "path": "soccer/eng.charity",
+     "label": "Community Shield",
+     "name": "English FA Community Shield",
+     "logo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/default-team-logo-500.png&w=100&h=100"
+    },
+    {
+     "path": "soccer/concacaf.champions_cup",
+     "label": "Conc CC",
+     "name": "CONCACAF Champions Cup",
+     "logo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/default-team-logo-500.png&w=100&h=100"
+    },
+    {
+     "path": "soccer/concacaf.champions",
+     "label": "Concacaf Champions Cup",
+     "name": "Concacaf Champions Cup",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/2298.png"
+    },
+    {
+     "path": "soccer/concacaf.nations.league",
+     "label": "Concacaf Nations League",
+     "name": "Concacaf Nations League",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/2406.png"
+    },
+    {
+     "path": "soccer/fifa.confederations",
+     "label": "Confederations Cup",
+     "name": "FIFA Confederations Cup",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/57.png"
+    },
+    {
+     "path": "soccer/conmebol.libertadores",
+     "label": "CONMEBOL Libertadores",
+     "name": "CONMEBOL Libertadores",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/58.png"
+    },
+    {
+     "path": "soccer/conmebol.sudamericana",
+     "label": "CONMEBOL Sudamericana",
+     "name": "CONMEBOL Sudamericana",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/1208.png"
+    },
+    {
+     "path": "soccer/conmebol.america",
+     "label": "Copa América",
+     "name": "Copa América",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/83.png"
+    },
+    {
+     "path": "soccer/esp.copa_del_rey",
+     "label": "Copa del Rey",
+     "name": "Spanish Copa del Rey",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/80.png"
+    },
+    {
+     "path": "soccer/mex.copa_mx",
+     "label": "Copa Mex",
+     "name": "Mexican Copa MX",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/2321.png"
+    },
+    {
+     "path": "soccer/ita.coppa_italia",
+     "label": "Coppa Italia",
+     "name": "Coppa Italia",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500/2192.png"
+    },
+    {
+     "path": "soccer/fra.coupe_de_france",
+     "label": "Coupe de France",
+     "name": "Coupe de France",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/182.png"
+    },
+    {
+     "path": "soccer/den.1",
+     "label": "Danish Superliga",
+     "name": "Danish Superliga",
+     "logo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/default-team-logo-500.png&w=100&h=100"
+    },
+    {
+     "path": "soccer/eng.2",
+     "label": "EFL Championship",
+     "name": "English League Championship",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/24.png"
+    },
+    {
+     "path": "soccer/eng.3",
+     "label": "EFL League One",
+     "name": "English League One",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/25.png"
+    },
+    {
+     "path": "soccer/eng.4",
+     "label": "EFL League Two",
+     "name": "English League Two",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/26.png"
+    },
+    {
+     "path": "soccer/eng.fa",
+     "label": "English FA Cup",
+     "name": "English FA Cup",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/40.png"
+    },
+    {
+     "path": "soccer/ned.1",
+     "label": "Eredivisie",
+     "name": "Dutch Eredivisie",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/11.png"
+    },
+    {
+     "path": "soccer/uefa.euro",
+     "label": "EURO",
+     "name": "UEFA European Championship",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/74.png"
+    },
+    {
+     "path": "soccer/uefa.euroq",
+     "label": "EURO Qualifying",
+     "name": "UEFA European Championship Qualifying",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/56.png"
+    },
+    {
+     "path": "soccer/fifa.wwc",
+     "label": "FIFA Women's World Cup",
+     "name": "FIFA Women's World Cup",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/60.png"
+    },
+    {
+     "path": "soccer/fifa.world",
+     "label": "FIFA World Cup",
+     "name": "FIFA World Cup",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/4.png"
+    },
+    {
+     "path": "soccer/fin.1",
+     "label": "Finnish Veikkausliga",
+     "name": "Finnish Veikkausliga"
+    },
+    {
+     "path": "soccer/ger.dfb_pokal",
+     "label": "German Cup",
+     "name": "German Cup",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/2061.png"
+    },
+    {
+     "path": "soccer/gha.1",
+     "label": "Ghanaian Premier League",
+     "name": "Ghanaian Premier League",
+     "logo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/default-team-logo-500.png&w=100&h=100"
+    },
+    {
+     "path": "soccer/concacaf.gold",
+     "label": "Gold Cup",
+     "name": "Concacaf Gold Cup",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/59.png"
+    },
+    {
+     "path": "soccer/gre.1",
+     "label": "Greek Super League",
+     "name": "Greek Super League",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500/98.png"
+    },
+    {
+     "path": "soccer/gua.1",
+     "label": "Guatemalan Liga Nacional",
+     "name": "Guatemalan Liga Nacional",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/2248.png"
+    },
+    {
+     "path": "soccer/hon.1",
+     "label": "Honduran Liga Nacional",
+     "name": "Honduran Liga Nacional",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/2247.png"
+    },
+    {
+     "path": "soccer/ind.1",
+     "label": "Indian Super League",
+     "name": "Indian Super League",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/2334.png"
+    },
+    {
+     "path": "soccer/idn.1",
+     "label": "Indonesian Super League",
+     "name": "Indonesian Super League",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/2336.png"
+    },
+    {
+     "path": "soccer/irl.1",
+     "label": "Irish Premier Division",
+     "name": "Irish Premier Division",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/116.png"
+    },
+    {
+     "path": "soccer/isr.1",
+     "label": "Israeli Premier League",
+     "name": "Israeli Premier League",
+     "logo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/default-team-logo-500.png&w=100&h=100"
+    },
+    {
+     "path": "soccer/ita.2",
+     "label": "Italian Serie B",
+     "name": "Italian Serie B",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500/99.png"
+    },
+    {
+     "path": "soccer/jpn.1",
+     "label": "Japanese J1 League",
+     "name": "Japanese J.League",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/2199.png"
+    },
+    {
+     "path": "soccer/esp.1",
+     "label": "LALIGA",
+     "name": "Spanish LALIGA",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/15.png"
+    },
+    {
+     "path": "soccer/esp.2",
+     "label": "LALIGA 2",
+     "name": "Spanish LALIGA 2",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500/107.png"
+    },
+    {
+     "path": "soccer/concacaf.leagues.cup",
+     "label": "Leagues Cup",
+     "name": "Leagues Cup",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/2410.png"
+    },
+    {
+     "path": "soccer/uru.1",
+     "label": "Liga AUF Uruguaya",
+     "name": "Liga AUF Uruguaya",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/1592.png"
+    },
+    {
+     "path": "soccer/crc.1",
+     "label": "Liga FPD",
+     "name": "Costa Rican Primera Division",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/2245.png"
+    },
+    {
+     "path": "soccer/ven.1",
+     "label": "Liga FUTVE",
+     "name": "Venezuelan Primera División",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/1947.png"
+    },
+    {
+     "path": "soccer/mex.1",
+     "label": "Liga MX",
+     "name": "Mexican Liga BBVA MX",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/22.png"
+    },
+    {
+     "path": "soccer/ecu.1",
+     "label": "LigaPro Ecuador",
+     "name": "LigaPro Ecuador",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/1944.png"
+    },
+    {
+     "path": "soccer/fra.1",
+     "label": "Ligue 1",
+     "name": "French Ligue 1",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/9.png"
+    },
+    {
+     "path": "soccer/fra.2",
+     "label": "Ligue 2",
+     "name": "French Ligue 2",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/96.png"
+    },
+    {
+     "path": "soccer/mys.1",
+     "label": "Malaysian Super League",
+     "name": "Malaysian Super League",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/2340.png"
+    },
+    {
+     "path": "soccer/fifa.friendly",
+     "label": "Men's International Friendly",
+     "name": "International Friendly",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/53.png"
+    },
+    {
+     "path": "soccer/usa.1",
+     "label": "MLS",
+     "name": "MLS",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/19.png"
+    },
+    {
+     "path": "soccer/nir.1",
+     "label": "NIFL Premiership",
+     "name": "Northern Irish Premiership",
+     "logo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/default-team-logo-500.png&w=100&h=100"
+    },
+    {
+     "path": "soccer/nga.1",
+     "label": "Nigerian Pro League",
+     "name": "Nigerian Professional League",
+     "logo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/default-team-logo-500.png&w=100&h=100"
+    },
+    {
+     "path": "soccer/nor.1",
+     "label": "Norwegian Eliteserien",
+     "name": "Norwegian Eliteserien",
+     "logo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/default-team-logo-500.png&w=100&h=100"
+    },
+    {
+     "path": "soccer/usa.nwsl",
+     "label": "NWSL",
+     "name": "NWSL",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/2323.png"
+    },
+    {
+     "path": "soccer/par.1",
+     "label": "Paraguayan Primera",
+     "name": "Paraguayan Primera División",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/1892.png"
+    },
+    {
+     "path": "soccer/per.1",
+     "label": "Peru Liga 1",
+     "name": "Peruvian Liga 1",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/1813.png"
+    },
+    {
+     "path": "soccer/por.1",
+     "label": "Portuguese Liga",
+     "name": "Portuguese Primeira Liga",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/14.png"
+    },
+    {
+     "path": "soccer/eng.1",
+     "label": "Premier League",
+     "name": "English Premier League",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/23.png"
+    },
+    {
+     "path": "soccer/rou.1",
+     "label": "Romanian Liga 1",
+     "name": "Romanian Liga 1",
+     "logo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/default-team-logo-500.png&w=100&h=100"
+    },
+    {
+     "path": "soccer/rus.1",
+     "label": "Russian Premier League",
+     "name": "Russian Premier League",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/106.png"
+    },
+    {
+     "path": "soccer/slv.1",
+     "label": "Salvadoran Primera",
+     "name": "Salvadoran Primera Division",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/2244.png"
+    },
+    {
+     "path": "soccer/ksa.1",
+     "label": "Saudi Pro League",
+     "name": "Saudi Pro League",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/2488.png"
+    },
+    {
+     "path": "soccer/ita.1",
+     "label": "Serie A",
+     "name": "Italian Serie A",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/12.png"
+    },
+    {
+     "path": "soccer/sgp.1",
+     "label": "Singapore Premier League",
+     "name": "Singaporean Premier League",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/2338.png"
+    },
+    {
+     "path": "soccer/rsa.1",
+     "label": "South African Premiership",
+     "name": "South African Premiership",
+     "logo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/default-team-logo-500.png&w=100&h=100"
+    },
+    {
+     "path": "soccer/esp.super_cup",
+     "label": "Spanish Supercopa",
+     "name": "Spanish Supercopa",
+     "logo": "https://a.espncdn.com/guid/f3ea21b4-d55a-317d-9e8e-6dfd6cd7963a/logos/default-dark.png"
+    },
+    {
+     "path": "soccer/sco.1",
+     "label": "SPFL Premiership",
+     "name": "Scottish Premiership",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/45.png"
+    },
+    {
+     "path": "soccer/swe.1",
+     "label": "Swedish Allsvenskan",
+     "name": "Swedish Allsvenskan",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500/16.png"
+    },
+    {
+     "path": "soccer/sui.1",
+     "label": "Swiss Super League",
+     "name": "Swiss Super League",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500/17.png"
+    },
+    {
+     "path": "soccer/tha.1",
+     "label": "Thai Premier League",
+     "name": "Thai League 1",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/2341.png"
+    },
+    {
+     "path": "soccer/tur.1",
+     "label": "Turkish Super Lig",
+     "name": "Turkish Super Lig",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/18.png"
+    },
+    {
+     "path": "soccer/usa.open",
+     "label": "U.S. Open Cup",
+     "name": "U.S. Open Cup",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500/69.png"
+    },
+    {
+     "path": "soccer/uefa.champions",
+     "label": "UEFA Champions League",
+     "name": "UEFA Champions League",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/2.png"
+    },
+    {
+     "path": "soccer/uefa.champions_qual",
+     "label": "UEFA Champions League Qualifying",
+     "name": "UEFA Champions League Qualifying"
+    },
+    {
+     "path": "soccer/uefa.europa.conf",
+     "label": "UEFA Conference League",
+     "name": "UEFA Conference League",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/20296.png"
+    },
+    {
+     "path": "soccer/uefa.europa",
+     "label": "UEFA Europa League",
+     "name": "UEFA Europa League",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/2310.png"
+    },
+    {
+     "path": "soccer/uefa.europa_qual",
+     "label": "UEFA Europa League Qualfiying",
+     "name": "UEFA Europa League Qualifying"
+    },
+    {
+     "path": "soccer/uefa.nations",
+     "label": "UEFA Nations League",
+     "name": "UEFA Nations League",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/2395.png"
+    },
+    {
+     "path": "soccer/uefa.super_cup",
+     "label": "UEFA Super Cup",
+     "name": "UEFA Super Cup",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/1272.png"
+    },
+    {
+     "path": "soccer/uefa.wchampions",
+     "label": "UEFA Women's Champions League",
+     "name": "UEFA Women's Champions League",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/2408.png"
+    },
+    {
+     "path": "soccer/usa.usl.l1",
+     "label": "USL League One",
+     "name": "USL League One",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/2452.png"
+    },
+    {
+     "path": "soccer/fifa.worldq.concacaf",
+     "label": "WCQ - Concacaf",
+     "name": "FIFA World Cup Qualifying - Concacaf",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/64.png"
+    },
+    {
+     "path": "soccer/fifa.worldq.conmebol",
+     "label": "WCQ - CONMEBOL",
+     "name": "FIFA World Cup Qualifying - CONMEBOL",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/65.png"
+    },
+    {
+     "path": "soccer/fifa.worldq.uefa",
+     "label": "WCQ - UEFA",
+     "name": "FIFA World Cup Qualifying - UEFA",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/67.png"
+    },
+    {
+     "path": "soccer/wal.1",
+     "label": "Welsh Premier League",
+     "name": "Welsh Premier League",
+     "logo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/default-team-logo-500.png&w=100&h=100"
+    },
+    {
+     "path": "soccer/uefa.weuro",
+     "label": "Women's EURO",
+     "name": "UEFA Women's European Championship",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/2381.png"
+    },
+    {
+     "path": "soccer/fifa.friendly.w",
+     "label": "Women's International Friendly",
+     "name": "Women's International Friendly",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/70.png"
+    },
+    {
+     "path": "soccer/eng.w.1",
+     "label": "Women's Super League",
+     "name": "English Women's Super League",
+     "logo": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/2314.png"
+    }
+   ]
+  },
+  {
+   "key": "basketball",
+   "name": "Basketball",
+   "leagues": [
+    {
+     "path": "basketball/fiba",
+     "label": "FIBA",
+     "name": "FIBA World Cup",
+     "logo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/leagues/500-dark/fiba.png"
+    },
+    {
+     "path": "basketball/nba",
+     "label": "NBA",
+     "name": "National Basketball Association",
+     "logo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/leagues/500-dark/nba.png&w=500&h=500&transparent=true"
+    },
+    {
+     "path": "basketball/nba-development",
+     "label": "NBA G League",
+     "name": "NBA G League",
+     "logo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/leagues/500/nba_gleague.png"
+    },
+    {
+     "path": "basketball/mens-college-basketball",
+     "label": "NCAAM",
+     "name": "NCAA Men's Basketball",
+     "logo": "https://a.espncdn.com/redesign/assets/img/icons/ESPN-icon-basketball.png"
+    },
+    {
+     "path": "basketball/womens-college-basketball",
+     "label": "NCAAW",
+     "name": "NCAA Women's Basketball",
+     "logo": "https://a.espncdn.com/redesign/assets/img/icons/ESPN-icon-basketball.png"
+    },
+    {
+     "path": "basketball/wnba",
+     "label": "WNBA",
+     "name": "Women's National Basketball Association",
+     "logo": "https://a.espncdn.com/i/teamlogos/leagues/500-dark/wnba.png"
+    }
+   ]
+  },
+  {
+   "key": "racing",
+   "name": "Motorsport",
+   "leagues": [
+    {
+     "path": "racing/f1",
+     "label": "F1",
+     "name": "Formula 1",
+     "logo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/leagues/500/f1.png"
+    },
+    {
+     "path": "racing/irl",
+     "label": "IRL",
+     "name": "IndyCar Series",
+     "logo": "https://a.espncdn.com/combiner/i?img=/i/espn/teamlogos/500/indycar_series.png"
+    },
+    {
+     "path": "racing/nascar-premier",
+     "label": "NASCAR-PREMIER",
+     "name": "NASCAR Cup Series",
+     "logo": "https://a.espncdn.com/combiner/i?img=/redesign/assets/img/icons/ESPN-icon-NASCAR.png"
+    },
+    {
+     "path": "racing/nascar-secondary",
+     "label": "NASCAR-SECONDARY",
+     "name": "NASCAR O'Reilly Auto Parts Series",
+     "logo": "https://a.espncdn.com/combiner/i?img=/redesign/assets/img/icons/ESPN-icon-NASCAR.png"
+    },
+    {
+     "path": "racing/nascar-truck",
+     "label": "NASCAR-TRUCK",
+     "name": "NASCAR Truck Series",
+     "logo": "https://a.espncdn.com/combiner/i?img=/redesign/assets/img/icons/ESPN-icon-NASCAR.png"
+    },
+    {
+     "path": "racing/nhra",
+     "label": "NHRA",
+     "name": "National Hot Rod Association"
+    }
+   ]
+  },
+  {
+   "key": "golf",
+   "name": "Golf",
+   "leagues": [
+    {
+     "path": "golf/eur",
+     "label": "EUR",
+     "name": "DP World Tour",
+     "logo": "https://a.espncdn.com/combiner/i?img=/i/espn/teamlogos/500/european_tour.png"
+    },
+    {
+     "path": "golf/liv",
+     "label": "LIV",
+     "name": "LIV Golf Invitational Series",
+     "logo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/leagues/500-dark/livgolf.png"
+    },
+    {
+     "path": "golf/lpga",
+     "label": "LPGA",
+     "name": "Ladies Pro Golf Association",
+     "logo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/leagues/500-dark/lpga.png"
+    },
+    {
+     "path": "golf/pga",
+     "label": "PGA",
+     "name": "PGA TOUR",
+     "logo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/leagues/500-dark/pgatour.png"
+    },
+    {
+     "path": "golf/champions-tour",
+     "label": "SGA",
+     "name": "PGA TOUR Champions",
+     "logo": "https://a.espncdn.com/combiner/i?img=/i/espn/teamlogos/500/pga_champions_tour.png"
+    }
+   ]
+  },
+  {
+   "key": "football",
+   "name": "American Football",
+   "leagues": [
+    {
+     "path": "football/cfl",
+     "label": "CFL",
+     "name": "Canadian Football League"
+    },
+    {
+     "path": "football/college-football",
+     "label": "NCAAF",
+     "name": "NCAA - Football",
+     "logo": "https://a.espncdn.com/redesign/assets/img/icons/ESPN-icon-football-college.png"
+    },
+    {
+     "path": "football/nfl",
+     "label": "NFL",
+     "name": "National Football League",
+     "logo": "https://a.espncdn.com/i/teamlogos/leagues/500-dark/nfl.png"
+    },
+    {
+     "path": "football/ufl",
+     "label": "UFL",
+     "name": "United Football League",
+     "logo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/leagues/500-dark/ufl.png"
+    }
+   ]
+  },
+  {
+   "key": "hockey",
+   "name": "Ice Hockey",
+   "leagues": [
+    {
+     "path": "hockey/womens-college-hockey",
+     "label": "CWHOC",
+     "name": "NCAA Women's Hockey",
+     "logo": "https://a.espncdn.com/redesign/assets/img/icons/ESPN-icon-hockey.png"
+    },
+    {
+     "path": "hockey/mens-college-hockey",
+     "label": "NCAAH",
+     "name": "NCAA Men's Ice Hockey",
+     "logo": "https://a.espncdn.com/redesign/assets/img/icons/ESPN-icon-hockey.png"
+    },
+    {
+     "path": "hockey/nhl",
+     "label": "NHL",
+     "name": "National Hockey League",
+     "logo": "https://a.espncdn.com/i/teamlogos/leagues/500-dark/nhl.png"
+    },
+    {
+     "path": "hockey/hockey-world-cup",
+     "label": "WCH",
+     "name": "World Cup of Hockey"
+    }
+   ]
+  },
+  {
+   "key": "baseball",
+   "name": "Baseball",
+   "leagues": [
+    {
+     "path": "baseball/college-baseball",
+     "label": "CBASE",
+     "name": "NCAA Baseball",
+     "logo": "https://a.espncdn.com/combiner/i?img=/redesign/assets/img/icons/ESPN-icon-baseball.png"
+    },
+    {
+     "path": "baseball/college-softball",
+     "label": "CSOFT",
+     "name": "NCAA Softball",
+     "logo": "https://a.espncdn.com/i/espn/misc_logos/500/ncaa_womens_softball.png"
+    },
+    {
+     "path": "baseball/mlb",
+     "label": "MLB",
+     "name": "Major League Baseball",
+     "logo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/leagues/500-dark/mlb.png&w=500&h=500&transparent=true"
+    },
+    {
+     "path": "baseball/world-baseball-classic",
+     "label": "WBBC",
+     "name": "World Baseball Classic",
+     "logo": "https://a.espncdn.com/combiner/i?img=/redesign/assets/img/icons/ESPN-icon-baseball.png"
+    }
+   ]
+  },
+  {
+   "key": "rugby",
+   "name": "Rugby",
+   "leagues": [
+    {
+     "path": "rugby/289234",
+     "label": "International Test Match",
+     "name": "International Test Match",
+     "logo": "https://a.espncdn.com/combiner/i?img=/redesign/assets/img/icons/ESPN-icon-rugby.png"
+    },
+    {
+     "path": "rugby/180659",
+     "label": "Six Nations",
+     "name": "Six Nations",
+     "logo": "https://a.espncdn.com/guid/3c68c9b2-7e7c-3a78-9f96-cb954d22809d/logos/default-dark.png"
+    },
+    {
+     "path": "rugby/270559",
+     "label": "TOP14",
+     "name": "French Top 14",
+     "logo": "https://a.espncdn.com/combiner/i?img=/redesign/assets/img/icons/ESPN-icon-rugby.png"
+    }
+   ]
+  },
+  {
+   "key": "lacrosse",
+   "name": "Lacrosse",
+   "leagues": [
+    {
+     "path": "lacrosse/mens-college-lacrosse",
+     "label": "NCAAM Lacrosse",
+     "name": "NCAA Men's Lacrosse",
+     "logo": "https://a.espncdn.com/redesign/assets/img/icons/ESPN-icon-lacrosse.png"
+    },
+    {
+     "path": "lacrosse/womens-college-lacrosse",
+     "label": "NCAAW Lacrosse",
+     "name": "NCAA Women's Lacrosse",
+     "logo": "https://a.espncdn.com/redesign/assets/img/icons/ESPN-icon-lacrosse.png"
+    },
+    {
+     "path": "lacrosse/pll",
+     "label": "PLL",
+     "name": "Premier Lacrosse League",
+     "logo": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/leagues/500-dark/pll.png"
+    }
+   ]
+  },
+  {
+   "key": "tennis",
+   "name": "Tennis",
+   "leagues": [
+    {
+     "path": "tennis/atp",
+     "label": "ATP",
+     "name": "ATP",
+     "logo": "https://a.espncdn.com/combiner/i?img=/redesign/assets/img/icons/ESPN-icon-tennis.png"
+    },
+    {
+     "path": "tennis/wta",
+     "label": "WTA",
+     "name": "WTA",
+     "logo": "https://a.espncdn.com/combiner/i?img=/redesign/assets/img/icons/ESPN-icon-tennis.png"
+    }
+   ]
+  },
+  {
+   "key": "cricket",
+   "name": "Cricket",
+   "leagues": [
+    {
+     "path": "cricket/8048",
+     "label": "IPL",
+     "name": "Indian Premier League",
+     "logo": "https://a.espncdn.com/i/leaguelogos/cricket/500/8048.png"
+    },
+    {
+     "path": "cricket/8039",
+     "label": "World Cup",
+     "name": "World Cup",
+     "logo": "https://a.espncdn.com/i/leaguelogos/cricket/500/8039.png"
+    }
+   ]
+  },
+  {
+   "key": "mma",
+   "name": "Fighting",
+   "leagues": [
+    {
+     "path": "mma/pfl",
+     "label": "PFL",
+     "name": "Professional Fighters League",
+     "logo": "https://a.espncdn.com/i/teamlogos/leagues/500/pfl.png"
+    },
+    {
+     "path": "mma/ufc",
+     "label": "UFC",
+     "name": "Ultimate Fighting Championship",
+     "logo": "https://a.espncdn.com/i/teamlogos/leagues/500/ufc.png"
+    }
+   ]
+  },
+  {
+   "key": "volleyball",
+   "name": "Volleyball",
+   "leagues": [
+    {
+     "path": "volleyball/mens-college-volleyball",
+     "label": "NCAA Men's Volleyball",
+     "name": "NCAA Men's Volleyball",
+     "logo": "https://a.espncdn.com/combiner/i?img=/redesign/assets/img/icons/sports-volleyball-solid.png"
+    },
+    {
+     "path": "volleyball/womens-college-volleyball",
+     "label": "NCAA Women's Volleyball",
+     "name": "NCAA Women's Volleyball",
+     "logo": "https://a.espncdn.com/combiner/i?img=/redesign/assets/img/icons/sports-volleyball-solid.png"
+    }
+   ]
+  },
+  {
+   "key": "water-polo",
+   "name": "Water Polo",
+   "leagues": [
+    {
+     "path": "water-polo/mens-college-water-polo",
+     "label": "NCAAM Water Polo",
+     "name": "NCAA Men's Water Polo",
+     "logo": "https://a.espncdn.com/combiner/i?img=/redesign/assets/img/icons/sports-water-polo-solid.png"
+    }
+   ]
+  }
+ ]
+}

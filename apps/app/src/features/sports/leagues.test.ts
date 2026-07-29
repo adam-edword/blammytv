@@ -1,0 +1,104 @@
+import { describe, expect, it } from "vitest";
+import {
+  ALL_LEAGUES,
+  SPORTS,
+  league,
+  searchLeagues,
+  searchSports,
+  sportOf,
+} from "./leagues";
+
+/* The catalog is GENERATED, so these guard the generator as much as the
+ * reader: a bad regeneration should fail here rather than reach a picker. */
+describe("the catalog", () => {
+  it("carries every sport and league the harvest verified", () => {
+    expect(SPORTS.length).toBeGreaterThanOrEqual(14);
+    expect(ALL_LEAGUES.length).toBeGreaterThanOrEqual(150);
+  });
+
+  it("has a usable row for every league", () => {
+    for (const l of ALL_LEAGUES) {
+      // The path is the id AND the endpoint, so it has to be both halves.
+      expect(l.path).toMatch(/^[a-z-]+\/[\w.-]+$/);
+      expect(l.label.length).toBeGreaterThan(0);
+      expect(l.name.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("keys nothing twice", () => {
+    expect(new Set(ALL_LEAGUES.map((l) => l.path)).size).toBe(ALL_LEAGUES.length);
+    expect(new Set(SPORTS.map((s) => s.key)).size).toBe(SPORTS.length);
+  });
+
+  it("serves every mark over https", () => {
+    // The webview refuses mixed content, and ESPN hands a few of these back
+    // over http; the generator rewrites them. A regeneration that stopped
+    // doing that would show as missing logos and nothing else.
+    for (const l of ALL_LEAGUES)
+      if (l.logo) expect(l.logo.startsWith("https://")).toBe(true);
+  });
+
+  it("puts every league under the sport its path names", () => {
+    for (const s of SPORTS)
+      for (const l of s.leagues) expect(l.path.split("/")[0]).toBe(s.key);
+  });
+
+  it("still carries the five the hub shipped with", () => {
+    for (const p of [
+      "football/nfl",
+      "basketball/nba",
+      "baseball/mlb",
+      "hockey/nhl",
+      "soccer/eng.1",
+    ])
+      expect(league(p), p).toBeDefined();
+  });
+});
+
+describe("lookup", () => {
+  it("finds a league and its sport by path", () => {
+    expect(league("soccer/eng.1")?.label).toBe("Premier League");
+    expect(sportOf("soccer/eng.1")?.name).toBe("Soccer");
+    expect(sportOf("football/nfl")?.name).toBe("American Football");
+  });
+
+  it("answers undefined for a path we no longer carry", () => {
+    // What a saved follow looks like after a regeneration drops its league.
+    expect(league("soccer/gone.1")).toBeUndefined();
+    expect(sportOf("soccer/gone.1")).toBeUndefined();
+  });
+});
+
+describe("search", () => {
+  it("matches sports on their own name, not their leagues' names", () => {
+    expect(searchSports("foot").map((s) => s.name)).toContain(
+      "American Football",
+    );
+    // "cup" is in a dozen league names across four sports, and step one is
+    // asking which SPORT.
+    expect(searchSports("cup")).toHaveLength(0);
+  });
+
+  it("gives everything back for an empty query", () => {
+    expect(searchSports("  ")).toHaveLength(SPORTS.length);
+    expect(searchLeagues("")).toHaveLength(ALL_LEAGUES.length);
+  });
+
+  it("matches leagues on the label, the formal name, or the code", () => {
+    expect(searchLeagues("premier").some((l) => l.path === "soccer/eng.1")).toBe(
+      true,
+    );
+    expect(searchLeagues("english").some((l) => l.path === "soccer/eng.1")).toBe(
+      true,
+    );
+    expect(searchLeagues("eng.1").map((l) => l.path)).toContain("soccer/eng.1");
+  });
+
+  it("narrows to one sport when given one", () => {
+    const soccer = SPORTS.find((s) => s.key === "soccer")!;
+    const all = searchLeagues("cup");
+    const just = searchLeagues("cup", soccer);
+    expect(just.length).toBeLessThan(all.length);
+    expect(just.every((l) => l.path.startsWith("soccer/"))).toBe(true);
+  });
+});
