@@ -43,12 +43,21 @@ export const LEAGUES = [
 export type LeagueKey = (typeof LEAGUES)[number]["key"];
 
 /**
- * What to CALL each league where there are no games to ask.
+ * What to CALL each league, and what it looks like, where there are no
+ * games to ask.
  *
- * The board takes its league line from the response, which is right there
- * and is the source's own wording. The sidebar cannot: it offers all five
- * whether or not any of them is playing tonight, and a league out of season
- * answers with nothing to read a name out of.
+ * The board takes both from the response, which is right there and is the
+ * source's own wording. The sidebar cannot: it offers all five whether or
+ * not any of them is playing tonight, and a league out of season answers
+ * with nothing to read a name or a mark out of.
+ *
+ * The marks are the DARK variants the response itself points at
+ * (`leagues[0].logos`, rel `["full","dark"]`), verified 200 for all five.
+ * Two shapes rather than one pattern, and that is the source's doing: the
+ * US leagues live under teamlogos keyed by our own name, soccer under
+ * leaguelogos keyed by a competition number. Written out rather than
+ * derived, because a derivation that is wrong for one of five is just a
+ * table with a bug in it.
  */
 export const LEAGUE_NAMES: Record<LeagueKey, string> = {
   nfl: "NFL",
@@ -56,6 +65,15 @@ export const LEAGUE_NAMES: Record<LeagueKey, string> = {
   mlb: "MLB",
   nhl: "NHL",
   epl: "Premier League",
+};
+
+const LOGO = "https://a.espncdn.com/i";
+export const LEAGUE_LOGOS: Record<LeagueKey, string> = {
+  nfl: `${LOGO}/teamlogos/leagues/500-dark/nfl.png`,
+  nba: `${LOGO}/teamlogos/leagues/500-dark/nba.png`,
+  mlb: `${LOGO}/teamlogos/leagues/500-dark/mlb.png`,
+  nhl: `${LOGO}/teamlogos/leagues/500-dark/nhl.png`,
+  epl: `${LOGO}/leaguelogos/soccer/500-dark/23.png`,
 };
 
 /** ESPN's three states, in this app's words. */

@@ -1699,3 +1699,80 @@
   height: 16px;
   object-fit: contain;
 }
+
+/* Leagues as tiles, where the clubs beside them are a list.
+ *
+ * The difference is the COUNT, not the taste. Five leagues fit on screen at
+ * any window size, so they can afford the room a mark needs to be read at a
+ * glance; eighty clubs cannot, and a list you scan by name is the right
+ * shape for those.
+ *
+ * Two across because that is what the panel holds: 252px less its padding
+ * leaves 244, and two 118px tiles with an 8px gap land exactly there. Three
+ * would put the mark back at the size of the row icon it replaced, which is
+ * the thing this arrangement exists to escape. */
+.sportsside__tiles {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  /* Rows sit at the TOP, they do not share out the panel. The box takes the
+   * panel's full height so the list can scroll when there are more leagues
+   * than fit, and a grid's default align-content spreads its rows across
+   * whatever it was given — which put three rows of tiles at the top, the
+   * middle and the bottom of an 980px panel with nothing between them. */
+  align-content: start;
+  gap: 8px;
+  padding: 2px;
+  scrollbar-width: none;
+}
+.leaguetile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  /* Fixed, so a one-word league and a two-word one are the same object.
+   * The name wraps inside rather than growing the tile. */
+  height: 92px;
+  padding: 10px 8px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--text) 3%, transparent);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-hover) ease,
+    background var(--dur-hover) ease;
+}
+.leaguetile:hover {
+  border-color: var(--accent-border-hover);
+}
+/* Followed, in the same language the folder rows use: accent fill, accent
+ * border. One idea, said the same way in both halves of the panel. */
+.leaguetile--on {
+  background: var(--accent-surface);
+  border-color: var(--accent-border);
+}
+.leaguetile__mark {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  /* Idle marks sit back so the followed ones read as chosen; the tile's own
+   * fill is doing the work, and a full-strength logo on every tile makes
+   * the grid shout before it says anything. */
+  opacity: 0.75;
+  transition: opacity var(--dur-hover) ease;
+}
+.leaguetile--on .leaguetile__mark,
+.leaguetile:hover .leaguetile__mark {
+  opacity: 1;
+}
+.leaguetile__name {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 1.15;
+  text-align: center;
+  color: var(--text);
+}

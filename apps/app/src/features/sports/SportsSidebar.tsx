@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { ModeRail, type RailMode } from "../../ui/ModeRail";
 import { PanelIcon, RecentsIcon, StarIcon, TvIcon } from "../../ui/icons";
-import { LEAGUE_NAMES, LEAGUES } from "./espn";
+import { LEAGUE_LOGOS, LEAGUE_NAMES, LEAGUES } from "./espn";
 import {
   teamKey,
   toggleLeague,
@@ -93,16 +93,34 @@ export function SportsSidebar({
         )}
       </div>
 
+      {/* TILES, where the clubs below are a list, and the difference is
+        * the count. Five leagues fit on screen at any size, so they can
+        * afford the room a mark needs to be recognised at a glance; eighty
+        * clubs cannot, and a list you scan by name is the right shape for
+        * those. Two across is what 252px of panel holds without shrinking
+        * the mark to the size of the row icon it is replacing. */}
       {!collapsed && mode === "leagues" && (
-        <div className="live-sidebar__folders">
-          {LEAGUES.map((l) => (
-            <Row
-              key={l.key}
-              label={LEAGUE_NAMES[l.key]}
-              on={follows.leagues.includes(l.key)}
-              onClick={() => onFollows(toggleLeague(follows, l.key))}
-            />
-          ))}
+        <div className="sportsside__tiles">
+          {LEAGUES.map((l) => {
+            const on = follows.leagues.includes(l.key);
+            return (
+              <button
+                key={l.key}
+                type="button"
+                className={"leaguetile" + (on ? " leaguetile--on" : "")}
+                aria-pressed={on}
+                onClick={() => onFollows(toggleLeague(follows, l.key))}
+              >
+                <img
+                  className="leaguetile__mark"
+                  src={LEAGUE_LOGOS[l.key]}
+                  alt=""
+                  loading="lazy"
+                />
+                <span className="leaguetile__name">{LEAGUE_NAMES[l.key]}</span>
+              </button>
+            );
+          })}
         </div>
       )}
 
