@@ -49,50 +49,59 @@ const YEAR = new Date().getFullYear();
 const OVERRIDE = { 4211: "lusail" };
 
 /**
- * Country names to the codes ESPN files its flags under.
+ * Country names to ISO 3166-1 alpha-2, which is how the flags are filed.
  *
- * Its own athlete payloads point at
- * /i/teamlogos/countries/500/{code}.png and the codes are IOC ones, but a
- * circuit gives a NAME ("Hungary") and never a code, so the join is here.
- * Every entry is verified against the CDN at harvest time; a miss drops the
- * flag rather than shipping a 404, and the card is built to go without.
- *
- * Saudi Arabia is the one that is not the obvious guess: ksa, not sau.
+ * A circuit gives a NAME ("Hungary") and never a code, so the join has to
+ * live somewhere and this is the only place that needs it.
  */
 const FLAGS = {
-  australia: "aus",
-  austria: "aut",
-  azerbaijan: "aze",
-  bahrain: "brn",
-  belgium: "bel",
-  brazil: "bra",
-  britain: "gbr",
-  canada: "can",
-  china: "chn",
-  hungary: "hun",
-  italy: "ita",
-  japan: "jpn",
-  mexico: "mex",
-  monaco: "mon",
-  netherlands: "ned",
-  qatar: "qat",
-  "saudi arabia": "ksa",
-  singapore: "sgp",
-  spain: "esp",
-  "united arab emirates": "uae",
-  usa: "usa",
+  australia: "au",
+  austria: "at",
+  azerbaijan: "az",
+  bahrain: "bh",
+  belgium: "be",
+  brazil: "br",
+  britain: "gb",
+  canada: "ca",
+  china: "cn",
+  hungary: "hu",
+  italy: "it",
+  japan: "jp",
+  mexico: "mx",
+  monaco: "mc",
+  netherlands: "nl",
+  qatar: "qa",
+  "saudi arabia": "sa",
+  singapore: "sg",
+  spain: "es",
+  "united arab emirates": "ae",
+  usa: "us",
 };
 
-const FLAG_BASE = "https://a.espncdn.com/i/teamlogos/countries/500";
+/**
+ * OUR OWN FLAGS, not ESPN's.
+ *
+ * ESPN letterboxes every country inside a 500x500 transparent canvas —
+ * measured, the ink is 460x310 at 20,93 for every country, the Union Jack
+ * included. A card that wants the flag flush to its right edge cannot use
+ * that: object-fit has no idea the margin is empty, so the flag stops short
+ * of the edge and the only fix is a scale that hides the padding by
+ * overflowing it.
+ *
+ * lipis/flag-icons (MIT) files each country as a 4x3 SVG that IS the flag,
+ * edge to edge, in about half a kilobyte. So the geometry is honest, the
+ * art stays sharp at any size, and nothing binary lands in the repo.
+ */
+const FLAG_ART = "https://raw.githubusercontent.com/lipis/flag-icons/main/flags/4x3";
+const FLAG_OUT = new URL("flags/", OUT);
 
-/** The flag, if ESPN actually has it. Verified, not assumed. */
+/** Vendor the flag and answer its code, or undefined if there is no join. */
 async function flagFor(country) {
   const code = FLAGS[(country ?? "").toLowerCase()];
   if (!code) return undefined;
-  const url = `${FLAG_BASE}/${code}.png`;
   try {
-    await run("curl", ["-sfI", "--max-time", "20", url]);
-    return url;
+    await writeFile(new URL(`${code}.svg`, FLAG_OUT), await get(`${FLAG_ART}/${code}.svg`));
+    return code;
   } catch {
     return undefined;
   }
@@ -159,6 +168,7 @@ for (const e of espn.events ?? []) {
 }
 
 await mkdir(OUT, { recursive: true });
+await mkdir(FLAG_OUT, { recursive: true });
 const map = {};
 const unmatched = [];
 const stale = [];

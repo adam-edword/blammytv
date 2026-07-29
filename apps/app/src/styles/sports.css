@@ -1883,34 +1883,35 @@
 
 /* The host country's colours, hugging the right edge.
  *
- * The flag itself, not a bloom of it: at 15% it is a tint rather than a
- * picture, so it can stay sharp and still sit behind type. A left-to-right
- * gradient carries it in from nothing, so there is no edge where the wash
- * starts.
+ * The flag itself and nothing done to it: at 15% it is a tint rather than a
+ * picture, so it can stay sharp and still sit behind type. Nothing scales
+ * it, nothing crops it. The mask is on the image rather than on a box
+ * around it, so the fade runs from the flag's own left edge to the card's
+ * right edge with no stretch of empty gradient in front of it.
  *
  * Masked rather than covered with a scrim, because a scrim has to match the
  * card's own background to disappear into it and a mask has to match
  * nothing.
- */
+ *
+ * OUR flags, not ESPN's, and that is what makes the geometry above true.
+ * ESPN letterboxes every country inside a 500x500 canvas — measured, ink
+ * 460x310 at 20,93, identical for every country — so its files can only
+ * reach an edge by being scaled past it. See circuits.ts. */
 .racecard__flag {
   position: absolute;
-  inset: 0 0 0 32%;
-  overflow: hidden;
-  border-radius: inherit;
-  pointer-events: none;
-  -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 100%);
-  mask-image: linear-gradient(to right, transparent 0%, #000 100%);
-}
-.racecard__flag img {
-  width: 100%;
+  /* No left: the box shrinks to the flag's own 4:3, so "the left of the
+   * image" and "the left of the box" are the same edge. */
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: auto;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: right center;
   opacity: 0.15;
-  /* The flag is LETTERBOXED inside a 500x500 canvas: measured, its ink runs
-   * about 65 to 435 across, so object-fit: cover still leaves a transparent
-   * strip down each side and the tint would stop short of both edges.
-   * Zooming past the box puts the empty margin outside it. */
-  transform: scale(1.45);
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000);
+  mask-image: linear-gradient(to right, transparent, #000);
 }
 
 /* Where, over the track. */

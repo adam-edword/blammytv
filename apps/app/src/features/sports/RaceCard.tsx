@@ -1,4 +1,4 @@
-import { art, circuit } from "./circuits";
+import { art, flagArt } from "./circuits";
 
 /**
  * A race session, as a card (plan 010, Adam's Figma).
@@ -51,16 +51,14 @@ export interface Race {
 
 export function RaceCard({ race }: { race: Race }) {
   const track = art(race.circuitId);
-  const flag = race.circuitId ? circuit(race.circuitId)?.flag : undefined;
+  const flag = flagArt(race.circuitId);
   return (
     <button type="button" className="racecard" title={`${race.place} ${race.session}`}>
       {/* The host country's colours, hugging the right edge. The card was
         * all greys and a couple of driver flags, and a race has a country
         * in a way a fixture between two clubs does not. */}
       {flag && (
-        <span className="racecard__flag" aria-hidden>
-          <img src={flag} alt="" loading="lazy" />
-        </span>
+        <img className="racecard__flag" src={flag} alt="" aria-hidden loading="lazy" />
       )}
       <span className="racecard__clock">
         {race.state === "live" && <span className="gamepip" aria-hidden />}

@@ -28,14 +28,34 @@ const FILES = import.meta.glob<string>("./circuits/*.svg", {
   eager: true,
 });
 
+/**
+ * The country flags, as URLs rather than inlined.
+ *
+ * The opposite call to the layouts above, and for the opposite reason: a
+ * layout is one stroked path that the card colours, so it has to be inline;
+ * a flag is a finished picture with its own colours, so it wants to be an
+ * <img> the browser can cache and decode off the main thread. Spain and
+ * Mexico are 80KB apiece of coat of arms.
+ *
+ * lipis/flag-icons (MIT), vendored by scripts/harvest-circuits.mjs. Ours
+ * rather than ESPN's because ESPN letterboxes every flag inside a square
+ * canvas, and the card puts this flush against its own right edge.
+ */
+const FLAGS = import.meta.glob<string>("./circuits/flags/*.svg", {
+  query: "?url",
+  import: "default",
+  eager: true,
+});
+
 interface Circuit {
   /** The art's own id: "hungaroring-3". */
   layout: string;
   /** As our schedule names it: "Hungaroring". */
   name: string;
   country?: string;
-  /** The country's flag, for the card's backdrop. Harvested and verified;
-   * absent means ESPN had none, and the card is built to go without. */
+  /** The host country as ISO 3166-1 alpha-2, which is how the flags are
+   * filed. Absent means the harvest had no join for the country name, and
+   * the card is built to go without. */
   flag?: string;
 }
 
@@ -60,4 +80,10 @@ export function art(id: string | undefined): string | undefined {
   if (!id) return undefined;
   const found = CIRCUITS[id];
   return found ? FILES[`./circuits/${found.layout}.svg`] : undefined;
+}
+
+/** The host country's flag as a URL, or undefined. */
+export function flagArt(id: string | undefined): string | undefined {
+  const code = id ? CIRCUITS[id]?.flag : undefined;
+  return code ? FLAGS[`./circuits/flags/${code}.svg`] : undefined;
 }
