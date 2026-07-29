@@ -817,3 +817,87 @@ commitment. Say so in the file itself.
   arming and timeout, and the save picker's arrow keys.
 - **[ ] I2.** Merge `blammytv-0.8.0-push` into main. Waiting on Adam.
 - **[ ] I3.** Clear the five TEMPORARY markers. All go with A1.
+
+---
+
+## Probe results, 2026-07-29
+
+Read-only investigations run against the live endpoints so the decisions
+above can be made from data rather than from guesses. Raw output is in the
+session scratchpad; the numbers that matter are here.
+
+### B4. Every league in the catalog, classified
+
+All 151 leagues, by the SHAPE of their payload rather than by their name.
+
+| Count | Shape | Meaning |
+|---|---|---|
+| 134 | `team` | Two sides with `homeAway`. The card that exists already handles them. |
+| 4 | `field` | An ordered field: F1, NASCAR-PREMIER, PGA, LPGA. |
+| 2 | `grouped` | Matches nested under `groupings`: ATP, WTA. **Done in v0.8.103.** |
+| 2 | `twoSided` | Two sides, no `homeAway`: UFC and **PFL**. |
+| 6 | `unknown` | Racing and golf leagues whose current event is `pre` and so carries no competitors. They are `field` out of season. |
+| 3 | `empty` | No events at all right now. |
+
+**89% of the catalog needs no new card.** The work is confined to Golf
+(5 leagues) and Fighting (2), because racing is largely built and tennis is
+now done. Note PFL: the plan only ever mentioned UFC, and there are two.
+
+### A3. The five racing leagues with no circuit
+
+Confirmed: IndyCar, all three NASCAR series and NHRA carry **no `circuit`
+and no `venue`**, at either the event or the competition level. NHRA
+returned **0 events** for the whole 2026 season.
+
+The only identifier is `name`, which equals `shortName` on every event.
+Lengths, over 116 events:
+
+| League | Events | Name length |
+|---|---|---|
+| IndyCar | 18 | 16 to 40 |
+| NASCAR Cup | 40 | 7 to 50 |
+| NASCAR O'Reilly | 33 | **41 to 60** |
+| NASCAR Truck | 25 | 28 to 39 |
+
+**But the venue is inside the name.** These read "&lt;Series&gt; at
+&lt;Venue&gt;" or "Grand Prix of &lt;Venue&gt;", and the series is already
+printed on the card, so the useful half is what follows the last " at " or
+" of ".
+
+Tested that rule over all 116 events: it fires on 111, and the 5 it skips
+("Daytona 500", "Indianapolis 500", "Duel #1") are already the right thing
+to show. **Longest drops from 60 characters to 31.** 52 distinct venues.
+
+Still 62 of 116 over 8 characters, so `shortPlace`'s country coding cannot
+help here: a venue has no three letter code. A3 needs its own display path,
+but it starts from 31 characters rather than 60.
+
+### B1. Golf
+
+Probed a finished tournament (RBC Heritage, 82 competitors).
+
+- `order` is leaderboard position.
+- `score` is to par, as a STRING: `"-19"`, `"E"`.
+- `linescores` are the rounds: `65,63,68,70`.
+- `winner` is **undefined**, unlike UFC. Position 1 is the winner.
+- `athlete.flag` is present, so the mark works the way racing's does.
+- `statistics` is empty on every competitor.
+- Fields are 82 to 147 deep, so a card shows a top few, exactly like a
+  podium.
+
+**Structurally this is the race card with a different number.** Position,
+flag, name down one side; the difference is that the number is to par
+rather than a place, and there are rounds rather than laps.
+
+### B3. UFC and MMA
+
+Probed 42 events, 24 with finished bouts, 300 decided bouts.
+
+- `homeAway` on **0** of them. Confirmed absent, not merely unreliable.
+- `order` and `winner` on all of them.
+- `records` carries "10-6-0", which a card could use.
+
+**`order` does not mean anything beyond listing sequence.** Order 1 won
+**167 of 300** decided bouts, which is 55.7%, a coin flip. So it cannot
+stand in for "home" or for "favourite"; picking order 1 as the first side
+is a display convention only, and `winner` is what decides the result.
