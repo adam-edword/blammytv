@@ -34,6 +34,9 @@ interface Circuit {
   /** As our schedule names it: "Hungaroring". */
   name: string;
   country?: string;
+  /** The country's flag, for the card's backdrop. Harvested and verified;
+   * absent means ESPN had none, and the card is built to go without. */
+  flag?: string;
 }
 
 const CIRCUITS: Record<string, Circuit> = index.circuits;

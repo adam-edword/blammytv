@@ -48,6 +48,56 @@ const YEAR = new Date().getFullYear();
  */
 const OVERRIDE = { 4211: "lusail" };
 
+/**
+ * Country names to the codes ESPN files its flags under.
+ *
+ * Its own athlete payloads point at
+ * /i/teamlogos/countries/500/{code}.png and the codes are IOC ones, but a
+ * circuit gives a NAME ("Hungary") and never a code, so the join is here.
+ * Every entry is verified against the CDN at harvest time; a miss drops the
+ * flag rather than shipping a 404, and the card is built to go without.
+ *
+ * Saudi Arabia is the one that is not the obvious guess: ksa, not sau.
+ */
+const FLAGS = {
+  australia: "aus",
+  austria: "aut",
+  azerbaijan: "aze",
+  bahrain: "brn",
+  belgium: "bel",
+  brazil: "bra",
+  britain: "gbr",
+  canada: "can",
+  china: "chn",
+  hungary: "hun",
+  italy: "ita",
+  japan: "jpn",
+  mexico: "mex",
+  monaco: "mon",
+  netherlands: "ned",
+  qatar: "qat",
+  "saudi arabia": "ksa",
+  singapore: "sgp",
+  spain: "esp",
+  "united arab emirates": "uae",
+  usa: "usa",
+};
+
+const FLAG_BASE = "https://a.espncdn.com/i/teamlogos/countries/500";
+
+/** The flag, if ESPN actually has it. Verified, not assumed. */
+async function flagFor(country) {
+  const code = FLAGS[(country ?? "").toLowerCase()];
+  if (!code) return undefined;
+  const url = `${FLAG_BASE}/${code}.png`;
+  try {
+    await run("curl", ["-sfI", "--max-time", "20", url]);
+    return url;
+  } catch {
+    return undefined;
+  }
+}
+
 const get = async (url) =>
   (await run("curl", ["-sfL", "--max-time", "30", url], { maxBuffer: 1 << 26 })).stdout;
 
@@ -147,7 +197,13 @@ for (const [id, c] of tracks) {
       '<svg$1 viewBox="0 0 500 500"',
     );
   await writeFile(new URL(`${layout.layoutId}.svg`, OUT), svg);
-  map[id] = { layout: layout.layoutId, name: c.fullName, country: c.address?.country };
+  const country = c.address?.country;
+  map[id] = {
+    layout: layout.layoutId,
+    name: c.fullName,
+    country,
+    flag: await flagFor(country),
+  };
 }
 
 await writeFile(
@@ -155,6 +211,9 @@ await writeFile(
   JSON.stringify({ year: YEAR, circuits: map }, null, 1) + "\n",
 );
 
-console.log(`${Object.keys(map).length} of ${tracks.size} circuits mapped and vendored`);
+const flagged = Object.values(map).filter((m) => m.flag).length;
+console.log(
+  `${Object.keys(map).length} of ${tracks.size} circuits mapped and vendored, ${flagged} with a flag`,
+);
 if (stale.length) console.log(`no ${YEAR} layout, using the most recent:\n  ${stale.join("\n  ")}`);
 if (unmatched.length) console.log(`UNMATCHED:\n  ${unmatched.join("\n  ")}`);

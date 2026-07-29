@@ -1,4 +1,4 @@
-import { art } from "./circuits";
+import { art, circuit } from "./circuits";
 
 /**
  * A race session, as a card (plan 010, Adam's Figma).
@@ -40,7 +40,7 @@ export interface Race {
   session: string;
   /** Where, in one word: "Hungary". */
   place: string;
-  /** The circuit id, for the art. Absent outside F1. */
+  /** The circuit id, for the art and the flag. Absent outside F1. */
   circuitId?: string;
   /** Kick-off, already formatted: this card never does its own clock. */
   time: string;
@@ -51,8 +51,21 @@ export interface Race {
 
 export function RaceCard({ race }: { race: Race }) {
   const track = art(race.circuitId);
+  const flag = race.circuitId ? circuit(race.circuitId)?.flag : undefined;
   return (
     <button type="button" className="racecard" title={`${race.place} ${race.session}`}>
+      {/* The host country's colours, over the half the place name sits on.
+        * The card was all greys and a couple of driver flags, and a race
+        * has a country in a way a fixture between two clubs does not.
+        *
+        * Blurred past recognition on purpose: this is the flag as a wash,
+        * the same idea the game cards use with a crest, and a legible flag
+        * behind white type would be a second thing to read. */}
+      {flag && (
+        <span className="racecard__flag" aria-hidden>
+          <img src={flag} alt="" loading="lazy" />
+        </span>
+      )}
       <span className="racecard__clock">
         {race.state === "live" && <span className="gamepip" aria-hidden />}
         {race.time}

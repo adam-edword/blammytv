@@ -4,122 +4,146 @@
   "601": {
    "layout": "melbourne-2",
    "name": "Melbourne Grand Prix Circuit",
-   "country": "Australia"
+   "country": "Australia",
+   "flag": "https://a.espncdn.com/i/teamlogos/countries/500/aus.png"
   },
   "603": {
    "layout": "bahrain-1",
    "name": "Bahrain International Circuit",
-   "country": "Bahrain"
+   "country": "Bahrain",
+   "flag": "https://a.espncdn.com/i/teamlogos/countries/500/brn.png"
   },
   "605": {
    "layout": "madring-1",
    "name": "Madring",
-   "country": "Spain"
+   "country": "Spain",
+   "flag": "https://a.espncdn.com/i/teamlogos/countries/500/esp.png"
   },
   "606": {
    "layout": "monaco-6",
    "name": "Circuit de Monaco",
-   "country": "Monaco"
+   "country": "Monaco",
+   "flag": "https://a.espncdn.com/i/teamlogos/countries/500/mon.png"
   },
   "607": {
    "layout": "baku-1",
    "name": "Baku City Circuit",
-   "country": "Azerbaijan"
+   "country": "Azerbaijan",
+   "flag": "https://a.espncdn.com/i/teamlogos/countries/500/aze.png"
   },
   "608": {
    "layout": "montreal-6",
    "name": "Circuit Gilles-Villeneuve",
-   "country": "Canada"
+   "country": "Canada",
+   "flag": "https://a.espncdn.com/i/teamlogos/countries/500/can.png"
   },
   "609": {
    "layout": "austin-1",
    "name": "Circuit of the Americas",
-   "country": "USA"
+   "country": "USA",
+   "flag": "https://a.espncdn.com/i/teamlogos/countries/500/usa.png"
   },
   "611": {
    "layout": "silverstone-8",
    "name": "Silverstone Circuit",
-   "country": "Britain"
+   "country": "Britain",
+   "flag": "https://a.espncdn.com/i/teamlogos/countries/500/gbr.png"
   },
   "613": {
    "layout": "hungaroring-3",
    "name": "Hungaroring",
-   "country": "Hungary"
+   "country": "Hungary",
+   "flag": "https://a.espncdn.com/i/teamlogos/countries/500/hun.png"
   },
   "615": {
    "layout": "monza-7",
    "name": "Autodromo Nazionale Monza",
-   "country": "Italy"
+   "country": "Italy",
+   "flag": "https://a.espncdn.com/i/teamlogos/countries/500/ita.png"
   },
   "616": {
    "layout": "spa-francorchamps-4",
    "name": "Circuit de Spa-Francorchamps",
-   "country": "Belgium"
+   "country": "Belgium",
+   "flag": "https://a.espncdn.com/i/teamlogos/countries/500/bel.png"
   },
   "617": {
    "layout": "interlagos-2",
    "name": "Autodromo Jose Carlos Pace",
-   "country": "Brazil"
+   "country": "Brazil",
+   "flag": "https://a.espncdn.com/i/teamlogos/countries/500/bra.png"
   },
   "618": {
    "layout": "suzuka-2",
    "name": "Suzuka International Racing Course",
-   "country": "Japan"
+   "country": "Japan",
+   "flag": "https://a.espncdn.com/i/teamlogos/countries/500/jpn.png"
   },
   "619": {
    "layout": "shanghai-1",
    "name": "Shanghai International Circuit",
-   "country": "China"
+   "country": "China",
+   "flag": "https://a.espncdn.com/i/teamlogos/countries/500/chn.png"
   },
   "740": {
    "layout": "marina-bay-4",
    "name": "Marina Bay Street Circuit",
-   "country": "Singapore"
+   "country": "Singapore",
+   "flag": "https://a.espncdn.com/i/teamlogos/countries/500/sgp.png"
   },
   "744": {
    "layout": "yas-marina-2",
    "name": "Yas Marina Circuit",
-   "country": "United Arab Emirates"
+   "country": "United Arab Emirates",
+   "flag": "https://a.espncdn.com/i/teamlogos/countries/500/uae.png"
   },
   "779": {
    "layout": "spielberg-3",
    "name": "Red Bull Ring",
-   "country": "Austria"
+   "country": "Austria",
+   "flag": "https://a.espncdn.com/i/teamlogos/countries/500/aut.png"
   },
   "782": {
    "layout": "mexico-city-3",
    "name": "Autodromo Hermanos Rodriguez",
-   "country": "Mexico"
+   "country": "Mexico",
+   "flag": "https://a.espncdn.com/i/teamlogos/countries/500/mex.png"
   },
   "1102": {
    "layout": "zandvoort-5",
    "name": "Circuit Park Zandvoort",
-   "country": "Netherlands"
+   "country": "Netherlands",
+   "flag": "https://a.espncdn.com/i/teamlogos/countries/500/ned.png"
   },
   "4069": {
    "layout": "jeddah-1",
    "name": "Jeddah Street Circuit",
-   "country": "Saudi Arabia"
+   "country": "Saudi Arabia",
+   "flag": "https://a.espncdn.com/i/teamlogos/countries/500/ksa.png"
   },
   "4211": {
    "layout": "lusail-1",
    "name": "Losail International Circuit",
-   "country": "Qatar"
+   "country": "Qatar",
+   "flag": "https://a.espncdn.com/i/teamlogos/countries/500/qat.png"
   },
   "4243": {
    "layout": "miami-1",
    "name": "Miami International Autodrome",
-   "country": "USA"
+   "country": "USA",
+   "flag": "https://a.espncdn.com/i/teamlogos/countries/500/usa.png"
   },
   "4250": {
    "layout": "las-vegas-1",
    "name": "Las Vegas Street Circuit",
-   "country": "USA"
+   "country": "USA",
+   "flag": "https://a.espncdn.com/i/teamlogos/countries/500/usa.png"
   },
   "5826": {
    "layout": "catalunya-6",
    "name": "Circuit de Catalunya",
-   "country": "Spain"
+   "country": "Spain",
+   "flag": "https://a.espncdn.com/i/teamlogos/countries/500/esp.png"
   }
  }
 }
