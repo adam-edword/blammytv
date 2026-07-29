@@ -901,3 +901,83 @@ Probed 42 events, 24 with finished bouts, 300 decided bouts.
 **167 of 300** decided bouts, which is 55.7%, a coin flip. So it cannot
 stand in for "home" or for "favourite"; picking order 1 as the first side
 is a display convention only, and `winner` is what decides the result.
+
+---
+
+## Overnight session, 2026-07-29
+
+### Done
+
+- **B2 tennis extraction.** v0.8.103. Matches live under `groupings`, sets
+  rather than games, the match's own date, doubles pairs read from `roster`.
+- **C3 sidebar collapse persists.** v0.8.105.
+- **Session name tooltips** (the safe half of A8, see below).
+- **Debloat**: four dead rules, one dead export, and a real focus-ring bug
+  where `.continue-card__sources-btn` never matched the element.
+- **Perf**: one ResizeObserver for the page instead of 296, the F1 season
+  and the channel index cached across mounts, and 20.5 kB of woff
+  fallbacks the build plugin was already trying to drop.
+
+### A8 cannot be done as written
+
+Expanding the sprint abbreviations breaks the card. Measured at the
+board's narrowest 315px track:
+
+| Labels | Result |
+|---|---|
+| `SS` / `SR` | fits, country clears the schedule by 17.7px |
+| `SPRINT` / `SPRINT` | country 4.3px past the card's padding |
+| `SPRINT QUAL` / `SPRINT RACE` | country **overlaps the schedule by 9.9px** |
+
+The expansions live on the row's tooltip instead, which costs no width.
+Printing them needs a layout change first, which is Adam's call.
+
+### F3 and H4 are not actionable yet
+
+- **F3**: `REFRESH_MS` is currently the ONLY timing constant in the sports
+  feature. A module for one value is indirection, not a scar fix. It
+  becomes real when D2 adds backoff and a cache age beside it.
+- **H4**: there is no rights map to date. `matcher.ts`'s `BRANDS` is
+  brand-name normalisation, not a carriage table.
+
+### New: not previously on the list
+
+- **A9. `.sports__grid` is not windowed, and neither is Stream Home.**
+  A perf sweep measured `react-parallax-tilt` registering a `resize`
+  listener per instance that reads geometry then writes the glare element's
+  size, interleaved. At 400 mounted cards that is 30ms per resize event and
+  at 1000 it is 154ms; reads alone are 1.8ms, so it is entirely the write.
+  Stream Home renders rows x items with no virtualization at a default cap
+  of 40. The cheap fix is `glareEnable={false}`, which removes the sheen
+  Adam asked for, so the real fix is windowing. Needs a decision.
+
+- **A10. Three more measured perf items, none applied.**
+  `TheaterOverlay` hit-tests the document on every raw `mousemove`
+  (`elementFromPoint`, 0.34ms a call, about 40ms/sec at 120Hz while a
+  stream plays) and wants an rAF coalesce. `LiveScreen`'s `visible` memo is
+  `favorites.map(id => channels.find(...))`, 20.8ms at 500 favourites on a
+  20k catalog, and wants a Map. `SportsScreen` re-resolves all four days'
+  channels on every 90 second tick, about 19ms of matcher work for three
+  days that did not change.
+
+- **A11. Code splitting is a tidiness change, not a performance one.**
+  Measured: lazy loading Sports, Settings, Themes, Onboarding, Discover and
+  Library cuts the main chunk 523 to 349 kB, but V8 compile only moves
+  10.2ms to 7.7ms, and because updates ship as a tar.gz of `dist/` the
+  update download gets about 9 kB BIGGER. The honest reasons to do it are
+  that 63.9 kB of F1 circuit art stops being retained for people who never
+  open Sports, and the >500 kB warning goes away truthfully.
+
+- **A12. Preact is not an option**, though it is the biggest single item in
+  the bundle at 130 kB. Its `StrictMode` is a no-op, and this codebase
+  relies on StrictMode double-invoke to surface races: both the v0.1.106
+  disk cache race and this hub's own autoplay race were caught that way.
+
+### Left for Adam
+
+- `website/shots/guide-src.jpg` and `theater-src.jpg`, 1.76 MB, plainly the
+  uncompressed masters of two shots that are used. Whether sources live in
+  git is a decision, not a cleanup.
+- `mpv_blur` is dead by every grep, and `HANDOFF.md` and `ROADMAP.md` both
+  say to keep it. Left alone. `mpv.rs`'s comment naming it as the live
+  caller was stale and now names `mpv_frost` too.
