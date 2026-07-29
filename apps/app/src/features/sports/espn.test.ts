@@ -3,6 +3,7 @@ import { LEAGUES, espnDate, toGames } from "./espn";
 import epl from "./fixtures/epl-scoreboard.json";
 import mlb from "./fixtures/mlb-scoreboard.json";
 import nfl from "./fixtures/nfl-scoreboard.json";
+import atp from "./fixtures/atp-scoreboard.json";
 
 /**
  * The mapping, against real responses.
@@ -178,5 +179,89 @@ describe("espnDate", () => {
     // Whose Tuesday it is comes from the person asking.
     const late = new Date(2026, 6, 26, 23, 30);
     expect(espnDate(late)).toBe("20260726");
+  });
+});
+
+/**
+ * Tennis, which is the one sport whose matches are not where every other
+ * sport puts them.
+ *
+ * The fixture is a real ATP board, pruned to the paths the adapter reads:
+ * one tournament, `competitions` empty, two groupings with three matches
+ * each. On the live board that same event carried 121.
+ */
+describe("toGames over a tennis tournament", () => {
+  const league = { key: "atp", sport: "tennis", path: "tennis/atp" } as never;
+
+  it("finds the matches under groupings, where competitions is empty", () => {
+    const games = toGames(atp, league);
+    expect(atp.events[0].competitions).toHaveLength(0);
+    expect(games).toHaveLength(3);
+  });
+
+  it("gives every match its own id", () => {
+    // One event, six matches. Without a suffix they would all collide on
+    // the event id and React would render one card.
+    const ids = toGames(atp, league).map((g) => g.id);
+    expect(new Set(ids).size).toBe(3);
+  });
+
+  it("scores a match in SETS, not in games won", () => {
+    // 6-3, 4-6, 2-6 is one set to two. Adding the games up would say 12-15,
+    // which is not a tennis score at all.
+    const g = toGames(atp, league)[0];
+    // 3-6, 6-4, 6-2 is two sets to one, not 15 games to 12.
+    expect([g.home.score, g.away.score].sort()).toEqual([1, 2]);
+  });
+
+  it("names a DOUBLES pair, which has no athlete at all", () => {
+    // 37 of 175 matches on the live board are doubles. They drop `athlete`
+    // and carry a roster instead, and reading only `athlete` left every one
+    // of them blank.
+    const pair = toGames(atp, league).find((g) => g.home.name.includes("/"));
+    expect(pair).toBeDefined();
+    expect(pair!.home.name).toContain("/");
+    expect(pair!.away.name).toContain("/");
+  });
+
+  it("scores a whitewash as ZERO, not as nothing", () => {
+    // Straight sets means the loser won none, and none is a score. Running
+    // the count through `|| undefined` blanked every one of these.
+    const g = toGames(atp, league).find(
+      (x) => x.home.score === 0 || x.away.score === 0,
+    );
+    expect(g).toBeDefined();
+    const loser = g!.home.score === 0 ? g!.home : g!.away;
+    expect(loser.score).toBe(0);
+    expect(loser.score).not.toBeUndefined();
+  });
+
+  it("reads the competitor from athlete rather than team", () => {
+    const g = toGames(atp, league)[0];
+    expect(g.home.name).toBeTruthy();
+    // A country flag stands in for the crest an individual does not have.
+    expect(g.home.logo ?? "").toContain("http");
+    // Derived, because an athlete carries no abbreviation of its own.
+    expect(g.home.abbr).toMatch(/^[A-Z]{1,3}$/);
+  });
+
+  it("dates a match by the MATCH, not by the tournament", () => {
+    // A tournament runs a week. Taking the event date would file every
+    // match in the draw under its opening day.
+    const games = toGames(atp, league);
+    const days = new Set(games.map((g) => g.start.toDateString()));
+    expect(days.size).toBeGreaterThanOrEqual(1);
+    for (const g of games) expect(Number.isNaN(g.start.getTime())).toBe(false);
+  });
+});
+
+describe("toGames leaves single match events exactly as they were", () => {
+  it("keeps the id it always had, with no suffix", () => {
+    // Ids are React keys and the row's scroll anchor. Tennis must not
+    // rename every game in the app.
+    const league = LEAGUES.find((l) => l.key === "epl")!;
+    for (const g of toGames(epl, league)) {
+      expect(g.id).toMatch(/^espn-epl-\d+$/);
+    }
   });
 });

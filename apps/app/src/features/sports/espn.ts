@@ -1,3 +1,4 @@
+import { driverCode } from "./driverCode";
 import type { Competitor, Game, GameState } from "./model";
 
 /**
@@ -92,8 +93,20 @@ interface RawEvent {
   id?: string;
   date?: string;
   competitions?: RawCompetition[];
+  /**
+   * Tennis, and only tennis so far.
+   *
+   * A tournament puts its matches under groupings (Men's Singles, Women's
+   * Doubles) and leaves `competitions` EMPTY, so an adapter that reads
+   * only `competitions` sees a tournament with nothing in it. Measured on
+   * a real ATP board: two events, `competitions` length 0 on both,
+   * `groupings` length 2 and 4, holding 54 and 121 matches.
+   */
+  groupings?: { competitions?: RawCompetition[] }[];
 }
 interface RawCompetition {
+  id?: string;
+  date?: string;
   status?: { type?: { state?: string; shortDetail?: string } };
   venue?: { fullName?: string; address?: { city?: string } };
   broadcasts?: { names?: string[] }[];
@@ -102,6 +115,27 @@ interface RawCompetition {
 interface RawCompetitor {
   homeAway?: string;
   score?: string;
+  /**
+   * A set-by-set line. Tennis scores this way and carries no `score` at
+   * all, so the scoreline is derived from it: see setsWon.
+   */
+  linescores?: { value?: number; winner?: boolean }[];
+  /** An individual sport's competitor. Tennis has this where a team sport
+   * has `team`, with the same job. */
+  athlete?: {
+    id?: string;
+    displayName?: string;
+    shortName?: string;
+    flag?: { href?: string };
+  };
+  /**
+   * A PAIR, in doubles. Same job as `athlete`, for two people: the payload
+   * drops `athlete` entirely and carries a roster instead, already written
+   * as "Finn Reynolds / James Watt". Measured: 37 of 175 matches on a real
+   * ATP board are doubles, and reading only `athlete` left every one of
+   * them with no name at all.
+   */
+  roster?: { displayName?: string; shortDisplayName?: string };
   team?: {
     id?: string;
     displayName?: string;
@@ -171,35 +205,101 @@ export function toGames(
   const name =
     raw.leagues?.[0]?.abbreviation ?? raw.leagues?.[0]?.name ?? league.key;
   return (raw.events ?? [])
-    .map((e) => toGame(e, league, name))
+    .flatMap((e) => {
+      const matches = matchesOf(e);
+      // The suffix only appears when it has to. A one match event keeps the
+      // id it has always had, which matters: ids are React keys and the
+      // row's scroll anchor, and renaming every game in the app to support
+      // tennis would be a large blast radius for no gain.
+      return matches.map((c, i) =>
+        toGame(e, c, matches.length > 1 ? (c.id ?? String(i)) : null, league, name),
+      );
+    })
     .filter((g): g is Game => g !== null);
+}
+
+/**
+ * Every match in an event. Usually exactly one.
+ *
+ * A tennis tournament is the exception and it is a big one: it leaves
+ * `competitions` EMPTY and hangs its matches off `groupings` instead, one
+ * per draw. Measured on a real ATP board, a single event carried 121
+ * matches this way.
+ *
+ * That scale is worth knowing before this is switched on for tennis: one
+ * tournament produces more cards than a full day of all five team leagues
+ * put together, so something upstream will want to narrow it (a draw, a
+ * round, or today only). This function's job is only to find them.
+ */
+function matchesOf(event: RawEvent): RawCompetition[] {
+  if (event.competitions?.length) return event.competitions;
+  return (event.groupings ?? []).flatMap((g) => g.competitions ?? []);
+}
+
+/**
+ * Sets won, which is what a tennis scoreline actually is.
+ *
+ * The competitors carry no `score`, only a set by set `linescores`. Two
+ * players at [6,4,2] and [3,6,6] have not scored 12 and 15, they have won
+ * one set and two. Counting the sets is the only reading that puts the
+ * right number on a card.
+ *
+ * The per set `winner` flag first, and comparing games only when it is
+ * missing. A tiebreak set is filed as `{ value: 6, tiebreak: 6, winner:
+ * false }`, so the flag is the source's own answer to a question the games
+ * column does not quite ask.
+ *
+ * Returns a NUMBER, including zero. A player who lost in straight sets won
+ * none, and zero is a score: the first version of this ran the result
+ * through `|| undefined` and blanked every whitewash on the board.
+ */
+function setsWon(
+  mine?: { value?: number; winner?: boolean }[],
+  theirs?: { value?: number; winner?: boolean }[],
+): number | undefined {
+  if (!mine?.length) return undefined;
+  let won = 0;
+  for (let i = 0; i < mine.length; i++) {
+    const a = mine[i];
+    if (a?.winner != null) {
+      if (a.winner) won++;
+      continue;
+    }
+    const b = theirs?.[i];
+    if (a?.value != null && b?.value != null && a.value > b.value) won++;
+  }
+  return won;
 }
 
 function toGame(
   event: RawEvent,
+  comp: RawCompetition | undefined,
+  suffix: string | null,
   league: (typeof LEAGUES)[number],
   leagueName: string,
 ): Game | null {
-  const comp = event.competitions?.[0];
   const home = pick(comp?.competitors, "home");
   const away = pick(comp?.competitors, "away");
   // Everything downstream is built around two sides and a start time. An
   // event without them is not a thing this app can draw.
   if (!event.id || !comp || !home || !away) return null;
-  const start = new Date(event.date ?? "");
+  // The MATCH's own date first. A tennis event is a week long, so the
+  // tournament's date says nothing about when any single match is on, and
+  // taking it would file every match in the draw under the Monday.
+  const start = new Date(comp.date ?? event.date ?? "");
   if (Number.isNaN(start.getTime())) return null;
 
   const state = STATES[comp.status?.type?.state ?? ""] ?? "pre";
   return {
-    id: `espn-${league.key}-${event.id}`,
+    id: `espn-${league.key}-${event.id}${suffix ? `-${suffix}` : ""}`,
     sport: league.sport,
     league: leagueName,
     leagueKey: league.key,
     state,
     start,
     status: statusText(state, start, comp.status?.type?.shortDetail),
-    home: toCompetitor(home),
-    away: toCompetitor(away),
+    home: toCompetitor(home, away),
+    away: toCompetitor(away, home),
     venue: comp.venue?.fullName ?? comp.venue?.address?.city,
     // Flattened and de-duplicated: a game carries a national feed and a
     // regional one for each side, and the matcher wants a plain list.
@@ -241,9 +341,43 @@ function statusText(state: GameState, start: Date, shortDetail?: string): string
     .replace(/\s/g, "");
 }
 
-function toCompetitor(raw: RawCompetitor): Competitor {
+/**
+ * One side of a fixture, whoever they are.
+ *
+ * `other` is only for the scoreline: tennis has no `score` and a set by
+ * set line instead, so the number can only be worked out by comparing the
+ * two sides. Nothing else here looks at the opponent.
+ *
+ * A TEAM or an ATHLETE. An individual sport puts its competitor under
+ * `athlete` with the same job `team` does elsewhere, so the fields are
+ * read from whichever is there. An athlete has no abbreviation of its own,
+ * so the caption is derived from the surname the way a broadcast does it,
+ * which is exactly what driverCode already works out for F1.
+ */
+function toCompetitor(raw: RawCompetitor, other?: RawCompetitor): Competitor {
   const t = raw.team ?? {};
+  const a = raw.athlete;
+  const pair = raw.roster;
   const score = Number(raw.score);
+  if ((a || pair) && !raw.team) {
+    const full = a?.displayName ?? pair?.displayName ?? "";
+    const short = a?.shortName ?? pair?.shortDisplayName;
+    return {
+      id: a?.id,
+      name: full || short || "",
+      shortName: short,
+      // A PAIR has no abbreviation anyone uses, so this is the first
+      // player's and it is a placeholder rather than a claim. Singles get
+      // the surname code a broadcast would caption with.
+      abbr: driverCode(full.split("/")[0] ?? ""),
+      // A country flag, since an individual has no crest. A pair has no
+      // single country, so it has none.
+      logo: a?.flag?.href,
+      score: Number.isFinite(score)
+        ? score
+        : setsWon(raw.linescores, other?.linescores),
+    };
+  }
   return {
     id: t.id,
     name: t.displayName ?? t.shortDisplayName ?? "",
