@@ -9,6 +9,7 @@ import "../src/styles/themes.css";
 import "../src/styles/sports.css";
 import { RaceCard, type Race } from "../src/features/sports/RaceCard";
 import { driverCode } from "../src/features/sports/driverCode";
+import circuits from "../src/features/sports/circuits/index.json";
 import { applyAccent, loadAccent } from "../src/features/settings/accent";
 import { applyTheme, loadTheme } from "../src/features/settings/theme";
 import f1 from "./fixtures/f1.json";
@@ -73,23 +74,51 @@ const races = toRaces();
 applyAccent(loadAccent());
 applyTheme(loadTheme());
 
+/**
+ * The same card at every circuit on the calendar.
+ *
+ * The flag wash is the one part of this card whose weight is not ours to
+ * set: a country supplies it. Hungary is red, white and green in even
+ * bands; Japan is mostly white and Bahrain mostly red, and a treatment
+ * tuned on one of those is not tuned. So all 24 render at once.
+ */
+const everywhere: Race[] = Object.entries(circuits.circuits).map(
+  ([id, c], i) => ({
+    ...races[Math.min(4, races.length - 1)],
+    id: `flag-${id}`,
+    circuitId: id,
+    place: c.country ?? c.name,
+    session: "Race",
+    time: `${1 + (i % 12)}:00 PM`,
+  }),
+);
+
 export function Rig() {
   return (
     <div
       style={{
-        display: "flex",
-        flexWrap: "wrap",
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(383px, 1fr))",
         gap: 22,
         padding: 24,
         background: "#0a0a0a",
         minHeight: "100vh",
       }}
     >
-      {races.map((r) => (
+      {everywhere.map((r) => (
         <RaceCard key={r.id} race={r} />
       ))}
-      {/* The same card with no art, which is every racing league but F1. */}
-      <RaceCard race={{ ...races[4], id: "no-art", circuitId: undefined, place: "St. Petersburg", series: "IndyCar Series" }} />
+      {/* The same card with no art and no flag, which is every racing
+        * league but F1. */}
+      <RaceCard
+        race={{
+          ...races[Math.min(4, races.length - 1)],
+          id: "no-art",
+          circuitId: undefined,
+          place: "St. Petersburg",
+          series: "IndyCar Series",
+        }}
+      />
     </div>
   );
 }
