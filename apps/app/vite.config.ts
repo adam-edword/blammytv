@@ -14,7 +14,14 @@ function dropWoffFallbacks(): Plugin {
           delete bundle[name];
         } else if (name.endsWith(".css") && chunk.type === "asset") {
           chunk.source = String(chunk.source).replace(
-            /,\s*url\([^)]+\.woff\)\s*format\(["']woff["']\)/g,
+            // The FORMAT is what says this clause is woff, not the file
+            // extension. Six subsets are small enough that Vite base64
+            // inlines them, so they arrive as url(data:font/woff;base64,...)
+            // and the old pattern, which required a path ending .woff,
+            // walked straight past them: 20.5 kB of exactly the dead weight
+            // this plugin exists to remove. format("woff2") is untouched,
+            // because the quote after woff has to be a quote.
+            /,\s*url\([^)]+\)\s*format\(["']woff["']\)/g,
             "",
           );
         }
