@@ -1781,22 +1781,27 @@
 
 /* A race session, to Adam's Figma. TEMPORARY, alongside RaceCard.tsx.
  *
- * Two columns and they are not equal on purpose: the ORDER is the content,
- * so it takes the reading side, and the place takes the rest with the track
- * behind it. Grid rather than flex because the clock and the series line
- * sit above both columns and should not be a third row of boxes. */
+ * THE SAME CARD AS THE OTHERS, differently arranged. Every value that is
+ * not about the arrangement is the small card's: the surface, the 42.6px
+ * radius, the padding, the 18.46px status and --sports-meta on the
+ * competition line. It was drawn with its own numbers first and it read as
+ * a different component sitting in the same grid.
+ *
+ * Shorter than the small card, per the Figma, and it can afford to be:
+ * three short rows and a place name against that card's two full names and
+ * a score. */
 .racecard {
   position: relative;
   display: grid;
   grid-template-columns: auto 1fr;
   grid-template-rows: auto 1fr;
   align-items: center;
-  gap: 6px 18px;
+  gap: 4px 14px;
   width: 460px;
-  height: 230px;
-  padding: 18px 22px 22px;
+  height: 145px;
+  padding: 15px 25.56px 17px;
   border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 22px;
+  border-radius: 42.6px;
   background: #0f0f0f;
   overflow: hidden;
   text-align: left;
@@ -1806,20 +1811,24 @@
 .racecard:hover {
   border-color: rgba(255, 255, 255, 0.18);
 }
+/* The small card's status, to the pixel: this is the same line saying the
+ * same kind of thing, and two clocks a pixel apart in one grid is the sort
+ * of difference that reads as a mistake rather than as a decision. */
 .racecard__clock {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: 17px;
+  font-size: 18.46px;
+  text-transform: uppercase;
   color: #fff;
 }
 .racecard__series {
   justify-self: end;
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: 12px;
+  font-size: var(--sports-meta);
   letter-spacing: 0.07em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.4);
@@ -1830,7 +1839,7 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 22px;
+  gap: 7px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -1838,15 +1847,15 @@
 .racecard__slot {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 /* The number is a label, not a score: it says which row you are on and
  * then gets out of the way. Tabular so 1, 2 and 3 hold one column. */
 .racecard__place {
-  width: 10px;
+  width: 8px;
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: 13px;
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
   color: rgba(255, 255, 255, 0.3);
 }
@@ -1854,14 +1863,17 @@
  * missing one leaves the codes lined up rather than shunted left. */
 .racecard__mark {
   flex: 0 0 auto;
-  width: 30px;
-  height: 20px;
+  width: 24px;
+  height: 16px;
   object-fit: contain;
 }
+/* Well under the small card's --sports-name, and that is the Figma's
+ * proportion rather than a guess: a three-letter code is not a team name
+ * and should not weigh like one. */
 .racecard__code {
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: 21px;
+  font-size: 17px;
   letter-spacing: 0.02em;
   color: #fff;
 }
@@ -1877,15 +1889,15 @@
 }
 /* Behind the words, and quiet: it is the one thing on this card that is
  * decoration. currentColor is what the vendored files are drawn in, so the
- * colour is set here and every theme pack follows. */
+ * colour is set here and every theme pack follows.
+ *
+ * Bigger than its box on purpose. The art keeps its aspect ratio, so a box
+ * the shape of this column fits it to the short side and leaves a small
+ * drawing floating in a wide space; overflowing lets the height size it and
+ * the card's own overflow trims the rest. */
 .racecard__track {
   position: absolute;
-  /* BIGGER than its box, and bled past the card's edge on purpose. The art
-   * keeps its aspect ratio, so a box the shape of this column fits it to
-   * the short side and leaves a small drawing floating in a wide space.
-   * Overflowing the column instead lets the height do the sizing, and the
-   * card's own overflow: hidden trims what runs past the corner. */
-  inset: -34px -46px;
+  inset: -22px -40px;
   display: block;
   color: rgba(255, 255, 255, 0.15);
   pointer-events: none;
@@ -1898,7 +1910,7 @@
   position: relative;
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: 34px;
+  font-size: 24px;
   line-height: 1;
   text-align: center;
   text-transform: uppercase;
@@ -1906,12 +1918,13 @@
 }
 .racecard__session {
   position: relative;
-  margin-top: 4px;
+  margin-top: 3px;
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: 17px;
+  font-size: 13.5px;
   color: rgba(255, 255, 255, 0.75);
 }
+
 /* In the grid the card takes ONE track, like every other card there.
  *
  * Spanning two was tried and measured: on a 1920 board that is 789px for a
@@ -1921,6 +1934,7 @@
  * in each other's company. */
 .sports__grid .racecard {
   width: 100%;
-  height: 100%;
-  min-height: 230px;
+  /* Its own height, not the track's: it is shorter than the small card by
+   * design, and stretching it to match would undo that. */
+  height: 145px;
 }
