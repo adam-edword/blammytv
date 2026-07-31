@@ -79,6 +79,37 @@ export function gameTeamKeys(game: Game): string[] {
 }
 
 /** Is this game one the user follows, by either half of the store? */
+/**
+ * The follows that still MEAN something, given the leagues that exist now.
+ *
+ * A stored key is a foreign key into the league table, and that table is
+ * going to be re-keyed: `leagueKey` moves from "epl" to a catalog path like
+ * "soccer/eng.1". Without this, the day that lands is the day the Sports
+ * tab wedges, permanently, for everyone who ever followed anything:
+ *
+ *   - `narrowed` reads true, because the stale strings are still stored
+ *   - nothing matches them, so every game on every day is filtered out
+ *   - the sidebar renders the stale keys as no control at all, because it
+ *     iterates the CURRENT leagues, so there is nothing to click
+ *   - `flip` only removes an exact string, so no click anywhere can clear
+ *     them, and "nothing followed shows everything" becomes unreachable
+ *
+ * The screen would say "nothing on for what you follow, widen it" while the
+ * sidebar said nothing was followed, forever, with no path out but
+ * devtools. So an unresolvable key is treated as absent: the filter can go
+ * back to empty, which is the state the whole feature is built to fall
+ * back to.
+ */
+export function resolvable(follows: Follows, known: readonly string[]): Follows {
+  const live = new Set(known);
+  return {
+    leagues: follows.leagues.filter((k) => live.has(k)),
+    // A team key is `${leagueKey}:${teamId}`, so it is only meaningful
+    // while its league half still exists.
+    teams: follows.teams.filter((k) => live.has(k.slice(0, k.indexOf(":")))),
+  };
+}
+
 export function isFollowed(game: Game, follows: Follows): boolean {
   if (follows.leagues.includes(game.leagueKey)) return true;
   return gameTeamKeys(game).some((k) => follows.teams.includes(k));

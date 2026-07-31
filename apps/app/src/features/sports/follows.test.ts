@@ -3,6 +3,7 @@ import {
   asFollows,
   gameTeamKeys,
   isFollowed,
+  resolvable,
   teamKey,
   toggleLeague,
   toggleTeam,
@@ -95,5 +96,38 @@ describe("asFollows", () => {
       leagues: ["mlb"],
       teams: [],
     });
+  });
+});
+
+describe("resolvable", () => {
+  const known = ["mlb", "nfl", "epl"];
+
+  it("keeps follows whose league still exists", () => {
+    const f = { leagues: ["epl"], teams: ["epl:359", "mlb:17"] };
+    expect(resolvable(f, known)).toEqual(f);
+  });
+
+  it("drops a league key this build no longer knows", () => {
+    // The exact case the planned leagueKey change creates: "epl" becomes
+    // "soccer/eng.1" and the stored string stops naming anything.
+    const f = { leagues: ["epl"], teams: [] };
+    expect(resolvable(f, ["soccer/eng.1", "mlb"])).toEqual({
+      leagues: [],
+      teams: [],
+    });
+  });
+
+  it("drops a team whose league half no longer resolves", () => {
+    const f = { leagues: [], teams: ["epl:359", "mlb:17"] };
+    expect(resolvable(f, ["mlb"])).toEqual({ leagues: [], teams: ["mlb:17"] });
+  });
+
+  it("lets the board go back to unfiltered, which is the whole point", () => {
+    // Without this the stale keys keep `narrowed` true while matching
+    // nothing, every game is filtered out, and no control in the app can
+    // clear them because the sidebar only renders leagues that exist.
+    const stale = { leagues: ["epl"], teams: ["epl:359"] };
+    const out = resolvable(stale, ["soccer/eng.1"]);
+    expect(out.leagues.length + out.teams.length).toBe(0);
   });
 });

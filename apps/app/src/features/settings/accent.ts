@@ -20,8 +20,13 @@ export const ACCENT_PRESETS: Array<{ hex: string; name: string }> = [
 
 export const DEFAULT_ACCENT = ACCENT_PRESETS[0].hex;
 
-export function isValidHex(value: string): boolean {
-  return /^#[0-9a-f]{6}$/i.test(value.trim());
+export function isValidHex(value: unknown): boolean {
+  // `unknown`, not `string`, because one of its callers reads straight out
+  // of storage and the type there is a promise nobody enforces. A number,
+  // null or an object reached `.trim()` and threw, and loadAccent runs at
+  // main.tsx BEFORE createRoot, so the whole app was a white window with no
+  // console the user could see.
+  return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value.trim());
 }
 
 const KEY = "accent";

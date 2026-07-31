@@ -30,6 +30,7 @@ import { loadStartupTab } from "../features/settings/startupTab";
 import {
   onGenreRequest,
   onOpenRequest,
+  onResumeRequest,
   onReturnRequest,
 } from "../features/stream/openRequest";
 
@@ -137,6 +138,22 @@ export function App() {
   useEffect(
     () =>
       onOpenRequest(() => {
+        setSection("stream");
+        setStreamTab("home");
+      }),
+    [],
+  );
+  // The SAME hand-off, for a resume asked from the Library tab.
+  //
+  // It was missing, and the mailbox pattern hides that well: Library
+  // dispatches, nothing flips the tab, so StreamScreen is never mounted to
+  // hear it. The click did nothing at all, and then the next time the user
+  // went to Stream Home for their own reasons, its mount-time drain found
+  // the stale request and threw them into playback of something they had
+  // clicked minutes earlier.
+  useEffect(
+    () =>
+      onResumeRequest(() => {
         setSection("stream");
         setStreamTab("home");
       }),

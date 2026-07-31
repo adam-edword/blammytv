@@ -345,7 +345,13 @@ fn mpv_snapshot() -> Result<tauri::ipc::Response, String> {
 fn mpv_diag() -> String {
     let p = |k: &str| mpv::get_property(k).unwrap_or_else(|| "<none>".into());
     serde_json::json!({
-        "path": p("path"),
+        // NOT the path itself. It is the live stream URL, which carries
+        // the user's credentials in it (Xtream puts them in the path,
+        // Stalker a play token), and this whole object is console.info'd on
+        // every successful tune, which is exactly what ends up pasted into
+        // a bug report. The only question asked of it is whether reload_live
+        // has anything to reload.
+        "has-path": p("path") != "<none>",
         "core-idle": p("core-idle"),
         "idle-active": p("idle-active"),
         "eof-reached": p("eof-reached"),

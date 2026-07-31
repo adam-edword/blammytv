@@ -28,8 +28,14 @@ export function load<T>(key: string, version: number, fallback: T): T {
 export function save<T>(key: string, version: number, data: T): void {
   try {
     localStorage.setItem(PREFIX + key, JSON.stringify({ v: version, data }));
-  } catch {
-    /* storage unavailable — it just won't persist */
+  } catch (err) {
+    // LOUDLY. A failed write is indistinguishable from a working one to
+    // everything upstream, so a full quota silently stops persisting every
+    // preference in the app: favourites, follows, settings, all of it, with
+    // the UI still showing them saved until the next launch loses them.
+    // The guide's disk cache already logs its write failures for exactly
+    // this reason; this is the same instinct on the bigger store.
+    console.warn(`[storage] could not persist ${key}`, err);
   }
 }
 

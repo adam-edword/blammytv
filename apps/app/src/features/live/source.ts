@@ -507,6 +507,16 @@ async function buildM3uSource(
         seen.add(group);
         folders.push({ id: folderId(p.id, group), name: group });
       }
+      // The URL goes to mpv, which treats a bare path as a FILE. An
+      // unvalidated line lets a playlist host hand us a UNC path
+      // (\\attacker\share\x.mkv), and Windows will authenticate to it and
+      // leak the user's NTLM hash, or a file:// to read anything on disk.
+      // The validator was already in this file and already applied to the
+      // logo one line below; the url is the string that actually matters.
+      // Dropped rather than kept unplayable: a channel we must refuse to
+      // open is worse than a channel that is not there.
+      const safe = validUrl(e.url);
+      if (!safe) continue;
       const base = channelId(p.id, e.tvgId || hashId(e.url));
       const dupes = usedIds.get(base) ?? 0;
       usedIds.set(base, dupes + 1);
@@ -519,7 +529,7 @@ async function buildM3uSource(
         logo: validUrl(e.logo),
         archiveDays: 0,
         number: e.channelNumber,
-        url: e.url,
+        url: safe,
       });
       if (e.tvgId) {
         const list = epgIdx.get(e.tvgId) ?? [];

@@ -9,12 +9,13 @@ import { RaceCard } from "./RaceCard";
 import { WeekendCard } from "./WeekendCard";
 import { SportsSidebar } from "./SportsSidebar";
 import { useRaces } from "./race";
-import { isFollowed, loadFollows } from "./follows";
+import { isFollowed, loadFollows, resolvable } from "./follows";
 import { GameCard } from "./GameCard";
 import { dayLabel, nowish } from "./day";
 import { SportsTheater } from "./SportsTheater";
 import { UpcomingCard } from "./UpcomingCard";
 import { useCatalog } from "./catalog";
+import { LEAGUES } from "./espn";
 import { useGames, withChannels } from "./useGames";
 import type { Day } from "./useGames";
 import type { Game } from "./model";
@@ -72,7 +73,20 @@ export function SportsScreen({ home }: { home?: number } = {}) {
    * only the ones already surviving the filter it is trying to change.
    */
   const [follows, setFollows] = useState(loadFollows);
-  const narrowed = follows.leagues.length > 0 || follows.teams.length > 0;
+  /**
+   * Only the follows that still name a league this build knows about.
+   *
+   * Stored follows are foreign keys, and a key that no longer resolves must
+   * not be able to filter the board: see resolvable(). The sidebar keeps
+   * the RAW store, so toggling still writes what the user has, and a key
+   * that starts resolving again (a league returning to the fetch list)
+   * simply starts counting again.
+   */
+  const active = useMemo(
+    () => resolvable(follows, LEAGUES.map((l) => l.key)),
+    [follows],
+  );
+  const narrowed = active.leagues.length > 0 || active.teams.length > 0;
   const days = useMemo(() => {
     const withChans = raw.map((d) => ({
       ...d,
@@ -81,9 +95,9 @@ export function SportsScreen({ home }: { home?: number } = {}) {
     if (!narrowed) return withChans;
     return withChans.map((d) => ({
       ...d,
-      games: d.games.filter((g) => isFollowed(g, follows)),
+      games: d.games.filter((g) => isFollowed(g, active)),
     }));
-  }, [raw, catalog, follows, narrowed]);
+  }, [raw, catalog, active, narrowed]);
   /** Every club the board LOADED, ahead of the filter. */
   const clubPool = useMemo(() => raw.flatMap((d) => d.games), [raw]);
   /* TEMPORARY: F1's cards at the head of today's grid, so they can be
