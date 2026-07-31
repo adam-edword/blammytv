@@ -107,6 +107,7 @@ interface RawEvent {
 interface RawCompetition {
   id?: string;
   date?: string;
+  attendance?: number;
   status?: {
     type?: {
       state?: string;
@@ -118,7 +119,15 @@ interface RawCompetition {
     };
   };
   venue?: { fullName?: string; address?: { city?: string } };
-  broadcasts?: { names?: string[] }[];
+  /**
+   * Each entry says WHICH feed it is: "national", "home" or "away".
+   *
+   * CLE @ CIN carries MLB.TV (national), Reds.TV (home) and
+   * CLEGuardians.TV (away). All three are legitimate ways to watch, so all
+   * three stay searchable, but which one a card HEADLINES should not be
+   * decided by the order ESPN happened to send them in.
+   */
+  broadcasts?: { market?: string; names?: string[] }[];
   competitors?: RawCompetitor[];
 }
 interface RawCompetitor {
@@ -339,11 +348,16 @@ function toGame(
     home: toCompetitor(home, away),
     away: toCompetitor(away, home),
     venue: comp.venue?.fullName ?? comp.venue?.address?.city,
-    // Flattened and de-duplicated: a game carries a national feed and a
-    // regional one for each side, and the matcher wants a plain list.
-    broadcasts: [
-      ...new Set((comp.broadcasts ?? []).flatMap((b) => b.names ?? [])),
-    ],
+    // Flattened and de-duplicated, but ORDERED: national first, then the
+    // home feed, then the away one.
+    //
+    // A game carries all three and the matcher wants a plain list, so the
+    // shape stays a string array. What changes is that `broadcasts[0]` is
+    // now the neutral feed by construction rather than by whatever order
+    // the payload arrived in, because that is the one the card prints as
+    // "On MLB.TV". A regional feed is still a real way to watch and is
+    // still offered; it just should not be the headline.
+    broadcasts: orderedBroadcasts(comp.broadcasts),
     // Filled by the matcher against the user's own channels (phase 2).
     channels: [],
   };
@@ -432,6 +446,20 @@ function toCompetitor(raw: RawCompetitor, other?: RawCompetitor): Competitor {
     color: t.color,
     score: Number.isFinite(score) ? score : undefined,
   };
+}
+
+/** National, then home, then away, then anything unlabelled. */
+const MARKET_ORDER = ["national", "home", "away"];
+
+function orderedBroadcasts(
+  raw: { market?: string; names?: string[] }[] | undefined,
+): string[] {
+  const rank = (m?: string) => {
+    const i = MARKET_ORDER.indexOf((m ?? "").toLowerCase());
+    return i === -1 ? MARKET_ORDER.length : i;
+  };
+  const sorted = [...(raw ?? [])].sort((a, b) => rank(a.market) - rank(b.market));
+  return [...new Set(sorted.flatMap((b) => b.names ?? []))];
 }
 
 function pick(competitors: RawCompetitor[] | undefined, side: string) {

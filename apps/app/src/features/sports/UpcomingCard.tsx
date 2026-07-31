@@ -67,6 +67,8 @@ function UpcomingCardImpl({
         (early ? " sportscard--early" : "")
       }
       title={`${home.name} vs ${away.name}`}
+      // Focus comes back here when the theater closes; see SportsScreen.
+      data-game={game.id}
       // Too far out to be an action. See tooEarly: opening it would tune a
       // channel and label the chrome with a fixture that has not happened.
       // `disabled` rather than a bare missing handler, so it leaves the tab

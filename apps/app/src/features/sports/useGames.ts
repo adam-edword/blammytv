@@ -38,12 +38,27 @@ export function useGames(dayCount = DAYS) {
     const ac = new AbortController();
     let timer: number | undefined;
 
-    const dates = Array.from({ length: dayCount }, (_, i) => {
-      const d = new Date();
-      d.setHours(0, 0, 0, 0);
-      d.setDate(d.getDate() + i);
-      return d;
-    });
+    /**
+     * The days this board covers, from local midnight.
+     *
+     * REBUILT rather than captured, because midnight happens. Computed once
+     * per mount, a hub left open overnight goes on polling yesterday as
+     * "today" forever, while dayLabel re-evaluates on render, so the first
+     * grid quietly relabels itself to yesterday's date under a row still
+     * headed "Today's Games".
+     */
+    const makeDates = () =>
+      Array.from({ length: dayCount }, (_, i) => {
+        const d = new Date();
+        d.setHours(0, 0, 0, 0);
+        d.setDate(d.getDate() + i);
+        return d;
+      });
+    let dates = makeDates();
+
+    /** Has the local date moved on since the board was built? */
+    const rolled = () =>
+      makeDates()[0].getTime() !== dates[0].getTime();
 
     const loadAll = async () => {
       try {
@@ -80,8 +95,19 @@ export function useGames(dayCount = DAYS) {
       }
     };
 
+    const refresh = () => {
+      // A new day is a new board, not a new score: today's fixtures are a
+      // different set, and days two and three have shifted under it.
+      if (rolled()) {
+        dates = makeDates();
+        void loadAll();
+      } else {
+        void loadToday();
+      }
+    };
+
     const tick = () => {
-      if (!document.hidden) void loadToday();
+      if (!document.hidden) refresh();
       timer = window.setTimeout(tick, REFRESH_MS);
     };
 
@@ -92,7 +118,9 @@ export function useGames(dayCount = DAYS) {
     // however long it was away, so read it again rather than waiting out
     // the rest of the interval.
     const onVisible = () => {
-      if (!document.hidden) void loadToday();
+      // Also the likeliest moment to discover the date rolled: the app was
+      // in the background all night.
+      if (!document.hidden) refresh();
     };
     document.addEventListener("visibilitychange", onVisible);
 

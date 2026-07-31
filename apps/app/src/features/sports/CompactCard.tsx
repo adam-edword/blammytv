@@ -48,6 +48,10 @@ function CompactCardImpl({
 
       // the middle, attached to neither side.
 
+      // Focus comes back here when the theater closes; see SportsScreen.
+
+      data-game={game.id}
+
       aria-label={`${game.home.name} ${game.home.score ?? 0}, ${game.away.name} ${game.away.score ?? 0}. ${game.status}. ${game.league}.`}
       onClick={() => onOpen?.(game)}
     >

@@ -334,3 +334,63 @@ describe("fetchGames on a total outage", () => {
     }
   });
 });
+
+describe("broadcast ordering", () => {
+  /** CLE @ CIN really does carry all three of these. */
+  const threeFeeds = (order: { market: string; name: string }[]) => ({
+    leagues: [{ abbreviation: "MLB" }],
+    events: [
+      {
+        id: "401810000",
+        date: "2026-07-28T23:10Z",
+        competitions: [
+          {
+            status: { type: { state: "pre", completed: false } },
+            broadcasts: order.map((b) => ({ market: b.market, names: [b.name] })),
+            competitors: [
+              { homeAway: "home", team: { id: "1", displayName: "Reds", abbreviation: "CIN" } },
+              { homeAway: "away", team: { id: "2", displayName: "Guardians", abbreviation: "CLE" } },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+  const mlb = () => LEAGUES.find((l) => l.key === "mlb")!;
+
+  it("puts the national feed first whatever order it arrived in", () => {
+    // The card prints broadcasts[0] as "On X". That was decided by the
+    // order the payload happened to use, not by which feed is neutral.
+    const scrambled = threeFeeds([
+      { market: "away", name: "CLEGuardians.TV" },
+      { market: "home", name: "Reds.TV" },
+      { market: "national", name: "MLB.TV" },
+    ]);
+    expect(toGames(scrambled, mlb())[0].broadcasts[0]).toBe("MLB.TV");
+  });
+
+  it("still offers both regional feeds, in home then away order", () => {
+    // A regional feed is a real way to watch the game. It just should not
+    // be the headline.
+    const g = toGames(
+      threeFeeds([
+        { market: "national", name: "MLB.TV" },
+        { market: "home", name: "Reds.TV" },
+        { market: "away", name: "CLEGuardians.TV" },
+      ]),
+      mlb(),
+    )[0];
+    expect(g.broadcasts).toEqual(["MLB.TV", "Reds.TV", "CLEGuardians.TV"]);
+  });
+
+  it("keeps unlabelled feeds, after the ones we can place", () => {
+    const g = toGames(
+      threeFeeds([
+        { market: "", name: "Some Regional" },
+        { market: "national", name: "FOX" },
+      ]),
+      mlb(),
+    )[0];
+    expect(g.broadcasts).toEqual(["FOX", "Some Regional"]);
+  });
+});

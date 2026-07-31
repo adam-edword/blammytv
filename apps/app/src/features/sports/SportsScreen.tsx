@@ -124,10 +124,15 @@ export function SportsScreen({ home }: { home?: number } = {}) {
     box.scrollLeft += c.left - b.left - lead;
   }, [anchor]);
 
-  // The `|| races` half is TEMPORARY, with the grid gate below: a board
-  // showing race cards is not a board with nothing on it, and saying so
-  // under them would read as a bug.
-  const anything = days.some((d) => d.games.length > 0) || racing > 0;
+  // Two different questions, and folding them into one hid the answer to
+  // the second. A board carrying race cards is not empty, so it must not
+  // say "Nothing on today" (the `|| racing` half, TEMPORARY with the grid
+  // gate below). But following a league that is out of season leaves the
+  // TEAM board empty while racing is not, and the one line that would
+  // explain the near-empty screen was suppressed exactly then.
+  const anyGames = days.some((d) => d.games.length > 0);
+  const anything = anyGames || racing > 0;
+  const narrowedToNothing = narrowed && !anyGames && racing > 0;
   // Read once and kept here: it is a display choice about this screen, so
   // it belongs to the screen rather than to every card in it.
   const [compact, setCompact] = useState(loadCompactResults);
@@ -135,6 +140,31 @@ export function SportsScreen({ home }: { home?: number } = {}) {
   // this is a mode of one screen, and its own Escape and mouse-back close
   // it without touching where you came from to get here.
   const [open, setOpen] = useState<Game | null>(null);
+  /**
+   * The card that opened the theater, so focus can come back to it.
+   *
+   * Measured: opening dropped focus to BODY, and closing dropped it to BODY
+   * again, so a keyboard user re-entered the board at tab stop one and had
+   * to walk the whole row back to where they were. LiveScreen already
+   * solves this the same way with its menu invoker.
+   */
+  const invoker = useRef<string | null>(null);
+  useEffect(() => {
+    if (open) return;
+    const id = invoker.current;
+    if (!id) return;
+    invoker.current = null;
+    const el = document.querySelector<HTMLElement>(`[data-game="${id}"]`);
+    // The first match, which for a game that is on both the row and
+    // today's grid is the row's copy. Same game, in view, at the top of the
+    // board: a reasonable landing even when the grid card was the invoker.
+    // Guarded: the board refreshes, and the card may not have come back.
+    if (el?.isConnected) el.focus();
+  }, [open]);
+  const openGame = (g: Game) => {
+    invoker.current = g.id;
+    setOpen(g);
+  };
   /**
    * Pressing the Sports chip returns to the board.
    *
@@ -168,7 +198,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
         game={current}
         others={today.filter((g) => g.state === "live" && g.id !== current.id)}
         catalog={catalog}
-        onOpen={setOpen}
+        onOpen={openGame}
         onClose={() => setOpen(null)}
       />
     );
@@ -192,7 +222,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
           </h3>
           <RowScroller>
             {today.map((g) => (
-              <GameCard key={g.id} game={g} onOpen={setOpen} />
+              <GameCard key={g.id} game={g} onOpen={openGame} />
             ))}
           </RowScroller>
         </section>
@@ -238,14 +268,22 @@ export function SportsScreen({ home }: { home?: number } = {}) {
                   races.map((r) => <RaceCard key={r.id} race={r} />)}
                 {day.games.map((g) =>
                   compact && g.state === "final" ? (
-                    <CompactCard key={g.id} game={g} onOpen={setOpen} />
+                    <CompactCard key={g.id} game={g} onOpen={openGame} />
                   ) : (
-                    <UpcomingCard key={g.id} game={g} onOpen={setOpen} />
+                    <UpcomingCard key={g.id} game={g} onOpen={openGame} />
                   ),
                 )}
               </div>
             </section>
           ),
+      )}
+
+      {/* The board is not empty, but what you follow is not on it. Said
+        * under the race cards rather than instead of them. */}
+      {narrowedToNothing && (
+        <p className="sports__note" role="status">
+          Nothing on for what you follow. Widen it in the sidebar.
+        </p>
       )}
 
       {!anything && (

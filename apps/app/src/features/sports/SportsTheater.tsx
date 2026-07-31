@@ -495,6 +495,10 @@ function Rail({
       type="button"
       className={"sportsrail" + (on ? " is-on" : "")}
       title={channel.name}
+      // Which row is playing was carried by a CSS class alone, so the
+      // accessible name was identical playing or not. Same shape the
+      // sidebar already uses on its own toggles.
+      aria-pressed={on}
       onClick={() => onPlay(channel)}
     >
       <Lean className="sportsrail__tilt">
@@ -514,6 +518,9 @@ function Rail({
          * mark; with the lean carrying the affordance there is nothing to
          * stand aside for, so the number stays readable throughout. */}
         <span className={`sportsrail__score is-${band}`}>
+          {/* "85%" of WHAT. Visually the column header is the rail itself,
+            * but read aloud the number arrives with no noun. */}
+          <span className="vh">match confidence </span>
           <span className="sportsrail__bar" aria-hidden>
             <i style={{ height: `${channel.confidence}%` }} />
           </span>
