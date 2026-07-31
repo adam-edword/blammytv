@@ -304,9 +304,17 @@ export function nextUp(
  */
 let season: Promise<RawRace | null> | null = null;
 
-function seasonOnce(year: number, signal: AbortSignal): Promise<RawRace | null> {
-  season ??= fetch(URL(year), { signal })
-    .then((r) => (r.ok ? (r.json() as Promise<RawRace>) : null))
+function seasonOnce(year: number): Promise<RawRace | null> {
+  season ??= fetch(URL(year))
+    // A NON-2XX MUST THROW. Returning null from the `then` FULFILS the
+    // promise, so the `catch` below never ran and a single 429 or 500 was
+    // remembered as "no racing" for the life of the process. The comment
+    // under it said the opposite of what the code did. The board polls
+    // ESPN every 90 seconds, so a rate-limit response is not hypothetical.
+    .then((r) => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json() as Promise<RawRace>;
+    })
     // A failed load must not be remembered as an answer, or the tab is
     // empty until the app restarts.
     .catch(() => {
@@ -323,7 +331,14 @@ export function useRaces(): { weekends: Weekend[]; sessions: Race[] } {
   });
   useEffect(() => {
     const stop = new AbortController();
-    void seasonOnce(new Date().getFullYear(), stop.signal)
+    // NO SIGNAL. The first caller's AbortController must not own a cache
+    // every later caller shares: under StrictMode the first effect's
+    // cleanup aborts before the second effect runs, the second gets the
+    // already-doomed promise back from `??=`, and the board stays empty
+    // for the whole mount. Verified in the harness: one request, aborted,
+    // zero race cards. Cancellation is the `aborted` check below, which
+    // guards the state update rather than the shared request.
+    void seasonOnce(new Date().getFullYear())
       .then((raw) => {
         if (raw && !stop.signal.aborted) setBoard(nextUp(raw));
       })

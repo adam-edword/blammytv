@@ -60,12 +60,24 @@ export function useGames(dayCount = DAYS) {
     const rolled = () =>
       makeDates()[0].getTime() !== dates[0].getTime();
 
+    /**
+     * Which load is the current one.
+     *
+     * Neither loader had a guard beyond `ac.signal`, which is mount-scoped,
+     * so two overlapping refreshes were last-to-LAND-wins rather than
+     * last-to-START-wins: alt-tab out and back twice, the second fetch
+     * returns first with fresh scores, then the first returns with older
+     * ones and the board regresses until the next tick.
+     */
+    let gen = 0;
+
     const loadAll = async () => {
+      const mine = ++gen;
       try {
         const all = await Promise.all(
           dates.map((date) => fetchGames({ date, signal: ac.signal })),
         );
-        if (ac.signal.aborted) return;
+        if (ac.signal.aborted || mine !== gen) return;
         setDays(dates.map((date, i) => ({ date, games: onDay(all[i], date, i === 0) })));
         setState("ready");
       } catch {
@@ -76,16 +88,22 @@ export function useGames(dayCount = DAYS) {
     };
 
     const loadToday = async () => {
+      const mine = ++gen;
+      // Captured BEFORE the await. `dates` is reassigned when the local
+      // date rolls, and this closure reads it again afterwards, so a
+      // request in flight across midnight stamped yesterday's fixtures
+      // with today's date and filtered them through today.
+      const d0 = dates[0];
       try {
-        const games = await fetchGames({ date: dates[0], signal: ac.signal });
-        if (ac.signal.aborted) return;
+        const games = await fetchGames({ date: d0, signal: ac.signal });
+        if (ac.signal.aborted || mine !== gen) return;
         setDays((prev) =>
           prev.length === 0
             ? prev
             : [
                 {
-                  date: dates[0],
-                  games: keepStable(prev[0].games, onDay(games, dates[0], true)),
+                  date: d0,
+                  games: keepStable(prev[0].games, onDay(games, d0, true)),
                 },
                 ...prev.slice(1),
               ],

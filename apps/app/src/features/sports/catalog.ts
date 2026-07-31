@@ -62,8 +62,14 @@ export function useCatalog(): Catalog | null {
     // loadLive is single-flighted and cached, so this joins the Live
     // screen's load rather than starting a second one.
     if (!peekLive()) {
-      void loadLive(new Date()).then((d) => {
-        if (alive) setLive(d);
+      void loadLive(new Date()).then(() => {
+        // Whatever is CURRENT, not what this call resolved with. A
+        // playlist edit during a cold Sports load starts a second, forced
+        // load that finishes first; taking this one's result then
+        // regressed the board to the catalog the user had just changed.
+        // The refresh listener eight lines below already reads it this way.
+        const fresh = peekLive();
+        if (alive && fresh) setLive(fresh);
       });
     }
     // The guide lands in two phases and a background refresh replaces it, so

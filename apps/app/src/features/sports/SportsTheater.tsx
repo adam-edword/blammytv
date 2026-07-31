@@ -126,20 +126,32 @@ export function SportsTheater({
    *
    * `want` is the guard against a fast second click: resolving is async
    * (Stalker exchanges a play_token over the network), so two clicks race
-   * and the SLOWER one must not win. Same shape as the Live screen's
-   * "switched away meanwhile" check.
+   * and the SLOWER one must not win.
+   *
+   * A COUNTER, not the channel id. On identity it only held for clicks on
+   * DIFFERENT rows: click the same row twice on a slow portal and both
+   * resolves pass `want.current === id`, so the second lands, opens, and
+   * then the first lands with an older play_token, tears mpv down and
+   * reopens on the stale one. The slower click won, which is precisely
+   * what this guard exists to prevent. The tune watchdog re-resolves on
+   * its own, so overlapping requests for one row are the designed path.
    */
-  const want = useRef<string | null>(null);
+  const want = useRef(0);
   const tune = useCallback((channel: Match) => {
-    want.current = channel.id;
     // The Channel, not the Tunable: the matcher's type carries no stream
     // credentials, deliberately. Null means the catalog moved under the
     // rail, which is exactly when not to play something.
     const real = tunedChannel(channel.id);
+    // Bumped AFTER the lookup: a failed one used to leave `want` pointing
+    // at a channel that never played, silently cancelling a tune already
+    // in flight for a different row.
     if (!real) return;
+    const gen = ++want.current;
     void resolveStreamUrl(real).then(
       (url) => {
-        if (!url || want.current !== channel.id) return;
+        // Checked after the await, which is the only place it means
+        // anything.
+        if (!url || gen !== want.current) return;
         setTuned({ id: channel.id, name: channel.name, logo: channel.logo, url });
       },
       () => undefined,
@@ -147,7 +159,8 @@ export function SportsTheater({
   }, []);
 
   const stop = useCallback(() => {
-    want.current = null;
+    // Bumping is how a counter says "nothing in flight is wanted".
+    want.current++;
     setTuned(null);
   }, []);
 

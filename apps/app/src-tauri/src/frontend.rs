@@ -175,8 +175,22 @@ pub fn resolve() -> Option<PathBuf> {
     }
 
     // Arm the sentinel for this boot. `frontend_ready` clears it.
-    let _ = std::fs::create_dir_all(&root);
-    let _ = std::fs::write(&sentinel, active.version.as_bytes());
+    // FAIL CLOSED. This sentinel is the only thing that lets a bundle
+    // which throws before React mounts be rolled back, and it was written
+    // best-effort: if the write failed (disk full, AV lock, permissions)
+    // the staged bundle was served UNPROTECTED, bricked, and then bricked
+    // again on every launch because the next boot saw no sentinel either.
+    // The only recovery was a reinstall, which is the exact outcome this
+    // machinery exists to prevent. Falling back to the embedded bundle
+    // costs one update; the alternative costs the app.
+    if std::fs::create_dir_all(&root)
+        .and_then(|_| std::fs::write(&sentinel, active.version.as_bytes()))
+        .is_err()
+    {
+        eprintln!("[frontend] cannot arm the boot sentinel; serving embedded");
+        let _ = SERVING.set(String::new());
+        return None;
+    }
     eprintln!("[frontend] serving staged {}", active.version);
     let _ = SERVING.set(active.version.clone());
     Some(dir)

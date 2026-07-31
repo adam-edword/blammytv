@@ -299,7 +299,24 @@ async function doLoad(
   // loads also persist to disk for the next launch's instant hydrate.
   if (data.channels.length > 0) {
     const at = Date.now();
-    cache = { key, at, data };
+    // MUST NOT DOWNGRADE A GUIDE THAT IS ALREADY HERE.
+    //
+    // This channel-half write exists for a COLD load, so the lanes appear
+    // before the XMLTV lands. A disk-hydrated launch is the opposite case:
+    // it publishes a complete guide instantly, then calls this in the
+    // background, and this replaced it with an empty programme map for the
+    // entire length of the download. Every lane flipped back to "Loading
+    // guide…" a few seconds after the guide appeared, which is the exact
+    // thing the disk cache exists to prevent.
+    //
+    // The two-phase split (v0.7.11) introduced the guideless intermediate
+    // write; the background revalidation predates it and was never taught
+    // about it. The guide phase above publishes the complete record.
+    const downgrades =
+      cache?.key === key &&
+      cache.data.programmes.size > 0 &&
+      data.programmes.size === 0;
+    if (!downgrades) cache = { key, at, data };
     // NO disk write here any more: this snapshot has no guide yet, and
     // persisting it would let the next launch hydrate a guideless catalog
     // and then sit through the whole download again. The guide phase above

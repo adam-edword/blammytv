@@ -420,7 +420,13 @@ pub fn reload_live() {
 }
 
 pub fn stop() {
-    if let (Some(p), Some(l)) = (PLAYER.lock().unwrap().take(), LIB.get()) {
+    // Taken in its own statement so the guard DROPS before the destroy. In
+    // an `if let` scrutinee the temporary lives to the end of the block, so
+    // the mutex was held across terminate_destroy, which blocks until the
+    // core, demuxer and network threads unwind — hundreds of ms on a live
+    // stream. stop_popout already does it this way; the two disagreed.
+    let taken = PLAYER.lock().unwrap().take();
+    if let (Some(p), Some(l)) = (taken, LIB.get()) {
         unsafe { (l.terminate_destroy)(p.0) };
     }
 }
@@ -439,6 +445,10 @@ pub fn track_list() -> Vec<TrackInfo> {
     let count = get_property("track-list/count")
         .and_then(|s| s.parse::<usize>().ok())
         .unwrap_or(0);
+    // Clamped like chapter_list, and for the same reason it gives: a
+    // broken mux can report absurdity, and this issues FIVE property reads
+    // per entry on the UI thread every 500ms while the overlay polls.
+    let count = count.min(128);
     (0..count)
         .map(|i| TrackInfo {
             id: get_property(&format!("track-list/{i}/id"))
@@ -477,13 +487,18 @@ pub fn chapter_list() -> Vec<ChapterInfo> {
 
 /// Set a string property on the player (no-op if there's no player).
 fn set_prop(name: &str, value: &str) {
+    // BUILT BEFORE THE LOCK, and not unwrapped. `value` reaches here from
+    // the frontend (mpv_track's id), so an interior NUL panics — and a sync
+    // command runs inside WebView2's extern "system" callback, where an
+    // unwind across the FFI boundary aborts the process rather than failing
+    // the call. Doing it before the lock also means a bad value cannot
+    // poison the mutex and take every later mpv command with it.
+    let (Ok(k), Ok(v)) = (CString::new(name), CString::new(value)) else {
+        return;
+    };
     let g = PLAYER.lock().unwrap();
     if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {
         unsafe {
-            let (k, v) = (
-                CString::new(name).unwrap(),
-                CString::new(value).unwrap(),
-            );
             (l.set_property_string)(p.0, k.as_ptr(), v.as_ptr());
         }
     }
