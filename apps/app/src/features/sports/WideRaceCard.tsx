@@ -28,17 +28,22 @@ import type { Race } from "./RaceCard";
  * would read as a different kind of object rather than as the same object
  * about a different sport. The mapping onto the fixture card:
  *
- *   two team names       ->  five drivers, --sports-name
+ *   two team names       ->  five drivers
  *   the abbreviation     ->  the position, --sports-meta
  *   the status line      ->  LAP 41 / 72, or LIVE where there is no lap
- *   the league line      ->  the session, then the series under it
+ *   the league line      ->  the series ABOVE it, the session below
  *   the foot             ->  the same foot, shared (CardFoot)
  *
- * NOTHING maps onto the score. A race has no score, so the card takes
- * GameCard's own no-score treatment (`--alone`) and the only 28px type on
- * it is the field. The first pass put the lap in the 52px scoreline slot
- * and Adam read it straight away: it made the lap look like the thing you
- * came for, and the positions are the thing you came for.
+ * NOTHING maps onto the score, because a race has no score. The card takes
+ * GameCard's own no-score treatment (`--alone`), and the lap sits at that
+ * status size rather than in the 52px scoreline slot: a lap count says how
+ * far through you are, not who is winning, and the thing that says who is
+ * winning here is the field. That took three passes to settle.
+ *
+ * The drivers read at the LAP's size, not the country's. Those two are
+ * what this card REPORTS; the country is the label on the whole card, the
+ * same job the league line does on a fixture, so it keeps --sports-name
+ * and stays the only type at that size.
  */
 
 /**
@@ -155,16 +160,27 @@ function WideRaceCardImpl({ race }: { race: Race }) {
               * off a clock, and it belongs at the size of a status. */}
             <span className="gamecard__status gamecard__status--alone">
               {race.state === "live" && <span className="gamepip" aria-hidden />}
-              {counting
-                ? `LAP ${race.lap}`
-                : race.state === "live"
-                  ? "LIVE"
-                  : race.time}
-              {/* The distance, same size, quieter. They are the same kind
-                * of number and one is not a footnote to the other. */}
-              {counting && race.laps != null && (
-                <span className="wracecard__laps">/ {race.laps}</span>
-              )}
+              {/* ONE TEXT RUN, wrapper and all.
+                *
+                * The status line is an inline-flex with `gap: 8px`, which
+                * exists to hold the pip off the words. Left as siblings,
+                * the total collected that gap AND a margin of its own and
+                * sat 16.8px off the lap, which Adam boxed. Inside this
+                * wrapper it is what it always was: a word space in a
+                * sentence, the same one that separates LAP from 41. */}
+              <span className="wracecard__count">
+                {counting
+                  ? `LAP ${race.lap}`
+                  : race.state === "live"
+                    ? "LIVE"
+                    : race.time}
+                {/* The distance, same size, quieter. They are the same
+                  * kind of number and one is not a footnote to the
+                  * other. */}
+                {counting && race.laps != null && (
+                  <span className="wracecard__laps">{` / ${race.laps}`}</span>
+                )}
+              </span>
             </span>
             <span className="wracecard__session">{race.session}</span>
           </span>

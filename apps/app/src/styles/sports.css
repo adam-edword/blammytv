@@ -2392,9 +2392,15 @@
  * clock, not a score, and 41 and 72 are the same kind of number.
  */
 .wracecard__laps {
-  margin-left: 0.4em;
   font-variant-numeric: tabular-nums;
   color: rgba(255, 255, 255, 0.5);
+}
+/* Holds the whole reading together as one run, so the space before the
+ * total is a WORD SPACE and not the status line's pip gap. See the note
+ * in WideRaceCard: as flex siblings the two collected 16.8px between
+ * them, which is twice what the space inside "LAP 41" is. */
+.wracecard__count {
+  font-variant-numeric: tabular-nums;
 }
 /* The session, under the lap where the series is above it. */
 .wracecard__session {
