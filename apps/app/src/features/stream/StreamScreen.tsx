@@ -1636,6 +1636,63 @@ function Home({
  * nudge by ~75% of the viewport, smooth. */
 export function RowScroller({ children }: { children: ReactNode }) {
   const ref = useRef<HTMLDivElement | null>(null);
+  /**
+   * ONE TAB STOP PER ROW, arrows to move inside it.
+   *
+   * A row is a list you scan, not forty separate destinations. Measured on
+   * the sports board, crossing Today's row cost 42 presses and ArrowRight
+   * did nothing at all — and Stream home and Discover's genre rail are the
+   * same component with the same problem.
+   *
+   * Roving tabindex, the pattern ModeRail and the hero carousel already
+   * use: every item but the current one leaves the tab order, and the
+   * arrows move focus and selection together. Done imperatively rather
+   * than by prop, because the children here are four different kinds of
+   * card from three different features and none of them need to know.
+   */
+  const items = () =>
+    ref.current
+      ? [...ref.current.querySelectorAll<HTMLElement>(":scope > *")].filter(
+          (el) => el.matches("button, a, [tabindex]") && !el.hasAttribute("disabled"),
+        )
+      : [];
+  const rove = useCallback(() => {
+    const all = items();
+    if (!all.length) return;
+    // Whatever already has focus keeps it; otherwise the first item is the
+    // way in. A disabled-only row leaves nothing tabbable, which is right.
+    const active = all.findIndex((el) => el.tabIndex === 0);
+    const keep = active === -1 ? 0 : active;
+    all.forEach((el, i) => {
+      el.tabIndex = i === keep ? 0 : -1;
+    });
+  }, []);
+  useEffect(rove);
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const all = items();
+    const at = all.indexOf(document.activeElement as HTMLElement);
+    if (at === -1) return;
+    let next: number;
+    if (e.key === "ArrowRight") next = Math.min(at + 1, all.length - 1);
+    else if (e.key === "ArrowLeft") next = Math.max(at - 1, 0);
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = all.length - 1;
+    else return;
+    e.preventDefault();
+    all.forEach((el, i) => {
+      el.tabIndex = i === next ? 0 : -1;
+    });
+    all[next]?.focus();
+    // Keep the focused card on screen. Arrow keys are how a keyboard reads
+    // this row, so the row has to follow.
+    all[next]?.scrollIntoView({
+      block: "nearest",
+      inline: "nearest",
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth",
+    });
+  };
   const [can, setCan] = useState({ left: false, right: false });
   const update = useCallback(() => {
     const el = ref.current;
@@ -1749,6 +1806,7 @@ export function RowScroller({ children }: { children: ReactNode }) {
       <div
         className="media-row__scroller"
         ref={ref}
+        onKeyDown={onKeyDown}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={endDrag}

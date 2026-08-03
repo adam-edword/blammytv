@@ -878,7 +878,7 @@
   font-weight: 700;
   font-size: var(--sports-meta);
   letter-spacing: 0.06em;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.55);
   margin-bottom: 1px;
 }
 .gamecard__name {
@@ -1004,7 +1004,7 @@
 }
 /* No match is a real state, not an error: dim it, do not shout. */
 .gamecard__carriage--none {
-  color: rgba(255, 255, 255, 0.38);
+  color: rgba(255, 255, 255, 0.5);
 }
 .gamecard__dot {
   width: 7.1px;
@@ -1225,7 +1225,7 @@
   font-weight: 700;
   font-size: var(--sports-meta);
   letter-spacing: 0.07em;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.55);
 }
 .upcard__name {
   font-family: var(--font-headline);
@@ -1244,7 +1244,7 @@
   font-size: var(--sports-meta);
   letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.55);
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1903,7 +1903,7 @@
   font-size: var(--sports-meta);
   letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.62);
 }
 
 /* The race distance, beside the lap being run.
@@ -1913,7 +1913,7 @@
  * measured against and is the same all afternoon. */
 .racecard__laps {
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.55);
 }
 
 /* An upcoming session: its name, and when.
@@ -1980,7 +1980,7 @@
   font-weight: 700;
   font-size: 11px;
   font-variant-numeric: tabular-nums;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.5);
 }
 /* A country flag, since the source carries no constructor. Fixed box so a
  * missing one leaves the codes lined up rather than shunted left. */
@@ -2066,7 +2066,7 @@
   gap: 7px;
   font-family: var(--font-headline);
   line-height: 1.62;
-  color: rgba(255, 255, 255, 0.38);
+  color: rgba(255, 255, 255, 0.55);
 }
 .weekend__row--major {
   color: #fff;
@@ -2085,8 +2085,10 @@
   font-size: 12px;
   letter-spacing: 0.01em;
   /* Half a step behind its own label on both rows, so the major/minor ramp
-   * survives inside a row as well as between them. */
-  opacity: 0.78;
+   * survives inside a row as well as between them. 0.85, not 0.78: it
+   * multiplies the row's colour, so the minor rows landed at 4.2:1 even
+   * after the ramp was raised — this is the last tenth that clears 4.5. */
+  opacity: 0.85;
 }
 
 /* Where, over the track. Centred on the card, which is the whole reason
