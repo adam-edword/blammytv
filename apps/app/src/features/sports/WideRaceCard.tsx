@@ -140,26 +140,39 @@ function WideRaceCardImpl({ race }: { race: Race }) {
           </ol>
 
           <span className="wracecard__center">
-            {/* ONE LINE, at the size GameCard uses when a card has no score
-              * under its status. A race has no score, and the first pass
-              * put the lap in the 52px slot the scoreline occupies: it
-              * dominated the card and made the lap look like the thing you
-              * came for. The positions are the thing you came for, and
-              * they are the only 28px type here now. */}
-            <span className="gamecard__status gamecard__status--alone">
-              {race.state === "live" && <span className="gamepip" aria-hidden />}
-              {counting ? `LAP ${race.lap}` : race.state === "live" ? "LIVE" : race.time}
-              {/* The distance, quieter than the lap being run. The lap is
-                * the live number; the total is what it is measured against
-                * and does not change. Often absent: the payload carries no
-                * total and this is parsed out of ESPN's status text when
-                * it happens to be there. */}
-              {counting && race.laps != null && (
-                <span className="wracecard__laps">/ {race.laps}</span>
-              )}
-            </span>
-            <span className="gamecard__league">{race.session}</span>
-            <span className="wracecard__series">{race.series}</span>
+            {/* THE SERIES ON TOP, the session underneath, and the lap
+              * between them. Adam's order, and it reads better than
+              * GameCard's: a fixture's league line is a footnote to the
+              * score, where a race's series is the thing that tells you
+              * what you are even looking at before the number means
+              * anything. */}
+            <span className="gamecard__league">{race.series}</span>
+            {counting ? (
+              <span className="wracecard__lap">
+                {race.state === "live" && (
+                  <span className="gamepip" aria-hidden />
+                )}
+                {/* The word stays small. It is a label on the number, not
+                  * a peer of it, and at score size "LAP 41 / 72" measures
+                  * 254px against a column that has 220 to give. */}
+                <span className="wracecard__lap-label">LAP</span>
+                <span className="wracecard__lap-num">{race.lap}</span>
+                {/* The distance, the same size as the lap and differing
+                  * only in colour: they are the same kind of number and
+                  * one is not a footnote to the other. */}
+                {race.laps != null && (
+                  <span className="wracecard__laps">/ {race.laps}</span>
+                )}
+              </span>
+            ) : (
+              <span className="gamecard__status gamecard__status--alone">
+                {race.state === "live" && (
+                  <span className="gamepip" aria-hidden />
+                )}
+                {race.state === "live" ? "LIVE" : race.time}
+              </span>
+            )}
+            <span className="wracecard__session">{race.session}</span>
           </span>
 
           <span className="wracecard__where">

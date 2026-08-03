@@ -2284,7 +2284,15 @@
   align-items: center;
   gap: 25.56px;
   height: 100%;
-  padding: 0 42.6px 25.56px;
+  /* NO BOTTOM PADDING, unlike GameCard, and that is the one proportion
+   * here that deliberately departs from it. The fixture card reserves the
+   * bottom for its foot and centres what is left, which puts its content
+   * on 125.7 of a 276.9 card. On a fixture that reads fine because the
+   * two names and the score are one short band. This card's field is
+   * 180px tall, so the same offset tips the whole thing visibly high, and
+   * Adam drew a line across it. Centred on the card's real middle now;
+   * the field lands 48.4 to 228.4 and the foot starts at 240. */
+  padding: 0 42.6px;
 }
 
 /* The field. Five rows where the fixture card has one name, which is what
@@ -2329,10 +2337,22 @@
   height: auto;
   object-fit: contain;
 }
+/* The driver, a step under the country opposite it.
+ *
+ * A step, and not a match, and the difference is the whole note. Adam
+ * asked to "lower the font size of the racers names to match NETHERLANDS
+ * size", and measured they ALREADY matched: both --sports-name, both cap
+ * height 19.0 on the canvas. What he was seeing is real and it is
+ * optical — three wide bold letters with letter-spacing carry far more
+ * ink per glyph than an eleven-letter word, so equal type reads unequal.
+ *
+ * So this is 24px to LOOK like 28px beside it, which is the only kind of
+ * matching that matters on a card. Written out rather than tokenised
+ * because it is a correction to one pairing, not a new step in the ramp. */
 .wracecard__code {
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: var(--sports-name);
+  font-size: 24px;
   line-height: 1.05;
   letter-spacing: 0.02em;
   color: #fff;
@@ -2344,30 +2364,53 @@
   align-items: center;
   gap: 2px;
 }
-/* The distance, beside the lap being run.
+/* The lap, at the size the wide card gives a SCORE.
  *
- * THE SAME SIZE, differing only in colour. It was a ratio of the lap, the
- * way .gamecard__dash is a ratio of the score it separates, and Adam read
- * the mismatch immediately: "the lap font size is mega huge, or the total
- * lap size is small, one or the other". He is right that it can only be
- * one thing — 41 and 72 are the same kind of number and one of them is
- * not a footnote to the other. So the size says they belong together and
- * the colour says which one is moving. */
-.wracecard__laps {
-  margin-left: 0.35em;
-  font-variant-numeric: tabular-nums;
-  color: rgba(255, 255, 255, 0.55);
+ * Which is where this started and then went twice around: the first pass
+ * put the whole string in the 52px slot and read as "mega huge", the
+ * second dropped all of it to 22px and read as too quiet. The answer was
+ * neither size, it was the SPLIT — the number is the score and the word
+ * is a label on it, exactly as "Final" labels 23-30 on the fixture card.
+ * At 52px "LAP 41 / 72" measures 254px against a column with 220 to give,
+ * which is the other reason the word stays small. */
+.wracecard__lap {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
 }
-/* Under the session, and quieter than it: on this card the session is the
- * thing you need and the series is which sport it belongs to. */
-.wracecard__series {
+.wracecard__lap-label {
+  font-size: var(--sports-meta);
+  letter-spacing: 0.09em;
+  color: rgba(255, 255, 255, 0.72);
+}
+.wracecard__lap-num {
+  font-size: var(--sports-score);
+  font-variant-numeric: tabular-nums;
+}
+/* The distance. THE SAME SIZE as the lap, differing only in colour: Adam
+ * read the old mismatch immediately ("the lap font size is mega huge, or
+ * the total lap size is small, one or the other") and he is right that it
+ * can only be one thing. 41 and 72 are the same kind of number, so the
+ * size says they belong together and the colour says which one moves. */
+.wracecard__laps {
+  font-size: var(--sports-score);
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.5);
+}
+/* The session, under the lap where the series is above it. */
+.wracecard__session {
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: var(--sports-meta);
   letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.62);
 }
+
 
 /* Where, over the track, as on the small card. */
 .wracecard__where {
