@@ -413,7 +413,7 @@ export function DiscoverScreen() {
           <>
             <h2>Something new to watch.</h2>
             <p className="discover__note">
-              Connect your AIOStreams manifest in Settings → AIOStreams and
+              Connect your AIOStreams manifest in Settings → General → Sources and
               this tab fills itself.
             </p>
           </>

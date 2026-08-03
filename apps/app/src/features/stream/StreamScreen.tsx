@@ -1532,7 +1532,7 @@ function Home({
       <div className="stream__note">
         <h2>Movies and shows, one tab over from live.</h2>
         <p>
-          Paste your AIOStreams manifest URL in Settings → AIOStreams and the
+          Paste your AIOStreams manifest URL in Settings → General → Sources and the
           catalog appears here.
         </p>
       </div>
@@ -1548,7 +1548,7 @@ function Home({
     return (
       <div className="stream__note" role="alert">
         <h2>Couldn&rsquo;t load your catalog.</h2>
-        <p>{load.message}. Check the manifest URL in Settings → AIOStreams.</p>
+        <p>{load.message}. Check the manifest URL in Settings → General → Sources.</p>
         {/* Live's error states retry; siblings match (the audit's
           * dead-end finding). */}
         <p>
@@ -1578,7 +1578,7 @@ function Home({
         <h2>Nothing came back from your catalogs.</h2>
         <p>
           The manifest loaded but every catalog returned empty. Check the
-          manifest in Settings → AIOStreams, or just try again in a minute.
+          manifest in Settings → General → Sources, or just try again in a minute.
         </p>
       </div>
     );

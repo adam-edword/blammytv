@@ -366,7 +366,7 @@ export function TheaterOverlay({
   // to the next candidate.
   //
   // Two different gates, because the two hosts mean different things by a
-  // list of sources. VOD's is opt-in (Settings → AIOStreams, off by
+  // list of sources. VOD's is opt-in (Settings → General → Sources, off by
   // default): a debrid retry costs a request against the user's account.
   // A live host's is not: the sports rail exists precisely so a game on
   // three of your channels is three chances at one that is not buffering,

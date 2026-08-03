@@ -348,12 +348,38 @@ function FolderEditor({
     () => new Set(playlist.hiddenCategories ?? []),
   );
   if (playlist.kind !== "xtream") {
+    // NOT NOTHING. There is no category API for these, so the full folder
+    // list cannot be offered — but the guide's own hide button works on
+    // them, and it toasts "unhide any time in Settings". That promise was
+    // false: this bailed, so a hide made from the guide was permanent and
+    // the only recovery was deleting the playlist, which throws away the
+    // rest of the curation with it.
+    //
+    // The stored ids ARE the folder names for these kinds (folderId is
+    // `${playlistId}:${group}`), so what CAN be listed is exactly what was
+    // hidden, which is all an unhide needs.
+    const hidden = [...(playlist.hiddenCategories ?? [])].sort((a, b) =>
+      a.localeCompare(b),
+    );
     return (
-      <div className="source-list source-list--note">
+      <div className="source-list">
         <p className="settings__section-note settings__section-note--dim">
-          Folder editing for {KIND_LABELS[playlist.kind]} playlists arrives
-          with its live-TV client.
+          {hidden.length === 0
+            ? `Nothing hidden. Choosing folders up front for ${KIND_LABELS[playlist.kind]} playlists arrives with its live-TV client; until then, hide them from the guide and they will appear here.`
+            : `Hidden from the guide. Choosing folders up front arrives with ${KIND_LABELS[playlist.kind]}'s live-TV client.`}
         </p>
+        {hidden.map((id) => (
+          <div className="source-row" key={id}>
+            <span className="source-row__name">{id}</span>
+            <button
+              type="button"
+              className="btn-quiet"
+              onClick={() => onSave(hidden.filter((h) => h !== id))}
+            >
+              Unhide
+            </button>
+          </div>
+        ))}
       </div>
     );
   }

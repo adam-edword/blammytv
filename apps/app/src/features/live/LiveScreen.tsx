@@ -253,7 +253,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
     null,
   );
   /** The folder context menu (right-click → Hide): cursor-anchored, one
-   * action. Unhide lives in Settings → Playlists' folder editor. */
+   * action. Unhide lives in Settings → General → Sources' folder editor. */
   const [folderMenu, setFolderMenu] = useState<{
     x: number;
     y: number;
@@ -903,7 +903,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
               id="folder-menu-hint"
               role="none"
             >
-              Unhide any time in Settings &rarr; Playlists.
+              Unhide any time in Settings &rarr; General &rarr; Sources.
             </p>
           </div>,
           document.body,
@@ -937,7 +937,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
           >
             <p>
               Couldn&rsquo;t load your playlists: {live.message}. Check them in
-              Settings → Playlists.
+              Settings → General → Sources.
             </p>
             <button
               type="button"
@@ -955,7 +955,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
               <p>
                 Couldn&rsquo;t load your playlists:{" "}
                 {ready.groups.find((g) => g.error)!.error}. Check them in
-                Settings → Playlists.
+                Settings → General → Sources.
               </p>
               <button
                 type="button"
@@ -967,7 +967,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
             </div>
           ) : (
             <div className="live-status" role="status">
-              <p>No channels here yet. Add a playlist in Settings → Playlists.</p>
+              <p>No channels here yet. Add a playlist in Settings → General → Sources.</p>
             </div>
           ))}
         {ready && shownChannel && (
