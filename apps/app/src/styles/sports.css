@@ -1800,14 +1800,17 @@
 .leaguetile__mark {
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  /* 34, then 40, then 20% more. The tile is 92px tall and holds a mark, a
+   * gap and a name that can wrap to two lines: 48 + 8 + two 14px lines is
+   * 84, so it fits with room and the name still has somewhere to go. */
+  width: 48px;
+  height: 48px;
   overflow: hidden;
   font-family: var(--font-headline);
   font-weight: 700;
   /* The initial, where the art is missing or dead. Sized to the box the
    * mark would have filled rather than to the label under it. */
-  font-size: 20px;
+  font-size: 24px;
   color: var(--text-muted);
   /* Idle marks sit back so the followed ones read as chosen; the tile's own
    * fill is doing the work, and a full-strength logo on every tile makes
@@ -1928,20 +1931,24 @@
 
 /* A league's mark, or its initial where the art is missing or dead.
  *
- * 22px, up from 16. Adam's, and the row can take it: .live-folder is 36px
- * tall, so a 16px mark left the art looking incidental next to a 14px
- * label. The slot is fixed either way, so the labels line up down the
+ * 26px, which is 16 then 22 then Adam asking for 20% more again. The row
+ * can still take it, and the reason is the padding rather than the height:
+ * .live-folder is a fixed 36px with 8px of vertical padding, so its
+ * content box is 20px and a 26px mark spills 3px into each pad. Nothing
+ * clips and the row does not grow, which is the property that matters —
+ * a mark that changed the row height would ripple through a 151-row
+ * scroller. The slot is fixed either way, so labels line up down the
  * column whether or not anything loaded. */
 .leaguepick__mark {
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   overflow: hidden;
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--text-muted);
   opacity: 0.85;
 }
