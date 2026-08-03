@@ -513,10 +513,10 @@ once racing arrived.
 
 **[ ]** not started, **[~]** partly there, **[?]** blocked or undecided.
 
-Two items gate a lot of the rest: **A1** (a real racing adapter) clears
-five TEMPORARY markers and makes all of section A easier, and **D1** (the
-fetch inversion) is what turns a 151 league catalog from a list into a
-feature.
+Two items gated a lot of the rest. **A1** (a real racing adapter) still
+does: it clears five TEMPORARY markers and makes all of section A easier.
+**D1** (the fetch inversion) landed in v0.8.120, so the 151 league catalog
+is now what gets fetched rather than a list nothing read.
 
 ---
 
@@ -649,8 +649,9 @@ Bouts are at `event.competitions[]` with `order` and `winner` but **no
 
 #### B4. Re-run the shape classification [ ]
 
-The 484 event sweep predates the 151 league catalog. Repeat it once D1
-changes what gets fetched.
+The 484 event sweep predates the 151 league catalog. D1 has landed, so any
+of those leagues can now be fetched and the sweep can be repeated against
+what people actually follow.
 
 ---
 
@@ -682,12 +683,18 @@ the board happened to load, and a club cannot be followed out of season.
 
 #### C5. The two step league picker [ ]
 
+**Now the gating item, and D1 is why.** The plumbing reaches all 151
+leagues and the sidebar still offers five tiles, so nothing a user can
+click gets past the defaults. Until this lands, D1 is a capability with no
+door.
+
 The data is done and the UI is not. `leagues.ts` already exports `SPORTS`,
 `ALL_LEAGUES`, `searchSports` and `searchLeagues` over 151 leagues in 14
 sports.
 
 - A sports grid, then that sport's leagues as tiles, with search.
-- The league tile component already exists.
+- The league tile component already exists, and it now takes a
+  `CatalogLeague` directly rather than a key into two tables.
 
 #### C6. Search within teams [ ]
 
@@ -695,25 +702,43 @@ sports.
 
 ### D. Follows and the fetch
 
-#### D1. The fetch inversion [ ]
+#### D1. The fetch inversion [x] v0.8.120
 
-The biggest remaining piece. Follows are a **filter** over five hardcoded
-leagues; they should be the **fetch list** over the catalog.
+Follows were a **filter** over five hardcoded leagues. They are the **fetch
+list** over the catalog now.
 
-- `fetchLeague` takes a catalog path rather than a `LeagueKey`.
-- `LEAGUE_NAMES` and `LEAGUE_LOGOS` come from the catalog instead of the
-  two hand kept tables.
-- `Game.leagueKey` becomes the catalog path. That is a **stored data
-  change**: `follows.teamKey` builds `${leagueKey}:${id}`, so existing
-  follows need migrating or they silently stop matching.
-- **Decide the empty state.** Fetching 151 leagues is not an option, so no
-  follows needs a default set. This is what makes E1 (onboarding) matter.
+- `fetchLeague` and `toGames` take a catalog path. The `LEAGUES` table is
+  gone; `DEFAULT_LEAGUES` is five paths and only the floor under an empty
+  store.
+- `LEAGUE_NAMES` and `LEAGUE_LOGOS` are gone. The sidebar reads `label` and
+  `logo` off the catalog, which carries both for all 151.
+- `Game.leagueKey` is the path, and so is the id's league segment
+  (`espn-soccer/eng.1-401862897`). The slash survives a quoted attribute
+  selector; confirmed in Chromium rather than assumed.
+- `Game.sport` widened from a union of six to a string. The union's comment
+  claimed the renderer branched on it and nothing ever has.
+- The stored data change is handled by `LEGACY` in follows.ts, applied on
+  read rather than by a version bump: `load` discards on a version
+  mismatch, which is the loss the migration exists to prevent.
+- **Empty state decided**: no follows fetches the default five, so first
+  run is the board it has always been rather than a form. E1 still matters,
+  it is just no longer load-bearing.
+- Probed live before committing: 10 catalog paths answered 200, and WNBA
+  and the Champions League mapped to real games through the new path.
+  UFC maps to 0, which is B3 and not a regression.
+- Cost: the catalog is now in the bundle where it used to be tree-shaken
+  out. 531 to 555 kB raw, 171.3 to 175.7 kB gzipped.
 
-#### D2. Rate and concurrency [ ]
+#### D2. Rate and concurrency [~]
 
-`fetchGames` runs `Promise.all` over five. Twenty or more wants a
-concurrency cap, backoff and a cache. The plan's own words: this is a free
-endpoint we do not own, behave like a guest.
+Done: a module-wide gate in espn.ts caps ESPN at **6 requests in flight**,
+across every league and all three days. It was structurally five before
+(five leagues, one request each) and D1 removed that ceiling: twenty
+followed leagues times three days is sixty requests in one frame at a free
+endpoint we do not own.
+
+Left: backoff on failure, and a cache. See F3, which is the same instinct
+about cadence living in one place.
 
 #### D3. Team follows out of season [ ]
 
@@ -751,8 +776,11 @@ is paging or a date picker rather than new layout.
 
 #### F2. Empty states [~]
 
-"Nothing on for what you follow" exists. Missing: no leagues followed
-(which D1 makes reachable), and no channels matched.
+"Nothing on for what you follow" exists. Missing: no channels matched.
+
+"No leagues followed" is NOT a state to write. D1 decided the empty store
+means the default five rather than an empty board, so there is no screen
+with nothing on it to explain.
 
 #### F3. One module for cadence and staleness [ ]
 

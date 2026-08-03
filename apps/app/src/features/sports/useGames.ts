@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { onDay } from "./day";
-import { fetchGames } from "./espn";
+import { DEFAULT_LEAGUES, fetchGames } from "./espn";
 import { CARD_CONFIDENCE, matchEvent, matchGame } from "./matcher";
 import type { Catalog } from "./matcher";
 import type { Game } from "./model";
@@ -29,12 +29,32 @@ export interface Day {
  * The timer only runs while the window is being looked at, and a failed
  * refresh keeps the last good board: a network blip should leave the
  * scores on screen for another 90 seconds, not blank the page.
+ *
+ * WHICH leagues is the caller's business (plan 010, D1): this is handed the
+ * list rather than knowing five of them, so following one more league is a
+ * different argument rather than a different code path.
  */
-export function useGames(dayCount = DAYS) {
+export function useGames(
+  leagues: readonly string[] = DEFAULT_LEAGUES,
+  dayCount = DAYS,
+) {
   const [days, setDays] = useState<Day[]>([]);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
 
+  /**
+   * The fetch list as one string, and the effect's real dependency.
+   *
+   * An array prop is a new object on every render of the caller, so keying
+   * the effect on `leagues` itself would tear down the timer, abort the
+   * board and refetch every league on every parent render. The contents are
+   * what matters and they are strings, so compare the contents. `fetchList`
+   * sorts, which is what makes this stable when a follow is added and
+   * removed again.
+   */
+  const key = leagues.join(",");
+
   useEffect(() => {
+    const paths = key ? key.split(",") : [];
     const ac = new AbortController();
     let timer: number | undefined;
 
@@ -75,7 +95,7 @@ export function useGames(dayCount = DAYS) {
       const mine = ++gen;
       try {
         const all = await Promise.all(
-          dates.map((date) => fetchGames({ date, signal: ac.signal })),
+          dates.map((date) => fetchGames(paths, { date, signal: ac.signal })),
         );
         if (ac.signal.aborted || mine !== gen) return;
         setDays(dates.map((date, i) => ({ date, games: onDay(all[i], date, i === 0) })));
@@ -95,7 +115,7 @@ export function useGames(dayCount = DAYS) {
       // with today's date and filtered them through today.
       const d0 = dates[0];
       try {
-        const games = await fetchGames({ date: d0, signal: ac.signal });
+        const games = await fetchGames(paths, { date: d0, signal: ac.signal });
         if (ac.signal.aborted || mine !== gen) return;
         setDays((prev) =>
           prev.length === 0
@@ -147,7 +167,7 @@ export function useGames(dayCount = DAYS) {
       window.clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [dayCount]);
+  }, [dayCount, key]);
 
   return { days, state };
 }

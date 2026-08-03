@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LEAGUES, espnDate, fetchGames, toGames } from "./espn";
+import { DEFAULT_LEAGUES, espnDate, fetchGames, toGames } from "./espn";
 import epl from "./fixtures/epl-scoreboard.json";
 import mlb from "./fixtures/mlb-scoreboard.json";
 import nfl from "./fixtures/nfl-scoreboard.json";
@@ -14,7 +14,16 @@ import atp from "./fixtures/atp-scoreboard.json";
  * shape change upstream fails here rather than on a card.
  */
 
-const league = (key: string) => LEAGUES.find((l) => l.key === key)!;
+/** The catalog paths the fixtures were captured from. `toGames` takes a
+ * path now rather than a row from a table of five (D1), so this is only
+ * here to keep the call sites reading as league names. */
+const PATHS: Record<string, string> = {
+  mlb: "baseball/mlb",
+  nfl: "football/nfl",
+  nhl: "hockey/nhl",
+  epl: "soccer/eng.1",
+};
+const league = (key: string) => PATHS[key];
 
 describe("toGames", () => {
   it("maps a live game, its clock and its score", () => {
@@ -146,7 +155,7 @@ describe("toGames", () => {
 
   it("namespaces ids by source and league", () => {
     const [game] = toGames(nfl, league("nfl"));
-    expect(game.id).toMatch(/^espn-nfl-\d+$/);
+    expect(game.id).toMatch(/^espn-football\/nfl-\d+$/);
   });
 
   it("drops an event it cannot draw instead of throwing", () => {
@@ -191,7 +200,7 @@ describe("espnDate", () => {
  * each. On the live board that same event carried 121.
  */
 describe("toGames over a tennis tournament", () => {
-  const league = { key: "atp", sport: "tennis", path: "tennis/atp" } as never;
+  const league = "tennis/atp";
 
   it("finds the matches under groupings, where competitions is empty", () => {
     const games = toGames(atp, league);
@@ -259,9 +268,9 @@ describe("toGames leaves single match events exactly as they were", () => {
   it("keeps the id it always had, with no suffix", () => {
     // Ids are React keys and the row's scroll anchor. Tennis must not
     // rename every game in the app.
-    const league = LEAGUES.find((l) => l.key === "epl")!;
+    const league = PATHS.epl;
     for (const g of toGames(epl, league)) {
-      expect(g.id).toMatch(/^espn-epl-\d+$/);
+      expect(g.id).toMatch(/^espn-soccer\/eng\.1-\d+$/);
     }
   });
 });
@@ -297,13 +306,13 @@ describe("a game that was never played", () => {
   it("is not a result", () => {
     // It used to map straight to `final` and draw as a finished nil-nil
     // draw: dimmed, collapsed into a compact line, beaten by nobody.
-    const g = toGames(postponed(), LEAGUES.find((l) => l.key === "mlb")!)[0];
+    const g = toGames(postponed(), PATHS.mlb)[0];
     expect(g.state).not.toBe("final");
     expect(g.state).toBe("pre");
   });
 
   it("says why, rather than showing a kick-off time that is no longer true", () => {
-    const g = toGames(postponed(), LEAGUES.find((l) => l.key === "mlb")!)[0];
+    const g = toGames(postponed(), PATHS.mlb)[0];
     expect(g.status).toBe("Postponed");
   });
 
@@ -315,8 +324,83 @@ describe("a game that was never played", () => {
       detail: "Final",
       shortDetail: "Final",
     };
-    const g = toGames(done, LEAGUES.find((l) => l.key === "mlb")!)[0];
+    const g = toGames(done, PATHS.mlb)[0];
     expect(g.state).toBe("final");
+  });
+});
+
+describe("fetchGames asks for what it is given", () => {
+  /** Stands in for the wire, recording every URL and answering empty. */
+  const record = async (run: () => Promise<unknown>) => {
+    const seen: string[] = [];
+    const real = globalThis.fetch;
+    globalThis.fetch = ((url: string) => {
+      seen.push(url);
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    }) as never;
+    try {
+      await run();
+    } finally {
+      globalThis.fetch = real;
+    }
+    return seen;
+  };
+
+  it("requests exactly the paths in the list, in the catalog's own words", async () => {
+    // The whole of D1 from the wire's side: five hardcoded leagues became
+    // whatever is followed, and a path is a URL with no lookup in between.
+    const seen = await record(() =>
+      fetchGames(["tennis/atp", "mma/ufc"]),
+    );
+    expect(seen).toEqual([
+      "https://site.api.espn.com/apis/site/v2/sports/tennis/atp/scoreboard",
+      "https://site.api.espn.com/apis/site/v2/sports/mma/ufc/scoreboard",
+    ]);
+  });
+
+  it("falls back to the defaults when handed nothing", async () => {
+    const seen = await record(() => fetchGames([]));
+    expect(seen).toHaveLength(0);
+    const fallback = await record(() => fetchGames());
+    expect(fallback).toHaveLength(DEFAULT_LEAGUES.length);
+    for (const path of DEFAULT_LEAGUES)
+      expect(fallback.some((u) => u.includes(`/${path}/`))).toBe(true);
+  });
+});
+
+describe("the request gate", () => {
+  it("never puts more than six requests on the wire at once", async () => {
+    // It used to be five leagues, structurally. The fetch list is now
+    // whatever is followed times three days, so a keen follower could put
+    // sixty requests up in one frame at a free endpoint we do not own.
+    let open = 0;
+    let peak = 0;
+    const real = globalThis.fetch;
+    globalThis.fetch = (() => {
+      open++;
+      peak = Math.max(peak, open);
+      return new Promise((resolve) =>
+        setTimeout(() => {
+          open--;
+          resolve({ ok: true, json: async () => ({}) });
+        }, 1),
+      );
+    }) as never;
+    try {
+      const paths = Array.from({ length: 30 }, (_, i) => `sport/l${i}`);
+      // Three days at once, the way the board actually loads.
+      await Promise.all([
+        fetchGames(paths),
+        fetchGames(paths),
+        fetchGames(paths),
+      ]);
+    } finally {
+      globalThis.fetch = real;
+    }
+    expect(peak).toBeLessThanOrEqual(6);
+    // And it did not simply serialise: a board that loads one league at a
+    // time over twenty leagues is a board you watch fill in.
+    expect(peak).toBe(6);
   });
 });
 
@@ -356,7 +440,7 @@ describe("broadcast ordering", () => {
       },
     ],
   });
-  const mlb = () => LEAGUES.find((l) => l.key === "mlb")!;
+  const mlb = () => PATHS.mlb;
 
   it("puts the national feed first whatever order it arrived in", () => {
     // The card prints broadcasts[0] as "On X". That was decided by the

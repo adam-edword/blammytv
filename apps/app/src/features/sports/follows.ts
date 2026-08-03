@@ -1,4 +1,5 @@
 import { load, save } from "../../lib/storage";
+import { DEFAULT_LEAGUES } from "./espn";
 import type { Competitor, Game } from "./model";
 
 /**
@@ -17,7 +18,7 @@ const KEY = "sports-follows";
 const VERSION = 1;
 
 export interface Follows {
-  /** LeagueKey values: "mlb", "epl". Our own, not the source's wording. */
+  /** Catalog paths: "baseball/mlb", "soccer/eng.1". */
   leagues: string[];
   /** `teamKey` values. */
   teams: string[];
@@ -30,6 +31,28 @@ export function loadFollows(): Follows {
 }
 
 /**
+ * The five keys this feature shipped with, and what they are now.
+ *
+ * D1 re-keyed leagues from a name of our own to the catalog path, which
+ * makes every follow anyone has already saved a dead string. `resolvable()`
+ * means a dead string is harmless rather than a wedge, but harmless is not
+ * the same as kept: someone who followed the NHL in v0.8.9x should still be
+ * following it after the update, not quietly back to the default board.
+ *
+ * Done here rather than by bumping the storage version, because a version
+ * bump in `load` discards the value outright — the very loss this exists to
+ * prevent. Five entries, applied on read, rewritten to disk by the next
+ * toggle. Deletable once nobody is upgrading from before v0.8.120.
+ */
+const LEGACY: Record<string, string> = {
+  nfl: "football/nfl",
+  nba: "basketball/nba",
+  mlb: "baseball/mlb",
+  nhl: "hockey/nhl",
+  epl: "soccer/eng.1",
+};
+
+/**
  * Whatever came out of storage, as a Follows.
  *
  * Split from the read so the defensive half can be tested without a
@@ -39,10 +62,27 @@ export function loadFollows(): Follows {
 export function asFollows(raw: unknown): Follows {
   const v = (raw ?? {}) as Partial<Follows>;
   return {
-    leagues: strings(v.leagues),
-    teams: strings(v.teams),
+    leagues: dedupe(strings(v.leagues).map(migrateLeague)),
+    teams: dedupe(strings(v.teams).map(migrateTeam)),
   };
 }
+
+/** A stored league key, as a catalog path. Already a path? Untouched. */
+function migrateLeague(key: string): string {
+  return LEGACY[key] ?? key;
+}
+
+/** The same, for the league half of `${leagueKey}:${teamId}`. */
+function migrateTeam(key: string): string {
+  const cut = key.indexOf(":");
+  if (cut === -1) return key;
+  const moved = LEGACY[key.slice(0, cut)];
+  return moved ? moved + key.slice(cut) : key;
+}
+
+/** Two keys can migrate onto one only if the store was hand-edited, but a
+ * duplicate would double every count the sidebar shows. */
+const dedupe = (list: string[]): string[] => [...new Set(list)];
 
 const strings = (v: unknown): string[] =>
   Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
@@ -78,14 +118,37 @@ export function gameTeamKeys(game: Game): string[] {
   ].filter((k): k is string => k !== null);
 }
 
-/** Is this game one the user follows, by either half of the store? */
+/**
+ * WHICH LEAGUES TO FETCH, which is the whole of D1 in six lines.
+ *
+ * Follows used to be a filter over five leagues that were always fetched.
+ * They are the fetch list now: what you follow is what goes on the wire,
+ * over a catalog of 151. A team follow pulls its league in, because there
+ * is no way to ask ESPN for one club's fixtures and no reason to want one:
+ * the league's board is a superset, and `isFollowed` narrows it back down.
+ *
+ * Nothing followed asks for the default five. See DEFAULT_LEAGUES for why
+ * there is a floor at all rather than an empty board.
+ *
+ * Sorted, so that two stores holding the same leagues in a different order
+ * produce the same list. The board keys its fetching effect on this, and an
+ * order-dependent answer would refetch the world every time a follow moved.
+ */
+export function fetchList(follows: Follows): string[] {
+  const paths = new Set(follows.leagues);
+  for (const key of follows.teams) {
+    const cut = key.indexOf(":");
+    if (cut > 0) paths.add(key.slice(0, cut));
+  }
+  return paths.size > 0 ? [...paths].sort() : [...DEFAULT_LEAGUES];
+}
+
 /**
  * The follows that still MEAN something, given the leagues that exist now.
  *
- * A stored key is a foreign key into the league table, and that table is
- * going to be re-keyed: `leagueKey` moves from "epl" to a catalog path like
- * "soccer/eng.1". Without this, the day that lands is the day the Sports
- * tab wedges, permanently, for everyone who ever followed anything:
+ * A stored key is a foreign key into the league catalog, and a key that no
+ * longer resolves must not be able to filter the board. Without this, the
+ * Sports tab wedges permanently for anyone holding one:
  *
  *   - `narrowed` reads true, because the stale strings are still stored
  *   - nothing matches them, so every game on every day is filtered out
@@ -110,6 +173,15 @@ export function resolvable(follows: Follows, known: readonly string[]): Follows 
   };
 }
 
+/**
+ * Is this game one the user follows, by either half of the store?
+ *
+ * Still a FILTER, on top of the fetch list rather than instead of it.
+ * Following one club pulls its whole league onto the wire (fetchList), and
+ * this is what puts only that club's games on the board. Following the
+ * league itself passes everything in it, which is the same rule read from
+ * the other end.
+ */
 export function isFollowed(game: Game, follows: Follows): boolean {
   if (follows.leagues.includes(game.leagueKey)) return true;
   return gameTeamKeys(game).some((k) => follows.teams.includes(k));

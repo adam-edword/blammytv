@@ -1,4 +1,5 @@
 import { driverCode } from "./driverCode";
+import { league as catalogLeague } from "./leagues";
 import type { Competitor, Game, GameState } from "./model";
 
 /**
@@ -21,61 +22,60 @@ import type { Competitor, Game, GameState } from "./model";
 const BASE = "https://site.api.espn.com/apis/site/v2/sports";
 
 /**
- * What we ask for. Adam's brief: every major US league, plus the global
- * competitions worth following from here.
+ * What the board asks for when NOTHING is followed (plan 010, D1).
  *
- * F1 is deliberately absent. A race is a session with twenty entrants, not
- * two competitors, so it needs its own card before it can have a row (the
- * plan's own risk list). Nothing here would crash on it; it would just map
- * to nothing, which is worse than an honest omission.
+ * Not "the leagues this app supports" any more: what gets fetched is the
+ * follow list, over the 151-league catalog. This is only the floor under an
+ * empty store, and it is the same five that used to be hardcoded, so a
+ * first run looks exactly like it always has.
+ *
+ * A floor rather than nothing, because the alternative to a default set is
+ * an empty board on first launch asking to be configured. That trade is
+ * what makes onboarding (E1) worth building; until it exists, a board with
+ * the five biggest leagues on it is a better first screen than a form.
+ *
+ * F1 is deliberately absent, and so is every other racing series here. A
+ * race is a session with twenty entrants, not two competitors, so it needs
+ * its own card before it can have a row (the plan's own risk list). The
+ * catalog carries all six racing leagues and any of them can be followed;
+ * what comes back maps to nothing until the racing adapter lands.
  */
-export const LEAGUES = [
-  { key: "nfl", path: "football/nfl", sport: "football" },
-  { key: "nba", path: "basketball/nba", sport: "basketball" },
-  { key: "mlb", path: "baseball/mlb", sport: "baseball" },
-  { key: "nhl", path: "hockey/nhl", sport: "hockey" },
-  { key: "epl", path: "soccer/eng.1", sport: "soccer" },
-] as const satisfies ReadonlyArray<{
-  key: string;
-  path: string;
-  sport: Game["sport"];
-}>;
-
-export type LeagueKey = (typeof LEAGUES)[number]["key"];
+export const DEFAULT_LEAGUES: readonly string[] = [
+  "football/nfl",
+  "basketball/nba",
+  "baseball/mlb",
+  "hockey/nhl",
+  "soccer/eng.1",
+];
 
 /**
- * What to CALL each league, and what it looks like, where there are no
- * games to ask.
+ * At most this many ESPN requests in flight at once, across the whole app.
  *
- * The board takes both from the response, which is right there and is the
- * source's own wording. The sidebar cannot: it offers all five whether or
- * not any of them is playing tonight, and a league out of season answers
- * with nothing to read a name or a mark out of.
+ * It used to be five, structurally: five hardcoded leagues, one request
+ * each. Now the fetch list is whatever is followed over a 151-league
+ * catalog, times three days, so a keen follower could open twenty leagues
+ * and put sixty requests on the wire in one frame. This is a free endpoint
+ * we do not own and the plan's own instruction is to behave like a guest.
  *
- * The marks are the DARK variants the response itself points at
- * (`leagues[0].logos`, rel `["full","dark"]`), verified 200 for all five.
- * Two shapes rather than one pattern, and that is the source's doing: the
- * US leagues live under teamlogos keyed by our own name, soccer under
- * leaguelogos keyed by a competition number. Written out rather than
- * derived, because a derivation that is wrong for one of five is just a
- * table with a bug in it.
+ * Six rather than one: a board that loads serially over twenty leagues is a
+ * board you watch fill in. Six keeps the wire busy without ever looking
+ * like a scrape.
  */
-export const LEAGUE_NAMES: Record<LeagueKey, string> = {
-  nfl: "NFL",
-  nba: "NBA",
-  mlb: "MLB",
-  nhl: "NHL",
-  epl: "Premier League",
-};
+const MAX_INFLIGHT = 6;
+let inflight = 0;
+const waiting: (() => void)[] = [];
 
-const LOGO = "https://a.espncdn.com/i";
-export const LEAGUE_LOGOS: Record<LeagueKey, string> = {
-  nfl: `${LOGO}/teamlogos/leagues/500-dark/nfl.png`,
-  nba: `${LOGO}/teamlogos/leagues/500-dark/nba.png`,
-  mlb: `${LOGO}/teamlogos/leagues/500-dark/mlb.png`,
-  nhl: `${LOGO}/teamlogos/leagues/500-dark/nhl.png`,
-  epl: `${LOGO}/leaguelogos/soccer/500-dark/23.png`,
-};
+/** Run `job` when there is room, FIFO. */
+async function gate<T>(job: () => Promise<T>): Promise<T> {
+  if (inflight >= MAX_INFLIGHT) await new Promise<void>((r) => waiting.push(r));
+  inflight++;
+  try {
+    return await job();
+  } finally {
+    inflight--;
+    waiting.shift()?.();
+  }
+}
 
 /** ESPN's three states, in this app's words. */
 const STATES: Record<string, GameState> = {
@@ -188,27 +188,37 @@ export function espnDate(date: Date): string {
  * check that it got that day.
  */
 export async function fetchLeague(
-  league: (typeof LEAGUES)[number],
+  path: string,
   { date, signal }: { date?: Date; signal?: AbortSignal } = {},
 ): Promise<Game[]> {
   const url =
-    `${BASE}/${league.path}/scoreboard` +
-    (date ? `?dates=${espnDate(date)}` : "");
-  const res = await fetch(url, { signal });
-  if (!res.ok) throw new Error(`ESPN ${league.key}: HTTP ${res.status}`);
-  return toGames((await res.json()) as RawScoreboard, league);
+    `${BASE}/${path}/scoreboard` + (date ? `?dates=${espnDate(date)}` : "");
+  // The slot covers the whole transfer, not just the handshake: releasing
+  // it at the response header would let six more requests start while six
+  // bodies were still downloading.
+  const raw = await gate(async () => {
+    const res = await fetch(url, { signal });
+    if (!res.ok) throw new Error(`ESPN ${path}: HTTP ${res.status}`);
+    return (await res.json()) as RawScoreboard;
+  });
+  return toGames(raw, path);
 }
 
 /**
- * Every league at once. One league failing does not take the others: a
- * board with four sports on it beats an error page because the NHL is
- * having a bad night.
+ * Every followed league at once. One league failing does not take the
+ * others: a board with four sports on it beats an error page because the
+ * NHL is having a bad night.
+ *
+ * Takes the list rather than owning it. WHAT to fetch is a question about
+ * what the user follows, which this file has no business answering; it maps
+ * responses into Games and nothing else.
  */
 export async function fetchGames(
+  paths: readonly string[] = DEFAULT_LEAGUES,
   opts: { date?: Date; signal?: AbortSignal } = {},
 ): Promise<Game[]> {
   const settled = await Promise.allSettled(
-    LEAGUES.map((l) => fetchLeague(l, opts)),
+    paths.map((p) => fetchLeague(p, opts)),
   );
   const ok = settled.filter((r) => r.status === "fulfilled");
   // EVERY league failing is not a quiet day, it is an outage, and the two
@@ -225,15 +235,30 @@ export async function fetchGames(
   return ok.flatMap((r) => (r as PromiseFulfilledResult<Game[]>).value);
 }
 
-/** The mapping, split out so the tests can run it on a saved response. */
-export function toGames(
-  raw: RawScoreboard,
-  league: (typeof LEAGUES)[number],
-): Game[] {
+/**
+ * The mapping, split out so the tests can run it on a saved response.
+ *
+ * `path` is the catalog id ("baseball/mlb", "soccer/eng.1"), and it is the
+ * only thing this needs to know about which league it is looking at. It was
+ * a row from a hardcoded table of five; the table is gone, and a path is
+ * something the catalog can hand over for any of 151.
+ */
+export function toGames(raw: RawScoreboard, path: string): Game[] {
   // "Premier League", "MLB": the short one is what the card's league line
-  // has room for. Falls back to the long name, then to our own key.
+  // has room for. Falls back to the long name, then to the catalog's own
+  // label, then to the path.
+  //
+  // The response first because it is the source's own wording for the
+  // competition it just answered about, and the catalog after because a
+  // league out of season answers 200 with no `leagues` block to read.
   const name =
-    raw.leagues?.[0]?.abbreviation ?? raw.leagues?.[0]?.name ?? league.key;
+    raw.leagues?.[0]?.abbreviation ??
+    raw.leagues?.[0]?.name ??
+    catalogLeague(path)?.label ??
+    path;
+  // "soccer/eng.1" -> "soccer". ESPN's own first path segment, which is
+  // what the catalog is keyed by too.
+  const sport = path.slice(0, path.indexOf("/")) || path;
   return (raw.events ?? [])
     .flatMap((e) => {
       const matches = matchesOf(e);
@@ -242,7 +267,14 @@ export function toGames(
       // row's scroll anchor, and renaming every game in the app to support
       // tennis would be a large blast radius for no gain.
       return matches.map((c, i) =>
-        toGame(e, c, matches.length > 1 ? (c.id ?? String(i)) : null, league, name),
+        toGame(
+          e,
+          c,
+          matches.length > 1 ? (c.id ?? String(i)) : null,
+          path,
+          sport,
+          name,
+        ),
       );
     })
     .filter((g): g is Game => g !== null);
@@ -305,7 +337,8 @@ function toGame(
   event: RawEvent,
   comp: RawCompetition | undefined,
   suffix: string | null,
-  league: (typeof LEAGUES)[number],
+  path: string,
+  sport: string,
   leagueName: string,
 ): Game | null {
   const home = pick(comp?.competitors, "home");
@@ -336,10 +369,13 @@ function toGame(
   const abandoned = raw?.state === "post" && raw?.completed === false;
   const state = abandoned ? "pre" : (STATES[raw?.state ?? ""] ?? "pre");
   return {
-    id: `espn-${league.key}-${event.id}${suffix ? `-${suffix}` : ""}`,
-    sport: league.sport,
+    // The slash stays. It is only ever a React key, a data attribute and a
+    // quoted attribute selector, all of which take it literally, and an id
+    // you can read back to a path is worth more than one that is tidy.
+    id: `espn-${path}-${event.id}${suffix ? `-${suffix}` : ""}`,
+    sport,
     league: leagueName,
-    leagueKey: league.key,
+    leagueKey: path,
     state,
     start,
     status: abandoned

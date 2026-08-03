@@ -11,7 +11,8 @@ import {
   TeamsIcon,
   TvIcon,
 } from "../../ui/icons";
-import { LEAGUE_LOGOS, LEAGUE_NAMES, LEAGUES } from "./espn";
+import { DEFAULT_LEAGUES } from "./espn";
+import { league } from "./leagues";
 import {
   teamKey,
   toggleLeague,
@@ -84,6 +85,26 @@ export function SportsSidebar({
     return [...by.values()].sort((a, b) => a.name.localeCompare(b.name));
   }, [games]);
 
+  /**
+   * The league tiles: the default five, plus whatever else is followed.
+   *
+   * Follows are the fetch list now (D1), so a followed league that is not
+   * one of the five has to appear here or there is no way to unfollow it
+   * and no way to see that it is on. Appended rather than sorted in, so the
+   * five stay where they have always been and a new one arrives at the end
+   * where it can be seen arriving.
+   *
+   * Only the leagues the catalog still carries can be drawn, which is the
+   * same rule resolvable() applies to the board.
+   */
+  const tiles = useMemo(() => {
+    const paths = [
+      ...DEFAULT_LEAGUES,
+      ...follows.leagues.filter((p) => !DEFAULT_LEAGUES.includes(p)),
+    ];
+    return paths.map(league).filter((l) => l !== undefined);
+  }, [follows.leagues]);
+
   return (
     <aside
       className={
@@ -115,26 +136,32 @@ export function SportsSidebar({
         * afford the room a mark needs to be recognised at a glance; eighty
         * clubs cannot, and a list you scan by name is the right shape for
         * those. Two across is what 252px of panel holds without shrinking
-        * the mark to the size of the row icon it is replacing. */}
+        * the mark to the size of the row icon it is replacing.
+        *
+        * The default five, plus anything else already followed. The name
+        * and the mark come from the catalog now rather than from two tables
+        * kept by hand beside them (D1): every league in it carries both,
+        * confirmed by ESPN itself when the catalog was generated, so a
+        * league that has never been fetched still has something to draw. */}
       {!collapsed && mode === "leagues" && (
         <div className="sportsside__tiles">
-          {LEAGUES.map((l) => {
-            const on = follows.leagues.includes(l.key);
+          {tiles.map((l) => {
+            const on = follows.leagues.includes(l.path);
             return (
               <button
-                key={l.key}
+                key={l.path}
                 type="button"
                 className={"leaguetile" + (on ? " leaguetile--on" : "")}
                 aria-pressed={on}
-                onClick={() => onFollows(toggleLeague(follows, l.key))}
+                onClick={() => onFollows(toggleLeague(follows, l.path))}
               >
                 <img
                   className="leaguetile__mark"
-                  src={LEAGUE_LOGOS[l.key]}
+                  src={l.logo}
                   alt=""
                   loading="lazy"
                 />
-                <span className="leaguetile__name">{LEAGUE_NAMES[l.key]}</span>
+                <span className="leaguetile__name">{l.label}</span>
               </button>
             );
           })}

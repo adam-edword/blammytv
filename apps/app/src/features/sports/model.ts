@@ -66,16 +66,29 @@ export type GameState = "pre" | "live" | "final";
 
 export interface Game {
   id: string;
-  /** Which sport's card layout to use. Each sport reads its clock and its
-   * score differently, so the renderer branches on this rather than trying
-   * to be universal. */
-  sport: "soccer" | "football" | "basketball" | "baseball" | "hockey" | "f1";
+  /**
+   * Which sport this is, in the source's own word: "soccer", "baseball",
+   * "mma", "water-polo".
+   *
+   * A STRING, not a union, and that is a correction rather than a
+   * loosening. The union named six and the comment claimed the renderer
+   * branched on it; nothing in the app ever has. Meanwhile the catalog
+   * carries 14 sports and any of them can now be followed, so a closed set
+   * of six was a promise this field could not keep the moment D1 landed.
+   */
+  sport: string;
   /** Display name of the competition: "FIFA World Cup", "MLB". */
   league: string;
   /**
-   * Our own key for the competition: "mlb", "epl". The stable half of the
-   * pair, and the one anything persisted should use — `league` is a display
-   * string from the source and can be reworded without warning.
+   * The competition's catalog path: "baseball/mlb", "soccer/eng.1". The
+   * stable half of the pair, and the one anything persisted should use —
+   * `league` is a display string from the source and can be reworded
+   * without warning.
+   *
+   * The path rather than a key of our own (it was "mlb", "epl"), because
+   * this is now the thing that gets FETCHED as well as the thing that gets
+   * stored, and the catalog has 151 of them. One id for both jobs means a
+   * followed league needs no lookup to become a request.
    *
    * Also what makes a club's id unique: source ids are numbered per league,
    * so MLB's 1 and NFL's 1 are different teams entirely.

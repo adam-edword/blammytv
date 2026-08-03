@@ -9,13 +9,13 @@ import { RaceCard } from "./RaceCard";
 import { WeekendCard } from "./WeekendCard";
 import { SportsSidebar } from "./SportsSidebar";
 import { useRaces } from "./race";
-import { isFollowed, loadFollows, resolvable } from "./follows";
+import { fetchList, isFollowed, loadFollows, resolvable } from "./follows";
 import { GameCard } from "./GameCard";
 import { dayLabel, nowish } from "./day";
 import { SportsTheater } from "./SportsTheater";
 import { UpcomingCard } from "./UpcomingCard";
 import { useCatalog } from "./catalog";
-import { LEAGUES } from "./espn";
+import { ALL_LEAGUES } from "./leagues";
 import { useGames, withChannels } from "./useGames";
 import type { Day } from "./useGames";
 import type { Game } from "./model";
@@ -54,39 +54,45 @@ import type { Game } from "./model";
 const LEAD_FALLBACK = 96;
 
 export function SportsScreen({ home }: { home?: number } = {}) {
-  const { days: raw, state } = useGames();
+  /**
+   * What you follow, and therefore what the board FETCHES and then shows.
+   *
+   * FOLLOWING IS FILTERING was only half of it, and D1 supplied the other
+   * half: what you follow is also the fetch list, over the 151-league
+   * catalog rather than five hardcoded leagues. Nothing followed asks for
+   * the default five and narrows nothing, so first run is still a full
+   * screen rather than an empty one asking to be configured.
+   *
+   * The filter is applied AFTER withChannels rather than before, which
+   * costs a little matcher work on games that are about to be dropped and
+   * buys the club list its full set — the sidebar offers every club the
+   * board loaded, not only the ones already surviving the filter it is
+   * trying to change.
+   */
+  const [follows, setFollows] = useState(loadFollows);
+  /**
+   * Only the follows that still name a league the catalog carries.
+   *
+   * Stored follows are foreign keys into it, and a key that no longer
+   * resolves must not be able to filter the board: see resolvable(). The
+   * sidebar keeps the RAW store, so toggling still writes what the user
+   * has, and a key that starts resolving again (a regenerated catalog
+   * bringing a league back) simply starts counting again.
+   */
+  const active = useMemo(
+    () => resolvable(follows, ALL_LEAGUES.map((l) => l.path)),
+    [follows],
+  );
+  const narrowed = active.leagues.length > 0 || active.teams.length > 0;
+  // Off the RESOLVABLE follows, not the raw store: a path the catalog no
+  // longer carries is not a URL worth asking ESPN for.
+  const leagues = useMemo(() => fetchList(active), [active]);
+  const { days: raw, state } = useGames(leagues);
   // The schedule and the channel list arrive independently, so they are
   // joined here rather than inside either one. Memoised on both: resolving
   // a 42-game board costs 4.7ms against a 20k-channel index and 3.7 SECONDS
   // without one, so it must not happen per render.
   const catalog = useCatalog();
-  /**
-   * What you follow, and therefore what the board shows.
-   *
-   * FOLLOWING IS FILTERING, in the plan's own words. Nothing followed means
-   * nothing is narrowed: an empty store shows the whole board, so first run
-   * is a full screen rather than an empty one asking to be configured.
-   *
-   * Applied AFTER withChannels rather than before, which costs a little
-   * matcher work on games that are about to be dropped and buys the club
-   * list its full set — the sidebar offers every club the board loaded, not
-   * only the ones already surviving the filter it is trying to change.
-   */
-  const [follows, setFollows] = useState(loadFollows);
-  /**
-   * Only the follows that still name a league this build knows about.
-   *
-   * Stored follows are foreign keys, and a key that no longer resolves must
-   * not be able to filter the board: see resolvable(). The sidebar keeps
-   * the RAW store, so toggling still writes what the user has, and a key
-   * that starts resolving again (a league returning to the fetch list)
-   * simply starts counting again.
-   */
-  const active = useMemo(
-    () => resolvable(follows, LEAGUES.map((l) => l.key)),
-    [follows],
-  );
-  const narrowed = active.leagues.length > 0 || active.teams.length > 0;
   const days = useMemo(() => {
     const withChans = raw.map((d) => ({
       ...d,
