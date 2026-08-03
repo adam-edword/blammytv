@@ -695,3 +695,49 @@ describe("what the source already sends", () => {
     expect(g.headline!.length).toBeGreaterThan(60);
   });
 });
+
+describe("what the reach asks for", () => {
+  const seen = async (run: () => Promise<unknown>) => {
+    const urls: string[] = [];
+    const real = globalThis.fetch;
+    globalThis.fetch = ((url: string) => {
+      urls.push(url);
+      return Promise.resolve({ ok: true, json: async () => ({ events: [] }) });
+    }) as never;
+    try {
+      await run();
+    } finally {
+      globalThis.fetch = real;
+    }
+    return urls;
+  };
+
+  it("asks a racing league for its SEASON, which is 25 rounds", async () => {
+    // Adam, on the bare call returning one lonely Grand Prix: "shouldn't
+    // there be more than just NED? like the rest of the schedule should be
+    // showing". Measured 2026-08-03: `?dates=2026` returns all 25 rounds,
+    // 152 KB gzipped, 12 of them still ahead.
+    const [url] = await seen(() => fetchBoard(["racing/f1"], { ahead: true }));
+    expect(url).toMatch(/\/racing\/f1\/scoreboard\?dates=\d{4}$/);
+  });
+
+  it("asks everything else for its NEXT event only", async () => {
+    // A season is affordable for a 25 round calendar and not for a team
+    // league: the same question would be 1,230 NBA games or 2,430 MLB ones.
+    const [url] = await seen(() =>
+      fetchBoard(["basketball/nba"], { ahead: true }),
+    );
+    expect(url).toBe(
+      "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard",
+    );
+  });
+
+  it("still asks for a DAY when given one, racing included", async () => {
+    // `ahead` only changes the question when there is no date. A window
+    // call must stay a window call or the board would draw a season on it.
+    const [url] = await seen(() =>
+      fetchBoard(["racing/f1"], { date: new Date(2026, 7, 21) }),
+    );
+    expect(url).toMatch(/\?dates=20260821$/);
+  });
+});

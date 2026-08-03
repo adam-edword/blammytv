@@ -1101,6 +1101,7 @@ here so a label that vanished can be looked up.
 | - | The skeleton's breath is a colour, not an opacity, so it stops fading toward the page's own black | v0.8.136 |
 | **36** | **The board reaches past its window.** A followed league with nothing in the next three days is asked what is NEXT, and gets its own dated heading on the grid. No new endpoint: the bare scoreboard already answers it | v0.8.137 |
 | - | A reached-ahead race weekend folds into ONE `WeekendCard` on race day, instead of five session cards under three dated headings. `Weekend` became the union's fourth kind | v0.8.138 |
+| - | A followed racing league reaches for its whole remaining SEASON, not just the next round, and everything reached ahead lands in one "Coming up" section | v0.8.139 |
 
 ## Closed decisions
 

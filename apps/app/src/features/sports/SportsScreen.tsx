@@ -123,7 +123,11 @@ export function SportsScreen({ home }: { home?: number } = {}) {
    * A narrowed board is a handful of leagues, so the third day is nearly
    * free there and it is the one people actually plan against.
    */
-  const { days: raw, state } = useGames(leagues, narrowed ? 3 : 2, narrowed);
+  const { days: raw, ahead: rawAhead, state } = useGames(
+    leagues,
+    narrowed ? 3 : 2,
+    narrowed,
+  );
   // The schedule and the channel list arrive independently, so they are
   // joined here rather than inside either one. Memoised on both: resolving
   // a 42-game board costs 4.7ms against a 20k-channel index and 3.7 SECONDS
@@ -140,6 +144,20 @@ export function SportsScreen({ home }: { home?: number } = {}) {
       games: d.games.filter((g) => isFollowed(g, active)),
     }));
   }, [raw, catalog, active, narrowed]);
+  /**
+   * The reached-ahead games, through the same two steps the window gets.
+   *
+   * A Grand Prix in November has channels resolved against the guide like
+   * anything else, and it has to survive the follow filter for the same
+   * reason: a team follow pulls its whole league onto the wire, so the
+   * reach can bring back a club nobody asked about.
+   */
+  const ahead = useMemo(() => {
+    const withChans = withChannels(rawAhead, catalog);
+    return narrowed
+      ? withChans.filter((g) => isFollowed(g, active))
+      : withChans;
+  }, [rawAhead, catalog, active, narrowed]);
   /** Every club the board LOADED, ahead of the filter. */
   const clubPool = useMemo(() => raw.flatMap((d) => d.games), [raw]);
   // Memoised, not because building it is expensive but because `?? []`
@@ -210,7 +228,8 @@ export function SportsScreen({ home }: { home?: number } = {}) {
   // a side door and a board carrying only race cards was not empty but
   // looked it. Racing is in `days` now, so a day with anything on it has
   // games in it and this reads straight.
-  const anything = days.some((d) => d.games.length > 0);
+  const anything =
+    days.some((d) => d.games.length > 0) || ahead.length > 0;
   // Read once and kept here: it is a display choice about this screen, so
   // it belongs to the screen rather than to every card in it.
   const [compact, setCompact] = useState(loadCompactResults);
@@ -368,6 +387,45 @@ export function SportsScreen({ home }: { home?: number } = {}) {
               </div>
             </section>
           ),
+      )}
+
+      {/* WHAT IS COMING, past the board's own window (#36).
+        *
+        * One section rather than a heading per date, which is what the
+        * data forced: a followed racing league answers with its whole
+        * remaining season, and 12 Grands Prix on 12 dates would be 12
+        * headings with a single card under each. Every card in here
+        * carries its own date, so the heading does not have to.
+        *
+        * After the day grids, always, because it is the answer to a
+        * different question: those say what is on, this says what is
+        * next. */}
+      {ahead.length > 0 && (
+        <section className="media-row">
+          <h3 className="media-row__title sports__title">Coming up</h3>
+          <div className="sports__grid">
+            {ahead.map((g) =>
+              isWeekend(g) ? (
+                <WeekendCard key={g.id} weekend={g} />
+              ) : isField(g) ? (
+                <RaceCard key={g.id} race={g} />
+              ) : isTournament(g) ? (
+                <TournamentCard key={g.id} event={g} />
+              ) : (
+                <UpcomingCard
+                  key={g.id}
+                  game={g}
+                  onOpen={openGame}
+                  // "OCT 3": short, because it sits beside a kick-off time.
+                  when={g.start.toLocaleDateString([], {
+                    month: "short",
+                    day: "numeric",
+                  })}
+                />
+              ),
+            )}
+          </div>
+        </section>
       )}
 
       {!anything &&

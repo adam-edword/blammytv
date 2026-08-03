@@ -208,6 +208,20 @@ function restamp(slate: Slate, league: string, day: Date) {
  */
 const FORCED = new URL(location.href).searchParams.get("state");
 
+/**
+ * Is this the "what is next" call rather than a call about a day?
+ *
+ * By the SHAPE of `dates`, not by its absence: racing asks for a whole
+ * season (`dates=2026`, four digits) where everything else asks bare, and
+ * a window call is always eight (`dates=20260803`). Checking only for the
+ * parameter's absence made the season call look like a window call, which
+ * quietly emptied the reach.
+ */
+const isNextCall = (url: string) => {
+  const d = new URL(url, location.origin).searchParams.get("dates");
+  return !d || d.length === 4;
+};
+
 const realFetch = window.fetch.bind(window);
 window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
   const url =
@@ -223,7 +237,7 @@ window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
     /* "next" empties the WINDOW but leaves the bare call answering, which
      * is the only way to see #36 here: every league is out of season, so
      * the board has nothing to draw until it reaches ahead. */
-    if (FORCED !== "next" || url.includes("dates=")) {
+    if (FORCED !== "next" || !isNextCall(url)) {
       return Promise.resolve(
         new Response(JSON.stringify({ events: [] }), {
           headers: { "content-type": "application/json" },
@@ -232,7 +246,7 @@ window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
     }
   }
 
-  if (m && !url.includes("dates=")) {
+  if (m && isNextCall(url)) {
     const when = new Date();
     when.setHours(0, 0, 0, 0);
     when.setDate(when.getDate() + 19);
@@ -242,18 +256,30 @@ window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
      * cards under three dated headings. Friday, Friday, Saturday,
      * Saturday, Sunday, which is the real shape of one. */
     if (m[1] === "f1") {
-      const event = (f1.events ?? [])[0];
+      /* THE REST OF THE SEASON, which is what the real endpoint answers
+       * for a racing league asked about a year: measured 2026-08-03, F1
+       * returned all 25 rounds with 12 still ahead. Adam, on seeing one:
+       * "shouldn't there be more than just NED? like the rest of the
+       * schedule should be showing".
+       *
+       * The season fixture holds real rounds at real circuits; they get
+       * restamped onto fortnightly weekends from three weeks out, so the
+       * rig shows the same SHAPE the live board does. */
       const OFFSET = [0, 0, 1, 1, 2];
       const HOUR = [11, 15, 11, 15, 14];
+      const rounds = (f1.events ?? []).slice(0, 12);
       return Promise.resolve(
         new Response(
           JSON.stringify({
             ...f1,
-            events: [
-              {
+            events: rounds.map((event, round) => {
+              const friday = new Date(when);
+              friday.setDate(friday.getDate() + round * 14);
+              return {
                 ...event,
+                date: friday.toISOString(),
                 competitions: (event.competitions ?? []).map((c, i) => {
-                  const at = new Date(when);
+                  const at = new Date(friday);
                   at.setDate(at.getDate() + OFFSET[i]);
                   at.setHours(HOUR[i], 0, 0, 0);
                   return {
@@ -262,8 +288,8 @@ window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
                     status: { type: { state: "pre" } },
                   };
                 }),
-              },
-            ],
+              };
+            }),
           }),
           { headers: { "content-type": "application/json" } },
         ),

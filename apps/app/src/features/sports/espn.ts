@@ -263,8 +263,30 @@ export async function fetchLeague(
     ahead,
   }: { date?: Date; signal?: AbortSignal; ahead?: boolean } = {},
 ): Promise<Game[]> {
+  /**
+   * A day, a SEASON, or whatever is next.
+   *
+   * The bare call answers with a league's next event and nothing else,
+   * which is right for "when is the NBA back" and wrong for racing: Adam,
+   * looking at one lonely Dutch Grand Prix, "shouldn't there be more than
+   * just NED? like the rest of the schedule should be showing".
+   *
+   * A year does answer, and only racing can afford to ask. Measured
+   * 2026-08-03: `?dates=2026` on F1 returns all 25 rounds, 152 KB gzipped
+   * in 0.64s, of which 12 are still ahead. The same question asked of a
+   * team league would be a whole season of fixtures — 1,230 games for the
+   * NBA, 2,430 for MLB — which is a wall nobody asked for and megabytes to
+   * find it in. A racing calendar IS the thing people plan around, and it
+   * is 25 rows.
+   */
+  const season = ahead && racingPath(path);
   const url =
-    `${BASE}/${path}/scoreboard` + (date ? `?dates=${espnDate(date)}` : "");
+    `${BASE}/${path}/scoreboard` +
+    (date
+      ? `?dates=${espnDate(date)}`
+      : season
+        ? `?dates=${new Date().getFullYear()}`
+        : "");
   // The slot covers the whole transfer, not just the handshake: releasing
   // it at the response header would let six more requests start while six
   // bodies were still downloading.

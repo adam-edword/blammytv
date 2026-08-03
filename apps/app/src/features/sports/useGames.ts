@@ -57,6 +57,16 @@ export function useGames(
   reach = false,
 ) {
   const [days, setDays] = useState<Day[]>([]);
+  /**
+   * What was reached for BEYOND the window, in date order.
+   *
+   * Its own list rather than more `days`, and the reason is what came back
+   * once racing asked for its season: twelve Grands Prix on twelve
+   * different dates, which as days would be twelve headings with one card
+   * under each. That is the same "all broken out" that #36's first cut had,
+   * at a different scale. One section, and the cards carry their own dates.
+   */
+  const [ahead, setAhead] = useState<Game[]>([]);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
 
   /**
@@ -127,6 +137,7 @@ export function useGames(
     const loadAll = async () => {
       const mine = ++gen;
       polling = paths;
+      setAhead([]);
       try {
         const all = await Promise.all(
           dates.map((date) => fetchBoard(paths, { date, signal: ac.signal })),
@@ -190,9 +201,10 @@ export function useGames(
           ahead: true,
         });
         if (ac.signal.aborted || mine !== gen) return;
-        const ahead = games.filter((g) => midnight(g.start) > edge.getTime());
-        if (ahead.length === 0) return;
-        setDays((prev) => (prev.length === 0 ? prev : [...prev, ...byDay(ahead)]));
+        const later = games
+          .filter((g) => midnight(g.start) > edge.getTime())
+          .sort((a, b) => a.start.getTime() - b.start.getTime());
+        setAhead(later);
       } catch {
         // See above: an extra that did not arrive.
       }
@@ -271,7 +283,7 @@ export function useGames(
     // coincidence the next caller has to know about.
   }, [dayCount, key, reach]);
 
-  return { days, state };
+  return { days, ahead, state };
 }
 
 /** Local midnight of whatever day this instant falls on, as a number. */
@@ -279,34 +291,6 @@ function midnight(when: Date): number {
   const d = new Date(when);
   d.setHours(0, 0, 0, 0);
   return d.getTime();
-}
-
-/**
- * Games from beyond the window, as days the board can draw.
- *
- * Grouped by their OWN local date and sorted, because these are not
- * consecutive: two followed leagues can be nineteen and sixty-one days out,
- * and each gets its own dated heading rather than being flattened into one
- * "later" bucket that would put the Grand Prix next to a basketball game in
- * October. `dayLabel` already names an arbitrary date properly.
- *
- * Exported for its test: this is the shape of #36 and it has a right
- * answer.
- */
-export function byDay(games: Game[]): Day[] {
-  const by = new Map<number, Game[]>();
-  for (const game of games) {
-    const key = midnight(game.start);
-    const bucket = by.get(key);
-    if (bucket) bucket.push(game);
-    else by.set(key, [game]);
-  }
-  return [...by.entries()]
-    .sort((a, b) => a[0] - b[0])
-    .map(([stamp, list]) => ({
-      date: new Date(stamp),
-      games: list.sort((a, b) => a.start.getTime() - b.start.getTime()),
-    }));
 }
 
 /**

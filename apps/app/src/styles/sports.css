@@ -1150,6 +1150,17 @@
   text-transform: uppercase;
   color: #fff;
 }
+/* The date, on a card that has no dated heading over it: "OCT 3".
+ *
+ * Quieter and smaller than the kick-off time beside it, because it answers
+ * the coarser question. Only the "Coming up" section sets it; in the day
+ * grids the heading already says which day it is. */
+.upcard__when {
+  font-size: var(--sports-meta);
+  letter-spacing: 0.07em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
 /* The matchup, staggered: home to the top left, away to the bottom right.
  *
  * Not a split down the middle. Split, each name had 123px to live in and

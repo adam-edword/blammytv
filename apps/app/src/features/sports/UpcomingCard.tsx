@@ -40,9 +40,19 @@ import type { Fixture, Game } from "./model";
 function UpcomingCardImpl({
   game,
   onOpen,
+  when,
 }: {
   game: Fixture;
   onOpen?: (game: Game) => void;
+  /**
+   * The date, for a card that is NOT under a dated heading: "OCT 3".
+   *
+   * Only the "Coming up" section passes it (plan 010 #36). Everywhere else
+   * the day grid names the day above the card, and repeating it on every
+   * card would be noise; there, a game two months out would otherwise
+   * read as a kick-off time with nothing to anchor it.
+   */
+  when?: string;
 }) {
   const { home, away } = game;
   // Half a small card each, so this takes the broadcast name where there is
@@ -111,6 +121,7 @@ function UpcomingCardImpl({
           <span className="upcard__head">
             <span className="upcard__time">
               {game.state === "live" && <span className="gamepip" aria-hidden />}
+              {when && <span className="upcard__when">{when}</span>}
               {game.status}
             </span>
             <span className="upcard__league">{game.league}</span>
