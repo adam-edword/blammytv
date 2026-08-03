@@ -4,7 +4,8 @@ import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { art, flagArt } from "./circuits";
 import { shortPlace } from "./placeName";
 import { CardFoot } from "./CardFoot";
-import type { Race } from "./RaceCard";
+import { sessionClock } from "./racing";
+import type { Field } from "./model";
 
 /**
  * A race session on today's row, as one wide card (plan 010 #4).
@@ -71,7 +72,7 @@ const FIELD = 5;
  */
 const WIDE_MAX = 20;
 
-function WideRaceCardImpl({ race }: { race: Race }) {
+function WideRaceCardImpl({ race }: { race: Field }) {
   const track = art(race.circuitId);
   const flag = flagArt(race.circuitId);
   /**
@@ -126,7 +127,7 @@ function WideRaceCardImpl({ race }: { race: Race }) {
         <span className="wracecard__body">
           {/* THE ORDER IS THE CONTENT, so it gets the reading side. */}
           <ol className="wracecard__field">
-            {race.top.slice(0, FIELD).map((e) => (
+            {race.entrants.slice(0, FIELD).map((e) => (
               <li className="wracecard__slot" key={e.place}>
                 <span className="wracecard__place">{e.place}</span>
                 {e.mark ? (
@@ -151,7 +152,7 @@ function WideRaceCardImpl({ race }: { race: Race }) {
               * score, where a race's series is the thing that tells you
               * what you are even looking at before the number means
               * anything. */}
-            <span className="gamecard__league">{race.series}</span>
+            <span className="gamecard__league">{race.league}</span>
             {/* ONE SIZE for the whole line, label and numbers alike.
               * This went around three times: 52px for the string read as
               * "mega huge", then the number alone at score size read as
@@ -173,7 +174,7 @@ function WideRaceCardImpl({ race }: { race: Race }) {
                   ? `LAP ${race.lap}`
                   : race.state === "live"
                     ? "LIVE"
-                    : race.time}
+                    : sessionClock(race.start)}
                 {/* The distance, same size, quieter. They are the same
                   * kind of number and one is not a footnote to the
                   * other. */}
@@ -209,7 +210,7 @@ function WideRaceCardImpl({ race }: { race: Race }) {
           item={race}
           // The circuit's own name, where the fixture card puts the
           // stadium. The country is already up in the body.
-          place={race.track}
+          place={race.venue}
           start={race.start}
         />
       </Tilt>

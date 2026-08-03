@@ -1,5 +1,6 @@
 import { load, save } from "../../lib/storage";
 import { DEFAULT_LEAGUES } from "./espn";
+import { isField } from "./model";
 import type { Competitor, Game } from "./model";
 
 /**
@@ -110,8 +111,16 @@ export function teamKey(
   return team.id ? `${leagueKey}:${team.id}` : null;
 }
 
-/** Both sides of a game, as follow keys. Absent ids drop out. */
+/**
+ * Both sides of a game, as follow keys. Absent ids drop out.
+ *
+ * EMPTY for an ordered field, and that is the honest answer rather than a
+ * gap. A race has no sides to follow; following a DRIVER is a different
+ * feature with a different key space, and until it exists a racing league
+ * is followed as a league.
+ */
 export function gameTeamKeys(game: Game): string[] {
+  if (isField(game)) return [];
   return [
     teamKey(game.leagueKey, game.home),
     teamKey(game.leagueKey, game.away),

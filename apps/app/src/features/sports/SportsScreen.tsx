@@ -6,10 +6,8 @@ import {
 } from "../settings/compactResults";
 import { CompactCard } from "./CompactCard";
 import { RaceCard } from "./RaceCard";
-import { WeekendCard } from "./WeekendCard";
 import { WideRaceCard } from "./WideRaceCard";
 import { SportsSidebar } from "./SportsSidebar";
-import { useRaces } from "./race";
 import { fetchList, isFollowed, loadFollows, resolvable } from "./follows";
 import { GameCard } from "./GameCard";
 import { dayLabel, nowish } from "./day";
@@ -19,7 +17,8 @@ import { useCatalog } from "./catalog";
 import { ALL_LEAGUES } from "./leagues";
 import { useGames, withChannels } from "./useGames";
 import type { Day } from "./useGames";
-import type { Game } from "./model";
+import { isField } from "./model";
+import type { Fixture, Game } from "./model";
 
 /**
  * The Sports hub (plan 010): games as the objects, your channels hanging
@@ -107,17 +106,24 @@ export function SportsScreen({ home }: { home?: number } = {}) {
   }, [raw, catalog, active, narrowed]);
   /** Every club the board LOADED, ahead of the filter. */
   const clubPool = useMemo(() => raw.flatMap((d) => d.games), [raw]);
-  /* TEMPORARY: F1's cards at the head of today's grid, so they can be
-   * looked at in the app while the racing adapter is written. It fetches
-   * on its own and joins nothing; see race.ts.
-   *
-   * A weekend is ONE card until the day its first session runs, and its
-   * five sessions from then on. */
-  const { weekends, sessions: races, demo } = useRaces();
-  const racing = weekends.length + races.length;
-  const today = days[0]?.games ?? [];
+  // Memoised, not because building it is expensive but because `?? []`
+  // mints a new array on every render and rowItems is derived from it.
+  const today = useMemo(() => days[0]?.games ?? [], [days]);
   const anchor = nowish(today);
   const live = today.some((g) => g.state === "live");
+  /**
+   * What the ROW carries, which is not everything today has.
+   *
+   * Fixtures always. An ordered field only while it is RUNNING, which is
+   * Adam's rule (plan 010 #4): the row is a short list of what to watch
+   * now, a Friday practice that has finished is a thing that happened, and
+   * the grids below are where things that happened live. On race day the
+   * Grand Prix is then the first thing anyone scans.
+   */
+  const rowItems = useMemo(
+    () => today.filter((g) => !isField(g) || g.state === "live"),
+    [today],
+  );
 
   const row = useRef<HTMLDivElement>(null);
   // The id we last scrolled to, NOT a "did it once" flag: the board
@@ -145,22 +151,18 @@ export function SportsScreen({ home }: { home?: number } = {}) {
     box.scrollLeft += c.left - b.left - lead;
   }, [anchor]);
 
-  // Two different questions, and folding them into one hid the answer to
-  // the second. A board carrying race cards is not empty, so it must not
-  // say "Nothing on today" (the `|| racing` half, TEMPORARY with the grid
-  // gate below). But following a league that is out of season leaves the
-  // TEAM board empty while racing is not, and the one line that would
-  // explain the near-empty screen was suppressed exactly then.
-  const anyGames = days.some((d) => d.games.length > 0);
-  const anything = anyGames || racing > 0;
-  const narrowedToNothing = narrowed && !anyGames && racing > 0;
+  // One question again. It used to be two, because racing arrived through
+  // a side door and a board carrying only race cards was not empty but
+  // looked it. Racing is in `days` now, so a day with anything on it has
+  // games in it and this reads straight.
+  const anything = days.some((d) => d.games.length > 0);
   // Read once and kept here: it is a display choice about this screen, so
   // it belongs to the screen rather than to every card in it.
   const [compact, setCompact] = useState(loadCompactResults);
   // The game being watched, or nothing. Deliberately NOT in the view stack:
   // this is a mode of one screen, and its own Escape and mouse-back close
   // it without touching where you came from to get here.
-  const [open, setOpen] = useState<Game | null>(null);
+  const [open, setOpen] = useState<Fixture | null>(null);
   /**
    * The card that opened the theater, so focus can come back to it.
    *
@@ -182,7 +184,17 @@ export function SportsScreen({ home }: { home?: number } = {}) {
     // Guarded: the board refreshes, and the card may not have come back.
     if (el?.isConnected) el.focus();
   }, [open]);
+  /**
+   * Opening a card puts it in the theater.
+   *
+   * FIXTURES ONLY, and the guard is real rather than defensive: no race
+   * card is clickable yet, so nothing can call this with a field, but the
+   * theater's whole header is two badges and two names and it would have
+   * nothing to draw. Racing reaches the theater in #5, which is where the
+   * rail learns to match on a series instead of on team names.
+   */
   const openGame = (g: Game) => {
+    if (isField(g)) return;
     invoker.current = g.id;
     setOpen(g);
   };
@@ -213,11 +225,15 @@ export function SportsScreen({ home }: { home?: number } = {}) {
     // STATE, not its score: the header carries two badges and two names and
     // no numbers at all. Fall back to the game as opened if it drops off
     // the day (it will not, but the board is a network read).
-    const current = today.find((g) => g.id === open.id) ?? open;
+    const current =
+      today.find((g): g is Fixture => !isField(g) && g.id === open.id) ?? open;
     return (
       <SportsTheater
         game={current}
-        others={today.filter((g) => g.state === "live" && g.id !== current.id)}
+        others={today.filter(
+          (g): g is Fixture =>
+            !isField(g) && g.state === "live" && g.id !== current.id,
+        )}
         catalog={catalog}
         onOpen={openGame}
         onClose={() => setOpen(null)}
@@ -233,38 +249,29 @@ export function SportsScreen({ home }: { home?: number } = {}) {
         onFollows={setFollows}
       />
       <div className="discover sports sportsboard__main">
-      {(today.length > 0 || demo) && (
+      {rowItems.length > 0 && (
         <section className="media-row" ref={row}>
           <h3 className="media-row__title sports__title">
             {/* The pip is a claim about the world, so it only appears when
               * something is actually on. */}
-            {(live || demo) && <span className="gamepip" aria-hidden />}
+            {live && <span className="gamepip" aria-hidden />}
             Today&rsquo;s Games
           </h3>
           <RowScroller>
-            {/* TEMPORARY: a staged live session, because F1 is between
-              * races and the wide card only appears while one is running,
-              * so there would otherwise be nothing to look at. First in
-              * the row, which is where a live race would sort anyway. See
-              * demoLive in race.ts, and delete both together. */}
-            {demo && <WideRaceCard key={demo.id} race={demo} />}
-            {today.map((g) => (
-              <GameCard key={g.id} game={g} onOpen={openGame} />
-            ))}
+            {rowItems.map((g) =>
+              isField(g) ? (
+                <WideRaceCard key={g.id} race={g} />
+              ) : (
+                <GameCard key={g.id} game={g} onOpen={openGame} />
+              ),
+            )}
           </RowScroller>
         </section>
       )}
 
       {days.map(
         (day) =>
-          // TEMPORARY, the `|| races` half: the race cards hang off today's
-          // grid, so a today with no TEAM games took the whole section down
-          // and the races with it — which is exactly what you get the
-          // moment a league is followed and today's fixtures fall outside
-          // it. Goes away when racing is a real adapter and its sessions
-          // are just games in the day.
-          (day.games.length > 0 ||
-            (day === days[0] && racing > 0)) && (
+          day.games.length > 0 && (
             <section className="media-row" key={day.date.toDateString()}>
               <div className="sports__head">
                 <h3 className="media-row__title sports__title">
@@ -286,15 +293,10 @@ export function SportsScreen({ home }: { home?: number } = {}) {
                 )}
               </div>
               <div className="sports__grid">
-                {/* TEMPORARY, today only: see race.ts. */}
-                {day === days[0] &&
-                  weekends.map((w) => (
-                    <WeekendCard key={w.id} weekend={w} />
-                  ))}
-                {day === days[0] &&
-                  races.map((r) => <RaceCard key={r.id} race={r} />)}
                 {day.games.map((g) =>
-                  compact && g.state === "final" ? (
+                  isField(g) ? (
+                    <RaceCard key={g.id} race={g} />
+                  ) : compact && g.state === "final" ? (
                     <CompactCard key={g.id} game={g} onOpen={openGame} />
                   ) : (
                     <UpcomingCard key={g.id} game={g} onOpen={openGame} />
@@ -303,14 +305,6 @@ export function SportsScreen({ home }: { home?: number } = {}) {
               </div>
             </section>
           ),
-      )}
-
-      {/* The board is not empty, but what you follow is not on it. Said
-        * under the race cards rather than instead of them. */}
-      {narrowedToNothing && (
-        <p className="sports__note" role="status">
-          Nothing on for what you follow. Widen it in the sidebar.
-        </p>
       )}
 
       {!anything && (

@@ -2,7 +2,7 @@ import { memo } from "react";
 import { Badge } from "./Badge";
 import { Wash } from "./Wash";
 import { loser } from "./result";
-import type { Game } from "./model";
+import type { Fixture, Game } from "./model";
 
 /**
  * A finished game as one line (plan 010).
@@ -34,7 +34,7 @@ function CompactCardImpl({
   game,
   onOpen,
 }: {
-  game: Game;
+  game: Fixture;
   onOpen?: (game: Game) => void;
 }) {
   const { home, away } = game;

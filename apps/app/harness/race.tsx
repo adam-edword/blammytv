@@ -7,9 +7,10 @@ import "../src/styles/base.css";
 import "../src/styles/ui.css";
 import "../src/styles/themes.css";
 import "../src/styles/sports.css";
-import { RaceCard, type Race } from "../src/features/sports/RaceCard";
+import { RaceCard } from "../src/features/sports/RaceCard";
+import type { Field } from "../src/features/sports/model";
 import { WeekendCard, type Weekend } from "../src/features/sports/WeekendCard";
-import { toBoard } from "../src/features/sports/race";
+import { toRacing, toWeekend } from "../src/features/sports/racing";
 import circuits from "../src/features/sports/circuits/index.json";
 import { applyAccent, loadAccent } from "../src/features/settings/accent";
 import { applyTheme, loadTheme } from "../src/features/settings/theme";
@@ -36,7 +37,7 @@ import f1 from "./fixtures/f1.json";
  * gone on producing stale shapes. Dated past the fixture so toBoard sends
  * every event down the SESSION branch.
  */
-const races: Race[] = toBoard(f1 as never, new Date("2027-01-01")).sessions;
+const races: Field[] = toRacing(f1 as never, "racing/f1");
 
 applyAccent(loadAccent());
 applyTheme(loadTheme());
@@ -49,7 +50,7 @@ applyTheme(loadTheme());
  * bands; Japan is mostly white and Bahrain mostly red, and a treatment
  * tuned on one of those is not tuned. So all 24 render at once.
  */
-const everywhere: Race[] = Object.entries(circuits.circuits).map(
+const everywhere: Field[] = Object.entries(circuits.circuits).map(
   ([id, c], i) => ({
     ...races[Math.min(4, races.length - 1)],
     id: `flag-${id}`,
@@ -76,7 +77,7 @@ const everywhere: Race[] = Object.entries(circuits.circuits).map(
  * measured, a `pre` session returns `competitors` of length zero.
  */
 const base = races[Math.min(4, races.length - 1)];
-const states: Race[] = [
+const states: Field[] = [
   {
     ...base,
     id: "st-pre",
@@ -100,23 +101,23 @@ const states: Race[] = [
 /**
  * The weekend card, through the REAL mapper rather than a rig one.
  *
- * Dated a year back so toBoard's split sends every event down the weekend
- * branch: the fixture's own weekend is finished, and the branch worth
- * looking at here is the one the fixture cannot reach.
+ * `toWeekend` takes a raw event directly now, so there is no date to
+ * fake: the split by day belongs to the board (onDay) and this rig only
+ * ever wanted the weekend SHAPE.
  *
  * Both weekend shapes, because there are two and only two: the ordinary
  * FP1/FP2/FP3/Qual/Race, and the sprint FP1/SS/SR/Qual/Race, where the
  * greyed SR is an actual race with points. Adam's call, made against that.
  */
-const sprint = { ...f1, events: [{ ...(f1.events ?? [])[0] }] } as never;
+const events = (f1.events ?? []) as never[];
 const weekends: Weekend[] = [
-  ...toBoard(f1 as never, new Date("2025-01-01")).weekends,
+  ...events.map((e) => toWeekend(e, "Formula 1")),
   /* The LONGEST track name on the calendar and the shortest, because the
    * name is the one thing on this card whose width the source picks. The
    * spread is 7 characters ("Madring") to 34, in a column about 180px
    * wide, so the long one has to wrap and the short one must not look
    * stranded. */
-  ...toBoard(f1 as never, new Date("2025-01-01")).weekends.flatMap((w) =>
+  ...events.map((e) => toWeekend(e, "Formula 1")).flatMap((w) =>
     ["Suzuka International Racing Course", "Madring"].map((track, n) => ({
       ...w,
       id: `name-${n}`,
@@ -124,7 +125,7 @@ const weekends: Weekend[] = [
       track,
     })),
   ),
-  ...toBoard(sprint, new Date("2025-01-01")).weekends.map((w, i) => ({
+  ...events.slice(0, 1).map((e) => toWeekend(e, "Formula 1")).map((w, i) => ({
     ...w,
     id: `sprint-${i}`,
     sessions: w.sessions.map((s, n) =>

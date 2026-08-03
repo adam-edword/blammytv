@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { dayLabel, nowish, onDay , tooEarly } from "./day";
-import type { Game, GameState } from "./model";
+import type { Fixture, Game, GameState } from "./model";
 
 /**
  * The hub's day logic.
@@ -16,7 +16,8 @@ const game = (
   id: string,
   state: GameState,
   start: Date,
-): Game => ({
+): Fixture => ({
+  kind: "fixture",
   id,
   sport: "baseball",
   league: "MLB",
@@ -160,6 +161,9 @@ describe("nowish", () => {
 });
 
 describe("tooEarly", () => {
+  // tooEarly reads two fields and neither is a side, so this stub stays a
+  // stub: casting is honest here in a way filling in eleven unread fields
+  // would not be.
   const at = (h: number): Game =>
     ({
       state: "pre",

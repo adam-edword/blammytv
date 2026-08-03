@@ -3,6 +3,7 @@ import { onDay } from "./day";
 import { DEFAULT_LEAGUES, fetchGames } from "./espn";
 import { CARD_CONFIDENCE, matchEvent, matchGame } from "./matcher";
 import type { Catalog } from "./matcher";
+import { isField } from "./model";
 import type { Game } from "./model";
 
 /** How often a mounted hub re-reads TODAY. Later days do not move. */
@@ -232,7 +233,13 @@ export function withChannels(games: Game[], catalog: Catalog | null): Game[] {
     // A channel that names THIS fixture beats any channel that merely
     // carries the network showing it, so it goes first and is never
     // displaced by a national feed's ordering.
-    const named = matchEvent([game.home.name, game.away.name], game.start, catalog);
+    // Naming the FIXTURE only works where there is one. A race listing
+    // says "Formula 1 Dutch Grand Prix", not two team names, so a field
+    // resolves off its broadcasts alone until racing gets its own matcher
+    // path (plan 010 #5).
+    const named = isField(game)
+      ? []
+      : matchEvent([game.home.name, game.away.name], game.start, catalog);
     const seen = new Set(named.map((c) => c.id));
     const found = [
       ...named,

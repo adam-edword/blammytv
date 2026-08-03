@@ -6,7 +6,7 @@ import { tooEarly } from "./day";
 import { Badge } from "./Badge";
 import { Wash, WashVeil } from "./Wash";
 import { loser } from "./result";
-import type { Game } from "./model";
+import type { Fixture, Game } from "./model";
 
 /**
  * A game as a small card, for a day at a glance (plan 010).
@@ -41,7 +41,7 @@ function UpcomingCardImpl({
   game,
   onOpen,
 }: {
-  game: Game;
+  game: Fixture;
   onOpen?: (game: Game) => void;
 }) {
   const { home, away } = game;

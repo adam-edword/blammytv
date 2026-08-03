@@ -202,23 +202,59 @@ window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
         ? input.href
         : input.url;
   const m = /sports\/[^/]+\/([^/]+)\/scoreboard/.exec(url);
-  /* RACING answers with the whole season and is not restamped.
+  /* RACING, restamped onto this weekend like every other slate.
    *
-   * race.ts asks for `?dates=<year>` and reads a calendar out of it, so
-   * the dates ARE the content here, unlike the team slates where they are
-   * the one thing that has to be faked. The fixture is the real 2026
-   * season pruned to the paths race.ts reads: Hungary has run, Zandvoort
-   * has not, which is the exact split the weekend/session cards are for.
+   * The real endpoint answers a date inside a race weekend with all five
+   * sessions and a date outside one with nothing, and the board relies on
+   * that: it asks per day and `onDay` files each session. F1 is between
+   * races most of the time, so a rig replaying the calendar verbatim shows
+   * an empty board, which cannot answer the question the rig is open to
+   * answer.
    *
-   * Stubbed rather than left to the network because the sandbox cannot
-   * reach ESPN, and a rig that silently renders no racing is a rig that
-   * cannot answer the question it was opened to answer. */
-  if (m && m[1] === "f1")
+   * So one real weekend (circuit, drivers, flags, broadcast) is moved onto
+   * today, tomorrow and the day after, and dealt states so a session is
+   * live. Same treatment the team slates get, for the same reason. */
+  if (m && m[1] === "f1") {
+    const day = parseDates(url);
+    const event = (f1.events ?? [])[0];
+    const comps = event.competitions ?? [];
+    // Friday's two, Saturday's two, Sunday's one: the shape of a weekend.
+    const OFFSET = [0, 0, 1, 1, 2];
+    const HOUR = [11, 15, 11, 15, 14];
+    const restamped = comps.map((c, i) => {
+      const when = new Date();
+      when.setHours(0, 0, 0, 0);
+      when.setDate(when.getDate() + OFFSET[i]);
+      when.setHours(HOUR[i], 0, 0, 0);
+      return {
+        ...c,
+        date: when.toISOString(),
+        status:
+          i === 1
+            ? { period: 41, type: { state: "in", shortDetail: "Lap 41/72" } }
+            : i === 0
+              ? { type: { state: "post", shortDetail: "Final" } }
+              : { type: { state: "pre" } },
+      };
+    });
+    // Outside the weekend, nothing, which is what the real one does.
+    const inside = OFFSET.some((o) => {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() + o);
+      return d.toDateString() === day.toDateString();
+    });
     return Promise.resolve(
-      new Response(JSON.stringify(f1), {
-        headers: { "content-type": "application/json" },
-      }),
+      new Response(
+        JSON.stringify(
+          inside
+            ? { ...f1, events: [{ ...event, competitions: restamped }] }
+            : { ...f1, events: [] },
+        ),
+        { headers: { "content-type": "application/json" } },
+      ),
     );
+  }
   // ESPN's soccer path is the competition code, not our key.
   const key =
     m && Object.keys(SLATES).find((k) => k === m[1] || (m[1] === "eng.1" && k === "epl"));

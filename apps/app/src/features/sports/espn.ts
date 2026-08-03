@@ -1,6 +1,7 @@
 import { driverCode } from "./driverCode";
 import { league as catalogLeague } from "./leagues";
-import type { Competitor, Game, GameState } from "./model";
+import { toRacing, type RawRacing } from "./racing";
+import type { Competitor, Fixture, Game, GameState } from "./model";
 
 /**
  * The schedule source (plan 010, phase 1): ESPN's undocumented scoreboard
@@ -34,11 +35,16 @@ const BASE = "https://site.api.espn.com/apis/site/v2/sports";
  * what makes onboarding (E1) worth building; until it exists, a board with
  * the five biggest leagues on it is a better first screen than a form.
  *
- * F1 is deliberately absent, and so is every other racing series here. A
- * race is a session with twenty entrants, not two competitors, so it needs
- * its own card before it can have a row (the plan's own risk list). The
- * catalog carries all six racing leagues and any of them can be followed;
- * what comes back maps to nothing until the racing adapter lands.
+ * F1 IS HERE NOW, and its absence was never a preference. Adam's brief
+ * named it from the start ("all the major US leagues, plus the global
+ * competitions worth following from here, Premier League and F1"); it sat
+ * out because a race is a session with twenty entrants rather than two
+ * competitors, so it had no card to be drawn on. It has one, and an
+ * adapter to reach it, so the reason has gone.
+ *
+ * The other five racing series are not here and that is a preference: they
+ * carry no circuit and no country (plan 010 #7), so they have no art and
+ * no name for the big slot yet. They are one click away in the catalog.
  */
 export const DEFAULT_LEAGUES: readonly string[] = [
   "football/nfl",
@@ -46,6 +52,7 @@ export const DEFAULT_LEAGUES: readonly string[] = [
   "baseball/mlb",
   "hockey/nhl",
   "soccer/eng.1",
+  "racing/f1",
 ];
 
 /**
@@ -198,6 +205,17 @@ interface RawCompetitor {
 }
 
 /**
+ * Is this league an ordered field rather than a set of fixtures?
+ *
+ * By the catalog path's sport segment, which is ESPN's own word. Golf will
+ * join this the day it has a card (plan 010 #10); it is deliberately not a
+ * list of league slugs, because the shape belongs to the sport.
+ */
+export function racingPath(path: string): boolean {
+  return path.startsWith("racing/");
+}
+
+/**
  * A date as the endpoint wants it: YYYYMMDD, built from LOCAL parts.
  *
  * Local rather than UTC because the question being asked is "what is on
@@ -234,7 +252,14 @@ export async function fetchLeague(
     if (!res.ok) throw new Error(`ESPN ${path}: HTTP ${res.status}`);
     return (await res.json()) as RawScoreboard;
   });
-  return toGames(raw, path);
+  // Which MAPPER, decided by the catalog path's sport segment. A racing
+  // scoreboard is an event with five sessions rather than a fixture with
+  // two sides, so it maps to Fields (racing.ts) where everything else maps
+  // to Fixtures. Same request, same gate, same fetch list: the only thing
+  // racing gets to be special about is its shape.
+  return racingPath(path)
+    ? toRacing(raw as RawRacing, path)
+    : toGames(raw, path);
 }
 
 /**
@@ -276,7 +301,7 @@ export async function fetchGames(
  * a row from a hardcoded table of five; the table is gone, and a path is
  * something the catalog can hand over for any of 151.
  */
-export function toGames(raw: RawScoreboard, path: string): Game[] {
+export function toGames(raw: RawScoreboard, path: string): Fixture[] {
   // "Premier League", "MLB": the short one is what the card's league line
   // has room for. Falls back to the long name, then to the catalog's own
   // label, then to the path.
@@ -310,7 +335,7 @@ export function toGames(raw: RawScoreboard, path: string): Game[] {
         ),
       );
     })
-    .filter((g): g is Game => g !== null);
+    .filter((g): g is Fixture => g !== null);
 }
 
 /**
@@ -373,7 +398,7 @@ function toGame(
   path: string,
   sport: string,
   leagueName: string,
-): Game | null {
+): Fixture | null {
   const home = pick(comp?.competitors, "home");
   const away = pick(comp?.competitors, "away");
   // Everything downstream is built around two sides and a start time. An
@@ -402,6 +427,7 @@ function toGame(
   const abandoned = raw?.state === "post" && raw?.completed === false;
   const state = abandoned ? "pre" : (STATES[raw?.state ?? ""] ?? "pre");
   return {
+    kind: "fixture",
     // The slash stays. It is only ever a React key, a data attribute and a
     // quoted attribute selector, all of which take it literally, and an id
     // you can read back to a path is worth more than one that is tidy.

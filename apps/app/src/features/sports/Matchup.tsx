@@ -1,6 +1,6 @@
 import { useFitText } from "../../lib/fitText";
 import { Badge } from "./Badge";
-import type { Game } from "./model";
+import type { Fixture } from "./model";
 
 /**
  * The two teams, at the head of the theater's panel (plan 010).
@@ -21,7 +21,7 @@ import type { Game } from "./model";
  * than a card part, and it carries the inverted-crest fallback that a second
  * copy would get wrong.
  */
-export function Matchup({ game }: { game: Game }) {
+export function Matchup({ game }: { game: Fixture }) {
   const { home, away } = game;
   // In line, the two names share one row instead of owning a whole one
   // each, so the long pairings are much tighter than on any card:

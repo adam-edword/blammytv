@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { keepStable, withChannels } from "./useGames";
 import { indexChannels } from "./matcher";
-import type { Game } from "./model";
+import type { Fixture } from "./model";
 
 /**
  * The refresh's identity-preserving merge.
@@ -12,7 +12,8 @@ import type { Game } from "./model";
  * is really asking "does the card re-render when it must".
  */
 
-const game = (id: string, over: Partial<Game> = {}): Game => ({
+const game = (id: string, over: Partial<Fixture> = {}): Fixture => ({
+  kind: "fixture",
   id,
   sport: "baseball",
   league: "MLB",

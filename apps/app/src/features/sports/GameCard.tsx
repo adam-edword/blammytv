@@ -8,7 +8,7 @@ import { Wash, WashVeil } from "./Wash";
 import { loser } from "./result";
 import { CardFoot } from "./CardFoot";
 import { carriageText } from "./carriage";
-import type { Game } from "./model";
+import type { Fixture, Game } from "./model";
 
 /**
  * A game on today's row, as one wide card (plan 010).
@@ -31,7 +31,7 @@ function GameCardImpl({
   game,
   onOpen,
 }: {
-  game: Game;
+  game: Fixture;
   onOpen?: (game: Game) => void;
 }) {
   const { home, away } = game;

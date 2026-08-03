@@ -74,7 +74,18 @@ export interface Competitor {
 
 export type GameState = "pre" | "live" | "final";
 
-export interface Game {
+/**
+ * Everything on the board, whatever shape it is.
+ *
+ * This is the part the BOARD runs on, and the list is worth reading as a
+ * claim: bucketing a day, picking the row's anchor, matching channels,
+ * filtering by what you follow and opening the theater all happen up here
+ * and none of them care whether the thing has two sides. Measured before
+ * the split was chosen — `matcher.ts`, `day.ts` and `autoplay.ts` read no
+ * side at all — which is why one collection with a discriminated union
+ * beat two collections that would have forked every one of those.
+ */
+interface Board {
   id: string;
   /**
    * Which sport this is, in the source's own word: "soccer", "baseball",
@@ -120,9 +131,7 @@ export interface Game {
   /** The short status string, already formatted by the adapter because
    * every sport says it differently: "41'", "TOP 2nd", "Final", "7:30 PM". */
   status: string;
-  home: Competitor;
-  away: Competitor;
-  /** Stadium or city, shown bottom-left. */
+  /** Stadium, city, or the circuit. Shown bottom-left on a wide card. */
   venue?: string;
   /**
    * Why this game is not an ordinary one, in the source's own words:
@@ -152,4 +161,80 @@ export interface Game {
    * so rather than quietly offering a folder someone muted on purpose.
    */
   hiddenOnly?: boolean;
+}
+
+/**
+ * TWO SIDES AND A SCORE, which is 134 of the catalog's 151 leagues.
+ */
+export interface Fixture extends Board {
+  kind: "fixture";
+  home: Competitor;
+  away: Competitor;
+}
+
+/** One entrant in an ordered field, in finishing order. */
+export interface Entrant {
+  /** 1, 2, 3. */
+  place: number;
+  /** As the source names them: "Lando Norris". */
+  name: string;
+  /** The three letters a broadcast would caption them with. */
+  code: string;
+  /** Their country's flag. The source carries no constructor. */
+  mark?: string;
+}
+
+/**
+ * AN ORDERED FIELD, which is what a race session and a golf round are.
+ *
+ * Twenty-two entrants, no head-to-head, and the interesting part is the
+ * top of it. Nothing here overlaps with a Fixture, which is the whole
+ * reason the two are a union rather than one type with optional halves: a
+ * Game with neither `home` nor `away` would be a lie the compiler could
+ * not catch.
+ */
+export interface Field extends Board {
+  kind: "field";
+  /** "FP1", "Qual", "Race". The named part of a weekend. */
+  session: string;
+  /** Where, in one word: "Hungary". The circuit's own name is `venue`. */
+  place: string;
+  /** The circuit id, for the art and the flag. Absent outside F1. */
+  circuitId?: string;
+  /**
+   * Is this a RACE, as opposed to practice or qualifying?
+   *
+   * The Grand Prix and the sprint both are. It decides whether the card
+   * counts laps, because a lap number means nothing in a practice hour:
+   * measured over a finished weekend, `status.period` read 19, 26, 20 and
+   * 16 for the four non-race sessions and 70 for the race.
+   */
+  race: boolean;
+  /**
+   * The lap being run, and the number there are.
+   *
+   * `laps` is OPTIONAL and that is not tidiness. The scoreboard carries a
+   * lap NUMBER and no total anywhere in the payload; the total only
+   * appears if ESPN writes it into the status text, which cannot be
+   * confirmed until a session is actually running (plan 010 #8). So a card
+   * shows "LAP 41 / 72" when it is told the total and "LAP 41" when it is
+   * not, and neither is a broken state.
+   */
+  lap?: number;
+  laps?: number;
+  /** The top of the field, or as much of it as exists yet. */
+  entrants: Entrant[];
+}
+
+/**
+ * A thing on the board.
+ *
+ * Narrow with `isField`. Anything that reads `home` or `away` has to,
+ * which is 9 files and 13 sites; everything else works on the union.
+ */
+export type Game = Fixture | Field;
+
+/** An ordered field rather than a fixture. */
+export function isField(game: Game): game is Field {
+  return game.kind === "field";
 }

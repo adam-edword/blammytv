@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { loser } from "./result";
-import type { Competitor, Game, GameState } from "./model";
+import type { Competitor, Fixture, GameState } from "./model";
 
 /**
  * Who lost, and more importantly when we are allowed to say so.
@@ -17,7 +17,8 @@ const side = (score?: number): Competitor => ({
   score,
 });
 
-const game = (state: GameState, home?: number, away?: number): Game => ({
+const game = (state: GameState, home?: number, away?: number): Fixture => ({
+  kind: "fixture" as const,
   id: "g",
   sport: "soccer",
   league: "Premier League",

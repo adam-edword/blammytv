@@ -24,7 +24,7 @@ import { autoPlay, nextSource } from "./autoplay";
 import { tunedChannel } from "./catalog";
 import { matchEvent, matchGame } from "./matcher";
 import type { Catalog, Match } from "./matcher";
-import type { Game } from "./model";
+import type { Fixture, Game } from "./model";
 
 /** CSS corner radius of .sportstheater__slot. Two things round by it and
  * they must agree: the stylesheet below, and the rect InvertedPlayer cuts
@@ -61,9 +61,9 @@ export function SportsTheater({
   onOpen,
   onClose,
 }: {
-  game: Game;
+  game: Fixture;
   /** The other games on now, to switch to. Not this one. */
-  others: Game[];
+  others: Fixture[];
   /** The user's channels. The rail resolves its own, rather than taking the
    * card's list: the card counts only what it is sure of, and the rail is
    * the one place a doubtful match can be shown honestly, with its score. */
@@ -99,7 +99,7 @@ export function SportsTheater({
    * itself. Nothing here re-sorts, which is the point.
    */
   const groups = useMemo(() => {
-    const by = new Map<string, Game[]>();
+    const by = new Map<string, Fixture[]>();
     for (const g of others) {
       const seen = by.get(g.league);
       if (seen) seen.push(g);

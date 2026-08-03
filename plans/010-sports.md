@@ -1,8 +1,9 @@
 # 010: Sports: a hub for what is on right now
 
-- **Status**: IN PROGRESS. Phases 0, 1, 2 and 4 done; phase 3 most of the
-  way. **The join works and the rail plays: a game is now one click from
-  a picture.** Next is filters (phase 5).
+- **Status**: IN PROGRESS. **The join works, the rail plays, and racing is
+  a first-class league rather than a side door.** One gating item left:
+  the league picker (#2), which is what makes the 151-league catalog
+  reachable by clicking.
 - **Severity**: MEDIUM (feature, not a defect)
 - **Category**: Live TV / sports
 - **Estimated scope**: a schedule source, a matcher against the user's own
@@ -518,6 +519,9 @@ chores, but 3 through 32 are grouped rather than ranked. Anything numbered
 past 35 arrived after the count and is at the end rather than in place, so
 nothing already written down moves.
 
+**#2, the league picker, is now the only gating item.** #1 shipped, and it
+took #3, #4's live gate and the five TEMPORARY markers with it.
+
 **A number is retired when its item ships, and never reused.** Gaps in the
 list are normal and mean something got done; the ledger at the end says
 which. Renumbering to close a gap would move every label that is already
@@ -525,44 +529,56 @@ in someone's head, which is the exact thing the letters used to do.
 
 **[ ]** not started, **[~]** partly there, **[?]** blocked or undecided.
 
-Shipped work is not here at all. It is in the ledger at the end, under the
-label it used to carry, so a number or letter that vanished can be looked
-up rather than wondered about.
+A shipped item STAYS IN PLACE marked **[x]**, with what it decided,
+because that reasoning is most useful next to the items it constrains. The
+ledger at the end is the quick index, and it also carries the older
+letter-era labels so a name that vanished can still be looked up.
 
 ---
 
-### Do these first, they unblock the rest
+### The gating item, and the two that cleared it
 
-#### 1. A real racing adapter [~]
+#### 1. A real racing adapter [x] v0.8.127
 
-`race.ts` is a second front door: it fetches F1 on its own and joins
-nothing. The board still knows only about `Game`.
+`race.ts` was a second front door: its own fetch, its own cache, its own
+hook, joining nothing. Racing is a followed league like any other now.
 
-- Add racing to the fetch list by catalog path (`racing/f1`). The fetch
-  inversion made this the easy half: paths are already what gets fetched.
-- **The model is DECIDED (2026-08-03): a discriminated union on a shared
-  base.** `Fixture` keeps `home`/`away`, `Field` carries `entrants[]`, and
-  everything the board actually runs on (id, league, leagueKey, start,
-  state, status, venue, broadcasts, channels, note, headline) lifts into
-  the base they share.
+- **The model is a discriminated union**, decided from coupling rather
+  than taste. `Fixture` keeps home and away, `Field` carries entrants, and
+  everything the board runs on lifts into the base they share. Only 9
+  files read a side, 13 sites in all, and `matcher.ts`, `day.ts` and
+  `autoplay.ts` read none: the day bucketing, the channel matching and the
+  autoplay never cared. Two collections would have forked all of those.
+- `fetchLeague` dispatches on the path's sport segment, so `racing/f1` is
+  one more entry in the fetch list and gets the same gate and the same
+  per-day request as everything else.
+- **`racing/f1` joined DEFAULT_LEAGUES.** Its absence was never a
+  preference: Adam's brief named it from the start and it sat out because
+  it had no card. It has one.
+- The five TEMPORARY blocks are gone, and so is the staged live session.
 
-  Decided from the coupling rather than from taste. Only 9 files read
-  `.home` or `.away`, 13 sites in all, and `matcher.ts`, `day.ts` and
-  `autoplay.ts` read **zero** of them: the day bucketing, the channel
-  matching and the autoplay already do not care about sides. Two
-  collections would fork all three of those plus `nowish`, the follows
-  filter and the theater. The union forks only the card render, which was
-  always going to fork because the cards are already separate components.
+#### 3. Sessions on their own days [x] v0.8.127
 
-  Golf confirms it is one decision and not two: a PGA competitor and an F1
-  session competitor are the same shape (`competitors[]` with `order` and
-  `athlete`), so #10 rides this without a second thought.
-- Move `toBoard`, `nextUp`, `toWeekend` and `toSessions` across, keeping
-  their 14 tests.
-- `useGames` returns racing alongside team games, so `SportsScreen` stops
-  calling `useRaces` and stops special casing `day === days[0]`.
-- Delete the five TEMPORARY blocks (`SportsScreen` x3, `race.ts`,
-  `RaceCard`, `WeekendCard`).
+Fell out of #1 rather than needing its own work, and the reason is a
+measurement. Asked for a date inside a race weekend, the endpoint answers
+with the WHOLE weekend, all five sessions, each carrying its own date;
+asked for a date outside one it answers with nothing:
+
+  ?dates=20260821  ->  FP1, SS, SR, Qual, Race
+  ?dates=20260822  ->  the same five
+  ?dates=20260819  ->  no events
+
+So the board asks three times, gets the same five back three times, and
+`onDay` files each one. Verified in the rig: FP1 and FP2 today, FP3 and
+Qual tomorrow, the race the day after, and the live session alone in the
+row.
+
+**The weekend card has no place on a three-day board**, which is the one
+thing this cost. It is the shape for the days BEFORE a weekend starts, and
+those days answer with no events, so the earliest racing can appear is the
+day of FP1 by which point it has already broken into sessions.
+`WeekendCard` and `toWeekend` are kept with their tests and rendered by
+the race rig; they come back with #36.
 
 #### 2. The two step league picker [ ]
 
@@ -582,27 +598,6 @@ sports.
 ---
 
 ### Racing
-
-#### 3. Sessions on their own days [ ]
-
-Every racing card lands at the head of *today's* grid whatever day it is.
-
-- Give `Race` a real `start: Date` instead of a preformatted `time`.
-- Run it through `onDay()` like a game, so it lands on the right grid.
-- **Placement DECIDED (Adam, 2026-08-03): racing gets no special
-  treatment.** A weekend card sits on its real date and falls off the home
-  board when it is outside the window, exactly like a fixture. The pinning
-  that keeps it on today is TEMPORARY scaffolding, not a rule.
-
-  The consequence is deliberate and worth stating: F1 races on about 24
-  weekends, so for most of the year the home board carries no racing at
-  all. That is not the hole it looks like, because #36 fills it: narrow the
-  board to a league and it reaches out to that league's real dates. Adam's
-  words, "let it fall off the visible home board, but if you filter to only
-  show F1, it would show the dates that events are on".
-
-  The weekend-versus-sessions split is unchanged and already built: one
-  card until the day of FP1, five session cards from then on.
 
 #### 4. Racing in the wide row [x] v0.8.122-125
 
@@ -624,13 +619,9 @@ fixture card's "Final" sits and not in the 52px scoreline slot; and the
 field reads with the LAP rather than with the country, because those two
 are what the card reports and the country is the label on it.
 
-**One piece is NOT done and belongs to #1**: the row still has to gate on
-`state === "live"`. Only the staged session renders today and it is always
-live, so the gate has nowhere to live until racing is a real adapter.
-
-- Gate on state, not on the session being a race: a live qualifying hour
-  is worth the row too, and #6 keeps finished practice off the board.
-- `nowish()` picks the anchor off `state`, so it already copes.
+The live gate landed with #1: `rowItems` filters the row to fixtures plus
+fields that are running, so a finished practice session drops to the grid
+and a live qualifying hour earns the row.
 
 #### 5. Racing in the theater [ ]
 
@@ -1005,6 +996,7 @@ here so a label that vanished can be looked up.
 | - | Roving tabindex in `RowScroller`: 42 tab stops to 1 | v0.8.119 |
 | **D1** | **The fetch inversion.** Follows are the fetch list over the 151 league catalog; `LEAGUES`, `LEAGUE_NAMES` and `LEAGUE_LOGOS` deleted; `leagueKey` is the catalog path; legacy keys migrated on read; a six-request gate | v0.8.120 |
 | A13 | Records, playoff series, occasion notes and wire one-liners: four fields that were already being downloaded and thrown away | v0.8.121 |
+| **1, 3** | **The racing adapter.** `Game` split into `Fixture` and `Field`, `race.ts` deleted, racing on the normal fetch path and on its real days, `racing/f1` in the defaults, five TEMPORARY blocks cleared | v0.8.127 |
 | **4** | **The wide race card.** GameCard's footprint, five drivers, lap, circuit art, carriage. Plus `CardFoot`/`carriageText` extracted and tested, and a `shortPlace` width budget | v0.8.122-125 |
 | - | The Leagues rail icon: three splayed blades on a plinth, filled | v0.8.122 |
 

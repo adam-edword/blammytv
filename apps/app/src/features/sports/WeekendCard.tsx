@@ -6,20 +6,18 @@ import { shortPlace } from "./placeName";
 /**
  * A race weekend before it starts, as a card (plan 010, Adam's Figma).
  *
- * TEMPORARY, alongside RaceCard, and the same card as it: same surface,
- * same radius, same lean, same flag, same track. Only the left column
- * differs, and that is the whole idea — a race is a different SHAPE of
- * thing from a fixture, but a weekend and a session are the same thing at
- * two zoom levels and should not look like two components.
+ * NOT ON THE BOARD, and that is a consequence of two decisions rather
+ * than an oversight. Adam's: racing sits on its real dates and falls off
+ * the home board when it is outside the three-day window. The endpoint's:
+ * a date outside a race weekend answers with no events at all. Together
+ * those mean the earliest racing can appear is the day of FP1, by which
+ * point the weekend has already broken into sessions and this card's
+ * moment has passed.
  *
- * WHY A WEEKEND IS ONE CARD AND A SESSION IS FIVE. Before anything runs
- * there is nothing to rank: measured against the real payload, a `pre`
- * session comes back with `competitors` of length ZERO. So the podium
- * column has nothing to hold, and the useful thing to put there is the
- * question a person actually has three days out, which is when any of it
- * is on. From FP1's day the sessions break out and each gets its own card,
- * because from then on each has its own clock, its own order and its own
- * state.
+ * Kept, with `toWeekend` and its tests, because it comes back with plan
+ * 010 #36: narrow the board to F1 and it reaches out to the next event,
+ * which is exactly the question this card answers. The race rig renders it
+ * meanwhile, so the design does not rot unseen.
  */
 
 /** One row of the weekend's schedule. */

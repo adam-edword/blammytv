@@ -19,6 +19,7 @@ import {
   toggleTeam,
   type Follows,
 } from "./follows";
+import { isField } from "./model";
 import type { Game } from "./model";
 
 type Mode = "leagues" | "teams" | "channels";
@@ -76,7 +77,10 @@ export function SportsSidebar({
    */
   const clubs = useMemo(() => {
     const by = new Map<string, { key: string; name: string; logo?: string }>();
-    for (const g of games)
+    for (const g of games) {
+      // An ordered field has no clubs in it. A race weekend on the board
+      // must not put twenty drivers in a list headed "Teams".
+      if (isField(g)) continue;
       for (const side of [g.home, g.away]) {
         const key = teamKey(g.leagueKey, side);
         // No id, no follow: see teamKey. Draw nothing rather than key a
@@ -84,6 +88,7 @@ export function SportsSidebar({
         if (!key || by.has(key)) continue;
         by.set(key, { key, name: side.shortName ?? side.name, logo: side.logo });
       }
+    }
     return [...by.values()].sort((a, b) => a.name.localeCompare(b.name));
   }, [games]);
 

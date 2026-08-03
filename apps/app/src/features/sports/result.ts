@@ -1,5 +1,5 @@
 import type { Side } from "./Wash";
-import type { Game } from "./model";
+import type { Fixture } from "./model";
 
 /**
  * Which side lost, once there is such a thing.
@@ -12,8 +12,12 @@ import type { Game } from "./model";
  * Its own module because both cards ask, and because a component file that
  * exports a helper as well as a component cannot be hot-swapped on its own
  * (React Fast Refresh, the same reason lib/reducedMotion.ts exists).
+ *
+ * A FIXTURE, not a Game. An ordered field has no side to lose: a race has
+ * a winner and twenty-one people who are not, which is a different
+ * question and one the race card answers with the order itself.
  */
-export function loser(game: Game): Side | undefined {
+export function loser(game: Fixture): Side | undefined {
   if (game.state !== "final") return undefined;
   const h = game.home.score;
   const a = game.away.score;
