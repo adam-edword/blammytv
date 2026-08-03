@@ -2337,18 +2337,33 @@
   height: auto;
   object-fit: contain;
 }
-/* The driver, a step under the country opposite it.
+/* The driver, at the LAP's size.
  *
- * A step, and not a match, and the difference is the whole note. Adam
- * asked to "lower the font size of the racers names to match NETHERLANDS
- * size", and measured they ALREADY matched: both --sports-name, both cap
- * height 19.0 on the canvas. What he was seeing is real and it is
- * optical — three wide bold letters with letter-spacing carry far more
- * ink per glyph than an eleven-letter word, so equal type reads unequal.
+ * Which is the third answer to this question and the one that holds. It
+ * started at --sports-name to match the country opposite it, and Adam
+ * asked to lower it "to match NETHERLANDS size" when it already did:
+ * measured, both were --sports-name and both had cap height 19.0 on the
+ * canvas. What he was seeing was real and optical — three wide bold
+ * letters with letter-spacing carry far more ink per glyph than an
+ * eleven-letter word, so equal type reads unequal. It went to 24px on
+ * that note, and to this on the next one.
  *
- * So this is 24px to LOOK like 28px beside it, which is the only kind of
- * matching that matters on a card. Written out rather than tokenised
- * because it is a correction to one pairing, not a new step in the ramp. */
+ * The lap is the right thing to match. The field and the lap are the two
+ * things this card reports; the country is the label on the whole card,
+ * not a third number competing with them. Matching the reporting pair
+ * says that, and the 28px country reads as the heading it is.
+ *
+ * The same EXPRESSION .gamecard__status--alone uses rather than the value
+ * it happens to evaluate to, because these are matched on purpose and a
+ * hardcoded 22.05 would let them drift the day --sports-name moves. */
+.wracecard__code {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: calc(var(--sports-name) / 1.27);
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  color: #fff;
+}
 /* FOURTH AND FIFTH IN A LIGHT WEIGHT. Adam's, and it does something the
  * numbers down the left cannot: it makes the shape of the podium visible
  * before a single position is read. The card is about who is winning, and
@@ -2360,14 +2375,6 @@
  * does not. */
 .wracecard__slot:nth-child(n + 4) .wracecard__code {
   font-weight: 300;
-}
-.wracecard__code {
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 24px;
-  line-height: 1.05;
-  letter-spacing: 0.02em;
-  color: #fff;
 }
 
 .wracecard__center {
