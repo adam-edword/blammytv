@@ -11,14 +11,8 @@ import {
   TeamsIcon,
   TvIcon,
 } from "../../ui/icons";
-import { DEFAULT_LEAGUES } from "./espn";
-import { league } from "./leagues";
-import {
-  teamKey,
-  toggleLeague,
-  toggleTeam,
-  type Follows,
-} from "./follows";
+import { teamKey, toggleTeam, type Follows } from "./follows";
+import { LeaguePicker } from "./LeaguePicker";
 import { isField } from "./model";
 import type { Game } from "./model";
 
@@ -92,26 +86,6 @@ export function SportsSidebar({
     return [...by.values()].sort((a, b) => a.name.localeCompare(b.name));
   }, [games]);
 
-  /**
-   * The league tiles: the default five, plus whatever else is followed.
-   *
-   * Follows are the fetch list now (D1), so a followed league that is not
-   * one of the five has to appear here or there is no way to unfollow it
-   * and no way to see that it is on. Appended rather than sorted in, so the
-   * five stay where they have always been and a new one arrives at the end
-   * where it can be seen arriving.
-   *
-   * Only the leagues the catalog still carries can be drawn, which is the
-   * same rule resolvable() applies to the board.
-   */
-  const tiles = useMemo(() => {
-    const paths = [
-      ...DEFAULT_LEAGUES,
-      ...follows.leagues.filter((p) => !DEFAULT_LEAGUES.includes(p)),
-    ];
-    return paths.map(league).filter((l) => l !== undefined);
-  }, [follows.leagues]);
-
   return (
     <aside
       className={
@@ -138,41 +112,14 @@ export function SportsSidebar({
         )}
       </div>
 
-      {/* TILES, where the clubs below are a list, and the difference is
-        * the count. Five leagues fit on screen at any size, so they can
-        * afford the room a mark needs to be recognised at a glance; eighty
-        * clubs cannot, and a list you scan by name is the right shape for
-        * those. Two across is what 252px of panel holds without shrinking
-        * the mark to the size of the row icon it is replacing.
+      {/* THE PICKER, which used to be a grid of five tiles right here.
         *
-        * The default five, plus anything else already followed. The name
-        * and the mark come from the catalog now rather than from two tables
-        * kept by hand beside them (D1): every league in it carries both,
-        * confirmed by ESPN itself when the catalog was generated, so a
-        * league that has never been fetched still has something to draw. */}
+        * Tiles are still the shape for a favourite and the reasoning has
+        * not changed: a handful of leagues can afford a mark big enough to
+        * recognise at a glance, and 146 of them cannot. What changed is
+        * that the other 146 now have somewhere to be. See LeaguePicker. */}
       {!collapsed && mode === "leagues" && (
-        <div className="sportsside__tiles">
-          {tiles.map((l) => {
-            const on = follows.leagues.includes(l.path);
-            return (
-              <button
-                key={l.path}
-                type="button"
-                className={"leaguetile" + (on ? " leaguetile--on" : "")}
-                aria-pressed={on}
-                onClick={() => onFollows(toggleLeague(follows, l.path))}
-              >
-                <img
-                  className="leaguetile__mark"
-                  src={l.logo}
-                  alt=""
-                  loading="lazy"
-                />
-                <span className="leaguetile__name">{l.label}</span>
-              </button>
-            );
-          })}
-        </div>
+        <LeaguePicker follows={follows} onFollows={onFollows} />
       )}
 
       {!collapsed && mode === "teams" && (

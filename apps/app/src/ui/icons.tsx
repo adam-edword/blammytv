@@ -84,6 +84,43 @@ export function StarIcon({
   );
 }
 
+/**
+ * Interface / Heart, and deliberately StarIcon's twin.
+ *
+ * NOT `HeartIcon`, which already exists further down and is a different
+ * object: that one is the solid supporters mark on the Themes Pass card,
+ * fill-only with no stroke and no toggle. This one is a CONTROL, and the
+ * name says which.
+ *
+ * Adam's ask was a heart "with the same exact stroke and fill style as the
+ * favorites star on the guide rail icon", so every property that decides
+ * how it reads is copied rather than chosen: the 24-unit box, stroke width
+ * 2, round caps and joins, and `fill` swapping between currentColor and
+ * none on the same boolean. Only the path differs, which is the point.
+ */
+export function FavoriteHeartIcon({
+  size = 19,
+  className,
+  filled = false,
+}: IconProps & { filled?: boolean }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill={filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M12 20.7 4.3 13a5.1 5.1 0 0 1 0-7.2 5.1 5.1 0 0 1 7.2 0l.5.5.5-.5a5.1 5.1 0 0 1 7.2 0 5.1 5.1 0 0 1 0 7.2L12 20.7Z" />
+    </svg>
+  );
+}
+
 /** Arrow / Chevron_Down */
 export function ChevronIcon({ size = 16, className }: IconProps) {
   return (

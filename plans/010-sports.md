@@ -1,9 +1,9 @@
 # 010: Sports: a hub for what is on right now
 
-- **Status**: IN PROGRESS. **The join works, the rail plays, and racing is
-  a first-class league rather than a side door.** One gating item left:
-  the league picker (#2), which is what makes the 151-league catalog
-  reachable by clicking.
+- **Status**: IN PROGRESS. **The join works, the rail plays, racing is a
+  first-class league rather than a side door, and all 151 leagues are
+  reachable by clicking.** Nothing gates the rest; what is left is breadth
+  (golf, fighting), depth (the theater, corrections) and onboarding.
 - **Severity**: MEDIUM (feature, not a defect)
 - **Category**: Live TV / sports
 - **Estimated scope**: a schedule source, a matcher against the user's own
@@ -519,8 +519,8 @@ chores, but 3 through 32 are grouped rather than ranked. Anything numbered
 past 35 arrived after the count and is at the end rather than in place, so
 nothing already written down moves.
 
-**#2, the league picker, is now the only gating item.** #1 shipped, and it
-took #3, #4's live gate and the five TEMPORARY markers with it.
+**Nothing gates the rest any more.** #1 shipped and took #3, #4's live gate
+and the five TEMPORARY markers with it; #2 shipped and opened the catalog.
 
 **A number is retired when its item ships, and never reused.** Gaps in the
 list are normal and mean something got done; the ledger at the end says
@@ -536,7 +536,7 @@ letter-era labels so a name that vanished can still be looked up.
 
 ---
 
-### The gating item, and the two that cleared it
+### The three that opened it up
 
 #### 1. A real racing adapter [x] v0.8.127
 
@@ -580,20 +580,37 @@ day of FP1 by which point it has already broken into sessions.
 `WeekendCard` and `toWeekend` are kept with their tests and rendered by
 the race rig; they come back with #36.
 
-#### 2. The two step league picker [ ]
+#### 2. The league picker [x] v0.8.128
 
-**The gating item.** The plumbing reaches all 151 leagues and the sidebar
-offers five tiles plus whatever is already followed, so nothing a person
-can click gets past the defaults. Until this lands, the fetch inversion is a capability with
-no door.
+**Was the gating item.** The fetch inversion made a followed league a
+fetched league over 151, and the sidebar offered five tiles, so nothing
+anyone could click reached the other 146. This is the door.
 
-The data is done and the UI is not. `leagues.ts` already exports `SPORTS`,
-`ALL_LEAGUES`, `searchSports` and `searchLeagues` over 151 leagues in 14
-sports.
+Adam's layout, and the split is the argument: favourites as TILES up top,
+everything else as a single COLUMN under a rule, reading like the guide's
+source selector. A tile is expensive (a mark big enough to recognise at a
+glance) and worth it for the handful you watch; 146 of them is a wall you
+scroll rather than a list you scan.
 
-- A sports grid, then that sport's leagues as tiles, with search.
-- The tile component exists and now takes a `CatalogLeague` directly rather
-  than a key into two hand kept tables.
+- **Search filters both halves.** Adam's question was whether keyword
+  filtering could work across them, and it does: `searchLeagues` now
+  matches the SPORT as well as the league, so "hockey" keeps the NHL in
+  the grid and puts the other three hockey leagues in the column. Every
+  term has to match, so "german soccer" narrows rather than widens.
+- **Remove is two clicks.** The tile's ✕ arms and expands into "Remove
+  from Favorites" over the whole tile, with the four second forget that
+  Settings' playlist delete already uses. Covering the tile rather than
+  sitting across its top, because the sentence is wider than the 118px
+  tile and spilled into its neighbour.
+- **The heart is the guide's hide-eye slot**, to the pixel: same box, same
+  reveal on row hover or focus. `FavoriteHeartIcon` copies StarIcon's
+  stroke, fill toggle, caps and joins, so only the path differs. Rows are
+  `.live-folder` inside `.live-folder-row`, which is how they get the
+  name's fade scrim for free.
+
+Left, and it is small: the picker is one flat list rather than the sports
+grid the item originally described. With search matching sport names, a
+step to pick a sport first buys less than it costs.
 
 ---
 
@@ -996,6 +1013,7 @@ here so a label that vanished can be looked up.
 | - | Roving tabindex in `RowScroller`: 42 tab stops to 1 | v0.8.119 |
 | **D1** | **The fetch inversion.** Follows are the fetch list over the 151 league catalog; `LEAGUES`, `LEAGUE_NAMES` and `LEAGUE_LOGOS` deleted; `leagueKey` is the catalog path; legacy keys migrated on read; a six-request gate | v0.8.120 |
 | A13 | Records, playoff series, occasion notes and wire one-liners: four fields that were already being downloaded and thrown away | v0.8.121 |
+| **2** | **The league picker.** Favourites as tiles, the other 146 as a column, one search over both that matches sport names, two-click remove, the guide's heart slot | v0.8.128 |
 | **1, 3** | **The racing adapter.** `Game` split into `Fixture` and `Field`, `race.ts` deleted, racing on the normal fetch path and on its real days, `racing/f1` in the defaults, five TEMPORARY blocks cleared | v0.8.127 |
 | **4** | **The wide race card.** GameCard's footprint, five drivers, lap, circuit art, carriage. Plus `CardFoot`/`carriageText` extracted and tested, and a `shortPlace` width budget | v0.8.122-125 |
 | - | The Leagues rail icon: three splayed blades on a plinth, filled | v0.8.122 |

@@ -43,6 +43,25 @@ export const ALL_LEAGUES: CatalogLeague[] = SPORTS.flatMap((s) => s.leagues);
 
 const BY_PATH = new Map(ALL_LEAGUES.map((l) => [l.path, l]));
 
+/**
+ * Every word a league can be found by, lowercased, keyed by path.
+ *
+ * Built once. It includes the league's own two names and its path, AND
+ * ITS SPORT'S, which is the half that makes searching feel like it works:
+ * "hockey" is a thing a person types expecting every hockey league, and
+ * nothing in a league's own row says which sport it belongs to. Both the
+ * sport's key and its display name go in, because they diverge ("hockey"
+ * against "Ice Hockey", "mma" against "Fighting").
+ */
+const HAYSTACK = new Map<string, string>(
+  SPORTS.flatMap((s) =>
+    s.leagues.map((l) => [
+      l.path,
+      `${l.label} ${l.name} ${l.path} ${s.key} ${s.name}`.toLowerCase(),
+    ]),
+  ),
+);
+
 /** One league by its path, or undefined for a path we no longer carry —
  * which is what a saved follow looks like after a regeneration drops it. */
 export function league(path: string): CatalogLeague | undefined {
@@ -73,19 +92,24 @@ export function searchSports(query: string): CatalogSport[] {
  * Both names are searched, because they diverge more than you would
  * think: you look for "Premier League" where the formal name is "English
  * Premier League". The path is in there too, since that is where a code
- * like "eng.1" actually lives.
+ * like "eng.1" actually lives. And the SPORT, so that typing "hockey"
+ * finds every hockey league rather than the none that have the word in
+ * their name. See HAYSTACK.
+ *
+ * Every term has to match, so "german soccer" narrows rather than widens.
+ * Terms rather than the raw string because the fields are concatenated:
+ * "soccer eng.1" is a sensible thing to type and matches nothing as one
+ * substring.
  */
 export function searchLeagues(
   query: string,
   sport?: CatalogSport,
 ): CatalogLeague[] {
   const pool = sport ? sport.leagues : ALL_LEAGUES;
-  const q = query.trim().toLowerCase();
-  if (!q) return pool;
-  return pool.filter(
-    (l) =>
-      l.label.toLowerCase().includes(q) ||
-      l.name.toLowerCase().includes(q) ||
-      l.path.toLowerCase().includes(q),
-  );
+  const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (terms.length === 0) return pool;
+  return pool.filter((l) => {
+    const hay = HAYSTACK.get(l.path) ?? "";
+    return terms.every((t) => hay.includes(t));
+  });
 }

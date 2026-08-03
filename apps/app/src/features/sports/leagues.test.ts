@@ -102,3 +102,44 @@ describe("search", () => {
     expect(just.every((l) => l.path.startsWith("soccer/"))).toBe(true);
   });
 });
+
+describe("searchLeagues finds a whole sport by name", () => {
+  it("answers 'hockey' with every hockey league", () => {
+    // The half that makes search feel like it works: nothing in a hockey
+    // league's own row says the word "hockey".
+    const hits = searchLeagues("hockey");
+    const hockey = SPORTS.find((s) => s.key === "hockey")!;
+    expect(hits.length).toBe(hockey.leagues.length);
+    expect(hits.map((l) => l.path).sort()).toEqual(
+      hockey.leagues.map((l) => l.path).sort(),
+    );
+  });
+
+  it("matches a sport by its display name as well as its key", () => {
+    // They diverge: "hockey" against "Ice Hockey", "mma" against "Fighting".
+    expect(searchLeagues("fighting").map((l) => l.path).sort()).toEqual(
+      searchLeagues("mma").map((l) => l.path).sort(),
+    );
+  });
+
+  it("narrows on every term rather than widening", () => {
+    const soccer = searchLeagues("soccer");
+    const german = searchLeagues("soccer german");
+    expect(german.length).toBeGreaterThan(0);
+    expect(german.length).toBeLessThan(soccer.length);
+    expect(german.every((l) => l.path.startsWith("soccer/"))).toBe(true);
+  });
+
+  it("still finds a league by its own name and by its code", () => {
+    expect(searchLeagues("premier league").some((l) => l.path === "soccer/eng.1")).toBe(true);
+    expect(searchLeagues("eng.1").map((l) => l.path)).toContain("soccer/eng.1");
+  });
+
+  it("matches across concatenated fields, which one substring cannot", () => {
+    // "soccer eng.1" is a sensible thing to type. As a raw substring it
+    // matches nothing, because the sport and the path are different fields.
+    expect(searchLeagues("soccer eng.1").map((l) => l.path)).toEqual([
+      "soccer/eng.1",
+    ]);
+  });
+});

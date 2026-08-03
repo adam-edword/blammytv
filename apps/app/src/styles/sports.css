@@ -1820,6 +1820,148 @@
   color: var(--text);
 }
 
+/* --------------------------------------------------- the league picker */
+
+/* Two shapes and a rule between them (plan 010 #2): favourites as tiles
+ * up top, the other 146 as a single column under it, the way the guide's
+ * source selector reads.
+ *
+ * Almost nothing new is defined here, deliberately. The tiles are
+ * .leaguetile and the rows are .live-folder inside .live-folder-row, which
+ * is Live TV's own markup: Adam asked for the heart in "the same spot the
+ * hide source button is on guide", and the honest way to be in the same
+ * spot is to be in the same box. What follows is only what the picker
+ * genuinely adds. */
+.leaguepick {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 10px;
+}
+.leaguepick__search {
+  flex: 0 0 auto;
+  padding: 7px 12px;
+  font-size: 13px;
+}
+/* The line between "what you watch" and "what exists". */
+.leaguepick__rule {
+  flex: 0 0 auto;
+  width: 100%;
+  height: 1px;
+  margin: 2px 0;
+  border: 0;
+  background: var(--border);
+}
+/* The tile grid gives up its flex:1 here: with a column under it, two
+ * boxes both claiming the slack leaves neither able to scroll. */
+.leaguepick .sportsside__tiles {
+  flex: 0 0 auto;
+  max-height: 45%;
+}
+.leaguepick .live-sidebar__folders {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+/* A league's mark where a folder row has its tv icon: same slot width, so
+ * the labels line up down the column whether or not the art loaded. */
+.leaguepick__mark {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  opacity: 0.85;
+}
+/* The heart takes the hide-eye's box exactly (see .live-folder__hide), so
+ * only the two things that differ are set: it is a FAVOURITE rather than a
+ * destructive action, so it warms to the accent instead of to plain text,
+ * and it sits at the star's 19px rather than the eye's 15. */
+.leaguepick__fav:hover {
+  color: var(--accent);
+}
+.leaguepick__fav svg {
+  width: 19px;
+  height: 19px;
+}
+/* The row's own button must not paint a background: .live-folder is a
+ * button in Live and a button here, and the row wrapper is what positions
+ * the heart over the name's fade. */
+.leaguepick__row {
+  position: relative;
+  display: block;
+}
+.leaguepick__row .live-folder {
+  width: 100%;
+}
+
+/* The way OFF the board, on a favourite tile.
+ *
+ * TWO CLICKS, and the second one is the whole reason this is not a plain
+ * ✕: removing a favourite stops a league being fetched, so a mis-click
+ * costs a board rather than a preference. Armed, it expands into the whole
+ * sentence rather than into "Sure?", because a pill that says what it is
+ * about to do can be read without remembering what was clicked. */
+.leaguetile {
+  position: relative;
+}
+.leaguepick__x {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 7px;
+  color: var(--text-muted);
+  opacity: 0;
+  transition:
+    opacity var(--dur-hover) ease,
+    color var(--dur-hover) ease;
+}
+.leaguetile:hover .leaguepick__x,
+.leaguepick__x:focus-visible {
+  opacity: 1;
+}
+.leaguepick__x:hover {
+  color: var(--danger-text);
+}
+.leaguepick__x svg {
+  width: 12px;
+  height: 12px;
+}
+/* Armed: the ✕ becomes the sentence, in the danger voice, over the WHOLE
+ * tile.
+ *
+ * A pill across the top was the first try and it does not fit: the tile is
+ * 118px in a 252px panel and "Remove from Favorites" needs more than that,
+ * so it spilled into the tile beside it. Covering the tile is the better
+ * answer anyway — the confirm target becomes the thing you were looking
+ * at, and there is no sliver of the old tile left to click by accident. */
+.leaguepick__x--armed {
+  inset: 0;
+  width: auto;
+  height: auto;
+  padding: 8px;
+  /* The tile's own radius, so the cover sits in it rather than on it. */
+  border-radius: 14px;
+  opacity: 1;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 1.25;
+  letter-spacing: 0.01em;
+  text-align: center;
+  white-space: normal;
+  color: var(--danger-text);
+  /* Opaque. At 94% the league mark ghosted through the sentence, which
+   * is noise on the one control here that must be read before it is
+   * clicked. */
+  background: var(--surface);
+  border: 1px solid var(--danger-text);
+}
+
 /* ------------------------------------------------------------ race card */
 
 /* A race session, to Adam's Figma. TEMPORARY, alongside RaceCard.tsx.
