@@ -109,13 +109,13 @@ describe("favouriting from either half", () => {
 describe("the column is grouped by sport", () => {
   it("groups alphabetically, not biggest-first", () => {
     // The catalog orders sports biggest-first, which is right for a
-    // ranking and wrong for a search: soccer is 107 of the 151, so
+    // ranking and wrong for a search: futbol is 107 of the 151, so
     // biggest-first means scrolling past all of them to reach anything
-    // else. Alphabetical puts Soccer eleventh of fourteen.
+    // else. Alphabetical moves it well down the list.
     const { groups } = split([], "");
     const names = groups.map((g) => g.sport.name);
     expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)));
-    expect(names.indexOf("Soccer")).toBeGreaterThan(5);
+    expect(names.indexOf("Fútbol")).toBeGreaterThan(3);
   });
 
   it("loses nobody to the grouping", () => {

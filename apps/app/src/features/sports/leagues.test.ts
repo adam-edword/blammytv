@@ -58,7 +58,7 @@ describe("the catalog", () => {
 describe("lookup", () => {
   it("finds a league and its sport by path", () => {
     expect(league("soccer/eng.1")?.label).toBe("Premier League");
-    expect(sportOf("soccer/eng.1")?.name).toBe("Soccer");
+    expect(sportOf("soccer/eng.1")?.name).toBe("Fútbol");
     expect(sportOf("football/nfl")?.name).toBe("American Football");
   });
 
@@ -141,5 +141,32 @@ describe("searchLeagues finds a whole sport by name", () => {
     expect(searchLeagues("soccer eng.1").map((l) => l.path)).toEqual([
       "soccer/eng.1",
     ]);
+  });
+});
+
+describe("what we call a sport, where it differs from the source", () => {
+  it("says Fútbol, not Soccer", () => {
+    // Adam's. The catalog is generated from an American source and takes
+    // its wording; this app is not obliged to.
+    expect(SPORTS.find((s) => s.key === "soccer")?.name).toBe("Fútbol");
+  });
+
+  it("keeps the KEY as soccer, because it is a path and an id", () => {
+    // It is the catalog path's first segment, the fetch URL, and half of
+    // every stored league id. Renaming it would be a migration for a word.
+    const soccer = SPORTS.find((s) => s.name === "Fútbol")!;
+    expect(soccer.key).toBe("soccer");
+    expect(soccer.leagues.every((l) => l.path.startsWith("soccer/"))).toBe(true);
+  });
+
+  it("finds it by BOTH words, accent or not", () => {
+    // Renaming the label must not take away the word most people would
+    // actually reach for, and nobody types an accent into a search box.
+    const paths = (q: string) => searchLeagues(q).map((l) => l.path).sort();
+    const soccer = SPORTS.find((s) => s.key === "soccer")!;
+    const all = soccer.leagues.map((l) => l.path).sort();
+    expect(paths("soccer")).toEqual(all);
+    expect(paths("futbol")).toEqual(all);
+    expect(paths("fútbol")).toEqual(all);
   });
 });

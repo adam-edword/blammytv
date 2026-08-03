@@ -611,12 +611,23 @@ scroll rather than a list you scan.
   17-unit box into the heart's 24 rather than copied; copying them would
   have run the whole ramp across the middle third and left both ends flat.
 - **The column is grouped by sport**, alphabetically. Adam's, and the
-  numbers make it: 107 of the 151 are soccer, so one flat list buries the
+  numbers make it: 107 of the 151 are futbol, so one flat list buries the
   other 44 inside a wall. Alphabetical rather than the catalog's
-  biggest-first, because biggest-first puts soccer's 107 before everything
-  else; alphabetical puts Soccer eleventh of fourteen where its size costs
-  nobody anything. Headings are sticky, since forty rows into soccer you
-  have forgotten which list you are in.
+  biggest-first, because biggest-first puts those 107 ahead of everything
+  else. Headings are sticky, since forty rows in you have forgotten which
+  list you are inside; they take the PANEL's colour rather than --bg,
+  which is what made them read as a dark band.
+- **Soccer is FÚTBOL**, Adam's call, display only: `key` stays "soccer"
+  because it is the catalog path, the fetch URL and half of every stored
+  league id. Both spellings and the old word all still search.
+
+  One side effect worth knowing, and it is not obviously worth fixing.
+  Alphabetically "Soccer" sat 11th of 14, so only 3 of the other 44
+  leagues were behind its wall. "Fútbol" sorts 6th, which puts 25 of them
+  behind it. Strict alphabetical is still the right default because it is
+  PREDICTABLE — a rule like "the biggest group goes last" makes the one
+  sport you cannot guess the position of the one with most leagues — but
+  if the scroll ever annoys, that rule is the fix.
 - Rows are `.live-folder` inside `.live-folder-row`, which is how they get
   the name's fade scrim for free.
 

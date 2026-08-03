@@ -36,7 +36,39 @@ export interface CatalogSport {
   leagues: CatalogLeague[];
 }
 
-export const SPORTS: CatalogSport[] = catalog.sports;
+/**
+ * What WE call a sport, where that differs from what the generator got.
+ *
+ * Adam's, and it is one entry: soccer is FUTBOL here. Small, and not
+ * nothing — the catalog is generated from an American source and takes
+ * its wording, and this app is not obliged to. It is the one sport whose
+ * name is a regional choice rather than a fact.
+ *
+ * DISPLAY ONLY. `key` stays "soccer" everywhere it matters: it is the
+ * catalog path's first segment, the fetch URL, and half of every stored
+ * league id. Renaming that would be a migration for a word.
+ *
+ * Both words stay searchable. See ALIASES.
+ */
+const SPORT_NAMES: Record<string, string> = {
+  soccer: "Fútbol",
+};
+
+/**
+ * Extra words a sport can be found by.
+ *
+ * "futbol" without the accent, because nobody reaching for a search box
+ * types one, and "soccer" because renaming the label must not take away
+ * the word most of this app's users would actually reach for.
+ */
+const ALIASES: Record<string, string> = {
+  soccer: "soccer futbol futbol",
+};
+
+export const SPORTS: CatalogSport[] = catalog.sports.map((s) => ({
+  ...s,
+  name: SPORT_NAMES[s.key] ?? s.name,
+}));
 
 /** Every league, flat. */
 export const ALL_LEAGUES: CatalogLeague[] = SPORTS.flatMap((s) => s.leagues);
@@ -51,13 +83,15 @@ const BY_PATH = new Map(ALL_LEAGUES.map((l) => [l.path, l]));
  * "hockey" is a thing a person types expecting every hockey league, and
  * nothing in a league's own row says which sport it belongs to. Both the
  * sport's key and its display name go in, because they diverge ("hockey"
- * against "Ice Hockey", "mma" against "Fighting").
+ * against "Ice Hockey", "mma" against "Fighting", "soccer" against
+ * "Fútbol"), plus any ALIASES, which is how the accent-free spelling and
+ * the word we stopped displaying both keep working.
  */
 const HAYSTACK = new Map<string, string>(
   SPORTS.flatMap((s) =>
     s.leagues.map((l) => [
       l.path,
-      `${l.label} ${l.name} ${l.path} ${s.key} ${s.name}`.toLowerCase(),
+      `${l.label} ${l.name} ${l.path} ${s.key} ${s.name} ${ALIASES[s.key] ?? ""}`.toLowerCase(),
     ]),
   ),
 );
