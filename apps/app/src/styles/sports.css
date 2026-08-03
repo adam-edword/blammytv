@@ -1798,9 +1798,17 @@
   border-color: var(--accent-border);
 }
 .leaguetile__mark {
-  width: 34px;
-  height: 34px;
-  object-fit: contain;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  overflow: hidden;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  /* The initial, where the art is missing or dead. Sized to the box the
+   * mark would have filled rather than to the label under it. */
+  font-size: 20px;
+  color: var(--text-muted);
   /* Idle marks sit back so the followed ones read as chosen; the tile's own
    * fill is doing the work, and a full-strength logo on every tile makes
    * the grid shout before it says anything. */
@@ -1918,14 +1926,30 @@
   gap: 0;
 }
 
-/* A league's mark where a folder row has its tv icon: same slot width, so
- * the labels line up down the column whether or not the art loaded. */
+/* A league's mark, or its initial where the art is missing or dead.
+ *
+ * 22px, up from 16. Adam's, and the row can take it: .live-folder is 36px
+ * tall, so a 16px mark left the art looking incidental next to a 14px
+ * label. The slot is fixed either way, so the labels line up down the
+ * column whether or not anything loaded. */
 .leaguepick__mark {
   flex-shrink: 0;
-  width: 16px;
-  height: 16px;
-  object-fit: contain;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  overflow: hidden;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--text-muted);
   opacity: 0.85;
+}
+/* League art comes in every shape the source felt like; contain it. */
+.leaguepick__img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 /* The heart takes the hide-eye's BOX exactly (see .live-folder__hide) and
  * the guide star's TREATMENT exactly, which are two different files and
