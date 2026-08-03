@@ -69,15 +69,27 @@ function GameCardImpl({
       className={"gamecard" + (early ? " sportscard--early" : "")}
       // The row centres itself on one of these; see SportsScreen.
       data-game={game.id}
-      title={`${home.name} vs ${away.name}`}
+      // The wire's own line about the fixture. 60 to 80 characters, which
+      // is a sentence rather than a label, so it goes where a sentence can
+      // be chosen rather than onto the card face.
+      title={
+        game.headline
+          ? `${home.name} vs ${away.name}\n${game.headline}`
+          : `${home.name} vs ${away.name}`
+      }
       // The scoreline does NOT survive the DOM order: the dash is
       // aria-hidden, so the two numbers collapse together between the two
       // names and neither is attached to a team. The one thing this card
       // exists to say was the one thing lost. Same shape as Guide.tsx.
+      // The note is on the card face, so it is in here too: "CLE leads
+      // series 2-0" is the reason to pick this game and it must not be
+      // sighted-only.
       aria-label={
-        game.state === "pre"
-          ? `${home.name} versus ${away.name}. ${game.status}. ${game.league}. ${carriage}`
-          : `${home.name} ${home.score ?? 0}, ${away.name} ${away.score ?? 0}. ${game.status}. ${game.league}. ${carriage}`
+        (game.state === "pre"
+          ? `${home.name} versus ${away.name}. ${game.status}. ${game.league}.`
+          : `${home.name} ${home.score ?? 0}, ${away.name} ${away.score ?? 0}. ${game.status}. ${game.league}.`) +
+        (game.note ? ` ${game.note}.` : "") +
+        ` ${carriage}`
       }
       // Too far out to be an action. See tooEarly: opening it would tune a
       // channel and label the chrome with a fixture that has not happened.
@@ -122,7 +134,15 @@ function GameCardImpl({
           >
             <Badge team={home} />
             <span className="gamecard__label">
-              <span className="gamecard__abbr">{home.abbr}</span>
+              <span className="gamecard__abbr">
+                {home.abbr}
+                {/* Beside the code, same as the small card. The label is a
+                  * two-line column and the name below it is the widest
+                  * thing on this half of the card. */}
+                {home.record && (
+                  <span className="gamecard__record">{home.record}</span>
+                )}
+              </span>
               <span className="gamecard__name" ref={homeName}>
                 {homeText}
               </span>
@@ -167,6 +187,12 @@ function GameCardImpl({
               </span>
             )}
             <span className="gamecard__league">{game.league}</span>
+            {/* WHY THIS ONE. Rare (14 of 182 events measured) and the most
+              * important thing on the card when it is there: a playoff
+              * series state, or the occasion. Only on the wide card, which
+              * is where a game gets CHOSEN — the small card is for reading
+              * a day and says so in its own doc. */}
+            {game.note && <span className="gamecard__note">{game.note}</span>}
           </span>
 
           <span
@@ -177,7 +203,12 @@ function GameCardImpl({
           >
             <Badge team={away} />
             <span className="gamecard__label">
-              <span className="gamecard__abbr">{away.abbr}</span>
+              <span className="gamecard__abbr">
+                {away.abbr}
+                {away.record && (
+                  <span className="gamecard__record">{away.record}</span>
+                )}
+              </span>
               <span className="gamecard__name" ref={awayName}>
                 {awayText}
               </span>

@@ -4,6 +4,7 @@ import epl from "./fixtures/epl-scoreboard.json";
 import mlb from "./fixtures/mlb-scoreboard.json";
 import nfl from "./fixtures/nfl-scoreboard.json";
 import atp from "./fixtures/atp-scoreboard.json";
+import playoff from "./fixtures/nba-playoff-scoreboard.json";
 
 /**
  * The mapping, against real responses.
@@ -476,5 +477,90 @@ describe("broadcast ordering", () => {
       mlb(),
     )[0];
     expect(g.broadcasts).toEqual(["FOX", "Some Regional"]);
+  });
+});
+
+/**
+ * The four things that were already in every response and were being
+ * thrown away (plan 010).
+ *
+ * The fixture is a real NBA playoff board from 2026-04-20, pruned to the
+ * paths espn.ts reads. Playoffs because that is the one day of the year
+ * when all four are populated at once: a regular-season game has records
+ * and a preview and no series, and an August board has neither.
+ */
+describe("what the source already sends", () => {
+  const NBA = "basketball/nba";
+
+  it("takes the season record, not the home or road split", () => {
+    const [g] = toGames(playoff, NBA);
+    expect(g.home.record).toBe("52-30");
+    expect(g.away.record).toBe("46-36");
+  });
+
+  it("draws no record at all before a season has one", () => {
+    // 202 of 312 competitors on a real August board are 0-0, because the
+    // NFL, college football and the Premier League have not kicked off.
+    // "0-0" under a team name is noise dressed as information.
+    const zeroed = (summary: string) => ({
+      leagues: [{ abbreviation: "NBA" }],
+      events: [
+        {
+          ...playoff.events[0],
+          competitions: [
+            {
+              ...playoff.events[0].competitions[0],
+              competitors: playoff.events[0].competitions[0].competitors.map(
+                (c) => ({ ...c, records: [{ type: "total", summary }] }),
+              ),
+            },
+          ],
+        },
+      ],
+    });
+    expect(toGames(zeroed("0-0"), NBA)[0].home.record).toBeUndefined();
+    expect(toGames(zeroed("0-0-0"), NBA)[0].home.record).toBeUndefined();
+    // A zero that is part of a real record still counts.
+    expect(toGames(zeroed("10-0"), NBA)[0].home.record).toBe("10-0");
+    expect(toGames(zeroed("0-10"), NBA)[0].home.record).toBe("0-10");
+  });
+
+  it("prefers the series state to the round, because it says more", () => {
+    // Both are there on every one of these games. "East 1st Round - Game 2"
+    // tells you what "CLE leads series 2-0" tells you and then stops.
+    const games = toGames(playoff, NBA);
+    expect(games.map((g) => g.note)).toEqual([
+      "CLE leads series 2-0",
+      "Series tied 1-1",
+      "Series tied 1-1",
+    ]);
+  });
+
+  it("falls back to the occasion where there is no series", () => {
+    const noSeries = {
+      leagues: [{ abbreviation: "NBA" }],
+      events: [
+        {
+          ...playoff.events[0],
+          competitions: [
+            { ...playoff.events[0].competitions[0], series: undefined },
+          ],
+        },
+      ],
+    };
+    expect(toGames(noSeries, NBA)[0].note).toBe("East 1st Round - Game 2");
+  });
+
+  it("says nothing on an ordinary game rather than inventing an occasion", () => {
+    expect(toGames(mlb, league("mlb"))[0].note).toBeUndefined();
+  });
+
+  it("carries the wire's one-liner, which is a sentence and not a label", () => {
+    const [g] = toGames(playoff, NBA);
+    expect(g.headline).toBe(
+      "Mitchell scores 30, Harden adds 28 as Cavaliers beat Raptors 115-105 for 2-0 series lead",
+    );
+    // Long enough that it can only be a tooltip.
+    expect(g.headline!.length).toBeGreaterThan(60);
   });
 });

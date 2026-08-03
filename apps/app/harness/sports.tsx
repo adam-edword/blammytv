@@ -60,9 +60,40 @@ const LIVE_DETAIL: Record<string, string> = {
  */
 interface Slate {
   events?: {
-    competitions: { status?: { type?: { shortDetail?: string } } }[];
+    competitions: {
+      status?: { type?: { shortDetail?: string } };
+      competitors?: unknown[];
+    }[];
   }[];
 }
+
+/**
+ * Records and a note, dealt onto every card.
+ *
+ * Staged like the dates and the states above, and for the same reason: the
+ * captures predate the fields, and a rig that shows the record on none of
+ * its cards cannot tell you whether the record fits. This is the WORST
+ * case on purpose. In life 86% of games carry a record and 8% carry a
+ * note, and a rig measuring the common case would measure the easy one.
+ *
+ * The widest shapes each sport actually sends: NHL keeps three columns
+ * ("41-25-16"), soccer keeps draws ("12-10-16"), the rest keep two.
+ */
+const RECORDS: Record<string, [string, string]> = {
+  nfl: ["12-5", "9-8"],
+  nba: ["52-30", "46-36"],
+  mlb: ["59-53", "104-58"],
+  nhl: ["41-25-16", "43-27-12"],
+  epl: ["12-10-16", "22-8-8"],
+};
+
+/** Real strings, from a real playoff board and a real August one. */
+const NOTES = [
+  "CLE leads series 2-0",
+  "Series tied 1-1",
+  "East 1st Round - Game 2",
+  "Hall of Fame Game",
+];
 
 const SLATES: Record<string, Slate> = { nfl, nba, mlb, nhl, epl };
 
@@ -141,6 +172,15 @@ function restamp(slate: Slate, league: string, day: Date) {
                     : (c.status?.type?.shortDetail ?? "Final"),
               },
             },
+            // Every card, which is not what a real board looks like. See
+            // RECORDS: the point of a rig is the worst case.
+            competitors: (c.competitors ?? []).map((x, side) => ({
+              ...(x as object),
+              records: [
+                { type: "total", summary: RECORDS[league][side] ?? "10-10" },
+              ],
+            })),
+            series: { summary: NOTES[i % NOTES.length] },
           },
         ],
       };

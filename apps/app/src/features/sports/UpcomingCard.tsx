@@ -66,7 +66,14 @@ function UpcomingCardImpl({
         (game.state === "final" ? " upcard--final" : "") +
         (early ? " sportscard--early" : "")
       }
-      title={`${home.name} vs ${away.name}`}
+      // The wire's own line about the fixture, where there is one. It is 60
+      // to 80 characters, which no card face here has room for, and a
+      // tooltip is exactly the place for a sentence you can choose to read.
+      title={
+        game.headline
+          ? `${home.name} vs ${away.name}\n${game.headline}`
+          : `${home.name} vs ${away.name}`
+      }
       // Focus comes back here when the theater closes; see SportsScreen.
       data-game={game.id}
       // Too far out to be an action. See tooEarly: opening it would tune a
@@ -116,7 +123,17 @@ function UpcomingCardImpl({
             >
               <Badge team={home} />
               <span className="upcard__label">
-                <span className="upcard__abbr">{home.abbr}</span>
+                <span className="upcard__abbr">
+                  {home.abbr}
+                  {/* Beside the code rather than under the name: the label
+                    * is a two-line column on a card this size and a third
+                    * line would take the room the name needs. "BAL 59-53"
+                    * is one short line, and it is the line this treatment
+                    * already exists for. */}
+                  {home.record && (
+                    <span className="upcard__record">{home.record}</span>
+                  )}
+                </span>
                 <span className="upcard__name" ref={homeName}>
                   {homeText}
                 </span>
@@ -131,7 +148,12 @@ function UpcomingCardImpl({
             >
               <Badge team={away} />
               <span className="upcard__label">
-                <span className="upcard__abbr">{away.abbr}</span>
+                <span className="upcard__abbr">
+                  {away.abbr}
+                  {away.record && (
+                    <span className="upcard__record">{away.record}</span>
+                  )}
+                </span>
                 <span className="upcard__name" ref={awayName}>
                   {awayText}
                 </span>

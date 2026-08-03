@@ -970,6 +970,33 @@ Printing them needs a layout change first, which is Adam's call.
 
 ### New: not previously on the list
 
+- **A13. Four fields were already being downloaded and thrown away.** Done
+  in v0.8.121. Measured over an 18-board, 182-event sweep including two
+  playoff dates:
+
+  | field | where | coverage | example |
+  | --- | --- | --- | --- |
+  | `competitors[].records` | card, beside the code | 156/182 | "59-53", "41-25-16", "9-3-5" |
+  | `series.summary` | wide card, under the league | 8/182, but 7/7 on a playoff date | "CLE leads series 2-0" |
+  | `notes[].headline` | same slot, where there is no series | 14/182 | "East 1st Round - Game 2" |
+  | `headlines[].shortLinkText` | tooltip | 41/182 | "Dodgers look to stop slide in matchup with the Cubs" |
+
+  Two judgements worth keeping. **All-zero records are suppressed**: 202 of
+  312 competitors on a real August board read "0-0" because three leagues
+  had not kicked off, and that would have been most of the cards saying
+  nothing. **The note is wide-card only**, because the small card is for
+  reading a day and the wide one is where a game gets chosen, which is this
+  file's own split.
+
+  Measured in the rig at 1920x1080 with a record on every card and a note
+  on all 42 wide ones, which is far past life: no clipping anywhere, card
+  heights unchanged at 277 and 182, and fitText shrank 22 of 292 names both
+  before and after.
+
+  Left: `competitors[].form` ("LWWWW", soccer only, 16/182). Soccer carries
+  a record too, so form would be a second concept for one sport. Also
+  `leaders` and `odds`, which are their own decisions.
+
 - **A9. `.sports__grid` is not windowed, and neither is Stream Home.**
   A perf sweep measured `react-parallax-tilt` registering a `resize`
   listener per instance that reads geometry then writes the glare element's

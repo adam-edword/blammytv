@@ -129,6 +129,28 @@ interface RawCompetition {
    */
   broadcasts?: { market?: string; names?: string[] }[];
   competitors?: RawCompetitor[];
+  /**
+   * A playoff series, already written out: "CLE leads series 2-0", "Series
+   * tied 1-1", "OU wins series 2-1".
+   *
+   * Null all summer and on every regular-season game, so this is a field
+   * that is either the most important thing on the card or absent. Measured
+   * on 2026-04-20: 3/3 NBA and 4/4 NHL games carried one.
+   */
+  series?: { summary?: string };
+  /**
+   * Why this game is not an ordinary one: "Hall of Fame Game", "East 1st
+   * Round - Game 2", "NBA Canada Games 2026", "Paris Saint-Germain win 4-3
+   * on penalties". 14 of 182 events across an 18-board sweep.
+   */
+  notes?: { headline?: string; text?: string }[];
+  /**
+   * A wire one-liner about this fixture. `type` is "Preview" before and
+   * "Recap" after; `shortLinkText` is the sentence, already trimmed to a
+   * length a headline can be. 41 of 182 in the same sweep, and near every
+   * MLB game.
+   */
+  headlines?: { type?: string; shortLinkText?: string }[];
 }
 interface RawCompetitor {
   homeAway?: string;
@@ -154,6 +176,17 @@ interface RawCompetitor {
    * them with no name at all.
    */
   roster?: { displayName?: string; shortDisplayName?: string };
+  /**
+   * Won-lost, in however many columns the sport keeps: "59-53" (MLB),
+   * "41-25-16" (NHL, with overtime losses), "9-3-5" (soccer, with draws),
+   * "54-14-1" (college baseball, with ties).
+   *
+   * Several rows, split home and away. `type: "total"` is the one a card
+   * means by "their record". Present on 156 of 182 events across an
+   * 18-board sweep; see teamRecord for why two thirds of those are still
+   * not worth drawing.
+   */
+  records?: { type?: string; summary?: string }[];
   team?: {
     id?: string;
     displayName?: string;
@@ -384,6 +417,16 @@ function toGame(
     home: toCompetitor(home, away),
     away: toCompetitor(away, home),
     venue: comp.venue?.fullName ?? comp.venue?.address?.city,
+    // WHY THIS GAME MATTERS, where the source says so. The series first:
+    // "CLE leads series 2-0" tells you what "East 1st Round - Game 2"
+    // only implies, and a playoff game carries both.
+    //
+    // Never a spoiler about THIS game. A series line counts games already
+    // played, and an event note names the occasion.
+    note: comp.series?.summary ?? comp.notes?.[0]?.headline ?? comp.notes?.[0]?.text,
+    // The wire's own sentence about the fixture. Too long for a card face,
+    // which is why it lands in the tooltip.
+    headline: comp.headlines?.[0]?.shortLinkText,
     // Flattened and de-duplicated, but ORDERED: national first, then the
     // home feed, then the away one.
     //
@@ -442,11 +485,33 @@ function statusText(state: GameState, start: Date, shortDetail?: string): string
  * so the caption is derived from the surname the way a broadcast does it,
  * which is exactly what driverCode already works out for F1.
  */
+/**
+ * Their record, if it says anything yet.
+ *
+ * `type: "total"` is the season one; the others split it home and away and
+ * are a different question. Falls back to the first row for a sport that
+ * only sends one.
+ *
+ * ALL ZEROES IS NOT A RECORD. Every team is 0-0 before a season starts, and
+ * measured on a real August board that is two thirds of everything with a
+ * record at all: 202 of 312 competitors, because the NFL, college football
+ * and the Premier League had all not kicked off. "0-0" under a team name is
+ * noise dressed as information, and it would have been on most of the
+ * cards.
+ */
+function teamRecord(recs?: { type?: string; summary?: string }[]): string | undefined {
+  const all = recs ?? [];
+  const s = (all.find((r) => r.type === "total") ?? all[0])?.summary;
+  if (!s || /^[0-]+$/.test(s)) return undefined;
+  return s;
+}
+
 function toCompetitor(raw: RawCompetitor, other?: RawCompetitor): Competitor {
   const t = raw.team ?? {};
   const a = raw.athlete;
   const pair = raw.roster;
   const score = Number(raw.score);
+  const record = teamRecord(raw.records);
   if ((a || pair) && !raw.team) {
     const full = a?.displayName ?? pair?.displayName ?? "";
     const short = a?.shortName ?? pair?.shortDisplayName;
@@ -461,6 +526,7 @@ function toCompetitor(raw: RawCompetitor, other?: RawCompetitor): Competitor {
       // A country flag, since an individual has no crest. A pair has no
       // single country, so it has none.
       logo: a?.flag?.href,
+      record,
       score: Number.isFinite(score)
         ? score
         : setsWon(raw.linescores, other?.linescores),
@@ -480,6 +546,7 @@ function toCompetitor(raw: RawCompetitor, other?: RawCompetitor): Competitor {
       : undefined,
     // ESPN sends hex without the hash, which is what the card wants.
     color: t.color,
+    record,
     score: Number.isFinite(score) ? score : undefined,
   };
 }

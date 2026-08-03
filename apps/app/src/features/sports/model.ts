@@ -59,6 +59,16 @@ export interface Competitor {
   logoDark?: string;
   /** Team colour, used for the card's tint. Hex, no leading #. */
   color?: string;
+  /**
+   * Their season record, as the sport keeps it: "59-53", "41-25-16",
+   * "9-3-5".
+   *
+   * Absent, not zeroed, before a season has anything to say — see
+   * teamRecord. Absent too for a sport that does not keep one, which is
+   * every individual sport: a tennis player's record is not a fact about
+   * the match in front of you.
+   */
+  record?: string;
   score?: number;
 }
 
@@ -114,6 +124,21 @@ export interface Game {
   away: Competitor;
   /** Stadium or city, shown bottom-left. */
   venue?: string;
+  /**
+   * Why this game is not an ordinary one, in the source's own words:
+   * "CLE leads series 2-0", "East 1st Round - Game 2", "Hall of Fame Game".
+   *
+   * Rare and load-bearing when present. Never a claim about THIS game's
+   * result: a series line counts the ones already played.
+   */
+  note?: string;
+  /**
+   * A wire one-liner about the fixture: "Dodgers look to stop slide in
+   * matchup with the Cubs".
+   *
+   * Too long for a card face at 60 to 80 characters, so it is the tooltip.
+   */
+  headline?: string;
   /** Network names as the SOURCE calls them, before any matching. */
   broadcasts: string[];
   /** Channels of the user's own that carry this game. Resolved at render

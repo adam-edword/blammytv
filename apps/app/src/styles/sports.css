@@ -874,12 +874,32 @@
   text-align: right;
 }
 .gamecard__abbr {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: var(--sports-meta);
   letter-spacing: 0.06em;
   color: rgba(255, 255, 255, 0.55);
   margin-bottom: 1px;
+}
+/* The season record, sharing the code's line. Both cards, one rule: they
+ * name their parts differently and are saying the same thing.
+ *
+ * Separated by WEIGHT rather than by brightness. The code is a name and
+ * the record is a number, so they should not read as one string, but this
+ * line only just clears 4.5:1 as it is and dimming half of it would put
+ * that half under. Same trick the beaten-side treatment uses.
+ *
+ * Tabular figures because a row of these is a column of numbers, and
+ * letter-spacing off because 0.06em is for capitals, not digits. */
+.gamecard__record,
+.upcard__record {
+  font-weight: 400;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .gamecard__name {
   font-family: var(--font-headline);
@@ -967,6 +987,23 @@
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.5);
   margin-top: 8.52px;
+}
+/* "CLE leads series 2-0", "East 1st Round - Game 2". A SENTENCE, so it
+ * keeps its own case where the league line above it is set in caps: this
+ * is the source speaking, not a label.
+ *
+ * Brighter than the league it sits under, because on the one card in a
+ * hundred that has one this is the most important thing on it. */
+.gamecard__note {
+  font-family: var(--font-headline);
+  font-weight: 400;
+  font-size: var(--sports-meta);
+  color: rgba(255, 255, 255, 0.72);
+  margin-top: 3px;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .gamecard__foot {
@@ -1221,6 +1258,9 @@
   text-align: right;
 }
 .upcard__abbr {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: var(--sports-meta);
