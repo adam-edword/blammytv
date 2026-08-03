@@ -508,34 +508,35 @@ channels", and the theater's own empty rail).
 
 Written from the plan, the code and the sessions that built it. Grouped by
 area rather than by phase, because the phases stopped describing the work
-once racing arrived. **Renumbered 2026-08-03**: shipped items came off the
-list entirely and live in the ledger at the end, so the labels below are
-contiguous again and none of them mean what they meant last week.
+once racing arrived.
+
+**One flat count, 1 to 35** (2026-08-03). It used to be lettered by area,
+which meant reading an item required knowing the filing system first. The
+number is the only handle now; the group headings are just where to look.
+Roughly ordered, in that the first two unblock the most and the last three
+are chores, but 3 through 32 are grouped rather than ranked.
 
 **[ ]** not started, **[~]** partly there, **[?]** blocked or undecided.
 
-Two items gate a lot of the rest:
-
-- **A1**, a real racing adapter. It clears five TEMPORARY markers and makes
-  the whole of section A easier.
-- **C1**, the two step league picker. D1 shipped the plumbing to all 151
-  leagues and the sidebar still offers five tiles, so until this lands the
-  hub can reach the catalog and a person cannot.
+Shipped work is not here at all. It is in the ledger at the end, under the
+label it used to carry, so a number or letter that vanished can be looked
+up rather than wondered about.
 
 ---
 
-### A. Racing
+### Do these first, they unblock the rest
 
-#### A1. A real racing adapter [~]
+#### 1. A real racing adapter [~]
 
-`race.ts` is a second front door: it fetches F1 on its own and joins
+
+`race.ts` is a second front door: it fetches #20 on its own and joins
 nothing. The board still knows only about `Game`.
 
-- Add racing to the fetch list by catalog path (`racing/f1`). D1 made this
+- Add racing to the fetch list by catalog path (`racing/f1`). #15 made this
   the easy half: paths are already what gets fetched.
 - **Decide the model first.** `Game` is home and away. A session is an
   ordered field. Either `Game` grows a variant, or `fetchGames` returns two
-  collections. This same decision decides B1 (golf), so make it once.
+  collections. This same decision decides #10 (golf), so make it once.
 - Move `toBoard`, `nextUp`, `toWeekend` and `toSessions` across, keeping
   their 14 tests.
 - `useGames` returns racing alongside team games, so `SportsScreen` stops
@@ -543,7 +544,28 @@ nothing. The board still knows only about `Game`.
 - Delete the five TEMPORARY blocks (`SportsScreen` x3, `race.ts`,
   `RaceCard`, `WeekendCard`).
 
-#### A2. Sessions on their own days [ ]
+#### 2. The two step league picker [ ]
+
+
+**The gating item.** The plumbing reaches all 151 leagues and the sidebar
+offers five tiles plus whatever is already followed, so nothing a person
+can click gets past the defaults. Until this lands, #15 is a capability with
+no door.
+
+The data is done and the UI is not. `leagues.ts` already exports `SPORTS`,
+`ALL_LEAGUES`, `searchSports` and `searchLeagues` over 151 leagues in 14
+sports.
+
+- A sports grid, then that sport's leagues as tiles, with search.
+- The tile component exists and now takes a `CatalogLeague` directly rather
+  than a key into two hand kept tables.
+
+---
+
+### Racing
+
+#### 3. Sessions on their own days [ ]
+
 
 Every racing card lands at the head of *today's* grid whatever day it is.
 
@@ -552,7 +574,36 @@ Every racing card lands at the head of *today's* grid whatever day it is.
 - **Decide where the weekend card goes.** It spans three days, so it has no
   single grid. Probably today, or the day before FP1.
 
-#### A3. The other five racing leagues [?]
+#### 4. Racing in the wide row [ ]
+
+
+`GameCard` is a two sided fixture and a session has no sides.
+
+- Either a wide race card, or racing stays out of "Today's Games" and
+  appears only in the grids.
+- `nowish()` picks the anchor off `state`, so it already copes.
+
+#### 5. Racing in the theater [ ]
+
+
+- `matchGame` keys off team names. A race has none, so it needs a path
+  keyed on the series ("Formula 1", "#20") reusing `matchNetwork`.
+- `autoPlay` and `nextSource` should then work unchanged.
+- **Hit rate unknown.** Needs the same real playlist test the five team
+  leagues got.
+
+#### 6. Drop finished practice from the board [ ]
+
+
+A Sunday would otherwise carry FP1, FP2, FP3 and Qual, all dimmed, above
+the race.
+
+- A predicate in the adapter, not in the card.
+- **Decide the rule.** Hide finished practice once the race has run? Hide it
+  on race day? Keep the most recent only?
+
+#### 7. The other five racing leagues [?]
+
 
 IndyCar, three NASCAR series and NHRA carry no `circuit` and no
 `address.country`. No country, no flag, no track art.
@@ -581,21 +632,13 @@ IndyCar, three NASCAR series and NHRA carry no `circuit` and no
 - NHRA returned **0 events** for 2026. Check whether it is ever populated
   before building for it.
 
-#### A4. Drop finished practice from the board [ ]
+#### 8. The lap total [?]
 
-A Sunday would otherwise carry FP1, FP2, FP3 and Qual, all dimmed, above
-the race.
-
-- A predicate in the adapter, not in the card.
-- **Decide the rule.** Hide finished practice once the race has run? Hide it
-  on race day? Keep the most recent only?
-
-#### A5. The lap total [?]
 
 - Confirmed absent: a search of every key in a finished Grand Prix for lap,
   team or constructor returns nothing. `status.period` is a lap NUMBER.
 - `lapTotal()` parses ESPN's status text as a best effort and is
-  **unverified**, because F1 is not running and `sports.core.api` plus
+  **unverified**, because #20 is not running and `sports.core.api` plus
   `site.web.api` both answer HTTP 000 from the dev sandbox.
 - On a real machine during a live session: dump `status.type.detail` and
   `shortDetail` and see whether a total is in there.
@@ -604,23 +647,8 @@ the race.
 - If the text has no total: choose between a per circuit table (24 numbers,
   a maintenance commitment) and dropping the total.
 
-#### A6. Racing in the wide row [ ]
+#### 9. Sprint session names [?]
 
-`GameCard` is a two sided fixture and a session has no sides.
-
-- Either a wide race card, or racing stays out of "Today's Games" and
-  appears only in the grids.
-- `nowish()` picks the anchor off `state`, so it already copes.
-
-#### A7. Racing in the theater [ ]
-
-- `matchGame` keys off team names. A race has none, so it needs a path
-  keyed on the series ("Formula 1", "F1") reusing `matchNetwork`.
-- `autoPlay` and `nextSource` should then work unchanged.
-- **Hit rate unknown.** Needs the same real playlist test the five team
-  leagues got.
-
-#### A8. Sprint session names [?]
 
 Blocked on a layout call, not on effort. Measured at the board's narrowest
 315px track:
@@ -636,7 +664,7 @@ Printing them on the card needs a layout change first, which is Adam's.
 
 ---
 
-### B. Other sport shapes
+### Sports that need a card that does not exist
 
 Measured once over 484 events, then again over all 151 leagues: **89% of
 the catalog needs no new card.** The work is confined to Golf (5 leagues)
@@ -651,7 +679,8 @@ and Fighting (2).
 | 6 | `unknown` | Racing and golf leagues whose current event is `pre`, so it carries no competitors. They are `field` out of season. |
 | 3 | `empty` | No events at all right now. |
 
-#### B1. The golf card [ ]
+#### 10. The golf card [ ]
+
 
 Five leagues. A leaderboard: an ordered field scored to par, which is
 neither a fixture nor a podium. Probed against a finished tournament (RBC
@@ -666,9 +695,10 @@ Heritage, 82 competitors):
   podium.
 
 **Structurally this is the race card with a different number.** Blocked
-behind A1's model decision.
+behind #1's model decision.
 
-#### B2. UFC, MMA and PFL sides [ ]
+#### 11. UFC, MMA and PFL sides [ ]
+
 
 Probed 42 events, 24 with finished bouts, 300 decided bouts.
 
@@ -682,47 +712,53 @@ Probed 42 events, 24 with finished bouts, 300 decided bouts.
   that needs a branch.
 - Two leagues, not one. The plan only ever mentioned UFC.
 
-#### B3. Re-run the shape classification [ ]
+#### 12. Re-run the shape classification [ ]
+
 
 The 484 event sweep predates the catalog, and the 151 league sweep predates
-D1. Any of those leagues can now be fetched, so the sweep can be repeated
+the fetch inversion. Any of those leagues can now be fetched, so the sweep can be repeated
 against what people actually follow rather than against everything.
 
 ---
 
-### C. The sidebar
+### The sidebar, follows and the fetch
 
-#### C1. The two step league picker [ ]
+#### 13. Full club rosters [ ]
 
-**The gating item.** The plumbing reaches all 151 leagues and the sidebar
-offers five tiles plus whatever is already followed, so nothing a person
-can click gets past the defaults. Until this lands, D1 is a capability with
-no door.
-
-The data is done and the UI is not. `leagues.ts` already exports `SPORTS`,
-`ALL_LEAGUES`, `searchSports` and `searchLeagues` over 151 leagues in 14
-sports.
-
-- A sports grid, then that sport's leagues as tiles, with search.
-- The tile component exists and now takes a `CatalogLeague` directly rather
-  than a key into two hand kept tables.
-
-#### C2. Full club rosters [ ]
 
 `clubPool` is `raw.flatMap(d => d.games)`, so the team list is only clubs
 the board happened to load, and a club cannot be followed out of season.
 
 - Fetch `/teams` per followed league, cache it.
 - Feed the sidebar from that instead of from the board.
-- Unblocks D2.
+- Unblocks #16.
 
-#### C3. Search within teams [ ]
+#### 14. Search within teams [ ]
 
-#### C4. The Channels tab [?]
+
+#### 15. Backoff and a cache [ ]
+
+
+The concurrency half shipped in v0.8.120: a module-wide gate caps ESPN at
+six requests in flight across every league and all three days.
+
+Left is the other half of "behave like a guest": backoff on failure, and a
+cache so a board that was read 30 seconds ago is not read again. See #24,
+which is the same instinct about cadence living in one place, and which
+becomes actionable the moment this adds a second timing constant.
+
+#### 16. Team follows out of season [?]
+
+
+Depends on #13. A club can only be followed while it happens to be on the
+board, because that is where the club list comes from.
+
+#### 17. The Channels tab [?]
+
 
 A stub note today, and **undecided what it lists.** Candidates: the sports
 channels in your playlist, the channels matched to today's board, or the
-place corrections get taught (H1).
+place corrections get taught (#26).
 
 Its rail icon is the one placeholder left (Live's `RecentsIcon`). Leagues
 and Teams got real marks in v0.8.116, so this is one icon, and it is not
@@ -730,33 +766,15 @@ worth drawing before the tab knows what it is.
 
 ---
 
-### D. Follows and the fetch
+### Onboarding
 
-#### D1. Backoff and a cache [ ]
+#### 18. First run [ ]
 
-The concurrency half shipped in v0.8.120: a module-wide gate caps ESPN at
-six requests in flight across every league and all three days.
-
-Left is the other half of "behave like a guest": backoff on failure, and a
-cache so a board that was read 30 seconds ago is not read again. See F5,
-which is the same instinct about cadence living in one place, and which
-becomes actionable the moment this adds a second timing constant.
-
-#### D2. Team follows out of season [?]
-
-Depends on C2. A club can only be followed while it happens to be on the
-board, because that is where the club list comes from.
-
----
-
-### E. Onboarding
-
-#### E1. First run [ ]
 
 Adam's call: prompt for quick setup with presets, or full personalization.
 Nothing built.
 
-No longer load-bearing, which is a change from a week ago. D1 decided that
+No longer load-bearing, which is a change from a week ago. #15 decided that
 an empty follows store fetches the default five, so first run is a full
 board rather than an empty screen asking to be configured. This is now an
 improvement to reach for rather than a hole to plug.
@@ -766,29 +784,39 @@ improvement to reach for rather than a hole to plug.
 - Write through to `follows.ts`.
 - `scripts/verify-onboarding.mjs` exists, so there is a pattern to match.
 
-#### E2. The preset packs [ ]
+#### 19. The preset packs [ ]
+
 
 The presets themselves, which is a content decision as much as a code one.
 
 ---
 
-### F. The board
+### The board
 
-#### F1. Reach past three days [ ]
+#### 20. Reach past three days [ ]
+
 
 `DAYS = 3` in `useGames.ts`. The grid shape already works per day, so this
 is paging or a date picker rather than new layout.
 
-#### F2. The missing empty state [ ]
+#### 21. The missing empty state [ ]
+
 
 "Nothing on for what you follow" exists. Missing: a board where games
 resolved to no channels at all.
 
-"No leagues followed" is NOT a state to write, and that is settled: D1
+"No leagues followed" is NOT a state to write, and that is settled: #15
 decided an empty store means the default five, so there is no screen with
 nothing on it to explain.
 
-#### F3. Polling during playback [?]
+#### 22. Reduced motion over the new cards [ ]
+
+
+The race and weekend cards read `REDUCED_MOTION` for tilt and glare.
+Nothing else about them has been checked against it.
+
+#### 23. Polling during playback [?]
+
 
 **On the plan's own risk list and not honoured.** The poll pauses on
 `document.hidden` only. Opening the theater does not unmount `useGames`, so
@@ -798,57 +826,68 @@ re-reads the refreshed board to keep the state moving.
 That is a trade someone chose, so it wants a decision: keep it and amend
 the plan, or freeze the board while watching and let the header go stale.
 
-#### F4. Reduced motion over the new cards [ ]
+#### 24. One module for cadence and staleness [?]
 
-The race and weekend cards read `REDUCED_MOTION` for tilt and glare.
-Nothing else about them has been checked against it.
-
-#### F5. One module for cadence and staleness [?]
 
 The plan's own scar: the v0.8.1 guide cache bug came from a retention
 window and a cache age living in different files with nothing linking them.
 
 Not actionable yet, and saying so is the point. `REFRESH_MS = 90_000` is
 still the only timing constant in the feature, and a module for one value
-is indirection rather than a scar fix. It becomes real when D1 lands a
+is indirection rather than a scar fix. It becomes real when #15 lands a
 backoff delay and a cache age beside it.
 
 ---
 
-### G. The theater
+### The theater, channels and matching
 
-#### G1. What the rail shows for a race [ ]
+#### 25. What the rail shows for a race [ ]
 
-Depends on A7.
 
----
+Depends on #5.
 
-### H. Channels and matching
+#### 26. The taught correction path [ ]
 
-#### H1. The taught correction path [ ]
 
 On the plan's verification list ("a taught correction survives a restart
 and applies to the next game on that network") and not built. Possibly the
-answer to C4.
+answer to #17.
 
-#### H2. Record the hit rate per league [ ]
+#### 27. Record the hit rate per league [ ]
+
 
 The plan says this number belongs in this file. It is not here. Needs a run
 against a real playlist, per league, recorded with a date.
 
-#### H3. Blackout honesty [ ]
+#### 28. Blackout honesty [ ]
+
 
 Never promise more than "this network has it". Mostly a copy review of
 every surface that names a channel.
 
 ---
 
-### I. Performance and bundle
+### Performance
 
-Measured items from the audit sweeps, none applied. They were filed under
-Racing, which they have nothing to do with.
+Measured items from the audit sweeps, none applied.
 
-#### I1. Window the grids [?]
+#### 29. LiveScreen's favourites memo [ ]
+
+
+`favorites.map(id => channels.find(...))`, which is 20.8ms at 500
+favourites on a 20k catalog. Wants a Map. `recents` does the same thing on
+the line below.
+
+#### 30. The board re-resolves channels every tick [ ]
+
+
+`SportsScreen` re-runs `withChannels` over all days on every 90 second
+refresh, about 19ms of matcher work for days that did not change. The games
+themselves are already carried forward by identity (`keepStable`); the
+matcher work is not.
+
+#### 31. Window the grids [?]
+
 
 `.sports__grid` is not windowed, and neither is Stream Home. A perf sweep
 measured `react-parallax-tilt` registering a `resize` listener per instance
@@ -860,20 +899,8 @@ The cheap fix is `glareEnable={false}`, which removes the sheen Adam
 explicitly asked to keep, so the real fix is windowing. Needs a decision on
 how much that is worth.
 
-#### I2. LiveScreen's favourites memo [ ]
+#### 32. Code splitting [?]
 
-`favorites.map(id => channels.find(...))`, which is 20.8ms at 500
-favourites on a 20k catalog. Wants a Map. `recents` does the same thing on
-the line below.
-
-#### I3. The board re-resolves channels every tick [ ]
-
-`SportsScreen` re-runs `withChannels` over all days on every 90 second
-refresh, about 19ms of matcher work for days that did not change. The games
-themselves are already carried forward by identity (`keepStable`); the
-matcher work is not.
-
-#### I4. Code splitting [?]
 
 Measured, and it is a tidiness change rather than a performance one: lazy
 loading Sports, Settings, Themes, Onboarding, Discover and Library cuts the
@@ -881,18 +908,18 @@ main chunk 523 to 349 kB, but V8 compile only moves 10.2ms to 7.7ms, and
 because updates ship as a tar.gz of `dist/` the update download gets about
 9 kB BIGGER.
 
-The honest reasons to do it are that 63.9 kB of F1 circuit art stops being
+The honest reasons to do it are that 63.9 kB of #20 circuit art stops being
 retained for people who never open Sports, and the >500 kB warning goes
 away truthfully. Decide on those terms or not at all.
 
 ---
 
-### J. Housekeeping
+### Housekeeping
 
-- **[ ] J1.** Two 0.8.0 hand checks needing a real machine: clear history
+- **[ ] 33.** Two 0.8.0 hand checks needing a real machine: clear history
   arming and timeout, and the save picker's arrow keys.
-- **[ ] J2.** Merge `blammytv-0.8.0-push` into main. Waiting on Adam.
-- **[ ] J3.** Clear the five TEMPORARY markers. All go with A1.
+- **[ ] 34.** Merge `blammytv-0.8.0-push` into main. Waiting on Adam.
+- **[ ] 35.** Clear the five TEMPORARY markers. All go with #1.
 
 ---
 
@@ -923,14 +950,14 @@ answer is "not yet, and here is what would change that".
   bundle at 130 kB. Its `StrictMode` is a no-op, and this codebase relies
   on StrictMode double-invoke to surface races: both the v0.1.106 disk
   cache race and this hub's own autoplay race were caught that way.
-- **Sprint names cannot be printed on the card as written** (A8): measured,
+- **Sprint names cannot be printed on the card as written** (#9): measured,
   the country overlaps the schedule by 9.9px. Tooltip shipped instead.
 - **There is no rights map to date** (was H4). `matcher.ts`'s `BRANDS` is
   brand-name normalisation, not a carriage table. The item was "say in the
   file that a shipped rights map is a maintenance commitment", and there is
   no such file. It comes back if one is ever written.
-- **A cadence module is indirection today** (F5, kept on the list as
-  blocked rather than deleted, because D1 will make it real).
+- **A cadence module is indirection today** (#24, kept on the list as
+  blocked rather than deleted, because #15 will make it real).
 - **Soccer's `form` string** ("LWWWW", 16 of 182 events) is not going on
   the card. Soccer carries a record too, so form would be a second concept
   for one sport. `leaders` and `odds` are their own decisions and nobody
