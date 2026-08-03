@@ -147,31 +147,25 @@ function WideRaceCardImpl({ race }: { race: Race }) {
               * what you are even looking at before the number means
               * anything. */}
             <span className="gamecard__league">{race.series}</span>
-            {counting ? (
-              <span className="wracecard__lap">
-                {race.state === "live" && (
-                  <span className="gamepip" aria-hidden />
-                )}
-                {/* The word stays small. It is a label on the number, not
-                  * a peer of it, and at score size "LAP 41 / 72" measures
-                  * 254px against a column that has 220 to give. */}
-                <span className="wracecard__lap-label">LAP</span>
-                <span className="wracecard__lap-num">{race.lap}</span>
-                {/* The distance, the same size as the lap and differing
-                  * only in colour: they are the same kind of number and
-                  * one is not a footnote to the other. */}
-                {race.laps != null && (
-                  <span className="wracecard__laps">/ {race.laps}</span>
-                )}
-              </span>
-            ) : (
-              <span className="gamecard__status gamecard__status--alone">
-                {race.state === "live" && (
-                  <span className="gamepip" aria-hidden />
-                )}
-                {race.state === "live" ? "LIVE" : race.time}
-              </span>
-            )}
+            {/* ONE SIZE for the whole line, label and numbers alike.
+              * This went around three times: 52px for the string read as
+              * "mega huge", then the number alone at score size read as
+              * top-heavy once it was on screen, and Adam called it back
+              * himself. It is not a scoreline. A lap count is a reading
+              * off a clock, and it belongs at the size of a status. */}
+            <span className="gamecard__status gamecard__status--alone">
+              {race.state === "live" && <span className="gamepip" aria-hidden />}
+              {counting
+                ? `LAP ${race.lap}`
+                : race.state === "live"
+                  ? "LIVE"
+                  : race.time}
+              {/* The distance, same size, quieter. They are the same kind
+                * of number and one is not a footnote to the other. */}
+              {counting && race.laps != null && (
+                <span className="wracecard__laps">/ {race.laps}</span>
+              )}
+            </span>
             <span className="wracecard__session">{race.session}</span>
           </span>
 

@@ -2349,6 +2349,18 @@
  * So this is 24px to LOOK like 28px beside it, which is the only kind of
  * matching that matters on a card. Written out rather than tokenised
  * because it is a correction to one pairing, not a new step in the ramp. */
+/* FOURTH AND FIFTH IN A LIGHT WEIGHT. Adam's, and it does something the
+ * numbers down the left cannot: it makes the shape of the podium visible
+ * before a single position is read. The card is about who is winning, and
+ * an unbroken column of bold says all five equally.
+ *
+ * Weight rather than brightness, which is the rule this card inherits
+ * from the finished-game treatment on both small cards: a difference in
+ * weight survives the dimming of a final where a difference in brightness
+ * does not. */
+.wracecard__slot:nth-child(n + 4) .wracecard__code {
+  font-weight: 300;
+}
 .wracecard__code {
   font-family: var(--font-headline);
   font-weight: 700;
@@ -2364,40 +2376,16 @@
   align-items: center;
   gap: 2px;
 }
-/* The lap, at the size the wide card gives a SCORE.
+/* The distance, beside the lap being run.
  *
- * Which is where this started and then went twice around: the first pass
- * put the whole string in the 52px slot and read as "mega huge", the
- * second dropped all of it to 22px and read as too quiet. The answer was
- * neither size, it was the SPLIT — the number is the score and the word
- * is a label on it, exactly as "Final" labels 23-30 on the fixture card.
- * At 52px "LAP 41 / 72" measures 254px against a column with 220 to give,
- * which is the other reason the word stays small. */
-.wracecard__lap {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 10px;
-  font-family: var(--font-headline);
-  font-weight: 700;
-  line-height: 1;
-  color: #fff;
-}
-.wracecard__lap-label {
-  font-size: var(--sports-meta);
-  letter-spacing: 0.09em;
-  color: rgba(255, 255, 255, 0.72);
-}
-.wracecard__lap-num {
-  font-size: var(--sports-score);
-  font-variant-numeric: tabular-nums;
-}
-/* The distance. THE SAME SIZE as the lap, differing only in colour: Adam
- * read the old mismatch immediately ("the lap font size is mega huge, or
- * the total lap size is small, one or the other") and he is right that it
- * can only be one thing. 41 and 72 are the same kind of number, so the
- * size says they belong together and the colour says which one moves. */
+ * SAME SIZE, quieter colour, and that is the end of a three-round
+ * argument with itself. The number was a ratio of the lap, then the lap
+ * was a scoreline at 52px, then the number alone was. Adam called it back
+ * to one size himself, and he is right: a lap count is a reading off a
+ * clock, not a score, and 41 and 72 are the same kind of number.
+ */
 .wracecard__laps {
-  font-size: var(--sports-score);
+  margin-left: 0.4em;
   font-variant-numeric: tabular-nums;
   color: rgba(255, 255, 255, 0.5);
 }
