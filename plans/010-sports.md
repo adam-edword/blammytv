@@ -518,6 +518,11 @@ chores, but 3 through 32 are grouped rather than ranked. Anything numbered
 past 35 arrived after the count and is at the end rather than in place, so
 nothing already written down moves.
 
+**A number is retired when its item ships, and never reused.** Gaps in the
+list are normal and mean something got done; the ledger at the end says
+which. Renumbering to close a gap would move every label that is already
+in someone's head, which is the exact thing the letters used to do.
+
 **[ ]** not started, **[~]** partly there, **[?]** blocked or undecided.
 
 Shipped work is not here at all. It is in the ledger at the end, under the
@@ -599,21 +604,32 @@ Every racing card lands at the head of *today's* grid whatever day it is.
   The weekend-versus-sessions split is unchanged and already built: one
   card until the day of FP1, five session cards from then on.
 
-#### 4. Racing in the wide row [ ]
+#### 4. Racing in the wide row [x] v0.8.122-125
 
-`GameCard` is a two sided fixture and a session has no sides.
+**The card is built and signed off.** `WideRaceCard` sits in the row at
+GameCard's exact footprint (783.84 x 276.9, radius 63.9, same body grid
+and foot), with the field down the reading side, the lap in the middle and
+the country over the track art.
 
-**DECIDED (Adam, 2026-08-03): a wide race card, and only while the session
-is actually running.** Not every practice and qualifying slot, and not
-never. The row stays short on an ordinary day, and on race day the Grand
-Prix is in the first thing anyone scans.
+What it shows is the ceiling rather than a choice: ESPN gives four fields
+per entrant and `statistics` is empty on all 22 competitors in every
+session, so position and driver is all there is. It carries the CHANNEL
+too, which was not on the original list and had to be, because the row's
+job is getting you watching. F1 sessions really do carry a broadcast
+("Apple TV", correct for 2026).
 
-- Needs a wide layout drawn. First pass is the grid race card at row
-  proportions (podium down one side, circuit and session down the other),
-  which Adam can then redline rather than draw from nothing.
-- Gate it on `state === "live"`, not on the session being a race: a live
-  qualifying hour is worth the row too, and #6 is what keeps finished
-  practice off the board.
+Five rounds of Adam's notes are in the file's own comments. The two worth
+carrying: a LAP COUNT IS NOT A SCORE, so it sits at status size where the
+fixture card's "Final" sits and not in the 52px scoreline slot; and the
+field reads with the LAP rather than with the country, because those two
+are what the card reports and the country is the label on it.
+
+**One piece is NOT done and belongs to #1**: the row still has to gate on
+`state === "live"`. Only the staged session renders today and it is always
+live, so the gate has nowhere to live until racing is a real adapter.
+
+- Gate on state, not on the session being a race: a live qualifying hour
+  is worth the row too, and #6 keeps finished practice off the board.
 - `nowish()` picks the anchor off `state`, so it already copes.
 
 #### 5. Racing in the theater [ ]
@@ -989,6 +1005,8 @@ here so a label that vanished can be looked up.
 | - | Roving tabindex in `RowScroller`: 42 tab stops to 1 | v0.8.119 |
 | **D1** | **The fetch inversion.** Follows are the fetch list over the 151 league catalog; `LEAGUES`, `LEAGUE_NAMES` and `LEAGUE_LOGOS` deleted; `leagueKey` is the catalog path; legacy keys migrated on read; a six-request gate | v0.8.120 |
 | A13 | Records, playoff series, occasion notes and wire one-liners: four fields that were already being downloaded and thrown away | v0.8.121 |
+| **4** | **The wide race card.** GameCard's footprint, five drivers, lap, circuit art, carriage. Plus `CardFoot`/`carriageText` extracted and tested, and a `shortPlace` width budget | v0.8.122-125 |
+| - | The Leagues rail icon: three splayed blades on a plinth, filled | v0.8.122 |
 
 ## Closed decisions
 
