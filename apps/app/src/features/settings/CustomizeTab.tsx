@@ -11,6 +11,7 @@ import {
   type SkipBehavior,
 } from "./skipBehavior";
 import { HeroSourcesSection } from "./HeroSourcesSection";
+import { loadShowHero, saveShowHero } from "./showHero";
 import {
   STARTUP_TABS,
   loadStartupTab,
@@ -171,6 +172,7 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
   // Stream world rather than in General: everything that belongs to ONE
   // side of the app is in one place, and hunting across two tabs to tune
   // Stream was the thing this whole rail is meant to stop.
+  const [hero, setHero] = useState<boolean>(loadShowHero);
   const [oneClick, setOneClick] = useState<boolean>(loadOneClickPlay);
   const [failover, setFailover] = useState<boolean>(loadSourceFailover);
   const [skip, setSkip] = useState<SkipBehavior>(loadSkipBehavior);
@@ -299,7 +301,29 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
         * stack (too wide to sit beside a label); the rest are normal rows. */}
       {world === "stream" && hasAddon && (
         <section className="settings-section">
-          <HeroSourcesSection />
+          {/* Above the sources picker, because it decides whether that
+            * picker means anything: sources FOR a hero that is not there
+            * is a setting with no effect, so it goes away with it. */}
+          <div className="customize-row">
+            <div>
+              <h4 className="customize-row__title">Featured Carousel</h4>
+              <p className="settings__section-note settings__section-note--dim">
+                The big sliding banner at the top of Stream. Off removes it
+                entirely and the rows start at the top.
+              </p>
+            </div>
+            <Toggle
+              on={hero}
+              onChange={() => {
+                const next = !hero;
+                setHero(next);
+                saveShowHero(next);
+              }}
+              label="Featured carousel"
+            />
+          </div>
+
+          {hero && <HeroSourcesSection />}
 
           <div className="customize-stack">
             <div>

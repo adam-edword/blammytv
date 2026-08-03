@@ -953,6 +953,7 @@ export function TheaterOverlay({
           type="button"
           className="overlay__btn overlay__play"
           aria-label={paused ? "Play" : "Pause"}
+          title={paused ? "Play" : "Pause"}
           onClick={(e) => {
             e.stopPropagation();
             togglePlay();
@@ -964,6 +965,7 @@ export function TheaterOverlay({
           type="button"
           className="overlay__btn mini-overlay__close"
           aria-label="Stop"
+          title="Stop"
           onClick={(e) => {
             e.stopPropagation();
             api()?.close();
@@ -1009,6 +1011,7 @@ export function TheaterOverlay({
           type="button"
           className="player__btn player__btn--glass"
           aria-label={fs ? "Exit fullscreen" : "Back"}
+          title={fs ? "Exit fullscreen" : "Back"}
           onClick={() => (fs ? api()?.exitFullscreen?.() : api()?.collapse?.())}
         >
           <BackArrowIcon size={20} />
@@ -1021,6 +1024,7 @@ export function TheaterOverlay({
             type="button"
             className={"player__btn player__btn--glass" + (fav ? " is-fav" : "")}
             aria-label={fav ? "Remove from favorites" : "Add to favorites"}
+          title={fav ? "Remove from favorites" : "Add to favorites"}
             aria-pressed={fav}
             onClick={toggleFav}
           >
@@ -1034,6 +1038,7 @@ export function TheaterOverlay({
           type="button"
           className="player__btn player__btn--glass"
           aria-label="Pop out"
+          title="Pop out"
           onClick={() => api()?.popout?.()}
         >
           <PopoutIcon size={20} />
@@ -1042,6 +1047,7 @@ export function TheaterOverlay({
           type="button"
           className="player__btn player__btn--glass"
           aria-label={fs ? "Exit fullscreen" : "Fullscreen"}
+          title={fs ? "Exit fullscreen" : "Fullscreen"}
           onClick={toggleFullscreen}
         >
           {fs ? <ExitFullscreenIcon size={20} /> : <FullscreenIcon size={20} />}
@@ -1173,6 +1179,7 @@ export function TheaterOverlay({
               type="button"
               className="player__btn"
               aria-label="Back 10 seconds"
+          title="Back 10 seconds"
               onClick={() => doSeek(-10)}
             >
               <SkipBackIcon size={24} />
@@ -1181,6 +1188,7 @@ export function TheaterOverlay({
               type="button"
               className="player__btn player__btn--play"
               aria-label={paused ? "Play" : "Pause"}
+          title={paused ? "Play" : "Pause"}
               onClick={togglePlay}
             >
               {paused ? <PlayIcon size={26} /> : <PauseIcon size={26} />}
@@ -1189,6 +1197,7 @@ export function TheaterOverlay({
               type="button"
               className="player__btn"
               aria-label="Forward 10 seconds"
+          title="Forward 10 seconds"
               onClick={() => doSeek(10)}
             >
               <SkipFwdIcon size={24} />
@@ -1198,6 +1207,7 @@ export function TheaterOverlay({
                 type="button"
                 className="player__btn"
                 aria-label="Next episode"
+          title="Next episode"
                 onClick={() => api()?.nextEpisode?.()}
               >
                 <NextEpisodeIcon size={22} />
@@ -1208,6 +1218,7 @@ export function TheaterOverlay({
                 type="button"
                 className={"theater-live" + (atLive ? " is-live" : "")}
                 aria-label="Jump to live"
+          title="Jump to live"
                 onClick={goLive}
               >
                 <span className="theater-live__dot" />
@@ -1223,6 +1234,7 @@ export function TheaterOverlay({
                 type="button"
                 className="player__btn"
                 aria-label="Sources"
+          title="Sources"
                 onClick={() => api()?.sourcePanel?.()}
               >
                 <PanelIcon size={20} />
@@ -1276,6 +1288,7 @@ export function TheaterOverlay({
                 type="button"
                 className={"player__btn" + (showStats ? " is-open" : "")}
                 aria-label="Stats for nerds"
+          title="Stats for nerds"
                 aria-pressed={showStats}
                 onClick={() => setShowStats((v) => !v)}
               >
@@ -1372,6 +1385,7 @@ export function TheaterOverlay({
                 type="button"
                 className="player__btn"
                 aria-label={muted ? "Unmute" : "Mute"}
+          title={muted ? "Unmute" : "Mute"}
                 onClick={() => setMuted((m) => !m)}
               >
                 {muted || volPct === 0 ? (

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { loadSettingsTab, saveSettingsTab } from "./settingsTab";
 import { createPortal } from "react-dom";
 import { CloseIcon } from "../../ui/icons";
 import { useClosingExit } from "./useClosingExit";
@@ -21,7 +22,7 @@ import { GeneralTab } from "./GeneralTab";
  * per world (General: where content comes from; Customize: how that content
  * looks). One mental model, said twice, rather than two filing systems.
  */
-type SettingsTab = "general" | "customize";
+export type SettingsTab = "general" | "customize";
 
 const TABS: Array<{ key: SettingsTab; label: string }> = [
   { key: "general", label: "General" },
@@ -39,7 +40,9 @@ export function SettingsModal({
   onClose: () => void;
   onOpenThemes: () => void;
 }) {
-  const [tab, setTab] = useState<SettingsTab>("general");
+  // Where you left off. The modal unmounts on close, so without this
+  // every visit started at General.
+  const [tab, setTab] = useState<SettingsTab>(loadSettingsTab);
   const { closing, requestClose } = useClosingExit(onClose);
 
   // Top-fade flag, written straight to the DOM: this fires on every scroll
@@ -84,7 +87,14 @@ export function SettingsModal({
       >
         <header className="settings__header">
           <h2 className="settings__title">Settings</h2>
-          <ChipTabs tabs={TABS} active={tab} onChange={setTab} />
+          <ChipTabs
+            tabs={TABS}
+            active={tab}
+            onChange={(t) => {
+              saveSettingsTab(t);
+              setTab(t);
+            }}
+          />
           <button
             type="button"
             className="settings__close"

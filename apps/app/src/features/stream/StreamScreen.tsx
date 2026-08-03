@@ -49,6 +49,7 @@ import {
 import { loadWatched, markWatched } from "./watched";
 import { loadAioUrl } from "../settings/aiostreams";
 import { loadOneClickPlay } from "../settings/oneClickPlay";
+import { loadShowHero } from "../settings/showHero";
 import {
   fetchDiscoverPage,
   gridCatalogs,
@@ -1477,6 +1478,12 @@ function Home({
   onSourcesWatching: (e: WatchEntry) => void;
   onRetry: () => void;
 }) {
+  // Read during render rather than into state: App owns the Settings
+  // modal, so closing it re-renders this tree and the change lands then.
+  // Not live WHILE Settings is open, unlike cardMeta below — the modal is
+  // over the top of it, so there is nothing to see.
+  const showHero = loadShowHero();
+
   // Which details the cards show — flips live while Settings is open.
   const [metaFields, setMetaFields] = useState<CardMetaField[]>(loadCardMeta);
   useEffect(() => onCardMetaChange(setMetaFields), []);
@@ -1537,7 +1544,9 @@ function Home({
     );
   return (
     <>
-      {featured.length > 0 && (
+      {/* Entirely, and with no gap: the rows are the next element, so
+        * turning it off just lets them start at the top. */}
+      {showHero && featured.length > 0 && (
         <Hero items={featured} onOpen={onOpen} onWatchNow={onWatchNow} />
       )}
       <div className="stream__rows">
