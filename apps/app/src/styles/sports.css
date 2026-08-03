@@ -1460,13 +1460,22 @@
   gap: 14px;
   padding-top: 8px;
 }
-/* Matches Discover's `.disc-skel` exactly, same surface and same 1.3s
- * breath. Its own keyframe name rather than reaching across features for
- * a `disc-` prefixed one. */
+/* The breath is a COLOUR, not an opacity, and that is the whole of it.
+ *
+ * Discover's `.disc-skel` pulses opacity 0.55 to 1, which fades a solid
+ * swatch toward whatever is behind it — and what is behind it is the page.
+ * The surfaces sit barely above that ground by design: #050505 on #000000
+ * in Void, #1e1e25 on #0b0b0e in the brand pack. So the dip did not read as
+ * a placeholder breathing, it read as the card blinking out to black, which
+ * is jarring precisely because no real card ever does that.
+ *
+ * Between two tokened surfaces instead. Both are defined in every pack and
+ * both are above the ground by construction, so the low end of the pulse is
+ * still a card. Same 1.3s, same easing. */
 .sports-skel__title,
 .sports-skel__wide,
 .sports-skel__card {
-  background: var(--surface);
+  background-color: var(--surface);
   animation: sports-skel-pulse 1.3s ease-in-out infinite;
 }
 .sports-skel__title {
@@ -1505,10 +1514,10 @@
 @keyframes sports-skel-pulse {
   0%,
   100% {
-    opacity: 0.55;
+    background-color: var(--surface);
   }
   50% {
-    opacity: 1;
+    background-color: var(--surface-raised);
   }
 }
 @media (prefers-reduced-motion: reduce) {
