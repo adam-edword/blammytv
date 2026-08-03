@@ -1100,6 +1100,7 @@ here so a label that vanished can be looked up.
 | **40** (part) | **The empty board.** One grey line became four states: a skeleton at the board's own geometry while it loads, and a mark, headline, note and way out when there is nothing. The narrowed one names what you follow | v0.8.135 |
 | - | The skeleton's breath is a colour, not an opacity, so it stops fading toward the page's own black | v0.8.136 |
 | **36** | **The board reaches past its window.** A followed league with nothing in the next three days is asked what is NEXT, and gets its own dated heading on the grid. No new endpoint: the bare scoreboard already answers it | v0.8.137 |
+| - | A reached-ahead race weekend folds into ONE `WeekendCard` on race day, instead of five session cards under three dated headings. `Weekend` became the union's fourth kind | v0.8.138 |
 
 ## Closed decisions
 

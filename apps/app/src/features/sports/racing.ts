@@ -1,6 +1,5 @@
 import { driverCode } from "./driverCode";
-import type { Session, Weekend } from "./WeekendCard";
-import type { Entrant, Field, GameState } from "./model";
+import type { Entrant, Field, GameState, Session, Weekend } from "./model";
 
 /**
  * Racing, as sessions on the board (plan 010 #1).
@@ -244,7 +243,11 @@ const MAJOR = new Set(["Qual", "Race"]);
  * to F1 and it reaches out to the next event, which is exactly the
  * question this card answers. The rig renders it meanwhile.
  */
-export function toWeekend(event: RawRacingEvent, series: string): Weekend {
+export function toWeekend(
+  event: RawRacingEvent,
+  series: string,
+  path = "racing/f1",
+): Weekend {
   const comps = event.competitions ?? [];
   const sessions: Session[] = comps.map((c) => {
     const label = (c.type?.abbreviation ?? "?").toUpperCase();
@@ -262,17 +265,60 @@ export function toWeekend(event: RawRacingEvent, series: string): Weekend {
   // but the label is the thing that actually says which one is the race.
   // Falling back to the last, which is where it has been all season.
   const race = comps.find((c) => c.type?.abbreviation === "Race") ?? comps.at(-1);
+  const raceDay = new Date(race?.date ?? "");
   return {
+    kind: "weekend",
     id: `wk-${event.id ?? "race"}`,
+    sport: "racing",
+    league: series,
+    leagueKey: path,
+    // Always upcoming, by construction: a weekend only ever reaches the
+    // board ahead of its own window (see Weekend in model.ts). Once it is
+    // running, the sessions are the things on the board.
+    state: "pre",
+    /**
+     * RACE DAY, not the first session, and it is what puts the card on the
+     * right heading. The board files a game under `start`, and a Grand Prix
+     * three weeks out belongs under the Sunday everyone plans around rather
+     * than under the Friday practice nobody is asking about.
+     */
+    start: raceDay,
+    // The card draws its own date and schedule, so this is only what a
+    // screen reader and a tooltip would say.
+    status: sessionClock(raceDay),
+    venue: event.circuit?.fullName,
+    // The weekend as a whole is not broadcast; its sessions are, and they
+    // carry their own when they arrive on the board in their own right.
+    broadcasts: [],
+    channels: [],
     series,
     place: event.circuit?.address?.country ?? "",
     // From the payload rather than the vendored index, so a circuit whose
     // art we have not got still gets named.
     track: event.circuit?.fullName,
     circuitId: event.circuit?.id,
-    date: new Date(race?.date ?? "")
+    date: raceDay
       .toLocaleDateString([], { month: "short", day: "numeric" })
       .toUpperCase(),
     sessions,
   };
+}
+
+/**
+ * A racing scoreboard as WEEKENDS, one per event.
+ *
+ * The other half of `toRacing`, and which one runs is a question about
+ * WHEN rather than about the data. Asked about a day, the answer is the
+ * sessions on it; asked what is next (the bare call, plan 010 #36), the
+ * answer is a weekend three weeks out, and breaking that into five cards
+ * across three dated headings is how Adam found it: "shouldn't this be the
+ * schedule card thingy? not all broken out".
+ */
+export function toWeekends(raw: RawRacing, path: string): Weekend[] {
+  const league = raw.leagues?.[0]?.name ?? raw.leagues?.[0]?.abbreviation ?? path;
+  return (raw.events ?? [])
+    .map((event) => toWeekend(event, league, path))
+    // Same rule the session mapper applies: no usable race date, no day to
+    // put it on, so it is dropped rather than guessed at.
+    .filter((w) => !Number.isNaN(w.start.getTime()));
 }

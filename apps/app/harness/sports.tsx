@@ -220,12 +220,87 @@ window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
   if (m && FORCED) {
     if (FORCED === "loading") return new Promise<Response>(() => {});
     if (FORCED === "error") return Promise.reject(new Error("forced"));
+    /* "next" empties the WINDOW but leaves the bare call answering, which
+     * is the only way to see #36 here: every league is out of season, so
+     * the board has nothing to draw until it reaches ahead. */
+    if (FORCED !== "next" || url.includes("dates=")) {
+      return Promise.resolve(
+        new Response(JSON.stringify({ events: [] }), {
+          headers: { "content-type": "application/json" },
+        }),
+      );
+    }
+  }
+
+  if (m && !url.includes("dates=")) {
+    const when = new Date();
+    when.setHours(0, 0, 0, 0);
+    when.setDate(when.getDate() + 19);
+    when.setHours(14, 30, 0, 0);
+    /* RACING answers with a whole weekend, which is the case that matters:
+     * the board folds it into one WeekendCard rather than five session
+     * cards under three dated headings. Friday, Friday, Saturday,
+     * Saturday, Sunday, which is the real shape of one. */
+    if (m[1] === "f1") {
+      const event = (f1.events ?? [])[0];
+      const OFFSET = [0, 0, 1, 1, 2];
+      const HOUR = [11, 15, 11, 15, 14];
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            ...f1,
+            events: [
+              {
+                ...event,
+                competitions: (event.competitions ?? []).map((c, i) => {
+                  const at = new Date(when);
+                  at.setDate(at.getDate() + OFFSET[i]);
+                  at.setHours(HOUR[i], 0, 0, 0);
+                  return {
+                    ...c,
+                    date: at.toISOString(),
+                    status: { type: { state: "pre" } },
+                  };
+                }),
+              },
+            ],
+          }),
+          { headers: { "content-type": "application/json" } },
+        ),
+      );
+    }
+    const slate = SLATES[m[1] === "eng.1" ? "epl" : (m[1] ?? "")] ?? nba;
+    const first = (slate.events ?? [])[0];
+    if (!first) {
+      return Promise.resolve(
+        new Response(JSON.stringify({ events: [] }), {
+          headers: { "content-type": "application/json" },
+        }),
+      );
+    }
     return Promise.resolve(
-      new Response(JSON.stringify({ events: [] }), {
-        headers: { "content-type": "application/json" },
-      }),
+      new Response(
+        JSON.stringify({
+          ...slate,
+          events: [
+            {
+              ...first,
+              date: when.toISOString(),
+              competitions: [
+                {
+                  ...first.competitions[0],
+                  date: when.toISOString(),
+                  status: { type: { state: "pre" } },
+                },
+              ],
+            },
+          ],
+        }),
+        { headers: { "content-type": "application/json" } },
+      ),
     );
   }
+
   /* RACING, restamped onto this weekend like every other slate.
    *
    * The real endpoint answers a date inside a race weekend with all five
@@ -356,42 +431,6 @@ window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
    * Nineteen days, from the real F1 gap that prompted it. One event, so
    * the reached day reads the way a real one does: a heading with its own
    * date and a card or two under it, not a second full board. */
-  if (m && !url.includes("dates=")) {
-    const when = new Date();
-    when.setHours(0, 0, 0, 0);
-    when.setDate(when.getDate() + 19);
-    when.setHours(14, 30, 0, 0);
-    const slate = SLATES[m[1] === "eng.1" ? "epl" : (m[1] ?? "")] ?? nba;
-    const first = (slate.events ?? [])[0];
-    if (!first) {
-      return Promise.resolve(
-        new Response(JSON.stringify({ events: [] }), {
-          headers: { "content-type": "application/json" },
-        }),
-      );
-    }
-    return Promise.resolve(
-      new Response(
-        JSON.stringify({
-          ...slate,
-          events: [
-            {
-              ...first,
-              date: when.toISOString(),
-              competitions: [
-                {
-                  ...first.competitions[0],
-                  date: when.toISOString(),
-                  status: { type: { state: "pre" } },
-                },
-              ],
-            },
-          ],
-        }),
-        { headers: { "content-type": "application/json" } },
-      ),
-    );
-  }
   /* ANY OTHER LEAGUE: out of season, which is what most of them are.
    *
    * It used to fall through to the real endpoint, and that stopped being

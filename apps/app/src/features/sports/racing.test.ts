@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sessionClock, sessionDay, toRacing, toWeekend } from "./racing";
+import { sessionClock, sessionDay, toRacing, toWeekend, toWeekends } from "./racing";
 import { onDay } from "./day";
 import { isField } from "./model";
 import type { Field } from "./model";
@@ -271,5 +271,50 @@ describe("sessionClock and sessionDay", () => {
 
   it("names the weekday in caps", () => {
     expect(sessionDay(at("2026-08-23T13:00"))).toBe("SUN");
+  });
+});
+
+/**
+ * The reach's shape (plan 010 #36, corrected).
+ *
+ * Adam, seeing five session cards under three dated headings for a race
+ * three weeks out: "shouldn't this be the schedule card thingy? not all
+ * broken out". The same payload maps two ways, and which one runs is a
+ * question about when rather than about the data.
+ */
+describe("toWeekends", () => {
+  it("folds a whole weekend into ONE board item", () => {
+    const sessions = toRacing(weekend(), F1);
+    const weekends = toWeekends(weekend(), F1);
+    // The same payload, five ways or one.
+    expect(sessions.length).toBe(5);
+    expect(weekends).toHaveLength(1);
+    expect(weekends[0].sessions).toHaveLength(5);
+  });
+
+  it("sits on RACE DAY, not on the first practice", () => {
+    // What puts it under the right heading: the board files a game by
+    // `start`, and a Grand Prix belongs under the Sunday people plan
+    // around rather than the Friday nobody is asking about.
+    const [w] = toWeekends(weekend(), F1);
+    const race = toRacing(weekend(), F1).find((s) => s.session === "Race");
+    expect(race).toBeDefined();
+    expect(w.start.toDateString()).toBe(race!.start.toDateString());
+  });
+
+  it("is a board item, so it files and filters like everything else", () => {
+    const [w] = toWeekends(weekend(), F1);
+    expect(w.kind).toBe("weekend");
+    expect(w.leagueKey).toBe(F1);
+    expect(w.sport).toBe("racing");
+    // Always upcoming by construction: a weekend only reaches the board
+    // ahead of its own window.
+    expect(w.state).toBe("pre");
+    expect(Number.isNaN(w.start.getTime())).toBe(false);
+  });
+
+  it("drops an event with no usable race date rather than guessing", () => {
+    const broken = { leagues: [{ name: "Formula 1" }], events: [{ id: "1", competitions: [] }] };
+    expect(toWeekends(broken as never, F1)).toEqual([]);
   });
 });

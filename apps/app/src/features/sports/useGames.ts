@@ -183,7 +183,12 @@ export function useGames(
       // already on the board or was filtered off it for a reason.
       const edge = dates[dates.length - 1];
       try {
-        const { games } = await fetchBoard(missing, { signal: ac.signal });
+        // `ahead` changes the SHAPE a racing league comes back in: one
+        // weekend rather than its five sessions. See fetchLeague.
+        const { games } = await fetchBoard(missing, {
+          signal: ac.signal,
+          ahead: true,
+        });
         if (ac.signal.aborted || mine !== gen) return;
         const ahead = games.filter((g) => midnight(g.start) > edge.getTime());
         if (ahead.length === 0) return;

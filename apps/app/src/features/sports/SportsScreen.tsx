@@ -7,6 +7,7 @@ import {
 import { CompactCard } from "./CompactCard";
 import { RaceCard } from "./RaceCard";
 import { TournamentCard } from "./TournamentCard";
+import { WeekendCard } from "./WeekendCard";
 import { WideRaceCard } from "./WideRaceCard";
 import { SportsSidebar } from "./SportsSidebar";
 import { fetchList, isFollowed, loadFollows, resolvable } from "./follows";
@@ -21,7 +22,7 @@ import { SportsEmpty, BoardSkeleton } from "./SportsEmpty";
 import { nameList } from "./nameList";
 import { useGames, withChannels } from "./useGames";
 import type { Day } from "./useGames";
-import { isField, isFixture, isTournament } from "./model";
+import { isField, isFixture, isTournament, isWeekend } from "./model";
 import type { Field, Fixture, Game } from "./model";
 
 /**
@@ -168,8 +169,13 @@ export function SportsScreen({ home }: { home?: number } = {}) {
   const rowItems = useMemo(
     () =>
       today.filter(
+        // Positive on both arms. Written as "not a tournament and live" it
+        // also happened to exclude a reached-ahead weekend, but only
+        // because those are always `pre` — a runtime coincidence standing
+        // in for a rule, which is the exact shape of the bug the union's
+        // narrowing discipline exists to prevent.
         (g): g is Fixture | Field =>
-          !isTournament(g) && (isFixture(g) || g.state === "live"),
+          isFixture(g) || (isField(g) && g.state === "live"),
       ),
     [today],
   );
@@ -346,6 +352,11 @@ export function SportsScreen({ home }: { home?: number } = {}) {
                 {day.games.map((g) =>
                   isField(g) ? (
                     <RaceCard key={g.id} race={g} />
+                  ) : isWeekend(g) ? (
+                    /* A whole weekend, reached ahead of the board's window
+                     * (#36). One card with its schedule in it, not five
+                     * session cards under three dated headings. */
+                    <WeekendCard key={g.id} weekend={g} />
                   ) : isTournament(g) ? (
                     <TournamentCard key={g.id} event={g} />
                   ) : compact && g.state === "final" ? (

@@ -1,6 +1,6 @@
 import { driverCode } from "./driverCode";
 import { league as catalogLeague } from "./leagues";
-import { toRacing, type RawRacing } from "./racing";
+import { toRacing, toWeekends, type RawRacing } from "./racing";
 import { isTournament } from "./model";
 import type { Competitor, Fixture, Game, GameState, Tournament } from "./model";
 
@@ -257,7 +257,11 @@ export function espnDate(date: Date): string {
  */
 export async function fetchLeague(
   path: string,
-  { date, signal }: { date?: Date; signal?: AbortSignal } = {},
+  {
+    date,
+    signal,
+    ahead,
+  }: { date?: Date; signal?: AbortSignal; ahead?: boolean } = {},
 ): Promise<Game[]> {
   const url =
     `${BASE}/${path}/scoreboard` + (date ? `?dates=${espnDate(date)}` : "");
@@ -274,9 +278,14 @@ export async function fetchLeague(
   // two sides, so it maps to Fields (racing.ts) where everything else maps
   // to Fixtures. Same request, same gate, same fetch list: the only thing
   // racing gets to be special about is its shape.
-  return racingPath(path)
-    ? toRacing(raw as RawRacing, path)
-    : toGames(raw, path);
+  if (!racingPath(path)) return toGames(raw, path);
+  // SESSIONS or a WEEKEND, and it is a question about when rather than
+  // about the data. Asked about a day, the sessions on it are the answer;
+  // asked what is NEXT, a weekend three weeks out is one thing to plan
+  // around, and five session cards under three dated headings is not.
+  return ahead
+    ? toWeekends(raw as RawRacing, path)
+    : toRacing(raw as RawRacing, path);
 }
 
 /**
@@ -290,7 +299,7 @@ export async function fetchLeague(
  */
 export async function fetchGames(
   paths: readonly string[] = DEFAULT_LEAGUES,
-  opts: { date?: Date; signal?: AbortSignal } = {},
+  opts: { date?: Date; signal?: AbortSignal; ahead?: boolean } = {},
 ): Promise<Game[]> {
   return (await fetchBoard(paths, opts)).games;
 }
@@ -317,7 +326,7 @@ export async function fetchGames(
  */
 export async function fetchBoard(
   paths: readonly string[] = DEFAULT_LEAGUES,
-  opts: { date?: Date; signal?: AbortSignal } = {},
+  opts: { date?: Date; signal?: AbortSignal; ahead?: boolean } = {},
 ): Promise<{ games: Game[]; answered: string[] }> {
   const settled = await Promise.allSettled(
     paths.map((p) => fetchLeague(p, opts)),

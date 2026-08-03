@@ -2,6 +2,7 @@ import Tilt from "react-parallax-tilt";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { art, flagArt } from "./circuits";
 import { shortPlace } from "./placeName";
+import type { Weekend } from "./model";
 
 /**
  * A race weekend before it starts, as a card (plan 010, Adam's Figma).
@@ -19,61 +20,6 @@ import { shortPlace } from "./placeName";
  * which is exactly the question this card answers. The race rig renders it
  * meanwhile, so the design does not rot unseen.
  */
-
-/** One row of the weekend's schedule. */
-export interface Session {
-  /** As the source abbreviates it: "FP1", "Qual", "Race", "SS", "SR". */
-  label: string;
-  /**
-   * What that stands for, for the tooltip: "Sprint Qualifying".
-   *
-   * On hover rather than on the row, and that is measured. At the board's
-   * narrowest track, printing "SPRINT QUAL" makes the country name overlap
-   * the schedule by 10px. Absent for a label we have no expansion for.
-   */
-  full?: string;
-  /** "FRI". */
-  day: string;
-  /** "1:00PM". Already formatted; this card never does its own clock. */
-  time: string;
-  /**
-   * Qualifying and the Grand Prix, which is what the weekend is FOR.
-   * Everything else sits a step back.
-   *
-   * Fixed by session type rather than by what has run: nothing has run
-   * when this card is on screen, so there is no progress to show and the
-   * ramp can only be about which sessions matter.
-   */
-  major: boolean;
-}
-
-export interface Weekend {
-  id: string;
-  /** "Formula 1". */
-  series: string;
-  /** Where, in one word: "Hungary". */
-  place: string;
-  /**
-   * The circuit's own name: "Circuit Park Zandvoort".
-   *
-   * The weekend card's alone. A session card has its session under the
-   * country and there is no room for both; a weekend has no one session,
-   * so the line is free and the track is the next thing you would want to
-   * know. Optional because only F1 names its circuit at all.
-   */
-  track?: string;
-  /** The circuit id, for the art and the flag. Absent outside F1. */
-  circuitId?: string;
-  /**
-   * RACE DAY, formatted: "AUG 23".
-   *
-   * Not the first day. It is what a person means by the date of a Grand
-   * Prix, and the rows below carry their own days anyway.
-   */
-  date: string;
-  /** In order, first session to last. Always five, measured over a season. */
-  sessions: Session[];
-}
 
 export function WeekendCard({ weekend }: { weekend: Weekend }) {
   const track = art(weekend.circuitId);
