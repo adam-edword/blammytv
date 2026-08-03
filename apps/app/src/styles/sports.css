@@ -2214,6 +2214,209 @@
   width: 100%;
 }
 
+/* ─── The WIDE race card (plan 010 #4) ───────────────────────────────────
+ *
+ * A race session on today's row, and only while it is running.
+ *
+ * EVERY NUMBER HERE IS GAMECARD'S. Adam's instruction, and it is the right
+ * one: the two cards sit in the same row at the same size, so one that set
+ * its own scale would read as a different kind of object rather than as
+ * the same object about a different sport. Width, height, radius, body
+ * grid, gap, padding and foot are copied verbatim; the type comes from the
+ * same three tokens the fixture card uses.
+ *
+ * Where it maps onto the fixture card:
+ *   two team names   ->  five drivers      --sports-name
+ *   the abbreviation ->  the position      --sports-meta
+ *   the score        ->  the lap           --sports-score
+ *   the foot         ->  the same foot, shared markup (CardFoot)
+ */
+.wracecard {
+  flex: 0 0 auto;
+  width: 783.84px;
+  max-width: 92vw;
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+}
+.wracecard:hover {
+  z-index: 2;
+}
+/* The tilt layer owns the clip, the ring and the shadow, for the reason
+ * .gamecard__tilt does: overflow:hidden on a parent squares off the
+ * corners of a rotated child mid-lean. Keep the radius in step with
+ * glareBorderRadius in WideRaceCard.tsx. */
+.wracecard__tilt {
+  position: relative;
+  display: block;
+  height: 276.9px;
+  border-radius: 63.9px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: #0f0f0f;
+  transition: box-shadow 450ms ease;
+}
+.wracecard:hover .wracecard__tilt {
+  box-shadow: 0 25.56px 56.8px -19.88px
+    color-mix(in srgb, #000 55%, transparent);
+}
+/* The host country's colours, hugging the right edge and fading in from
+ * the left. The small card's treatment at this card's size. */
+.wracecard__flag {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: auto;
+  height: 100%;
+  object-fit: contain;
+  object-position: right center;
+  opacity: 0.15;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000);
+  mask-image: linear-gradient(to right, transparent, #000);
+}
+.wracecard__body {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 25.56px;
+  height: 100%;
+  padding: 0 42.6px 25.56px;
+}
+
+/* The field. Five rows where the fixture card has one name, which is what
+ * the extra height buys: a race is usually about the podium plus whoever
+ * is still close enough to reach it. */
+.wracecard__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0 auto;
+  padding: 0;
+  list-style: none;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+}
+.wracecard__slot {
+  display: flex;
+  align-items: center;
+  gap: 12.78px;
+}
+.wracecard__place {
+  /* Fixed, so the codes line up into a column rather than stepping in and
+   * out with the width of the digit beside them. */
+  width: 12px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: var(--sports-meta);
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.55);
+}
+/* The driver's country, since the source carries no constructor anywhere.
+ * A finished picture rather than a glyph, so it is sized and not styled.
+ *
+ * SQUARE, not 4:3. ESPN's country marks are letterboxed into a square, so
+ * the width sets the row height too: at 44px the five rows came to 220px
+ * inside a 251px body and the outer two touched the card's edges. 36px
+ * puts the field at 180px and leaves the margin the fixture card has. */
+.wracecard__mark {
+  flex: 0 0 auto;
+  width: 36px;
+  height: auto;
+  object-fit: contain;
+}
+.wracecard__code {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: var(--sports-name);
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  color: #fff;
+}
+
+.wracecard__center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+/* The distance, beside the lap being run.
+ *
+ * THE SAME SIZE, differing only in colour. It was a ratio of the lap, the
+ * way .gamecard__dash is a ratio of the score it separates, and Adam read
+ * the mismatch immediately: "the lap font size is mega huge, or the total
+ * lap size is small, one or the other". He is right that it can only be
+ * one thing — 41 and 72 are the same kind of number and one of them is
+ * not a footnote to the other. So the size says they belong together and
+ * the colour says which one is moving. */
+.wracecard__laps {
+  margin-left: 0.35em;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.55);
+}
+/* Under the session, and quieter than it: on this card the session is the
+ * thing you need and the series is which sport it belongs to. */
+.wracecard__series {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: var(--sports-meta);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Where, over the track, as on the small card. */
+.wracecard__where {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  /* FULL HEIGHT, against the body's align-items:center. Without it this
+   * column is only as tall as the word in it, the absolutely positioned
+   * art inherits that box, and a circuit outline renders about 60px tall
+   * in a card 277px tall — a squiggle rather than a backdrop. */
+  align-self: stretch;
+}
+/* Behind the word rather than beside it: the one piece here that is
+ * decoration, and it has to be able to be missing. Five of the six racing
+ * leagues carry no circuit at all.
+ *
+ * Given an explicit box, unlike the small card's, because at this width an
+ * auto-sized absolute box leaves the drawing floating in the middle of a
+ * column two and a half times wider than it needs. */
+.wracecard__track {
+  position: absolute;
+  /* Past the column top and bottom, so the drawing is sized by the card's
+   * height rather than fitted inside the padding. The tilt layer's own
+   * overflow:hidden trims whatever runs out. */
+  inset: -6px 0 12px;
+  display: block;
+  color: rgba(255, 255, 255, 0.15);
+  pointer-events: none;
+}
+.wracecard__track svg {
+  width: 100%;
+  height: 100%;
+}
+.wracecard__place-name {
+  position: relative;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  /* The same size a team name is on every other card. This is the thing
+   * the card is ABOUT, so it weighs what their subject weighs. */
+  font-size: var(--sports-name);
+  line-height: 1;
+  text-align: center;
+  text-transform: uppercase;
+  color: #fff;
+}
+
 /* A card that is not an action yet.
  *
  * Games more than sixteen hours out do not open: opening one tuned a

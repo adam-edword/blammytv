@@ -60,3 +60,26 @@ describe("shortPlace", () => {
     expect(shortPlace("   ")).toBe("");
   });
 });
+
+describe("shortPlace on a wider card", () => {
+  it("keeps the whole name when the column can hold it", () => {
+    // The wide race card's country column is 252.9px against the small
+    // card's 137, and every country F1 visits fits it: NETHERLANDS needs
+    // 111.8px there. Coding it to NED is right in one column and wrong in
+    // the other, so the budget is the caller's.
+    expect(shortPlace("Netherlands", 20)).toBe("Netherlands");
+    expect(shortPlace("Azerbaijan", 20)).toBe("Azerbaijan");
+    expect(shortPlace("United Arab Emirates", 20)).toBe(
+      "United Arab Emirates",
+    );
+  });
+
+  it("still codes past the budget it is given", () => {
+    expect(shortPlace("Netherlands", 8)).toBe("NED");
+    expect(shortPlace("United Arab Emirates", 10)).toBe("UAE");
+  });
+
+  it("defaults to the small card's eight when asked for nothing", () => {
+    expect(shortPlace("Netherlands")).toBe("NED");
+  });
+});

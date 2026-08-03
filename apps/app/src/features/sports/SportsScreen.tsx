@@ -7,6 +7,7 @@ import {
 import { CompactCard } from "./CompactCard";
 import { RaceCard } from "./RaceCard";
 import { WeekendCard } from "./WeekendCard";
+import { WideRaceCard } from "./WideRaceCard";
 import { SportsSidebar } from "./SportsSidebar";
 import { useRaces } from "./race";
 import { fetchList, isFollowed, loadFollows, resolvable } from "./follows";
@@ -112,7 +113,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
    *
    * A weekend is ONE card until the day its first session runs, and its
    * five sessions from then on. */
-  const { weekends, sessions: races } = useRaces();
+  const { weekends, sessions: races, demo } = useRaces();
   const racing = weekends.length + races.length;
   const today = days[0]?.games ?? [];
   const anchor = nowish(today);
@@ -232,15 +233,21 @@ export function SportsScreen({ home }: { home?: number } = {}) {
         onFollows={setFollows}
       />
       <div className="discover sports sportsboard__main">
-      {today.length > 0 && (
+      {(today.length > 0 || demo) && (
         <section className="media-row" ref={row}>
           <h3 className="media-row__title sports__title">
             {/* The pip is a claim about the world, so it only appears when
               * something is actually on. */}
-            {live && <span className="gamepip" aria-hidden />}
+            {(live || demo) && <span className="gamepip" aria-hidden />}
             Today&rsquo;s Games
           </h3>
           <RowScroller>
+            {/* TEMPORARY: a staged live session, because F1 is between
+              * races and the wide card only appears while one is running,
+              * so there would otherwise be nothing to look at. First in
+              * the row, which is where a live race would sort anyway. See
+              * demoLive in race.ts, and delete both together. */}
+            {demo && <WideRaceCard key={demo.id} race={demo} />}
             {today.map((g) => (
               <GameCard key={g.id} game={g} onOpen={openGame} />
             ))}

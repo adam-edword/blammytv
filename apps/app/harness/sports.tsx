@@ -18,6 +18,7 @@ import mlb from "./fixtures/mlb.json";
 import nba from "./fixtures/nba.json";
 import nfl from "./fixtures/nfl.json";
 import nhl from "./fixtures/nhl.json";
+import f1 from "./fixtures/f1-season.json";
 
 /**
  * Layout rig for the Sports hub. Dev-server only: this is its own Vite
@@ -201,6 +202,23 @@ window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
         ? input.href
         : input.url;
   const m = /sports\/[^/]+\/([^/]+)\/scoreboard/.exec(url);
+  /* RACING answers with the whole season and is not restamped.
+   *
+   * race.ts asks for `?dates=<year>` and reads a calendar out of it, so
+   * the dates ARE the content here, unlike the team slates where they are
+   * the one thing that has to be faked. The fixture is the real 2026
+   * season pruned to the paths race.ts reads: Hungary has run, Zandvoort
+   * has not, which is the exact split the weekend/session cards are for.
+   *
+   * Stubbed rather than left to the network because the sandbox cannot
+   * reach ESPN, and a rig that silently renders no racing is a rig that
+   * cannot answer the question it was opened to answer. */
+  if (m && m[1] === "f1")
+    return Promise.resolve(
+      new Response(JSON.stringify(f1), {
+        headers: { "content-type": "application/json" },
+      }),
+    );
   // ESPN's soccer path is the competition code, not our key.
   const key =
     m && Object.keys(SLATES).find((k) => k === m[1] || (m[1] === "eng.1" && k === "epl"));

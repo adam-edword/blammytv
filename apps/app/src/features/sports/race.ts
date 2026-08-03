@@ -35,6 +35,14 @@ const STATES: Record<string, Race["state"]> = {
 };
 
 /**
+ * How much of the field to carry into a Race.
+ *
+ * The cards decide what they draw: three on the small card's podium, five
+ * on the wide one. This is only the ceiling on what is kept.
+ */
+const FIELD = 5;
+
+/**
  * The sessions the weekend is FOR.
  *
  * Adam's call, made against the trade-off: on the six sprint weekends a
@@ -102,6 +110,8 @@ interface RawSession {
     period?: number;
     type?: { state?: string; detail?: string; shortDetail?: string };
   };
+  /** Present on every F1 session, and it is "Apple TV" for 2026. */
+  broadcasts?: { market?: string; names?: string[] }[];
   competitors?: {
     order?: number;
     athlete?: { displayName?: string; flag?: { href?: string } };
@@ -206,7 +216,15 @@ function toSessions(event: RawEvent, series: string): Race[] {
     track: event.circuit?.fullName,
     circuitId: event.circuit?.id,
     time: time(session.date),
+    start: new Date(session.date ?? ""),
     day: weekday(session.date),
+    // Flattened and de-duplicated, the way espn.ts does it for a fixture.
+    // No market ordering: a race has no home feed to rank against.
+    broadcasts: [
+      ...new Set((session.broadcasts ?? []).flatMap((b) => b.names ?? [])),
+    ],
+    // Filled by the matcher once racing is a real adapter (plan 010 #1).
+    channels: [],
     race: RACES.has(session.type?.abbreviation ?? ""),
     lap: session.status?.period,
     laps: lapTotal(session),
@@ -214,7 +232,11 @@ function toSessions(event: RawEvent, series: string): Race[] {
     top: (session.competitors ?? [])
       .slice()
       .sort((a, b) => (a.order ?? 99) - (b.order ?? 99))
-      .slice(0, 3)
+      // As many as the widest card wants. The small card slices this to
+      // three for its podium; the wide one takes five. Carrying the extra
+      // two costs a name and a flag URL each and saves a second fetch
+      // shape when the adapter lands.
+      .slice(0, FIELD)
       .map((c, n) => ({
         place: c.order ?? n + 1,
         name: c.athlete?.displayName ?? "",
@@ -324,10 +346,69 @@ function seasonOnce(year: number): Promise<RawRace | null> {
   return season;
 }
 
-export function useRaces(): { weekends: Weekend[]; sessions: Race[] } {
-  const [board, setBoard] = useState<{ weekends: Weekend[]; sessions: Race[] }>({
+/**
+ * TEMPORARY, and the most temporary thing in this file: one staged LIVE
+ * session, so the wide race card can be looked at in the app.
+ *
+ * It exists because of a calendar. F1 ran at the Hungaroring on 26 July
+ * and does not run again until Zandvoort on 21 August, and the wide card
+ * only ever appears while a session is RUNNING (plan 010 #4, Adam's rule).
+ * So on any day between those two there is no way to see the card at all,
+ * which makes it impossible to judge.
+ *
+ * WHAT IS REAL: the circuit, its id and art, the country, the session's
+ * broadcast ("Apple TV", which is genuinely F1's 2026 US rights), and the
+ * drivers with their flags and their finishing order.
+ *
+ * WHAT IS STAGED: that it is happening. The order is the last race that
+ * actually ran, because Zandvoort has not, and the lap is a number.
+ *
+ * Deletes itself along with everything else in this file when the racing
+ * adapter lands, and until then it is one card that says LIVE about a race
+ * that is not. Nobody should ship a release with this in it.
+ */
+export function demoLive(raw: RawRace, today = new Date()): Race | null {
+  const midnight = startOfDay(today);
+  const events = raw.events ?? [];
+  const next = events.find((e) => ahead(e, midnight));
+  // The most recent weekend to have run, for a field with real names in it.
+  const ran = events.filter((e) => !ahead(e, midnight)).at(-1);
+  if (!next || !ran) return null;
+  const finished = (ran.competitions ?? []).find(
+    (c) => c.type?.abbreviation === "Race",
+  );
+  const race = (next.competitions ?? []).find(
+    (c) => c.type?.abbreviation === "Race",
+  );
+  if (!finished || !race) return null;
+  const [session] = toSessions({ ...next, competitions: [race] }, "Formula 1");
+  const [order] = toSessions({ ...ran, competitions: [finished] }, "Formula 1");
+  return {
+    ...session,
+    state: "live",
+    // Zandvoort's real distance, which is the one number here that could
+    // not come from the payload: the scoreboard carries no lap total (plan
+    // 010 #8, unverifiable until a session is actually running).
+    lap: 41,
+    laps: 72,
+    top: order.top,
+  };
+}
+
+export function useRaces(): {
+  weekends: Weekend[];
+  sessions: Race[];
+  /** TEMPORARY, see demoLive. */
+  demo: Race | null;
+} {
+  const [board, setBoard] = useState<{
+    weekends: Weekend[];
+    sessions: Race[];
+    demo: Race | null;
+  }>({
     weekends: [],
     sessions: [],
+    demo: null,
   });
   useEffect(() => {
     const stop = new AbortController();
@@ -340,7 +421,8 @@ export function useRaces(): { weekends: Weekend[]; sessions: Race[] } {
     // guards the state update rather than the shared request.
     void seasonOnce(new Date().getFullYear())
       .then((raw) => {
-        if (raw && !stop.signal.aborted) setBoard(nextUp(raw));
+        if (raw && !stop.signal.aborted)
+          setBoard({ ...nextUp(raw), demo: demoLive(raw) });
       })
       .catch(() => undefined);
     return () => stop.abort();

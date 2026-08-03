@@ -123,28 +123,63 @@ export function CopyIcon({ size = 16, className }: IconProps) {
 }
 
 /** Media / Skip back 10s (counter-clockwise arrow). */
-/** A hierarchy: one node branching to three. Leagues, which is the thing
- * teams hang off. */
+/**
+ * A trophy, and deliberately not THE trophy: Adam's reference, which is
+ * three splayed blades on a plinth rather than a cup with handles.
+ *
+ * How it got here, because the route matters more than the paths. First
+ * ask: "not the usual trophy icon, something unique and cool". Then, on a
+ * cup that had them, "i dont like the handles, just feels too generic",
+ * which is exactly right — two round loops off a rim is the one detail
+ * every trophy icon ever drawn shares, so keeping them meant the bowl
+ * could be any shape and the thing still read as stock. Then two reference
+ * images, and this is the second of them.
+ *
+ * FILLED, where every other icon in this file is a 1.8px stroke. That is a
+ * deliberate exception and not an oversight: drawn as outlines the three
+ * blades collapse into a blob at rail size, because each one is thinner
+ * than two strokes plus a gap. Checked at 20px against the real Teams
+ * shirt and Recents clock beside it — the blades are separated enough that
+ * the ink works out comparable, so it reads as emphasis rather than as a
+ * different icon set.
+ *
+ * PICKED BY LOOKING, at the size it is used. Eighteen candidates across
+ * four rounds, rendered at 20, 40 and 72px. What died: a crest bowl read
+ * as the stock icon, a laurel wreath turned to blobs, a fluted handleless
+ * cup read as a goblet, a deep V went spindly, an inset star muddied, a
+ * chevron read as an hourglass, and the angular monolith (Adam's first
+ * reference) was lovely at 72px and mush at 20 — its engraved lines and
+ * two-tier plinth have nowhere to go. The rail is 20px, so that is the
+ * size that decides, not the one that flatters.
+ *
+ * Replaces an org-chart hierarchy that was placeholder-adjacent: it said
+ * "structure", where the thing a league means to someone scanning a
+ * sidebar is the thing you win.
+ */
 export function LeaguesIcon({ size = 20, className }: IconProps) {
   return (
     <svg
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.8}
-      strokeLinecap="round"
-      strokeLinejoin="round"
+      fill="currentColor"
+      stroke="none"
       className={className}
       aria-hidden
     >
-      <rect x="8.5" y="2.5" width="7" height="5" rx="1" />
-      <rect x="2" y="16" width="5" height="5" rx="1" />
-      <rect x="9.5" y="16" width="5" height="5" rx="1" />
-      <rect x="17" y="16" width="5" height="5" rx="1" />
-      <path d="M12 7.5v4" />
-      <path d="M4.5 16v-2.5h15V16" />
+      {/* The centre blade, and the two that lean away from it.
+        *
+        * Their outer edges land on x 8.9 and 15.1, which are exactly the
+        * plinth's top corners below. Adam's correction, twice: first that
+        * the blades should meet the base rather than overhang it, then
+        * that he meant HORIZONTALLY, "it can float". So they line up and
+        * they do not touch, and the 1.8 units between them are the whole
+        * difference between an object standing on a plinth and a shape
+        * hovering near one. */}
+      <path d="M9.4 3.2h5.2l-1.95 12.4h-1.3L9.4 3.2Z" />
+      <path d="M4.5 4.2 7.7 3.6l2.35 12h-1.15L4.5 4.2Z" />
+      <path d="M19.5 4.2 16.3 3.6l-2.35 12h1.15L19.5 4.2Z" />
+      <path d="M8.9 17.4h6.2l1.5 3.6H7.4z" />
     </svg>
   );
 }

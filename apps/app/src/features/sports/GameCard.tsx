@@ -1,12 +1,13 @@
 import { memo } from "react";
 import Tilt from "react-parallax-tilt";
 import { useFitText } from "../../lib/fitText";
-import { formatClock } from "../../lib/time";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { tooEarly } from "./day";
 import { Badge } from "./Badge";
 import { Wash, WashVeil } from "./Wash";
 import { loser } from "./result";
+import { CardFoot } from "./CardFoot";
+import { carriageText } from "./carriage";
 import type { Game } from "./model";
 
 /**
@@ -43,26 +44,10 @@ function GameCardImpl({
   // still must not take room from the score.
   const [homeName, awayName] = useFitText<HTMLSpanElement>(homeText, awayText);
   const lost = loser(game);
-  // What the bottom-right says. One channel names it; several advertise the
-  // choice, because being able to hop is the reason to use this tab. "Live
-  // on" only where it is true: a game at 8:30 is not live on anything yet.
-  const on = game.state === "live" ? "Live on" : "On";
-  // A match found only in a folder the viewer hid says so. It is still
-  // offered, because they asked for the game and this is the only copy of
-  // it, but calling it "Live on 1 channel" would be a small lie about a
-  // folder somebody muted deliberately.
-  const where = game.hiddenOnly ? "in a hidden folder" : "";
+  // Where to watch it, for the label below. The foot draws its own copy;
+  // this one is only so the accessible name carries it too.
+  const carriage = carriageText(game);
   const early = tooEarly(game);
-  const carriage = game.channelsPending
-    ? "Checking your channels\u2026"
-    : game.channels.length === 0
-      ? game.broadcasts.length > 0
-        ? `On ${game.broadcasts[0]}`
-        : "Not on your channels"
-      : game.channels.length === 1
-        ? `${on} ${game.channels[0].name}${where && ` ${where}`}`
-        : `${on} ${game.channels.length} channels${where && ` ${where}`}`;
-
   return (
     <button
       type="button"
@@ -216,63 +201,10 @@ function GameCardImpl({
           </span>
         </span>
 
-        <span className="gamecard__foot">
-          {game.venue && (
-            <span className="gamecard__venue">
-              <PinIcon />
-              {game.venue}
-            </span>
-          )}
-          {/* A finished game has nothing to tune into, so it says when it
-           * started instead of where to watch it: "On MLB.TV" under a
-           * full-time score is an invitation to watch something already
-           * over. ESPN carries no end time, or this would say that. */}
-          {game.state === "final" ? (
-            <span className="gamecard__carriage gamecard__carriage--none">
-              Started {formatClock(game.start)}
-            </span>
-          ) : (
-            <span
-              className={
-                "gamecard__carriage" +
-                (game.channels.length === 0 ? " gamecard__carriage--none" : "")
-              }
-            >
-              {game.state === "live" && game.channels.length > 0 && (
-                <span className="gamecard__dot" aria-hidden />
-              )}
-              {carriage}
-              {game.channels.length > 1 && (
-                <span className="gamecard__more" aria-hidden>
-                  &rsaquo;
-                </span>
-              )}
-            </span>
-          )}
-        </span>
+        <CardFoot item={game} place={game.venue} start={game.start} />
         <WashVeil home={home} away={away} lost={lost} />
       </Tilt>
     </button>
-  );
-}
-
-function PinIcon() {
-  return (
-    <svg
-      width="9"
-      height="11"
-      viewBox="0 0 9 11"
-      fill="none"
-      aria-hidden
-      focusable="false"
-    >
-      <path
-        d="M4.5.75c2 0 3.5 1.5 3.5 3.4 0 2.4-3.5 6.1-3.5 6.1S1 6.55 1 4.15C1 2.25 2.5.75 4.5.75Z"
-        stroke="currentColor"
-        strokeWidth="1"
-      />
-      <circle cx="4.5" cy="4.15" r="1.15" fill="currentColor" />
-    </svg>
   );
 }
 

@@ -49,9 +49,32 @@ export interface Race {
   circuitId?: string;
   /** Kick-off, already formatted: this card never does its own clock. */
   time: string;
+  /**
+   * The same instant, unformatted.
+   *
+   * Added for the wide card, which reports "Started 3:00PM" on a session
+   * that is over, and needed by the adapter anyway: plan 010 #3 puts each
+   * session on its own day, which means running it through `onDay()` like
+   * a game, which needs a Date rather than a rendered string.
+   */
+  start: Date;
   /** "SAT". Only the upcoming card shows it; the rest are on the day. */
   day: string;
   state: "pre" | "live" | "final";
+  /**
+   * Where to watch, exactly as a Game carries it.
+   *
+   * Racing really does have this: measured over the 2026 calendar, every
+   * F1 session carries `broadcasts: ["Apple TV"]`, which is correct for
+   * the season's US rights. So the matcher has a real name to find, and a
+   * wide race card can answer the question the row exists to answer.
+   *
+   * `channels` is empty until the matcher runs over it (plan 010 #5).
+   */
+  broadcasts: string[];
+  channels: { id: string; name: string }[];
+  channelsPending?: boolean;
+  hiddenOnly?: boolean;
   /**
    * Is this a RACE, as opposed to practice or qualifying?
    *

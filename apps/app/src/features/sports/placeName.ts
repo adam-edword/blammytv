@@ -13,7 +13,7 @@
  */
 
 /**
- * The length at which the code takes over.
+ * The length at which the code takes over, on the SMALL cards.
  *
  * MEASURED, not picked. The narrowest track the board's grid makes is
  * 315px, which leaves the name 137px. At 28px in the headline face,
@@ -70,9 +70,14 @@ const CODES: Record<string, string> = {
  * the IOC built most of its own codes and is right far more often than it
  * is wrong. The card keeps the full name on its tooltip either way, so
  * nothing is actually lost.
+ *
+ * `max` because the WIDE card is a different question. Coding NETHERLANDS
+ * down to NED is the right answer in a 137px column and the wrong one in a
+ * column two and a half times wider, where the full word fits with room to
+ * spare. Same rule, its own measurement; see WIDE_MAX in WideRaceCard.
  */
-export function shortPlace(place: string): string {
+export function shortPlace(place: string, max = MAX): string {
   const name = place.trim();
-  if (name.length <= MAX) return name;
+  if (name.length <= max) return name;
   return CODES[name.toLowerCase()] ?? name.slice(0, 3).toUpperCase();
 }
