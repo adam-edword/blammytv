@@ -1018,6 +1018,34 @@ works for every sport rather than being a racing special case.
   this is the reason someone wants a longer board, arrived at from the
   other end.
 
+#### 38. Opening a tournament shows its draw [ ]
+
+The tournament card counts a day's matches and cannot show them. It
+already HOLDS them — `Tournament.matches` is the day's fixtures, fully
+mapped, scored in sets with doubles pairs named — so this is a screen
+rather than a fetch.
+
+What it needs deciding: whether it is the theater (it is not a thing you
+watch, it is a list) or a panel over the board, and whether the draws
+("Men's Singles", "Women's Doubles") are tabs or headings. 39 matches is
+a lot for one list and the draw split is the obvious way to cut it.
+
+Until it exists the card is deliberately not clickable, the same rule the
+race cards follow.
+
+#### 39. A wide tournament card, or a rule that keeps it off the row [ ]
+
+Today's Games is a row of 783.84px cards and the tournament card is the
+grid's 315px. A live tournament let onto the row rendered at 315x276.9
+between neighbours at 783.84x276.9, which reads as a broken card rather
+than a small one, so tournaments are filtered off the row for now.
+
+That is a holding position, not an answer. A tournament with four matches
+on court IS one of the things on now, and the row is where "on now" is
+answered. The question for Adam is what the wide version says with the
+room: the four live matches by name, the leaders, or just the tournament
+bigger.
+
 ---
 
 ## Shipped, and off the list
@@ -1041,6 +1069,8 @@ here so a label that vanished can be looked up.
 | **1, 3** | **The racing adapter.** `Game` split into `Fixture` and `Field`, `race.ts` deleted, racing on the normal fetch path and on its real days, `racing/f1` in the defaults, five TEMPORARY blocks cleared | v0.8.127 |
 | **4** | **The wide race card.** GameCard's footprint, five drivers, lap, circuit art, carriage. Plus `CardFoot`/`carriageText` extracted and tested, and a `shortPlace` width budget | v0.8.122-125 |
 | - | The Leagues rail icon: three splayed blades on a plinth, filled | v0.8.122 |
+| - | League marks up twice, 16 to 26 on rows and 34 to 48 on tiles, with the row height held at 36px | v0.8.132-133 |
+| **37** | **The wide board.** An empty follow store asks for all 151 leagues over today and tomorrow instead of six; a tournament collapses to one card a day instead of its whole draw; the 90 second tick re-polls only the leagues that answered | v0.8.134 |
 
 ## Closed decisions
 

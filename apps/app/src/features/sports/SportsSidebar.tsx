@@ -13,7 +13,7 @@ import {
 } from "../../ui/icons";
 import { teamKey, toggleTeam, type Follows } from "./follows";
 import { LeaguePicker } from "./LeaguePicker";
-import { isField } from "./model";
+import { isFixture } from "./model";
 import type { Game } from "./model";
 
 type Mode = "leagues" | "teams" | "channels";
@@ -72,9 +72,10 @@ export function SportsSidebar({
   const clubs = useMemo(() => {
     const by = new Map<string, { key: string; name: string; logo?: string }>();
     for (const g of games) {
-      // An ordered field has no clubs in it. A race weekend on the board
-      // must not put twenty drivers in a list headed "Teams".
-      if (isField(g)) continue;
+      // Only a fixture has clubs in it. A race weekend must not put twenty
+      // drivers in a list headed "Teams", and a tournament must not put a
+      // draw of singles players there either.
+      if (!isFixture(g)) continue;
       for (const side of [g.home, g.away]) {
         const key = teamKey(g.leagueKey, side);
         // No id, no follow: see teamKey. Draw nothing rather than key a

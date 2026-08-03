@@ -19,6 +19,7 @@ import nba from "./fixtures/nba.json";
 import nfl from "./fixtures/nfl.json";
 import nhl from "./fixtures/nhl.json";
 import f1 from "./fixtures/f1-season.json";
+import tennis from "./fixtures/tennis.json";
 
 /**
  * Layout rig for the Sports hub. Dev-server only: this is its own Vite
@@ -255,15 +256,90 @@ window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
       ),
     );
   }
+  /* TENNIS, which is the only slate that is not a list of fixtures.
+   *
+   * A real National Bank Open board, two days of it: 117 matches across
+   * three draws, with the states the source actually sent (19 finished,
+   * 4 on court, 94 to come). The adapter folds each day into ONE card, and
+   * that fold is the whole reason this fixture exists — a rig that only
+   * ever showed team sports could not tell you whether the tournament card
+   * fits the grid beside them.
+   *
+   * Restamped by DAY rather than per match: the capture's two dates are
+   * mapped onto today and tomorrow in order, so every match keeps its own
+   * time of day and the day's shape survives. */
+  if (m && (m[1] === "atp" || m[1] === "wta")) {
+    const want = parseDates(url);
+    const groupings = tennis.events[0].groupings ?? [];
+    const dates = [
+      ...new Set(
+        groupings.flatMap((g) =>
+          (g.competitions ?? []).map((c) => new Date(c.date).toDateString()),
+        ),
+      ),
+    ].sort((a, b) => Date.parse(a) - Date.parse(b));
+    /** The capture's nth day becomes today + n. */
+    const shift = (iso: string) => {
+      const was = new Date(iso);
+      const i = dates.indexOf(was.toDateString());
+      const when = new Date();
+      when.setHours(0, 0, 0, 0);
+      when.setDate(when.getDate() + (i < 0 ? 0 : i));
+      when.setHours(was.getHours(), was.getMinutes(), 0, 0);
+      return when.toISOString();
+    };
+    const moved = {
+      ...tennis,
+      events: [
+        {
+          ...tennis.events[0],
+          groupings: groupings.map((g) => ({
+            ...g,
+            competitions: (g.competitions ?? [])
+              .map((c) => ({ ...c, date: shift(c.date) }))
+              // The endpoint answers per day, and the board asks per day.
+              .filter(
+                (c) => new Date(c.date).toDateString() === want.toDateString(),
+              ),
+          })),
+        },
+      ],
+    };
+    return Promise.resolve(
+      new Response(JSON.stringify(moved), {
+        headers: { "content-type": "application/json" },
+      }),
+    );
+  }
   // ESPN's soccer path is the competition code, not our key.
   const key =
     m && Object.keys(SLATES).find((k) => k === m[1] || (m[1] === "eng.1" && k === "epl"));
-  if (!key) return realFetch(input, init);
-  return Promise.resolve(
-    new Response(JSON.stringify(restamp(SLATES[key], key, parseDates(url))), {
-      headers: { "content-type": "application/json" },
-    }),
-  );
+  if (key) {
+    return Promise.resolve(
+      new Response(JSON.stringify(restamp(SLATES[key], key, parseDates(url))), {
+        headers: { "content-type": "application/json" },
+      }),
+    );
+  }
+  /* ANY OTHER LEAGUE: out of season, which is what most of them are.
+   *
+   * It used to fall through to the real endpoint, and that stopped being
+   * survivable the moment an empty follow store began asking for all 151
+   * catalog leagues: the rig fired 302 live requests it had no fixture for,
+   * and the board sat on "Loading" behind them. A 200 with no events is
+   * also the honest answer — it is exactly what ESPN sends for a league
+   * between seasons, which on any given day is most of the catalog.
+   *
+   * Only SCOREBOARD urls. Crests still come off the real CDN, because a
+   * card measured without its art is not the card. */
+  if (m) {
+    return Promise.resolve(
+      new Response(JSON.stringify({ events: [] }), {
+        headers: { "content-type": "application/json" },
+      }),
+    );
+  }
+  return realFetch(input, init);
 };
 
 applyAccent(loadAccent());

@@ -1,7 +1,8 @@
 import { driverCode } from "./driverCode";
 import { league as catalogLeague } from "./leagues";
 import { toRacing, type RawRacing } from "./racing";
-import type { Competitor, Fixture, Game, GameState } from "./model";
+import { isTournament } from "./model";
+import type { Competitor, Fixture, Game, GameState, Tournament } from "./model";
 
 /**
  * The schedule source (plan 010, phase 1): ESPN's undocumented scoreboard
@@ -23,28 +24,19 @@ import type { Competitor, Fixture, Game, GameState } from "./model";
 const BASE = "https://site.api.espn.com/apis/site/v2/sports";
 
 /**
- * What the board asks for when NOTHING is followed (plan 010, D1).
+ * The six biggest leagues, and NO LONGER what an empty store fetches.
  *
- * Not "the leagues this app supports" any more: what gets fetched is the
- * follow list, over the 151-league catalog. This is only the floor under an
- * empty store, and it is the same five that used to be hardcoded, so a
- * first run looks exactly like it always has.
+ * It was the floor under "nothing followed" and it is not any more: an empty
+ * store now asks for the whole catalog, because an absent preference is not
+ * a preference for these six, and a board that already looks curated gives
+ * nobody a reason to curate it (see fetchList).
  *
- * A floor rather than nothing, because the alternative to a default set is
- * an empty board on first launch asking to be configured. That trade is
- * what makes onboarding (E1) worth building; until it exists, a board with
- * the five biggest leagues on it is a better first screen than a form.
- *
- * F1 IS HERE NOW, and its absence was never a preference. Adam's brief
- * named it from the start ("all the major US leagues, plus the global
- * competitions worth following from here, Premier League and F1"); it sat
- * out because a race is a session with twenty entrants rather than two
- * competitors, so it had no card to be drawn on. It has one, and an
- * adapter to reach it, so the reason has gone.
- *
- * The other five racing series are not here and that is a preference: they
- * carry no circuit and no country (plan 010 #7), so they have no art and
- * no name for the big slot yet. They are one click away in the catalog.
+ * What is left is a sensible default ARGUMENT — the value `fetchGames` and
+ * `useGames` fall back to when handed no list at all, which in practice
+ * means the tests and the layout rig. Kept as a named export rather than
+ * inlined there because "the six a reasonable person would name" is a real
+ * thing to want, and both onboarding items (plan 010 #18, #19) will want it
+ * again as the set a first run can start from with one click.
  */
 export const DEFAULT_LEAGUES: readonly string[] = [
   "football/nfl",
@@ -99,6 +91,14 @@ interface RawScoreboard {
 interface RawEvent {
   id?: string;
   date?: string;
+  /** "National Bank Open presented by Rogers". The tournament's own name,
+   * which is what a tournament card headlines with. */
+  name?: string;
+  shortName?: string;
+  /** The last day of a multi-day event. */
+  endDate?: string;
+  /** "Toronto, Canada" on a tournament, where a fixture carries a stadium. */
+  venue?: { displayName?: string };
   competitions?: RawCompetition[];
   /**
    * Tennis, and only tennis so far.
@@ -108,8 +108,22 @@ interface RawEvent {
    * only `competitions` sees a tournament with nothing in it. Measured on
    * a real ATP board: two events, `competitions` length 0 on both,
    * `groupings` length 2 and 4, holding 54 and 121 matches.
+   *
+   * The whole DRAW, not the day: a single National Bank Open event carries
+   * 284 matches spread over a fortnight. See toTournaments for why that
+   * makes the summary per-day rather than per-event.
    */
-  groupings?: { competitions?: RawCompetition[] }[];
+  groupings?: {
+    grouping?: { displayName?: string };
+    competitions?: RawCompetition[];
+  }[];
+  /**
+   * The event-level status, and it CANNOT BE TRUSTED. Measured on
+   * 2026-08-03: the National Bank Open runs to 2026-08-14 and its event
+   * status already read STATUS_FINAL with `completed: true`. A tournament's
+   * state is derived from the matches actually being played that day.
+   */
+  status?: { type?: { state?: string } };
 }
 interface RawCompetition {
   id?: string;
@@ -145,6 +159,9 @@ interface RawCompetition {
    * on 2026-04-20: 3/3 NBA and 4/4 NHL games carried one.
    */
   series?: { summary?: string };
+  /** "Round 1", "Quarterfinal", "Final". Tournament matches carry it and
+   * it is the one thing that says where in a draw a day sits. */
+  round?: { displayName?: string };
   /**
    * Why this game is not an ordinary one: "Hall of Fame Game", "East 1st
    * Round - Game 2", "NBA Canada Games 2026", "Paris Saint-Germain win 4-3
@@ -275,9 +292,40 @@ export async function fetchGames(
   paths: readonly string[] = DEFAULT_LEAGUES,
   opts: { date?: Date; signal?: AbortSignal } = {},
 ): Promise<Game[]> {
+  return (await fetchBoard(paths, opts)).games;
+}
+
+/**
+ * The same fetch, and WHICH PATHS ARE WORTH ASKING AGAIN.
+ *
+ * The board polls today every 90 seconds, and an empty follow store now puts
+ * all 151 catalog leagues on the fetch list. Re-asking all 151 on every tick
+ * is roughly 100 requests a minute at a free, undocumented endpoint we do
+ * not own, which is the behaviour this file's header rules out.
+ *
+ * It is also almost entirely waste. Measured across the catalog on
+ * 2026-08-03: 151 leagues answered, 20 of them had anything on at all. A
+ * league with no game today at nine in the morning still has none at eight
+ * in the evening — a day's fixture list is known in advance — so the only
+ * paths whose answers can still CHANGE are the ones that returned something.
+ *
+ * FAILURES COUNT AS WORTH RETRYING, which is the whole reason this returns a
+ * list rather than the caller deriving one from `games`. A league that threw
+ * contributed no game to read a path back off, so a derived list would drop
+ * it silently and never ask again for the rest of the session — turning one
+ * bad response into a league that is missing until the app restarts.
+ */
+export async function fetchBoard(
+  paths: readonly string[] = DEFAULT_LEAGUES,
+  opts: { date?: Date; signal?: AbortSignal } = {},
+): Promise<{ games: Game[]; answered: string[] }> {
   const settled = await Promise.allSettled(
     paths.map((p) => fetchLeague(p, opts)),
   );
+  const answered = paths.filter((_, i) => {
+    const r = settled[i];
+    return r.status === "rejected" || r.value.length > 0;
+  });
   const ok = settled.filter((r) => r.status === "fulfilled");
   // EVERY league failing is not a quiet day, it is an outage, and the two
   // looked identical: allSettled never rejects, so the screen's own
@@ -290,7 +338,42 @@ export async function fetchGames(
   if (settled.length > 0 && ok.length === 0) {
     throw new Error("every league failed");
   }
-  return ok.flatMap((r) => (r as PromiseFulfilledResult<Game[]>).value);
+  return {
+    games: dedupe(ok.flatMap((r) => (r as PromiseFulfilledResult<Game[]>).value)),
+    answered: [...answered],
+  };
+}
+
+/**
+ * One card per id, because two leagues can serve the same event.
+ *
+ * Only tournaments can collide, by construction: a fixture's id carries its
+ * league path, so nothing else in the catalog can name the same card. Tennis
+ * can, and does on every single tournament — atp and wta both return the
+ * full combined draw sheet, so without this every tennis card on the board
+ * appeared twice.
+ *
+ * The collision MERGES rather than picks. Dropping the second copy would
+ * also drop the fact that the other tour served it, and paths are sorted
+ * upstream, so "tennis/atp" would win every time and someone following only
+ * the WTA would lose a tournament that is half women's draws.
+ */
+export function dedupe(games: Game[]): Game[] {
+  const by = new Map<string, Game>();
+  for (const game of games) {
+    const seen = by.get(game.id);
+    if (!seen) {
+      by.set(game.id, game);
+      continue;
+    }
+    if (isTournament(seen) && isTournament(game)) {
+      by.set(game.id, {
+        ...seen,
+        keys: [...new Set([...seen.keys, ...game.keys])],
+      });
+    }
+  }
+  return [...by.values()];
 }
 
 /**
@@ -301,7 +384,7 @@ export async function fetchGames(
  * a row from a hardcoded table of five; the table is gone, and a path is
  * something the catalog can hand over for any of 151.
  */
-export function toGames(raw: RawScoreboard, path: string): Fixture[] {
+export function toGames(raw: RawScoreboard, path: string): Game[] {
   // "Premier League", "MLB": the short one is what the card's league line
   // has room for. Falls back to the long name, then to the catalog's own
   // label, then to the path.
@@ -317,14 +400,22 @@ export function toGames(raw: RawScoreboard, path: string): Fixture[] {
   // "soccer/eng.1" -> "soccer". ESPN's own first path segment, which is
   // what the catalog is keyed by too.
   const sport = path.slice(0, path.indexOf("/")) || path;
-  return (raw.events ?? [])
-    .flatMap((e) => {
-      const matches = matchesOf(e);
-      // The suffix only appears when it has to. A one match event keeps the
-      // id it has always had, which matters: ids are React keys and the
-      // row's scroll anchor, and renaming every game in the app to support
-      // tennis would be a large blast radius for no gain.
-      return matches.map((c, i) =>
+  return (raw.events ?? []).flatMap((e): Game[] => {
+    // A DRAW rather than a meeting. An event with no `competitions` and
+    // groupings instead is a tournament, and it summarises to one card a
+    // day instead of expanding to its whole draw. Detected by SHAPE, not by
+    // a list of league slugs, for the same reason racingPath is: how an
+    // event is put together belongs to the event.
+    if (!e.competitions?.length && e.groupings?.length) {
+      return toTournaments(e, path, sport, name);
+    }
+    const matches = e.competitions ?? [];
+    // The suffix only appears when it has to. A one match event keeps the
+    // id it has always had, which matters: ids are React keys and the
+    // row's scroll anchor, and renaming every game in the app to support
+    // tennis would be a large blast radius for no gain.
+    return matches
+      .map((c, i) =>
         toGame(
           e,
           c,
@@ -333,27 +424,124 @@ export function toGames(raw: RawScoreboard, path: string): Fixture[] {
           sport,
           name,
         ),
-      );
-    })
-    .filter((g): g is Fixture => g !== null);
+      )
+      .filter((g): g is Fixture => g !== null);
+  });
 }
 
 /**
- * Every match in an event. Usually exactly one.
+ * A tournament, as one card PER DAY it plays on.
  *
- * A tennis tournament is the exception and it is a big one: it leaves
- * `competitions` EMPTY and hangs its matches off `groupings` instead, one
- * per draw. Measured on a real ATP board, a single event carried 121
- * matches this way.
+ * Three measurements decided this shape, all taken on 2026-08-03/04 across
+ * the whole 151-league catalog:
  *
- * That scale is worth knowing before this is switched on for tennis: one
- * tournament produces more cards than a full day of all five team leagues
- * put together, so something upstream will want to narrow it (a draw, a
- * round, or today only). This function's job is only to find them.
+ *   THE SCALE. One WTA event carries its entire draw — 284 to 447 matches
+ *   over a fortnight — and 89 of them landed on a single day. Tennis was
+ *   256 of the 304 cards a whole-catalog board would draw, so 84% of the
+ *   screen was one sport's early rounds.
+ *
+ *   THE DATE. A summary of the whole event would carry the first match's
+ *   date, so `onDay` would file a two-week tournament under its opening
+ *   Monday and it would vanish for the other thirteen days. Grouping the
+ *   draw by day and emitting one per day is what makes the existing day
+ *   filter do the right thing with no special case.
+ *
+ *   THE STATE. `event.status` says STATUS_FINAL on a tournament that runs
+ *   for another eleven days, so it is ignored: a day is live if anything on
+ *   it is on court, otherwise upcoming if anything has yet to start, and
+ *   finished only when all of it is.
  */
-function matchesOf(event: RawEvent): RawCompetition[] {
-  if (event.competitions?.length) return event.competitions;
-  return (event.groupings ?? []).flatMap((g) => g.competitions ?? []);
+function toTournaments(
+  event: RawEvent,
+  path: string,
+  sport: string,
+  leagueName: string,
+): Tournament[] {
+  if (!event.id) return [];
+  const title = event.shortName ?? event.name;
+  if (!title) return [];
+  const end = event.endDate ? new Date(event.endDate) : undefined;
+
+  /**
+   * The day's matches, keyed by LOCAL date, same as `onDay` buckets by.
+   *
+   * Mapped through the ordinary per-match path, so a tennis match inside a
+   * tournament is exactly the Fixture it always was — scored in sets, with
+   * a doubles pair named off its roster. Only its ALTITUDE changed.
+   */
+  const byDay = new Map<string, { draw?: string; round?: string; game: Fixture }[]>();
+  for (const group of event.groupings ?? []) {
+    const draw = group.grouping?.displayName;
+    for (const comp of group.competitions ?? []) {
+      const game = toGame(event, comp, comp.id ?? null, path, sport, leagueName);
+      if (!game) continue;
+      const key = game.start.toDateString();
+      const entry = { draw, round: comp.round?.displayName, game };
+      const bucket = byDay.get(key);
+      if (bucket) bucket.push(entry);
+      else byDay.set(key, [entry]);
+    }
+  }
+
+  return [...byDay.values()].map((day) => {
+    const matches = day
+      .map((m) => m.game)
+      .sort((a, b) => a.start.getTime() - b.start.getTime());
+    const start = matches[0].start;
+    const playing = matches.filter((m) => m.state === "live").length;
+    const state: GameState =
+      playing > 0
+        ? "live"
+        : matches.some((m) => m.state !== "final")
+          ? "pre"
+          : "final";
+    return {
+      kind: "tournament" as const,
+      /**
+       * NO PATH IN THE ID, deliberately, and it is what makes the duplicate
+       * collapse. ESPN's tennis/atp and tennis/wta scoreboards return the
+       * SAME combined events: measured, all 405 of ATP's match ids were
+       * among WTA's 447, with identical men's and women's draws on both.
+       * Keying on the sport and the event id means both feeds name the same
+       * card and `fetchGames` folds them into one. The day is in the id
+       * because there is one of these per day.
+       */
+      id: `espn-tournament-${sport}-${event.id}-${espnDate(start)}`,
+      sport,
+      league: leagueName,
+      leagueKey: path,
+      // Both feeds' paths, merged on dedupe below. A tournament is not "an
+      // ATP event": the same draw sheet carries men's and women's, so
+      // following either tour has to be able to reach it.
+      keys: [path],
+      state,
+      start,
+      status:
+        state === "live"
+          ? `${playing} LIVE`
+          : state === "final"
+            ? "Final"
+            : statusText("pre", start),
+      title,
+      matches,
+      // Ordered as the source listed them, deduped: a day can straddle two
+      // rounds, and 2026-08-04 did exactly that ("Round 1", "Round 2").
+      rounds: unique(day.map((m) => m.round)),
+      draws: unique(day.map((m) => m.draw)),
+      venue: event.venue?.displayName,
+      end,
+      // The day's networks, flattened across its matches. Tennis carried
+      // none at all when this was measured, so the matcher will find
+      // nothing and the card will say so honestly rather than guess.
+      broadcasts: [...new Set(matches.flatMap((m) => m.broadcasts))],
+      channels: [],
+    };
+  });
+}
+
+/** Present, in order, once each. */
+function unique(values: (string | undefined)[]): string[] {
+  return [...new Set(values.filter((v): v is string => !!v))];
 }
 
 /**

@@ -227,14 +227,91 @@ export interface Field extends Board {
 }
 
 /**
+ * A DRAW OF MATCHES, which is what a tennis tournament is.
+ *
+ * One card for a day of one tournament, not one card per match. The reason
+ * is a measurement: a single WTA event carries its ENTIRE draw, 447 matches
+ * across two weeks, and 89 of them landed on one day. Swept across the whole
+ * catalog for today and tomorrow, tennis was 256 of 304 cards — 84% of the
+ * board was one sport's qualifying rounds.
+ *
+ * That is not a card being missing, it is a card being at the wrong
+ * altitude. A tournament IS one thing on a schedule: nobody asks "what is on
+ * tonight" and means 89 separate answers from Toronto. So the day's matches
+ * are counted rather than drawn, and what the card carries is the shape of
+ * the day — which rounds, how many matches, how many running.
+ *
+ * PER DAY, one per date the tournament plays on, which is what lets `onDay`
+ * file it correctly. A single summary of the whole event would carry the
+ * first match's date and vanish from every other day of a fortnight.
+ */
+export interface Tournament extends Board {
+  kind: "tournament";
+  /** Its own name: "National Bank Open". A fixture is named by its two
+   * sides; a tournament has to carry one. */
+  title: string;
+  /**
+   * Every catalog path that served this tournament, which is usually one
+   * and for tennis is two.
+   *
+   * ESPN's atp and wta scoreboards return the SAME combined events, men's
+   * and women's draws on both, so the two feeds produce one card. Following
+   * either tour has to reach it, and `leagueKey` can only name one of them.
+   */
+  keys: string[];
+  /**
+   * The day's matches, in start order.
+   *
+   * The FIXTURES, not a count, and that is what keeps this honest. The card
+   * only draws `matches.length`, but a tournament day genuinely is its
+   * matches: the state, the start time and the rounds are all read off
+   * them rather than asserted separately, so they cannot drift from each
+   * other. It also keeps the per-match mapping live — sets rather than
+   * games won, doubles pairs with no `athlete` at all, a whitewash scored
+   * as zero — which is real tested code that summarising to an integer
+   * would have stranded, and which is exactly what opening a tournament
+   * (plan 010 #38) needs.
+   */
+  matches: Fixture[];
+  /**
+   * The rounds in play today: ["Round 1"], or ["Round 1", "Round 2"] on a
+   * day a draw straddles two. Ordered as the source listed them.
+   */
+  rounds: string[];
+  /** The draws in play today: "Men's Singles", "Women's Doubles". */
+  draws: string[];
+  /** The last day of the tournament, where the source says. */
+  end?: Date;
+}
+
+/**
  * A thing on the board.
  *
- * Narrow with `isField`. Anything that reads `home` or `away` has to,
- * which is 9 files and 13 sites; everything else works on the union.
+ * Narrow with `isFixture` before reading `home` or `away`. THREE kinds now,
+ * which changes how that narrowing has to be written: `!isField(g)` used to
+ * mean "a fixture" because there were only two, and it silently stopped
+ * meaning that. Every site that reaches for a side asks the positive
+ * question instead, so adding a fourth kind is a compile error rather than a
+ * card reading `undefined.name`.
  */
-export type Game = Fixture | Field;
+export type Game = Fixture | Field | Tournament;
 
 /** An ordered field rather than a fixture. */
 export function isField(game: Game): game is Field {
   return game.kind === "field";
+}
+
+/** A day of a tournament rather than a single meeting. */
+export function isTournament(game: Game): game is Tournament {
+  return game.kind === "tournament";
+}
+
+/**
+ * Two sides and a score, and the ONLY safe test before reading either.
+ *
+ * Positive on purpose. See the union above: the negative form was correct
+ * exactly while there were two kinds.
+ */
+export function isFixture(game: Game): game is Fixture {
+  return game.kind === "fixture";
 }

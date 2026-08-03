@@ -4,8 +4,7 @@ import {
   HeartGhostIcon,
   HeartRainbowHollowIcon,
 } from "../../ui/icons";
-import { DEFAULT_LEAGUES } from "./espn";
-import { SPORTS, league as byPath, searchLeagues } from "./leagues";
+import { ALL_LEAGUES, SPORTS, league as byPath, searchLeagues } from "./leagues";
 import { toggleLeague, type Follows } from "./follows";
 import type { CatalogLeague } from "./leagues";
 
@@ -148,10 +147,12 @@ export function LeaguePicker({
         <p className="live-sidebar__note">
           {searching
             ? "No favourites match."
-            : /* Not an error, and not nothing on the board either: an
-               * empty store still fetches the default set, so saying
-               * "none" without saying that would read as a broken tab. */
-              `No favourites yet. ${DEFAULT_LEAGUES.length} leagues are on by default until you pick.`}
+            : /* Not an error, and the opposite of an empty board: with
+               * nothing picked the hub shows every league that has anything
+               * on. Saying so is the point — the board behind this panel is
+               * deliberately more than anyone wants, and this is the line
+               * that explains why and what to do about it. */
+              `No favourites yet, so all ${ALL_LEAGUES.length} leagues are on the board. Pick the ones you follow to narrow it.`}
         </p>
       )}
 

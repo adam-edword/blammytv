@@ -6,6 +6,7 @@ import {
 } from "../settings/compactResults";
 import { CompactCard } from "./CompactCard";
 import { RaceCard } from "./RaceCard";
+import { TournamentCard } from "./TournamentCard";
 import { WideRaceCard } from "./WideRaceCard";
 import { SportsSidebar } from "./SportsSidebar";
 import { fetchList, isFollowed, loadFollows, resolvable } from "./follows";
@@ -17,8 +18,8 @@ import { useCatalog } from "./catalog";
 import { ALL_LEAGUES } from "./leagues";
 import { useGames, withChannels } from "./useGames";
 import type { Day } from "./useGames";
-import { isField } from "./model";
-import type { Fixture, Game } from "./model";
+import { isField, isFixture, isTournament } from "./model";
+import type { Field, Fixture, Game } from "./model";
 
 /**
  * The Sports hub (plan 010): games as the objects, your channels hanging
@@ -87,7 +88,19 @@ export function SportsScreen({ home }: { home?: number } = {}) {
   // Off the RESOLVABLE follows, not the raw store: a path the catalog no
   // longer carries is not a URL worth asking ESPN for.
   const leagues = useMemo(() => fetchList(active), [active]);
-  const { days: raw, state } = useGames(leagues);
+  /**
+   * TODAY AND TOMORROW on the wide board, three days once it is narrowed.
+   *
+   * Adam's, and the arithmetic backs it: with nothing followed the fetch
+   * list is all 151 catalog leagues, so each extra day is another 151
+   * requests for a day almost nobody scrolls to before they have said what
+   * they like. Two days is 302 and it measured at 5.5 MB and eight to
+   * thirty-eight seconds depending on how warm the connection was.
+   *
+   * A narrowed board is a handful of leagues, so the third day is nearly
+   * free there and it is the one people actually plan against.
+   */
+  const { days: raw, state } = useGames(leagues, narrowed ? 3 : 2);
   // The schedule and the channel list arrive independently, so they are
   // joined here rather than inside either one. Memoised on both: resolving
   // a 42-game board costs 4.7ms against a 20k-channel index and 3.7 SECONDS
@@ -114,14 +127,28 @@ export function SportsScreen({ home }: { home?: number } = {}) {
   /**
    * What the ROW carries, which is not everything today has.
    *
-   * Fixtures always. An ordered field only while it is RUNNING, which is
-   * Adam's rule (plan 010 #4): the row is a short list of what to watch
-   * now, a Friday practice that has finished is a thing that happened, and
-   * the grids below are where things that happened live. On race day the
-   * Grand Prix is then the first thing anyone scans.
+   * Fixtures always. Anything that is not one only while it is RUNNING,
+   * which is Adam's rule for a race weekend (plan 010 #4): the row is a
+   * short list of what to watch now, a Friday practice that has finished is
+   * a thing that happened, and the grids below are where things that
+   * happened live. On race day the Grand Prix is then the first thing
+   * anyone scans.
+   *
+   * A TOURNAMENT IS NOT ON THE ROW AT ALL, which is a shape problem rather
+   * than a rule. Everything here is a wide card at 783.84px and the
+   * tournament card is the grid's 315px, so letting a live one through put
+   * a narrow card between two wide ones and stretched it to the row's
+   * height: measured at 315x276.9 against its neighbours' 783.84x276.9.
+   * A wide tournament card is a real design question (plan 010 #39) and
+   * not one to answer by accident. The grid below carries them meanwhile,
+   * which is where a thing made of 39 matches belongs anyway.
    */
   const rowItems = useMemo(
-    () => today.filter((g) => !isField(g) || g.state === "live"),
+    () =>
+      today.filter(
+        (g): g is Fixture | Field =>
+          !isTournament(g) && (isFixture(g) || g.state === "live"),
+      ),
     [today],
   );
 
@@ -194,7 +221,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
    * rail learns to match on a series instead of on team names.
    */
   const openGame = (g: Game) => {
-    if (isField(g)) return;
+    if (!isFixture(g)) return;
     invoker.current = g.id;
     setOpen(g);
   };
@@ -226,13 +253,13 @@ export function SportsScreen({ home }: { home?: number } = {}) {
     // no numbers at all. Fall back to the game as opened if it drops off
     // the day (it will not, but the board is a network read).
     const current =
-      today.find((g): g is Fixture => !isField(g) && g.id === open.id) ?? open;
+      today.find((g): g is Fixture => isFixture(g) && g.id === open.id) ?? open;
     return (
       <SportsTheater
         game={current}
         others={today.filter(
           (g): g is Fixture =>
-            !isField(g) && g.state === "live" && g.id !== current.id,
+            isFixture(g) && g.state === "live" && g.id !== current.id,
         )}
         catalog={catalog}
         onOpen={openGame}
@@ -296,6 +323,8 @@ export function SportsScreen({ home }: { home?: number } = {}) {
                 {day.games.map((g) =>
                   isField(g) ? (
                     <RaceCard key={g.id} race={g} />
+                  ) : isTournament(g) ? (
+                    <TournamentCard key={g.id} event={g} />
                   ) : compact && g.state === "final" ? (
                     <CompactCard key={g.id} game={g} onOpen={openGame} />
                   ) : (

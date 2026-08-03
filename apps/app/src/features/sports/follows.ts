@@ -1,6 +1,6 @@
 import { load, save } from "../../lib/storage";
-import { DEFAULT_LEAGUES } from "./espn";
-import { isField } from "./model";
+import { ALL_LEAGUES } from "./leagues";
+import { isFixture, isTournament } from "./model";
 import type { Competitor, Game } from "./model";
 
 /**
@@ -114,13 +114,13 @@ export function teamKey(
 /**
  * Both sides of a game, as follow keys. Absent ids drop out.
  *
- * EMPTY for an ordered field, and that is the honest answer rather than a
- * gap. A race has no sides to follow; following a DRIVER is a different
- * feature with a different key space, and until it exists a racing league
- * is followed as a league.
+ * EMPTY for anything that is not a fixture, and that is the honest answer
+ * rather than a gap. A race has no sides to follow and neither does a
+ * tournament; following a DRIVER or a PLAYER is a different feature with a
+ * different key space, and until it exists those are followed as leagues.
  */
 export function gameTeamKeys(game: Game): string[] {
-  if (isField(game)) return [];
+  if (!isFixture(game)) return [];
   return [
     teamKey(game.leagueKey, game.home),
     teamKey(game.leagueKey, game.away),
@@ -136,8 +136,20 @@ export function gameTeamKeys(game: Game): string[] {
  * is no way to ask ESPN for one club's fixtures and no reason to want one:
  * the league's board is a superset, and `isFollowed` narrows it back down.
  *
- * Nothing followed asks for the default five. See DEFAULT_LEAGUES for why
- * there is a floor at all rather than an empty board.
+ * NOTHING FOLLOWED ASKS FOR EVERYTHING, which is Adam's call and a reversal
+ * of the six-league floor that used to sit here. The argument is that an
+ * empty store is not a preference for six leagues, it is the absence of a
+ * preference, and the honest answer to "I have not told you what I like" is
+ * the whole board. It is also the only version that sells the picker: you
+ * cannot want to narrow a screen that was already narrowed for you, and
+ * seeing cricket, lacrosse and F1 land next to the NFL is what makes
+ * picking favourites worth doing.
+ *
+ * It is affordable because of what came back when it was measured across
+ * all 151 for a day: 150 of 151 answered 200, the whole sweep was 5.5 MB,
+ * and only 20 leagues had anything on at all. The expensive half was never
+ * the first load, it was polling all 151 forever — see useGames, which
+ * re-polls the ones that answered with something rather than the catalog.
  *
  * Sorted, so that two stores holding the same leagues in a different order
  * produce the same list. The board keys its fetching effect on this, and an
@@ -149,7 +161,7 @@ export function fetchList(follows: Follows): string[] {
     const cut = key.indexOf(":");
     if (cut > 0) paths.add(key.slice(0, cut));
   }
-  return paths.size > 0 ? [...paths].sort() : [...DEFAULT_LEAGUES];
+  return paths.size > 0 ? [...paths].sort() : ALL_LEAGUES.map((l) => l.path);
 }
 
 /**
@@ -192,7 +204,13 @@ export function resolvable(follows: Follows, known: readonly string[]): Follows 
  * the other end.
  */
 export function isFollowed(game: Game, follows: Follows): boolean {
-  if (follows.leagues.includes(game.leagueKey)) return true;
+  // EVERY path that served it, which is one for all but tennis. A
+  // tournament is folded from the atp and wta feeds and can only carry one
+  // `leagueKey`; sorted paths mean that is always "tennis/atp", so reading
+  // it alone would hide every combined tournament from someone following
+  // only the WTA. See Tournament.keys.
+  const keys = isTournament(game) ? game.keys : [game.leagueKey];
+  if (keys.some((k) => follows.leagues.includes(k))) return true;
   return gameTeamKeys(game).some((k) => follows.teams.includes(k));
 }
 

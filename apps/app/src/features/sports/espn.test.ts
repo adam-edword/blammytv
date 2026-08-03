@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_LEAGUES, espnDate, fetchGames, toGames } from "./espn";
+import {
+  DEFAULT_LEAGUES,
+  dedupe,
+  espnDate,
+  fetchBoard,
+  fetchGames,
+  toGames,
+} from "./espn";
+import { isFixture, isTournament } from "./model";
 import epl from "./fixtures/epl-scoreboard.json";
 import mlb from "./fixtures/mlb-scoreboard.json";
 import nfl from "./fixtures/nfl-scoreboard.json";
@@ -26,9 +34,21 @@ const PATHS: Record<string, string> = {
 };
 const league = (key: string) => PATHS[key];
 
+/**
+ * `toGames`, narrowed to the two-sided games.
+ *
+ * The mapper returns the union now: a grouped event summarises its whole
+ * draw into one tournament card a day rather than expanding to its matches.
+ * Every suite below this line is about fixtures and says so, which is also
+ * the assertion — a fixture league that started coming back as something
+ * else would empty these rather than quietly pass.
+ */
+const played = (raw: Parameters<typeof toGames>[0], path: string) =>
+  toGames(raw, path).filter(isFixture);
+
 describe("toGames", () => {
   it("maps a live game, its clock and its score", () => {
-    const games = toGames(mlb, league("mlb"));
+    const games = played(mlb, league("mlb"));
     const live = games.find((g) => g.state === "live")!;
 
     expect(live.league).toBe("MLB");
@@ -44,7 +64,7 @@ describe("toGames", () => {
   });
 
   it("carries the media the card paints with", () => {
-    const live = toGames(mlb, league("mlb")).find((g) => g.state === "live")!;
+    const live = played(mlb, league("mlb")).find((g) => g.state === "live")!;
     // No leading hash: the wash sets --team from this directly.
     expect(live.home.color).toMatch(/^[0-9a-f]{6}$/);
     expect(live.home.logo).toMatch(/^https:\/\/a\.espncdn\.com\//);
@@ -72,13 +92,13 @@ describe("toGames", () => {
         },
       ],
     };
-    const [game] = toGames(odd, league("mlb"));
+    const [game] = played(odd, league("mlb"));
     expect(game.home.logo).toBe("https://example.test/crest.png");
     expect(game.home.logoDark).toBeUndefined();
   });
 
   it("maps all three of ESPN's states", () => {
-    const games = toGames(mlb, league("mlb"));
+    const games = played(mlb, league("mlb"));
     expect(games.map((g) => g.state).sort()).toEqual(["final", "live", "pre"]);
     expect(games.find((g) => g.state === "final")!.status).toBe("Final");
   });
@@ -98,11 +118,11 @@ describe("toGames", () => {
         },
       ],
     });
-    expect(toGames(overtime("Final/11"), league("mlb"))[0].status).toBe("Final");
-    expect(toGames(overtime("Final/OT"), league("nfl"))[0].status).toBe("Final");
-    expect(toGames(overtime("Final"), league("mlb"))[0].status).toBe("Final");
+    expect(played(overtime("Final/11"), league("mlb"))[0].status).toBe("Final");
+    expect(played(overtime("Final/OT"), league("nfl"))[0].status).toBe("Final");
+    expect(played(overtime("Final"), league("mlb"))[0].status).toBe("Final");
     // Anything else the post state carries survives.
-    expect(toGames(overtime("Postponed"), league("mlb"))[0].status).toBe(
+    expect(played(overtime("Postponed"), league("mlb"))[0].status).toBe(
       "Postponed",
     );
   });
@@ -122,22 +142,22 @@ describe("toGames", () => {
         },
       ],
     });
-    expect(toGames(delayed("Delayed, Top 1st"), league("mlb"))[0].status).toBe(
+    expect(played(delayed("Delayed, Top 1st"), league("mlb"))[0].status).toBe(
       "Top 1st",
     );
-    expect(toGames(delayed("Rain Delay, Bot 3rd"), league("mlb"))[0].status).toBe(
+    expect(played(delayed("Rain Delay, Bot 3rd"), league("mlb"))[0].status).toBe(
       "Bot 3rd",
     );
     // The clock on its own is untouched, whatever shape the sport gives it.
-    expect(toGames(delayed("Bot 7th"), league("mlb"))[0].status).toBe("Bot 7th");
-    expect(toGames(delayed("45'+2"), league("epl"))[0].status).toBe("45'+2");
+    expect(played(delayed("Bot 7th"), league("mlb"))[0].status).toBe("Bot 7th");
+    expect(played(delayed("45'+2"), league("epl"))[0].status).toBe("45'+2");
     // Nothing behind the comma to keep: the delay is all that is known.
-    expect(toGames(delayed("Delayed"), league("mlb"))[0].status).toBe("Delayed");
+    expect(played(delayed("Delayed"), league("mlb"))[0].status).toBe("Delayed");
   });
 
   it("gives an unstarted game the local kick-off time, not ESPN's", () => {
     // Soccer's own shortDetail here is the useless "Scheduled".
-    const [game] = toGames(epl, league("epl"));
+    const [game] = played(epl, league("epl"));
     expect(game.state).toBe("pre");
     expect(game.status).toMatch(/^\d{1,2}:\d{2}(AM|PM)$/);
     expect(game.league).toBe("Premier League");
@@ -146,16 +166,16 @@ describe("toGames", () => {
   });
 
   it("flattens and de-duplicates the broadcasts the matcher will use", () => {
-    const live = toGames(mlb, league("mlb")).find((g) => g.state === "live")!;
+    const live = played(mlb, league("mlb")).find((g) => g.state === "live")!;
     expect(live.broadcasts).toContain("MASN");
     expect(new Set(live.broadcasts).size).toBe(live.broadcasts.length);
 
-    const [game] = toGames(nfl, league("nfl"));
+    const [game] = played(nfl, league("nfl"));
     expect(game.broadcasts.length).toBeGreaterThan(0);
   });
 
   it("namespaces ids by source and league", () => {
-    const [game] = toGames(nfl, league("nfl"));
+    const [game] = played(nfl, league("nfl"));
     expect(game.id).toMatch(/^espn-football\/nfl-\d+$/);
   });
 
@@ -168,12 +188,12 @@ describe("toGames", () => {
         {}, // nothing at all
       ],
     };
-    expect(toGames(broken, league("mlb"))).toEqual([]);
+    expect(played(broken, league("mlb"))).toEqual([]);
   });
 
   it("survives a payload with no events at all (out of season)", () => {
-    expect(toGames({ events: [] }, league("nhl"))).toEqual([]);
-    expect(toGames({}, league("nhl"))).toEqual([]);
+    expect(played({ events: [] }, league("nhl"))).toEqual([]);
+    expect(played({}, league("nhl"))).toEqual([]);
   });
 });
 
@@ -202,25 +222,69 @@ describe("espnDate", () => {
  */
 describe("toGames over a tennis tournament", () => {
   const league = "tennis/atp";
+  /** The tournaments the fixture maps to, one per day it plays on. */
+  const days = () => toGames(atp, league).filter(isTournament);
 
-  it("finds the matches under groupings, where competitions is empty", () => {
+  it("summarises the draw instead of expanding it", () => {
+    // THE WHOLE POINT, and it is a measurement rather than a taste: one
+    // real WTA event carries 447 matches over a fortnight, and across the
+    // catalog for two days tennis was 256 of 304 cards. A tournament is one
+    // thing on a schedule, so it gets one card a day.
     const games = toGames(atp, league);
     expect(atp.events[0].competitions).toHaveLength(0);
-    expect(games).toHaveLength(3);
+    expect(games.every(isTournament)).toBe(true);
+    // The matches did not vanish, they moved down a level.
+    expect(days().flatMap((t) => t.matches)).toHaveLength(3);
   });
 
-  it("gives every match its own id", () => {
-    // One event, six matches. Without a suffix they would all collide on
-    // the event id and React would render one card.
-    const ids = toGames(atp, league).map((g) => g.id);
-    expect(new Set(ids).size).toBe(3);
+  it("carries the tournament's own name, which a fixture gets from its sides", () => {
+    for (const t of days()) expect(t.title).toBeTruthy();
+  });
+
+  it("keys the card on the EVENT, so atp and wta fold into one", () => {
+    // Measured on a real board: all 405 of ATP's match ids were among
+    // WTA's 447, same tournaments, same men's and women's draws. A path in
+    // the id would have drawn every tennis card twice.
+    for (const t of days()) {
+      expect(t.id).not.toContain("tennis/atp");
+      expect(t.id).toContain("espn-tournament-tennis-");
+    }
+  });
+
+  it("splits by DAY, so a fortnight does not file under its opening Monday", () => {
+    // onDay buckets by local date. One summary of the whole event would
+    // carry the first match's date and vanish for the other thirteen days.
+    const stamps = days().map((t) => t.start.toDateString());
+    expect(new Set(stamps).size).toBe(stamps.length);
+    for (const t of days()) {
+      expect(Number.isNaN(t.start.getTime())).toBe(false);
+      // Every match it counts really is on the day it claims.
+      for (const m of t.matches) {
+        expect(m.start.toDateString()).toBe(t.start.toDateString());
+      }
+    }
+  });
+
+  it("takes its state from the MATCHES, never from the event", () => {
+    // Measured 2026-08-03: the National Bank Open runs to 2026-08-14 and
+    // its event status already read STATUS_FINAL with completed: true.
+    for (const t of days()) {
+      const playing = t.matches.filter((m) => m.state === "live").length;
+      const expected =
+        playing > 0
+          ? "live"
+          : t.matches.some((m) => m.state !== "final")
+            ? "pre"
+            : "final";
+      expect(t.state).toBe(expected);
+    }
   });
 
   it("scores a match in SETS, not in games won", () => {
     // 6-3, 4-6, 2-6 is one set to two. Adding the games up would say 12-15,
-    // which is not a tennis score at all.
-    const g = toGames(atp, league)[0];
-    // 3-6, 6-4, 6-2 is two sets to one, not 15 games to 12.
+    // which is not a tennis score at all. Still mapped per match: the
+    // tournament changed the altitude, not the mapping.
+    const g = days().flatMap((t) => t.matches)[0];
     expect([g.home.score, g.away.score].sort()).toEqual([1, 2]);
   });
 
@@ -228,7 +292,9 @@ describe("toGames over a tennis tournament", () => {
     // 37 of 175 matches on the live board are doubles. They drop `athlete`
     // and carry a roster instead, and reading only `athlete` left every one
     // of them blank.
-    const pair = toGames(atp, league).find((g) => g.home.name.includes("/"));
+    const pair = days()
+      .flatMap((t) => t.matches)
+      .find((g) => g.home.name.includes("/"));
     expect(pair).toBeDefined();
     expect(pair!.home.name).toContain("/");
     expect(pair!.away.name).toContain("/");
@@ -237,9 +303,9 @@ describe("toGames over a tennis tournament", () => {
   it("scores a whitewash as ZERO, not as nothing", () => {
     // Straight sets means the loser won none, and none is a score. Running
     // the count through `|| undefined` blanked every one of these.
-    const g = toGames(atp, league).find(
-      (x) => x.home.score === 0 || x.away.score === 0,
-    );
+    const g = days()
+      .flatMap((t) => t.matches)
+      .find((x) => x.home.score === 0 || x.away.score === 0);
     expect(g).toBeDefined();
     const loser = g!.home.score === 0 ? g!.home : g!.away;
     expect(loser.score).toBe(0);
@@ -247,7 +313,7 @@ describe("toGames over a tennis tournament", () => {
   });
 
   it("reads the competitor from athlete rather than team", () => {
-    const g = toGames(atp, league)[0];
+    const g = days().flatMap((t) => t.matches)[0];
     expect(g.home.name).toBeTruthy();
     // A country flag stands in for the crest an individual does not have.
     expect(g.home.logo ?? "").toContain("http");
@@ -255,13 +321,29 @@ describe("toGames over a tennis tournament", () => {
     expect(g.home.abbr).toMatch(/^[A-Z]{1,3}$/);
   });
 
-  it("dates a match by the MATCH, not by the tournament", () => {
-    // A tournament runs a week. Taking the event date would file every
-    // match in the draw under its opening day.
-    const games = toGames(atp, league);
-    const days = new Set(games.map((g) => g.start.toDateString()));
-    expect(days.size).toBeGreaterThanOrEqual(1);
-    for (const g of games) expect(Number.isNaN(g.start.getTime())).toBe(false);
+  it("gives every match its own id, under the tournament", () => {
+    const ids = days().flatMap((t) => t.matches.map((m) => m.id));
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe("dedupe folds the same event served by two leagues", () => {
+  it("merges the paths rather than picking one", () => {
+    // atp sorts before wta, so picking the first would hide every combined
+    // tournament from someone following only the WTA — half the draw sheet.
+    const both = dedupe([
+      ...toGames(atp, "tennis/atp"),
+      ...toGames(atp, "tennis/wta"),
+    ]);
+    expect(both).toHaveLength(toGames(atp, "tennis/atp").length);
+    for (const t of both.filter(isTournament)) {
+      expect(t.keys.sort()).toEqual(["tennis/atp", "tennis/wta"]);
+    }
+  });
+
+  it("leaves fixtures alone, whose ids already carry their league", () => {
+    const games = [...toGames(mlb, PATHS.mlb), ...toGames(epl, PATHS.epl)];
+    expect(dedupe(games)).toHaveLength(games.length);
   });
 });
 
@@ -270,7 +352,7 @@ describe("toGames leaves single match events exactly as they were", () => {
     // Ids are React keys and the row's scroll anchor. Tennis must not
     // rename every game in the app.
     const league = PATHS.epl;
-    for (const g of toGames(epl, league)) {
+    for (const g of played(epl, league)) {
       expect(g.id).toMatch(/^espn-soccer\/eng\.1-\d+$/);
     }
   });
@@ -307,13 +389,13 @@ describe("a game that was never played", () => {
   it("is not a result", () => {
     // It used to map straight to `final` and draw as a finished nil-nil
     // draw: dimmed, collapsed into a compact line, beaten by nobody.
-    const g = toGames(postponed(), PATHS.mlb)[0];
+    const g = played(postponed(), PATHS.mlb)[0];
     expect(g.state).not.toBe("final");
     expect(g.state).toBe("pre");
   });
 
   it("says why, rather than showing a kick-off time that is no longer true", () => {
-    const g = toGames(postponed(), PATHS.mlb)[0];
+    const g = played(postponed(), PATHS.mlb)[0];
     expect(g.status).toBe("Postponed");
   });
 
@@ -325,7 +407,7 @@ describe("a game that was never played", () => {
       detail: "Final",
       shortDetail: "Final",
     };
-    const g = toGames(done, PATHS.mlb)[0];
+    const g = played(done, PATHS.mlb)[0];
     expect(g.state).toBe("final");
   });
 });
@@ -366,6 +448,55 @@ describe("fetchGames asks for what it is given", () => {
     expect(fallback).toHaveLength(DEFAULT_LEAGUES.length);
     for (const path of DEFAULT_LEAGUES)
       expect(fallback.some((u) => u.includes(`/${path}/`))).toBe(true);
+  });
+});
+
+describe("fetchBoard says which paths are worth asking again", () => {
+  /**
+   * The wire, answering differently per league.
+   *
+   * `has` gets one MLB game, `empty` gets a 200 with no events (a league
+   * between seasons, which on any given day is most of the catalog), and
+   * `dead` throws.
+   */
+  const wire = async (run: () => Promise<unknown>) => {
+    const real = globalThis.fetch;
+    globalThis.fetch = ((url: string) => {
+      if (url.includes("/dead/")) return Promise.reject(new Error("boom"));
+      if (url.includes("/has/")) {
+        return Promise.resolve({ ok: true, json: async () => mlb });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ events: [] }) });
+    }) as never;
+    try {
+      return await run();
+    } finally {
+      globalThis.fetch = real;
+    }
+  };
+
+  it("keeps the leagues that had something on", async () => {
+    const out = await wire(() => fetchBoard(["a/has", "b/empty", "c/empty"]));
+    expect((out as { answered: string[] }).answered).toEqual(["a/has"]);
+  });
+
+  it("keeps a league that FAILED, so one bad response is not permanent", async () => {
+    // The reason this returns a list instead of the caller deriving one
+    // from the games: a league that threw contributed no game to read a
+    // path back off, so it would be dropped and never asked again for the
+    // rest of the session.
+    const out = await wire(() => fetchBoard(["a/has", "b/dead", "c/empty"]));
+    expect((out as { answered: string[] }).answered).toEqual(["a/has", "b/dead"]);
+  });
+
+  it("is the saving the wide board rests on", async () => {
+    // Measured across the real catalog on 2026-08-03: 151 leagues answered,
+    // 20 had anything on. Polling all of them every 90 seconds is ~100
+    // requests a minute at an endpoint we do not own.
+    const paths = ["a/has", ...Array.from({ length: 150 }, (_, i) => `x${i}/empty`)];
+    const out = (await wire(() => fetchBoard(paths))) as { answered: string[] };
+    expect(paths).toHaveLength(151);
+    expect(out.answered).toHaveLength(1);
   });
 });
 
@@ -451,13 +582,13 @@ describe("broadcast ordering", () => {
       { market: "home", name: "Reds.TV" },
       { market: "national", name: "MLB.TV" },
     ]);
-    expect(toGames(scrambled, mlb())[0].broadcasts[0]).toBe("MLB.TV");
+    expect(played(scrambled, mlb())[0].broadcasts[0]).toBe("MLB.TV");
   });
 
   it("still offers both regional feeds, in home then away order", () => {
     // A regional feed is a real way to watch the game. It just should not
     // be the headline.
-    const g = toGames(
+    const g = played(
       threeFeeds([
         { market: "national", name: "MLB.TV" },
         { market: "home", name: "Reds.TV" },
@@ -469,7 +600,7 @@ describe("broadcast ordering", () => {
   });
 
   it("keeps unlabelled feeds, after the ones we can place", () => {
-    const g = toGames(
+    const g = played(
       threeFeeds([
         { market: "", name: "Some Regional" },
         { market: "national", name: "FOX" },
@@ -493,7 +624,7 @@ describe("what the source already sends", () => {
   const NBA = "basketball/nba";
 
   it("takes the season record, not the home or road split", () => {
-    const [g] = toGames(playoff, NBA);
+    const [g] = played(playoff, NBA);
     expect(g.home.record).toBe("52-30");
     expect(g.away.record).toBe("46-36");
   });
@@ -518,17 +649,17 @@ describe("what the source already sends", () => {
         },
       ],
     });
-    expect(toGames(zeroed("0-0"), NBA)[0].home.record).toBeUndefined();
-    expect(toGames(zeroed("0-0-0"), NBA)[0].home.record).toBeUndefined();
+    expect(played(zeroed("0-0"), NBA)[0].home.record).toBeUndefined();
+    expect(played(zeroed("0-0-0"), NBA)[0].home.record).toBeUndefined();
     // A zero that is part of a real record still counts.
-    expect(toGames(zeroed("10-0"), NBA)[0].home.record).toBe("10-0");
-    expect(toGames(zeroed("0-10"), NBA)[0].home.record).toBe("0-10");
+    expect(played(zeroed("10-0"), NBA)[0].home.record).toBe("10-0");
+    expect(played(zeroed("0-10"), NBA)[0].home.record).toBe("0-10");
   });
 
   it("prefers the series state to the round, because it says more", () => {
     // Both are there on every one of these games. "East 1st Round - Game 2"
     // tells you what "CLE leads series 2-0" tells you and then stops.
-    const games = toGames(playoff, NBA);
+    const games = played(playoff, NBA);
     expect(games.map((g) => g.note)).toEqual([
       "CLE leads series 2-0",
       "Series tied 1-1",
@@ -548,15 +679,15 @@ describe("what the source already sends", () => {
         },
       ],
     };
-    expect(toGames(noSeries, NBA)[0].note).toBe("East 1st Round - Game 2");
+    expect(played(noSeries, NBA)[0].note).toBe("East 1st Round - Game 2");
   });
 
   it("says nothing on an ordinary game rather than inventing an occasion", () => {
-    expect(toGames(mlb, league("mlb"))[0].note).toBeUndefined();
+    expect(played(mlb, league("mlb"))[0].note).toBeUndefined();
   });
 
   it("carries the wire's one-liner, which is a sentence and not a label", () => {
-    const [g] = toGames(playoff, NBA);
+    const [g] = played(playoff, NBA);
     expect(g.headline).toBe(
       "Mitchell scores 30, Harden adds 28 as Cavaliers beat Raptors 115-105 for 2-0 series lead",
     );

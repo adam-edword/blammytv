@@ -10,6 +10,8 @@ import {
   toggleTeam,
 } from "./follows";
 import { DEFAULT_LEAGUES, toGames } from "./espn";
+import { isFixture } from "./model";
+import { ALL_LEAGUES } from "./leagues";
 import mlb from "./fixtures/mlb-scoreboard.json";
 import nfl from "./fixtures/nfl-scoreboard.json";
 
@@ -22,8 +24,8 @@ describe("teamKey", () => {
   it("is league-scoped, because source ids are numbered per league", () => {
     // Real ids from the real captures. Unprefixed, two leagues' number 1
     // would be the same follow.
-    const [mlbGame] = toGames(mlb, MLB);
-    const [nflGame] = toGames(nfl, NFL);
+    const [mlbGame] = toGames(mlb, MLB).filter(isFixture);
+    const [nflGame] = toGames(nfl, NFL).filter(isFixture);
     expect(teamKey(mlbGame.leagueKey, mlbGame.home)).toMatch(
       /^baseball\/mlb:\d+$/,
     );
@@ -71,10 +73,18 @@ describe("isFollowed", () => {
 });
 
 describe("fetchList", () => {
-  it("asks for the defaults when nothing is followed", () => {
-    // The floor under an empty store. Without it, first run is a blank
-    // board asking to be configured.
-    expect(fetchList(none)).toEqual([...DEFAULT_LEAGUES]);
+  it("asks for EVERY league when nothing is followed", () => {
+    // Adam's, and a reversal of the six-league floor that used to be here.
+    // An empty store is the absence of a preference, not a preference for
+    // six leagues, and a board that arrives pre-narrowed gives nobody a
+    // reason to narrow it. Affordable because only the leagues that answer
+    // with something get re-polled: see useGames.
+    const all = fetchList(none);
+    expect(all).toHaveLength(ALL_LEAGUES.length);
+    expect(new Set(all).size).toBe(all.length);
+    // The old floor is a subset of it, so nothing that used to be on the
+    // first board fell off.
+    for (const path of DEFAULT_LEAGUES) expect(all).toContain(path);
   });
 
   it("asks for exactly what is followed, defaults included or not", () => {

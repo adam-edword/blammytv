@@ -1291,6 +1291,81 @@
   white-space: nowrap;
 }
 
+/* A day of a tournament, on the small card's frame.
+ *
+ * It borrows .upcard wholesale — the tilt, the radius, the header — because
+ * it sits in the same grid answering the same question, and it should read
+ * as the same kind of object about a differently shaped sport. What it
+ * replaces is the middle: a matchup becomes a name and a place, because a
+ * draw of 89 matches has no two sides to stagger. */
+.tourncard {
+  /* NOT clickable yet: nothing opens a tournament until #38. The frame it
+   * borrows is a button's, so the hand cursor has to be taken back off or
+   * it promises something no click delivers. */
+  cursor: default;
+}
+.tourncard__main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+}
+.tourncard__title {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  /* Smaller than a club name, and it has to be: "National Bank Open
+   * presented by Rogers" is 38 characters where "Orioles" is 7, and this
+   * card gives its name the full width rather than half of it. */
+  font-size: 22px;
+  line-height: 1.12;
+  color: #fff;
+  /* Two lines, then ellipsis. Fitting it to one instead would push the
+   * longest names below the venue line under them, which inverts the
+   * card's own hierarchy. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.tourncard__where {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: var(--sports-meta);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Where in the draw, and how much of it. The two halves of what a
+ * tournament day actually is, at the ends of one line. */
+.tourncard__foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: var(--sports-meta);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.tourncard__rounds {
+  color: rgba(255, 255, 255, 0.72);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* The count is the number this card exists to give, so it keeps its room
+ * when the round names run long. */
+.tourncard__count {
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.45);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .upcard__tilt {
     transition: none;

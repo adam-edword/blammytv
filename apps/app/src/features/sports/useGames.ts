@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { onDay } from "./day";
-import { DEFAULT_LEAGUES, fetchGames } from "./espn";
+import { DEFAULT_LEAGUES, fetchBoard } from "./espn";
 import { CARD_CONFIDENCE, matchEvent, matchGame } from "./matcher";
 import type { Catalog } from "./matcher";
-import { isField } from "./model";
+import { isFixture } from "./model";
 import type { Game } from "./model";
 
 /** How often a mounted hub re-reads TODAY. Later days do not move. */
@@ -92,14 +92,39 @@ export function useGames(
      */
     let gen = 0;
 
+    /**
+     * The paths the 90 second tick actually asks for.
+     *
+     * Starts as everything and NARROWS after the first full load to the
+     * leagues that answered with something (or failed and deserve another
+     * go). With an empty follow store the fetch list is now all 151 catalog
+     * leagues, of which 20 had anything on when it was measured, so this is
+     * the difference between ~100 requests a minute and ~13. See fetchBoard
+     * for why a day's empty leagues cannot become non-empty later.
+     *
+     * Reset by `loadAll`, so a date roll re-widens to the whole list before
+     * narrowing again on the new day's answers.
+     */
+    let polling: readonly string[] = paths;
+
     const loadAll = async () => {
       const mine = ++gen;
+      polling = paths;
       try {
         const all = await Promise.all(
-          dates.map((date) => fetchGames(paths, { date, signal: ac.signal })),
+          dates.map((date) => fetchBoard(paths, { date, signal: ac.signal })),
         );
         if (ac.signal.aborted || mine !== gen) return;
-        setDays(dates.map((date, i) => ({ date, games: onDay(all[i], date, i === 0) })));
+        // TODAY's answers only. Day two having a game does not make that
+        // league worth re-asking about today, which is the only day the
+        // tick refreshes.
+        polling = all[0].answered;
+        setDays(
+          dates.map((date, i) => ({
+            date,
+            games: onDay(all[i].games, date, i === 0),
+          })),
+        );
         setState("ready");
       } catch {
         if (ac.signal.aborted) return;
@@ -115,8 +140,15 @@ export function useGames(
       // request in flight across midnight stamped yesterday's fixtures
       // with today's date and filtered them through today.
       const d0 = dates[0];
+      // Captured for the same reason d0 is: `polling` is reassigned by
+      // loadAll, and a tick that started before a date roll must not be
+      // scored against the new day's list.
+      const asking = polling;
       try {
-        const games = await fetchGames(paths, { date: d0, signal: ac.signal });
+        const { games } = await fetchBoard(asking, {
+          date: d0,
+          signal: ac.signal,
+        });
         if (ac.signal.aborted || mine !== gen) return;
         setDays((prev) =>
           prev.length === 0
@@ -234,12 +266,13 @@ export function withChannels(games: Game[], catalog: Catalog | null): Game[] {
     // carries the network showing it, so it goes first and is never
     // displaced by a national feed's ordering.
     // Naming the FIXTURE only works where there is one. A race listing
-    // says "Formula 1 Dutch Grand Prix", not two team names, so a field
-    // resolves off its broadcasts alone until racing gets its own matcher
-    // path (plan 010 #5).
-    const named = isField(game)
-      ? []
-      : matchEvent([game.home.name, game.away.name], game.start, catalog);
+    // says "Formula 1 Dutch Grand Prix", not two team names, and a
+    // tournament listing says "National Bank Open", so both resolve off
+    // their broadcasts alone until racing gets its own matcher path (plan
+    // 010 #5) and a tournament gets one with it.
+    const named = isFixture(game)
+      ? matchEvent([game.home.name, game.away.name], game.start, catalog)
+      : [];
     const seen = new Set(named.map((c) => c.id));
     const found = [
       ...named,
