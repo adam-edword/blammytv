@@ -23,8 +23,10 @@ import type { Game } from "./model";
 
 type Mode = "leagues" | "teams" | "channels";
 
-/* Placeholders, and Adam says so: the shapes are Live TV's, borrowed to get
- * the rail's geometry right while the real marks are drawn. */
+/* Leagues and Teams have their own marks (v0.8.116). Channels still borrows
+ * Live TV's, and deliberately: the tab is a stub and what it lists is still
+ * an open question, so drawing an icon for it would be drawing a picture of
+ * a decision nobody has made. */
 const MODES: RailMode<Mode>[] = [
   { key: "leagues", label: "Leagues", icon: () => <LeaguesIcon /> },
   { key: "teams", label: "Teams", icon: () => <TeamsIcon /> },
