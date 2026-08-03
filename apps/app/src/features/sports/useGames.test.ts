@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { keepStable, withChannels } from "./useGames";
+import { byDay, keepStable, withChannels } from "./useGames";
 import { indexChannels } from "./matcher";
 import type { Fixture } from "./model";
 
@@ -170,5 +170,48 @@ describe("withChannels", () => {
     const pending = withChannels([game("a", { broadcasts: ["MASN"] })], null);
     const resolved = withChannels(pending, indexChannels([]));
     expect(resolved[0].channelsPending).toBe(false);
+  });
+});
+
+/**
+ * Reaching past the window (plan 010 #36).
+ *
+ * The board's window is three consecutive days; what comes back from the
+ * bare scoreboard is not consecutive at all, because two followed leagues
+ * can be nineteen and sixty-one days out. This is the piece that turns
+ * that into days the board can draw.
+ */
+describe("byDay", () => {
+  const at = (y: number, m: number, d: number, h = 12) =>
+    game(`${y}-${m}-${d}-${h}`, { start: new Date(y, m, d, h) });
+
+  it("gives each date its own day, in order", () => {
+    const out = byDay([at(2026, 9, 3), at(2026, 7, 21), at(2026, 8, 19)]);
+    expect(out.map((d) => d.date.toDateString())).toEqual([
+      new Date(2026, 7, 21).toDateString(),
+      new Date(2026, 8, 19).toDateString(),
+      new Date(2026, 9, 3).toDateString(),
+    ]);
+  });
+
+  it("keeps a day's games together and in kick-off order", () => {
+    // Two leagues landing on the same far-off Saturday is one heading with
+    // two cards under it, not two headings with the same date.
+    const out = byDay([at(2026, 7, 21, 19), at(2026, 7, 21, 14)]);
+    expect(out).toHaveLength(1);
+    expect(out[0].games.map((g) => g.start.getHours())).toEqual([14, 19]);
+  });
+
+  it("buckets by LOCAL midnight, not by the instant", () => {
+    // Two kick-offs eleven hours apart on the same local day are one day.
+    // Bucketing on the ISO string would split them whenever the later one
+    // crosses midnight UTC.
+    const out = byDay([at(2026, 7, 21, 9), at(2026, 7, 21, 20)]);
+    expect(out).toHaveLength(1);
+    expect(out[0].date.getHours()).toBe(0);
+  });
+
+  it("is empty for nothing, so the board appends nothing", () => {
+    expect(byDay([])).toEqual([]);
   });
 });

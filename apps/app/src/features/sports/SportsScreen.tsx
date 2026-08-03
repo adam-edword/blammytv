@@ -122,7 +122,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
    * A narrowed board is a handful of leagues, so the third day is nearly
    * free there and it is the one people actually plan against.
    */
-  const { days: raw, state } = useGames(leagues, narrowed ? 3 : 2);
+  const { days: raw, state } = useGames(leagues, narrowed ? 3 : 2, narrowed);
   // The schedule and the channel list arrive independently, so they are
   // joined here rather than inside either one. Memoised on both: resolving
   // a 42-game board costs 4.7ms against a 20k-channel index and 3.7 SECONDS
@@ -369,19 +369,22 @@ export function SportsScreen({ home }: { home?: number } = {}) {
             note="The board keeps trying on its own, so this usually clears itself. Nothing is lost while it does."
           />
         ) : narrowed ? (
-          /* THE ONE PEOPLE ACTUALLY HIT. Follow F1 in August and the board
-           * is empty for eighteen days; follow the NBA in summer and it is
-           * empty for two months. So it names what it looked at, which is
-           * the difference between "there is nothing" and "there is
-           * nothing FOR YOU" — and offers the way out, because the fix is
-           * always to follow one more thing. */
+          /* MUCH RARER THAN IT WAS. The board reaches past its own window
+           * now (#36), so a followed league with any published fixture at
+           * all puts it on the grid, however far out. Landing here means
+           * every followed league answered with nothing even when asked
+           * "what is next" — an off-season with no calendar yet.
+           *
+           * So the ask is Adam's: send them to the picker. There is no
+           * clever recovery from "your leagues have published nothing", and
+           * the honest move is to say so and open the door. */
           <SportsEmpty
-            title="Nothing on for what you follow."
+            title="Nothing scheduled yet."
             note={`${followedNames} ${
               followedCount === 1 ? "has" : "have"
-            } nothing scheduled over the next three days. Every other league is still there.`}
+            } no fixtures published, not even further out. Favourite a few more sports and the board fills itself.`}
             action={{
-              label: "Browse all leagues",
+              label: "Pick more sports",
               onClick: () => setReveal((n) => n + 1),
             }}
           />

@@ -3,7 +3,7 @@ import { onDay } from "./day";
 import { DEFAULT_LEAGUES, fetchBoard } from "./espn";
 import { CARD_CONFIDENCE, matchEvent, matchGame } from "./matcher";
 import type { Catalog } from "./matcher";
-import { isFixture } from "./model";
+import { isFixture, isTournament } from "./model";
 import type { Game } from "./model";
 
 /** How often a mounted hub re-reads TODAY. Later days do not move. */
@@ -38,6 +38,23 @@ export interface Day {
 export function useGames(
   leagues: readonly string[] = DEFAULT_LEAGUES,
   dayCount = DAYS,
+  /**
+   * REACH PAST THE WINDOW for a followed league with nothing in it (plan
+   * 010 #36). Adam's: "if there's ANYTHING on the schedule for a sport
+   * you've favorited, it should show up in the grid."
+   *
+   * Three days is the right window for "what is on" and exactly wrong once
+   * the board is narrowed: follow F1 in August and it is empty for
+   * eighteen days, follow the NBA in summer and it is empty for two
+   * months, while both have full published calendars. The board was
+   * answering "nothing" to a question the source can answer.
+   *
+   * Only when narrowed, and only for the leagues that came back empty, so
+   * the cost is bounded by how many things you follow rather than by the
+   * catalog. An unnarrowed board reaching two months ahead would be
+   * answering a question nobody asked.
+   */
+  reach = false,
 ) {
   const [days, setDays] = useState<Day[]>([]);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
@@ -119,17 +136,60 @@ export function useGames(
         // league worth re-asking about today, which is the only day the
         // tick refreshes.
         polling = all[0].answered;
-        setDays(
-          dates.map((date, i) => ({
-            date,
-            games: onDay(all[i].games, date, i === 0),
-          })),
-        );
+        const window = dates.map((date, i) => ({
+          date,
+          games: onDay(all[i].games, date, i === 0),
+        }));
+        setDays(window);
         setState("ready");
+        // Painted first, extended after. The window is the answer to "what
+        // is on"; reaching ahead is a second, slower question, and holding
+        // the board back for it would make every narrowed board wait on a
+        // league that has nothing to say.
+        if (reach) void loadAhead(mine, window);
       } catch {
         if (ac.signal.aborted) return;
         // Only the first load has nothing to fall back on.
         setState((s) => (s === "ready" ? "ready" : "error"));
+      }
+    };
+
+    /**
+     * The followed leagues with nothing in the window, reached forward.
+     *
+     * The BARE scoreboard, which needs no new endpoint: asked without a
+     * date, ESPN answers with a league's next fixture however far out that
+     * is. Confirmed against the live endpoint on 2026-08-03 — NFL came back
+     * 2026-08-07, the Premier League and F1 2026-08-21, the NHL 2026-09-19
+     * and the NBA 2026-10-03, which matches the published calendar. espn.ts
+     * has documented this behaviour all along as a hazard ("a league
+     * between matchdays hands back its NEXT one"); here it is the feature.
+     *
+     * Failure is silent on purpose. The window is already on screen and
+     * correct; a league we could not reach ahead for is a missing extra
+     * rather than a broken board.
+     */
+    const loadAhead = async (mine: number, window: Day[]) => {
+      // Every path that put something on the board. A tournament is served
+      // by two of them, so it clears both.
+      const covered = new Set(
+        window
+          .flatMap((d) => d.games)
+          .flatMap((g) => (isTournament(g) ? g.keys : [g.leagueKey])),
+      );
+      const missing = paths.filter((p) => !covered.has(p));
+      if (missing.length === 0) return;
+      // The last day already drawn. Anything at or before it is either
+      // already on the board or was filtered off it for a reason.
+      const edge = dates[dates.length - 1];
+      try {
+        const { games } = await fetchBoard(missing, { signal: ac.signal });
+        if (ac.signal.aborted || mine !== gen) return;
+        const ahead = games.filter((g) => midnight(g.start) > edge.getTime());
+        if (ahead.length === 0) return;
+        setDays((prev) => (prev.length === 0 ? prev : [...prev, ...byDay(ahead)]));
+      } catch {
+        // See above: an extra that did not arrive.
       }
     };
 
@@ -200,9 +260,48 @@ export function useGames(
       window.clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [dayCount, key]);
+    // `reach` belongs here even though nothing can flip it alone today:
+    // it changes with `narrowed`, which also changes `key` and `dayCount`,
+    // so the effect already re-runs. Leaving it out would make that a
+    // coincidence the next caller has to know about.
+  }, [dayCount, key, reach]);
 
   return { days, state };
+}
+
+/** Local midnight of whatever day this instant falls on, as a number. */
+function midnight(when: Date): number {
+  const d = new Date(when);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+/**
+ * Games from beyond the window, as days the board can draw.
+ *
+ * Grouped by their OWN local date and sorted, because these are not
+ * consecutive: two followed leagues can be nineteen and sixty-one days out,
+ * and each gets its own dated heading rather than being flattened into one
+ * "later" bucket that would put the Grand Prix next to a basketball game in
+ * October. `dayLabel` already names an arbitrary date properly.
+ *
+ * Exported for its test: this is the shape of #36 and it has a right
+ * answer.
+ */
+export function byDay(games: Game[]): Day[] {
+  const by = new Map<number, Game[]>();
+  for (const game of games) {
+    const key = midnight(game.start);
+    const bucket = by.get(key);
+    if (bucket) bucket.push(game);
+    else by.set(key, [game]);
+  }
+  return [...by.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([stamp, list]) => ({
+      date: new Date(stamp),
+      games: list.sort((a, b) => a.start.getTime() - b.start.getTime()),
+    }));
 }
 
 /**

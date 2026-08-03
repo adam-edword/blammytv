@@ -980,7 +980,7 @@ away truthfully. Decide on those terms or not at all.
 
 ### Added after the list was numbered
 
-#### 36. A narrowed board reaches to the next event [ ]
+#### 36. A narrowed board reaches to the next event [x]
 
 Adam's, 2026-08-03, and it is a better answer than any of the three
 options it was offered against.
@@ -1017,6 +1017,18 @@ works for every sport rather than being a racing special case.
 - Overlaps #20 (reach past three days) and probably supersedes half of it:
   this is the reason someone wants a longer board, arrived at from the
   other end.
+
+**Shipped v0.8.137.** Adam again, from the other end: "if there's ANYTHING
+on the schedule for a sport you've favorited, it should show up in the
+grid." Only the leagues that came back empty are asked, so the cost is
+bounded by how many things you follow. The window paints first and the
+reached days append after, since a league with nothing to say should not
+hold up the board.
+
+One gap left, and it is the team half: following a club whose league is
+playing produces games, so nothing reaches ahead, and a board narrowed to
+one club can still be empty while its league is mid-season. Rare, because
+a club that plays at all plays inside three days most weeks, but real.
 
 #### 38. Opening a tournament shows its draw [ ]
 
@@ -1086,6 +1098,8 @@ here so a label that vanished can be looked up.
 | - | League marks up twice, 16 to 26 on rows and 34 to 48 on tiles, with the row height held at 36px | v0.8.132-133 |
 | **37** | **The wide board.** An empty follow store asks for all 151 leagues over today and tomorrow instead of six; a tournament collapses to one card a day instead of its whole draw; the 90 second tick re-polls only the leagues that answered | v0.8.134 |
 | **40** (part) | **The empty board.** One grey line became four states: a skeleton at the board's own geometry while it loads, and a mark, headline, note and way out when there is nothing. The narrowed one names what you follow | v0.8.135 |
+| - | The skeleton's breath is a colour, not an opacity, so it stops fading toward the page's own black | v0.8.136 |
+| **36** | **The board reaches past its window.** A followed league with nothing in the next three days is asked what is NEXT, and gets its own dated heading on the grid. No new endpoint: the bare scoreboard already answers it | v0.8.137 |
 
 ## Closed decisions
 

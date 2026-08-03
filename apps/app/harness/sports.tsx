@@ -344,6 +344,54 @@ window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
       }),
     );
   }
+  /* THE BARE CALL, which is "what is next" rather than "what is on today".
+   *
+   * The board asks this of a followed league that had nothing in its
+   * window (#36), and the real endpoint answers with that league's next
+   * fixture however far out it is: measured 2026-08-03, the NBA came back
+   * 2026-10-03. A rig that answered empty here could not show the one
+   * thing #36 exists to do, which is put a Grand Prix nineteen days out
+   * on the grid.
+   *
+   * Nineteen days, from the real F1 gap that prompted it. One event, so
+   * the reached day reads the way a real one does: a heading with its own
+   * date and a card or two under it, not a second full board. */
+  if (m && !url.includes("dates=")) {
+    const when = new Date();
+    when.setHours(0, 0, 0, 0);
+    when.setDate(when.getDate() + 19);
+    when.setHours(14, 30, 0, 0);
+    const slate = SLATES[m[1] === "eng.1" ? "epl" : (m[1] ?? "")] ?? nba;
+    const first = (slate.events ?? [])[0];
+    if (!first) {
+      return Promise.resolve(
+        new Response(JSON.stringify({ events: [] }), {
+          headers: { "content-type": "application/json" },
+        }),
+      );
+    }
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({
+          ...slate,
+          events: [
+            {
+              ...first,
+              date: when.toISOString(),
+              competitions: [
+                {
+                  ...first.competitions[0],
+                  date: when.toISOString(),
+                  status: { type: { state: "pre" } },
+                },
+              ],
+            },
+          ],
+        }),
+        { headers: { "content-type": "application/json" } },
+      ),
+    );
+  }
   /* ANY OTHER LEAGUE: out of season, which is what most of them are.
    *
    * It used to fall through to the real endpoint, and that stopped being
