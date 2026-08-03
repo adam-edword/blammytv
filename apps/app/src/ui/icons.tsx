@@ -123,6 +123,53 @@ export function CopyIcon({ size = 16, className }: IconProps) {
 }
 
 /** Media / Skip back 10s (counter-clockwise arrow). */
+/** A hierarchy: one node branching to three. Leagues, which is the thing
+ * teams hang off. */
+export function LeaguesIcon({ size = 20, className }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <rect x="8.5" y="2.5" width="7" height="5" rx="1" />
+      <rect x="2" y="16" width="5" height="5" rx="1" />
+      <rect x="9.5" y="16" width="5" height="5" rx="1" />
+      <rect x="17" y="16" width="5" height="5" rx="1" />
+      <path d="M12 7.5v4" />
+      <path d="M4.5 16v-2.5h15V16" />
+    </svg>
+  );
+}
+
+/** A shirt. A team is people, and a kit is how you know which. */
+export function TeamsIcon({ size = 20, className }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <path d="M9 3 4 5.5 2.5 10l3 1.2V20a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-8.8l3-1.2L20 5.5 15 3" />
+      <path d="M9 3a3 3 0 0 0 6 0" />
+    </svg>
+  );
+}
+
 /** A plain left arrow. The way OUT of a player, not a transport control:
  * SkipBackIcon below is about the media, this is about the screen. */
 export function BackArrowIcon({ size = 20, className }: IconProps) {

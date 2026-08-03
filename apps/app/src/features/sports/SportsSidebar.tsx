@@ -4,7 +4,13 @@ import {
   saveSidebarCollapsed,
 } from "../settings/sportsSidebar";
 import { ModeRail, type RailMode } from "../../ui/ModeRail";
-import { PanelIcon, RecentsIcon, StarIcon, TvIcon } from "../../ui/icons";
+import {
+  LeaguesIcon,
+  PanelIcon,
+  RecentsIcon,
+  TeamsIcon,
+  TvIcon,
+} from "../../ui/icons";
 import { LEAGUE_LOGOS, LEAGUE_NAMES, LEAGUES } from "./espn";
 import {
   teamKey,
@@ -19,8 +25,8 @@ type Mode = "leagues" | "teams" | "channels";
 /* Placeholders, and Adam says so: the shapes are Live TV's, borrowed to get
  * the rail's geometry right while the real marks are drawn. */
 const MODES: RailMode<Mode>[] = [
-  { key: "leagues", label: "Leagues", icon: () => <TvIcon /> },
-  { key: "teams", label: "Teams", icon: () => <StarIcon /> },
+  { key: "leagues", label: "Leagues", icon: () => <LeaguesIcon /> },
+  { key: "teams", label: "Teams", icon: () => <TeamsIcon /> },
   { key: "channels", label: "Channels", icon: () => <RecentsIcon /> },
 ];
 

@@ -1726,3 +1726,15 @@
   border-color: var(--danger);
   color: var(--danger-text);
 }
+
+/* The resolving stage's own controls. It covers the header and App's
+ * Escape handler defers to it, so without these there was no way off this
+ * screen for up to the addon's full 30s timeout. */
+.tune__vodslow {
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.tune__vodcancel {
+  margin-top: 10px;
+}

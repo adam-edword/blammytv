@@ -143,6 +143,14 @@ pub fn play_popout(url: &str, start: f64) -> Result<(), String> {
         set("audio-channels", "stereo");
         set("title", "BlammyTV — Popout");
         set("osc", "yes");
+        // KEYS, not just the OSC bar. `osc` is a Lua script, so if it does
+        // not load there is no control of any kind on this window — and
+        // libmpv defaults BOTH of these to no, so mpv's own keybinds were
+        // dead here even though its bar was asked for. With them, 9 and 0
+        // move the volume, m mutes, space pauses, arrows seek, f goes
+        // fullscreen: the popout stops being a window you can only watch.
+        set("input-default-bindings", "yes");
+        set("input-vo-keyboard", "yes");
         set("terminal", "no");
         // Resume where the in-app player was (VOD); 0 for live.
         if start > 0.0 {

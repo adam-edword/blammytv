@@ -164,6 +164,8 @@ export function StreamScreen() {
   // Between "user clicked play" and "sources resolved": the player-style
   // black screen with the art breathing, INSTANTLY — a quick-resume /
   // Watch Now click must never sit on a dead screen for seconds.
+  /** Long enough that a healthy resolve never shows it. */
+  const [slowResolve, setSlowResolve] = useState(false);
   const [resolving, setResolving] = useState<{
     art?: string;
     title: string;
@@ -247,6 +249,23 @@ export function StreamScreen() {
   );
   // Bumped by the error state's Try-again — re-runs the load effect.
   const [vodTick, setVodTick] = useState(0);
+  // Escape also leaves, which it could not before: the stage covers the
+  // header and App's own handler defers to it.
+  useEffect(() => {
+    if (!resolving) {
+      setSlowResolve(false);
+      return;
+    }
+    const t = window.setTimeout(() => setSlowResolve(true), 5000);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setResolving(null);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      window.clearTimeout(t);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [resolving]);
   useEffect(() => {
     let stale = false;
     loadVod().then(
@@ -1100,6 +1119,27 @@ export function StreamScreen() {
           ) : (
             <span className="tune__vodtitle">{resolving.title}</span>
           )}
+          {/* A WAY OUT, and a reason to wait.
+            *
+            * Resolving is one or two addon requests and they inherit the
+            * Rust client's 30 second timeout, so a slow or dead addon left
+            * this on screen for up to a minute: the stage sits above the
+            * header, so the nav was covered, and App's Escape handler bows
+            * out while a .vod-stage exists, so Escape did nothing either.
+            * There was no control on the screen at all.
+            *
+            * The line appears only once the wait stops looking normal, so
+            * a fast resolve never flashes it. */}
+          {slowResolve && (
+            <p className="tune__vodslow">Still looking for a source…</p>
+          )}
+          <button
+            type="button"
+            className="btn-quiet tune__vodcancel"
+            onClick={() => setResolving(null)}
+          >
+            Cancel
+          </button>
         </div>
       </div>
     );
