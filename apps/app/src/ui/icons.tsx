@@ -123,6 +123,28 @@ export function CopyIcon({ size = 16, className }: IconProps) {
 }
 
 /** Media / Skip back 10s (counter-clockwise arrow). */
+/** A plain left arrow. The way OUT of a player, not a transport control:
+ * SkipBackIcon below is about the media, this is about the screen. */
+export function BackArrowIcon({ size = 20, className }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <path d="M19 12H5" />
+      <path d="m12 19-7-7 7-7" />
+    </svg>
+  );
+}
+
 export function SkipBackIcon({ size = 22, className }: IconProps) {
   return (
     <Svg size={size} className={className}>

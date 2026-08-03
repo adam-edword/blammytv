@@ -1208,12 +1208,13 @@ export function StreamScreen() {
                         {src.cached && <span className="vod-source__zap">⚡</span>}
                       </span>
                       {/* Ellipsized release lines get the full text back
-                        * as a tooltip — it's what the user picks BY. */}
+                        * as a tooltip — it's what the user picks BY. All of
+                        * them: the row has no fixed height and grows. */}
                       <span
                         className="vod-source__lines"
                         title={src.lines.join("\n")}
                       >
-                        {src.lines.slice(0, 2).map((l, i) => (
+                        {src.lines.map((l, i) => (
                           <span key={i}>{l}</span>
                         ))}
                       </span>
@@ -2403,8 +2404,13 @@ function Detail({
                   {s.quality}
                   {s.cached && <span className="vod-source__zap">⚡</span>}
                 </span>
+                {/* EVERY line. The row is a flex box with no fixed height,
+                  * so it grows for a fourth the same way it shrinks for a
+                  * second, and these lines are what the source is picked
+                  * BY: a truncated one hides the audio track or the size
+                  * that made it the right choice. */}
                 <span className="vod-source__lines" title={s.lines.join("\n")}>
-                  {s.lines.slice(0, 3).map((l, i) => (
+                  {s.lines.map((l, i) => (
                     <span key={i}>{l}</span>
                   ))}
                 </span>

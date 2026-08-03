@@ -337,30 +337,36 @@ pub fn set_pause(paused: bool) {
 }
 
 pub fn set_mute(muted: bool) {
-    let g = PLAYER.lock().unwrap();
-    if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {
-        unsafe {
-            let (k, v) = (
-                CString::new("mute").unwrap(),
-                CString::new(if muted { "yes" } else { "no" }).unwrap(),
-            );
-            (l.set_property_string)(p.0, k.as_ptr(), v.as_ptr());
-        }
+    both("mute", if muted { "yes" } else { "no" });
+}
+
+/// Set a property on whichever player is actually playing.
+///
+/// Volume and mute reached PLAYER only, so while popped out they did
+/// NOTHING: the PiP is a second mpv handle in POPOUT, and the inline one
+/// is stopped. To the user it is one volume control, so it has to reach one
+/// of two handles without knowing which.
+///
+/// The two locks are taken in SEPARATE statements, not together in one
+/// expression, so neither is held while the other is acquired. Each is held
+/// across a property set, which is a fast call into libmpv, and never
+/// across a destroy — that is the pattern that races the watcher.
+fn both(name: &str, value: &str) {
+    let (Ok(k), Ok(v)) = (CString::new(name), CString::new(value)) else {
+        return;
+    };
+    let Some(l) = LIB.get() else { return };
+    if let Some(p) = PLAYER.lock().unwrap().as_ref() {
+        unsafe { (l.set_property_string)(p.0, k.as_ptr(), v.as_ptr()) };
+    }
+    if let Some(p) = POPOUT.lock().unwrap().as_ref() {
+        unsafe { (l.set_property_string)(p.0, k.as_ptr(), v.as_ptr()) };
     }
 }
 
 /// Volume on mpv's 0..100 scale (can exceed 100, but the UI sends 0..100).
 pub fn set_volume(vol: i64) {
-    let g = PLAYER.lock().unwrap();
-    if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {
-        unsafe {
-            let (k, v) = (
-                CString::new("volume").unwrap(),
-                CString::new(vol.to_string()).unwrap(),
-            );
-            (l.set_property_string)(p.0, k.as_ptr(), v.as_ptr());
-        }
-    }
+    both("volume", &vol.to_string());
 }
 
 /// Relative seek in seconds (negative = back).

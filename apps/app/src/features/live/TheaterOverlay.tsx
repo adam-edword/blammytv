@@ -22,6 +22,7 @@ import { StatsOverlay } from "./StatsOverlay";
 import {
   CcIcon,
   CheckIcon,
+  BackArrowIcon,
   CloseIcon,
   NextEpisodeIcon,
   PanelIcon,
@@ -552,10 +553,39 @@ export function TheaterOverlay({
       ignoring = ig;
       api()?.setMouseIgnore(ig);
     };
+    /**
+     * Where the pointer is, once a frame.
+     *
+     * TWO fixes in one place. It used to wake() on ANY mousemove anywhere
+     * in the document, so moving the mouse over the guide, the sidebar or
+     * the settings button raised the player's chrome on top of whatever you
+     * were actually reading. The chrome belongs to the player, so only the
+     * player and the chrome itself wake it now: the hole (#player-slot, the
+     * same id InvertedPlayer glues mpv to, so this is the video's real
+     * rectangle in every frame mode) or anything marked interactive.
+     *
+     * And it ran elementFromPoint per raw event, which forces a style and
+     * layout flush: measured at 0.34ms a call, about 40ms of main thread
+     * per second at a 120Hz pointer, while a stream is decoding. Coalesced
+     * to one hit-test and one rect read per frame.
+     */
+    let at: { x: number; y: number } | null = null;
+    let frame = 0;
+    const look = () => {
+      frame = 0;
+      if (!at) return;
+      const { x, y } = at;
+      const el = document.elementFromPoint(x, y);
+      const interactive = !!el?.closest("[data-interactive]");
+      setIgnore(!interactive);
+      const slot = document.getElementById("player-slot")?.getBoundingClientRect();
+      const overVideo =
+        !!slot && x >= slot.left && x <= slot.right && y >= slot.top && y <= slot.bottom;
+      if (interactive || overVideo) wake();
+    };
     const onMove = (e: MouseEvent) => {
-      wake();
-      const el = document.elementFromPoint(e.clientX, e.clientY);
-      setIgnore(!(el && el.closest("[data-interactive]")));
+      at = { x: e.clientX, y: e.clientY };
+      if (!frame) frame = requestAnimationFrame(look);
     };
     const onLeave = () => {
       window.clearTimeout(idleRef.current);
@@ -571,6 +601,7 @@ export function TheaterOverlay({
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseout", onOut);
       document.documentElement.removeEventListener("mouseleave", onLeave);
+      if (frame) cancelAnimationFrame(frame);
       window.clearTimeout(idleRef.current);
     };
   }, [mini, wake]);
@@ -968,10 +999,24 @@ export function TheaterOverlay({
 
       <div className="theater-topscrim" aria-hidden />
 
-      {/* VOD: no favorites — the star is live-only chrome. (The
-        * fullscreen toggle applies to both: VOD theater ↔ OS fullscreen.) */}
-      {!vod && (
-        <div className="theater-topleft" data-interactive>
+      <div className="theater-topleft" data-interactive>
+        {/* The way OUT, top left, where a back control belongs. It used to
+          * be an X on the right, which reads as "dismiss this thing" — but
+          * this is a screen you came to from somewhere, and the somewhere
+          * is what you want. Same action either way: fullscreen steps back
+          * to the theater, the theater steps back to where you were. */}
+        <button
+          type="button"
+          className="player__btn player__btn--glass"
+          aria-label={fs ? "Exit fullscreen" : "Back"}
+          onClick={() => (fs ? api()?.exitFullscreen?.() : api()?.collapse?.())}
+        >
+          <BackArrowIcon size={20} />
+        </button>
+        {/* VOD: no favorites — the star is live-only chrome. (The
+          * fullscreen toggle applies to both: VOD theater ↔ OS
+          * fullscreen.) */}
+        {!vod && (
           <button
             type="button"
             className={"player__btn player__btn--glass" + (fav ? " is-fav" : "")}
@@ -981,8 +1026,8 @@ export function TheaterOverlay({
           >
             {fav ? <RainbowStarIcon size={20} /> : <StarIcon size={20} />}
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
       <div className="theater-topright" data-interactive>
         <button
@@ -1000,14 +1045,6 @@ export function TheaterOverlay({
           onClick={toggleFullscreen}
         >
           {fs ? <ExitFullscreenIcon size={20} /> : <FullscreenIcon size={20} />}
-        </button>
-        <button
-          type="button"
-          className="player__btn player__btn--glass"
-          aria-label={fs ? "Exit fullscreen" : "Close"}
-          onClick={() => (fs ? api()?.exitFullscreen?.() : api()?.collapse?.())}
-        >
-          <CloseIcon size={20} />
         </button>
       </div>
 
