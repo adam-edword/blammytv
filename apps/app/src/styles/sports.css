@@ -1869,35 +1869,44 @@
   min-height: 0;
   overflow-y: auto;
 }
-/* The sport a group of rows belongs to.
+/* The sport a group of rows belongs to, as a PILL.
  *
- * STICKY, because soccer is 107 of the 151 and forty rows in you have
- * forgotten which list you are inside. Quiet, and set in the metadata
- * voice rather than as a heading: it is a signpost, not a section title
- * competing with the league names under it.
+ * Adam asked twice, and the second time was the useful one. The first
+ * version was a full-width block in --bg on a panel in --surface, which is
+ * a real mismatch and reads as a dark band; the second matched the panel,
+ * which measured identical on all three packs but is still, technically, a
+ * background. He offered "remove it or make it a pill" and I kept
+ * answering a third way. This is the pill.
  *
- * THE PANEL'S OWN COLOUR, which is what Adam was actually asking for when
- * he offered "remove the background, or a rounded pill". It read as a dark
- * band because it was --bg (#050505) sitting on a panel that is --surface
- * (#0f0f0f) — a real mismatch, and a louder one on a themed pack where the
- * panel is tinted and --bg is not. Matching the panel makes the backing
- * invisible, which LOOKS like no background and still stops the rows
- * scrolling through the words. A pill would have needed a backing beside
- * it doing this job anyway. */
+ * Sized to the words rather than the panel, so there is no band to get the
+ * colour of. It keeps a fill because it is STICKY and the rows have to
+ * pass behind something; a chip floating over a list while it scrolls is a
+ * pattern people already read, where a transparent heading with rows
+ * sliding through the letters is not.
+ *
+ * --surface-raised rather than --surface: a chip should sit ON the panel,
+ * and every pack defines it a step up from the surface for exactly this.
+ */
 .leaguepick__sport {
   position: sticky;
   top: 0;
   z-index: 2;
-  margin: 0;
-  padding: 8px 10px 4px;
+  /* Shrink to the text. A block-level h4 would span the column and be a
+   * band again whatever colour it took. */
+  align-self: flex-start;
+  margin: 6px 0 4px 4px;
+  padding: 4px 9px;
+  border-radius: 999px;
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: 11px;
+  font-size: 10.5px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-muted);
-  background: var(--surface);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
 }
+
 .leaguepick__group {
   display: flex;
   flex-direction: column;
