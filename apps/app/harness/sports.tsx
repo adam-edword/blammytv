@@ -194,6 +194,20 @@ function restamp(slate: Slate, league: string, day: Date) {
  * Stand in for ESPN, and only for ESPN: crests still come off the real CDN,
  * because a card measured without its art is not the card.
  */
+/**
+ * The board's three no-cards states, on demand: ?state=loading|error|empty.
+ *
+ * Same argument the dealt states above make. A rig that can only ever show
+ * the happy path cannot tell you whether the skeleton lines up with the
+ * board it becomes, or whether an empty state's sentence fits on one line,
+ * and those are geometry questions exactly like the card ones.
+ *
+ *   loading  every scoreboard call hangs, so the skeleton stays up
+ *   error    every one rejects, which is what a total outage looks like
+ *   empty    every one answers 200 with no events
+ */
+const FORCED = new URL(location.href).searchParams.get("state");
+
 const realFetch = window.fetch.bind(window);
 window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
   const url =
@@ -203,6 +217,15 @@ window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
         ? input.href
         : input.url;
   const m = /sports\/[^/]+\/([^/]+)\/scoreboard/.exec(url);
+  if (m && FORCED) {
+    if (FORCED === "loading") return new Promise<Response>(() => {});
+    if (FORCED === "error") return Promise.reject(new Error("forced"));
+    return Promise.resolve(
+      new Response(JSON.stringify({ events: [] }), {
+        headers: { "content-type": "application/json" },
+      }),
+    );
+  }
   /* RACING, restamped onto this weekend like every other slate.
    *
    * The real endpoint answers a date inside a race weekend with all five

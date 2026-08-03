@@ -1046,6 +1046,20 @@ answered. The question for Adam is what the wide version says with the
 room: the four live matches by name, the leaders, or just the tournament
 bigger.
 
+#### 40. The empty board says when the next one is [ ]
+
+Shipped in v0.8.135: the four no-cards states are a proper composition
+now, and the narrowed one names what you follow and offers the way out.
+
+What it still cannot say is the useful thing. "PGA, NBA and 3 more have
+nothing scheduled over the next three days" is honest and slightly
+useless; "the NBA is back on 3 October" is the answer. That is #36 from
+the other end, and the data is one bare scoreboard call per followed
+league, already confirmed against the live endpoint.
+
+When #36 lands, this note becomes the next date per followed league and
+the empty board stops being a dead end.
+
 ---
 
 ## Shipped, and off the list
@@ -1071,6 +1085,7 @@ here so a label that vanished can be looked up.
 | - | The Leagues rail icon: three splayed blades on a plinth, filled | v0.8.122 |
 | - | League marks up twice, 16 to 26 on rows and 34 to 48 on tiles, with the row height held at 36px | v0.8.132-133 |
 | **37** | **The wide board.** An empty follow store asks for all 151 leagues over today and tomorrow instead of six; a tournament collapses to one card a day instead of its whole draw; the 90 second tick re-polls only the leagues that answered | v0.8.134 |
+| **40** (part) | **The empty board.** One grey line became four states: a skeleton at the board's own geometry while it loads, and a mark, headline, note and way out when there is nothing. The narrowed one names what you follow | v0.8.135 |
 
 ## Closed decisions
 

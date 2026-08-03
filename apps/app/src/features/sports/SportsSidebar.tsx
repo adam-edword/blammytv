@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   loadSidebarCollapsed,
   saveSidebarCollapsed,
@@ -47,16 +47,42 @@ export function SportsSidebar({
   games,
   follows,
   onFollows,
+  reveal,
 }: {
   /** Every game the board has loaded, for the club list. */
   games: Game[];
   follows: Follows;
   onFollows: (next: Follows) => void;
+  /**
+   * A counter the board bumps to say "show them the leagues".
+   *
+   * The empty board offers a way out of a filter that is hiding everything
+   * (see SportsEmpty), and that way out has to land on the Leagues tab
+   * with the panel open, whatever the sidebar was doing before.
+   *
+   * A COUNTER rather than a boolean, the same shape SportsScreen already
+   * uses for the Sports chip: pressing a button that is already satisfied
+   * sets no state and so would do nothing the second time.
+   */
+  reveal?: number;
 }) {
   const [mode, setMode] = useState<Mode>("leagues");
   // Read once and written on every toggle. Collapsing this is a statement
   // about how you want to use the screen, so it should outlive the visit.
   const [collapsed, setCollapsed] = useState(loadSidebarCollapsed);
+  // Skips the mount, like the chip's own effect: arriving on the board is
+  // not someone asking to be shown the leagues.
+  const revealed = useRef(reveal);
+  useEffect(() => {
+    if (revealed.current === reveal) return;
+    revealed.current = reveal;
+    setMode("leagues");
+    setCollapsed((was) => {
+      if (!was) return was;
+      saveSidebarCollapsed(false);
+      return false;
+    });
+  }, [reveal]);
 
   /**
    * The clubs to offer, from the games the board actually loaded.

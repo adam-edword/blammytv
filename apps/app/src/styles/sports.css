@@ -1385,6 +1385,140 @@
   font-weight: 600;
 }
 
+/* A board with nothing on it, said properly (plan 010 #40).
+ *
+ * Discover's `.discover--empty` language: a centred column, a headline at
+ * 28px, a muted note and one action. Same measurements on purpose. What
+ * this adds is the mark, because the sports board is a full-width screen
+ * where Discover's empty state sits inside a tab that already has chrome
+ * around it, and two lines of text alone in 1900px reads as a bug. */
+.sports-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+  /* Not vertically centred in the viewport: the board's own top edge is
+   * where the eye already is, and a message that floats to the middle of a
+   * tall screen reads as a dialog rather than as the page's own answer. */
+  padding: 96px 24px 120px;
+}
+.sports-empty__mark {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 6px;
+  /* Quiet enough to be a mark rather than an illustration. The headline is
+   * the thing being read; this is what tells you which screen you are on
+   * before you read it. */
+  color: var(--text-muted);
+  opacity: 0.45;
+}
+.sports-empty__mark svg {
+  width: 100%;
+  height: 100%;
+}
+.sports-empty__title {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 28px;
+  line-height: 1.2;
+  /* The UA's own h2 margin is 23.24px at this size and it was STACKING with
+   * the column's gap: 39.2px above the headline and 48.2px below it, which
+   * is why the three parts read as three separate things rather than as one
+   * statement. Zeroed, so the gap is the only thing setting the rhythm. */
+  margin: 0;
+  color: var(--text);
+}
+.sports-empty__note {
+  /* Bounded, because these lines name leagues and a note that runs the
+   * full width of a 4K panel is one line nobody's eye can track back. At
+   * 46ch the longest of the three wraps to two lines at any width. */
+  max-width: 46ch;
+  /* The paragraph's own 1em UA margin, for the same reason as the
+   * headline's above it: it was adding 15px to the 12px gap. */
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 15px;
+  line-height: 1.45;
+}
+.sports-empty__action {
+  margin-top: 8px;
+}
+
+/* The board arriving, in the board's own shape.
+ *
+ * Worth the pixels now in a way it was not before: an empty follow store
+ * asks for 151 leagues over two days, which measured 8.3s warm and 38s
+ * cold at the six-request gate. That is a long time to show one grey
+ * sentence. */
+.sports-skel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 8px;
+}
+/* Matches Discover's `.disc-skel` exactly, same surface and same 1.3s
+ * breath. Its own keyframe name rather than reaching across features for
+ * a `disc-` prefixed one. */
+.sports-skel__title,
+.sports-skel__wide,
+.sports-skel__card {
+  background: var(--surface);
+  animation: sports-skel-pulse 1.3s ease-in-out infinite;
+}
+.sports-skel__title {
+  width: 232px;
+  height: 30px;
+  border-radius: 8px;
+}
+.sports-skel__title--sub {
+  margin-top: 18px;
+}
+/* The row: wide cards at the real 783.84x276.9, clipped at the board's
+ * edge the same way the real row is. */
+.sports-skel__row {
+  display: flex;
+  gap: 22.72px;
+  overflow: hidden;
+  padding-bottom: 8px;
+}
+.sports-skel__wide {
+  flex: 0 0 auto;
+  width: 783.84px;
+  height: 276.9px;
+  border-radius: 63.9px;
+}
+/* The same auto-fill track as .sports__grid, so it reflows at exactly the
+ * widths the real grid does and nothing jumps when the games land. */
+.sports-skel__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(315px, 1fr));
+  gap: 22.72px;
+}
+.sports-skel__card {
+  height: 181.76px;
+  border-radius: 42.6px;
+}
+@keyframes sports-skel-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sports-skel__title,
+  .sports-skel__wide,
+  .sports-skel__card {
+    animation: none;
+  }
+}
+
 /* ------------------------------------------------------------- theater */
 
 /* One game, its ways in, and the player. Two columns and one rule: the

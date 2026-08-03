@@ -15,7 +15,10 @@ import { dayLabel, nowish } from "./day";
 import { SportsTheater } from "./SportsTheater";
 import { UpcomingCard } from "./UpcomingCard";
 import { useCatalog } from "./catalog";
-import { ALL_LEAGUES } from "./leagues";
+import { ALL_LEAGUES, league as byPath } from "./leagues";
+import type { CatalogLeague } from "./leagues";
+import { SportsEmpty, BoardSkeleton } from "./SportsEmpty";
+import { nameList } from "./nameList";
 import { useGames, withChannels } from "./useGames";
 import type { Day } from "./useGames";
 import { isField, isFixture, isTournament } from "./model";
@@ -85,6 +88,25 @@ export function SportsScreen({ home }: { home?: number } = {}) {
     [follows],
   );
   const narrowed = active.leagues.length > 0 || active.teams.length > 0;
+  /**
+   * What the empty state names when the filter is hiding everything.
+   *
+   * The LEAGUES by their short labels, plus the clubs as a count. A club
+   * follow pulls its whole league onto the wire, so naming eleven clubs
+   * here would be listing the filter rather than the thing that came back
+   * empty, and "3 clubs" is the honest summary of that half.
+   */
+  const [followedNames, followedCount] = useMemo(() => {
+    const labels = active.leagues
+      .map(byPath)
+      .filter((l): l is CatalogLeague => l !== undefined)
+      .map((l) => l.label);
+    const clubs = active.teams.length;
+    if (clubs > 0) labels.push(`${clubs} ${clubs === 1 ? "club" : "clubs"}`);
+    return [nameList(labels), labels.length] as const;
+  }, [active]);
+  /** Bumped by the empty state's way out. See SportsSidebar's `reveal`. */
+  const [reveal, setReveal] = useState(0);
   // Off the RESOLVABLE follows, not the raw store: a path the catalog no
   // longer carries is not a URL worth asking ESPN for.
   const leagues = useMemo(() => fetchList(active), [active]);
@@ -274,6 +296,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
         games={clubPool}
         follows={follows}
         onFollows={setFollows}
+        reveal={reveal}
       />
       <div className="discover sports sportsboard__main">
       {rowItems.length > 0 && (
@@ -336,23 +359,42 @@ export function SportsScreen({ home }: { home?: number } = {}) {
           ),
       )}
 
-      {!anything && (
-        <p
-          className="sports__note"
-          // Swaps between loading, failed and empty with no announcement,
-          // so after first paint none of it reached a screen reader.
-          // DiscoverScreen already splits it exactly this way.
-          role={state === "error" ? "alert" : "status"}
-        >
-          {state === "loading"
-            ? "Loading today's games…"
-            : state === "error"
-              ? "Couldn't reach the schedule. Trying again shortly."
-              : narrowed
-                ? "Nothing on for what you follow. Widen it in the sidebar."
-                : "Nothing on today."}
-        </p>
-      )}
+      {!anything &&
+        (state === "loading" ? (
+          <BoardSkeleton />
+        ) : state === "error" ? (
+          <SportsEmpty
+            alert
+            title="Couldn't reach the schedule."
+            note="The board keeps trying on its own, so this usually clears itself. Nothing is lost while it does."
+          />
+        ) : narrowed ? (
+          /* THE ONE PEOPLE ACTUALLY HIT. Follow F1 in August and the board
+           * is empty for eighteen days; follow the NBA in summer and it is
+           * empty for two months. So it names what it looked at, which is
+           * the difference between "there is nothing" and "there is
+           * nothing FOR YOU" — and offers the way out, because the fix is
+           * always to follow one more thing. */
+          <SportsEmpty
+            title="Nothing on for what you follow."
+            note={`${followedNames} ${
+              followedCount === 1 ? "has" : "have"
+            } nothing scheduled over the next three days. Every other league is still there.`}
+            action={{
+              label: "Browse all leagues",
+              onClick: () => setReveal((n) => n + 1),
+            }}
+          />
+        ) : (
+          /* Very nearly unreachable, and kept honest rather than dropped.
+           * The board asks for all 151 leagues when nothing is followed,
+           * and on the day this was measured 20 of them had something on.
+           * It would take a genuinely dead day everywhere to land here. */
+          <SportsEmpty
+            title="Nothing on today."
+            note={`None of the ${ALL_LEAGUES.length} leagues has a game scheduled today or tomorrow. That is rare, so it is worth looking again shortly.`}
+          />
+        ))}
       </div>
     </div>
   );
