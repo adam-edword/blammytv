@@ -227,7 +227,21 @@ pub fn stop_popout() {
     // to QUIT — the watcher, the sole wait_event-er, performs the destroy
     // on SHUTDOWN. Destroying here raced its blocked wait_event on the
     // same handle (forbidden by libmpv) on every Bring It Back.
-    let taken = POPOUT.lock().unwrap().take();
+    //
+    // THE GUARD IS HELD ACROSS THE QUIT, and that is the whole point of the
+    // binding. Taking the handle out and releasing the lock first left a
+    // window where the watcher — which can reach SHUTDOWN on its own, from
+    // a ✕ or a `q` — locked POPOUT, saw None, decided the close was not
+    // ours, and ran terminate_destroy on the very handle being commanded
+    // here. Microseconds wide, but play_wid calls this on EVERY in-app
+    // tune, so closing the PiP and clicking a channel together is enough.
+    //
+    // Holding it makes the watcher block until `quit` has returned. No
+    // deadlock: quit only queues the shutdown, it does not wait for the
+    // watcher, and the watcher takes this same lock only after wait_event
+    // has already returned.
+    let mut g = POPOUT.lock().unwrap();
+    let taken = g.take();
     if let (Some(p), Some(l)) = (taken, LIB.get()) {
         unsafe {
             let cmd = CString::new("quit").unwrap();
@@ -235,6 +249,7 @@ pub fn stop_popout() {
             (l.command)(p.0, args.as_ptr());
         }
     }
+    drop(g);
 }
 
 /// Render into an existing child window (`--wid`) instead of mpv's own —

@@ -65,8 +65,21 @@ pub fn open(
             h as i32,
             SWP_SHOWWINDOW | SWP_NOACTIVATE,
         );
-        crate::mpv::play_wid(url, child.0 as isize, false, 0.0)?;
+        // STORED BEFORE THE PLAY, and unwound if it fails.
+        //
+        // play_wid can fail — a missing or incompatible libmpv-2.dll,
+        // mpv_create, mpv_initialize, loadfile — and the `?` used to return
+        // with the child window already created but CHILD still 0. Nothing
+        // could reach it after that: close() had no handle to destroy and
+        // set_rect() had none to move, so every retry left another visible
+        // black child parked at its old rect at the bottom of the z-order.
+        // That is exactly the path a broken libmpv install walks, and the
+        // frontend retries.
         CHILD.store(child.0 as isize, Ordering::SeqCst);
+        if let Err(e) = crate::mpv::play_wid(url, child.0 as isize, false, 0.0) {
+            close();
+            return Err(e);
+        }
     }
     // One line of ground truth for the upgrade question: which libmpv did
     // the loader actually find? (Terminal-visible, once per open.)
