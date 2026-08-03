@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ALL_LEAGUES, league, searchLeagues } from "./leagues";
+import { ALL_LEAGUES, SPORTS, league, searchLeagues } from "./leagues";
 import { toggleLeague } from "./follows";
 
 /**
@@ -16,12 +16,22 @@ import { toggleLeague } from "./follows";
 const split = (favourites: string[], query: string) => {
   const hits = searchLeagues(query);
   const matched = new Set(hits.map((l) => l.path));
+  const fav = new Set(favourites);
   return {
     top: favourites
       .map(league)
       .filter((l) => l !== undefined)
       .filter((l) => matched.has(l.path)),
     rest: hits.filter((l) => !favourites.includes(l.path)),
+    groups: [...SPORTS]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((sport) => ({
+        sport,
+        leagues: sport.leagues.filter(
+          (l) => matched.has(l.path) && !fav.has(l.path),
+        ),
+      }))
+      .filter((g) => g.leagues.length > 0),
   };
 };
 
@@ -92,6 +102,48 @@ describe("favouriting from either half", () => {
     expect(split(off.leagues, "").top).toEqual([]);
     expect(split(off.leagues, "").rest.some((l) => l.path === "hockey/nhl")).toBe(
       true,
+    );
+  });
+});
+
+describe("the column is grouped by sport", () => {
+  it("groups alphabetically, not biggest-first", () => {
+    // The catalog orders sports biggest-first, which is right for a
+    // ranking and wrong for a search: soccer is 107 of the 151, so
+    // biggest-first means scrolling past all of them to reach anything
+    // else. Alphabetical puts Soccer eleventh of fourteen.
+    const { groups } = split([], "");
+    const names = groups.map((g) => g.sport.name);
+    expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)));
+    expect(names.indexOf("Soccer")).toBeGreaterThan(5);
+  });
+
+  it("loses nobody to the grouping", () => {
+    const favs = ["football/nfl", "hockey/nhl"];
+    const { top, groups } = split(favs, "");
+    const grouped = groups.flatMap((g) => g.leagues);
+    expect(top.length + grouped.length).toBe(ALL_LEAGUES.length);
+    // And no league is in two groups.
+    expect(new Set(grouped.map((l) => l.path)).size).toBe(grouped.length);
+  });
+
+  it("drops a sport with nothing left in it", () => {
+    // Both when it is searched away and when every one of its leagues is
+    // already a favourite. An empty heading is a lie about the list.
+    const hockey = SPORTS.find((s) => s.key === "hockey")!;
+    const { groups } = split(hockey.leagues.map((l) => l.path), "");
+    expect(groups.some((g) => g.sport.key === "hockey")).toBe(false);
+
+    const searched = split([], "hockey").groups;
+    expect(searched.map((g) => g.sport.key)).toEqual(["hockey"]);
+  });
+
+  it("keeps the catalog's order inside a group", () => {
+    const { groups } = split([], "");
+    const basketball = groups.find((g) => g.sport.key === "basketball")!;
+    const catalog = SPORTS.find((s) => s.key === "basketball")!;
+    expect(basketball.leagues.map((l) => l.path)).toEqual(
+      catalog.leagues.map((l) => l.path),
     );
   });
 });

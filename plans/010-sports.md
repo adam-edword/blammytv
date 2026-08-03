@@ -602,15 +602,28 @@ scroll rather than a list you scan.
   Settings' playlist delete already uses. Covering the tile rather than
   sitting across its top, because the sentence is wider than the 118px
   tile and spilled into its neighbour.
-- **The heart is the guide's hide-eye slot**, to the pixel: same box, same
-  reveal on row hover or focus. `FavoriteHeartIcon` copies StarIcon's
-  stroke, fill toggle, caps and joins, so only the path differs. Rows are
-  `.live-folder` inside `.live-folder-row`, which is how they get the
-  name's fade scrim for free.
+- **The heart is the guide's hide-eye SLOT and the guide star's
+  TREATMENT**, which are two different files and both deliberate. The box
+  is `.live-folder__hide`'s; the icon is the star's three-state rainbow
+  (ghost at rest, gradient ring on hover), not the mode rail's plain
+  outline, which is what the first pass copied and Adam caught. The star's
+  gradient coordinates are `userSpaceOnUse`, so they are rescaled from its
+  17-unit box into the heart's 24 rather than copied; copying them would
+  have run the whole ramp across the middle third and left both ends flat.
+- **The column is grouped by sport**, alphabetically. Adam's, and the
+  numbers make it: 107 of the 151 are soccer, so one flat list buries the
+  other 44 inside a wall. Alphabetical rather than the catalog's
+  biggest-first, because biggest-first puts soccer's 107 before everything
+  else; alphabetical puts Soccer eleventh of fourteen where its size costs
+  nobody anything. Headings are sticky, since forty rows into soccer you
+  have forgotten which list you are in.
+- Rows are `.live-folder` inside `.live-folder-row`, which is how they get
+  the name's fade scrim for free.
 
-Left, and it is small: the picker is one flat list rather than the sports
-grid the item originally described. With search matching sport names, a
-step to pick a sport first buys less than it costs.
+Left, and it is small: this is a grouped list rather than the two-step
+sports-grid-then-leagues the item originally described. With search
+matching sport names and the column already grouped, a step that only
+picks a sport buys less than it costs.
 
 ---
 

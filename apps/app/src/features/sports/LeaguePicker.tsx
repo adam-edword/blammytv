@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CloseIcon, FavoriteHeartIcon, TvIcon } from "../../ui/icons";
+import {
+  CloseIcon,
+  HeartGhostIcon,
+  HeartRainbowHollowIcon,
+  TvIcon,
+} from "../../ui/icons";
 import { DEFAULT_LEAGUES } from "./espn";
-import { league as byPath, searchLeagues } from "./leagues";
+import { SPORTS, league as byPath, searchLeagues } from "./leagues";
 import { toggleLeague, type Follows } from "./follows";
 import type { CatalogLeague } from "./leagues";
 
@@ -65,10 +70,37 @@ export function LeaguePicker({
         .filter((l) => matched.has(l.path)),
     [follows.leagues, matched],
   );
-  const rest = useMemo(
-    () => hits.filter((l) => !follows.leagues.includes(l.path)),
-    [hits, follows.leagues],
-  );
+  /**
+   * Everything else, GROUPED BY SPORT.
+   *
+   * Adam's, and the numbers make the case: 107 of the 151 leagues are
+   * soccer, so one alphabetical list buries the other 44 inside a wall.
+   * "Ice Hockey" with four rows under it is a thing you can find by
+   * scrolling; four hockey leagues scattered between "Chinese Super
+   * League" and "Copa Libertadores" are not.
+   *
+   * Sports ALPHABETICALLY, not in the catalog's own biggest-first order.
+   * That order is right for a ranking and wrong for a search: biggest
+   * first puts soccer's 107 rows before everything else, so reaching any
+   * other sport means scrolling past all of them. Alphabetical puts Soccer
+   * eleventh of fourteen, where its size costs nobody anything, and makes
+   * where a sport sits predictable rather than something you learn.
+   *
+   * Leagues keep the catalog's order inside a group, which is already
+   * alphabetical.
+   */
+  const groups = useMemo(() => {
+    const favourite = new Set(follows.leagues);
+    return [...SPORTS]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((sport) => ({
+        sport,
+        leagues: sport.leagues.filter(
+          (l) => matched.has(l.path) && !favourite.has(l.path),
+        ),
+      }))
+      .filter((g) => g.leagues.length > 0);
+  }, [matched, follows.leagues]);
 
   const toggle = (path: string) => {
     window.clearTimeout(armTimer.current);
@@ -129,42 +161,59 @@ export function LeaguePicker({
         * exists. */}
       <hr className="leaguepick__rule" />
 
-      <div className="live-sidebar__folders">
-        {rest.length > 0 ? (
-          rest.map((l) => (
-            <span className="live-folder-row leaguepick__row" key={l.path}>
-              {/* The whole row favourites it, and the heart says so.
-                * Live's rows work differently — there the row filters and
-                * the eye hides, two actions — but here there is only one
-                * thing to do with a league you do not follow, so the big
-                * target and the small affordance agree. */}
-              <button
-                type="button"
-                className="live-folder"
-                title={l.name}
-                aria-label={`Add ${l.label} to favourites`}
-                onClick={() => toggle(l.path)}
-              >
-                {l.logo ? (
-                  <img className="leaguepick__mark" src={l.logo} alt="" loading="lazy" />
-                ) : (
-                  <TvIcon className="live-folder__icon" />
-                )}
-                <span className="live-folder__name">{l.label}</span>
-              </button>
-              {/* The guide's hover-eye slot, to the pixel, carrying a
-                * heart instead. Same reveal rules: hidden until the row is
-                * hovered or anything in it has keyboard focus. */}
-              <button
-                type="button"
-                className="live-folder__hide leaguepick__fav"
-                aria-label={`Add ${l.label} to favourites`}
-                title={`Add ${l.label} to favourites`}
-                onClick={() => toggle(l.path)}
-              >
-                <FavoriteHeartIcon />
-              </button>
-            </span>
+      <div className="live-sidebar__folders leaguepick__all">
+        {groups.length > 0 ? (
+          groups.map(({ sport, leagues }) => (
+            <div className="leaguepick__group" key={sport.key}>
+              {/* Sticky, so the sport you are inside is still named when
+                * you are forty rows into it. Soccer is 107 of them. */}
+              <h4 className="leaguepick__sport">{sport.name}</h4>
+              {leagues.map((l) => (
+                <span className="live-folder-row leaguepick__row" key={l.path}>
+                  {/* The whole row favourites it, and the heart says so.
+                    * Live's rows work differently — there the row filters
+                    * and the eye hides, two actions — but here there is
+                    * only one thing to do with a league you do not follow,
+                    * so the big target and the small affordance agree. */}
+                  <button
+                    type="button"
+                    className="live-folder"
+                    title={l.name}
+                    aria-label={`Add ${l.label} to favourites`}
+                    onClick={() => toggle(l.path)}
+                  >
+                    {l.logo ? (
+                      <img
+                        className="leaguepick__mark"
+                        src={l.logo}
+                        alt=""
+                        loading="lazy"
+                      />
+                    ) : (
+                      <TvIcon className="live-folder__icon" />
+                    )}
+                    <span className="live-folder__name">{l.label}</span>
+                  </button>
+                  {/* The guide's hover-eye slot, to the pixel, carrying a
+                    * heart instead. Same reveal rules: hidden until the
+                    * row is hovered or anything in it has focus. */}
+                  <button
+                    type="button"
+                    className="live-folder__hide leaguepick__fav"
+                    aria-label={`Add ${l.label} to favourites`}
+                    title={`Add ${l.label} to favourites`}
+                    onClick={() => toggle(l.path)}
+                  >
+                    {/* The guide's own swap: the ghost while the row is
+                      * hovered, the rainbow ring once the heart itself
+                      * is. Two elements and a CSS display flip, because a
+                      * :hover in JS would need a listener per row. */}
+                    <HeartGhostIcon className="guide__fav-idle" />
+                    <HeartRainbowHollowIcon className="guide__fav-hot" />
+                  </button>
+                </span>
+              ))}
+            </div>
           ))
         ) : (
           <p className="live-sidebar__note">

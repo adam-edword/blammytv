@@ -1837,6 +1837,12 @@
   flex-direction: column;
   min-height: 0;
   gap: 10px;
+  /* Adam: the search box and the note were hugging the panel edge. The
+   * ROWS never looked like it because .live-folder carries 10px of its
+   * own, so only the two things without internal padding read as flush.
+   * Inset the picker instead of patching each one, which also insets the
+   * scrollbar and the tiles by the same amount. */
+  padding: 0 6px;
 }
 .leaguepick__search {
   flex: 0 0 auto;
@@ -1863,6 +1869,38 @@
   min-height: 0;
   overflow-y: auto;
 }
+/* The sport a group of rows belongs to.
+ *
+ * STICKY, because soccer is 107 of the 151 and forty rows in you have
+ * forgotten which list you are inside. Quiet, and set in the metadata
+ * voice rather than as a heading: it is a signpost, not a section title
+ * competing with the league names under it. */
+.leaguepick__sport {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: 0;
+  padding: 8px 10px 4px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  /* Opaque, or the rows scroll through the words. */
+  background: var(--bg);
+}
+.leaguepick__group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+/* The scroller is the sticky context, so it must not also be the thing
+ * with the gap: groups own their own spacing. */
+.leaguepick__all {
+  gap: 0;
+}
+
 /* A league's mark where a folder row has its tv icon: same slot width, so
  * the labels line up down the column whether or not the art loaded. */
 .leaguepick__mark {
@@ -1872,16 +1910,32 @@
   object-fit: contain;
   opacity: 0.85;
 }
-/* The heart takes the hide-eye's box exactly (see .live-folder__hide), so
- * only the two things that differ are set: it is a FAVOURITE rather than a
- * destructive action, so it warms to the accent instead of to plain text,
- * and it sits at the star's 19px rather than the eye's 15. */
-.leaguepick__fav:hover {
-  color: var(--accent);
+/* The heart takes the hide-eye's BOX exactly (see .live-folder__hide) and
+ * the guide star's TREATMENT exactly, which are two different files and
+ * both of them deliberate: Adam asked for the star's style in the eye's
+ * spot.
+ *
+ * So the swap below is .guide__fav's, restated rather than shared, because
+ * those rules are scoped to a class in live.css and reaching across to
+ * borrow them would couple this panel to the guide's markup rather than to
+ * its language. `currentColor` at --text is what the ghost fills with. */
+.leaguepick__fav {
+  color: var(--text);
 }
 .leaguepick__fav svg {
   width: 19px;
   height: 19px;
+}
+/* One of the two is always out of flow, which is what lets both sit in the
+ * same grid cell. */
+.leaguepick__fav .guide__fav-hot {
+  display: none;
+}
+.leaguepick__fav:hover .guide__fav-idle {
+  display: none;
+}
+.leaguepick__fav:hover .guide__fav-hot {
+  display: block;
 }
 /* The row's own button must not paint a background: .live-folder is a
  * button in Live and a button here, and the row wrapper is what positions

@@ -85,38 +85,119 @@ export function StarIcon({
 }
 
 /**
- * Interface / Heart, and deliberately StarIcon's twin.
+ * The heart, in the guide star's THREE treatments.
  *
- * NOT `HeartIcon`, which already exists further down and is a different
- * object: that one is the solid supporters mark on the Themes Pass card,
- * fill-only with no stroke and no toggle. This one is a CONTROL, and the
- * name says which.
+ * Adam asked for "the same exact stroke and fill style as the favorites
+ * star on the guide", and the first pass got that wrong: it copied
+ * StarIcon, which is the mode rail's plain outline. The guide's star is
+ * not that. It is a three-state rainbow, and the picture he sent is the
+ * middle one.
  *
- * Adam's ask was a heart "with the same exact stroke and fill style as the
- * favorites star on the guide rail icon", so every property that decides
- * how it reads is copied rather than chosen: the 24-unit box, stroke width
- * 2, round caps and joins, and `fill` swapping between currentColor and
- * none on the same boolean. Only the path differs, which is the point.
+ *   at rest, row hovered   HeartGhostIcon          currentColor at 0.1
+ *   the control hovered    HeartRainbowHollowIcon  dark core, gradient ring
+ *   on                     RainbowHeartIcon        gradient fill and ring
+ *
+ * The gradient is the star's, stop for stop. Its coordinates are
+ * userSpaceOnUse, so they are RESCALED from the star's 17-unit box into
+ * this 24-unit one rather than copied: 18.8541/17 of the width becomes
+ * 26.62/24, and so on. Copying the raw numbers would have run the whole
+ * ramp across the middle third of the heart and left both ends flat.
+ *
+ * Stroke is 1.4 rather than the star's 1, for the same reason and in the
+ * same direction: 1 in a 17-box is 1.4 in a 24-box, so this is the star's
+ * line rather than a heavier one.
  */
-export function FavoriteHeartIcon({
-  size = 19,
-  className,
-  filled = false,
-}: IconProps & { filled?: boolean }) {
+const HEART_D =
+  "M12 20.7 4.3 13a5.1 5.1 0 0 1 0-7.2 5.1 5.1 0 0 1 7.2 0l.5.5.5-.5a5.1 5.1 0 0 1 7.2 0 5.1 5.1 0 0 1 0 7.2L12 20.7Z";
+
+/** The star's ramp, rescaled to a 24-unit box. Both rainbow hearts use it. */
+function HeartGradient({ id }: { id: string }) {
+  return (
+    <defs>
+      <linearGradient
+        id={id}
+        x1="26.62"
+        y1="14.96"
+        x2="-4.01"
+        y2="11.0"
+        gradientUnits="userSpaceOnUse"
+      >
+        <stop stopColor="#FF7BF6" />
+        <stop offset="0.259615" stopColor="#8696FF" />
+        <stop offset="0.528846" stopColor="#84FFA9" />
+        <stop offset="0.783654" stopColor="#FFE57F" />
+        <stop offset="1" stopColor="#FF9B9B" />
+      </linearGradient>
+    </defs>
+  );
+}
+
+/** Faint filled heart — at rest, while the row is hovered. StarGhostIcon's
+ * opposite number, at its 0.1. */
+export function HeartGhostIcon({ size = 19, className }: IconProps) {
   return (
     <svg
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill={filled ? "currentColor" : "none"}
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
+      fill="none"
       className={className}
       aria-hidden="true"
     >
-      <path d="M12 20.7 4.3 13a5.1 5.1 0 0 1 0-7.2 5.1 5.1 0 0 1 7.2 0l.5.5.5-.5a5.1 5.1 0 0 1 7.2 0 5.1 5.1 0 0 1 0 7.2L12 20.7Z" />
+      <path opacity="0.1" d={HEART_D} fill="currentColor" />
+    </svg>
+  );
+}
+
+/** Dark-core heart ringed by the rainbow gradient — while the control
+ * itself is hovered. StarRainbowHollowIcon's opposite number. Gradient ids
+ * are per-instance so many can render at once. */
+export function HeartRainbowHollowIcon({ size = 19, className }: IconProps) {
+  const grad = useId();
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d={HEART_D} fill="#262626" />
+      <path d={HEART_D} stroke={`url(#${grad})`} strokeWidth={1.4} />
+      <HeartGradient id={grad} />
+    </svg>
+  );
+}
+
+/** Gradient-filled heart — the ON state. RainbowStarIcon's opposite
+ * number, `vivid` included. */
+export function RainbowHeartIcon({
+  size = 19,
+  className,
+  vivid = false,
+}: IconProps & { vivid?: boolean }) {
+  const grad = useId();
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      className={className}
+      aria-hidden="true"
+    >
+      {/* No black understroke: at scaled sizes its antialiased fringe
+       * peeks past the gradient stroke as a dark halo. */}
+      <path d={HEART_D} fill="black" />
+      <path
+        d={HEART_D}
+        fill={`url(#${grad})`}
+        fillOpacity={vivid ? 1 : 0.7}
+        stroke={`url(#${grad})`}
+        strokeWidth={1.4}
+      />
+      <HeartGradient id={grad} />
     </svg>
   );
 }
