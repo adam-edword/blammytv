@@ -271,6 +271,20 @@ pub fn stop_popout() {
 /// `start` resumes at a position; inv.rs currently always passes 0.0, so
 /// popout reclaim rejoins at the live edge, not the captured position.
 pub fn play_wid(url: &str, wid: isize, composited: bool, start: f64) -> Result<(), String> {
+    // WHERE THE WAIT ACTUALLY IS.
+    //
+    // "20-30 seconds before video" has several candidate homes and guessing
+    // between them is how you fix the wrong one. This splits the synchronous
+    // part into its phases and prints them once per open, terminal-visible
+    // under `tauri dev` like the `[mpv]` version line below.
+    //
+    // Read it as: teardown is the OLD stream letting go (terminate_destroy
+    // blocks until its demuxer and network threads unwind, and this runs on
+    // the UI thread); create+init is libmpv starting; loadfile is only the
+    // command being QUEUED, not the stream opening. If all three are small
+    // then the time is mpv probing the URL, which is a different fix
+    // (probesize/analyzeduration/cache) from this being a teardown stall.
+    let t0 = std::time::Instant::now();
     let l = lib()?;
     stop();
     // ...and the PiP too. One provider connection at a time is the app-wide
@@ -286,6 +300,7 @@ pub fn play_wid(url: &str, wid: isize, composited: bool, start: f64) -> Result<(
     // has released its guard, and stop_popout() drops POPOUT's before issuing
     // the quit. A no-op when nothing is popped out (the common path).
     stop_popout();
+    let t_teardown = t0.elapsed();
     unsafe {
         let h = (l.create)();
         if h.is_null() {
@@ -316,6 +331,7 @@ pub fn play_wid(url: &str, wid: isize, composited: bool, start: f64) -> Result<(
             (l.terminate_destroy)(h);
             return Err("mpv_initialize failed".into());
         }
+        let t_init = t0.elapsed();
         let load = CString::new("loadfile").unwrap();
         let curl = CString::new(url).map_err(|_| "url has a null byte")?;
         let args = [load.as_ptr(), curl.as_ptr(), std::ptr::null()];
@@ -324,6 +340,16 @@ pub fn play_wid(url: &str, wid: isize, composited: bool, start: f64) -> Result<(
             return Err("loadfile failed".into());
         }
         *PLAYER.lock().unwrap() = Some(Player(h));
+        // Cumulative from entry, so the gaps between them are the phases.
+        // `queued` is loadfile RETURNING, not the stream being open: mpv
+        // opens it on its own thread, so anything after this is probe and
+        // network and shows up as the delay to first frame, not here.
+        println!(
+            "[mpv-timing] teardown {}ms  create+init {}ms  queued {}ms",
+            t_teardown.as_millis(),
+            t_init.as_millis(),
+            t0.elapsed().as_millis(),
+        );
     }
     Ok(())
 }

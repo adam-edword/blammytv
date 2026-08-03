@@ -79,6 +79,16 @@ export function InvertedPlayer({
   radiusRef.current = radius;
   const readyRef = useRef(ready);
   readyRef.current = ready;
+  // See [mpv-timing] in mpv.rs: this is the half that spans the probe.
+  const openedAtRef = useRef(0);
+  const framedRef = useRef(false);
+  useEffect(() => {
+    if (!ready || framedRef.current || !openedAtRef.current) return;
+    framedRef.current = true;
+    console.info(
+      `[mpv-timing] first frame ${Math.round(performance.now() - openedAtRef.current)}ms after open`,
+    );
+  }, [ready]);
 
   // Effect keyed on `url`: a channel switch tears the player fully down
   // (cleanup inv_stop) and rebuilds after the debounce, so mpv never plays
@@ -86,6 +96,7 @@ export function InvertedPlayer({
   useEffect(() => {
     let raf = 0;
     let opened = false;
+    framedRef.current = false;
     let last = "";
     // Set by cleanup: a move promise still in flight at teardown would
     // otherwise arm a fresh settle timer AFTER cleanup healed the hole,
@@ -149,9 +160,16 @@ export function InvertedPlayer({
                   ? holeClip(ix.l, ix.t, ix.r, ix.b, rad, W, H)
                   : "";
             }
+            // The OTHER half of [mpv-timing]: Rust prints what the
+            // synchronous open cost, this prints how long until the first
+            // frame is actually presented. mpv opens the stream on its own
+            // thread, so a large gap between the two is probe and network
+            // rather than anything the app is doing.
             const move = opened
               ? tauriInvSetRect(rect)
-              : ((opened = true), tauriInvOpen(url, rect));
+              : ((opened = true),
+                ((openedAtRef.current = performance.now()),
+                tauriInvOpen(url, rect)));
             // Phase 2: once the native move has landed (plus a frame for
             // its present), open the full hole and snap the chrome to it.
             void move
