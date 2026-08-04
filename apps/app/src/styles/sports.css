@@ -3063,33 +3063,53 @@
  * SportsScreen on its own, with no AppHeader and nothing around it, so a
  * screen that is wrong only in the context of the shell looks right there.
  * Anything that returns above `.sportsboard` has to be checked in the app. */
+/* THE SCROLLPORT STARTS BELOW THE NAV, rather than at the top of the window
+ * with padding to clear it.
+ *
+ * Adam, on the sticky head: "we should lower the height of the main draw to
+ * end behind the header, so that it doesn't appear behind the main nav."
+ * The two look identical at rest and are completely different once you
+ * scroll. Clearing the nav with padding leaves the scrollport spanning the
+ * whole window, so cards scroll UP into the nav's band and show through it
+ * — the app header is a floating bar with a scrim, not an opaque one, and
+ * on a dark card the scrim is not enough to hide a scoreline sliding past
+ * the BlammyTV logo.
+ *
+ * Starting the container at the nav's bottom edge makes overflow do the
+ * work: there is nowhere above it for a card to be, so nothing can appear
+ * behind the nav at any scroll position.
+ *
+ * NOT the pattern the other screens use, and that is deliberate rather than
+ * an oversight. `.header`'s own comment says the nav floats so content can
+ * pass behind it, and for the board and the guide that is right: they are
+ * long surfaces where the scrim reads as depth. This screen is a view
+ * PUSHED OVER the board with its own header bar 12px under the nav's, and
+ * two stacked bars with live content sliding between them reads as broken
+ * rather than as depth. */
 .tourndraw {
   position: fixed;
-  inset: 0;
+  /* top, then right/bottom/left. The 12px that used to sit in this padding
+   * moved into the sticky head, so the head's own background covers that
+   * gap once it is stuck. */
+  inset: var(--header-h, 76px) 0 0;
   overflow-y: auto;
   background: var(--bg);
-  /* The 12px that used to be here moved INTO the sticky head, so the head's
-   * own background covers that gap once it is stuck. Left on the container,
-   * it would have been a 12px slot of bare page between the app header and
-   * the sticky block for cards to scroll through. */
-  padding: var(--header-h, 76px) 42px 60px;
+  padding: 0 42px 60px;
 }
 
 /* THE STICKY HEAD. Adam: "we should have this top header stay sticky when
  * scrolling", on a draw 105 matches deep — by the Upcoming grid you have
  * lost the tournament's name, the draw filter and the way out all at once.
  *
- * `.tourndraw` is the scrollport (fixed, inset 0, overflow-y auto), so this
- * sticks against it rather than against the window.
+ * `.tourndraw` is the scrollport, so this sticks against it rather than
+ * against the window, and `top: 0` is the nav clearance because the
+ * container's own top edge already IS the nav's bottom edge.
  *
- * `top: 0` AND THAT IS MEASURED, not the obvious --header-h. A sticky
- * offset resolves against the scroll container's CONTENT box, not its
- * border box, and this container already carries padding-top:
- * var(--header-h) to clear the floating app bar. So --header-h here counts
- * that clearance twice: driven in the rig, the head pinned at 152px on a
- * 76px header, leaving a header's worth of dead band under the bar for
- * cards to scroll through. At 0 it pins flush against the content box,
- * which is exactly under the app header.
+ * Worth knowing if that ever changes back: a sticky offset resolves against
+ * the scroll container's CONTENT box, not its border box. While the
+ * container cleared the nav with padding-top instead, the intuitive
+ * `top: var(--header-h)` counted that clearance twice — driven in the rig,
+ * the head pinned at 152px under a 76px nav.
  *
  * z-index sits between the cards (1-2, in their own contexts) and the app
  * header's 20. */

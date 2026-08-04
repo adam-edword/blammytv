@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { carriageText } from "./carriage";
 import { GameCard } from "./GameCard";
 import { UpcomingCard } from "./UpcomingCard";
 import { BackArrowIcon } from "../../ui/icons";
 import { useMouseNav } from "../../lib/mouseNav";
+import { isTauri, tauriIsFullscreen } from "../../lib/tauri";
 import type { Fixture, Tournament } from "./model";
 
 /**
@@ -60,6 +61,36 @@ export function TournamentDraw({
    * tournament nobody asked for.
    */
   useMouseNav(onClose);
+
+  /**
+   * Escape, with the theater's own fullscreen rule.
+   *
+   * The guard is not defensive. App.tsx exits the WINDOW's fullscreen on
+   * Escape, and the window-state plugin restores fullscreen across
+   * launches, so the app can be fullscreen without this screen knowing.
+   * Closing unconditionally would spend one Escape on both — dropping out
+   * of fullscreen AND losing your place in a 105 match draw — which is the
+   * exact bug SportsTheater's handler documents. All this has to do is not
+   * ALSO leave. No answer from the window means stay put, for the same
+   * reason: leaving on a maybe is the bad half of that bug.
+   */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (!isTauri()) {
+        onClose();
+        return;
+      }
+      void tauriIsFullscreen().then(
+        (full) => {
+          if (!full) onClose();
+        },
+        () => undefined,
+      );
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   /** The draw being shown, or everything. */
   const [draw, setDraw] = useState<string | null>(null);
