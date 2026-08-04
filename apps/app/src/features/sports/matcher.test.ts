@@ -57,6 +57,16 @@ describe("normalize", () => {
 });
 
 describe("matchNetwork", () => {
+  it("reaches the Golf Channel, which ESPN writes as Golf Chnl", () => {
+    // Golf's main carrier, and the whole reason it was missing: "chnl"
+    // appears in no channel name anywhere. Both sides are real — the name
+    // is what a finished PGA event carries, the channel is in the dump.
+    const list = [chan("US: Golf Channel"), chan("US: NBC Golf Pass")];
+    expect(matchNetwork("Golf Chnl", list).map((c) => c.name)).toEqual([
+      "US: Golf Channel",
+    ]);
+  });
+
   it("finds the obvious one", () => {
     const list = [chan("US: ESPN"), chan("US: MLB Network"), chan("US: MASN")];
     expect(matchNetwork("MASN", list).map((c) => c.name)).toEqual(["US: MASN"]);

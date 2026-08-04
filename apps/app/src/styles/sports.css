@@ -148,7 +148,16 @@
    * dark card and lightening on a white one; a flat 50% black was the grey
    * slab on the light board, on a card whose surface measured pure white
    * underneath it. */
-  background: rgba(var(--card-veil), 0.5);
+  /* 0.4, not 0.5, and the difference is measured. A uniform overlay
+   * compresses the text and the card together, so at 0.5 the meta line came
+   * out at 1.88:1 in light and 2.25:1 in dark against a 4.5 bar — the
+   * league tag and team code on every finished card, effectively
+   * unreadable at rest. Dropping the veil alone could not fix it: even at
+   * 0.22 it only reached 2.89:1, because the text starts at half ink and
+   * the veil compounds that. The fix is both — a lighter veil AND full ink
+   * on the small text below, which lands at 5.09:1 light and 7.07:1 dark
+   * while the card still visibly recedes. */
+  background: rgba(var(--card-veil), 0.4);
   pointer-events: none;
   /* Coming BACK is the slow half: the card settling out of your way. */
   transition: opacity 320ms ease;
@@ -356,6 +365,29 @@
    * fix, not a different colour. */
   --card-art: 0.15;
 }
+/* THE META LAYER NEEDS MORE INK IN LIGHT MODE, and only in light mode.
+ *
+ * The theme flip changed --card-ink and kept the alpha ramps that were
+ * tuned against the dark card, and alpha compositing is not symmetric:
+ * 0.5 of near-black on white is not the mirror of 0.5 of white on near-
+ * black. Sampled from rendered pixels, same selectors, both themes:
+ *
+ *   .gamecard__league        dark 5.37:1   light 3.69:1
+ *   .gamecard__carriage--none dark 5.33:1  light 3.69:1
+ *   .gamecard__venue          dark 6.20:1  light 4.29:1
+ *   .gamecard__abbr/__record  dark 6.21:1  light 4.23:1
+ *
+ * All 12px, so the bar is 4.5. Nothing was illegible and nothing cleared
+ * the bar this project set for itself either. The file's own header claims
+ * "ZERO real contrast failures" — that audit only ever ran against dark. */
+:root[data-theme="light"] .gamecard__league,
+:root[data-theme="light"] .gamecard__carriage--none {
+  color: rgba(var(--card-ink), 0.72);
+}
+:root[data-theme="light"] .gamecard__foot {
+  color: rgba(var(--card-ink), 0.72);
+}
+
 :root[data-theme="light"] .sports,
 :root[data-theme="light"] .tourndraw,
 :root[data-theme="light"] .sportstheater {
@@ -2507,7 +2539,16 @@
    * dark card and lightening on a white one; a flat 50% black was the grey
    * slab on the light board, on a card whose surface measured pure white
    * underneath it. */
-  background: rgba(var(--card-veil), 0.5);
+  /* 0.4, not 0.5, and the difference is measured. A uniform overlay
+   * compresses the text and the card together, so at 0.5 the meta line came
+   * out at 1.88:1 in light and 2.25:1 in dark against a 4.5 bar — the
+   * league tag and team code on every finished card, effectively
+   * unreadable at rest. Dropping the veil alone could not fix it: even at
+   * 0.22 it only reached 2.89:1, because the text starts at half ink and
+   * the veil compounds that. The fix is both — a lighter veil AND full ink
+   * on the small text below, which lands at 5.09:1 light and 7.07:1 dark
+   * while the card still visibly recedes. */
+  background: rgba(var(--card-veil), 0.4);
   pointer-events: none;
   /* Coming BACK is the slow half: the card settling out of your way. */
   transition: opacity 320ms ease;
@@ -3302,7 +3343,12 @@
  * someone opening a draw is asking. */
 .tourndraw__count {
   font-size: 12px;
-  color: var(--text-dim);
+  /* --text-muted, not --text-dim. Measured off the rendered pixels, dim
+   * lands at 1.82:1 light and 2.26:1 dark against a 4.5 bar — and this is
+   * the "LIVE 8 / UPCOMING 20" number the screen's own comment calls "the
+   * other question someone opening a draw is asking". A decoration token
+   * was carrying content. */
+  color: var(--text-muted);
 }
 /* Live matches as WIDE cards, stacked the way the board's row stacks
  * them, but wrapping rather than scrolling: eight of them is a set of
@@ -3450,8 +3496,36 @@
   padding: 1px 6px;
   border-radius: 10px;
   font-size: 11px;
-  background: rgba(0, 0, 0, 0.35);
-  color: var(--text-muted);
+  /* THEMED, not a hard-coded black. `rgba(0,0,0,0.35)` over the accent
+   * surface measured 2.03:1 in light mode — a dark blob on a pink button
+   * carrying the one number the element exists for ("'Clear' alone does not
+   * say how much you are about to undo"). Dark was fine at 7.88:1, which is
+   * how it survived: it was only ever checked there. */
+  background: var(--surface-raised);
+  color: var(--text);
+}
+
+/* THE SMALL TEXT OF A FINISHED CARD GOES TO FULL INK.
+ *
+ * Counter-intuitive and measured: a finished card is meant to recede, and
+ * the veil above does that job for the art and the big names. The 12px meta
+ * cannot afford to pay for it twice — at half ink under a veil it read at
+ * 1.88:1, which is not "dimmed", it is gone. Full ink under the veil is
+ * 5.09:1 light and 7.07:1 dark, and still visibly quieter than a live card
+ * because the veil is over it. */
+.upcard--final .upcard__league,
+.upcard--final .upcard__abbr,
+.upcard--final .upcard__record,
+.upcard--final .upcard__time {
+  color: rgba(var(--card-ink), 1);
+}
+/* The race card's podium numbers, for the same reason and with a second
+ * one: its hover/focus escape cannot fire, because RaceCard renders a
+ * <div> with no tabIndex, so `.racecard--final:focus-visible` matches
+ * nothing and a keyboard user never clears the veil at all. */
+.racecard--final .racecard__place,
+.racecard--final .racecard__code {
+  color: rgba(var(--card-ink), 1);
 }
 
 /* ---------------------------------------------------------- the golf card */

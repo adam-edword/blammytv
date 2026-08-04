@@ -172,6 +172,57 @@ describe("withChannels", () => {
     expect(resolved[0].channelsPending).toBe(false);
   });
 
+  describe("identity across a tick, in the PIPELINE'S order", () => {
+    /**
+     * The audit's deepest finding. Every existing test here fed
+     * `withChannels` its own output, which the app never does —
+     * `SportsScreen` calls it on the hook's RAW list every time that array
+     * changes identity. Raw games carry `channels: []`, so the `unchanged`
+     * check could not match for any card that found a channel, and a new
+     * object was minted every 90 seconds for exactly the cards that matter.
+     */
+    it("hands back the same resolved object when nothing moved", () => {
+      const c = cat({ name: "US: MASN" });
+      const tick1 = [game("a", { broadcasts: ["MASN"] })];
+      const first = withChannels(tick1, c);
+      expect(first[0].channels).toHaveLength(1);
+      // A refresh where nothing changed: keepStable returns the SAME raw
+      // objects, and this is then called on those again.
+      const tick2 = keepStable(tick1, [game("a", { broadcasts: ["MASN"] })]);
+      expect(tick2[0]).toBe(tick1[0]);
+      expect(withChannels(tick2, c)[0]).toBe(first[0]);
+    });
+
+    it("holds for a presumed match too", () => {
+      const c = cat({ name: "US: Tennis Channel" });
+      const raw = [game("t", { leagueKey: "tennis/atp", broadcasts: [] })];
+      const first = withChannels(raw, c);
+      expect(first[0].presumedOnly).toBe(true);
+      expect(withChannels(keepStable(raw, raw), c)[0]).toBe(first[0]);
+    });
+
+    it("resolves again when the GAME changed", () => {
+      // The other half: a cache that never invalidates is a score that
+      // stops updating. A new raw object is a new answer.
+      const c = cat({ name: "US: MASN" });
+      const before = withChannels([game("a", { broadcasts: ["MASN"] })], c);
+      const moved = withChannels(
+        [game("a", { broadcasts: ["MASN"], status: "Top 9th" })],
+        c,
+      );
+      expect(moved[0]).not.toBe(before[0]);
+      expect(moved[0].status).toBe("Top 9th");
+    });
+
+    it("resolves again when the CATALOG changed", () => {
+      const raw = [game("a", { broadcasts: ["MASN"] })];
+      const before = withChannels(raw, cat({ name: "US: MASN" }));
+      const after = withChannels(raw, cat({ name: "US: MASN HD" }));
+      expect(after[0]).not.toBe(before[0]);
+      expect(after[0].channels.map((x) => x.name)).toEqual(["US: MASN HD"]);
+    });
+  });
+
   describe("the hidden-folder rule, over the whole join", () => {
     it("does not let a doubtful visible match bury an exact hidden one", () => {
       // The bar mismatch: the visible/hidden fallback was decided at

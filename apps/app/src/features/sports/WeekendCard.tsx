@@ -1,3 +1,4 @@
+import { memo } from "react";
 import Tilt from "react-parallax-tilt";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { art, flagArt } from "./circuits";
@@ -21,7 +22,7 @@ import type { Weekend } from "./model";
  * meanwhile, so the design does not rot unseen.
  */
 
-export function WeekendCard({ weekend }: { weekend: Weekend }) {
+function WeekendCardImpl({ weekend }: { weekend: Weekend }) {
   const track = art(weekend.circuitId);
   const flag = flagArt(weekend.circuitId);
   return (
@@ -100,3 +101,13 @@ export function WeekendCard({ weekend }: { weekend: Weekend }) {
     </div>
   );
 }
+
+/**
+ * Memoised like every other card on the board, which it was not.
+ *
+ * `WideRaceCard`'s comment already claimed "memoised for the same reason
+ * every other card is" — true of four of the six and not of this one, so a
+ * tick re-rendered it unconditionally and `react-parallax-tilt` rewrote its
+ * inline transform to the identical value.
+ */
+export const WeekendCard = memo(WeekendCardImpl);

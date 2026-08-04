@@ -1386,7 +1386,7 @@ Two of these were found by tests that were themselves wrong: the slate test
 shared one `start` across three games the dump stamps at different times,
 which is how the doubleheader bug stayed green.
 
-#### 46. The identity chain is three layers deep and none of it fires [ ]
+#### 46. The identity chain is three layers deep and none of it fires [x] v0.8.163
 
 Measured, not theorised. `keepStable` preserves the raw game object across a
 tick — proven — and then:
@@ -1403,14 +1403,30 @@ tick — proven — and then:
   `WideRaceCard`'s comment claims every card is.
 
 This is the "584 DOM mutations and an 86ms long task" `keepStable`'s own
-docstring measured, still being paid in full. Fixes are small: `useCallback`,
-compare against the resolved list rather than the raw one, add the two
-`memo()`s. Also here: the tennis draw is mapped in full TWICE per tick (610
+docstring measured, still being paid in full.
+
+**Fixed in v0.8.163**, all three layers. `useCallback` with empty deps on
+both openers; `memo()` on the two cards that never had it; and a WeakMap of
+raw game to resolved game, keyed per catalog, so the same raw object
+resolves to the same answer. The last one is the real repair: the
+`unchanged` check could not work where the app calls it, only where the
+tests did. Four tests now run the PIPELINE'S order — raw in, keepStable
+between — and assert identity both ways, including that a moved score and a
+rebuilt catalog still produce a new object.
+
+`fitText`'s mount path went with it: one coalesced flush per commit instead
+of one per card, on a MICROTASK rather than a frame so the "never painted at
+the wrong size" guarantee survives. Verified over 208 fitted names, none
+overflowing.
+
+**Still open here**: the tennis draw mapped twice per tick, 33ms measured.
+That one needs `toGames` to know the board's date window, which is an API
+change rather than a fix. Also here: the tennis draw is mapped in full TWICE per tick (610
 matches -> 20 cards, **33ms measured** on the real payloads), and `fitText`'s
 mount path is O(N^2) forced layouts because `flushAll` walks every registered
 group from inside each card's `useLayoutEffect`.
 
-#### 47. Light mode was never re-measured [ ]
+#### 47. Light mode was never re-measured [x] v0.8.163
 
 The theme flip changed `--card-ink` but kept the alpha ramps tuned against
 the dark card, and alpha compositing is not symmetric. Sampled from rendered
@@ -1424,7 +1440,26 @@ pixels:
 | the wide card's whole meta layer | 3.7-4.3:1 | 4.5 |
 
 `sports.css`'s own header claims "ZERO real contrast failures" — that audit
-only ever ran against the dark card. Also here: every crest is ESPN's
+only ever ran against the dark card.
+
+**Fixed in v0.8.163**, all four, and the finished card was the interesting
+one: reducing the veil could NOT fix it. Even at 0.22 the meta only reached
+2.89:1, because a uniform overlay compresses the text and the card together
+and the text starts at half ink. It took both — the veil down to 0.4 AND
+full ink on the 12px text under it — which lands 5.09:1 light and 7.07:1
+dark while the card still visibly recedes.
+
+Measured after, from rendered pixels:
+
+| element | before (light) | after (light) | after (dark) |
+|---|---|---|---|
+| finished-card meta | 1.88:1 | **5.09:1** | 7.07:1 |
+| the draw's section counts | 1.82:1 | **5.71:1** | 7.98:1 |
+| `.gamecard__league` | 3.69:1 | **8.05:1** | 5.37:1 |
+| `.gamecard__venue` | 4.29:1 | **8.05:1** | 6.20:1 |
+
+The wide card's ramps are lifted in LIGHT ONLY, since dark already cleared
+the bar and raising it there would brighten what was already right. Also here: every crest is ESPN's
 `500-dark` inverted mark in both themes, which is light-on-white in light
 mode (needs one screenshot on a real network to size), and 36 of 128 cards
 are `disabled` with `cursor: default` as their entire treatment.
@@ -1497,6 +1532,7 @@ here so a label that vanished can be looked up.
 | **44** | **The map fills a dead end.** A source network that matches nothing now falls through to the map, keeping both: "On Paramount+ · Usually found on US: CBS Sports Network" | v0.8.156 |
 | **45** | **The fresh-eyes audit**, five parallel reviewers over v0.8.119-156. Tier 1's eight user-visible defects fixed; #46-48 carry the rest | v0.8.157 |
 | **10** | **The golf card.** A leaderboard as a `Field`: five rows of position, flag, name and score to par, THRU derived from the nested holes, and an upcoming face carrying the tour mark and date range. No par anywhere in the payload | v0.8.159 |
+| **46, 47** | **The identity chain and light mode.** Three layers of memoisation made to fire, `fitText`'s mount path made linear, and four contrast failures the theme flip left behind | v0.8.163 |
 | **38** | **Opening a tournament.** A tournament card opens its day's draw: live, upcoming, results, with a draw filter, per-set scores and courts. Also split SUSPENDED from postponed, which the screen exposed | v0.8.140 |
 
 ## Closed decisions

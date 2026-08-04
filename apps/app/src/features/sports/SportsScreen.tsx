@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RowScroller } from "../stream/StreamScreen";
 import {
   loadCompactResults,
@@ -313,22 +313,30 @@ export function SportsScreen({ home }: { home?: number } = {}) {
   /**
    * Opening a card puts it in the theater.
    *
+   * `useCallback` with no deps, and it is load-bearing rather than tidy.
+   * Every card on the board is `memo()`d and takes this as `onOpen`, so a
+   * fresh arrow here fails React's shallow compare before it ever looks at
+   * `game` — which threw away the identity `keepStable` and `withChannels`
+   * both exist to preserve, and re-rendered the whole board on every 90
+   * second tick. Empty deps are correct: both only touch a ref and a
+   * setState, and neither closes over anything that moves.
+   *
    * FIXTURES ONLY, and the guard is real rather than defensive: no race
    * card is clickable yet, so nothing can call this with a field, but the
    * theater's whole header is two badges and two names and it would have
    * nothing to draw. Racing reaches the theater in #5, which is where the
    * rail learns to match on a series instead of on team names.
    */
-  const openGame = (g: Game) => {
+  const openGame = useCallback((g: Game) => {
     if (!isFixture(g)) return;
     invoker.current = g.id;
     setOpen(g);
-  };
+  }, []);
   /** The same, for a day of a tournament. Focus comes back to the card. */
-  const openTournament = (t: Tournament) => {
+  const openTournament = useCallback((t: Tournament) => {
     invoker.current = t.id;
     setOpenDraw(t);
-  };
+  }, []);
   /**
    * Pressing the Sports chip returns to the board.
    *

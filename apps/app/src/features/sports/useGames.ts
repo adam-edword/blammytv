@@ -367,6 +367,27 @@ export function keepStable(prev: Game[], next: Game[]): Game[] {
  * reason keepStable exists: the cards are memoised on it, and a board whose
  * channels resolved identically must not re-render.
  */
+/**
+ * What each raw game resolved to, per catalog.
+ *
+ * The identity fix, and it is here because of WHERE this function is
+ * called. `SportsScreen` re-runs it over `raw` — the hook's own list —
+ * every time that array changes identity, which is every 90 second tick.
+ * Raw games always carry `channels: []`, so the `unchanged` check below can
+ * never match for a game that FOUND a channel: it minted a new object every
+ * tick, for exactly the cards worth memoising, and undid the work
+ * `keepStable` had just done to preserve them.
+ *
+ * A cache keyed on the raw object closes it: `keepStable` hands the same
+ * object back when nothing moved, so the same object resolves to the same
+ * answer. WeakMaps both ways, so a game that falls off the board and a
+ * catalog that gets rebuilt are both collectable.
+ *
+ * The `unchanged` check stays, because it is still the right answer when
+ * this IS fed its own output — which the tests do and the app does not.
+ */
+const RESOLVED = new WeakMap<Catalog, WeakMap<Game, Game>>();
+
 export function withChannels(games: Game[], catalog: Catalog | null): Game[] {
   // Not "no channels": not KNOWN yet. The cards say so rather than
   // guessing.
@@ -381,7 +402,15 @@ export function withChannels(games: Game[], catalog: Catalog | null): Game[] {
       g.channelsPending ? g : { ...g, channelsPending: true },
     );
   }
+  let cache = RESOLVED.get(catalog);
+  if (!cache) {
+    cache = new WeakMap();
+    RESOLVED.set(catalog, cache);
+  }
+  const memo = cache;
   return games.map((game) => {
+    const already = memo.get(game);
+    if (already) return already;
     // The CARD only counts what we are sure of. A 40% match is a candidate
     // for the rail, where its score is visible; putting it behind "Live on
     // 3 channels" would be the silent wrongness plan 010 warns about.
@@ -473,7 +502,7 @@ export function withChannels(games: Game[], catalog: Catalog | null): Game[] {
       presumedOnly === (game.presumedOnly ?? false) &&
       sameNames(presumed, game.presumed) &&
       !game.channelsPending;
-    return unchanged
+    const out: Game = unchanged
       ? game
       : {
           ...game,
@@ -483,5 +512,7 @@ export function withChannels(games: Game[], catalog: Catalog | null): Game[] {
           presumed,
           channelsPending: false,
         };
+    memo.set(game, out);
+    return out;
   });
 }

@@ -1,3 +1,4 @@
+import { memo } from "react";
 import Tilt from "react-parallax-tilt";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { art, flagArt } from "./circuits";
@@ -26,7 +27,7 @@ import type { Field } from "./model";
  * on their own and the outline sits behind them.
  */
 
-export function RaceCard({ race }: { race: Field }) {
+function RaceCardImpl({ race }: { race: Field }) {
   const track = art(race.circuitId);
   const flag = flagArt(race.circuitId);
   const upcoming = race.state === "pre";
@@ -157,3 +158,13 @@ export function RaceCard({ race }: { race: Field }) {
     </div>
   );
 }
+
+/**
+ * Memoised like every other card on the board, which it was not.
+ *
+ * `WideRaceCard`'s comment already claimed "memoised for the same reason
+ * every other card is" — true of four of the six and not of this one, so a
+ * tick re-rendered it unconditionally and `react-parallax-tilt` rewrote its
+ * inline transform to the identical value.
+ */
+export const RaceCard = memo(RaceCardImpl);

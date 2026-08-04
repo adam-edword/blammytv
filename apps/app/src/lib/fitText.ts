@@ -177,6 +177,33 @@ function schedule(): void {
 }
 
 /**
+ * The same coalescing for MOUNT, which used to flush per card.
+ *
+ * The resize path was batched when this file was rewritten; the mount path
+ * was not, and it is the quadratic one. React runs every card's layout
+ * effect in a single commit, so the k-th card to mount ran `flushAll` over
+ * k groups — N flushes, N(N+1)/2 group visits, and a forced relayout each
+ * time because the flush writes sizes, reads widths and writes again. It
+ * cost little when a board was a dozen cards and a lot once the fetch
+ * inversion made it 168.
+ *
+ * A MICROTASK rather than a frame, which is the whole point: microtasks
+ * drain before the browser paints, so the guarantee the synchronous call
+ * was there for — a card is never painted at the wrong size, not even for
+ * one frame — still holds. `schedule()` cannot be reused for this; it waits
+ * for the next frame, which is one frame too late.
+ */
+function scheduleNow(): void {
+  if (soon) return;
+  soon = true;
+  queueMicrotask(() => {
+    soon = false;
+    flushAll();
+  });
+}
+let soon = false;
+
+/**
  * One observer for the page.
  *
  * Created lazily so importing this module does nothing in a test
@@ -220,10 +247,11 @@ export function useFitText<T extends HTMLElement>(
     groups.add(group);
     const ro = watcher();
     for (const ref of els) if (ref.current) ro?.observe(ref.current);
-    // Synchronously on mount and whenever the text changes, so a card is
-    // never painted at the wrong size for a frame. Resizes go through the
+    // Before the next paint on mount and whenever the text changes, so a
+    // card is never painted at the wrong size for a frame — but ONCE per
+    // commit rather than once per card. Resizes go through the frame-
     // coalesced path instead.
-    flushAll();
+    scheduleNow();
     return () => {
       groups.delete(group);
       for (const ref of els) if (ref.current) ro?.unobserve(ref.current);

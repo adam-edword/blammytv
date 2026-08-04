@@ -68,6 +68,12 @@ const QUALITY =
  */
 const WORDS: Record<string, string> = {
   net: "network",
+  // ESPN writes the Golf Channel as "Golf Chnl", which reaches nothing.
+  // Both sides checked against real data, which is the bar this table sets:
+  // the name is what a finished PGA event carries, and `US: Golf Channel`
+  // is in the dump. Golf is one of the few sports the source populates
+  // broadcasts for at all, so this is its main carrier.
+  chnl: "channel",
   sportsnet: "sports network",
   sn: "sports network",
   ba: "bay area",
