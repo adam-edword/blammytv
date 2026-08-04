@@ -3471,6 +3471,24 @@
   background: none;
   text-align: left;
 }
+/* IN THE GRID THE CARD TAKES THE TRACK, which the race card beside it has
+ * said since v0.8.122 and this one shipped without.
+ *
+ * `.sports__grid` is `repeat(auto-fill, minmax(315px, 1fr))`, so a track on
+ * a 1920 board is about 380px. A card holding its own 460 does not shrink
+ * to fit it — it overflows its column and draws over the card beside it,
+ * which is exactly what Adam saw: "they are too wide and overlap each
+ * other". The 460 stays for the rig and any future row use; inside the grid
+ * the track wins. */
+.sports__grid .golfcard {
+  width: 100%;
+}
+/* So the face below can size to the CARD rather than to the viewport or to
+ * an inherited font size. `%` on font-size resolves against the parent's
+ * font size, which is not the thing that varies here. */
+.golfcard__tilt {
+  container-type: inline-size;
+}
 .golfcard:hover {
   z-index: 2;
 }
@@ -3575,15 +3593,19 @@
   display: grid;
   grid-template-columns: auto 1fr;
   align-items: center;
-  column-gap: 22px;
+  column-gap: 18px;
   min-height: 148px;
 }
 /* The tour's mark, and the only card in the feature that leads with one.
  * It can afford to because there is nothing else: golf sends no course, no
  * venue and no event art, so the mark is the picture. */
 .golfcard__tourmark {
-  width: 108px;
-  height: 108px;
+  /* Shrinks with the track rather than holding 108 and shoving the name
+   * out of the card. The floor is where the LPGA and Champions marks stop
+   * being readable; the ceiling is the size Adam drew. */
+  width: clamp(72px, 26cqw, 108px);
+  height: auto;
+  aspect-ratio: 1;
   object-fit: contain;
 }
 .golfcard__ahead-text {
@@ -3594,9 +3616,13 @@
 .golfcard__ahead-name {
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: 27px;
+  /* Down with the track too. "The Standard Portland Classic" is 27
+   * characters and has to wrap to two lines without pushing the card
+   * taller than the leaderboard beside it. */
+  font-size: clamp(20px, 6cqw, 27px);
   line-height: 1.12;
   color: rgba(var(--card-ink), 0.95);
+  overflow-wrap: anywhere;
 }
 .golfcard__ahead-when {
   font-family: var(--font-headline);

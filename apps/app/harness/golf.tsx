@@ -61,6 +61,22 @@ const sheet = (
       <GolfCard round={final} />
       <GolfCard round={upcoming} />
       <GolfCard round={flagless} />
+
+    {/* AND IN THE GRID, which is where they actually live and where they
+      * broke: `.sports__grid` is repeat(auto-fill, minmax(315px, 1fr)), so
+      * a card holding its own 460 overflows its track and draws over its
+      * neighbour. The sheet above cannot show that, because a flex row
+      * gives every card exactly the width it asks for. */}
+    <div style={{ width: "100%" }}>
+      <div className="sports">
+        <div className="sports__grid">
+          <GolfCard round={upcoming} />
+          <GolfCard round={{ ...upcoming, id: "b", place: "The Standard Portland Classic", leagueKey: "golf/lpga" }} />
+          <GolfCard round={{ ...upcoming, id: "c", place: "Boeing Classic", leagueKey: "golf/champions-tour" }} />
+          <GolfCard round={{ ...live, id: "d" }} />
+        </div>
+      </div>
+    </div>
   </div>
 );
 
