@@ -3162,6 +3162,9 @@
  * whoever won the match. It is the detail that makes the line read as
  * tennis rather than as three numbers, and it is the source's own answer to
  * who took the set rather than ours. */
+.upcard__sets .setline__set {
+  font-weight: 800;
+}
 .upcard__sets .setline__set--lost {
   color: rgba(255, 255, 255, 0.38);
   font-weight: 300;
@@ -3182,6 +3185,19 @@
   justify-items: center;
   align-items: center;
 }
+/* TRUE CENTRE on a match card.
+ *
+ * .gamecard__body carries 25.56px of bottom padding to keep its content
+ * clear of the absolutely-positioned foot rail, and centred content in a
+ * box padded on one side only sits half that padding high: measured, the
+ * column's middle was 12.8px above the card's, which is exactly 25.56 / 2.
+ * A club card wears it because its centre column is one line; three rows of
+ * sets make it plain. Matched on the top, so the padding is symmetric and
+ * "centred" means centred. */
+.gamecard--match .gamecard__body {
+  padding-top: 25.56px;
+}
+
 /* THE F1 CARD'S NUMBER, exactly.
  *
  * Measured across the three wide cards at the same 783.8x276.9 footprint:
@@ -3193,12 +3209,63 @@
  * tracks the name scale the way that card does. */
 .gamecard__setnum {
   font-variant-numeric: tabular-nums;
-  font-size: calc(var(--sports-name) / 1.27);
+  /* The completed card's number, so a match reads the same whether it is
+   * still going or finished. Adam's. */
+  font-size: 26px;
   line-height: 1.12;
+}
+/* The set WINNER carries the weight, and it is the only thing on this grid
+ * that should. A scoreline where both numbers look equal is a table; the
+ * whole reason to draw a set-by-set line is to see who took each one. */
+.gamecard__setnum:not(.gamecard__num--lost) {
+  font-weight: 800;
+  color: #fff;
+}
+.gamecard__setnum.gamecard__num--lost {
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.42);
 }
 /* And the status steps BELOW the numbers on a match card, where on a club
  * card the two are near enough equal. The sets are the thing being read
  * here; which set is in progress is the caption on them. */
 .gamecard--match .gamecard__status {
   font-size: calc(var(--sports-name) / 1.75);
+}
+
+/* The way out of a narrowing, between the tiles and the column.
+ *
+ * Adam's, and the placement is the point: "scrolling all the way down to
+ * tennis to unclick it is not elegant". The only way to clear a pick was to
+ * find the row you picked again, which for one of 151 leagues is a long way
+ * down a scroller. This is where you already are. */
+.leaguepick__clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: calc(100% - 12px);
+  margin: 10px 6px 0;
+  padding: 8px 12px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--accent-surface);
+  border: 1px solid var(--accent);
+  border-radius: 20px;
+  cursor: pointer;
+  transition: filter var(--dur-hover) ease;
+}
+.leaguepick__clear:hover {
+  filter: brightness(1.35);
+}
+/* How much is about to be undone. "Clear" alone does not say, and the picks
+ * it refers to can be scrolled out of sight. */
+.leaguepick__clearcount {
+  min-width: 18px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 11px;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text-muted);
 }

@@ -49,6 +49,7 @@ export function SportsSidebar({
   onFollows,
   picked,
   onPick,
+  onClearPicks,
   reveal,
 }: {
   /** Every game the board has loaded, for the club list. */
@@ -58,6 +59,7 @@ export function SportsSidebar({
   /** What the board is narrowed to right now. See LeaguePicker. */
   picked: string[];
   onPick: (path: string) => void;
+  onClearPicks: () => void;
   /**
    * A counter the board bumps to say "show them the leagues".
    *
@@ -156,6 +158,7 @@ export function SportsSidebar({
           onFollows={onFollows}
           picked={picked}
           onPick={onPick}
+          onClearPicks={onClearPicks}
         />
       )}
 

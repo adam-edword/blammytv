@@ -34,6 +34,7 @@ export function LeaguePicker({
   onFollows,
   picked,
   onPick,
+  onClearPicks,
 }: {
   follows: Follows;
   onFollows: (next: Follows) => void;
@@ -51,6 +52,8 @@ export function LeaguePicker({
    */
   picked: string[];
   onPick: (path: string) => void;
+  /** Drop the whole narrowing at once. See the button below. */
+  onClearPicks: () => void;
 }) {
   const [query, setQuery] = useState("");
   /** The favourite whose ✕ has been clicked once. See the tile below. */
@@ -172,6 +175,26 @@ export function LeaguePicker({
                * that explains why and what to do about it. */
               `No favourites yet, so all ${ALL_LEAGUES.length} leagues are on the board. Pick the ones you follow to narrow it.`}
         </p>
+      )}
+
+      {/* THE WAY OUT OF A NARROWING, and it sits here because here is
+        * where you are when you want it. Adam's: "scrolling all the way
+        * down to tennis to unclick it is not elegant" — and he is right,
+        * the only way to clear a pick was to find the row you picked,
+        * which for one of 151 leagues can be a long way down a scroller.
+        *
+        * Only when there is something to clear, and it counts, because
+        * "Clear" on its own does not say how much you are about to undo
+        * when the picks are scrolled out of sight. */}
+      {picked.length > 0 && (
+        <button
+          type="button"
+          className="leaguepick__clear"
+          onClick={onClearPicks}
+        >
+          Clear filter
+          <span className="leaguepick__clearcount">{picked.length}</span>
+        </button>
       )}
 
       {/* The rule between the two shapes, which is the whole of the

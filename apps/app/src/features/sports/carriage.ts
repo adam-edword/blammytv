@@ -36,7 +36,13 @@ export function carriageText(item: Carriable): string {
   if (item.channels.length === 0)
     return item.broadcasts.length > 0
       ? `On ${item.broadcasts[0]}`
-      : "Not on your channels";
+      : /* Adam's wording, and it is more honest than the old "Not on your
+         * channels": we did not find a match, which is not the same claim
+         * as it not being there. The matcher works on broadcaster names
+         * against a 20k channel list and misses; saying so leaves the
+         * possibility open rather than telling someone their provider does
+         * not carry a game it may well carry. */
+        "Couldn't find a matching channel";
   if (item.channels.length === 1)
     return `${on} ${item.channels[0].name}${where && ` ${where}`}`;
   return `${on} ${item.channels.length} channels${where && ` ${where}`}`;

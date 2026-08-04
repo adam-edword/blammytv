@@ -45,7 +45,11 @@ describe("carriageText", () => {
   });
 
   it("admits it when nothing at all carries it", () => {
-    expect(carriageText(base)).toBe("Not on your channels");
+    // Adam's wording. "Not on your channels" was a stronger claim than we
+    // can make: the matcher works broadcaster names against a 20k channel
+    // list and misses, so a game their provider does carry could be told it
+    // is not there. This says what actually happened.
+    expect(carriageText(base)).toBe("Couldn't find a matching channel");
   });
 
   it("distinguishes NOT KNOWN YET from nothing", () => {

@@ -382,6 +382,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
               : [...was, path],
           )
         }
+        onClearPicks={() => setPicked([])}
         reveal={reveal}
       />
       <div className="discover sports sportsboard__main">
