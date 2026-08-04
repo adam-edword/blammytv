@@ -481,8 +481,49 @@ window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
 applyAccent(loadAccent());
 applyTheme(loadTheme());
 
+/**
+ * A stand-in for the app header, and it is not decoration.
+ *
+ * The rig used to render SportsScreen with nothing around it, and that let
+ * a real bug ship: the tournament draw was a plain block in normal flow, so
+ * in the app it took whatever width `.app-main` gave it and ran up
+ * underneath the header with the tournament's name drawn through the
+ * BlammyTV logo. Here it looked perfect, because here there was no header
+ * to run under.
+ *
+ * Not the real AppHeader, which wants five props and a section router. Just
+ * a bar of exactly `--header-h`, which is the only thing about it any of
+ * these screens has to reckon with: anything that fails to clear it is now
+ * visibly wrong in the rig too.
+ */
+function FakeHeader() {
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        height: "var(--header-h, 76px)",
+        background: "rgba(255,255,255,0.04)",
+        borderBottom: "1px solid rgba(255,255,255,0.10)",
+        display: "flex",
+        alignItems: "center",
+        padding: "0 28px",
+        font: "600 15px var(--font-headline)",
+        color: "rgba(255,255,255,0.30)",
+        zIndex: 50,
+        pointerEvents: "none",
+      }}
+    >
+      app header sits here
+    </div>
+  );
+}
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
+    <FakeHeader />
     <SportsScreen />
   </React.StrictMode>,
 );

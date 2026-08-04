@@ -2995,10 +2995,24 @@
  *
  * Sections in the order the hub always asks: live, then what is coming,
  * then what happened (plan 010 #38). */
+/* A FULL SCREEN, the same way the board and the theater are.
+ *
+ * It replaces the board rather than sitting inside it, so it needs the
+ * board's own frame: fixed to the viewport, its own background, and the
+ * header clearance every top-level screen here pays. Left in normal flow it
+ * took whatever width `.app-main` gave it and ran up underneath the app
+ * header, with the tournament's name drawn through the BlammyTV logo.
+ *
+ * Worth saying why the rig missed it: harness/sports.html renders
+ * SportsScreen on its own, with no AppHeader and nothing around it, so a
+ * screen that is wrong only in the context of the shell looks right there.
+ * Anything that returns above `.sportsboard` has to be checked in the app. */
 .tourndraw {
-  padding: 26px 42px 60px;
+  position: fixed;
+  inset: 0;
   overflow-y: auto;
-  height: 100%;
+  background: var(--bg);
+  padding: calc(var(--header-h, 76px) + 12px) 42px 60px;
 }
 .tourndraw__top {
   display: grid;
