@@ -496,8 +496,8 @@ applyTheme(loadTheme());
  * these screens has to reckon with: anything that fails to clear it is now
  * visibly wrong in the rig too.
  */
-function FakeHeader() {
-  return (
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
     <div
       style={{
         position: "fixed",
@@ -518,12 +518,6 @@ function FakeHeader() {
     >
       app header sits here
     </div>
-  );
-}
-
-ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    <FakeHeader />
     <SportsScreen />
   </React.StrictMode>,
 );

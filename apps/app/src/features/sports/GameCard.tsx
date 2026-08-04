@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { Fragment, memo } from "react";
 import Tilt from "react-parallax-tilt";
 import { useFitText } from "../../lib/fitText";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
@@ -6,6 +6,7 @@ import { tooEarly } from "./day";
 import { Badge } from "./Badge";
 import { Wash, WashVeil } from "./Wash";
 import { loser } from "./result";
+import { givenName, isMatch, setColumns, surname } from "./sets";
 import { CardFoot } from "./CardFoot";
 import { carriageText } from "./carriage";
 import type { Fixture, Game } from "./model";
@@ -38,8 +39,12 @@ function GameCardImpl({
   // The broadcast name, as on the small card: "Seahawks" is what a screen
   // full of games should say, and the full club name only ever pushed the
   // score around. The tooltip still carries both in full.
-  const homeText = home.shortName ?? home.name;
-  const awayText = away.shortName ?? away.name;
+  /** A tennis match: surname on the big line, given name on the small one,
+   * and a LINE of sets where a club card has one number. See SetLine. */
+  const sets = isMatch(game);
+  const columns = sets ? setColumns(home, away) : 0;
+  const homeText = sets ? surname(home) : (home.shortName ?? home.name);
+  const awayText = sets ? surname(away) : (away.shortName ?? away.name);
   // Roomier than the small card, so this rarely fires, but a long name
   // still must not take room from the score.
   const [homeName, awayName] = useFitText<HTMLSpanElement>(homeText, awayText);
@@ -120,7 +125,7 @@ function GameCardImpl({
             <Badge team={home} />
             <span className="gamecard__label">
               <span className="gamecard__abbr">
-                {home.abbr}
+                {sets ? givenName(home) : home.abbr}
                 {/* Beside the code, same as the small card. The label is a
                   * two-line column and the name below it is the widest
                   * thing on this half of the card. */}
@@ -148,7 +153,42 @@ function GameCardImpl({
               )}
               {game.status}
             </span>
-            {game.state !== "pre" && (
+            {sets ? (
+              /* A GRID, which is the shape a tennis scoreline is: one row
+               * per set, one column per player, so the second set sits
+               * under the first on both sides. The horizontal `6 - 3` the
+               * card uses for a club game can only hold one number each. */
+              <span
+                className="gamecard__setgrid"
+                style={{ gridTemplateRows: `repeat(${columns}, auto)` }}
+              >
+                {Array.from({ length: columns }, (_, i) => (
+                  <Fragment key={i}>
+                    <span
+                      className={
+                        "gamecard__num gamecard__setnum" +
+                        (home.sets?.[i]?.won === false
+                          ? " gamecard__num--lost"
+                          : "")
+                      }
+                    >
+                      {home.sets?.[i]?.games ?? ""}
+                    </span>
+                    <span
+                      className={
+                        "gamecard__num gamecard__setnum" +
+                        (away.sets?.[i]?.won === false
+                          ? " gamecard__num--lost"
+                          : "")
+                      }
+                    >
+                      {away.sets?.[i]?.games ?? ""}
+                    </span>
+                  </Fragment>
+                ))}
+              </span>
+            ) : (
+              game.state !== "pre" && (
               <span className="gamecard__score">
                 <span
                   className={
@@ -170,8 +210,12 @@ function GameCardImpl({
                   {away.score ?? 0}
                 </span>
               </span>
+              )
             )}
-            <span className="gamecard__league">{game.league}</span>
+            {/* The league is the whole screen already when a match is
+              * inside its own tournament, so the slot carries nothing
+              * rather than repeating "ATP" on all 39 cards. */}
+            {!sets && <span className="gamecard__league">{game.league}</span>}
             {/* WHY THIS ONE. Rare (14 of 182 events measured) and the most
               * important thing on the card when it is there: a playoff
               * series state, or the occasion. Only on the wide card, which
@@ -189,7 +233,7 @@ function GameCardImpl({
             <Badge team={away} />
             <span className="gamecard__label">
               <span className="gamecard__abbr">
-                {away.abbr}
+                {sets ? givenName(away) : away.abbr}
                 {away.record && (
                   <span className="gamecard__record">{away.record}</span>
                 )}

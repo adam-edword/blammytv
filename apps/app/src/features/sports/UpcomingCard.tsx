@@ -6,7 +6,8 @@ import { tooEarly } from "./day";
 import { Badge } from "./Badge";
 import { Wash, WashVeil } from "./Wash";
 import { loser } from "./result";
-import type { Fixture, Game } from "./model";
+import { givenName, isMatch, setColumns, surname } from "./sets";
+import type { Competitor, Fixture, Game } from "./model";
 
 /**
  * A game as a small card, for a day at a glance (plan 010).
@@ -55,15 +56,22 @@ function UpcomingCardImpl({
   when?: string;
 }) {
   const { home, away } = game;
+  /**
+   * A tennis match keeps its SURNAME on the big line and its given name on
+   * the small one, where a club keeps its short name and its abbreviation.
+   * Same two lines at the same sizes; see SetLine.
+   */
+  const sets = isMatch(game);
+  const columns = sets ? setColumns(home, away) : 0;
   // Half a small card each, so this takes the broadcast name where there is
   // one: "Man City" is what a viewer scanning fixtures reads anyway. The
   // fit below is the safety net for whatever the feed still sends long.
-  const homeText = home.shortName ?? home.name;
-  const awayText = away.shortName ?? away.name;
+  const homeText = sets ? surname(home) : (home.shortName ?? home.name);
+  const awayText = sets ? surname(away) : (away.shortName ?? away.name);
   const [homeName, awayName] = useFitText<HTMLSpanElement>(homeText, awayText);
   const lost = loser(game);
   // Live or finished: there is a score, so the card squares up.
-  const scored = game.state !== "pre";
+  const scored = game.state !== "pre" || sets;
   const early = tooEarly(game);
   return (
     <button
@@ -124,7 +132,9 @@ function UpcomingCardImpl({
               {when && <span className="upcard__when">{when}</span>}
               {game.status}
             </span>
-            <span className="upcard__league">{game.league}</span>
+            <span className="upcard__league">
+              {sets ? (game.venue ?? game.league) : game.league}
+            </span>
           </span>
           <span className="upcard__teams">
             <span
@@ -135,7 +145,7 @@ function UpcomingCardImpl({
               <Badge team={home} />
               <span className="upcard__label">
                 <span className="upcard__abbr">
-                  {home.abbr}
+                  {sets ? givenName(home) : home.abbr}
                   {/* Beside the code rather than under the name: the label
                     * is a two-line column on a card this size and a third
                     * line would take the room the name needs. "BAL 59-53"
@@ -149,7 +159,11 @@ function UpcomingCardImpl({
                   {homeText}
                 </span>
               </span>
-              {scored && <span className="upcard__score">{home.score ?? 0}</span>}
+              {sets ? (
+                <SetLine team={home} columns={columns} />
+              ) : (
+                scored && <span className="upcard__score">{home.score ?? 0}</span>
+              )}
             </span>
             <span
               className={
@@ -160,7 +174,7 @@ function UpcomingCardImpl({
               <Badge team={away} />
               <span className="upcard__label">
                 <span className="upcard__abbr">
-                  {away.abbr}
+                  {sets ? givenName(away) : away.abbr}
                   {away.record && (
                     <span className="upcard__record">{away.record}</span>
                   )}
@@ -169,13 +183,46 @@ function UpcomingCardImpl({
                   {awayText}
                 </span>
               </span>
-              {scored && <span className="upcard__score">{away.score ?? 0}</span>}
+              {sets ? (
+                <SetLine team={away} columns={columns} />
+              ) : (
+                scored && <span className="upcard__score">{away.score ?? 0}</span>
+              )}
             </span>
           </span>
         </span>
         <WashVeil home={home} away={away} lost={lost} />
       </Tilt>
     </button>
+  );
+}
+
+/**
+ * One player's sets, as a row of fixed columns.
+ *
+ * FIXED columns rather than natural width, so the two players' lines stack
+ * into a grid: a card where the second set sits under the first set on one
+ * row and under the third on the other is not a scoreboard.
+ */
+function SetLine({ team, columns }: { team: Competitor; columns: number }) {
+  return (
+    <span className="upcard__sets">
+      {Array.from({ length: columns }, (_, i) => {
+        const set = team.sets?.[i];
+        return (
+          <span
+            className={
+              "setline__set" + (set?.won === false ? " setline__set--lost" : "")
+            }
+            key={i}
+          >
+            {/* Empty rather than zero for a set not yet played: nothing has
+              * happened, and a 0 is a claim that it has. */}
+            {set ? set.games : ""}
+          </span>
+        );
+      })}
+    </span>
   );
 }
 

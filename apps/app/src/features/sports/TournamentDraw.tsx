@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 import { carriageText } from "./carriage";
+import { GameCard } from "./GameCard";
+import { UpcomingCard } from "./UpcomingCard";
 import { BackArrowIcon } from "../../ui/icons";
 import type { Fixture, Tournament } from "./model";
 
@@ -117,11 +119,26 @@ export function TournamentDraw({
               * other question someone opening a draw is asking. */}
             <span className="tourndraw__count">{bucket.games.length}</span>
           </h3>
-          <ol className="tourndraw__list">
-            {bucket.games.map((match) => (
-              <MatchRow key={match.id} match={match} />
-            ))}
-          </ol>
+          {/* THE BOARD'S OWN CARDS, which is Adam's call and the right
+            * one: a tennis match is two sides and a score, so it should be
+            * the object the rest of the hub already uses rather than a
+            * fourth thing that looks similar. The board's own split too —
+            * wide cards for what is on now, the small card's grid for a
+            * day — so this screen reads as the hub at a different
+            * altitude instead of as a separate app. */}
+          {bucket.key === "live" ? (
+            <div className="tourndraw__wides">
+              {bucket.games.map((match) => (
+                <GameCard key={match.id} game={match} />
+              ))}
+            </div>
+          ) : (
+            <div className="sports__grid">
+              {bucket.games.map((match) => (
+                <UpcomingCard key={match.id} game={match} />
+              ))}
+            </div>
+          )}
         </section>
       ))}
 
@@ -150,75 +167,5 @@ function Chip({
     >
       {children}
     </button>
-  );
-}
-
-/**
- * One match, as a scoreboard reads it.
- *
- * Two rows of one player, the sets running out to the right, the winner in
- * full weight and the loser stepped back — the same treatment the small
- * card gives a finished game, because it is the same claim. An upcoming
- * match has no sets, so the columns are simply empty rather than zeroed:
- * nothing has happened, and printing 0-0 would say something false.
- */
-function MatchRow({ match }: { match: Fixture }) {
-  const { home, away } = match;
-  // Longest line on either side, so both players lay out on the same grid
-  // even when one retired mid-set and the other's line is a set longer.
-  const sets = Math.max(home.sets?.length ?? 0, away.sets?.length ?? 0);
-  return (
-    <li className="tourndraw__match">
-      <span className="tourndraw__when">
-        {match.state === "live" && <span className="gamepip" aria-hidden />}
-        {match.status}
-      </span>
-      <span className="tourndraw__players">
-        <Side player={home} sets={sets} beaten={beaten(match, "home")} />
-        <Side player={away} sets={sets} beaten={beaten(match, "away")} />
-      </span>
-      {/* The court, which is the one piece of place a tournament match has
-        * and the thing someone at the venue would navigate by. */}
-      {match.venue && <span className="tourndraw__court">{match.venue}</span>}
-    </li>
-  );
-}
-
-/** Which side lost, once there is a result. Undefined while it is live or
- * unplayed: a lead is not a defeat. */
-function beaten(match: Fixture, side: "home" | "away"): boolean {
-  if (match.state !== "final") return false;
-  const mine = match[side].score;
-  const theirs = match[side === "home" ? "away" : "home"].score;
-  return mine != null && theirs != null && mine < theirs;
-}
-
-function Side({
-  player,
-  sets,
-  beaten,
-}: {
-  player: Fixture["home"];
-  sets: number;
-  beaten: boolean;
-}) {
-  return (
-    <span
-      className={"tourndraw__side" + (beaten ? " tourndraw__side--lost" : "")}
-    >
-      {player.logo ? (
-        <img className="tourndraw__flag" src={player.logo} alt="" loading="lazy" />
-      ) : (
-        <span className="tourndraw__flag" aria-hidden />
-      )}
-      <span className="tourndraw__name">{player.name}</span>
-      <span className="tourndraw__sets">
-        {Array.from({ length: sets }, (_, i) => (
-          <span className="tourndraw__set" key={i}>
-            {player.sets?.[i] ?? ""}
-          </span>
-        ))}
-      </span>
-    </span>
   );
 }

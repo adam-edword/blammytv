@@ -3120,103 +3120,72 @@
   font-size: 12px;
   color: var(--text-dim);
 }
-.tourndraw__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+/* Live matches as WIDE cards, stacked the way the board's row stacks
+ * them, but wrapping rather than scrolling: eight of them is a set of
+ * things to choose between, not a timeline to drag through. */
+.tourndraw__wides {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  flex-wrap: wrap;
+  gap: 22.72px;
+  padding: 6px 0 8px;
 }
 
-/* One match: when it is on the left, the two players in the middle, the
- * court on the right. The players' block is its own column so the sets
- * line up down the whole list rather than per row. */
-.tourndraw__match {
-  display: grid;
-  grid-template-columns: 86px 1fr auto;
-  align-items: center;
-  gap: 16px;
-  padding: 11px 18px;
-  border-radius: 14px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-}
-.tourndraw__when {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 13px;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-.tourndraw__players {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-.tourndraw__side {
-  display: grid;
-  grid-template-columns: 20px 1fr auto;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-/* The beaten side steps back, the same claim the small card makes about a
- * finished game, so a list of results reads for who won without reading a
- * single number. */
-.tourndraw__side--lost {
-  color: var(--text-muted);
-  font-weight: 300;
-}
-.tourndraw__flag {
-  width: 20px;
-  height: 14px;
-  object-fit: cover;
-  border-radius: 2px;
-}
-.tourndraw__name {
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 15px;
-  color: inherit;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.tourndraw__side--lost .tourndraw__name {
-  font-weight: 400;
-}
-/* Fixed columns, so the sets stack into a grid down the list instead of
- * ragging with the length of each name. */
-.tourndraw__sets {
-  display: flex;
-  gap: 4px;
-}
-.tourndraw__set {
-  width: 20px;
-  text-align: center;
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 15px;
-  font-variant-numeric: tabular-nums;
-  color: inherit;
-}
-.tourndraw__court {
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: var(--sports-meta);
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-  white-space: nowrap;
-}
 .tourndraw__none {
   color: var(--text-muted);
   font-family: var(--font-headline);
   font-weight: 600;
   padding: 40px 0;
+}
+
+
+/* ------------------------------------------- a tennis line, on the cards */
+
+/* 6-3 4-6 6-2, on the small card. Fixed columns so the two players' lines
+ * stack into a grid: a card where the second set sits under the first on
+ * one row and under the third on the other is not a scoreboard. */
+.upcard__sets {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.upcard__sets .setline__set {
+  width: 22px;
+  text-align: center;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 26px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: #fff;
+}
+/* The loser of each INDIVIDUAL set, inside a line that otherwise belongs to
+ * whoever won the match. It is the detail that makes the line read as
+ * tennis rather than as three numbers, and it is the source's own answer to
+ * who took the set rather than ours. */
+.upcard__sets .setline__set--lost {
+  color: rgba(255, 255, 255, 0.38);
+  font-weight: 300;
+}
+.upcard__team--lost .setline__set {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* The same line on the WIDE card, where it is a grid instead of a row: one
+ * row per set, one column per player, so both sides' second set sit
+ * together. The horizontal `6 - 3` a club game uses holds one number each
+ * and cannot say this at all. */
+.gamecard__setgrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  column-gap: 26px;
+  row-gap: 2px;
+  justify-items: center;
+  align-items: center;
+}
+.gamecard__setnum {
+  font-variant-numeric: tabular-nums;
+  /* Smaller than the single score it replaces: three rows of it where the
+   * card had one line, in the same vertical room. */
+  font-size: 34px;
+  line-height: 1.06;
 }

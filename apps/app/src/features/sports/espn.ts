@@ -811,10 +811,10 @@ function toCompetitor(raw: RawCompetitor, other?: RawCompetitor): Competitor {
       score: Number.isFinite(score)
         ? score
         : setsWon(raw.linescores, other?.linescores),
-      // The line itself, kept for the draw screen (#38). `setsWon` reduces
-      // this to a total for the card; a scoreboard wants the sets.
+      // The line itself. `setsWon` reduces it to a total for a board card;
+      // a match card wants the sets, and who took each one.
       sets: raw.linescores?.length
-        ? raw.linescores.map((l) => l.value ?? 0)
+        ? raw.linescores.map((l) => ({ games: l.value ?? 0, won: l.winner }))
         : undefined,
     };
   }

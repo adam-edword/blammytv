@@ -71,15 +71,20 @@ export interface Competitor {
   record?: string;
   score?: number;
   /**
-   * The per-period line, where a sport keeps one: [6, 2] is six games in
-   * the first set and two in the second.
+   * The per-period line, where a sport keeps one: 6-3, 4-6, 6-2.
    *
    * TENNIS ONLY so far, and it is the difference between a scoreline and a
    * result. `score` says who leads two sets to one, which is what a card
-   * has room for; the draw screen (plan 010 #38) shows a match the way a
-   * scoreboard does, set by set, and cannot reconstruct that from a total.
+   * has room for; a match card shows it the way a scoreboard does, set by
+   * set, and cannot reconstruct that from a total.
+   *
+   * `won` is the SOURCE'S own answer to who took each set, not ours.
+   * Comparing the two numbers gets it right almost always and quietly
+   * wrong on the cases that matter — a tiebreak line, a retirement mid-set
+   * — and the card dims the loser of every individual set, so being wrong
+   * there is visible.
    */
-  sets?: number[];
+  sets?: { games: number; won?: boolean }[];
 }
 
 export type GameState = "pre" | "live" | "final";
