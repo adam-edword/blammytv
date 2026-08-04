@@ -11,7 +11,8 @@ import "../src/styles/stream.css";
 import "../src/styles/sports.css";
 import "../src/styles/discover.css";
 import { SportsTheater } from "../src/features/sports/SportsTheater";
-import { LEAGUES, toGames } from "../src/features/sports/espn";
+import { toGames } from "../src/features/sports/espn";
+import { isFixture } from "../src/features/sports/model";
 import { indexChannels } from "../src/features/sports/matcher";
 import type { Tunable } from "../src/features/sports/matcher";
 import { applyAccent, loadAccent } from "../src/features/settings/accent";
@@ -72,8 +73,14 @@ const catalog = indexChannels(
 
 /** Restamp a saved slate onto today and set it running, so the theater has
  * a live subject and a full list of live scores under it. */
+const PATHS: Record<string, string> = {
+  mlb: "baseball/mlb",
+  nba: "basketball/nba",
+  nhl: "hockey/nhl",
+  epl: "soccer/eng.1",
+};
+
 function live(slate: unknown, key: string) {
-  const league = LEAGUES.find((l) => l.key === key)!;
   const raw = slate as { events?: { competitions: unknown[] }[] };
   const detail: Record<string, string> = {
     mlb: "Bot 7th",
@@ -97,16 +104,21 @@ function live(slate: unknown, key: string) {
         ],
       })),
     },
-    league,
+    PATHS[key],
   );
 }
 
+/**
+ * FIXTURES only, which the union now makes explicit. The theater takes two
+ * sides and a score; racing reaches it in plan 010 #5 and tournaments are a
+ * list rather than a thing you watch.
+ */
 const games = [
   ...live(mlb, "mlb"),
   ...live(nba, "nba"),
   ...live(nhl, "nhl"),
   ...live(epl, "epl"),
-];
+].filter(isFixture);
 
 applyAccent(loadAccent());
 applyTheme(loadTheme());
@@ -118,7 +130,11 @@ export function Rig() {
       game={open}
       others={games.filter((g) => g.id !== open.id)}
       catalog={catalog}
-      onOpen={setOpen}
+      // The theater hands back a Game because its rail can hold any kind;
+      // this rig only ever stocks fixtures, and the guard is what says so.
+      onOpen={(g) => {
+        if (isFixture(g)) setOpen(g);
+      }}
       onClose={() => undefined}
     />
   );

@@ -5,5 +5,13 @@
     "jsx": "react-jsx",
     "types": ["vite/client"]
   },
-  "include": ["src"]
+  /* The harness is dev-server entry points, not shipped code — but it is
+     real TypeScript that imports the real modules, and leaving it outside
+     this list meant nothing checked it at all. Two rigs rotted quietly:
+     theater.tsx imported a symbol deleted in v0.8.120 and would not load,
+     and race.tsx still RENDERED while setting five properties that no
+     longer exist on `Field`, so the one case it was built to prove was
+     silently not being shown. Both are the same class, and the class is
+     "a whole directory nobody was checking". */
+  "include": ["src", "harness"]
 }

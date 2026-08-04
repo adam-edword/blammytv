@@ -84,10 +84,14 @@ const states: Field[] = [
     id: "st-pre",
     session: "Race",
     state: "pre",
-    day: "SAT",
-    time: "11:30AM",
-    track: "Hungaroring",
-    top: [],
+    // `entrants`, not `top`. The field was renamed when the union landed and
+    // this rig kept the old spelling — which TypeScript could not tell it,
+    // because the harness was outside `include`. Excess properties are
+    // erased at runtime, so `top: []` did nothing and `entrants` stayed
+    // spread from `base`: the card showed five drivers, and the ONE case
+    // this entry exists to prove — that a `pre` session returns an empty
+    // podium — was never on screen.
+    entrants: [],
   },
   // A live race that knows its distance, and one that does not. The total
   // is optional in the model because the scoreboard has no field for it;
@@ -173,7 +177,7 @@ export function Rig() {
           id: "no-art",
           circuitId: undefined,
           place: "St. Petersburg",
-          series: "IndyCar Series",
+          league: "IndyCar Series",
         }}
       />
     </div>

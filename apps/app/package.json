@@ -1,6 +1,6 @@
 {
   "name": "@blammytv/app",
-  "version": "0.8.157",
+  "version": "0.8.158",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "lint": "eslint src"
+    "lint": "eslint src harness"
   },
   "dependencies": {
     "@fontsource/fredoka": "^5.2.10",
