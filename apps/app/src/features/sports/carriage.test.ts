@@ -44,15 +44,29 @@ describe("carriageText", () => {
     );
   });
 
-  it("says there was no listing, not that the search failed", () => {
-    // The only way to reach this branch is with an EMPTY broadcasts list:
-    // a non-empty one is answered by "On <network>" above. So the old
-    // "Couldn't find a matching channel" described a search that never
-    // ran. #27 measured how often that is: 1,539 games carried 32
-    // broadcast names between them, and tennis carried none over 1,462
-    // matches, so this was most of the catalog being told the matcher had
-    // failed on its behalf.
-    expect(carriageText(base)).toBe("No channel listed for this game");
+  it("blames the linking, which is the only thing it can know", () => {
+    // Three wordings have stood here and the first two each described the
+    // WORLD: "Not on your channels" claimed the playlist did not have it,
+    // and "No channel listed for this game" claimed nothing had it. Adam:
+    // it "still implies there isn't a channel in the entire EPG that has
+    // these games, not that it couldn't be linked... we can't really know
+    // that." The schedule named no broadcaster, which is a fact about
+    // ESPN's payload and not about a 20,000 channel playlist.
+    expect(carriageText(base)).toBe("Could not link channel");
+  });
+
+  it("never claims a game is absent, in any of its no-channel states", () => {
+    // The rule the wording above exists to keep, held over every route to
+    // an empty channel list. None of these may assert that nothing carries
+    // the game, because none of them is evidence of that.
+    const claims = [
+      carriageText(base),
+      carriageText({ ...base, broadcasts: ["Peacock"] }),
+      carriageText({ ...base, presumed: ["Win Sports"] }),
+    ];
+    for (const said of claims) {
+      expect(said).not.toMatch(/not on|no channel|nothing|unavailable/i);
+    }
   });
 
   it("names the map's network when the playlist has none of it", () => {
@@ -60,7 +74,7 @@ describe("carriageText", () => {
     // and Adam's 1,875 channels do not carry it. Throwing that away for "no
     // listing" would be discarding the one useful thing we know.
     expect(carriageText({ ...base, presumed: ["Win Sports"] })).toBe(
-      "Usually on Win Sports",
+      "Usually found on Win Sports",
     );
   });
 
@@ -84,7 +98,7 @@ describe("carriageText", () => {
         channels: ch("US: Tennis Channel"),
         presumedOnly: true,
       }),
-    ).toBe("Usually on US: Tennis Channel");
+    ).toBe("Usually found on US: Tennis Channel");
     expect(
       carriageText({
         ...base,
@@ -92,7 +106,7 @@ describe("carriageText", () => {
         channels: ch("A", "B"),
         presumedOnly: true,
       }),
-    ).toBe("Usually on 2 channels");
+    ).toBe("Usually found on 2 channels");
   });
 
   it("never lets a presumed match borrow the live wording", () => {
@@ -115,7 +129,7 @@ describe("carriageText", () => {
         presumedOnly: true,
         hiddenOnly: true,
       }),
-    ).toBe("Usually on US: Tennis Channel in a hidden folder");
+    ).toBe("Usually found on US: Tennis Channel in a hidden folder");
   });
 
   it("distinguishes NOT KNOWN YET from nothing", () => {

@@ -949,12 +949,13 @@ What it changes:
 - Tuning the matcher would move almost nothing. The work is upstream.
 - A per-league "we have no broadcast data for this league" is a truthful
   and cheap thing the card could say instead, and it is a different message
-  from "we looked and missed". **Done in v0.8.149**, and cheaper than
-  expected: the branch saying "Couldn't find a matching channel" turned out
-  to be reachable ONLY with an empty broadcasts list, so it was already the
-  per-game version of this message wearing the wrong words. Now "No channel
-  listed for this game". Per GAME rather than per league, which is what the
-  data actually supports without aggregating anything.
+  from "we looked and missed". **Tried in v0.8.149 and REJECTED in
+  v0.8.152.** It is truthful and it is not the viewer's question. Adam:
+  "people don't care that ESPN didn't have a channel listed, just if it
+  links to their EPG or not." Saying the source came back empty explains
+  our plumbing to someone who only wants to know whether they can press it,
+  and it costs the honesty it was meant to buy, because "no broadcast data"
+  reads as "no broadcast". See #42.
 - The curated network map on the shelf from phase 0 is worth revisiting for
   exactly the leagues at 0%. **Done in v0.8.149, see #41.**
 
@@ -1115,7 +1116,7 @@ where the source said nothing at all.
   bar by arithmetic accident; deduct enough to actually mean "this is a
   guess" and every presumed match falls under the bar and the card goes
   silent, which is where we started. So `presumedOnly` rides on the game and
-  the card says "Usually on X" where a stated one says "Live on X". No live
+  the card says "Usually found on X" where a stated one says "Live on X". No live
   pip either: the dot is the card's shorthand for "on, right here, now".
 - **The gate is an EMPTY `broadcasts`, not an empty result.** A game the
   schedule put on Peacock with no Peacock in the playlist is already
@@ -1124,22 +1125,24 @@ where the source said nothing at all.
   mistake `matcher.ts` already documents. A test asserted this before the
   code did it, and the code was wrong.
 - **A mapped league with no matching channel still names the network**:
-  "Usually on Win Sports", the same courtesy "On Peacock" already extends.
+  "Usually found on Win Sports", the same courtesy "On Peacock" already
+  extends.
 - **"Couldn't find a matching channel" was wrong about itself** and that
   fell out of reading the branch. It is only reachable with an empty
   broadcasts list, because a non-empty one is answered above it, so it was
-  describing a search that never ran, to most of the catalog. Now "No
-  channel listed for this game".
+  describing a search that never ran, to most of the catalog. Became "No
+  channel listed for this game", which was wrong in the other direction and
+  was reworded again in v0.8.152. See #42.
 
 Measured against the live boards of 2026-08-04 and Adam's real 1,875
 channel dump:
 
 | league | before | after |
 |---|---|---|
-| tennis/atp | 13 cards, no answer | 13 x "Usually on US: Tennis Channel" |
-| tennis/wta | 20 cards, no answer | 20 x "Usually on US: Tennis Channel" |
-| uefa.champions_qual | 8 cards, no answer | 8 x "Usually on US: CBS Sports Network" |
-| soccer/col.1 | 3 cards, no answer | 3 x "Usually on Win Sports" (no channel) |
+| tennis/atp | 13 cards, no answer | 13 x "Usually found on US: Tennis Channel" |
+| tennis/wta | 20 cards, no answer | 20 x "Usually found on US: Tennis Channel" |
+| uefa.champions_qual | 8 cards, no answer | 8 x "Usually found on US: CBS Sports Network" |
+| soccer/col.1 | 3 cards, no answer | 3 x "Usually found on Win Sports" (no channel) |
 | baseball/mlb | 15 cards, 10 tuned | unchanged, which is the point |
 
 Rows shipped: both tennis tours (with the four Grand Slams as exceptions,
@@ -1157,6 +1160,52 @@ board itself a tennis card still says nothing. The draw screen behind it
 now answers, because it already resolved carriage against the tournament.
 Putting a line on the card is a layout call, so it is Adam's. See #39,
 which is the same card wanting the same kind of decision.
+
+#### 42. The carriage line stops describing the world [x] v0.8.152
+
+Four wordings have stood in the no-channel slot and the first three all
+claimed something about reality this app has never been able to see:
+
+| Wording | Version | What it actually claimed |
+|---|---|---|
+| "Not on your channels" | to v0.8.144 | the playlist does not have it |
+| "Couldn't find a matching channel" | v0.8.145 | a search ran and missed |
+| "No channel listed for this game" | v0.8.149 | nothing anywhere has it |
+| **"Could not link channel"** | **v0.8.152** | **we could not link it** |
+
+v0.8.149's was mine and it fixed the wrong half. Reaching that branch means
+an EMPTY broadcasts list, so nothing was ever searched for, and saying so
+felt more honest than implying a failed search. Adam, reading it back: it
+"still implies there isn't a channel in the entire EPG that has these
+games, not that it couldn't be linked... we can't really know that."
+
+**Two rules came out of it, and they point the same way.**
+
+*Only claim what we have evidence for.* The schedule naming no broadcaster
+is a fact about ESPN's payload, not about a 20,000 channel playlist, so
+nothing whatever follows from it about what the provider carries. A
+sentence about our own linking cannot be wrong.
+
+*And say it in the viewer's terms, not ours.* Adam: "people don't care that
+ESPN didn't have a channel listed, just if it links to their EPG or not."
+The three-way distinction behind this line — no broadcast name, a name we
+could not match, a name we matched — is real and is entirely OUR business.
+The viewer has one question, and it is binary: can I press this. So the
+line answers that and does not explain itself. It is also why the
+per-league "no broadcast data for this league" idea from #27 is dead rather
+than pending.
+
+A test holds the rule rather than the string, over every route to an empty
+channel list: none of them may match `/not on|no channel|nothing|
+unavailable/i`. That is what stops a fifth rewording from quietly
+reintroducing the first one's claim.
+
+Adam's too, in the same pass: the map's phrasing is **"Usually found on
+X"** rather than "Usually on X", in both the pressable and the
+not-pressable case. It reads as a statement about where the league lives
+generally, which is the claim actually being made. Measured before taking
+it, since it is the longest string the slot ever holds: 302px against a
+697px budget on the wide card.
 
 #### 40. The empty board says when the next one is [ ]
 
@@ -1203,7 +1252,8 @@ here so a label that vanished can be looked up.
 | - | A reached-ahead race weekend folds into ONE `WeekendCard` on race day, instead of five session cards under three dated headings. `Weekend` became the union's fourth kind | v0.8.138 |
 | - | A followed racing league reaches for its whole remaining SEASON, not just the next round, and everything reached ahead lands in one "Coming up" section | v0.8.139 |
 | **27** | **Broadcast coverage measured per league.** The join's ceiling is the INPUT, not the matcher: see the table under #27 | v0.8.147 |
-| **41** | **The curated network map.** `networkMap.ts` fills the leagues the source says nothing about, through the same matcher; a guess is worded ("Usually on X") rather than scored down; "Couldn't find a matching channel" corrected to "No channel listed for this game" | v0.8.149 |
+| **41** | **The curated network map.** `networkMap.ts` fills the leagues the source says nothing about, through the same matcher; a guess is worded ("Usually found on X") rather than scored down; "Couldn't find a matching channel" reworded (twice, see #42) | v0.8.149 |
+| **42** | **The carriage line stops describing the world.** "Could not link channel": the only claim the app has evidence for. Plus "Usually found on X" for the map, and a test that holds the rule rather than the string | v0.8.152 |
 | **38** | **Opening a tournament.** A tournament card opens its day's draw: live, upcoming, results, with a draw filter, per-set scores and courts. Also split SUSPENDED from postponed, which the screen exposed | v0.8.140 |
 
 ## Closed decisions

@@ -46,33 +46,62 @@ export function carriageText(item: Carriable): string {
         // something nobody carries: you cannot press it, but you now know
         // where to go looking.
         item.presumed && item.presumed.length > 0
-        ? `Usually on ${item.presumed[0]}`
-        : /* NOT "couldn't find a matching channel", which is what this said
-         * until #27 measured what actually reaches here. That sentence
-         * describes a search that ran and missed, and this branch is the
-         * opposite case: the only way to arrive here is with an EMPTY
-         * broadcasts list, because a non-empty one is answered above. There
-         * was no name to match, so nothing was searched for.
-         *
-         * The difference is not pedantry, it is most of the catalog.
-         * Measured across all 151 leagues, 1,539 games carried 32 broadcast
-         * names between them; tennis carried none at all over 1,462
-         * matches. Telling that many people we looked and failed was
-         * blaming the matcher for a field the source never sent, and it
-         * pointed at the wrong fix. See networkMap.ts, which is the right
-         * one for the leagues it can cover. */
-        "No channel listed for this game";
+        ? `Usually found on ${item.presumed[0]}`
+        : /* SAY WHETHER IT LINKS. Nothing else.
+           *
+           * Adam, settling it: "people don't care that ESPN didn't have a
+           * channel listed, just if it links to their EPG or not." The
+           * three-way distinction sitting behind this line — no broadcast
+           * name at all, a name we could not match, a name we matched — is
+           * real, and it is entirely OUR business. The viewer has one
+           * question and it is binary: can I press this. So the line
+           * answers that and does not explain itself.
+           *
+           * It took three goes to get there, and the wrong turns are worth
+           * keeping because each was defensible on its own terms.
+           *
+           * This line has said, in order:
+           *   "Not on your channels"            - a claim about the playlist
+           *   "Couldn't find a matching channel"- a search that never ran
+           *   "No channel listed for this game" - a claim about the world
+           *   "Could not link channel"          - a claim about US, at last
+           *
+           * Each fixed the last one's lie and told a new one, and all three
+           * of the first ones describe the WORLD. v0.8.149 was the closest
+           * miss: reaching here means an EMPTY broadcasts list, so nothing
+           * was ever searched for, and saying so seemed more honest than
+           * implying a failed search. Adam, reading it back: it "still
+           * implies there isn't a channel in the entire EPG that has these
+           * games, not that it couldn't be linked... we can't really know
+           * that." The schedule naming no broadcaster is a fact about
+           * ESPN's payload, not about a 20,000 channel playlist. The
+           * current wording is about what WE did, so it cannot be wrong.
+           *
+           * Scale, for why this sentence matters more than it looks:
+           * measured across all 151 leagues, 1,539 games carried 32
+           * broadcast names between them, and tennis carried none over
+           * 1,462 matches. This is the default answer for most of the
+           * catalog. See networkMap.ts, which is the real fix for the
+           * leagues it can cover. */
+          "Could not link channel";
   // A GUESS FROM THE MAP, worded as one. The channels are real and tunable,
   // so they are offered, but what we know is that the LEAGUE normally lives
   // there — not that this game does. "Live on 2 channels" would be the app
   // stating as fact something no source told it, which is the one thing
   // this feature has consistently refused to do.
+  //
+  // "FOUND ON" rather than a bare "on", Adam's call, and the same phrasing
+  // whether or not it resolved to something pressable. It reads as a
+  // statement about where the league lives generally, which is exactly the
+  // claim being made; "Usually on" leans closer to being about this game.
+  // Measured before choosing it, since it is the longest string the slot
+  // ever holds: 302px against a 697px budget on the wide card.
   if (item.presumedOnly) {
     const what =
       item.channels.length === 1
         ? item.channels[0].name
         : `${item.channels.length} channels`;
-    return `Usually on ${what}${where && ` ${where}`}`;
+    return `Usually found on ${what}${where && ` ${where}`}`;
   }
   if (item.channels.length === 1)
     return `${on} ${item.channels[0].name}${where && ` ${where}`}`;
