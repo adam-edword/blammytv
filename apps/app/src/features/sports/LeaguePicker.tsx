@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CloseIcon,
-  HeartGhostIcon,
-  HeartRainbowHollowIcon,
+  StarGhostIcon,
+  StarRainbowHollowIcon,
 } from "../../ui/icons";
 import { ALL_LEAGUES, SPORTS, league as byPath, searchLeagues } from "./leagues";
 import { toggleLeague, type Follows } from "./follows";
@@ -32,9 +32,25 @@ const ARM_MS = 4000;
 export function LeaguePicker({
   follows,
   onFollows,
+  picked,
+  onPick,
 }: {
   follows: Follows;
   onFollows: (next: Follows) => void;
+  /**
+   * The leagues the board is NARROWED to right now, which is not the same
+   * thing as the ones you follow.
+   *
+   * Adam's, and it fixes a real collision: clicking a row and clicking its
+   * heart both favourited it, so the row and the affordance inside it did
+   * the same job and the picker had no way to say "just show me this".
+   * Following is what you keep; picking is what you are looking at.
+   *
+   * Not persisted, deliberately. A narrowing you set on Tuesday should not
+   * still be hiding half the board on Friday, where a favourite should.
+   */
+  picked: string[];
+  onPick: (path: string) => void;
 }) {
   const [query, setQuery] = useState("");
   /** The favourite whose ✕ has been clicked once. See the tile below. */
@@ -139,6 +155,8 @@ export function LeaguePicker({
               key={l.path}
               league={l}
               armed={arming === l.path}
+              on={picked.includes(l.path)}
+              onPick={() => onPick(l.path)}
               onArm={() => armOrRemove(l.path)}
             />
           ))}
@@ -170,17 +188,20 @@ export function LeaguePicker({
               <h4 className="leaguepick__sport">{sport.name}</h4>
               {leagues.map((l) => (
                 <span className="live-folder-row leaguepick__row" key={l.path}>
-                  {/* The whole row favourites it, and the heart says so.
-                    * Live's rows work differently — there the row filters
-                    * and the eye hides, two actions — but here there is
-                    * only one thing to do with a league you do not follow,
-                    * so the big target and the small affordance agree. */}
+                  {/* The row NARROWS the board to this league; the star
+                    * beside it follows it. Exactly Live's split, where the
+                    * row filters and the eye hides, and the fix for these
+                    * two having previously done the same thing. */}
                   <button
                     type="button"
-                    className="live-folder"
+                    className={
+                      "live-folder" +
+                      (picked.includes(l.path) ? " live-folder--active" : "")
+                    }
                     title={l.name}
-                    aria-label={`Add ${l.label} to favourites`}
-                    onClick={() => toggle(l.path)}
+                    aria-pressed={picked.includes(l.path)}
+                    aria-label={`Show only ${l.label}`}
+                    onClick={() => onPick(l.path)}
                   >
                     <LeagueMark league={l} className="leaguepick__mark" />
                     <span className="live-folder__name">{l.label}</span>
@@ -195,12 +216,16 @@ export function LeaguePicker({
                     title={`Add ${l.label} to favourites`}
                     onClick={() => toggle(l.path)}
                   >
-                    {/* The guide's own swap: the ghost while the row is
-                      * hovered, the rainbow ring once the heart itself
-                      * is. Two elements and a CSS display flip, because a
-                      * :hover in JS would need a listener per row. */}
-                    <HeartGhostIcon className="guide__fav-idle" />
-                    <HeartRainbowHollowIcon className="guide__fav-hot" />
+                    {/* The guide's own star and its own swap: the ghost
+                      * while the row is hovered, the rainbow ring once the
+                      * star itself is. Adam's, and it is the right call —
+                      * this means the same thing the guide's does, so a
+                      * second mark for it was a difference with no
+                      * meaning. Two elements and a CSS display flip,
+                      * because a :hover in JS would need a listener per
+                      * row. */}
+                    <StarGhostIcon className="guide__fav-idle" />
+                    <StarRainbowHollowIcon className="guide__fav-hot" />
                   </button>
                 </span>
               ))}
@@ -232,16 +257,32 @@ export function LeaguePicker({
 function FavouriteTile({
   league,
   armed,
+  on,
+  onPick,
   onArm,
 }: {
   league: CatalogLeague;
   armed: boolean;
+  /** Narrowed to this one right now. */
+  on: boolean;
+  onPick: () => void;
   onArm: () => void;
 }) {
   return (
-    <span className="leaguetile">
-      <LeagueMark league={league} className="leaguetile__mark" />
-      <span className="leaguetile__name">{league.label}</span>
+    <span className={"leaguetile" + (on ? " leaguetile--on" : "")}>
+      {/* A tile narrows, the same as a row: it is the same league in a
+        * different shape, so it must not be a different verb. Removing it
+        * from favourites is the small control in the corner. */}
+      <button
+        type="button"
+        className="leaguetile__pick"
+        aria-pressed={on}
+        aria-label={`Show only ${league.label}`}
+        onClick={onPick}
+      >
+        <LeagueMark league={league} className="leaguetile__mark" />
+        <span className="leaguetile__name">{league.label}</span>
+      </button>
       <button
         type="button"
         className={"leaguepick__x" + (armed ? " leaguepick__x--armed" : "")}

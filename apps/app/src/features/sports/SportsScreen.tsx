@@ -89,7 +89,32 @@ export function SportsScreen({ home }: { home?: number } = {}) {
     () => resolvable(follows, ALL_LEAGUES.map((l) => l.path)),
     [follows],
   );
-  const narrowed = active.leagues.length > 0 || active.teams.length > 0;
+  /**
+   * The leagues the board is NARROWED to, which is a different question
+   * from which ones you follow.
+   *
+   * Adam's, fixing a collision: a row and its star both favourited, so the
+   * picker could not say "just show me this". Following is what you keep;
+   * picking is what you are looking at, and it is multi-select.
+   *
+   * Deliberately NOT persisted. A narrowing set on Tuesday should not still
+   * be hiding half the board on Friday, where a favourite should.
+   */
+  const [picked, setPicked] = useState<string[]>([]);
+  /**
+   * What actually narrows the board: an explicit pick if there is one,
+   * otherwise what you follow.
+   *
+   * A pick OVERRIDES follows rather than intersecting them, which is what
+   * makes it useful — clicking a league you do not follow has to be able to
+   * show it, or the control does nothing on the 146 leagues that are not
+   * favourites. Nothing picked and nothing followed still means everything.
+   */
+  const shown = useMemo(
+    () => (picked.length > 0 ? { leagues: picked, teams: [] } : active),
+    [picked, active],
+  );
+  const narrowed = shown.leagues.length > 0 || shown.teams.length > 0;
   /**
    * What the empty state names when the filter is hiding everything.
    *
@@ -111,7 +136,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
   const [reveal, setReveal] = useState(0);
   // Off the RESOLVABLE follows, not the raw store: a path the catalog no
   // longer carries is not a URL worth asking ESPN for.
-  const leagues = useMemo(() => fetchList(active), [active]);
+  const leagues = useMemo(() => fetchList(shown), [shown]);
   /**
    * TODAY AND TOMORROW on the wide board, three days once it is narrowed.
    *
@@ -142,9 +167,9 @@ export function SportsScreen({ home }: { home?: number } = {}) {
     if (!narrowed) return withChans;
     return withChans.map((d) => ({
       ...d,
-      games: d.games.filter((g) => isFollowed(g, active)),
+      games: d.games.filter((g) => isFollowed(g, shown)),
     }));
-  }, [raw, catalog, active, narrowed]);
+  }, [raw, catalog, shown, narrowed]);
   /**
    * The reached-ahead games, through the same two steps the window gets.
    *
@@ -156,9 +181,9 @@ export function SportsScreen({ home }: { home?: number } = {}) {
   const ahead = useMemo(() => {
     const withChans = withChannels(rawAhead, catalog);
     return narrowed
-      ? withChans.filter((g) => isFollowed(g, active))
+      ? withChans.filter((g) => isFollowed(g, shown))
       : withChans;
-  }, [rawAhead, catalog, active, narrowed]);
+  }, [rawAhead, catalog, shown, narrowed]);
   /** Every club the board LOADED, ahead of the filter. */
   const clubPool = useMemo(() => raw.flatMap((d) => d.games), [raw]);
   // Memoised, not because building it is expensive but because `?? []`
@@ -349,6 +374,14 @@ export function SportsScreen({ home }: { home?: number } = {}) {
         games={clubPool}
         follows={follows}
         onFollows={setFollows}
+        picked={picked}
+        onPick={(path) =>
+          setPicked((was) =>
+            was.includes(path)
+              ? was.filter((p) => p !== path)
+              : [...was, path],
+          )
+        }
         reveal={reveal}
       />
       <div className="discover sports sportsboard__main">

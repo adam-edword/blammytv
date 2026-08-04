@@ -47,12 +47,17 @@ export function SportsSidebar({
   games,
   follows,
   onFollows,
+  picked,
+  onPick,
   reveal,
 }: {
   /** Every game the board has loaded, for the club list. */
   games: Game[];
   follows: Follows;
   onFollows: (next: Follows) => void;
+  /** What the board is narrowed to right now. See LeaguePicker. */
+  picked: string[];
+  onPick: (path: string) => void;
   /**
    * A counter the board bumps to say "show them the leagues".
    *
@@ -146,7 +151,12 @@ export function SportsSidebar({
         * recognise at a glance, and 146 of them cannot. What changed is
         * that the other 146 now have somewhere to be. See LeaguePicker. */}
       {!collapsed && mode === "leagues" && (
-        <LeaguePicker follows={follows} onFollows={onFollows} />
+        <LeaguePicker
+          follows={follows}
+          onFollows={onFollows}
+          picked={picked}
+          onPick={onPick}
+        />
       )}
 
       {!collapsed && mode === "teams" && (
