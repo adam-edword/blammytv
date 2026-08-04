@@ -3,6 +3,7 @@ import { carriageText } from "./carriage";
 import { GameCard } from "./GameCard";
 import { UpcomingCard } from "./UpcomingCard";
 import { BackArrowIcon } from "../../ui/icons";
+import { useMouseNav } from "../../lib/mouseNav";
 import type { Fixture, Tournament } from "./model";
 
 /**
@@ -43,6 +44,23 @@ export function TournamentDraw({
   event: Tournament;
   onClose: () => void;
 }) {
+  /**
+   * The mouse's back button, which is how people actually leave a screen
+   * like this.
+   *
+   * Adam, on the tennis draw: "can only get back by hitting the back button
+   * in the top left." This screen is a full-screen view pushed over the
+   * board — the same shape as the theater, which opted into this hook when
+   * it was written — and it was the one such view that never did, so the
+   * arrow was the only way out.
+   *
+   * Back only. There is nothing to go forward TO: the draw is one level
+   * deep over the board, and the screen it came from is the only other
+   * place. A forward handler here would either do nothing or re-open a
+   * tournament nobody asked for.
+   */
+  useMouseNav(onClose);
+
   /** The draw being shown, or everything. */
   const [draw, setDraw] = useState<string | null>(null);
 
@@ -83,41 +101,51 @@ export function TournamentDraw({
    */
   return (
     <div className="sports tourndraw">
-      <header className="tourndraw__top">
-        <button
-          type="button"
-          className="tourndraw__back"
-          aria-label="Back to the board"
-          onClick={onClose}
-        >
-          <BackArrowIcon />
-        </button>
-        <div className="tourndraw__titles">
-          <h2 className="tourndraw__title">{event.title}</h2>
-          <p className="tourndraw__where">
-            {[event.venue, event.rounds.join(" · ")].filter(Boolean).join(" · ")}
-          </p>
-        </div>
-        {/* The one carriage answer this screen can honestly give. The
-          * matches carry no broadcast at all, so it is resolved against the
-          * TOURNAMENT and said once, in the app's own words for it. */}
-        <p className="tourndraw__carriage">{carriageText(event)}</p>
-      </header>
+      {/* ONE sticky block, not two sticky siblings. The title row and the
+        * draw chips have to travel together — sticking them separately
+        * would mean giving the chips a `top` equal to the title row's
+        * height, which is a number that changes with the tournament name's
+        * wrap and would have them overlap the moment one went to two
+        * lines. A wrapper has no such number in it. */}
+      <div className="tourndraw__head">
+        <header className="tourndraw__top">
+          <button
+            type="button"
+            className="tourndraw__back"
+            aria-label="Back to the board"
+            onClick={onClose}
+          >
+            <BackArrowIcon />
+          </button>
+          <div className="tourndraw__titles">
+            <h2 className="tourndraw__title">{event.title}</h2>
+            <p className="tourndraw__where">
+              {[event.venue, event.rounds.join(" · ")]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          </div>
+          {/* The one carriage answer this screen can honestly give. The
+            * matches carry no broadcast at all, so it is resolved against
+            * the TOURNAMENT and said once, in the app's own words for it. */}
+          <p className="tourndraw__carriage">{carriageText(event)}</p>
+        </header>
 
-      {/* Only where there is a choice: one draw and this is a row of one
-        * chip that does nothing. */}
-      {event.draws.length > 1 && (
-        <div className="tourndraw__draws">
-          <Chip on={draw === null} onClick={() => setDraw(null)}>
-            All
-          </Chip>
-          {event.draws.map((d) => (
-            <Chip key={d} on={draw === d} onClick={() => setDraw(d)}>
-              {d}
+        {/* Only where there is a choice: one draw and this is a row of one
+          * chip that does nothing. */}
+        {event.draws.length > 1 && (
+          <div className="tourndraw__draws">
+            <Chip on={draw === null} onClick={() => setDraw(null)}>
+              All
             </Chip>
-          ))}
-        </div>
-      )}
+            {event.draws.map((d) => (
+              <Chip key={d} on={draw === d} onClick={() => setDraw(d)}>
+                {d}
+              </Chip>
+            ))}
+          </div>
+        )}
+      </div>
 
       {buckets.map((bucket) => (
         <section className="tourndraw__section" key={bucket.key}>

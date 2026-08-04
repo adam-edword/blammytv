@@ -3068,7 +3068,51 @@
   inset: 0;
   overflow-y: auto;
   background: var(--bg);
-  padding: calc(var(--header-h, 76px) + 12px) 42px 60px;
+  /* The 12px that used to be here moved INTO the sticky head, so the head's
+   * own background covers that gap once it is stuck. Left on the container,
+   * it would have been a 12px slot of bare page between the app header and
+   * the sticky block for cards to scroll through. */
+  padding: var(--header-h, 76px) 42px 60px;
+}
+
+/* THE STICKY HEAD. Adam: "we should have this top header stay sticky when
+ * scrolling", on a draw 105 matches deep — by the Upcoming grid you have
+ * lost the tournament's name, the draw filter and the way out all at once.
+ *
+ * `.tourndraw` is the scrollport (fixed, inset 0, overflow-y auto), so this
+ * sticks against it rather than against the window.
+ *
+ * `top: 0` AND THAT IS MEASURED, not the obvious --header-h. A sticky
+ * offset resolves against the scroll container's CONTENT box, not its
+ * border box, and this container already carries padding-top:
+ * var(--header-h) to clear the floating app bar. So --header-h here counts
+ * that clearance twice: driven in the rig, the head pinned at 152px on a
+ * 76px header, leaving a header's worth of dead band under the bar for
+ * cards to scroll through. At 0 it pins flush against the content box,
+ * which is exactly under the app header.
+ *
+ * z-index sits between the cards (1-2, in their own contexts) and the app
+ * header's 20. */
+.tourndraw__head {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  padding-top: 12px;
+  background: var(--bg);
+}
+/* A short fade under it, so cards do not guillotine on a hard line as they
+ * pass beneath. The same move the app header already makes with its own
+ * scrim, at the smaller scale this needs. Outside the box, so it costs the
+ * layout nothing. */
+.tourndraw__head::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 14px;
+  background: linear-gradient(var(--bg), transparent);
+  pointer-events: none;
 }
 .tourndraw__top {
   display: grid;
