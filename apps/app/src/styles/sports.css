@@ -61,10 +61,10 @@
 .sports__toggle {
   flex: 0 0 auto;
   padding: 6px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(var(--card-ink), 0.09);
   border-radius: 999px;
   background: none;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(var(--card-ink), 0.45);
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 12px;
@@ -77,12 +77,12 @@
     background 180ms ease;
 }
 .sports__toggle:hover {
-  color: rgba(255, 255, 255, 0.75);
-  border-color: rgba(255, 255, 255, 0.2);
+  color: rgba(var(--card-ink), 0.75);
+  border-color: rgba(var(--card-ink), 0.2);
 }
 .sports__toggle.is-on {
   border-color: transparent;
-  background: color-mix(in srgb, var(--accent, #fff) 18%, transparent);
+  background: color-mix(in srgb, var(--accent, rgb(var(--card-ink))) 18%, transparent);
   color: var(--text);
 }
 
@@ -202,17 +202,17 @@
   width: 100%;
   height: 48.28px;
   padding: 0 19.88px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(var(--card-ink), 0.07);
   /* A full pill: nothing here is a rectangle with corners, it is a line. */
   border-radius: 100px;
-  background: #0f0f0f;
+  background: var(--card-bg);
   overflow: hidden;
   text-align: left;
   cursor: pointer;
   transition: border-color 200ms ease;
 }
 .compactcard:hover {
-  border-color: rgba(255, 255, 255, 0.18);
+  border-color: rgba(var(--card-ink), 0.18);
 }
 /* Lighter than the full card's: there is less art showing and the text sits
  * right on it. */
@@ -222,11 +222,11 @@
   background:
     linear-gradient(
       to right,
-      rgba(15, 15, 15, 0) 0%,
-      #0f0f0f 50%,
-      rgba(15, 15, 15, 0) 100%
+      rgba(var(--card-rgb), 0) 0%,
+      rgb(var(--card-rgb)) 50%,
+      rgba(var(--card-rgb), 0) 100%
     ),
-    linear-gradient(to bottom, rgba(0, 0, 0, 0.15), rgba(0, 0, 0, 0.3));
+    linear-gradient(to bottom, rgba(var(--card-veil), 0.15), rgba(var(--card-veil), 0.3));
 }
 .compactcard__status {
   position: relative;
@@ -234,7 +234,7 @@
   font-weight: 700;
   font-size: var(--compact-status);
   text-transform: uppercase;
-  color: #fff;
+  color: rgb(var(--card-ink));
 }
 /* The matchup, centred in what the two labels leave. The gap here is
  * between GROUPS, each of which is a mark and its tag; those two belong
@@ -280,7 +280,7 @@
   font-weight: 700;
   font-size: var(--sports-meta);
   letter-spacing: 0.07em;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(var(--card-ink), 0.55);
 }
 .compactcard__score {
   display: flex;
@@ -293,7 +293,7 @@
   /* Every digit the same width, so "6 - 1" and "12 - 3" occupy the same
    * box and a narrow 1 does not leave a hole beside it. */
   font-variant-numeric: tabular-nums;
-  color: #fff;
+  color: rgb(var(--card-ink));
 }
 .compactcard__dash {
   opacity: 0.25;
@@ -301,7 +301,7 @@
 /* The beaten side, as on the full card: lighter, not dimmer. */
 .compactcard .is-lost {
   font-weight: 300;
-  color: rgba(255, 255, 255, 0.65);
+  color: rgba(var(--card-ink), 0.65);
 }
 /* Smaller mark for a smaller line. */
 .compactcard .gamebadge {
@@ -317,6 +317,52 @@
 
 /* One game. The whole thing is the button: the object is the GAME, and
  * every click on it means "watch this". */
+/* ---------------------------------------------- the card's own palette
+ *
+ * The hub's cards were hardcoded dark: five `rgb(var(--card-rgb))` surfaces and 49
+ * white text values, on a page, sidebar and headings that all themed
+ * correctly. In light mode that read as a field of black slabs on a white
+ * page — Adam's "not very elegant", and structural rather than a set of
+ * bad values. Measured before touching it: ZERO real contrast failures,
+ * because white on black is fine. They were consistent, just never
+ * themed.
+ *
+ * So the card gets its own two tokens and everything below reads them.
+ * The light values are here, once, instead of spread over 54 sites, and
+ * anything tuned against the dark card — the washes, the glare, the
+ * scrims — keeps working because `--card-ink` is what changed, not the
+ * relationships built on it. */
+.sports,
+.tourndraw,
+.sportstheater {
+  /* The card's own colour as COMPONENTS, because the scrims ramp it to
+   * transparent and `rgba()` cannot take a colour-valued var. */
+  --card-rgb: 15, 15, 15;
+  --card-bg: rgb(var(--card-rgb));
+  --card-ink: 255, 255, 255;
+  /* What the veils and scrims push TOWARDS. Their job is to keep the team
+   * art off the text, which on a dark card means darkening and on a light
+   * one means the opposite — so it is the card's own tone, not black. */
+  --card-veil: 0, 0, 0;
+  /* How present the country art is. A national flag is mostly dark, so the
+   * same 15% that reads as a hint over near-black reads as a grey slab over
+   * white: the card surface measured a correct 255,255,255 with the flag
+   * alone accounting for all of it. Less presence on a light card is the
+   * fix, not a different colour. */
+  --card-art: 0.15;
+}
+:root[data-theme="light"] .sports,
+:root[data-theme="light"] .tourndraw,
+:root[data-theme="light"] .sportstheater {
+  /* The card lifts OFF the page rather than matching it: --surface is pure
+   * white in light and the page is #f3f4f7, so a card at --surface reads as
+   * a raised object the way the dark card does against #050505. */
+  --card-rgb: 255, 255, 255;
+  --card-ink: 12, 14, 20;
+  --card-veil: 255, 255, 255;
+  --card-art: 0.07;
+}
+
 .gamecard {
   flex: 0 0 auto;
   width: 783.84px;
@@ -344,8 +390,8 @@
    * poking out of a round corner. */
   border-radius: 63.9px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  background: #0f0f0f;
+  border: 1px solid rgba(var(--card-ink), 0.07);
+  background: var(--card-bg);
   /* Quicker than the 650ms lean so the shadow leads and the card settles
    * into it, matching the poster cards. */
   transition: box-shadow 450ms ease;
@@ -815,18 +861,18 @@
      * layer instead of two. */
     linear-gradient(
       to right,
-      rgba(15, 15, 15, 0) 0%,
-      #0f0f0f 50%,
-      rgba(15, 15, 15, 0) 100%
+      rgba(var(--card-rgb), 0) 0%,
+      rgb(var(--card-rgb)) 50%,
+      rgba(var(--card-rgb), 0) 100%
     ),
     linear-gradient(
       to right,
-      rgba(0, 0, 0, 0.2) 0%,
-      rgba(0, 0, 0, 0.26) 42%,
-      rgba(0, 0, 0, 0.26) 58%,
-      rgba(0, 0, 0, 0.2) 100%
+      rgba(var(--card-veil), 0.2) 0%,
+      rgba(var(--card-veil), 0.26) 42%,
+      rgba(var(--card-veil), 0.26) 58%,
+      rgba(var(--card-veil), 0.2) 100%
     ),
-    linear-gradient(to bottom, rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.18));
+    linear-gradient(to bottom, rgba(var(--card-veil), 0.05), rgba(var(--card-veil), 0.18));
 }
 
 .gamecard__body {
@@ -881,7 +927,7 @@
   font-weight: 700;
   font-size: var(--sports-meta);
   letter-spacing: 0.06em;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(var(--card-ink), 0.55);
   margin-bottom: 1px;
 }
 /* The season record, sharing the code's line. Both cards, one rule: they
@@ -906,7 +952,7 @@
   font-weight: 700;
   font-size: var(--sports-name);
   line-height: 1.05;
-  color: #fff;
+  color: rgb(var(--card-ink));
   /* Long club names must shrink the wash, never the score. */
   overflow: hidden;
   text-overflow: ellipsis;
@@ -927,7 +973,7 @@
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 21.3px;
-  color: #fff;
+  color: rgb(var(--card-ink));
 }
 /* The kick-off time when it is the only thing in the column.
  *
@@ -968,13 +1014,13 @@
   font-weight: 700;
   font-size: var(--sports-score);
   line-height: 1;
-  color: #fff;
+  color: rgb(var(--card-ink));
   /* Scores change mid-game; tabular figures stop the card twitching when
    * a 1 becomes a 4. */
   font-variant-numeric: tabular-nums;
 }
 .gamecard__dash {
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(var(--card-ink), 0.5);
   /* A ratio of the score rather than its own number: the separator only
    * ever needs to sit a step under the digits it separates. */
   font-size: calc(var(--sports-score) * 0.72);
@@ -985,7 +1031,7 @@
   font-size: var(--sports-meta);
   letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(var(--card-ink), 0.5);
   margin-top: 8.52px;
 }
 /* "CLE leads series 2-0", "East 1st Round - Game 2". A SENTENCE, so it
@@ -998,7 +1044,7 @@
   font-family: var(--font-headline);
   font-weight: 400;
   font-size: var(--sports-meta);
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(var(--card-ink), 0.72);
   margin-top: 3px;
   white-space: nowrap;
   max-width: 100%;
@@ -1021,7 +1067,7 @@
   font-size: var(--sports-meta);
   letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(var(--card-ink), 0.55);
 }
 .gamecard__venue {
   display: inline-flex;
@@ -1037,11 +1083,11 @@
   align-items: center;
   gap: 8.52px;
   flex-shrink: 0;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(var(--card-ink), 0.8);
 }
 /* No match is a real state, not an error: dim it, do not shout. */
 .gamecard__carriage--none {
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(var(--card-ink), 0.5);
 }
 .gamecard__dot {
   width: 7.1px;
@@ -1092,8 +1138,8 @@
   /* Keep glareBorderRadius in UpcomingCard in step with this. */
   border-radius: 42.6px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  background: #0f0f0f;
+  border: 1px solid rgba(var(--card-ink), 0.07);
+  background: var(--card-bg);
   transition: box-shadow 450ms ease;
 }
 .upcard:hover .upcard__tilt {
@@ -1111,18 +1157,18 @@
      * kick-off time. */
     linear-gradient(
       to right,
-      rgba(15, 15, 15, 0) 0%,
-      #0f0f0f 50%,
-      rgba(15, 15, 15, 0) 100%
+      rgba(var(--card-rgb), 0) 0%,
+      rgb(var(--card-rgb)) 50%,
+      rgba(var(--card-rgb), 0) 100%
     ),
     linear-gradient(
       to right,
-      rgba(0, 0, 0, 0.22) 0%,
-      rgba(0, 0, 0, 0.27) 45%,
-      rgba(0, 0, 0, 0.27) 55%,
-      rgba(0, 0, 0, 0.22) 100%
+      rgba(var(--card-veil), 0.22) 0%,
+      rgba(var(--card-veil), 0.27) 45%,
+      rgba(var(--card-veil), 0.27) 55%,
+      rgba(var(--card-veil), 0.22) 100%
     ),
-    linear-gradient(to bottom, rgba(0, 0, 0, 0.07), rgba(0, 0, 0, 0.17));
+    linear-gradient(to bottom, rgba(var(--card-veil), 0.07), rgba(var(--card-veil), 0.17));
 }
 .upcard__body {
   position: relative;
@@ -1148,7 +1194,7 @@
   /* A scoreboard's own voice. Kick-off times are already uppercase, so
    * this only really shows on "Final" and on a live clock. */
   text-transform: uppercase;
-  color: #fff;
+  color: rgb(var(--card-ink));
 }
 /* The date, on a card that has no dated heading over it: "OCT 3".
  *
@@ -1158,7 +1204,7 @@
 .upcard__when {
   font-size: var(--sports-meta);
   letter-spacing: 0.07em;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(var(--card-ink), 0.55);
 }
 
 /* The matchup, staggered: home to the top left, away to the bottom right.
@@ -1262,7 +1308,7 @@
   font-weight: 700;
   font-size: var(--sports-name);
   line-height: 1.1;
-  color: #fff;
+  color: rgb(var(--card-ink));
 }
 .upcard__team--away .upcard__label {
   align-items: flex-end;
@@ -1276,14 +1322,14 @@
   font-weight: 700;
   font-size: var(--sports-meta);
   letter-spacing: 0.07em;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(var(--card-ink), 0.55);
 }
 .upcard__name {
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: var(--sports-name);
   line-height: 1.1;
-  color: #fff;
+  color: rgb(var(--card-ink));
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1295,7 +1341,7 @@
   font-size: var(--sports-meta);
   letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(var(--card-ink), 0.55);
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1332,7 +1378,7 @@
    * card gives its name the full width rather than half of it. */
   font-size: 22px;
   line-height: 1.12;
-  color: #fff;
+  color: rgb(var(--card-ink));
   /* Two lines, then ellipsis. Fitting it to one instead would push the
    * longest names below the venue line under them, which inverts the
    * card's own hierarchy. */
@@ -1347,7 +1393,7 @@
   font-size: var(--sports-meta);
   letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(var(--card-ink), 0.55);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1366,7 +1412,7 @@
   text-transform: uppercase;
 }
 .tourncard__rounds {
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(var(--card-ink), 0.72);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1375,7 +1421,7 @@
  * when the round names run long. */
 .tourncard__count {
   flex-shrink: 0;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(var(--card-ink), 0.45);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1624,7 +1670,7 @@
   font-weight: 700;
   font-size: var(--sports-meta);
   letter-spacing: 0.07em;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(var(--card-ink), 0.45);
 }
 .matchup__name {
   font-family: var(--font-headline);
@@ -1633,7 +1679,7 @@
    * gives each its own. Sized by measurement, see the commit. */
   font-size: 21px;
   line-height: 1.1;
-  color: #fff;
+  color: rgb(var(--card-ink));
   /* Wrapping is the FIRST answer to a long name, not shrinking: in line the
    * two names get about 110px each, and "Golden Knights" reads perfectly
    * well over two lines at full size where shrunk to one it would not.
@@ -1668,7 +1714,7 @@
   align-items: center;
   gap: 12px;
   padding: 14px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(var(--card-ink), 0.07);
   /* Keep glareBorderRadius in SportsTheater in step with this: the glare is
    * its own layer with its own clip, so a mismatch shows as a square sheen
    * poking out of a round corner. */
@@ -1683,21 +1729,21 @@
    * with nothing linking them. */
   --sportsrail-bg: #131316;
   background: var(--sportsrail-bg);
-  color: #fff;
+  color: rgb(var(--card-ink));
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 15px;
   transition: border-color 180ms ease;
 }
 .sportsrail:hover .sportsrail__tilt {
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: rgba(var(--card-ink), 0.2);
 }
 /* The row that is playing. The accent on the border rather than a badge or
  * a glyph: the rail is a list of one-line rows and the only thing it has
  * to say is WHICH, which an edge says without taking a column. */
 .sportsrail.is-on .sportsrail__tilt {
-  border-color: color-mix(in srgb, var(--accent, #fff) 55%, transparent);
-  background: color-mix(in srgb, var(--accent, #fff) 7%, var(--sportsrail-bg));
+  border-color: color-mix(in srgb, var(--accent, rgb(var(--card-ink))) 55%, transparent);
+  background: color-mix(in srgb, var(--accent, rgb(var(--card-ink))) 7%, var(--sportsrail-bg));
 }
 
 .sportsrail__name {
@@ -1723,7 +1769,7 @@
  * empty box that looks broken. */
 .sportstheater__empty {
   margin: 0;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(var(--card-ink), 0.45);
   font-size: 13px;
   line-height: 1.5;
 }
@@ -1769,7 +1815,7 @@
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 21px;
-  color: #fff;
+  color: rgb(var(--card-ink));
 }
 /* The lean around a live score. A bare wrapper: the card inside keeps its
  * own surface and its own pill, and this exists only to be the thing that
@@ -1799,7 +1845,7 @@
   font-size: 13px;
   letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(var(--card-ink), 0.45);
 }
 
 /* The stage. The slot is what InvertedPlayer measures and glues mpv to, so
@@ -1857,12 +1903,12 @@
 .sportsrail__badge {
   padding: 2px 7px;
   border-radius: 100px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(var(--card-ink), 0.18);
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 10px;
   letter-spacing: 0.06em;
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(var(--card-ink), 0.75);
   flex: 0 0 auto;
 }
 .sportsrail__score {
@@ -1888,7 +1934,7 @@
   border-radius: 100px;
   /* The track is the unfilled remainder, so a 20% bar still reads as a
    * measurement against a scale rather than as a stray dash. */
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(var(--card-ink), 0.14);
   overflow: hidden;
 }
 .sportsrail__bar i {
@@ -2366,17 +2412,17 @@
    * in its own half of a card is the sort of thing you see without being
    * able to say why. */
   padding: 5px 25.56px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(var(--card-ink), 0.07);
   /* Keep glareBorderRadius in RaceCard in step with this. */
   border-radius: 42.6px;
-  background: #0f0f0f;
+  background: var(--card-bg);
   overflow: hidden;
   transition:
     border-color 200ms ease,
     box-shadow 450ms ease;
 }
 .racecard:hover .racecard__tilt {
-  border-color: rgba(255, 255, 255, 0.18);
+  border-color: rgba(var(--card-ink), 0.18);
   box-shadow: 0 17.04px 36.92px -14.2px
     color-mix(in srgb, #000 55%, transparent);
 }
@@ -2419,7 +2465,7 @@
   font-weight: 700;
   font-size: 18.46px;
   text-transform: uppercase;
-  color: #fff;
+  color: rgb(var(--card-ink));
 }
 /* Out of flow with the clock, and above the art: the body now fills the
  * whole card, so the track outline reaches up behind this line. */
@@ -2433,7 +2479,7 @@
   font-size: var(--sports-meta);
   letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.62);
+  color: rgba(var(--card-ink), 0.62);
 }
 
 /* The race distance, beside the lap being run.
@@ -2443,7 +2489,7 @@
  * measured against and is the same all afternoon. */
 .racecard__laps {
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(var(--card-ink), 0.55);
 }
 
 /* An upcoming session: its name, and when.
@@ -2469,7 +2515,7 @@
   font-size: var(--sports-name);
   line-height: 1.05;
   text-transform: uppercase;
-  color: #fff;
+  color: rgb(var(--card-ink));
 }
 .racecard__ahead-when {
   margin-top: 2px;
@@ -2477,7 +2523,7 @@
   font-weight: 700;
   font-size: 16px;
   letter-spacing: 0.01em;
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(var(--card-ink), 0.9);
 }
 
 /* The podium. A list, because that is what it is.
@@ -2510,7 +2556,7 @@
   font-weight: 700;
   font-size: 11px;
   font-variant-numeric: tabular-nums;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(var(--card-ink), 0.5);
 }
 /* A country flag, since the source carries no constructor. Fixed box so a
  * missing one leaves the codes lined up rather than shunted left. */
@@ -2531,7 +2577,7 @@
   font-weight: 700;
   font-size: 17px;
   letter-spacing: 0.02em;
-  color: #fff;
+  color: rgb(var(--card-ink));
 }
 
 /* The host country's colours, hugging the right edge.
@@ -2561,7 +2607,7 @@
   height: 100%;
   object-fit: contain;
   object-position: right center;
-  opacity: 0.15;
+  opacity: var(--card-art);
   pointer-events: none;
   -webkit-mask-image: linear-gradient(to right, transparent, #000);
   mask-image: linear-gradient(to right, transparent, #000);
@@ -2596,10 +2642,10 @@
   gap: 7px;
   font-family: var(--font-headline);
   line-height: 1.62;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(var(--card-ink), 0.55);
 }
 .weekend__row--major {
-  color: #fff;
+  color: rgb(var(--card-ink));
 }
 /* The label carries the weight; the day and time are the detail hanging
  * off it. Not a fixed column: the labels run FP1 to QUAL and lining the
@@ -2642,7 +2688,7 @@
 .racecard__track {
   position: absolute;
   display: block;
-  color: rgba(255, 255, 255, 0.15);
+  color: rgba(var(--card-ink), 0.15);
   pointer-events: none;
 }
 .racecard__track svg {
@@ -2659,7 +2705,7 @@
   line-height: 1;
   text-align: center;
   text-transform: uppercase;
-  color: #fff;
+  color: rgb(var(--card-ink));
 }
 /* The circuit's own name, under the country, on the weekend card only.
  *
@@ -2678,7 +2724,7 @@
   line-height: 1.25;
   text-align: center;
   text-wrap: balance;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(var(--card-ink), 0.55);
 }
 
 .racecard__session {
@@ -2687,7 +2733,7 @@
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 13.5px;
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(var(--card-ink), 0.75);
 }
 
 /* In the grid the card takes ONE track, like every other card there.
@@ -2743,8 +2789,8 @@
   height: 276.9px;
   border-radius: 63.9px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  background: #0f0f0f;
+  border: 1px solid rgba(var(--card-ink), 0.07);
+  background: var(--card-bg);
   transition: box-shadow 450ms ease;
 }
 .wracecard:hover .wracecard__tilt {
@@ -2762,7 +2808,7 @@
   height: 100%;
   object-fit: contain;
   object-position: right center;
-  opacity: 0.15;
+  opacity: var(--card-art);
   pointer-events: none;
   -webkit-mask-image: linear-gradient(to right, transparent, #000);
   mask-image: linear-gradient(to right, transparent, #000);
@@ -2812,7 +2858,7 @@
   font-weight: 700;
   font-size: var(--sports-meta);
   font-variant-numeric: tabular-nums;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(var(--card-ink), 0.55);
 }
 /* The driver's country, since the source carries no constructor anywhere.
  * A finished picture rather than a glyph, so it is sized and not styled.
@@ -2852,7 +2898,7 @@
   font-size: calc(var(--sports-name) / 1.27);
   line-height: 1.05;
   letter-spacing: 0.02em;
-  color: #fff;
+  color: rgb(var(--card-ink));
 }
 /* FOURTH AND FIFTH IN A LIGHT WEIGHT. Adam's, and it does something the
  * numbers down the left cannot: it makes the shape of the podium visible
@@ -2883,7 +2929,7 @@
  */
 .wracecard__laps {
   font-variant-numeric: tabular-nums;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(var(--card-ink), 0.5);
 }
 /* Holds the whole reading together as one run, so the space before the
  * total is a WORD SPACE and not the status line's pip gap. See the note
@@ -2899,7 +2945,7 @@
   font-size: var(--sports-meta);
   letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.62);
+  color: rgba(var(--card-ink), 0.62);
 }
 
 
@@ -2931,7 +2977,7 @@
    * overflow:hidden trims whatever runs out. */
   inset: -6px 0 12px;
   display: block;
-  color: rgba(255, 255, 255, 0.15);
+  color: rgba(var(--card-ink), 0.15);
   pointer-events: none;
 }
 .wracecard__track svg {
@@ -2948,7 +2994,7 @@
   line-height: 1;
   text-align: center;
   text-transform: uppercase;
-  color: #fff;
+  color: rgb(var(--card-ink));
 }
 
 /* A card that is not an action yet.
@@ -3156,7 +3202,7 @@
   font-size: 26px;
   font-variant-numeric: tabular-nums;
   line-height: 1;
-  color: #fff;
+  color: rgb(var(--card-ink));
 }
 /* The loser of each INDIVIDUAL set, inside a line that otherwise belongs to
  * whoever won the match. It is the detail that makes the line read as
@@ -3166,11 +3212,11 @@
   font-weight: 800;
 }
 .upcard__sets .setline__set--lost {
-  color: rgba(255, 255, 255, 0.38);
+  color: rgba(var(--card-ink), 0.38);
   font-weight: 300;
 }
 .upcard__team--lost .setline__set {
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(var(--card-ink), 0.55);
 }
 
 /* The same line on the WIDE card, where it is a grid instead of a row: one
@@ -3219,11 +3265,11 @@
  * whole reason to draw a set-by-set line is to see who took each one. */
 .gamecard__setnum:not(.gamecard__num--lost) {
   font-weight: 800;
-  color: #fff;
+  color: rgb(var(--card-ink));
 }
 .gamecard__setnum.gamecard__num--lost {
   font-weight: 300;
-  color: rgba(255, 255, 255, 0.42);
+  color: rgba(var(--card-ink), 0.42);
 }
 /* And the status steps BELOW the numbers on a match card, where on a club
  * card the two are near enough equal. The sets are the thing being read
