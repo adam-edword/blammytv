@@ -1121,10 +1121,34 @@
   font-size: 0.85em;
   letter-spacing: 0.05em;
   line-height: 1;
-  padding: 3px 7px 3px 6px;
+  /* TOP AND BOTTOM ARE NOT EQUAL, and that is the fix rather than a typo.
+   * The label is uppercase, so it has no descenders, but the line box
+   * still reserves the descender space — measured on the real pill, the
+   * ink sat 4.4px below the top edge and 6.6px above the bottom one. An
+   * extra pixel of top padding and one less below moves the type onto the
+   * optical centre. */
+  padding: 4px 7px 2px 6px;
   border-radius: 999px;
-  color: rgba(var(--card-ink), 0.5);
-  border: 1px solid rgba(var(--card-ink), 0.22);
+  /* SOLID, Adam's, over the outline it shipped with. It still obeys the
+   * rule above — no match is not an error — by staying achromatic: this is
+   * the card's own ink at low alpha, so it reads as a raised chip rather
+   * than as a warning, and it inverts correctly in light mode for free.
+   *
+   * The text is lifted off the 0.5 the dimmed line uses, because it now
+   * sits on a lighter ground rather than on the card. Sampled from the
+   * RENDERED pixels of the real chip in both themes, not computed: 7.8:1
+   * on the dark card and 6.5:1 on the light one. Worth doing that way —
+   * compositing it by hand gave 1.05:1 for light mode, because the card's
+   * own backgroundColor is not what ends up behind the chip. */
+  background: rgba(var(--card-ink), 0.13);
+  color: rgba(var(--card-ink), 0.7);
+}
+/* The padding above moves the whole content box down a pixel, which the
+ * TEXT wanted and the icon did not — it was already centred. This puts it
+ * back without disturbing the line's height. */
+.gamecard__unlinked svg {
+  margin-top: -1px;
+  margin-bottom: 1px;
 }
 .gamecard__dot {
   width: 7.1px;

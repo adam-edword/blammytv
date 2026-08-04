@@ -1240,12 +1240,22 @@ uses for four different states, so it cannot carry this one on its own.
   from what is already there, and that file is where the meaning of this
   line lives; a second home for it is the drift the module exists to
   prevent.
-- **No warning colour.** The rule directly above it in the stylesheet still
-  holds — "no match is a real state, not an error: dim it, do not shout" —
-  so the pill borrows the card's own ink at the same 0.5 the dimmed line
-  uses and earns attention from its SHAPE, a bordered pill among plain
-  text. That also makes it correct in light mode for free, since
-  `--card-ink` flips.
+- **No warning colour**, which is the rule directly above it in the
+  stylesheet still holding: "no match is a real state, not an error: dim
+  it, do not shout." The chip is the card's own ink at low alpha, so it
+  stays achromatic and inverts in light mode for free.
+- **Solid rather than outlined, v0.8.155**, Adam's. Its text lifts off the
+  0.5 the dimmed line uses, because it now sits on a lighter ground than
+  the card: sampled from the RENDERED pixels in both themes, 7.8:1 dark
+  and 6.5:1 light. Worth measuring that way rather than compositing it by
+  hand, which gave 1.05:1 for light mode — the card's own
+  `backgroundColor` is not what ends up behind the chip.
+- **The label is optically centred, not box centred.** Uppercase has no
+  descenders but the line box still reserves the space, so measured on the
+  real pill the ink sat 4.4px below the top edge and 6.6px above the
+  bottom. A pixel moved from the bottom padding to the top brings it to
+  4.4/4.6. The icon was already centred and did not want the shift, so it
+  carries a compensating -1px/+1px margin pair.
 - **Shared by the wide cards and the tournament draw's header**, which is
   the only other place this line appears. On a tennis match, where nothing
   is known, the pill is the entire answer.
