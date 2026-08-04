@@ -72,8 +72,17 @@ export function TournamentDraw({
     [shown],
   );
 
+  /*
+   * `sports` as well as `tourndraw`, and it is not cosmetic: the whole type
+   * scale these cards are built on — --sports-name, --sports-score,
+   * --sports-meta — is declared on that class. Without it every card in
+   * here fell back to the browser's 16px, so surnames rendered at 16
+   * instead of 28 and `calc(var(--sports-name) / 1.27)` was not a length at
+   * all. The cards read as wrongly proportioned and the cause was that they
+   * were never handed the proportions.
+   */
   return (
-    <div className="tourndraw">
+    <div className="sports tourndraw">
       <header className="tourndraw__top">
         <button
           type="button"

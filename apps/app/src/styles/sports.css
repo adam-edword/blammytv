@@ -3182,10 +3182,23 @@
   justify-items: center;
   align-items: center;
 }
+/* THE F1 CARD'S NUMBER, exactly.
+ *
+ * Measured across the three wide cards at the same 783.8x276.9 footprint:
+ * the club card's score is 52px because it shows ONE number a side; the F1
+ * card runs its lap at 22.05px, the same size as its own status, with a
+ * 12px label under it. Tennis shows three ROWS of numbers, so it has less
+ * room than either and cannot be the middle of the two, which is what 34px
+ * was. It takes the F1 card's expression rather than its value, so it
+ * tracks the name scale the way that card does. */
 .gamecard__setnum {
   font-variant-numeric: tabular-nums;
-  /* Smaller than the single score it replaces: three rows of it where the
-   * card had one line, in the same vertical room. */
-  font-size: 34px;
-  line-height: 1.06;
+  font-size: calc(var(--sports-name) / 1.27);
+  line-height: 1.12;
+}
+/* And the status steps BELOW the numbers on a match card, where on a club
+ * card the two are near enough equal. The sets are the thing being read
+ * here; which set is in progress is the caption on them. */
+.gamecard--match .gamecard__status {
+  font-size: calc(var(--sports-name) / 1.75);
 }

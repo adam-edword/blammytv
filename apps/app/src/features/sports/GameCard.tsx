@@ -56,7 +56,11 @@ function GameCardImpl({
   return (
     <button
       type="button"
-      className={"gamecard" + (early ? " sportscard--early" : "")}
+      className={
+        "gamecard" +
+        (sets ? " gamecard--match" : "") +
+        (early ? " sportscard--early" : "")
+      }
       // The row centres itself on one of these; see SportsScreen.
       data-game={game.id}
       // The wire's own line about the fixture. 60 to 80 characters, which
@@ -221,7 +225,16 @@ function GameCardImpl({
               * series state, or the occasion. Only on the wide card, which
               * is where a game gets CHOSEN — the small card is for reading
               * a day and says so in its own doc. */}
-            {game.note && <span className="gamecard__note">{game.note}</span>}
+            {/* NOT ON A MATCH CARD. The note is the source's own sentence
+              * about the game, and for tennis that sentence is the
+              * scoreline written out — "Daniel Altmaier (GER) leads
+              * Aleksandar Vukic (AUS) 6-7 (2-7) 7-6 (7-5) 2-1" — directly
+              * under the grid that just said it in numbers. Adam's, and
+              * right: it is the same fact twice, and the prose version is
+              * the one the card has no room for. */}
+            {!sets && game.note && (
+              <span className="gamecard__note">{game.note}</span>
+            )}
           </span>
 
           <span
