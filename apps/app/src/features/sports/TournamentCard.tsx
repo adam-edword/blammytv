@@ -17,28 +17,35 @@ import type { Tournament } from "./model";
  * they want to know Toronto is on, what round it is at, and whether anything
  * is on court right now. So the day's matches are counted, not drawn.
  *
- * NOT CLICKABLE, like the race cards and for the same reason: there is
- * nowhere to send it yet. Opening one should show that day's draw, which is
- * its own screen and its own plan item (#38). A <button> that looked exactly
- * as clickable as every fixture beside it and did nothing would be worse
- * than a card that does not offer.
+ * IT OPENS ITS DRAW (#38), which is what makes the fold honest: a card
+ * that stands for 39 matches has to have somewhere to put them. It already
+ * HOLDS them — `Tournament.matches` is the day's fixtures, fully mapped —
+ * so opening one is a screen rather than a fetch. See TournamentDraw.
  *
  * The frame is the small card's, on purpose — same tilt, same radius, same
  * header. It sits in the same grid answering the same question, so it should
  * read as the same kind of object about a different shape of sport.
  */
-function TournamentCardImpl({ event }: { event: Tournament }) {
+function TournamentCardImpl({
+  event,
+  onOpen,
+}: {
+  event: Tournament;
+  onOpen?: (event: Tournament) => void;
+}) {
   const count = event.matches.length;
   return (
-    <div
+    <button
+      type="button"
       className={
         "upcard tourncard" +
         (event.state === "final" ? " upcard--final" : "")
       }
+      data-game={event.id}
+      onClick={() => onOpen?.(event)}
       title={`${event.title}${event.venue ? ` · ${event.venue}` : ""}\n${count} ${
         count === 1 ? "match" : "matches"
       }`}
-      data-game={event.id}
     >
       <Tilt
         className="upcard__tilt"
@@ -84,7 +91,7 @@ function TournamentCardImpl({ event }: { event: Tournament }) {
           </span>
         </span>
       </Tilt>
-    </div>
+    </button>
   );
 }
 

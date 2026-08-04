@@ -7,6 +7,7 @@ import {
 import { CompactCard } from "./CompactCard";
 import { RaceCard } from "./RaceCard";
 import { TournamentCard } from "./TournamentCard";
+import { TournamentDraw } from "./TournamentDraw";
 import { WeekendCard } from "./WeekendCard";
 import { WideRaceCard } from "./WideRaceCard";
 import { SportsSidebar } from "./SportsSidebar";
@@ -23,7 +24,7 @@ import { nameList } from "./nameList";
 import { useGames, withChannels } from "./useGames";
 import type { Day } from "./useGames";
 import { isField, isFixture, isTournament, isWeekend } from "./model";
-import type { Field, Fixture, Game } from "./model";
+import type { Field, Fixture, Game, Tournament } from "./model";
 
 /**
  * The Sports hub (plan 010): games as the objects, your channels hanging
@@ -238,6 +239,15 @@ export function SportsScreen({ home }: { home?: number } = {}) {
   // it without touching where you came from to get here.
   const [open, setOpen] = useState<Fixture | null>(null);
   /**
+   * The tournament whose draw is open, which is a different mode from the
+   * theater and deliberately not the same state.
+   *
+   * The theater is for WATCHING one fixture; this is for READING 39
+   * matches, and nothing in it plays. Sharing `open` would have meant every
+   * consumer of it asking which kind it was holding.
+   */
+  const [openDraw, setOpenDraw] = useState<Tournament | null>(null);
+  /**
    * The card that opened the theater, so focus can come back to it.
    *
    * Measured: opening dropped focus to BODY, and closing dropped it to BODY
@@ -247,7 +257,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
    */
   const invoker = useRef<string | null>(null);
   useEffect(() => {
-    if (open) return;
+    if (open || openDraw) return;
     const id = invoker.current;
     if (!id) return;
     invoker.current = null;
@@ -257,7 +267,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
     // board: a reasonable landing even when the grid card was the invoker.
     // Guarded: the board refreshes, and the card may not have come back.
     if (el?.isConnected) el.focus();
-  }, [open]);
+  }, [open, openDraw]);
   /**
    * Opening a card puts it in the theater.
    *
@@ -271,6 +281,11 @@ export function SportsScreen({ home }: { home?: number } = {}) {
     if (!isFixture(g)) return;
     invoker.current = g.id;
     setOpen(g);
+  };
+  /** The same, for a day of a tournament. Focus comes back to the card. */
+  const openTournament = (t: Tournament) => {
+    invoker.current = t.id;
+    setOpenDraw(t);
   };
   /**
    * Pressing the Sports chip returns to the board.
@@ -286,6 +301,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
     if (pressed.current === home) return;
     pressed.current = home;
     setOpen(null);
+    setOpenDraw(null);
   }, [home]);
   const toggleCompact = () => {
     setCompact((on) => {
@@ -293,6 +309,18 @@ export function SportsScreen({ home }: { home?: number } = {}) {
       return !on;
     });
   };
+
+  if (openDraw) {
+    // Re-read from the refreshed board, same as the theater does, so a
+    // match going live while the draw is open moves section rather than
+    // freezing at whatever it was when it was opened.
+    const current =
+      days
+        .flatMap((d) => d.games)
+        .find((g): g is Tournament => isTournament(g) && g.id === openDraw.id) ??
+      openDraw;
+    return <TournamentDraw event={current} onClose={() => setOpenDraw(null)} />;
+  }
 
   if (open) {
     // Re-read from the refreshed board so the theater follows the game's
@@ -377,7 +405,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
                      * session cards under three dated headings. */
                     <WeekendCard key={g.id} weekend={g} />
                   ) : isTournament(g) ? (
-                    <TournamentCard key={g.id} event={g} />
+                    <TournamentCard key={g.id} event={g} onOpen={openTournament} />
                   ) : compact && g.state === "final" ? (
                     <CompactCard key={g.id} game={g} onOpen={openGame} />
                   ) : (
@@ -410,7 +438,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
               ) : isField(g) ? (
                 <RaceCard key={g.id} race={g} />
               ) : isTournament(g) ? (
-                <TournamentCard key={g.id} event={g} />
+                <TournamentCard key={g.id} event={g} onOpen={openTournament} />
               ) : (
                 <UpcomingCard
                   key={g.id}

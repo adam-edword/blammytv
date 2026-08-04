@@ -1030,7 +1030,7 @@ playing produces games, so nothing reaches ahead, and a board narrowed to
 one club can still be empty while its league is mid-season. Rare, because
 a club that plays at all plays inside three days most weeks, but real.
 
-#### 38. Opening a tournament shows its draw [ ]
+#### 38. Opening a tournament shows its draw [x]
 
 The tournament card counts a day's matches and cannot show them. It
 already HOLDS them — `Tournament.matches` is the day's fixtures, fully
@@ -1102,6 +1102,7 @@ here so a label that vanished can be looked up.
 | **36** | **The board reaches past its window.** A followed league with nothing in the next three days is asked what is NEXT, and gets its own dated heading on the grid. No new endpoint: the bare scoreboard already answers it | v0.8.137 |
 | - | A reached-ahead race weekend folds into ONE `WeekendCard` on race day, instead of five session cards under three dated headings. `Weekend` became the union's fourth kind | v0.8.138 |
 | - | A followed racing league reaches for its whole remaining SEASON, not just the next round, and everything reached ahead lands in one "Coming up" section | v0.8.139 |
+| **38** | **Opening a tournament.** A tournament card opens its day's draw: live, upcoming, results, with a draw filter, per-set scores and courts. Also split SUSPENDED from postponed, which the screen exposed | v0.8.140 |
 
 ## Closed decisions
 

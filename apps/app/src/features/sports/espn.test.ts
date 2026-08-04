@@ -741,3 +741,43 @@ describe("what the reach asks for", () => {
     expect(url).toMatch(/\?dates=20260821$/);
   });
 });
+
+describe("suspended is not postponed", () => {
+  /** Both arrive as `post` with `completed: false`. Only one has a score. */
+  const stopped = (linescores: { value: number }[]) => ({
+    leagues: [{ abbreviation: "ATP" }],
+    events: [
+      {
+        id: "1",
+        date: "2026-08-03T17:00Z",
+        competitions: [
+          {
+            date: "2026-08-03T17:00Z",
+            status: {
+              type: { state: "post", completed: false, shortDetail: "Suspended" },
+            },
+            competitors: [
+              { homeAway: "home", athlete: { id: "a", displayName: "Berrettini" }, linescores },
+              { homeAway: "away", athlete: { id: "b", displayName: "Navone" }, linescores },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  it("keeps a true postponement as unstarted", () => {
+    // Nothing on the line: it has not been played, so it reads as one that
+    // has not happened yet. This is the baseball case the rule was for.
+    expect(played(stopped([]), PATHS.mlb)[0].state).toBe("pre");
+  });
+
+  it("treats a part-played match as unfinished, not unstarted", () => {
+    // Four real matches sat under "Upcoming" carrying 3-6, 1-0. A fixture
+    // that has not happened does not have a scoreline.
+    const g = played(stopped([{ value: 6 }, { value: 1 }]), "tennis/atp")[0];
+    expect(g.state).toBe("live");
+    // ESPN's own word survives either way, so the card still says why.
+    expect(g.status).toBe("Suspended");
+  });
+});

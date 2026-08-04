@@ -1310,10 +1310,11 @@
  * replaces is the middle: a matchup becomes a name and a place, because a
  * draw of 89 matches has no two sides to stagger. */
 .tourncard {
-  /* NOT clickable yet: nothing opens a tournament until #38. The frame it
-   * borrows is a button's, so the hand cursor has to be taken back off or
-   * it promises something no click delivers. */
-  cursor: default;
+  /* It opens its draw now (#38), so the frame's own hand cursor is
+   * correct again and the `cursor: default` that used to be here is gone.
+   * Kept as a rule because the button reset below still needs somewhere
+   * to live. */
+  text-align: left;
 }
 .tourncard__main {
   display: flex;
@@ -2968,4 +2969,224 @@
 .racecard--final:focus-visible .racecard__tilt::after {
   opacity: 0;
   transition-duration: 130ms;
+}
+
+/* ------------------------------------------------ a tournament's draw */
+
+/* 39 matches on a real day and 89 on the peak one, so this is a LIST.
+ * Cards at that count are the wall the tournament fold exists to remove;
+ * a tennis match is two names and a line of sets, which is a row.
+ *
+ * Sections in the order the hub always asks: live, then what is coming,
+ * then what happened (plan 010 #38). */
+.tourndraw {
+  padding: 26px 42px 60px;
+  overflow-y: auto;
+  height: 100%;
+}
+.tourndraw__top {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 18px;
+}
+.tourndraw__back {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.tourndraw__back:hover {
+  background: var(--surface-raised);
+}
+.tourndraw__titles {
+  min-width: 0;
+}
+.tourndraw__title {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 26px;
+  line-height: 1.2;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tourndraw__where {
+  margin: 2px 0 0;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: var(--sports-meta);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+/* The one carriage answer this screen can give. Every match in a real
+ * tournament came back with no broadcast at all, so this is resolved
+ * against the tournament and said once. */
+.tourndraw__carriage {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: var(--sports-meta);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+/* The draw filter. Narrows without re-sectioning, which is what keeps the
+ * live matches at the top whichever draw you are looking at. */
+.tourndraw__draws {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-bottom: 22px;
+}
+.tourndraw__chip {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 7px 14px;
+  transition: color var(--dur-hover) ease, background var(--dur-hover) ease;
+}
+.tourndraw__chip:hover {
+  color: var(--text);
+}
+.tourndraw__chip.is-on {
+  color: var(--text);
+  background: var(--accent-surface);
+  border-color: var(--accent);
+}
+
+.tourndraw__section {
+  padding-bottom: 30px;
+}
+.tourndraw__heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 10px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+/* How much of the day is in this section, which is the other question
+ * someone opening a draw is asking. */
+.tourndraw__count {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.tourndraw__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* One match: when it is on the left, the two players in the middle, the
+ * court on the right. The players' block is its own column so the sets
+ * line up down the whole list rather than per row. */
+.tourndraw__match {
+  display: grid;
+  grid-template-columns: 86px 1fr auto;
+  align-items: center;
+  gap: 16px;
+  padding: 11px 18px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.tourndraw__when {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 13px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.tourndraw__players {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.tourndraw__side {
+  display: grid;
+  grid-template-columns: 20px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+/* The beaten side steps back, the same claim the small card makes about a
+ * finished game, so a list of results reads for who won without reading a
+ * single number. */
+.tourndraw__side--lost {
+  color: var(--text-muted);
+  font-weight: 300;
+}
+.tourndraw__flag {
+  width: 20px;
+  height: 14px;
+  object-fit: cover;
+  border-radius: 2px;
+}
+.tourndraw__name {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 15px;
+  color: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tourndraw__side--lost .tourndraw__name {
+  font-weight: 400;
+}
+/* Fixed columns, so the sets stack into a grid down the list instead of
+ * ragging with the length of each name. */
+.tourndraw__sets {
+  display: flex;
+  gap: 4px;
+}
+.tourndraw__set {
+  width: 20px;
+  text-align: center;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  color: inherit;
+}
+.tourndraw__court {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: var(--sports-meta);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.tourndraw__none {
+  color: var(--text-muted);
+  font-family: var(--font-headline);
+  font-weight: 600;
+  padding: 40px 0;
 }

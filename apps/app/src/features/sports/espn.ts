@@ -139,7 +139,12 @@ interface RawCompetition {
       shortDetail?: string;
     };
   };
-  venue?: { fullName?: string; address?: { city?: string } };
+  venue?: {
+    fullName?: string;
+    /** Tennis only: "Centre Court", "Court 3", "Grandstand". */
+    court?: string;
+    address?: { city?: string };
+  };
   /**
    * Each entry says WHICH feed it is: "national", "home" or "away".
    *
@@ -504,8 +509,11 @@ function toTournaments(
   for (const group of event.groupings ?? []) {
     const draw = group.grouping?.displayName;
     for (const comp of group.competitions ?? []) {
-      const game = toGame(event, comp, comp.id ?? null, path, sport, leagueName);
-      if (!game) continue;
+      const mapped = toGame(event, comp, comp.id ?? null, path, sport, leagueName);
+      if (!mapped) continue;
+      // Which draw, remembered on the match itself: the screen filters on
+      // it and the grouping is lost once these are flattened.
+      const game: Fixture = draw ? { ...mapped, draw } : mapped;
       const key = game.start.toDateString();
       const entry = { draw, round: comp.round?.displayName, game };
       const bucket = byDay.get(key);
@@ -644,7 +652,30 @@ function toGame(
    */
   const raw = comp.status?.type;
   const abandoned = raw?.state === "post" && raw?.completed === false;
-  const state = abandoned ? "pre" : (STATES[raw?.state ?? ""] ?? "pre");
+  /**
+   * SUSPENDED IS NOT POSTPONED, which the rule above could not tell apart.
+   *
+   * Both arrive as `post` with `completed: false`, so a match stopped
+   * part-way through was being called "not played yet". Surfaced by the
+   * draw screen (#38), where four real matches sat under "Upcoming"
+   * carrying scores of 3-6, 1-0 — a fixture that has not happened does not
+   * have a scoreline.
+   *
+   * The scoreline IS the difference, and it needs no new field: a
+   * postponement is 0-0 with nothing on the line, where a suspended match
+   * has games on the board. So an abandoned game that has been PLAYED is
+   * treated as unfinished rather than unstarted, which files it with the
+   * other matches still to resolve. ESPN's own word ("Suspended") is
+   * already what the status says.
+   */
+  const played = (comp.competitors ?? []).some(
+    (c) => (c.linescores?.length ?? 0) > 0 || Number(c.score) > 0,
+  );
+  const state = abandoned
+    ? played
+      ? "live"
+      : "pre"
+    : (STATES[raw?.state ?? ""] ?? "pre");
   return {
     kind: "fixture",
     // The slash stays. It is only ever a React key, a data attribute and a
@@ -661,7 +692,12 @@ function toGame(
       : statusText(state, start, raw?.shortDetail),
     home: toCompetitor(home, away),
     away: toCompetitor(away, home),
-    venue: comp.venue?.fullName ?? comp.venue?.address?.city,
+    // The COURT where a tournament sends one ("Court 3", "Grandstand"),
+    // because inside an event whose venue is already "Toronto, Canada" the
+    // city is the one thing every match on the day has in common. No other
+    // sport sends `court`, so nothing else changes shape.
+    venue:
+      comp.venue?.court ?? comp.venue?.fullName ?? comp.venue?.address?.city,
     // WHY THIS GAME MATTERS, where the source says so. The series first:
     // "CLE leads series 2-0" tells you what "East 1st Round - Game 2"
     // only implies, and a playoff game carries both.
@@ -775,6 +811,11 @@ function toCompetitor(raw: RawCompetitor, other?: RawCompetitor): Competitor {
       score: Number.isFinite(score)
         ? score
         : setsWon(raw.linescores, other?.linescores),
+      // The line itself, kept for the draw screen (#38). `setsWon` reduces
+      // this to a total for the card; a scoreboard wants the sets.
+      sets: raw.linescores?.length
+        ? raw.linescores.map((l) => l.value ?? 0)
+        : undefined,
     };
   }
   return {

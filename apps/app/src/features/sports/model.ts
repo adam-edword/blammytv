@@ -70,6 +70,16 @@ export interface Competitor {
    */
   record?: string;
   score?: number;
+  /**
+   * The per-period line, where a sport keeps one: [6, 2] is six games in
+   * the first set and two in the second.
+   *
+   * TENNIS ONLY so far, and it is the difference between a scoreline and a
+   * result. `score` says who leads two sets to one, which is what a card
+   * has room for; the draw screen (plan 010 #38) shows a match the way a
+   * scoreboard does, set by set, and cannot reconstruct that from a total.
+   */
+  sets?: number[];
 }
 
 export type GameState = "pre" | "live" | "final";
@@ -170,6 +180,15 @@ export interface Fixture extends Board {
   kind: "fixture";
   home: Competitor;
   away: Competitor;
+  /**
+   * Which draw of a tournament this match belongs to: "Men's Singles",
+   * "Women's Doubles".
+   *
+   * Only a match INSIDE a Tournament has one, which is why it is here and
+   * not on Board: it is a fact about a fixture's place in a bigger event,
+   * and the draw screen filters on it.
+   */
+  draw?: string;
 }
 
 /** One entrant in an ordered field, in finishing order. */
