@@ -3645,10 +3645,12 @@
 .golfcard__ahead-name {
   font-family: var(--font-headline);
   font-weight: 700;
-  /* Down with the track too. "The Standard Portland Classic" is 27
-   * characters and has to wrap to two lines without pushing the card
-   * taller than the leaderboard beside it. */
-  font-size: clamp(20px, 6cqw, 27px);
+  /* Adam's, flat rather than clamped to the track, and measured across the
+   * grid before taking it: at 28px the longest tournament name in the five
+   * leagues wraps to two lines on a 425px track and three on the narrowest
+   * 325px one, clearing the 181px shell by 33px either way and never
+   * reaching the card's right edge. */
+  font-size: 28px;
   line-height: 1.12;
   color: rgba(var(--card-ink), 0.95);
   overflow-wrap: anywhere;
