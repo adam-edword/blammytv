@@ -27,18 +27,24 @@ export interface Carriable {
 }
 
 /**
- * We named a network, and you cannot press any of it.
+ * THERE IS NOTHING HERE TO PRESS.
  *
- * Adam, on seeing the branch table: "On Paramount+" reads as a confident
- * answer and is a dead end, because the sentence names a BROADCASTER while
- * every other version of this line names a CHANNEL. Same grammar, opposite
- * usefulness, and only a dimmed colour telling them apart. So the card
- * says it outright with a pill.
+ * The whole of it, and the simplicity is the point. This started as "we
+ * named a broadcaster rather than a channel", because "On Paramount+" has
+ * the same grammar as "On US: MASN" and the opposite usefulness. Adam then
+ * asked the obvious next question — put the badge "wherever we can't link
+ * a channel" — and that collapses three conditions into one: no channels
+ * means no channels, however we got there.
  *
- * Deliberately NOT every unlinked state. "Could not link channel" already
- * says this in words and would be wearing a badge that repeats it, and
- * "Usually found on Win Sports" is already hedged by "usually". This is
- * for the one sentence that sounds like a promise it cannot keep.
+ * Which is better than the rule it replaces, because the old one made the
+ * viewer's answer depend on OUR plumbing. Whether ESPN happened to name a
+ * network decided whether they got a badge, and #42 settled that they do
+ * not care about that and should not have to.
+ *
+ * So the line now splits cleanly in two. `carriageText` says WHERE the
+ * game is, when anything knows; this says whether you can act on it. They
+ * are independent, which is why "On Paramount+" carries both and the state
+ * where nothing is known carries only this one.
  *
  * A predicate rather than a flag on the game: it is derivable from what is
  * already there, and this file is where the meaning of that line lives.
@@ -46,13 +52,29 @@ export interface Carriable {
  * this module exists to prevent.
  */
 export function carriageUnlinked(item: Carriable): boolean {
+  // Not yet known is not the same as nothing. The catalog is still loading
+  // and the line says so itself.
   if (item.channelsPending) return false;
-  // Nothing to warn about on a game that has finished: the foot swaps the
-  // whole carriage line out for when it started.
+  // Nothing to flag on a game that has finished: the foot swaps the whole
+  // carriage line out for when it started, so a pill would be marking a
+  // sentence that is not on screen.
   if (item.state === "final") return false;
-  return item.channels.length === 0 && item.broadcasts.length > 0;
+  return item.channels.length === 0;
 }
 
+/**
+ * WHERE the game is, in as few words as the truth allows, or nothing.
+ *
+ * Half of the answer. The other half — whether any of it is pressable —
+ * is `carriageUnlinked`, and the two are deliberately independent: "On
+ * Paramount+" is a true statement about where a game is AND a dead end,
+ * and one string trying to carry both is what produced four wordings in
+ * eight versions.
+ *
+ * Returns "" when nothing knows where the game is. That is not a missing
+ * case, it is the case: the pill says the actionable part, and a sentence
+ * beside it would be repeating it.
+ */
 export function carriageText(item: Carriable): string {
   // One channel names it; several advertise the choice, because being able
   // to hop is the reason to use this tab. "Live on" only where it is true:
@@ -101,16 +123,23 @@ export function carriageText(item: Carriable): string {
            * implies there isn't a channel in the entire EPG that has these
            * games, not that it couldn't be linked... we can't really know
            * that." The schedule naming no broadcaster is a fact about
-           * ESPN's payload, not about a 20,000 channel playlist. The
-           * current wording is about what WE did, so it cannot be wrong.
+           * ESPN's payload, not about a 20,000 channel playlist.
            *
-           * Scale, for why this sentence matters more than it looks:
+           * The fourth wording, "Could not link channel", was right and is
+           * now UNSAID, which is the fifth and hopefully last move. It is
+           * the pill's job: `carriageUnlinked` is true here and every
+           * renderer draws the badge, so a sentence saying the same thing
+           * would be the caption to its own icon. Nothing is known about
+           * where this game is, so the WHERE half has nothing to say and
+           * says nothing.
+           *
+           * Scale, for why this empty string matters more than it looks:
            * measured across all 151 leagues, 1,539 games carried 32
            * broadcast names between them, and tennis carried none over
-           * 1,462 matches. This is the default answer for most of the
+           * 1,462 matches. This is the default state for most of the
            * catalog. See networkMap.ts, which is the real fix for the
            * leagues it can cover. */
-          "Could not link channel";
+          "";
   // A GUESS FROM THE MAP, worded as one. The channels are real and tunable,
   // so they are offered, but what we know is that the LEAGUE normally lives
   // there — not that this game does. "Live on 2 channels" would be the app

@@ -44,15 +44,18 @@ describe("carriageText", () => {
     );
   });
 
-  it("blames the linking, which is the only thing it can know", () => {
-    // Three wordings have stood here and the first two each described the
-    // WORLD: "Not on your channels" claimed the playlist did not have it,
-    // and "No channel listed for this game" claimed nothing had it. Adam:
-    // it "still implies there isn't a channel in the entire EPG that has
-    // these games, not that it couldn't be linked... we can't really know
-    // that." The schedule named no broadcaster, which is a fact about
-    // ESPN's payload and not about a 20,000 channel playlist.
-    expect(carriageText(base)).toBe("Could not link channel");
+  it("says nothing at all when nothing knows where the game is", () => {
+    // Four wordings stood here and the first three described the WORLD:
+    // the playlist does not have it, a search ran and missed, nothing
+    // anywhere has it. Adam, on the third: it "still implies there isn't a
+    // channel in the entire EPG that has these games, not that it couldn't
+    // be linked... we can't really know that."
+    //
+    // The fourth was right and is now unsaid, because the pill carries it.
+    // carriageText answers WHERE, and here nothing knows.
+    expect(carriageText(base)).toBe("");
+    // But the state is still reported, by the other half of the answer.
+    expect(carriageUnlinked(base)).toBe(true);
   });
 
   it("never claims a game is absent, in any of its no-channel states", () => {
@@ -66,6 +69,19 @@ describe("carriageText", () => {
     ];
     for (const said of claims) {
       expect(said).not.toMatch(/not on|no channel|nothing|unavailable/i);
+    }
+  });
+
+  it("flags every one of those states as unpressable", () => {
+    // The other half of the same rule. Saying nothing false is only half
+    // the job; the viewer still has to be told there is nothing to press,
+    // and it must not depend on which of the three routes got them here.
+    for (const item of [
+      base,
+      { ...base, broadcasts: ["Peacock"] },
+      { ...base, presumed: ["Win Sports"] },
+    ]) {
+      expect(carriageUnlinked(item)).toBe(true);
     }
   });
 
@@ -122,8 +138,10 @@ describe("carriageText", () => {
   });
 
   describe("the couldn't-link pill", () => {
-    // The one sentence that names a BROADCASTER rather than a channel, so
-    // it reads like an answer and is a dead end.
+    // One condition, deliberately: no channels means no channels, however
+    // we got there. It began narrower — only the case where we named a
+    // broadcaster rather than a channel — and that made the viewer's
+    // answer depend on whether ESPN happened to populate a field.
     it("fires when the source named a network we could not find", () => {
       expect(carriageUnlinked({ ...base, broadcasts: ["Paramount+"] })).toBe(
         true,
@@ -141,13 +159,6 @@ describe("carriageText", () => {
           presumedOnly: true,
         }),
       ).toBe(false);
-    });
-
-    it("stays off the states that already say it in words", () => {
-      // "Could not link channel" would be wearing a badge repeating itself,
-      // and "Usually found on Win Sports" is already hedged by "usually".
-      expect(carriageUnlinked(base)).toBe(false);
-      expect(carriageUnlinked({ ...base, presumed: ["Win Sports"] })).toBe(false);
     });
 
     it("stays off while the catalog is still loading", () => {

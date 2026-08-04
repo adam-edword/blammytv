@@ -1171,7 +1171,8 @@ claimed something about reality this app has never been able to see:
 | "Not on your channels" | to v0.8.144 | the playlist does not have it |
 | "Couldn't find a matching channel" | v0.8.145 | a search ran and missed |
 | "No channel listed for this game" | v0.8.149 | nothing anywhere has it |
-| **"Could not link channel"** | **v0.8.152** | **we could not link it** |
+| "Could not link channel" | v0.8.152 | we could not link it |
+| **(nothing — the pill says it)** | **v0.8.154** | **same, without a sentence** |
 
 v0.8.149's was mine and it fixed the wrong half. Reaching that branch means
 an EMPTY broadcasts list, so nothing was ever searched for, and saying so
@@ -1207,7 +1208,7 @@ generally, which is the claim actually being made. Measured before taking
 it, since it is the longest string the slot ever holds: 302px against a
 697px budget on the wide card.
 
-#### 43. The couldn't-link pill [x] v0.8.153
+#### 43. The couldn't-link pill [x] v0.8.153, widened v0.8.154
 
 Adam, reading the branch table for #42: "for espn no link, I wonder if we
 can add a tiny little pill badge with a triangle ! in it... so it would say
@@ -1219,12 +1220,22 @@ BROADCASTER and is a dead end, and the two sentences are identical in shape
 with only a dimmed colour between them. Dimming is what the slot already
 uses for four different states, so it cannot carry this one on its own.
 
-- **Only that state.** "Could not link channel" would be wearing a badge
-  that repeats it, and "Usually found on Win Sports" is already hedged by
-  the word usually. The pill is for the sentence that sounds like a promise
-  it cannot keep. Also off while the catalog is loading (nothing has been
-  looked up yet) and off on a finished game (the foot swaps the whole line
-  out for when it started).
+- **Widened to EVERY state with no channel behind it, v0.8.154.** Adam:
+  "maybe we add that same badge wherever we can't link a channel? instead
+  of just text." It shipped narrow — only the sentence that names a
+  broadcaster — and that was wrong for #42's own reason: whether ESPN
+  happened to populate a field decided whether the viewer got a badge,
+  which is our plumbing deciding their answer. The predicate is now
+  `channels.length === 0`, full stop. Still off while the catalog is
+  loading (nothing has been looked up yet) and off on a finished game (the
+  foot swaps the whole line out for when it started).
+- **Which retired a sentence.** With the pill on every unlinked state,
+  "Could not link channel" became the caption to its own icon, so
+  `carriageText` returns "" there and the pill is the whole line. The two
+  functions now split the answer cleanly: `carriageText` says WHERE the
+  game is when anything knows, `carriageUnlinked` says whether you can act
+  on it. One string trying to carry both is what produced four wordings in
+  eight versions.
 - **A predicate in `carriage.ts`, not a flag on the game.** It is derivable
   from what is already there, and that file is where the meaning of this
   line lives; a second home for it is the drift the module exists to
@@ -1235,6 +1246,9 @@ uses for four different states, so it cannot carry this one on its own.
   uses and earns attention from its SHAPE, a bordered pill among plain
   text. That also makes it correct in light mode for free, since
   `--card-ink` flips.
+- **Shared by the wide cards and the tournament draw's header**, which is
+  the only other place this line appears. On a tennis match, where nothing
+  is known, the pill is the entire answer.
 - **It goes into the accessible name too**, as words. It is an 11px icon
   and a small label, so without that a screen reader hears "on Paramount
   plus" and nothing about the dead end.
@@ -1300,7 +1314,7 @@ here so a label that vanished can be looked up.
 | **27** | **Broadcast coverage measured per league.** The join's ceiling is the INPUT, not the matcher: see the table under #27 | v0.8.147 |
 | **41** | **The curated network map.** `networkMap.ts` fills the leagues the source says nothing about, through the same matcher; a guess is worded ("Usually found on X") rather than scored down; "Couldn't find a matching channel" reworded (twice, see #42) | v0.8.149 |
 | **42** | **The carriage line stops describing the world.** "Could not link channel": the only claim the app has evidence for. Plus "Usually found on X" for the map, and a test that holds the rule rather than the string | v0.8.152 |
-| **43** | **The couldn't-link pill.** "On Paramount+" names a broadcaster, not a channel, so it says so: a muted pill with a warning triangle, on that state alone | v0.8.153 |
+| **43** | **The couldn't-link pill.** "On Paramount+" names a broadcaster, not a channel, so it says so: a muted pill with a warning triangle, on every state with no channel behind it, replacing the sentence where nothing is known | v0.8.153-154 |
 | **38** | **Opening a tournament.** A tournament card opens its day's draw: live, upcoming, results, with a draw filter, per-set scores and courts. Also split SUSPENDED from postponed, which the screen exposed | v0.8.140 |
 
 ## Closed decisions

@@ -1094,9 +1094,13 @@
 .gamecard__carriage--none {
   color: rgba(var(--card-ink), 0.5);
 }
-/* "We named a broadcaster, not a channel, and there is nothing here to
- * press." Adam's, because "On Paramount+" has the same grammar as "On US:
- * MASN" and the opposite usefulness, with only a dim colour between them.
+/* "There is nothing here to press." Adam's, first for "On Paramount+"
+ * alone — which has the same grammar as "On US: MASN" and the opposite
+ * usefulness, with only a dim colour between them — and then widened by
+ * him to every state with no channel behind it.
+ *
+ * Shared by the wide cards and the tournament draw's header, which is why
+ * it keeps the gamecard__ prefix in both. Same claim, one rule.
  *
  * Obeys the rule directly above it rather than overriding it: no match is
  * not an error, so this carries no warning colour, no red, no amber. It
@@ -3208,8 +3212,16 @@
 /* The one carriage answer this screen can give. Every match in a real
  * tournament came back with no broadcast at all, so this is resolved
  * against the tournament and said once. */
+/* A flex row rather than a text line, so the pill sits on the baseline
+ * with a real gap after the sentence. The card's foot gets that for free
+ * from .gamecard__carriage; this one is a <p> in a grid cell and had the
+ * badge jammed against the last word. */
 .tourndraw__carriage {
   margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: var(--sports-meta);

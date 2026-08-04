@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { carriageText } from "./carriage";
+import { carriageText, carriageUnlinked } from "./carriage";
 import { GameCard } from "./GameCard";
 import { UpcomingCard } from "./UpcomingCard";
-import { BackArrowIcon } from "../../ui/icons";
+import { BackArrowIcon, WarnIcon } from "../../ui/icons";
 import { useMouseNav } from "../../lib/mouseNav";
 import { isTauri, tauriIsFullscreen } from "../../lib/tauri";
 import type { Fixture, Tournament } from "./model";
@@ -158,8 +158,22 @@ export function TournamentDraw({
           </div>
           {/* The one carriage answer this screen can honestly give. The
             * matches carry no broadcast at all, so it is resolved against
-            * the TOURNAMENT and said once, in the app's own words for it. */}
-          <p className="tourndraw__carriage">{carriageText(event)}</p>
+            * the TOURNAMENT and said once, in the app's own words for it.
+            *
+            * Carries the pill for the same reason the cards do: this line
+            * is the only place the screen says whether there is anything
+            * to watch on, so "nothing to press" has to be visible here or
+            * it is nowhere. On a tournament with no map row the pill is
+            * the entire answer, since carriageText has nothing to say. */}
+          <p className="tourndraw__carriage">
+            {carriageText(event)}
+            {carriageUnlinked(event) && (
+              <span className="gamecard__unlinked">
+                <WarnIcon size={11} />
+                Couldn&rsquo;t link
+              </span>
+            )}
+          </p>
         </header>
 
         {/* Only where there is a choice: one draw and this is a row of one

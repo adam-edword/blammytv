@@ -54,9 +54,10 @@ function GameCardImpl({
   // in as words for the same reason: it is drawn as an icon and a 11px
   // label, so without this a screen reader hears "on Paramount plus" and
   // nothing about it being a dead end.
-  const carriage =
-    carriageText(game) +
-    (carriageUnlinked(game) ? ", couldn't link to one of your channels" : "");
+  const said = carriageText(game);
+  const carriage = carriageUnlinked(game)
+    ? `${said ? `${said}, but ` : ""}couldn't link it to any of your channels`
+    : said;
   const early = tooEarly(game);
   return (
     <button

@@ -56,12 +56,18 @@ export function CardFoot({
             item.channels.length > 0 &&
             !item.presumedOnly && <span className="gamecard__dot" aria-hidden />}
           {carriage}
-          {/* The pill, for the one state that reads as an answer and is a
-            * dead end: we are naming a BROADCASTER rather than a channel,
-            * so there is nothing under this line to press. Adam's. Muted
-            * rather than coloured, because the rule right above this in
-            * the stylesheet still holds — no match is a real state, not an
-            * error, so it may say so without shouting. */}
+          {/* The pill: there is nothing here to press, however we got
+            * there. Adam's, and widened by him from the one case it
+            * started as — "wherever we can't link a channel" — which is
+            * the better rule, since whether ESPN happened to name a
+            * network is our plumbing and not the viewer's question.
+            *
+            * Where nothing at all is known this is the WHOLE line, since
+            * carriageText has nothing to say and says nothing.
+            *
+            * Muted rather than coloured, because the rule right above this
+            * in the stylesheet still holds — no match is a real state, not
+            * an error, so it may say so without shouting. */}
           {carriageUnlinked(item) && (
             <span className="gamecard__unlinked">
               <WarnIcon size={11} />
