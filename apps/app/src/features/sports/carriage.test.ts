@@ -125,6 +125,21 @@ describe("carriageText", () => {
     ).toBe("Usually found on 2 channels");
   });
 
+  it("keeps what the source said beside the guess that linked", () => {
+    // The fall-through: ESPN named Paramount+, nothing carries it, and the
+    // map found a real channel. Both survive — the stated fact is about
+    // THIS fixture, the guess is about the league, and dropping the first
+    // would be the MLB.TV mistake.
+    expect(
+      carriageText({
+        ...base,
+        broadcasts: ["Paramount+"],
+        channels: ch("US: CBS Sports Network"),
+        presumedOnly: true,
+      }),
+    ).toBe("On Paramount+ · Usually found on US: CBS Sports Network");
+  });
+
   it("never lets a presumed match borrow the live wording", () => {
     // The whole point of the flag: state is live, and the sentence still
     // refuses to say so about a channel nobody told us about.

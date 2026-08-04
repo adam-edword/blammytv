@@ -195,9 +195,11 @@ describe("withChannels", () => {
       expect(g.presumedOnly).toBe(true);
     });
 
-    it("never displaces what the schedule actually said", () => {
-      // A stated broadcast wins outright, and the result is NOT flagged as
-      // a guess: this is a fact about the fixture, not about the league.
+    it("never displaces a stated broadcast that RESOLVED", () => {
+      // The rule the fall-through did not change. A source name that finds
+      // a channel is the whole answer and the map never runs, so the
+      // result is not flagged as a guess: this is a fact about the
+      // fixture, not about the league.
       const [g] = withChannels(
         [tennis({ broadcasts: ["MASN"] })],
         cat({ name: "US: MASN" }, { name: "US: Tennis Channel" }),
@@ -206,18 +208,41 @@ describe("withChannels", () => {
       expect(g.presumedOnly).toBe(false);
     });
 
-    it("stays out of the way when the source named a network we cannot find", () => {
-      // Subtle and deliberate. The schedule said Peacock, nothing carries
-      // it, and the card falls back to "On Peacock" — which is TRUE and
-      // more specific than the league's usual home. The map only fills a
-      // gap where there was no name at all.
-      const before = tennis({ broadcasts: ["Peacock"] });
-      const [g] = withChannels([before], cat({ name: "US: Tennis Channel" }));
+    it("falls through to the map when the source's own name found nothing", () => {
+      // The reversal in v0.8.156. ESPN named Paramount+, the playlist has
+      // no Paramount+, and the map knows the league also lives on CBS
+      // Sports Network — which IS there. A pressable channel beats an
+      // unpressable fact, and the card keeps both.
+      const [g] = withChannels(
+        [tennis({ leagueKey: "soccer/uefa.champions_qual", broadcasts: ["Paramount+"] })],
+        cat({ name: "US: CBS Sports Network" }),
+      );
+      expect(g.channels.map((c) => c.name)).toEqual(["US: CBS Sports Network"]);
+      expect(g.presumedOnly).toBe(true);
+    });
+
+    it("does not consult the map when the source's own name worked", () => {
+      // Unchanged, and the important half: a stated broadcast that RESOLVES
+      // is the whole answer, and the map never runs.
+      const [g] = withChannels(
+        [tennis({ leagueKey: "soccer/uefa.champions_qual", broadcasts: ["TUDN"] })],
+        cat({ name: "US: TUDN" }, { name: "US: CBS Sports Network" }),
+      );
+      expect(g.channels.map((c) => c.name)).toEqual(["US: TUDN"]);
+      expect(g.presumedOnly).toBe(false);
+    });
+
+    it("keeps the stated network when the map cannot help either", () => {
+      // The schedule said Peacock, the playlist has neither Peacock nor
+      // Tennis Channel, so the fall-through runs and finds nothing. The
+      // card goes back to "On Peacock", which is true and is the most
+      // specific thing anyone knows about this game.
+      const [g] = withChannels(
+        [tennis({ broadcasts: ["Peacock"] })],
+        cat({ name: "US: MASN" }),
+      );
       expect(g.channels).toEqual([]);
-      expect(g.presumedOnly).toBeFalsy();
-      // And untouched, so the card carries on saying "On Peacock" without
-      // re-rendering to learn it.
-      expect(g).toBe(before);
+      expect(g.presumedOnly).toBe(false);
     });
 
     it("records the network even when the playlist does not carry it", () => {

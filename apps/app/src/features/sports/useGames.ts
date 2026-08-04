@@ -393,15 +393,27 @@ export function withChannels(games: Game[], catalog: Catalog | null): Game[] {
      * (national feed before regional) is information the map does not have
      * and would dilute. Consulted last, it can only ever fill a gap.
      *
-     * Note the gate is an EMPTY `broadcasts`, not merely an empty result. A
-     * game the schedule put on Peacock, with no Peacock in the playlist,
-     * has already been answered: the card says "On Peacock", which is true
-     * and more specific than the league's usual home. Replacing that with
-     * "usually on Tennis Channel" would be the MLB.TV mistake matcher.ts
-     * already documents — a schedule naming a particular feed is telling
-     * you the game is NOT on the ordinary one, and talking over it with a
-     * guess is exactly how a confident wrong answer gets made. This test
-     * failed first and the condition was wrong; the test was right.
+     * THE GATE IS AN EMPTY RESULT, not an empty `broadcasts`, and that is a
+     * reversal worth explaining because the first version was argued for at
+     * length.
+     *
+     * It used to require that the schedule had named nobody at all. The
+     * reasoning was matcher.ts's MLB.TV rule: a schedule naming a
+     * particular feed is telling you the game is NOT on the ordinary one,
+     * so talking over "On Peacock" with a league-wide guess is how a
+     * confident wrong answer gets made. That rule is still true. It was
+     * answering a different question, though — it assumed the guess would
+     * REPLACE what the source said, and it does not have to. The card now
+     * carries both, "On Paramount+ · Usually found on US: CBS Sports
+     * Network", so nothing the schedule told us is discarded and the word
+     * "usually" does the hedging.
+     *
+     * Adam settled it on the ground that matters: "people don't care that
+     * ESPN didn't have a channel listed, just if it links to their EPG or
+     * not." A stated network nobody carries is a fact you cannot act on,
+     * and it was costing a pressable channel we already knew about. It is
+     * also the call he made for the theater rail — "more to choose from is
+     * always preferred when sources go awry" — one level up.
      *
      * One join and one confidence model all the same: these go through
      * matchGame exactly as the source's names do, clear the same bar, and
@@ -414,7 +426,7 @@ export function withChannels(games: Game[], catalog: Catalog | null): Game[] {
      */
     let presumedOnly = false;
     let presumed: string[] = [];
-    if (found.length === 0 && game.broadcasts.length === 0) {
+    if (found.length === 0) {
       presumed = [
         ...presumedNetworks(
           game.leagueKey,

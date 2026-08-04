@@ -157,7 +157,19 @@ export function carriageText(item: Carriable): string {
       item.channels.length === 1
         ? item.channels[0].name
         : `${item.channels.length} channels`;
-    return `Usually found on ${what}${where && ` ${where}`}`;
+    const guess = `Usually found on ${what}${where && ` ${where}`}`;
+    // BOTH, where the schedule named something we could not find. The map
+    // is only reached now because that name matched nothing, and the two
+    // facts are different sizes: "On Paramount+" is about this fixture and
+    // came from the source, the guess is about the league and came from
+    // us. Dropping the first would be the MLB.TV mistake — a schedule
+    // naming a particular feed is telling you the game is not on the
+    // ordinary one, and that is worth knowing even while we offer the
+    // ordinary one to try. Keeping both is what made the fall-through
+    // safe enough to do at all.
+    return item.broadcasts.length > 0
+      ? `On ${item.broadcasts[0]} · ${guess}`
+      : guess;
   }
   if (item.channels.length === 1)
     return `${on} ${item.channels[0].name}${where && ` ${where}`}`;

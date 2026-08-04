@@ -1118,12 +1118,13 @@ where the source said nothing at all.
   silent, which is where we started. So `presumedOnly` rides on the game and
   the card says "Usually found on X" where a stated one says "Live on X". No live
   pip either: the dot is the card's shorthand for "on, right here, now".
-- **The gate is an EMPTY `broadcasts`, not an empty result.** A game the
-  schedule put on Peacock with no Peacock in the playlist is already
-  answered honestly by "On Peacock", which is more specific than the
-  league's usual home. Talking over it with a guess would be the MLB.TV
-  mistake `matcher.ts` already documents. A test asserted this before the
-  code did it, and the code was wrong.
+- **The gate was an EMPTY `broadcasts`, and is now an empty RESULT** (v0.8.156,
+  see #44). It shipped requiring that the schedule had named nobody at all,
+  on the MLB.TV argument: a schedule naming a particular feed is telling
+  you the game is not on the ordinary one, so talking over "On Peacock"
+  with a league-wide guess is how a confident wrong answer gets made. That
+  argument is still true and was answering a different question — it
+  assumed the guess would REPLACE what the source said, which it need not.
 - **A mapped league with no matching channel still names the network**:
   "Usually found on Win Sports", the same courtesy "On Peacock" already
   extends.
@@ -1266,16 +1267,53 @@ uses for four different states, so it cannot carry this one on its own.
 Measured on a real wide card: the pill is 109x19 with 28px of foot to
 spare, and it clears the venue on the left.
 
-**Still open, and it is the question underneath this one.** The pill
-labels the dead end rather than removing it. When ESPN names a network we
-cannot match, we do NOT fall through to the network map, so a mapped league
-can lose a pressable channel to an unpressable fact — for UEFA qualifying,
-"On Paramount+" instead of "Usually found on US: CBS Sports Network". That
-was chosen in v0.8.149 on the MLB.TV argument (a schedule naming the
-streaming package is telling you it is not on the linear channel) and it
-sits against #42's own rule that the viewer only cares whether it links.
-Theoretical today: all 8 qualifiers measured 0 broadcasts on 2026-08-04, so
-every card is already on the map path. Real the day ESPN populates it.
+**The question underneath this one is now answered, in #44.** The pill
+labelled the dead end rather than removing it; the map now fills it.
+
+#### 44. The map fills a dead end, not just a gap [x] v0.8.156
+
+The open half of #43, and Adam's call once he had the branch table in front
+of him.
+
+The map used to run only where the schedule named NOBODY. So a game ESPN
+put on Paramount+, with no Paramount+ in the playlist, showed "On
+Paramount+" and a couldn't-link pill — while the map sat there knowing the
+league also lives on CBS Sports Network, which IS in the playlist. A
+pressable channel was being lost to an unpressable fact.
+
+**What changed is one condition**: the gate is an empty RESULT rather than
+an empty `broadcasts`. What made that safe is that the guess no longer
+replaces anything:
+
+> ON PARAMOUNT+ · USUALLY FOUND ON US: CBS SPORTS NETWORK
+
+The MLB.TV rule the old gate was built on is still true — a schedule
+naming a particular feed is telling you the game is not on the ordinary
+one — and it is still being honoured, because the feed it named is still
+the first thing the card says. It was only ever an argument against
+REPLACING the source, and nobody had asked whether both could fit. They
+fit: 421px against a 696px budget on the wide card.
+
+Adam's reason, which is #42's rule one level up: "people don't care that
+ESPN didn't have a channel listed, just if it links to their EPG or not."
+It is also the call he already made for the theater rail — "more to choose
+from is always preferred when sources go awry."
+
+Measured against the live boards and the real 1,875 channel dump:
+
+| ESPN says | before | after |
+|---|---|---|
+| nothing | Usually found on US: CBS Sports Network | unchanged |
+| "Paramount+" | On Paramount+, nothing pressable | On Paramount+ · Usually found on US: CBS Sports Network |
+| "TUDN" | On TUDN, nothing pressable | On TUDN · Usually found on US: CBS Sports Network |
+| "CBS Sports Network" | On US: CBS Sports Network | unchanged, the map never runs |
+
+Unmapped leagues are untouched by construction: MLB still resolves 10 of
+15 and never consults the map, because it has no row.
+
+A stated broadcast that RESOLVES is still the whole answer and still not
+flagged as a guess. That is the rule the fall-through did not touch, and
+it has its own test now so the next change cannot quietly take it.
 
 #### 40. The empty board says when the next one is [ ]
 
@@ -1325,6 +1363,7 @@ here so a label that vanished can be looked up.
 | **41** | **The curated network map.** `networkMap.ts` fills the leagues the source says nothing about, through the same matcher; a guess is worded ("Usually found on X") rather than scored down; "Couldn't find a matching channel" reworded (twice, see #42) | v0.8.149 |
 | **42** | **The carriage line stops describing the world.** "Could not link channel": the only claim the app has evidence for. Plus "Usually found on X" for the map, and a test that holds the rule rather than the string | v0.8.152 |
 | **43** | **The couldn't-link pill.** "On Paramount+" names a broadcaster, not a channel, so it says so: a muted pill with a warning triangle, on every state with no channel behind it, replacing the sentence where nothing is known | v0.8.153-154 |
+| **44** | **The map fills a dead end.** A source network that matches nothing now falls through to the map, keeping both: "On Paramount+ · Usually found on US: CBS Sports Network" | v0.8.156 |
 | **38** | **Opening a tournament.** A tournament card opens its day's draw: live, upcoming, results, with a draw filter, per-set scores and courts. Also split SUSPENDED from postponed, which the screen exposed | v0.8.140 |
 
 ## Closed decisions
