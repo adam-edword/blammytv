@@ -44,12 +44,78 @@ describe("carriageText", () => {
     );
   });
 
-  it("admits it when nothing at all carries it", () => {
-    // Adam's wording. "Not on your channels" was a stronger claim than we
-    // can make: the matcher works broadcaster names against a 20k channel
-    // list and misses, so a game their provider does carry could be told it
-    // is not there. This says what actually happened.
-    expect(carriageText(base)).toBe("Couldn't find a matching channel");
+  it("says there was no listing, not that the search failed", () => {
+    // The only way to reach this branch is with an EMPTY broadcasts list:
+    // a non-empty one is answered by "On <network>" above. So the old
+    // "Couldn't find a matching channel" described a search that never
+    // ran. #27 measured how often that is: 1,539 games carried 32
+    // broadcast names between them, and tennis carried none over 1,462
+    // matches, so this was most of the catalog being told the matcher had
+    // failed on its behalf.
+    expect(carriageText(base)).toBe("No channel listed for this game");
+  });
+
+  it("names the map's network when the playlist has none of it", () => {
+    // Colombia's Primera A on a real board: the map knows it is Win Sports,
+    // and Adam's 1,875 channels do not carry it. Throwing that away for "no
+    // listing" would be discarding the one useful thing we know.
+    expect(carriageText({ ...base, presumed: ["Win Sports"] })).toBe(
+      "Usually on Win Sports",
+    );
+  });
+
+  it("prefers what the source said over what the map guesses", () => {
+    // Both present is not a real state today, since the map is only
+    // consulted when broadcasts is empty, but the ordering is the rule and
+    // it should not depend on the caller keeping to it.
+    expect(
+      carriageText({ ...base, broadcasts: ["FOX"], presumed: ["ESPN"] }),
+    ).toBe("On FOX");
+  });
+
+  it("words a guess from the network map as a guess", () => {
+    // The map knows where the LEAGUE lives, which is not the same claim as
+    // knowing where this game is. "Live on Tennis Channel" would state as
+    // fact something no source said.
+    expect(
+      carriageText({
+        ...base,
+        state: "live",
+        channels: ch("US: Tennis Channel"),
+        presumedOnly: true,
+      }),
+    ).toBe("Usually on US: Tennis Channel");
+    expect(
+      carriageText({
+        ...base,
+        state: "live",
+        channels: ch("A", "B"),
+        presumedOnly: true,
+      }),
+    ).toBe("Usually on 2 channels");
+  });
+
+  it("never lets a presumed match borrow the live wording", () => {
+    // The whole point of the flag: state is live, and the sentence still
+    // refuses to say so about a channel nobody told us about.
+    const said = carriageText({
+      ...base,
+      state: "live",
+      channels: ch("US: Tennis Channel"),
+      presumedOnly: true,
+    });
+    expect(said).not.toContain("Live on");
+  });
+
+  it("still says where a hidden folder is the only copy of a guess", () => {
+    expect(
+      carriageText({
+        ...base,
+        channels: ch("US: Tennis Channel"),
+        presumedOnly: true,
+        hiddenOnly: true,
+      }),
+    ).toBe("Usually on US: Tennis Channel in a hidden folder");
   });
 
   it("distinguishes NOT KNOWN YET from nothing", () => {

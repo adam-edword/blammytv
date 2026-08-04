@@ -46,9 +46,14 @@ export function CardFoot({
             (item.channels.length === 0 ? " gamecard__carriage--none" : "")
           }
         >
-          {item.state === "live" && item.channels.length > 0 && (
-            <span className="gamecard__dot" aria-hidden />
-          )}
+          {/* No dot on a presumed match. The dot is the card's shorthand
+            * for "this is on, right here, now", and the map only knows
+            * where the LEAGUE usually lives. The sentence beside it already
+            * says "Usually on"; a live pip next to that would take the
+            * hedge straight back off again. */}
+          {item.state === "live" &&
+            item.channels.length > 0 &&
+            !item.presumedOnly && <span className="gamecard__dot" aria-hidden />}
           {carriage}
           {item.channels.length > 1 && (
             <span className="gamecard__more" aria-hidden>

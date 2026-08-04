@@ -171,5 +171,83 @@ describe("withChannels", () => {
     const resolved = withChannels(pending, indexChannels([]));
     expect(resolved[0].channelsPending).toBe(false);
   });
+
+  /**
+   * THE CURATED NETWORK MAP as a last resort (plan 010, phase 0's fallback).
+   *
+   * The behaviour worth pinning is the ORDER of the two sources, not just
+   * that the map works: a league-wide guess must never get in front of
+   * something the schedule actually said about this fixture.
+   */
+  describe("the network map", () => {
+    const tennis = (over: Partial<Fixture> = {}) =>
+      game("t", {
+        sport: "tennis",
+        league: "ATP",
+        leagueKey: "tennis/atp",
+        broadcasts: [],
+        ...over,
+      });
+
+    it("fills a game the source said nothing about", () => {
+      const [g] = withChannels([tennis()], cat({ name: "US: Tennis Channel" }));
+      expect(g.channels.map((c) => c.name)).toEqual(["US: Tennis Channel"]);
+      expect(g.presumedOnly).toBe(true);
+    });
+
+    it("never displaces what the schedule actually said", () => {
+      // A stated broadcast wins outright, and the result is NOT flagged as
+      // a guess: this is a fact about the fixture, not about the league.
+      const [g] = withChannels(
+        [tennis({ broadcasts: ["MASN"] })],
+        cat({ name: "US: MASN" }, { name: "US: Tennis Channel" }),
+      );
+      expect(g.channels.map((c) => c.name)).toEqual(["US: MASN"]);
+      expect(g.presumedOnly).toBe(false);
+    });
+
+    it("stays out of the way when the source named a network we cannot find", () => {
+      // Subtle and deliberate. The schedule said Peacock, nothing carries
+      // it, and the card falls back to "On Peacock" — which is TRUE and
+      // more specific than the league's usual home. The map only fills a
+      // gap where there was no name at all.
+      const before = tennis({ broadcasts: ["Peacock"] });
+      const [g] = withChannels([before], cat({ name: "US: Tennis Channel" }));
+      expect(g.channels).toEqual([]);
+      expect(g.presumedOnly).toBeFalsy();
+      // And untouched, so the card carries on saying "On Peacock" without
+      // re-rendering to learn it.
+      expect(g).toBe(before);
+    });
+
+    it("records the network even when the playlist does not carry it", () => {
+      // Colombia's Primera A against a playlist with no Win Sports. No
+      // channel, but the card can still say where the league lives.
+      const [g] = withChannels(
+        [tennis({ leagueKey: "soccer/col.1" })],
+        cat({ name: "US: MASN" }),
+      );
+      expect(g.channels).toEqual([]);
+      expect(g.presumedOnly).toBe(false);
+      expect(g.presumed).toEqual(["Win Sports", "Win Sports+"]);
+    });
+
+    it("leaves a league nobody has checked alone", () => {
+      const before = tennis({ leagueKey: "soccer/swe.1" });
+      const [g] = withChannels([before], cat({ name: "US: Tennis Channel" }));
+      expect(g.channels).toEqual([]);
+      // Untouched object: no card re-renders over a lookup that found
+      // nothing.
+      expect(g).toBe(before);
+    });
+
+    it("holds identity across a refresh, guess and all", () => {
+      // presumedOnly joins the unchanged check, or every 90 second tick
+      // would hand every mapped card a new object.
+      const c = cat({ name: "US: Tennis Channel" });
+      const once = withChannels([tennis()], c);
+      expect(withChannels(once, c)[0]).toBe(once[0]);
+    });
+  });
 });
 

@@ -20,6 +20,10 @@ export interface Carriable {
   broadcasts: string[];
   /** Everything that carries this was in a folder the user hid. */
   hiddenOnly?: boolean;
+  /** The channels came from the curated network map, not from the source. */
+  presumedOnly?: boolean;
+  /** What the map says normally carries this league, tunable or not. */
+  presumed?: string[];
 }
 
 export function carriageText(item: Carriable): string {
@@ -36,13 +40,40 @@ export function carriageText(item: Carriable): string {
   if (item.channels.length === 0)
     return item.broadcasts.length > 0
       ? `On ${item.broadcasts[0]}`
-      : /* Adam's wording, and it is more honest than the old "Not on your
-         * channels": we did not find a match, which is not the same claim
-         * as it not being there. The matcher works on broadcaster names
-         * against a 20k channel list and misses; saying so leaves the
-         * possibility open rather than telling someone their provider does
-         * not carry a game it may well carry. */
-        "Couldn't find a matching channel";
+      : // The map knows where this league lives even though the playlist
+        // has nothing to show for it. Naming the network is the same
+        // courtesy "On Peacock" already extends when the SOURCE names
+        // something nobody carries: you cannot press it, but you now know
+        // where to go looking.
+        item.presumed && item.presumed.length > 0
+        ? `Usually on ${item.presumed[0]}`
+        : /* NOT "couldn't find a matching channel", which is what this said
+         * until #27 measured what actually reaches here. That sentence
+         * describes a search that ran and missed, and this branch is the
+         * opposite case: the only way to arrive here is with an EMPTY
+         * broadcasts list, because a non-empty one is answered above. There
+         * was no name to match, so nothing was searched for.
+         *
+         * The difference is not pedantry, it is most of the catalog.
+         * Measured across all 151 leagues, 1,539 games carried 32 broadcast
+         * names between them; tennis carried none at all over 1,462
+         * matches. Telling that many people we looked and failed was
+         * blaming the matcher for a field the source never sent, and it
+         * pointed at the wrong fix. See networkMap.ts, which is the right
+         * one for the leagues it can cover. */
+        "No channel listed for this game";
+  // A GUESS FROM THE MAP, worded as one. The channels are real and tunable,
+  // so they are offered, but what we know is that the LEAGUE normally lives
+  // there — not that this game does. "Live on 2 channels" would be the app
+  // stating as fact something no source told it, which is the one thing
+  // this feature has consistently refused to do.
+  if (item.presumedOnly) {
+    const what =
+      item.channels.length === 1
+        ? item.channels[0].name
+        : `${item.channels.length} channels`;
+    return `Usually on ${what}${where && ` ${where}`}`;
+  }
   if (item.channels.length === 1)
     return `${on} ${item.channels[0].name}${where && ` ${where}`}`;
   return `${on} ${item.channels.length} channels${where && ` ${where}`}`;

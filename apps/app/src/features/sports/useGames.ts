@@ -5,6 +5,7 @@ import { CARD_CONFIDENCE, matchEvent, matchGame } from "./matcher";
 import type { Catalog } from "./matcher";
 import { isFixture, isTournament } from "./model";
 import type { Game } from "./model";
+import { presumedNetworks } from "./networkMap";
 
 /** How often a mounted hub re-reads TODAY. Later days do not move. */
 const REFRESH_MS = 90_000;
@@ -286,6 +287,22 @@ export function useGames(
   return { days, ahead, state };
 }
 
+/**
+ * Two network lists, treated as equal when they say the same thing.
+ *
+ * Absent and empty are the same claim here, and they both arise: a game the
+ * map has never been asked about carries no field at all, and one whose
+ * league has no row carries an empty list. Telling them apart would hand a
+ * new object to every unmapped card on the board on the first resolve, which
+ * is exactly the memo-breaking churn keepStable exists to prevent.
+ */
+function sameNames(next: string[], prev: string[] | undefined): boolean {
+  const before = prev ?? [];
+  return (
+    next.length === before.length && next.every((n, i) => n === before[i])
+  );
+}
+
 /** Local midnight of whatever day this instant falls on, as a number. */
 function midnight(when: Date): number {
   const d = new Date(when);
@@ -362,19 +379,73 @@ export function withChannels(games: Game[], catalog: Catalog | null): Game[] {
       ? matchEvent([game.home.name, game.away.name], game.start, catalog)
       : [];
     const seen = new Set(named.map((c) => c.id));
-    const found = [
+    let found = [
       ...named,
       ...matchGame(game.broadcasts, catalog).filter((c) => !seen.has(c.id)),
     ].filter((c) => c.confidence >= CARD_CONFIDENCE);
+    /**
+     * THE CURATED MAP, and only where the source said NOTHING AT ALL.
+     *
+     * A fallback rather than another input, which is the whole shape of the
+     * decision. Feeding the map's names in alongside the real broadcasts
+     * would let a league-wide guess sit next to, and sometimes above, a
+     * stated fact about this fixture — and the schedule's own ordering
+     * (national feed before regional) is information the map does not have
+     * and would dilute. Consulted last, it can only ever fill a gap.
+     *
+     * Note the gate is an EMPTY `broadcasts`, not merely an empty result. A
+     * game the schedule put on Peacock, with no Peacock in the playlist,
+     * has already been answered: the card says "On Peacock", which is true
+     * and more specific than the league's usual home. Replacing that with
+     * "usually on Tennis Channel" would be the MLB.TV mistake matcher.ts
+     * already documents — a schedule naming a particular feed is telling
+     * you the game is NOT on the ordinary one, and talking over it with a
+     * guess is exactly how a confident wrong answer gets made. This test
+     * failed first and the condition was wrong; the test was right.
+     *
+     * One join and one confidence model all the same: these go through
+     * matchGame exactly as the source's names do, clear the same bar, and
+     * arrive as the same Match objects. What differs is the CLAIM, and that
+     * rides on `presumedOnly` rather than on a fudged score. A score cannot
+     * carry it: deduct enough to mean "this is a guess" and every presumed
+     * match falls under CARD_CONFIDENCE and the card goes silent, which is
+     * where we started. The doubt here is about carriage, not about which
+     * channel we named, so it belongs in the words. See carriageText.
+     */
+    let presumedOnly = false;
+    let presumed: string[] = [];
+    if (found.length === 0 && game.broadcasts.length === 0) {
+      presumed = [
+        ...presumedNetworks(
+          game.leagueKey,
+          isTournament(game) ? game.title : undefined,
+        ),
+      ];
+      if (presumed.length > 0) {
+        found = matchGame(presumed, catalog).filter(
+          (c) => c.confidence >= CARD_CONFIDENCE,
+        );
+        presumedOnly = found.length > 0;
+      }
+    }
     const channels = found.map((c) => ({ id: c.id, name: c.name }));
     const hiddenOnly = found.length > 0 && found.every((c) => c.hidden);
     const unchanged =
       channels.length === game.channels.length &&
       channels.every((c, i) => c.id === game.channels[i].id) &&
       hiddenOnly === (game.hiddenOnly ?? false) &&
+      presumedOnly === (game.presumedOnly ?? false) &&
+      sameNames(presumed, game.presumed) &&
       !game.channelsPending;
     return unchanged
       ? game
-      : { ...game, channels, hiddenOnly, channelsPending: false };
+      : {
+          ...game,
+          channels,
+          hiddenOnly,
+          presumedOnly,
+          presumed,
+          channelsPending: false,
+        };
   });
 }

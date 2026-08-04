@@ -1,5 +1,11 @@
 # Handoff: the curated network map (plan 010)
 
+> **CONSUMED in v0.8.149.** The map shipped as `networkMap.ts`. The three
+> decisions below were settled without Adam, because the session that picked
+> this up could not reach him; what was decided and why is written up under
+> **#41 in `plans/010-sports.md`**, which is the file to read now. This one
+> is kept as the record of where the job started, not as instructions.
+
 Written 2026-08-04 at the end of a long session, for a fresh one. Adam has
 picked this as the next piece of work.
 

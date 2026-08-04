@@ -176,6 +176,31 @@ interface Board {
    * so rather than quietly offering a folder someone muted on purpose.
    */
   hiddenOnly?: boolean;
+  /**
+   * The channels above came from the curated network map, not from anything
+   * the SOURCE said about this game.
+   *
+   * The distinction the map lives or dies on. `broadcasts` is a fact about
+   * this fixture; a map row is a fact about the LEAGUE, and "the ATP is
+   * usually on Tennis Channel" can be perfectly true while being wrong about
+   * Tuesday's qualifier. Carriage words the two differently rather than
+   * flattening them into one confident sentence — see carriageText, and
+   * networkMap.ts for why the leagues that need this have nothing else.
+   */
+  presumedOnly?: boolean;
+  /**
+   * What the curated map says normally carries this league, whether or not
+   * any of it turned out to be in the playlist.
+   *
+   * The counterpart of `broadcasts`, and it earns its place for the same
+   * reason that one does: a network we cannot tune is still worth naming.
+   * The card falls back to "On Peacock" when the SOURCE names something
+   * nobody carries, and this is what lets it fall back to "Usually on Win
+   * Sports" when the MAP does. Without it a mapped league whose network is
+   * missing from the playlist would throw away the one useful thing we
+   * know about it.
+   */
+  presumed?: string[];
 }
 
 /**

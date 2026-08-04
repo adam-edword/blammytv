@@ -949,9 +949,14 @@ What it changes:
 - Tuning the matcher would move almost nothing. The work is upstream.
 - A per-league "we have no broadcast data for this league" is a truthful
   and cheap thing the card could say instead, and it is a different message
-  from "we looked and missed".
+  from "we looked and missed". **Done in v0.8.149**, and cheaper than
+  expected: the branch saying "Couldn't find a matching channel" turned out
+  to be reachable ONLY with an empty broadcasts list, so it was already the
+  per-game version of this message wearing the wrong words. Now "No channel
+  listed for this game". Per GAME rather than per league, which is what the
+  data actually supports without aggregating anything.
 - The curated network map on the shelf from phase 0 is worth revisiting for
-  exactly the leagues at 0%.
+  exactly the leagues at 0%. **Done in v0.8.149, see #41.**
 
 #### 28. Blackout honesty [ ]
 
@@ -1092,6 +1097,67 @@ answered. The question for Adam is what the wide version says with the
 room: the four live matches by name, the leaders, or just the tournament
 bigger.
 
+#### 41. The curated network map [x] v0.8.149
+
+Phase 0's own fallback, taken off the shelf because #27 measured what the
+gate never saw. `networkMap.ts`: a league to network table, consulted only
+where the source said nothing at all.
+
+- **It feeds the SAME matcher.** The map's names go through `matchGame`
+  exactly as the schedule's do, clear the same `CARD_CONFIDENCE` bar and
+  arrive as the same `Match` objects. One join, one confidence model. The
+  alternative, a second lookup with its own scoring, would have forked the
+  rail as well as the card.
+- **A guess is worded, not scored down.** This was the real decision, and
+  the deduction approach is broken rather than merely worse: the doubt about
+  a map row is about CARRIAGE, not about which channel we named, and a
+  score cannot carry it. Deduct 30 from an exact 100 and it lands on the 70
+  bar by arithmetic accident; deduct enough to actually mean "this is a
+  guess" and every presumed match falls under the bar and the card goes
+  silent, which is where we started. So `presumedOnly` rides on the game and
+  the card says "Usually on X" where a stated one says "Live on X". No live
+  pip either: the dot is the card's shorthand for "on, right here, now".
+- **The gate is an EMPTY `broadcasts`, not an empty result.** A game the
+  schedule put on Peacock with no Peacock in the playlist is already
+  answered honestly by "On Peacock", which is more specific than the
+  league's usual home. Talking over it with a guess would be the MLB.TV
+  mistake `matcher.ts` already documents. A test asserted this before the
+  code did it, and the code was wrong.
+- **A mapped league with no matching channel still names the network**:
+  "Usually on Win Sports", the same courtesy "On Peacock" already extends.
+- **"Couldn't find a matching channel" was wrong about itself** and that
+  fell out of reading the branch. It is only reachable with an empty
+  broadcasts list, because a non-empty one is answered above it, so it was
+  describing a search that never ran, to most of the catalog. Now "No
+  channel listed for this game".
+
+Measured against the live boards of 2026-08-04 and Adam's real 1,875
+channel dump:
+
+| league | before | after |
+|---|---|---|
+| tennis/atp | 13 cards, no answer | 13 x "Usually on US: Tennis Channel" |
+| tennis/wta | 20 cards, no answer | 20 x "Usually on US: Tennis Channel" |
+| uefa.champions_qual | 8 cards, no answer | 8 x "Usually on US: CBS Sports Network" |
+| soccer/col.1 | 3 cards, no answer | 3 x "Usually on Win Sports" (no channel) |
+| baseball/mlb | 15 cards, 10 tuned | unchanged, which is the point |
+
+Rows shipped: both tennis tours (with the four Grand Slams as exceptions,
+since ESPN has three of them and Roland Garros sits with TNT and NBC), both
+UEFA qualifying rounds, `soccer/arg.1` and `soccer/col.1`.
+
+**Left, and deliberately**: `soccer/ven.1`, `soccer/bol.1`, `soccer/par.1`
+and `soccer/swe.1`. All four measured at 0% and all four belong on the list
+on the merits; none could be verified to the standard the other rows were,
+and a guessed row is exactly the confident wrongness the file exists to
+avoid. They need someone who can check.
+
+**Also left**: the tournament CARD shows no carriage line at all, so on the
+board itself a tennis card still says nothing. The draw screen behind it
+now answers, because it already resolved carriage against the tournament.
+Putting a line on the card is a layout call, so it is Adam's. See #39,
+which is the same card wanting the same kind of decision.
+
 #### 40. The empty board says when the next one is [ ]
 
 Shipped in v0.8.135: the four no-cards states are a proper composition
@@ -1137,6 +1203,7 @@ here so a label that vanished can be looked up.
 | - | A reached-ahead race weekend folds into ONE `WeekendCard` on race day, instead of five session cards under three dated headings. `Weekend` became the union's fourth kind | v0.8.138 |
 | - | A followed racing league reaches for its whole remaining SEASON, not just the next round, and everything reached ahead lands in one "Coming up" section | v0.8.139 |
 | **27** | **Broadcast coverage measured per league.** The join's ceiling is the INPUT, not the matcher: see the table under #27 | v0.8.147 |
+| **41** | **The curated network map.** `networkMap.ts` fills the leagues the source says nothing about, through the same matcher; a guess is worded ("Usually on X") rather than scored down; "Couldn't find a matching channel" corrected to "No channel listed for this game" | v0.8.149 |
 | **38** | **Opening a tournament.** A tournament card opens its day's draw: live, upcoming, results, with a draw filter, per-set scores and courts. Also split SUSPENDED from postponed, which the screen exposed | v0.8.140 |
 
 ## Closed decisions
@@ -1150,10 +1217,13 @@ answer is "not yet, and here is what would change that".
   cache race and this hub's own autoplay race were caught that way.
 - **Sprint names cannot be printed on the card as written** (#9): measured,
   the country overlaps the schedule by 9.9px. Tooltip shipped instead.
-- **There is no rights map to date** (was H4). `matcher.ts`'s `BRANDS` is
-  brand-name normalisation, not a carriage table. The item was "say in the
-  file that a shipped rights map is a maintenance commitment", and there is
-  no such file. It comes back if one is ever written.
+- **There IS a rights map now** (was H4, reopened and closed the other way in
+  v0.8.149). It was closed as "no such file exists" and #27's measurement is
+  what made one worth writing. `networkMap.ts` carries the maintenance
+  commitment and its review date in its own header, which is what the item
+  actually asked for. `matcher.ts`'s `BRANDS` is still brand-name
+  normalisation and still not a carriage table; the two are separate on
+  purpose.
 - **A cadence module is indirection today** (#24, kept on the list as
   blocked rather than deleted, because #15 will make it real).
 - **Soccer's `form` string** ("LWWWW", 16 of 182 events) is not going on
