@@ -1207,6 +1207,52 @@ generally, which is the claim actually being made. Measured before taking
 it, since it is the longest string the slot ever holds: 302px against a
 697px budget on the wide card.
 
+#### 43. The couldn't-link pill [x] v0.8.153
+
+Adam, reading the branch table for #42: "for espn no link, I wonder if we
+can add a tiny little pill badge with a triangle ! in it... so it would say
+'On Paramount+ [triangle COULDN'T LINK]'".
+
+The gap it closes is a grammar collision. Every version of the carriage
+line except one names a CHANNEL you can press; "On Paramount+" names a
+BROADCASTER and is a dead end, and the two sentences are identical in shape
+with only a dimmed colour between them. Dimming is what the slot already
+uses for four different states, so it cannot carry this one on its own.
+
+- **Only that state.** "Could not link channel" would be wearing a badge
+  that repeats it, and "Usually found on Win Sports" is already hedged by
+  the word usually. The pill is for the sentence that sounds like a promise
+  it cannot keep. Also off while the catalog is loading (nothing has been
+  looked up yet) and off on a finished game (the foot swaps the whole line
+  out for when it started).
+- **A predicate in `carriage.ts`, not a flag on the game.** It is derivable
+  from what is already there, and that file is where the meaning of this
+  line lives; a second home for it is the drift the module exists to
+  prevent.
+- **No warning colour.** The rule directly above it in the stylesheet still
+  holds — "no match is a real state, not an error: dim it, do not shout" —
+  so the pill borrows the card's own ink at the same 0.5 the dimmed line
+  uses and earns attention from its SHAPE, a bordered pill among plain
+  text. That also makes it correct in light mode for free, since
+  `--card-ink` flips.
+- **It goes into the accessible name too**, as words. It is an 11px icon
+  and a small label, so without that a screen reader hears "on Paramount
+  plus" and nothing about the dead end.
+
+Measured on a real wide card: the pill is 109x19 with 28px of foot to
+spare, and it clears the venue on the left.
+
+**Still open, and it is the question underneath this one.** The pill
+labels the dead end rather than removing it. When ESPN names a network we
+cannot match, we do NOT fall through to the network map, so a mapped league
+can lose a pressable channel to an unpressable fact — for UEFA qualifying,
+"On Paramount+" instead of "Usually found on US: CBS Sports Network". That
+was chosen in v0.8.149 on the MLB.TV argument (a schedule naming the
+streaming package is telling you it is not on the linear channel) and it
+sits against #42's own rule that the viewer only cares whether it links.
+Theoretical today: all 8 qualifiers measured 0 broadcasts on 2026-08-04, so
+every card is already on the map path. Real the day ESPN populates it.
+
 #### 40. The empty board says when the next one is [ ]
 
 Shipped in v0.8.135: the four no-cards states are a proper composition
@@ -1254,6 +1300,7 @@ here so a label that vanished can be looked up.
 | **27** | **Broadcast coverage measured per league.** The join's ceiling is the INPUT, not the matcher: see the table under #27 | v0.8.147 |
 | **41** | **The curated network map.** `networkMap.ts` fills the leagues the source says nothing about, through the same matcher; a guess is worded ("Usually found on X") rather than scored down; "Couldn't find a matching channel" reworded (twice, see #42) | v0.8.149 |
 | **42** | **The carriage line stops describing the world.** "Could not link channel": the only claim the app has evidence for. Plus "Usually found on X" for the map, and a test that holds the rule rather than the string | v0.8.152 |
+| **43** | **The couldn't-link pill.** "On Paramount+" names a broadcaster, not a channel, so it says so: a muted pill with a warning triangle, on that state alone | v0.8.153 |
 | **38** | **Opening a tournament.** A tournament card opens its day's draw: live, upcoming, results, with a draw filter, per-set scores and courts. Also split SUSPENDED from postponed, which the screen exposed | v0.8.140 |
 
 ## Closed decisions

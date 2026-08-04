@@ -26,6 +26,33 @@ export interface Carriable {
   presumed?: string[];
 }
 
+/**
+ * We named a network, and you cannot press any of it.
+ *
+ * Adam, on seeing the branch table: "On Paramount+" reads as a confident
+ * answer and is a dead end, because the sentence names a BROADCASTER while
+ * every other version of this line names a CHANNEL. Same grammar, opposite
+ * usefulness, and only a dimmed colour telling them apart. So the card
+ * says it outright with a pill.
+ *
+ * Deliberately NOT every unlinked state. "Could not link channel" already
+ * says this in words and would be wearing a badge that repeats it, and
+ * "Usually found on Win Sports" is already hedged by "usually". This is
+ * for the one sentence that sounds like a promise it cannot keep.
+ *
+ * A predicate rather than a flag on the game: it is derivable from what is
+ * already there, and this file is where the meaning of that line lives.
+ * See the header — two answers to the same question is the failure mode
+ * this module exists to prevent.
+ */
+export function carriageUnlinked(item: Carriable): boolean {
+  if (item.channelsPending) return false;
+  // Nothing to warn about on a game that has finished: the foot swaps the
+  // whole carriage line out for when it started.
+  if (item.state === "final") return false;
+  return item.channels.length === 0 && item.broadcasts.length > 0;
+}
+
 export function carriageText(item: Carriable): string {
   // One channel names it; several advertise the choice, because being able
   // to hop is the reason to use this tab. "Live on" only where it is true:

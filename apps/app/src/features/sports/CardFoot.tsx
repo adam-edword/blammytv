@@ -1,5 +1,6 @@
 import { formatClock } from "../../lib/time";
-import { carriageText, type Carriable } from "./carriage";
+import { carriageText, carriageUnlinked, type Carriable } from "./carriage";
+import { WarnIcon } from "../../ui/icons";
 
 /**
  * The bottom rail of a wide card: where it is on the left, where to watch
@@ -55,6 +56,18 @@ export function CardFoot({
             item.channels.length > 0 &&
             !item.presumedOnly && <span className="gamecard__dot" aria-hidden />}
           {carriage}
+          {/* The pill, for the one state that reads as an answer and is a
+            * dead end: we are naming a BROADCASTER rather than a channel,
+            * so there is nothing under this line to press. Adam's. Muted
+            * rather than coloured, because the rule right above this in
+            * the stylesheet still holds — no match is a real state, not an
+            * error, so it may say so without shouting. */}
+          {carriageUnlinked(item) && (
+            <span className="gamecard__unlinked">
+              <WarnIcon size={11} />
+              Couldn&rsquo;t link
+            </span>
+          )}
           {item.channels.length > 1 && (
             <span className="gamecard__more" aria-hidden>
               &rsaquo;

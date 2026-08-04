@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { carriageText } from "./carriage";
+import { carriageText, carriageUnlinked } from "./carriage";
 
 /**
  * The one line that makes this a viewer rather than a scores app, and
@@ -119,6 +119,55 @@ describe("carriageText", () => {
       presumedOnly: true,
     });
     expect(said).not.toContain("Live on");
+  });
+
+  describe("the couldn't-link pill", () => {
+    // The one sentence that names a BROADCASTER rather than a channel, so
+    // it reads like an answer and is a dead end.
+    it("fires when the source named a network we could not find", () => {
+      expect(carriageUnlinked({ ...base, broadcasts: ["Paramount+"] })).toBe(
+        true,
+      );
+    });
+
+    it("stays off anything you can actually press", () => {
+      expect(
+        carriageUnlinked({ ...base, channels: ch("US: MASN"), broadcasts: ["MASN"] }),
+      ).toBe(false);
+      expect(
+        carriageUnlinked({
+          ...base,
+          channels: ch("US: Tennis Channel"),
+          presumedOnly: true,
+        }),
+      ).toBe(false);
+    });
+
+    it("stays off the states that already say it in words", () => {
+      // "Could not link channel" would be wearing a badge repeating itself,
+      // and "Usually found on Win Sports" is already hedged by "usually".
+      expect(carriageUnlinked(base)).toBe(false);
+      expect(carriageUnlinked({ ...base, presumed: ["Win Sports"] })).toBe(false);
+    });
+
+    it("stays off while the catalog is still loading", () => {
+      // Nothing has been looked up yet, so there is no failure to report.
+      expect(
+        carriageUnlinked({
+          ...base,
+          channelsPending: true,
+          broadcasts: ["Paramount+"],
+        }),
+      ).toBe(false);
+    });
+
+    it("stays off a finished game", () => {
+      // The foot swaps the whole carriage line for "Started 7:30 PM", so a
+      // pill there would be flagging a sentence that is not on screen.
+      expect(
+        carriageUnlinked({ ...base, state: "final", broadcasts: ["Paramount+"] }),
+      ).toBe(false);
+    });
   });
 
   it("still says where a hidden folder is the only copy of a guess", () => {

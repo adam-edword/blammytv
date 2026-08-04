@@ -8,7 +8,7 @@ import { Wash, WashVeil } from "./Wash";
 import { loser } from "./result";
 import { givenName, isMatch, setColumns, surname } from "./sets";
 import { CardFoot } from "./CardFoot";
-import { carriageText } from "./carriage";
+import { carriageText, carriageUnlinked } from "./carriage";
 import type { Fixture, Game } from "./model";
 
 /**
@@ -50,8 +50,13 @@ function GameCardImpl({
   const [homeName, awayName] = useFitText<HTMLSpanElement>(homeText, awayText);
   const lost = loser(game);
   // Where to watch it, for the label below. The foot draws its own copy;
-  // this one is only so the accessible name carries it too.
-  const carriage = carriageText(game);
+  // this one is only so the accessible name carries it too. The pill goes
+  // in as words for the same reason: it is drawn as an icon and a 11px
+  // label, so without this a screen reader hears "on Paramount plus" and
+  // nothing about it being a dead end.
+  const carriage =
+    carriageText(game) +
+    (carriageUnlinked(game) ? ", couldn't link to one of your channels" : "");
   const early = tooEarly(game);
   return (
     <button

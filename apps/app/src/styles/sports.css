@@ -1094,6 +1094,34 @@
 .gamecard__carriage--none {
   color: rgba(var(--card-ink), 0.5);
 }
+/* "We named a broadcaster, not a channel, and there is nothing here to
+ * press." Adam's, because "On Paramount+" has the same grammar as "On US:
+ * MASN" and the opposite usefulness, with only a dim colour between them.
+ *
+ * Obeys the rule directly above it rather than overriding it: no match is
+ * not an error, so this carries no warning colour, no red, no amber. It
+ * borrows the card's own ink at the same 0.5 the dimmed line already uses
+ * and earns its attention from the shape — a bordered pill among plain
+ * text — instead of from hue. That also keeps it legible in both themes
+ * for free, since --card-ink flips with them.
+ *
+ * The triangle rides at 11px against 13-ish text, deliberately smaller
+ * than the words: it is a marker on the sentence, not a sibling of it. */
+.gamecard__unlinked {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  /* Its own size rather than the foot's, so it stays a pill when the card
+   * scales its type. */
+  font-size: 0.85em;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  padding: 3px 7px 3px 6px;
+  border-radius: 999px;
+  color: rgba(var(--card-ink), 0.5);
+  border: 1px solid rgba(var(--card-ink), 0.22);
+}
 .gamecard__dot {
   width: 7.1px;
   height: 7.1px;

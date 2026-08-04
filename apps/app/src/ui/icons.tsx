@@ -542,6 +542,25 @@ export function StarRainbowHollowIcon({ size = 17, className }: IconProps) {
 }
 
 /** Interface / Check — the active-accent tick. */
+/**
+ * Warning triangle — the carriage line's "we named it but could not link
+ * it" pill (plan 010 #43).
+ *
+ * Drawn at the set's own geometry (24 box, stroke 2, round joins) so it
+ * sits with the rest, but it renders at 11px, which is why the bar and the
+ * dot are short and far apart: at that size a full-height exclamation
+ * closes up into a single blob.
+ */
+export function WarnIcon({ size = 16, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <path d="M12 4 21 19.5H3L12 4Z" />
+      <path d="M12 10.5v3.2" />
+      <path d="M12 16.6v.1" />
+    </Svg>
+  );
+}
+
 export function CheckIcon({ size = 16, className }: IconProps) {
   return (
     <Svg size={size} className={className}>
