@@ -3453,3 +3453,169 @@
   background: rgba(0, 0, 0, 0.35);
   color: var(--text-muted);
 }
+
+/* ---------------------------------------------------------- the golf card */
+
+/* A leaderboard, plan 010 #10. Adam's layout: league and THRU across the
+ * top, then five rows of position, flag, name and score to par.
+ *
+ * 460px to sit level with the race card, which is the other Field on the
+ * board and the one this borrows its shape from. Five rows rather than the
+ * race card's three, because a podium is a result and a leaderboard is a
+ * standing — the top three of 144 does not say who is in it. */
+.golfcard {
+  flex: 0 0 auto;
+  width: 460px;
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+}
+.golfcard:hover {
+  z-index: 2;
+}
+.golfcard__tilt {
+  position: relative;
+  display: block;
+  border-radius: 18px;
+  background: var(--card-bg);
+  overflow: hidden;
+}
+.golfcard__body {
+  padding: 18px 22px 20px;
+}
+.golfcard__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+}
+.golfcard__league,
+.golfcard__thru {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: var(--sports-meta);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.golfcard__league {
+  /* The muted half of the pair: it names the card, the right-hand side
+   * reports on it. 0.62 rather than the 0.5 used elsewhere on a card,
+   * because this one is a heading and not a footnote — measured on the
+   * rendered chip, 0.5 lands under 4.5:1 on the light card. */
+  color: rgba(var(--card-ink), 0.62);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.golfcard__thru {
+  color: rgba(var(--card-ink), 0.95);
+}
+/* The date or "Final" sits where THRU would, and reads as the quieter
+ * thing it is: nothing is moving. */
+.golfcard__thru--quiet {
+  color: rgba(var(--card-ink), 0.62);
+}
+
+.golfcard__board {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  row-gap: 10px;
+}
+/* Position, flag, name, score. The name takes the slack so the score stays
+ * hard right, which is what makes the column scannable — a leaderboard is
+ * read down its last column. */
+.golfcard__row {
+  display: grid;
+  grid-template-columns: 18px 22px 1fr auto;
+  align-items: center;
+  column-gap: 12px;
+}
+.golfcard__place {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 15px;
+  text-align: right;
+  color: rgba(var(--card-ink), 0.55);
+}
+.golfcard__flag {
+  width: 22px;
+  height: 15px;
+  object-fit: cover;
+  border-radius: 2px;
+  /* A hairline, because a flag with white in it dissolves into a light
+   * card without one. */
+  box-shadow: 0 0 0 1px rgba(var(--card-ink), 0.18);
+}
+.golfcard__name {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 19px;
+  letter-spacing: 0.01em;
+  color: rgba(var(--card-ink), 0.95);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.golfcard__score {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 19px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(var(--card-ink), 0.95);
+}
+
+/* Nobody has teed off. Three of the five golf leagues send no competitors
+ * at all in this state, so there is no leaderboard to dim — the card says
+ * the tournament and when instead. */
+.golfcard__ahead {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 22px;
+  min-height: 148px;
+}
+/* The tour's mark, and the only card in the feature that leads with one.
+ * It can afford to because there is nothing else: golf sends no course, no
+ * venue and no event art, so the mark is the picture. */
+.golfcard__tourmark {
+  width: 108px;
+  height: 108px;
+  object-fit: contain;
+}
+.golfcard__ahead-text {
+  display: grid;
+  row-gap: 4px;
+  min-width: 0;
+}
+.golfcard__ahead-name {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 27px;
+  line-height: 1.12;
+  color: rgba(var(--card-ink), 0.95);
+}
+.golfcard__ahead-when {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: var(--sports-meta);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: rgba(var(--card-ink), 0.62);
+}
+
+/* Finished, and dimmed the way every other finished card is — but NOT with
+ * the veil the upcoming card uses. That one lays 50% of --card-veil over
+ * the text as well as the art and drops its meta to 1.9:1 (plan 010 #47);
+ * this card has no art to push back, so it dims the ink directly and stays
+ * legible. */
+.golfcard--final .golfcard__name,
+.golfcard--final .golfcard__score {
+  color: rgba(var(--card-ink), 0.68);
+}
+.golfcard--final .golfcard__place {
+  color: rgba(var(--card-ink), 0.45);
+}

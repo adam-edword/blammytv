@@ -227,10 +227,25 @@ export interface Entrant {
   place: number;
   /** As the source names them: "Lando Norris". */
   name: string;
-  /** The three letters a broadcast would caption them with. */
-  code: string;
+  /**
+   * The three letters a broadcast would caption them with.
+   *
+   * OPTIONAL, because golf has none. Racing derives one from the driver's
+   * surname; a golf scoreboard captions players by country instead, and
+   * inventing three letters for Hideki Matsuyama would be us making up a
+   * caption nobody uses. The race cards are the only readers.
+   */
+  code?: string;
   /** Their country's flag. The source carries no constructor. */
   mark?: string;
+  /**
+   * Their score, as the SOURCE keeps it: "-10", "E", "+3".
+   *
+   * A STRING and to par, which is golf's own unit and not a number we
+   * should be doing arithmetic on. Absent for racing, where position is the
+   * score and there is nothing else to say.
+   */
+  score?: string;
 }
 
 /**
@@ -273,6 +288,28 @@ export interface Field extends Board {
   laps?: number;
   /** The top of the field, or as much of it as exists yet. */
   entrants: Entrant[];
+  /**
+   * How far through the current round the leaders are: 14, of 18.
+   *
+   * GOLF'S LAP COUNT, and the one number on a leaderboard that moves while
+   * you watch. Derived rather than given — the scoreboard carries no "thru"
+   * field, but every round nests its 18 holes and the ones already played
+   * are the ones with a score, so counting them is the answer.
+   *
+   * Optional and absent for racing, which counts laps instead. The two are
+   * deliberately NOT the same field: a lap total is fixed by the circuit
+   * and known in advance, holes played is progress through a fixed 18.
+   */
+  thru?: number;
+  /**
+   * The last day, where the source says.
+   *
+   * GOLF, and it is what makes "AUG 6-9" sayable. A race session happens on
+   * one day and needs no end; a tournament runs Thursday to Sunday and the
+   * range is the useful thing to know before it starts. `Tournament` keeps
+   * the same field for the same reason.
+   */
+  end?: Date;
 }
 
 /**

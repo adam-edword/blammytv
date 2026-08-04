@@ -1,0 +1,258 @@
+{
+ "leagues": [
+  {
+   "name": "PGA TOUR",
+   "abbreviation": "PGA"
+  }
+ ],
+ "events": [
+  {
+   "id": "401811961",
+   "name": "Wyndham Championship",
+   "shortName": "Wyndham Championship",
+   "date": "2026-08-06T04:00Z",
+   "endDate": "2026-08-09T04:00Z",
+   "status": {
+    "type": {
+     "state": "pre",
+     "completed": false,
+     "description": "Scheduled"
+    }
+   },
+   "competitions": [
+    {
+     "id": "401811961",
+     "status": {
+      "type": {
+       "state": "pre",
+       "completed": false,
+       "description": "Scheduled"
+      }
+     },
+     "broadcasts": [
+      {
+       "names": [
+        "ESPN+",
+        "CBS",
+        "Golf Chnl",
+        "Paramount+"
+       ]
+      }
+     ],
+     "competitors": [
+      {
+       "order": 1,
+       "score": "E",
+       "athlete": {
+        "displayName": "Thorbjørn Olesen",
+        "flag": {
+         "href": "https://a.espncdn.com/i/teamlogos/countries/500/den.png",
+         "alt": "Denmark"
+        }
+       },
+       "linescores": [
+        {
+         "period": 1,
+         "linescores": []
+        },
+        {
+         "period": 2,
+         "linescores": []
+        }
+       ]
+      },
+      {
+       "order": 2,
+       "score": "E",
+       "athlete": {
+        "displayName": "Jordan Smith",
+        "flag": {
+         "href": "https://a.espncdn.com/i/teamlogos/countries/500/eng.png",
+         "alt": "England"
+        }
+       },
+       "linescores": [
+        {
+         "period": 1,
+         "linescores": []
+        },
+        {
+         "period": 2,
+         "linescores": []
+        }
+       ]
+      },
+      {
+       "order": 3,
+       "score": "E",
+       "athlete": {
+        "displayName": "Austin Smotherman",
+        "flag": {
+         "href": "https://a.espncdn.com/i/teamlogos/countries/500/usa.png",
+         "alt": "USA"
+        }
+       },
+       "linescores": [
+        {
+         "period": 1,
+         "linescores": []
+        },
+        {
+         "period": 2,
+         "linescores": []
+        }
+       ]
+      },
+      {
+       "order": 4,
+       "score": "E",
+       "athlete": {
+        "displayName": "Takumi Kanaya",
+        "flag": {
+         "href": "https://a.espncdn.com/i/teamlogos/countries/500/jpn.png",
+         "alt": "Japan"
+        }
+       },
+       "linescores": [
+        {
+         "period": 1,
+         "linescores": []
+        },
+        {
+         "period": 2,
+         "linescores": []
+        }
+       ]
+      },
+      {
+       "order": 5,
+       "score": "E",
+       "athlete": {
+        "displayName": "Austin Eckroat",
+        "flag": {
+         "href": "https://a.espncdn.com/i/teamlogos/countries/500/usa.png",
+         "alt": "USA"
+        }
+       },
+       "linescores": [
+        {
+         "period": 1,
+         "linescores": []
+        },
+        {
+         "period": 2,
+         "linescores": []
+        }
+       ]
+      },
+      {
+       "order": 6,
+       "score": "E",
+       "athlete": {
+        "displayName": "Matti Schmid",
+        "flag": {
+         "href": "https://a.espncdn.com/i/teamlogos/countries/500/ger.png",
+         "alt": "Germany"
+        }
+       },
+       "linescores": [
+        {
+         "period": 1,
+         "linescores": []
+        },
+        {
+         "period": 2,
+         "linescores": []
+        }
+       ]
+      },
+      {
+       "order": 7,
+       "score": "E",
+       "athlete": {
+        "displayName": "Luke List",
+        "flag": {
+         "href": "https://a.espncdn.com/i/teamlogos/countries/500/usa.png",
+         "alt": "USA"
+        }
+       },
+       "linescores": [
+        {
+         "period": 1,
+         "linescores": []
+        },
+        {
+         "period": 2,
+         "linescores": []
+        }
+       ]
+      },
+      {
+       "order": 8,
+       "score": "E",
+       "athlete": {
+        "displayName": "Tom Hoge",
+        "flag": {
+         "href": "https://a.espncdn.com/i/teamlogos/countries/500/usa.png",
+         "alt": "USA"
+        }
+       },
+       "linescores": [
+        {
+         "period": 1,
+         "linescores": []
+        },
+        {
+         "period": 2,
+         "linescores": []
+        }
+       ]
+      },
+      {
+       "order": 9,
+       "score": "E",
+       "athlete": {
+        "displayName": "Erik van Rooyen",
+        "flag": {
+         "href": "https://a.espncdn.com/i/teamlogos/countries/500/rsa.png",
+         "alt": "South Africa"
+        }
+       },
+       "linescores": [
+        {
+         "period": 1,
+         "linescores": []
+        },
+        {
+         "period": 2,
+         "linescores": []
+        }
+       ]
+      },
+      {
+       "order": 10,
+       "score": "E",
+       "athlete": {
+        "displayName": "Hank Lebioda",
+        "flag": {
+         "href": "https://a.espncdn.com/i/teamlogos/countries/500/usa.png",
+         "alt": "USA"
+        }
+       },
+       "linescores": [
+        {
+         "period": 1,
+         "linescores": []
+        },
+        {
+         "period": 2,
+         "linescores": []
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

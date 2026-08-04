@@ -1,6 +1,7 @@
 import { driverCode } from "./driverCode";
 import { league as catalogLeague } from "./leagues";
 import { toRacing, toWeekends, type RawRacing } from "./racing";
+import { golfPath, toGolf, type RawGolf } from "./golf";
 import { isTournament } from "./model";
 import type { Competitor, Fixture, Game, GameState, Tournament } from "./model";
 
@@ -329,6 +330,10 @@ export async function fetchLeague(
   // two sides, so it maps to Fields (racing.ts) where everything else maps
   // to Fixtures. Same request, same gate, same fetch list: the only thing
   // racing gets to be special about is its shape.
+  // GOLF is a third shape: an ordered leaderboard rather than two sides or
+  // a race weekend. Same dispatch point, same rule — the only thing a sport
+  // gets to be special about is how its events are put together.
+  if (golfPath(path)) return toGolf(raw as RawGolf, path);
   if (!racingPath(path)) return toGames(raw, path);
   // SESSIONS or a WEEKEND, and it is a question about when rather than
   // about the data. Asked about a day, the sessions on it are the answer;

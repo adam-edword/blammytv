@@ -755,7 +755,7 @@ and Fighting (2).
 | 6 | `unknown` | Racing and golf leagues whose current event is `pre`, so it carries no competitors. They are `field` out of season. |
 | 3 | `empty` | No events at all right now. |
 
-#### 10. The golf card [ ]
+#### 10. The golf card [x] v0.8.159
 
 Five leagues. A leaderboard: an ordered field scored to par, which is
 neither a fixture nor a podium. Probed against a finished tournament (RBC
@@ -769,8 +769,49 @@ Heritage, 82 competitors):
 - Fields are 82 to 147 deep, so a card shows a top few, exactly like a
   podium.
 
-**Structurally this is the race card with a different number.** Blocked
-behind #1's model decision.
+**Structurally this is the race card with a different number**, which the
+build confirmed: golf maps to `Field`, not a fifth kind, and the board's
+day bucketing, follow filter, matcher and memoisation all took it unchanged.
+
+**Re-probed 2026-08-04 across all five leagues**, and the earlier notes hold
+with two corrections that changed the design:
+
+- **There is no par and no course.** Adam's first mock had "PAR 73" in the
+  corner; a walk of every key in the payload finds no course object at all.
+  The corner says **THRU** instead — which is not given either, but IS
+  derivable: every round nests its 18 holes and the played ones are the
+  ones with a score. It is also the better use of the corner, being the one
+  number that moves while you watch.
+- **Before the first tee there is no leaderboard.** LPGA, the DP World Tour
+  and the Champions Tour return ZERO competitors while an event is `pre`,
+  and the PGA and LIV return the whole field tied on "E". So `pre` carries
+  no entrants at all and the card has its own face for it.
+
+**Two faces, both Adam's.** Running or finished: league and THRU across the
+top, then five rows of position, flag, name and score to par. Upcoming: the
+tour's mark, the date range, the tournament name.
+
+Five rows rather than racing's three, because a podium is a result and a
+leaderboard is a standing — the top three of 144 does not say who is in it.
+
+**The mark is the only art golf has.** Four image URLs exist in the whole
+payload and two are DraftKings logos, so there is no course photo, no venue
+image and no per-event art. The tour mark comes from the CATALOG rather
+than the response, because a league between seasons answers 200 with no
+`leagues` block at all.
+
+Score stays a STRING ("-25", "E") — golf's own unit, and nothing we should
+be doing arithmetic on. No caption code: a golf scoreboard captions by
+country, and inventing three letters for Hideki Matsuyama would be writing
+a caption nobody uses, so `Entrant.code` became optional.
+
+Left: no WIDE card, so a live leaderboard is filtered off Today's Games and
+lives in the grid — the same holding position tournaments are in (#39).
+`harness/golf.html` renders all four faces off the real captures.
+
+**Also found, and not fixed**: ESPN writes Golf Channel as `"Golf Chnl"`,
+which matches nothing, while the dump carries `US: Golf Channel`. One
+`WORDS` entry away, exactly the shape of `net` to `network`.
 
 #### 11. UFC, MMA and PFL sides [ ]
 
@@ -1455,6 +1496,7 @@ here so a label that vanished can be looked up.
 | **43** | **The couldn't-link pill.** "On Paramount+" names a broadcaster, not a channel, so it says so: a muted pill with a warning triangle, on every state with no channel behind it, replacing the sentence where nothing is known | v0.8.153-154 |
 | **44** | **The map fills a dead end.** A source network that matches nothing now falls through to the map, keeping both: "On Paramount+ · Usually found on US: CBS Sports Network" | v0.8.156 |
 | **45** | **The fresh-eyes audit**, five parallel reviewers over v0.8.119-156. Tier 1's eight user-visible defects fixed; #46-48 carry the rest | v0.8.157 |
+| **10** | **The golf card.** A leaderboard as a `Field`: five rows of position, flag, name and score to par, THRU derived from the nested holes, and an upcoming face carrying the tour mark and date range. No par anywhere in the payload | v0.8.159 |
 | **38** | **Opening a tournament.** A tournament card opens its day's draw: live, upcoming, results, with a draw filter, per-set scores and courts. Also split SUSPENDED from postponed, which the screen exposed | v0.8.140 |
 
 ## Closed decisions

@@ -6,6 +6,7 @@ import {
 } from "../settings/compactResults";
 import { CompactCard } from "./CompactCard";
 import { RaceCard } from "./RaceCard";
+import { GolfCard } from "./GolfCard";
 import { TournamentCard } from "./TournamentCard";
 import { TournamentDraw } from "./TournamentDraw";
 import { WeekendCard } from "./WeekendCard";
@@ -219,7 +220,12 @@ export function SportsScreen({ home }: { home?: number } = {}) {
         // in for a rule, which is the exact shape of the bug the union's
         // narrowing discipline exists to prevent.
         (g): g is Fixture | Field =>
-          isFixture(g) || (isField(g) && g.state === "live"),
+          isFixture(g) ||
+          // Golf has no WIDE card yet, and WideRaceCard would draw it as a
+          // race: a lap slot with nothing in it and three entrants where
+          // the leaderboard needs five. The grid carries it meanwhile, the
+          // same holding position tournaments are in (#39).
+          (isField(g) && g.state === "live" && g.sport !== "golf"),
       ),
     [today],
   );
@@ -443,7 +449,18 @@ export function SportsScreen({ home }: { home?: number } = {}) {
               <div className="sports__grid">
                 {day.games.map((g) =>
                   isField(g) ? (
-                    <RaceCard key={g.id} race={g} />
+                    /* Both are Fields — an ordered list of people — and the
+                     * card is the only thing that differs. Keyed on the
+                     * SPORT rather than on a new union kind, because the
+                     * board, the day bucketing, the follow filter and the
+                     * matcher all treat them identically and a fifth kind
+                     * would have forked every one of those for a render
+                     * branch. */
+                    g.sport === "golf" ? (
+                      <GolfCard key={g.id} round={g} />
+                    ) : (
+                      <RaceCard key={g.id} race={g} />
+                    )
                   ) : isWeekend(g) ? (
                     /* A whole weekend, reached ahead of the board's window
                      * (#36). One card with its schedule in it, not five
@@ -481,7 +498,11 @@ export function SportsScreen({ home }: { home?: number } = {}) {
               isWeekend(g) ? (
                 <WeekendCard key={g.id} weekend={g} />
               ) : isField(g) ? (
-                <RaceCard key={g.id} race={g} />
+                g.sport === "golf" ? (
+                  <GolfCard key={g.id} round={g} />
+                ) : (
+                  <RaceCard key={g.id} race={g} />
+                )
               ) : isTournament(g) ? (
                 <TournamentCard key={g.id} event={g} onOpen={openTournament} />
               ) : (
