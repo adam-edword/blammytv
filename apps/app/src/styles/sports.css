@@ -3492,22 +3492,45 @@
 .golfcard:hover {
   z-index: 2;
 }
+/* THE SAME SHELL AS EVERY OTHER GRID CARD, and not a near-miss of it.
+ * Adam: "the shapes are a bit off too, should look the same as alllll the
+ * other cards."
+ *
+ * These four numbers are the house geometry — 181px tall, a 42.6px radius,
+ * a 1px hairline at 0.07 ink, the card's own background — and they are why
+ * the weekend card looks right: it does not restate them, it renders
+ * `.racecard__tilt` outright. This card had its own 18px radius, no border
+ * and a content-driven height, which read as a different KIND of object
+ * sitting in the same grid.
+ *
+ * Keep glareBorderRadius in GolfCard in step with the radius, the same
+ * note the race card carries: the tilt library draws its own layer and
+ * cannot read this. */
 .golfcard__tilt {
   position: relative;
   display: block;
-  border-radius: 18px;
+  height: 181px;
+  padding: 5px 25.56px;
+  border: 1px solid rgba(var(--card-ink), 0.07);
+  border-radius: 42.6px;
   background: var(--card-bg);
   overflow: hidden;
+  container-type: inline-size;
 }
+/* Centred in the shell rather than filling it, so a four-row leaderboard
+ * and a two-line tournament name both sit on the card's own middle. */
 .golfcard__body {
-  padding: 18px 22px 20px;
+  display: grid;
+  align-content: center;
+  height: 100%;
+  padding: 4px 0;
 }
 .golfcard__top {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
-  padding-bottom: 14px;
+  padding-bottom: 12px;
 }
 .golfcard__league,
 .golfcard__thru {
@@ -3541,7 +3564,12 @@
   margin: 0;
   padding: 0;
   display: grid;
-  row-gap: 10px;
+  /* Five rows inside 181px, which is the whole constraint. Measured on the
+   * rendered card rather than derived: the shell gives 169px of content
+   * box, the body's own padding takes 8 and the header with its gap takes
+   * 28, leaving 133. Five 17px lines is 85, so the four gaps get 12 —
+   * which lands it exactly, where 14 overflowed the shell by 2px. */
+  row-gap: 12px;
 }
 /* Position, flag, name, score. The name takes the slack so the score stays
  * hard right, which is what makes the column scannable — a leaderboard is
@@ -3571,7 +3599,8 @@
 .golfcard__name {
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: 19px;
+  font-size: 17px;
+  line-height: 1;
   letter-spacing: 0.01em;
   color: rgba(var(--card-ink), 0.95);
   overflow: hidden;
@@ -3581,7 +3610,8 @@
 .golfcard__score {
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: 19px;
+  font-size: 17px;
+  line-height: 1;
   font-variant-numeric: tabular-nums;
   color: rgba(var(--card-ink), 0.95);
 }
@@ -3594,7 +3624,6 @@
   grid-template-columns: auto 1fr;
   align-items: center;
   column-gap: 18px;
-  min-height: 148px;
 }
 /* The tour's mark, and the only card in the feature that leads with one.
  * It can afford to because there is nothing else: golf sends no course, no

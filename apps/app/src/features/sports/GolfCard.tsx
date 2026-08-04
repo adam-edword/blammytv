@@ -54,7 +54,7 @@ export const GolfCard = memo(function GolfCard({ round }: { round: Field }) {
         tiltMaxAngleX={2}
         tiltMaxAngleY={2}
         glareMaxOpacity={0.12}
-        glareBorderRadius="18px"
+        glareBorderRadius="42.6px"
         scale={1}
       >
         <div className="golfcard__body">
