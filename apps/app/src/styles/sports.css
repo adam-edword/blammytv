@@ -143,7 +143,12 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  /* The card's own tone at half, not black. Dimming a finished game means
+   * pushing it back toward the surface it sits on, which is darkening on a
+   * dark card and lightening on a white one; a flat 50% black was the grey
+   * slab on the light board, on a card whose surface measured pure white
+   * underneath it. */
+  background: rgba(var(--card-veil), 0.5);
   pointer-events: none;
   /* Coming BACK is the slow half: the card settling out of your way. */
   transition: opacity 320ms ease;
@@ -360,7 +365,7 @@
   --card-rgb: 255, 255, 255;
   --card-ink: 12, 14, 20;
   --card-veil: 255, 255, 255;
-  --card-art: 0.07;
+  --card-art: 0.3;
 }
 
 .gamecard {
@@ -2441,7 +2446,12 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  /* The card's own tone at half, not black. Dimming a finished game means
+   * pushing it back toward the surface it sits on, which is darkening on a
+   * dark card and lightening on a white one; a flat 50% black was the grey
+   * slab on the light board, on a card whose surface measured pure white
+   * underneath it. */
+  background: rgba(var(--card-veil), 0.5);
   pointer-events: none;
   /* Coming BACK is the slow half: the card settling out of your way. */
   transition: opacity 320ms ease;
