@@ -99,7 +99,11 @@ function UpcomingCardImpl({
       // `disabled` rather than a bare missing handler, so it leaves the tab
       // order and announces itself instead of looking live and doing
       // nothing.
-      disabled={early}
+      // ...and the same reasoning covers a card with NO handler at all,
+      // which is how the tournament draw renders its matches. Without this
+      // a 39 match day was 39 tab stops that announced as buttons and did
+      // nothing; the draw's own doc measures a peak day at 89.
+      disabled={early || !onOpen}
       onClick={() => onOpen?.(game)}
     >
       {/* Steeper than the live card's 1.5deg, and deliberately so: degrees

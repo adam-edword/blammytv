@@ -712,13 +712,23 @@ describe("what the reach asks for", () => {
     return urls;
   };
 
-  it("asks a racing league for its SEASON, which is 25 rounds", async () => {
+  it("asks a racing league for the season still AHEAD, as a date range", async () => {
     // Adam, on the bare call returning one lonely Grand Prix: "shouldn't
     // there be more than just NED? like the rest of the schedule should be
-    // showing". Measured 2026-08-03: `?dates=2026` returns all 25 rounds,
-    // 152 KB gzipped, 12 of them still ahead.
+    // showing".
+    //
+    // A RANGE rather than the calendar year, and the year was a real bug:
+    // on 20 December `?dates=2026` returns 25 rounds that have all already
+    // run, every one is filtered out, and a followed racing league goes
+    // silent until 1 January. Measured against the live endpoint on
+    // 2026-08-04 — `?dates=2026` gave 25 events from March, the rolling
+    // range gave the 12 still to come.
     const [url] = await seen(() => fetchBoard(["racing/f1"], { ahead: true }));
-    expect(url).toMatch(/\/racing\/f1\/scoreboard\?dates=\d{4}$/);
+    const m = /\/racing\/f1\/scoreboard\?dates=(\d{8})-(\d{8})$/.exec(url);
+    expect(m, url).not.toBeNull();
+    // A year apart, and starting today rather than in January.
+    const [, from, to] = m!;
+    expect(Number(to) - Number(from)).toBe(10000);
   });
 
   it("asks everything else for its NEXT event only", async () => {

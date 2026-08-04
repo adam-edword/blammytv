@@ -172,6 +172,54 @@ describe("withChannels", () => {
     expect(resolved[0].channelsPending).toBe(false);
   });
 
+  describe("the hidden-folder rule, over the whole join", () => {
+    it("does not let a doubtful visible match bury an exact hidden one", () => {
+      // The bar mismatch: the visible/hidden fallback was decided at
+      // MIN_CONFIDENCE (25) and the card counts CARD_CONFIDENCE (70). A
+      // visible 40% guess counted as "carrying the game", so the hidden
+      // list was dropped — and then the guess was dropped too, leaving the
+      // viewer with nothing while they owned an exact NBC feed.
+      const [g] = withChannels(
+        [game("a", { broadcasts: ["NBC"] })],
+        cat({ name: "NBC Sports Bay Area" }, { name: "US: NBC", hidden: true }),
+      );
+      expect(g.channels.map((c) => c.name)).toEqual(["US: NBC"]);
+      expect(g.hiddenOnly).toBe(true);
+    });
+
+    it("still says nothing about hidden folders when something visible carries it", () => {
+      // The rule itself, unchanged: a visible CARD-WORTHY match is the
+      // whole answer.
+      const [g] = withChannels(
+        [game("a", { broadcasts: ["MASN"] })],
+        cat({ name: "US: MASN" }, { name: "US: MASN HD", hidden: true }),
+      );
+      expect(g.channels.map((c) => c.name)).toEqual(["US: MASN"]);
+      expect(g.hiddenOnly).toBe(false);
+    });
+
+    it("applies the rule to fixture-named channels too", () => {
+      // matchEvent never reads `hidden`, so its results used to walk past
+      // the rule and LEAD the card: the hidden channel was tuned first and
+      // the card said "Live on 2 channels" with no mention of the folder.
+      const [g] = withChannels(
+        [
+          game("a", {
+            broadcasts: ["MASN"],
+            home: { name: "Orioles", abbr: "BAL" },
+            away: { name: "Braves", abbr: "ATL" },
+          }),
+        ],
+        cat(
+          { name: "MLB 01 | Braves at Orioles", hidden: true },
+          { name: "US: MASN" },
+        ),
+      );
+      expect(g.channels.map((c) => c.name)).toEqual(["US: MASN"]);
+      expect(g.hiddenOnly).toBe(false);
+    });
+  });
+
   /**
    * THE CURATED NETWORK MAP as a last resort (plan 010, phase 0's fallback).
    *

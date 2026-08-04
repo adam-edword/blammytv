@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { carriageText, carriageUnlinked } from "./carriage";
 import { GameCard } from "./GameCard";
 import { UpcomingCard } from "./UpcomingCard";
 import { BackArrowIcon, WarnIcon } from "../../ui/icons";
 import { useMouseNav } from "../../lib/mouseNav";
+import { isModalOpen } from "../../lib/modalOpen";
 import { isTauri, tauriIsFullscreen } from "../../lib/tauri";
 import type { Fixture, Tournament } from "./model";
 
@@ -77,6 +78,8 @@ export function TournamentDraw({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
+      // Settings or Themes is over this screen and owns the key.
+      if (isModalOpen()) return;
       if (!isTauri()) {
         onClose();
         return;
@@ -91,6 +94,23 @@ export function TournamentDraw({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  /**
+   * Focus follows the screen change.
+   *
+   * Opening the draw replaces the whole screen and left `document.activeElement`
+   * on `<body>`, so a keyboard user's next Tab restarted from the top of the
+   * document and a screen reader announced nothing at all. SportsScreen
+   * already restores focus to the invoking card on CLOSE; this is the other
+   * half of that trip.
+   *
+   * The back button rather than the heading: it is the first thing in the
+   * screen, it is the way out, and it is already labelled.
+   */
+  const back = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    back.current?.focus();
+  }, []);
 
   /** The draw being shown, or everything. */
   const [draw, setDraw] = useState<string | null>(null);
@@ -141,6 +161,7 @@ export function TournamentDraw({
       <div className="tourndraw__head">
         <header className="tourndraw__top">
           <button
+            ref={back}
             type="button"
             className="tourndraw__back"
             aria-label="Back to the board"

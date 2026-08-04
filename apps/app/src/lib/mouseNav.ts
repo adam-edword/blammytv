@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { isModalOpen } from "./modalOpen";
 
 /**
  * Mouse side buttons wired to a screen's own view stack.
@@ -20,6 +21,9 @@ export function useMouseNav(
     if (!enabled) return;
     const onButton = (e: MouseEvent) => {
       if (e.button !== 3 && e.button !== 4) return;
+      // A modal is a screen of its own; the one underneath must not also
+      // navigate. See lib/modalOpen.
+      if (isModalOpen()) return;
       e.preventDefault();
       if (e.type !== "mouseup") return;
       if (e.button === 3) onBack();

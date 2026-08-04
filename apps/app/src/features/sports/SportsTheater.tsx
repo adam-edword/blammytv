@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import Tilt from "react-parallax-tilt";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { useMouseNav } from "../../lib/mouseNav";
+import { isModalOpen } from "../../lib/modalOpen";
 import {
   isTauri,
   tauriIsFullscreen,
@@ -22,7 +23,7 @@ import { Matchup } from "./Matchup";
 import { CompactCard } from "./CompactCard";
 import { autoPlay, nextSource } from "./autoplay";
 import { tunedChannel } from "./catalog";
-import { matchEvent, matchGame } from "./matcher";
+import { matchEvent, matchGame, preferVisible } from "./matcher";
 import type { Catalog, Match } from "./matcher";
 import type { Fixture, Game } from "./model";
 
@@ -84,10 +85,14 @@ export function SportsTheater({
       catalog,
     );
     const seen = new Set(named.map((c) => c.id));
-    return [
+    // Through the same per-game hidden-folder rule the card uses. The rail
+    // shows more than the card does, but "a folder you muted only appears
+    // when nothing visible carries this" is a rule about the GAME, so the
+    // two surfaces must not disagree about which channels exist.
+    return preferVisible([
       ...named,
       ...matchGame(game.broadcasts, catalog).filter((c) => !seen.has(c.id)),
-    ];
+    ]);
   }, [game, catalog]);
 
   /**
@@ -345,6 +350,8 @@ export function SportsTheater({
      */
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
+      // Settings or Themes is over this screen and owns the key.
+      if (isModalOpen()) return;
       if (!isTauri()) {
         onClose();
         return;

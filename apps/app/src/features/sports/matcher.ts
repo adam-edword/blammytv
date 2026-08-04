@@ -456,34 +456,97 @@ export function matchEvent(
   for (const { channel, ids } of candidates) {
     const all = ids[0];
     if (![...want].every((w) => all.has(w))) continue;
-    if (!sameDay(channel.name, start)) continue;
+    if (!sameSlot(channel.name, start)) continue;
     out.push({ ...channel, confidence: SCORE.exact });
   }
   return out.sort((a, b) => rank(a.quality) - rank(b.quality));
 }
 
 /**
- * Does a dated channel name refer to the same day as this kick-off?
+ * Does a dated channel name refer to this kick-off?
  *
- * These channels are rotated daily and two clubs play three nights running,
- * so without this a Tuesday card would happily offer Monday's feed. Read in
- * US Eastern because that is the clock the provider stamps them with ("06:40
- * PM ET"), not the viewer's.
+ * These channels are rotated and re-used, so without this a Tuesday card
+ * would happily offer Monday's feed. Read in US Eastern because that is the
+ * clock the provider stamps them with ("26 Jul 06:40 PM ET"), not the
+ * viewer's.
  *
- * A name with no date in it passes: the check is here to rule out the WRONG
- * day, not to require that every provider stamps one.
+ * THE TIME MATTERS AS WELL AS THE DAY, and leaving it out was a real bug
+ * rather than a simplification. A doubleheader is two fixtures between the
+ * same two clubs on the same date, so the day check alone cannot tell them
+ * apart: traced against the real channel naming, ARI at PIT on 26 Jul
+ * returned BOTH feeds for BOTH legs, each at SCORE.exact. That is a wrong
+ * channel presented as a right one, which is the failure this whole file is
+ * organised around.
+ *
+ * A WINDOW rather than an equality, because the two clocks are not the same
+ * clock: the provider stamps its own listing time and the schedule carries
+ * the fixture's, and they drift by a few minutes. 90 minutes is wide enough
+ * to survive that and far narrower than any doubleheader gap — the legs are
+ * separated by a completed game, so hours.
+ *
+ * A name with no date, or no time, still passes on that part. The check is
+ * here to rule out what is definitely WRONG, not to require that every
+ * provider stamps everything.
  */
-function sameDay(name: string, start: Date): boolean {
-  const m = /\b(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i.exec(name);
-  if (!m) return true;
+const SLOT_WINDOW_MIN = 90;
+
+function sameSlot(name: string, start: Date): boolean {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/New_York",
     day: "numeric",
     month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: false,
   }).formatToParts(start);
-  const day = parts.find((p) => p.type === "day")?.value;
-  const month = parts.find((p) => p.type === "month")?.value?.toLowerCase();
-  return Number(m[1]) === Number(day) && m[2].toLowerCase() === month;
+  const part = (t: string) => parts.find((p) => p.type === t)?.value;
+
+  const onDate = /\b(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i.exec(name);
+  if (onDate) {
+    const day = part("day");
+    const month = part("month")?.toLowerCase();
+    if (Number(onDate[1]) !== Number(day) || onDate[2].toLowerCase() !== month)
+      return false;
+  }
+
+  const atTime = /\b(\d{1,2}):(\d{2})\s*([ap])m?\b/i.exec(name);
+  if (!atTime) return true;
+  let hour = Number(atTime[1]) % 12;
+  if (atTime[3].toLowerCase() === "p") hour += 12;
+  const wanted = hour * 60 + Number(atTime[2]);
+  // hour12:false answers 24 for midnight on some ICU builds.
+  const actual = (Number(part("hour")) % 24) * 60 + Number(part("minute"));
+  return Math.abs(wanted - actual) <= SLOT_WINDOW_MIN;
+}
+
+/**
+ * The hidden-folder fallback, as ONE rule both halves of the join can share.
+ *
+ * Adam's rule is that if anything in a visible folder carries the game, that
+ * is the whole answer and the hidden ones are never mentioned; only when
+ * nothing visible carries it do they appear. The subtlety, and the bug this
+ * was extracted to fix: "carries it" has to mean CARD-WORTHY.
+ *
+ * It used to be decided at MIN_CONFIDENCE, so a 40% visible guess counted as
+ * carrying the game — and then the card, which only counts 70 and above,
+ * threw that guess away too. Traced: with `US: NBC` hidden at 100 and `NBC
+ * Sports Bay Area` visible at 40, the card came back with NO channel and the
+ * "couldn't link" pill, while the viewer owned an exact NBC feed. Worst of
+ * both bars.
+ *
+ * So the fallback asks the CARD's question, and the rail keeps everything
+ * either way: when only the hidden folder really carries it, the doubtful
+ * visible rows still come along behind it rather than being dropped.
+ */
+export function preferVisible(matches: Match[]): Match[] {
+  const visible = matches.filter((c) => !c.hidden);
+  const hidden = matches.filter((c) => c.hidden);
+  if (hidden.length === 0 || visible.length === 0) return matches;
+  const carries = (list: Match[]) =>
+    list.some((c) => c.confidence >= CARD_CONFIDENCE);
+  if (carries(visible)) return visible;
+  if (carries(hidden)) return [...hidden, ...visible];
+  return visible;
 }
 
 /**
@@ -520,7 +583,7 @@ export function matchGame(
       (c.hidden ? hidden : visible).push(c);
     }
   }
-  const out = visible.length > 0 ? visible : hidden;
+  const out = preferVisible([...visible, ...hidden]);
   // NOT sorted by confidence outright. The order the networks arrived in is
   // the schedule's own priority, national feed before regional, and that is
   // better information about what someone wants to watch than a naming

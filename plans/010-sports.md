@@ -1315,6 +1315,96 @@ A stated broadcast that RESOLVES is still the whole answer and still not
 flagged as a guess. That is the rule the fall-through did not touch, and
 it has its own test now so the next change cannot quietly take it.
 
+#### 45. The fresh-eyes audit of v0.8.119-156 [~] v0.8.157
+
+Thirty-eight versions had landed with no review. Five reviewers were run in
+parallel, one per dimension, each with no prior context — deliberately, so
+they could not rationalise a decision by remembering why it was made. Every
+finding below was then re-verified against the code before anything moved.
+
+**What came back CLEAN, which is worth recording**: timezone and DST across
+the whole feature, discriminated-union narrowing, effect teardown, reduced
+motion (v0.8.148's audit really did close it), accessible names, narrow-window
+layout, and `matcher.ts` NOT being O(games x networks x channels) — the token
+index means the 20,000 channel catalog never appears in a per-tick cost.
+
+**TIER 1, fixed in v0.8.157.** Eight defects, all user-visible:
+
+| # | defect | fix |
+|---|---|---|
+| 1 | A doubleheader claimed BOTH feeds: `matchEvent` read the day and never the time the provider stamps. Traced, both legs returned both channels at 100 | `sameDay` became `sameSlot`, +-90 min |
+| 2 | A visible 40% guess suppressed an exact hidden match, then was itself dropped by the card's 70 bar — no channel at all while the viewer owned one | `preferVisible`, decided at the CARD bar |
+| 3 | `matchEvent` never reads `hidden`, so a muted folder could LEAD the card, saying "Live on 2 channels" with no mention | one partition over the whole join, in the card AND the rail |
+| 4 | The tournament draw was 39 focusable buttons that did nothing, entered with focus on `<body>` | `disabled` when nothing can open them; focus moves to the back button |
+| 5 | Escape behind an open Settings closed the modal AND the draw underneath it, or the modal and a playing stream | `lib/modalOpen.ts` |
+| 6 | The row never centred on a tennis day: `nowish` has no kind narrowing and returned a Tournament, which the row excludes | anchor comes from `rowItems` |
+| 7 | Racing reach-ahead was dead from the last race to 1 January — `?dates=2026` returns a year that has already run | a rolling 12-month range, confirmed against the live endpoint |
+| 8 | "Nothing scheduled yet" was asserted while the fetch was still in flight | the effect resets `state`/`days` when the fetch list changes |
+
+Two of these were found by tests that were themselves wrong: the slate test
+shared one `start` across three games the dump stamps at different times,
+which is how the doubleheader bug stayed green.
+
+#### 46. The identity chain is three layers deep and none of it fires [ ]
+
+Measured, not theorised. `keepStable` preserves the raw game object across a
+tick — proven — and then:
+
+- `SportsScreen` calls `withChannels(d.games)` on the RAW list every time,
+  and raw games always carry `channels: []`, so its `unchanged` check can
+  never match for any card that FOUND a channel. New object, every tick.
+- `openGame`/`openTournament` are plain arrows, so `React.memo` fails on
+  `onOpen` before it looks at `game`. `react-parallax-tilt` is a
+  `PureComponent` whose `children` is a new element each render, so it
+  re-runs `renderFrame` and rewrites ~5 inline styles per card to identical
+  values.
+- `RaceCard` and `WeekendCard` are not memoised at all, though
+  `WideRaceCard`'s comment claims every card is.
+
+This is the "584 DOM mutations and an 86ms long task" `keepStable`'s own
+docstring measured, still being paid in full. Fixes are small: `useCallback`,
+compare against the resolved list rather than the raw one, add the two
+`memo()`s. Also here: the tennis draw is mapped in full TWICE per tick (610
+matches -> 20 cards, **33ms measured** on the real payloads), and `fitText`'s
+mount path is O(N^2) forced layouts because `flushAll` walks every registered
+group from inside each card's `useLayoutEffect`.
+
+#### 47. Light mode was never re-measured [ ]
+
+The theme flip changed `--card-ink` but kept the alpha ramps tuned against
+the dark card, and alpha compositing is not symmetric. Sampled from rendered
+pixels:
+
+| element | light | bar |
+|---|---|---|
+| finished-card meta (league, abbr, record) | **1.9:1** | 4.5 |
+| the draw's section counts | **1.8:1** | 4.5 |
+| the clear-filter count | **2.0:1** | 4.5 |
+| the wide card's whole meta layer | 3.7-4.3:1 | 4.5 |
+
+`sports.css`'s own header claims "ZERO real contrast failures" — that audit
+only ever ran against the dark card. Also here: every crest is ESPN's
+`500-dark` inverted mark in both themes, which is light-on-white in light
+mode (needs one screenshot on a real network to size), and 36 of 128 cards
+are `disabled` with `cursor: default` as their entire treatment.
+
+#### 48. The harness is outside `tsc` and eslint [ ]
+
+`tsconfig.json` is `"include": ["src"]` and lint is `eslint src`, so a whole
+directory of dev-server entry points is checked by nothing. Consequences
+already shipped: `harness/theater.tsx` imports `LEAGUES`, deleted in
+v0.8.120, so the rig is a blank page; `harness/race.tsx` still RENDERS but
+sets five properties that no longer exist on `Field`, so the empty-podium
+case it was built to prove silently shows five drivers. One line of config
+prevents the class.
+
+Filed with it: dead code (three heart icons orphaned in v0.8.141,
+`sessionName`, `.sports__note`, `export type { Day }`), the Escape guard
+written twice and already diverging, the couldn't-link pill markup
+duplicated where #43 claims it is shared, and plan bookkeeping — #22 shipped
+but marked open, #35 stale in both directions, #27's ledger row off by one
+version, #40's blocker landed 19 commits ago.
+
 #### 40. The empty board says when the next one is [ ]
 
 Shipped in v0.8.135: the four no-cards states are a proper composition
@@ -1364,6 +1454,7 @@ here so a label that vanished can be looked up.
 | **42** | **The carriage line stops describing the world.** "Could not link channel": the only claim the app has evidence for. Plus "Usually found on X" for the map, and a test that holds the rule rather than the string | v0.8.152 |
 | **43** | **The couldn't-link pill.** "On Paramount+" names a broadcaster, not a channel, so it says so: a muted pill with a warning triangle, on every state with no channel behind it, replacing the sentence where nothing is known | v0.8.153-154 |
 | **44** | **The map fills a dead end.** A source network that matches nothing now falls through to the map, keeping both: "On Paramount+ · Usually found on US: CBS Sports Network" | v0.8.156 |
+| **45** | **The fresh-eyes audit**, five parallel reviewers over v0.8.119-156. Tier 1's eight user-visible defects fixed; #46-48 carry the rest | v0.8.157 |
 | **38** | **Opening a tournament.** A tournament card opens its day's draw: live, upcoming, results, with a draw filter, per-set scores and courts. Also split SUSPENDED from postponed, which the screen exposed | v0.8.140 |
 
 ## Closed decisions

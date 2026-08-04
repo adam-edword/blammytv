@@ -189,7 +189,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
   // Memoised, not because building it is expensive but because `?? []`
   // mints a new array on every render and rowItems is derived from it.
   const today = useMemo(() => days[0]?.games ?? [], [days]);
-  const anchor = nowish(today);
+
   const live = today.some((g) => g.state === "live");
   /**
    * What the ROW carries, which is not everything today has.
@@ -223,6 +223,17 @@ export function SportsScreen({ home }: { home?: number } = {}) {
       ),
     [today],
   );
+
+  /**
+   * What the row opens on — picked from `rowItems`, NOT from the whole day.
+   *
+   * `nowish` does not narrow by kind, so on a tennis day it happily returned
+   * the live Tournament, which the row deliberately excludes. The querySelector
+   * then found nothing, the effect bailed before recording anything, and the
+   * row sat at scrollLeft 0 for the rest of the day. Tennis was 84% of the
+   * board when that was last measured, so "the rest of the day" was most days.
+   */
+  const anchor = nowish(rowItems);
 
   const row = useRef<HTMLDivElement>(null);
   // The id we last scrolled to, NOT a "did it once" flag: the board

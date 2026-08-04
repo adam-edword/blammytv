@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { onDay } from "./day";
 import { DEFAULT_LEAGUES, fetchBoard } from "./espn";
-import { CARD_CONFIDENCE, matchEvent, matchGame } from "./matcher";
+import { CARD_CONFIDENCE, matchEvent, matchGame, preferVisible } from "./matcher";
 import type { Catalog } from "./matcher";
 import { isFixture, isTournament } from "./model";
 import type { Game } from "./model";
@@ -260,6 +260,24 @@ export function useGames(
       timer = window.setTimeout(tick, REFRESH_MS);
     };
 
+    /**
+     * The fetch list changed, so what is on screen answers the PREVIOUS
+     * question and must not be shown through the NEW filter.
+     *
+     * `loadAll` already cleared `ahead` and never cleared these, which is an
+     * asymmetry that made the bug worse rather than smaller. Star an
+     * off-season league on an unnarrowed board and the old all-leagues
+     * result gets filtered to nothing while `state` is still "ready", so the
+     * screen confidently says "Formula 1 has no fixtures published, not even
+     * further out" — for the whole duration of a fetch that is about to
+     * disprove it.
+     *
+     * Only here, in the effect body, and deliberately NOT inside `loadAll`:
+     * a date roll calls that too, and there the right behaviour is to keep
+     * yesterday's scores on screen until the new day answers.
+     */
+    setState("loading");
+    setDays([]);
     void loadAll();
     timer = window.setTimeout(tick, REFRESH_MS);
 
@@ -379,10 +397,16 @@ export function withChannels(games: Game[], catalog: Catalog | null): Game[] {
       ? matchEvent([game.home.name, game.away.name], game.start, catalog)
       : [];
     const seen = new Set(named.map((c) => c.id));
-    let found = [
+    // preferVisible over the COMBINED list, because the hidden-folder rule
+    // is decided per GAME and not per source. `matchGame` applies it to the
+    // networks it was given, but `matchEvent` never reads `hidden` at all,
+    // so a fixture-named channel from a folder the viewer muted used to walk
+    // straight past the rule and LEAD the card — "Live on 2 channels", no
+    // mention of the hidden folder, tuning the hidden one first.
+    let found = preferVisible([
       ...named,
       ...matchGame(game.broadcasts, catalog).filter((c) => !seen.has(c.id)),
-    ].filter((c) => c.confidence >= CARD_CONFIDENCE);
+    ]).filter((c) => c.confidence >= CARD_CONFIDENCE);
     /**
      * THE CURATED MAP, and only where the source said NOTHING AT ALL.
      *

@@ -340,9 +340,40 @@ describe("matchEvent", () => {
   });
 
   it("reads the date in US Eastern, which is what the provider stamps", () => {
-    // 00:40 UTC on the 28th is still the 27th at 20:40 in New York.
+    // 00:40 UTC on the 28th is still the 27th at 20:40 in New York, and the
+    // channel is stamped for that same evening slot.
+    const late = chan(
+      "MLB 07 | Arizona Diamondbacks at Pittsburgh Pirates HOME 27 Jul 08:40 PM ET",
+    );
     const lateNight = new Date("2026-07-28T00:40:00Z");
-    expect(matchEvent(teams, lateNight, [chan(REAL)])).toHaveLength(1);
+    expect(matchEvent(teams, lateNight, [late])).toHaveLength(1);
+  });
+
+  it("tells the two legs of a doubleheader apart", () => {
+    // The day check alone cannot: same two clubs, same date. Without the
+    // time, both legs claimed both feeds at SCORE.exact — a wrong channel
+    // presented as a right one.
+    const noon = chan(
+      "MLB 05 | Arizona Diamondbacks at Pittsburgh Pirates HOME 27 Jul 01:05 PM ET",
+    );
+    const night = chan(
+      "MLB 06 | Arizona Diamondbacks at Pittsburgh Pirates HOME 27 Jul 06:40 PM ET",
+    );
+    const leg1 = new Date("2026-07-27T17:05:00Z");
+    const leg2 = new Date("2026-07-27T22:40:00Z");
+    expect(matchEvent(teams, leg1, [noon, night]).map((c) => c.name)).toEqual([
+      noon.name,
+    ]);
+    expect(matchEvent(teams, leg2, [noon, night]).map((c) => c.name)).toEqual([
+      night.name,
+    ]);
+  });
+
+  it("tolerates the two clocks drifting, because they are different clocks", () => {
+    // The provider stamps its listing time and the schedule carries the
+    // fixture's. A few minutes apart must still be the same game.
+    const drifted = new Date("2026-07-27T22:52:00Z"); // 18:52 ET vs 18:40
+    expect(matchEvent(teams, drifted, [chan(REAL)])).toHaveLength(1);
   });
 
   it("accepts a channel that carries no date at all", () => {
@@ -362,13 +393,21 @@ describe("matchEvent", () => {
   it("finds every game on a real slate", () => {
     // The measurement that justified building this: against the real dump,
     // every MLB game that day had a dedicated feed.
-    const slate: [string, string][] = [
-      ["Pittsburgh Pirates", "Arizona Diamondbacks"],
-      ["Detroit Tigers", "Baltimore Orioles"],
-      ["Texas Rangers", "Seattle Mariners"],
+    // Each at its OWN start, which is what the dump actually carries: the
+    // Rangers game is stamped 02:35 PM ET and the other two 06:40 PM ET.
+    // Sharing one `start` across all three only passed while the time was
+    // ignored, and that was the doubleheader bug wearing a green test.
+    const slate: [string, string, string][] = [
+      ["Pittsburgh Pirates", "Arizona Diamondbacks", "2026-07-27T22:40:00Z"],
+      ["Detroit Tigers", "Baltimore Orioles", "2026-07-27T22:40:00Z"],
+      ["Texas Rangers", "Seattle Mariners", "2026-07-27T18:35:00Z"],
     ];
-    for (const pair of slate) {
-      expect(matchEvent(pair, start, ALL).length, pair.join(" v ")).toBeGreaterThan(0);
+    for (const [home, away, when] of slate) {
+      const pair = [home, away];
+      expect(
+        matchEvent(pair, new Date(when), ALL).length,
+        pair.join(" v "),
+      ).toBeGreaterThan(0);
     }
   });
 });

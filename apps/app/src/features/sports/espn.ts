@@ -285,12 +285,36 @@ export async function fetchLeague(
    * is 25 rows.
    */
   const season = ahead && racingPath(path);
+  /**
+   * A rolling twelve months, NOT the calendar year.
+   *
+   * `?dates=2026` asks for a year that is mostly over. On 20 December every
+   * round it returns has already run, `loadAhead` filters them all out, and
+   * a followed racing league shows nothing at all until 1 January — the
+   * exact silence #36 exists to prevent, arriving at the worst moment.
+   *
+   * ESPN accepts a RANGE, confirmed against the live endpoint on 2026-08-04:
+   *   ?dates=2026               25 events, 2026-03-06 .. 2026-12-04
+   *   ?dates=20260804-20270804  12 events, 2026-08-21 .. 2026-12-04
+   * The range answers with the season still AHEAD, which is what was
+   * wanted, and carries the year boundary with it. It is also half the
+   * payload, since the 13 rounds already run are never sent.
+   *
+   * A future year alone does not work — `?dates=2027` answers with the 2026
+   * season — so the range is the mechanism rather than a preference.
+   */
+  const rolling = () => {
+    const from = new Date();
+    const to = new Date(from);
+    to.setFullYear(to.getFullYear() + 1);
+    return `${espnDate(from)}-${espnDate(to)}`;
+  };
   const url =
     `${BASE}/${path}/scoreboard` +
     (date
       ? `?dates=${espnDate(date)}`
       : season
-        ? `?dates=${new Date().getFullYear()}`
+        ? `?dates=${rolling()}`
         : "");
   // The slot covers the whole transfer, not just the handshake: releasing
   // it at the response header would let six more requests start while six

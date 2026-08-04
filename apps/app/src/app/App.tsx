@@ -24,6 +24,7 @@ import {
 import { StreamScreen } from "../features/stream/StreamScreen";
 import { LibraryScreen } from "../features/stream/LibraryScreen";
 import { DiscoverScreen } from "../features/discover/DiscoverScreen";
+import { setModalOpen } from "../lib/modalOpen";
 import { SettingsModal } from "../features/settings/SettingsModal";
 import { ThemesModal } from "../features/settings/ThemesModal";
 import { loadStartupTab } from "../features/settings/startupTab";
@@ -188,6 +189,13 @@ export function App() {
     return () => {
       delete root.dataset.nativeHidden;
     };
+  }, [settingsOpen, themesOpen]);
+
+  // The screen underneath a modal stays mounted and keeps its own window
+  // listeners, so it has to be told to sit still. See lib/modalOpen.
+  useEffect(() => {
+    setModalOpen(settingsOpen || themesOpen);
+    return () => setModalOpen(false);
   }, [settingsOpen, themesOpen]);
 
   // Escape always exits fullscreen. The window-state plugin restores
