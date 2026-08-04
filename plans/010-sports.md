@@ -914,10 +914,44 @@ On the plan's verification list ("a taught correction survives a restart
 and applies to the next game on that network") and not built. Possibly the
 answer to #17.
 
-#### 27. Record the hit rate per league [ ]
+#### 27. Record the hit rate per league [x]
 
 The plan says this number belongs in this file. It is not here. Needs a run
 against a real playlist, per league, recorded with a date.
+
+**Measured 2026-08-03/04, across the whole catalog: 1,539 games, of which
+32 carry a broadcast name at all. 2.1%.**
+
+That number is the finding. The matcher was never the bottleneck — for most
+of the catalog the source hands us nothing to match on:
+
+| sport | games with a broadcast name |
+|---|---|
+| basketball | 4/4, 100% |
+| golf | 3/3, 100% |
+| baseball | 19/23, 83% |
+| soccer | 6/47, 13% |
+| **tennis** | **0/1462, 0%** |
+
+Tennis is categorically empty: not one of 1,462 matches carries a
+`broadcasts` or `geoBroadcasts` entry. Non-US soccer is the same story a
+league at a time — arg.1, col.1, ven.1, bol.1, par.1, swe.1 and both UEFA
+qualifying rounds are all 0%, while Concacaf's Leagues Cup is 6/6.
+
+The pattern is US rights. The phase 0 gate tested NFL, MLB and the Premier
+League and got 16/16, 15/15 and 1/1 — and those are exactly the leagues
+with coverage. Expanding to 151 brought in a long tail the gate never saw.
+
+So "Couldn't find a matching channel" is honest far more often than it is
+our failure, which is the reverse of what was assumed when #27 was written.
+What it changes:
+
+- Tuning the matcher would move almost nothing. The work is upstream.
+- A per-league "we have no broadcast data for this league" is a truthful
+  and cheap thing the card could say instead, and it is a different message
+  from "we looked and missed".
+- The curated network map on the shelf from phase 0 is worth revisiting for
+  exactly the leagues at 0%.
 
 #### 28. Blackout honesty [ ]
 
@@ -1102,6 +1136,7 @@ here so a label that vanished can be looked up.
 | **36** | **The board reaches past its window.** A followed league with nothing in the next three days is asked what is NEXT, and gets its own dated heading on the grid. No new endpoint: the bare scoreboard already answers it | v0.8.137 |
 | - | A reached-ahead race weekend folds into ONE `WeekendCard` on race day, instead of five session cards under three dated headings. `Weekend` became the union's fourth kind | v0.8.138 |
 | - | A followed racing league reaches for its whole remaining SEASON, not just the next round, and everything reached ahead lands in one "Coming up" section | v0.8.139 |
+| **27** | **Broadcast coverage measured per league.** The join's ceiling is the INPUT, not the matcher: see the table under #27 | v0.8.147 |
 | **38** | **Opening a tournament.** A tournament card opens its day's draw: live, upcoming, results, with a draw filter, per-set scores and courts. Also split SUSPENDED from postponed, which the screen exposed | v0.8.140 |
 
 ## Closed decisions
