@@ -51,9 +51,19 @@ themselves on next launch.
 - **Always tick "Set as the latest release"** when publishing: it pins
   what `releases/latest/download/latest.json` (the URL every installed
   app polls) resolves to, deterministically.
-- Verification is cheap: the sig math can be checked against the uploaded
-  exe before shipping the manifest (blake2b-512 of the file, Ed25519
-  against tauri.conf's pubkey. The remote session does this on request).
+- Verification is cheap, and now one command:
+  ```powershell
+  node scripts\verify-release.mjs `
+    apps\app\src-tauri\target\release\bundle\nsis\BlammyTV_<version>_x64-setup.exe `
+    apps\app\src-tauri\target\release\bundle\nsis\BlammyTV_<version>_x64-setup.exe.sig
+  ```
+  Offline, no key needed. It checks four things and names the one that
+  fails: the key id against tauri.conf's pubkey (so a signature from the
+  ROTATED-OUT key is caught before it ships), minisign's global signature
+  so the trusted comment is authentic, that the comment names the file you
+  handed it (this is the exe/sig mismatch guarded against above), and
+  finally Ed25519 over blake2b-512 of the bytes. Works on the frontend
+  tar.gz too.
 
 ## Per release
 
