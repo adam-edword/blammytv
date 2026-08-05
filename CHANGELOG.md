@@ -2,6 +2,67 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 0.8.163: Sports (2026-08-05)
+
+A whole new half of Live TV. Sports is a hub whose objects are **games**,
+not channels — it knows that Chiefs vs Bills is a thing that exists, works
+out which of your own channels is showing it, and gets you watching in one
+click.
+
+That was the gap this app had. Finding a game used to mean knowing which
+network had it, then hunting that network yourself among ~1,900 channels
+named things like `US| ESPN2 HD`.
+
+### New
+
+- **A Sports tab in Live TV.** What is on right now across the top, then a
+  grid per day for the next three days. Live first, because the question
+  the screen answers is "what can I watch".
+
+- **Your channels, on the card.** Every game says where you can actually
+  watch it — "Live on 3 channels" — and clicking one plays it in a theater
+  built on the same player the rest of the app uses. Several channels is
+  normal and good: three chances at one that is not buffering.
+
+- **151 leagues.** A picker with your favourites as tiles up top and
+  everything else in one searchable column, grouped by sport. Search
+  matches the sport as well as the league, so "hockey" finds all four
+  hockey leagues.
+
+- **Every sport gets the card it needs.** Two sides and a score for most of
+  them; a race weekend's schedule; a tennis tournament that opens into its
+  full day's draw with per-set scores and courts; and a golf leaderboard
+  with the field, the flags and the score to par.
+
+- **Racing is a league like any other.** Formula 1 sits in the defaults,
+  sessions land on their real days, and a race weekend three weeks out
+  shows as one schedule card rather than five loose sessions.
+
+- **The board reaches past its own window.** Follow only F1 in August and
+  the board used to be empty for eighteen days. Now a followed league with
+  nothing in the next three days shows its next event on its real date, and
+  a racing league shows its whole remaining season.
+
+### Improved
+
+- **Light mode.** The sports cards are themed rather than dark cards on a
+  white page, and a pass over the whole feature lifted the small text that
+  the theme change had left too faint to read.
+
+- **The app says only what it knows.** A game we cannot connect to one of
+  your channels says so plainly rather than claiming it is not on. Where we
+  know a league's usual home but the schedule says nothing — most of
+  tennis, and a lot of non-US football — the card offers that instead, and
+  words it as the guess it is.
+
+### Fixed
+
+- A credential leak, a content-security policy, two Windows-only defects
+  and a handful of races found by a fresh-eyes review.
+- The first launch no longer waits on the guide before showing the catalog.
+- Mouse back and Escape work on the sports screens, and Escape no longer
+  closes the screen behind an open Settings.
+
 ## 0.8.0: Library (2026-07-26)
 
 Your saved titles grow up. "My List" was one flat pile; now you can keep as
