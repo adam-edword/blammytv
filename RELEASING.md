@@ -65,6 +65,29 @@ themselves on next launch.
   finally Ed25519 over blake2b-512 of the bytes. Works on the frontend
   tar.gz too.
 
+- **Verify the signature BEFORE writing the manifest, and verify the
+  manifest after publishing.** Hand the same script a `latest.json` or a
+  `frontend.json` and it checks everything around the signature too:
+  ```powershell
+  node scripts\verify-release.mjs latest.json            # fetches + verifies the published asset
+  node scripts\verify-release.mjs latest.json <exe>      # or verifies a local one, offline
+  ```
+  It reads the manifest's kind off its shape, then checks that the version
+  is declared, that a `frontend.json`'s `nativeVersion` equals
+  tauri.conf's (a stale one is silently ignored by the app, not an error),
+  that the `signature` field is an actual minisign signature and not a
+  placeholder, that it names the asset the `url` points at, that the asset
+  filename carries the manifest version, that the url resolves, and that
+  the signature covers the bytes actually sitting at that url. Add
+  `--offline` to skip the fetch.
+
+  **v0.8.163 shipped both failures this catches**: a `latest.json` whose
+  signature still read "PASTE THE FULL CONTENTS OF ..." (the in-app update
+  failed for everyone until it was replaced), and a `frontend.json` naming
+  a bundle nobody uploaded. Neither is a crypto problem, so verifying the
+  `.sig` alone said nothing about either. Run manifest mode on the live
+  URL once the release is published — it takes eight seconds.
+
 ## Per release
 
 **Lazy path:** `.\scripts\release.ps1` does steps 2 of the below in one go:
@@ -99,9 +122,12 @@ env vars, and puts the `.sig` on the clipboard. Steps 0 (libmpv refresh),
    - `nsis/BlammyTV_<version>_x64-setup.exe`
    - `nsis/BlammyTV_<version>_x64-setup.exe.sig`  ← the signature
 
-3. **Write `latest.json`** (the update manifest the app polls). `signature` is the
-   entire contents of the `.sig` file; `url` points at the installer asset on the
-   release you're about to publish:
+3. **Verify the `.sig` against the exe, THEN write `latest.json`** (the update
+   manifest the app polls). Verifying first is the order that matters: a
+   manifest is only as good as the signature pasted into it, and the paste is
+   the step that goes wrong. `signature` is the entire contents of the `.sig`
+   file; `url` points at the installer asset on the release you're about to
+   publish:
    ```json
    {
      "version": "<version>",
@@ -125,6 +151,17 @@ env vars, and puts the `.sig` on the clipboard. Steps 0 (libmpv refresh),
    The updater endpoint is
    `https://github.com/adam-edword/blammytv/releases/latest/download/latest.json`,
    so the latest published release's `latest.json` is what every install sees.
+
+5. **Verify what you published**, against the live URLs, not your local copies:
+   ```powershell
+   curl -sL -o latest.live.json https://github.com/adam-edword/blammytv/releases/latest/download/latest.json
+   node scripts\verify-release.mjs latest.live.json
+   ```
+   This downloads the asset the manifest names and checks the signature over
+   its bytes, so a green run means an install will accept the update. Do the
+   same for `frontend.json` if the release published one. Eight seconds, and
+   it is the difference between "I published a release" and "the release
+   works".
 
 ## Frontend-only release (the hot channel, plan 008)
 
@@ -177,10 +214,17 @@ the bundle anyway, but do not make the app prove it for you.
    tick "Set as the latest release", because the hot channel resolves its
    manifest from `releases/latest/download/` too.
 
-6. **Verify before publishing**, exactly as for an installer: the remote
-   session checks the `.sig` against the uploaded bundle on request. The app
-   verifies too and refuses to unpack a byte on mismatch, but a bad bundle
-   should never reach a user in the first place.
+6. **Verify the bundle before step 4, and the manifest after step 5**, exactly
+   as for an installer:
+   ```powershell
+   node scripts\verify-release.mjs frontend-<version>.tar.gz frontend-<version>.tar.gz.sig
+   # ...then, once published:
+   curl -sL -o frontend.live.json https://github.com/adam-edword/blammytv/releases/latest/download/frontend.json
+   node scripts\verify-release.mjs frontend.live.json
+   ```
+   The app verifies too and refuses to unpack a byte on mismatch, but a bad
+   bundle should never reach a user in the first place — and a manifest
+   pointing at a missing bundle fails silently, which is worse than loudly.
 
 **Native releases additionally publish a `frontend.json`** whose
 `nativeVersion` equals the new native version, so a user who installs it
