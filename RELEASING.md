@@ -29,6 +29,65 @@ themselves on next launch.
 > v0.5.4's `-setup.exe` once**, after which auto-update resumes on the new key.
 > v0.5.4 is the first release signed with the new key.
 
+## Code signing, and the 2026-08-07 "the app uninstalled itself" reports
+
+**Status: OPEN. Leading hypothesis, not yet confirmed — the confirming
+evidence lives on the affected machines, not in this repo.**
+
+Two users reported the app vanishing from their PC mid-use, one right after
+pressing SOURCES on a Continue Watching card. What the investigation found:
+
+**Ruled out, with evidence:**
+
+- **The button cannot do it.** `onSources` and `onOpen` on `ContinueCard` are
+  the same call, `requestResumeInStream(e)` — it sets a module variable and
+  dispatches a `CustomEvent`. Pressing SOURCES does exactly what opening the
+  card does, which every user does constantly.
+- **Nothing in the app can delete an install.** The frontend reaches the disk
+  only through registered Tauri commands. Every destructive op in
+  `src-tauri/` writes inside `%APPDATA%\com.blammytv.app` (frontend.rs, the
+  hot-update staging) or `%TEMP%` (the snapshot PNG). We spawn no processes:
+  `grep Command::new src-tauri/src/` is empty.
+- **The updater does not uninstall.** This was the best theory —
+  `installMode: "quiet"` maps to NSIS `/S /R`, and an NSIS upgrade normally
+  runs the old uninstaller first. It does not here. tauri-bundler's
+  `installer.nsi`, in `PageLeaveReinstall`:
+
+      ; In update mode, always proceeds without uninstalling
+      ${If} $UpdateMode = 1
+        Goto reinst_done
+
+  tauri-plugin-updater always appends `/UPDATE`, so the upgrade path installs
+  over the top and never removes anything.
+
+**What is left, and why it fits:** the shipped installer is **UNSIGNED**.
+Verified against the published v0.8.163 binary by reading its PE header —
+the Certificate Table data directory is `rva=0 size=0`, i.e. no Authenticode
+signature at all. An unsigned, low-reputation NSIS app that loads a DLL at
+runtime, streams from arbitrary hosts, and self-updates by downloading and
+executing an .exe is squarely in Defender's heuristic territory
+(`Wacatac`/`Wacapew`-class detections). A cloud signature landing quarantines
+the binary on **every affected machine at once**, which fits "it happened to
+someone else just now too" far better than any UI interaction does. To a
+user, a quarantined exe plus a dead shortcut reads exactly as "it uninstalled
+itself".
+
+**How to confirm (needs the affected machines):**
+
+    Windows Security → Virus & threat protection → Protection history
+
+or, in PowerShell:
+
+    Get-MpThreatDetection | Select-Object -Property ThreatID,InitialDetectionTime,Resources
+
+A quarantine entry naming `BlammyTV.exe` or the install directory confirms
+it. Absence of one falsifies this whole section — say so and reopen.
+
+**The real fix is an Authenticode certificate** (OV is cheap but earns
+SmartScreen reputation slowly; EV buys reputation immediately). That is a
+purchase decision, not a code change. Until then, expect this to recur, and
+expect it to hit users in batches rather than one at a time.
+
 ## Hard-won rules (2026-07-09, the first rebuild release)
 
 - **Dev bumps touch only the three frontend files** (root+app package.json,

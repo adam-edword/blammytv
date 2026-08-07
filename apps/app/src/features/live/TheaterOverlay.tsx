@@ -265,10 +265,50 @@ export function TheaterOverlay({
   // the bar follows the pointer and the poll's updates don't fight it.
   const [scrub, setScrub] = useState<number | null>(null);
   const seekTrackRef = useRef<HTMLDivElement | null>(null);
+  /* The track's rect, measured ONCE on pointerdown and reused for the whole
+   * drag. Reading getBoundingClientRect() per pointermove forced a synchronous
+   * layout on every mouse event: measured at 91ms of layout across a 375-move
+   * drag, against 0ms for the same pointer stream with no scrub (see
+   * scripts/measure-scrub.mjs). The track cannot move mid-drag — the pointer
+   * is captured and the chrome is pinned while it is up — so the only thing
+   * that can invalidate this is a resize, which clears it below. */
+  const scrubRect = useRef<DOMRect | null>(null);
   const scrubFrac = useCallback((clientX: number) => {
-    const r = seekTrackRef.current?.getBoundingClientRect();
+    const r = scrubRect.current ?? seekTrackRef.current?.getBoundingClientRect();
     if (!r || r.width === 0) return 0;
     return Math.min(1, Math.max(0, (clientX - r.left) / r.width));
+  }, []);
+  /* Coalesce pointermove into one state update per FRAME. Each setScrub
+   * re-renders the whole chrome, and a mouse reports at 125Hz-1000Hz — up to
+   * 16 renders per frame, all but the last invisible. The pending fraction
+   * lives in a ref so the frame always lands the newest position, not the one
+   * that happened to schedule the frame. */
+  const scrubRaf = useRef(0);
+  const scrubNext = useRef(0);
+  const endScrub = useCallback(() => {
+    if (scrubRaf.current) cancelAnimationFrame(scrubRaf.current);
+    scrubRaf.current = 0;
+    scrubRect.current = null;
+  }, []);
+  const scrubTo = useCallback((clientX: number) => {
+    scrubNext.current = scrubFrac(clientX);
+    if (scrubRaf.current) return;
+    scrubRaf.current = requestAnimationFrame(() => {
+      scrubRaf.current = 0;
+      setScrub(scrubNext.current);
+    });
+  }, [scrubFrac]);
+  useEffect(() => {
+    // A resize (or entering fullscreen) moves the track under a held pointer.
+    const drop = () => {
+      scrubRect.current = null;
+    };
+    window.addEventListener("resize", drop);
+    return () => {
+      window.removeEventListener("resize", drop);
+      // A frame still queued at unmount would setScrub on a dead component.
+      if (scrubRaf.current) cancelAnimationFrame(scrubRaf.current);
+    };
   }, []);
 
   /* Tune watchdog. `loading` flips false exactly once, on mpv's FIRST FRAME
@@ -1118,14 +1158,23 @@ export function TheaterOverlay({
                 onPointerDown={(e) => {
                   if (e.button !== 0) return; // left button scrubs, only
                   e.currentTarget.setPointerCapture(e.pointerId);
+                  // The one measurement of the drag — every later frac reuses it.
+                  scrubRect.current = e.currentTarget.getBoundingClientRect();
                   setScrub(scrubFrac(e.clientX));
                 }}
                 onPointerMove={(e) => {
-                  if (scrub !== null) setScrub(scrubFrac(e.clientX));
+                  if (scrub !== null) scrubTo(e.clientX);
                 }}
                 onPointerUp={(e) => {
                   if (scrub === null) return;
+                  // Read the frac BEFORE endScrub drops the cached rect, and
+                  // straight from the event rather than the coalesced ref, so
+                  // the seek lands exactly where the pointer was released
+                  // even if that move never got its frame.
                   const f = scrubFrac(e.clientX);
+                  // A queued frame would setScrub AFTER this setScrub(null)
+                  // and leave the knob stuck mid-track with nothing held.
+                  endScrub();
                   setScrub(null);
                   if (time && time.dur > 0) {
                     api()?.seekAbs?.(f * time.dur);
@@ -1133,7 +1182,10 @@ export function TheaterOverlay({
                     setTime({ pos: f * time.dur, dur: time.dur });
                   }
                 }}
-                onPointerCancel={() => setScrub(null)}
+                onPointerCancel={() => {
+                  endScrub();
+                  setScrub(null);
+                }}
               >
                 <div
                   className="theater-seek__fill"

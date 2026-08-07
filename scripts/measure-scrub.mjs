@@ -8,11 +8,21 @@
 // Control arm drags over a NON-interactive part of the chrome (same pointer
 // events, same rate, no setScrub), so the delta is the scrub state cost.
 //
-// Baseline, 2026-08-07, 375 moves at 125Hz, headless with no video decoding:
-//   control  script  59ms  style  4ms  layout  0ms  task  224ms
-//   drag     script 347ms  style 27ms  layout 91ms  task 1004ms
-//   -> 780ms of main thread over the drag, 12% of one core while held.
-// The layout column is the tell: 0ms without scrubbing, 91ms with.
+// Baselines, 2026-08-07, 3s drag, ~5.2k pointermove events, headless with no
+// video decoding.
+//
+// BEFORE (rect read per move, setScrub per move):
+//   control  script 205ms  style  4ms  layout   0ms  task 235ms
+//   drag     script 356ms  style 27ms  layout 101ms  task 666ms
+//   -> 431ms of main thread over the drag, 14% of one core while held.
+// AFTER (rect cached on pointerdown, setScrub coalesced to one per frame):
+//   control  script 156ms  style  3ms  layout   0ms  task 184ms
+//   drag     script 246ms  style 16ms  layout  42ms  task 456ms
+//   -> 272ms, 9% of one core. Repeat run 268ms, so that is signal not noise.
+//
+// The layout column is the tell: 0ms without scrubbing, 101ms with, and the
+// rect cache is what takes it to 42ms. What is left is the real cost of
+// moving the fill and knob, which is work we actually want.
 //
 // Run:
 //   pnpm --filter @blammytv/app build
@@ -111,24 +121,55 @@ async function run(label, { scrub }) {
   const x1 = box.x + box.width - 4;
   const steps = Math.round((DRAG_MS / 1000) * HZ);
 
-  await page.mouse.move(x0, y);
   const before = await read();
   const t0 = Date.now();
-  // scrub=false drags at the same rate over the title area instead — pointer
-  // events still fire, nothing sets scrub state.
-  if (scrub) await page.mouse.down();
-  for (let i = 0; i <= steps; i++) {
-    const f = 0.5 - 0.5 * Math.cos((i / steps) * Math.PI * 4); // back and forth
-    await page.mouse.move(x0 + (x1 - x0) * f, scrub ? y : box.y - 90);
-  }
-  if (scrub) await page.mouse.up();
+  // Dispatched IN THE PAGE rather than through page.mouse: every
+  // page.mouse.move is an awaited CDP round trip, so a frame always elapses
+  // between moves and per-frame coalescing can never engage — which makes a
+  // rAF-throttled handler look free and an unthrottled one look identical.
+  // A real mouse delivers a burst of moves inside one frame. This does that.
+  await page.evaluate(
+    ({ x0, x1, y, steps, scrub, ms }) =>
+      new Promise((done) => {
+        const el = document.querySelector(".theater-seek__track--vod");
+        const fire = (type, clientX, clientY) =>
+          el.dispatchEvent(
+            new PointerEvent(type, {
+              pointerId: 1, bubbles: true, cancelable: true, button: 0,
+              buttons: type === "pointerup" ? 0 : 1, clientX, clientY,
+            }),
+          );
+        // setPointerCapture on a synthetic pointer id throws; the handler
+        // guards nothing else, so stub it for the duration of the drag.
+        el.setPointerCapture = () => {};
+        if (scrub) fire("pointerdown", x0, y);
+        let i = 0;
+        const started = performance.now();
+        // Deliver moves as fast as the event loop allows, for a fixed wall
+        // clock — a burst per frame, like a 1000Hz mouse. The fraction is
+        // periodic, so it just keeps sweeping back and forth.
+        const pump = () => {
+          for (let k = 0; k < 8; k++, i++) {
+            const f = 0.5 - 0.5 * Math.cos((i / steps) * Math.PI * 4);
+            fire("pointermove", x0 + (x1 - x0) * f, scrub ? y : y - 90);
+          }
+          if (performance.now() - started < ms) return void setTimeout(pump, 0);
+          if (scrub) fire("pointerup", x1, y);
+          window.__moves = i;
+          done();
+        };
+        pump();
+      }),
+    { x0, x1, y, steps, scrub, ms: DRAG_MS },
+  );
   const wall = Date.now() - t0;
+  const moves = await page.evaluate(() => window.__moves ?? 0);
   const after = await read();
   const long = await page.evaluate(() => window.__long);
   await page.close();
 
   const d = (k) => (after[k] - before[k]) * 1000;
-  return { label, steps, wall, script: d("script"), style: d("style"),
+  return { label, steps, moves, wall, script: d("script"), style: d("style"),
            layout: d("layout"), task: d("task"), long };
 }
 
@@ -141,7 +182,10 @@ const row = (r) =>
   `style ${r.style.toFixed(0).padStart(4)}ms  layout ${r.layout.toFixed(0).padStart(4)}ms  ` +
   `task ${r.task.toFixed(0).padStart(5)}ms`;
 
-console.log(`\nVOD scrubber drag — ${control.steps} pointer moves at ~${HZ}Hz\n`);
+console.log(
+  `\nVOD scrubber drag — ${DRAG_MS / 1000}s, ` +
+    `${control.moves} vs ${drag.moves} pointermove events delivered\n`,
+);
 console.log(row(control));
 console.log(row(drag));
 const dTask = drag.task - control.task;
