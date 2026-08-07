@@ -2,6 +2,38 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 0.8.166: The disappearing app (2026-08-07)
+
+Some of you had BlammyTV vanish off your PC this week, mid-use. That was
+Windows Defender, and it was our fault in a fixable way.
+
+Defender's machine-learning scanner flagged the app and removed it. The
+detection was a false positive, but two things about how we shipped invited
+it: the program file was called `app.exe`, a generic name sitting in a
+folder where unwanted software usually hides, and our installer carries no
+code-signing certificate. This release renames the program to
+`BlammyTV.exe`. The certificate is being sorted out separately.
+
+**If your copy disappeared:** open Windows Security, go to Protection
+history, find the BlammyTV entry, choose Actions, and pick Restore. Then
+install this version over the top.
+
+### Fixed
+
+- The app is now `BlammyTV.exe` instead of `app.exe`, which is a large part
+  of why Defender took an interest in it.
+- **Sources** on a Continue Watching card takes you to the source list.
+  Before, it did the same thing as clicking the card: if a cached source
+  existed it just started playing, so the button looked broken.
+- Dragging the playback scrubber is smoother. It was re-measuring the bar on
+  every single mouse movement, which is roughly a third of the work it was
+  doing.
+
+### New
+
+- Clicking a Continue Watching card's **title** opens its source list too.
+  The artwork plays it, the words tell you where it is coming from.
+
 ## 0.8.163: Sports (2026-08-05)
 
 A whole new half of Live TV. Sports is a hub whose objects are **games**,
