@@ -31,8 +31,42 @@ themselves on next launch.
 
 ## Code signing, and the 2026-08-07 "the app uninstalled itself" reports
 
-**Status: OPEN. Leading hypothesis, not yet confirmed — the confirming
-evidence lives on the affected machines, not in this repo.**
+**Status: CONFIRMED 2026-08-07. Windows Defender, a false positive.**
+
+    Threat blocked                      Severe
+    Detected: Trojan:Win32/Bearfoos.A!ml
+    Status:   Removed
+    file: C:\Users\<user>\AppData\Local\BlammyTV\app.exe
+
+The `!ml` suffix is the tell: a machine-learning heuristic, not a signature
+match on known malware. Two things fed it, and both are fixable.
+
+**1. The main binary was named `app.exe`.** `[package] name = "app"` in
+Cargo.toml, with no `mainBinaryName` override, produced a generic `app.exe`
+sitting in `AppData\Local` — which is precisely where droppers put
+generically-named payloads, and a strong ML feature on its own. Fixed in
+tauri.conf.json: `"mainBinaryName": "BlammyTV"` ships `BlammyTV.exe`.
+Tauri's NSIS template deletes `$OldMainBinaryName` on update, so existing
+installs migrate rather than keeping a stray `app.exe`. **This lands on the
+next NATIVE release; a frontend-only release cannot carry it.**
+
+**2. The installer is unsigned** (see below). Nothing else moves the needle
+as much as a certificate.
+
+**Also do this, it is free and it works:** submit the binary to Microsoft as
+a false positive at <https://www.microsoft.com/en-us/wdsi/filesubmission>
+(pick "Software developer", "Incorrectly detected"). Turnaround is usually a
+few days, and the detection is withdrawn fleet-wide. Re-submit after each
+release until the signing cert is in place, because an unsigned binary earns
+no reputation carry-over between builds.
+
+**For affected users, right now:** Windows Security → Protection history →
+the entry → Actions → **Restore**, then reinstall. Adding an exclusion for
+`%LOCALAPPDATA%\BlammyTV` prevents a repeat on that machine.
+
+---
+
+Original investigation, kept because the ruled-out list is the useful part:
 
 Two users reported the app vanishing from their PC mid-use, one right after
 pressing SOURCES on a Continue Watching card. What the investigation found:
@@ -60,7 +94,8 @@ pressing SOURCES on a Continue Watching card. What the investigation found:
   tauri-plugin-updater always appends `/UPDATE`, so the upgrade path installs
   over the top and never removes anything.
 
-**What is left, and why it fits:** the shipped installer is **UNSIGNED**.
+**What was left, and what it turned out to be:** the shipped installer is
+**UNSIGNED**.
 Verified against the published v0.8.163 binary by reading its PE header —
 the Certificate Table data directory is `rva=0 size=0`, i.e. no Authenticode
 signature at all. An unsigned, low-reputation NSIS app that loads a DLL at
@@ -72,7 +107,7 @@ someone else just now too" far better than any UI interaction does. To a
 user, a quarantined exe plus a dead shortcut reads exactly as "it uninstalled
 itself".
 
-**How to confirm (needs the affected machines):**
+**How this was confirmed (Defender's own record, above):**
 
     Windows Security → Virus & threat protection → Protection history
 
@@ -80,8 +115,7 @@ or, in PowerShell:
 
     Get-MpThreatDetection | Select-Object -Property ThreatID,InitialDetectionTime,Resources
 
-A quarantine entry naming `BlammyTV.exe` or the install directory confirms
-it. Absence of one falsifies this whole section — say so and reopen.
+
 
 **The real fix is an Authenticode certificate** (OV is cheap but earns
 SmartScreen reputation slowly; EV buys reputation immediately). That is a

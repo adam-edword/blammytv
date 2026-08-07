@@ -47,15 +47,36 @@ export function onOpenRequest(cb: () => void): () => void {
  * identity, not just an id.
  */
 const RESUME_EVENT = "blammytv:resume-in-stream";
-let pendingResume: WatchEntry | null = null;
+
+/** What the Library asked for. "resume" quick-resumes into playback (the
+ * card body); "sources" lands the source list without playing anything (the
+ * Sources chip, and the title/meta line beside it). Both ride the SAME
+ * mailbox and event so there is one tab-flip listener in App.tsx rather
+ * than two — a second one is exactly the wiring that went missing before
+ * and made a click do nothing at all. */
+export type ResumeIntent = "resume" | "sources";
+export interface ResumeRequest {
+  entry: WatchEntry;
+  intent: ResumeIntent;
+}
+let pendingResume: ResumeRequest | null = null;
 
 export function requestResumeInStream(entry: WatchEntry): void {
-  pendingResume = entry;
+  pendingResume = { entry, intent: "resume" };
   origin = "mylist";
   window.dispatchEvent(new CustomEvent(RESUME_EVENT));
 }
 
-export function takeResumeRequest(): WatchEntry | null {
+/** The Sources chip: show me where this comes from, do not start playing.
+ * Quick-resume auto-plays the first CACHED source, which is the opposite of
+ * what someone asking for the source list wants. */
+export function requestSourcesInStream(entry: WatchEntry): void {
+  pendingResume = { entry, intent: "sources" };
+  origin = "mylist";
+  window.dispatchEvent(new CustomEvent(RESUME_EVENT));
+}
+
+export function takeResumeRequest(): ResumeRequest | null {
   const p = pendingResume;
   pendingResume = null;
   return p;

@@ -701,6 +701,67 @@ export function StreamScreen() {
     [setPlaying, open, navigate, captureScroll],
   );
 
+  /**
+   * The Library's Sources chip: land the source list for a Continue
+   * Watching entry, playing nothing. Deliberately NOT quickResume with a
+   * flag — quickResume's whole job is to find a cached source and start it,
+   * and every exit it has (auto-play, the detail page, the source screen)
+   * depends on that resolve. Someone asking "where is this from" wants the
+   * list, so this skips the source resolve entirely: Detail does its own,
+   * and the screen appears without waiting on a debrid round trip.
+   */
+  const openSources = useCallback(
+    async (entry: WatchEntry, known?: VodItem) => {
+      const kind = entry.kind ?? (entry.episodeId ? "series" : "movie");
+      captureScroll();
+      setResolving({
+        art: known?.logo ?? entry.logo ?? known?.poster ?? entry.art,
+        title: entry.title,
+      });
+      let item = known;
+      // A series needs its seasons for the source screen's back-out to land
+      // on a populated episode list, so a bare catalog preview is not enough.
+      if (!item || (kind === "series" && item.seasons.length === 0)) {
+        const full = await resolveVodItem(kind, entry.id).catch(() => null);
+        if (full) item = full;
+      }
+      setResolving(null);
+      if (!item) {
+        // Same honest fallback as quickResume: the detail page with the
+        // light entry data, which shows the resolve error and a retry.
+        void open({
+          id: entry.id,
+          title: entry.title,
+          kind,
+          ...(entry.art ? { backdrop: entry.art } : {}),
+          ...(entry.logo ? { logo: entry.logo } : {}),
+          genres: [],
+          cast: [],
+          seasons: [],
+        });
+        return;
+      }
+      navigate({
+        at: "sources",
+        item,
+        // Movies have no episodeId; the sources view renders their own
+        // list from the item, which is why episodeId is optional on it.
+        ...(entry.episodeId ? { episodeId: entry.episodeId } : {}),
+        ...(entry.label ? { episodeLabel: entry.label } : {}),
+        ...(entry.season != null && entry.episode != null
+          ? {
+              episodeInfo: {
+                season: entry.season,
+                episode: entry.episode,
+                title: entry.epTitle ?? "",
+              },
+            }
+          : {}),
+      });
+    },
+    [navigate, open, captureScroll],
+  );
+
   // Skip Intro Phase 2: exact AniSkip intervals for the playing episode,
   // resolved async (imdb → MAL via the cached mapping index, then one API
   // call). Everything fails soft to the chapter heuristics in the overlay.
@@ -747,21 +808,26 @@ export function StreamScreen() {
   // unmounts the asker before a bare event could be heard.
   useEffect(() => {
     const consume = () => {
-      const entry = takeResumeRequest();
-      if (!entry) return;
+      const req = takeResumeRequest();
+      if (!req) return;
+      const { entry, intent } = req;
       const l = loadRef.current;
       const item = l.status === "ready" ? l.data.items.get(entry.id) : undefined;
       // Same arming as the item mailbox: a resume that falls back to a
       // detail or source screen owes a return to the Library on back-out.
       // One that goes straight to playback pushes nothing and owes nothing.
       handoffArm.current = true;
-      void quickResume(entry, item).finally(() => {
+      const run =
+        intent === "sources"
+          ? openSources(entry, item)
+          : quickResume(entry, item);
+      void run.finally(() => {
         handoffArm.current = false;
       });
     };
     consume();
     return onResumeRequest(consume);
-  }, [quickResume]);
+  }, [quickResume, openSources]);
 
   const [panelTick, setPanelTick] = useState(0);
   useEffect(() => {
@@ -2306,8 +2372,23 @@ export function ContinueCard({
       <span className="continue-card__hold" aria-hidden>
         Keep holding to clear
       </span>
-      <span className="stream-card__name">{entry.title}</span>
-      {metaLine && <span className="stream-card__meta">{metaLine}</span>}
+      {/* The title/meta line goes to the SOURCE list, not playback — the
+        * art is the "play this" target, the text is the "what is this"
+        * target. A real button like the Sources chip, so it is reachable by
+        * keyboard; the card's own pointer/click handlers are stopped here
+        * or the press would both open sources AND quick-resume. */}
+      <button
+        type="button"
+        className="continue-card__text"
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSources();
+        }}
+      >
+        <span className="stream-card__name">{entry.title}</span>
+        {metaLine && <span className="stream-card__meta">{metaLine}</span>}
+      </button>
     </div>
   );
 }

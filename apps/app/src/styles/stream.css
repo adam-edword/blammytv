@@ -400,6 +400,29 @@
 .continue-card .stream-card__meta {
   max-width: 533px;
 }
+/* The title/meta line is a real button (it opens the source list), so it
+ * has to be stripped back to the plain text it looks like. Keeps the card's
+ * own 8px column gap between name and meta, so wrapping them changed no
+ * spacing. */
+.continue-card__text {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  margin: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.continue-card__text:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+.continue-card__text:hover .stream-card__name { color: var(--accent); }
 /* Art + progress bar share a positioning box (art width is intrinsic). */
 /* Hold-to-clear progress: fills linearly over EXACTLY the 1000ms hold
  * timer in StreamScreen (the animation IS the countdown — keep it under

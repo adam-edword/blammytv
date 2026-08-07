@@ -16,7 +16,11 @@ import {
   type UserList,
 } from "./lists";
 import type { ListEntry } from "./myList";
-import { requestOpenInStream, requestResumeInStream } from "./openRequest";
+import {
+  requestOpenInStream,
+  requestResumeInStream,
+  requestSourcesInStream,
+} from "./openRequest";
 import type { VodItem } from "./model";
 import {
   clearAllWatching,
@@ -305,7 +309,7 @@ export function LibraryScreen() {
                     entry={e}
                     metaFields={gridMetaFields}
                     onOpen={() => requestResumeInStream(e)}
-                    onSources={() => requestResumeInStream(e)}
+                    onSources={() => requestSourcesInStream(e)}
                     onClear={() => setWatching(clearWatching(e.id))}
                   />
                 ))
@@ -348,7 +352,7 @@ export function LibraryScreen() {
                 entry={e}
                 metaFields={metaFields}
                 onOpen={() => requestResumeInStream(e)}
-                onSources={() => requestResumeInStream(e)}
+                onSources={() => requestSourcesInStream(e)}
                 onClear={() => setWatching(clearWatching(e.id))}
               />
             ))}
