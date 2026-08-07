@@ -58,10 +58,12 @@ export default tseslint.config(
     },
   },
 
-  // Playwright verify scripts run in node but serialize callbacks into the
-  // page (addInitScript/evaluate), so those bodies use browser globals too.
+  // Playwright verify/measure scripts run in node but serialize callbacks
+  // into the page (addInitScript/evaluate), so those bodies use browser
+  // globals too. `measure-*` are the perf harnesses (plan 011): same shape,
+  // they report a number instead of a pass/fail.
   {
-    files: ["scripts/verify-*.mjs"],
+    files: ["scripts/verify-*.mjs", "scripts/measure-*.mjs"],
     languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
 

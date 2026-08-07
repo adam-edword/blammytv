@@ -18,6 +18,7 @@ import "./styles/onboarding.css";
 import { App } from "./app/App";
 import { TheaterOverlay } from "./features/live/TheaterOverlay";
 import { isTauri } from "./lib/tauri";
+import { installPlayerPerf } from "./lib/playerPerf";
 import {
   applyAccent,
   applyAurora,
@@ -42,6 +43,10 @@ applyUiScale(loadUiScale());
 applyCornerStyle(loadCornerStyle());
 // Paid theme CSS, purely from cache — see license.ts's fail-open comment.
 applyInstalledPacks();
+
+// `playerPerf(seconds)` in the devtools console — the player perf probe
+// (plan 011). Installed for both entries so the overlay harness can use it too.
+installPlayerPerf();
 
 const root = ReactDOM.createRoot(document.getElementById("root")!);
 

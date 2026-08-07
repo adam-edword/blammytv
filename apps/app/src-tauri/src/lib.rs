@@ -371,6 +371,12 @@ fn mpv_diag() -> String {
 
 #[tauri::command]
 fn mpv_status() -> String {
+    // Timed in three segments (plan 011): the five scalars the poll actually
+    // needs every tick, then the track list, then the chapter list — the two
+    // that are STATIC for a loaded file and re-read twice a second anyway.
+    // Splitting it here is the whole point: a single total can't tell us
+    // whether caching the static halves is worth doing.
+    let t_start = std::time::Instant::now();
     let pos = mpv::get_property("time-pos").and_then(|s| s.parse::<f64>().ok());
     let dur = mpv::get_property("duration").and_then(|s| s.parse::<f64>().ok());
     let presenting = mpv::get_property("core-idle").as_deref() == Some("no");
@@ -379,9 +385,13 @@ fn mpv_status() -> String {
     // even though we WERE presenting — the frontend watchdog re-arms on it.
     let ended = mpv::get_property("eof-reached").as_deref() == Some("yes")
         || mpv::get_property("idle-active").as_deref() == Some("yes");
+    let t_scalars = t_start.elapsed();
+    let t_tracks_start = std::time::Instant::now();
+    let tracks = mpv::track_list();
+    let t_tracks = t_tracks_start.elapsed();
     let mut audio = Vec::new();
     let mut subs = Vec::new();
-    for t in mpv::track_list() {
+    for t in tracks {
         let label = if !t.title.is_empty() {
             t.title.clone()
         } else if !t.lang.is_empty() {
@@ -398,13 +408,54 @@ fn mpv_status() -> String {
             _ => {}
         }
     }
-    let chapters: Vec<serde_json::Value> = mpv::chapter_list()
+    let t_chapters_start = std::time::Instant::now();
+    let raw_chapters = mpv::chapter_list();
+    let t_chapters = t_chapters_start.elapsed();
+    let chapters: Vec<serde_json::Value> = raw_chapters
         .into_iter()
         .map(|c| serde_json::json!({ "title": c.title, "start": c.start }))
         .collect();
+    mpv::perf_record(
+        t_scalars.as_micros() as u64,
+        t_tracks.as_micros() as u64,
+        t_chapters.as_micros() as u64,
+        t_start.elapsed().as_micros() as u64,
+    );
     serde_json::json!({
         "pos": pos, "dur": dur, "presenting": presenting, "ended": ended,
         "audio": audio, "subs": subs, "chapters": chapters,
+    })
+    .to_string()
+}
+
+/// Status-poll cost report (plan 011). Reads the accumulator mpv_status fills
+/// on every tick, alongside mpv's own drop counters — so one report answers
+/// both halves of "is the player janky": how much UI-thread time the poll
+/// burns, and whether the video pipeline is actually dropping frames. If
+/// drops are zero while poll time is high, the stutter is ours, not mpv's.
+#[tauri::command]
+fn mpv_perf(reset: bool) -> String {
+    let p = mpv::perf_snapshot(reset);
+    let n = p.calls.max(1);
+    let num = |k: &str| {
+        mpv::get_property(k)
+            .and_then(|s| s.parse::<f64>().ok())
+            .unwrap_or(-1.0)
+    };
+    serde_json::json!({
+        "calls": p.calls,
+        "propReads": p.props,
+        "avgUs": p.total_us / n,
+        "maxUs": p.max_us,
+        "scalarsUs": p.scalars_us / n,
+        "tracksUs": p.tracks_us / n,
+        "chaptersUs": p.chapters_us / n,
+        "over16ms": p.over_16ms,
+        // mpv's own view: are frames actually being lost?
+        "frameDrops": num("frame-drop-count"),
+        "voDelayed": num("vo-delayed-frame-count"),
+        "fps": num("estimated-vf-fps"),
+        "hwdec": mpv::get_property("hwdec-current").unwrap_or_default(),
     })
     .to_string()
 }
@@ -771,6 +822,7 @@ pub fn run() {
             mpv_status,
             mpv_stats,
             mpv_diag,
+            mpv_perf,
             mpv_blur,
             mpv_frost,
             mpv_frost_rect,

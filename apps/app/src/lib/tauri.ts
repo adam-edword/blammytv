@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { notePoll } from "./playerPerf";
 
 /** True when running inside the Tauri shell (vs. a plain browser tab). */
 export function isTauri(): boolean {
@@ -215,8 +216,17 @@ export interface MpvStatus {
   chapters?: Array<{ title: string; start: number }>;
 }
 export async function tauriMpvStatus(): Promise<MpvStatus> {
-  return JSON.parse(await invoke<string>("mpv_status")) as MpvStatus;
+  // Timed for the perf probe (playerPerf.ts): one Date.now() pair per 500ms
+  // poll, so the JS-side round trip can be compared against the native
+  // segment timings — the gap between them is IPC and scheduling.
+  const t0 = Date.now();
+  try {
+    return JSON.parse(await invoke<string>("mpv_status")) as MpvStatus;
+  } finally {
+    notePoll(Date.now() - t0);
+  }
 }
+
 
 /** Playback telemetry for the "stats for nerds" overlay. Every field is
  * best-effort — mpv omits any property a given stream/decoder doesn't expose,

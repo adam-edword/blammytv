@@ -7,6 +7,7 @@
 use libloading::Library;
 use std::ffi::CString;
 use std::os::raw::{c_char, c_int, c_void};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 
 type Handle = *mut c_void;
@@ -116,6 +117,79 @@ static PLAYER: Mutex<Option<Player>> = Mutex::new(None);
 // The popout PiP runs as its OWN mpv instance, separate from the in-app
 // PLAYER — so tearing down the in-app player (inv::close/stop) can't kill it.
 static POPOUT: Mutex<Option<Player>> = Mutex::new(None);
+
+// ---------------------------------------------------------------------------
+// Status-poll instrumentation (plan 011).
+//
+// mpv_status runs every 500ms as a SYNC command, which on Windows means it
+// executes inside WebView2's callback — on the UI thread. Each property read
+// below takes the PLAYER mutex and does an FFI round trip plus two heap
+// allocations, and track_list/chapter_list issue one per FIELD per entry. The
+// open question this answers with numbers instead of arithmetic: what does
+// one poll actually cost, and how much of it is the static track/chapter data
+// being re-read twice a second for a file whose tracks cannot change?
+//
+// Cost of the instrument itself: one relaxed atomic per property read and
+// three Instant::elapsed per poll. It stays compiled in — the report is only
+// built when asked for, and a counter that is only true in a special build is
+// a counter you cannot ask a user to run.
+
+/// Every get_property call, from anywhere. The poll's own segment timings say
+/// how long; this says how many.
+static PROP_READS: AtomicU64 = AtomicU64::new(0);
+
+#[derive(Clone, Copy, Default)]
+pub struct StatusPerf {
+    pub calls: u64,
+    pub props: u64,
+    pub scalars_us: u64,
+    pub tracks_us: u64,
+    pub chapters_us: u64,
+    pub total_us: u64,
+    pub max_us: u64,
+    /// Polls that took longer than one 60Hz frame. A sync command that
+    /// overruns a frame on the UI thread is a dropped frame's worth of jank.
+    pub over_16ms: u64,
+}
+
+static PERF: Mutex<StatusPerf> = Mutex::new(StatusPerf {
+    calls: 0,
+    props: 0,
+    scalars_us: 0,
+    tracks_us: 0,
+    chapters_us: 0,
+    total_us: 0,
+    max_us: 0,
+    over_16ms: 0,
+});
+
+/// Fold one mpv_status call into the accumulator.
+pub fn perf_record(scalars_us: u64, tracks_us: u64, chapters_us: u64, total_us: u64) {
+    let Ok(mut p) = PERF.lock() else { return };
+    p.calls += 1;
+    p.scalars_us += scalars_us;
+    p.tracks_us += tracks_us;
+    p.chapters_us += chapters_us;
+    p.total_us += total_us;
+    p.max_us = p.max_us.max(total_us);
+    if total_us > 16_000 {
+        p.over_16ms += 1;
+    }
+    p.props = PROP_READS.load(Ordering::Relaxed);
+}
+
+/// Read the accumulator; `reset` zeroes it so a report covers a known window.
+pub fn perf_snapshot(reset: bool) -> StatusPerf {
+    let Ok(mut p) = PERF.lock() else {
+        return StatusPerf::default();
+    };
+    let out = *p;
+    if reset {
+        *p = StatusPerf::default();
+        PROP_READS.store(0, Ordering::Relaxed);
+    }
+    out
+}
 
 /// Play in mpv's own floating window (PiP): on-top, half-size, separate instance.
 pub fn play_popout(url: &str, start: f64) -> Result<(), String> {
@@ -621,6 +695,7 @@ pub fn screenshot_to_file(path: &str) -> bool {
 /// Read an mpv property as a string (via the player mutex, so it's safe against
 /// stop()/terminate). Returns None if no player or the property is empty/unset.
 pub fn get_property(name: &str) -> Option<String> {
+    PROP_READS.fetch_add(1, Ordering::Relaxed);
     let g = PLAYER.lock().unwrap();
     let (p, l) = (g.as_ref()?, LIB.get()?);
     unsafe {
