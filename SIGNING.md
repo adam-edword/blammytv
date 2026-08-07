@@ -30,6 +30,18 @@ developer → Incorrectly detected*. Turnaround is typically days and the
 withdrawal is fleet-wide. Re-submit per release until a stable certificate has
 built reputation.
 
+### So: buy nothing yet
+
+The sequence that spends the least money is also the correct one:
+
+1. Ship the `BlammyTV.exe` rename (v0.8.167) and submit the false positive.
+2. Watch whether the detection returns on the next few releases.
+3. Buy a certificate only if you decide the SmartScreen *install* warning is
+   worth $120/yr — and note it will not vanish on day one even then.
+
+Step 3 is a genuinely optional, separable purchase. Nothing about steps 1–2
+depends on it.
+
 ## What NOT to buy
 
 - **Do not buy EV.** Microsoft removed instant SmartScreen reputation for EV
@@ -188,6 +200,45 @@ You also still need the **Windows SDK's `signtool.exe` on PATH**: the bundler
 calls `signtool verify` to decide whether a resource is already signed, even
 when a custom `signCommand` is configured. Set `TAURI_WINDOWS_SIGNTOOL_PATH`
 if it lives somewhere unusual.
+
+## Why it is a subscription now (and why that is cheaper, not dearer)
+
+The recurring cost is not new. OV code-signing certificates have always been
+an annual purchase, historically $150–300/yr. What changed is *how* you hold
+the key.
+
+Since **June 2023** the CA/Browser Forum requires code-signing private keys to
+live on FIPS 140-2 Level 2 (or CC EAL4+) hardware. No CA will issue a
+downloadable `.pfx` any more. So you have exactly two shapes available:
+
+- a **physical USB token** posted to you — cert (~$150–300/yr) plus a token
+  fee and shipping, and you must be holding it to sign; or
+- **someone else's HSM**, billed monthly — which is what "subscription" means
+  here. You are renting the hardware you would otherwise have to buy.
+
+Azure Artifact Signing at $9.99/month is **$120/yr, all in** — cheaper than a
+traditional OV cert *and* it removes the token. It is the cheapest real path,
+not a premium one. It is also cancellable monthly, unlike a 1–3 year cert.
+
+And from **February 2026** the maximum validity of any code-signing
+certificate is ~460 days, so even a multi-year purchase now forces mid-term
+reissues. That tilts things further toward a managed service, which rotates
+certificates for you.
+
+### The free options are closed for this project
+
+Both require an open-source licence, and BlammyTV has **no LICENSE file and no
+`license` field in package.json** — which means all rights reserved by
+default:
+
+- **SignPath Foundation** — free, but needs an OSI licence and *no proprietary
+  components anywhere*.
+- **Certum Open Source Code Signing** — ~$50/yr, explicitly for software
+  released under an open-source licence.
+
+If BlammyTV were ever released under an OSI licence, SignPath becomes the
+$0 answer and Certum the ~$50 one. That is a licensing decision, not a signing
+decision, and it should not be made to save $120.
 
 ## Fallbacks, if Artifact Signing is closed to you
 
