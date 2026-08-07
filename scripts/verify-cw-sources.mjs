@@ -191,6 +191,62 @@ if (!addonUp) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// THE STREAM TAB, which is a different call site from the Library and was the
+// literally-dead one. Stream Home renders the same Continue Watching row, but
+// its handler used to be `if (item) void open(item)` where `item` comes from
+// the loaded catalog map — and Continue Watching renders from localStorage,
+// so anything not in the currently-loaded rows resolved to undefined and the
+// click did NOTHING. This uses an id no catalog serves, which is the exact
+// miss case.
+{
+  const STRANGER = {
+    ...ENTRY,
+    id: "tt9999999",
+    episodeId: "tt9999999:1:1",
+    title: "Not In Any Catalog",
+  };
+  await page.addInitScript((entry) => {
+    localStorage.setItem("blammytv.watching", JSON.stringify({ v: 1, data: [entry] }));
+  }, STRANGER);
+
+  for (const [label, selector] of [
+    ["Stream tab: the Sources chip", "button.continue-card__sources"],
+    ["Stream tab: the title/meta line", "button.continue-card__text"],
+  ]) {
+    await page.goto(URL);
+    await page.waitForLoadState("networkidle").catch(() => {});
+    const skip = page.getByRole("button", { name: /skip setup/i }).first();
+    if (await skip.isVisible().catch(() => false)) await skip.click();
+    // Stream Home is the default landing tab; the CW row renders there too.
+    const card = page.locator(".continue-card").first();
+    const there = await card
+      .waitFor({ timeout: 8000 })
+      .then(() => true)
+      .catch(() => false);
+    check(`${label}: the card renders on Stream Home`, there);
+    if (!there) continue;
+    const hit = await page
+      .locator(selector)
+      .first()
+      .click({ timeout: 4000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!hit) {
+      check(`${label} exists`, false);
+      continue;
+    }
+    // The whole assertion: SOMETHING happened. Pre-fix this stayed put.
+    const moved = await page
+      .waitForFunction(() => !document.querySelector(".continue-card"), null, {
+        timeout: 8000,
+      })
+      .then(() => true)
+      .catch(() => false);
+    check(`${label} is not a dead click`, moved);
+  }
+}
+
 await page.screenshot({ path: "cw-sources.png" });
 await browser.close();
 const fails = results.filter(([, ok]) => !ok);

@@ -2,7 +2,7 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
-## 0.8.166: The disappearing app (2026-08-07)
+## 0.8.167: The disappearing app (2026-08-07)
 
 Some of you had BlammyTV vanish off your PC this week, mid-use. That was
 Windows Defender, and it was our fault in a fixable way.
@@ -22,9 +22,11 @@ install this version over the top.
 
 - The app is now `BlammyTV.exe` instead of `app.exe`, which is a large part
   of why Defender took an interest in it.
-- **Sources** on a Continue Watching card takes you to the source list.
-  Before, it did the same thing as clicking the card: if a cached source
-  existed it just started playing, so the button looked broken.
+- **Sources** on a Continue Watching card takes you to the source list. On
+  the Stream tab it did nothing at all for anything not in the currently
+  loaded rows — which is most of what you have been watching. On the Library
+  tab it quietly did the same thing as clicking the card. Both now open the
+  sources.
 - Dragging the playback scrubber is smoother. It was re-measuring the bar on
   every single mouse movement, which is roughly a third of the work it was
   doing.

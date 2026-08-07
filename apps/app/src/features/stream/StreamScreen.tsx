@@ -719,9 +719,17 @@ export function StreamScreen() {
         title: entry.title,
       });
       let item = known;
-      // A series needs its seasons for the source screen's back-out to land
-      // on a populated episode list, so a bare catalog preview is not enough.
-      if (!item || (kind === "series" && item.seasons.length === 0)) {
+      // What we may have been handed is a CATALOG PREVIEW: an id, a title
+      // and a poster. The source screen is the full Detail component, so a
+      // preview renders it stripped — no backdrop, no clearlogo, no cast,
+      // no synopsis. Resolve unless the item is already fleshed out. A
+      // series additionally needs its seasons, or backing out of sources
+      // lands on an empty episode list.
+      const sparse =
+        !item ||
+        !item.synopsis ||
+        (kind === "series" && item.seasons.length === 0);
+      if (sparse) {
         const full = await resolveVodItem(kind, entry.id).catch(() => null);
         if (full) item = full;
       }
@@ -1502,9 +1510,18 @@ export function StreamScreen() {
             void quickResume(e, item);
           }}
           onSourcesWatching={(e) => {
+            // `items` only holds what the CURRENTLY loaded catalog rows
+            // contain, while Continue Watching renders from localStorage —
+            // so a title started from Discover, from My List, or from a row
+            // that has since rotated out is simply absent. The old `if
+            // (item)` swallowed exactly those clicks and did nothing at
+            // all, which is what "the Sources button doesn't work" was.
+            // openSources resolves the item itself and falls back to the
+            // detail page when even that fails, so a miss is no longer a
+            // dead end.
             const item =
               load.status === "ready" ? load.data.items.get(e.id) : undefined;
-            if (item) void open(item);
+            void openSources(e, item);
           }}
         />
       )}
@@ -2374,16 +2391,30 @@ export function ContinueCard({
       </span>
       {/* The title/meta line goes to the SOURCE list, not playback — the
         * art is the "play this" target, the text is the "what is this"
-        * target. A real button like the Sources chip, so it is reachable by
-        * keyboard; the card's own pointer/click handlers are stopped here
-        * or the press would both open sources AND quick-resume. */}
+        * target.
+        *
+        * pointerdown is deliberately NOT stopped: the card's press-and-hold
+        * to clear has to keep working over the text, which is most of the
+        * card's lower half. Stopping it there silently killed hold-to-clear
+        * on that whole strip. So the press runs the card's own start(), and
+        * the click below asks the same wasClick() question the card asks —
+        * a completed HOLD already fired onClear and must not also open
+        * sources. Only the click is stopped, so the card's onClick (which
+        * would quick-resume) never doubles up.
+        *
+        * tabIndex -1 on purpose: RowScroller keeps ONE tab stop per row and
+        * a focusable child sits outside that roving list, so it both adds a
+        * stop per card and makes ArrowLeft/Right dead while focused. The
+        * Sources chip beside it is already the keyboard route to this exact
+        * action, so the text stays a pointer affordance rather than a
+        * second, arrow-breaking stop. */}
       <button
         type="button"
+        tabIndex={-1}
         className="continue-card__text"
-        onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => {
           e.stopPropagation();
-          onSources();
+          if (wasClick()) onSources();
         }}
       >
         <span className="stream-card__name">{entry.title}</span>

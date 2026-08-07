@@ -50,8 +50,15 @@ Tauri's NSIS template deletes `$OldMainBinaryName` on update, so existing
 installs migrate rather than keeping a stray `app.exe`. **This lands on the
 next NATIVE release; a frontend-only release cannot carry it.**
 
-**2. The installer is unsigned** (see below). Nothing else moves the needle
-as much as a certificate.
+**2. The installer is unsigned.** See **[SIGNING.md](SIGNING.md)** for the
+full step-by-step. The short version, and it is not what you would guess:
+signing is **largely orthogonal** to an `!ml` detection — Defender's ML
+classifier does not trust a file merely because it is Authenticode-signed,
+and EV-signed binaries have been flagged. A certificate is worth having for
+the SmartScreen install warning and for long-run reputation, but the thing
+that actually withdraws THIS detection is the free WDSI submission below.
+Do not buy an EV certificate: Microsoft removed instant SmartScreen
+reputation for EV in 2024, so it is ~$400/yr for nothing here.
 
 **Also do this, it is free and it works:** submit the binary to Microsoft as
 a false positive at <https://www.microsoft.com/en-us/wdsi/filesubmission>
@@ -198,12 +205,23 @@ env vars, and puts the `.sig` on the clipboard. Steps 0 (libmpv refresh),
    The app degrades gracefully on older mpv builds (e.g. the settings-glass
    frost needs gpu-next; without it the card goes solid), but ship current.
 
-1. **Bump the version** in all four spots (they must agree: the updater compares
+1. **Bump the version** in all SIX spots (they must agree: the updater compares
    against `tauri.conf.json`):
    - `apps/app/src-tauri/tauri.conf.json` → `version`
    - `apps/app/src-tauri/Cargo.toml` → `[package] version`
+   - `apps/app/src-tauri/Cargo.lock` → the `name = "app"` entry's `version`
+   - `package.json` (repo root) → `version`
    - `apps/app/package.json` → `version`
-   - `apps/app/src/version.ts` → `APP_VERSION`
+   - `apps/app/src/lib/version.ts` → `APP_VERSION`
+
+   Between releases only the last three move; the first three sit at the last
+   released version on purpose (see the dev-bump rule above) and jump here.
+   This list used to say four spots, name `apps/app/src/version.ts` — a path
+   that does not exist — and omit the root `package.json` and `Cargo.lock`.
+   Following it literally left the release under-bumped. Check with:
+   ```powershell
+   node scripts\verify-version.mjs
+   ```
 
 2. **Build signed** (from `apps/app`):
    ```powershell

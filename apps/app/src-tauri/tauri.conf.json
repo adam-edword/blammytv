@@ -42,6 +42,9 @@
     "active": true,
     "targets": "all",
     "createUpdaterArtifacts": true,
+    "copyright": "© 2026 BlammyTV",
+    "shortDescription": "Live TV, sports and on-demand in one desktop player.",
+    "category": "Entertainment",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
