@@ -1464,7 +1464,7 @@ the bar and raising it there would brighten what was already right. Also here: e
 mode (needs one screenshot on a real network to size), and 36 of 128 cards
 are `disabled` with `cursor: default` as their entire treatment.
 
-#### 48. The harness is outside `tsc` and eslint [ ]
+#### 48. The harness is outside `tsc` and eslint [x] v0.8.158
 
 `tsconfig.json` is `"include": ["src"]` and lint is `eslint src`, so a whole
 directory of dev-server entry points is checked by nothing. Consequences
