@@ -12,6 +12,7 @@
 //                                               # key (pass = unlocks ALL themes)
 //   node scripts/admin.mjs revoke BTV-XXXX-...   # delete a key everywhere
 //   node scripts/admin.mjs email a@b.com        # every key bought by that email
+//   node scripts/admin.mjs counts               # site counters (download presses)
 //
 // Env: DB_PATH (default /data/keybox.db) — the same var the server uses.
 // STRIPE_API_KEY (also the server's) enables the buyer-email column: the DB
@@ -25,7 +26,7 @@
 import Stripe from "stripe";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { openDb, createKey, listKeys, deleteKey, ACTIVATION_LIMIT } from "../src/db.js";
+import { openDb, createKey, listKeys, deleteKey, readCounters, ACTIVATION_LIMIT } from "../src/db.js";
 
 const DB_PATH = process.env.DB_PATH || "/data/keybox.db";
 
@@ -35,6 +36,7 @@ const USAGE = `keybox admin CLI
   node scripts/admin.mjs mint                 mint an unlimited admin key (pass)
   node scripts/admin.mjs revoke <KEY>         delete a key and its activations
   node scripts/admin.mjs email <ADDRESS>      list every key bought by that email
+  node scripts/admin.mjs counts               site counters (download button presses)
 
 Env: DB_PATH (default /data/keybox.db)
      STRIPE_API_KEY (buyer-email lookup for list/email; set for the server already)`;
@@ -169,6 +171,14 @@ function revoke(db, key) {
   }
 }
 
+/* Site counters. Also served at GET /counts, but that needs the server up
+ * and reachable; this reads the same rows straight off disk. */
+function counts(db) {
+  for (const [name, n] of Object.entries(readCounters(db))) {
+    console.log(`${name.padEnd(12)} ${n}`);
+  }
+}
+
 async function main() {
   const [cmd, arg] = process.argv.slice(2);
   if (!cmd || cmd === "--help" || cmd === "-h") {
@@ -194,6 +204,9 @@ async function main() {
         break;
       case "email":
         await emailCmd(db, stripe, arg);
+        break;
+      case "counts":
+        counts(db);
         break;
       default:
         console.error(`Unknown command: ${cmd}\n\n${USAGE}`);

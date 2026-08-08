@@ -31,6 +31,15 @@ CREATE TABLE IF NOT EXISTS activations (
   first_seen INTEGER NOT NULL,
   PRIMARY KEY(key, machine)
 );
+
+/* Site counters. One row per named tally, and the row IS the whole record:
+ * no timestamp, no IP, no user agent, no session. "How many times was the
+ * download button pressed" is the only question it can answer, which is the
+ * only question it was asked. Adding a column here would make it analytics. */
+CREATE TABLE IF NOT EXISTS counters (
+  name TEXT PRIMARY KEY,
+  n INTEGER NOT NULL DEFAULT 0
+);
 `;
 
 export const ACTIVATION_LIMIT = 3;
@@ -221,4 +230,36 @@ export function isActivated(db, key, machine) {
     .prepare(`SELECT 1 FROM activations WHERE key = ? AND machine = ?`)
     .get(key, machine);
   return Boolean(row);
+}
+
+/* ------------------------------------------------------------------ */
+/* Counters                                                           */
+/* ------------------------------------------------------------------ */
+
+/** The tallies the server will accept. An allowlist, not free-form: an
+ * open `POST /count/:anything` is an unauthenticated write endpoint, i.e. a
+ * way for a stranger to fill the disk one row at a time. */
+export const COUNTER_NAMES = ["download"];
+
+/**
+ * Add one to a counter, creating the row on first use. UPSERT rather than
+ * read-modify-write so two simultaneous clicks can't both read 41 and both
+ * write 42.
+ */
+export function bumpCounter(db, name) {
+  db.prepare(
+    `INSERT INTO counters (name, n) VALUES (?, 1)
+     ON CONFLICT(name) DO UPDATE SET n = n + 1`,
+  ).run(name);
+}
+
+/** Every counter, as a plain object. Names with no row yet read 0 rather
+ * than going missing, so a caller never has to distinguish "never clicked"
+ * from "counter doesn't exist". */
+export function readCounters(db) {
+  const out = Object.fromEntries(COUNTER_NAMES.map((n) => [n, 0]));
+  for (const row of db.prepare(`SELECT name, n FROM counters`).all()) {
+    out[row.name] = row.n;
+  }
+  return out;
 }

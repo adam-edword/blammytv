@@ -715,7 +715,7 @@
       </div>
       <div class="download__meta">Free · Auto-Updates · Windows 10/11 (64-bit)</div>
       <div>
-        <a class="btn btn--download" href="https://github.com/adam-edword/blammytv/releases/latest" target="_blank" rel="noopener">
+        <a class="btn btn--download" data-count="download" href="https://github.com/adam-edword/blammytv/releases/latest" target="_blank" rel="noopener">
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="width:18px;height:18px"><path d="M3 5.4l7.4-1.02v6.94H3V5.4zm8.3-1.14L21 3v8.28h-9.7V4.26zM3 12.32h7.4v6.94L3 18.24v-5.92zm8.3 0H21V21l-9.7-1.32v-7.36z"/></svg>
           Download
         </a>
@@ -871,6 +871,35 @@
       stack.addEventListener('mouseleave', start);
       document.addEventListener('visibilitychange', function () {
         if (document.hidden) stop(); else start();
+      });
+    });
+  })();
+
+  /* Download counter.
+   *
+   * The only thing measured on this site: how many times the Download button
+   * was pressed. No cookie, no id, no session, no page views, no third party.
+   * The server writes `counters.download = n + 1` and nothing else, so this
+   * cannot answer any question but that one, however it is queried later.
+   *
+   * sendBeacon, not fetch: it is the primitive built for exactly this, the
+   * browser queues it outside the page's lifetime, and it cannot delay the
+   * navigation it accompanies.
+   *
+   * Everything here fails open. The href does the actual work, so the link
+   * still reaches GitHub if keybox is down, if an extension blocks the
+   * beacon, or if the browser has no sendBeacon at all. A lost tally is
+   * cheaper than a broken download button, so nothing in this listener may
+   * throw or block. */
+  (function () {
+    var COUNT_URL = "https://themes.eddtv.org/count/";
+    document.querySelectorAll("[data-count]").forEach(function (el) {
+      el.addEventListener("click", function () {
+        try {
+          if (navigator.sendBeacon) navigator.sendBeacon(COUNT_URL + el.dataset.count);
+        } catch (e) {
+          /* never let counting interfere with the click */
+        }
       });
     });
   })();

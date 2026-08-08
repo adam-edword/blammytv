@@ -4,7 +4,7 @@ import { readFileSync, mkdirSync, chownSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-import { openDb, createKey, findBySession, getKey, touchActivation, isActivated, markEmailed, ACTIVATION_LIMIT } from "./db.js";
+import { openDb, createKey, findBySession, getKey, touchActivation, isActivated, markEmailed, bumpCounter, readCounters, ACTIVATION_LIMIT, COUNTER_NAMES } from "./db.js";
 import { loadCatalog } from "./catalog.js";
 import { createMailer } from "./mailer.js";
 
@@ -227,6 +227,10 @@ export function makeApp({ db, stripe, catalog, webhookSecret, mailer = NOOP_MAIL
    * rate limiter. */
   app.options("/validate", appCors, preflight);
   app.options("/payload/:themeId", appCors, preflight);
+  /* sendBeacon posts text/plain, which is a CORS-simple request and never
+   * preflights. This is here for anything that calls /count with fetch and a
+   * JSON content type, which would. */
+  app.options("/count/:name", appCors, preflight);
 
   /* POST /webhook — raw body required for Stripe signature verification.
    * Registered before the global express.json() below so it never sees
@@ -315,6 +319,43 @@ export function makeApp({ db, stripe, catalog, webhookSecret, mailer = NOOP_MAIL
       return res.status(200).json({ ok: true, pass, themes });
     } catch (err) {
       console.error("keybox: /validate failed", err);
+      return res.status(500).json({ ok: false, reason: "internal_error" });
+    }
+  });
+
+  /* POST /count/:name: one anonymous tally mark, nothing else.
+   *
+   * The site's download button fires this via navigator.sendBeacon. There is
+   * no body to read, no cookie set, no IP written, and no response worth
+   * waiting for, so it answers 204 and stops. The only durable effect is
+   * `counters.n = n + 1`.
+   *
+   * Failure is deliberately quiet, including an unknown name: this is a
+   * fire-and-forget beacon whose response the browser discards, so a status
+   * code has nobody to tell. Better to accept the write and drop it than to
+   * spend effort on an error path that is, by construction, unobservable.
+   *
+   * Note the ORDER of concerns here vs. the download it counts: the button
+   * navigates to GitHub on its own, and this beacon is fired alongside. If
+   * keybox is down, blocked by an extension, or rate-limiting the caller,
+   * the count is lost and the download still happens. Counting must never be
+   * load-bearing for the thing it counts. */
+  app.post("/count/:name", appCors, rateLimit, (req, res) => {
+    res.status(204).end();
+    if (!COUNTER_NAMES.includes(req.params.name)) return;
+    try {
+      bumpCounter(db, req.params.name);
+    } catch {
+      /* A tally is worth less than the process. Never throw from here. */
+    }
+  });
+
+  /* GET /counts: the numbers, as plain JSON. Public, since it exposes one
+   * integer per counter and nothing that could identify anybody. */
+  app.get("/counts", appCors, rateLimit, (req, res) => {
+    try {
+      return res.status(200).json(readCounters(db));
+    } catch {
       return res.status(500).json({ ok: false, reason: "internal_error" });
     }
   });
