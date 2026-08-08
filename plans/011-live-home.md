@@ -91,7 +91,7 @@ logo on a dark plate. Closer to the sports `GameCard` proportions. Per card:
 
 | Piece | Where | Note |
 |---|---|---|
-| `RowScroller` | `StreamScreen.tsx:1720` (exported) | One tab stop per row, arrow keys, edge arrows. Reusable as-is. |
+| `RowScroller` | `StreamScreen.tsx#RowScroller` (exported) | One tab stop per row, arrow keys, edge arrows. Reusable as-is. |
 | `favorites` / `recents` | `live/favorites.ts`, `live/recents.ts` | Plain id lists; already resolved against loaded channels in `LiveScreen.tsx:570-582`. |
 | `epg.progress()` | `live/epg.ts:50` | Programme progress, already used by the hero. |
 | `programmes` map | `LiveData` | `Map<channelId, Programme[]>`, keyed the same way `visible` uses it. |

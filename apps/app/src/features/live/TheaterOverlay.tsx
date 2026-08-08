@@ -252,8 +252,10 @@ export function TheaterOverlay({
     return () => off?.();
   }, []);
 
-  // Playback speed (VOD menu). A fresh mpv instance per stream means the
-  // real rate resets to 1 on every switch — mirror that locally below.
+  // Playback speed (VOD menu). mpv.rs#reset_per_file pushes speed=1 on every
+  // load, so the rate really is 1 at the start of each file — mirror that
+  // locally below. Before v0.8.168 a fresh instance per stream did this for
+  // free; with one persistent instance it is deliberate.
   const [speed, setSpeed] = useState(1);
   const pickSpeed = useCallback((sp: number) => {
     setSpeed(sp);
@@ -267,7 +269,7 @@ export function TheaterOverlay({
   const seekTrackRef = useRef<HTMLDivElement | null>(null);
   /* The track's rect, measured ONCE on pointerdown and reused for the whole
    * drag. Reading getBoundingClientRect() per pointermove forced a synchronous
-   * layout on every mouse event: measured at 91ms of layout across a 375-move
+   * layout on every mouse event: measured at 91ms of layout across a ~5.3k-move
    * drag, against 0ms for the same pointer stream with no scrub (see
    * scripts/measure-scrub.mjs). The track cannot move mid-drag — the pointer
    * is captured and the chrome is pinned while it is up — so the only thing
@@ -473,14 +475,14 @@ export function TheaterOverlay({
   mutedRef.current = muted;
   useEffect(() => {
     if (!playbackKey) return;
-    setSpeed(1); // fresh mpv instance = rate 1
+    setSpeed(1); // reset_per_file pushes speed=1 per load
     setPaused(false);
     setLivePct(100);
     api()?.setVolume(Math.round(volumeRef.current * 100));
     api()?.setMute(mutedRef.current);
   }, [playbackKey]);
   // …and AGAIN when the new instance actually presents: the key-change
-  // push above races the fresh mpv process (VOD URLs resolve async — the
+  // push above races the newly loaded file (VOD URLs resolve async — the
   // command can land on the dying instance while the new one spawns at
   // default 100%). The bar position survived but the audible volume
   // didn't. loading→false is the one signal the instance is really up;
@@ -553,7 +555,7 @@ export function TheaterOverlay({
   const chooseAudio = useCallback((id: number) => {
     api()?.selectAudio?.(id);
     // VOD continuity: an explicit pick is remembered by LANGUAGE and
-    // re-applied on the next episode's fresh mpv instance.
+    // re-applied on the next episode's load (reset_per_file clears them).
     if (vodRef.current) {
       const t = tracksRef.current?.audio.find((a) => a.id === id);
       // "" when the track names no language at all: that CLEARS the memory
@@ -710,7 +712,7 @@ export function TheaterOverlay({
 
   // VOD continuity, apply side: once per FILE, when its track list first
   // lands, re-select the remembered languages and speed (every stream is
-  // a fresh mpv instance — without this, subs/speed die at each episode
+  // reset_per_file clearing them — without this, subs/speed die at each episode
   // boundary). Runs once per playbackKey, before any user pick for the
   // file; explicit picks afterward both win and update the memory.
   // PER-DIMENSION, and never spent on an EMPTY list. mpv_status always

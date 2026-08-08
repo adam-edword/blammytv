@@ -7,7 +7,7 @@
 use libloading::Library;
 use std::ffi::CString;
 use std::os::raw::{c_char, c_int, c_void};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicIsize, AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 
 type Handle = *mut c_void;
@@ -114,6 +114,14 @@ struct Player(Handle);
 unsafe impl Send for Player {}
 
 static PLAYER: Mutex<Option<Player>> = Mutex::new(None);
+/// The `wid` the live PLAYER was initialized against. `wid` is an INIT-ONLY
+/// mpv option, so the instance renders into that window for its whole life
+/// and ensure_player has nothing to do with the argument on the reuse path.
+/// Recording it turns "asked to play into a different window" from a silent
+/// render-into-a-dead-window into an error — the coupling between
+/// inv::CHILD and PLAYER is otherwise asserted nowhere and split across two
+/// files.
+static PLAYER_WID: AtomicIsize = AtomicIsize::new(0);
 // The popout PiP runs as its OWN mpv instance, separate from the in-app
 // PLAYER — so tearing down the in-app player (inv::close/stop) can't kill it.
 static POPOUT: Mutex<Option<Player>> = Mutex::new(None);
@@ -359,6 +367,12 @@ fn ensure_player(wid: isize) -> Result<(), String> {
     let l = lib()?;
     let mut g = PLAYER.lock().unwrap();
     if g.is_some() {
+        let bound = PLAYER_WID.load(Ordering::Relaxed);
+        if bound != wid {
+            return Err(format!(
+                "player is bound to window {bound}, cannot re-target to {wid}"
+            ));
+        }
         return Ok(());
     }
     let t0 = std::time::Instant::now();
@@ -380,9 +394,11 @@ fn ensure_player(wid: isize) -> Result<(), String> {
         // fix is rendering mpv into a DComp composition swapchain (render API).
         set("audio-channels", "stereo");
         set("terminal", "no");
-        // IDLE, not exit. Without this a `stop` (or a file reaching its end)
-        // makes libmpv shut the core down, and the next loadfile would have
-        // nothing to load into — the whole point of a persistent instance.
+        // Explicit, not load-bearing: libmpv already defaults idle=yes, so
+        // this documents the requirement rather than creating it. The
+        // requirement is real — without idle, a `stop` or a file reaching its
+        // end shuts the core down and the next loadfile has nothing to load
+        // into, which would make the persistent instance a one-shot player.
         set("idle", "yes");
         // KEEP THE VO ALIVE BETWEEN FILES, painting black.
         //
@@ -400,6 +416,17 @@ fn ensure_player(wid: isize) -> Result<(), String> {
             return Err("mpv_initialize failed".into());
         }
         *g = Some(Player(h));
+        PLAYER_WID.store(wid, Ordering::Relaxed);
+    }
+    // DROP THE GUARD before reading a property: get_property takes the same
+    // PLAYER lock, so asking while still holding it deadlocks.
+    drop(g);
+    // Which libmpv did the loader actually find? Once per PROCESS now. It
+    // used to print from inv::open, whose "once per open" was true only
+    // while every open built a new instance — after v0.8.168 that fired on
+    // every channel switch to report a value that can no longer change.
+    if let Some(v) = get_property("mpv-version") {
+        println!("[mpv] {v}");
     }
     // Once per process now, not once per tune.
     println!("[mpv-timing] create+init {}ms (once)", t0.elapsed().as_millis());
@@ -632,11 +659,9 @@ pub fn reload_live() {
 /// deliberate. Now it does.
 ///
 /// mpv's `stop` unloads the file, which tears down that file's demuxer and
-/// stream layer — so the socket should close. VERIFY IT, do not assume:
-/// after calling this, `mpv_diag` should report `has-path: false` and
-/// `idle-active: "yes"`, and the provider's own active-connection count
-/// (the n/m badge in the Live sidebar, from LiveGroup.active/max) should
-/// drop. If it does not, the fix is contained to THIS function: swap the
+/// stream layer, and the socket closes with it. VERIFIED on a real provider
+/// (v0.8.172): after stopping, the sidebar's n/m badge drops to 0. If that
+/// ever stops being true, the fix is contained to THIS function — swap the
 /// `stop` command for `shutdown()` and take the teardown cost back on
 /// switches only. Nothing else in the app needs to know.
 pub fn unload() {

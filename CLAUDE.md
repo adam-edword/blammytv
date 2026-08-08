@@ -77,7 +77,9 @@ and the commit.
 ## Completion status
 
 End every task with one of:
-- **DONE**: all steps complete, evidence for every claim, ready to merge.
+- **DONE**: all steps complete, evidence for every claim that can be
+  evidenced from here, ready to merge. Anything that can't goes in the
+  Verify bucket below rather than downgrading the status.
 - **DONE_WITH_CONCERNS**: complete, but with issues worth knowing; list each with
   severity and a proposed follow-up.
 - **BLOCKED**: can't proceed; state what's blocking and what was tried.

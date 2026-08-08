@@ -54,13 +54,22 @@ const key = createPublicKey({
 });
 
 let bad = 0;
+/** Set when a manifest entry's signature was never verified against bytes. */
+let skippedBytes = false;
 const check = (label, ok, detail = "") => {
   console.log(`  ${ok ? "PASS" : "FAIL"}  ${label}${detail ? "  " + detail : ""}`);
   if (!ok) bad++;
 };
 const fail = (label, detail) => check(label, false, detail);
 const done = () => {
-  console.log(bad ? `\n${bad} check(s) FAILED — do not publish\n` : "\nall checks passed\n");
+  // "all checks passed" would be a lie in --offline manifest mode with no
+  // local asset: the signature was never checked against any bytes at all.
+  const unchecked = skippedBytes ? " (the BYTES were not verified — --offline)" : "";
+  console.log(
+    bad
+      ? `\n${bad} check(s) FAILED — do not publish\n`
+      : `\nall checks passed${unchecked}\n`,
+  );
   process.exit(bad ? 1 : 0);
 };
 
@@ -180,6 +189,7 @@ for (const entry of entries) {
     );
   } else if (offline) {
     console.log(`  ....  url not fetched (--offline)  ${entry.url}`);
+    skippedBytes = true;
   } else {
     // The other thing that shipped: a manifest naming an asset nobody
     // uploaded. Fetch it and verify the bytes, so "it resolves" and "it is

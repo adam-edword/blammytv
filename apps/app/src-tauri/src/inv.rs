@@ -36,11 +36,6 @@ pub fn open(
         crate::mpv::unload();
         return Err(e);
     }
-    // One line of ground truth for the upgrade question: which libmpv did
-    // the loader actually find? (Terminal-visible, once per open.)
-    if let Some(v) = crate::mpv::get_property("mpv-version") {
-        println!("[mpv] {v}");
-    }
     Ok(())
 }
 

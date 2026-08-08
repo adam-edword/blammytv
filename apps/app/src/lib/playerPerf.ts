@@ -160,7 +160,12 @@ declare global {
  */
 async function diag(): Promise<string> {
   if (!inShell()) return "playerDiag: not running in the Tauri shell.";
-  const raw = await invoke<string>("mpv_diag").catch((e) => `{"error":"${e}"}`);
+  // JSON.stringify, not interpolation: Tauri command errors are strings
+  // that routinely contain quotes, so a hand-built literal made the parse
+  // below throw and playerDiag reported a SyntaxError instead of the fault.
+  const raw = await invoke<string>("mpv_diag").catch((e) =>
+    JSON.stringify({ error: String(e) }),
+  );
   const d = JSON.parse(raw) as Record<string, unknown>;
   const rows = Object.entries(d).map(([k, v]) => `    ${k.padEnd(22)} ${String(v)}`);
   return ["", "mpv says:", "", ...rows, ""].join("\n");

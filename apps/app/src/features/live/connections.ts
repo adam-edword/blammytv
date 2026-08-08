@@ -37,14 +37,20 @@ export function useConnections(
    * tuneKey null when nothing is playing — mount and "just stopped" are
    * indistinguishable from the key alone — and they want opposite timing:
    * mount should ask at once, a stop should give the panel a beat first. */
-  const mounted = useRef(false);
+  const lastKey = useRef<string | null | undefined>(undefined);
+  /** Monotonic token so only the NEWEST refresh may write. The 4s and 20s
+   * looks are 16s apart while the Rust HTTP client's timeout is 30s, so the
+   * early response can genuinely land after the late one and put the stale
+   * count back. `stale` only guards across effect runs, not within one. */
+  const seq = useRef(0);
   useEffect(() => {
     let stale = false;
     const refresh = () => {
+      const mine = ++seq.current;
       for (const p of loadPlaylists()) {
         if (p.kind !== "xtream" || !p.enabled) continue;
         void fetchConnections(p).then((c) => {
-          if (stale) return;
+          if (stale || mine !== seq.current) return;
           // Pure updater (StrictMode) that keeps the Map identity stable
           // when nothing changed — the sidebar re-renders on every tick
           // otherwise.
@@ -67,8 +73,13 @@ export function useConnections(
     // looks again once it has had time to settle. Stopping used to refresh
     // at 0ms, which asked at the one moment the answer was guaranteed stale
     // and then held that stale number for a whole POLL_MS.
-    const first = !mounted.current;
-    mounted.current = true;
+    // "The key CHANGED", not "the effect has run before" — StrictMode
+    // double-invokes effects in dev, and a `mounted` boolean let the second
+    // identical run consume the mount branch, pushing the first read from
+    // 0ms to 4s in every dev build. tuneKey can legitimately be null, so the
+    // sentinel is undefined.
+    const first = lastKey.current === undefined || lastKey.current === tuneKey;
+    lastKey.current = tuneKey;
     const delays = first ? [0] : [POST_TUNE_DELAY_MS, SETTLE_MS];
     const timers = delays.map((d) => window.setTimeout(refresh, d));
     const id = window.setInterval(refresh, POLL_MS);

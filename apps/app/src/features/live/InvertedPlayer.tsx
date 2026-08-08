@@ -90,9 +90,12 @@ export function InvertedPlayer({
     );
   }, [ready]);
 
-  // Effect keyed on `url`: a channel switch tears the player fully down
-  // (cleanup inv_stop) and rebuilds after the debounce, so mpv never plays
-  // a stale stream into a new channel's slot.
+  // Effect keyed on `url`: a channel switch runs the cleanup (inv_stop) and
+  // re-opens after the debounce, so mpv never plays a stale stream into a new
+  // channel's slot. Since v0.8.168 inv_stop UNLOADS the file rather than
+  // destroying anything — the mpv instance and its child window persist for
+  // the life of the app (inv.rs#close -> mpv.rs#unload); what is
+  // re-established per file is mpv.rs#reset_per_file.
   useEffect(() => {
     let raf = 0;
     let opened = false;

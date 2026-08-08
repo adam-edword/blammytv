@@ -3,7 +3,7 @@ import type { TrackEntry } from "../live/overlayApi";
 
 /**
  * VOD playback continuity: the user's last EXPLICIT track/speed choices,
- * re-applied when the next episode's fresh mpv instance comes up (every
+ * re-applied when the next episode loads (reset_per_file clears them; every
  * stream is a new instance, so choices die with the file otherwise — the
  * "subs vanish every Up Next roll" complaint). Captured only from real
  * clicks in the player menus, matched by LANGUAGE (track ids are

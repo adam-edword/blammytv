@@ -16,8 +16,9 @@
  * the gitignored bundled DLL that build.rs insists exists.
  *
  * Verified to catch real errors, not just pass vacuously: injecting
- * `let _: u32 = "x";` into inv.rs::close() produces
- * `src/inv.rs:140: error[E0308]: mismatched types`.
+ * `let _: u32 = "x";` into `inv.rs#close` produces `error[E0308]: mismatched
+ * types` pointing into inv.rs. (No line number here on purpose — the one
+ * that used to be quoted was invalidated by the same commit that wrote it.)
  *
  * This is a TYPE check, not a build. It will not catch a linker problem, a
  * runtime panic, or anything about libmpv's actual behaviour.
