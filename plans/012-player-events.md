@@ -355,6 +355,37 @@ native cost that is not trivial, so read them only when their counts change.
 **Revised remaining work**: raise the poll rate, gate the list reads on their
 counts, and re-measure. Nothing else in this plan should be built.
 
+## Time to first frame, measured 2026-08-08
+
+Separate question from the poll, and the one the user actually feels. The
+instrumentation already existed (`InvertedPlayer.tsx:88`, console not
+terminal). Three real opens:
+
+    [mpv-timing] first frame 1343ms after open
+    [mpv-timing] first frame 2852ms after open
+    [mpv-timing] first frame 5349ms after open
+
+Our synchronous work is ~0ms of that (`ready 0ms  queued 0ms`), so all of it
+is mpv opening the URL, probing it, filling the cache and decoding.
+
+**Read the VARIANCE, not the average.** A fixed probe cost shows up as a
+consistent floor. 1.3s to 5.3s on comparable content is origin and network
+variability — debrid links warming up — which no mpv option tunes away. Only
+the ~1.3s floor is potentially ours, and only part of that is probing.
+
+So `demuxer-lavf-probesize` / `analyzeduration` are NOT recommended: the
+plausible prize is a few hundred ms off the floor, and the cost of being
+wrong is format misdetection, which surfaces days later as "this file has no
+audio now" on content nobody tested. Bad trade.
+
+If it is ever revisited, the method is easy because the number prints on
+every open: change ONE option, tune the same source ten times, compare the
+FLOOR rather than the mean.
+
+**Much bigger number, elsewhere:** the startup log shows a **100.4MB** HTTP
+body (plus 7.4MB) from the provider — the channel list and EPG. That dwarfs
+everything in this document and is not a player problem.
+
 ## Superseded: the original measurement gate
 
 The v0.8.164 instrumentation exists precisely for this and **has never been
