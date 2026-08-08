@@ -8,7 +8,7 @@ description: Get BlammyTV running locally.
 - **Node 22+** and **pnpm**
 - **Rust**, stable toolchain
 - The Tauri v2 [Windows
-  prerequisites](https://v2.tauri.app/start/prerequisites/) — MSVC build tools
+  prerequisites](https://v2.tauri.app/start/prerequisites/): MSVC build tools
   and WebView2
 
 ## Run it
@@ -36,5 +36,5 @@ fails one locally will fail there too.
 
 ## Contributing
 
-Read `CLAUDE.md` in the repository root before opening a pull request — it is
-the working agreement the project is actually developed under, and it is short.
+Read `CLAUDE.md` in the repository root before opening a pull request. It's
+the working agreement the project is actually developed under, and it's short.

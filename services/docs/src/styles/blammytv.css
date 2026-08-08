@@ -8,7 +8,7 @@
  *   - corner profile     apps/app base.css (`corner-shape: superellipse(2)`)
  *
  * Starlight's own sheet lives in the `starlight.base` cascade layer. Anything
- * unlayered — i.e. this file — beats it regardless of specificity, so these
+ * unlayered (i.e. this file) beats it regardless of specificity, so these
  * are plain overrides and do not need !important.
  *
  * Starlight's `:root` IS the dark theme; light is `:root[data-theme='light']`.
@@ -115,7 +115,7 @@
   --sl-color-black: #ffffff;
 
   /* The same pink is too light to read as a link on white, so light mode
-   * takes it a couple of stops down rather than reusing the dark value —
+   * takes it a couple of stops down rather than reusing the dark value:
    * a straight inversion here fails contrast on body-size text. */
   --sl-color-accent-low: #ffe4fd;
   --sl-color-accent: #b7259f;
@@ -155,7 +155,7 @@
 
 /* ---- Shape --------------------------------------------------------- */
 /* Squircles wherever a radius already exists, matching the app and the site.
- * `corner-shape` is a no-op on engines without it — those get plain round
+ * `corner-shape` is a no-op on engines without it, which get plain round
  * corners, which is the current behaviour anyway. */
 *,
 *::before,
@@ -173,7 +173,7 @@
 }
 
 /* The active sidebar entry is the one place the brand gradient earns its
- * keep — a 2px stripe rather than a filled plate, so the nav stays quiet. */
+ * keep: a 2px stripe rather than a filled plate, so the nav stays quiet. */
 .sidebar-content a[aria-current="page"] {
   background: var(--sl-color-accent-low);
   color: var(--sl-color-white);

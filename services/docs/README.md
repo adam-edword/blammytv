@@ -1,6 +1,6 @@
 # BlammyTV docs
 
-The documentation site at **docs.eddtv.org** — Astro + Starlight, built to
+The documentation site at **docs.eddtv.org**. Astro + Starlight, built to
 static HTML and served from an nginx container. Same shape as
 `services/site`, with a build step in front of it.
 
@@ -35,7 +35,7 @@ instead. Run `npm run build` here before pushing.
 ## Writing
 
 Pages live in `src/content/docs/`, one Markdown file per page. The sidebar is
-**not** inferred from the filesystem — it is declared in `astro.config.mjs`,
+**not** inferred from the filesystem. It's declared in `astro.config.mjs`,
 so a new page needs an entry there or it will build but never be linked.
 
 Starlight's components (`Card`, `CardGrid`, `Aside`, `Steps`, `Tabs`,
@@ -55,7 +55,7 @@ answers a **user's** question, not architecture that answers ours.
 `src/styles/blammytv.css` maps Starlight's custom properties onto the brand
 tokens from `services/site/index.html` and the Stack Sans faces the marketing
 site already ships. The six `.woff2` files in `public/fonts/` are copies of
-the ones in `services/site/assets/` — duplicated deliberately, because the
+the ones in `services/site/assets/`, duplicated deliberately because the
 Docker build context is scoped to this folder and cannot reach across to
 `services/site`.
 
@@ -73,7 +73,7 @@ Deployed from the **`docs`** branch as a Dockerfile resource.
 | Health check path   | `/health`       |
 | Domain              | `docs.eddtv.org`|
 
-**Write on `main`, then fast-forward `docs` from it — never commit to `docs`
+**Write on `main`, then fast-forward `docs` from it. Never commit to `docs`
 directly.** The `website` branch is the cautionary tale: three commits landed
 on it and nowhere else, so for months the live marketing site's content
 existed only on a deploy branch and `main`'s copy was stale.

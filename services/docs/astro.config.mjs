@@ -3,11 +3,11 @@ import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 
 /**
- * docs.eddtv.org — built to static HTML, served by the nginx container in
+ * docs.eddtv.org, built to static HTML and served by the nginx container in
  * this folder. No runtime: `astro build` emits `dist/` and nginx serves it,
  * exactly like services/site serves its hand-written index.html.
  *
- * `site` is not decoration — Starlight uses it for canonical URLs, og:url
+ * `site` is not decoration. Starlight uses it for canonical URLs, og:url
  * and the sitemap. A wrong value here silently publishes wrong metadata.
  */
 export default defineConfig({
@@ -16,7 +16,7 @@ export default defineConfig({
     starlight({
       title: "BlammyTV",
       description:
-        "Documentation for BlammyTV — a free, elegant IPTV and Stremio player for Windows.",
+        "Documentation for BlammyTV, a free and elegant IPTV and Stremio player for Windows.",
       logo: {
         src: "./public/logo.svg",
         alt: "BlammyTV",
@@ -38,7 +38,7 @@ export default defineConfig({
         baseUrl:
           "https://github.com/adam-edword/blammytv/edit/main/services/docs/",
       },
-      // Starlight bundles Pagefind for static builds — this is the ⌘K
+      // Starlight bundles Pagefind for static builds. This is the ⌘K
       // overlay, indexed at build time, with no third-party search service.
       pagefind: true,
       sidebar: [
