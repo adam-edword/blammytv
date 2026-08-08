@@ -505,6 +505,46 @@ channels", and the theater's own empty rail).
   network.
 - Nothing polls while playback is running.
 - Opening the tab with no leagues followed explains itself.
+## The v0.9.0 cut, decided 2026-08-08
+
+v0.8.163 shipped the hub as a pre-release and its notes promised "Full hub
+release will be v0.9.0". This is what that release is, chosen off the ledger
+below. Seven items and two decisions. Everything in it is measured, unblocked,
+or a hole a user can see.
+
+**The blocker.** #17, the Channels tab. It is in the rail today and
+`SportsSidebar.tsx:186` renders "Not built yet: what this lists is still an
+open question." Shipping a headline release with a tab that says that is the
+thing people screenshot. The cheap correct answer is to hide it for 0.9.0 and
+ship Leagues plus Teams, which also retires the last placeholder icon. Building
+it means first answering what it lists, and that answer is not close.
+
+**In the cut**
+
+| # | Item | Why it is in |
+|---|---|---|
+| 40 | The empty board says when the next one is | #36 shipped and unblocked it. Data is one bare scoreboard call per followed league, already confirmed live. Best value per unit of work on the list. |
+| 21 | The no-channels-matched empty state | The one genuinely missing state. "No leagues followed" is settled as a screen that will never exist. |
+| 15 | Backoff and a cache | The other half of behaving like a guest. Without backoff a failing ESPN endpoint gets hammered. Risk, not polish. |
+| 30 | The board re-resolves channels every tick | 19ms of wasted matcher work every 90s. Measured, never applied. |
+| 29 | LiveScreen's favourites memo | 20.8ms at 500 favourites. Not a sports item; measured, tiny, ships free. |
+| 22 | Reduced motion over the new cards | The race and weekend cards honour it for tilt and glare only, and they are the newest surface in the release. |
+| 45 | Finish the audit | Marked [~], partly worked. Do not headline a release standing on an unfinished audit. |
+
+**The second decision.** #23, polling during playback. On this plan's own risk
+list and deliberately not honoured, because the theater header re-reads the
+refreshed board. Either amend the plan to say that is intended, or freeze the
+board while watching. Leaving it contradicting the plan is the only wrong
+answer.
+
+**Out, and why.** #18 and #19: this plan downgraded them itself once the fetch
+inversion made an empty follows store fetch the default five, so first run is a
+full board rather than a screen asking to be configured. #5 and #25: racing in
+the theater is breadth. #11 fighting, #13/#14/#16 rosters and search and
+out-of-season follows, #12, #20, #26, #28, #39: all post-0.9. #31: windowing
+needs a real decision about the sheen Adam asked to keep. #32: measured as
+tidiness rather than performance, and it makes the update download bigger.
+
 ## What is left, as of v0.8.121
 
 Written from the plan, the code and the sessions that built it. Grouped by
