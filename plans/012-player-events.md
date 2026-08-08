@@ -1,6 +1,11 @@
 # 012: stop asking mpv, let it tell us
 
-**Status: DESIGN, not started.** Written 2026-08-08 after benchmarking against
+> **OUTCOME: mostly CUT by measurement.** Phase 1 (one persistent mpv
+> instance) shipped in v0.8.168-172 and was worth it. Everything else was
+> justified by a jank cost that turned out not to exist — see "Phase 0
+> RESULT". What remains is a poll-rate change, not an event loop.
+
+**Status: phase 1 SHIPPED, the rest cut or reduced.** Written 2026-08-08 after benchmarking against
 Stremio, which Adam named as the bar for player quality. The finding is
 architectural and it explains both symptoms he reported — jank during
 playback, and seeking/scrubbing feel — with one mechanism.
@@ -274,7 +279,73 @@ the overwhelming majority of the FFI traffic while keeping the data identical.
    error. Keep a very slow safety poll (say 5s) as a backstop rather than
    removing polling entirely.
 
-## Measure first
+## Phase 0 RESULT, measured 2026-08-08 — and it kills most of this plan
+
+Real machine, real VOD, 20s steady state, `await playerPerf()`:
+
+```
+  NATIVE  mpv_status (sync command, runs on the UI thread)
+    calls              44
+    property reads     3040   (69 per poll)
+    avg                0.36ms   scalars 0.02ms · tracks 0.28ms · chapters 0.03ms
+    max                0.64ms
+    polls over 16ms    0
+    UI-thread load     0.08% of one core
+
+  VIDEO   frame drops 0 · vo delayed 0 · fps 23.98 · hwdec d3d11va
+
+  WEBVIEW avg/p95/max  2.5ms / 4.0ms / 5.0ms · long tasks ≥50ms 0
+```
+
+**The jank argument is dead.** The poll costs 0.36ms average, 0.64ms worst,
+**0.08% of one core**. Zero polls exceeded a 60Hz frame, zero frames dropped,
+zero delayed frames, zero long tasks. The arithmetic that opened this plan —
+250 property reads a second on the UI thread — was right about the count and
+badly wrong about what it costs: those reads are roughly 5µs each.
+
+Two things survive contact with the data, and one is new:
+
+1. **Tracks really do dominate the poll**: 0.28ms of 0.36ms, 78%, exactly as
+   predicted. But 78% of nothing is nothing. Re-reading a static track list
+   twice a second is inelegant, not expensive. It is worth doing only as an
+   ENABLER (below), never for its own sake.
+2. **The expensive part is the IPC, not the work.** Native 0.36ms vs 2.5ms
+   measured from JS: about **2.1ms of every call is Tauri round-trip and
+   scheduling**, six times the actual mpv work. That reframes the whole
+   thing — the cost is per-CALL, not per-property, so the lever is call
+   frequency, not what each call reads.
+
+### What this deletes
+
+- **Phase 1b (the event thread): CUT.** It existed to remove UI-thread cost
+  that does not exist. Building an mpv event loop, with the lifetime hazards
+  that come with it, to reclaim 0.08% of a core would be indefensible.
+- **Phase 2 (observe list counts): CUT as a goal**, kept only as the enabler
+  described below.
+- **Phase 4 (state via observers): CUT.** Same reason. The watchdog and the
+  completion-vs-death guard are subtle, hard-won and currently correct;
+  rewriting them against events buys nothing measurable.
+
+### What survives, and it is much cheaper than what was planned
+
+Only the CLOCK, and only for granularity, never for cost. The scrubber
+quantises to 500ms because the poll does, and `doSeek` carries an optimistic
+bump to paper over it.
+
+**Since polling turns out to be nearly free, the fix is to poll the clock
+faster — not to build an event loop.** Raising the tick to ~200ms costs
+about 5 invokes/sec ≈ 12ms/sec ≈ 1.2% of a core, dominated entirely by IPC.
+That is 2.5x smoother for a fraction of the risk of an event thread, and it
+touches one constant instead of the whole native state path.
+
+Phase 2's idea earns its place here and only here: at a faster tick, re-reading
+the track and chapter lists every time would multiply the one part of the
+native cost that is not trivial, so read them only when their counts change.
+
+**Revised remaining work**: raise the poll rate, gate the list reads on their
+counts, and re-measure. Nothing else in this plan should be built.
+
+## Superseded: the original measurement gate
 
 The v0.8.164 instrumentation exists precisely for this and **has never been
 read**. Before any of this is built, on a real machine, playing a real file:

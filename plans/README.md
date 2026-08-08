@@ -23,7 +23,7 @@ Run with `improve-animations execute <plan>` or hand to any agent.
 | [009](009-library-and-lists.md) | Library: multiple lists, and a home for everything you've watched | MEDIUM | COMPLETE (0.8.0 headline feature) |
 | [010](010-sports.md) | Sports: a hub for what is on right now | MEDIUM | PLANNED (0.9.0 headline; phase 0 is a gate) |
 | [011](011-live-home.md) | Live TV: a home screen instead of ten thousand channels | MEDIUM | DESIGN (3 open questions; one needs a real playlist) |
-| [012](012-player-events.md) | Stop polling mpv: observe properties like Stremio does | HIGH | DESIGN (phase 0 is a gate: run `playerPerf()` first) |
+| [012](012-player-events.md) | Stop polling mpv: observe properties like Stremio does | HIGH | PARTLY DONE (persistent instance shipped v0.8.168; event loop CUT — measured at 0.08% of a core) |
 
 ## Recommended execution order & dependencies
 
