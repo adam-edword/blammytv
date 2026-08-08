@@ -15,7 +15,9 @@ const unusedVars = [
 
 export default tseslint.config(
   {
-    ignores: ["**/dist/**", "**/node_modules/**"],
+    // `.astro/` is Astro's generated type shim for services/docs — build
+    // output that happens to land outside dist/, and not ours to lint.
+    ignores: ["**/dist/**", "**/node_modules/**", "**/.astro/**"],
   },
 
   // Base JS rules everywhere.
