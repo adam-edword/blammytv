@@ -2,7 +2,7 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
-## 0.8.167: The disappearing app (2026-08-07)
+## 0.8.167: The disappearing app (2026-08-08)
 
 Some of you had BlammyTV vanish off your PC this week, mid-use. That was
 Windows Defender, and it was our fault in a fixable way.
