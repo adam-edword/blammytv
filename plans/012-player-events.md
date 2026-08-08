@@ -60,6 +60,61 @@ Two consequences:
 independently valuable (switch latency), and it converts phase 1 from the
 riskiest step into a routine one.
 
+### Decided: ONE player, shared by Live and VOD
+
+Asked 2026-08-08: with a persistent handle, should Live TV and VOD share one
+instance or get one each?
+
+**One, shared.** The deciding facts, all from `play_wid`'s own option list,
+every one of which is set BEFORE `mpv_initialize`:
+
+```rust
+set("wid", &wid.to_string());     // <- INIT-ONLY
+set("hwdec", "auto-safe");
+set("d3d11-flip", "no");          // when composited
+set("audio-channels", "stereo");
+set("terminal", "no");
+set("start", &start.to_string()); // <- per-FILE, wrongly global; see below
+```
+
+- **Nothing here differs by content type.** `hwdec`, `audio-channels` and
+  `d3d11-flip` are properties of the machine and the compositing path, not of
+  whether the content is live or on-demand. A split would buy nothing at the
+  mpv layer.
+- **`wid` is init-only**, so it permanently binds a handle to one child
+  window. Two handles therefore means two child windows in `inv.rs` — their
+  own creation, z-order, visibility and resize plumbing — for no measured
+  gain.
+- **"One provider connection at a time" is already an app-wide invariant**
+  that `play_wid` defends by calling `stop_popout()`. It exists because a
+  `max_connections=1` line fails outright when two streams open. Two
+  simultaneous players is in tension with a rule the code actively enforces.
+- Stremio runs exactly one instance and serves both streaming and local files.
+
+**When two would be right, for the record:** if we wanted a live channel to
+keep buffering while the user browses VOD, so returning to it is instant.
+That is a real feature and worth its own decision later — but it doubles idle
+memory and contradicts the one-connection invariant, so it must be chosen
+deliberately, not inherited as a side effect of this refactor.
+
+### `start` is a per-file option masquerading as a global one
+
+Found while answering the above, and it is a migration bug waiting to happen:
+
+```rust
+set("start", &start.to_string());   // global option, set pre-init
+```
+
+This is correct today **only because the handle is discarded every time**. On
+a persistent handle the value would apply to every subsequent `loadfile`:
+resume a film at 42 minutes, then tune a live channel, and mpv would try to
+start that channel 42 minutes in. It must move to `loadfile`'s per-file
+options argument (`loadfile <url> replace start=<n>`).
+
+Treat this as the template for the whole migration: anything currently set as
+a global option that is really about *this file* has to move to the load
+path, and the fact that it works now is not evidence that it is right.
+
 ### What currently depends on handles dying
 
 A fresh instance per stream resets mpv state for free, and the code leans on
