@@ -523,7 +523,7 @@ it means first answering what it lists, and that answer is not close.
 
 | # | Item | Why it is in |
 |---|---|---|
-| 40 | The empty board says when the next one is | #36 shipped and unblocked it. Data is one bare scoreboard call per followed league, already confirmed live. Best value per unit of work on the list. |
+| 40 | The club-narrowed board reaches ahead too | Read in full and #36 superseded the league half: the board shows the game rather than a note about it. What is left is the club half, where a mid-season league masks a club that is not playing and the empty state then states the opposite of the truth. See #40 below. |
 | 21 | The no-channels-matched empty state | The one genuinely missing state. "No leagues followed" is settled as a screen that will never exist. |
 | 15 | Backoff and a cache | The other half of behaving like a guest. Without backoff a failing ESPN endpoint gets hammered. Risk, not polish. |
 | 30 | The board re-resolves channels every tick | 19ms of wasted matcher work every 90s. Measured, never applied. |
@@ -1521,19 +1521,54 @@ duplicated where #43 claims it is shared, and plan bookkeeping — #22 shipped
 but marked open, #35 stale in both directions, #27's ledger row off by one
 version, #40's blocker landed 19 commits ago.
 
-#### 40. The empty board says when the next one is [ ]
+#### 40. The empty board says when the next one is [x] superseded by #36, with a remainder
 
-Shipped in v0.8.135: the four no-cards states are a proper composition
-now, and the narrowed one names what you follow and offers the way out.
+Read for the v0.9.0 cut on 2026-08-08 and it is not the item it was written
+as. #36 shipped in v0.8.137 and answered this from a better direction: rather
+than an empty board carrying a note that says "the NBA is back on 3 October",
+the board shows the actual NBA game on 3 October. A card beats a sentence
+about a card, so there is nothing left to build for the league half.
 
-What it still cannot say is the useful thing. "PGA, NBA and 3 more have
-nothing scheduled over the next three days" is honest and slightly
-useless; "the NBA is back on 3 October" is the answer. That is #36 from
-the other end, and the data is one bare scoreboard call per followed
-league, already confirmed against the live endpoint.
+`SportsScreen`'s own comment on the narrowed empty state already says so:
+"MUCH RARER THAN IT WAS... Landing here means every followed league answered
+with nothing even when asked what is next." In that state there is no next
+date to print, because the absence of one is the reason the state fired. #40's
+proposed copy is unwriteable there by definition.
 
-When #36 lands, this note becomes the next date per followed league and
-the empty board stops being a dead end.
+**The remainder is the club half, and it is a correctness bug rather than a
+missing nicety.** #36's own closing note flagged it: "following a club whose
+league is playing produces games, so nothing reaches ahead."
+
+The mechanism, confirmed in code:
+
+- `fetchList` turns a club follow into its LEAGUE's path, which
+  `SportsScreen` documents ("a club follow pulls its whole league onto the
+  wire").
+- `useGames`'s `loadAhead` computes `missing` as followed paths not present
+  in `covered`, and `covered` is built from `g.leagueKey`. A mid-season
+  league answers with other clubs' games, so its path is covered.
+- `missing` is therefore empty, `loadAhead` returns early, and nothing
+  reaches ahead for the club.
+- The board then filters to that club, finds nothing in the window, and
+  falls into the narrowed empty state.
+
+Which prints: *"1 club has no fixtures published, not even further out."*
+That is false. The club has fixtures; they are outside the window and nothing
+ever asked for them. The board is not merely unhelpful here, it states the
+opposite of the truth.
+
+Two ways to fix it, and they differ in cost rather than in correctness:
+
+- **Make `covered` team-aware.** A followed club counts as covered only when
+  a game in the window actually involves it, so a mid-season league no longer
+  masks a club that is not playing. Reuses the whole existing reach-ahead
+  path; the change is what goes into the set.
+- **Soften the copy** so it stops asserting "not even further out" when the
+  reach never ran. Cheaper, and it leaves the board still empty for a club
+  that does have a next fixture.
+
+The first is the real fix and is not much more work. The second alone would
+be settling for an honest dead end over a useful board.
 
 ---
 
