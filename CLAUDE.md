@@ -85,6 +85,35 @@ End every task with one of:
 
 "Partially done" isn't a status. Honesty about incompleteness beats pretending.
 
+## Over to you: what's left for me to do
+
+After the status line, give a short list headed **Over to you** of what needs
+a human. Three kinds of thing belong on it:
+
+- **Verify** — a claim you made but couldn't prove from where you're sitting.
+  Windows-only behavior, anything needing a real provider, mpv at runtime, how
+  something actually looks.
+- **Decide** — a choice that's mine: a trade-off, a purchase, anything
+  touching a published artifact.
+- **Do** — an action only I can take: publish a release, submit a form, run
+  the thing on the machine that has the hardware.
+
+What keeps the list worth reading:
+
+- **Only what genuinely needs me.** If you could have checked it yourself and
+  didn't, that's a gap in the work, not an item for my list. Don't move your
+  homework onto it.
+- **One line each, actionable without thinking** — same bar as the restart
+  line. Paste-ready commands where commands exist.
+- **Say what a pass looks like.** "Switch channels and watch the n/m badge
+  drop" beats "verify connections are released". I should be able to tell a
+  pass from a fail without asking you.
+- **Order by what breaks if it's skipped**, and say so when something is
+  load-bearing: "until this is checked, don't ship it."
+- **An empty list is a real answer.** "Nothing needs you" is often the right
+  ending, and padding it trains me to skim past the list on the day it
+  actually matters.
+
 ## After every task: commit, push, report what to restart
 
 1. **Commit and push.** Stage, write a clear message, push. Don't wait to be asked.
