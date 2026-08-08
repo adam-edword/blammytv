@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   fetchConnections,
   type XtreamConnections,
@@ -18,6 +18,14 @@ import { loadPlaylists } from "../settings/playlists";
  */
 const POLL_MS = 60_000;
 const POST_TUNE_DELAY_MS = 4_000;
+/**
+ * A second look after a tune CHANGE, because 4s is enough for a panel to
+ * register a new session but not always enough for it to notice one has
+ * gone. Without this the number sat wrong for up to a full POLL_MS after
+ * stopping — which made "did the connection release?" untestable: the badge
+ * read 1/3 twenty seconds after stopping whatever mpv had actually done.
+ */
+const SETTLE_MS = 20_000;
 
 export function useConnections(
   tuneKey: string | null,
@@ -25,6 +33,11 @@ export function useConnections(
   const [conns, setConns] = useState<Map<string, XtreamConnections>>(
     () => new Map(),
   );
+  /** First run of the effect vs a later tune change. Both arrive with
+   * tuneKey null when nothing is playing — mount and "just stopped" are
+   * indistinguishable from the key alone — and they want opposite timing:
+   * mount should ask at once, a stop should give the panel a beat first. */
+  const mounted = useRef(false);
   useEffect(() => {
     let stale = false;
     const refresh = () => {
@@ -49,13 +62,19 @@ export function useConnections(
         });
       }
     };
-    // Mount (tuneKey null-or-first): immediate. Tune change: give the
-    // panel a beat to count the new session before asking.
-    const t = window.setTimeout(refresh, tuneKey ? POST_TUNE_DELAY_MS : 0);
+    // First mount: ask at once, there is nothing to wait for. Any later
+    // change — a tune STARTING or STOPPING — gives the panel a beat, then
+    // looks again once it has had time to settle. Stopping used to refresh
+    // at 0ms, which asked at the one moment the answer was guaranteed stale
+    // and then held that stale number for a whole POLL_MS.
+    const first = !mounted.current;
+    mounted.current = true;
+    const delays = first ? [0] : [POST_TUNE_DELAY_MS, SETTLE_MS];
+    const timers = delays.map((d) => window.setTimeout(refresh, d));
     const id = window.setInterval(refresh, POLL_MS);
     return () => {
       stale = true;
-      window.clearTimeout(t);
+      timers.forEach(window.clearTimeout);
       window.clearInterval(id);
     };
   }, [tuneKey]);
