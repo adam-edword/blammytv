@@ -60,12 +60,18 @@ that actually withdraws THIS detection is the free WDSI submission below.
 Do not buy an EV certificate: Microsoft removed instant SmartScreen
 reputation for EV in 2024, so it is ~$400/yr for nothing here.
 
-**Also do this, it is free and it works:** submit the binary to Microsoft as
-a false positive at <https://www.microsoft.com/en-us/wdsi/filesubmission>
-(pick "Software developer", "Incorrectly detected"). Turnaround is usually a
-few days, and the detection is withdrawn fleet-wide. Re-submit after each
-release until the signing cert is in place, because an unsigned binary earns
-no reputation carry-over between builds.
+**NOT a per-release step.** Decided 2026-08-08: submitting a false positive
+to Microsoft is free and does work — <https://www.microsoft.com/en-us/wdsi/filesubmission>,
+"Software developer" / "Incorrectly detected", withdrawn fleet-wide in a few
+days — but doing it on every release is not a ritual worth keeping, and a
+release checklist nobody follows is worse than one that admits its limits.
+
+So: **only if the detection actually comes back.** The `app.exe` →
+`BlammyTV.exe` rename in v0.8.167 may have settled it on its own; nobody has
+seen a recurrence since. If reports start again, the two levers are one
+submission for that build, or the certificate in SIGNING.md — and a
+recurrence is the evidence that makes the certificate worth its $120/yr,
+rather than a purchase made on spec.
 
 **For affected users, right now:** Windows Security → Protection history →
 the entry → Actions → **Restore**, then reinstall. Adding an exclusion for

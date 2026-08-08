@@ -21,26 +21,33 @@ So treat these as two workstreams:
 
 | Problem | Actual fix |
 |---|---|
-| Defender removing the app (`Bearfoos.A!ml`) | WDSI false-positive submission, plus the `app.exe` → `BlammyTV.exe` rename already in v0.8.166 |
+| Defender removing the app (`Bearfoos.A!ml`) | The `app.exe` → `BlammyTV.exe` rename (shipped v0.8.167); a WDSI submission only if it recurs |
 | SmartScreen "unrecognised app" warning on install | A certificate — but reputation still accrues over weeks |
 
-**Do the free thing first**, it is the one that actually clears the detection:
-submit at <https://www.microsoft.com/wdsi/filesubmission> as *Software
-developer → Incorrectly detected*. Turnaround is typically days and the
-withdrawal is fleet-wide. Re-submit per release until a stable certificate has
-built reputation.
+**If it comes back, the free thing clears it:** submit at
+<https://www.microsoft.com/wdsi/filesubmission> as *Software developer →
+Incorrectly detected*. Turnaround is typically days and the withdrawal is
+fleet-wide.
+
+**It is deliberately NOT a per-release step** (decided 2026-08-08). Doing it
+for every build is a tax on shipping, and a checklist item that gets skipped
+is worse than one that was never written. The `app.exe` → `BlammyTV.exe`
+rename may have settled this on its own — treat a recurrence as the trigger,
+and as the evidence that makes the certificate below worth buying.
 
 ### So: buy nothing yet
 
 The sequence that spends the least money is also the correct one:
 
-1. Ship the `BlammyTV.exe` rename (v0.8.167) and submit the false positive.
-2. Watch whether the detection returns on the next few releases.
-3. Buy a certificate only if you decide the SmartScreen *install* warning is
+1. Ship the `BlammyTV.exe` rename (done, v0.8.167).
+2. Watch whether the detection returns. Do nothing unless it does.
+3. If it returns: one WDSI submission for that build, and start treating the
+   certificate as justified rather than speculative.
+4. Buy a certificate when you decide the SmartScreen *install* warning is
    worth $120/yr — and note it will not vanish on day one even then.
 
-Step 3 is a genuinely optional, separable purchase. Nothing about steps 1–2
-depends on it.
+Step 4 is a genuinely optional, separable purchase. Nothing above it depends
+on it.
 
 ## What NOT to buy
 
