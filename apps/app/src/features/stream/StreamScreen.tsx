@@ -623,6 +623,30 @@ export function StreamScreen() {
         art: known?.logo ?? entry.logo ?? known?.poster ?? entry.art,
         title: entry.title,
       });
+      /**
+       * START THE SOURCE REQUEST NOW, alongside the meta resolve.
+       *
+       * These two are independent — resolveVodSources takes an id and
+       * nothing else — but they used to run strictly one after the other,
+       * so a resume paid BOTH round trips end to end. Measured against a
+       * real addon, each is 1.1-2.1s (the [http] log), so serialising them
+       * put an avoidable second and a half between the click and the
+       * picture, every time.
+       *
+       * The id is knowable without the resolve: an episode carries its own
+       * `episodeId`, and for a movie the id we would have used (`item.id`)
+       * IS `entry.id` — resolveVodItem is asked for exactly that id and
+       * returns the meta for it. If an addon ever aliased one id to
+       * another, this would ask about the id the user actually clicked,
+       * which is the more defensible of the two answers anyway.
+       *
+       * The catch is attached immediately so a rejection landing before the
+       * await below is not an unhandled rejection; the real handling stays
+       * at the await, which still throws.
+       */
+      const sourcesPromise = resolveVodSources(kind, entry.episodeId ?? entry.id);
+      sourcesPromise.catch(() => {});
+
       let item = known;
       if (!item || (kind === "series" && item.seasons.length === 0)) {
         const full = await resolveVodItem(kind, entry.id).catch(() => null);
@@ -658,10 +682,9 @@ export function StreamScreen() {
             }
           : undefined;
       try {
-        const sources = await resolveVodSources(
-          kind,
-          entry.episodeId ?? item.id,
-        );
+        // Already in flight since before the meta resolve above — by the
+        // time we get here it is usually settled, so this await is free.
+        const sources = await sourcesPromise;
         // Cached only — see watchNow. This is the path that got a real
         // account rate-limited: quick-resume auto-played an uncached
         // source sight-unseen, then the tune watchdog re-requested it.
