@@ -50,6 +50,26 @@ tech wins: no framework-of-the-month, no clever abstractions for hypothetical
 reuse. When a task matches an installed Claude Code skill (security review,
 design review, etc.), use the skill instead of re-implementing.
 
+## Writing style
+
+Applies to everything you produce: chat replies, docs, commit messages, code
+comments, UI copy.
+
+- **No em dashes.** Not as an aside, not as a pause, not as a dramatic
+  reveal. Use a comma, a colon, brackets, or two sentences. Fixing one means
+  rewriting the sentence, not swapping the character for a hyphen.
+- **Write plainly.** Short declaratives beat long balanced ones. Contractions
+  are fine. Say the thing and stop.
+- **Cut the tells.** "It's not just X, it's Y". "Worth knowing/noting/doing".
+  "That said". "Here's the thing". Portentous one-line paragraphs used as a
+  drumbeat. Everything in threes. Piling on "genuinely", "actually",
+  "precisely", "simply".
+- **Don't oversell.** No "by far the most common", no "the single biggest
+  reason", unless there's a number behind it.
+
+The house voice is the site's FAQ copy in `services/site/index.html`: "Yup."
+"Nope." "None." Direct, second person, no throat-clearing. Match that.
+
 ## Delegation: orchestrate by task shape, not by default
 
 Standing permission to run subagents/workflows underneath the main session (no
@@ -121,8 +141,8 @@ What keeps the list worth reading:
 1. **Commit and push.** Stage, write a clear message, push. Don't wait to be asked.
 2. **Say what to restart: one line, terminal-ready.** End with a single line I
    can act on without thinking, in exactly this shape:
-   - Frontend-only (hot-reloads): `Pushed v0.x.x — `git pull` to hot reload`
-   - Native/Rust (needs rebuild): `Pushed v0.x.x — `git pull` and `pnpm tauri dev`, needs rebuild`
+   - Frontend-only (hot-reloads): `Pushed v0.x.x, `git pull` to hot reload`
+   - Native/Rust (needs rebuild): `Pushed v0.x.x, `git pull` and `pnpm tauri dev`, needs rebuild`
 
    Use the real version number, pick the line that matches the change, and give
    the exact commands. If nothing needs restarting, say that instead.

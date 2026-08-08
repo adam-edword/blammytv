@@ -1,0 +1,38 @@
+---
+title: BlammyTV
+description: A free, elegant IPTV and Stremio player for Windows. Bring your own sources.
+template: splash
+hero:
+  tagline: A free, elegant IPTV and Stremio player for Windows. Bring your own playlists and your own AIOStreams manifest. Everything else is on your machine.
+  image:
+    file: ../../../public/logo.svg
+  actions:
+    - text: Install BlammyTV
+      link: /start/install/
+      icon: right-arrow
+    - text: View on GitHub
+      link: https://github.com/adam-edword/blammytv
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+<CardGrid stagger>
+  <Card title="Get started" icon="rocket">
+    Install the app, then point it at your first playlist.
+    [Install](/start/install/) · [First launch](/start/first-launch/)
+  </Card>
+  <Card title="Add your sources" icon="add-document">
+    Xtream Codes, plain M3U, Stalker portals and AIOStreams manifests.
+    [Sources overview](/sources/)
+  </Card>
+  <Card title="Where your data goes" icon="approve-check">
+    Nothing is proxied through a BlammyTV server. Here's the whole path.
+    [How it works](/how-it-works/)
+  </Card>
+  <Card title="Windows flagged it?" icon="warning">
+    Defender sometimes deletes the app on download. What that means, and what to do.
+    [Read this](/how-it-works/defender/)
+  </Card>
+</CardGrid>

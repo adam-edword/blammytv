@@ -1,0 +1,217 @@
+/**
+ * BlammyTV brand skin for Starlight.
+ *
+ * Every value here is lifted from a source already in this repo, so the docs
+ * and the marketing site cannot drift into two different-looking products:
+ *   - colours + radius   services/site/index.html (the Figma token block)
+ *   - fonts              Stack Sans, the same six woff2 the site ships
+ *   - corner profile     apps/app base.css (`corner-shape: superellipse(2)`)
+ *
+ * Starlight's own sheet lives in the `starlight.base` cascade layer. Anything
+ * unlayered (i.e. this file) beats it regardless of specificity, so these
+ * are plain overrides and do not need !important.
+ *
+ * Starlight's `:root` IS the dark theme; light is `:root[data-theme='light']`.
+ * That matches the app, which is dark-first, so dark is written as the base
+ * and light is the deliberate second pass rather than a mechanical inversion.
+ */
+
+/* ---- Stack Sans ---------------------------------------------------- */
+@font-face {
+  font-family: "Stack Sans Headline";
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/stack-sans-headline-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Stack Sans Headline";
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/stack-sans-headline-600.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Stack Sans Headline";
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/stack-sans-headline-700.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Stack Sans Text";
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/stack-sans-text-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Stack Sans Text";
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/stack-sans-text-600.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Stack Sans Text";
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/stack-sans-text-700.woff2") format("woff2");
+}
+
+/* ---- Tokens: dark (the base theme) --------------------------------- */
+:root {
+  /* The brand, verbatim from the site's Figma block. */
+  --btv-pink: #ff7bf6;
+  --btv-blue: #5f74ff;
+  --btv-green: #84ffa9;
+  --btv-brand-linear: linear-gradient(
+    110deg,
+    #ff9b9b,
+    #ff7bf6,
+    #8696ff,
+    #84ffa9,
+    #ffe57f
+  );
+  --btv-corner: superellipse(2);
+
+  --sl-font: "Stack Sans Text", "Segoe UI", system-ui, sans-serif;
+  --sl-font-headline: "Stack Sans Headline", "Segoe UI", system-ui, sans-serif;
+
+  /* Neutrals ramped off #0b0b0e rather than Starlight's blue-grey, so the
+   * page ground is the same near-black as the app and the site. */
+  --sl-color-white: #ffffff;
+  --sl-color-gray-1: #ededf0;
+  --sl-color-gray-2: #b8b8be;
+  --sl-color-gray-3: #8a8a8a;
+  --sl-color-gray-4: #515151;
+  --sl-color-gray-5: #2a2a30;
+  --sl-color-gray-6: #17171b;
+  --sl-color-gray-7: #101014;
+  --sl-color-black: #0b0b0e;
+
+  /* Pink is the signature; it carries links, the active nav item and focus
+   * rings. -high is the text-on-dark tint, -low the filled-plate tint. */
+  --sl-color-accent-low: #3b1f3a;
+  --sl-color-accent: var(--btv-pink);
+  --sl-color-accent-high: #ffc8fb;
+
+  --sl-color-bg: var(--sl-color-black);
+  --sl-color-bg-nav: rgba(11, 11, 14, 0.72);
+  --sl-color-bg-sidebar: var(--sl-color-black);
+  --sl-color-bg-inline-code: rgba(255, 255, 255, 0.07);
+  --sl-color-hairline: rgba(255, 255, 255, 0.08);
+  --sl-color-hairline-light: rgba(255, 255, 255, 0.12);
+  --sl-color-hairline-shade: rgba(255, 255, 255, 0.05);
+  --sl-color-text: #b8b8be;
+  --sl-color-text-accent: var(--btv-pink);
+}
+
+/* ---- Tokens: light ------------------------------------------------- */
+:root[data-theme="light"] {
+  --sl-color-white: #0b0b0e;
+  --sl-color-gray-1: #17171b;
+  --sl-color-gray-2: #35353b;
+  --sl-color-gray-3: #63636b;
+  --sl-color-gray-4: #8f8f97;
+  --sl-color-gray-5: #d9d9de;
+  --sl-color-gray-6: #eeeef1;
+  --sl-color-gray-7: #f6f6f8;
+  --sl-color-black: #ffffff;
+
+  /* The same pink is too light to read as a link on white, so light mode
+   * takes it a couple of stops down rather than reusing the dark value:
+   * a straight inversion here fails contrast on body-size text. */
+  --sl-color-accent-low: #ffe4fd;
+  --sl-color-accent: #b7259f;
+  --sl-color-accent-high: #6d1360;
+
+  --sl-color-bg: var(--sl-color-black);
+  --sl-color-bg-nav: rgba(255, 255, 255, 0.78);
+  --sl-color-bg-sidebar: var(--sl-color-black);
+  --sl-color-bg-inline-code: rgba(11, 11, 14, 0.06);
+  --sl-color-hairline: rgba(11, 11, 14, 0.1);
+  --sl-color-hairline-light: rgba(11, 11, 14, 0.14);
+  --sl-color-hairline-shade: rgba(11, 11, 14, 0.05);
+  --sl-color-text: #35353b;
+  --sl-color-text-accent: #b7259f;
+}
+
+/* ---- Type ---------------------------------------------------------- */
+/* Headline face for headings only; body stays on Stack Sans Text, which is
+ * the pair the app and the site already use. */
+:is(h1, h2, h3, h4, h5, h6),
+.site-title,
+.hero h1 {
+  font-family: var(--sl-font-headline);
+  letter-spacing: -0.015em;
+}
+
+/* Starlight's default measure is 45rem; the app's own prose sits tighter and
+ * long lines are the single easiest way to make docs feel heavy. */
+:root {
+  --sl-content-width: 44rem;
+  --sl-text-h1: 2.4rem;
+}
+
+.sl-markdown-content {
+  line-height: 1.68;
+}
+
+/* ---- Shape --------------------------------------------------------- */
+/* Squircles wherever a radius already exists, matching the app and the site.
+ * `corner-shape` is a no-op on engines without it, which get plain round
+ * corners, which is the current behaviour anyway. */
+*,
+*::before,
+*::after {
+  corner-shape: var(--btv-corner);
+}
+
+/* ---- Nav ----------------------------------------------------------- */
+/* The header floats over the page the way the site's nav does, instead of
+ * sitting on an opaque bar a shade off the background. */
+.header {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--sl-color-hairline);
+}
+
+/* The active sidebar entry is the one place the brand gradient earns its
+ * keep: a 2px stripe rather than a filled plate, so the nav stays quiet. */
+.sidebar-content a[aria-current="page"] {
+  background: var(--sl-color-accent-low);
+  color: var(--sl-color-white);
+  font-weight: 600;
+}
+
+/* ---- Callouts ------------------------------------------------------ */
+/* Starlight's asides are already restrained; this just trades the heavy left
+ * border for a hairline plate so a Note reads as an annotation, not a klaxon. */
+.starlight-aside {
+  border-radius: 12px;
+  border-inline-start-width: 2px;
+  background: color-mix(in srgb, var(--sl-color-bg) 88%, currentColor);
+}
+
+/* ---- Keys ---------------------------------------------------------- */
+/* The Live TV shortcut table is the densest page on the site, and bare
+ * monospace makes a keycap read as inline code. Give it an actual cap. */
+kbd {
+  display: inline-block;
+  min-width: 1.75em;
+  padding: 0.15em 0.45em;
+  border: 1px solid var(--sl-color-hairline-light);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  background: var(--sl-color-bg-inline-code);
+  color: var(--sl-color-white);
+  font-family: var(--__sl-font-mono);
+  font-size: var(--sl-text-xs);
+  line-height: 1.4;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* ---- Cards --------------------------------------------------------- */
+.card {
+  border-radius: 16px;
+}
+.card .icon {
+  color: var(--sl-color-accent);
+}

@@ -1,6 +1,13 @@
 packages:
   - apps/*
   - services/*
+  # Not a workspace member: services/docs is an Astro site with its own
+  # package-lock.json, deployed on its own from the `docs` branch. Its ~360
+  # packages have nothing to do with the app, and folding them into the root
+  # lockfile would tax every install and every CI run for no benefit. Its
+  # Docker build context is that folder alone, so it could not use the root
+  # lockfile regardless. See services/docs/README.md.
+  - "!services/docs"
 
 # Packages allowed to run install/build scripts (pnpm blocks them by default).
 onlyBuiltDependencies:
