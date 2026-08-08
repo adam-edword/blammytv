@@ -390,6 +390,17 @@ fn ensure_player(wid: isize) -> Result<(), String> {
         // makes libmpv shut the core down, and the next loadfile would have
         // nothing to load into — the whole point of a persistent instance.
         set("idle", "yes");
+        // KEEP THE VO ALIVE BETWEEN FILES, painting black.
+        //
+        // This is what replaces the old "destroy the window and make a fresh
+        // SS_BLACKRECT STATIC" trick. With a persistent window, the moment
+        // between unloading one stream and the next one's first frame has to
+        // be filled by SOMETHING: the top-level window is transparent and the
+        // frontend holds a clip hole open while tuning, so an unpainted child
+        // is a hole straight through to the desktop — which is exactly what a
+        // channel switch flashed. mpv's own idle window is black, so letting
+        // it keep the VO is both the fix and the idiomatic answer.
+        set("force-window", "yes");
         if (l.initialize)(h) < 0 {
             (l.terminate_destroy)(h);
             return Err("mpv_initialize failed".into());

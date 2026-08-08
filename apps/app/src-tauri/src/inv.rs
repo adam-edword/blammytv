@@ -11,9 +11,8 @@ use std::ffi::c_void;
 use std::sync::atomic::{AtomicIsize, Ordering};
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DestroyWindow, SetWindowPos, HWND_BOTTOM, SWP_HIDEWINDOW,
-    SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW, WINDOW_EX_STYLE,
-    WINDOW_STYLE, WS_CHILD, WS_VISIBLE,
+    CreateWindowExW, DestroyWindow, SetWindowPos, HWND_BOTTOM, SWP_NOACTIVATE,
+    SWP_SHOWWINDOW, WINDOW_EX_STYLE, WINDOW_STYLE, WS_CHILD, WS_VISIBLE,
 };
 
 static CHILD: AtomicIsize = AtomicIsize::new(0);
@@ -134,25 +133,19 @@ pub fn set_rect(x: i32, y: i32, w: u32, h: u32) {
 /// the mpv instance for the next play. Safe to call idly. UI thread only.
 ///
 /// The window stays because the persistent player is bound to it by the
-/// init-only `wid` option; it is hidden instead, so a stopped player cannot
-/// paint black through the frontend's clip hole. `mpv::unload` is where the
-/// connection is actually released — read its comment before changing this.
+/// init-only `wid` option, and it stays VISIBLE on purpose. Hiding it here
+/// was the first attempt and it flashed the desktop on every channel switch:
+/// InvertedPlayer's effect is keyed on the url, so switching runs this
+/// cleanup and then immediately re-opens a clip hole while the next stream
+/// tunes — with the child hidden and the top-level window transparent, that
+/// hole showed the desktop. mpv holds the surface black between files
+/// instead (`force-window=yes`, see ensure_player). With no hole open, a
+/// black child at the bottom of the z-order is invisible anyway.
+///
+/// `mpv::unload` is where the connection is actually released — read its
+/// comment before changing this.
 pub fn close() {
     crate::mpv::unload();
-    let child = CHILD.load(Ordering::SeqCst);
-    if child != 0 {
-        unsafe {
-            let _ = SetWindowPos(
-                HWND(child as *mut c_void),
-                Some(HWND_BOTTOM),
-                0,
-                0,
-                0,
-                0,
-                SWP_HIDEWINDOW | SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE,
-            );
-        }
-    }
 }
 
 /// Process teardown: destroy the instance and the window for good. NOT for

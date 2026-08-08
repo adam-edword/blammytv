@@ -1,6 +1,6 @@
 {
   "name": "@blammytv/app",
-  "version": "0.8.169",
+  "version": "0.8.170",
   "private": true,
   "type": "module",
   "scripts": {
