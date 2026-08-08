@@ -97,23 +97,32 @@ That is a real feature and worth its own decision later — but it doubles idle
 memory and contradicts the one-connection invariant, so it must be chosen
 deliberately, not inherited as a side effect of this refactor.
 
-### `start` is a per-file option masquerading as a global one
+### `start` and `composited` are dead on the in-app path
 
-Found while answering the above, and it is a migration bug waiting to happen:
+First read of this said `start` was a migration bug in waiting. **It is not** —
+corrected here so the plan does not carry the wrong warning.
+
+`play_wid` has exactly ONE caller:
 
 ```rust
-set("start", &start.to_string());   // global option, set pre-init
+crate::mpv::play_wid(url, child.0 as isize, false, 0.0)   // inv.rs:79
 ```
 
-This is correct today **only because the handle is discarded every time**. On
-a persistent handle the value would apply to every subsequent `loadfile`:
-resume a film at 42 minutes, then tune a live channel, and mpv would try to
-start that channel 42 minutes in. It must move to `loadfile`'s per-file
-options argument (`loadfile <url> replace start=<n>`).
+`composited` is hardcoded `false`, so `d3d11-flip` is never set on the in-app
+path. `start` is hardcoded `0.0` and the option is guarded by
+`if start > 0.0`, so it never fires either — its comment ("resume when
+reclaiming from the popout") describes a path that now routes through
+`inv_open` with 0.0 and resumes by seeking after load instead.
 
-Treat this as the template for the whole migration: anything currently set as
-a global option that is really about *this file* has to move to the load
-path, and the fact that it works now is not evidence that it is right.
+So neither is a hazard for the persistent handle, and both are candidates for
+deletion. The per-file state that DOES need explicit resetting is `speed`,
+`aid` and `sid` — see below — because those are set at runtime by the user
+rather than at create time.
+
+The general principle still holds and is still the template: anything set as
+a global option that is really about *this file* must move to the load path.
+It just happens that the two parameters that look like instances of it are
+already inert.
 
 ### What currently depends on handles dying
 
@@ -292,13 +301,8 @@ Do not build phase 1 before reading those numbers.
 - **Phase 0 — measure.** `playerPerf()` on a real VOD with many tracks, AND
   the `play_wid` teardown/create/loadfile split that is already printed once
   per open. Record both here. Gate: do the numbers justify each phase?
-- **Phase 1 — one persistent handle.** Create mpv once; make `play_wid` issue
-  `loadfile` instead of destroy-and-recreate. Reset `speed`/`aid`/`sid`
-  explicitly per load (see "What currently depends on handles dying"). This
-  is independently worth doing for switch latency, and it removes the
-  `wait_event` hazard that made the next phase frightening. Verify by
-  switching channels a few hundred times and watching for leaks or a stuck
-  demuxer.
+- **Phase 1 — one persistent handle.** Detailed below; it is bigger than one
+  line because `wid` being init-only drags the child WINDOW into it too.
 - **Phase 1b — the event thread.** Now routine: bind
   `mpv_observe_property`, spawn one `wait_event` thread alongside the
   now-permanent handle. Emit nothing yet; log only.
@@ -313,6 +317,61 @@ Do not build phase 1 before reading those numbers.
 - **Phase 4 — state.** Move `core-idle` / `eof-reached` / `idle-active` to
   observers, and reproduce the watchdog and completion guard against them,
   tests first. Keep a 5s backstop poll (risk 4).
+
+## Phase 1 in detail
+
+`wid` is init-only, so a handle is bound to one HWND for life. Today
+`inv::open` destroys and recreates that HWND on every play
+(`inv.rs`: `close()` → `CreateWindowExW`), and `inv::close` destroys it
+again. **A persistent handle therefore requires a persistent child window.**
+The two have to stop churning together — this is the part that makes phase 1
+bigger than "call loadfile instead".
+
+The work, in order:
+
+1. **Persist the child window.** `inv::open` creates it once and thereafter
+   only repositions (`SetWindowPos`, which it already does). `inv::close`
+   stops playback but leaves the window alive. Destroying it moves to app
+   shutdown.
+2. **Split `play_wid` into ensure + load.** *Ensure*: if `PLAYER` is empty,
+   `create` → set options → `initialize`, once. *Load*: `loadfile <url>
+   replace` on the existing handle. `reload_live()` (`mpv.rs`) is already
+   exactly this and is proven in production — it is the template, not a new
+   pattern.
+3. **Reset per-file state on every load.** `speed` → 1, `aid`/`sid` → the
+   remembered prefs or auto. Today these reset for free because the handle
+   dies, and `TheaterOverlay.tsx:255` explicitly relies on that.
+4. **Rework `stop`.** It is `terminate_destroy` today. For a normal switch it
+   becomes mpv's `stop` command (unload the file, keep the instance); real
+   destruction is reserved for app exit. **This is where the app-wide
+   one-connection invariant now lives** — see risk below.
+5. **Re-check the popout edges.** `play_wid` calls `stop_popout()`, and
+   `popout_open` calls `inv::close()` to capture position and tear down.
+   Both assumed a disposable in-app player; both need re-reading against a
+   persistent one.
+
+### The risk that decides whether this ships
+
+**Does an unloaded-but-alive mpv still hold the provider connection?** The
+one-connection invariant is not a style preference — the code says a
+`max_connections=1` line "outright failed to tune" when two instances ran. If
+mpv's `stop` command releases the socket, this is fine. If it keeps the
+connection warm, every user on a single-connection line breaks the moment
+they change channel, and phase 1 cannot ship as designed.
+
+This is a factual question with a definite answer, and it must be settled
+BEFORE the refactor, not discovered after. Cheapest test: persistent handle,
+`stop`, then check the provider's active-connection count (Xtream panels
+report it — `LiveGroup` already surfaces `active`/`max`, which is where the
+sidebar's `n/m` badge comes from).
+
+### What cannot be verified here
+
+None of phase 1 is testable in this container: it is Windows-only, needs
+libmpv and a real provider. The vitest suite does not reach `src-tauri` at
+all. Verification is necessarily manual on Adam's machine — switch channels a
+few hundred times, watch memory, watch the connection count, confirm no
+stuck demuxer. Plan the change so each step is separately revertible.
 
 ## Sources
 
