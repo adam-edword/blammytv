@@ -452,10 +452,21 @@ export function TheaterOverlay({
     return () => window.clearTimeout(t);
   }, [volume, muted]);
 
-  // Channel switch (inline): the fresh mpv instance starts unpaused at the
+  // Channel switch (inline): the player starts each file unpaused at the
   // live edge with default volume — resync the icon/indicator, and re-push
   // the user's volume/mute (read off refs; this must not re-run on slider
   // moves — the effect above owns those).
+  //
+  // "starts each file unpaused, at rate 1" USED to be free: every stream got
+  // a brand new mpv instance. Since v0.8.168 there is ONE instance for the
+  // life of the app, so that premise is now maintained deliberately by
+  // mpv.rs#reset_per_file, which pushes pause/speed/aid/sid on every load.
+  // Note the asymmetry below and do not "tidy" it: volume and mute are
+  // PUSHED to mpv here, while paused and speed only set React state,
+  // because the native side owns them. Delete reset_per_file and this
+  // effect silently starts lying — the icon says playing while mpv is
+  // paused, core-idle never leaves "yes", and every VOD buffers forever
+  // into the dead card. That shipped once (v0.8.171 fixed it).
   const volumeRef = useRef(volume);
   volumeRef.current = volume;
   const mutedRef = useRef(muted);
