@@ -1,9 +1,19 @@
 # 012: stop asking mpv, let it tell us
 
-> **OUTCOME: mostly CUT by measurement.** Phase 1 (one persistent mpv
-> instance) shipped in v0.8.168-172 and was worth it. Everything else was
-> justified by a jank cost that turned out not to exist — see "Phase 0
-> RESULT". What remains is a poll-rate change, not an event loop.
+> **CLOSED 2026-08-08. Phase 1 shipped and verified; everything else cut.**
+>
+> One persistent mpv instance landed in v0.8.168-172 and is confirmed on a
+> real machine: the provider connection releases on unload, channel switches
+> show black rather than the desktop, and several hundred switches leave no
+> leak and no stuck demuxer.
+>
+> The event loop, the observer state migration and the list-count gating were
+> all cut by phase 0's measurement — they existed to remove a UI-thread cost
+> of **0.08% of one core**. The one surviving idea, a faster poll for scrubber
+> smoothness, was **declined by Adam**: the scrub drag was already fixed in
+> v0.8.165, and a progress bar that steps twice a second is not worth another
+> change to the player. Nothing here is pending. Reopen only if the clock's
+> granularity actually starts to annoy someone.
 
 **Status: phase 1 SHIPPED, the rest cut or reduced.** Written 2026-08-08 after benchmarking against
 Stremio, which Adam named as the bar for player quality. The finding is
