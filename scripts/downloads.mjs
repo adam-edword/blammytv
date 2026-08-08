@@ -5,36 +5,49 @@
  *   node scripts/downloads.mjs --json
  *
  * GitHub counts every release-asset download for free and exposes it as
- * `download_count` on the releases API. No auth needed for a public repo, no
- * analytics, nothing to deploy. This just adds it up.
+ * `download_count` on the releases API. No auth on a public repo, no
+ * analytics, nothing to deploy. This adds it up.
  *
- * THE CAVEAT THIS SCRIPT EXISTS TO MAKE UNMISSABLE: the auto-updater fetches
- * the SAME .exe a person downloads. releases/*\/latest.json points at
- *   https://github.com/<repo>/releases/download/<tag>/BlammyTV_<v>_x64-setup.exe
- * which is the asset counted here. So a release's number is
- *   people who chose to download it  +  every native auto-update onto it
- * with no way to separate them from outside.
+ * TWO COLUMNS, because one number was being misread. Each release carries an
+ * installer AND the updater's latest.json, and they count different events:
  *
- * What rescues it: a release only receives updater traffic while it is the
- * update target. Once a newer one ships, its count stops moving except for
- * humans deliberately fetching that version. So the LATEST row is the most
- * contaminated and older rows are the cleaner human signal, which is why the
- * report marks the latest rather than just printing a total.
+ *   installs   the .exe. A machine only fetches this when it actually
+ *              installs that version, whether a person clicked Download or
+ *              the updater applied it.
+ *   checks     latest.json. Every running app fetches this on every update
+ *              check, so it tracks how much a version was USED afterwards,
+ *              not how many people got it.
  *
- * Frontend-only updates fetch a different bundle and never touch these.
+ * The gap is large and it matters: v0.8.0 shows 6 installs against 67 checks.
+ * Reading the 67 as downloads overstates it by more than tenfold.
+ *
+ * Auto-updates do land in the installs column, since the updater fetches the
+ * same .exe a person does, and there is no way to split them from outside. A
+ * release only takes updater traffic while it is the update target, so the
+ * marked row is the contaminated one and older rows have settled.
+ *
+ * Frontend-only updates fetch frontend.json and a separate bundle, and touch
+ * neither column.
  *
  * Rate limit: unauthenticated GitHub allows 60 requests/hour per IP, and this
  * uses one per 100 releases. Set GITHUB_TOKEN if you hit it.
  */
-
 const REPO = process.env.REPO ?? "adam-edword/blammytv";
 const API = process.env.GITHUB_API ?? "https://api.github.com";
 const asJson = process.argv.includes("--json");
 
-/** Installer assets only. A release also carries latest.json, the .sig files
- * and the frontend bundle; counting those would answer a different question
- * (update CHECKS, not installs) while looking like it answered this one. */
+/** Installer assets only. Counting anything else in this column would answer
+ * a different question while looking like it answered this one. */
 const isInstaller = (name) => name.endsWith(".exe");
+
+/** The updater's manifest. Every app fetches it on every update CHECK, but
+ * only downloads the .exe when an update actually applies, so the two columns
+ * measure different things and the gap between them is informative:
+ *   installs  ~ machines that ended up running this version
+ *   checks    ~ how much that version was in use afterwards
+ * A release with many checks and few installs was widely RUN, not widely
+ * installed. That is what v0.8.0's 67 was. */
+const isManifest = (name) => name === "latest.json";
 
 async function fetchReleases() {
   const headers = { accept: "application/vnd.github+json" };
@@ -74,29 +87,34 @@ try {
 }
 
 for (const rel of releases) {
-  for (const a of rel.assets ?? []) {
-    if (!isInstaller(a.name)) continue;
-    rows.push({
-      tag: rel.tag_name,
-      asset: a.name,
-      downloads: a.download_count,
-      published: rel.published_at,
-      prerelease: Boolean(rel.prerelease),
-    });
-  }
+  const assets = rel.assets ?? [];
+  const exe = assets.find((a) => isInstaller(a.name));
+  if (!exe) continue;
+  rows.push({
+    tag: rel.tag_name,
+    asset: exe.name,
+    downloads: exe.download_count,
+    checks: assets.find((a) => isManifest(a.name))?.download_count ?? null,
+    published: rel.published_at,
+    prerelease: Boolean(rel.prerelease),
+  });
 }
 
-// Newest first, by publish date. The API's default order is already this, but
-// sorting explicitly means the "current update target" mark below can't be
-// pinned on the wrong row if that ever changes.
+// Newest first, by publish date. The API's own order is NOT this: a release
+// edited later comes back out of sequence (v0.5.4 arrives last while having
+// been published between v0.5.2 and v0.6.0). Without this sort the "current
+// update target" mark lands on the wrong row.
 rows.sort((a, b) => String(b.published).localeCompare(String(a.published)));
 const total = rows.reduce((n, r) => n + r.downloads, 0);
+const totalChecks = rows.reduce((n, r) => n + (r.checks ?? 0), 0);
 /** The newest non-prerelease is what the updater points at, so it is the row
  * carrying auto-update traffic right now. */
 const current = rows.find((r) => !r.prerelease)?.tag ?? null;
 
 if (asJson) {
-  console.log(JSON.stringify({ repo: REPO, total, current, releases: rows }, null, 2));
+  console.log(
+    JSON.stringify({ repo: REPO, total, totalChecks, current, releases: rows }, null, 2),
+  );
   process.exit(0);
 }
 
@@ -106,24 +124,30 @@ if (rows.length === 0) {
 }
 
 const n = (x) => x.toLocaleString("en-US");
+const dash = (x) => (x === null ? "-" : n(x));
 const tagW = Math.max(3, ...rows.map((r) => r.tag.length));
-const numW = Math.max(9, ...rows.map((r) => n(r.downloads).length));
+const dlW = Math.max(8, ...rows.map((r) => n(r.downloads).length));
+const ckW = Math.max(6, ...rows.map((r) => dash(r.checks).length));
 
-console.log(`\nInstaller downloads: ${REPO}\n`);
-console.log(`  ${"tag".padEnd(tagW)}  ${"downloads".padStart(numW)}`);
-console.log(`  ${"-".repeat(tagW)}  ${"-".repeat(numW)}`);
+console.log(`\nBlammyTV downloads: ${REPO}\n`);
+console.log(`  ${"tag".padEnd(tagW)}  ${"installs".padStart(dlW)}  ${"checks".padStart(ckW)}`);
+console.log(`  ${"-".repeat(tagW)}  ${"-".repeat(dlW)}  ${"-".repeat(ckW)}`);
 for (const r of rows) {
   const mark = r.tag === current ? "   <- current update target" : "";
-  console.log(`  ${r.tag.padEnd(tagW)}  ${n(r.downloads).padStart(numW)}${mark}`);
+  console.log(
+    `  ${r.tag.padEnd(tagW)}  ${n(r.downloads).padStart(dlW)}  ${dash(r.checks).padStart(ckW)}${mark}`,
+  );
 }
-console.log(`  ${"-".repeat(tagW)}  ${"-".repeat(numW)}`);
-console.log(`  ${"total".padEnd(tagW)}  ${n(total).padStart(numW)}\n`);
+console.log(`  ${"-".repeat(tagW)}  ${"-".repeat(dlW)}  ${"-".repeat(ckW)}`);
+console.log(
+  `  ${"total".padEnd(tagW)}  ${n(total).padStart(dlW)}  ${n(totalChecks).padStart(ckW)}\n`,
+);
 console.log(
   [
-    "  These count humans AND native auto-updates: the updater fetches the",
-    "  same .exe a person does. The current update target is the most",
-    "  contaminated row. Older releases have stopped receiving updater",
-    "  traffic, so their numbers are the cleaner human signal.",
+    "  installs  the .exe, so one per machine that ran that version's setup.",
+    "            Includes native auto-updates, which fetch the same file.",
+    "  checks    latest.json, fetched on every update check by every running",
+    "            app. It measures USE after release, not downloads.",
     "",
   ].join("\n"),
 );
