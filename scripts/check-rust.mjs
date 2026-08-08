@@ -69,7 +69,7 @@ if (!existsSync(dll)) {
 
 console.log(`checking the crate for ${TARGET} …\n`);
 try {
-  execFileSync("cargo", ["check", "--target", TARGET, "--message-format", "short"], {
+  execFileSync("cargo", ["check", "--all-targets", "--target", TARGET, "--message-format", "short"], {
     cwd: crate,
     stdio: "inherit",
   });

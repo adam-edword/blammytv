@@ -47,8 +47,9 @@ sitting in `AppData\Local` — which is precisely where droppers put
 generically-named payloads, and a strong ML feature on its own. Fixed in
 tauri.conf.json: `"mainBinaryName": "BlammyTV"` ships `BlammyTV.exe`.
 Tauri's NSIS template deletes `$OldMainBinaryName` on update, so existing
-installs migrate rather than keeping a stray `app.exe`. **This lands on the
-next NATIVE release; a frontend-only release cannot carry it.**
+installs migrate rather than keeping a stray `app.exe`. **Shipped in
+v0.8.167.** It needed a NATIVE release; a frontend-only one could not have
+carried it.
 
 **2. The installer is unsigned.** See **[SIGNING.md](SIGNING.md)** for the
 full step-by-step. The short version, and it is not what you would guess:
@@ -130,10 +131,13 @@ or, in PowerShell:
 
 
 
-**The real fix is an Authenticode certificate** (OV is cheap but earns
-SmartScreen reputation slowly; EV buys reputation immediately). That is a
-purchase decision, not a code change. Until then, expect this to recur, and
-expect it to hit users in batches rather than one at a time.
+**A certificate is the long-run answer, but see [SIGNING.md](SIGNING.md)
+before buying one** — and do not trust the sentence this paragraph used to
+carry, which claimed EV buys SmartScreen reputation immediately. Microsoft
+removed that behaviour in 2024; EV now builds reputation exactly like OV, so
+it is several hundred a year for nothing here. SIGNING.md has the current
+prices, the eligibility gates, and the reason signing is largely orthogonal
+to an `!ml` detection in the first place.
 
 ## Hard-won rules (2026-07-09, the first rebuild release)
 
@@ -226,7 +230,7 @@ env vars, and puts the `.sig` on the clipboard. Steps 0 (libmpv refresh),
    that does not exist — and omit the root `package.json` and `Cargo.lock`.
    Following it literally left the release under-bumped. Check with:
    ```powershell
-   node scripts\verify-version.mjs
+   node scripts\verify-version.mjs --release
    ```
 
 2. **Build signed** (from `apps/app`):
