@@ -6,17 +6,21 @@ description: The four kinds of source BlammyTV can connect to.
 BlammyTV ships with no content. Everything you see in the app comes from a
 source you add yourself, and there are four kinds:
 
-| Kind | What it is | Status |
+| Kind | What it is | What it needs |
 |---|---|---|
-| [Xtream Codes](/sources/xtream/) | A panel API — username, password, server URL | Supported. Live TV with an EPG, and the only kind that reports connection limits |
-| [AIOStreams](/sources/aiostreams/) | A Stremio-style manifest | Supported. Movies and shows, resolved through your own debrid setup |
-| [M3U playlist](/sources/m3u/) | A plain playlist file or URL | **Not yet.** The app accepts one and stores it, but nothing fetches it |
-| [Stalker portal](/sources/stalker/) | A portal endpoint with a MAC address | **Not yet.** Same — accepted and stored, not yet fetched |
+| [Xtream Codes](/sources/xtream/) | A panel API | Server URL, username, password |
+| [M3U playlist](/sources/m3u/) | A plain playlist file over HTTP | A URL |
+| [Stalker / MAG portal](/sources/stalker/) | A portal endpoint | Portal URL and a MAC address |
+| [AIOStreams](/sources/aiostreams/) | A Stremio-style manifest | Your manifest URL |
 
-M3U and Stalker exist in the settings UI because the data model already
-carries them, and they will start working when their clients land. Adding one
-today gets you an entry in the list and no channels.
+The first three are **Live TV** sources — they fill the channel guide, and
+all three load through the same pipeline, so a mixed setup behaves as one
+list. AIOStreams is separate: it powers the **Stream** tab, which is movies
+and shows rather than channels. You can run both, either, or neither.
 
-You can add as many as you like and enable or disable them individually.
+Add as many as you like. Each has its own on/off switch, so you can keep a
+source configured without loading it, and you can hide individual categories
+per source rather than all-or-nothing.
+
 Credentials are stored on your machine — see [Where your data
 goes](/how-it-works/).

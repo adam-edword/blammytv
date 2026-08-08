@@ -189,6 +189,25 @@
   background: color-mix(in srgb, var(--sl-color-bg) 88%, currentColor);
 }
 
+/* ---- Keys ---------------------------------------------------------- */
+/* The Live TV shortcut table is the densest page on the site, and bare
+ * monospace makes a keycap read as inline code. Give it an actual cap. */
+kbd {
+  display: inline-block;
+  min-width: 1.75em;
+  padding: 0.15em 0.45em;
+  border: 1px solid var(--sl-color-hairline-light);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  background: var(--sl-color-bg-inline-code);
+  color: var(--sl-color-white);
+  font-family: var(--__sl-font-mono);
+  font-size: var(--sl-text-xs);
+  line-height: 1.4;
+  text-align: center;
+  white-space: nowrap;
+}
+
 /* ---- Cards --------------------------------------------------------- */
 .card {
   border-radius: 16px;

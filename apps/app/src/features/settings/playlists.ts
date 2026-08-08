@@ -2,8 +2,12 @@ import { load, save } from "../../lib/storage";
 
 /**
  * Live-TV sources. Three kinds share the list; each carries its own
- * credentials. Only Xtream is fetched today — M3U and Stalker slot in behind
- * the same model when their clients land.
+ * credentials, and all three load through the same pipeline — see
+ * source.ts's buildXtreamSource / buildM3uSource / buildStalkerSource.
+ *
+ * (This comment used to say only Xtream was fetched, which was true when it
+ * was written and stopped being true when the other two builders landed. It
+ * outlived the fact long enough to put a wrong claim in the public docs.)
  */
 
 export type PlaylistKind = "xtream" | "m3u" | "stalker";
