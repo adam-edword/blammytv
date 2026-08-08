@@ -422,6 +422,18 @@ fn ensure_player(wid: isize) -> Result<(), String> {
 /// tracks. Reproduce the old defaults explicitly; the frontend re-applies
 /// remembered preferences afterwards, exactly as it did before.
 fn reset_per_file() {
+    // PAUSE FIRST, and never remove it. mpv reports core-idle="yes" while
+    // paused, and mpv_status reads core-idle to decide whether the first
+    // frame has landed — so an instance that is still paused from the last
+    // file can never report `presenting`, the clip hole stays shut, loading
+    // never clears, and the tune watchdog declares a perfectly healthy
+    // stream dead. On VOD it then burns the auto-failover stepping through
+    // every remaining source, which is exactly what "no VOD loads, it just
+    // buffers until the error" looked like. TheaterOverlay's togglePlay
+    // carries the same warning for the same reason.
+    //
+    // A fresh instance per stream reset this for free. Nothing does now.
+    set_prop("pause", "no");
     set_prop("speed", "1");
     set_prop("aid", "auto");
     set_prop("sid", "auto");

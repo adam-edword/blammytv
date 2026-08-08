@@ -135,13 +135,44 @@ async function collect(seconds: number): Promise<string> {
 declare global {
   interface Window {
     playerPerf?: (seconds?: number) => Promise<void>;
+    playerDiag?: () => Promise<void>;
   }
 }
 
-/** Install the console entry point. Called once from main.tsx. */
+/**
+ * `await playerDiag()` — one snapshot of what mpv thinks is happening.
+ *
+ * The question this answers, and the reason it is a one-liner rather than a
+ * devtools expedition: when a stream sits buffering forever, is the picture
+ * genuinely not arriving, or is the app simply unable to SEE that it has?
+ * `presenting` is derived from core-idle, and core-idle reads "yes" both
+ * when paused and when waiting on the cache — so the difference between "the
+ * source is dead", "we left it paused" and "the video output never
+ * reconfigured" is invisible from the UI and obvious here.
+ *
+ * Read it as:
+ *   pause "yes"                  -> we left it paused; not the source's fault
+ *   has-path false               -> nothing is loaded at all
+ *   file-format set, core-idle
+ *     "yes", cache time growing  -> it is buffering, genuinely
+ *   file-format set but
+ *     current-vo "<none>"        -> demuxed fine, never got a video output
+ */
+async function diag(): Promise<string> {
+  if (!inShell()) return "playerDiag: not running in the Tauri shell.";
+  const raw = await invoke<string>("mpv_diag").catch((e) => `{"error":"${e}"}`);
+  const d = JSON.parse(raw) as Record<string, unknown>;
+  const rows = Object.entries(d).map(([k, v]) => `    ${k.padEnd(22)} ${String(v)}`);
+  return ["", "mpv says:", "", ...rows, ""].join("\n");
+}
+
+/** Install the console entry points. Called once from main.tsx. */
 export function installPlayerPerf(): void {
   window.playerPerf = async (seconds = 20) => {
     console.info(`playerPerf: sampling for ${seconds}s — leave it playing…`);
     console.info(await collect(seconds));
+  };
+  window.playerDiag = async () => {
+    console.info(await diag());
   };
 }
