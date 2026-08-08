@@ -33,7 +33,24 @@ RUN npm ci
 COPY astro.config.mjs tsconfig.json ./
 COPY src ./src
 COPY public ./public
-RUN npm run build
+
+# A build stamp at /version.txt, so "did the deploy actually happen?" is one
+# curl instead of guesswork. It exists because that question came up the first
+# time a content change did not appear and there was no way to tell a failed
+# redeploy from a cached page.
+#
+# The timestamp is the load-bearing half: it changes on every build whether or
+# not anything else is wired up. SOURCE_COMMIT is a bonus, defaulted so the
+# build never fails when the platform does not pass one. Coolify can supply it
+# as a build argument; without it the line reads "unknown" and the timestamp
+# still answers the question.
+#
+# Git is deliberately not consulted: the build context is services/docs alone,
+# so there is no repository in here to ask.
+ARG SOURCE_COMMIT=unknown
+RUN npm run build \
+ && printf 'commit  %s\nbuilt   %s\n' \
+      "$SOURCE_COMMIT" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > dist/version.txt
 
 # --- runtime stage ----------------------------------------------------
 FROM nginx:stable-alpine AS runtime
