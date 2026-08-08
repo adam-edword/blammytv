@@ -344,37 +344,30 @@ pub fn stop_popout() {
 /// flip model (the quality path, and what actually shows video embedded).
 /// `start` resumes at a position; inv.rs currently always passes 0.0, so
 /// popout reclaim rejoins at the live edge, not the captured position.
-pub fn play_wid(url: &str, wid: isize, composited: bool, start: f64) -> Result<(), String> {
-    // WHERE THE WAIT ACTUALLY IS.
-    //
-    // "20-30 seconds before video" has several candidate homes and guessing
-    // between them is how you fix the wrong one. This splits the synchronous
-    // part into its phases and prints them once per open, terminal-visible
-    // under `tauri dev` like the `[mpv]` version line below.
-    //
-    // Read it as: teardown is the OLD stream letting go (terminate_destroy
-    // blocks until its demuxer and network threads unwind, and this runs on
-    // the UI thread); create+init is libmpv starting; loadfile is only the
-    // command being QUEUED, not the stream opening. If all three are small
-    // then the time is mpv probing the URL, which is a different fix
-    // (probesize/analyzeduration/cache) from this being a teardown stall.
-    let t0 = std::time::Instant::now();
+/// Create the in-app player ONCE, bound to `wid`, and keep it for the life of
+/// the process (plan 012 phase 1).
+///
+/// `wid` is an INIT-ONLY option: a handle renders into the window it was
+/// initialized against and cannot be repointed. That is why the child window
+/// became permanent too (inv.rs) — the two lifetimes are married.
+///
+/// Before this, every tune destroyed the instance and built a new one, which
+/// cost a full `terminate_destroy` (blocking until the demuxer and network
+/// threads unwound) plus create plus initialize, synchronously, on the UI
+/// thread, before `loadfile` was even queued. Stremio's shell — same stack,
+/// WebView2 + mpv + Rust — creates its handle once and issues `loadfile` per
+/// video; see plans/012-player-events.md.
+///
+/// A no-op once the player exists, so it is cheap to call on every play.
+fn ensure_player(wid: isize) -> Result<(), String> {
+    // lib() does not touch PLAYER, but resolve it before locking anyway so
+    // the guard is held across as little as possible.
     let l = lib()?;
-    stop();
-    // ...and the PiP too. One provider connection at a time is the app-wide
-    // invariant, but it was enforced per-CALLER: popout_open tears the in-app
-    // player down, play_popout defends against a stale popout, and StreamScreen
-    // calls popout_stop — while LiveScreen has no popped state at all. So the
-    // reverse edge was missing: pop out a live channel (whose stated purpose is
-    // browsing the EPG), click any channel in the guide — the intended next
-    // action — and both instances ran. Double audio, two connections, and an
-    // outright failed tune on a max_connections=1 line. Enforcing it HERE makes
-    // it structural: nothing can start in-app playback and leave the PiP up.
-    // Safe against deadlock — PLAYER and POPOUT are independent mutexes, stop()
-    // has released its guard, and stop_popout() drops POPOUT's before issuing
-    // the quit. A no-op when nothing is popped out (the common path).
-    stop_popout();
-    let t_teardown = t0.elapsed();
+    let mut g = PLAYER.lock().unwrap();
+    if g.is_some() {
+        return Ok(());
+    }
+    let t0 = std::time::Instant::now();
     unsafe {
         let h = (l.create)();
         if h.is_null() {
@@ -391,40 +384,87 @@ pub fn play_wid(url: &str, wid: isize, composited: bool, start: f64) -> Result<(
         // (verified via diagnostics). It's a Windows presentation quirk (DWM
         // composition windowed vs independent-flip/overlay fullscreen). The real
         // fix is rendering mpv into a DComp composition swapchain (render API).
-        if composited {
-            // Present through DWM (bitblt) so the DComp webview can composite over it.
-            set("d3d11-flip", "no");
-        }
         set("audio-channels", "stereo");
         set("terminal", "no");
-        // Resume at a position when reclaiming from the popout (0 otherwise).
-        if start > 0.0 {
-            set("start", &start.to_string());
-        }
+        // IDLE, not exit. Without this a `stop` (or a file reaching its end)
+        // makes libmpv shut the core down, and the next loadfile would have
+        // nothing to load into — the whole point of a persistent instance.
+        set("idle", "yes");
         if (l.initialize)(h) < 0 {
             (l.terminate_destroy)(h);
             return Err("mpv_initialize failed".into());
         }
-        let t_init = t0.elapsed();
-        let load = CString::new("loadfile").unwrap();
-        let curl = CString::new(url).map_err(|_| "url has a null byte")?;
-        let args = [load.as_ptr(), curl.as_ptr(), std::ptr::null()];
-        if (l.command)(h, args.as_ptr()) < 0 {
-            (l.terminate_destroy)(h);
-            return Err("loadfile failed".into());
-        }
-        *PLAYER.lock().unwrap() = Some(Player(h));
-        // Cumulative from entry, so the gaps between them are the phases.
-        // `queued` is loadfile RETURNING, not the stream being open: mpv
-        // opens it on its own thread, so anything after this is probe and
-        // network and shows up as the delay to first frame, not here.
-        println!(
-            "[mpv-timing] teardown {}ms  create+init {}ms  queued {}ms",
-            t_teardown.as_millis(),
-            t_init.as_millis(),
-            t0.elapsed().as_millis(),
-        );
+        *g = Some(Player(h));
     }
+    // Once per process now, not once per tune.
+    println!("[mpv-timing] create+init {}ms (once)", t0.elapsed().as_millis());
+    Ok(())
+}
+
+/// Per-FILE state, reset on every load.
+///
+/// A fresh instance used to reset these for free, and the frontend leans on
+/// it — TheaterOverlay: "a fresh mpv instance per stream means the real rate
+/// resets to 1 on every switch". With one persistent instance nothing resets
+/// itself, so a 1.5x VOD would hand 1.5x to the next live channel, and the
+/// previous file's track choice would leak into a file that has different
+/// tracks. Reproduce the old defaults explicitly; the frontend re-applies
+/// remembered preferences afterwards, exactly as it did before.
+fn reset_per_file() {
+    set_prop("speed", "1");
+    set_prop("aid", "auto");
+    set_prop("sid", "auto");
+}
+
+/// Start `url` in the in-app player, creating the player on first use.
+pub fn play_wid(url: &str, wid: isize) -> Result<(), String> {
+    let t0 = std::time::Instant::now();
+    ensure_player(wid)?;
+    // One provider connection at a time is the app-wide invariant, and it was
+    // enforced per-CALLER before: popout_open tears the in-app player down,
+    // play_popout defends against a stale popout, and StreamScreen calls
+    // popout_stop — while LiveScreen has no popped state at all. So the
+    // reverse edge was missing: pop out a live channel (whose stated purpose
+    // is browsing the EPG), click any channel in the guide — the intended
+    // next action — and both instances ran. Double audio, two connections,
+    // and an outright failed tune on a max_connections=1 line. Enforcing it
+    // HERE keeps it structural. Safe against deadlock: PLAYER and POPOUT are
+    // independent mutexes and stop_popout drops POPOUT's before the quit.
+    stop_popout();
+    let t_ready = t0.elapsed();
+    reset_per_file();
+    // `loadfile <url> replace` — replace is the default, stated for the
+    // reader. This is the same call reload_live() has always made, which is
+    // why the load path itself is proven rather than new.
+    {
+        let g = PLAYER.lock().unwrap();
+        let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) else {
+            return Err("no player".into());
+        };
+        unsafe {
+            let load = CString::new("loadfile").unwrap();
+            let curl = CString::new(url).map_err(|_| "url has a null byte")?;
+            let mode = CString::new("replace").unwrap();
+            let args = [
+                load.as_ptr(),
+                curl.as_ptr(),
+                mode.as_ptr(),
+                std::ptr::null(),
+            ];
+            if (l.command)(p.0, args.as_ptr()) < 0 {
+                return Err("loadfile failed".into());
+            }
+        }
+    }
+    // `queued` is loadfile RETURNING, not the stream being open: mpv opens it
+    // on its own thread, so anything after this is probe and network and
+    // shows up as the delay to first frame, not here. Teardown is gone from
+    // this line on purpose — there isn't one any more.
+    println!(
+        "[mpv-timing] ready {}ms  queued {}ms",
+        t_ready.as_millis(),
+        t0.elapsed().as_millis(),
+    );
     Ok(())
 }
 
@@ -548,12 +588,48 @@ pub fn reload_live() {
     }
 }
 
-pub fn stop() {
-    // Taken in its own statement so the guard DROPS before the destroy. In
-    // an `if let` scrutinee the temporary lives to the end of the block, so
-    // the mutex was held across terminate_destroy, which blocks until the
-    // core, demuxer and network threads unwind — hundreds of ms on a live
-    // stream. stop_popout already does it this way; the two disagreed.
+/// Unload whatever is playing, keeping the instance alive for the next load.
+///
+/// **THE PROVIDER CONNECTION MUST BE RELEASED HERE.** This is the single
+/// point the app's one-connection-at-a-time invariant now rests on, and it is
+/// not a stylistic rule: a `max_connections=1` line outright fails to tune
+/// when a second stream is open (see play_wid). While the instance was
+/// destroyed per switch, the connection went with it and nothing had to be
+/// deliberate. Now it does.
+///
+/// mpv's `stop` unloads the file, which tears down that file's demuxer and
+/// stream layer — so the socket should close. VERIFY IT, do not assume:
+/// after calling this, `mpv_diag` should report `has-path: false` and
+/// `idle-active: "yes"`, and the provider's own active-connection count
+/// (the n/m badge in the Live sidebar, from LiveGroup.active/max) should
+/// drop. If it does not, the fix is contained to THIS function: swap the
+/// `stop` command for `shutdown()` and take the teardown cost back on
+/// switches only. Nothing else in the app needs to know.
+pub fn unload() {
+    let g = PLAYER.lock().unwrap();
+    if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {
+        unsafe {
+            let cmd = CString::new("stop").unwrap();
+            let args = [cmd.as_ptr(), std::ptr::null()];
+            (l.command)(p.0, args.as_ptr());
+        }
+    }
+}
+
+/// Tear the instance down for good. Process exit, not stream switching —
+/// switching uses `unload`.
+///
+/// Taken in its own statement so the guard DROPS before the destroy. In an
+/// `if let` scrutinee the temporary lives to the end of the block, so the
+/// mutex was held across terminate_destroy, which blocks until the core,
+/// demuxer and network threads unwind — hundreds of ms on a live stream.
+/// stop_popout already does it this way; the two disagreed.
+///
+/// Reached only through `inv::destroy`, which is not wired to an exit hook
+/// yet — see its comment. It is also the documented fallback if `unload`
+/// turns out not to release the provider connection.
+#[allow(dead_code)]
+pub fn shutdown() {
     let taken = PLAYER.lock().unwrap().take();
     if let (Some(p), Some(l)) = (taken, LIB.get()) {
         unsafe { (l.terminate_destroy)(p.0) };

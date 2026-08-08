@@ -11,8 +11,9 @@ use std::ffi::c_void;
 use std::sync::atomic::{AtomicIsize, Ordering};
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DestroyWindow, SetWindowPos, HWND_BOTTOM, SWP_NOACTIVATE,
-    SWP_SHOWWINDOW, WINDOW_EX_STYLE, WINDOW_STYLE, WS_CHILD, WS_VISIBLE,
+    CreateWindowExW, DestroyWindow, SetWindowPos, HWND_BOTTOM, SWP_HIDEWINDOW,
+    SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW, WINDOW_EX_STYLE,
+    WINDOW_STYLE, WS_CHILD, WS_VISIBLE,
 };
 
 static CHILD: AtomicIsize = AtomicIsize::new(0);
@@ -29,7 +30,34 @@ pub fn open(
     h: u32,
     url: &str,
 ) -> Result<(), String> {
-    close();
+    let child = ensure_child(parent, x, y, w, h)?;
+    if let Err(e) = crate::mpv::play_wid(url, child) {
+        // Leave the window in place — it is the mpv instance's permanent
+        // render target now. Just make sure nothing is holding a stream.
+        crate::mpv::unload();
+        return Err(e);
+    }
+    // One line of ground truth for the upgrade question: which libmpv did
+    // the loader actually find? (Terminal-visible, once per open.)
+    if let Some(v) = crate::mpv::get_property("mpv-version") {
+        println!("[mpv] {v}");
+    }
+    Ok(())
+}
+
+/// The child window is created ONCE and lives for the process (plan 012
+/// phase 1). It cannot be recycled per play any more: `wid` is an init-only
+/// mpv option, so the persistent player is bound to this exact HWND for its
+/// whole life — destroying it would leave mpv rendering into nothing.
+/// Repositioning is `set_rect`'s job and always was.
+fn ensure_child(parent: isize, x: i32, y: i32, w: u32, h: u32) -> Result<isize, String> {
+    let existing = CHILD.load(Ordering::SeqCst);
+    if existing != 0 {
+        // Re-pin: a play can arrive at a different rect than the last one
+        // left behind (theater vs mini, a resize while stopped).
+        set_rect(x, y, w, h);
+        return Ok(existing);
+    }
     unsafe {
         let parent = HWND(parent as *mut c_void);
         // SS_BLACKRECT (0x4): the static paints itself SOLID BLACK. A bare
@@ -65,28 +93,20 @@ pub fn open(
             h as i32,
             SWP_SHOWWINDOW | SWP_NOACTIVATE,
         );
-        // STORED BEFORE THE PLAY, and unwound if it fails.
+        // STORED BEFORE THE PLAY, and it must stay stored even if the play
+        // fails.
         //
         // play_wid can fail — a missing or incompatible libmpv-2.dll,
-        // mpv_create, mpv_initialize, loadfile — and the `?` used to return
-        // with the child window already created but CHILD still 0. Nothing
-        // could reach it after that: close() had no handle to destroy and
-        // set_rect() had none to move, so every retry left another visible
-        // black child parked at its old rect at the bottom of the z-order.
-        // That is exactly the path a broken libmpv install walks, and the
-        // frontend retries.
+        // mpv_create, mpv_initialize, loadfile — and returning with the
+        // window created but CHILD still 0 used to orphan it: nothing could
+        // reach it afterwards, so every retry left another visible black
+        // child parked at its old rect at the bottom of the z-order. That is
+        // exactly the path a broken libmpv install walks, and the frontend
+        // retries. Recording it here means the NEXT attempt reuses this
+        // window rather than making a second one.
         CHILD.store(child.0 as isize, Ordering::SeqCst);
-        if let Err(e) = crate::mpv::play_wid(url, child.0 as isize, false, 0.0) {
-            close();
-            return Err(e);
-        }
+        Ok(child.0 as isize)
     }
-    // One line of ground truth for the upgrade question: which libmpv did
-    // the loader actually find? (Terminal-visible, once per open.)
-    if let Some(v) = crate::mpv::get_property("mpv-version") {
-        println!("[mpv] {v}");
-    }
-    Ok(())
 }
 
 /// Follow the slot box (scroll/resize/theater/fullscreen — the frontend's
@@ -110,9 +130,43 @@ pub fn set_rect(x: i32, y: i32, w: u32, h: u32) {
     }
 }
 
-/// Stop playback and drop the child. Safe to call idly. UI thread only.
+/// Stop playback and release the provider connection, KEEPING the window and
+/// the mpv instance for the next play. Safe to call idly. UI thread only.
+///
+/// The window stays because the persistent player is bound to it by the
+/// init-only `wid` option; it is hidden instead, so a stopped player cannot
+/// paint black through the frontend's clip hole. `mpv::unload` is where the
+/// connection is actually released — read its comment before changing this.
 pub fn close() {
-    crate::mpv::stop();
+    crate::mpv::unload();
+    let child = CHILD.load(Ordering::SeqCst);
+    if child != 0 {
+        unsafe {
+            let _ = SetWindowPos(
+                HWND(child as *mut c_void),
+                Some(HWND_BOTTOM),
+                0,
+                0,
+                0,
+                0,
+                SWP_HIDEWINDOW | SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE,
+            );
+        }
+    }
+}
+
+/// Process teardown: destroy the instance and the window for good. NOT for
+/// stream switching — that is `close`.
+///
+/// NOT WIRED YET, deliberately. The app bootstraps with a bare
+/// `.run(context())` and has no exit hook; adding one means restructuring to
+/// `.build()?.run(|_, RunEvent::Exit| …)`, which is a change to how the whole
+/// app starts and does not belong in the same commit as the player
+/// lifetime. Process exit closes the sockets regardless — this exists so the
+/// teardown path is written down and callable the moment that hook lands.
+#[allow(dead_code)]
+pub fn destroy() {
+    crate::mpv::shutdown();
     let child = CHILD.swap(0, Ordering::SeqCst);
     if child != 0 {
         unsafe {
