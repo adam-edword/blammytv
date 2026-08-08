@@ -416,6 +416,14 @@ fn ensure_player(wid: isize) -> Result<(), String> {
 /// tracks. Reproduce the old defaults explicitly; the frontend re-applies
 /// remembered preferences afterwards, exactly as it did before.
 fn reset_per_file() {
+    // SHADERS TOO. glsl-shaders/glsl-shader-opts are set at runtime by
+    // mpv_frost/mpv_blur for the Settings glass and are neither init options
+    // nor cleared by anything else — a fresh instance per stream used to drop
+    // them for free, so a persistent one carries the last frost chain into
+    // the next stream. Restoring the old default here is the whole job of
+    // this function.
+    set_prop("glsl-shaders", "");
+    set_prop("glsl-shader-opts", "");
     // PAUSE FIRST, and never remove it. mpv reports core-idle="yes" while
     // paused, and mpv_status reads core-idle to decide whether the first
     // frame has landed — so an instance that is still paused from the last
@@ -586,6 +594,15 @@ pub fn seek_abs(pos: f64) {
 /// stays put. Reversible: drop this and the goLive bridge/handler to restore
 /// the old (non-functional) forward-seek behavior.
 pub fn reload_live() {
+    // UNPAUSE FIRST. This is the tune watchdog's silent recovery as well as
+    // the user's go-live button, and mpv reports core-idle="yes" while
+    // paused — so reloading a paused player can never reach `presenting`,
+    // the watchdog's own recovery can never clear `loading`, and it retries
+    // until it declares a live stream dead. Reachable by pausing, then
+    // having the stream die under you. Deliberately NOT a full
+    // reset_per_file: this reloads the SAME file, so the user's audio and
+    // subtitle choices must survive it.
+    set_prop("pause", "no");
     // get_property locks PLAYER and releases before we re-lock below.
     let url = match get_property("path") {
         Some(u) => u,

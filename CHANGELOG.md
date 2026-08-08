@@ -2,6 +2,27 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 0.8.175: The player stops rebuilding itself (2026-08-08)
+
+### Improved
+
+- **Changing channel is faster.** The video player used to be torn down and
+  rebuilt from scratch every single time you switched, and the teardown
+  blocked the app while it waited for the old stream's network threads to
+  finish. Now one player is built when the app starts and simply told what to
+  play next.
+- Switching no longer flashes the desktop for a moment between channels.
+- The connection count in the sidebar updates when a stream actually stops,
+  instead of showing a stale number for up to a minute.
+
+### Fixed
+
+- Resuming something from Continue Watching asks for the artwork and the
+  sources at the same time rather than one after the other, which removes a
+  wait of a second or more when the title is not already on screen.
+- Playback speed, audio track, subtitle track and the Settings glass effect
+  no longer carry over from the last thing you watched.
+
 ## 0.8.167: The disappearing app (2026-08-08)
 
 Some of you had BlammyTV vanish off your PC this week, mid-use. That was

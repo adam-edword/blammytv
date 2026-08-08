@@ -126,9 +126,13 @@ async function clicksAway(label, selector) {
     )
     .then(() => true)
     .catch(() => false);
-  const playing = await page.locator("#inv-chrome, .theater-overlay").count();
   check(`${label} leaves the Library grid`, left);
-  check(`${label} does not start playback`, playing === 0);
+  // NOT asserting "does not start playback" here. `#inv-chrome` is created
+  // only `if (isTauri())` (StreamScreen.tsx) and .theater-overlay is portaled
+  // into it, so in a browser harness neither can ever exist and the check
+  // passed no matter what the code did. The real signal is the .vod-detail
+  // assertion in the cached-source block below, which DOES fail on the
+  // pre-fix build.
 }
 
 await clicksAway("the Sources chip", "button.continue-card__sources");
@@ -180,14 +184,13 @@ if (!addonUp) {
     }
     // Give quick-resume every chance to reach playback if it were going to.
     await page.waitForTimeout(4000);
-    const played = await page.evaluate(
-      () => !!document.querySelector(".theater-overlay, #inv-chrome video, video"),
-    );
+    // The ONE assertion here that can actually fail: with a cached source,
+    // the pre-fix build entered playback and never rendered .vod-detail.
+    // Verified by reverting the fix — see this script's header.
     const onSources = await page.evaluate(
       () => !!document.querySelector(".vod-detail"),
     );
-    check(`${label} does NOT auto-play a cached source`, !played);
-    check(`${label} lands a detail/source screen`, onSources, String(onSources));
+    check(`${label} lands the source list, not playback`, onSources, String(onSources));
   }
 }
 
