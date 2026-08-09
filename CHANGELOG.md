@@ -2,6 +2,25 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 0.8.182: Sports says when none of it is on your channels (2026-08-09)
+
+### New
+
+- **The Sports board tells you once when nothing on it is on a channel you
+  have.** The cards each said "Couldn't link", which is right for one game
+  and unhelpful when it is true of all of them. A line above the board now
+  says which problem it is: no playlist added yet, or a playlist that doesn't
+  carry the networks showing today's games. The board stays put either way,
+  because knowing a game is on is worth something even when you can't watch
+  it here.
+
+### Fixed
+
+- **Reduced motion now covers the golf card, the wide race card and the
+  theater's channel rail.** They were still getting the tilt library's hover
+  animation. Their own border and shadow easing is kept, since the setting
+  asks for less movement rather than none.
+
 ## 0.8.181: Sports asks for less (2026-08-09)
 
 ### Improved

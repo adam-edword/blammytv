@@ -25,6 +25,7 @@ import { nameList } from "./nameList";
 import { useGames, withChannels } from "./useGames";
 import type { Day } from "./useGames";
 import { isField, isFixture, isTournament, isWeekend } from "./model";
+import { unlinkedReason } from "./unlinked";
 import type { Field, Fixture, Game, Tournament } from "./model";
 
 /**
@@ -277,6 +278,32 @@ export function SportsScreen({ home }: { home?: number } = {}) {
   // games in it and this reads straight.
   const anything =
     days.some((d) => d.games.length > 0) || ahead.length > 0;
+  /**
+   * A board full of games and not one of them on a channel you have (#21).
+   *
+   * The cards already say "Couldn't link" one at a time, which is the right
+   * answer per game and the wrong one when it is true of every game on the
+   * screen: at that point the cause is the setup rather than this fixture,
+   * and repeating it twenty times says so twenty times without ever saying
+   * it once.
+   *
+   * Scoped to games you could actually WATCH. A finished game's carriage
+   * line is its start time, not a channel, so counting finals would fire
+   * this on any evening whose board had already played out.
+   *
+   * Held back until the catalog has loaded. `channelsPending` is the
+   * difference between "not on your channels" and "not known yet", and
+   * announcing the first while the second is true is the exact flash
+   * useCatalog's warm start exists to avoid.
+   */
+  const unlinked = useMemo(
+    () =>
+      unlinkedReason(
+        [...days.flatMap((d) => d.games), ...ahead],
+        catalog?.size ?? 0,
+      ),
+    [days, ahead, catalog],
+  );
   // Read once and kept here: it is a display choice about this screen, so
   // it belongs to the screen rather than to every card in it.
   const [compact, setCompact] = useState(loadCompactResults);
@@ -415,6 +442,17 @@ export function SportsScreen({ home }: { home?: number } = {}) {
         reveal={reveal}
       />
       <div className="discover sports sportsboard__main">
+      {/* Said ONCE, above the board, rather than on every card (#21). The
+        * board stays: knowing a game exists is useful even when you cannot
+        * watch it here, and hiding it would answer a question nobody
+        * asked. */}
+      {unlinked && (
+        <p className="sports__unlinked" role="status">
+          {unlinked === "no-playlist"
+            ? "None of these are matched to channels yet. Add a playlist in Settings and BlammyTV will line these games up against it."
+            : "None of these are on a channel in your playlist. The game is still on; your provider just doesn't carry the networks showing it."}
+        </p>
+      )}
       {rowItems.length > 0 && (
         <section className="media-row" ref={row}>
           <h3 className="media-row__title sports__title">

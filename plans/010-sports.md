@@ -524,11 +524,11 @@ it means first answering what it lists, and that answer is not close.
 | # | Item | Why it is in |
 |---|---|---|
 | 40 | The club-narrowed board reaches ahead too | Read in full and #36 superseded the league half: the board shows the game rather than a note about it. What is left is the club half, where a mid-season league masks a club that is not playing and the empty state then states the opposite of the truth. See #40 below. |
-| 21 | The no-channels-matched empty state | The one genuinely missing state. "No leagues followed" is settled as a screen that will never exist. |
+| 21 | The no-channels-matched note | Done v0.8.182. A line above the board, not a replacement for it. |
 | 15 | Backoff and a cache | Done v0.8.181. 30s cache, per-URL backoff. Also makes #24 actionable for the first time. |
 | 30 | ~~The board re-resolves channels every tick~~ | Closed by measurement: #46's WeakMap already retired it. Repeat pass is 0.003ms. |
 | 29 | LiveScreen's favourites memo | Done v0.8.179. 56.6ms to 6.3ms on the same shape. |
-| 22 | Reduced motion over the new cards | The race and weekend cards honour it for tilt and glare only, and they are the newest surface in the release. |
+| 22 | Reduced motion over the new cards | Done v0.8.182. Golf, wide-race and the theater rail were unguarded. |
 | 45 | Finish the audit | Marked [~], partly worked. Do not headline a release standing on an unfinished audit. |
 
 **The second decision.** #23, polling during playback. On this plan's own risk
@@ -991,7 +991,7 @@ The presets themselves, which is a content decision as much as a code one.
 `DAYS = 3` in `useGames.ts`. The grid shape already works per day, so this
 is paging or a date picker rather than new layout.
 
-#### 21. The missing empty state [ ]
+#### 21. The missing empty state [x] v0.8.182
 
 "Nothing on for what you follow" exists. Missing: a board where games
 resolved to no channels at all.
@@ -1001,10 +1001,40 @@ fetch inversion
 decided an empty store means the default five, so there is no screen with
 nothing on it to explain.
 
-#### 22. Reduced motion over the new cards [ ]
+**Shipped v0.8.182 as a NOTE, not an empty state.** The board stays on
+screen: knowing a game exists is useful even when you cannot watch it here,
+and replacing it would answer a question nobody asked. One line above the
+first row, muted and unboxed, for the same reason the card's own unlinked
+pill is muted rather than coloured.
+
+It splits two problems that wear one symptom, because the fix for either is
+no use for the other: no playlist at all sends you to Settings, a playlist
+that carries none of the right networks says the game is still on and your
+provider just does not have it.
+
+`unlinkedReason` is its own module. The interesting cases are the ones that
+must NOT fire and none is reachable by hand: a board of finals (a final's
+carriage line is its start time, not a channel), a board mid-resolve
+(`channelsPending` is "not known yet", not "not on your channels"), and a
+board where one single game matched. Seven tests, one per case.
+
+#### 22. Reduced motion over the new cards [x] v0.8.182
 
 The race and weekend cards read `REDUCED_MOTION` for tilt and glare.
 Nothing else about them has been checked against it.
+
+**Audited and three were missing.** Every tilt wrapper in the stylesheet
+against every reduced-motion guard: `.gamecard__tilt`, `.upcard__tilt` and
+`.racecard__tilt` were covered; `.golfcard__tilt`, `.wracecard__tilt` and
+`.sportsrail__tilt` were not. The weekend and tournament cards turned out to
+be fine because they reuse `.racecard__tilt` and `.upcard__tilt` rather than
+declaring their own.
+
+Each guard restores that element's OWN timings rather than setting
+`transition: none`, which is what the racecard guard already did and why:
+the library writes an inline 650ms transition and a will-change on hover
+whatever `tiltEnable` says, and blanket-none would take the border and
+shadow easing with it. The request is no tilt, not no feedback.
 
 #### 23. Polling during playback [?]
 

@@ -86,6 +86,21 @@
   color: var(--text);
 }
 
+/* The board-level "none of this is on your channels" line (#21).
+ *
+ * A NOTE, not an empty state: the board below it is still worth reading, so
+ * this sits above the first row rather than replacing anything. Muted and
+ * unboxed for the same reason the card's own unlinked pill is muted rather
+ * than coloured: no match is a real state, not an error, and it may say so
+ * without shouting. */
+.sports__unlinked {
+  margin: 0 0 18px;
+  max-width: 62ch;
+  color: var(--text-dim);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
 .sports__title {
   display: flex;
   align-items: center;
@@ -3128,6 +3143,33 @@
     transition:
       border-color 200ms ease,
       box-shadow 450ms ease;
+  }
+}
+
+/* The other three that were missed (plan 010 #22).
+ *
+ * Same library, same inline 650ms transition and will-change on hover
+ * whatever tiltEnable says, so each of these needs its own timings restored
+ * rather than a blanket `transition: none`. Blanket-none would also kill the
+ * border and shadow easing these cards are supposed to keep at reduced
+ * motion: the request is no TILT, not no feedback.
+ *
+ * The weekend and tournament cards are not here because they reuse
+ * .racecard__tilt and .upcard__tilt, which are covered above. */
+@media (prefers-reduced-motion: reduce) {
+  .wracecard__tilt {
+    will-change: auto;
+    transition: box-shadow 450ms ease;
+  }
+  .sportsrail__tilt {
+    will-change: auto;
+    transition: border-color 180ms ease;
+  }
+  /* The golf card declares no transition of its own, so there is nothing to
+   * restore and the inline one simply goes. */
+  .golfcard__tilt {
+    will-change: auto;
+    transition: none;
   }
 }
 
