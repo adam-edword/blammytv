@@ -2,6 +2,18 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 0.8.183: Sports eases off while you watch (2026-08-09)
+
+### Improved
+
+- **Opening a game in the Sports theater slows the board's background
+  refresh** from every 90 seconds to every 5 minutes, which is about 70% less
+  work during the one thing already competing for your connection. It doesn't
+  stop entirely on purpose: the theater's header reads the live board to know
+  when a game goes from upcoming to live to final, and freezing it would
+  leave a finished game saying "live". Closing the theater reads the board
+  again straight away.
+
 ## 0.8.182: Sports says when none of it is on your channels (2026-08-09)
 
 ### New

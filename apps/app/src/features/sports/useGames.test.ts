@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { keepStable, reachTargets, withChannels } from "./useGames";
+import { keepStable, pollDelay, reachTargets, withChannels } from "./useGames";
 import { indexChannels } from "./matcher";
 import type { Fixture } from "./model";
 
@@ -463,5 +463,31 @@ describe("reachTargets", () => {
   it("ignores a malformed club key rather than asking for a league named ''", () => {
     const { clubsByLeague } = reachTargets([], ["nocolon", ":5"], [], new Set());
     expect(clubsByLeague.size).toBe(0);
+  });
+});
+
+/**
+ * #23: the board slows down while a game is being watched rather than
+ * stopping, because the theater re-reads the board to move its own header
+ * and a frozen poll would freeze that with it.
+ */
+describe("pollDelay", () => {
+  it("slows down while watching", () => {
+    expect(pollDelay(true)).toBeGreaterThan(pollDelay(false));
+  });
+
+  it("keeps the watching cadence useful rather than nominal", () => {
+    // A meaningful cut: at least half the requests over a long game. If a
+    // future edit makes these nearly equal, the item was undone silently.
+    expect(pollDelay(true)).toBeGreaterThanOrEqual(pollDelay(false) * 2);
+    // ...but still often enough that a finished game stops saying "live"
+    // within a few minutes. Ten minutes was rejected for exactly this.
+    expect(pollDelay(true)).toBeLessThanOrEqual(6 * 60_000);
+  });
+
+  it("never stops polling entirely", () => {
+    // Stopping is the option this item deliberately did NOT take.
+    expect(pollDelay(true)).toBeGreaterThan(0);
+    expect(Number.isFinite(pollDelay(true))).toBe(true);
   });
 });

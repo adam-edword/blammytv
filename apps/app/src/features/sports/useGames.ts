@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { onDay } from "./day";
 import { DEFAULT_LEAGUES, fetchBoard } from "./espn";
 import { CARD_CONFIDENCE, matchEvent, matchGame, preferVisible } from "./matcher";
@@ -10,6 +10,28 @@ import { presumedNetworks } from "./networkMap";
 
 /** How often a mounted hub re-reads TODAY. Later days do not move. */
 const REFRESH_MS = 90_000;
+
+/**
+ * The same read, while a game is being WATCHED (plan 010 #23).
+ *
+ * The plan's own verification list says "nothing polls while playback is
+ * running", and the poll did, because the theater does not hold a snapshot
+ * of the game you opened: it looks the game back up in the live board on
+ * every render (SportsScreen's `current`), so the refresh is what moves its
+ * header from a kickoff time to live to final. Stopping the poll would
+ * freeze that header, and a game that has finished still saying "live" is a
+ * worse lie than the one being fixed.
+ *
+ * So it SLOWS rather than stops. The theater needs state transitions, which
+ * happen a handful of times a game, not scores, which it does not show. Over
+ * a two hour game that is 24 refreshes instead of 80, a ~70% cut in the work
+ * done during the one activity that is already competing for the connection.
+ *
+ * Five minutes rather than ten because the cost of being wrong is asymmetric:
+ * the saving between the two is another 12 requests, and the price is a
+ * header that can say "live" about a finished game for twice as long.
+ */
+const WATCHING_REFRESH_MS = 5 * 60_000;
 
 /** Today plus this many days after it. */
 const DAYS = 3;
@@ -71,6 +93,18 @@ export interface Day {
  * about to be asked "what is next" anyway, and asking it again with a range
  * would be two requests for one league.
  */
+/**
+ * How long until the next board read, given whether a game is being watched.
+ *
+ * Exported and pure so the RELATIONSHIP between the two constants is pinned
+ * by a test rather than by whoever edits one of them next. That is the whole
+ * of #24's worry in miniature: the v0.8.1 guide-cache bug was a retention
+ * window and a cache age in different places agreeing only by luck.
+ */
+export function pollDelay(watching: boolean): number {
+  return watching ? WATCHING_REFRESH_MS : REFRESH_MS;
+}
+
 export function reachTargets(
   paths: readonly string[],
   clubKeys: readonly string[],
@@ -120,6 +154,18 @@ export function useGames(
    * answering a question nobody asked.
    */
   reach = false,
+  /**
+   * A game is open in the theater, so poll at the slower cadence (#23).
+   *
+   * NOT a dependency of the effect below, deliberately: that effect clears
+   * the board and refetches when it re-runs, so opening the theater would
+   * blank the thing you are looking through. It rides a ref instead, which
+   * means the cadence changes from the NEXT tick rather than immediately.
+   * That is the correct trade: one more 90s tick costs one read, and
+   * restarting the timer to save it would risk resetting the interval on
+   * every render.
+   */
+  watching = false,
 ) {
   const [days, setDays] = useState<Day[]>([]);
   /**
@@ -133,6 +179,21 @@ export function useGames(
    */
   const [ahead, setAhead] = useState<Game[]>([]);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
+  /** Read by `tick`, so the cadence can change without tearing the effect
+   * down. See the `watching` parameter. */
+  const watchingRef = useRef(watching);
+  /** Set by the effect, so leaving the theater can force a read without
+   * reaching inside it. */
+  const refreshRef = useRef<() => void>(() => {});
+
+  useEffect(() => {
+    const was = watchingRef.current;
+    watchingRef.current = watching;
+    // Coming OUT of playback, the board can be a whole slow interval stale
+    // and is about to be looked at. Read it now rather than showing five
+    // minute old scores until the next tick.
+    if (was && !watching) refreshRef.current();
+  }, [watching]);
 
   /**
    * The fetch list as one string, and the effect's real dependency.
@@ -381,9 +442,11 @@ export function useGames(
       }
     };
 
+    const nextDelay = () => pollDelay(watchingRef.current);
+
     const tick = () => {
       if (!document.hidden) refresh();
-      timer = window.setTimeout(tick, REFRESH_MS);
+      timer = window.setTimeout(tick, nextDelay());
     };
 
     /**
@@ -405,7 +468,8 @@ export function useGames(
     setState("loading");
     setDays([]);
     void loadAll();
-    timer = window.setTimeout(tick, REFRESH_MS);
+    refreshRef.current = refresh;
+    timer = window.setTimeout(tick, nextDelay());
 
     // Coming back to the app after a while: the board on screen is stale by
     // however long it was away, so read it again rather than waiting out

@@ -151,6 +151,13 @@ export function SportsScreen({ home }: { home?: number } = {}) {
    * A narrowed board is a handful of leagues, so the third day is nearly
    * free there and it is the one people actually plan against.
    */
+  // The game being watched, or nothing. Deliberately NOT in the view stack:
+  // this is a mode of one screen, and its own Escape and mouse-back close
+  // it without touching where you came from to get here.
+  //
+  // Declared ABOVE useGames because the poll cadence reads it (#23), which
+  // is the only reason it is not down with the other view state.
+  const [open, setOpen] = useState<Fixture | null>(null);
   const { days: raw, ahead: rawAhead, state } = useGames(
     leagues,
     narrowed ? 3 : 2,
@@ -159,6 +166,10 @@ export function SportsScreen({ home }: { home?: number } = {}) {
     // right: that pick is about leagues and says nothing about clubs.
     shown.teams,
     narrowed,
+    // A game in the theater slows the poll rather than stopping it (#23).
+    // The DRAW is not here: a tournament bracket is not playback and is not
+    // competing with a stream for the connection.
+    Boolean(open),
   );
   // The schedule and the channel list arrive independently, so they are
   // joined here rather than inside either one. Memoised on both: resolving
@@ -307,10 +318,6 @@ export function SportsScreen({ home }: { home?: number } = {}) {
   // Read once and kept here: it is a display choice about this screen, so
   // it belongs to the screen rather than to every card in it.
   const [compact, setCompact] = useState(loadCompactResults);
-  // The game being watched, or nothing. Deliberately NOT in the view stack:
-  // this is a mode of one screen, and its own Escape and mouse-back close
-  // it without touching where you came from to get here.
-  const [open, setOpen] = useState<Fixture | null>(null);
   /**
    * The tournament whose draw is open, which is a different mode from the
    * theater and deliberately not the same state.

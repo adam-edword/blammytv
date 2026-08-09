@@ -531,11 +531,10 @@ it means first answering what it lists, and that answer is not close.
 | 22 | Reduced motion over the new cards | Done v0.8.182. Golf, wide-race and the theater rail were unguarded. |
 | 45 | ~~Finish the audit~~ | Cannot be finished: only Tier 1 was ever recorded, so there is no remainder. Replaced by a decision, see #45 below. |
 
-**The second decision.** #23, polling during playback. On this plan's own risk
-list and deliberately not honoured, because the theater header re-reads the
-refreshed board. Either amend the plan to say that is intended, or freeze the
-board while watching. Leaving it contradicting the plan is the only wrong
-answer.
+**The second decision, answered in v0.8.183.** #23, polling during playback.
+Neither option as offered: it now SLOWS to 5 minutes while a game is open
+rather than stopping, because stopping would freeze the theater header and
+leave a finished game saying "live". See #23.
 
 **Out, and why.** #18 and #19: this plan downgraded them itself once the fetch
 inversion made an empty follows store fetch the default five, so first run is a
@@ -1036,7 +1035,7 @@ the library writes an inline 650ms transition and a will-change on hover
 whatever `tiltEnable` says, and blanket-none would take the border and
 shadow easing with it. The request is no tilt, not no feedback.
 
-#### 23. Polling during playback [?]
+#### 23. Polling during playback [x] v0.8.183
 
 **On the plan's own risk list and not honoured.** The poll pauses on
 `document.hidden` only. Opening the theater does not unmount `useGames`, so
@@ -1045,6 +1044,38 @@ re-reads the refreshed board to keep the state moving.
 
 That is a trade someone chose, so it wants a decision: keep it and amend
 the plan, or freeze the board while watching and let the header go stale.
+
+**Adam's answer, 2026-08-09: neither. Slow it down.** Three options went up
+and the third won on the merits:
+
+1. Amend the plan to say the poll is intended. Free, changes nothing, leaves
+   the cost unpaid.
+2. Freeze the board while watching. Honours the promise literally and freezes
+   the theater header with it, so a finished game keeps saying "live". That
+   trades a resource cost for a correctness cost, which is the wrong
+   direction.
+3. **Slow it.** The theater needs STATE transitions, which happen a handful
+   of times a game, not scores, which it does not show. 90s becomes 5 minutes
+   while a game is open: 24 reads over a two hour game instead of 80, a ~70%
+   cut in work done during the one activity already competing for the
+   connection.
+
+Five rather than ten minutes because the cost of being wrong is asymmetric.
+The extra saving is 12 requests; the price is a header that can call a
+finished game "live" for twice as long.
+
+Two implementation notes worth keeping:
+
+- **`watching` is NOT an effect dependency.** That effect clears the board
+  and refetches when it re-runs, so opening the theater would blank the very
+  thing you are looking through. It rides a ref, so the cadence changes from
+  the next tick rather than instantly, costing at most one extra read.
+- **Leaving the theater forces a read**, because the board can be a whole
+  slow interval stale at exactly the moment it comes back on screen.
+
+`pollDelay` is exported and pure so the RELATIONSHIP between the two constants
+is pinned by a test rather than by whoever edits one next, which is #24's
+worry in miniature.
 
 #### 24. One module for cadence and staleness [?]
 
