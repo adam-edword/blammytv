@@ -1,5 +1,6 @@
 import { load, save } from "../../lib/storage";
 import type { TrackEntry } from "../live/overlayApi";
+import { loadAudioLang, loadSubLang } from "./languagePrefs";
 
 /**
  * VOD playback continuity: the user's last EXPLICIT track/speed choices,
@@ -51,15 +52,34 @@ function loadShowStore(): ShowStore {
 }
 
 /**
- * The prefs to apply. With a showId, that show's remembered choices win
- * over the global ones, and the global ones still fill any gap, so a show
- * you have never touched inherits your usual answer instead of nothing.
+ * The prefs to apply, resolved across three sources.
+ *
+ *   per-show memory  >  the language SETTING  >  the learned global
+ *
+ * The learned global is the bottom layer: `rememberPlayback` writes it on
+ * every explicit click, so it is whatever you last picked anywhere. That is
+ * a reasonable fallback and a bad way to state an intention, which is why
+ * `languagePrefs` sits above it. A language you chose in Settings should not
+ * be undone by one click on one show, and before that setting existed there
+ * was no screen that would have told you it had been.
+ *
+ * A per-show choice still beats both: it is the most specific thing you have
+ * ever said about this thing you are watching.
+ *
+ * With no setting stored the middle layer contributes nothing and this is
+ * exactly the old two-layer behaviour, so nobody's existing player changes.
  */
 export function loadPlaybackPrefs(showId?: string): PlaybackPrefs {
   const global = load<PlaybackPrefs>(KEY, VERSION, {});
-  if (!showId) return global;
+  const chosen: PlaybackPrefs = {};
+  const audio = loadAudioLang();
+  const sub = loadSubLang();
+  if (audio) chosen.audioLang = audio;
+  if (sub) chosen.subLang = sub;
+  const base = { ...global, ...chosen };
+  if (!showId) return base;
   const per = loadShowStore().byId[showId];
-  return per ? { ...global, ...per } : global;
+  return per ? { ...base, ...per } : base;
 }
 
 /**

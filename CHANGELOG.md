@@ -2,6 +2,23 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 0.8.177: Pick your language once (2026-08-09)
+
+### New
+
+- **A preferred language for movies and shows.** Settings → Customize → Stream
+  now has **Preferred Language**, with separate pickers for audio and
+  subtitles. Every stream tries to load them, so a fresh install can be set to
+  Japanese audio and English subs without touching a track menu.
+
+  The player already remembered languages, but only by watching what you
+  picked, which meant it did nothing until you had already picked something,
+  and one click on one show quietly changed the default for every other show.
+  What you set here is not overwritten that way.
+
+  A track you choose by hand on a particular show still wins for that show,
+  and anything a stream doesn't carry is left alone rather than forced.
+
 ## 0.8.175: The player stops rebuilding itself (2026-08-08)
 
 ### Improved

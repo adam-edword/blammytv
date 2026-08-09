@@ -6,6 +6,15 @@ import { loadAioUrl } from "./aiostreams";
 import { loadOneClickPlay, saveOneClickPlay } from "./oneClickPlay";
 import { loadSourceFailover, saveSourceFailover } from "./failover";
 import {
+  AUTO,
+  LANGUAGES,
+  SUBS_OFF,
+  loadAudioLang,
+  loadSubLang,
+  saveAudioLang,
+  saveSubLang,
+} from "./languagePrefs";
+import {
   loadSkipBehavior,
   saveSkipBehavior,
   type SkipBehavior,
@@ -176,6 +185,8 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
   const [oneClick, setOneClick] = useState<boolean>(loadOneClickPlay);
   const [failover, setFailover] = useState<boolean>(loadSourceFailover);
   const [skip, setSkip] = useState<SkipBehavior>(loadSkipBehavior);
+  const [audioLang, setAudioLang] = useState<string>(loadAudioLang);
+  const [subLang, setSubLang] = useState<string>(loadSubLang);
 
   // The slider steps by 5; clicking the number swaps it for a type-in field.
   const [rowCap, setRowCap] = useState<number>(loadRowCap);
@@ -453,6 +464,56 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
               }}
               label="Auto source failover"
             />
+          </div>
+
+          <div className="customize-row">
+            <div>
+              <h4 className="customize-row__title">Preferred Language</h4>
+              <p className="settings__section-note settings__section-note--dim">
+                Every stream tries to load these. A track you pick by hand on a
+                particular show still wins for that show, and anything the
+                stream doesn&rsquo;t carry is left alone.
+              </p>
+            </div>
+            <div className="customize-langs">
+              <label className="customize-lang">
+                <span>Audio</span>
+                <select
+                  className="customize-lang__select"
+                  value={audioLang}
+                  onChange={(e) => {
+                    setAudioLang(e.target.value);
+                    saveAudioLang(e.target.value);
+                  }}
+                >
+                  <option value={AUTO}>No preference</option>
+                  {LANGUAGES.map((l) => (
+                    <option key={l.code} value={l.code}>
+                      {l.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="customize-lang">
+                <span>Subtitles</span>
+                <select
+                  className="customize-lang__select"
+                  value={subLang}
+                  onChange={(e) => {
+                    setSubLang(e.target.value);
+                    saveSubLang(e.target.value);
+                  }}
+                >
+                  <option value={AUTO}>No preference</option>
+                  <option value={SUBS_OFF}>Off</option>
+                  {LANGUAGES.map((l) => (
+                    <option key={l.code} value={l.code}>
+                      {l.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
           </div>
 
           <div className="customize-row">
