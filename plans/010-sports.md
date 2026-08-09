@@ -526,8 +526,8 @@ it means first answering what it lists, and that answer is not close.
 | 40 | The club-narrowed board reaches ahead too | Read in full and #36 superseded the league half: the board shows the game rather than a note about it. What is left is the club half, where a mid-season league masks a club that is not playing and the empty state then states the opposite of the truth. See #40 below. |
 | 21 | The no-channels-matched empty state | The one genuinely missing state. "No leagues followed" is settled as a screen that will never exist. |
 | 15 | Backoff and a cache | The other half of behaving like a guest. Without backoff a failing ESPN endpoint gets hammered. Risk, not polish. |
-| 30 | The board re-resolves channels every tick | 19ms of wasted matcher work every 90s. Measured, never applied. |
-| 29 | LiveScreen's favourites memo | 20.8ms at 500 favourites. Not a sports item; measured, tiny, ships free. |
+| 30 | ~~The board re-resolves channels every tick~~ | Closed by measurement: #46's WeakMap already retired it. Repeat pass is 0.003ms. |
+| 29 | LiveScreen's favourites memo | Done v0.8.179. 56.6ms to 6.3ms on the same shape. |
 | 22 | Reduced motion over the new cards | The race and weekend cards honour it for tilt and glare only, and they are the newest surface in the release. |
 | 45 | Finish the audit | Marked [~], partly worked. Do not headline a release standing on an unfinished audit. |
 
@@ -1051,18 +1051,35 @@ every surface that names a channel.
 
 Measured items from the audit sweeps, none applied.
 
-#### 29. LiveScreen's favourites memo [ ]
+#### 29. LiveScreen's favourites memo [x] v0.8.179
 
 `favorites.map(id => channels.find(...))`, which is 20.8ms at 500
 favourites on a 20k catalog. Wants a Map. `recents` does the same thing on
 the line below.
 
-#### 30. The board re-resolves channels every tick [ ]
+Both now share one `Map` built from the loaded channels. The two branches
+also merged, since after the index they differed only in which id list they
+read. Re-measured on the same shape (500 ids over 20k channels): 56.6ms
+scanning against 6.3ms indexed in this container, with an assertion that the
+two produce the same games in the same order, because the stored order IS
+the user's hand-sort and a faster wrong order would be worse than slow.
+
+#### 30. The board re-resolves channels every tick [x] superseded by #46
 
 `SportsScreen` re-runs `withChannels` over all days on every 90 second
 refresh, about 19ms of matcher work for days that did not change. The games
 themselves are already carried forward by identity (`keepStable`); the
 matcher work is not.
+
+**Already fixed, and not by this item.** #46 (v0.8.163) gave `withChannels`
+a per-catalog `WeakMap<Game, Game>`, so a game object carried forward by
+`keepStable` hits the cache instead of the matcher. Measured 2026-08-09 on
+42 games against a 20k catalog: first pass 1.73ms, every repeat pass 0.003ms.
+The 19ms this item was written about does not happen any more.
+
+Closed by measurement rather than by building it, the same way #40's league
+half was closed by #36. Worth noting the pattern: this ledger predates two
+releases of work and an item's premise is now the thing to check first.
 
 #### 31. Window the grids [?]
 

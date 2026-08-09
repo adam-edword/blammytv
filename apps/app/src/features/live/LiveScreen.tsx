@@ -567,19 +567,23 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
       channel: c,
       programmes: programmes.get(c.id) ?? NO_PROGRAMMES,
     });
-    if (mode === "favorites")
-      // Render in the FAVORITES list order (the user's hand-sort), not source
-      // order — reorderFavorite rearranges that list. A channel that isn't
-      // loaded (source disabled) drops out.
-      return favorites
-        .map((id) => channels.find((c) => c.id === id))
+    if (mode === "favorites" || mode === "recents") {
+      // BY ID, not by scanning (plan 010 #29). Both of these render in the
+      // stored list's order rather than source order, and both used to find
+      // each id with a linear scan of the loaded channels: 500 favourites
+      // over a 20k catalog is ten million comparisons and measured 20.8ms,
+      // on a path that re-runs whenever the mode or the list changes.
+      // Building the index costs one pass over the channels instead.
+      const byId = new Map(channels.map((c) => [c.id, c]));
+      // Render in the STORED order (the user's hand-sort for favourites;
+      // most-recent-first for recents), which is why this maps the id list
+      // rather than filtering the channels. A channel that isn't loaded
+      // (source disabled) drops out.
+      return (mode === "favorites" ? favorites : recents)
+        .map((id) => byId.get(id))
         .filter((c): c is Channel => !!c)
         .map(attach);
-    if (mode === "recents")
-      return recents
-        .map((id) => channels.find((c) => c.id === id))
-        .filter((c): c is Channel => !!c)
-        .map(attach);
+    }
     return channels
       .filter((c) => !folder || c.folderId === folder)
       .map(attach);

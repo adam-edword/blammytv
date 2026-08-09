@@ -2,6 +2,17 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 0.8.179: Favourites open faster (2026-08-09)
+
+### Improved
+
+- **Switching to Favorites or Recents in Live TV is quicker on a big
+  playlist.** Both lists looked up every stored channel by scanning the whole
+  catalog, so the cost grew with your playlist rather than with the list you
+  were opening. On a 20,000-channel setup with 500 favourites that measured
+  around nine times slower than it needed to be. Same channels, same order,
+  less waiting.
+
 ## 0.8.178: A followed club stops disappearing (2026-08-09)
 
 ### Fixed
