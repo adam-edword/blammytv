@@ -1,12 +1,22 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  DEFAULT_LEAGUES,
   dedupe,
+  DEFAULT_LEAGUES,
   espnDate,
   fetchBoard,
   fetchGames,
+  fetchLeague,
+  resetEspnCache,
   toGames,
 } from "./espn";
+
+
+// The espn module caches responses and remembers failures for the life of
+// the process (plan 010 #15), so every test starts from a clean one. Without
+// this a test that reads the same league as its predecessor gets the
+// predecessor's answer and never touches the fetch it is trying to inspect.
+beforeEach(() => resetEspnCache());
+
 import { isFixture, isTournament } from "./model";
 import epl from "./fixtures/epl-scoreboard.json";
 import mlb from "./fixtures/mlb-scoreboard.json";
@@ -789,5 +799,99 @@ describe("suspended is not postponed", () => {
     expect(g.state).toBe("live");
     // ESPN's own word survives either way, so the card still says why.
     expect(g.status).toBe("Suspended");
+  });
+});
+
+/**
+ * #15: behaving like a guest. The concurrency half shipped in v0.8.120; this
+ * is the other half, not asking for what we already have and not hammering
+ * something that just said no.
+ */
+describe("cache and backoff", () => {
+  const ok = () => ({
+    ok: true,
+    json: async () => ({ events: [] }),
+  }) as unknown as Response;
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("asks once for a repeated read inside the cache window", async () => {
+    const fetchMock = vi.fn(async () => ok());
+    vi.stubGlobal("fetch", fetchMock);
+    await fetchLeague("baseball/mlb");
+    await fetchLeague("baseball/mlb");
+    await fetchLeague("baseball/mlb");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not confuse two date windows of the same league", async () => {
+    // The club reach asks a range while the board asks a day; caching those
+    // together would hand the board a fortnight of fixtures.
+    const fetchMock = vi.fn(async () => ok());
+    vi.stubGlobal("fetch", fetchMock);
+    await fetchLeague("soccer/eng.1");
+    await fetchLeague("soccer/eng.1", { withinDays: 14 });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("backs off after a failure instead of asking again", async () => {
+    const fetchMock = vi.fn(async () => {
+      throw new Error("network down");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(fetchLeague("baseball/mlb")).rejects.toThrow();
+    // The second call must not reach the network at all.
+    await expect(fetchLeague("baseball/mlb")).rejects.toThrow(/backing off/);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats an HTTP error as a failure too, not just a thrown fetch", async () => {
+    const fetchMock = vi.fn(
+      async () => ({ ok: false, status: 503 }) as unknown as Response,
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(fetchLeague("baseball/mlb")).rejects.toThrow(/503/);
+    await expect(fetchLeague("baseball/mlb")).rejects.toThrow(/backing off/);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT back off an aborted request", async () => {
+    // Navigating away aborts in flight. Counting that would penalise a
+    // healthy league because the user clicked twice.
+    const ac = new AbortController();
+    ac.abort();
+    const fetchMock = vi.fn(async () => {
+      throw new Error("aborted");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(
+      fetchLeague("baseball/mlb", { signal: ac.signal }),
+    ).rejects.toThrow();
+    // Free to ask again immediately.
+    vi.stubGlobal("fetch", vi.fn(async () => ok()));
+    await expect(fetchLeague("baseball/mlb")).resolves.toEqual([]);
+  });
+
+  it("one bad league does not back off a healthy one", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url).includes("mlb")) throw new Error("down");
+      return ok();
+    });
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+    await expect(fetchLeague("baseball/mlb")).rejects.toThrow();
+    await expect(fetchLeague("football/nfl")).resolves.toEqual([]);
+  });
+
+  it("clears the backoff once a league answers again", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("down");
+      }),
+    );
+    await expect(fetchLeague("baseball/mlb")).rejects.toThrow();
+    resetEspnCache();
+    vi.stubGlobal("fetch", vi.fn(async () => ok()));
+    await expect(fetchLeague("baseball/mlb")).resolves.toEqual([]);
   });
 });

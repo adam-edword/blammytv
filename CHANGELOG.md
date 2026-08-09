@@ -2,6 +2,16 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 0.8.181: Sports asks for less (2026-08-09)
+
+### Improved
+
+- **The Sports board stops re-asking for schedules it just fetched**, and
+  stops retrying a source that has just failed. A league that goes down now
+  backs off instead of being hit every ninety seconds, and it backs off on
+  its own: one struggling league no longer affects the rest of your board.
+  Live scores still refresh at the same rate.
+
 ## 0.8.180: The Sports sidebar drops an unfinished tab (2026-08-09)
 
 ### Changed

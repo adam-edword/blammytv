@@ -525,7 +525,7 @@ it means first answering what it lists, and that answer is not close.
 |---|---|---|
 | 40 | The club-narrowed board reaches ahead too | Read in full and #36 superseded the league half: the board shows the game rather than a note about it. What is left is the club half, where a mid-season league masks a club that is not playing and the empty state then states the opposite of the truth. See #40 below. |
 | 21 | The no-channels-matched empty state | The one genuinely missing state. "No leagues followed" is settled as a screen that will never exist. |
-| 15 | Backoff and a cache | The other half of behaving like a guest. Without backoff a failing ESPN endpoint gets hammered. Risk, not polish. |
+| 15 | Backoff and a cache | Done v0.8.181. 30s cache, per-URL backoff. Also makes #24 actionable for the first time. |
 | 30 | ~~The board re-resolves channels every tick~~ | Closed by measurement: #46's WeakMap already retired it. Repeat pass is 0.003ms. |
 | 29 | LiveScreen's favourites memo | Done v0.8.179. 56.6ms to 6.3ms on the same shape. |
 | 22 | Reduced motion over the new cards | The race and weekend cards honour it for tilt and glare only, and they are the newest surface in the release. |
@@ -888,7 +888,7 @@ the board happened to load, and a club cannot be followed out of season.
 
 #### 14. Search within teams [ ]
 
-#### 15. Backoff and a cache [ ]
+#### 15. Backoff and a cache [x] v0.8.181
 
 The concurrency half shipped in v0.8.120: a module-wide gate caps ESPN at
 six requests in flight across every league and all three days.
@@ -897,6 +897,36 @@ Left is the other half of "behave like a guest": backoff on failure, and a
 cache so a board that was read 30 seconds ago is not read again. See #24,
 which is the same instinct about cadence living in one place, and which
 becomes actionable the moment this adds a second timing constant.
+
+**Both shipped v0.8.181.** A 30s response cache keyed by the full URL, and
+per-URL exponential backoff from 5s to a 5 minute ceiling.
+
+Three decisions worth keeping:
+
+- **The cache TTL is deliberately shorter than the 90s refresh.** Outliving
+  it would freeze live scores, which is a worse bug than the one being fixed.
+  30s only collapses genuine duplicates: a StrictMode double-mount, two
+  screens on one league, or #40's club reach landing on a league the window
+  just read.
+- **Keyed by URL, not by path**, so a day query and a fortnight range of the
+  same league cannot serve each other. #40 made that a live risk rather than
+  a hypothetical.
+- **Backoff is per URL and skips aborts.** One dead league must not silence
+  the other 150, and an abort is us changing our mind (navigating away,
+  re-narrowing) rather than the endpoint failing. Counting those would
+  penalise a healthy league because the user clicked twice.
+
+**This makes #24 actionable.** It was parked as "not a scar fix yet, there is
+only one timing constant". There are now three (REFRESH_MS, CACHE_MS,
+BACKOFF_*), and the cache TTL and the refresh interval are exactly the pair
+whose relationship the v0.8.1 guide-cache bug came from: a retention window
+and a cache age in different files with nothing linking them. Its own
+precondition is met.
+
+Seven tests, including the one the existing suite taught: module-level state
+outlives a test, so the whole file resets it. Two existing tests started
+failing the moment the cache landed because they read a league a previous
+test had already warmed.
 
 #### 16. Team follows out of season [?]
 
@@ -995,6 +1025,13 @@ Not actionable yet, and saying so is the point. `REFRESH_MS = 90_000` is
 still the only timing constant in the feature, and a module for one value
 is indirection rather than a scar fix. It becomes real when #15 lands a
 backoff delay and a cache age beside it.
+
+**#15 landed them (v0.8.181), so this is now actionable.** There are three
+constants across two files, and CACHE_MS vs REFRESH_MS is precisely the pair
+the v0.8.1 bug was made of: a cache age and a retention window that only
+agree by luck. Today they agree on purpose and the reason lives in a comment
+in espn.ts, which is one grep away from being missed. Not urgent, no longer
+declined.
 
 ---
 

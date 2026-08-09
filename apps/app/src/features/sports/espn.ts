@@ -77,6 +77,62 @@ async function gate<T>(job: () => Promise<T>): Promise<T> {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* Behaving like a guest, second half (plan 010 #15).                  */
+/*                                                                      */
+/* The concurrency half shipped in v0.8.120: six requests in flight     */
+/* across every league. What was missing is not asking for what we      */
+/* already have, and not hammering something that just said no.         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * How long a response stays good enough to hand back without asking again.
+ *
+ * DELIBERATELY SHORTER THAN THE REFRESH. `useGames` re-reads today every 90
+ * seconds because scores move, and a cache that outlived that would freeze
+ * them, which is a worse bug than the one this fixes. 30 seconds only
+ * collapses asks that are genuinely duplicates: a StrictMode double-mount,
+ * two screens wanting the same league, or the club reach landing on a league
+ * the window just read.
+ */
+const CACHE_MS = 30_000;
+
+/** First wait after a failure. Doubles per consecutive failure. */
+const BACKOFF_BASE_MS = 5_000;
+/** And stops doubling here, so a long outage settles into a slow poll
+ * rather than an exponential one that effectively never retries. */
+const BACKOFF_MAX_MS = 5 * 60_000;
+
+const fresh = new Map<string, { at: number; games: Game[] }>();
+const failures = new Map<string, { count: number; until: number }>();
+
+/** Test seam. The module holds process-wide state by design, so a test that
+ * did not clear it would be reading another test's answers. */
+export function resetEspnCache(): void {
+  fresh.clear();
+  failures.clear();
+}
+
+/**
+ * The retry gate. Returns 0 when the URL is free to ask, otherwise the ms
+ * still to wait.
+ *
+ * Per URL rather than per host: one league being down says nothing about the
+ * other 150, and blocking all of them on one bad path would turn a single
+ * dead endpoint into "Couldn't reach the schedule".
+ */
+function backoffLeft(url: string, now: number): number {
+  const f = failures.get(url);
+  return f && f.until > now ? f.until - now : 0;
+}
+
+function noteFailure(url: string, now: number): void {
+  const prev = failures.get(url)?.count ?? 0;
+  const count = prev + 1;
+  const wait = Math.min(BACKOFF_BASE_MS * 2 ** (count - 1), BACKOFF_MAX_MS);
+  failures.set(url, { count, until: now + wait });
+}
+
 /** ESPN's three states, in this app's words. */
 const STATES: Record<string, GameState> = {
   pre: "pre",
@@ -360,14 +416,39 @@ export async function fetchLeague(
         : season
           ? `?dates=${rolling()}`
           : "");
+  const now = Date.now();
+  // Already have it, recently enough. Returned before the gate, so a
+  // duplicate ask does not even occupy a slot other leagues are queuing for.
+  const hit = fresh.get(url);
+  if (hit && now - hit.at < CACHE_MS) return hit.games;
+  // Said no recently. Failing here rather than asking is the whole point:
+  // fetchBoard degrades one league quietly, so the board keeps its other
+  // rows instead of everyone retrying a dead path every 90 seconds.
+  const wait = backoffLeft(url, now);
+  if (wait > 0) {
+    throw new Error(
+      `ESPN ${path}: backing off, ${Math.ceil(wait / 1000)}s left`,
+    );
+  }
   // The slot covers the whole transfer, not just the handshake: releasing
   // it at the response header would let six more requests start while six
   // bodies were still downloading.
-  const raw = await gate(async () => {
-    const res = await fetch(url, { signal });
-    if (!res.ok) throw new Error(`ESPN ${path}: HTTP ${res.status}`);
-    return (await res.json()) as RawScoreboard;
-  });
+  let raw: RawScoreboard;
+  try {
+    raw = await gate(async () => {
+      const res = await fetch(url, { signal });
+      if (!res.ok) throw new Error(`ESPN ${path}: HTTP ${res.status}`);
+      return (await res.json()) as RawScoreboard;
+    });
+  } catch (err) {
+    // An ABORT is not a failure of the endpoint, it is us changing our mind:
+    // navigating away or re-narrowing the board aborts in-flight requests,
+    // and counting those would back off a perfectly healthy league because
+    // the user clicked twice.
+    if (!signal?.aborted) noteFailure(url, Date.now());
+    throw err;
+  }
+  failures.delete(url);
   // Which MAPPER, decided by the catalog path's sport segment. A racing
   // scoreboard is an event with five sessions rather than a fixture with
   // two sides, so it maps to Fields (racing.ts) where everything else maps
@@ -376,15 +457,22 @@ export async function fetchLeague(
   // GOLF is a third shape: an ordered leaderboard rather than two sides or
   // a race weekend. Same dispatch point, same rule — the only thing a sport
   // gets to be special about is how its events are put together.
-  if (golfPath(path)) return toGolf(raw as RawGolf, path);
-  if (!racingPath(path)) return toGames(raw, path);
-  // SESSIONS or a WEEKEND, and it is a question about when rather than
-  // about the data. Asked about a day, the sessions on it are the answer;
-  // asked what is NEXT, a weekend three weeks out is one thing to plan
-  // around, and five session cards under three dated headings is not.
-  return ahead
-    ? toWeekends(raw as RawRacing, path)
-    : toRacing(raw as RawRacing, path);
+  // ONE exit, because the cache is written here and three returns would be
+  // three places to forget it.
+  const games = golfPath(path)
+    ? toGolf(raw as RawGolf, path)
+    : !racingPath(path)
+      ? toGames(raw, path)
+      : // SESSIONS or a WEEKEND, and it is a question about when rather than
+        // about the data. Asked about a day, the sessions on it are the
+        // answer; asked what is NEXT, a weekend three weeks out is one thing
+        // to plan around, and five session cards under three dated headings
+        // is not.
+        ahead
+        ? toWeekends(raw as RawRacing, path)
+        : toRacing(raw as RawRacing, path);
+  fresh.set(url, { at: Date.now(), games });
+  return games;
 }
 
 /**
