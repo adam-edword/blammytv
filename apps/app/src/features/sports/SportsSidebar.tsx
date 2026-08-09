@@ -7,7 +7,6 @@ import { ModeRail, type RailMode } from "../../ui/ModeRail";
 import {
   LeaguesIcon,
   PanelIcon,
-  RecentsIcon,
   TeamsIcon,
   TvIcon,
 } from "../../ui/icons";
@@ -16,16 +15,24 @@ import { LeaguePicker } from "./LeaguePicker";
 import { isFixture } from "./model";
 import type { Game } from "./model";
 
-type Mode = "leagues" | "teams" | "channels";
+type Mode = "leagues" | "teams";
 
-/* Leagues and Teams have their own marks (v0.8.116). Channels still borrows
- * Live TV's, and deliberately: the tab is a stub and what it lists is still
- * an open question, so drawing an icon for it would be drawing a picture of
- * a decision nobody has made. */
+/* Leagues and Teams, each with its own mark (v0.8.116).
+ *
+ * THERE IS NO CHANNELS TAB, and that is the v0.9.0 decision rather than an
+ * oversight (plan 010 #17). It shipped as a rail entry that rendered "Not
+ * built yet: what this lists is still an open question", wearing Live TV's
+ * Recents icon because drawing one would have been drawing a picture of a
+ * decision nobody had made. A headline release cannot carry a tab that says
+ * that about itself.
+ *
+ * The question is still open and still worth answering: the sports channels
+ * in your playlist, the channels matched to today's board, or the place
+ * corrections get taught (#26). Answer it first, then bring the tab back
+ * with a real icon. Re-adding the stub is not the same thing. */
 const MODES: RailMode<Mode>[] = [
   { key: "leagues", label: "Leagues", icon: () => <LeaguesIcon /> },
   { key: "teams", label: "Teams", icon: () => <TeamsIcon /> },
-  { key: "channels", label: "Channels", icon: () => <RecentsIcon /> },
 ];
 
 /**
@@ -182,11 +189,6 @@ export function SportsSidebar({
         </div>
       )}
 
-      {!collapsed && mode === "channels" && (
-        <p className="live-sidebar__note">
-          Not built yet: what this lists is still an open question.
-        </p>
-      )}
     </aside>
   );
 }

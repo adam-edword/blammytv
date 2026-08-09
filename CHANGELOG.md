@@ -2,6 +2,15 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 0.8.180: The Sports sidebar drops an unfinished tab (2026-08-09)
+
+### Changed
+
+- **The Sports sidebar no longer has a Channels tab.** It existed only to say
+  "Not built yet", which is not something a tab should say. Leagues and Teams
+  are unaffected, and nothing you follow changes. It will come back when it
+  has something to list.
+
 ## 0.8.179: Favourites open faster (2026-08-09)
 
 ### Improved

@@ -512,7 +512,7 @@ release will be v0.9.0". This is what that release is, chosen off the ledger
 below. Seven items and two decisions. Everything in it is measured, unblocked,
 or a hole a user can see.
 
-**The blocker.** #17, the Channels tab. It is in the rail today and
+**The blocker, done in v0.8.180.** #17, the Channels tab. It is in the rail today and
 `SportsSidebar.tsx:186` renders "Not built yet: what this lists is still an
 open question." Shipping a headline release with a tab that says that is the
 thing people screenshot. The cheap correct answer is to hide it for 0.9.0 and
@@ -903,7 +903,7 @@ becomes actionable the moment this adds a second timing constant.
 Depends on #13. A club can only be followed while it happens to be on the
 board, because that is where the club list comes from.
 
-#### 17. The Channels tab [?]
+#### 17. The Channels tab [x] removed for v0.9.0
 
 A stub note today, and **undecided what it lists.** Candidates: the sports
 channels in your playlist, the channels matched to today's board, or the
@@ -912,6 +912,21 @@ place corrections get taught (#26).
 Its rail icon is the one placeholder left (Live's `RecentsIcon`). Leagues
 and Teams got real marks in v0.8.116, so this is one icon, and it is not
 worth drawing before the tab knows what it is.
+
+**Removed in v0.8.180, which is the v0.9.0 answer.** It was a rail entry
+rendering "Not built yet: what this lists is still an open question", wearing
+Live TV's Recents icon. A headline release cannot ship a tab that says that
+about itself, and the alternative was answering the question under release
+pressure, which is how you get the wrong answer permanently.
+
+Entirely local: the Mode union, one MODES entry and one render branch, all in
+`SportsSidebar.tsx`, with no other file referencing the mode. The placeholder
+icon went with it, so the rail has no borrowed marks left.
+
+**The question is still open and still worth answering.** The comment left in
+`SportsSidebar.tsx` says so and names the three candidates, because the risk
+now is somebody re-adding the stub rather than the tab. Bring it back with a
+real answer and a real icon.
 
 ---
 
