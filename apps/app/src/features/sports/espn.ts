@@ -267,7 +267,41 @@ export async function fetchLeague(
     date,
     signal,
     ahead,
-  }: { date?: Date; signal?: AbortSignal; ahead?: boolean } = {},
+    withinDays,
+  }: {
+    date?: Date;
+    signal?: AbortSignal;
+    ahead?: boolean;
+    /**
+     * A bounded window forward, in days, for "when does this CLUB next
+     * play" (plan 010 #40).
+     *
+     * The bare `ahead` call answers for a LEAGUE, which is useless for a
+     * followed club: a mid-season league hands back somebody else's
+     * fixture. Asking a range and filtering to the club is the only way to
+     * get there without a per-team endpoint, and the per-team one is worse
+     * (measured 2026-08-08: `/teams/10/schedule` on MLB is a whole season,
+     * 2.6 MB).
+     *
+     * Bounded rather than open because the payload tracks events-in-window
+     * and ESPN caps a response at 100 events, so an open range on a
+     * daily-cadence league is megabytes to find one row. Measured over
+     * 20260808 forward:
+     *
+     * | league | 14 days        | 30 days        |
+     * |--------|----------------|----------------|
+     * | EPL    | 63 KB, 6       | 222 KB, 30     |
+     * | NFL    | (pre-season)   | 369 KB, 48     |
+     * | MLB    | 1.5 MB, 100    | 1.5 MB, 100    |
+     *
+     * MLB is the same 1.5 MB at 7, 14 and 30 days because it hits the cap
+     * either way. That is affordable precisely where it is never needed: a
+     * club that plays daily is not absent from a three-day window, so this
+     * does not fire for MLB. It fires for weekly-cadence leagues, and there
+     * 14 days is 63 KB.
+     */
+    withinDays?: number;
+  } = {},
 ): Promise<Game[]> {
   /**
    * A day, a SEASON, or whatever is next.
@@ -310,13 +344,22 @@ export async function fetchLeague(
     to.setFullYear(to.getFullYear() + 1);
     return `${espnDate(from)}-${espnDate(to)}`;
   };
+  /** A bounded range forward from today, for `withinDays`. */
+  const within = (days: number) => {
+    const from = new Date();
+    const to = new Date(from);
+    to.setDate(to.getDate() + days);
+    return `${espnDate(from)}-${espnDate(to)}`;
+  };
   const url =
     `${BASE}/${path}/scoreboard` +
     (date
       ? `?dates=${espnDate(date)}`
-      : season
-        ? `?dates=${rolling()}`
-        : "");
+      : withinDays
+        ? `?dates=${within(withinDays)}`
+        : season
+          ? `?dates=${rolling()}`
+          : "");
   // The slot covers the whole transfer, not just the handshake: releasing
   // it at the response header would let six more requests start while six
   // bodies were still downloading.
@@ -382,7 +425,12 @@ export async function fetchGames(
  */
 export async function fetchBoard(
   paths: readonly string[] = DEFAULT_LEAGUES,
-  opts: { date?: Date; signal?: AbortSignal; ahead?: boolean } = {},
+  opts: {
+    date?: Date;
+    signal?: AbortSignal;
+    ahead?: boolean;
+    withinDays?: number;
+  } = {},
 ): Promise<{ games: Game[]; answered: string[] }> {
   const settled = await Promise.allSettled(
     paths.map((p) => fetchLeague(p, opts)),
