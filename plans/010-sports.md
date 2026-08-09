@@ -529,7 +529,7 @@ it means first answering what it lists, and that answer is not close.
 | 30 | ~~The board re-resolves channels every tick~~ | Closed by measurement: #46's WeakMap already retired it. Repeat pass is 0.003ms. |
 | 29 | LiveScreen's favourites memo | Done v0.8.179. 56.6ms to 6.3ms on the same shape. |
 | 22 | Reduced motion over the new cards | Done v0.8.182. Golf, wide-race and the theater rail were unguarded. |
-| 45 | Finish the audit | Marked [~], partly worked. Do not headline a release standing on an unfinished audit. |
+| 45 | ~~Finish the audit~~ | Cannot be finished: only Tier 1 was ever recorded, so there is no remainder. Replaced by a decision, see #45 below. |
 
 **The second decision.** #23, polling during playback. On this plan's own risk
 list and deliberately not honoured, because the theater header re-reads the
@@ -1524,6 +1524,33 @@ index means the 20,000 channel catalog never appears in a per-tick cost.
 Two of these were found by tests that were themselves wrong: the slate test
 shared one `start` across three games the dump stamps at different times,
 which is how the doubleheader bug stayed green.
+
+**Why this is [~], read 2026-08-09.** Tier 1 is the whole record. There is no
+Tier 2 or Tier 3 written down anywhere, in this file or in
+`plans/audit-report.md` (which is the earlier MOTION audit, 71 findings, a
+different exercise). So the tilde does not mark a list someone stopped
+working. It marks an audit whose lower tiers were never recorded, which means
+**there is nothing here to finish** and anyone who "completes" it would be
+inventing findings.
+
+Left OUT of the v0.9.0 cut on that basis. The useful version of this item is
+not finishing the old audit but running a new one, and the case for that is
+now stronger than it was: v0.8.157 to v0.8.182 is another twenty-five
+versions unreviewed, including six shipped in one sitting for this cut.
+
+That is a decision rather than a task, because a fresh-eyes audit means
+parallel reviewers with no context, and the value comes precisely from them
+not knowing why anything was done. Worth doing before v0.9.0 is called done.
+
+**A partial substitute already happened, and it is worth naming because it
+changes how the rest of this ledger should be read.** Working the cut
+re-verified each item against the code first, and three of seven turned out
+to have expired premises: #40's league half was already solved by #36, #30
+was already solved by #46's WeakMap (measured: 0.003ms per repeat pass), and
+#22's "race and weekend cards" turned out to be fine while golf, wide-race
+and the theater rail were the real gaps. **An item's premise is now the first
+thing to check, not the last.** This ledger predates several releases of its
+own work.
 
 #### 46. The identity chain is three layers deep and none of it fires [x] v0.8.163
 
