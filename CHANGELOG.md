@@ -2,6 +2,23 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 0.8.178: A followed club stops disappearing (2026-08-09)
+
+### Fixed
+
+- **Following one club no longer shows an empty Sports board that blames the
+  club.** If you followed, say, Arsenal and they were not playing for a few
+  days, the board went empty and said they had "no fixtures published, not
+  even further out". That was simply untrue: their league was mid-season, so
+  nothing had ever gone looking for Arsenal's own next game. The board now
+  reaches forward for an idle club the way it already did for a whole league,
+  and their next fixture appears with its real date.
+- **The empty board stopped overstating what it checked.** A followed league
+  is asked an open-ended "when are you next on", so an empty one really has
+  published nothing. A club is asked about the coming fortnight. The message
+  now says which of those it means instead of claiming the stronger one for
+  both.
+
 ## 0.8.177: Pick your language once (2026-08-09)
 
 ### New

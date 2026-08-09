@@ -153,6 +153,10 @@ export function SportsScreen({ home }: { home?: number } = {}) {
   const { days: raw, ahead: rawAhead, state } = useGames(
     leagues,
     narrowed ? 3 : 2,
+    // The CLUBS being shown, so an idle one can reach ahead for itself (#40).
+    // Empty when an explicit league pick is overriding follows, which is
+    // right: that pick is about leagues and says nothing about clubs.
+    shown.teams,
     narrowed,
   );
   // The schedule and the channel list arrive independently, so they are
@@ -548,12 +552,24 @@ export function SportsScreen({ home }: { home?: number } = {}) {
            *
            * So the ask is Adam's: send them to the picker. There is no
            * clever recovery from "your leagues have published nothing", and
-           * the honest move is to say so and open the door. */
+           * the honest move is to say so and open the door.
+           *
+           * THE COPY BRANCHES because the two halves reach differently
+           * (#40). A league is asked "what is next" with no bound, so an
+           * empty one really has published nothing at all. A club is asked
+           * for a bounded fortnight, because the unbounded question cannot
+           * be asked of a club, so an empty one may simply be idle for
+           * longer than that. Saying "not even further out" about a club
+           * was the false claim this branch exists to stop telling. */
           <SportsEmpty
             title="Nothing scheduled yet."
             note={`${followedNames} ${
               followedCount === 1 ? "has" : "have"
-            } no fixtures published, not even further out. Favourite a few more sports and the board fills itself.`}
+            } ${
+              active.teams.length > 0
+                ? "nothing on the schedule we can reach"
+                : "no fixtures published, not even further out"
+            }. Favourite a few more sports and the board fills itself.`}
             action={{
               label: "Pick more sports",
               onClick: () => setReveal((n) => n + 1),

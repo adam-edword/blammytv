@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { keepStable, withChannels } from "./useGames";
+import { keepStable, reachTargets, withChannels } from "./useGames";
 import { indexChannels } from "./matcher";
 import type { Fixture } from "./model";
 
@@ -375,3 +375,93 @@ describe("withChannels", () => {
   });
 });
 
+
+/**
+ * #40's club half: which things still need asking for after the window is
+ * drawn. The bug this guards is that a club follow puts its LEAGUE on the
+ * wire, so a mid-season league looked "covered" while the club itself was
+ * absent for the whole window, and the board then told the user their club
+ * had no fixtures published at all.
+ */
+describe("reachTargets", () => {
+  const epl = (id: string, home: string, away: string): Fixture => ({
+    ...game(id),
+    sport: "soccer",
+    league: "Premier League",
+    leagueKey: "soccer/eng.1",
+    home: { name: "H", abbr: "H", id: home },
+    away: { name: "A", abbr: "A", id: away },
+  });
+  const covers = (games: Fixture[]) => new Set(games.map((g) => g.leagueKey));
+
+  it("asks for a followed league with nothing on the board", () => {
+    const { missing, clubsByLeague } = reachTargets(["mlb"], [], [], new Set());
+    expect(missing).toEqual(["mlb"]);
+    expect(clubsByLeague.size).toBe(0);
+  });
+
+  it("asks for nothing when the league is already on the board", () => {
+    const on = [game("a")];
+    const { missing } = reachTargets(["mlb"], [], on, covers(on));
+    expect(missing).toEqual([]);
+  });
+
+  it("REGRESSION: a mid-season league no longer masks an idle club", () => {
+    // The league is playing, so it is covered and `missing` is empty. The
+    // followed club is not in any of those games. Before #40 nothing was
+    // asked and the board claimed the club had no fixtures at all.
+    const on = [epl("g1", "1", "2"), epl("g2", "3", "4")];
+    const { missing, clubsByLeague } = reachTargets(
+      ["soccer/eng.1"],
+      ["soccer/eng.1:359"],
+      on,
+      covers(on),
+    );
+    expect(missing).toEqual([]);
+    expect(clubsByLeague.get("soccer/eng.1")).toEqual(
+      new Set(["soccer/eng.1:359"]),
+    );
+  });
+
+  it("does not ask for a club that IS playing in the window", () => {
+    const on = [epl("g1", "359", "2")];
+    const { clubsByLeague } = reachTargets(
+      ["soccer/eng.1"],
+      ["soccer/eng.1:359"],
+      on,
+      covers(on),
+    );
+    expect(clubsByLeague.size).toBe(0);
+  });
+
+  it("groups several idle clubs into ONE request per league", () => {
+    const on = [epl("g1", "1", "2")];
+    const { clubsByLeague } = reachTargets(
+      ["soccer/eng.1"],
+      ["soccer/eng.1:359", "soccer/eng.1:360", "soccer/eng.1:362"],
+      on,
+      covers(on),
+    );
+    expect(clubsByLeague.size).toBe(1);
+    expect(clubsByLeague.get("soccer/eng.1")?.size).toBe(3);
+  });
+
+  it("does not ask a league twice when it is already being reached ahead", () => {
+    // Off-season: the league answers nothing, so it is in `missing` and
+    // will be asked "what is next". Asking it again with a range for the
+    // club would be two requests for one league.
+    const { missing, clubsByLeague } = reachTargets(
+      ["soccer/eng.1"],
+      ["soccer/eng.1:359"],
+      [],
+      new Set(),
+    );
+    expect(missing).toEqual(["soccer/eng.1"]);
+    expect(clubsByLeague.size).toBe(0);
+  });
+
+  it("ignores a malformed club key rather than asking for a league named ''", () => {
+    const { clubsByLeague } = reachTargets([], ["nocolon", ":5"], [], new Set());
+    expect(clubsByLeague.size).toBe(0);
+  });
+});

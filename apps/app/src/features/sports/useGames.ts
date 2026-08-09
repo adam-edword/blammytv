@@ -3,6 +3,7 @@ import { onDay } from "./day";
 import { DEFAULT_LEAGUES, fetchBoard } from "./espn";
 import { CARD_CONFIDENCE, matchEvent, matchGame, preferVisible } from "./matcher";
 import type { Catalog } from "./matcher";
+import { gameTeamKeys } from "./follows";
 import { isFixture, isTournament } from "./model";
 import type { Game } from "./model";
 import { presumedNetworks } from "./networkMap";
@@ -12,6 +13,21 @@ const REFRESH_MS = 90_000;
 
 /** Today plus this many days after it. */
 const DAYS = 3;
+
+/**
+ * How far forward to look for a followed club's next game (#40).
+ *
+ * Bounded because the payload tracks events-in-window and ESPN caps a
+ * response at 100 events, so an open range on a daily-cadence league is
+ * megabytes to find one row. Measured 2026-08-08 from that date forward:
+ * the Premier League is 63 KB / 6 events at 14 days and 222 KB / 30 at 30;
+ * MLB is 1.5 MB / 100 at 7, 14 AND 30, i.e. capped whatever you ask.
+ *
+ * MLB being expensive is the argument FOR 14 rather than against it: a club
+ * that plays daily is never absent from a three-day window, so this never
+ * fires for MLB. It fires for weekly-cadence leagues, where it is 63 KB.
+ */
+const CLUB_REACH_DAYS = 14;
 
 export interface Day {
   /** Local midnight of the day this covers. */
@@ -36,9 +52,57 @@ export interface Day {
  * list rather than knowing five of them, so following one more league is a
  * different argument rather than a different code path.
  */
+/**
+ * What still needs asking for, once the window has been drawn.
+ *
+ * Pure and exported because this is where #40's bug lived and the hook it
+ * runs inside cannot be tested without a DOM. Two questions, and the second
+ * is the one that was missing:
+ *
+ *   missing        followed LEAGUES with nothing on the board. Asked "what
+ *                  is next", unbounded.
+ *   clubsByLeague  followed CLUBS with nothing on the board, grouped by the
+ *                  league that has to be asked for them. A club follow puts
+ *                  its LEAGUE on the wire, so a mid-season league covers its
+ *                  own path and never appears in `missing`, while the club
+ *                  itself can sit idle for the whole window.
+ *
+ * A league already in `missing` is dropped from the club grouping: it is
+ * about to be asked "what is next" anyway, and asking it again with a range
+ * would be two requests for one league.
+ */
+export function reachTargets(
+  paths: readonly string[],
+  clubKeys: readonly string[],
+  onBoard: readonly Game[],
+  covered: ReadonlySet<string>,
+): { missing: string[]; clubsByLeague: Map<string, Set<string>> } {
+  const missing = paths.filter((p) => !covered.has(p));
+  const clubsOn = new Set(onBoard.flatMap(gameTeamKeys));
+  const clubsByLeague = new Map<string, Set<string>>();
+  for (const k of clubKeys) {
+    if (clubsOn.has(k)) continue;
+    const cut = k.indexOf(":");
+    if (cut <= 0) continue;
+    const league = k.slice(0, cut);
+    if (missing.includes(league)) continue;
+    let set = clubsByLeague.get(league);
+    if (!set) clubsByLeague.set(league, (set = new Set()));
+    set.add(k);
+  }
+  return { missing, clubsByLeague };
+}
+
 export function useGames(
   leagues: readonly string[] = DEFAULT_LEAGUES,
   dayCount = DAYS,
+  /**
+   * Followed CLUB keys (`${leagueKey}:${teamId}`), for the club half of
+   * #40. Separate from `leagues` because they reach ahead differently: a
+   * league asks "what is next", a club has to ask its league for a window
+   * and then find itself in it.
+   */
+  teams: readonly string[] = [],
   /**
    * REACH PAST THE WINDOW for a followed league with nothing in it (plan
    * 010 #36). Adam's: "if there's ANYTHING on the schedule for a sport
@@ -81,9 +145,12 @@ export function useGames(
    * removed again.
    */
   const key = leagues.join(",");
+  /** Same reasoning as `key`: an array prop is a new object every render. */
+  const teamKey = teams.join(",");
 
   useEffect(() => {
     const paths = key ? key.split(",") : [];
+    const clubKeys = teamKey ? teamKey.split(",") : [];
     const ac = new AbortController();
     let timer: number | undefined;
 
@@ -182,28 +249,87 @@ export function useGames(
      * rather than a broken board.
      */
     const loadAhead = async (mine: number, window: Day[]) => {
+      const onBoard = window.flatMap((d) => d.games);
       // Every path that put something on the board. A tournament is served
       // by two of them, so it clears both.
       const covered = new Set(
-        window
-          .flatMap((d) => d.games)
-          .flatMap((g) => (isTournament(g) ? g.keys : [g.leagueKey])),
+        onBoard.flatMap((g) => (isTournament(g) ? g.keys : [g.leagueKey])),
       );
-      const missing = paths.filter((p) => !covered.has(p));
-      if (missing.length === 0) return;
+      /**
+       * Followed CLUBS actually present in the window, which is a different
+       * question from their league being present (#40).
+       *
+       * A club follow puts its LEAGUE on the wire, so a mid-season league
+       * covers its own path and the league half above finds nothing missing.
+       * The club can still be idle all three days, and before this the board
+       * then said "no fixtures published, not even further out", which was
+       * false, because nothing had ever asked.
+       */
+      const { missing, clubsByLeague } = reachTargets(
+        paths,
+        clubKeys,
+        onBoard,
+        covered,
+      );
+      if (missing.length === 0 && clubsByLeague.size === 0) return;
       // The last day already drawn. Anything at or before it is either
       // already on the board or was filtered off it for a reason.
       const edge = dates[dates.length - 1];
-      try {
+
+      /** The league half: "what is next", one bare call each. */
+      const reachLeagues = async (): Promise<Game[]> => {
+        if (missing.length === 0) return [];
         // `ahead` changes the SHAPE a racing league comes back in: one
         // weekend rather than its five sessions. See fetchLeague.
         const { games } = await fetchBoard(missing, {
           signal: ac.signal,
           ahead: true,
         });
+        return games;
+      };
+
+      /**
+       * The club half: a bounded window, then find the club in it.
+       *
+       * Asked per LEAGUE rather than per club, so following six clubs in one
+       * league is one request. A bare call cannot serve this: it answers
+       * with the league's next fixture, which is somebody else's game.
+       */
+      const reachClubs = async (): Promise<Game[]> => {
+        if (clubsByLeague.size === 0) return [];
+        const per = await Promise.all(
+          [...clubsByLeague].map(async ([league, wanted]) => {
+            const { games } = await fetchBoard([league], {
+              signal: ac.signal,
+              withinDays: CLUB_REACH_DAYS,
+            });
+            // Only this club's games, and only its NEXT one: a fortnight of
+            // Premier League is six fixtures and five of them are noise.
+            const mineOnly = games
+              .filter((g) => gameTeamKeys(g).some((k) => wanted.has(k)))
+              .sort((a, b) => a.start.getTime() - b.start.getTime());
+            const first = new Map<string, Game>();
+            for (const g of mineOnly)
+              for (const k of gameTeamKeys(g))
+                if (wanted.has(k) && !first.has(k)) first.set(k, g);
+            return [...new Set(first.values())];
+          }),
+        );
+        return per.flat();
+      };
+
+      try {
+        const [fromLeagues, fromClubs] = await Promise.all([
+          reachLeagues(),
+          reachClubs(),
+        ]);
         if (ac.signal.aborted || mine !== gen) return;
-        const later = games
+        const seen = new Set<string>();
+        const later = [...fromLeagues, ...fromClubs]
           .filter((g) => midnight(g.start) > edge.getTime())
+          // A club's next game can also be its league's next game, and both
+          // halves would then carry it.
+          .filter((g) => !seen.has(g.id) && (seen.add(g.id), true))
           .sort((a, b) => a.start.getTime() - b.start.getTime());
         setAhead(later);
       } catch {
@@ -300,7 +426,7 @@ export function useGames(
     // it changes with `narrowed`, which also changes `key` and `dayCount`,
     // so the effect already re-runs. Leaving it out would make that a
     // coincidence the next caller has to know about.
-  }, [dayCount, key, reach]);
+  }, [dayCount, key, teamKey, reach]);
 
   return { days, ahead, state };
 }

@@ -1521,7 +1521,7 @@ duplicated where #43 claims it is shared, and plan bookkeeping — #22 shipped
 but marked open, #35 stale in both directions, #27's ledger row off by one
 version, #40's blocker landed 19 commits ago.
 
-#### 40. The empty board says when the next one is [x] superseded by #36, with a remainder
+#### 40. The club-narrowed board reaches ahead too [x] v0.8.178
 
 Read for the v0.9.0 cut on 2026-08-08 and it is not the item it was written
 as. #36 shipped in v0.8.137 and answered this from a better direction: rather
@@ -1557,7 +1557,26 @@ That is false. The club has fixtures; they are outside the window and nothing
 ever asked for them. The board is not merely unhelpful here, it states the
 opposite of the truth.
 
-Two ways to fix it, and they differ in cost rather than in correctness:
+**Shipped v0.8.178, and it took both halves.** `reachTargets` is now a pure
+exported function because the bug lived in a hook that cannot be tested
+without a DOM: it answers "which leagues are missing" and "which followed
+clubs are absent, grouped by the league that has to be asked for them", and
+drops a league from the club grouping when it is already being asked "what is
+next" anyway. `fetchLeague`'s bounded `withinDays` serves the club half at 14
+days, chosen from the measurements above.
+
+The copy branches now, because the two halves reach differently and one
+sentence could not be true for both. A league is asked unbounded, so an empty
+one really has published nothing. A club is asked for a fortnight, so an empty
+one may just be idle for longer, and "not even further out" was the false
+claim. Clubs followed reads "nothing on the schedule we can reach"; leagues
+only keeps the stronger sentence.
+
+Seven regression tests, including the exact shape nobody hits by hand: league
+mid-season, club idle, board empty.
+
+The two ways it could have been fixed, kept because the reasoning constrains
+anything that touches this next:
 
 - **Make `covered` team-aware.** A followed club counts as covered only when
   a game in the window actually involves it, so a mid-season league no longer
