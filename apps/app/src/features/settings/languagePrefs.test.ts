@@ -112,3 +112,33 @@ describe("precedence: per-show > setting > learned global", () => {
     expect(p.muted).toBe(true);
   });
 });
+
+describe("the setting must not leak into the learned store", () => {
+  it("clearing the picker actually clears its effect", () => {
+    // The regression: rememberPlayback merged onto the RESOLVED prefs, so any
+    // playback wrote the setting into the learned layer underneath it, and
+    // clearing the picker then changed nothing at all.
+    saveAudioLang("ja");
+    // What TheaterOverlay fires on every playback mount.
+    rememberPlayback({ volume: 0.8 });
+    saveAudioLang(AUTO);
+    expect(loadPlaybackPrefs().audioLang).toBeUndefined();
+  });
+
+  it("does not destroy what the global genuinely learned", () => {
+    rememberPlayback({ audioLang: "en" });
+    saveAudioLang("ja");
+    expect(loadPlaybackPrefs().audioLang).toBe("ja");
+    rememberPlayback({ volume: 0.5 });
+    // Clear the picker: the real learned answer must come back, not "ja".
+    saveAudioLang(AUTO);
+    expect(loadPlaybackPrefs().audioLang).toBe("en");
+  });
+
+  it("the same for subtitles", () => {
+    saveSubLang("en");
+    rememberPlayback({ muted: true });
+    saveSubLang(AUTO);
+    expect(loadPlaybackPrefs().subLang).toBeUndefined();
+  });
+});

@@ -158,7 +158,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
   // Declared ABOVE useGames because the poll cadence reads it (#23), which
   // is the only reason it is not down with the other view state.
   const [open, setOpen] = useState<Fixture | null>(null);
-  const { days: raw, ahead: rawAhead, state } = useGames(
+  const { days: raw, ahead: rawAhead, state, reachFailed } = useGames(
     leagues,
     narrowed ? 3 : 2,
     // The CLUBS being shown, so an idle one can reach ahead for itself (#40).
@@ -611,9 +611,15 @@ export function SportsScreen({ home }: { home?: number } = {}) {
             note={`${followedNames} ${
               followedCount === 1 ? "has" : "have"
             } ${
-              active.teams.length > 0
-                ? "nothing on the schedule we can reach"
-                : "no fixtures published, not even further out"
+              // ASKED AND NOT ANSWERED is a third case, and asserting the
+              // second while it is true is how the board came to tell people
+              // their league had published nothing when a request had simply
+              // failed. It says so and stops claiming anything.
+              reachFailed
+                ? "nothing on the board, and the schedule source did not answer when asked what is next. This usually clears itself"
+                : shown.teams.length > 0
+                  ? "nothing on the schedule we can reach"
+                  : "no fixtures published, not even further out"
             }. Favourite a few more sports and the board fills itself.`}
             action={{
               label: "Pick more sports",

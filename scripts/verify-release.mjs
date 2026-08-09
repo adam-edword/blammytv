@@ -54,8 +54,9 @@ const key = createPublicKey({
 });
 
 let bad = 0;
-/** Set when a manifest entry's signature was never verified against bytes. */
-let skippedBytes = false;
+/** Set when --offline stopped the url from being fetched. The bytes may
+ * still have been verified locally, so this is a note rather than a fault. */
+let skippedUrl = false;
 const check = (label, ok, detail = "") => {
   console.log(`  ${ok ? "PASS" : "FAIL"}  ${label}${detail ? "  " + detail : ""}`);
   if (!ok) bad++;
@@ -64,7 +65,7 @@ const fail = (label, detail) => check(label, false, detail);
 const done = () => {
   // "all checks passed" would be a lie in --offline manifest mode with no
   // local asset: the signature was never checked against any bytes at all.
-  const unchecked = skippedBytes ? " (the BYTES were not verified — --offline)" : "";
+  const unchecked = skippedUrl ? " (the URL was not fetched, --offline)" : "";
   console.log(
     bad
       ? `\n${bad} check(s) FAILED — do not publish\n`
@@ -181,19 +182,31 @@ for (const entry of entries) {
   checkSig(sig, asset);
   check("the asset name carries the manifest version", asset.includes(manifest.version), asset);
 
+  // BYTES and URL are two independent questions, and folding them together
+  // is how this script came to pass the exact bug it was written for.
+  // Handing it a local asset used to skip the fetch entirely, so
+  // `verify-release.mjs latest.json <exe>`, the form RELEASING.md documents,
+  // verified the crypto beautifully and never noticed that the
+  // url 404'd. That is v0.8.163's second failure, the one the docstring
+  // above claims to catch, sailing through the mode most likely to be used.
+  let bytesChecked = false;
+
   if (b) {
     check(
       "signature over the local asset's bytes",
       basename(b) === asset && bytesOk(readFileSync(b), sig),
       basename(b) === asset ? "" : `${basename(b)} is not ${asset}`,
     );
-  } else if (offline) {
+    bytesChecked = true;
+  }
+
+  if (offline) {
     console.log(`  ....  url not fetched (--offline)  ${entry.url}`);
-    skippedBytes = true;
+    skippedUrl = true;
   } else {
-    // The other thing that shipped: a manifest naming an asset nobody
-    // uploaded. Fetch it and verify the bytes, so "it resolves" and "it is
-    // the file the signature covers" are one answer instead of two.
+    // A manifest naming an asset nobody uploaded. Always asked, whether or
+    // not a local copy was handed over, because a local file proves nothing
+    // about what users will actually download.
     let res;
     try {
       res = await fetch(entry.url, { redirect: "follow" });
@@ -203,8 +216,25 @@ for (const entry of entries) {
     }
     check("the url resolves", res.ok, `HTTP ${res.status}  ${entry.url}`);
     if (!res.ok) continue;
-    const bytes = Buffer.from(await res.arrayBuffer());
-    check("signature over the published bytes", bytesOk(bytes, sig), `${bytes.length} bytes`);
+    if (!bytesChecked) {
+      const bytes = Buffer.from(await res.arrayBuffer());
+      check(
+        "signature over the published bytes",
+        bytesOk(bytes, sig),
+        `${bytes.length} bytes`,
+      );
+      bytesChecked = true;
+    }
+  }
+
+  // Nothing about this entry's bytes was checked against anything. Said as
+  // a FAILURE rather than a note, because the prose version of this exited
+  // 0 and any wrapper gating on the exit code read that as green.
+  if (!bytesChecked) {
+    fail(
+      "the signature was checked against real bytes",
+      "--offline with no local asset verifies nothing",
+    );
   }
 }
 

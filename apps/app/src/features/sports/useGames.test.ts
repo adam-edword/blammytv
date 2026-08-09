@@ -446,10 +446,17 @@ describe("reachTargets", () => {
     expect(clubsByLeague.get("soccer/eng.1")?.size).toBe(3);
   });
 
-  it("does not ask a league twice when it is already being reached ahead", () => {
-    // Off-season: the league answers nothing, so it is in `missing` and
-    // will be asked "what is next". Asking it again with a range for the
-    // club would be two requests for one league.
+  it("REGRESSION: still asks for the club when its league is also missing", () => {
+    // This test previously asserted the OPPOSITE and was wrong. The reasoning
+    // was "the league is about to be asked what is next, so asking again for
+    // the club would be two requests for one league". But the two are not the
+    // same question, as this codebase says in three places: a bare call hands
+    // back the LEAGUE's next fixture, which for a club follow is somebody
+    // else's game and gets filtered straight off the board by isFollowed.
+    //
+    // Follow only Arsenal over an international break and the old behaviour
+    // skipped the only ask that could have found their next match, in exactly
+    // the case the club reach was built for. One extra request beats that.
     const { missing, clubsByLeague } = reachTargets(
       ["soccer/eng.1"],
       ["soccer/eng.1:359"],
@@ -457,7 +464,9 @@ describe("reachTargets", () => {
       new Set(),
     );
     expect(missing).toEqual(["soccer/eng.1"]);
-    expect(clubsByLeague.size).toBe(0);
+    expect(clubsByLeague.get("soccer/eng.1")).toEqual(
+      new Set(["soccer/eng.1:359"]),
+    );
   });
 
   it("ignores a malformed club key rather than asking for a league named ''", () => {

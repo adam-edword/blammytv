@@ -119,7 +119,13 @@ export function reachTargets(
     const cut = k.indexOf(":");
     if (cut <= 0) continue;
     const league = k.slice(0, cut);
-    if (missing.includes(league)) continue;
+    // NO SKIP when the league is also being reached for, which is what this
+    // did and it was wrong. The two asks answer different questions, as this
+    // file says three times over: a bare call hands back the LEAGUE's next
+    // fixture, which for a club follow is somebody else's game and is then
+    // filtered off the board by isFollowed. Skipping the club here removed
+    // the only ask that could answer for it, in exactly the case the club
+    // reach exists for. One extra request beats an empty board.
     let set = clubsByLeague.get(league);
     if (!set) clubsByLeague.set(league, (set = new Set()));
     set.add(k);
@@ -179,6 +185,18 @@ export function useGames(
    */
   const [ahead, setAhead] = useState<Game[]>([]);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
+  /**
+   * The reach ASKED and did not get an answer, as opposed to asking and being
+   * told there is nothing.
+   *
+   * The empty board could not tell those apart and asserted the second: a
+   * single 503 on a single followed league made `fetchBoard` throw (it throws
+   * when every path rejects, and one followed league is every path), the
+   * catch swallowed it, `ahead` stayed empty, and the screen said the league
+   * had published nothing at all. For a calendar with twelve rounds still to
+   * run, with no retry for the life of the mount.
+   */
+  const [reachFailed, setReachFailed] = useState(false);
   /** Read by `tick`, so the cadence can change without tearing the effect
    * down. See the `watching` parameter. */
   const watchingRef = useRef(watching);
@@ -206,8 +224,18 @@ export function useGames(
    * removed again.
    */
   const key = leagues.join(",");
-  /** Same reasoning as `key`: an array prop is a new object every render. */
-  const teamKey = teams.join(",");
+  /**
+   * Same reasoning as `key`, INCLUDING the sort.
+   *
+   * `fetchList` sorts, which is what makes `key` stable when a follow is
+   * added and removed again. This inherited the raw order of `follows.teams`,
+   * which `flip` mutates by appending, so unfollowing a club and re-following
+   * it produced "359,364" then "364" then "364,359": a different string for
+   * an identical follow set. The effect below clears the board and refetches
+   * on every change, so the user watched it blank twice to arrive back where
+   * they started.
+   */
+  const teamKey = [...teams].sort().join(",");
 
   useEffect(() => {
     const paths = key ? key.split(",") : [];
@@ -247,6 +275,18 @@ export function useGames(
      * ones and the board regresses until the next tick.
      */
     let gen = 0;
+    /**
+     * The reach's OWN generation, separate from `gen`.
+     *
+     * They were shared, and `loadToday` bumps `gen` on every 90s tick, on
+     * every return to the app and now on every theater close. Any of those
+     * landing while the reach was awaiting made its guard drop a result that
+     * had already been downloaded and parsed, and nothing re-runs the reach
+     * until the fetch list changes, so `ahead` stayed empty for the life of
+     * the mount. The two loaders write disjoint state (`days[0]` against
+     * `ahead`); one counter conflated them.
+     */
+    let aheadGen = 0;
 
     /**
      * The paths the 90 second tick actually asks for.
@@ -286,7 +326,7 @@ export function useGames(
         // is on"; reaching ahead is a second, slower question, and holding
         // the board back for it would make every narrowed board wait on a
         // league that has nothing to say.
-        if (reach) void loadAhead(mine, window);
+        if (reach) void loadAhead(window);
       } catch {
         if (ac.signal.aborted) return;
         // Only the first load has nothing to fall back on.
@@ -309,7 +349,8 @@ export function useGames(
      * correct; a league we could not reach ahead for is a missing extra
      * rather than a broken board.
      */
-    const loadAhead = async (mine: number, window: Day[]) => {
+    const loadAhead = async (window: Day[]) => {
+      const mine = ++aheadGen;
       const onBoard = window.flatMap((d) => d.games);
       // Every path that put something on the board. A tournament is served
       // by two of them, so it clears both.
@@ -379,22 +420,30 @@ export function useGames(
         return per.flat();
       };
 
-      try {
-        const [fromLeagues, fromClubs] = await Promise.all([
-          reachLeagues(),
-          reachClubs(),
-        ]);
-        if (ac.signal.aborted || mine !== gen) return;
+      // allSettled, not all: the two halves answer independently and one
+      // failing must not throw the other away. Follow an off-season racing
+      // league and a mid-season club, have the racing request fail once, and
+      // Promise.all discarded the club fixture that had already arrived.
+      // The rest of this layer already works this way (espn.ts's fetchBoard).
+      const settled = await Promise.allSettled([reachLeagues(), reachClubs()]);
+      if (ac.signal.aborted || mine !== aheadGen) return;
+      const fromLeagues =
+        settled[0].status === "fulfilled" ? settled[0].value : null;
+      const fromClubs =
+        settled[1].status === "fulfilled" ? settled[1].value : null;
+      // Whether the reach actually ANSWERED, which the empty-state copy needs
+      // and could not previously tell: a silent catch left `ahead` empty and
+      // the board then asserted that nothing was published anywhere.
+      setReachFailed(fromLeagues === null || fromClubs === null);
+      {
         const seen = new Set<string>();
-        const later = [...fromLeagues, ...fromClubs]
+        const later = [...(fromLeagues ?? []), ...(fromClubs ?? [])]
           .filter((g) => midnight(g.start) > edge.getTime())
           // A club's next game can also be its league's next game, and both
           // halves would then carry it.
           .filter((g) => !seen.has(g.id) && (seen.add(g.id), true))
           .sort((a, b) => a.start.getTime() - b.start.getTime());
         setAhead(later);
-      } catch {
-        // See above: an extra that did not arrive.
       }
     };
 
@@ -467,6 +516,7 @@ export function useGames(
      */
     setState("loading");
     setDays([]);
+    setReachFailed(false);
     void loadAll();
     refreshRef.current = refresh;
     timer = window.setTimeout(tick, nextDelay());
@@ -492,7 +542,7 @@ export function useGames(
     // coincidence the next caller has to know about.
   }, [dayCount, key, teamKey, reach]);
 
-  return { days, ahead, state };
+  return { days, ahead, state, reachFailed };
 }
 
 /**

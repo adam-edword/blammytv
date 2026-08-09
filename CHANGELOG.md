@@ -2,6 +2,28 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 0.8.184: Audit fixes (2026-08-09)
+
+### Fixed
+
+- **Clearing the Preferred Language picker now actually clears it.** Setting a
+  language and then playing anything wrote that language into the player's
+  older remembered-choices store, so putting the picker back to "No
+  preference" changed nothing and every stream stayed forced to it. It also
+  wiped whatever the player had learned from your own track picks. Both fixed;
+  the setting and the learned answer are kept apart now.
+- **The Sports board stops claiming a league has published nothing when it
+  simply couldn't ask.** A single failed request made the empty board assert
+  that a league had no fixtures at all, with no retry, for a competition with
+  a full calendar still to come. It now says the schedule source didn't answer.
+- **Following a single club works during its league's off-week.** The board
+  skipped looking up an idle club whenever its league was also being looked
+  up, which is exactly when it mattered, so the club's next fixture never
+  appeared.
+- **Unfollowing and re-following a club no longer blanks the board twice.**
+- **One failing sport no longer discards another's results** when the board
+  reaches past its window for several things at once.
+
 ## 0.8.183: Sports eases off while you watch (2026-08-09)
 
 ### Improved

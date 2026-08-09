@@ -91,7 +91,18 @@ export function rememberPlayback(
   patch: Partial<PlaybackPrefs>,
   showId?: string,
 ): void {
-  save(KEY, VERSION, { ...loadPlaybackPrefs(), ...patch });
+  // THE RAW GLOBAL, not the resolved prefs. This said loadPlaybackPrefs(),
+  // which was an identity merge until that function started folding the
+  // language SETTING in underneath. After that, every playback wrote the
+  // setting into the learned store: TheaterOverlay fires a volume/mute
+  // remember on every mount, so setting "Japanese" and playing anything at
+  // all baked "ja" into the global. Clearing the picker back to No
+  // preference then changed nothing, because the learned layer underneath it
+  // now said "ja" too, and no screen would ever have explained why. It also
+  // destroyed whatever the global had genuinely learned before.
+  //
+  // The layers are resolved at READ time. Nothing may write one into another.
+  save(KEY, VERSION, { ...load<PlaybackPrefs>(KEY, VERSION, {}), ...patch });
   if (!showId) return;
   // Only the show-scoped fields, and only the ones actually present: a
   // volume change must not write an empty record for every show.
