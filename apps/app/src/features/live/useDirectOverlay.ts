@@ -14,6 +14,7 @@ import {
 import type { ChapterInfo, OverlayApi, TimeInfo, Tracks } from "./overlayApi";
 import { holdsPoll, type SeekHold } from "./seekHold";
 import { behindLive } from "./liveEdge";
+import { dvrChanged, type DvrWindow } from "./dvr";
 
 /**
  * Status cadence once a picture is up. The scrubber clock and the death
@@ -97,6 +98,8 @@ export function useDirectOverlay(
     edgeBaseline: null as number | null,
     behind: 0,
     behindCbs: new Set<(sec: number) => void>(),
+    dvr: null as DvrWindow | null,
+    dvrCbs: new Set<(w: DvrWindow | null) => void>(),
     bufferingCbs: new Set<(b: boolean) => void>(),
     seekableCbs: new Set<(s: boolean) => void>(),
     chapters: [] as ChapterInfo[],
@@ -130,6 +133,7 @@ export function useDirectOverlay(
     s.seekable = true;
     s.edgeBaseline = null;
     s.behind = 0;
+    s.dvr = null;
     s.tracks = null;
     s.tracksJson = "";
     s.time = null;
@@ -204,6 +208,18 @@ export function useDirectOverlay(
               s.loading = true;
               s.loadingCbs.forEach((cb) => cb(true));
             }
+          }
+          // The live DVR window, when the Rust side supplied one (live
+          // only). Strictly better than the behindLive estimate below, and
+          // the chrome prefers it — that is kept as the fallback for an
+          // older native build rather than deleted.
+          const win =
+            st.dvrStart != null && st.dvrEnd != null && st.pos != null
+              ? { start: st.dvrStart, end: st.dvrEnd, pos: st.pos }
+              : null;
+          if (dvrChanged(s.dvr, win)) {
+            s.dvr = win;
+            s.dvrCbs.forEach((cb) => cb(win));
           }
           // How far behind live, corrected from mpv (see liveEdge). The
           // baseline is taken on the first reading once the picture is up,
@@ -386,6 +402,8 @@ export function useDirectOverlay(
       onSeekable: sub(s.seekableCbs),
       getBehindLive: () => s.behind,
       onBehindLive: sub(s.behindCbs),
+      getDvr: () => s.dvr,
+      onDvr: sub(s.dvrCbs),
       onKey: () => () => {}, // the overlay's own document listener covers keys
       getTracks: () => s.tracks,
       onTracks: sub(s.tracksCbs),

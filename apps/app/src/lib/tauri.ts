@@ -233,6 +233,11 @@ export interface MpvStatus {
    * exactly how far behind live you seek, and does NOT grow when mpv refuses
    * the seek, which is what makes it the live-edge correction. */
   cacheDur?: number | null;
+  /** Live only: the seekable window's bounds, in the same timebase as `pos`.
+   * mpv's `demuxer-cache-state.seekable-ranges`, outer bounds. Absent on VOD
+   * (not read there) and on older Rust builds. */
+  dvrStart?: number | null;
+  dvrEnd?: number | null;
   audio: Array<{ id: number; label: string; lang: string; selected: boolean }>;
   subs: Array<{ id: number; label: string; lang: string; selected: boolean }>;
   /** File chapter markers (absent on pre-chapter Rust builds). */

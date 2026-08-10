@@ -460,6 +460,35 @@ fn mpv_status() -> String {
     // the direct answer but do not resolve as slash paths on the shipped
     // libmpv (verified), and this needs no left edge to be correct.
     let cache_dur = mpv::get_property("demuxer-cache-duration").and_then(|s| s.parse::<f64>().ok());
+    // THE DVR WINDOW, from mpv's own answer rather than inferred.
+    //
+    // Only on live (no duration): this is the one property here that is not
+    // a scalar. mpv builds a node and formats it to JSON, we parse it back,
+    // and that is more work than the five reads above put together. VOD does
+    // not need it and should not pay for it on every poll.
+    //
+    // `seekable-start`/`seekable-end` were tried as slash paths first and
+    // read `<unset>` — the name is wrong, not the idea. The real shape is
+    // `seekable-ranges`, an ARRAY of {start,end}, and the top-level values
+    // are on the same normalised timeline as `time-pos` (the per-stream
+    // `reader-pts` inside it is raw PTS and is NOT interchangeable: measured
+    // on a real channel, top-level 7.84 against per-stream 2698.48).
+    //
+    // First range's start to last range's end. In practice live has exactly
+    // one, but a stream that has been seeked around can hold several and the
+    // outer bounds are what the bar draws.
+    let dvr = if dur.is_none() {
+        mpv::get_property("demuxer-cache-state")
+            .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
+            .and_then(|v| {
+                let ranges = v.get("seekable-ranges")?.as_array()?;
+                let start = ranges.first()?.get("start")?.as_f64()?;
+                let end = ranges.last()?.get("end")?.as_f64()?;
+                Some((start, end))
+            })
+    } else {
+        None
+    };
     let t_scalars = t_start.elapsed();
     let t_tracks_start = std::time::Instant::now();
     let tracks = mpv::track_list();
@@ -499,6 +528,7 @@ fn mpv_status() -> String {
     serde_json::json!({
         "pos": pos, "dur": dur, "presenting": presenting, "ended": ended,
         "buffering": buffering, "seekable": seekable, "cacheDur": cache_dur,
+        "dvrStart": dvr.map(|d| d.0), "dvrEnd": dvr.map(|d| d.1),
         "audio": audio, "subs": subs, "chapters": chapters,
     })
     .to_string()

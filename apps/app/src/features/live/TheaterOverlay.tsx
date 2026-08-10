@@ -22,6 +22,13 @@ import { StatsOverlay } from "./StatsOverlay";
 import { livePctFor } from "./liveEdge";
 import { CLOCK_TICK_MS, projectPos } from "./clock";
 import {
+  atLiveEdge,
+  dvrDepth,
+  dvrPct,
+  dvrSeekTarget,
+  type DvrWindow,
+} from "./dvr";
+import {
   CcIcon,
   CheckIcon,
   BackArrowIcon,
@@ -201,6 +208,10 @@ export function TheaterOverlay({
   // left, forward walks it toward live. mpv exposes no live position for a
   // live stream, so this is a client-side indicator that tracks the seeks.
   const [livePct, setLivePct] = useState(100);
+  /* mpv's real rewind window on live. Null on VOD and on a native build that
+   * does not report it, in which case livePct above carries the rail. */
+  const [dvr, setDvr] = useState<DvrWindow | null>(null);
+  const hasDvrRef = useRef(false);
   const [active, setActive] = useState(true); // chrome shown (auto-hides)
   // Window-heuristic size state (overlay-webview mode). Inline, `frame`
   // wins DERIVED IN RENDER — routing it through state + an effect painted
@@ -285,13 +296,24 @@ export function TheaterOverlay({
     // this drags it back to whatever mpv actually managed — including "not
     // at all", which is the case that used to leave it permanently wrong
     // until Jump to live paid for a full stream reload to reset it.
-    const offBehind = a.onBehindLive?.((sec) => setLivePct(livePctFor(sec)));
+    // The DVR window when the native build supplies one. It supersedes the
+    // behindLive estimate below, which stays as the fallback rather than
+    // being deleted: a frontend hot-reload can run against older Rust.
+    const offDvr = a.onDvr?.((w) => {
+      hasDvrRef.current = !!w;
+      setDvr(w);
+    });
+    const offBehind = a.onBehindLive?.((sec) => {
+      if (hasDvrRef.current) return;
+      setLivePct(livePctFor(sec));
+    });
     return () => {
       offMeta();
       offLoading();
       offBuf?.();
       offSeek?.();
       offBehind?.();
+      offDvr?.();
     };
   }, []);
 
@@ -345,6 +367,7 @@ export function TheaterOverlay({
   // the bar follows the pointer and the poll's updates don't fight it.
   const [scrub, setScrub] = useState<number | null>(null);
   const seekTrackRef = useRef<HTMLDivElement | null>(null);
+  const liveTrackRef = useRef<HTMLDivElement | null>(null);
   /* The track's rect, measured ONCE on pointerdown and reused for the whole
    * drag. Reading getBoundingClientRect() per pointermove forced a synchronous
    * layout on every mouse event: measured at 91ms of layout across a ~5.3k-move
@@ -389,7 +412,11 @@ export function TheaterOverlay({
       // frame (42ms of layout over a 3s drag); a custom property feeding
       // scaleX and translateX is composited instead, and the two elements
       // can no longer disagree about where the playhead is.
-      seekTrackRef.current?.style.setProperty("--pct", String(f));
+      // Whichever rail is mounted; only one ever is.
+      (seekTrackRef.current ?? liveTrackRef.current)?.style.setProperty(
+        "--pct",
+        String(f),
+      );
       if (labelRef.current)
         labelRef.current.textContent = fmtClock(f * durRef.current);
     });
@@ -895,7 +922,15 @@ export function TheaterOverlay({
   // At the live edge (within a hair of 100) → the dot burns bright; behind it
   // dims. The only way to fall behind in this UI is the seek controls, so the
   // indicator is an honest read of "are we live" without polling mpv.
-  const atLive = livePct >= 99;
+  // Knowing beats inferring: with a window we can compare the playhead to
+  // the actual live edge instead of reading it off an indicator that was
+  // itself a guess.
+  const atLive = dvr ? atLiveEdge(dvr) : livePct >= 99;
+  /* What the live rail draws. A drag owns it while held, exactly as the VOD
+   * one works; otherwise the real window position, or the old estimate when
+   * there is no window. */
+  const liveRailPct =
+    scrub !== null ? scrub * 100 : dvr ? dvrPct(dvr) : livePct;
 
   // VOD: the seek row is a real scrubber and the LIVE affordances
   // disappear. The host's declaration wins; meta only decides for the
@@ -1473,9 +1508,38 @@ export function TheaterOverlay({
                   rails share one set of rules. Passing width/left here after
                   the CSS moved to transforms would have left the live fill
                   permanently at scaleX(0), i.e. invisible. */}
+              {/* A REAL DVR scrubber when mpv gives us the window: the left
+                  edge is the earliest second the stream still holds and the
+                  right edge is live, so a drag cannot ask for a position
+                  that does not exist. Without a window it stays the old
+                  read-only indicator. */}
               <div
-                className="theater-seek__track"
-                style={{ "--pct": livePct / 100 } as React.CSSProperties}
+                className={
+                  "theater-seek__track" +
+                  (dvr && dvrDepth(dvr) > 0 ? " theater-seek__track--vod" : "")
+                }
+                ref={liveTrackRef}
+                style={{ "--pct": liveRailPct / 100 } as React.CSSProperties}
+                onPointerDown={(e) => {
+                  if (!dvr || dvrDepth(dvr) <= 0 || e.button !== 0) return;
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                  scrubRect.current = e.currentTarget.getBoundingClientRect();
+                  setScrub(scrubFrac(e.clientX));
+                }}
+                onPointerMove={(e) => {
+                  if (scrub !== null) scrubTo(e.clientX);
+                }}
+                onPointerUp={(e) => {
+                  if (scrub === null) return;
+                  const f = scrubFrac(e.clientX);
+                  endScrub();
+                  setScrub(null);
+                  if (dvr) api()?.seekAbs?.(dvrSeekTarget(dvr, f));
+                }}
+                onPointerCancel={() => {
+                  endScrub();
+                  setScrub(null);
+                }}
               >
                 <div className="theater-seek__fill" />
                 <span className="theater-seek__knobwrap">
@@ -1483,8 +1547,21 @@ export function TheaterOverlay({
                 </span>
               </div>
               <div className="theater-seek__labels">
-                <span>{meta?.startLabel ?? ""}</span>
-                <span className="theater-seek__live">LIVE</span>
+                {/* How far back you can go, which is the thing worth knowing
+                    before pressing rewind. The programme start time it
+                    replaces is already in the title block above. */}
+                <span>
+                  {dvr && dvrDepth(dvr) > 0
+                    ? `-${fmtClock(dvrDepth(dvr))}`
+                    : (meta?.startLabel ?? "")}
+                </span>
+                <span
+                  className={
+                    "theater-seek__live" + (atLive ? "" : " theater-seek__live--behind")
+                  }
+                >
+                  LIVE
+                </span>
               </div>
             </>
           )}

@@ -35,6 +35,8 @@ export interface ChapterInfo {
   start: number;
 }
 
+import type { DvrWindow } from "./dvr";
+
 export interface OverlayApi {
   close: () => void;
   setPause: (paused: boolean) => void;
@@ -74,6 +76,11 @@ export interface OverlayApi {
    * from what the user asked for. 0 means at the edge. See liveEdge. */
   getBehindLive?: () => number;
   onBehindLive?: (cb: (sec: number) => void) => () => void;
+  /** Live only: the seekable window mpv actually holds, so the rail can be
+   * a real DVR scrubber instead of an estimate. Null on VOD, and on a
+   * native build older than v0.8.196. See dvr.ts. */
+  getDvr?: () => DvrWindow | null;
+  onDvr?: (cb: (w: DvrWindow | null) => void) => () => void;
   onKey?: (cb: (key: string) => void) => () => void;
   selectAudio?: (id: number | string) => void; // mpv aid ("auto" ok)
   selectSub?: (id: number | string) => void; // mpv sid ("no" = off)
