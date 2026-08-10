@@ -490,3 +490,51 @@ stuck demuxer. Plan the change so each step is separately revertible.
 - [Stremio/stremio-shell `mpv.cpp`](https://github.com/Stremio/stremio-shell/blob/master/mpv.cpp)
 - [Stremio/stremio-shell-ng](https://github.com/Stremio/stremio-shell-ng) — WebView2 + mpv + Rust
 - [mpv client API](https://mpv.readthedocs.io/en/latest/api.html) — `mpv_wait_event`, timeout semantics
+
+## Measured: where startup time actually goes (v0.8.194, real machine)
+
+This plan asked how much of the ~1.3s first-frame floor was ours. `ttff()`
+answers it now, and the answer is: almost none of it.
+
+A 4K remux over debrid, resuming ~2h in, on a real connection:
+
+| | cold | warm |
+|---|---|---|
+| first frame | 4880ms | 1700-2800ms |
+
+The cold demux leg was 2736ms, and the theory was that libavformat's
+stream probing was to blame: the file carries 71 tracks, and
+`avformat_find_stream_info` walking all of them over a network source is a
+plausible 2.7 seconds. It was tested and it is wrong.
+
+`demuxer-lavf-analyzeduration`, one variable, both runs warm, same title,
+same resume point:
+
+| | analyzeduration=0 | analyzeduration=0.5 |
+|---|---|---|
+| demux | 1160ms | 2344ms |
+| video | 1053ms | 397ms |
+| frame | 0ms | 0ms |
+| total | 2213ms | 2741ms |
+
+Slower, and the demux leg moved the wrong way. `demuxer-lavf-probe-info=nostreams`
+was also tried and came off again with a 130ms difference, so it is not the
+lever either.
+
+The reason no option helped: across four warm runs on IDENTICAL settings the
+totals were 1730, 1863, 1839 and 2758ms. **Run-to-run spread is about a
+second**, which is larger than any effect being looked for. One run per arm
+cannot separate them, and the first pair that looked like a win was noise.
+
+What the numbers do say:
+
+- The cold/warm gap is the whole story. Startup here is how long the debrid
+  host takes to answer, and it roughly halves once that host is warm. There
+  is no demuxer option for that.
+- `frame` is 0ms every time: once bring-up completes the picture moves within
+  one 25ms poll. Decode and output cost nothing. `hwdec` resolves to
+  `d3d11va`, `vo` is `gpu-next`.
+
+**Do not re-run the analyzeduration/probesize experiment** without first
+establishing the noise floor: several runs per arm, warm against warm. Any
+future startup work should be aimed at the provider round trip, not at mpv.
