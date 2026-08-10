@@ -199,8 +199,51 @@ pub fn perf_snapshot(reset: bool) -> StatusPerf {
     out
 }
 
+/// What the in-app player was doing when Pop out was clicked.
+///
+/// Captured on the main thread BEFORE `inv::close()`, because after that
+/// there is nothing left to ask. The popout is a second, independent mpv
+/// instance, so anything not carried across here is libmpv's default: the
+/// PiP opened at 100% unmuted no matter what the player it replaced was
+/// doing. `both()` does push volume and mute to the popout, but only while
+/// one is already open, and every host tears the chrome down as part of
+/// popping out — so the only pusher there is never ran.
+#[derive(Default)]
+pub struct Handoff {
+    /// VOD position, or None for live.
+    pub start: Option<f64>,
+    /// mpv's own strings, passed straight back as options.
+    pub volume: Option<String>,
+    pub mute: Option<String>,
+}
+
+impl Handoff {
+    pub fn capture() -> Self {
+        // DURATION is the test, not time-pos. `start` was previously set
+        // from time-pos alone under a comment claiming it would be 0 for
+        // live, and nothing made that true: a live feed has a perfectly
+        // real position (it is what the ±10s buttons move), so a channel
+        // watched for ten minutes handed mpv `start=600` and the PiP opened
+        // either black or ten minutes behind live. Duration is the thing
+        // live actually lacks, and it is already the frontend's own live/VOD
+        // test (useDirectOverlay renders a clock only when dur > 0).
+        let dur = get_property("duration")
+            .and_then(|s| s.parse::<f64>().ok())
+            .unwrap_or(0.0);
+        Self {
+            start: if dur > 0.0 {
+                get_property("time-pos").and_then(|s| s.parse::<f64>().ok())
+            } else {
+                None
+            },
+            volume: get_property("volume"),
+            mute: get_property("mute"),
+        }
+    }
+}
+
 /// Play in mpv's own floating window (PiP): on-top, half-size, separate instance.
-pub fn play_popout(url: &str, start: f64) -> Result<(), String> {
+pub fn play_popout(url: &str, hand: Handoff) -> Result<(), String> {
     let l = lib()?;
     stop_popout();
     unsafe {
@@ -234,9 +277,18 @@ pub fn play_popout(url: &str, start: f64) -> Result<(), String> {
         set("input-default-bindings", "yes");
         set("input-vo-keyboard", "yes");
         set("terminal", "no");
-        // Resume where the in-app player was (VOD); 0 for live.
-        if start > 0.0 {
-            set("start", &start.to_string());
+        // The in-app player's audio state. Without these the PiP is a fresh
+        // instance at libmpv's defaults, so muting a channel and popping it
+        // out gave you the channel back at full volume.
+        if let Some(v) = &hand.volume {
+            set("volume", v);
+        }
+        if let Some(m) = &hand.mute {
+            set("mute", m);
+        }
+        // Resume where the in-app player was. VOD only — see Handoff::capture.
+        if let Some(s) = hand.start.filter(|s| *s > 0.0) {
+            set("start", &s.to_string());
         }
         if (l.initialize)(h) < 0 {
             (l.terminate_destroy)(h);

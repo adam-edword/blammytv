@@ -256,9 +256,26 @@ export function useDirectOverlay(
       nextEpisode: () => h.current.onNextEpisode?.(),
       sourcePanel: () => h.current.onSourcePanel?.(),
       creditsWindow: (active) => h.current.onCreditsWindow?.(active),
-      selectAudio: (id) =>
-        void tauriMpvTrack("audio", String(id)).catch(() => {}),
-      selectSub: (id) => void tauriMpvTrack("sub", String(id)).catch(() => {}),
+      // CLEAR THE DEDUPE KEY, or a rejected switch is invisible forever.
+      // The chrome flips its checkmark optimistically and relies on this
+      // poll to correct it if mpv refused the track (a sub codec it can't
+      // initialise, a stale id on a churned list). But the poll only pushes
+      // when the track JSON DIFFERS from the last push, and a refusal
+      // leaves mpv's `selected` flags exactly as they were — so the JSON is
+      // identical, nothing pushes, and the optimistic checkmark is never
+      // contradicted. On VOD it is worse than a wrong tick: the pick is
+      // written to the per-show memory and re-applied, and re-refused, on
+      // every following episode. Blanking the key forces the next tick to
+      // re-push mpv's actual answer, confirming or correcting within one
+      // poll. Here rather than in the chrome so all three hosts get it.
+      selectAudio: (id) => {
+        s.tracksJson = "";
+        void tauriMpvTrack("audio", String(id)).catch(() => {});
+      },
+      selectSub: (id) => {
+        s.tracksJson = "";
+        void tauriMpvTrack("sub", String(id)).catch(() => {});
+      },
       expand: () => h.current.onExpand(),
       collapse: () => h.current.onCollapse(),
       fullscreen: () => h.current.onFullscreen(),

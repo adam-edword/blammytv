@@ -74,6 +74,29 @@ const SKIP_RX =
   /\b(intro|opening|op|recap|previously|credits|ending|ed|outro|preview)\b/i;
 const CREDITS_RX = /credits|ending|outro|\bed\b/i;
 const PREVIEW_RX = /preview/i;
+/**
+ * How long after our OWN reload a `playbackKey` change still counts as ours.
+ *
+ * The retry budget below resets on every `playbackKey` change, which is
+ * right for a channel switch and wrong for the one key change the watchdog
+ * causes itself. On a Stalker portal `onGoLive` re-resolves the URL before
+ * reloading, because the play_token in the old one is short-lived and a
+ * stale-token reload is a guaranteed 403. The URL therefore changes on
+ * every silent retry, and `playbackKey` IS the URL, so retry #1 set the
+ * budget straight back to zero. `retriesRef.current < TUNE_RETRIES` stayed
+ * true forever: a dead Stalker channel could never reach the "isn't
+ * responding" card, never fail over to the next source, and reloaded on a
+ * ten-second cycle for as long as it was left open.
+ *
+ * Comfortably under STALL_MS, so a flag that never gets consumed (the
+ * non-Stalker path reloads in place and changes no key) cannot survive to
+ * the next stall window. Comfortably over a create_link round trip, which
+ * is what has to fit inside it. Worst case if it misfires: a channel the
+ * user switched to within five seconds of a silent retry inherits that
+ * retry's count and gets one fewer silent attempt before the dead card.
+ * The first presented frame zeroes the budget again either way.
+ */
+const SELF_HEAL_MS = 5_000;
 function skipLabel(title: string): string {
   if (/recap|previously/i.test(title)) return "Skip Recap";
   if (/credits|ending|outro|\bed\b/i.test(title)) return "Skip Credits";
@@ -137,12 +160,21 @@ export function TheaterOverlay({
    * and the button showed Play over playing video while the next click ran
    * setPause(false) on an already-playing core, doing nothing visible.
    *
-   * One helper because BOTH callers need it: the button, and the watchdog's
-   * silent retry, which reaches the same native call.
+   * One helper because ALL THREE callers need it: the button, the watchdog's
+   * silent retry, and the dead card's manual Retry. Two of them used to skip
+   * it and pick up only part of the resync — the watchdog got `paused` but
+   * not the live indicator, so a channel that died three seeks behind live
+   * came back AT live still reading 76%, and clicking LIVE to "fix" the
+   * display cost a real rebuffer for nothing. Retry got neither.
    */
+  const selfHealAt = useRef(-Infinity);
   const jumpLive = useCallback(() => {
+    // Stamped BEFORE the call, because the host may swap the URL out from
+    // under us on this very tick. See SELF_HEAL_MS.
+    selfHealAt.current = performance.now();
     api()?.goLive?.();
     setPaused(false);
+    setLivePct(100);
   }, []);
   // Seeded from prefs, not from 1/false: this component unmounts on the
   // popout round-trip (and on a tab bounce), and a fresh mount doesn't
@@ -399,6 +431,9 @@ export function TheaterOverlay({
     setTune("waiting");
   }
   useEffect(() => {
+    // Not if we caused this key change ourselves: the watchdog refunding its
+    // own budget is an infinite retry loop. See SELF_HEAL_MS.
+    if (performance.now() - selfHealAt.current < SELF_HEAL_MS) return;
     retriesRef.current = 0;
   }, [playbackKey]);
   useEffect(() => {
@@ -457,9 +492,9 @@ export function TheaterOverlay({
   const retryTune = useCallback(() => {
     retriesRef.current = 0;
     setTune("retrying");
-    api()?.goLive?.();
+    jumpLive();
     setTuneAttempt((n) => n + 1); // re-arms the watchdog chain
-  }, []);
+  }, [jumpLive]);
 
   // Re-seed the favorite state whenever meta changes (open / channel switch).
   useEffect(() => {
@@ -572,8 +607,10 @@ export function TheaterOverlay({
   }, [active]);
 
   // Track selection: fire the api, flip the checkmark optimistically, and
-  // let the 500ms mpv_status poll confirm (it re-pushes when mpv's `selected`
-  // flags change, which also corrects us if mpv rejected the switch).
+  // let the mpv_status poll confirm (it re-pushes when mpv's `selected`
+  // flags change, which also corrects us if mpv rejected the switch — that
+  // second half only actually works because selectAudio/selectSub blank the
+  // poll's dedupe key, see useDirectOverlay).
   const vodRef = useRef(false); // mirrors `vod` for the stable callbacks
   // Read through a ref: the choose* callbacks are deliberately stable.
   const showRef = useRef(showId);
@@ -761,10 +798,8 @@ export function TheaterOverlay({
   // data between the playback buffer and now), so this reloads the stream on
   // the same mpv instance — it restarts at the newest segment while the overlay
   // stays put (video just rebuffers). Then peg the indicator to live.
-  const goLive = useCallback(() => {
-    jumpLive();
-    setLivePct(100);
-  }, [jumpLive]);
+  // (The button is `jumpLive` itself now — pegging the indicator moved into
+  // the helper so the watchdog and the Retry button get it too.)
   // At the live edge (within a hair of 100) → the dot burns bright; behind it
   // dims. The only way to fall behind in this UI is the seek controls, so the
   // indicator is an honest read of "are we live" without polling mpv.
@@ -1353,7 +1388,7 @@ export function TheaterOverlay({
                 className={"theater-live" + (atLive ? " is-live" : "")}
                 aria-label="Jump to live"
           title="Jump to live"
-                onClick={goLive}
+                onClick={jumpLive}
               >
                 <span className="theater-live__dot" />
                 LIVE

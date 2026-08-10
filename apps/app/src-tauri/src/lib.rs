@@ -54,30 +54,29 @@ fn popout_stop() {
 // then lands on an already-closed player, which is a safe no-op.
 #[tauri::command]
 fn popout_open(window: tauri::WebviewWindow, url: String) -> Result<(), String> {
-    let start;
+    let hand;
     #[cfg(windows)]
     {
         let (tx, rx) = std::sync::mpsc::channel();
         window
             .run_on_main_thread(move || {
-                // Capture the position before teardown so the popout resumes there.
-                let pos = mpv::get_property("time-pos")
-                    .and_then(|s| s.parse::<f64>().ok())
-                    .unwrap_or(0.0);
+                // Read everything the popout needs BEFORE teardown: position,
+                // volume, mute. See mpv::Handoff.
+                let h = mpv::Handoff::capture();
                 inv::close();
-                let _ = tx.send(pos);
+                let _ = tx.send(h);
             })
             .map_err(|e| e.to_string())?;
-        start = rx.recv().map_err(|e| e.to_string())?;
+        hand = rx.recv().map_err(|e| e.to_string())?;
     }
     #[cfg(not(windows))]
     {
-        start = 0.0_f64;
+        hand = mpv::Handoff::default();
         let _ = &window;
     }
     // Own mpv instance so the in-app teardown (fired by the React unmount)
     // can't terminate it.
-    mpv::play_popout(&url, start)
+    mpv::play_popout(&url, hand)
 }
 
 // ---- Inverted-layer player (THE architecture; see inv.rs). Rects are PHYSICAL px. ----
