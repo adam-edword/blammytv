@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  cacheSize,
   dedupe,
   DEFAULT_LEAGUES,
   espnDate,
@@ -893,5 +894,40 @@ describe("cache and backoff", () => {
     resetEspnCache();
     vi.stubGlobal("fetch", vi.fn(async () => ok()));
     await expect(fetchLeague("baseball/mlb")).resolves.toEqual([]);
+  });
+});
+
+describe("cache housekeeping", () => {
+  const ok = () => ({ ok: true, json: async () => ({ events: [] }) }) as unknown as Response;
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("an aborted caller does not get served from cache", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ok()));
+    await fetchLeague("baseball/mlb");
+    const ac = new AbortController();
+    ac.abort();
+    await expect(
+      fetchLeague("baseball/mlb", { signal: ac.signal }),
+    ).rejects.toThrow(/aborted/);
+  });
+
+  it("sweeps expired entries once it is worth walking", async () => {
+    // Window URLs carry the date, so every day mints a new generation of
+    // keys and nothing ever asked for yesterday's again. Without a sweep a
+    // hub left open across days pins every one of them, and their parsed
+    // games, for the life of the process.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 0, 1));
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({ events: [] }) }) as unknown as Response));
+    const day = (n: number) => new Date(2026, 0, 1 + n);
+    // Past the sweep threshold, all stamped at the same instant.
+    for (let i = 0; i < 401; i++) await fetchLeague("baseball/mlb", { date: day(i) });
+    expect(cacheSize()).toBe(401);
+    // A day later every one of those is long past the window. The next miss
+    // is what triggers the sweep, because a miss is the only way it grows.
+    vi.setSystemTime(new Date(2026, 0, 2));
+    await fetchLeague("baseball/mlb", { date: day(999) });
+    expect(cacheSize()).toBe(1);
+    vi.useRealTimers();
   });
 });

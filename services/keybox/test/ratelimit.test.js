@@ -78,3 +78,37 @@ test("rate limiter: /payload is limited independently but shares the same per-IP
   const res = await fetch(`${base}/payload/nebula`);
   assert.equal(res.status, 429);
 });
+
+test("rate limit: a spoofed X-Forwarded-For cannot mint a fresh bucket", async (t) => {
+  // `trust proxy: true` made req.ip the LEFTMOST forwarded entry, i.e. the
+  // one the client typed, so rotating the header removed the limit outright.
+  //
+  // The header is written as our proxy would leave it: whatever the client
+  // sent, followed by the address the proxy observed. With one trusted hop
+  // Express counts in from the right and takes the proxy's value, so the
+  // client's half is inert. Under the old setting it took the client's half
+  // and every request below would have landed in its own bucket.
+  const { server, base } = await startApp();
+  t.after(() => server.close());
+
+  const hit = (claimed) =>
+    fetch(`${base}/validate`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-forwarded-for": `${claimed}, 10.0.0.7`,
+      },
+      body: JSON.stringify({ key: "BTV-XXXX", machine: "m1" }),
+    });
+
+  let limited = false;
+  for (let i = 0; i < 40; i++) {
+    const res = await hit("1.2.3.4");
+    if (res.status === 429) { limited = true; break; }
+  }
+  assert.ok(limited, "the limiter should trip within 40 requests");
+
+  // A different claimed address, same real peer. Still limited.
+  const res = await hit("9.9.9.9");
+  assert.equal(res.status, 429, "rotating the header must not reset the bucket");
+});

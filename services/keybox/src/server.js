@@ -209,7 +209,27 @@ const NOOP_MAILER = {
 
 export function makeApp({ db, stripe, catalog, webhookSecret, mailer = NOOP_MAILER }) {
   const app = express();
-  app.set("trust proxy", true);
+  /**
+   * ONE trusted hop, not `true`.
+   *
+   * `true` tells Express to believe the whole X-Forwarded-For chain, so
+   * `req.ip` became its LEFTMOST entry, which is whatever the client typed.
+   * The rate limiter keys on `req.ip`, so rotating that header per request
+   * minted a fresh 30-token bucket every time and removed the limit from
+   * /validate and /payload outright. The residual risk was resource burn
+   * rather than forged entitlement: `buckets` grows per distinct key, and
+   * past 5000 entries every request linearly scans the whole map, so a
+   * stranger could drive memory and CPU on the licence server.
+   *
+   * With a hop count, Express counts in from the RIGHT, and the rightmost
+   * entry is the one our own proxy appended. A client-supplied value gets
+   * shifted left and ignored. Coolify puts exactly one reverse proxy in
+   * front of this (see README), hence 1.
+   *
+   * Fails CLOSED if that ever becomes two: everyone behind the extra hop
+   * would share one bucket, which is too strict rather than unlimited.
+   */
+  app.set("trust proxy", 1);
 
   const rateLimit = makeRateLimiter();
 

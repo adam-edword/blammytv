@@ -126,6 +126,24 @@ export function TheaterOverlay({
   metaRefForDead.current = meta;
   const [loading, setLoading] = useState(() => api()?.getLoading() ?? true);
   const [paused, setPaused] = useState(false);
+  /**
+   * Reload at the live edge, and tell React what that did to pause.
+   *
+   * `reload_live` UNPAUSES natively (mpv reports core-idle="yes" while
+   * paused, so a paused reload can never reach `presenting` and the tune
+   * watchdog could never see its own recovery). Nothing reads pause back
+   * from mpv, so React's `paused` is authoritative by assumption and this is
+   * the one path that made it wrong: pause a live channel, hit Jump to live,
+   * and the button showed Play over playing video while the next click ran
+   * setPause(false) on an already-playing core, doing nothing visible.
+   *
+   * One helper because BOTH callers need it: the button, and the watchdog's
+   * silent retry, which reaches the same native call.
+   */
+  const jumpLive = useCallback(() => {
+    api()?.goLive?.();
+    setPaused(false);
+  }, []);
   // Seeded from prefs, not from 1/false: this component unmounts on the
   // popout round-trip (and on a tab bounce), and a fresh mount doesn't
   // just FORGET the level — its [volume, muted] effect PUSHES the default
@@ -388,7 +406,7 @@ export function TheaterOverlay({
         if (!vodSrc && retriesRef.current < TUNE_RETRIES) {
           retriesRef.current += 1;
           setTune("retrying");
-          api()?.goLive?.();
+          jumpLive();
           // Long enough for a reload to have taken hold, short enough to
           // land before the next stall window closes.
           after = window.setTimeout(() => diag("post-reload"), 3000);
@@ -403,7 +421,7 @@ export function TheaterOverlay({
       window.clearTimeout(id);
       window.clearTimeout(after);
     };
-  }, [loading, tuneAttempt, vodSrc, playbackKey, diag]);
+  }, [loading, tuneAttempt, vodSrc, playbackKey, diag, jumpLive]);
   // Auto-failover: the moment the watchdog declares the source dead, jump
   // to the next candidate.
   //
@@ -696,9 +714,9 @@ export function TheaterOverlay({
   // the same mpv instance — it restarts at the newest segment while the overlay
   // stays put (video just rebuffers). Then peg the indicator to live.
   const goLive = useCallback(() => {
-    api()?.goLive?.();
+    jumpLive();
     setLivePct(100);
-  }, []);
+  }, [jumpLive]);
   // At the live edge (within a hair of 100) → the dot burns bright; behind it
   // dims. The only way to fall behind in this UI is the seek controls, so the
   // indicator is an honest read of "are we live" without polling mpv.

@@ -73,3 +73,23 @@ describe("unlinkedReason", () => {
     expect(unlinkedReason([], 0)).toBeNull();
   });
 });
+
+describe("unlinkedReason and finished games", () => {
+  it("stays quiet when a FINISHED game on the board is matched", () => {
+    // The banner says "None of these are on a channel in your playlist",
+    // which is a claim about every card on screen. A matched final makes it
+    // false, and the function was only looking at the upcoming ones.
+    expect(
+      unlinkedReason(
+        [g({ state: "final", channels: chan }), g({ state: "pre" })],
+        20000,
+      ),
+    ).toBeNull();
+  });
+
+  it("still fires when the finished games are unmatched too", () => {
+    expect(
+      unlinkedReason([g({ state: "final" }), g({ state: "pre" })], 20000),
+    ).toBe("unmatched");
+  });
+});

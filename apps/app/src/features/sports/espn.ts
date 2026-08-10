@@ -103,6 +103,11 @@ const BACKOFF_BASE_MS = 5_000;
  * rather than an exponential one that effectively never retries. */
 const BACKOFF_MAX_MS = 5 * 60_000;
 
+/** Sweep expired entries once the map is bigger than a single unnarrowed
+ * board's worth of them (151 leagues x 2 days, plus headroom). Below that
+ * there is nothing worth walking. */
+const CACHE_SWEEP_AT = 400;
+
 const fresh = new Map<string, { at: number; games: Game[] }>();
 const failures = new Map<string, { count: number; until: number }>();
 
@@ -111,6 +116,11 @@ const failures = new Map<string, { count: number; until: number }>();
 export function resetEspnCache(): void {
   fresh.clear();
   failures.clear();
+}
+
+/** Test seam: how many responses are being held. */
+export function cacheSize(): number {
+  return fresh.size;
 }
 
 /**
@@ -417,10 +427,24 @@ export async function fetchLeague(
           ? `?dates=${rolling()}`
           : "");
   const now = Date.now();
+  // An aborted caller gets the same answer whether or not we happen to hold
+  // the bytes. Every current caller re-checks `aborted` after its await so
+  // nothing stale reaches state today, but the abort contract is honoured on
+  // every other path here and a cache hit silently was not one of them.
+  if (signal?.aborted) throw new Error(`ESPN ${path}: aborted`);
   // Already have it, recently enough. Returned before the gate, so a
   // duplicate ask does not even occupy a slot other leagues are queuing for.
   const hit = fresh.get(url);
   if (hit && now - hit.at < CACHE_MS) return hit.games;
+  // Anything past the window is dead weight, and the window URLs carry a
+  // DATE, so a hub left open across days mints a whole new generation of
+  // keys each morning while pinning yesterday's parsed games against GC. An
+  // unnarrowed board is 151 leagues x 2 days, so that is ~302 stale entries
+  // a day, forever. Swept here rather than on a timer: the only way the map
+  // grows is a miss, so the only time it needs pruning is a miss.
+  if (fresh.size > CACHE_SWEEP_AT) {
+    for (const [k, v] of fresh) if (now - v.at >= CACHE_MS) fresh.delete(k);
+  }
   // Said no recently. Failing here rather than asking is the whole point:
   // fetchBoard degrades one league quietly, so the board keeps its other
   // rows instead of everyone retrying a dead path every 90 seconds.

@@ -23,6 +23,13 @@ export function unlinkedReason(
   // any evening whose board had already played out.
   const watchable = games.filter((g) => g.state !== "final");
   if (watchable.length === 0) return null;
+  // A FINISHED game that IS matched makes the banner's "none of these" a lie
+  // about the board it sits above: the sentence is a claim about every card
+  // on screen, and this function was only ever looking at some of them. Rare
+  // (the last game of the night matched, everything upcoming not) and cheap
+  // to be right about.
+  if (games.some((g) => g.state === "final" && g.channels.length > 0))
+    return null;
   // `channelsPending` is the difference between "not on your channels" and
   // "not known yet". Announcing the first while the second is true is the
   // flash useCatalog's warm start exists to avoid.

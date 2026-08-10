@@ -2,6 +2,24 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 0.8.185: The rest of the audit (2026-08-09)
+
+### Fixed
+
+- **Jump to live no longer leaves the play button lying.** Pausing a live
+  channel and then jumping to the live edge restarted the stream but left the
+  button showing Play over playing video, and the next click did nothing
+  visible. The channel-recovery retry had the same problem.
+- **The "none of these are on your channels" line stops appearing above a
+  board where a finished game IS on your channels.**
+
+### Security
+
+- **The licence server's rate limit can no longer be bypassed.** It trusted
+  the whole forwarded-address chain, so anyone could claim a new address per
+  request and get an unlimited allowance. Nothing could be forged this way,
+  but it let a stranger burn memory and CPU on the server.
+
 ## 0.8.184: Audit fixes (2026-08-09)
 
 ### Fixed
