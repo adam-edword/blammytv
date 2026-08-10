@@ -547,17 +547,39 @@
   background: rgba(255, 255, 255, 0.22);
 }
 
+/* Both driven by --pct (0..1) on the track, so a drag frame writes ONE
+   property and the fill and knob cannot drift apart. Transform rather than
+   width/left because those two are layout, and layout during a pointer drag
+   is the expensive kind: 42ms of it over a 3s drag before this. */
 .theater-seek__fill {
   position: absolute;
   left: 0;
   top: 0;
   bottom: 0;
+  width: 100%;
   background: var(--accent);
   border-radius: 3px;
+  transform-origin: left center;
+  transform: scaleX(var(--pct, 0));
+  will-change: transform;
+}
+
+/* Spans the whole track so a PERCENTAGE translate is a percentage of the
+   track. Translating the knob itself by 50% would move it half a knob. */
+.theater-seek__knobwrap {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 100%;
+  pointer-events: none;
+  transform: translateX(calc(var(--pct, 0) * 100%));
+  will-change: transform;
 }
 
 .theater-seek__knob {
   position: absolute;
+  left: 0;
   top: 50%;
   width: 14px;
   height: 14px;

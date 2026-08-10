@@ -20,6 +20,7 @@ import {
 } from "../settings/skipBehavior";
 import { StatsOverlay } from "./StatsOverlay";
 import { livePctFor } from "./liveEdge";
+import { CLOCK_TICK_MS, projectPos } from "./clock";
 import {
   CcIcon,
   CheckIcon,
@@ -369,18 +370,26 @@ export function TheaterOverlay({
     scrubRaf.current = 0;
     scrubRect.current = null;
   }, []);
-  const fillRef = useRef<HTMLDivElement | null>(null);
-  const knobRef = useRef<HTMLSpanElement | null>(null);
   const labelRef = useRef<HTMLSpanElement | null>(null);
   const durRef = useRef(0);
+  const speedRef = useRef(1);
+  speedRef.current = speed;
+  /* The last REAL position from the poll, with the moment it arrived. The
+   * projected clock is anchored to this and never accumulates onto itself,
+   * so a poll always wins and drift cannot build. */
+  const clockAnchor = useRef<{ pos: number; at: number } | null>(null);
   const scrubTo = useCallback((clientX: number) => {
     scrubNext.current = scrubFrac(clientX);
     if (scrubRaf.current) return;
     scrubRaf.current = requestAnimationFrame(() => {
       scrubRaf.current = 0;
       const f = scrubNext.current;
-      if (fillRef.current) fillRef.current.style.width = `${f * 100}%`;
-      if (knobRef.current) knobRef.current.style.left = `${f * 100}%`;
+      // ONE property, on the track, read by both children. `width` on the
+      // fill and `left` on the knob were two layout-triggering writes per
+      // frame (42ms of layout over a 3s drag); a custom property feeding
+      // scaleX and translateX is composited instead, and the two elements
+      // can no longer disagree about where the playhead is.
+      seekTrackRef.current?.style.setProperty("--pct", String(f));
       if (labelRef.current)
         labelRef.current.textContent = fmtClock(f * durRef.current);
     });
@@ -978,6 +987,44 @@ export function TheaterOverlay({
     }
   }, [vod, tracks, playbackKey, loading]);
   durRef.current = time?.dur ?? 0;
+  /* PROJECT the clock between polls, so the seconds digit ticks evenly.
+   *
+   * mpv is read twice a second and the readout shows whole seconds, so the
+   * digit advanced on a 500ms grid against a 1s display: still, move, still,
+   * move twice. Position advances at exactly `speed` seconds per second, so
+   * this is arithmetic rather than a guess, and it re-anchors on every poll
+   * so mpv always wins and drift cannot accumulate.
+   *
+   * Written straight to the node like the drag does, not through state: at
+   * ten ticks a second a re-render of a 1600-line chrome would cost far more
+   * than the stutter it fixes. Off while paused (nothing is moving), while
+   * buffering (mpv is stalled, so projecting would invent progress the
+   * picture is not making) and while scrubbing (the drag owns the label). */
+  const clockLive =
+    vod && !!time && !paused && !buffering && scrub === null && speed > 0;
+  useEffect(() => {
+    if (!time) {
+      clockAnchor.current = null;
+      return;
+    }
+    clockAnchor.current = { pos: time.pos, at: performance.now() };
+  }, [time]);
+  useEffect(() => {
+    if (!clockLive) return;
+    let last = "";
+    const id = window.setInterval(() => {
+      const a = clockAnchor.current;
+      if (!a || !labelRef.current) return;
+      const txt = fmtClock(
+        projectPos(a.pos, a.at, performance.now(), speedRef.current, durRef.current),
+      );
+      // Ten wake-ups a second, at most one DOM write per second.
+      if (txt === last) return;
+      last = txt;
+      labelRef.current.textContent = txt;
+    }, CLOCK_TICK_MS);
+    return () => window.clearInterval(id);
+  }, [clockLive]);
   const vodPct =
     scrub !== null
       ? scrub * 100
@@ -1364,6 +1411,7 @@ export function TheaterOverlay({
                   (seekable ? "" : " theater-seek__track--locked")
                 }
                 title={seekable ? undefined : "This source can't be seeked"}
+                style={{ "--pct": vodPct / 100 } as React.CSSProperties}
                 ref={seekTrackRef}
                 onPointerDown={(e) => {
                   // An unseekable source makes mpv refuse silently, so a drag
@@ -1401,16 +1449,13 @@ export function TheaterOverlay({
                   setScrub(null);
                 }}
               >
-                <div
-                  ref={fillRef}
-                  className="theater-seek__fill"
-                  style={{ width: `${vodPct}%` }}
-                />
-                <span
-                  ref={knobRef}
-                  className="theater-seek__knob"
-                  style={{ left: `${vodPct}%` }}
-                />
+                <div className="theater-seek__fill" />
+                {/* The wrapper spans the track, so translateX(50%) moves the
+                    knob half the TRACK rather than half the knob. That is
+                    the whole reason it exists. */}
+                <span className="theater-seek__knobwrap">
+                  <span className="theater-seek__knob" />
+                </span>
               </div>
               <div className="theater-seek__labels">
                 <span ref={labelRef}>
@@ -1423,15 +1468,19 @@ export function TheaterOverlay({
             </>
           ) : (
             <>
-              <div className="theater-seek__track">
-                <div
-                  className="theater-seek__fill"
-                  style={{ width: `${livePct}%` }}
-                />
-                <span
-                  className="theater-seek__knob"
-                  style={{ left: `${livePct}%` }}
-                />
+              {/* Same --pct mechanism as the VOD track above: the fill is a
+                  scaleX and the knob rides a full-width wrapper, so both
+                  rails share one set of rules. Passing width/left here after
+                  the CSS moved to transforms would have left the live fill
+                  permanently at scaleX(0), i.e. invisible. */}
+              <div
+                className="theater-seek__track"
+                style={{ "--pct": livePct / 100 } as React.CSSProperties}
+              >
+                <div className="theater-seek__fill" />
+                <span className="theater-seek__knobwrap">
+                  <span className="theater-seek__knob" />
+                </span>
               </div>
               <div className="theater-seek__labels">
                 <span>{meta?.startLabel ?? ""}</span>
