@@ -442,6 +442,24 @@ fn mpv_status() -> String {
     // file loaded yet) reads as seekable: the honest default while tuning is
     // to offer the control, not to grey it out and un-grey it a second later.
     let seekable = mpv::get_property("seekable").as_deref() != Some("no");
+    // HOW FAR BEHIND LIVE, indirectly and reliably.
+    //
+    // This equals `demuxer-cache-time - time-pos`, i.e. buffered-but-unplayed
+    // seconds. At the live edge it sits at whatever the provider pushes ahead
+    // and stays there, because playback and demuxing advance together. Seek
+    // back ten seconds and it grows by ten. Measured on a real channel:
+    // 16.544 at the edge, 28.992 after seeking back, against a cache-time
+    // that advanced 5.792 and a time-pos that went back 6.656. 5.792 + 6.656
+    // = 12.448, and 28.992 - 16.544 = 12.448 exactly.
+    //
+    // The point is what happens when mpv REFUSES a seek: it does not grow.
+    // The live-edge indicator used to dead-reckon at 0.8%/sec of requested
+    // seek and never ask mpv anything, so pressing Back 10s at the start of
+    // the buffer walked the bar somewhere the stream could not go and left
+    // it there until Jump to live. mpv's own seekable-start/-end would be
+    // the direct answer but do not resolve as slash paths on the shipped
+    // libmpv (verified), and this needs no left edge to be correct.
+    let cache_dur = mpv::get_property("demuxer-cache-duration").and_then(|s| s.parse::<f64>().ok());
     let t_scalars = t_start.elapsed();
     let t_tracks_start = std::time::Instant::now();
     let tracks = mpv::track_list();
@@ -480,7 +498,7 @@ fn mpv_status() -> String {
     );
     serde_json::json!({
         "pos": pos, "dur": dur, "presenting": presenting, "ended": ended,
-        "buffering": buffering, "seekable": seekable,
+        "buffering": buffering, "seekable": seekable, "cacheDur": cache_dur,
         "audio": audio, "subs": subs, "chapters": chapters,
     })
     .to_string()

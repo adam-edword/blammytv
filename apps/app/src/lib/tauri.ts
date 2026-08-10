@@ -229,6 +229,10 @@ export interface MpvStatus {
   /** False only when mpv says the source cannot seek. Optional for the same
    * reason; absent reads as seekable. */
   seekable?: boolean;
+  /** Buffered-but-unplayed seconds (`demuxer-cache-duration`). Grows by
+   * exactly how far behind live you seek, and does NOT grow when mpv refuses
+   * the seek, which is what makes it the live-edge correction. */
+  cacheDur?: number | null;
   audio: Array<{ id: number; label: string; lang: string; selected: boolean }>;
   subs: Array<{ id: number; label: string; lang: string; selected: boolean }>;
   /** File chapter markers (absent on pre-chapter Rust builds). */

@@ -19,6 +19,7 @@ import {
   type SkipBehavior,
 } from "../settings/skipBehavior";
 import { StatsOverlay } from "./StatsOverlay";
+import { livePctFor } from "./liveEdge";
 import {
   CcIcon,
   CheckIcon,
@@ -278,11 +279,18 @@ export function TheaterOverlay({
     const offBuf = a.onBuffering?.(setBuffering);
     setSeekable(a.getSeekable?.() ?? true);
     const offSeek = a.onSeekable?.(setSeekable);
+    // The live indicator is CORRECTED here, not owned here. doSeek still
+    // moves it optimistically so it answers the keypress immediately, and
+    // this drags it back to whatever mpv actually managed — including "not
+    // at all", which is the case that used to leave it permanently wrong
+    // until Jump to live paid for a full stream reload to reset it.
+    const offBehind = a.onBehindLive?.((sec) => setLivePct(livePctFor(sec)));
     return () => {
       offMeta();
       offLoading();
       offBuf?.();
       offSeek?.();
+      offBehind?.();
     };
   }, []);
 

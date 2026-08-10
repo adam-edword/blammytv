@@ -70,6 +70,10 @@ export interface OverlayApi {
    * offer the controls. */
   getSeekable?: () => boolean;
   onSeekable?: (cb: (s: boolean) => void) => () => void;
+  /** Seconds behind the live edge, measured from mpv rather than guessed
+   * from what the user asked for. 0 means at the edge. See liveEdge. */
+  getBehindLive?: () => number;
+  onBehindLive?: (cb: (sec: number) => void) => () => void;
   onKey?: (cb: (key: string) => void) => () => void;
   selectAudio?: (id: number | string) => void; // mpv aid ("auto" ok)
   selectSub?: (id: number | string) => void; // mpv sid ("no" = off)

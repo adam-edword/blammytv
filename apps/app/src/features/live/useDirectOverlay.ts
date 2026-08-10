@@ -13,6 +13,7 @@ import {
 } from "../../lib/tauri";
 import type { ChapterInfo, OverlayApi, TimeInfo, Tracks } from "./overlayApi";
 import { holdsPoll, type SeekHold } from "./seekHold";
+import { behindLive } from "./liveEdge";
 
 /**
  * Status cadence once a picture is up. The scrubber clock and the death
@@ -91,6 +92,11 @@ export function useDirectOverlay(
     seekHold: null as SeekHold | null,
     buffering: false,
     seekable: true,
+    /** demuxer-cache-duration while known to be AT the live edge. Set once
+     * per stream, on the first reading after the picture is up. */
+    edgeBaseline: null as number | null,
+    behind: 0,
+    behindCbs: new Set<(sec: number) => void>(),
     bufferingCbs: new Set<(b: boolean) => void>(),
     seekableCbs: new Set<(s: boolean) => void>(),
     chapters: [] as ChapterInfo[],
@@ -122,6 +128,8 @@ export function useDirectOverlay(
     s.endedFired = false;
     s.buffering = false;
     s.seekable = true;
+    s.edgeBaseline = null;
+    s.behind = 0;
     s.tracks = null;
     s.tracksJson = "";
     s.time = null;
@@ -196,6 +204,17 @@ export function useDirectOverlay(
               s.loading = true;
               s.loadingCbs.forEach((cb) => cb(true));
             }
+          }
+          // How far behind live, corrected from mpv (see liveEdge). The
+          // baseline is taken on the first reading once the picture is up,
+          // which is the one moment we KNOW we are at the edge: playback has
+          // just started from wherever the provider handed us the stream.
+          if (!s.loading && st.cacheDur != null && s.edgeBaseline == null)
+            s.edgeBaseline = st.cacheDur;
+          const beh = behindLive(st.cacheDur, s.edgeBaseline);
+          if (Math.abs(beh - s.behind) > 0.5) {
+            s.behind = beh;
+            s.behindCbs.forEach((cb) => cb(beh));
           }
           // Buffering and seekability, both plain edge-triggered pushes.
           // `buffering` is kept well away from `s.loading`: see the note on
@@ -365,6 +384,8 @@ export function useDirectOverlay(
       onBuffering: sub(s.bufferingCbs),
       getSeekable: () => s.seekable,
       onSeekable: sub(s.seekableCbs),
+      getBehindLive: () => s.behind,
+      onBehindLive: sub(s.behindCbs),
       onKey: () => () => {}, // the overlay's own document listener covers keys
       getTracks: () => s.tracks,
       onTracks: sub(s.tracksCbs),
