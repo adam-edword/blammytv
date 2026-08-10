@@ -2,6 +2,17 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 0.8.187: The player chrome stops thrashing the main thread (2026-08-09)
+
+### Improved
+
+- **Moving the mouse over the player costs about a sixth of what it did.**
+  Tracking the pointer forced the browser to recompute layout on every single
+  frame, which measured around 6% of a CPU core just for moving the mouse,
+  before any video decoding. It now reads nothing at all: the answer it needed
+  was already attached to the mouse event. Most noticeable on a busy machine
+  or during 4K playback, where that work was competing with the picture.
+
 ## 0.8.185: The rest of the audit (2026-08-09)
 
 ### Fixed

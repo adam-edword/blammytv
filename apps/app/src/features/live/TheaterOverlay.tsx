@@ -310,12 +310,20 @@ export function TheaterOverlay({
     scrubRaf.current = 0;
     scrubRect.current = null;
   }, []);
+  const fillRef = useRef<HTMLDivElement | null>(null);
+  const knobRef = useRef<HTMLSpanElement | null>(null);
+  const labelRef = useRef<HTMLSpanElement | null>(null);
+  const durRef = useRef(0);
   const scrubTo = useCallback((clientX: number) => {
     scrubNext.current = scrubFrac(clientX);
     if (scrubRaf.current) return;
     scrubRaf.current = requestAnimationFrame(() => {
       scrubRaf.current = 0;
-      setScrub(scrubNext.current);
+      const f = scrubNext.current;
+      if (fillRef.current) fillRef.current.style.width = `${f * 100}%`;
+      if (knobRef.current) knobRef.current.style.left = `${f * 100}%`;
+      if (labelRef.current)
+        labelRef.current.textContent = fmtClock(f * durRef.current);
     });
   }, [scrubFrac]);
   useEffect(() => {
@@ -639,24 +647,58 @@ export function TheaterOverlay({
      * layout flush: measured at 0.34ms a call, about 40ms of main thread
      * per second at a 120Hz pointer, while a stream is decoding. Coalesced
      * to one hit-test and one rect read per frame.
+     *
+     * THEN THE FRAME ITSELF WENT. Coalescing capped the damage at one forced
+     * flush per frame and left it the most expensive thing on this thread:
+     * measure-scrub's control arm, pointer moving over the chrome with no
+     * scrubbing and no video, recorded 184ms of main thread over 3s, about
+     * 6% of one core. That is ~75x the 500ms status poll, which is the thing
+     * everyone assumes is the cost.
+     *
+     * Neither read was necessary.
+     *
+     * `e.target` IS the hit test. The browser already performed it to decide
+     * which element to dispatch the event to, so asking elementFromPoint for
+     * the same answer pays for it a second time, and pays in a forced style
+     * and layout flush. It is also the BETTER answer: it is what the user
+     * actually pointed at, where a frame-time re-test can disagree if the
+     * DOM moved in between.
+     *
+     * The slot rect is cached, invalidated on resize, exactly as the
+     * scrubber's own rect already is a few hundred lines down. It changes
+     * when the layout changes, not when the mouse moves.
+     *
+     * With both gone this handler reads no geometry at all, so there is
+     * nothing left to coalesce and the rAF goes too.
      */
-    let at: { x: number; y: number } | null = null;
-    let frame = 0;
-    const look = () => {
-      frame = 0;
-      if (!at) return;
-      const { x, y } = at;
-      const el = document.elementFromPoint(x, y);
-      const interactive = !!el?.closest("[data-interactive]");
-      setIgnore(!interactive);
-      const slot = document.getElementById("player-slot")?.getBoundingClientRect();
-      const overVideo =
-        !!slot && x >= slot.left && x <= slot.right && y >= slot.top && y <= slot.bottom;
-      if (interactive || overVideo) wake();
+    let slotRect: DOMRect | null = null;
+    const dropRect = () => {
+      slotRect = null;
     };
     const onMove = (e: MouseEvent) => {
-      at = { x: e.clientX, y: e.clientY };
-      if (!frame) frame = requestAnimationFrame(look);
+      const el = e.target as Element | null;
+      const interactive = !!el?.closest?.("[data-interactive]");
+      setIgnore(!interactive);
+      // Only asked when it could matter, and only re-measured after a
+      // resize. `interactive` alone already wakes, so a pointer travelling
+      // over the chrome never touches layout.
+      if (!interactive) {
+        if (!slotRect) {
+          slotRect =
+            document.getElementById("player-slot")?.getBoundingClientRect() ??
+            null;
+        }
+        const r = slotRect;
+        const over =
+          !!r &&
+          e.clientX >= r.left &&
+          e.clientX <= r.right &&
+          e.clientY >= r.top &&
+          e.clientY <= r.bottom;
+        if (over) wake();
+        return;
+      }
+      wake();
     };
     const onLeave = () => {
       window.clearTimeout(idleRef.current);
@@ -668,11 +710,15 @@ export function TheaterOverlay({
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseout", onOut);
     document.documentElement.addEventListener("mouseleave", onLeave);
+    // The slot moves on resize, on theater/fullscreen and on a column
+    // resize. All of them resize the window or reflow, and scroll cannot
+    // move it (the player is fixed), so this is the whole invalidation.
+    window.addEventListener("resize", dropRect);
     return () => {
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseout", onOut);
       document.documentElement.removeEventListener("mouseleave", onLeave);
-      if (frame) cancelAnimationFrame(frame);
+      window.removeEventListener("resize", dropRect);
       window.clearTimeout(idleRef.current);
     };
   }, [mini, wake]);
@@ -811,6 +857,7 @@ export function TheaterOverlay({
       }
     }
   }, [vod, tracks, playbackKey, loading]);
+  durRef.current = time?.dur ?? 0;
   const vodPct =
     scrub !== null
       ? scrub * 100
@@ -1219,16 +1266,18 @@ export function TheaterOverlay({
                 }}
               >
                 <div
+                  ref={fillRef}
                   className="theater-seek__fill"
                   style={{ width: `${vodPct}%` }}
                 />
                 <span
+                  ref={knobRef}
                   className="theater-seek__knob"
                   style={{ left: `${vodPct}%` }}
                 />
               </div>
               <div className="theater-seek__labels">
-                <span>
+                <span ref={labelRef}>
                   {time
                     ? fmtClock(scrub !== null ? scrub * time.dur : time.pos)
                     : "0:00"}
