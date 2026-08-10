@@ -152,6 +152,15 @@ export function TheaterOverlay({
   const metaRefForDead = useRef<TheaterMeta | null>(null);
   metaRefForDead.current = meta;
   const [loading, setLoading] = useState(() => api()?.getLoading() ?? true);
+  // mpv refilling its cache after a seek that landed outside it. Kept apart
+  // from `loading` all the way up the stack — see overlayApi's getBuffering.
+  const [buffering, setBuffering] = useState(
+    () => api()?.getBuffering?.() ?? false,
+  );
+  // False only when mpv says so. A source with no HTTP range support cannot
+  // seek, and mpv refuses silently, so the scrubber was a control you could
+  // drag that did nothing with no way to find out.
+  const [seekable, setSeekable] = useState(() => api()?.getSeekable?.() ?? true);
   const [paused, setPaused] = useState(false);
   /**
    * Reload at the live edge, and tell React what that did to pause.
@@ -265,9 +274,15 @@ export function TheaterOverlay({
       .catch(() => {});
     setLoading(a.getLoading());
     const offLoading = a.onLoading(setLoading);
+    setBuffering(a.getBuffering?.() ?? false);
+    const offBuf = a.onBuffering?.(setBuffering);
+    setSeekable(a.getSeekable?.() ?? true);
+    const offSeek = a.onSeekable?.(setSeekable);
     return () => {
       offMeta();
       offLoading();
+      offBuf?.();
+      offSeek?.();
     };
   }, []);
 
@@ -807,7 +822,16 @@ export function TheaterOverlay({
    */
   const seekPend = useRef(0);
   const seekTimer = useRef(0);
+  // Read through a ref so doSeek can stay the stable callback the key
+  // handler's dep array depends on.
+  const seekableRef = useRef(seekable);
+  seekableRef.current = seekable;
   const doSeek = useCallback((delta: number) => {
+    // Same reason the scrubber locks: mpv refuses silently on a source with
+    // no range support, so firing anyway would walk the live-edge indicator
+    // and the clock to a position the picture never reaches. Covers the
+    // buttons and the j/l/arrow keys in one place.
+    if (!seekableRef.current) return;
     const apply = (d: number) => {
       api()?.seek(d);
       setLivePct((p) => Math.min(100, Math.max(0, p + d * 0.8)));
@@ -1194,6 +1218,14 @@ export function TheaterOverlay({
       }}
     >
       {loading && <TuneCard meta={meta} phase={tune} onRetry={retryTune} vod={vod} />}
+      {/* Only once a picture is up: while `loading` the TuneCard already
+          owns the screen, and two spinners for one wait is worse than none. */}
+      {!loading && buffering && (
+        <div className="buffering" aria-live="polite">
+          <span className="buffering__dot" />
+          Buffering
+        </div>
+      )}
 
       {showStats && isTauri() && <StatsOverlay />}
 
@@ -1311,9 +1343,17 @@ export function TheaterOverlay({
           {vod ? (
             <>
               <div
-                className="theater-seek__track theater-seek__track--vod"
+                className={
+                  "theater-seek__track theater-seek__track--vod" +
+                  (seekable ? "" : " theater-seek__track--locked")
+                }
+                title={seekable ? undefined : "This source can't be seeked"}
                 ref={seekTrackRef}
                 onPointerDown={(e) => {
+                  // An unseekable source makes mpv refuse silently, so a drag
+                  // here moves the bar and nothing else. Refuse it ourselves,
+                  // visibly, rather than pretending.
+                  if (!seekable) return;
                   if (e.button !== 0) return; // left button scrubs, only
                   e.currentTarget.setPointerCapture(e.pointerId);
                   // The one measurement of the drag — every later frac reuses it.
@@ -1392,6 +1432,7 @@ export function TheaterOverlay({
               className="player__btn"
               aria-label="Back 10 seconds"
           title="Back 10 seconds"
+              disabled={!seekable}
               onClick={() => doSeek(-10)}
             >
               <SkipBackIcon size={24} />
@@ -1410,6 +1451,7 @@ export function TheaterOverlay({
               className="player__btn"
               aria-label="Forward 10 seconds"
           title="Forward 10 seconds"
+              disabled={!seekable}
               onClick={() => doSeek(10)}
             >
               <SkipFwdIcon size={24} />

@@ -905,3 +905,62 @@
     }
   }
 }
+
+/* mpv paused itself to refill the cache — a seek landed outside it and the
+   picture is frozen on the last decoded frame. Without this the freeze was
+   completely silent, which on a debrid source means several seconds of the
+   app looking broken. Deliberately small and corner-parked: it is a status,
+   not an error, and the video behind it is still the thing being watched. */
+.buffering {
+  position: fixed;
+  left: 50%;
+  bottom: 96px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.66);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  pointer-events: none;
+  z-index: 6;
+}
+
+.buffering__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: buffering-pulse 1s ease-in-out infinite;
+}
+
+@keyframes buffering-pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .buffering__dot {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
+/* Nothing to drag: mpv says this source cannot seek. Still visible, because
+   the elapsed/duration readout beside it is real and useful. */
+.theater-seek__track--locked {
+  cursor: not-allowed;
+  opacity: 0.45;
+}

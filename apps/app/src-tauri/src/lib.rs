@@ -426,6 +426,22 @@ fn mpv_status() -> String {
     // even though we WERE presenting — the frontend watchdog re-arms on it.
     let ended = mpv::get_property("eof-reached").as_deref() == Some("yes")
         || mpv::get_property("idle-active").as_deref() == Some("yes");
+    // BUFFERING, which is not the same thing as loading and must never be
+    // fed into it. After a seek outside the demuxer cache mpv pauses itself
+    // to refill (`--cache-pause`, on by default). core-idle goes "yes", but
+    // the poll only consults `presenting` while it already believes it is
+    // loading, and `ended` needs eof or idle — neither fires. So the picture
+    // froze on the last decoded frame with no spinner and no explanation,
+    // for however long the range request took, which on debrid is seconds.
+    // Kept a SEPARATE signal on purpose: routed into `loading` it would arm
+    // the tune watchdog on every buffering seek and burn VOD auto-failover.
+    let buffering = mpv::get_property("paused-for-cache").as_deref() == Some("yes");
+    // Can this source seek AT ALL. An HTTP origin with no range support
+    // makes mpv refuse silently, so the scrubber was a control you could
+    // drag that did nothing, forever, with no way to find out. Absent (no
+    // file loaded yet) reads as seekable: the honest default while tuning is
+    // to offer the control, not to grey it out and un-grey it a second later.
+    let seekable = mpv::get_property("seekable").as_deref() != Some("no");
     let t_scalars = t_start.elapsed();
     let t_tracks_start = std::time::Instant::now();
     let tracks = mpv::track_list();
@@ -464,6 +480,7 @@ fn mpv_status() -> String {
     );
     serde_json::json!({
         "pos": pos, "dur": dur, "presenting": presenting, "ended": ended,
+        "buffering": buffering, "seekable": seekable,
         "audio": audio, "subs": subs, "chapters": chapters,
     })
     .to_string()

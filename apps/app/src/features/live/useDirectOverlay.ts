@@ -89,6 +89,10 @@ export function useDirectOverlay(
     metaJson: "",
     time: null as TimeInfo | null,
     seekHold: null as SeekHold | null,
+    buffering: false,
+    seekable: true,
+    bufferingCbs: new Set<(b: boolean) => void>(),
+    seekableCbs: new Set<(s: boolean) => void>(),
     chapters: [] as ChapterInfo[],
     chaptersJson: "",
     chapterCbs: new Set<(c: ChapterInfo[]) => void>(),
@@ -116,6 +120,8 @@ export function useDirectOverlay(
     if (!active) return;
     s.loading = true;
     s.endedFired = false;
+    s.buffering = false;
+    s.seekable = true;
     s.tracks = null;
     s.tracksJson = "";
     s.time = null;
@@ -191,6 +197,21 @@ export function useDirectOverlay(
               s.loadingCbs.forEach((cb) => cb(true));
             }
           }
+          // Buffering and seekability, both plain edge-triggered pushes.
+          // `buffering` is kept well away from `s.loading`: see the note on
+          // getBuffering in overlayApi. Older Rust builds omit both fields,
+          // and `undefined` reads as not-buffering / seekable, which is the
+          // pre-existing behaviour exactly.
+          const buf = !!st.buffering;
+          if (buf !== s.buffering) {
+            s.buffering = buf;
+            s.bufferingCbs.forEach((cb) => cb(buf));
+          }
+          const skb = st.seekable !== false;
+          if (skb !== s.seekable) {
+            s.seekable = skb;
+            s.seekableCbs.forEach((cb) => cb(skb));
+          }
           // Chapter markers (static per file — dedupe like tracks).
           const cj = JSON.stringify(st.chapters ?? []);
           if (cj !== s.chaptersJson) {
@@ -259,12 +280,17 @@ export function useDirectOverlay(
       // `relative+exact`, so aiming at pos + delta is aiming at where it
       // will actually land.
       seek: (d) => {
-        if (s.time)
+        // No hold on an unseekable source: the seek cannot land, so holding
+        // would show a position mpv will never reach and then snap back
+        // 1.5s later, on every press. Better to be wrong instantly and let
+        // the greyed-out control explain why.
+        if (s.time && s.seekable)
           s.seekHold = { target: s.time.pos + d, at: performance.now() };
         void tauriMpvSeek(d).catch(() => {});
       },
       seekAbs: (p) => {
-        if (s.time) s.seekHold = { target: p, at: performance.now() };
+        if (s.time && s.seekable)
+          s.seekHold = { target: p, at: performance.now() };
         void tauriMpvSeekAbs(p).catch(() => {});
       },
       setSpeed: (sp) => void tauriMpvSetSpeed(sp).catch(() => {}),
@@ -317,6 +343,10 @@ export function useDirectOverlay(
       onMeta: sub(s.metaCbs),
       getLoading: () => s.loading,
       onLoading: sub(s.loadingCbs),
+      getBuffering: () => s.buffering,
+      onBuffering: sub(s.bufferingCbs),
+      getSeekable: () => s.seekable,
+      onSeekable: sub(s.seekableCbs),
       onKey: () => () => {}, // the overlay's own document listener covers keys
       getTracks: () => s.tracks,
       onTracks: sub(s.tracksCbs),

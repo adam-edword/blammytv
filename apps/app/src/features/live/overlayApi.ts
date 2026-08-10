@@ -59,6 +59,17 @@ export interface OverlayApi {
   onMeta: (cb: (meta: TheaterMeta | null) => void) => () => void;
   getLoading: () => boolean;
   onLoading: (cb: (loading: boolean) => void) => () => void;
+  /** mpv paused itself to refill the cache after a seek outside it.
+   * DELIBERATELY not folded into `loading`: the tune watchdog keys on
+   * loading, and arming it on every buffering seek would silently reload
+   * live channels and burn VOD source-failover attempts. Optional so a host
+   * on an older bridge simply never shows the indicator. */
+  getBuffering?: () => boolean;
+  onBuffering?: (cb: (b: boolean) => void) => () => void;
+  /** False only when mpv says the source cannot seek. Absent or true means
+   * offer the controls. */
+  getSeekable?: () => boolean;
+  onSeekable?: (cb: (s: boolean) => void) => () => void;
   onKey?: (cb: (key: string) => void) => () => void;
   selectAudio?: (id: number | string) => void; // mpv aid ("auto" ok)
   selectSub?: (id: number | string) => void; // mpv sid ("no" = off)

@@ -223,6 +223,12 @@ export interface MpvStatus {
   presenting: boolean;
   /** Mid-play death: the stream reached EOF or mpv fell back to idle. */
   ended: boolean;
+  /** mpv paused ITSELF to refill the cache (a seek outside it). Not
+   * `loading` — see mpv_status. Optional: absent on older Rust builds. */
+  buffering?: boolean;
+  /** False only when mpv says the source cannot seek. Optional for the same
+   * reason; absent reads as seekable. */
+  seekable?: boolean;
   audio: Array<{ id: number; label: string; lang: string; selected: boolean }>;
   subs: Array<{ id: number; label: string; lang: string; selected: boolean }>;
   /** File chapter markers (absent on pre-chapter Rust builds). */
