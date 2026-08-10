@@ -136,6 +136,9 @@ declare global {
   interface Window {
     playerPerf?: (seconds?: number) => Promise<void>;
     playerDiag?: () => Promise<void>;
+    mpvSet?: (key: string, value: string | number) => Promise<void>;
+    mpvGet?: (key: string) => Promise<void>;
+    ttff?: (seconds?: number) => Promise<void>;
   }
 }
 
@@ -171,6 +174,94 @@ async function diag(): Promise<string> {
   return ["", "mpv says:", "", ...rows, ""].join("\n");
 }
 
+/**
+ * `mpvSet("cache-secs", "20")` / `mpvGet("demuxer-cache-time")`
+ *
+ * A/B an mpv option against a real stream without a rebuild. Returns what
+ * the property reads as AFTERWARDS, which is the point: mpv silently ignores
+ * an unknown or unwritable property, so the read-back is the difference
+ * between "I set it" and "it took".
+ *
+ * Not everything can be changed at runtime. Options mpv only consults when
+ * the demuxer opens (probe sizes, most cache sizing) need the next `loadfile`
+ * to take effect, so set them and then switch channel or restart the title
+ * rather than expecting the current stream to change under you.
+ */
+async function setProp(key: string, value: string): Promise<string> {
+  if (!inShell()) return "not running in the Tauri shell.";
+  return invoke<string>("mpv_set", { key, value });
+}
+
+async function getProp(key: string): Promise<string> {
+  if (!inShell()) return "not running in the Tauri shell.";
+  return invoke<string>("mpv_get", { key });
+}
+
+/**
+ * TIME TO FIRST FRAME, which is the number every startup suggestion has to
+ * be scored against and the one this app could not previously produce.
+ *
+ * `await ttff()` arms it, then you tune a channel or start a title. It polls
+ * mpv directly rather than watching React, so it measures the player and not
+ * the interface, and it reports the three legs separately because they have
+ * different fixes:
+ *
+ *   demux    loadfile accepted to `file-format` known. Network reach plus
+ *            however much of the stream mpv probed before it was satisfied.
+ *   video    to `current-vo` set. Decoder and output bring-up, i.e. hwdec.
+ *   frame    to `core-idle` false. The picture is actually moving.
+ *
+ * A change that improves the total but moves it into a different leg is not
+ * the same change, and one number cannot tell you that.
+ */
+async function ttff(timeoutSec = 40): Promise<string> {
+  if (!inShell()) return "ttff: not running in the Tauri shell.";
+  const read = async () => JSON.parse(await invoke<string>("mpv_diag")) as Record<string, string>;
+  // Wait for the CURRENT file to go away, so the arm is unambiguous: without
+  // this a stream already playing satisfies every stage instantly.
+  console.info("ttff: armed. Start a channel or a title now…");
+  const t0 = performance.now();
+  const deadline = t0 + timeoutSec * 1000;
+  let started = 0;
+  let demux = 0;
+  let video = 0;
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  // 25ms, not the app's 500ms poll: this is measuring something the 500ms
+  // poll is too coarse to see the shape of.
+  while (performance.now() < deadline) {
+    const d = await read().catch(() => null);
+    if (!d) break;
+    const has = String(d["has-path"]) === "true";
+    if (!started) {
+      if (has) started = performance.now();
+    } else {
+      if (!demux && d["file-format"] && d["file-format"] !== "<none>")
+        demux = performance.now();
+      if (!video && d["current-vo"] && d["current-vo"] !== "<none>")
+        video = performance.now();
+      if (demux && video && d["core-idle"] === "no") {
+        const frame = performance.now();
+        const ms = (a: number, b: number) => `${Math.round(b - a)}ms`;
+        return [
+          "",
+          `time to first frame: ${ms(started, frame)}`,
+          "",
+          `  demux   ${ms(started, demux).padStart(7)}   loadfile to file-format known`,
+          `  video   ${ms(demux, video).padStart(7)}   to current-vo (decoder + output bring-up)`,
+          `  frame   ${ms(video, frame).padStart(7)}   to core-idle false (picture moving)`,
+          "",
+          `  hwdec ${d["hwdec-current"] ?? "?"} · format ${d["file-format"]} · vo ${d["current-vo"]}`,
+          "",
+        ].join("\n");
+      }
+    }
+    await sleep(25);
+  }
+  return started
+    ? "ttff: timed out mid-load. It never reached a moving picture."
+    : "ttff: nothing started within the window.";
+}
+
 /** Install the console entry points. Called once from main.tsx. */
 export function installPlayerPerf(): void {
   window.playerPerf = async (seconds = 20) => {
@@ -179,5 +270,14 @@ export function installPlayerPerf(): void {
   };
   window.playerDiag = async () => {
     console.info(await diag());
+  };
+  window.mpvSet = async (key, value) => {
+    console.info(`${key} = ${await setProp(key, String(value))}`);
+  };
+  window.mpvGet = async (key) => {
+    console.info(`${key} = ${await getProp(key)}`);
+  };
+  window.ttff = async (seconds = 40) => {
+    console.info(await ttff(seconds));
   };
 }

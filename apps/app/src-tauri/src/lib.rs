@@ -193,6 +193,36 @@ fn mpv_track(kind: String, id: String) {
     mpv::set_track(&kind, &id);
 }
 
+/// DIAGNOSTIC: set one mpv property and hand back what it reads as after.
+///
+/// Exists so an option can be A/B'd against a real stream on a real machine
+/// without a Rust rebuild. Every tuning suggestion for this player is a
+/// PREDICTION until someone tries it on their own connection and hardware,
+/// and the rebuild between each attempt is what stops that happening: the
+/// numbers that matter (time to first frame, whether a seek refetches, what
+/// a live TS stream does with a bigger cache) cannot be got from a
+/// developer's container at all.
+///
+/// This is `mpv_set_property_string`, NOT the command interface. It cannot
+/// load a file, run a script or spawn anything; it can only assign to a
+/// named property, which is the same surface `mpv_track` and `mpv_set_speed`
+/// already use with fixed keys. The read-back is the point: mpv silently
+/// ignores an unknown or unwritable property, so returning the value it
+/// actually holds is the difference between "I set it" and "it took".
+#[tauri::command]
+fn mpv_set(key: String, value: String) -> String {
+    mpv::set_prop_pub(&key, &value);
+    mpv::get_prop_pub(&key).unwrap_or_else(|| "<unset>".into())
+}
+
+/// DIAGNOSTIC: read one mpv property. The other half of `mpv_set`, and
+/// useful alone for asking what a default actually is on this machine
+/// rather than what the manual says it is.
+#[tauri::command]
+fn mpv_get(key: String) -> String {
+    mpv::get_prop_pub(&key).unwrap_or_else(|| "<unset>".into())
+}
+
 /// GPU frost for the whole picture while a modal covers the inverted
 /// player: DOM backdrop-filter can NEVER sample the native video (separate
 /// window), so we blur at the source — mpv runs a downsample+gaussian user
@@ -362,6 +392,10 @@ fn mpv_diag() -> String {
         "aid": p("aid"),
         "sid": p("sid"),
         "current-vo": p("current-vo"),
+        // What hwdec ACTUALLY resolved to, which is not what was asked for:
+        // `auto-safe` is a request and mpv answers "no" when it declines. The
+        // difference is the whole of "why is this stream pegging a core".
+        "hwdec-current": p("hwdec-current"),
         "file-format": p("file-format"),
         "demuxer-cache-time": p("demuxer-cache-time"),
         "track-list/count": p("track-list/count"),
@@ -823,6 +857,8 @@ pub fn run() {
             mpv_stats,
             mpv_diag,
             mpv_perf,
+            mpv_set,
+            mpv_get,
             mpv_blur,
             mpv_frost,
             mpv_frost_rect,

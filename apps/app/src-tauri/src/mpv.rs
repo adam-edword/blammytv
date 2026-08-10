@@ -750,6 +750,17 @@ pub fn chapter_list() -> Vec<ChapterInfo> {
 }
 
 /// Set a string property on the player (no-op if there's no player).
+/// `set_prop` for the diagnostic command. Same function, exported, so the
+/// A/B path cannot drift from the one the app itself uses.
+pub fn set_prop_pub(name: &str, value: &str) {
+    set_prop(name, value);
+}
+
+/// `get_property` for the diagnostic command, for the same reason.
+pub fn get_prop_pub(name: &str) -> Option<String> {
+    get_property(name)
+}
+
 fn set_prop(name: &str, value: &str) {
     // BUILT BEFORE THE LOCK, and not unwrapped. `value` reaches here from
     // the frontend (mpv_track's id), so an interior NUL panics — and a sync
