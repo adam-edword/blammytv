@@ -284,13 +284,31 @@ export function useDirectOverlay(
         // would show a position mpv will never reach and then snap back
         // 1.5s later, on every press. Better to be wrong instantly and let
         // the greyed-out control explain why.
-        if (s.time && s.seekable)
-          s.seekHold = { target: s.time.pos + d, at: performance.now() };
+        if (s.time && s.seekable) {
+          // Chain off the OUTSTANDING target, not the last position the poll
+          // was allowed to write. `s.time` is frozen for as long as a hold is
+          // up, so a second press in a burst read the PRE-burst position and
+          // aimed a whole delta short of where mpv was actually going: the
+          // hold could then never be satisfied, and every burst ended in the
+          // 1.5s timeout and a snap. The chrome already accumulates this way
+          // (its setTime updater chains off its own optimistic value), so
+          // this is the two sides agreeing rather than a new rule.
+          const from = s.seekHold ? s.seekHold.target : s.time.pos;
+          s.seekHold = {
+            // Clamped like mpv clamps: back-10 at 0:05 lands at 0:00, so
+            // aiming at -5 would be aiming somewhere the file does not go.
+            target: Math.min(s.time.dur, Math.max(0, from + d)),
+            at: performance.now(),
+          };
+        }
         void tauriMpvSeek(d).catch(() => {});
       },
       seekAbs: (p) => {
         if (s.time && s.seekable)
-          s.seekHold = { target: p, at: performance.now() };
+          s.seekHold = {
+            target: Math.min(s.time.dur, Math.max(0, p)),
+            at: performance.now(),
+          };
         void tauriMpvSeekAbs(p).catch(() => {});
       },
       setSpeed: (sp) => void tauriMpvSetSpeed(sp).catch(() => {}),
