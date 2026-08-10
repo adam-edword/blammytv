@@ -30,6 +30,33 @@ Applies to anything where the mechanism isn't obvious from the code: rendering/
 colour/HDR, timing/races, native/OS behavior, performance, networking. Small,
 obvious edits don't need a ceremony; uncertain or significant ones do.
 
+## Checking the Rust from a Linux box
+
+The app is Windows-only, so an agent container can't build it the obvious
+way. Two dead ends, written down so nobody re-walks them: the host target
+fails on `gdk-3.0` (GTK dev packages, and the apt index 404s), and the MSVC
+target gets as far as `ring` before wanting the Windows CRT headers.
+
+What works:
+
+```
+cd apps/app/src-tauri && cargo check --target x86_64-pc-windows-gnu
+cd apps/app/src-tauri && cargo clippy --target x86_64-pc-windows-gnu
+```
+
+mingw is installed and `cfg(windows)` is true for that target, so this
+type-checks the real code path: `inv.rs`, `lib.rs`'s Windows arms, all of
+`mpv.rs`. About 30 seconds warm. Baseline is 10 clippy warnings, all of them
+the libmpv symbol transmutes at `mpv.rs:89-103` — anything else is yours.
+
+It does not link and it is not the MSVC build, so it won't catch a linker
+problem. It catches every type and signature mistake, which is the class
+that was previously reaching users' rebuilds.
+
+`cargo fmt --check` is NOT a gate here: the repo has pre-existing drift in
+`build.rs` and `frontend.rs`. Check that your own regions are clean and
+leave the rest alone.
+
 ## Confusion Protocol
 
 On high-stakes ambiguity: two plausible architectures, a request that
