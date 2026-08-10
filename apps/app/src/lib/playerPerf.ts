@@ -208,7 +208,7 @@ async function getProp(key: string): Promise<string> {
  *
  *   demux    loadfile accepted to `file-format` known. Network reach plus
  *            however much of the stream mpv probed before it was satisfied.
- *   video    to `dwidth` known. Decoder and output bring-up, i.e. hwdec.
+ *   video    to `dwidth` CHANGING. Decoder and output bring-up, i.e. hwdec.
  *   frame    to `core-idle` false. The picture is actually moving.
  *
  * A change that improves the total but moves it into a different leg is not
@@ -224,30 +224,54 @@ async function getProp(key: string): Promise<string> {
  * 2. The video leg read `current-vo`, which the app sets `force-window=yes`
  *    for, so the VO exists from launch and never goes away between files. The
  *    leg was structurally zero, and when `file-format` happened to land after
- *    the first poll the printed number went NEGATIVE. `dwidth` is per-file:
- *    it is unavailable until the VO has been configured for this video, which
- *    is the bring-up the leg was always asking about.
+ *    the first poll the printed number went NEGATIVE.
+ *
+ * The v0.8.188 fix for (2) swapped in `dwidth` and did not work: measured on
+ * a real remux it marked the leg 27ms after loadfile was accepted and 2.7s
+ * BEFORE `file-format` was known, which is impossible for a file that had not
+ * yet been identified. `dwidth` survives an unload the same way `current-vo`
+ * does, so it was the previous file's width. One always-wrong property traded
+ * for another.
+ *
+ * So the leg is now marked on `dwidth` CHANGING from what it read while idle,
+ * and never before `file-format`. When the next file happens to have the same
+ * dimensions as the last there is nothing to observe, and it says so instead
+ * of printing a number. An instrument that admits it cannot separate two
+ * things beats one that separates them wrongly — the total is unaffected
+ * either way, and the total is the number being navigated by.
  */
 async function ttff(timeoutSec = 40): Promise<string> {
   if (!inShell()) return "ttff: not running in the Tauri shell.";
   const read = async () => JSON.parse(await invoke<string>("mpv_diag")) as Record<string, string>;
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   const known = (v: string | undefined) => !!v && v !== "<none>";
-  // Wait for the CURRENT file to go away, so the arm is unambiguous: without
-  // this a stream already playing satisfies every stage instantly.
-  const idleBy = performance.now() + timeoutSec * 1000;
-  let warned = false;
-  for (;;) {
-    const d = await read().catch(() => null);
-    if (!d) return "ttff: could not read mpv.";
-    if (String(d["has-path"]) !== "true") break;
-    if (!warned) {
-      warned = true;
-      console.info("ttff: a stream is playing. Close it, then start one…");
+  /**
+   * Wait for the CURRENT file to go away, so the arm is unambiguous: without
+   * this a stream already playing satisfies every stage instantly.
+   *
+   * Returns the idle `dwidth` as the baseline the video leg has to differ
+   * from, or null if we should give up. A helper rather than an inline loop
+   * so the baseline can be a const: there is exactly one place it is decided.
+   */
+  const waitIdle = async (): Promise<string | null> => {
+    const idleBy = performance.now() + timeoutSec * 1000;
+    let warned = false;
+    for (;;) {
+      const d = await read().catch(() => null);
+      if (!d) return null;
+      if (String(d["has-path"]) !== "true")
+        return known(d["dwidth"]) ? d["dwidth"] : "";
+      if (!warned) {
+        warned = true;
+        console.info("ttff: a stream is playing. Close it, then start one…");
+      }
+      if (performance.now() > idleBy) return null;
+      await sleep(25);
     }
-    if (performance.now() > idleBy) return "ttff: a stream never stopped.";
-    await sleep(25);
-  }
+  };
+  const baseW = await waitIdle();
+  if (baseW === null)
+    return "ttff: a stream never stopped, or mpv could not be read.";
   console.info("ttff: armed. Start a channel or a title now…");
   const t0 = performance.now();
   const deadline = t0 + timeoutSec * 1000;
@@ -264,8 +288,14 @@ async function ttff(timeoutSec = 40): Promise<string> {
       if (has) started = performance.now();
     } else {
       if (!demux && known(d["file-format"])) demux = performance.now();
-      if (!video && known(d["dwidth"])) video = performance.now();
-      if (demux && video && d["core-idle"] === "no") {
+      // Never before demux (nothing can know its width before its container)
+      // and never on a value carried over from the last file.
+      if (!video && demux && known(d["dwidth"]) && d["dwidth"] !== baseW)
+        video = performance.now();
+      // NOT gated on `video`: it may never be trustworthy, and waiting for it
+      // would hang the whole measurement on a file that happens to match the
+      // previous one's dimensions.
+      if (demux && d["core-idle"] === "no") {
         const frame = performance.now();
         const ms = (a: number, b: number) => `${Math.round(b - a)}ms`;
         return [
@@ -273,8 +303,10 @@ async function ttff(timeoutSec = 40): Promise<string> {
           `time to first frame: ${ms(started, frame)}`,
           "",
           `  demux   ${ms(started, demux).padStart(7)}   loadfile to file-format known`,
-          `  video   ${ms(demux, video).padStart(7)}   to dwidth (decoder + output bring-up)`,
-          `  frame   ${ms(video, frame).padStart(7)}   to core-idle false (picture moving)`,
+          video
+            ? `  video   ${ms(demux, video).padStart(7)}   to dwidth (decoder + output bring-up)`
+            : `  video       n/a   dwidth never left ${baseW || "<unset>"}, so this leg and the next can't be split`,
+          `  frame   ${ms(video || demux, frame).padStart(7)}   to core-idle false (picture moving)`,
           "",
           `  hwdec ${d["hwdec-current"] ?? "?"} · format ${d["file-format"]} · vo ${d["current-vo"]}`,
           "",

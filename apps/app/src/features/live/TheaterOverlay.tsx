@@ -827,11 +827,19 @@ export function TheaterOverlay({
   const seekableRef = useRef(seekable);
   seekableRef.current = seekable;
   const doSeek = useCallback((delta: number) => {
-    // Same reason the scrubber locks: mpv refuses silently on a source with
-    // no range support, so firing anyway would walk the live-edge indicator
-    // and the clock to a position the picture never reaches. Covers the
-    // buttons and the j/l/arrow keys in one place.
-    if (!seekableRef.current) return;
+    // VOD ONLY. The scrubber lock below is the measured case: a debrid
+    // origin with no range support refuses silently and the bar becomes a
+    // control you can drag that does nothing.
+    //
+    // Extending it to live was my extrapolation and it was wrong. Live
+    // streams report `seekable=no` as a matter of course, so the gate greyed
+    // out the ±10s buttons on every channel. mpv still seeks inside the
+    // demuxer cache on an unseekable stream (that is what
+    // --demuxer-seekable-cache buys, and v0.8.190 just gave live 256MiB of
+    // back buffer to do it in), so "the stream cannot seek" and "this button
+    // does nothing" are not the same statement. Believing the property over
+    // the behaviour is exactly the guess this project's first rule is about.
+    if (vodRef.current && !seekableRef.current) return;
     const apply = (d: number) => {
       api()?.seek(d);
       setLivePct((p) => Math.min(100, Math.max(0, p + d * 0.8)));
@@ -1432,7 +1440,7 @@ export function TheaterOverlay({
               className="player__btn"
               aria-label="Back 10 seconds"
           title="Back 10 seconds"
-              disabled={!seekable}
+              disabled={vod && !seekable}
               onClick={() => doSeek(-10)}
             >
               <SkipBackIcon size={24} />
@@ -1451,7 +1459,7 @@ export function TheaterOverlay({
               className="player__btn"
               aria-label="Forward 10 seconds"
           title="Forward 10 seconds"
-              disabled={!seekable}
+              disabled={vod && !seekable}
               onClick={() => doSeek(10)}
             >
               <SkipFwdIcon size={24} />
