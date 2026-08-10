@@ -14,13 +14,36 @@ import { currentZoom } from "../settings/uiScale";
  * serialized rect key and follows the box (scroll, window/column resize,
  * layout shifts) with a single inv_set_rect per real change; the first frame
  * opens with inv_open. A 150ms debounce means fast channel-flipping never
- * builds mpv for skipped channels.
+ * builds mpv for skipped channels; it is skipped on a cold open, see
+ * `lastTeardown`.
  *
  * The video child sits BELOW the webview (inv.rs), so it only shows where
  * nothing paints over it — the driver cuts a clip-path hole through
  * .app-shell (the window's only opaque layer, see base.css .invert-player)
  * exactly at the slot. */
 const OPEN_DEBOUNCE_MS = 150;
+/**
+ * When the last playback was torn down, module-wide.
+ *
+ * The debounce above is TRAILING, and a trailing debounce charges its full
+ * delay to every open including the ones it was never meant to catch. Opening
+ * a channel from an idle app is not flipping past it, but it still waited
+ * 150ms before mpv was handed the url, and that 150ms sat in front of the
+ * ~1.3s first-frame floor plan 012 measured.
+ *
+ * So the wait is now conditional: only a tear-down inside the last
+ * OPEN_DEBOUNCE_MS means a flip is in progress and the next url is probably
+ * also about to be skipped. A cold open goes straight to mpv.
+ *
+ * What this costs: the FIRST channel of a surf burst gets built, where before
+ * nothing did until the flipping stopped. That is one open/unload for a url
+ * the user did deliberately click, and every skipped channel after it still
+ * debounces normally, so the burst behaviour the debounce exists for is
+ * intact. Module scope because the three hosts (live, stream, sports) share
+ * one mpv instance and one #player-slot: a screen change is a tear-down like
+ * any other.
+ */
+let lastTeardown = 0;
 /** CSS corner radius of #player-slot — keep in sync with .hero__preview.
  * A host whose slot is rounded differently passes its own; see `radius`. */
 const RADIUS_CSS = 12;
@@ -215,11 +238,17 @@ export function InvertedPlayer({
       }
       raf = requestAnimationFrame(tick);
     };
-    const openTimer = window.setTimeout(() => {
+    let openTimer = 0;
+    if (Date.now() - lastTeardown >= OPEN_DEBOUNCE_MS) {
       raf = requestAnimationFrame(tick);
-    }, OPEN_DEBOUNCE_MS);
+    } else {
+      openTimer = window.setTimeout(() => {
+        raf = requestAnimationFrame(tick);
+      }, OPEN_DEBOUNCE_MS);
+    }
     return () => {
       disposed = true;
+      lastTeardown = Date.now();
       window.clearTimeout(openTimer);
       window.clearTimeout(settleTimer);
       cancelAnimationFrame(raf);

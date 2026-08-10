@@ -347,8 +347,10 @@ export function TheaterOverlay({
    * mechanic) up to TUNE_RETRIES times; if a retry lands a frame the
    * still-armed poll clears `loading` and the chain disarms. Out of retries
    * → an honest "isn't responding" card with a manual Retry. A channel
-   * switch tears this whole overlay down, so state resets naturally;
-   * user-initiated goLive while playing never arms it (`loading` is already
+   * switch does NOT tear this overlay down (LiveScreen renders it with no
+   * key), so nothing resets on its own: the reset is the explicit `tuneKey`
+   * comparison below, and the comment there is the one to read.
+   * User-initiated goLive while playing never arms it (`loading` is already
    * false). Mid-play death re-arms it too: the poll flips `loading` back on
    * when mpv reports EOF/idle (`ended`). */
   const TUNE_RETRIES = 2;

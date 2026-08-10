@@ -13,6 +13,23 @@ import {
 } from "../../lib/tauri";
 import type { ChapterInfo, OverlayApi, TimeInfo, Tracks } from "./overlayApi";
 
+/**
+ * Status cadence once a picture is up. The scrubber clock and the death
+ * detector both ride this, and plan 012 measured it at 0.36ms native and
+ * 0.08% of one core, so it is not worth making cheaper.
+ */
+const POLL_MS = 500;
+/**
+ * Status cadence while something is LOADING.
+ *
+ * The whole cost of this is that a tune takes a second or two, so ten reads
+ * at ~2.5ms of IPC each is a few percent of one core for that window and
+ * nothing afterwards. What it buys is the quarter second of black that a
+ * 500ms grid was adding to the average channel switch, because `presenting`
+ * cannot be noticed sooner than the next tick.
+ */
+const TUNE_POLL_MS = 100;
+
 /** The window verbs (expand/collapse/fullscreen/…) — plain callbacks into
  * LiveScreen's state. Read through a ref at call time, so the returned api
  * can stay one stable object. */
@@ -105,7 +122,34 @@ export function useDirectOverlay(
     s.loadingCbs.forEach((cb) => cb(true));
     s.timeCbs.forEach((cb) => cb(null));
     s.chapterCbs.forEach((cb) => cb([]));
-    const id = window.setInterval(() => {
+    /**
+     * SELF-CHAINED, not setInterval, and the delay is chosen per tick.
+     *
+     * `presenting` is how the app learns the first frame landed: it opens the
+     * clip hole and dismisses the tune card. mpv presents at some arbitrary
+     * point between two ticks, so at a flat 500ms every channel switch and
+     * every VOD start carried a uniform 0-500ms of extra black, 250ms on
+     * average, on top of whatever mpv actually took. It also polluted the one
+     * number this project has been navigating by: plan 012 read a ~1.3s
+     * first-frame floor and asked how much of it was ours. Up to 500ms of it
+     * was this timer.
+     *
+     * So it runs at TUNE_POLL_MS while something is loading and drops back to
+     * POLL_MS once the picture is up. The fast rate only exists during a tune,
+     * a second or two, and buys back most of that quarter second.
+     *
+     * NOT a faster poll in general. Plan 012 declined that, and correctly, but
+     * it declined it for SCRUBBER GRANULARITY on the reasoning that the drag
+     * is already smooth. Channel-switch latency was never the question being
+     * asked, and the IPC cost it weighed (~2.5ms a call from JS) is only paid
+     * here for the duration of a load rather than for the whole session.
+     *
+     * Chained rather than fixed-interval so a slow call can never stack: the
+     * next tick is scheduled once the previous one has settled.
+     */
+    let timer = 0;
+    let stopped = false;
+    const tick = () => {
       tauriMpvStatus()
         .then((st) => {
           if (s.loading && st.presenting) {
@@ -165,9 +209,19 @@ export function useDirectOverlay(
             s.timeCbs.forEach((cb) => cb(s.time));
           }
         })
-        .catch(() => {});
-    }, 500);
-    return () => window.clearInterval(id);
+        .catch(() => {})
+        .finally(() => {
+          if (stopped) return;
+          timer = window.setTimeout(tick, s.loading ? TUNE_POLL_MS : POLL_MS);
+        });
+    };
+    // First read at the tune rate: `s.loading` is true from a few lines
+    // above, which is exactly the window this is for.
+    timer = window.setTimeout(tick, TUNE_POLL_MS);
+    return () => {
+      stopped = true;
+      window.clearTimeout(timer);
+    };
   }, [active, resetKey, s]);
 
   // Whether the HOST has a source list at all. A capability, not state:

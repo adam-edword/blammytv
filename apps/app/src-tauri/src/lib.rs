@@ -392,6 +392,12 @@ fn mpv_diag() -> String {
         "aid": p("aid"),
         "sid": p("sid"),
         "current-vo": p("current-vo"),
+        // PER-FILE, which `current-vo` is not: `force-window=yes` means the
+        // VO is up from launch and stays up between files, so it can only
+        // ever say "the app has a window". `dwidth` is unavailable until the
+        // VO has been configured for THIS video, so it is the one that
+        // answers "has the decoder and output finished coming up".
+        "dwidth": p("dwidth"),
         // What hwdec ACTUALLY resolved to, which is not what was asked for:
         // `auto-safe` is a request and mpv answers "no" when it declines. The
         // difference is the whole of "why is this stream pegging a core".

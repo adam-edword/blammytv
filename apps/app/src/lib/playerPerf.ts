@@ -208,24 +208,52 @@ async function getProp(key: string): Promise<string> {
  *
  *   demux    loadfile accepted to `file-format` known. Network reach plus
  *            however much of the stream mpv probed before it was satisfied.
- *   video    to `current-vo` set. Decoder and output bring-up, i.e. hwdec.
+ *   video    to `dwidth` known. Decoder and output bring-up, i.e. hwdec.
  *   frame    to `core-idle` false. The picture is actually moving.
  *
  * A change that improves the total but moves it into a different leg is not
  * the same change, and one number cannot tell you that.
+ *
+ * TWO THINGS THIS GOT WRONG when it landed in v0.8.186, both of which made it
+ * report numbers rather than refuse to:
+ *
+ * 1. It claimed to wait for the current file to go away and did not. It armed
+ *    on the first poll where `has-path` was true, so running it while a stream
+ *    was up returned about 25ms and looked like a triumph. The wait is real
+ *    now, and it is the whole reason the arm means anything.
+ * 2. The video leg read `current-vo`, which the app sets `force-window=yes`
+ *    for, so the VO exists from launch and never goes away between files. The
+ *    leg was structurally zero, and when `file-format` happened to land after
+ *    the first poll the printed number went NEGATIVE. `dwidth` is per-file:
+ *    it is unavailable until the VO has been configured for this video, which
+ *    is the bring-up the leg was always asking about.
  */
 async function ttff(timeoutSec = 40): Promise<string> {
   if (!inShell()) return "ttff: not running in the Tauri shell.";
   const read = async () => JSON.parse(await invoke<string>("mpv_diag")) as Record<string, string>;
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const known = (v: string | undefined) => !!v && v !== "<none>";
   // Wait for the CURRENT file to go away, so the arm is unambiguous: without
   // this a stream already playing satisfies every stage instantly.
+  const idleBy = performance.now() + timeoutSec * 1000;
+  let warned = false;
+  for (;;) {
+    const d = await read().catch(() => null);
+    if (!d) return "ttff: could not read mpv.";
+    if (String(d["has-path"]) !== "true") break;
+    if (!warned) {
+      warned = true;
+      console.info("ttff: a stream is playing. Close it, then start one…");
+    }
+    if (performance.now() > idleBy) return "ttff: a stream never stopped.";
+    await sleep(25);
+  }
   console.info("ttff: armed. Start a channel or a title now…");
   const t0 = performance.now();
   const deadline = t0 + timeoutSec * 1000;
   let started = 0;
   let demux = 0;
   let video = 0;
-  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   // 25ms, not the app's 500ms poll: this is measuring something the 500ms
   // poll is too coarse to see the shape of.
   while (performance.now() < deadline) {
@@ -235,10 +263,8 @@ async function ttff(timeoutSec = 40): Promise<string> {
     if (!started) {
       if (has) started = performance.now();
     } else {
-      if (!demux && d["file-format"] && d["file-format"] !== "<none>")
-        demux = performance.now();
-      if (!video && d["current-vo"] && d["current-vo"] !== "<none>")
-        video = performance.now();
+      if (!demux && known(d["file-format"])) demux = performance.now();
+      if (!video && known(d["dwidth"])) video = performance.now();
       if (demux && video && d["core-idle"] === "no") {
         const frame = performance.now();
         const ms = (a: number, b: number) => `${Math.round(b - a)}ms`;
@@ -247,7 +273,7 @@ async function ttff(timeoutSec = 40): Promise<string> {
           `time to first frame: ${ms(started, frame)}`,
           "",
           `  demux   ${ms(started, demux).padStart(7)}   loadfile to file-format known`,
-          `  video   ${ms(demux, video).padStart(7)}   to current-vo (decoder + output bring-up)`,
+          `  video   ${ms(demux, video).padStart(7)}   to dwidth (decoder + output bring-up)`,
           `  frame   ${ms(video, frame).padStart(7)}   to core-idle false (picture moving)`,
           "",
           `  hwdec ${d["hwdec-current"] ?? "?"} · format ${d["file-format"]} · vo ${d["current-vo"]}`,
