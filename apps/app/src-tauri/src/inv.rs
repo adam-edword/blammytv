@@ -28,9 +28,12 @@ pub fn open(
     w: u32,
     h: u32,
     url: &str,
+    // VOD resume point in seconds. mpv applies it as it opens the file, so
+    // nothing is decoded from 0:00 first. None for live and for a fresh start.
+    start: Option<f64>,
 ) -> Result<(), String> {
     let child = ensure_child(parent, x, y, w, h)?;
-    if let Err(e) = crate::mpv::play_wid(url, child) {
+    if let Err(e) = crate::mpv::play_wid(url, child, start) {
         // Leave the window in place — it is the mpv instance's permanent
         // render target now. Just make sure nothing is holding a stream.
         crate::mpv::unload();

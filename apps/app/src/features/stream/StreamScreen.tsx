@@ -1033,33 +1033,14 @@ export function StreamScreen() {
     setVideoReady(false);
   }
 
-  // Resume-from-position: one absolute seek on the first presented frame
-  // (seeking before the file loads is a no-op mpv-side).
-  const resumedRef = useRef(false);
-  useEffect(() => {
-    resumedRef.current = false;
-    if (!playing?.resumeAt || playing.popped || !isTauri()) return;
-    const at = playing.resumeAt;
-    const fire = () => {
-      if (resumedRef.current) return;
-      resumedRef.current = true;
-      directApi.seekAbs?.(at);
-    };
-    if (!directApi.getLoading()) fire();
-    return directApi.onLoading((l) => {
-      if (!l) fire();
-    });
-    // popped in the deps: returning from the PiP remounts playback and
-    // must re-arm the one-shot seek. reloadTick likewise — a Retry can
-    // re-resolve to the same url, and without it the one-shot stays spent
-    // and the retry silently restarts at 0:00.
-  }, [
-    playing?.url,
-    playing?.resumeAt,
-    playing?.popped,
-    playing?.reloadTick,
-    directApi,
-  ]);
+  // Resume-from-position is mpv's `start` now, handed to it on the load (see
+  // InvertedPlayer's `start` prop). It used to be a one-shot absolute seek
+  // fired on the first presented frame, which is the latest possible moment
+  // to ask: mpv had already reached the network, filled its cache from byte
+  // zero, decoded and shown 0:00, and the seek threw all of that away and
+  // issued a fresh range request. You saw the opening scene, then a stall,
+  // then your resume point. The one-shot ref, the four-key dep array and the
+  // onLoading subscription all went with it.
 
   // PiP closed → bring playback back in-app, resuming where the popout
   // got to (its final position rides the event; the watch entry catches
@@ -1254,6 +1235,7 @@ export function StreamScreen() {
             url={playing.url}
             squared
             ready={videoReady}
+            start={playing.resumeAt}
           />
         )}
         {!playing.popped &&

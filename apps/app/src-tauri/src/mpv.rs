@@ -446,6 +446,33 @@ fn ensure_player(wid: isize) -> Result<(), String> {
         // fix is rendering mpv into a DComp composition swapchain (render API).
         set("audio-channels", "stereo");
         set("terminal", "no");
+        // THE BACK BUFFER, which is what makes a short back-seek instant or
+        // a fresh HTTP range request against the user's debrid account.
+        //
+        // libmpv's defaults are 150MiB forward / 50MiB back, and those are
+        // sizes, not durations, so what they buy collapses as the bitrate
+        // rises. At a 4K remux's ~60 Mbit/s (7.5 MB/s) the default back
+        // buffer is about SIX SECONDS: pressing Back 10s re-downloads. A
+        // 5 Mbit/s WEB-DL gets about 84s from the same 50MiB and never
+        // noticed. That is the whole "why does Stremio feel instant" gap on
+        // big files, and it is structural there rather than clever: Stremio
+        // plays off a local file its own server already wrote to disk.
+        //
+        // 512/256 puts a 4K remux at roughly 68s forward and 34s back, and
+        // a 1080p WEB-DL comfortably past ten minutes either way. The cost
+        // is RAM: 768MiB worst case, and only when something actually fills
+        // it. NOT set with data from a real 4K stream behind it, so it is
+        // deliberately a pair of numbers rather than a scheme — both are
+        // runtime-updatable, so `mpvSet("demuxer-max-back-bytes", …)` can
+        // A/B them on a live stream with no rebuild, and `playerDiag()`
+        // reads demuxer-cache-time back.
+        //
+        // The option NOT taken: `cache-on-disk=yes` is the true Stremio
+        // equivalent and makes the cache effectively unbounded, but it
+        // writes every byte streamed to a temp file, so a 60GB remux costs
+        // 60GB of disk. That is not a default anyone should get silently.
+        set("demuxer-max-bytes", "512MiB");
+        set("demuxer-max-back-bytes", "256MiB");
         // Explicit, not load-bearing: libmpv already defaults idle=yes, so
         // this documents the requirement rather than creating it. The
         // requirement is real — without idle, a `stop` or a file reaching its
@@ -494,7 +521,7 @@ fn ensure_player(wid: isize) -> Result<(), String> {
 /// previous file's track choice would leak into a file that has different
 /// tracks. Reproduce the old defaults explicitly; the frontend re-applies
 /// remembered preferences afterwards, exactly as it did before.
-fn reset_per_file() {
+fn reset_per_file(start: Option<f64>) {
     // SHADERS TOO. glsl-shaders/glsl-shader-opts are set at runtime by
     // mpv_frost/mpv_blur for the Settings glass and are neither init options
     // nor cleared by anything else — a fresh instance per stream used to drop
@@ -518,10 +545,36 @@ fn reset_per_file() {
     set_prop("speed", "1");
     set_prop("aid", "auto");
     set_prop("sid", "auto");
+    // RESUME POINT, applied by mpv as it opens the file rather than as a
+    // seek after it opened.
+    //
+    // The frontend used to do this itself: wait for the first presented
+    // frame, then seek. Which meant mpv reached the network, filled the
+    // cache from byte zero, decoded, presented 0:00 — and only then got an
+    // exact seek to 45:00 that threw all of it away and issued a fresh
+    // range request. You watched the opening scene, then a stall, then your
+    // resume point. The popout has always done it right (see Handoff), the
+    // in-app player just never got the same treatment.
+    //
+    // Set as a PROPERTY, not as a `loadfile` per-file option, on purpose:
+    // mpv 0.38 inserted an insertion-index argument into loadfile and broke
+    // every existing use of its options argument, so the command form needs
+    // to know which libmpv it is talking to. scripts/fetch-libmpv.mjs
+    // tracks the latest shinchiro build, but "probably new enough" is not a
+    // thing to build a resume feature on.
+    //
+    // Stated on EVERY load, never left to a separate clear: this runs
+    // immediately before each loadfile, so `none` (mpv's own REL_TIME_NONE,
+    // verified in m_option.c's parse_rel_time) is what a stream with no
+    // resume point explicitly gets. Nothing can leak into the next file.
+    set_prop(
+        "start",
+        &start.map_or_else(|| "none".to_string(), |s| s.to_string()),
+    );
 }
 
 /// Start `url` in the in-app player, creating the player on first use.
-pub fn play_wid(url: &str, wid: isize) -> Result<(), String> {
+pub fn play_wid(url: &str, wid: isize, start: Option<f64>) -> Result<(), String> {
     let t0 = std::time::Instant::now();
     ensure_player(wid)?;
     // One provider connection at a time is the app-wide invariant, and it was
@@ -536,7 +589,7 @@ pub fn play_wid(url: &str, wid: isize) -> Result<(), String> {
     // independent mutexes and stop_popout drops POPOUT's before the quit.
     stop_popout();
     let t_ready = t0.elapsed();
-    reset_per_file();
+    reset_per_file(start);
     // `loadfile <url> replace` — replace is the default, stated for the
     // reader. This is the same call reload_live() has always made, which is
     // why the load path itself is proven rather than new.
@@ -637,13 +690,26 @@ pub fn set_volume(vol: i64) {
 }
 
 /// Relative seek in seconds (negative = back).
+///
+/// `relative+exact`, not bare `relative`. mpv's default for a relative seek
+/// is KEYFRAMES (`--hr-seek=default` means exact for absolute, keyframes for
+/// relative), so "Back 10s" landed on whatever keyframe was nearest — 0s or
+/// 25s away on a long-GOP file. The UI does not have the option of being
+/// vague about it: it bumps its own clock by exactly the delta and the poll
+/// then drags the number somewhere else, which is the visible twitch after
+/// every arrow press. A button that says 10 should move 10.
+///
+/// The cost is a decode from the previous keyframe, which is why the arrow
+/// keys coalesce held repeats into one call instead of firing per repeat —
+/// exact seeks are cheap individually and not 31 times a second.
+/// `--hr-seek-framedrop` defaults to yes and is what keeps them cheap.
 pub fn seek(delta: f64) {
     let g = PLAYER.lock().unwrap();
     if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {
         unsafe {
             let cmd = CString::new("seek").unwrap();
             let d = CString::new(format!("{delta}")).unwrap();
-            let rel = CString::new("relative").unwrap();
+            let rel = CString::new("relative+exact").unwrap();
             let args = [cmd.as_ptr(), d.as_ptr(), rel.as_ptr(), std::ptr::null()];
             (l.command)(p.0, args.as_ptr());
         }

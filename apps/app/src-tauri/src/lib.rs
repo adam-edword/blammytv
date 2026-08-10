@@ -89,6 +89,8 @@ fn inv_open(
     y: i32,
     w: u32,
     h: u32,
+    // VOD resume point in seconds, applied by mpv as it opens the file.
+    start: Option<f64>,
 ) -> Result<(), String> {
     #[cfg(windows)]
     {
@@ -96,14 +98,14 @@ fn inv_open(
         let (tx, rx) = std::sync::mpsc::channel();
         window
             .run_on_main_thread(move || {
-                let _ = tx.send(inv::open(hwnd, x, y, w, h, &url));
+                let _ = tx.send(inv::open(hwnd, x, y, w, h, &url, start));
             })
             .map_err(|e| e.to_string())?;
         rx.recv().map_err(|e| e.to_string())?
     }
     #[cfg(not(windows))]
     {
-        let _ = (window, url, x, y, w, h);
+        let _ = (window, url, x, y, w, h, start);
         Ok(())
     }
 }

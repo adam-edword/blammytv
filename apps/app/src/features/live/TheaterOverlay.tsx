@@ -97,6 +97,10 @@ const PREVIEW_RX = /preview/i;
  * The first presented frame zeroes the budget again either way.
  */
 const SELF_HEAL_MS = 5_000;
+/** Held-arrow coalescing window. See doSeek. About seven seeks a second,
+ * which is faster than anyone can read the clock and far below the ~31/sec
+ * a held key generates. */
+const SEEK_THROTTLE_MS = 150;
 function skipLabel(title: string): string {
   if (/recap|previously/i.test(title)) return "Skip Recap";
   if (/credits|ending|outro|\bed\b/i.test(title)) return "Skip Credits";
@@ -783,16 +787,55 @@ export function TheaterOverlay({
     api()?.setPause(next);
   }, []);
 
-  // Seek mpv + walk the live-edge indicator (≈0.8%/sec, so ±10s ≈ ±8%).
-  // For VOD, also bump the clock optimistically — the poll trues it up
-  // within 500ms, but the bar shouldn't lag the keypress.
+  /**
+   * Seek mpv + walk the live-edge indicator (≈0.8%/sec, so ±10s ≈ ±8%).
+   * For VOD, also bump the clock optimistically — the poll trues it up, but
+   * the bar shouldn't lag the keypress.
+   *
+   * THROTTLED, leading edge, because an auto-repeating arrow key is not a
+   * stream of decisions. Windows repeats at about 31/sec once a key is held,
+   * and every one of those used to be a Tauri round trip (~2.5ms) plus two
+   * setStates re-rendering the whole chrome (~2ms measured). That is roughly
+   * 6% of a core spent redrawing a number that is only legible when it
+   * stops. Now the first press fires at once, repeats accumulate, and the
+   * sum lands on one call per window: a tap is still instant, a held key
+   * still scrubs continuously, and mpv gets ~7 seeks a second instead of 31.
+   *
+   * Coalescing is also what makes `relative+exact` affordable (see mpv.rs's
+   * seek): an exact seek decodes from the previous keyframe, which is fine
+   * seven times a second and not thirty-one.
+   */
+  const seekPend = useRef(0);
+  const seekTimer = useRef(0);
   const doSeek = useCallback((delta: number) => {
-    api()?.seek(delta);
-    setLivePct((p) => Math.min(100, Math.max(0, p + delta * 0.8)));
-    setTime((t) =>
-      t ? { ...t, pos: Math.min(t.dur, Math.max(0, t.pos + delta)) } : t,
-    );
+    const apply = (d: number) => {
+      api()?.seek(d);
+      setLivePct((p) => Math.min(100, Math.max(0, p + d * 0.8)));
+      setTime((t) =>
+        t ? { ...t, pos: Math.min(t.dur, Math.max(0, t.pos + d)) } : t,
+      );
+    };
+    const arm = () => {
+      seekTimer.current = window.setTimeout(() => {
+        seekTimer.current = 0;
+        const d = seekPend.current;
+        seekPend.current = 0;
+        // Re-arm only if something actually accumulated, so a single tap
+        // costs one timer and stops rather than idling on a heartbeat.
+        if (d) {
+          apply(d);
+          arm();
+        }
+      }, SEEK_THROTTLE_MS);
+    };
+    if (seekTimer.current) {
+      seekPend.current += delta;
+      return;
+    }
+    apply(delta);
+    arm();
   }, []);
+  useEffect(() => () => window.clearTimeout(seekTimer.current), []);
 
   // Jump to the live edge. A forward seek can't reach it (mpv never pulled the
   // data between the playback buffer and now), so this reloads the stream on

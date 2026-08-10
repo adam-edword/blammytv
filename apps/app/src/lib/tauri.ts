@@ -88,8 +88,21 @@ export function tauriPopoutStop(): Promise<void> {
  * chrome is ordinary React in the main webview, driving mpv through the
  * commands below. Rects PHYSICAL px. ---- */
 
-export function tauriInvOpen(url: string, rect: CompRect): Promise<void> {
-  return invoke("inv_open", { url, x: rect.x, y: rect.y, w: rect.w, h: rect.h });
+export function tauriInvOpen(
+  url: string,
+  rect: CompRect,
+  /** VOD resume point in seconds. mpv applies it as the file opens, so
+   * nothing is fetched or decoded from 0:00 first. Omit for live. */
+  start?: number,
+): Promise<void> {
+  return invoke("inv_open", {
+    url,
+    x: rect.x,
+    y: rect.y,
+    w: rect.w,
+    h: rect.h,
+    start: start && start > 0 ? start : null,
+  });
 }
 export function tauriInvSetRect(rect: CompRect): Promise<void> {
   return invoke("inv_set_rect", { x: rect.x, y: rect.y, w: rect.w, h: rect.h });

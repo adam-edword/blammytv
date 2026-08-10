@@ -12,6 +12,7 @@ import {
   type TheaterMeta,
 } from "../../lib/tauri";
 import type { ChapterInfo, OverlayApi, TimeInfo, Tracks } from "./overlayApi";
+import { holdsPoll, type SeekHold } from "./seekHold";
 
 /**
  * Status cadence once a picture is up. The scrubber clock and the death
@@ -87,6 +88,7 @@ export function useDirectOverlay(
     tracksJson: "",
     metaJson: "",
     time: null as TimeInfo | null,
+    seekHold: null as SeekHold | null,
     chapters: [] as ChapterInfo[],
     chaptersJson: "",
     chapterCbs: new Set<(c: ChapterInfo[]) => void>(),
@@ -205,8 +207,15 @@ export function useDirectOverlay(
           // The playback clock, for the VOD scrubber. Live streams have no
           // usable duration — the overlay only renders it when dur > 0.
           if (st.pos != null && st.dur != null && st.dur > 0) {
-            s.time = { pos: st.pos, dur: st.dur };
-            s.timeCbs.forEach((cb) => cb(s.time));
+            // Unless a seek is still in flight and this is the position it
+            // was seeking AWAY from. See seekHold.
+            if (holdsPoll(s.seekHold, st.pos, performance.now())) {
+              // Discard: the chrome's optimistic position stands.
+            } else {
+              s.seekHold = null;
+              s.time = { pos: st.pos, dur: st.dur };
+              s.timeCbs.forEach((cb) => cb(s.time));
+            }
           }
         })
         .catch(() => {})
@@ -243,8 +252,21 @@ export function useDirectOverlay(
       setPause: (p) => void tauriMpvPause(p).catch(() => {}),
       setMute: (m) => void tauriMpvMute(m).catch(() => {}),
       setVolume: (v) => void tauriMpvVolume(v).catch(() => {}),
-      seek: (d) => void tauriMpvSeek(d).catch(() => {}),
-      seekAbs: (p) => void tauriMpvSeekAbs(p).catch(() => {}),
+      // Both arm the hold, so the poll cannot push the pre-seek position
+      // back over the chrome's optimistic one. Only for VOD: `s.time` is
+      // null on live (no usable duration), and there is no scrubber to
+      // protect. A relative seek's target is exact because mpv is asked for
+      // `relative+exact`, so aiming at pos + delta is aiming at where it
+      // will actually land.
+      seek: (d) => {
+        if (s.time)
+          s.seekHold = { target: s.time.pos + d, at: performance.now() };
+        void tauriMpvSeek(d).catch(() => {});
+      },
+      seekAbs: (p) => {
+        if (s.time) s.seekHold = { target: p, at: performance.now() };
+        void tauriMpvSeekAbs(p).catch(() => {});
+      },
       setSpeed: (sp) => void tauriMpvSetSpeed(sp).catch(() => {}),
       // PRESENT ONLY IF THE HOST OFFERS ONE, because its presence is the
       // question the dead card asks before drawing a "try the next source"
