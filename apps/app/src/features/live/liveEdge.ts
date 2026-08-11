@@ -65,3 +65,34 @@ export function behindLive(
 export function livePctFor(behindSec: number): number {
   return Math.min(100, Math.max(0, 100 - behindSec * PCT_PER_SEC));
 }
+
+/**
+ * The edge baseline after this reading, or null if there still isn't one.
+ *
+ * Captured EXACTLY ONCE per stream, on the first reading after the picture
+ * is up — the one moment we know we are at the live edge, because playback
+ * has just started from wherever the provider handed us the stream.
+ *
+ * Two ways to get this wrong, both of which make the indicator lie without
+ * touching `behindLive` at all:
+ *
+ *   capture while loading  the forward buffer is mid-fill, so the baseline
+ *                          is too small and the rail reads permanently
+ *                          behind on a stream nobody has touched
+ *   re-capture later       "live" gets silently redefined as wherever the
+ *                          user happens to be standing, so rewinding once
+ *                          means the indicator can never read behind again
+ *
+ * A cacheDur of exactly 0 is a REAL baseline, not an absent one: a stream
+ * that presents with an empty forward buffer reads 0.0 here, and treating
+ * that as "not captured yet" would keep re-capturing forever.
+ */
+export function nextBaseline(
+  cur: number | null,
+  loading: boolean,
+  cacheDur: number | null | undefined,
+): number | null {
+  if (cur != null) return cur;
+  if (loading) return null;
+  return cacheDur ?? null;
+}

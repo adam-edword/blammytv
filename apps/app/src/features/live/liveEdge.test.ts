@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { EDGE_TOL, PCT_PER_SEC, behindLive, livePctFor } from "./liveEdge";
+import {
+  EDGE_TOL,
+  PCT_PER_SEC,
+  behindLive,
+  livePctFor,
+  nextBaseline,
+} from "./liveEdge";
 
 // The readings this was built from, taken on a real live channel.
 const EDGE = 16.544;
@@ -85,5 +91,39 @@ describe("livePctFor", () => {
     expect(livePctFor(10)).toBeCloseTo(92, 6);
     expect(livePctFor(62.5)).toBeCloseTo(50, 6);
     expect(livePctFor(125)).toBe(0);
+  });
+});
+
+describe("nextBaseline", () => {
+  it("never captures mid-tune", () => {
+    // The forward buffer is still filling, so a baseline taken here is too
+    // small and the rail reads permanently behind on an untouched stream.
+    expect(nextBaseline(null, true, 16.5)).toBeNull();
+    expect(nextBaseline(null, true, 0)).toBeNull();
+  });
+
+  it("captures on the first reading once the picture is up", () => {
+    expect(nextBaseline(null, false, 16.544)).toBe(16.544);
+  });
+
+  it("treats a zero forward buffer as a real baseline", () => {
+    // Not "not captured yet" — that would re-capture on every poll forever,
+    // silently redefining live as wherever the user is standing.
+    expect(nextBaseline(null, false, 0)).toBe(0);
+  });
+
+  it("is set ONCE per stream and never re-captured", () => {
+    // Re-capturing after a seek back would make it impossible for the
+    // indicator to ever report being behind again.
+    expect(nextBaseline(16.544, false, 28.992)).toBe(16.544);
+    expect(nextBaseline(16.544, true, 28.992)).toBe(16.544);
+    expect(nextBaseline(0, false, 28.992)).toBe(0);
+  });
+
+  it("stays unset on a native build that does not report the field", () => {
+    expect(nextBaseline(null, false, undefined)).toBeNull();
+    expect(nextBaseline(null, false, null)).toBeNull();
+    // ...and an absent baseline reads as at-live, the pre-existing behaviour.
+    expect(behindLive(20, nextBaseline(null, false, undefined))).toBe(0);
   });
 });

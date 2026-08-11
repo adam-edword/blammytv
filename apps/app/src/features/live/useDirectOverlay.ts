@@ -18,7 +18,7 @@ import {
   nextHoldAbs,
   type SeekHold,
 } from "./seekHold";
-import { behindLive } from "./liveEdge";
+import { behindLive, nextBaseline } from "./liveEdge";
 import { dvrChanged, type DvrWindow } from "./dvr";
 import { endDecision } from "./ending";
 
@@ -264,8 +264,7 @@ export function useDirectOverlay(
           // baseline is taken on the first reading once the picture is up,
           // which is the one moment we KNOW we are at the edge: playback has
           // just started from wherever the provider handed us the stream.
-          if (!s.loading && st.cacheDur != null && s.edgeBaseline == null)
-            s.edgeBaseline = st.cacheDur;
+          s.edgeBaseline = nextBaseline(s.edgeBaseline, s.loading, st.cacheDur);
           const beh = behindLive(st.cacheDur, s.edgeBaseline);
           if (Math.abs(beh - s.behind) > 0.5) {
             s.behind = beh;

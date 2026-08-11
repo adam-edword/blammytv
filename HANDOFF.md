@@ -45,6 +45,59 @@ unseekable-scrubber lock and the live DVR rail, all of which read
 `mpv_status` fields that v0.8.167 does not emit. Those degrade cleanly (the
 fields are optional and fall back); resume does not.
 
+### The overnight review (v0.8.197 - v0.8.200)
+
+Four agents re-read the eleven player commits above. Everything they found
+that survived verification is fixed; the notes worth keeping:
+
+- **The worst bugs were INTERACTIONS**, not defects in any one mechanism.
+  Six new mechanisms landed in two files in one night, and three of the four
+  HIGH findings were pairs of them colliding. Two landed on the same EOF
+  branch that had just been hardened.
+- **The seek hold froze the input to the completion test.** Seek from 95% to
+  10%, have the source die inside the 1.5s hold, and `pos >= dur * 0.9` was
+  still reading 95%: markWatched, dur/dur, Up Next rolls, resume position
+  gone. The decision now lives in `ending.ts` and reads `lastTime` (what mpv
+  said) rather than `time` (what the scrubber shows). **If you ever wire
+  something to that decision, do not reach for the displayed clock.**
+- **`seekable-ranges` is LRU-ordered and emitted reversed.** mpv qsorts it by
+  time whenever it actually needs time order, which is the proof. Fold with
+  min/max, never `first().start` / `last().end`.
+- **`demuxer-donate-buffer` means the live back buffer is 768MiB**, not the
+  256MiB configured: the back buffer grows into whatever the forward buffer
+  is not using, and at the live edge the forward buffer is near empty by
+  definition. That is the resting state on a live channel, not a worst case.
+- **`#inv-chrome` is `position: fixed` with no transform**, so it is NOT a
+  containing block. Anything `position: fixed` inside the player chrome must
+  be added to the remap list in `player.css` or it escapes the player box
+  wherever the slot is not the whole window (live theater, sports).
+- **Mutation testing found half the new tests could not fail**, because
+  assertions were written in terms of the constant under test. `LIVE_TOL`
+  could go 3 to 12 and stay green. Assert against literals.
+
+Five pure modules now carry the logic that has a regression history:
+`ending.ts`, `seekHold.ts` (incl. `nextHold`), `liveEdge.ts` (incl.
+`nextBaseline`), `clock.ts`, `dvr.ts`. **The tune watchdog was NOT
+extracted** and is the biggest remaining candidate: six interacting inputs,
+a render-phase setState, and five shipped defects. `scripts/verify-watchdog.mjs`
+covers its behaviour headlessly and is the safety net for doing it.
+
+### Headless verification actually works here
+
+`scripts/verify-*.mjs` drive the real chrome in Chromium against a stubbed
+`window.overlayApi` at `?overlay=1`, with `page.clock.install()` for fake
+timers. They need a server and playwright-core:
+
+```
+cd apps/app && pnpm exec vite --port 4173 --strictPort &
+mkdir -p /tmp/pw && cd /tmp/pw && npm i playwright-core && touch anchor.js
+PW_FROM=/tmp/pw/anchor.js node scripts/verify-watchdog.mjs
+```
+
+`playwright-core` is deliberately installed outside the repo (that is what
+`PW_FROM` is for) so it never lands in the lockfile. Chromium is already at
+`/opt/pw-browsers/chromium`.
+
 ### Checking the Rust from an agent container
 
 `cargo check --target x86_64-pc-windows-gnu` type-checks the real
