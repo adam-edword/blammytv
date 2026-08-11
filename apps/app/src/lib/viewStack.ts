@@ -116,6 +116,12 @@ export function useViewStack<V>(initial: V | (() => V)) {
 
   const depth = useCallback(() => back.current.length, []);
 
+  /** The view Back would return to, without going there. Lets a screen tell
+   * "you drilled in normally" from "you were dropped here", which is the
+   * difference between Back meaning the page above and Back meaning the
+   * page you happened to come from. */
+  const peek = useCallback((): V | undefined => back.current.at(-1)?.view, []);
+
   useLayoutEffect(() => {
     const y = want.current;
     want.current = null;
@@ -161,6 +167,7 @@ export function useViewStack<V>(initial: V | (() => V)) {
     replace,
     reset,
     depth,
+    peek,
     capture,
     restore,
     restoreTo,

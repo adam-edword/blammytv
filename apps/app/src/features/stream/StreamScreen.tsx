@@ -11,6 +11,7 @@ import {
 import { CheckIcon, ChevronIcon, CloseIcon, PlayIcon } from "../../ui/icons";
 import Tilt from "react-parallax-tilt";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
+import { wantsEpisodeList } from "./backTarget";
 import { useMouseNav } from "../../lib/mouseNav";
 import { useViewStack } from "../../lib/viewStack";
 
@@ -143,6 +144,7 @@ export function StreamScreen() {
     goForward,
     replace: replaceView,
     depth,
+    peek,
     capture: captureScroll,
     restore: restoreScroll,
     restoreTo,
@@ -319,14 +321,6 @@ export function StreamScreen() {
     },
     [push],
   );
-  const goBack = useCallback(() => {
-    if (!popBack()) return;
-    if (handoffRef.current && depth() === 0) {
-      handoffRef.current = false;
-      requestReturnToDiscover();
-    }
-  }, [popBack, depth]);
-  useMouseNav(goBack, goForward, !playing);
 
   // Whether the CURRENT detail's full-meta resolve settled — Detail's
   // episodes area turns "Loading episodes…" into the truth ("couldn't
@@ -360,6 +354,39 @@ export function StreamScreen() {
       );
     }
   }, [replaceView]);
+
+  /* Where the CURRENT view is, for goBack. A ref so goBack keeps one
+   * identity: it is handed to useMouseNav and to three screens as onBack. */
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  const goBack = useCallback(() => {
+    const v = viewRef.current;
+    const prev = peek();
+    // AN EPISODE'S SOURCE LIST BELONGS UNDER ITS EPISODE LIST, however you
+    // got to it. Drilling in normally (series -> episodes -> pick) puts the
+    // episode list on the stack and the plain pop below is right. But
+    // Continue Watching resumes an episode directly, and when nothing is
+    // cached it lands this same screen without the episode list ever having
+    // been shown — so Back returned to the home rows and left you looking at
+    // the sources for one episode with no route to the rest of the series.
+    //
+    // Replace rather than push: the episode list takes this screen's place
+    // in history, so a second Back still goes wherever you came from instead
+    // of bouncing between the two.
+    if (v.at === "sources" && wantsEpisodeList(v, prev)) {
+      replaceView({ at: "episodes", item: v.item });
+      // The item Continue Watching synthesised carries no seasons, so the
+      // list would render empty. Same resolve `open` does on the way in.
+      void resolveIntoView(v.item);
+      return;
+    }
+    if (!popBack()) return;
+    if (handoffRef.current && depth() === 0) {
+      handoffRef.current = false;
+      requestReturnToDiscover();
+    }
+  }, [popBack, depth, peek, replaceView, resolveIntoView]);
+  useMouseNav(goBack, goForward, !playing);
   const open = useCallback(async (item: VodItem) => {
     // Show the lightweight item immediately; swap in the full detail
     // (synopsis, cast, seasons) when it lands. Failure keeps the light one.
