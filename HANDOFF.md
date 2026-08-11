@@ -15,7 +15,127 @@ Audience: switchers from other Windows IPTV clients, Stremio users, ideally
 both, and explicitly *inviting to newcomers*; first-five-minutes activation
 weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
-## Live state (2026-07-24, v0.7.11 RELEASED, the fix train)
+## Live state (2026-08-11, dev v0.8.196, native still v0.8.167)
+
+**Nothing since v0.8.167 has reached users.** The frontend is at v0.8.196
+and `tauri.conf.json`/`Cargo.toml` are still 0.8.167, which is the
+convention (native moves only in the release commit) but matters more than
+usual right now — see the hazard below.
+
+### THE HAZARD: the next release MUST be a native one
+
+A **frontend-only** release cut from this HEAD would break Continue
+Watching for everyone on native v0.8.167.
+
+v0.8.190 moved VOD resume off "seek once the first frame lands" and onto
+mpv's `start`, handed to the new `start` parameter on the `inv_open`
+command. The old seek-based path was deleted, so `start` is now the only
+resume path. Native v0.8.167's `inv_open` has no such parameter (verified
+against `0143088:apps/app/src-tauri/src/lib.rs`), and Tauri drops unknown
+args without erroring, so resume would silently restart every title at
+0:00.
+
+The `frontend.json` `nativeVersion` gate does NOT protect against this. It
+refuses a bundle whose label is not the running native, but the label is
+just a copy of `tauri.conf.json` — which is 0.8.167 — so such a bundle
+would be considered a match and served.
+
+The same release would also silently drop the buffering pill, the
+unseekable-scrubber lock and the live DVR rail, all of which read
+`mpv_status` fields that v0.8.167 does not emit. Those degrade cleanly (the
+fields are optional and fall back); resume does not.
+
+### Checking the Rust from an agent container
+
+`cargo check --target x86_64-pc-windows-gnu` type-checks the real
+`cfg(windows)` path in about 30 seconds. See CLAUDE.md. Three commits
+shipped before this was discovered, on the belief that it was impossible.
+
+### The player work (v0.8.188 - v0.8.196)
+
+Driven by six review agents plus measurements from Adam's machine. In rough
+order of user impact:
+
+- **~400ms off every channel switch.** The status poll ran on a flat 500ms
+  `setInterval`, so `presenting` (which opens the clip hole) could not be
+  noticed for up to 500ms after it happened: a uniform 0-500ms of extra
+  black, 250ms average. Now self-chained at 100ms while loading. The 150ms
+  open debounce was trailing and charged every open including cold ones;
+  now it only applies when a tear-down happened inside the last 150ms.
+- **A dead Stalker channel could never reach the "isn't responding" card.**
+  The watchdog's own retry re-resolved the URL (short-lived play_token), and
+  `playbackKey` IS the URL, so retry #1 refunded the retry budget. Infinite
+  10s reload loop, no failover. Fixed with a timestamped one-shot
+  (`SELF_HEAL_MS`). Plain Xtream/M3U was never affected, which is why it
+  stayed invisible.
+- **Popout took neither volume nor mute** (second mpv instance, eleven init
+  options, neither among them), and fed live streams a `start` from
+  `time-pos` under a comment claiming it would be 0 for live. Both fixed via
+  `mpv::Handoff`.
+- **Resume played the opening scene, stalled, then jumped.** Now mpv's
+  `start` on the load. Set as a PROPERTY, not a `loadfile` per-file option:
+  mpv 0.38 inserted an insertion-index argument and broke that argument's
+  position, and `scripts/fetch-libmpv.mjs` tracks whatever shinchiro built
+  last. `"none"` (verified as mpv's REL_TIME_NONE) is written on every load
+  so nothing leaks into the next file.
+- **The scrubber snapped backwards after every seek** (the poll pushed the
+  pre-seek position over the optimistic one). Now held until a position
+  lands near the target or 1.5s passes — deliberately not a blanket mute,
+  which would make a failed seek look fine and then jump.
+- **Held arrow keys fired ~31 seeks/sec**, each an IPC round trip plus two
+  setStates re-rendering a 1700-line chrome. Coalesced to one per 150ms.
+  Relative seeks are `relative+exact` now: mpv's default for `relative` is
+  keyframes, so "Back 10s" landed wherever while the UI claimed exactly 10.
+- **Buffering was completely silent.** A seek outside the cache pauses mpv
+  to refill; `core-idle` goes yes but nothing looked, so the picture froze
+  with no spinner. `paused-for-cache` is read now and kept a SEPARATE signal
+  from `loading` — folding it in would arm the tune watchdog on every
+  buffering seek.
+- **The live-edge indicator was dead reckoning** at 0.8%/sec of *requested*
+  seek and never asked mpv anything, so rewinding past the start of the
+  buffer walked it left and left it wrong until Jump to live. It is now the
+  real DVR window from `demuxer-cache-state.seekable-ranges`, and the live
+  rail is a draggable scrubber whose left edge is the earliest second the
+  stream still holds.
+- **Demuxer cache raised to 512MiB/256MiB** from libmpv's 150/50. At a 4K
+  remux's ~7.5 MB/s the stock back buffer is about six seconds, so Back 10s
+  re-downloaded. Adam measured ~1GB RSS after the change and accepted it.
+  Both are runtime-updatable via `mpvSet`.
+
+Five pure modules were extracted so the logic is testable in vitest's
+node environment: `seekHold.ts`, `liveEdge.ts`, `clock.ts`, `dvr.ts`, plus
+`playerPerf.ts`'s `ttff()`.
+
+### What startup time actually is (measured, do not re-litigate)
+
+`ttff()` on a real 4K debrid remux: **4880ms cold, 1700-2800ms warm**. The
+cold/warm gap is the whole story — it is the provider answering, not
+anything in mpv. The theory that libavformat was slow probing the file's 71
+tracks was tested and refuted; `demuxer-lavf-analyzeduration` made it
+*slower*. Four warm runs on identical settings spread 1730-2758ms, so the
+run-to-run noise is about a second and swamps any effect being looked for.
+Full numbers and the method in `plans/012-player-events.md`. **Do not re-run
+that experiment without first establishing the noise floor.**
+
+`frame` is 0ms every time: once bring-up completes the picture moves within
+one 25ms poll. `hwdec` resolves to `d3d11va`, `vo` is `gpu-next`. Decode and
+output are not costing anything.
+
+### Console tools (all always compiled in, `apps/app/src/lib/playerPerf.ts`)
+
+    ttff(90)                      time to first frame, split three ways.
+                                  Close the stream FIRST; it waits for it.
+    playerDiag()                  one snapshot of what mpv thinks
+    playerPerf(20)                poll cost, drops, long tasks
+    mpvGet("demuxer-cache-state") read any property
+    mpvSet(key, value)            set one, with a read-back that proves it took
+
+`mpvSet`/`mpvGet` are how any mpv option gets A/B'd on a real machine
+without a rebuild, and they are the reason the startup theory could be
+killed in one evening rather than shipped.
+
+
+## Historical (2026-07-24, v0.7.11 RELEASED, the fix train)
 
 **v0.7.11 is published** (tag @ main `7509672`, sig-verified, updater
 live). Deliberately a PATCH, not 0.8.0: Adam's call, and the right one.
