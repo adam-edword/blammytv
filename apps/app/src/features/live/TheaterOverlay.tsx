@@ -97,10 +97,15 @@ const PREVIEW_RX = /preview/i;
  * responding" card, never fail over to the next source, and reloaded on a
  * ten-second cycle for as long as it was left open.
  *
- * Comfortably under STALL_MS, so a flag that never gets consumed (the
- * non-Stalker path reloads in place and changes no key) cannot survive to
- * the next stall window. Comfortably over a create_link round trip, which
- * is what has to fit inside it. Worst case if it misfires: a channel the
+ * Under STALL_MS, so a flag that never gets consumed (the non-Stalker path
+ * reloads in place and changes no key) cannot survive to the next stall
+ * window. And over a create_link round trip, which is what has to fit
+ * inside it — though the margin there is 2x, not the "comfortable" this
+ * comment used to claim. A portal that takes longer than five seconds to
+ * re-resolve would land its URL change outside the window, refund the
+ * budget, and bring the infinite-retry loop straight back. No evidence
+ * either way from here; if a Stalker channel is ever seen reloading
+ * forever again, this number is the first suspect. Worst case if it misfires: a channel the
  * user switched to within five seconds of a silent retry inherits that
  * retry's count and gets one fewer silent attempt before the dead card.
  * The first presented frame zeroes the budget again either way.
@@ -1547,7 +1552,9 @@ export function TheaterOverlay({
                   setScrub(null);
                 }}
               >
-                <div className="theater-seek__fill" />
+                <span className="theater-seek__clip">
+                  <div className="theater-seek__fill" />
+                </span>
                 {/* The wrapper spans the track, so translateX(50%) moves the
                     knob half the TRACK rather than half the knob. That is
                     the whole reason it exists. */}
@@ -1614,7 +1621,9 @@ export function TheaterOverlay({
                   setScrub(null);
                 }}
               >
-                <div className="theater-seek__fill" />
+                <span className="theater-seek__clip">
+                  <div className="theater-seek__fill" />
+                </span>
                 <span className="theater-seek__knobwrap">
                   <span className="theater-seek__knob" />
                 </span>

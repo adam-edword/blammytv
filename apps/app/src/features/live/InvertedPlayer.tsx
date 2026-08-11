@@ -42,6 +42,12 @@ const OPEN_DEBOUNCE_MS = 150;
  * intact. Module scope because the three hosts (live, stream, sports) share
  * one mpv instance and one #player-slot: a screen change is a tear-down like
  * any other.
+ *
+ * NOT MEASURABLE IN `pnpm tauri dev`. StrictMode double-mounts, and the
+ * cleanup of that first throwaway mount stamps `lastTeardown`, so the second
+ * mount always sees a fresh tear-down and always takes the slow path. The
+ * saving is real in a production build and invisible in dev — do not
+ * conclude from a dev session that it does nothing.
  */
 let lastTeardown = 0;
 /** CSS corner radius of #player-slot — keep in sync with .hero__preview.

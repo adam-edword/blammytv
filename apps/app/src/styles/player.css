@@ -560,6 +560,20 @@
    property and the fill and knob cannot drift apart. Transform rather than
    width/left because those two are layout, and layout during a pointer drag
    is the expensive kind: 42ms of it over a 3s drag before this. */
+/* The rounding lives on a CLIP LAYER, not on the fill. A border-radius on a
+   scaleX-ed box is scaled with it: at --pct 0.02 the horizontal radius
+   collapses to 0.05px while the vertical stays 2.5px, so the leading cap
+   changed shape with playback position. `overflow: hidden` on the track
+   itself is not available — it would clip the 14px knob and the ±9px
+   ::before hit area, both of which overflow a 5px rail on purpose. */
+.theater-seek__clip {
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
 .theater-seek__fill {
   position: absolute;
   left: 0;
@@ -567,7 +581,6 @@
   bottom: 0;
   width: 100%;
   background: var(--accent);
-  border-radius: 3px;
   transform-origin: left center;
   transform: scaleX(var(--pct, 0));
   will-change: transform;
