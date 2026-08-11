@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   EDGE_TOL,
   PCT_PER_SEC,
+  SETTLE_MS,
   behindLive,
   livePctFor,
   nextBaseline,
@@ -95,35 +96,72 @@ describe("livePctFor", () => {
 });
 
 describe("nextBaseline", () => {
-  it("never captures mid-tune", () => {
-    // The forward buffer is still filling, so a baseline taken here is too
-    // small and the rail reads permanently behind on an untouched stream.
-    expect(nextBaseline(null, true, 16.5)).toBeNull();
-    expect(nextBaseline(null, true, 0)).toBeNull();
+  const fresh = { loading: false, sincePresent: 0, seeked: false };
+
+  it("holds nothing while still tuning", () => {
+    expect(nextBaseline(null, { ...fresh, loading: true, cacheDur: 16.5 })).toBeNull();
+    // ...and a re-arm discards whatever was there.
+    expect(
+      nextBaseline({ gap: 18, settling: false }, { ...fresh, loading: true, cacheDur: 9 }),
+    ).toBeNull();
   });
 
-  it("captures on the first reading once the picture is up", () => {
-    expect(nextBaseline(null, false, 16.544)).toBe(16.544);
+  it("takes the MAXIMUM gap while settling, not the first", () => {
+    // The bug this replaces: the buffer is still filling when the picture
+    // appears, so the first reading is far below the steady size. Measured on
+    // a real channel it read ~12 against a settled 18.2, which put the live
+    // edge 6s ahead of the playhead forever — the rail sat at 95% and Jump to
+    // live refilled the buffer and landed in exactly the same place.
+    let b = nextBaseline(null, { ...fresh, cacheDur: 4 });
+    expect(b).toEqual({ gap: 4, settling: true });
+    b = nextBaseline(b, { ...fresh, cacheDur: 11, sincePresent: 2000 });
+    b = nextBaseline(b, { ...fresh, cacheDur: 18.219, sincePresent: 5000 });
+    // A dip must not drag it back down.
+    b = nextBaseline(b, { ...fresh, cacheDur: 17.4, sincePresent: 7000 });
+    expect(b).toEqual({ gap: 18.219, settling: true });
   });
 
-  it("treats a zero forward buffer as a real baseline", () => {
-    // Not "not captured yet" — that would re-capture on every poll forever,
-    // silently redefining live as wherever the user is standing.
-    expect(nextBaseline(null, false, 0)).toBe(0);
+  it("freezes once the settle window closes", () => {
+    const b = nextBaseline({ gap: 18.219, settling: true }, {
+      ...fresh,
+      cacheDur: 30,
+      sincePresent: SETTLE_MS,
+    });
+    expect(b).toEqual({ gap: 18.219, settling: false });
+    // ...and stays frozen against anything afterwards.
+    expect(
+      nextBaseline(b, { ...fresh, cacheDur: 99, sincePresent: 60_000 }),
+    ).toEqual({ gap: 18.219, settling: false });
   });
 
-  it("is set ONCE per stream and never re-captured", () => {
-    // Re-capturing after a seek back would make it impossible for the
-    // indicator to ever report being behind again.
-    expect(nextBaseline(16.544, false, 28.992)).toBe(16.544);
-    expect(nextBaseline(16.544, true, 28.992)).toBe(16.544);
-    expect(nextBaseline(0, false, 28.992)).toBe(0);
+  it("freezes the instant the user seeks, even mid-settle", () => {
+    // A seek back inflates the gap by exactly the amount seeked. Absorbing
+    // that would redefine live as wherever the user is standing, after which
+    // the indicator could never report being behind again.
+    const b = nextBaseline({ gap: 12, settling: true }, {
+      ...fresh,
+      cacheDur: 42,
+      sincePresent: 1000,
+      seeked: true,
+    });
+    expect(b).toEqual({ gap: 12, settling: false });
   });
 
-  it("stays unset on a native build that does not report the field", () => {
-    expect(nextBaseline(null, false, undefined)).toBeNull();
-    expect(nextBaseline(null, false, null)).toBeNull();
-    // ...and an absent baseline reads as at-live, the pre-existing behaviour.
-    expect(behindLive(20, nextBaseline(null, false, undefined))).toBe(0);
+  it("keeps what it has when the field is absent", () => {
+    expect(nextBaseline(null, { ...fresh, cacheDur: undefined })).toBeNull();
+    expect(
+      nextBaseline({ gap: 18, settling: true }, { ...fresh, cacheDur: null }),
+    ).toEqual({ gap: 18, settling: true });
+  });
+
+  it("treats a zero gap as a real reading", () => {
+    expect(nextBaseline(null, { ...fresh, cacheDur: 0 })).toEqual({
+      gap: 0,
+      settling: true,
+    });
+  });
+
+  it("pins the settle window with a literal", () => {
+    expect(SETTLE_MS).toBe(10_000);
   });
 });

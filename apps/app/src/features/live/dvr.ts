@@ -27,12 +27,46 @@
  * first few minutes of every channel.
  */
 export interface DvrWindow {
-  /** Earliest seekable second. */
+  /** Earliest seekable second, straight from `seekable-ranges`. */
   start: number;
-  /** The live edge. */
+  /**
+   * The LIVE EDGE, which is NOT `seekable-ranges`' end.
+   *
+   * That end is the newest byte the demuxer has pulled, and it runs ahead of
+   * the playhead by the forward buffer — measured at 18 seconds on a real
+   * channel while the viewer was, correctly, at live. Drawing the rail to it
+   * would park the knob at 27% and never let it reach the right edge.
+   *
+   * The reachable edge is `rangeEnd - naturalGap`, where the natural gap is
+   * the steady-state forward buffer (see liveEdge's baseline). At the edge
+   * that resolves to the playhead itself, which is what makes the rail read
+   * 100% when you are live.
+   */
   end: number;
   /** Where playback is now. */
   pos: number;
+}
+
+/**
+ * Build the window the rail draws, or null if we cannot honestly draw one.
+ *
+ * Null while the baseline is still settling: for the first seconds of a
+ * channel the natural gap is not known, and a window built on a wrong gap is
+ * worse than no window — it is the 95%-forever bug with a draggable handle
+ * attached.
+ */
+export function dvrWindow(
+  rangeStart: number | null | undefined,
+  rangeEnd: number | null | undefined,
+  pos: number | null | undefined,
+  naturalGap: number | null,
+): DvrWindow | null {
+  if (rangeStart == null || rangeEnd == null || pos == null) return null;
+  if (naturalGap == null) return null;
+  const end = rangeEnd - naturalGap;
+  // A window whose edge sits before its start has nothing to draw.
+  if (!(end > rangeStart)) return null;
+  return { start: rangeStart, end, pos };
 }
 
 /**

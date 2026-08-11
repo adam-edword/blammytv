@@ -218,20 +218,31 @@ pub struct Handoff {
 }
 
 impl Handoff {
-    pub fn capture() -> Self {
-        // DURATION is the test, not time-pos. `start` was previously set
-        // from time-pos alone under a comment claiming it would be 0 for
-        // live, and nothing made that true: a live feed has a perfectly
-        // real position (it is what the ±10s buttons move), so a channel
-        // watched for ten minutes handed mpv `start=600` and the PiP opened
-        // either black or ten minutes behind live. Duration is the thing
-        // live actually lacks, and it is already the frontend's own live/VOD
-        // test (useDirectOverlay renders a clock only when dur > 0).
-        let dur = get_property("duration")
-            .and_then(|s| s.parse::<f64>().ok())
-            .unwrap_or(0.0);
+    /// `live` is the app's own meta, not a guess from mpv. None = the caller
+    /// did not say (an older frontend), which falls back to the heuristic.
+    pub fn capture(live: Option<bool>) -> Self {
+        // WHO SAYS IT IS LIVE. `start` was once set from time-pos alone,
+        // under a comment claiming the value would be 0 for live; nothing
+        // made that true, so a channel watched for ten minutes handed mpv
+        // `start=600` and the PiP opened black or ten minutes behind.
+        //
+        // The first fix used `duration` as the live/VOD test, on the belief
+        // that a live feed has none. Measured on a real IPTV channel, that is
+        // false: the provider reports `duration = 24.745` on live, which is
+        // really the length of the buffered window (`cache-end` read 24.726
+        // in the same breath). So the caller states it now, and the duration
+        // heuristic survives only as the fallback for a frontend too old to.
+        let vod = match live {
+            Some(l) => !l,
+            None => {
+                get_property("duration")
+                    .and_then(|s| s.parse::<f64>().ok())
+                    .unwrap_or(0.0)
+                    > 0.0
+            }
+        };
         Self {
-            start: if dur > 0.0 {
+            start: if vod {
                 get_property("time-pos").and_then(|s| s.parse::<f64>().ok())
             } else {
                 None
@@ -241,6 +252,7 @@ impl Handoff {
         }
     }
 }
+
 
 /// Play in mpv's own floating window (PiP): on-top, half-size, separate instance.
 pub fn play_popout(url: &str, hand: Handoff) -> Result<(), String> {

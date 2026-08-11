@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   LIVE_TOL,
+  dvrWindow,
   atLiveEdge,
   dvrBehind,
   dvrChanged,
@@ -132,5 +133,69 @@ describe("dvrChanged", () => {
     expect(dvrChanged(null, REAL)).toBe(true);
     expect(dvrChanged(REAL, null)).toBe(true);
     expect(dvrChanged(null, null)).toBe(false);
+  });
+});
+
+describe("dvrWindow — the live edge is not the range end", () => {
+  // The exact reading from a Cartoon Network channel, fresh load, viewer
+  // sitting AT live:
+  //   seekable-ranges [{start: 0, end: 24.511}]
+  //   reader-pts (playhead)                6.507
+  //   demuxer-cache-duration (the gap)    18.219
+  const START = 0;
+  const RANGE_END = 24.511;
+  const POS = 6.507;
+  const GAP = 18.219;
+
+  it("puts the viewer AT live on that reading", () => {
+    // Drawing to the raw range end would have parked the knob at 27% while
+    // the viewer was live, because the demuxer runs 18s ahead of playback.
+    const raw = { start: START, end: RANGE_END, pos: POS };
+    expect(dvrPct(raw)).toBeCloseTo(26.5, 0);
+    expect(atLiveEdge(raw)).toBe(false);
+
+    const w = dvrWindow(START, RANGE_END, POS, GAP);
+    expect(w).not.toBeNull();
+    expect(w!.end).toBeCloseTo(6.292, 3);
+    expect(dvrPct(w!)).toBe(100);
+    expect(atLiveEdge(w!)).toBe(true);
+  });
+
+  it("offers rewind back to the start of what is retained", () => {
+    // Just tuned in, so there is only about as much history as the playhead
+    // has travelled.
+    expect(dvrDepth(dvrWindow(START, RANGE_END, POS, GAP)!)).toBeCloseTo(6.292, 3);
+  });
+
+  it("reports being behind by exactly how far back you seeked", () => {
+    // A channel that has been running a while, so there is real history.
+    // The live edge is rangeEnd minus the natural gap.
+    const EDGE = 300 - GAP; // 281.781
+    expect(dvrBehind(dvrWindow(0, 300, EDGE, GAP)!)).toBe(0);
+    const back10 = dvrWindow(0, 300, EDGE - 10, GAP)!;
+    expect(dvrBehind(back10)).toBeCloseTo(10, 6);
+    expect(atLiveEdge(back10)).toBe(false);
+    // Within the tolerance is still live: the demuxer lands segments in
+    // bursts, so the gap is never a flat zero.
+    expect(atLiveEdge(dvrWindow(0, 300, EDGE - 2, GAP)!)).toBe(true);
+  });
+
+  it("draws nothing until the baseline has settled", () => {
+    // A window built on a wrong gap is worse than no window: it is the
+    // 95%-forever bug with a draggable handle attached.
+    expect(dvrWindow(START, RANGE_END, POS, null)).toBeNull();
+  });
+
+  it("draws nothing when mpv reported no range", () => {
+    expect(dvrWindow(null, RANGE_END, POS, GAP)).toBeNull();
+    expect(dvrWindow(START, null, POS, GAP)).toBeNull();
+    expect(dvrWindow(START, RANGE_END, null, GAP)).toBeNull();
+  });
+
+  it("draws nothing when the edge has not cleared the start yet", () => {
+    // The first seconds of a channel: everything buffered is still ahead of
+    // the playhead, so there is no rewind window to show.
+    expect(dvrWindow(0, 12, 1, 18.219)).toBeNull();
+    expect(dvrWindow(0, 18.219, 1, 18.219)).toBeNull();
   });
 });

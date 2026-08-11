@@ -948,7 +948,7 @@ export function StreamScreen() {
         if (!playing) return;
         const shell = document.querySelector<HTMLElement>(".app-shell");
         if (shell) shell.style.clipPath = "";
-        void tauriPopoutOpen(playing.url).catch(() => {});
+        void tauriPopoutOpen(playing.url, false).catch(() => {});
         // Old-app pattern: popping out drops OS fullscreen — the popped
         // placeholder is a normal windowed app view.
         setPlayingRaw({ ...playing, popped: true, mode: "theater" });

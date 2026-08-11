@@ -708,7 +708,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
       // desktop through the still-cut hole. Idempotent with that cleanup.
       const shell = document.querySelector<HTMLElement>(".app-shell");
       if (shell) shell.style.clipPath = "";
-      if (url) void tauriPopoutOpen(url).catch(() => {});
+      if (url) void tauriPopoutOpen(url, true).catch(() => {});
       setPlaying(false);
       setTheater(false);
       leaveFullscreen();

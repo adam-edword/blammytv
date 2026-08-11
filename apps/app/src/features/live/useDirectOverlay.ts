@@ -18,8 +18,12 @@ import {
   nextHoldAbs,
   type SeekHold,
 } from "./seekHold";
-import { behindLive, nextBaseline } from "./liveEdge";
-import { dvrChanged, type DvrWindow } from "./dvr";
+import {
+  behindLive,
+  nextBaseline,
+  type EdgeBaseline,
+} from "./liveEdge";
+import { dvrChanged, dvrWindow, type DvrWindow } from "./dvr";
 import { endDecision } from "./ending";
 
 /**
@@ -121,7 +125,11 @@ export function useDirectOverlay(
     seekable: true,
     /** demuxer-cache-duration while known to be AT the live edge. Set once
      * per stream, on the first reading after the picture is up. */
-    edgeBaseline: null as number | null,
+    edgeBaseline: null as EdgeBaseline | null,
+    /** performance.now() of the first presented frame, for the settle window. */
+    presentedAt: 0,
+    /** The user has seeked on this stream, so the baseline stops refining. */
+    seeked: false,
     behind: 0,
     behindCbs: new Set<(sec: number) => void>(),
     dvr: null as DvrWindow | null,
@@ -158,6 +166,8 @@ export function useDirectOverlay(
     s.buffering = false;
     s.seekable = true;
     s.edgeBaseline = null;
+    s.presentedAt = 0;
+    s.seeked = false;
     s.behind = 0;
     s.dvr = null;
     s.tracks = null;
@@ -228,6 +238,7 @@ export function useDirectOverlay(
             })
           ) {
             case "present":
+              s.presentedAt = performance.now();
               s.loading = false;
               s.loadingCbs.forEach((cb) => cb(false));
               break;
@@ -248,24 +259,30 @@ export function useDirectOverlay(
               s.loadingCbs.forEach((cb) => cb(true));
               break;
           }
-          // The live DVR window, when the Rust side supplied one (live
-          // only). Strictly better than the behindLive estimate below, and
-          // the chrome prefers it — that is kept as the fallback for an
-          // older native build rather than deleted.
-          const win =
-            st.dvrStart != null && st.dvrEnd != null && st.pos != null
-              ? { start: st.dvrStart, end: st.dvrEnd, pos: st.pos }
-              : null;
+          // The natural forward buffer, refined over the first seconds. The
+          // DVR window's live edge is derived from it, so it has to come
+          // first. See liveEdge.
+          s.edgeBaseline = nextBaseline(s.edgeBaseline, {
+            loading: s.loading,
+            cacheDur: st.cacheDur,
+            sincePresent: s.presentedAt ? performance.now() - s.presentedAt : 0,
+            seeked: s.seeked,
+          });
+          // The live DVR window. Null until the baseline settles, because a
+          // window built on a wrong gap is worse than no window.
+          const win = dvrWindow(
+            st.dvrStart,
+            st.dvrEnd,
+            st.pos,
+            s.edgeBaseline && !s.edgeBaseline.settling ? s.edgeBaseline.gap : null,
+          );
           if (dvrChanged(s.dvr, win)) {
             s.dvr = win;
             s.dvrCbs.forEach((cb) => cb(win));
           }
-          // How far behind live, corrected from mpv (see liveEdge). The
-          // baseline is taken on the first reading once the picture is up,
-          // which is the one moment we KNOW we are at the edge: playback has
-          // just started from wherever the provider handed us the stream.
-          s.edgeBaseline = nextBaseline(s.edgeBaseline, s.loading, st.cacheDur);
-          const beh = behindLive(st.cacheDur, s.edgeBaseline);
+          // Fallback for a host with no window: the same baseline, read as a
+          // distance rather than a position.
+          const beh = behindLive(st.cacheDur, s.edgeBaseline?.gap ?? null);
           if (Math.abs(beh - s.behind) > 0.5) {
             s.behind = beh;
             s.behindCbs.forEach((cb) => cb(beh));
@@ -360,10 +377,12 @@ export function useDirectOverlay(
       // over the chrome's optimistic one. The target maths lives in seekHold
       // because it has a regression history; this is only the wiring.
       seek: (d) => {
+        s.seeked = true;
         s.seekHold = nextHold(s.seekHold, s.time, s.seekable, d, performance.now());
         void tauriMpvSeek(d).catch(() => {});
       },
       seekAbs: (p) => {
+        s.seeked = true;
         s.seekHold = nextHoldAbs(s.time, s.seekable, p, performance.now());
         void tauriMpvSeekAbs(p).catch(() => {});
       },

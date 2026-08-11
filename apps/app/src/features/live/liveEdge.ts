@@ -67,32 +67,53 @@ export function livePctFor(behindSec: number): number {
 }
 
 /**
+ * How long after the first frame the baseline keeps refining.
+ *
+ * The forward buffer is NOT at its steady size when the picture first
+ * appears — mpv is still filling it, and it climbs for several seconds. The
+ * first version of this captured on that first frame and got a number far
+ * too small, which put the live edge permanently ahead of the playhead: the
+ * rail sat at about 95%, and Jump to live refilled the buffer and landed in
+ * exactly the same place. Measured on a real channel, the gap settles well
+ * inside this window.
+ */
+export const SETTLE_MS = 10_000;
+
+/** The natural forward buffer, and whether we are still refining it. */
+export interface EdgeBaseline {
+  /** Steady-state seconds of buffered-but-unplayed content. */
+  gap: number;
+  /** Inside the settle window, with no seek yet. */
+  settling: boolean;
+}
+
+/**
  * The edge baseline after this reading, or null if there still isn't one.
  *
- * Captured EXACTLY ONCE per stream, on the first reading after the picture
- * is up — the one moment we know we are at the live edge, because playback
- * has just started from wherever the provider handed us the stream.
+ * Takes the MAXIMUM gap seen while settling rather than the first, because
+ * the buffer only grows towards its steady size. It freezes on the first
+ * seek: a seek back inflates the gap by exactly the amount seeked, and
+ * absorbing that would redefine "live" as wherever the user is standing —
+ * after which the indicator could never report being behind again.
  *
- * Two ways to get this wrong, both of which make the indicator lie without
- * touching `behindLive` at all:
- *
- *   capture while loading  the forward buffer is mid-fill, so the baseline
- *                          is too small and the rail reads permanently
- *                          behind on a stream nobody has touched
- *   re-capture later       "live" gets silently redefined as wherever the
- *                          user happens to be standing, so rewinding once
- *                          means the indicator can never read behind again
- *
- * A cacheDur of exactly 0 is a REAL baseline, not an absent one: a stream
- * that presents with an empty forward buffer reads 0.0 here, and treating
- * that as "not captured yet" would keep re-capturing forever.
+ * A gap of exactly 0 is a REAL reading, not an absent one.
  */
 export function nextBaseline(
-  cur: number | null,
-  loading: boolean,
-  cacheDur: number | null | undefined,
-): number | null {
-  if (cur != null) return cur;
-  if (loading) return null;
-  return cacheDur ?? null;
+  cur: EdgeBaseline | null,
+  o: {
+    loading: boolean;
+    cacheDur: number | null | undefined;
+    /** ms since the picture appeared. */
+    sincePresent: number;
+    /** The user has seeked on this stream. */
+    seeked: boolean;
+  },
+): EdgeBaseline | null {
+  if (o.loading) return null;
+  if (o.cacheDur == null) return cur;
+  if (!cur) return { gap: o.cacheDur, settling: true };
+  if (!cur.settling) return cur;
+  if (o.seeked || o.sincePresent >= SETTLE_MS)
+    return { gap: cur.gap, settling: false };
+  return { gap: Math.max(cur.gap, o.cacheDur), settling: true };
 }

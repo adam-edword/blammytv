@@ -53,7 +53,15 @@ fn popout_stop() {
 // mpv's OSC). The React side also unmounts the player driver; its inv_stop
 // then lands on an already-closed player, which is a safe no-op.
 #[tauri::command]
-fn popout_open(window: tauri::WebviewWindow, url: String) -> Result<(), String> {
+fn popout_open(
+    window: tauri::WebviewWindow,
+    url: String,
+    // Whether this is a LIVE stream, per the app's own meta. Passed in
+    // because no mpv property answers it reliably — see mpv_status's note on
+    // a provider reporting a duration for a live feed. None means an older
+    // frontend that did not say, and falls back to the duration heuristic.
+    live: Option<bool>,
+) -> Result<(), String> {
     let hand;
     #[cfg(windows)]
     {
@@ -62,7 +70,7 @@ fn popout_open(window: tauri::WebviewWindow, url: String) -> Result<(), String> 
             .run_on_main_thread(move || {
                 // Read everything the popout needs BEFORE teardown: position,
                 // volume, mute. See mpv::Handoff.
-                let h = mpv::Handoff::capture();
+                let h = mpv::Handoff::capture(live);
                 inv::close();
                 let _ = tx.send(h);
             })
@@ -72,7 +80,7 @@ fn popout_open(window: tauri::WebviewWindow, url: String) -> Result<(), String> 
     #[cfg(not(windows))]
     {
         hand = mpv::Handoff::default();
-        let _ = &window;
+        let _ = (&window, live);
     }
     // Own mpv instance so the in-app teardown (fired by the React unmount)
     // can't terminate it.
@@ -462,53 +470,49 @@ fn mpv_status() -> String {
     let cache_dur = mpv::get_property("demuxer-cache-duration").and_then(|s| s.parse::<f64>().ok());
     // THE DVR WINDOW, from mpv's own answer rather than inferred.
     //
-    // Only on live (no duration): this is the one property here that is not
-    // a scalar. mpv builds a node and formats it to JSON, we parse it back,
-    // and that is more work than the five reads above put together. VOD does
-    // not need it and should not pay for it on every poll.
+    // NOT gated on `duration` being absent. That gate was here to spare VOD
+    // the one non-scalar read in this poll, and it was built on the
+    // assumption that a live stream has no duration. Measured on a real IPTV
+    // channel, that assumption is false: the provider reports
+    // `duration = 24.745` on a live feed, which is not a duration at all but
+    // the length of the currently buffered window (`cache-end` read 24.726 in
+    // the same breath). So the gate never fired, the window was never sent,
+    // and the live rail silently fell back to an estimate.
     //
-    // `seekable-start`/`seekable-end` were tried as slash paths first and
-    // read `<unset>` — the name is wrong, not the idea. The real shape is
-    // `seekable-ranges`, an ARRAY of {start,end}, and the top-level values
-    // are on the same normalised timeline as `time-pos` (the per-stream
-    // `reader-pts` inside it is raw PTS and is NOT interchangeable: measured
-    // on a real channel, top-level 7.84 against per-stream 2698.48).
+    // There is no property here that reliably separates live from VOD. The
+    // app's own `meta.live` is the only trustworthy answer and it lives in
+    // the frontend, so the split is made there. This just reports what mpv
+    // knows and lets the caller decide.
     //
-    // FOLD over every range. Not first().start / last().end: mpv emits the
-    // array in reverse (command.c walks `num_seek_ranges - 1` down to 0) and
-    // the underlying list is LRU-ordered, not time-ordered — `set_current_range`
-    // moves the active range to the end on every switch, and mpv itself
-    // qsorts by time whenever it actually needs time order, which is the proof
-    // that the raw order is not it. So with two ranges the old code took the
-    // start of the NEWEST and the end of the OLDEST, typically inverting them:
-    // cache [0,300], a seek out of cache creates [500,560] and becomes
-    // current, and the window read start=500 end=300. Downstream that is a
-    // zero-depth rail and a LIVE pill lit while minutes behind.
-    let dvr = if dur.is_none() {
-        mpv::get_property("demuxer-cache-state")
-            .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
-            .and_then(|v| {
-                let ranges = v.get("seekable-ranges")?.as_array()?;
-                let mut lo = f64::INFINITY;
-                let mut hi = f64::NEG_INFINITY;
-                for r in ranges {
-                    if let (Some(a), Some(b)) = (
-                        r.get("start").and_then(|v| v.as_f64()),
-                        r.get("end").and_then(|v| v.as_f64()),
-                    ) {
-                        lo = lo.min(a);
-                        hi = hi.max(b);
-                    }
+    // `seekable-ranges` is an ARRAY of {start,end}. FOLD over all of it, not
+    // first().start / last().end: mpv emits the array in reverse (command.c
+    // walks `num_seek_ranges - 1` down to 0) and the underlying list is
+    // LRU-ordered, not time-ordered — `set_current_range` moves the active
+    // range to the end on every switch, and mpv itself qsorts by time
+    // whenever it actually needs time order, which is the proof that the raw
+    // order is not it. With two ranges the naive read took the start of the
+    // NEWEST and the end of the OLDEST and inverted them.
+    let dvr = mpv::get_property("demuxer-cache-state")
+        .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
+        .and_then(|v| {
+            let ranges = v.get("seekable-ranges")?.as_array()?;
+            let mut lo = f64::INFINITY;
+            let mut hi = f64::NEG_INFINITY;
+            for r in ranges {
+                if let (Some(a), Some(b)) = (
+                    r.get("start").and_then(|v| v.as_f64()),
+                    r.get("end").and_then(|v| v.as_f64()),
+                ) {
+                    lo = lo.min(a);
+                    hi = hi.max(b);
                 }
-                if lo.is_finite() && hi.is_finite() {
-                    Some((lo, hi))
-                } else {
-                    None
-                }
-            })
-    } else {
-        None
-    };
+            }
+            if lo.is_finite() && hi.is_finite() {
+                Some((lo, hi))
+            } else {
+                None
+            }
+        });
     let t_scalars = t_start.elapsed();
     let t_tracks_start = std::time::Instant::now();
     let tracks = mpv::track_list();
