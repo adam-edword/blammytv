@@ -90,6 +90,26 @@ export function useDirectOverlay(
     tracksJson: "",
     metaJson: "",
     time: null as TimeInfo | null,
+    /**
+     * The last position mpv ACTUALLY reported, never held.
+     *
+     * `time` is what the chrome draws, and the seek hold deliberately freezes
+     * it so a stale poll cannot yank the scrubber back. Decisions about
+     * whether a file COMPLETED must not read a frozen value: seek from 95% to
+     * 10%, have the source die inside the 1.5s hold, and the completion test
+     * `pos >= dur * 0.9` was still looking at 95%. That fires onEnded on a
+     * death — markWatched, the watch entry pushed to dur/dur, Up Next rolling
+     * the next episode, and the real resume position gone. Which is verbatim
+     * the failure the guard below exists to prevent; the hold reintroduced it
+     * through the back door by making `time` untrustworthy exactly when a
+     * death is most likely (a fresh range request is in flight).
+     *
+     * Same fix covers the other direction: hold an arrow key and the throttle
+     * re-stamps the hold every 150ms, so it never expires and `time` sat at
+     * the pre-burst position while mpv ran to EOF. A finished file then took
+     * the DEATH path and showed "isn't responding" instead of Up Next.
+     */
+    lastTime: null as TimeInfo | null,
     seekHold: null as SeekHold | null,
     buffering: false,
     seekable: true,
@@ -137,11 +157,25 @@ export function useDirectOverlay(
     s.tracks = null;
     s.tracksJson = "";
     s.time = null;
+    s.lastTime = null;
+    // MISSED when the hold landed, alongside eleven fields that are reset
+    // here. A stream change with a hold up measured the NEW file's first
+    // positions against the OLD file's target, discarding them for up to
+    // 1.5s — so a fast episode roll, a failover or a Retry each parked the
+    // scrubber at 0:00 for a beat.
+    s.seekHold = null;
     s.chapters = [];
     s.chaptersJson = "";
     s.loadingCbs.forEach((cb) => cb(true));
     s.timeCbs.forEach((cb) => cb(null));
     s.chapterCbs.forEach((cb) => cb([]));
+    // PUSH the cleared window, do not just clear it. `dvrChanged(null, null)`
+    // is false, so the poll's own gate can never announce this — and the
+    // overlay is not remounted on a channel switch (LiveScreen renders it
+    // with no key). Without this the chrome kept the PREVIOUS channel's
+    // window: a rail drawn from a frozen percentage, still draggable, whose
+    // release seeked to an absolute second on the old channel's timeline.
+    s.dvrCbs.forEach((cb) => cb(null));
     /**
      * SELF-CHAINED, not setInterval, and the delay is chosen per tick.
      *
@@ -188,7 +222,11 @@ export function useDirectOverlay(
             // durationless file completes: a dead card at its end instead
             // of Up Next — the right way to be wrong, since it keeps the
             // user's position instead of destroying it.
-            const t = s.time;
+            //
+            // Reads `lastTime`, NOT `time`: see the note on that field. The
+            // displayed clock is held across a seek on purpose and is the
+            // wrong input for a decision that can destroy a resume position.
+            const t = s.lastTime;
             if (
               metaRef.current?.live === false &&
               !!t &&
@@ -263,6 +301,10 @@ export function useDirectOverlay(
           // The playback clock, for the VOD scrubber. Live streams have no
           // usable duration — the overlay only renders it when dur > 0.
           if (st.pos != null && st.dur != null && st.dur > 0) {
+            // Unconditional, and BEFORE the hold: this is what mpv said, which
+            // is what the completion test needs. The hold only governs what
+            // the chrome is shown.
+            s.lastTime = { pos: st.pos, dur: st.dur };
             // Unless a seek is still in flight and this is the position it
             // was seeking AWAY from. See seekHold.
             if (holdsPoll(s.seekHold, st.pos, performance.now())) {

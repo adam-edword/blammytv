@@ -474,17 +474,37 @@ fn mpv_status() -> String {
     // `reader-pts` inside it is raw PTS and is NOT interchangeable: measured
     // on a real channel, top-level 7.84 against per-stream 2698.48).
     //
-    // First range's start to last range's end. In practice live has exactly
-    // one, but a stream that has been seeked around can hold several and the
-    // outer bounds are what the bar draws.
+    // FOLD over every range. Not first().start / last().end: mpv emits the
+    // array in reverse (command.c walks `num_seek_ranges - 1` down to 0) and
+    // the underlying list is LRU-ordered, not time-ordered — `set_current_range`
+    // moves the active range to the end on every switch, and mpv itself
+    // qsorts by time whenever it actually needs time order, which is the proof
+    // that the raw order is not it. So with two ranges the old code took the
+    // start of the NEWEST and the end of the OLDEST, typically inverting them:
+    // cache [0,300], a seek out of cache creates [500,560] and becomes
+    // current, and the window read start=500 end=300. Downstream that is a
+    // zero-depth rail and a LIVE pill lit while minutes behind.
     let dvr = if dur.is_none() {
         mpv::get_property("demuxer-cache-state")
             .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
             .and_then(|v| {
                 let ranges = v.get("seekable-ranges")?.as_array()?;
-                let start = ranges.first()?.get("start")?.as_f64()?;
-                let end = ranges.last()?.get("end")?.as_f64()?;
-                Some((start, end))
+                let mut lo = f64::INFINITY;
+                let mut hi = f64::NEG_INFINITY;
+                for r in ranges {
+                    if let (Some(a), Some(b)) = (
+                        r.get("start").and_then(|v| v.as_f64()),
+                        r.get("end").and_then(|v| v.as_f64()),
+                    ) {
+                        lo = lo.min(a);
+                        hi = hi.max(b);
+                    }
+                }
+                if lo.is_finite() && hi.is_finite() {
+                    Some((lo, hi))
+                } else {
+                    None
+                }
             })
     } else {
         None

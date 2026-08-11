@@ -377,7 +377,13 @@ export function TheaterOverlay({
    * that can invalidate this is a resize, which clears it below. */
   const scrubRect = useRef<DOMRect | null>(null);
   const scrubFrac = useCallback((clientX: number) => {
-    const r = scrubRect.current ?? seekTrackRef.current?.getBoundingClientRect();
+    // Either rail: `scrubRect` is nulled by the resize handler, and on the
+    // live rail `seekTrackRef` is null, so a resize (or an F-key) mid-drag
+    // fell through to 0 — the knob slammed left and release seeked to the
+    // oldest second in the DVR window.
+    const r =
+      scrubRect.current ??
+      (seekTrackRef.current ?? liveTrackRef.current)?.getBoundingClientRect();
     if (!r || r.width === 0) return 0;
     return Math.min(1, Math.max(0, (clientX - r.left) / r.width));
   }, []);
@@ -401,6 +407,9 @@ export function TheaterOverlay({
    * projected clock is anchored to this and never accumulates onto itself,
    * so a poll always wins and drift cannot build. */
   const clockAnchor = useRef<{ pos: number; at: number } | null>(null);
+  /** The last value the projection actually produced, so a rate change can
+   * re-anchor to where the clock IS rather than to the last poll. */
+  const projectedRef = useRef(0);
   const scrubTo = useCallback((clientX: number) => {
     scrubNext.current = scrubFrac(clientX);
     if (scrubRaf.current) return;
@@ -911,7 +920,17 @@ export function TheaterOverlay({
     apply(delta);
     arm();
   }, []);
-  useEffect(() => () => window.clearTimeout(seekTimer.current), []);
+  // Keyed on playbackKey, not just unmount. Hold Left, release, click
+  // another channel within 150ms: the pending flush fired `seek(d)` against
+  // the NEW stream, which then started several seconds behind live for no
+  // reason the user could attribute to anything.
+  useEffect(() => {
+    return () => {
+      window.clearTimeout(seekTimer.current);
+      seekTimer.current = 0;
+      seekPend.current = 0;
+    };
+  }, [playbackKey]);
 
   // Jump to the live edge. A forward seek can't reach it (mpv never pulled the
   // data between the playback buffer and now), so this reloads the stream on
@@ -1044,15 +1063,36 @@ export function TheaterOverlay({
     }
     clockAnchor.current = { pos: time.pos, at: performance.now() };
   }, [time]);
+  // A RATE CHANGE re-anchors too. The interval reads `speed` through a ref,
+  // so without this a 1x -> 4x switch replayed the whole elapsed poll
+  // interval at the new rate: up to 1.5s of overshoot, visible as the clock
+  // lurching forward before the next poll dragged it back. Anchor to what
+  // was last projected rather than to the last poll, so the correction does
+  // not itself jump backwards by up to a poll interval.
+  useEffect(() => {
+    if (!clockAnchor.current) return;
+    clockAnchor.current = {
+      pos: projectedRef.current || clockAnchor.current.pos,
+      at: performance.now(),
+    };
+    // `speed` only, deliberately: re-running this on `time` would defeat the
+    // anchor effect above.
+  }, [speed]);
   useEffect(() => {
     if (!clockLive) return;
     let last = "";
     const id = window.setInterval(() => {
       const a = clockAnchor.current;
       if (!a || !labelRef.current) return;
-      const txt = fmtClock(
-        projectPos(a.pos, a.at, performance.now(), speedRef.current, durRef.current),
+      const p = projectPos(
+        a.pos,
+        a.at,
+        performance.now(),
+        speedRef.current,
+        durRef.current,
       );
+      projectedRef.current = p;
+      const txt = fmtClock(p);
       // Ten wake-ups a second, at most one DOM write per second.
       if (txt === last) return;
       last = txt;
@@ -1410,6 +1450,15 @@ export function TheaterOverlay({
               {!vod && (
                 <p className="theater-bar__chan">
                   <span className="theater-bar__name">{meta.channelName}</span>
+                  {/* The programme's start time. It used to be the seek
+                      rail's left label, which the DVR window depth took
+                      over — and it had exactly one consumer in the whole
+                      codebase, so leaving it there was deleting it. The
+                      guide is hidden in theater mode, so this is now the
+                      only place the time appears at all. */}
+                  {meta.startLabel && (
+                    <span className="theater-bar__source">{meta.startLabel}</span>
+                  )}
                   {meta.sourceName && (
                     <span className="theater-bar__source">{meta.sourceName}</span>
                   )}
@@ -1534,7 +1583,17 @@ export function TheaterOverlay({
                   const f = scrubFrac(e.clientX);
                   endScrub();
                   setScrub(null);
-                  if (dvr) api()?.seekAbs?.(dvrSeekTarget(dvr, f));
+                  if (dvr) {
+                    const target = dvrSeekTarget(dvr, f);
+                    api()?.seekAbs?.(target);
+                    // OPTIMISTIC, exactly as the VOD rail does with setTime.
+                    // Without it the next render recomputes the rail from the
+                    // stale window and snaps the knob back to where the drag
+                    // started. And the recovery is not one poll: a backwards
+                    // DVR seek is the thing that triggers rebuffering, so
+                    // time-pos does not advance for seconds.
+                    setDvr((w) => (w ? { ...w, pos: target } : w));
+                  }
                 }}
                 onPointerCancel={() => {
                   endScrub();

@@ -243,9 +243,18 @@
   z-index: 45;
 }
 
+/* #inv-chrome is position:fixed with NO transform, so it is not a containing
+   block for fixed descendants — anything fixed inside it resolves against the
+   VIEWPORT and escapes the player box. That matters wherever the slot is not
+   the whole window: live theater letterboxes inside the main column, and
+   SportsTheater insets by a 360px side panel. Everything fixed that belongs
+   to the player has to be listed here. (.skip-chip was missing too, and had
+   the same bug before tonight.) */
 #inv-chrome .mini-overlay,
 #inv-chrome .theater-overlay,
-#inv-chrome .tune {
+#inv-chrome .tune,
+#inv-chrome .buffering,
+#inv-chrome .skip-chip {
   position: absolute;
 }
 
@@ -579,6 +588,11 @@
 
 .theater-seek__knob {
   position: absolute;
+  /* The wrapper is pointer-events:none so it cannot swallow track drags, but
+     that also made the knob itself dead. At --pct 0 or 1 the knob overhangs
+     the track by 7px, and on the live rail it sits pinned at the right edge
+     by default, so its outer half stopped starting a drag. */
+  pointer-events: auto;
   left: 0;
   top: 50%;
   width: 14px;
@@ -607,6 +621,10 @@
 .theater-seek__labels {
   display: flex;
   justify-content: space-between;
+  /* The elapsed label now ticks every second (v0.8.195's projected clock) and
+     the DVR depth label ticks continuously, so proportional digits visibly
+     wobble. Seventeen other rules in this file already do this. */
+  font-variant-numeric: tabular-nums;
   font-family: var(--font-headline);
   font-weight: 600;
   font-size: 12px;
@@ -936,16 +954,28 @@
 .buffering {
   position: fixed;
   left: 50%;
-  bottom: 96px;
-  transform: translateX(-50%);
+  /* OVER THE PICTURE, not above the chrome. bottom:96px put it exactly on
+     the seek rail: .theater-bar is padding 96px/30px with a 48px controls
+     row, which lands the track at 94-122px from the bottom. The pill is
+     ~30px tall, so it covered the very control whose drag triggers the
+     rebuffering that shows it. Centring cannot collide with chrome whose
+     height varies by mode. */
+  top: 50%;
+  transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 7px 14px;
   border-radius: 999px;
-  background: rgb(0 0 0 / 0.66);
-  backdrop-filter: blur(8px);
+  /* The house glass recipe, matching .skip-chip rather than inventing one. */
+  background: rgb(0 0 0 / 0.6);
+  border: 1px solid rgb(255 255 255 / 0.22);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   color: #fff;
+  /* Every other label in this chrome is the headline face; without this it
+     inherits --font-text from .theater-overlay and is the one odd element. */
+  font-family: var(--font-headline);
   font-size: 13px;
   font-weight: 500;
   letter-spacing: 0.01em;
@@ -991,6 +1021,11 @@
    watching live. It knows this now rather than inferring it from an
    indicator that was itself dead reckoning. */
 .theater-seek__live--behind {
-  opacity: 0.45;
-  filter: grayscale(1);
+  /* NOT grayscale + opacity. .theater-seek__live is bare text in var(--accent)
+     (#c22727 by default); desaturated and half-faded over the bar's scrim it
+     composites to about 1.05:1 contrast, i.e. invisible — so the labels row
+     read as one label and a blank gap exactly when being behind live was the
+     thing worth saying. Restate the colour instead: legible, and no longer
+     claiming live. */
+  color: rgb(255 255 255 / 0.5);
 }
