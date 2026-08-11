@@ -96,7 +96,18 @@ PW_FROM=/tmp/pw/anchor.js node scripts/verify-watchdog.mjs
 
 `playwright-core` is deliberately installed outside the repo (that is what
 `PW_FROM` is for) so it never lands in the lockfile. Chromium is already at
-`/opt/pw-browsers/chromium`.
+`/opt/pw-browsers/chromium`. Run them from the REPO ROOT, not from
+`apps/app`.
+
+Passing today: `verify-watchdog`, `verify-aniskip-chip`.
+
+**`verify-overlay-tracks` and `verify-credits` are BROKEN, and were already
+broken before the v0.8.188 player work** — verified by running them against
+a worktree at 951e77d, where they fail identically (`waiting for
+locator('.theater-overlay') to be visible`). So they are stale harnesses
+rather than a regression, but they are also two tests nobody is getting any
+value from. Fixing their stubs is a cheap win for whoever wants headless
+coverage of track selection.
 
 ### Checking the Rust from an agent container
 
