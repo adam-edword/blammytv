@@ -64,3 +64,53 @@ export function holdsPoll(
   if (now - hold.at >= HOLD_MS) return false;
   return Math.abs(pos - hold.target) > HOLD_TOL;
 }
+
+/** The clock the hold is measured against. Same shape as TimeInfo. */
+export interface HoldClock {
+  pos: number;
+  dur: number;
+}
+
+/**
+ * The hold a RELATIVE seek should arm, or null for no hold.
+ *
+ * Chains off the outstanding TARGET rather than the last polled position,
+ * and that is the whole subtlety. `time` is frozen for as long as a hold is
+ * up — that is what a hold is — so a second press in a burst read the
+ * PRE-burst position and aimed a full delta short of where mpv was actually
+ * going. Press back-10 five times: mpv goes to pos-50, the target said
+ * pos-40, the two could never agree, and every burst ended in the timeout
+ * and a snap instead of the clean landing the hold exists to give.
+ *
+ * Clamped the way mpv clamps: back-10 at 0:05 lands at 0:00, so aiming at
+ * -5 was aiming somewhere the file does not go.
+ */
+export function nextHold(
+  cur: SeekHold | null,
+  time: HoldClock | null,
+  seekable: boolean,
+  delta: number,
+  now: number,
+): SeekHold | null {
+  // No clock means live (no scrubber to protect). An unseekable source means
+  // the seek cannot land, so a hold would show a position mpv will never
+  // reach and then snap back HOLD_MS later, on every single press — better
+  // to be wrong instantly and let the greyed-out control explain why.
+  if (!time || !seekable) return null;
+  const from = cur ? cur.target : time.pos;
+  return { target: clampTo(time, from + delta), at: now };
+}
+
+/** The hold an ABSOLUTE seek should arm. No chaining: the target is stated. */
+export function nextHoldAbs(
+  time: HoldClock | null,
+  seekable: boolean,
+  target: number,
+  now: number,
+): SeekHold | null {
+  if (!time || !seekable) return null;
+  return { target: clampTo(time, target), at: now };
+}
+
+const clampTo = (t: HoldClock, v: number): number =>
+  Math.min(t.dur, Math.max(0, v));

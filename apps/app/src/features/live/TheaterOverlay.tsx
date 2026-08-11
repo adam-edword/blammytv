@@ -400,6 +400,11 @@ export function TheaterOverlay({
     scrubRect.current = null;
   }, []);
   const labelRef = useRef<HTMLSpanElement | null>(null);
+  /** The live rail's left label. Its own, because `labelRef` belongs to the
+   * VOD elapsed readout and only one rail is ever mounted. */
+  const liveLabelRef = useRef<HTMLSpanElement | null>(null);
+  /** Read in the drag's rAF, which is deliberately a stable callback. */
+  const dvrRef = useRef<DvrWindow | null>(null);
   const durRef = useRef(0);
   const speedRef = useRef(1);
   speedRef.current = speed;
@@ -428,6 +433,14 @@ export function TheaterOverlay({
       );
       if (labelRef.current)
         labelRef.current.textContent = fmtClock(f * durRef.current);
+      // The live rail had NO readout at all: its left label kept showing the
+      // window depth while you dragged, so the drag was blind. During a drag
+      // it shows where you are dragging TO, as distance behind live, which
+      // is the number you are actually choosing.
+      if (liveLabelRef.current && dvrRef.current) {
+        const behind = dvrDepth(dvrRef.current) * (1 - f);
+        liveLabelRef.current.textContent = `-${fmtClock(behind)}`;
+      }
     });
   }, [scrubFrac]);
   useEffect(() => {
@@ -944,6 +957,7 @@ export function TheaterOverlay({
   // Knowing beats inferring: with a window we can compare the playhead to
   // the actual live edge instead of reading it off an indicator that was
   // itself a guess.
+  dvrRef.current = dvr;
   const atLive = dvr ? atLiveEdge(dvr) : livePct >= 99;
   /* What the live rail draws. A drag owns it while held, exactly as the VOD
    * one works; otherwise the real window position, or the old estimate when
@@ -1609,7 +1623,7 @@ export function TheaterOverlay({
                 {/* How far back you can go, which is the thing worth knowing
                     before pressing rewind. The programme start time it
                     replaces is already in the title block above. */}
-                <span>
+                <span ref={liveLabelRef}>
                   {dvr && dvrDepth(dvr) > 0
                     ? `-${fmtClock(dvrDepth(dvr))}`
                     : (meta?.startLabel ?? "")}
@@ -1632,8 +1646,17 @@ export function TheaterOverlay({
               type="button"
               className="player__btn"
               aria-label="Back 10 seconds"
-          title="Back 10 seconds"
-              disabled={vod && !seekable}
+              title={
+                vod && !seekable
+                  ? "This source can't be seeked"
+                  : "Back 10 seconds"
+              }
+              // aria-disabled, NOT disabled: Chromium suppresses the
+              // tooltip on a disabled control, so the explanation never
+              // reached the person who needed it. doSeek already refuses
+              // the click, so the button is inert either way.
+              aria-disabled={vod && !seekable}
+              data-inert={vod && !seekable ? "" : undefined}
               onClick={() => doSeek(-10)}
             >
               <SkipBackIcon size={24} />
@@ -1651,8 +1674,17 @@ export function TheaterOverlay({
               type="button"
               className="player__btn"
               aria-label="Forward 10 seconds"
-          title="Forward 10 seconds"
-              disabled={vod && !seekable}
+              title={
+                vod && !seekable
+                  ? "This source can't be seeked"
+                  : "Forward 10 seconds"
+              }
+              // aria-disabled, NOT disabled: Chromium suppresses the
+              // tooltip on a disabled control, so the explanation never
+              // reached the person who needed it. doSeek already refuses
+              // the click, so the button is inert either way.
+              aria-disabled={vod && !seekable}
+              data-inert={vod && !seekable ? "" : undefined}
               onClick={() => doSeek(10)}
             >
               <SkipFwdIcon size={24} />

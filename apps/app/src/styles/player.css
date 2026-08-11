@@ -1029,3 +1029,13 @@
      claiming live. */
   color: rgb(255 255 255 / 0.5);
 }
+
+/* Inert rather than `disabled`. A disabled control gets no tooltip in
+   Chromium, so the two greyed-out skip buttons on an unseekable source
+   explained nothing at all — and dropping out of the tab order took away the
+   one way a keyboard user could reach the explanation. doSeek refuses the
+   click regardless, so this is the same inertness with the reason attached. */
+.player__btn[data-inert] {
+  opacity: 0.3;
+  cursor: not-allowed;
+}

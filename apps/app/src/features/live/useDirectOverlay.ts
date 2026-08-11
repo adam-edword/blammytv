@@ -12,7 +12,12 @@ import {
   type TheaterMeta,
 } from "../../lib/tauri";
 import type { ChapterInfo, OverlayApi, TimeInfo, Tracks } from "./overlayApi";
-import { holdsPoll, type SeekHold } from "./seekHold";
+import {
+  holdsPoll,
+  nextHold,
+  nextHoldAbs,
+  type SeekHold,
+} from "./seekHold";
 import { behindLive } from "./liveEdge";
 import { dvrChanged, type DvrWindow } from "./dvr";
 import { endDecision } from "./ending";
@@ -352,36 +357,15 @@ export function useDirectOverlay(
       // protect. A relative seek's target is exact because mpv is asked for
       // `relative+exact`, so aiming at pos + delta is aiming at where it
       // will actually land.
+      // Both arm the hold so the poll cannot push the pre-seek position back
+      // over the chrome's optimistic one. The target maths lives in seekHold
+      // because it has a regression history; this is only the wiring.
       seek: (d) => {
-        // No hold on an unseekable source: the seek cannot land, so holding
-        // would show a position mpv will never reach and then snap back
-        // 1.5s later, on every press. Better to be wrong instantly and let
-        // the greyed-out control explain why.
-        if (s.time && s.seekable) {
-          // Chain off the OUTSTANDING target, not the last position the poll
-          // was allowed to write. `s.time` is frozen for as long as a hold is
-          // up, so a second press in a burst read the PRE-burst position and
-          // aimed a whole delta short of where mpv was actually going: the
-          // hold could then never be satisfied, and every burst ended in the
-          // 1.5s timeout and a snap. The chrome already accumulates this way
-          // (its setTime updater chains off its own optimistic value), so
-          // this is the two sides agreeing rather than a new rule.
-          const from = s.seekHold ? s.seekHold.target : s.time.pos;
-          s.seekHold = {
-            // Clamped like mpv clamps: back-10 at 0:05 lands at 0:00, so
-            // aiming at -5 would be aiming somewhere the file does not go.
-            target: Math.min(s.time.dur, Math.max(0, from + d)),
-            at: performance.now(),
-          };
-        }
+        s.seekHold = nextHold(s.seekHold, s.time, s.seekable, d, performance.now());
         void tauriMpvSeek(d).catch(() => {});
       },
       seekAbs: (p) => {
-        if (s.time && s.seekable)
-          s.seekHold = {
-            target: Math.min(s.time.dur, Math.max(0, p)),
-            at: performance.now(),
-          };
+        s.seekHold = nextHoldAbs(s.time, s.seekable, p, performance.now());
         void tauriMpvSeekAbs(p).catch(() => {});
       },
       setSpeed: (sp) => void tauriMpvSetSpeed(sp).catch(() => {}),
