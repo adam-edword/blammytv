@@ -49,8 +49,9 @@ For lint, the script has no equivalent, so run it directly:
 cd apps/app/src-tauri && cargo clippy --target x86_64-pc-windows-gnu
 ```
 
-Baseline is **10 warnings**, all of them the libmpv symbol transmutes at
-`mpv.rs:89-103`. Anything else is yours.
+Baseline is **9 warnings**, all of them the libmpv symbol transmutes at
+`mpv.rs:89-103`. Anything else is yours. (`grep -c "^warning:"` says 10 —
+the tenth is cargo's own "generated 9 warnings" summary line.)
 
 It is a TYPE check, not a build: it will not catch a linker problem or
 anything about libmpv's runtime behaviour. It does catch every signature

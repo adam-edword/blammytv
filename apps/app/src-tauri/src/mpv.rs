@@ -459,9 +459,20 @@ fn ensure_player(wid: isize) -> Result<(), String> {
         // plays off a local file its own server already wrote to disk.
         //
         // 512/256 puts a 4K remux at roughly 68s forward and 34s back, and
-        // a 1080p WEB-DL comfortably past ten minutes either way. The cost
-        // is RAM: 768MiB worst case, and only when something actually fills
-        // it. NOT set with data from a real 4K stream behind it, so it is
+        // a 1080p WEB-DL comfortably past ten minutes either way.
+        //
+        // THE RAM COST IS 768MiB, AND ON LIVE THAT IS THE RESTING STATE, not
+        // a worst case. `demuxer-donate-buffer` defaults to yes, and
+        // `prune_old_packets` lets the back buffer grow into whatever the
+        // forward buffer is not using: `max_avail = max_bytes_bw + (max_bytes
+        // - fw_bytes)`. At the live edge `fw_bytes` is near zero by
+        // definition, because the provider only has "now" — so the back
+        // buffer is allowed all 512MiB of the forward allowance on top of its
+        // own 256MiB. Under the stock 150/50 the same expression gave 200MiB.
+        // A live channel left running reaches 768MiB on its own with no user
+        // action, and nothing ever shrinks it because live never ends.
+        // Measured at ~1GB RSS on a real machine and accepted; recorded here
+        // so the next person changing these numbers knows what they mean. NOT set with data from a real 4K stream behind it, so it is
         // deliberately a pair of numbers rather than a scheme — both are
         // runtime-updatable, so `mpvSet("demuxer-max-back-bytes", …)` can
         // A/B them on a live stream with no rebuild, and `playerDiag()`
@@ -567,9 +578,17 @@ fn reset_per_file(start: Option<f64>) {
     // immediately before each loadfile, so `none` (mpv's own REL_TIME_NONE,
     // verified in m_option.c's parse_rel_time) is what a stream with no
     // resume point explicitly gets. Nothing can leak into the next file.
+    // FILTERED, matching play_popout. A negative value is not rejected by
+    // mpv, it is REINTERPRETED: a leading `-` parses as a relative time and
+    // resolves to that many seconds before the END of the file, so `start=-30`
+    // silently plays the last thirty seconds. The frontend happens to send
+    // null for anything <= 0 today, but the guard belongs in the layer that
+    // owns the invariant, not in the one that can be hot-swapped under it.
     set_prop(
         "start",
-        &start.map_or_else(|| "none".to_string(), |s| s.to_string()),
+        &start
+            .filter(|s| *s > 0.0 && s.is_finite())
+            .map_or_else(|| "none".to_string(), |s| s.to_string()),
     );
 }
 

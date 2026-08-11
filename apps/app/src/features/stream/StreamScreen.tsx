@@ -1033,14 +1033,70 @@ export function StreamScreen() {
     setVideoReady(false);
   }
 
-  // Resume-from-position is mpv's `start` now, handed to it on the load (see
-  // InvertedPlayer's `start` prop). It used to be a one-shot absolute seek
-  // fired on the first presented frame, which is the latest possible moment
-  // to ask: mpv had already reached the network, filled its cache from byte
-  // zero, decoded and shown 0:00, and the seek threw all of that away and
-  // issued a fresh range request. You saw the opening scene, then a stall,
-  // then your resume point. The one-shot ref, the four-key dep array and the
-  // onLoading subscription all went with it.
+  /* Resume-from-position is mpv's `start` now, handed to it on the load (see
+   * InvertedPlayer's `start` prop). It used to be a one-shot absolute seek
+   * fired on the first presented frame, which is the latest possible moment
+   * to ask: mpv had already reached the network, filled its cache from byte
+   * zero, decoded and shown 0:00, and the seek threw all of that away and
+   * issued a fresh range request. You saw the opening scene, then a stall,
+   * then your resume point.
+   *
+   * What follows is the SAFETY NET, not the mechanism. It watches where
+   * playback actually landed and only acts if `start` did nothing, which
+   * covers two cases neither of which can be checked from a dev container:
+   *
+   *   - A FRONTEND-ONLY update onto an older native build. This app ships
+   *     frontend bundles independently of the binary (plan 008), and native
+   *     builds before v0.8.196 have no `start` parameter on `inv_open`.
+   *     Tauri drops unknown arguments without erroring, so resume would fail
+   *     silently and every Continue Watching title would restart at 0:00.
+   *     The frontend.json nativeVersion gate does not catch it, because the
+   *     label is copied from tauri.conf.json rather than derived from what
+   *     the bundle actually needs.
+   *   - Any container or protocol where mpv declines to honour `start`.
+   *     Verified working on a debrid mkv remux; that is one sample.
+   *
+   * Deliberately position-based rather than a version check: it heals the
+   * fault rather than predicting it, so it needs no list of which builds
+   * support what. */
+  const resumedRef = useRef(false);
+  useEffect(() => {
+    const at = playing?.resumeAt;
+    if (!at || at <= 0 || playing?.popped || !isTauri()) return;
+    resumedRef.current = false;
+    let timer = 0;
+    const check = () => {
+      if (resumedRef.current) return;
+      resumedRef.current = true;
+      // One poll after the first frame, so there is a clock to read. If mpv
+      // had honoured `start` we would be near `at`; being near ZERO instead
+      // is the signal. Half the resume point, capped at 10s, so a shallow
+      // resume cannot false-positive on normal playback drift.
+      timer = window.setTimeout(() => {
+        const t = directApi.getTime?.();
+        if (t && t.pos < Math.min(10, at / 2)) {
+          console.warn(
+            `[resume] mpv opened at ${t.pos.toFixed(1)}s, not ${at.toFixed(1)}s — seeking. Native build is probably older than the frontend.`,
+          );
+          directApi.seekAbs?.(at);
+        }
+      }, 700);
+    };
+    if (!directApi.getLoading()) check();
+    const off = directApi.onLoading((l) => {
+      if (!l) check();
+    });
+    return () => {
+      window.clearTimeout(timer);
+      off();
+    };
+  }, [
+    playing?.url,
+    playing?.resumeAt,
+    playing?.popped,
+    playing?.reloadTick,
+    directApi,
+  ]);
 
   // PiP closed → bring playback back in-app, resuming where the popout
   // got to (its final position rides the event; the watch entry catches

@@ -15,6 +15,7 @@ import type { ChapterInfo, OverlayApi, TimeInfo, Tracks } from "./overlayApi";
 import { holdsPoll, type SeekHold } from "./seekHold";
 import { behindLive } from "./liveEdge";
 import { dvrChanged, type DvrWindow } from "./dvr";
+import { endDecision } from "./ending";
 
 /**
  * Status cadence once a picture is up. The scrubber clock and the death
@@ -206,38 +207,33 @@ export function useDirectOverlay(
     const tick = () => {
       tauriMpvStatus()
         .then((st) => {
-          if (s.loading && st.presenting) {
-            s.loading = false;
-            s.loadingCbs.forEach((cb) => cb(false));
-          } else if (!s.loading && st.ended) {
-            // COMPLETION requires positive proof: a clock that reached the
-            // end. `!s.time` used to count as proof, which inverted the
-            // guard exactly when it mattered — no clock means the source
-            // died before one ever arrived (a debrid 403 seconds in), and
-            // that took the completion path: markWatched, the watch entry
-            // pushed to dur/dur, Up Next auto-rolling the next episode,
-            // and the real resume position gone. Duration DOES land for
-            // normal sources (the VOD scrubber is proof), so "no clock at
-            // EOF" is a death, not a finish. Worst case if a genuinely
-            // durationless file completes: a dead card at its end instead
-            // of Up Next — the right way to be wrong, since it keeps the
-            // user's position instead of destroying it.
-            //
-            // Reads `lastTime`, NOT `time`: see the note on that field. The
-            // displayed clock is held across a seek on purpose and is the
-            // wrong input for a decision that can destroy a resume position.
-            const t = s.lastTime;
-            if (
-              metaRef.current?.live === false &&
-              !!t &&
-              t.dur > 0 &&
-              t.pos >= t.dur * 0.9
-            ) {
+          // FINISHED or DIED — the most expensive question here, and the
+          // one with two shipped regressions behind it. The decision lives
+          // in ending.ts as a tested pure function; this is only the wiring.
+          // `lastTime`, never `time`: the displayed clock is deliberately
+          // held across a seek and is the wrong input for something that can
+          // destroy a resume position.
+          switch (
+            endDecision({
+              loading: s.loading,
+              presenting: st.presenting,
+              ended: st.ended,
+              vod: metaRef.current ? metaRef.current.live === false : undefined,
+              time: s.lastTime,
+            })
+          ) {
+            case "present":
+              s.loading = false;
+              s.loadingCbs.forEach((cb) => cb(false));
+              break;
+            case "complete":
+              // Once per stream. The reset block clears the latch.
               if (!s.endedFired) {
                 s.endedFired = true;
                 h.current.onEnded?.();
               }
-            } else {
+              break;
+            case "rearm":
               // Mid-play death: we were presenting, now mpv hit EOF/idle.
               // Flip loading back true so TheaterOverlay's tune watchdog
               // re-arms — live runs its silent goLive-reload escalation;
@@ -245,7 +241,7 @@ export function useDirectOverlay(
               // (no auto-reload: each reload is a debrid request).
               s.loading = true;
               s.loadingCbs.forEach((cb) => cb(true));
-            }
+              break;
           }
           // The live DVR window, when the Rust side supplied one (live
           // only). Strictly better than the behindLive estimate below, and
