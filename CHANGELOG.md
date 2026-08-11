@@ -2,6 +2,59 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 0.8.202: The player release (2026-08-11)
+
+Two weeks of work on playback, most of it measured against a real stream
+rather than guessed at. The short version: channels tune faster, live TV has
+a proper rewind bar, and a handful of things that quietly lied have stopped.
+
+### Improved
+
+- **Channels switch about four tenths of a second faster.** Two delays sat in
+  front of every tune and neither was doing anything for you: the app checked
+  for the first frame only twice a second, so up to half a second of the black
+  you saw was just waiting to notice, and a debounce meant to stop fast
+  channel-flipping was charging its full delay even when you had not flipped.
+- **Live TV has a real rewind bar.** The strip under a live channel used to be
+  a rough guess at how close to live you were, drawn from what you had asked
+  for rather than what happened. It is now the actual rewind window your
+  provider is holding: drag it to go back, and it knows where the beginning
+  is, so it can no longer walk somewhere the stream cannot go.
+- **Rewinding on a big file no longer re-downloads.** The player kept about
+  six seconds of recent video on a 4K remux, so Back 10 seconds fetched it all
+  again. It now keeps enough that stepping back is instant.
+- **Back 10 seconds moves exactly 10 seconds.** It used to jump to the nearest
+  convenient point in the video, which on some files is nowhere near where the
+  button said.
+- **Resuming a film starts at your position.** It used to load the opening,
+  show it, stall, and only then jump to where you were.
+- **The clock ticks evenly.** The seconds digit advanced in an uneven
+  stutter because the display and the underlying check ran on different
+  rhythms.
+- **Buffering is visible.** Skipping ahead to a part that has not downloaded
+  yet froze the picture with no explanation. It says what it is doing now.
+- **Holding an arrow key is much cheaper.** Every repeat used to be a separate
+  round trip and a full redraw of the player controls.
+
+### Fixed
+
+- **A dead channel on a portal playlist now offers you Retry.** It used to
+  reload itself every ten seconds forever, never showing the "isn't
+  responding" card and never trying the next source.
+- **Popping out keeps your volume and mute.** A muted player came back at full
+  volume in the floating window.
+- **Popping out a live channel opens at live**, rather than black or minutes
+  behind.
+- **The progress bar no longer jumps backwards after you seek.** Releasing the
+  scrubber could snap it to where you came from for a moment.
+- **The live indicator no longer sticks after rewinding past the buffer.** It
+  would show you as behind, and stay that way until you jumped back to live.
+- **Picking an audio or subtitle track shows what actually happened.** If the
+  player refused the track, the tick stayed next to it anyway, and on a series
+  that refusal was remembered and repeated on every later episode.
+- **A source that cannot be seeked says so** instead of offering a scrubber
+  that does nothing.
+
 ## 0.8.187: The player chrome stops thrashing the main thread (2026-08-09)
 
 ### Improved
