@@ -32,26 +32,29 @@ obvious edits don't need a ceremony; uncertain or significant ones do.
 
 ## Checking the Rust from a Linux box
 
-The app is Windows-only, so an agent container can't build it the obvious
-way. Two dead ends, written down so nobody re-walks them: the host target
-fails on `gdk-3.0` (GTK dev packages, and the apt index 404s), and the MSVC
-target gets as far as `ring` before wanting the Windows CRT headers.
+**`node scripts/check-rust.mjs`.** That script already existed and already
+solved this; read its header before writing anything new about it. It
+targets `x86_64-pc-windows-gnu`, which compiles the real `cfg(windows)`
+branches (`inv.rs` is `#![cfg(windows)]` and would otherwise compile to
+nothing), checks `--all-targets`, and verifies its own prerequisites. About
+30 seconds warm.
 
-What works:
+Two dead ends, so nobody re-walks them: the host target dies in `gdk-sys`
+(GTK dev packages, and the apt index 404s), and the MSVC target gets as far
+as `ring` wanting the Windows CRT headers. Neither is worth fighting.
+
+For lint, the script has no equivalent, so run it directly:
 
 ```
-cd apps/app/src-tauri && cargo check --target x86_64-pc-windows-gnu
 cd apps/app/src-tauri && cargo clippy --target x86_64-pc-windows-gnu
 ```
 
-mingw is installed and `cfg(windows)` is true for that target, so this
-type-checks the real code path: `inv.rs`, `lib.rs`'s Windows arms, all of
-`mpv.rs`. About 30 seconds warm. Baseline is 10 clippy warnings, all of them
-the libmpv symbol transmutes at `mpv.rs:89-103` — anything else is yours.
+Baseline is **10 warnings**, all of them the libmpv symbol transmutes at
+`mpv.rs:89-103`. Anything else is yours.
 
-It does not link and it is not the MSVC build, so it won't catch a linker
-problem. It catches every type and signature mistake, which is the class
-that was previously reaching users' rebuilds.
+It is a TYPE check, not a build: it will not catch a linker problem or
+anything about libmpv's runtime behaviour. It does catch every signature
+mistake, which is the class that has reached users' rebuilds before.
 
 `cargo fmt --check` is NOT a gate here: the repo has pre-existing drift in
 `build.rs` and `frontend.rs`. Check that your own regions are clean and
