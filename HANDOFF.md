@@ -15,35 +15,105 @@ Audience: switchers from other Windows IPTV clients, Stremio users, ideally
 both, and explicitly *inviting to newcomers*; first-five-minutes activation
 weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
-## Live state (2026-08-11, dev v0.8.196, native still v0.8.167)
+## Live state (2026-08-11, v0.8.202 RELEASED, dev v0.8.203)
 
-**Nothing since v0.8.167 has reached users.** The frontend is at v0.8.196
-and `tauri.conf.json`/`Cargo.toml` are still 0.8.167, which is the
-convention (native moves only in the release commit) but matters more than
-usual right now — see the hazard below.
+**v0.8.202 is published and verified.** Signed installer plus `latest.json`
+on the release, and the live URLs were checked serving the right bytes. It
+is the first release since v0.8.167, so it carries thirty-five dev versions
+of playback work in one go.
 
-### THE HAZARD: the next release MUST be a native one
+**Dev is at v0.8.203**, frontend-only and unreleased: Back from an episode's
+source list now lands on that series' episode list. Because native 0.8.202
+is out, a frontend-only hot push is safe again (RELEASING.md, "Frontend-only
+release") — or just let it ride into the next native release.
 
-A **frontend-only** release cut from this HEAD would break Continue
-Watching for everyone on native v0.8.167.
+### The release trap that nearly bit, and will recur
 
-v0.8.190 moved VOD resume off "seek once the first frame lands" and onto
-mpv's `start`, handed to the new `start` parameter on the `inv_open`
-command. The old seek-based path was deleted, so `start` is now the only
-resume path. Native v0.8.167's `inv_open` has no such parameter (verified
-against `0143088:apps/app/src-tauri/src/lib.rs`), and Tauri drops unknown
-args without erroring, so resume would silently restart every title at
-0:00.
+`frontend.json`'s `nativeVersion` gate does **not** protect against a bundle
+that needs a NEWER native than it is labelled with. The label is a copy of
+`tauri.conf.json`, so a frontend-only release cut while native lags is
+considered a match and served.
 
-The `frontend.json` `nativeVersion` gate does NOT protect against this. It
-refuses a bundle whose label is not the running native, but the label is
-just a copy of `tauri.conf.json` — which is 0.8.167 — so such a bundle
-would be considered a match and served.
+Before v0.8.202 shipped, that would have restarted every Continue Watching
+title at 0:00: resume had moved onto a new `inv_open` parameter, native
+v0.8.167 had no such parameter, and Tauri drops unknown args without
+erroring. Resolved now, but **the shape recurs**: any frontend change that
+depends on a new Tauri command or a new `mpv_status` field must wait for a
+native release. `StreamScreen` carries a self-healing resume fallback as
+belt-and-braces (it watches where playback actually landed), which is worth
+keeping for the same reason.
 
-The same release would also silently drop the buffering pill, the
-unseekable-scrubber lock and the live DVR rail, all of which read
-`mpv_status` fields that v0.8.167 does not emit. Those degrade cleanly (the
-fields are optional and fall back); resume does not.
+### The live rail: what mpv actually tells you
+
+Two assumptions that looked obviously true and were both false on a real
+IPTV channel. Neither is re-derivable by reasoning; both cost a round trip
+to Adam's machine to find.
+
+1. **A live stream has no duration.** It does. The provider reported
+   `duration = 24.745` on a live feed — that is the length of the buffered
+   window, not a duration (`cache-end` read 24.726 in the same breath). So
+   `duration` is NOT a live/VOD discriminator anywhere. The app's own
+   `meta.live` is the only trustworthy one and it lives in the frontend,
+   which is why `popout_open` takes a `live` flag and `mpv_status` no longer
+   gates on duration.
+2. **The live edge is `seekable-ranges`' end.** It is not. That end is the
+   newest byte the demuxer has pulled, and it runs AHEAD of the playhead by
+   the forward buffer — 18 seconds on the same reading, while the viewer was
+   correctly at live. Drawing the rail to it parks the knob at 27%.
+
+The reachable edge is `rangeEnd - naturalGap`, where `naturalGap` is the
+steady-state forward buffer. On the real reading that gives 6.292 against a
+playhead of 6.507: full rail, 6.3s of rewind, both correct for a channel
+just tuned.
+
+That makes `naturalGap` load-bearing. It is the MAXIMUM
+`demuxer-cache-duration` over the first ten seconds after the picture
+appears, frozen the moment the user seeks. Capturing it on the first frame
+instead (the first attempt) reads far too low, because the buffer is still
+filling — which put the edge permanently ahead of the playhead, so the rail
+sat at 95% and Jump to live refilled the buffer and landed in exactly the
+same place. **If the rail ever sits short of 100% again, `SETTLE_MS` is the
+first suspect.**
+
+`seekable-ranges` is LRU-ordered and emitted reversed — mpv qsorts it by
+time whenever it actually needs time order, which is the proof. Fold with
+min/max, never `first().start` / `last().end`.
+
+### What has NOT been exercised by anyone
+
+The unit coverage is good and the reviewers found the interaction bugs, but
+these have essentially no real-world hours:
+
+- **A film watched to the end.** The finished-or-died decision was rewritten
+  twice inside 24 hours and its failure mode is destroying a resume position
+  and marking something watched. It is `ending.ts` with ten tests. If
+  Continue Watching starts behaving oddly, look there first.
+- **The Sports tab.** Third host of the same overlay, inherits every
+  live-rail change, opened zero times since this work began.
+- **Memory over a long session.** ~1GB was observed and accepted, but over
+  minutes. Live is the case where the back buffer rests at its full 768MiB
+  and never shrinks, because live never ends.
+
+
+### The queue
+
+Nothing is blocking and nothing is half-finished. In rough order of value:
+
+1. **Extract the tune watchdog.** The last big untested piece: six
+   interacting inputs, a render-phase `setState`, and five shipped defects
+   across two sessions. `scripts/verify-watchdog.mjs` covers its behaviour
+   headlessly and is the safety net for doing it. A reducer shape and six
+   test cases are already specified in the overnight review's output.
+2. **Fix `verify-overlay-tracks` and `verify-credits`.** Both time out
+   waiting for the overlay to render, and both were already broken before
+   the player work (verified against a worktree at 951e77d). Two headless
+   tests currently buying nothing.
+3. **The VOD buffered range on the scrubber.** `demuxer-cache-state` is
+   parsed already, so the data is in hand. It is the honest complement to
+   the enlarged cache: it shows which seeks will hurt.
+4. **Clock/rail projection on live.** The clock is projected between polls
+   but the rail is not, so while behind live the knob hops at ~0.8%/push.
+   Cosmetic, and it needs eyes to judge whether it is worth it.
 
 ### The overnight review (v0.8.197 - v0.8.200)
 
@@ -111,11 +181,17 @@ coverage of track selection.
 
 ### Checking the Rust from an agent container
 
-`cargo check --target x86_64-pc-windows-gnu` type-checks the real
-`cfg(windows)` path in about 30 seconds. See CLAUDE.md. Three commits
-shipped before this was discovered, on the belief that it was impossible.
+**`node scripts/check-rust.mjs`.** It already existed and already solved
+this; read its header before writing anything new about it. Targets
+windows-gnu, so it compiles the real `cfg(windows)` branches, checks
+`--all-targets`, and verifies its own prerequisites. About 30 seconds warm.
+See CLAUDE.md for the clippy invocation and its 9-warning baseline.
 
-### The player work (v0.8.188 - v0.8.196)
+Three commits shipped before this was found, on the belief that Rust could
+not be checked from here at all — and then it was "discovered" a second
+time by someone who had not read the script.
+
+### The player work (v0.8.188 - v0.8.203)
 
 Driven by six review agents plus measurements from Adam's machine. In rough
 order of user impact:
@@ -166,9 +242,30 @@ order of user impact:
   re-downloaded. Adam measured ~1GB RSS after the change and accepted it.
   Both are runtime-updatable via `mpvSet`.
 
-Five pure modules were extracted so the logic is testable in vitest's
-node environment: `seekHold.ts`, `liveEdge.ts`, `clock.ts`, `dvr.ts`, plus
-`playerPerf.ts`'s `ttff()`.
+After the release, on Adam's reports:
+
+- **The live rail became real** rather than an estimate, once his readings
+  showed why it could not work as built. See "The live rail" above; that is
+  the section to read, not this bullet.
+- **Back from an episode's source list lands on the episode list.** Drilling
+  in normally always worked. Continue Watching resumes an episode directly,
+  and when nothing is cached it lands that same screen without the episode
+  list ever having been shown — so Back returned to the home rows and left
+  you on one episode's sources with no route to the rest of the series.
+  `backTarget.ts` decides it; the view stack grew a `peek()` so it can tell
+  "drilled in" from "dropped in" and keep the scroll restore on the common
+  path.
+
+Seven pure modules now hold the logic with a regression history, all
+testable in vitest's node environment (no DOM): `seekHold.ts` (incl.
+`nextHold`), `liveEdge.ts` (incl. `nextBaseline`), `clock.ts`, `dvr.ts`,
+`ending.ts`, `backTarget.ts`, plus `playerPerf.ts`'s `ttff()`.
+
+**The pattern worth copying:** when something in a 1700-line component has
+bitten twice, it moves to a sibling module with tests written against
+LITERALS. Mutation testing found half the first batch of tests could not
+fail, because assertions were written in terms of the constant under test —
+`LIVE_TOL` could go 3 to 12 and stay green.
 
 ### What startup time actually is (measured, do not re-litigate)
 
