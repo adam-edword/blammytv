@@ -2,6 +2,27 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 0.9.0: Sports, properly (2026-08-22)
+
+Sports has been in the app since 0.8.163, shipped early while the last of it
+was still being built. It is finished now, and this is the release that says
+so. Nothing about the hub changes for you here: if you are on 0.8.202 you
+already have it and everything built on it. Two fixes came with the version.
+
+### Fixed
+
+- **Popping a sports game out no longer jumps.** Send a live game to the
+  floating window and it opened black, or minutes behind whatever you were
+  watching. It opens where you were. Live TV and films got this fix in
+  0.8.202; the Sports theater was the one that got missed, and it was the
+  only screen still doing it.
+
+- **Back from an episode's sources goes to the episode list.** Resume a
+  series from Continue Watching, open the source list, press Back, and you
+  landed on the home rows with no way to the rest of the series. Back now
+  goes to that series' episodes, whether you drilled in or dropped straight
+  into the episode.
+
 ## 0.8.202: The player release (2026-08-11)
 
 Two weeks of work on playback, most of it measured against a real stream
