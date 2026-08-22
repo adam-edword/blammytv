@@ -507,8 +507,10 @@ release); dev jumps to 0.5.0. The line:
   palettes replace the sample packs).
 - **0.6.0: the themes release.**
 - **1.0 gates**: My List multi-lists (moved here from the 0.5 slate,
-  Adam 2026-07-12), a **Sports tab in Live TV** (Adam 2026-07-12: no
-  design yet), paid themes shipped, Windows code signing, CSP.
+  Adam 2026-07-12), ~~a **Sports tab in Live TV**~~ (Adam 2026-07-12: no
+  design yet) BUILT, and code complete for v0.9.0: see the 0.9.0 status
+  below and `plans/010-sports.md`. Paid themes shipped, Windows code
+  signing, CSP.
 - **Ctrl+K command palette CUT** ("i dont really want that"): do not
   build it. Aurora sweep stays slated, unowned.
 
@@ -650,11 +652,18 @@ with scroll restoration on every screen, mouse side-button nav everywhere,
 and the save-affordance rewrite that fixed a live bug where saving from a
 title page wrote to the pre-009 key the Library does not read.
 
-**Cut from 0.8.0:** the Sports tab. It is now the **0.9.0 headline** and has
-a design: see `plans/010-sports.md` (Adam 2026-07-27, US first, all major US
-leagues plus Premier League and F1, modelled on ScoreBox's cross-reference of
-a broadcast schedule against your own channels). Phase 0 of that plan is a
-gate: whether a free keyless schedule carries the US network per fixture.
+**Cut from 0.8.0:** the Sports tab. It became the **0.9.0 headline**: see
+`plans/010-sports.md` (Adam 2026-07-27, US first, all major US leagues plus
+Premier League and F1, modelled on ScoreBox's cross-reference of a broadcast
+schedule against your own channels).
+
+**Status: CODE COMPLETE for v0.9.0, awaiting the release.** Phase 0's gate
+passed on 2026-07-26. The hub shipped as a pre-release in v0.8.163, the
+v0.9.0 cut was decided 2026-08-08 and every item in it landed across
+v0.8.178-183, the audit closed in v0.8.185, and the sports host went under a
+headless harness in v0.8.204. The remaining ledger items are post-0.9 by
+decision. All that is left is RELEASING.md's step 1 (six version spots to
+0.9.0) and a signed build.
 
 ## Next after 0.8.0 (queued, unowned)
 

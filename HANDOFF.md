@@ -15,17 +15,22 @@ Audience: switchers from other Windows IPTV clients, Stremio users, ideally
 both, and explicitly *inviting to newcomers*; first-five-minutes activation
 weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
-## Live state (2026-08-11, v0.8.202 RELEASED, dev v0.8.203)
+## Live state (2026-08-22, v0.8.202 RELEASED, dev v0.8.204)
 
 **v0.8.202 is published and verified.** Signed installer plus `latest.json`
 on the release, and the live URLs were checked serving the right bytes. It
 is the first release since v0.8.167, so it carries thirty-five dev versions
 of playback work in one go.
 
-**Dev is at v0.8.203**, frontend-only and unreleased: Back from an episode's
-source list now lands on that series' episode list. Because native 0.8.202
-is out, a frontend-only hot push is safe again (RELEASING.md, "Frontend-only
-release"), or just let it ride into the next native release.
+**Dev is at v0.8.204**, frontend-only and unreleased. Two changes since the
+release: Back from an episode's source list lands on that series' episode
+list (v0.8.203), and the sports host got a headless harness plus the popout
+bug it found (v0.8.204). Because native 0.8.202 is out, a frontend-only hot
+push is safe (RELEASING.md, "Frontend-only release"), or let it ride into
+the next native release.
+
+**Sports is code complete for v0.9.0 and waiting on the release.** That is
+the biggest single thing sitting ready: see the queue below.
 
 ### The release trap that nearly bit, and will recur
 
@@ -90,8 +95,12 @@ these have essentially no real-world hours:
   twice inside 24 hours and its failure mode is destroying a resume position
   and marking something watched. It is `ending.ts` with ten tests. If
   Continue Watching starts behaving oddly, look there first.
-- **The Sports tab.** Third host of the same overlay, inherits every
-  live-rail change, opened zero times since this work began.
+- **The Sports tab, on a real machine.** Still opened zero times since the
+  player work. It is no longer unguarded, though: `verify-sports-theater`
+  drives the real `useDirectOverlay` in that host headlessly, and finding
+  the popout bug is what it was built for. What it cannot cover is anything
+  that needs actual mpv, so the geometry (the slot insets by a 360px panel)
+  and playback itself are still unseen here.
 - **Memory over a long session.** ~1GB was observed and accepted, but over
   minutes. Live is the case where the back buffer rests at its full 768MiB
   and never shrinks, because live never ends.
@@ -101,19 +110,26 @@ these have essentially no real-world hours:
 
 Nothing is blocking and nothing is half-finished. In rough order of value:
 
-1. **Extract the tune watchdog.** The last big untested piece: six
+1. **Cut v0.9.0: the Sports release.** The headline feature is code
+   complete and has been since v0.8.185; nothing in the v0.9.0 cut is open
+   (`plans/010-sports.md` has the ledger and says why each remaining item is
+   post-0.9). This is RELEASING.md's normal path on Adam's machine: step 1
+   bumps all SIX version spots to 0.9.0, Cargo.lock included, then a signed
+   build. It also needs a CHANGELOG entry, which lands with the release
+   commit the way v0.8.202's did. Everything below is smaller than this.
+2. **Extract the tune watchdog.** The last big untested piece: six
    interacting inputs, a render-phase `setState`, and five shipped defects
    across two sessions. `scripts/verify-watchdog.mjs` covers its behaviour
    headlessly and is the safety net for doing it. A reducer shape and six
    test cases are already specified in the overnight review's output.
-2. **Fix `verify-overlay-tracks` and `verify-credits`.** Both time out
+3. **Fix `verify-overlay-tracks` and `verify-credits`.** Both time out
    waiting for the overlay to render, and both were already broken before
    the player work (verified against a worktree at 951e77d). Two headless
    tests currently buying nothing.
-3. **The VOD buffered range on the scrubber.** `demuxer-cache-state` is
+4. **The VOD buffered range on the scrubber.** `demuxer-cache-state` is
    parsed already, so the data is in hand. It is the honest complement to
    the enlarged cache: it shows which seeks will hurt.
-4. **Clock/rail projection on live.** The clock is projected between polls
+5. **Clock/rail projection on live.** The clock is projected between polls
    but the rail is not, so while behind live the knob hops at ~0.8%/push.
    Cosmetic, and it needs eyes to judge whether it is worth it.
 
@@ -149,7 +165,7 @@ that survived verification is fixed; the notes worth keeping:
 This review is what pushed the fragile logic out into pure modules. It left
 five of them; there are seven now, listed under "The player work" below.
 **The tune watchdog was NOT extracted**, and it is still the biggest
-remaining candidate: that is queue item 1.
+remaining candidate: it is "Extract the tune watchdog" in the queue above.
 
 ### Headless verification actually works here
 
@@ -168,7 +184,16 @@ PW_FROM=/tmp/pw/anchor.js node scripts/verify-watchdog.mjs
 `/opt/pw-browsers/chromium`. Run them from the REPO ROOT, not from
 `apps/app`.
 
-Passing today: `verify-watchdog`, `verify-aniskip-chip`.
+Passing today: `verify-watchdog`, `verify-aniskip-chip`,
+`verify-sports-theater`.
+
+`verify-sports-theater` needs `node scripts/fake-m3u.mjs` (:8082) running
+too, and it is the one that stubs `window.__TAURI_INTERNALS__` rather than
+`window.overlayApi`: the overlayApi seam mocks the layer under test, and
+every player path in SportsTheater is gated on `isTauri()`. Stubbing the IPC
+boundary instead runs the REAL `useDirectOverlay`. Note that doing so also
+makes the app's HTTP take the native `http_get` path, which the stub answers
+with the page's own `fetch`. See its header.
 
 **`verify-overlay-tracks` and `verify-credits` are BROKEN, and were already
 broken before the v0.8.188 player work**, verified by running them against

@@ -1,9 +1,18 @@
 # 010: Sports: a hub for what is on right now
 
-- **Status**: IN PROGRESS. **The join works, the rail plays, racing is a
-  first-class league rather than a side door, and all 151 leagues are
-  reachable by clicking.** Nothing gates the rest; what is left is breadth
-  (golf, fighting), depth (the theater, corrections) and onboarding.
+- **Status**: **CODE COMPLETE for v0.9.0, awaiting the release.** The
+  v0.9.0 cut below is fully landed: every item in it shipped across
+  v0.8.178-183, the audit that followed closed in v0.8.185, and the sports
+  host was put under a headless harness in v0.8.204. Nothing in the cut is
+  open. What remains on the ledger is post-0.9 by decision, not by
+  omission, and the cut says why for each.
+  - **The release itself is the last step and it is Adam's desk**:
+    RELEASING.md step 1 bumps all SIX version spots to 0.9.0 (Cargo.lock
+    included) on the release machine. Dev sits at frontend 0.8.204 over
+    native 0.8.202 until then.
+  - Earlier status lines here claimed golf and the theater were still to
+    come. Golf shipped in v0.8.159 and the theater has been in since
+    v0.8.163; the line had simply stopped being updated.
 - **Severity**: MEDIUM (feature, not a defect)
 - **Category**: Live TV / sports
 - **Estimated scope**: a schedule source, a matcher against the user's own
@@ -488,6 +497,16 @@ channels", and the theater's own empty rail).
   instant. Never format a date on the source's terms.
 - **Rights change between seasons**, so a shipped network map is a
   maintenance commitment with a date on it. Say so in the file itself.
+- **The hub is the THIRD host of the player chrome, and it is the one that
+  gets forgotten.** The v0.8.188-203 player work rewrote `TheaterOverlay`
+  and `useDirectOverlay` under all three hosts while opening only one of
+  them. What that cost: `tauriPopoutOpen`'s `live` flag was optional, live
+  and stream passed it, sports passed nothing, and every popped-out game
+  took the native duration fallback measured to be false on live, so the
+  PiP opened at a resume point on a live stream (fixed v0.8.204). The
+  general rule that came out of it: an optional parameter that all hosts
+  must set is a defect waiting for the quietest host, so make it required
+  and let the type checker find the one that forgot.
 - **Constants that must agree belong together.** The v0.8.1 guide cache bug
   came from a retention window and a cache age living in different files with
   nothing linking them. Refresh cadence, cache age and staleness thresholds
@@ -505,12 +524,34 @@ channels", and the theater's own empty rail).
   network.
 - Nothing polls while playback is running.
 - Opening the tab with no leagues followed explains itself.
+
+**Covered headlessly as of v0.8.204**, `scripts/verify-sports-theater.mjs`
+(and see HANDOFF for how to run the verify scripts):
+
+- The host tunes, opens mpv and keeps the status poll running.
+- The chrome renders in the sports host at all.
+- The LIVE control set appears rather than the VOD one, which is `vod=false`
+  surviving meta through `useDirectOverlay` into the chrome.
+- The live edge computes as `dvrEnd - naturalGap`, lit at the edge and unlit
+  42s behind it, through the real hook rather than against it.
+- `popout_open` carries `live: true` from this host.
+
+The harness stubs `window.__TAURI_INTERNALS__` rather than
+`window.overlayApi`, because the overlayApi seam mocks the layer the risk
+lives in and every player path here is gated on `isTauri()`. Its popout
+check was mutation-verified: reverting the fix turns it red.
 ## The v0.9.0 cut, decided 2026-08-08
 
 v0.8.163 shipped the hub as a pre-release and its notes promised "Full hub
 release will be v0.9.0". This is what that release is, chosen off the ledger
 below. Seven items and two decisions. Everything in it is measured, unblocked,
 or a hole a user can see.
+
+**ALL OF IT LANDED**, v0.8.178 through v0.8.183, with the audit that followed
+closing in v0.8.185. Each entry below still describes the problem in the
+present tense, because that is what it said when the cut was decided and the
+reasoning is the useful part; the "done in vX" markers are the current state.
+Nothing here is open.
 
 **The blocker, done in v0.8.180.** #17, the Channels tab. It is in the rail today and
 `SportsSidebar.tsx:186` renders "Not built yet: what this lists is still an
@@ -544,7 +585,12 @@ out-of-season follows, #12, #20, #26, #28, #39: all post-0.9. #31: windowing
 needs a real decision about the sheen Adam asked to keep. #32: measured as
 tidiness rather than performance, and it makes the update download bigger.
 
-## What is left, as of v0.8.121
+## The ledger (numbered as of v0.8.121, still the live index)
+
+**Read the v0.9.0 cut above first.** Everything the cut named is done. What
+is unchecked here is post-0.9 by decision. The v0.8.121 in this heading is
+when the NUMBERING was fixed, not when the list was last true: a number is
+never reused, so the labels stay valid however far the code moves past it.
 
 Written from the plan, the code and the sessions that built it. Grouped by
 area rather than by phase, because the phases stopped describing the work
