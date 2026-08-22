@@ -17,6 +17,9 @@ import "./styles/boot.css";
 import "./styles/onboarding.css";
 import { App } from "./app/App";
 import { TheaterOverlay } from "./features/live/TheaterOverlay";
+import { SportsTheater } from "./features/sports/SportsTheater";
+import { useCatalog } from "./features/sports/catalog";
+import type { Fixture } from "./features/sports/model";
 import { isTauri } from "./lib/tauri";
 import { installPlayerPerf } from "./lib/playerPerf";
 import {
@@ -63,6 +66,58 @@ if (params.get("overlay") === "1") {
   root.render(
     <React.StrictMode>
       <TheaterOverlay />
+    </React.StrictMode>,
+  );
+} else if (params.get("sportstheater") === "1") {
+  // TEST HARNESS: `?sportstheater=1` mounts the SPORTS host of the player
+  // chrome, for scripts/verify-sports-theater.mjs.
+  //
+  // Why a second seam rather than reusing `?overlay=1`: that one renders a
+  // bare TheaterOverlay against a mocked `window.overlayApi`, which is a
+  // mock of the very thing the sports host's risk lives in. SportsTheater
+  // goes through `useDirectOverlay`, and every one of its player paths is
+  // gated on `isTauri()`. So the harness stubs the IPC boundary
+  // (`window.__TAURI_INTERNALS__`) instead and this entry drives the REAL
+  // useDirectOverlay, which is what the v0.8.188-203 player work rewrote
+  // underneath a screen nobody had opened since.
+  //
+  // The fixture comes in on `window.__sportsFixture` so the harness owns the
+  // scenario. `start` crosses as an ISO string because it is a Date. The
+  // CHANNELS are not part of it: the catalog comes from `useCatalog`, the
+  // same hook the board uses, so the rail resolves and tunes exactly as it
+  // does in the app rather than against a hand-built index.
+  const f = (
+    window as unknown as {
+      __sportsFixture?: {
+        game: Omit<Fixture, "start"> & { start: string };
+        others?: (Omit<Fixture, "start"> & { start: string })[];
+      };
+    }
+  ).__sportsFixture;
+  const revive = (g: Omit<Fixture, "start"> & { start: string }): Fixture => ({
+    ...g,
+    start: new Date(g.start),
+  });
+  function SportsHarness({ game, others }: { game: Fixture; others: Fixture[] }) {
+    return (
+      <SportsTheater
+        game={game}
+        others={others}
+        catalog={useCatalog()}
+        onOpen={() => {}}
+        onClose={() => {}}
+      />
+    );
+  }
+  if (isTauri()) document.documentElement.classList.add("invert-player");
+  root.render(
+    <React.StrictMode>
+      {f ? (
+        <SportsHarness
+          game={revive(f.game)}
+          others={(f.others ?? []).map(revive)}
+        />
+      ) : null}
     </React.StrictMode>,
   );
 } else {

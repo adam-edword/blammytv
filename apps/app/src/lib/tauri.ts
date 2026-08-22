@@ -70,12 +70,19 @@ export interface TheaterMeta {
  * in-app player down first (one provider connection at a time) and captures
  * the position so the popout resumes there, then plays in a separate mpv
  * instance the in-app teardown can't kill. */
-export function tauriPopoutOpen(url: string, live?: boolean): Promise<void> {
+export function tauriPopoutOpen(url: string, live: boolean): Promise<void> {
   // `live` because no mpv property answers it: an IPTV provider was measured
   // reporting `duration = 24.745` on a live feed (really the length of the
   // buffered window), and the popout used to read that as VOD and hand mpv a
-  // resume point. Omitted means the native side falls back to that heuristic.
-  return invoke("popout_open", { url, live: live ?? null });
+  // resume point.
+  //
+  // REQUIRED, not optional. It was optional, and SportsTheater was the host
+  // that did not pass it: every popped-out game took the native duration
+  // fallback, which is the very heuristic measured to be false on live, and
+  // so handed mpv a `start` seek on a live stream. The Rust still accepts
+  // None for a frontend too old to say; nothing in THIS frontend may use
+  // that path, and a required parameter is what enforces it.
+  return invoke("popout_open", { url, live });
 }
 /** Current popout playback position (seconds; 0 when none) — polled while
  * popped so a reclaim resumes at the right spot (old-app pattern). */

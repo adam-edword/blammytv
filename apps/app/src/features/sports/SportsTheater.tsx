@@ -273,7 +273,11 @@ export function SportsTheater({
       if (!t) return;
       const shell = document.querySelector<HTMLElement>(".app-shell");
       if (shell) shell.style.clipPath = "";
-      void tauriPopoutOpen(t.url).catch(() => {});
+      // Always live: a sports feed is a broadcast. Without this the native
+      // side falls back to its duration heuristic, which a real provider was
+      // measured to fail, and the PiP opens at a resume point on a live
+      // stream. See tauriPopoutOpen.
+      void tauriPopoutOpen(t.url, true).catch(() => {});
       stop();
     },
     onToggleFavorite: () => {
