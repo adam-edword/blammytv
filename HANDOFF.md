@@ -25,7 +25,7 @@ of playback work in one go.
 **Dev is at v0.8.203**, frontend-only and unreleased: Back from an episode's
 source list now lands on that series' episode list. Because native 0.8.202
 is out, a frontend-only hot push is safe again (RELEASING.md, "Frontend-only
-release") — or just let it ride into the next native release.
+release"), or just let it ride into the next native release.
 
 ### The release trap that nearly bit, and will recur
 
@@ -50,7 +50,7 @@ IPTV channel. Neither is re-derivable by reasoning; both cost a round trip
 to Adam's machine to find.
 
 1. **A live stream has no duration.** It does. The provider reported
-   `duration = 24.745` on a live feed — that is the length of the buffered
+   `duration = 24.745` on a live feed. That is the length of the buffered
    window, not a duration (`cache-end` read 24.726 in the same breath). So
    `duration` is NOT a live/VOD discriminator anywhere. The app's own
    `meta.live` is the only trustworthy one and it lives in the frontend,
@@ -58,8 +58,8 @@ to Adam's machine to find.
    gates on duration.
 2. **The live edge is `seekable-ranges`' end.** It is not. That end is the
    newest byte the demuxer has pulled, and it runs AHEAD of the playhead by
-   the forward buffer — 18 seconds on the same reading, while the viewer was
-   correctly at live. Drawing the rail to it parks the knob at 27%.
+   the forward buffer, roughly 18 seconds on the same reading, while the
+   viewer was correctly at live. Drawing the rail to it parks the knob at 27%.
 
 The reachable edge is `rangeEnd - naturalGap`, where `naturalGap` is the
 steady-state forward buffer. On the real reading that gives 6.292 against a
@@ -70,12 +70,14 @@ That makes `naturalGap` load-bearing. It is the MAXIMUM
 `demuxer-cache-duration` over the first ten seconds after the picture
 appears, frozen the moment the user seeks. Capturing it on the first frame
 instead (the first attempt) reads far too low, because the buffer is still
-filling — which put the edge permanently ahead of the playhead, so the rail
+filling, which put the edge permanently ahead of the playhead, so the rail
 sat at 95% and Jump to live refilled the buffer and landed in exactly the
-same place. **If the rail ever sits short of 100% again, `SETTLE_MS` is the
-first suspect.**
+same place. **If the rail ever sits short of 100% again, the first suspect
+is `SETTLE_MS` in `liveEdge.ts`.** Say which file: there are three unrelated
+constants by that name (`liveEdge.ts` 10s, `connections.ts` 20s,
+`BootScene.tsx` 1490ms).
 
-`seekable-ranges` is LRU-ordered and emitted reversed — mpv qsorts it by
+`seekable-ranges` is LRU-ordered and emitted reversed. mpv qsorts it by
 time whenever it actually needs time order, which is the proof. Fold with
 min/max, never `first().start` / `last().end`.
 
@@ -130,9 +132,8 @@ that survived verification is fixed; the notes worth keeping:
   gone. The decision now lives in `ending.ts` and reads `lastTime` (what mpv
   said) rather than `time` (what the scrubber shows). **If you ever wire
   something to that decision, do not reach for the displayed clock.**
-- **`seekable-ranges` is LRU-ordered and emitted reversed.** mpv qsorts it by
-  time whenever it actually needs time order, which is the proof. Fold with
-  min/max, never `first().start` / `last().end`.
+- **`seekable-ranges` is LRU-ordered and emitted reversed.** Stated in full
+  under "The live rail" above.
 - **`demuxer-donate-buffer` means the live back buffer is 768MiB**, not the
   256MiB configured: the back buffer grows into whatever the forward buffer
   is not using, and at the live edge the forward buffer is near empty by
@@ -145,12 +146,10 @@ that survived verification is fixed; the notes worth keeping:
   assertions were written in terms of the constant under test. `LIVE_TOL`
   could go 3 to 12 and stay green. Assert against literals.
 
-Five pure modules now carry the logic that has a regression history:
-`ending.ts`, `seekHold.ts` (incl. `nextHold`), `liveEdge.ts` (incl.
-`nextBaseline`), `clock.ts`, `dvr.ts`. **The tune watchdog was NOT
-extracted** and is the biggest remaining candidate: six interacting inputs,
-a render-phase setState, and five shipped defects. `scripts/verify-watchdog.mjs`
-covers its behaviour headlessly and is the safety net for doing it.
+This review is what pushed the fragile logic out into pure modules. It left
+five of them; there are seven now, listed under "The player work" below.
+**The tune watchdog was NOT extracted**, and it is still the biggest
+remaining candidate: that is queue item 1.
 
 ### Headless verification actually works here
 
@@ -172,7 +171,7 @@ PW_FROM=/tmp/pw/anchor.js node scripts/verify-watchdog.mjs
 Passing today: `verify-watchdog`, `verify-aniskip-chip`.
 
 **`verify-overlay-tracks` and `verify-credits` are BROKEN, and were already
-broken before the v0.8.188 player work** — verified by running them against
+broken before the v0.8.188 player work**, verified by running them against
 a worktree at 951e77d, where they fail identically (`waiting for
 locator('.theater-overlay') to be visible`). So they are stale harnesses
 rather than a regression, but they are also two tests nobody is getting any
@@ -187,9 +186,20 @@ windows-gnu, so it compiles the real `cfg(windows)` branches, checks
 `--all-targets`, and verifies its own prerequisites. About 30 seconds warm.
 See CLAUDE.md for the clippy invocation and its 9-warning baseline.
 
+A COLD container has neither prerequisite, and the script refuses twice
+before it will run. Both are one-time, and together they cost several
+minutes of downloading:
+
+```
+rustup target add x86_64-pc-windows-gnu
+apt-get install -y gcc-mingw-w64-x86-64
+```
+
+Measured cold after that: 1m23s for the check, then ~3s for clippy warm.
+
 Three commits shipped before this was found, on the belief that Rust could
-not be checked from here at all — and then it was "discovered" a second
-time by someone who had not read the script.
+not be checked from here at all. Then it was "discovered" a second time
+by someone who had not read the script.
 
 ### The player work (v0.8.188 - v0.8.203)
 
@@ -220,8 +230,8 @@ order of user impact:
   so nothing leaks into the next file.
 - **The scrubber snapped backwards after every seek** (the poll pushed the
   pre-seek position over the optimistic one). Now held until a position
-  lands near the target or 1.5s passes — deliberately not a blanket mute,
-  which would make a failed seek look fine and then jump.
+  lands near the target or 1.5s passes. Deliberately not a blanket mute:
+  that would make a failed seek look fine and then jump.
 - **Held arrow keys fired ~31 seeks/sec**, each an IPC round trip plus two
   setStates re-rendering a 1700-line chrome. Coalesced to one per 150ms.
   Relative seeks are `relative+exact` now: mpv's default for `relative` is
@@ -229,7 +239,7 @@ order of user impact:
 - **Buffering was completely silent.** A seek outside the cache pauses mpv
   to refill; `core-idle` goes yes but nothing looked, so the picture froze
   with no spinner. `paused-for-cache` is read now and kept a SEPARATE signal
-  from `loading` — folding it in would arm the tune watchdog on every
+  from `loading`: folding it in would arm the tune watchdog on every
   buffering seek.
 - **The live-edge indicator was dead reckoning** at 0.8%/sec of *requested*
   seek and never asked mpv anything, so rewinding past the start of the
@@ -250,7 +260,7 @@ After the release, on Adam's reports:
 - **Back from an episode's source list lands on the episode list.** Drilling
   in normally always worked. Continue Watching resumes an episode directly,
   and when nothing is cached it lands that same screen without the episode
-  list ever having been shown — so Back returned to the home rows and left
+  list ever having been shown, so Back returned to the home rows and left
   you on one episode's sources with no route to the rest of the series.
   `backTarget.ts` decides it; the view stack grew a `peek()` so it can tell
   "drilled in" from "dropped in" and keep the scroll restore on the common
@@ -263,14 +273,12 @@ testable in vitest's node environment (no DOM): `seekHold.ts` (incl.
 
 **The pattern worth copying:** when something in a 1700-line component has
 bitten twice, it moves to a sibling module with tests written against
-LITERALS. Mutation testing found half the first batch of tests could not
-fail, because assertions were written in terms of the constant under test —
-`LIVE_TOL` could go 3 to 12 and stay green.
+LITERALS, for the mutation-testing reason in the review section above.
 
 ### What startup time actually is (measured, do not re-litigate)
 
 `ttff()` on a real 4K debrid remux: **4880ms cold, 1700-2800ms warm**. The
-cold/warm gap is the whole story — it is the provider answering, not
+cold/warm gap is the whole story: it is the provider answering, not
 anything in mpv. The theory that libavformat was slow probing the file's 71
 tracks was tested and refuted; `demuxer-lavf-analyzeduration` made it
 *slower*. Four warm runs on identical settings spread 1730-2758ms, so the
@@ -1416,7 +1424,11 @@ churn), and 12 stale-docs/comments findings: all swept (README
 architecture paragraph, this file's queue/landmines, ROADMAP's historical
 sections annotated, TheaterOverlay/player.css/tauri.ts/mpv.rs headers).
 
-## Immediate queue (user-approved order)
+## Historical (2026-07-11, dev v0.1.13x): the queue of that era
+
+**Not the live queue.** That is "The queue" near the top. This is kept for
+the paid-themes architecture notes in item 5, which have not been superseded.
+Items 1, 2 and 4 shipped; item 3 is a v0.1.x-era read on Adam's Figma work.
 
 1. ~~**Track menus**~~: SHIPPED v0.1.110-112 (see live state above).
 2. ~~**Adult-hide by default**~~: SHIPPED v0.1.113 (ROADMAP slate #6 has
@@ -1521,24 +1533,29 @@ sections annotated, TheaterOverlay/player.css/tauri.ts/mpv.rs headers).
 
 ## Environment (remote container)
 
-- **Rust does not build here**: Windows-target app, Linux sandbox lacks
-  GTK. Verify Rust/Tauri API claims against crate source (tauri is
-  version-LOCKED; check `Cargo.lock` before citing an API). The cargo
-  registry is NOT in fresh containers: fetch locked sources with
+- **Rust DOES type-check here**: `node scripts/check-rust.mjs`. See
+  "Checking the Rust from an agent container" above for the prerequisites
+  and the clippy baseline. This bullet used to say Rust does not build here,
+  which was false, and believing it shipped three unchecked commits. The
+  host target really does die in GTK; the point is that nobody needs it.
+  Still true and still useful: tauri is version-LOCKED, so check
+  `Cargo.lock` before citing an API, and the cargo registry is NOT in fresh
+  containers, so fetch locked sources with
   `curl -A "blammytv-dev" https://static.crates.io/crates/<name>/<name>-<ver>.crate`
   into the scratchpad and untar (the crates.io API path 403s without a UA).
-- **Headless verification**: chromium at `/opt/pw-browsers/chromium`;
-  `npm i playwright-core` in the session scratchpad, then
-  `chromium.launch({ executablePath: "/opt/pw-browsers/chromium" })`.
-  Serve the app with `pnpm build` + `vite preview` (:4173) and seed
-  `blammytv.playlists` in localStorage via `addInitScript`.
+- **Headless verification**: one recipe only, under "Headless verification
+  actually works here" above. Chromium is at `/opt/pw-browsers/chromium` and
+  `playwright-core` installs OUTSIDE the repo via `PW_FROM`. (This bullet
+  used to say `pnpm build` + `vite preview` with no `PW_FROM`. Two recipes
+  for one job is how the second one rots.)
 - **Fake Xtream panels live in `scripts/`** (rescued from a dead container;
   keep them in-repo): `fake-panel.mjs` (:8081, 4 channels, wiring/behavior
   coverage) and `perf-panel.mjs` (:8090, synthesizes 20k streams + ~50MB
   xmltv at real-provider scale; takes a real `get_live_streams` dump path
   to use actual data, `STREAMS=220000` for hardening scale).
 - Gates before every push: `pnpm typecheck && pnpm lint && pnpm test`
-  (+ `pnpm build` when styles/geometry changed). 69 tests green at handoff.
+  (+ `pnpm build` when styles/geometry changed). 724 tests green in 61 files
+  at handoff (2026-08-22), alongside a clean typecheck and lint.
 - The scratchpad is EPHEMERAL: anything worth keeping goes in the repo.
   Two scratchpad-only reports died with an earlier container
   (LIVE_TV_1.0_FEATURES.md, CODE_REVIEW_v0.1.md); their conclusions are
