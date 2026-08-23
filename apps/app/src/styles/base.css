@@ -618,7 +618,7 @@ button {
   padding: 11px 14px;
   border-radius: var(--radius-pill, 999px);
   background: color-mix(in srgb, var(--text) 10%, transparent);
-  backdrop-filter: blur(18px) saturate(1.4);
+  backdrop-filter: blur(5px) saturate(1.4);
   white-space: nowrap;
   pointer-events: auto;
   /* The width animation must not reflow the page behind it. */
@@ -656,10 +656,10 @@ button {
   padding: 1px;
   background: linear-gradient(
     135deg,
-    color-mix(in srgb, var(--text) 42%, transparent),
-    color-mix(in srgb, var(--text) 10%, transparent) 28%,
+    color-mix(in srgb, var(--text) 61%, transparent),
+    color-mix(in srgb, var(--text) 15%, transparent) 28%,
     transparent 52%,
-    color-mix(in srgb, var(--text) 20%, transparent)
+    color-mix(in srgb, var(--text) 29%, transparent)
   );
   -webkit-mask:
     linear-gradient(#000 0 0) content-box,
@@ -670,6 +670,40 @@ button {
     linear-gradient(#000 0 0);
   mask-composite: exclude;
   pointer-events: none;
+}
+
+/*
+ * THE GLARE, across the surface rather than along the edge. Without it a
+ * translucent fill reads as flat tinted grey: the rim alone describes where
+ * the glass ENDS, this describes that it has a face.
+ *
+ * INVERTED — lit from below, Adam's call off the bench. Both layers are the
+ * upward-lit versions turned through 180 degrees: 163deg became 343deg, and
+ * the radial's origin mirrored through the centre, 12%/-40% to 88%/140%.
+ *
+ * Under the pill and the icons on purpose. A specular sits on the top
+ * surface of real glass, but over the label it only greys the text, and at
+ * 5% the difference where it matters is nothing.
+ */
+.navcap::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  corner-shape: round;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      343deg,
+      color-mix(in srgb, var(--text) 5%, transparent) 0%,
+      color-mix(in srgb, var(--text) 1%, transparent) 34%,
+      transparent 58%
+    ),
+    radial-gradient(
+      120% 180% at 88% 140%,
+      color-mix(in srgb, var(--text) 4%, transparent),
+      transparent 62%
+    );
 }
 
 /* ONE element that travels, rather than a class that lights up. */
