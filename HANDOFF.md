@@ -15,22 +15,24 @@ Audience: switchers from other Windows IPTV clients, Stremio users, ideally
 both, and explicitly *inviting to newcomers*; first-five-minutes activation
 weighs as much as switcher parity. NOT a living-room/TV-remote product.
 
-## Live state (2026-08-22, v0.8.202 RELEASED, dev v0.8.204)
+## Live state (2026-08-23, v0.9.0 RELEASED, dev == released)
 
-**v0.8.202 is published and verified.** Signed installer plus `latest.json`
-on the release, and the live URLs were checked serving the right bytes. It
-is the first release since v0.8.167, so it carries thirty-five dev versions
-of playback work in one go.
+**v0.9.0 is published and verified**, and Adam's own install took the update.
+`verify-release.mjs` was run against the LIVE `latest.json`, not a local copy,
+so all eight checks passed including the signature over the 38,157,311
+published bytes. That is the check RELEASING.md step 5 exists for and it is
+the one that would have caught v0.8.163's two failures.
 
-**Dev is at v0.8.204**, frontend-only and unreleased. Two changes since the
-release: Back from an episode's source list lands on that series' episode
-list (v0.8.203), and the sports host got a headless harness plus the popout
-bug it found (v0.8.204). Because native 0.8.202 is out, a frontend-only hot
-push is safe (RELEASING.md, "Frontend-only release"), or let it ride into
-the next native release.
+**Sports is done.** v0.9.0 is the release the v0.8.163 notes promised: the cut
+landed across v0.8.178-183, the audit closed in v0.8.185, and v0.8.204 put the
+sports host under a headless harness and fixed the popout bug that found.
+`plans/010-sports.md` has the ledger and says why every remaining item is
+post-0.9.
 
-**Sports is code complete for v0.9.0 and waiting on the release.** That is
-the biggest single thing sitting ready: see the queue below.
+**Dev and released are the same version for once.** All six version spots read
+0.9.0 with nothing on top, so the next dev bump is 0.9.1 and the three native
+files stay at 0.9.0 until the next release. Nothing is half-finished and
+nothing is waiting on Adam.
 
 ### The release trap that nearly bit, and will recur
 
@@ -95,8 +97,8 @@ these have essentially no real-world hours:
   twice inside 24 hours and its failure mode is destroying a resume position
   and marking something watched. It is `ending.ts` with ten tests. If
   Continue Watching starts behaving oddly, look there first.
-- **The Sports tab, on a real machine.** Still opened zero times since the
-  player work. It is no longer unguarded, though: `verify-sports-theater`
+- **The Sports tab, on a real machine.** Adam has v0.9.0 installed now, so
+  this is finally testable; as of the release it still had no real hours. It is no longer unguarded, though: `verify-sports-theater`
   drives the real `useDirectOverlay` in that host headlessly, and finding
   the popout bug is what it was built for. What it cannot cover is anything
   that needs actual mpv, so the geometry (the slot insets by a 360px panel)
@@ -110,26 +112,19 @@ these have essentially no real-world hours:
 
 Nothing is blocking and nothing is half-finished. In rough order of value:
 
-1. **Cut v0.9.0: the Sports release.** The headline feature is code
-   complete and has been since v0.8.185; nothing in the v0.9.0 cut is open
-   (`plans/010-sports.md` has the ledger and says why each remaining item is
-   post-0.9). This is RELEASING.md's normal path on Adam's machine: step 1
-   bumps all SIX version spots to 0.9.0, Cargo.lock included, then a signed
-   build. It also needs a CHANGELOG entry, which lands with the release
-   commit the way v0.8.202's did. Everything below is smaller than this.
-2. **Extract the tune watchdog.** The last big untested piece: six
+1. **Extract the tune watchdog.** The last big untested piece: six
    interacting inputs, a render-phase `setState`, and five shipped defects
    across two sessions. `scripts/verify-watchdog.mjs` covers its behaviour
    headlessly and is the safety net for doing it. A reducer shape and six
    test cases are already specified in the overnight review's output.
-3. **Fix `verify-overlay-tracks` and `verify-credits`.** Both time out
+2. **Fix `verify-overlay-tracks` and `verify-credits`.** Both time out
    waiting for the overlay to render, and both were already broken before
    the player work (verified against a worktree at 951e77d). Two headless
    tests currently buying nothing.
-4. **The VOD buffered range on the scrubber.** `demuxer-cache-state` is
+3. **The VOD buffered range on the scrubber.** `demuxer-cache-state` is
    parsed already, so the data is in hand. It is the honest complement to
    the enlarged cache: it shows which seeks will hurt.
-5. **Clock/rail projection on live.** The clock is projected between polls
+4. **Clock/rail projection on live.** The clock is projected between polls
    but the rail is not, so while behind live the knob hops at ~0.8%/push.
    Cosmetic, and it needs eyes to judge whether it is worth it.
 
