@@ -120,6 +120,18 @@ need to ask first) **when the task shape actually benefits:**
   context is a feature: it can't rationalize our decisions.
 - **Big mechanical sweeps**: migrations, renames, test backfill, where the
   work-list is known and the items are independent.
+- **Repo archaeology**: what shipped between two versions, which callers of
+  X exist, what the history says about Y. Dozens of greps and log reads to
+  produce a short list, and the intermediate output is worthless once the
+  list exists. The v0.9.0 changelog survey was this shape and got done in
+  the main session, which is what made that session long.
+
+**Ask for pointers, not prose.** A subagent's summary is lossy, and the
+detail it drops is usually the detail worth writing down: "42 tab stops to
+1", "3.5MB re-parsed per tab flip". Have it come back with commit SHAs, file
+paths and line numbers, then read the few that matter directly. Delegate the
+FINDING, never the quoting: anything that ends up in a changelog, a commit
+message or a doc gets read first-hand before it is written down.
 
 **Stay hands-on for surgical, diagnostic, context-heavy work**: the
 measure→fix→retest loop that most changes here are. Accumulated context is the
