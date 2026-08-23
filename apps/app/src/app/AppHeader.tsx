@@ -229,14 +229,26 @@ export function AppHeader({
   const measure = useCallback(() => {
     for (const [key, el] of itemRefs.current) {
       const box = el.querySelector<HTMLElement>(".navcap__lbl");
-      const txt = box?.firstElementChild as HTMLElement | null;
-      if (!box || !txt) continue;
-      const prev = box.style.width;
+      if (!box) continue;
+      const prevW = box.style.width;
+      const prevT = box.style.transition;
+      // Transitions OFF for the duration. The clip box animates its width
+      // now, and a transitioning element reports the width it is currently
+      // AT, not the one just assigned — so the open item's `base` came back
+      // a whole label too wide, and the capsule settled that far off centre.
+      box.style.transition = "none";
       box.style.width = "0px";
       const base = el.offsetWidth;
       box.style.width = "auto";
-      sizes.current.set(key, [base, txt.getBoundingClientRect().width]);
-      box.style.width = prev;
+      // The label's width is the DIFFERENCE, not the inner span's own box:
+      // both readings are then offsetWidth, which is CSS px. Mixing in a
+      // getBoundingClientRect would have mixed in the UI zoom factor too.
+      sizes.current.set(key, [base, el.offsetWidth - base]);
+      box.style.width = prevW;
+      // Land the restored width while transitions are still off, or the
+      // measurement animates itself back out.
+      void box.offsetWidth;
+      box.style.transition = prevT;
     }
   }, []);
 
@@ -266,8 +278,17 @@ export function AppHeader({
         const key = node.dataset.dest as DestKey | undefined;
         if (!key) continue;
         const [base, lbl] = sizes.current.get(key) ?? [node.offsetWidth, 0];
-        w = base + (key === active ? lbl : 0);
-        if (key === active) {
+        const open = key === active;
+        w = base + (open ? lbl : 0);
+        // The clip box is driven in PIXELS from here, not by a CSS rule
+        // on [aria-current]. `width: auto` is not interpolable, so that
+        // rule snapped the capsule to its new width in one frame while
+        // the transform below still took --nav-dur to catch up: the bar
+        // jumped right, then slid back. Same duration, same curve, same
+        // frame budget = the mark stays nailed to the midline throughout.
+        const box = node.querySelector<HTMLElement>(".navcap__lbl");
+        if (box) box.style.width = `${open ? lbl : 0}px`;
+        if (open) {
           pillX = x;
           pillW = w;
         }
@@ -282,10 +303,28 @@ export function AppHeader({
     }
   }, [active]);
 
+  // A button's own width does not change when you click a DIFFERENT one, so
+  // measuring is keyed on the destination set alone. It runs first because
+  // effects fire in order, and place() reads what it stores.
   useLayoutEffect(() => {
     measure();
+  }, [measure, showLive]);
+
+  useLayoutEffect(() => {
     place();
-  }, [measure, place, showLive]);
+  }, [place, showLive]);
+
+  /* THE JITTER. `place` is a new function on every destination change, so
+   * an effect that lists it re-runs on every click. This one used to, and
+   * it calls measure(), which rewrites the clip boxes with transitions off
+   * — so the capsule snapped to its new width in one frame while the
+   * transform above still took --nav-dur to follow, and the bar visibly
+   * lurched right before settling back. The listeners want the LATEST
+   * place, not a re-subscription, so it goes through a ref. */
+  const placeRef = useRef(place);
+  useLayoutEffect(() => {
+    placeRef.current = place;
+  }, [place]);
 
   // Label widths move with the font, so re-measure once it lands.
   useEffect(() => {
@@ -293,15 +332,15 @@ export function AppHeader({
     document.fonts?.ready.then(() => {
       if (!alive) return;
       measure();
-      place();
+      placeRef.current();
     });
-    const onResize = () => place();
+    const onResize = () => placeRef.current();
     window.addEventListener("resize", onResize);
     return () => {
       alive = false;
       window.removeEventListener("resize", onResize);
     };
-  }, [measure, place]);
+  }, [measure]);
 
   /** One click sets BOTH levels, which is what keeps App unchanged. */
   const go = (d: (typeof DESTS)[number]) => {

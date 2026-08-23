@@ -652,9 +652,10 @@ button {
     opacity var(--nav-label-out) linear,
     transform var(--nav-label-out) linear;
 }
-.navcap__item[aria-current="page"] .navcap__lbl {
-  width: auto;
-}
+/* The clip box's width is set in pixels by AppHeader#place, deliberately.
+ * A `width: auto` rule here does not interpolate, so the capsule resized in
+ * one frame while the transform that keeps the mark centred still animated
+ * over --nav-dur, and the bar visibly jumped right before settling back. */
 .navcap__item[aria-current="page"] .navcap__lbl > i {
   opacity: 1;
   transform: none;
