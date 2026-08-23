@@ -870,7 +870,9 @@ button {
   display: block;
   width: 1143px;
   height: 1143px;
-  background: var(--logo-conic);
+  /* Composed HERE, not taken from --logo-conic, so that var(--logo-angle)
+   * resolves against this element — the one the spin animates. */
+  background: conic-gradient(from var(--logo-angle), var(--logo-stops));
   clip-path: path(evenodd, var(--logo-path));
   transform: scale(0.032371);
   transform-origin: 0 0;

@@ -2,12 +2,22 @@
 //
 // Two of these guard failures that are SILENT rather than loud.
 //
-// The spin only interpolates because --logo-angle is registered with
-// @property in tokens.css. Drop that registration and the property is an
-// untyped string to the interpolator: the animation still "runs", the
-// gradient just jumps to the end angle with nothing in between. Nothing
-// throws, nothing logs. So this samples the angle mid-flight and requires
-// it to be strictly between the endpoints.
+// The spin is checked in PIXELS, and that is the whole lesson of v0.9.12.
+// The first version of this file read --logo-angle off the element and
+// asserted it was interpolating. It was — and the gradient never moved,
+// because a custom property is substituted where it is DECLARED. With the
+// angle baked into --logo-conic on :root, every element downstream
+// inherited a finished string; animating the angle on the mark changed a
+// value nothing painted from. The property read passed, the feature was
+// dead, and Adam found it by clicking the logo.
+//
+// So: screenshot the mark, spin it, screenshot again, and require the
+// bytes to differ. That claim cannot be satisfied by a number that moves
+// somewhere the painter is not looking.
+//
+// The angle read stays as supporting evidence: it distinguishes "did not
+// animate" from "animated but nothing used it", which is the difference
+// between the two ways this has broken.
 //
 // The re-click is the other one. A CSS animation does not restart on an
 // element that already carries the class, so without the remove/reflow/add
@@ -19,6 +29,7 @@
 //   cd apps/app && pnpm exec vite --port 4173 --strictPort
 //   PW_FROM=<dir-with-node_modules>/x.js node scripts/verify-nav-feedback.mjs
 import { createRequire } from "node:module";
+import fs from "node:fs";
 const req = createRequire(process.env.PW_FROM ?? import.meta.url);
 const { chromium } = req("playwright-core");
 
@@ -49,21 +60,43 @@ check("the mark is a button, not decoration",
 check("and it is reachable by name",
   (await page.getByLabel("BlammyTV").count()) === 1);
 
+const paintedFrom = () => page.evaluate(() =>
+  (getComputedStyle(document.querySelector(".navcap__mark i"))
+    .backgroundImage.match(/from ([\d.]+)deg/) || ["", "none"])[1]);
+const plate = page.locator("button.navcap__mark b");
+const shot = async (n) => {
+  const f = `/tmp/verify-spin-${n}.png`;
+  await plate.screenshot({ path: f });
+  return fs.readFileSync(f);
+};
+
 const rest = await angle();
 check("at rest the gradient sits at the angle logo.svg bakes in",
   rest === "146.36deg", rest);
+const restPx = await shot("rest");
 
-// Mid-flight. Strictly BETWEEN the endpoints is the whole point: an
-// unregistered property would read 506.36 (or 146.36) and nothing else.
 await page.locator("button.navcap__mark").click();
 await page.waitForTimeout(280);
 const mid = await angle();
 const midN = parseFloat(mid);
 check("mid-spin the angle is interpolating, not jumping",
   midN > 147 && midN < 505, mid);
+// THE ONE THAT MATTERS: the painted gradient, not the property behind it.
+const painted = await paintedFrom();
+check("and the PAINTED gradient is at that angle, not a baked-in one",
+  Math.abs(parseFloat(painted) - midN) < 1, `painted from ${painted}deg`);
+const midPx = await shot("mid");
+check("so the mark actually looks different mid-spin",
+  !restPx.equals(midPx), `${restPx.length} vs ${midPx.length} bytes`);
 
 await page.waitForTimeout(700);
 check("and it lands back where it started", (await angle()) === "146.36deg", await angle());
+// Byte equality is the wrong test for the END state: re-rasterising the
+// same gradient is not deterministic to the byte (measured: max channel
+// delta 2 across 27 of 1406 pixels, which is nothing). The painted angle
+// is exact, so assert that instead.
+check("and the painted gradient is back to its rest angle",
+  (await paintedFrom()) === "146.36", `from ${await paintedFrom()}deg`);
 
 // The re-click, MID-SPIN. This is the case the remove/reflow/add dance in
 // AppHeader#spin exists for, and the only one that can catch its absence:
