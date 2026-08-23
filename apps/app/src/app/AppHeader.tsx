@@ -61,7 +61,7 @@ const DESTS: Array<{
   key: DestKey;
   label: string;
   side: Section;
-  Icon: ComponentType<{ size?: number; className?: string }>;
+  Icon: ComponentType<{ size?: number; className?: string; filled?: boolean }>;
   /** Sports is plan 010, still behind a badge while its source is a bet. */
   beta?: boolean;
 }> = [
@@ -414,7 +414,11 @@ export function AppHeader({
                 }}
                 onClick={() => go(d)}
               >
-                <d.Icon />
+                {/* Regular weight off, filled on: the pill carries the
+                  * active state from across the bar, the icon's weight
+                  * confirms it up close. Both weights are the same 22px
+                  * box, so this cannot shift the capsule. */}
+                <d.Icon filled={on} />
                 <span className="navcap__lbl">
                   <i>
                     {d.label}
