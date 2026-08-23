@@ -15,7 +15,54 @@
 
 .discover__toggle {
   display: flex;
+  align-items: center;
   justify-content: center;
+  gap: 10px;
+}
+
+/* Search, beside the filters rather than in the header. Sized off
+ * .chip-tabs so the two read as one row: 18px radius, same 12px headline
+ * face, and a height that matches the tab track rather than guessing. */
+.disc-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 18px;
+  background: var(--surface-track);
+  color: var(--text-muted);
+  transition: color var(--dur-hover, 120ms) ease;
+}
+/* A softened ring, not the accent outline the nav buttons use. A text
+ * input always matches :focus-visible while focused, so that outline would
+ * sit at full strength for as long as you were typing in it — which is a
+ * different thing from the transient flash a button gets. */
+.disc-search:focus-within {
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.disc-search svg {
+  flex: none;
+  display: block;
+}
+.disc-search__input {
+  width: 210px;
+  border: 0;
+  outline: none;
+  background: none;
+  color: var(--text);
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 12px;
+}
+.disc-search__input::placeholder {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+.disc-search__input::-webkit-search-cancel-button {
+  cursor: pointer;
 }
 
 .discover__genres {

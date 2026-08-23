@@ -296,87 +296,7 @@ button {
   line-height: 34px;
   opacity: 0.3;
 }
-
-/* Tabs and actions share the brand name's 34px line: same height,
- * contents centered, so all three clusters sit on one centerline. */
-
-
-/* The inert live-search slot: same no-tease treatment as .header__action. */
-/* visibility (not display): the hidden twin keeps its space so the tab
- * cluster never shifts when the icon swaps sides. */
-
-/* Search chip: the rail's LAST CHIP (rendered via ChipTabs' trailing
- * slot) — an icon-sized SQUARE. Focusing slides the ChipTabs thumb
- * behind the icon (thumbKey="search"); the input is a bare text box
- * floating to the chip's right, absolutely positioned over empty
- * header space, so opening search never moves the nav. */
-.header__searchchip {
-  position: relative;
-  display: flex;
-  align-items: center;
-  /* Padding comes from the shared .chip-tabs--bare tab rule. */
-  cursor: pointer;
-  transition: opacity var(--dur-hover) ease;
-}
-.header__searchchip:focus-within {
-  opacity: 1;
-}
-.header__searchchip svg {
-  flex-shrink: 0;
-  width: 18px;
-  height: 18px;
-}
-.header__searchinput {
-  position: absolute;
-  left: calc(100% + 6px);
-  top: 50%;
-  /* AppHeader measures the real gap to the right controls on open and
-   * writes --search-w (zoom-corrected); the fallback covers the
-   * blurred-with-query state before any measure. */
-  width: var(--search-w, min(240px, 17vw));
-  background: none;
-  border: none;
-  outline: none;
-  color: var(--text);
-  font: inherit;
-  font-size: 12px;
-  opacity: 0;
-  pointer-events: none;
-  /* Reveal slides 6px out of its chip (motion plan 002) — the translateY
-   * is the vertical centering and must ride along in every state. */
-  transform: translateY(-50%) translateX(-6px);
-  transition:
-    opacity var(--dur-hover) ease,
-    transform 150ms var(--ease-out);
-}
-/* Hover teases the placeholder at half strength; focus — and any typed
- * query — goes full, so an active search never renders invisible. */
-.header__searchchip:hover .header__searchinput {
-  opacity: 0.5;
-}
-.header__searchchip:focus-within .header__searchinput,
-.header__searchchip:has(.header__searchinput:not(:placeholder-shown))
-  .header__searchinput {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateY(-50%) translateX(0);
-}
-.header__searchchip:has(.header__searchinput:not(:placeholder-shown)) {
-  opacity: 1;
-}
-.header__searchinput::placeholder {
-  color: var(--text-muted);
-}
-.header__searchinput::-webkit-search-cancel-button {
-  cursor: pointer;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .header__searchinput,
-  .header__searchchip {
-    transition: none;
-  }
-}
+@media (prefers-reduced-motion: reduce) {}
 
 
 
@@ -892,10 +812,4 @@ button {
   .navcap__mark.is-spinning i {
     animation: none;
   }
-}
-
-/* The search field on the live side has nothing to search yet. */
-.header__searchchip--off {
-  visibility: hidden;
-  pointer-events: none;
 }

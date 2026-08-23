@@ -6,6 +6,7 @@ import {
   type CardMetaField,
 } from "../settings/cardMeta";
 import { Card, RowScroller } from "../stream/StreamScreen";
+import { SearchIcon } from "../../ui/icons";
 import {
   onGenreRequest,
   requestOpenInStream,
@@ -27,8 +28,10 @@ import {
 } from "./data";
 import {
   getSearchQuery,
+  onSearchFocusRequest,
   onSearchQueryChange,
   setSearchQuery,
+  takeSearchFocus,
 } from "./searchQuery";
 import { scrubbedMessage } from "../../lib/errors";
 import { useMouseNav } from "../../lib/mouseNav";
@@ -133,6 +136,20 @@ export function DiscoverScreen() {
   // grid step aside); clearing or Escape returns to browsing.
   const [query, setQuery] = useState(getSearchQuery);
   useEffect(() => onSearchQueryChange(setQuery), []);
+  /* `/`, Ctrl+K and Ctrl+F are handled app-wide and can fire while this
+   * screen is not mounted — App also holds the swap back by
+   * NAV_SETTLE_MS. So the request is COLLECTED on mount as well as
+   * listened for while up; a plain event would have landed in an empty
+   * room and the shortcut would do nothing from anywhere else. */
+  const searchRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const focus = () => searchRef.current?.focus();
+    if (takeSearchFocus()) focus();
+    return onSearchFocusRequest(() => {
+      takeSearchFocus();
+      focus();
+    });
+  }, []);
   // Genre hand-off (a detail-screen genre pill): drain on mount and on
   // the event; arriving means BROWSING, so any active search clears —
   // the STORE (for the header's mirror) and the LOCAL state directly.
@@ -452,6 +469,31 @@ export function DiscoverScreen() {
           active={filter}
           onChange={(k) => setFilter(k)}
         />
+        {/* Search sits WITH the filters because it is one of them: it
+          * narrows this screen's grid and nothing else. It used to live in
+          * the header, where it was the only control that did not apply to
+          * wherever you happened to be. */}
+        <span className="disc-search">
+          <SearchIcon size={16} aria-hidden />
+          <input
+            ref={searchRef}
+            className="disc-search__input"
+            type="search"
+            placeholder="Search movies & series…"
+            value={query}
+            aria-label="Search movies and series"
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                // Ours alone: without stopPropagation the App-level
+                // listener also exits OS fullscreen on the same press.
+                e.stopPropagation();
+                setSearchQuery("");
+                e.currentTarget.blur();
+              }
+            }}
+          />
+        </span>
       </div>
 
       {searching ? (

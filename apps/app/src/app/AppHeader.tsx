@@ -12,14 +12,12 @@ import {
   DiscoverIcon,
   GuideIcon,
   LibraryIcon,
-  SearchIcon,
   SettingsIcon,
   SportsIcon,
   StreamIcon,
 } from "../ui/icons";
-import { currentZoom } from "../features/settings/uiScale";
 import {
-  onSearchQueryChange,
+  requestSearchFocus,
   setSearchQuery,
 } from "../features/discover/searchQuery";
 import { UpdateChip } from "./UpdateChip";
@@ -118,54 +116,15 @@ export function AppHeader({
   onOpenSettings: () => void;
 }) {
   const clock = useClock();
-  // Controlled mirror of the shared search store (the store is the truth
-  // DiscoverScreen renders from; local state keeps the input snappy).
-  const [query, setQuery] = useState("");
-  // Mirror store-side clears too (e.g. a genre pill hand-off clears the
-  // search) — otherwise the input shows stale text over browse results.
-  useEffect(() => onSearchQueryChange(setQuery), []);
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  // While the search input is focused the rail's thumb parks on the
-  // search chip (thumbKey) — the thumb tracks where your INPUT goes;
-  // `streamTab` stays the truth of which page is showing.
-  const [searchOpen, setSearchOpen] = useState(false);
-  // Fit the floating input to the space actually available before the
-  // right-side controls — 240px is a ceiling, not a promise. At 125% UI
-  // scale on a narrow window the fixed width overran the settings icon
-  // by 200+px. gBCR is visual (zoom-included) px; ÷zoom converts back
-  // to the CSS px the width style is written in (see uiScale.ts).
-  const searchChipRef = useRef<HTMLSpanElement>(null);
-  useLayoutEffect(() => {
-    if (!searchOpen) return;
-    const chip = searchChipRef.current;
-    const fit = () => {
-      const right = document.querySelector(".header__right");
-      if (!chip || !right) return;
-      const gap =
-        (right.getBoundingClientRect().left -
-          chip.getBoundingClientRect().right) /
-        currentZoom();
-      const w = Math.max(48, Math.min(240, gap - 18));
-      chip.style.setProperty("--search-w", `${w}px`);
-    };
-    fit();
-    window.addEventListener("resize", fit);
-    return () => {
-      window.removeEventListener("resize", fit);
-      // Drop the measured width on blur: the blurred-with-query state
-      // keeps the input visible, and a stale wide measure (taken before
-      // a window shrink, or mid rail-expansion) overlapped — and stole
-      // clicks from — the right-side header controls. The CSS fallback
-      // min(240px, 17vw) covers that state instead.
-      chip?.style.removeProperty("--search-w");
-    };
-  }, [searchOpen]);
-
-  // `/`, Ctrl+K, Ctrl+F focus the pill — VOD side only, never while
-  // typing in another field, never while a player is up (its own keys
-  // win; #inv-chrome existing = playback chrome mounted).
+  // `/`, Ctrl+K, Ctrl+F reach the search field — which lives on Discover
+  // now, so this GOES there first and asks for focus through the mailbox
+  // in searchQuery. Dispatching a bare event would not survive the trip:
+  // DiscoverScreen may not be mounted yet, and App holds the swap back by
+  // NAV_SETTLE_MS on top of that.
+  //
+  // Never while typing in another field, and never while a player is up
+  // (its own keys win; #inv-chrome existing = playback chrome mounted).
   useEffect(() => {
-    if (section === "live") return;
     const onKey = (e: KeyboardEvent) => {
       const slash =
         e.key === "/" && !e.ctrlKey && !e.metaKey && !e.altKey;
@@ -185,11 +144,13 @@ export function AppHeader({
         return;
       if (document.getElementById("inv-chrome")) return;
       e.preventDefault();
-      searchInputRef.current?.focus();
+      onSection("stream");
+      onStreamTab("discover");
+      requestSearchFocus();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [section]);
+  }, [onSection, onStreamTab]);
 
   // The header floats over the tabs; publish its measured height so tabs
   // that shouldn't start underneath can offset themselves (--header-h).
@@ -395,11 +356,10 @@ export function AppHeader({
       onLiveTab(d.key as LiveTab);
     } else {
       onSection("stream");
-      // Leaving the Discover pill means browse, so drop any live query.
-      if (d.key === "discover") {
-        setQuery("");
-        setSearchQuery("");
-      }
+      // Pressing the Discover pill means browse, so drop any live query.
+      // The store is the only copy now — the header kept a mirror of it
+      // while the input lived here.
+      if (d.key === "discover") setSearchQuery("");
       onStreamTab(d.key as StreamTab);
     }
   };
@@ -484,47 +444,6 @@ export function AppHeader({
       </nav>
 
       <div className="header__right">
-        {/* The search field, out of the old Stream rail and standing on its
-          * own. Behaviour is untouched: typing writes the shared store and
-          * lands on Discover, clearing does not yank you off the page. */}
-        <span
-          ref={searchChipRef}
-          className={
-            "header__searchchip" + (section === "live" ? " header__searchchip--off" : "")
-          }
-          onClick={() => searchInputRef.current?.focus()}
-        >
-          <SearchIcon aria-hidden />
-          <input
-            ref={searchInputRef}
-            className="header__searchinput"
-            type="search"
-            placeholder="Search movies & series…"
-            value={query}
-            tabIndex={section === "live" ? -1 : 0}
-            aria-label="Search movies and series"
-            onFocus={() => setSearchOpen(true)}
-            onBlur={() => setSearchOpen(false)}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setSearchQuery(e.target.value);
-              if (e.target.value !== "" && streamTab !== "discover") {
-                onSection("stream");
-                onStreamTab("discover");
-              }
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                // Ours alone: without stopPropagation the App-level
-                // listener also exits OS fullscreen on the same press.
-                e.stopPropagation();
-                setQuery("");
-                setSearchQuery("");
-                e.currentTarget.blur();
-              }
-            }}
-          />
-        </span>
         {/* Outside the 0.3-opacity icon cluster on purpose: an available
           * update should read at full strength. */}
         <UpdateChip />
