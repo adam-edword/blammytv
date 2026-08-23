@@ -88,28 +88,6 @@ constants by that name (`liveEdge.ts` 10s, `connections.ts` 20s,
 time whenever it actually needs time order, which is the proof. Fold with
 min/max, never `first().start` / `last().end`.
 
-### What has NOT been exercised by anyone
-
-The unit coverage is good and the reviewers found the interaction bugs, but
-these have essentially no real-world hours:
-
-- **A film watched to the end.** The finished-or-died decision was rewritten
-  twice inside 24 hours and its failure mode is destroying a resume position
-  and marking something watched. It is `ending.ts` with ten tests. If
-  Continue Watching starts behaving oddly, look there first.
-- **Memory over a long session.** ~1GB was observed and accepted, but over
-  minutes. Live is the case where the back buffer rests at its full 768MiB
-  and never shrinks, because live never ends.
-
-
-**The Sports tab is off this list**, 2026-08-23. It was on it because the
-player rewrite landed under it while nobody was opening it. Adam has been
-using it throughout and reports it good, which covers the two things
-`verify-sports-theater` structurally cannot: the slot geometry (the video
-insets by a 360px side panel) and real mpv playback. The harness still
-guards the wiring, and the popout path it fixed only became correct in
-v0.9.0, so that specific button has hours only from this release on.
-
 ### The queue
 
 Nothing is blocking and nothing is half-finished. In rough order of value:
