@@ -2,20 +2,63 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
-## 0.9.0: Sports, properly (2026-08-22)
+## 0.9.0: Sports (2026-08-23)
 
-Sports has been in the app since 0.8.163, shipped early while the last of it
-was still being built. It is finished now, and this is the release that says
-so. Nothing about the hub changes for you here: if you are on 0.8.202 you
-already have it and everything built on it. Two fixes came with the version.
+Sports is finished. It first appeared in 0.8.163 while the last of it was
+still being built, and this is the version that says it is done.
+
+If you are coming from 0.8.202 you already have the hub, and the two fixes
+at the bottom are what is new for you. If you are coming from further back,
+here is the whole thing.
+
+### What Sports is
+
+A hub whose objects are **games**, not channels. It knows that Chiefs vs
+Bills is a thing that exists, works out which of your own channels is
+showing it, and gets you watching in one click. Finding a game used to mean
+knowing which network had it, then hunting that network yourself among
+~1,900 channels named things like `US| ESPN2 HD`.
+
+- **The board.** What is on right now across the top, then a grid per day.
+  Live first, because the question the screen answers is "what can I watch".
+  A followed league with nothing on in the next three days shows its next
+  event on its real date rather than leaving a hole, and a racing league
+  shows its whole remaining season.
+
+- **Your channels, on every card.** A game says where you can actually watch
+  it, and clicking one plays it in a theater built on the same player as the
+  rest of the app. Several channels is normal and good: three chances at one
+  that is not buffering. In the theater they become a rail you can fail over
+  down when a feed dies.
+
+- **151 leagues.** Favourites as tiles up top, everything else in one
+  searchable column grouped by sport. Search matches the sport as well as
+  the league, so "hockey" finds all four hockey leagues. Follow clubs too,
+  and the sidebar narrows the board to them.
+
+- **Every sport gets the card it needs.** Two sides and a score for most;
+  a race weekend's schedule folded into one card on race day; a tennis
+  tournament that opens into its full day's draw with per-set scores and
+  courts; a golf leaderboard with the field, the flags and the score to par.
+  Formula 1 sits in the defaults and its sessions land on their real days.
+
+- **It only claims what it knows.** A game it cannot connect to one of your
+  channels says exactly that, rather than claiming it is not on. Where it
+  knows a league's usual home but the schedule is silent, most of tennis and
+  a lot of non-US football, it offers that and words it as the guess it is.
+  A listing that names a streaming service rather than a channel says so
+  instead of pretending it is something you can tune.
+
+- **It behaves like a guest.** The schedule source is free and not ours, so
+  the board caches, backs off when a request fails, and eases to a
+  five-minute check while you are actually watching a game.
 
 ### Fixed
 
 - **Popping a sports game out no longer jumps.** Send a live game to the
   floating window and it opened black, or minutes behind whatever you were
-  watching. It opens where you were. Live TV and films got this fix in
-  0.8.202; the Sports theater was the one that got missed, and it was the
-  only screen still doing it.
+  watching. It opens where you were. Live TV and films got this in 0.8.202;
+  the Sports theater was the one screen still doing it.
 
 - **Back from an episode's sources goes to the episode list.** Resume a
   series from Continue Watching, open the source list, press Back, and you
@@ -56,9 +99,18 @@ a proper rewind bar, and a handful of things that quietly lied have stopped.
   yet froze the picture with no explanation. It says what it is doing now.
 - **Holding an arrow key is much cheaper.** Every repeat used to be a separate
   round trip and a full redraw of the player controls.
+- **The player is built once, not on every channel.** It used to be torn
+  down and rebuilt for each stream, and the teardown blocked until the old
+  stream's network threads unwound. Now it stays up and is handed the next
+  stream, which is where most of the switching time went.
+- **Resuming a film asks for everything at once.** The two requests a resume
+  needs ran one after the other, and on a slow addon each cost one to two
+  seconds. They run together now.
 
 ### Fixed
 
+- **Switching channels no longer flashes the desktop.** For a moment between
+  streams the window showed straight through to whatever was behind it.
 - **A dead channel on a portal playlist now offers you Retry.** It used to
   reload itself every ten seconds forever, never showing the "isn't
   responding" card and never trying the next source.
@@ -337,6 +389,30 @@ named things like `US| ESPN2 HD`.
 - The first launch no longer waits on the guide before showing the catalog.
 - Mouse back and Escape work on the sports screens, and Escape no longer
   closes the screen behind an open Settings.
+- **Hovering a row stops working after you alt-tab away mid-click.** Every
+  row in the app had this: Stream home, Continue Watching, Discover's genre
+  rail. Releasing the mouse outside the window left the row believing a drag
+  was still in progress, which switched off hovering until some later drag
+  ended cleanly.
+- **The floating player window has working keys.** It shipped with none at
+  all, mpv's own included. 9 and 0 move the volume, m mutes, space pauses,
+  arrows seek.
+- **The app stops sending you to a Settings tab that does not exist.** Ten
+  places said "Settings → AIOStreams" or "Settings → Playlists"; both live
+  under General → Sources. One of them was the first sentence a new user
+  reads, so the first instruction the app gave was one nobody could follow.
+- **Hiding a folder is no longer permanent on M3U and Stalker playlists.**
+  The toast promised you could unhide it in Settings and there was no unhide
+  anywhere, so missing the five-second undo meant deleting and re-adding the
+  playlist.
+- **Small text you could not read.** Most of the minor text on the race and
+  weekend cards sat under the contrast a body line needs, measured rather
+  than eyeballed. Rows are also one tab stop each now instead of one per
+  item, which was 42 stops on a single row.
+- **The app stops re-downloading things it already has.** Leaving the Sports
+  tab and coming back re-fetched a 3.5MB season calendar every time, and
+  resizing the window woke every card on screen separately instead of once
+  for the page.
 
 ## 0.8.0: Library (2026-07-26)
 
