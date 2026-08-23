@@ -97,6 +97,12 @@ comments, UI copy.
   "precisely", "simply".
 - **Don't oversell.** No "by far the most common", no "the single biggest
   reason", unless there's a number behind it.
+- **Chat replies: lead with the outcome, then stop.** The commit message and
+  the diff are the record. Don't restate them in chat afterwards, don't
+  recap what I just watched you do, and don't produce a summary table
+  unless I ask for one or the shape genuinely needs one. Say what changed,
+  what's still open, and what I have to do. Surprises and decisions I own
+  are worth the words; narration is not.
 
 The house voice is the site's FAQ copy in `services/site/index.html`: "Yup."
 "Nope." "None." Direct, second person, no throat-clearing. Match that.
