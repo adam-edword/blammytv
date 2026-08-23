@@ -153,6 +153,37 @@ export function InvertedPlayer({
     const healHole = () => {
       if (shell) shell.style.clipPath = "";
     };
+    /**
+     * Glue the chrome host to a slot rect.
+     *
+     * #inv-chrome is position:fixed with NO box in CSS — this is the only
+     * thing that gives it one, and .theater-overlay inside it is
+     * absolute/inset:0, so it fills whatever this sets. Until it is called
+     * the host shrink-to-fits and the whole overlay collapses into a
+     * ~60px column at the top left: the title wrapping one word per line,
+     * the transport bar stacked into the corner.
+     *
+     * Which is what a VOD looked like for its entire load, because this
+     * used to live in phase 2 only — after `await tauriInvOpen`, which IS
+     * the load. It is here as well now, in phase 1, because the two
+     * halves of phase 2 do not have the same constraint: the HOLE has to
+     * wait, since a hole cut before the video is behind it shows the
+     * desktop, but the chrome is DOM painted over the app and can never
+     * show anything but the app. It only ever had to wait by association.
+     */
+    const placeChrome = (r: {
+      l: number;
+      t: number;
+      r: number;
+      b: number;
+    }) => {
+      const chrome = document.getElementById("inv-chrome");
+      if (!chrome) return;
+      chrome.style.left = `${r.l}px`;
+      chrome.style.top = `${r.t}px`;
+      chrome.style.width = `${r.r - r.l}px`;
+      chrome.style.height = `${r.b - r.t}px`;
+    };
     const tick = () => {
       const el = document.getElementById(SLOT_ID);
       if (el) {
@@ -202,6 +233,8 @@ export function InvertedPlayer({
                   ? holeClip(ix.l, ix.t, ix.r, ix.b, rad, W, H)
                   : "";
             }
+            // Deliberately NOT bundled with the hole below: see placeChrome.
+            placeChrome(next);
             // The OTHER half of [mpv-timing]: Rust prints what the
             // synchronous open cost, this prints how long until the first
             // frame is actually presented. mpv opens the stream on its own
@@ -240,13 +273,10 @@ export function InvertedPlayer({
                     W,
                     H,
                   );
-                const chrome = document.getElementById("inv-chrome");
-                if (chrome) {
-                  chrome.style.left = `${next.l}px`;
-                  chrome.style.top = `${next.t}px`;
-                  chrome.style.width = `${next.r - next.l}px`;
-                  chrome.style.height = `${next.b - next.t}px`;
-                }
+                // Again, authoritatively: phase 1 placed it against the
+                // rect the video was about to move to, this confirms it
+                // against the one the video actually landed on.
+                placeChrome(next);
               }, 16);
             });
           }
