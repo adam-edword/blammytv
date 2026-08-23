@@ -139,10 +139,12 @@ button {
   left: 0;
   right: 0;
   z-index: 20;
-  /* Equal 1fr flanks center the tabs on the TRUE window midline —
-   * flex space-between let the wider brand block shove the nav right. */
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  /* The capsule is absolutely positioned (see .navcap), so the flanks can
+   * be a plain space-between now. The old 1fr/auto/1fr grid existed to keep
+   * a FLOWED nav on the window midline against a wider brand block; nothing
+   * flowed can hold that line once the capsule resizes around a fixed mark. */
+  display: flex;
+  justify-content: space-between;
   align-items: flex-start;
   padding: 27px 17px;
   /* Subtle scrim so the nav reads over bright content scrolling under
@@ -261,46 +263,28 @@ button {
 }
 */
 
+/* Clock over version. With the lockup gone this corner holds only those
+ * two, so they stack instead of sitting side by side. */
 .header__brand {
   display: flex;
-  align-items: center;
-  gap: 15px; /* lockup ↔ clock */
-}
-
-.header__lockup {
-  display: flex;
-  align-items: center;
-  gap: 5px; /* logo ↔ wordmark, tuned independently of the clock */
-}
-
-.header__logo {
-  width: 35px;
-  height: 28px;
-  object-fit: contain;
-}
-
-.header__title {
-  position: relative; /* the version hangs below without adding height */
-  display: flex;
   flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
 }
 
-.header__name {
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 26px;
-  line-height: 34px;
-}
+
+
+
 
 /* Out of flow so the brand block stays one 34px line — the nav's shared
  * centerline ignores the version entirely. */
+/* Was position:absolute, hanging off the wordmark's box. That box is
+ * gone, so it is a plain second line now. */
 .header__version {
-  position: absolute;
-  top: 100%;
-  left: 0;
   font-family: var(--font-headline);
   font-weight: 200;
   font-size: 11px;
+  letter-spacing: 0.06em;
   color: var(--text-muted);
   opacity: 0.35;
 }
@@ -315,46 +299,11 @@ button {
 
 /* Tabs and actions share the brand name's 34px line: same height,
  * contents centered, so all three clusters sit on one centerline. */
-.header__tabs {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  height: 34px;
-}
 
-.header__search {
-  display: grid;
-  place-items: center;
-  background: none;
-  border: none;
-  padding: 0;
-  color: inherit;
-  cursor: pointer;
-  opacity: 0.3;
-  transition: opacity var(--dur-hover) ease;
-}
-.header__search svg {
-  width: 17px;
-  height: 17px;
-}
-.header__search:hover {
-  opacity: 0.8;
-}
 
 /* The inert live-search slot: same no-tease treatment as .header__action. */
-.header__search:disabled {
-  cursor: default;
-  opacity: 0.3;
-}
-.header__search:disabled:hover {
-  opacity: 0.3;
-}
 /* visibility (not display): the hidden twin keeps its space so the tab
  * cluster never shifts when the icon swaps sides. */
-.header__search--off {
-  visibility: hidden;
-  pointer-events: none;
-}
 
 /* Search chip: the rail's LAST CHIP (rendered via ChipTabs' trailing
  * slot) — an icon-sized SQUARE. Focusing slides the ChipTabs thumb
@@ -429,44 +378,13 @@ button {
   }
 }
 
-.header__tab-slot {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
 
-.header__tab {
-  font-family: var(--font-headline);
-  font-weight: 300;
-  font-size: 21px;
-  letter-spacing: 0.42px;
-  opacity: 0.3;
-  transition: opacity var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
-}
 
-.header__tab:hover {
-  opacity: 0.6;
-}
 
-.header__tab--active {
-  font-weight: 700;
-  letter-spacing: 0;
-  opacity: 1;
-}
 
 /* Clicking would be a no-op (already at Stream Home) — hold full
  * strength on hover instead of teasing the 0.6 dim. */
-.header__tab--inert:hover {
-  opacity: 1;
-}
 
-.header__divider {
-  font-family: var(--font-text);
-  font-weight: 200;
-  font-size: 32px;
-  opacity: 0.3;
-}
 
 /* Stream sub-rail: the section's pages as pills (rail itself has no
  * background; only the ACTIVE pill gets a chip), search slot at the end.
@@ -495,57 +413,6 @@ button {
   color: rgba(255, 255, 255, 0.75);
 }
 
-/* The Live rail mirrors the Stream one and opens to the LEFT of its tab,
- * so the two rails expand outward from the divider. Everything else is
- * inherited from .header__rail on purpose: same metrics, same curve. */
-.header__rail--live {
-  margin-right: 4px;
-}
-
-.header__streamgroup {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.header__rail {
-  display: flex;
-  align-items: center;
-  margin-top: 3px;
-  max-width: 340px;
-  /* The Live↔Stream glide (the Figma motion: nav slides over while the
-   * rail fades in). Width rides the Figma curve; the chips fade in
-   * slightly late and land into place. The centered tab cluster slides
-   * over for free — the grid re-centers as the rail's width animates.
-   * Overflow stays VISIBLE while open: the search input floats off the
-   * rail absolutely (so focusing search never moves the nav) and must
-   * not clip; the fade carries the expand, --off clips the collapse. */
-  transition:
-    max-width 480ms cubic-bezier(0.56, 0, 0.5, 0.99),
-    opacity 260ms ease 140ms,
-    visibility 0s;
-}
-.header__rail--off {
-  max-width: 0;
-  opacity: 0;
-  visibility: hidden;
-  /* Collapse: fade leads, wipe follows; visibility flips only after the
-   * width lands so the fade-out is visible. */
-  transition:
-    max-width 400ms cubic-bezier(0.56, 0, 0.5, 0.99),
-    opacity 180ms ease,
-    visibility 0s 400ms;
-}
-/* AFTER the rail rules on purpose: media queries add no cascade weight,
- * so an earlier reduced-motion override lost to these on source order
- * (fleet finding — the glide still animated under reduced motion). */
-@media (prefers-reduced-motion: reduce) {
-  .header__rail,
-  .header__rail--off {
-    transition: none;
-  }
-}
-/* The rail's chips come from the shared ChipTabs primitive (ui.css) with
- * the chip-tabs--bare modifier — nothing header-specific to style here. */
 
 .header__actions {
   display: flex;
@@ -666,9 +533,6 @@ button {
 }
 
 /* ---- Press feedback (motion plan 001). ---- */
-.header__tab:active {
-  transform: scale(0.97);
-}
 .update-chip:active {
   transform: scale(0.97);
 }
@@ -683,4 +547,155 @@ button {
       transform: none;
     }
   }
+}
+
+
+/* ------------------------------------------------------- the nav capsule */
+
+/*
+ * Five destinations and the app mark, floating over the content.
+ *
+ * THE MARK HOLDS THE WINDOW MIDLINE. The capsule is anchored at 50% and
+ * then slid back by however far the mark sits from its own left edge, so
+ * the two halves grow at different rates while the mark does not move at
+ * all. AppHeader#place computes that offset; it cannot be done in CSS
+ * because the offset depends on the active label's width.
+ *
+ * The mark is also the DIVIDER between the live half and the rest, which
+ * is the job the literal "|" used to do. It is not a button, so it gets
+ * roughly double the icons' gap: in the icons' own rhythm it read as a
+ * sixth destination and got clicked.
+ */
+.navcap {
+  position: absolute;
+  left: 50%;
+  top: 27px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px;
+  border-radius: var(--radius-pill, 999px);
+  background: color-mix(in srgb, var(--surface-raised) 82%, transparent);
+  backdrop-filter: blur(18px) saturate(1.4);
+  border: 1px solid var(--border-raised);
+  white-space: nowrap;
+  pointer-events: auto;
+  /* The width animation must not reflow the page behind it. */
+  contain: layout style;
+  transition: transform var(--nav-dur) var(--nav-spring);
+}
+
+/* ONE element that travels, rather than a class that lights up. */
+.navcap__pill {
+  position: absolute;
+  top: 10px;
+  left: 0;
+  height: 44px;
+  border-radius: var(--radius-pill, 999px);
+  background: color-mix(in srgb, var(--text) 22%, transparent);
+  pointer-events: none;
+  transition:
+    transform var(--nav-dur) var(--nav-spring),
+    width var(--nav-dur) var(--nav-spring);
+}
+
+.navcap__item {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 12px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  color: var(--text);
+  border-radius: var(--radius-pill, 999px);
+  font: 600 15px/1 inherit;
+}
+.navcap__item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.navcap__item svg {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  display: block;
+}
+
+/*
+ * The label is REVEALED by the pill rather than faded in over it: a clip
+ * box that opens while the text slides out from behind the icon.
+ *
+ * --nav-label-out is deliberately LONGER than the travel. The clip closes
+ * in --nav-dur, so the outgoing text is wiped away by the pill before its
+ * opacity ever finishes; --nav-label-in does the same on arrival. The
+ * reveal ends up entirely clip-driven, which reads as a shutter instead of
+ * a crossfade.
+ */
+.navcap__lbl {
+  display: inline-block;
+  overflow: hidden;
+  width: 0;
+  transition: width var(--nav-dur) var(--nav-spring);
+}
+.navcap__lbl > i {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-style: normal;
+  padding-left: 9px;
+  opacity: 0;
+  transform: translateX(-6px);
+  transition:
+    opacity var(--nav-label-out) linear,
+    transform var(--nav-label-out) linear;
+}
+.navcap__item[aria-current="page"] .navcap__lbl {
+  width: auto;
+}
+.navcap__item[aria-current="page"] .navcap__lbl > i {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 150ms linear var(--nav-label-in),
+    transform 220ms var(--nav-spring) var(--nav-label-in);
+}
+
+/* Brand and divider, not a destination: double the icons' air. */
+.navcap__mark {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 22px;
+}
+.navcap__mark b {
+  display: block;
+  width: 26px;
+  height: 26px;
+  overflow: hidden;
+}
+.navcap__mark i {
+  display: block;
+  width: 1143px;
+  height: 1143px;
+  background: var(--logo-conic);
+  clip-path: path(evenodd, var(--logo-path));
+  transform: scale(0.022747);
+  transform-origin: 0 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navcap,
+  .navcap__pill,
+  .navcap__lbl,
+  .navcap__lbl > i {
+    transition-duration: 1ms;
+  }
+}
+
+/* The search field on the live side has nothing to search yet. */
+.header__searchchip--off {
+  visibility: hidden;
+  pointer-events: none;
 }

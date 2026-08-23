@@ -421,6 +421,66 @@ export function PanelIcon({ size = 18, className }: IconProps) {
   );
 }
 
+/* ---------------------------------------------------------------- nav
+ * The five destinations in the header capsule. Drawn on the same 24-grid
+ * as the rest of this file so they sit on one optical weight beside the
+ * player and settings icons. */
+
+/** Guide: the EPG's rows. */
+export function GuideIcon({ size = 22, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <circle cx="4" cy="6" r="1.3" fill="currentColor" stroke="none" />
+      <path d="M9 6h11" />
+      <circle cx="4" cy="12" r="1.3" fill="currentColor" stroke="none" />
+      <path d="M9 12h11" />
+      <circle cx="4" cy="18" r="1.3" fill="currentColor" stroke="none" />
+      <path d="M9 18h7" />
+    </Svg>
+  );
+}
+
+/** Sports: a ball's seams, sport-agnostic on purpose. */
+export function SportsIcon({ size = 22, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M4 8c5 1 10 4 12 11M20 9c-5 0-9 2-12 10" />
+    </Svg>
+  );
+}
+
+/** Stream: the VOD landing page. */
+export function StreamIcon({ size = 22, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <rect x="3" y="5" width="18" height="14" rx="3" />
+      <path d="M11 10l4 2-4 2z" fill="currentColor" />
+    </Svg>
+  );
+}
+
+/** Discover: browsing the whole catalog. */
+export function DiscoverIcon({ size = 22, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18M12 3c2.5 3 2.5 15 0 18M12 3c-2.5 3-2.5 15 0 18" />
+    </Svg>
+  );
+}
+
+/** Library: what you have saved. */
+export function LibraryIcon({ size = 22, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <rect x="4" y="4" width="4" height="16" rx="1" />
+      <rect x="10" y="4" width="4" height="16" rx="1" />
+      <path d="M17.5 4.6l3 15" />
+    </Svg>
+  );
+}
+
 /** Devices / TV — the playlist mode chip. */
 export function TvIcon({ size = 16, className }: IconProps) {
   return (

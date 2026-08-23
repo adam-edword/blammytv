@@ -84,7 +84,7 @@
   transition: box-shadow var(--dur-hover) ease;
 }
 
-:root[data-theme-pack="terminal"] .header__tab:hover,
+:root[data-theme-pack="terminal"] .navcap__item:hover,
 :root[data-theme-pack="terminal"] .live-folder:hover {
   text-shadow: 0 0 8px rgba(80, 255, 130, 0.7);
   transition: text-shadow var(--dur-hover) ease;
@@ -422,7 +422,7 @@
   transition: box-shadow var(--dur-hover) ease;
 }
 
-:root[data-theme-pack="kawaii"] .header__tab:hover,
+:root[data-theme-pack="kawaii"] .navcap__item:hover,
 :root[data-theme-pack="kawaii"] .live-folder:hover {
   text-shadow: 0 0 8px rgba(242, 160, 194, 0.8);
   transition: text-shadow var(--dur-hover) ease;

@@ -1,6 +1,22 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { AccountIcon, SearchIcon, SettingsIcon } from "../ui/icons";
-import { ChipTabs } from "../ui/ChipTabs";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  Fragment,
+  type ComponentType,
+} from "react";
+import {
+  AccountIcon,
+  DiscoverIcon,
+  GuideIcon,
+  LibraryIcon,
+  SearchIcon,
+  SettingsIcon,
+  SportsIcon,
+  StreamIcon,
+} from "../ui/icons";
 import { currentZoom } from "../features/settings/uiScale";
 import {
   onSearchQueryChange,
@@ -25,23 +41,35 @@ export type StreamTab = "home" | "discover" | "mylist";
  * shipped behind a BETA badge while its data source is still a bet. */
 export type LiveTab = "guide" | "sports";
 
-const LIVE_RAIL = [
-  { key: "guide" as const, label: "Guide" },
-  {
-    key: "sports" as const,
-    label: (
-      <>
-        Sports <span className="chip-beta">BETA</span>
-      </>
-    ),
-    ariaLabel: "Sports (beta)",
-  },
-];
+/**
+ * THE DESTINATIONS, flat.
+ *
+ * The header used to show two SIDES (Live TV | Stream) with a sub-rail
+ * under each. The capsule shows all five pages at once instead, so the
+ * side is no longer something the user navigates — it is just which half
+ * of the bar a destination sits in, marked by the app mark between them.
+ *
+ * The two-level state behind it is UNCHANGED: each entry writes both the
+ * section and its tab, so App and every screen carry on as before.
+ */
+/* The key stays the tab's own id, so App and the screens are untouched.
+ * "home" is LABELLED "Stream": it is the VOD landing page, and "Home" was
+ * the only name in the bar that described a position rather than content. */
+type DestKey = LiveTab | StreamTab;
 
-const RAIL: Array<{ key: StreamTab; label: string }> = [
-  { key: "home", label: "Home" },
-  { key: "discover", label: "Discover" },
-  { key: "mylist", label: "Library" },
+const DESTS: Array<{
+  key: DestKey;
+  label: string;
+  side: Section;
+  Icon: ComponentType<{ size?: number; className?: string }>;
+  /** Sports is plan 010, still behind a badge while its source is a bet. */
+  beta?: boolean;
+}> = [
+  { key: "guide", label: "Guide", side: "live", Icon: GuideIcon },
+  { key: "sports", label: "Sports", side: "live", Icon: SportsIcon, beta: true },
+  { key: "home", label: "Stream", side: "stream", Icon: StreamIcon },
+  { key: "discover", label: "Discover", side: "stream", Icon: DiscoverIcon },
+  { key: "mylist", label: "Library", side: "stream", Icon: LibraryIcon },
 ];
 
 /** Live clock, minute-accurate (the header shows no seconds). Follows the
@@ -180,6 +208,117 @@ export function AppHeader({
     return () => ro.disconnect();
   }, []);
 
+  /* ---------------------------------------------------------- capsule
+   * The pill is ONE element that travels; the mark is pinned to the
+   * window midline and the capsule grows unevenly around it.
+   *
+   * Every number here is COMPUTED from measured widths rather than read
+   * back off the DOM, because offsetWidth during the transition returns
+   * the ANIMATING width: measuring live puts the pill under the label and
+   * lets the mark drift off centre. */
+  const navRef = useRef<HTMLElement | null>(null);
+  const pillRef = useRef<HTMLSpanElement | null>(null);
+  const markRef = useRef<HTMLSpanElement | null>(null);
+  const itemRefs = useRef(new Map<DestKey, HTMLButtonElement>());
+  /** key -> [icon-only width, label width]. Measured once per layout. */
+  const sizes = useRef(new Map<DestKey, [number, number]>());
+
+  const shown = DESTS.filter((d) => showLive || d.side !== "live");
+  const active: DestKey = section === "live" ? liveTab : streamTab;
+
+  const measure = useCallback(() => {
+    for (const [key, el] of itemRefs.current) {
+      const box = el.querySelector<HTMLElement>(".navcap__lbl");
+      const txt = box?.firstElementChild as HTMLElement | null;
+      if (!box || !txt) continue;
+      const prev = box.style.width;
+      box.style.width = "0px";
+      const base = el.offsetWidth;
+      box.style.width = "auto";
+      sizes.current.set(key, [base, txt.getBoundingClientRect().width]);
+      box.style.width = prev;
+    }
+  }, []);
+
+  const place = useCallback(() => {
+    const nav = navRef.current;
+    const pill = pillRef.current;
+    const mark = markRef.current;
+    if (!nav || !pill || !mark) return;
+    const cs = getComputedStyle(nav);
+    const pad = parseFloat(cs.paddingLeft) || 0;
+    const gap = parseFloat(cs.columnGap || cs.gap || "0") || 0;
+    // Children sit inside the BORDER box, so the walk starts past it too.
+    // Leaving it out put the mark exactly one border-width off the midline.
+    const border = parseFloat(cs.borderLeftWidth) || 0;
+
+    let x = pad + border;
+    let pillX: number | null = null;
+    let pillW = 0;
+    let markMid = 0;
+    for (const node of Array.from(nav.children) as HTMLElement[]) {
+      if (node === pill) continue;
+      let w: number;
+      if (node === mark) {
+        w = mark.offsetWidth;
+        markMid = x + w / 2;
+      } else {
+        const key = node.dataset.dest as DestKey | undefined;
+        if (!key) continue;
+        const [base, lbl] = sizes.current.get(key) ?? [node.offsetWidth, 0];
+        w = base + (key === active ? lbl : 0);
+        if (key === active) {
+          pillX = x;
+          pillW = w;
+        }
+      }
+      x += w + gap;
+    }
+    // The mark holds the midline; the capsule breathes around it.
+    nav.style.transform = `translateX(${-markMid}px)`;
+    if (pillX !== null) {
+      pill.style.transform = `translateX(${pillX}px)`;
+      pill.style.width = `${pillW}px`;
+    }
+  }, [active]);
+
+  useLayoutEffect(() => {
+    measure();
+    place();
+  }, [measure, place, showLive]);
+
+  // Label widths move with the font, so re-measure once it lands.
+  useEffect(() => {
+    let alive = true;
+    document.fonts?.ready.then(() => {
+      if (!alive) return;
+      measure();
+      place();
+    });
+    const onResize = () => place();
+    window.addEventListener("resize", onResize);
+    return () => {
+      alive = false;
+      window.removeEventListener("resize", onResize);
+    };
+  }, [measure, place]);
+
+  /** One click sets BOTH levels, which is what keeps App unchanged. */
+  const go = (d: (typeof DESTS)[number]) => {
+    if (d.side === "live") {
+      onSection("live");
+      onLiveTab(d.key as LiveTab);
+    } else {
+      onSection("stream");
+      // Leaving the Discover pill means browse, so drop any live query.
+      if (d.key === "discover") {
+        setQuery("");
+        setSearchQuery("");
+      }
+      onStreamTab(d.key as StreamTab);
+    }
+  };
+
   return (
     <header className="header" ref={ref}>
       {/* Progressive blur: stacked backdrop layers with geometrically
@@ -195,183 +334,102 @@ export function AppHeader({
         <i />
         <i />
       </div>
+      {/* Clock only. The mark moved into the capsule, where it doubles as
+        * the divider between the live half and the rest, and the wordmark
+        * went with it: the app does not need to caption itself. */}
       <div className="header__brand">
-        {/* Logo + wordmark grouped so their gap tunes independently of the
-          * clock's spacing off the lockup. */}
-        <div className="header__lockup">
-          <img className="header__logo" src="/logo.svg" alt="" />
-          <div className="header__title">
-            <span className="header__name">BlammyTV</span>
-            <span className="header__version">v{APP_VERSION}</span>
-          </div>
-        </div>
         <span className="header__clock">{clock}</span>
+        <span className="header__version">v{APP_VERSION}</span>
       </div>
 
-      <nav className="header__tabs" aria-label="Sections">
-        {/* TWO search buttons flank the tabs — TV-side and VOD-side — and
-          * swap via visibility (not display) so the cluster never moves a
-          * pixel. Both open Discover's search today; the TV-side slot is
-          * reserved for live-channel search when that exists. */}
-        <button
-          type="button"
-          className={
-            "header__search" +
-            (section === "live" ? "" : " header__search--off")
-          }
-          aria-label="Search channels"
-          aria-hidden={section !== "live"}
-          tabIndex={-1}
-          /* Deliberately INERT: this is the live-channel search slot,
-           * completely unlinked from the VOD pill (jumping a TV user to
-           * Discover was wrong). Wire it when TV search exists — until
-           * then it reads disabled instead of teasing a dead click. */
-          disabled
-          title="Coming soon"
-        >
-          <SearchIcon />
-        </button>
-        {showLive && (
-          <span className="header__tab-slot">
-            {/* The Live rail sits BEFORE its tab, mirroring Stream's which
-              * sits after: the two rails open outward from the divider, so
-              * the section you are in expands away from the middle. Same
-              * chips, same bare (trackless) styling, same collapse curve —
-              * one rail component wearing one look, on both sides. */}
-            <div
-              className={
-                "header__rail header__rail--live" +
-                (section === "stream" ? " header__rail--off" : "")
-              }
-              aria-hidden={section === "stream"}
-            >
-              <ChipTabs
-                tabs={LIVE_RAIL}
-                active={liveTab}
-                className="chip-tabs--bare"
-                onChange={onLiveTab}
-              />
-            </div>
-            <button
-              type="button"
-              className={
-                "header__tab" +
-                (section === "live" ? " header__tab--active" : "")
-              }
-              onClick={() => onSection("live")}
-            >
-              Live TV
-            </button>
-            {/* The design keeps a fixed divider between Live TV and the
-              * rest. */}
-            <span className="header__divider">|</span>
-          </span>
-        )}
-        {/* Stream tab + its sub-rail grouped, so their gap tunes
-          * independently of the tab cluster's 20px rhythm. */}
-        <div className="header__streamgroup">
-          <button
-            type="button"
-            className={
-              "header__tab" +
-              (section === "stream" ? " header__tab--active" : "") +
-              // Already at Stream Home = the button is a no-op; don't
-              // tease a hover change that clicking won't honor.
-              (section === "stream" && streamTab === "home"
-                ? " header__tab--inert"
-                : "")
-            }
-            onClick={() => {
-              // From Live, entering the section restores the last page
-              // (the remember behavior); within the section, Stream is
-              // the "back to Home" shortcut.
-              if (section === "stream") onStreamTab("home");
-              else onSection("stream");
-            }}
-          >
-            Stream
-          </button>
-          {/* The Stream sub-rail: the section's actual pages, plus the
-            * search slot at its end. COLLAPSED — not unmounted — on Live
-            * TV, so the section-switch animation (phase 2) is pure CSS
-            * width/opacity on .header__rail--off. */}
-          <div
-            className={
-              "header__rail" + (section === "live" ? " header__rail--off" : "")
-            }
-            aria-hidden={section === "live"}
-          >
-          {/* The SAME chip slider used in Settings/Discover/the Live
-            * sidebar — sliding raised thumb and all — minus the track
-            * background. The search chip is the rail's LAST CHIP, an
-            * icon square: focusing slides the thumb behind the ICON via
-            * thumbKey, while the input floats off the chip absolutely
-            * (bare text box, no layout impact — the nav never moves);
-            * blur/Escape sends the thumb home to the page pill.
-            * (Collapsed rail = visibility:hidden, which also drops the
-            * chips from the tab order.) */}
-          <ChipTabs
-            tabs={RAIL}
-            active={streamTab}
-            className="chip-tabs--bare"
-            thumbKey={searchOpen ? "search" : undefined}
-            onChange={(t) => {
-              // The Discover PILL means browse: clear any active search
-              // so it never lands (or stays) on stale results.
-              if (t === "discover") {
-                setQuery("");
-                setSearchQuery("");
-              }
-              onStreamTab(t);
-            }}
-            trailing={
-              /* A span, not a button — buttons can't contain inputs.
-               * Clicking anywhere on the chip focuses the input. */
-              <span
-                ref={searchChipRef}
-                className="chip-tabs__tab header__searchchip"
-                data-tab="search"
-                onClick={() => searchInputRef.current?.focus()}
+      {/* THE CAPSULE. Absolutely positioned rather than sitting in the
+        * header's grid: the mark has to land on the WINDOW midline, and a
+        * flowed element gets shoved by whichever flank is wider. */}
+      <nav className="navcap" aria-label="Sections" ref={navRef}>
+        <span className="navcap__pill" ref={pillRef} aria-hidden />
+        {shown.map((d, i) => {
+          const prev = shown[i - 1];
+          const on = d.key === active;
+          return (
+            /* A Fragment, NOT a wrapper element: place() walks
+               nav.children, and even a display:contents span would sit in
+               that list and hide the buttons from it. */
+            <Fragment key={d.key}>
+              {prev && prev.side !== d.side && (
+                <span className="navcap__mark" ref={markRef} aria-hidden>
+                  <b>
+                    <i />
+                  </b>
+                </span>
+              )}
+              <button
+                type="button"
+                data-dest={d.key}
+                className="navcap__item"
+                aria-current={on ? "page" : undefined}
+                aria-label={d.beta ? `${d.label} (beta)` : d.label}
+                title={d.label}
+                ref={(el) => {
+                  if (el) itemRefs.current.set(d.key, el);
+                  else itemRefs.current.delete(d.key);
+                }}
+                onClick={() => go(d)}
               >
-                <SearchIcon aria-hidden />
-                <input
-                  ref={searchInputRef}
-                  className="header__searchinput"
-                  type="search"
-                  placeholder="Search movies & series…"
-                  value={query}
-                  tabIndex={section === "live" ? -1 : 0}
-                  aria-label="Search movies and series"
-                  onFocus={() => setSearchOpen(true)}
-                  onBlur={() => setSearchOpen(false)}
-                  onChange={(e) => {
-                    setQuery(e.target.value);
-                    setSearchQuery(e.target.value);
-                    // Typing from any Stream page lands where results
-                    // are — but CLEARING (the × button, backspace to
-                    // empty) must not yank the user off their page.
-                    if (e.target.value !== "" && streamTab !== "discover")
-                      onStreamTab("discover");
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape") {
-                      // Ours alone: without stopPropagation the App-level
-                      // listener also exits OS fullscreen on the same press.
-                      e.stopPropagation();
-                      setQuery("");
-                      setSearchQuery("");
-                      e.currentTarget.blur();
-                    }
-                  }}
-                />
-              </span>
-            }
-          />
-          </div>
-        </div>
+                <d.Icon />
+                <span className="navcap__lbl">
+                  <i>
+                    {d.label}
+                    {d.beta && <span className="chip-beta">BETA</span>}
+                  </i>
+                </span>
+              </button>
+            </Fragment>
+          );
+        })}
       </nav>
 
       <div className="header__right">
+        {/* The search field, out of the old Stream rail and standing on its
+          * own. Behaviour is untouched: typing writes the shared store and
+          * lands on Discover, clearing does not yank you off the page. */}
+        <span
+          ref={searchChipRef}
+          className={
+            "header__searchchip" + (section === "live" ? " header__searchchip--off" : "")
+          }
+          onClick={() => searchInputRef.current?.focus()}
+        >
+          <SearchIcon aria-hidden />
+          <input
+            ref={searchInputRef}
+            className="header__searchinput"
+            type="search"
+            placeholder="Search movies & series…"
+            value={query}
+            tabIndex={section === "live" ? -1 : 0}
+            aria-label="Search movies and series"
+            onFocus={() => setSearchOpen(true)}
+            onBlur={() => setSearchOpen(false)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setSearchQuery(e.target.value);
+              if (e.target.value !== "" && streamTab !== "discover") {
+                onSection("stream");
+                onStreamTab("discover");
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                // Ours alone: without stopPropagation the App-level
+                // listener also exits OS fullscreen on the same press.
+                e.stopPropagation();
+                setQuery("");
+                setSearchQuery("");
+                e.currentTarget.blur();
+              }
+            }}
+          />
+        </span>
         {/* Outside the 0.3-opacity icon cluster on purpose: an available
           * update should read at full strength. */}
         <UpdateChip />

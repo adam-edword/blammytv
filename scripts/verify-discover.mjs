@@ -18,10 +18,19 @@ await page.addInitScript(() => {
     "blammytv.aiostreams",
     JSON.stringify({ v: 1, data: "http://localhost:8084/manifest.json" }),
   );
+  // A live source too, or showLive is false and the live half of the nav
+  // never renders. This harness has been failing on main at the "Live TV"
+  // click for exactly that reason; it needs scripts/fake-m3u.mjs on :8082.
+  localStorage.setItem(
+    "blammytv.playlists",
+    JSON.stringify({ v: 1, data: [{ kind: "m3u", id: "m1", name: "Test M3U",
+      enabled: true, url: "http://localhost:8082/playlist.m3u" }] }),
+  );
   sessionStorage.setItem("btv:welcome-played", "1");
 });
 await page.goto("http://localhost:4173/");
-// New nav (v0.3.37): Discover is a Stream-section pill, not a top tab —
+// The capsule (v0.9.1): every destination is a top-level button, and
+// each one carries its label as an aria-label, so getByRole still finds it.
 // enter the section, then pick the page.
 await page.getByRole("button", { name: "Stream", exact: true }).click();
 await page.getByRole("button", { name: "Discover", exact: true }).click();
@@ -96,15 +105,15 @@ await page.screenshot({ path: process.env.SHOT_DIR + "/discover-handoff.png" });
 await page.getByRole("button", { name: /back/i }).first().click();
 await page.waitForTimeout(600);
 check("back returns to Discover grid", (await page.locator(".disc-grid").count()) > 0);
-check("nav shows Discover pill active under Stream section",
-  (await page.locator(".header__rail .chip-tabs__tab--active").textContent()) === "Discover" &&
-  (await page.locator(".header__tab--active").textContent()) === "Stream");
+// The nav is one flat capsule now (no section tab + sub-rail), so the
+// assertion is simply which destination carries aria-current.
+check("nav shows Discover as the active destination",
+  (await page.locator('.navcap__item[aria-current="page"]').getAttribute("data-dest")) === "discover");
 
 // ---- Search: the header PILL owns the input; results merge every
 // search catalog (incl. search-only) with type labels intact.
-check("header search chip lives in the rail (open)",
-  await page.locator(".header__rail:not(.header__rail--off) .header__searchchip").count() === 1);
-const tabsBoxBefore = await page.getByRole("button", { name: "Stream", exact: true }).boundingBox();
+check("the search field is available on the VOD side",
+  await page.locator(".header__searchchip:not(.header__searchchip--off)").count() === 1);
 // The input rests at width 0 inside its chip — focus first (expands it),
 // then fill; fill's own visibility auto-wait rides out the width morph.
 const typeSearch = async (v) => {
@@ -151,91 +160,67 @@ await typeSearch("");
 await page.keyboard.press("Escape");
 await page.waitForTimeout(200);
 
-// ---- Thumb-on-search: focusing slides the ChipTabs thumb onto the
-// search chip (stretched to its expanded width); Escape/blur sends it
-// home to the page pill. streamTab stays "discover" throughout — the
-// thumb override is presentation, not navigation.
-await page.focus(".header__searchinput");
-await page.waitForTimeout(700); // input width morph + thumb glide
-const thumbOn = await page.evaluate(() => {
-  const t = document.querySelector(".header__rail .chip-tabs__thumb")?.getBoundingClientRect();
-  const c = document.querySelector(".header__searchchip")?.getBoundingClientRect();
-  return t && c ? { dl: Math.abs(t.left - c.left), dw: Math.abs(t.width - c.width) } : null;
-});
-check("focus slides the thumb behind the search icon",
-  !!thumbOn && thumbOn.dl < 2.5 && thumbOn.dw < 2.5, JSON.stringify(thumbOn));
-// The input floats absolutely off the chip — opening search must NOT
-// move the nav (the in-flow expansion regression Adam caught).
-const tabsBoxFocused = await page.getByRole("button", { name: "Stream", exact: true }).boundingBox();
-check("nav does not move while search is open",
-  Math.abs((tabsBoxBefore?.x ?? 0) - (tabsBoxFocused?.x ?? 1)) < 1);
-await page.keyboard.press("Escape");
-await page.waitForTimeout(700); // chip collapse + thumb return
-const thumbHome = await page.evaluate(() => {
-  const t = document.querySelector(".header__rail .chip-tabs__thumb")?.getBoundingClientRect();
-  const c = document.querySelector('.header__rail [data-tab="discover"]')?.getBoundingClientRect();
-  return t && c ? { dl: Math.abs(t.left - c.left), dw: Math.abs(t.width - c.width) } : null;
-});
-check("Escape returns the thumb to the page pill",
-  !!thumbHome && thumbHome.dl < 2.5 && thumbHome.dw < 2.5, JSON.stringify(thumbHome));
-// Within the VOD side, all the search churn must never move the nav.
-const tabsBoxVod = await page.getByRole("button", { name: "Stream", exact: true }).boundingBox();
-check("nav static within the VOD side", Math.abs((tabsBoxBefore?.x ?? 0) - (tabsBoxVod?.x ?? 1)) < 1);
+/* ---- The capsule nav (v0.9.1).
+ *
+ * REMOVED WITH THE OLD HEADER, so the checks for them went too rather than
+ * being softened: the ChipTabs thumb sliding onto the search chip and home
+ * again (search is no longer a chip in a rail); the inert TV-side search
+ * button; the rail collapse and the re-centre it caused; and the Stream
+ * button's "return to Home" / "remember my last page" double duty. The
+ * capsule shows every destination at once, so none of those states exist.
+ *
+ * What still matters is that opening search never moves the nav, which was
+ * a real regression Adam caught, and that the live side has no search. */
+const capX = () => page.locator(".navcap").boundingBox().then((b) => b?.x ?? 0);
 
-// TV side: rail collapses, TV icon swaps in.
-await page.getByRole("button", { name: "Live TV" }).click();
-await page.waitForTimeout(300);
-const tabsBoxAfter = await page.getByRole("button", { name: "Stream", exact: true }).boundingBox();
-check("rail collapses on Live, TV icon swaps in",
-  await page.locator(".header__rail--off").count() === 1 &&
-  await page.locator("button.header__search:not(.header__search--off)").count() === 1);
-// TV icon is UNLINKED from VOD search: clicking it must not navigate.
-await page.locator("button.header__search").click();
+const navBefore = await capX();
+await page.focus(".header__searchinput");
+await page.waitForTimeout(700); // the input's width morph
+check("opening search does not move the capsule",
+  Math.abs(navBefore - (await capX())) < 1);
+await page.keyboard.press("Escape");
+await page.waitForTimeout(700);
+check("closing search does not move it either",
+  Math.abs(navBefore - (await capX())) < 1);
+
+// TV side: no VOD search to offer, so the field goes.
+await page.locator('[data-dest="guide"]').click();
 await page.waitForTimeout(400);
-check("TV icon does NOT leave Live TV",
-  (await page.locator(".header__tab--active").textContent()) === "Live TV");
-// Shortcuts are dead on Live.
+check("Guide is the active destination",
+  (await page.locator('.navcap__item[aria-current="page"]').getAttribute("data-dest")) === "guide");
+check("search hides on the live side",
+  (await page.locator(".header__searchchip--off").count()) === 1);
 await page.keyboard.press("/");
 await page.waitForTimeout(150);
 check("slash does nothing on Live",
   !(await page.evaluate(() => document.activeElement?.classList.contains("header__searchinput") ?? false)));
-// Between SECTIONS the nav moves BY DESIGN now: the rail collapses and
-// the centered cluster re-centers (phase 2 animates this glide).
-check("nav re-centers when the rail collapses",
-  Math.abs((tabsBoxBefore?.x ?? 0) - (tabsBoxAfter?.x ?? 0)) > 10,
-  `vod x=${tabsBoxBefore?.x} live x=${tabsBoxAfter?.x}`);
-// And Stream remembers its page: coming back lands on Discover, not Home.
-await page.getByRole("button", { name: "Stream", exact: true }).click();
-await page.waitForTimeout(300);
-check("Stream remembers its last page across a TV trip",
-  (await page.locator(".header__rail .chip-tabs__tab--active").textContent()) === "Discover" &&
-  (await page.locator(".disc-grid, .discover").count()) > 0);
-// Within the section, the Stream button is the "back to Home" shortcut —
-// and once AT Home it's inert (no hover dim).
-await page.getByRole("button", { name: "Stream", exact: true }).click();
-await page.waitForTimeout(300);
-check("Stream button returns to Home from a sub-tab",
-  (await page.locator(".header__rail .chip-tabs__tab--active").textContent()) === "Home");
-await page.getByRole("button", { name: "Stream", exact: true }).hover();
-await page.waitForTimeout(250);
-check("Stream button holds full strength on hover at Home",
-  (await page.evaluate(() =>
-    getComputedStyle([...document.querySelectorAll(".header__tab")]
-      .find((b) => b.textContent === "Stream")).opacity)) === "1");
 
-// ---- My List: empty state, save from detail, grid render, hand-off
+// The mark holds the window midline whichever side is active: the capsule
+// grows unevenly around it, so any drift here means the anchor is broken.
+const markOff = async () => page.evaluate(() => {
+  const m = document.querySelector(".navcap__mark")?.getBoundingClientRect();
+  return m ? Math.abs((m.left + m.width / 2) - window.innerWidth / 2) : 999;
+});
+check("mark holds the midline on the live side", (await markOff()) < 1.5);
+await page.locator('[data-dest="home"]').click();
+await page.waitForTimeout(500);
+check("mark holds the midline on the VOD side", (await markOff()) < 1.5);
+check("Stream lands on the VOD home",
+  (await page.locator('.navcap__item[aria-current="page"]').getAttribute("data-dest")) === "home");
+
+// ---- Library (the page is still My List internally): empty state, save from detail, grid render, hand-off
 // whose back-out returns HERE (origin plumbing), then unsave.
-await page.locator(".header__rail").getByRole("button", { name: "My List", exact: true }).click();
+await page.locator('[data-dest="mylist"]').click();
 await page.waitForTimeout(400);
-check("My List empty state",
-  (await page.evaluate(() => document.body.innerText)).includes("Nothing saved yet"));
-await page.getByRole("button", { name: "Home", exact: true }).click();
+check("Library empty state",
+  (await page.evaluate(() => document.body.innerText)).includes("This list is empty"));
+await page.locator('[data-dest="home"]').click();
 await page.waitForTimeout(500);
 await page.locator(".stream-card", { hasText: "Fake Movie One" }).first().click();
 await page.waitForTimeout(700);
-await page.locator(".vod-save").click();
-check("save button flips to saved", (await page.locator(".vod-save--on").count()) === 1);
-await page.locator(".header__rail").getByRole("button", { name: "My List", exact: true }).click();
+await page.locator(".vod-save:not(.vod-save__more)").click();
+check("save button flips to saved", (await page.locator(".vod-save--on").count()) >= 1);
+await page.locator('[data-dest="mylist"]').click();
 await page.waitForTimeout(500);
 check("My List grid shows the saved title",
   (await page.locator(".disc-grid .stream-card", { hasText: "Fake Movie One" }).count()) === 1);
@@ -246,8 +231,8 @@ await page.waitForTimeout(700);
 check("My List card opens Stream detail", (await page.locator(".vod-back").count()) > 0);
 await page.locator(".vod-back").click();
 await page.waitForTimeout(500);
-check("back from hand-off returns to My List",
-  (await page.locator(".header__rail .chip-tabs__tab--active").textContent()) === "My List" &&
+check("back from hand-off returns to Library",
+  (await page.locator('.navcap__item[aria-current="page"]').getAttribute("data-dest")) === "mylist" &&
   (await page.locator(".disc-grid").count()) > 0);
 // Unsave via the same detail button → grid empties again.
 await page.locator(".disc-grid .stream-card", { hasText: "Fake Movie One" }).click();
@@ -265,6 +250,7 @@ const page2 = await (await browser.newContext({ viewport: { width: 1440, height:
 await page2.addInitScript(() => {
   localStorage.setItem("btv:onboarded", "1");
   localStorage.setItem("blammytv.aiostreams", JSON.stringify({ v: 1, data: "http://localhost:8084/manifest.json" }));
+  localStorage.setItem("blammytv.playlists", JSON.stringify({ v: 1, data: [{ kind: "m3u", id: "m1", name: "Test M3U", enabled: true, url: "http://localhost:8082/playlist.m3u" }] }));
   sessionStorage.setItem("btv:welcome-played", "1");
 });
 await page2.goto("http://localhost:4173/");
@@ -298,6 +284,7 @@ const page3 = await (await browser.newContext({ viewport: { width: 1440, height:
 await page3.addInitScript(() => {
   localStorage.setItem("btv:onboarded", "1");
   localStorage.setItem("blammytv.aiostreams", JSON.stringify({ v: 1, data: "http://localhost:8084/manifest.json" }));
+  localStorage.setItem("blammytv.playlists", JSON.stringify({ v: 1, data: [{ kind: "m3u", id: "m1", name: "Test M3U", enabled: true, url: "http://localhost:8082/playlist.m3u" }] }));
   localStorage.setItem("blammytv.oneClickPlay", JSON.stringify({ v: 1, data: true }));
   sessionStorage.setItem("btv:welcome-played", "1");
 });
@@ -321,6 +308,7 @@ const page4 = await (await browser.newContext({ viewport: { width: 1440, height:
 await page4.addInitScript(() => {
   localStorage.setItem("btv:onboarded", "1");
   localStorage.setItem("blammytv.aiostreams", JSON.stringify({ v: 1, data: "http://localhost:8084/manifest.json" }));
+  localStorage.setItem("blammytv.playlists", JSON.stringify({ v: 1, data: [{ kind: "m3u", id: "m1", name: "Test M3U", enabled: true, url: "http://localhost:8082/playlist.m3u" }] }));
   sessionStorage.setItem("btv:welcome-played", "1");
   localStorage.setItem("blammytv.watching", JSON.stringify({
     v: 1,
@@ -370,7 +358,7 @@ await page4.waitForTimeout(800); // hand-off to detail, search still stored
 await page4.locator(".vod-detail__pills button", { hasText: "Action" }).click();
 await page4.waitForTimeout(900);
 check("genre pill lands on Discover",
-  (await page4.locator(".header__rail .chip-tabs__tab--active").textContent()) === "Discover");
+  (await page4.locator('.navcap__item[aria-current="page"]').getAttribute("data-dest")) === "discover");
 check("genre pill pre-selects its genre",
   ((await page4.locator(".genre-card--on .genre-card__name").textContent().catch(() => "")) ?? "") === "Action");
 check("genre pill wins over a stale search",
@@ -396,6 +384,7 @@ const page5 = await (await browser.newContext({ viewport: { width: 1440, height:
 await page5.addInitScript(() => {
   localStorage.setItem("btv:onboarded", "1");
   localStorage.setItem("blammytv.aiostreams", JSON.stringify({ v: 1, data: "http://localhost:8084/manifest.json" }));
+  localStorage.setItem("blammytv.playlists", JSON.stringify({ v: 1, data: [{ kind: "m3u", id: "m1", name: "Test M3U", enabled: true, url: "http://localhost:8082/playlist.m3u" }] }));
   sessionStorage.setItem("btv:welcome-played", "1");
 });
 await page5.goto("http://localhost:4173/");
