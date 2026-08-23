@@ -218,7 +218,7 @@ export function AppHeader({
    * lets the mark drift off centre. */
   const navRef = useRef<HTMLElement | null>(null);
   const pillRef = useRef<HTMLSpanElement | null>(null);
-  const markRef = useRef<HTMLSpanElement | null>(null);
+  const markRef = useRef<HTMLButtonElement | null>(null);
   const itemRefs = useRef(new Map<DestKey, HTMLButtonElement>());
   /** key -> [icon-only width, label width]. Measured once per layout. */
   const sizes = useRef(new Map<DestKey, [number, number]>());
@@ -333,6 +333,33 @@ export function AppHeader({
     place();
   }, [place, showLive]);
 
+  /**
+   * One turn of the logo's conic gradient, on click.
+   *
+   * Decoration, deliberately: the mark is the most colourful thing in the
+   * app and was the only part of the bar that did nothing. It navigates
+   * nowhere and changes no state.
+   *
+   * The class is removed and re-added around a forced reflow because a CSS
+   * animation does not restart on an element that already has it — without
+   * the reflow the second click does nothing at all. The class comes off
+   * again on animationend so a re-click always starts from a clean slate.
+   */
+  const spin = useCallback(() => {
+    const el = markRef.current;
+    if (!el) return;
+    el.classList.remove("is-spinning");
+    void el.offsetWidth;
+    el.classList.add("is-spinning");
+  }, []);
+  useEffect(() => {
+    const el = markRef.current;
+    if (!el) return;
+    const done = () => el.classList.remove("is-spinning");
+    el.addEventListener("animationend", done);
+    return () => el.removeEventListener("animationend", done);
+  }, [showLive]);
+
   /* THE JITTER. `place` is a new function on every destination change, so
    * an effect that lists it re-runs on every click. This one used to, and
    * it calls measure(), which rewrites the clip boxes with transitions off
@@ -414,11 +441,17 @@ export function AppHeader({
                that list and hide the buttons from it. */
             <Fragment key={d.key}>
               {prev && prev.side !== d.side && (
-                <span className="navcap__mark" ref={markRef} aria-hidden>
+                <button
+                  type="button"
+                  className="navcap__mark"
+                  ref={markRef}
+                  onClick={spin}
+                  aria-label="BlammyTV"
+                >
                   <b>
                     <i />
                   </b>
-                </span>
+                </button>
               )}
               <button
                 type="button"

@@ -57,7 +57,7 @@
    * SVG has no native conic, which is why this is a clip over a plate. */
   --logo-path: "M571.5 0C814.551 0 936.076 0.000490537 1019.98 63.9551C1042.22 80.9116 1062.09 100.779 1079.04 123.023C1143 206.924 1143 328.449 1143 571.5C1143 814.551 1143 936.076 1079.04 1019.98C1062.09 1042.22 1042.22 1062.09 1019.98 1079.04C936.076 1143 814.551 1143 571.5 1143C328.449 1143 206.924 1143 123.023 1079.04C100.779 1062.09 80.9116 1042.22 63.9551 1019.98C0.000490537 936.076 0 814.551 0 571.5C0 328.449 0.000490537 206.924 63.9551 123.023C80.9116 100.779 100.779 80.9116 123.023 63.9551C206.924 0.000490537 328.449 0 571.5 0ZM510.54 243.84C388.409 243.84 327.343 243.84 289.401 281.781C251.46 319.723 251.46 380.789 251.46 502.92V632.46C251.46 754.591 251.46 815.657 289.401 853.599C327.343 891.54 388.409 891.54 510.54 891.54H640.08C762.212 891.54 823.277 891.54 861.219 853.599C899.16 815.657 899.16 754.591 899.16 632.46V502.92C899.16 380.789 899.16 319.723 861.219 281.781C823.277 243.84 762.212 243.84 640.08 243.84H510.54Z";
   --logo-conic: conic-gradient(
-    from 146.36deg,
+    from var(--logo-angle, 146.36deg),
     #ff93af 0deg,
     #ff7af6 59.47deg,
     #8696ff 123.84deg,
@@ -145,6 +145,21 @@
 :root[data-corners="sharp"] *::before,
 :root[data-corners="sharp"] *::after {
   border-radius: 0 !important;
+}
+
+/*
+ * The logo's conic START ANGLE, registered so it can be ANIMATED.
+ *
+ * An unregistered custom property is an untyped string to the
+ * interpolator, so it jumps from one value to the other with nothing in
+ * between. Registering it as an <angle> is the whole reason the mark can
+ * spin rather than blink. 146.36deg is the angle logo.svg bakes in as a
+ * rotate matrix, not a round number anyone chose.
+ */
+@property --logo-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 146.36deg;
 }
 
 /* Light theme (palette carried over from the old app). */

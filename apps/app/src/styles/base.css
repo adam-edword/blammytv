@@ -736,6 +736,21 @@ button {
   cursor: pointer;
   color: var(--text);
   border-radius: var(--radius-pill, 999px);
+  /*
+   * PRESS FEEDBACK. transform only, and that is not an aesthetic choice:
+   * a transform does not affect offsetWidth, so it cannot disturb
+   * AppHeader#place, which measures every item in integer offsetWidth to
+   * hold the mark on the midline. Anything that changed padding, size or
+   * font here would move the capsule on every press.
+   *
+   * Fast in, slow out. 60ms is under the threshold where a press reads as
+   * lag; the release gets the nav's own spring so it settles like the pill
+   * does. The active item compresses too — pressing the tab you are
+   * already on is the most common "did that register?" moment.
+   */
+  transition:
+    background-color 140ms ease,
+    transform 220ms var(--nav-spring);
   /* Stack Sans Headline Bold at 15px — the frame's face, not the body one
    * this inherited before. */
   font-family: var(--font-headline);
@@ -743,9 +758,26 @@ button {
   font-size: 15px;
   line-height: 1;
 }
-.navcap__item:focus-visible {
+.navcap__item:focus-visible,
+.navcap__mark:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
+}
+/* There was no hover state at all before this — only two intense packs
+ * styled one, over nothing. Press feedback without hover feedback is half
+ * the job on a desktop app with a cursor. */
+.navcap__item:hover {
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+.navcap__item:active,
+.navcap__mark:active {
+  transition: transform 60ms ease-out;
+}
+.navcap__item:active {
+  transform: scale(0.93);
+}
+.navcap__mark:active {
+  transform: scale(0.9);
 }
 .navcap__item svg {
   width: 23px;
@@ -795,11 +827,38 @@ button {
     transform 220ms var(--nav-spring) var(--nav-label-in);
 }
 
-/* Brand and divider, not a destination: double the icons' air. */
+/*
+ * Brand and divider, and now a BUTTON: double the icons' air still, because
+ * it is not a destination and the air is what stops it reading as a sixth
+ * one. Clicking it spins the gradient, which is the whole feature — the
+ * mark is the most colourful thing in the app and was the only part of the
+ * bar that did nothing.
+ */
 .navcap__mark {
   display: inline-flex;
   align-items: center;
   padding: 0 20px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  border-radius: var(--radius-pill, 999px);
+  corner-shape: round;
+  transition: transform 220ms var(--nav-spring);
+}
+
+/* One turn of the conic's start angle. Only interpolable because
+ * --logo-angle is registered with @property in tokens.css; unregistered it
+ * would jump straight to the end. */
+@keyframes navcap-spin {
+  from {
+    --logo-angle: 146.36deg;
+  }
+  to {
+    --logo-angle: 506.36deg;
+  }
+}
+.navcap__mark.is-spinning i {
+  animation: navcap-spin 700ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 .navcap__mark b {
   display: block;
@@ -821,8 +880,15 @@ button {
   .navcap,
   .navcap__pill,
   .navcap__lbl,
-  .navcap__lbl > i {
+  .navcap__lbl > i,
+  .navcap__item,
+  .navcap__mark {
     transition-duration: 1ms;
+  }
+  /* The spin is decoration with no state behind it, so it does not get a
+   * fast version — it does not run. */
+  .navcap__mark.is-spinning i {
+    animation: none;
   }
 }
 
