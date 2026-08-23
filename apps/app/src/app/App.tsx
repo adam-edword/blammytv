@@ -1,4 +1,4 @@
-import { startTransition, useEffect, useState } from "react";
+import { startTransition, useEffect, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   isTauri,
@@ -42,6 +42,10 @@ import {
  * so a stall from there on cannot be seen. Change it if the curve changes.
  */
 const NAV_SETTLE_MS = 190;
+
+/** The incoming screen's entrance. Kept just under the capsule's own
+ * settle time so the two read as one movement rather than a queue. */
+const SWAP_MS = 180;
 
 export function App() {
   // Nav is two facts, not one: which SIDE of the app (Live TV vs Stream)
@@ -286,6 +290,68 @@ export function App() {
   }, [key, view]);
   const [dest, destHome] = view.split(":");
 
+  /**
+   * THE SWAP ITSELF, as motion rather than a cut.
+   *
+   * This does not make the switch cheaper and is not trying to. What it
+   * replaces is a hard cut — old screen to new screen in one frame — which
+   * lands on the frame the main thread is busiest and so points straight at
+   * the hitch. Continuous motion gives the eye something to follow, and the
+   * same hitch reads as the transition instead of a fault.
+   *
+   * The incoming screen fades up and rises 8px. That is ALL it does, and
+   * the other half is a deliberate deletion: this also dimmed the outgoing
+   * screen across the 190ms window above, which cost nothing in theory and
+   * 10ms a frame in practice. Starting an opacity animation promotes
+   * .app-main to its own compositor layer, and promoting a screenful of
+   * guide grid is a texture upload — measured, three runs, it took the
+   * worst frame gap INSIDE the protected window from 17ms to 26-29ms on
+   * guide -> Stream. Buying polish with the exact frames three versions
+   * went into protecting is a bad trade. The entrance has the same cost
+   * but pays it AFTER the commit, outside the window, where it is free.
+   *
+   * opacity and transform ONLY, so the compositor owns them and a busy
+   * main thread cannot stall them — the whole reason this is worth doing
+   * here. No cross-fade: that needs both screens mounted at once, double
+   * the work at exactly the wrong moment.
+   *
+   * WAAPI rather than a CSS class on a wrapper. .app-main's children are
+   * its flex items and every screen sizes itself against that, so wrapping
+   * them to hang a class on would re-lay-out all five.
+   */
+  const mainRef = useRef<HTMLElement>(null);
+  const swap = useRef<Animation | null>(null);
+  const firstView = useRef(true);
+  /* Never animate over a cut clip hole. The inverted player carves one
+   * through .app-shell and parks the native video behind it; putting an
+   * opacity layer over that region is the exact shape of this project's
+   * worst rendering scars, and it is the one thing here that cannot be
+   * checked from a Linux box. Live playback simply cuts instead. */
+  const canAnimate = () =>
+    !window.matchMedia("(prefers-reduced-motion: reduce)").matches &&
+    !document.querySelector<HTMLElement>(".app-shell")?.style.clipPath;
+
+  useEffect(() => {
+    if (firstView.current) {
+      firstView.current = false;
+      return;
+    }
+    const el = mainRef.current;
+    // Cancel first and unconditionally: a switch made while the last
+    // entrance is still running would otherwise leave two opacity effects
+    // stacked on one element.
+    swap.current?.cancel();
+    swap.current = null;
+    if (!el || !canAnimate()) return;
+    swap.current = el.animate(
+      [
+        { opacity: 0, transform: "translateY(8px)" },
+        { opacity: 1, transform: "none" },
+      ],
+      { duration: SWAP_MS, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+    );
+  }, [view]);
+
   return (
     <div className="app-shell">
       <AppHeader
@@ -301,7 +367,7 @@ export function App() {
         }}
         onOpenSettings={() => setSettingsOpen(true)}
       />
-      <main className="app-main">
+      <main className="app-main" ref={mainRef}>
         {dest === "sports" ? (
           <SportsScreen home={Number(destHome)} />
         ) : dest === "guide" ? (
