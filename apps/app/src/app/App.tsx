@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useDeferredValue, useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   isTauri,
@@ -228,6 +228,35 @@ export function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  /**
+   * WHAT <main> IS SHOWING — one beat behind the nav, on purpose.
+   *
+   * The header keeps the state above, urgent, so the capsule moves on the
+   * frame you click it. This copy is deferred, which makes the screen swap
+   * a transition: React renders the incoming screen in interruptible
+   * slices and lets the browser paint between them, instead of one long
+   * task that freezes the capsule mid-travel. Measured before this: a
+   * switch blocked the main thread for 40-170ms, and the nav had no way
+   * out of it — every property it animates is deliberately main-thread
+   * (see AppHeader#place).
+   *
+   * ONE string, not four deferred values. A deferred object would never
+   * settle, since its identity changes every render, and four separate
+   * ones could momentarily disagree with each other. Every destination key
+   * is unique across both sides already, so the key alone names the
+   * screen; sportsHome rides along because pressing Sports while ON Sports
+   * changes nothing else.
+   *
+   * The old screen therefore stays mounted for that beat, LiveScreen
+   * included. That is safe: nothing about it is torn down early or late
+   * relative to anything else, the whole unmount just happens together, a
+   * beat later — the same as having clicked a beat later.
+   */
+  const view = useDeferredValue(
+    `${section === "live" ? liveTab : streamTab}:${sportsHome}`,
+  );
+  const [dest, destHome] = view.split(":");
+
   return (
     <div className="app-shell">
       <AppHeader
@@ -244,15 +273,13 @@ export function App() {
         onOpenSettings={() => setSettingsOpen(true)}
       />
       <main className="app-main">
-        {section === "live" ? (
-          liveTab === "sports" ? (
-            <SportsScreen home={sportsHome} />
-          ) : (
-            <LiveScreen modalOpen={settingsOpen || themesOpen} />
-          )
-        ) : streamTab === "discover" ? (
+        {dest === "sports" ? (
+          <SportsScreen home={Number(destHome)} />
+        ) : dest === "guide" ? (
+          <LiveScreen modalOpen={settingsOpen || themesOpen} />
+        ) : dest === "discover" ? (
           <DiscoverScreen />
-        ) : streamTab === "mylist" ? (
+        ) : dest === "mylist" ? (
           <LibraryScreen />
         ) : (
           <StreamScreen />
