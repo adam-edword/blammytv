@@ -566,18 +566,43 @@ button {
  * roughly double the icons' gap: in the icons' own rhythm it read as a
  * sixth destination and got clicked.
  */
+/*
+ * GLASS, from Figma 472:3841.
+ *
+ * That frame is the app's own nav drawn at 0.7 scale, not a smaller nav:
+ * divide its 30px item and 16px icon by 0.6985 and you land on 43 and 23,
+ * which is where this already was. So every number here is the frame's
+ * value x 1.4316 (= 15 / 10.478, its label size against ours), rounded to
+ * whole pixels — fractional padding would put sub-pixel error into
+ * AppHeader#place, which measures in integer offsetWidth.
+ *
+ *   frame  ->  here        frame  ->  here
+ *   pad     8/10 -> 11/14  icon      16 -> 23
+ *   gap        5 -> 7      label 10.478 -> 15
+ *   item      30 -> 43     mark      26 -> 37
+ *
+ * The fill is the frame's rgba(255,255,255,0.10) written against --text
+ * rather than literal white: --text is #f2f2f5 here, so the dark theme
+ * lands within 1.2% of the frame, and the light theme inverts instead of
+ * disappearing. The house already spells translucent surfaces this way.
+ *
+ * No border: the frame has no stroke, and the old hairline was doing the
+ * work this fill now does. The blur is NOT in the frame — Figma's codegen
+ * does not emit background-blur effects and figma.com is blocked from this
+ * box, so 18px is carried over from what was here rather than read off the
+ * design.
+ */
 .navcap {
   position: absolute;
   left: 50%;
   top: 27px;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 10px;
+  gap: 7px;
+  padding: 11px 14px;
   border-radius: var(--radius-pill, 999px);
-  background: color-mix(in srgb, var(--surface-raised) 82%, transparent);
+  background: color-mix(in srgb, var(--text) 10%, transparent);
   backdrop-filter: blur(18px) saturate(1.4);
-  border: 1px solid var(--border-raised);
   white-space: nowrap;
   pointer-events: auto;
   /* The width animation must not reflow the page behind it. */
@@ -593,11 +618,12 @@ button {
 /* ONE element that travels, rather than a class that lights up. */
 .navcap__pill {
   position: absolute;
-  top: 10px;
+  top: 11px; /* the capsule's own padding-block */
   left: 0;
-  height: 44px;
+  height: 43px;
   border-radius: var(--radius-pill, 999px);
-  background: color-mix(in srgb, var(--text) 22%, transparent);
+  /* The frame's rgba(255,255,255,0.30), over the capsule's own 10%. */
+  background: color-mix(in srgb, var(--text) 30%, transparent);
   pointer-events: none;
   /* `left`, not transform, for the same reason as .navcap: the pill pairs
    * its travel with a width, and those two must not end up on different
@@ -612,22 +638,27 @@ button {
   z-index: 1;
   display: inline-flex;
   align-items: center;
-  height: 44px;
-  padding: 0 12px;
+  height: 43px;
+  padding: 0 10px;
   border: 0;
   background: none;
   cursor: pointer;
   color: var(--text);
   border-radius: var(--radius-pill, 999px);
-  font: 600 15px/1 inherit;
+  /* Stack Sans Headline Bold at 15px — the frame's face, not the body one
+   * this inherited before. */
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1;
 }
 .navcap__item:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
 .navcap__item svg {
-  width: 22px;
-  height: 22px;
+  width: 23px;
+  height: 23px;
   flex: none;
   display: block;
 }
@@ -653,7 +684,8 @@ button {
   align-items: center;
   gap: 6px;
   font-style: normal;
-  padding-left: 9px;
+  padding-left: 6px;
+  padding-right: 4px;
   opacity: 0;
   transform: translateX(-6px);
   transition:
@@ -676,12 +708,12 @@ button {
 .navcap__mark {
   display: inline-flex;
   align-items: center;
-  padding: 0 22px;
+  padding: 0 20px;
 }
 .navcap__mark b {
   display: block;
-  width: 26px;
-  height: 26px;
+  width: 37px;
+  height: 37px;
   overflow: hidden;
 }
 .navcap__mark i {
@@ -690,7 +722,7 @@ button {
   height: 1143px;
   background: var(--logo-conic);
   clip-path: path(evenodd, var(--logo-path));
-  transform: scale(0.022747);
+  transform: scale(0.032371);
   transform-origin: 0 0;
 }
 
