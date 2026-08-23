@@ -582,7 +582,12 @@ button {
   pointer-events: auto;
   /* The width animation must not reflow the page behind it. */
   contain: layout style;
-  transition: transform var(--nav-dur) var(--nav-spring);
+  /* margin-left, NOT transform: see AppHeader#place. A transform travels on
+   * the compositor thread and kept moving through the main-thread stalls the
+   * live side has, while the label widths below — layout, main thread —
+   * stayed frozen, and the capsule tore in half. Layout properties only in
+   * here, so everything animates off one clock. */
+  transition: margin-left var(--nav-dur) var(--nav-spring);
 }
 
 /* ONE element that travels, rather than a class that lights up. */
@@ -594,8 +599,11 @@ button {
   border-radius: var(--radius-pill, 999px);
   background: color-mix(in srgb, var(--text) 22%, transparent);
   pointer-events: none;
+  /* `left`, not transform, for the same reason as .navcap: the pill pairs
+   * its travel with a width, and those two must not end up on different
+   * threads either. */
   transition:
-    transform var(--nav-dur) var(--nav-spring),
+    left var(--nav-dur) var(--nav-spring),
     width var(--nav-dur) var(--nav-spring);
 }
 

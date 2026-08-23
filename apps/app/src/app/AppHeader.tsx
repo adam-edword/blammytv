@@ -283,7 +283,7 @@ export function AppHeader({
         // The clip box is driven in PIXELS from here, not by a CSS rule
         // on [aria-current]. `width: auto` is not interpolable, so that
         // rule snapped the capsule to its new width in one frame while
-        // the transform below still took --nav-dur to catch up: the bar
+        // the travel below still took --nav-dur to catch up: the bar
         // jumped right, then slid back. Same duration, same curve, same
         // frame budget = the mark stays nailed to the midline throughout.
         const box = node.querySelector<HTMLElement>(".navcap__lbl");
@@ -295,10 +295,29 @@ export function AppHeader({
       }
       x += w + gap;
     }
-    // The mark holds the midline; the capsule breathes around it.
-    nav.style.transform = `translateX(${-markMid}px)`;
+    /* The mark holds the midline; the capsule breathes around it.
+     *
+     * ONE CLOCK. These used to travel on `transform`, which the browser
+     * hands to the COMPOSITOR thread, while the label widths above are
+     * layout and stay on the main thread. That is fine until the main
+     * thread stalls — which it does on this app's live side, where
+     * mounting the guide or the sports grid costs 40-170ms. The compositor
+     * kept animating the capsule's position through the stall while its
+     * contents stayed frozen at the old width, so the mark left the
+     * midline entirely: caught in a screen recording at +72px, +39px and
+     * -35px on separate switches, with the capsule's width unchanged in
+     * those same frames.
+     *
+     * margin-left and left are LAYOUT properties, so they are never
+     * composited. Everything the capsule animates now runs on one thread
+     * off one clock: a stall freezes the whole capsule together and it
+     * resumes together, instead of tearing itself apart. It also cannot
+     * cost a reflow of anything else — .navcap is absolutely positioned,
+     * so its margin moves only itself.
+     */
+    nav.style.marginLeft = `${-markMid}px`;
     if (pillX !== null) {
-      pill.style.transform = `translateX(${pillX}px)`;
+      pill.style.left = `${pillX}px`;
       pill.style.width = `${pillW}px`;
     }
   }, [active]);
