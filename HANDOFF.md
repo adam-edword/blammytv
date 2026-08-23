@@ -97,16 +97,18 @@ these have essentially no real-world hours:
   twice inside 24 hours and its failure mode is destroying a resume position
   and marking something watched. It is `ending.ts` with ten tests. If
   Continue Watching starts behaving oddly, look there first.
-- **The Sports tab, on a real machine.** Adam has v0.9.0 installed now, so
-  this is finally testable; as of the release it still had no real hours. It is no longer unguarded, though: `verify-sports-theater`
-  drives the real `useDirectOverlay` in that host headlessly, and finding
-  the popout bug is what it was built for. What it cannot cover is anything
-  that needs actual mpv, so the geometry (the slot insets by a 360px panel)
-  and playback itself are still unseen here.
 - **Memory over a long session.** ~1GB was observed and accepted, but over
   minutes. Live is the case where the back buffer rests at its full 768MiB
   and never shrinks, because live never ends.
 
+
+**The Sports tab is off this list**, 2026-08-23. It was on it because the
+player rewrite landed under it while nobody was opening it. Adam has been
+using it throughout and reports it good, which covers the two things
+`verify-sports-theater` structurally cannot: the slot geometry (the video
+insets by a 360px side panel) and real mpv playback. The harness still
+guards the wiring, and the popout path it fixed only became correct in
+v0.9.0, so that specific button has hours only from this release on.
 
 ### The queue
 
