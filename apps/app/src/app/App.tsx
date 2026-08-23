@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   isTauri,
@@ -34,6 +34,14 @@ import {
   onResumeRequest,
   onReturnRequest,
 } from "../features/stream/openRequest";
+
+/**
+ * How long the nav capsule needs to itself before a screen may mount over
+ * it. Derived from --nav-dur (380ms) and --nav-spring in tokens.css, not
+ * picked by feel: past 188ms that curve has under a pixel of travel left,
+ * so a stall from there on cannot be seen. Change it if the curve changes.
+ */
+const NAV_SETTLE_MS = 190;
 
 export function App() {
   // Nav is two facts, not one: which SIDE of the app (Live TV vs Stream)
@@ -229,32 +237,53 @@ export function App() {
   }, []);
 
   /**
-   * WHAT <main> IS SHOWING — one beat behind the nav, on purpose.
+   * WHAT <main> IS SHOWING — held back until the nav has finished moving.
    *
    * The header keeps the state above, urgent, so the capsule moves on the
-   * frame you click it. This copy is deferred, which makes the screen swap
-   * a transition: React renders the incoming screen in interruptible
-   * slices and lets the browser paint between them, instead of one long
-   * task that freezes the capsule mid-travel. Measured before this: a
-   * switch blocked the main thread for 40-170ms, and the nav had no way
-   * out of it — every property it animates is deliberately main-thread
-   * (see AppHeader#place).
+   * frame you click it. The screen swap waits, because it cannot be made
+   * cheap enough not to matter: React can slice a RENDER, but not the DOM
+   * insert that follows it, nor the style, layout and paint the browser
+   * then owes on a screenful of new nodes. useDeferredValue alone took
+   * sports from 65ms of blocked main thread to 0 and the switch still
+   * stuttered, because what was left still landed in the wrong 200ms.
    *
-   * ONE string, not four deferred values. A deferred object would never
-   * settle, since its identity changes every render, and four separate
-   * ones could momentarily disagree with each other. Every destination key
-   * is unique across both sides already, so the key alone names the
-   * screen; sportsHome rides along because pressing Sports while ON Sports
-   * changes nothing else.
+   * The wrong 200ms is nearly all of it. --nav-spring is
+   * cubic-bezier(0.34, 1.2, 0.42, 1), which front-loads hard: 76% of the
+   * travel is done by 100ms and 97% by 167ms, and past 188ms the whole
+   * remaining move is under a pixel. So the entire VISIBLE animation lives
+   * in the first ~190ms of its 380, and a stall anywhere in there is the
+   * stutter Adam recorded — the capsule jumping to a partway position,
+   * sitting there for 200ms, then snapping to the end. A stall after that
+   * window is invisible.
    *
-   * The old screen therefore stays mounted for that beat, LiveScreen
-   * included. That is safe: nothing about it is torn down early or late
-   * relative to anything else, the whole unmount just happens together, a
-   * beat later — the same as having clicked a beat later.
+   * So: let the capsule have those 190ms to itself, then swap. Still a
+   * transition, so the render itself stays interruptible on top of that.
+   * Under prefers-reduced-motion there is no animation to protect (the
+   * durations drop to 1ms in base.css), so the wait goes away with it.
+   *
+   * ONE string, not four values. Every destination key is unique across
+   * both sides already, so the key alone names the screen; sportsHome
+   * rides along because pressing Sports while ON Sports changes nothing
+   * else, and four separate values could momentarily disagree.
+   *
+   * The old screen stays mounted for that window, LiveScreen included.
+   * That is safe: nothing is torn down early or late relative to anything
+   * else, the whole unmount just happens together, a fraction later — the
+   * same as having clicked a fraction later.
    */
-  const view = useDeferredValue(
-    `${section === "live" ? liveTab : streamTab}:${sportsHome}`,
-  );
+  const key = `${section === "live" ? liveTab : streamTab}:${sportsHome}`;
+  const [view, setView] = useState(key);
+  useEffect(() => {
+    if (view === key) return;
+    const wait = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      ? 0
+      : NAV_SETTLE_MS;
+    const t = window.setTimeout(
+      () => startTransition(() => setView(key)),
+      wait,
+    );
+    return () => window.clearTimeout(t);
+  }, [key, view]);
   const [dest, destHome] = view.split(":");
 
   return (
