@@ -592,6 +592,22 @@ button {
  * box, so 18px is carried over from what was here rather than read off the
  * design.
  */
+/*
+ * A CAPSULE IS ROUND-ENDED. The app's default corner shape is
+ * superellipse(2), and at radius 999px that does not make a pill — it makes
+ * a rounded rectangle with flattened caps, which is a different silhouette,
+ * not a different flavour of the same one. Side by side against the frame
+ * it was the first thing that read wrong. The corner-style SETTING still
+ * works: "round" was already this, and "sharp" wins anyway, since it forces
+ * border-radius: 0 with !important.
+ */
+.navcap,
+.navcap__pill,
+.navcap__item,
+.navcap::after {
+  corner-shape: round;
+}
+
 .navcap {
   position: absolute;
   left: 50%;
@@ -613,6 +629,47 @@ button {
    * stayed frozen, and the capsule tore in half. Layout properties only in
    * here, so everything animates off one clock. */
   transition: margin-left var(--nav-dur) var(--nav-spring);
+}
+
+/*
+ * THE RIM. The frame has a light hairline all the way round, brightest on
+ * the top-left arc and picked up again at the bottom right — a specular
+ * edge, which is what stops a translucent fill reading as a flat grey
+ * shape. Removing the old hairline outright in v0.9.9 was wrong: Figma's
+ * codegen reports no stroke on the frame, but the render plainly has one,
+ * and the codegen is what I trusted.
+ *
+ * The angle and alphas here are ESTIMATED off the reference image, not
+ * sampled: figma.com is blocked from this box, so I cannot read the real
+ * gradient. Treat them as a first pass.
+ *
+ * Painted as a masked ::after rather than a border because a border cannot
+ * hold a gradient, and border-image cannot follow a pill. The two masks
+ * cancel everywhere except the 1px padding ring, which leaves the gradient
+ * showing only along the edge.
+ */
+.navcap::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--text) 42%, transparent),
+    color-mix(in srgb, var(--text) 10%, transparent) 28%,
+    transparent 52%,
+    color-mix(in srgb, var(--text) 20%, transparent)
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
 }
 
 /* ONE element that travels, rather than a class that lights up. */
