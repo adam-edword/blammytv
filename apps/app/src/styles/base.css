@@ -497,9 +497,14 @@ button {
  * AppHeader#place, which measures in integer offsetWidth.
  *
  *   frame  ->  here        frame  ->  here
- *   pad     8/10 -> 11/14  icon      16 -> 23
+ *   pad     8/10 -> 3       icon      16 -> 23
  *   gap        5 -> 7      label 10.478 -> 15
  *   item      30 -> 43     mark      26 -> 37
+ *
+ * The padding is the ONE number that no longer comes from the frame.
+ * Scaled it would be 11/14, and at that size the capsule read as a tray
+ * the pills were sitting inside rather than a bar they filled. Adam's
+ * call, and it takes the capsule from 65px tall to 49.
  *
  * The fill is the frame's rgba(255,255,255,0.10) written against --text
  * rather than literal white: --text is #f2f2f5 here, so the dark theme
@@ -535,7 +540,7 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 11px 14px;
+  padding: 3px;
   border-radius: var(--radius-pill, 999px);
   background: color-mix(in srgb, var(--text) 10%, transparent);
   backdrop-filter: blur(5px) saturate(1.4);
@@ -629,7 +634,7 @@ button {
 /* ONE element that travels, rather than a class that lights up. */
 .navcap__pill {
   position: absolute;
-  top: 11px; /* the capsule's own padding-block */
+  top: 3px; /* the capsule's own padding-block */
   left: 0;
   height: 43px;
   border-radius: var(--radius-pill, 999px);
