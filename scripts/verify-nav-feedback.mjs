@@ -83,8 +83,13 @@ check("mid-spin the angle is interpolating, not jumping",
   midN > 147 && midN < 505, mid);
 // THE ONE THAT MATTERS: the painted gradient, not the property behind it.
 const painted = await paintedFrom();
+// The two reads are separate round-trips to a still-moving animation, so
+// they are never the same number. The tolerance only has to separate
+// "tracking the property" from "baked in at :root", and those are ~330deg
+// apart — 20 is loose enough to be stable and nowhere near loose enough
+// to let the bug through.
 check("and the PAINTED gradient is at that angle, not a baked-in one",
-  Math.abs(parseFloat(painted) - midN) < 1, `painted from ${painted}deg`);
+  Math.abs(parseFloat(painted) - midN) < 20, `painted from ${painted}deg vs --logo-angle ${midN}deg`);
 const midPx = await shot("mid");
 check("so the mark actually looks different mid-spin",
   !restPx.equals(midPx), `${restPx.length} vs ${midPx.length} bytes`);
