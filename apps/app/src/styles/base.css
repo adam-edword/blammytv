@@ -532,11 +532,24 @@ button {
   position: absolute;
   left: 50%;
   top: 27px;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
+  display: flex;
+  flex-direction: column;
+  /* Row 1 sizes the capsule; row 2 stretches to it. */
+  align-items: stretch;
+  gap: var(--nav-rowgap);
   padding: 11px 14px;
-  border-radius: var(--radius-pill, 999px);
+  /*
+   * FIXED at 33px, in both states, and that is what stops the unfold
+   * wobbling. Animating the radius from a pill put it on --nav-spring,
+   * which overshoots: measured, it dived to 20.98px against a 33px target
+   * and climbed back — a 12px bounce in the corners.
+   *
+   * Nothing is lost by holding it. Closed, the capsule is 65px tall, so
+   * 33px clamps to half-height on its own and reads as a pill for free.
+   * Open at 115px it is well under half and reads as the rounded
+   * rectangle the frame asks for. Only the HEIGHT moves.
+   */
+  border-radius: 33px;
   background: color-mix(in srgb, var(--text) 10%, transparent);
   backdrop-filter: blur(5px) saturate(1.4);
   white-space: nowrap;
@@ -548,7 +561,113 @@ button {
    * live side has, while the label widths below — layout, main thread —
    * stayed frozen, and the capsule tore in half. Layout properties only in
    * here, so everything animates off one clock. */
-  transition: margin-left var(--nav-dur) var(--nav-spring);
+  /* Height and travel keep the spring. corner-shape does NOT: a corner
+   * that overshoots its target and comes back reads as a wobble, not as a
+   * spring. */
+  transition:
+    margin-left var(--nav-dur) var(--nav-spring),
+    height var(--nav-dur) var(--nav-spring),
+    gap var(--nav-dur) var(--nav-spring),
+    corner-shape var(--nav-dur) var(--nav-settle);
+}
+
+/* The gap has to collapse with the row it separates, or a closed capsule
+ * carries 7px of empty space under row 1 and stands 72px tall instead of
+ * 65. */
+.navcap:not(.navcap--open) {
+  gap: 0;
+}
+
+/* Rows carry no padding of their own — the capsule's is the only one, and
+ * AppHeader#place walks from it. */
+.navcap__row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 43px;
+}
+.navcap__row--nav {
+  gap: 7px;
+  /* Content width: this row is what the capsule measures itself against. */
+  align-self: flex-start;
+}
+/*
+ * Row 2 FILLS the capsule and never WIDENS it. A flex item contributes its
+ * width even when collapsed, so without this the bar sat wider than row 1
+ * needed on every tab — including the four that have no second row at all.
+ * width:0 zeroes the intrinsic contribution; min-width:100% takes the
+ * container's width back for the used size.
+ */
+.navcap__row--sub {
+  gap: 7px;
+  width: 0;
+  min-width: 100%;
+  transition:
+    height var(--nav-dur) var(--nav-spring),
+    opacity 200ms ease,
+    transform var(--nav-dur) var(--nav-spring);
+}
+.navcap:not(.navcap--open) .navcap__row--sub {
+  height: 0;
+  opacity: 0;
+  transform: translateY(-8px);
+  overflow: hidden;
+  pointer-events: none;
+}
+/* Only the open shape is a squircle; closed, the clamp above makes it a
+ * pill and a squircle cap would be the flattened shape v0.9.10 removed. */
+.navcap--open {
+  corner-shape: squircle;
+}
+
+/* The field takes whatever row 1 leaves. flex-shrink must be 1: the Figma
+ * spells this flex:1 0 0, and a shrink of 0 means it can never compress
+ * below the input's own intrinsic width, which shoved the capsule wider. */
+.navcap__search {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: var(--radius-pill, 999px);
+  corner-shape: round;
+  background: color-mix(in srgb, var(--text) 30%, transparent);
+  color: var(--text);
+}
+.navcap__search svg {
+  flex: none;
+  display: block;
+  opacity: 0.75;
+}
+/* An <input> carries a size=20 intrinsic width; zero it or it is the floor
+ * the row can never shrink past. */
+.navcap__searchinput {
+  flex: 1 1 0;
+  width: 0;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: none;
+  color: inherit;
+  font: 400 13px/1 var(--font-text);
+}
+.navcap__searchinput::placeholder {
+  color: color-mix(in srgb, var(--text) 55%, transparent);
+}
+.navcap__searchinput::-webkit-search-cancel-button {
+  cursor: pointer;
+}
+
+/* "Any" has no icon, so its label has nothing to collapse to. */
+.navcap__item--text .navcap__lbl {
+  width: auto !important;
+}
+.navcap__item--text .navcap__lbl > i {
+  opacity: 1;
+  transform: none;
+  padding-left: 0;
 }
 
 /*
@@ -629,7 +748,7 @@ button {
 /* ONE element that travels, rather than a class that lights up. */
 .navcap__pill {
   position: absolute;
-  top: 11px; /* the capsule's own padding-block */
+  top: 0; /* the row's own box; the capsule's padding is on the row */
   left: 0;
   height: 43px;
   border-radius: var(--radius-pill, 999px);
@@ -739,7 +858,11 @@ button {
  * A `width: auto` rule here does not interpolate, so the capsule resized in
  * one frame while the transform that keeps the mark centred still animated
  * over --nav-dur, and the bar visibly jumped right before settling back. */
-.navcap__item[aria-current="page"] .navcap__lbl > i {
+/* Any value, not just "page": row 1's destinations are pages, row 2's type
+ * chips are the current item in a SET and carry aria-current="true". Pinning
+ * this to "page" opened the movie chip's clip box to a full label width and
+ * then painted nothing in it — a pill the exact size of its missing text. */
+.navcap__item[aria-current] .navcap__lbl > i {
   opacity: 1;
   transform: none;
   transition:

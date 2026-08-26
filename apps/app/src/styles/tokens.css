@@ -43,8 +43,15 @@
    * incoming text by just enough to do the same on arrival. The reveal is
    * clip-driven in both directions, which reads as a shutter rather than a
    * crossfade. Changing either value alone will break that. */
+  /* The gap between the capsule's two rows. Read by AppHeader as well as
+   * applied below: --header-h is computed from the capsule's TARGET height,
+   * and that arithmetic needs this number. */
+  --nav-rowgap: 7px;
   --nav-dur: 380ms;
   --nav-spring: cubic-bezier(0.34, 1.2, 0.42, 1);
+  /* No overshoot. For anything where passing the target and coming back
+   * reads as a fault rather than a flourish — corners, most obviously. */
+  --nav-settle: cubic-bezier(0.22, 1, 0.36, 1);
   --nav-label-in: 50ms;
   --nav-label-out: 400ms;
 

@@ -43,47 +43,101 @@ await p.waitForTimeout(2000);
 let fail = 0;
 const check = (n, ok, d = "") => { if (!ok) fail++; console.log(`${ok?"PASS":"FAIL"} ${n}${d?` ${d}`:""}`); };
 
-check("the header no longer carries a search field",
-  (await p.locator(".header__searchchip, .header input[type=search]").count()) === 0);
+check("the old header chip is gone",
+  (await p.locator(".header__searchchip").count()) === 0);
+check("and Discover's own toggle row is gone",
+  (await p.locator(".discover__toggle").count()) === 0);
 
 // On a non-Discover tab the field must not exist at all.
 await p.locator('[data-dest="home"]').click();
 await p.waitForTimeout(900);
-check("and it is absent on Stream", (await p.locator(".disc-search").count()) === 0);
+// It is always in the DOM so it can be measured and can animate; what
+// changes is whether the row it lives in has any height.
+check("on Stream the second row is shut",
+  (await p.locator(".navcap__row--sub").evaluate((el) => el.offsetHeight)) === 0);
 
 await p.locator('[data-dest="discover"]').click();
 await p.waitForTimeout(1200);
-check("present on Discover", (await p.locator(".disc-search").count()) === 1);
+check("open on Discover",
+  (await p.locator(".navcap__row--sub").evaluate((el) => el.offsetHeight)) > 30);
 
 // It must line up with the filter tabs, not float beside them.
+// The capsule's width is ROW 1's business. Row 2 fills it and must never
+// widen it -- a flex item contributes its width even while collapsed, so
+// without width:0/min-width:100% the bar sits wider on every tab.
 const geo = await p.evaluate(() => {
-  const t = document.querySelector(".discover__toggle .chip-tabs").getBoundingClientRect();
-  const s = document.querySelector(".disc-search").getBoundingClientRect();
-  return { tabs: [t.top, t.height], search: [s.top, s.height], gap: +(s.left - t.right).toFixed(1) };
+  const n = document.querySelector(".navcap"), cs = getComputedStyle(n);
+  const pad = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+  const r1 = n.querySelector(".navcap__row--nav"), r2 = n.querySelector(".navcap__row--sub");
+  const m = n.querySelector(".navcap__mark").getBoundingClientRect();
+  return { nav: +n.offsetWidth.toFixed(1), pad, row1: +r1.offsetWidth.toFixed(1),
+           row2: +r2.offsetWidth.toFixed(1),
+           off: +(((m.left + m.width / 2) - innerWidth / 2).toFixed(2)) };
 });
-check("sharing the filter row's baseline",
-  Math.abs(geo.tabs[0] - geo.search[0]) < 3 && Math.abs(geo.tabs[1] - geo.search[1]) < 3,
-  JSON.stringify(geo));
+check("row 1 sets the capsule's width",
+  Math.abs(geo.nav - (geo.row1 + geo.pad)) < 1.5, JSON.stringify(geo));
+check("row 2 fills it without widening it", geo.row2 <= geo.row1 + 0.5,
+  `row2 ${geo.row2} vs row1 ${geo.row1}`);
+check("and the mark still holds the midline with both rows open",
+  Math.abs(geo.off) < 1.5, `${geo.off}px`);
 
 // Typing has to reach the grid.
 // The placeholder promises a scope, and searchDiscover really does keep
 // it: it drops every catalog whose type is not the selected one. So the
 // copy has to follow the tab, or the field is lying about why a result is
 // missing.
-for (const [tab, want] of [["All Content", "Search movies & series…"],
-                           ["Movies", "Search movies…"],
-                           ["Series", "Search series…"]]) {
-  await p.getByRole("tab", { name: tab }).click().catch(async () => {
-    await p.locator(".discover__toggle .chip-tabs__tab", { hasText: tab }).click();
-  });
+for (const [tab, want] of [["all", "Search movies & series…"],
+                           ["movie", "Search movies…"],
+                           ["series", "Search series…"]]) {
+  await p.locator(`.navcap__row--sub [data-key="${tab}"]`).click();
   await p.waitForTimeout(400);
-  const ph = await p.locator(".disc-search__input").getAttribute("placeholder");
-  const al = await p.locator(".disc-search__input").getAttribute("aria-label");
+  const ph = await p.locator(".navcap__searchinput").getAttribute("placeholder");
+  const al = await p.locator(".navcap__searchinput").getAttribute("aria-label");
   check(`"${tab}" says ${JSON.stringify(want)}`, ph === want, ph ?? "none");
   check(`  and its label matches`, al === want.replace("…", ""), al ?? "none");
 }
 
-await p.locator(".disc-search__input").fill("crime");
+// THE OPEN CHIP HAS TO PAINT ITS LABEL, and this is a pixel claim on
+// purpose. The clip box and the fade are two separate rules: the width is
+// driven in JS and the opacity comes from CSS, so they can disagree. They
+// did — the fade was written `[aria-current="page"]`, which row 1's
+// destinations carry and row 2's type chips (aria-current="true") do not.
+// The box opened to a full label width and painted nothing inside it: a
+// grey pill the exact size of the word that was missing. Every check above
+// passed through all of it, because none of them looks at the glass.
+await p.locator('.navcap__row--sub [data-key="all"]').click();
+await p.waitForTimeout(500);
+const chip = p.locator('.navcap__row--sub [data-key="movie"]');
+await chip.click();
+await p.waitForTimeout(600);
+
+// Shoot the CLIP BOX, not the chip, and shoot it twice: once as it is, once
+// with the text forced out. Anything the word contributes disappears in the
+// second shot, so the bytes differ if and only if it was really on the
+// glass. Shooting the whole chip does NOT work and was the first attempt:
+// the thumb slides in underneath, so the before/after differ on the fill
+// alone and the check passed against the blank pill it was written to
+// catch.
+const box = chip.locator(".navcap__lbl");
+const painted = await box.screenshot();
+await box.evaluate((el) => { el.firstElementChild.style.visibility = "hidden"; });
+await p.waitForTimeout(150);
+const blank = await box.screenshot();
+await box.evaluate((el) => { el.firstElementChild.style.visibility = ""; });
+check("the open type chip paints its label", !painted.equals(blank),
+  `${painted.length}B vs ${blank.length}B`);
+// Supporting evidence: separates "never opened" from "opened but blank",
+// which is the difference between the two ways this has broken.
+const lbl = await chip.evaluate((el) => {
+  const b = el.querySelector(".navcap__lbl");
+  return { w: b.offsetWidth, op: getComputedStyle(b.firstElementChild).opacity };
+});
+check("  its clip box is open", lbl.w > 20, `${lbl.w}px`);
+check("  and the text inside is opaque", Number(lbl.op) === 1, lbl.op);
+await p.locator('.navcap__row--sub [data-key="all"]').click();
+await p.waitForTimeout(500);
+
+await p.locator(".navcap__searchinput").fill("crime");
 await p.waitForTimeout(1200);
 const heading = await p.locator(".discover__gridwrap h3").first().textContent();
 check("typing drives the results heading", /crime/i.test(heading ?? ""), heading ?? "none");
@@ -94,7 +148,7 @@ await p.waitForTimeout(1000);
 await p.keyboard.press("/");
 await p.waitForTimeout(1400);
 const focused = await p.evaluate(() => document.activeElement?.className ?? "");
-check("`/` from the Guide lands in the field", focused.includes("disc-search__input"), focused);
+check("`/` from the Guide lands in the field", focused.includes("navcap__searchinput"), focused);
 
 if (errs.length) { console.log("ERRORS", errs.slice(0,3)); fail++; }
 console.log(fail ? `${fail} FAILURES` : "ALL PASS");

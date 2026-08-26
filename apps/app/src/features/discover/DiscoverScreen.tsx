@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChipTabs } from "../../ui/ChipTabs";
 import {
   loadCardMeta,
   onCardMetaChange,
   type CardMetaField,
 } from "../settings/cardMeta";
 import { Card, RowScroller } from "../stream/StreamScreen";
-import { SearchIcon } from "../../ui/icons";
+import {
+  onTypeFilterRequest,
+  publishTypeFilter,
+  resetTypeFilter,
+  takeTypeFilterRequest,
+} from "./typeFilter";
 import {
   onGenreRequest,
   requestOpenInStream,
@@ -28,10 +32,8 @@ import {
 } from "./data";
 import {
   getSearchQuery,
-  onSearchFocusRequest,
   onSearchQueryChange,
   setSearchQuery,
-  takeSearchFocus,
 } from "./searchQuery";
 import { scrubbedMessage } from "../../lib/errors";
 import { useMouseNav } from "../../lib/mouseNav";
@@ -47,33 +49,12 @@ import { readDiscoverSession, saveDiscoverSession } from "./session";
  * the Stream tab, where detail + playback live.
  */
 
-type TypeFilter = "all" | "movie" | "series";
+import type { TypeFilter } from "./typeFilter";
 
 /** What Discover is showing: the type pill and the selected genre. Search
  * is deliberately NOT in here — it changes per keystroke, and a history
  * entry per character is not a page. */
 type DiscoverView = { filter: TypeFilter; genre: string | null };
-
-/**
- * What the search field promises to search, per type tab.
- *
- * It is not decoration: searchDiscover drops every catalog whose type is
- * not the selected one, so with Movies picked a series will never come
- * back. A fixed "movies & series" would be a promise the tab does not
- * keep, and the field would be quietly lying about why a result is
- * missing. Lives beside FILTER_TABS so the two cannot drift apart.
- */
-const SEARCH_SCOPE: Record<TypeFilter, string> = {
-  all: "movies & series",
-  movie: "movies",
-  series: "series",
-};
-
-const FILTER_TABS = [
-  { key: "all", label: "All Content" },
-  { key: "movie", label: "Movies" },
-  { key: "series", label: "Series" },
-] as const;
 
 type Cfg =
   | { status: "loading" }
@@ -104,10 +85,26 @@ export function DiscoverScreen() {
       : { filter: "all", genre: null },
   );
   const { filter, genre } = view;
-  const setFilter = useCallback(
-    (next: TypeFilter) => navigate({ filter: next, genre }),
-    [navigate, genre],
-  );
+  /* The header's chips send a request; turning it into navigate() is what
+   * puts the choice in this screen's history. Collected on mount too: the
+   * header can fire while this screen is unmounted, and App holds the
+   * swap back by NAV_SETTLE_MS on top of that. */
+  useEffect(() => {
+    const honour = () => {
+      const want = takeTypeFilterRequest();
+      if (want && want !== viewRef.current.filter)
+        navigate({ filter: want, genre: viewRef.current.genre });
+    };
+    honour();
+    return onTypeFilterRequest(honour);
+  }, [navigate]);
+  /* And the other direction: whatever the committed view is, say so —
+   * including when Back or Forward is what changed it. */
+  useEffect(() => publishTypeFilter(filter), [filter]);
+  /* A tab flip unmounts this screen; the next mount seeds from its own
+   * session, so the header must not keep claiming the old filter. */
+  useEffect(() => () => resetTypeFilter("all"), []);
+
   const setGenre = useCallback(
     (next: string | null) => navigate({ filter, genre: next }),
     [navigate, filter],
@@ -151,20 +148,6 @@ export function DiscoverScreen() {
   // grid step aside); clearing or Escape returns to browsing.
   const [query, setQuery] = useState(getSearchQuery);
   useEffect(() => onSearchQueryChange(setQuery), []);
-  /* `/`, Ctrl+K and Ctrl+F are handled app-wide and can fire while this
-   * screen is not mounted — App also holds the swap back by
-   * NAV_SETTLE_MS. So the request is COLLECTED on mount as well as
-   * listened for while up; a plain event would have landed in an empty
-   * room and the shortcut would do nothing from anywhere else. */
-  const searchRef = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    const focus = () => searchRef.current?.focus();
-    if (takeSearchFocus()) focus();
-    return onSearchFocusRequest(() => {
-      takeSearchFocus();
-      focus();
-    });
-  }, []);
   // Genre hand-off (a detail-screen genre pill): drain on mount and on
   // the event; arriving means BROWSING, so any active search clears —
   // the STORE (for the header's mirror) and the LOCAL state directly.
@@ -478,41 +461,6 @@ export function DiscoverScreen() {
         lastScroll.current = e.currentTarget.scrollTop;
       }}
     >
-      <div className="discover__toggle">
-        <ChipTabs
-          tabs={FILTER_TABS}
-          active={filter}
-          onChange={(k) => setFilter(k)}
-        />
-        {/* Search sits WITH the filters because it is one of them: it
-          * narrows this screen's grid and nothing else. It used to live in
-          * the header, where it was the only control that did not apply to
-          * wherever you happened to be. */}
-        <span className="disc-search">
-          <SearchIcon size={16} aria-hidden />
-          <input
-            ref={searchRef}
-            className="disc-search__input"
-            type="search"
-            placeholder={`Search ${SEARCH_SCOPE[filter]}…`}
-            value={query}
-            /* The label follows the placeholder: a screen reader should
-               hear the same narrowed promise a sighted user reads. */
-            aria-label={`Search ${SEARCH_SCOPE[filter]}`}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                // Ours alone: without stopPropagation the App-level
-                // listener also exits OS fullscreen on the same press.
-                e.stopPropagation();
-                setSearchQuery("");
-                e.currentTarget.blur();
-              }
-            }}
-          />
-        </span>
-      </div>
-
       {searching ? (
         <section className="discover__gridwrap">
           <h3 className="media-row__title">Results for “{q}”</h3>

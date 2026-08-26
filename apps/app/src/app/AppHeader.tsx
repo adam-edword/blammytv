@@ -9,6 +9,7 @@ import {
 } from "react";
 import {
   AccountIcon,
+  SearchIcon,
   DiscoverIcon,
   GuideIcon,
   LibraryIcon,
@@ -17,9 +18,19 @@ import {
   StreamIcon,
 } from "../ui/icons";
 import {
+  getSearchQuery,
+  onSearchFocusRequest,
+  onSearchQueryChange,
   requestSearchFocus,
   setSearchQuery,
+  takeSearchFocus,
 } from "../features/discover/searchQuery";
+import {
+  getTypeFilter,
+  onTypeFilterChange,
+  requestTypeFilter,
+  type TypeFilter,
+} from "../features/discover/typeFilter";
 import { UpdateChip } from "./UpdateChip";
 import { formatClock } from "../lib/time";
 import { APP_VERSION } from "../lib/version";
@@ -70,6 +81,35 @@ const DESTS: Array<{
   { key: "mylist", label: "Library", side: "stream", Icon: LibraryIcon },
 ];
 
+/**
+ * Discover's type filters, in the SECOND row.
+ *
+ * Same grammar as the destinations above: an icon that collapses, and a
+ * label that opens under the thumb when it is the one you are on. "Any"
+ * is the exception and always shows its label — there is no honest glyph
+ * for "no filter", and an icon nobody can name is worse than a short word.
+ */
+/**
+ * What the field promises to search, per filter. Not decoration:
+ * searchDiscover drops every catalog whose type is not the selected one,
+ * so with Movies picked a series will never come back.
+ */
+const SEARCH_SCOPE: Record<TypeFilter, string> = {
+  all: "movies & series",
+  movie: "movies",
+  series: "series",
+};
+
+const FILTERS: Array<{
+  key: TypeFilter;
+  label: string;
+  Icon?: ComponentType<{ size?: number; className?: string; filled?: boolean }>;
+}> = [
+  { key: "all", label: "Any" },
+  { key: "movie", label: "Movies", Icon: StreamIcon },
+  { key: "series", label: "Series", Icon: LibraryIcon },
+];
+
 /** Live clock, minute-accurate (the header shows no seconds). Follows the
  * 12h/24h preference immediately when it changes in Settings. */
 function useClock(): string {
@@ -116,6 +156,15 @@ export function AppHeader({
   onOpenSettings: () => void;
 }) {
   const clock = useClock();
+  /* Mirrors, not owners. The filter's truth is a history entry in
+   * DiscoverScreen's view stack (Back can change it), and the query's is
+   * the shared search store. The header reads both to render the second
+   * row and writes to neither directly — it sends requests. */
+  const [filter, setFilter] = useState<TypeFilter>(getTypeFilter);
+  useEffect(() => onTypeFilterChange(setFilter), []);
+  const [query, setQuery] = useState(getSearchQuery);
+  useEffect(() => onSearchQueryChange(setQuery), []);
+  const searchRef = useRef<HTMLInputElement>(null);
   // `/`, Ctrl+K, Ctrl+F reach the search field — which lives on Discover
   // now, so this GOES there first and asks for focus through the mailbox
   // in searchQuery. Dispatching a bare event would not survive the trip:
@@ -146,28 +195,14 @@ export function AppHeader({
       e.preventDefault();
       onSection("stream");
       onStreamTab("discover");
+      // The row is collapsed (and unfocusable) until Discover is the
+      // destination, so the focus waits for it to open — see below.
       requestSearchFocus();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onSection, onStreamTab]);
 
-  // The header floats over the tabs; publish its measured height so tabs
-  // that shouldn't start underneath can offset themselves (--header-h).
-  const ref = useRef<HTMLElement>(null);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const publish = () =>
-      document.documentElement.style.setProperty(
-        "--header-h",
-        `${el.offsetHeight}px`,
-      );
-    publish();
-    const ro = new ResizeObserver(publish);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
 
   /* ---------------------------------------------------------- capsule
    * The pill is ONE element that travels; the mark is pinned to the
@@ -178,14 +213,92 @@ export function AppHeader({
    * the ANIMATING width: measuring live puts the pill under the label and
    * lets the mark drift off centre. */
   const navRef = useRef<HTMLElement | null>(null);
+  const rowNavRef = useRef<HTMLDivElement | null>(null);
+  const rowSubRef = useRef<HTMLDivElement | null>(null);
   const pillRef = useRef<HTMLSpanElement | null>(null);
+  const subPillRef = useRef<HTMLSpanElement | null>(null);
   const markRef = useRef<HTMLButtonElement | null>(null);
-  const itemRefs = useRef(new Map<DestKey, HTMLButtonElement>());
+  /* Both rows' buttons in ONE map. Destination keys and filter keys do not
+   * collide, and the measuring below does not care which row an item is
+   * in — it only ever asks a button how wide it is with its label shut. */
+  const itemRefs = useRef(new Map<string, HTMLButtonElement>());
   /** key -> [icon-only width, label width]. Measured once per layout. */
-  const sizes = useRef(new Map<DestKey, [number, number]>());
+  const sizes = useRef(new Map<string, [number, number]>());
 
   const shown = DESTS.filter((d) => showLive || d.side !== "live");
   const active: DestKey = section === "live" ? liveTab : streamTab;
+  /* The second row belongs to Discover and nothing else. It is always in
+   * the DOM so its widths can be measured and its open/close can animate;
+   * `subOpen` decides whether it has any height. */
+  const subOpen = section === "stream" && streamTab === "discover";
+
+  /**
+   * The header floats over the tabs; publish its height so tabs that
+   * shouldn't start underneath can offset themselves (--header-h).
+   *
+   * The capsule is absolutely positioned, so it never counted toward the
+   * header's own offsetHeight — which was fine while one row of it fitted
+   * inside the header's padding. A second row does not: open, its bottom
+   * edge sits ~50px past that, and Discover's grid would run under it.
+   *
+   * The capsule's TARGET height is what goes out, not its measured one.
+   * Measuring would republish on every frame of the unfold, and every
+   * consumer of --header-h is a screen's top padding — so the whole
+   * Discover grid would reflow ~23 times during a 380ms animation, which
+   * is precisely the stall this nav spent v0.9.2 through v0.9.6 removing.
+   * One value, once, at the start.
+   */
+  const ref = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const publish = () => {
+      const nav = navRef.current;
+      let capsuleBottom = 0;
+      if (nav) {
+        const cs = getComputedStyle(nav);
+        const padY =
+          (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+        const rowH = rowNavRef.current?.offsetHeight ?? 0;
+        const rowGap =
+          parseFloat(
+            getComputedStyle(document.documentElement).getPropertyValue(
+              "--nav-rowgap",
+            ),
+          ) || 0;
+        capsuleBottom =
+          nav.offsetTop + padY + rowH + (subOpen ? rowGap + rowH : 0);
+      }
+      document.documentElement.style.setProperty(
+        "--header-h",
+        `${Math.max(el.offsetHeight, capsuleBottom)}px`,
+      );
+    };
+    publish();
+    const ro = new ResizeObserver(publish);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [subOpen]);
+
+  /* `/`, Ctrl+K and Ctrl+F ask for the field. The field is up here now, so
+   * this is the header's own business — but it still cannot focus
+   * immediately: the second row is collapsed and unfocusable until Discover
+   * is the destination, and App holds the screen swap back by
+   * NAV_SETTLE_MS. So the request WAITS, and is collected the moment the
+   * row opens. Keyed on subOpen for exactly that. */
+  useEffect(() => {
+    const focus = () => {
+      // Check FIRST, take second. The request is dispatched while this row
+      // is still shut — React has not re-rendered and Discover is 190ms
+      // away — so collecting it here would consume it and drop it on the
+      // floor. Leave it in the mailbox until there is something to focus.
+      if (!subOpen) return;
+      if (!takeSearchFocus()) return;
+      searchRef.current?.focus();
+    };
+    focus();
+    return onSearchFocusRequest(focus);
+  }, [subOpen]);
 
   const measure = useCallback(() => {
     for (const [key, el] of itemRefs.current) {
@@ -213,33 +326,46 @@ export function AppHeader({
     }
   }, []);
 
-  const place = useCallback(() => {
+  /**
+   * Lay out ONE row: park its thumb under the open item, set every label's
+   * clip width, and report where the app mark's midpoint landed (row 2 has
+   * no mark, so null).
+   *
+   * `from` is where the walk starts in the CAPSULE's coordinates — the
+   * rows carry no padding of their own, so it is the capsule's.
+   */
+  const layoutRow = useCallback(
+    (
+      row: HTMLElement | null,
+      thumb: HTMLElement | null,
+      openKey: string,
+      from: number,
+    ): number | null => {
     const nav = navRef.current;
-    const pill = pillRef.current;
     const mark = markRef.current;
-    if (!nav || !pill || !mark) return;
-    const cs = getComputedStyle(nav);
-    const pad = parseFloat(cs.paddingLeft) || 0;
+    if (!nav || !row || !thumb) return null;
+    const cs = getComputedStyle(row);
     const gap = parseFloat(cs.columnGap || cs.gap || "0") || 0;
-    // Children sit inside the BORDER box, so the walk starts past it too.
-    // Leaving it out put the mark exactly one border-width off the midline.
-    const border = parseFloat(cs.borderLeftWidth) || 0;
 
-    let x = pad + border;
+    let x = from;
     let pillX: number | null = null;
     let pillW = 0;
-    let markMid = 0;
-    for (const node of Array.from(nav.children) as HTMLElement[]) {
-      if (node === pill) continue;
+    let markMid: number | null = null;
+    for (const node of Array.from(row.children) as HTMLElement[]) {
+      if (node === thumb) continue;
       let w: number;
       if (node === mark) {
         w = mark.offsetWidth;
         markMid = x + w / 2;
+      } else if (node.classList.contains("navcap__search")) {
+        // Flexible and last: nothing after it needs a position, and its
+        // width is whatever row 1 leaves over.
+        continue;
       } else {
-        const key = node.dataset.dest as DestKey | undefined;
+        const key = node.dataset.key;
         if (!key) continue;
         const [base, lbl] = sizes.current.get(key) ?? [node.offsetWidth, 0];
-        const open = key === active;
+        const open = key === openKey;
         w = base + (open ? lbl : 0);
         // The clip box is driven in PIXELS from here, not by a CSS rule
         // on [aria-current]. `width: auto` is not interpolable, so that
@@ -256,6 +382,29 @@ export function AppHeader({
       }
       x += w + gap;
     }
+    if (pillX !== null) {
+      thumb.style.left = `${pillX}px`;
+      thumb.style.width = `${pillW}px`;
+      thumb.style.opacity = "1";
+    } else thumb.style.opacity = "0";
+    return markMid;
+    },
+    [],
+  );
+
+  const place = useCallback(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+    const cs = getComputedStyle(nav);
+    const pad = parseFloat(cs.paddingLeft) || 0;
+    // Children sit inside the BORDER box, so the walk starts past it too.
+    // Leaving it out put the mark exactly one border-width off the midline.
+    const border = parseFloat(cs.borderLeftWidth) || 0;
+    const from = pad + border;
+
+    const markMid = layoutRow(rowNavRef.current, pillRef.current, active, from);
+    layoutRow(rowSubRef.current, subPillRef.current, filter, from);
+    if (markMid === null) return;
     /* The mark holds the midline; the capsule breathes around it.
      *
      * ONE CLOCK. These used to travel on `transform`, which the browser
@@ -277,11 +426,7 @@ export function AppHeader({
      * so its margin moves only itself.
      */
     nav.style.marginLeft = `${-markMid}px`;
-    if (pillX !== null) {
-      pill.style.left = `${pillX}px`;
-      pill.style.width = `${pillW}px`;
-    }
-  }, [active]);
+  }, [active, filter, layoutRow]);
 
   // A button's own width does not change when you click a DIFFERENT one, so
   // measuring is keyed on the destination set alone. It runs first because
@@ -292,7 +437,7 @@ export function AppHeader({
 
   useLayoutEffect(() => {
     place();
-  }, [place, showLive]);
+  }, [place, showLive, subOpen]);
 
   /**
    * One turn of the logo's conic gradient, on click.
@@ -390,7 +535,12 @@ export function AppHeader({
       {/* THE CAPSULE. Absolutely positioned rather than sitting in the
         * header's grid: the mark has to land on the WINDOW midline, and a
         * flowed element gets shoved by whichever flank is wider. */}
-      <nav className="navcap" aria-label="Sections" ref={navRef}>
+      <nav
+        className={"navcap" + (subOpen ? " navcap--open" : "")}
+        aria-label="Sections"
+        ref={navRef}
+      >
+        <div className="navcap__row navcap__row--nav" ref={rowNavRef}>
         <span className="navcap__pill" ref={pillRef} aria-hidden />
         {shown.map((d, i) => {
           const prev = shown[i - 1];
@@ -416,6 +566,7 @@ export function AppHeader({
               <button
                 type="button"
                 data-dest={d.key}
+                data-key={d.key}
                 className="navcap__item"
                 aria-current={on ? "page" : undefined}
                 aria-label={d.beta ? `${d.label} (beta)` : d.label}
@@ -441,6 +592,69 @@ export function AppHeader({
             </Fragment>
           );
         })}
+        </div>
+
+        {/* THE SECOND ROW — Discover's, and only Discover's.
+          *
+          * Always rendered so its widths can be measured and its arrival
+          * can animate; `navcap--open` is what gives it height. Kept out
+          * of the tab order and the a11y tree while shut, or you could
+          * tab into a control with no height on a screen it does not
+          * belong to. */}
+        <div
+          className="navcap__row navcap__row--sub"
+          ref={rowSubRef}
+          aria-hidden={!subOpen}
+          {...(subOpen ? {} : { inert: "" })}
+        >
+          <span className="navcap__pill" ref={subPillRef} aria-hidden />
+          {FILTERS.map((f) => {
+            const on = f.key === filter;
+            return (
+              <button
+                key={f.key}
+                type="button"
+                data-key={f.key}
+                className={
+                  "navcap__item" + (f.Icon ? "" : " navcap__item--text")
+                }
+                aria-current={on ? "true" : undefined}
+                aria-label={`Show ${f.label.toLowerCase()}`}
+                ref={(el) => {
+                  if (el) itemRefs.current.set(f.key, el);
+                  else itemRefs.current.delete(f.key);
+                }}
+                onClick={() => requestTypeFilter(f.key)}
+              >
+                {f.Icon && <f.Icon filled={on} />}
+                <span className="navcap__lbl">
+                  <i>{f.label}</i>
+                </span>
+              </button>
+            );
+          })}
+          <span className="navcap__search">
+            <SearchIcon size={19} aria-hidden />
+            <input
+              ref={searchRef}
+              className="navcap__searchinput"
+              type="search"
+              placeholder={`Search ${SEARCH_SCOPE[filter]}…`}
+              value={query}
+              aria-label={`Search ${SEARCH_SCOPE[filter]}`}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  // Ours alone: without stopPropagation the App-level
+                  // listener also exits OS fullscreen on the same press.
+                  e.stopPropagation();
+                  setSearchQuery("");
+                  e.currentTarget.blur();
+                }
+              }}
+            />
+          </span>
+        </div>
       </nav>
 
       <div className="header__right">
