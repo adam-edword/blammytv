@@ -331,15 +331,25 @@ export function AppHeader({
    * clip width, and report where the app mark's midpoint landed (row 2 has
    * no mark, so null).
    *
-   * `from` is where the walk starts in the CAPSULE's coordinates — the
-   * rows carry no padding of their own, so it is the capsule's.
+   * THE WALK IS IN ROW COORDINATES, starting at 0. The thumb is absolutely
+   * positioned inside the ROW, so that is the box its `left` resolves
+   * against, and the row's own padding box already starts past the
+   * capsule's padding. Walking from the capsule's padding instead counted
+   * it twice and put every thumb exactly 14px right of the item it was
+   * supposed to sit under — measured at dLeft: 14 in both rows and every
+   * state, with the width dead on. Before the second row the thumb was a
+   * direct child of .navcap and capsule coordinates were the right ones;
+   * moving it into the row is what changed the containing block.
+   *
+   * markMid comes back in row coordinates too. place() adds the capsule's
+   * padding to it once, on its own line, because THAT one really is a
+   * capsule-coordinate number: it positions the capsule itself.
    */
   const layoutRow = useCallback(
     (
       row: HTMLElement | null,
       thumb: HTMLElement | null,
       openKey: string,
-      from: number,
     ): number | null => {
     const nav = navRef.current;
     const mark = markRef.current;
@@ -347,7 +357,7 @@ export function AppHeader({
     const cs = getComputedStyle(row);
     const gap = parseFloat(cs.columnGap || cs.gap || "0") || 0;
 
-    let x = from;
+    let x = 0;
     let pillX: number | null = null;
     let pillW = 0;
     let markMid: number | null = null;
@@ -402,8 +412,8 @@ export function AppHeader({
     const border = parseFloat(cs.borderLeftWidth) || 0;
     const from = pad + border;
 
-    const markMid = layoutRow(rowNavRef.current, pillRef.current, active, from);
-    layoutRow(rowSubRef.current, subPillRef.current, filter, from);
+    const markMid = layoutRow(rowNavRef.current, pillRef.current, active);
+    layoutRow(rowSubRef.current, subPillRef.current, filter);
     if (markMid === null) return;
     /* The mark holds the midline; the capsule breathes around it.
      *
@@ -425,7 +435,7 @@ export function AppHeader({
      * cost a reflow of anything else — .navcap is absolutely positioned,
      * so its margin moves only itself.
      */
-    nav.style.marginLeft = `${-markMid}px`;
+    nav.style.marginLeft = `${-(markMid + from)}px`;
   }, [active, filter, layoutRow]);
 
   // A button's own width does not change when you click a DIFFERENT one, so

@@ -99,29 +99,61 @@ check("the two rows share a left rail",
 check("  and a right one", Math.abs(rail.one[1] - rail.two[1]) < 0.5,
   `${rail.one[1]} vs ${rail.two[1]}`);
 
+// THE THUMB SITS ON THE ITEM IT IS MARKING.
+//
+// Nothing in here checked that, and it went wrong the moment the second
+// row landed. The thumb is absolutely positioned inside its ROW, but the
+// geometry walk still started at the CAPSULE's padding, so every thumb sat
+// exactly 14px right of its item, in both rows and every state, with the
+// width dead on. The mark stayed on the midline throughout, so the one
+// position check in here was perfectly happy.
+for (const [tab, row] of [["all", "sub"], ["movie", "sub"], ["series", "sub"]]) {
+  await p.locator(`.navcap__row--sub [data-key="${tab}"]`).click();
+  await p.waitForTimeout(700);
+  const off = await p.evaluate((r) => {
+    const q = document.querySelector(`.navcap__row--${r}`);
+    const t = q.querySelector(".navcap__pill").getBoundingClientRect();
+    const a = q.querySelector("[aria-current]").getBoundingClientRect();
+    return { l: +(t.left - a.left).toFixed(2), w: +(t.width - a.width).toFixed(2) };
+  }, row);
+  check(`the thumb sits on "${tab}"`, Math.abs(off.l) < 1 && Math.abs(off.w) < 1,
+    `left off by ${off.l}, width off by ${off.w}`);
+}
+const off1 = await p.evaluate(() => {
+  const q = document.querySelector(".navcap__row--nav");
+  const t = q.querySelector(".navcap__pill").getBoundingClientRect();
+  const a = q.querySelector("[aria-current]").getBoundingClientRect();
+  return { l: +(t.left - a.left).toFixed(2), w: +(t.width - a.width).toFixed(2) };
+});
+check("and row 1's thumb sits on Discover",
+  Math.abs(off1.l) < 1 && Math.abs(off1.w) < 1,
+  `left off by ${off1.l}, width off by ${off1.w}`);
+
 // THE RIM AND THE GLARE TRACE THE SAME SHAPE AS THE FILL.
 //
 // corner-shape does not inherit and `border-radius: inherit` carries only
 // the radius, so the ::after hairline and the ::before glare each need the
-// squircle spelled out for them. Without it they kept a ROUND 33px corner
-// over a squircle fill — a round corner cuts more than a superellipse at
-// the same radius, so the hairline lifted off the fill and floated outside
-// it in all four corners.
+// capsule's shape spelled out for them. Without it they kept their own,
+// and the hairline lifted off the fill and floated outside it in all four
+// corners.
 //
-// Forcing the two layers to match and requiring NOTHING to move is the
-// whole check: it cannot be satisfied by a rule that sets the shape
-// somewhere the painter is not looking, and it stays true if the design
-// later goes back to round, because it compares the parts to each other
-// rather than to a hard-coded shape.
+// Shape-AGNOSTIC on purpose: it reads whatever .navcap computes and forces
+// the two layers to that, then requires nothing to move. So it holds for
+// the 33px round the capsule uses now, and would still hold if the design
+// changed the shape again — it compares the parts to each other, never to
+// a hard-coded value.
+const shape = await p.evaluate(() =>
+  getComputedStyle(document.querySelector(".navcap"))
+    .getPropertyValue("corner-shape").trim());
 const cornerBox = await p.locator(".navcap").boundingBox();
 const clip = { x: cornerBox.x, y: cornerBox.y, width: 60, height: 60 };
 const asIs = await p.screenshot({ clip });
 const forced = await p.addStyleTag({ content:
-  ".navcap--open::after, .navcap--open::before { corner-shape: squircle !important }" });
+  `.navcap::after, .navcap::before { corner-shape: ${shape} !important }` });
 await p.waitForTimeout(250);
 const matched = await p.screenshot({ clip });
 await forced.evaluate((el) => el.remove());
-check("the rim and the glare trace the capsule's own corner",
+check(`the rim and the glare trace the capsule's own corner (${shape})`,
   asIs.equals(matched), asIs.equals(matched) ? "" : "corner layers disagree");
 
 // Typing has to reach the grid.

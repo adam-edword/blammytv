@@ -562,14 +562,12 @@ button {
    * live side has, while the label widths below — layout, main thread —
    * stayed frozen, and the capsule tore in half. Layout properties only in
    * here, so everything animates off one clock. */
-  /* Height and travel keep the spring. corner-shape does NOT: a corner
-   * that overshoots its target and comes back reads as a wobble, not as a
-   * spring. */
+  /* Nothing here animates the corner, because nothing changes it: the shape
+   * is one 33px round in both states and only the HEIGHT moves. */
   transition:
     margin-left var(--nav-dur) var(--nav-spring),
     height var(--nav-dur) var(--nav-spring),
-    gap var(--nav-dur) var(--nav-spring),
-    corner-shape var(--nav-dur) var(--nav-settle);
+    gap var(--nav-dur) var(--nav-spring);
 }
 
 /* The gap has to collapse with the row it separates, or a closed capsule
@@ -615,28 +613,22 @@ button {
   overflow: hidden;
   pointer-events: none;
 }
-/* Only the open shape is a squircle; closed, the clamp above makes it a
- * pill and a squircle cap would be the flattened shape v0.9.10 removed.
+/*
+ * NO SQUIRCLE, OPEN OR SHUT. The open state used to switch to one, on the
+ * reading that the frame's second row wanted a rounded rectangle rather
+ * than a pill. It does not: 33px round is the whole shape in both states,
+ * and the height is the only thing that moves. Closed at 65px tall the
+ * radius clamps to half-height and reads as a pill for free; open at 115px
+ * the same 33px reads as the rounded rectangle, without a second shape
+ * being involved at all.
  *
- * THE RIM AND THE GLARE HAVE TO COME WITH IT. corner-shape does not
- * inherit, and `border-radius: inherit` on a pseudo-element carries the
- * radius only — so setting this on .navcap alone left the hairline tracing
- * a ROUND 33px corner over a squircle fill. A round corner cuts more than a
- * superellipse at the same radius, so the rim lifted off the fill and
- * floated outside it: 161 pixels wrong in each corner, 119/255 at the worst
- * of them. It reads as the background having a smaller radius than the
- * capsule, which is exactly what it is. */
-.navcap--open,
-.navcap--open::before,
-.navcap--open::after {
-  corner-shape: squircle;
-}
-/* Same clock as the element's own, or the hairline snaps to the new shape
- * while the fill under it is still travelling. */
-.navcap::before,
-.navcap::after {
-  transition: corner-shape var(--nav-dur) var(--nav-settle);
-}
+ * The group at the top of this section is what holds it, and it has to keep
+ * covering ::before and ::after: corner-shape does not inherit, and
+ * `border-radius: inherit` on a pseudo-element carries the radius alone. A
+ * shape set on .navcap by itself leaves the hairline and the glare tracing
+ * a different corner from the fill, which is how the squircle version
+ * shipped — 161 pixels wrong in each corner, 119/255 at the worst of them.
+ */
 
 /* The field takes whatever row 1 leaves. flex-shrink must be 1: the Figma
  * spells this flex:1 0 0, and a shrink of 0 means it can never compress
