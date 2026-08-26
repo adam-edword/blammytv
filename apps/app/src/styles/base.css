@@ -524,6 +524,7 @@ button {
 .navcap,
 .navcap__pill,
 .navcap__item,
+.navcap::before,
 .navcap::after {
   corner-shape: round;
 }
@@ -615,9 +616,26 @@ button {
   pointer-events: none;
 }
 /* Only the open shape is a squircle; closed, the clamp above makes it a
- * pill and a squircle cap would be the flattened shape v0.9.10 removed. */
-.navcap--open {
+ * pill and a squircle cap would be the flattened shape v0.9.10 removed.
+ *
+ * THE RIM AND THE GLARE HAVE TO COME WITH IT. corner-shape does not
+ * inherit, and `border-radius: inherit` on a pseudo-element carries the
+ * radius only — so setting this on .navcap alone left the hairline tracing
+ * a ROUND 33px corner over a squircle fill. A round corner cuts more than a
+ * superellipse at the same radius, so the rim lifted off the fill and
+ * floated outside it: 161 pixels wrong in each corner, 119/255 at the worst
+ * of them. It reads as the background having a smaller radius than the
+ * capsule, which is exactly what it is. */
+.navcap--open,
+.navcap--open::before,
+.navcap--open::after {
   corner-shape: squircle;
+}
+/* Same clock as the element's own, or the hairline snaps to the new shape
+ * while the fill under it is still travelling. */
+.navcap::before,
+.navcap::after {
+  transition: corner-shape var(--nav-dur) var(--nav-settle);
 }
 
 /* The field takes whatever row 1 leaves. flex-shrink must be 1: the Figma
@@ -729,7 +747,6 @@ button {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  corner-shape: round;
   pointer-events: none;
   background:
     linear-gradient(

@@ -81,6 +81,49 @@ check("row 2 fills it without widening it", geo.row2 <= geo.row1 + 0.5,
 check("and the mark still holds the midline with both rows open",
   Math.abs(geo.off) < 1.5, `${geo.off}px`);
 
+// Both rows hang off the SAME left edge. Nothing else in here would
+// notice if row 2 drifted: every check above is about width.
+const rail = await p.evaluate(() => {
+  const n = document.querySelector(".navcap");
+  const L = n.getBoundingClientRect().left;
+  const edge = (sel) => {
+    const row = n.querySelector(sel);
+    const b = Array.from(row.children).find((c) => c.tagName === "BUTTON");
+    return [+(b.getBoundingClientRect().left - L).toFixed(2),
+            +(row.getBoundingClientRect().right - L).toFixed(2)];
+  };
+  return { one: edge(".navcap__row--nav"), two: edge(".navcap__row--sub") };
+});
+check("the two rows share a left rail",
+  Math.abs(rail.one[0] - rail.two[0]) < 0.5, `${rail.one[0]} vs ${rail.two[0]}`);
+check("  and a right one", Math.abs(rail.one[1] - rail.two[1]) < 0.5,
+  `${rail.one[1]} vs ${rail.two[1]}`);
+
+// THE RIM AND THE GLARE TRACE THE SAME SHAPE AS THE FILL.
+//
+// corner-shape does not inherit and `border-radius: inherit` carries only
+// the radius, so the ::after hairline and the ::before glare each need the
+// squircle spelled out for them. Without it they kept a ROUND 33px corner
+// over a squircle fill — a round corner cuts more than a superellipse at
+// the same radius, so the hairline lifted off the fill and floated outside
+// it in all four corners.
+//
+// Forcing the two layers to match and requiring NOTHING to move is the
+// whole check: it cannot be satisfied by a rule that sets the shape
+// somewhere the painter is not looking, and it stays true if the design
+// later goes back to round, because it compares the parts to each other
+// rather than to a hard-coded shape.
+const cornerBox = await p.locator(".navcap").boundingBox();
+const clip = { x: cornerBox.x, y: cornerBox.y, width: 60, height: 60 };
+const asIs = await p.screenshot({ clip });
+const forced = await p.addStyleTag({ content:
+  ".navcap--open::after, .navcap--open::before { corner-shape: squircle !important }" });
+await p.waitForTimeout(250);
+const matched = await p.screenshot({ clip });
+await forced.evaluate((el) => el.remove());
+check("the rim and the glare trace the capsule's own corner",
+  asIs.equals(matched), asIs.equals(matched) ? "" : "corner layers disagree");
+
 // Typing has to reach the grid.
 // The placeholder promises a scope, and searchDiscover really does keep
 // it: it drops every catalog whose type is not the selected one. So the
