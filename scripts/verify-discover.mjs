@@ -218,40 +218,77 @@ check("mark holds the midline on the VOD side", (await markOff()) < 1.5);
 check("Stream lands on the VOD home",
   (await page.locator('.navcap__item[aria-current="page"]').getAttribute("data-dest")) === "home");
 
-// ---- Library (the page is still My List internally): empty state, save from detail, grid render, hand-off
-// whose back-out returns HERE (origin plumbing), then unsave.
+// ---- Library. IT IS A PAGE OF LISTS NOW, not one flat grid of saved
+// titles, and this whole block was still written for the old shape: it
+// looked for "This list is empty" at the top level and expected the saved
+// title to appear in Library's own grid. Both were true of a Library that
+// no longer exists, so every check here failed against v0.9.17 as well —
+// this is rot from that redesign, not from the capsule work.
+//
+// The shape it actually has: Library shows LIST cards. Saving from a
+// detail page puts the title in a list called "My List". You open that
+// card to reach the titles. So the grid at the top level holds lists, and
+// the grid one level down holds titles, and the two used to be conflated.
 await page.locator('[data-dest="mylist"]').click();
-await page.waitForTimeout(400);
-check("Library empty state",
-  (await page.evaluate(() => document.body.innerText)).includes("This list is empty"));
+await page.waitForTimeout(600);
+check("Library empty state names what lands there on its own",
+  (await page.locator(".library__empty").textContent() ?? "")
+    .includes("Anything you start watching"));
+check("and no list cards yet", (await page.locator(".library__card").count()) === 0);
+
 await page.locator('[data-dest="home"]').click();
 await page.waitForTimeout(500);
 await page.locator(".stream-card", { hasText: "Fake Movie One" }).first().click();
 await page.waitForTimeout(700);
+check("the detail offers Add to Library",
+  ((await page.locator(".vod-save:not(.vod-save__more)").textContent()) ?? "")
+    .includes("Add to Library"));
 await page.locator(".vod-save:not(.vod-save__more)").click();
+await page.waitForTimeout(300);
 check("save button flips to saved", (await page.locator(".vod-save--on").count()) >= 1);
+check("and says which list it went to",
+  ((await page.locator(".vod-save--on").textContent()) ?? "").includes("My List"));
+
 await page.locator('[data-dest="mylist"]').click();
-await page.waitForTimeout(500);
-check("My List grid shows the saved title",
+await page.waitForTimeout(700);
+check("Library grows a My List card",
+  (await page.locator(".library__card", { hasText: "My List" }).count()) === 1);
+check("and the card counts its titles",
+  ((await page.locator(".library__card .stream-card__meta").first().textContent()) ?? "")
+    .includes("1 title"));
+
+// One level down: the titles themselves.
+await page.locator(".library__card", { hasText: "My List" }).click();
+await page.waitForTimeout(700);
+check("opening the list heads it by name",
+  (await page.locator(".library__heading").textContent()) === "My List");
+check("the list holds the saved title",
   (await page.locator(".disc-grid .stream-card", { hasText: "Fake Movie One" }).count()) === 1);
-check("My List card carries the kind label",
-  ((await page.locator(".disc-grid .stream-card__meta").first().textContent()) ?? "").includes("Movie"));
+check("the title carries its kind label",
+  ((await page.locator(".disc-grid .stream-card__meta").first().textContent()) ?? "")
+    .includes("Movie"));
+
 await page.locator(".disc-grid .stream-card", { hasText: "Fake Movie One" }).click();
 await page.waitForTimeout(700);
-check("My List card opens Stream detail", (await page.locator(".vod-back").count()) > 0);
+check("a list title opens Stream detail", (await page.locator(".vod-back").count()) > 0);
+check("and the detail knows it is already saved",
+  (await page.locator(".vod-save--on").count()) >= 1);
+// The origin plumbing: back lands in the LIST, not at Library's root.
 await page.locator(".vod-back").click();
-await page.waitForTimeout(500);
-check("back from hand-off returns to Library",
+await page.waitForTimeout(600);
+check("back from hand-off returns to the open list",
   (await page.locator('.navcap__item[aria-current="page"]').getAttribute("data-dest")) === "mylist" &&
-  (await page.locator(".disc-grid").count()) > 0);
-// Unsave via the same detail button → grid empties again.
+  (await page.locator(".library__heading").textContent().catch(() => "")) === "My List");
+
+// Unsave from the same button, and the list empties.
 await page.locator(".disc-grid .stream-card", { hasText: "Fake Movie One" }).click();
 await page.waitForTimeout(700);
 await page.locator(".vod-save--on").click();
+await page.waitForTimeout(300);
 await page.locator(".vod-back").click();
-await page.waitForTimeout(500);
-check("unsave empties My List",
-  (await page.evaluate(() => document.body.innerText)).includes("Nothing saved yet"));
+await page.waitForTimeout(600);
+check("unsave empties the list",
+  (await page.locator(".disc-grid .stream-card").count()) === 0);
 
 // ---- Cache seeding: with the Stream cache warm, the unfiltered grid
 // paints from it with ZERO catalog fetches; scrolling past the cached
@@ -382,7 +419,9 @@ check("genre pill wins over a stale search",
 // Row-cap fine-tune: click the number, type an exact value, Enter.
 await page4.locator("button[aria-label='Settings']").click();
 await page4.waitForTimeout(400);
-await page4.getByRole("button", { name: "AIOStreams", exact: true }).click();
+// The row cap moved to Customize; there is no AIOStreams tab any more
+// (the rail is General / Customize, with sources split inside General).
+await page4.getByRole("button", { name: "Customize", exact: true }).click();
 await page4.waitForTimeout(400);
 await page4.locator(".rowcap__value--btn").click();
 await page4.fill(".rowcap__value--edit", "37");
@@ -408,6 +447,11 @@ await page5.locator("button[aria-label='Settings']").click();
 await page5.waitForTimeout(300);
 await page5.getByRole("button", { name: "Customize", exact: true }).click();
 await page5.waitForTimeout(400);
+// The accent swatches are not in Customize any more — Customize carries a
+// LAUNCHER that pops the standalone Themes panel out (and closes Settings).
+// The egg lives with the swatches, so the walk has to go one step further.
+await page5.locator(".themes-launch").click();
+await page5.waitForTimeout(600);
 check("aurora swatch hidden before unlock",
   (await page5.locator(".accent-swatch--aurora").count()) === 0);
 for (let i = 0; i < 10; i++) {

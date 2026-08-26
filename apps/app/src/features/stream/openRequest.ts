@@ -19,13 +19,42 @@ let pending: VodItem | null = null;
 export type OpenOrigin = "discover" | "mylist";
 let origin: OpenOrigin = "discover";
 
+/**
+ * ...and WHICH list inside the Library, when that is where it came from.
+ *
+ * The tab alone stopped being enough when the Library became a page of
+ * LISTS. Backing out of a title returned to "mylist" and landed at that
+ * page's root, so you lost the list you had open and had to find it again.
+ * LibraryScreen's view stack is component state and the hand-off unmounts
+ * it, so the list id has to travel out here and be picked back up.
+ *
+ * PEEK AND CLEAR, not take-once: LibraryScreen seeds its view stack from
+ * this in a lazy useState initializer, and StrictMode double-invokes those
+ * in dev. A consuming read would hand the list to the first invocation and
+ * null to the second — the same class of bug viewStack.ts calls out at the
+ * top of its own file.
+ */
+let originList: string | null = null;
+
 export function requestOpenInStream(
   item: VodItem,
   from: OpenOrigin = "discover",
+  list: string | null = null,
 ): void {
   pending = item;
   origin = from;
+  originList = list;
   window.dispatchEvent(new CustomEvent(EVENT));
+}
+
+/** Which list to reopen, or null. Pure — safe to call while rendering. */
+export function peekReturnList(): string | null {
+  return originList;
+}
+
+/** Drop it, once the screen that wanted it has mounted. */
+export function clearReturnList(): void {
+  originList = null;
 }
 
 export function takeOpenRequest(): VodItem | null {

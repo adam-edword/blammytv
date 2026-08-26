@@ -17,6 +17,8 @@ import {
 } from "./lists";
 import type { ListEntry } from "./myList";
 import {
+  clearReturnList,
+  peekReturnList,
   requestOpenInStream,
   requestResumeInStream,
   requestSourcesInStream,
@@ -109,7 +111,15 @@ export function LibraryScreen() {
     goForward,
     replace: replaceView,
     reset: resetHistory,
-  } = useViewStack<View>({ at: "root" });
+  } = useViewStack<View>(() => {
+    // Come back into the list you left, not to the root. Peeked, never
+    // consumed here: StrictMode double-invokes this initializer, and a
+    // consuming read would give the list to the first pass and nothing to
+    // the second. The effect below is what drops it.
+    const id = peekReturnList();
+    return id ? { at: "list", id } : { at: "root" };
+  });
+  useEffect(clearReturnList, []);
   const [metaFields, setMetaFields] = useState<CardMetaField[]>(loadCardMeta);
   useEffect(() => onCardMetaChange(setMetaFields), []);
 
@@ -131,9 +141,12 @@ export function LibraryScreen() {
 
   useMouseNav(goBack, goForward);
 
+  // Carry the open list out with the hand-off, so backing out of the title
+  // returns here rather than to the Library's root.
   const openItem = useCallback(
-    (item: VodItem) => requestOpenInStream(item, "mylist"),
-    [],
+    (item: VodItem) =>
+      requestOpenInStream(item, "mylist", view.at === "list" ? view.id : null),
+    [view],
   );
   const refresh = useCallback(() => setLists(loadLists()), []);
 
