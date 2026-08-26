@@ -56,10 +56,27 @@ await p.waitForTimeout(900);
 check("on Stream the second row is shut",
   (await p.locator(".navcap__row--sub").evaluate((el) => el.offsetHeight)) === 0);
 
+// THE CAPSULE NEVER MOVES THE PAGE.
+//
+// It is absolutely positioned so it costs the layout nothing, and counting
+// the second row into --header-h handed that cost straight back: every
+// screen's top padding is driven off it, so the whole page slid down 39px
+// as the row unfolded.
+//
+// Sampled ACROSS the unfold, which is why the click is in here rather than
+// on its own line: the failure is a republish DURING the animation, and
+// waiting for the row to settle first would step right over it.
+const hh = () => p.evaluate(() => getComputedStyle(document.documentElement)
+  .getPropertyValue("--header-h").trim());
+const seen = new Set([await hh()]);
 await p.locator('[data-dest="discover"]').click();
-await p.waitForTimeout(1200);
+for (let i = 0; i < 24; i++) { seen.add(await hh()); await p.waitForTimeout(20); }
+await p.waitForTimeout(900);
+seen.add(await hh());
 check("open on Discover",
   (await p.locator(".navcap__row--sub").evaluate((el) => el.offsetHeight)) > 30);
+check("and --header-h never moved while it opened",
+  seen.size === 1, [...seen].join(" -> "));
 
 // It must line up with the filter tabs, not float beside them.
 // The capsule's width is ROW 1's business. Row 2 fills it and must never

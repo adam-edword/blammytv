@@ -520,6 +520,73 @@ export function LibraryIcon(p: NavIconProps) {
   return <Fluent {...p} reg={LIBRARY_REG} fill={LIBRARY_FILL} />;
 }
 
+/*
+ * DISCOVER'S TYPE FILTERS — Adam's own glyphs, and they do not fit Fluent's
+ * wrapper. Movies is STROKED where every icon above is filled, and the four
+ * paths arrive on three different grids: 13 for Movies regular, 14 for
+ * Movies filled (the heavier stroke needed the extra room), 14 for both
+ * Series weights.
+ *
+ * So each viewBox is padded here rather than taken as given, and the
+ * padding is sized off MEASURED ink rather than picked. The nav's rendered
+ * ink runs 17.25px to 23px inside its 23px box: the two diagonal glyphs sit
+ * at 18-20, the rectangular ones (Guide, Library, Sports) at 20-23. Both of
+ * these are rectangular, so they are matched to that group at ~20px:
+ *
+ *   Series   14 units of ink, viewBox 16      -> 20.1px
+ *   Movies   13 units painted, viewBox 15     -> 19.9px
+ *
+ * Movies keeps ONE viewBox size across both weights, so the drawing is at
+ * the same scale in each and only the origin shifts by the 0.25 the path
+ * itself shifts. The filled weight then paints 0.8px wider than the
+ * regular, which is the thicker stroke and nothing else — the glyph does
+ * not resize when you select it.
+ */
+const MOVIES_REG =
+  "M0.502746 9.48149L6.49315 9.4952M6.49315 9.4952L12.4835 9.50891M6.49315 9.4952L6.50685 3.5048M12.4973 3.51851L6.50685 3.5048L0.516453 3.49109M3.49246 11.8845L3.49658 10.0874M3.51302 2.89891L3.51714 1.10179M9.48286 11.8982L9.48698 10.1011M9.50342 2.91261L9.50754 1.11549M6.48766 11.8914L6.49178 10.0942M6.50822 2.90576L6.51234 1.10864M12.4808 10.707L12.5 2.32043C12.5023 1.3279 11.6995 0.521466 10.707 0.519194L2.32043 0.500005C1.3279 0.497734 0.521466 1.30049 0.519194 2.29301L0.500005 10.6796C0.497734 11.6721 1.30049 12.4785 2.29301 12.4808L10.6796 12.5C11.6721 12.5023 12.4785 11.6995 12.4808 10.707Z";
+const MOVIES_FILL =
+  "M0.752746 9.73149L6.74315 9.7452M6.74315 9.7452L12.7335 9.75891M6.74315 9.7452L6.75685 3.7548M12.7473 3.76851L6.75685 3.7548L0.766453 3.74109M3.74246 12.1345L3.74658 10.3374M3.76302 3.14891L3.76714 1.35179M9.73286 12.1482L9.73698 10.3511M9.75342 3.16261L9.75754 1.36549M6.73766 12.1414L6.74178 10.3442M6.75822 3.15576L6.76234 1.35864M12.7308 10.957L12.75 2.57043C12.7523 1.5779 11.9495 0.771466 10.957 0.769194L2.57043 0.750005C1.5779 0.747734 0.771466 1.55049 0.769194 2.54301L0.750005 10.9296C0.747734 11.9221 1.55049 12.7285 2.54301 12.7308L10.9296 12.75C11.9221 12.7523 12.7285 11.9495 12.7308 10.957Z";
+const SERIES_REG =
+  "M14 4.375C14 3.40854 13.2166 2.62506 12.2501 2.625V1.75C12.2501 0.783502 11.4666 -1.10738e-07 10.5001 -1.52985e-07L3.50011 -4.58965e-07C2.53361 -5.01212e-07 1.75011 0.783502 1.75011 1.75V2.625C0.783609 2.625 0 3.4085 0 4.375V9.625C0 10.5915 0.783502 11.375 1.75 11.375L1.75011 12.25C1.75011 13.2165 2.53361 14 3.50011 14L10.5001 14C11.4666 14 12.2501 13.2165 12.2501 12.25V11.375C13.2166 11.3749 14 10.5915 14 9.625V4.375ZM11.3751 11.375V12.25C11.3751 12.7332 10.9834 13.125 10.5001 13.125L3.50011 13.125C3.01686 13.125 2.62511 12.7332 2.62511 12.25V11.375L11.3751 11.375ZM2.62511 2.625V1.75C2.62511 1.26675 3.01686 0.875 3.50011 0.875L10.5001 0.875C10.9834 0.875 11.3751 1.26675 11.3751 1.75V2.625L2.62511 2.625ZM12.25 3.5C12.7332 3.5 13.125 3.89175 13.125 4.375V9.625C13.125 10.1082 12.7332 10.5 12.25 10.5L1.75 10.5C1.26675 10.5 0.875 10.1082 0.875 9.625V4.375C0.875 3.89175 1.26675 3.5 1.75 3.5L12.25 3.5Z";
+const SERIES_FILL =
+  "M14 4.375C14 3.4085 13.2165 2.625 12.25 2.625L1.75 2.625C0.783503 2.625 8.04684e-07 3.4085 7.62437e-07 4.375L5.32952e-07 9.625C4.90705e-07 10.5915 0.783502 11.375 1.75 11.375L12.25 11.375C13.2165 11.375 14 10.5915 14 9.625L14 4.375ZM10.5 -1.5299e-07C11.4665 -1.10743e-07 12.25 0.783502 12.25 1.75L1.75 1.75C1.75 0.783501 2.5335 -5.01217e-07 3.5 -4.5897e-07L10.5 -1.5299e-07ZM1.75 12.25L12.25 12.25C12.25 13.2165 11.4665 14 10.5 14L3.5 14C2.5335 14 1.75 13.2165 1.75 12.25Z";
+
+/** Movies: the film strip. Stroked, so it needs its own wrapper. */
+export function MoviesIcon({ size = 22, className, filled }: NavIconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox={filled ? "-0.75 -0.75 15 15" : "-1 -1 15 15"}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={filled ? 1.5 : 1}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d={filled ? MOVIES_FILL : MOVIES_REG} />
+    </svg>
+  );
+}
+
+/** Series: the stacked cards. Filled, but on a 14 grid, not Fluent's 16. */
+export function SeriesIcon({ size = 22, className, filled }: NavIconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="-1 -1 16 16"
+      fill="currentColor"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d={filled ? SERIES_FILL : SERIES_REG} />
+    </svg>
+  );
+}
+
 /** Devices / TV — the playlist mode chip. */
 export function TvIcon({ size = 16, className }: IconProps) {
   return (

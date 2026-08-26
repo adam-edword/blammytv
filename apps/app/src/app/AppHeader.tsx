@@ -13,6 +13,8 @@ import {
   DiscoverIcon,
   GuideIcon,
   LibraryIcon,
+  MoviesIcon,
+  SeriesIcon,
   SettingsIcon,
   SportsIcon,
   StreamIcon,
@@ -106,8 +108,8 @@ const FILTERS: Array<{
   Icon?: ComponentType<{ size?: number; className?: string; filled?: boolean }>;
 }> = [
   { key: "all", label: "Any" },
-  { key: "movie", label: "Movies", Icon: StreamIcon },
-  { key: "series", label: "Series", Icon: LibraryIcon },
+  { key: "movie", label: "Movies", Icon: MoviesIcon },
+  { key: "series", label: "Series", Icon: SeriesIcon },
 ];
 
 /** Live clock, minute-accurate (the header shows no seconds). Follows the
@@ -236,17 +238,25 @@ export function AppHeader({
    * The header floats over the tabs; publish its height so tabs that
    * shouldn't start underneath can offset themselves (--header-h).
    *
-   * The capsule is absolutely positioned, so it never counted toward the
-   * header's own offsetHeight — which was fine while one row of it fitted
-   * inside the header's padding. A second row does not: open, its bottom
-   * edge sits ~50px past that, and Discover's grid would run under it.
+   * ONE ROW'S WORTH, ALWAYS. The second row is deliberately NOT counted.
+   *
+   * It used to be, and the capsule then pushed every screen down 39px as it
+   * unfolded — the nav reaching out and moving the page, which is the one
+   * thing a floating bar must never do. The capsule is absolutely
+   * positioned precisely so it costs the layout nothing; letting its height
+   * back in through --header-h handed that cost straight back.
+   *
+   * So Discover's content passes UNDER the open second row, which is what
+   * the nav is built for: it is glass, the header carries a scrim, and
+   * anything scrolled up there goes behind it anyway. The band is ~31px
+   * deep and only as wide as the capsule (~430px of a 1600px window), and
+   * Discover's own top padding leaves its first row of cards clear of it.
    *
    * The capsule's TARGET height is what goes out, not its measured one.
    * Measuring would republish on every frame of the unfold, and every
    * consumer of --header-h is a screen's top padding — so the whole
    * Discover grid would reflow ~23 times during a 380ms animation, which
    * is precisely the stall this nav spent v0.9.2 through v0.9.6 removing.
-   * One value, once, at the start.
    */
   const ref = useRef<HTMLElement>(null);
   useLayoutEffect(() => {
@@ -260,14 +270,7 @@ export function AppHeader({
         const padY =
           (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
         const rowH = rowNavRef.current?.offsetHeight ?? 0;
-        const rowGap =
-          parseFloat(
-            getComputedStyle(document.documentElement).getPropertyValue(
-              "--nav-rowgap",
-            ),
-          ) || 0;
-        capsuleBottom =
-          nav.offsetTop + padY + rowH + (subOpen ? rowGap + rowH : 0);
+        capsuleBottom = nav.offsetTop + padY + rowH;
       }
       document.documentElement.style.setProperty(
         "--header-h",
@@ -278,7 +281,7 @@ export function AppHeader({
     const ro = new ResizeObserver(publish);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [subOpen]);
+  }, []);
 
   /* `/`, Ctrl+K and Ctrl+F ask for the field. The field is up here now, so
    * this is the header's own business — but it still cannot focus
@@ -611,9 +614,15 @@ export function AppHeader({
           * of the tab order and the a11y tree while shut, or you could
           * tab into a control with no height on a screen it does not
           * belong to. */}
+        {/* The GROUP carries the context, so each button's accessible name
+          * can be exactly its visible label. "Show movies" read fine on its
+          * own but made "Show any" out of the Any chip, and it put the
+          * accessible name out of step with the word on screen. */}
         <div
           className="navcap__row navcap__row--sub"
           ref={rowSubRef}
+          role="group"
+          aria-label="Filter by type"
           aria-hidden={!subOpen}
           {...(subOpen ? {} : { inert: "" })}
         >
@@ -629,7 +638,7 @@ export function AppHeader({
                   "navcap__item" + (f.Icon ? "" : " navcap__item--text")
                 }
                 aria-current={on ? "true" : undefined}
-                aria-label={`Show ${f.label.toLowerCase()}`}
+                aria-label={f.label}
                 ref={(el) => {
                   if (el) itemRefs.current.set(f.key, el);
                   else itemRefs.current.delete(f.key);

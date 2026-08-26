@@ -58,14 +58,15 @@ check("round-robin order across feeds",
 const railNames = await page.$$eval(".genre-card__name", (els) => els.map((e) => e.textContent));
 check("genre rail = union of catalog genres", JSON.stringify(railNames) === JSON.stringify(["Action", "Comedy", "Drama"]), railNames.join(","));
 
-// Movies-only via the pill toggle.
+// Movies-only via the type chip. It lives in the HEADER capsule now, not
+// in Discover's own toggle row, and "All Content" is spelled "Any".
 await page.getByRole("button", { name: "Movies", exact: true }).click();
 await page.waitForTimeout(600);
 names = await gridTitles();
 check("Movies filter drops series", names.length === 10 && !names.some((n) => n.startsWith("Fake Series")), `${names.length} cards`);
 
 // Back to All, then filter by Comedy via the rail card.
-await page.getByRole("button", { name: "All Content" }).click();
+await page.getByRole("button", { name: "Any", exact: true }).click();
 await page.waitForTimeout(400);
 await page.locator(".genre-card", { hasText: "Comedy" }).click();
 await page.waitForTimeout(700);
@@ -110,15 +111,17 @@ check("back returns to Discover grid", (await page.locator(".disc-grid").count()
 check("nav shows Discover as the active destination",
   (await page.locator('.navcap__item[aria-current="page"]').getAttribute("data-dest")) === "discover");
 
-// ---- Search: the header PILL owns the input; results merge every
-// search catalog (incl. search-only) with type labels intact.
-check("the search field is available on the VOD side",
-  await page.locator(".header__searchchip:not(.header__searchchip--off)").count() === 1);
-// The input rests at width 0 inside its chip — focus first (expands it),
-// then fill; fill's own visibility auto-wait rides out the width morph.
+// ---- Search: the CAPSULE's second row owns the input now; results merge
+// every search catalog (incl. search-only) with type labels intact.
+//
+// It is no longer a chip that hides on the live side — it is a field in
+// row 2, and row 2 belongs to Discover alone. So "is it available" is a
+// question about that row's height, not about a modifier class.
+check("the search field is open on Discover",
+  (await page.locator(".navcap__row--sub").evaluate((el) => el.offsetHeight)) > 30);
 const typeSearch = async (v) => {
-  await page.focus(".header__searchinput");
-  await page.fill(".header__searchinput", v);
+  await page.focus(".navcap__searchinput");
+  await page.fill(".navcap__searchinput", v);
 };
 await typeSearch("two");
 await page.waitForTimeout(900); // debounce + fetch
@@ -128,12 +131,12 @@ check("search merges all search catalogs",
   found.join(", "));
 check("search results respect kind labels",
   (await page.locator(".disc-grid .stream-card__meta").first().textContent() ?? "").match(/Movie|Series/) !== null);
-await page.focus(".header__searchinput");
+await page.focus(".navcap__searchinput");
 await page.keyboard.press("Escape");
 await page.waitForTimeout(400);
 check("Escape clears back to browse", (await page.locator(".genre-card").count()) > 0);
 check("Escape also blurs the search",
-  !(await page.evaluate(() => document.activeElement?.classList.contains("header__searchinput") ?? false)));
+  !(await page.evaluate(() => document.activeElement?.classList.contains("navcap__searchinput") ?? false)));
 // The Discover TAB itself clears an active search too.
 await typeSearch("two");
 await page.waitForTimeout(900);
@@ -142,20 +145,20 @@ await page.getByRole("button", { name: "Discover", exact: true }).click();
 await page.waitForTimeout(400);
 check("Discover tab click clears search to browse",
   (await page.locator(".genre-card").count()) > 0 &&
-  (await page.inputValue(".header__searchinput")) === "");
+  (await page.inputValue(".navcap__searchinput")) === "");
 // Keyboard shortcuts focus the pill on the VOD side.
 await page.locator("body").click({ position: { x: 400, y: 500 } });
 for (const combo of ["/", "Control+k", "Control+f"]) {
   await page.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur());
   await page.keyboard.press(combo);
   await page.waitForTimeout(150);
-  const hit = await page.evaluate(() => document.activeElement?.classList.contains("header__searchinput") ?? false);
+  const hit = await page.evaluate(() => document.activeElement?.classList.contains("navcap__searchinput") ?? false);
   check("shortcut " + combo + " focuses search", hit);
 }
 // Typing "/" INSIDE the input must not re-trigger/steal (it just types).
 await typeSearch("");
-await page.type(".header__searchinput", "a/b");
-check("slash inside input just types", (await page.inputValue(".header__searchinput")) === "a/b");
+await page.type(".navcap__searchinput", "a/b");
+check("slash inside input just types", (await page.inputValue(".navcap__searchinput")) === "a/b");
 await typeSearch("");
 await page.keyboard.press("Escape");
 await page.waitForTimeout(200);
@@ -174,7 +177,7 @@ await page.waitForTimeout(200);
 const capX = () => page.locator(".navcap").boundingBox().then((b) => b?.x ?? 0);
 
 const navBefore = await capX();
-await page.focus(".header__searchinput");
+await page.focus(".navcap__searchinput");
 await page.waitForTimeout(700); // the input's width morph
 check("opening search does not move the capsule",
   Math.abs(navBefore - (await capX())) < 1);
@@ -188,12 +191,19 @@ await page.locator('[data-dest="guide"]').click();
 await page.waitForTimeout(400);
 check("Guide is the active destination",
   (await page.locator('.navcap__item[aria-current="page"]').getAttribute("data-dest")) === "guide");
-check("search hides on the live side",
-  (await page.locator(".header__searchchip--off").count()) === 1);
+check("search is shut on the live side",
+  (await page.locator(".navcap__row--sub").evaluate((el) => el.offsetHeight)) === 0);
+// `/` from the live side used to do NOTHING, because there was no search
+// on that side to reach. There is now: the field lives in Discover's
+// second row, so the shortcut GOES there and lands in it. Deliberate, and
+// checked from the Guide in verify-discover-search too. It stays inert
+// while a player is up (#inv-chrome) and while you are typing.
 await page.keyboard.press("/");
-await page.waitForTimeout(150);
-check("slash does nothing on Live",
-  !(await page.evaluate(() => document.activeElement?.classList.contains("header__searchinput") ?? false)));
+await page.waitForTimeout(600);
+check("slash from Live jumps to Discover and lands in the field",
+  await page.evaluate(() => document.activeElement?.classList.contains("navcap__searchinput") ?? false));
+await page.locator('[data-dest="guide"]').click();
+await page.waitForTimeout(400);
 
 // The mark holds the window midline whichever side is active: the capsule
 // grows unevenly around it, so any drift here means the anchor is broken.
@@ -350,8 +360,13 @@ await page4.screenshot({ path: process.env.SHOT_DIR + "/detail-more.png" });
 // ACTIVE SEARCH first (fleet finding: the hand-off rendered the stale
 // search results because the store clear fired before DiscoverScreen's
 // subscription existed).
-await page4.focus(".header__searchinput");
-await page4.fill(".header__searchinput", "two");
+// The field is Discover's now, not the whole VOD side's — page4 is sitting
+// on a detail page here, where row 2 is shut and there is nothing to focus.
+// Go there first; the rest of the fixture is unchanged.
+await page4.locator('[data-dest="discover"]').click();
+await page4.waitForTimeout(600);
+await page4.focus(".navcap__searchinput");
+await page4.fill(".navcap__searchinput", "two");
 await page4.waitForTimeout(900); // debounced results on Discover
 await page4.locator(".disc-grid .stream-card", { hasText: "Fake Movie Two" }).click();
 await page4.waitForTimeout(800); // hand-off to detail, search still stored
@@ -363,7 +378,7 @@ check("genre pill pre-selects its genre",
   ((await page4.locator(".genre-card--on .genre-card__name").textContent().catch(() => "")) ?? "") === "Action");
 check("genre pill wins over a stale search",
   !(await page4.evaluate(() => document.body.innerText)).includes("Results for") &&
-  (await page4.inputValue(".header__searchinput")) === "");
+  (await page4.inputValue(".navcap__searchinput")) === "");
 // Row-cap fine-tune: click the number, type an exact value, Enter.
 await page4.locator("button[aria-label='Settings']").click();
 await page4.waitForTimeout(400);
