@@ -40,14 +40,45 @@ const check = (n, ok, d = "") => {
  * fail. Without a game there both windows show the same two days and the
  * check passes against the very code it exists to catch.
  */
-const SCHEDULE = { 0: 2, 1: 0, 2: 1, 3: 0, 4: 2, 5: 3, 6: 0, 7: 0, 8: 11, 9: 1 };
+const SCHEDULE = {
+  0: 2, 1: 0, 2: 1, 3: 0, 4: 2,
+  5: 3, 6: 0, 7: 0, 8: 11, 9: 1,
+  // Past the first chunk, so a click has somewhere to stop. One click is
+  // worth 50 GAMES now, not five days, and 3+11+1+18+20 walks past that.
+  10: 0, 11: 18, 12: 0, 13: 20, 14: 6,
+};
 const BASE_DAYS = 5;
 const inBase = Object.entries(SCHEDULE)
   .filter(([d]) => Number(d) < BASE_DAYS)
   .reduce((a, [, n]) => a + n, 0);
-const inNext = Object.entries(SCHEDULE)
-  .filter(([d]) => Number(d) >= BASE_DAYS)
-  .reduce((a, [, n]) => a + n, 0);
+/**
+ * What one click is worth.
+ *
+ * Modelled in BATCHES of BASE_DAYS, because that is what loadMore does: it
+ * fetches a batch in parallel and only then asks whether it has enough. So
+ * it overshoots the target by whatever the last batch happened to hold, and
+ * a day-by-day model here reads that correct behaviour as a bug (it did,
+ * at +59 against an expected +53).
+ */
+const MORE_GAMES = 50;
+let acc = 0;
+let lastDay = BASE_DAYS - 1;
+for (let start = BASE_DAYS; acc < MORE_GAMES; start += BASE_DAYS) {
+  let any = false;
+  for (let d = start; d < start + BASE_DAYS; d++) {
+    if (!(d in SCHEDULE)) continue;
+    acc += SCHEDULE[d];
+    lastDay = d;
+    any = true;
+  }
+  if (!any) break;
+}
+const inNext = acc;
+
+/** The sparse league's one reached-ahead fixture, which lands on its own
+ * day heading rather than in a bucket. It is on the board from the start,
+ * so every count below has to allow for it. */
+const REACHED = 1;
 
 const ymd = (d) =>
   `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
@@ -105,6 +136,30 @@ const event = (offset, i) => {
   };
 };
 
+/**
+ * A league with NOTHING in the window and one fixture far out.
+ *
+ * This is what makes the "no Coming up pile" check mean something. That
+ * section only ever rendered when the REACH answered, and the reach only
+ * fires for a followed league that put nothing on the board — so with one
+ * densely-scheduled league in the fixture there was never anything to pile
+ * up, and the check passed against code that still had the pile in it.
+ *
+ * The reach asks as a RANGE (`dates=A-B`), which is how it is told apart
+ * from the window's per-day asks below.
+ */
+const SPARSE = "basketball/nba";
+const SPARSE_DAY = 40;
+const sparseAhead = () => {
+  const e = event(SPARSE_DAY, 0);
+  e.id = "sparse-1";
+  e.competitions[0].id = "sparse-1";
+  return {
+    leagues: [{ id: "46", name: "NBA", abbreviation: "NBA", slug: "nba" }],
+    events: [e],
+  };
+};
+
 const boardFor = (dates) => {
   // The board asks one day at a time, so `dates` is a single YYYYMMDD.
   let events = [];
@@ -135,10 +190,23 @@ await page.route(/site\.api\.espn\.com/, async (route) => {
   asked++;
   const url = new URL(route.request().url());
   const dates = url.searchParams.get("dates") ?? "";
+  const sparse = url.pathname.includes(SPARSE);
+  // The league reach asks with NO dates param at all — that bare call is
+  // what makes ESPN hand back a league's next fixture. The club reach asks
+  // as a range. The window asks one day at a time. Only the first two are
+  // the reach, and testing for a range alone missed the one that matters.
+  const isReach = dates === "" || dates.includes("-");
+  const body = isReach
+    ? sparse
+      ? sparseAhead()
+      : { events: [] }
+    : sparse
+      ? { events: [] }
+      : boardFor(dates);
   await route.fulfill({
     status: 200,
     contentType: "application/json",
-    body: JSON.stringify(dates.includes("-") ? { events: [] } : boardFor(dates)),
+    body: JSON.stringify(body),
   });
 });
 await page.route(/a\.espncdn\.com/, (route) => route.abort());
@@ -151,7 +219,10 @@ await page.addInitScript((pl) => {
   // one that opens on five days.
   localStorage.setItem(
     "blammytv.sports-follows",
-    JSON.stringify({ v: 1, data: { leagues: ["football/college-football"], teams: [] } }),
+    JSON.stringify({
+      v: 1,
+      data: { leagues: ["football/college-football", "basketball/nba"], teams: [] },
+    }),
   );
 }, PLAYLIST);
 
@@ -175,11 +246,15 @@ const base = await board();
 // "Today's Games" is a row of its own above the day grids and repeats
 // day 0, so the day sections are what is left after it.
 const baseDays = base.headings.filter((h) => !/Today.s Games/i.test(h));
+const windowDays = Object.entries(SCHEDULE).filter(
+  ([d, n]) => Number(d) < BASE_DAYS && n > 0,
+).length;
 check("the board opens on five days, not three",
-  baseDays.length === Object.entries(SCHEDULE).filter(([d, n]) => Number(d) < BASE_DAYS && n > 0).length,
+  baseDays.length === windowDays + REACHED,
   `${baseDays.length} day headings: ${baseDays.join(", ")}`);
 check("empty days inside the window render nothing at all",
-  baseDays.length === new Set(baseDays).size && baseDays.length === 3,
+  baseDays.length === new Set(baseDays).size &&
+    baseDays.length === windowDays + REACHED,
   baseDays.join(", "));
 check("and it asked per day, not as one range", asked >= BASE_DAYS, `${asked} requests`);
 
@@ -192,17 +267,45 @@ await page.waitForTimeout(2500);
 const after = await board();
 const afterDays = after.headings.filter((h) => !/Today.s Games/i.test(h));
 
-check("Show more adds the next five days", afterDays.length > baseDays.length,
+check("Show more adds more days", afterDays.length > baseDays.length,
   `${baseDays.length} -> ${afterDays.length} day headings`);
+check("one click is worth about fifty games, not a fixed five days",
+  inNext >= MORE_GAMES && lastDay > BASE_DAYS + 4,
+  `${inNext} games, walked to day ${lastDay}`);
 // THE ONE THAT MATTERS. Eleven games on day eight, all of them, where the
 // old window handed back the two the reach happened to answer with.
 check("the day eight out lands its WHOLE slate",
   after.cards - before === inNext, `+${after.cards - before} cards, expected +${inNext}`);
+// The reach answered with a fixture forty days out. It must appear, and it
+// must appear under a DAY, not in a bucket after the grids.
+const reached = await page.evaluate(() => {
+  const titles = [...document.querySelectorAll(".sports__title")].map((e) =>
+    e.textContent.replace(/\s+/g, " ").trim(),
+  );
+  const cards = [...document.querySelectorAll(".sports__grid")].flatMap((g) =>
+    [...g.children].map((c) => c.textContent),
+  );
+  return {
+    hasPile: /Coming up/i.test(document.body.innerText),
+    titles,
+    sparseShown: cards.some((t) => /4000/.test(t ?? "")),
+  };
+});
+check("the reached-ahead fixture is on the board at all", reached.sparseShown,
+  reached.sparseShown ? "" : "the sparse league's game never rendered");
+check("and it sits under a day, with no Coming up pile", !reached.hasPile,
+  reached.titles.join(" | ").slice(0, 160));
+check("cards name their weekday beside the date",
+  await page.evaluate(() =>
+    [...document.querySelectorAll(".upcard__when")].some((e) =>
+      /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)/i.test(e.textContent.trim()))),
+  await page.evaluate(() =>
+    document.querySelector(".upcard__when")?.textContent?.trim() ?? "no date on any card"));
 check("  and that is more than the reach ever returned", inNext > 2, `${inNext} games`);
 check("nothing from the base window was dropped", after.cards >= before,
   `${before} -> ${after.cards}`);
-check("the base window's own count is right", before === inBase,
-  `${before} cards, expected ${inBase}`);
+check("the base window's own count is right", before === inBase + REACHED,
+  `${before} cards, expected ${inBase + REACHED}`);
 
 if (process.env.SHOT_DIR)
   await page.screenshot({ path: `${process.env.SHOT_DIR}/sports-days.png` });

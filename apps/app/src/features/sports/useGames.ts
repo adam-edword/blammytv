@@ -80,6 +80,21 @@ const DAYS = 5;
  */
 const CLUB_REACH_DAYS = 14;
 
+/**
+ * What one "Show more" is worth: games, and the asks it may spend getting
+ * them. See `loadMore`, which explains why it is a game target rather than
+ * a day count and why the ask cap has to sit beside it.
+ *
+ * The count is of RAW games, before the follow filter SportsScreen applies
+ * on top. For a league follow those are the same set. For a CLUB follow the
+ * fetch list is the club's whole league, so the raw count runs ahead of
+ * what you see and a click lands fewer days than it would otherwise — it
+ * still walks at least the board's own opening width, which is the floor
+ * that keeps it from being nothing.
+ */
+const MORE_GAMES = 50;
+const MORE_ASKS = 60;
+
 export interface Day {
   /** Local midnight of the day this covers. */
   date: Date;
@@ -613,25 +628,50 @@ export function useGames(
     setMoreState("loading");
     try {
       const paths = key ? key.split(",") : [];
+      const leagues = Math.max(1, paths.length);
+      /**
+       * How far one click may walk.
+       *
+       * A GAME target, not a day count, because days are wildly uneven: a
+       * college football week is four empty days and a Saturday with forty
+       * games on it. Fifty is Adam's number and it reads as "a big list".
+       *
+       * The request cap is what keeps that honest. Every day costs one ask
+       * per league, so a narrowed board (one or two paths) can walk two
+       * months for the same money an unnarrowed one spends on a single day
+       * across all 151 catalog leagues. Bounded by asks rather than by days
+       * so the two cannot diverge.
+       */
+      const maxDays = Math.max(dayCount, Math.floor(MORE_ASKS / leagues));
+      const batch = Math.max(1, Math.min(dayCount, maxDays));
       const from = dayCount + extraRef.current.length;
-      const dates = Array.from({ length: dayCount }, (_, i) => {
-        const d = new Date();
-        d.setHours(0, 0, 0, 0);
-        d.setDate(d.getDate() + from + i);
-        return d;
-      });
-      const all = await Promise.all(
-        dates.map((date) => fetchBoard(paths, { date })),
-      );
-      // `false`: onDay's third argument is "is this today", and by
-      // construction none of these are.
-      setExtra((prev) => [
-        ...prev,
-        ...dates.map((date, i) => ({
-          date,
-          games: onDay(all[i].games, date, false),
-        })),
-      ]);
+
+      const got: Day[] = [];
+      let games = 0;
+      let walked = 0;
+      // Sequential on purpose: each batch decides whether the next one is
+      // needed, and stopping early is the point.
+      while (games < MORE_GAMES && walked < maxDays) {
+        const n = Math.min(batch, maxDays - walked);
+        const dates = Array.from({ length: n }, (_, i) => {
+          const d = new Date();
+          d.setHours(0, 0, 0, 0);
+          d.setDate(d.getDate() + from + walked + i);
+          return d;
+        });
+        const all = await Promise.all(
+          dates.map((date) => fetchBoard(paths, { date })),
+        );
+        for (const [i, date] of dates.entries()) {
+          // `false`: onDay's third argument is "is this today", and by
+          // construction none of these are.
+          const day = { date, games: onDay(all[i].games, date, false) };
+          got.push(day);
+          games += day.games.length;
+        }
+        walked += n;
+      }
+      setExtra((prev) => [...prev, ...got]);
       setMoreState("idle");
     } catch {
       setMoreState("error");

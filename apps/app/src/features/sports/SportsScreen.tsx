@@ -233,6 +233,62 @@ export function SportsScreen({ home }: { home?: number } = {}) {
       ? withChans.filter((g) => isFollowed(g, shown))
       : withChans;
   }, [rawAhead, catalog, shown, narrowed]);
+  /**
+   * The date a card carries beside its kick-off time, weekday first.
+   *
+   * "FRI, OCT 3" rather than "OCT 3", which is the whole of Adam's ask: the
+   * day headings already name the weekday and the cards did not, so a card
+   * lifted out of its heading — which is what a dense grid does to your eye
+   * — said a number and nothing else.
+   *
+   * Short forms because it sits next to a time in a small line.
+   */
+  const cardWhen = useCallback(
+    (start: Date) =>
+      start.toLocaleDateString([], {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      }),
+    [],
+  );
+
+  /**
+   * EVERY game under a day heading, and nothing anywhere else.
+   *
+   * The reached-ahead games used to sit in a "Coming up" pile after the
+   * grids, on the reasoning that a followed racing league answers with its
+   * whole remaining season and twelve Grands Prix on twelve dates would be
+   * twelve headings with one card under each. Adam's call is that twelve
+   * headings is the right answer: the board groups by day, all the way out,
+   * and a section that is not a day is a second rule to learn.
+   *
+   * So they are filed by date and merged in. Days already in the window
+   * take the reached games too rather than making a duplicate heading, and
+   * the whole thing is sorted, because a reach can answer with something
+   * EARLIER than a day already paged in.
+   */
+  const allDays = useMemo(() => {
+    const byKey = new Map<string, { date: Date; games: Game[] }>();
+    for (const d of [...days, ...extra])
+      byKey.set(d.date.toDateString(), { date: d.date, games: [...d.games] });
+    for (const g of ahead) {
+      const date = new Date(g.start);
+      date.setHours(0, 0, 0, 0);
+      const key = date.toDateString();
+      let slot = byKey.get(key);
+      if (!slot) byKey.set(key, (slot = { date, games: [] }));
+      // A reach can hand back something the window already has.
+      if (!slot.games.some((x) => x.id === g.id)) slot.games.push(g);
+    }
+    return [...byKey.values()]
+      .map((d) => ({
+        ...d,
+        games: [...d.games].sort((a, b) => a.start.getTime() - b.start.getTime()),
+      }))
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
+  }, [days, extra, ahead]);
+
   /** Every club the board LOADED, ahead of the filter. */
   const clubPool = useMemo(() => raw.flatMap((d) => d.games), [raw]);
   // Memoised, not because building it is expensive but because `?? []`
@@ -512,7 +568,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
         </section>
       )}
 
-      {[...days, ...extra].map(
+      {allDays.map(
         (day) =>
           day.games.length > 0 && (
             <section className="media-row" key={day.date.toDateString()}>
@@ -560,7 +616,12 @@ export function SportsScreen({ home }: { home?: number } = {}) {
                   ) : compact && g.state === "final" ? (
                     <CompactCard key={g.id} game={g} onOpen={openGame} />
                   ) : (
-                    <UpcomingCard key={g.id} game={g} onOpen={openGame} />
+                    <UpcomingCard
+                      key={g.id}
+                      game={g}
+                      onOpen={openGame}
+                      when={cardWhen(g.start)}
+                    />
                   ),
                 )}
               </div>
@@ -574,8 +635,8 @@ export function SportsScreen({ home }: { home?: number } = {}) {
         * window asks per day per league, so its depth is a request count.
         * This buys the next chunk, the same size the board opened with.
         *
-        * Under the day grids and above "Coming up", which is where it
-        * belongs in the reading order: it extends the thing above it. It
+        * Under the day grids, which is where it belongs in the reading
+        * order: it extends the thing above it. It
         * stays put once clicked rather than disappearing, so a second click
         * goes further out — there is no end date to run out of, only days
         * with nothing on them, and those render as nothing at all. */}
@@ -594,49 +655,6 @@ export function SportsScreen({ home }: { home?: number } = {}) {
                 : "Show more days"}
           </button>
         </div>
-      )}
-
-      {/* WHAT IS COMING, past the board's own window (#36).
-        *
-        * One section rather than a heading per date, which is what the
-        * data forced: a followed racing league answers with its whole
-        * remaining season, and 12 Grands Prix on 12 dates would be 12
-        * headings with a single card under each. Every card in here
-        * carries its own date, so the heading does not have to.
-        *
-        * After the day grids, always, because it is the answer to a
-        * different question: those say what is on, this says what is
-        * next. */}
-      {ahead.length > 0 && (
-        <section className="media-row">
-          <h3 className="media-row__title sports__title">Coming up</h3>
-          <div className="sports__grid">
-            {ahead.map((g) =>
-              isWeekend(g) ? (
-                <WeekendCard key={g.id} weekend={g} />
-              ) : isField(g) ? (
-                g.sport === "golf" ? (
-                  <GolfCard key={g.id} round={g} />
-                ) : (
-                  <RaceCard key={g.id} race={g} />
-                )
-              ) : isTournament(g) ? (
-                <TournamentCard key={g.id} event={g} onOpen={openTournament} />
-              ) : (
-                <UpcomingCard
-                  key={g.id}
-                  game={g}
-                  onOpen={openGame}
-                  // "OCT 3": short, because it sits beside a kick-off time.
-                  when={g.start.toLocaleDateString([], {
-                    month: "short",
-                    day: "numeric",
-                  })}
-                />
-              ),
-            )}
-          </div>
-        </section>
       )}
 
       {!anything &&
