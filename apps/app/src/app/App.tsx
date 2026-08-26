@@ -210,6 +210,41 @@ export function App() {
     return () => setModalOpen(false);
   }, [settingsOpen, themesOpen]);
 
+  /*
+   * THE MOUSE'S BACK BUTTON CLOSES THE MODAL.
+   *
+   * modalOpen tells every screen underneath to sit still, which is right —
+   * one back press must not close Settings AND drop you out of a playing
+   * stream. But nothing then acted on the press at all, so back was simply
+   * dead over Settings and Themes while it worked on every other screen.
+   * Escape and the close button were the only ways out.
+   *
+   * Here rather than in the modals because App owns which one is up, and
+   * because the ORDER matters: Themes is opened FROM Settings, so it has to
+   * be the one that closes first.
+   *
+   * A window listener, matching lib/mouseNav.ts, and preventDefault on both
+   * phases for the same reason it gives: WebView2 acts on mousedown, so
+   * swallowing only mouseup lets the webview walk its own history and
+   * navigate the document out from under the app.
+   */
+  useEffect(() => {
+    if (!settingsOpen && !themesOpen) return;
+    const onButton = (e: MouseEvent) => {
+      if (e.button !== 3 && e.button !== 4) return;
+      e.preventDefault();
+      if (e.type !== "mouseup" || e.button !== 3) return;
+      if (themesOpen) setThemesOpen(false);
+      else setSettingsOpen(false);
+    };
+    window.addEventListener("mousedown", onButton);
+    window.addEventListener("mouseup", onButton);
+    return () => {
+      window.removeEventListener("mousedown", onButton);
+      window.removeEventListener("mouseup", onButton);
+    };
+  }, [settingsOpen, themesOpen]);
+
   // Escape always exits fullscreen. The window-state plugin restores
   // fullscreen across launches, so without this there's no way out from
   // inside the app.

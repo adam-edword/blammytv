@@ -390,6 +390,27 @@ export function SportsTheater({
       className={"sportstheater" + (fullscreen ? " sportstheater--full" : "")}
     >
       <aside className="sportstheater__side">
+        {/* THE WAY OUT, said out loud. Escape and the mouse's back button
+         * both already left the theater, and neither is discoverable — the
+         * only visible exit was the one you could not see. Same pill as
+         * Stream's and the Library's rather than a new shape: it is the
+         * same question in the same place, and this screen is where the app
+         * gets asked it most.
+         *
+         * IN FLOW, above the matchup, not absolutely positioned like the
+         * other two. The theater already pads its top past the header, so
+         * an absolute copy would land on top of the matchup instead of
+         * above it. It goes with the side panel in fullscreen, where the
+         * picture takes the window: mpv is a native surface BELOW the page
+         * and cannot be overlapped, so a button drawn over it would not be
+         * there at all. Escape and mouse-back still work in that state. */}
+        <button
+          type="button"
+          className="vod-back sportstheater__back"
+          onClick={onClose}
+        >
+          ← Back
+        </button>
         <Matchup game={game} />
 
         {/* Every channel of yours carrying this game. The schedule names

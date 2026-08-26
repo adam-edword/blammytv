@@ -1984,6 +1984,15 @@
   padding: 0;
   gap: 0;
 }
+/* The theater's back pill borrows .vod-back's LOOK and drops its position:
+ * Stream and the Library hang theirs over artwork, this one sits in the
+ * side column's flow so it cannot cover the matchup under it. */
+.sportstheater__back {
+  position: static;
+  align-self: flex-start;
+  flex: none;
+}
+
 .sportstheater--full .sportstheater__side {
   display: none;
 }
