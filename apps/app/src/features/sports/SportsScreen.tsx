@@ -158,9 +158,24 @@ export function SportsScreen({ home }: { home?: number } = {}) {
   // Declared ABOVE useGames because the poll cadence reads it (#23), which
   // is the only reason it is not down with the other view state.
   const [open, setOpen] = useState<Fixture | null>(null);
-  const { days: raw, ahead: rawAhead, state, reachFailed } = useGames(
+  const {
+    days: raw,
+    extra: rawExtra,
+    ahead: rawAhead,
+    state,
+    reachFailed,
+    loadMore,
+    moreState,
+  } = useGames(
     leagues,
-    narrowed ? 3 : 2,
+    // FIVE when the board is narrowed, two when it is not, and the gap is
+    // the fetch list rather than a preference: a narrowed board asks one or
+    // two league paths, an unnarrowed one asks all 151 in the catalog. Five
+    // days of that is 755 requests. Three was too few even narrowed — a
+    // college football Thursday eight days out showed two of eleven games,
+    // because everything past day three fell to the reach, which answers
+    // with a league's NEXT fixture rather than its slate.
+    narrowed ? 5 : 2,
     // The CLUBS being shown, so an idle one can reach ahead for itself (#40).
     // Empty when an explicit league pick is overriding follows, which is
     // right: that pick is about leagues and says nothing about clubs.
@@ -187,6 +202,23 @@ export function SportsScreen({ home }: { home?: number } = {}) {
       games: d.games.filter((g) => isFollowed(g, shown)),
     }));
   }, [raw, catalog, shown, narrowed]);
+  /**
+   * The paged-in days, through the same two steps the window gets: channels
+   * resolved against the guide, then the follow filter. Kept as its own
+   * memo rather than concatenated before `days` so a "Show more" does not
+   * re-run the window's join, which is the expensive one.
+   */
+  const extra = useMemo(() => {
+    const withChans = rawExtra.map((d) => ({
+      ...d,
+      games: withChannels(d.games, catalog),
+    }));
+    if (!narrowed) return withChans;
+    return withChans.map((d) => ({
+      ...d,
+      games: d.games.filter((g) => isFollowed(g, shown)),
+    }));
+  }, [rawExtra, catalog, shown, narrowed]);
   /**
    * The reached-ahead games, through the same two steps the window gets.
    *
@@ -480,7 +512,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
         </section>
       )}
 
-      {days.map(
+      {[...days, ...extra].map(
         (day) =>
           day.games.length > 0 && (
             <section className="media-row" key={day.date.toDateString()}>
@@ -534,6 +566,34 @@ export function SportsScreen({ home }: { home?: number } = {}) {
               </div>
             </section>
           ),
+      )}
+
+      {/* MORE DAYS, on request.
+        *
+        * The board opens on a few days rather than a fortnight because the
+        * window asks per day per league, so its depth is a request count.
+        * This buys the next chunk, the same size the board opened with.
+        *
+        * Under the day grids and above "Coming up", which is where it
+        * belongs in the reading order: it extends the thing above it. It
+        * stays put once clicked rather than disappearing, so a second click
+        * goes further out — there is no end date to run out of, only days
+        * with nothing on them, and those render as nothing at all. */}
+      {state === "ready" && (
+        <div className="sports__more">
+          <button
+            type="button"
+            className="sports__morebtn"
+            onClick={() => void loadMore()}
+            disabled={moreState === "loading"}
+          >
+            {moreState === "loading"
+              ? "Loading…"
+              : moreState === "error"
+                ? "Couldn't load those. Try again"
+                : "Show more days"}
+          </button>
+        </div>
       )}
 
       {/* WHAT IS COMING, past the board's own window (#36).

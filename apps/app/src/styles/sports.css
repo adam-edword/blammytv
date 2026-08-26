@@ -3801,3 +3801,34 @@
 .golfcard--final .golfcard__place {
   color: rgba(var(--card-ink), 0.45);
 }
+
+/* "Show more days" — the board's own paging control. Centred under the last
+ * day grid rather than left-aligned with the headings: it belongs to all of
+ * them, not to the one above it. */
+.sports__more {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 28px;
+}
+.sports__morebtn {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill, 999px);
+  padding: 11px 22px;
+  cursor: pointer;
+  transition: background var(--dur-hover) ease, transform 160ms var(--ease-out);
+}
+.sports__morebtn:hover:not(:disabled) {
+  background: var(--surface-raised);
+}
+.sports__morebtn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.sports__morebtn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { onDay } from "./day";
 import { DEFAULT_LEAGUES, fetchBoard } from "./espn";
 import { CARD_CONFIDENCE, matchEvent, matchGame, preferVisible } from "./matcher";
@@ -33,8 +33,37 @@ const REFRESH_MS = 90_000;
  */
 const WATCHING_REFRESH_MS = 5 * 60_000;
 
-/** Today plus this many days after it. */
-const DAYS = 3;
+/**
+ * How many days the board opens with, and how many each "Show more" adds.
+ *
+ * FIVE, and the number is measured rather than picked. The window asks per
+ * DAY per league, so the size is a request count, not a payload: five days
+ * over the six default leagues is 30 asks behind a gate of six.
+ *
+ * Three was too few to be the whole answer. A league can go a week between
+ * fixtures, so anything past day three fell to the reach below, which
+ * answers with a league's NEXT fixture rather than its slate — college
+ * football on a Thursday eight days out showed two of eleven games, because
+ * two were what the reach was asked for.
+ *
+ * Five rather than fourteen because the far end is cheap to defer and
+ * expensive to guess at: most days past the first few are empty for most
+ * leagues, and an empty day is a request that bought nothing. The button
+ * pays for the next chunk only when somebody wants it.
+ *
+ * THE CALLER STILL DECIDES, and has to: with nothing followed the fetch
+ * list is all 151 catalog leagues, where five days would be 755 requests.
+ * SportsScreen asks for five only when the board is narrowed to a league or
+ * a club, which is one or two paths. `loadMore` adds the SAME number it
+ * opened with, so the depth a click buys scales the same way.
+ *
+ * (A RANGE request would be the other way to widen this, and it is a trap:
+ * ESPN silently caps a range at 100 events. Measured 2026-08-26, MLB
+ * returns exactly 100 for any range of 7 days or more and college football
+ * 99 at 14, so a widened range drops the far end without saying so. Per-day
+ * asks cannot hit it.)
+ */
+const DAYS = 5;
 
 /**
  * How far forward to look for a followed club's next game (#40).
@@ -184,6 +213,22 @@ export function useGames(
    * at a different scale. One section, and the cards carry their own dates.
    */
   const [ahead, setAhead] = useState<Game[]>([]);
+  /**
+   * Days past the opening window, appended by `loadMore`.
+   *
+   * Their own list rather than more `days`, for two reasons. The 90 second
+   * tick rewrites `days[0]` through a setter that rebuilds the array, and
+   * the base effect clears `days` outright whenever the fetch list changes;
+   * keeping these separate means neither has to know how far somebody has
+   * paged. And the cache is 30 seconds by design (it is deliberately
+   * shorter than the refresh), so growing the window by re-running the base
+   * effect would re-ask for every day already on screen rather than just
+   * the new ones.
+   */
+  const [extra, setExtra] = useState<Day[]>([]);
+  const [moreState, setMoreState] = useState<"idle" | "loading" | "error">(
+    "idle",
+  );
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   /**
    * The reach ASKED and did not get an answer, as opposed to asking and being
@@ -307,6 +352,10 @@ export function useGames(
       const mine = ++gen;
       polling = paths;
       setAhead([]);
+      // A date roll comes through here, and these days are offsets from
+      // today: yesterday's day six is today's day five. Drop them rather
+      // than relabel them.
+      setExtra([]);
       try {
         const all = await Promise.all(
           dates.map((date) => fetchBoard(paths, { date, signal: ac.signal })),
@@ -542,7 +591,56 @@ export function useGames(
     // coincidence the next caller has to know about.
   }, [dayCount, key, teamKey, reach]);
 
-  return { days, ahead, state, reachFailed };
+  /**
+   * The next five days, appended.
+   *
+   * Outside the effect on purpose: it must not tear the poll down or abort
+   * the board, and the days it adds have to survive both the 90 second tick
+   * and a re-render. It reads the horizon off a ref rather than off `extra`
+   * so its identity stays stable for the button.
+   *
+   * No AbortController: the only thing this writes is an append, a second
+   * click is refused by `busy` while one is in flight, and a date roll
+   * clears `extra` from loadAll anyway. An abort would buy a torn-down
+   * fetch whose result was already going to be dropped.
+   */
+  const extraRef = useRef<Day[]>(extra);
+  extraRef.current = extra;
+  const busy = useRef(false);
+  const loadMore = useCallback(async () => {
+    if (busy.current) return;
+    busy.current = true;
+    setMoreState("loading");
+    try {
+      const paths = key ? key.split(",") : [];
+      const from = dayCount + extraRef.current.length;
+      const dates = Array.from({ length: dayCount }, (_, i) => {
+        const d = new Date();
+        d.setHours(0, 0, 0, 0);
+        d.setDate(d.getDate() + from + i);
+        return d;
+      });
+      const all = await Promise.all(
+        dates.map((date) => fetchBoard(paths, { date })),
+      );
+      // `false`: onDay's third argument is "is this today", and by
+      // construction none of these are.
+      setExtra((prev) => [
+        ...prev,
+        ...dates.map((date, i) => ({
+          date,
+          games: onDay(all[i].games, date, false),
+        })),
+      ]);
+      setMoreState("idle");
+    } catch {
+      setMoreState("error");
+    } finally {
+      busy.current = false;
+    }
+  }, [key, dayCount]);
+
+  return { days, extra, ahead, state, reachFailed, loadMore, moreState };
 }
 
 /**

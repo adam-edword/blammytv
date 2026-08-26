@@ -68,7 +68,7 @@ servers on the ports the harnesses hard-code, starts vite on 4173, runs every
 `verify-*.mjs`, and prints a board. `pnpm verify discover nav` filters by
 name; `KEEP=1` leaves the servers up afterwards.
 
-Baseline is **21/21 harnesses clean, 312 checks**. If playwright-core is not
+Baseline is **22/22 harnesses clean, 321 checks**. If playwright-core is not
 installed, point `PW_FROM` at somewhere that can require it.
 
 Read the board's STATUS column, not just the tick counts. **CRASH is the
