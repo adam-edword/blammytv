@@ -15,7 +15,14 @@ const openTab = async (manifest) => {
   }, manifest);
   await page.goto("http://localhost:4173/");
   await page.locator("button[aria-label='Settings']").click();
-  await page.getByRole("button", { name: "AIOStreams", exact: true }).click();
+  // AIOStreams stopped being a tab: the rail is General / Customize, and
+  // the manifest screen sits behind General -> Sources -> Stream. Scoped to
+  // the source rail, because a bare "Stream" also matches the nav capsule's
+  // own destination button.
+  await page
+    .locator(".customize-rail")
+    .getByRole("button", { name: "Stream", exact: true })
+    .click();
   await page.waitForTimeout(400);
   return page;
 };

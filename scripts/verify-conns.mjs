@@ -1,4 +1,4 @@
-// E2E: the Live sidebar shows the Xtream connection pill ("2/3") fed by
+// E2E: the Live sidebar shows the Xtream connection pill ("3/3") fed by
 // the fake panel's player_api counters.
 import { createRequire } from "node:module";
 const req = createRequire(process.env.PW_FROM ?? import.meta.url);
@@ -18,7 +18,10 @@ await page.addInitScript(() => {
           kind: "xtream",
           name: "Fake Panel",
           enabled: true,
-          server: "http://localhost:8085",
+          // fake-panel is :8081. :8085 is the fake KEYBOX, so this fixture was
+          // pointing at the wrong server entirely and the pill simply never got
+          // any counters to render.
+          server: "http://localhost:8081",
           username: "u",
           password: "p",
         },
@@ -49,6 +52,6 @@ await page.screenshot({
 });
 
 const ok = count === 1 && text === "3/3" && full === true;
-console.log(ok ? "PASS: pill renders 2/3, full-accented at cap" : "FAIL");
+console.log(ok ? "PASS: pill renders 3/3, full-accented at cap" : "FAIL");
 await browser.close();
 process.exit(ok ? 0 : 1);

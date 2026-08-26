@@ -61,6 +61,27 @@ mistake, which is the class that has reached users' rebuilds before.
 `build.rs` and `frontend.rs`. Check that your own regions are clean and
 leave the rest alone.
 
+## Running the headless harnesses
+
+**`pnpm verify`** (`node scripts/verify-all.mjs`). It starts the five fake
+servers on the ports the harnesses hard-code, starts vite on 4173, runs every
+`verify-*.mjs`, and prints a board. `pnpm verify discover nav` filters by
+name; `KEEP=1` leaves the servers up afterwards.
+
+Baseline is **21/21 harnesses clean, 312 checks**. If playwright-core is not
+installed, point `PW_FROM` at somewhere that can require it.
+
+Read the board's STATUS column, not just the tick counts. **CRASH is the
+one that matters.** A failing check is loud; a harness that throws at check
+12 of 40 still prints eleven green ticks above the stack trace and the other
+twenty-eight leave no trace at all. That is how six of them rotted for
+months without anyone noticing, including two whose entire subject had
+stopped being exercised.
+
+Watch for checks that pass VACUOUSLY, too. verify-stalker read 2/4 while
+the portal served nothing: the two that "passed" were negative assertions
+("the adult genre is dropped"), and an empty page drops everything.
+
 ## Confusion Protocol
 
 On high-stakes ambiguity: two plausible architectures, a request that

@@ -41,3 +41,6 @@ website/landing.html
 # E2E suites screenshot into cwd; discover writes into undefined/ when
 # its output dir env is unset
 undefined/
+
+# Harness screenshots (scripts/verify-all.mjs)
+.verify-shots/

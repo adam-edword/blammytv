@@ -13,6 +13,11 @@
 import http from "node:http";
 
 const PORT = 8081;
+/** Connection counters for the sidebar pill, "active/max". Overridable so a
+ * harness can ask for the under-cap case: PANEL_CONNS=1/3 node fake-panel.mjs */
+const PANEL_CONNS = (process.env.PANEL_CONNS ?? "3/3")
+  .split("/")
+  .map((n) => Number(n));
 
 const CATEGORIES = [
   { category_id: "1", category_name: "🏆 Sports", parent_id: 0 },
@@ -162,7 +167,18 @@ http
       if (!action)
         return res.end(
           JSON.stringify({
-            user_info: { auth: 1, status: "Active" },
+            // active_cons/max_connections are what the sidebar's connection
+            // pill reads (parseConnections in data/xtream.ts returns null
+            // without BOTH). They were missing here, so the pill could never
+            // render and verify-conns — whose entire subject is that pill —
+            // had nothing to find. At the cap on purpose: that is the state
+            // worth showing, and the one the harness accents.
+            user_info: {
+              auth: 1,
+              status: "Active",
+              active_cons: PANEL_CONNS[0],
+              max_connections: PANEL_CONNS[1],
+            },
             server_info: {},
           }),
         );

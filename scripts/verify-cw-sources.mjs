@@ -59,6 +59,32 @@ await page.addInitScript((entry) => {
 
 /** A fresh profile lands on onboarding, which covers the shell. Dismiss it
  * the way a user does rather than guessing at its storage key. */
+/**
+ * Wait for an element to STOP MOVING, then click it.
+ *
+ * The Continue Watching row animates in, and `waitFor()` is satisfied the
+ * moment the card exists — which is well before it has arrived. Measured on
+ * the Sources chip: its box sits at y=955, below the 900px viewport, for the
+ * first ~100ms and only then jumps to y=235. A click dispatched in that
+ * window lands where the card is about to be, so the handler never runs and
+ * no resume event is ever dispatched. That is what made the two
+ * cached-source checks below read as "landed on playback" when nothing had
+ * been clicked at all.
+ */
+async function clickWhenStill(locator, tries = 25) {
+  let last = null;
+  let same = 0;
+  for (let i = 0; i < tries; i++) {
+    const box = await locator.boundingBox().catch(() => null);
+    const key = box && `${Math.round(box.x)},${Math.round(box.y)}`;
+    same = key && key === last ? same + 1 : 0;
+    last = key;
+    if (same >= 2) break;
+    await page.waitForTimeout(80);
+  }
+  await locator.click({ timeout: 4000 });
+}
+
 async function toLibrary() {
   await page.waitForLoadState("networkidle").catch(() => {});
   const skip = page.getByRole("button", { name: /skip setup/i }).first();
@@ -172,10 +198,7 @@ if (!addonUp) {
     await page.goto(URL);
     await toLibrary();
     await page.locator(".continue-card").first().waitFor();
-    const hit = await page
-      .locator(selector)
-      .first()
-      .click({ timeout: 4000 })
+    const hit = await clickWhenStill(page.locator(selector).first())
       .then(() => true)
       .catch(() => false);
     if (!hit) {

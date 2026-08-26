@@ -92,7 +92,7 @@ if (!FAST) {
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   const okMsg = await page.waitForSelector(".onb-hint--ok", { timeout: 10000 }).then((el) => el.textContent()).catch(() => null);
   check("streams verification succeeds with catalog count",
-    !!okMsg && /Connected — 5 catalogs/.test(okMsg), String(okMsg));
+    !!okMsg && /Connected, 5 catalogs found/.test(okMsg), String(okMsg));
 
   // Auto-advance lands on Live TV.
   await page.waitForSelector(".onb-fields", { timeout: 8000 });

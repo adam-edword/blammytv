@@ -42,6 +42,11 @@ const mockBridge = () => {
     lastTracks = t;
     tracksCbs.slice().forEach((cb) => cb(t));
   };
+  // A SUBSCRIBER RETURNS ITS UNSUBSCRIBER. `unsub()` hands back `() => {}`,
+  // which is a subscriber that returns UNDEFINED — so the overlay's cleanup
+  // called undefined() and TheaterOverlay threw on mount ("offLoading is not
+  // a function"), leaving nothing in the DOM for the harness to wait for.
+  // `unsub` itself is the right shape: (cb) => () => {}.
   const unsub = () => () => {};
   window.overlayApi = {
     close() {}, setPause() {}, setMute() {}, setVolume() {}, seek() {},
@@ -51,7 +56,7 @@ const mockBridge = () => {
     selectAudio(id) { calls.push(["selectAudio", String(id)]); },
     selectSub(id) { calls.push(["selectSub", String(id)]); },
     getMeta() { return Promise.resolve({ channelName: "Test One", title: "Now" }); },
-    onMeta: unsub(), onLoading: unsub(), onKey: unsub(), onTime: unsub(),
+    onMeta: unsub, onLoading: unsub, onKey: unsub, onTime: unsub,
     getLoading() { return false; },
     getTime() { return null; },
     getTracks() { return lastTracks; },
