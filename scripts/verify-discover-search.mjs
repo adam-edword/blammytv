@@ -66,6 +66,23 @@ check("sharing the filter row's baseline",
   JSON.stringify(geo));
 
 // Typing has to reach the grid.
+// The placeholder promises a scope, and searchDiscover really does keep
+// it: it drops every catalog whose type is not the selected one. So the
+// copy has to follow the tab, or the field is lying about why a result is
+// missing.
+for (const [tab, want] of [["All Content", "Search movies & series…"],
+                           ["Movies", "Search movies…"],
+                           ["Series", "Search series…"]]) {
+  await p.getByRole("tab", { name: tab }).click().catch(async () => {
+    await p.locator(".discover__toggle .chip-tabs__tab", { hasText: tab }).click();
+  });
+  await p.waitForTimeout(400);
+  const ph = await p.locator(".disc-search__input").getAttribute("placeholder");
+  const al = await p.locator(".disc-search__input").getAttribute("aria-label");
+  check(`"${tab}" says ${JSON.stringify(want)}`, ph === want, ph ?? "none");
+  check(`  and its label matches`, al === want.replace("…", ""), al ?? "none");
+}
+
 await p.locator(".disc-search__input").fill("crime");
 await p.waitForTimeout(1200);
 const heading = await p.locator(".discover__gridwrap h3").first().textContent();

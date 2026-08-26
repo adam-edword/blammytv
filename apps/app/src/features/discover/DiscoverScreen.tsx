@@ -54,6 +54,21 @@ type TypeFilter = "all" | "movie" | "series";
  * entry per character is not a page. */
 type DiscoverView = { filter: TypeFilter; genre: string | null };
 
+/**
+ * What the search field promises to search, per type tab.
+ *
+ * It is not decoration: searchDiscover drops every catalog whose type is
+ * not the selected one, so with Movies picked a series will never come
+ * back. A fixed "movies & series" would be a promise the tab does not
+ * keep, and the field would be quietly lying about why a result is
+ * missing. Lives beside FILTER_TABS so the two cannot drift apart.
+ */
+const SEARCH_SCOPE: Record<TypeFilter, string> = {
+  all: "movies & series",
+  movie: "movies",
+  series: "series",
+};
+
 const FILTER_TABS = [
   { key: "all", label: "All Content" },
   { key: "movie", label: "Movies" },
@@ -479,9 +494,11 @@ export function DiscoverScreen() {
             ref={searchRef}
             className="disc-search__input"
             type="search"
-            placeholder="Search movies & series…"
+            placeholder={`Search ${SEARCH_SCOPE[filter]}…`}
             value={query}
-            aria-label="Search movies and series"
+            /* The label follows the placeholder: a screen reader should
+               hear the same narrowed promise a sighted user reads. */
+            aria-label={`Search ${SEARCH_SCOPE[filter]}`}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Escape") {
