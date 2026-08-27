@@ -401,6 +401,7 @@ async function buildXtreamSource(
           guideChannels: 0,
           unmatchedOurs: [],
           unmatchedTheirs: [],
+          recovered: 0,
         };
         const programmes = parseXmltv(xml, index, now, stats);
         console.info(
@@ -415,7 +416,13 @@ async function buildXtreamSource(
         console.info(
           `[live] ${p.name}: EPG coverage — ${channels.length} channels, ` +
             `${index.size} carry an epg id, guide declares ${stats.guideChannels}, ` +
-            `${programmes.size} matched`,
+            `${programmes.size} matched` +
+            // Above zero and the answer is "matching bug", settled: that
+            // many guide ids were in the download all along and only a
+            // case or spacing difference was hiding them.
+            (stats.recovered
+              ? `, ${stats.recovered} recovered by normalising case/spacing`
+              : ""),
           stats.unmatchedOurs.length || stats.unmatchedTheirs.length
             ? { ourIdsWithNoGuide: stats.unmatchedOurs, guideIdsWeNeverUsed: stats.unmatchedTheirs }
             : "(everything matched)",

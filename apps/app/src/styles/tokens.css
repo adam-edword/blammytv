@@ -16,6 +16,27 @@
   --surface-track: #0f0f0f; /* chip-rail track (darker than the card) */
   --surface-puck: #1c1c1c; /* rail track sitting ON a --surface panel */
   --surface-raised: #2a2a2a; /* chip thumb, custom-accent chip */
+
+  /*
+   * THE FLOATING SURFACE: a dark glass panel that sits over content, with
+   * its own edge and lift. The live toast and the folder menu carried this
+   * as six identical properties each, copied — so a change to the recipe
+   * meant finding every copy, and the two had already been edited in step
+   * by hand more than once.
+   *
+   * Tokens rather than a shared class because the two are unrelated
+   * components that happen to be made of the same material; a class would
+   * couple their layout too. Other places in the app use this same 0.55
+   * black and are NOT this recipe (a hero scrim, a card wash) — those are
+   * left alone deliberately, since folding coincidences into one token is
+   * how a token stops meaning anything.
+   */
+  --float-bg: rgba(0, 0, 0, 0.55);
+  --float-border: rgba(255, 255, 255, 0.16);
+  --float-blur: blur(18px) saturate(1.2);
+  --float-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 8px 28px rgba(0, 0, 0, 0.45);
   --border: rgba(255, 255, 255, 0.1);
   --border-strong: rgba(255, 255, 255, 0.2); /* dividers, card edge */
   --border-raised: #494949; /* hairline on raised chips */

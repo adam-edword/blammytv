@@ -130,9 +130,15 @@ function xmltv() {
       `Wall-to-wall coverage, hour ${i + 2}.`,
     );
   }
+  // SPELLED DIFFERENTLY ON PURPOSE. The panel calls this channel
+  // "sky.fake"; the guide calls it "Sky.Fake". Real providers disagree with
+  // themselves about case exactly like this, and exact-equality matching
+  // dropped those channels silently while the data sat in the download.
+  // verify-m3u asserts Sky still gets a guide, which only holds if the
+  // parser normalises. Leave the case mismatch in.
   for (let i = -1; i < 5; i++) {
     add(
-      "sky.fake",
+      "Sky.Fake",
       base + i * 1.5 * HOUR,
       base + (i + 1) * 1.5 * HOUR,
       `Sky Block ${i + 2}`,
@@ -146,6 +152,7 @@ function xmltv() {
   return (
     `<?xml version="1.0" encoding="UTF-8"?><tv>` +
     `<channel id="espn.fake"><display-name>ESPN</display-name></channel>` +
+    `<channel id="Sky.Fake"><display-name>Sky Sports</display-name></channel>` +
     progs.join("") +
     `</tv>`
   );

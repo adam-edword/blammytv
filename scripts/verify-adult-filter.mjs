@@ -113,6 +113,25 @@ async function loadApp(showAdult) {
     "user-hidden category stays hidden regardless",
     !text.includes("Should Be Hidden"),
   );
+
+  // EPG MATCHING SURVIVES A PROVIDER DISAGREEING WITH ITSELF.
+  //
+  // The panel calls this channel "sky.fake" and its own guide calls it
+  // "Sky.Fake". Matching was exact string equality, so channels spelled two
+  // ways lost their guide silently while the data sat in the downloaded
+  // document — which is the difference between a thin guide and a matching
+  // bug, and the open question ROADMAP asks about a real 97MB feed.
+  //
+  // ESPN is the control: it agrees with itself, so it must keep matching
+  // the way it always did.
+  check(
+    "a guide id that differs only by case still matches",
+    text.includes("Sky Block"),
+  );
+  check(
+    "  and an exactly-matching channel is untouched",
+    text.includes("ESPN Hour"),
+  );
   await ctx.close();
 }
 

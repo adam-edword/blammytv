@@ -676,11 +676,20 @@ decision. All that is left is RELEASING.md's step 1 (six version spots to
   state (playlist credentials, the Themes Pass license key, watch history,
   the guide cache) is origin-partitioned, so the answer changes the cost of
   the whole feature. Verify it before writing anything else.
-- **EPG coverage question (open, cheap):** 248 guides for 1920 channels,
-  13%, out of a 97MB file. Could be normal for a big provider (24/7 and
-  PPV feeds carry no EPG ids) or the id matching could be discarding most
-  of that download. One look decides between "the provider's guide is
-  thin" and "we throw most of it away".
+- **EPG coverage question: HALF ANSWERED (v0.9.28), the rest needs a real
+  provider.** One of the two explanations is now impossible: matching was
+  exact string equality, so a provider that spelled a channel "Sky.Fake"
+  in its guide and "sky.fake" in its panel lost that guide silently.
+  `parseXmltv` falls back to a normalised key (trim, lower-case, collapse
+  whitespace; punctuation deliberately untouched, since dots and dashes
+  carry meaning in these ids). Exact still wins where it matches, so
+  nothing that worked can start matching something else.
+  The coverage log now ends with `N recovered by normalising case/spacing`.
+  **Anything above zero settles it: it was a matching bug, that many
+  channels' guides were in the download all along.** Zero means the
+  provider's guide really is thin and there is nothing to win here. The
+  log only prints against a real panel, so Adam reads it on his next
+  launch — this box has no provider to point at.
 - **Bridge items still open**, each needing the shipped `[tune-diag]` to
   fire during a real stall: `reload_live()` early-returns when `path` is
   unset, which is plausibly the state at death, so the live watchdog's
@@ -694,11 +703,33 @@ decision. All that is left is RELEASING.md's step 1 (six version spots to
   frontend can just re-arm on presenting.
 
 - **Refactor batch (invisible, do early in the cycle while the tree is
-  quiet):** unify the two TTL-cache implementations; extract Card +
-  RowScroller out of StreamScreen (~2400 lines); dedupe the popout wiring
-  (LiveScreen + StreamScreen carry the same heal-hole sequence); a z-index
-  scale; dedupe the 5x glass-chip recipe and brand gradients; TheaterOverlay
-  chrome re-renders on every 500ms VOD clock tick (cheap but noisy).
+  quiet).** Partly done in v0.9.28; what is left, with what was learned:
+  - ~~dedupe the glass-chip recipe~~ **DONE.** `.live-toast` and
+    `.folder-menu` carried six byte-identical properties each; both now
+    read `--float-bg` / `--float-border` / `--float-blur` /
+    `--float-shadow`. The other nine `rgba(0,0,0,0.55)` uses in the tree
+    are a hero scrim and card washes that happen to share a colour, NOT
+    this recipe, and were deliberately left: folding coincidences into one
+    token is how a token stops meaning anything.
+  - **"unify the two TTL-cache implementations" is questionable as
+    written.** Looked at both. `stream/source.ts` is a DISK cache
+    (localStorage, 30 minute TTL, VodData); `sports/espn.ts` is an
+    in-memory Map (30 second TTL, its own sweep at 400 entries and its own
+    failure backoff). Different backend, different lifetime, different
+    eviction. A shared `TtlCache<T>` would abstract over all three of those
+    differences and couple two unrelated subsystems to buy a few lines —
+    the "clever abstraction for hypothetical reuse" CLAUDE.md warns off.
+    Someone should confirm or overrule this before it is picked up again.
+  - **TheaterOverlay's clock re-render is worse than this entry says.**
+    `CLOCK_TICK_MS` is 100, not 500, so `setTime` re-renders the whole
+    1400-line overlay ten times a second during VOD playback, not twice.
+    The fix is to isolate the clock's consumers into a child so the rest of
+    the chrome stops re-rendering with it. NOT attempted here: it is
+    scar-heavy player code and the change deserves a render count measured
+    before and after rather than a confident refactor.
+  - Still open and untouched: extract Card + RowScroller out of
+    StreamScreen (~2400 lines); dedupe the popout wiring (LiveScreen +
+    StreamScreen carry the same heal-hole sequence); a z-index scale.
 - **Wave-D motion candidates** (table rows in `plans/audit-report.md`):
   Discover search result-collapse, Settings→Themes hand-off, settings
   tab-content swap, view-navigation crossfades, folded-rail tooltip replay,
@@ -706,9 +737,12 @@ decision. All that is left is RELEASING.md's step 1 (six version spots to
 - **Adam design calls:** dither/kawaii guide occluders (per-pack);
   favorites drag-handle UI in the guide (data layer shipped v0.1.133:
   virtualized-grid scar territory, plan carefully).
-- **Two-tier updates (Adam 2026-07-24, from a friend's suggestion:
-  0.8 candidate, plan doc BEFORE building; it touches the updater trust
-  path):** (1) *Frontend hot channel*: releases also ship a signed zip of
+- **Two-tier updates — HALF OF THIS ALREADY SHIPPED.** Part (2), quiet
+  native installs, went in with v0.7.2 (`c7a9f8fb`); `installMode: "quiet"`
+  has been in tauri.conf.json since. Only part (1), the frontend hot
+  channel, is still open, and it is still plan-doc-first. **(Adam
+  2026-07-24, from a friend's suggestion: 0.8 candidate; it touches the
+  updater trust path):** (1) *Frontend hot channel*: releases also ship a signed zip of
   dist/ (~1-2MB); when the update's NATIVE version matches the installed
   one, the app downloads it, verifies against the existing minisign key,
   unpacks to a versioned app-data dir, flips a pointer, and reloads the
