@@ -185,10 +185,52 @@ const drift = await page.evaluate(() => {
 });
 check("and the mark is still on the midline", Math.abs(drift) < 1.5, `${drift}px`);
 
+// ---- THE HEADER'S SETTINGS CHIP.
+//
+// Two things that both went wrong on the way in. Profile was a disabled
+// placeholder for a feature that does not exist, and a dimmed control that
+// never does anything reads as broken rather than as coming soon — so the
+// corner holds exactly one button now.
+//
+// And the chip is a CIRCLE, which it has to be told: the reset at the top
+// of base.css puts `corner-shape: var(--corner)` on everything, so a bare
+// `border-radius: 50%` drew a rounded square. Checked in PIXELS rather than
+// off the property, because that is the difference between "the rule is
+// there" and "the corner is round" — the exact gap that shipped a squircle
+// rim over a round fill in v0.9.19.
+check("the header holds one action, not a disabled Profile beside it",
+  (await page.locator(".header__action").count()) === 1);
+check("and it is the Settings button",
+  (await page.locator(".header__action").getAttribute("aria-label")) === "Settings");
+{
+  const gear = page.locator(".header__action");
+  const box = await gear.boundingBox();
+  check("the chip is square in its box", Math.abs(box.width - box.height) < 1,
+    `${box.width} x ${box.height}`);
+
+  // FORCE the shape and require nothing to move. Sampling a corner pixel
+  // does NOT work and was the first attempt: at 2px in, a squircle and a
+  // circle both leave background there, so the check passed against the
+  // squircle it was written to catch. Same shape-agnostic trick the capsule
+  // rim uses — it compares the element to itself, so it holds whatever the
+  // design settles on.
+  const clip = { x: box.x, y: box.y, width: box.width, height: box.height };
+  const asIs = await page.screenshot({ clip });
+  const forced = await page.addStyleTag({
+    content: ".header__action, .header__action::after { corner-shape: round !important }",
+  });
+  await page.waitForTimeout(200);
+  const round = await page.screenshot({ clip });
+  await forced.evaluate((el) => el.remove());
+  check("and it is round, not the reset's squircle", asIs.equals(round),
+    asIs.equals(round) ? "" : "the chip is drawing some other corner");
+}
+
 await ctx.close();
 
 // Reduced motion. The spin is decoration with no state behind it, so it
 // does not get a fast version — it does not run at all.
+
 {
   const rctx = await browser.newContext({
     viewport: { width: 1600, height: 900 }, reducedMotion: "reduce",

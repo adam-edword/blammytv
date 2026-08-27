@@ -8,7 +8,6 @@ import {
   type ComponentType,
 } from "react";
 import {
-  AccountIcon,
   SearchIcon,
   DiscoverIcon,
   GuideIcon,
@@ -680,18 +679,11 @@ export function AppHeader({
         {/* Outside the 0.3-opacity icon cluster on purpose: an available
           * update should read at full strength. */}
         <UpdateChip />
+        {/* Profile is gone rather than disabled. It was a placeholder for a
+          * feature that is not built, and a dimmed control that never does
+          * anything is worse than an absent one: it reads as broken. It
+          * comes back when there is something behind it. */}
         <div className="header__actions">
-          {/* Future cosmetic feature (README) — disabled until wired so the
-            * hover doesn't tease a click that does nothing. */}
-          <button
-            type="button"
-            className="header__action"
-            aria-label="Profile"
-            disabled
-            title="Coming soon"
-          >
-            <AccountIcon />
-          </button>
           <button
             type="button"
             className="header__action"

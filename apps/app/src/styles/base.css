@@ -338,34 +338,90 @@ button {
   display: flex;
   align-items: center;
   gap: 12px;
-  height: 34px;
-  opacity: 0.3;
+  height: 44px;
+}
+
+/*
+ * A ROUND CHIP OF THE SAME GLASS THE CAPSULE IS MADE OF, per Adam's mock.
+ *
+ * It used to be a bare 25px glyph in a cluster held at 0.3 opacity, which
+ * put the app's only way into Settings a long way below every other control
+ * in the frame. The capsule's own material is the answer rather than a new
+ * one: same fill, same blur, same rim, and the corner reads as part of the
+ * bar instead of as something left over.
+ *
+ * 44/20 is the proportion, and it is mine rather than measured — the mock is
+ * a small crop and its ratio is nearer 0.3, which at a size that fits a
+ * header corner leaves a glyph too small to read. 44 matches the capsule's
+ * 43px row within a pixel, so the two line up across the frame.
+ */
+.header__action,
+.header__action::after {
+  /* ROUND, said out loud. The reset at the top of this file puts
+   * `corner-shape: var(--corner)` on everything, which is a squircle by
+   * default — so `border-radius: 50%` drew a rounded SQUARE, not the circle
+   * the mock shows. The rim needs it too: corner-shape does not inherit,
+   * which is the same trap the capsule's own rim fell into in v0.9.19. */
+  corner-shape: round;
 }
 
 .header__action {
+  position: relative;
   display: grid;
   place-items: center;
-  transition: filter var(--dur-hover) ease;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  backdrop-filter: blur(5px) saturate(1.4);
+  transition:
+    background var(--dur-hover) ease,
+    transform 220ms var(--nav-spring);
 }
 
-/* The cluster sits at 0.3 opacity, so hover brightens the icon itself. */
+/* The capsule's rim, on a circle. Masked ::after rather than a border for
+ * the reason .navcap::after gives: a border cannot hold a gradient. */
+.header__action::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--text) 61%, transparent),
+    color-mix(in srgb, var(--text) 15%, transparent) 28%,
+    transparent 52%,
+    color-mix(in srgb, var(--text) 29%, transparent)
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
 .header__action:hover {
-  filter: brightness(2);
+  background: color-mix(in srgb, var(--text) 16%, transparent);
+}
+/* Same press feedback as a nav item, for the same reason: a transform
+ * cannot change the box, so it cannot disturb anything measured. */
+.header__action:active {
+  transform: scale(0.93);
+  transition: transform 60ms ease-out;
 }
 
-/* Not-yet-wired controls (Profile) keep their slot but stop teasing:
- * no pointer, no hover brighten, quieter at rest. */
-.header__action:disabled {
-  cursor: default;
-  opacity: 0.45;
-}
-.header__action:disabled:hover {
-  filter: none;
-}
-
+/* 20 inside 44. Larger than the mock's own ratio, which a header-sized
+ * circle would render too small to read, and smaller than the 25 this was
+ * when it had no chip around it. */
 .header__action svg {
-  width: 25px;
-  height: 25px;
+  width: 20px;
+  height: 20px;
 }
 
 /* ------------------------------------------------- update chip (header) */
