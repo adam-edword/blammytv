@@ -229,6 +229,44 @@ check("  and the text inside is opaque", Number(lbl.op) === 1, lbl.op);
 await p.locator('.navcap__row--sub [data-key="all"]').click();
 await p.waitForTimeout(500);
 
+// ---- KEYWORDS. The bug Adam reported: "ironman" showed no results,
+// because the catalogs match a SUBSTRING of the title and "Iron Man" does
+// not contain that one. Fixed by asking the network something wider when
+// the typed query comes back thin, then ranking locally against the real
+// titles — so this is the check that the fallback fires AND that its noise
+// is filtered back out.
+{
+  const titles = async (q) => {
+    await p.locator(".navcap__searchinput").fill(q);
+    await p.waitForTimeout(1400);
+    return p.evaluate(() =>
+      [...document.querySelectorAll(".disc-grid .stream-card__name")].map((e) =>
+        e.textContent.trim(),
+      ),
+    );
+  };
+
+  const run = await titles("ironman");
+  check("\"ironman\" finds \"Iron Man\"", run.includes("Iron Man"), run.join(", "));
+  check("  and its sequel comes with it", run.includes("Iron Man 2"), run.join(", "));
+  check("  with the exact title ranked first",
+    run[0] === "Iron Man", run[0] ?? "nothing");
+  // The broadened ask was "iron", which a substring catalog answers with
+  // anything containing it — here, "The Iron Giant". None of that may
+  // survive. NAMING THE REAL NOISE MATTERS: the first version of this
+  // listed titles the broadened query never returns, so it passed with the
+  // filter switched off.
+  check("  and the broadened query's noise is dropped",
+    !run.some((t) => /Iron Giant|Dark Knight|Fake Movie/.test(t)), run.join(", "));
+
+  const spaced = await titles("iron man");
+  check("the spaced spelling still works", spaced.includes("Iron Man"), spaced.join(", "));
+
+  const unrelated = await titles("zzzznotathing");
+  check("a query that matches nothing still returns nothing",
+    unrelated.length === 0, unrelated.join(", "));
+}
+
 await p.locator(".navcap__searchinput").fill("crime");
 await p.waitForTimeout(1200);
 const heading = await p.locator(".discover__gridwrap h3").first().textContent();

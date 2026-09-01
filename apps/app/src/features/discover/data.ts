@@ -5,6 +5,7 @@ import {
   type CatalogDef,
 } from "../../data/stremio";
 import { load, save } from "../../lib/storage";
+import { broaden, rank } from "./match";
 import { loadAioUrl } from "../settings/aiostreams";
 import { metaPreviewToVod } from "../stream/mapper";
 import type { VodItem } from "../stream/model";
@@ -145,12 +146,26 @@ export async function loadDiscover(): Promise<DiscoverConfig> {
 }
 
 /**
- * One search, every search-capable catalog of the filtered type, results
- * interleaved + deduped like the browse conglomerate. Single page per
- * catalog — Stremio search rarely paginates, and a first page per source
- * is already plenty for a picker.
+ * Repeat queries, answered from memory.
+ *
+ * Search is typed, so the same string arrives constantly: backspacing from
+ * "iron man" to "iron ma" and back re-ran every catalog request. Small and
+ * per-session on purpose — this is a keystroke cache, not a data store,
+ * and a stale search result is worth far less than a stale catalog page.
  */
-export async function searchDiscover(
+const SEARCH_TTL_MS = 60_000;
+const SEARCH_KEEP = 40;
+const searchCache = new Map<string, { at: number; items: VodItem[] }>();
+
+/** Exported for tests, and for a filter change that invalidates nothing
+ * else. */
+export function clearSearchCache(): void {
+  searchCache.clear();
+}
+
+/** One page from every search-capable catalog of the filtered type,
+ * interleaved and deduped. */
+async function askCatalogs(
   cfg: DiscoverConfig,
   filter: "all" | "movie" | "series",
   query: string,
@@ -172,12 +187,72 @@ export async function searchDiscover(
         .catch(() => [] as VodItem[]),
     ),
   );
+  return interleave(...pages);
+}
+
+/**
+ * One search, ranked here rather than taken as given.
+ *
+ * THE SHAPE, and it is the whole point: ask the network for what was
+ * typed; if that came back thin, ask again for something DELIBERATELY
+ * WIDER; then rank everything locally against real titles.
+ *
+ * Search used to be delegated whole — the typed string went out and
+ * whatever came back was the answer, in arrival order. That works while
+ * the user types the way the catalog's index is written and fails
+ * completely when they do not: "ironman" found nothing, because the
+ * catalogs match substrings of the title and "Iron Man" does not contain
+ * that one. No amount of rewriting the query fixes that from the outside,
+ * because we do not own the index. Comparing against the titles it
+ * returns, we can.
+ *
+ * The broadened ask fires ONLY when the first was thin, so the common case
+ * still costs exactly what it did: one request per catalog.
+ */
+const THIN = 5;
+
+export async function searchDiscover(
+  cfg: DiscoverConfig,
+  filter: "all" | "movie" | "series",
+  query: string,
+): Promise<VodItem[]> {
+  const cacheKey = `${filter}\u0000${query.trim().toLowerCase()}`;
+  const hit = searchCache.get(cacheKey);
+  if (hit && Date.now() - hit.at < SEARCH_TTL_MS) return hit.items;
+
+  const direct = await askCatalogs(cfg, filter, query);
+
+  // Ranked but NOT dropped: a catalog's own answer to the query as typed is
+  // its call to make, and scoring it out here would discard the one source
+  // that knows its own data.
+  let items = rank(direct, query);
+
+  if (items.length < THIN) {
+    const wider = broaden(query);
+    if (wider) {
+      // Dropped, hard. This asked something the user did not type, so
+      // everything that does not actually match has to come back out.
+      const extra = rank(await askCatalogs(cfg, filter, wider), query, true);
+      items = [...items, ...extra];
+    }
+  }
+
   const seen = new Set<string>();
-  return interleave(...pages).filter((i) => {
+  const out = items.filter((i) => {
     if (seen.has(i.id)) return false;
     seen.add(i.id);
     return true;
   });
+
+  searchCache.set(cacheKey, { at: Date.now(), items: out });
+  // Oldest-first eviction: a Map iterates in insertion order, and the
+  // newest queries are the ones a typist comes back to.
+  if (searchCache.size > SEARCH_KEEP)
+    for (const k of searchCache.keys()) {
+      searchCache.delete(k);
+      if (searchCache.size <= SEARCH_KEEP) break;
+    }
+  return out;
 }
 
 /** The Stremio extra path segment for a page: `genre=X&skip=N` (either

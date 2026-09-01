@@ -82,6 +82,28 @@ const poster = (id) => `http://localhost:${PORT}/poster/${id}.png`;
 
 // Eight movies; the last two are SPARSE (no poster, no description) so the
 // app has Cinemeta-fallback material to chew on.
+/**
+ * SPACED TITLES, for the search that made this necessary.
+ *
+ * "Iron Man" is the whole point: a user typing "ironman" used to get
+ * nothing, because these catalogs match a SUBSTRING of the title and the
+ * title has a space in it. The sequel is here so ranking has something to
+ * order against, and the unrelated title is the control that a broadened
+ * fallback query does not just return the catalog.
+ */
+const SPACED = [
+  { id: "tt300001", type: "movie", name: "Iron Man", genres: ["Action"] },
+  { id: "tt300002", type: "movie", name: "Iron Man 2", genres: ["Action"] },
+  { id: "tt300003", type: "movie", name: "The Dark Knight", genres: ["Action"] },
+  // NOISE THE BROADENED QUERY WILL CATCH, and it has to exist or the check
+  // that the noise is filtered passes for free. The fallback for "ironman"
+  // asks for "iron", which this title contains — and it is NOT what was
+  // meant, so ranking has to score it out. Without a title like this in the
+  // fixture the drop is untested: the first version of that check passed
+  // with the filter switched off.
+  { id: "tt300004", type: "movie", name: "The Iron Giant", genres: ["Action"] },
+];
+
 const MOVIES = NUMBERS.map((word, i) => {
   const id = `tt10000${i + 1}`;
   const sparse = i >= 6; // tt100007, tt100008
@@ -287,7 +309,8 @@ http
           );
         return json({ metas: filtered.slice(skip, skip + 8) });
       };
-      if (type === "movie" && catalogId === "top-movies") return page(MOVIES);
+      if (type === "movie" && catalogId === "top-movies")
+        return page([...MOVIES, ...SPACED]);
       if (type === "series" && catalogId === "top-series") return page(SERIES);
       if (type === "movie" && catalogId === "more-movies") return page(MORE_MOVIES);
       // Search-only catalog: answers ONLY the search extra.
