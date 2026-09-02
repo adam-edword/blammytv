@@ -502,6 +502,28 @@ export function StreamScreen() {
       // prefers a cached source from the SAME release group as what's
       // playing now — captured before setResolving/setPlaying churn it.
       const stickyGroup = playingRef.current?.bingeGroup;
+      /*
+       * STOP THE OLD EPISODE BEFORE ASKING FOR THE NEW ONE.
+       *
+       * This used to set `resolving` and leave `playing` alone, then await
+       * the source resolve — a network round trip, measured at about four
+       * seconds. The resolving screen is gated on `!playing` (see its
+       * render below), so for that whole time NOTHING on screen changed:
+       * the previous episode carried on playing and the click read as
+       * ignored. A DOM spinner could not have covered it either, because
+       * mpv is a native surface BELOW the page showing through a clip
+       * hole, so the only way to stop showing the old episode is to
+       * actually stop it.
+       *
+       * ORDER IS LOAD-BEARING. setPlaying(null) clears `resolving` as part
+       * of its teardown, so arming the resolving screen first and stopping
+       * second wipes it. Stop, then arm. Both land in one React batch, so
+       * there is no frame where neither is up.
+       *
+       * stickyGroup is read ABOVE this, and has to be: it comes off
+       * playingRef, which is what we are about to clear.
+       */
+      setPlaying(null);
       setResolving({ art: item.logo ?? item.poster, title: item.title });
       const label = `S${season.number} · E${episode.number}: ${episode.title}`;
       const info = {
