@@ -58,8 +58,19 @@ const NEXT = {
 };
 
 // The bridge mock. Same contract as verify-overlay-tracks (getTracks is
-// SYNCHRONOUS, on* return unsubscribers), plus the cache behaviour that
-// matters here: a push before mount is what getTracks() hands the seed.
+// SYNCHRONOUS, on* return unsubscribers), plus two behaviours of the real
+// bridge that this subject lives or dies on:
+//
+//   1. A push before mount is what getTracks() hands the seed.
+//   2. A select BLANKS THE POLL'S DEDUPE KEY, so mpv's own answer re-pushes
+//      within one tick whether or not it changed (useDirectOverlay does this
+//      deliberately — a refusal leaves the flags identical, and without the
+//      blanking nothing would ever contradict the request).
+//
+// window.__mpvMode picks what that answer is. "obey" selects the track that
+// was asked for, which is the happy path. "refuse" pushes the list back
+// UNCHANGED, which is what mpv really does when it declines a selection: no
+// error, no return value, just the same flags as before.
 const mockBridge = () => {
   const calls = [];
   let tracksCbs = [];
@@ -69,14 +80,32 @@ const mockBridge = () => {
     lastTracks = t;
     tracksCbs.slice().forEach((cb) => cb(t));
   };
+  // The poll confirming, one tick later. Async on purpose: a synchronous
+  // re-push inside the select would re-enter React mid-render.
+  const answer = (kind, id) =>
+    setTimeout(() => {
+      if (!lastTracks) return;
+      const list = kind === "audio" ? "audio" : "subs";
+      const next =
+        window.__mpvMode === "refuse"
+          ? { ...lastTracks }
+          : {
+              ...lastTracks,
+              [list]: lastTracks[list].map((t) => ({
+                ...t,
+                selected: String(t.id) === String(id),
+              })),
+            };
+      window.__pushTracks(next);
+    }, 30);
   const unsub = () => () => {};
   window.overlayApi = {
     close() {}, setPause() {}, setMute() {}, setVolume() {}, seek() {},
     seekTo() {}, setSpeed() {}, expand() {}, collapse() {}, fullscreen() {},
     exitFullscreen() {}, popout() {}, panel() {}, toggleFavorite() {},
     goLive() {}, setMouseIgnore() {},
-    selectAudio(id) { calls.push(["selectAudio", String(id)]); },
-    selectSub(id) { calls.push(["selectSub", String(id)]); },
+    selectAudio(id) { calls.push(["selectAudio", String(id)]); answer("audio", id); },
+    selectSub(id) { calls.push(["selectSub", String(id)]); answer("sub", id); },
     getMeta() {
       return Promise.resolve({ channelName: "Test Show", title: "S1 · E2" });
     },
@@ -91,17 +120,25 @@ const mockBridge = () => {
   };
 };
 
-/** Seed the prefs store. The envelope shape is lib/storage's. */
+/**
+ * Seed the prefs store. The envelope shape is lib/storage's.
+ *
+ * BOTH KEYS, ALWAYS. The pages share one browser context, so localStorage
+ * carries over — and the page that proves an explicit pick is written to the
+ * per-show store leaves a real record behind. Seeding only the global left
+ * that record armed, and a later page asserting "nothing is selected" got
+ * six audio selections from a preference it never set. An empty seed has to
+ * mean empty.
+ */
 const seedPrefs = ([global, byShow]) => {
   localStorage.setItem(
     "blammytv.playbackPrefs",
     JSON.stringify({ v: 1, data: global }),
   );
-  if (byShow)
-    localStorage.setItem(
-      "blammytv.playbackPrefsByShow",
-      JSON.stringify({ v: 1, data: byShow }),
-    );
+  localStorage.setItem(
+    "blammytv.playbackPrefsByShow",
+    JSON.stringify({ v: 1, data: byShow ?? { order: [], byId: {} } }),
+  );
 };
 
 const browser = await chromium.launch({
@@ -113,8 +150,9 @@ const ctx = await browser.newContext({
   screen: { width: 1920, height: 1080 },
 });
 
-const openOverlay = async (prefs, props, cached) => {
+const openOverlay = async (prefs, props, cached, mode = "obey") => {
   const page = await ctx.newPage();
+  await page.addInitScript((m) => { window.__mpvMode = m; }, mode);
   await page.addInitScript(mockBridge);
   await page.addInitScript(seedPrefs, prefs);
   await page.addInitScript((p) => { window.__overlayProps = p; }, props);
@@ -252,6 +290,66 @@ check(
   JSON.stringify(stored.byShow),
 );
 await page4.close();
+
+// ---- Page 5: mpv refusing the selection ---------------------------------
+// The one that Adam's captions kept dying on. mpv declines a selection more
+// often than the old code assumed — a stale id, an instance still loading —
+// and it declines SILENTLY. The guard used to be spent on the request, and
+// the local list was optimistically flipped to show it selected, so the
+// refusal was invisible and the dimension was finished for the whole file.
+{
+  const page = await openOverlay(
+    [{ subLang: "spa" }],
+    { vod: true, playbackKey: "ep2", showId: "tt-show" },
+    null,
+    "refuse",
+  );
+  await page.evaluate((t) => window.__pushTracks(t), NEXT);
+  // Each refusal re-pushes, which re-runs the apply, which asks again — so
+  // this drives itself and then has to STOP on its own.
+  await page.waitForTimeout(2000);
+  const subCalls = await page.evaluate(() =>
+    window.__calls.filter((c) => c[0] === "selectSub"),
+  );
+  check(
+    "a refused subtitle selection is asked for again",
+    subCalls.length > 1,
+    `${subCalls.length} attempts`,
+  );
+  check(
+    "…and every attempt names the right track",
+    subCalls.every((c) => c[1] === "14"),
+    JSON.stringify(subCalls),
+  );
+  // APPLY_TRIES in TheaterOverlay. The number is not the point; giving up is.
+  check(
+    "…and it gives up rather than asking for the whole film",
+    subCalls.length === 6,
+    `${subCalls.length} attempts`,
+  );
+  await page.close();
+}
+
+// ---- Page 6: a language the file does not carry -------------------------
+// No match is SETTLED, not failed. Retrying cannot conjure a German track,
+// and a retry loop here would be the same bug in the other direction.
+{
+  const page = await openOverlay(
+    [{ subLang: "de" }],
+    { vod: true, playbackKey: "ep2", showId: "tt-show" },
+    null,
+    "refuse",
+  );
+  await page.evaluate((t) => window.__pushTracks(t), NEXT);
+  await page.waitForTimeout(1500);
+  const calls = await page.evaluate(() => window.__calls);
+  check(
+    "a language the file does not carry is never asked for",
+    calls.length === 0,
+    JSON.stringify(calls),
+  );
+  await page.close();
+}
 
 await browser.close();
 const fails = results.filter(([, ok]) => !ok);

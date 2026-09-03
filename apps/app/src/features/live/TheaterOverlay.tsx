@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isTauri, tauriMpvDiag, type TheaterMeta } from "../../lib/tauri";
-import { api, type ChapterInfo, type TimeInfo, type Tracks } from "./overlayApi";
+import {
+  api,
+  type ChapterInfo,
+  type TimeInfo,
+  type TrackEntry,
+  type Tracks,
+} from "./overlayApi";
 import {
   loadOverlayMeta,
   onOverlayMetaChange,
@@ -136,6 +142,48 @@ function fmtClock(s: number): string {
   const m = Math.floor((t % 3600) / 60);
   const sec = String(t % 60).padStart(2, "0");
   return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${sec}` : `${m}:${sec}`;
+}
+
+/**
+ * How many polls to keep asking mpv for a track before giving up.
+ *
+ * Six is about three seconds at the 500ms status poll, and the retry only
+ * exists at all while a preference has not landed — a confirmed selection
+ * settles on the first tick and costs nothing.
+ */
+const APPLY_TRIES = 6;
+
+/**
+ * One line per stream, per dimension, saying what the remembered preference
+ * did. Adam reads this off a real player; nothing here can be reproduced
+ * from a dev container, because it is entirely about what real files carry
+ * and what mpv does with them.
+ *
+ * Only when a preference EXISTS, so a player with nothing remembered stays
+ * quiet. The interesting line is the failure: "no track matches", with the
+ * labels the file actually offers next to it, is the difference between a
+ * matching bug and an mpv one, and it is a question no amount of reading
+ * this file can answer.
+ */
+function logApply(
+  what: string,
+  want: string,
+  hit: TrackEntry | undefined,
+  have: TrackEntry[],
+  tries: number,
+): void {
+  const list = have.map((t) => `${t.label}${t.lang ? ` [${t.lang}]` : ""}`);
+  console.info(
+    hit
+      ? `[vod] ${what} "${want}" -> "${hit.label}"${
+          hit.selected
+            ? tries > 0
+              ? ` after ${tries} ${tries === 1 ? "try" : "tries"}`
+              : ""
+            : " NOT APPLIED (mpv refused it)"
+        }`
+      : `[vod] ${what} "${want}" -> no match among [${list.join(", ")}]`,
+  );
 }
 
 export function TheaterOverlay({
@@ -1006,62 +1054,69 @@ export function TheaterOverlay({
   // one 500ms poll.) Audio and subs also settle their flags separately, so
   // a subtitle track that demuxes a beat after the audio still gets its
   // preference applied.
+  //
+  // ASKING IS NOT THE SAME AS BEING OBEYED, and this used to conflate them.
+  // The flag was burned on the ATTEMPT: one selectSub went out, the local
+  // list was optimistically flipped to show it selected, and the dimension
+  // was declared finished. mpv refuses a selection more often than that
+  // assumes — a track id from a list that has since churned, an instance
+  // still mid-load — and the refusal is SILENT, because set_property_string
+  // returns nothing anyone reads. useDirectOverlay already handles half of
+  // this: selectAudio/selectSub blank the poll's dedupe key so mpv's real
+  // answer re-pushes within one tick, correcting the checkmark. Nothing
+  // acted on that correction. The one shot was already spent, so a refused
+  // subtitle track stayed refused for the whole episode, and the next
+  // episode refused it again.
+  //
+  // So the guard now settles on the OUTCOME: keep asking until mpv's own
+  // list says the track is selected, and stop after APPLY_TRIES so a track
+  // that is never going to be honoured cannot loop for the length of a
+  // film. There is deliberately NO optimistic write here any more — an
+  // optimistic flip is indistinguishable from a confirmation, so it would
+  // make every retry vacuous. The menus stay honest instead, one poll
+  // behind, and nobody has a track menu open during a load anyway.
+  // (chooseAudio/chooseSub keep theirs: a click wants to feel instant, and
+  // the same re-push corrects it if mpv disagrees.)
   const appliedKeyRef = useRef<string | null>(null);
   const appliedRef = useRef({ audio: false, sub: false, speed: false });
+  const triesRef = useRef({ audio: 0, sub: 0 });
   useEffect(() => {
     if (!vod || !tracks) return;
     const key = playbackKey ?? "mount";
     if (appliedKeyRef.current !== key) {
       appliedKeyRef.current = key;
       appliedRef.current = { audio: false, sub: false, speed: false };
+      triesRef.current = { audio: 0, sub: 0 };
     }
     const done = appliedRef.current;
+    const tries = triesRef.current;
     if (done.audio && done.sub && done.speed) return;
     const prefs = loadPlaybackPrefs(showRef.current);
     if (!done.audio && tracks.audio.length > 0) {
-      done.audio = true;
-      if (prefs.audioLang) {
+      if (!prefs.audioLang) done.audio = true;
+      else {
         const t = matchTrack(tracks.audio, prefs.audioLang);
-        if (t && !t.selected) {
-          api()?.selectAudio?.(t.id);
-          setTracks(
-            (prev) =>
-              prev && {
-                ...prev,
-                audio: prev.audio.map((a) => ({
-                  ...a,
-                  selected: a.id === t.id,
-                })),
-              },
-          );
-        }
+        // No match is SETTLED, not failed: this file does not carry the
+        // language, and asking again cannot change that.
+        if (!t || t.selected || ++tries.audio > APPLY_TRIES) {
+          logApply("audio", prefs.audioLang, t, tracks.audio, tries.audio);
+          done.audio = true;
+        } else api()?.selectAudio?.(t.id);
       }
     }
     if (!done.sub && tracks.subs.length > 0) {
-      done.sub = true;
       if (prefs.subLang === "off") {
-        if (tracks.subs.some((x) => x.selected)) {
-          api()?.selectSub?.("no");
-          setTracks(
-            (prev) =>
-              prev && {
-                ...prev,
-                subs: prev.subs.map((x) => ({ ...x, selected: false })),
-              },
-          );
-        }
-      } else if (prefs.subLang) {
+        // "Off" confirms by nothing being selected.
+        if (!tracks.subs.some((x) => x.selected) || ++tries.sub > APPLY_TRIES)
+          done.sub = true;
+        else api()?.selectSub?.("no");
+      } else if (!prefs.subLang) done.sub = true;
+      else {
         const t = matchTrack(tracks.subs, prefs.subLang);
-        if (t && !t.selected) {
-          api()?.selectSub?.(t.id);
-          setTracks(
-            (prev) =>
-              prev && {
-                ...prev,
-                subs: prev.subs.map((x) => ({ ...x, selected: x.id === t.id })),
-              },
-          );
-        }
+        if (!t || t.selected || ++tries.sub > APPLY_TRIES) {
+          logApply("subtitle", prefs.subLang, t, tracks.subs, tries.sub);
+          done.sub = true;
+        } else api()?.selectSub?.(t.id);
       }
     }
     // Speed waits for the instance to actually present: setSpeed on a
