@@ -172,6 +172,41 @@ export function StreamScreen() {
     art?: string;
     title: string;
   } | null>(null);
+  /**
+   * SAYING NO HAS TO ACTUALLY STOP IT.
+   *
+   * The resolving screen offers three ways out — Cancel, Escape, and the
+   * mouse's back button — and all three only ever hid the screen. The
+   * request was still in flight, and when it landed it called setPlaying
+   * and dropped you into the thing you had just refused, up to thirty
+   * seconds later (that is the Rust client's timeout, and a dead addon
+   * spends all of it).
+   *
+   * A ticket rather than an AbortController: the resolve is shared work
+   * behind a cache, so another caller may be waiting on the same promise.
+   * What is cancellable is OUR interest in the answer, which is exactly
+   * what this expresses. Every arm takes a number; every dismissal burns
+   * it; an await that comes back on a stale number returns without
+   * touching anything.
+   *
+   * v0.9.31 is why this is being fixed now. It is older than that — the
+   * Watch Now and quick-resume paths always had it — but making the
+   * episode roll stop the old episode first gave every binge a four-second
+   * window with a Cancel button in it, which turned a corner case into the
+   * common one.
+   */
+  const resolveGen = useRef(0);
+  const armResolve = useCallback((r: { art?: string; title: string }) => {
+    setResolving(r);
+    return ++resolveGen.current;
+  }, []);
+  const cancelResolve = useCallback(() => {
+    resolveGen.current++;
+    setResolving(null);
+  }, []);
+  /** For goBack, which has to stay a stable callback. */
+  const resolvingRef = useRef(resolving);
+  resolvingRef.current = resolving;
   const setPlaying = useCallback(
     (
       p: {
@@ -260,14 +295,14 @@ export function StreamScreen() {
     }
     const t = window.setTimeout(() => setSlowResolve(true), 5000);
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setResolving(null);
+      if (e.key === "Escape") cancelResolve();
     };
     document.addEventListener("keydown", onKey);
     return () => {
       window.clearTimeout(t);
       document.removeEventListener("keydown", onKey);
     };
-  }, [resolving]);
+  }, [resolving, cancelResolve]);
   useEffect(() => {
     let stale = false;
     loadVod().then(
@@ -360,6 +395,13 @@ export function StreamScreen() {
   const viewRef = useRef(view);
   viewRef.current = view;
   const goBack = useCallback(() => {
+    // THE RESOLVING SCREEN IS A SCREEN. It covers the header and everything
+    // under it, so backing out of it means "never mind", not "navigate the
+    // tree behind it" — which is what used to happen, invisibly, and then
+    // the resolve landed and started playing over wherever you had gone.
+    // Same answer as its own Cancel button, which is the point: three ways
+    // out, one behaviour.
+    if (resolvingRef.current) return cancelResolve();
     const v = viewRef.current;
     const prev = peek();
     // AN EPISODE'S SOURCE LIST BELONGS UNDER ITS EPISODE LIST, however you
@@ -385,7 +427,7 @@ export function StreamScreen() {
       handoffRef.current = false;
       requestReturnToDiscover();
     }
-  }, [popBack, depth, peek, replaceView, resolveIntoView]);
+  }, [popBack, depth, peek, replaceView, resolveIntoView, cancelResolve]);
   useMouseNav(goBack, goForward, !playing);
   const open = useCallback(async (item: VodItem) => {
     // Show the lightweight item immediately; swap in the full detail
@@ -408,9 +450,10 @@ export function StreamScreen() {
       // The resolving screen unmounts this tree too — same reason as
       // setPlaying, same fix.
       captureScroll();
-      setResolving({ art: item.logo ?? item.poster, title: item.title });
+      const gen = armResolve({ art: item.logo ?? item.poster, title: item.title });
       try {
         const sources = await resolveVodSources("movie", item.id);
+        if (gen !== resolveGen.current) return; // cancelled while we waited
         const idx = sources.findIndex((s) => s.cached);
         if (idx >= 0)
           return setPlaying({
@@ -422,10 +465,13 @@ export function StreamScreen() {
       } catch {
         /* fall through to detail */
       }
+      // Again after the catch: a cancelled resolve that found nothing must
+      // not navigate anywhere either.
+      if (gen !== resolveGen.current) return;
       setResolving(null);
       void open(item);
     },
-    [open, setPlaying, captureScroll],
+    [open, setPlaying, captureScroll, armResolve],
   );
 
   // Card click: browse — or, with the opt-in setting on, straight to
@@ -524,7 +570,7 @@ export function StreamScreen() {
        * playingRef, which is what we are about to clear.
        */
       setPlaying(null);
-      setResolving({ art: item.logo ?? item.poster, title: item.title });
+      const gen = armResolve({ art: item.logo ?? item.poster, title: item.title });
       const label = `S${season.number} · E${episode.number}: ${episode.title}`;
       const info = {
         season: season.number,
@@ -533,6 +579,7 @@ export function StreamScreen() {
       };
       try {
         const sources = await resolveVodSources("series", episode.id);
+        if (gen !== resolveGen.current) return; // cancelled while we waited
         // Cached only — see watchNow. No cached → the source screen below.
         const idx = pickCachedIndex(sources, stickyGroup);
         if (idx >= 0) {
@@ -550,6 +597,7 @@ export function StreamScreen() {
       } catch {
         /* fall through to the source screen */
       }
+      if (gen !== resolveGen.current) return;
       setPlaying(null);
       if (isTauri()) void tauriSetFullscreen(false).catch(() => {});
       navigate({
@@ -560,7 +608,7 @@ export function StreamScreen() {
         episodeInfo: info,
       });
     },
-    [setPlaying, navigate],
+    [setPlaying, navigate, armResolve],
   );
   const playUpNext = useCallback(async () => {
     const un = upNextRef.current;
@@ -668,7 +716,7 @@ export function StreamScreen() {
     async (entry: WatchEntry, known?: VodItem) => {
       const kind = entry.kind ?? (entry.episodeId ? "series" : "movie");
       captureScroll();
-      setResolving({
+      const gen = armResolve({
         art: known?.logo ?? entry.logo ?? known?.poster ?? entry.art,
         title: entry.title,
       });
@@ -699,6 +747,7 @@ export function StreamScreen() {
       let item = known;
       if (!item || (kind === "series" && item.seasons.length === 0)) {
         const full = await resolveVodItem(kind, entry.id).catch(() => null);
+        if (gen !== resolveGen.current) return; // cancelled while we waited
         if (full) item = full;
         // The catalog preview had no clearlogo; the full meta does —
         // upgrade the breathing art mid-resolve.
@@ -734,6 +783,7 @@ export function StreamScreen() {
         // Already in flight since before the meta resolve above — by the
         // time we get here it is usually settled, so this await is free.
         const sources = await sourcesPromise;
+        if (gen !== resolveGen.current) return; // cancelled while we waited
         // Cached only — see watchNow. This is the path that got a real
         // account rate-limited: quick-resume auto-played an uncached
         // source sight-unseen, then the tune watchdog re-requested it.
@@ -767,10 +817,11 @@ export function StreamScreen() {
       } catch {
         /* fall through to the browse path */
       }
+      if (gen !== resolveGen.current) return;
       setResolving(null);
       void open(item);
     },
-    [setPlaying, open, navigate, captureScroll],
+    [setPlaying, open, navigate, captureScroll, armResolve],
   );
 
   /**
@@ -786,7 +837,7 @@ export function StreamScreen() {
     async (entry: WatchEntry, known?: VodItem) => {
       const kind = entry.kind ?? (entry.episodeId ? "series" : "movie");
       captureScroll();
-      setResolving({
+      const gen = armResolve({
         art: known?.logo ?? entry.logo ?? known?.poster ?? entry.art,
         title: entry.title,
       });
@@ -803,6 +854,7 @@ export function StreamScreen() {
         (kind === "series" && item.seasons.length === 0);
       if (sparse) {
         const full = await resolveVodItem(kind, entry.id).catch(() => null);
+        if (gen !== resolveGen.current) return; // cancelled while we waited
         if (full) item = full;
       }
       setResolving(null);
@@ -839,7 +891,7 @@ export function StreamScreen() {
           : {}),
       });
     },
-    [navigate, open, captureScroll],
+    [navigate, open, captureScroll, armResolve],
   );
 
   // Skip Intro Phase 2: exact AniSkip intervals for the playing episode,
@@ -1319,7 +1371,7 @@ export function StreamScreen() {
           <button
             type="button"
             className="btn-quiet tune__vodcancel"
-            onClick={() => setResolving(null)}
+            onClick={cancelResolve}
           >
             Cancel
           </button>
