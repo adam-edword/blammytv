@@ -63,9 +63,28 @@ if (params.get("overlay") === "1") {
   document.documentElement.style.background = "transparent";
   document.body.style.background = "transparent";
   document.body.classList.add("is-overlay");
+  // The props the app's hosts pass, when a harness wants them. Default is
+  // NONE, which is the bare chrome verify-overlay-tracks drives; the VOD
+  // continuity paths (remembered audio/subtitle languages, per-show
+  // memory) only exist under `vod` + a `playbackKey`, so
+  // verify-track-prefs sets them on `window.__overlayProps` before load.
+  const op =
+    (
+      window as unknown as {
+        __overlayProps?: {
+          vod?: boolean;
+          playbackKey?: string;
+          showId?: string;
+        };
+      }
+    ).__overlayProps ?? {};
   root.render(
     <React.StrictMode>
-      <TheaterOverlay />
+      <TheaterOverlay
+        vod={op.vod}
+        playbackKey={op.playbackKey}
+        showId={op.showId}
+      />
     </React.StrictMode>,
   );
 } else if (params.get("sportstheater") === "1") {

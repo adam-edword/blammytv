@@ -68,8 +68,14 @@ servers on the ports the harnesses hard-code, starts vite on 4173, runs every
 `verify-*.mjs`, and prints a board. `pnpm verify discover nav` filters by
 name; `KEEP=1` leaves the servers up afterwards.
 
-Baseline is **22/22 harnesses clean, 337 checks**. If playwright-core is not
+Baseline is **23/23 harnesses clean, 347 checks**. If playwright-core is not
 installed, point `PW_FROM` at somewhere that can require it.
+
+It refuses to start if anything is already on one of its ports, and that
+refusal is load-bearing: a leftover `vite preview` on 4173 binds first, our
+vite dies on `--strictPort`, and the suite runs green against a stale dist.
+Kill the squatter rather than working around the message. `KEEP=1` is the
+usual way to leave one behind.
 
 Read the board's STATUS column, not just the tick counts. **CRASH is the
 one that matters.** A failing check is loud; a harness that throws at check

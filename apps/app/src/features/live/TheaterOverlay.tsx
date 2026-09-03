@@ -241,14 +241,30 @@ export function TheaterOverlay({
   // click flips instantly (the main app persists the real list via the bridge).
   const [fav, setFav] = useState(false);
   // Audio/sub tracks, seeded sync from the bridge cache then pushed on change.
-  const [tracks, setTracks] = useState<Tracks | null>(
-    () => api()?.getTracks?.() ?? null,
+  //
+  // ONLY WHEN THERE IS NO playbackKey, and that condition is the whole
+  // point. The bridge's cache is "whatever the last poll said", and the
+  // last poll belongs to the stream that just STOPPED. Every host in the
+  // app (live, sports, VOD) mounts this component as its stream opens and
+  // passes a key, so at that moment mpv has not been asked for the new file
+  // yet and a cached list can only be the previous one's. Seeding it burns
+  // the once-per-key guard below on the dead file's track ids, and the real
+  // list is then skipped when it lands a poll later — which is how audio
+  // and subtitle choices stopped surviving an episode boundary the moment
+  // v0.9.31 made the boundary an unmount rather than a prop change.
+  //
+  // The unkeyed case is the bare `?overlay=1` entry, where the seed is the
+  // only way a list that arrived before mount is ever seen.
+  const [tracks, setTracks] = useState<Tracks | null>(() =>
+    playbackKey ? null : (api()?.getTracks?.() ?? null),
   );
   // New file = new track list, but the bridge only pushes it a poll later.
   // Drop the stale list IN RENDER (before effects fire), or the VOD apply
   // effect below would burn its once-per-key guard matching remembered
   // languages against the PREVIOUS episode's tracks — and then skip the
   // real list when it lands, resetting subs at every episode boundary.
+  // This is the same failure as the seed above, on the path where the
+  // component STAYS mounted and only the key changes.
   // (The bridge resets its dedupe json on the same URL change, so the
   // fresh list always re-pushes even when it's identical.)
   const [tracksKey, setTracksKey] = useState(playbackKey);

@@ -93,6 +93,41 @@ const run = (cmd, args, opts = {}) =>
   });
 
 // ---------------------------------------------------------------- servers
+/**
+ * NOTHING MAY ALREADY BE ON THESE PORTS.
+ *
+ * Every server here is spawned and then merely waited FOR, and "the port
+ * answers" is not the same claim as "our server answers". A leftover
+ * `vite preview` on 4173 — KEEP=1 from an earlier run, or a stray shell —
+ * silently binds first, our vite dies on --strictPort, waitForPort sees the
+ * squatter answer, and the whole suite runs green against a stale dist.
+ * That cost a debugging round: a harness read 5/10 against source that was
+ * already fixed, because the page under test was a build from ten minutes
+ * earlier.
+ *
+ * So refuse to start instead. A stale server is trivially fixable once you
+ * are told about it, and impossible to spot once the board prints ticks.
+ */
+const taken = [];
+for (const { name, port, probe } of [
+  ...SERVERS,
+  { name: "vite", port: PORT, probe: "/" },
+])
+  if (
+    await fetch(`http://localhost:${port}${probe}`)
+      .then(() => true)
+      .catch(() => false)
+  )
+    taken.push(`${name}:${port}`);
+if (taken.length) {
+  console.error(
+    `port already in use: ${taken.join(", ")}\n` +
+      "Something is already serving there (a KEEP=1 run?). Stop it first — " +
+      "this suite would otherwise test whatever that is.",
+  );
+  process.exit(2);
+}
+
 console.log("starting fakes…");
 for (const s of SERVERS) {
   spawnKid(process.execPath, [path.join("scripts", `${s.name}.mjs`)], {
