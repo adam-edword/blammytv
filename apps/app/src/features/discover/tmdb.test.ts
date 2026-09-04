@@ -111,6 +111,48 @@ describe("keywordIds", () => {
     expect(await keywordIds(["cosy"])).toEqual([]);
   });
 
+  it("prefers an exact name over their relevance order", async () => {
+    // ADAM'S REAL DATA. Searching "horror" returns b-horror FIRST, and
+    // b-horror is a different kind of film. On the movie side nothing
+    // noticed, because horror is a genre there and never reaches this
+    // function; on the TV side there is no Horror genre to catch it, so
+    // "space horror" became "space AND b-horror", found nothing, relaxed to
+    // OR and answered with twenty Star Treks.
+    reply = () => ({
+      results: [
+        { id: 342626, name: "b-horror" },
+        { id: 315058, name: "horror spoof" },
+        { id: 9663, name: "horror" },
+      ],
+    });
+    expect(await keywordIds(["horror"])).toEqual([
+      { id: 9663, name: "horror", word: "horror" },
+    ]);
+  });
+
+  it("still takes their first when nothing matches exactly", async () => {
+    // The tie-break only breaks ties. A word with no tag of its own name
+    // must keep getting their best substring answer rather than nothing.
+    reply = () => ({
+      results: [
+        { id: 342626, name: "b-horror" },
+        { id: 315058, name: "horror spoof" },
+      ],
+    });
+    expect(await keywordIds(["horror"])).toEqual([
+      { id: 342626, name: "b-horror", word: "horror" },
+    ]);
+  });
+
+  it("matches an exact name regardless of case or padding", async () => {
+    reply = () => ({
+      results: [{ id: 1, name: "found footage horror" }, { id: 2, name: "  Horror " }],
+    });
+    expect(await keywordIds(["horror"])).toEqual([
+      { id: 2, name: "Horror", word: "horror" },
+    ]);
+  });
+
   it("carries the word that produced it, not just the tag's name", async () => {
     // Their search is a substring match, so a tag's name need not equal
     // what was typed. Deciding "did this word match" by comparing names

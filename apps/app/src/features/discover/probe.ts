@@ -5,6 +5,7 @@ import {
   findByWords,
   genreIds,
   imdbIdFor,
+  keywordCandidates,
   loadTmdbKey,
   probeTmdb,
   saveTmdbKey,
@@ -171,6 +172,22 @@ export function installDiscoverProbe(): void {
           `[probe] ${kind} genres (${vocab.size}):`,
           [...vocab.keys()].sort(),
         );
+        // THE SHORTLIST PER WORD, not just what was chosen. Picking one tag
+        // out of a substring match is the step that goes wrong quietly:
+        // "horror" came back as "b-horror" and nothing said so. Only for
+        // words that are not genres on this side — the rest never reach
+        // keyword search.
+        for (const word of words) {
+          if (vocab.has(word.toLowerCase())) continue;
+          const list = await keywordCandidates(word).catch(() => []);
+          console.info(
+            `[probe] "${word}" tags:`,
+            list.slice(0, 8).map((r) => `${r.name}=${r.id}`),
+            list.some((r) => r.name.toLowerCase() === word.toLowerCase())
+              ? "(exact match available)"
+              : "(NO EXACT MATCH — best is a substring)",
+          );
+        }
         const found = await findByWords(words, kind);
         // "word -> tag" rather than just the tag: their keyword search is
         // a substring match, so seeing what a word actually resolved to is

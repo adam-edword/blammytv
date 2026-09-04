@@ -156,16 +156,43 @@ function yearOf(date: unknown): number | undefined {
 }
 
 /**
+ * Every tag whose name contains this word, in TMDB's own relevance order.
+ *
+ * Exported for the probe, which is the only place the whole list is worth
+ * seeing: picking one of these is the step that goes wrong quietly, and the
+ * shortlist is what says why.
+ */
+export async function keywordCandidates(
+  word: string,
+): Promise<{ id: number; name: string }[]> {
+  const json = (await ask("/search/keyword", { query: word })) as {
+    results?: { id?: number; name?: string }[];
+  };
+  return (json.results ?? [])
+    .filter((r): r is { id: number; name: string } => r.id != null)
+    .map((r) => ({ id: r.id, name: (r.name ?? word).trim() }));
+}
+
+/**
  * Typed words to TMDB keyword ids.
  *
  * ONE REQUEST PER WORD, and that is the shape of their API rather than a
  * choice: /search/keyword takes a single query. Callers ask for a handful
  * of words at most, so this stays a handful of parallel requests.
  *
- * Takes only the FIRST match per word. Their search is a substring match,
- * so "space" also returns "space marine", "space opera", "outer space" —
- * and folding all of those in turns a specific ask into a vague one. The
- * first result is their relevance ranking's own answer.
+ * ONE TAG PER WORD. Their search is a substring match, so "space" also
+ * returns "space marine", "space opera", "outer space" — folding all of
+ * those in turns a specific ask into a vague one.
+ *
+ * AN EXACT NAME WINS, and their relevance order only breaks the tie. It used
+ * to take the first result outright, on the reading that their ranking knew
+ * best. It does not: searching "horror" returns "b-horror" (342626) ahead of
+ * anything else, and b-horror is a different kind of film. On the movie side
+ * nobody noticed, because "horror" is a GENRE there and never reaches this
+ * function. On the TV side there is no Horror genre to catch it — their TV
+ * list is 16 entries and horror is not one of them, measured — so "space
+ * horror" became "space AND b-horror", found nothing, relaxed to OR, and
+ * answered with twenty Star Treks.
  */
 export async function keywordIds(words: readonly string[]): Promise<TmdbKeyword[]> {
   const out = await Promise.all(
@@ -173,13 +200,11 @@ export async function keywordIds(words: readonly string[]): Promise<TmdbKeyword[
       .map((w) => w.trim())
       .filter(Boolean)
       .map(async (w) => {
-        const json = (await ask("/search/keyword", { query: w })) as {
-          results?: { id?: number; name?: string }[];
-        };
-        const hit = json.results?.[0];
-        return hit?.id != null
-          ? { id: hit.id, name: hit.name ?? w, word: w }
-          : null;
+        const results = await keywordCandidates(w);
+        const low = w.toLowerCase();
+        const hit =
+          results.find((r) => r.name.toLowerCase() === low) ?? results[0];
+        return hit ? { id: hit.id, name: hit.name, word: w } : null;
       }),
   );
   return out.filter((k): k is TmdbKeyword => k !== null);
