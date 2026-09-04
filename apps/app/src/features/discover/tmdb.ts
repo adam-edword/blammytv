@@ -174,6 +174,34 @@ export async function discoverByKeywords(
 }
 
 /**
+ * The IMDb id for one TMDB title, or null.
+ *
+ * WHY THIS EXISTS after the file header says it does not convert ids. The
+ * header's objection was the COST: doing it for a whole board is one
+ * request per candidate. Doing it for the ONE candidate that got picked is
+ * a single request, and it buys an exact match instead of a fuzzy one.
+ *
+ * Adam's `btvDiscover()` output is what settled this. Every one of his
+ * catalogs is an mdblist list with the same 42 plain genres, so searching
+ * them by title only finds titles that happen to be ON those lists — most
+ * of what TMDB suggests would simply not resolve. An IMDb id skips the
+ * catalogs entirely: resolveVodItem falls back to Cinemeta, which has meta
+ * for any id.
+ */
+export async function imdbIdFor(candidate: TmdbCandidate): Promise<string | null> {
+  const tmdbId = candidate.id.split(":")[2];
+  if (!tmdbId) return null;
+  const path = candidate.kind === "movie" ? "/movie" : "/tv";
+  const json = (await ask(`${path}/${tmdbId}/external_ids`, {})) as {
+    imdb_id?: string | null;
+  };
+  const id = json.imdb_id ?? "";
+  // Their field is null for anything unmatched, and a "tt" prefix is what
+  // makes it an addon id rather than some other database's number.
+  return id.startsWith("tt") ? id : null;
+}
+
+/**
  * Everything above in one call: words in, candidates out, strict then wide.
  *
  * `relaxed` is reported rather than hidden for the same reason `shortlist`

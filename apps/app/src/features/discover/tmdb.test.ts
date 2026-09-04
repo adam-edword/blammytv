@@ -35,6 +35,7 @@ vi.mock("../../lib/http", () => ({
 const {
   discoverByKeywords,
   findByWords,
+  imdbIdFor,
   keywordIds,
   loadTmdbKey,
   saveTmdbKey,
@@ -147,6 +148,32 @@ describe("discoverByKeywords", () => {
   it("spends no request on an empty keyword list", async () => {
     expect(await discoverByKeywords([], "movie")).toEqual([]);
     expect(asked).toHaveLength(0);
+  });
+});
+
+describe("imdbIdFor", () => {
+  it("asks the right endpoint per kind and returns the tt id", async () => {
+    reply = () => ({ imdb_id: "tt0078748" });
+    expect(
+      await imdbIdFor({ id: "tmdb:movie:348", title: "Alien", kind: "movie" }),
+    ).toBe("tt0078748");
+    expect(asked[0]).toContain("/movie/348/external_ids");
+    await imdbIdFor({ id: "tmdb:series:1668", title: "Firefly", kind: "series" });
+    expect(asked[1]).toContain("/tv/1668/external_ids");
+  });
+
+  it("returns null for an unmatched title", async () => {
+    // Their field is null for anything they have not matched, and a
+    // non-tt value belongs to some other database. Either way there is no
+    // addon id to hand on, and pretending otherwise resolves to nothing.
+    reply = () => ({ imdb_id: null });
+    expect(
+      await imdbIdFor({ id: "tmdb:movie:1", title: "x", kind: "movie" }),
+    ).toBeNull();
+    reply = () => ({ imdb_id: "12345" });
+    expect(
+      await imdbIdFor({ id: "tmdb:movie:1", title: "x", kind: "movie" }),
+    ).toBeNull();
   });
 });
 
