@@ -218,30 +218,30 @@ async function open(pos) {
   // Two of them in fullscreen (the corner control and the transport's).
   await page.getByLabel("Exit fullscreen").first().click();
   await page.waitForTimeout(500);
-  // Now stop the feed from the chrome's own Back.
-  // SCOPED TO THE OVERLAY. The side panel's own "← Back" is a button whose
-  // text starts with the same word, and clicking that one leaves the screen
-  // instead of stopping the feed, which is the opposite of what is under
-  // test here.
+  // BACK MEANS BACK. It used to stop the feed and keep you here, which left
+  // a dead black stage and no chrome, because the chrome is what carried
+  // the button. Reported as "the back button is straight up broken".
+  //
+  // SCOPED TO THE OVERLAY: the side panel's own "← Back" reads the same and
+  // has always left the screen, so an unscoped selector would pass against
+  // the broken build.
   await wake();
   await page.locator('.theater-overlay [aria-label="Back"]').first().click();
   await page.waitForTimeout(800);
-  check("the feed stopped", await page.evaluate(() =>
-    !document.getElementById("player-slot")?.hasChildNodes?.() ||
-    !document.querySelector(".theater-overlay")));
   check(
-    "and the chrome host comes down with it",
-    (await box()) === null,
-    (await box()) ?? "",
+    "the in-picture Back leaves the screen",
+    (await page.evaluate(() => window.__sportsClosed ?? 0)) === 1,
+    `onClose called ${await page.evaluate(() => window.__sportsClosed ?? 0)}x`,
   );
-  check(
-    "so the theater's own Back is hittable again",
-    await page
-      .locator(".sportstheater__back")
-      .click({ timeout: 3000 })
-      .then(() => true)
-      .catch(() => false),
-  );
+  check("and the whole screen goes with it", await page.evaluate(() =>
+    !document.querySelector(".sportstheater")));
+  // Weaker than it looks, and worth saying so: unmounting always removed
+  // the host, even before v0.9.36. The guard that commit added is for the
+  // feed stopping while the screen STAYS mounted, and the only path left to
+  // that is the game-change clear, which this entry cannot drive (the
+  // fixture is read once at load). This is a teardown sanity check, not
+  // cover for that guard.
+  check("and the chrome host with it", (await box()) === null, (await box()) ?? "");
   await ctx.close();
 }
 

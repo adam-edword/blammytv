@@ -168,17 +168,20 @@ export function SportsTheater({
     );
   }, []);
 
+  /*
+   * Clearing the feed. NO BUTTON REACHES THIS any more, and that is the
+   * fix: the chrome's Back used to, which is how pressing back left a dead
+   * black stage instead of leaving the screen.
+   *
+   * What still calls it is the game-change effect below — a channel
+   * belongs to the game it was matched to, and a Cubs feed under a Blue
+   * Jays matchup is worse than silence. Changing FEED never needed it: the
+   * rail is a list of channels and clicking one tunes it.
+   */
   const stop = useCallback(() => {
     // Bumping is how a counter says "nothing in flight is wanted".
     want.current++;
     setTuned(null);
-    // NOT a fullscreen drop as well, though it looks like it wants one: in
-    // fullscreen the side panel that carries the rail is hidden, so
-    // stopping there would leave nothing on screen. It cannot be reached.
-    // The corner control is "Exit fullscreen" rather than Back while
-    // fullscreen, and `t` from fullscreen expands and exits rather than
-    // collapsing (TheaterOverlay's key map says so out loud). A guard here
-    // would be code no path runs and no harness can fail.
   }, []);
 
   /**
@@ -263,12 +266,37 @@ export function SportsTheater({
   );
 
   const directApi = useDirectOverlay(isTauri() && !!tuned, tuned?.url ?? null, meta, {
-    // The overlay's close returns you to the RAIL, not to the board: you
-    // are still watching this game, you just stopped this feed. Escape is
-    // the way out of the theater, and it stays that way.
-    onClose: stop,
+    /*
+     * BACK MEANS BACK. It used to mean `stop`, on the reasoning that you
+     * are still watching this game and only wanted a different feed for it
+     * — so it dropped you on the rail rather than the board.
+     *
+     * That reasoning does not survive contact with the button. There are
+     * two controls reading "Back" on this screen, this one and the side
+     * panel's, and a person who presses the one inside the picture is
+     * leaving, not shopping for a channel. What they got instead was a
+     * dead black stage: no picture, and the chrome that offered the button
+     * gone with the feed, because it is portaled and gated on `tuned`.
+     * Adam reported it as the back button being broken, and he was right.
+     *
+     * Picking another feed never needed a button anyway — the rail is a
+     * list of channels and clicking one tunes it.
+     */
+    onClose,
     onExpand: () => {},
-    onCollapse: stop,
+    /*
+     * COLLAPSE IS THE ONE THE BUTTON ACTUALLY CALLS. The chrome's top-left
+     * control fires `collapse` in theater and `exitFullscreen` in
+     * fullscreen (TheaterOverlay renders one button for both) — `close` is
+     * the old X and nothing reaches it any more. Wiring only `close` here
+     * would read like a fix and change nothing, which is exactly the
+     * mistake this comment exists to stop the next reader repeating.
+     *
+     * `t` shares this handler, and leaving is the right answer there too:
+     * collapse means "out of the player", and this screen has no mini
+     * player to collapse into.
+     */
+    onCollapse: onClose,
     onFullscreen: () => {
       setFullscreen(true);
       void tauriSetFullscreen(true).catch(() => {});

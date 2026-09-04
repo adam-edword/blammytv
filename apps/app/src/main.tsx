@@ -117,14 +117,29 @@ if (params.get("overlay") === "1") {
     ...g,
     start: new Date(g.start),
   });
+  /**
+   * Closing UNMOUNTS, the way SportsScreen's own `setOpen(null)` does.
+   *
+   * It used to be a bare no-op, which quietly made "Back leaves the screen"
+   * untestable: the call landed and nothing moved, so the harness could not
+   * tell leaving from doing nothing. The counter is the assertion; the
+   * unmount is what makes the teardown checks after it mean anything.
+   */
   function SportsHarness({ game, others }: { game: Fixture; others: Fixture[] }) {
+    const [open, setOpen] = React.useState(true);
+    const catalog = useCatalog();
+    if (!open) return null;
     return (
       <SportsTheater
         game={game}
         others={others}
-        catalog={useCatalog()}
+        catalog={catalog}
         onOpen={() => {}}
-        onClose={() => {}}
+        onClose={() => {
+          const w = window as unknown as { __sportsClosed?: number };
+          w.__sportsClosed = (w.__sportsClosed ?? 0) + 1;
+          setOpen(false);
+        }}
       />
     );
   }
