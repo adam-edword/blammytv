@@ -97,7 +97,9 @@ async function open(opts = {}) {
   await page.waitForSelector(".navcap", { timeout: 20_000 });
   await page.getByRole("button", { name: /^discover$/i }).first().click();
   await page.waitForTimeout(2200);
-  await page.locator(".navcap__rec").click();
+  // A plain navcap__item since v0.9.45, keyed like every other chip in the
+  // row — the thumb travels to it and its label only opens under that.
+  await page.locator('.navcap__row--sub [data-key="rec"]').click();
   await page.waitForSelector(".rec", { timeout: 8000 });
   return { page, errs, asked };
 }

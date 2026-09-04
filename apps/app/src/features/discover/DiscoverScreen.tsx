@@ -41,6 +41,7 @@ import { useViewStack } from "../../lib/viewStack";
 import { Recommender } from "./Recommender";
 import {
   onRecommendRequest,
+  publishRecommend,
   resetRecommend,
   takeRecommendRequest,
 } from "./recommend";
@@ -105,7 +106,13 @@ export function DiscoverScreen() {
   useEffect(() => {
     const honour = () => {
       const want = takeTypeFilterRequest();
-      if (want && want !== viewRef.current.filter)
+      if (!want) return;
+      // `|| rec` and not just a filter change: the chips share row 2's thumb
+      // with REC now, so pressing the filter you are already on while the
+      // recommender is open is a real press — it means "back to the grid" —
+      // and dropping it left the chip you clicked dead under a thumb parked
+      // somewhere else.
+      if (want !== viewRef.current.filter || viewRef.current.rec)
         navigate({ filter: want, genre: viewRef.current.genre });
     };
     honour();
@@ -125,6 +132,9 @@ export function DiscoverScreen() {
     return onRecommendRequest(honour);
   }, [navigate]);
   useEffect(() => () => resetRecommend(), []);
+  /* And the other direction, so the header's thumb can sit on the chip:
+   * whatever the committed view is, say so, Back and Forward included. */
+  useEffect(() => publishRecommend(!!view.rec), [view.rec]);
   /* And the other direction: whatever the committed view is, say so —
    * including when Back or Forward is what changed it. */
   useEffect(() => publishTypeFilter(filter), [filter]);
@@ -448,6 +458,28 @@ export function DiscoverScreen() {
     [],
   );
 
+  /* The recommender takes the whole tab. Rendered BEFORE the grid's return
+   * rather than inside it: it has its own full-height layout and must not
+   * inherit the scroll container.
+   *
+   * AND BEFORE THE ERROR STATE BELOW, which is about the GRID and not about
+   * this. The recommender never reads the catalog config: its artwork is a
+   * prop and its answers come from TMDB, resolved by IMDb id. So a config
+   * that failed to load is not a reason to withhold it — and withholding it
+   * left the header's REC chip lit, with its label open under the thumb,
+   * over a page that was not on screen. */
+  if (view.rec)
+    return (
+      <Recommender
+        // "Any" means films here. TMDB's keyword discovery is per type, and
+        // a picker that answers a mood with a TV series when you asked for
+        // something to watch tonight is the less useful default.
+        kind={filter === "series" ? "series" : "movie"}
+        posters={items.map((i) => i.poster ?? "").filter(Boolean).slice(0, 12)}
+        onOpen={open}
+      />
+    );
+
   if (cfg.status === "error") {
     return (
       <div className="discover discover--empty">
@@ -479,21 +511,6 @@ export function DiscoverScreen() {
       </div>
     );
   }
-
-  /* The recommender takes the whole tab. Rendered BEFORE the grid's return
-   * rather than inside it: it has its own full-height layout and must not
-   * inherit the scroll container. */
-  if (view.rec)
-    return (
-      <Recommender
-        // "Any" means films here. TMDB's keyword discovery is per type, and
-        // a picker that answers a mood with a TV series when you asked for
-        // something to watch tonight is the less useful default.
-        kind={filter === "series" ? "series" : "movie"}
-        posters={items.map((i) => i.poster ?? "").filter(Boolean).slice(0, 12)}
-        onOpen={open}
-      />
-    );
 
   return (
     <div

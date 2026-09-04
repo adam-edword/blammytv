@@ -256,39 +256,97 @@ check("and it is the Settings button",
       radius: cs.borderRadius,
     };
   });
-  // The REC chip, and the capsule sizing that had to change to fit it.
-  const rec = await page.evaluate(() => {
-    const el = document.querySelector(".navcap__rec");
-    const cap = document.querySelector(".navcap");
-    const search = document.querySelector(".navcap__search");
-    if (!el || !cap || !search) return null;
-    const r = el.getBoundingClientRect();
-    const c = cap.getBoundingClientRect();
-    return {
-      w: r.width,
-      h: r.height,
-      text: el.textContent.trim(),
-      // Negative means it hangs off the end, which is what it did before
-      // the open capsule was allowed to size itself from row 2.
-      clearance: c.right - r.right,
-      search: search.getBoundingClientRect().width,
-    };
-  });
+  // ---- REC shares row 2's thumb ----------------------------------------
+  //
+  // It used to be its own standing pill: permanently lit, permanently
+  // labelled, which made the one ACTION in the row its loudest element. It
+  // is a plain navcap__item now, so it obeys the same grammar as the type
+  // chips — icon alone until it is the thing you are looking at, and then
+  // the label opens under the thumb that travelled to it.
+  //
+  // Measured in both states, because every one of these is only half a
+  // check on its own: a chip that never labels itself passes "icon only",
+  // and one that always does passes "opens its label".
+  const readRec = () =>
+    page.evaluate(() => {
+      const el = document.querySelector('.navcap__row--sub [data-key="rec"]');
+      const cap = document.querySelector(".navcap");
+      const search = document.querySelector(".navcap__search");
+      const thumb = document.querySelector(".navcap__row--sub .navcap__pill");
+      if (!el || !cap || !search || !thumb) return null;
+      const r = el.getBoundingClientRect();
+      const c = cap.getBoundingClientRect();
+      const t = thumb.getBoundingClientRect();
+      const lit = [...document.querySelectorAll(".navcap__row--sub [aria-current]")];
+      return {
+        w: r.width,
+        h: r.height,
+        text: el.textContent.trim(),
+        // The clip box IS the state: the label is in the DOM either way and
+        // 0px wide is the entire difference between the two designs.
+        lbl: el.querySelector(".navcap__lbl").getBoundingClientRect().width,
+        // Negative means it hangs off the end, which is what it did before
+        // the open capsule was allowed to size itself from row 2.
+        clearance: c.right - r.right,
+        search: search.getBoundingClientRect().width,
+        thumbOff: Math.abs(t.left + t.width / 2 - (r.left + r.width / 2)),
+        thumbW: t.width,
+        // Exactly one thing in a group can be the current one.
+        lit: lit.map((n) => n.dataset.key ?? "?"),
+      };
+    });
+
+  const rec = await readRec();
   check("the REC chip is in the sub row", !!rec);
   if (rec) {
-    check("and reads REC", rec.text === "REC", rec.text);
-    // A pill, not a circle: the circles in this row are filters and this is
-    // an action, so it must not read as a fourth type.
-    check("and is a pill, not a circle", rec.w > rec.h + 20,
-      `${rec.w.toFixed(0)}x${rec.h.toFixed(0)}`);
-    // THE ONE THAT MATTERS. Row 2 used to be barred from sizing the capsule
-    // (width:0, min-width:100%), so everything it gained came out of the
-    // search field — REC hung 179px past the capsule's right edge with the
-    // field crushed to its magnifier.
+    check("and shows only its icon while it is not the page you are on",
+      rec.lbl < 1, `${rec.lbl.toFixed(1)}px of label`);
+    check("so it is a circle like the type chips, not a standing pill",
+      Math.abs(rec.w - rec.h) < 0.5, `${rec.w.toFixed(1)}x${rec.h.toFixed(1)}`);
+    check("and the thumb is elsewhere", rec.thumbOff > 20,
+      `${rec.thumbOff.toFixed(0)}px from its centre`);
+    // THE ONE THAT MATTERS FOR THE CAPSULE. Row 2 used to be barred from
+    // sizing it (width:0, min-width:100%), so everything the row gained came
+    // out of the search field — REC hung 179px past the capsule's right edge
+    // with the field crushed to its magnifier.
     check("and sits inside the capsule", rec.clearance > 0,
       `${rec.clearance.toFixed(0)}px clearance`);
     check("without crushing the search field", rec.search >= 150,
       `${rec.search.toFixed(0)}px`);
+
+    await page.locator('.navcap__row--sub [data-key="rec"]').click();
+    // The travel and the clip open on the same --nav-dur clock; the page
+    // swap behind it is what actually flips aria-current.
+    await page.waitForSelector(".rec", { timeout: 8000 }).catch(() => {});
+    await page.waitForTimeout(900);
+    const on = await readRec();
+    check("clicking it opens the recommender",
+      (await page.locator(".rec").count()) === 1);
+    check("  and the thumb travels onto the chip", on.thumbOff < 1.5,
+      `${on.thumbOff.toFixed(2)}px off centre`);
+    check("  at the chip's own width", Math.abs(on.thumbW - on.w) < 1.5,
+      `${on.thumbW.toFixed(1)} vs ${on.w.toFixed(1)}`);
+    check("  with its label open under it", on.lbl > 20 && on.text === "REC",
+      `${on.lbl.toFixed(1)}px "${on.text}"`);
+    // Two lit chips in a group with one thumb is the bug this catches: the
+    // filter you would return to is still set, and leaving its aria-current
+    // on opens its label with the thumb parked somewhere else.
+    check("  and it is the ONLY lit chip in the row",
+      on.lit.length === 1 && on.lit[0] === "rec", JSON.stringify(on.lit));
+    check("  the capsule grew to hold the open label", on.clearance > 0,
+      `${on.clearance.toFixed(0)}px clearance`);
+    check("  still without crushing the search field", on.search >= 150,
+      `${on.search.toFixed(0)}px`);
+
+    // Back to the grid via the chip that is ALREADY the current filter, on
+    // purpose: sharing the thumb makes that a real press ("back to the
+    // grid") rather than a no-op, and the request used to be dropped for
+    // not changing the filter — a dead chip under a thumb parked elsewhere.
+    await page.locator('.navcap__row--sub [data-key="all"]').click();
+    await page.waitForTimeout(900);
+    check("  and the filter chip you are already on closes it again",
+      (await page.locator(".rec").count()) === 0 &&
+        (await page.locator(".discover").count()) === 1);
   }
 
   check("the sub row and its Any chip are reachable", !!m);

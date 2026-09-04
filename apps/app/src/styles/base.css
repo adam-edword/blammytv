@@ -726,27 +726,31 @@ button {
  * shipped — 161 pixels wrong in each corner, 119/255 at the worst of them.
  */
 
-/* The field takes whatever row 1 leaves. flex-shrink must be 1: the Figma
- * spells this flex:1 0 0, and a shrink of 0 means it can never compress
- * below the input's own intrinsic width, which shoved the capsule wider. */
+/*
+ * A FIXED WIDTH, and it has to be one.
+ *
+ * It was `flex: 1 1 0; min-width: 190px` — the field taking whatever row 1
+ * left over. That works right up until something sits AFTER it, which REC
+ * now does, and then it is circular: layoutRow walks the row left to right
+ * setting each label's clip width, and it needs this field's width to know
+ * where REC starts. But the field is flexible, so its width is a
+ * CONSEQUENCE of those very label widths — measured 200px with REC's label
+ * shut and 190px with it open (its floor). The walk reads 200, REC settles
+ * at 190, and the thumb parks 10px right of the chip. Measured exactly
+ * that, on the real row.
+ *
+ * 200px is what the flex algorithm settled on anyway with the row at its
+ * natural width, so nothing moves. What changes is that the number is now
+ * KNOWABLE before the labels animate, which is the same rule everything
+ * else in this capsule follows: compute, never measure mid-transition.
+ *
+ * flex: none for the second reason .navcap__item--text has it — place()
+ * transiently overflows this row while measuring, and a shrinkable item
+ * gets squeezed inside that window and measured at the squeezed size.
+ */
 .navcap__search {
-  flex: 1 1 0;
-  /*
-   * A REAL FLOOR, not zero.
-   *
-   * The capsule is a column flex box sized by its widest row, and row 1 was
-   * always that row — because this field declared a max-content width of
-   * nothing (`min-width: 0` plus the input's own `width: 0`), so row 2 never
-   * asked for any space. Adding the REC chip made row 2 genuinely wider than
-   * row 1, and with nothing to size against, the row overflowed instead:
-   * "Any" clipped at the left edge, this field crushed to just its
-   * magnifier, and REC hanging 13px past the capsule.
-   *
-   * A floor here lets row 2 state its real width, so the capsule grows to
-   * fit rather than spilling. It still shrinks below its natural size on a
-   * narrow window; it just cannot vanish.
-   */
-  min-width: 190px;
+  flex: none;
+  width: 200px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -918,51 +922,19 @@ button {
   line-height: 1;
 }
 /*
- * The recommender chip. A pill, not a circle, and that is the point: the
- * circles in this row are FILTERS and this is an action, so it should not
- * read as one of them. Same 43px height as everything else, so the row
- * still has one baseline.
+ * The recommender is a plain .navcap__item now — same collapsing icon, same
+ * travelling thumb, same label grammar as the type chips. It had its own
+ * .navcap__rec pill (permanently lit, permanently labelled), which made the
+ * one action in the row the loudest thing in it; the row reads as one set
+ * with one selection instead.
  *
- * flex: none because it sits next to the search field, which is the row's
- * only flexible item — without this the field's grow would squash the
- * label as the window narrows.
+ * flex: none, because it sits right of the search field, which is the row's
+ * only flexible item. Without it the field's grow squashes the chip exactly
+ * the way it squashed "Any" — see the note on .navcap__item--text below,
+ * which is the same bug with the same 16px-narrow thumb behind it.
  */
-.navcap__rec {
+.navcap__item[data-key="rec"] {
   flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 43px;
-  padding: 0 15px 0 13px;
-  border: 0;
-  cursor: pointer;
-  border-radius: var(--radius-pill, 999px);
-  corner-shape: round;
-  background: color-mix(in srgb, var(--text) 12%, transparent);
-  color: var(--text);
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 13px;
-  line-height: 1;
-  letter-spacing: 0.04em;
-  transition:
-    background-color 140ms ease,
-    transform 220ms var(--nav-spring);
-}
-.navcap__rec:hover {
-  background: color-mix(in srgb, var(--text) 20%, transparent);
-}
-.navcap__rec:active {
-  transform: scale(0.93);
-  transition: transform 60ms ease-out;
-}
-.navcap__rec:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
-}
-.navcap__rec svg {
-  flex: none;
-  display: block;
 }
 
 /*

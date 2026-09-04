@@ -3,6 +3,7 @@ import { broaden, score } from "./match";
 import { resolveVodItem } from "../stream/source";
 import {
   findByWords,
+  genreIds,
   imdbIdFor,
   loadTmdbKey,
   probeTmdb,
@@ -136,18 +137,41 @@ export function installDiscoverProbe(): void {
   /**
    * THE WHOLE CHAIN, end to end, on a machine that can reach both sides.
    *
-   *   btvFind("space", "horror")
+   *   btvFind("space", "horror")           // films
+   *   btvFind("series", "space", "horror") // the TV side
    *
    * words -> TMDB keyword ids -> candidates -> one picked -> its IMDb id ->
    * a real VodItem from your own addons. Every step prints, so a break
    * names itself instead of showing an empty screen. This is the shape the
    * recommender will use; running it is how we know the shape works before
    * a screen is built on it.
+   *
+   * THE OPEN QUESTION IT IS FOR NOW. On the Series filter, "horror" seems
+   * to fall through to keyword search and relax, which would mean TMDB's TV
+   * genre list does not carry Horror the way its movie list does (their TV
+   * side folds several of the film genres into "Sci-Fi & Fantasy" and
+   * similar). SEEMS TO. Nobody here has read that list — this container
+   * cannot reach TMDB — so the vocabulary is printed in full below rather
+   * than assumed, and the fix waits on seeing it.
    */
   (w as unknown as { btvFind?: (...words: string[]) => Promise<void> }).btvFind =
     async (...words: string[]) => {
       try {
-        const found = await findByWords(words, "movie");
+        // A leading "movie"/"series" picks the side. Neither is a plausible
+        // keyword, and it keeps the call variadic.
+        const kind =
+          words[0] === "series" || words[0] === "movie"
+            ? (words.shift() as "movie" | "series")
+            : "movie";
+        // The vocabulary FIRST, because it is the thing in question: which
+        // words can be genres at all on this side decides which ones go to
+        // keyword search, and that is where "space horror" went wrong.
+        const vocab = await genreIds(kind).catch(() => new Map<string, number>());
+        console.info(
+          `[probe] ${kind} genres (${vocab.size}):`,
+          [...vocab.keys()].sort(),
+        );
+        const found = await findByWords(words, kind);
         // "word -> tag" rather than just the tag: their keyword search is
         // a substring match, so seeing what a word actually resolved to is
         // the whole diagnostic. "horror" resolving to some other tag is
@@ -167,7 +191,7 @@ export function installDiscoverProbe(): void {
         const imdb = await imdbIdFor(one);
         console.info(`[probe] "${one.title}" -> ${imdb ?? "NO IMDB ID"}`);
         if (!imdb) return;
-        const item = await resolveVodItem("movie", imdb);
+        const item = await resolveVodItem(kind, imdb);
         console.info(
           item
             ? `[probe] resolved: "${item.title}" (${item.year ?? "?"}), ${item.genres.length} genres, poster ${item.poster ? "yes" : "no"}`

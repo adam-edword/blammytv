@@ -33,7 +33,11 @@ import {
   requestTypeFilter,
   type TypeFilter,
 } from "../features/discover/typeFilter";
-import { requestRecommend } from "../features/discover/recommend";
+import {
+  isRecommendOpen,
+  onRecommendChange,
+  requestRecommend,
+} from "../features/discover/recommend";
 import { UpdateChip } from "./UpdateChip";
 import { formatClock } from "../lib/time";
 import { APP_VERSION } from "../lib/version";
@@ -167,6 +171,11 @@ export function AppHeader({
   useEffect(() => onTypeFilterChange(setFilter), []);
   const [query, setQuery] = useState(getSearchQuery);
   useEffect(() => onSearchQueryChange(setQuery), []);
+  /* And REC's, for the same reason: it shares row 2's thumb now, so the
+   * header has to know whether that page is the one on screen — including
+   * when Back is what closed it, which the chip never hears about. */
+  const [recOpen, setRecOpen] = useState(isRecommendOpen);
+  useEffect(() => onRecommendChange(setRecOpen), []);
   const searchRef = useRef<HTMLInputElement>(null);
   // `/`, Ctrl+K, Ctrl+F reach the search field — which lives on Discover
   // now, so this GOES there first and asks for focus through the mailbox
@@ -372,8 +381,15 @@ export function AppHeader({
         w = mark.offsetWidth;
         markMid = x + w / 2;
       } else if (node.classList.contains("navcap__search")) {
-        // Flexible and last: nothing after it needs a position, and its
-        // width is whatever row 1 leaves over.
+        // COUNTED, not skipped. It used to be skipped on the grounds that
+        // nothing came after it; REC does now, and skipping it put the
+        // chip's thumb a whole search field to the left.
+        //
+        // offsetWidth is safe here ONLY because the field is a fixed 200px
+        // — see .navcap__search. While it was flexible this read was the
+        // width it was about to animate away from, and the thumb landed
+        // 10px off.
+        x += node.offsetWidth + gap;
         continue;
       } else {
         const key = node.dataset.key;
@@ -417,7 +433,15 @@ export function AppHeader({
     const from = pad + border;
 
     const markMid = layoutRow(rowNavRef.current, pillRef.current, active);
-    layoutRow(rowSubRef.current, subPillRef.current, filter);
+    /* ONE thumb for the whole row, REC included. The type chips and REC are
+     * mutually exclusive on screen — opening the recommender replaces the
+     * grid — so exactly one of them is what you are looking at, and the
+     * thumb sits on that one. */
+    layoutRow(
+      rowSubRef.current,
+      subPillRef.current,
+      recOpen ? "rec" : filter,
+    );
     if (markMid === null) return;
     /* The mark holds the midline; the capsule breathes around it.
      *
@@ -440,7 +464,7 @@ export function AppHeader({
      * so its margin moves only itself.
      */
     nav.style.marginLeft = `${-(markMid + from)}px`;
-  }, [active, filter, layoutRow]);
+  }, [active, filter, recOpen, layoutRow]);
 
   // A button's own width does not change when you click a DIFFERENT one, so
   // measuring is keyed on the destination set alone. It runs first because
@@ -618,18 +642,26 @@ export function AppHeader({
         {/* The GROUP carries the context, so each button's accessible name
           * can be exactly its visible label. "Show movies" read fine on its
           * own but made "Show any" out of the Any chip, and it put the
-          * accessible name out of step with the word on screen. */}
+          * accessible name out of step with the word on screen.
+          *
+          * "Discover", not "Filter by type": the row holds the field and the
+          * REC chip as well, and REC is not a filter. */}
         <div
           className="navcap__row navcap__row--sub"
           ref={rowSubRef}
           role="group"
-          aria-label="Filter by type"
+          aria-label="Discover"
           aria-hidden={!subOpen}
           {...(subOpen ? {} : { inert: "" })}
         >
           <span className="navcap__pill" ref={subPillRef} aria-hidden />
           {FILTERS.map((f) => {
-            const on = f.key === filter;
+            /* Not just `f.key === filter`: the filter you would return to
+             * is still set while the recommender is open, and leaving its
+             * aria-current on would open its label with the thumb parked on
+             * REC — a lit chip with nothing under it, and two "current"
+             * items in a group that has one. */
+            const on = !recOpen && f.key === filter;
             return (
               <button
                 key={f.key}
@@ -674,23 +706,35 @@ export function AppHeader({
               }}
             />
           </span>
-          {/* THE RECOMMENDER, after the field rather than beside the type
-            * chips. It is not a filter — it opens a different screen — so
-            * putting it in the chip run would make it read as a fourth
-            * type. Right of the field is where an action belongs.
+          {/* THE RECOMMENDER, in the row's own grammar rather than as a
+            * standing pill beside it: an icon on its own until it is the
+            * thing you are looking at, and then a label that opens under
+            * the same travelling thumb the type chips use.
             *
-            * Deliberately OUTSIDE the layoutRow walk: no data-key, so the
-            * thumb never travels to it and the mark's midline maths is
-            * untouched. The search field beside it is skipped for the same
-            * reason. */}
+            * It is a plain navcap__item with a data-key, which is all that
+            * takes — layoutRow walks it, measures it and parks the thumb on
+            * it exactly like Movies or Series. It had its own .navcap__rec
+            * pill before, permanently lit and permanently labelled, which
+            * made the one action in the row the loudest thing in it.
+            *
+            * Right of the field rather than beside the type chips, because
+            * it opens a screen instead of filtering one. */}
           <button
             type="button"
-            className="navcap__rec"
+            data-key="rec"
+            className="navcap__item"
+            aria-current={recOpen ? "true" : undefined}
             aria-label="Find something to watch"
+            ref={(el) => {
+              if (el) itemRefs.current.set("rec", el);
+              else itemRefs.current.delete("rec");
+            }}
             onClick={() => requestRecommend()}
           >
-            <SparkleIcon size={17} />
-            <span>REC</span>
+            <SparkleIcon />
+            <span className="navcap__lbl">
+              <i>REC</i>
+            </span>
           </button>
         </div>
       </nav>
