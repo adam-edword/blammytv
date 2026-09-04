@@ -226,6 +226,54 @@ check("and it is the Settings button",
     asIs.equals(round) ? "" : "the chip is drawing some other corner");
 }
 
+// ---- Row 2's "Any" chip is a CIRCLE ------------------------------------
+// Every other chip in that row is a 23px icon in 10px of padding, so they
+// all land at 43x43 and render round. "Any" is text, so its intrinsic width
+// made it an oval among circles.
+//
+// Measured, not screenshotted, because the failure mode here is arithmetic:
+// this rule has the same specificity as .navcap__item and sits below it on
+// source order alone. Put back above, the width still applies and only the
+// padding and font-size lose — which looks fine in a picture and leaves the
+// text overflowing a 23px content box.
+{
+  await page.getByRole("button", { name: /^discover$/i }).first().click();
+  await page.waitForTimeout(1500);
+  const m = await page.evaluate(() => {
+    const el = document.querySelector(".navcap__item--text");
+    const icon = document.querySelector(
+      ".navcap__row--sub .navcap__item:not(.navcap__item--text)",
+    );
+    if (!el || !icon) return null;
+    const r = el.getBoundingClientRect();
+    const t = el.querySelector(".navcap__lbl > i").getBoundingClientRect();
+    const cs = getComputedStyle(el);
+    return {
+      w: r.width,
+      h: r.height,
+      icon: icon.getBoundingClientRect().width,
+      inset: (r.width - t.width) / 2,
+      radius: cs.borderRadius,
+    };
+  });
+  check("the sub row and its Any chip are reachable", !!m);
+  if (m) {
+    check("the Any chip is square", Math.abs(m.w - m.h) < 0.5,
+      `${m.w.toFixed(1)}x${m.h.toFixed(1)}`);
+    check("and the same size as the icon chips beside it",
+      Math.abs(m.w - m.icon) < 0.5, `${m.w.toFixed(1)} vs ${m.icon.toFixed(1)}`);
+    // A square box only READS as a circle if the radius is at least half of
+    // it. 999px is the pill token; anything smaller is a rounded square.
+    check("with a radius that makes the square a circle",
+      parseFloat(m.radius) >= m.w / 2, m.radius);
+    // The icons sit in 10px of padding. Text needs comparable air or the
+    // circle reads as crammed — this is what the font-size drop buys, and
+    // it is the half of the rule that loses when the cascade is wrong.
+    check("and enough air around the label", m.inset >= 6.5,
+      `${m.inset.toFixed(2)}px a side`);
+  }
+}
+
 await ctx.close();
 
 // Reduced motion. The spin is decoration with no state behind it, so it

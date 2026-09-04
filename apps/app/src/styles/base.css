@@ -862,6 +862,36 @@ button {
   font-size: 15px;
   line-height: 1;
 }
+/*
+ * A CIRCLE, not a stadium.
+ *
+ * Every other chip in this row is a 23px icon inside 10px of padding, which
+ * lands at 43x43 and renders round. "Any" is three letters wide, so it came
+ * out oval and read as the odd one out in a row of circles.
+ *
+ * Pinned to the row height instead. The thumb follows for free: layoutRow
+ * sizes it from the item's own offsetWidth, so a square item gets a square
+ * (and therefore circular) thumb with no special case anywhere.
+ *
+ * BELOW .navcap__item, NOT UP WITH THE OTHER --text RULES, and that is
+ * load-bearing: this has the same specificity as .navcap__item, so up there
+ * its padding and font-size lost to that block on source order alone. The
+ * width still applied, which is exactly the shape of bug that looks fixed
+ * in a screenshot — 43px wide with a 23px content box the text overflowed
+ * and flex happened to centre.
+ *
+ * 13px rather than the row's 15px because the type has to sit in the same
+ * optical well the icons do. Measured: "Any" is 31.1px at 15px, leaving
+ * 5.9px a side against the 10px every icon gets; at 13px it is 26.9px and
+ * 8.0px a side. verify-nav-feedback holds both the shape and the inset.
+ */
+.navcap__item--text {
+  width: 43px;
+  padding: 0;
+  justify-content: center;
+  font-size: 13px;
+}
+
 .navcap__item:focus-visible,
 .navcap__mark:focus-visible {
   outline: 2px solid var(--accent);
