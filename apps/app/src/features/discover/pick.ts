@@ -103,11 +103,19 @@ export const RECENT_KEEP = 12;
  * it, which reads as "no results" and is simply wrong — with three
  * matching films, the fourth press has to give you one of them again.
  */
-export function pick(
-  pool: readonly VodItem[],
+/*
+ * GENERIC OVER `{ id }`, not tied to VodItem, and the reason is the TMDB
+ * path. There the pool is a list of NAMES that TMDB thinks match, and only
+ * the one that gets picked is resolved against the user's addons into
+ * something playable — resolving twenty to throw away nineteen would be
+ * twenty searches a press. So the thing being picked from is not a VodItem
+ * yet, and this function never cared: an id is all it reads.
+ */
+export function pick<T extends { id: string }>(
+  pool: readonly T[],
   recent: readonly string[] = [],
   rng: () => number = Math.random,
-): VodItem | null {
+): T | null {
   if (pool.length === 0) return null;
   const skip = new Set(recent);
   const fresh = pool.filter((i) => !skip.has(i.id));
