@@ -216,3 +216,263 @@
     transform: none;
   }
 }
+
+/* ------------------------------------------------------------ recommender */
+
+/*
+ * The keyword picker. A single centred column over a drifting poster wall.
+ *
+ * The wall is DECORATION and is treated as such: aria-hidden in the markup,
+ * pointer-events off here, and dimmed far enough that the input over it
+ * still carries the contrast. It is the only thing on the page that moves,
+ * which is what stops the screen reading as an empty form.
+ */
+.rec {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.rec__wall {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 22px;
+  pointer-events: none;
+  /* Faded at the edges so the rows leave the screen rather than stopping
+   * at it, and dimmed under the stage so the input never fights a poster
+   * for contrast. */
+  opacity: 0.25;
+  mask-image: radial-gradient(
+    ellipse 70% 60% at 50% 50%,
+    transparent 30%,
+    #000 78%
+  );
+}
+
+.rec__wallrow {
+  display: flex;
+  gap: 22px;
+  flex: none;
+  width: max-content;
+  /* Each row drifts at its own speed and direction, so the wall reads as
+   * depth rather than one sliding sheet. */
+  animation: rec-drift 90s linear infinite;
+}
+.rec__wallrow--1 {
+  animation-duration: 130s;
+  animation-direction: reverse;
+}
+.rec__wallrow--2 {
+  animation-duration: 110s;
+}
+
+@keyframes rec-drift {
+  from {
+    transform: translateX(0);
+  }
+  /* Half, because the row holds two copies of the same twelve: at -50% the
+   * second copy sits exactly where the first started, so the loop has no
+   * seam. */
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.rec__wallcard {
+  flex: none;
+  width: 150px;
+  aspect-ratio: 2 / 3;
+  border-radius: 12px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+.rec__wallcard img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.rec__stage {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: min(620px, 92%);
+  text-align: center;
+}
+
+.rec__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.rec__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 10px 0 14px;
+  border: 0;
+  cursor: pointer;
+  border-radius: var(--radius-pill, 999px);
+  corner-shape: round;
+  background: color-mix(in srgb, var(--text) 14%, transparent);
+  color: var(--text);
+  font: 500 14px/1 var(--font-text);
+  transition:
+    background-color 140ms ease,
+    transform 220ms var(--nav-spring);
+}
+.rec__chip:hover {
+  background: color-mix(in srgb, var(--text) 22%, transparent);
+}
+.rec__chip:active {
+  transform: scale(0.94);
+  transition: transform 60ms ease-out;
+}
+.rec__chip svg {
+  opacity: 0.6;
+}
+
+.rec__bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.rec__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 52px;
+  padding: 0 20px;
+  border: 0;
+  outline: none;
+  border-radius: var(--radius-pill, 999px);
+  corner-shape: round;
+  background: color-mix(in srgb, var(--text) 12%, transparent);
+  /* The wall shows through everything else on this screen; the field is
+   * where the eye goes, so it gets a solid-enough ground of its own. */
+  backdrop-filter: blur(12px);
+  color: var(--text);
+  font: 400 15px/1 var(--font-text);
+}
+.rec__input::placeholder {
+  color: color-mix(in srgb, var(--text) 50%, transparent);
+}
+.rec__input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.rec__go {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border: 0;
+  cursor: pointer;
+  border-radius: var(--radius-pill, 999px);
+  corner-shape: round;
+  background: color-mix(in srgb, var(--text) 18%, transparent);
+  backdrop-filter: blur(12px);
+  color: var(--text);
+  transition:
+    background-color 140ms ease,
+    transform 220ms var(--nav-spring),
+    opacity 140ms ease;
+}
+.rec__go:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text) 28%, transparent);
+}
+.rec__go:active:not(:disabled) {
+  transform: scale(0.92);
+  transition: transform 60ms ease-out;
+}
+/* Dimmed rather than hidden: the button has to stay where it is so the row
+ * does not reflow the moment the first chip lands. */
+.rec__go:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.rec__note {
+  margin: 0;
+  color: color-mix(in srgb, var(--text) 62%, transparent);
+  font: 400 13px/1.5 var(--font-text);
+}
+.rec__note--bad {
+  color: var(--danger, #ff6b6b);
+}
+.rec__note code {
+  font-family: ui-monospace, monospace;
+}
+
+.rec__pick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.rec__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  color: var(--text);
+  transition: transform 220ms var(--nav-spring);
+}
+.rec__card:hover {
+  transform: scale(1.03);
+}
+.rec__card img {
+  width: 190px;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  display: block;
+  border-radius: 14px;
+  box-shadow: 0 18px 44px rgb(0 0 0 / 0.55);
+}
+.rec__cardname {
+  font: 700 16px/1.3 var(--font-headline);
+}
+
+.rec__again {
+  height: 38px;
+  padding: 0 18px;
+  border: 0;
+  cursor: pointer;
+  border-radius: var(--radius-pill, 999px);
+  corner-shape: round;
+  background: color-mix(in srgb, var(--text) 12%, transparent);
+  color: var(--text);
+  font: 600 13px/1 var(--font-text);
+}
+.rec__again:hover {
+  background: color-mix(in srgb, var(--text) 20%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rec__wallrow {
+    animation: none;
+  }
+}

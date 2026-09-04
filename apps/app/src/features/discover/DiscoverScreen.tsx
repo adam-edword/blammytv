@@ -38,6 +38,12 @@ import {
 import { scrubbedMessage } from "../../lib/errors";
 import { useMouseNav } from "../../lib/mouseNav";
 import { useViewStack } from "../../lib/viewStack";
+import { Recommender } from "./Recommender";
+import {
+  onRecommendRequest,
+  resetRecommend,
+  takeRecommendRequest,
+} from "./recommend";
 import { loadAioUrl } from "../settings/aiostreams";
 import { readDiscoverSession, saveDiscoverSession } from "./session";
 
@@ -54,7 +60,14 @@ import type { TypeFilter } from "./typeFilter";
 /** What Discover is showing: the type pill and the selected genre. Search
  * is deliberately NOT in here — it changes per keystroke, and a history
  * entry per character is not a page. */
-type DiscoverView = { filter: TypeFilter; genre: string | null };
+type DiscoverView = {
+  filter: TypeFilter;
+  genre: string | null;
+  /* The recommender is a PAGE, so it lives in the view stack like the
+   * genre and the type do. Back and the mouse's back button then leave it
+   * for free, with the grid underneath restored to where it was. */
+  rec?: true;
+};
 
 type Cfg =
   | { status: "loading" }
@@ -98,6 +111,20 @@ export function DiscoverScreen() {
     honour();
     return onTypeFilterRequest(honour);
   }, [navigate]);
+  /* The REC chip, drained the same way and for the same reason: the header
+   * can press it while this screen is unmounted, and App holds the swap
+   * back by NAV_SETTLE_MS on top of that. Navigating rather than setting
+   * state is what puts the page in history, so Back leaves it. */
+  useEffect(() => {
+    const honour = () => {
+      if (!takeRecommendRequest()) return;
+      if (viewRef.current.rec) return; // already there; do not stack it
+      navigate({ ...viewRef.current, rec: true });
+    };
+    honour();
+    return onRecommendRequest(honour);
+  }, [navigate]);
+  useEffect(() => () => resetRecommend(), []);
   /* And the other direction: whatever the committed view is, say so —
    * including when Back or Forward is what changed it. */
   useEffect(() => publishTypeFilter(filter), [filter]);
@@ -452,6 +479,21 @@ export function DiscoverScreen() {
       </div>
     );
   }
+
+  /* The recommender takes the whole tab. Rendered BEFORE the grid's return
+   * rather than inside it: it has its own full-height layout and must not
+   * inherit the scroll container. */
+  if (view.rec)
+    return (
+      <Recommender
+        // "Any" means films here. TMDB's keyword discovery is per type, and
+        // a picker that answers a mood with a TV series when you asked for
+        // something to watch tonight is the less useful default.
+        kind={filter === "series" ? "series" : "movie"}
+        posters={items.map((i) => i.poster ?? "").filter(Boolean).slice(0, 12)}
+        onOpen={open}
+      />
+    );
 
   return (
     <div
