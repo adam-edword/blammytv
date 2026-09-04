@@ -125,6 +125,11 @@ export function SportsTheater({
   const tunedRef = useRef<Tuned | null>(null);
   tunedRef.current = tuned;
   const [fullscreen, setFullscreen] = useState(false);
+  /** Read by `stop` and by the unmount cleanup, both of which are stable
+   * callbacks that must not close over a stale flag. Declared here, beside
+   * the state, because both readers sit above where it used to live. */
+  const fsRef = useRef(fullscreen);
+  fsRef.current = fullscreen;
 
   /**
    * Tune a rail row.
@@ -167,6 +172,13 @@ export function SportsTheater({
     // Bumping is how a counter says "nothing in flight is wanted".
     want.current++;
     setTuned(null);
+    // NOT a fullscreen drop as well, though it looks like it wants one: in
+    // fullscreen the side panel that carries the rail is hidden, so
+    // stopping there would leave nothing on screen. It cannot be reached.
+    // The corner control is "Exit fullscreen" rather than Back while
+    // fullscreen, and `t` from fullscreen expands and exits rather than
+    // collapsing (TheaterOverlay's key map says so out loud). A guard here
+    // would be code no path runs and no harness can fail.
   }, []);
 
   /**
@@ -326,15 +338,31 @@ export function SportsTheater({
     host.id = "inv-chrome";
     chromeHost.current = host;
   }
+  /*
+   * UP WITH THE FEED, DOWN WITH IT. Keyed on `tuned`, not on mount.
+   *
+   * The host is position:fixed with no box of its own; InvertedPlayer's rAF
+   * gives it one by writing left/top/width/height inline, and nothing ever
+   * takes those off again. So a host left in the document after the feed
+   * stopped is an EMPTY layer, still the size of the stage, sitting over
+   * the theater and eating every click inside it. In fullscreen that box is
+   * the whole window. StreamScreen has guarded exactly this since the
+   * pop-out work ("an empty full-window layer above the app swallowed every
+   * click"); this host never got the same treatment.
+   *
+   * The override is cleared here too rather than only on unmount: it points
+   * at an api for a playback that has stopped.
+   */
+  const playing = !!tuned;
   useEffect(() => {
     const host = chromeHost.current;
-    if (!host) return;
+    if (!host || !playing) return;
     document.body.appendChild(host);
     return () => {
       host.remove();
       setOverlayApiOverride(null);
     };
-  }, []);
+  }, [playing]);
 
   useMouseNav(onClose);
   useEffect(() => {
@@ -376,8 +404,6 @@ export function SportsTheater({
 
   // Leaving the theater with the window still in OS fullscreen would strand
   // the whole app there, with no player left to take it out.
-  const fsRef = useRef(fullscreen);
-  fsRef.current = fullscreen;
   useEffect(
     () => () => {
       if (fsRef.current) void tauriSetFullscreen(false).catch(() => {});

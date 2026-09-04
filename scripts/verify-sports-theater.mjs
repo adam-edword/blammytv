@@ -179,6 +179,72 @@ async function open(pos) {
   await ctx.close();
 }
 
+// ---- Stopping the feed must not strand you ----------------------------
+// The player chrome's own Back does NOT leave this screen: it stops the
+// feed and hands you back to the rail, because you are still watching this
+// game and only wanted a different channel for it. Two things made that a
+// trap rather than a step back.
+//
+// The host that carries the chrome is position:fixed with no box of its
+// own; InvertedPlayer writes left/top/width/height onto it inline and never
+// takes them off. Left in the document after the feed stopped it is an
+// EMPTY layer the size of the stage, over the theater, eating clicks. In
+// fullscreen that box is the whole window and the side panel carrying the
+// only visible way out is hidden, so the tab could only be escaped by
+// leaving it.
+{
+  const { page, ctx } = await open(82);
+  /** The chrome hides when the pointer is idle, and a click aimed at a
+   * faded control is intercepted by the overlay itself. Wake it first —
+   * two moves, because one does not register as movement. */
+  const wake = async () => {
+    await page.mouse.move(700, 400);
+    await page.mouse.move(720, 420);
+    await page.waitForTimeout(250);
+  };
+  const box = () =>
+    page.evaluate(() => {
+      const h = document.getElementById("inv-chrome");
+      return h ? `${h.style.left},${h.style.top},${h.style.width},${h.style.height}` : null;
+    });
+  check("the chrome host has a box while the feed plays", !!(await box()));
+  // Fullscreen first: that is the state with no other control on screen.
+  await wake();
+  await page.getByLabel("Fullscreen").click();
+  await page.waitForTimeout(500);
+  check("fullscreen is on", await page.evaluate(() =>
+    !!document.querySelector(".sportstheater--full")));
+  await wake();
+  // Two of them in fullscreen (the corner control and the transport's).
+  await page.getByLabel("Exit fullscreen").first().click();
+  await page.waitForTimeout(500);
+  // Now stop the feed from the chrome's own Back.
+  // SCOPED TO THE OVERLAY. The side panel's own "← Back" is a button whose
+  // text starts with the same word, and clicking that one leaves the screen
+  // instead of stopping the feed, which is the opposite of what is under
+  // test here.
+  await wake();
+  await page.locator('.theater-overlay [aria-label="Back"]').first().click();
+  await page.waitForTimeout(800);
+  check("the feed stopped", await page.evaluate(() =>
+    !document.getElementById("player-slot")?.hasChildNodes?.() ||
+    !document.querySelector(".theater-overlay")));
+  check(
+    "and the chrome host comes down with it",
+    (await box()) === null,
+    (await box()) ?? "",
+  );
+  check(
+    "so the theater's own Back is hittable again",
+    await page
+      .locator(".sportstheater__back")
+      .click({ timeout: 3000 })
+      .then(() => true)
+      .catch(() => false),
+  );
+  await ctx.close();
+}
+
 await browser.close();
 console.log(fail ? `${fail} FAILURES` : "ALL PASS");
 process.exit(fail ? 1 : 0);
