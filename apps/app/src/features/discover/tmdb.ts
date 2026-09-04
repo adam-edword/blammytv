@@ -60,10 +60,69 @@ export function tmdbEnabled(): boolean {
   return loadTmdbKey().length > 0;
 }
 
-/** One of TMDB's keyword tags. */
+/** One of TMDB's keyword tags, and the word that produced it. */
 export interface TmdbKeyword {
   id: number;
   name: string;
+  /**
+   * The word the user typed.
+   *
+   * Carried because a keyword's NAME is not what was typed: their search is
+   * a substring match, so "horror" can come back as some other tag whose
+   * text contains it. Deciding "did this word match" by comparing names
+   * called a matched word unmatched, and the screen then told Adam there
+   * was "no tag for horror" in the same breath as relaxing a two-keyword
+   * query, which cannot both be true.
+   */
+  word: string;
+}
+
+/**
+ * TMDB's GENRES, which are a different vocabulary from its keywords and the
+ * reason "space horror" went wrong.
+ *
+ * Horror is a genre there, not a keyword. Asking /search/keyword for it
+ * returns whatever tag happens to contain the string, so the query became
+ * "space AND <something tangential>", found nothing, relaxed to OR, and
+ * answered with a film that merely has "space" in it. The Super Mario
+ * Galaxy Movie, in Adam's case.
+ *
+ * So a typed word is checked against the genre list FIRST and only falls
+ * through to keywords if it is not one. Cached for the session: it is a
+ * fixed list of about twenty and it does not change while the app is open.
+ */
+const genreCache = new Map<string, Map<string, number>>();
+
+/**
+ * Forget the cached genre lists.
+ *
+ * For tests, which share one module instance: a cache nothing can clear is
+ * a cache that leaks between cases, and it did — one case teaching it that
+ * "horror" is a genre changed what every later case asked for.
+ */
+export function clearTmdbCache(): void {
+  genreCache.clear();
+}
+
+export async function genreIds(
+  kind: "movie" | "series",
+): Promise<Map<string, number>> {
+  const hit = genreCache.get(kind);
+  if (hit) return hit;
+  const path = kind === "movie" ? "/genre/movie/list" : "/genre/tv/list";
+  const json = (await ask(path, {})) as {
+    genres?: { id?: number; name?: string }[];
+  };
+  const out = new Map<string, number>();
+  for (const g of json.genres ?? [])
+    if (g.id != null && g.name) out.set(g.name.trim().toLowerCase(), g.id);
+  // "Science Fiction" is what they call it and "sci-fi" is what people
+  // type. One alias rather than a table: the rest of their names are the
+  // words anyone would use.
+  const sf = out.get("science fiction");
+  if (sf != null) out.set("sci-fi", sf);
+  genreCache.set(kind, out);
+  return out;
 }
 
 /**
@@ -118,7 +177,9 @@ export async function keywordIds(words: readonly string[]): Promise<TmdbKeyword[
           results?: { id?: number; name?: string }[];
         };
         const hit = json.results?.[0];
-        return hit?.id != null ? { id: hit.id, name: hit.name ?? w } : null;
+        return hit?.id != null
+          ? { id: hit.id, name: hit.name ?? w, word: w }
+          : null;
       }),
   );
   return out.filter((k): k is TmdbKeyword => k !== null);
@@ -136,11 +197,17 @@ export async function discoverByKeywords(
   ids: readonly number[],
   kind: "movie" | "series",
   mode: "all" | "any" = "all",
+  /** Genre ids, joined the same way. A word that names a TMDB genre goes
+   * here instead of through /search/keyword, which is what makes "space
+   * horror" mean what it says. */
+  genres: readonly number[] = [],
 ): Promise<TmdbCandidate[]> {
-  if (ids.length === 0) return [];
+  if (ids.length === 0 && genres.length === 0) return [];
   const path = kind === "movie" ? "/discover/movie" : "/discover/tv";
+  const join = mode === "all" ? "," : "|";
   const json = (await ask(path, {
-    with_keywords: ids.join(mode === "all" ? "," : "|"),
+    ...(ids.length ? { with_keywords: ids.join(join) } : {}),
+    ...(genres.length ? { with_genres: genres.join(join) } : {}),
     sort_by: "popularity.desc",
     include_adult: "false",
     page: "1",
@@ -212,6 +279,8 @@ export async function imdbIdFor(candidate: TmdbCandidate): Promise<string | null
 export interface TmdbFind {
   candidates: TmdbCandidate[];
   keywords: TmdbKeyword[];
+  /** Typed words that named a TMDB genre rather than a keyword. */
+  genres: string[];
   /** Words TMDB has no tag for at all. The screen should say which. */
   unknown: string[];
   relaxed: boolean;
@@ -221,23 +290,38 @@ export async function findByWords(
   words: readonly string[],
   kind: "movie" | "series",
 ): Promise<TmdbFind> {
-  const keywords = await keywordIds(words);
-  const known = new Set(keywords.map((k) => k.name.toLowerCase()));
-  const unknown = words.filter(
-    (w) => w.trim() && !known.has(w.trim().toLowerCase()),
-  );
-  if (keywords.length === 0)
-    return { candidates: [], keywords, unknown, relaxed: false };
+  const wanted = words.map((w) => w.trim().toLowerCase()).filter(Boolean);
+  // GENRES FIRST. A word that names one is a genre, full stop; sending it
+  // to /search/keyword returns whatever tag contains the string and turns a
+  // clear ask into a vague one.
+  const genreMap = await genreIds(kind).catch(() => new Map<string, number>());
+  const genreWords = wanted.filter((w) => genreMap.has(w));
+  const genres = genreWords.map((w) => genreMap.get(w) as number);
+  const rest = wanted.filter((w) => !genreMap.has(w));
+
+  const keywords = await keywordIds(rest);
+  // By WORD, not by name: see TmdbKeyword.word.
+  const matched = new Set(keywords.map((k) => k.word));
+  const unknown = rest.filter((w) => !matched.has(w));
+  if (keywords.length === 0 && genres.length === 0)
+    return { candidates: [], keywords, genres: genreWords, unknown, relaxed: false };
+
   const ids = keywords.map((k) => k.id);
-  const all = await discoverByKeywords(ids, kind, "all");
+  const all = await discoverByKeywords(ids, kind, "all", genres);
   if (all.length > 0)
-    return { candidates: all, keywords, unknown, relaxed: false };
-  // One word cannot be relaxed: "all of [x]" and "any of [x]" are the same
+    return { candidates: all, keywords, genres: genreWords, unknown, relaxed: false };
+  // One term cannot be relaxed: "all of [x]" and "any of [x]" are the same
   // query, so re-asking would spend a request to get the same empty answer.
-  if (ids.length < 2)
-    return { candidates: [], keywords, unknown, relaxed: false };
-  const any = await discoverByKeywords(ids, kind, "any");
-  return { candidates: any, keywords, unknown, relaxed: any.length > 0 };
+  if (ids.length + genres.length < 2)
+    return { candidates: [], keywords, genres: genreWords, unknown, relaxed: false };
+  const any = await discoverByKeywords(ids, kind, "any", genres);
+  return {
+    candidates: any,
+    keywords,
+    genres: genreWords,
+    unknown,
+    relaxed: any.length > 0,
+  };
 }
 
 /**

@@ -88,6 +88,11 @@ export function Recommender({
       const notes: string[] = [];
       if (found.relaxed)
         notes.push("nothing had all of those, so this has one of them");
+      // Named because the two vocabularies behave differently and it is
+      // not guessable which one a word landed in: "horror" is a genre
+      // there, "space" is a keyword.
+      if (found.genres.length)
+        notes.push(`${found.genres.join(", ")} as a genre`);
       if (found.unknown.length)
         notes.push(`no tag for ${found.unknown.join(", ")}`);
       const note = notes.join(" · ");

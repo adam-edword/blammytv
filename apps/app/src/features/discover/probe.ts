@@ -148,9 +148,14 @@ export function installDiscoverProbe(): void {
     async (...words: string[]) => {
       try {
         const found = await findByWords(words, "movie");
+        // "word -> tag" rather than just the tag: their keyword search is
+        // a substring match, so seeing what a word actually resolved to is
+        // the whole diagnostic. "horror" resolving to some other tag is
+        // what sent space+horror to The Super Mario Galaxy Movie.
         console.info(
-          `[probe] keywords: ${found.keywords.map((k) => `${k.name}=${k.id}`).join(", ") || "none"}` +
-            (found.unknown.length ? ` | no tag for: ${found.unknown.join(", ")}` : "") +
+          `[probe] genres: ${found.genres.join(", ") || "none"}` +
+            ` | keywords: ${found.keywords.map((k) => `${k.word}->"${k.name}"=${k.id}`).join(", ") || "none"}` +
+            (found.unknown.length ? ` | NO TAG: ${found.unknown.join(", ")}` : "") +
             (found.relaxed ? " | RELAXED to any" : ""),
         );
         console.info(

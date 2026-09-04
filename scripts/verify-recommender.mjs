@@ -36,7 +36,12 @@ const PLAYLIST = {
 /** Which words TMDB has a tag for. "cosy" deliberately has none, so the
  * screen has to say it was ignored rather than silently answering a
  * different question. */
-const KEYWORDS = { space: 9882, horror: 3335, heist: 10051 };
+const KEYWORDS = { space: 9882, heist: 10051 };
+/** Horror is a GENRE at TMDB, not a keyword, which is exactly what sent
+ * Adam's "space horror" to The Super Mario Galaxy Movie: it went through
+ * keyword search, matched something tangential, found nothing, relaxed to
+ * OR and answered with a film that merely has "space". */
+const GENRES = [{ id: 27, name: "Horror" }, { id: 878, name: "Science Fiction" }];
 
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 
@@ -61,13 +66,16 @@ async function open(opts = {}) {
   const asked = [];
   await page.route(/api\.themoviedb\.org/, (route) => {
     const u = new URL(route.request().url());
-    asked.push(u.pathname + "?" + (u.searchParams.get("with_keywords") ?? u.searchParams.get("query") ?? ""));
+    asked.push(u.pathname + "?" + u.searchParams.toString());
     let body = {};
-    if (u.pathname.endsWith("/search/keyword")) {
+    if (u.pathname.includes("/genre/")) {
+      body = { genres: GENRES };
+    } else if (u.pathname.endsWith("/search/keyword")) {
       const id = KEYWORDS[u.searchParams.get("query")];
       body = { results: id ? [{ id, name: u.searchParams.get("query") }] : [] };
     } else if (u.pathname.includes("/discover/")) {
-      const wide = (u.searchParams.get("with_keywords") ?? "").includes("|");
+      const terms = (u.searchParams.get("with_keywords") ?? "") + (u.searchParams.get("with_genres") ?? "");
+      const wide = terms.includes("|");
       body = {
         results: strict || wide
           ? [
@@ -125,8 +133,17 @@ const type = async (page, ...ws) => {
     await page.locator(".rec__cardname").innerText());
   // Strict first: two words means one AND query, not two separate asks.
   const discovers = asked.filter((a) => a.includes("/discover/"));
-  check("  from a single ALL query", discovers.length === 1 && discovers[0].endsWith("9882,3335"),
+  check("  from a single ALL query", discovers.length === 1,
     JSON.stringify(discovers));
+  // THE FIX FOR ADAM'S REPORT. "horror" must go to with_genres, not to
+  // keyword search; sending it to keywords is what made space+horror
+  // relax to OR and answer with a film that merely has space in it.
+  check("  with horror as a GENRE, not a keyword",
+    /with_genres=27/.test(discovers[0] ?? "") && /with_keywords=9882(&|$)/.test(discovers[0] ?? ""),
+    discovers[0] ?? "");
+  check("  and no keyword search was spent on it",
+    !asked.some((a) => a.includes("/search/keyword") && a.includes("horror")),
+    JSON.stringify(asked.filter((a) => a.includes("/search/keyword"))));
 
   // A duplicate word would ask TMDB the same thing twice and narrow nothing.
   await type(page, "space");
@@ -153,7 +170,7 @@ const type = async (page, ...ws) => {
 // ---- Nothing carries all of them --------------------------------------
 {
   const { page } = await open({ strict: false });
-  await type(page, "heist", "horror");
+  await type(page, "heist", "space");
   await page.locator(".rec__go").click();
   await page.waitForSelector(".rec__card", { timeout: 12_000 }).catch(() => {});
   const note = await page.locator(".rec__note").first().innerText().catch(() => "");

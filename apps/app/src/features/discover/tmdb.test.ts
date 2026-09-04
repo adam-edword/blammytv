@@ -33,8 +33,10 @@ vi.mock("../../lib/http", () => ({
 }));
 
 const {
+  clearTmdbCache,
   discoverByKeywords,
   findByWords,
+  genreIds,
   imdbIdFor,
   keywordIds,
   loadTmdbKey,
@@ -47,6 +49,9 @@ const paramsOf = (url: string) => new URL(url).searchParams;
 beforeEach(() => {
   store.clear();
   asked.length = 0;
+  // The genre list is cached for the session, and the session is this
+  // whole file.
+  clearTmdbCache();
   saveTmdbKey("test-key");
 });
 
@@ -84,7 +89,9 @@ describe("keywordIds", () => {
         { id: 4379, name: "space opera" },
       ],
     });
-    expect(await keywordIds(["space"])).toEqual([{ id: 9882, name: "space" }]);
+    expect(await keywordIds(["space"])).toEqual([
+      { id: 9882, name: "space", word: "space" },
+    ]);
   });
 
   it("asks once per word and drops blanks", async () => {
@@ -102,6 +109,18 @@ describe("keywordIds", () => {
   it("drops a word TMDB has no tag for", async () => {
     reply = () => ({ results: [] });
     expect(await keywordIds(["cosy"])).toEqual([]);
+  });
+
+  it("carries the word that produced it, not just the tag's name", async () => {
+    // Their search is a substring match, so a tag's name need not equal
+    // what was typed. Deciding "did this word match" by comparing names
+    // reported a matched word as unmatched — the app told Adam there was
+    // "no tag for horror" while relaxing a two-keyword query, which cannot
+    // both be true.
+    reply = () => ({ results: [{ id: 999, name: "b horror" }] });
+    expect(await keywordIds(["horror"])).toEqual([
+      { id: 999, name: "b horror", word: "horror" },
+    ]);
   });
 });
 
@@ -174,6 +193,49 @@ describe("imdbIdFor", () => {
     expect(
       await imdbIdFor({ id: "tmdb:movie:1", title: "x", kind: "movie" }),
     ).toBeNull();
+  });
+});
+
+describe("genres", () => {
+  it("are a different vocabulary, and are checked first", async () => {
+    // HORROR IS A GENRE THERE, not a keyword. Asking /search/keyword for it
+    // returns whatever tag contains the string, which turned "space horror"
+    // into "space AND <something tangential>", found nothing, relaxed to
+    // OR, and answered with a film that merely has space in it.
+    reply = (u) => {
+      if (u.includes("/genre/")) return { genres: [{ id: 27, name: "Horror" }] };
+      if (u.includes("/search/keyword"))
+        return { results: [{ id: 9882, name: "space" }] };
+      return { results: [{ id: 348, title: "Alien", release_date: "1979-05-25" }] };
+    };
+    const r = await findByWords(["space", "horror"], "movie");
+    expect(r.genres).toEqual(["horror"]);
+    expect(r.keywords.map((k) => k.word)).toEqual(["space"]);
+    // The genre never reaches /search/keyword.
+    const asks = asked.filter((u) => u.includes("/search/keyword"));
+    expect(asks).toHaveLength(1);
+    expect(paramsOf(asks[0]).get("query")).toBe("space");
+    // And both halves ride the discover call.
+    const d = paramsOf(asked.find((u) => u.includes("/discover")) as string);
+    expect(d.get("with_keywords")).toBe("9882");
+    expect(d.get("with_genres")).toBe("27");
+  });
+
+  it("alias sci-fi onto their Science Fiction", async () => {
+    reply = () => ({ genres: [{ id: 878, name: "Science Fiction" }] });
+    const m = await genreIds("movie");
+    expect(m.get("sci-fi")).toBe(878);
+    expect(m.get("science fiction")).toBe(878);
+  });
+
+  it("a genre-only query still asks discover", async () => {
+    reply = (u) =>
+      u.includes("/genre/")
+        ? { genres: [{ id: 27, name: "Horror" }] }
+        : { results: [{ id: 694, title: "The Shining", release_date: "1980-05-23" }] };
+    const r = await findByWords(["horror"], "movie");
+    expect(r.candidates.map((c) => c.title)).toEqual(["The Shining"]);
+    expect(r.unknown).toEqual([]);
   });
 });
 
