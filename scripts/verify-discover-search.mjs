@@ -31,6 +31,41 @@ const PLAYLIST = { v:1, data:[{ kind:"m3u", id:"m1", name:"Test M3U", enabled:tr
 const b = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 const p = await b.newPage({ viewport: { width: 1600, height: 900 }, deviceScaleFactor: 2 });
 const errs = []; p.on("pageerror", e => errs.push(String(e)));
+
+/**
+ * CINEMETA IS ROUTED, not reached. Search now asks Stremio's public
+ * metadata addon alongside the configured catalogs, because a curated
+ * catalog searches only inside itself — Adam's eight mdblist lists
+ * answered "ironman" with a triathlon documentary and no Marvel film,
+ * and no score threshold could detect that ("Ironman" and "Iron Man"
+ * collapse to the same key, so his wrong answer scored 100).
+ *
+ * Routing it here does two jobs: the run stays deterministic and offline,
+ * and "cachedOnly" below can hold a title the configured catalogs DO NOT
+ * carry, which is the only way to prove the merge does anything.
+ */
+const CINEMETA_ONLY = {
+  metas: [
+    {
+      id: "tt0110912",
+      type: "movie",
+      name: "Pulp Fiction",
+      poster: "http://localhost:8084/poster/tt300001.png",
+    },
+  ],
+};
+await p.route(/v3-cinemeta\.strem\.io/, (route) => {
+  const url = route.request().url();
+  // Only the one query gets an answer. Everything else is an empty index,
+  // so the existing checks measure the configured catalogs as they always
+  // did rather than quietly passing on Cinemeta's results.
+  const body = /search=pulp/i.test(url) ? CINEMETA_ONLY : { metas: [] };
+  route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify(body),
+  });
+});
 await p.addInitScript((pl) => {
   localStorage.setItem("btv:onboarded", "1");
   localStorage.setItem("blammytv.playlists", JSON.stringify(pl));
@@ -265,6 +300,14 @@ await p.waitForTimeout(500);
   const unrelated = await titles("zzzznotathing");
   check("a query that matches nothing still returns nothing",
     unrelated.length === 0, unrelated.join(", "));
+
+  // THE CURATED-CATALOG CEILING. fake-aio carries no "Pulp Fiction", so
+  // before search asked an index this query returned nothing no matter how
+  // well it ranked. This is Adam's bug in miniature: the machinery was
+  // working on a corpus that did not contain the answer.
+  const indexed = await titles("pulp fiction");
+  check("a title the configured catalogs lack still comes back",
+    indexed.includes("Pulp Fiction"), indexed.join(", ") || "nothing");
 }
 
 await p.locator(".navcap__searchinput").fill("crime");

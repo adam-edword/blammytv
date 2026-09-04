@@ -109,7 +109,14 @@ export function installDiscoverProbe(): void {
         const out = await searchDiscover(cfg, "all", q);
         const wider = broaden(q);
         console.info(
-          `[probe] "${q}" -> ${out.length} results; broaden() would ask "${wider ?? "(nothing, too short or multi-word)"}"`,
+          `[probe] "${q}" -> ${out.length} results; broaden() would ask ` +
+            `"${wider ?? "(nothing: too short or multi-word)"}"` +
+            // Whether it FIRED is the useful half, and the count alone
+            // does not say: the wider ask only runs when the first came
+            // back thin, so a fat result means it never happened.
+            (out.length >= 5
+              ? " (did not fire, the first ask was not thin)"
+              : " (fired)"),
         );
         console.info(
           "[probe] scored:",

@@ -191,6 +191,58 @@ async function askCatalogs(
 }
 
 /**
+ * Stremio's own metadata addon, asked directly, as a SEARCH INDEX.
+ *
+ * WHY. Adam's board is eight mdblist lists, and an mdblist catalog
+ * searches INSIDE its list. So "ironman" came back with the triathlon
+ * documentary, "IRONMAN: Quest for Kona" and "Tetsuo: The Iron Man", and
+ * no Marvel film at all — because no configured catalog carries it. The
+ * ranking worked perfectly on a corpus that did not contain the answer.
+ *
+ * NO SCORE THRESHOLD COULD HAVE CAUGHT THAT. His top hit scored 100:
+ * "Ironman" and "Iron Man" collapse to the same key, so "nothing matched
+ * well" was false while the result was still wrong. A fallback gated on
+ * score would never have fired.
+ *
+ * So this is not a fallback. It runs on EVERY search, in parallel, and its
+ * results are merged and deduped by id. Curated lists are what someone
+ * configures for browsing; an index is what search needs, and the two jobs
+ * do not have to be done by the same catalogs.
+ *
+ * Keyless, public, and already trusted here: resolveVodItem has always
+ * fallen back to this same addon for metadata, so this adds a use rather
+ * than a dependency. Failure is silent by design — search still has the
+ * configured catalogs' answer, and a dead third party must not take the
+ * feature down with it.
+ */
+const CINEMETA = "https://v3-cinemeta.strem.io/manifest.json";
+/** Cinemeta's search-capable catalog id, the same for both types. */
+const CINEMETA_CATALOG = "top";
+
+async function askCinemeta(
+  filter: "all" | "movie" | "series",
+  query: string,
+): Promise<VodItem[]> {
+  const types: ("movie" | "series")[] =
+    filter === "all" ? ["movie", "series"] : [filter];
+  const pages = await Promise.all(
+    types.map((t) =>
+      fetchCatalog(
+        CINEMETA,
+        t,
+        CINEMETA_CATALOG,
+        `search=${encodeURIComponent(query)}`,
+      )
+        .then((r) =>
+          (r.metas ?? []).filter((m) => m?.id && m?.name).map(metaPreviewToVod),
+        )
+        .catch(() => [] as VodItem[]),
+    ),
+  );
+  return interleave(...pages);
+}
+
+/**
  * One search, ranked here rather than taken as given.
  *
  * THE SHAPE, and it is the whole point: ask the network for what was
@@ -220,19 +272,32 @@ export async function searchDiscover(
   const hit = searchCache.get(cacheKey);
   if (hit && Date.now() - hit.at < SEARCH_TTL_MS) return hit.items;
 
-  const direct = await askCatalogs(cfg, filter, query);
+  // Both at once. The configured catalogs know what the user chose to
+  // browse; Cinemeta knows what exists. Neither alone answers a search.
+  const [direct, index] = await Promise.all([
+    askCatalogs(cfg, filter, query),
+    askCinemeta(filter, query),
+  ]);
 
   // Ranked but NOT dropped: a catalog's own answer to the query as typed is
   // its call to make, and scoring it out here would discard the one source
-  // that knows its own data.
-  let items = rank(direct, query);
+  // that knows its own data. Ranked as ONE list rather than two, so the
+  // ordering is global; ties keep the configured catalogs first, because
+  // rank is stable and they are interleaved first.
+  let items = rank(interleave(direct, index), query);
 
   if (items.length < THIN) {
     const wider = broaden(query);
     if (wider) {
       // Dropped, hard. This asked something the user did not type, so
       // everything that does not actually match has to come back out.
-      const extra = rank(await askCatalogs(cfg, filter, wider), query, true);
+      // Both sources again: if the pair of them came back thin, the wider
+      // ask has the same two places to look.
+      const [w1, w2] = await Promise.all([
+        askCatalogs(cfg, filter, wider),
+        askCinemeta(filter, wider),
+      ]);
+      const extra = rank(interleave(w1, w2), query, true);
       items = [...items, ...extra];
     }
   }
