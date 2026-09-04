@@ -22,6 +22,7 @@ import { useCatalog } from "./features/sports/catalog";
 import type { Fixture } from "./features/sports/model";
 import { isTauri } from "./lib/tauri";
 import { installPlayerPerf } from "./lib/playerPerf";
+import { installDiscoverProbe } from "./features/discover/probe";
 import {
   applyAccent,
   applyAurora,
@@ -50,6 +51,10 @@ applyInstalledPacks();
 // `playerPerf(seconds)` in the devtools console — the player perf probe
 // (plan 011). Installed for both entries so the overlay harness can use it too.
 installPlayerPerf();
+// `btvDiscover()` / `btvTmdb(key)` in the devtools console — see probe.ts.
+// Same reasoning as above: compiled into every build, because a probe you
+// have to make a special build for is one nobody runs.
+installDiscoverProbe();
 
 const root = ReactDOM.createRoot(document.getElementById("root")!);
 
