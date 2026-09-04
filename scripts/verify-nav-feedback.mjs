@@ -256,6 +256,41 @@ check("and it is the Settings button",
       radius: cs.borderRadius,
     };
   });
+  // The REC chip, and the capsule sizing that had to change to fit it.
+  const rec = await page.evaluate(() => {
+    const el = document.querySelector(".navcap__rec");
+    const cap = document.querySelector(".navcap");
+    const search = document.querySelector(".navcap__search");
+    if (!el || !cap || !search) return null;
+    const r = el.getBoundingClientRect();
+    const c = cap.getBoundingClientRect();
+    return {
+      w: r.width,
+      h: r.height,
+      text: el.textContent.trim(),
+      // Negative means it hangs off the end, which is what it did before
+      // the open capsule was allowed to size itself from row 2.
+      clearance: c.right - r.right,
+      search: search.getBoundingClientRect().width,
+    };
+  });
+  check("the REC chip is in the sub row", !!rec);
+  if (rec) {
+    check("and reads REC", rec.text === "REC", rec.text);
+    // A pill, not a circle: the circles in this row are filters and this is
+    // an action, so it must not read as a fourth type.
+    check("and is a pill, not a circle", rec.w > rec.h + 20,
+      `${rec.w.toFixed(0)}x${rec.h.toFixed(0)}`);
+    // THE ONE THAT MATTERS. Row 2 used to be barred from sizing the capsule
+    // (width:0, min-width:100%), so everything it gained came out of the
+    // search field — REC hung 179px past the capsule's right edge with the
+    // field crushed to its magnifier.
+    check("and sits inside the capsule", rec.clearance > 0,
+      `${rec.clearance.toFixed(0)}px clearance`);
+    check("without crushing the search field", rec.search >= 150,
+      `${rec.search.toFixed(0)}px`);
+  }
+
   check("the sub row and its Any chip are reachable", !!m);
   if (m) {
     check("the Any chip is square", Math.abs(m.w - m.h) < 0.5,

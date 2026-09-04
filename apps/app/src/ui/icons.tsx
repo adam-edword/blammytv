@@ -34,6 +34,25 @@ function Svg({
   );
 }
 
+/**
+ * Sparkles, for the recommender chip.
+ *
+ * Drawn here rather than pulled in: it is three four-point stars, which is
+ * less code than an import and keeps the set's stroke conventions (24
+ * viewBox, currentColor, round joins) without a second source to match.
+ * The big one leads and the two small ones trail, so it reads as a
+ * direction rather than a scatter.
+ */
+export function SparkleIcon({ size = 20, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <path d="M11 4.5 12.4 8.6 16.5 10 12.4 11.4 11 15.5 9.6 11.4 5.5 10 9.6 8.6Z" />
+      <path d="M17.5 4 18 5.5 19.5 6 18 6.5 17.5 8 17 6.5 15.5 6 17 5.5Z" />
+      <path d="M17.5 14 18 15.5 19.5 16 18 16.5 17.5 18 17 16.5 15.5 16 17 15.5Z" />
+    </Svg>
+  );
+}
+
 /** Interface / Search — Fluent 16 (see the nav block for the source). */
 export function SearchIcon({ size = 22, className, filled }: NavIconProps) {
   return (

@@ -653,6 +653,16 @@ button {
  * width:0 zeroes the intrinsic contribution; min-width:100% takes the
  * container's width back for the used size.
  */
+/*
+ * WIDTH: 0 / MIN-WIDTH: 100% is how the CLOSED capsule stays row 1's size.
+ * The capsule is a column flex box sized by its widest child, and row 2
+ * exists in the DOM even when shut (height 0, clipped) — so without this it
+ * would size the capsule around content nobody can see.
+ *
+ * Open, that flips: see .navcap--open below. Row 2 has to be able to state
+ * its real width or the only way to fit its contents is to crush the search
+ * field, which is what the REC chip's arrival exposed.
+ */
 .navcap__row--sub {
   gap: 7px;
   width: 0;
@@ -661,6 +671,36 @@ button {
     height var(--nav-dur) var(--nav-spring),
     opacity 200ms ease,
     transform var(--nav-dur) var(--nav-spring);
+}
+/*
+ * OPEN, THE SECOND ROW GETS A VOTE. Sizing the capsule by row 1 alone meant
+ * everything row 2 gained came out of the search field: adding REC squeezed
+ * it from 250px to 165px, and on a narrower window to nothing at all. The
+ * capsule already changes height when it opens; changing width on the same
+ * curve is the same gesture, and it is what the second row's content
+ * actually needs.
+ *
+ * `width: auto` restores max-content sizing and `min-width: 0` drops the
+ * stretch-to-parent floor, so the open capsule is max(row 1, row 2) and
+ * neither row is squeezed by the other.
+ */
+.navcap--open .navcap__row--sub {
+  width: auto;
+  min-width: 0;
+}
+/*
+ * ...and row 1 stretches to meet it. It sits at `align-self: flex-start`
+ * because it is what the CLOSED capsule measures itself against, and that
+ * stays true. Open, the capsule may now be wider than row 1's content, and
+ * a row left at content width ends short of the other one's right edge —
+ * two rails on the left, none on the right.
+ *
+ * Stretching moves nothing: row 1's items are left-aligned, so the mark
+ * lands in the same place and place()'s midline maths is untouched. It is
+ * a no-op when shut, where the capsule is row 1's width by definition.
+ */
+.navcap--open .navcap__row--nav {
+  align-self: stretch;
 }
 .navcap:not(.navcap--open) .navcap__row--sub {
   height: 0;
@@ -691,7 +731,22 @@ button {
  * below the input's own intrinsic width, which shoved the capsule wider. */
 .navcap__search {
   flex: 1 1 0;
-  min-width: 0;
+  /*
+   * A REAL FLOOR, not zero.
+   *
+   * The capsule is a column flex box sized by its widest row, and row 1 was
+   * always that row — because this field declared a max-content width of
+   * nothing (`min-width: 0` plus the input's own `width: 0`), so row 2 never
+   * asked for any space. Adding the REC chip made row 2 genuinely wider than
+   * row 1, and with nothing to size against, the row overflowed instead:
+   * "Any" clipped at the left edge, this field crushed to just its
+   * magnifier, and REC hanging 13px past the capsule.
+   *
+   * A floor here lets row 2 state its real width, so the capsule grows to
+   * fit rather than spilling. It still shrinks below its natural size on a
+   * narrow window; it just cannot vanish.
+   */
+  min-width: 190px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -863,6 +918,54 @@ button {
   line-height: 1;
 }
 /*
+ * The recommender chip. A pill, not a circle, and that is the point: the
+ * circles in this row are FILTERS and this is an action, so it should not
+ * read as one of them. Same 43px height as everything else, so the row
+ * still has one baseline.
+ *
+ * flex: none because it sits next to the search field, which is the row's
+ * only flexible item — without this the field's grow would squash the
+ * label as the window narrows.
+ */
+.navcap__rec {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 43px;
+  padding: 0 15px 0 13px;
+  border: 0;
+  cursor: pointer;
+  border-radius: var(--radius-pill, 999px);
+  corner-shape: round;
+  background: color-mix(in srgb, var(--text) 12%, transparent);
+  color: var(--text);
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  transition:
+    background-color 140ms ease,
+    transform 220ms var(--nav-spring);
+}
+.navcap__rec:hover {
+  background: color-mix(in srgb, var(--text) 20%, transparent);
+}
+.navcap__rec:active {
+  transform: scale(0.93);
+  transition: transform 60ms ease-out;
+}
+.navcap__rec:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.navcap__rec svg {
+  flex: none;
+  display: block;
+}
+
+/*
  * A CIRCLE, not a stadium.
  *
  * Every other chip in this row is a 23px icon inside 10px of padding, which
@@ -886,6 +989,15 @@ button {
  * 8.0px a side. verify-nav-feedback holds both the shape and the inset.
  */
 .navcap__item--text {
+  /*
+   * NOT SHRINKABLE, and that is not tidiness. A fixed width with the
+   * default flex-shrink: 1 is only fixed while the row has room. `place()`
+   * measures by toggling each label's width in turn, which transiently
+   * makes row 2 far wider than its box, and the chip was squeezed 43px to
+   * 27px mid-measurement. The thumb is sized from that measurement, so it
+   * came out 16px narrow and every chip after it sat 16px left.
+   */
+  flex: none;
   width: 43px;
   padding: 0;
   justify-content: center;

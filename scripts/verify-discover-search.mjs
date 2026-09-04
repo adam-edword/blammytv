@@ -126,10 +126,22 @@ const geo = await p.evaluate(() => {
            row2: +r2.offsetWidth.toFixed(1),
            off: +(((m.left + m.width / 2) - innerWidth / 2).toFixed(2)) };
 });
-check("row 1 sets the capsule's width",
-  Math.abs(geo.nav - (geo.row1 + geo.pad)) < 1.5, JSON.stringify(geo));
-check("row 2 fills it without widening it", geo.row2 <= geo.row1 + 0.5,
-  `row2 ${geo.row2} vs row1 ${geo.row1}`);
+// THE CAPSULE IS SIZED BY WHICHEVER ROW NEEDS MORE, and it used to be row
+// 1 alone. That was fine until row 2 gained the REC chip: with row 1
+// setting the width, everything row 2 added came out of the search field,
+// which crushed to its magnifier while REC hung off the right edge. Adam's
+// call was that the capsule should grow instead.
+//
+// So the check is no longer "row 1 wins", it is "nothing overflows": the
+// capsule fits its padding around the WIDER row, and neither row is
+// clipped. The mark's midline is asserted separately below, and that is
+// the property this was really protecting.
+const wider = Math.max(geo.row1, geo.row2);
+check("the capsule fits whichever row is wider",
+  Math.abs(geo.nav - (wider + geo.pad)) < 1.5, JSON.stringify(geo));
+check("and neither row overflows it",
+  geo.row1 <= geo.nav - geo.pad + 0.5 && geo.row2 <= geo.nav - geo.pad + 0.5,
+  `row1 ${geo.row1} row2 ${geo.row2} inner ${geo.nav - geo.pad}`);
 check("and the mark still holds the midline with both rows open",
   Math.abs(geo.off) < 1.5, `${geo.off}px`);
 

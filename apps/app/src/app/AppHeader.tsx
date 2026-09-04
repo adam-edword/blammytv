@@ -9,6 +9,7 @@ import {
 } from "react";
 import {
   SearchIcon,
+  SparkleIcon,
   DiscoverIcon,
   GuideIcon,
   LibraryIcon,
@@ -32,6 +33,7 @@ import {
   requestTypeFilter,
   type TypeFilter,
 } from "../features/discover/typeFilter";
+import { requestRecommend } from "../features/discover/recommend";
 import { UpdateChip } from "./UpdateChip";
 import { formatClock } from "../lib/time";
 import { APP_VERSION } from "../lib/version";
@@ -672,6 +674,24 @@ export function AppHeader({
               }}
             />
           </span>
+          {/* THE RECOMMENDER, after the field rather than beside the type
+            * chips. It is not a filter — it opens a different screen — so
+            * putting it in the chip run would make it read as a fourth
+            * type. Right of the field is where an action belongs.
+            *
+            * Deliberately OUTSIDE the layoutRow walk: no data-key, so the
+            * thumb never travels to it and the mark's midline maths is
+            * untouched. The search field beside it is skipped for the same
+            * reason. */}
+          <button
+            type="button"
+            className="navcap__rec"
+            aria-label="Find something to watch"
+            onClick={() => requestRecommend()}
+          >
+            <SparkleIcon size={17} />
+            <span>REC</span>
+          </button>
         </div>
       </nav>
 
