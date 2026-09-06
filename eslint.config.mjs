@@ -47,6 +47,23 @@ export default tseslint.config(
     },
   },
 
+  // shadcn's generated components (v0.9.49). NOT ours to lint.
+  //
+  // `npx shadcn@latest add <name>` overwrites these files wholesale, so a
+  // lint fix applied here survives exactly until the next time somebody
+  // regenerates one, and then comes back as a warning nobody caused. The
+  // rule that fires is react-refresh's: shadcn exports `buttonVariants`
+  // beside `Button` from one file, which is its documented API and is how
+  // every call site imports the variants.
+  //
+  // Scoped to the generated directory alone, so a component MOVED out from
+  // under `ui/` (which is the documented way to take ownership of one) gets
+  // linted like anything else. See src/components/README.md.
+  {
+    files: ["apps/app/src/components/ui/**/*.{ts,tsx}"],
+    rules: { "react-refresh/only-export-components": "off" },
+  },
+
   // Node ESM scripts (build helpers, this config, the fake test panels,
   // the website builder) and the keybox service (node server + its scripts
   // and tests — all ESM via "type": "module").

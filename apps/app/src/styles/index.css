@@ -1,0 +1,74 @@
+/**
+ * The one stylesheet the app imports, and the file that decides the cascade.
+ *
+ * It exists because Tailwind arrived (v0.9.49) into 13,828 lines of
+ * hand-written CSS, and two things had to be settled before a single utility
+ * class could be trusted.
+ *
+ * ---------------------------------------------------------------- 1. ORDER
+ *
+ * Cascade layers sort BEFORE specificity, and unlayered beats every layer.
+ * So if the app's sheets had stayed unlayered, `.mt-4` would have lost to
+ * any app rule touching margin, however weak. Utilities would have looked
+ * broken at random and the fix would have been `!important` everywhere.
+ *
+ * Putting the app in a layer BELOW `utilities` is what makes a utility able
+ * to override a component's own CSS, which is the whole point of having
+ * them. Within `app` nothing changes: relative order and specificity among
+ * the fourteen sheets are exactly what they were.
+ *
+ * `components` sits between them on purpose. That is where shadcn's
+ * generated components land, so a utility on the call site still wins over
+ * the component's own styling, and the component still wins over the app's
+ * older selectors.
+ *
+ * ---------------------------------------------------- 2. NO PREFLIGHT, YET
+ *
+ * Tailwind's `base` layer is Preflight, and it is a reset. Read against
+ * base.css it is not survivable as a drop-in: it zeroes every margin,
+ * padding and border, strips list styles, flattens h1-h6 to inherited size
+ * and weight, makes img/svg/video `display: block`, and clears button
+ * backgrounds and radii. This app has 1,116 lines of base.css that already
+ * answered all of those questions, differently, on purpose.
+ *
+ * So the layer is DECLARED but not filled. That keeps the slot in the right
+ * place in the order, so turning Preflight on later is one import rather
+ * than a re-sort of everything. Turning it on is its own change with its own
+ * screenshot pass, and it is not free.
+ *
+ * The three files below are Tailwind's real entry points, split out of
+ * `@import "tailwindcss"`, which is exactly `theme` + `preflight` +
+ * `utilities` and nothing else.
+ */
+
+@layer theme, base, app, components, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+/* @import "tailwindcss/preflight.css" layer(base);  <- see 2 above */
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/* Our tokens, extending Tailwind's so `bg-surface` and friends resolve to
+ * the app's real palette rather than to a stock zinc. See theme.css. */
+@import "./theme.css";
+
+/* The app's own sheets, in the order main.tsx used to import them: tokens
+ * first, then the packs that override them, then everything that reads
+ * them. That order is load-bearing and is preserved exactly. */
+@import "./tokens.css" layer(app);
+@import "./packs.css" layer(app);
+@import "./intense-packs.css" layer(app);
+@import "./base.css" layer(app);
+@import "./ui.css" layer(app);
+@import "./settings.css" layer(app);
+@import "./themes.css" layer(app);
+@import "./live.css" layer(app);
+@import "./player.css" layer(app);
+@import "./stream.css" layer(app);
+@import "./sports.css" layer(app);
+@import "./discover.css" layer(app);
+@import "./boot.css" layer(app);
+@import "./onboarding.css" layer(app);
+
+/* UNLAYERED, and it has to be. See the file: react-colorful injects its own
+ * stylesheet at runtime, which is unlayered, and only unlayered beats it. */
+@import "./vendor.css";

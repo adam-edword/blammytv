@@ -1,15 +1,64 @@
 # 014: shadcn/ui, and a layer of liquid glass
 
-- **Status**: **DESIGN, and it argues against half of its own title.** Nothing
-  is built. Read the recommendation before the phases; the phases assume it.
+- **Status**: **DECIDED AGAINST THIS PLAN'S OWN RECOMMENDATION, and the
+  foundation shipped in v0.9.49.** Tailwind v4, shadcn's CLI and five
+  generated components are in. The glass is still to do.
 - **Severity**: LOW (nothing is broken)
 - **Category**: app-wide / design system
-- **Estimated scope**: depends entirely on which of the three options below is
-  picked. One is a session. One is a month. One is a mistake.
 - **Origin**: Adam, 2026-09-06: "id like to adopt shadcn's ui library for our
   app, with a subtle layer of liquid glass on top."
 
-## The short version
+## The decision, and it is not the recommendation below
+
+This plan recommended NOT adopting shadcn, and Adam overruled it the same
+day: *"nope lets get tailwind in here"*, then *"this might be a pretty
+intense overhaul and thats okay. i think shadcn's polish would really help
+sell this app."*
+
+**That is the call, and the rest of this file is kept as the cost accounting
+rather than as an argument.** Everything in "Why not shadcn" is still true
+and still the work: 13,828 lines of CSS to migrate, 105 harness selectors
+that will need `data-testid`, and a component registry that does not draw a
+`GameCard`. Keeping it written down is what makes the next session able to
+see the size of the thing rather than rediscover it.
+
+### What v0.9.49 actually shipped
+
+The foundation, and only the foundation. No existing screen was restyled.
+
+- **Tailwind v4** via `@tailwindcss/vite`, entered through `styles/index.css`,
+  which is now the single stylesheet and the file that decides the cascade.
+- **A cascade layer order**: `theme, base, app, components, utilities`. The
+  app's fourteen sheets moved into `@layer app` so that a utility can
+  override them, which is the whole point of having utilities. Their relative
+  order and specificity among themselves are untouched.
+- **Preflight is declared but NOT loaded.** It is a reset that would zero
+  every margin and border, flatten `h1`-`h6` and make `img`/`svg`/`video`
+  `display: block`. All questions `base.css` answered differently on
+  purpose. The slot is held so switching it on later is one import rather
+  than a re-sort, and switching it on is its own change with its own
+  screenshot pass.
+- **A token bridge** (`styles/theme.css`) republishing the app's palette into
+  Tailwind's `--color-*` namespace, so shadcn's fifteen semantic names reach
+  the real colours. `@theme inline` throughout, which is what keeps the
+  runtime-picked accent working.
+- **`styles/vendor.css`, deliberately unlayered.** react-colorful injects its
+  stylesheet from JS at runtime, unlayered, and unlayered beats every layer
+  whatever the specificity. The app's overrides of it had to leave the layer
+  or the accent picker would have silently reverted to the library's look.
+- **`scripts/verify-tailwind.mjs`**, 8 checks, because none of the above
+  renders anything and so none of it fails loudly.
+
+### The name collision worth knowing about
+
+`accent` means two different things now. To this app it is the brand colour,
+user-picked at runtime. To shadcn it is the quiet hover background behind a
+menu row. `--color-accent` is mapped to the app's raised surface and
+`--color-primary` to the brand, which is the correct reading of each system's
+own word. Getting it backwards paints every dropdown row brand-red on hover
+and looks deliberate.
+
+## The original recommendation, kept as the cost accounting
 
 **Adopting shadcn/ui is the wrong call for this app, and the reason is not
 taste.** shadcn is a Tailwind adoption wearing a component-library costume,
@@ -33,7 +82,7 @@ Measured 2026-09-06, not estimated.
 | Design tokens | `tokens.css` (295 lines), Figma-derived, with node ids cited |
 | Themes | `themes.css` (625) + `intense-packs.css` (499) |
 | `backdrop-filter` uses | **71**, plus a `--float-blur` / `--float-bg` / `--float-shadow` recipe already tokenised |
-| Runtime deps | React, `@tauri-apps/api`, `react-colorful`, `react-parallax-tilt`, seven fontsource faces. **No Tailwind. No Radix. No CVA.** |
+| Runtime deps, BEFORE v0.9.49 | React, `@tauri-apps/api`, `react-colorful`, `react-parallax-tilt`, seven fontsource faces. **No Tailwind. No Radix. No CVA.** |
 | Harness selectors | **105 unique semantic class names, across 296 selector calls** in `scripts/verify-*.mjs` |
 
 That last row is the one that decides this.
@@ -188,6 +237,23 @@ the page's background, not the video, and there is no CSS that fixes it. The
 theater's own comment about fullscreen makes the same point. So the theater is
 the one screen where the glass tier has to be chosen against where the video
 actually is, not where the layout suggests.
+
+## Adam's constraint: the thumb stays
+
+**Decided 2026-09-06, mid-migration.** shadcn's pill-group *styling* is
+welcome; its *behaviour* is not a replacement for what is here.
+
+`ChipTabs` (`ui/ChipTabs.tsx`, `.chip-tabs__thumb` in `ui.css:40`) animates
+one raised thumb between segments, re-measuring on content change, with a
+reduced-motion guard at `ui.css:166`. `Toggle` does the same at a smaller
+scale (`.toggle__thumb`, `ui.css:106`). shadcn's Tabs and ToggleGroup do not
+have this: they restyle the active item in place, and swapping to them would
+trade a continuous, interruptible movement for a state change.
+
+So the rule for these two components is **take the surface, keep the
+mechanism**. Radix Tabs can supply the roving focus and ARIA underneath;
+`chip-tabs__thumb` and its measuring effect stay. Anything that would delete
+the thumb is out of scope regardless of how much markup it saves.
 
 ## Three options, and what each costs
 

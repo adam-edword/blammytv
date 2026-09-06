@@ -58,10 +58,10 @@ export function byKey(key: string): Conference | undefined {
  * Teams list already works: a Tuesday in November has four conferences
  * playing and offering all thirteen would be a list of mostly dead chips.
  *
- * AN ID WE CANNOT NAME IS DROPPED, deliberately. Those are real — the
+ * AN ID WE CANNOT NAME IS DROPPED, deliberately. Those are real: the
  * college football board carries FCS opponents whose own conferences the
- * FBS sweep never names — and a chip reading "Conference 179" is worse
- * than no chip: it filters to something the person cannot recognise and
+ * FBS sweep never names. A chip reading "Conference 179" is worse than no
+ * chip, because it filters to something the person cannot recognise and
  * did not ask for.
  */
 export function conferencesIn(games: readonly Game[]): Conference[] {
@@ -96,7 +96,7 @@ export function conferencesOf(game: Game): Conference[] {
  * FIVE ENTRIES for a thing called four, and the fifth is the point: Notre
  * Dame is an FBS independent (id 18), so a Power 4 preset without it drops
  * the one independent anybody wants. That id is also the one the harvest
- * script cannot learn on its own, for the same reason — an independent
+ * script cannot learn on its own, for the same reason: an independent
  * never plays a conference game, so ESPN never names its group. See EXTRA
  * in scripts/harvest-conferences.mjs.
  *

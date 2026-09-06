@@ -3,7 +3,16 @@
   "compilerOptions": {
     "noEmit": true,
     "jsx": "react-jsx",
-    "types": ["vite/client"]
+    "types": ["vite/client"],
+    /* `@/...`, matching the alias in vite.config.ts. Both are needed and
+       they do different jobs: Vite resolves it at build time, this makes
+       tsc and the editor agree that it exists. shadcn's CLI writes these
+       paths into every component it emits, so they are not a style
+       preference. `baseUrl` is what `paths` is relative to. */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
   },
   /* The harness is dev-server entry points, not shipped code — but it is
      real TypeScript that imports the real modules, and leaving it outside

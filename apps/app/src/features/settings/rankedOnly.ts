@@ -14,7 +14,7 @@ import { load, save } from "../../lib/storage";
  * either; ranked means both this and that. One array cannot hold two
  * different operators.
  *
- * Scoped to games a poll has an opinion about — see `isRankable`. Applied
+ * Scoped to games a poll has an opinion about: see `isRankable`. Applied
  * to everything it would hide every professional game forever.
  */
 

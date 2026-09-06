@@ -21,7 +21,7 @@ list tell you less than four lines on a page.
 Today the app throws the shape away twice over. `competition.notes[0]`
 carries "Men's Basketball Championship - East Region - 1st Round" and lands
 on `Fixture.note`, a string on one card. `competition.series` carries a live
-playoff series — how many wins each side has, how long the series is — and
+playoff series (how many wins each side has, how long the series is) and
 `espn.ts:896` keeps only its English summary and drops the numbers.
 
 ## The data, probed 2026-09-06
@@ -30,7 +30,7 @@ Everything needed is on endpoints the app already speaks. Three shapes, and
 they are genuinely different, which is the reason this is a plan and not a
 ticket.
 
-### 1. Single-elimination tree — NCAA tournament
+### 1. Single-elimination tree: NCAA tournament
 
 `GET .../basketball/mens-college-basketball/scoreboard?dates=YYYYMMDD&groups=100`
 
@@ -49,7 +49,7 @@ The three without a region are the Final Four and the final, which have none.
 This is a complete 68-team bracket for twelve requests, and it is the shape
 worth building first.
 
-### 2. Series ladder — NBA, NHL
+### 2. Series ladder: NBA, NHL
 
 `competitions[].series`, already downloaded on every playoff game:
 
@@ -64,7 +64,7 @@ not a score**. `wins` and `totalCompetitions` are exactly that and are
 currently discarded. Measured on 2025-05-07: both NHL games carried a full
 series object.
 
-### 3. Week ladder — NFL
+### 3. Week ladder: NFL
 
 `GET .../football/nfl/scoreboard?dates=2024&seasontype=3&week=N`
 
@@ -108,7 +108,7 @@ Small, and it is the same change for all three:
 `Competitor.rank` already lands (v0.9.47), and for a tournament it IS the
 seed, which is the field a bracket draws first.
 
-## Where it lives — the open question
+## Where it lives, which is the open question
 
 Three readings, materially different work, and this is what wants answering
 before anything is written:
@@ -117,7 +117,7 @@ before anything is written:
    already opens `TournamentDraw` (`SportsScreen#openTournament`). Cheapest,
    reuses a mode that exists, and puts the bracket where the games are.
 2. **A mode on the sports sidebar**, beside Leagues / Teams / Confs. Findable
-   out of season, which the card is not — and out of season is when people
+   out of season, which the card is not, and out of season is when people
    look at brackets.
 3. **A fourth Live TV tab.** Most discoverable, most expensive, and hardest
    to justify for something that is dead ten months a year.
@@ -133,7 +133,7 @@ loud rather than inherit the tennis reasoning by proximity.
 
 `GET https://site.api.espn.com/apis/v2/sports/football/nfl/standings` returns
 conference → division → table, verified 2026-09-06. It is **the only place pro
-conference and division data exists** — the scoreboard carries none, which is
+conference and division data exists**. The scoreboard carries none, which is
 why v0.9.47's conference filter is college-only. If standings ever land, that
 filter extends to the pro leagues for free.
 
@@ -141,8 +141,8 @@ filter extends to the pro leagues for free.
 
 **Seasonality is the argument, and it is a real one.** A bracket view is dead
 from April to March. Before the grid is worth drawing, somebody has to answer
-what the screen says in July — last season's bracket, the next tournament's
-date, or nothing at all — and "nothing at all" is a tab that is empty most of
+what the screen says in July: last season's bracket, the next tournament's
+date, or nothing at all. And "nothing at all" is a tab that is empty most of
 the year, which is the exact thing plan 010 #17 refused to ship for the
 Channels tab.
 

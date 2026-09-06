@@ -416,28 +416,13 @@
   }
 }
 
-.accent-popover .react-colorful {
-  width: 220px;
-  height: 180px;
-}
-
-.accent-popover .react-colorful__saturation {
-  border-radius: 12px;
-  border-bottom: none;
-  margin-bottom: 12px;
-}
-
-.accent-popover .react-colorful__hue {
-  height: 14px;
-  border-radius: 999px;
-}
-
-.accent-popover .react-colorful__pointer {
-  width: 18px;
-  height: 18px;
-  border: 2px solid #fff;
-  corner-shape: round; /* keep the drag thumbs perfectly circular */
-}
+/* The react-colorful internals moved to vendor.css, UNLAYERED.
+ *
+ * That library injects its own stylesheet from JS at runtime, and a
+ * runtime-injected sheet is unlayered. Cascade layers sort BEFORE
+ * specificity, so once this file moved into @layer app every one of these
+ * overrides started losing to the vendor's own rules however specific they
+ * were. Being unlayered is the only thing that beats unlayered. */
 
 /* Bottom row: eyedropper left, hex input right. */
 .accent-popover__row {

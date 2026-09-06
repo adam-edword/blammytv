@@ -1,20 +1,13 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import "./fonts";
-import "./styles/tokens.css";
-import "./styles/packs.css";
-import "./styles/intense-packs.css";
-import "./styles/base.css";
-import "./styles/ui.css";
-import "./styles/settings.css";
-import "./styles/themes.css";
-import "./styles/live.css";
-import "./styles/player.css";
-import "./styles/stream.css";
-import "./styles/sports.css";
-import "./styles/discover.css";
-import "./styles/boot.css";
-import "./styles/onboarding.css";
+// ONE import, where there used to be fourteen. They are all still here, in
+// the same order, but they are @imported from index.css now instead of
+// listed here, because Tailwind's cascade layers can only be assigned by
+// CSS `@import ... layer()`, and a JS import has nowhere to put one. See
+// styles/index.css, which is where the cascade order is decided and
+// explained.
+import "./styles/index.css";
 import { App } from "./app/App";
 import { TheaterOverlay } from "./features/live/TheaterOverlay";
 import { SportsTheater } from "./features/sports/SportsTheater";

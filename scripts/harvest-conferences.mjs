@@ -54,7 +54,7 @@ const LANES = 6;
  * January and February, when conference play is all there is.
  *
  * `groups` is the DIVISION filter, not a conference one: 80 is FBS and 50
- * is Division I basketball. Basketball needs it — measured 2026-09-06, the
+ * is Division I basketball. Basketball needs it. Measured 2026-09-06, the
  * bare scoreboard returned 21 events for a day that carries 145.
  */
 const SWEEPS = [
