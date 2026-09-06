@@ -23,9 +23,19 @@ export interface Follows {
   leagues: string[];
   /** `teamKey` values. */
   teams: string[];
+  /**
+   * `conferenceKey` values: "football/college-football:5".
+   *
+   * ITS OWN ARRAY rather than sharing `teams`, and the collision it avoids
+   * is real: both key spaces are `${leagueKey}:${sourceId}` over the same
+   * league, and college football has a team 5 and a conference 5. Sharing
+   * would make following the Big Ten also follow whichever club ESPN
+   * numbered fifth.
+   */
+  conferences: string[];
 }
 
-const EMPTY: Follows = { leagues: [], teams: [] };
+const EMPTY: Follows = { leagues: [], teams: [], conferences: [] };
 
 export function loadFollows(): Follows {
   return asFollows(load<unknown>(KEY, VERSION, EMPTY));
@@ -65,6 +75,13 @@ export function asFollows(raw: unknown): Follows {
   return {
     leagues: dedupe(strings(v.leagues).map(migrateLeague)),
     teams: dedupe(strings(v.teams).map(migrateTeam)),
+    // NO VERSION BUMP for the arrival of this third array, for the reason
+    // the LEGACY table above already gives: `load` DISCARDS a value whose
+    // version does not match, so bumping to add a field would throw away
+    // every league and club anyone follows to gain one that is empty
+    // anyway. A missing array reads as none followed, which is exactly
+    // what a store written before conferences existed means.
+    conferences: dedupe(strings(v.conferences).map(migrateTeam)),
   };
 }
 
@@ -128,6 +145,44 @@ export function gameTeamKeys(game: Game): string[] {
 }
 
 /**
+ * How a conference is named in storage.
+ *
+ * The league half is not decoration: ESPN numbers conferences per league,
+ * so id 1 is the ACC in college football and America East in college
+ * basketball, and a bare id would follow both. Harvested and confirmed
+ * 2026-09-06 — see scripts/harvest-conferences.mjs, whose output disagrees
+ * with itself across three leagues for exactly this reason.
+ *
+ * Null for a competitor with no conference, which is every professional
+ * one: ESPN's scoreboard carries `conferenceId` on college teams only.
+ */
+export function conferenceKey(
+  leagueKey: string,
+  team: Pick<Competitor, "conferenceId">,
+): string | null {
+  return team.conferenceId ? `${leagueKey}:${team.conferenceId}` : null;
+}
+
+/**
+ * Both sides' conferences, as follow keys. Teams without one drop out.
+ *
+ * TWO ENTRIES on a cross-conference game and one on a conference game,
+ * deduped, which is what makes an SEC v ACC fixture show up for someone
+ * following either. Empty for anything that is not a fixture, for the same
+ * reason gameTeamKeys is: a race has no conference and neither does a
+ * tournament.
+ */
+export function gameConferenceKeys(game: Game): string[] {
+  if (!isFixture(game)) return [];
+  return dedupe(
+    [
+      conferenceKey(game.leagueKey, game.home),
+      conferenceKey(game.leagueKey, game.away),
+    ].filter((k): k is string => k !== null),
+  );
+}
+
+/**
  * WHICH LEAGUES TO FETCH, which is the whole of D1 in six lines.
  *
  * Follows used to be a filter over five leagues that were always fetched.
@@ -157,7 +212,14 @@ export function gameTeamKeys(game: Game): string[] {
  */
 export function fetchList(follows: Follows): string[] {
   const paths = new Set(follows.leagues);
-  for (const key of follows.teams) {
+  // A CONFERENCE follow pulls its league onto the wire for the same reason
+  // a club follow does, and with the same shape: there is no way to ask
+  // ESPN for one conference without asking for the league it is in, and
+  // `isFollowed` narrows the answer back down. (There IS a `?groups=`
+  // filter that would do it server-side, one request per conference per
+  // day; filtering a league response we already have is both cheaper and
+  // complete.)
+  for (const key of [...follows.teams, ...follows.conferences]) {
     const cut = key.indexOf(":");
     if (cut > 0) paths.add(key.slice(0, cut));
   }
@@ -191,6 +253,10 @@ export function resolvable(follows: Follows, known: readonly string[]): Follows 
     // A team key is `${leagueKey}:${teamId}`, so it is only meaningful
     // while its league half still exists.
     teams: follows.teams.filter((k) => live.has(k.slice(0, k.indexOf(":")))),
+    // Same shape, same rule.
+    conferences: follows.conferences.filter((k) =>
+      live.has(k.slice(0, k.indexOf(":"))),
+    ),
   };
 }
 
@@ -211,7 +277,36 @@ export function isFollowed(game: Game, follows: Follows): boolean {
   // only the WTA. See Tournament.keys.
   const keys = isTournament(game) ? game.keys : [game.leagueKey];
   if (keys.some((k) => follows.leagues.includes(k))) return true;
-  return gameTeamKeys(game).some((k) => follows.teams.includes(k));
+  if (gameTeamKeys(game).some((k) => follows.teams.includes(k))) return true;
+  // EITHER side, not both, so an SEC v ACC game reaches everyone following
+  // either one. A conference game names one conference twice and dedupes
+  // to the same answer.
+  return gameConferenceKeys(game).some((k) =>
+    follows.conferences.includes(k),
+  );
+}
+
+/**
+ * Is this a game a POLL has an opinion about?
+ *
+ * By whether either side carries a conference, which is ESPN's own way of
+ * saying "college": no professional competitor has one. It reads as a
+ * proxy and it is not — the two facts arrive on the same teams from the
+ * same field, and the alternative (a hand-kept list of ranking leagues)
+ * would go stale the first time ESPN added one.
+ *
+ * This is what keeps the Ranked filter from emptying the board. Ranked is
+ * an intersection rather than a union, so applied to everything it would
+ * hide every NFL game forever, none of which can ever be ranked.
+ */
+export function isRankable(game: Game): boolean {
+  return gameConferenceKeys(game).length > 0;
+}
+
+/** Either side inside the top 25. See Competitor.rank for why 99 is absent. */
+export function isRanked(game: Game): boolean {
+  if (!isFixture(game)) return false;
+  return game.home.rank !== undefined || game.away.rank !== undefined;
 }
 
 /** Toggle and persist, returning the new list. Mirrors live/favorites. */
@@ -221,6 +316,29 @@ export function toggleLeague(follows: Follows, leagueKey: string): Follows {
 
 export function toggleTeam(follows: Follows, key: string): Follows {
   return persist({ ...follows, teams: flip(follows.teams, key) });
+}
+
+export function toggleConference(follows: Follows, key: string): Follows {
+  return persist({ ...follows, conferences: flip(follows.conferences, key) });
+}
+
+/**
+ * Follow a whole set of conferences at once, or drop them if every one is
+ * already followed. What the Power 4 chip is.
+ *
+ * All-or-nothing on the way out so a second click is an undo. Following
+ * four when three are already on adds the fourth rather than clearing
+ * them, which is the answer that leaves you where the click said to go.
+ */
+export function toggleConferences(
+  follows: Follows,
+  keys: readonly string[],
+): Follows {
+  const have = new Set(follows.conferences);
+  const next = keys.every((k) => have.has(k))
+    ? follows.conferences.filter((k) => !keys.includes(k))
+    : dedupe([...follows.conferences, ...keys]);
+  return persist({ ...follows, conferences: next });
 }
 
 function flip(list: string[], id: string): string[] {

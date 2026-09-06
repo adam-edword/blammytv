@@ -4,6 +4,11 @@ import {
   loadCompactResults,
   saveCompactResults,
 } from "../settings/compactResults";
+import {
+  loadHideFinishedRow,
+  saveHideFinishedRow,
+} from "../settings/hideFinishedRow";
+import { loadRankedOnly, saveRankedOnly } from "../settings/rankedOnly";
 import { CompactCard } from "./CompactCard";
 import { RaceCard } from "./RaceCard";
 import { GolfCard } from "./GolfCard";
@@ -12,13 +17,21 @@ import { TournamentDraw } from "./TournamentDraw";
 import { WeekendCard } from "./WeekendCard";
 import { WideRaceCard } from "./WideRaceCard";
 import { SportsSidebar } from "./SportsSidebar";
-import { fetchList, isFollowed, loadFollows, resolvable } from "./follows";
+import {
+  fetchList,
+  isFollowed,
+  isRankable,
+  isRanked,
+  loadFollows,
+  resolvable,
+} from "./follows";
 import { GameCard } from "./GameCard";
 import { dayLabel, nowish } from "./day";
 import { SportsTheater } from "./SportsTheater";
 import { UpcomingCard } from "./UpcomingCard";
 import { useCatalog } from "./catalog";
 import { ALL_LEAGUES, league as byPath } from "./leagues";
+import { byKey as confByKey } from "./conferences";
 import type { CatalogLeague } from "./leagues";
 import { SportsEmpty, BoardSkeleton } from "./SportsEmpty";
 import { nameList } from "./nameList";
@@ -113,10 +126,20 @@ export function SportsScreen({ home }: { home?: number } = {}) {
    * favourites. Nothing picked and nothing followed still means everything.
    */
   const shown = useMemo(
-    () => (picked.length > 0 ? { leagues: picked, teams: [] } : active),
+    () =>
+      picked.length > 0
+        ? // A pick drops the CONFERENCES too, for the same reason it drops
+          // the clubs: it is a statement about leagues, and carrying a
+          // conference follow into it would have the pick narrow to a
+          // league and then hide most of it.
+          { leagues: picked, teams: [], conferences: [] }
+        : active,
     [picked, active],
   );
-  const narrowed = shown.leagues.length > 0 || shown.teams.length > 0;
+  const narrowed =
+    shown.leagues.length > 0 ||
+    shown.teams.length > 0 ||
+    shown.conferences.length > 0;
   /**
    * What the empty state names when the filter is hiding everything.
    *
@@ -132,6 +155,14 @@ export function SportsScreen({ home }: { home?: number } = {}) {
       .map((l) => l.label);
     const clubs = active.teams.length;
     if (clubs > 0) labels.push(`${clubs} ${clubs === 1 ? "club" : "clubs"}`);
+    // NAMED, not counted, unlike the clubs: there are at most a handful of
+    // conferences and their labels are short ("SEC", "Big Ten"), so the
+    // reason the clubs collapse to a number does not apply. An id nothing
+    // can name is dropped rather than printed, same as everywhere else.
+    for (const c of active.conferences) {
+      const named = confByKey(c);
+      if (named) labels.push(named.label);
+    }
     return [nameList(labels), labels.length] as const;
   }, [active]);
   /** Bumped by the empty state's way out. See SportsSidebar's `reveal`. */
@@ -161,11 +192,15 @@ export function SportsScreen({ home }: { home?: number } = {}) {
   const {
     days: raw,
     extra: rawExtra,
+    earlier: rawEarlier,
     ahead: rawAhead,
     state,
     reachFailed,
     loadMore,
     moreState,
+    loadEarlier,
+    earlierState,
+    earlierDone,
   } = useGames(
     leagues,
     // FIVE when the board is narrowed, two when it is not, and the gap is
@@ -191,17 +226,47 @@ export function SportsScreen({ home }: { home?: number } = {}) {
   // a 42-game board costs 4.7ms against a 20k-channel index and 3.7 SECONDS
   // without one, so it must not happen per render.
   const catalog = useCatalog();
+  /**
+   * RANKED ONLY: a college game stays only if a poll has heard of it.
+   *
+   * Persisted, and read here rather than passed down because it is a filter
+   * over the board like the follows are, not a display choice like
+   * `compact`.
+   */
+  const [rankedOnly, setRankedOnly] = useState(loadRankedOnly);
+  /**
+   * The one predicate every list on this screen is filtered by.
+   *
+   * TWO DIFFERENT OPERATORS, which is why it is a function rather than a
+   * bigger follow store. Follows UNION: the SEC or the Big Ten or the
+   * Blackhawks. Ranked INTERSECTS: and also in the top 25. Squeezing the
+   * second into the first would have made "SEC" and "ranked" the same kind
+   * of thing and there is no arrangement of one array that means both.
+   *
+   * `isRankable` is what keeps the second arm from emptying the board. No
+   * NFL game can ever be ranked, so an unscoped ranked filter would hide
+   * every professional fixture the moment it was switched on.
+   */
+  const keep = useCallback(
+    (g: Game) =>
+      (!narrowed || isFollowed(g, shown)) &&
+      (!rankedOnly || !isRankable(g) || isRanked(g)),
+    [narrowed, shown, rankedOnly],
+  );
+  /** Whether `keep` can reject anything, so an unfiltered board skips the
+   * remap rather than minting an identical array. */
+  const filtering = narrowed || rankedOnly;
   const days = useMemo(() => {
     const withChans = raw.map((d) => ({
       ...d,
       games: withChannels(d.games, catalog),
     }));
-    if (!narrowed) return withChans;
+    if (!filtering) return withChans;
     return withChans.map((d) => ({
       ...d,
-      games: d.games.filter((g) => isFollowed(g, shown)),
+      games: d.games.filter(keep),
     }));
-  }, [raw, catalog, shown, narrowed]);
+  }, [raw, catalog, keep, filtering]);
   /**
    * The paged-in days, through the same two steps the window gets: channels
    * resolved against the guide, then the follow filter. Kept as its own
@@ -213,12 +278,28 @@ export function SportsScreen({ home }: { home?: number } = {}) {
       ...d,
       games: withChannels(d.games, catalog),
     }));
-    if (!narrowed) return withChans;
+    if (!filtering) return withChans;
     return withChans.map((d) => ({
       ...d,
-      games: d.games.filter((g) => isFollowed(g, shown)),
+      games: d.games.filter(keep),
     }));
-  }, [rawExtra, catalog, shown, narrowed]);
+  }, [rawExtra, catalog, keep, filtering]);
+  /**
+   * The paged-BACK days, through the same two steps. Its own memo for the
+   * same reason `extra` is: a click on one end of the board must not
+   * re-run the join at the other.
+   */
+  const earlier = useMemo(() => {
+    const withChans = rawEarlier.map((d) => ({
+      ...d,
+      games: withChannels(d.games, catalog),
+    }));
+    if (!filtering) return withChans;
+    return withChans.map((d) => ({
+      ...d,
+      games: d.games.filter(keep),
+    }));
+  }, [rawEarlier, catalog, keep, filtering]);
   /**
    * The reached-ahead games, through the same two steps the window gets.
    *
@@ -229,10 +310,8 @@ export function SportsScreen({ home }: { home?: number } = {}) {
    */
   const ahead = useMemo(() => {
     const withChans = withChannels(rawAhead, catalog);
-    return narrowed
-      ? withChans.filter((g) => isFollowed(g, shown))
-      : withChans;
-  }, [rawAhead, catalog, shown, narrowed]);
+    return filtering ? withChans.filter(keep) : withChans;
+  }, [rawAhead, catalog, keep, filtering]);
   /**
    * The date a card carries beside its kick-off time, weekday first.
    *
@@ -270,7 +349,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
    */
   const allDays = useMemo(() => {
     const byKey = new Map<string, { date: Date; games: Game[] }>();
-    for (const d of [...days, ...extra])
+    for (const d of [...earlier, ...days, ...extra])
       byKey.set(d.date.toDateString(), { date: d.date, games: [...d.games] });
     for (const g of ahead) {
       const date = new Date(g.start);
@@ -287,7 +366,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
         games: [...d.games].sort((a, b) => a.start.getTime() - b.start.getTime()),
       }))
       .sort((a, b) => a.date.getTime() - b.date.getTime());
-  }, [days, extra, ahead]);
+  }, [earlier, days, extra, ahead]);
 
   /** Every club the board LOADED, ahead of the filter. */
   const clubPool = useMemo(() => raw.flatMap((d) => d.games), [raw]);
@@ -315,22 +394,44 @@ export function SportsScreen({ home }: { home?: number } = {}) {
    * not one to answer by accident. The grid below carries them meanwhile,
    * which is where a thing made of 39 matches belongs anyway.
    */
+  /**
+   * HIDE FINISHED, the row's own pill. Off by default; see the setting.
+   *
+   * The row's question is "what can I watch", and by nine on a Saturday most
+   * of what is on it answers "nothing, it is over". This is for the person
+   * who wants the row to be only the live answer; the grids below still
+   * carry every result, which is why hiding here is honest rather than lossy.
+   */
+  const [hideFinished, setHideFinished] = useState(loadHideFinishedRow);
   const rowItems = useMemo(
     () =>
-      today.filter(
-        // Positive on both arms. Written as "not a tournament and live" it
-        // also happened to exclude a reached-ahead weekend, but only
-        // because those are always `pre` — a runtime coincidence standing
-        // in for a rule, which is the exact shape of the bug the union's
-        // narrowing discipline exists to prevent.
-        (g): g is Fixture | Field =>
-          isFixture(g) ||
-          // Golf has no WIDE card yet, and WideRaceCard would draw it as a
-          // race: a lap slot with nothing in it and three entrants where
-          // the leaderboard needs five. The grid carries it meanwhile, the
-          // same holding position tournaments are in (#39).
-          (isField(g) && g.state === "live" && g.sport !== "golf"),
-      ),
+      today
+        .filter(
+          // Positive on both arms. Written as "not a tournament and live" it
+          // also happened to exclude a reached-ahead weekend, but only
+          // because those are always `pre` — a runtime coincidence standing
+          // in for a rule, which is the exact shape of the bug the union's
+          // narrowing discipline exists to prevent.
+          (g): g is Fixture | Field =>
+            isFixture(g) ||
+            // Golf has no WIDE card yet, and WideRaceCard would draw it as a
+            // race: a lap slot with nothing in it and three entrants where
+            // the leaderboard needs five. The grid carries it meanwhile, the
+            // same holding position tournaments are in (#39).
+            (isField(g) && g.state === "live" && g.sport !== "golf"),
+        )
+        // AFTER the kind narrowing, not folded into it. That predicate is a
+        // type guard and the union's whole discipline rests on it staying
+        // one; a second, unrelated condition inside it would be the next
+        // "excluded by coincidence" bug.
+        .filter((g) => !hideFinished || g.state !== "final"),
+    [today, hideFinished],
+  );
+  /** Is there anything for the pill to act on? A row with no results has
+   * nothing to hide, and a control that would do nothing is not offered —
+   * the same rule the day headings' Compact results toggle follows. */
+  const rowHasFinals = useMemo(
+    () => today.some((g) => (isFixture(g) || isField(g)) && g.state === "final"),
     [today],
   );
 
@@ -406,6 +507,46 @@ export function SportsScreen({ home }: { home?: number } = {}) {
   // Read once and kept here: it is a display choice about this screen, so
   // it belongs to the screen rather than to every card in it.
   const [compact, setCompact] = useState(loadCompactResults);
+  /**
+   * The grids' games again, with the FINISHED ones brought to the front.
+   *
+   * Adam's, and it is a layout problem rather than a ranking one. Compaction
+   * collapses a final to a 48px one-liner and leaves everything else a 315px
+   * card, so kick-off order drops a full-height card into the middle of a run
+   * of pills and tears a hole in the grid. A 4:25 game still running at eight
+   * o'clock sits between the noon and the one o'clock results, which is where
+   * it kicked off and nowhere near where it belongs.
+   *
+   * ONLY WHEN COMPACTION IS ON. With it off every card is the same size,
+   * there is nothing to tear, and kick-off order is the right answer again.
+   *
+   * A STABLE PARTITION, not a sort. Both halves keep the kick-off order
+   * `allDays` gave them, which is what puts live ahead of upcoming inside
+   * the second group without a second comparator to keep in step. Written as
+   * two filters because that is what a partition is; a comparator over a
+   * boolean reads like it might be doing more.
+   *
+   * `allDays` itself is untouched, deliberately. That order is the day's
+   * canonical one and `nowish`, the theater and the row all read from the
+   * same window; this is a render-time arrangement of one grid.
+   *
+   * Object identity per game survives, so `keepStable`, the RESOLVED WeakMap
+   * and the three card `memo()`s all still hold. Reordering an array does
+   * not remint what is in it.
+   */
+  const laidOut = useMemo(
+    () =>
+      compact
+        ? allDays.map((d) => ({
+            ...d,
+            games: [
+              ...d.games.filter((g) => g.state === "final"),
+              ...d.games.filter((g) => g.state !== "final"),
+            ],
+          }))
+        : allDays,
+    [allDays, compact],
+  );
   /**
    * The tournament whose draw is open, which is a different mode from the
    * theater and deliberately not the same state.
@@ -485,6 +626,24 @@ export function SportsScreen({ home }: { home?: number } = {}) {
       return !on;
     });
   };
+  const toggleHideFinished = () => {
+    setHideFinished((on) => {
+      saveHideFinishedRow(!on);
+      return !on;
+    });
+    // FORGET WHERE THE ROW WAS CENTRED. The scroll effect bails when the
+    // anchor id has not changed, and hiding the finals usually leaves the
+    // anchor exactly where it was while deleting every card to the left of
+    // it — so without this the row keeps its old scrollLeft and lands
+    // somewhere arbitrary in a list that is now half the length.
+    centred.current = null;
+  };
+  const toggleRanked = () => {
+    setRankedOnly((on) => {
+      saveRankedOnly(!on);
+      return !on;
+    });
+  };
 
   if (openDraw) {
     // Re-read from the refreshed board, same as the theater does, so a
@@ -535,6 +694,8 @@ export function SportsScreen({ home }: { home?: number } = {}) {
         }
         onClearPicks={() => setPicked([])}
         reveal={reveal}
+        rankedOnly={rankedOnly}
+        onToggleRanked={toggleRanked}
       />
       <div className="discover sports sportsboard__main">
       {/* Said ONCE, above the board, rather than on every card (#21). The
@@ -548,27 +709,83 @@ export function SportsScreen({ home }: { home?: number } = {}) {
             : "None of these are on a channel in your playlist. The game is still on; your provider just doesn't carry the networks showing it."}
         </p>
       )}
-      {rowItems.length > 0 && (
+      {/* THE SECOND ARM IS THE WAY BACK OUT. On `rowItems.length` alone, a
+        * day whose games have all finished emptied the row, which took the
+        * pill with it and left no control anywhere that could turn the pill
+        * off again. Keeping the header up costs one muted line and is the
+        * difference between a filter and a trap. */}
+      {(rowItems.length > 0 || (hideFinished && rowHasFinals)) && (
         <section className="media-row" ref={row}>
-          <h3 className="media-row__title sports__title">
-            {/* The pip is a claim about the world, so it only appears when
-              * something is actually on. */}
-            {live && <span className="gamepip" aria-hidden />}
-            Today&rsquo;s Games
-          </h3>
-          <RowScroller>
-            {rowItems.map((g) =>
-              isField(g) ? (
-                <WideRaceCard key={g.id} race={g} />
-              ) : (
-                <GameCard key={g.id} game={g} onOpen={openGame} />
-              ),
+          <div className="sports__head">
+            <h3 className="media-row__title sports__title">
+              {/* The pip is a claim about the world, so it only appears when
+                * something is actually on. */}
+              {live && <span className="gamepip" aria-hidden />}
+              Today&rsquo;s Games
+            </h3>
+            {/* Only where it would do something, same rule as the day
+              * headings' toggle: a row with nothing finished on it has
+              * nothing to hide. */}
+            {rowHasFinals && (
+              <button
+                type="button"
+                className={
+                  "sports__toggle sports__toggle--pill" +
+                  (hideFinished ? " is-on" : "")
+                }
+                onClick={toggleHideFinished}
+                aria-pressed={hideFinished}
+              >
+                Hide finished
+              </button>
             )}
-          </RowScroller>
+          </div>
+          {rowItems.length > 0 ? (
+            <RowScroller>
+              {rowItems.map((g) =>
+                isField(g) ? (
+                  <WideRaceCard key={g.id} race={g} />
+                ) : (
+                  <GameCard key={g.id} game={g} onOpen={openGame} />
+                ),
+              )}
+            </RowScroller>
+          ) : (
+            <p className="sports__unlinked" role="status">
+              Everything today has finished. The results are below.
+            </p>
+          )}
         </section>
       )}
 
-      {allDays.map(
+      {/* EARLIER DAYS, on request, and above the board because that is where
+        * the days it adds go. Mirrors "Show more days" at the other end.
+        *
+        * A button rather than a scroll trigger, and the arithmetic is why:
+        * with nothing followed the fetch list is all 151 catalog leagues and
+        * a day costs one request each, so this has to be something somebody
+        * asked for rather than something they fell into by scrolling up.
+        *
+        * It disappears at the cap instead of sitting there disabled. There
+        * is no later state in which it starts working again. */}
+      {state === "ready" && !earlierDone && (
+        <div className="sports__more sports__more--earlier">
+          <button
+            type="button"
+            className="sports__morebtn"
+            onClick={() => void loadEarlier()}
+            disabled={earlierState === "loading"}
+          >
+            {earlierState === "loading"
+              ? "Loading…"
+              : earlierState === "error"
+                ? "Couldn't load that. Try again"
+                : "Show earlier days"}
+          </button>
+        </div>
+      )}
+
+      {laidOut.map(
         (day) =>
           day.games.length > 0 && (
             <section className="media-row" key={day.date.toDateString()}>

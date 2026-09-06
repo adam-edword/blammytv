@@ -5,17 +5,25 @@ import {
 } from "../settings/sportsSidebar";
 import { ModeRail, type RailMode } from "../../ui/ModeRail";
 import {
+  ConferencesIcon,
   LeaguesIcon,
   PanelIcon,
   TeamsIcon,
   TvIcon,
 } from "../../ui/icons";
-import { teamKey, toggleTeam, type Follows } from "./follows";
+import {
+  teamKey,
+  toggleConference,
+  toggleConferences,
+  toggleTeam,
+  type Follows,
+} from "./follows";
+import { conferencesIn, POWER_FOUR } from "./conferences";
 import { LeaguePicker } from "./LeaguePicker";
 import { isFixture } from "./model";
 import type { Game } from "./model";
 
-type Mode = "leagues" | "teams";
+type Mode = "leagues" | "teams" | "conferences";
 
 /* Leagues and Teams, each with its own mark (v0.8.116).
  *
@@ -33,6 +41,22 @@ type Mode = "leagues" | "teams";
 const MODES: RailMode<Mode>[] = [
   { key: "leagues", label: "Leagues", icon: () => <LeaguesIcon /> },
   { key: "teams", label: "Teams", icon: () => <TeamsIcon /> },
+];
+
+/**
+ * The rail with Conferences on it, built once rather than per render.
+ *
+ * A THIRD TAB THAT COMES AND GOES, which is unusual here and is the honest
+ * shape: only college sport has conferences (ESPN carries no conference or
+ * division on any professional competitor), so on an NFL Sunday this tab
+ * would be a control with nothing in it and no way to put anything there.
+ * The Teams tab can be empty and still make sense, because clubs arrive
+ * when games do; a conference tab on a board with no college on it is
+ * empty for a reason that will not change by waiting.
+ */
+const MODES_WITH_CONFS: RailMode<Mode>[] = [
+  ...MODES,
+  { key: "conferences", label: "Confs", icon: () => <ConferencesIcon /> },
 ];
 
 /**
@@ -58,6 +82,8 @@ export function SportsSidebar({
   onPick,
   onClearPicks,
   reveal,
+  rankedOnly,
+  onToggleRanked,
 }: {
   /** Every game the board has loaded, for the club list. */
   games: Game[];
@@ -79,6 +105,10 @@ export function SportsSidebar({
    * sets no state and so would do nothing the second time.
    */
   reveal?: number;
+  /** The board's Ranked filter, which lives on the Conferences tab because
+   * that is the only place it applies. See rankedOnly. */
+  rankedOnly: boolean;
+  onToggleRanked: () => void;
 }) {
   const [mode, setMode] = useState<Mode>("leagues");
   // Read once and written on every toggle. Collapsing this is a statement
@@ -127,6 +157,42 @@ export function SportsSidebar({
     return [...by.values()].sort((a, b) => a.name.localeCompare(b.name));
   }, [games]);
 
+  /**
+   * The conferences to offer, from the games the board actually loaded.
+   *
+   * Same rule as the clubs above and for the same reason: the shipped table
+   * knows 13 in college football and 31 in each college basketball league,
+   * and a Tuesday in November has four of them playing. Offering all 75
+   * would be a list of mostly dead chips.
+   *
+   * `conferencesIn` drops any id it cannot NAME, which is not a gap: the
+   * college football board carries FCS opponents whose own conferences the
+   * FBS sweep never named, and a chip reading "179" filters to something
+   * nobody asked for.
+   */
+  const confs = useMemo(() => conferencesIn(games), [games]);
+  /** Is the Power 4 preset worth offering? Only when the board has college
+   * football on it — those five keys are that league's and nothing else's. */
+  const power = useMemo(
+    () => POWER_FOUR.filter((k) => confs.some((c) => c.key === k)),
+    [confs],
+  );
+  const powerOn = power.length > 0 && power.every((k) =>
+    follows.conferences.includes(k),
+  );
+
+  /**
+   * Fall off the Conferences tab when the board stops having conferences.
+   *
+   * Narrow to the NFL while it is open and the tab disappears from the rail
+   * underneath you, leaving `mode` pointing at a panel that renders nothing
+   * and a rail with no active entry. Sending it back to Leagues is what the
+   * rail would have done if the tab had never been there.
+   */
+  useEffect(() => {
+    if (confs.length === 0) setMode((m) => (m === "conferences" ? "leagues" : m));
+  }, [confs.length]);
+
   return (
     <aside
       className={
@@ -149,7 +215,11 @@ export function SportsSidebar({
           <PanelIcon />
         </button>
         {!collapsed && (
-          <ModeRail modes={MODES} mode={mode} onChange={setMode} />
+          <ModeRail
+            modes={confs.length > 0 ? MODES_WITH_CONFS : MODES}
+            mode={mode}
+            onChange={setMode}
+          />
         )}
       </div>
 
@@ -186,6 +256,54 @@ export function SportsSidebar({
               Clubs appear here once there are games to follow them to.
             </p>
           )}
+        </div>
+      )}
+
+      {!collapsed && mode === "conferences" && confs.length > 0 && (
+        <div className="live-sidebar__folders">
+          {/* THE TWO PRESETS, above the list because they are shortcuts
+            * INTO it rather than entries in it. Both are pressed-state
+            * buttons rather than checkboxes, the same shape the board's
+            * Compact results toggle uses. */}
+          <div className="sportsside__presets">
+            {power.length > 0 && (
+              <button
+                type="button"
+                className={
+                  "sports__toggle sports__toggle--pill" +
+                  (powerOn ? " is-on" : "")
+                }
+                aria-pressed={powerOn}
+                onClick={() => onFollows(toggleConferences(follows, power))}
+              >
+                Power 4
+              </button>
+            )}
+            {/* NOT A CONFERENCE, and it is on this tab because this is the
+              * only board it can act on: a poll has no opinion about the
+              * NFL. It intersects where the conferences union, which is
+              * why it is a separate control rather than a chip in the list
+              * below. */}
+            <button
+              type="button"
+              className={
+                "sports__toggle sports__toggle--pill" +
+                (rankedOnly ? " is-on" : "")
+              }
+              aria-pressed={rankedOnly}
+              onClick={onToggleRanked}
+            >
+              Ranked
+            </button>
+          </div>
+          {confs.map((c) => (
+            <Row
+              key={c.key}
+              label={c.label}
+              on={follows.conferences.includes(c.key)}
+              onClick={() => onFollows(toggleConference(follows, c.key))}
+            />
+          ))}
         </div>
       )}
 

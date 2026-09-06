@@ -351,6 +351,34 @@ export function TeamsIcon({ size = 20, className }: IconProps) {
   );
 }
 
+/**
+ * A shield. A conference is the badge a school wears, and a crest is the
+ * one mark every one of them already has in common.
+ *
+ * Deliberately NOT a trophy: LeaguesIcon is one, and the two sit next to
+ * each other on the same rail. The chevron inside is what keeps it from
+ * reading as a plain blob at 20px.
+ */
+export function ConferencesIcon({ size = 20, className }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <path d="M12 2.8 4.5 5.6v6.1c0 4.4 3.1 8.2 7.5 9.5 4.4-1.3 7.5-5.1 7.5-9.5V5.6L12 2.8Z" />
+      <path d="M8.6 11.4 12 14.2l3.4-2.8" />
+    </svg>
+  );
+}
+
 /** A plain left arrow. The way OUT of a player, not a transport control:
  * SkipBackIcon below is about the media, this is about the screen. */
 export function BackArrowIcon({ size = 20, className }: IconProps) {

@@ -3,6 +3,11 @@ import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import Tilt from "react-parallax-tilt";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
+import { PanelIcon } from "../../ui/icons";
+import {
+  loadTheaterFolded,
+  saveTheaterFolded,
+} from "../settings/theaterFolded";
 import { useMouseNav } from "../../lib/mouseNav";
 import { isModalOpen } from "../../lib/modalOpen";
 import {
@@ -130,6 +135,25 @@ export function SportsTheater({
    * the state, because both readers sit above where it used to live. */
   const fsRef = useRef(fullscreen);
   fsRef.current = fullscreen;
+  /**
+   * The side column, folded down to a strip (Adam's).
+   *
+   * PERSISTED, like Live TV's sidebar and for the same reason: how wide you
+   * want the picture is a statement about how you watch, not about this
+   * game, and having to say it again on every game would be the whole of
+   * the annoyance the button exists to fix.
+   *
+   * Its own setting rather than the Live sidebar's, because they are
+   * different panels on different screens and one key would have collapsing
+   * the guide silently fold the theater too.
+   */
+  const [folded, setFolded] = useState(loadTheaterFolded);
+  const toggleFold = useCallback(() => {
+    setFolded((on) => {
+      saveTheaterFolded(!on);
+      return !on;
+    });
+  }, []);
 
   /**
    * Tune a rail row.
@@ -443,7 +467,37 @@ export function SportsTheater({
     <div
       className={"sportstheater" + (fullscreen ? " sportstheater--full" : "")}
     >
-      <aside className="sportstheater__side">
+      <aside
+        className={
+          "sportstheater__side" + (folded ? " sportstheater__side--folded" : "")
+        }
+      >
+        {/* FOLD THE COLUMN, giving its 360px to the picture.
+          *
+          * NOT to zero, and that is the difference between this and
+          * fullscreen. The way out of the theater lives in this column, so
+          * a fold that took the whole thing would leave a screen with no
+          * visible exit and no way to unfold it either. Fullscreen gets
+          * away with that because it is a mode you are obviously IN and
+          * Escape is the obvious way out; a folded panel just looks like a
+          * theater that lost its rail. So the strip stays, carrying this
+          * button and the back pill.
+          *
+          * Live TV's sidebar mark and Live TV's behaviour, deliberately:
+          * this asks the same question in the same shape, and a second
+          * control that nearly matched would be worse than reusing the
+          * one people already know. */}
+        <div className="sportstheater__fold">
+          <button
+            type="button"
+            className="live-collapse"
+            aria-label={folded ? "Expand channels" : "Collapse channels"}
+            aria-expanded={!folded}
+            onClick={toggleFold}
+          >
+            <PanelIcon />
+          </button>
+        </div>
         {/* THE WAY OUT, said out loud. Escape and the mouse's back button
          * both already left the theater, and neither is discoverable — the
          * only visible exit was the one you could not see. Same pill as
@@ -462,8 +516,12 @@ export function SportsTheater({
           type="button"
           className="vod-back sportstheater__back"
           onClick={onClose}
+          // Folded, the pill is the arrow alone — the word would set the
+          // strip's width on its own — so the name has to be said here
+          // instead of read off the text.
+          aria-label="Back"
         >
-          ← Back
+          {folded ? "←" : "← Back"}
         </button>
         <Matchup game={game} />
 

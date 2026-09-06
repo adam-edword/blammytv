@@ -86,6 +86,26 @@
   color: var(--text);
 }
 
+/* The same control, one size down.
+ *
+ * It sits beside "Today's Games" rather than a day heading, and that row
+ * already carries the live pip. At the day toggle's size it read as a
+ * second heading; smaller, it reads as what it is. */
+.sports__toggle--pill {
+  padding: 4px 10px;
+  font-size: 11px;
+  align-self: center;
+}
+
+/* The Conferences tab's two presets, on one line above the list. Same
+ * gutter as the rows below them so the left edges line up. */
+.sportsside__presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 8px 10px;
+}
+
 /* The board-level "none of this is on your channels" line (#21).
  *
  * A NOTE, not an empty state: the board below it is still worth reading, so
@@ -1993,6 +2013,39 @@
   flex: none;
 }
 
+/* The fold button's own line, so it sits above the back pill rather than
+ * beside it. Both are "leave this thing" controls and stacking them keeps
+ * the column's left edge one straight line. */
+.sportstheater__fold {
+  display: flex;
+  flex: none;
+}
+
+/* FOLDED: the column keeps its controls and loses its content.
+ *
+ * `flex: 0 0 auto` rather than a width, so the strip is exactly as wide as
+ * the two buttons in it and the stage takes everything else. No transition
+ * on the width, deliberately: mpv is a native surface glued to the slot's
+ * rectangle and re-follows it every frame, so an animated width would have
+ * the video chasing the layout for the length of the ease. Fullscreen
+ * already changes this instantly for the same reason. */
+.sportstheater__side--folded {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+.sportstheater__side--folded > .matchup,
+.sportstheater__side--folded > .sportstheater__rail,
+.sportstheater__side--folded > .sportstheater__scores {
+  display: none;
+}
+/* The back pill's label would set the strip's width on its own, so folded
+ * it is the arrow alone. The word goes rather than the whole button: an
+ * arrow still reads as "back", and a pill with nothing in it does not. */
+.sportstheater__side--folded > .sportstheater__back {
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
 .sportstheater--full .sportstheater__side {
   display: none;
 }
@@ -3831,4 +3884,13 @@
 .sports__morebtn:disabled {
   opacity: 0.6;
   cursor: default;
+}
+
+/* The same button at the TOP of the board, walking backwards.
+ *
+ * Its padding is mirrored, not repeated: the forward one clears the grid
+ * above it and sits close to nothing below, and this one is the other way
+ * round. */
+.sports__more--earlier {
+  padding: 4px 0 20px;
 }

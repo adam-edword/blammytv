@@ -60,6 +60,29 @@ export interface Competitor {
   /** Team colour, used for the card's tint. Hex, no leading #. */
   color?: string;
   /**
+   * The source's own conference id, and COLLEGE ONLY.
+   *
+   * League-scoped like every other source id, and the collision is real
+   * rather than theoretical: college football's ACC is 1 and college
+   * basketball's is 2. Anything keyed off this carries the league with it.
+   *
+   * Absent on every professional league. Measured 2026-09-06: ESPN's
+   * scoreboard carries no conference or division on an NFL, NBA, MLB or
+   * NHL competitor at all, so a conference filter is a college feature by
+   * the data's decision rather than by a scope cut. The standings endpoint
+   * has it for the pro leagues, which is a different request and a
+   * different feature.
+   */
+  conferenceId?: string;
+  /**
+   * Where they sit in the poll, when there is one: 1 to 25.
+   *
+   * ESPN's `curatedRank`, which is 99 for everyone unranked and is
+   * normalised to absent here rather than carried as a sentinel. College
+   * only in practice, for the same reason as `conferenceId`.
+   */
+  rank?: number;
+  /**
    * Their season record, as the sport keeps it: "59-53", "41-25-16",
    * "9-3-5".
    *
