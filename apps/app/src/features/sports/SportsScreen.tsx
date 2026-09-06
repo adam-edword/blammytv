@@ -698,6 +698,37 @@ export function SportsScreen({ home }: { home?: number } = {}) {
         onToggleRanked={toggleRanked}
       />
       <div className="discover sports sportsboard__main">
+      {/* EARLIER DAYS, at the very top of the board and left-aligned on its
+        * column (Adam's, off a screenshot).
+        *
+        * It used to sit between the row and the day grids, which read as
+        * belonging to the row above it rather than to the days below. Up
+        * here it belongs to the board: the whole thing is a list running
+        * forwards in time, and this is the end you walk back from.
+        *
+        * A button rather than a scroll trigger, and the arithmetic is why:
+        * with nothing followed the fetch list is all 151 catalog leagues and
+        * a day costs one request each, so this has to be something somebody
+        * asked for rather than something they fell into by scrolling up.
+        *
+        * It disappears at the cap instead of sitting there disabled. There
+        * is no later state in which it starts working again. */}
+      {state === "ready" && !earlierDone && (
+        <div className="sports__more sports__more--earlier">
+          <button
+            type="button"
+            className="sports__morebtn"
+            onClick={() => void loadEarlier()}
+            disabled={earlierState === "loading"}
+          >
+            {earlierState === "loading"
+              ? "Loading…"
+              : earlierState === "error"
+                ? "Couldn't load that. Try again"
+                : "Show earlier days"}
+          </button>
+        </div>
+      )}
       {/* Said ONCE, above the board, rather than on every card (#21). The
         * board stays: knowing a game exists is useful even when you cannot
         * watch it here, and hiding it would answer a question nobody
@@ -756,33 +787,6 @@ export function SportsScreen({ home }: { home?: number } = {}) {
             </p>
           )}
         </section>
-      )}
-
-      {/* EARLIER DAYS, on request, and above the board because that is where
-        * the days it adds go. Mirrors "Show more days" at the other end.
-        *
-        * A button rather than a scroll trigger, and the arithmetic is why:
-        * with nothing followed the fetch list is all 151 catalog leagues and
-        * a day costs one request each, so this has to be something somebody
-        * asked for rather than something they fell into by scrolling up.
-        *
-        * It disappears at the cap instead of sitting there disabled. There
-        * is no later state in which it starts working again. */}
-      {state === "ready" && !earlierDone && (
-        <div className="sports__more sports__more--earlier">
-          <button
-            type="button"
-            className="sports__morebtn"
-            onClick={() => void loadEarlier()}
-            disabled={earlierState === "loading"}
-          >
-            {earlierState === "loading"
-              ? "Loading…"
-              : earlierState === "error"
-                ? "Couldn't load that. Try again"
-                : "Show earlier days"}
-          </button>
-        </div>
       )}
 
       {laidOut.map(

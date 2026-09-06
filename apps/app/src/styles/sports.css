@@ -3888,9 +3888,12 @@
 
 /* The same button at the TOP of the board, walking backwards.
  *
- * Its padding is mirrored, not repeated: the forward one clears the grid
- * above it and sits close to nothing below, and this one is the other way
- * round. */
+ * LEFT-ALIGNED, where the forward one centres. That one sits under the
+ * last day grid and belongs to all of them, so centring is right. This one
+ * heads the column, and everything else at the top of the board — the day
+ * headings, the row title, the cards — starts on the same left edge. A
+ * centred button up here would be the only thing that did not. */
 .sports__more--earlier {
-  padding: 4px 0 20px;
+  justify-content: flex-start;
+  padding: 0 0 18px;
 }
