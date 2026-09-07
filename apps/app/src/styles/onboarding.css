@@ -185,7 +185,6 @@
   width: 76px;
   height: 76px;
   border-radius: 32.5%;
-  corner-shape: superellipse(1.32);
   background: conic-gradient(
     from 320deg,
     #ff9b9b -4.8706%,
@@ -208,7 +207,6 @@
   width: 43px;
   height: 43px;
   border-radius: 27.5%;
-  corner-shape: superellipse(1.58);
   background: #000;
 }
 .onb-word {

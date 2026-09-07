@@ -71,12 +71,6 @@ import {
   loadShowChannelNumber,
   saveShowChannelNumber,
 } from "./channelNumber";
-import {
-  applyCornerStyle,
-  loadCornerStyle,
-  saveCornerStyle,
-  type CornerStyle,
-} from "./cornerStyle";
 
 const SCALE_TABS = UI_SCALES.map((s) => ({
   key: String(s),
@@ -84,12 +78,6 @@ const SCALE_TABS = UI_SCALES.map((s) => ({
 }));
 
 // CLOCK_TABS lives in clockFormat.ts — one list shared with onboarding.
-
-const CORNER_TABS: Array<{ key: CornerStyle; label: string }> = [
-  { key: "squircle", label: "Squircle" },
-  { key: "round", label: "Round" },
-  { key: "sharp", label: "Sharp" },
-];
 
 /** The same Live TV / Stream split General's Sources uses. One mental
  * model: the app has two content worlds, and each tab says its piece about
@@ -133,12 +121,6 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
     saveClockFormat(next);
   };
 
-  const [corners, setCorners] = useState<CornerStyle>(loadCornerStyle);
-  const pickCorners = (next: CornerStyle) => {
-    setCorners(next);
-    saveCornerStyle(next);
-    applyCornerStyle(next);
-  };
 
   const [chanNum, setChanNum] = useState<boolean>(loadShowChannelNumber);
   const toggleChanNum = () => {
@@ -201,7 +183,7 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
   };
 
   /** Back to factory appearance: default accent (custom slot cleared),
-   * default theme pack, dark theme, squircle corners, 100% scale, 12h
+   * default theme pack, dark theme, 100% scale, 12h
    * clock, channel numbers shown. Startup Tab is NOT reset, even though it
    * is displayed on this tab: it decides where the app OPENS, which is
    * behaviour, and this button promises appearance. Accent + pack reset go
@@ -216,7 +198,6 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
     saveThemePack(DEFAULT_PACK);
     applyThemePack(DEFAULT_PACK);
     pickTheme("dark");
-    pickCorners("squircle");
     pickScale(1);
     pickClock("12h");
     setChanNum(true);
@@ -278,15 +259,6 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
           />
         </div>
 
-        <div className="customize-row">
-          <div>
-            <h4 className="customize-row__title">Corner Style</h4>
-            <p className="settings__section-note settings__section-note--dim">
-              The shape of every corner in the app.
-            </p>
-          </div>
-          <ChipTabs tabs={CORNER_TABS} active={corners} onChange={pickCorners} />
-        </div>
       </section>
 
       {/* Per-world look, behind the same pill General's Sources uses. */}
@@ -569,7 +541,7 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
             <div>
               <h4 className="customize-row__title">Reset Appearance</h4>
               <p className="settings__section-note settings__section-note--dim">
-                Accent, theme, corners, scale, and clock back to defaults.
+                Accent, theme, scale, and clock back to defaults.
               </p>
             </div>
             <button type="button" className="btn-danger" onClick={reset}>

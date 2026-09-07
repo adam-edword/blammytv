@@ -29,7 +29,7 @@
   gap: 7px;
   height: 32px;
   padding: 0 12px;
-  border-radius: 18px;
+  border-radius: var(--radius-chip);
   background: var(--surface-track);
   color: var(--text-muted);
   transition: color var(--dur-hover, 120ms) ease;
@@ -327,7 +327,6 @@
   border: 0;
   cursor: pointer;
   border-radius: var(--radius-pill, 999px);
-  corner-shape: round;
   background: color-mix(in srgb, var(--text) 14%, transparent);
   color: var(--text);
   font: 500 14px/1 var(--font-text);
@@ -361,7 +360,6 @@
   border: 0;
   outline: none;
   border-radius: var(--radius-pill, 999px);
-  corner-shape: round;
   background: color-mix(in srgb, var(--text) 12%, transparent);
   /* The wall shows through everything else on this screen; the field is
    * where the eye goes, so it gets a solid-enough ground of its own. */
@@ -387,7 +385,6 @@
   border: 0;
   cursor: pointer;
   border-radius: var(--radius-pill, 999px);
-  corner-shape: round;
   background: color-mix(in srgb, var(--text) 18%, transparent);
   backdrop-filter: blur(12px);
   color: var(--text);
@@ -462,7 +459,6 @@
   border: 0;
   cursor: pointer;
   border-radius: var(--radius-pill, 999px);
-  corner-shape: round;
   background: color-mix(in srgb, var(--text) 12%, transparent);
   color: var(--text);
   font: 600 13px/1 var(--font-text);

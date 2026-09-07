@@ -98,7 +98,7 @@
   top: 0;
   height: 100%;
   object-fit: cover;
-  border-radius: 60px;
+  border-radius: var(--radius-card);
   filter: blur(70px) saturate(1.4);
   /* Neighbor light rests dim; the incoming slide's light fades up fast
    * and undelayed, while the OUTGOING one holds until the slide's final
@@ -118,7 +118,7 @@
   position: absolute;
   top: 22px;
   bottom: 22px;
-  border-radius: 60px;
+  border-radius: var(--radius-card);
   /* No overflow:hidden here — it would clip the Tilt lean/scale (the
    * .shero__tilt wrapper grows past the box on hover). The rounding
    * lives on the art/scrim layers instead; the ambient glow is the
@@ -149,12 +149,12 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 60px; /* the card itself no longer clips (glow) */
+  border-radius: var(--radius-card); /* the card itself no longer clips (glow) */
 }
 .shero__scrim {
   position: absolute;
   inset: 0;
-  border-radius: 60px;
+  border-radius: var(--radius-card);
   background:
     linear-gradient(to top, rgba(0, 0, 0, 0.72), transparent 45%),
     linear-gradient(to right, rgba(0, 0, 0, 0.5), transparent 55%);
@@ -209,7 +209,7 @@
   color: var(--text);
   background: var(--surface-raised);
   border: 0.5px solid var(--border-raised);
-  border-radius: 25px;
+  border-radius: var(--radius-chip);
   padding: 9px 14px;
   cursor: pointer;
   transition: filter var(--dur-hover) ease;
@@ -307,7 +307,7 @@
 /* react-parallax-tilt owns this wrapper's transform (tilt + scale + glare);
  * CSS adds the depth cue — a shadow that swells while the poster floats. */
 .stream-card__tilt {
-  border-radius: 25px;
+  border-radius: var(--radius-card);
   /* 450ms — deliberately quicker than the Tilt's 650ms transitionSpeed
    * (tuned in b243bb5): the shadow leads, the lean settles into it. */
   transition: box-shadow 450ms ease;
@@ -320,7 +320,7 @@
 .stream-card__mono {
   width: 300px;
   aspect-ratio: 2 / 3;
-  border-radius: 25px;
+  border-radius: var(--radius-card);
   object-fit: cover;
   background: var(--surface);
 }
@@ -369,7 +369,7 @@
 .continue-card__art {
   height: 300px;
   width: auto;
-  border-radius: 25px;
+  border-radius: var(--radius-card);
   object-fit: cover;
   background: var(--surface);
   border: 1px solid var(--border-strong);
@@ -382,7 +382,7 @@
   left: 0;
   width: 100%;
   height: 300px;
-  border-radius: 25px;
+  border-radius: var(--radius-card);
   display: grid;
   place-items: center;
   font-family: var(--font-headline);
@@ -575,11 +575,11 @@
    * NOT clip: overflow:hidden here would cut the corners off a rotated
    * child and square them mid-lean. The radius and the ring move inward
    * with the shape they belong to. */
-  border-radius: 30px;
+  border-radius: var(--radius-card);
   transition: transform var(--dur-hover) ease;
 }
 .vod-more__tilt {
-  border-radius: 30px;
+  border-radius: var(--radius-card);
   overflow: hidden;
   border: 1px solid var(--border-strong, rgba(255, 255, 255, 0.14));
   /* Quicker than the Tilt's 650ms lean, same as the catalog cards: the
@@ -1080,7 +1080,7 @@
   gap: 8px;
   text-align: left;
   padding: 10px;
-  border-radius: 35px;
+  border-radius: var(--radius-card);
   background: #00000050;
   border: 1px solid rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(18px);
@@ -1097,7 +1097,7 @@
   width: 100%;
   aspect-ratio: 16 / 9;
   object-fit: cover;
-  border-radius: 21px;
+  border-radius: var(--radius-card);
   background: rgba(0, 0, 0, 0.4);
   display: block;
 }
@@ -1106,7 +1106,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: 21px;
+  border-radius: var(--radius-card);
   background: rgba(0, 0, 0, 0.4);
   opacity: 0;
   transition: opacity var(--dur-hover) ease;
@@ -1345,7 +1345,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: 25px;
+  border-radius: var(--radius-card);
   background: rgba(0, 0, 0, 0.4);
   opacity: 0;
   transition: opacity var(--dur-hover) ease;
@@ -1403,7 +1403,7 @@
   flex-direction: column;
   gap: 12px;
   padding: 18px;
-  border-radius: 26px;
+  border-radius: var(--radius-card);
   background: rgba(0, 0, 0, 0.72);
   border: 1px solid rgba(255, 255, 255, 0.14);
   backdrop-filter: blur(18px);
@@ -1652,7 +1652,7 @@
   justify-content: center;
   gap: 10px;
   aspect-ratio: 2 / 3;
-  border-radius: 25px;
+  border-radius: var(--radius-chip);
   border: 1px dashed var(--border-strong);
   background: none;
   color: var(--text-muted);

@@ -120,12 +120,23 @@
   --ok: #2cad57;
 
   /* Shape */
-  --radius-card: 25px;
-  --radius-chip: 16px;
-  /* Squircle corner profile. Applied globally in base.css so every rounded
-     corner in the app shares it. Chromium 139+ / current WebView2; engines
-     without corner-shape fall back to plain round corners. */
-  --corner: superellipse(2);
+  /* ------------------------------------------------------------- radii
+   *
+   * Retuned to shadcn's scale in v0.9.52, which is the single most visible
+   * part of that adoption: 25px on a card and 25px on a 40px-tall button
+   * read as a lozenge, and shadcn's whole surface language is a tighter,
+   * more uniform corner.
+   *
+   * THREE, because the app has three shapes and not one. A card is not a
+   * button, and a segmented track has to nest AROUND its own thumb: the
+   * thumb is inset 2px, so the track is 2px rounder or the corners cross.
+   *
+   * Pills stay pills. A switch, a badge and the nav capsule are round by
+   * definition, not by a scale, and shadcn's own Switch is a pill too. */
+  --radius-card: 14px; /* cards, art, panels, modals */
+  --radius-chip: 10px; /* buttons, inputs, chips, thumbs */
+  --radius-track: 12px; /* segmented-control tracks: chip + the 2px inset */
+  --radius-pill: 999px; /* switches, badges, anything round by definition */
 
   /* Spring easing (Claude-app feel): accelerate, overshoot ~4%, settle.
      A linear() approximation of a gentle spring — pair with ~380ms. */
@@ -167,20 +178,6 @@
     monospace;
 
   color-scheme: dark;
-}
-
-/* Corner styles (Customize): round swaps the superellipse profile; sharp
-   additionally zeroes every radius — the one sanctioned !important, since
-   it must beat each component's own border-radius. */
-:root[data-corners="round"],
-:root[data-corners="sharp"] {
-  --corner: round;
-}
-
-:root[data-corners="sharp"] *,
-:root[data-corners="sharp"] *::before,
-:root[data-corners="sharp"] *::after {
-  border-radius: 0 !important;
 }
 
 /*

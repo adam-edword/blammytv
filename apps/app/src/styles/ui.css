@@ -8,7 +8,7 @@
   display: flex;
   align-items: center;
   background: var(--surface-track);
-  border-radius: 18px;
+  border-radius: var(--radius-track);
   padding: 2px;
 }
 
@@ -98,7 +98,7 @@
   position: relative;
   width: 52px;
   height: 30px;
-  border-radius: 18px;
+  border-radius: var(--radius-pill);
   background: var(--surface-track);
   transition: background 220ms ease;
 }
@@ -109,7 +109,11 @@
   left: 2px;
   width: 26px;
   height: 26px;
-  border-radius: var(--radius-chip);
+  /* A CIRCLE, not the chip radius it used to share. Once --radius-chip came
+   * down to shadcn's 10px the thumb became a rounded square sliding inside
+   * a pill track, which reads as a bug. A switch's thumb is round in every
+   * design system including shadcn's own. */
+  border-radius: var(--radius-pill);
   background: #ffffff;
   border: 0.5px solid rgba(0, 0, 0, 0.12);
   transition: transform 260ms var(--spring);
@@ -132,7 +136,7 @@
 .toggle--sm .toggle__thumb {
   width: 20px;
   height: 20px;
-  border-radius: 12px;
+  border-radius: var(--radius-pill);
 }
 
 .toggle--sm.toggle--on .toggle__thumb {
@@ -147,7 +151,7 @@
   color: var(--text);
   background: var(--accent-surface);
   border: 0.5px solid var(--accent);
-  border-radius: 25px;
+  border-radius: var(--radius-chip);
   padding: 9px 14px;
   transition: filter var(--dur-hover) ease, opacity var(--dur-hover) ease,
     transform 160ms var(--ease-out);

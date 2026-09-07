@@ -460,7 +460,7 @@
   /* Keep glareBorderRadius in GameCard in step with this: the glare is its
    * own layer with its own clip, so a mismatch shows as a square sheen
    * poking out of a round corner. */
-  border-radius: 63.9px;
+  border-radius: var(--radius-card);
   overflow: hidden;
   border: 1px solid rgba(var(--card-ink), 0.07);
   background: var(--card-bg);
@@ -1264,7 +1264,7 @@
    * pixels of slack and the last row sat right on the card's edge. */
   height: 181.76px;
   /* Keep glareBorderRadius in UpcomingCard in step with this. */
-  border-radius: 42.6px;
+  border-radius: var(--radius-card);
   overflow: hidden;
   border: 1px solid rgba(var(--card-ink), 0.07);
   background: var(--card-bg);
@@ -1684,7 +1684,7 @@
   flex: 0 0 auto;
   width: 783.84px;
   height: 276.9px;
-  border-radius: 63.9px;
+  border-radius: var(--radius-card);
 }
 /* The same auto-fill track as .sports__grid, so it reflows at exactly the
  * widths the real grid does and nothing jumps when the games land. */
@@ -1695,7 +1695,7 @@
 }
 .sports-skel__card {
   height: 181.76px;
-  border-radius: 42.6px;
+  border-radius: var(--radius-card);
 }
 @keyframes sports-skel-pulse {
   0%,
@@ -2584,7 +2584,7 @@
   padding: 5px 25.56px;
   border: 1px solid rgba(var(--card-ink), 0.07);
   /* Keep glareBorderRadius in RaceCard in step with this. */
-  border-radius: 42.6px;
+  border-radius: var(--radius-card);
   background: var(--card-bg);
   overflow: hidden;
   transition:
@@ -2971,7 +2971,7 @@
   position: relative;
   display: block;
   height: 276.9px;
-  border-radius: 63.9px;
+  border-radius: var(--radius-card);
   overflow: hidden;
   border: 1px solid rgba(var(--card-ink), 0.07);
   background: var(--card-bg);
@@ -3415,7 +3415,7 @@
   color: var(--text-muted);
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 20px;
+  border-radius: var(--radius-chip);
   padding: 7px 14px;
   transition: color var(--dur-hover) ease, background var(--dur-hover) ease;
 }
@@ -3586,7 +3586,7 @@
   color: var(--text);
   background: var(--accent-surface);
   border: 1px solid var(--accent);
-  border-radius: 20px;
+  border-radius: var(--radius-chip);
   cursor: pointer;
   transition: filter var(--dur-hover) ease;
 }
@@ -3690,7 +3690,7 @@
   height: 181px;
   padding: 5px 25.56px;
   border: 1px solid rgba(var(--card-ink), 0.07);
-  border-radius: 42.6px;
+  border-radius: var(--radius-card);
   background: var(--card-bg);
   overflow: hidden;
   container-type: inline-size;

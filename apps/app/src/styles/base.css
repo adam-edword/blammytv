@@ -5,8 +5,6 @@
 *::before,
 *::after {
   box-sizing: border-box;
-  /* Squircle corners everywhere a border-radius exists (no-op otherwise). */
-  corner-shape: var(--corner);
 }
 
 html,
@@ -355,16 +353,6 @@ button {
  * header corner leaves a glyph too small to read. 44 matches the capsule's
  * 43px row within a pixel, so the two line up across the frame.
  */
-.header__action,
-.header__action::after {
-  /* ROUND, said out loud. The reset at the top of this file puts
-   * `corner-shape: var(--corner)` on everything, which is a squircle by
-   * default — so `border-radius: 50%` drew a rounded SQUARE, not the circle
-   * the mock shows. The rim needs it too: corner-shape does not inherit,
-   * which is the same trap the capsule's own rim fell into in v0.9.19. */
-  corner-shape: round;
-}
-
 .header__action {
   position: relative;
   display: grid;
@@ -582,7 +570,6 @@ button {
 .navcap__item,
 .navcap::before,
 .navcap::after {
-  corner-shape: round;
 }
 
 .navcap {
@@ -718,12 +705,11 @@ button {
  * the same 33px reads as the rounded rectangle, without a second shape
  * being involved at all.
  *
- * The group at the top of this section is what holds it, and it has to keep
- * covering ::before and ::after: corner-shape does not inherit, and
- * `border-radius: inherit` on a pseudo-element carries the radius alone. A
- * shape set on .navcap by itself leaves the hairline and the glare tracing
- * a different corner from the fill, which is how the squircle version
- * shipped — 161 pixels wrong in each corner, 119/255 at the worst of them.
+ * The rim and the glare still have to be told the radius: `border-radius:
+ * inherit` on a pseudo-element carries the radius alone. A shape set on
+ * .navcap by itself left the hairline and the glare tracing a different
+ * corner from the fill, which is how the squircle version shipped, 161
+ * pixels wrong in each corner and 119/255 at the worst of them.
  */
 
 /*
@@ -757,7 +743,6 @@ button {
   height: 34px;
   padding: 0 12px;
   border-radius: var(--radius-pill, 999px);
-  corner-shape: round;
   background: color-mix(in srgb, var(--text) 30%, transparent);
   color: var(--text);
 }
@@ -1064,7 +1049,6 @@ button {
   background: none;
   cursor: pointer;
   border-radius: var(--radius-pill, 999px);
-  corner-shape: round;
   transition: transform 220ms var(--nav-spring);
 }
 

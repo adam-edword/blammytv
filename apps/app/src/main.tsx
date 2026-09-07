@@ -26,10 +26,6 @@ import {
 import { applyTheme, loadTheme } from "./features/settings/theme";
 import { applyThemePack, loadThemePack } from "./features/settings/themePacks";
 import { applyUiScale, loadUiScale } from "./features/settings/uiScale";
-import {
-  applyCornerStyle,
-  loadCornerStyle,
-} from "./features/settings/cornerStyle";
 import { applyInstalledPacks } from "./features/settings/license";
 
 // Apply saved appearance before first paint so nothing flashes.
@@ -38,7 +34,6 @@ else applyAccent(loadAccent());
 applyTheme(loadTheme());
 applyThemePack(loadThemePack());
 applyUiScale(loadUiScale());
-applyCornerStyle(loadCornerStyle());
 // Paid theme CSS, purely from cache — see license.ts's fail-open comment.
 applyInstalledPacks();
 

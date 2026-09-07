@@ -33,7 +33,7 @@
   margin: 0 0 12px 12px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 20px;
+  border-radius: var(--radius-card);
 }
 
 /* Folded and idle the panel chrome disappears; hovering anywhere on the
@@ -100,7 +100,7 @@
   gap: 3px;
   padding: 2px;
   background: var(--surface-puck);
-  border-radius: 18px;
+  border-radius: var(--radius-track);
 }
 
 .mode-rail__indicator {
@@ -607,7 +607,7 @@
   text-align: left;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 20px;
+  border-radius: var(--radius-card);
   overflow: hidden;
   transition: border-color var(--dur-hover) ease;
 }
@@ -729,7 +729,7 @@
   text-align: left;
   background: var(--surface-puck);
   border: 1.5px solid color-mix(in srgb, var(--text) 4%, transparent);
-  border-radius: 20px;
+  border-radius: var(--radius-chip);
   overflow: hidden;
   transition: filter var(--dur-hover) ease;
 }
@@ -943,7 +943,7 @@
   padding: 7px 14px;
   background: var(--accent-surface);
   border: 0.5px solid var(--accent);
-  border-radius: 20px;
+  border-radius: var(--radius-card);
   font-family: var(--font-text);
   font-weight: 700;
   font-size: 17px;

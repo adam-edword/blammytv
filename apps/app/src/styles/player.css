@@ -611,7 +611,6 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  corner-shape: round;
   background: #fff;
   transform: translate(-50%, -50%);
 }
