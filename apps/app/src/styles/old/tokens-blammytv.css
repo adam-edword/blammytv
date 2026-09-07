@@ -1,0 +1,225 @@
+/**
+ * THE BLAMMYTV PALETTE, as it stood at v0.9.56, kept so it can come back.
+ *
+ * v0.9.57 replaced every colour, radius and font token in tokens.css with
+ * shadcn neutral's own values, on Adam's call: "i want this app to be
+ * completely taken over by shadcn's base. we can build up the branding
+ * after." This file is the "after" half of that sentence. It is the exact
+ * two blocks that were overwritten, copied before the swap and not edited
+ * since, so nothing about the old look has to be reconstructed from a diff.
+ *
+ * NOT IMPORTED. index.css does not reference it and nothing else does
+ * either; it is inert until someone wires it up.
+ *
+ * TO PUT THE OLD LOOK BACK, wholesale: add
+ *
+ *     @import "./old/tokens-blammytv.css" layer(app);
+ *
+ * to index.css AFTER `./tokens.css`, so these win on the cascade's later-rule
+ * rule inside the same layer. That restores the red accent, the glass, the
+ * Stack Sans families and the old radii in one line.
+ *
+ * TO REBUILD THE BRANDING PROPERLY, which is the intended path: take values
+ * from here one at a time into tokens.css, so the app keeps ONE palette and
+ * the two never drift. A permanent second set of surfaces is the exact thing
+ * the token file exists to prevent.
+ *
+ * The button and control PAINT that came out over v0.9.54-56 is next door in
+ * old/buttons-blammytv.css.
+ */
+
+:root {
+  /* Surfaces */
+  --bg: #050505; /* classic's near-black (true #000 belongs to OLED/void) */
+  --surface: #0f0f0f; /* inputs, rows */
+  --surface-track: #0f0f0f; /* chip-rail track (darker than the card) */
+  --surface-puck: #1c1c1c; /* rail track sitting ON a --surface panel */
+  --surface-raised: #2a2a2a; /* chip thumb, custom-accent chip */
+
+  /*
+   * THE FLOATING SURFACE: a dark glass panel that sits over content, with
+   * its own edge and lift. The live toast and the folder menu carried this
+   * as six identical properties each, copied — so a change to the recipe
+   * meant finding every copy, and the two had already been edited in step
+   * by hand more than once.
+   *
+   * Tokens rather than a shared class because the two are unrelated
+   * components that happen to be made of the same material; a class would
+   * couple their layout too. Other places in the app use this same 0.55
+   * black and are NOT this recipe (a hero scrim, a card wash) — those are
+   * left alone deliberately, since folding coincidences into one token is
+   * how a token stops meaning anything.
+   */
+  --float-bg: rgba(0, 0, 0, 0.55);
+  --float-border: rgba(255, 255, 255, 0.16);
+  --float-blur: blur(18px) saturate(1.2);
+  --float-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 8px 28px rgba(0, 0, 0, 0.45);
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.2); /* dividers, card edge */
+  --border-raised: #494949; /* hairline on raised chips */
+  --border-input: rgba(255, 255, 255, 0.14);
+
+  /* The settings card's glass: 10% white over 45% black (light flips it). */
+  --card-glass:
+    linear-gradient(rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.1)),
+    linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.45));
+
+  /* Accent family. Only --accent is ever set (the Customize picker overrides
+     it on :root); the shades below derive from it. The mix percentages are
+     exact for the design's red: #1f0606 = 16%, #631414 = 51%, #991f1f = 79%,
+     border = 36% alpha. --mix-base flips per theme so the accent surface
+     stays a tint of the background. */
+  --mix-base: #000000;
+  --accent: #c22727;
+
+  /* ------------------------------------------------------------ nav bar
+   * Chosen 2026-08-23 against the pill rig, not picked off a scale.
+   *
+   * --nav-label-out is LONGER than --nav-dur on purpose: the label's clip
+   * box finishes closing first, so the outgoing text is wiped away by the
+   * pill rather than fading underneath it. --nav-label-in delays the
+   * incoming text by just enough to do the same on arrival. The reveal is
+   * clip-driven in both directions, which reads as a shutter rather than a
+   * crossfade. Changing either value alone will break that. */
+  /* The gap between the capsule's two rows. Read by AppHeader as well as
+   * applied below: --header-h is computed from the capsule's TARGET height,
+   * and that arithmetic needs this number. */
+  --nav-rowgap: 7px;
+  --nav-dur: 380ms;
+  --nav-spring: cubic-bezier(0.34, 1.2, 0.42, 1);
+  /* No overshoot. For anything where passing the target and coming back
+   * reads as a fault rather than a flourish — corners, most obviously. */
+  --nav-settle: cubic-bezier(0.22, 1, 0.36, 1);
+  --nav-label-in: 50ms;
+  --nav-label-out: 400ms;
+
+  /* The mark, as data. Both contours are logo.svg's own path, so the
+   * capsule draws the real thing rather than a traced copy.
+   *
+   * The gradient is at 146.36deg, not the 90deg the file says: logo.svg
+   * writes the conic inside a foreignObject and then rotates the whole
+   * group by matrix(0.500186 0.751646 ...), which is 56.36 degrees.
+   * SVG has no native conic, which is why this is a clip over a plate. */
+  --logo-path: "M571.5 0C814.551 0 936.076 0.000490537 1019.98 63.9551C1042.22 80.9116 1062.09 100.779 1079.04 123.023C1143 206.924 1143 328.449 1143 571.5C1143 814.551 1143 936.076 1079.04 1019.98C1062.09 1042.22 1042.22 1062.09 1019.98 1079.04C936.076 1143 814.551 1143 571.5 1143C328.449 1143 206.924 1143 123.023 1079.04C100.779 1062.09 80.9116 1042.22 63.9551 1019.98C0.000490537 936.076 0 814.551 0 571.5C0 328.449 0.000490537 206.924 63.9551 123.023C80.9116 100.779 100.779 80.9116 123.023 63.9551C206.924 0.000490537 328.449 0 571.5 0ZM510.54 243.84C388.409 243.84 327.343 243.84 289.401 281.781C251.46 319.723 251.46 380.789 251.46 502.92V632.46C251.46 754.591 251.46 815.657 289.401 853.599C327.343 891.54 388.409 891.54 510.54 891.54H640.08C762.212 891.54 823.277 891.54 861.219 853.599C899.16 815.657 899.16 754.591 899.16 632.46V502.92C899.16 380.789 899.16 319.723 861.219 281.781C823.277 243.84 762.212 243.84 640.08 243.84H510.54Z";
+  /*
+   * The stops live apart from the angle so the gradient can be COMPOSED at
+   * whatever element needs it. A custom property is substituted where it is
+   * DECLARED, not where it is used: with the angle baked in here, on :root,
+   * every element downstream inherits a finished string and animating
+   * --logo-angle on one of them changes nothing the painter ever sees.
+   * That is exactly how the mark's spin shipped broken in v0.9.12.
+   */
+  --logo-stops:
+    #ff93af 0deg,
+    #ff7af6 59.47deg,
+    #8696ff 123.84deg,
+    #83ffa8 195.4deg,
+    #ffe57e 270.33deg,
+    #ff9b9b 342.47deg,
+    #ff93af 360deg;
+  /* The static gradient, for anything that does not animate it. */
+  --logo-conic: conic-gradient(from 146.36deg, var(--logo-stops));
+  --accent-surface: color-mix(in srgb, var(--accent) 16%, var(--mix-base));
+  --accent-border: color-mix(in srgb, var(--accent) 36%, transparent);
+  --accent-border-hover: color-mix(in srgb, var(--accent) 51%, black);
+
+  /* Text */
+  --text: #f2f2f5;
+  --text-muted: #a2a2a2;
+  --text-dim: #494949; /* quietest tier (hero synopsis/meta) */
+  --text-ghost: rgba(255, 255, 255, 0.2); /* placeholders */
+
+  /* Status — deliberately UNTHEMED constants: danger must read as danger
+   * under any pack (the settings danger-zone's documented fixed-red rule).
+   * Onboarding's pastel error/ok pair stays separate — light-on-black. */
+  --danger: #c22727;
+  --danger-text: #e25b5b;
+  --ok: #2cad57;
+
+  /* Shape */
+  /* ------------------------------------------------------------- radii
+   *
+   * Retuned to shadcn's scale in v0.9.52, which is the single most visible
+   * part of that adoption: 25px on a card and 25px on a 40px-tall button
+   * read as a lozenge, and shadcn's whole surface language is a tighter,
+   * more uniform corner.
+   *
+   * THREE, because the app has three shapes and not one. A card is not a
+   * button, and a segmented track has to nest AROUND its own thumb: the
+   * thumb is inset 2px, so the track is 2px rounder or the corners cross.
+   *
+   * Pills stay pills. A switch, a badge and the nav capsule are round by
+   * definition, not by a scale, and shadcn's own Switch is a pill too. */
+  --radius-card: 14px; /* cards, art, panels, modals */
+  --radius-chip: 10px; /* buttons, inputs, chips, thumbs */
+  --radius-track: 12px; /* segmented-control tracks: chip + the 2px inset */
+  --radius-pill: 999px; /* switches, badges, anything round by definition */
+
+  /* Spring easing (Claude-app feel): accelerate, overshoot ~4%, settle.
+     A linear() approximation of a gentle spring — pair with ~380ms. */
+  --spring: linear(
+    0,
+    0.037 1.9%,
+    0.153 4.1%,
+    0.417 7.6%,
+    0.72 11.6%,
+    0.888 14.4%,
+    0.984 17.1%,
+    1.033 19.9%,
+    1.044 22.8%,
+    1.036 26.8%,
+    1.005 35.6%,
+    0.997 41.6%,
+    0.999 51%,
+    1
+  );
+
+  /* Motion. Strong curves (built-in ease/linear are too weak for deliberate
+     motion); durations in three tiers — hover/color, entrances/popovers,
+     panels/drawers. UI stays under 300ms; boot/onboarding/welcome are exempt
+     surfaces and keep their own timing. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-hover: 140ms;
+  --dur-enter: 200ms;
+  --dur-panel: 260ms;
+
+  /* Type. Families only — sizes/weights are per-component, not tokenized.
+     An intense theme (intense-packs.css) may re-point any of these three to
+     a bundled family; --font-mono defaults to the system stack so classic
+     carries no font cost for it. */
+  --font-headline: "Stack Sans Headline", "Segoe UI", system-ui, sans-serif;
+  --font-text: "Stack Sans Text", "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", "Segoe UI Mono", Menlo, Consolas,
+    monospace;
+
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --bg: #f3f4f7;
+  --surface: #ffffff;
+  --surface-track: #e2e4ea;
+  --surface-puck: #e2e4ea;
+  --surface-raised: #f5f6f9;
+  --border: rgba(0, 0, 0, 0.1);
+  --border-strong: rgba(0, 0, 0, 0.15);
+  --border-raised: #c9cdd6;
+  --border-input: rgba(0, 0, 0, 0.12);
+
+  --card-glass:
+    linear-gradient(rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.72)),
+    linear-gradient(rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.3));
+
+  --mix-base: #ffffff;
+
+  --text: #16171d;
+  --text-muted: #5b606e;
+  --text-dim: #b3b7c2;
+  --text-ghost: rgba(0, 0, 0, 0.25);
+
+  color-scheme: light;
+}

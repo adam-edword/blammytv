@@ -75,7 +75,9 @@ const readState = (page) => page.evaluate(() => ({
   const freeIds = await page.locator(".themes-shelf__row").first().locator(".tcard").evaluateAll((els) => els.map((e) => e.getAttribute("data-pack")).sort());
   check("the Free shelf shows slate/classic/void/paper/streamy",
     ["slate", "classic", "void", "paper", "streamy"].every((id) => freeIds.includes(id)), JSON.stringify(freeIds));
-  check("BlammyTV (slate) is the active card by default", await isActive(page, "slate"));
+  // v0.9.57: the default is "classic", the raw tokens, which are shadcn
+  // neutral's palette. BlammyTV moved to being an opt-in pack.
+  check("the default card is active on a fresh profile", await isActive(page, "classic"));
   await page.close();
 }
 
@@ -104,16 +106,24 @@ const readState = (page) => page.evaluate(() => ({
   await page.close();
 }
 
-// 3: the Theme Style pill (in the Themes panel) — the default BlammyTV/slate
-// is dark-only (sun disabled); classic enables it; a dark-only pick while
-// light is on forces data-theme back to dark.
+// 3: the Theme Style pill (in the Themes panel). A dark-only pack disables
+// the sun; a pack with a light variant enables it; and picking a dark-only
+// one while light is on forces data-theme back to dark.
+//
+// STARTS FROM THE DEFAULT AND PICKS ITS WAY OUT, rather than asserting the
+// default is dark-only. v0.9.57 moved DEFAULT_PACK from "slate" (BlammyTV,
+// dark-only) to "classic" (the raw shadcn tokens, which have a light
+// variant), so "the default has the sun disabled" stopped being true — and
+// it was never the property worth locking. The property is that the pill
+// tracks the PACK, so the test names the pack it is testing.
 {
   const page = await newPage();
   await openThemes(page);
-  check("sun is DISABLED on the dark-only default (BlammyTV)", await sunOff(page));
+  await pickAndWait(page, "slate");
+  check("sun is DISABLED on a dark-only pack (BlammyTV)", await sunOff(page));
   await card(page, "classic").click();
   await page.waitForFunction(() => !document.documentElement.dataset.themePack, null, { timeout: 5000 }).catch(() => null);
-  check("picking classic enables the sun", !(await sunOff(page)));
+  check("picking the light-capable default enables the sun", !(await sunOff(page)));
   await sunSeg(page).click();
   await page.waitForFunction(() => document.documentElement.dataset.theme === "light", null, { timeout: 5000 }).catch(() => null);
   check("sun flips data-theme to light",

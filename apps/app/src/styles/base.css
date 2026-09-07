@@ -889,7 +889,15 @@ button {
   width: 43px;
   padding: 0;
   justify-content: center;
-  font-size: 13px;
+  /*
+   * 12px, DOWN FROM 13 in v0.9.57, and it is the font swap that did it.
+   * The chip is a fixed 43px circle and "Any" has to sit inside it with
+   * air; Stack Sans Headline fitted at 13px, and the system stack that
+   * replaced it is wider at the same size, which squeezed the inset to
+   * 5.6px a side. verify-nav-feedback measures that inset and wants 6.5,
+   * because below it the circle reads as crammed rather than round.
+   */
+  font-size: 12px;
 }
 
 /* The capsule holds its ring further off, because the nav sits over

@@ -188,8 +188,12 @@
  * it. They carry their own focus styling instead (settings-input:focus,
  * onb-input:focus, rec__input:focus-visible). The same trap is written up
  * at discover.css:38. */
+/* `--ring`, not `--accent`. v0.9.53 put the ring in the brand colour because
+ * that is where this app had always put it. v0.9.57 made the brand a
+ * near-white, and a near-white halo at 50% reads as a glow rather than as
+ * focus. shadcn names a separate neutral for exactly this. */
 :focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  outline: 3px solid color-mix(in srgb, var(--ring) 50%, transparent);
   outline-offset: 0;
 }
 

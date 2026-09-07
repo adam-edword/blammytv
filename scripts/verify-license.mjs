@@ -177,8 +177,10 @@ let snapshot;
     (await keyInput(page).isVisible().catch(() => false)) && (await terminalLock(page).count()) === 1);
 
   const state = await readState(page);
-  check("Remove license: active premium pack resets to the default (BlammyTV)",
-    state.pack === "slate", String(state.pack));
+  // The default is "classic" since v0.9.57 and classic sets no attribute,
+  // so a reset reads as the attribute being ABSENT.
+  check("Remove license: active premium pack resets to the default",
+    state.pack === null, String(state.pack));
   await page.close();
 }
 

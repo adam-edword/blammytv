@@ -29,8 +29,15 @@ import { applyUiScale, loadUiScale } from "./features/settings/uiScale";
 import { applyInstalledPacks } from "./features/settings/license";
 
 // Apply saved appearance before first paint so nothing flashes.
+// An UNSET accent applies nothing, so `--accent` resolves from tokens.css
+// (shadcn's primary) and keeps flipping with the theme. applyAccent writes
+// an inline style, which outranks every stylesheet — writing a default here
+// is what made v0.9.57's palette swap invisible on a fresh install.
 if (loadAccentStyle() === "aurora") applyAurora();
-else applyAccent(loadAccent());
+else {
+  const accent = loadAccent();
+  if (accent) applyAccent(accent);
+}
 applyTheme(loadTheme());
 applyThemePack(loadThemePack());
 applyUiScale(loadUiScale());

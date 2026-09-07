@@ -65,6 +65,19 @@
   --radius-card: var(--radius-card);
   --radius-chip: var(--radius-chip);
 
+  /* AND Tailwind's OWN four, re-derived from --radius, which is the line
+   * that makes `rounded-md` mean what it means in a shadcn app.
+   *
+   * Without these, `rounded-md` is Tailwind's stock 0.375rem = 6px and
+   * `rounded-lg` is 8px, so every generated component sat 2px tighter than
+   * shadcn's. Nothing looked broken; it just never quite read as shadcn,
+   * which is exactly the sort of miss a token file exists to prevent.
+   * shadcn's own `components.json` install writes these four. */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
   /* Motion. These are the curves the app already animates on, so anything
    * new matches the existing feel instead of Tailwind's default ease. */
   --ease-out: var(--ease-out);
@@ -132,10 +145,11 @@
   /* The brand. A reference, not a copy, so the Customize picker still
    * reaches it: `@theme inline` is what keeps that true. */
   --color-primary: var(--accent);
-  /* FIXED WHITE, in both themes, and not `--text`. The accent is a
-   * saturated fill in either theme, so light mode's near-black `--text`
-   * would land dark-on-red. */
-  --color-primary-foreground: #fff;
+  /* THEME-DEPENDENT, and it has to be. This was a fixed #fff, which was
+   * right while the accent was a saturated red. shadcn's primary is a
+   * near-WHITE in dark and a near-BLACK in light, so white ink is invisible
+   * on one of them. --accent-ink flips with the theme (tokens.css). */
+  --color-primary-foreground: var(--accent-ink);
 
   /* A quieter button, and the surface a menu row lifts to on hover. Both
    * are the app's raised chip surface: same job, same value. */
@@ -146,7 +160,11 @@
 
   /* The quiet text tier. shadcn has one; the app has three, and this is the
    * middle one. `--text-dim` is quieter than anything shadcn asks for. */
-  --color-muted: var(--surface);
+  /* `muted` and `secondary` are the SAME neutral in shadcn, and both are
+   * the app's raised surface. Pointing this at `--surface` (the card) was a
+   * step too dark and made a muted row indistinguishable from the panel
+   * under it. */
+  --color-muted: var(--surface-raised);
   --color-muted-foreground: var(--text-muted);
 
   /* NOT the brand accent, even though the app's default accent happens to
@@ -161,7 +179,9 @@
   --color-border: var(--border);
   --color-input: var(--border-input);
 
-  /* The focus ring, in the brand colour, which is where the app has always
-   * put it. */
-  --color-ring: var(--accent);
+  /* The focus ring is a NEUTRAL, not the primary. shadcn is explicit about
+   * this and it is easy to get wrong: with `--color-ring: var(--accent)` the
+   * ring is a near-white halo in dark mode, which reads as a glow rather
+   * than a focus state. `--ring` is its own token in tokens.css. */
+  --color-ring: var(--ring);
 }

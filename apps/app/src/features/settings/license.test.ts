@@ -269,9 +269,10 @@ describe("applyInstalledPacks (fail-open startup path)", () => {
     applyInstalledPacks();
 
     expect(loadThemePack()).toBe(DEFAULT_PACK);
-    // The default (BlammyTV/slate) is a real attribute pack now, not the
-    // attribute-less classic.
-    expect(fakeDocumentElement.dataset.themePack).toBe(DEFAULT_PACK);
+    // The default is CLASSIC again since v0.9.57, and classic is the
+    // attribute-less pack: resetting to it CLEARS data-theme-pack rather
+    // than setting it to an id.
+    expect(fakeDocumentElement.dataset.themePack).toBeUndefined();
   });
 
   it("skips the background revalidate entirely while offline", async () => {
@@ -329,7 +330,7 @@ describe("deactivate", () => {
     expect(installedPacks()).toEqual([]);
     expect(licenseStatus().active).toBe(false);
     expect(loadThemePack()).toBe(DEFAULT_PACK);
-    expect(fakeDocumentElement.dataset.themePack).toBe(DEFAULT_PACK);
+    expect(fakeDocumentElement.dataset.themePack).toBeUndefined();
   });
 
   it("leaves the active pack alone if a free pack was on screen", async () => {

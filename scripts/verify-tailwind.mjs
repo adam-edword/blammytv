@@ -72,9 +72,16 @@ const cssVar = (name) =>
 // Cascade layers sort BEFORE specificity, and unlayered beats every layer. So
 // with the app's sheets left unlayered, a utility would have lost to any app
 // rule touching the same property, at any specificity. `.chip-tabs` sets
-// `border-radius: var(--radius-track)`, which is 12px; `rounded-md` is
-// 0.375rem. If `app` is below `utilities`, the utility wins. If the layering
-// is undone, this reads 12px and nothing else on the screen looks wrong.
+// `border-radius: var(--radius-track)`, which is 10px; `rounded-md` is 8px.
+// If `app` is below `utilities`, the utility wins. If the layering is undone,
+// this reads 10px and nothing else on the screen looks wrong.
+//
+// BOTH NUMBERS MOVED IN v0.9.57 and both moves are the point of that change.
+// The track was 12px and `rounded-md` was Tailwind's stock 6px, because the
+// app had no `--radius` at all; it now has shadcn's 0.625rem with the whole
+// scale derived from it, so the track is `--radius` exactly and `rounded-md`
+// is `calc(--radius - 2px)`. A 6px here again means the four `--radius-*`
+// entries fell out of theme.css and every component is off shadcn's scale.
 //
 // `.chip-tabs` RATHER THAN a button class, deliberately. This probe needs an
 // app rule that owns its own radius, and v0.9.54 handed every standalone
@@ -86,13 +93,13 @@ const pill = await computed("chip-tabs", "border-radius");
 const overridden = await computed("chip-tabs rounded-md", "border-radius");
 check(
   "the app's own rule still applies on its own",
-  pill === "12px",
-  `border-radius ${pill}, expected 12px`,
+  pill === "10px",
+  `border-radius ${pill}, expected 10px`,
 );
 check(
   "and a Tailwind utility OVERRIDES it, which is what the layer order buys",
-  overridden === "6px",
-  `border-radius ${overridden}, expected 6px`,
+  overridden === "8px",
+  `border-radius ${overridden}, expected 8px`,
 );
 
 // ---- 2. THE TOKEN BRIDGE -------------------------------------------------
