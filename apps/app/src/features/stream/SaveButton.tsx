@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Button } from "../../components/ui/button";
 import { createPortal } from "react-dom";
 import { CheckIcon, ChevronIcon } from "../../ui/icons";
 import { NameField } from "../../ui/NameField";
@@ -194,23 +195,36 @@ export function SaveButton({ item }: { item: VodItem }) {
 
   return (
     <div className="vod-save-split" ref={btnRef}>
-      <button
+      <Button
+        variant="outline"
         type="button"
-        className={"vod-save" + (saved ? " vod-save--on" : "")}
+        // The seam, as utilities: square the inside edge and pull the right
+        // half a hairline left so the two 1px borders do not read as 2px.
+        // Radius and margin are Button's own utilities, so this is the only
+        // place it can be said — see the note in stream.css.
+        className={
+          "vod-save rounded-r-none" +
+          (saved ? " vod-save--on border-primary" : "")
+        }
         onClick={primary}
       >
         {saved ? <CheckIcon size={15} /> : <span aria-hidden>+</span>} {label}
-      </button>
-      <button
+      </Button>
+      <Button
+        variant="outline"
+        size="icon"
         type="button"
-        className="vod-save vod-save__more"
+        className={
+          "vod-save vod-save__more rounded-l-none -ml-px" +
+          (saved ? " border-primary" : "")
+        }
         aria-label="Choose lists"
         aria-haspopup="menu"
         aria-expanded={anchor !== null}
         onClick={() => (anchor ? close() : openPicker())}
       >
         <ChevronIcon size={14} />
-      </button>
+      </Button>
 
       {anchor &&
         createPortal(

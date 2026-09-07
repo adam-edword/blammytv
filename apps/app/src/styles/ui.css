@@ -398,9 +398,6 @@ select:focus-visible,
   transform: none;
 }
 
-.btn-primary:active:not(:disabled) {
-  transform: scale(0.97);
-}
 .toggle:active .toggle__thumb {
   transform: scale(0.94);
 }

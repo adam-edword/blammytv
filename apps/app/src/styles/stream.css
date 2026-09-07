@@ -585,68 +585,37 @@
   object-fit: cover;
 }
 
-/* Save control on the detail screens. Saved state trades the plus for an
- * accent check and keeps the ring. */
-.vod-save {
-  align-self: flex-start;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 18px;
-  border-radius: 999px;
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 13px;
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  transition: background var(--dur-hover) ease, border-color var(--dur-hover) ease;
-}
-.vod-save:hover {
-  background: rgba(255, 255, 255, 0.16);
-}
-.vod-save--on {
-  border-color: var(--accent);
-}
+/* Save control on the detail screens. Two `<Button variant="outline">`
+ * halves reading as ONE control: the main half saves to the default list,
+ * the chevron opens the list picker.
+ *
+ * ALL OF THE SEAM IS UTILITIES NOW, at the call site in SaveButton.tsx —
+ * `rounded-r-none` on the left half, `rounded-l-none -ml-px` on the right.
+ * It cannot be written here: border-radius and margin are Button's own
+ * utilities and `utilities` outranks `app`, so a rule in this file would
+ * have squared nothing and the two halves would read as two buttons with a
+ * gouge between them. That is what the old comment here was about, and it
+ * is now a different problem with a different fix.
+ *
+ * The accent ring for the saved state is `border-primary` on both halves,
+ * for the same reason and because it belongs to the whole control — one lit
+ * edge against one dim one across the seam is worse than no ring at all. */
 .vod-save--on svg {
   color: var(--accent);
 }
+/* The "+" glyph, which is a text span rather than an icon and needs to be
+ * bigger than the label. Button sizes svgs, not spans, so this still lands.
+ * The chevron half opts back out because its child IS an icon. */
 .vod-save span {
   font-size: 16px;
   line-height: 1;
 }
-
-/* The split control: two buttons reading as ONE pill. The main half saves
- * to the default list, the chevron opens the list picker.
- *
- * These rules must sit AFTER the .vod-save block and be scoped to the
- * wrapper: at equal specificity the later rule wins, and .vod-save was
- * handing the chevron back its full radius and padding, which is what made
- * the two halves read as two separate buttons with a gouge between them. */
 .vod-save-split {
   align-self: flex-start;
   display: inline-flex;
 }
-.vod-save-split .vod-save {
-  align-self: auto;
-  /* Square on the inside edge so the two halves meet as one shape. */
-  border-radius: 999px 0 0 999px;
-  padding-right: 14px;
-}
-.vod-save-split .vod-save__more {
-  padding: 8px 13px;
-  border-radius: 0 999px 999px 0;
-  /* Overlap the seam so the two 1px borders do not read as 2px. */
-  margin-left: -1px;
-}
-/* The chevron is an icon, not the "+" glyph the sizing above is for. */
 .vod-save-split .vod-save__more span {
   font-size: inherit;
-}
-/* Saved: the accent ring belongs to the whole control, not one half, or
- * the seam shows one lit edge against one dim one. */
-.vod-save-split:has(.vod-save--on) .vod-save {
-  border-color: var(--accent);
 }
 
 /* List picker: the chevron's menu. Portaled to the body (a fixed overlay
@@ -871,32 +840,20 @@
  * body layer (z-index 1) so the pointer-events sandwich can't eat its
  * clicks.
  *
- * SHADCN'S GHOST PLUS A SCRIM, and the scrim is not decoration. This one
- * sits over a full-bleed poster backdrop, which can be any colour at all,
- * so `ghost`'s transparent fill leaves white text on white art. The glass
- * (#00000050 + blur + a hairline) is what makes it legible, and it is the
- * same material as the pills and chips already on these screens. Geometry,
- * type, focus ring and disabled state all still come from Button; only the
- * material is ours.
- *
- * The pill is a `rounded-full` UTILITY at the call site, not a rule here,
- * and that is not a style preference. Button's `rounded-md` is a utility,
- * and `utilities` sits above `app` in the cascade (styles/index.css), so a
- * border-radius written in this file would silently lose to it. Anything of
- * Button's own that a call site needs back has to be taken back the way
- * shadcn takes it back: with a utility. */
+ * POSITION ONLY. v0.9.54 kept the app's glass here on the argument that the
+ * button floats over a poster of any colour; Adam looked at it and said the
+ * blurred fills and hairlines read as leftovers, which they do — this was
+ * the only control on the screen still wearing them. It is a plain
+ * `ghost` now, like every other back button. The hero's own scrim is what
+ * keeps it legible; if a bright backdrop ever eats it, the fix is a scrim on
+ * that backdrop rather than a scrim on this one button. */
 .vod-back {
   position: absolute;
   top: calc(var(--header-h, 76px) + 12px);
   left: 32px;
   z-index: 2;
-  background: #00000050;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(16px);
 }
-/* The darkening hover is a `hover:bg-black/60` utility at the call site,
- * for the same reason as the radius: `ghost` sets its own hover:bg, and a
- * hover written here would lose to it. */
+
 .vod-detail__logo { max-width: 500px; max-height: 300px; object-fit: contain; }
 .vod-detail__title {
   font-family: var(--font-headline);
@@ -914,22 +871,9 @@
 .vod-detail__meta { color: rgba(242, 242, 244, 0.65); font-size: 18px; }
 .vod-detail__synopsis { font-size: 18px; line-height: 1.5; margin: 6px 0; color: rgba(242, 242, 244, 0.85); }
 .vod-detail__pills { display: flex; gap: 8px; flex-wrap: wrap; }
-/* Buttons now — each pill jumps to Discover with its genre selected. */
-.vod-detail__pills button {
-  font-size: 15px;
-  padding: 9px 15px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  color: rgba(242, 242, 244, 0.8);
-  background: #00000050;
-  backdrop-filter: blur(16px);
-  cursor: pointer;
-  transition: border-color var(--dur-hover) ease, color var(--dur-hover) ease;
-}
-.vod-detail__pills button:hover {
-  border-color: var(--accent);
-  color: #f2f2f4;
-}
+/* Buttons now — each pill jumps to Discover with its genre selected. They
+ * are `<Button variant="outline" size="sm">` since v0.9.55; the glass pill
+ * they used to be is gone with the rest of the hand-written button paint. */
 
 /* ---- source rail ---- */
 .vod-sources {
@@ -1041,28 +985,10 @@
 
 /* ---- episodes ---- */
 .season-bar { display: flex; gap: 8px; flex-wrap: wrap; }
-.season-chip {
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 15px;
-  padding: 9px 15px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: rgba(242, 242, 244, 0.75);
-  background: #00000050;
-  backdrop-filter: blur(16px);
-  cursor: pointer;
-  transition: background var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
-}
-.season-chip:not(.season-chip--on):hover { background: rgba(0, 0, 0, 0.6); }
-/* Active chip speaks the app's button language (btn-primary's surface
- * + full-saturation accent border), not a solid accent fill. */
-.season-chip--on {
-  background: var(--accent-surface);
-  border: 0.5px solid var(--accent);
-  color: var(--text);
-}
+/* `.season-chip` and `.season-chip--on` carry NO paint since v0.9.55. They
+ * were a glass pill with a white hairline and an accent-surface active
+ * state; the row is `<Button variant={on ? "secondary" : "ghost"}>` now and
+ * both classes survive only as hooks for the harnesses and for this file. */
 .episode-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -1523,9 +1449,7 @@
   transform: translateY(-1px) scale(0.98);
 }
 .vod-source:active,
-.episode-card:active,
-.season-chip:active,
-.vod-back:active {
+.episode-card:active {
   transform: scale(0.97);
 }
 

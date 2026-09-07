@@ -3850,9 +3850,6 @@
   padding: 8px 0 28px;
 }
 
-.sports__morebtn:active:not(:disabled) {
-  transform: scale(0.97);
-}
 
 /* The same button at the TOP of the board, walking backwards.
  *

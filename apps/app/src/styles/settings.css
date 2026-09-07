@@ -1144,7 +1144,6 @@
 .accent-swatch:active {
   transform: scale(0.9);
 }
-.btn-danger:active,
 .source-tools__discard:active,
 .source-tools__all:active:not(:disabled) {
   transform: scale(0.97);

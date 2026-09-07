@@ -2634,14 +2634,16 @@ function GenrePills({ genres }: { genres: string[] }) {
   return (
     <div className="vod-detail__pills">
       {genres.slice(0, 5).map((g) => (
-        <button
+        <Button
+          variant="outline"
+          size="sm"
           key={g}
           type="button"
           title={`Browse ${g} in Discover`}
           onClick={() => requestDiscoverGenre(g)}
         >
           {g}
-        </button>
+        </Button>
       ))}
     </div>
   );
@@ -2986,11 +2988,19 @@ function Episodes({
           <>
             <div className="season-bar">
               {item.seasons.map((s, i) => (
-                <button
+                <Button
+                  // The season row is a toggle group, so the variant comes
+                  // from the same boolean as aria-pressed. `hover:bg-muted`
+                  // on the off chips because --color-accent (ghost's hover)
+                  // and --color-secondary (the on state) both bridge to
+                  // --surface-raised here, so ghost's own hover would paint
+                  // an off season in exactly the on colour.
+                  variant={i === seasonIdx ? "secondary" : "ghost"}
                   key={s.id}
                   type="button"
                   className={
-                    "season-chip" + (i === seasonIdx ? " season-chip--on" : "")
+                    "season-chip" +
+                    (i === seasonIdx ? " season-chip--on" : " hover:bg-muted")
                   }
                   aria-pressed={i === seasonIdx}
                   onClick={() => {
@@ -2999,7 +3009,7 @@ function Episodes({
                   }}
                 >
                   {s.name}
-                </button>
+                </Button>
               ))}
             </div>
             <div className="episode-grid">

@@ -459,18 +459,62 @@ check(
   };
   walk(src);
 
-  // Every className on a <Button …>, split into bare app classes. Tailwind
-  // utilities are skipped by the ":"/"-" shape test below: a call-site
-  // utility is exactly how you are SUPPOSED to override the component.
+  // Every className on a <Button …>, split into bare app classes.
+  //
+  // EVERY string literal in the className, not the first one. Half of these
+  // call sites are conditional now (`"season-chip" + (on ? " …--on" : " …")`)
+  // and a match that stopped at the opening quote read `)` and `aria-label=`
+  // as class names while missing the classes that were actually there. The
+  // props are read off the tag with a matching-brace scan for the same
+  // reason: `[\s\S]*?>` ends at the first `>` inside an arrow function.
+  //
+  // A token counts as an app class when the app's own stylesheets define it,
+  // which is exact where a shape test is not: `btn-primary` and
+  // `rounded-full` are the same shape, and every heuristic that told them
+  // apart would need editing the first time someone names a class oddly.
+  // Cross-referencing the sheets is also the only thing this check is
+  // ultimately about.
+  const stylesDir = join(src, "styles");
+  const sheets = readdirSync(stylesDir).filter((n) => n.endsWith(".css"));
+  const defined = new Set();
+  for (const f of sheets)
+    for (const m of readFileSync(join(stylesDir, f), "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .matchAll(/\.(-?[A-Za-z_][A-Za-z0-9_-]*)/g))
+      defined.add(m[1]);
+
   const onButton = new Set();
   for (const f of tsx) {
     const s = readFileSync(f, "utf8");
-    for (const m of s.matchAll(/<Button\b[\s\S]*?>/g)) {
-      const cls = m[0].match(/className=(?:"([^"]*)"|\{[^}]*"([^"]*)"[^}]*\})/);
-      if (!cls) continue;
-      for (const c of (cls[1] ?? cls[2] ?? "").split(/\s+/))
-        if (c && !/[:/]/.test(c) && !/^(rounded|hover|ring|size|w|h|p|m|text|bg|border|flex|gap|grid|items|justify)-/.test(c))
-          onButton.add(c);
+    for (const at of [...s.matchAll(/<Button\b/g)].map((m) => m.index)) {
+      // Walk to the tag's real end, tracking quotes, comments and brace
+      // depth. A lazy `[\s\S]*?>` would stop at the first `>` inside an
+      // arrow function.
+      //
+      // COMMENTS ARE SKIPPED, and that is not defensive coding. JSX allows
+      // `//` between props and these call sites use it; an apostrophe in one
+      // ("Button's own utilities") opens a quote that never closes, the scan
+      // runs to the end of the file, and it silently reads every class in
+      // the portal below as if it were on the button. That is the second
+      // time an apostrophe inside a comment has broken a scanner in this
+      // migration — the first ate a closing </button> in SportsTheater.tsx.
+      let i = at, depth = 0, q = "";
+      for (; i < s.length; i++) {
+        const c = s[i];
+        if (q) { if (c === q && s[i - 1] !== "\\") q = ""; continue; }
+        if (c === "/" && s[i + 1] === "/") { i = s.indexOf("\n", i); if (i < 0) break; continue; }
+        if (c === "/" && s[i + 1] === "*") { i = s.indexOf("*/", i) + 1; if (i < 1) break; continue; }
+        if (c === '"' || c === "'" || c === "`") q = c;
+        else if (c === "{") depth++;
+        else if (c === "}") depth--;
+        else if (c === ">" && depth === 0) break;
+      }
+      const tag = s.slice(at, i);
+      const cn = tag.indexOf("className=");
+      if (cn < 0) continue;
+      for (const lit of tag.slice(cn).matchAll(/"([^"]*)"/g))
+        for (const c of lit[1].split(/\s+/))
+          if (defined.has(c)) onButton.add(c);
     }
   }
 
