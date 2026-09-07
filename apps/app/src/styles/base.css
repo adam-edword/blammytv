@@ -961,9 +961,11 @@ button {
   font-size: 13px;
 }
 
+/* The capsule holds its ring further off, because the nav sits over
+ * scrolling content and needs the separation. Geometry from the
+ * primitive in ui.css; only the offset is this one's own. */
 .navcap__item:focus-visible,
 .navcap__mark:focus-visible {
-  outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
 /* There was no hover state at all before this — only two intense packs

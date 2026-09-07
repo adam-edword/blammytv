@@ -351,6 +351,66 @@ check(
   `shell ${hole.shell}`,
 );
 
+// ---- 11. FOCUS IS A PRIMITIVE, NOT A REGISTRY -----------------------------
+//
+// The ring used to be a hand-kept allow-list of 41 selectors across four
+// files, and it rotted twice on its own account (ui.css's comment: "the
+// surfaces the v0.1.98 pass never reached"; the sports block: "every
+// surface here fell through to the UA's 1px ring"). It is one
+// `:focus-visible` rule now, so a control built tomorrow is covered
+// without joining anything.
+//
+// The check is that an element NOBODY listed gets the ring, which is
+// exactly what the list could never promise.
+const ring = await page.evaluate(() => {
+  const el = document.createElement("button");
+  el.className = "no-such-class-anywhere";
+  document.body.appendChild(el);
+  el.focus();
+  const s = getComputedStyle(el);
+  const out = { style: s.outlineStyle, width: s.outlineWidth, color: s.outlineColor };
+  el.remove();
+  return out;
+});
+check(
+  "an unlisted control gets the focus ring, because the list is gone",
+  ring.style === "solid" && ring.width === "3px",
+  `${ring.width} ${ring.style} ${ring.color}`,
+);
+// shadcn's geometry is 3px of --ring at 50%, so the colour must be
+// translucent. A solid ring here means the accent got baked in flat and the
+// half-opacity halo shadcn asks for was lost.
+// PARSE THE ALPHA rather than pattern-match the string. Chromium serialises
+// a color-mix() result as `color(srgb r g b / a)`, not `rgba(...)`, and a
+// regex written for one of those quietly fails on the other while the ring
+// is perfectly correct on screen. The claim is "not fully opaque", so read
+// the number.
+const alpha = Number(
+  (ring.color.match(/\/\s*([\d.]+)\s*\)/) ??
+    ring.color.match(/,\s*([\d.]+)\s*\)$/) ?? [, "1"])[1],
+);
+check(
+  "  and it is shadcn's translucent ring, not a flat line",
+  alpha > 0 && alpha < 1,
+  `alpha ${alpha} from ${ring.color}`,
+);
+// Text inputs opt out on purpose: browsers hand them :focus-visible on
+// MOUSE focus too, so a blanket ring sits on the search field the whole
+// time you type in it.
+const inputRing = await page.evaluate(() => {
+  const el = document.createElement("input");
+  document.body.appendChild(el);
+  el.focus();
+  const v = getComputedStyle(el).outlineStyle;
+  el.remove();
+  return v;
+});
+check(
+  "  and text inputs still opt out, so typing does not sit inside a ring",
+  inputRing === "none",
+  `input outline-style: ${inputRing}`,
+);
+
 if (process.env.SHOT_DIR)
   await page.screenshot({ path: `${process.env.SHOT_DIR}/tailwind.png` });
 await browser.close();

@@ -417,8 +417,8 @@
   text-align: left;
   cursor: pointer;
 }
+/* Offset and radius only: the ring itself comes from ui.css. */
 .continue-card__text:focus-visible {
-  outline: 2px solid var(--accent);
   outline-offset: 4px;
   border-radius: 6px;
 }

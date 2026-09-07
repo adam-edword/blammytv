@@ -238,6 +238,54 @@ theater's own comment about fullscreen makes the same point. So the theater is
 the one screen where the glass tier has to be chosen against where the video
 actually is, not where the layout suggests.
 
+## The build order: GROUND UP, by primitive
+
+**Decided 2026-09-07.** Adam, on the screen-by-screen phasing this file used
+to carry: *"i feel like building by screen would still drift and get muddy.
+pretty much every screen shares some assets with another."*
+
+He is right, and the coupling is measurable:
+
+| Shared thing | Reached by |
+|---|---|
+| `ui/icons.tsx` | **20 files**, 5 features |
+| `.toggle` | 6 features |
+| `.btn-primary` | 4 features (16 uses) |
+| `.header` | 5 features |
+| **`RowScroller`** | discover, library, **sports** — while living inside `StreamScreen.tsx` |
+
+That last row is the proof. "Rebuild the Stream screen" silently rebuilds
+part of Sports and Discover, because a shared primitive lives in a screen
+file. There is no screen that can be finished in isolation, so the screen is
+the wrong unit.
+
+**The unit is the primitive, and the order is the dependency graph.**
+
+- **L0, foundation** *(shipped v0.9.49-52)*: tokens, the theme bridge, the
+  cascade order, the radius scale.
+- **L1, primitives**: the focus ring *(v0.9.53)*, then Button, Input, Label,
+  Select, Switch, Badge, Separator, ScrollArea, Dialog. ChipTabs and Toggle
+  take shadcn's surface and keep their thumb (see the constraint below).
+- **L2, shared chrome**: header, nav capsule, app shell. And **move
+  `RowScroller` and `Card` out of `StreamScreen.tsx` into `ui/`**, because a
+  screen exporting primitives is the structural cause of the muddiness.
+- **L3, screens**, which by then are mostly composition: Settings first
+  (nothing depends on it), then Live, then Stream/Discover/Library, Sports
+  last because its cards are the most bespoke thing in the app.
+
+**Not as a big-bang branch.** With 26 harnesses that means weeks of red and
+no way to tell a real break from an unfinished one, and this migration has
+already produced two silent breaks that only a green board caught (the black
+video in v0.9.51, and a regex that ate a closing brace in v0.9.52). Each new
+primitive is built ALONGSIDE the old one, consumers move one at a time, and
+the old goes when the last consumer does.
+
+**Preflight is not needed for any of it**, which removes the scariest part.
+Measured 2026-09-07 by turning it on and reading the geometry: headings,
+SVGs and buttons are all unchanged, because base.css already answers every
+question Preflight answers. Its only net effect is `line-height: normal` to
+`1.5`, which re-flows spacing app-wide for no gain.
+
 ## Adam's constraint: the thumb stays
 
 **Decided 2026-09-06, mid-migration.** shadcn's pill-group *styling* is

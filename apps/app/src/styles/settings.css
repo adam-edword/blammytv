@@ -588,11 +588,6 @@
   border-color: var(--border-strong, rgba(255, 255, 255, 0.17));
 }
 
-.customize-lang__select:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
 /* The popup is the OS's and does not inherit the panel, so the options need
  * their own ground or they render as dark-on-dark in some engines. */
 .customize-lang__select option {

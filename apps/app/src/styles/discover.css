@@ -370,10 +370,6 @@
 .rec__input::placeholder {
   color: color-mix(in srgb, var(--text) 50%, transparent);
 }
-.rec__input:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
 
 .rec__go {
   flex: none;

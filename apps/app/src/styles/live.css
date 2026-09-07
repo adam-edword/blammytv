@@ -1065,25 +1065,8 @@
   height: 100%;
   background: var(--accent);
 }
-
-/* ---- Keyboard focus (a11y batch) ----
- * One themed ring for every interactive Live control. :focus-visible shows it
- * for keyboard / assistive-tech users without ringing on plain mouse clicks.
- * Accent-derived so it lands in both dark and light themes. */
-.mode-rail__chip:focus-visible,
-.live-collapse:focus-visible,
-.live-group:focus-visible,
-.live-folder:focus-visible,
-.guide__card:focus-visible,
-.guide__fav:focus-visible,
-.guide__cell:focus-visible,
-.live-status__retry:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
 /* The resize separator is a hairline strip; inset the ring so it stays on it. */
 .guide-resize:focus-visible {
-  outline: 2px solid var(--accent);
   outline-offset: -1px;
 }
 
@@ -1138,10 +1121,6 @@
   width: 15px;
   height: 15px;
 }
-.live-folder__hide:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
 
 /* Bottom-center toast (the hide confirmation + its Undo): the player
  * popovers' glass; enters like the skip-chip (drift up + fade),
@@ -1194,10 +1173,6 @@
 }
 .live-toast__undo:hover {
   filter: brightness(1.35);
-}
-.live-toast__undo:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
 }
 @media (prefers-reduced-motion: reduce) {
   .live-toast {
