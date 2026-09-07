@@ -1,3 +1,4 @@
+import { Button } from "../components/ui/button";
 import {
   useLayoutEffect,
   useRef,
@@ -111,7 +112,7 @@ export function ModeRail<K extends string>({
       {modes.map((m) => {
         const active = m.key === mode;
         return (
-          <button
+          <Button variant="ghost" size="sm"
             key={m.key}
             type="button"
             role="tab"
@@ -142,7 +143,7 @@ export function ModeRail<K extends string>({
                 </span>
               ))}
             </span>
-          </button>
+          </Button>
         );
       })}
     </div>

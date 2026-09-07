@@ -239,7 +239,7 @@ export function SaveButton({ item }: { item: VodItem }) {
             {lists.map((l) => {
               const on = inIds.includes(l.id);
               return (
-                <button
+                <Button variant="ghost" size="sm"
                   key={l.id}
                   type="button"
                   role="menuitemcheckbox"
@@ -254,7 +254,7 @@ export function SaveButton({ item }: { item: VodItem }) {
                   </span>
                   <span className="list-picker__name">{l.name}</span>
                   <span className="list-picker__count">{l.entries.length}</span>
-                </button>
+                </Button>
               );
             })}
             {creating ? (
@@ -267,7 +267,7 @@ export function SaveButton({ item }: { item: VodItem }) {
                 onCancel={() => setCreating(false)}
               />
             ) : (
-              <button
+              <Button variant="ghost" size="sm"
                 type="button"
                 role="menuitem"
                 className="list-picker__item list-picker__new"
@@ -277,7 +277,7 @@ export function SaveButton({ item }: { item: VodItem }) {
                   +
                 </span>
                 <span className="list-picker__name">New list</span>
-              </button>
+              </Button>
             )}
           </div>,
           document.body,

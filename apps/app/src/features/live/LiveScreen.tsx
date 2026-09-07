@@ -1,3 +1,4 @@
+import { Button } from "../../components/ui/button";
 import {
   Fragment,
   memo,
@@ -117,7 +118,7 @@ const SidebarSources = memo(function SidebarSources({
         const c = conns.get(g.id);
         return (
           <Fragment key={g.id}>
-            <button
+            <Button variant="ghost" size="sm"
               type="button"
               className="live-group"
               aria-expanded={open}
@@ -142,7 +143,7 @@ const SidebarSources = memo(function SidebarSources({
                   {c.active}/{c.max}
                 </span>
               )}
-            </button>
+            </Button>
             {g.error && !collapsed && (
               <p className="live-group__error">
                 Couldn&rsquo;t load this playlist: {g.error}
@@ -158,7 +159,7 @@ const SidebarSources = memo(function SidebarSources({
                   const active = folder === f.id;
                   return (
                     <span className="live-folder-row" key={f.id}>
-                      <button
+                      <Button variant="ghost"
                         type="button"
                         aria-label={label}
                         aria-current={active ? "true" : undefined}
@@ -216,12 +217,12 @@ const SidebarSources = memo(function SidebarSources({
                           <TvIcon className="live-folder__icon" />
                         )}
                         <span className="live-folder__name">{label}</span>
-                      </button>
+                      </Button>
                       {/* The hover eye (the guide-star pattern): hides this
                         * folder in one click; the toast carries the undo.
                         * No room folded — the context menu covers there. */}
                       {!collapsed && (
-                        <button
+                        <Button variant="ghost" size="icon-sm"
                           type="button"
                           className="live-folder__hide"
                           aria-label={`Hide ${label}`}
@@ -229,7 +230,7 @@ const SidebarSources = memo(function SidebarSources({
                           onClick={() => onHideFolder(g.id, f.id, label)}
                         >
                           <EyeOffIcon />
-                        </button>
+                        </Button>
                       )}
                     </span>
                   );
@@ -833,7 +834,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
       >
         <div className="live-sidebar__top">
           <Hint label={collapsed ? "Expand sidebar" : "Collapse sidebar"} side="right">
-            <button
+            <Button variant="ghost" size="icon"
                         type="button"
                         className="live-collapse"
                         aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -844,7 +845,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
                         }}
                       >
                         <PanelIcon />
-                      </button>
+                      </Button>
           </Hint>
           {!collapsed && (
             <ModeRail modes={MODES} mode={mode} onChange={setMode} />
@@ -895,7 +896,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
             aria-label={`${folderMenu.name} options`}
             style={{ left: folderMenu.x, top: folderMenu.y }}
           >
-            <button
+            <Button variant="ghost" size="sm"
               type="button"
               role="menuitem"
               className="folder-menu__item"
@@ -904,7 +905,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
               onClick={hideFolder}
             >
               Hide &ldquo;{folderMenu.name}&rdquo;
-            </button>
+            </Button>
             <p
               className="folder-menu__hint"
               id="folder-menu-hint"
@@ -920,13 +921,13 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
         createPortal(
           <div className="live-toast" role="status">
             <span className="live-toast__msg">{toast.msg}</span>
-            <button
+            <Button variant="link" size="sm"
               type="button"
               className="live-toast__undo"
               onClick={toast.undo}
             >
               Undo
-            </button>
+            </Button>
           </div>,
           document.body,
         )}
@@ -946,13 +947,13 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
               Couldn&rsquo;t load your playlists: {live.message}. Check them in
               Settings → General → Sources.
             </p>
-            <button
+            <Button variant="default"
               type="button"
               className="live-status__retry"
               onClick={() => refresh(false)}
             >
               Try again
-            </button>
+            </Button>
           </div>
         )}
         {ready &&
@@ -964,13 +965,13 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
                 {ready.groups.find((g) => g.error)!.error}. Check them in
                 Settings → General → Sources.
               </p>
-              <button
+              <Button variant="default"
                 type="button"
                 className="live-status__retry"
                 onClick={() => refresh(false)}
               >
                 Try again
-              </button>
+              </Button>
             </div>
           ) : (
             <div className="live-status" role="status">

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Button } from "../../components/ui/button";
 import { loadSettingsTab, saveSettingsTab } from "./settingsTab";
 import { createPortal } from "react-dom";
 import { CloseIcon } from "../../ui/icons";
@@ -95,14 +96,14 @@ export function SettingsModal({
               setTab(t);
             }}
           />
-          <button
+          <Button variant="ghost" size="icon"
             type="button"
             className="settings__close"
             aria-label="Close settings"
             onClick={requestClose}
           >
             <CloseIcon />
-          </button>
+          </Button>
         </header>
 
         <div

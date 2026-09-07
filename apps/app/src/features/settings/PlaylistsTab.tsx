@@ -232,7 +232,7 @@ export function PlaylistsTab() {
                     onChange={() => update(togglePlaylist(playlists, p.id))}
                     label={`${p.name} enabled`}
                   />
-                  <button
+                  <Button variant="ghost" size="icon-sm"
                     type="button"
                     className={
                       "playlist-row__expand" +
@@ -243,8 +243,8 @@ export function PlaylistsTab() {
                     onClick={() => expand(p)}
                   >
                     <ChevronIcon />
-                  </button>
-                  <button
+                  </Button>
+                  <Button variant="ghost" size="icon-sm"
                     type="button"
                     className={
                       "playlist-row__delete" +
@@ -278,7 +278,7 @@ export function PlaylistsTab() {
                     }}
                   >
                     {armedDeleteId === p.id ? "Sure?" : <CloseIcon />}
-                  </button>
+                  </Button>
                 </div>
               </div>
               {expandedId === p.id && (
@@ -461,17 +461,17 @@ function FolderEditor({
           autoComplete="off"
           onChange={(e) => setQuery(e.target.value)}
         />
-        <button
+        <Button variant="secondary" size="sm"
           type="button"
           className="source-tools__all"
           disabled={visible.length === 0}
           onClick={() => setMany(visible.map((c) => c.id), allShown)}
         >
           {allShown ? "Hide all" : "Show all"}
-        </button>
+        </Button>
         {dirty && (
           <>
-            <button
+            <Button variant="secondary" size="sm"
               type="button"
               className="source-tools__discard"
               onClick={() =>
@@ -479,7 +479,7 @@ function FolderEditor({
               }
             >
               Discard
-            </button>
+            </Button>
             <Button
               variant="default"
               // Sits in the source-tools bar beside a 13px search field, so

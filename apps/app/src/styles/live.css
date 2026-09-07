@@ -64,27 +64,9 @@
 /* Collapse: a quiet ghost icon, same spot whether the sidebar is open or
  * folded. */
 .live-collapse {
-  flex-shrink: 0;
-  display: grid;
   place-items: center;
-  width: 37px;
-  height: 40px; /* matches the rail's height so the row reads as one band */
+  /* matches the rail's height so the row reads as one band */
   border-radius: var(--radius-chip);
-  opacity: 0.45;
-  transition:
-    opacity var(--dur-hover) ease,
-    background var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
-}
-
-.live-collapse:hover {
-  opacity: 1;
-  background: color-mix(in srgb, var(--text) 8%, transparent);
-}
-
-.live-collapse svg {
-  width: 16px;
-  height: 16px;
 }
 
 /* Mode rail, the Claude-app way: buttons snap to their new size instantly
@@ -124,35 +106,7 @@
 .mode-rail__chip {
   position: relative;
   z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  height: 36px;
-  padding: 0 11px;
-  border-radius: var(--radius-chip);
-  white-space: nowrap;
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 15px;
-  color: var(--text);
-  opacity: 0.5;
-  transition: opacity var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
-}
-
-.mode-rail__chip:hover {
-  opacity: 0.85;
-}
-
-.mode-rail__chip--active {
-  opacity: 1;
-}
-
-.mode-rail__chip svg {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
 }
 
 /* Labels collapse instantly (the indicator masks the snap); the incoming
@@ -207,26 +161,9 @@
 }
 
 .live-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-  min-width: 0;
-  white-space: nowrap;
   overflow: hidden;
   mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent);
-  padding: 4px 6px 2px;
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 11px;
-  letter-spacing: 1.6px;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  transition: color var(--dur-hover) ease;
-}
-
-.live-group:hover {
-  color: var(--text);
 }
 
 .live-group__caret {
@@ -279,36 +216,13 @@
 /* Folder rows: placeholder square + name; red fill = selected, red border
  * = hover (Figma 126:403). */
 .live-folder {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  text-align: left;
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 14px;
-  color: var(--text);
-  border: 1px solid transparent;
-  border-radius: var(--radius-chip);
-  padding: 8px 10px;
   /* Fixed so the label can't drive row height — folded rows (label
    * hidden) must keep identical geometry or the icons drift. flex-shrink 0
    * is the half that matters: the list overflows its scrollport, and a
    * shrinkable row compresses to min-content — ~36px WITH a label, bare
    * icon height without one, which shifted every icon up on collapse. */
   flex-shrink: 0;
-  height: 36px;
-  transition:
-    border-color var(--dur-hover) ease,
-    background var(--dur-hover) ease;
-}
-
-.live-folder:hover {
-  border-color: var(--accent-border-hover);
-}
-
-.live-folder--active {
-  background: var(--accent-surface);
-  border-color: var(--accent-border);
 }
 
 .live-folder__icon {
@@ -354,7 +268,6 @@
   visibility: hidden;
   width: 0;
   padding-inline: 0;
-  white-space: nowrap;
 }
 
 .live-sidebar--collapsed .live-folder__name {
@@ -365,23 +278,8 @@
   scrollbar-width: none;
 }
 
-.live-sidebar--collapsed .live-folder {
-  opacity: 0.45;
-  transition:
-    opacity var(--dur-hover) ease,
-    border-color var(--dur-hover) ease,
-    background var(--dur-hover) ease;
-}
-
 .live-sidebar--collapsed .live-folder:hover {
-  opacity: 1;
-  border-color: transparent; /* opacity is the hover cue when folded */
-}
-
-.live-sidebar--collapsed .live-folder--active,
-.live-sidebar--collapsed .live-folder--active:hover {
-  opacity: 1;
-  border-color: var(--accent-border);
+  /* opacity is the hover cue when folded */;
 }
 
 /* Source-name tooltip beside the folded rail. */
@@ -460,23 +358,7 @@
 }
 
 .live-status__retry {
-  padding: 8px 18px;
-  border: 1px solid var(--accent-border);
-  border-radius: var(--radius-chip);
-  background: var(--accent-surface);
-  color: var(--text);
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 13px;
-  cursor: pointer;
-  transition:
-    border-color var(--dur-hover) ease,
-    background var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
-}
-
-.live-status__retry:hover {
-  border-color: var(--accent);
 }
 
 /* -------------------------------------------------------------- guide */
@@ -679,28 +561,9 @@
   top: 50%;
   transform: translateY(-68%);
   z-index: 1;
-  display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
-  color: var(--text); /* the ghost fills with currentColor */
+  /* the ghost fills with currentColor */
   opacity: 0;
-  transition: opacity var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
-}
-
-.guide__channel:hover .guide__fav,
-/* Keyboard parity: reveal the star when anything in the row (its card or the
- * star itself) has focus, so it's reachable without a mouse. */
-.guide__channel:focus-within .guide__fav,
-.guide__fav:focus-visible,
-.guide__fav--on {
-  opacity: 1;
-}
-
-.guide__fav svg {
-  width: 21px;
-  height: 21px;
 }
 
 .guide__fav .guide__fav-hot {
@@ -923,7 +786,6 @@
   z-index: 200;
 }
 
-
 .hero__details {
   flex: 1;
   min-width: 0;
@@ -1095,31 +957,10 @@
   top: 50%;
   transform: translateY(-50%);
   z-index: 1;
-  display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 8px;
-  color: var(--text-muted);
-  opacity: 0;
-  transition:
-    opacity var(--dur-hover) ease,
-    color var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
-}
-.live-folder-row:hover .live-folder__hide,
-.live-folder-row:focus-within .live-folder__hide {
-  opacity: 1;
-}
-.live-folder__hide:hover {
-  color: var(--text);
 }
 .live-folder__hide:active {
   transform: translateY(-50%) scale(0.9);
-}
-.live-folder__hide svg {
-  width: 15px;
-  height: 15px;
 }
 
 /* Bottom-center toast (the hide confirmation + its Undo): the player
@@ -1163,16 +1004,6 @@
 }
 .live-toast__undo {
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 13px;
-  color: var(--accent);
-  cursor: pointer;
-  padding: 2px 4px;
-  border-radius: 6px;
-  transition: filter var(--dur-hover) ease;
-}
-.live-toast__undo:hover {
-  filter: brightness(1.35);
 }
 @media (prefers-reduced-motion: reduce) {
   .live-toast {
@@ -1213,24 +1044,10 @@
   }
 }
 .folder-menu__item {
-  display: block;
   width: 100%;
-  padding: 8px 10px;
-  border-radius: 8px;
-  text-align: left;
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 13px;
-  color: var(--text);
-  cursor: pointer;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-  transition: background var(--dur-hover) ease;
-}
-.folder-menu__item:hover,
-.folder-menu__item:focus-visible {
-  background: rgba(255, 255, 255, 0.12);
 }
 .folder-menu__hint {
   margin: 2px 10px 4px;

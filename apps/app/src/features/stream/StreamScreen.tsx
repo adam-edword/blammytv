@@ -1441,14 +1441,14 @@ export function StreamScreen() {
               >
               <div className="vod-panel__head">
                 <h3>Sources</h3>
-                <button
+                <Button variant="ghost" size="icon"
                   type="button"
                   className="player__btn player__btn--glass"
                   aria-label="Close sources"
                   onClick={closePanel}
                 >
                   <CloseIcon size={18} />
-                </button>
+                </Button>
               </div>
               <div className="vod-panel__list">
                 {panelSources === null && (
@@ -1459,13 +1459,13 @@ export function StreamScreen() {
                 {panelSources === "failed" && (
                   <p className="vod-sources__note" role="alert">
                     Couldn&rsquo;t load sources.{" "}
-                    <button
+                    <Button variant="default"
                       type="button"
                       className="vod-sources__retry"
                       onClick={() => setPanelTick((t) => t + 1)}
                     >
                       Try again
-                    </button>
+                    </Button>
                   </p>
                 )}
                 {Array.isArray(panelSources) &&
@@ -1604,7 +1604,7 @@ export function StreamScreen() {
                   </Button>
                 </div>
               </div>
-              <button
+              <Button variant="ghost" size="icon"
                 type="button"
                 className="player__btn player__btn--glass upnext-mini__close"
                 aria-label="Dismiss"
@@ -1614,7 +1614,7 @@ export function StreamScreen() {
                 }}
               >
                 <CloseIcon size={14} />
-              </button>
+              </Button>
             </div>,
             chromeHostRef.current,
           )}
@@ -1639,7 +1639,7 @@ export function StreamScreen() {
             </Button>
             {/* ✕ = done with the pop-out too: close it and land on the
               * source selector (the view under the stage). */}
-            <button
+            <Button variant="ghost" size="icon"
               type="button"
               className="player__btn player__btn--glass vod-pip__close"
               aria-label="Close pop-out"
@@ -1649,7 +1649,7 @@ export function StreamScreen() {
               }}
             >
               <CloseIcon size={20} />
-            </button>
+            </Button>
           </div>
         )}
       </div>
@@ -2076,24 +2076,24 @@ export function RowScroller({ children }: { children: ReactNode }) {
         {children}
       </div>
       {can.left && (
-        <button
+        <Button variant="ghost" size="icon"
           type="button"
           className="media-row__arrow media-row__arrow--left"
           aria-label="Scroll back"
           onClick={() => nudge(-1)}
         >
           <ChevronIcon />
-        </button>
+        </Button>
       )}
       {can.right && (
-        <button
+        <Button variant="ghost" size="icon"
           type="button"
           className="media-row__arrow media-row__arrow--right"
           aria-label="Scroll forward"
           onClick={() => nudge(1)}
         >
           <ChevronIcon />
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -2553,7 +2553,7 @@ export function ContinueCard({
           </span>
         ) : null}
         {/* Straight to the source screen instead of quick-resume. */}
-        <button
+        <Button variant="secondary" size="sm"
           type="button"
           className="continue-card__sources"
           onPointerDown={(e) => e.stopPropagation()}
@@ -2563,7 +2563,7 @@ export function ContinueCard({
           }}
         >
           Sources ›
-        </button>
+        </Button>
       </span>
       <span className="continue-card__hold" aria-hidden>
         Keep holding to clear
@@ -2785,13 +2785,13 @@ function Detail({
           {sources === "failed" && (
             <p className="vod-sources__note" role="alert">
               Couldn&rsquo;t load sources.{" "}
-              <button
+              <Button variant="default"
                 type="button"
                 className="vod-sources__retry"
                 onClick={() => setSourcesTick((t) => t + 1)}
               >
                 Try again
-              </button>
+              </Button>
             </p>
           )}
           {Array.isArray(sources) && sources.length === 0 && (
@@ -2969,13 +2969,13 @@ function Episodes({
           metaState === "failed" ? (
             <p className="vod-sources__note" role="alert">
               Couldn&rsquo;t load episodes.{" "}
-              <button
+              <Button variant="default"
                 type="button"
                 className="vod-sources__retry"
                 onClick={onRetryMeta}
               >
                 Try again
-              </button>
+              </Button>
             </p>
           ) : metaState === "ready" ? (
             <p className="vod-sources__note">No episodes listed.</p>

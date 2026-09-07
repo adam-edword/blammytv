@@ -210,7 +210,7 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
     <>
       {/* Themes launcher — pops the standalone Themes panel out and closes
           Settings (App wires onOpenThemes). Replaces the old Theme sub-tab. */}
-      <button type="button" className="themes-launch" onClick={onOpenThemes}>
+      <Button variant="outline" type="button" className="themes-launch" onClick={onOpenThemes}>
         <span className="themes-launch__text">
           <span className="themes-launch__title">Themes</span>
           <span className="themes-launch__hint">
@@ -218,7 +218,7 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
           </span>
         </span>
         <ChevronIcon className="themes-launch__chevron" />
-      </button>
+      </Button>
 
 
       {/* Applies everywhere, whichever side of the app you are on. Named
@@ -413,14 +413,19 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
                   }}
                 />
               ) : (
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   type="button"
-                  className="rowcap__value rowcap__value--btn"
+                  // Not `.rowcap__value`: that class also dresses the number
+                  // INPUT beside it, which is not a Button and still needs
+                  // its own type. The button half takes shadcn's instead.
+                  className="rowcap__value--btn"
                   title="Click to type an exact value"
                   onClick={() => setCapDraft(String(rowCap))}
                 >
                   {rowCap}
-                </button>
+                </Button>
               )}
             </div>
           </div>

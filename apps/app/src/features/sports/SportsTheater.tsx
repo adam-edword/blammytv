@@ -491,7 +491,7 @@ export function SportsTheater({
           * one people already know. */}
         <div className="sportstheater__fold">
           <Hint label={folded ? "Expand channels" : "Collapse channels"} side="right">
-            <button
+            <Button variant="ghost" size="icon"
                         type="button"
                         className="live-collapse"
                         aria-label={folded ? "Expand channels" : "Collapse channels"}
@@ -499,7 +499,7 @@ export function SportsTheater({
                         onClick={toggleFold}
                       >
                         <PanelIcon />
-                      </button>
+                      </Button>
           </Hint>
         </div>
         {/* THE WAY OUT, said out loud. Escape and the mouse's back button

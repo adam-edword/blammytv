@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "../../components/ui/button";
 import {
   loadSidebarCollapsed,
   saveSidebarCollapsed,
@@ -202,7 +203,7 @@ export function SportsSidebar({
     >
       <div className="live-sidebar__top">
         <Hint label={collapsed ? "Expand sidebar" : "Collapse sidebar"} side="right">
-          <button
+          <Button variant="ghost" size="icon"
                     type="button"
                     className="live-collapse"
                     aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -215,7 +216,7 @@ export function SportsSidebar({
                     }
                   >
                     <PanelIcon />
-                  </button>
+                  </Button>
         </Hint>
         {!collapsed && (
           <ModeRail
@@ -328,7 +329,7 @@ function Row({
   onClick: () => void;
 }) {
   return (
-    <button
+    <Button variant="ghost"
       type="button"
       className={"live-folder" + (on ? " live-folder--active" : "")}
       aria-pressed={on}
@@ -340,6 +341,6 @@ function Row({
         <TvIcon className="live-folder__icon" />
       )}
       <span className="live-folder__name">{label}</span>
-    </button>
+    </Button>
   );
 }

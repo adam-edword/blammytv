@@ -510,9 +510,31 @@ check(
         else if (c === ">" && depth === 0) break;
       }
       const tag = s.slice(at, i);
+      // The className ATTRIBUTE'S VALUE, not every literal after it. Reading
+      // to the end of the tag swept in `title=`, `aria-label=` and
+      // `data-*` too, which put words like "settings" and "live" into the
+      // class set — and since both are real CSS classes, the check then
+      // reported the Settings card and the Live screen as button paint.
       const cn = tag.indexOf("className=");
       if (cn < 0) continue;
-      for (const lit of tag.slice(cn).matchAll(/"([^"]*)"/g))
+      let j = cn + "className=".length;
+      while (tag[j] === " ") j++;
+      let value = "";
+      if (tag[j] === '"') {
+        const end = tag.indexOf('"', j + 1);
+        value = end < 0 ? "" : tag.slice(j, end + 1);
+      } else if (tag[j] === "{") {
+        let d = 0, qq = "", k = j;
+        for (; k < tag.length; k++) {
+          const c = tag[k];
+          if (qq) { if (c === qq && tag[k - 1] !== "\\") qq = ""; continue; }
+          if (c === '"' || c === "'" || c === "`") qq = c;
+          else if (c === "{") d++;
+          else if (c === "}") { d--; if (!d) break; }
+        }
+        value = tag.slice(j, k + 1);
+      }
+      for (const lit of value.matchAll(/["'`]([^"'`]*)["'`]/g))
         for (const c of lit[1].split(/\s+/))
           if (defined.has(c)) onButton.add(c);
     }
@@ -541,17 +563,31 @@ check(
       // Only the LAST simple selector matters: `.leaguepick__clearcount` is
       // a span inside the button and owns itself. `<class> svg` counts,
       // because Button sizes its own svgs.
+      //
+      // EVERY class in that last simple selector has to be a Button class,
+      // and every comma arm of the rule has to pass. Both narrowings are
+      // load-bearing. `.sports__toggle.is-on` shares `is-on` with
+      // `.player__btn.is-open`, so a `.some()` test would report paint on a
+      // control that was never converted. And a rule grouped with something
+      // that is NOT a button — the theme packs put `.navcap__item:hover`
+      // and `.live-folder:hover` on one text-shadow — is a shared rule a
+      // button happens to be in, not an app rule fighting the component;
+      // its declaration still does its job for the other arm.
       const sel = m[1].replace(/\/\*[\s\S]*?\*\//g, "").trim();
-      for (const one of sel.split(",")) {
-        const tail = one.trim().split(/\s+/).pop() ?? "";
-        const target = tail === "svg" ? one.trim().split(/\s+/).at(-2) : tail;
-        const cls = (target ?? "").match(/\.([A-Za-z0-9_-]+)/g) ?? [];
-        if (!cls.some((c) => onButton.has(c.slice(1)))) continue;
+      const arms = sel.split(",").map((a) => a.trim()).filter(Boolean);
+      const allMine = arms.every((one) => {
+        const parts = one.split(/\s+|>/).filter(Boolean);
+        const tail = parts.at(-1) ?? "";
+        const target = tail === "svg" ? (parts.at(-2) ?? "") : tail;
+        const cls = (target.match(/\.([A-Za-z0-9_-]+)/g) ?? []).map((c) => c.slice(1));
+        return cls.length && cls.every((c) => onButton.has(c));
+      });
+      if (allMine) {
         const props = m[2]
           .split(";")
           .map((d) => d.trim().split(":")[0].trim())
           .filter((p) => OWNED.has(p));
-        if (props.length) dead.push(`${f} ${one.trim()} { ${props.join(", ")} }`);
+        if (props.length) dead.push(`${f} ${arms[0]} { ${props.join(", ")} }`);
       }
     }
   }

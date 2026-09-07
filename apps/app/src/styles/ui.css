@@ -143,7 +143,6 @@
   transform: translateX(16px);
 }
 
-
 @media (prefers-reduced-motion: reduce) {
   .chip-tabs__thumb,
   .toggle__thumb {
@@ -329,15 +328,12 @@ select:focus-visible,
  * finding), and `default` already pins the label to
  * --color-primary-foreground, which is #fff in every theme. */
 :root[data-accent-style="aurora"] .btn-primary {
-  border: 1px solid transparent;
   /* Adam's exact recipe: the 0.29-alpha conic over black (the HDR-badge
    * construction), full-strength ring on the same angle. */
   background-image:
     var(--accent-image),
     linear-gradient(#000, #000),
     var(--accent-ring-image);
-  background-origin: padding-box, padding-box, border-box;
-  background-clip: padding-box, padding-box, border-box;
 }
 
 /* Aurora picker swatch: wash over black in the middle, full-strength

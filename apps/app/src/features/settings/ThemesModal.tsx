@@ -388,14 +388,14 @@ export function ThemesModal({ onClose }: { onClose: () => void }) {
         <header className="themes-modal__header">
           <span className="themes-modal__spacer" aria-hidden="true" />
           <h2 className="themes-modal__title">Themes</h2>
-          <button
+          <Button variant="ghost" size="icon"
             type="button"
             className="settings__close"
             aria-label="Close themes"
             onClick={requestClose}
           >
             <CloseIcon />
-          </button>
+          </Button>
         </header>
 
         {/* ---- Topline: Accent (left) + Theme Style (right) ---- */}
@@ -487,7 +487,7 @@ export function ThemesModal({ onClose }: { onClose: () => void }) {
                 />
                 <div className="accent-popover__row">
                   {eyeDropperCtor && (
-                    <button
+                    <Button variant="outline" size="icon"
                       type="button"
                       className="accent-popover__dropper"
                       aria-label="Pick a color from the screen"
@@ -502,7 +502,7 @@ export function ThemesModal({ onClose }: { onClose: () => void }) {
                       }}
                     >
                       <EyeDropperIcon />
-                    </button>
+                    </Button>
                   )}
                   <div className="accent-popover__hex">
                     <span className="accent-popover__hash">#</span>
@@ -533,7 +533,7 @@ export function ThemesModal({ onClose }: { onClose: () => void }) {
                 : `${activePack.name} is dark-only.`
             }
           >
-            <button
+            <Button variant="ghost" size="sm"
               type="button"
               role="radio"
               aria-checked={theme === "light"}
@@ -548,8 +548,8 @@ export function ThemesModal({ onClose }: { onClose: () => void }) {
               }}
             >
               <SunIcon size={17} />
-            </button>
-            <button
+            </Button>
+            <Button variant="ghost" size="sm"
               type="button"
               role="radio"
               aria-checked={theme === "dark"}
@@ -561,7 +561,7 @@ export function ThemesModal({ onClose }: { onClose: () => void }) {
               onClick={() => pickTheme("dark")}
             >
               <MoonIcon size={15} />
-            </button>
+            </Button>
           </div>
         </section>
         </div>
@@ -661,7 +661,7 @@ export function ThemesModal({ onClose }: { onClose: () => void }) {
           )}
 
           {supporter && (
-            <button
+            <Button variant="outline"
               type="button"
               role="radio"
               aria-checked={pack === supporter.id}
@@ -686,7 +686,7 @@ export function ThemesModal({ onClose }: { onClose: () => void }) {
                   </span>
                 )}
               </span>
-            </button>
+            </Button>
           )}
         </section>
 
@@ -701,13 +701,13 @@ export function ThemesModal({ onClose }: { onClose: () => void }) {
                       license.installedCount === 1 ? "" : "s"
                     } unlocked.`}
               </span>
-              <button
+              <Button variant="ghost" size="sm"
                 type="button"
                 className="license-remove"
                 onClick={removeLicense}
               >
                 Remove license
-              </button>
+              </Button>
             </div>
           ) : (
             <>

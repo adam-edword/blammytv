@@ -1,3 +1,4 @@
+import { Button } from "../../components/ui/button";
 import {
   memo,
   useCallback,
@@ -545,7 +546,7 @@ export const Guide = memo(function Guide({
                     )}
                   </span>
                 </button>
-                <button
+                <Button variant="ghost" size="icon-sm"
                   type="button"
                   className={
                     "guide__fav" + (favorite ? " guide__fav--on" : "")
@@ -568,7 +569,7 @@ export const Guide = memo(function Guide({
                       <StarRainbowHollowIcon className="guide__fav-hot" />
                     </>
                   )}
-                </button>
+                </Button>
               </div>
 
               <div

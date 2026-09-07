@@ -1,3 +1,4 @@
+import { Button } from "../components/ui/button";
 import {
   useEffect,
   useRef,
@@ -538,14 +539,14 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           </span>
           <span className="onb-word">BlammyTV</span>
         </div>
-        <button
+        <Button variant="default" size="lg"
           type="button"
           className="onb-btn onb-btn--hero"
           style={idx(1)}
           onClick={advance}
         >
           Get Started
-        </button>
+        </Button>
       </>
     ) : step === 1 ? (
       <>
@@ -591,22 +592,22 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           </p>
         )}
         <div className="onb-row" style={idx(3)}>
-          <button
+          <Button variant="default" size="lg"
             type="button"
             className="onb-btn"
             disabled={!manifestOk || streamsChecking}
             onClick={continueStreams}
           >
             {streamsChecking ? "Connecting…" : "Continue"}
-          </button>
-          <button
+          </Button>
+          <Button variant="ghost"
             type="button"
             className="onb-ghost"
             disabled={streamsChecking}
             onClick={ghostStreams}
           >
             {streamsFailed ? "Continue anyway" : "I’ll do this later"}
-          </button>
+          </Button>
         </div>
       </>
     ) : step === 2 ? (
@@ -735,22 +736,22 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           </p>
         )}
         <div className="onb-row" style={idx(4)}>
-          <button
+          <Button variant="default" size="lg"
             type="button"
             className="onb-btn"
             disabled={(!tvEmpty && !tvComplete) || tvChecking}
             onClick={continueTv}
           >
             {tvChecking ? "Connecting…" : "Continue"}
-          </button>
-          <button
+          </Button>
+          <Button variant="ghost"
             type="button"
             className="onb-ghost"
             disabled={tvChecking}
             onClick={ghostTv}
           >
             {tvFailed ? "Add anyway" : "I’ll do this later"}
-          </button>
+          </Button>
         </div>
       </>
     ) : step === 3 ? (
@@ -788,14 +789,14 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           <span className="onb-chips__label">Clock</span>
           <ChipTabs tabs={CLOCK_TABS} active={clock} onChange={pickClock} />
         </div>
-        <button
+        <Button variant="default" size="lg"
           type="button"
           className="onb-btn"
           style={idx(4)}
           onClick={advance}
         >
           Continue
-        </button>
+        </Button>
       </>
     ) : step === 4 ? (
       <>
@@ -813,14 +814,14 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
             onChange={pickStartup}
           />
         </div>
-        <button
+        <Button variant="default" size="lg"
           type="button"
           className="onb-btn"
           style={idx(3)}
           onClick={advance}
         >
           Continue
-        </button>
+        </Button>
       </>
     ) : (
       <>
@@ -845,14 +846,14 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           Tip: Settings holds a lot more to make BlammyTV yours: sources,
           themes, playback, and a few surprises.
         </p>
-        <button
+        <Button variant="default" size="lg"
           type="button"
           className="onb-btn"
           style={idx(3)}
           onClick={finish}
         >
           Enter BlammyTV
-        </button>
+        </Button>
       </>
     );
 
@@ -890,14 +891,14 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
         </div>
       )}
       {!finale && step > 0 && (
-        <button type="button" className="onb-back" onClick={retreat}>
+        <Button variant="ghost" size="sm" type="button" className="onb-back" onClick={retreat}>
           &larr; Back
-        </button>
+        </Button>
       )}
       {!finale && step < LAST_STEP && (
-        <button type="button" className="onb-skip" onClick={finish}>
+        <Button variant="ghost" size="sm" type="button" className="onb-skip" onClick={finish}>
           Skip setup
-        </button>
+        </Button>
       )}
     </div>
   );

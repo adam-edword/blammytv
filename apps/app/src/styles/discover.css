@@ -69,7 +69,6 @@
   margin-bottom: 34px;
 }
 
-
 /* Genre card: wallpaper art under a scrim, label centered. Flat gradient
  * when the cache has no art for that genre yet. */
 .genre-card {
@@ -319,27 +318,10 @@
 }
 
 .rec__chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 34px;
-  padding: 0 10px 0 14px;
-  border: 0;
-  cursor: pointer;
-  border-radius: var(--radius-pill, 999px);
-  background: color-mix(in srgb, var(--text) 14%, transparent);
-  color: var(--text);
   font: 500 14px/1 var(--font-text);
-  transition:
-    background-color 140ms ease,
-    transform 220ms var(--nav-spring);
-}
-.rec__chip:hover {
-  background: color-mix(in srgb, var(--text) 22%, transparent);
 }
 .rec__chip:active {
   transform: scale(0.94);
-  transition: transform 60ms ease-out;
 }
 .rec__chip svg {
   opacity: 0.6;
@@ -373,34 +355,9 @@
 
 .rec__go {
   flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 52px;
-  height: 52px;
-  border: 0;
-  cursor: pointer;
-  border-radius: var(--radius-pill, 999px);
-  background: color-mix(in srgb, var(--text) 18%, transparent);
-  backdrop-filter: blur(12px);
-  color: var(--text);
-  transition:
-    background-color 140ms ease,
-    transform 220ms var(--nav-spring),
-    opacity 140ms ease;
-}
-.rec__go:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--text) 28%, transparent);
 }
 .rec__go:active:not(:disabled) {
   transform: scale(0.92);
-  transition: transform 60ms ease-out;
-}
-/* Dimmed rather than hidden: the button has to stay where it is so the row
- * does not reflow the moment the first chip lands. */
-.rec__go:disabled {
-  opacity: 0.35;
-  cursor: default;
 }
 
 .rec__note {
@@ -450,17 +407,7 @@
 }
 
 .rec__again {
-  height: 38px;
-  padding: 0 18px;
-  border: 0;
-  cursor: pointer;
-  border-radius: var(--radius-pill, 999px);
-  background: color-mix(in srgb, var(--text) 12%, transparent);
-  color: var(--text);
   font: 600 13px/1 var(--font-text);
-}
-.rec__again:hover {
-  background: color-mix(in srgb, var(--text) 20%, transparent);
 }
 
 @media (prefers-reduced-motion: reduce) {

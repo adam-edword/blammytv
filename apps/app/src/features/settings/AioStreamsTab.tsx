@@ -72,7 +72,7 @@ export function AioStreamsTab() {
             />
             {url.trim() !== "" && (
               <span className="settings-field__tools">
-                <button
+                <Button variant="ghost" size="icon-sm"
                   type="button"
                   className="settings-field__tool"
                   aria-label="Copy manifest URL"
@@ -80,8 +80,8 @@ export function AioStreamsTab() {
                   onClick={copy}
                 >
                   {copied ? <CheckIcon /> : <CopyIcon />}
-                </button>
-                <button
+                </Button>
+                <Button variant="ghost" size="icon-sm"
                   type="button"
                   className="settings-field__tool"
                   aria-label="Clear manifest URL"
@@ -89,7 +89,7 @@ export function AioStreamsTab() {
                   onClick={() => setUrl("")}
                 >
                   <CloseIcon />
-                </button>
+                </Button>
               </span>
             )}
           </div>

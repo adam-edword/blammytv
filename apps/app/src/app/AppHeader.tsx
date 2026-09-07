@@ -1,3 +1,4 @@
+import { Button } from "../components/ui/button";
 import {
   useCallback,
   useEffect,
@@ -750,14 +751,14 @@ export function AppHeader({
           * comes back when there is something behind it. */}
         <div className="header__actions">
           <Hint label="Settings">
-            <button
+            <Button variant="ghost" size="icon"
               type="button"
               className="header__action"
               aria-label="Settings"
               onClick={onOpenSettings}
             >
               <SettingsIcon />
-            </button>
+            </Button>
           </Hint>
         </div>
       </div>

@@ -103,20 +103,7 @@
 }
 
 .settings__close {
-  display: grid;
   place-items: center;
-  opacity: 0.3;
-  transition: opacity var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
-}
-
-.settings__close:hover {
-  opacity: 1;
-}
-
-.settings__close svg {
-  width: 24px;
-  height: 24px;
 }
 
 /* Scrolls only as a fallback (tabs with no inner scroller on a short
@@ -302,25 +289,7 @@
 }
 
 .settings-field__tool {
-  display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 10px;
-  opacity: 0.55;
-  transition:
-    opacity var(--dur-hover) ease,
-    background var(--dur-hover) ease;
-}
-
-.settings-field__tool:hover {
-  opacity: 1;
-  background: color-mix(in srgb, var(--text) 8%, transparent);
-}
-
-.settings-field__tool svg {
-  width: 14px;
-  height: 14px;
 }
 
 .settings-input:focus {
@@ -432,24 +401,7 @@
 }
 
 .accent-popover__dropper {
-  display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  background: var(--surface);
-  border: 1px solid var(--border-input);
-  opacity: 0.75;
-  transition: opacity var(--dur-hover) ease;
-}
-
-.accent-popover__dropper:hover {
-  opacity: 1;
-}
-
-.accent-popover__dropper svg {
-  width: 15px;
-  height: 15px;
 }
 
 .accent-popover__hex {
@@ -624,7 +576,6 @@
   margin: 0;
 }
 
-
 /* `.btn-danger--armed` is gone: the armed state is a ring utility at the
  * call site (GeneralTab.tsx). A deeper fill has nowhere to go now that the
  * unarmed face is `destructive`'s solid red, and a fill written here would
@@ -687,23 +638,7 @@
  * Discard snaps the draft back. Discard and toggle-all share one recipe. */
 .source-tools__discard,
 .source-tools__all {
-  flex-shrink: 0;
-  padding: 7px 14px;
-  border-radius: var(--radius-chip);
-  background: var(--surface-raised);
-  border: 0.5px solid var(--border-raised);
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 13px;
-  color: var(--text);
-  cursor: pointer;
-  transition: filter var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
-}
-
-.source-tools__discard:hover,
-.source-tools__all:hover {
-  filter: brightness(1.3);
 }
 
 /* `.source-tools__save` carries no metrics: it is `size="sm"` on the Button
@@ -715,12 +650,6 @@
   min-width: 0;
   padding: 7px 12px;
   font-size: 13px;
-}
-
-.source-tools__all:disabled {
-  opacity: 0.4;
-  cursor: default;
-  filter: none;
 }
 
 .source-row {
@@ -792,15 +721,6 @@
   height: 12px;
 }
 
-/* OPEN, not hover. The hover half of this rule went in v0.9.54: `outline`
- * already answers hover, and a second colour change on top of it just
- * fought the variant. The open state is the part shadcn's Button has no
- * answer for, so it is the part that stays. */
-.chip-select__add[aria-expanded="true"] {
-  color: var(--text);
-  border-color: var(--border-input);
-}
-
 /* The chevron sizes itself off Button's own
  * `[&_svg:not([class*='size-'])]:size-4`, which is a utility and therefore
  * outranks anything this file could say. 13px became 16px in v0.9.54; that
@@ -836,21 +756,8 @@
 }
 
 .chip-select__option {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
   width: 100%;
-  padding: 9px 12px;
-  border-radius: 12px;
   font-family: var(--font-headline);
-  font-weight: 400;
-  font-size: 14px;
-  text-align: left;
-}
-
-.chip-select__option:hover {
-  background: color-mix(in srgb, var(--text) 7%, transparent);
 }
 
 /* Card Details: multi-toggle chips, source-chip metrics — off ones sit
@@ -866,26 +773,12 @@
  * variant paints colour with utilities, and `utilities` outranks `app`. */
 
 .playlist-row__expand {
-  display: grid;
   place-items: center;
-  opacity: 0.5;
-  transition:
-    opacity var(--dur-hover) ease,
-    transform var(--dur-enter) var(--ease-in-out);
 }
 
 /* Chevron points down closed, up open. */
 .playlist-row__expand--open {
   transform: rotate(180deg);
-}
-
-.playlist-row__expand:hover {
-  opacity: 1;
-}
-
-.playlist-row__expand svg {
-  width: 16px;
-  height: 16px;
 }
 
 .playlist-row {
@@ -929,30 +822,13 @@
 }
 
 .playlist-row__delete {
-  display: grid;
   place-items: center;
-  opacity: 0.5;
-  transition: opacity var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
-}
-
-.playlist-row__delete:hover {
-  opacity: 1;
-}
-
-.playlist-row__delete svg {
-  width: 13px;
-  height: 13px;
 }
 
 /* Armed (first click): the ✕ becomes a "Sure?" in the danger voice —
  * the Customize clear-logins arm/confirm language, on the row scale. */
 .playlist-row__delete--armed {
-  opacity: 1;
-  color: var(--danger-text);
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 12px;
 }
 
 /* Load/guide status under a playlist's source line — the reportable reason
@@ -966,7 +842,6 @@
 .playlist-row__status--error {
   color: var(--danger-text);
 }
-
 
 /* `.settings-button--accent` keeps its name as a hook but carries no paint:
  * the "an update is ready" state is `variant="default"` in
@@ -991,19 +866,8 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Row-cap number: click to fine-tune (the slider steps by 5). */
-.rowcap__value--btn {
-  background: none;
-  border: none;
-  padding: 2px 6px;
-  border-radius: 8px;
-  color: inherit;
-  cursor: pointer;
-  transition: background var(--dur-hover) ease;
-}
-.rowcap__value--btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
+/* Row-cap number: click to fine-tune (the slider steps by 5). A ghost
+ * Button now — see CustomizeTab.tsx for why it dropped `.rowcap__value`. */
 .rowcap__value--edit {
   width: 64px;
   padding: 2px 6px;
@@ -1096,17 +960,7 @@
  * on hover, no fill), since removing a license is reversible and doesn't
  * warrant danger-zone weight. */
 .license-remove {
-  flex-shrink: 0;
-  padding: 8px 4px;
   font-family: var(--font-headline);
-  font-weight: 600;
-  font-size: 13px;
-  color: var(--text-muted);
-  transition: color var(--dur-hover) ease;
-}
-
-.license-remove:hover {
-  color: var(--text);
 }
 
 /* activate()'s result line — same reading as onboarding's .onb-hint, in

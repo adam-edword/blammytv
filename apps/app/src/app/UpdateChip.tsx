@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Button } from "../components/ui/button";
 import {
   isTauri,
   tauriCheckUpdate,
@@ -53,7 +54,7 @@ export function UpdateChip() {
   const busy = phase.at === "installing";
 
   return (
-    <button
+    <Button variant="outline" size="sm"
       type="button"
       className={"update-chip" + (busy ? " update-chip--busy" : "")}
       disabled={busy}
@@ -75,6 +76,6 @@ export function UpdateChip() {
       {phase.at === "ready" && <>v{phase.version} ready</>}
       {phase.at === "installing" && <>Installing…</>}
       {phase.at === "error" && <>Update failed, retry</>}
-    </button>
+    </Button>
   );
 }

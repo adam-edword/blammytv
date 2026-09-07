@@ -202,7 +202,7 @@ export function HeroSourcesSection() {
                     }}
                   >
                     {available.map((c) => (
-                      <button
+                      <Button variant="ghost" size="sm"
                         key={c.key}
                         type="button"
                         className="chip-select__option"
@@ -212,7 +212,7 @@ export function HeroSourcesSection() {
                         <span className="source-row__type">
                           {typeLabel(c.type)}
                         </span>
-                      </button>
+                      </Button>
                     ))}
                   </div>,
                   document.body,

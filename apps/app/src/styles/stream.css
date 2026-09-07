@@ -253,24 +253,10 @@
   position: absolute;
   top: calc(50% - 46px);
   z-index: 3;
-  width: 46px;
-  height: 46px;
-  display: grid;
   place-items: center;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--bg) 72%, transparent);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--border-strong);
-  color: var(--text);
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 180ms ease, filter var(--dur-hover) ease;
 }
-.media-row:hover .media-row__arrow { opacity: 1; }
-.media-row__arrow:hover { filter: brightness(1.4); }
 .media-row__arrow--left { left: 14px; }
 .media-row__arrow--right { right: 14px; }
-.media-row__arrow svg { width: 18px; height: 18px; }
 .media-row__arrow--left svg { transform: rotate(90deg); }
 .media-row__arrow--right svg { transform: rotate(-90deg); }
 /* Row scrollbars used to be styled here, very quiet and brightening under
@@ -548,12 +534,6 @@
 .vod-more .media-row__arrow--right {
   right: calc(7% + 434px);
 }
-/* The arrows' only reveal rule is .media-row:hover — this shelf has no
- * .media-row ancestor, so they stayed invisible-but-clickable phantom
- * circles over the posters (fleet finding). Reveal on shelf hover. */
-.vod-more:hover .media-row__arrow {
-  opacity: 1;
-}
 .vod-more__card {
   flex: 0 0 auto;
   width: 170px;
@@ -657,23 +637,8 @@
   color: var(--text-muted);
 }
 .list-picker__item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   width: 100%;
-  padding: 8px 10px;
-  border-radius: 8px;
-  text-align: left;
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 13px;
-  color: var(--text);
-  cursor: pointer;
-  transition: background var(--dur-hover) ease;
-}
-.list-picker__item:hover,
-.list-picker__item:focus-visible {
-  background: rgba(255, 255, 255, 0.12);
 }
 /* Fixed-width gutter so names line up whether or not they are ticked. */
 .list-picker__check {
@@ -693,9 +658,6 @@
 .list-picker__count {
   font-size: 11.5px;
   font-weight: 600;
-  color: var(--text-muted);
-}
-.list-picker__new {
   color: var(--text-muted);
 }
 .list-picker__input {
@@ -912,20 +874,8 @@
 }
 /* Inline retry beside a failed-note — quiet, accent-voiced. */
 .vod-sources__retry {
-  padding: 4px 12px;
   margin-left: 6px;
-  border: 1px solid var(--accent-border);
-  border-radius: var(--radius-chip);
-  background: var(--accent-surface);
-  color: var(--text);
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 12px;
-  cursor: pointer;
-  transition: border-color var(--dur-hover) ease;
-}
-.vod-sources__retry:hover {
-  border-color: var(--accent-border-hover);
 }
 
 .vod-sources__note { color: rgba(242, 242, 244, 0.6); font-size: 14px; }
@@ -1212,8 +1162,6 @@
   position: absolute;
   top: 8px;
   right: 8px;
-  width: 28px;
-  height: 28px;
 }
 
 /* Next-up episode: the one smart-resume points at (accent ring, same
@@ -1243,22 +1191,8 @@
   position: absolute;
   top: 10px;
   right: 10px;
-  padding: 6px 12px;
-  border-radius: 999px;
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 12px;
-  color: var(--text);
-  background: rgba(0, 0, 0, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  backdrop-filter: blur(14px);
-  opacity: 0;
-  transition: opacity var(--dur-hover) ease, background var(--dur-hover) ease;
 }
-.continue-card:hover .continue-card__sources { opacity: 1; }
-/* Keyboard parity with the hover reveal (the guide-star :focus-within
- * pattern from the Live a11y sweep) — the chip nests a real button. */
-.continue-card:focus-within .continue-card__sources { opacity: 1; }
 /* Same hover treatment as episode stills: 0.4 dim + centered play cue. */
 .continue-card__artwrap::after {
   content: "";
@@ -1283,7 +1217,6 @@
   pointer-events: none;
 }
 .continue-card:hover .continue-card__cue { opacity: 1; }
-.continue-card__sources:hover { background: rgba(0, 0, 0, 0.75); }
 .continue-card { cursor: pointer; }
 /* While the hold-to-clear overlay is up it OWNS the card: the hover
  * cue/scrim, Sources chip, and logo stand down (the play cue painted
@@ -1518,28 +1451,9 @@
 }
 .library__action {
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 13px;
-  padding: 7px 13px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  cursor: pointer;
-  transition:
-    background var(--dur-hover) ease,
-    border-color var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
-}
-.library__action:hover {
-  background: var(--surface-raised);
 }
 .library__action:active {
   transform: scale(0.97);
-}
-.library__action--danger:hover {
-  border-color: var(--danger);
-  color: var(--danger-text);
 }
 
 /* First-run copy above the grid, not in place of it: the "+" card stays
@@ -1568,29 +1482,9 @@
  * placeholder into the loudest object in the grid. shadcn has no variant
  * for "the space where a thing would go", so this one stays hand-written. */
 .library__new {
-  display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
   aspect-ratio: 2 / 3;
-  border-radius: var(--radius-chip);
-  border: 1px dashed var(--border-strong);
-  background: none;
-  color: var(--text-muted);
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 14px;
-  cursor: pointer;
-  transition:
-    color var(--dur-hover) ease,
-    border-color var(--dur-hover) ease,
-    background var(--dur-hover) ease;
-}
-.library__new:hover {
-  color: var(--text);
-  border-color: var(--text-muted);
-  background: color-mix(in srgb, var(--text) 4%, transparent);
 }
 .library__new-plus {
   font-size: 34px;
@@ -1608,22 +1502,7 @@
   top: 10px;
   right: 10px;
   z-index: 2;
-  padding: 5px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: #00000080;
-  backdrop-filter: blur(10px);
-  color: #f2f2f4;
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 11px;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity var(--dur-hover) ease;
-}
-.library__item:hover .library__remove,
-.library__remove:focus-visible {
-  opacity: 1;
 }
 @media (prefers-reduced-motion: reduce) {
   .library__action:active {
@@ -1665,11 +1544,6 @@
   border-style: solid;
   border-color: var(--accent);
   cursor: default;
-}
-/* Armed delete, same language as Settings' Clear All Login Info. */
-.library__action--armed {
-  border-color: var(--danger);
-  color: var(--danger-text);
 }
 
 /* The resolving stage's own controls. It covers the header and App's

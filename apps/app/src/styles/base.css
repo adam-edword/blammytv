@@ -270,10 +270,6 @@ button {
   gap: 1px;
 }
 
-
-
-
-
 /* Out of flow so the brand block stays one 34px line — the nav's shared
  * centerline ignores the version entirely. */
 /* Was position:absolute, hanging off the wordmark's box. That box is
@@ -296,13 +292,8 @@ button {
 }
 @media (prefers-reduced-motion: reduce) {}
 
-
-
-
-
 /* Clicking would be a no-op (already at Stream Home) — hold full
  * strength on hover instead of teasing the 0.6 dim. */
-
 
 /* Stream sub-rail: the section's pages as pills (rail itself has no
  * background; only the ACTIVE pill gets a chip), search slot at the end.
@@ -331,7 +322,6 @@ button {
   color: rgba(255, 255, 255, 0.75);
 }
 
-
 .header__actions {
   display: flex;
   align-items: center;
@@ -355,17 +345,7 @@ button {
  */
 .header__action {
   position: relative;
-  display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  color: var(--text);
-  background: color-mix(in srgb, var(--text) 10%, transparent);
-  backdrop-filter: blur(5px) saturate(1.4);
-  transition:
-    background var(--dur-hover) ease,
-    transform 220ms var(--nav-spring);
 }
 
 /* The capsule's rim, on a circle. Masked ::after rather than a border for
@@ -374,15 +354,6 @@ button {
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--text) 61%, transparent),
-    color-mix(in srgb, var(--text) 15%, transparent) 28%,
-    transparent 52%,
-    color-mix(in srgb, var(--text) 29%, transparent)
-  );
   -webkit-mask:
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
@@ -393,23 +364,10 @@ button {
   mask-composite: exclude;
   pointer-events: none;
 }
-
-.header__action:hover {
-  background: color-mix(in srgb, var(--text) 16%, transparent);
-}
 /* Same press feedback as a nav item, for the same reason: a transform
  * cannot change the box, so it cannot disturb anything measured. */
 .header__action:active {
   transform: scale(0.93);
-  transition: transform 60ms ease-out;
-}
-
-/* 20 inside 44. Larger than the mock's own ratio, which a header-sized
- * circle would render too small to read, and smaller than the 25 this was
- * when it had no chip around it. */
-.header__action svg {
-  width: 20px;
-  height: 20px;
 }
 
 /* ------------------------------------------------- update chip (header) */
@@ -434,28 +392,8 @@ button {
  * the boot logo's sweep, reused to mean "something new is here". The inner
  * fill paints over padding-box so the gradient survives only as the rim. */
 .update-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 14px;
-  border: 1.5px solid transparent;
-  border-radius: 999px;
   font-family: var(--font-headline);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  color: var(--text);
-  cursor: pointer;
-  background:
-    linear-gradient(color-mix(in srgb, var(--bg) 82%, transparent),
-        color-mix(in srgb, var(--bg) 82%, transparent)) padding-box,
-    conic-gradient(
-        from var(--update-ring),
-        #ff9b9b, #ff8bc9, #ff7bf6, #c388fb, #8696ff,
-        #85cbd4, #84ffa9, #c1f294, #ffe57f, #ff9b9b
-      ) border-box;
   animation: update-ring-turn 9s linear infinite;
-
   transform-origin: top center;
   /* Entrance (motion plan 002). Close stays instant — deliberate. */
   /* ONE declaration — a second transition: in this rule silently killed
@@ -468,12 +406,9 @@ button {
 }
 @starting-style {
   .update-chip {
-    opacity: 0;
-    transform: scale(0.9) translateY(-4px);
-  }
+  transform: scale(0.9) translateY(-4px);
 }
-.update-chip:hover { filter: brightness(1.25); }
-.update-chip--busy { cursor: progress; }
+}
 @keyframes update-ring-turn { to { --update-ring: 450deg; } }
 
 /* The pulse dot: same gradient family, breathing while idle, steady spin
@@ -503,16 +438,12 @@ button {
 
 /* Reduced motion: the update chip's entrance keeps its fade only. */
 @media (prefers-reduced-motion: reduce) {
-  .update-chip {
-    transition: opacity 260ms var(--ease-out);
-  }
   @starting-style {
     .update-chip {
       transform: none;
     }
   }
 }
-
 
 /* ------------------------------------------------------- the nav capsule */
 
