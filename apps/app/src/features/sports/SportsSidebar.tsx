@@ -19,6 +19,7 @@ import {
   type Follows,
 } from "./follows";
 import { conferencesIn, POWER_FOUR } from "./conferences";
+import { Hint } from "../../ui/Hint";
 import { LeaguePicker } from "./LeaguePicker";
 import { isFixture } from "./model";
 import type { Game } from "./model";
@@ -200,20 +201,22 @@ export function SportsSidebar({
       }
     >
       <div className="live-sidebar__top">
-        <button
-          type="button"
-          className="live-collapse"
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          aria-expanded={!collapsed}
-          onClick={() =>
-            setCollapsed((c) => {
-              saveSidebarCollapsed(!c);
-              return !c;
-            })
-          }
-        >
-          <PanelIcon />
-        </button>
+        <Hint label={collapsed ? "Expand sidebar" : "Collapse sidebar"} side="right">
+          <button
+                    type="button"
+                    className="live-collapse"
+                    aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                    aria-expanded={!collapsed}
+                    onClick={() =>
+                      setCollapsed((c) => {
+                        saveSidebarCollapsed(!c);
+                        return !c;
+                      })
+                    }
+                  >
+                    <PanelIcon />
+                  </button>
+        </Hint>
         {!collapsed && (
           <ModeRail
             modes={confs.length > 0 ? MODES_WITH_CONFS : MODES}

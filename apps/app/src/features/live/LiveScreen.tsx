@@ -45,6 +45,7 @@ import { InvertedPlayer } from "./InvertedPlayer";
 import { useConnections } from "./connections";
 import { splitTitleEmoji } from "./emoji";
 import { loadFavorites, toggleFavorite } from "./favorites";
+import { Hint } from "../../ui/Hint";
 import { Guide } from "./Guide";
 import { Hero } from "./Hero";
 import type { Channel, LiveData, Programme } from "./model";
@@ -831,18 +832,20 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
         className={"live-sidebar" + (collapsed ? " live-sidebar--collapsed" : "")}
       >
         <div className="live-sidebar__top">
-          <button
-            type="button"
-            className="live-collapse"
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            aria-expanded={!collapsed}
-            onClick={() => {
-              setTip(null);
-              setCollapsed((c) => !c);
-            }}
-          >
-            <PanelIcon />
-          </button>
+          <Hint label={collapsed ? "Expand sidebar" : "Collapse sidebar"} side="right">
+            <button
+                        type="button"
+                        className="live-collapse"
+                        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                        aria-expanded={!collapsed}
+                        onClick={() => {
+                          setTip(null);
+                          setCollapsed((c) => !c);
+                        }}
+                      >
+                        <PanelIcon />
+                      </button>
+          </Hint>
           {!collapsed && (
             <ModeRail modes={MODES} mode={mode} onChange={setMode} />
           )}

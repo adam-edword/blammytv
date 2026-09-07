@@ -47,6 +47,20 @@
 /* @import "tailwindcss/preflight.css" layer(base);  <- see 2 above */
 @import "tailwindcss/utilities.css" layer(utilities);
 
+/* The enter/exit animations every shadcn overlay is written against.
+ *
+ * NOT OPTIONAL, and not obvious. `animate-in`, `fade-in-0`, `zoom-in-95` and
+ * `slide-in-from-top-2` are NOT stock Tailwind: they come from this package,
+ * and shadcn's generated components use all four. Without it those classes
+ * do not exist, so every tooltip, dialog and menu pops in and out with no
+ * transition at all, which is the opposite of the reason to adopt shadcn.
+ *
+ * NO `layer()` HERE, deliberately. The file is mostly `@utility` at-rules,
+ * which Tailwind has to process at the top level; wrapping it in a layer
+ * hides them and silently emits nothing. Tailwind files what it generates
+ * into the utilities layer on its own. */
+@import "tw-animate-css";
+
 /* Our tokens, extending Tailwind's so `bg-surface` and friends resolve to
  * the app's real palette rather than to a stock zinc. See theme.css. */
 @import "./theme.css";
@@ -72,3 +86,39 @@
 /* UNLAYERED, and it has to be. See the file: react-colorful injects its own
  * stylesheet at runtime, which is unlayered, and only unlayered beats it. */
 @import "./vendor.css";
+
+/**
+ * REDUCED MOTION over the shadcn overlays.
+ *
+ * tw-animate-css ships NO `prefers-reduced-motion` handling of its own
+ * (checked: zero occurrences in its stylesheet), and this app has cared
+ * about that since plan 010 #22 audited every tilt in the feature. So the
+ * guard is ours to write.
+ *
+ * IT KEEPS THE FADE AND DROPS THE MOVEMENT, rather than setting
+ * `animation: none`. That is the actual accessibility ask: reduced motion
+ * means no vestibular movement, not no feedback, and a surface that appears
+ * with no transition whatsoever reads as a glitch. The same reasoning is
+ * already written down at ui.css:166, where each guard restores that
+ * element's own timings instead of blanket-none.
+ *
+ * Neutralising the INPUTS rather than the keyframes is what makes this hold
+ * for animations nobody has written yet: `enter` and `exit` read these six
+ * variables for translate, scale and rotate, and read opacity separately.
+ * Zero them and every current and future `slide-in-*` / `zoom-*` / `spin-*`
+ * utility collapses to a cross-fade with no per-class list to maintain.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :where(.animate-in, .animate-out) {
+    --tw-enter-translate-x: 0;
+    --tw-enter-translate-y: 0;
+    --tw-enter-scale: 1;
+    --tw-enter-rotate: 0;
+    --tw-enter-blur: 0;
+    --tw-exit-translate-x: 0;
+    --tw-exit-translate-y: 0;
+    --tw-exit-scale: 1;
+    --tw-exit-rotate: 0;
+    --tw-exit-blur: 0;
+  }
+}

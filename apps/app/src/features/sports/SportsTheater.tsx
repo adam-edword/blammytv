@@ -24,6 +24,7 @@ import { useDirectOverlay } from "../live/useDirectOverlay";
 import { setOverlayApiOverride } from "../live/overlayApi";
 import { resolveStreamUrl } from "../live/stream";
 import { loadFavorites, toggleFavorite } from "../live/favorites";
+import { Hint } from "../../ui/Hint";
 import { Matchup } from "./Matchup";
 import { CompactCard } from "./CompactCard";
 import { autoPlay, nextSource } from "./autoplay";
@@ -488,15 +489,17 @@ export function SportsTheater({
           * control that nearly matched would be worse than reusing the
           * one people already know. */}
         <div className="sportstheater__fold">
-          <button
-            type="button"
-            className="live-collapse"
-            aria-label={folded ? "Expand channels" : "Collapse channels"}
-            aria-expanded={!folded}
-            onClick={toggleFold}
-          >
-            <PanelIcon />
-          </button>
+          <Hint label={folded ? "Expand channels" : "Collapse channels"} side="right">
+            <button
+                        type="button"
+                        className="live-collapse"
+                        aria-label={folded ? "Expand channels" : "Collapse channels"}
+                        aria-expanded={!folded}
+                        onClick={toggleFold}
+                      >
+                        <PanelIcon />
+                      </button>
+          </Hint>
         </div>
         {/* THE WAY OUT, said out loud. Escape and the mouse's back button
          * both already left the theater, and neither is discoverable — the

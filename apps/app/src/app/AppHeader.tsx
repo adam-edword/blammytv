@@ -39,6 +39,7 @@ import {
   requestRecommend,
 } from "../features/discover/recommend";
 import { UpdateChip } from "./UpdateChip";
+import { Hint } from "../ui/Hint";
 import { formatClock } from "../lib/time";
 import { APP_VERSION } from "../lib/version";
 import {
@@ -748,14 +749,16 @@ export function AppHeader({
           * anything is worse than an absent one: it reads as broken. It
           * comes back when there is something behind it. */}
         <div className="header__actions">
-          <button
-            type="button"
-            className="header__action"
-            aria-label="Settings"
-            onClick={onOpenSettings}
-          >
-            <SettingsIcon />
-          </button>
+          <Hint label="Settings">
+            <button
+              type="button"
+              className="header__action"
+              aria-label="Settings"
+              onClick={onOpenSettings}
+            >
+              <SettingsIcon />
+            </button>
+          </Hint>
         </div>
       </div>
     </header>

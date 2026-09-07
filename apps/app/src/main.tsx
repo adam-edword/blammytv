@@ -9,6 +9,7 @@ import "./fonts";
 // explained.
 import "./styles/index.css";
 import { App } from "./app/App";
+import { Root } from "./app/Root";
 import { TheaterOverlay } from "./features/live/TheaterOverlay";
 import { SportsTheater } from "./features/sports/SportsTheater";
 import { useCatalog } from "./features/sports/catalog";
@@ -49,6 +50,7 @@ installPlayerPerf();
 // have to make a special build for is one nobody runs.
 installDiscoverProbe();
 
+
 const root = ReactDOM.createRoot(document.getElementById("root")!);
 
 // TEST HARNESS: `?overlay=1` renders the player chrome standalone (bare
@@ -77,13 +79,13 @@ if (params.get("overlay") === "1") {
       }
     ).__overlayProps ?? {};
   root.render(
-    <React.StrictMode>
+    <Root>
       <TheaterOverlay
         vod={op.vod}
         playbackKey={op.playbackKey}
         showId={op.showId}
       />
-    </React.StrictMode>,
+    </Root>,
   );
 } else if (params.get("sportstheater") === "1") {
   // TEST HARNESS: `?sportstheater=1` mounts the SPORTS host of the player
@@ -143,14 +145,14 @@ if (params.get("overlay") === "1") {
   }
   if (isTauri()) document.documentElement.classList.add("invert-player");
   root.render(
-    <React.StrictMode>
+    <Root>
       {f ? (
         <SportsHarness
           game={revive(f.game)}
           others={(f.others ?? []).map(revive)}
         />
       ) : null}
-    </React.StrictMode>,
+    </Root>,
   );
 } else {
   // Native shell (the window is transparent): stamp the root class BEFORE
@@ -158,8 +160,8 @@ if (params.get("overlay") === "1") {
   // .invert-player. In a plain browser tab the body stays opaque.
   if (isTauri()) document.documentElement.classList.add("invert-player");
   root.render(
-    <React.StrictMode>
+    <Root>
       <App />
-    </React.StrictMode>,
+    </Root>,
   );
 }

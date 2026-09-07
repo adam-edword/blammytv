@@ -222,6 +222,93 @@ check(
   `${vendor.unlayered} unlayered, ${vendor.layered} layered`,
 );
 
+// ---- 7. THE ANIMATION UTILITIES EXIST ------------------------------------
+//
+// `animate-in`, `fade-in-0` and `zoom-in-95` are NOT stock Tailwind: they
+// come from tw-animate-css, which shadcn assumes and which has to be
+// imported separately. Miss it and every overlay in the app still WORKS
+// while popping in and out with no transition, which is a silent downgrade
+// rather than a failure. Read off a real class rather than the import,
+// because the import can be present and still emit nothing (the file is
+// mostly `@utility` at-rules, which Tailwind only processes at the top
+// level, so wrapping it in a layer would quietly produce this same result).
+const animated = await page.evaluate(() => {
+  const el = document.createElement("div");
+  el.className = "animate-in fade-in-0";
+  document.body.appendChild(el);
+  const s = getComputedStyle(el);
+  const out = { name: s.animationName, opacity: s.getPropertyValue("--tw-enter-opacity").trim() };
+  el.remove();
+  return out;
+});
+check(
+  "tw-animate-css is wired, so the overlays actually animate",
+  animated.name === "enter" && animated.opacity === "0",
+  `animation-name ${animated.name}, --tw-enter-opacity ${animated.opacity || "(unset)"}`,
+);
+
+// ---- 8. AND THEY RESPECT REDUCED MOTION ----------------------------------
+//
+// tw-animate-css ships NO prefers-reduced-motion handling of its own, so the
+// guard in index.css is ours and is the only thing standing between someone
+// who asked for less motion and a zooming, sliding tooltip. It neutralises
+// the movement INPUTS and keeps the fade, which is the actual ask: reduced
+// motion is not no feedback.
+await page.emulateMedia({ reducedMotion: "reduce" });
+const reduced = await page.evaluate(() => {
+  const el = document.createElement("div");
+  el.className = "animate-in fade-in-0 zoom-in-95 slide-in-from-top-2";
+  document.body.appendChild(el);
+  const s = getComputedStyle(el);
+  const out = {
+    scale: s.getPropertyValue("--tw-enter-scale").trim(),
+    y: s.getPropertyValue("--tw-enter-translate-y").trim(),
+    opacity: s.getPropertyValue("--tw-enter-opacity").trim(),
+  };
+  el.remove();
+  return out;
+});
+check(
+  "reduced motion drops the zoom and the slide",
+  reduced.scale === "1" && (reduced.y === "0" || reduced.y === "0px"),
+  `scale ${reduced.scale}, translate-y ${reduced.y}`,
+);
+check(
+  "  but KEEPS the fade, because reduced motion is not no feedback",
+  reduced.opacity === "0",
+  `--tw-enter-opacity ${reduced.opacity || "(unset)"}`,
+);
+await page.emulateMedia({ reducedMotion: "no-preference" });
+
+// ---- 9. THE TOOLTIP IS THE APP'S GLASS, NOT SHADCN'S WHITE CHIP ----------
+//
+// The generated tooltip is `bg-foreground text-background`: a near-white
+// chip. That is shadcn's look and every floating surface in this app is the
+// dark glass recipe instead, so tooltip.tsx is edited away from the default
+// and `add tooltip` would put it back. This is what would catch that.
+await page.hover(".header__action");
+await page.waitForSelector("[data-slot='tooltip-content']", { timeout: 4000 });
+const bubble = await page.evaluate(() => {
+  const el = document.querySelector("[data-slot='tooltip-content']");
+  if (!el) return null;
+  const s = getComputedStyle(el);
+  return {
+    text: el.textContent,
+    bg: s.backgroundColor,
+    blur: s.backdropFilter || s.webkitBackdropFilter,
+  };
+});
+check(
+  "an icon-only control shows a real tooltip, not the browser's title",
+  bubble?.text === "Settings",
+  bubble ? `"${bubble.text}"` : "no tooltip rendered",
+);
+check(
+  "  and it is the app's floating glass",
+  Boolean(bubble && bubble.blur && bubble.blur !== "none"),
+  bubble ? `background ${bubble.bg}, backdrop-filter ${bubble.blur || "none"}` : "n/a",
+);
+
 if (process.env.SHOT_DIR)
   await page.screenshot({ path: `${process.env.SHOT_DIR}/tailwind.png` });
 await browser.close();
