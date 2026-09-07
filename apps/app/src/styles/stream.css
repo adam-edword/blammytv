@@ -201,20 +201,6 @@
 }
 .shero__rating { color: #ffd166; }
 .shero__actions { display: flex; gap: 10px; margin-top: 6px; }
-/* The neutral sibling of .btn-primary (ui.css) — identical metrics. */
-.shero__btn-quiet {
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 15px;
-  color: var(--text);
-  background: var(--surface-raised);
-  border: 0.5px solid var(--border-raised);
-  border-radius: var(--radius-chip);
-  padding: 9px 14px;
-  cursor: pointer;
-  transition: filter var(--dur-hover) ease;
-}
-.shero__btn-quiet:hover { filter: brightness(1.35); }
 
 /* ---- rows ---- */
 .stream__rows {
@@ -876,33 +862,41 @@
   overflow-y: visible;
   min-height: auto;
 }
-/* Same glass language as the pills/chips on these screens: #00000050,
- * blur, and the shared darkening hover. PINNED to .vod-detail (a direct
- * child, not part of the info flow): the source screen bottom-anchors
- * its info column and the episodes screen top-anchors under the header,
- * which put the in-flow button in two different places — absolute at the
- * page's top-left gives it ONE spot on both, and on episodes it no
- * longer scrolls away with the list. Above the body layer (z-index 1)
- * so the pointer-events sandwich can't eat its clicks. */
+
+/* PINNED to .vod-detail (a direct child, not part of the info flow): the
+ * source screen bottom-anchors its info column and the episodes screen
+ * top-anchors under the header, which put the in-flow button in two
+ * different places — absolute at the page's top-left gives it ONE spot on
+ * both, and on episodes it no longer scrolls away with the list. Above the
+ * body layer (z-index 1) so the pointer-events sandwich can't eat its
+ * clicks.
+ *
+ * SHADCN'S GHOST PLUS A SCRIM, and the scrim is not decoration. This one
+ * sits over a full-bleed poster backdrop, which can be any colour at all,
+ * so `ghost`'s transparent fill leaves white text on white art. The glass
+ * (#00000050 + blur + a hairline) is what makes it legible, and it is the
+ * same material as the pills and chips already on these screens. Geometry,
+ * type, focus ring and disabled state all still come from Button; only the
+ * material is ours.
+ *
+ * The pill is a `rounded-full` UTILITY at the call site, not a rule here,
+ * and that is not a style preference. Button's `rounded-md` is a utility,
+ * and `utilities` sits above `app` in the cascade (styles/index.css), so a
+ * border-radius written in this file would silently lose to it. Anything of
+ * Button's own that a call site needs back has to be taken back the way
+ * shadcn takes it back: with a utility. */
 .vod-back {
   position: absolute;
   top: calc(var(--header-h, 76px) + 12px);
   left: 32px;
   z-index: 2;
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 15px;
-  color: var(--text);
   background: #00000050;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 999px;
-  padding: 9px 15px;
   backdrop-filter: blur(16px);
-  cursor: pointer;
-  transition: background var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
 }
-.vod-back:hover { background: rgba(0, 0, 0, 0.6); }
+/* The darkening hover is a `hover:bg-black/60` utility at the call site,
+ * for the same reason as the radius: `ghost` sets its own hover:bg, and a
+ * hover written here would lose to it. */
 .vod-detail__logo { max-width: 500px; max-height: 300px; object-fit: contain; }
 .vod-detail__title {
   font-family: var(--font-headline);
@@ -1285,10 +1279,9 @@
 .upnext-mini__actions {
   margin-top: 6px;
 }
-.upnext-mini__actions .btn-primary {
-  padding: 8px 18px;
-  font-size: 13px;
-}
+/* The compact metrics here are `size="sm"` on the Button (StreamScreen.tsx).
+ * Padding and font-size are Button utilities, so a rule in this file would
+ * not have reached them. */
 .upnext-mini__close {
   position: absolute;
   top: 8px;
@@ -1586,7 +1579,6 @@
  * line here; the detail screens keep their pinned version. */
 .library__bar .vod-back {
   position: static;
-  flex-shrink: 0;
 }
 .library__heading {
   margin: 0;
@@ -1644,7 +1636,13 @@
 }
 
 /* The "+" card sits in the same grid track as the list cards, so it has to
- * carry the poster aspect itself rather than collapsing to its text. */
+ * carry the poster aspect itself rather than collapsing to its text.
+ *
+ * NOT a shadcn Button, and v0.9.54 checked. It is an EMPTY SLOT, not a
+ * control: a dashed 2:3 outline holding a grid track open next to the real
+ * list cards. Every Button variant fills that outline in, which turns the
+ * placeholder into the loudest object in the grid. shadcn has no variant
+ * for "the space where a thing would go", so this one stays hand-written. */
 .library__new {
   display: flex;
   flex-direction: column;

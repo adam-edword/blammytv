@@ -71,16 +71,23 @@ const cssVar = (name) =>
 //
 // Cascade layers sort BEFORE specificity, and unlayered beats every layer. So
 // with the app's sheets left unlayered, a utility would have lost to any app
-// rule touching the same property, at any specificity. `.sports__morebtn`
-// sets `border-radius: var(--radius-pill, 999px)`; `rounded-md` is 0.375rem.
-// If `app` is below `utilities`, the utility wins. If the layering is undone,
-// this reads 999px and nothing else on the screen looks wrong.
-const pill = await computed("sports__morebtn", "border-radius");
-const overridden = await computed("sports__morebtn rounded-md", "border-radius");
+// rule touching the same property, at any specificity. `.chip-tabs` sets
+// `border-radius: var(--radius-track)`, which is 12px; `rounded-md` is
+// 0.375rem. If `app` is below `utilities`, the utility wins. If the layering
+// is undone, this reads 12px and nothing else on the screen looks wrong.
+//
+// `.chip-tabs` RATHER THAN a button class, deliberately. This probe needs an
+// app rule that owns its own radius, and v0.9.54 handed every standalone
+// button's radius to shadcn's Button (it was `.sports__morebtn` here before,
+// and it silently stopped setting one). The chip rail is the safest anchor
+// left: its sliding thumb is the reason it is staying hand-written rather
+// than becoming a shadcn primitive, so its radius is app-owned by decision.
+const pill = await computed("chip-tabs", "border-radius");
+const overridden = await computed("chip-tabs rounded-md", "border-radius");
 check(
   "the app's own rule still applies on its own",
-  pill.startsWith("999"),
-  `border-radius ${pill}`,
+  pill === "12px",
+  `border-radius ${pill}, expected 12px`,
 );
 check(
   "and a Tailwind utility OVERRIDES it, which is what the layer order buys",
@@ -387,7 +394,7 @@ check(
 // the number.
 const alpha = Number(
   (ring.color.match(/\/\s*([\d.]+)\s*\)/) ??
-    ring.color.match(/,\s*([\d.]+)\s*\)$/) ?? [, "1"])[1],
+    ring.color.match(/,\s*([\d.]+)\s*\)$/) ?? ["", "1"])[1],
 );
 check(
   "  and it is shadcn's translucent ring, not a flat line",
@@ -409,6 +416,144 @@ check(
   "  and text inputs still opt out, so typing does not sit inside a ring",
   inputRing === "none",
   `input outline-style: ${inputRing}`,
+);
+
+// ---- 7. NO APP RULE TRYING TO OUT-STYLE A COMPONENT'S UTILITIES --------
+//
+// This is a SOURCE check, not a page one, and it is here because it is the
+// same fact the layer order above states, read from the other end.
+//
+// A shadcn component paints with utilities. `utilities` sits above `app`.
+// So the moment a call site puts an app class on a <Button>, every rule in
+// styles/*.css that sets a property Button already sets goes dead — quietly,
+// with no error and no visual clue except that a state stops appearing.
+// v0.9.54 shipped six of these in one afternoon: the armed danger button,
+// the "update ready" accent, the pressed meta chip, the up-next compact
+// size, the chevron's 13px, and aurora's gradient face. All six were
+// written before the component existed and all six had stopped working.
+//
+// So: read which app classes actually ride on a <Button>, then read the
+// stylesheets for rules that target one of them and set something Button
+// owns. Derived from the source rather than listed here on purpose — the
+// list would rot the first time a primitive converts, and this is the exact
+// moment the check needs to be right.
+//
+// The fix for a hit is never `!important`. It is one of the three moves
+// v0.9.54 used: pick the variant/size from the state in JSX, write a utility
+// at the call site, or take a property the component does not touch (aurora
+// went from the `background` shorthand to `background-image`).
+{
+  const { readFileSync, readdirSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const root = new URL("..", import.meta.url).pathname;
+  const src = join(root, "apps/app/src");
+
+  const tsx = [];
+  const walk = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (e.name.endsWith(".tsx") && !p.includes("/components/ui/"))
+        tsx.push(p);
+    }
+  };
+  walk(src);
+
+  // Every className on a <Button …>, split into bare app classes. Tailwind
+  // utilities are skipped by the ":"/"-" shape test below: a call-site
+  // utility is exactly how you are SUPPOSED to override the component.
+  const onButton = new Set();
+  for (const f of tsx) {
+    const s = readFileSync(f, "utf8");
+    for (const m of s.matchAll(/<Button\b[\s\S]*?>/g)) {
+      const cls = m[0].match(/className=(?:"([^"]*)"|\{[^}]*"([^"]*)"[^}]*\})/);
+      if (!cls) continue;
+      for (const c of (cls[1] ?? cls[2] ?? "").split(/\s+/))
+        if (c && !/[:/]/.test(c) && !/^(rounded|hover|ring|size|w|h|p|m|text|bg|border|flex|gap|grid|items|justify)-/.test(c))
+          onButton.add(c);
+    }
+  }
+
+  // What Button sets NO MATTER WHICH VARIANT: its cva base string plus every
+  // size. Colour is deliberately absent — `background`, `color`,
+  // `border-color` and `box-shadow` are set by SOME variants and not others,
+  // so listing them here would flag `.vod-back`'s scrim (correct, `ghost`
+  // paints no background) alongside a real break, and a check that cries
+  // wolf four times out of six is a check nobody reads. The variant-painted
+  // half is covered live below instead, where the real element can be
+  // measured rather than guessed at.
+  const OWNED = new Set([
+    "display", "flex-shrink", "align-items", "justify-content", "gap",
+    "border-radius", "font-size", "font-weight", "white-space", "transition",
+    "outline", "height", "padding", "padding-left", "padding-right",
+    "padding-top", "padding-bottom",
+  ]);
+
+  const dead = [];
+  const styles = join(src, "styles");
+  for (const f of readdirSync(styles).filter((n) => n.endsWith(".css"))) {
+    const css = readFileSync(join(styles, f), "utf8");
+    for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      // Only the LAST simple selector matters: `.leaguepick__clearcount` is
+      // a span inside the button and owns itself. `<class> svg` counts,
+      // because Button sizes its own svgs.
+      const sel = m[1].replace(/\/\*[\s\S]*?\*\//g, "").trim();
+      for (const one of sel.split(",")) {
+        const tail = one.trim().split(/\s+/).pop() ?? "";
+        const target = tail === "svg" ? one.trim().split(/\s+/).at(-2) : tail;
+        const cls = (target ?? "").match(/\.([A-Za-z0-9_-]+)/g) ?? [];
+        if (!cls.some((c) => onButton.has(c.slice(1)))) continue;
+        const props = m[2]
+          .split(";")
+          .map((d) => d.trim().split(":")[0].trim())
+          .filter((p) => OWNED.has(p));
+        if (props.length) dead.push(`${f} ${one.trim()} { ${props.join(", ")} }`);
+      }
+    }
+  }
+  check(
+    "no app rule sets a property shadcn's Button already owns",
+    dead.length === 0,
+    dead.length
+      ? `${dead.length} dead rule(s), first: ${dead[0]}`
+      : `${onButton.size} app classes ride on a <Button>, none fight it`,
+  );
+}
+
+// ---- 8. THE OTHER HALF: a theme pack still repaints a shadcn variant ----
+//
+// The static check above deliberately says nothing about colour, so this
+// says it about the one case with real stakes. Under the Aurora accent the
+// primary button is not accent-coloured at all: it is a conic wash over
+// black with an iridescent ring, and that recipe is written in ui.css, in
+// the app layer, against a face `default` paints with `bg-primary` from the
+// utilities layer.
+//
+// It survives only because the rule names `background-image` rather than the
+// `background` shorthand — the shorthand would also have set
+// background-color, lost that half to the utility, and taken the whole
+// declaration down with it. That is a one-word difference with no visible
+// warning, so it gets a check.
+const aurora = await page.evaluate(() => {
+  const root = document.documentElement;
+  const had = root.dataset.accentStyle;
+  root.dataset.accentStyle = "aurora";
+  const el = document.createElement("div");
+  // The classes a <Button variant="default"> really carries, plus the app
+  // class the pack rule targets.
+  el.className = "bg-primary text-primary-foreground btn-primary";
+  document.body.appendChild(el);
+  const s = getComputedStyle(el);
+  const out = { image: s.backgroundImage, color: s.backgroundColor };
+  el.remove();
+  if (had === undefined) delete root.dataset.accentStyle;
+  else root.dataset.accentStyle = had;
+  return out;
+});
+check(
+  "Aurora still repaints the primary button, over shadcn's own fill",
+  aurora.image.includes("gradient"),
+  `background-image ${aurora.image.slice(0, 70)}…`,
 );
 
 if (process.env.SHOT_DIR)

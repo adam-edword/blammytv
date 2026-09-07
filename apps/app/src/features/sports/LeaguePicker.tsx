@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "../../components/ui/button";
 import {
   CloseIcon,
   StarGhostIcon,
@@ -187,14 +188,15 @@ export function LeaguePicker({
         * "Clear" on its own does not say how much you are about to undo
         * when the picks are scrolled out of sight. */}
       {picked.length > 0 && (
-        <button
+        <Button
+          variant="secondary"
           type="button"
           className="leaguepick__clear"
           onClick={onClearPicks}
         >
           Clear filter
           <span className="leaguepick__clearcount">{picked.length}</span>
-        </button>
+        </Button>
       )}
 
       {/* The rule between the two shapes, which is the whole of the

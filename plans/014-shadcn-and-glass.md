@@ -263,9 +263,69 @@ the wrong unit.
 
 - **L0, foundation** *(shipped v0.9.49-52)*: tokens, the theme bridge, the
   cascade order, the radius scale.
-- **L1, primitives**: the focus ring *(v0.9.53)*, then Button, Input, Label,
-  Select, Switch, Badge, Separator, ScrollArea, Dialog. ChipTabs and Toggle
-  take shadcn's surface and keep their thumb (see the constraint below).
+- **L1, primitives**: the focus ring *(v0.9.53)*, Button *(v0.9.54)*, then
+  Input, Label, Select, Switch, Badge, Separator, ScrollArea, Dialog.
+  ChipTabs and Toggle take shadcn's surface and keep their thumb (see the
+  constraint below).
+
+### What Button taught, and it applies to every primitive after it
+
+**The rule nobody expected: converting a control KILLS its CSS, silently.**
+A shadcn component paints with utilities, `utilities` outranks `app`, so the
+moment an app class rides on a `<Button>` every rule in `styles/*.css` that
+sets a property the component also sets stops applying. No error, no warning,
+nothing on screen except a state that quietly stops appearing.
+
+v0.9.54 shipped seven of these before the sweep caught them: the armed
+danger fill, the "update ready" accent, the pressed meta chip, two compact
+sizes, a 13px chevron, and **aurora's entire gradient button face**. Every
+one had been written before the component existed and every one was already
+dead by the time the diff was staged.
+
+There are exactly three legitimate fixes, and `!important` is not among
+them:
+
+1. **Pick the variant or size from the state in JSX.** The pressed chip is
+   `variant={on ? "secondary" : "ghost"}`; the compact buttons are
+   `size="sm"`; the folded theater back button is `size="icon"`.
+2. **Write a utility at the call site.** `rounded-full`, `hover:bg-black/60`,
+   `ring-[3px] ring-destructive/50`. This is the sanctioned override and
+   `cn()`'s tailwind-merge resolves it against the variant for you.
+3. **Take a property the component does not touch.** Aurora went from the
+   `background` shorthand to `background-image`, which the variant never
+   sets; the opaque black layer still covers `bg-primary` underneath, so the
+   face is pixel-identical.
+
+`scripts/verify-tailwind.mjs` now guards both halves. A source check reads
+which app classes actually ride on a `<Button>` and fails on any rule
+setting a property Button sets regardless of variant — derived from the
+source, so it will not rot as more primitives convert. A live check asserts
+aurora's gradient still reaches the button, which is the variant-dependent
+half a source check cannot see.
+
+**Two controls were left hand-written on purpose**, and the reasoning
+generalises:
+
+- `.library__new` is an EMPTY SLOT, not a control: a dashed 2:3 outline
+  holding a grid track open beside real poster cards. Every variant fills
+  that outline in and turns the placeholder into the loudest thing in the
+  grid. shadcn has no variant for "the space where a thing would go".
+- `.vod-back` took `ghost` **plus the app's glass**, because it floats over
+  a poster backdrop that can be any colour. Geometry, type, focus ring and
+  disabled state come from Button; only the material is ours. Same call as
+  the Tooltip in v0.9.50.
+
+**One token collision worth knowing about**: `--color-secondary` and
+`--color-accent` both bridge to `--surface-raised`, so `ghost`'s hover
+repaints an off toggle in exactly the on colour. The meta-pick chips carry
+`hover:bg-muted` to keep the two apart. Any future toggle built out of
+Button variants has the same problem, which is the argument for shadcn's
+`Toggle` when `.sports__toggle` comes up.
+
+**And one deliberate identity change**: converted buttons lost
+`font-family: var(--font-headline)` and now render in the body font at
+`text-sm`/`font-medium`. That is shadcn's rule and it is what "use these
+rules for the entire app" asked for, but it is visible.
 - **L2, shared chrome**: header, nav capsule, app shell. And **move
   `RowScroller` and `Card` out of `StreamScreen.tsx` into `ui/`**, because a
   screen exporting primitives is the structural cause of the muddiness.

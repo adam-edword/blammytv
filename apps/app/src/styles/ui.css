@@ -143,28 +143,6 @@
   transform: translateX(16px);
 }
 
-/* Primary action button (Figma "Add Playlist"/"Submit"). */
-.btn-primary {
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 15px;
-  color: var(--text);
-  background: var(--accent-surface);
-  border: 0.5px solid var(--accent);
-  border-radius: var(--radius-chip);
-  padding: 9px 14px;
-  transition: filter var(--dur-hover) ease, opacity var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
-}
-
-.btn-primary:hover:not(:disabled) {
-  filter: brightness(1.35);
-}
-
-.btn-primary:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
 
 @media (prefers-reduced-motion: reduce) {
   .chip-tabs__thumb,
@@ -337,17 +315,29 @@ select:focus-visible,
  * keeps reading the flat --accent hue applyAurora sets. The glass fill +
  * iridescent ring is the padding-box/border-box two-layer technique the
  * quality-badge rings already use (border-image can't round corners). */
+/* `background-image`, NOT the `background` shorthand, and v0.9.54 had to
+ * find that out the hard way. The shorthand also sets background-color,
+ * which is the one thing shadcn's `default` variant paints with a utility
+ * (`bg-primary`) — and utilities outrank the app layer, so the shorthand
+ * lost the whole rule and aurora's button went back to flat accent red.
+ * Naming only the image layers takes the property the variant does not
+ * touch. The opaque black layer in the middle covers `bg-primary`
+ * completely, so the face is identical to what it always was.
+ *
+ * The `color: #f2f2f4` that used to be here is gone: it existed because
+ * light theme's var(--text) went near-black on this black face (a fleet
+ * finding), and `default` already pins the label to
+ * --color-primary-foreground, which is #fff in every theme. */
 :root[data-accent-style="aurora"] .btn-primary {
   border: 1px solid transparent;
   /* Adam's exact recipe: the 0.29-alpha conic over black (the HDR-badge
-   * construction), full-strength ring on the same angle. The face is
-   * BLACK in every theme, so the label pins light — light theme's
-   * var(--text) was near-black-on-black (fleet finding). */
-  color: #f2f2f4;
-  background:
-    var(--accent-image) padding-box,
-    linear-gradient(#000, #000) padding-box,
-    var(--accent-ring-image) border-box;
+   * construction), full-strength ring on the same angle. */
+  background-image:
+    var(--accent-image),
+    linear-gradient(#000, #000),
+    var(--accent-ring-image);
+  background-origin: padding-box, padding-box, border-box;
+  background-clip: padding-box, padding-box, border-box;
 }
 
 /* Aurora picker swatch: wash over black in the middle, full-strength
@@ -407,6 +397,7 @@ select:focus-visible,
 .header__searchchip:active {
   transform: none;
 }
+
 .btn-primary:active:not(:disabled) {
   transform: scale(0.97);
 }

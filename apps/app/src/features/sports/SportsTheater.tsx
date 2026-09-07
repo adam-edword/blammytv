@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "../../components/ui/button";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import Tilt from "react-parallax-tilt";
@@ -515,17 +516,25 @@ export function SportsTheater({
          * picture takes the window: mpv is a native surface BELOW the page
          * and cannot be overlapped, so a button drawn over it would not be
          * there at all. Escape and mouse-back still work in that state. */}
-        <button
+        <Button
+          variant="ghost"
+          // Folded, this is an arrow and nothing else, which is exactly what
+          // shadcn's `icon` size is for: a 36px square instead of the text
+          // button's h-9 px-4. It replaces a padding override that used to
+          // live in sports.css and, since v0.9.54, could no longer work
+          // there — Button's `px-4` is a utility and utilities outrank the
+          // app layer, so the narrower padding never reached the element.
+          size={folded ? "icon" : "default"}
           type="button"
-          className="vod-back sportstheater__back"
+          className="vod-back sportstheater__back rounded-full hover:bg-black/60"
           onClick={onClose}
-          // Folded, the pill is the arrow alone — the word would set the
-          // strip's width on its own — so the name has to be said here
+          // Folded, the pill is the arrow alone: the word would set the
+          // strip's width on its own, so the name has to be said here
           // instead of read off the text.
           aria-label="Back"
         >
           {folded ? "←" : "← Back"}
-        </button>
+        </Button>
         <Matchup game={game} />
 
         {/* Every channel of yours carrying this game. The schedule names

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "../../components/ui/button";
 import Tilt from "react-parallax-tilt";
 import { Card, ContinueCard, RowScroller } from "./StreamScreen";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
@@ -247,9 +248,14 @@ export function LibraryScreen() {
     return (
       <div ref={scrollRef} className="discover library">
         <div className="library__bar">
-          <button type="button" className="vod-back" onClick={goBack}>
+          <Button
+            variant="ghost"
+            type="button"
+            className="vod-back rounded-full hover:bg-black/60"
+            onClick={goBack}
+          >
             ← Back
-          </button>
+          </Button>
           {!isHistory && list && renaming ? (
             <NameField
               initial={list.name}

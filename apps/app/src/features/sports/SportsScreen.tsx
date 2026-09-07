@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "../../components/ui/button";
 import { RowScroller } from "../stream/StreamScreen";
 import {
   loadCompactResults,
@@ -715,7 +716,8 @@ export function SportsScreen({ home }: { home?: number } = {}) {
         * is no later state in which it starts working again. */}
       {state === "ready" && !earlierDone && (
         <div className="sports__more sports__more--earlier">
-          <button
+          <Button
+            variant="outline"
             type="button"
             className="sports__morebtn"
             onClick={() => void loadEarlier()}
@@ -726,7 +728,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
               : earlierState === "error"
                 ? "Couldn't load that. Try again"
                 : "Show earlier days"}
-          </button>
+          </Button>
         </div>
       )}
       {/* Said ONCE, above the board, rather than on every card (#21). The
@@ -863,7 +865,8 @@ export function SportsScreen({ home }: { home?: number } = {}) {
         * with nothing on them, and those render as nothing at all. */}
       {state === "ready" && (
         <div className="sports__more">
-          <button
+          <Button
+            variant="outline"
             type="button"
             className="sports__morebtn"
             onClick={() => void loadMore()}
@@ -874,7 +877,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
               : moreState === "error"
                 ? "Couldn't load those. Try again"
                 : "Show more days"}
-          </button>
+          </Button>
         </div>
       )}
 

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Button } from "../../components/ui/button";
 import { useClosingExit } from "./useClosingExit";
 import { createPortal } from "react-dom";
 import { HexColorInput, HexColorPicker } from "react-colorful";
@@ -730,14 +731,15 @@ export function ThemesModal({ onClose }: { onClose: () => void }) {
                   data-protonpass-ignore="true"
                   disabled={activating}
                 />
-                <button
+                <Button
+                  variant="default"
                   type="button"
                   className="btn-primary"
                   disabled={activating || !licenseInput.trim()}
                   onClick={() => void submitLicense()}
                 >
                   {activating ? "Activating…" : "Activate"}
-                </button>
+                </Button>
               </div>
             </>
           )}

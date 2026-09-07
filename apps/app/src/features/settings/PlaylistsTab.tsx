@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { Button } from "../../components/ui/button";
 import { ChipTabs } from "../../ui/ChipTabs";
 import { Toggle } from "../../ui/Toggle";
 import { ChevronIcon, CloseIcon } from "../../ui/icons";
@@ -182,14 +183,15 @@ export function PlaylistsTab() {
           )}
         </div>
 
-        <button
+        <Button
+          variant="default"
           type="button"
           className="btn-primary"
           disabled={!isComplete(kind, form)}
           onClick={add}
         >
           Add Playlist
-        </button>
+        </Button>
       </section>
 
       <section className="settings-section">
@@ -478,13 +480,19 @@ function FolderEditor({
             >
               Discard
             </button>
-            <button
+            <Button
+              variant="default"
+              // Sits in the source-tools bar beside a 13px search field, so
+              // it takes shadcn's compact size rather than the bar's old
+              // padding/font-size override (both are Button utilities now
+              // and a rule in settings.css could not reach them).
+              size="sm"
               type="button"
               className="btn-primary source-tools__save"
               onClick={() => onSave([...draft])}
             >
               Save
-            </button>
+            </Button>
           </>
         )}
       </div>

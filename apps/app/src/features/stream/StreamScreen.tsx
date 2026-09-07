@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { CheckIcon, ChevronIcon, CloseIcon, PlayIcon } from "../../ui/icons";
+import { Button } from "../../components/ui/button";
 import Tilt from "react-parallax-tilt";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { wantsEpisodeList } from "./backTarget";
@@ -1539,20 +1540,22 @@ export function StreamScreen() {
               </h2>
               <p className="upnext__count">Playing in {countdown}s</p>
               <div className="upnext__actions">
-                <button
+                <Button
+                  variant="default"
                   type="button"
                   className="btn-primary"
                   onClick={() => void playUpNext()}
                 >
                   Play now
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="secondary"
                   type="button"
                   className="shero__btn-quiet"
                   onClick={stop}
                 >
                   Cancel
-                </button>
+                </Button>
               </div>
             </div>,
             chromeHostRef.current,
@@ -1582,7 +1585,13 @@ export function StreamScreen() {
                   {upNextMini.episode.title}
                 </p>
                 <div className="upnext-mini__actions">
-                  <button
+                  <Button
+                    variant="default"
+                    // The mini card is a 300-ish px box in the corner, so
+                    // its two buttons are compact. That used to be a padding
+                    // and font-size override in stream.css; both are Button
+                    // utilities now, so it has to be the size prop.
+                    size="sm"
                     type="button"
                     className="btn-primary"
                     onClick={() => {
@@ -1592,7 +1601,7 @@ export function StreamScreen() {
                     }}
                   >
                     Play now
-                  </button>
+                  </Button>
                 </div>
               </div>
               <button
@@ -1620,13 +1629,14 @@ export function StreamScreen() {
               />
             )}
             <p className="vod-pip__hint">Player popped out</p>
-            <button
+            <Button
+              variant="default"
               type="button"
               className="btn-primary"
               onClick={() => void bringBack()}
             >
               Bring It Back
-            </button>
+            </Button>
             {/* ✕ = done with the pop-out too: close it and land on the
               * source selector (the view under the stage). */}
             <button
@@ -1797,9 +1807,14 @@ function Home({
         {/* Live's error states retry; siblings match (the audit's
           * dead-end finding). */}
         <p>
-          <button type="button" className="btn-primary" onClick={onRetry}>
+          <Button
+            variant="default"
+            type="button"
+            className="btn-primary"
+            onClick={onRetry}
+          >
             Try again
-          </button>
+          </Button>
         </p>
       </div>
     );
@@ -2311,7 +2326,8 @@ function Hero({
                   ) : null}
                 </p>
                 <div className="shero__actions">
-                  <button
+                  <Button
+                    variant="default"
                     type="button"
                     className="btn-primary"
                     onClick={(e) => {
@@ -2320,8 +2336,9 @@ function Hero({
                     }}
                   >
                     Watch Now
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="secondary"
                     type="button"
                     className="shero__btn-quiet"
                     onClick={(e) => {
@@ -2330,7 +2347,7 @@ function Hero({
                     }}
                   >
                     More Info
-                  </button>
+                  </Button>
                 </div>
               </div>
               </Tilt>
@@ -2717,9 +2734,14 @@ function Detail({
         <img className="vod-detail__backdrop" src={item.backdrop} alt="" />
       )}
       <div className="vod-detail__scrim" aria-hidden />
-      <button type="button" className="vod-back" onClick={onBack}>
+      <Button
+        variant="ghost"
+        type="button"
+        className="vod-back rounded-full hover:bg-black/60"
+        onClick={onBack}
+      >
         ← Back
-      </button>
+      </Button>
       <div className="vod-detail__body">
         <div className="vod-detail__info">
           {item.logo ? (
@@ -2912,9 +2934,14 @@ function Episodes({
         <img className="vod-detail__backdrop" src={item.backdrop} alt="" />
       )}
       <div className="vod-detail__scrim" aria-hidden />
-      <button type="button" className="vod-back" onClick={onBack}>
+      <Button
+        variant="ghost"
+        type="button"
+        className="vod-back rounded-full hover:bg-black/60"
+        onClick={onBack}
+      >
         ← Back
-      </button>
+      </Button>
       <div className="vod-detail__body vod-detail__body--episodes">
         <div className="vod-detail__info">
           {item.logo ? (

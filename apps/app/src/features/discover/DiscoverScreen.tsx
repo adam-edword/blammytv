@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "../../components/ui/button";
 import {
   loadCardMeta,
   onCardMetaChange,
@@ -498,13 +499,14 @@ export function DiscoverScreen() {
               {cfg.message}
             </p>
             <p>
-              <button
+              <Button
+                variant="default"
                 type="button"
                 className="btn-primary"
                 onClick={() => setCfgTick((t) => t + 1)}
               >
                 Try again
-              </button>
+              </Button>
             </p>
           </>
         )}
@@ -530,13 +532,14 @@ export function DiscoverScreen() {
           ) : results === "failed" ? (
             <p className="discover__note" role="alert">
               Search didn&rsquo;t go through.{" "}
-              <button
+              <Button
+                variant="default"
                 type="button"
                 className="btn-primary"
                 onClick={() => setSearchTick((t) => t + 1)}
               >
                 Try again
-              </button>
+              </Button>
             </p>
           ) : results.length === 0 ? (
             <p className="discover__note">No results for “{q}”.</p>
@@ -615,13 +618,14 @@ export function DiscoverScreen() {
         ) : items.length === 0 && gridFailed ? (
           <p className="discover__note" role="alert">
             Discover didn&rsquo;t load. The catalog never answered.{" "}
-            <button
+            <Button
+              variant="default"
               type="button"
               className="btn-primary"
               onClick={() => void loadMore(true)}
             >
               Try again
-            </button>
+            </Button>
           </p>
         ) : items.length === 0 ? (
           <p className="discover__note">

@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Button } from "../../components/ui/button";
 import { createPortal } from "react-dom";
 import { ChevronIcon, CloseIcon } from "../../ui/icons";
 import { fetchAioCatalogs, type AioCatalog } from "../../data/aiostreams";
@@ -177,7 +178,8 @@ export function HeroSourcesSection() {
           })}
           {available.length > 0 && (
             <>
-              <button
+              <Button
+                variant="outline"
                 type="button"
                 ref={addRef}
                 className="chip-select__add"
@@ -186,7 +188,7 @@ export function HeroSourcesSection() {
               >
                 add sources
                 <ChevronIcon />
-              </button>
+              </Button>
               {addOpen &&
                 menuPos &&
                 createPortal(

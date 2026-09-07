@@ -2040,11 +2040,11 @@
 }
 /* The back pill's label would set the strip's width on its own, so folded
  * it is the arrow alone. The word goes rather than the whole button: an
- * arrow still reads as "back", and a pill with nothing in it does not. */
-.sportstheater__side--folded > .sportstheater__back {
-  padding-left: 12px;
-  padding-right: 12px;
-}
+ * arrow still reads as "back", and a pill with nothing in it does not.
+ *
+ * The narrower folded box is `size="icon"` on the Button now, not a padding
+ * override here — see SportsTheater.tsx. A rule in this file could not do
+ * it: Button's `px-4` is a utility, and utilities beat the app layer. */
 
 .sportstheater--full .sportstheater__side {
   display: none;
@@ -3132,7 +3132,6 @@
   color: rgba(var(--card-ink), 0.62);
 }
 
-
 /* Where, over the track, as on the small card. */
 .wracecard__where {
   position: relative;
@@ -3471,7 +3470,6 @@
   padding: 40px 0;
 }
 
-
 /* ------------------------------------------- a tennis line, on the cards */
 
 /* 6-3 4-6 6-2, on the small card. Fixed columns so the two players' lines
@@ -3571,27 +3569,15 @@
  * Adam's, and the placement is the point: "scrolling all the way down to
  * tennis to unclick it is not elegant". The only way to clear a pick was to
  * find the row you picked again, which for one of 151 leagues is a long way
- * down a scroller. This is where you already are. */
+ * down a scroller. This is where you already are.
+ *
+ * `secondary` rather than `default`: it has to be findable, but the escape
+ * hatch from a filter should not be the loudest object in the sidebar. All
+ * that is left here is the sizing — it spans the column, which no Button
+ * size does. */
 .leaguepick__clear {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
   width: calc(100% - 12px);
   margin: 10px 6px 0;
-  padding: 8px 12px;
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 13px;
-  color: var(--text);
-  background: var(--accent-surface);
-  border: 1px solid var(--accent);
-  border-radius: var(--radius-chip);
-  cursor: pointer;
-  transition: filter var(--dur-hover) ease;
-}
-.leaguepick__clear:hover {
-  filter: brightness(1.35);
 }
 /* How much is about to be undone. "Clear" alone does not say, and the picks
  * it refers to can be scrolled out of sight. */
@@ -3863,27 +3849,9 @@
   justify-content: center;
   padding: 8px 0 28px;
 }
-.sports__morebtn {
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 15px;
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill, 999px);
-  padding: 11px 22px;
-  cursor: pointer;
-  transition: background var(--dur-hover) ease, transform 160ms var(--ease-out);
-}
-.sports__morebtn:hover:not(:disabled) {
-  background: var(--surface-raised);
-}
+
 .sports__morebtn:active:not(:disabled) {
   transform: scale(0.97);
-}
-.sports__morebtn:disabled {
-  opacity: 0.6;
-  cursor: default;
 }
 
 /* The same button at the TOP of the board, walking backwards.

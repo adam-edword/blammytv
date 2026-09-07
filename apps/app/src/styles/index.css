@@ -87,6 +87,31 @@
 @import "./boot.css" layer(app);
 @import "./onboarding.css" layer(app);
 
+/**
+ * POINTER CURSOR ON BUTTONS, straight out of shadcn's own Button doc.
+ *
+ * Tailwind v4 switched the button cursor from `pointer` to `default`, and
+ * shadcn's docs carry this exact snippet as the way back. It matters here
+ * because the app's own button rules USED to set `cursor: pointer` each,
+ * and v0.9.54 pruned that away when those properties moved to the Button
+ * component. Without this, every converted button would silently get an
+ * arrow instead of a hand.
+ *
+ * `[role="button"]` as well as `button`, because Radix renders some
+ * triggers on a div. `:not(:disabled)` so a disabled control still reads
+ * as unavailable.
+ *
+ * In `app` rather than `base`: the base layer is Preflight's slot and is
+ * deliberately empty (see above), and this is the app's decision rather
+ * than a reset.
+ */
+@layer app {
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
 /* UNLAYERED, and it has to be. See the file: react-colorful injects its own
  * stylesheet at runtime, which is unlayered, and only unlayered beats it. */
 @import "./vendor.css";

@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { Button } from "../../components/ui/button";
 import { ChevronIcon } from "../../ui/icons";
 import { ChipTabs } from "../../ui/ChipTabs";
 import { Toggle } from "../../ui/Toggle";
@@ -318,15 +319,33 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
             </div>
             <div className="meta-pick" role="group" aria-label="Card details">
               {CARD_META_FIELDS.map((f) => (
-                <button
+                <Button
+                  // Variant BY STATE, not a CSS override. The pressed look
+                  // used to be `.meta-pick__chip[aria-pressed="true"]` in
+                  // settings.css; since v0.9.54 that rule sets colours the
+                  // variant also sets, and `utilities` outranks `app`, so it
+                  // would never have painted again. shadcn's answer is to
+                  // pick the variant, and the two it wants are exactly the
+                  // two states: quiet when off, a filled surface when on.
+                  variant={metaFields.includes(f.key) ? "secondary" : "ghost"}
                   key={f.key}
                   type="button"
-                  className="meta-pick__chip"
+                  // `hover:bg-muted` on the OFF chip, and it is not a taste
+                  // call. shadcn's `secondary` and `ghost` read the same two
+                  // tokens through this app's bridge (--color-secondary and
+                  // --color-accent both resolve to --surface-raised), so
+                  // ghost's own hover repaints an off chip in exactly the on
+                  // colour. In a row of toggles that is a lie. --color-muted
+                  // is the next surface down and keeps the two apart.
+                  className={
+                    "meta-pick__chip" +
+                    (metaFields.includes(f.key) ? "" : " hover:bg-muted")
+                  }
                   aria-pressed={metaFields.includes(f.key)}
                   onClick={() => toggleMeta(f.key)}
                 >
                   {f.label}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -340,15 +359,21 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
             </div>
             <div className="meta-pick" role="group" aria-label="Player overlay">
               {OVERLAY_META_FIELDS.map((f) => (
-                <button
+                <Button
+                  variant={
+                    overlayFields.includes(f.key) ? "secondary" : "ghost"
+                  }
                   key={f.key}
                   type="button"
-                  className="meta-pick__chip"
+                  className={
+                    "meta-pick__chip" +
+                    (overlayFields.includes(f.key) ? "" : " hover:bg-muted")
+                  }
                   aria-pressed={overlayFields.includes(f.key)}
                   onClick={() => toggleOverlay(f.key)}
                 >
                   {f.label}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -544,9 +569,14 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
                 Accent, theme, scale, and clock back to defaults.
               </p>
             </div>
-            <button type="button" className="btn-danger" onClick={reset}>
+            <Button
+              variant="destructive"
+              type="button"
+              className="btn-danger"
+              onClick={reset}
+            >
               Reset
-            </button>
+            </Button>
           </div>
         </div>
       </section>
