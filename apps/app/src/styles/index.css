@@ -41,7 +41,11 @@
  * `utilities` and nothing else.
  */
 
-@layer theme, base, app, components, utilities;
+/* `boot` is index.html's anti-flash black, declared there so it is the
+ * FIRST and therefore weakest layer. It is repeated here so this file
+ * states the whole order in one place; naming a layer that already exists
+ * does not move it. See index.html for why it must not be unlayered. */
+@layer boot, theme, base, app, components, utilities;
 
 @import "tailwindcss/theme.css" layer(theme);
 /* @import "tailwindcss/preflight.css" layer(base);  <- see 2 above */

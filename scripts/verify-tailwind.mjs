@@ -309,6 +309,48 @@ check(
   bubble ? `background ${bubble.bg}, backdrop-filter ${bubble.blur || "none"}` : "n/a",
 );
 
+// ---- 10. THE VIDEO HOLE STAYS TRANSPARENT --------------------------------
+//
+// THIS ONE IS A REGRESSION TEST, and the regression shipped. mpv is a native
+// window BEHIND the webview, and `invert-player` is how it becomes visible:
+// html and body go transparent, .app-shell paints the app background, and
+// InvertedPlayer cuts a clip-path hole through the shell for the video.
+//
+// index.html carries an anti-flash `html { background: #000 }` so there is
+// no white frame before the first paint. It was unlayered, and unlayered
+// beats every layer whatever the specificity, so the moment the app's own
+// sheets moved into `@layer app` (v0.9.49) it started outranking
+// `:root.invert-player { background: transparent }`. The hole then showed
+// opaque black instead of the video, with the audio still playing, and
+// nothing about the app's own screens looked wrong.
+//
+// It is fixed by putting that rule in a `boot` layer declared first, i.e.
+// weakest. This asserts the OUTCOME rather than the mechanism, so any other
+// unlayered rule that reaches html or body fails it too.
+const hole = await page.evaluate(() => {
+  const had = document.documentElement.classList.contains("invert-player");
+  document.documentElement.classList.add("invert-player");
+  const t = (el) => getComputedStyle(el).backgroundColor;
+  const out = {
+    html: t(document.documentElement),
+    body: t(document.body),
+    shell: t(document.querySelector(".app-shell")),
+  };
+  if (!had) document.documentElement.classList.remove("invert-player");
+  return out;
+});
+const clear = (c) => c === "rgba(0, 0, 0, 0)" || c === "transparent";
+check(
+  "invert-player leaves html and body transparent, so mpv can show through",
+  clear(hole.html) && clear(hole.body),
+  `html ${hole.html}, body ${hole.body}`,
+);
+check(
+  "  and the shell still paints, because it is what the hole is cut from",
+  !clear(hole.shell),
+  `shell ${hole.shell}`,
+);
+
 if (process.env.SHOT_DIR)
   await page.screenshot({ path: `${process.env.SHOT_DIR}/tailwind.png` });
 await browser.close();
