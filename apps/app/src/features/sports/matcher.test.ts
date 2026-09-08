@@ -33,7 +33,7 @@ const ALL: Tunable[] = channels.map((c, i) => ({
 describe("normalize", () => {
   it("drops the country prefix a playlist adds and a schedule never has", () => {
     expect(normalize("US: ESPN")).toBe("espn");
-    expect(normalize("UK: Sky Sports F1")).toBe("sky sports f1");
+    expect(normalize("UK: Sky Sports F1")).toBe("sky sports f 1");
     expect(normalize("MY| Astro SuperSports")).toBe("astro supersports");
   });
 
@@ -53,6 +53,16 @@ describe("normalize", () => {
   it("keeps the plus, because ESPN+ is not ESPN", () => {
     expect(tokens("ESPN+").has("espn+")).toBe(true);
     expect(tokens("ESPN+").has("espn")).toBe(false);
+  });
+
+  it("splits a numeral off its brand, because both spellings are real", () => {
+    // ESPN says "MSG2" and the dump says "US: MSG 2". Measured against the
+    // dump, that pair reached nothing, and neither did MSGSN2.
+    expect(normalize("MSG2")).toBe("msg 2");
+    expect(normalize("US: MSG 2")).toBe("msg 2");
+    // Quality badges go first, so nothing here leaves a stray numeral.
+    expect(normalize("ESPN 4K UHD")).toBe("espn");
+    expect(normalize("US: NESN 1080p")).toBe("nesn");
   });
 });
 
@@ -87,6 +97,34 @@ describe("matchNetwork", () => {
   it("does not let MSG become MSG 2", () => {
     const list = [chan("US: MSG 2"), chan("US: MSGSN2")];
     expect(matchNetwork("MSG", list)).toEqual([]);
+  });
+
+  it("DOES let MSG2 find MSG 2, which is the same channel spelled twice", () => {
+    // Both strings are verbatim: ESPN names the network "MSG2" and the dump
+    // carries "US: MSG 2". Before the numeral split this reached nothing,
+    // and the sibling rule above is what makes it safe to close: the
+    // numeral is still a word on both sides, so MSG still gets neither.
+    const list = [chan("US: MSG"), chan("US: MSG 2"), chan("US: MSGSN2")];
+    expect(matchNetwork("MSG2", list).map((c) => c.name)).toEqual(["US: MSG 2"]);
+    expect(matchNetwork("MSGSN2", list).map((c) => c.name)).toEqual(["US: MSGSN2"]);
+    expect(matchNetwork("MSG", list).map((c) => c.name)).toEqual(["US: MSG"]);
+  });
+
+  it("reads Alt. and Alternate as the one word they are", () => {
+    // ESPN writes "Space City Home (Alt.)"; the dump carries the feed as
+    // "Alternate". Both are qualifiers, so the short spelling asked for a
+    // word the channel did not have and the pair missed each other.
+    const list = [
+      chan("US: Space City Home Network"),
+      chan("US: Space City Home Network Alternate"),
+    ];
+    expect(matchNetwork("Space City Home (Alt.)", list).map((c) => c.name)).toEqual([
+      "US: Space City Home Network Alternate",
+    ]);
+    // And the plain name still refuses the alternate feed.
+    expect(matchNetwork("Space City Home Network", list).map((c) => c.name)).toEqual([
+      "US: Space City Home Network",
+    ]);
   });
 
   it("allows extra WORDS, because a playlist says more than a schedule", () => {
@@ -264,7 +302,14 @@ describe("against the real corpora", () => {
     // hand and is correct; the earlier looser rule reached 27 by counting
     // three false positives. The rest are absent from the catalog rather
     // than missed, see plan 010. A FLOOR, so a regression fails here.
-    expect(hit.length).toBeGreaterThanOrEqual(24);
+    //
+    // Re-measured 2026-09-08 at 31, after the numeral split and the
+    // alt/alternate pair. Two of the seven are new here (MSG2 and Space
+    // City Home (Alt.)); the other five were already reachable and had
+    // been added to the corpus since. Of the 61 that still miss, 33 name a
+    // channel this dump does not contain at all, and the dump is the
+    // sports folders alone rather than a whole catalog.
+    expect(hit.length).toBeGreaterThanOrEqual(31);
   });
 
   it("never matches a network to a numbered sibling anywhere in the dump", () => {

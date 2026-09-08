@@ -82,6 +82,13 @@ const WORDS: Record<string, string> = {
   phil: "philadelphia",
   pit: "pittsburgh",
   nw: "northwest",
+  // One feed, two spellings of the same word. ESPN writes "Space City Home
+  // (Alt.)" and the dump carries "US: Space City Home Network Alternate",
+  // and because "alt" is a QUALIFIER neither side could reach the other:
+  // the shortened side asked for a word the channel does not have. Both
+  // sides expand, so the qualifier still does its job and now does it on
+  // one spelling.
+  alt: "alternate",
 };
 
 /**
@@ -104,6 +111,19 @@ export function normalize(name: string): string {
     // `+` survives: ESPN+ is a different thing from ESPN, and losing the
     // plus is exactly the ESPN/ESPNU class of wrong match this has to avoid.
     .replace(/[^a-z0-9+]+/g, " ")
+    // A numbered sibling is written both ways and they have to meet. ESPN
+    // writes "MSG2" and the dump carries "US: MSG 2"; measured, that pair
+    // reached nothing, and so did MSGSN2. Splitting the boundary makes one
+    // spelling of them, and it CANNOT loosen the sibling rule that guards
+    // this file: the numeral survives as its own word either way, so a bare
+    // "ESPN" still meets "ESPN 2" with an extra numeral and is still
+    // rejected outright by `carries`.
+    //
+    // After the quality strip on purpose. "4K" and "1080p" are badges
+    // rather than siblings and are already gone by here; splitting first
+    // would turn them into a stray "4" and "1080" that nothing removes.
+    .replace(/([a-z])(\d)/g, "$1 $2")
+    .replace(/(\d)([a-z])/g, "$1 $2")
     .trim()
     .replace(/\s+/g, " ");
 }

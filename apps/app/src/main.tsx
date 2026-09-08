@@ -23,6 +23,7 @@ import type { Fixture } from "./features/sports/model";
 import { isTauri } from "./lib/tauri";
 import { installPlayerPerf } from "./lib/playerPerf";
 import { installDiscoverProbe } from "./features/discover/probe";
+import { installSportsProbe } from "./features/sports/probe";
 import {
   applyAccent,
   applyAurora,
@@ -55,6 +56,10 @@ installPlayerPerf();
 // Same reasoning as above: compiled into every build, because a probe you
 // have to make a special build for is one nobody runs.
 installDiscoverProbe();
+// `btvSports()` / `btvChannels("abc")` in the devtools console. The sports
+// matcher is measured against a sports-folders-only dump, so the container
+// it is written in cannot see the catalog it fails on; see probe.ts.
+installSportsProbe();
 
 const root = ReactDOM.createRoot(document.getElementById("root")!);
 
