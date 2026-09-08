@@ -87,8 +87,13 @@ button {
  *   - ItemDescription is a <p>, so it kept the UA's 1em top AND bottom
  *     margin. That is 28px of dead space inside every episode card, which
  *     is what Adam boxed in green and called "way too much white space".
- *   - CommandInput is a bare <input>, so it kept the UA's `2px inset`
- *     border and read as a sunken 1998 text field inside a flat popover.
+ *   - A bare <input> keeps FOUR UA defaults, and a vendored component only
+ *     overrides the ones it happens to set. Measured against this app's own
+ *     root, an unstyled input computes: `2px inset` border, background
+ *     rgb(59,59,59) (Chromium's dark-scheme field fill), colour white, and
+ *     Arial at 13.33px. So CommandInput read as a sunken 1998 text box, and
+ *     the combobox's chips input sat as a grey slab in a font that is not
+ *     the app's. Neither was written wrong; both assumed the reset.
  *
  * SCOPED BY `[data-slot]`, which every vendored component stamps and
  * nothing app-owned does. A blanket `p { margin: 0 }` would reach the whole
@@ -98,12 +103,20 @@ button {
  * `:where()` puts it at specificity ZERO, so anything at all beats it: an
  * app class, a call-site utility, the component's own classes. A reset
  * should be the easiest thing in the file to override, and Preflight's own
- * position at the bottom of the cascade is what this is imitating.
+ * position at the bottom of the cascade is what this is imitating. So a
+ * component that DOES set its own fill or size still wins here; this only
+ * fills in where one says nothing.
  */
 :where([data-slot]) {
   margin: 0;
 }
+/* The same four properties the <button> rule above resets, for the same
+ * reason. `font: inherit` is what puts a shadcn input in Geist rather than
+ * the platform's form font. */
 :where(input[data-slot], textarea[data-slot], select[data-slot]) {
+  font: inherit;
+  color: inherit;
+  background-color: transparent;
   border: 0 solid;
 }
 

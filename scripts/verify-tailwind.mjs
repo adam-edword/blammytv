@@ -733,6 +733,45 @@ check(
   field.lit.slice(0, 46) + "…",
 );
 
+// 9c-ii. THE SHADCN RESET ACTUALLY REACHES A VENDORED CONTROL. Preflight is
+// deliberately not loaded (styles/index.css says why), and every file in
+// components/ui/ is written as though it were. base.css carries a
+// `[data-slot]`-scoped stand-in for it; this is the check that it works,
+// because the same gap has now produced three bugs that all looked like
+// design mistakes: 28px of dead margin inside every episode card, a sunken
+// `2px inset` search box, and the combobox's chips input as a grey slab in
+// Arial. Probed on a bare element with NO classes, which is the case a
+// vendored component hits whenever it does not set a property itself.
+const reset = await page.evaluate(() => {
+  const el = document.createElement("input");
+  el.setAttribute("data-slot", "probe");
+  document.body.appendChild(el);
+  const s = getComputedStyle(el);
+  const out = {
+    bg: s.backgroundColor,
+    border: s.borderTopWidth,
+    font: s.fontFamily.split(",")[0].replace(/"/g, ""),
+    margin: s.marginTop,
+  };
+  el.remove();
+  // The app's own font, read off an element nobody has styled either.
+  const d = document.createElement("div");
+  document.body.appendChild(d);
+  out.appFont = getComputedStyle(d).fontFamily.split(",")[0].replace(/"/g, "");
+  d.remove();
+  return out;
+});
+check(
+  "the shadcn reset neutralises the UA on a vendored form control",
+  /rgba\(0, 0, 0, 0\)|transparent/.test(reset.bg) && reset.border === "0px",
+  `background ${reset.bg}, border ${reset.border}`,
+);
+check(
+  "  and it lands in the app's font, not the platform's form font",
+  reset.font === reset.appFont,
+  `${reset.font} vs ${reset.appFont}`,
+);
+
 // 9d. THE TYPE SCALE. A dialog's title cannot be larger than a page's
 // heading, and this one was 32px — bigger than shadcn uses anywhere. The
 // check is the RELATIONSHIP, not the number, so a later retune is free.
