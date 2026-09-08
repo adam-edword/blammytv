@@ -70,7 +70,15 @@ button {
   font: inherit;
   color: inherit;
   background: none;
-  border: none;
+  /* LONGHANDS, and it matters. `border: none` is the shorthand, so it also
+   * resets border-COLOR to currentColor — and as an element selector it
+   * outranks the `:where()` reset below, which is specificity zero. The
+   * result was that the shadcn border default reached every <div> component
+   * and no <button> one, so outline Buttons drew their edge in their own
+   * text colour while Cards and menus drew it correctly. Same no-border
+   * intent, without touching a colour this rule has no opinion about. */
+  border-width: 0;
+  border-style: solid;
   padding: 0;
   cursor: pointer;
 }
@@ -118,6 +126,31 @@ button {
   color: inherit;
   background-color: transparent;
   border: 0 solid;
+}
+
+/**
+ * AND THE DEFAULT BORDER COLOUR, which is the fourth thing the missing
+ * reset cost us and the one with the widest reach.
+ *
+ * Tailwind's bare `border` utility sets a WIDTH and a style, never a
+ * colour, so the colour falls to `currentColor`. shadcn's own globals.css
+ * covers that with `@layer base { * { @apply border-border } }`; we never
+ * had it, because we never filled Preflight's slot. Measured: a `border`
+ * on an element with red text drew a RED border.
+ *
+ * So every vendored component that says `border` with no colour drew its
+ * edge in its own text colour — near-white on a dark surface. That is the
+ * light outline Adam spotted on the save picker, and it was also on Card,
+ * on PopoverContent and on every `variant="outline"` Button. The ones that
+ * looked right (Input, ComboboxChips, the episode Item) only did so because
+ * the registry happens to name a colour on those: `border-input`,
+ * `border-border`.
+ *
+ * Scoped to vendored subtrees, descendants included, so it cannot reach the
+ * 13k lines of app CSS — which write the shorthand with a colour anyway and
+ * would not notice, but this is not the change to find that out on. */
+:where([data-slot], [data-slot] *) {
+  border-color: var(--color-border);
 }
 
 .app-shell {

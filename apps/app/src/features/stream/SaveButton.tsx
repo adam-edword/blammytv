@@ -172,7 +172,12 @@ export function SaveButton({ item }: { item: VodItem }) {
         align="start"
         className="max-h-80 w-64 overflow-y-auto"
       >
-        <DropdownMenuLabel>Save to</DropdownMenuLabel>
+        {/* `inset` on the label and the New-list row is shadcn's own answer to
+          * a menu that mixes checkbox rows with plain ones. CheckboxItem is
+          * `pl-8` to leave a gutter for the tick; Item and Label are `px-2`.
+          * Without it the two kinds of row start at different x and the menu
+          * reads as two lists that happen to share a box. */}
+        <DropdownMenuLabel inset>Save to</DropdownMenuLabel>
         {lists.map((l) => (
           <DropdownMenuCheckboxItem
             key={l.id}
@@ -209,6 +214,7 @@ export function SaveButton({ item }: { item: VodItem }) {
           </div>
         ) : (
           <DropdownMenuItem
+            inset
             onSelect={(e) => {
               e.preventDefault();
               setCreating(true);

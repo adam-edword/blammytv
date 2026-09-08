@@ -51,6 +51,33 @@
 /* @import "tailwindcss/preflight.css" layer(base);  <- see 2 above */
 @import "tailwindcss/utilities.css" layer(utilities);
 
+/**
+ * `dark:` MEANS THIS APP'S DARK THEME, not the operating system's.
+ *
+ * Tailwind's stock `dark:` variant is `@media (prefers-color-scheme: dark)`,
+ * and this app has never used that as its signal: theme.ts writes
+ * `data-theme="light"` on the root and treats its ABSENCE as dark. Those two
+ * ideas were unrelated, so every `dark:` utility in components/ui was keyed
+ * to the machine rather than to the setting in Settings.
+ *
+ * Measured on one page with the app in dark theme both times, only the OS
+ * flipped: an outline Button's border went from rgb(242,242,244) — its own
+ * text colour, because `dark:border-input` never applied — to
+ * oklch(1 0 0 / 0.15), and its background from transparent to `input/30`.
+ * So the app looked different on two machines set the same way, which is
+ * what put a near-white edge on the save picker's menu.
+ *
+ * Fifteen utilities across seven vendored components ride on this:
+ * `dark:border-input`, `dark:bg-input/30`, `dark:hover:bg-accent/50`,
+ * `dark:bg-destructive/60` and the aria-invalid rings.
+ *
+ * The predicate is the negative because dark is the DEFAULT here — there is
+ * no `.dark` class to hook, and adding one would mean two sources of truth
+ * for the same fact. It matches tokens.css, which already guards its dark
+ * block with `:root:not([data-theme="light"])`.
+ */
+@custom-variant dark (&:where(:root:not([data-theme="light"]), :root:not([data-theme="light"]) *));
+
 /* The enter/exit animations every shadcn overlay is written against.
  *
  * NOT OPTIONAL, and not obvious. `animate-in`, `fade-in-0`, `zoom-in-95` and

@@ -772,6 +772,48 @@ check(
   `${reset.font} vs ${reset.appFont}`,
 );
 
+// 9c-iii. A BARE `border` TAKES THE TOKEN, ON A <button> TOO. Tailwind's
+// `border` sets a width and a style but never a colour, so it falls to
+// currentColor unless something supplies one; shadcn's globals.css does that
+// with `* { @apply border-border }` and this app's stand-in lives in
+// base.css. The BUTTON half is the point of the check: base.css also resets
+// `button`, and while that reset used the `border` shorthand it reset the
+// colour to currentColor at specificity 0-0-1, out-ranking the `:where()`
+// stand-in at zero. Every outline Button therefore drew its edge in its own
+// text colour while every Card and menu drew it correctly, which is a
+// difference no screenshot of one component would reveal.
+const edge = await page.evaluate(() => {
+  const read = (tag) => {
+    const host = document.createElement("div");
+    host.style.color = "rgb(255, 0, 0)";
+    document.body.appendChild(host);
+    const el = document.createElement(tag);
+    el.setAttribute("data-slot", "probe");
+    el.className = "border";
+    host.appendChild(el);
+    const c = getComputedStyle(el).borderTopColor;
+    host.remove();
+    return c;
+  };
+  return {
+    div: read("div"),
+    button: read("button"),
+    token: getComputedStyle(document.documentElement)
+      .getPropertyValue("--color-border")
+      .trim(),
+  };
+});
+check(
+  "a bare shadcn `border` takes --color-border, not the text colour",
+  edge.div !== "rgb(255, 0, 0)" && edge.button !== "rgb(255, 0, 0)",
+  `div ${edge.div}, button ${edge.button} (token ${edge.token})`,
+);
+check(
+  "  and a <button> gets the same edge as a <div>, despite base.css's reset",
+  edge.div === edge.button,
+  `${edge.div} vs ${edge.button}`,
+);
+
 // 9d. THE TYPE SCALE. A dialog's title cannot be larger than a page's
 // heading, and this one was 32px — bigger than shadcn uses anywhere. The
 // check is the RELATIONSHIP, not the number, so a later retune is free.

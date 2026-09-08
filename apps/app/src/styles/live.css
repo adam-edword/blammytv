@@ -1036,8 +1036,13 @@
   z-index: 30;
   min-width: 200px;
   max-width: 280px;
-  padding: 6px;
-  border-radius: 12px;
+  /* 4px/8px, not 6px/12px: this is the last hand-rolled menu in the app and
+   * it sits beside a real DropdownMenu now (the save picker), so it takes
+   * that component's own geometry — `p-1` and `rounded-md`. The border and
+   * shadow already matched: --float-border is --border, and --float-shadow
+   * is Tailwind's shadow-md. */
+  padding: 4px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--float-border);
   background: var(--float-bg);
   -webkit-backdrop-filter: var(--float-blur);
