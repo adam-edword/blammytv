@@ -421,7 +421,7 @@ export function LibraryScreen() {
               />
             </div>
           ) : (
-            <Button variant="ghost"
+            <button
               type="button"
               className="library__new"
               onClick={() => setCreating(true)}
@@ -430,7 +430,7 @@ export function LibraryScreen() {
                 +
               </span>
               New list
-            </Button>
+            </button>
           )}
         </div>
       </section>

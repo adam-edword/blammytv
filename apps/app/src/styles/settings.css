@@ -615,7 +615,7 @@
   flex-direction: column;
   gap: 16px;
   padding: 18px 22px 22px;
-  border: 1px solid rgba(194, 39, 39, 0.45);
+  border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
   border-radius: var(--radius-card);
 }
 
