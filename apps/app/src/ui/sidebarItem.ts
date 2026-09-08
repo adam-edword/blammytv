@@ -44,9 +44,8 @@
  * `flex: 1`, so the text sat centred inside a full-width box no matter
  * where the box was. shadcn's own SidebarMenuButton carries `text-left` for
  * exactly this reason. `font-normal` because Button's base is `font-medium`
- * and shadcn keeps that weight for the ACTIVE row only; `font-normal` because Button's base is `font-medium` and
- * shadcn keeps that weight for the ACTIVE row only, which is what makes the
- * active one readable without a fill doing all the work.
+ * and shadcn keeps that weight for the ACTIVE row only, which is what makes
+ * the active one readable without a fill doing all the work.
  */
 export const SIDEBAR_ITEM =
   "h-8 w-full justify-start gap-2 px-2 has-[>svg]:px-2 text-left font-normal";
