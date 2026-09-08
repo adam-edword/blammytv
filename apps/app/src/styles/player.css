@@ -37,22 +37,23 @@
 }
 
 .tune__channel {
-  font: 600 clamp(15px, 2vw, 22px) / 1.2 system-ui, sans-serif;
+  font: 600 clamp(15px, 2vw, 22px) / 1.2 var(--font-text);
   letter-spacing: 0.01em;
   color: rgba(255, 255, 255, 0.95);
 }
 
 .tune__title {
-  font: 400 clamp(12px, 1.4vw, 15px) / 1.3 system-ui, sans-serif;
+  font: 400 clamp(12px, 1.4vw, 15px) / 1.3 var(--font-text);
   color: rgba(255, 255, 255, 0.62);
   max-width: 44ch;
   text-align: center;
 }
 
 .tune__status {
-  font: 600 clamp(12px, 1.5vw, 16px) / 1 system-ui, sans-serif;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  /* var(--font-text), not a bare `system-ui`: this was the one label in the
+   * app that opted out of the family everything else uses, so it rendered in
+   * Segoe while its neighbours rendered in Geist. */
+  font: 500 clamp(12px, 1.5vw, 16px) / 1 var(--font-text);
   color: rgba(255, 255, 255, 0.75);
   animation: tune-pulse 1.4s ease-in-out infinite;
 }
@@ -77,14 +78,14 @@
 
 .tune__dead-msg {
   margin: 0;
-  font: 400 clamp(13px, 1.5vw, 16px) / 1.4 system-ui, sans-serif;
+  font: 400 clamp(13px, 1.5vw, 16px) / 1.4 var(--font-text);
   color: rgba(255, 255, 255, 0.85);
   text-align: center;
   max-width: 34ch;
 }
 
 .tune__retry {
-  font: 600 14px / 1 system-ui, sans-serif;
+  font: 600 14px / 1 var(--font-text);
 }
 
 /* Mini box: shrink the ident, drop the programme line (done in JSX), and keep
@@ -636,7 +637,6 @@
   font-weight: 700;
   font-size: 11px;
   letter-spacing: 0.8px;
-  text-transform: uppercase;
   color: rgba(255, 255, 255, 0.55);
 }
 
@@ -686,7 +686,6 @@
   font-weight: 700;
   font-size: 11px;
   letter-spacing: 0.8px;
-  text-transform: uppercase;
   color: rgba(255, 255, 255, 0.55);
 }
 
@@ -718,7 +717,7 @@
   margin: 0;
   justify-self: end;
   text-align: right;
-  font-family: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.5;
   font-variant-numeric: tabular-nums;

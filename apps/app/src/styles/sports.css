@@ -58,18 +58,22 @@
  * action, so it should be findable without competing with the day it sits
  * beside. Pressed reads as brighter, which is the direction the grid goes
  * when it is off. */
+/* A board control, not a scoreboard marking. It read as 12px bold uppercase
+ * with 0.06em tracking in a 999px outline — the loudest quiet thing on the
+ * screen, and the one place a broadcast-graphics tic had escaped the cards
+ * onto the chrome. shadcn's chips are sentence case at their normal weight;
+ * `rounded-md` because a pill is for a badge, and this is a control. */
 .sports__toggle {
   flex: 0 0 auto;
-  padding: 6px 12px;
-  border: 1px solid rgba(var(--card-ink), 0.09);
-  border-radius: 999px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-chip);
   background: none;
-  color: rgba(var(--card-ink), 0.45);
-  font-family: var(--font-headline);
-  font-weight: 700;
+  color: var(--text-muted);
+  font-family: var(--font-text);
+  font-weight: 500;
   font-size: 12px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   cursor: pointer;
   transition:
     color 180ms ease,
@@ -2390,8 +2394,6 @@
   font-size: 12px;
   font-weight: 500;
   color: color-mix(in srgb, var(--text) 70%, transparent);
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
 }
 
 .leaguepick__group {
@@ -3378,8 +3380,6 @@
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 15px;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
   color: var(--text-muted);
 }
 /* How much of the day is in this section, which is the other question

@@ -369,7 +369,7 @@
   color: var(--danger, #ff6b6b);
 }
 .rec__note code {
-  font-family: ui-monospace, monospace;
+  font-family: var(--font-mono);
 }
 
 .rec__pick {

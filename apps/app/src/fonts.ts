@@ -44,8 +44,11 @@
  * Adam likes it; it is waiting for its theme.
  */
 import "@fontsource-variable/geist";
-/* Geist Mono is installed and NOT imported, on the same "on deck" footing as
- * the families above. `--font-mono` is referenced by exactly zero rules in
- * styles/ (checked, v0.9.59) — bundling a face nothing paints is the thing
- * this file just deleted 468K of. Uncomment when something actually sets it:
- * import "@fontsource-variable/geist-mono"; */
+/* Geist Mono, imported as of v0.9.65 and not before. It sat installed and
+ * unreferenced from v0.9.59, because `--font-mono` was used by exactly zero
+ * rules and bundling a face nothing paints is the thing this file had just
+ * deleted 468K of. Three places now set it — the licence key field, the
+ * stats overlay and the recommender's code spans — all of which had been
+ * hand-rolling `ui-monospace, "SFMono-Regular", "Consolas", "Menlo"` on
+ * their own instead. */
+import "@fontsource-variable/geist-mono";

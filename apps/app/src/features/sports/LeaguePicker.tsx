@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../../components/ui/button";
 import {
+  SIDEBAR_ITEM,
+  SIDEBAR_ITEM_ACTIVE,
+} from "../../ui/sidebarItem";
+import {
   CloseIcon,
   StarGhostIcon,
   StarRainbowHollowIcon,
@@ -217,11 +221,14 @@ export function LeaguePicker({
                     * beside it follows it. Exactly Live's split, where the
                     * row filters and the eye hides, and the fix for these
                     * two having previously done the same thing. */}
-                  <Button variant="ghost"
+                  <Button
+                    variant="ghost"
                     type="button"
                     className={
-                      "live-folder" +
-                      (picked.includes(l.path) ? " live-folder--active" : "")
+                      `live-folder ${SIDEBAR_ITEM}` +
+                      (picked.includes(l.path)
+                        ? ` live-folder--active ${SIDEBAR_ITEM_ACTIVE}`
+                        : "")
                     }
                     title={l.name}
                     aria-pressed={picked.includes(l.path)}
