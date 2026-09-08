@@ -18,24 +18,23 @@ import { isTauri } from "./lib/tauri";
 import { installPlayerPerf } from "./lib/playerPerf";
 import { installDiscoverProbe } from "./features/discover/probe";
 import {
-  applyAccent,
-  applyAurora,
-  loadAccent,
-  loadAccentStyle,
 } from "./features/settings/accent";
 import { applyTheme, loadTheme } from "./features/settings/theme";
 import { applyUiScale, loadUiScale } from "./features/settings/uiScale";
 
 // Apply saved appearance before first paint so nothing flashes.
-// An UNSET accent applies nothing, so `--accent` resolves from tokens.css
-// (shadcn's primary) and keeps flipping with the theme. applyAccent writes
-// an inline style, which outranks every stylesheet — writing a default here
-// is what made v0.9.57's palette swap invisible on a fresh install.
-if (loadAccentStyle() === "aurora") applyAurora();
-else {
-  const accent = loadAccent();
-  if (accent) applyAccent(accent);
-}
+// NO ACCENT IS APPLIED AT ALL, so `--accent` always resolves from
+// tokens.css — shadcn's neutral primary, flipping with the theme.
+//
+// This used to honour a STORED accent, which was correct while a picker
+// existed. It stopped being correct in v0.9.58, when that picker went to
+// old/themes with the Themes panel: a profile carrying `#c22727` from an
+// older build kept painting the brand red on every launch, and there was no
+// longer any UI able to clear it. Reading storage here only resurrects a
+// choice the app can no longer offer. Same for a stored `aurora`.
+//
+// applyAccent / applyAurora are untouched in accent.ts and this is one line
+// to put back alongside the picker.
 applyTheme(loadTheme());
 applyUiScale(loadUiScale());
 // Paid theme CSS, purely from cache — see license.ts's fail-open comment.

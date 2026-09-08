@@ -157,6 +157,22 @@
    * ring used to. */
   --ring: oklch(0.556 0 0);
 
+  /* Sidebar. shadcn gives the sidebar its OWN eight tokens rather than
+   * reusing card/accent, because a sidebar is a different plane: in light
+   * mode `--sidebar` is 0.985 where `--card` is pure white, so the panel
+   * reads as set back from the page. In dark they happen to coincide.
+   * Carried in full so the vocabulary exists — `bg-sidebar-accent` is what
+   * an active row is painted with, and it is not the same token as the one
+   * behind a hovered menu item elsewhere. */
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.922 0 0);
+  --sidebar-primary-foreground: oklch(0.205 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+
   /* Shape */
   /* ------------------------------------------------------------- radii
    *
@@ -290,6 +306,15 @@
 
   --danger: oklch(0.577 0.245 27.325);
   --danger-text: oklch(0.577 0.245 27.325);
+
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
 
   color-scheme: light;
 }

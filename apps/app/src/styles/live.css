@@ -27,12 +27,16 @@
   max-width: 252px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  /* shadcn's SidebarContent is `gap-2` between groups and its SidebarGroup
+   * is `p-2`; the panel keeps its float and its card edge (Adam: "just try
+   * to match the inside"), so the padding lands here rather than on a group
+   * wrapper we do not have. 2px was never a shadcn number. */
+  gap: 8px;
   min-height: 0;
-  padding: 2px;
+  padding: 8px;
   margin: 0 0 12px 12px;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--sidebar);
+  border: 1px solid var(--sidebar-border);
   border-radius: var(--radius-card);
 }
 
@@ -152,12 +156,14 @@
 
 /* --------------------------------------------------- playlist group */
 
+/* shadcn's SidebarMenu: `gap-1` between rows, not 6px. Four pixels reads as
+ * one list; six starts to read as separate items. */
 .live-sidebar__list {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .live-group {
@@ -251,9 +257,11 @@
   mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent);
 }
 
+/* Lines up with the rows above it: same 8px inset, same 12px as a group
+ * label, since it sits in the same column and answers the same question. */
 .live-sidebar__note {
-  margin: 4px 6px;
-  font-size: 13px;
+  margin: 4px 8px;
+  font-size: 12px;
   color: var(--text-muted);
 }
 

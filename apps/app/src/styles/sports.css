@@ -99,11 +99,13 @@
 
 /* The Conferences tab's two presets, on one line above the list. Same
  * gutter as the rows below them so the left edges line up. */
+/* Sits in the sidebar's column, so it takes the same 8px inset the rows
+ * take rather than an inset of its own. */
 .sportsside__presets {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  padding: 4px 8px 10px;
+  padding: 0 0 8px;
 }
 
 /* The board-level "none of this is on your channels" line (#21).
@@ -135,14 +137,19 @@
  *
  * Fixed red rather than the accent: "live" is a state of the world, not a
  * themeable decoration, and it reads the same on every pack. One class for
- * all three places, so the claim looks identical wherever it is made. */
+ * all three places, so the claim looks identical wherever it is made.
+ *
+ * --danger since v0.9.60, not a hand-mixed #ff4b4b. It is the only
+ * chromatic token shadcn names, and this is the last colour in the app that
+ * was ours rather than theirs. A grey live dot would say nothing, which is
+ * why this one thing stays red while everything around it went neutral. */
 .gamepip {
   flex: 0 0 auto;
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #ff4b4b;
-  box-shadow: 0 0 10px rgba(255, 75, 75, 0.75);
+  background: var(--danger);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--danger) 75%, transparent);
 }
 
 /* The shared row pads 18px top / 10px bottom, which is tuned for a poster's

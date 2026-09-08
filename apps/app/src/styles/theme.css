@@ -184,4 +184,16 @@
    * ring is a near-white halo in dark mode, which reads as a glow rather
    * than a focus state. `--ring` is its own token in tokens.css. */
   --color-ring: var(--ring);
+
+  /* The sidebar's own plane. shadcn keeps these separate from card/accent
+   * on purpose (see tokens.css), and its Sidebar components are written
+   * against these names, so `bg-sidebar-accent` has to resolve. */
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
 }

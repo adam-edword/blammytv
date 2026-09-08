@@ -1,5 +1,10 @@
 import { Button } from "../../components/ui/button";
 import {
+  SIDEBAR_ITEM,
+  SIDEBAR_ITEM_ACTIVE,
+  SIDEBAR_LABEL,
+} from "../../ui/sidebarItem";
+import {
   Fragment,
   memo,
   useCallback,
@@ -118,9 +123,10 @@ const SidebarSources = memo(function SidebarSources({
         const c = conns.get(g.id);
         return (
           <Fragment key={g.id}>
-            <Button variant="ghost" size="sm"
+            <Button
+              variant="ghost"
               type="button"
-              className="live-group"
+              className={`live-group ${SIDEBAR_LABEL}`}
               aria-expanded={open}
               onClick={() => onToggleGroup(g.id)}
             >
@@ -168,8 +174,10 @@ const SidebarSources = memo(function SidebarSources({
                         // the custom .live-tip owns that, so skip it.
                         title={collapsed ? undefined : label}
                         className={
-                          "live-folder" +
-                          (active ? " live-folder--active" : "")
+                          `live-folder ${SIDEBAR_ITEM}` +
+                          (active
+                            ? ` live-folder--active ${SIDEBAR_ITEM_ACTIVE}`
+                            : "")
                         }
                         onClick={() => onPickFolder(f.id, active)}
                         onContextMenu={(e) => {

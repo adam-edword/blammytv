@@ -1,4 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  SIDEBAR_ITEM,
+  SIDEBAR_ITEM_ACTIVE,
+} from "../../ui/sidebarItem";
 import { Button } from "../../components/ui/button";
 import {
   loadSidebarCollapsed,
@@ -329,9 +333,13 @@ function Row({
   onClick: () => void;
 }) {
   return (
-    <Button variant="ghost"
+    <Button
+      variant="ghost"
       type="button"
-      className={"live-folder" + (on ? " live-folder--active" : "")}
+      className={
+        `live-folder ${SIDEBAR_ITEM}` +
+        (on ? ` live-folder--active ${SIDEBAR_ITEM_ACTIVE}` : "")
+      }
       aria-pressed={on}
       onClick={onClick}
     >
