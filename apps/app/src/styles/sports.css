@@ -2183,11 +2183,8 @@
 
 /* The sidebar is Live TV's, reused whole. Only the things that belong to
  * this screen's arrangement are set here. */
-/* Sports wears .live-sidebar too, which owns the box now (flush left and
- * bottom since v0.9.61). This re-declared the same gutter and would have
- * silently put it back. */
 .sportsside {
-  margin: 0;
+  margin: 0 0 12px 12px;
 }
 /* A club's crest, in the mark slot the folder icon usually holds. Same
  * 16px box, so a list of clubs and a list of leagues line their labels up

@@ -34,25 +34,10 @@
   gap: 8px;
   min-height: 0;
   padding: 8px;
-  /* FLUSH LEFT AND BOTTOM (Adam, v0.9.61). The panel keeps floating under
-   * the header, but it now runs into the window's left and bottom edges
-   * instead of sitting on a 12px gutter — half a step toward shadcn's
-   * edge-attached sidebar without giving up the float at the top.
-   *
-   * Only the TOP-RIGHT corner is still round, and the rule is simply which
-   * corners still touch open page: top-left and bottom-left are on the left
-   * edge, bottom-right is on the bottom. A radius on a corner flush to the
-   * viewport shows the window's own background through the notch. */
-  margin: 0;
+  margin: 0 0 12px 12px;
   background: var(--sidebar);
-  /* TOP AND RIGHT ONLY. Flush to the window, a left or bottom border is a
-   * hairline painted along the viewport edge — an artifact of the change
-   * above rather than an edge anyone drew. shadcn's own Sidebar carries
-   * `border-r` and nothing else, for the same reason. */
   border: 1px solid var(--sidebar-border);
-  border-left: 0;
-  border-bottom: 0;
-  border-radius: 0 var(--radius-card) 0 0;
+  border-radius: var(--radius-card);
 }
 
 /* Folded and idle the panel chrome disappears; hovering anywhere on the
