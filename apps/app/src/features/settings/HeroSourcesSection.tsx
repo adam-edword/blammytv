@@ -1,20 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { Check } from "lucide-react";
-import { Button } from "../../components/ui/button";
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "../../components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "../../components/ui/popover";
-import { ChevronIcon, CloseIcon } from "../../ui/icons";
+  Combobox,
+  ComboboxChip,
+  ComboboxChips,
+  ComboboxChipsInput,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxValue,
+} from "../../components/ui/combobox";
 import { fetchAioCatalogs, type AioCatalog } from "../../data/aiostreams";
 import {
   isValidManifestUrl,
@@ -83,33 +78,11 @@ export function HeroSourcesSection() {
     saveHeroSources(keys);
   };
 
-  /**
-   * The "add sources" picker: shadcn's Combobox pattern, multi-select.
-   *
-   * WHAT THIS REPLACED, AND WHY. It was a hand-rolled portal: a fixed-
-   * position menu anchored off the button's rect, with its own flip-up
-   * logic, its own scroll and resize listeners, its own Escape handler and
-   * its own outside-click handler. Roughly sixty lines to reimplement a
-   * Popover, and it was BROKEN — v0.9.54 converted the anchor to a shadcn
-   * <Button>, which on React 18 silently dropped the ref (see button.tsx),
-   * so `place()` measured a null rect, `menuPos` stayed null and the menu
-   * never rendered at all. Clicking "add sources" did nothing for twelve
-   * versions.
-   *
-   * Radix's Popover already does the anchoring, the flip, the dismissal and
-   * the focus return, and it does them against a portal it owns, so none of
-   * that state lives here any more. Command supplies the filter, which the
-   * old list did not have.
-   *
-   * It stays MULTI-select: the chips above are the selection, and picking
-   * from the list adds to it rather than replacing it, so the popover
-   * stays open. That is why this is the pattern spelled out here rather
-   * than the single-value <Combobox> in ui/.
-   */
-  const [addOpen, setAddOpen] = useState(false);
-
   const items = catalogs.status === "ready" ? catalogs.items : [];
   const byKey = new Map(items.map((c) => [c.key, c]));
+  const chosen = selected
+    .map((k) => byKey.get(k))
+    .filter((c): c is AioCatalog => !!c);
 
   // Renders as a stack, not a section: it is one control among several in
   // Customize's Stream panel, and its own rule and 21px heading made a
@@ -134,83 +107,62 @@ export function HeroSourcesSection() {
           dev build can be blocked by CORS where the desktop app isn&rsquo;t.
         </p>
       )}
+      {/*
+       * shadcn's Combobox in its `#multiple` composition: a chips field you
+       * type into, with the selection living inside the control as removable
+       * chips. Three things went away with it, and none of them were doing a
+       * job this component does not do better.
+       *
+       * The hand-rolled portal menu went: sixty lines of anchoring, flip-up
+       * logic, scroll and resize listeners, an Escape handler and an
+       * outside-click handler, all of which the positioner already does. It
+       * was also BROKEN — v0.9.54 converted its anchor to a shadcn <Button>,
+       * which on React 18 dropped the ref (see button.tsx), so it measured a
+       * null rect and never opened at all.
+       *
+       * The `.source-chip` spans went, and the separate "add sources" button
+       * with them. A chips combobox is one control: the chips ARE the field,
+       * so there is no button standing beside a list of what it did.
+       *
+       * MULTIPLE-SELECT, so `value` is the array and `onValueChange` hands
+       * back the whole next array. Removing a chip and picking an item come
+       * through the same seam, which is why there is no remove handler here.
+       */}
       {catalogs.status === "ready" && (
-        <div className="chip-select">
-          {selected.map((key) => {
-            const c = byKey.get(key);
-            return (
-              <span key={key} className="source-chip">
-                {c ? `${c.name} · ${typeLabel(c.type)}` : key}
-                <button
-                  type="button"
-                  className="source-chip__x"
-                  aria-label={`Remove ${c?.name ?? key}`}
-                  onClick={() => update(selected.filter((k) => k !== key))}
-                >
-                  <CloseIcon />
-                </button>
-              </span>
-            );
-          })}
-          {items.length > 0 && (
-            <Popover open={addOpen} onOpenChange={setAddOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  type="button"
-                  role="combobox"
-                  className="chip-select__add"
-                  aria-expanded={addOpen}
-                >
-                  add sources
-                  <ChevronIcon />
-                </Button>
-              </PopoverTrigger>
-              {/* z-[70] because the Settings sheet is z 60 and Popover's own
-                * z-50 would paint this behind it — the note settings.css
-                * carried for the old portal, which is still true. */}
-              <PopoverContent className="z-[70] w-80 p-0" align="start">
-                <Command>
-                  <CommandInput
-                    placeholder="Search catalogs…"
-                    className="h-9"
-                  />
-                  <CommandList>
-                    <CommandEmpty>No catalog found.</CommandEmpty>
-                    <CommandGroup>
-                      {items.map((c) => (
-                        <CommandItem
-                          key={c.key}
-                          value={`${c.name} ${typeLabel(c.type)}`}
-                          onSelect={() =>
-                            update(
-                              selected.includes(c.key)
-                                ? selected.filter((k) => k !== c.key)
-                                : [...selected, c.key],
-                            )
-                          }
-                        >
-                          {c.name}
-                          <span className="source-row__type">
-                            {typeLabel(c.type)}
-                          </span>
-                          <Check
-                            className={
-                              "ml-auto" +
-                              (selected.includes(c.key)
-                                ? " opacity-100"
-                                : " opacity-0")
-                            }
-                          />
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          )}
-        </div>
+        <Combobox
+          items={items}
+          multiple
+          value={chosen}
+          onValueChange={(next: AioCatalog[]) =>
+            update(next.map((c) => c.key))
+          }
+          itemToStringValue={(c: AioCatalog) => `${c.name} ${typeLabel(c.type)}`}
+          itemToStringLabel={(c: AioCatalog) => c.name}
+        >
+          <ComboboxChips className="w-full">
+            <ComboboxValue>
+              {(picked: AioCatalog[]) =>
+                picked.map((c) => (
+                  <ComboboxChip key={c.key} aria-label={c.name}>
+                    {c.name} · {typeLabel(c.type)}
+                  </ComboboxChip>
+                ))
+              }
+            </ComboboxValue>
+            <ComboboxChipsInput placeholder="Add sources…" />
+          </ComboboxChips>
+          <ComboboxContent>
+            <ComboboxEmpty>No catalog found.</ComboboxEmpty>
+            <ComboboxList>
+              {(c: AioCatalog) => (
+                <ComboboxItem key={c.key} value={c}>
+                  {c.name}
+                  <span className="source-row__type">{typeLabel(c.type)}</span>
+                </ComboboxItem>
+              )}
+            </ComboboxList>
+          </ComboboxContent>
+        </Combobox>
       )}
     </div>
   );

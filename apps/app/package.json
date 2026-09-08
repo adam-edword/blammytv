@@ -1,6 +1,6 @@
 {
   "name": "@blammytv/app",
-  "version": "0.9.67",
+  "version": "0.9.68",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,6 +12,7 @@
     "lint": "eslint src harness"
   },
   "dependencies": {
+    "@base-ui/react": "^1.8.0",
     "@fontsource-variable/geist": "^5.3.0",
     "@fontsource-variable/geist-mono": "^5.3.0",
     "@fontsource/fredoka": "^5.2.10",
@@ -25,7 +26,6 @@
     "@tauri-apps/api": "^2.11.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "cmdk": "^1.1.1",
     "cn": "^0.2.6",
     "lucide-react": "^1.41.0",
     "radix-ui": "^1.6.7",

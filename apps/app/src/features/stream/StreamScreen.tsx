@@ -3063,7 +3063,16 @@ function Episodes({
                     // `rounded-lg px-3 py-2.5` is the docs preview's own
                     // geometry, a step tighter than the published registry's
                     // `size="sm"`.
-                    "episode-card cursor-pointer rounded-lg bg-card px-3 py-2.5 text-left text-card-foreground hover:bg-accent hover:text-accent-foreground" +
+                    //
+                    // `content-start` because the grid stretches every card
+                    // in a row to the tallest one, and Item is a WRAPPING
+                    // flex container: with the default `align-content`, that
+                    // spare height is shared out between the two lines
+                    // instead of pooling at the bottom, so a card next to a
+                    // three-line title grew a gap between its still and its
+                    // text. Pack the lines at the top and the slack lands
+                    // where it belongs.
+                    "episode-card cursor-pointer content-start rounded-lg bg-card px-3 py-2.5 text-left text-card-foreground hover:bg-accent hover:text-accent-foreground" +
                     (e.id === nextUp ? " episode-card--next" : "")
                   }
                 >
@@ -3104,13 +3113,17 @@ function Episodes({
                       </ItemHeader>
                     )}
                     <ItemContent>
-                      {/* `block w-full truncate` over ItemTitle's own
-                        * `flex w-fit`: the docs clamp the title to one line,
-                        * which keeps every card in the grid the same height,
-                        * and a flex box with a `w-fit` width has nothing to
-                        * clamp against. The E-number rides inline so a
-                        * truncation eats the title, never the number. */}
-                      <ItemTitle className="block w-full truncate">
+                      {/* `block w-full` over ItemTitle's own `flex w-fit`.
+                        * The docs clamp their titles to one line, and this
+                        * WRAPS instead, Adam's call: real episode titles run
+                        * past 280px constantly ("Starting Life from Zero in
+                        * Another World" is 40 characters before the E-number)
+                        * and a card that shows half a title is not showing
+                        * the title. `flex` with a `w-fit` width cannot wrap
+                        * usefully, hence the block. The E-number rides inline
+                        * so a wrapped line runs under it with no hanging
+                        * indent. */}
+                      <ItemTitle className="block w-full">
                         {/* Quiet metadata, then the title, which is how
                           * shadcn separates the two inside one line. It was
                           * bold and accent-coloured; --accent is near-white

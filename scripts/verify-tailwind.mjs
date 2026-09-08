@@ -808,7 +808,40 @@ check(
   };
   walk(src);
 
+  // A primitive forwards if it wraps ITSELF in forwardRef, or if it is a
+  // thin pass-through onto a Radix/Base UI primitive that handles its own
+  // (either a direct alias or a component rendering one).
+  //
+  // PER COMPONENT, not per file. A file-wide `/forwardRef/` test passes
+  // every component in any file where one of them forwards, which is most
+  // of them — input-group.tsx alone holds six. That version of this check
+  // reported clean against a deliberately broken InputGroupInput.
+  const forwards = (name) => {
+    const def = readFileSync(join(uiDir, owner.get(name)), "utf8");
+    const decl = "(?:const|let|var)\\s+" + name + "\\s*=\\s*";
+    return (
+      new RegExp(decl + "(?:React\\.)?forwardRef").test(def) ||
+      new RegExp(decl + "\\w+Primitive\\.").test(def) ||
+      new RegExp("(?:function\\s+" + name + "\\b|" + decl + ")[\\s\\S]{0,600}?<\\w+Primitive\\.").test(def)
+    );
+  };
+
   const dropped = [];
+
+  // BASE UI'S `render={<X />}` IS A REF HANDOFF TOO, and it is the one that
+  // actually bit: combobox.tsx renders its input as `<InputGroupInput />`,
+  // Base UI clones it with a ref, React 18 drops the ref on a plain
+  // function, and Base UI can then neither read nor focus the field. The
+  // symptom was not an error — the language combobox simply ignored typing,
+  // so its filter listed all 29 languages whatever you typed. Scanned
+  // INSIDE components/ui, because that is where this composition lives.
+  for (const f of readdirSync(uiDir).filter((n) => n.endsWith(".tsx"))) {
+    const body = readFileSync(join(uiDir, f), "utf8");
+    for (const m of body.matchAll(/render=\{<([A-Z]\w*)\b/g))
+      if (owner.has(m[1]) && !forwards(m[1]))
+        dropped.push(`components/ui/${f}: render={<${m[1]} />}`);
+  }
+
   for (const f of tsx) {
     const body = readFileSync(f, "utf8");
     for (const name of owner.keys()) {
@@ -830,13 +863,7 @@ check(
           else if (c === ">" && depth === 0) break;
         }
         if (!/\sref=/.test(body.slice(m.index, i))) continue;
-        const def = readFileSync(join(uiDir, owner.get(name)), "utf8");
-        // Radix-backed primitives forward through the primitive itself, so
-        // either the wrapper forwards or it spreads onto a Radix component.
-        const forwards =
-          /forwardRef/.test(def) ||
-          new RegExp("function " + name + "\\b[\\s\\S]{0,600}?<\\w+Primitive\\.").test(def);
-        if (!forwards)
+        if (!forwards(name))
           dropped.push(`${f.slice(src.length + 1)}: <${name} ref=…>`);
       }
     }

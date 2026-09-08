@@ -1,133 +1,109 @@
 import * as React from "react";
-import { cn } from "cn";
-import { Check, ChevronsUpDown } from "lucide-react";
-
-import { Button } from "../components/ui/button";
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "../components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "../components/ui/popover";
+  Combobox as ComboboxRoot,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "../components/ui/combobox";
 
 /**
- * shadcn's Combobox, as one component instead of a copy-pasted block.
+ * shadcn's Combobox in the `#basic` composition, wrapped once so a call site
+ * can hand it a list and a value.
  *
- * The Combobox is a PATTERN in shadcn, not a registry component: Popover +
- * Command + a Button trigger, assembled at the call site. Every call site
- * would then repeat the same forty lines, so this wraps the pattern once
- * and takes a list. The markup below is `combobox-demo` from the registry,
- * unchanged apart from being handed its options.
+ * WHAT CHANGED IN v0.9.68, AND WHY IT IS A DIFFERENT COMPONENT. The first
+ * pass built the Radix-era Combobox: a Popover, a Command list and a Button
+ * trigger showing the current label. Adam, looking at it: "the combobox does
+ * not look or act like shadcns. components/base/combobox#basic should be for
+ * combo, exact same styling." He is right, and it is not a styling gap —
+ * shadcn now ships a REAL `combobox` component, built on Base UI, and its
+ * basic shape is a text input with a chevron in an InputGroup. You type into
+ * the control itself; there is no separate search box inside the popup and
+ * no button standing in for the field. The Popover + Command version is a
+ * pattern the docs kept while Radix had no combobox primitive.
  *
- * WHY IT REPLACED THE NATIVE <select>. settings.css used to argue for the
- * platform control: 28 languages is past what a chip group carries, and the
- * native picker already has type-ahead. That was right about the problem
- * and wrong about the fix. The native picker paints from the OS, so it is
- * the one surface in the app that cannot be made to look like the rest of
- * it, and Adam asked for the searchable one: "maybe we just change it to be
- * the 'combobox' component so people could search their language."
+ * So the trigger IS the input. `ComboboxInput` renders the InputGroup, the
+ * `<input role="combobox">` and the chevron addon; `ComboboxContent` renders
+ * the positioned popup; `ComboboxList` renders the items. All the styling is
+ * the registry's, and this file adds none.
  *
- * cmdk gives the search for free, and Command's own keyboard handling is
- * the type-ahead the native control was being kept for.
+ * ITEMS ARE OBJECTS, so the root takes `itemToStringValue`. Base UI filters
+ * on the string it gets back, which is how "es" finds Spanish as well as
+ * "Spanish" does — the same search behaviour the native <select>'s
+ * type-ahead used to give, only over the whole label rather than its first
+ * letter.
  */
 
 export interface ComboboxOption {
   value: string;
   label: string;
-  /** Extra words the search should match, e.g. a language code. */
+  /** Extra words the filter should match, e.g. a language code. */
   keywords?: string[];
 }
+
+const searchText = (o: ComboboxOption) =>
+  [o.label, ...(o.keywords ?? [])].join(" ");
 
 export function Combobox({
   options,
   value,
   onChange,
   placeholder = "Select…",
-  searchPlaceholder = "Search…",
   emptyText = "Nothing found.",
   className,
-  contentClassName,
   ariaLabel,
 }: {
   options: readonly ComboboxOption[];
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
-  searchPlaceholder?: string;
   emptyText?: string;
   className?: string;
-  contentClassName?: string;
   ariaLabel?: string;
 }) {
-  const [open, setOpen] = React.useState(false);
-  const current = options.find((o) => o.value === value);
+  const items = React.useMemo(() => [...options], [options]);
+  const selected = options.find((o) => o.value === value) ?? null;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          aria-label={ariaLabel}
-          className={cn("justify-between font-normal", className)}
-        >
-          <span className="truncate">{current ? current.label : placeholder}</span>
-          <ChevronsUpDown className="opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      {/* z-[70], not PopoverContent's own z-50. The Settings sheet is z 60,
-        * and a popover opened from inside it at z 50 paints BEHIND the panel
-        * — which is the trap settings.css already documents for the source
-        * menu, and which looks exactly like the control being dead. 70 is
-        * the app's "floating above a modal" tier; nothing sits above it. */}
-      <PopoverContent
-        className={cn("z-[70] p-0", contentClassName)}
-        align="end"
-      >
-        <Command>
-          <CommandInput placeholder={searchPlaceholder} className="h-9" />
-          <CommandList>
-            <CommandEmpty>{emptyText}</CommandEmpty>
-            <CommandGroup>
-              {options.map((o) => (
-                <CommandItem
-                  key={o.value}
-                  // What cmdk SEARCHES, which is not what we select by. The
-                  // demo passes the option's value and reads it back out of
-                  // `onSelect`, and that only works there because every
-                  // framework in it is already lowercase — cmdk lowercases
-                  // what it stores, so a code like `pt-BR` would come back
-                  // wrong. Closing over the option instead means the value
-                  // never makes the round trip, which frees this prop up to
-                  // be the search text: the label plus the code, so both
-                  // "Spanish" and "es" find Spanish.
-                  value={[o.label, ...(o.keywords ?? [])].join(" ")}
-                  onSelect={() => {
-                    onChange(o.value);
-                    setOpen(false);
-                  }}
-                >
-                  {o.label}
-                  <Check
-                    className={cn(
-                      "ml-auto",
-                      value === o.value ? "opacity-100" : "opacity-0",
-                    )}
-                  />
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+    <ComboboxRoot
+      items={items}
+      value={selected}
+      // `?? value` keeps a cleared field from reading as a change: Base UI
+      // hands back null while you are typing, and treating that as "the
+      // user picked nothing" would wipe a stored language the moment
+      // someone clicked into the box.
+      onValueChange={(next: ComboboxOption | null) =>
+        onChange(next ? next.value : value)
+      }
+      itemToStringValue={searchText}
+      itemToStringLabel={(o: ComboboxOption) => o.label}
+    >
+      <ComboboxInput
+        aria-label={ariaLabel}
+        placeholder={placeholder}
+        className={className}
+        // Select the text on focus. The registry does not do this and the
+        // docs demo does not need to: its example starts empty, so nobody
+        // ever clicks INTO a filled field there. Ours is a picker that
+        // always shows the current language, and a click was landing a
+        // caret in the middle of "No preference" — typing "span" made the
+        // query "No preferspanence", which matches nothing, so the list
+        // just went empty and the control read as broken. Selecting means
+        // the first keystroke replaces the label, which is what typing into
+        // a picker is for. Behaviour only; no styling changes.
+        onFocus={(e) => e.currentTarget.select()}
+      />
+      <ComboboxContent>
+        <ComboboxEmpty>{emptyText}</ComboboxEmpty>
+        <ComboboxList>
+          {(item: ComboboxOption) => (
+            <ComboboxItem key={item.value} value={item}>
+              {item.label}
+            </ComboboxItem>
+          )}
+        </ComboboxList>
+      </ComboboxContent>
+    </ComboboxRoot>
   );
 }

@@ -1531,3 +1531,46 @@
   margin-top: auto;
   margin-left: 5px;
 }
+
+/* ---------------------------------------------------------------------
+ * v0.9.68: the hero sources chip row, replaced by shadcn's Combobox in
+ * its `#multiple` composition (ComboboxChips / ComboboxChip). The chips
+ * live inside the field now, so the wrapper and the separate "add
+ * sources" button have no equivalent to keep.
+ * ------------------------------------------------------------------- */
+.chip-select {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.source-chip {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 12px 8px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-chip);
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.source-chip__x {
+  display: grid;
+  place-items: center;
+  opacity: 0.45;
+  transition: opacity var(--dur-hover) ease;
+}
+
+.source-chip__x:hover {
+  opacity: 1;
+}
+
+.source-chip__x svg {
+  width: 12px;
+  height: 12px;
+}

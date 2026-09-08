@@ -1,9 +1,20 @@
 import * as React from "react"
 import { cn } from "cn"
 
-function Input({ className, type, ...props }: React.ComponentProps<"input">) {
+/**
+ * forwardRef, for the same React-18 reason button.tsx spells out: the
+ * registry writes these as plain functions that take `ref` in props, which
+ * works on React 19 only, and Base UI's `render={<X />}` composition hands
+ * every one of them a ref. Without it Base UI cannot read or focus the
+ * control, and the visible symptom is not an error — the combobox simply
+ * would not accept typing, so its filter listed all 29 languages no matter
+ * what you typed. `scripts/verify-tailwind.mjs` (9e) guards it.
+ */
+const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
+  function Input({ className, type, ...props }, ref) {
   return (
     <input
+      ref={ref}
       type={type}
       data-slot="input"
       className={cn(
@@ -15,6 +26,6 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
       {...props}
     />
   )
-}
+})
 
 export { Input }

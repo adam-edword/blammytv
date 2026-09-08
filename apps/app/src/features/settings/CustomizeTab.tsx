@@ -492,11 +492,10 @@ export function CustomizeTab() {
                 <span>Audio</span>
                 <Combobox
                   className="customize-lang__select w-44"
-                  contentClassName="w-56"
                   ariaLabel="Preferred audio language"
                   options={AUDIO_OPTIONS}
                   value={audioLang}
-                  searchPlaceholder="Search languages…"
+                  placeholder="No preference"
                   emptyText="No language found."
                   onChange={(v) => {
                     setAudioLang(v);
@@ -508,11 +507,10 @@ export function CustomizeTab() {
                 <span>Subtitles</span>
                 <Combobox
                   className="customize-lang__select w-44"
-                  contentClassName="w-56"
                   ariaLabel="Preferred subtitle language"
                   options={SUB_OPTIONS}
                   value={subLang}
-                  searchPlaceholder="Search languages…"
+                  placeholder="No preference"
                   emptyText="No language found."
                   onChange={(v) => {
                     setSubLang(v);

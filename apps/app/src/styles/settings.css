@@ -708,55 +708,13 @@
   opacity: 0.35;
 }
 
-/* Chip-select: removable source chips + an "add sources" dropdown. */
-.chip-select {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-}
-
-.source-chip {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 8px 12px 8px 16px;
-  background: var(--surface);
-  border: 1px solid var(--border-input);
-  border-radius: var(--radius-chip);
-  font-family: var(--font-headline);
-  font-weight: 600;
-  font-size: 14px;
-}
-
-.source-chip__x {
-  display: grid;
-  place-items: center;
-  opacity: 0.45;
-  transition: opacity var(--dur-hover) ease;
-}
-
-.source-chip__x:hover {
-  opacity: 1;
-}
-
-.source-chip__x svg {
-  width: 12px;
-  height: 12px;
-}
-
-/* The chevron sizes itself off Button's own
- * `[&_svg:not([class*='size-'])]:size-4`, which is a utility and therefore
- * outranks anything this file could say. 13px became 16px in v0.9.54; that
- * is shadcn's icon size and the reason to adopt the component. */
-
-/* The "add sources" menu was a hand-rolled fixed-position portal and its
- * paint lived here. Both are gone in v0.9.67: it is a shadcn Popover +
- * Command now, which paints itself, positions itself and (unlike the old
- * one) filters. The rules are in styles/old/. The z-index note survived
- * the rewrite and moved to the call site — a popover opened from inside
- * the settings sheet still has to clear z 60. */
+/* The hero sources picker owns no CSS at all as of v0.9.68. It was a
+ * wrapper, a row of removable `.source-chip` spans and an "add sources"
+ * button opening a hand-rolled fixed-position portal, and it is now one
+ * shadcn Combobox in its `#multiple` composition: the chips live INSIDE the
+ * field, so there is no wrapper, no separate button and no menu to paint.
+ * The rules are in styles/old/. `.source-row__type` above survives because
+ * the list items still use it. */
 
 /* Card Details: multi-toggle chips, source-chip metrics — off ones sit
  * dim and borderless, on ones read like a selected source chip. */

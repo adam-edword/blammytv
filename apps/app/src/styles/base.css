@@ -75,6 +75,38 @@ button {
   cursor: pointer;
 }
 
+/**
+ * PREFLIGHT, FOR SHADCN'S COMPONENTS ONLY.
+ *
+ * This app does not load Preflight (index.css says why), and every file in
+ * components/ui/ is written on the assumption that it IS loaded. The rule
+ * above is the same idea for <button>, hand-rolled long before any of this.
+ * Two bugs have now come out of the gap and both looked like design
+ * mistakes rather than a missing reset:
+ *
+ *   - ItemDescription is a <p>, so it kept the UA's 1em top AND bottom
+ *     margin. That is 28px of dead space inside every episode card, which
+ *     is what Adam boxed in green and called "way too much white space".
+ *   - CommandInput is a bare <input>, so it kept the UA's `2px inset`
+ *     border and read as a sunken 1998 text field inside a flat popover.
+ *
+ * SCOPED BY `[data-slot]`, which every vendored component stamps and
+ * nothing app-owned does. A blanket `p { margin: 0 }` would reach the whole
+ * app; this reaches exactly the elements written against a reset that is
+ * not here.
+ *
+ * `:where()` puts it at specificity ZERO, so anything at all beats it: an
+ * app class, a call-site utility, the component's own classes. A reset
+ * should be the easiest thing in the file to override, and Preflight's own
+ * position at the bottom of the cascade is what this is imitating.
+ */
+:where([data-slot]) {
+  margin: 0;
+}
+:where(input[data-slot], textarea[data-slot], select[data-slot]) {
+  border: 0 solid;
+}
+
 .app-shell {
   position: relative; /* anchors the floating header */
   display: flex;
