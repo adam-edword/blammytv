@@ -73,12 +73,14 @@
  * first, then the packs that override them, then everything that reads
  * them. That order is load-bearing and is preserved exactly. */
 @import "./tokens.css" layer(app);
-@import "./packs.css" layer(app);
-@import "./intense-packs.css" layer(app);
+/* packs.css and intense-packs.css were here, and their absence is the point:
+ * a theme pack pins --bg, --surface, --border and the text tiers at the same
+ * specificity from a LATER file, so any pack silently outranked tokens.css.
+ * That is exactly what made v0.9.57's shadcn palette invisible until the
+ * default pack moved. Parked in old/themes/ (v0.9.58). */
 @import "./base.css" layer(app);
 @import "./ui.css" layer(app);
 @import "./settings.css" layer(app);
-@import "./themes.css" layer(app);
 @import "./live.css" layer(app);
 @import "./player.css" layer(app);
 @import "./stream.css" layer(app);

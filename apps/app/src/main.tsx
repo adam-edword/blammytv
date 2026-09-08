@@ -24,9 +24,7 @@ import {
   loadAccentStyle,
 } from "./features/settings/accent";
 import { applyTheme, loadTheme } from "./features/settings/theme";
-import { applyThemePack, loadThemePack } from "./features/settings/themePacks";
 import { applyUiScale, loadUiScale } from "./features/settings/uiScale";
-import { applyInstalledPacks } from "./features/settings/license";
 
 // Apply saved appearance before first paint so nothing flashes.
 // An UNSET accent applies nothing, so `--accent` resolves from tokens.css
@@ -39,10 +37,8 @@ else {
   if (accent) applyAccent(accent);
 }
 applyTheme(loadTheme());
-applyThemePack(loadThemePack());
 applyUiScale(loadUiScale());
 // Paid theme CSS, purely from cache — see license.ts's fail-open comment.
-applyInstalledPacks();
 
 // `playerPerf(seconds)` in the devtools console — the player perf probe
 // (plan 011). Installed for both entries so the overlay harness can use it too.

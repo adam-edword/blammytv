@@ -12,13 +12,6 @@ import {
   saveAioUrl,
 } from "../features/settings/aiostreams";
 import {
-  ACCENT_PRESETS,
-  applyAccent,
-  loadAccent,
-  saveAccent,
-  saveAccentStyle,
-} from "../features/settings/accent";
-import {
   CLOCK_TABS,
   loadClockFormat,
   saveClockFormat,
@@ -498,17 +491,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     if (e.key === "Enter" && !e.repeat) continueTv();
   };
 
-  // --- Accent + clock step ----------------------------------------------
-  const [accent, setAccent] = useState(loadAccent);
-  const pickAccent = (hex: string) => {
-    setAccent(hex);
-    saveAccent(hex);
-    // Persist the style too, like CustomizeTab: applyAccent stands
-    // aurora down in the DOM, and storage must agree or the next
-    // launch silently re-applies aurora (forced-replay edge).
-    saveAccentStyle("flat");
-    applyAccent(hex);
-  };
+  // --- Clock step ---------------------------------------------------------
   const [clock, setClock] = useState<ClockFormat>(loadClockFormat);
   const pickClock = (next: ClockFormat) => {
     setClock(next);
@@ -760,32 +743,13 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           Make it yours
         </h1>
         <p className="onb-sub" style={idx(1)}>
-          Pick an accent. There&rsquo;s plenty more to customize in
-          Settings, including something hidden.
+          A couple of preferences. There&rsquo;s more in Settings.
         </p>
-        <div
-          className="onb-swatches"
-          style={idx(2)}
-          role="radiogroup"
-          aria-label="Accent color"
-        >
-          {ACCENT_PRESETS.map((p) => (
-            <button
-              key={p.hex}
-              type="button"
-              role="radio"
-              aria-checked={accent === p.hex}
-              className={
-                "onb-swatch" + (accent === p.hex ? " is-on" : "")
-              }
-              style={{ background: p.hex }}
-              aria-label={p.name}
-              title={p.name}
-              onClick={() => pickAccent(p.hex)}
-            />
-          ))}
-        </div>
-        <div className="onb-chips onb-chips--labeled" style={idx(3)}>
+        {/* The accent swatches stood here. They went with the Themes panel
+            in v0.9.58: that panel held the only picker, so a colour chosen
+            on this screen would have been permanent. A one-way door in an
+            onboarding flow is worse than no door. old/themes/ has both. */}
+        <div className="onb-chips onb-chips--labeled" style={idx(2)}>
           <span className="onb-chips__label">Clock</span>
           <ChipTabs tabs={CLOCK_TABS} active={clock} onChange={pickClock} />
         </div>

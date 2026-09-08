@@ -36,10 +36,8 @@ const TABS: Array<{ key: SettingsTab; label: string }> = [
  * theme preview/commit/revert boundary lives in that panel now. */
 export function SettingsModal({
   onClose,
-  onOpenThemes,
 }: {
   onClose: () => void;
-  onOpenThemes: () => void;
 }) {
   // Where you left off. The modal unmounts on close, so without this
   // every visit started at General.
@@ -112,7 +110,7 @@ export function SettingsModal({
           onScroll={(e) => markScrolled(e.currentTarget)}
         >
           {tab === "general" && <GeneralTab />}
-          {tab === "customize" && <CustomizeTab onOpenThemes={onOpenThemes} />}
+          {tab === "customize" && <CustomizeTab  />}
         </div>
       </section>
     </div>,

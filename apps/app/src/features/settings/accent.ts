@@ -131,6 +131,17 @@ function inkFor(hex: string): string {
   return L > 0.179 ? "oklch(0.205 0 0)" : "oklch(0.985 0 0)";
 }
 
+/** Drop the inline accent so `--accent` resolves from tokens.css again.
+ * The counterpart to applyAccent, and the only way back to the shadcn
+ * default once a colour has been chosen — removeProperty, not setting a
+ * neutral hex, because the token flips with the theme and a hex does not. */
+export function clearAccent(): void {
+  const root = document.documentElement;
+  delete root.dataset.accentStyle;
+  root.style.removeProperty("--accent");
+  root.style.removeProperty("--accent-ink");
+}
+
 /** Push the accent into CSS; every derived shade follows via color-mix.
  * Also stands DOWN aurora — picking any flat color exits the style. */
 export function applyAccent(hex: string): void {

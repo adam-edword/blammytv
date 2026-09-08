@@ -91,31 +91,46 @@
   border-color: rgba(0, 0, 0, 0.28);
 }
 
-/* Toggle: a text-less chip rail. Same track color, inset, radius, and slide
- * curve as .chip-tabs; the white squircle thumb is the "chip". On floods the
- * track with the accent. */
+/* Switch, at shadcn's exact geometry.
+ *
+ * Adam: "ours seems rather large compared to the docs." Measured rather than
+ * eyeballed, against ui.shadcn.com/r/styles/new-york-v4/switch.json:
+ *
+ *            track           thumb    travel
+ *   ours     52 x 30         26       22px
+ *   shadcn   32 x 18.4       16       14px      (h-[1.15rem] w-8, size-4)
+ *   sm       24 x 14         12       10px      (h-3.5 w-6, size-3)
+ *
+ * 62% too wide and 63% too tall, which is exactly the kind of thing that
+ * reads as "close but not shadcn" without ever looking broken. `1.15rem` is
+ * theirs and it is deliberately not a round number; leave it alone.
+ *
+ * The COLOURS are shadcn's too, and the checked thumb going DARK is not a
+ * bug: their dark rule is `bg-primary-foreground`, and with primary a
+ * near-white the ink on it has to be near-black. Off-track is `bg-input`,
+ * on-track `bg-primary`, off-thumb `bg-foreground` in dark. */
 .toggle {
   position: relative;
-  width: 52px;
-  height: 30px;
+  width: 32px;
+  height: 1.15rem;
+  border: 1px solid transparent;
   border-radius: var(--radius-pill);
-  background: var(--surface-track);
+  background: var(--border-input);
   transition: background 220ms ease;
 }
 
 .toggle__thumb {
   position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 26px;
-  height: 26px;
+  top: 0;
+  left: 0;
+  width: 16px;
+  height: 16px;
   /* A CIRCLE, not the chip radius it used to share. Once --radius-chip came
    * down to shadcn's 10px the thumb became a rounded square sliding inside
    * a pill track, which reads as a bug. A switch's thumb is round in every
    * design system including shadcn's own. */
   border-radius: var(--radius-pill);
-  background: #ffffff;
-  border: 0.5px solid rgba(0, 0, 0, 0.12);
+  background: var(--text);
   transition: transform 260ms var(--spring);
 }
 
@@ -124,23 +139,34 @@
 }
 
 .toggle--on .toggle__thumb {
-  transform: translateX(22px);
+  /* shadcn writes this `translate-x-[calc(100%-2px)]`, i.e. the thumb's own
+   * width less 2px, which lands its right edge on the track's inner edge. */
+  transform: translateX(14px);
+  background: var(--accent-ink);
 }
 
-/* Dense-list variant. */
+/* Light mode keeps a white thumb in BOTH states, because shadcn's
+ * foreground/primary-foreground swap is inside its `dark:` variants and
+ * this app's light theme is the un-prefixed half of that pair. */
+:root[data-theme="light"] .toggle__thumb,
+:root[data-theme="light"] .toggle--on .toggle__thumb {
+  background: var(--bg);
+}
+
+/* Dense-list variant — shadcn's `size="sm"`. */
 .toggle--sm {
-  width: 40px;
-  height: 24px;
+  width: 24px;
+  height: 0.875rem;
 }
 
 .toggle--sm .toggle__thumb {
-  width: 20px;
-  height: 20px;
+  width: 12px;
+  height: 12px;
   border-radius: var(--radius-pill);
 }
 
 .toggle--sm.toggle--on .toggle__thumb {
-  transform: translateX(16px);
+  transform: translateX(10px);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -401,9 +427,12 @@ select:focus-visible,
 .toggle:active .toggle__thumb {
   transform: scale(0.94);
 }
+/* The press dip has to repeat the translate, because `transform` is one
+ * property and a bare `scale()` here would snap the thumb back to the left.
+ * Both numbers follow the geometry above; they were 22 and 16. */
 .toggle--on:active .toggle__thumb {
-  transform: translateX(22px) scale(0.94);
+  transform: translateX(14px) scale(0.94);
 }
 .toggle--sm.toggle--on:active .toggle__thumb {
-  transform: translateX(16px) scale(0.94);
+  transform: translateX(10px) scale(0.94);
 }

@@ -1,6 +1,5 @@
 import { useRef, useState } from "react";
 import { Button } from "../../components/ui/button";
-import { ChevronIcon } from "../../ui/icons";
 import { ChipTabs } from "../../ui/ChipTabs";
 import { Toggle } from "../../ui/Toggle";
 import { loadAioUrl } from "./aiostreams";
@@ -42,19 +41,13 @@ import {
 } from "./overlayMeta";
 import { ROW_CAP_MAX, ROW_CAP_MIN, loadRowCap, saveRowCap } from "./rowCap";
 import {
-  ACCENT_PRESETS,
-  applyAccent,
+  clearAccent,
   saveAccent,
   saveAccentPairedBy,
   saveAccentStyle,
   saveCustomAccent,
 } from "./accent";
 import { applyTheme, saveTheme, type Theme } from "./theme";
-import {
-  DEFAULT_PACK,
-  applyThemePack,
-  saveThemePack,
-} from "./themePacks";
 import {
   UI_SCALES,
   applyUiScale,
@@ -92,7 +85,7 @@ const WORLD_TABS = [
 
 // Themes are their own pop-out panel now — the old "Theme" pill is gone; the
 // launcher at the top opens it. Accent + packs + Pass all live there.
-export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
+export function CustomizeTab() {
   // Light/dark axis state exists only so reset() can force dark — the user
   // control (the Theme Style pill) lives in the Themes panel now.
   const pickTheme = (next: Theme) => {
@@ -191,13 +184,15 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
    * straight through the storage/apply seams (their live state lives in the
    * Themes panel, which isn't mounted here). */
   const reset = () => {
-    saveAccent(ACCENT_PRESETS[0].hex);
-    applyAccent(ACCENT_PRESETS[0].hex); // also exits aurora
+    // The factory accent is NO accent since v0.9.57: --accent then resolves
+    // from tokens.css (shadcn's primary) and keeps flipping with the theme,
+    // which a stored hex cannot. Resetting to ACCENT_PRESETS[0] would have
+    // put the brand red back on a button labelled "Reset Appearance".
+    saveAccent("");
+    clearAccent();
     saveAccentStyle("flat");
-    saveAccentPairedBy(""); // factory accent = no pack pairing
+    saveAccentPairedBy("");
     saveCustomAccent("");
-    saveThemePack(DEFAULT_PACK);
-    applyThemePack(DEFAULT_PACK);
     pickTheme("dark");
     pickScale(1);
     pickClock("12h");
@@ -208,19 +203,9 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
 
   return (
     <>
-      {/* Themes launcher — pops the standalone Themes panel out and closes
-          Settings (App wires onOpenThemes). Replaces the old Theme sub-tab. */}
-      <Button variant="outline" type="button" className="themes-launch" onClick={onOpenThemes}>
-        <span className="themes-launch__text">
-          <span className="themes-launch__title">Themes</span>
-          <span className="themes-launch__hint">
-            Accent, theme packs, and the Themes Pass.
-          </span>
-        </span>
-        <ChevronIcon className="themes-launch__chevron" />
-      </Button>
-
-
+      {/* The Themes launcher stood here. Parked in old/themes/ (v0.9.58),
+          Adam's call: the pack engine was outranking the shadcn palette on
+          every launch and it is easier to redesign without it in the way. */}
       {/* Applies everywhere, whichever side of the app you are on. Named
         * Interface rather than General so it does not collide with the
         * General TAB one level up. */}

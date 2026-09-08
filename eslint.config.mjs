@@ -17,7 +17,13 @@ export default tseslint.config(
   {
     // `.astro/` is Astro's generated type shim for services/docs — build
     // output that happens to land outside dist/, and not ours to lint.
-    ignores: ["**/dist/**", "**/node_modules/**", "**/.astro/**"],
+    //
+    // `old/` is parked code: it is not imported, not compiled and not on any
+    // tsconfig include path, so it references modules that have moved and
+    // globals no rule set here knows about. Linting it would report dozens of
+    // errors about code that deliberately is not part of the app. See
+    // old/themes/README.md.
+    ignores: ["**/dist/**", "**/node_modules/**", "**/.astro/**", "old/**"],
   },
 
   // Base JS rules everywhere.
