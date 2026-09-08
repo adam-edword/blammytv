@@ -217,14 +217,25 @@
      An intense theme (intense-packs.css) may re-point any of these three to
      a bundled family; --font-mono defaults to the system stack so classic
      carries no font cost for it. */
-  /* Tailwind's `font-sans`, which is what shadcn ships against. Stack Sans
-   * was the last piece of the app's own identity in this file. */
-  --font-headline: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
-    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-  --font-text: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
-    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-  --font-mono: ui-monospace, "Cascadia Code", "Segoe UI Mono", Menlo, Consolas,
-    monospace;
+  /* GEIST, bundled (see fonts.ts). shadcn/ui ships no font, but its docs do,
+   * and Geist is what every screenshot the app gets compared against is set
+   * in. v0.9.57 left these on Tailwind's default sans, which resolves to
+   * Segoe UI on Windows — neutral and correct, and not the thing the eye was
+   * missing.
+   *
+   * "Geist Variable" is Fontsource's CSS family name for the variable cut,
+   * not a typo. Get it wrong and it silently falls through to the stack
+   * below, which looks almost right and is the hardest kind of wrong to see.
+   *
+   * HEADLINE AND TEXT ARE THE SAME FAMILY now, where Stack Sans had a
+   * separate display face. Geist has one, and a two-family split with one
+   * font in both slots is a lie the next person has to un-learn. They stay
+   * as two tokens because 300+ rules name them and a theme could still
+   * re-point one. */
+  --font-headline: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-text: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, "Cascadia Code",
+    "Segoe UI Mono", Menlo, Consolas, monospace;
 
   color-scheme: dark;
 }
