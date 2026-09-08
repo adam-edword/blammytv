@@ -105,6 +105,10 @@ export function tauriInvOpen(
   /** VOD resume point in seconds. mpv applies it as the file opens, so
    * nothing is fetched or decoded from 0:00 first. Omit for live. */
   start?: number,
+  /** Which multiview tile, 0..3. Omit for ordinary single-stream playback,
+   * which is slot 0 and never says so — the Rust side defaults it, so an
+   * older backend ignores the field rather than failing on it. */
+  slot?: number,
 ): Promise<void> {
   return invoke("inv_open", {
     url,
@@ -113,13 +117,32 @@ export function tauriInvOpen(
     w: rect.w,
     h: rect.h,
     start: start && start > 0 ? start : null,
+    slot: slot ?? null,
   });
 }
-export function tauriInvSetRect(rect: CompRect): Promise<void> {
-  return invoke("inv_set_rect", { x: rect.x, y: rect.y, w: rect.w, h: rect.h });
+export function tauriInvSetRect(rect: CompRect, slot?: number): Promise<void> {
+  return invoke("inv_set_rect", {
+    x: rect.x,
+    y: rect.y,
+    w: rect.w,
+    h: rect.h,
+    slot: slot ?? null,
+  });
 }
 export function tauriInvStop(): Promise<void> {
   return invoke("inv_stop");
+}
+
+/** Point the player commands and the audio at one tile. Exactly one slot is
+ * ever unmuted; see mpv::set_focus. */
+export function tauriInvFocus(slot: number): Promise<void> {
+  return invoke("inv_focus", { slot });
+}
+
+/** Stop one tile, releasing its provider connection and leaving the rest of
+ * the grid playing. `tauriInvStop` still stops everything. */
+export function tauriInvStopSlot(slot: number): Promise<void> {
+  return invoke("inv_stop_slot", { slot });
 }
 
 /** Raw mpv property snapshot, for the tune diagnostic. Every value is a

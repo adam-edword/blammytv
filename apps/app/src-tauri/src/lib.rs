@@ -90,6 +90,11 @@ fn popout_open(
 // ---- Inverted-layer player (THE architecture; see inv.rs). Rects are PHYSICAL px. ----
 
 #[tauri::command]
+// The argument list IS the IPC contract, and builds older than this one call
+// it by name with these fields (see StreamScreen's note about `start`), so it
+// cannot be collapsed into a struct without breaking them. inv::open takes a
+// Rect; this is the wire.
+#[allow(clippy::too_many_arguments)]
 fn inv_open(
     window: tauri::WebviewWindow,
     url: String,
@@ -99,37 +104,51 @@ fn inv_open(
     h: u32,
     // VOD resume point in seconds, applied by mpv as it opens the file.
     start: Option<f64>,
+    // Which grid tile, 0..3. OPTIONAL so every existing caller keeps working
+    // unchanged: the single player is slot 0 and never says so. Only the
+    // multiview grid passes this.
+    slot: Option<usize>,
 ) -> Result<(), String> {
     #[cfg(windows)]
     {
+        let slot = slot.unwrap_or(0);
         let hwnd = window.hwnd().map_err(|e| e.to_string())?.0 as isize;
         let (tx, rx) = std::sync::mpsc::channel();
         window
             .run_on_main_thread(move || {
-                let _ = tx.send(inv::open(hwnd, x, y, w, h, &url, start));
+                let at = inv::Rect { x, y, w, h };
+                let _ = tx.send(inv::open(slot, hwnd, at, &url, start));
             })
             .map_err(|e| e.to_string())?;
         rx.recv().map_err(|e| e.to_string())?
     }
     #[cfg(not(windows))]
     {
-        let _ = (window, url, x, y, w, h, start);
+        let _ = (window, url, x, y, w, h, start, slot);
         Ok(())
     }
 }
 
 #[tauri::command]
-fn inv_set_rect(window: tauri::WebviewWindow, x: i32, y: i32, w: u32, h: u32) -> Result<(), String> {
+fn inv_set_rect(
+    window: tauri::WebviewWindow,
+    x: i32,
+    y: i32,
+    w: u32,
+    h: u32,
+    slot: Option<usize>,
+) -> Result<(), String> {
     #[cfg(windows)]
     {
+        let slot = slot.unwrap_or(0);
         window
-            .run_on_main_thread(move || inv::set_rect(x, y, w, h))
+            .run_on_main_thread(move || inv::set_rect(slot, inv::Rect { x, y, w, h }))
             .map_err(|e| e.to_string())?;
         Ok(())
     }
     #[cfg(not(windows))]
     {
-        let _ = (window, x, y, w, h);
+        let _ = (window, x, y, w, h, slot);
         Ok(())
     }
 }
@@ -151,6 +170,38 @@ fn inv_stop(window: tauri::WebviewWindow) -> Result<(), String> {
     #[cfg(not(windows))]
     {
         let _ = window;
+        Ok(())
+    }
+}
+
+/// Point the player commands (pause, seek, tracks, volume, the status poll)
+/// at one tile of the grid, and move the audio to it. See mpv::set_focus:
+/// exactly one slot is ever unmuted.
+#[tauri::command]
+fn inv_focus(slot: usize) -> Result<(), String> {
+    mpv::set_focus(slot);
+    Ok(())
+}
+
+/// Stop ONE tile, releasing its provider connection and leaving the rest of
+/// the grid playing. `inv_stop` remains the way to stop everything.
+#[tauri::command]
+fn inv_stop_slot(window: tauri::WebviewWindow, slot: usize) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        let (tx, rx) = std::sync::mpsc::channel();
+        window
+            .run_on_main_thread(move || {
+                inv::close_slot(slot);
+                let _ = tx.send(());
+            })
+            .map_err(|e| e.to_string())?;
+        rx.recv().map_err(|e| e.to_string())?;
+        Ok(())
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (window, slot);
         Ok(())
     }
 }
@@ -941,6 +992,8 @@ pub fn run() {
             inv_open,
             inv_set_rect,
             inv_stop,
+            inv_focus,
+            inv_stop_slot,
             mpv_pause,
             mpv_mute,
             mpv_volume,

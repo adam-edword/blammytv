@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { frostRegion, holeClip } from "./hole";
+import { frostRegion, holeClip, holesClip } from "./hole";
 
 /** Pull the inner (cutout) subpath out of the clip string. */
 const inner = (clip: string) => clip.slice(clip.indexOf("Z ") + 2, -2);
@@ -41,6 +41,50 @@ describe("holeClip", () => {
     expect(Math.max(...pts.map((p) => p[0]))).toBe(110);
     expect(Math.min(...pts.map((p) => p[1]))).toBe(20);
     expect(Math.max(...pts.map((p) => p[1]))).toBe(220);
+  });
+});
+
+describe("holesClip", () => {
+  it("is holeClip when there is exactly one rect", () => {
+    expect(holesClip([{ l: 10, t: 20, r: 110, b: 220 }], 8, 1920, 1080)).toBe(
+      holeClip(10, 20, 110, 220, 8, 1920, 1080),
+    );
+  });
+
+  it("cuts one subpath per tile", () => {
+    const grid = [
+      { l: 0, t: 0, r: 100, b: 100 },
+      { l: 110, t: 0, r: 210, b: 100 },
+      { l: 0, t: 110, r: 100, b: 210 },
+      { l: 110, t: 110, r: 210, b: 210 },
+    ];
+    const d = holesClip(grid, 0, 1920, 1080);
+    // One M per cutout, plus the outer rect's own.
+    expect(d.match(/M/g)).toHaveLength(5);
+    // Every tile's own bounds appear.
+    for (const t of grid) expect(d).toContain(`M${t.l} ${t.t}`);
+  });
+
+  it("keeps every cutout counter-clockwise, so touching tiles do not cancel", () => {
+    // Two tiles sharing an edge. Under evenodd the shared region would read
+    // as opaque again; nonzero counts crossings, so both stay open. The
+    // winding is what guarantees it, so assert the winding: each subpath
+    // must go top-left DOWN first (l,t -> l,b), as the single-hole case does.
+    const d = holesClip(
+      [
+        { l: 0, t: 0, r: 100, b: 100 },
+        { l: 100, t: 0, r: 200, b: 100 },
+      ],
+      0,
+      500,
+      500,
+    );
+    expect(d).toContain("M0 0L0 100L100 100L100 0Z");
+    expect(d).toContain("M100 0L100 100L200 100L200 0Z");
+  });
+
+  it("is a ring with no holes when the grid is empty", () => {
+    expect(holesClip([], 8, 1920, 1080)).toBe('path("M0 0H1920V1080H0Z")');
   });
 });
 

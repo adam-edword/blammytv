@@ -7,7 +7,7 @@
 use libloading::Library;
 use std::ffi::CString;
 use std::os::raw::{c_char, c_int, c_void};
-use std::sync::atomic::{AtomicIsize, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicIsize, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Mutex, OnceLock};
 
 type Handle = *mut c_void;
@@ -110,18 +110,90 @@ fn lib() -> Result<&'static Lib, String> {
 }
 
 struct Player(Handle);
-// Single instance, guarded by the Mutex below.
+// One per slot, guarded by the Mutex below.
 unsafe impl Send for Player {}
 
-static PLAYER: Mutex<Option<Player>> = Mutex::new(None);
-/// The `wid` the live PLAYER was initialized against. `wid` is an INIT-ONLY
-/// mpv option, so the instance renders into that window for its whole life
-/// and ensure_player has nothing to do with the argument on the reuse path.
-/// Recording it turns "asked to play into a different window" from a silent
-/// render-into-a-dead-window into an error — the coupling between
-/// inv::CHILD and PLAYER is otherwise asserted nowhere and split across two
-/// files.
-static PLAYER_WID: AtomicIsize = AtomicIsize::new(0);
+/// How many in-app players can render at once: the 2x2 multiview grid.
+///
+/// Four is a decision rather than a starting point. Each slot is a whole mpv
+/// instance with its own hardware decoder and its own provider connection,
+/// so the ceiling here is a claim about the machine and the line, not about
+/// the layout: see plan 013.
+pub const SLOTS: usize = 4;
+
+/// The in-app players, one per grid tile.
+///
+/// SLOT 0 IS THE ORDINARY PLAYER. Single-stream playback occupies slot 0 and
+/// nothing else, FOCUS stays 0, and every function in this file behaves
+/// exactly as it did when this was one static rather than an array. That is
+/// the whole point of the shape: multiview is slots 1..3 arriving, not a
+/// second code path beside the player the rest of the app already drives.
+///
+/// Written out rather than `[const { None }; SLOTS]` so this compiles on any
+/// toolchain that builds the rest of the app.
+static PLAYERS: Mutex<[Option<Player>; SLOTS]> = Mutex::new([None, None, None, None]);
+/// The `wid` each slot's player was initialized against. `wid` is an
+/// INIT-ONLY mpv option, so an instance renders into that window for its
+/// whole life and ensure_player has nothing to do with the argument on the
+/// reuse path. Recording it turns "asked to play into a different window"
+/// from a silent render-into-a-dead-window into an error — the coupling
+/// between inv::CHILDREN and PLAYERS is otherwise asserted nowhere and split
+/// across two files.
+static PLAYER_WIDS: [AtomicIsize; SLOTS] = [
+    AtomicIsize::new(0),
+    AtomicIsize::new(0),
+    AtomicIsize::new(0),
+    AtomicIsize::new(0),
+];
+/// The slot that every command not naming one operates on.
+///
+/// THE REASON THE REFACTOR IS THIS SMALL. There are two dozen public
+/// functions here and a dozen take the player lock; threading a slot through
+/// all of them would have touched every caller in lib.rs and the frontend
+/// for a feature only the sports grid asks for. Instead the grid moves this
+/// one number and the existing commands follow it, so pause, seek, tracks,
+/// shaders, screenshots and the status poll all address the tile you are
+/// listening to without knowing tiles exist.
+///
+/// It is also what keeps the status poll affordable. `mpv_status` is a
+/// 500ms SYNC command on the UI thread and already carries the perf
+/// instrumentation below because it was costly at ONE player; polling four
+/// would be four times that on the same thread. Polling the focused slot
+/// alone keeps it at exactly what it is today.
+static FOCUS: AtomicUsize = AtomicUsize::new(0);
+
+/// The slot commands address, clamped so a bad index can never index out.
+fn focus() -> usize {
+    FOCUS.load(Ordering::Relaxed).min(SLOTS - 1)
+}
+
+/// Point every unqualified command at `slot`, and move the audio with it.
+///
+/// The mute is not a courtesy, it is what makes a grid usable: four live
+/// streams with four audio tracks is noise, so exactly one slot is ever
+/// unmuted and it is this one. Slots with no player are skipped, which is
+/// every slot but 0 until the grid opens.
+pub fn set_focus(slot: usize) {
+    if slot >= SLOTS {
+        return;
+    }
+    FOCUS.store(slot, Ordering::Relaxed);
+    let Some(l) = LIB.get() else { return };
+    let (Ok(k), Ok(on), Ok(off)) = (
+        CString::new("mute"),
+        CString::new("yes"),
+        CString::new("no"),
+    ) else {
+        return;
+    };
+    let g = PLAYERS.lock().unwrap();
+    for (i, p) in g.iter().enumerate() {
+        let Some(p) = p.as_ref() else { continue };
+        let v = if i == slot { off.as_ptr() } else { on.as_ptr() };
+        unsafe { (l.set_property_string)(p.0, k.as_ptr(), v) };
+    }
+}
+
 // The popout PiP runs as its OWN mpv instance, separate from the in-app
 // PLAYER — so tearing down the in-app player (inv::close/stop) can't kill it.
 static POPOUT: Mutex<Option<Player>> = Mutex::new(None);
@@ -425,16 +497,19 @@ pub fn stop_popout() {
 /// video; see plans/012-player-events.md.
 ///
 /// A no-op once the player exists, so it is cheap to call on every play.
-fn ensure_player(wid: isize) -> Result<(), String> {
-    // lib() does not touch PLAYER, but resolve it before locking anyway so
+fn ensure_player(slot: usize, wid: isize) -> Result<(), String> {
+    if slot >= SLOTS {
+        return Err(format!("slot {slot} does not exist"));
+    }
+    // lib() does not touch PLAYERS, but resolve it before locking anyway so
     // the guard is held across as little as possible.
     let l = lib()?;
-    let mut g = PLAYER.lock().unwrap();
-    if g.is_some() {
-        let bound = PLAYER_WID.load(Ordering::Relaxed);
+    let mut g = PLAYERS.lock().unwrap();
+    if g[slot].is_some() {
+        let bound = PLAYER_WIDS[slot].load(Ordering::Relaxed);
         if bound != wid {
             return Err(format!(
-                "player is bound to window {bound}, cannot re-target to {wid}"
+                "slot {slot} is bound to window {bound}, cannot re-target to {wid}"
             ));
         }
         return Ok(());
@@ -517,11 +592,11 @@ fn ensure_player(wid: isize) -> Result<(), String> {
             (l.terminate_destroy)(h);
             return Err("mpv_initialize failed".into());
         }
-        *g = Some(Player(h));
-        PLAYER_WID.store(wid, Ordering::Relaxed);
+        g[slot] = Some(Player(h));
+        PLAYER_WIDS[slot].store(wid, Ordering::Relaxed);
     }
     // DROP THE GUARD before reading a property: get_property takes the same
-    // PLAYER lock, so asking while still holding it deadlocks.
+    // PLAYERS lock, so asking while still holding it deadlocks.
     drop(g);
     // Which libmpv did the loader actually find? Once per PROCESS now. It
     // used to print from inv::open, whose "once per open" was true only
@@ -544,15 +619,15 @@ fn ensure_player(wid: isize) -> Result<(), String> {
 /// previous file's track choice would leak into a file that has different
 /// tracks. Reproduce the old defaults explicitly; the frontend re-applies
 /// remembered preferences afterwards, exactly as it did before.
-fn reset_per_file(start: Option<f64>) {
+fn reset_per_file(slot: usize, start: Option<f64>) {
     // SHADERS TOO. glsl-shaders/glsl-shader-opts are set at runtime by
     // mpv_frost/mpv_blur for the Settings glass and are neither init options
     // nor cleared by anything else — a fresh instance per stream used to drop
     // them for free, so a persistent one carries the last frost chain into
     // the next stream. Restoring the old default here is the whole job of
     // this function.
-    set_prop("glsl-shaders", "");
-    set_prop("glsl-shader-opts", "");
+    set_prop_on(slot, "glsl-shaders", "");
+    set_prop_on(slot, "glsl-shader-opts", "");
     // PAUSE FIRST, and never remove it. mpv reports core-idle="yes" while
     // paused, and mpv_status reads core-idle to decide whether the first
     // frame has landed — so an instance that is still paused from the last
@@ -564,10 +639,10 @@ fn reset_per_file(start: Option<f64>) {
     // carries the same warning for the same reason.
     //
     // A fresh instance per stream reset this for free. Nothing does now.
-    set_prop("pause", "no");
-    set_prop("speed", "1");
-    set_prop("aid", "auto");
-    set_prop("sid", "auto");
+    set_prop_on(slot, "pause", "no");
+    set_prop_on(slot, "speed", "1");
+    set_prop_on(slot, "aid", "auto");
+    set_prop_on(slot, "sid", "auto");
     // RESUME POINT, applied by mpv as it opens the file rather than as a
     // seek after it opened.
     //
@@ -596,7 +671,7 @@ fn reset_per_file(start: Option<f64>) {
     // silently plays the last thirty seconds. The frontend happens to send
     // null for anything <= 0 today, but the guard belongs in the layer that
     // owns the invariant, not in the one that can be hot-swapped under it.
-    set_prop(
+    set_prop_on(slot, 
         "start",
         &start
             .filter(|s| *s > 0.0 && s.is_finite())
@@ -604,10 +679,12 @@ fn reset_per_file(start: Option<f64>) {
     );
 }
 
-/// Start `url` in the in-app player, creating the player on first use.
-pub fn play_wid(url: &str, wid: isize, start: Option<f64>) -> Result<(), String> {
+/// Start `url` in an in-app player, creating that slot's player on first use.
+///
+/// Slot 0 is the ordinary player; the grid uses 1..3 as well.
+pub fn play_wid(slot: usize, url: &str, wid: isize, start: Option<f64>) -> Result<(), String> {
     let t0 = std::time::Instant::now();
-    ensure_player(wid)?;
+    ensure_player(slot, wid)?;
     // One provider connection at a time is the app-wide invariant, and it was
     // enforced per-CALLER before: popout_open tears the in-app player down,
     // play_popout defends against a stale popout, and StreamScreen calls
@@ -620,13 +697,13 @@ pub fn play_wid(url: &str, wid: isize, start: Option<f64>) -> Result<(), String>
     // independent mutexes and stop_popout drops POPOUT's before the quit.
     stop_popout();
     let t_ready = t0.elapsed();
-    reset_per_file(start);
+    reset_per_file(slot, start);
     // `loadfile <url> replace` — replace is the default, stated for the
     // reader. This is the same call reload_live() has always made, which is
     // why the load path itself is proven rather than new.
     {
-        let g = PLAYER.lock().unwrap();
-        let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) else {
+        let g = PLAYERS.lock().unwrap();
+        let (Some(p), Some(l)) = (g[slot].as_ref(), LIB.get()) else {
             return Err("no player".into());
         };
         unsafe {
@@ -675,8 +752,8 @@ pub fn popout_pos() -> f64 {
 }
 
 pub fn set_pause(paused: bool) {
-    let mut g = PLAYER.lock().unwrap();
-    if let (Some(p), Some(l)) = (g.as_mut(), LIB.get()) {
+    let mut g = PLAYERS.lock().unwrap();
+    if let (Some(p), Some(l)) = (g[focus()].as_mut(), LIB.get()) {
         unsafe {
             let (k, v) = (
                 CString::new("pause").unwrap(),
@@ -707,7 +784,7 @@ fn both(name: &str, value: &str) {
         return;
     };
     let Some(l) = LIB.get() else { return };
-    if let Some(p) = PLAYER.lock().unwrap().as_ref() {
+    if let Some(p) = PLAYERS.lock().unwrap()[focus()].as_ref() {
         unsafe { (l.set_property_string)(p.0, k.as_ptr(), v.as_ptr()) };
     }
     if let Some(p) = POPOUT.lock().unwrap().as_ref() {
@@ -735,8 +812,8 @@ pub fn set_volume(vol: i64) {
 /// exact seeks are cheap individually and not 31 times a second.
 /// `--hr-seek-framedrop` defaults to yes and is what keeps them cheap.
 pub fn seek(delta: f64) {
-    let g = PLAYER.lock().unwrap();
-    if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {
+    let g = PLAYERS.lock().unwrap();
+    if let (Some(p), Some(l)) = (g[focus()].as_ref(), LIB.get()) {
         unsafe {
             let cmd = CString::new("seek").unwrap();
             let d = CString::new(format!("{delta}")).unwrap();
@@ -750,8 +827,8 @@ pub fn seek(delta: f64) {
 /// Absolute seek to a position in seconds — the VOD scrubber's verb
 /// (mpv_seek_abs command, live since v0.2.47).
 pub fn seek_abs(pos: f64) {
-    let g = PLAYER.lock().unwrap();
-    if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {
+    let g = PLAYERS.lock().unwrap();
+    if let (Some(p), Some(l)) = (g[focus()].as_ref(), LIB.get()) {
         unsafe {
             let cmd = CString::new("seek").unwrap();
             let d = CString::new(format!("{pos}")).unwrap();
@@ -784,8 +861,8 @@ pub fn reload_live() {
         Some(u) => u,
         None => return,
     };
-    let g = PLAYER.lock().unwrap();
-    if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {
+    let g = PLAYERS.lock().unwrap();
+    if let (Some(p), Some(l)) = (g[focus()].as_ref(), LIB.get()) {
         unsafe {
             let cmd = CString::new("loadfile").unwrap();
             let curl = match CString::new(url) {
@@ -813,9 +890,35 @@ pub fn reload_live() {
 /// ever stops being true, the fix is contained to THIS function — swap the
 /// `stop` command for `shutdown()` and take the teardown cost back on
 /// switches only. Nothing else in the app needs to know.
+///
+/// EVERY SLOT, not the focused one. This is the app's "stop playing" and it
+/// has to mean the whole grid: leaving multiview with three tiles still
+/// holding sockets is the same connection leak the paragraph above is
+/// about, multiplied. On single-stream playback only slot 0 is occupied, so
+/// this is what it always was.
 pub fn unload() {
-    let g = PLAYER.lock().unwrap();
-    if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {
+    let g = PLAYERS.lock().unwrap();
+    let Some(l) = LIB.get() else { return };
+    for p in g.iter().flatten() {
+        unsafe {
+            let cmd = CString::new("stop").unwrap();
+            let args = [cmd.as_ptr(), std::ptr::null()];
+            (l.command)(p.0, args.as_ptr());
+        }
+    }
+}
+
+/// Stop ONE tile, leaving the rest of the grid playing.
+///
+/// The grid's own teardown: closing a tile releases its connection without
+/// touching the three you are still watching. `unload` remains the way to
+/// stop everything.
+pub fn unload_slot(slot: usize) {
+    if slot >= SLOTS {
+        return;
+    }
+    let g = PLAYERS.lock().unwrap();
+    if let (Some(p), Some(l)) = (g[slot].as_ref(), LIB.get()) {
         unsafe {
             let cmd = CString::new("stop").unwrap();
             let args = [cmd.as_ptr(), std::ptr::null()];
@@ -838,8 +941,17 @@ pub fn unload() {
 /// turns out not to release the provider connection.
 #[allow(dead_code)]
 pub fn shutdown() {
-    let taken = PLAYER.lock().unwrap().take();
-    if let (Some(p), Some(l)) = (taken, LIB.get()) {
+    // Collected under the lock, destroyed after it drops, for the reason in
+    // the doc comment: terminate_destroy blocks for hundreds of ms and must
+    // never be called with the mutex held. Four of them in a row is four
+    // times that, which is fine at process exit and would not be anywhere
+    // else.
+    let taken: Vec<Player> = {
+        let mut g = PLAYERS.lock().unwrap();
+        g.iter_mut().filter_map(Option::take).collect()
+    };
+    let Some(l) = LIB.get() else { return };
+    for p in taken {
         unsafe { (l.terminate_destroy)(p.0) };
     }
 }
@@ -911,6 +1023,17 @@ pub fn get_prop_pub(name: &str) -> Option<String> {
 }
 
 fn set_prop(name: &str, value: &str) {
+    set_prop_on(focus(), name, value);
+}
+
+/// The same, on a slot named outright.
+///
+/// `reset_per_file` is the caller that forces the distinction to exist: the
+/// grid loads a tile while you are still listening to another one, so the
+/// per-file reset has to reach the slot being LOADED rather than the slot
+/// being heard. Sending "pause=no" to the wrong instance is the specific
+/// failure the pause comment in that function is about.
+fn set_prop_on(slot: usize, name: &str, value: &str) {
     // BUILT BEFORE THE LOCK, and not unwrapped. `value` reaches here from
     // the frontend (mpv_track's id), so an interior NUL panics — and a sync
     // command runs inside WebView2's extern "system" callback, where an
@@ -920,8 +1043,11 @@ fn set_prop(name: &str, value: &str) {
     let (Ok(k), Ok(v)) = (CString::new(name), CString::new(value)) else {
         return;
     };
-    let g = PLAYER.lock().unwrap();
-    if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {
+    if slot >= SLOTS {
+        return;
+    }
+    let g = PLAYERS.lock().unwrap();
+    if let (Some(p), Some(l)) = (g[slot].as_ref(), LIB.get()) {
         unsafe {
             (l.set_property_string)(p.0, k.as_ptr(), v.as_ptr());
         }
@@ -966,8 +1092,8 @@ pub fn set_shader_opts(opts: &str) {
 /// file exists when this returns true. Used for the frozen-frame glass
 /// behind modals (lib.rs `mpv_snapshot`).
 pub fn screenshot_to_file(path: &str) -> bool {
-    let g = PLAYER.lock().unwrap();
-    if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {
+    let g = PLAYERS.lock().unwrap();
+    if let (Some(p), Some(l)) = (g[focus()].as_ref(), LIB.get()) {
         unsafe {
             let cmd = CString::new("screenshot-to-file").unwrap();
             let cpath = match CString::new(path) {
@@ -991,8 +1117,8 @@ pub fn screenshot_to_file(path: &str) -> bool {
 /// stop()/terminate). Returns None if no player or the property is empty/unset.
 pub fn get_property(name: &str) -> Option<String> {
     PROP_READS.fetch_add(1, Ordering::Relaxed);
-    let g = PLAYER.lock().unwrap();
-    let (p, l) = (g.as_ref()?, LIB.get()?);
+    let g = PLAYERS.lock().unwrap();
+    let (p, l) = (g[focus()].as_ref()?, LIB.get()?);
     unsafe {
         let cname = CString::new(name).ok()?;
         let ptr = (l.get_property_string)(p.0, cname.as_ptr());
