@@ -37,13 +37,19 @@
  */
 
 /**
- * A row. `justify-start` because Button centres by default and a menu item
- * is left-aligned; `font-normal` because Button's base is `font-medium` and
+ * A row. `justify-start` AND `text-left`, which are two different fixes for
+ * the same complaint. `justify-start` packs the flex children left;
+ * `text-left` is what actually left-justifies the LABEL, because the UA
+ * stylesheet gives every <button> `text-align: center` and the name span is
+ * `flex: 1`, so the text sat centred inside a full-width box no matter
+ * where the box was. shadcn's own SidebarMenuButton carries `text-left` for
+ * exactly this reason. `font-normal` because Button's base is `font-medium`
+ * and shadcn keeps that weight for the ACTIVE row only; `font-normal` because Button's base is `font-medium` and
  * shadcn keeps that weight for the ACTIVE row only, which is what makes the
  * active one readable without a fill doing all the work.
  */
 export const SIDEBAR_ITEM =
-  "h-8 w-full justify-start gap-2 px-2 has-[>svg]:px-2 font-normal";
+  "h-8 w-full justify-start gap-2 px-2 has-[>svg]:px-2 text-left font-normal";
 
 /** The active row: shadcn's `data-[active=true]` pair. */
 export const SIDEBAR_ITEM_ACTIVE =
@@ -55,4 +61,4 @@ export const SIDEBAR_ITEM_ACTIVE =
  * opacity rather than a rule or a caps treatment to say so.
  */
 export const SIDEBAR_LABEL =
-  "h-8 w-full justify-start gap-2 px-2 has-[>svg]:px-2 text-xs font-medium text-sidebar-foreground/70";
+  "h-8 w-full justify-start gap-2 px-2 has-[>svg]:px-2 text-left text-xs font-medium text-sidebar-foreground/70";

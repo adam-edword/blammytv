@@ -42,7 +42,7 @@
   top: 2px;
   bottom: 2px;
   background: var(--surface-raised);
-  border: 0.5px solid var(--border-raised);
+  border: 1px solid var(--border-raised);
   border-radius: var(--radius-chip);
   /* 380ms — the spring's designed pairing (tokens.css) and the mode
    * rail's speed. 300ms read as a twitchy overshoot (Adam, wave-A
@@ -259,7 +259,10 @@ select:focus-visible,
   justify-content: center;
   padding: 1.6px 4.4px;
   border: 1px solid transparent;
-  border-radius: 10px;
+  /* shadcn's Badge is `rounded-full`. The SIZE stays ours — these are
+   * 8.2px hardware markings stamped on card art, and shadcn's text-xs
+   * would be half a poster wide — but the shape is theirs. */
+  border-radius: var(--radius-pill);
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 8.2px;

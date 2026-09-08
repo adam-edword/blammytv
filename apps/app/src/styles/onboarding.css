@@ -276,9 +276,12 @@
 .onb-input {
   width: min(560px, 82vw);
   margin-top: 10px;
-  padding: 13px 18px;
+  /* shadcn Input. Onboarding is a dark full-bleed world of its own, so it
+   * keeps its own translucent fill, but the box is theirs. */
+  height: 36px;
+  padding: 4px 12px;
   border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 14px;
+  border-radius: var(--radius-chip);
   background: rgba(255, 255, 255, 0.045);
   backdrop-filter: blur(10px);
   color: #fff;

@@ -25,12 +25,17 @@
   max-height: calc(100vh - 136px);
   display: flex;
   flex-direction: column;
-  background: var(--card-glass);
-  backdrop-filter: blur(10px);
-  border: 1px solid var(--border-strong);
+  /* shadcn's DialogContent: `bg-background p-6 shadow-lg rounded-lg border`.
+   * Solid, not glass, and a shadow that reads as elevation rather than as a
+   * light source below the card. p-6 is 24px; this carried 32/39, which is
+   * a third more inset than anything else in the app. */
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius-card);
-  padding: 32px 39px;
-  box-shadow: 0 -13px 72.6px rgba(0, 0, 0, 0.73);
+  padding: 24px;
+  box-shadow:
+    0 10px 15px -3px rgb(0 0 0 / 0.1),
+    0 4px 6px -4px rgb(0 0 0 / 0.1);
   /* Entrance (motion plan 002, redesigned at the feel-gate — the stock
    * scale+8px hop read as an afterthought). "The gear drops its sheet":
    * the card descends from the gear on the drawer curve with a 4deg
@@ -95,10 +100,14 @@
   gap: 20px;
 }
 
+/* shadcn's DialogTitle: `text-lg leading-none font-semibold`. 32px was a
+ * page title on a panel, and it set the scale everything under it had to
+ * answer to. */
 .settings__title {
   font-family: var(--font-headline);
   font-weight: 600;
-  font-size: 32px;
+  font-size: 18px;
+  line-height: 1.2;
   margin: 0;
 }
 
@@ -161,11 +170,14 @@
 /* Heading over a RUN of sections (Sources, Playback, Interface, Media).
  * Whatever follows drops its own top rule, because the heading is already
  * the divider — a rule immediately under a heading reads as a stray line. */
+/* A run heading inside the dialog. shadcn has no component for this, so it
+ * takes the next step down its scale: `text-base font-semibold`. It cannot
+ * be bigger than the dialog's own title, which is what 32px made it. */
 .settings__group {
   font-family: var(--font-headline);
   font-weight: 600;
-  font-size: 32px;
-  margin: 30px 0 0;
+  font-size: 16px;
+  margin: 24px 0 0;
 }
 .settings__group:first-child {
   margin-top: 0;
@@ -176,15 +188,19 @@
   padding-top: 0;
 }
 
+/* One step below the run heading: shadcn's `text-sm font-medium`, the same
+ * weight and size as a form label, which is what this is. */
 .settings-section__list-title {
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 21px;
+  font-weight: 500;
+  font-size: 14px;
   margin: 0;
 }
 
+/* shadcn's DialogDescription: `text-sm text-muted-foreground`. */
 .settings__section-note {
-  font-size: 15px;
+  font-size: 14px;
+  color: var(--text-muted);
   margin: 0;
   max-width: 52ch;
   line-height: 1.45;
@@ -218,33 +234,70 @@
   gap: 6px;
 }
 
+/* shadcn's Label: `text-sm leading-none font-medium`, and NOT dimmed. A
+ * form label names the field you are about to type in; 60% opacity made
+ * every one of them harder to read than the placeholder below it. */
 .settings-field__label {
   font-family: var(--font-headline);
-  font-weight: 600;
-  font-size: 12px;
-  opacity: 0.6;
-  padding-left: 6px;
+  font-weight: 500;
+  font-size: 14px;
+  padding-left: 2px;
 }
 
+/* shadcn's Input, verbatim from the registry:
+ *   h-9  rounded-md  border border-input  bg-input/30  px-3 py-1  text-sm
+ *   shadow-xs  transition-[color,box-shadow]
+ *   focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50
+ *
+ * THE FOCUS RING IS BACK ON INPUTS, reversing ui.css's opt-out. That rule
+ * exists because browsers hand an input :focus-visible on MOUSE focus too,
+ * so a blanket ring sits on a field the whole time you type in it — which
+ * is true, and is exactly what shadcn does. Their Input rings while
+ * focused, deliberately: it is the only thing marking which field has the
+ * caret in a form of identical boxes. Taking their component means taking
+ * their answer.
+ */
 .settings-input {
   flex: 1;
   min-width: 1px;
   width: 100%;
+  height: 36px;
   font-family: var(--font-text);
-  font-size: 15px;
+  font-size: 14px;
   color: var(--text);
-  background: var(--surface);
+  background: color-mix(in srgb, var(--border-input) 30%, transparent);
   border: 1px solid var(--border-input);
-  border-radius: var(--radius-card);
-  padding: 11px 12px;
+  border-radius: var(--radius-chip);
+  padding: 4px 12px;
+  box-shadow: var(--shadow-xs);
   outline: none;
+  transition:
+    color var(--dur-hover) ease,
+    border-color var(--dur-hover) ease,
+    box-shadow var(--dur-hover) ease;
   /* Long values (manifest URLs) truncate with an ellipsis instead of
    * clipping at the corner; the browser lifts it while editing. */
   text-overflow: ellipsis;
 }
 
 .settings-input::placeholder {
-  color: var(--text-ghost);
+  color: var(--text-muted);
+}
+
+/* shadcn's ring: the border goes --ring and a 3px half-opacity halo sits
+ * outside it. Written as box-shadow so it composes with --shadow-xs above
+ * rather than replacing it, which is how shadcn's own ring utilities work. */
+.settings-input:focus-visible,
+.onb-input:focus-visible,
+.rec__input:focus-visible,
+.list-picker__input:focus-visible,
+.library__new-input:focus-visible,
+.library__heading-input:focus-visible,
+.rowcap__value--edit:focus-visible {
+  border-color: var(--ring);
+  box-shadow:
+    var(--shadow-xs),
+    0 0 0 3px color-mix(in srgb, var(--ring) 50%, transparent);
 }
 
 /* In-field tools (copy/clear), revealed on hover or focus. */
@@ -338,7 +391,7 @@
   height: 32px;
   padding: 0 7px 0 3px;
   background: var(--surface-raised);
-  border: 0.5px solid var(--border-raised);
+  border: 1px solid var(--border-raised);
   border-radius: var(--radius-chip);
   font-family: var(--font-headline);
   font-weight: 700;
@@ -981,14 +1034,11 @@
  * the card's glass breathe through instead. color-mix keeps the tint
  * theme-true originally; Adam's trim (v0.4.3): black glass at 65%,
  * both themes. Thumbs/chips ABOVE these stay solid for contrast. */
-.settings .settings-input,
-.settings .chip-tabs,
-.settings .playlist-row,
-.settings .source-list,
-.settings .accent-popover__dropper,
-.settings .accent-popover__hex input {
-  background: color-mix(in srgb, #000000 65%, transparent);
-  backdrop-filter: blur(14px);
+/* The settings card used to sink its inputs into 65% black glass. shadcn's
+ * Input is `bg-input/30` on every surface it lands on, so the field reads
+ * the same in a dialog as it does on a page. */
+.settings .settings-input {
+  background: color-mix(in srgb, var(--border-input) 30%, transparent);
 }
 
 /* ---- Press feedback (motion plan 001). Tiny icons dip deeper (0.9);

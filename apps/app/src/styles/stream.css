@@ -22,10 +22,11 @@
   flex-direction: column;
   gap: 10px;
 }
+/* shadcn's empty states sit at `text-xl font-semibold`. */
 .stream__note h2 {
   font-family: var(--font-headline);
   font-weight: 600;
-  font-size: 28px;
+  font-size: 20px;
 }
 .stream__note p { color: var(--text-muted); }
 .stream__note--dim { color: var(--text-muted); }
@@ -182,7 +183,10 @@
   font-size: clamp(44px, 6vw, 92px);
   letter-spacing: -0.02em;
   line-height: 0.98;
-  color: #f5eecf;
+  /* Was #f5eecf, a warm cream that was BlammyTV's and nobody else's. Over
+   * art a fixed light is right (the scrim below it is the only guaranteed
+   * ground), but it is shadcn's foreground now, not a brand tint. */
+  color: oklch(0.985 0 0);
 }
 .shero__synopsis {
   font-size: 15px;
@@ -208,10 +212,14 @@
   flex-direction: column;
   gap: 26px;
 }
+/* shadcn's largest heading in a dashboard is `text-2xl font-semibold`, and
+ * a row title is a section heading, not a page. 41px was competing with the
+ * poster art it was labelling. */
 .media-row__title {
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 41px;
+  font-weight: 600;
+  font-size: 24px;
+  letter-spacing: -0.01em;
   /* 2px here + the scroller's 18px hover headroom = the old 16px+4px gap. */
   margin-bottom: 2px;
 }
@@ -886,16 +894,19 @@
   gap: 0px;
   align-items: center;
   padding: 16px 16px 16px 10px;
-  border-radius: 1000px;
-  background: #00000050;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(18px);
+  /* shadcn Card: `rounded-xl border bg-card shadow-sm`. Was a 1000px glass
+   * slab; a source row is a card with a play affordance, and shadcn has no
+   * stadium-shaped card. */
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
   cursor: pointer;
   text-align: left;
   transition: background var(--dur-hover) ease,
     transform 160ms var(--ease-out);
 }
-.vod-source:hover { background: rgba(0, 0, 0, 0.6); }
+.vod-source:hover { background: var(--surface-raised); }
 .vod-source__quality {
   flex-shrink: 0;
   align-self: stretch;
@@ -950,10 +961,12 @@
   gap: 8px;
   text-align: left;
   padding: 10px;
+  /* shadcn Card. The radius already matched (--radius-card IS rounded-xl);
+   * the glass did not. */
   border-radius: var(--radius-card);
-  background: #00000050;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(18px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
   cursor: pointer;
   transition: background var(--dur-hover) ease,
     transform 160ms var(--ease-out);
@@ -1328,7 +1341,7 @@
 /* The one that's playing right now: accent ring, like the app's active
  * chips. */
 .vod-source--current {
-  border: 0.5px solid var(--accent);
+  border: 1px solid var(--accent);
   background: var(--accent-surface);
 }
 

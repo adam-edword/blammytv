@@ -173,6 +173,15 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
 
+  /* Tailwind v4's own `shadow-sm` and `shadow-xs`, which is what shadcn's
+   * Card and Input carry. Tokens rather than utilities because these land
+   * on hand-written surfaces in this file's sheets, not on call sites.
+   * NOTE the v4 rename: what used to be `shadow-sm` is `shadow-xs` now. */
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-sm:
+    0 1px 3px 0 rgb(0 0 0 / 0.1),
+    0 1px 2px -1px rgb(0 0 0 / 0.1);
+
   /* Shape */
   /* ------------------------------------------------------------- radii
    *

@@ -2249,9 +2249,12 @@
    * The name wraps inside rather than growing the tile. */
   height: 92px;
   padding: 10px 8px;
+  /* shadcn Card, and --radius-card rather than a hardcoded 14px — the two
+   * agree today and a literal is how they stop agreeing. */
   border: 1px solid var(--border);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--text) 3%, transparent);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
   cursor: pointer;
   transition:
     border-color var(--dur-hover) ease,
@@ -2373,16 +2376,20 @@
   z-index: 2;
   /* Shrink to the text. A block-level h4 would span the column and be a
    * band again whatever colour it took. */
-  align-self: flex-start;
-  margin: 6px 0 4px 4px;
-  padding: 4px 9px;
-  border-radius: 999px;
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 10.5px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
+  /* shadcn's SidebarGroupLabel, which is what this is: 12px, medium,
+   * foreground/70, no chip and no caps. It was a 10.5px uppercase pill in
+   * --surface-raised — the loudest quiet thing in the panel, and the only
+   * label in the app still shouting. Matches .live-group in the Guide
+   * sidebar exactly, which is the point: they are the same object. */
+  align-self: stretch;
+  margin: 6px 0 2px;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  height: 32px;
+  font-size: 12px;
+  font-weight: 500;
+  color: color-mix(in srgb, var(--text) 70%, transparent);
   background: var(--surface-raised);
   border: 1px solid var(--border);
 }
@@ -3517,7 +3524,7 @@
 .leaguepick__clearcount {
   min-width: 18px;
   padding: 1px 6px;
-  border-radius: 10px;
+  border-radius: var(--radius-pill);
   font-size: 11px;
   /* THEMED, not a hard-coded black. `rgba(0,0,0,0.35)` over the accent
    * surface measured 2.03:1 in light mode — a dark blob on a pink button

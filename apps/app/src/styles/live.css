@@ -96,7 +96,7 @@
   left: 0;
   border-radius: var(--radius-chip);
   background: var(--surface-raised);
-  border: 0.5px solid var(--border-raised);
+  border: 1px solid var(--border-raised);
   will-change: transform, width;
   transition:
     transform 380ms var(--spring),
@@ -297,7 +297,7 @@
   transform: translateY(-50%);
   padding: 6px 12px;
   background: var(--surface-raised);
-  border: 0.5px solid var(--border-raised);
+  border: 1px solid var(--border-raised);
   border-radius: 10px;
   font-family: var(--font-headline);
   font-weight: 700;
@@ -598,8 +598,11 @@
   align-items: flex-start;
   padding: 0 12px 0 16px;
   text-align: left;
-  background: var(--surface-puck);
-  border: 1.5px solid color-mix(in srgb, var(--text) 4%, transparent);
+  /* shadcn's card surface at chip scale: a real 1px --border rather than a
+   * 1.5px 4%-white ghost, which read as a smudge at this size and was the
+   * one edge in the app that was not the border token. */
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius-chip);
   overflow: hidden;
   transition: filter var(--dur-hover) ease;
@@ -812,7 +815,7 @@
   gap: 8px;
   padding: 7px 14px;
   background: var(--accent-surface);
-  border: 0.5px solid var(--accent);
+  border: 1px solid var(--accent);
   border-radius: var(--radius-card);
   font-family: var(--font-text);
   font-weight: 700;

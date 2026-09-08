@@ -643,6 +643,121 @@ check(
   `background-image ${aurora.image.slice(0, 70)}…`,
 );
 
+// ---- 9. THE DESIGN SYSTEM ITSELF, not just the plumbing -----------------
+//
+// Checks 1-8 lock the cascade. These lock the LOOK, because v0.9.64 spent a
+// whole pass moving the app's own surfaces, type and edges onto shadcn's and
+// every one of them is a value somebody could put back without noticing.
+
+// 9a. NO SUB-PIXEL BORDERS. shadcn draws every edge at 1px. This app had ten
+// `0.5px solid` hairlines on chips and thumbs, which render as a dithered
+// grey at 1x and a real line at 2x — the same control, two different edges,
+// depending on the monitor. A source check because a computed style reports
+// the used value, not the authored one.
+{
+  const { readFileSync, readdirSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const dir = new URL("../apps/app/src/styles/", import.meta.url).pathname;
+  const bad = [];
+  for (const f of readdirSync(dir).filter((n) => n.endsWith(".css")))
+    for (const m of readFileSync(join(dir, f), "utf8").matchAll(
+      /border(?:-[a-z]+)?:\s*(0?\.\d+|1\.\d+)px\s+solid/g,
+    ))
+      bad.push(`${f}: ${m[1]}px`);
+  check(
+    "every border is a whole pixel, the way shadcn draws them",
+    bad.length === 0,
+    bad.length ? bad.slice(0, 3).join(", ") : "no sub-pixel or 1.5px edges",
+  );
+}
+
+// 9b. THE CARD SURFACE. shadcn's Card is `bg-card border shadow-sm`, and the
+// app's chrome cards were `#00000050` + an 18px backdrop blur until v0.9.64.
+// Read live off a real episode card rather than off the stylesheet, because
+// the thing that matters is what paints.
+const card = await page.evaluate(() => {
+  const el = document.createElement("div");
+  el.className = "episode-card";
+  document.body.appendChild(el);
+  const s = getComputedStyle(el);
+  const out = {
+    bg: s.backgroundColor,
+    blur: s.backdropFilter,
+    shadow: s.boxShadow,
+    radius: s.borderRadius,
+  };
+  el.remove();
+  return out;
+});
+check(
+  "a chrome card is shadcn's opaque surface, not the old glass",
+  card.blur === "none" && !/rgba\(0, 0, 0, 0\.3/.test(card.bg),
+  `background ${card.bg}, backdrop-filter ${card.blur}`,
+);
+check(
+  "  and it carries shadow-sm, which is what makes it read as a card",
+  card.shadow !== "none" && card.radius === "14px",
+  `${card.radius}, shadow ${card.shadow.slice(0, 34)}…`,
+);
+
+// 9c. THE INPUT. shadcn's is h-9 / rounded-md / bg-input/30, and it RINGS on
+// focus — reversing an opt-out this app carried for years. The ring is the
+// only thing marking which field has the caret in a column of identical
+// boxes, so its absence is the regression worth catching.
+const field = await page.evaluate(() => {
+  const el = document.createElement("input");
+  el.className = "settings-input";
+  document.body.appendChild(el);
+  const s = getComputedStyle(el);
+  const rest = { h: el.getBoundingClientRect().height, r: s.borderRadius };
+  el.focus();
+  const lit = getComputedStyle(el).boxShadow;
+  el.remove();
+  return { ...rest, lit };
+});
+check(
+  "a text field is shadcn's Input box",
+  Math.round(field.h) === 36 && field.r === "8px",
+  `${Math.round(field.h)}px tall, radius ${field.r}`,
+);
+check(
+  "  and it takes a focus ring, which shadcn's does and this app used not to",
+  /\d/.test(field.lit) && field.lit !== "none",
+  field.lit.slice(0, 46) + "…",
+);
+
+// 9d. THE TYPE SCALE. A dialog's title cannot be larger than a page's
+// heading, and this one was 32px — bigger than shadcn uses anywhere. The
+// check is the RELATIONSHIP, not the number, so a later retune is free.
+const type = await page.evaluate(() => {
+  const read = (cls, tag = "div") => {
+    const el = document.createElement(tag);
+    el.className = cls;
+    document.body.appendChild(el);
+    const px = parseFloat(getComputedStyle(el).fontSize);
+    el.remove();
+    return px;
+  };
+  return {
+    dialogTitle: read("settings__title", "h2"),
+    group: read("settings__group", "h3"),
+    label: read("settings-field__label"),
+    row: read("media-row__title", "h2"),
+  };
+});
+check(
+  "the type scale descends: row title > dialog title > group > label",
+  type.row > type.dialogTitle &&
+    type.dialogTitle > type.group &&
+    type.group > type.label,
+  `row ${type.row} > dialog ${type.dialogTitle} > group ${type.group} > label ${type.label}`,
+);
+check(
+  "  and nothing in the chrome is over 24px, shadcn's largest",
+  Math.max(type.row, type.dialogTitle, type.group, type.label) <= 24,
+  `largest is ${Math.max(type.row, type.dialogTitle, type.group, type.label)}px`,
+);
+
 if (process.env.SHOT_DIR)
   await page.screenshot({ path: `${process.env.SHOT_DIR}/tailwind.png` });
 await browser.close();
