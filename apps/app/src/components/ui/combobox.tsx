@@ -230,13 +230,21 @@ function ComboboxSeparator({
   )
 }
 
-function ComboboxChips({
-  className,
-  ...props
-}: React.ComponentPropsWithRef<typeof ComboboxPrimitive.Chips> &
-  ComboboxPrimitive.Chips.Props) {
+/* forwardRef, for the React-18 reason button.tsx spells out. This one is
+ * load-bearing: `useComboboxAnchor` exists so ComboboxContent can anchor to
+ * the WHOLE chips field rather than to the little input inside it, and the
+ * ref is how it gets there. The registry types it `ComponentPropsWithRef`,
+ * which is React 19's ref-in-props — on 18 the ref is stripped, the anchor
+ * ref stays null, and the popup silently falls back to the input, which
+ * moves every time a chip is added. */
+const ComboboxChips = React.forwardRef<
+  HTMLDivElement,
+  React.ComponentPropsWithRef<typeof ComboboxPrimitive.Chips> &
+    ComboboxPrimitive.Chips.Props
+>(function ComboboxChips({ className, ...props }, ref) {
   return (
     <ComboboxPrimitive.Chips
+      ref={ref}
       data-slot="combobox-chips"
       className={cn(
         "flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border border-input bg-transparent bg-clip-padding px-2.5 py-1.5 text-sm shadow-xs transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 has-aria-invalid:border-destructive has-aria-invalid:ring-[3px] has-aria-invalid:ring-destructive/20 has-data-[slot=combobox-chip]:px-1.5 dark:bg-input/30 dark:has-aria-invalid:border-destructive/50 dark:has-aria-invalid:ring-destructive/40",
@@ -245,7 +253,7 @@ function ComboboxChips({
       {...props}
     />
   )
-}
+})
 
 function ComboboxChip({
   className,

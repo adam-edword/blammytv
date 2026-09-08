@@ -808,9 +808,16 @@ check(
   };
   walk(src);
 
-  // A primitive forwards if it wraps ITSELF in forwardRef, or if it is a
-  // thin pass-through onto a Radix/Base UI primitive that handles its own
-  // (either a direct alias or a component rendering one).
+  // Exactly two things forward a ref on React 18: `React.forwardRef`, and a
+  // direct alias of a primitive (`const Combobox = ComboboxPrimitive.Root`).
+  //
+  // NOT "a function that renders a primitive". That arm was here until
+  // v0.9.69 and it is unsound: React strips `ref` off a function
+  // component's props BEFORE calling it, so what the body renders is
+  // irrelevant — `function X(props) { return <XPrimitive.Root {...props}/> }`
+  // drops the ref exactly as surely as one rendering a <div>. The arm was
+  // written from the Radix wrappers, where nothing happened to be handed a
+  // ref, and it went on to pass ComboboxChips, which is handed one.
   //
   // PER COMPONENT, not per file. A file-wide `/forwardRef/` test passes
   // every component in any file where one of them forwards, which is most
@@ -821,8 +828,7 @@ check(
     const decl = "(?:const|let|var)\\s+" + name + "\\s*=\\s*";
     return (
       new RegExp(decl + "(?:React\\.)?forwardRef").test(def) ||
-      new RegExp(decl + "\\w+Primitive\\.").test(def) ||
-      new RegExp("(?:function\\s+" + name + "\\b|" + decl + ")[\\s\\S]{0,600}?<\\w+Primitive\\.").test(def)
+      new RegExp(decl + "\\w+Primitive\\.\\w").test(def)
     );
   };
 

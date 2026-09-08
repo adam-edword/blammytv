@@ -9,6 +9,7 @@ import {
   ComboboxItem,
   ComboboxList,
   ComboboxValue,
+  useComboboxAnchor,
 } from "../../components/ui/combobox";
 import { fetchAioCatalogs, type AioCatalog } from "../../data/aiostreams";
 import {
@@ -78,6 +79,23 @@ export function HeroSourcesSection() {
     saveHeroSources(keys);
   };
 
+  /**
+   * The popup anchors to the WHOLE chips field, not to the input inside it.
+   *
+   * This is what `useComboboxAnchor` is for, and skipping it is what Adam
+   * saw: "there is a LOT of moving around… the dropdown shifts after a
+   * selection is picked." With no anchor the positioner tracks the
+   * ComboboxChipsInput, which is a shrinking box that slides along the row
+   * and drops to a new line as chips fill the field, so the popup chased it
+   * on every pick. The field itself only ever grows downward.
+   *
+   * It also switches the popup's width rule: ComboboxContent stamps
+   * `data-chips` when an anchor is given, which trades `w-(--anchor-width)`
+   * for `min-w-(--anchor-width)` — the popup sizes to its content instead of
+   * to the field.
+   */
+  const anchor = useComboboxAnchor();
+
   const items = catalogs.status === "ready" ? catalogs.items : [];
   const byKey = new Map(items.map((c) => [c.key, c]));
   const chosen = selected
@@ -139,7 +157,11 @@ export function HeroSourcesSection() {
           itemToStringValue={(c: AioCatalog) => `${c.name} ${typeLabel(c.type)}`}
           itemToStringLabel={(c: AioCatalog) => c.name}
         >
-          <ComboboxChips className="w-full">
+          {/* `w-full max-w-xs` is the demo's own width. Left uncapped the
+            * field ran the full 738px of the settings panel, and since the
+            * popup takes its width from the field, so did that. A chips
+            * field is a place to put chips, not a text column. */}
+          <ComboboxChips ref={anchor} className="w-full max-w-xs">
             <ComboboxValue>
               {(picked: AioCatalog[]) =>
                 picked.map((c) => (
@@ -151,7 +173,7 @@ export function HeroSourcesSection() {
             </ComboboxValue>
             <ComboboxChipsInput placeholder="Add sources…" />
           </ComboboxChips>
-          <ComboboxContent>
+          <ComboboxContent anchor={anchor}>
             <ComboboxEmpty>No catalog found.</ComboboxEmpty>
             <ComboboxList>
               {(c: AioCatalog) => (
