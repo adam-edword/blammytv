@@ -135,6 +135,23 @@
    * shove ITS last row against the card edge. */
   margin-bottom: -32px;
   padding-bottom: 32px;
+  /* ROOM FOR A FOCUS RING, by the same trick sideways.
+   *
+   * `overflow-y: auto` forces overflow-x to compute as `auto` too, so this
+   * is a clipping box on BOTH axes, and its left edge sits exactly on the
+   * left edge of every control inside it. shadcn draws focus as a 3px ring
+   * OUTSIDE the border box (`focus-visible:ring-[3px]`), so that ring had
+   * nowhere to paint and got sliced down its left side — which is what
+   * Adam caught on the hero sources field.
+   *
+   * 4px each side: the ring plus a pixel of slack. The negative margin
+   * cancels the padding, so nothing moves; the box just gets 4px wider than
+   * its contents in each direction, and the ring paints inside that. There
+   * is no other way to say it — a scroll container cannot have
+   * `overflow-x: visible`, and `overflow-clip-margin` needs `overflow:
+   * clip`, which does not scroll. */
+  margin-inline: -4px;
+  padding-inline: 4px;
 }
 /* Content dissolves as it passes under the header instead of being cut at
  * the scroll box edge. Set only once something IS scrolled up there: an
