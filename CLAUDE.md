@@ -130,6 +130,25 @@ comments, UI copy.
   unless I ask for one or the shape genuinely needs one. Say what changed,
   what's still open, and what I have to do. Surprises and decisions I own
   are worth the words; narration is not.
+- **End every reply with what to look for.** Above the restart line, a short
+  "What to look for" block: where to click, and what should be different
+  when I get there. This is not narration and not a recap of the diff. It is
+  the part I cannot get from the commit, because you looked at the running
+  app and I have not yet.
+  - **Name the screen and the path to it.** "Settings → Customize → Stream,
+    the Hero Slider Sources field", not "the combobox".
+  - **Say what changed AND what should not have.** A conversion that also
+    quietly moved something is the failure I most want to catch early, so
+    tell me what should look identical.
+  - **Flag what you could not check from there.** Anything that needs real
+    video, a Windows build, a real addon, or my actual library. Say it
+    plainly rather than letting a green board imply you covered it.
+  - **Call out judgement calls I might overrule**, with a sentence on why
+    you chose that way, so disagreeing is one message and not an
+    investigation.
+  - Keep it a few bullets. If a change genuinely has nothing to see (a
+    harness fix, a comment repair), say that in one line instead of
+    inventing something.
 
 The house voice is the site's FAQ copy in `services/site/index.html`: "Yup."
 "Nope." "None." Direct, second person, no throat-clearing. Match that.
