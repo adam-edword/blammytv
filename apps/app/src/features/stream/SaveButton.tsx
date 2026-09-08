@@ -1,6 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "../../components/ui/button";
-import { createPortal } from "react-dom";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "../../components/ui/dropdown-menu";
 import { CheckIcon, ChevronIcon } from "../../ui/icons";
 import { NameField } from "../../ui/NameField";
 import {
@@ -32,20 +39,30 @@ import type { VodItem } from "./model";
  * Before this, the button wrote through `myList.ts` to the pre-009 storage
  * key, which the Library does not read: after the one-time migration, a
  * save from a title page vanished. Everything here goes through `lists.ts`.
+ *
+ * THE PICKER IS A SHADCN DropdownMenu as of v0.9.72. It used to be a
+ * hand-rolled portal: a fixed menu placed from a measured button rect, plus
+ * its own mousedown, Escape and scroll listeners, its own arrow/Home/End
+ * roving, its own first-row autofocus and its own off-screen clamping. All
+ * of that is what DropdownMenu is, and it does two of them better — the
+ * clamp becomes real collision handling, and the menu now FOLLOWS the button
+ * on scroll instead of closing, which the old comment called out as a
+ * limitation it could not fix ("the coordinates are measured once… close
+ * instead of chasing it").
+ *
+ * Not a Popover, even though the rows are checkboxes and one of them turns
+ * into a text field: the menu is a list you arrow through, and DropdownMenu
+ * is the only primitive here that brings roving focus and typeahead with it.
+ * The text field's own keys are fenced off where it is rendered.
  */
-
-/** Where the picker hangs. Fixed coords, measured off the button. */
-type Anchor = { x: number; y: number };
 
 export function SaveButton({ item }: { item: VodItem }) {
   const [lists, setLists] = useState<UserList[]>(loadLists);
   const [inIds, setInIds] = useState<string[]>(() =>
     listsContaining(item.id).map((l) => l.id),
   );
-  const [anchor, setAnchor] = useState<Anchor | null>(null);
+  const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-  const btnRef = useRef<HTMLDivElement | null>(null);
 
   // The detail screen swaps `item` in place when full meta lands, and the
   // same mounted button serves the next title you open. Re-read on identity,
@@ -60,93 +77,12 @@ export function SaveButton({ item }: { item: VodItem }) {
     setInIds(listsContaining(item.id).map((l) => l.id));
   }, [item.id]);
 
-  const close = useCallback(() => {
-    setAnchor(null);
-    setCreating(false);
-    // Focus goes back where it came from, or it lands on <body> and the
-    // next Tab starts over at the top of the page.
-    btnRef.current?.querySelector("button")?.focus();
+  // Closing resets the New-list field: reopening should offer the row
+  // again, not a stale half-typed name.
+  const onOpenChange = useCallback((next: boolean) => {
+    setOpen(next);
+    if (!next) setCreating(false);
   }, []);
-
-  /** The menu's focusable rows, in visual order. Read from the DOM at press
-   * time rather than tracked in state: the list changes as lists are
-   * created and as the New-list field replaces its own row. */
-  const rows = () =>
-    Array.from(
-      menuRef.current?.querySelectorAll<HTMLButtonElement>("button") ?? [],
-    );
-
-  const moveFocus = useCallback((delta: number, to?: "first" | "last") => {
-    const items = rows();
-    if (items.length === 0) return;
-    const at = items.indexOf(document.activeElement as HTMLButtonElement);
-    const next =
-      to === "first"
-        ? 0
-        : to === "last"
-          ? items.length - 1
-          : // Wraps: a menu this short is faster to circle than to reverse.
-            (at + delta + items.length) % items.length;
-    items[next]?.focus();
-  }, []);
-
-  // Click-away and Escape, plus the same portal reasoning as the Live
-  // sidebar's folder menu: a fixed overlay inside .app-shell gets cut away
-  // by the player's clip hole, so it hangs off document.body instead.
-  useEffect(() => {
-    if (!anchor) return;
-    const onDown = (e: MouseEvent) => {
-      const t = e.target as Node;
-      if (!menuRef.current?.contains(t) && !btnRef.current?.contains(t))
-        close();
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") return close();
-      // Only while the menu owns focus: the detail page behind it has its
-      // own arrow-key meaning and must keep it.
-      if (!menuRef.current?.contains(document.activeElement)) return;
-      // ...and not while naming a new list. In a text field the arrows
-      // belong to the caret, and Home/End to the line.
-      if (document.activeElement instanceof HTMLInputElement) return;
-      const move: Record<string, () => void> = {
-        ArrowDown: () => moveFocus(1),
-        ArrowUp: () => moveFocus(-1),
-        Home: () => moveFocus(0, "first"),
-        End: () => moveFocus(0, "last"),
-      };
-      const fn = move[e.key];
-      if (!fn) return;
-      e.preventDefault(); // arrows would scroll the page under the menu
-      fn();
-    };
-    // The coordinates are measured once, so a scroll would leave the menu
-    // floating away from its button. Close instead of chasing it.
-    document.addEventListener("mousedown", onDown);
-    window.addEventListener("keydown", onKey);
-    window.addEventListener("scroll", close, true);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("scroll", close, true);
-    };
-  }, [anchor, close, moveFocus]);
-
-  // Opening with the keyboard has to land somewhere: the first row. Runs on
-  // every open, and after the menu has rendered, so the rows exist.
-  useEffect(() => {
-    if (anchor) rows()[0]?.focus();
-  }, [anchor]);
-
-  const openPicker = useCallback(() => {
-    const r = btnRef.current?.getBoundingClientRect();
-    if (!r) return;
-    // Keep it on screen: the detail page's save button can sit low enough
-    // that a menu hanging below it would run off the bottom.
-    const h = Math.min(320, 56 + lists.length * 36);
-    const y = Math.min(r.bottom + 8, Math.max(8, window.innerHeight - h - 8));
-    const x = Math.min(r.left, Math.max(8, window.innerWidth - 308));
-    setAnchor({ x, y });
-  }, [lists.length]);
 
   const toggleIn = useCallback(
     (listId: string) => {
@@ -168,8 +104,11 @@ export function SaveButton({ item }: { item: VodItem }) {
       reread();
       return;
     }
-    openPicker();
-  }, [inIds, item, reread, openPicker]);
+    // Two or more lists: don't guess, show the picker. Radix anchors it to
+    // the Trigger (the chevron half) wherever it was opened from, so the
+    // left half can open it without owning a position of its own.
+    setOpen(true);
+  }, [inIds, item, reread]);
 
   const commitNew = useCallback(
     (name: string) => {
@@ -194,94 +133,92 @@ export function SaveButton({ item }: { item: VodItem }) {
         : `In ${inIds.length} lists`;
 
   return (
-    <div className="vod-save-split" ref={btnRef}>
-      <Button
-        variant="outline"
-        type="button"
-        // The seam, as utilities: square the inside edge and pull the right
-        // half a hairline left so the two 1px borders do not read as 2px.
-        // Radius and margin are Button's own utilities, so this is the only
-        // place it can be said — see the note in stream.css.
-        className={
-          "vod-save rounded-r-none" +
-          (saved ? " vod-save--on border-primary" : "")
-        }
-        onClick={primary}
-      >
-        {saved ? <CheckIcon size={15} /> : <span aria-hidden>+</span>} {label}
-      </Button>
-      <Button
-        variant="outline"
-        size="icon"
-        type="button"
-        className={
-          "vod-save vod-save__more rounded-l-none -ml-px" +
-          (saved ? " border-primary" : "")
-        }
-        aria-label="Choose lists"
-        aria-haspopup="menu"
-        aria-expanded={anchor !== null}
-        onClick={() => (anchor ? close() : openPicker())}
-      >
-        <ChevronIcon size={14} />
-      </Button>
-
-      {anchor &&
-        createPortal(
-          <div
-            ref={menuRef}
-            className="list-picker"
-            role="menu"
-            aria-label="Save to list"
-            style={{ left: anchor.x, top: anchor.y }}
+    <DropdownMenu open={open} onOpenChange={onOpenChange}>
+      <div className="vod-save-split">
+        <Button
+          variant="outline"
+          type="button"
+          // The seam, as utilities: square the inside edge and pull the right
+          // half a hairline left so the two 1px borders do not read as 2px.
+          // Radius and margin are Button's own utilities, so this is the only
+          // place it can be said — see the note in stream.css.
+          className={
+            "vod-save rounded-r-none" +
+            (saved ? " vod-save--on border-primary" : "")
+          }
+          onClick={primary}
+        >
+          {saved ? <CheckIcon size={15} /> : <span aria-hidden>+</span>} {label}
+        </Button>
+        {/* `asChild` so the trigger IS the chevron half rather than a button
+          * wrapping one. aria-haspopup and aria-expanded come from Radix. */}
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="outline"
+            size="icon"
+            type="button"
+            className={
+              "vod-save vod-save__more rounded-l-none -ml-px" +
+              (saved ? " border-primary" : "")
+            }
+            aria-label="Choose lists"
           >
-            <p className="list-picker__title">Save to</p>
-            {lists.map((l) => {
-              const on = inIds.includes(l.id);
-              return (
-                <Button variant="ghost" size="sm"
-                  key={l.id}
-                  type="button"
-                  role="menuitemcheckbox"
-                  aria-checked={on}
-                  className={
-                    "list-picker__item" + (on ? " list-picker__item--on" : "")
-                  }
-                  onClick={() => toggleIn(l.id)}
-                >
-                  <span className="list-picker__check" aria-hidden>
-                    {on ? <CheckIcon size={13} /> : null}
-                  </span>
-                  <span className="list-picker__name">{l.name}</span>
-                  <span className="list-picker__count">{l.entries.length}</span>
-                </Button>
-              );
-            })}
-            {creating ? (
-              <NameField
-                initial=""
-                placeholder="List name"
-                ariaLabel="New list name"
-                className="list-picker__input"
-                onCommit={commitNew}
-                onCancel={() => setCreating(false)}
-              />
-            ) : (
-              <Button variant="ghost" size="sm"
-                type="button"
-                role="menuitem"
-                className="list-picker__item list-picker__new"
-                onClick={() => setCreating(true)}
-              >
-                <span className="list-picker__check" aria-hidden>
-                  +
-                </span>
-                <span className="list-picker__name">New list</span>
-              </Button>
-            )}
-          </div>,
-          document.body,
+            <ChevronIcon size={14} />
+          </Button>
+        </DropdownMenuTrigger>
+      </div>
+
+      <DropdownMenuContent
+        align="start"
+        className="max-h-80 w-64 overflow-y-auto"
+      >
+        <DropdownMenuLabel>Save to</DropdownMenuLabel>
+        {lists.map((l) => (
+          <DropdownMenuCheckboxItem
+            key={l.id}
+            checked={inIds.includes(l.id)}
+            // Stay open. Radix closes on select by default, which is right
+            // for a menu of commands and wrong for a set of checkboxes:
+            // picking two lists would otherwise mean opening the menu twice.
+            onSelect={(e) => e.preventDefault()}
+            onCheckedChange={() => toggleIn(l.id)}
+          >
+            <span className="list-picker__name">{l.name}</span>
+            <span className="list-picker__count">{l.entries.length}</span>
+          </DropdownMenuCheckboxItem>
+        ))}
+        {creating ? (
+          // NOT a menu item, and the keydown fence is the reason. Radix's
+          // typeahead lives on the content and swallows printable keys to
+          // jump between rows, so without stopPropagation every letter typed
+          // here would also be hunting for a list whose name starts with it.
+          // Escape is fenced too: it belongs to the field first (cancel the
+          // name), and only closes the menu once the field is gone.
+          <div
+            className="px-1 py-1"
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            <NameField
+              initial=""
+              placeholder="List name"
+              ariaLabel="New list name"
+              className="list-picker__input"
+              onCommit={commitNew}
+              onCancel={() => setCreating(false)}
+            />
+          </div>
+        ) : (
+          <DropdownMenuItem
+            onSelect={(e) => {
+              e.preventDefault();
+              setCreating(true);
+            }}
+          >
+            <span aria-hidden>+</span>
+            <span className="list-picker__name">New list</span>
+          </DropdownMenuItem>
         )}
-    </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

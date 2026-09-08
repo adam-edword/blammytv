@@ -606,55 +606,15 @@
   font-size: inherit;
 }
 
-/* List picker: the chevron's menu. Portaled to the body (a fixed overlay
- * inside .app-shell gets cut away by the player's clip hole), so it is
- * positioned from a measured button rect. Shape follows the Live sidebar's
- * folder menu — one menu language across the app. */
-.list-picker {
-  position: fixed;
-  z-index: 30;
-  min-width: 220px;
-  max-width: 300px;
-  max-height: 320px;
-  overflow-y: auto;
-  padding: 6px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: rgba(0, 0, 0, 0.55);
-  -webkit-backdrop-filter: blur(18px) saturate(1.2);
-  backdrop-filter: blur(18px) saturate(1.2);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 8px 28px rgba(0, 0, 0, 0.45);
-  transform-origin: top left;
-  transition:
-    opacity 150ms var(--ease-out),
-    transform 150ms var(--ease-out);
-}
-@starting-style {
-  .list-picker {
-    opacity: 0;
-    transform: scale(0.95) translateY(-4px);
-  }
-}
-.list-picker__title {
-  margin: 4px 10px 6px;
-  font-size: 11.5px;
-  color: var(--text-muted);
-}
-.list-picker__item {
-  width: 100%;
-  font-family: var(--font-headline);
-}
-/* Fixed-width gutter so names line up whether or not they are ticked. */
-.list-picker__check {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  flex-shrink: 0;
-  color: var(--accent);
-}
+/* The list picker is a shadcn DropdownMenu as of v0.9.72, so its surface,
+ * its rows, its label and its tick gutter are the component's and are gone
+ * from here — along with the fixed positioning, because it is anchored by
+ * Radix now rather than by a measured rect. The rules are in styles/old/.
+ *
+ * These three survive because they still ride INSIDE a menu row: the name
+ * has to take the free width and ellipsis, and the count has to sit quietly
+ * at the end. Neither is a property DropdownMenuCheckboxItem sets, so
+ * neither is fighting a utility. */
 .list-picker__name {
   flex: 1;
   overflow: hidden;
@@ -676,16 +636,6 @@
   font-weight: 700;
   font-size: 13px;
   color: var(--text);
-}
-@media (prefers-reduced-motion: reduce) {
-  .list-picker {
-    transition: opacity 150ms var(--ease-out);
-  }
-  @starting-style {
-    .list-picker {
-      transform: none;
-    }
-  }
 }
 
 /* ---- detail page ---- */

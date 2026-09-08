@@ -1574,3 +1574,65 @@
   width: 12px;
   height: 12px;
 }
+
+/* ---------------------------------------------------------------------
+ * v0.9.72: the save picker's own menu, replaced by a shadcn DropdownMenu.
+ * Positioning came from inline left/top set by SaveButton's measured rect,
+ * which is why there is none here. `.list-picker__name`, `__count` and
+ * `__input` stayed in stream.css — they still ride inside a menu row.
+ * ------------------------------------------------------------------- */
+.list-picker {
+  position: fixed;
+  z-index: 30;
+  min-width: 220px;
+  max-width: 300px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 6px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.55);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  backdrop-filter: blur(18px) saturate(1.2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 8px 28px rgba(0, 0, 0, 0.45);
+  transform-origin: top left;
+  transition:
+    opacity 150ms var(--ease-out),
+    transform 150ms var(--ease-out);
+}
+@starting-style {
+  .list-picker {
+    opacity: 0;
+    transform: scale(0.95) translateY(-4px);
+  }
+}
+.list-picker__title {
+  margin: 4px 10px 6px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+.list-picker__item {
+  width: 100%;
+  font-family: var(--font-headline);
+}
+/* Fixed-width gutter so names lined up whether or not they were ticked. */
+.list-picker__check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  flex-shrink: 0;
+  color: var(--accent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .list-picker {
+    transition: opacity 150ms var(--ease-out);
+  }
+  @starting-style {
+    .list-picker {
+      transform: none;
+    }
+  }
+}
