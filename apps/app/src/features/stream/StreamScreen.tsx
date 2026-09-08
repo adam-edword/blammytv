@@ -21,6 +21,14 @@ import { useViewStack } from "../../lib/viewStack";
 // render of every Card.
 
 import { createPortal } from "react-dom";
+import {
+  Item,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemHeader,
+  ItemTitle,
+} from "../../components/ui/item";
 import { isTauri, tauriSetFullscreen } from "../../lib/tauri";
 import { scrubbedMessage } from "../../lib/errors";
 import { setOverlayApiOverride } from "../live/overlayApi";
@@ -3012,46 +3020,115 @@ function Episodes({
                 </Button>
               ))}
             </div>
-            <div className="episode-grid">
+            {/* shadcn's Item, in the `#header` arrangement Adam asked for:
+              * an ItemHeader carrying the art above an ItemContent carrying
+              * the title and a description. ItemGroup is `role="list"` and
+              * comes with `flex flex-col`, so the grid has to be said as
+              * UTILITIES here — a `display: grid` in stream.css would lose
+              * to ItemGroup's own class, `utilities` outranking `app`.
+              *
+              * The thumbnail keeps 16/9. The docs example is `aspect-square`
+              * (it is showing model cards), and Adam's one constraint on
+              * this was "keeping thumbnail aspect ratio the same": a still
+              * from a 16:9 episode cropped to a square is a different
+              * picture, not a differently-sized one. */}
+            <ItemGroup className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3.5">
               {season?.episodes.map((e) => (
-                <button
+                <Item
                   key={e.id}
-                  type="button"
+                  asChild
+                  variant="outline"
+                  size="sm"
                   className={
-                    "episode-card" +
+                    // Three kinds of override, all deliberate.
+                    //
+                    // `text-left` is a FIX: shadcn's Item is a <div>, and
+                    // rendering it `asChild` over a <button> picks up the UA
+                    // stylesheet's `text-align: center`, which centred every
+                    // title and date. (The sidebar rows hit this too.)
+                    //
+                    // `bg-card`/`text-card-foreground` and the hover pair
+                    // give the card its OWN ground. `variant="outline"` is
+                    // transparent, which is right on the docs' plain page
+                    // and wrong here: this screen paints the title's
+                    // backdrop art behind everything and pins a fixed light
+                    // foreground on it (`.vod-detail__body`), so a
+                    // transparent card inherits whatever the artwork is
+                    // doing, and the instant a hover fill lands under it the
+                    // white text is white on white. A card that carries its
+                    // own surface and its own foreground is legible in both
+                    // themes and both states, and is what shadcn's Card does
+                    // anyway.
+                    //
+                    // `rounded-lg px-3 py-2.5` is the docs preview's own
+                    // geometry, a step tighter than the published registry's
+                    // `size="sm"`.
+                    "episode-card cursor-pointer rounded-lg bg-card px-3 py-2.5 text-left text-card-foreground hover:bg-accent hover:text-accent-foreground" +
                     (e.id === nextUp ? " episode-card--next" : "")
                   }
-                  onClick={() =>
-                    onPick(e.id, `S${season.number} · E${e.number}: ${e.title}`, {
-                      season: season.number,
-                      episode: e.number,
-                      title: e.title,
-                    })
-                  }
                 >
-                  {e.still && (
-                    <span className="episode-card__thumb">
-                      <img src={e.still} alt="" loading="lazy" />
-                      <span className="episode-card__cue" aria-hidden>
-                        <PlayIcon size={36} />
-                      </span>
-                      {watched.has(e.id) && (
-                        <span className="episode-card__seen" title="Watched">
-                          <CheckIcon size={13} />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onPick(
+                        e.id,
+                        `S${season.number} · E${e.number}: ${e.title}`,
+                        {
+                          season: season.number,
+                          episode: e.number,
+                          title: e.title,
+                        },
+                      )
+                    }
+                  >
+                    {e.still && (
+                      // `relative` so the play cue and the watched tick can
+                      // sit over the still: ItemHeader is a plain flex row
+                      // and the overlays need a positioned ancestor that is
+                      // the picture's own box, not the card's.
+                      <ItemHeader className="episode-card__thumb relative">
+                        <img
+                          src={e.still}
+                          alt=""
+                          loading="lazy"
+                          className="aspect-video w-full rounded-sm object-cover"
+                        />
+                        <span className="episode-card__cue" aria-hidden>
+                          <PlayIcon size={36} />
                         </span>
+                        {watched.has(e.id) && (
+                          <span className="episode-card__seen" title="Watched">
+                            <CheckIcon size={13} />
+                          </span>
+                        )}
+                      </ItemHeader>
+                    )}
+                    <ItemContent>
+                      {/* `block w-full truncate` over ItemTitle's own
+                        * `flex w-fit`: the docs clamp the title to one line,
+                        * which keeps every card in the grid the same height,
+                        * and a flex box with a `w-fit` width has nothing to
+                        * clamp against. The E-number rides inline so a
+                        * truncation eats the title, never the number. */}
+                      <ItemTitle className="block w-full truncate">
+                        {/* Quiet metadata, then the title, which is how
+                          * shadcn separates the two inside one line. It was
+                          * bold and accent-coloured; --accent is near-white
+                          * in dark mode now, so that read as a second title
+                          * rather than as a label. */}
+                        <span className="mr-2 text-muted-foreground">
+                          E{e.number}
+                        </span>
+                        {e.title}
+                      </ItemTitle>
+                      {e.airDate && (
+                        <ItemDescription>{e.airDate}</ItemDescription>
                       )}
-                    </span>
-                  )}
-                  <span className="episode-card__text">
-                    <span className="episode-card__num">E{e.number}</span>
-                    <span className="episode-card__title">{e.title}</span>
-                  </span>
-                  {e.airDate && (
-                    <span className="episode-card__date">{e.airDate}</span>
-                  )}
-                </button>
+                    </ItemContent>
+                  </button>
+                </Item>
               ))}
-            </div>
+            </ItemGroup>
           </>
         )}
       </div>

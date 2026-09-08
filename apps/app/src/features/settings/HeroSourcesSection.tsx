@@ -1,6 +1,19 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Check } from "lucide-react";
 import { Button } from "../../components/ui/button";
-import { createPortal } from "react-dom";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "../../components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "../../components/ui/popover";
 import { ChevronIcon, CloseIcon } from "../../ui/icons";
 import { fetchAioCatalogs, type AioCatalog } from "../../data/aiostreams";
 import {
@@ -70,70 +83,33 @@ export function HeroSourcesSection() {
     saveHeroSources(keys);
   };
 
-  // The "add sources" dropdown renders in a portal with fixed positioning
-  // so it can float outside the settings card (which clips its own
-  // overflow); anchored to the button, flipped upward when space runs out.
+  /**
+   * The "add sources" picker: shadcn's Combobox pattern, multi-select.
+   *
+   * WHAT THIS REPLACED, AND WHY. It was a hand-rolled portal: a fixed-
+   * position menu anchored off the button's rect, with its own flip-up
+   * logic, its own scroll and resize listeners, its own Escape handler and
+   * its own outside-click handler. Roughly sixty lines to reimplement a
+   * Popover, and it was BROKEN — v0.9.54 converted the anchor to a shadcn
+   * <Button>, which on React 18 silently dropped the ref (see button.tsx),
+   * so `place()` measured a null rect, `menuPos` stayed null and the menu
+   * never rendered at all. Clicking "add sources" did nothing for twelve
+   * versions.
+   *
+   * Radix's Popover already does the anchoring, the flip, the dismissal and
+   * the focus return, and it does them against a portal it owns, so none of
+   * that state lives here any more. Command supplies the filter, which the
+   * old list did not have.
+   *
+   * It stays MULTI-select: the chips above are the selection, and picking
+   * from the list adds to it rather than replacing it, so the popover
+   * stays open. That is why this is the pattern spelled out here rather
+   * than the single-value <Combobox> in ui/.
+   */
   const [addOpen, setAddOpen] = useState(false);
-  const [menuPos, setMenuPos] = useState<{
-    top: number;
-    left: number;
-    up: boolean;
-  } | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const addRef = useRef<HTMLButtonElement>(null);
-
-  useLayoutEffect(() => {
-    if (!addOpen) return;
-    const place = () => {
-      const rect = addRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      // The UI-scale zoom on <html> scales layout units; rects come back in
-      // visual pixels, so divide to keep the fixed menu aligned.
-      const zoom = Number(document.documentElement.style.zoom || 1) || 1;
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const up = spaceBelow < 300 && rect.top > spaceBelow;
-      setMenuPos({
-        top: (up ? rect.top - 8 : rect.bottom + 8) / zoom,
-        left: rect.left / zoom,
-        up,
-      });
-    };
-    place();
-    window.addEventListener("resize", place);
-    window.addEventListener("scroll", place, { capture: true });
-    return () => {
-      window.removeEventListener("resize", place);
-      window.removeEventListener("scroll", place, { capture: true });
-    };
-    // catalogs.status: the anchor button mounts with the catalog list, so
-    // re-place once it exists.
-  }, [addOpen, catalogs.status]);
-
-  useEffect(() => {
-    if (!addOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        setAddOpen(false);
-      }
-    };
-    const onDown = (e: MouseEvent) => {
-      const t = e.target as Node;
-      if (!menuRef.current?.contains(t) && !addRef.current?.contains(t)) {
-        setAddOpen(false);
-      }
-    };
-    window.addEventListener("keydown", onKey, { capture: true });
-    window.addEventListener("mousedown", onDown);
-    return () => {
-      window.removeEventListener("keydown", onKey, { capture: true });
-      window.removeEventListener("mousedown", onDown);
-    };
-  }, [addOpen]);
 
   const items = catalogs.status === "ready" ? catalogs.items : [];
   const byKey = new Map(items.map((c) => [c.key, c]));
-  const available = items.filter((c) => !selected.includes(c.key));
 
   // Renders as a stack, not a section: it is one control among several in
   // Customize's Stream panel, and its own rule and 21px heading made a
@@ -176,48 +152,63 @@ export function HeroSourcesSection() {
               </span>
             );
           })}
-          {available.length > 0 && (
-            <>
-              <Button
-                variant="outline"
-                type="button"
-                ref={addRef}
-                className="chip-select__add"
-                aria-expanded={addOpen}
-                onClick={() => setAddOpen((o) => !o)}
-              >
-                add sources
-                <ChevronIcon />
-              </Button>
-              {addOpen &&
-                menuPos &&
-                createPortal(
-                  <div
-                    className="chip-select__menu"
-                    ref={menuRef}
-                    style={{
-                      top: menuPos.top,
-                      left: menuPos.left,
-                      transform: menuPos.up ? "translateY(-100%)" : undefined,
-                    }}
-                  >
-                    {available.map((c) => (
-                      <Button variant="ghost" size="sm"
-                        key={c.key}
-                        type="button"
-                        className="chip-select__option"
-                        onClick={() => update([...selected, c.key])}
-                      >
-                        {c.name}
-                        <span className="source-row__type">
-                          {typeLabel(c.type)}
-                        </span>
-                      </Button>
-                    ))}
-                  </div>,
-                  document.body,
-                )}
-            </>
+          {items.length > 0 && (
+            <Popover open={addOpen} onOpenChange={setAddOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  type="button"
+                  role="combobox"
+                  className="chip-select__add"
+                  aria-expanded={addOpen}
+                >
+                  add sources
+                  <ChevronIcon />
+                </Button>
+              </PopoverTrigger>
+              {/* z-[70] because the Settings sheet is z 60 and Popover's own
+                * z-50 would paint this behind it — the note settings.css
+                * carried for the old portal, which is still true. */}
+              <PopoverContent className="z-[70] w-80 p-0" align="start">
+                <Command>
+                  <CommandInput
+                    placeholder="Search catalogs…"
+                    className="h-9"
+                  />
+                  <CommandList>
+                    <CommandEmpty>No catalog found.</CommandEmpty>
+                    <CommandGroup>
+                      {items.map((c) => (
+                        <CommandItem
+                          key={c.key}
+                          value={`${c.name} ${typeLabel(c.type)}`}
+                          onSelect={() =>
+                            update(
+                              selected.includes(c.key)
+                                ? selected.filter((k) => k !== c.key)
+                                : [...selected, c.key],
+                            )
+                          }
+                        >
+                          {c.name}
+                          <span className="source-row__type">
+                            {typeLabel(c.type)}
+                          </span>
+                          <Check
+                            className={
+                              "ml-auto" +
+                              (selected.includes(c.key)
+                                ? " opacity-100"
+                                : " opacity-0")
+                            }
+                          />
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           )}
         </div>
       )}

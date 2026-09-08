@@ -948,46 +948,24 @@
  * were a glass pill with a white hairline and an accent-surface active
  * state; the row is `<Button variant={on ? "secondary" : "ghost"}>` now and
  * both classes survive only as hooks for the harnesses and for this file. */
-.episode-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 14px;
-}
-.episode-card {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  text-align: left;
-  padding: 10px;
-  /* shadcn Card. The radius already matched (--radius-card IS rounded-xl);
-   * the glass did not. */
-  border-radius: var(--radius-card);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-sm);
-  cursor: pointer;
-  transition: background var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
-}
-.episode-card:hover { background: rgba(0, 0, 0, 0.6); }
-.episode-card__thumb {
-  position: relative;
-  display: block;
-}
-.episode-card img {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
-  border-radius: var(--radius-card);
-  background: rgba(0, 0, 0, 0.4);
-  display: block;
-}
-/* Hovering the still: a light dim + centered play cue. */
+/* `.episode-card` CARRIES NO PAINT since v0.9.67. The row is shadcn's
+ * <Item variant="outline" size="sm"> in the `#header` arrangement now, so
+ * its surface, border, radius, padding, gap, direction, text alignment and
+ * hover all come from Item's utilities — a rule here setting any of them
+ * would simply not apply, `utilities` outranking `app`. Same for
+ * `.episode-grid`, which is gone entirely: the container is an ItemGroup
+ * and the grid is written as utilities at the call site because ItemGroup
+ * brings its own `flex flex-col`. The old rules are in styles/old/.
+ *
+ * What is left below is the still's OVERLAYS, which are the one part
+ * utilities cannot state: a ::after dim, an absolutely-positioned play cue
+ * and the watched tick. They key off `.episode-card:hover`, so the class
+ * still has to be on the Item. */
 .episode-card__thumb::after {
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: var(--radius-card);
+  border-radius: var(--radius-sm);
   background: rgba(0, 0, 0, 0.4);
   opacity: 0;
   transition: opacity var(--dur-hover) ease;
@@ -1004,28 +982,6 @@
   transition: opacity var(--dur-hover) ease;
 }
 .episode-card:hover .episode-card__cue { opacity: 1; }
-/* Number runs INLINE with the title (one text flow, so a wrapping title
- * continues under the E-chip, no hanging indent); date pins to the
- * card bottom. */
-.episode-card__text {
-  display: block;
-  margin-left: 5px;
-  min-width: 0;
-}
-.episode-card__num {
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 15px;
-  color: var(--accent);
-  margin-right: 8px;
-}
-.episode-card__title { font-size: 15px; color: #f2f2f4; }
-.episode-card__date {
-  font-size: 12px;
-  color: rgba(242, 242, 244, 0.55);
-  margin-top: auto;
-  margin-left: 5px;
-}
 
 /* Up Next (series EOF): fixed card above the player chrome (z 45),
  * below modals (60). */
@@ -1177,7 +1133,10 @@
   box-shadow: 0 0 0 2px var(--accent);
 }
 
-/* Watched checkmark, top-right of the still. */
+/* Watched checkmark, top-right of the still. The tick takes --accent-ink,
+ * not #fff: --accent is shadcn's primary, which is near-WHITE in dark mode
+ * (it inverts with the theme), so a hardcoded white tick on it was a white
+ * disc with nothing in it. --accent-ink is the pair that flips with it. */
 .episode-card__seen {
   position: absolute;
   top: 10px;
@@ -1189,7 +1148,7 @@
   place-items: center;
   border-radius: 50%;
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-ink);
 }
 
 /* Continue-card escape hatch to the source screen: glass chip, top-right

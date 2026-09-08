@@ -673,11 +673,18 @@ check(
 
 // 9b. THE CARD SURFACE. shadcn's Card is `bg-card border shadow-sm`, and the
 // app's chrome cards were `#00000050` + an 18px backdrop blur until v0.9.64.
-// Read live off a real episode card rather than off the stylesheet, because
+// Read live off a real chrome card rather than off the stylesheet, because
 // the thing that matters is what paints.
+//
+// The probe is `.vod-source`, a source row on the title screen. It was
+// `.episode-card` until v0.9.67, when the episode row became a shadcn
+// <Item> and its CSS paint went away with it — the probe then read a bare
+// div and this check would have started asserting against nothing. Any
+// class this points at has to be one that still paints from CSS; a control
+// that has been converted to a shadcn component never is.
 const card = await page.evaluate(() => {
   const el = document.createElement("div");
-  el.className = "episode-card";
+  el.className = "vod-source";
   document.body.appendChild(el);
   const s = getComputedStyle(el);
   const out = {
@@ -757,6 +764,89 @@ check(
   Math.max(type.row, type.dialogTitle, type.group, type.label) <= 24,
   `largest is ${Math.max(type.row, type.dialogTitle, type.group, type.label)}px`,
 );
+
+// 9e. EVERY REF HANDED TO A PRIMITIVE LANDS SOMEWHERE. Source check, not a
+// live one: a dropped ref has no computed style to read, which is the whole
+// problem with it.
+//
+// The registry writes its components for React 19, where a function
+// component takes `ref` as an ordinary prop. This app is on React 18, where
+// React strips it and logs a warning nobody sees in a production build. So
+// `ref={x}` on a plain-function primitive leaves `x.current` null and the
+// code reading it does nothing at all — Settings' "add sources" menu never
+// opened for twelve versions on exactly this, and the tournament draw quietly
+// stopped focusing its back button.
+//
+// The check pairs the two halves rather than hard-coding a list: find every
+// `ref=` on a `components/ui/` component at a call site, then assert that
+// component's own file forwards refs. It stays right when a new primitive is
+// installed and when one stops needing the wrapper.
+{
+  const { readFileSync, readdirSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const root = new URL("..", import.meta.url).pathname;
+  const src = join(root, "apps/app/src");
+  const uiDir = join(src, "components/ui");
+
+  // component name -> the file that defines it, from the ui folder's exports.
+  const owner = new Map();
+  for (const f of readdirSync(uiDir).filter((n) => n.endsWith(".tsx"))) {
+    const body = readFileSync(join(uiDir, f), "utf8");
+    const ex = body.match(/export\s*\{([^}]*)\}/g) ?? [];
+    for (const block of ex)
+      for (const name of block.replace(/export\s*\{|\}/g, "").split(","))
+        if (/^[A-Z]/.test(name.trim())) owner.set(name.trim(), f);
+  }
+
+  const tsx = [];
+  const walk = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (e.name.endsWith(".tsx") && !p.startsWith(uiDir)) tsx.push(p);
+    }
+  };
+  walk(src);
+
+  const dropped = [];
+  for (const f of tsx) {
+    const body = readFileSync(f, "utf8");
+    for (const name of owner.keys()) {
+      const re = new RegExp("<" + name + "\\b", "g");
+      let m;
+      while ((m = re.exec(body))) {
+        // The same brace/quote/comment-aware walk the dead-rules check uses:
+        // a lazy `[\s\S]*?>` ends at the first `>` inside an arrow function,
+        // and an apostrophe in a `//` comment runs the scan off the end.
+        let i = m.index, depth = 0, q = "";
+        for (; i < body.length; i++) {
+          const c = body[i];
+          if (q) { if (c === q && body[i - 1] !== "\\") q = ""; continue; }
+          if (c === "/" && body[i + 1] === "/") { i = body.indexOf("\n", i); if (i < 0) break; continue; }
+          if (c === "/" && body[i + 1] === "*") { i = body.indexOf("*/", i) + 1; if (i < 1) break; continue; }
+          if (c === '"' || c === "'" || c === "`") q = c;
+          else if (c === "{") depth++;
+          else if (c === "}") depth--;
+          else if (c === ">" && depth === 0) break;
+        }
+        if (!/\sref=/.test(body.slice(m.index, i))) continue;
+        const def = readFileSync(join(uiDir, owner.get(name)), "utf8");
+        // Radix-backed primitives forward through the primitive itself, so
+        // either the wrapper forwards or it spreads onto a Radix component.
+        const forwards =
+          /forwardRef/.test(def) ||
+          new RegExp("function " + name + "\\b[\\s\\S]{0,600}?<\\w+Primitive\\.").test(def);
+        if (!forwards)
+          dropped.push(`${f.slice(src.length + 1)}: <${name} ref=…>`);
+      }
+    }
+  }
+  check(
+    "every ref handed to a components/ui primitive is actually forwarded",
+    dropped.length === 0,
+    dropped.length ? dropped.slice(0, 3).join(", ") : "no dropped refs",
+  );
+}
 
 if (process.env.SHOT_DIR)
   await page.screenshot({ path: `${process.env.SHOT_DIR}/tailwind.png` });

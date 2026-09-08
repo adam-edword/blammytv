@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { Button } from "../../components/ui/button";
 import { ChipTabs } from "../../ui/ChipTabs";
+import { Combobox, type ComboboxOption } from "../../ui/Combobox";
 import { Toggle } from "../../ui/Toggle";
 import { loadAioUrl } from "./aiostreams";
 import { loadOneClickPlay, saveOneClickPlay } from "./oneClickPlay";
@@ -82,6 +83,30 @@ const WORLD_TABS = [
 ] as const;
 
 // STARTUP_TABS lives in startupTab.ts — one list shared with onboarding.
+
+/**
+ * The language pickers' options. Built once at module scope, not per render:
+ * the list is 28 entries and never changes, and rebuilding it every render
+ * would hand Combobox a new array identity each time for nothing.
+ *
+ * The code rides along as a search keyword so typing "es" finds Spanish as
+ * well as typing "Spanish" does. That is the one thing the native <select>
+ * did that a plain label list would have lost.
+ */
+const LANG_OPTIONS: ComboboxOption[] = LANGUAGES.map((l) => ({
+  value: l.code,
+  label: l.label,
+  keywords: [l.code],
+}));
+const AUDIO_OPTIONS: ComboboxOption[] = [
+  { value: AUTO, label: "No preference" },
+  ...LANG_OPTIONS,
+];
+const SUB_OPTIONS: ComboboxOption[] = [
+  { value: AUTO, label: "No preference" },
+  { value: SUBS_OFF, label: "Off" },
+  ...LANG_OPTIONS,
+];
 
 // Themes are their own pop-out panel now — the old "Theme" pill is gone; the
 // launcher at the top opens it. Accent + packs + Pass all live there.
@@ -463,43 +488,38 @@ export function CustomizeTab() {
               </p>
             </div>
             <div className="customize-langs">
-              <label className="customize-lang">
+              <div className="customize-lang">
                 <span>Audio</span>
-                <select
-                  className="customize-lang__select"
+                <Combobox
+                  className="customize-lang__select w-44"
+                  contentClassName="w-56"
+                  ariaLabel="Preferred audio language"
+                  options={AUDIO_OPTIONS}
                   value={audioLang}
-                  onChange={(e) => {
-                    setAudioLang(e.target.value);
-                    saveAudioLang(e.target.value);
+                  searchPlaceholder="Search languages…"
+                  emptyText="No language found."
+                  onChange={(v) => {
+                    setAudioLang(v);
+                    saveAudioLang(v);
                   }}
-                >
-                  <option value={AUTO}>No preference</option>
-                  {LANGUAGES.map((l) => (
-                    <option key={l.code} value={l.code}>
-                      {l.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="customize-lang">
+                />
+              </div>
+              <div className="customize-lang">
                 <span>Subtitles</span>
-                <select
-                  className="customize-lang__select"
+                <Combobox
+                  className="customize-lang__select w-44"
+                  contentClassName="w-56"
+                  ariaLabel="Preferred subtitle language"
+                  options={SUB_OPTIONS}
                   value={subLang}
-                  onChange={(e) => {
-                    setSubLang(e.target.value);
-                    saveSubLang(e.target.value);
+                  searchPlaceholder="Search languages…"
+                  emptyText="No language found."
+                  onChange={(v) => {
+                    setSubLang(v);
+                    saveSubLang(v);
                   }}
-                >
-                  <option value={AUTO}>No preference</option>
-                  <option value={SUBS_OFF}>Off</option>
-                  {LANGUAGES.map((l) => (
-                    <option key={l.code} value={l.code}>
-                      {l.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                />
+              </div>
             </div>
           </div>
 

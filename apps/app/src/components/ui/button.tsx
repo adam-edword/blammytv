@@ -37,27 +37,46 @@ const buttonVariants = cva(
   }
 )
 
-function Button({
-  className,
-  variant = "default",
-  size = "default",
-  asChild = false,
-  ...props
-}: React.ComponentProps<"button"> &
+type ButtonProps = React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean
-  }) {
-  const Comp = asChild ? Slot.Root : "button"
+  }
 
-  return (
-    <Comp
-      data-slot="button"
-      data-variant={variant}
-      data-size={size}
-      className={cn(buttonVariants({ variant, size, className }))}
-      {...props}
-    />
-  )
-}
+/**
+ * forwardRef, and it has to be. The registry ships this as a plain function
+ * that takes `ref` in its props, which works on React 19 only. This app is
+ * on React 18, where React strips `ref` off a function component's props and
+ * logs "Function components cannot be given refs" — so `ref={x}` on a Button
+ * left `x.current` null and the code reading it silently did nothing.
+ *
+ * It cost two real regressions from v0.9.54's conversion, both invisible
+ * until someone clicked: Settings' "add sources" measured a null rect, never
+ * set its menu position and so never opened the menu at all, and the
+ * tournament draw stopped focusing its back button on open.
+ *
+ * shadcn's own pre-19 registry wrote it exactly this way. When this repo
+ * moves to React 19 the wrapper becomes redundant, not wrong.
+ * `scripts/verify-tailwind.mjs` guards it: any ref handed to a primitive in
+ * `components/ui/` must land on a component that forwards it.
+ */
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  function Button(
+    { className, variant = "default", size = "default", asChild = false, ...props },
+    ref,
+  ) {
+    const Comp = asChild ? Slot.Root : "button"
+
+    return (
+      <Comp
+        ref={ref}
+        data-slot="button"
+        data-variant={variant}
+        data-size={size}
+        className={cn(buttonVariants({ variant, size, className }))}
+        {...props}
+      />
+    )
+  },
+)
 
 export { Button, buttonVariants }

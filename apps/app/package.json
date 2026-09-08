@@ -1,6 +1,6 @@
 {
   "name": "@blammytv/app",
-  "version": "0.9.66",
+  "version": "0.9.67",
   "private": true,
   "type": "module",
   "scripts": {
@@ -25,6 +25,7 @@
     "@tauri-apps/api": "^2.11.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
     "cn": "^0.2.6",
     "lucide-react": "^1.41.0",
     "radix-ui": "^1.6.7",
