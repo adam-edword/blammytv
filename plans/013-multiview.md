@@ -48,6 +48,40 @@ The 2-up is side by side. Stacking wastes exactly the same picture area
 (both put an 8x4.5 video in a half-box), so that one is convention rather
 than a measured win, and it is written down as convention.
 
+## What Telly does, as far as anyone here has actually checked
+
+Desktop Telly ships a Multi-View feature; that much is confirmed from their
+own feature list. HOW it renders is not published anywhere, and marketing
+pages do not document window trees.
+
+What we DO know first-hand, from this repo's own probe (PowerShell
+EnumChildWindows on Adam's machine, 2026-07-09, recorded in ROADMAP "Layer
+inversion spike history"): Telly's single-player stack is literally ours.
+`WRY_WEBVIEW` (Tauri) plus `Chrome_*` (WebView2) plus a native `mpv` child,
+with the UI webview above the bottom-parked video. Their install directory
+corroborates it: `iptv-player.exe` + `iptv-backend.exe`, `lib/libmpv-2.dll`,
+plus `mpv.exe` for the popout and `ffmpeg.exe` for recording.
+
+**A STALE LINE TO IGNORE.** ROADMAP's v0.1.114 entry says "Telly wins here
+by compositing video as a texture inside its UI, not our architecture".
+That was a guess, and the window-tree probe five months later disproved it.
+The probe is the later, first-hand measurement and it wins. Do not cite the
+earlier line.
+
+The INFERENCE, stated as one: Telly already has libmpv embedded and already
+runs a second mpv for the popout, so more mpv children is the cheapest
+multiview they could build. A web player would cost them the same demuxer
+and proxy it would cost us. That is reasoning about their incentives, not a
+measurement, and it does not settle anything on its own.
+
+**THE EXPERIMENT THAT WOULD SETTLE IT**, and it is the same one that settled
+the layer-inversion question: enumerate Telly's child windows with multiview
+open. Four `mpv`-class children at tile-sized rects means native instances,
+which is what phase 1 built. One child, or none, with only `Chrome_*` left
+means they moved multiview to the webview and solved the MPEG-TS problem
+some way we would then want to know about. Needs a Windows box, so it is
+Adam's to run.
+
 ## The architecture, and why the alternatives are not choices
 
 Four child windows, four mpv instances, extending the inverted-layer
@@ -64,9 +98,29 @@ Two other shapes were considered and neither survives contact:
   no way to stay in step. Sports streams die mid-game; that is the premise
   the whole sports feature is built on (see matcher.ts's MIN_CONFIDENCE
   note).
-- **Webview `<video>` elements.** Throws away hwdec, the mpv quality path
-  and the entire player stack. This is what the comp.rs overlay subsystem
-  was, and it was deleted at the v0.2.0 milestone for these reasons.
+- **Webview `<video>` elements.** Raised by Adam 2026-09-09 on the good
+  argument that native quality matters far less for monitoring tiles, and
+  that a CSS grid would dissolve the clip-hole and HWND geometry entirely.
+  It founders on the container, not the codec.
+
+  `stream.ts:37` builds live URLs as `{server}/live/{user}/{pass}/{id}.{ext}`
+  with `ext` defaulting to `ts`, and `playlists.ts:31` says why: "the default
+  'ts', which is what nearly every Xtream panel serves for live; a few use
+  'm3u8'". Chromium, and so WebView2, has no MPEG-TS demuxer and no native
+  HLS. A plain `<video>` fails on EVERY live stream, not some of them.
+
+  So the web path needs mpegts.js for `.ts` and hls.js for `.m3u8`, and
+  because those demux in JS they fetch over XHR, which makes them CORS
+  requests from the Tauri origin against panels that do not send
+  `Access-Control-Allow-Origin`. That needs a proxy in Rust, and there is no
+  local proxy or custom URI scheme in `src-tauri` today. The CSP itself is
+  fine: `media-src` and `connect-src` already allow `http:` and `https:`.
+
+  Two things NOT verified, and they would need to be before choosing this:
+  whether Tauri v2's custom-scheme handler can stream an endless body (a
+  local listener certainly can), and how four JS-demuxed streams actually
+  perform. WebView2 does hardware-accelerate H.264, so the decode cost is
+  probably smaller than it first looks.
 
 ## The decision that kept phase 1 small: a focused slot
 
