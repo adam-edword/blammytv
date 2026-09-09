@@ -24,6 +24,7 @@ import { isTauri } from "./lib/tauri";
 import { installPlayerPerf } from "./lib/playerPerf";
 import { installDiscoverProbe } from "./features/discover/probe";
 import { installSportsProbe } from "./features/sports/probe";
+import { installPlayerProbes } from "./features/live/probe";
 import {
   applyAccent,
   applyAurora,
@@ -60,6 +61,10 @@ installDiscoverProbe();
 // matcher is measured against a sports-folders-only dump, so the container
 // it is written in cannot see the catalog it fails on; see probe.ts.
 installSportsProbe();
+// `btvMultiview()` in the devtools console. Plan 013: whether a web-based
+// multiview needs a Rust proxy comes down to whether the panel sends CORS
+// headers, which only the machine with the playlist can answer.
+installPlayerProbes();
 
 const root = ReactDOM.createRoot(document.getElementById("root")!);
 

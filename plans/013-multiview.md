@@ -48,15 +48,35 @@ The 2-up is side by side. Stacking wastes exactly the same picture area
 (both put an 8x4.5 video in a half-box), so that one is convention rather
 than a measured win, and it is written down as convention.
 
-## What Telly does, as far as anyone here has actually checked
+## What Telly does: SETTLED, and it is a web player
 
-Desktop Telly ships a Multi-View feature; that much is confirmed from their
-own feature list. HOW it renders is not published anywhere, and marketing
-pages do not document window trees.
+**Telly's own multiview modal says so outright: "Multi-view uses a
+web-based player instead of the native player."** Adam had the screenshot;
+this section previously reasoned its way to the opposite answer and was
+wrong. The reasoning was that Telly already has libmpv embedded and a second
+mpv for the popout, so more mpv children would be their cheapest path. They
+went web anyway, which means the argument was missing something their
+engineers could see and this one could not.
 
-What we DO know first-hand, from this repo's own probe (PowerShell
-EnumChildWindows on Adam's machine, 2026-07-09, recorded in ROADMAP "Layer
-inversion spike history"): Telly's single-player stack is literally ours.
+**Their warning is a fingerprint, and it names the technology.** The modal
+cautions that "some streams may not play if they use codecs not supported by
+your browser (HEVC, certain audio formats)". A native mpv decodes all of
+those without comment. That sentence is only true of a transmuxer feeding
+Media Source Extensions, where the browser's own codec support is the
+ceiling — HEVC is patchy in Chromium's MSE, and AC-3/E-AC-3 audio is a
+known gap. It also matches mpegts.js exactly, which transmuxes MPEG2-TS to
+fragmented MP4 and hands it to MSE.
+
+The other two panels in their modal are player-agnostic and we would carry
+them either way: one connection per stream, and one audio stream at a time.
+
+So the earlier "what Telly does" reasoning below is kept only as a record of
+how the wrong answer was reached.
+
+What we know first-hand about their SINGLE player, from this repo's own
+probe (PowerShell EnumChildWindows on Adam's machine, 2026-07-09, recorded
+in ROADMAP "Layer inversion spike history"), and it still holds: Telly's
+single-player stack is literally ours.
 `WRY_WEBVIEW` (Tauri) plus `Chrome_*` (WebView2) plus a native `mpv` child,
 with the UI webview above the bottom-parked video. Their install directory
 corroborates it: `iptv-player.exe` + `iptv-backend.exe`, `lib/libmpv-2.dll`,
@@ -68,19 +88,50 @@ That was a guess, and the window-tree probe five months later disproved it.
 The probe is the later, first-hand measurement and it wins. Do not cite the
 earlier line.
 
-The INFERENCE, stated as one: Telly already has libmpv embedded and already
-runs a second mpv for the popout, so more mpv children is the cheapest
-multiview they could build. A web player would cost them the same demuxer
-and proxy it would cost us. That is reasoning about their incentives, not a
-measurement, and it does not settle anything on its own.
+The inference drawn from that — that more mpv children must therefore be
+their cheapest multiview — was WRONG, and their own modal is the evidence.
+Worth keeping as a lesson: an incentive argument about somebody else's
+codebase is not a measurement, and it lost to one screenshot.
 
-**THE EXPERIMENT THAT WOULD SETTLE IT**, and it is the same one that settled
-the layer-inversion question: enumerate Telly's child windows with multiview
-open. Four `mpv`-class children at tile-sized rects means native instances,
-which is what phase 1 built. One child, or none, with only `Chrome_*` left
-means they moved multiview to the webview and solved the MPEG-TS problem
-some way we would then want to know about. Needs a Windows box, so it is
-Adam's to run.
+## The revised direction: web player for multiview, native for single
+
+Multiview goes to a web player. Single-stream playback stays native mpv and
+is not touched: it has the quality path, hwdec, HDR and every codec, and
+nothing about multiview is a reason to give that up.
+
+Two pieces are needed, and only one of them is unknown.
+
+**The demuxer is a known quantity.** `mpegts.js` (Apache-2.0, 1.8.2, still
+released as of 2026-08) transmuxes MPEG2-TS into fragmented MP4 and feeds
+MSE, supports HTTP live streams on Chrome 43+, and costs about 10MiB of JS
+heap per instance — so roughly 40MiB for four tiles. `hls.js` (Apache-2.0,
+1.7.2) covers the `.m3u8` minority. Both are maintained, both are the
+standard answer, and picking them is Layer 1 of the search-before-building
+rule rather than a judgement call.
+
+**CORS is the unknown, and it decides whether a proxy has to exist.**
+mpegts.js reads the stream over XHR, so the panel must send
+`Access-Control-Allow-Origin` or the request never lands. Some panels do,
+most reportedly do not, and no one here can know from the outside which
+Adam's is. If it sends the header, the web player needs no proxy at all and
+this becomes a frontend-only feature. If it does not, a local HTTP proxy in
+Rust has to exist before a single tile renders.
+
+`btvMultiview()` (features/live/probe.ts) asks the browser on the machine
+that has the playlist: the container extension, whether `fetch` reaches the
+stream, and which codecs this WebView2 can actually feed MSE. It prints the
+extension and never the URL, because an Xtream live URL carries the
+credentials in its path. Run that before building anything.
+
+**WHAT HAPPENS TO PHASE 1.** If multiview is web, the slot refactor is dead
+weight: `PLAYERS[4]` only ever holds slot 0, and `set_focus`, `unload_slot`,
+`inv_focus`, `inv_stop_slot`, `CHILDREN[4]`, `holesClip` and `tileRects` all
+go unused. That is real complexity in the most delicate file in the app and
+it should come out. NOT YET, though: revert it once the web path actually
+renders four tiles on a real machine, not before, or we risk ending up with
+neither. `allowedSizes`/`usableSize` survive regardless, because a
+connection cap is a fact about the line and not about the player. The 3-up
+layout decision survives too, as CSS rather than as computed rects.
 
 ## The architecture, and why the alternatives are not choices
 
