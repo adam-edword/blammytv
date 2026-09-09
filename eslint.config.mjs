@@ -17,7 +17,13 @@ export default tseslint.config(
   {
     // `.astro/` is Astro's generated type shim for services/docs — build
     // output that happens to land outside dist/, and not ours to lint.
-    ignores: ["**/dist/**", "**/node_modules/**", "**/.astro/**"],
+    //
+    // `old/` is parked code: it is not imported, not compiled and not on any
+    // tsconfig include path, so it references modules that have moved and
+    // globals no rule set here knows about. Linting it would report dozens of
+    // errors about code that deliberately is not part of the app. See
+    // old/themes/README.md.
+    ignores: ["**/dist/**", "**/node_modules/**", "**/.astro/**", "old/**"],
   },
 
   // Base JS rules everywhere.
@@ -45,6 +51,23 @@ export default tseslint.config(
         { allowConstantExport: true },
       ],
     },
+  },
+
+  // shadcn's generated components (v0.9.49). NOT ours to lint.
+  //
+  // `npx shadcn@latest add <name>` overwrites these files wholesale, so a
+  // lint fix applied here survives exactly until the next time somebody
+  // regenerates one, and then comes back as a warning nobody caused. The
+  // rule that fires is react-refresh's: shadcn exports `buttonVariants`
+  // beside `Button` from one file, which is its documented API and is how
+  // every call site imports the variants.
+  //
+  // Scoped to the generated directory alone, so a component MOVED out from
+  // under `ui/` (which is the documented way to take ownership of one) gets
+  // linted like anything else. See src/components/README.md.
+  {
+    files: ["apps/app/src/components/ui/**/*.{ts,tsx}"],
+    rules: { "react-refresh/only-export-components": "off" },
   },
 
   // Node ESM scripts (build helpers, this config, the fake test panels,

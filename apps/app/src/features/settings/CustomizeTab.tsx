@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
-import { ChevronIcon } from "../../ui/icons";
+import { Button } from "../../components/ui/button";
 import { ChipTabs } from "../../ui/ChipTabs";
+import { Combobox, type ComboboxOption } from "../../ui/Combobox";
 import { Toggle } from "../../ui/Toggle";
 import { loadAioUrl } from "./aiostreams";
 import { loadOneClickPlay, saveOneClickPlay } from "./oneClickPlay";
@@ -41,19 +42,13 @@ import {
 } from "./overlayMeta";
 import { ROW_CAP_MAX, ROW_CAP_MIN, loadRowCap, saveRowCap } from "./rowCap";
 import {
-  ACCENT_PRESETS,
-  applyAccent,
+  clearAccent,
   saveAccent,
   saveAccentPairedBy,
   saveAccentStyle,
   saveCustomAccent,
 } from "./accent";
 import { applyTheme, saveTheme, type Theme } from "./theme";
-import {
-  DEFAULT_PACK,
-  applyThemePack,
-  saveThemePack,
-} from "./themePacks";
 import {
   UI_SCALES,
   applyUiScale,
@@ -71,12 +66,6 @@ import {
   loadShowChannelNumber,
   saveShowChannelNumber,
 } from "./channelNumber";
-import {
-  applyCornerStyle,
-  loadCornerStyle,
-  saveCornerStyle,
-  type CornerStyle,
-} from "./cornerStyle";
 
 const SCALE_TABS = UI_SCALES.map((s) => ({
   key: String(s),
@@ -84,12 +73,6 @@ const SCALE_TABS = UI_SCALES.map((s) => ({
 }));
 
 // CLOCK_TABS lives in clockFormat.ts — one list shared with onboarding.
-
-const CORNER_TABS: Array<{ key: CornerStyle; label: string }> = [
-  { key: "squircle", label: "Squircle" },
-  { key: "round", label: "Round" },
-  { key: "sharp", label: "Sharp" },
-];
 
 /** The same Live TV / Stream split General's Sources uses. One mental
  * model: the app has two content worlds, and each tab says its piece about
@@ -101,9 +84,33 @@ const WORLD_TABS = [
 
 // STARTUP_TABS lives in startupTab.ts — one list shared with onboarding.
 
+/**
+ * The language pickers' options. Built once at module scope, not per render:
+ * the list is 28 entries and never changes, and rebuilding it every render
+ * would hand Combobox a new array identity each time for nothing.
+ *
+ * The code rides along as a search keyword so typing "es" finds Spanish as
+ * well as typing "Spanish" does. That is the one thing the native <select>
+ * did that a plain label list would have lost.
+ */
+const LANG_OPTIONS: ComboboxOption[] = LANGUAGES.map((l) => ({
+  value: l.code,
+  label: l.label,
+  keywords: [l.code],
+}));
+const AUDIO_OPTIONS: ComboboxOption[] = [
+  { value: AUTO, label: "No preference" },
+  ...LANG_OPTIONS,
+];
+const SUB_OPTIONS: ComboboxOption[] = [
+  { value: AUTO, label: "No preference" },
+  { value: SUBS_OFF, label: "Off" },
+  ...LANG_OPTIONS,
+];
+
 // Themes are their own pop-out panel now — the old "Theme" pill is gone; the
 // launcher at the top opens it. Accent + packs + Pass all live there.
-export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
+export function CustomizeTab() {
   // Light/dark axis state exists only so reset() can force dark — the user
   // control (the Theme Style pill) lives in the Themes panel now.
   const pickTheme = (next: Theme) => {
@@ -133,12 +140,6 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
     saveClockFormat(next);
   };
 
-  const [corners, setCorners] = useState<CornerStyle>(loadCornerStyle);
-  const pickCorners = (next: CornerStyle) => {
-    setCorners(next);
-    saveCornerStyle(next);
-    applyCornerStyle(next);
-  };
 
   const [chanNum, setChanNum] = useState<boolean>(loadShowChannelNumber);
   const toggleChanNum = () => {
@@ -201,22 +202,23 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
   };
 
   /** Back to factory appearance: default accent (custom slot cleared),
-   * default theme pack, dark theme, squircle corners, 100% scale, 12h
+   * default theme pack, dark theme, 100% scale, 12h
    * clock, channel numbers shown. Startup Tab is NOT reset, even though it
    * is displayed on this tab: it decides where the app OPENS, which is
    * behaviour, and this button promises appearance. Accent + pack reset go
    * straight through the storage/apply seams (their live state lives in the
    * Themes panel, which isn't mounted here). */
   const reset = () => {
-    saveAccent(ACCENT_PRESETS[0].hex);
-    applyAccent(ACCENT_PRESETS[0].hex); // also exits aurora
+    // The factory accent is NO accent since v0.9.57: --accent then resolves
+    // from tokens.css (shadcn's primary) and keeps flipping with the theme,
+    // which a stored hex cannot. Resetting to ACCENT_PRESETS[0] would have
+    // put the brand red back on a button labelled "Reset Appearance".
+    saveAccent("");
+    clearAccent();
     saveAccentStyle("flat");
-    saveAccentPairedBy(""); // factory accent = no pack pairing
+    saveAccentPairedBy("");
     saveCustomAccent("");
-    saveThemePack(DEFAULT_PACK);
-    applyThemePack(DEFAULT_PACK);
     pickTheme("dark");
-    pickCorners("squircle");
     pickScale(1);
     pickClock("12h");
     setChanNum(true);
@@ -226,19 +228,9 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
 
   return (
     <>
-      {/* Themes launcher — pops the standalone Themes panel out and closes
-          Settings (App wires onOpenThemes). Replaces the old Theme sub-tab. */}
-      <button type="button" className="themes-launch" onClick={onOpenThemes}>
-        <span className="themes-launch__text">
-          <span className="themes-launch__title">Themes</span>
-          <span className="themes-launch__hint">
-            Accent, theme packs, and the Themes Pass.
-          </span>
-        </span>
-        <ChevronIcon className="themes-launch__chevron" />
-      </button>
-
-
+      {/* The Themes launcher stood here. Parked in old/themes/ (v0.9.58),
+          Adam's call: the pack engine was outranking the shadcn palette on
+          every launch and it is easier to redesign without it in the way. */}
       {/* Applies everywhere, whichever side of the app you are on. Named
         * Interface rather than General so it does not collide with the
         * General TAB one level up. */}
@@ -278,15 +270,6 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
           />
         </div>
 
-        <div className="customize-row">
-          <div>
-            <h4 className="customize-row__title">Corner Style</h4>
-            <p className="settings__section-note settings__section-note--dim">
-              The shape of every corner in the app.
-            </p>
-          </div>
-          <ChipTabs tabs={CORNER_TABS} active={corners} onChange={pickCorners} />
-        </div>
       </section>
 
       {/* Per-world look, behind the same pill General's Sources uses. */}
@@ -346,15 +329,33 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
             </div>
             <div className="meta-pick" role="group" aria-label="Card details">
               {CARD_META_FIELDS.map((f) => (
-                <button
+                <Button
+                  // Variant BY STATE, not a CSS override. The pressed look
+                  // used to be `.meta-pick__chip[aria-pressed="true"]` in
+                  // settings.css; since v0.9.54 that rule sets colours the
+                  // variant also sets, and `utilities` outranks `app`, so it
+                  // would never have painted again. shadcn's answer is to
+                  // pick the variant, and the two it wants are exactly the
+                  // two states: quiet when off, a filled surface when on.
+                  variant={metaFields.includes(f.key) ? "secondary" : "ghost"}
                   key={f.key}
                   type="button"
-                  className="meta-pick__chip"
+                  // `hover:bg-muted` on the OFF chip, and it is not a taste
+                  // call. shadcn's `secondary` and `ghost` read the same two
+                  // tokens through this app's bridge (--color-secondary and
+                  // --color-accent both resolve to --surface-raised), so
+                  // ghost's own hover repaints an off chip in exactly the on
+                  // colour. In a row of toggles that is a lie. --color-muted
+                  // is the next surface down and keeps the two apart.
+                  className={
+                    "meta-pick__chip" +
+                    (metaFields.includes(f.key) ? "" : " hover:bg-muted")
+                  }
                   aria-pressed={metaFields.includes(f.key)}
                   onClick={() => toggleMeta(f.key)}
                 >
                   {f.label}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -368,15 +369,21 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
             </div>
             <div className="meta-pick" role="group" aria-label="Player overlay">
               {OVERLAY_META_FIELDS.map((f) => (
-                <button
+                <Button
+                  variant={
+                    overlayFields.includes(f.key) ? "secondary" : "ghost"
+                  }
                   key={f.key}
                   type="button"
-                  className="meta-pick__chip"
+                  className={
+                    "meta-pick__chip" +
+                    (overlayFields.includes(f.key) ? "" : " hover:bg-muted")
+                  }
                   aria-pressed={overlayFields.includes(f.key)}
                   onClick={() => toggleOverlay(f.key)}
                 >
                   {f.label}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -416,14 +423,19 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
                   }}
                 />
               ) : (
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   type="button"
-                  className="rowcap__value rowcap__value--btn"
+                  // Not `.rowcap__value`: that class also dresses the number
+                  // INPUT beside it, which is not a Button and still needs
+                  // its own type. The button half takes shadcn's instead.
+                  className="rowcap__value--btn"
                   title="Click to type an exact value"
                   onClick={() => setCapDraft(String(rowCap))}
                 >
                   {rowCap}
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -476,43 +488,36 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
               </p>
             </div>
             <div className="customize-langs">
-              <label className="customize-lang">
+              <div className="customize-lang">
                 <span>Audio</span>
-                <select
-                  className="customize-lang__select"
+                <Combobox
+                  className="customize-lang__select w-44"
+                  ariaLabel="Preferred audio language"
+                  options={AUDIO_OPTIONS}
                   value={audioLang}
-                  onChange={(e) => {
-                    setAudioLang(e.target.value);
-                    saveAudioLang(e.target.value);
+                  placeholder="No preference"
+                  emptyText="No language found."
+                  onChange={(v) => {
+                    setAudioLang(v);
+                    saveAudioLang(v);
                   }}
-                >
-                  <option value={AUTO}>No preference</option>
-                  {LANGUAGES.map((l) => (
-                    <option key={l.code} value={l.code}>
-                      {l.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="customize-lang">
+                />
+              </div>
+              <div className="customize-lang">
                 <span>Subtitles</span>
-                <select
-                  className="customize-lang__select"
+                <Combobox
+                  className="customize-lang__select w-44"
+                  ariaLabel="Preferred subtitle language"
+                  options={SUB_OPTIONS}
                   value={subLang}
-                  onChange={(e) => {
-                    setSubLang(e.target.value);
-                    saveSubLang(e.target.value);
+                  placeholder="No preference"
+                  emptyText="No language found."
+                  onChange={(v) => {
+                    setSubLang(v);
+                    saveSubLang(v);
                   }}
-                >
-                  <option value={AUTO}>No preference</option>
-                  <option value={SUBS_OFF}>Off</option>
-                  {LANGUAGES.map((l) => (
-                    <option key={l.code} value={l.code}>
-                      {l.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                />
+              </div>
             </div>
           </div>
 
@@ -569,12 +574,17 @@ export function CustomizeTab({ onOpenThemes }: { onOpenThemes: () => void }) {
             <div>
               <h4 className="customize-row__title">Reset Appearance</h4>
               <p className="settings__section-note settings__section-note--dim">
-                Accent, theme, corners, scale, and clock back to defaults.
+                Accent, theme, scale, and clock back to defaults.
               </p>
             </div>
-            <button type="button" className="btn-danger" onClick={reset}>
+            <Button
+              variant="destructive"
+              type="button"
+              className="btn-danger"
+              onClick={reset}
+            >
               Reset
-            </button>
+            </Button>
           </div>
         </div>
       </section>

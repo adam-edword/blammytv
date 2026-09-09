@@ -8,7 +8,7 @@
   display: flex;
   align-items: center;
   background: var(--surface-track);
-  border-radius: 18px;
+  border-radius: var(--radius-track);
   padding: 2px;
 }
 
@@ -42,7 +42,7 @@
   top: 2px;
   bottom: 2px;
   background: var(--surface-raised);
-  border: 0.5px solid var(--border-raised);
+  border: 1px solid var(--border-raised);
   border-radius: var(--radius-chip);
   /* 380ms — the spring's designed pairing (tokens.css) and the mode
    * rail's speed. 300ms read as a twitchy overshoot (Adam, wave-A
@@ -91,27 +91,46 @@
   border-color: rgba(0, 0, 0, 0.28);
 }
 
-/* Toggle: a text-less chip rail. Same track color, inset, radius, and slide
- * curve as .chip-tabs; the white squircle thumb is the "chip". On floods the
- * track with the accent. */
+/* Switch, at shadcn's exact geometry.
+ *
+ * Adam: "ours seems rather large compared to the docs." Measured rather than
+ * eyeballed, against ui.shadcn.com/r/styles/new-york-v4/switch.json:
+ *
+ *            track           thumb    travel
+ *   ours     52 x 30         26       22px
+ *   shadcn   32 x 18.4       16       14px      (h-[1.15rem] w-8, size-4)
+ *   sm       24 x 14         12       10px      (h-3.5 w-6, size-3)
+ *
+ * 62% too wide and 63% too tall, which is exactly the kind of thing that
+ * reads as "close but not shadcn" without ever looking broken. `1.15rem` is
+ * theirs and it is deliberately not a round number; leave it alone.
+ *
+ * The COLOURS are shadcn's too, and the checked thumb going DARK is not a
+ * bug: their dark rule is `bg-primary-foreground`, and with primary a
+ * near-white the ink on it has to be near-black. Off-track is `bg-input`,
+ * on-track `bg-primary`, off-thumb `bg-foreground` in dark. */
 .toggle {
   position: relative;
-  width: 52px;
-  height: 30px;
-  border-radius: 18px;
-  background: var(--surface-track);
+  width: 32px;
+  height: 1.15rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: var(--border-input);
   transition: background 220ms ease;
 }
 
 .toggle__thumb {
   position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 26px;
-  height: 26px;
-  border-radius: var(--radius-chip);
-  background: #ffffff;
-  border: 0.5px solid rgba(0, 0, 0, 0.12);
+  top: 0;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  /* A CIRCLE, not the chip radius it used to share. Once --radius-chip came
+   * down to shadcn's 10px the thumb became a rounded square sliding inside
+   * a pill track, which reads as a bug. A switch's thumb is round in every
+   * design system including shadcn's own. */
+  border-radius: var(--radius-pill);
+  background: var(--text);
   transition: transform 260ms var(--spring);
 }
 
@@ -120,46 +139,34 @@
 }
 
 .toggle--on .toggle__thumb {
-  transform: translateX(22px);
+  /* shadcn writes this `translate-x-[calc(100%-2px)]`, i.e. the thumb's own
+   * width less 2px, which lands its right edge on the track's inner edge. */
+  transform: translateX(14px);
+  background: var(--accent-ink);
 }
 
-/* Dense-list variant. */
+/* Light mode keeps a white thumb in BOTH states, because shadcn's
+ * foreground/primary-foreground swap is inside its `dark:` variants and
+ * this app's light theme is the un-prefixed half of that pair. */
+:root[data-theme="light"] .toggle__thumb,
+:root[data-theme="light"] .toggle--on .toggle__thumb {
+  background: var(--bg);
+}
+
+/* Dense-list variant — shadcn's `size="sm"`. */
 .toggle--sm {
-  width: 40px;
-  height: 24px;
+  width: 24px;
+  height: 0.875rem;
 }
 
 .toggle--sm .toggle__thumb {
-  width: 20px;
-  height: 20px;
-  border-radius: 12px;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-pill);
 }
 
 .toggle--sm.toggle--on .toggle__thumb {
-  transform: translateX(16px);
-}
-
-/* Primary action button (Figma "Add Playlist"/"Submit"). */
-.btn-primary {
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 15px;
-  color: var(--text);
-  background: var(--accent-surface);
-  border: 0.5px solid var(--accent);
-  border-radius: 25px;
-  padding: 9px 14px;
-  transition: filter var(--dur-hover) ease, opacity var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
-}
-
-.btn-primary:hover:not(:disabled) {
-  filter: brightness(1.35);
-}
-
-.btn-primary:disabled {
-  opacity: 0.4;
-  cursor: default;
+  transform: translateX(10px);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -169,45 +176,58 @@
   }
 }
 
-/* ---- Keyboard focus — the Live a11y batch's themed ring, app-wide.
- * Live's own list stays in live.css; this covers the surfaces the
- * v0.1.98 pass never reached (Stream, Discover, My List, header,
- * settings). :focus-visible only — no ring on plain mouse clicks. Text
- * inputs are deliberately absent: browsers grant them :focus-visible on
- * MOUSE focus too, which ringed the borderless search field while
- * typing; their own focus styling carries them. */
-.stream-card:focus-visible,
-.continue-card:focus-visible,
-.shero__card:focus-visible,
-.shero__btn-quiet:focus-visible,
-.genre-card:focus-visible,
-.chip-tabs__tab:focus-visible,
-.navcap__item:focus-visible,
-.header__action:focus-visible,
-.vod-source:focus-visible,
-.vod-sources__retry:focus-visible,
-.vod-back:focus-visible,
-.season-chip:focus-visible,
-.episode-card:focus-visible,
-.media-row__arrow:focus-visible,
-.continue-card__sources:focus-visible,
-/* Sports. Every surface here fell through to the UA's 1px ring, which was
- * visible but was not this one, and it showed worst in the sports sidebar
- * where the Teams rows get the accent ring and the League tiles beside them
- * did not. The cards' visible surface is a child __tilt layer, so the ring
- * sits on the untransformed button box, the same as .stream-card. */
-.gamecard:focus-visible,
-.upcard:focus-visible,
-.compactcard:focus-visible,
-.leaguetile:focus-visible,
-.sports__toggle:focus-visible,
-.sportsrail:focus-visible,
-.btn-primary:focus-visible,
-.btn-danger:focus-visible,
-.playlist-row__delete:focus-visible,
-.settings__close:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+/* ---- Keyboard focus: ONE RULE, and no registry to keep.
+ *
+ * This was a hand-maintained allow-list of 41 selectors across four files,
+ * all saying the same thing, and its own comments record it rotting twice:
+ * "this covers the surfaces the v0.1.98 pass never reached", and, on the
+ * sports block, "every surface here fell through to the UA's 1px ring".
+ * Both are the same failure. A list that every new component has to
+ * remember to join is a list that will be incomplete, and the way you find
+ * out is a keyboard user hitting a control with no ring on it.
+ *
+ * `:focus-visible` on its own reaches everything focusable, including
+ * whatever gets built next, so the rot is not fixable-by-discipline any
+ * more. It is fixed by construction.
+ *
+ * SHADCN'S GEOMETRY, which is 3px of --ring at 50% rather than the 2px
+ * solid this app used. Adam's call, and it is the more modern read: a
+ * half-opacity halo hugging the control instead of a hard line held off it.
+ *
+ * DELIVERED AS AN OUTLINE, NOT A RING, and that part is engineering rather
+ * than taste. shadcn's `ring-[3px]` compiles to a box-shadow, which works
+ * there because Tailwind composes it with the component's own shadow
+ * (`--tw-shadow` and `--tw-ring-shadow` are separate slots in one
+ * property). A blanket CSS rule has no such composition: `box-shadow` here
+ * would erase the shadow on every card, panel and floating surface that
+ * has one the moment it took focus. `outline` does not participate in
+ * box-shadow at all, follows border-radius in every engine this ships to,
+ * and cannot be clobbered by a component's own styling.
+ *
+ * The other half of shadcn's rule, `focus-visible:border-ring`, stays
+ * per-component: it recolours a border this rule knows nothing about, so
+ * it arrives with each component as it migrates.
+ *
+ * TEXT INPUTS OPT OUT, and it is deliberate rather than an omission.
+ * Browsers grant an input :focus-visible on MOUSE focus too, so a blanket
+ * rule rings the borderless search field the whole time you are typing in
+ * it. They carry their own focus styling instead (settings-input:focus,
+ * onb-input:focus, rec__input:focus-visible). The same trap is written up
+ * at discover.css:38. */
+/* `--ring`, not `--accent`. v0.9.53 put the ring in the brand colour because
+ * that is where this app had always put it. v0.9.57 made the brand a
+ * near-white, and a near-white halo at 50% reads as a glow rather than as
+ * focus. shadcn names a separate neutral for exactly this. */
+:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--ring) 50%, transparent);
+  outline-offset: 0;
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[contenteditable]:focus-visible {
+  outline: none;
 }
 
 /* Visually hidden, screen-reader audible — the skeleton grids' status
@@ -239,7 +259,10 @@
   justify-content: center;
   padding: 1.6px 4.4px;
   border: 1px solid transparent;
-  border-radius: 10px;
+  /* shadcn's Badge is `rounded-full`. The SIZE stays ours — these are
+   * 8.2px hardware markings stamped on card art, and shadcn's text-xs
+   * would be half a poster wide — but the shape is theirs. */
+  border-radius: var(--radius-pill);
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 8.2px;
@@ -324,17 +347,26 @@
  * keeps reading the flat --accent hue applyAurora sets. The glass fill +
  * iridescent ring is the padding-box/border-box two-layer technique the
  * quality-badge rings already use (border-image can't round corners). */
+/* `background-image`, NOT the `background` shorthand, and v0.9.54 had to
+ * find that out the hard way. The shorthand also sets background-color,
+ * which is the one thing shadcn's `default` variant paints with a utility
+ * (`bg-primary`) — and utilities outrank the app layer, so the shorthand
+ * lost the whole rule and aurora's button went back to flat accent red.
+ * Naming only the image layers takes the property the variant does not
+ * touch. The opaque black layer in the middle covers `bg-primary`
+ * completely, so the face is identical to what it always was.
+ *
+ * The `color: #f2f2f4` that used to be here is gone: it existed because
+ * light theme's var(--text) went near-black on this black face (a fleet
+ * finding), and `default` already pins the label to
+ * --color-primary-foreground, which is #fff in every theme. */
 :root[data-accent-style="aurora"] .btn-primary {
-  border: 1px solid transparent;
   /* Adam's exact recipe: the 0.29-alpha conic over black (the HDR-badge
-   * construction), full-strength ring on the same angle. The face is
-   * BLACK in every theme, so the label pins light — light theme's
-   * var(--text) was near-black-on-black (fleet finding). */
-  color: #f2f2f4;
-  background:
-    var(--accent-image) padding-box,
-    linear-gradient(#000, #000) padding-box,
-    var(--accent-ring-image) border-box;
+   * construction), full-strength ring on the same angle. */
+  background-image:
+    var(--accent-image),
+    linear-gradient(#000, #000),
+    var(--accent-ring-image);
 }
 
 /* Aurora picker swatch: wash over black in the middle, full-strength
@@ -394,15 +426,16 @@
 .header__searchchip:active {
   transform: none;
 }
-.btn-primary:active:not(:disabled) {
-  transform: scale(0.97);
-}
+
 .toggle:active .toggle__thumb {
   transform: scale(0.94);
 }
+/* The press dip has to repeat the translate, because `transform` is one
+ * property and a bare `scale()` here would snap the thumb back to the left.
+ * Both numbers follow the geometry above; they were 22 and 16. */
 .toggle--on:active .toggle__thumb {
-  transform: translateX(22px) scale(0.94);
+  transform: translateX(14px) scale(0.94);
 }
 .toggle--sm.toggle--on:active .toggle__thumb {
-  transform: translateX(16px) scale(0.94);
+  transform: translateX(10px) scale(0.94);
 }

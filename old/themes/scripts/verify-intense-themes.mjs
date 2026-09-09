@@ -110,11 +110,13 @@ for (const method of ["close-button", "backdrop", "escape"]) {
   if (method === "close-button") await page.locator(".themes-modal .settings__close").click();
   else if (method === "backdrop") await page.locator(".modal-backdrop--center").click({ position: { x: 8, y: 8 } });
   else await page.keyboard.press("Escape");
-  // Reverts to the persisted default — BlammyTV/slate, a real attribute pack.
-  await page.waitForFunction(() => document.documentElement.dataset.themePack === "slate", null, { timeout: 5000 }).catch(() => null);
+  // Reverts to the persisted default. v0.9.57 made that "classic", the raw
+  // tokens, which sets NO attribute at all — so the wait is for the attribute
+  // to go away rather than for it to become another pack's id.
+  await page.waitForFunction(() => !document.documentElement.dataset.themePack, null, { timeout: 5000 }).catch(() => null);
   const after = await state(page);
   check(`preview reverts on close via ${method}`,
-    previewed === "terminal" && after.pack === "slate" && after.bg === before.bg, `after.pack=${after.pack}`);
+    previewed === "terminal" && after.pack === null && after.bg === before.bg, `after.pack=${after.pack}`);
   await page.close();
 }
 
@@ -194,9 +196,9 @@ for (const method of ["close-button", "backdrop", "escape"]) {
   check("reduced-motion stops the aura drift", reduced === "none", String(reduced));
 
   await page.keyboard.press("Escape");
-  await page.waitForFunction(() => document.documentElement.dataset.themePack === "slate", null, { timeout: 5000 }).catch(() => null);
+  await page.waitForFunction(() => !document.documentElement.dataset.themePack, null, { timeout: 5000 }).catch(() => null);
   check("Supporter preview reverts on close without a Pass",
-    (await page.evaluate(() => document.documentElement.dataset.themePack ?? null)) === "slate");
+    (await page.evaluate(() => document.documentElement.dataset.themePack ?? null)) === null);
   await page.close();
 }
 
@@ -219,16 +221,20 @@ for (const method of ["close-button", "backdrop", "escape"]) {
   await openThemes(page);
   const accent = () => page.evaluate(() =>
     getComputedStyle(document.documentElement).getPropertyValue("--accent").trim());
-  check("accent starts on the default red", (await accent()) === "#c22727", await accent());
+  // NOT A HEX ANY MORE. v0.9.57 made the default accent unset, so --accent
+  // falls through to tokens.css, which is shadcn neutral's `primary`. The
+  // property under test is unchanged: a pack preview must not move it.
+  const BASE_ACCENT = "oklch(0.922 0 0)";
+  check("accent starts on the shadcn base primary", (await accent()) === BASE_ACCENT, await accent());
   await pick(page, "kawaii");
   check("kawaii preview pairs the pink accent live", (await accent()) === "#f2a0c2", await accent());
   check("pairing preview persists nothing",
     (await page.evaluate(() => localStorage.getItem("blammytv.accent"))) === null);
   await pick(page, "terminal");
-  check("moving to an unpaired preview restores the default", (await accent()) === "#c22727", await accent());
+  check("moving to an unpaired preview restores the default", (await accent()) === BASE_ACCENT, await accent());
   await page.keyboard.press("Escape");
   await page.waitForTimeout(300);
-  check("after close the accent is still the persisted default", (await accent()) === "#c22727", await accent());
+  check("after close the accent is still the persisted default", (await accent()) === BASE_ACCENT, await accent());
   await page.close();
 }
 

@@ -41,15 +41,38 @@ const check = (n, ok, d = "") => {
  * check passes against the very code it exists to catch.
  */
 const SCHEDULE = {
-  0: 2, 1: 0, 2: 1, 3: 0, 4: 2,
+  // NEGATIVE OFFSETS ARE YESTERDAY AND THE DAY BEFORE, and nothing fetches
+  // them until "Show earlier days" is clicked. They are in the fixture so
+  // that a board which has NOT been asked can be told apart from one that
+  // was asked and got nothing: without games back there, a broken button
+  // and a working one look identical.
+  "-2": 4, "-1": 3,
+  // FOUR TODAY, not two, and their states are mixed (see FINALS). Two is
+  // enough to prove a day rendered and not enough to prove anything about
+  // the ORDER within it.
+  0: 4, 1: 0, 2: 1, 3: 0, 4: 2,
   5: 3, 6: 0, 7: 0, 8: 11, 9: 1,
   // Past the first chunk, so a click has somewhere to stop. One click is
   // worth 50 GAMES now, not five days, and 3+11+1+18+20 walks past that.
   10: 0, 11: 18, 12: 0, 13: 20, 14: 6,
 };
 const BASE_DAYS = 5;
+/** How far back the board may be walked. Mirrors EARLIER_DAYS in useGames;
+ * the fixture only carries two of them, which is the point of the cap
+ * check below. */
+const EARLIER_DAYS = 3;
+/**
+ * WHICH of a day's games have finished, by index.
+ *
+ * Today's finals are at 0 and 2, INTERLEAVED with the two that have not
+ * kicked off. That is Adam's complaint made reproducible: in kick-off
+ * order a compacted board draws pill, card, pill, card, and the full-height
+ * card in the middle of a run of one-liners is the hole being fixed. Two
+ * finals in a row would pass against the very code this exists to catch.
+ */
+const FINALS = { 0: [0, 2], "-1": [0, 1, 2], "-2": [0, 1, 2, 3] };
 const inBase = Object.entries(SCHEDULE)
-  .filter(([d]) => Number(d) < BASE_DAYS)
+  .filter(([d]) => Number(d) >= 0 && Number(d) < BASE_DAYS)
   .reduce((a, [, n]) => a + n, 0);
 /**
  * What one click is worth.
@@ -99,37 +122,67 @@ const team = (id, name, abbr) => ({
   logo: `https://a.espncdn.com/i/teamlogos/ncaa/500/${id}.png`,
 });
 
-/** One scheduled fixture, in the shape the live endpoint really returns. */
+/** Has this day's i-th game finished? See FINALS. */
+const isFinal = (offset, i) => (FINALS[String(offset)] ?? []).includes(i);
+
+/**
+ * One fixture, in the shape the live endpoint really returns.
+ *
+ * KICK-OFF TIMES SPREAD ACROSS THE DAY on the days whose states are mixed,
+ * because a reordering check needs an order to disturb. Everywhere else
+ * they stay at 19:00, which is what the rest of this file was written
+ * against.
+ */
 const event = (offset, i) => {
   const start = dayAt(offset);
-  start.setHours(19, 0, 0, 0);
+  start.setHours(FINALS[String(offset)] ? 12 + i : 19, 0, 0, 0);
   const iso = start.toISOString();
   const id = `${offset}${String(i).padStart(2, "0")}`;
+  const done = isFinal(offset, i);
+  const status = done
+    ? {
+        clock: 0,
+        displayClock: "0:00",
+        period: 4,
+        type: {
+          id: "3",
+          name: "STATUS_FINAL",
+          state: "post",
+          completed: true,
+          shortDetail: "Final",
+        },
+      }
+    : {
+        clock: 0,
+        displayClock: "0:00",
+        period: 0,
+        type: { id: "1", name: "STATUS_SCHEDULED", state: "pre", completed: false },
+      };
   return {
     id,
     date: iso,
     name: `Team A${id} at Team H${id}`,
     shortName: `A${id} @ H${id}`,
-    status: {
-      clock: 0,
-      displayClock: "0:00",
-      period: 0,
-      type: { id: "1", name: "STATUS_SCHEDULED", state: "pre", completed: false },
-    },
+    status,
     competitions: [
       {
         id,
         date: iso,
         competitors: [
-          { id: `h${id}`, homeAway: "home", team: team(`h${id}`, `Home ${id}`, "HOM"), score: "0" },
-          { id: `a${id}`, homeAway: "away", team: team(`a${id}`, `Away ${id}`, "AWY"), score: "0" },
+          {
+            id: `h${id}`,
+            homeAway: "home",
+            team: team(`h${id}`, `Home ${id}`, "HOM"),
+            score: done ? "24" : "0",
+          },
+          {
+            id: `a${id}`,
+            homeAway: "away",
+            team: team(`a${id}`, `Away ${id}`, "AWY"),
+            score: done ? "17" : "0",
+          },
         ],
-        status: {
-          clock: 0,
-          displayClock: "0:00",
-          period: 0,
-          type: { id: "1", name: "STATUS_SCHEDULED", state: "pre", completed: false },
-        },
+        status,
         broadcasts: [{ market: "national", names: ["ESPN"] }],
       },
     ],
@@ -247,7 +300,7 @@ const base = await board();
 // day 0, so the day sections are what is left after it.
 const baseDays = base.headings.filter((h) => !/Today.s Games/i.test(h));
 const windowDays = Object.entries(SCHEDULE).filter(
-  ([d, n]) => Number(d) < BASE_DAYS && n > 0,
+  ([d, n]) => Number(d) >= 0 && Number(d) < BASE_DAYS && n > 0,
 ).length;
 check("the board opens on five days, not three",
   baseDays.length === windowDays + REACHED,
@@ -258,10 +311,151 @@ check("empty days inside the window render nothing at all",
   baseDays.join(", "));
 check("and it asked per day, not as one range", asked >= BASE_DAYS, `${asked} requests`);
 
+// ---- COMPACTION PUTS THE RESULTS FIRST (Adam's) ----------------------
+//
+// Today is pill, card, pill, card in kick-off order. Compaction is on by
+// default, so what should render is both pills then both cards. The check
+// reads the CLASSES in DOM order rather than counting, because counting
+// cannot tell "grouped" from "interleaved" — which is the entire bug.
+const todayKinds = () =>
+  page.evaluate(() =>
+    [...(document.querySelectorAll(".sports__grid")[0]?.children ?? [])].map(
+      (el) =>
+        el.classList.contains("compactcard")
+          ? "final"
+          : el.classList.contains("upcard")
+            ? "open"
+            : "other",
+    ),
+  );
+const kinds = await todayKinds();
+check(
+  "today's grid draws four cards",
+  kinds.length === SCHEDULE[0],
+  `${kinds.length}: ${kinds.join(", ")}`,
+);
+check(
+  "compacted results are grouped at the front, not left where they kicked off",
+  kinds.join(",") === "final,final,open,open",
+  kinds.join(", "),
+);
+
+// Turning compaction OFF must put kick-off order back: every card is the
+// same size then, so there is nothing to group and grouping would be a
+// reordering nobody asked for.
+// NOT `.sports__toggle` first(): the row's Hide finished pill wears that
+// class too and the row is ABOVE the day grids, so first() is the pill.
+const compactBtn = page
+  .locator(".sports__toggle:not(.sports__toggle--pill)")
+  .first();
+await compactBtn.click();
+await page.waitForTimeout(400);
+const loose = await todayKinds();
+check(
+  "and with compaction off it is kick-off order again",
+  loose.join(",") === "open,open,open,open",
+  loose.join(", "),
+);
+await compactBtn.click();
+await page.waitForTimeout(400);
+
+// ---- THE ROW'S "HIDE FINISHED" PILL (Adam's) -------------------------
+const rowCards = () =>
+  page.evaluate(
+    () => document.querySelectorAll(".media-row__scroller .gamecard").length,
+  );
+const pill = page.locator(".sports__toggle--pill");
+check("the row offers a Hide finished pill", (await pill.count()) === 1);
+const rowBefore = await rowCards();
+check(
+  "the row carries every fixture today, finished included",
+  rowBefore === SCHEDULE[0],
+  `${rowBefore} cards`,
+);
+await pill.click();
+await page.waitForTimeout(400);
+const rowAfter = await rowCards();
+check(
+  "the pill drops the finished ones from the row",
+  rowAfter === SCHEDULE[0] - FINALS["0"].length,
+  `${rowBefore} -> ${rowAfter} cards`,
+);
+check(
+  "and the grids below still carry them",
+  (await todayKinds()).filter((k) => k === "final").length ===
+    FINALS["0"].length,
+  "hiding is a row control, not a board one",
+);
+await pill.click();
+await page.waitForTimeout(400);
+check(
+  "turning it back off restores the row",
+  (await rowCards()) === rowBefore,
+  `${await rowCards()} cards`,
+);
+
+// ---- WALKING BACKWARDS (Adam's) --------------------------------------
+//
+// Nothing is fetched behind today until this is clicked, so the check that
+// matters is that yesterday's games were NOT on the board first.
+const early = page.locator(".sports__more--earlier .sports__morebtn");
+check("a Show earlier days control is offered", (await early.count()) === 1);
+const headingsNow = () =>
+  page.evaluate(() =>
+    [...document.querySelectorAll(".sports__title")]
+      .map((e) => e.textContent.replace(/\s+/g, " ").trim())
+      .filter((h) => !/Today.s Games/i.test(h)),
+  );
+check(
+  "yesterday is not on the board until it is asked for",
+  !(await headingsNow()).some((h) => /Yesterday/i.test(h)),
+  (await headingsNow()).join(", "),
+);
+const cardsBeforeBack = (await board()).cards;
+await early.click();
+await page.waitForTimeout(2000);
+const backOne = await board();
+check(
+  "one click brings yesterday back",
+  backOne.cards - cardsBeforeBack === SCHEDULE["-1"],
+  `+${backOne.cards - cardsBeforeBack} cards, expected +${SCHEDULE["-1"]}`,
+);
+// ABOVE today, not appended. The board sorts by date, so this is really a
+// check that the prepended day went through the same sort as the rest.
+const order = await headingsNow();
+check(
+  "and it lands above today rather than at the end",
+  order.findIndex((h) => /^Today$/i.test(h)) > 0,
+  order.join(" | "),
+);
+// The cap is three, and the fixture holds two. So click until it goes
+// away, and prove it goes away at the cap rather than running forever.
+let clicks = 1;
+while ((await early.count()) === 1 && clicks < 6) {
+  await early.click();
+  await page.waitForTimeout(1500);
+  clicks++;
+}
+check(
+  "it stops at the cap instead of walking back forever",
+  clicks === EARLIER_DAYS && (await early.count()) === 0,
+  `${clicks} clicks, control ${(await early.count()) === 0 ? "gone" : "still there"}`,
+);
+check(
+  "and the day before yesterday came with it",
+  (await board()).cards - cardsBeforeBack ===
+    SCHEDULE["-1"] + SCHEDULE["-2"],
+  `+${(await board()).cards - cardsBeforeBack} cards`,
+);
+
 const moreBtn = page.locator(".sports__morebtn");
 check("a Show more control is offered", (await moreBtn.count()) === 1);
 
+/** The board's own opening count, for the base-window check further down.
+ * It is NOT what the "Show more" delta is measured against any more: the
+ * backwards walk above has since put two days on the board. */
 const before = base.cards;
+const beforeMore = (await board()).cards;
 await moreBtn.click();
 await page.waitForTimeout(2500);
 const after = await board();
@@ -275,7 +469,8 @@ check("one click is worth about fifty games, not a fixed five days",
 // THE ONE THAT MATTERS. Eleven games on day eight, all of them, where the
 // old window handed back the two the reach happened to answer with.
 check("the day eight out lands its WHOLE slate",
-  after.cards - before === inNext, `+${after.cards - before} cards, expected +${inNext}`);
+  after.cards - beforeMore === inNext,
+  `+${after.cards - beforeMore} cards, expected +${inNext}`);
 // The reach answered with a fixture forty days out. It must appear, and it
 // must appear under a DAY, not in a bucket after the grids.
 const reached = await page.evaluate(() => {

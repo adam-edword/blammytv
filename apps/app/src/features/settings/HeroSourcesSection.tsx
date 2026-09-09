@@ -1,6 +1,16 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { ChevronIcon, CloseIcon } from "../../ui/icons";
+import { useEffect, useRef, useState } from "react";
+import {
+  Combobox,
+  ComboboxChip,
+  ComboboxChips,
+  ComboboxChipsInput,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxValue,
+  useComboboxAnchor,
+} from "../../components/ui/combobox";
 import { fetchAioCatalogs, type AioCatalog } from "../../data/aiostreams";
 import {
   isValidManifestUrl,
@@ -69,70 +79,28 @@ export function HeroSourcesSection() {
     saveHeroSources(keys);
   };
 
-  // The "add sources" dropdown renders in a portal with fixed positioning
-  // so it can float outside the settings card (which clips its own
-  // overflow); anchored to the button, flipped upward when space runs out.
-  const [addOpen, setAddOpen] = useState(false);
-  const [menuPos, setMenuPos] = useState<{
-    top: number;
-    left: number;
-    up: boolean;
-  } | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const addRef = useRef<HTMLButtonElement>(null);
-
-  useLayoutEffect(() => {
-    if (!addOpen) return;
-    const place = () => {
-      const rect = addRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      // The UI-scale zoom on <html> scales layout units; rects come back in
-      // visual pixels, so divide to keep the fixed menu aligned.
-      const zoom = Number(document.documentElement.style.zoom || 1) || 1;
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const up = spaceBelow < 300 && rect.top > spaceBelow;
-      setMenuPos({
-        top: (up ? rect.top - 8 : rect.bottom + 8) / zoom,
-        left: rect.left / zoom,
-        up,
-      });
-    };
-    place();
-    window.addEventListener("resize", place);
-    window.addEventListener("scroll", place, { capture: true });
-    return () => {
-      window.removeEventListener("resize", place);
-      window.removeEventListener("scroll", place, { capture: true });
-    };
-    // catalogs.status: the anchor button mounts with the catalog list, so
-    // re-place once it exists.
-  }, [addOpen, catalogs.status]);
-
-  useEffect(() => {
-    if (!addOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        setAddOpen(false);
-      }
-    };
-    const onDown = (e: MouseEvent) => {
-      const t = e.target as Node;
-      if (!menuRef.current?.contains(t) && !addRef.current?.contains(t)) {
-        setAddOpen(false);
-      }
-    };
-    window.addEventListener("keydown", onKey, { capture: true });
-    window.addEventListener("mousedown", onDown);
-    return () => {
-      window.removeEventListener("keydown", onKey, { capture: true });
-      window.removeEventListener("mousedown", onDown);
-    };
-  }, [addOpen]);
+  /**
+   * The popup anchors to the WHOLE chips field, not to the input inside it.
+   *
+   * This is what `useComboboxAnchor` is for, and skipping it is what Adam
+   * saw: "there is a LOT of moving around… the dropdown shifts after a
+   * selection is picked." With no anchor the positioner tracks the
+   * ComboboxChipsInput, which is a shrinking box that slides along the row
+   * and drops to a new line as chips fill the field, so the popup chased it
+   * on every pick. The field itself only ever grows downward.
+   *
+   * It also switches the popup's width rule: ComboboxContent stamps
+   * `data-chips` when an anchor is given, which trades `w-(--anchor-width)`
+   * for `min-w-(--anchor-width)` — the popup sizes to its content instead of
+   * to the field.
+   */
+  const anchor = useComboboxAnchor();
 
   const items = catalogs.status === "ready" ? catalogs.items : [];
   const byKey = new Map(items.map((c) => [c.key, c]));
-  const available = items.filter((c) => !selected.includes(c.key));
+  const chosen = selected
+    .map((k) => byKey.get(k))
+    .filter((c): c is AioCatalog => !!c);
 
   // Renders as a stack, not a section: it is one control among several in
   // Customize's Stream panel, and its own rule and 21px heading made a
@@ -157,67 +125,66 @@ export function HeroSourcesSection() {
           dev build can be blocked by CORS where the desktop app isn&rsquo;t.
         </p>
       )}
+      {/*
+       * shadcn's Combobox in its `#multiple` composition: a chips field you
+       * type into, with the selection living inside the control as removable
+       * chips. Three things went away with it, and none of them were doing a
+       * job this component does not do better.
+       *
+       * The hand-rolled portal menu went: sixty lines of anchoring, flip-up
+       * logic, scroll and resize listeners, an Escape handler and an
+       * outside-click handler, all of which the positioner already does. It
+       * was also BROKEN — v0.9.54 converted its anchor to a shadcn <Button>,
+       * which on React 18 dropped the ref (see button.tsx), so it measured a
+       * null rect and never opened at all.
+       *
+       * The `.source-chip` spans went, and the separate "add sources" button
+       * with them. A chips combobox is one control: the chips ARE the field,
+       * so there is no button standing beside a list of what it did.
+       *
+       * MULTIPLE-SELECT, so `value` is the array and `onValueChange` hands
+       * back the whole next array. Removing a chip and picking an item come
+       * through the same seam, which is why there is no remove handler here.
+       */}
       {catalogs.status === "ready" && (
-        <div className="chip-select">
-          {selected.map((key) => {
-            const c = byKey.get(key);
-            return (
-              <span key={key} className="source-chip">
-                {c ? `${c.name} · ${typeLabel(c.type)}` : key}
-                <button
-                  type="button"
-                  className="source-chip__x"
-                  aria-label={`Remove ${c?.name ?? key}`}
-                  onClick={() => update(selected.filter((k) => k !== key))}
-                >
-                  <CloseIcon />
-                </button>
-              </span>
-            );
-          })}
-          {available.length > 0 && (
-            <>
-              <button
-                type="button"
-                ref={addRef}
-                className="chip-select__add"
-                aria-expanded={addOpen}
-                onClick={() => setAddOpen((o) => !o)}
-              >
-                add sources
-                <ChevronIcon />
-              </button>
-              {addOpen &&
-                menuPos &&
-                createPortal(
-                  <div
-                    className="chip-select__menu"
-                    ref={menuRef}
-                    style={{
-                      top: menuPos.top,
-                      left: menuPos.left,
-                      transform: menuPos.up ? "translateY(-100%)" : undefined,
-                    }}
-                  >
-                    {available.map((c) => (
-                      <button
-                        key={c.key}
-                        type="button"
-                        className="chip-select__option"
-                        onClick={() => update([...selected, c.key])}
-                      >
-                        {c.name}
-                        <span className="source-row__type">
-                          {typeLabel(c.type)}
-                        </span>
-                      </button>
-                    ))}
-                  </div>,
-                  document.body,
-                )}
-            </>
-          )}
-        </div>
+        <Combobox
+          items={items}
+          multiple
+          value={chosen}
+          onValueChange={(next: AioCatalog[]) =>
+            update(next.map((c) => c.key))
+          }
+          itemToStringValue={(c: AioCatalog) => `${c.name} ${typeLabel(c.type)}`}
+          itemToStringLabel={(c: AioCatalog) => c.name}
+        >
+          {/* `w-full max-w-xs` is the demo's own width. Left uncapped the
+            * field ran the full 738px of the settings panel, and since the
+            * popup takes its width from the field, so did that. A chips
+            * field is a place to put chips, not a text column. */}
+          <ComboboxChips ref={anchor} className="w-full max-w-xs">
+            <ComboboxValue>
+              {(picked: AioCatalog[]) =>
+                picked.map((c) => (
+                  <ComboboxChip key={c.key} aria-label={c.name}>
+                    {c.name} · {typeLabel(c.type)}
+                  </ComboboxChip>
+                ))
+              }
+            </ComboboxValue>
+            <ComboboxChipsInput placeholder="Add sources…" />
+          </ComboboxChips>
+          <ComboboxContent anchor={anchor}>
+            <ComboboxEmpty>No catalog found.</ComboboxEmpty>
+            <ComboboxList>
+              {(c: AioCatalog) => (
+                <ComboboxItem key={c.key} value={c}>
+                  {c.name}
+                  <span className="source-row__type">{typeLabel(c.type)}</span>
+                </ComboboxItem>
+              )}
+            </ComboboxList>
+          </ComboboxContent>
+        </Combobox>
       )}
     </div>
   );

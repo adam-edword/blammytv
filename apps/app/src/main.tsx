@@ -1,21 +1,15 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import "./fonts";
-import "./styles/tokens.css";
-import "./styles/packs.css";
-import "./styles/intense-packs.css";
-import "./styles/base.css";
-import "./styles/ui.css";
-import "./styles/settings.css";
-import "./styles/themes.css";
-import "./styles/live.css";
-import "./styles/player.css";
-import "./styles/stream.css";
-import "./styles/sports.css";
-import "./styles/discover.css";
-import "./styles/boot.css";
-import "./styles/onboarding.css";
+// ONE import, where there used to be fourteen. They are all still here, in
+// the same order, but they are @imported from index.css now instead of
+// listed here, because Tailwind's cascade layers can only be assigned by
+// CSS `@import ... layer()`, and a JS import has nowhere to put one. See
+// styles/index.css, which is where the cascade order is decided and
+// explained.
+import "./styles/index.css";
 import { App } from "./app/App";
+import { Root } from "./app/Root";
 import { TheaterOverlay } from "./features/live/TheaterOverlay";
 import { SportsTheater } from "./features/sports/SportsTheater";
 import { useCatalog } from "./features/sports/catalog";
@@ -26,29 +20,26 @@ import { installDiscoverProbe } from "./features/discover/probe";
 import { installSportsProbe } from "./features/sports/probe";
 import { installPlayerProbes } from "./features/live/probe";
 import {
-  applyAccent,
-  applyAurora,
-  loadAccent,
-  loadAccentStyle,
 } from "./features/settings/accent";
 import { applyTheme, loadTheme } from "./features/settings/theme";
-import { applyThemePack, loadThemePack } from "./features/settings/themePacks";
 import { applyUiScale, loadUiScale } from "./features/settings/uiScale";
-import {
-  applyCornerStyle,
-  loadCornerStyle,
-} from "./features/settings/cornerStyle";
-import { applyInstalledPacks } from "./features/settings/license";
 
 // Apply saved appearance before first paint so nothing flashes.
-if (loadAccentStyle() === "aurora") applyAurora();
-else applyAccent(loadAccent());
+// NO ACCENT IS APPLIED AT ALL, so `--accent` always resolves from
+// tokens.css — shadcn's neutral primary, flipping with the theme.
+//
+// This used to honour a STORED accent, which was correct while a picker
+// existed. It stopped being correct in v0.9.58, when that picker went to
+// old/themes with the Themes panel: a profile carrying `#c22727` from an
+// older build kept painting the brand red on every launch, and there was no
+// longer any UI able to clear it. Reading storage here only resurrects a
+// choice the app can no longer offer. Same for a stored `aurora`.
+//
+// applyAccent / applyAurora are untouched in accent.ts and this is one line
+// to put back alongside the picker.
 applyTheme(loadTheme());
-applyThemePack(loadThemePack());
 applyUiScale(loadUiScale());
-applyCornerStyle(loadCornerStyle());
 // Paid theme CSS, purely from cache — see license.ts's fail-open comment.
-applyInstalledPacks();
 
 // `playerPerf(seconds)` in the devtools console — the player perf probe
 // (plan 011). Installed for both entries so the overlay harness can use it too.
@@ -65,6 +56,7 @@ installSportsProbe();
 // multiview needs a Rust proxy comes down to whether the panel sends CORS
 // headers, which only the machine with the playlist can answer.
 installPlayerProbes();
+
 
 const root = ReactDOM.createRoot(document.getElementById("root")!);
 
@@ -94,13 +86,13 @@ if (params.get("overlay") === "1") {
       }
     ).__overlayProps ?? {};
   root.render(
-    <React.StrictMode>
+    <Root>
       <TheaterOverlay
         vod={op.vod}
         playbackKey={op.playbackKey}
         showId={op.showId}
       />
-    </React.StrictMode>,
+    </Root>,
   );
 } else if (params.get("sportstheater") === "1") {
   // TEST HARNESS: `?sportstheater=1` mounts the SPORTS host of the player
@@ -160,14 +152,14 @@ if (params.get("overlay") === "1") {
   }
   if (isTauri()) document.documentElement.classList.add("invert-player");
   root.render(
-    <React.StrictMode>
+    <Root>
       {f ? (
         <SportsHarness
           game={revive(f.game)}
           others={(f.others ?? []).map(revive)}
         />
       ) : null}
-    </React.StrictMode>,
+    </Root>,
   );
 } else {
   // Native shell (the window is transparent): stamp the root class BEFORE
@@ -175,8 +167,8 @@ if (params.get("overlay") === "1") {
   // .invert-player. In a plain browser tab the body stays opaque.
   if (isTauri()) document.documentElement.classList.add("invert-player");
   root.render(
-    <React.StrictMode>
+    <Root>
       <App />
-    </React.StrictMode>,
+    </Root>,
   );
 }

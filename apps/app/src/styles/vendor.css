@@ -1,0 +1,45 @@
+/**
+ * Overrides of a THIRD-PARTY stylesheet, and the one file here that is
+ * deliberately not in a cascade layer.
+ *
+ * react-colorful ships no .css file. It injects a `<style>` element from JS
+ * on first render, and anything injected that way is UNLAYERED.
+ *
+ * Cascade layers sort before specificity, so an unlayered rule beats every
+ * layered one no matter how specific the layered one is. The moment the
+ * app's own sheets moved into `@layer app` (see index.css), these overrides
+ * started losing to `.react-colorful__saturation` from the library, and the
+ * accent picker went back to its default look with no warning and no error.
+ *
+ * Being unlayered is the only thing that beats unlayered. So this file is
+ * imported without `layer()`, and that is the whole reason it exists.
+ *
+ * ANYTHING ELSE BELONGS IN A LAYER. The test for whether a rule goes here
+ * is not "is it about a library". It is "does a library inject a
+ * competing rule at runtime". Today that is react-colorful and nothing
+ * else.
+ */
+
+/* The accent picker, dressed in app tokens. Lived in settings.css until
+ * Tailwind arrived and layers made the cascade care where it lived. */
+.accent-popover .react-colorful {
+  width: 220px;
+  height: 180px;
+}
+
+.accent-popover .react-colorful__saturation {
+  border-radius: 12px;
+  border-bottom: none;
+  margin-bottom: 12px;
+}
+
+.accent-popover .react-colorful__hue {
+  height: 14px;
+  border-radius: 999px;
+}
+
+.accent-popover .react-colorful__pointer {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #fff;
+}

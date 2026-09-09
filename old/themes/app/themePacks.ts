@@ -46,13 +46,28 @@ export type ThemePackMeta = {
   pairedAccent?: string;
 };
 
-/** The brand default is BlammyTV (id "slate" for stored-pref compat).
- * "classic" is still the no-attribute pack — the raw tokens.css palette —
- * so applyThemePack special-cases CLASSIC_PACK, not DEFAULT_PACK. */
-export const DEFAULT_PACK: ThemePackId = "slate";
+/** The default ships as the RAW TOKENS, which since v0.9.57 are shadcn
+ * neutral's own palette. It used to be "slate" (the BlammyTV pack), and
+ * that is why the v0.9.57 token swap changed nothing on screen at first:
+ * a pack pins --bg, --surface, --border and the text tiers at the same
+ * specificity from a later file, so the brand pack was repainting shadcn's
+ * palette back to BlammyTV's on every launch.
+ *
+ * The brand look is not gone, it is one click away: "slate" is still in the
+ * list below, still called BlammyTV, and now carries its red as a
+ * pairedAccent so choosing it restores the whole identity rather than half
+ * of it. That is the "build up the branding after" path.
+ *
+ * classic/CLASSIC_PACK is the no-attribute pack, so applyThemePack
+ * special-cases it rather than DEFAULT_PACK; they are the same id now, and
+ * both constants stay because they mean different things. */
+export const DEFAULT_PACK: ThemePackId = "classic";
 export const CLASSIC_PACK: ThemePackId = "classic";
 
-const PREVIEW_ACCENT = "#c22727";
+/** The swatch colour on a pack card. shadcn's `primary`, matching the new
+ * default accent; the BlammyTV card overrides it with the brand red. */
+const PREVIEW_ACCENT = "#ebebeb";
+const BRAND_RED = "#c22727";
 
 export const THEME_PACKS: ReadonlyArray<ThemePackMeta> = [
   {
@@ -60,22 +75,29 @@ export const THEME_PACKS: ReadonlyArray<ThemePackMeta> = [
     // brand neutral dark now, not the old blue graphite.
     id: "slate",
     name: "BlammyTV",
-    blurb: "The BlammyTV signature look: soft neutral dark.",
+    blurb: "The BlammyTV signature look: soft neutral dark, brand red.",
     supportsLight: false,
-    preview: { bg: "#0b0b0e", surface: "#1e1e25", accent: PREVIEW_ACCENT },
+    // Carries the red now. The pack sets surfaces only, so before v0.9.57
+    // it restored half the identity and left the accent wherever it was —
+    // which mattered nothing while the app's default accent WAS this red,
+    // and matters entirely now that it is a neutral.
+    pairedAccent: BRAND_RED,
+    preview: { bg: "#0b0b0e", surface: "#1e1e25", accent: BRAND_RED },
   },
   {
     id: "classic",
-    name: "Classic",
-    blurb: "The original BlammyTV look, near-black and untouched.",
+    name: "Default",
+    blurb: "shadcn's neutral base. No colour, no gloss.",
     // Classic IS the raw tokens — tokens.css's light override is its light
-    // variant, so the Light toggle must stay live on it.
+    // variant, so the Light toggle must stay live on it. Renamed in
+    // v0.9.57: it used to be "Classic / the original BlammyTV look", and
+    // that stopped being true the moment tokens.css became shadcn's.
     supportsLight: true,
     preview: {
-      bg: "#050505",
-      surface: "#333333",
+      bg: "#252525",
+      surface: "#353535",
       accent: PREVIEW_ACCENT,
-      lightBg: "#efefef",
+      lightBg: "#ffffff",
     },
   },
   {

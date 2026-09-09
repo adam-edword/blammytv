@@ -390,14 +390,6 @@
   background: rgba(233, 233, 247, 0.05);
 }
 
-/* The selected sidebar folder wears the candy pink too (color-only — the
-   row's geometry/behavior is untouched). */
-:root[data-theme-pack="kawaii"] .live-folder--active {
-  background: #f2a0c2;
-  border-color: #f8c0d6;
-  color: #3a1226;
-}
-
 /* A star rides the now-line (the mock's cutest detail). The plum outline
    keeps it legible even when it overlaps a pink airing cell. */
 :root[data-theme-pack="kawaii"] .guide__nowline::after {

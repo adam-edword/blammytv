@@ -10,12 +10,26 @@
  * only use tokens for themable color — no raw hex for surfaces/text/borders.
  */
 :root {
-  /* Surfaces */
-  --bg: #050505; /* classic's near-black (true #000 belongs to OLED/void) */
-  --surface: #0f0f0f; /* inputs, rows */
-  --surface-track: #0f0f0f; /* chip-rail track (darker than the card) */
-  --surface-puck: #1c1c1c; /* rail track sitting ON a --surface panel */
-  --surface-raised: #2a2a2a; /* chip thumb, custom-accent chip */
+  /* Surfaces, and every one of them is shadcn neutral's own value.
+   *
+   * v0.9.57, Adam's call: "i want this app to be completely taken over by
+   * shadcn's base. we can build up the branding after." The old palette is
+   * kept verbatim in old/tokens-blammytv.css, not deleted.
+   *
+   * REPOINTING THE PRIMITIVES is what makes that a real overhaul rather
+   * than a component swap. 13,828 lines of hand-written CSS read these four
+   * names; changing them here repaints every card, cell, panel and sidebar
+   * in the app without any of those lines being touched.
+   *
+   * shadcn has THREE dark neutrals where the app has four surfaces, so the
+   * fourth is the third repeated. The relationship the app relies on is
+   * preserved: a track is DARKER than the panel it sits in, and the thumb
+   * riding in that track is lighter than both. */
+  --bg: oklch(0.145 0 0); /* shadcn `background` */
+  --surface: oklch(0.205 0 0); /* shadcn `card` — inputs, rows, panels */
+  --surface-track: oklch(0.145 0 0); /* back to `background`: a track recedes */
+  --surface-puck: oklch(0.205 0 0); /* a track sitting ON a --surface panel */
+  --surface-raised: oklch(0.269 0 0); /* shadcn `secondary` — thumbs, chips */
 
   /*
    * THE FLOATING SURFACE: a dark glass panel that sits over content, with
@@ -31,21 +45,28 @@
    * left alone deliberately, since folding coincidences into one token is
    * how a token stops meaning anything.
    */
-  --float-bg: rgba(0, 0, 0, 0.55);
-  --float-border: rgba(255, 255, 255, 0.16);
-  --float-blur: blur(18px) saturate(1.2);
-  --float-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 8px 28px rgba(0, 0, 0, 0.45);
-  --border: rgba(255, 255, 255, 0.1);
-  --border-strong: rgba(255, 255, 255, 0.2); /* dividers, card edge */
-  --border-raised: #494949; /* hairline on raised chips */
-  --border-input: rgba(255, 255, 255, 0.14);
+  /* NO LONGER GLASS. shadcn's floating surfaces are opaque `popover` with a
+   * border and a small shadow, so that is what these are now. --float-blur
+   * survives as `none` rather than being deleted, because a dozen rules
+   * apply it and a missing variable would leave them with an invalid
+   * declaration instead of an explicit "no blur". */
+  --float-bg: oklch(0.205 0 0); /* shadcn `popover` */
+  --float-border: oklch(1 0 0 / 10%);
+  --float-blur: none;
+  --float-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
 
-  /* The settings card's glass: 10% white over 45% black (light flips it). */
-  --card-glass:
-    linear-gradient(rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.1)),
-    linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.45));
+  /* shadcn has ONE border colour plus a slightly brighter one for inputs.
+   * The app's four all collapse onto those two. */
+  --border: oklch(1 0 0 / 10%);
+  --border-strong: oklch(1 0 0 / 10%);
+  --border-raised: oklch(1 0 0 / 10%);
+  --border-input: oklch(1 0 0 / 15%);
+
+  /* The settings card. A flat `card` fill now, not the two-layer glass —
+   * shadcn's Dialog is opaque over a scrim, and the blur went with the rest
+   * of the material language. Still a gradient so the `background:` sites
+   * that read it stay valid; both stops are the same colour. */
+  --card-glass: linear-gradient(oklch(0.205 0 0), oklch(0.205 0 0));
 
   /* Accent family. Only --accent is ever set (the Customize picker overrides
      it on :root); the shades below derive from it. The mix percentages are
@@ -53,7 +74,15 @@
      border = 36% alpha. --mix-base flips per theme so the accent surface
      stays a tint of the background. */
   --mix-base: #000000;
-  --accent: #c22727;
+  /* THE BRAND IS GONE, and this line is where. shadcn's `primary` in dark is
+   * a near-white, and its emphasis language is monochrome: a filled button
+   * is white with black text, not a colour. The accent picker still writes
+   * over this at runtime, so choosing a colour still works — the DEFAULT is
+   * simply no longer a colour. #c22727 is in old/tokens-blammytv.css. */
+  --accent: oklch(0.922 0 0);
+  /* What sits ON the accent. Was a fixed #fff, which was right for a red
+   * fill and is exactly wrong for a near-white one. Flips with the theme. */
+  --accent-ink: oklch(0.205 0 0);
 
   /* ------------------------------------------------------------ nav bar
    * Chosen 2026-08-23 against the pill rig, not picked off a scale.
@@ -106,26 +135,78 @@
   --accent-border: color-mix(in srgb, var(--accent) 36%, transparent);
   --accent-border-hover: color-mix(in srgb, var(--accent) 51%, black);
 
-  /* Text */
-  --text: #f2f2f5;
-  --text-muted: #a2a2a2;
-  --text-dim: #494949; /* quietest tier (hero synopsis/meta) */
-  --text-ghost: rgba(255, 255, 255, 0.2); /* placeholders */
+  /* Text. shadcn names two tiers, `foreground` and `muted-foreground`; the
+   * app has four, so the two quietest borrow `ring`'s neutral, which is the
+   * next step down its own scale. */
+  --text: oklch(0.985 0 0); /* shadcn `foreground` */
+  --text-muted: oklch(0.708 0 0); /* shadcn `muted-foreground` */
+  --text-dim: oklch(0.556 0 0); /* quietest tier (hero synopsis/meta) */
+  --text-ghost: oklch(0.556 0 0); /* placeholders */
 
   /* Status — deliberately UNTHEMED constants: danger must read as danger
    * under any pack (the settings danger-zone's documented fixed-red rule).
    * Onboarding's pastel error/ok pair stays separate — light-on-black. */
-  --danger: #c22727;
-  --danger-text: #e25b5b;
+  --danger: oklch(0.704 0.191 22.216); /* shadcn `destructive`, dark */
+  --danger-text: oklch(0.704 0.191 22.216);
+  /* --ok has no shadcn counterpart and stays. Success being green is a
+   * semantic, not a brand: shadcn simply never names one. */
   --ok: #2cad57;
 
+  /* The focus ring. shadcn's is a neutral, NOT its primary, which is why it
+   * gets its own token instead of deriving from --accent the way the app's
+   * ring used to. */
+  --ring: oklch(0.556 0 0);
+
+  /* Sidebar. shadcn gives the sidebar its OWN eight tokens rather than
+   * reusing card/accent, because a sidebar is a different plane: in light
+   * mode `--sidebar` is 0.985 where `--card` is pure white, so the panel
+   * reads as set back from the page. In dark they happen to coincide.
+   * Carried in full so the vocabulary exists — `bg-sidebar-accent` is what
+   * an active row is painted with, and it is not the same token as the one
+   * behind a hovered menu item elsewhere. */
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.922 0 0);
+  --sidebar-primary-foreground: oklch(0.205 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+
+  /* Tailwind v4's own `shadow-sm` and `shadow-xs`, which is what shadcn's
+   * Card and Input carry. Tokens rather than utilities because these land
+   * on hand-written surfaces in this file's sheets, not on call sites.
+   * NOTE the v4 rename: what used to be `shadow-sm` is `shadow-xs` now. */
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-sm:
+    0 1px 3px 0 rgb(0 0 0 / 0.1),
+    0 1px 2px -1px rgb(0 0 0 / 0.1);
+
   /* Shape */
-  --radius-card: 25px;
-  --radius-chip: 16px;
-  /* Squircle corner profile. Applied globally in base.css so every rounded
-     corner in the app shares it. Chromium 139+ / current WebView2; engines
-     without corner-shape fall back to plain round corners. */
-  --corner: superellipse(2);
+  /* ------------------------------------------------------------- radii
+   *
+   * Retuned to shadcn's scale in v0.9.52, which is the single most visible
+   * part of that adoption: 25px on a card and 25px on a 40px-tall button
+   * read as a lozenge, and shadcn's whole surface language is a tighter,
+   * more uniform corner.
+   *
+   * THREE, because the app has three shapes and not one. A card is not a
+   * button, and a segmented track has to nest AROUND its own thumb: the
+   * thumb is inset 2px, so the track is 2px rounder or the corners cross.
+   *
+   * Pills stay pills. A switch, a badge and the nav capsule are round by
+   * definition, not by a scale, and shadcn's own Switch is a pill too. */
+/* ONE BASE, and everything derives from it, which is how shadcn does it
+   * and is the part v0.9.52 got wrong. That pass hand-picked 14/10/12px to
+   * look shadcn-ish; without a `--radius` variable, Tailwind's own
+   * `rounded-md` fell through to its stock 0.375rem, so every generated
+   * component was 6px while the app around it was 10. Two systems, 2px
+   * apart, everywhere. */
+  --radius: 0.625rem;
+  --radius-card: calc(var(--radius) + 4px); /* 14px — shadcn Card, rounded-xl */
+  --radius-chip: calc(var(--radius) - 2px); /* 8px — Button/Input, rounded-md */
+  --radius-track: var(--radius); /* 10px — segmented tracks, rounded-lg */
+  --radius-pill: 999px; /* switches, badges, round by definition */ /* switches, badges, anything round by definition */
 
   /* Spring easing (Claude-app feel): accelerate, overshoot ~4%, settle.
      A linear() approximation of a gentle spring — pair with ~380ms. */
@@ -161,26 +242,28 @@
      An intense theme (intense-packs.css) may re-point any of these three to
      a bundled family; --font-mono defaults to the system stack so classic
      carries no font cost for it. */
-  --font-headline: "Stack Sans Headline", "Segoe UI", system-ui, sans-serif;
-  --font-text: "Stack Sans Text", "Segoe UI", system-ui, sans-serif;
-  --font-mono: ui-monospace, "Cascadia Code", "Segoe UI Mono", Menlo, Consolas,
-    monospace;
+  /* GEIST, bundled (see fonts.ts). shadcn/ui ships no font, but its docs do,
+   * and Geist is what every screenshot the app gets compared against is set
+   * in. v0.9.57 left these on Tailwind's default sans, which resolves to
+   * Segoe UI on Windows — neutral and correct, and not the thing the eye was
+   * missing.
+   *
+   * "Geist Variable" is Fontsource's CSS family name for the variable cut,
+   * not a typo. Get it wrong and it silently falls through to the stack
+   * below, which looks almost right and is the hardest kind of wrong to see.
+   *
+   * HEADLINE AND TEXT ARE THE SAME FAMILY now, where Stack Sans had a
+   * separate display face. Geist has one, and a two-family split with one
+   * font in both slots is a lie the next person has to un-learn. They stay
+   * as two tokens because 300+ rules name them and a theme could still
+   * re-point one. */
+  --font-headline: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-text: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, "Cascadia Code",
+    "Segoe UI Mono", Menlo, Consolas, monospace;
+
 
   color-scheme: dark;
-}
-
-/* Corner styles (Customize): round swaps the superellipse profile; sharp
-   additionally zeroes every radius — the one sanctioned !important, since
-   it must beat each component's own border-radius. */
-:root[data-corners="round"],
-:root[data-corners="sharp"] {
-  --corner: round;
-}
-
-:root[data-corners="sharp"] *,
-:root[data-corners="sharp"] *::before,
-:root[data-corners="sharp"] *::after {
-  border-radius: 0 !important;
 }
 
 /*
@@ -198,28 +281,50 @@
   initial-value: 146.36deg;
 }
 
-/* Light theme (palette carried over from the old app). */
+/* Light theme, and it is shadcn neutral's light values, same as the dark
+ * block above is its dark ones. Note that `background` and `card` are BOTH
+ * pure white there: a card is told apart from the page by its border, not by
+ * a fill. That is shadcn's rule and it is a real departure from the old
+ * palette, where the page was grey and cards were white. */
 :root[data-theme="light"] {
-  --bg: #f3f4f7;
-  --surface: #ffffff;
-  --surface-track: #e2e4ea;
-  --surface-puck: #e2e4ea;
-  --surface-raised: #f5f6f9;
-  --border: rgba(0, 0, 0, 0.1);
-  --border-strong: rgba(0, 0, 0, 0.15);
-  --border-raised: #c9cdd6;
-  --border-input: rgba(0, 0, 0, 0.12);
+  --bg: oklch(1 0 0);
+  --surface: oklch(1 0 0);
+  --surface-track: oklch(0.97 0 0); /* `muted` */
+  --surface-puck: oklch(0.97 0 0);
+  --surface-raised: oklch(1 0 0); /* a white thumb on the muted track */
+  --border: oklch(0.922 0 0);
+  --border-strong: oklch(0.922 0 0);
+  --border-raised: oklch(0.922 0 0);
+  --border-input: oklch(0.922 0 0);
 
-  --card-glass:
-    linear-gradient(rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.72)),
-    linear-gradient(rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.3));
+  --float-bg: oklch(1 0 0);
+  --float-border: oklch(0.922 0 0);
+  --card-glass: linear-gradient(oklch(1 0 0), oklch(1 0 0));
 
   --mix-base: #ffffff;
 
-  --text: #16171d;
-  --text-muted: #5b606e;
-  --text-dim: #b3b7c2;
-  --text-ghost: rgba(0, 0, 0, 0.25);
+  /* Near-black, because shadcn's light `primary` is. The ink on it flips to
+   * near-white with it. */
+  --accent: oklch(0.205 0 0);
+  --accent-ink: oklch(0.985 0 0);
+  --ring: oklch(0.708 0 0);
+
+  --text: oklch(0.145 0 0);
+  --text-muted: oklch(0.556 0 0);
+  --text-dim: oklch(0.708 0 0);
+  --text-ghost: oklch(0.556 0 0);
+
+  --danger: oklch(0.577 0.245 27.325);
+  --danger-text: oklch(0.577 0.245 27.325);
+
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
 
   color-scheme: light;
 }

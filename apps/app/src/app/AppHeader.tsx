@@ -1,3 +1,4 @@
+import { Button } from "../components/ui/button";
 import {
   useCallback,
   useEffect,
@@ -39,6 +40,7 @@ import {
   requestRecommend,
 } from "../features/discover/recommend";
 import { UpdateChip } from "./UpdateChip";
+import { Hint } from "../ui/Hint";
 import { formatClock } from "../lib/time";
 import { APP_VERSION } from "../lib/version";
 import {
@@ -748,14 +750,16 @@ export function AppHeader({
           * anything is worse than an absent one: it reads as broken. It
           * comes back when there is something behind it. */}
         <div className="header__actions">
-          <button
-            type="button"
-            className="header__action"
-            aria-label="Settings"
-            onClick={onOpenSettings}
-          >
-            <SettingsIcon />
-          </button>
+          <Hint label="Settings">
+            <Button variant="ghost" size="icon"
+              type="button"
+              className="header__action"
+              aria-label="Settings"
+              onClick={onOpenSettings}
+            >
+              <SettingsIcon />
+            </Button>
+          </Hint>
         </div>
       </div>
     </header>

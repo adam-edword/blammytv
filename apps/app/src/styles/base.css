@@ -5,8 +5,6 @@
 *::before,
 *::after {
   box-sizing: border-box;
-  /* Squircle corners everywhere a border-radius exists (no-op otherwise). */
-  corner-shape: var(--corner);
 }
 
 html,
@@ -72,9 +70,87 @@ button {
   font: inherit;
   color: inherit;
   background: none;
-  border: none;
+  /* LONGHANDS, and it matters. `border: none` is the shorthand, so it also
+   * resets border-COLOR to currentColor — and as an element selector it
+   * outranks the `:where()` reset below, which is specificity zero. The
+   * result was that the shadcn border default reached every <div> component
+   * and no <button> one, so outline Buttons drew their edge in their own
+   * text colour while Cards and menus drew it correctly. Same no-border
+   * intent, without touching a colour this rule has no opinion about. */
+  border-width: 0;
+  border-style: solid;
   padding: 0;
   cursor: pointer;
+}
+
+/**
+ * PREFLIGHT, FOR SHADCN'S COMPONENTS ONLY.
+ *
+ * This app does not load Preflight (index.css says why), and every file in
+ * components/ui/ is written on the assumption that it IS loaded. The rule
+ * above is the same idea for <button>, hand-rolled long before any of this.
+ * Two bugs have now come out of the gap and both looked like design
+ * mistakes rather than a missing reset:
+ *
+ *   - ItemDescription is a <p>, so it kept the UA's 1em top AND bottom
+ *     margin. That is 28px of dead space inside every episode card, which
+ *     is what Adam boxed in green and called "way too much white space".
+ *   - A bare <input> keeps FOUR UA defaults, and a vendored component only
+ *     overrides the ones it happens to set. Measured against this app's own
+ *     root, an unstyled input computes: `2px inset` border, background
+ *     rgb(59,59,59) (Chromium's dark-scheme field fill), colour white, and
+ *     Arial at 13.33px. So CommandInput read as a sunken 1998 text box, and
+ *     the combobox's chips input sat as a grey slab in a font that is not
+ *     the app's. Neither was written wrong; both assumed the reset.
+ *
+ * SCOPED BY `[data-slot]`, which every vendored component stamps and
+ * nothing app-owned does. A blanket `p { margin: 0 }` would reach the whole
+ * app; this reaches exactly the elements written against a reset that is
+ * not here.
+ *
+ * `:where()` puts it at specificity ZERO, so anything at all beats it: an
+ * app class, a call-site utility, the component's own classes. A reset
+ * should be the easiest thing in the file to override, and Preflight's own
+ * position at the bottom of the cascade is what this is imitating. So a
+ * component that DOES set its own fill or size still wins here; this only
+ * fills in where one says nothing.
+ */
+:where([data-slot]) {
+  margin: 0;
+}
+/* The same four properties the <button> rule above resets, for the same
+ * reason. `font: inherit` is what puts a shadcn input in Geist rather than
+ * the platform's form font. */
+:where(input[data-slot], textarea[data-slot], select[data-slot]) {
+  font: inherit;
+  color: inherit;
+  background-color: transparent;
+  border: 0 solid;
+}
+
+/**
+ * AND THE DEFAULT BORDER COLOUR, which is the fourth thing the missing
+ * reset cost us and the one with the widest reach.
+ *
+ * Tailwind's bare `border` utility sets a WIDTH and a style, never a
+ * colour, so the colour falls to `currentColor`. shadcn's own globals.css
+ * covers that with `@layer base { * { @apply border-border } }`; we never
+ * had it, because we never filled Preflight's slot. Measured: a `border`
+ * on an element with red text drew a RED border.
+ *
+ * So every vendored component that says `border` with no colour drew its
+ * edge in its own text colour — near-white on a dark surface. That is the
+ * light outline Adam spotted on the save picker, and it was also on Card,
+ * on PopoverContent and on every `variant="outline"` Button. The ones that
+ * looked right (Input, ComboboxChips, the episode Item) only did so because
+ * the registry happens to name a colour on those: `border-input`,
+ * `border-border`.
+ *
+ * Scoped to vendored subtrees, descendants included, so it cannot reach the
+ * 13k lines of app CSS — which write the shorthand with a colour anyway and
+ * would not notice, but this is not the change to find that out on. */
+:where([data-slot], [data-slot] *) {
+  border-color: var(--color-border);
 }
 
 .app-shell {
@@ -272,10 +348,6 @@ button {
   gap: 1px;
 }
 
-
-
-
-
 /* Out of flow so the brand block stays one 34px line — the nav's shared
  * centerline ignores the version entirely. */
 /* Was position:absolute, hanging off the wordmark's box. That box is
@@ -298,13 +370,8 @@ button {
 }
 @media (prefers-reduced-motion: reduce) {}
 
-
-
-
-
 /* Clicking would be a no-op (already at Stream Home) — hold full
  * strength on hover instead of teasing the 0.6 dim. */
-
 
 /* Stream sub-rail: the section's pages as pills (rail itself has no
  * background; only the ACTIVE pill gets a chip), search slot at the end.
@@ -333,7 +400,6 @@ button {
   color: rgba(255, 255, 255, 0.75);
 }
 
-
 .header__actions {
   display: flex;
   align-items: center;
@@ -355,29 +421,9 @@ button {
  * header corner leaves a glyph too small to read. 44 matches the capsule's
  * 43px row within a pixel, so the two line up across the frame.
  */
-.header__action,
-.header__action::after {
-  /* ROUND, said out loud. The reset at the top of this file puts
-   * `corner-shape: var(--corner)` on everything, which is a squircle by
-   * default — so `border-radius: 50%` drew a rounded SQUARE, not the circle
-   * the mock shows. The rim needs it too: corner-shape does not inherit,
-   * which is the same trap the capsule's own rim fell into in v0.9.19. */
-  corner-shape: round;
-}
-
 .header__action {
   position: relative;
-  display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  color: var(--text);
-  background: color-mix(in srgb, var(--text) 10%, transparent);
-  backdrop-filter: blur(5px) saturate(1.4);
-  transition:
-    background var(--dur-hover) ease,
-    transform 220ms var(--nav-spring);
 }
 
 /* The capsule's rim, on a circle. Masked ::after rather than a border for
@@ -386,15 +432,6 @@ button {
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--text) 61%, transparent),
-    color-mix(in srgb, var(--text) 15%, transparent) 28%,
-    transparent 52%,
-    color-mix(in srgb, var(--text) 29%, transparent)
-  );
   -webkit-mask:
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
@@ -405,23 +442,10 @@ button {
   mask-composite: exclude;
   pointer-events: none;
 }
-
-.header__action:hover {
-  background: color-mix(in srgb, var(--text) 16%, transparent);
-}
 /* Same press feedback as a nav item, for the same reason: a transform
  * cannot change the box, so it cannot disturb anything measured. */
 .header__action:active {
   transform: scale(0.93);
-  transition: transform 60ms ease-out;
-}
-
-/* 20 inside 44. Larger than the mock's own ratio, which a header-sized
- * circle would render too small to read, and smaller than the 25 this was
- * when it had no chip around it. */
-.header__action svg {
-  width: 20px;
-  height: 20px;
 }
 
 /* ------------------------------------------------- update chip (header) */
@@ -446,28 +470,8 @@ button {
  * the boot logo's sweep, reused to mean "something new is here". The inner
  * fill paints over padding-box so the gradient survives only as the rim. */
 .update-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 14px;
-  border: 1.5px solid transparent;
-  border-radius: 999px;
   font-family: var(--font-headline);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  color: var(--text);
-  cursor: pointer;
-  background:
-    linear-gradient(color-mix(in srgb, var(--bg) 82%, transparent),
-        color-mix(in srgb, var(--bg) 82%, transparent)) padding-box,
-    conic-gradient(
-        from var(--update-ring),
-        #ff9b9b, #ff8bc9, #ff7bf6, #c388fb, #8696ff,
-        #85cbd4, #84ffa9, #c1f294, #ffe57f, #ff9b9b
-      ) border-box;
   animation: update-ring-turn 9s linear infinite;
-
   transform-origin: top center;
   /* Entrance (motion plan 002). Close stays instant — deliberate. */
   /* ONE declaration — a second transition: in this rule silently killed
@@ -480,12 +484,9 @@ button {
 }
 @starting-style {
   .update-chip {
-    opacity: 0;
-    transform: scale(0.9) translateY(-4px);
-  }
+  transform: scale(0.9) translateY(-4px);
 }
-.update-chip:hover { filter: brightness(1.25); }
-.update-chip--busy { cursor: progress; }
+}
 @keyframes update-ring-turn { to { --update-ring: 450deg; } }
 
 /* The pulse dot: same gradient family, breathing while idle, steady spin
@@ -515,16 +516,12 @@ button {
 
 /* Reduced motion: the update chip's entrance keeps its fade only. */
 @media (prefers-reduced-motion: reduce) {
-  .update-chip {
-    transition: opacity 260ms var(--ease-out);
-  }
   @starting-style {
     .update-chip {
       transform: none;
     }
   }
 }
-
 
 /* ------------------------------------------------------- the nav capsule */
 
@@ -582,7 +579,6 @@ button {
 .navcap__item,
 .navcap::before,
 .navcap::after {
-  corner-shape: round;
 }
 
 .navcap {
@@ -718,12 +714,11 @@ button {
  * the same 33px reads as the rounded rectangle, without a second shape
  * being involved at all.
  *
- * The group at the top of this section is what holds it, and it has to keep
- * covering ::before and ::after: corner-shape does not inherit, and
- * `border-radius: inherit` on a pseudo-element carries the radius alone. A
- * shape set on .navcap by itself leaves the hairline and the glare tracing
- * a different corner from the fill, which is how the squircle version
- * shipped — 161 pixels wrong in each corner, 119/255 at the worst of them.
+ * The rim and the glare still have to be told the radius: `border-radius:
+ * inherit` on a pseudo-element carries the radius alone. A shape set on
+ * .navcap by itself left the hairline and the glare tracing a different
+ * corner from the fill, which is how the squircle version shipped, 161
+ * pixels wrong in each corner and 119/255 at the worst of them.
  */
 
 /*
@@ -757,7 +752,6 @@ button {
   height: 34px;
   padding: 0 12px;
   border-radius: var(--radius-pill, 999px);
-  corner-shape: round;
   background: color-mix(in srgb, var(--text) 30%, transparent);
   color: var(--text);
 }
@@ -973,12 +967,22 @@ button {
   width: 43px;
   padding: 0;
   justify-content: center;
-  font-size: 13px;
+  /*
+   * 12px, DOWN FROM 13 in v0.9.57, and it is the font swap that did it.
+   * The chip is a fixed 43px circle and "Any" has to sit inside it with
+   * air; Stack Sans Headline fitted at 13px, and the system stack that
+   * replaced it is wider at the same size, which squeezed the inset to
+   * 5.6px a side. verify-nav-feedback measures that inset and wants 6.5,
+   * because below it the circle reads as crammed rather than round.
+   */
+  font-size: 12px;
 }
 
+/* The capsule holds its ring further off, because the nav sits over
+ * scrolling content and needs the separation. Geometry from the
+ * primitive in ui.css; only the offset is this one's own. */
 .navcap__item:focus-visible,
 .navcap__mark:focus-visible {
-  outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
 /* There was no hover state at all before this — only two intense packs
@@ -1064,7 +1068,6 @@ button {
   background: none;
   cursor: pointer;
   border-radius: var(--radius-pill, 999px);
-  corner-shape: round;
   transition: transform 220ms var(--nav-spring);
 }
 

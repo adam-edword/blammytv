@@ -1031,10 +1031,33 @@ The presets themselves, which is a content decision as much as a code one.
 
 ### The board
 
-#### 20. Reach past three days [ ]
+#### 20. Reach past three days [x] v0.9.47
 
 `DAYS = 3` in `useGames.ts`. The grid shape already works per day, so this
 is paging or a date picker rather than new layout.
+
+**Closed by v0.9.47, in both directions, and it was paging rather than a
+picker.** Forward already went as far as anyone asked (`loadMore` walks
+until it has 50 games); what was missing was BACKWARDS, which nothing in
+the feature could do at all — every date in the hook is built from local
+midnight forward.
+
+`loadEarlier` mirrors `loadMore` with three differences, and each is a
+decision rather than a shortcut:
+
+- **Capped at three days** (`EARLIER_DAYS`). Forward needs no cap because
+  there is no end to run out of and an empty day renders as nothing;
+  backwards every day is full, so without one it walks into a fortnight of
+  results nobody scrolled for. Three is Adam's number.
+- **One day per click**, where `loadMore` walks until it has 50 games. That
+  loop exists because forward days are uneven and mostly empty. A past day
+  is already as full as it will ever be, so walking further to find games
+  could only overshoot.
+- **A button, not a scroll trigger**, and the arithmetic is why: an
+  unnarrowed board's fetch list is all 151 catalog leagues at one request
+  per day, so three clicks is 453 requests. That has to be something
+  somebody asked for rather than something they fell into at the top of a
+  scroll.
 
 #### 21. The missing empty state [x] v0.8.182
 
@@ -1792,6 +1815,74 @@ anything that touches this next:
 The first is the real fix and is not much more work. The second alone would
 be settling for an honest dead end over a useful board.
 
+#### 49. Filter college by conference [x] v0.9.47
+
+Adam's, 2026-09-06: "for CFB, right now the games pool is filled with a ton
+of junk games from small schools no one will click on."
+
+**The data was the whole question and it answered cleanly**, probed live on
+2026-09-06. `competitors[].team.conferenceId` is on every college
+competitor (289 of 290 on a 145-game basketball day), and
+`competitions[].groups` names one whenever both sides share it.
+
+**COLLEGE ONLY, and that is the data's decision rather than a scope cut.**
+No NFL, NBA, MLB or NHL competitor carries a conference or a division on the
+scoreboard at all. The standings endpoint does, which is a different request
+and a feature nobody has asked for; see plan 013.
+
+Four things worth keeping:
+
+- **The ids are league-scoped and the collision is real.** In the generated
+  table the ACC is 1 in football and 2 in basketball, and the Summit League
+  is 49 for the men and 47 for the women. Every key carries its league.
+- **`conferences` is its own array on `Follows`, not a third kind of team
+  key.** Both key spaces are `${leagueKey}:${sourceId}` over the same
+  league, so sharing would have made following the Big Ten also follow
+  whichever club ESPN numbered fifth.
+- **No storage version bump**, for the reason the LEGACY table above already
+  gives: `load` discards a value whose version does not match, so bumping to
+  add a field would throw away every league and club anyone follows to gain
+  an empty one. A missing array reads as none followed, which is what a
+  store written before conferences existed means.
+- **The table is generated, not typed.** `scripts/harvest-conferences.mjs`
+  sweeps a season, because ESPN only names a conference on in-conference
+  games and college football's opening Saturdays are almost entirely
+  cross-conference — a runtime-only picker would open with no chips on the
+  two weekends anyone most wants to narrow. Independents (id 18, i.e. Notre
+  Dame) is the one row the sweep can never learn, for the same reason, and
+  is hand-written with the script saying so.
+
+**Ranked is a separate control, not a chip in the list**, because it
+INTERSECTS where the conferences union. It is scoped by `isRankable` — a
+game either side of which carries a conference — or switching it on would
+hide every professional fixture forever.
+
+**The fetch params were deliberately NOT touched.** `?groups=<conferenceId>`
+works server-side (verified: CFB `groups=8` returns the SEC's 8 games), but
+it costs one request per conference per league per day where filtering a
+response we already have costs nothing, and college football's default
+response already carries the whole FBS slate.
+
+#### 50. College basketball is being served a seventh of itself [ ]
+
+**Found while building #49 and left alone deliberately.** Measured
+2026-09-06 on a busy January day:
+
+| ask | events |
+|---|---|
+| `mens-college-basketball/scoreboard?dates=20260117` | **21** |
+| the same with `&groups=50` (Division I) | **145** |
+
+The board has been showing 21 of 145 college basketball games since 0.9.0.
+College football is not affected — its bare response and its `groups=80` one
+are byte-for-byte the same 53 events, so the default there is already FBS.
+
+Not folded into #49 because the blast radius is the opposite direction from
+what #49 was for: it is a **7x payload increase** on a league whose default
+is currently cheap, and landing it inside a change about hiding games would
+have been smuggling. It wants its own decision, which is whether the fix is
+`groups=50` always, or only once a conference in that league is followed.
+
 ---
 
 ## Shipped, and off the list
@@ -1831,6 +1922,7 @@ here so a label that vanished can be looked up.
 | **10** | **The golf card.** A leaderboard as a `Field`: five rows of position, flag, name and score to par, THRU derived from the nested holes, and an upcoming face carrying the tour mark and date range. No par anywhere in the payload | v0.8.159 |
 | **46, 47** | **The identity chain and light mode.** Three layers of memoisation made to fire, `fitText`'s mount path made linear, and four contrast failures the theme flip left behind | v0.8.163 |
 | **38** | **Opening a tournament.** A tournament card opens its day's draw: live, upcoming, results, with a draw filter, per-set scores and courts. Also split SUSPENDED from postponed, which the screen exposed | v0.8.140 |
+| **20, 49** | **Adam's five.** The board walks three days BACKWARDS; compacted results group at the front of a grid instead of stranding a live card among the pills; a Hide finished pill on the row; conference follows for college with Power 4 and Ranked presets; the theater's side column folds. Plan 013 written for the sixth | v0.9.47 |
 
 ## Closed decisions
 

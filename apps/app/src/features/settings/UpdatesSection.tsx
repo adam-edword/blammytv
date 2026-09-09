@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Button } from "../../components/ui/button";
 import { APP_VERSION } from "../../lib/version";
 import {
   isTauri,
@@ -106,7 +107,13 @@ export function UpdatesSection() {
         // that costs nothing — the update lands on the next launch either
         // way. Read at click time, so starting playback after Settings
         // opened still counts.
-        <button
+        <Button
+          // `default` IS the accent state. `.settings-button--accent` used
+          // to mix 22% accent into the neutral face; since v0.9.54 that
+          // colour comes from the variant's utilities, which outrank the
+          // app layer, so the modifier could not have painted. The class
+          // stays as the harness hook and the section's own selector.
+          variant="default"
           type="button"
           className="settings-button settings-button--accent"
           onClick={() => {
@@ -121,9 +128,10 @@ export function UpdatesSection() {
           }
         >
           Restart now
-        </button>
+        </Button>
       ) : phase.at === "found" || phase.at === "installing" ? (
-        <button
+        <Button
+          variant="default"
           type="button"
           className="settings-button settings-button--accent"
           disabled={phase.at === "installing"}
@@ -132,9 +140,10 @@ export function UpdatesSection() {
           {phase.at === "installing"
             ? "Installing…"
             : `Install v${phase.version}`}
-        </button>
+        </Button>
       ) : (
-        <button
+        <Button
+          variant="secondary"
           type="button"
           className="settings-button"
           disabled={phase.at === "checking"}
@@ -147,7 +156,7 @@ export function UpdatesSection() {
               : phase.at === "error"
                 ? "Try again"
                 : "Check for updates"}
-        </button>
+        </Button>
       )}
     </div>
   );

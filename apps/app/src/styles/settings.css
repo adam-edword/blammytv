@@ -25,12 +25,17 @@
   max-height: calc(100vh - 136px);
   display: flex;
   flex-direction: column;
-  background: var(--card-glass);
-  backdrop-filter: blur(10px);
-  border: 1px solid var(--border-strong);
-  border-radius: 26px;
-  padding: 32px 39px;
-  box-shadow: 0 -13px 72.6px rgba(0, 0, 0, 0.73);
+  /* shadcn's DialogContent: `bg-background p-6 shadow-lg rounded-lg border`.
+   * Solid, not glass, and a shadow that reads as elevation rather than as a
+   * light source below the card. p-6 is 24px; this carried 32/39, which is
+   * a third more inset than anything else in the app. */
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 24px;
+  box-shadow:
+    0 10px 15px -3px rgb(0 0 0 / 0.1),
+    0 4px 6px -4px rgb(0 0 0 / 0.1);
   /* Entrance (motion plan 002, redesigned at the feel-gate — the stock
    * scale+8px hop read as an afterthought). "The gear drops its sheet":
    * the card descends from the gear on the drawer curve with a 4deg
@@ -95,28 +100,19 @@
   gap: 20px;
 }
 
+/* shadcn's DialogTitle: `text-lg leading-none font-semibold`. 32px was a
+ * page title on a panel, and it set the scale everything under it had to
+ * answer to. */
 .settings__title {
   font-family: var(--font-headline);
   font-weight: 600;
-  font-size: 32px;
+  font-size: 18px;
+  line-height: 1.2;
   margin: 0;
 }
 
 .settings__close {
-  display: grid;
   place-items: center;
-  opacity: 0.3;
-  transition: opacity var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
-}
-
-.settings__close:hover {
-  opacity: 1;
-}
-
-.settings__close svg {
-  width: 24px;
-  height: 24px;
 }
 
 /* Scrolls only as a fallback (tabs with no inner scroller on a short
@@ -139,6 +135,23 @@
    * shove ITS last row against the card edge. */
   margin-bottom: -32px;
   padding-bottom: 32px;
+  /* ROOM FOR A FOCUS RING, by the same trick sideways.
+   *
+   * `overflow-y: auto` forces overflow-x to compute as `auto` too, so this
+   * is a clipping box on BOTH axes, and its left edge sits exactly on the
+   * left edge of every control inside it. shadcn draws focus as a 3px ring
+   * OUTSIDE the border box (`focus-visible:ring-[3px]`), so that ring had
+   * nowhere to paint and got sliced down its left side — which is what
+   * Adam caught on the hero sources field.
+   *
+   * 4px each side: the ring plus a pixel of slack. The negative margin
+   * cancels the padding, so nothing moves; the box just gets 4px wider than
+   * its contents in each direction, and the ring paints inside that. There
+   * is no other way to say it — a scroll container cannot have
+   * `overflow-x: visible`, and `overflow-clip-margin` needs `overflow:
+   * clip`, which does not scroll. */
+  margin-inline: -4px;
+  padding-inline: 4px;
 }
 /* Content dissolves as it passes under the header instead of being cut at
  * the scroll box edge. Set only once something IS scrolled up there: an
@@ -171,15 +184,17 @@
   padding-top: 20px;
 }
 
-
 /* Heading over a RUN of sections (Sources, Playback, Interface, Media).
  * Whatever follows drops its own top rule, because the heading is already
  * the divider — a rule immediately under a heading reads as a stray line. */
+/* A run heading inside the dialog. shadcn has no component for this, so it
+ * takes the next step down its scale: `text-base font-semibold`. It cannot
+ * be bigger than the dialog's own title, which is what 32px made it. */
 .settings__group {
   font-family: var(--font-headline);
   font-weight: 600;
-  font-size: 32px;
-  margin: 30px 0 0;
+  font-size: 16px;
+  margin: 24px 0 0;
 }
 .settings__group:first-child {
   margin-top: 0;
@@ -190,15 +205,19 @@
   padding-top: 0;
 }
 
+/* One step below the run heading: shadcn's `text-sm font-medium`, the same
+ * weight and size as a form label, which is what this is. */
 .settings-section__list-title {
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 21px;
+  font-weight: 500;
+  font-size: 14px;
   margin: 0;
 }
 
+/* shadcn's DialogDescription: `text-sm text-muted-foreground`. */
 .settings__section-note {
-  font-size: 15px;
+  font-size: 14px;
+  color: var(--text-muted);
   margin: 0;
   max-width: 52ch;
   line-height: 1.45;
@@ -232,33 +251,70 @@
   gap: 6px;
 }
 
+/* shadcn's Label: `text-sm leading-none font-medium`, and NOT dimmed. A
+ * form label names the field you are about to type in; 60% opacity made
+ * every one of them harder to read than the placeholder below it. */
 .settings-field__label {
   font-family: var(--font-headline);
-  font-weight: 600;
-  font-size: 12px;
-  opacity: 0.6;
-  padding-left: 6px;
+  font-weight: 500;
+  font-size: 14px;
+  padding-left: 2px;
 }
 
+/* shadcn's Input, verbatim from the registry:
+ *   h-9  rounded-md  border border-input  bg-input/30  px-3 py-1  text-sm
+ *   shadow-xs  transition-[color,box-shadow]
+ *   focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50
+ *
+ * THE FOCUS RING IS BACK ON INPUTS, reversing ui.css's opt-out. That rule
+ * exists because browsers hand an input :focus-visible on MOUSE focus too,
+ * so a blanket ring sits on a field the whole time you type in it — which
+ * is true, and is exactly what shadcn does. Their Input rings while
+ * focused, deliberately: it is the only thing marking which field has the
+ * caret in a form of identical boxes. Taking their component means taking
+ * their answer.
+ */
 .settings-input {
   flex: 1;
   min-width: 1px;
   width: 100%;
+  height: 36px;
   font-family: var(--font-text);
-  font-size: 15px;
+  font-size: 14px;
   color: var(--text);
-  background: var(--surface);
+  background: color-mix(in srgb, var(--border-input) 30%, transparent);
   border: 1px solid var(--border-input);
-  border-radius: var(--radius-card);
-  padding: 11px 12px;
+  border-radius: var(--radius-chip);
+  padding: 4px 12px;
+  box-shadow: var(--shadow-xs);
   outline: none;
+  transition:
+    color var(--dur-hover) ease,
+    border-color var(--dur-hover) ease,
+    box-shadow var(--dur-hover) ease;
   /* Long values (manifest URLs) truncate with an ellipsis instead of
    * clipping at the corner; the browser lifts it while editing. */
   text-overflow: ellipsis;
 }
 
 .settings-input::placeholder {
-  color: var(--text-ghost);
+  color: var(--text-muted);
+}
+
+/* shadcn's ring: the border goes --ring and a 3px half-opacity halo sits
+ * outside it. Written as box-shadow so it composes with --shadow-xs above
+ * rather than replacing it, which is how shadcn's own ring utilities work. */
+.settings-input:focus-visible,
+.onb-input:focus-visible,
+.rec__input:focus-visible,
+.list-picker__input:focus-visible,
+.library__new-input:focus-visible,
+.library__heading-input:focus-visible,
+.rowcap__value--edit:focus-visible {
+  border-color: var(--ring);
+  box-shadow:
+    var(--shadow-xs),
+    0 0 0 3px color-mix(in srgb, var(--ring) 50%, transparent);
 }
 
 /* In-field tools (copy/clear), revealed on hover or focus. */
@@ -303,25 +359,7 @@
 }
 
 .settings-field__tool {
-  display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 10px;
-  opacity: 0.55;
-  transition:
-    opacity var(--dur-hover) ease,
-    background var(--dur-hover) ease;
-}
-
-.settings-field__tool:hover {
-  opacity: 1;
-  background: color-mix(in srgb, var(--text) 8%, transparent);
-}
-
-.settings-field__tool svg {
-  width: 14px;
-  height: 14px;
 }
 
 .settings-input:focus {
@@ -370,8 +408,8 @@
   height: 32px;
   padding: 0 7px 0 3px;
   background: var(--surface-raised);
-  border: 0.5px solid var(--border-raised);
-  border-radius: 25px;
+  border: 1px solid var(--border-raised);
+  border-radius: var(--radius-chip);
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 13px;
@@ -401,7 +439,7 @@
   background: var(--card-glass);
   backdrop-filter: blur(10px);
   border: 1px solid var(--border-strong);
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
 
   transform-origin: top right;
@@ -416,28 +454,13 @@
   }
 }
 
-.accent-popover .react-colorful {
-  width: 220px;
-  height: 180px;
-}
-
-.accent-popover .react-colorful__saturation {
-  border-radius: 12px;
-  border-bottom: none;
-  margin-bottom: 12px;
-}
-
-.accent-popover .react-colorful__hue {
-  height: 14px;
-  border-radius: 999px;
-}
-
-.accent-popover .react-colorful__pointer {
-  width: 18px;
-  height: 18px;
-  border: 2px solid #fff;
-  corner-shape: round; /* keep the drag thumbs perfectly circular */
-}
+/* The react-colorful internals moved to vendor.css, UNLAYERED.
+ *
+ * That library injects its own stylesheet from JS at runtime, and a
+ * runtime-injected sheet is unlayered. Cascade layers sort BEFORE
+ * specificity, so once this file moved into @layer app every one of these
+ * overrides started losing to the vendor's own rules however specific they
+ * were. Being unlayered is the only thing that beats unlayered. */
 
 /* Bottom row: eyedropper left, hex input right. */
 .accent-popover__row {
@@ -448,24 +471,7 @@
 }
 
 .accent-popover__dropper {
-  display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  background: var(--surface);
-  border: 1px solid var(--border-input);
-  opacity: 0.75;
-  transition: opacity var(--dur-hover) ease;
-}
-
-.accent-popover__dropper:hover {
-  opacity: 1;
-}
-
-.accent-popover__dropper svg {
-  width: 15px;
-  height: 15px;
 }
 
 .accent-popover__hex {
@@ -552,15 +558,23 @@
   margin: 0 0 2px;
 }
 
-/* Preferred Language: two selects side by side, right-aligned like every
+/* Preferred Language: two comboboxes side by side, right-aligned like every
  * other .customize-row control.
  *
- * A native <select> is the only one in the app, and that is deliberate: 28
- * languages is past what a chip group can carry, and the platform control
- * already has keyboard navigation, type-ahead and a touch picker that a
- * hand-rolled listbox would have to reimplement badly. Styled to the panel's
- * tokens rather than reset, so the popup stays the OS's.
- */
+ * These were the app's only native <select>s until v0.9.67. The old comment
+ * here argued for keeping them — 28 languages is past what a chip group
+ * carries, and the platform control brings type-ahead for free — and it was
+ * right about the problem. It was wrong that the platform had to answer it:
+ * a native picker paints its popup from the OS, so it was the one control
+ * in the app that could not be made to look like the rest of it. shadcn's
+ * Combobox (Popover + Command) gives the same type-ahead and a real search
+ * box, which is better than what was being defended.
+ *
+ * NO PAINT HERE. The trigger is a `<Button variant="outline">`, so its
+ * padding, radius, border, background and chevron are Button's utilities
+ * and a rule in this file setting any of them would not apply — `utilities`
+ * outranks `app`. Width is set as a utility at the call site for the same
+ * reason. The old rules are in styles/old/. */
 .customize-langs {
   display: flex;
   gap: 10px;
@@ -572,47 +586,7 @@
   flex-direction: column;
   gap: 5px;
   font-size: 11px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: var(--text-dim);
-}
-
-.customize-lang__select {
-  appearance: none;
-  /* Room for the chevron drawn by the background image below. */
-  padding: 8px 30px 8px 11px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background-color: var(--surface-2, rgba(255, 255, 255, 0.05));
-  /* A chevron, inline so it needs no asset and inherits nothing that could
-   * 404. currentColor is not available in a data URI, hence the literal. */
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%238a8a8a' stroke-width='1.5'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  background-size: 12px;
-  color: var(--text);
-  font-family: var(--font-text);
-  font-size: 13px;
-  text-transform: none;
-  letter-spacing: 0;
-  cursor: pointer;
-  min-width: 148px;
-}
-
-.customize-lang__select:hover {
-  border-color: var(--border-strong, rgba(255, 255, 255, 0.17));
-}
-
-.customize-lang__select:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-/* The popup is the OS's and does not inherit the panel, so the options need
- * their own ground or they render as dark-on-dark in some engines. */
-.customize-lang__select option {
-  background: #17171b;
-  color: #fff;
 }
 
 /* A setting whose control is too wide to sit beside its label — a chip
@@ -633,7 +607,7 @@
   flex-direction: column;
   gap: 16px;
   padding: 18px 22px 22px;
-  border: 1px solid rgba(194, 39, 39, 0.45);
+  border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
   border-radius: var(--radius-card);
 }
 
@@ -645,29 +619,10 @@
   margin: 0;
 }
 
-.btn-danger {
-  flex-shrink: 0;
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 13px;
-  color: var(--text);
-  background: color-mix(in srgb, var(--danger) 16%, var(--mix-base));
-  border: 0.5px solid var(--danger);
-  border-radius: 25px;
-  padding: 8px 14px;
-  transition:
-    filter var(--dur-hover) ease,
-    background var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
-}
-
-.btn-danger:hover {
-  filter: brightness(1.35);
-}
-
-.btn-danger--armed {
-  background: color-mix(in srgb, var(--danger) 45%, var(--mix-base));
-}
+/* `.btn-danger--armed` is gone: the armed state is a ring utility at the
+ * call site (GeneralTab.tsx). A deeper fill has nowhere to go now that the
+ * unarmed face is `destructive`'s solid red, and a fill written here would
+ * lose to the variant's utility anyway. */
 
 /* -------------------------------------------------------- playlist list */
 
@@ -726,42 +681,18 @@
  * Discard snaps the draft back. Discard and toggle-all share one recipe. */
 .source-tools__discard,
 .source-tools__all {
-  flex-shrink: 0;
-  padding: 7px 14px;
-  border-radius: var(--radius-chip);
-  background: var(--surface-raised);
-  border: 0.5px solid var(--border-raised);
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 13px;
-  color: var(--text);
-  cursor: pointer;
-  transition: filter var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
 }
 
-.source-tools__discard:hover,
-.source-tools__all:hover {
-  filter: brightness(1.3);
-}
-
-.source-tools__save {
-  flex-shrink: 0;
-  padding: 7px 16px;
-  font-size: 13px;
-}
+/* `.source-tools__save` carries no metrics: it is `size="sm"` on the Button
+ * (PlaylistsTab.tsx), and Button's own `shrink-0` already holds it against
+ * the search field beside it. */
 
 .source-tools__search {
   flex: 1;
   min-width: 0;
   padding: 7px 12px;
   font-size: 13px;
-}
-
-.source-tools__all:disabled {
-  opacity: 0.4;
-  cursor: default;
-  filter: none;
 }
 
 .source-row {
@@ -790,122 +721,17 @@
   margin-left: 8px;
   font-size: 11px;
   font-weight: 700;
-  text-transform: uppercase;
   letter-spacing: 0.5px;
   opacity: 0.35;
 }
 
-/* Chip-select: removable source chips + an "add sources" dropdown. */
-.chip-select {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-}
-
-.source-chip {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 8px 12px 8px 16px;
-  background: var(--surface);
-  border: 1px solid var(--border-input);
-  border-radius: 25px;
-  font-family: var(--font-headline);
-  font-weight: 600;
-  font-size: 14px;
-}
-
-.source-chip__x {
-  display: grid;
-  place-items: center;
-  opacity: 0.45;
-  transition: opacity var(--dur-hover) ease;
-}
-
-.source-chip__x:hover {
-  opacity: 1;
-}
-
-.source-chip__x svg {
-  width: 12px;
-  height: 12px;
-}
-
-.chip-select__add {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 8px 14px 8px 16px;
-  border-radius: 25px;
-  border: 1px solid transparent;
-  font-family: var(--font-headline);
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--text-muted);
-  transition:
-    color var(--dur-hover) ease,
-    border-color var(--dur-hover) ease;
-}
-
-.chip-select__add:hover,
-.chip-select__add[aria-expanded="true"] {
-  color: var(--text);
-  border-color: var(--border-input);
-}
-
-.chip-select__add svg {
-  width: 13px;
-  height: 13px;
-}
-
-/* Portaled to <body> so it can overhang the settings card's scroll box;
- * positioned from the add button's rect (top/left set inline). MUST sit
- * above the settings backdrop (z 60): below it, the menu paints behind
- * the card AND clicks land on the backdrop — which closes Settings. */
-.chip-select__menu {
-  position: fixed;
-  z-index: 70;
-  min-width: 300px;
-  max-height: 280px;
-  overflow-y: auto;
-  padding: 6px;
-  background: var(--card-glass);
-  backdrop-filter: blur(10px);
-  border: 1px solid var(--border-strong);
-  border-radius: 16px;
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
-
-  transform-origin: top left;
-  transition:
-    opacity 150ms var(--ease-out),
-    transform 150ms var(--ease-out);
-}
-@starting-style {
-  .chip-select__menu {
-    opacity: 0;
-    transform: scale(0.95) translateY(-4px);
-  }
-}
-
-.chip-select__option {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  width: 100%;
-  padding: 9px 12px;
-  border-radius: 12px;
-  font-family: var(--font-headline);
-  font-weight: 400;
-  font-size: 14px;
-  text-align: left;
-}
-
-.chip-select__option:hover {
-  background: color-mix(in srgb, var(--text) 7%, transparent);
-}
+/* The hero sources picker owns no CSS at all as of v0.9.68. It was a
+ * wrapper, a row of removable `.source-chip` spans and an "add sources"
+ * button opening a hand-rolled fixed-position portal, and it is now one
+ * shadcn Combobox in its `#multiple` composition: the chips live INSIDE the
+ * field, so there is no wrapper, no separate button and no menu to paint.
+ * The rules are in styles/old/. `.source-row__type` above survives because
+ * the list items still use it. */
 
 /* Card Details: multi-toggle chips, source-chip metrics — off ones sit
  * dim and borderless, on ones read like a selected source chip. */
@@ -915,51 +741,17 @@
   gap: 10px;
 }
 
-.meta-pick__chip {
-  padding: 8px 16px;
-  border-radius: 25px;
-  border: 1px solid transparent;
-  font-family: var(--font-headline);
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--text-muted);
-  transition:
-    color var(--dur-hover) ease,
-    border-color var(--dur-hover) ease,
-    background-color var(--dur-hover) ease;
-}
-
-.meta-pick__chip:hover {
-  color: var(--text);
-}
-
-.meta-pick__chip[aria-pressed="true"] {
-  color: var(--text);
-  background: var(--surface);
-  border-color: var(--border-input);
-}
+/* The pressed look is `variant="secondary"` now, chosen in CustomizeTab.tsx
+ * from the same boolean that sets aria-pressed. It cannot live here: the
+ * variant paints colour with utilities, and `utilities` outranks `app`. */
 
 .playlist-row__expand {
-  display: grid;
   place-items: center;
-  opacity: 0.5;
-  transition:
-    opacity var(--dur-hover) ease,
-    transform var(--dur-enter) var(--ease-in-out);
 }
 
 /* Chevron points down closed, up open. */
 .playlist-row__expand--open {
   transform: rotate(180deg);
-}
-
-.playlist-row__expand:hover {
-  opacity: 1;
-}
-
-.playlist-row__expand svg {
-  width: 16px;
-  height: 16px;
 }
 
 .playlist-row {
@@ -1003,30 +795,13 @@
 }
 
 .playlist-row__delete {
-  display: grid;
   place-items: center;
-  opacity: 0.5;
-  transition: opacity var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
-}
-
-.playlist-row__delete:hover {
-  opacity: 1;
-}
-
-.playlist-row__delete svg {
-  width: 13px;
-  height: 13px;
 }
 
 /* Armed (first click): the ✕ becomes a "Sure?" in the danger voice —
  * the Customize clear-logins arm/confirm language, on the row scale. */
 .playlist-row__delete--armed {
-  opacity: 1;
-  color: var(--danger-text);
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 12px;
 }
 
 /* Load/guide status under a playlist's source line — the reportable reason
@@ -1041,27 +816,9 @@
   color: var(--danger-text);
 }
 
-/* Neutral action pill (Settings → Updates), the btn-danger shape without
- * the alarm. The accent variant is the "an update is ready" state. */
-.settings-button {
-  flex-shrink: 0;
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 13px;
-  color: var(--text);
-  background: var(--surface-raised);
-  border: 0.5px solid var(--border-raised);
-  border-radius: 25px;
-  padding: 8px 14px;
-  cursor: pointer;
-  transition: filter var(--dur-hover) ease;
-}
-.settings-button:hover:not(:disabled) { filter: brightness(1.25); }
-.settings-button:disabled { cursor: default; opacity: 0.7; }
-.settings-button--accent {
-  background: color-mix(in srgb, var(--accent) 22%, var(--mix-base));
-  border-color: var(--accent);
-}
+/* `.settings-button--accent` keeps its name as a hook but carries no paint:
+ * the "an update is ready" state is `variant="default"` in
+ * UpdatesSection.tsx. See there for why it cannot be a rule here. */
 
 /* Catalog Row Size slider. */
 .rowcap {
@@ -1082,19 +839,8 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Row-cap number: click to fine-tune (the slider steps by 5). */
-.rowcap__value--btn {
-  background: none;
-  border: none;
-  padding: 2px 6px;
-  border-radius: 8px;
-  color: inherit;
-  cursor: pointer;
-  transition: background var(--dur-hover) ease;
-}
-.rowcap__value--btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
+/* Row-cap number: click to fine-tune (the slider steps by 5). A ghost
+ * Button now — see CustomizeTab.tsx for why it dropped `.rowcap__value`. */
 .rowcap__value--edit {
   width: 64px;
   padding: 2px 6px;
@@ -1173,7 +919,7 @@
 .license-input {
   flex: 0 0 220px;
   width: auto;
-  font-family: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
   letter-spacing: 0.4px;
   text-transform: uppercase;
@@ -1187,17 +933,7 @@
  * on hover, no fill), since removing a license is reversible and doesn't
  * warrant danger-zone weight. */
 .license-remove {
-  flex-shrink: 0;
-  padding: 8px 4px;
   font-family: var(--font-headline);
-  font-weight: 600;
-  font-size: 13px;
-  color: var(--text-muted);
-  transition: color var(--dur-hover) ease;
-}
-
-.license-remove:hover {
-  color: var(--text);
 }
 
 /* activate()'s result line — same reading as onboarding's .onb-hint, in
@@ -1218,14 +954,11 @@
  * the card's glass breathe through instead. color-mix keeps the tint
  * theme-true originally; Adam's trim (v0.4.3): black glass at 65%,
  * both themes. Thumbs/chips ABOVE these stay solid for contrast. */
-.settings .settings-input,
-.settings .chip-tabs,
-.settings .playlist-row,
-.settings .source-list,
-.settings .accent-popover__dropper,
-.settings .accent-popover__hex input {
-  background: color-mix(in srgb, #000000 65%, transparent);
-  backdrop-filter: blur(14px);
+/* The settings card used to sink its inputs into 65% black glass. shadcn's
+ * Input is `bg-input/30` on every surface it lands on, so the field reads
+ * the same in a dialog as it does on a page. */
+.settings .settings-input {
+  background: color-mix(in srgb, var(--border-input) 30%, transparent);
 }
 
 /* ---- Press feedback (motion plan 001). Tiny icons dip deeper (0.9);
@@ -1235,7 +968,6 @@
 .accent-swatch:active {
   transform: scale(0.9);
 }
-.btn-danger:active,
 .source-tools__discard:active,
 .source-tools__all:active:not(:disabled) {
   transform: scale(0.97);
@@ -1248,15 +980,13 @@
 @media (prefers-reduced-motion: reduce) {
   .settings,
   .settings > *,
-  .accent-popover,
-  .chip-select__menu {
+  .accent-popover {
     transition: opacity var(--dur-enter) var(--ease-out);
   }
   @starting-style {
     .settings,
     .settings > *,
-    .accent-popover,
-    .chip-select__menu {
+    .accent-popover {
       transform: none;
     }
   }

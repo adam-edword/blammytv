@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "../../components/ui/button";
 import { carriageText, carriageUnlinked } from "./carriage";
 import { GameCard } from "./GameCard";
 import { UpcomingCard } from "./UpcomingCard";
@@ -160,7 +161,7 @@ export function TournamentDraw({
         * lines. A wrapper has no such number in it. */}
       <div className="tourndraw__head">
         <header className="tourndraw__top">
-          <button
+          <Button variant="outline" size="sm"
             ref={back}
             type="button"
             className="tourndraw__back"
@@ -168,7 +169,7 @@ export function TournamentDraw({
             onClick={onClose}
           >
             <BackArrowIcon />
-          </button>
+          </Button>
           <div className="tourndraw__titles">
             <h2 className="tourndraw__title">{event.title}</h2>
             <p className="tourndraw__where">
@@ -262,13 +263,13 @@ function Chip({
   children: React.ReactNode;
 }) {
   return (
-    <button
+    <Button variant="outline" size="sm"
       type="button"
       className={"tourndraw__chip" + (on ? " is-on" : "")}
       aria-pressed={on}
       onClick={onClick}
     >
       {children}
-    </button>
+    </Button>
   );
 }

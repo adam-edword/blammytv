@@ -1,4 +1,5 @@
 import { useId, useState } from "react";
+import { Button } from "../../components/ui/button";
 import { CheckIcon, CloseIcon, CopyIcon } from "../../ui/icons";
 import { probeAioStreams, probeVerdict, type ProbeStep } from "./aioProbe";
 import { isValidManifestUrl, loadAioUrl, saveAioUrl } from "./aiostreams";
@@ -71,7 +72,7 @@ export function AioStreamsTab() {
             />
             {url.trim() !== "" && (
               <span className="settings-field__tools">
-                <button
+                <Button variant="ghost" size="icon-sm"
                   type="button"
                   className="settings-field__tool"
                   aria-label="Copy manifest URL"
@@ -79,8 +80,8 @@ export function AioStreamsTab() {
                   onClick={copy}
                 >
                   {copied ? <CheckIcon /> : <CopyIcon />}
-                </button>
-                <button
+                </Button>
+                <Button variant="ghost" size="icon-sm"
                   type="button"
                   className="settings-field__tool"
                   aria-label="Clear manifest URL"
@@ -88,19 +89,20 @@ export function AioStreamsTab() {
                   onClick={() => setUrl("")}
                 >
                   <CloseIcon />
-                </button>
+                </Button>
               </span>
             )}
           </div>
         </div>
-        <button
+        <Button
+          variant="default"
           type="button"
           className="btn-primary"
           disabled={!dirty || !submittable}
           onClick={submit}
         >
           {dirty || !savedUrl ? "Submit" : "Saved"}
-        </button>
+        </Button>
       </section>
 
       {savedUrl && (
@@ -111,14 +113,15 @@ export function AioStreamsTab() {
             manifest, a catalog page, and a stream lookup. Screenshot the
             result when reporting a problem; it never shows your URL.
           </p>
-          <button
+          <Button
+            variant="default"
             type="button"
             className="btn-primary"
             disabled={probing}
             onClick={() => runProbe(savedUrl)}
           >
             {probing ? "Testing…" : "Run Connection Test"}
-          </button>
+          </Button>
           {probe && (
             <>
               <ul className="aio-probe">

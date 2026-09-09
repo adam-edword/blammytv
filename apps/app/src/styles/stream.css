@@ -22,10 +22,11 @@
   flex-direction: column;
   gap: 10px;
 }
+/* shadcn's empty states sit at `text-xl font-semibold`. */
 .stream__note h2 {
   font-family: var(--font-headline);
   font-weight: 600;
-  font-size: 28px;
+  font-size: 20px;
 }
 .stream__note p { color: var(--text-muted); }
 .stream__note--dim { color: var(--text-muted); }
@@ -98,7 +99,7 @@
   top: 0;
   height: 100%;
   object-fit: cover;
-  border-radius: 60px;
+  border-radius: var(--radius-card);
   filter: blur(70px) saturate(1.4);
   /* Neighbor light rests dim; the incoming slide's light fades up fast
    * and undelayed, while the OUTGOING one holds until the slide's final
@@ -118,7 +119,7 @@
   position: absolute;
   top: 22px;
   bottom: 22px;
-  border-radius: 60px;
+  border-radius: var(--radius-card);
   /* No overflow:hidden here — it would clip the Tilt lean/scale (the
    * .shero__tilt wrapper grows past the box on hover). The rounding
    * lives on the art/scrim layers instead; the ambient glow is the
@@ -149,12 +150,12 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 60px; /* the card itself no longer clips (glow) */
+  border-radius: var(--radius-card); /* the card itself no longer clips (glow) */
 }
 .shero__scrim {
   position: absolute;
   inset: 0;
-  border-radius: 60px;
+  border-radius: var(--radius-card);
   background:
     linear-gradient(to top, rgba(0, 0, 0, 0.72), transparent 45%),
     linear-gradient(to right, rgba(0, 0, 0, 0.5), transparent 55%);
@@ -182,7 +183,10 @@
   font-size: clamp(44px, 6vw, 92px);
   letter-spacing: -0.02em;
   line-height: 0.98;
-  color: #f5eecf;
+  /* Was #f5eecf, a warm cream that was BlammyTV's and nobody else's. Over
+   * art a fixed light is right (the scrim below it is the only guaranteed
+   * ground), but it is shadcn's foreground now, not a brand tint. */
+  color: oklch(0.985 0 0);
 }
 .shero__synopsis {
   font-size: 15px;
@@ -201,20 +205,6 @@
 }
 .shero__rating { color: #ffd166; }
 .shero__actions { display: flex; gap: 10px; margin-top: 6px; }
-/* The neutral sibling of .btn-primary (ui.css) — identical metrics. */
-.shero__btn-quiet {
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 15px;
-  color: var(--text);
-  background: var(--surface-raised);
-  border: 0.5px solid var(--border-raised);
-  border-radius: 25px;
-  padding: 9px 14px;
-  cursor: pointer;
-  transition: filter var(--dur-hover) ease;
-}
-.shero__btn-quiet:hover { filter: brightness(1.35); }
 
 /* ---- rows ---- */
 .stream__rows {
@@ -222,10 +212,14 @@
   flex-direction: column;
   gap: 26px;
 }
+/* shadcn's largest heading in a dashboard is `text-2xl font-semibold`, and
+ * a row title is a section heading, not a page. 41px was competing with the
+ * poster art it was labelling. */
 .media-row__title {
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 41px;
+  font-weight: 600;
+  font-size: 24px;
+  letter-spacing: -0.01em;
   /* 2px here + the scroller's 18px hover headroom = the old 16px+4px gap. */
   margin-bottom: 2px;
 }
@@ -267,24 +261,10 @@
   position: absolute;
   top: calc(50% - 46px);
   z-index: 3;
-  width: 46px;
-  height: 46px;
-  display: grid;
   place-items: center;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--bg) 72%, transparent);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--border-strong);
-  color: var(--text);
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 180ms ease, filter var(--dur-hover) ease;
 }
-.media-row:hover .media-row__arrow { opacity: 1; }
-.media-row__arrow:hover { filter: brightness(1.4); }
 .media-row__arrow--left { left: 14px; }
 .media-row__arrow--right { right: 14px; }
-.media-row__arrow svg { width: 18px; height: 18px; }
 .media-row__arrow--left svg { transform: rotate(90deg); }
 .media-row__arrow--right svg { transform: rotate(-90deg); }
 /* Row scrollbars used to be styled here, very quiet and brightening under
@@ -307,7 +287,7 @@
 /* react-parallax-tilt owns this wrapper's transform (tilt + scale + glare);
  * CSS adds the depth cue — a shadow that swells while the poster floats. */
 .stream-card__tilt {
-  border-radius: 25px;
+  border-radius: var(--radius-card);
   /* 450ms — deliberately quicker than the Tilt's 650ms transitionSpeed
    * (tuned in b243bb5): the shadow leads, the lean settles into it. */
   transition: box-shadow 450ms ease;
@@ -320,7 +300,7 @@
 .stream-card__mono {
   width: 300px;
   aspect-ratio: 2 / 3;
-  border-radius: 25px;
+  border-radius: var(--radius-card);
   object-fit: cover;
   background: var(--surface);
 }
@@ -369,7 +349,7 @@
 .continue-card__art {
   height: 300px;
   width: auto;
-  border-radius: 25px;
+  border-radius: var(--radius-card);
   object-fit: cover;
   background: var(--surface);
   border: 1px solid var(--border-strong);
@@ -382,7 +362,7 @@
   left: 0;
   width: 100%;
   height: 300px;
-  border-radius: 25px;
+  border-radius: var(--radius-card);
   display: grid;
   place-items: center;
   font-family: var(--font-headline);
@@ -417,8 +397,8 @@
   text-align: left;
   cursor: pointer;
 }
+/* Offset and radius only: the ring itself comes from ui.css. */
 .continue-card__text:focus-visible {
-  outline: 2px solid var(--accent);
   outline-offset: 4px;
   border-radius: 6px;
 }
@@ -562,12 +542,6 @@
 .vod-more .media-row__arrow--right {
   right: calc(7% + 434px);
 }
-/* The arrows' only reveal rule is .media-row:hover — this shelf has no
- * .media-row ancestor, so they stayed invisible-but-clickable phantom
- * circles over the posters (fleet finding). Reveal on shelf hover. */
-.vod-more:hover .media-row__arrow {
-  opacity: 1;
-}
 .vod-more__card {
   flex: 0 0 auto;
   width: 170px;
@@ -575,11 +549,11 @@
    * NOT clip: overflow:hidden here would cut the corners off a rotated
    * child and square them mid-lean. The radius and the ring move inward
    * with the shape they belong to. */
-  border-radius: 30px;
+  border-radius: var(--radius-card);
   transition: transform var(--dur-hover) ease;
 }
 .vod-more__tilt {
-  border-radius: 30px;
+  border-radius: var(--radius-card);
   overflow: hidden;
   border: 1px solid var(--border-strong, rgba(255, 255, 255, 0.14));
   /* Quicker than the Tilt's 650ms lean, same as the catalog cards: the
@@ -599,136 +573,48 @@
   object-fit: cover;
 }
 
-/* Save control on the detail screens. Saved state trades the plus for an
- * accent check and keeps the ring. */
-.vod-save {
-  align-self: flex-start;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 18px;
-  border-radius: 999px;
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 13px;
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  transition: background var(--dur-hover) ease, border-color var(--dur-hover) ease;
-}
-.vod-save:hover {
-  background: rgba(255, 255, 255, 0.16);
-}
-.vod-save--on {
-  border-color: var(--accent);
-}
+/* Save control on the detail screens. Two `<Button variant="outline">`
+ * halves reading as ONE control: the main half saves to the default list,
+ * the chevron opens the list picker.
+ *
+ * ALL OF THE SEAM IS UTILITIES NOW, at the call site in SaveButton.tsx —
+ * `rounded-r-none` on the left half, `rounded-l-none -ml-px` on the right.
+ * It cannot be written here: border-radius and margin are Button's own
+ * utilities and `utilities` outranks `app`, so a rule in this file would
+ * have squared nothing and the two halves would read as two buttons with a
+ * gouge between them. That is what the old comment here was about, and it
+ * is now a different problem with a different fix.
+ *
+ * The accent ring for the saved state is `border-primary` on both halves,
+ * for the same reason and because it belongs to the whole control — one lit
+ * edge against one dim one across the seam is worse than no ring at all. */
 .vod-save--on svg {
   color: var(--accent);
 }
+/* The "+" glyph, which is a text span rather than an icon and needs to be
+ * bigger than the label. Button sizes svgs, not spans, so this still lands.
+ * The chevron half opts back out because its child IS an icon. */
 .vod-save span {
   font-size: 16px;
   line-height: 1;
 }
-
-/* The split control: two buttons reading as ONE pill. The main half saves
- * to the default list, the chevron opens the list picker.
- *
- * These rules must sit AFTER the .vod-save block and be scoped to the
- * wrapper: at equal specificity the later rule wins, and .vod-save was
- * handing the chevron back its full radius and padding, which is what made
- * the two halves read as two separate buttons with a gouge between them. */
 .vod-save-split {
   align-self: flex-start;
   display: inline-flex;
 }
-.vod-save-split .vod-save {
-  align-self: auto;
-  /* Square on the inside edge so the two halves meet as one shape. */
-  border-radius: 999px 0 0 999px;
-  padding-right: 14px;
-}
-.vod-save-split .vod-save__more {
-  padding: 8px 13px;
-  border-radius: 0 999px 999px 0;
-  /* Overlap the seam so the two 1px borders do not read as 2px. */
-  margin-left: -1px;
-}
-/* The chevron is an icon, not the "+" glyph the sizing above is for. */
 .vod-save-split .vod-save__more span {
   font-size: inherit;
 }
-/* Saved: the accent ring belongs to the whole control, not one half, or
- * the seam shows one lit edge against one dim one. */
-.vod-save-split:has(.vod-save--on) .vod-save {
-  border-color: var(--accent);
-}
 
-/* List picker: the chevron's menu. Portaled to the body (a fixed overlay
- * inside .app-shell gets cut away by the player's clip hole), so it is
- * positioned from a measured button rect. Shape follows the Live sidebar's
- * folder menu — one menu language across the app. */
-.list-picker {
-  position: fixed;
-  z-index: 30;
-  min-width: 220px;
-  max-width: 300px;
-  max-height: 320px;
-  overflow-y: auto;
-  padding: 6px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(0, 0, 0, 0.55);
-  -webkit-backdrop-filter: blur(18px) saturate(1.2);
-  backdrop-filter: blur(18px) saturate(1.2);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 8px 28px rgba(0, 0, 0, 0.45);
-  transform-origin: top left;
-  transition:
-    opacity 150ms var(--ease-out),
-    transform 150ms var(--ease-out);
-}
-@starting-style {
-  .list-picker {
-    opacity: 0;
-    transform: scale(0.95) translateY(-4px);
-  }
-}
-.list-picker__title {
-  margin: 4px 10px 6px;
-  font-size: 11.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
-}
-.list-picker__item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 8px 10px;
-  border-radius: 8px;
-  text-align: left;
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 13px;
-  color: var(--text);
-  cursor: pointer;
-  transition: background var(--dur-hover) ease;
-}
-.list-picker__item:hover,
-.list-picker__item:focus-visible {
-  background: rgba(255, 255, 255, 0.12);
-}
-/* Fixed-width gutter so names line up whether or not they are ticked. */
-.list-picker__check {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  flex-shrink: 0;
-  color: var(--accent);
-}
+/* The list picker is a shadcn DropdownMenu as of v0.9.72, so its surface,
+ * its rows, its label and its tick gutter are the component's and are gone
+ * from here — along with the fixed positioning, because it is anchored by
+ * Radix now rather than by a measured rect. The rules are in styles/old/.
+ *
+ * These three survive because they still ride INSIDE a menu row: the name
+ * has to take the free width and ellipsis, and the count has to sit quietly
+ * at the end. Neither is a property DropdownMenuCheckboxItem sets, so
+ * neither is fighting a utility. */
 .list-picker__name {
   flex: 1;
   overflow: hidden;
@@ -738,9 +624,6 @@
 .list-picker__count {
   font-size: 11.5px;
   font-weight: 600;
-  color: var(--text-muted);
-}
-.list-picker__new {
   color: var(--text-muted);
 }
 .list-picker__input {
@@ -753,16 +636,6 @@
   font-weight: 700;
   font-size: 13px;
   color: var(--text);
-}
-@media (prefers-reduced-motion: reduce) {
-  .list-picker {
-    transition: opacity 150ms var(--ease-out);
-  }
-  @starting-style {
-    .list-picker {
-      transform: none;
-    }
-  }
 }
 
 /* ---- detail page ---- */
@@ -876,33 +749,29 @@
   overflow-y: visible;
   min-height: auto;
 }
-/* Same glass language as the pills/chips on these screens: #00000050,
- * blur, and the shared darkening hover. PINNED to .vod-detail (a direct
- * child, not part of the info flow): the source screen bottom-anchors
- * its info column and the episodes screen top-anchors under the header,
- * which put the in-flow button in two different places — absolute at the
- * page's top-left gives it ONE spot on both, and on episodes it no
- * longer scrolls away with the list. Above the body layer (z-index 1)
- * so the pointer-events sandwich can't eat its clicks. */
+
+/* PINNED to .vod-detail (a direct child, not part of the info flow): the
+ * source screen bottom-anchors its info column and the episodes screen
+ * top-anchors under the header, which put the in-flow button in two
+ * different places — absolute at the page's top-left gives it ONE spot on
+ * both, and on episodes it no longer scrolls away with the list. Above the
+ * body layer (z-index 1) so the pointer-events sandwich can't eat its
+ * clicks.
+ *
+ * POSITION ONLY. v0.9.54 kept the app's glass here on the argument that the
+ * button floats over a poster of any colour; Adam looked at it and said the
+ * blurred fills and hairlines read as leftovers, which they do — this was
+ * the only control on the screen still wearing them. It is a plain
+ * `ghost` now, like every other back button. The hero's own scrim is what
+ * keeps it legible; if a bright backdrop ever eats it, the fix is a scrim on
+ * that backdrop rather than a scrim on this one button. */
 .vod-back {
   position: absolute;
   top: calc(var(--header-h, 76px) + 12px);
   left: 32px;
   z-index: 2;
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 15px;
-  color: var(--text);
-  background: #00000050;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 999px;
-  padding: 9px 15px;
-  backdrop-filter: blur(16px);
-  cursor: pointer;
-  transition: background var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
 }
-.vod-back:hover { background: rgba(0, 0, 0, 0.6); }
+
 .vod-detail__logo { max-width: 500px; max-height: 300px; object-fit: contain; }
 .vod-detail__title {
   font-family: var(--font-headline);
@@ -920,22 +789,9 @@
 .vod-detail__meta { color: rgba(242, 242, 244, 0.65); font-size: 18px; }
 .vod-detail__synopsis { font-size: 18px; line-height: 1.5; margin: 6px 0; color: rgba(242, 242, 244, 0.85); }
 .vod-detail__pills { display: flex; gap: 8px; flex-wrap: wrap; }
-/* Buttons now — each pill jumps to Discover with its genre selected. */
-.vod-detail__pills button {
-  font-size: 15px;
-  padding: 9px 15px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  color: rgba(242, 242, 244, 0.8);
-  background: #00000050;
-  backdrop-filter: blur(16px);
-  cursor: pointer;
-  transition: border-color var(--dur-hover) ease, color var(--dur-hover) ease;
-}
-.vod-detail__pills button:hover {
-  border-color: var(--accent);
-  color: #f2f2f4;
-}
+/* Buttons now — each pill jumps to Discover with its genre selected. They
+ * are `<Button variant="outline" size="sm">` since v0.9.55; the glass pill
+ * they used to be is gone with the rest of the hand-written button paint. */
 
 /* ---- source rail ---- */
 .vod-sources {
@@ -974,20 +830,8 @@
 }
 /* Inline retry beside a failed-note — quiet, accent-voiced. */
 .vod-sources__retry {
-  padding: 4px 12px;
   margin-left: 6px;
-  border: 1px solid var(--accent-border);
-  border-radius: var(--radius-chip);
-  background: var(--accent-surface);
-  color: var(--text);
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 12px;
-  cursor: pointer;
-  transition: border-color var(--dur-hover) ease;
-}
-.vod-sources__retry:hover {
-  border-color: var(--accent-border-hover);
 }
 
 .vod-sources__note { color: rgba(242, 242, 244, 0.6); font-size: 14px; }
@@ -998,16 +842,19 @@
   gap: 0px;
   align-items: center;
   padding: 16px 16px 16px 10px;
-  border-radius: 1000px;
-  background: #00000050;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(18px);
+  /* shadcn Card: `rounded-xl border bg-card shadow-sm`. Was a 1000px glass
+   * slab; a source row is a card with a play affordance, and shadcn has no
+   * stadium-shaped card. */
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
   cursor: pointer;
   text-align: left;
   transition: background var(--dur-hover) ease,
     transform 160ms var(--ease-out);
 }
-.vod-source:hover { background: rgba(0, 0, 0, 0.6); }
+.vod-source:hover { background: var(--surface-raised); }
 .vod-source__quality {
   flex-shrink: 0;
   align-self: stretch;
@@ -1047,66 +894,28 @@
 
 /* ---- episodes ---- */
 .season-bar { display: flex; gap: 8px; flex-wrap: wrap; }
-.season-chip {
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 15px;
-  padding: 9px 15px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: rgba(242, 242, 244, 0.75);
-  background: #00000050;
-  backdrop-filter: blur(16px);
-  cursor: pointer;
-  transition: background var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
-}
-.season-chip:not(.season-chip--on):hover { background: rgba(0, 0, 0, 0.6); }
-/* Active chip speaks the app's button language (btn-primary's surface
- * + full-saturation accent border), not a solid accent fill. */
-.season-chip--on {
-  background: var(--accent-surface);
-  border: 0.5px solid var(--accent);
-  color: var(--text);
-}
-.episode-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 14px;
-}
-.episode-card {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  text-align: left;
-  padding: 10px;
-  border-radius: 35px;
-  background: #00000050;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(18px);
-  cursor: pointer;
-  transition: background var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
-}
-.episode-card:hover { background: rgba(0, 0, 0, 0.6); }
-.episode-card__thumb {
-  position: relative;
-  display: block;
-}
-.episode-card img {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
-  border-radius: 21px;
-  background: rgba(0, 0, 0, 0.4);
-  display: block;
-}
-/* Hovering the still: a light dim + centered play cue. */
+/* `.season-chip` and `.season-chip--on` carry NO paint since v0.9.55. They
+ * were a glass pill with a white hairline and an accent-surface active
+ * state; the row is `<Button variant={on ? "secondary" : "ghost"}>` now and
+ * both classes survive only as hooks for the harnesses and for this file. */
+/* `.episode-card` CARRIES NO PAINT since v0.9.67. The row is shadcn's
+ * <Item variant="outline" size="sm"> in the `#header` arrangement now, so
+ * its surface, border, radius, padding, gap, direction, text alignment and
+ * hover all come from Item's utilities — a rule here setting any of them
+ * would simply not apply, `utilities` outranking `app`. Same for
+ * `.episode-grid`, which is gone entirely: the container is an ItemGroup
+ * and the grid is written as utilities at the call site because ItemGroup
+ * brings its own `flex flex-col`. The old rules are in styles/old/.
+ *
+ * What is left below is the still's OVERLAYS, which are the one part
+ * utilities cannot state: a ::after dim, an absolutely-positioned play cue
+ * and the watched tick. They key off `.episode-card:hover`, so the class
+ * still has to be on the Item. */
 .episode-card__thumb::after {
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: 21px;
+  border-radius: var(--radius-sm);
   background: rgba(0, 0, 0, 0.4);
   opacity: 0;
   transition: opacity var(--dur-hover) ease;
@@ -1123,28 +932,6 @@
   transition: opacity var(--dur-hover) ease;
 }
 .episode-card:hover .episode-card__cue { opacity: 1; }
-/* Number runs INLINE with the title (one text flow, so a wrapping title
- * continues under the E-chip, no hanging indent); date pins to the
- * card bottom. */
-.episode-card__text {
-  display: block;
-  margin-left: 5px;
-  min-width: 0;
-}
-.episode-card__num {
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 15px;
-  color: var(--accent);
-  margin-right: 8px;
-}
-.episode-card__title { font-size: 15px; color: #f2f2f4; }
-.episode-card__date {
-  font-size: 12px;
-  color: rgba(242, 242, 244, 0.55);
-  margin-top: auto;
-  margin-left: 5px;
-}
 
 /* Up Next (series EOF): fixed card above the player chrome (z 45),
  * below modals (60). */
@@ -1187,8 +974,6 @@
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 14px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
   color: var(--accent);
 }
 .upnext__title {
@@ -1216,7 +1001,7 @@
   aspect-ratio: 16 / 9;
   object-fit: cover;
   border-radius: var(--radius-card);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--border);
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
 }
 
@@ -1234,7 +1019,7 @@
   border-radius: var(--radius-card);
   overflow: hidden;
   background: rgba(0, 0, 0, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  border: 1px solid var(--border);
   backdrop-filter: blur(16px);
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
 
@@ -1267,8 +1052,6 @@
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
   color: var(--accent);
 }
 .upnext-mini__title {
@@ -1285,16 +1068,13 @@
 .upnext-mini__actions {
   margin-top: 6px;
 }
-.upnext-mini__actions .btn-primary {
-  padding: 8px 18px;
-  font-size: 13px;
-}
+/* The compact metrics here are `size="sm"` on the Button (StreamScreen.tsx).
+ * Padding and font-size are Button utilities, so a rule in this file would
+ * not have reached them. */
 .upnext-mini__close {
   position: absolute;
   top: 8px;
   right: 8px;
-  width: 28px;
-  height: 28px;
 }
 
 /* Next-up episode: the one smart-resume points at (accent ring, same
@@ -1303,7 +1083,10 @@
   box-shadow: 0 0 0 2px var(--accent);
 }
 
-/* Watched checkmark, top-right of the still. */
+/* Watched checkmark, top-right of the still. The tick takes --accent-ink,
+ * not #fff: --accent is shadcn's primary, which is near-WHITE in dark mode
+ * (it inverts with the theme), so a hardcoded white tick on it was a white
+ * disc with nothing in it. --accent-ink is the pair that flips with it. */
 .episode-card__seen {
   position: absolute;
   top: 10px;
@@ -1315,7 +1098,7 @@
   place-items: center;
   border-radius: 50%;
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-ink);
 }
 
 /* Continue-card escape hatch to the source screen: glass chip, top-right
@@ -1324,28 +1107,14 @@
   position: absolute;
   top: 10px;
   right: 10px;
-  padding: 6px 12px;
-  border-radius: 999px;
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 12px;
-  color: var(--text);
-  background: rgba(0, 0, 0, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  backdrop-filter: blur(14px);
-  opacity: 0;
-  transition: opacity var(--dur-hover) ease, background var(--dur-hover) ease;
 }
-.continue-card:hover .continue-card__sources { opacity: 1; }
-/* Keyboard parity with the hover reveal (the guide-star :focus-within
- * pattern from the Live a11y sweep) — the chip nests a real button. */
-.continue-card:focus-within .continue-card__sources { opacity: 1; }
 /* Same hover treatment as episode stills: 0.4 dim + centered play cue. */
 .continue-card__artwrap::after {
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: 25px;
+  border-radius: var(--radius-card);
   background: rgba(0, 0, 0, 0.4);
   opacity: 0;
   transition: opacity var(--dur-hover) ease;
@@ -1364,7 +1133,6 @@
   pointer-events: none;
 }
 .continue-card:hover .continue-card__cue { opacity: 1; }
-.continue-card__sources:hover { background: rgba(0, 0, 0, 0.75); }
 .continue-card { cursor: pointer; }
 /* While the hold-to-clear overlay is up it OWNS the card: the hover
  * cue/scrim, Sources chip, and logo stand down (the play cue painted
@@ -1403,9 +1171,9 @@
   flex-direction: column;
   gap: 12px;
   padding: 18px;
-  border-radius: 26px;
+  border-radius: var(--radius-card);
   background: rgba(0, 0, 0, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid var(--border);
   backdrop-filter: blur(18px);
   /* Transitions, not keyframes: reopening mid-close RETARGETS from the
    * panel's current position (keyframes restart from off-screen). Enter
@@ -1476,7 +1244,7 @@
 /* The one that's playing right now: accent ring, like the app's active
  * chips. */
 .vod-source--current {
-  border: 0.5px solid var(--accent);
+  border: 1px solid var(--accent);
   background: var(--accent-surface);
 }
 
@@ -1530,9 +1298,7 @@
   transform: translateY(-1px) scale(0.98);
 }
 .vod-source:active,
-.episode-card:active,
-.season-chip:active,
-.vod-back:active {
+.episode-card:active {
   transform: scale(0.97);
 }
 
@@ -1586,7 +1352,6 @@
  * line here; the detail screens keep their pinned version. */
 .library__bar .vod-back {
   position: static;
-  flex-shrink: 0;
 }
 .library__heading {
   margin: 0;
@@ -1602,28 +1367,9 @@
 }
 .library__action {
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 13px;
-  padding: 7px 13px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  cursor: pointer;
-  transition:
-    background var(--dur-hover) ease,
-    border-color var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
-}
-.library__action:hover {
-  background: var(--surface-raised);
 }
 .library__action:active {
   transform: scale(0.97);
-}
-.library__action--danger:hover {
-  border-color: var(--danger);
-  color: var(--danger-text);
 }
 
 /* First-run copy above the grid, not in place of it: the "+" card stays
@@ -1644,7 +1390,27 @@
 }
 
 /* The "+" card sits in the same grid track as the list cards, so it has to
- * carry the poster aspect itself rather than collapsing to its text. */
+ * carry the poster aspect itself rather than collapsing to its text.
+ *
+ * NOT a shadcn Button, and v0.9.54 checked. It is an EMPTY SLOT, not a
+ * control: a dashed 2:3 outline holding a grid track open next to the real
+ * list cards. Every Button variant fills that outline in, which turns the
+ * placeholder into the loudest object in the grid. shadcn has no variant
+ * for "the space where a thing would go", so this one stays hand-written. */
+/* The "+" card sits in the same grid track as the list cards, so it has to
+ * carry the poster aspect itself rather than collapsing to its text.
+ *
+ * NOT A <Button>, AND IT HAS NOW BEEN CONVERTED TWICE BY MISTAKE. v0.9.54
+ * turned it into one, v0.9.55 reverted it on the argument below, and
+ * v0.9.56's mass conversion put it straight back — leaving an 85x36 ghost
+ * button in a 300px grid cell with its whole outline gone, which nothing
+ * caught until a screenshot four versions later. Anyone reaching for this
+ * class with a codemod should stop here.
+ *
+ * It is an EMPTY SLOT, not a control: the shape says "a list would go
+ * here", and every Button variant fills that shape in. shadcn does have an
+ * answer for this and it is `border-dashed` on a Card, which is what this
+ * is now — the card surface, dashed, muted until you hover it. */
 .library__new {
   display: flex;
   flex-direction: column;
@@ -1652,12 +1418,12 @@
   justify-content: center;
   gap: 10px;
   aspect-ratio: 2 / 3;
-  border-radius: 25px;
-  border: 1px dashed var(--border-strong);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-card);
   background: none;
   color: var(--text-muted);
-  font-family: var(--font-headline);
-  font-weight: 700;
+  font-family: var(--font-text);
+  font-weight: 500;
   font-size: 14px;
   cursor: pointer;
   transition:
@@ -1668,7 +1434,7 @@
 .library__new:hover {
   color: var(--text);
   border-color: var(--text-muted);
-  background: color-mix(in srgb, var(--text) 4%, transparent);
+  background: var(--surface);
 }
 .library__new-plus {
   font-size: 34px;
@@ -1686,22 +1452,7 @@
   top: 10px;
   right: 10px;
   z-index: 2;
-  padding: 5px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: #00000080;
-  backdrop-filter: blur(10px);
-  color: #f2f2f4;
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 11px;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity var(--dur-hover) ease;
-}
-.library__item:hover .library__remove,
-.library__remove:focus-visible {
-  opacity: 1;
 }
 @media (prefers-reduced-motion: reduce) {
   .library__action:active {
@@ -1743,11 +1494,6 @@
   border-style: solid;
   border-color: var(--accent);
   cursor: default;
-}
-/* Armed delete, same language as Settings' Clear All Login Info. */
-.library__action--armed {
-  border-color: var(--danger);
-  color: var(--danger-text);
 }
 
 /* The resolving stage's own controls. It covers the header and App's

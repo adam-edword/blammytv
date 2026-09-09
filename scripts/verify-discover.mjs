@@ -432,44 +432,11 @@ check("row-cap number is click-to-edit (exact 37 sticks)",
   (await page4.evaluate(() => JSON.parse(localStorage.getItem("blammytv.rowCap") ?? "{}").data)) === 37);
 await page4.close();
 
-// ---- Aurora easter egg (v0.3.55): hidden until Custom is spam-clicked
-// x10; the unlock flips the whole app to the gradient live.
-const page5 = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
-await page5.addInitScript(() => {
-  localStorage.setItem("btv:onboarded", "1");
-  localStorage.setItem("blammytv.aiostreams", JSON.stringify({ v: 1, data: "http://localhost:8084/manifest.json" }));
-  localStorage.setItem("blammytv.playlists", JSON.stringify({ v: 1, data: [{ kind: "m3u", id: "m1", name: "Test M3U", enabled: true, url: "http://localhost:8082/playlist.m3u" }] }));
-  sessionStorage.setItem("btv:welcome-played", "1");
-});
-await page5.goto("http://localhost:4173/");
-await page5.getByRole("button", { name: "Stream", exact: true }).click();
-await page5.locator("button[aria-label='Settings']").click();
-await page5.waitForTimeout(300);
-await page5.getByRole("button", { name: "Customize", exact: true }).click();
-await page5.waitForTimeout(400);
-// The accent swatches are not in Customize any more — Customize carries a
-// LAUNCHER that pops the standalone Themes panel out (and closes Settings).
-// The egg lives with the swatches, so the walk has to go one step further.
-await page5.locator(".themes-launch").click();
-await page5.waitForTimeout(600);
-check("aurora swatch hidden before unlock",
-  (await page5.locator(".accent-swatch--aurora").count()) === 0);
-for (let i = 0; i < 10; i++) {
-  await page5.locator(".accent-custom").click();
-  await page5.waitForTimeout(40);
-}
-await page5.waitForTimeout(300);
-const egg = await page5.evaluate(() => ({
-  style: document.documentElement.dataset.accentStyle ?? null,
-  unlocked: JSON.parse(localStorage.getItem("blammytv.auroraUnlocked") ?? "{}").data === true,
-  stored: JSON.parse(localStorage.getItem("blammytv.accent-style") ?? "{}").data,
-}));
-check("spam x10 unlocks + flips to aurora",
-  egg.style === "aurora" && egg.unlocked && egg.stored === "aurora", JSON.stringify(egg));
-check("aurora swatch now in the picker, checked",
-  (await page5.locator(".accent-swatch--aurora").count()) === 1 &&
-  (await page5.locator(".accent-swatch--aurora .accent-swatch__check").count()) === 1);
-await page5.close();
+// The Aurora easter-egg walk stood here: Settings -> Customize -> the Themes
+// launcher -> spam the Custom swatch x10. All three of those surfaces went to
+// old/themes/ in v0.9.58, so there is no path to the egg to walk any more.
+// The aurora TOKENS still exist and still paint when data-accent-style is set
+// by hand; verify-tailwind covers that, and it is the half worth keeping.
 
 await browser.close();
 const pass = results.filter(Boolean).length;

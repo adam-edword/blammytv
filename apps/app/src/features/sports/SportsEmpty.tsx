@@ -1,4 +1,5 @@
 import { LeaguesIcon } from "../../ui/icons";
+import { Button } from "../../components/ui/button";
 
 /**
  * The board with nothing on it (plan 010 #40).
@@ -54,13 +55,14 @@ export function SportsEmpty({
         {note}
       </p>
       {action && (
-        <button
+        <Button
+          variant="default"
           type="button"
           className="btn-primary sports-empty__action"
           onClick={action.onClick}
         >
           {action.label}
-        </button>
+        </Button>
       )}
     </div>
   );

@@ -1,4 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "../../components/ui/button";
+import {
+  SIDEBAR_ITEM,
+  SIDEBAR_ITEM_ACTIVE,
+} from "../../ui/sidebarItem";
 import {
   CloseIcon,
   StarGhostIcon,
@@ -187,14 +192,15 @@ export function LeaguePicker({
         * "Clear" on its own does not say how much you are about to undo
         * when the picks are scrolled out of sight. */}
       {picked.length > 0 && (
-        <button
+        <Button
+          variant="secondary"
           type="button"
           className="leaguepick__clear"
           onClick={onClearPicks}
         >
           Clear filter
           <span className="leaguepick__clearcount">{picked.length}</span>
-        </button>
+        </Button>
       )}
 
       {/* The rule between the two shapes, which is the whole of the
@@ -215,11 +221,14 @@ export function LeaguePicker({
                     * beside it follows it. Exactly Live's split, where the
                     * row filters and the eye hides, and the fix for these
                     * two having previously done the same thing. */}
-                  <button
+                  <Button
+                    variant="ghost"
                     type="button"
                     className={
-                      "live-folder" +
-                      (picked.includes(l.path) ? " live-folder--active" : "")
+                      `live-folder ${SIDEBAR_ITEM}` +
+                      (picked.includes(l.path)
+                        ? ` live-folder--active ${SIDEBAR_ITEM_ACTIVE}`
+                        : "")
                     }
                     title={l.name}
                     aria-pressed={picked.includes(l.path)}
@@ -228,11 +237,11 @@ export function LeaguePicker({
                   >
                     <LeagueMark league={l} className="leaguepick__mark" />
                     <span className="live-folder__name">{l.label}</span>
-                  </button>
+                  </Button>
                   {/* The guide's hover-eye slot, to the pixel, carrying a
                     * heart instead. Same reveal rules: hidden until the
                     * row is hovered or anything in it has focus. */}
-                  <button
+                  <Button variant="ghost" size="icon-sm"
                     type="button"
                     className="live-folder__hide leaguepick__fav"
                     aria-label={`Add ${l.label} to favourites`}
@@ -249,7 +258,7 @@ export function LeaguePicker({
                       * row. */}
                     <StarGhostIcon className="guide__fav-idle" />
                     <StarRainbowHollowIcon className="guide__fav-hot" />
-                  </button>
+                  </Button>
                 </span>
               ))}
             </div>
@@ -306,7 +315,7 @@ function FavouriteTile({
         <LeagueMark league={league} className="leaguetile__mark" />
         <span className="leaguetile__name">{league.label}</span>
       </button>
-      <button
+      <Button variant="ghost" size="icon-sm"
         type="button"
         className={"leaguepick__x" + (armed ? " leaguepick__x--armed" : "")}
         aria-label={
@@ -317,7 +326,7 @@ function FavouriteTile({
         onClick={onArm}
       >
         {armed ? "Remove from Favorites" : <CloseIcon />}
-      </button>
+      </Button>
     </span>
   );
 }

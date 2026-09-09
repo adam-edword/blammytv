@@ -7,10 +7,29 @@
     <title>BlammyTV</title>
     <!-- Paint black before any CSS loads so there's no white flash between
          the window appearing and the app's first render. The Tauri window's
-         backgroundColor covers the same gap at the native/webview layer. -->
+         backgroundColor covers the same gap at the native/webview layer.
+
+         IT MUST BE IN A LAYER, AND IT MUST BE THE FIRST ONE. Cascade layers
+         sort before specificity and unlayered beats every layer, so once
+         the app's stylesheets moved into `@layer app` (v0.9.49) this
+         unlayered rule started outranking ALL of them, including
+         `:root.invert-player { background: transparent }`. That rule is
+         what lets the native mpv window show through the clip-path hole,
+         so the result was a black picture with the audio still playing.
+
+         Declaring the whole order HERE rather than only in index.css is
+         deliberate: this <style> runs before any imported CSS, and a layer's
+         position is fixed by where it is first named. Naming `boot` alone
+         would make it the FIRST layer and therefore the weakest, which is
+         what we want, but spelling the rest out means the order cannot
+         depend on which file the browser happens to parse first.
+         styles/index.css repeats it, which is a no-op once these exist. -->
     <style>
-      html {
-        background: #000;
+      @layer boot, theme, base, app, components, utilities;
+      @layer boot {
+        html {
+          background: #000;
+        }
       }
     </style>
   </head>

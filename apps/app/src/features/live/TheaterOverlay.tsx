@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Button } from "../../components/ui/button";
 import { isTauri, tauriMpvDiag, type TheaterMeta } from "../../lib/tauri";
 import {
   api,
@@ -1399,7 +1400,7 @@ export function TheaterOverlay({
         {loading && (
           <TuneCard meta={meta} phase={tune} onRetry={retryTune} vod={vod} compact />
         )}
-        <button
+        <Button variant="ghost" size="icon"
           type="button"
           className="overlay__btn overlay__play"
           aria-label={paused ? "Play" : "Pause"}
@@ -1410,8 +1411,8 @@ export function TheaterOverlay({
           }}
         >
           {paused ? <PlayIcon size={18} /> : <PauseIcon size={18} />}
-        </button>
-        <button
+        </Button>
+        <Button variant="ghost" size="icon"
           type="button"
           className="overlay__btn mini-overlay__close"
           aria-label="Stop"
@@ -1422,7 +1423,7 @@ export function TheaterOverlay({
           }}
         >
           <CloseIcon size={18} />
-        </button>
+        </Button>
       </div>
     );
   }
@@ -1465,7 +1466,7 @@ export function TheaterOverlay({
           * this is a screen you came to from somewhere, and the somewhere
           * is what you want. Same action either way: fullscreen steps back
           * to the theater, the theater steps back to where you were. */}
-        <button
+        <Button variant="ghost" size="icon"
           type="button"
           className="player__btn player__btn--glass"
           aria-label={fs ? "Exit fullscreen" : "Back"}
@@ -1473,12 +1474,12 @@ export function TheaterOverlay({
           onClick={() => (fs ? api()?.exitFullscreen?.() : api()?.collapse?.())}
         >
           <BackArrowIcon size={20} />
-        </button>
+        </Button>
         {/* VOD: no favorites — the star is live-only chrome. (The
           * fullscreen toggle applies to both: VOD theater ↔ OS
           * fullscreen.) */}
         {!vod && (
-          <button
+          <Button variant="ghost" size="icon"
             type="button"
             className={"player__btn player__btn--glass" + (fav ? " is-fav" : "")}
             aria-label={fav ? "Remove from favorites" : "Add to favorites"}
@@ -1487,12 +1488,12 @@ export function TheaterOverlay({
             onClick={toggleFav}
           >
             {fav ? <RainbowStarIcon size={20} /> : <StarIcon size={20} />}
-          </button>
+          </Button>
         )}
       </div>
 
       <div className="theater-topright" data-interactive>
-        <button
+        <Button variant="ghost" size="icon"
           type="button"
           className="player__btn player__btn--glass"
           aria-label="Pop out"
@@ -1500,8 +1501,8 @@ export function TheaterOverlay({
           onClick={() => api()?.popout?.()}
         >
           <PopoutIcon size={20} />
-        </button>
-        <button
+        </Button>
+        <Button variant="ghost" size="icon"
           type="button"
           className="player__btn player__btn--glass"
           aria-label={fs ? "Exit fullscreen" : "Fullscreen"}
@@ -1509,18 +1510,18 @@ export function TheaterOverlay({
           onClick={toggleFullscreen}
         >
           {fs ? <ExitFullscreenIcon size={20} /> : <FullscreenIcon size={20} />}
-        </button>
+        </Button>
       </div>
 
       {skip && !mini && (
-        <button
+        <Button variant="secondary" size="sm"
           type="button"
           className="skip-chip"
           data-interactive
           onClick={() => api()?.seekAbs?.(skip.to)}
         >
           {skip.label}
-        </button>
+        </Button>
       )}
 
       <div className="theater-bar">
@@ -1722,7 +1723,7 @@ export function TheaterOverlay({
 
         <div className="theater-controls" data-interactive>
           <div className="theater-controls__group">
-            <button
+            <Button variant="ghost" size="icon"
               type="button"
               className="player__btn"
               aria-label="Back 10 seconds"
@@ -1740,8 +1741,8 @@ export function TheaterOverlay({
               onClick={() => doSeek(-10)}
             >
               <SkipBackIcon size={24} />
-            </button>
-            <button
+            </Button>
+            <Button variant="ghost" size="icon"
               type="button"
               className="player__btn player__btn--play"
               aria-label={paused ? "Play" : "Pause"}
@@ -1749,8 +1750,8 @@ export function TheaterOverlay({
               onClick={togglePlay}
             >
               {paused ? <PlayIcon size={26} /> : <PauseIcon size={26} />}
-            </button>
-            <button
+            </Button>
+            <Button variant="ghost" size="icon"
               type="button"
               className="player__btn"
               aria-label="Forward 10 seconds"
@@ -1768,9 +1769,9 @@ export function TheaterOverlay({
               onClick={() => doSeek(10)}
             >
               <SkipFwdIcon size={24} />
-            </button>
+            </Button>
             {vod && meta?.vod?.hasNext && (
-              <button
+              <Button variant="ghost" size="icon"
                 type="button"
                 className="player__btn"
                 aria-label="Next episode"
@@ -1778,10 +1779,10 @@ export function TheaterOverlay({
                 onClick={() => api()?.nextEpisode?.()}
               >
                 <NextEpisodeIcon size={22} />
-              </button>
+              </Button>
             )}
             {!vod && (
-              <button
+              <Button variant="secondary" size="sm"
                 type="button"
                 className={"theater-live" + (atLive ? " is-live" : "")}
                 aria-label="Jump to live"
@@ -1790,14 +1791,14 @@ export function TheaterOverlay({
               >
                 <span className="theater-live__dot" />
                 LIVE
-              </button>
+              </Button>
             )}
           </div>
 
           <div className="theater-controls__group">
             {/* In-playback source switcher — VOD only. */}
             {vod && (
-              <button
+              <Button variant="ghost" size="icon"
                 type="button"
                 className="player__btn"
                 aria-label="Sources"
@@ -1805,12 +1806,12 @@ export function TheaterOverlay({
                 onClick={() => api()?.sourcePanel?.()}
               >
                 <PanelIcon size={20} />
-              </button>
+              </Button>
             )}
             {/* Playback speed — VOD only (live has no rate to bend). */}
             {vod && (
               <div className="theater-tracks">
-                <button
+                <Button variant="ghost" size="icon"
                   type="button"
                   className={
                     "player__btn player__btn--speed" +
@@ -1824,12 +1825,12 @@ export function TheaterOverlay({
                   }
                 >
                   {speed === 1 ? "1×" : `${speed}×`}
-                </button>
+                </Button>
                 {menu === "speed" && (
                   <div className="track-menu" role="menu" aria-label="Speed">
                     <p className="track-menu__head">Speed</p>
                     {[0.5, 0.75, 1, 1.25, 1.5, 2].map((sp) => (
-                      <button
+                      <Button variant="ghost" size="sm"
                         key={sp}
                         type="button"
                         role="menuitemradio"
@@ -1842,7 +1843,7 @@ export function TheaterOverlay({
                       >
                         {sp}×
                         {speed === sp && <CheckIcon size={14} />}
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 )}
@@ -1851,7 +1852,7 @@ export function TheaterOverlay({
             {/* Stats for nerds (theater/fullscreen only; needs the shell for
               * the mpv_stats command). Toggles the top-left telemetry panel. */}
             {isTauri() && (
-              <button
+              <Button variant="ghost" size="icon"
                 type="button"
                 className={"player__btn" + (showStats ? " is-open" : "")}
                 aria-label="Stats for nerds"
@@ -1860,14 +1861,14 @@ export function TheaterOverlay({
                 onClick={() => setShowStats((v) => !v)}
               >
                 <StatsIcon size={20} />
-              </button>
+              </Button>
             )}
             {/* Always visible, grayed out when there's nothing to choose:
               * audio needs ≥2 tracks (one track = no choice), subs need ≥1
               * (off/on is a real choice even with one track). A disabled
               * button can't open its menu. */}
             <div className="theater-tracks">
-              <button
+              <Button variant="ghost" size="icon"
                 type="button"
                 className={"player__btn" + (menu === "audio" ? " is-open" : "")}
                 aria-label="Audio track"
@@ -1877,12 +1878,12 @@ export function TheaterOverlay({
                 onClick={() => setMenu((m) => (m === "audio" ? null : "audio"))}
               >
                 <LanguageIcon size={20} />
-              </button>
+              </Button>
               {menu === "audio" && tracks && tracks.audio.length >= 2 && (
                 <div className="track-menu" role="menu" aria-label="Audio tracks">
                   <p className="track-menu__head">Audio</p>
                   {tracks.audio.map((t) => (
-                    <button
+                    <Button variant="ghost" size="sm"
                       key={t.id}
                       type="button"
                       role="menuitemradio"
@@ -1894,13 +1895,13 @@ export function TheaterOverlay({
                     >
                       <span className="track-menu__label">{t.label}</span>
                       {t.selected && <CheckIcon size={15} />}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               )}
             </div>
             <div className="theater-tracks">
-              <button
+              <Button variant="ghost" size="icon"
                 type="button"
                 className={"player__btn" + (menu === "subs" ? " is-open" : "")}
                 aria-label="Subtitles"
@@ -1910,11 +1911,11 @@ export function TheaterOverlay({
                 onClick={() => setMenu((m) => (m === "subs" ? null : "subs"))}
               >
                 <CcIcon size={20} />
-              </button>
+              </Button>
               {menu === "subs" && tracks && tracks.subs.length >= 1 && (
                 <div className="track-menu" role="menu" aria-label="Subtitles">
                   <p className="track-menu__head">Subtitles</p>
-                  <button
+                  <Button variant="ghost" size="sm"
                     type="button"
                     role="menuitemradio"
                     aria-checked={!tracks.subs.some((t) => t.selected)}
@@ -1928,9 +1929,9 @@ export function TheaterOverlay({
                     {!tracks.subs.some((t) => t.selected) && (
                       <CheckIcon size={15} />
                     )}
-                  </button>
+                  </Button>
                   {tracks.subs.map((t) => (
-                    <button
+                    <Button variant="ghost" size="sm"
                       key={t.id}
                       type="button"
                       role="menuitemradio"
@@ -1942,13 +1943,13 @@ export function TheaterOverlay({
                     >
                       <span className="track-menu__label">{t.label}</span>
                       {t.selected && <CheckIcon size={15} />}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               )}
             </div>
             <div className="theater-vol">
-              <button
+              <Button variant="ghost" size="icon"
                 type="button"
                 className="player__btn"
                 aria-label={muted ? "Unmute" : "Mute"}
@@ -1960,7 +1961,7 @@ export function TheaterOverlay({
                 ) : (
                   <VolumeIcon size={20} />
                 )}
-              </button>
+              </Button>
               <input
                 className="player__volume theater-vol__slider"
                 type="range"
@@ -2040,21 +2041,21 @@ function TuneCard({
               ? "This source isn\u2019t responding. It\u2019s the stream, not you."
               : "This channel isn\u2019t responding. It\u2019s the stream, not you."}
           </p>
-          <button type="button" className="tune__retry" onClick={onRetry}>
+          <Button variant="outline" size="sm" type="button" className="tune__retry" onClick={onRetry}>
             Retry
-          </button>
+          </Button>
           {/* Offered whenever the HOST has a list to step down, VOD or
             * not: the sports rail is exactly that. It used to be gated on
             * `vod` because the api's nextSource was always defined and so
             * could not be asked. */}
           {api()?.nextSource && (
-            <button
+            <Button variant="outline" size="sm"
               type="button"
               className="tune__retry"
               onClick={() => api()?.nextSource?.()}
             >
               Try next available source
-            </button>
+            </Button>
           )}
         </div>
       ) : (

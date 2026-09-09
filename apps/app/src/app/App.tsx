@@ -26,7 +26,6 @@ import { LibraryScreen } from "../features/stream/LibraryScreen";
 import { DiscoverScreen } from "../features/discover/DiscoverScreen";
 import { setModalOpen } from "../lib/modalOpen";
 import { SettingsModal } from "../features/settings/SettingsModal";
-import { ThemesModal } from "../features/settings/ThemesModal";
 import { loadStartupTab } from "../features/settings/startupTab";
 import {
   onGenreRequest,
@@ -117,7 +116,6 @@ export function App() {
   // closing it returns to the app (Adam's call). Mutually exclusive with
   // Settings, so only one .settings card is ever mounted (the live-video
   // frost region measures ".settings" — see LiveScreen).
-  const [themesOpen, setThemesOpen] = useState(false);
   // First-run onboarding sits over everything and ENDS with its own
   // boot phase (the boot's actors live inside the overlay, v0.4.36) —
   // it owns that launch's boot, so welcome never follows it.
@@ -196,19 +194,19 @@ export function App() {
   // doesn't read through the glass (see player.css [data-native-hidden]).
   useEffect(() => {
     const root = document.documentElement;
-    if (settingsOpen || themesOpen) root.dataset.nativeHidden = "1";
+    if (settingsOpen) root.dataset.nativeHidden = "1";
     else delete root.dataset.nativeHidden;
     return () => {
       delete root.dataset.nativeHidden;
     };
-  }, [settingsOpen, themesOpen]);
+  }, [settingsOpen]);
 
   // The screen underneath a modal stays mounted and keeps its own window
   // listeners, so it has to be told to sit still. See lib/modalOpen.
   useEffect(() => {
-    setModalOpen(settingsOpen || themesOpen);
+    setModalOpen(settingsOpen);
     return () => setModalOpen(false);
-  }, [settingsOpen, themesOpen]);
+  }, [settingsOpen]);
 
   /*
    * THE MOUSE'S BACK BUTTON CLOSES THE MODAL.
@@ -229,12 +227,11 @@ export function App() {
    * navigate the document out from under the app.
    */
   useEffect(() => {
-    if (!settingsOpen && !themesOpen) return;
+    if (!settingsOpen) return;
     const onButton = (e: MouseEvent) => {
       if (e.button !== 3 && e.button !== 4) return;
       e.preventDefault();
       if (e.type !== "mouseup" || e.button !== 3) return;
-      if (themesOpen) setThemesOpen(false);
       else setSettingsOpen(false);
     };
     window.addEventListener("mousedown", onButton);
@@ -243,7 +240,7 @@ export function App() {
       window.removeEventListener("mousedown", onButton);
       window.removeEventListener("mouseup", onButton);
     };
-  }, [settingsOpen, themesOpen]);
+  }, [settingsOpen]);
 
   // Escape always exits fullscreen. The window-state plugin restores
   // fullscreen across launches, so without this there's no way out from
@@ -406,7 +403,7 @@ export function App() {
         {dest === "sports" ? (
           <SportsScreen home={Number(destHome)} />
         ) : dest === "guide" ? (
-          <LiveScreen modalOpen={settingsOpen || themesOpen} />
+          <LiveScreen modalOpen={settingsOpen} />
         ) : dest === "discover" ? (
           <DiscoverScreen />
         ) : dest === "mylist" ? (
@@ -415,16 +412,7 @@ export function App() {
           <StreamScreen />
         )}
       </main>
-      {settingsOpen && (
-        <SettingsModal
-          onClose={() => setSettingsOpen(false)}
-          onOpenThemes={() => {
-            setSettingsOpen(false);
-            setThemesOpen(true);
-          }}
-        />
-      )}
-      {themesOpen && <ThemesModal onClose={() => setThemesOpen(false)} />}
+      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
       {welcome && <WelcomeAnimation onDone={() => setWelcome(false)} />}
       {onboarding && <Onboarding onDone={() => setOnboarding(false)} />}
     </div>

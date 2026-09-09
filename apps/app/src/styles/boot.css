@@ -85,7 +85,6 @@
   position: absolute;
   inset: 0;
   overflow: hidden;
-  corner-shape: superellipse(1.32);
 }
 .boot-scene.is-landed .boot-frame,
 .boot-scene.is-shrink .boot-frame {
@@ -189,7 +188,6 @@
   inset: calc(36.5px * var(--s)) calc(35px * var(--s));
   border-radius: calc(100px * var(--s));
   background: #000;
-  corner-shape: superellipse(1.58);
   filter: blur(calc(108.4px * var(--s)));
 }
 .boot-scene.is-landing .boot-screen {

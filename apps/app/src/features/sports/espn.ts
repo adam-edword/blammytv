@@ -283,6 +283,12 @@ interface RawCompetitor {
    * not worth drawing.
    */
   records?: { type?: string; summary?: string }[];
+  /**
+   * Where this side sits in the poll. COLLEGE ONLY, and `current` is 99
+   * for everyone unranked rather than absent — see pollRank, which is why
+   * this does not reach the model as a number.
+   */
+  curatedRank?: { current?: number };
   team?: {
     id?: string;
     displayName?: string;
@@ -290,6 +296,15 @@ interface RawCompetitor {
     abbreviation?: string;
     color?: string;
     logo?: string;
+    /**
+     * The club's conference, as an id. COLLEGE ONLY: measured 2026-09-06,
+     * 289 of 290 college basketball competitors on a 145-game day carry
+     * one and no NFL, NBA, MLB or NHL competitor carries one at all.
+     *
+     * League-scoped, so it means nothing without the path it came from:
+     * college football's ACC is 1, college basketball's is 2.
+     */
+    conferenceId?: string;
   };
 }
 
@@ -1021,9 +1036,25 @@ function toCompetitor(raw: RawCompetitor, other?: RawCompetitor): Competitor {
       : undefined,
     // ESPN sends hex without the hash, which is what the card wants.
     color: t.color,
+    conferenceId: t.conferenceId,
+    rank: pollRank(raw.curatedRank?.current),
     record,
     score: Number.isFinite(score) ? score : undefined,
   };
+}
+
+/**
+ * A poll position, or nothing.
+ *
+ * ESPN sends 99 for everyone unranked rather than omitting the field, so
+ * carrying it through raw would make every team in the country "ranked
+ * 99th". Absent is the honest answer and it is what the model promises.
+ * Measured 2026-09-06: 18 of 53 college football games on a November
+ * Saturday had a top-25 side, 24 of 290 college basketball competitors on
+ * a busy January day.
+ */
+function pollRank(n: number | undefined): number | undefined {
+  return typeof n === "number" && n >= 1 && n <= 25 ? n : undefined;
 }
 
 /** National, then home, then away, then anything unlabelled. */

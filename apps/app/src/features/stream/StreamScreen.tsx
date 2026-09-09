@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { CheckIcon, ChevronIcon, CloseIcon, PlayIcon } from "../../ui/icons";
+import { Button } from "../../components/ui/button";
 import Tilt from "react-parallax-tilt";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { wantsEpisodeList } from "./backTarget";
@@ -20,6 +21,14 @@ import { useViewStack } from "../../lib/viewStack";
 // render of every Card.
 
 import { createPortal } from "react-dom";
+import {
+  Item,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemHeader,
+  ItemTitle,
+} from "../../components/ui/item";
 import { isTauri, tauriSetFullscreen } from "../../lib/tauri";
 import { scrubbedMessage } from "../../lib/errors";
 import { setOverlayApiOverride } from "../live/overlayApi";
@@ -1440,14 +1449,14 @@ export function StreamScreen() {
               >
               <div className="vod-panel__head">
                 <h3>Sources</h3>
-                <button
+                <Button variant="ghost" size="icon"
                   type="button"
                   className="player__btn player__btn--glass"
                   aria-label="Close sources"
                   onClick={closePanel}
                 >
                   <CloseIcon size={18} />
-                </button>
+                </Button>
               </div>
               <div className="vod-panel__list">
                 {panelSources === null && (
@@ -1458,13 +1467,13 @@ export function StreamScreen() {
                 {panelSources === "failed" && (
                   <p className="vod-sources__note" role="alert">
                     Couldn&rsquo;t load sources.{" "}
-                    <button
+                    <Button variant="default"
                       type="button"
                       className="vod-sources__retry"
                       onClick={() => setPanelTick((t) => t + 1)}
                     >
                       Try again
-                    </button>
+                    </Button>
                   </p>
                 )}
                 {Array.isArray(panelSources) &&
@@ -1539,20 +1548,22 @@ export function StreamScreen() {
               </h2>
               <p className="upnext__count">Playing in {countdown}s</p>
               <div className="upnext__actions">
-                <button
+                <Button
+                  variant="default"
                   type="button"
                   className="btn-primary"
                   onClick={() => void playUpNext()}
                 >
                   Play now
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="secondary"
                   type="button"
                   className="shero__btn-quiet"
                   onClick={stop}
                 >
                   Cancel
-                </button>
+                </Button>
               </div>
             </div>,
             chromeHostRef.current,
@@ -1582,7 +1593,13 @@ export function StreamScreen() {
                   {upNextMini.episode.title}
                 </p>
                 <div className="upnext-mini__actions">
-                  <button
+                  <Button
+                    variant="default"
+                    // The mini card is a 300-ish px box in the corner, so
+                    // its two buttons are compact. That used to be a padding
+                    // and font-size override in stream.css; both are Button
+                    // utilities now, so it has to be the size prop.
+                    size="sm"
                     type="button"
                     className="btn-primary"
                     onClick={() => {
@@ -1592,10 +1609,10 @@ export function StreamScreen() {
                     }}
                   >
                     Play now
-                  </button>
+                  </Button>
                 </div>
               </div>
-              <button
+              <Button variant="ghost" size="icon"
                 type="button"
                 className="player__btn player__btn--glass upnext-mini__close"
                 aria-label="Dismiss"
@@ -1605,7 +1622,7 @@ export function StreamScreen() {
                 }}
               >
                 <CloseIcon size={14} />
-              </button>
+              </Button>
             </div>,
             chromeHostRef.current,
           )}
@@ -1620,16 +1637,17 @@ export function StreamScreen() {
               />
             )}
             <p className="vod-pip__hint">Player popped out</p>
-            <button
+            <Button
+              variant="default"
               type="button"
               className="btn-primary"
               onClick={() => void bringBack()}
             >
               Bring It Back
-            </button>
+            </Button>
             {/* ✕ = done with the pop-out too: close it and land on the
               * source selector (the view under the stage). */}
-            <button
+            <Button variant="ghost" size="icon"
               type="button"
               className="player__btn player__btn--glass vod-pip__close"
               aria-label="Close pop-out"
@@ -1639,7 +1657,7 @@ export function StreamScreen() {
               }}
             >
               <CloseIcon size={20} />
-            </button>
+            </Button>
           </div>
         )}
       </div>
@@ -1797,9 +1815,14 @@ function Home({
         {/* Live's error states retry; siblings match (the audit's
           * dead-end finding). */}
         <p>
-          <button type="button" className="btn-primary" onClick={onRetry}>
+          <Button
+            variant="default"
+            type="button"
+            className="btn-primary"
+            onClick={onRetry}
+          >
             Try again
-          </button>
+          </Button>
         </p>
       </div>
     );
@@ -2061,24 +2084,24 @@ export function RowScroller({ children }: { children: ReactNode }) {
         {children}
       </div>
       {can.left && (
-        <button
+        <Button variant="ghost" size="icon"
           type="button"
           className="media-row__arrow media-row__arrow--left"
           aria-label="Scroll back"
           onClick={() => nudge(-1)}
         >
           <ChevronIcon />
-        </button>
+        </Button>
       )}
       {can.right && (
-        <button
+        <Button variant="ghost" size="icon"
           type="button"
           className="media-row__arrow media-row__arrow--right"
           aria-label="Scroll forward"
           onClick={() => nudge(1)}
         >
           <ChevronIcon />
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -2311,7 +2334,8 @@ function Hero({
                   ) : null}
                 </p>
                 <div className="shero__actions">
-                  <button
+                  <Button
+                    variant="default"
                     type="button"
                     className="btn-primary"
                     onClick={(e) => {
@@ -2320,8 +2344,9 @@ function Hero({
                     }}
                   >
                     Watch Now
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="secondary"
                     type="button"
                     className="shero__btn-quiet"
                     onClick={(e) => {
@@ -2330,7 +2355,7 @@ function Hero({
                     }}
                   >
                     More Info
-                  </button>
+                  </Button>
                 </div>
               </div>
               </Tilt>
@@ -2536,7 +2561,7 @@ export function ContinueCard({
           </span>
         ) : null}
         {/* Straight to the source screen instead of quick-resume. */}
-        <button
+        <Button variant="secondary" size="sm"
           type="button"
           className="continue-card__sources"
           onPointerDown={(e) => e.stopPropagation()}
@@ -2546,7 +2571,7 @@ export function ContinueCard({
           }}
         >
           Sources ›
-        </button>
+        </Button>
       </span>
       <span className="continue-card__hold" aria-hidden>
         Keep holding to clear
@@ -2617,14 +2642,16 @@ function GenrePills({ genres }: { genres: string[] }) {
   return (
     <div className="vod-detail__pills">
       {genres.slice(0, 5).map((g) => (
-        <button
+        <Button
+          variant="outline"
+          size="sm"
           key={g}
           type="button"
           title={`Browse ${g} in Discover`}
           onClick={() => requestDiscoverGenre(g)}
         >
           {g}
-        </button>
+        </Button>
       ))}
     </div>
   );
@@ -2717,9 +2744,14 @@ function Detail({
         <img className="vod-detail__backdrop" src={item.backdrop} alt="" />
       )}
       <div className="vod-detail__scrim" aria-hidden />
-      <button type="button" className="vod-back" onClick={onBack}>
+      <Button
+        variant="ghost"
+        type="button"
+        className="vod-back rounded-full hover:bg-black/60"
+        onClick={onBack}
+      >
         ← Back
-      </button>
+      </Button>
       <div className="vod-detail__body">
         <div className="vod-detail__info">
           {item.logo ? (
@@ -2761,13 +2793,13 @@ function Detail({
           {sources === "failed" && (
             <p className="vod-sources__note" role="alert">
               Couldn&rsquo;t load sources.{" "}
-              <button
+              <Button variant="default"
                 type="button"
                 className="vod-sources__retry"
                 onClick={() => setSourcesTick((t) => t + 1)}
               >
                 Try again
-              </button>
+              </Button>
             </p>
           )}
           {Array.isArray(sources) && sources.length === 0 && (
@@ -2912,9 +2944,14 @@ function Episodes({
         <img className="vod-detail__backdrop" src={item.backdrop} alt="" />
       )}
       <div className="vod-detail__scrim" aria-hidden />
-      <button type="button" className="vod-back" onClick={onBack}>
+      <Button
+        variant="ghost"
+        type="button"
+        className="vod-back rounded-full hover:bg-black/60"
+        onClick={onBack}
+      >
         ← Back
-      </button>
+      </Button>
       <div className="vod-detail__body vod-detail__body--episodes">
         <div className="vod-detail__info">
           {item.logo ? (
@@ -2940,13 +2977,13 @@ function Episodes({
           metaState === "failed" ? (
             <p className="vod-sources__note" role="alert">
               Couldn&rsquo;t load episodes.{" "}
-              <button
+              <Button variant="default"
                 type="button"
                 className="vod-sources__retry"
                 onClick={onRetryMeta}
               >
                 Try again
-              </button>
+              </Button>
             </p>
           ) : metaState === "ready" ? (
             <p className="vod-sources__note">No episodes listed.</p>
@@ -2959,11 +2996,19 @@ function Episodes({
           <>
             <div className="season-bar">
               {item.seasons.map((s, i) => (
-                <button
+                <Button
+                  // The season row is a toggle group, so the variant comes
+                  // from the same boolean as aria-pressed. `hover:bg-muted`
+                  // on the off chips because --color-accent (ghost's hover)
+                  // and --color-secondary (the on state) both bridge to
+                  // --surface-raised here, so ghost's own hover would paint
+                  // an off season in exactly the on colour.
+                  variant={i === seasonIdx ? "secondary" : "ghost"}
                   key={s.id}
                   type="button"
                   className={
-                    "season-chip" + (i === seasonIdx ? " season-chip--on" : "")
+                    "season-chip" +
+                    (i === seasonIdx ? " season-chip--on" : " hover:bg-muted")
                   }
                   aria-pressed={i === seasonIdx}
                   onClick={() => {
@@ -2972,49 +3017,131 @@ function Episodes({
                   }}
                 >
                   {s.name}
-                </button>
+                </Button>
               ))}
             </div>
-            <div className="episode-grid">
+            {/* shadcn's Item, in the `#header` arrangement Adam asked for:
+              * an ItemHeader carrying the art above an ItemContent carrying
+              * the title and a description. ItemGroup is `role="list"` and
+              * comes with `flex flex-col`, so the grid has to be said as
+              * UTILITIES here — a `display: grid` in stream.css would lose
+              * to ItemGroup's own class, `utilities` outranking `app`.
+              *
+              * The thumbnail keeps 16/9. The docs example is `aspect-square`
+              * (it is showing model cards), and Adam's one constraint on
+              * this was "keeping thumbnail aspect ratio the same": a still
+              * from a 16:9 episode cropped to a square is a different
+              * picture, not a differently-sized one. */}
+            <ItemGroup className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3.5">
               {season?.episodes.map((e) => (
-                <button
+                <Item
                   key={e.id}
-                  type="button"
+                  asChild
+                  variant="outline"
+                  size="sm"
                   className={
-                    "episode-card" +
+                    // Three kinds of override, all deliberate.
+                    //
+                    // `text-left` is a FIX: shadcn's Item is a <div>, and
+                    // rendering it `asChild` over a <button> picks up the UA
+                    // stylesheet's `text-align: center`, which centred every
+                    // title and date. (The sidebar rows hit this too.)
+                    //
+                    // `bg-card`/`text-card-foreground` and the hover pair
+                    // give the card its OWN ground. `variant="outline"` is
+                    // transparent, which is right on the docs' plain page
+                    // and wrong here: this screen paints the title's
+                    // backdrop art behind everything and pins a fixed light
+                    // foreground on it (`.vod-detail__body`), so a
+                    // transparent card inherits whatever the artwork is
+                    // doing, and the instant a hover fill lands under it the
+                    // white text is white on white. A card that carries its
+                    // own surface and its own foreground is legible in both
+                    // themes and both states, and is what shadcn's Card does
+                    // anyway.
+                    //
+                    // `rounded-lg px-3 py-2.5` is the docs preview's own
+                    // geometry, a step tighter than the published registry's
+                    // `size="sm"`.
+                    //
+                    // `content-start` because the grid stretches every card
+                    // in a row to the tallest one, and Item is a WRAPPING
+                    // flex container: with the default `align-content`, that
+                    // spare height is shared out between the two lines
+                    // instead of pooling at the bottom, so a card next to a
+                    // three-line title grew a gap between its still and its
+                    // text. Pack the lines at the top and the slack lands
+                    // where it belongs.
+                    "episode-card cursor-pointer content-start rounded-lg bg-card px-3 py-2.5 text-left text-card-foreground hover:bg-accent hover:text-accent-foreground" +
                     (e.id === nextUp ? " episode-card--next" : "")
                   }
-                  onClick={() =>
-                    onPick(e.id, `S${season.number} · E${e.number}: ${e.title}`, {
-                      season: season.number,
-                      episode: e.number,
-                      title: e.title,
-                    })
-                  }
                 >
-                  {e.still && (
-                    <span className="episode-card__thumb">
-                      <img src={e.still} alt="" loading="lazy" />
-                      <span className="episode-card__cue" aria-hidden>
-                        <PlayIcon size={36} />
-                      </span>
-                      {watched.has(e.id) && (
-                        <span className="episode-card__seen" title="Watched">
-                          <CheckIcon size={13} />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onPick(
+                        e.id,
+                        `S${season.number} · E${e.number}: ${e.title}`,
+                        {
+                          season: season.number,
+                          episode: e.number,
+                          title: e.title,
+                        },
+                      )
+                    }
+                  >
+                    {e.still && (
+                      // `relative` so the play cue and the watched tick can
+                      // sit over the still: ItemHeader is a plain flex row
+                      // and the overlays need a positioned ancestor that is
+                      // the picture's own box, not the card's.
+                      <ItemHeader className="episode-card__thumb relative">
+                        <img
+                          src={e.still}
+                          alt=""
+                          loading="lazy"
+                          className="aspect-video w-full rounded-sm object-cover"
+                        />
+                        <span className="episode-card__cue" aria-hidden>
+                          <PlayIcon size={36} />
                         </span>
+                        {watched.has(e.id) && (
+                          <span className="episode-card__seen" title="Watched">
+                            <CheckIcon size={13} />
+                          </span>
+                        )}
+                      </ItemHeader>
+                    )}
+                    <ItemContent>
+                      {/* `block w-full` over ItemTitle's own `flex w-fit`.
+                        * The docs clamp their titles to one line, and this
+                        * WRAPS instead, Adam's call: real episode titles run
+                        * past 280px constantly ("Starting Life from Zero in
+                        * Another World" is 40 characters before the E-number)
+                        * and a card that shows half a title is not showing
+                        * the title. `flex` with a `w-fit` width cannot wrap
+                        * usefully, hence the block. The E-number rides inline
+                        * so a wrapped line runs under it with no hanging
+                        * indent. */}
+                      <ItemTitle className="block w-full">
+                        {/* Quiet metadata, then the title, which is how
+                          * shadcn separates the two inside one line. It was
+                          * bold and accent-coloured; --accent is near-white
+                          * in dark mode now, so that read as a second title
+                          * rather than as a label. */}
+                        <span className="mr-2 text-muted-foreground">
+                          E{e.number}
+                        </span>
+                        {e.title}
+                      </ItemTitle>
+                      {e.airDate && (
+                        <ItemDescription>{e.airDate}</ItemDescription>
                       )}
-                    </span>
-                  )}
-                  <span className="episode-card__text">
-                    <span className="episode-card__num">E{e.number}</span>
-                    <span className="episode-card__title">{e.title}</span>
-                  </span>
-                  {e.airDate && (
-                    <span className="episode-card__date">{e.airDate}</span>
-                  )}
-                </button>
+                    </ItemContent>
+                  </button>
+                </Item>
               ))}
-            </div>
+            </ItemGroup>
           </>
         )}
       </div>

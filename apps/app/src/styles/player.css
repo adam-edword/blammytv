@@ -37,22 +37,23 @@
 }
 
 .tune__channel {
-  font: 600 clamp(15px, 2vw, 22px) / 1.2 system-ui, sans-serif;
+  font: 600 clamp(15px, 2vw, 22px) / 1.2 var(--font-text);
   letter-spacing: 0.01em;
   color: rgba(255, 255, 255, 0.95);
 }
 
 .tune__title {
-  font: 400 clamp(12px, 1.4vw, 15px) / 1.3 system-ui, sans-serif;
+  font: 400 clamp(12px, 1.4vw, 15px) / 1.3 var(--font-text);
   color: rgba(255, 255, 255, 0.62);
   max-width: 44ch;
   text-align: center;
 }
 
 .tune__status {
-  font: 600 clamp(12px, 1.5vw, 16px) / 1 system-ui, sans-serif;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  /* var(--font-text), not a bare `system-ui`: this was the one label in the
+   * app that opted out of the family everything else uses, so it rendered in
+   * Segoe while its neighbours rendered in Geist. */
+  font: 500 clamp(12px, 1.5vw, 16px) / 1 var(--font-text);
   color: rgba(255, 255, 255, 0.75);
   animation: tune-pulse 1.4s ease-in-out infinite;
 }
@@ -77,28 +78,14 @@
 
 .tune__dead-msg {
   margin: 0;
-  font: 400 clamp(13px, 1.5vw, 16px) / 1.4 system-ui, sans-serif;
+  font: 400 clamp(13px, 1.5vw, 16px) / 1.4 var(--font-text);
   color: rgba(255, 255, 255, 0.85);
   text-align: center;
   max-width: 34ch;
 }
 
 .tune__retry {
-  font: 600 14px / 1 system-ui, sans-serif;
-  color: #fff;
-  padding: 10px 26px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  background: rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(10px);
-  cursor: pointer;
-  transition: background var(--dur-hover) ease, border-color var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
-}
-
-.tune__retry:hover {
-  background: rgba(255, 255, 255, 0.22);
-  border-color: rgba(255, 255, 255, 0.6);
+  font: 600 14px / 1 var(--font-text);
 }
 
 /* Mini box: shrink the ident, drop the programme line (done in JSX), and keep
@@ -162,11 +149,6 @@
   font-size: 12px;
 }
 
-.tune--compact .tune__retry {
-  padding: 7px 18px;
-  font-size: 12px;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .tune__status {
     animation-duration: 3s;
@@ -194,26 +176,7 @@
  * mini's fade-in-on-hover. */
 .overlay__btn {
   position: absolute;
-  display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
-  color: #fff;
-  cursor: pointer;
-  opacity: 0;
-  transition:
-    background var(--dur-hover) ease,
-    border-color var(--dur-hover) ease,
-    opacity var(--dur-hover) ease;
-}
-
-.mini-overlay:hover .overlay__btn {
-  opacity: 1;
-}
-
-.overlay__btn:hover {
-  background: rgba(0, 0, 0, 0.46);
-  border-color: rgba(255, 255, 255, 0.26);
 }
 
 .overlay__play {
@@ -326,72 +289,6 @@
 /* Sharp corner setting zeroes the fake rounding too. */
 :root[data-corners="sharp"] .theater-overlay::before {
   display: none;
-}
-
-.player__btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: #fff;
-  cursor: pointer;
-  opacity: 0.85;
-  transition:
-    opacity var(--dur-hover) ease,
-    background var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
-}
-
-.player__btn:hover {
-  opacity: 1;
-  background: rgba(255, 255, 255, 0.14);
-}
-
-.player__btn--play {
-  width: 48px;
-  height: 48px;
-}
-
-/* Glassy floating buttons (the top clusters over bare video). Circular,
- * frosted: the backdrop-filter blurs the picture behind them where WebView2
- * composition allows it; the translucent fill keeps them readable regardless.
- * A soft top highlight + drop shadow gives the pill some depth. */
-/* THE circular glass recipe — mini overlay buttons + theater top buttons
- * share it (they always matched; now they can't drift). Sits AFTER
- * .player__btn's base rule so `border: none / background: transparent`
- * there can't override it by source order. */
-.overlay__btn,
-.player__btn--glass {
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.32);
-  -webkit-backdrop-filter: blur(14px) saturate(1.2);
-  backdrop-filter: blur(14px) saturate(1.2);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    0 2px 12px rgba(0, 0, 0, 0.32);
-}
-
-.player__btn--glass {
-  width: 42px;
-  height: 42px;
-  opacity: 1;
-}
-
-.player__btn--glass:hover {
-  opacity: 1;
-  background: rgba(0, 0, 0, 0.46);
-  border-color: rgba(255, 255, 255, 0.26);
-}
-
-/* Favorited: warm the rim so the state reads even at a glance. */
-.player__btn--glass.is-fav {
-  border-color: rgba(255, 255, 255, 0.3);
-  background: rgba(0, 0, 0, 0.42);
 }
 
 .player__volume {
@@ -611,7 +508,6 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  corner-shape: round;
   background: #fff;
   transform: translate(-50%, -50%);
 }
@@ -663,29 +559,8 @@
 /* Jump-to-live pill. The dot glows red at the live edge and dims when the
  * indicator says we've fallen behind (a rewind/skip-back). */
 .theater-live {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
   margin-left: 10px;
-  padding: 6px 13px;
-  border: none;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.62);
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 12px;
-  letter-spacing: 0.7px;
-  cursor: pointer;
-  transition:
-    background var(--dur-hover) ease,
-    color var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
-}
-
-.theater-live:hover {
-  background: rgba(255, 255, 255, 0.16);
-  color: #fff;
 }
 
 .theater-live__dot {
@@ -697,10 +572,6 @@
   transition:
     opacity var(--dur-enter) ease,
     box-shadow var(--dur-enter) ease;
-}
-
-.theater-live.is-live {
-  color: #fff;
 }
 
 .theater-live.is-live .theater-live__dot {
@@ -715,23 +586,11 @@
   display: flex;
 }
 
-.player__btn.is-open {
-  opacity: 1;
-  background: rgba(255, 255, 255, 0.14);
-}
-
-/* Grayed out when there's nothing to choose (one audio track / no subs). */
-.player__btn:disabled {
-  opacity: 0.3;
-  cursor: default;
-  background: transparent;
-}
-
 /* THE glass panel recipe — track menus + stats overlay share it. */
 .track-menu,
 .stats-overlay {
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  border: 1px solid var(--border);
   background: rgba(0, 0, 0, 0.55);
   -webkit-backdrop-filter: blur(18px) saturate(1.2);
   backdrop-filter: blur(18px) saturate(1.2);
@@ -778,36 +637,12 @@
   font-weight: 700;
   font-size: 11px;
   letter-spacing: 0.8px;
-  text-transform: uppercase;
   color: rgba(255, 255, 255, 0.55);
 }
 
 .track-menu__item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
   width: 100%;
-  padding: 8px 10px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.85);
   font: 500 13px / 1.2 var(--font-text);
-  text-align: left;
-  cursor: pointer;
-  transition:
-    background var(--dur-hover) ease,
-    color var(--dur-hover) ease;
-}
-
-.track-menu__item:hover {
-  background: rgba(255, 255, 255, 0.14);
-  color: #fff;
-}
-
-.track-menu__item.is-selected {
-  color: #fff;
 }
 
 .track-menu__label {
@@ -851,7 +686,6 @@
   font-weight: 700;
   font-size: 11px;
   letter-spacing: 0.8px;
-  text-transform: uppercase;
   color: rgba(255, 255, 255, 0.55);
 }
 
@@ -883,7 +717,7 @@
   margin: 0;
   justify-self: end;
   text-align: right;
-  font-family: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.5;
   font-variant-numeric: tabular-nums;
@@ -893,45 +727,27 @@
 /* Speed button: text glyph in the icon row (VOD only). */
 .player__btn--speed {
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 14px;
   min-width: 40px;
 }
 
 /* Skip Intro/Recap/Credits chip: Netflix corner, visible whenever the
  * clock is inside a skip-worthy chapter — independent of the auto-hiding
  * chrome. */
+/* Entrance (motion plan 002): the @starting-style transform still runs,
+ * carried by Button's own `transition-all`. The hand-written transition
+ * that used to be here went with the rest of the button CSS in v0.9.56 —
+ * it could not have applied anyway, `transition` being one of Button's. */
 .skip-chip {
   position: fixed;
   right: 44px;
   bottom: 190px;
   z-index: 46;
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 15px;
-  color: var(--text);
-  padding: 12px 24px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  backdrop-filter: blur(16px);
-  cursor: pointer;
-
-  /* Entrance (motion plan 002). Close stays instant — deliberate. */
-  /* ONE declaration (a duplicate killed the hover background fade). */
-  transition:
-    background var(--dur-hover) ease,
-    opacity 200ms var(--ease-out),
-    transform 200ms var(--ease-out);
 }
 @starting-style {
   .skip-chip {
-    opacity: 0;
     transform: translateY(8px);
   }
-}
-.skip-chip:hover {
-  background: rgba(0, 0, 0, 0.85);
 }
 
 /* ---- Press feedback (motion plan 001). ---- */
@@ -1041,16 +857,6 @@
      thing worth saying. Restate the colour instead: legible, and no longer
      claiming live. */
   color: rgb(255 255 255 / 0.5);
-}
-
-/* Inert rather than `disabled`. A disabled control gets no tooltip in
-   Chromium, so the two greyed-out skip buttons on an unseekable source
-   explained nothing at all — and dropping out of the tab order took away the
-   one way a keyboard user could reach the explanation. doSeek refuses the
-   click regardless, so this is the same inertness with the reason attached. */
-.player__btn[data-inert] {
-  opacity: 0.3;
-  cursor: not-allowed;
 }
 
 /* ---------------------------------------------------------------------------

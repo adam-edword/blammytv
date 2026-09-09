@@ -1,4 +1,6 @@
+import { Button } from "../components/ui/button";
 import {
+  useCallback,
   useLayoutEffect,
   useRef,
   useState,
@@ -63,25 +65,55 @@ export function ModeRail<K extends string>({
       ?.focus();
   };
 
+  /**
+   * TWO EFFECTS, and the split is the whole fix.
+   *
+   * The indicator never glided: it teleported between modes, and had done
+   * since the rail was written. Measured, not guessed — the element carried
+   * `--snap` (which is `transition: none`) at rest, 60ms into a change, and
+   * after it settled. So the rail has had the same thumb, colour, border and
+   * 380ms spring as the settings rail all along, with the animation switched
+   * off a moment after being switched on, every single time.
+   *
+   * The cause was `document.fonts.ready` sitting in the SAME effect as the
+   * mode-change measurement. Once the webfont has loaded that promise is
+   * already resolved, so `.then(() => measure(true))` fires on the microtask
+   * queue immediately after every re-run — including the re-run a mode
+   * change triggers. The order per click was: measure(false) sets snap
+   * false, the resolved promise lands, measure(true) sets it back to true,
+   * and the browser paints once, with no transition. (The ResizeObserver's
+   * immediate first callback did the same thing; both had to go.)
+   *
+   * So: one effect owns the mode change and always glides. Another owns the
+   * late signals that genuinely should snap — the font landing and a real
+   * resize — and is wired ONCE on mount, where a "reposition without
+   * animating" belongs. It reads the live mode from a ref rather than from
+   * its own closure, which is what lets it stay mount-only.
+   */
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
+
+  const measure = useCallback((snap: boolean) => {
+    const rail = railRef.current;
+    const btn = rail?.querySelector<HTMLButtonElement>(
+      `[data-mode="${modeRef.current}"]`,
+    );
+    if (!btn) return;
+    setInd((prev) => ({
+      x: btn.offsetLeft,
+      w: btn.offsetWidth,
+      // First placement snaps into position; later ones glide.
+      snap: snap || prev.w === 0,
+    }));
+  }, []);
+
+  useLayoutEffect(() => {
+    measure(false);
+  }, [mode, measure]);
+
   useLayoutEffect(() => {
     const rail = railRef.current;
     if (!rail) return;
-    const measure = (snap: boolean) => {
-      const btn = rail.querySelector<HTMLButtonElement>(
-        `[data-mode="${mode}"]`,
-      );
-      if (btn) {
-        setInd((prev) => ({
-          x: btn.offsetLeft,
-          w: btn.offsetWidth,
-          // First placement snaps into position; later ones glide.
-          snap: snap || prev.w === 0,
-        }));
-      }
-    };
-    measure(false);
-    // Font load / rail resize move the settled targets — reposition
-    // without animating.
     let alive = true;
     document.fonts?.ready.then(() => {
       if (alive) measure(true);
@@ -92,7 +124,7 @@ export function ModeRail<K extends string>({
       alive = false;
       ro.disconnect();
     };
-  }, [mode]);
+  }, [measure]);
 
   return (
     <div className="mode-rail" role="tablist" ref={railRef}>
@@ -111,7 +143,7 @@ export function ModeRail<K extends string>({
       {modes.map((m) => {
         const active = m.key === mode;
         return (
-          <button
+          <Button variant="ghost" size="sm"
             key={m.key}
             type="button"
             role="tab"
@@ -142,7 +174,7 @@ export function ModeRail<K extends string>({
                 </span>
               ))}
             </span>
-          </button>
+          </Button>
         );
       })}
     </div>

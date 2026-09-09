@@ -69,9 +69,12 @@ describe("themePacks", () => {
     fakeHeadChildren.length = 0;
   });
 
-  it("defaults to BlammyTV (id slate)", () => {
-    expect(loadThemePack()).toBe("slate");
-    expect(DEFAULT_PACK).toBe("slate");
+  // v0.9.57: the default moved from "slate" (BlammyTV) to "classic", the
+  // attribute-less pack whose palette IS tokens.css — which is shadcn
+  // neutral's now. BlammyTV is still in the list, as an opt-in pack.
+  it("defaults to the raw tokens (id classic)", () => {
+    expect(loadThemePack()).toBe("classic");
+    expect(DEFAULT_PACK).toBe("classic");
   });
 
   it("round-trips a saved pack", () => {

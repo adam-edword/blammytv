@@ -208,6 +208,57 @@ async function open(pos) {
       return h ? `${h.style.left},${h.style.top},${h.style.width},${h.style.height}` : null;
     });
   check("the chrome host has a box while the feed plays", !!(await box()));
+
+  // ---- FOLDING THE SIDE COLUMN (Adam's) -------------------------------
+  //
+  // The picture is supposed to TAKE the column's width, so the assertion is
+  // on the stage's measured width rather than on the class: a fold that
+  // only added a class and left a 360px hole would pass the class check.
+  const stageWidth = () =>
+    page.evaluate(
+      () =>
+        document.querySelector(".sportstheater__stage")?.getBoundingClientRect()
+          .width ?? 0,
+    );
+  const railShown = () =>
+    page.evaluate(() => {
+      const r = document.querySelector(".sportstheater__rail");
+      return !!r && getComputedStyle(r).display !== "none";
+    });
+  const wideBefore = await stageWidth();
+  check("the channel rail is on screen to begin with", await railShown());
+  await page.getByLabel("Collapse channels").click();
+  await page.waitForTimeout(400);
+  const wideAfter = await stageWidth();
+  check(
+    "folding the column gives its width to the picture",
+    wideAfter > wideBefore + 200,
+    `${Math.round(wideBefore)}px -> ${Math.round(wideAfter)}px`,
+  );
+  check("and the channel rail goes with it", !(await railShown()));
+  // THE WAY BACK OUT has to survive the fold. This is the difference
+  // between folding and fullscreen: fullscreen is a mode you can Escape
+  // from, a folded panel just looks like a theater that lost its rail, so
+  // the strip keeps both its unfold control and the back pill.
+  check(
+    "the unfold control is still there",
+    (await page.getByLabel("Expand channels").count()) === 1,
+  );
+  check(
+    "and so is the way out",
+    await page.evaluate(() => {
+      const b = document.querySelector(".sportstheater__back");
+      return !!b && getComputedStyle(b).display !== "none";
+    }),
+  );
+  await page.getByLabel("Expand channels").click();
+  await page.waitForTimeout(400);
+  check(
+    "unfolding puts the column back",
+    (await railShown()) && Math.abs((await stageWidth()) - wideBefore) < 2,
+    `${Math.round(await stageWidth())}px, expected ${Math.round(wideBefore)}px`,
+  );
+
   // Fullscreen first: that is the state with no other control on screen.
   await wake();
   await page.getByLabel("Fullscreen").click();

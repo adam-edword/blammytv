@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "../../components/ui/button";
 import { pick, remember } from "./pick";
 import { findByWords, imdbIdFor, tmdbEnabled } from "./tmdb";
 import { resolveVodItem } from "../stream/source";
@@ -165,7 +166,7 @@ export function Recommender({
         {words.length > 0 && (
           <div className="rec__chips">
             {words.map((w) => (
-              <button
+              <Button variant="secondary" size="sm"
                 key={w}
                 type="button"
                 className="rec__chip"
@@ -174,7 +175,7 @@ export function Recommender({
               >
                 {w}
                 <CloseIcon size={14} />
-              </button>
+              </Button>
             ))}
           </div>
         )}
@@ -200,7 +201,7 @@ export function Recommender({
               if (e.key === "Escape") e.stopPropagation();
             }}
           />
-          <button
+          <Button variant="secondary"
             type="button"
             className="rec__go"
             aria-label="Find something to watch"
@@ -208,7 +209,7 @@ export function Recommender({
             onClick={() => void find()}
           >
             <SparkleIcon size={20} />
-          </button>
+          </Button>
         </div>
 
         {!ready && (
@@ -247,13 +248,13 @@ export function Recommender({
               </span>
             </button>
             {state.note && <p className="rec__note">{state.note}</p>}
-            <button
+            <Button variant="secondary"
               type="button"
               className="rec__again"
               onClick={() => void find()}
             >
               Something else
-            </button>
+            </Button>
           </div>
         )}
       </div>

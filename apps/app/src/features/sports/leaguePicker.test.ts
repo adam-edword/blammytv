@@ -87,7 +87,7 @@ describe("search filters BOTH halves, which is the whole point", () => {
 
 describe("favouriting from either half", () => {
   it("moves a league from the column to the grid, and back", () => {
-    const none = { leagues: [], teams: [] };
+    const none = { leagues: [], teams: [], conferences: [] };
     expect(split(none.leagues, "").top).toEqual([]);
 
     const one = toggleLeague(none, "hockey/nhl");

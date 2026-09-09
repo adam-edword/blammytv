@@ -113,7 +113,7 @@ if (!FAST) {
   const tvOk = await page.waitForSelector(".onb-hint--ok", { timeout: 10000 }).then(() => true).catch(() => false);
   check("TV verification succeeds", tvOk);
 
-  await page.waitForSelector(".onb-swatches", { timeout: 8000 });
+  await page.waitForSelector(".onb-chips--labeled", { timeout: 8000 });
   const pl = await page.evaluate(() =>
     JSON.parse(localStorage.getItem("blammytv.playlists") ?? "{}").data ?? []);
   check("xtream playlist saved on successful verify",
@@ -121,11 +121,8 @@ if (!FAST) {
       && pl[0].username === "u" && pl[0].enabled === true,
     JSON.stringify(pl));
 
-  // Accent + clock.
-  await page.locator(".onb-swatch").nth(2).click(); // green #2cad57
-  const accent = await page.evaluate(() =>
-    getComputedStyle(document.documentElement).getPropertyValue("--accent").trim());
-  check("swatch applies accent live", accent === "#2cad57", accent);
+  // Clock. The accent swatches that shared this step went with the Themes
+  // panel in v0.9.58 — see Onboarding.tsx.
   await page.getByRole("button", { name: "24h", exact: true }).click();
   const clock = await page.evaluate(() =>
     JSON.parse(localStorage.getItem("blammytv.clockFormat") ?? "{}").data);
@@ -282,7 +279,7 @@ if (!FAST) {
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   const m3uOk = await page.waitForSelector(".onb-hint--ok", { timeout: 10000 }).then(() => true).catch(() => false);
   check("M3U verification succeeds", m3uOk);
-  await page.waitForSelector(".onb-swatches", { timeout: 8000 });
+  await page.waitForSelector(".onb-chips--labeled", { timeout: 8000 });
   const m3uSaved = await page.evaluate(() =>
     (JSON.parse(localStorage.getItem("blammytv.playlists") ?? "{}").data ?? [])[0]);
   check("m3u playlist saved",
@@ -344,7 +341,7 @@ if (!FAST) {
   await page.getByRole("button", { name: /later/ }).click(); // streams
   await page.waitForSelector(".onb-fields", { timeout: 8000 });
   await page.getByRole("button", { name: /later/ }).click(); // live tv
-  await page.waitForSelector(".onb-swatches", { timeout: 8000 });
+  await page.waitForSelector(".onb-chips--labeled", { timeout: 8000 });
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.waitForSelector(".onb-chips:not(.onb-chips--labeled)", { timeout: 8000 });
   await page.getByRole("button", { name: "Continue", exact: true }).click();

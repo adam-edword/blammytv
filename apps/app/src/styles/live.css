@@ -27,13 +27,17 @@
   max-width: 252px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  /* shadcn's SidebarContent is `gap-2` between groups and its SidebarGroup
+   * is `p-2`; the panel keeps its float and its card edge (Adam: "just try
+   * to match the inside"), so the padding lands here rather than on a group
+   * wrapper we do not have. 2px was never a shadcn number. */
+  gap: 8px;
   min-height: 0;
-  padding: 2px;
+  padding: 8px;
   margin: 0 0 12px 12px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 20px;
+  background: var(--sidebar);
+  border: 1px solid var(--sidebar-border);
+  border-radius: var(--radius-card);
 }
 
 /* Folded and idle the panel chrome disappears; hovering anywhere on the
@@ -64,27 +68,9 @@
 /* Collapse: a quiet ghost icon, same spot whether the sidebar is open or
  * folded. */
 .live-collapse {
-  flex-shrink: 0;
-  display: grid;
   place-items: center;
-  width: 37px;
-  height: 40px; /* matches the rail's height so the row reads as one band */
+  /* matches the rail's height so the row reads as one band */
   border-radius: var(--radius-chip);
-  opacity: 0.45;
-  transition:
-    opacity var(--dur-hover) ease,
-    background var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
-}
-
-.live-collapse:hover {
-  opacity: 1;
-  background: color-mix(in srgb, var(--text) 8%, transparent);
-}
-
-.live-collapse svg {
-  width: 16px;
-  height: 16px;
 }
 
 /* Mode rail, the Claude-app way: buttons snap to their new size instantly
@@ -100,7 +86,7 @@
   gap: 3px;
   padding: 2px;
   background: var(--surface-puck);
-  border-radius: 18px;
+  border-radius: var(--radius-track);
 }
 
 .mode-rail__indicator {
@@ -110,7 +96,7 @@
   left: 0;
   border-radius: var(--radius-chip);
   background: var(--surface-raised);
-  border: 0.5px solid var(--border-raised);
+  border: 1px solid var(--border-raised);
   will-change: transform, width;
   transition:
     transform 380ms var(--spring),
@@ -124,35 +110,7 @@
 .mode-rail__chip {
   position: relative;
   z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  height: 36px;
-  padding: 0 11px;
-  border-radius: var(--radius-chip);
-  white-space: nowrap;
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 15px;
-  color: var(--text);
-  opacity: 0.5;
-  transition: opacity var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
-}
-
-.mode-rail__chip:hover {
-  opacity: 0.85;
-}
-
-.mode-rail__chip--active {
-  opacity: 1;
-}
-
-.mode-rail__chip svg {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
 }
 
 /* Labels collapse instantly (the indicator masks the snap); the incoming
@@ -198,35 +156,20 @@
 
 /* --------------------------------------------------- playlist group */
 
+/* shadcn's SidebarMenu: `gap-1` between rows, not 6px. Four pixels reads as
+ * one list; six starts to read as separate items. */
 .live-sidebar__list {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .live-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-  min-width: 0;
-  white-space: nowrap;
   overflow: hidden;
   mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent);
-  padding: 4px 6px 2px;
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 11px;
-  letter-spacing: 1.6px;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  transition: color var(--dur-hover) ease;
-}
-
-.live-group:hover {
-  color: var(--text);
 }
 
 .live-group__caret {
@@ -279,36 +222,13 @@
 /* Folder rows: placeholder square + name; red fill = selected, red border
  * = hover (Figma 126:403). */
 .live-folder {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  text-align: left;
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 14px;
-  color: var(--text);
-  border: 1px solid transparent;
-  border-radius: var(--radius-chip);
-  padding: 8px 10px;
   /* Fixed so the label can't drive row height — folded rows (label
    * hidden) must keep identical geometry or the icons drift. flex-shrink 0
    * is the half that matters: the list overflows its scrollport, and a
    * shrinkable row compresses to min-content — ~36px WITH a label, bare
    * icon height without one, which shifted every icon up on collapse. */
   flex-shrink: 0;
-  height: 36px;
-  transition:
-    border-color var(--dur-hover) ease,
-    background var(--dur-hover) ease;
-}
-
-.live-folder:hover {
-  border-color: var(--accent-border-hover);
-}
-
-.live-folder--active {
-  background: var(--accent-surface);
-  border-color: var(--accent-border);
 }
 
 .live-folder__icon {
@@ -337,9 +257,11 @@
   mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent);
 }
 
+/* Lines up with the rows above it: same 8px inset, same 12px as a group
+ * label, since it sits in the same column and answers the same question. */
 .live-sidebar__note {
-  margin: 4px 6px;
-  font-size: 13px;
+  margin: 4px 8px;
+  font-size: 12px;
   color: var(--text-muted);
 }
 
@@ -354,7 +276,6 @@
   visibility: hidden;
   width: 0;
   padding-inline: 0;
-  white-space: nowrap;
 }
 
 .live-sidebar--collapsed .live-folder__name {
@@ -365,23 +286,8 @@
   scrollbar-width: none;
 }
 
-.live-sidebar--collapsed .live-folder {
-  opacity: 0.45;
-  transition:
-    opacity var(--dur-hover) ease,
-    border-color var(--dur-hover) ease,
-    background var(--dur-hover) ease;
-}
-
 .live-sidebar--collapsed .live-folder:hover {
-  opacity: 1;
-  border-color: transparent; /* opacity is the hover cue when folded */
-}
-
-.live-sidebar--collapsed .live-folder--active,
-.live-sidebar--collapsed .live-folder--active:hover {
-  opacity: 1;
-  border-color: var(--accent-border);
+  /* opacity is the hover cue when folded */;
 }
 
 /* Source-name tooltip beside the folded rail. */
@@ -391,7 +297,7 @@
   transform: translateY(-50%);
   padding: 6px 12px;
   background: var(--surface-raised);
-  border: 0.5px solid var(--border-raised);
+  border: 1px solid var(--border-raised);
   border-radius: 10px;
   font-family: var(--font-headline);
   font-weight: 700;
@@ -460,23 +366,7 @@
 }
 
 .live-status__retry {
-  padding: 8px 18px;
-  border: 1px solid var(--accent-border);
-  border-radius: var(--radius-chip);
-  background: var(--accent-surface);
-  color: var(--text);
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 13px;
-  cursor: pointer;
-  transition:
-    border-color var(--dur-hover) ease,
-    background var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
-}
-
-.live-status__retry:hover {
-  border-color: var(--accent);
 }
 
 /* -------------------------------------------------------------- guide */
@@ -607,7 +497,7 @@
   text-align: left;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 20px;
+  border-radius: var(--radius-card);
   overflow: hidden;
   transition: border-color var(--dur-hover) ease;
 }
@@ -679,28 +569,9 @@
   top: 50%;
   transform: translateY(-68%);
   z-index: 1;
-  display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
-  color: var(--text); /* the ghost fills with currentColor */
+  /* the ghost fills with currentColor */
   opacity: 0;
-  transition: opacity var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
-}
-
-.guide__channel:hover .guide__fav,
-/* Keyboard parity: reveal the star when anything in the row (its card or the
- * star itself) has focus, so it's reachable without a mouse. */
-.guide__channel:focus-within .guide__fav,
-.guide__fav:focus-visible,
-.guide__fav--on {
-  opacity: 1;
-}
-
-.guide__fav svg {
-  width: 21px;
-  height: 21px;
 }
 
 .guide__fav .guide__fav-hot {
@@ -727,9 +598,12 @@
   align-items: flex-start;
   padding: 0 12px 0 16px;
   text-align: left;
-  background: var(--surface-puck);
-  border: 1.5px solid color-mix(in srgb, var(--text) 4%, transparent);
-  border-radius: 20px;
+  /* shadcn's card surface at chip scale: a real 1px --border rather than a
+   * 1.5px 4%-white ghost, which read as a smudge at this size and was the
+   * one edge in the app that was not the border token. */
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-chip);
   overflow: hidden;
   transition: filter var(--dur-hover) ease;
 }
@@ -923,7 +797,6 @@
   z-index: 200;
 }
 
-
 .hero__details {
   flex: 1;
   min-width: 0;
@@ -942,8 +815,8 @@
   gap: 8px;
   padding: 7px 14px;
   background: var(--accent-surface);
-  border: 0.5px solid var(--accent);
-  border-radius: 20px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-card);
   font-family: var(--font-text);
   font-weight: 700;
   font-size: 17px;
@@ -1065,25 +938,8 @@
   height: 100%;
   background: var(--accent);
 }
-
-/* ---- Keyboard focus (a11y batch) ----
- * One themed ring for every interactive Live control. :focus-visible shows it
- * for keyboard / assistive-tech users without ringing on plain mouse clicks.
- * Accent-derived so it lands in both dark and light themes. */
-.mode-rail__chip:focus-visible,
-.live-collapse:focus-visible,
-.live-group:focus-visible,
-.live-folder:focus-visible,
-.guide__card:focus-visible,
-.guide__fav:focus-visible,
-.guide__cell:focus-visible,
-.live-status__retry:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
 /* The resize separator is a hairline strip; inset the ring so it stays on it. */
 .guide-resize:focus-visible {
-  outline: 2px solid var(--accent);
   outline-offset: -1px;
 }
 
@@ -1112,35 +968,10 @@
   top: 50%;
   transform: translateY(-50%);
   z-index: 1;
-  display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 8px;
-  color: var(--text-muted);
-  opacity: 0;
-  transition:
-    opacity var(--dur-hover) ease,
-    color var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
-}
-.live-folder-row:hover .live-folder__hide,
-.live-folder-row:focus-within .live-folder__hide {
-  opacity: 1;
-}
-.live-folder__hide:hover {
-  color: var(--text);
 }
 .live-folder__hide:active {
   transform: translateY(-50%) scale(0.9);
-}
-.live-folder__hide svg {
-  width: 15px;
-  height: 15px;
-}
-.live-folder__hide:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
 }
 
 /* Bottom-center toast (the hide confirmation + its Undo): the player
@@ -1184,20 +1015,6 @@
 }
 .live-toast__undo {
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 13px;
-  color: var(--accent);
-  cursor: pointer;
-  padding: 2px 4px;
-  border-radius: 6px;
-  transition: filter var(--dur-hover) ease;
-}
-.live-toast__undo:hover {
-  filter: brightness(1.35);
-}
-.live-toast__undo:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
 }
 @media (prefers-reduced-motion: reduce) {
   .live-toast {
@@ -1219,8 +1036,13 @@
   z-index: 30;
   min-width: 200px;
   max-width: 280px;
-  padding: 6px;
-  border-radius: 12px;
+  /* 4px/8px, not 6px/12px: this is the last hand-rolled menu in the app and
+   * it sits beside a real DropdownMenu now (the save picker), so it takes
+   * that component's own geometry — `p-1` and `rounded-md`. The border and
+   * shadow already matched: --float-border is --border, and --float-shadow
+   * is Tailwind's shadow-md. */
+  padding: 4px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--float-border);
   background: var(--float-bg);
   -webkit-backdrop-filter: var(--float-blur);
@@ -1238,24 +1060,10 @@
   }
 }
 .folder-menu__item {
-  display: block;
   width: 100%;
-  padding: 8px 10px;
-  border-radius: 8px;
-  text-align: left;
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 13px;
-  color: var(--text);
-  cursor: pointer;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-  transition: background var(--dur-hover) ease;
-}
-.folder-menu__item:hover,
-.folder-menu__item:focus-visible {
-  background: rgba(255, 255, 255, 0.12);
 }
 .folder-menu__hint {
   margin: 2px 10px 4px;

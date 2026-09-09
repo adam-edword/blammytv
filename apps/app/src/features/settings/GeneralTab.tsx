@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Button } from "../../components/ui/button";
 import { remove as removeStored } from "../../lib/storage";
 import { ChipTabs } from "../../ui/ChipTabs";
 import { UpdatesSection } from "./UpdatesSection";
@@ -77,13 +78,14 @@ export function GeneralTab() {
               Walk through the welcome setup again. Nothing gets reset.
             </p>
           </div>
-          <button
+          <Button
+            variant="default"
             type="button"
             className="btn-primary"
             onClick={requestOnboardingReplay}
           >
             Replay
-          </button>
+          </Button>
         </div>
       </section>
 
@@ -99,15 +101,26 @@ export function GeneralTab() {
                 device.
               </p>
             </div>
-            <button
+            <Button
+              variant="destructive"
               type="button"
+              // Armed is a RING now, not a deeper fill. The old
+              // `.btn-danger--armed` mixed 45% danger into the face, which
+              // only read as a state because the unarmed face was a 16%
+              // tint; `destructive` is a solid red, so there is no "more
+              // red" left to go to. A ring is shadcn's own emphasis
+              // primitive and it is the same halo the focus treatment uses.
+              // (It also could not have stayed in CSS: the variant paints
+              // the fill with a utility, and utilities outrank the app
+              // layer.) The label still carries the state in words.
               className={
-                "btn-danger" + (clearArmed ? " btn-danger--armed" : "")
+                "btn-danger" +
+                (clearArmed ? " ring-[3px] ring-destructive/50" : "")
               }
               onClick={clearLogins}
             >
               {clearArmed ? "Click again to confirm" : "Clear…"}
-            </button>
+            </Button>
           </div>
         </div>
       </section>

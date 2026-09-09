@@ -1,0 +1,182 @@
+/**
+ * The one stylesheet the app imports, and the file that decides the cascade.
+ *
+ * It exists because Tailwind arrived (v0.9.49) into 13,828 lines of
+ * hand-written CSS, and two things had to be settled before a single utility
+ * class could be trusted.
+ *
+ * ---------------------------------------------------------------- 1. ORDER
+ *
+ * Cascade layers sort BEFORE specificity, and unlayered beats every layer.
+ * So if the app's sheets had stayed unlayered, `.mt-4` would have lost to
+ * any app rule touching margin, however weak. Utilities would have looked
+ * broken at random and the fix would have been `!important` everywhere.
+ *
+ * Putting the app in a layer BELOW `utilities` is what makes a utility able
+ * to override a component's own CSS, which is the whole point of having
+ * them. Within `app` nothing changes: relative order and specificity among
+ * the fourteen sheets are exactly what they were.
+ *
+ * `components` sits between them on purpose. That is where shadcn's
+ * generated components land, so a utility on the call site still wins over
+ * the component's own styling, and the component still wins over the app's
+ * older selectors.
+ *
+ * ---------------------------------------------------- 2. NO PREFLIGHT, YET
+ *
+ * Tailwind's `base` layer is Preflight, and it is a reset. Read against
+ * base.css it is not survivable as a drop-in: it zeroes every margin,
+ * padding and border, strips list styles, flattens h1-h6 to inherited size
+ * and weight, makes img/svg/video `display: block`, and clears button
+ * backgrounds and radii. This app has 1,116 lines of base.css that already
+ * answered all of those questions, differently, on purpose.
+ *
+ * So the layer is DECLARED but not filled. That keeps the slot in the right
+ * place in the order, so turning Preflight on later is one import rather
+ * than a re-sort of everything. Turning it on is its own change with its own
+ * screenshot pass, and it is not free.
+ *
+ * The three files below are Tailwind's real entry points, split out of
+ * `@import "tailwindcss"`, which is exactly `theme` + `preflight` +
+ * `utilities` and nothing else.
+ */
+
+/* `boot` is index.html's anti-flash black, declared there so it is the
+ * FIRST and therefore weakest layer. It is repeated here so this file
+ * states the whole order in one place; naming a layer that already exists
+ * does not move it. See index.html for why it must not be unlayered. */
+@layer boot, theme, base, app, components, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+/* @import "tailwindcss/preflight.css" layer(base);  <- see 2 above */
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/**
+ * `dark:` MEANS THIS APP'S DARK THEME, not the operating system's.
+ *
+ * Tailwind's stock `dark:` variant is `@media (prefers-color-scheme: dark)`,
+ * and this app has never used that as its signal: theme.ts writes
+ * `data-theme="light"` on the root and treats its ABSENCE as dark. Those two
+ * ideas were unrelated, so every `dark:` utility in components/ui was keyed
+ * to the machine rather than to the setting in Settings.
+ *
+ * Measured on one page with the app in dark theme both times, only the OS
+ * flipped: an outline Button's border went from rgb(242,242,244) — its own
+ * text colour, because `dark:border-input` never applied — to
+ * oklch(1 0 0 / 0.15), and its background from transparent to `input/30`.
+ * So the app looked different on two machines set the same way, which is
+ * what put a near-white edge on the save picker's menu.
+ *
+ * Fifteen utilities across seven vendored components ride on this:
+ * `dark:border-input`, `dark:bg-input/30`, `dark:hover:bg-accent/50`,
+ * `dark:bg-destructive/60` and the aria-invalid rings.
+ *
+ * The predicate is the negative because dark is the DEFAULT here — there is
+ * no `.dark` class to hook, and adding one would mean two sources of truth
+ * for the same fact. It matches tokens.css, which already guards its dark
+ * block with `:root:not([data-theme="light"])`.
+ */
+@custom-variant dark (&:where(:root:not([data-theme="light"]), :root:not([data-theme="light"]) *));
+
+/* The enter/exit animations every shadcn overlay is written against.
+ *
+ * NOT OPTIONAL, and not obvious. `animate-in`, `fade-in-0`, `zoom-in-95` and
+ * `slide-in-from-top-2` are NOT stock Tailwind: they come from this package,
+ * and shadcn's generated components use all four. Without it those classes
+ * do not exist, so every tooltip, dialog and menu pops in and out with no
+ * transition at all, which is the opposite of the reason to adopt shadcn.
+ *
+ * NO `layer()` HERE, deliberately. The file is mostly `@utility` at-rules,
+ * which Tailwind has to process at the top level; wrapping it in a layer
+ * hides them and silently emits nothing. Tailwind files what it generates
+ * into the utilities layer on its own. */
+@import "tw-animate-css";
+
+/* Our tokens, extending Tailwind's so `bg-surface` and friends resolve to
+ * the app's real palette rather than to a stock zinc. See theme.css. */
+@import "./theme.css";
+
+/* The app's own sheets, in the order main.tsx used to import them: tokens
+ * first, then the packs that override them, then everything that reads
+ * them. That order is load-bearing and is preserved exactly. */
+@import "./tokens.css" layer(app);
+/* packs.css and intense-packs.css were here, and their absence is the point:
+ * a theme pack pins --bg, --surface, --border and the text tiers at the same
+ * specificity from a LATER file, so any pack silently outranked tokens.css.
+ * That is exactly what made v0.9.57's shadcn palette invisible until the
+ * default pack moved. Parked in old/themes/ (v0.9.58). */
+@import "./base.css" layer(app);
+@import "./ui.css" layer(app);
+@import "./settings.css" layer(app);
+@import "./live.css" layer(app);
+@import "./player.css" layer(app);
+@import "./stream.css" layer(app);
+@import "./sports.css" layer(app);
+@import "./discover.css" layer(app);
+@import "./boot.css" layer(app);
+@import "./onboarding.css" layer(app);
+
+/**
+ * POINTER CURSOR ON BUTTONS, straight out of shadcn's own Button doc.
+ *
+ * Tailwind v4 switched the button cursor from `pointer` to `default`, and
+ * shadcn's docs carry this exact snippet as the way back. It matters here
+ * because the app's own button rules USED to set `cursor: pointer` each,
+ * and v0.9.54 pruned that away when those properties moved to the Button
+ * component. Without this, every converted button would silently get an
+ * arrow instead of a hand.
+ *
+ * `[role="button"]` as well as `button`, because Radix renders some
+ * triggers on a div. `:not(:disabled)` so a disabled control still reads
+ * as unavailable.
+ *
+ * In `app` rather than `base`: the base layer is Preflight's slot and is
+ * deliberately empty (see above), and this is the app's decision rather
+ * than a reset.
+ */
+@layer app {
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+/* UNLAYERED, and it has to be. See the file: react-colorful injects its own
+ * stylesheet at runtime, which is unlayered, and only unlayered beats it. */
+@import "./vendor.css";
+
+/**
+ * REDUCED MOTION over the shadcn overlays.
+ *
+ * tw-animate-css ships NO `prefers-reduced-motion` handling of its own
+ * (checked: zero occurrences in its stylesheet), and this app has cared
+ * about that since plan 010 #22 audited every tilt in the feature. So the
+ * guard is ours to write.
+ *
+ * IT KEEPS THE FADE AND DROPS THE MOVEMENT, rather than setting
+ * `animation: none`. That is the actual accessibility ask: reduced motion
+ * means no vestibular movement, not no feedback, and a surface that appears
+ * with no transition whatsoever reads as a glitch. The same reasoning is
+ * already written down at ui.css:166, where each guard restores that
+ * element's own timings instead of blanket-none.
+ *
+ * Neutralising the INPUTS rather than the keyframes is what makes this hold
+ * for animations nobody has written yet: `enter` and `exit` read these six
+ * variables for translate, scale and rotate, and read opacity separately.
+ * Zero them and every current and future `slide-in-*` / `zoom-*` / `spin-*`
+ * utility collapses to a cross-fade with no per-class list to maintain.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :where(.animate-in, .animate-out) {
+    --tw-enter-translate-x: 0;
+    --tw-enter-translate-y: 0;
+    --tw-enter-scale: 1;
+    --tw-enter-rotate: 0;
+    --tw-enter-blur: 0;
+    --tw-exit-translate-x: 0;
+    --tw-exit-translate-y: 0;
+    --tw-exit-scale: 1;
+    --tw-exit-rotate: 0;
+    --tw-exit-blur: 0;
+  }
+}

@@ -18,28 +18,11 @@
     #ffe57f,
     #ff9b9b
   );
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
   width: 100%;
-  padding: 16px 20px;
-  border-radius: var(--radius-card);
-  cursor: pointer;
-  text-align: left;
   /* Rainbow border, dark fill. */
   background:
     linear-gradient(var(--surface), var(--surface)) padding-box,
     var(--aurora-ring) border-box;
-  border: 1.5px solid transparent;
-  transition:
-    filter var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
-}
-/* Brightness only — a translate here got clipped by the settings body's
- * scroll box (the launcher is its first child, flush with the clip edge). */
-.themes-launch:hover {
-  filter: brightness(1.12);
 }
 .themes-launch__text {
   display: flex;
@@ -162,34 +145,7 @@
   border-radius: 999px;
 }
 .theme-pill__seg {
-  display: grid;
   place-items: center;
-  width: 44px;
-  height: 30px;
-  border-radius: 999px;
-  color: var(--text);
-  opacity: 0.45;
-  cursor: pointer;
-  transition:
-    opacity var(--dur-hover) ease,
-    background var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
-}
-.theme-pill__seg:hover {
-  opacity: 0.85;
-}
-.theme-pill__seg--active {
-  opacity: 1;
-  background: var(--surface-raised);
-  border: 0.5px solid var(--border-raised);
-}
-/* Dark-only pack: the sun can't be picked. */
-.theme-pill__seg--off {
-  opacity: 0.2;
-  cursor: default;
-}
-.theme-pill__seg--off:hover {
-  opacity: 0.2;
 }
 
 /* ---- Free / Premium shelves ---- */
@@ -241,7 +197,7 @@
 .tcard__art {
   position: relative;
   height: 124px;
-  border-radius: 45px;
+  border-radius: var(--radius-card);
   overflow: hidden;
   border: 1px solid var(--border);
   transition:
@@ -368,7 +324,7 @@
   align-items: center;
   padding: 12px 18px;
   /* Same radius as the app's standard buttons (.btn-primary). */
-  border-radius: 25px;
+  border-radius: var(--radius-chip);
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 18px;
@@ -418,16 +374,10 @@
   flex: 0 0 355px;
   width: 355px;
   min-height: 282px;
-  border-radius: 45px;
   overflow: hidden;
   /* Smooth-loop gradient border: dark fill clipped to the padding box, the
    * site conic showing only through the 1px border ring. */
   border: 1px solid transparent;
-  background:
-    linear-gradient(#0b0b0e, #0b0b0e) padding-box,
-    var(--rainbow-stroke) border-box;
-  cursor: pointer;
-  padding: 0;
 }
 /* Rainbow aura (static here — a modal card, not the live shell). Inset
  * positive 10% so the glow sits inside the card and fades toward its
@@ -436,9 +386,6 @@
   content: "";
   position: absolute;
   inset: 10%;
-  background: var(--aurora-ring);
-  filter: blur(80px);
-  opacity: 0.5;
   pointer-events: none;
 }
 /* Site dither grain over the glow. */
@@ -446,24 +393,10 @@
   content: "";
   position: absolute;
   inset: 0;
-  background-image:
-    radial-gradient(
-      circle at 1px 1px,
-      rgba(255, 255, 255, 0.05) 1px,
-      transparent 1.3px
-    ),
-    radial-gradient(
-      circle at 3px 3px,
-      rgba(255, 255, 255, 0.022) 1px,
-      transparent 1.3px
-    );
   background-size:
     4px 4px,
     8px 8px;
   pointer-events: none;
-}
-.pass-supporter--active {
-  box-shadow: 0 0 0 2px var(--accent);
 }
 .pass-supporter__chip {
   position: absolute;

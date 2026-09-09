@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { Button } from "../../components/ui/button";
 import { ChipTabs } from "../../ui/ChipTabs";
 import { Toggle } from "../../ui/Toggle";
 import { ChevronIcon, CloseIcon } from "../../ui/icons";
@@ -182,14 +183,15 @@ export function PlaylistsTab() {
           )}
         </div>
 
-        <button
+        <Button
+          variant="default"
           type="button"
           className="btn-primary"
           disabled={!isComplete(kind, form)}
           onClick={add}
         >
           Add Playlist
-        </button>
+        </Button>
       </section>
 
       <section className="settings-section">
@@ -230,7 +232,7 @@ export function PlaylistsTab() {
                     onChange={() => update(togglePlaylist(playlists, p.id))}
                     label={`${p.name} enabled`}
                   />
-                  <button
+                  <Button variant="ghost" size="icon-sm"
                     type="button"
                     className={
                       "playlist-row__expand" +
@@ -241,8 +243,8 @@ export function PlaylistsTab() {
                     onClick={() => expand(p)}
                   >
                     <ChevronIcon />
-                  </button>
-                  <button
+                  </Button>
+                  <Button variant="ghost" size="icon-sm"
                     type="button"
                     className={
                       "playlist-row__delete" +
@@ -276,7 +278,7 @@ export function PlaylistsTab() {
                     }}
                   >
                     {armedDeleteId === p.id ? "Sure?" : <CloseIcon />}
-                  </button>
+                  </Button>
                 </div>
               </div>
               {expandedId === p.id && (
@@ -459,17 +461,17 @@ function FolderEditor({
           autoComplete="off"
           onChange={(e) => setQuery(e.target.value)}
         />
-        <button
+        <Button variant="secondary" size="sm"
           type="button"
           className="source-tools__all"
           disabled={visible.length === 0}
           onClick={() => setMany(visible.map((c) => c.id), allShown)}
         >
           {allShown ? "Hide all" : "Show all"}
-        </button>
+        </Button>
         {dirty && (
           <>
-            <button
+            <Button variant="secondary" size="sm"
               type="button"
               className="source-tools__discard"
               onClick={() =>
@@ -477,14 +479,20 @@ function FolderEditor({
               }
             >
               Discard
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="default"
+              // Sits in the source-tools bar beside a 13px search field, so
+              // it takes shadcn's compact size rather than the bar's old
+              // padding/font-size override (both are Button utilities now
+              // and a rule in settings.css could not reach them).
+              size="sm"
               type="button"
               className="btn-primary source-tools__save"
               onClick={() => onSave([...draft])}
             >
               Save
-            </button>
+            </Button>
           </>
         )}
       </div>

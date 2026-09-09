@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Button } from "../../components/ui/button";
 import { loadSettingsTab, saveSettingsTab } from "./settingsTab";
 import { createPortal } from "react-dom";
 import { CloseIcon } from "../../ui/icons";
@@ -35,10 +36,8 @@ const TABS: Array<{ key: SettingsTab; label: string }> = [
  * theme preview/commit/revert boundary lives in that panel now. */
 export function SettingsModal({
   onClose,
-  onOpenThemes,
 }: {
   onClose: () => void;
-  onOpenThemes: () => void;
 }) {
   // Where you left off. The modal unmounts on close, so without this
   // every visit started at General.
@@ -95,14 +94,14 @@ export function SettingsModal({
               setTab(t);
             }}
           />
-          <button
+          <Button variant="ghost" size="icon"
             type="button"
             className="settings__close"
             aria-label="Close settings"
             onClick={requestClose}
           >
             <CloseIcon />
-          </button>
+          </Button>
         </header>
 
         <div
@@ -111,7 +110,7 @@ export function SettingsModal({
           onScroll={(e) => markScrolled(e.currentTarget)}
         >
           {tab === "general" && <GeneralTab />}
-          {tab === "customize" && <CustomizeTab onOpenThemes={onOpenThemes} />}
+          {tab === "customize" && <CustomizeTab  />}
         </div>
       </section>
     </div>,

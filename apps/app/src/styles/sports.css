@@ -58,18 +58,22 @@
  * action, so it should be findable without competing with the day it sits
  * beside. Pressed reads as brighter, which is the direction the grid goes
  * when it is off. */
+/* A board control, not a scoreboard marking. It read as 12px bold uppercase
+ * with 0.06em tracking in a 999px outline — the loudest quiet thing on the
+ * screen, and the one place a broadcast-graphics tic had escaped the cards
+ * onto the chrome. shadcn's chips are sentence case at their normal weight;
+ * `rounded-md` because a pill is for a badge, and this is a control. */
 .sports__toggle {
   flex: 0 0 auto;
-  padding: 6px 12px;
-  border: 1px solid rgba(var(--card-ink), 0.09);
-  border-radius: 999px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-chip);
   background: none;
-  color: rgba(var(--card-ink), 0.45);
-  font-family: var(--font-headline);
-  font-weight: 700;
+  color: var(--text-muted);
+  font-family: var(--font-text);
+  font-weight: 500;
   font-size: 12px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   cursor: pointer;
   transition:
     color 180ms ease,
@@ -84,6 +88,28 @@
   border-color: transparent;
   background: color-mix(in srgb, var(--accent, rgb(var(--card-ink))) 18%, transparent);
   color: var(--text);
+}
+
+/* The same control, one size down.
+ *
+ * It sits beside "Today's Games" rather than a day heading, and that row
+ * already carries the live pip. At the day toggle's size it read as a
+ * second heading; smaller, it reads as what it is. */
+.sports__toggle--pill {
+  padding: 4px 10px;
+  font-size: 11px;
+  align-self: center;
+}
+
+/* The Conferences tab's two presets, on one line above the list. Same
+ * gutter as the rows below them so the left edges line up. */
+/* Sits in the sidebar's column, so it takes the same 8px inset the rows
+ * take rather than an inset of its own. */
+.sportsside__presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 0 8px;
 }
 
 /* The board-level "none of this is on your channels" line (#21).
@@ -115,14 +141,19 @@
  *
  * Fixed red rather than the accent: "live" is a state of the world, not a
  * themeable decoration, and it reads the same on every pack. One class for
- * all three places, so the claim looks identical wherever it is made. */
+ * all three places, so the claim looks identical wherever it is made.
+ *
+ * --danger since v0.9.60, not a hand-mixed #ff4b4b. It is the only
+ * chromatic token shadcn names, and this is the last colour in the app that
+ * was ours rather than theirs. A grey live dot would say nothing, which is
+ * why this one thing stays red while everything around it went neutral. */
 .gamepip {
   flex: 0 0 auto;
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #ff4b4b;
-  box-shadow: 0 0 10px rgba(255, 75, 75, 0.75);
+  background: var(--danger);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--danger) 75%, transparent);
 }
 
 /* The shared row pads 18px top / 10px bottom, which is tuned for a poster's
@@ -440,7 +471,7 @@
   /* Keep glareBorderRadius in GameCard in step with this: the glare is its
    * own layer with its own clip, so a mismatch shows as a square sheen
    * poking out of a round corner. */
-  border-radius: 63.9px;
+  border-radius: var(--radius-card);
   overflow: hidden;
   border: 1px solid rgba(var(--card-ink), 0.07);
   background: var(--card-bg);
@@ -1244,7 +1275,7 @@
    * pixels of slack and the last row sat right on the card's edge. */
   height: 181.76px;
   /* Keep glareBorderRadius in UpcomingCard in step with this. */
-  border-radius: 42.6px;
+  border-radius: var(--radius-card);
   overflow: hidden;
   border: 1px solid rgba(var(--card-ink), 0.07);
   background: var(--card-bg);
@@ -1664,7 +1695,7 @@
   flex: 0 0 auto;
   width: 783.84px;
   height: 276.9px;
-  border-radius: 63.9px;
+  border-radius: var(--radius-card);
 }
 /* The same auto-fill track as .sports__grid, so it reflows at exactly the
  * widths the real grid does and nothing jumps when the games land. */
@@ -1675,7 +1706,7 @@
 }
 .sports-skel__card {
   height: 181.76px;
-  border-radius: 42.6px;
+  border-radius: var(--radius-card);
 }
 @keyframes sports-skel-pulse {
   0%,
@@ -1993,6 +2024,39 @@
   flex: none;
 }
 
+/* The fold button's own line, so it sits above the back pill rather than
+ * beside it. Both are "leave this thing" controls and stacking them keeps
+ * the column's left edge one straight line. */
+.sportstheater__fold {
+  display: flex;
+  flex: none;
+}
+
+/* FOLDED: the column keeps its controls and loses its content.
+ *
+ * `flex: 0 0 auto` rather than a width, so the strip is exactly as wide as
+ * the two buttons in it and the stage takes everything else. No transition
+ * on the width, deliberately: mpv is a native surface glued to the slot's
+ * rectangle and re-follows it every frame, so an animated width would have
+ * the video chasing the layout for the length of the ease. Fullscreen
+ * already changes this instantly for the same reason. */
+.sportstheater__side--folded {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+.sportstheater__side--folded > .matchup,
+.sportstheater__side--folded > .sportstheater__rail,
+.sportstheater__side--folded > .sportstheater__scores {
+  display: none;
+}
+/* The back pill's label would set the strip's width on its own, so folded
+ * it is the arrow alone. The word goes rather than the whole button: an
+ * arrow still reads as "back", and a pill with nothing in it does not.
+ *
+ * The narrower folded box is `size="icon"` on the Button now, not a padding
+ * override here — see SportsTheater.tsx. A rule in this file could not do
+ * it: Button's `px-4` is a utility, and utilities beat the app layer. */
+
 .sportstheater--full .sportstheater__side {
   display: none;
 }
@@ -2189,9 +2253,12 @@
    * The name wraps inside rather than growing the tile. */
   height: 92px;
   padding: 10px 8px;
+  /* shadcn Card, and --radius-card rather than a hardcoded 14px — the two
+   * agree today and a literal is how they stop agreeing. */
   border: 1px solid var(--border);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--text) 3%, transparent);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
   cursor: pointer;
   transition:
     border-color var(--dur-hover) ease,
@@ -2313,18 +2380,20 @@
   z-index: 2;
   /* Shrink to the text. A block-level h4 would span the column and be a
    * band again whatever colour it took. */
-  align-self: flex-start;
-  margin: 6px 0 4px 4px;
-  padding: 4px 9px;
-  border-radius: 999px;
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 10.5px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
+  /* shadcn's SidebarGroupLabel, which is what this is: 12px, medium,
+   * foreground/70, no chip and no caps. It was a 10.5px uppercase pill in
+   * --surface-raised — the loudest quiet thing in the panel, and the only
+   * label in the app still shouting. Matches .live-group in the Guide
+   * sidebar exactly, which is the point: they are the same object. */
+  align-self: stretch;
+  margin: 6px 0 2px;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  height: 32px;
+  font-size: 12px;
+  font-weight: 500;
+  color: color-mix(in srgb, var(--text) 70%, transparent);
 }
 
 .leaguepick__group {
@@ -2367,22 +2436,6 @@
   height: 100%;
   object-fit: contain;
 }
-/* The heart takes the hide-eye's BOX exactly (see .live-folder__hide) and
- * the guide star's TREATMENT exactly, which are two different files and
- * both of them deliberate: Adam asked for the star's style in the eye's
- * spot.
- *
- * So the swap below is .guide__fav's, restated rather than shared, because
- * those rules are scoped to a class in live.css and reaching across to
- * borrow them would couple this panel to the guide's markup rather than to
- * its language. `currentColor` at --text is what the ghost fills with. */
-.leaguepick__fav {
-  color: var(--text);
-}
-.leaguepick__fav svg {
-  width: 19px;
-  height: 19px;
-}
 /* One of the two is always out of flow, which is what lets both sit in the
  * same grid cell. */
 .leaguepick__fav .guide__fav-hot {
@@ -2420,27 +2473,7 @@
   top: 5px;
   right: 5px;
   z-index: 1;
-  display: grid;
   place-items: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 7px;
-  color: var(--text-muted);
-  opacity: 0;
-  transition:
-    opacity var(--dur-hover) ease,
-    color var(--dur-hover) ease;
-}
-.leaguetile:hover .leaguepick__x,
-.leaguepick__x:focus-visible {
-  opacity: 1;
-}
-.leaguepick__x:hover {
-  color: var(--danger-text);
-}
-.leaguepick__x svg {
-  width: 12px;
-  height: 12px;
 }
 /* Armed: the ✕ becomes the sentence, in the danger voice, over the WHOLE
  * tile.
@@ -2452,25 +2485,13 @@
  * at, and there is no sliver of the old tile left to click by accident. */
 .leaguepick__x--armed {
   inset: 0;
-  width: auto;
-  height: auto;
-  padding: 8px;
   /* The tile's own radius, so the cover sits in it rather than on it. */
   border-radius: 14px;
-  opacity: 1;
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 11px;
-  line-height: 1.25;
-  letter-spacing: 0.01em;
-  text-align: center;
-  white-space: normal;
-  color: var(--danger-text);
   /* Opaque. At 94% the league mark ghosted through the sentence, which
    * is noise on the one control here that must be read before it is
    * clicked. */
   background: var(--surface);
-  border: 1px solid var(--danger-text);
 }
 
 /* ------------------------------------------------------------ race card */
@@ -2531,7 +2552,7 @@
   padding: 5px 25.56px;
   border: 1px solid rgba(var(--card-ink), 0.07);
   /* Keep glareBorderRadius in RaceCard in step with this. */
-  border-radius: 42.6px;
+  border-radius: var(--radius-card);
   background: var(--card-bg);
   overflow: hidden;
   transition:
@@ -2918,7 +2939,7 @@
   position: relative;
   display: block;
   height: 276.9px;
-  border-radius: 63.9px;
+  border-radius: var(--radius-card);
   overflow: hidden;
   border: 1px solid rgba(var(--card-ink), 0.07);
   background: var(--card-bg);
@@ -3078,7 +3099,6 @@
   text-transform: uppercase;
   color: rgba(var(--card-ink), 0.62);
 }
-
 
 /* Where, over the track, as on the small card. */
 .wracecard__where {
@@ -3290,17 +3310,7 @@
   padding-bottom: 18px;
 }
 .tourndraw__back {
-  display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--border);
-}
-.tourndraw__back:hover {
-  background: var(--surface-raised);
 }
 .tourndraw__titles {
   min-width: 0;
@@ -3357,22 +3367,6 @@
 }
 .tourndraw__chip {
   font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 13px;
-  color: var(--text-muted);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 7px 14px;
-  transition: color var(--dur-hover) ease, background var(--dur-hover) ease;
-}
-.tourndraw__chip:hover {
-  color: var(--text);
-}
-.tourndraw__chip.is-on {
-  color: var(--text);
-  background: var(--accent-surface);
-  border-color: var(--accent);
 }
 
 .tourndraw__section {
@@ -3386,8 +3380,6 @@
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 15px;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
   color: var(--text-muted);
 }
 /* How much of the day is in this section, which is the other question
@@ -3417,7 +3409,6 @@
   font-weight: 600;
   padding: 40px 0;
 }
-
 
 /* ------------------------------------------- a tennis line, on the cards */
 
@@ -3518,34 +3509,22 @@
  * Adam's, and the placement is the point: "scrolling all the way down to
  * tennis to unclick it is not elegant". The only way to clear a pick was to
  * find the row you picked again, which for one of 151 leagues is a long way
- * down a scroller. This is where you already are. */
+ * down a scroller. This is where you already are.
+ *
+ * `secondary` rather than `default`: it has to be findable, but the escape
+ * hatch from a filter should not be the loudest object in the sidebar. All
+ * that is left here is the sizing — it spans the column, which no Button
+ * size does. */
 .leaguepick__clear {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
   width: calc(100% - 12px);
   margin: 10px 6px 0;
-  padding: 8px 12px;
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 13px;
-  color: var(--text);
-  background: var(--accent-surface);
-  border: 1px solid var(--accent);
-  border-radius: 20px;
-  cursor: pointer;
-  transition: filter var(--dur-hover) ease;
-}
-.leaguepick__clear:hover {
-  filter: brightness(1.35);
 }
 /* How much is about to be undone. "Clear" alone does not say, and the picks
  * it refers to can be scrolled out of sight. */
 .leaguepick__clearcount {
   min-width: 18px;
   padding: 1px 6px;
-  border-radius: 10px;
+  border-radius: var(--radius-pill);
   font-size: 11px;
   /* THEMED, not a hard-coded black. `rgba(0,0,0,0.35)` over the accent
    * surface measured 2.03:1 in light mode — a dark blob on a pink button
@@ -3637,7 +3616,7 @@
   height: 181px;
   padding: 5px 25.56px;
   border: 1px solid rgba(var(--card-ink), 0.07);
-  border-radius: 42.6px;
+  border-radius: var(--radius-card);
   background: var(--card-bg);
   overflow: hidden;
   container-type: inline-size;
@@ -3810,25 +3789,15 @@
   justify-content: center;
   padding: 8px 0 28px;
 }
-.sports__morebtn {
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 15px;
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill, 999px);
-  padding: 11px 22px;
-  cursor: pointer;
-  transition: background var(--dur-hover) ease, transform 160ms var(--ease-out);
-}
-.sports__morebtn:hover:not(:disabled) {
-  background: var(--surface-raised);
-}
-.sports__morebtn:active:not(:disabled) {
-  transform: scale(0.97);
-}
-.sports__morebtn:disabled {
-  opacity: 0.6;
-  cursor: default;
+
+/* The same button at the TOP of the board, walking backwards.
+ *
+ * LEFT-ALIGNED, where the forward one centres. That one sits under the
+ * last day grid and belongs to all of them, so centring is right. This one
+ * heads the column, and everything else at the top of the board — the day
+ * headings, the row title, the cards — starts on the same left edge. A
+ * centred button up here would be the only thing that did not. */
+.sports__more--earlier {
+  justify-content: flex-start;
+  padding: 0 0 18px;
 }

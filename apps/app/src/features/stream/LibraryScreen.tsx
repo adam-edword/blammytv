@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "../../components/ui/button";
 import Tilt from "react-parallax-tilt";
 import { Card, ContinueCard, RowScroller } from "./StreamScreen";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
@@ -247,9 +248,14 @@ export function LibraryScreen() {
     return (
       <div ref={scrollRef} className="discover library">
         <div className="library__bar">
-          <button type="button" className="vod-back" onClick={goBack}>
+          <Button
+            variant="ghost"
+            type="button"
+            className="vod-back rounded-full hover:bg-black/60"
+            onClick={goBack}
+          >
             ← Back
-          </button>
+          </Button>
           {!isHistory && list && renaming ? (
             <NameField
               initial={list.name}
@@ -264,7 +270,7 @@ export function LibraryScreen() {
           )}
           {isHistory && watching.length > 0 && (
             <div className="library__bar-actions">
-              <button
+              <Button variant="outline" size="sm"
                 type="button"
                 className={
                   "library__action library__action--danger" +
@@ -275,26 +281,26 @@ export function LibraryScreen() {
                 {armed === "history"
                   ? "Click again to confirm"
                   : "Clear history"}
-              </button>
+              </Button>
             </div>
           )}
           {!isHistory && list && (
             <div className="library__bar-actions">
-              <button
+              <Button variant="outline" size="sm"
                 type="button"
                 className="library__action"
                 onClick={() => pickCover(list)}
               >
                 Set cover
-              </button>
-              <button
+              </Button>
+              <Button variant="outline" size="sm"
                 type="button"
                 className="library__action"
                 onClick={() => setRenaming(true)}
               >
                 Rename
-              </button>
-              <button
+              </Button>
+              <Button variant="outline" size="sm"
                 type="button"
                 className={
                   "library__action library__action--danger" +
@@ -303,7 +309,7 @@ export function LibraryScreen() {
                 onClick={() => remove(list)}
               >
                 {armed === "delete" ? "Click again to confirm" : "Delete"}
-              </button>
+              </Button>
             </div>
           )}
         </div>
@@ -333,7 +339,7 @@ export function LibraryScreen() {
                       metaFields={gridMetaFields}
                       onOpen={openItem}
                     />
-                    <button
+                    <Button variant="ghost" size="icon-sm"
                       type="button"
                       className="library__remove"
                       aria-label={`Remove ${e.title} from ${list?.name ?? "list"}`}
@@ -343,7 +349,7 @@ export function LibraryScreen() {
                       }}
                     >
                       Remove
-                    </button>
+                    </Button>
                   </div>
                 ))}
           </div>

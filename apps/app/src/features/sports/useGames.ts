@@ -95,6 +95,28 @@ const CLUB_REACH_DAYS = 14;
 const MORE_GAMES = 50;
 const MORE_ASKS = 60;
 
+/**
+ * How far BACK the board can be walked, in days.
+ *
+ * THREE, and it is Adam's number: "the past 2-3 days". It is also the only
+ * bound this direction has. Forward paging needs none because there is no
+ * end to run out of and an empty day renders as nothing at all; backwards
+ * every day is full, so without a cap this walks into a fortnight of
+ * results nobody scrolled for.
+ *
+ * The request count is the other half of the argument. A day costs one ask
+ * per league, and with nothing followed the fetch list is all 151 catalog
+ * leagues, so three days back is 453 requests if somebody clicks three
+ * times. That is affordable ONLY because each click is a click: this is
+ * why the board asks rather than loading them on a scroll.
+ *
+ * ONE DAY PER CLICK, unlike `loadMore`, which walks until it has 50 games.
+ * That loop exists because forward days are wildly uneven and mostly
+ * empty; a past day is always as full as it was ever going to be, so
+ * walking further to find games would only ever overshoot.
+ */
+const EARLIER_DAYS = 3;
+
 export interface Day {
   /** Local midnight of the day this covers. */
   date: Date;
@@ -244,6 +266,14 @@ export function useGames(
   const [moreState, setMoreState] = useState<"idle" | "loading" | "error">(
     "idle",
   );
+  /**
+   * Days BEFORE today, prepended by `loadEarlier`. Same reasoning as
+   * `extra`, in the other direction.
+   */
+  const [earlier, setEarlier] = useState<Day[]>([]);
+  const [earlierState, setEarlierState] = useState<
+    "idle" | "loading" | "error"
+  >("idle");
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   /**
    * The reach ASKED and did not get an answer, as opposed to asking and being
@@ -371,6 +401,8 @@ export function useGames(
       // today: yesterday's day six is today's day five. Drop them rather
       // than relabel them.
       setExtra([]);
+      // Same, backwards: yesterday's "yesterday" is today's day before.
+      setEarlier([]);
       try {
         const all = await Promise.all(
           dates.map((date) => fetchBoard(paths, { date, signal: ac.signal })),
@@ -680,7 +712,66 @@ export function useGames(
     }
   }, [key, dayCount]);
 
-  return { days, extra, ahead, state, reachFailed, loadMore, moreState };
+  /**
+   * The day before the earliest one on the board, prepended.
+   *
+   * Outside the effect for the same reasons `loadMore` is: it must not tear
+   * the poll down or abort the board, and what it adds has to survive the
+   * 90 second tick. It reads its depth off a ref rather than off `earlier`
+   * so its identity stays stable for the button.
+   *
+   * ONE DAY, and it stops at EARLIER_DAYS. Both are explained on that
+   * constant; the short version is that a past day is never empty, so
+   * there is nothing to walk further for and nothing to bound it but a cap.
+   *
+   * `onDay(games, date, false)`: the third argument is "is this today", and
+   * by construction none of these are. A game that ran past midnight is
+   * already on the day it STARTED, which is the day somebody looking for
+   * last night's score would look under.
+   */
+  const earlierRef = useRef<Day[]>(earlier);
+  earlierRef.current = earlier;
+  const backing = useRef(false);
+  const loadEarlier = useCallback(async () => {
+    if (backing.current) return;
+    const back = earlierRef.current.length + 1;
+    if (back > EARLIER_DAYS) return;
+    backing.current = true;
+    setEarlierState("loading");
+    try {
+      const paths = key ? key.split(",") : [];
+      const date = new Date();
+      date.setHours(0, 0, 0, 0);
+      date.setDate(date.getDate() - back);
+      const { games } = await fetchBoard(paths, { date });
+      // PREPENDED, so the list stays oldest-first and reads the way the
+      // board renders it. SportsScreen sorts `allDays` by date anyway, so
+      // this is about the array making sense on its own rather than about
+      // what ends up on screen.
+      setEarlier((prev) => [{ date, games: onDay(games, date, false) }, ...prev]);
+      setEarlierState("idle");
+    } catch {
+      setEarlierState("error");
+    } finally {
+      backing.current = false;
+    }
+  }, [key]);
+
+  return {
+    days,
+    extra,
+    earlier,
+    ahead,
+    state,
+    reachFailed,
+    loadMore,
+    moreState,
+    loadEarlier,
+    earlierState,
+    /** Nothing left to walk back to. The button goes away rather than
+     * sitting there disabled: there is no later state in which it works. */
+    earlierDone: earlier.length >= EARLIER_DAYS,
+  };
 }
 
 /**
