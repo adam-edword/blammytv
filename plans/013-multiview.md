@@ -1,12 +1,52 @@
 # 013: multiview, four sports at once
 
-**Status: phase 1 SHIPPED in v0.9.48, phases 2-4 to build.** Scoped
-2026-09-08 with Adam, who set both parameters: **2x2**, and **sports only**
-for now.
+**Status: phase 1 SHIPPED in v0.9.48, phase 2 STARTED in v0.9.49, phases
+3-4 to build.** Scoped 2026-09-08 with Adam, who set the parameters:
+**4 tiles as the ceiling**, **sports only** for now, and **the size is the
+viewer's choice** ("maybe we have one of the options in multiview be grid
+size so people can decide to just watch two or 3 or 4 at a time").
 
-Four games in a 2x2 grid inside the sports theater. One tile has the audio
-and the player controls; the other three are muted video. Click a tile to
+Two, three or four games in a grid inside the sports theater. One tile has
+the audio and the player controls; the rest are muted video. Click a tile to
 move both.
+
+## The size is a choice, because the ceiling is the LINE and not the layout
+
+Adam's own line carries 3 connections. Four tiles is four connections, so on
+his account a 2x2 is not a thing that can happen, and a fixed 2x2 would have
+shipped a feature its author cannot run.
+
+So `allowedSizes` caps the offered sizes at the panel's `max_connections`,
+which `parseConnections` in `data/xtream.ts` already reads for the Live
+sidebar's n/m pill. 3 offers 2 and 3; 2 offers 2; 1 offers nothing, because
+`mpv.rs`'s own unload doc records that such a line outright fails to tune
+with a second stream open.
+
+Two calls inside that rule are worth stating outright:
+
+- **Capped on `max`, not on what is free.** `active` counts this app's own
+  stream at the moment it was polled, and opening the grid releases that
+  first, so subtracting it would under-offer every time: a 3-connection line
+  would read as 2 while you were watching something. It can still be wrong
+  the other way, when another device holds a connection, and the honest
+  failure for that is a tile that visibly does not tune rather than a size
+  we quietly refused to offer.
+- **Null means unknown, not zero.** Stalker portals rarely publish a limit
+  and M3U has no API at all, so an unknown line is offered everything.
+  Refusing a feature because we could not ask is worse than letting it try.
+
+## The 3-up is one big plus two small, and the arithmetic decided it
+
+Not three in a row. In a 16:9 box, three in a row gives each tile a 5.33:9
+cell that a 16:9 picture fits to width, so each video is 5.33x3 and the
+total picture is 48 units². One big at two thirds width plus two stacked
+gives 10.67x6 and two 5.33x3, which is 96: twice the video for the same box.
+It also matches what three games usually means, one you are watching and two
+you are keeping an eye on, which is the shape the focused slot already has.
+
+The 2-up is side by side. Stacking wastes exactly the same picture area
+(both put an 8x4.5 video in a half-box), so that one is convention rather
+than a measured win, and it is written down as convention.
 
 ## The architecture, and why the alternatives are not choices
 
@@ -103,13 +143,34 @@ tests, 25/25 harnesses. NOT verified, and cannot be from Linux: that four
 mpv instances actually render into four child windows. That is what phase 2
 finds out.
 
-**Phase 2 — the grid.** A `MultiviewGrid` that lays out four tiles, drives
-`inv_set_rect` per slot off the same rAF contract `InvertedPlayer` uses,
-sets the shell clip-path with `holesClip`, and routes clicks to
-`inv_focus`. Gate on `max_connections` first: build the refusal before the
-grid, so the failure mode is a sentence rather than a mystery.
+**Phase 2 — the grid. Geometry and the gate SHIPPED v0.9.49; the driver is
+next.** `multiview.ts` holds `tileRects` (2/3/4 layouts, gap between tiles
+and no outer padding, so a tile never falls short of the clip hole) and
+`allowedSizes`/`usableSize` (the connection cap above). Pure and tested,
+because the interesting cases here are arithmetic.
 
-**Phase 3 — filling it from sports.** Picking four games is the interesting
+Still to build: a `MultiviewGrid` driver that measures `#player-slot`, opens
+each slot with `tauriInvOpen(url, rect, undefined, slot)`, follows the box
+with one `inv_set_rect` per tile off the same rAF key-diff contract
+`InvertedPlayer` uses, cuts the holes with `holesClip`, and routes tile
+clicks to `inv_focus`.
+
+**The hole gating is simpler here than in InvertedPlayer, and it is worth
+knowing why.** That component waits for `presenting` before cutting, so a
+slow tune shows the app's own black slot and tune ident rather than the
+desktop. The grid cannot do that per tile: `mpv_status` only polls the
+focused slot (see above), so readiness for tiles 1..3 is not knowable
+without the per-slot poll phase 4 adds. It does not need to be. The child
+windows are created with SS_BLACKRECT and paint solid black the moment they
+exist, which is BEFORE the play, so cutting a tile's hole once its
+`inv_open` has RESOLVED can only ever expose black. The desktop-peek this
+whole arrangement guards against needs a hole with no child window behind
+it, and that cannot happen after open resolves.
+
+**Phase 3 — filling it from sports, and the size control.** The picker for
+2/3/4 lives with whatever opens the grid, and shows only what
+`allowedSizes` returns for the current playlist, with a line saying why when
+it is short. Picking four games is the interesting
 half and it is a sports problem, not a player one. The board already knows
 what is live and which of your channels carry it; a game with several
 matches already offers several. The obvious first cut is "send these four
