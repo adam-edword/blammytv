@@ -117,6 +117,15 @@ Adam's is. If it sends the header, the web player needs no proxy at all and
 this becomes a frontend-only feature. If it does not, a local HTTP proxy in
 Rust has to exist before a single tile renders.
 
+**The notice is built** (v0.9.51): `MultiviewNotice.tsx`, shown once before
+the first grid and acknowledged with a button rather than dismissed. No
+backdrop click, no Escape, no close X, which breaks the pattern every other
+overlay here follows and does so deliberately: Adam's words were "acknowledge
+and accept". Its three points are the ones Telly warns about, with the
+codec one now true of us for the same reason, and `capLine` puts the
+viewer's OWN limit in the middle panel rather than a general caution about
+connections. It has no host until the grid lands.
+
 `btvMultiview()` (features/live/probe.ts) asks the browser on the machine
 that has the playlist: the container extension, whether `fetch` reaches the
 stream, and which codecs this WebView2 can actually feed MSE. It prints the

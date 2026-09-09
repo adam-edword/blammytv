@@ -24,7 +24,7 @@ Run with `improve-animations execute <plan>` or hand to any agent.
 | [010](010-sports.md) | Sports: a hub for what is on right now | MEDIUM | PLANNED (0.9.0 headline; phase 0 is a gate) |
 | [011](011-live-home.md) | Live TV: a home screen instead of ten thousand channels | MEDIUM | DESIGN (3 open questions; one needs a real playlist) |
 | [012](012-player-events.md) | Stop polling mpv: observe properties like Stremio does | HIGH | CLOSED (persistent instance shipped + verified v0.8.168-172; event loop CUT at 0.08% of a core; faster clock declined) |
-| [013](013-multiview.md) | Multiview: two to four sports at once | MEDIUM | REDIRECTED to a web player (Telly confirmed web; CORS probe shipped v0.9.50, proxy decision pending) |
+| [013](013-multiview.md) | Multiview: two to four sports at once | MEDIUM | REDIRECTED to a web player (Telly confirmed web; probe + notice shipped v0.9.50-51, grid next, proxy decision pending) |
 
 ## Recommended execution order & dependencies
 

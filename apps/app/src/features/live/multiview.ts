@@ -104,6 +104,31 @@ export function allowedSizes(
 }
 
 /**
+ * What the notice tells you about your own line, in one sentence.
+ *
+ * Adam asked for the cap to be visible rather than implied ("visually note
+ * their instance cap"), and the number is the whole point: "each stream uses
+ * a connection" is abstract, "your line allows 3 at once" is something you
+ * can act on.
+ *
+ * Four cases because they are four different situations, not four
+ * phrasings. Unknown is not zero and a line that cannot do multiview at all
+ * has to say so rather than let you find out by opening four dead tiles.
+ */
+export function capLine(conns: { max: number } | null | undefined): string {
+  if (!conns) {
+    return "Your provider doesn\u2019t report a limit, so we can\u2019t tell you how many will work.";
+  }
+  if (conns.max <= 1) {
+    return "Your line allows 1 stream at a time, so multi-view can\u2019t run on it.";
+  }
+  if (conns.max >= 4) {
+    return `Your line allows ${conns.max} at once, so any size works.`;
+  }
+  return `Your line allows ${conns.max} at once, so that\u2019s the biggest grid you\u2019ll get.`;
+}
+
+/**
  * The size to actually open at, given what the viewer picked last.
  *
  * Clamps down to what the line allows rather than refusing: someone who

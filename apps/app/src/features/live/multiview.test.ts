@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   allowedSizes,
+  capLine,
   tileRects,
   usableSize,
   type Box,
@@ -142,5 +143,33 @@ describe("usableSize", () => {
   it("is null only when the line cannot do multiview at all", () => {
     expect(usableSize(2, { max: 1 })).toBeNull();
     expect(usableSize(4, null)).toBe(4);
+  });
+});
+
+describe("capLine", () => {
+  it("says the number, because that is the actionable part", () => {
+    expect(capLine({ max: 3 })).toContain("3");
+    expect(capLine({ max: 6 })).toContain("6");
+  });
+
+  it("tells a big line it is not the constraint", () => {
+    expect(capLine({ max: 5 })).toMatch(/any size works/);
+  });
+
+  it("tells a tight line what it caps out at", () => {
+    expect(capLine({ max: 3 })).toMatch(/biggest grid/);
+    expect(capLine({ max: 2 })).toMatch(/biggest grid/);
+  });
+
+  it("says outright when multi-view cannot run at all", () => {
+    // Better than letting someone find out by opening four dead tiles.
+    expect(capLine({ max: 1 })).toMatch(/can.t run/);
+  });
+
+  it("does not invent a number it was never given", () => {
+    for (const c of [null, undefined]) {
+      expect(capLine(c)).not.toMatch(/\d/);
+      expect(capLine(c)).toMatch(/report a limit/);
+    }
   });
 });
