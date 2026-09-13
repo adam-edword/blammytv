@@ -156,7 +156,32 @@ Layout is `grid-template-areas`, not measured rects: these are elements IN
 the page rather than a child window under it, so `tileRects` is now unused
 by the shipping path.
 
-**WHAT IS NOT DECIDED, and it blocks the entry point.** This plan says "two,
+**THE DOOR IS THE BOARD** (v0.9.77), which was the recommendation and drew
+no objection. The board gains one button, shown only when two or more live
+games have a channel you can actually watch: one is the theater's job and
+none is nothing to offer.
+
+The PICKING happens on the multi-view screen rather than on the board, and
+that is a design call rather than a shortcut. You are assembling a grid, so
+seeing the grid while you assemble it is the feedback loop: which tile a
+game lands in, and what swapping one does. And SportsScreen records that the
+board's cards are memo()d with a deliberately stable `onOpen` because a
+fresh arrow there re-rendered the whole board every 90 seconds; a selection
+mode threaded through those cards is exactly that regression. The board
+gains a button and nothing else.
+
+Selection order is tile order, so the first game picked is the first tile
+and the one that starts with sound. A game's `channels[0]` is what plays:
+withChannels already filtered to card-worthy matches in the schedule's own
+order, so the first is the national feed where there is one. A tile is not
+the place to offer alternatives; the theater still is.
+
+The cap comes from `useConnections`, and ONLY when exactly one playlist
+answers. With several, a grid can draw tiles from different lines and no
+single number describes it, so it falls through to the documented "unknown
+offers everything" rule rather than guessing in either direction.
+
+**Older note, kept because the trade-offs still apply if this is revisited.** This plan says "two,
 three or four GAMES", but SportsTheater is one game. So multiview does not
 hang off the theater the way the single player does, and where it opens from
 is a UX decision rather than a wiring detail. Three shapes:

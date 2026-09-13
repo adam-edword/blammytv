@@ -29,6 +29,10 @@ import {
 import { GameCard } from "./GameCard";
 import { dayLabel, nowish } from "./day";
 import { SportsTheater } from "./SportsTheater";
+import { MultiviewScreen } from "./MultiviewScreen";
+import { useConnections } from "../live/connections";
+import { loadGridSize, saveGridSize } from "../live/multiviewAck";
+import type { GridSize } from "../live/multiview";
 import { UpcomingCard } from "./UpcomingCard";
 import { useCatalog } from "./catalog";
 import { ALL_LEAGUES, league as byPath } from "./leagues";
@@ -190,6 +194,27 @@ export function SportsScreen({ home }: { home?: number } = {}) {
   // Declared ABOVE useGames because the poll cadence reads it (#23), which
   // is the only reason it is not down with the other view state.
   const [open, setOpen] = useState<Fixture | null>(null);
+  /**
+   * Multi-view, which is its own screen rather than a mode of the theater.
+   * The theater is one game; this is several. See MultiviewScreen.
+   */
+  const [multiview, setMultiview] = useState(false);
+  const [gridSize, setGridSize] = useState<GridSize>(loadGridSize);
+  const setGrid = useCallback((n: GridSize) => {
+    saveGridSize(n);
+    setGridSize(n);
+  }, []);
+  /**
+   * The line's connection cap, which is multi-view's real ceiling.
+   *
+   * Null while nothing is tuned, which is the state the board is in, so the
+   * poll costs one small request. ONLY WHEN ONE PLAYLIST ANSWERS: with
+   * several, a grid can draw tiles from different lines and no single cap
+   * describes it, and guessing wrong in either direction is worse than the
+   * documented "unknown means offer everything" rule. See allowedSizes.
+   */
+  const conns = useConnections(null);
+  const cap = conns.size === 1 ? [...conns.values()][0] : null;
   const {
     days: raw,
     extra: rawExtra,
@@ -658,6 +683,21 @@ export function SportsScreen({ home }: { home?: number } = {}) {
     return <TournamentDraw event={current} onClose={() => setOpenDraw(null)} />;
   }
 
+  if (multiview) {
+    return (
+      <MultiviewScreen
+        live={today.filter(
+          (g): g is Fixture =>
+            isFixture(g) && g.state === "live" && g.channels.length > 0,
+        )}
+        conns={cap}
+        size={gridSize}
+        onSize={setGrid}
+        onClose={() => setMultiview(false)}
+      />
+    );
+  }
+
   if (open) {
     // Re-read from the refreshed board so the theater follows the game's
     // STATE, not its score: the header carries two badges and two names and
@@ -699,6 +739,26 @@ export function SportsScreen({ home }: { home?: number } = {}) {
         onToggleRanked={toggleRanked}
       />
       <div className="discover sports sportsboard__main">
+      {/* MULTI-VIEW (plan 013). Two live games you can actually watch is the
+        * bar, because one is the theater and none is nothing to offer. The
+        * picking happens on the multi-view screen rather than here: the
+        * cards are memo()d with a deliberately stable onOpen, and threading
+        * a selection mode through them is the change that re-renders the
+        * whole board on every tick. */}
+      {today.filter(
+        (g) => isFixture(g) && g.state === "live" && g.channels.length > 0,
+      ).length >= 2 && (
+        <div className="sports__more">
+          <Button
+            variant="outline"
+            type="button"
+            className="sports__morebtn"
+            onClick={() => setMultiview(true)}
+          >
+            Multi-view
+          </Button>
+        </div>
+      )}
       {/* EARLIER DAYS, at the very top of the board and left-aligned on its
         * column (Adam's, off a screenshot).
         *
