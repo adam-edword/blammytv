@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { matchEvent, matchGame, matchNetwork, normalize, tokens } from "./matcher";
+import {
+  CARD_CONFIDENCE,
+  matchEvent,
+  matchGame,
+  matchNetwork,
+  normalize,
+  tokens,
+} from "./matcher";
 import type { Tunable } from "./matcher";
 import channels from "./fixtures/channels.json";
 import vocabulary from "./fixtures/broadcast-names.json";
@@ -290,6 +297,75 @@ describe("matchGame", () => {
         [],
       );
     });
+  });
+});
+
+describe("against Adam's real catalog (btvSports, 2026-09-13)", () => {
+  // 26,621 channels, a 45-game board. Every string below is verbatim from
+  // that run. The checked-in dump cannot cover these: it is the sports
+  // folders alone and holds no ABC, no general entertainment and none of
+  // the service placeholder channels.
+
+  it("gives a game on ABC the national feed, not a couldn't-link", () => {
+    // The measured failure: four games on ABC, `US: ABC East` found at 40,
+    // under the card's bar, so four cards said "Couldn't link" while the
+    // viewer owned the feed.
+    const list = [
+      chan("US: ABC East"),
+      chan("AL | Dothan | ABC WDHN"),
+      chan("AL | Fairbanks | ABC KATN"),
+    ];
+    const got = matchNetwork("ABC", list);
+    expect(got[0].name).toBe("US: ABC East");
+    expect(got[0].confidence).toBeGreaterThanOrEqual(CARD_CONFIDENCE);
+    // The local affiliates are still only rail-worthy guesses.
+    for (const c of got.slice(1))
+      expect(c.confidence).toBeLessThan(CARD_CONFIDENCE);
+  });
+
+  it("still refuses a regional brand that merely starts with the name", () => {
+    // The safety case for the feed rule, and the reason it takes a LONE
+    // extra only: `Fox Sports West` is a different network, not a later
+    // feed of FOX, and it leaves two extras rather than one.
+    const got = matchNetwork("FOX", [
+      chan("US: Fox Sports West"),
+      chan("US: FOX East"),
+    ]);
+    const west = got.find((c) => c.name === "US: Fox Sports West");
+    expect(west!.confidence).toBeLessThan(CARD_CONFIDENCE);
+    expect(got[0].name).toBe("US: FOX East");
+  });
+
+  it("does not promote a regional sports net off the national name", () => {
+    // NBC on the same board. The national 4K feed is card-worthy; every
+    // NBC Sports regional stays a guess, which is the rule this file has
+    // had since the beginning and the feed rule must not erode.
+    const got = matchNetwork("NBC", [
+      chan("US: NBC 4K (EVENT ONLY)"),
+      chan("NBC Sports 4K UHD (Event Only)"),
+      chan("NBC Sports Chicago 4K UHD (Event Only)"),
+      chan("US: NBC Sports Bay Area"),
+    ]);
+    expect(got[0].name).toBe("US: NBC 4K (EVENT ONLY)");
+    for (const c of got.slice(1))
+      expect(c.confidence).toBeLessThan(CARD_CONFIDENCE);
+  });
+
+  it("drops listing placeholders and radio, which are not the game", () => {
+    // These were reaching the rail as 30-40% guesses against games that
+    // really were on those services, which makes them the most convincing
+    // wrong answers in the catalog. None of them is a stream of anything.
+    expect(matchNetwork("Apple TV", [chan("Apple TV+ Series info ᴴᴰ")])).toEqual([]);
+    expect(
+      matchNetwork("Netflix", [
+        chan("Radio: Netflix Is A Joke Radio"),
+        chan("Netflix Premiere info ᴴᴰ"),
+        chan("Netflix Series info ᴴᴰ"),
+      ]),
+    ).toEqual([]);
+    expect(
+      matchNetwork("Disney+", [chan("Disney+ Series info ᴴᴰ")]),
+    ).toEqual([]);
   });
 });
 

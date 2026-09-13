@@ -52,7 +52,8 @@ export function MultiviewNotice({
         <ul className="mvnotice__list">
           <Point icon={<TvIcon size={18} />} title="Some streams won’t play">
             Multi-view decodes in the browser instead of mpv, so HEVC video and
-            AC-3 audio can come up blank. Normal playback is unaffected.
+            some audio formats can come up blank. Normal playback is
+            unaffected.
           </Point>
           <Point icon={<StatsIcon size={18} />} title="Every tile is a connection">
             {capLine(conns)}

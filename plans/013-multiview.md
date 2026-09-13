@@ -109,13 +109,43 @@ heap per instance — so roughly 40MiB for four tiles. `hls.js` (Apache-2.0,
 standard answer, and picking them is Layer 1 of the search-before-building
 rule rather than a judgement call.
 
-**CORS is the unknown, and it decides whether a proxy has to exist.**
-mpegts.js reads the stream over XHR, so the panel must send
-`Access-Control-Allow-Origin` or the request never lands. Some panels do,
-most reportedly do not, and no one here can know from the outside which
-Adam's is. If it sends the header, the web player needs no proxy at all and
-this becomes a frontend-only feature. If it does not, a local HTTP proxy in
-Rust has to exist before a single tile renders.
+**CORS: ANSWERED, and the answer is the good one.** `btvMultiview()` on
+Adam's machine, 2026-09-13:
+
+```
+[mv] "UK: TNT Sports Ultimate 4K UHD" is .ts - MPEG-TS, so mpegts.js
+[mv] fetch reached it: 200 video/mp2t
+[mv] CORS: ALLOWED - mpegts.js could read this directly, no proxy needed
+```
+
+His panel sends the header. **So multiview is a frontend-only feature: no
+Rust proxy, no local listener, no new subsystem.** That was the single
+biggest unknown in this plan and it is closed.
+
+One caution before it is treated as universal: that is ONE panel, tested on
+one channel. Another user's provider may well refuse, and the tile has to
+fail legibly when it does rather than sit black. Build the failure path;
+do not build the proxy until somebody's panel actually needs it.
+
+**The codec picture, measured on the same run**, and it is not what this
+plan assumed:
+
+```
+[mv] MediaSource: available
+[mv]   yes  H.264 + AAC
+[mv]   NO   H.264 + MP3
+[mv]   NO   HEVC + AAC
+[mv]   yes  AC-3 audio
+[mv]   yes  E-AC-3 audio
+```
+
+H.264 + AAC works, which is the overwhelming majority of live IPTV. HEVC is
+out, exactly as Telly's modal warns. **AC-3 and E-AC-3 work**, which
+contradicts what this plan and the notice originally claimed, so the notice
+copy no longer names AC-3 as a casualty. MP3 audio reads as unsupported
+under the codec string tested; that was not chased down far enough to state
+in shipped copy, so the notice says "some audio formats" rather than naming
+one it has not proven.
 
 **The notice is built** (v0.9.51): `MultiviewNotice.tsx`, shown once before
 the first grid and acknowledged with a button rather than dismissed. No

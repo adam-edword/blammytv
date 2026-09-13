@@ -159,6 +159,23 @@ export function tokens(name: string): Set<string> {
 const NOISE = new Set(["at", "t", "the", "network", "event", "only"]);
 
 /**
+ * Timezone feeds of one national network, which are the SAME channel.
+ *
+ * Measured on Adam's 26,621-channel catalog, 2026-09-13: a board with four
+ * games on ABC found `US: ABC East` and scored it 40, under the card's bar,
+ * so four cards read "Couldn't link" while the viewer owned the national
+ * feed. "East" is not a sibling the way "2" or "U" is; it is what hour the
+ * same network airs on.
+ *
+ * ONLY AS A LONE EXTRA, which is the whole safety of it. `Fox Sports West`
+ * against "FOX" leaves two extras (`sports`, `west`) and stays loose, which
+ * is right because that is a different network rather than a later feed of
+ * this one. One extra means the brand matched and a feed suffix is all that
+ * is left over.
+ */
+const FEEDS = new Set(["east", "west", "central", "mountain", "pacific"]);
+
+/**
  * Words that make a channel DIFFERENT rather than merely uncertain.
  *
  * The line this file draws: reject what we know is another channel, score
@@ -184,6 +201,14 @@ const QUALIFIERS = new Set([
   "hq",
   "insider",
   "now",
+  // Not a stream of anything. Adam's catalog carries `Apple TV+ Series info`,
+  // `Netflix Premiere info` and `Disney+ Series info`, which are listing
+  // placeholders, plus `Radio: Netflix Is A Joke Radio`, which is audio. All
+  // four were reaching the rail on a real board (2026-09-13) as 30-40%
+  // guesses against games that were genuinely on those services. A guess is
+  // worth offering when it might be the game; these cannot be.
+  "info",
+  "radio",
 ]);
 
 const isQualifier = (w: string) => /^\d+$/.test(w) || QUALIFIERS.has(w);
@@ -294,6 +319,9 @@ function carries(
   if (extras.some(isQualifier)) return 0;
   if (extras.length === 0) return viaAcronym ? SCORE.acronym : SCORE.exact;
   if (extras.every((w) => NOISE.has(w))) return SCORE.shelf;
+  // A lone timezone suffix is the same network an hour later, not a sibling.
+  // See FEEDS: one extra only, so a two-word regional brand stays loose.
+  if (extras.length === 1 && FEEDS.has(extras[0])) return SCORE.shelf;
   return SCORE.loose;
 }
 
