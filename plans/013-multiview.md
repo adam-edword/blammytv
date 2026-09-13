@@ -147,6 +147,30 @@ under the codec string tested; that was not chased down far enough to state
 in shipped copy, so the notice says "some audio formats" rather than naming
 one it has not proven.
 
+**The grid is built** (v0.9.76): `MultiviewTile` is a `<video>` with
+mpegts.js or hls.js attached by extension, loaded on demand so a viewer who
+never opens multi-view pays for neither. `MultiviewGrid` lays 2/3/4 of them
+out in CSS grid, keeps exactly one unmuted, clamps the size down when the
+line's cap shrinks under it, and moves focus off a tile that stops existing.
+Layout is `grid-template-areas`, not measured rects: these are elements IN
+the page rather than a child window under it, so `tileRects` is now unused
+by the shipping path.
+
+**WHAT IS NOT DECIDED, and it blocks the entry point.** This plan says "two,
+three or four GAMES", but SportsTheater is one game. So multiview does not
+hang off the theater the way the single player does, and where it opens from
+is a UX decision rather than a wiring detail. Three shapes:
+
+- A mode on the BOARD: tap N live games to add them, then open. Matches what
+  the feature is for, and the board already knows what is live and which of
+  your channels carry it.
+- A button in the THEATER that starts from the game you are watching and
+  lets you add more. Cheapest to reach from where someone already is, but it
+  makes the one-game screen own a many-game feature.
+- Open the top N live games automatically off one button, no picking. Fastest
+  to something usable, wrong the moment the four live games are not the four
+  you wanted.
+
 **The notice is built** (v0.9.51): `MultiviewNotice.tsx`, shown once before
 the first grid and acknowledged with a button rather than dismissed. No
 backdrop click, no Escape, no close X, which breaks the pattern every other

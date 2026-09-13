@@ -978,3 +978,148 @@
   color: var(--text-muted);
   opacity: 0.75;
 }
+
+/* ---------------------------------------------------------------------------
+ * The multi-view grid (plan 013).
+ *
+ * Ordinary elements in the page, not a native child window, so the layout is
+ * grid-template-areas rather than measured rects and there is no clip hole to
+ * keep in sync. The 3-up is one big plus two stacked: in a 16:9 box that is
+ * twice the picture of three in a row, and it matches what three games
+ * usually means. See multiview.ts for the arithmetic.
+ * ------------------------------------------------------------------------ */
+
+.mvgrid {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  background: #000;
+}
+
+.mvgrid--2 {
+  grid-template-columns: 1fr 1fr;
+}
+
+.mvgrid--3 {
+  grid-template-columns: 2fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  grid-template-areas:
+    "big top"
+    "big bottom";
+}
+.mvgrid--3 > :nth-child(1) {
+  grid-area: big;
+}
+.mvgrid--3 > :nth-child(2) {
+  grid-area: top;
+}
+.mvgrid--3 > :nth-child(3) {
+  grid-area: bottom;
+}
+
+.mvgrid--4 {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+}
+
+.mvgrid--blocked {
+  display: grid;
+  place-content: center;
+  gap: 14px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.mvtile {
+  position: relative;
+  display: block;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #000;
+  cursor: pointer;
+  /* The focus ring is the only thing saying which tile has the sound, so it
+   * is a real border rather than an outline: an outline would be clipped by
+   * the overflow above. */
+  transition: border-color 140ms var(--ease-out, ease);
+}
+
+.mvtile.is-on {
+  border-color: var(--accent, #6c8cff);
+}
+
+.mvtile__video {
+  width: 100%;
+  height: 100%;
+  /* contain, not cover: a tile is for watching a game, and cropping the
+   * score bug off the top of one is worse than letterboxing it. */
+  object-fit: contain;
+  display: block;
+  background: #000;
+}
+
+.mvtile__name {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  max-width: calc(100% - 16px);
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgb(0 0 0 / 0.6);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+.mvtile__error {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  pointer-events: none;
+}
+
+.mvtile--empty {
+  border-style: dashed;
+  border-color: rgb(255 255 255 / 0.14);
+  cursor: default;
+}
+
+.mvgrid__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 2px 0;
+}
+
+.mvgrid__sizes {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.mvgrid__sizes button,
+.mvgrid__close {
+  padding: 5px 11px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.mvgrid__sizes button.is-on {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--bg);
+}
