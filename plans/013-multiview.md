@@ -156,6 +156,22 @@ Layout is `grid-template-areas`, not measured rects: these are elements IN
 the page rather than a child window under it, so `tileRects` is now unused
 by the shipping path.
 
+**A TILE TAKES ANY CHANNEL** (v0.9.78), which is a correction rather than a
+feature. The first build filled tiles from live fixtures alone, and Adam hit
+the wall on the first evening he tried it: "i cant multi anything, there's
+only 1 game live rn".
+
+Sport is bursty. A Sunday afternoon has eight simultaneous games and a
+Tuesday night has one, so a grid that only accepts games is a grid nobody
+can open most of the week. It also refused the obvious pairing, the one live
+game beside whatever channel you wanted next to it.
+
+So games are the SHORTCUT and not the source. They sit at the top of the
+rail already matched to a channel; a search below reaches the whole visible
+catalog. Either way a pick reduces to a channel id and the grid never learns
+the difference. The board's button is gated on the LINE now (can it carry
+two streams?) rather than on how many games happen to be on.
+
 **THE DOOR IS THE BOARD** (v0.9.77), which was the recommendation and drew
 no objection. The board gains one button, shown only when two or more live
 games have a channel you can actually watch: one is the theater's job and

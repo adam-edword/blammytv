@@ -32,7 +32,7 @@ import { SportsTheater } from "./SportsTheater";
 import { MultiviewScreen } from "./MultiviewScreen";
 import { useConnections } from "../live/connections";
 import { loadGridSize, saveGridSize } from "../live/multiviewAck";
-import type { GridSize } from "../live/multiview";
+import { allowedSizes, type GridSize } from "../live/multiview";
 import { UpcomingCard } from "./UpcomingCard";
 import { useCatalog } from "./catalog";
 import { ALL_LEAGUES, league as byPath } from "./leagues";
@@ -739,20 +739,24 @@ export function SportsScreen({ home }: { home?: number } = {}) {
         onToggleRanked={toggleRanked}
       />
       <div className="discover sports sportsboard__main">
-      {/* MULTI-VIEW (plan 013). Two live games you can actually watch is the
-        * bar, because one is the theater and none is nothing to offer. The
-        * picking happens on the multi-view screen rather than here: the
+      {/* MULTI-VIEW (plan 013).
+        *
+        * Gated on the LINE, not on the board. It used to need two live games
+        * with channels, which Adam hit on the first evening: "there's only 1
+        * game live rn". Sport is bursty, and a tile takes any channel now, so
+        * the board having a thin night is no reason to hide the door. The
+        * only real gate is a line that cannot carry two streams at once.
+        *
+        * The picking happens on the multi-view screen rather than here: the
         * cards are memo()d with a deliberately stable onOpen, and threading
         * a selection mode through them is the change that re-renders the
         * whole board on every tick. */}
-      {today.filter(
-        (g) => isFixture(g) && g.state === "live" && g.channels.length > 0,
-      ).length >= 2 && (
-        <div className="sports__more">
+      {allowedSizes(cap).length > 0 && (
+        <div className="sports__mv">
           <Button
             variant="outline"
             type="button"
-            className="sports__morebtn"
+            className="sports__mvbtn"
             onClick={() => setMultiview(true)}
           >
             Multi-view

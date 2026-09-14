@@ -1197,3 +1197,66 @@
   opacity: 0.38;
   cursor: not-allowed;
 }
+
+/* Rail sections and the channel search, added when a tile learned to take
+ * any channel rather than only a live game. */
+
+.mvscreen__section {
+  margin: 10px 0 1px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.mvscreen__section:first-of-type {
+  margin-top: 0;
+}
+
+.mvscreen__search {
+  width: 100%;
+  padding: 8px 11px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12.5px;
+}
+
+.mvscreen__chan {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 7px 11px;
+  border: 1px solid var(--border-strong);
+  border-radius: 9px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mvscreen__chan.is-on {
+  border-color: var(--accent, #6c8cff);
+}
+
+.mvscreen__chan.is-full {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+/* The board's way in. Its own classes, NOT sports__more/sports__morebtn:
+ * those belong to "Show earlier days", and verify-sports-days locates that
+ * button by class. A second element wearing them crashed the harness. */
+
+.sports__mv {
+  display: flex;
+  justify-content: flex-start;
+  margin: 0 0 10px;
+}

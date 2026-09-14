@@ -1,27 +1,52 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MultiviewGrid } from "../live/MultiviewGrid";
 import { usableSize, type GridSize } from "../live/multiview";
 import { resolveStreamUrl } from "../live/stream";
+import { peekLive } from "../live/source";
 import { tunedChannel } from "./catalog";
 import { Matchup } from "./Matchup";
 import type { Fixture } from "./model";
 import type { XtreamConnections } from "../../data/xtream";
 
 /**
- * Multi-view: several live games at once (plan 013).
+ * Multi-view: several streams at once (plan 013).
  *
- * THE PICKING HAPPENS HERE, not on the board, and that is the design rather
- * than a shortcut. Two reasons. You are assembling a grid, so seeing the
- * grid while you assemble it is the whole feedback loop: which tile a game
- * lands in, and what swapping one does. And the board's cards are memo()d
- * with a deliberately stable `onOpen` — SportsScreen's comment records that
- * a fresh arrow there re-rendered the entire board every 90 seconds — so a
- * selection mode threaded through them is exactly the change that regresses.
- * The board gains one button and nothing else.
+ * A TILE TAKES ANY CHANNEL, not only a live game, and that is a correction
+ * rather than a feature. The first build filled tiles from live fixtures
+ * alone, which Adam found unusable on the first evening he tried it: "i
+ * cant multi anything, there's only 1 game live rn". Sport is bursty. A
+ * Sunday has eight simultaneous games and a Tuesday has one, so a grid that
+ * only accepts games is a grid you cannot open most of the week — and it
+ * also refused the obvious pairing of the one live game beside a channel
+ * you wanted next to it.
  *
- * Order is selection order, so the first game you pick is the first tile and
- * the one that starts with the sound.
+ * So games are the SHORTCUT, not the source: they sit at the top of the
+ * rail already matched to a channel, and the search below reaches the whole
+ * catalog. Either way a pick resolves to a channel id, and the grid never
+ * learns the difference.
+ *
+ * THE PICKING HAPPENS HERE, not on the board. You are assembling a grid, so
+ * seeing the grid while you assemble it is the feedback loop. And
+ * SportsScreen records that the board's cards are memo()d with a
+ * deliberately stable `onOpen` because a fresh arrow there re-rendered the
+ * whole board every 90 seconds; a selection mode threaded through them is
+ * exactly that regression.
  */
+
+/** One chosen tile, already reduced to the channel that will play in it. */
+interface Pick {
+  /** Channel id, which is also the identity: the same channel twice would
+   * be two tiles of one stream and two connections spent on it. */
+  channelId: string;
+  /** What the tile is called. A game says the fixture, a channel says
+   * itself, because that is what you picked in each case. */
+  label: string;
+}
+
+/** How many catalog rows a search shows. Enough to find it, few enough that
+ * the rail stays a rail: a bare query can match thousands. */
+const SEARCH_LIMIT = 40;
+
 export function MultiviewScreen({
   live,
   conns,
@@ -29,40 +54,46 @@ export function MultiviewScreen({
   onSize,
   onClose,
 }: {
-  /** Live fixtures that have at least one card-worthy channel. */
+  /** Live fixtures that already have a card-worthy channel. The shortcut. */
   live: Fixture[];
   conns: XtreamConnections | null;
   size: GridSize;
   onSize: (n: GridSize) => void;
   onClose: () => void;
 }) {
-  const [picked, setPicked] = useState<string[]>([]);
-  const [urls, setUrls] = useState<Record<string, { name: string; url: string }>>(
-    {},
-  );
+  const [picked, setPicked] = useState<Pick[]>([]);
+  const [urls, setUrls] = useState<Record<string, string>>({});
+  const [query, setQuery] = useState("");
 
   const cap = usableSize(size, conns) ?? 0;
 
-  // Resolve each picked game's best channel to a playable URL, once.
-  //
-  // The best channel is `channels[0]`: withChannels already filtered to
-  // card-worthy matches and kept the schedule's own ordering, so the first
-  // is the national feed where there is one. A tile is not the place to
-  // offer a rail of alternatives; the theater is, and it still does.
+  /** The visible catalog, for the search. Hidden folders stay hidden: this
+   * is a picker, and the guide's own hiding is a statement about clutter. */
+  const channels = useMemo(() => peekLive()?.channels ?? [], []);
+
+  const results = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (q.length < 2) return [];
+    const out = [];
+    for (const c of channels) {
+      if (c.name.toLowerCase().includes(q)) out.push(c);
+      if (out.length >= SEARCH_LIMIT) break;
+    }
+    return out;
+  }, [channels, query]);
+
+  // Resolve each pick to a playable URL, once per channel.
   useEffect(() => {
     let dead = false;
-    for (const id of picked) {
-      if (urls[id]) continue;
-      const game = live.find((g) => g.id === id);
-      const first = game?.channels[0];
-      if (!first) continue;
-      const real = tunedChannel(first.id);
+    for (const p of picked) {
+      if (urls[p.channelId]) continue;
+      const real = tunedChannel(p.channelId);
       if (!real) continue;
       void resolveStreamUrl(real).then(
         (url) => {
           if (dead || !url) return;
           setUrls((was) =>
-            was[id] ? was : { ...was, [id]: { name: first.name, url } },
+            was[p.channelId] ? was : { ...was, [p.channelId]: url },
           );
         },
         () => undefined,
@@ -71,20 +102,34 @@ export function MultiviewScreen({
     return () => {
       dead = true;
     };
-  }, [picked, live, urls]);
+  }, [picked, urls]);
 
-  // A smaller grid drops the games that no longer fit, rather than keeping
-  // them selected invisibly and surprising you when you go back up.
+  // A smaller grid drops what no longer fits rather than keeping it selected
+  // invisibly and surprising you on the way back up.
   useEffect(() => {
     setPicked((was) => (was.length > cap ? was.slice(0, cap) : was));
   }, [cap]);
 
+  const toggle = (channelId: string, label: string) =>
+    setPicked((was) =>
+      was.some((p) => p.channelId === channelId)
+        ? was.filter((p) => p.channelId !== channelId)
+        : was.length >= cap
+          ? was
+          : [...was, { channelId, label }],
+    );
+
   const streams = picked
-    .map((id) => {
-      const got = urls[id];
-      return got ? { id, name: got.name, url: got.url } : null;
-    })
+    .map((p) =>
+      urls[p.channelId]
+        ? { id: p.channelId, name: p.label, url: urls[p.channelId] }
+        : null,
+    )
     .filter((s): s is { id: string; name: string; url: string } => s !== null);
+
+  const has = (channelId: string) =>
+    picked.some((p) => p.channelId === channelId);
+  const full = picked.length >= cap;
 
   return (
     <div className="mvscreen">
@@ -99,39 +144,69 @@ export function MultiviewScreen({
       </div>
       <aside className="mvscreen__rail">
         <h2 className="mvscreen__title">
-          Live now
+          Fill the grid
           <span className="mvscreen__count">
             {picked.length}/{cap}
           </span>
         </h2>
-        {live.length === 0 && (
-          <p className="mvscreen__empty">
-            Nothing live on your channels right now.
-          </p>
+
+        {live.length > 0 && (
+          <>
+            <p className="mvscreen__section">Live now</p>
+            {live.map((g) => {
+              const ch = g.channels[0];
+              if (!ch) return null;
+              const on = has(ch.id);
+              return (
+                <button
+                  key={g.id}
+                  type="button"
+                  className={
+                    "mvscreen__game" +
+                    (on ? " is-on" : "") +
+                    (!on && full ? " is-full" : "")
+                  }
+                  aria-pressed={on}
+                  disabled={!on && full}
+                  onClick={() =>
+                    toggle(ch.id, `${g.away.shortName ?? g.away.name} at ${g.home.shortName ?? g.home.name}`)
+                  }
+                >
+                  <Matchup game={g} />
+                </button>
+              );
+            })}
+          </>
         )}
-        {live.map((g) => {
-          const on = picked.includes(g.id);
-          // Full means full: rather than silently dropping the oldest pick,
-          // the rest go inert and the count says why.
-          const full = !on && picked.length >= cap;
+
+        <p className="mvscreen__section">Any channel</p>
+        <input
+          className="mvscreen__search"
+          type="search"
+          value={query}
+          placeholder="Search your channels"
+          aria-label="Search your channels"
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        {query.trim().length >= 2 && results.length === 0 && (
+          <p className="mvscreen__empty">Nothing matches that.</p>
+        )}
+        {results.map((c) => {
+          const on = has(c.id);
           return (
             <button
-              key={g.id}
+              key={c.id}
               type="button"
               className={
-                "mvscreen__game" + (on ? " is-on" : "") + (full ? " is-full" : "")
+                "mvscreen__chan" +
+                (on ? " is-on" : "") +
+                (!on && full ? " is-full" : "")
               }
               aria-pressed={on}
-              disabled={full}
-              onClick={() =>
-                setPicked((was) =>
-                  was.includes(g.id)
-                    ? was.filter((p) => p !== g.id)
-                    : [...was, g.id],
-                )
-              }
+              disabled={!on && full}
+              onClick={() => toggle(c.id, c.name)}
             >
-              <Matchup game={g} />
+              {c.name}
             </button>
           );
         })}
