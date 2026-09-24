@@ -30,7 +30,7 @@ v0.9.78.
 |---|---|
 | **Redesign** (plan 014) | L0 done. L1 partly: Button is in 24 files, Combobox, DropdownMenu, Tooltip and Item are in use. **Input, Card, Dialog, Badge, Separator, Popover, Textarea, Skeleton and InputGroup were generated and have zero consumers.** L2, L3 and the glass have not started. |
 | **Multi-view** (plan 013) | Built and reachable off the Sports board. **Never played a frame.** Everything below the demuxer is unit-tested; the demuxer itself is untested until someone opens it against a real stream. |
-| **Themes** | Parked at v0.9.58 because a pack outranks the base palette. **Cut for good on 2026-09-24** (decision 1 below); the code is still in `old/themes/` until M1 removes it. |
+| **Themes** | Parked at v0.9.58 because a pack outranks the base palette. **Coming back after 1.0, rebuilt** (decision 1 below). The code stays in `old/themes/`. |
 | **Sports matcher** | Probed against the real 26,621-channel catalog on 2026-09-13 and fixed from that data. ACCNX, SECN+ and ESPNEWS still miss. |
 
 ### Debt from the multi-view work
@@ -55,14 +55,35 @@ v0.9.78.
 
 ## Decisions, taken by Adam on 2026-09-24
 
-Put to him with a recommendation each. Two went against the
-recommendation, and the plan below follows what he chose.
+Put to him with a recommendation each. Three went against the
+recommendation and one is still open; the plan below follows what he
+chose.
 
-1. **Themes: CUT.** Not coming back: no packs, no accent picker, no Aurora,
-   no Themes Pass. shadcn's look is the look. Consequences, all in M1:
-   delete the parked code, and change `services/site`, which still sells
-   the Pass. `services/keybox` (the deployed license server) has nothing
-   left to serve; whether to turn it off is Adam's, it is his box.
+1. **Themes: DEFERRED, and the groundwork stays.** First answered "cut",
+   then revised the same day: *"I do want themes back eventually. So
+   let's make sure to keep the groundwork."* Not a 1.0 gate ("eventually"
+   is read as after; say so if it should land sooner). Paid or free is
+   undecided and does not need deciding yet. What "keep the groundwork"
+   means in practice:
+   - **Delete nothing.** `old/themes/` (modal, packs, `license.ts`, the
+     three harnesses), the unreferenced accent presets and Aurora code,
+     the `main.tsx` line that honours a stored Aurora style,
+     `scripts/fake-keybox.mjs`, and `services/keybox`, which is deployed
+     and should stay up.
+   - **Keep the redesign themeable.** Measured 2026-09-24: every colour in
+     the shadcn layer reaches the app's own tokens through `@theme inline`
+     (`--color-background: var(--bg)`), so a pack that redefines `--bg`,
+     `--surface` and the rest under `[data-theme-pack]` repaints shadcn
+     components too. Only seven raw colour utilities exist, all scrims over
+     posters or video (`bg-black/50`, `hover:bg-black/60`) or shadcn's white
+     on destructive red, which should look the same in any theme. Keep it
+     at that: new colour goes through a token, and a raw colour utility is
+     for a scrim over imagery and nothing else.
+   - **The base tokens are the default look.** What forced the parking was a
+     default PACK pinning `--bg` and friends from a file imported after
+     `tokens.css`, so the new palette never showed. When themes return,
+     "no pack selected" has to mean "the tokens as written", and a pack
+     only ever exists for a look that is not the default.
 2. **Trakt and MAL: A 1.0 GATE**, as decided in July. It was recommended
    for after 1.0 on size (OAuth device flow, token storage, offline queue,
    two-way conflicts). It stays a gate, so it is M4 below, and it gets its
@@ -108,18 +129,13 @@ it land rather than assume it did.
    0.9.0 shipped and gives up no fallback, because a native grid was never
    built. Done when `git diff v0.9.0 -- apps/app/src-tauri` comes back
    empty.
-2. **Remove Themes for good** (decision 1). `old/themes/`, the unreferenced
-   accent presets and Aurora code, `scripts/fake-keybox.mjs`, and the
-   `main.tsx` line that still honours a stored Aurora style. **Carefully in
-   `ui.css` and `tokens.css`**: the Aurora rules are interleaved with live
-   ones, and cutting them by hand is how v0.9.52 ate a closing brace. Run
-   `verify-tailwind` and a full `pnpm verify` after, not just the tests.
-3. **`services/site`**: take the Themes Pass off the marketing page.
-4. Adam runs multi-view against real streams, the one test nobody else can
+2. Adam runs multi-view against real streams, the one test nobody else can
    run. If mpegts.js does not play, fix it or hide the button.
-5. Move multi-view onto the primitives: Button for the size picker, close
+3. Move multi-view onto the primitives: Button for the size picker, close
    and rail rows, Dialog for the notice, Input for the search.
-6. Merge the multi-view branch into `main` (Adam's step: default branch).
+4. Merge the multi-view branch into `main` (Adam's step: default branch).
+
+Themes are NOT removed here. Decision 1 keeps the parked code as it is.
 
 ### M2: finish the primitives (plan 014 L1 and L2)
 
@@ -145,8 +161,13 @@ it land rather than assume it did.
 - **Release it: the new look, 0.10.0.** Frontend-only through the hot
   channel if the native layer is still untouched, and watched as it lands
   because it is that channel's first run. Signed, if decision 3 says so;
-  this is the first build where signing would buy anything. The changelog
-  says Themes are gone and does not pretend otherwise.
+  this is the first build where signing would buy anything.
+- **Themes, in the same release's words.** 0.10.0 is the first release
+  without them, and 0.9.0 users who picked a pack lose it. The changelog
+  says they are coming back rather than pretending nothing moved, and
+  `services/site` stops selling the Themes Pass as a thing you can buy
+  today. Both change at release, not before: until then the site describes
+  0.9.0, which does have themes.
 
 ### M4: Trakt, then MAL (decision 2)
 
@@ -187,8 +208,9 @@ it land rather than assume it did.
 ## What 1.0 means
 
 One design system across every screen, with the handful of documented
-exceptions and nothing else. The glass done. No Themes anywhere, including
-the site. Multi-view proven on real streams. Trakt and MAL sync. Docs
+exceptions and nothing else. The glass done. Every colour reachable by a
+future theme, so bringing them back is a pack and not a refactor.
+Multi-view proven on real streams. Trakt and MAL sync. Docs
 that describe the tree. A signed installer, if decision 3 goes that way.
 
 Not in 1.0: recording, anything else below.
@@ -196,6 +218,13 @@ Not in 1.0: recording, anything else below.
 ## After 1.0
 
 - **Recording to disk.** Named as the post-1.0 headliner since July.
+- **Themes, rebuilt** (decision 1). Packs as overlays on the settled
+  tokens, under `[data-theme-pack]`, with no default pack. The pieces are in
+  `old/themes/` and its README lists where each one goes, but the pack CSS
+  in there was written for the old palette and gets rewritten, not moved
+  back. Cannot start before M3: tokens that are still moving cannot be
+  themed. Paid or free gets decided then; `services/keybox` is still up if
+  paid.
 - **Android TV.** A branch exists from June, before the rebuild, so it is a
   starting point for the packaging and little else.
 - Timeshift, the mini-guide strip.
@@ -222,7 +251,9 @@ Not in 1.0: recording, anything else below.
 - **Styling goes through the design system now.** Tailwind and shadcn since
   v0.9.49: a standalone button is `<Button>`, and plan 014 lists the three
   legal ways to override a variant (`!important` is not one). Colour still
-  comes from tokens. Icons: coolicons-style strokes in `ui/icons.tsx`.
+  comes from tokens, and that is what keeps Themes possible later: a raw
+  colour utility is for a scrim over imagery and nothing else (see
+  decision 1). Icons: coolicons-style strokes in `ui/icons.tsx`.
 
 # History
 

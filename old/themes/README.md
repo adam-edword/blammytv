@@ -1,9 +1,16 @@
 # old/themes
 
-**Decided 2026-09-24: Themes are not coming back.** No packs, no accent
-picker, no Aurora, no Themes Pass. This folder is scheduled for deletion in
-ROADMAP M1, and the "Putting it back" steps below are now a record rather
-than a plan.
+**Decided 2026-09-24: Themes come back after 1.0, rebuilt.** Adam: *"I do
+want themes back eventually. So let's make sure to keep the groundwork."*
+So nothing in here gets deleted. See ROADMAP, decision 1.
+
+One warning before anyone follows "Putting it back" below: those steps
+restore the feature AS IT WAS, and the pack stylesheets here were written
+for the pre-shadcn palette. Moved back as they are, they paint over the new
+tokens, which is the exact reason this folder exists. The TypeScript
+(modal, `themePacks.ts`, `license.ts`) and the harnesses are the reusable
+part; the pack CSS gets rewritten as overlays on the new tokens, with no
+default pack, because "no pack selected" has to mean the base palette.
 
 The whole Themes feature, parked out of the build at v0.9.58.
 
