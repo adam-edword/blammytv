@@ -30,7 +30,7 @@ v0.9.78.
 |---|---|
 | **Redesign** (plan 014) | L0 done. L1 partly: Button is in 24 files, Combobox, DropdownMenu, Tooltip and Item are in use. **Input, Card, Dialog, Badge, Separator, Popover, Textarea, Skeleton and InputGroup were generated and have zero consumers.** L2, L3 and the glass have not started. |
 | **Multi-view** (plan 013) | Built and reachable off the Sports board. **Never played a frame.** Everything below the demuxer is unit-tested; the demuxer itself is untested until someone opens it against a real stream. |
-| **Themes** | Parked at v0.9.58, on purpose, because a pack outranks the base palette and would hide every token the redesign changes. `old/themes/README.md` has the full put-back list. |
+| **Themes** | Parked at v0.9.58 because a pack outranks the base palette. **Cut for good on 2026-09-24** (decision 1 below); the code is still in `old/themes/` until M1 removes it. |
 | **Sports matcher** | Probed against the real 26,621-channel catalog on 2026-09-13 and fixed from that data. ACCNX, SECN+ and ESPNEWS still miss. |
 
 ### Debt from the multi-view work
@@ -48,70 +48,78 @@ v0.9.78.
   `git diff v0.9.0 origin/main -- apps/app/src-tauri` is empty. The whole
   redesign is frontend. Those three files (`inv.rs`, `lib.rs`, `mpv.rs`) are the one
   thing standing between the next release and a frontend-only one, which
-  matters for M1 below.
+  matters for M3 below.
 - ~~Docs that disagree with the tree~~ Fixed with this rewrite: HANDOFF's
   `"csp": null` line (the CSP shipped in v0.8.115), and `plans/README.md`
   now marks 010 shipped and has a row for 014.
 
-## Decisions only Adam can make
+## Decisions, taken by Adam on 2026-09-24
 
-Each one changes the order below. The recommendation is the default path
-until he says otherwise.
+Put to him with a recommendation each. Two went against the
+recommendation, and the plan below follows what he chose.
 
-1. **Themes: rebuild them, and are they paid?** Restoring them as they were
-   is not an option; it would paint over the new palette. They come back as
-   overlays on the new tokens or not at all. **Recommendation: bring the
-   free packs back for 1.0, and decouple the paid Themes Pass from 1.0.** The
-   store never opened in two months, and a paywall only earns its
-   complexity once someone is ready to pay. `services/site` still sells the
-   Pass, so that copy has to match whatever is decided.
-2. **Trakt / MAL: 1.0 gate or after?** **Recommendation: after.** It is a
-   feature the size of the Library (OAuth device flow, token storage,
-   offline queue, two-way conflicts), not a gate. The part that could not be
-   retrofitted, IMDb ids on every stored entry, is already true.
-3. **Code signing: spend $9.99/month, and when?** SIGNING.md already picked
-   the product (Azure Artifact Signing; individual enrolment is US and Canada
-   only, and Adam is in the US, so it applies). **Recommendation: start at M2, not at the end.**
-   SmartScreen reputation takes "several weeks and hundreds of clean
-   installs", so signing the week before 1.0 means 1.0 ships with the
-   warning anyway.
-4. **Release after M1, or hold for the finished redesign?**
-   **Recommendation: release after M1.** Users on 0.9.0 are missing a month
-   of fixes, and every primitive converts app-wide rather than screen by
-   screen, so a mid-migration build looks uniform rather than
-   half-and-half. The cost is that it ships without themes, and the
-   changelog has to say so.
+1. **Themes: CUT.** Not coming back: no packs, no accent picker, no Aurora,
+   no Themes Pass. shadcn's look is the look. Consequences, all in M1:
+   delete the parked code, and change `services/site`, which still sells
+   the Pass. `services/keybox` (the deployed license server) has nothing
+   left to serve; whether to turn it off is Adam's, it is his box.
+2. **Trakt and MAL: A 1.0 GATE**, as decided in July. It was recommended
+   for after 1.0 on size (OAuth device flow, token storage, offline queue,
+   two-way conflicts). It stays a gate, so it is M4 below, and it gets its
+   own plan before any code: the conflict rules are the hard part and
+   should be decided on paper.
+3. **Code signing: OPEN.** Adam asked whether there is a one-time fee.
+   There is not, from SIGNING.md, checked against primary sources on
+   2026-08-07: code-signing certificates have always been annual, keys
+   have had to live on hardware since June 2023, and since February 2026
+   no certificate is valid for more than ~460 days, so even a multi-year
+   purchase needs reissuing. The only free route (SignPath) needs an OSI
+   licence and probably rejects the bundled `libmpv-2.dll`. The cheapest
+   real path is Azure Artifact Signing at $9.99/month, cancellable monthly.
+   **Decision 4 changes when it matters**: reputation only accrues from
+   installs of signed builds, and with no release until the redesign is
+   done there is nothing to sign before M3. So the question is only
+   whether the M3 release is signed, and there is no cost before then.
+4. **Release: HOLD for the finished redesign.** Recommended the other way
+   (release after M1). The next release is the M3 "new look" release; M1
+   and M2 end green but do not ship.
 
 ## The plan to 1.0
 
-Milestones, not version numbers. Each one ends green and releasable.
+Milestones, not version numbers. Each one ends green. Only M3 and M5
+ship, per decision 4.
 
-### M1: get back to releasing (target 0.10.0)
-
-**The release can be frontend-only, and that is worth more than it
-sounds.** Plan 008's hot channel is built (v0.7.14 and v0.7.33) and has
-never run, because its acceptance test is "the first frontend-only
-release" and there has not been one. Nothing native changed from 0.9.0
-to `main`. Revert the dead slot refactor and 0.10.0 reaches users as a
-760KB download with no installer and no restart, and proves 008 on the
-way. (Measured 2026-09-24: `dist/` is 2.3MB, 759KB zipped, against a ~35MB
+**Keep the native layer untouched until M3 ships, because it makes that
+release frontend-only.** Plan 008's hot channel is built (v0.7.14 and
+v0.7.33) and has never run: its acceptance test is "the first
+frontend-only release", and there has not been one. Nothing native changed
+from 0.9.0 to `main`. With the dead slot refactor reverted, the redesign
+reaches users as a 760KB download with no installer and no restart.
+(Measured 2026-09-24: `dist/` is 2.3MB, 759KB zipped, against a ~35MB
 installer. hls.js and mpegts.js are 851KB of it and load only when a
-multi-view tile opens.)
+multi-view tile opens.) The risk that comes with holding: the channel's
+first real run is also the biggest release in months, so M3 has to watch
+it land rather than assume it did.
 
-1. **Revert the native slot refactor first**, with `tileRects`,
-   `holesClip` and the optional `slot` fields in `tauri.ts`. It restores
-   the exact mpv code 0.9.0 shipped. It gives up no fallback, because
-   there was never a native grid to fall back to. Check with
-   `git diff v0.9.0 -- apps/app/src-tauri` coming back empty.
-2. Adam runs multi-view against real streams. The one test nobody else
-   can run. If mpegts.js does not play, fix it or hide the button; do not
-   ship a door into black tiles.
-3. Move multi-view onto the primitives: Button for the size picker, close
+### M1: clean up what is decided
+
+1. **Revert the native slot refactor**, with `tileRects`, `holesClip` and
+   the optional `slot` fields in `tauri.ts`. It restores the exact mpv code
+   0.9.0 shipped and gives up no fallback, because a native grid was never
+   built. Done when `git diff v0.9.0 -- apps/app/src-tauri` comes back
+   empty.
+2. **Remove Themes for good** (decision 1). `old/themes/`, the unreferenced
+   accent presets and Aurora code, `scripts/fake-keybox.mjs`, and the
+   `main.tsx` line that still honours a stored Aurora style. **Carefully in
+   `ui.css` and `tokens.css`**: the Aurora rules are interleaved with live
+   ones, and cutting them by hand is how v0.9.52 ate a closing brace. Run
+   `verify-tailwind` and a full `pnpm verify` after, not just the tests.
+3. **`services/site`**: take the Themes Pass off the marketing page.
+4. Adam runs multi-view against real streams, the one test nobody else can
+   run. If mpegts.js does not play, fix it or hide the button.
+5. Move multi-view onto the primitives: Button for the size picker, close
    and rail rows, Dialog for the notice, Input for the search.
-4. Merge the multi-view branch into `main` (Adam's step: default branch).
-5. Release as a frontend-only release, following RELEASING.md's "Frontend-only
-   release (the hot channel, plan 008)" section, and watch the hot channel
-   take it. The changelog says themes are gone for now and why.
+6. Merge the multi-view branch into `main` (Adam's step: default branch).
 
 ### M2: finish the primitives (plan 014 L1 and L2)
 
@@ -124,9 +132,8 @@ multi-view tile opens.)
 - L2: header, nav capsule, app shell. **Move `RowScroller` and `Card` out
   of `StreamScreen.tsx` into `ui/`.** A screen that exports primitives is
   why "redo one screen" keeps touching three.
-- Start code signing here, if decision 3 goes that way.
 
-### M3: the screens and the glass (plan 014 L3)
+### M3: the screens and the glass, then release (plan 014 L3)
 
 - Screens in dependency order: Settings, Live, Stream / Discover / Library,
   Sports last because its cards are the most bespoke thing in the app.
@@ -135,22 +142,35 @@ multi-view tile opens.)
   surface, which cannot be composited with.
 - `prefers-reduced-transparency` and a light-mode contrast pass, together,
   with a `verify-glass` harness.
+- **Release it: the new look, 0.10.0.** Frontend-only through the hot
+  channel if the native layer is still untouched, and watched as it lands
+  because it is that channel's first run. Signed, if decision 3 says so;
+  this is the first build where signing would buy anything. The changelog
+  says Themes are gone and does not pretend otherwise.
 
-### M4: themes, rebuilt (if decision 1 keeps them)
+### M4: Trakt, then MAL (decision 2)
 
-- Packs as overlays on the settled tokens. This has to wait for M3; tokens
-  that are still moving cannot be themed.
-- The accent picker and Aurora come back with them. Their code is still in
-  the app, unreferenced.
-- If paid: open the store. `services/keybox` is already deployed.
+- **A plan first** (`plans/015`), before any code. The hard part is not
+  OAuth, it is two-way conflict resolution: a title that is on the local
+  list and was removed on Trakt has no obviously correct winner, and the
+  rule has to be decided rather than discovered.
+- Trakt first: its device-code flow needs no redirect URI, which suits a
+  desktop app. The data model needs nothing; every stored entry is already
+  keyed by IMDb id.
+- A token is a credential. Where it is stored gets the same scrutiny as
+  playlist passwords.
+- MAL after, for the anime lists. The IMDb to MAL mapping is already in the
+  tree for aniskip.
+- Built on the M2 primitives, so its UI never needs converting.
 
 ### M5: 1.0
 
-- Signing in place with some reputation behind it.
 - TheaterOverlay's clock: it re-renders the whole 1,400-line overlay ten
   times a second during VOD. Measure render counts before and after.
 - Every harness green, no generated component without a consumer, docs
   that match the tree.
+- Signed, with the reputation M3's installs have built, if decision 3
+  says sign.
 
 ### Alongside, whenever there is room
 
@@ -167,17 +187,15 @@ multi-view tile opens.)
 ## What 1.0 means
 
 One design system across every screen, with the handful of documented
-exceptions and nothing else. The glass done. Themes either shipped or cut,
-with the site saying the same thing as the app. Multi-view proven on real
-streams. A signed installer. Docs that describe the tree.
+exceptions and nothing else. The glass done. No Themes anywhere, including
+the site. Multi-view proven on real streams. Trakt and MAL sync. Docs
+that describe the tree. A signed installer, if decision 3 goes that way.
 
-Not in 1.0: Trakt, recording, anything else below.
+Not in 1.0: recording, anything else below.
 
 ## After 1.0
 
 - **Recording to disk.** Named as the post-1.0 headliner since July.
-- **Trakt, then MAL**, if decision 2 lands here. Trakt first: its
-  device-code flow needs no redirect URI, which suits a desktop app.
 - **Android TV.** A branch exists from June, before the rebuild, so it is a
   starting point for the packaging and little else.
 - Timeshift, the mini-guide strip.

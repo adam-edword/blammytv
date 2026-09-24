@@ -1440,7 +1440,9 @@ Items 1, 2 and 4 shipped; item 3 is a v0.1.x-era read on Adam's Figma work.
    shipped headless via mpv_status (v0.1.133), and the WM_SETCURSOR /
    DComp corner-clip / switch-gap items dissolved with the comp.rs
    deletion (v0.1.135). Post-1.0 headliner: recording to disk.
-5. **PRE-1.0 GATE: Paid themes** (Adam, 2026-07-11: free app, themes
+5. **~~PRE-1.0 GATE: Paid themes~~ CUT 2026-09-24.** Themes are not
+   coming back at all; see ROADMAP, decision 1. What follows is the
+   original reasoning. (Adam, 2026-07-11: free app, themes
    behind a paywall). Architecture notes agreed in-session:
    - Mechanism = the Aurora pattern generalized: a theme is a named
      token bundle scoped under a root attribute (data-theme-pack), with
@@ -1513,7 +1515,8 @@ Items 1, 2 and 4 shipped; item 3 is a v0.1.x-era read on Adam's Figma work.
    proper needs fixed egress IPs a desktop app can never have. If
    registration opens to desktop clients, BlammyTV is well-positioned
    (Ed25519 infra in-house). Re-evaluate near 1.0.
-7. **PRE-1.0 GATE: Trakt / MyAnimeList integrations** (Adam, 2026-07-11:
+7. **PRE-1.0 GATE: Trakt / MyAnimeList integrations**, reconfirmed as a
+   gate 2026-09-24 (ROADMAP M4). (Adam, 2026-07-11:
    "maybe that's a pre 1.0 gate. one of the last things we tackle").
    Scope when it lands: watchlist/custom-list sync (My List's
    snapshot+membership model maps onto Trakt lists), watched-history

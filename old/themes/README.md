@@ -1,5 +1,10 @@
 # old/themes
 
+**Decided 2026-09-24: Themes are not coming back.** No packs, no accent
+picker, no Aurora, no Themes Pass. This folder is scheduled for deletion in
+ROADMAP M1, and the "Putting it back" steps below are now a record rather
+than a plan.
+
 The whole Themes feature, parked out of the build at v0.9.58.
 
 Adam's call, mid-redesign: *"i think we should remove themes for now for this
