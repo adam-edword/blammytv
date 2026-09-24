@@ -1,5 +1,16 @@
 # 016: Working the v0.9.79 audit
 
+**Status (2026-09-24, v0.9.96):** Adam agreed all eight recommendations
+(D1 to D8). **Track 0 and Track 1 are done**, v0.9.82 to v0.9.96, each fix
+with a check that fails without it; so are ROADMAP M1 steps 1 and 5 and
+D7's privacy page (not yet deployed: that needs the `docs` and `website`
+branches). **Next:** Track 2, once Adam has run multi-view against real
+streams (M1 step 2). Deviations from this plan are in the commits: 1.1's
+proof is a unit test (the theater fixture can't observe a re-tune), 1.5
+leaves the draw chip and league tile without a harness (no fixture builds
+them), 0.2(c) links Chromium to the harnesses' path rather than editing 24
+harnesses.
+
 *Written 2026-09-24 against v0.9.81. Source: [`docs/audit-0.9.79.md`](../docs/audit-0.9.79.md)
 (the ranked synthesis) and the seven raw reports beside it. This plan puts
 that list in order, attaches each item to a ROADMAP milestone, and says what

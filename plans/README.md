@@ -26,7 +26,7 @@ Run with `improve-animations execute <plan>` or hand to any agent.
 | [012](012-player-events.md) | Stop polling mpv: observe properties like Stremio does | HIGH | CLOSED (persistent instance shipped + verified v0.8.168-172; event loop CUT at 0.08% of a core; faster clock declined) |
 | [013](013-multiview.md) | Multiview: two to four sports at once | MEDIUM | REDIRECTED to a web player (BUILT and wired off the board, v0.9.77; unverified on real video) |
 | [014](014-shadcn-and-glass.md) | shadcn/ui, and a layer of liquid glass | LOW | IN PROGRESS (L0 done; L1 partly: Button everywhere, Input and Popover since v0.9.79, seven generated components unused; L2, L3 and glass not started) |
-| [016](016-audit-work.md) | Working the v0.9.79 audit: release path, what broke, the system, each screen once | HIGH | PLANNED (2026-09-24; eight decisions for Adam first, D1 to D8) |
+| [016](016-audit-work.md) | Working the v0.9.79 audit: release path, what broke, the system, each screen once | HIGH | IN PROGRESS (D1 to D8 agreed 2026-09-24; Tracks 0 and 1 done in v0.9.82 to v0.9.96; Track 2 waits on Adam's real-stream multi-view test) |
 
 ## Recommended execution order & dependencies
 
