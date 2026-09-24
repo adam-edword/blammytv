@@ -49,18 +49,19 @@ v0.9.78.
   redesign is frontend. Those three files (`inv.rs`, `lib.rs`, `mpv.rs`) are the one
   thing standing between the next release and a frontend-only one, which
   matters for M3 below.
-- **The 2026-09-24 audit: [`docs/audit-0.9.79.md`](docs/audit-0.9.79.md).**
-  Seven auditors, deduplicated and ranked there. Its P0 (the documented
-  hot-channel `tar` command builds a bundle every installed copy refuses,
-  and CI runs none of the gate) has to be done before M3 ships. Most of its
-  P1 is small and user-visible (Sports tuning dies after 30 minutes, the
-  Guide star is invisible, every icon in a Button renders at 16px) and
-  belongs in M1. P2 is M2 and M3's work list. Two things in it are Adam's
-  call: whether light mode gets a control back, and `hls.js/light`. Also,
-  M1 step 5's file list below is partly stale: `packs.css`, `themePacks.ts`,
-  `verify-intense-themes.mjs` and the rest already sit in `old/themes/`;
-  what is left is Aurora in `accent.ts`, `tokens.css`, `ui.css`,
-  `onboarding.css` and verify-tailwind's check 8.
+- **The 2026-09-24 audit: [`docs/audit-0.9.79.md`](docs/audit-0.9.79.md),
+  and the plan that works it: [`plans/016-audit-work.md`](plans/016-audit-work.md).**
+  Its P0 (the documented hot-channel `tar` command builds a bundle every
+  installed copy refuses, and CI runs none of the gate) is Track 0 and has
+  to land before M3 ships. Track 1 is the user-visible breakage (Sports
+  tuning dies after 30 minutes, the Guide star is invisible, every icon in
+  a Button renders at 16px) and belongs in M1. Tracks 3 to 5 are M2 and
+  M3's work list; Track N waits for the first native release after M3.
+  **Eight decisions come first (D1 to D8), each with a recommendation.**
+  Also, M1 step 5's file list below is partly stale: `packs.css`,
+  `themePacks.ts`, `verify-intense-themes.mjs` and the rest already sit in
+  `old/themes/`; what is left is Aurora in `accent.ts`, `tokens.css`,
+  `ui.css`, `onboarding.css` and verify-tailwind's check 8.
 - ~~Docs that disagree with the tree~~ Fixed with this rewrite: HANDOFF's
   `"csp": null` line (the CSP shipped in v0.8.115), and `plans/README.md`
   now marks 010 shipped and has a row for 014.
@@ -180,11 +181,14 @@ it land rather than assume it did.
    cutting them by hand is how v0.9.52 ate a closing brace. Run the full
    `pnpm verify`, not just the tests. The machinery listed under decision 1
    stays.
-6. Merge the multi-view branch into `main` (Adam's step: default branch).
+6. **Plan 016's Tracks 0 to 2**: the release path and CI, the breakage
+   list, and multi-view finished (Track 2 replaces step 3 above once
+   Adam's real-stream test is in).
+7. Merge the multi-view branch into `main` (Adam's step: default branch).
 
 ### M2: finish the primitives (plan 014 L1 and L2)
 
-- Adopt or delete the nine generated components nobody imports. A
+- Adopt or delete the seven generated components nobody imports. A
   component with no consumer is a promise nobody is keeping.
 - Settings modal onto Dialog, which should let `lib/modalOpen.ts` shrink
   or go (plan 014 phase 1).
