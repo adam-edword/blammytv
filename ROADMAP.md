@@ -1,9 +1,214 @@
-# Rebuild roadmap
+# Roadmap
 
-Working state of the greenfield rebuild (branch `claude/blammytv-rebuild-xclzto`)
-and the agreed order of what's next. Update this file as sections land.
+The current plan is the first part of this file. Everything under
+**History** is the record of how the app got here, kept as it was written,
+and it goes stale on purpose: read it for reasons, not for status.
 
-## Where we are (v0.1.109)
+Rewritten 2026-09-24 against the tree rather than against the old version of
+this file, which still said "v0.1.109" at the top while the app was on
+v0.9.78.
+
+## Where we are (v0.9.78, 2026-09-24)
+
+- **Released:** v0.9.0, the Sports tab, on 2026-08-23. That is what users run.
+- **Since then: 90 commits and no release, for 32 days.** The longest gap
+  before this one was 12 days (0.8.202 to 0.9.0). From June to August a
+  release went out every few days.
+- **`main` is at v0.9.73.** The redesign's first stretch (plan 014, below)
+  landed there on 2026-09-13.
+- **`claude/nice-heisenberg-67k4uk` is at v0.9.78 and not in `main`.** It
+  carries the sports matcher fixes, the two console probes and multi-view.
+  It fast-forwards onto `main` with no conflicts.
+- **No open GitHub issues.** The backlog lives in this file and `plans/`.
+- **Version numbers 0.9.47 to 0.9.51 exist twice** in history, once on each
+  side of the 2026-09-13 merge. Anything that quotes one of those five
+  numbers (a changelog, a bug report) needs the commit hash to mean anything.
+
+### What is in flight
+
+| | State |
+|---|---|
+| **Redesign** (plan 014) | L0 done. L1 partly: Button is in 24 files, Combobox, DropdownMenu, Tooltip and Item are in use. **Input, Card, Dialog, Badge, Separator, Popover, Textarea, Skeleton and InputGroup were generated and have zero consumers.** L2, L3 and the glass have not started. |
+| **Multi-view** (plan 013) | Built and reachable off the Sports board. **Never played a frame.** Everything below the demuxer is unit-tested; the demuxer itself is untested until someone opens it against a real stream. |
+| **Themes** | Parked at v0.9.58, on purpose, because a pack outranks the base palette and would hide every token the redesign changes. `old/themes/README.md` has the full put-back list. |
+| **Sports matcher** | Probed against the real 26,621-channel catalog on 2026-09-13 and fixed from that data. ACCNX, SECN+ and ESPNEWS still miss. |
+
+### Debt from the multi-view work
+
+- **Multi-view's UI is hand-written.** v0.9.76 to 0.9.78 added about eight
+  plain `<button>`s, a hand-rolled dialog and a plain `<input>`, after
+  v0.9.54 made shadcn's Button the rule for every standalone button. It
+  works, and it is exactly the drift plan 014 exists to stop.
+- **The native slot refactor is dead weight, and it is the ONLY native
+  change since 0.9.0.** v0.9.48 on the multi-view branch turned mpv's one
+  player into four, for a native multi-view that became a web one.
+  `PLAYERS[4]` only ever holds slot 0, and no native grid was ever built on
+  top of it, so it is not a fallback either. `tileRects` and `holesClip`
+  are unused for the same reason. Measured 2026-09-24:
+  `git diff v0.9.0 origin/main -- apps/app/src-tauri` is empty. The whole
+  redesign is frontend. Those three files (`inv.rs`, `lib.rs`, `mpv.rs`) are the one
+  thing standing between the next release and a frontend-only one, which
+  matters for M1 below.
+- ~~Docs that disagree with the tree~~ Fixed with this rewrite: HANDOFF's
+  `"csp": null` line (the CSP shipped in v0.8.115), and `plans/README.md`
+  now marks 010 shipped and has a row for 014.
+
+## Decisions only Adam can make
+
+Each one changes the order below. The recommendation is the default path
+until he says otherwise.
+
+1. **Themes: rebuild them, and are they paid?** Restoring them as they were
+   is not an option; it would paint over the new palette. They come back as
+   overlays on the new tokens or not at all. **Recommendation: bring the
+   free packs back for 1.0, and decouple the paid Themes Pass from 1.0.** The
+   store never opened in two months, and a paywall only earns its
+   complexity once someone is ready to pay. `services/site` still sells the
+   Pass, so that copy has to match whatever is decided.
+2. **Trakt / MAL: 1.0 gate or after?** **Recommendation: after.** It is a
+   feature the size of the Library (OAuth device flow, token storage,
+   offline queue, two-way conflicts), not a gate. The part that could not be
+   retrofitted, IMDb ids on every stored entry, is already true.
+3. **Code signing: spend $9.99/month, and when?** SIGNING.md already picked
+   the product (Azure Artifact Signing; individual enrolment is US and Canada
+   only, and Adam is in the US, so it applies). **Recommendation: start at M2, not at the end.**
+   SmartScreen reputation takes "several weeks and hundreds of clean
+   installs", so signing the week before 1.0 means 1.0 ships with the
+   warning anyway.
+4. **Release after M1, or hold for the finished redesign?**
+   **Recommendation: release after M1.** Users on 0.9.0 are missing a month
+   of fixes, and every primitive converts app-wide rather than screen by
+   screen, so a mid-migration build looks uniform rather than
+   half-and-half. The cost is that it ships without themes, and the
+   changelog has to say so.
+
+## The plan to 1.0
+
+Milestones, not version numbers. Each one ends green and releasable.
+
+### M1: get back to releasing (target 0.10.0)
+
+**The release can be frontend-only, and that is worth more than it
+sounds.** Plan 008's hot channel is built (v0.7.14 and v0.7.33) and has
+never run, because its acceptance test is "the first frontend-only
+release" and there has not been one. Nothing native changed from 0.9.0
+to `main`. Revert the dead slot refactor and 0.10.0 reaches users as a
+760KB download with no installer and no restart, and proves 008 on the
+way. (Measured 2026-09-24: `dist/` is 2.3MB, 759KB zipped, against a ~35MB
+installer. hls.js and mpegts.js are 851KB of it and load only when a
+multi-view tile opens.)
+
+1. **Revert the native slot refactor first**, with `tileRects`,
+   `holesClip` and the optional `slot` fields in `tauri.ts`. It restores
+   the exact mpv code 0.9.0 shipped. It gives up no fallback, because
+   there was never a native grid to fall back to. Check with
+   `git diff v0.9.0 -- apps/app/src-tauri` coming back empty.
+2. Adam runs multi-view against real streams. The one test nobody else
+   can run. If mpegts.js does not play, fix it or hide the button; do not
+   ship a door into black tiles.
+3. Move multi-view onto the primitives: Button for the size picker, close
+   and rail rows, Dialog for the notice, Input for the search.
+4. Merge the multi-view branch into `main` (Adam's step: default branch).
+5. Release as a frontend-only release, following RELEASING.md's "Frontend-only
+   release (the hot channel, plan 008)" section, and watch the hot channel
+   take it. The changelog says themes are gone for now and why.
+
+### M2: finish the primitives (plan 014 L1 and L2)
+
+- Adopt or delete the nine generated components nobody imports. A
+  component with no consumer is a promise nobody is keeping.
+- Settings modal onto Dialog, which should let `lib/modalOpen.ts` shrink
+  or go (plan 014 phase 1).
+- Switch and ChipTabs take shadcn's surface **and keep their thumb**. Adam's
+  constraint, 2026-09-06.
+- L2: header, nav capsule, app shell. **Move `RowScroller` and `Card` out
+  of `StreamScreen.tsx` into `ui/`.** A screen that exports primitives is
+  why "redo one screen" keeps touching three.
+- Start code signing here, if decision 3 goes that way.
+
+### M3: the screens and the glass (plan 014 L3)
+
+- Screens in dependency order: Settings, Live, Stream / Discover / Library,
+  Sports last because its cards are the most bespoke thing in the app.
+- Glass tiers per plan 014, on the one rule it earned the hard way: glass
+  only where there is content behind it to see through. Never over the mpv
+  surface, which cannot be composited with.
+- `prefers-reduced-transparency` and a light-mode contrast pass, together,
+  with a `verify-glass` harness.
+
+### M4: themes, rebuilt (if decision 1 keeps them)
+
+- Packs as overlays on the settled tokens. This has to wait for M3; tokens
+  that are still moving cannot be themed.
+- The accent picker and Aurora come back with them. Their code is still in
+  the app, unreferenced.
+- If paid: open the store. `services/keybox` is already deployed.
+
+### M5: 1.0
+
+- Signing in place with some reputation behind it.
+- TheaterOverlay's clock: it re-renders the whole 1,400-line overlay ten
+  times a second during VOD. Measure render counts before and after.
+- Every harness green, no generated component without a consumer, docs
+  that match the tree.
+
+### Alongside, whenever there is room
+
+- **Sports matcher leftovers.** ACCNX and ESPN+ are carried as per-fixture
+  event channels ("Liberty vs. Virginia (ACCNX)"), which is `matchEvent`
+  territory. Run `btvSports()` on a college Saturday first; whether those
+  games already resolve by team name is the open question.
+- **Multi-view phase 4:** tell the viewer when a tile's stream dies, at a
+  slower cadence than the 500ms player poll.
+- **EPG coverage:** one log line from Adam's next launch settles whether
+  v0.9.28's normalised matching recovered anything.
+- **Plan 011, a Live home screen**, three questions still open.
+
+## What 1.0 means
+
+One design system across every screen, with the handful of documented
+exceptions and nothing else. The glass done. Themes either shipped or cut,
+with the site saying the same thing as the app. Multi-view proven on real
+streams. A signed installer. Docs that describe the tree.
+
+Not in 1.0: Trakt, recording, anything else below.
+
+## After 1.0
+
+- **Recording to disk.** Named as the post-1.0 headliner since July.
+- **Trakt, then MAL**, if decision 2 lands here. Trakt first: its
+  device-code flow needs no redirect URI, which suits a desktop app.
+- **Android TV.** A branch exists from June, before the rebuild, so it is a
+  starting point for the packaging and little else.
+- Timeshift, the mini-guide strip.
+
+## Working habits (so a fresh session does not relearn them)
+
+- **Version bumps** on every user-visible frontend change: root
+  `package.json`, `apps/app/package.json`, `apps/app/src/lib/version.ts`.
+  Leave `Cargo.toml`/`tauri.conf.json` alone except at release: bumping
+  them forces a Rust rebuild on `pnpm tauri dev`.
+- **Check the branch before starting.** `main` sat at v0.9.46 for a week
+  while the real line was `claude/requests-b2t4w9`, and a session built five
+  versions on the wrong base because of it.
+- **Verify with data before shipping.** `pnpm verify` for the harness board
+  (read the STATUS column, CRASH is the one that matters),
+  `node scripts/check-rust.mjs` for the Rust, and the console probes
+  (`btvSports()`, `btvMultiview()`, `btvDiscover()`) for anything that needs
+  Adam's real catalog. CLAUDE.md has the details.
+- **Windows is the target, Linux is the sandbox:** no case-sibling filenames
+  (guide.ts vs Guide.tsx broke the Windows build); compositor and raster
+  bugs may exist only there.
+- **Never publish a GitHub Release below v0.2.4** without the pre-release
+  flag: old installs' updater watches `latest.json` (see RELEASING.md).
+- **Styling goes through the design system now.** Tailwind and shadcn since
+  v0.9.49: a standalone button is `<Button>`, and plan 014 lists the three
+  legal ways to override a variant (`!important` is not one). Colour still
+  comes from tokens. Icons: coolicons-style strokes in `ui/icons.tsx`.
+
+# History
+
+## Where we were (v0.1.109)
 
 - **Settings panel: complete.** Playlists (Xtream sub-tabs, folder visibility
   editor), AIOStreams (manifest + hero-slider source chips), Customize
@@ -795,24 +1000,6 @@ Verified headless (8/8 Playwright a11y asserts). Still deferred until the
 player lands: the hero preview's edge uses raw `#ffffff10` (off-token), fix
 when that box is reworked for mpv.
 
-## Working habits (so a fresh session doesn't relearn them)
-
-- **Version bumps** on every user-visible frontend change: root
-  `package.json`, `apps/app/package.json`, `apps/app/src/lib/version.ts`.
-  Leave `Cargo.toml`/`tauri.conf.json` alone except at milestones: bumping
-  them forces a Rust rebuild on the user's `pnpm tauri dev`.
-- **Verify with data before shipping:** Playwright (`playwright-core` in the
-  scratchpad + `/opt/pw-browsers/chromium`) for geometry/behavior asserts and
-  scroll benchmarks (compare against a cloneNode of the DOM as the perf
-  ceiling); headless screenshots for visuals; the fake Xtream panels live in
-  `scripts/` (wiring-scale and perf-scale); then gates:
-  typecheck / lint / test / build.
-- **Windows is the target, Linux is the sandbox:** no case-sibling filenames
-  (guide.ts vs Guide.tsx broke the Windows build); compositor/raster bugs may
-  exist only there: when geometry audits pass but the user sees artifacts,
-  suspect rasterization and ship an in-app state dump to capture it.
-- **Never publish a GitHub Release below v0.2.4** without the pre-release
-  flag: old installs' updater watches `latest.json` (see RELEASING.md).
-- Themable color only via tokens (`tokens.css`); accent shades derive from
-  `--accent` alone. Plain CSS, no Tailwind. Icons: coolicons-style strokes
-  in `ui/icons.tsx`.
+(The "Working habits" section that used to close this file moved to the top,
+updated. Its last line said "Plain CSS, no Tailwind", which stopped being
+true at v0.9.49.)

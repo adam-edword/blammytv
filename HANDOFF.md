@@ -1482,8 +1482,10 @@ Items 1, 2 and 4 shipped; item 3 is a v0.1.x-era read on Adam's Figma work.
      strings (channel names, EPG, addon metas) never reach HTML/CSS
      sinks (React escaping; zero innerHTML/dangerouslySetInnerHTML in
      app code, fleet-audited 2026-07-11), and theme storage keys are
-     only written by Settings code. The gap: tauri.conf.json has
-     "csp": null. PRE-1.0 HARDENING: set a strict CSP (script-src
+     only written by Settings code. **DONE in v0.8.115 (2026-08-03):
+     tauri.conf.json carries the strict policy described below; the rest
+     of this paragraph is the original reasoning.** The gap was that
+     tauri.conf.json had "csp": null. PRE-1.0 HARDENING: set a strict CSP (script-src
      'self'; img-src needs http:/https:/data: because panel posters
      are arbitrary user-configured hosts, often plain http; connect-src
      likewise broad; style-src needs 'unsafe-inline' unless Vite style

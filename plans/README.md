@@ -21,10 +21,11 @@ Run with `improve-animations execute <plan>` or hand to any agent.
 | [007](007-hold-to-clear-progress.md) | Hold-to-clear: show the hold's progress | MEDIUM | DONE (wave C) |
 | [008](008-two-tier-updates.md) | Two-tier updates: a frontend hot channel behind the installer | MEDIUM | BUILT, unproven (phases 0-3 in tree; first frontend-only release is the acceptance test) |
 | [009](009-library-and-lists.md) | Library: multiple lists, and a home for everything you've watched | MEDIUM | COMPLETE (0.8.0 headline feature) |
-| [010](010-sports.md) | Sports: a hub for what is on right now | MEDIUM | PLANNED (0.9.0 headline; phase 0 is a gate) |
+| [010](010-sports.md) | Sports: a hub for what is on right now | MEDIUM | SHIPPED (0.9.0 headline, released 2026-08-23; matcher refined v0.9.47 and v0.9.75 against a real catalog) |
 | [011](011-live-home.md) | Live TV: a home screen instead of ten thousand channels | MEDIUM | DESIGN (3 open questions; one needs a real playlist) |
 | [012](012-player-events.md) | Stop polling mpv: observe properties like Stremio does | HIGH | CLOSED (persistent instance shipped + verified v0.8.168-172; event loop CUT at 0.08% of a core; faster clock declined) |
 | [013](013-multiview.md) | Multiview: two to four sports at once | MEDIUM | REDIRECTED to a web player (BUILT and wired off the board, v0.9.77; unverified on real video) |
+| [014](014-shadcn-and-glass.md) | shadcn/ui, and a layer of liquid glass | LOW | IN PROGRESS (L0 done; L1 partly: Button everywhere, nine generated components unused; L2, L3 and glass not started) |
 
 ## Recommended execution order & dependencies
 
