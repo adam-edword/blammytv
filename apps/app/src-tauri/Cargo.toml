@@ -45,6 +45,17 @@ tauri-plugin-opener = "2"
 # Accept-Encoding and transparently decodes only when these features are on.
 reqwest = { version = "0.12", default-features = false, features = ["native-tls", "gzip", "brotli", "deflate"] }
 libloading = "0.8"
+# The multi-view stream proxy (mvproxy.rs): a loopback HTTP server that
+# re-serves a live stream with a CORS header the provider no longer sends.
+# hyper, hyper-util, http-body-util, futures-util, tokio and getrandom are all
+# already in the tree (reqwest's client and tauri itself); hyper's `server`
+# feature is the only new code, and httpdate the only new download.
+hyper = { version = "1", features = ["server", "http1"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+http-body-util = "0.1"
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+tokio = { version = "1", features = ["net", "rt-multi-thread", "time"] }
+getrandom = "0.3"
 # All three are ALREADY compiled into the tree via tauri-plugin-updater, so
 # these direct deps cost no new download. frontend.rs verifies a staged
 # bundle with the same minisign key as the installer, then unpacks tar.gz

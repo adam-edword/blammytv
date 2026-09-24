@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { scrubbedMessage } from "../../lib/errors";
+import { isTauri, tauriMvProxyClose, tauriMvProxyOpen } from "../../lib/tauri";
 
 /**
  * One tile of the multi-view grid: a `<video>` with a demuxer bolted to it.
@@ -16,10 +17,14 @@ import { scrubbedMessage } from "../../lib/errors";
  * is the ceiling. Measured on Adam's machine 2026-09-13, H.264 + AAC plays,
  * AC-3 and E-AC-3 play, HEVC does not.
  *
- * NO PROXY. mpegts.js reads over XHR, so this only works where the panel
- * sends Access-Control-Allow-Origin. Adam's does (btvMultiview: 200
- * video/mp2t, CORS allowed). Another provider may not, and that is what
- * `error` is for: the tile says so rather than sitting black.
+ * THROUGH THE NATIVE PROXY, in the shell (v0.9.101). mpegts.js reads with
+ * fetch, so a provider has to send Access-Control-Allow-Origin, and Adam's
+ * stopped: on 2026-09-13 it answered 200 with CORS allowed, and on his first
+ * real multi-view run every tile died on a 302 with no header, Cartoon
+ * Network included. mvproxy.rs fetches on the Rust side, follows the
+ * redirect and adds the header, and the tile reads from 127.0.0.1. The
+ * .m3u8 path still goes direct: proxying HLS means rewriting every playlist
+ * the stream hands back, and his panel serves .ts.
  */
 
 /**
@@ -121,8 +126,18 @@ export function MultiviewTile({
           setError("This build can’t play MPEG-TS");
           return;
         }
+        // A native build from before the proxy has no such command; the
+        // tile then tries the stream directly, as it always did.
+        let proxied = "";
+        if (isTauri()) {
+          proxied = await tauriMvProxyOpen(url).catch(() => "");
+          if (disposed) {
+            if (proxied) void tauriMvProxyClose(proxied).catch(() => {});
+            return;
+          }
+        }
         const player = mpegts.createPlayer(
-          { type: "mpegts", isLive: true, url },
+          { type: "mpegts", isLive: true, url: proxied || url },
           // A live tile that buffers ahead is a live tile running behind, and
           // four of them drift apart from each other. These are mpegts.js's
           // own live-sync controls.
@@ -148,6 +163,7 @@ export function MultiviewTile({
         player.load();
         destroy = () => {
           player.destroy();
+          if (proxied) void tauriMvProxyClose(proxied).catch(() => {});
         };
       } catch (e) {
         if (disposed) return;

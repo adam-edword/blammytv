@@ -1,11 +1,13 @@
 # 016: Working the v0.9.79 audit
 
-**Status (2026-09-24, v0.9.96):** Adam agreed all eight recommendations
+**Status (2026-09-24, v0.9.101):** Adam agreed all eight recommendations
 (D1 to D8). **Track 0 and Track 1 are done**, v0.9.82 to v0.9.96, each fix
 with a check that fails without it; so are ROADMAP M1 steps 1 and 5 and
 D7's privacy page (not yet deployed: that needs the `docs` and `website`
-branches). **Next:** Track 2, once Adam has run multi-view against real
-streams (M1 step 2). Deviations from this plan are in the commits: 1.1's
+branches). **M1 step 2 ran:** every multi-view tile failed on a provider
+302 with no CORS header, so v0.9.101 adds a native stream proxy and the
+native freeze (rule 3) is lifted. **Next:** Track 2, once Adam's rebuild
+shows tiles playing through the proxy. Deviations from this plan are in the commits: 1.1's
 proof is a unit test (the theater fixture can't observe a re-tune), 1.5
 leaves the draw chip and league tile without a harness (no fixture builds
 them), 0.2(c) links Chromium to the harnesses' path rather than editing 24
@@ -32,8 +34,10 @@ screen once, on that system.
    harness check, mutation-tested the way v0.9.80's two were: put the bug
    back, watch the check fail, restore. A check that can't fail is not
    coverage.
-3. **The native layer stays frozen until M3 ships** (ROADMAP). Anything in
-   `src-tauri` waits in Track N, unless it is M1 step 1's revert.
+3. ~~**The native layer stays frozen until M3 ships**~~ **Lifted
+   2026-09-24, v0.9.101** (ROADMAP). Adam: "a full installer is fine. that
+   should never be a deterrent to building anything." 0.10.0 is a native
+   release, so Track N can ship in it.
 4. **One version bump per commit, board green, CLAUDE.md's usual close.**
 5. **Line numbers are as of c9196ba8.** They drift. Search for the code, not
    the number.
@@ -483,10 +487,11 @@ sweep commit.
 
 ---
 
-## Track N: the next native release (after M3)
+## Track N: the next native release (0.10.0, now the freeze is lifted)
 
 In order of how much each protects users. None of these can reach anyone
-before a native release, which is why they wait.
+before a native release. They waited for one after M3; since v0.9.101,
+0.10.0 is one, so they can ship in it. N1 in it also retires D6's risk.
 
 - **N0** is Track 0.2(b): Windows CI first, so these land tested.
 - **N1:** arm the boot sentinel only on the first boot of a version (or
@@ -518,7 +523,7 @@ before a native release, which is why they wait.
    looks). Then Track 2. Merge.
 3. **M2:** Track 3, with Track 6 and 7.3 alongside.
 4. **M3:** Track 4 screen by screen, Track 5, then the release gate below.
-5. **After M3:** Track N with the first native release.
+5. **Track N** in 0.10.0, which is a native release since v0.9.101.
 
 ## The M3 release gate
 
@@ -530,6 +535,6 @@ before a native release, which is why they wait.
 - [ ] D1's light decision shipped.
 - [ ] Docs match the tree (7.4). The privacy page lists every host the app
       contacts.
-- [ ] D6's risk is in the checklist, and a follow-up hot release is ready
-      to go within days.
+- [ ] N1 ships in 0.10.0, which retires D6's risk. If it does not, D6's
+      risk is in the checklist and a follow-up release is ready within days.
 - [ ] `services/site` stops selling themes and Trakt, at release (ROADMAP).

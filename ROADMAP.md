@@ -144,26 +144,29 @@ chose.
 Milestones, not version numbers. Each one ends green. Only M3 and M5
 ship, per decision 4.
 
-**Keep the native layer untouched until M3 ships, because it makes that
-release frontend-only.** Plan 008's hot channel is built (v0.7.14 and
-v0.7.33) and has never run: its acceptance test is "the first
-frontend-only release", and there has not been one. Nothing native changed
-from 0.9.0 to `main`. With the dead slot refactor reverted, the redesign
-reaches users as a 760KB download with no installer and no restart.
-(Measured 2026-09-24: `dist/` is 2.3MB, 759KB zipped, against a ~35MB
-installer. hls.js and mpegts.js are 851KB of it and load only when a
-multi-view tile opens.) The risk that comes with holding: the channel's
-first real run is also the biggest release in months, so M3 has to watch
-it land rather than assume it did.
+**The native freeze is lifted (2026-09-24, v0.9.101).** It was here to
+keep 0.10.0 frontend-only, so it could be the hot channel's first run.
+Multi-view then needed a native stream proxy (Adam's provider stopped
+sending CORS headers), and Adam: "a full installer is fine. that should
+never be a deterrent to building anything." So:
+- 0.10.0 is a native release, through the installer.
+- The hot channel (plan 008, built in v0.7.14 and v0.7.33, never run)
+  gets its first run on the first frontend-only release after 0.10.0. A
+  smaller release is the safer first run anyway.
+- Plan 016's Track N no longer waits for "after M3": it can ship in 0.10.0.
 
 ### M1: clean up what is decided
 
 1. ~~**Revert the native slot refactor**~~ **Done in v0.9.94.** `inv.rs`,
    `lib.rs`, `mpv.rs`, `hole.ts` and `tauri.ts` are back to v0.9.0's
    bytes, `tileRects` is gone, and `git diff v0.9.0 -- apps/app/src-tauri`
-   is empty. The native layer is frozen from here until M3 ships.
-2. Adam runs multi-view against real streams, the one test nobody else can
-   run. If mpegts.js does not play, fix it or hide the button.
+   is empty. (The freeze that followed is lifted; see above.)
+2. ~~**Adam runs multi-view against real streams**~~ **Run 2026-09-24.**
+   Every tile failed, Cartoon Network included, on a 302 with no CORS
+   header (v0.9.100's console lines named it). His provider sent the header
+   on 2026-09-13 and no longer does. v0.9.101 reads streams through a
+   native loopback proxy (`mvproxy.rs`). Open until his rebuild shows tiles
+   playing.
 3. Move multi-view onto the primitives: Button for the size picker, close
    and rail rows, Dialog for the notice, Input for the search.
 4. ~~**Bring the accent picker back**~~ **Done in v0.9.79.** Settings →
@@ -206,9 +209,8 @@ it land rather than assume it did.
   surface, which cannot be composited with.
 - `prefers-reduced-transparency` and a light-mode contrast pass, together,
   with a `verify-glass` harness.
-- **Release it: the new look, 0.10.0.** Frontend-only through the hot
-  channel if the native layer is still untouched, and watched as it lands
-  because it is that channel's first run. Signed, if decision 3 says so;
+- **Release it: the new look, 0.10.0.** A native release through the
+  installer (the stream proxy is native). Signed, if decision 3 says so;
   this is the first build where signing would buy anything.
 - **Themes, in the same release's words.** 0.10.0 is the first release
   without packs, and 0.9.0 users who picked one lose it (a picked accent

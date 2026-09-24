@@ -1,5 +1,6 @@
 mod frontend;
 mod mpv;
+mod mvproxy;
 #[cfg(windows)]
 mod inv;
 
@@ -755,6 +756,20 @@ async fn http_get(
     Ok(tauri::ipc::Response::new(body.to_vec()))
 }
 
+/// Multi-view: serve a live stream to the webview through the loopback
+/// proxy, which adds the CORS header the provider may not send. Returns the
+/// `http://127.0.0.1:…/mv/<token>` URL to hand mpegts.js. See mvproxy.rs.
+#[tauri::command]
+fn mv_proxy_open(url: String) -> Result<String, String> {
+    mvproxy::open(&url)
+}
+
+/// Forget a URL `mv_proxy_open` returned, when its tile unmounts.
+#[tauri::command]
+fn mv_proxy_close(local: String) {
+    mvproxy::close(&local)
+}
+
 /// Forensic GET for the settings Connection Test. Unlike `http_get`, a
 /// non-2xx status is DATA here, not an error: the point is to answer "WHO
 /// rejected this request" from a tester's screenshot — a WAF in front of
@@ -961,6 +976,8 @@ pub fn run() {
             mpv_snapshot,
             http_get,
             http_probe,
+            mv_proxy_open,
+            mv_proxy_close,
             check_update,
             install_update,
             frontend::frontend_ready,

@@ -132,6 +132,18 @@ export function tauriMpvDiag(): Promise<Record<string, string>> {
   );
 }
 
+/** Multi-view: a loopback URL that serves `url` with a CORS header (the
+ * native stream proxy, mvproxy.rs). The URL it returns carries a random
+ * token, not the provider's credentials. Rejects on a native build that
+ * predates the proxy, which the caller treats as "play it directly". */
+export function tauriMvProxyOpen(url: string): Promise<string> {
+  return invoke<string>("mv_proxy_open", { url });
+}
+/** Forget a URL `tauriMvProxyOpen` returned. */
+export function tauriMvProxyClose(local: string): Promise<void> {
+  return invoke("mv_proxy_close", { local });
+}
+
 /** Tell the native side this frontend booted far enough to run code.
  *
  * Only meaningful for a STAGED frontend (plan 008): the native side arms a

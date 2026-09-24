@@ -1,5 +1,6 @@
 import { peekLive, loadLive } from "./source";
 import { resolveStreamUrl } from "./stream";
+import { isTauri, tauriMvProxyClose, tauriMvProxyOpen } from "../../lib/tauri";
 
 /**
  * Console probe for the multiview player question (plan 013).
@@ -21,7 +22,9 @@ import { resolveStreamUrl } from "./stream";
  * request never lands, and whether a given panel does is not something
  * anyone here can know from the outside. If it does, the web player needs
  * no proxy at all. If it does not, a local proxy in Rust has to exist
- * before a single tile can render.
+ * before a single tile can render. It does since v0.9.101 (mvproxy.rs),
+ * because Adam's panel stopped sending the header, so in the shell the
+ * probe also reads the stream the way the tiles do: through the proxy.
  *
  * So this asks the browser directly, on the machine that has the playlist:
  * what container is the stream, will fetch reach it, and which codecs can
@@ -126,12 +129,41 @@ export function installPlayerProbes(): void {
         );
         console.info(
           "[mv] CORS: BLOCKED or unreachable. If the panel is up, this is the " +
-            "missing Access-Control-Allow-Origin, and the web player needs a " +
-            "local proxy in Rust before any tile can render.",
+            "missing Access-Control-Allow-Origin. In the app, tiles go through " +
+            "the native proxy instead, checked next.",
         );
       } finally {
         window.clearTimeout(timer);
         ctl.abort();
+      }
+
+      // THE PATH THE TILES USE. Same rules: headers only, then abort, and the
+      // loopback URL is not printed either (it is a token, but a live one).
+      if (isTauri()) {
+        const local = await tauriMvProxyOpen(url).catch(() => "");
+        if (!local) {
+          console.info("[mv] proxy: not in this build (rebuild with v0.9.101+)");
+          return;
+        }
+        const ctl2 = new AbortController();
+        const timer2 = window.setTimeout(() => ctl2.abort(), 15000);
+        try {
+          const res = await fetch(local, { signal: ctl2.signal });
+          console.info(
+            `[mv] through the proxy: ${res.status} ${res.headers.get("content-type") ?? "(no content-type)"}` +
+              (res.ok
+                ? ", so a tile can read this"
+                : ", refused by the provider (the code is theirs)"),
+          );
+        } catch (e) {
+          console.info(
+            `[mv] through the proxy: failed (${e instanceof Error ? e.name : "unknown"})`,
+          );
+        } finally {
+          window.clearTimeout(timer2);
+          ctl2.abort();
+          void tauriMvProxyClose(local).catch(() => {});
+        }
       }
     } catch (e) {
       console.error("[mv] probe failed:", e);
