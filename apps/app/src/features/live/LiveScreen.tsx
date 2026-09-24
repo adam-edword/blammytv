@@ -763,15 +763,23 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
     host.id = "inv-chrome";
     chromeHostRef.current = host;
   }
+  // UP WITH THE FEED, DOWN WITH IT, as SportsTheater and StreamScreen do.
+  // It was appended on mount, so on the Guide with nothing playing it was
+  // in the document anyway, and two things read its presence as "playing":
+  // Settings' "Restart now" sat disabled with "Finish watching first", and
+  // the header's `/` search shortcut did nothing (v0.9.93). After a stop it
+  // also kept InvertedPlayer's last inline box, an empty layer over the
+  // guide.
+  const hasFeed = !!playUrl;
   useEffect(() => {
     const host = chromeHostRef.current;
-    if (!host) return;
+    if (!host || !hasFeed) return;
     document.body.appendChild(host);
     return () => {
       host.remove();
       setOverlayApiOverride(null);
     };
-  }, []);
+  }, [hasFeed]);
 
   // Live glass: while a modal covers the app, mpv GPU-blurs ONLY the
   // region under the settings card. The shader loads once; every geometry
