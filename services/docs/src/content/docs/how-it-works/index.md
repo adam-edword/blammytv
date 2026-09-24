@@ -8,7 +8,7 @@ with them. They stay on your machine, and every request for your content goes
 straight from your machine to the provider you configured.
 
 This page lists every host the app talks to. It used to list four and there
-are nine, which is the sort of thing a privacy page has no business getting
+are ten, which is the sort of thing a privacy page has no business getting
 wrong, so the full set is below with what each one receives.
 
 ## Your content
@@ -30,6 +30,7 @@ the app is down with it and nothing could have cached it for you.
 |---|---|---|
 | `github.com` | Update checks | Nothing about you. It's a public file request. |
 | `site.api.espn.com` | You open **Sports** | Which leagues you follow, as schedule requests |
+| `a.espncdn.com` | You open **Sports** | Requests for the team logos on your board. ESPN's schedule names the image; your machine fetches it. |
 | `v3-cinemeta.strem.io` | Browsing **Stream** | The IMDb id of titles whose artwork or synopsis your catalog didn't carry |
 | `api.aniskip.com` | Starting an anime episode | Which episode you're starting, to fetch Skip Intro timings |
 | `raw.githubusercontent.com` | First anime episode | A public id-mapping dataset. Nothing about you. |
