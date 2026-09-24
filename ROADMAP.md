@@ -174,12 +174,12 @@ it land rather than assume it did.
    covers the ink flip (Yellow dark, Blue light), the popover sitting above
    the Settings sheet, the boot line (mutation-tested), and Reset. The
    presets were looked at on screenshots and kept as they were.
-5. **Remove the current looks** (decision 1): the pack CSS, the pack lists,
-   `verify-intense-themes.mjs`, and Aurora. Carefully in `ui.css` and
-   `tokens.css`: the Aurora rules sit interleaved with live ones, and
-   cutting them by hand is how v0.9.52 ate a closing brace. Run the full
-   `pnpm verify`, not just the tests. The machinery listed under decision 1
-   stays.
+5. ~~**Remove the current looks**~~ **Done in v0.9.95.** The packs, their
+   lists and `verify-intense-themes.mjs` were already in `old/themes/`.
+   Aurora is out of `accent.ts` (the style, its hue, the easter egg),
+   `tokens.css` and `ui.css`, both cut by marker with a brace check, and
+   verify-tailwind's check 8, which forced it, is retired. The pack-pairing
+   key in `accent.ts` stays with the rest of the theme machinery.
 6. **Plan 016's Tracks 0 to 2**: the release path and CI, the breakage
    list, and multi-view finished (Track 2 replaces step 3 above once
    Adam's real-stream test is in).

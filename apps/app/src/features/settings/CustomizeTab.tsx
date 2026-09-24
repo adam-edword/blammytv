@@ -46,7 +46,6 @@ import {
   clearAccent,
   saveAccent,
   saveAccentPairedBy,
-  saveAccentStyle,
   saveCustomAccent,
 } from "./accent";
 import { applyTheme, saveTheme, type Theme } from "./theme";
@@ -218,7 +217,6 @@ export function CustomizeTab() {
     // put the brand red back on a button labelled "Reset Appearance".
     saveAccent("");
     clearAccent();
-    saveAccentStyle("flat");
     saveAccentPairedBy("");
     saveCustomAccent("");
     setAccentKey((k) => k + 1);

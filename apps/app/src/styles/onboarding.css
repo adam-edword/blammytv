@@ -48,7 +48,7 @@
     radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.05) 1px, transparent 1.3px),
     radial-gradient(circle at 3px 3px, rgba(255, 255, 255, 0.022) 1px, transparent 1.3px);
   background-size: 4px 4px, 8px 8px;
-  /* Entrance via @starting-style, same reasoning as the aurora's. */
+  /* Entrance via @starting-style: it fades in on first paint, with no JS. */
   transition: opacity 1600ms ease-out;
 }
 .onb.is-finale .onb-dither {

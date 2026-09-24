@@ -436,7 +436,7 @@ check(
 // with no error and no visual clue except that a state stops appearing.
 // v0.9.54 shipped six of these in one afternoon: the armed danger button,
 // the "update ready" accent, the pressed meta chip, the up-next compact
-// size, the chevron's 13px, and aurora's gradient face. All six were
+// size, the chevron's 13px, and the (since removed) Aurora gradient face. All six were
 // written before the component existed and all six had stopped working.
 //
 // So: read which app classes actually ride on a <Button>, then read the
@@ -447,8 +447,8 @@ check(
 //
 // The fix for a hit is never `!important`. It is one of the three moves
 // v0.9.54 used: pick the variant/size from the state in JSX, write a utility
-// at the call site, or take a property the component does not touch (aurora
-// went from the `background` shorthand to `background-image`).
+// at the call site, or take a property the component does not touch (the
+// Aurora face went from the `background` shorthand to `background-image`).
 {
   const { readFileSync, readdirSync } = await import("node:fs");
   const { join } = await import("node:path");
@@ -607,41 +607,14 @@ check(
   );
 }
 
-// ---- 8. THE OTHER HALF: a theme pack still repaints a shadcn variant ----
+// ---- 8. (retired in v0.9.95) ----
 //
-// The static check above deliberately says nothing about colour, so this
-// says it about the one case with real stakes. Under the Aurora accent the
-// primary button is not accent-coloured at all: it is a conic wash over
-// black with an iridescent ring, and that recipe is written in ui.css, in
-// the app layer, against a face `default` paints with `bg-primary` from the
-// utilities layer.
-//
-// It survives only because the rule names `background-image` rather than the
-// `background` shorthand — the shorthand would also have set
-// background-color, lost that half to the utility, and taken the whole
-// declaration down with it. That is a one-word difference with no visible
-// warning, so it gets a check.
-const aurora = await page.evaluate(() => {
-  const root = document.documentElement;
-  const had = root.dataset.accentStyle;
-  root.dataset.accentStyle = "aurora";
-  const el = document.createElement("div");
-  // The classes a <Button variant="default"> really carries, plus the app
-  // class the pack rule targets.
-  el.className = "bg-primary text-primary-foreground btn-primary";
-  document.body.appendChild(el);
-  const s = getComputedStyle(el);
-  const out = { image: s.backgroundImage, color: s.backgroundColor };
-  el.remove();
-  if (had === undefined) delete root.dataset.accentStyle;
-  else root.dataset.accentStyle = had;
-  return out;
-});
-check(
-  "Aurora still repaints the primary button, over shadcn's own fill",
-  aurora.image.includes("gradient"),
-  `background-image ${aurora.image.slice(0, 70)}…`,
-);
+// This checked the Aurora accent's gradient face, written in the app layer
+// against a face `default` paints from the utilities layer. Aurora was
+// removed in v0.9.95 (ROADMAP decision 1) and nothing can reach that face
+// now. What made it worth a check, a TOKEN repainting a shadcn variant, is
+// covered above by "bg-primary FOLLOWS a runtime accent change", which is
+// the property themes need when they return.
 
 // ---- 9. THE DESIGN SYSTEM ITSELF, not just the plumbing -----------------
 //

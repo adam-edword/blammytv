@@ -36,8 +36,9 @@ import { applyUiScale, loadUiScale } from "./features/settings/uiScale";
 // shadcn's neutral primary, which flips with the theme where a stored hex
 // cannot. What 0.9.0 stored does NOT count as chosen: it also wrote the
 // accent on Reset and on a paired theme pack, so the key moved to envelope
-// v2 in v0.9.80 and only picks from the new picker load (see accent.ts). A
-// stored `aurora` style is ignored; Aurora is gone (ROADMAP decision 1).
+// v2 in v0.9.80 and only picks from the new picker load (see accent.ts).
+// Aurora, the gradient accent style, was removed in v0.9.95 (ROADMAP
+// decision 1); a stored `aurora` style is read by nothing.
 const accent = loadAccent();
 if (accent) applyAccent(accent);
 // DARK, whatever is stored (plan 016, decision D1). Light has had no

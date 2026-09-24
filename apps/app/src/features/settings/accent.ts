@@ -65,7 +65,8 @@ const VERSION = 1;
  *
  * The cost is that a colour someone did choose in 0.9.0 has to be chosen
  * once more, on an app whose whole palette changed since. The style,
- * pairing and egg keys stay on v1: Aurora reads them and is going.
+ * pairing key stays on v1: it belongs to the theme packs, and comes back
+ * with them.
  */
 const PICK_VERSION = 2;
 
@@ -89,32 +90,6 @@ export function loadCustomAccent(): string {
 
 export function saveCustomAccent(hex: string): void {
   save(CUSTOM_KEY, PICK_VERSION, hex.toLowerCase());
-}
-
-/**
- * Accent STYLE: "flat" = a single hex feeds everything (the classic
- * system); "aurora" = gradient-capable surfaces read the gradient
- * tokens (tokens.css, scoped to [data-accent-style="aurora"]) while
- * everything thin — progress bars, box-shadow rings, text accents —
- * falls back to a representative flat hue through the SAME --accent
- * feed. Elements needing special treatment use classes scoped under
- * the root attribute (see the Aurora block in ui.css).
- */
-export type AccentStyle = "flat" | "aurora";
-
-/** The flat hue thin consumers read while Aurora is active. */
-const AURORA_HUE = "#8b5cf6";
-
-const STYLE_KEY = "accent-style";
-
-export function loadAccentStyle(): AccentStyle {
-  return load<string>(STYLE_KEY, VERSION, "flat") === "aurora"
-    ? "aurora"
-    : "flat";
-}
-
-export function saveAccentStyle(style: AccentStyle): void {
-  save(STYLE_KEY, VERSION, style);
 }
 
 /**
@@ -154,27 +129,15 @@ export function inkFor(hex: string): string {
  * neutral hex, because the token flips with the theme and a hex does not. */
 export function clearAccent(): void {
   const root = document.documentElement;
-  delete root.dataset.accentStyle;
   root.style.removeProperty("--accent");
   root.style.removeProperty("--accent-ink");
 }
 
-/** Push the accent into CSS; every derived shade follows via color-mix.
- * Also stands DOWN aurora — picking any flat color exits the style. */
+/** Push the accent into CSS; every derived shade follows via color-mix. */
 export function applyAccent(hex: string): void {
   const root = document.documentElement;
-  delete root.dataset.accentStyle;
   root.style.setProperty("--accent", hex);
   root.style.setProperty("--accent-ink", inkFor(hex));
-}
-
-/** Enter the Aurora style: gradient tokens activate via the root
- * attribute; --accent becomes the representative hue. */
-export function applyAurora(): void {
-  const root = document.documentElement;
-  root.dataset.accentStyle = "aurora";
-  root.style.setProperty("--accent", AURORA_HUE);
-  root.style.setProperty("--accent-ink", inkFor(AURORA_HUE));
 }
 
 /**
@@ -194,18 +157,4 @@ export function loadAccentPairedBy(): string {
 
 export function saveAccentPairedBy(packId: string): void {
   save(PAIRED_KEY, VERSION, packId);
-}
-
-/** Aurora is an EASTER EGG: the swatch only appears in the picker once
- * the Custom chip has been spam-clicked ×10 (CustomizeTab counts).
- * Anyone already running aurora counts as unlocked — never lock
- * someone out of a style they're using. */
-const EGG_KEY = "auroraUnlocked";
-
-export function isAuroraUnlocked(): boolean {
-  return load<boolean>(EGG_KEY, VERSION, false) || loadAccentStyle() === "aurora";
-}
-
-export function unlockAurora(): void {
-  save(EGG_KEY, VERSION, true);
 }

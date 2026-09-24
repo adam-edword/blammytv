@@ -18,7 +18,6 @@ import {
   loadCustomAccent,
   saveAccent,
   saveAccentPairedBy,
-  saveAccentStyle,
   saveCustomAccent,
 } from "./accent";
 
@@ -80,9 +79,7 @@ export function AccentPicker() {
     setAccent(value);
     saveAccent(value);
     applyAccent(value);
-    // Storage has to agree with the DOM: a stale "aurora" style would be
-    // read by nothing now, but a stale pairing would outlive the pick.
-    saveAccentStyle("flat");
+    // A pick ends any theme pack's paired accent: the user's choice wins.
     saveAccentPairedBy("");
   };
 
@@ -90,7 +87,6 @@ export function AccentPicker() {
     setAccent("");
     saveAccent("");
     clearAccent();
-    saveAccentStyle("flat");
     saveAccentPairedBy("");
   };
 
