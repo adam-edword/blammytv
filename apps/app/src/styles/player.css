@@ -177,6 +177,16 @@
 .overlay__btn {
   position: absolute;
   place-items: center;
+  opacity: 0;
+}
+/* v0.9.56's prune (1cfcec91) parked this file's reveal rules in
+ * styles/old with the button paint and left the `opacity: 0` behind, so
+ * from v0.9.56 to v0.9.86 the mini preview's Play and Stop sat on the picture
+ * permanently. Restored in v0.9.87,
+ * with keyboard focus revealing it too. */
+.mini-overlay:hover .overlay__btn,
+.mini-overlay:focus-within .overlay__btn {
+  opacity: 1;
 }
 
 .overlay__play {

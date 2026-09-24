@@ -1402,7 +1402,9 @@ export function TheaterOverlay({
         )}
         <Button variant="ghost" size="icon"
           type="button"
-          className="overlay__btn overlay__play"
+          // Fixed white on a scrim, whatever the app theme: it sits on the
+          // picture, not on the page.
+          className="overlay__btn overlay__play rounded-full bg-black/30 text-white hover:bg-black/45 hover:text-white"
           aria-label={paused ? "Play" : "Pause"}
           title={paused ? "Play" : "Pause"}
           onClick={(e) => {
@@ -1414,7 +1416,9 @@ export function TheaterOverlay({
         </Button>
         <Button variant="ghost" size="icon"
           type="button"
-          className="overlay__btn mini-overlay__close"
+          // Fixed white on a scrim, whatever the app theme: it sits on the
+          // picture, not on the page.
+          className="overlay__btn mini-overlay__close rounded-full bg-black/30 text-white hover:bg-black/45 hover:text-white"
           aria-label="Stop"
           title="Stop"
           onClick={(e) => {

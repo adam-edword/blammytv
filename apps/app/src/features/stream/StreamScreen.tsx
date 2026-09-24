@@ -2086,7 +2086,10 @@ export function RowScroller({ children }: { children: ReactNode }) {
       {can.left && (
         <Button variant="ghost" size="icon"
           type="button"
-          className="media-row__arrow media-row__arrow--left"
+          // A circle of the page colour behind the glyph: it sits over
+          // artwork and card text, and a bare chevron over a team name
+          // read as part of the name. Token colours, so a theme repaints it.
+          className="media-row__arrow media-row__arrow--left size-11 rounded-full border border-border bg-background/70 backdrop-blur-sm hover:bg-background/90"
           aria-label="Scroll back"
           onClick={() => nudge(-1)}
         >
@@ -2096,7 +2099,10 @@ export function RowScroller({ children }: { children: ReactNode }) {
       {can.right && (
         <Button variant="ghost" size="icon"
           type="button"
-          className="media-row__arrow media-row__arrow--right"
+          // A circle of the page colour behind the glyph: it sits over
+          // artwork and card text, and a bare chevron over a team name
+          // read as part of the name. Token colours, so a theme repaints it.
+          className="media-row__arrow media-row__arrow--right size-11 rounded-full border border-border bg-background/70 backdrop-blur-sm hover:bg-background/90"
           aria-label="Scroll forward"
           onClick={() => nudge(1)}
         >

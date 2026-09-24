@@ -573,6 +573,17 @@
   /* the ghost fills with currentColor */
   opacity: 0;
 }
+/* v0.9.56's prune (1cfcec91) parked this file's reveal rules in
+ * styles/old with the button paint and left the `opacity: 0` behind, so
+ * from v0.9.56 to v0.9.86 the star was invisible in every state, starred included, and
+ * every card carried an invisible 32px button at its right edge. Restored in v0.9.87,
+ * with keyboard focus revealing it too. */
+.guide__channel:hover .guide__fav,
+.guide__channel:focus-within .guide__fav,
+.guide__fav:focus-visible,
+.guide__fav--on {
+  opacity: 1;
+}
 
 .guide__fav .guide__fav-hot {
   display: none;
@@ -969,6 +980,17 @@
   transform: translateY(-50%);
   z-index: 1;
   place-items: center;
+  opacity: 0;
+}
+/* v0.9.56's prune (1cfcec91) parked this file's reveal rules in
+ * styles/old with the button paint and left the `opacity: 0` behind, so
+ * from v0.9.56 to v0.9.86 the eye sat on every folder row all the time, over
+ * the last 40px of its name, and the league picker's star on all 151
+ * league rows. Restored in v0.9.87,
+ * with keyboard focus revealing it too. */
+.live-folder-row:hover .live-folder__hide,
+.live-folder-row:focus-within .live-folder__hide {
+  opacity: 1;
 }
 .live-folder__hide:active {
   transform: translateY(-50%) scale(0.9);

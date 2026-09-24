@@ -259,9 +259,22 @@
  * hover (they only render at all when scrolling that way is possible). */
 .media-row__arrow {
   position: absolute;
-  top: calc(50% - 46px);
+  /* Centred on the artwork band, which sits above the row's titles. It
+   * assumed the old 46px circle; the circle is 44px now (size-11). */
+  top: calc(50% - 44px);
   z-index: 3;
   place-items: center;
+  opacity: 0;
+}
+/* v0.9.56's prune (1cfcec91) parked this file's reveal rules in
+ * styles/old with the button paint and left the `opacity: 0` behind, so
+ * from v0.9.56 to v0.9.86 the arrows showed on every scrollable row, and
+ * as bare glyphs with no circle behind them they painted straight over
+ * whatever card was under them (a team name on the Sports board). Restored in v0.9.87,
+ * with keyboard focus revealing it too. */
+.media-row__viewport:hover .media-row__arrow,
+.media-row__viewport:focus-within .media-row__arrow {
+  opacity: 1;
 }
 .media-row__arrow--left { left: 14px; }
 .media-row__arrow--right { right: 14px; }
@@ -1108,6 +1121,15 @@
   top: 10px;
   right: 10px;
   font-family: var(--font-headline);
+  opacity: 0;
+}
+/* v0.9.56's prune (1cfcec91) parked this file's reveal rules in
+ * styles/old with the button paint and left the `opacity: 0` behind, so
+ * from v0.9.56 to v0.9.86 the Sources chip sat on every Continue Watching card. Restored in v0.9.87,
+ * with keyboard focus revealing it too. */
+.continue-card:hover .continue-card__sources,
+.continue-card:focus-within .continue-card__sources {
+  opacity: 1;
 }
 /* Same hover treatment as episode stills: 0.4 dim + centered play cue. */
 .continue-card__artwrap::after {
