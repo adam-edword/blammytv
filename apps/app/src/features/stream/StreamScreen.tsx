@@ -2138,6 +2138,10 @@ function Hero({
   const [v, setV] = useState(0); // virtual index — never wraps
   const [width, setWidth] = useState(0);
   const [hovered, setHovered] = useState(false);
+  /** Keyboard focus is inside the carousel. Autoplay used to pause for the
+   * mouse alone, so a focused Watch now slid 1,000px off screen 8s later,
+   * taking the focus ring with it. */
+  const [focused, setFocused] = useState(false);
   const hostRef = useRef<HTMLDivElement | null>(null);
   const count = items.length;
   // Layout effect: measured BEFORE first paint, so no width-0 frame exists.
@@ -2168,10 +2172,13 @@ function Hero({
     return () => cancelAnimationFrame(id);
   }, [animReady, width]);
   useEffect(() => {
-    if (hovered || count < 2) return;
+    // Paused under the pointer, with focus inside, and never at all under
+    // reduced motion: content that moves on its own has to be stoppable,
+    // and a preference against motion is the clearest "stop" there is.
+    if (hovered || focused || REDUCED_MOTION || count < 2) return;
     const id = window.setInterval(() => setV((x) => x + 1), 8000);
     return () => window.clearInterval(id);
-  }, [hovered, count]);
+  }, [hovered, focused, count]);
 
   const m = heroMargin(width);
   const cardW = Math.max(0, width - 2 * m);
@@ -2194,6 +2201,11 @@ function Hero({
       aria-label="Featured"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onFocus={() => setFocused(true)}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null))
+          setFocused(false);
+      }}
     >
       {/* Adam's shadow slider: the same carousel again, blurred, masked
         * to the stationary (android-style) box behind the center slot.
@@ -2340,27 +2352,33 @@ function Hero({
                   ) : null}
                 </p>
                 <div className="shero__actions">
+                  {/* Out of the tab order on the peeking slides. They were
+                    * all tab stops, so 8 of the hero's 12 led to buttons
+                    * off the edge of the screen. `inert` would also stop
+                    * a click on a neighbour sliding it in, so it's this. */}
                   <Button
                     variant="default"
                     type="button"
                     className="btn-primary"
+                    tabIndex={active ? undefined : -1}
                     onClick={(e) => {
                       e.stopPropagation();
                       onWatchNow(item);
                     }}
                   >
-                    Watch Now
+                    Watch now
                   </Button>
                   <Button
                     variant="secondary"
                     type="button"
                     className="shero__btn-quiet"
+                    tabIndex={active ? undefined : -1}
                     onClick={(e) => {
                       e.stopPropagation();
                       onOpen(item);
                     }}
                   >
-                    More Info
+                    More info
                   </Button>
                 </div>
               </div>

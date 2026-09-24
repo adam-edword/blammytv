@@ -738,7 +738,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
         rankedOnly={rankedOnly}
         onToggleRanked={toggleRanked}
       />
-      <div className="discover sports sportsboard__main">
+      <div className="sports sportsboard__main">
       {/* MULTI-VIEW (plan 013).
         *
         * Gated on the LINE, not on the board. It used to need two live games

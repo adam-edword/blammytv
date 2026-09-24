@@ -2181,9 +2181,15 @@
   overflow-y: auto;
   padding-top: 0;
   padding-right: 28px;
+  /* The bottom Discover's padding used to give it. */
+  padding-bottom: 40px;
   padding-left: 22px;
   scrollbar-width: none;
 }
+/* It carried `.discover` too until v0.9.92, and discover.css loads after
+ * this file in the same layer, so Discover's padding shorthand won: a
+ * second header clearance (111px) inside a board that already clears the
+ * header, and a 28px left edge instead of 22. First content sat at y=226. */
 
 /* The sidebar is Live TV's, reused whole. Only the things that belong to
  * this screen's arrangement are set here. */

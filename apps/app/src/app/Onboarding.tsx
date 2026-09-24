@@ -528,7 +528,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           style={idx(1)}
           onClick={advance}
         >
-          Get Started
+          Get started
         </Button>
       </>
     ) : step === 1 ? (
@@ -743,7 +743,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           Make it yours
         </h1>
         <p className="onb-sub" style={idx(1)}>
-          A couple of preferences. There&rsquo;s more in Settings.
+          Pick a clock. There&rsquo;s more in Settings.
         </p>
         {/* The accent swatches stood here. They went with the Themes panel
             in v0.9.58: that panel held the only picker, so a colour chosen
@@ -802,13 +802,13 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           <div className="onb-map__col">
             <span className="onb-map__pill">Stream</span>
             <p className="onb-map__caption">
-              Home &middot; Discover &middot; My List
+              Home &middot; Discover &middot; Library
             </p>
           </div>
         </div>
         <p className="onb-sub" style={idx(2)}>
           Tip: Settings holds a lot more to make BlammyTV yours: sources,
-          themes, playback, and a few surprises.
+          playback, an accent color, and a few surprises.
         </p>
         <Button variant="default" size="lg"
           type="button"

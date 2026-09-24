@@ -1,4 +1,5 @@
 import { Button } from "../components/ui/button";
+import { tmdbEnabled } from "../features/discover/tmdb";
 import {
   useCallback,
   useEffect,
@@ -177,6 +178,9 @@ export function AppHeader({
    * header has to know whether that page is the one on screen — including
    * when Back is what closed it, which the chip never hears about. */
   const [recOpen, setRecOpen] = useState(isRecommendOpen);
+  /** REC needs a TMDB key. Read once: the key is set from the devtools
+   * console, and a reload after that is fine for the one person doing it. */
+  const [recAvailable] = useState(tmdbEnabled);
   useEffect(() => onRecommendChange(setRecOpen), []);
   const searchRef = useRef<HTMLInputElement>(null);
   // `/`, Ctrl+K, Ctrl+F reach the search field — which lives on Discover
@@ -721,6 +725,13 @@ export function AppHeader({
             *
             * Right of the field rather than beside the type chips, because
             * it opens a screen instead of filtering one. */}
+          {/* Only with a TMDB key (plan 016, D8). The recommender answers
+            * from TMDB, and without a key all it could do was tell you to
+            * open the developer console and call btvTmdb(), which no one
+            * using this app should be asked to do. There is no key field
+            * in Settings yet; that comes with the M3 Discover pass if REC
+            * earns its place. */}
+          {recAvailable && (
           <button
             type="button"
             data-key="rec"
@@ -738,6 +749,7 @@ export function AppHeader({
               <i>REC</i>
             </span>
           </button>
+          )}
         </div>
       </nav>
 

@@ -46,6 +46,9 @@ await page.addInitScript((pl) => {
   localStorage.setItem("btv:onboarded", "1");
   localStorage.setItem("blammytv.playlists", JSON.stringify(pl));
   sessionStorage.setItem("btv:welcome-played", "1");
+  // The REC chip only exists with a TMDB key (v0.9.92, plan 016 D8), and
+  // the sub-row checks below are about its layout.
+  localStorage.setItem("blammytv.tmdbKey", JSON.stringify({ v: 1, data: "harness-key" }));
 }, PLAYLIST);
 await page.goto(process.env.APP_URL ?? "http://localhost:4173/", { waitUntil: "domcontentloaded" });
 await page.waitForSelector(".navcap", { timeout: 20_000 });

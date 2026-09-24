@@ -295,6 +295,21 @@ const board = () =>
     cards: document.querySelectorAll(".sports__grid > *").length,
   }));
 
+// The board's top edge (v0.9.92). It carried `.discover` as well, whose
+// padding won the cascade and put a second header clearance inside a board
+// that already clears the header: 111px of nothing, first content at y=226.
+// The scroll column now starts at the board's own clearance.
+const topGap = await page.evaluate(() => {
+  const main = document.querySelector(".sportsboard__main");
+  const board = document.querySelector(".sportsboard");
+  return main && board
+    ? Math.round(main.getBoundingClientRect().top - board.getBoundingClientRect().top) +
+        ":" +
+        getComputedStyle(main).paddingTop
+    : "missing";
+});
+check("the board's scroll column adds no second header gap", /:0px$/.test(topGap), topGap);
+
 const base = await board();
 // "Today's Games" is a row of its own above the day grids and repeats
 // day 0, so the day sections are what is left after it.

@@ -31,6 +31,26 @@ check("search-only catalog excluded", !text.includes("Search"));
 check("hero carousel present", await page.locator(".shero").count() > 0);
 await page.screenshot({ path: process.env.SHOT_DIR ? process.env.SHOT_DIR + "/stream-home.png" : "stream-home.png" });
 
+// Keyboard in the hero (v0.9.92). Every slide's buttons were tab stops,
+// peeking and off-screen slides included, and autoplay paused for the
+// mouse only, so a focused button slid off screen 8s after you reached it.
+check(
+  "no tab stops on the peeking hero slides",
+  (await page
+    .locator(".shero__card:not(.shero__card--active) button:not([tabindex='-1'])")
+    .count()) === 0,
+);
+await page.mouse.move(2, 2); // no hover pause: this is the keyboard's case
+await page.locator(".shero__card--active button").first().focus();
+await page.waitForTimeout(9_000); // one autoplay interval, and a second
+const stillHere = await page.evaluate(() => {
+  const a = document.activeElement;
+  const r = a?.getBoundingClientRect();
+  return !!a?.closest(".shero__card--active") && !!r && r.left >= 0 && r.right <= innerWidth;
+});
+check("autoplay holds while focus is in the hero", stillHere);
+await page.evaluate(() => document.activeElement?.blur());
+
 // Movie detail + sources
 await page.locator(".stream-card", { hasText: "Fake Movie One" }).first().click();
 await page.waitForFunction(() => document.body.innerText.includes("Sources"), null, { timeout: 15_000 }).catch(() => {});
