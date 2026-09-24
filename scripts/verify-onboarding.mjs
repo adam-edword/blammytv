@@ -142,18 +142,33 @@ if (!FAST) {
 
   // Startup tab.
   await page.waitForSelector(".onb-stage > .onb-chips", { timeout: 8000 });
-  await page.getByRole("button", { name: "Stream · Home" }).click();
+  // Scoped: the header's own "Stream" is in the DOM behind the overlay.
+  await page.locator(".onb").getByRole("button", { name: "Stream", exact: true }).click();
   const startup = await page.evaluate(() =>
     JSON.parse(localStorage.getItem("blammytv.startupTab") ?? "{}").data);
   check("startup pill saves the choice", startup === "stream", String(startup));
   await page.getByRole("button", { name: "Continue", exact: true }).click();
 
-  // Done: nav map + settings nudge, then the hand-off.
-  await page.waitForSelector(".onb-map", { timeout: 8000 });
-  const mapText = await page.$eval(".onb-map", (el) => el.textContent);
+  // Done: the Settings nudge, then the hand-off.
+  await page.getByRole("button", { name: "Enter BlammyTV" }).waitFor({ timeout: 8000 });
   const nudge = await page.$$eval(".onb-sub", (els) => els.map((e) => e.textContent).join(" "));
-  check("finale shows the nav map + Settings nudge",
-    /Live TV/.test(mapText) && /Discover/.test(mapText) && /Settings holds a lot more/.test(nudge));
+  check("finale shows the Settings nudge", /Settings holds a lot more/.test(nudge), nudge);
+  // Until v0.9.98 this step drew a map of the 0.9.0 nav as two filled
+  // pills that were not buttons (Adam: "those look like buttons you can
+  // click but they don't do anything"). The rule, not the old class name:
+  // anything filled and pill-round on this step has to be a real button.
+  const fakes = await page.$$eval(".onb-stage *", (els) =>
+    els
+      .filter((el) => {
+        if (el.closest("button")) return false;
+        const cs = getComputedStyle(el);
+        const r = el.getBoundingClientRect();
+        const pill = r.height > 16 && parseFloat(cs.borderTopLeftRadius) >= r.height / 2 - 1;
+        const filled = cs.backgroundColor !== "rgba(0, 0, 0, 0)" || parseFloat(cs.borderTopWidth) > 0;
+        return pill && filled;
+      })
+      .map((el) => el.textContent.trim()));
+  check("finale: nothing looks like a button that is not one", fakes.length === 0, JSON.stringify(fakes));
   // The ONE-PIECE finale (v0.4.39, Figma 272:1000): the steps backdrop
   // is frame zero of the boot timeline; the finale plays it forward on
   // the same persistent nodes. Sample the screen EVERY FRAME from here:

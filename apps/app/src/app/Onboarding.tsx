@@ -68,7 +68,7 @@ import { BootScene, BOOT_TIMELINE_MS, type BootSceneHandle } from "./BootScene";
  * "Continue anyway" — verification must never hard-wall onboarding.
  *
  * Steps: 0 logo · 1 streams · 2 live tv · 3 accent+clock · 4 startup
- * tab · 5 done (mini nav map + go-explore-Settings nudge).
+ * tab · 5 done (go-explore-Settings nudge).
  *
  * Unlike a cold boot, the finale is NOT input-skippable (Adam's call:
  * it's the earned finale, not a wait).
@@ -808,28 +808,19 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
         <h1 className="onb-title" style={idx(0)}>
           You&rsquo;re all set
         </h1>
-        <div className="onb-map" style={idx(1)}>
-          <div className="onb-map__col">
-            <span className="onb-map__pill onb-map__pill--solid">
-              Live TV
-            </span>
-            <p className="onb-map__caption">Channels &amp; guide</p>
-          </div>
-          <div className="onb-map__col">
-            <span className="onb-map__pill">Stream</span>
-            <p className="onb-map__caption">
-              Home &middot; Discover &middot; Library
-            </p>
-          </div>
-        </div>
-        <p className="onb-sub" style={idx(2)}>
-          Tip: Settings holds a lot more to make BlammyTV yours: sources,
+        {/* A nav map stood here until v0.9.98: a "Live TV" and a "Stream"
+            pill, drawn from the 0.9.0 header. The header became one flat
+            capsule in v0.9.1 and the map went on drawing the old one, as
+            pills that looked like buttons and did nothing. The real nav is
+            on screen a few seconds later, so nothing replaces it. */}
+        <p className="onb-sub" style={idx(1)}>
+          Settings holds a lot more to make BlammyTV yours: sources,
           playback, and a few surprises.
         </p>
         <Button variant="default" size="lg"
           type="button"
           className="onb-btn"
-          style={idx(3)}
+          style={idx(2)}
           onClick={finish}
         >
           Enter BlammyTV
