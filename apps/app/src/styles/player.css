@@ -995,7 +995,7 @@
  * A black page with its own bar, like the player. The bar sits in the
  * header's band with the nav capsule in its centre: the header hides its
  * clock and Settings while this tab is up (data-mv on the root) and the
- * bar's two flanks take their places. Both fade together after two idle
+ * bar's two flanks take their places. Both dim together after two idle
  * seconds (data-mv-idle), in 200ms, and come back in 140ms.
  *
  * The tiles are PLACED, not flowed: mvLayout measures the stage and every
@@ -1012,7 +1012,7 @@
   overflow: hidden;
 }
 
-/* The pointer goes with the bar, as it does over the player. */
+/* The pointer goes when the bar dims, as it does over the player. */
 .mvtab.is-idle {
   cursor: none;
 }
@@ -1057,16 +1057,19 @@
   background: none;
   transition: opacity 140ms var(--ease-out, ease);
 }
+/*
+ * DIMMED, NOT GONE (Adam, on v0.9.105: "just dim the top bar, not remove it
+ * entirely"). The nav is how you leave this tab, so it stays where you can
+ * see it. 0.35 was picked off screenshots of 0.25, 0.35 and 0.5 over the
+ * grid: at 0.5 the mark and the open pill still pull the eye off the
+ * pictures, at 0.25 the icons are hard to find. It is also the header's
+ * own quiet level (the version line is 0.35). Still clickable: it is
+ * visible, so it should do what it looks like it does.
+ */
 :root[data-mv-idle] .header,
 :root[data-mv-idle] .mvbar {
-  opacity: 0;
+  opacity: 0.35;
   transition-duration: 200ms;
-}
-/* Hidden is not clickable. A click on where the capsule was would
- * otherwise navigate away from under a pointer that meant to wake the bar. */
-:root[data-mv-idle] .header > *,
-:root[data-mv-idle] .mvbar__side {
-  pointer-events: none;
 }
 
 .mvbar {

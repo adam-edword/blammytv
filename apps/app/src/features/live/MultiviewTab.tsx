@@ -43,9 +43,9 @@ import { Hint } from "../../ui/Hint";
  * multi-view's own bar: the nav capsule stays in its centre, where it always
  * sits, so leaving works the way it does from every other tab; the clock
  * and Settings step aside, and this tab's controls take the two flanks. The
- * bar, capsule and all, fades after two seconds without the pointer and
- * comes back on the first movement. The stage starts under the bar, so a
- * revealed bar covers black, never a picture.
+ * bar, capsule and all, dims after two seconds without the pointer and
+ * comes back on the first movement. The stage starts under the bar, so the
+ * bar covers black, never a picture.
  *
  * LEAVING STOPS EVERY TILE. The tab unmounts with the nav, the tiles go
  * with it, and each hands its provider connection back (mvproxy.rs drops
@@ -82,7 +82,7 @@ const IDLE_MS = 2000;
 /**
  * Idle after IDLE_MS without the pointer or a key, but never while the
  * pointer rests on the bar or the capsule, or keyboard focus is in them:
- * a bar that fades under your hand is one you cannot use.
+ * a bar that dims under your hand reads as one about to go away.
  *
  * Checked when the timer fires rather than tracked with enter/leave: the
  * header's children take the pointer while the header itself does not, and
@@ -323,7 +323,7 @@ export function MultiviewTab() {
   const compact = useCompactSide(leftRef);
 
   // The shell reads these: the header hides its clock and Settings while
-  // this tab is up, and fades with the bar when idle. On the root because
+  // this tab is up, and dims with the bar when idle. On the root because
   // the header is App's, not ours.
   useEffect(() => {
     const root = document.documentElement;

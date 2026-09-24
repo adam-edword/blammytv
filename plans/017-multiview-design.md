@@ -170,8 +170,10 @@ Discover, Library.
 It is a tab that behaves like the player (M1). The page is `#000`, and the
 app header is replaced by multi-view's own bar, **with the app's nav capsule
 in its centre** where it always sits, so moving to another tab works as it
-does everywhere. The bar reveals on pointer movement and fades after 2s
-idle (never while the pointer is on it or a menu is open), capsule and all.
+does everywhere. The bar dims to 35% after 2s idle and comes back on
+pointer movement (never dimming while the pointer is on it or a menu is
+open), capsule and all. It dims rather than going: Adam, on v0.9.105, "just
+dim the top bar, not remove it entirely". It stays clickable.
 The clock and the Settings gear stay off this tab; both are one tab away.
 
 - **Left:** the connection meter (one dash per stream the line allows,
@@ -498,6 +500,9 @@ checks), each mutation-tested. Where it differs from the above:
   is measured, not a media query, because the UI scale moves the number.
 - **Full screen this tab turned on is turned off on the way out.** One it
   found already on is left alone.
+- **The bar dims instead of hiding** (v0.9.106, Adam's call after using
+  v0.9.105). 0.35 was picked from screenshots of 0.25, 0.35 and 0.5 over
+  the grid, and it is the header's own quiet level.
 
 **P2. The tile.** The rest and hover chrome, the Sound badge, the info (guide
 now and next, game score), the states table with reasons from the proxy

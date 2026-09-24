@@ -10,8 +10,8 @@
 // - every picture is 16:9, nothing overlaps, nothing is under the bar, and
 //   nothing is drawn over a picture at rest (the name is under it);
 // - Grid and Focus move the tiles without re-creating a video or re-tuning;
-// - the bar and capsule fade after two idle seconds, but not under the
-//   pointer, and come back on movement;
+// - the bar and capsule dim after two idle seconds (Adam: dim, not remove),
+//   stay clickable, don't dim under the pointer, and come back on movement;
 // - full screen goes to the window;
 // - leaving the tab stops every tile: each proxy URL is handed back;
 // - the Sports board's Multi-view button lands on the tab;
@@ -308,13 +308,15 @@ const idleState = () =>
     header: getComputedStyle(document.querySelector(".header")).opacity,
     bar: getComputedStyle(document.querySelector(".mvbar")).opacity,
     cursor: getComputedStyle(document.querySelector(".mvtab")).cursor,
+    // Whether the nav would take a click where it is drawn.
+    navClicks: getComputedStyle(document.querySelector('[data-dest="guide"]')).pointerEvents !== "none",
   }));
 await page.mouse.move(W - 420, H - 12);
 await page.waitForTimeout(2600);
 const rest = await idleState();
 check(
-  "two idle seconds and the bar and capsule are gone, and the pointer with them",
-  rest.idle && rest.header === "0" && rest.bar === "0" && rest.cursor === "none",
+  "two idle seconds and the bar and capsule dim to 0.35, still clickable, and the pointer goes",
+  rest.idle && rest.header === "0.35" && rest.bar === "0.35" && rest.navClicks && rest.cursor === "none",
   JSON.stringify(rest),
 );
 await page.mouse.move(W - 300, H - 40);
