@@ -7,72 +7,17 @@
  *
  * See plan 013. The grid is 2, 3 or 4 tiles, chosen by the viewer (Adam:
  * "maybe we have one of the options in multiview be grid size so people can
- * decide to just watch two or 3 or 4 at a time"), with 4 as the ceiling the
- * Rust side is built for.
+ * decide to just watch two or 3 or 4 at a time"), with 4 as the ceiling.
+ *
+ * The tiles are web players now (MultiviewTile.tsx), laid out by CSS grid.
+ * `tileRects`, which placed four native mpv windows, went with the native
+ * slot refactor in v0.9.94: nothing ever called it outside its own tests.
  */
 
-/** A rect in the same PHYSICAL px the player driver pushes to inv_set_rect. */
-export interface Box {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
-
-/** How many tiles. Four is the ceiling: mpv::SLOTS is 4. */
+/** How many tiles. Four is the ceiling. */
 export type GridSize = 2 | 3 | 4;
 
 export const GRID_SIZES: readonly GridSize[] = [2, 3, 4];
-
-/**
- * The tiles, in slot order, for a grid of `count` inside `box`.
- *
- * `gap` is the space BETWEEN tiles and nothing else: the grid fills the box
- * exactly, with no outer padding, so the tiles land where the clip holes are
- * cut and there is no border of stale webview showing through.
- *
- * THE 3-UP IS ONE BIG PLUS TWO SMALL, not three in a row, and the arithmetic
- * decides it rather than taste. In a 16:9 box, three in a row gives each
- * tile a 5.33:9 cell that a 16:9 picture fits to width, so each video is
- * 5.33x3 and the total picture is 48 units². One big (two thirds wide) plus
- * two stacked gives 10.67x6 and two 5.33x3, which is 96 — twice the video
- * for the same box. It also matches what three games usually means: one you
- * are watching and two you are keeping an eye on, which is the same shape as
- * the focused slot the player already has.
- */
-export function tileRects(box: Box, count: GridSize, gap: number): Box[] {
-  const { x, y, w, h } = box;
-  // A gap wider than the box would invert the tiles. Clamp rather than
-  // guard the callers: this runs off measured layout, and a collapsed box
-  // during a transition is normal rather than exceptional.
-  const g = Math.max(0, Math.min(gap, w / 2, h / 2));
-  const halfW = (w - g) / 2;
-  const halfH = (h - g) / 2;
-  if (count === 2) {
-    // Side by side. Stacking wastes exactly the same picture area (both put
-    // an 8x4.5 video in a half-box), so this is the conventional 2-up rather
-    // than a measured win.
-    return [
-      { x, y, w: halfW, h },
-      { x: x + halfW + g, y, w: halfW, h },
-    ];
-  }
-  if (count === 3) {
-    const bigW = (w - g) * (2 / 3);
-    const sideW = w - g - bigW;
-    return [
-      { x, y, w: bigW, h },
-      { x: x + bigW + g, y, w: sideW, h: halfH },
-      { x: x + bigW + g, y: y + halfH + g, w: sideW, h: halfH },
-    ];
-  }
-  return [
-    { x, y, w: halfW, h: halfH },
-    { x: x + halfW + g, y, w: halfW, h: halfH },
-    { x, y: y + halfH + g, w: halfW, h: halfH },
-    { x: x + halfW + g, y: y + halfH + g, w: halfW, h: halfH },
-  ];
-}
 
 /**
  * The grid sizes this line can actually feed.

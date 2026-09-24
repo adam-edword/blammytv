@@ -158,11 +158,10 @@ it land rather than assume it did.
 
 ### M1: clean up what is decided
 
-1. **Revert the native slot refactor**, with `tileRects`, `holesClip` and
-   the optional `slot` fields in `tauri.ts`. It restores the exact mpv code
-   0.9.0 shipped and gives up no fallback, because a native grid was never
-   built. Done when `git diff v0.9.0 -- apps/app/src-tauri` comes back
-   empty.
+1. ~~**Revert the native slot refactor**~~ **Done in v0.9.94.** `inv.rs`,
+   `lib.rs`, `mpv.rs`, `hole.ts` and `tauri.ts` are back to v0.9.0's
+   bytes, `tileRects` is gone, and `git diff v0.9.0 -- apps/app/src-tauri`
+   is empty. The native layer is frozen from here until M3 ships.
 2. Adam runs multi-view against real streams, the one test nobody else can
    run. If mpegts.js does not play, fix it or hide the button.
 3. Move multi-view onto the primitives: Button for the size picker, close
