@@ -4,8 +4,9 @@ import { resolveStreamUrl } from "./stream";
 /**
  * Console probe for the multiview player question (plan 013).
  *
- *   await btvMultiview()          // the first live channel
- *   await btvMultiview("<id>")    // a particular one
+ *   await btvMultiview()              // the first live channel
+ *   await btvMultiview("CBS 4K UHD")  // by name, or part of one
+ *   await btvMultiview("<id>")        // or by id
  *
  * THE QUESTION IT SETTLES. Telly's own multiview modal says it "uses a
  * web-based player instead of the native player", and warns about HEVC and
@@ -33,7 +34,7 @@ import { resolveStreamUrl } from "./stream";
  */
 
 interface Probes {
-  btvMultiview?: (channelId?: string) => Promise<void>;
+  btvMultiview?: (channel?: string) => Promise<void>;
 }
 
 /**
@@ -54,7 +55,7 @@ const CODECS: [string, string][] = [
 export function installPlayerProbes(): void {
   const w = window as unknown as Probes;
 
-  w.btvMultiview = async (channelId?: string) => {
+  w.btvMultiview = async (which?: string) => {
     try {
       // MSE FIRST, because it needs no playlist and no network: if this
       // WebView2 cannot take fragmented MP4 at all, nothing else matters.
@@ -77,11 +78,16 @@ export function installPlayerProbes(): void {
         console.warn("[mv] no playlist, so no stream to test");
         return;
       }
-      const channel = channelId
-        ? live.channels.find((c) => c.id === channelId)
-        : live.channels[0];
+      // A name, because the id is nothing anyone can see: the tile shows
+      // the name, so that is what gets typed in here. An exact id still wins.
+      const needle = which?.toLowerCase();
+      const channel = !needle
+        ? live.channels[0]
+        : (live.channels.find((c) => c.id === which) ??
+          live.channels.find((c) => c.name.toLowerCase() === needle) ??
+          live.channels.find((c) => c.name.toLowerCase().includes(needle)));
       if (!channel) {
-        console.warn("[mv] no such channel");
+        console.warn(`[mv] no channel matches "${which}"`);
         return;
       }
       const url = await resolveStreamUrl(channel);
