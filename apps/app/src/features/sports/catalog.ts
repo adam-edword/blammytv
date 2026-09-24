@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { loadLive, onLiveRefreshed, peekLive } from "../live/source";
+import { loadLive, lookupLive, onLiveRefreshed, peekLive } from "../live/source";
 import { indexChannels } from "./matcher";
 import type { Catalog, Tunable } from "./matcher";
 import type { Channel, LiveData } from "../live/model";
@@ -13,13 +13,17 @@ import type { Channel, LiveData } from "../live/model";
  * Channel, so the id goes back to the catalog here.
  *
  * At play time rather than at match time, and the plan says why: "playlists
- * change under us and a stale channel id plays the wrong thing". peekLive
- * is the same warm cache the guide reads, so this is a lookup rather than a
- * load, and a null means the catalog moved under the rail — which is
- * exactly when we should not play something.
+ * change under us and a stale channel id plays the wrong thing". This is
+ * the same cache the guide reads, so it is a lookup rather than a load, and
+ * a null means the sources changed under the rail, which is exactly when
+ * we should not play something.
+ *
+ * lookupLive, not peekLive, since v0.9.84. peekLive also goes null when the
+ * cache is half an hour old, and nothing on this tab reloads it, so 30
+ * minutes into a game every rail click, autoplay and failover did nothing.
  */
 export function tunedChannel(id: string): Channel | null {
-  const live = peekLive();
+  const live = lookupLive();
   if (!live) return null;
   return (
     live.channels.find((c) => c.id === id) ??
@@ -54,7 +58,9 @@ export function useCatalog(): Catalog | null {
   // always loaded before anyone reaches this tab. Starting from it means the
   // board's first paint already carries channels rather than flashing "not
   // on your channels" and correcting itself a moment later.
-  const [live, setLive] = useState<LiveData | null>(peekLive);
+  // lookupLive for the FIRST paint, so a catalog older than half an hour
+  // still draws the board while the effect below reloads it.
+  const [live, setLive] = useState<LiveData | null>(lookupLive);
 
   useEffect(() => {
     let alive = true;

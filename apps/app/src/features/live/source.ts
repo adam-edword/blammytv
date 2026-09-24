@@ -157,6 +157,26 @@ export function peekLive(): LiveData | null {
     : null;
 }
 
+/**
+ * The cached catalog for the CURRENT sources, however old. For looking a
+ * channel up by id at play time: Sports' rail, a game's autoplay and
+ * failover, multi-view.
+ *
+ * peekLive's half-hour TTL exists to make the Live screen refetch, and
+ * nothing on the Sports tab ever reloads the catalog. So with peekLive
+ * there, every tune silently did nothing 30 minutes after the catalog
+ * loaded, which is the middle of the first half (v0.9.84). Age doesn't make
+ * a channel id wrong; a changed config does, and the key still checks that.
+ */
+export function lookupLive(): LiveData | null {
+  const key = cacheKey(enabledSources());
+  return cache && cache.key === key ? cache.data : null;
+}
+
+/** Is `key` still the config the user has? A load started for an older one
+ * must not write over the newer one's cache or its disk record. */
+const isCurrent = (key: string) => cacheKey(enabledSources()) === key;
+
 export async function loadLive(
   now: Date,
   onStage?: (label: string) => void,
@@ -166,7 +186,12 @@ export async function loadLive(
   const key = cacheKey(playlists);
   if (!force && cache && cache.key === key) {
     if (Date.now() - cache.at < CACHE_TTL_MS) return cache.data;
-    cache = null;
+    // Stale, so reload, but KEEP it until the reload replaces it. This
+    // used to null the cache first, and two things read it while a reload
+    // runs: lookupLive, so Sports tuned nothing for the length of the
+    // download, and doLoad's downgrade guard, which saw no guide and
+    // published a guideless snapshot over one that was already here.
+    // peekLive still reports it stale, so screens reload exactly as before.
   }
 
   // Join a matching load already in the air instead of doubling it. Forced
@@ -204,7 +229,14 @@ export async function loadLive(
         // that still covers now stays quiet: the refresh behind it is
         // genuinely nothing the user needs to know about.
         if (!coversNow(disk.data, now)) disk.data.guidePending = true;
-        cache = { key, at: disk.at, data: disk.data };
+        // Stamped NOW, not with the snapshot's age. `at` is only the
+        // in-memory TTL's clock, and a hydrate always has its revalidation
+        // running behind it (below). Stamped with `disk.at`, a snapshot
+        // more than half an hour old was stale the moment it landed:
+        // peekLive said null to every screen that asked during the launch
+        // download, so the Sports board opened empty and a remounted Guide
+        // reloaded rather than showing the snapshot it already had.
+        cache = { key, at: Date.now(), data: disk.data };
         refreshInBackground(playlists, key); // replaces this record's slot
         return disk.data;
       }
@@ -285,6 +317,11 @@ async function doLoad(
         programmes,
       };
       if (full.channels.length === 0) return;
+      // A guide for a config the user has since changed (hid a folder,
+      // flipped the adult filter) lands late: it must not replace the
+      // newer config's cache or overwrite the one disk record, and its
+      // announce would only trigger a reload of the right one anyway.
+      if (!isCurrent(key)) return;
       const at = Date.now();
       cache = { key, at, data: full };
       scheduleDiskPut(key, at, full);
@@ -316,7 +353,7 @@ async function doLoad(
       cache?.key === key &&
       cache.data.programmes.size > 0 &&
       data.programmes.size === 0;
-    if (!downgrades) cache = { key, at, data };
+    if (!downgrades && isCurrent(key)) cache = { key, at, data };
     // NO disk write here any more: this snapshot has no guide yet, and
     // persisting it would let the next launch hydrate a guideless catalog
     // and then sit through the whole download again. The guide phase above

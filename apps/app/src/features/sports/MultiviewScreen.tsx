@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { MultiviewGrid } from "../live/MultiviewGrid";
 import { usableSize, type GridSize } from "../live/multiview";
 import { resolveStreamUrl } from "../live/stream";
-import { peekLive } from "../live/source";
+import { lookupLive } from "../live/source";
 import { tunedChannel } from "./catalog";
 import { Matchup } from "./Matchup";
 import type { Fixture } from "./model";
@@ -69,7 +69,9 @@ export function MultiviewScreen({
 
   /** The visible catalog, for the search. Hidden folders stay hidden: this
    * is a picker, and the guide's own hiding is a statement about clutter. */
-  const channels = useMemo(() => peekLive()?.channels ?? [], []);
+  // lookupLive, not peekLive: the search must work however long the Sports
+  // tab has been open, and peekLive goes null after half an hour.
+  const channels = useMemo(() => lookupLive()?.channels ?? [], []);
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
