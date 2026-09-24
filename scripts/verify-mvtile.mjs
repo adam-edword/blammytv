@@ -68,6 +68,14 @@ const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromi
 async function open({ modes, startup }) {
   const ctx = await browser.newContext({ viewport: { width: W, height: H } });
   await ctx.route(/\.espn(cdn)?\.com\/|strem\.io/, (r) => r.abort());
+  // A logo the size real providers send (Cartoon Network's is several
+  // hundred pixels). The fake panel's is 1x1, which no size bug can show on.
+  await ctx.route("http://localhost:8081/logo.png", (r) =>
+    r.fulfill({
+      contentType: "image/svg+xml",
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="250"><rect width="400" height="250" fill="#e00"/></svg>',
+    }),
+  );
   const page = await ctx.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e)));
@@ -269,6 +277,30 @@ const NEWS = "Fake News Channel";
     logos[0] === "img" && logos[1] === "F" && logos[2] === "F",
     JSON.stringify(logos),
   );
+  // Without its stylesheet, a logo still keeps to its box. Adam's first
+  // v0.9.107 run got the new markup and the old CSS after a mid-pull
+  // reload, and every caption drew its logo at full size.
+  const bare = await page.evaluate(() => {
+    for (const sheet of document.styleSheets) {
+      let rules;
+      try {
+        rules = sheet.cssRules;
+      } catch {
+        continue;
+      }
+      const strip = (list) => {
+        for (let i = list.length - 1; i >= 0; i--) {
+          const r = list[i];
+          if (r.cssRules) strip(r.cssRules);
+          if (r.selectorText?.includes("mvlogo")) (r.parentRule ?? r.parentStyleSheet).deleteRule(i);
+        }
+      };
+      strip(rules);
+    }
+    const img = document.querySelector(".mvcap .mvlogo img").getBoundingClientRect();
+    return [Math.round(img.width), Math.round(img.height)];
+  });
+  check("and with no stylesheet for it, the logo still keeps to its 20px box", bare[0] <= 20 && bare[1] <= 20, JSON.stringify(bare));
 
   // Stalls: Buffering after a second, then the time lost as behind live.
   await fire(page, ESPN, "waiting");

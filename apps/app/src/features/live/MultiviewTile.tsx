@@ -100,17 +100,39 @@ const STALL_MS = 1000;
 /** How long the Sound badge stays after the sound moves (plan 017). */
 const FLASH_MS = 3000;
 
-/** The channel's logo, or its first letter when there is none or it broke. */
+/**
+ * The channel's logo, or its first letter when there is none or it broke.
+ *
+ * SIZED WITHOUT THE STYLESHEET. Provider logos come at their own size, and
+ * Cartoon Network's is several hundred pixels: on Adam's first run of
+ * v0.9.107 the page came back from a mid-pull reload with the new markup
+ * and the old CSS, and each caption drew one at full size across the grid.
+ * The box and the image carry their size themselves now, so a stylesheet
+ * that is late, stale or missing cannot do that again.
+ */
 export function MvLogo({ channel, size }: { channel: TileChannel; size: number }) {
   const [broken, setBroken] = useState(false);
   return (
     <span
       className="mvlogo"
-      style={{ width: size, height: size, fontSize: Math.round(size * 0.45) }}
+      style={{
+        display: "inline-grid",
+        overflow: "hidden",
+        width: size,
+        height: size,
+        fontSize: Math.round(size * 0.45),
+      }}
       aria-hidden
     >
       {channel.logo && !broken ? (
-        <img src={channel.logo} alt="" draggable={false} onError={() => setBroken(true)} />
+        <img
+          src={channel.logo}
+          alt=""
+          width={size}
+          height={size}
+          draggable={false}
+          onError={() => setBroken(true)}
+        />
       ) : (
         channel.name.trim()[0]
       )}

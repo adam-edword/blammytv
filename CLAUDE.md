@@ -68,7 +68,7 @@ servers on the ports the harnesses hard-code, starts vite on 4173, runs every
 `verify-*.mjs`, and prints a board. `pnpm verify discover nav` filters by
 name; `KEEP=1` leaves the servers up afterwards.
 
-Baseline is **30/30 harnesses clean, 506 or 507 checks** (v0.9.107). The
+Baseline is **30/30 harnesses clean, 507 or 508 checks** (v0.9.108). The
 one-check wobble is verify-cw-sources' last check, which only runs when the
 catalog is still loading at the click; the script says so and it is not a
 failure. If playwright-core is not installed, point `PW_FROM` at somewhere
