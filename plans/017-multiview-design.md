@@ -18,7 +18,8 @@ in the chat, not the repo (binaries). Referred to below as frames A to E:
 - **A.** Focus layout, three streams, the pointer on the sound tile.
 - **B.** Grid, four streams, one tile per state (sound, tuning, failed, muted).
 - **C.** The channel picker, open over a three-stream Focus layout.
-- **D.** Two streams at rest, the chrome faded out.
+- **D.** Two streams at rest: the chrome gone, the sound marker faded to a
+  hairline ring and a speaker in the name chip.
 - **E.** How it opens: the channel you came from, and a place for the next.
 
 ---
@@ -70,6 +71,60 @@ failed pick holds a slot forever, F13 the sound follows an index rather than
 a stream, F14 the size clamp overwrites the saved preference. The notice is
 `aria-modal` without a focus trap (a11y MV1) and floats top-right because
 `.modal-backdrop--center` is defined nowhere (polish, HIGH).
+
+---
+
+## What the shipping products do
+
+Surveyed 2026-09-24 by a research agent. Page fetches were blocked by the
+container's egress policy, so product claims come from search summaries of
+the cited pages; two open-source apps were read first-hand. Only what
+changed or confirmed a call here is listed.
+
+- **One tile has the sound, moved by focus or a click.** Apple TV, YouTube
+  TV, ESPN, Fubo, NBA, MLB, DirecTV, Channels DVR. The only exception found
+  is ynotv, with a volume per tile. Confirms 013.
+- **The sound tile is marked by a white border and a speaker icon** (YouTube
+  TV, MLB web, NBA on Apple TV, Channels; a speaker on the tile at Fubo and
+  on iPad). **YouTube TV made the marker fade after a few seconds** because
+  the always-on highlight was called distracting
+  ([Cord Cutters News](https://cordcuttersnews.com/youtube-tv-makes-a-big-changes-to-its-multiview-that-users-have-begged-for/)),
+  and Channels DVR fades it by default with a setting to keep it
+  ([docs](https://getchannels.com/docs/apps/usage/multiview/)). Adopted
+  below: the ring and badge fade at rest.
+- **Two layout families, an equal grid and one big plus a strip.** Apple
+  (70/30 or equal at 2 and 4), ESPN, MLB web (Quad or Thumbnail), Channels,
+  ynotv. Confirms Grid and Focus.
+- **MLB.TV on the web is the closest thing to a desktop design found**
+  ([MLB support](https://support.mlb.com/s/article/How-to-Use-Multi-view?language=en_US)):
+  one large tile with three small on the right, sound from the large one,
+  a click on a small one promotes it, a click on any tile takes its sound, an
+  X on hover closes a tile, and a per-tile feed switcher. That is Focus, M2,
+  Remove and Replace.
+- **Entering from the player, with what you are watching as tile 1.** Apple,
+  YouTube TV, NBA, DirecTV, Fubo, MLB web. Confirms the player entry, and
+  makes it the main one.
+- **A tile to full screen, and Back returns to the same grid.** Apple,
+  YouTube TV, ESPN, DirecTV, Channels, Peacock. MLB's tvOS app brought the
+  other tiles back paused or behind live, a named bug
+  ([Six Colors](https://sixcolors.com/post/2024/04/mlb-tvos-app-adds-multiview-and-its-a-winner/)).
+  M6 keeps them playing, which is why.
+- **Presets.** YouTube TV, ESPN, DirecTV, Peacock and Apple's F1 build a grid
+  in one tap, and "presets only" is the recurring complaint where there is
+  nothing else. One tap alongside building by hand answers both. Adopted as
+  M9.
+- **The cap is stated, not discovered.** Apple shows an explicit error on a
+  fifth stream. Confirms the connection meter and the disabled Add.
+- **Adding from a row along the bottom** (Apple, Channels, Fubo) is a TV
+  remote's idiom. MLB web opens an overlay above the video instead. M3
+  keeps the palette for a keyboard and a pointer.
+- **ynotv** (Tauri and mpv, this app's stack, read first-hand) drew extra
+  tiles from mpv into a canvas over IPC and had to add backpressure after a
+  2x2 grid "ballooned to multi-GB memory". It offers an in-browser engine as
+  the fallback. The web tiles here are the right call.
+
+Motion is thin in every source. No product was found animating tiles
+between layouts, so the motion below is this app's own.
 
 ---
 
@@ -139,9 +194,12 @@ Focus big tile is exactly aligned with the stack's top and bottom.
 
 ### A tile (frames A, B, D)
 
-**At rest:** the picture, a name chip bottom-left (logo and channel name,
-translucent), and top-left either the **Sound** badge (the accent colour,
-with three bars that move with the audio level) or a small muted speaker.
+**At rest:** the picture and a name chip bottom-left (logo and channel
+name, translucent). On the sound tile the chip also carries a speaker glyph.
+The **Sound** badge (the accent colour, with three bars that move with the
+audio level) and the accent ring show when the sound moves, and on hover,
+then fade after 3 seconds to a hairline ring. YouTube TV and Channels DVR
+both learned to fade this marker (see the survey above).
 
 **Under the pointer, or when it is the keyboard's current tile:** a gradient
 scrim and the full information, laid out the way the main player lays out
@@ -309,11 +367,12 @@ Each has a recommendation. One message can settle all of them.
 | M1 | Immersive: multi-view takes the whole window, the app header gone, its own auto-hiding bar. | **Yes.** It is a way of watching, like the player, and every layout problem in the screenshots came from sharing the screen with the header. |
 | M2 | In Focus, the sound tile is always the big one, and choosing another swaps it in. | **Yes.** It keeps 013's "one tile has the audio and the player controls" and gives the swap a reason to animate. Grid never moves tiles. |
 | M3 | The picker: a centred, search-first palette over the grid, or a sheet from the side. | **Palette.** Fastest from the keyboard, the grid stays visible behind it, and it is the shape a channel search wants anywhere in the app (the ROADMAP's Live slate ranked a Ctrl+K channel search first). |
-| M4 | At rest, each tile keeps a small name chip. | **Yes.** With four channels you need to know which is which without moving the pointer. Everything else fades. |
+| M4 | At rest, each tile keeps a small name chip, and the sound marker fades to a speaker glyph in the chip. | **Yes.** With four channels you need to know which is which without moving the pointer, and YouTube TV's always-on audio highlight was the complaint that made them fade theirs. |
 | M5 | Entry from the Guide and the player, not only Sports. | **Yes.** Tiles take any channel since v0.9.77; hiding it in Sports undersells it. |
 | M6 | A tile can fill the window inside multi-view (double-click), as well as Watch in player. | **Both.** Filling is for "let me look at this play" and comes back instantly. Watch in player is for "I'm done with the grid". |
 | M7 | Remember the grid between visits. | **Yes, across launches.** The channels are stable ids, and rebuilding a grid is the most tedious part of using one. |
 | M8 | The grid size follows how many channels you add, instead of a 2 / 3 / 4 pick. | **Yes.** This changes a call you made in 013 ("people can decide to just watch two or 3 or 4"): you still decide, by adding and removing, but there are no empty boxes to fill and nothing is dropped when you change your mind. |
+| M9 | One tap to fill the grid with live games, alongside picking by hand. | **Yes, as one action, not a preset system.** The picker's Live games section gets "Fill with live games": up to the cap, followed teams first (ESPN puts favorites first). "Presets only" was the survey's recurring complaint, and this keeps building by hand as the main path. |
 
 ---
 
@@ -337,7 +396,8 @@ and the codecs, and the tile actions.
 never-answering stream, a slow one); the info against a fake guide.
 
 **P3. Picking.** The palette (Dialog), the empty space, Replace and Remove,
-count-follows-channels (M8), the grid remembered (M7). F12 and F14 go here.
+count-follows-channels (M8), the grid remembered (M7), Fill with live games
+(M9). F12 and F14 go here.
 *Proof:* add, replace, remove, a duplicate refused, the cap refused, the
 grid restored after leaving and after a reload.
 
