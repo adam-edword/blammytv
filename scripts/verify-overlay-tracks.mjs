@@ -154,6 +154,42 @@ check(
   (await items.nth(1).getAttribute("aria-checked")) === "true" &&
     (await items.nth(0).getAttribute("aria-checked")) === "false",
 );
+// The open and selected states (v0.9.90). `.player__btn.is-open` and
+// `.track-menu__item.is-selected` were parked by v0.9.56's prune: an open
+// menu's trigger looked shut, every row centred its label over its tick,
+// and the selected row looked like the rest.
+// Pointer OFF the trigger first: over it, the ghost's own hover fill lights
+// it whether or not the open state does, and the check passes on the bug.
+await page.mouse.move(560, 320);
+await page.waitForTimeout(250);
+const menuLook = await page.evaluate(() => {
+  const trigger = document.querySelector('[aria-label="Audio track"]');
+  const rows = [...document.querySelectorAll('.track-menu [role="menuitemradio"]')];
+  const on = rows.find((r) => r.getAttribute("aria-checked") === "true");
+  const off = rows.find((r) => r.getAttribute("aria-checked") === "false");
+  const cs = (el) => getComputedStyle(el);
+  return {
+    trigger: cs(trigger).backgroundColor,
+    justify: cs(rows[0]).justifyContent,
+    on: on && cs(on).color,
+    off: off && cs(off).color,
+  };
+});
+check(
+  "an open menu's trigger is lit",
+  !/^rgba\(0, 0, 0, 0\)$|transparent/.test(menuLook.trigger),
+  menuLook.trigger,
+);
+check(
+  "menu rows put the label left and the tick right",
+  menuLook.justify === "space-between",
+  menuLook.justify,
+);
+check(
+  "the selected row reads brighter than the rest",
+  !!menuLook.on && !!menuLook.off && menuLook.on !== menuLook.off,
+  `${menuLook.on} vs ${menuLook.off}`,
+);
 await page.keyboard.press("Escape");
 check("Escape closes the menu", (await page.locator(".track-menu").count()) === 0);
 

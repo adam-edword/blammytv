@@ -2474,6 +2474,14 @@
   right: 5px;
   z-index: 1;
   place-items: center;
+  opacity: 0;
+}
+/* The corner ✕ shows with its tile, or with keyboard focus in it, and the
+ * armed cover always (v0.9.90; the reveal went with v0.9.56's prune). */
+.leaguetile:hover .leaguepick__x,
+.leaguetile:focus-within .leaguepick__x,
+.leaguepick__x--armed {
+  opacity: 1;
 }
 /* Armed: the ✕ becomes the sentence, in the danger voice, over the WHOLE
  * tile.

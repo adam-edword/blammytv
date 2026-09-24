@@ -1475,6 +1475,13 @@
   right: 10px;
   z-index: 2;
   font-family: var(--font-headline);
+  opacity: 0;
+}
+/* Revealed with its card, and with keyboard focus in it (v0.9.90; the
+ * reveal went with v0.9.56's prune, like the ones in verify-reveals). */
+.library__item:hover .library__remove,
+.library__item:focus-within .library__remove {
+  opacity: 1;
 }
 @media (prefers-reduced-motion: reduce) {
   .library__action:active {

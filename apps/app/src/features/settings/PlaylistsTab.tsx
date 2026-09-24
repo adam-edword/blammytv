@@ -244,14 +244,16 @@ export function PlaylistsTab() {
                   >
                     <ChevronIcon />
                   </Button>
-                  <Button variant="ghost" size="icon-sm"
+                  <Button
+                    // Armed, it says "Sure?", so it needs a button that can
+                    // hold a word: `icon-sm` is a 32px square and the word
+                    // spilled out of it. Destructive once armed, the danger
+                    // voice the `--armed` rule gave it before v0.9.56's
+                    // prune parked that rule.
+                    variant={armedDeleteId === p.id ? "destructive" : "ghost"}
+                    size={armedDeleteId === p.id ? "sm" : "icon-sm"}
                     type="button"
-                    className={
-                      "playlist-row__delete" +
-                      (armedDeleteId === p.id
-                        ? " playlist-row__delete--armed"
-                        : "")
-                    }
+                    className="playlist-row__delete"
                     aria-label={
                       armedDeleteId === p.id
                         ? `Click again to remove ${p.name}`

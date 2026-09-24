@@ -270,11 +270,20 @@ export function LibraryScreen() {
           )}
           {isHistory && watching.length > 0 && (
             <div className="library__bar-actions">
-              <Button variant="outline" size="sm"
+              <Button
+                // Variant BY STATE: destructive once armed, and the danger
+                // colour on hover before that. The `--danger`/`--armed`
+                // rules were parked by v0.9.56's prune, which left both
+                // buttons plain outline in every state (General's Clear has
+                // done it this way all along).
+                variant={armed === "history" ? "destructive" : "outline"}
+                size="sm"
                 type="button"
                 className={
-                  "library__action library__action--danger" +
-                  (armed === "history" ? " library__action--armed" : "")
+                  "library__action" +
+                  (armed === "history"
+                    ? ""
+                    : " hover:border-destructive hover:text-destructive")
                 }
                 onClick={clearHistory}
               >
@@ -300,11 +309,20 @@ export function LibraryScreen() {
               >
                 Rename
               </Button>
-              <Button variant="outline" size="sm"
+              <Button
+                // Variant BY STATE: destructive once armed, and the danger
+                // colour on hover before that. The `--danger`/`--armed`
+                // rules were parked by v0.9.56's prune, which left both
+                // buttons plain outline in every state (General's Clear has
+                // done it this way all along).
+                variant={armed === "delete" ? "destructive" : "outline"}
+                size="sm"
                 type="button"
                 className={
-                  "library__action library__action--danger" +
-                  (armed === "delete" ? " library__action--armed" : "")
+                  "library__action" +
+                  (armed === "delete"
+                    ? ""
+                    : " hover:border-destructive hover:text-destructive")
                 }
                 onClick={() => remove(list)}
               >
@@ -339,9 +357,13 @@ export function LibraryScreen() {
                       metaFields={gridMetaFields}
                       onOpen={openItem}
                     />
-                    <Button variant="ghost" size="icon-sm"
+                    <Button variant="ghost" size="sm"
                       type="button"
-                      className="library__remove"
+                      // A pill on a scrim over the poster, revealed with the
+                      // card (stream.css). It was size="icon-sm", a 32px
+                      // square, with the word "Remove" spilling out of it on
+                      // every card, all the time.
+                      className="library__remove h-7 rounded-full border border-white/20 bg-black/55 px-3 text-xs text-white backdrop-blur-sm hover:bg-black/70 hover:text-white"
                       aria-label={`Remove ${e.title} from ${list?.name ?? "list"}`}
                       onClick={() => {
                         if (list) removeFromList(list.id, e.id);

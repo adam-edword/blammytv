@@ -317,7 +317,16 @@ function FavouriteTile({
       </button>
       <Button variant="ghost" size="icon-sm"
         type="button"
-        className={"leaguepick__x" + (armed ? " leaguepick__x--armed" : "")}
+        className={
+          "leaguepick__x" +
+          // Armed, it covers the whole tile with the sentence (sports.css).
+          // icon-sm's size-8 pinned it to a 32px square in the corner, so
+          // `inset: 0` could not stretch it and the sentence ran out of
+          // it on one line; rounded-md beat the tile's own radius.
+          (armed
+            ? " leaguepick__x--armed size-auto whitespace-normal rounded-xl text-destructive hover:text-destructive"
+            : "")
+        }
         aria-label={
           armed
             ? `Click again to remove ${league.label} from favourites`

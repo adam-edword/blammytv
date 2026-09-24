@@ -263,9 +263,14 @@ function Chip({
   children: React.ReactNode;
 }) {
   return (
-    <Button variant="outline" size="sm"
+    <Button
+      // Variant BY STATE, the meta-pick pattern. The selected look was
+      // `.tourndraw__chip.is-on`, parked in styles/old by v0.9.56's prune,
+      // so from then the chosen filter looked like every other chip.
+      variant={on ? "secondary" : "outline"}
+      size="sm"
       type="button"
-      className={"tourndraw__chip" + (on ? " is-on" : "")}
+      className="tourndraw__chip"
       aria-pressed={on}
       onClick={onClick}
     >

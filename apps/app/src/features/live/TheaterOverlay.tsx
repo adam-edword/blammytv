@@ -1729,7 +1729,7 @@ export function TheaterOverlay({
           <div className="theater-controls__group">
             <Button variant="ghost" size="icon"
               type="button"
-              className="player__btn"
+              className="player__btn aria-disabled:cursor-not-allowed aria-disabled:opacity-30"
               aria-label="Back 10 seconds"
               title={
                 vod && !seekable
@@ -1741,7 +1741,6 @@ export function TheaterOverlay({
               // reached the person who needed it. doSeek already refuses
               // the click, so the button is inert either way.
               aria-disabled={vod && !seekable}
-              data-inert={vod && !seekable ? "" : undefined}
               onClick={() => doSeek(-10)}
             >
               <SkipBackIcon className="size-5.5" />
@@ -1757,7 +1756,7 @@ export function TheaterOverlay({
             </Button>
             <Button variant="ghost" size="icon"
               type="button"
-              className="player__btn"
+              className="player__btn aria-disabled:cursor-not-allowed aria-disabled:opacity-30"
               aria-label="Forward 10 seconds"
               title={
                 vod && !seekable
@@ -1769,7 +1768,6 @@ export function TheaterOverlay({
               // reached the person who needed it. doSeek already refuses
               // the click, so the button is inert either way.
               aria-disabled={vod && !seekable}
-              data-inert={vod && !seekable ? "" : undefined}
               onClick={() => doSeek(10)}
             >
               <SkipFwdIcon className="size-5.5" />
@@ -1817,10 +1815,7 @@ export function TheaterOverlay({
               <div className="theater-tracks">
                 <Button variant="ghost" size="icon"
                   type="button"
-                  className={
-                    "player__btn player__btn--speed" +
-                    (menu === "speed" ? " is-open" : "")
-                  }
+                  className="player__btn player__btn--speed aria-expanded:bg-white/15"
                   aria-label="Playback speed"
                   aria-haspopup="menu"
                   aria-expanded={menu === "speed"}
@@ -1839,10 +1834,7 @@ export function TheaterOverlay({
                         type="button"
                         role="menuitemradio"
                         aria-checked={speed === sp}
-                        className={
-                          "track-menu__item" +
-                          (speed === sp ? " is-selected" : "")
-                        }
+                        className="track-menu__item justify-between text-white/85 hover:text-white aria-checked:text-white"
                         onClick={() => pickSpeed(sp)}
                       >
                         {sp}×
@@ -1858,7 +1850,7 @@ export function TheaterOverlay({
             {isTauri() && (
               <Button variant="ghost" size="icon"
                 type="button"
-                className={"player__btn" + (showStats ? " is-open" : "")}
+                className="player__btn aria-pressed:bg-white/15"
                 aria-label="Stats for nerds"
           title="Stats for nerds"
                 aria-pressed={showStats}
@@ -1874,7 +1866,7 @@ export function TheaterOverlay({
             <div className="theater-tracks">
               <Button variant="ghost" size="icon"
                 type="button"
-                className={"player__btn" + (menu === "audio" ? " is-open" : "")}
+                className="player__btn aria-expanded:bg-white/15"
                 aria-label="Audio track"
                 aria-haspopup="menu"
                 aria-expanded={menu === "audio"}
@@ -1892,9 +1884,7 @@ export function TheaterOverlay({
                       type="button"
                       role="menuitemradio"
                       aria-checked={t.selected}
-                      className={
-                        "track-menu__item" + (t.selected ? " is-selected" : "")
-                      }
+                      className="track-menu__item justify-between text-white/85 hover:text-white aria-checked:text-white"
                       onClick={() => chooseAudio(t.id)}
                     >
                       <span className="track-menu__label">{t.label}</span>
@@ -1907,7 +1897,7 @@ export function TheaterOverlay({
             <div className="theater-tracks">
               <Button variant="ghost" size="icon"
                 type="button"
-                className={"player__btn" + (menu === "subs" ? " is-open" : "")}
+                className="player__btn aria-expanded:bg-white/15"
                 aria-label="Subtitles"
                 aria-haspopup="menu"
                 aria-expanded={menu === "subs"}
@@ -1923,10 +1913,7 @@ export function TheaterOverlay({
                     type="button"
                     role="menuitemradio"
                     aria-checked={!tracks.subs.some((t) => t.selected)}
-                    className={
-                      "track-menu__item" +
-                      (tracks.subs.some((t) => t.selected) ? "" : " is-selected")
-                    }
+                    className="track-menu__item justify-between text-white/85 hover:text-white aria-checked:text-white"
                     onClick={() => chooseSub(null)}
                   >
                     <span className="track-menu__label">Off</span>
@@ -1940,9 +1927,7 @@ export function TheaterOverlay({
                       type="button"
                       role="menuitemradio"
                       aria-checked={t.selected}
-                      className={
-                        "track-menu__item" + (t.selected ? " is-selected" : "")
-                      }
+                      className="track-menu__item justify-between text-white/85 hover:text-white aria-checked:text-white"
                       onClick={() => chooseSub(t.id)}
                     >
                       <span className="track-menu__label">{t.label}</span>
