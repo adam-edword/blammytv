@@ -51,7 +51,7 @@ Each has a recommendation. One message can settle all of them.
 ## Track 0: the release path (P0). In M1, before anything else.
 
 **0.1 The hot-channel archive.** S.
-- `RELEASING.md:306` becomes `tar -czf frontend-<v>.tar.gz -C dist index.html assets`,
+- `RELEASING.md:306` packs dist's top-level names, not `.` (naming `index.html assets` by hand drops `logo.svg`),
   with the reason in one line: the unpacker rejects `./`.
 - `verify-release.mjs` gets an archive-layout check that mirrors
   `frontend.rs:348-354` exactly: list the entries with `tar -tzf` and fail

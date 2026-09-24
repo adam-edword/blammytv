@@ -300,15 +300,27 @@ the bundle anyway, but do not make the app prove it for you.
    NATIVE release left them: their version is what the bundle must declare
    as `nativeVersion`, and it is what the native updater compares.
 
-2. **Build and pack** (from `apps/app`):
+2. **Build, pack, and check the pack** (from `apps/app`):
    ```powershell
    pnpm build
-   tar -czf frontend-<version>.tar.gz -C dist .
+   tar -czf frontend-<version>.tar.gz -C dist (Get-ChildItem dist -Name)
+   node ..\..\scripts\verify-release.mjs frontend-<version>.tar.gz
    ```
-   **tar.gz, not zip**, and the archive's paths are relative to `dist/` so
-   `index.html` sits at the archive root. The unpacker refuses absolute
-   paths and anything containing `..`, so a wrongly-rooted archive fails
-   closed rather than scattering files.
+   **tar.gz, not zip**, with `index.html` at the archive root.
+
+   **Name dist's contents; never pack `.`** The unpacker (`frontend.rs`,
+   unchanged since 0.9.0) refuses any entry whose path is not plain names
+   all the way down: absolute paths, `..`, and a leading `./`. And
+   `tar -C dist .` writes `./` and `./index.html`, so that command, which
+   this step said until v0.9.82, built a bundle every installed copy would
+   have refused, silently. `Get-ChildItem dist -Name` passes the top-level
+   names instead (`assets`, `index.html`, `logo.svg`, whatever else the
+   build puts there).
+
+   The last line is the check, run BEFORE signing: every entry is a path
+   the app will unpack, `index.html` is at the root, and nothing in `dist`
+   was left out. It reads the archive the way the app does. Don't sign a
+   bundle it fails.
 
 3. **Sign it with the same key:**
    ```powershell
@@ -346,6 +358,8 @@ the bundle anyway, but do not make the app prove it for you.
    The app verifies too and refuses to unpack a byte on mismatch, but a bad
    bundle should never reach a user in the first place — and a manifest
    pointing at a missing bundle fails silently, which is worse than loudly.
+   Both commands also re-run step 2's layout check, the second one against
+   the bytes actually published.
 
 **Native releases additionally publish a `frontend.json`** whose
 `nativeVersion` equals the new native version, so a user who installs it

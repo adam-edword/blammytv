@@ -7,6 +7,15 @@
  *
  *   node scripts/verify-release.mjs <file> <file.sig>
  *   node scripts/verify-release.mjs <manifest.json> [asset-file] [--offline]
+ *   node scripts/verify-release.mjs <frontend.tar.gz>
+ *
+ * A FRONTEND BUNDLE (.tar.gz) also gets its LAYOUT checked, in every mode
+ * that has its bytes, and on its own with no .sig straight after packing:
+ * each entry must be a path `frontend.rs` will unpack (it refuses a leading
+ * `./`, which `tar -C dist .` writes), `index.html` must be at the root, and,
+ * where the archive was just packed from it, nothing in apps/app/dist may be
+ * missing. RELEASING.md told you to pack `.` from 0.7 until v0.9.82: every
+ * installed copy would have refused the first frontend-only release.
  *
  * FILE MODE checks, in order, and says which one failed:
  *   1. the .sig's key id matches the pubkey compiled into the app
@@ -25,9 +34,11 @@
  * Pass a local asset file to additionally verify the bytes offline; without
  * one the url is fetched and verified, unless --offline says not to.
  */
-import { readFileSync } from "node:fs";
-import { basename } from "node:path";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { basename, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createHash, createPublicKey, verify } from "node:crypto";
+import { gunzipSync } from "node:zlib";
 
 const argv = process.argv.slice(2);
 const offline = argv.includes("--offline");
@@ -111,9 +122,121 @@ function checkSig(sig, expectedName) {
 const bytesOk = (bytes, sig) =>
   verify(null, createHash("blake2b512").update(bytes).digest(), key, sig.blob.subarray(10));
 
+/**
+ * The entry paths of a .tar.gz, read the way the tar crate hands them to
+ * `frontend.rs`: raw bytes, a GNU long name (`L`) or a pax `path=` record
+ * overriding the header's own name, the ustar prefix joined on.
+ */
+function tarPaths(gz) {
+  const buf = gunzipSync(gz);
+  const paths = [];
+  const str = (b) => b.toString("utf8").replace(/\0.*$/s, "");
+  let next = null;
+  for (let off = 0; off + 512 <= buf.length; ) {
+    const h = buf.subarray(off, off + 512);
+    if (h.every((x) => x === 0)) break;
+    const size = parseInt(str(h.subarray(124, 136)).trim() || "0", 8);
+    const type = String.fromCharCode(h[156] || 48);
+    const data = buf.subarray(off + 512, off + 512 + size);
+    off += 512 + Math.ceil(size / 512) * 512;
+    if (type === "L") {
+      next = str(data);
+      continue;
+    }
+    if (type === "x") {
+      const m = /(?:^|\n)\d+ path=([^\n]*)\n/.exec(data.toString("utf8"));
+      if (m) next = m[1];
+      continue;
+    }
+    if (type === "g") continue;
+    const prefix = str(h.subarray(345, 500));
+    const name = str(h.subarray(0, 100));
+    paths.push(next ?? (prefix ? `${prefix}/${name}` : name));
+    next = null;
+  }
+  return paths;
+}
+
+/**
+ * The rule `frontend.rs`'s `unpack` enforces, and has since 0.9.0: every
+ * component of every entry must be a plain name. Rust's `Path::components`
+ * folds away a "." in the MIDDLE of a path but keeps one at the start, so
+ * `./index.html` is `[CurDir, Normal]` and is refused, and so is the bare
+ * `./` that `tar -C dist .` writes first. That is exactly what RELEASING.md
+ * used to tell you to run: an archive every installed copy rejects.
+ */
+function refusedPath(p) {
+  if (/^[\\/]/.test(p)) return "absolute";
+  const parts = p.split(/[\\/]/);
+  if (/^[A-Za-z]:/.test(parts[0])) return "drive prefix";
+  if (parts[0] === ".") return "starts with ./";
+  if (parts.includes("..")) return "contains ..";
+  return null;
+}
+
+/** Every file under a directory, as archive-style relative paths. */
+function filesUnder(dir, rel = "") {
+  return readdirSync(join(dir, rel), { withFileTypes: true }).flatMap((d) => {
+    const p = rel ? `${rel}/${d.name}` : d.name;
+    return d.isDirectory() ? filesUnder(dir, p) : [p];
+  });
+}
+
+const DIST = fileURLToPath(new URL("../apps/app/dist", import.meta.url));
+
+/**
+ * `withDist`: also require every file in the local build. Only where the
+ * archive was just packed from it (layout-only and file mode), never for a
+ * published manifest, where the local dist may be any build at all. The
+ * first fix for the `./` problem named `index.html assets` by hand and
+ * quietly dropped `logo.svg`, which sits beside them; this is what caught it.
+ */
+function checkLayout(gz, withDist = false) {
+  let paths;
+  try {
+    paths = tarPaths(gz);
+  } catch (err) {
+    fail("the bundle is a tar.gz", String(err.message ?? err));
+    return;
+  }
+  if (withDist && existsSync(DIST)) {
+    const packed = new Set(paths.map((p) => p.replace(/^\.\//, "")));
+    const missing = filesUnder(DIST).filter((f) => !packed.has(f));
+    check(
+      "the bundle carries every file in apps/app/dist",
+      missing.length === 0,
+      missing.length ? `missing: ${missing.slice(0, 3).join(", ")}` : "",
+    );
+  }
+  const refused = paths
+    .map((p) => [p, refusedPath(p)])
+    .filter(([, why]) => why);
+  check(
+    "every entry is a path the app will unpack",
+    refused.length === 0,
+    refused.length
+      ? `${refused.length} refused, first: "${refused[0][0]}" (${refused[0][1]})`
+      : `${paths.length} entries`,
+  );
+  check(
+    "index.html sits at the archive root",
+    paths.includes("index.html"),
+    paths.includes("index.html") ? "" : "the app serves nothing without it",
+  );
+}
+
 // ---------------------------------------------------------------- file mode
 
+const isBundle = (name) => name.endsWith(".tar.gz");
+
 if (!a.endsWith(".json")) {
+  // A frontend bundle on its own: the layout check, straight after packing
+  // and before anything is signed (RELEASING.md, hot channel step 2).
+  if (!b && isBundle(a)) {
+    console.log(`\nchecking ${basename(a)}'s layout only (no .sig given)`);
+    checkLayout(readFileSync(a), true);
+    done();
+  }
   if (!b) {
     console.error("usage: node scripts/verify-release.mjs <file> <file.sig>");
     process.exit(2);
@@ -125,7 +248,9 @@ if (!a.endsWith(".json")) {
     done();
   }
   checkSig(sig, basename(a));
-  check("signature over the file's bytes", bytesOk(readFileSync(a), sig));
+  const bytes = readFileSync(a);
+  check("signature over the file's bytes", bytesOk(bytes, sig));
+  if (isBundle(a)) checkLayout(bytes, true);
   done();
 }
 
@@ -192,11 +317,13 @@ for (const entry of entries) {
   let bytesChecked = false;
 
   if (b) {
+    const local = readFileSync(b);
     check(
       "signature over the local asset's bytes",
-      basename(b) === asset && bytesOk(readFileSync(b), sig),
+      basename(b) === asset && bytesOk(local, sig),
       basename(b) === asset ? "" : `${basename(b)} is not ${asset}`,
     );
+    if (kind === "frontend.json") checkLayout(local);
     bytesChecked = true;
   }
 
@@ -223,6 +350,7 @@ for (const entry of entries) {
         bytesOk(bytes, sig),
         `${bytes.length} bytes`,
       );
+      if (kind === "frontend.json") checkLayout(bytes);
       bytesChecked = true;
     }
   }

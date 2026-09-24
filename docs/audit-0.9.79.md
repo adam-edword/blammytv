@@ -35,10 +35,11 @@ commit). Both were v0.9.79 bugs.
    (`tar-0.4.46 entry.rs:304-322`), and `frontend.rs:348-354` rejects any
    component that is not a plain name, so `./` fails. v0.9.0 has the same
    check. The first frontend-only release would fail closed on every
-   machine, silently. **Fix, docs and harness only:**
-   `tar -czf … -C dist index.html assets`, plus a `verify-release` check
+   machine, silently. **Fix, docs and harness only:** pack dist's
+   top-level names rather than `.` (naming `index.html assets` by hand, as
+   first proposed here, drops `logo.svg`), plus a `verify-release` check
    that no entry starts with `./` or `/`. Tolerating `CurDir` in the
-   unpacker can wait for a native release.
+   unpacker can wait for a native release. **Fixed in v0.9.82.**
 2. **CI does not run the gate.** *checked.* `ci.yml` runs on push and PR to
    `main` only, and runs typecheck, lint and unit tests. No `check-rust`,
    no clippy, no `cargo test`, no `verify-version`, no `pnpm verify`. The 9
