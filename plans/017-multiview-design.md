@@ -1,9 +1,10 @@
 # 017: Multi-view, designed
 
-**Status: DECIDED (2026-09-24).** Adam answered M1 to M9 the same day and
-added three things: the Focus split is resizable, multi-view gets its own
-tab between Guide and Sports, and every tile closes from an X on the tile.
-Nothing is built yet. Written after Adam's first real
+**Status: IN PROGRESS. P1 shipped in v0.9.105** (the tab, its bar, the
+layout engine); P2, the tile, is next. Decided 2026-09-24: Adam answered M1
+to M9 the same day and added three things: the Focus split is resizable,
+multi-view gets its own tab between Guide and Sports, and every tile closes
+from an X on the tile. Written after Adam's first real
 multi-view sessions: the streams work (v0.9.101's proxy, v0.9.104's
 buffering, 60s with 0 hitches), and the screen around them does not. His
 words: "we need a MAJOR design pass", and "the players are also simply just
@@ -472,6 +473,31 @@ natural split aligned, the split clamped; at 1400x900, 1920x1080 and
 between Guide and Sports, the capsule navigates away, every picture is
 16:9, nothing overlaps, nothing covers a picture at rest, and leaving the
 tab closes every stream.
+
+**P1 done in v0.9.105.** `mvLayout.ts` with 137 unit tests
+(`mvLayout.test.ts`), `MultiviewTab.tsx`, and `verify-multiview.mjs` (28
+checks), each mutation-tested. Where it differs from the above:
+- **The tab icon is Adam's**, a regular and filled pair (`ui/icons/
+  multiview*.svg`), off and on like the rest of the capsule.
+- **The rail stays** on the right until P3's palette replaces it, so the
+  stage is narrower than frame G's. The Tiles size switch (2, 3, 4) stays
+  in the bar for the same reason: count-follows-channels is P3.
+- **The live games** in the rail come from the Sports board's last look
+  (`multiviewEntry.ts`), dropped after 30 minutes. Only the board fetches
+  games, and fetching the whole board again from here is 151 requests a
+  day. P3's palette reads the same snapshot.
+- **The Grid / Focus switch** is in P1 rather than waiting for its key in
+  P4, and remembered per count.
+- **F14 is fixed in P1**, as a side effect of the size moving into the tab:
+  the clamp to the line is no longer written back over your choice.
+- **The sound tile's ring is an outline** outside the picture, not a
+  border: a border took 4px out of a picture that is exactly 16:9.
+- **The bar drops its words on a narrow window.** The capsule's left edge
+  is about 291px short of the midline on this tab, and the window goes
+  down to 1000px, so under roughly 1260px the controls would meet it. It
+  is measured, not a media query, because the UI scale moves the number.
+- **Full screen this tab turned on is turned off on the way out.** One it
+  found already on is left alone.
 
 **P2. The tile.** The rest and hover chrome, the Sound badge, the info (guide
 now and next, game score), the states table with reasons from the proxy

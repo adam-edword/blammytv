@@ -16,6 +16,7 @@ import {
   GuideIcon,
   LibraryIcon,
   MoviesIcon,
+  MultiviewIcon,
   SeriesIcon,
   SettingsIcon,
   SportsIcon,
@@ -57,14 +58,15 @@ export type Section = "live" | "stream";
 export type StreamTab = "home" | "discover" | "mylist";
 
 /** The Live side's pages, mirroring the Stream rail. Sports is plan 010,
- * shipped behind a BETA badge while its data source is still a bet. */
-export type LiveTab = "guide" | "sports";
+ * shipped behind a BETA badge while its data source is still a bet.
+ * Multi-view is plan 017: a tab of its own, between the two. */
+export type LiveTab = "guide" | "multiview" | "sports";
 
 /**
  * THE DESTINATIONS, flat.
  *
  * The header used to show two SIDES (Live TV | Stream) with a sub-rail
- * under each. The capsule shows all five pages at once instead, so the
+ * under each. The capsule shows every page at once instead, so the
  * side is no longer something the user navigates — it is just which half
  * of the bar a destination sits in, marked by the app mark between them.
  *
@@ -85,6 +87,7 @@ const DESTS: Array<{
   beta?: boolean;
 }> = [
   { key: "guide", label: "Guide", side: "live", Icon: GuideIcon },
+  { key: "multiview", label: "Multi-view", side: "live", Icon: MultiviewIcon },
   { key: "sports", label: "Sports", side: "live", Icon: SportsIcon, beta: true },
   { key: "home", label: "Stream", side: "stream", Icon: StreamIcon },
   { key: "discover", label: "Discover", side: "stream", Icon: DiscoverIcon },

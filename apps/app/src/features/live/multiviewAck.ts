@@ -1,9 +1,10 @@
 import { load, save } from "../../lib/storage";
 import type { GridSize } from "./multiview";
+import type { MvKind } from "./mvLayout";
 
 /**
- * What multi-view remembers between sessions (plan 013): the notice, and
- * the grid size.
+ * What multi-view remembers between sessions (plan 013): the notice, the
+ * grid size, and (plan 017) Grid or Focus for each size.
  *
  * Whether the notice has been acknowledged.
  *
@@ -44,4 +45,26 @@ export function loadGridSize(): GridSize {
 
 export function saveGridSize(n: GridSize): void {
   save(SIZE_KEY, VERSION, n);
+}
+
+/**
+ * Grid or Focus, per tile count (plan 017, "Layouts": "The switch is
+ * remembered per count"). Per count because the right answer differs by
+ * count: three is Focus by default and four is Grid, and flipping one
+ * should not flip the other.
+ */
+const KINDS_KEY = "multiviewLayouts";
+
+export function loadLayoutKinds(): Partial<Record<GridSize, MvKind>> {
+  const raw = load<Record<string, unknown>>(KINDS_KEY, VERSION, {});
+  const out: Partial<Record<GridSize, MvKind>> = {};
+  for (const n of [2, 3, 4] as const) {
+    const k = raw?.[n];
+    if (k === "grid" || k === "focus") out[n] = k;
+  }
+  return out;
+}
+
+export function saveLayoutKinds(kinds: Partial<Record<GridSize, MvKind>>): void {
+  save(KINDS_KEY, VERSION, kinds);
 }

@@ -7,7 +7,7 @@
 // with no CORS header; this is the frontend half, under the IPC stub
 // verify-live-idle uses:
 // - the tile reads from the URL mv_proxy_open returned, never the provider;
-// - closing multi-view hands it back: mv_proxy_close gets the same URL, and
+// - leaving multi-view hands it back: mv_proxy_close gets the same URL, and
 //   the connection to it closes (a held stream counts against the line's cap);
 // - a native build from before the proxy (no such command) falls back to
 //   reading the provider directly, as it did before.
@@ -122,8 +122,8 @@ async function open(proxyMode) {
     { port: PORT, mode: proxyMode },
   );
   await page.goto(URL, { waitUntil: "domcontentloaded" });
-  await page.locator('[data-dest="sports"]').click({ timeout: 30_000 });
-  await page.getByRole("button", { name: "Multi-view", exact: true }).click({ timeout: 20_000 });
+  // Its own tab since plan 017, between Guide and Sports.
+  await page.locator('[data-dest="multiview"]').click({ timeout: 30_000 });
   await page.locator(".mvscreen__search").fill("fake");
   await page.locator(".mvscreen__chan", { hasText: "Fake ESPN 4K" }).first().click();
   return { page, ctx, errors, requested };
@@ -185,12 +185,13 @@ const direct = (urls) => urls.filter((u) => u.startsWith("http://localhost:8081/
     JSON.stringify(afterTune.map(([c, u]) => `${c} ${u.replace(/.*\/mv\//, "")}`)),
   );
 
-  await page.getByRole("button", { name: "Close multi-view" }).click();
+  // Leaving the tab is the way out now; there is no close button.
+  await page.locator('[data-dest="guide"]').click();
   const t2 = Date.now();
   while (closed < 2 && Date.now() - t2 < 5_000) await page.waitForTimeout(100);
   const released = (await calls(page)).filter(([c]) => c === "mv_proxy_close");
   check(
-    "closing multi-view hands the URL back",
+    "leaving the Multi-view tab hands the URL back",
     released.length === 2 && released[1][1] === `http://127.0.0.1:${PORT}/mv/tok2`,
     JSON.stringify(released),
   );

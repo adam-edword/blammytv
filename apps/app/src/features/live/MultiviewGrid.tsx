@@ -1,117 +1,124 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { MultiviewTile } from "./MultiviewTile";
 import { MultiviewNotice } from "./MultiviewNotice";
 import { multiviewNoticeSeen } from "./multiviewAck";
-import { allowedSizes, usableSize, type GridSize } from "./multiview";
+import { MV_SPACING, mvLayout, type MvKind, type Rect } from "./mvLayout";
+import { VolumeIcon } from "../../ui/icons";
 import type { XtreamConnections } from "../../data/xtream";
 
 /**
- * The multi-view grid (plan 013): two, three or four live tiles, one with
- * sound.
+ * The multi-view stage (plans 013 and 017): up to four live tiles, one with
+ * sound, placed by mvLayout.
  *
- * Laid out in CSS rather than by pushing rects at anything. The native
- * player needs measured pixels because it is a child window under the page;
- * these are ordinary elements IN the page, so `grid-template-areas` does the
- * job and reflows for free. `multiview.ts#tileRects` computes the same
- * layouts for the native path and is not used here.
- *
- * THE SIZE IS CAPPED BY THE LINE, not by the layout. One tile is one
- * provider connection; see allowedSizes. A viewer on a 3-connection line is
- * never offered 4, and a viewer on a 1-connection line is told multi-view
- * cannot run rather than shown four dead rectangles.
+ * MEASURED AND PLACED, not a CSS grid. The grid it replaces split the stage
+ * into 1fr cells and letterboxed each picture somewhere inside its cell, so
+ * every tile was a black box of the wrong shape. Here the stage is measured
+ * and every picture is exactly 16:9, with its name in a caption row under it
+ * rather than on it (Adam, on M4: "as long as it doesn't cover the content").
  */
+
+/** Whole pixels for the element, so a picture's edges land on the grid. */
+const place = (r: Rect): CSSProperties => ({
+  left: Math.round(r.x),
+  top: Math.round(r.y),
+  width: Math.round(r.w),
+  height: Math.round(r.h),
+});
+
+const under = (r: Rect): CSSProperties => ({
+  left: Math.round(r.x),
+  top: Math.round(r.y + r.h),
+  width: Math.round(r.w),
+  height: MV_SPACING.caption,
+});
+
 export function MultiviewGrid({
   streams,
+  cells,
+  kind,
   conns,
-  size,
-  onSize,
-  onClose,
 }: {
   /** Up to four playable streams, already resolved to URLs. */
   streams: { id: string; name: string; url: string }[];
+  /** How many cells to lay out: the size the line allows. */
+  cells: number;
+  kind: MvKind;
   conns: XtreamConnections | null;
-  size: GridSize;
-  onSize: (n: GridSize) => void;
-  onClose: () => void;
 }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [box, setBox] = useState<Rect | null>(null);
+  // The stage's own size, re-read whenever it changes: the window, full
+  // screen, the rail. Layout-timed so the first paint already has tiles in
+  // their places rather than at 0,0 for a frame.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const read = () =>
+      setBox((was) => {
+        const w = el.clientWidth;
+        const h = el.clientHeight;
+        return was && was.w === w && was.h === h ? was : { x: 0, y: 0, w, h };
+      });
+    read();
+    const ro = new ResizeObserver(read);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   const [focus, setFocus] = useState(0);
   // The notice gates the first grid ever, not this mount. Read once: it is a
   // stored flag, and re-reading it on every render would let the accept
   // inside the notice race its own dismissal.
   const [needsNotice, setNeedsNotice] = useState(() => !multiviewNoticeSeen());
 
-  const sizes = allowedSizes(conns);
-  const usable = usableSize(size, conns);
-
-  // A playlist change can shrink the cap under a grid that is already open.
-  // Clamping here rather than in the picker means the tiles follow, instead
-  // of the control saying 3 while four streams keep running.
-  useEffect(() => {
-    if (usable !== null && usable !== size) onSize(usable);
-  }, [usable, size, onSize]);
-
   // Focus must always land on a tile that exists. Shrinking 4 to 2 while
   // watching tile 4 would otherwise leave every tile muted.
   useEffect(() => {
-    if (focus >= (usable ?? 0)) setFocus(0);
-  }, [focus, usable]);
+    if (focus >= cells) setFocus(0);
+  }, [focus, cells]);
 
-  if (usable === null) {
-    return (
-      <div className="mvgrid mvgrid--blocked">
-        <p>
-          Your line allows one stream at a time, so multi-view can’t run on it.
-        </p>
-        <button type="button" onClick={onClose}>
-          Back
-        </button>
-      </div>
-    );
-  }
-
-  const shown = streams.slice(0, usable);
+  const shown = streams.slice(0, cells);
+  const layout = box ? mvLayout(kind, cells, box, MV_SPACING) : null;
 
   return (
     <>
       {needsNotice && (
         <MultiviewNotice conns={conns} onAccept={() => setNeedsNotice(false)} />
       )}
-      <div className={`mvgrid mvgrid--${usable}`}>
-        {shown.map((s, i) => (
-          <MultiviewTile
-            key={s.id}
-            url={s.url}
-            name={s.name}
-            focused={i === focus}
-            onFocus={() => setFocus(i)}
-          />
-        ))}
-        {/* Fewer streams than tiles is normal: you opened a 4-up and only
-          * three games are on. An empty cell says so rather than collapsing
-          * the grid and moving everything else. */}
-        {Array.from({ length: usable - shown.length }, (_, i) => (
-          <div key={`empty-${i}`} className="mvtile mvtile--empty">
-            <span className="mvtile__name">Nothing here yet</span>
-          </div>
-        ))}
-      </div>
-      <div className="mvgrid__bar">
-        <span className="mvgrid__sizes" role="group" aria-label="Grid size">
-          {sizes.map((n) => (
-            <button
-              type="button"
-              key={n}
-              className={n === usable ? "is-on" : undefined}
-              aria-pressed={n === usable}
-              onClick={() => onSize(n)}
-            >
-              {n}
-            </button>
+      <div className="mvgrid" ref={ref}>
+        {layout &&
+          shown.flatMap((s, i) => {
+            const r = layout.tiles[i];
+            if (!r) return [];
+            const on = i === focus;
+            return [
+              <MultiviewTile
+                key={s.id}
+                url={s.url}
+                name={s.name}
+                focused={on}
+                onFocus={() => setFocus(i)}
+                style={place(r)}
+              />,
+              <div key={`cap-${s.id}`} className="mvcap" style={under(r)}>
+                <span className="mvcap__name">{s.name}</span>
+                {on && (
+                  <span className="mvcap__sound" aria-hidden>
+                    <VolumeIcon size={14} />
+                  </span>
+                )}
+              </div>,
+            ];
+          })}
+        {/* Fewer streams than cells is normal: you opened a 4-up and only
+          * three games are on. The empty cell keeps its place and says how
+          * to fill it, rather than the grid collapsing and moving the rest. */}
+        {layout &&
+          layout.tiles.slice(shown.length).map((r, i) => (
+            <div key={`empty-${i}`} className="mvtile mvtile--empty" style={place(r)}>
+              <span className="mvtile__hint">Pick a channel on the right</span>
+            </div>
           ))}
-        </span>
-        <button type="button" className="mvgrid__close" onClick={onClose}>
-          Close multi-view
-        </button>
       </div>
     </>
   );

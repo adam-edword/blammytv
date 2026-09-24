@@ -27,7 +27,7 @@ Run with `improve-animations execute <plan>` or hand to any agent.
 | [013](013-multiview.md) | Multiview: two to four sports at once | MEDIUM | ARCHITECTURE STANDS (web tiles through the native proxy since v0.9.101, verified on Adam's line); UI superseded by 017 |
 | [014](014-shadcn-and-glass.md) | shadcn/ui, and a layer of liquid glass | LOW | IN PROGRESS (L0 done; L1 partly: Button everywhere, Input and Popover since v0.9.79, seven generated components unused; L2, L3 and glass not started) |
 | [016](016-audit-work.md) | Working the v0.9.79 audit: release path, what broke, the system, each screen once | HIGH | IN PROGRESS (D1 to D8 agreed 2026-09-24; Tracks 0 and 1 done in v0.9.82 to v0.9.96; Track 2 replaced by 017) |
-| [017](017-multiview-design.md) | Multi-view, designed: an immersive mode, 16:9 tiles with info and controls, a search-first picker | HIGH | DECIDED (M1 to M9 answered 2026-09-24, plus a Multi-view tab, a resizable Focus split and an X per tile; mockups in chat; not built) |
+| [017](017-multiview-design.md) | Multi-view, designed: an immersive mode, 16:9 tiles with info and controls, a search-first picker | HIGH | IN PROGRESS (decided 2026-09-24; P1, the tab, its bar and the 16:9 layouts, shipped in v0.9.105; P2, the tile, next) |
 
 ## Recommended execution order & dependencies
 

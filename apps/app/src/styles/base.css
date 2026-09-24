@@ -526,7 +526,7 @@ button {
 /* ------------------------------------------------------- the nav capsule */
 
 /*
- * Five destinations and the app mark, floating over the content.
+ * The destinations and the app mark, floating over the content.
  *
  * THE MARK HOLDS THE WINDOW MIDLINE. The capsule is anchored at 50% and
  * then slid back by however far the mark sits from its own left edge, so

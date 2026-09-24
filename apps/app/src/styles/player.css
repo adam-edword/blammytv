@@ -990,101 +990,230 @@
 }
 
 /* ---------------------------------------------------------------------------
- * The multi-view grid (plan 013).
+ * The Multi-view tab (plan 017, P1).
  *
- * Ordinary elements in the page, not a native child window, so the layout is
- * grid-template-areas rather than measured rects and there is no clip hole to
- * keep in sync. The 3-up is one big plus two stacked: in a 16:9 box that is
- * twice the picture of three in a row, and it matches what three games
- * usually means. See multiview.ts for the arithmetic.
+ * A black page with its own bar, like the player. The bar sits in the
+ * header's band with the nav capsule in its centre: the header hides its
+ * clock and Settings while this tab is up (data-mv on the root) and the
+ * bar's two flanks take their places. Both fade together after two idle
+ * seconds (data-mv-idle), in 200ms, and come back in 140ms.
+ *
+ * The tiles are PLACED, not flowed: mvLayout measures the stage and every
+ * picture is exactly 16:9 with a caption row under it. The CSS grid this
+ * replaces split the stage into 1fr cells and letterboxed a picture
+ * somewhere inside each one.
  * ------------------------------------------------------------------------ */
 
-.mvgrid {
-  display: grid;
-  gap: 8px;
-  width: 100%;
-  height: 100%;
+.mvtab {
+  position: relative;
+  flex: 1;
+  min-width: 0;
   background: #000;
+  overflow: hidden;
 }
 
-.mvgrid--2 {
-  grid-template-columns: 1fr 1fr;
+/* The pointer goes with the bar, as it does over the player. */
+.mvtab.is-idle {
+  cursor: none;
 }
 
-.mvgrid--3 {
-  grid-template-columns: 2fr 1fr;
-  grid-template-rows: 1fr 1fr;
-  grid-template-areas:
-    "big top"
-    "big bottom";
-}
-.mvgrid--3 > :nth-child(1) {
-  grid-area: big;
-}
-.mvgrid--3 > :nth-child(2) {
-  grid-area: top;
-}
-.mvgrid--3 > :nth-child(3) {
-  grid-area: bottom;
+/* Under the bar, never beneath it: a revealed bar covers black, not a
+ * picture. The right edge leaves room for the rail until P3's palette
+ * replaces it. */
+.mvtab__stage {
+  position: absolute;
+  top: calc(var(--header-h, 92px) + 6px);
+  left: 28px;
+  right: calc(290px + 20px + 24px);
+  bottom: 28px;
 }
 
-.mvgrid--4 {
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1fr 1fr;
+.mvtab__rail {
+  position: absolute;
+  top: calc(var(--header-h, 92px) + 6px);
+  right: 20px;
+  bottom: 20px;
+  width: 290px;
 }
 
-.mvgrid--blocked {
+.mvtab__blocked {
+  position: absolute;
+  inset: 0;
   display: grid;
   place-content: center;
-  gap: 14px;
-  text-align: center;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+/* The header, on this tab. visibility rather than display for the clock
+ * and Settings, so the header keeps its height and --header-h (which the
+ * stage hangs from) does not move when you arrive. */
+:root[data-mv] .header__brand,
+:root[data-mv] .header__right {
+  visibility: hidden;
+}
+:root[data-mv] .header {
+  background: none;
+  transition: opacity 140ms var(--ease-out, ease);
+}
+:root[data-mv-idle] .header,
+:root[data-mv-idle] .mvbar {
+  opacity: 0;
+  transition-duration: 200ms;
+}
+/* Hidden is not clickable. A click on where the capsule was would
+ * otherwise navigate away from under a pointer that meant to wake the bar. */
+:root[data-mv-idle] .header > *,
+:root[data-mv-idle] .mvbar__side {
+  pointer-events: none;
+}
+
+.mvbar {
+  position: absolute;
+  top: 27px;
+  left: 28px;
+  right: 28px;
+  /* The capsule's closed height, so the flanks centre on its row. */
+  height: 65px;
+  z-index: 21;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  /* The capsule lives in the header underneath, in the middle of this
+   * box. Only the flanks take the pointer. */
+  pointer-events: none;
+  transition: opacity 140ms var(--ease-out, ease);
+}
+
+.mvbar__side {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  pointer-events: auto;
+}
+
+/* Segmented controls in the capsule's own glass, round-ended like it. */
+.mvseg {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  backdrop-filter: blur(5px) saturate(1.4);
+}
+
+.mvseg__label {
+  padding: 0 6px 0 10px;
+  font-size: 12px;
+  font-weight: 500;
   color: var(--text-muted);
 }
 
+/* A narrow window: the words go, the icons and numbers stay. See
+ * useCompactSide for why this is measured rather than a media query. */
+.mvbar__side.is-compact .mvseg__label,
+.mvbar__side.is-compact .mvseg__word {
+  display: none;
+}
+.mvbar__side.is-compact .mvseg button {
+  padding: 0 9px;
+}
+
+.mvseg button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 32px;
+  min-width: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition:
+    background-color 140ms var(--ease-out, ease),
+    color 140ms var(--ease-out, ease);
+}
+
+.mvseg button:hover {
+  color: var(--text);
+}
+
+.mvseg button.is-on {
+  background: color-mix(in srgb, var(--text) 16%, transparent);
+  color: var(--text);
+}
+
+.mvbar__icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  backdrop-filter: blur(5px) saturate(1.4);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.mvseg button:active,
+.mvbar__icon:active {
+  transform: scale(0.95);
+}
+
+.mvgrid {
+  position: absolute;
+  inset: 0;
+}
+
 .mvtile {
-  position: relative;
+  position: absolute;
   display: block;
   padding: 0;
-  border: 2px solid transparent;
+  border: 0;
   border-radius: 10px;
   overflow: hidden;
-  background: #000;
+  background: #111;
   cursor: pointer;
-  /* The focus ring is the only thing saying which tile has the sound, so it
-   * is a real border rather than an outline: an outline would be clipped by
-   * the overflow above. */
-  transition: border-color 140ms var(--ease-out, ease);
+  /* The sound tile's ring sits OUTSIDE the picture, in the gap. A border
+   * would take 4px out of a picture that is exactly 16:9 and letterbox it
+   * by a pixel; an outline is drawn outside the box and is not clipped by
+   * the tile's own overflow. */
+  outline: 2px solid transparent;
+  outline-offset: 3px;
+  transition: outline-color 140ms var(--ease-out, ease);
 }
 
 .mvtile.is-on {
-  border-color: var(--accent, #6c8cff);
+  outline-color: var(--accent, #6c8cff);
+}
+
+.mvtile:focus-visible {
+  outline-color: var(--text);
 }
 
 .mvtile__video {
   width: 100%;
   height: 100%;
-  /* contain, not cover: a tile is for watching a game, and cropping the
-   * score bug off the top of one is worse than letterboxing it. */
+  /* contain, not cover: the tile is 16:9 and nearly every channel is, so
+   * this changes nothing for them; a 4:3 channel gets bars rather than its
+   * score bug cropped off. */
   object-fit: contain;
   display: block;
-  background: #000;
-}
-
-.mvtile__name {
-  position: absolute;
-  left: 8px;
-  bottom: 8px;
-  max-width: calc(100% - 16px);
-  padding: 3px 8px;
-  border-radius: 6px;
-  background: rgb(0 0 0 / 0.6);
-  color: #fff;
-  font-size: 11.5px;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  pointer-events: none;
+  /* Transparent, so the tile's own fill shows until the first frame. On
+   * black it was black on black: a tile still tuning was invisible, and
+   * only its caption said anything was there. */
+  background: transparent;
 }
 
 .mvtile__error {
@@ -1098,59 +1227,45 @@
 }
 
 .mvtile--empty {
-  border-style: dashed;
-  border-color: rgb(255 255 255 / 0.14);
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 1.5px dashed rgb(255 255 255 / 0.16);
   cursor: default;
 }
 
-.mvgrid__bar {
+.mvtile__hint {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+/* The name, UNDER the picture (Adam, on M4: "as long as it doesn't cover
+ * the content"). */
+.mvcap {
+  position: absolute;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 2px 0;
-}
-
-.mvgrid__sizes {
-  display: inline-flex;
-  gap: 4px;
-}
-
-.mvgrid__sizes button,
-.mvgrid__close {
-  padding: 5px 11px;
-  border: 1px solid var(--border-strong);
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text-muted);
-  font: inherit;
+  gap: 7px;
+  padding: 0 2px;
   font-size: 12.5px;
-  cursor: pointer;
+  font-weight: 600;
+  color: rgb(255 255 255 / 0.92);
+  white-space: nowrap;
+  pointer-events: none;
 }
 
-.mvgrid__sizes button.is-on {
-  background: var(--text);
-  border-color: var(--text);
-  color: var(--bg);
+.mvcap__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* The multi-view screen: the grid, and the rail you fill it from. */
-
-.mvscreen {
-  display: grid;
-  grid-template-columns: 1fr 290px;
-  gap: 16px;
-  height: 100%;
-  min-height: 0;
-  padding: 16px;
+.mvcap__sound {
+  display: inline-grid;
+  flex: none;
+  color: var(--text);
 }
 
-.mvscreen__stage {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-}
+/* The rail you fill it from, until P3's palette. */
 
 .mvscreen__rail {
   display: flex;

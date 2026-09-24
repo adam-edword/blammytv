@@ -547,6 +547,40 @@ export function GuideIcon(p: NavIconProps) {
   return <Fluent {...p} reg={GUIDE_REG} fill={GUIDE_FILL} />;
 }
 
+/*
+ * MULTI-VIEW: one big picture and two stacked, Adam's pair (plan 017). The
+ * same idea as Fluent's, regular off and filled on, but drawn on different
+ * frames: 30x30 for the regular and 36x30 for the filled, the glyph 16 wide
+ * in both, 3 units further right in the wider one. So each weight gets its
+ * own viewBox ORIGIN and the same 16-unit SIZE, which is what Movies does
+ * below: the drawing is at one scale in both weights and only the frame
+ * moves. 16 wide on a 16 box is Guide's width, the other full-width glyph
+ * in the capsule.
+ *
+ * The regular's holes are drawn counter-clockwise inside clockwise rims, so
+ * the default nonzero fill cuts them without a fill-rule.
+ */
+const MULTIVIEW_REG =
+  "M7 12.3333C7 11.7442 7.47756 11.2666 8.06667 11.2666H15.5333C16.1224 11.2666 16.6 11.7442 16.6 12.3333V17.6666C16.6 18.2557 16.1224 18.7333 15.5333 18.7333H8.06667C7.47756 18.7333 7 18.2557 7 17.6666V12.3333ZM15.5333 12.3333H8.06667V17.6666H15.5333V12.3333ZM17.6667 12.3333C17.6667 11.7442 18.1442 11.2666 18.7333 11.2666H21.9333C22.5224 11.2666 23 11.7442 23 12.3333V13.3999C23 13.989 22.5224 14.4666 21.9333 14.4666H18.7333C18.1442 14.4666 17.6667 13.989 17.6667 13.3999V12.3333ZM21.9333 12.3333H18.7333V13.3999H21.9333V12.3333ZM17.6667 16.5999C17.6667 16.0108 18.1442 15.5333 18.7333 15.5333H21.9333C22.5224 15.5333 23 16.0108 23 16.5999V17.6666C23 18.2557 22.5224 18.7333 21.9333 18.7333H18.7333C18.1442 18.7333 17.6667 18.2557 17.6667 17.6666V16.5999ZM21.9333 16.5999H18.7333V17.6666H21.9333V16.5999Z";
+const MULTIVIEW_FILL =
+  "M11.0667 11.2666C10.4776 11.2666 10 11.7442 10 12.3333V17.6666C10 18.2557 10.4776 18.7333 11.0667 18.7333H18.5333C19.1224 18.7333 19.6 18.2557 19.6 17.6666V12.3333C19.6 11.7442 19.1224 11.2666 18.5333 11.2666H11.0667ZM20.6667 12.3333C20.6667 11.7442 21.1442 11.2666 21.7333 11.2666H24.9333C25.5224 11.2666 26 11.7442 26 12.3333V13.3999C26 13.989 25.5224 14.4666 24.9333 14.4666H21.7333C21.1442 14.4666 20.6667 13.989 20.6667 13.3999V12.3333ZM20.6667 16.5999C20.6667 16.0108 21.1442 15.5333 21.7333 15.5333H24.9333C25.5224 15.5333 26 16.0108 26 16.5999V17.6666C26 18.2557 25.5224 18.7333 24.9333 18.7333H21.7333C21.1442 18.7333 20.6667 18.2557 20.6667 17.6666V16.5999Z";
+
+/** Multi-view: its own tab, between Guide and Sports. */
+export function MultiviewIcon({ size = 22, className, filled }: NavIconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox={filled ? "10 7 16 16" : "7 7 16 16"}
+      fill="currentColor"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d={filled ? MULTIVIEW_FILL : MULTIVIEW_REG} />
+    </svg>
+  );
+}
+
 /** Sports. */
 export function SportsIcon(p: NavIconProps) {
   return <Fluent {...p} reg={SPORTS_REG} fill={SPORTS_FILL} />;
@@ -933,3 +967,26 @@ export function ExitFullscreenIcon({ size = 20, className }: IconProps) {
   );
 }
 
+
+/** Multi-view's Grid layout: four equal tiles. */
+export function GridLayoutIcon({ size = 16, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <rect x="3" y="4" width="8" height="7" rx="1.5" />
+      <rect x="13" y="4" width="8" height="7" rx="1.5" />
+      <rect x="3" y="13" width="8" height="7" rx="1.5" />
+      <rect x="13" y="13" width="8" height="7" rx="1.5" />
+    </Svg>
+  );
+}
+
+/** Multi-view's Focus layout: one big tile and a stack beside it. */
+export function FocusLayoutIcon({ size = 16, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <rect x="3" y="4" width="12" height="16" rx="1.5" />
+      <rect x="17" y="4" width="4" height="7" rx="1" />
+      <rect x="17" y="13" width="4" height="7" rx="1" />
+    </Svg>
+  );
+}

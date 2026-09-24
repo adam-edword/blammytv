@@ -9,9 +9,10 @@
  * "maybe we have one of the options in multiview be grid size so people can
  * decide to just watch two or 3 or 4 at a time"), with 4 as the ceiling.
  *
- * The tiles are web players now (MultiviewTile.tsx), laid out by CSS grid.
- * `tileRects`, which placed four native mpv windows, went with the native
- * slot refactor in v0.9.94: nothing ever called it outside its own tests.
+ * The tiles are web players now (MultiviewTile.tsx), placed by mvLayout.ts
+ * since plan 017. `tileRects`, which placed four native mpv windows, went
+ * with the native slot refactor in v0.9.94: nothing ever called it outside
+ * its own tests.
  */
 
 /** How many tiles. Four is the ceiling. */

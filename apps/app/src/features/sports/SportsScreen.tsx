@@ -29,10 +29,9 @@ import {
 import { GameCard } from "./GameCard";
 import { dayLabel, nowish } from "./day";
 import { SportsTheater } from "./SportsTheater";
-import { MultiviewScreen } from "./MultiviewScreen";
 import { useConnections } from "../live/connections";
-import { loadGridSize, saveGridSize } from "../live/multiviewAck";
-import { allowedSizes, type GridSize } from "../live/multiview";
+import { allowedSizes } from "../live/multiview";
+import { publishLiveGames, requestMultiview } from "../live/multiviewEntry";
 import { UpcomingCard } from "./UpcomingCard";
 import { useCatalog } from "./catalog";
 import { ALL_LEAGUES, league as byPath } from "./leagues";
@@ -195,17 +194,9 @@ export function SportsScreen({ home }: { home?: number } = {}) {
   // is the only reason it is not down with the other view state.
   const [open, setOpen] = useState<Fixture | null>(null);
   /**
-   * Multi-view, which is its own screen rather than a mode of the theater.
-   * The theater is one game; this is several. See MultiviewScreen.
-   */
-  const [multiview, setMultiview] = useState(false);
-  const [gridSize, setGridSize] = useState<GridSize>(loadGridSize);
-  const setGrid = useCallback((n: GridSize) => {
-    saveGridSize(n);
-    setGridSize(n);
-  }, []);
-  /**
-   * The line's connection cap, which is multi-view's real ceiling.
+   * The line's connection cap, which is multi-view's real ceiling, read
+   * here only to decide whether the board shows the way in. Multi-view
+   * itself is a tab of its own now (plan 017) and reads its own.
    *
    * Null while nothing is tuned, which is the state the board is in, so the
    * poll costs one small request. ONLY WHEN ONE PLAYLIST ANSWERS: with
@@ -399,6 +390,16 @@ export function SportsScreen({ home }: { home?: number } = {}) {
   // Memoised, not because building it is expensive but because `?? []`
   // mints a new array on every render and rowItems is derived from it.
   const today = useMemo(() => days[0]?.games ?? [], [days]);
+  // The Multi-view tab's shortcut row: today's live games that have a
+  // channel, as this board last saw them. See multiviewEntry.
+  useEffect(() => {
+    publishLiveGames(
+      today.filter(
+        (g): g is Fixture =>
+          isFixture(g) && g.state === "live" && g.channels.length > 0,
+      ),
+    );
+  }, [today]);
 
   const live = today.some((g) => g.state === "live");
   /**
@@ -683,21 +684,6 @@ export function SportsScreen({ home }: { home?: number } = {}) {
     return <TournamentDraw event={current} onClose={() => setOpenDraw(null)} />;
   }
 
-  if (multiview) {
-    return (
-      <MultiviewScreen
-        live={today.filter(
-          (g): g is Fixture =>
-            isFixture(g) && g.state === "live" && g.channels.length > 0,
-        )}
-        conns={cap}
-        size={gridSize}
-        onSize={setGrid}
-        onClose={() => setMultiview(false)}
-      />
-    );
-  }
-
   if (open) {
     // Re-read from the refreshed board so the theater follows the game's
     // STATE, not its score: the header carries two badges and two names and
@@ -747,17 +733,18 @@ export function SportsScreen({ home }: { home?: number } = {}) {
         * the board having a thin night is no reason to hide the door. The
         * only real gate is a line that cannot carry two streams at once.
         *
-        * The picking happens on the multi-view screen rather than here: the
+        * The picking happens on the Multi-view tab rather than here: the
         * cards are memo()d with a deliberately stable onOpen, and threading
         * a selection mode through them is the change that re-renders the
-        * whole board on every tick. */}
+        * whole board on every tick. The button goes to that tab (plan 017),
+        * which reads this board's live games through multiviewEntry. */}
       {allowedSizes(cap).length > 0 && (
         <div className="sports__mv">
           <Button
             variant="outline"
             type="button"
             className="sports__mvbtn"
-            onClick={() => setMultiview(true)}
+            onClick={requestMultiview}
           >
             Multi-view
           </Button>

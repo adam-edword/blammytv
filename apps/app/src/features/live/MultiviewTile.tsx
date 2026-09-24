@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { scrubbedMessage } from "../../lib/errors";
 import { isTauri, tauriMvProxyClose, tauriMvProxyOpen } from "../../lib/tauri";
 import {
@@ -31,6 +31,11 @@ import {
  * redirect and adds the header, and the tile reads from 127.0.0.1. The
  * .m3u8 path still goes direct: proxying HLS means rewriting every playlist
  * the stream hands back, and his panel serves .ts.
+ *
+ * PLACED, NOT FLOWED (plan 017). The grid hands each tile its rect from
+ * mvLayout and the tile goes exactly there, so a layout change moves the
+ * element instead of re-creating it: the stream keeps playing through it.
+ * The name is not drawn here any more; it is the caption under the picture.
  */
 
 /**
@@ -61,12 +66,15 @@ export function MultiviewTile({
   name,
   focused,
   onFocus,
+  style,
 }: {
   url: string;
   name: string;
   /** The one tile with sound. Exactly one, enforced by the grid. */
   focused: boolean;
   onFocus: () => void;
+  /** Where the picture goes, from mvLayout. */
+  style?: CSSProperties;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -212,6 +220,7 @@ export function MultiviewTile({
     <button
       type="button"
       className={"mvtile" + (focused ? " is-on" : "")}
+      style={style}
       onClick={onFocus}
       aria-pressed={focused}
       aria-label={focused ? `${name}, playing audio` : `${name}, muted`}
@@ -223,7 +232,6 @@ export function MultiviewTile({
         autoPlay
         muted
       />
-      <span className="mvtile__name">{name}</span>
       {error && <span className="mvtile__error">{error}</span>}
     </button>
   );

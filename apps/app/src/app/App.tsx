@@ -17,6 +17,8 @@ import { Onboarding } from "./Onboarding";
 import { onOnboardingReplay, shouldShowOnboarding } from "./onboardingGate";
 import { LiveScreen } from "../features/live/LiveScreen";
 import { SportsScreen } from "../features/sports/SportsScreen";
+import { MultiviewTab } from "../features/live/MultiviewTab";
+import { onMultiviewRequest } from "../features/live/multiviewEntry";
 import {
   loadPlaylists,
   onPlaylistsChange,
@@ -175,6 +177,15 @@ export function App() {
       onReturnRequest((from) => {
         setSection("stream");
         setStreamTab(from);
+      }),
+    [],
+  );
+  // The Sports board's Multi-view button → the Multi-view tab (plan 017).
+  useEffect(
+    () =>
+      onMultiviewRequest(() => {
+        setSection("live");
+        setLiveTab("multiview");
       }),
     [],
   );
@@ -349,7 +360,7 @@ export function App() {
    *
    * WAAPI rather than a CSS class on a wrapper. .app-main's children are
    * its flex items and every screen sizes itself against that, so wrapping
-   * them to hang a class on would re-lay-out all five.
+   * them to hang a class on would re-lay-out every one of them.
    */
   const mainRef = useRef<HTMLElement>(null);
   const swap = useRef<Animation | null>(null);
@@ -402,6 +413,8 @@ export function App() {
       <main className="app-main" ref={mainRef}>
         {dest === "sports" ? (
           <SportsScreen home={Number(destHome)} />
+        ) : dest === "multiview" ? (
+          <MultiviewTab />
         ) : dest === "guide" ? (
           <LiveScreen modalOpen={settingsOpen} />
         ) : dest === "discover" ? (
