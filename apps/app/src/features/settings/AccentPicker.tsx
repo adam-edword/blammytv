@@ -52,7 +52,16 @@ const eyeDropper = (window as { EyeDropper?: EyeDropperCtor }).EyeDropper;
  * the colour rather than a border painted onto it. */
 const ON_RING = "ring-2 ring-ring ring-offset-2 ring-offset-background";
 
-export function AccentPicker() {
+export function AccentPicker({
+  portalContainer,
+}: {
+  /** Where the Custom popover portals. Onboarding passes its own root,
+   * because that overlay counter-zooms the UI scale and <body> does not:
+   * on a replay at scale 1.2, a popover on <body> measured 190px right of
+   * its chip, 101px low and 20% too big. Inside the overlay it shares the
+   * overlay's zoom. */
+  portalContainer?: HTMLElement | null;
+} = {}) {
   const [accent, setAccent] = useState(loadAccent);
   const [custom, setCustom] = useState(loadCustomAccent);
   // Seeded from whatever the Custom chip will show, for the same reason as
@@ -99,7 +108,7 @@ export function AccentPicker() {
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-2.5" role="group" aria-label="Accent colour">
+    <div className="flex flex-wrap items-center gap-2.5" role="group" aria-label="Accent color">
       <Button
         variant="outline"
         size="icon"
@@ -189,7 +198,11 @@ export function AccentPicker() {
          * the old Themes picker's class: settings.css still positioned it
          * absolutely, the Radix wrapper measured 0x0, and the popover
          * opened 246px left of this chip instead of under it. */}
-        <PopoverContent align="start" className="accent-picker w-auto p-3">
+        <PopoverContent
+          align="start"
+          container={portalContainer}
+          className="accent-picker w-auto p-3"
+        >
           <HexColorPicker color={customShown || "#c22727"} onChange={pickCustom} />
           {/* The picker's own 220px (vendor.css), so the row lines up with
            * the square above it. Left to size itself, the hex Input's
@@ -201,7 +214,7 @@ export function AccentPicker() {
                 variant="outline"
                 size="icon"
                 type="button"
-                aria-label="Pick a colour from the screen"
+                aria-label="Pick a color from the screen"
                 title="Pick from screen"
                 onClick={async () => {
                   try {
@@ -221,7 +234,7 @@ export function AccentPicker() {
               </span>
               <Input
                 value={draft}
-                aria-label="Hex colour"
+                aria-label="Hex color"
                 spellCheck={false}
                 maxLength={6}
                 className="pl-6 font-mono uppercase"

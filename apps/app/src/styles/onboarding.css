@@ -373,48 +373,25 @@
 .onb-chips .chip-tabs__tab {
   font-size: 15px;
 }
-.onb-chips--labeled {
-  display: flex;
+/* Step 3's two labeled rows, Accent and Clock. One grid, so the labels
+ * share a column and both controls start on the same edge; two centred
+ * rows of different widths put the labels at two different x. */
+.onb-prefs {
+  display: grid;
+  grid-template-columns: auto auto;
   align-items: center;
-  gap: 12px;
-  margin-top: 2px;
-}
-.onb-chips__label {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.5);
-}
-
-.onb-swatches {
-  display: flex;
-  gap: 14px;
+  justify-items: start;
+  column-gap: 16px;
+  row-gap: 20px;
   margin-top: 12px;
 }
-.onb-swatch {
-  width: 34px;
-  height: 34px;
-  border: 0;
-  border-radius: 50%;
-  cursor: pointer;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
-  transition:
-    transform 160ms var(--ease-out),
-    box-shadow 180ms ease;
+.onb-prefs .onb-chips {
+  margin-top: 0;
 }
-.onb-swatch:hover {
-  transform: scale(1.08);
-}
-/* Selection must beat hover, and the pick gets a visible payoff: the
- * chosen color blooms around its swatch. */
-.onb-swatch.is-on {
-  transform: scale(1.2);
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.25),
-    0 0 0 3px #fff,
-    0 0 22px 4px color-mix(in srgb, var(--accent) 65%, transparent);
-}
-.onb-swatch:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.7);
-  outline-offset: 3px;
+.onb-chips__label {
+  justify-self: end;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 /* Back (bottom-left) mirrors Skip (bottom-right). Escape works too. */
@@ -460,8 +437,3 @@
    * the hosts never start the finale timeline under reduced motion. */
 }
 
-/* ---- Press feedback (motion plan 001) — the .onb-btn exemplar's
- * sibling. ---- */
-.onb-swatch:active {
-  transform: scale(0.97);
-}

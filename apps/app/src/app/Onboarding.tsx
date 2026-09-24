@@ -44,6 +44,7 @@ import { authenticate } from "../data/xtream";
 import { discoverEndpoint } from "../data/stalker";
 import { httpGetText } from "../lib/http";
 import { scrubbedMessage } from "../lib/errors";
+import { AccentPicker } from "../features/settings/AccentPicker";
 import { ChipTabs } from "../ui/ChipTabs";
 import { markOnboarded } from "./onboardingGate";
 import { bootVars, markWelcomePlayed } from "./welcome";
@@ -139,6 +140,10 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   }, [step, phase]);
 
   const bootRef = useRef<BootSceneHandle>(null);
+  /** The overlay root, as state so the accent picker re-renders with it.
+   * Its Custom popover portals here rather than to <body>, to share the
+   * overlay's counter-zoom (see AccentPicker's portalContainer). */
+  const [root, setRoot] = useState<HTMLDivElement | null>(null);
   const swapTimer = useRef(0);
   const autoTimer = useRef(0);
 
@@ -248,17 +253,23 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   // the current step's action. Repeat is ignored (holding Enter must
   // not blow through the whole flow), and INPUT/BUTTON targets handle
   // Enter natively (a focused swatch must pick, not pick-and-advance).
+  //
+  // Both keys belong to the accent picker's popover while it is open.
+  // Radix closes it on Escape and marks the event handled, and that
+  // Escape must not also step back. Enter on the colour square (a div
+  // slider, so the tag test misses it) must not advance past it.
   const primaryRef = useRef<() => void>(() => {});
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.repeat) return;
+      if (e.repeat || e.defaultPrevented) return;
       if (e.key === "Escape") {
         retreatRef.current();
         return;
       }
       if (e.key !== "Enter") return;
-      const tag = (e.target as HTMLElement).tagName;
-      if (tag === "INPUT" || tag === "BUTTON") return;
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "BUTTON") return;
+      if (target.closest?.("[data-slot='popover-content']")) return;
       primaryRef.current();
     };
     window.addEventListener("keydown", onKey);
@@ -743,20 +754,25 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           Make it yours
         </h1>
         <p className="onb-sub" style={idx(1)}>
-          Pick a clock. There&rsquo;s more in Settings.
+          Pick an accent and a clock. There&rsquo;s more in Settings.
         </p>
-        {/* The accent swatches stood here. They went with the Themes panel
-            in v0.9.58: that panel held the only picker, so a colour chosen
-            on this screen would have been permanent. A one-way door in an
-            onboarding flow is worse than no door. old/themes/ has both. */}
-        <div className="onb-chips onb-chips--labeled" style={idx(2)}>
+        {/* The accent picker is back (v0.9.97). It left in v0.9.58 because
+            the Themes panel held the only picker, and a colour chosen here
+            would have had no way back. Settings has had its own since
+            v0.9.79, so this is the same component, not a copy.
+            One grid for both rows so the labels share a column. */}
+        <div className="onb-prefs" style={idx(2)}>
+          <span className="onb-chips__label">Accent</span>
+          <AccentPicker portalContainer={root} />
           <span className="onb-chips__label">Clock</span>
-          <ChipTabs tabs={CLOCK_TABS} active={clock} onChange={pickClock} />
+          <div className="onb-chips">
+            <ChipTabs tabs={CLOCK_TABS} active={clock} onChange={pickClock} />
+          </div>
         </div>
         <Button variant="default" size="lg"
           type="button"
           className="onb-btn"
-          style={idx(4)}
+          style={idx(3)}
           onClick={advance}
         >
           Continue
@@ -808,7 +824,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
         </div>
         <p className="onb-sub" style={idx(2)}>
           Tip: Settings holds a lot more to make BlammyTV yours: sources,
-          playback, an accent color, and a few surprises.
+          playback, and a few surprises.
         </p>
         <Button variant="default" size="lg"
           type="button"
@@ -823,6 +839,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
 
   return (
     <div
+      ref={setRoot}
       className={
         "onb" +
         (finale ? " is-finale" : "") +

@@ -51,7 +51,7 @@ const root = () =>
 const openCustomize = async () => {
   await page.locator("button[aria-label='Settings']").click();
   await page.getByRole("button", { name: "Customize", exact: true }).click();
-  const group = page.getByRole("group", { name: "Accent colour" });
+  const group = page.getByRole("group", { name: "Accent color" });
   await group.waitFor({ timeout: 10_000 });
   return group;
 };
@@ -99,7 +99,7 @@ const place = await page.evaluate(async () => {
   await Promise.all(el.getAnimations().map((a) => a.finished));
   const p = el.getBoundingClientRect();
   const t = document
-    .querySelector("[aria-label='Accent colour'] [data-slot='popover-trigger']")
+    .querySelector("[aria-label='Accent color'] [data-slot='popover-trigger']")
     .getBoundingClientRect();
   return { dx: Math.round(p.left - t.left), gap: Math.round(p.top - t.bottom) };
 });
@@ -108,7 +108,7 @@ check(
   Math.abs(place.dx) <= 1 && place.gap >= 2 && place.gap <= 6,
   JSON.stringify(place),
 );
-await page.locator("input[aria-label='Hex colour']").fill("ff6a00");
+await page.locator("input[aria-label='Hex color']").fill("ff6a00");
 check("typing a full hex applies it", (await root()).inline === "#ff6a00");
 await page.keyboard.press("Escape");
 // ONE Escape closes the top layer only. Settings' own Escape listener used
@@ -117,7 +117,7 @@ await page.waitForTimeout(300);
 check(
   "Escape closes the popover and leaves Settings open",
   (await page.locator("[data-slot='popover-content']").count()) === 0 &&
-    (await page.getByRole("group", { name: "Accent colour" }).count()) === 1,
+    (await page.getByRole("group", { name: "Accent color" }).count()) === 1,
 );
 
 // 4. THE BOOT LINE. A reload must bring the pick back.
@@ -148,7 +148,7 @@ check("Reset removes the inline accent", (await root()).inline === "");
 check(
   "Reset re-ticks Default",
   (await page
-    .getByRole("group", { name: "Accent colour" })
+    .getByRole("group", { name: "Accent color" })
     .getByRole("button", { name: /Default/ })
     .getAttribute("aria-pressed")) === "true",
 );

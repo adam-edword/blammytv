@@ -113,7 +113,7 @@ if (!FAST) {
   const tvOk = await page.waitForSelector(".onb-hint--ok", { timeout: 10000 }).then(() => true).catch(() => false);
   check("TV verification succeeds", tvOk);
 
-  await page.waitForSelector(".onb-chips--labeled", { timeout: 8000 });
+  await page.waitForSelector(".onb-prefs", { timeout: 8000 });
   const pl = await page.evaluate(() =>
     JSON.parse(localStorage.getItem("blammytv.playlists") ?? "{}").data ?? []);
   check("xtream playlist saved on successful verify",
@@ -121,8 +121,19 @@ if (!FAST) {
       && pl[0].username === "u" && pl[0].enabled === true,
     JSON.stringify(pl));
 
-  // Clock. The accent swatches that shared this step went with the Themes
-  // panel in v0.9.58 — see Onboarding.tsx.
+  // Accent (v0.9.97): Settings' own picker, back on this step.
+  const accentGroup = page.getByRole("group", { name: "Accent color" });
+  check("step 3 carries the accent picker", (await accentGroup.count()) === 1);
+  await accentGroup.getByRole("button", { name: "Blue", exact: true }).click();
+  const picked = await page.evaluate(() => ({
+    inline: document.documentElement.style.getPropertyValue("--accent"),
+    stored: JSON.parse(localStorage.getItem("blammytv.accent") ?? "{}"),
+  }));
+  check("a swatch applies the accent and saves it on envelope v2",
+    picked.inline === "#3730ff" && picked.stored.v === 2 && picked.stored.data === "#3730ff",
+    JSON.stringify(picked));
+
+  // Clock.
   await page.getByRole("button", { name: "24h", exact: true }).click();
   const clock = await page.evaluate(() =>
     JSON.parse(localStorage.getItem("blammytv.clockFormat") ?? "{}").data);
@@ -130,7 +141,7 @@ if (!FAST) {
   await page.getByRole("button", { name: "Continue", exact: true }).click();
 
   // Startup tab.
-  await page.waitForSelector(".onb-chips:not(.onb-chips--labeled)", { timeout: 8000 });
+  await page.waitForSelector(".onb-stage > .onb-chips", { timeout: 8000 });
   await page.getByRole("button", { name: "Stream · Home" }).click();
   const startup = await page.evaluate(() =>
     JSON.parse(localStorage.getItem("blammytv.startupTab") ?? "{}").data);
@@ -224,6 +235,9 @@ if (!FAST) {
   check("completion persisted, overlay released, no cold boot after the finale",
     state.onboarded === "1" && released && !state.welcomeUp,
     JSON.stringify({ ...state, released }));
+  const kept = await page.evaluate(() =>
+    document.documentElement.style.getPropertyValue("--accent"));
+  check("the accent picked on step 3 is still on once the app is up", kept === "#3730ff", kept);
   await page.close();
 }
 
@@ -279,13 +293,95 @@ if (!FAST) {
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   const m3uOk = await page.waitForSelector(".onb-hint--ok", { timeout: 10000 }).then(() => true).catch(() => false);
   check("M3U verification succeeds", m3uOk);
-  await page.waitForSelector(".onb-chips--labeled", { timeout: 8000 });
+  await page.waitForSelector(".onb-prefs", { timeout: 8000 });
   const m3uSaved = await page.evaluate(() =>
     (JSON.parse(localStorage.getItem("blammytv.playlists") ?? "{}").data ?? [])[0]);
   check("m3u playlist saved",
     m3uSaved?.kind === "m3u" && m3uSaved?.url === "http://localhost:8082/playlist.m3u",
     JSON.stringify(m3uSaved));
   await page.close();
+}
+
+// 5d. The accent picker's Custom popover. The overlay counter-zooms the UI
+//     scale, so the popover portals INTO it: on <body> at scale 1.2 it
+//     opened 190px right of its chip and 101px low. The scale-1 run cannot
+//     see that, so the 1.2 check is the one that guards it.
+//     It never painted BEHIND the overlay, despite the overlay's z-index
+//     1000: .app-shell isolates, so that 1000 only counts inside the shell
+//     and a body popover's 70 beats it. The hit-test keeps it that way.
+//     Both keys also belong to the popover while it is open: Escape closes
+//     it without stepping back, Enter on the colour square does not advance.
+const toAccentStep = async (page) => {
+  await page.goto("http://localhost:4173/?onboarding=1");
+  await page.waitForSelector(".onb");
+  await page.getByRole("button", { name: "Get Started" }).click();
+  await page.waitForSelector(".onb-input", { timeout: 8000 });
+  await page.getByRole("button", { name: /later/ }).click();
+  await page.waitForSelector(".onb-fields", { timeout: 8000 });
+  await page.getByRole("button", { name: /later/ }).click();
+  await page.waitForSelector(".onb-prefs", { timeout: 8000 });
+  // Settled, so the entrance is not still moving the chip.
+  await page.waitForTimeout(1800);
+};
+const openCustom = async (page) => {
+  await page
+    .getByRole("group", { name: "Accent color" })
+    .getByRole("button", { name: /Custom/ })
+    .click();
+  await page.locator("[data-slot='popover-content']").waitFor({ timeout: 5000 });
+  return page.evaluate(async () => {
+    const el = document.querySelector("[data-slot='popover-content']");
+    await Promise.all(el.getAnimations().map((a) => a.finished));
+    const p = el.getBoundingClientRect();
+    const t = document
+      .querySelector("[aria-label='Accent color'] [data-slot='popover-trigger']")
+      .getBoundingClientRect();
+    const hit = document.elementFromPoint(p.left + p.width / 2, p.top + p.height / 2);
+    return {
+      onTop: !!hit && el.contains(hit),
+      dx: Math.round(p.left - t.left),
+      gap: Math.round(p.top - t.bottom),
+    };
+  });
+};
+const underChip = (at) => Math.abs(at.dx) <= 1 && at.gap >= 2 && at.gap <= 6;
+if (!FAST) {
+  const page = await newPage();
+  await toAccentStep(page);
+  const at = await openCustom(page);
+  check("custom popover paints above the onboarding overlay", at.onTop, JSON.stringify(at));
+  check("custom popover opens under its chip", underChip(at), JSON.stringify(at));
+
+  await page.locator("[data-slot='popover-content'] [role='slider']").first().focus();
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(700);
+  const afterEnter = await page.evaluate(() => ({
+    pop: !!document.querySelector("[data-slot='popover-content']"),
+    step3: !!document.querySelector(".onb-prefs"),
+  }));
+  check("Enter on the colour square does not advance the step",
+    afterEnter.pop && afterEnter.step3, JSON.stringify(afterEnter));
+
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(700);
+  const afterEsc = await page.evaluate(() => ({
+    pop: !!document.querySelector("[data-slot='popover-content']"),
+    step3: !!document.querySelector(".onb-prefs"),
+  }));
+  check("Escape closes the popover and stays on the step",
+    !afterEsc.pop && afterEsc.step3, JSON.stringify(afterEsc));
+  await page.keyboard.press("Escape");
+  const stepped = await page.waitForSelector(".onb-fields", { timeout: 8000 }).then(() => true).catch(() => false);
+  check("with it closed, Escape steps back as before", stepped);
+  await page.close();
+
+  // Settings → Replay onboarding runs it at whatever UI scale is stored.
+  const scaled = await newPage({ "blammytv.uiScale": JSON.stringify({ v: 1, data: 1.2 }) });
+  await toAccentStep(scaled);
+  const at12 = await openCustom(scaled);
+  check("ui scale 1.2: custom popover still opens under its chip",
+    at12.onTop && underChip(at12), JSON.stringify(at12));
+  await scaled.close();
 }
 
 // 5c. Back navigation: button + Escape walk backwards; hidden on step 0.
@@ -341,9 +437,9 @@ if (!FAST) {
   await page.getByRole("button", { name: /later/ }).click(); // streams
   await page.waitForSelector(".onb-fields", { timeout: 8000 });
   await page.getByRole("button", { name: /later/ }).click(); // live tv
-  await page.waitForSelector(".onb-chips--labeled", { timeout: 8000 });
+  await page.waitForSelector(".onb-prefs", { timeout: 8000 });
   await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await page.waitForSelector(".onb-chips:not(.onb-chips--labeled)", { timeout: 8000 });
+  await page.waitForSelector(".onb-stage > .onb-chips", { timeout: 8000 });
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.getByRole("button", { name: "Enter BlammyTV" }).click();
   // No timeline for reduced motion: the finale is a quick fade to the app.
