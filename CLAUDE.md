@@ -91,6 +91,14 @@ Watch for checks that pass VACUOUSLY, too. verify-stalker read 2/4 while
 the portal served nothing: the two that "passed" were negative assertions
 ("the adult genre is dropped"), and an empty page drops everything.
 
+## CI
+
+`.github/workflows/ci.yml` runs on every push to every branch: typecheck,
+lint and unit tests; `pnpm verify` (the board above); and on
+`windows-latest`, `cargo test` plus clippy held to the 9-warning baseline.
+That Windows job is the only place the Rust tests run at all. A push that
+turns it red is yours to fix before the next one.
+
 ## Confusion Protocol
 
 On high-stakes ambiguity: two plausible architectures, a request that

@@ -1,10 +1,18 @@
 name: CI
 
+# Every push to every branch, not only main. Until v0.9.83 this ran on main
+# and PRs into it, so a working branch (v0.9.74 to 0.9.82 on
+# claude/nice-heisenberg-67k4uk) went weeks without a single run. A PR from
+# a branch in this repo shows the push run's checks, since they attach to
+# the same commit, so there is no separate pull_request trigger to run
+# everything twice.
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
+
+# Nothing here writes to the repo.
+permissions:
+  contents: read
 
 # Cancel superseded runs on the same ref.
 concurrency:
@@ -15,6 +23,7 @@ jobs:
   check:
     name: typecheck · lint · test
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -38,3 +47,109 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+  # The headless harnesses, the same board as `pnpm verify` locally
+  # (CLAUDE.md, "Running the headless harnesses").
+  verify:
+    name: pnpm verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # playwright-core is deliberately not a dependency (verify-all.mjs's
+      # header), so install it beside the repo and point PW_FROM at it, the
+      # way the header says. Pinned to the version the harnesses are
+      # written against.
+      #
+      # Every harness launches Chromium from /opt/pw-browsers/chromium, the
+      # path the dev container provides. Link Playwright's own Chromium
+      # there rather than teaching 24 harnesses about CI.
+      - name: Install Playwright and Chromium
+        run: |
+          npm install --prefix /tmp/pw playwright@1.56.1
+          npx --prefix /tmp/pw playwright install --with-deps chromium
+          exe=$(node -e 'console.log(require("/tmp/pw/node_modules/playwright-core").chromium.executablePath())')
+          sudo mkdir -p /opt/pw-browsers
+          sudo ln -sf "$exe" /opt/pw-browsers/chromium
+
+      - name: Verify
+        env:
+          PW_FROM: /tmp/pw/x.js
+        run: pnpm verify
+
+  # The native layer, on the platform it is written for. CLAUDE.md's
+  # check-rust.mjs type-checks from Linux; this job is what that cannot do:
+  # it RUNS the Rust tests. frontend.rs's unpacker tests had never run
+  # anywhere before this job existed.
+  rust:
+    name: cargo test · clippy (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The crate embeds apps/app/dist (tauri.conf.json frontendDist).
+      - name: Build the frontend the crate embeds
+        run: pnpm --filter @blammytv/app build
+
+      # tauri.windows.conf.json bundles libmpv-2.dll, and the build script
+      # refuses to run without the file. Its contents don't matter here:
+      # libmpv is only loaded at runtime (libloading), and no test loads it.
+      # Same placeholder check-rust.mjs writes.
+      - name: libmpv placeholder
+        run: touch apps/app/src-tauri/libmpv-2.dll
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/app/src-tauri
+
+      - name: cargo test
+        working-directory: apps/app/src-tauri
+        run: cargo test --locked
+
+      # CLAUDE.md's baseline: 9 warnings, all the libmpv symbol transmutes
+      # at mpv.rs:89-103. Anything above that is new and fails the job.
+      - name: clippy (baseline 9 warnings)
+        working-directory: apps/app/src-tauri
+        run: |
+          cargo clippy --locked 2>&1 | tee clippy.txt
+          n=$(grep -E '^warning: ' clippy.txt | grep -vcE 'generated [0-9]+ warnings?' || true)
+          echo "clippy warnings: $n (baseline 9)"
+          if [ "$n" -gt 9 ]; then
+            echo "::error::clippy reports $n warnings, above the baseline of 9"
+            exit 1
+          fi

@@ -8,6 +8,10 @@ on:
   release:
     types: [published]
 
+# It reads the release event and a secret; it writes nothing to the repo.
+permissions:
+  contents: read
+
 jobs:
   notify:
     runs-on: ubuntu-latest

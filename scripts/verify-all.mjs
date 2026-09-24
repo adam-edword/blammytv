@@ -173,10 +173,18 @@ for (const n of all) {
   // clean run of zero checks.
   const pass = (r.out.match(/^\s*(PASS|✓)/gm) ?? []).length;
   const fail = (r.out.match(/^\s*(FAIL|✗)/gm) ?? []).length;
+  // CRASH is "it threw", not "it exited non-zero". Every harness exits 1
+  // when a check fails (`process.exit(fail ? 1 : 0)`), and until v0.9.83
+  // that alone made the row CRASH, so FAILED could never appear and a
+  // plain failing check read exactly like the dangerous shape above. A
+  // throw leaves a stack in the output; a failure leaves FAIL lines. A
+  // non-zero exit with neither also counts as CRASH: something died
+  // without saying so, which is worse, not better.
+  const threw = /^\s+at\s.+:\d+:\d+\)?\s*$/m.test(r.out);
   const status =
     r.signal === "SIGKILL"
       ? "TIMEOUT"
-      : r.code !== 0
+      : threw || (r.code !== 0 && !fail)
         ? "CRASH"
         : fail
           ? "FAILED"
