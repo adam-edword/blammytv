@@ -8,7 +8,7 @@ Rewritten 2026-09-24 against the tree rather than against the old version of
 this file, which still said "v0.1.109" at the top while the app was on
 v0.9.78.
 
-## Where we are (v0.9.78, 2026-09-24)
+## Where we are (v0.9.79, 2026-09-24)
 
 - **Released:** v0.9.0, the Sports tab, on 2026-08-23. That is what users run.
 - **Since then: 90 commits and no release, for 32 days.** The longest gap
@@ -16,7 +16,7 @@ v0.9.78.
   release went out every few days.
 - **`main` is at v0.9.73.** The redesign's first stretch (plan 014, below)
   landed there on 2026-09-13.
-- **`claude/nice-heisenberg-67k4uk` is at v0.9.78 and not in `main`.** It
+- **`claude/nice-heisenberg-67k4uk` is at v0.9.79 and not in `main`.** It
   carries the sports matcher fixes, the two console probes and multi-view.
   It fast-forwards onto `main` with no conflicts.
 - **No open GitHub issues.** The backlog lives in this file and `plans/`.
@@ -28,9 +28,9 @@ v0.9.78.
 
 | | State |
 |---|---|
-| **Redesign** (plan 014) | L0 done. L1 partly: Button is in 24 files, Combobox, DropdownMenu, Tooltip and Item are in use. **Input, Card, Dialog, Badge, Separator, Popover, Textarea, Skeleton and InputGroup were generated and have zero consumers.** L2, L3 and the glass have not started. |
+| **Redesign** (plan 014) | L0 done. L1 partly: Button is in 25 files, Combobox, DropdownMenu, Tooltip and Item are in use, and the accent picker (v0.9.79) is the first consumer of Input and Popover. **Card, Dialog, Badge, Separator, Textarea, Skeleton and InputGroup were generated and have zero consumers.** L2, L3 and the glass have not started. |
 | **Multi-view** (plan 013) | Built and reachable off the Sports board. **Never played a frame.** Everything below the demuxer is unit-tested; the demuxer itself is untested until someone opens it against a real stream. |
-| **Themes** | Parked at v0.9.58 because a pack outranks the base palette. **The current looks are being removed and the concept returns after 1.0 with new ones; the accent picker returns in M1** (decision 1 below). |
+| **Themes** | Parked at v0.9.58 because a pack outranks the base palette. **The current looks are being removed and the concept returns after 1.0 with new ones.** The accent picker is back on its own in v0.9.79 (decision 1 below). |
 | **Sports matcher** | Probed against the real 26,621-channel catalog on 2026-09-13 and fixed from that data. ACCNX, SECN+ and ESPNEWS still miss. |
 
 ### Debt from the multi-view work
@@ -154,16 +154,14 @@ it land rather than assume it did.
    run. If mpegts.js does not play, fix it or hide the button.
 3. Move multi-view onto the primitives: Button for the size picker, close
    and rail rows, Dialog for the notice, Input for the search.
-4. **Bring the accent picker back** (decision 1), in Settings → Customize,
-   built on the shadcn primitives from the start. Swatches plus the
-   react-colorful custom picker (still a dependency), and the boot line in
-   `main.tsx` goes back WITH it, never before, or a stored colour becomes
-   one nobody can clear again. The existing Reset already clears the
-   accent. Check a very light and a very dark custom colour on a primary
-   button: `--accent-ink` should flip the text, and any surface that
-   ignores it is a bug the redesign would otherwise have shipped. The old
-   `ACCENT_PRESETS` were chosen against the pre-shadcn palette, so look at
-   them rather than restoring them blind.
+4. ~~**Bring the accent picker back**~~ **Done in v0.9.79.** Settings →
+   Customize, top of Interface: a Default swatch (no accent, follows light
+   and dark), the seven presets, and Custom (react-colorful, the
+   EyeDropper, a hex field). Built on Button, Popover and Input. The boot
+   line in `main.tsx` went back in the same commit. `verify-accent.mjs`
+   covers the ink flip (Yellow dark, Blue light), the popover sitting above
+   the Settings sheet, the boot line (mutation-tested), and Reset. The
+   presets were looked at on screenshots and kept as they were.
 5. **Remove the current looks** (decision 1): the pack CSS, the pack lists,
    `verify-intense-themes.mjs`, and Aurora. Carefully in `ui.css` and
    `tokens.css`: the Aurora rules sit interleaved with live ones, and

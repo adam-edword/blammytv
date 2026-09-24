@@ -113,7 +113,7 @@ export function saveAccentStyle(style: AccentStyle): void {
  * that is the exact crossover between black and white contrast. No
  * dependency and no guessing at a brightness cutoff.
  */
-function inkFor(hex: string): string {
+export function inkFor(hex: string): string {
   const h = hex.replace("#", "");
   const full =
     h.length === 3

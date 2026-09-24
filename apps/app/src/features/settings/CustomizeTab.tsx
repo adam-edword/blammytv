@@ -41,6 +41,7 @@ import {
   type OverlayMetaField,
 } from "./overlayMeta";
 import { ROW_CAP_MAX, ROW_CAP_MIN, loadRowCap, saveRowCap } from "./rowCap";
+import { AccentPicker } from "./AccentPicker";
 import {
   clearAccent,
   saveAccent,
@@ -108,8 +109,8 @@ const SUB_OPTIONS: ComboboxOption[] = [
   ...LANG_OPTIONS,
 ];
 
-// Themes are their own pop-out panel now — the old "Theme" pill is gone; the
-// launcher at the top opens it. Accent + packs + Pass all live there.
+// The accent picker lives here again (ROADMAP decision 1). Theme packs and
+// the Themes Pass are parked in old/themes and come back later with new looks.
 export function CustomizeTab() {
   // Light/dark axis state exists only so reset() can force dark — the user
   // control (the Theme Style pill) lives in the Themes panel now.
@@ -201,13 +202,15 @@ export function CustomizeTab() {
     setCapDraft(null);
   };
 
+  /** Bumped by Reset so the accent picker remounts and re-reads storage:
+   * its selection is its own state, and a reset that cleared storage while
+   * the picker still ticked the old swatch would be lying. */
+  const [accentKey, setAccentKey] = useState(0);
+
   /** Back to factory appearance: default accent (custom slot cleared),
-   * default theme pack, dark theme, 100% scale, 12h
-   * clock, channel numbers shown. Startup Tab is NOT reset, even though it
-   * is displayed on this tab: it decides where the app OPENS, which is
-   * behaviour, and this button promises appearance. Accent + pack reset go
-   * straight through the storage/apply seams (their live state lives in the
-   * Themes panel, which isn't mounted here). */
+   * dark theme, 100% scale, 12h clock, channel numbers shown. Startup Tab is
+   * NOT reset, even though it is displayed on this tab: it decides where the
+   * app OPENS, which is behaviour, and this button promises appearance. */
   const reset = () => {
     // The factory accent is NO accent since v0.9.57: --accent then resolves
     // from tokens.css (shadcn's primary) and keeps flipping with the theme,
@@ -218,6 +221,7 @@ export function CustomizeTab() {
     saveAccentStyle("flat");
     saveAccentPairedBy("");
     saveCustomAccent("");
+    setAccentKey((k) => k + 1);
     pickTheme("dark");
     pickScale(1);
     pickClock("12h");
@@ -236,6 +240,17 @@ export function CustomizeTab() {
         * General TAB one level up. */}
       <h3 className="settings__group">Interface</h3>
       <section className="settings-section">
+        {/* Stacked, not a row: nine swatches do not fit beside a label. */}
+        <div className="customize-stack">
+          <div>
+            <h4 className="customize-row__title">Accent</h4>
+            <p className="settings__section-note settings__section-note--dim">
+              Buttons, toggles and highlights. Default follows light and dark.
+            </p>
+          </div>
+          <AccentPicker key={accentKey} />
+        </div>
+
         <div className="customize-row">
           <div>
             <h4 className="customize-row__title">Startup Tab</h4>

@@ -19,24 +19,26 @@ import { installPlayerPerf } from "./lib/playerPerf";
 import { installDiscoverProbe } from "./features/discover/probe";
 import { installSportsProbe } from "./features/sports/probe";
 import { installPlayerProbes } from "./features/live/probe";
-import {
-} from "./features/settings/accent";
+import { applyAccent, loadAccent } from "./features/settings/accent";
 import { applyTheme, loadTheme } from "./features/settings/theme";
 import { applyUiScale, loadUiScale } from "./features/settings/uiScale";
 
 // Apply saved appearance before first paint so nothing flashes.
-// NO ACCENT IS APPLIED AT ALL, so `--accent` always resolves from
-// tokens.css — shadcn's neutral primary, flipping with the theme.
 //
-// This used to honour a STORED accent, which was correct while a picker
-// existed. It stopped being correct in v0.9.58, when that picker went to
-// old/themes with the Themes panel: a profile carrying `#c22727` from an
-// older build kept painting the brand red on every launch, and there was no
-// longer any UI able to clear it. Reading storage here only resurrects a
-// choice the app can no longer offer. Same for a stored `aurora`.
+// A STORED ACCENT IS HONOURED AGAIN, because the picker is back
+// (Settings → Customize, v0.9.79). v0.9.60 removed this line for a good
+// reason: with the picker parked in old/themes, a stored `#c22727` repainted
+// the brand red on every launch and nothing in the app could clear it. Now
+// something can, so the choice is the user's again.
 //
-// applyAccent / applyAurora are untouched in accent.ts and this is one line
-// to put back alongside the picker.
+// Only when one was actually chosen. An empty accent means "never picked",
+// and then nothing is applied and `--accent` resolves from tokens.css:
+// shadcn's neutral primary, which flips with the theme where a stored hex
+// cannot. 0.9.0 only ever stored an accent on a real swatch click, so this
+// resurrects deliberate picks and nothing else. A stored `aurora` style is
+// ignored; Aurora is gone (ROADMAP decision 1).
+const accent = loadAccent();
+if (accent) applyAccent(accent);
 applyTheme(loadTheme());
 applyUiScale(loadUiScale());
 // Paid theme CSS, purely from cache — see license.ts's fail-open comment.
