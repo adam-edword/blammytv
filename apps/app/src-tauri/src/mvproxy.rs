@@ -66,6 +66,8 @@ fn client() -> &'static reqwest::Client {
             .read_timeout(Duration::from_secs(20))
             .user_agent(UA)
             .http1_only()
+            // Followed by hand in `fetch`, so a failure can say which hop.
+            .redirect(reqwest::redirect::Policy::none())
             .build()
             .expect("failed to build the stream proxy's HTTP client")
     })
@@ -181,6 +183,125 @@ fn origin_of(url: &str) -> String {
         .unwrap_or_else(|_| "(unparseable)".into())
 }
 
+/// "a" when the stream came from where it was asked for, "a -> b" when a
+/// redirect moved it. Origins only: the paths carry the line's credentials.
+fn route_of(asked: &str, landed: &reqwest::Url) -> String {
+    let from = origin_of(asked);
+    let to = landed.origin().ascii_serialization();
+    if to != from {
+        format!("{from} -> {to}")
+    } else {
+        from
+    }
+}
+
+/// Why `fetch` gave up, with the hop it was on.
+struct Failed {
+    at: reqwest::Url,
+    kind: &'static str,
+    cause: Option<reqwest::Error>,
+}
+
+/// GET with redirects followed here rather than inside reqwest. reqwest
+/// follows them in its tower layer, and an error on a later hop still
+/// carries the FIRST URL, so "could not connect" could not say to where.
+/// Adam's event channels 302 from a provider host that was answering to
+/// somewhere that was not (v0.9.101). Every hop stays a GET; a 3xx with no
+/// usable Location is returned as it is, and passed through as a status.
+async fn fetch(url: &str) -> Result<reqwest::Response, Failed> {
+    let mut at = reqwest::Url::parse(url).map_err(|_| Failed {
+        at: reqwest::Url::parse("http://invalid/").expect("static URL"),
+        kind: "not a URL",
+        cause: None,
+    })?;
+    for _ in 0..=10 {
+        let res = client()
+            .get(at.clone())
+            .header(header::ACCEPT, "*/*")
+            .send()
+            .await
+            .map_err(|e| Failed {
+                at: at.clone(),
+                kind: if e.is_timeout() {
+                    "timed out"
+                } else if e.is_connect() {
+                    "could not connect"
+                } else {
+                    "request failed"
+                },
+                cause: Some(e),
+            })?;
+        if !res.status().is_redirection() {
+            return Ok(res);
+        }
+        let next = res
+            .headers()
+            .get(reqwest::header::LOCATION)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|loc| at.join(loc).ok())
+            .filter(|u| matches!(u.scheme(), "http" | "https"));
+        match next {
+            Some(n) => at = n,
+            None => return Ok(res),
+        }
+    }
+    Err(Failed {
+        at,
+        kind: "too many redirects",
+        cause: None,
+    })
+}
+
+/// The innermost cause of a reqwest error, which is the part that says WHY
+/// (a DNS miss, a refused port, a certificate Windows does not trust).
+/// reqwest's own top-level message is the URL, so it is skipped, and every
+/// URL and path this request touched is cut from what is left.
+fn root_cause(e: &reqwest::Error, asked: &str, at: &reqwest::Url) -> String {
+    let mut deepest: &dyn std::error::Error = e;
+    while let Some(next) = deepest.source() {
+        deepest = next;
+    }
+    let mut msg = if std::ptr::addr_eq(deepest, e as &dyn std::error::Error) {
+        String::new()
+    } else {
+        deepest.to_string()
+    };
+    for u in [asked.to_string(), at.to_string()] {
+        if let Ok(parsed) = reqwest::Url::parse(&u) {
+            msg = msg.replace(&u, "[url]");
+            if parsed.path().len() > 1 {
+                msg = msg.replace(parsed.path(), "[path]");
+            }
+            if let Some(q) = parsed.query().filter(|q| !q.is_empty()) {
+                msg = msg.replace(q, "[query]");
+            }
+        }
+    }
+    msg
+}
+
+/// A 502 whose reason phrase says what went wrong, so the tile's console
+/// line carries it (mpegts.js reports the status text). Printable ASCII
+/// only, which is all a reason phrase may hold.
+fn bad_gateway(why: &str) -> Response<Body> {
+    let mut res = reply(StatusCode::BAD_GATEWAY);
+    let text: String = format!("Bad Gateway: {why}")
+        .chars()
+        .map(|c| {
+            if c.is_ascii_graphic() || c == ' ' {
+                c
+            } else {
+                ' '
+            }
+        })
+        .take(200)
+        .collect();
+    if let Ok(reason) = hyper::ext::ReasonPhrase::try_from(text) {
+        res.extensions_mut().insert(reason);
+    }
+    res
+}
+
 async fn handle(req: Request<Incoming>, port: u16) -> Result<Response<Body>, Infallible> {
     // Only ever addressed as 127.0.0.1:{port}. Anything else is a page that
     // rebound its own hostname onto loopback; the token would stop it too,
@@ -222,30 +343,34 @@ async fn handle(req: Request<Incoming>, port: u16) -> Result<Response<Body>, Inf
     let Some(url) = upstream else {
         return Ok(reply(StatusCode::NOT_FOUND));
     };
-    let origin = origin_of(&url);
 
-    let res = match client()
-        .get(&url)
-        .header(header::ACCEPT, "*/*")
-        .send()
-        .await
-    {
+    let res = match fetch(&url).await {
         Ok(r) => r,
-        Err(e) => {
-            // reqwest's message carries the URL, so say what KIND of failure.
-            let kind = if e.is_timeout() {
-                "timed out"
-            } else if e.is_connect() {
-                "could not connect"
+        Err(f) => {
+            // WHERE it failed (a redirect can move the stream to another
+            // server) and WHY. v0.9.101 said only "could not connect", on a
+            // provider whose own host was answering at the same moment.
+            let route = route_of(&url, &f.at);
+            let cause = f
+                .cause
+                .as_ref()
+                .map(|e| root_cause(e, &url, &f.at))
+                .unwrap_or_default();
+            let why = if cause.is_empty() {
+                format!("{} ({route})", f.kind)
             } else {
-                "request failed"
+                format!("{} ({route}): {cause}", f.kind)
             };
-            println!("[mvproxy] {origin}: {kind}");
-            return Ok(reply(StatusCode::BAD_GATEWAY));
+            println!("[mvproxy] {why}");
+            return Ok(bad_gateway(&why));
         }
     };
     let status = res.status();
-    println!("[mvproxy] {origin}: {}", status.as_u16());
+    println!(
+        "[mvproxy] {}: {}",
+        route_of(&url, res.url()),
+        status.as_u16()
+    );
     if !status.is_success() {
         // Passed through, so the tile's console line names the real code:
         // a 403 from the provider and a dead proxy are different problems.
@@ -288,11 +413,19 @@ mod tests {
 
     /// A provider that behaves like Adam's: the stream URL answers 302 with
     /// no CORS header, and the target serves MPEG-TS packets until the
-    /// reader goes away. `/forbidden` is a 403. `hung_up` flips when a
-    /// stream write fails, which is how a test sees the upstream released.
+    /// reader goes away. `/forbidden` is a 403. `/dead/…` redirects to a
+    /// port nothing listens on, the shape of his event channels' failure.
+    /// `hung_up` flips when a stream write fails, which is how a test sees
+    /// the upstream released.
     fn fake_provider() -> (String, Arc<AtomicBool>) {
         let l = TcpListener::bind("127.0.0.1:0").unwrap();
         let base = format!("http://{}", l.local_addr().unwrap());
+        // Bound and dropped, so the port is known to be closed.
+        let closed = TcpListener::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port();
         let hung_up = Arc::new(AtomicBool::new(false));
         let flag = hung_up.clone();
         std::thread::spawn(move || {
@@ -313,6 +446,11 @@ mod tests {
                     if path.starts_with("/live/") {
                         let _ = conn.write_all(
                             b"HTTP/1.1 302 Found\r\nLocation: /cdn/stream.ts\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                        );
+                    } else if path.starts_with("/dead/") {
+                        let _ = write!(
+                            conn,
+                            "HTTP/1.1 302 Found\r\nLocation: http://127.0.0.1:{closed}/edge/secret-token.ts\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
                         );
                     } else if path == "/cdn/stream.ts" {
                         let _ = conn.write_all(
@@ -360,6 +498,9 @@ mod tests {
         r.read_line(&mut status).unwrap();
         let code = status.split_whitespace().nth(1).unwrap().parse().unwrap();
         let mut headers = HashMap::new();
+        // The reason phrase, under a key no real header can have.
+        let reason = status.trim_end().splitn(3, ' ').nth(2).unwrap_or("");
+        headers.insert(":reason".to_string(), reason.to_string());
         loop {
             let mut h = String::new();
             r.read_line(&mut h).unwrap();
@@ -469,6 +610,24 @@ mod tests {
         let local = open(&format!("{base}/live/a/b/5.ts")).unwrap();
         let (code, _, _) = get(&local, "GET", Some("evil.example"));
         assert_eq!(code, 421);
+    }
+
+    #[test]
+    fn says_which_server_failed_and_why_without_the_path() {
+        let (base, _) = fake_provider();
+        let local = open(&format!("{base}/dead/user/pass/6.ts")).unwrap();
+        let (code, headers, _) = get(&local, "GET", None);
+        assert_eq!(code, 502);
+        let reason = &headers[":reason"];
+        // Where: the redirect's target, not just the provider asked.
+        assert!(reason.contains("could not connect"), "{reason}");
+        assert!(reason.contains(" -> http://127.0.0.1:"), "{reason}");
+        // Why: something past reqwest's own top-level message.
+        assert!(reason.contains("): "), "no cause in {reason}");
+        // Never a path: the first hop's carries the credentials.
+        for secret in ["user", "pass", "secret-token", "/edge/", "/dead/"] {
+            assert!(!reason.contains(secret), "{secret} leaked: {reason}");
+        }
     }
 
     #[test]

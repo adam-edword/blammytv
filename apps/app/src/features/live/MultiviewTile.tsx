@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { scrubbedMessage } from "../../lib/errors";
 import { isTauri, tauriMvProxyClose, tauriMvProxyOpen } from "../../lib/tauri";
+import {
+  getMvProfile,
+  mpegtsConfig,
+  onMvProfileChange,
+  registerTile,
+} from "./multiviewTuning";
 
 /**
  * One tile of the multi-view grid: a `<video>` with a demuxer bolted to it.
@@ -64,6 +70,10 @@ export function MultiviewTile({
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState<string | null>(null);
+  // The buffering profile (multiviewTuning.ts). A change re-creates the
+  // player, so btvMultiviewTune can A/B it on streams that are playing.
+  const [profile, setProfile] = useState(getMvProfile);
+  useEffect(() => onMvProfileChange(setProfile), []);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -116,7 +126,11 @@ export function MultiviewTile({
           });
           hls.loadSource(url);
           hls.attachMedia(video);
-          destroy = () => hls.destroy();
+          const unregister = registerTile({ name, video, speed: () => undefined });
+          destroy = () => {
+            unregister();
+            hls.destroy();
+          };
           return;
         }
         const mpegts = (await import("mpegts.js")).default;
@@ -138,10 +152,7 @@ export function MultiviewTile({
         }
         const player = mpegts.createPlayer(
           { type: "mpegts", isLive: true, url: proxied || url },
-          // A live tile that buffers ahead is a live tile running behind, and
-          // four of them drift apart from each other. These are mpegts.js's
-          // own live-sync controls.
-          { enableStashBuffer: false, liveBufferLatencyChasing: true },
+          mpegtsConfig(profile),
         );
         player.on(mpegts.Events.MEDIA_INFO, (info: { videoCodec?: string; audioCodec?: string }) => {
           codecs = [info.videoCodec, info.audioCodec].filter(Boolean).join(" + ");
@@ -161,7 +172,13 @@ export function MultiviewTile({
         );
         player.attachMediaElement(video);
         player.load();
+        const unregister = registerTile({
+          name,
+          video,
+          speed: () => (player.statisticsInfo as { speed?: number } | undefined)?.speed,
+        });
         destroy = () => {
+          unregister();
           player.destroy();
           if (proxied) void tauriMvProxyClose(proxied).catch(() => {});
         };
@@ -181,7 +198,7 @@ export function MultiviewTile({
       video.removeAttribute("src");
       video.load();
     };
-  }, [url, name]);
+  }, [url, name, profile]);
 
   // Audio follows focus rather than being set at mount, so moving focus does
   // not restart a stream. Exactly one tile is ever unmuted; the grid owns

@@ -14,6 +14,10 @@
 // The loopback side is a server in this script: it stands in for mvproxy.rs
 // and serves MPEG-TS-shaped bytes with the CORS header.
 //
+// v0.9.102 adds the stutter probe: btvMultiviewStats() reports a line per
+// playing tile, and btvMultiviewTune() restarts playing tiles on the other
+// buffering profile (a fresh proxy URL, the old one handed back).
+//
 // The test Chromium has no H.264, so MediaSource.isTypeSupported is stubbed
 // for mpegts.isSupported(). What is asserted is where the bytes come from,
 // not that they decode.
@@ -150,16 +154,39 @@ const direct = (urls) => urls.filter((u) => u.startsWith("http://localhost:8081/
     `${direct(requested).length} direct requests`,
   );
 
+  // The stutter probe. Nothing decodes here (no H.264), so this proves the
+  // probe finds the playing tile and reports, not what the numbers are.
+  const logs = [];
+  page.on("console", (m) => logs.push(m.text()));
+  await page.evaluate(() => window.btvMultiviewStats(1));
+  const line = logs.find((l) => l.startsWith('[mv] "Fake ESPN 4K":'));
+  check(
+    "btvMultiviewStats reports the playing tile",
+    !!line && /jumps, \d+ stalls .* frames dropped .* buffer ahead/.test(line),
+    line ?? logs.join(" | "),
+  );
+  // Switching profile restarts the tile: its URL goes back, a new one opens.
+  await page.evaluate(() => window.btvMultiviewTune("chase"));
+  const t3 = Date.now();
+  while (!hits.includes("/mv/tok2") && Date.now() - t3 < 10_000) await page.waitForTimeout(100);
+  const afterTune = await calls(page);
+  check(
+    "btvMultiviewTune restarts the tile on a fresh proxy URL",
+    afterTune.some(([c, u]) => c === "mv_proxy_close" && u.endsWith("/mv/tok1")) &&
+      hits.includes("/mv/tok2"),
+    JSON.stringify(afterTune.map(([c, u]) => `${c} ${u.replace(/.*\/mv\//, "")}`)),
+  );
+
   await page.getByRole("button", { name: "Close multi-view" }).click();
   const t2 = Date.now();
-  while (!closed && Date.now() - t2 < 5_000) await page.waitForTimeout(100);
+  while (closed < 2 && Date.now() - t2 < 5_000) await page.waitForTimeout(100);
   const released = (await calls(page)).filter(([c]) => c === "mv_proxy_close");
   check(
     "closing multi-view hands the URL back",
-    released.length === 1 && released[0][1] === `http://127.0.0.1:${PORT}/mv/tok1`,
+    released.length === 2 && released[1][1] === `http://127.0.0.1:${PORT}/mv/tok2`,
     JSON.stringify(released),
   );
-  check("and the connection to it closes", closed >= 1, `${closed} closed`);
+  check("and the connection to it closes", closed >= 2, `${closed} closed`);
   check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
   await ctx.close();
 }

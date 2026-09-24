@@ -1,6 +1,12 @@
 import { peekLive, loadLive } from "./source";
 import { resolveStreamUrl } from "./stream";
 import { isTauri, tauriMvProxyClose, tauriMvProxyOpen } from "../../lib/tauri";
+import {
+  getMvProfile,
+  liveTiles,
+  setMvProfile,
+  type MvProfile,
+} from "./multiviewTuning";
 
 /**
  * Console probe for the multiview player question (plan 013).
@@ -38,6 +44,95 @@ import { isTauri, tauriMvProxyClose, tauriMvProxyOpen } from "../../lib/tauri";
 
 interface Probes {
   btvMultiview?: (channel?: string) => Promise<void>;
+  btvMultiviewStats?: (seconds?: number) => Promise<void>;
+  btvMultiviewTune?: (profile: MvProfile) => void;
+}
+
+/**
+ * THE STUTTER PROBE, for whatever multi-view tiles are playing:
+ *
+ *   await btvMultiviewStats()      // 20 seconds
+ *   btvMultiviewTune("chase")      // v0.9.101's settings, tiles restart
+ *   await btvMultiviewStats()      // the same 20 seconds, compared
+ *   btvMultiviewTune("smooth")     // back to the default
+ *
+ * Each tile gets one line: how often playback JUMPED (a seek, which is what
+ * the "chase" setting does on purpose), how often and for how long it
+ * STALLED (waiting for data), frames dropped against frames shown, how much
+ * video sat buffered ahead of the playhead, the playback rate, and how fast
+ * the stream downloaded. Those separate the suspects: jumps mean the
+ * chaser, stalls with an empty buffer mean data arriving late, and drops
+ * with a full buffer mean the machine cannot keep up with the decode.
+ */
+async function measure(seconds: number): Promise<void> {
+  const tiles = liveTiles();
+  if (!tiles.length) {
+    console.warn("[mv] no multi-view tiles are playing");
+    return;
+  }
+  console.info(
+    `[mv] measuring ${tiles.length} tile(s) for ${seconds}s on the "${getMvProfile()}" profile...`,
+  );
+  const runs = tiles.map((t) => {
+    const v = t.video;
+    const r = {
+      jumps: 0,
+      stalls: 0,
+      stalledMs: 0,
+      since: 0,
+      ahead: [] as number[],
+      rates: new Set<number>(),
+      speeds: [] as number[],
+      q0: v.getVideoPlaybackQuality(),
+    };
+    const onSeeking = () => r.jumps++;
+    const onWaiting = () => {
+      r.stalls++;
+      if (!r.since) r.since = performance.now();
+    };
+    const onPlaying = () => {
+      if (r.since) r.stalledMs += performance.now() - r.since;
+      r.since = 0;
+    };
+    v.addEventListener("seeking", onSeeking);
+    v.addEventListener("waiting", onWaiting);
+    v.addEventListener("playing", onPlaying);
+    const off = () => {
+      v.removeEventListener("seeking", onSeeking);
+      v.removeEventListener("waiting", onWaiting);
+      v.removeEventListener("playing", onPlaying);
+    };
+    return { t, r, off };
+  });
+  const sample = window.setInterval(() => {
+    for (const { t, r } of runs) {
+      const b = t.video.buffered;
+      if (b.length) r.ahead.push(b.end(b.length - 1) - t.video.currentTime);
+      r.rates.add(t.video.playbackRate);
+      const sp = t.speed();
+      if (sp !== undefined) r.speeds.push(sp);
+    }
+  }, 250);
+  await new Promise((done) => window.setTimeout(done, seconds * 1000));
+  window.clearInterval(sample);
+  const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / (xs.length || 1);
+  for (const { t, r, off } of runs) {
+    off();
+    if (r.since) r.stalledMs += performance.now() - r.since;
+    const q1 = t.video.getVideoPlaybackQuality();
+    const shown = q1.totalVideoFrames - r.q0.totalVideoFrames;
+    const dropped = q1.droppedVideoFrames - r.q0.droppedVideoFrames;
+    console.info(
+      `[mv] "${t.name}": ${r.jumps} jumps, ${r.stalls} stalls ` +
+        `(${(r.stalledMs / 1000).toFixed(1)}s frozen), ` +
+        `${dropped}/${shown} frames dropped (${(shown / seconds).toFixed(0)} fps), ` +
+        (r.ahead.length
+          ? `buffer ahead avg ${avg(r.ahead).toFixed(2)}s min ${Math.min(...r.ahead).toFixed(2)}s, `
+          : "buffer ahead: nothing buffered, ") +
+        `rate ${[...r.rates].join("/")}` +
+        (r.speeds.length ? `, download ${avg(r.speeds).toFixed(0)} KB/s` : ""),
+    );
+  }
 }
 
 /**
@@ -57,6 +152,16 @@ const CODECS: [string, string][] = [
 
 export function installPlayerProbes(): void {
   const w = window as unknown as Probes;
+
+  w.btvMultiviewStats = (seconds = 20) => measure(seconds);
+  w.btvMultiviewTune = (p: MvProfile) => {
+    if (p !== "smooth" && p !== "chase") {
+      console.warn('[mv] profiles are "smooth" and "chase"');
+      return;
+    }
+    setMvProfile(p);
+    console.info(`[mv] profile: ${p}. Playing tiles restart with it.`);
+  };
 
   w.btvMultiview = async (which?: string) => {
     try {
