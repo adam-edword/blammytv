@@ -24,9 +24,10 @@ Run with `improve-animations execute <plan>` or hand to any agent.
 | [010](010-sports.md) | Sports: a hub for what is on right now | MEDIUM | SHIPPED (0.9.0 headline, released 2026-08-23; matcher refined v0.9.47 and v0.9.75 against a real catalog) |
 | [011](011-live-home.md) | Live TV: a home screen instead of ten thousand channels | MEDIUM | DESIGN (3 open questions; one needs a real playlist) |
 | [012](012-player-events.md) | Stop polling mpv: observe properties like Stremio does | HIGH | CLOSED (persistent instance shipped + verified v0.8.168-172; event loop CUT at 0.08% of a core; faster clock declined) |
-| [013](013-multiview.md) | Multiview: two to four sports at once | MEDIUM | REDIRECTED to a web player (BUILT and wired off the board, v0.9.77; unverified on real video) |
+| [013](013-multiview.md) | Multiview: two to four sports at once | MEDIUM | ARCHITECTURE STANDS (web tiles through the native proxy since v0.9.101, verified on Adam's line); UI superseded by 017 |
 | [014](014-shadcn-and-glass.md) | shadcn/ui, and a layer of liquid glass | LOW | IN PROGRESS (L0 done; L1 partly: Button everywhere, Input and Popover since v0.9.79, seven generated components unused; L2, L3 and glass not started) |
-| [016](016-audit-work.md) | Working the v0.9.79 audit: release path, what broke, the system, each screen once | HIGH | IN PROGRESS (D1 to D8 agreed 2026-09-24; Tracks 0 and 1 done in v0.9.82 to v0.9.96; Track 2 waits on Adam's real-stream multi-view test) |
+| [016](016-audit-work.md) | Working the v0.9.79 audit: release path, what broke, the system, each screen once | HIGH | IN PROGRESS (D1 to D8 agreed 2026-09-24; Tracks 0 and 1 done in v0.9.82 to v0.9.96; Track 2 replaced by 017) |
+| [017](017-multiview-design.md) | Multi-view, designed: an immersive mode, 16:9 tiles with info and controls, a search-first picker | HIGH | DESIGN (8 decisions for Adam, M1 to M8; mockups in chat) |
 
 ## Recommended execution order & dependencies
 

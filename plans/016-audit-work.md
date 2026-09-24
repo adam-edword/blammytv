@@ -11,7 +11,7 @@ measured clean over 20s (0 drops, 0 jumps, ~60fps on three tiles), but Adam
 still saw a stutter every 20 to 30 seconds. On v0.9.103 it "feels good": 60s
 with 0 hitches, 0 stalls, 3 of 3757 frames dropped. v0.9.104 drops the 1.1x
 catch-up, which still flipped the rate 11 times a minute for nothing.
-**Next:** Track 2. Deviations from this plan are in the commits: 1.1's
+**Next:** plan 017, which replaces Track 2. Deviations from this plan are in the commits: 1.1's
 proof is a unit test (the theater fixture can't observe a re-tune), 1.5
 leaves the draw chip and league tile without a harness (no fixture builds
 them), 0.2(c) links Chromium to the harnesses' path rather than editing 24
@@ -205,6 +205,12 @@ light setting boots dark.
 ---
 
 ## Track 2: multi-view, finished (ROADMAP M1 step 3, widened)
+
+**Replaced by [plan 017](017-multiview-design.md) (2026-09-24).** Adam's
+real-stream run passed through the proxy, and he asked for a full design
+pass. 017 carries every item below (the layout, the notice on Dialog, the
+primitives, F10 and F12 to F14, the search cost) inside a larger design;
+the list is kept as it was written.
 
 Waits for Adam's real-stream test (M1 step 2). If mpegts.js doesn't play
 real video, this track becomes "hide the button" and stops there.

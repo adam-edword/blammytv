@@ -172,8 +172,10 @@ never be a deterrent to building anything." So:
    drops the 1.1x catch-up altogether. Paramount+ 01 still fails: the
    provider redirects it to a hostname that does not resolve, which is the
    channel, not the app.
-3. Move multi-view onto the primitives: Button for the size picker, close
-   and rail rows, Dialog for the notice, Input for the search.
+3. ~~Move multi-view onto the primitives~~ **Superseded by plan 017**
+   (2026-09-24), the full multi-view design Adam asked for after using it:
+   an immersive mode, 16:9 tiles, info and controls on every tile, a
+   search-first picker. Built on the primitives from the start.
 4. ~~**Bring the accent picker back**~~ **Done in v0.9.79.** Settings →
    Customize, top of Interface: a Default swatch (no accent, follows light
    and dark), the seven presets, and Custom (react-colorful, the
@@ -188,9 +190,8 @@ never be a deterrent to building anything." So:
    `tokens.css` and `ui.css`, both cut by marker with a brace check, and
    verify-tailwind's check 8, which forced it, is retired. The pack-pairing
    key in `accent.ts` stays with the rest of the theme machinery.
-6. **Plan 016's Tracks 0 to 2**: the release path and CI, the breakage
-   list, and multi-view finished (Track 2 replaces step 3 above once
-   Adam's real-stream test is in).
+6. **Plan 016's Tracks 0 and 1** (done), and **plan 017** in place of
+   016's Track 2.
 7. Merge the multi-view branch into `main` (Adam's step: default branch).
 
 ### M2: finish the primitives (plan 014 L1 and L2)
