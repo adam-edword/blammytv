@@ -174,7 +174,7 @@ export function Recommender({
                 aria-label={`Remove ${w}`}
               >
                 {w}
-                <CloseIcon size={14} />
+                <CloseIcon className="size-3.5" />
               </Button>
             ))}
           </div>
@@ -208,7 +208,7 @@ export function Recommender({
             disabled={words.length === 0 || state.at === "finding"}
             onClick={() => void find()}
           >
-            <SparkleIcon size={20} />
+            <SparkleIcon className="size-5" />
           </Button>
         </div>
 

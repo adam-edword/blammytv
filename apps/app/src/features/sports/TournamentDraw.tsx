@@ -168,7 +168,7 @@ export function TournamentDraw({
             aria-label="Back to the board"
             onClick={onClose}
           >
-            <BackArrowIcon />
+            <BackArrowIcon className="size-5" />
           </Button>
           <div className="tourndraw__titles">
             <h2 className="tourndraw__title">{event.title}</h2>

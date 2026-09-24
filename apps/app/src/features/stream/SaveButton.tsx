@@ -148,7 +148,7 @@ export function SaveButton({ item }: { item: VodItem }) {
           }
           onClick={primary}
         >
-          {saved ? <CheckIcon size={15} /> : <span aria-hidden>+</span>} {label}
+          {saved ? <CheckIcon className="size-4" /> : <span aria-hidden>+</span>} {label}
         </Button>
         {/* `asChild` so the trigger IS the chevron half rather than a button
           * wrapping one. aria-haspopup and aria-expanded come from Radix. */}
@@ -163,7 +163,7 @@ export function SaveButton({ item }: { item: VodItem }) {
             }
             aria-label="Choose lists"
           >
-            <ChevronIcon size={14} />
+            <ChevronIcon className="size-3.5" />
           </Button>
         </DropdownMenuTrigger>
       </div>

@@ -157,7 +157,7 @@ export function AccentPicker() {
             }}
             onClick={() => pick(p.hex)}
           >
-            {on && <CheckIcon size={14} />}
+            {on && <CheckIcon className="size-3.5" />}
           </Button>
         );
       })}

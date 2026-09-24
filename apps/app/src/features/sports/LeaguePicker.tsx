@@ -256,8 +256,8 @@ export function LeaguePicker({
                       * meaning. Two elements and a CSS display flip,
                       * because a :hover in JS would need a listener per
                       * row. */}
-                    <StarGhostIcon className="guide__fav-idle" />
-                    <StarRainbowHollowIcon className="guide__fav-hot" />
+                    <StarGhostIcon className="guide__fav-idle size-5" />
+                    <StarRainbowHollowIcon className="guide__fav-hot size-5" />
                   </Button>
                 </span>
               ))}
@@ -325,7 +325,7 @@ function FavouriteTile({
         }
         onClick={onArm}
       >
-        {armed ? "Remove from Favorites" : <CloseIcon />}
+        {armed ? "Remove from Favorites" : <CloseIcon className="size-3" />}
       </Button>
     </span>
   );

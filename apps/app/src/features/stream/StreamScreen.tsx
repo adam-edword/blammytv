@@ -1455,7 +1455,7 @@ export function StreamScreen() {
                   aria-label="Close sources"
                   onClick={closePanel}
                 >
-                  <CloseIcon size={18} />
+                  <CloseIcon className="size-4.5" />
                 </Button>
               </div>
               <div className="vod-panel__list">
@@ -1621,7 +1621,7 @@ export function StreamScreen() {
                   setUpNextMini(null);
                 }}
               >
-                <CloseIcon size={14} />
+                <CloseIcon className="size-3.5" />
               </Button>
             </div>,
             chromeHostRef.current,
@@ -1656,7 +1656,7 @@ export function StreamScreen() {
                 stop();
               }}
             >
-              <CloseIcon size={20} />
+              <CloseIcon className="size-5" />
             </Button>
           </div>
         )}
@@ -2093,7 +2093,7 @@ export function RowScroller({ children }: { children: ReactNode }) {
           aria-label="Scroll back"
           onClick={() => nudge(-1)}
         >
-          <ChevronIcon />
+          <ChevronIcon className="size-4.5" />
         </Button>
       )}
       {can.right && (
@@ -2106,7 +2106,7 @@ export function RowScroller({ children }: { children: ReactNode }) {
           aria-label="Scroll forward"
           onClick={() => nudge(1)}
         >
-          <ChevronIcon />
+          <ChevronIcon className="size-4.5" />
         </Button>
       )}
     </div>

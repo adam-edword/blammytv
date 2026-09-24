@@ -79,7 +79,7 @@ export function AioStreamsTab() {
                   title={copied ? "Copied!" : "Copy"}
                   onClick={copy}
                 >
-                  {copied ? <CheckIcon /> : <CopyIcon />}
+                  {copied ? <CheckIcon className="size-3.5" /> : <CopyIcon className="size-3.5" />}
                 </Button>
                 <Button variant="ghost" size="icon-sm"
                   type="button"
@@ -88,7 +88,7 @@ export function AioStreamsTab() {
                   title="Clear"
                   onClick={() => setUrl("")}
                 >
-                  <CloseIcon />
+                  <CloseIcon className="size-3.5" />
                 </Button>
               </span>
             )}

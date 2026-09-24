@@ -560,13 +560,13 @@ export const Guide = memo(function Guide({
                   onClick={() => onToggleFavorite(channel.id)}
                 >
                   {favorite ? (
-                    <RainbowStarIcon vivid />
+                    <RainbowStarIcon className="size-[21px]" vivid />
                   ) : (
                     <>
                       {/* Card hover shows the ghost; hovering the star
                        * itself swaps to the rainbow-ringed one (CSS). */}
-                      <StarGhostIcon className="guide__fav-idle" />
-                      <StarRainbowHollowIcon className="guide__fav-hot" />
+                      <StarGhostIcon className="guide__fav-idle size-[21px]" />
+                      <StarRainbowHollowIcon className="guide__fav-hot size-[21px]" />
                     </>
                   )}
                 </Button>

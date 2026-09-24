@@ -100,7 +100,7 @@ export function SettingsModal({
             aria-label="Close settings"
             onClick={requestClose}
           >
-            <CloseIcon />
+            <CloseIcon className="size-5" />
           </Button>
         </header>
 

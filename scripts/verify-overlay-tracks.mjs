@@ -82,6 +82,36 @@ await page.addInitScript(mockBridge);
 await page.goto(URL);
 await page.waitForSelector(".theater-overlay");
 
+// Icon sizes (v0.9.89). shadcn's Button sizes every svg inside it to 16px
+// unless the svg carries a size-* class, and a `size` prop is only an
+// attribute, which CSS outranks. So from v0.9.56 every player icon drew at
+// 16: play asked for 26 and got 16, the same as mute. The transport's
+// hierarchy is plan 016's D2: play/pause 24, skip 22, the rest 20.
+// One evaluate, and whichever of Play/Pause is there: waiting on a label
+// that isn't rendered burns the locator timeout, and the chrome idles out
+// under the checks that follow.
+const sizes = await page.evaluate(() => {
+  const px = (labels) => {
+    for (const l of labels) {
+      const svg = document.querySelector(
+        `.theater-overlay [aria-label="${l}"]:not(.mini-overlay *) svg`,
+      );
+      if (svg) return Math.round(svg.getBoundingClientRect().width);
+    }
+    return null;
+  };
+  return {
+    play: px(["Pause", "Play"]),
+    skip: px(["Back 10 seconds"]),
+    mute: px(["Mute", "Unmute"]),
+  };
+});
+check(
+  "the transport keeps its hierarchy: play 24, skip 22, mute 20",
+  sizes.play === 24 && sizes.skip === 22 && sizes.mute === 20,
+  JSON.stringify(sizes),
+);
+
 // Buttons are always rendered; they gray out (disabled) with nothing to choose.
 check(
   "no tracks yet → both buttons disabled",

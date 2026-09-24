@@ -277,7 +277,7 @@ export function PlaylistsTab() {
                       update(removePlaylist(playlists, p.id));
                     }}
                   >
-                    {armedDeleteId === p.id ? "Sure?" : <CloseIcon />}
+                    {armedDeleteId === p.id ? "Sure?" : <CloseIcon className="size-3.5" />}
                   </Button>
                 </div>
               </div>

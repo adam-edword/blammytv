@@ -757,7 +757,7 @@ export function AppHeader({
               aria-label="Settings"
               onClick={onOpenSettings}
             >
-              <SettingsIcon />
+              <SettingsIcon className="size-5" />
             </Button>
           </Hint>
         </div>
