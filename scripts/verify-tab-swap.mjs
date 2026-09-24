@@ -35,6 +35,10 @@ const boot = async (reduced) => {
   const ctx = await b.newContext({ viewport: { width: 1600, height: 900 },
     reducedMotion: reduced ? "reduce" : "no-preference" });
   const p = await ctx.newPage();
+  // Offline, as the dev container always is: the Sports tab this swaps to
+  // loads ESPN's live API and ~90 logos from it, and on CI that load lands
+  // in the middle of the fade being timed.
+  await ctx.route(/\.espn(cdn)?\.com\//, (r) => r.abort());
   await p.addInitScript((pl) => {
     localStorage.setItem("btv:onboarded", "1");
     localStorage.setItem("blammytv.playlists", JSON.stringify(pl));

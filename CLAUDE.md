@@ -91,6 +91,12 @@ Watch for checks that pass VACUOUSLY, too. verify-stalker read 2/4 while
 the portal served nothing: the two that "passed" were negative assertions
 ("the adult genre is dropped"), and an empty page drops everything.
 
+**Harnesses stay offline.** This container can't reach Cinemeta, ESPN or
+TMDB (each fails in about 250ms), and CI can. So a harness that leaves one
+unstubbed passes here and leans on the live service on CI. verify-discover's
+search did, and failed three CI runs when Cinemeta was slow. Abort or
+fulfill every external host with `page.route`, as verify-armed does.
+
 ## CI
 
 `.github/workflows/ci.yml` runs on every push to every branch: typecheck,

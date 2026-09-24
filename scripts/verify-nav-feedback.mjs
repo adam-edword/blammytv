@@ -41,6 +41,9 @@ const check = (n, ok, d = "") => { if (!ok) fail++; console.log(`${ok ? "PASS" :
 
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 const ctx = await browser.newContext({ viewport: { width: 1600, height: 900 } });
+// Offline, as the dev container always is: the Sports tab reaches ESPN's
+// live API and logo CDN, which CI can and this box cannot.
+await ctx.route(/\.espn(cdn)?\.com\//, (r) => r.abort());
 const page = await ctx.newPage();
 await page.addInitScript((pl) => {
   localStorage.setItem("btv:onboarded", "1");
@@ -379,6 +382,7 @@ await ctx.close();
   const rctx = await browser.newContext({
     viewport: { width: 1600, height: 900 }, reducedMotion: "reduce",
   });
+  await rctx.route(/\.espn(cdn)?\.com\//, (r) => r.abort());
   const rp = await rctx.newPage();
   await rp.addInitScript((pl) => {
     localStorage.setItem("btv:onboarded", "1");

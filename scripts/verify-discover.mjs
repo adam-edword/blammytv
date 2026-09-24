@@ -12,6 +12,14 @@ const check = (name, ok, extra = "") => {
 
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 const page = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
+// Offline, as the dev container always is. Search asks Cinemeta beside the
+// addon and renders nothing until BOTH answer, and here Cinemeta fails in
+// ~250ms. On CI it is the live service: when it was slow, "search merges
+// all search catalogs" sat on "Searching…" past its 10s wait and failed
+// with an empty grid (runs 86, 89 and 102). Held for 15s, it fails here
+// the same way.
+const offline = (p) => p.route("**://v3-cinemeta.strem.io/**", (r) => r.abort());
+await offline(page);
 await page.addInitScript(() => {
   localStorage.setItem("btv:onboarded", "1");
   localStorage.setItem(
@@ -312,6 +320,7 @@ check("unsave empties the list",
 // paints from it with ZERO catalog fetches; scrolling past the cached
 // depth resumes skip pagination on the network.
 const page2 = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
+await offline(page2);
 await page2.addInitScript(() => {
   localStorage.setItem("btv:onboarded", "1");
   localStorage.setItem("blammytv.aiostreams", JSON.stringify({ v: 1, data: "http://localhost:8084/manifest.json" }));
@@ -346,6 +355,7 @@ await page2.close();
 // In the browser the stage itself can't mount (Tauri-only), so the
 // proof is the /stream/ resolve firing + no detail navigation.
 const page3 = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
+await offline(page3);
 await page3.addInitScript(() => {
   localStorage.setItem("btv:onboarded", "1");
   localStorage.setItem("blammytv.aiostreams", JSON.stringify({ v: 1, data: "http://localhost:8084/manifest.json" }));
@@ -370,6 +380,7 @@ await page3.close();
 // ---- Queue #7 (v0.3.49): cast line + More Like This on detail;
 // "42m left" on CW cards; finished movies retire from the row.
 const page4 = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
+await offline(page4);
 await page4.addInitScript(() => {
   localStorage.setItem("btv:onboarded", "1");
   localStorage.setItem("blammytv.aiostreams", JSON.stringify({ v: 1, data: "http://localhost:8084/manifest.json" }));
