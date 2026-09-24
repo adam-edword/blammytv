@@ -124,7 +124,21 @@ const typeSearch = async (v) => {
   await page.fill(".navcap__searchinput", v);
 };
 await typeSearch("two");
-await page.waitForTimeout(900); // debounce + fetch
+// Wait for the RESULTS, not for a clock. This slept a fixed 900ms for the
+// debounce and the fetch, which held on the dev box and lost on CI's slower
+// runner every time: the check read an empty grid ("search merges all
+// search catalogs", nothing after the dash). A search that never lands
+// still fails, 10s later, with the grid it did find.
+await page
+  .waitForFunction(
+    () =>
+      [...document.querySelectorAll(".disc-grid .stream-card__name")].some(
+        (e) => e.textContent === "Fake Movie Two",
+      ),
+    null,
+    { timeout: 10_000 },
+  )
+  .catch(() => {});
 let found = await gridTitles();
 check("search merges all search catalogs",
   found.includes("Fake Movie Two") && found.includes("Fake Series Two") && found.includes("Genre Movie Two"),
