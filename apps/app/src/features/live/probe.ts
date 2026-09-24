@@ -2,6 +2,7 @@ import { peekLive, loadLive } from "./source";
 import { resolveStreamUrl } from "./stream";
 import { isTauri, tauriMvProxyClose, tauriMvProxyOpen } from "../../lib/tauri";
 import {
+  findHitches,
   getMvProfile,
   liveTiles,
   setMvProfile,
@@ -51,18 +52,24 @@ interface Probes {
 /**
  * THE STUTTER PROBE, for whatever multi-view tiles are playing:
  *
- *   await btvMultiviewStats()      // 20 seconds
+ *   await btvMultiviewStats()      // 60 seconds
  *   btvMultiviewTune("chase")      // v0.9.101's settings, tiles restart
- *   await btvMultiviewStats()      // the same 20 seconds, compared
+ *   await btvMultiviewStats()      // the same window, compared
  *   btvMultiviewTune("smooth")     // back to the default
  *
- * Each tile gets one line: how often playback JUMPED (a seek, which is what
- * the "chase" setting does on purpose), how often and for how long it
- * STALLED (waiting for data), frames dropped against frames shown, how much
- * video sat buffered ahead of the playhead, the playback rate, and how fast
- * the stream downloaded. Those separate the suspects: jumps mean the
- * chaser, stalls with an empty buffer mean data arriving late, and drops
- * with a full buffer mean the machine cannot keep up with the decode.
+ * Each tile gets a summary: jumps (seeks, which the "chase" setting does on
+ * purpose), stalls and time frozen, frames dropped against shown, buffer
+ * ahead of the playhead, playback rate, download speed. Then a TIMELINE,
+ * because Adam's stutter comes every 20 to 30 seconds and a count cannot
+ * say what it coincides with:
+ * - hitches: a gap between two presented frames (requestVideoFrameCallback)
+ *   over 100ms and three times the typical interval. That is the stutter as
+ *   seen, whether or not the element ever said it was waiting;
+ * - rate changes (the smooth profile's 1.1x catch-up switching on and off),
+ *   stalls and jumps, each with its second;
+ * and once, for the whole page, main-thread tasks over 100ms.
+ * A hitch at the same second as a rate change, a stall, a long task, or on
+ * every tile at once each points somewhere different.
  */
 async function measure(seconds: number): Promise<void> {
   const tiles = liveTiles();
@@ -73,6 +80,24 @@ async function measure(seconds: number): Promise<void> {
   console.info(
     `[mv] measuring ${tiles.length} tile(s) for ${seconds}s on the "${getMvProfile()}" profile...`,
   );
+  const t0 = performance.now();
+  const at = () => ((performance.now() - t0) / 1000).toFixed(1);
+  let done = false;
+
+  const longTasks: string[] = [];
+  let observer: PerformanceObserver | undefined;
+  try {
+    observer = new PerformanceObserver((list) => {
+      for (const e of list.getEntries()) {
+        if (e.duration > 100)
+          longTasks.push(`${((e.startTime - t0) / 1000).toFixed(1)}s (${e.duration.toFixed(0)}ms)`);
+      }
+    });
+    observer.observe({ type: "longtask", buffered: false });
+  } catch {
+    /* no longtask entries in this engine; the tiles still report */
+  }
+
   const runs = tiles.map((t) => {
     const v = t.video;
     const r = {
@@ -84,23 +109,38 @@ async function measure(seconds: number): Promise<void> {
       rates: new Set<number>(),
       speeds: [] as number[],
       q0: v.getVideoPlaybackQuality(),
+      events: [] as string[],
+      frameTimes: [] as number[],
     };
-    const onSeeking = () => r.jumps++;
+    const onSeeking = () => {
+      r.jumps++;
+      r.events.push(`${at()}s jump`);
+    };
     const onWaiting = () => {
       r.stalls++;
       if (!r.since) r.since = performance.now();
+      r.events.push(`${at()}s stall`);
     };
     const onPlaying = () => {
       if (r.since) r.stalledMs += performance.now() - r.since;
       r.since = 0;
     };
+    const onRate = () => r.events.push(`${at()}s rate ${v.playbackRate}`);
     v.addEventListener("seeking", onSeeking);
     v.addEventListener("waiting", onWaiting);
     v.addEventListener("playing", onPlaying);
+    v.addEventListener("ratechange", onRate);
+    const onFrame: VideoFrameRequestCallback = (now) => {
+      if (done) return;
+      r.frameTimes.push(now);
+      v.requestVideoFrameCallback(onFrame);
+    };
+    v.requestVideoFrameCallback(onFrame);
     const off = () => {
       v.removeEventListener("seeking", onSeeking);
       v.removeEventListener("waiting", onWaiting);
       v.removeEventListener("playing", onPlaying);
+      v.removeEventListener("ratechange", onRate);
     };
     return { t, r, off };
   });
@@ -113,8 +153,10 @@ async function measure(seconds: number): Promise<void> {
       if (sp !== undefined) r.speeds.push(sp);
     }
   }, 250);
-  await new Promise((done) => window.setTimeout(done, seconds * 1000));
+  await new Promise((finish) => window.setTimeout(finish, seconds * 1000));
+  done = true;
   window.clearInterval(sample);
+  observer?.disconnect();
   const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / (xs.length || 1);
   for (const { t, r, off } of runs) {
     off();
@@ -122,17 +164,29 @@ async function measure(seconds: number): Promise<void> {
     const q1 = t.video.getVideoPlaybackQuality();
     const shown = q1.totalVideoFrames - r.q0.totalVideoFrames;
     const dropped = q1.droppedVideoFrames - r.q0.droppedVideoFrames;
+    const hitches = findHitches(r.frameTimes).map(
+      (h) => `${((h.at - t0) / 1000).toFixed(1)}s (${h.gap.toFixed(0)}ms)`,
+    );
     console.info(
       `[mv] "${t.name}": ${r.jumps} jumps, ${r.stalls} stalls ` +
         `(${(r.stalledMs / 1000).toFixed(1)}s frozen), ` +
         `${dropped}/${shown} frames dropped (${(shown / seconds).toFixed(0)} fps), ` +
         (r.ahead.length
-          ? `buffer ahead avg ${avg(r.ahead).toFixed(2)}s min ${Math.min(...r.ahead).toFixed(2)}s, `
+          ? `buffer ahead avg ${avg(r.ahead).toFixed(2)}s min ${Math.min(...r.ahead).toFixed(2)}s max ${Math.max(...r.ahead).toFixed(2)}s, `
           : "buffer ahead: nothing buffered, ") +
         `rate ${[...r.rates].join("/")}` +
         (r.speeds.length ? `, download ${avg(r.speeds).toFixed(0)} KB/s` : ""),
     );
+    console.info(
+      `[mv]   hitches: ${hitches.length ? hitches.join(", ") : "none"}` +
+        ` | events: ${r.events.length ? r.events.join(", ") : "none"}`,
+    );
   }
+  console.info(
+    `[mv] main-thread tasks over 100ms: ${
+      observer ? (longTasks.length ? longTasks.join(", ") : "none") : "not measurable here"
+    }`,
+  );
 }
 
 /**
@@ -153,7 +207,7 @@ const CODECS: [string, string][] = [
 export function installPlayerProbes(): void {
   const w = window as unknown as Probes;
 
-  w.btvMultiviewStats = (seconds = 20) => measure(seconds);
+  w.btvMultiviewStats = (seconds = 60) => measure(seconds);
   w.btvMultiviewTune = (p: MvProfile) => {
     if (p !== "smooth" && p !== "chase") {
       console.warn('[mv] profiles are "smooth" and "chase"');

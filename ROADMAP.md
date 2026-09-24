@@ -165,8 +165,12 @@ never be a deterrent to building anything." So:
    Every tile failed, Cartoon Network included, on a 302 with no CORS
    header (v0.9.100's console lines named it). His provider sent the header
    on 2026-09-13 and no longer does. v0.9.101 reads streams through a
-   native loopback proxy (`mvproxy.rs`). Open until his rebuild shows tiles
-   playing.
+   native loopback proxy (`mvproxy.rs`). Through it, and on v0.9.102's
+   buffering, three tiles measured 0 frames dropped, 0 jumps, one 0.6s
+   stall in 20s, ~60fps each, though Adam still sees a stutter every 20 to
+   30 seconds (being measured in v0.9.103). Paramount+ 01 still fails: the
+   provider redirects it to a hostname that does not resolve, which is the
+   channel, not the app.
 3. Move multi-view onto the primitives: Button for the size picker, close
    and rail rows, Dialog for the notice, Input for the search.
 4. ~~**Bring the accent picker back**~~ **Done in v0.9.79.** Settings →

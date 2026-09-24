@@ -1,13 +1,16 @@
 # 016: Working the v0.9.79 audit
 
-**Status (2026-09-24, v0.9.101):** Adam agreed all eight recommendations
+**Status (2026-09-24, v0.9.103):** Adam agreed all eight recommendations
 (D1 to D8). **Track 0 and Track 1 are done**, v0.9.82 to v0.9.96, each fix
 with a check that fails without it; so are ROADMAP M1 steps 1 and 5 and
 D7's privacy page (not yet deployed: that needs the `docs` and `website`
 branches). **M1 step 2 ran:** every multi-view tile failed on a provider
 302 with no CORS header, so v0.9.101 adds a native stream proxy and the
-native freeze (rule 3) is lifted. **Next:** Track 2, once Adam's rebuild
-shows tiles playing through the proxy. Deviations from this plan are in the commits: 1.1's
+native freeze (rule 3) is lifted. Through the proxy, v0.9.102's buffering
+measured clean over 20s (0 drops, 0 jumps, ~60fps on three tiles), but Adam
+still sees a stutter every 20 to 30 seconds; v0.9.103 raises the catch-up
+threshold and gives the probe a timeline to find it. **Next:** that
+stutter, then Track 2. Deviations from this plan are in the commits: 1.1's
 proof is a unit test (the theater fixture can't observe a re-tune), 1.5
 leaves the draw chip and league tile without a harness (no fixture builds
 them), 0.2(c) links Chromium to the harnesses' path rather than editing 24
@@ -55,7 +58,7 @@ Each has a recommendation. One message can settle all of them.
 | D1 | **Light mode.** It has no control since v0.9.58, a stored light setting from 0.9.0 still applies, and several light surfaces are broken. | **Dark only until M3's light pass.** Boot ignores a stored light setting (and keeps it, so nothing is lost), and the toggle comes back in M3 with the contrast pass the ROADMAP already plans there. Bringing the toggle back now would show everyone the broken surfaces. | 1.12, 4.8 |
 | D2 | **Player icon scale.** Every icon in a Button is 16px today. | **Restore the hierarchy the props already ask for:** play/pause 24, skip 22, the rest 20. It is what 0.9.0 looked like. | 1.4 |
 | D3 | **Copy conventions.** Title Case and sentence case are mixed; so are "Favorites" and "favourites". | **Sentence case everywhere and US spelling in UI text.** Sentence case is the house voice. US spelling matches "Customize" and "Favorites", already on screen. The accent picker's own "Accent colour" labels change too. | 1.11, 4.x |
-| D4 | **`hls.js/light`** saves 67KB of the download but can't play alternate audio renditions. | **Decide after M1 step 2.** Adam's real-stream test shows whether any of his HLS streams use alternate audio. None in a real playlist means light is safe. | 5.5 |
+| D4 | **`hls.js/light`** saves 67KB of the download but can't play alternate audio renditions. | **Decide after M1 step 2.** Adam's real-stream test shows whether any of his HLS streams use alternate audio. None in a real playlist means light is safe. **Settled by that rule (2026-09-24):** his Xtream panel's live URLs are all `.ts`, so none of his multi-view streams touch hls.js at all. | 5.5 |
 | D5 | **The Guide's selected channel has no visual state** (deliberate). | **Give it a quiet one:** `bg-accent` on the card. Keyboard users have no other way to see where they are. | 4.3 |
 | D6 | **M3 goes out on the hot channel with a known risk.** The boot sentinel is armed on every boot of a staged bundle (`frontend.rs:178-187`, checked). Close the app (or crash, or lose power) in the moment between launch and the UI mounting, and that version is quarantined: that user runs the old 0.9.0 interface until the next hot release. The fix is native (N1). | **Ship on the hot channel anyway**, because proving it is half the point of M3, and follow with a hot fix release within days so anyone quarantined picks up the next version. Put the risk in the release checklist. | M3 release |
 | D7 | **Published pages that are wrong today:** the docs site's privacy page doesn't list TMDB or ESPN, and the marketing site's Privacy and Terms links go to `#`. | **Fix the privacy page now**, with Adam's OK because it is published. The site's themes and Trakt copy changes at the M3 release, as the ROADMAP already says. | 7.5 |

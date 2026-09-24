@@ -165,6 +165,14 @@ const direct = (urls) => urls.filter((u) => u.startsWith("http://localhost:8081/
     !!line && /jumps, \d+ stalls .* frames dropped .* buffer ahead/.test(line),
     line ?? logs.join(" | "),
   );
+  // v0.9.103: a timeline under each tile, and one for the page's main thread,
+  // for a stutter that comes every 20 to 30 seconds.
+  check(
+    "and a timeline of hitches and events under it, plus the main thread's",
+    logs.some((l) => /^\[mv\] {3}hitches: .* \| events: /.test(l)) &&
+      logs.some((l) => l.startsWith("[mv] main-thread tasks over 100ms: ")),
+    logs.filter((l) => l.startsWith("[mv]")).join(" | "),
+  );
   // Switching profile restarts the tile: its URL goes back, a new one opens.
   await page.evaluate(() => window.btvMultiviewTune("chase"));
   const t3 = Date.now();

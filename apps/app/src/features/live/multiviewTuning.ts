@@ -12,7 +12,15 @@
  *   rest away. IPTV arrives in bursts, so that is a skip on every burst and
  *   a stall whenever the next one is late. The stash buffer was off too.
  * - "smooth" is the library's own buffering, and catches up by playing at
- *   1.1x when more than 5s has piled up, instead of jumping. Default.
+ *   1.1x instead of jumping. Default. Measured on Adam's line (v0.9.102,
+ *   3 tiles, 20s): 0 jumps, 0 frames dropped, one 0.6s stall, ~60fps.
+ *
+ * WHEN it catches up comes from the same run. His streams sit 6 to 8s
+ * ahead of the playhead on their own (averages 8.4, 7.0 and 6.3s). v0.9.102
+ * sped up past 5s, so Cartoon Network played at 1.1x for the whole 20s,
+ * and the one stall came on a tile that had been speeding up. Now it speeds up
+ * only past 12s, which is drift (stalls adding up), not the stream's normal
+ * cushion, and settles back at 8s.
  *
  * `btvMultiviewTune("chase")` switches every playing tile back, so one
  * sitting can measure both with `btvMultiviewStats()`.
@@ -43,10 +51,27 @@ export function mpegtsConfig(p: MvProfile): Record<string, unknown> {
     ? { enableStashBuffer: false, liveBufferLatencyChasing: true }
     : {
         liveSync: true,
-        liveSyncMaxLatency: 5,
-        liveSyncTargetLatency: 3,
+        liveSyncMaxLatency: 12,
+        liveSyncTargetLatency: 8,
         liveSyncPlaybackRate: 1.1,
       };
+}
+
+/**
+ * Where playback visibly hitched, from the times frames were presented
+ * (requestVideoFrameCallback's `now`, in ms). A hitch is a gap over 100ms
+ * AND over three times the median gap, so a 30fps stream's normal 33ms is
+ * never one and neither is a single late frame at 60fps. `at` is when the
+ * frame before the gap was shown.
+ */
+export function findHitches(frameTimes: number[]): { at: number; gap: number }[] {
+  const gaps = frameTimes.slice(1).map((ft, i) => ft - frameTimes[i]);
+  const typical = [...gaps].sort((a, b) => a - b)[Math.floor(gaps.length / 2)] ?? 0;
+  const out: { at: number; gap: number }[] = [];
+  gaps.forEach((g, i) => {
+    if (g > 100 && g > typical * 3) out.push({ at: frameTimes[i], gap: g });
+  });
+  return out;
 }
 
 /* ------------------------------------------------------------- registry */
