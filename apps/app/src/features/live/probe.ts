@@ -59,13 +59,14 @@ interface Probes {
  *
  * Each tile gets a summary: jumps (seeks, which the "chase" setting does on
  * purpose), stalls and time frozen, frames dropped against shown, buffer
- * ahead of the playhead, playback rate, download speed. Then a TIMELINE,
+ * ahead of the playhead, playback rate (1 throughout, since v0.9.104 dropped
+ * the catch-up, unless something else sets it), download speed. Then a TIMELINE,
  * because Adam's stutter comes every 20 to 30 seconds and a count cannot
  * say what it coincides with:
  * - hitches: a gap between two presented frames (requestVideoFrameCallback)
  *   over 100ms and three times the typical interval. That is the stutter as
  *   seen, whether or not the element ever said it was waiting;
- * - rate changes (the smooth profile's 1.1x catch-up switching on and off),
+ * - rate changes (v0.9.103's 1.1x catch-up flipping on and off; gone since),
  *   stalls and jumps, each with its second;
  * and once, for the whole page, main-thread tasks over 100ms.
  * A hitch at the same second as a rate change, a stall, a long task, or on

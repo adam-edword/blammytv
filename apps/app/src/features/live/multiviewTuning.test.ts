@@ -2,21 +2,11 @@ import { describe, expect, it } from "vitest";
 import { findHitches, mpegtsConfig } from "./multiviewTuning";
 
 describe("mpegtsConfig", () => {
-  it("smooth never seeks to chase the live edge", () => {
-    const c = mpegtsConfig("smooth");
-    expect(c.liveBufferLatencyChasing).toBeUndefined();
-    // The stash buffer is left at the library's default (on).
-    expect(c.enableStashBuffer).toBeUndefined();
-    expect(c.liveSync).toBe(true);
-    expect(c.liveSyncPlaybackRate).toBe(1.1);
-  });
-
-  it("smooth leaves the stream's normal cushion alone", () => {
-    // Adam's streams sit 6 to 8s ahead on their own (v0.9.102's stats). A
-    // threshold inside that range plays them at 1.1x all the time.
-    const c = mpegtsConfig("smooth");
-    expect(c.liveSyncMaxLatency).toBeGreaterThan(8.4);
-    expect(c.liveSyncTargetLatency).toBeGreaterThanOrEqual(8);
+  it("smooth never jumps and never changes speed", () => {
+    // The library's own buffering, untouched. Adam's streams keep a bursty
+    // 6 to 14s cushion, and every catch-up threshold tried flipped the
+    // audio tile between 1x and 1.1x (v0.9.102, v0.9.103).
+    expect(mpegtsConfig("smooth")).toEqual({});
   });
 
   it("chase is exactly what v0.9.101 shipped, for the A/B", () => {

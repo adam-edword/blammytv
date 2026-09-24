@@ -8,9 +8,10 @@ branches). **M1 step 2 ran:** every multi-view tile failed on a provider
 302 with no CORS header, so v0.9.101 adds a native stream proxy and the
 native freeze (rule 3) is lifted. Through the proxy, v0.9.102's buffering
 measured clean over 20s (0 drops, 0 jumps, ~60fps on three tiles), but Adam
-still sees a stutter every 20 to 30 seconds; v0.9.103 raises the catch-up
-threshold and gives the probe a timeline to find it. **Next:** that
-stutter, then Track 2. Deviations from this plan are in the commits: 1.1's
+still saw a stutter every 20 to 30 seconds. On v0.9.103 it "feels good": 60s
+with 0 hitches, 0 stalls, 3 of 3757 frames dropped. v0.9.104 drops the 1.1x
+catch-up, which still flipped the rate 11 times a minute for nothing.
+**Next:** Track 2. Deviations from this plan are in the commits: 1.1's
 proof is a unit test (the theater fixture can't observe a re-tune), 1.5
 leaves the draw chip and league tile without a harness (no fixture builds
 them), 0.2(c) links Chromium to the harnesses' path rather than editing 24

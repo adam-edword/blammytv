@@ -167,8 +167,9 @@ never be a deterrent to building anything." So:
    on 2026-09-13 and no longer does. v0.9.101 reads streams through a
    native loopback proxy (`mvproxy.rs`). Through it, and on v0.9.102's
    buffering, three tiles measured 0 frames dropped, 0 jumps, one 0.6s
-   stall in 20s, ~60fps each, though Adam still sees a stutter every 20 to
-   30 seconds (being measured in v0.9.103). Paramount+ 01 still fails: the
+   stall in 20s, ~60fps each. A stutter every 20 to 30 seconds went on
+   v0.9.103 ("feels good", 60s with 0 hitches and 0 stalls); v0.9.104
+   drops the 1.1x catch-up altogether. Paramount+ 01 still fails: the
    provider redirects it to a hostname that does not resolve, which is the
    channel, not the app.
 3. Move multi-view onto the primitives: Button for the size picker, close
