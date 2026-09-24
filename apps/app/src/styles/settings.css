@@ -366,145 +366,6 @@
   border-color: color-mix(in srgb, var(--text) 30%, transparent);
 }
 
-/* ------------------------------------------------------- accent picker */
-
-.accent-row {
-  position: relative; /* anchors the custom-picker popover */
-  display: flex;
-  align-items: center;
-  gap: 9px;
-}
-
-/* Swatch: dark 16% fill, pure-color border (set inline per color); the
- * active one carries a white check. The custom chip's mini swatch is the
- * same element — neutral until a custom color has ever been picked. */
-.accent-swatch {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 12px;
-  border: 2px solid var(--border-strong);
-  background: var(--surface);
-  transition: transform var(--dur-hover) ease;
-  cursor: pointer;
-}
-
-.accent-swatch:hover {
-  transform: scale(1.1);
-}
-
-.accent-swatch__check {
-  width: 14px;
-  height: 14px;
-  color: var(--text);
-}
-
-/* The custom chip: mini swatch + label. */
-.accent-custom {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  height: 32px;
-  padding: 0 7px 0 3px;
-  background: var(--surface-raised);
-  border: 1px solid var(--border-raised);
-  border-radius: var(--radius-chip);
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 13px;
-  cursor: pointer;
-  transition: filter var(--dur-hover) ease;
-}
-
-.accent-custom:hover {
-  filter: brightness(1.2);
-}
-
-/* Chip-hosted swatch shouldn't scale independently of its chip. */
-.accent-custom .accent-swatch:hover {
-  transform: none;
-}
-
-/* Our color-picker popover (react-colorful dressed in app tokens). */
-.accent-popover {
-  position: absolute;
-  top: calc(100% + 10px);
-  right: 0;
-  z-index: 5;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 14px;
-  background: var(--card-glass);
-  backdrop-filter: blur(10px);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-card);
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
-
-  transform-origin: top right;
-  transition:
-    opacity 150ms var(--ease-out),
-    transform 150ms var(--ease-out);
-}
-@starting-style {
-  .accent-popover {
-    opacity: 0;
-    transform: scale(0.95) translateY(-4px);
-  }
-}
-
-/* The react-colorful internals moved to vendor.css, UNLAYERED.
- *
- * That library injects its own stylesheet from JS at runtime, and a
- * runtime-injected sheet is unlayered. Cascade layers sort BEFORE
- * specificity, so once this file moved into @layer app every one of these
- * overrides started losing to the vendor's own rules however specific they
- * were. Being unlayered is the only thing that beats unlayered. */
-
-/* Bottom row: eyedropper left, hex input right. */
-.accent-popover__row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.accent-popover__dropper {
-  place-items: center;
-}
-
-.accent-popover__hex {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex: 1;
-  font-family: var(--font-headline);
-  font-weight: 600;
-  font-size: 13px;
-}
-
-.accent-popover__hash {
-  opacity: 0.5;
-}
-
-.accent-popover__hex input {
-  width: 100%;
-  font-family: var(--font-text);
-  font-size: 13px;
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--border-input);
-  border-radius: 10px;
-  padding: 6px 10px;
-  outline: none;
-  text-transform: lowercase;
-}
-
-.accent-popover__hex input:focus {
-  border-color: color-mix(in srgb, var(--text) 30%, transparent);
-}
-
 /* Divides Customize into General/Theme/Display pills (Adam: "like m3u/
  * xtream/stalker"). Sits above the active section rather than inside it
  * (PlaylistsTab's kind rail is the inline variant) — display:flex keeps
@@ -961,45 +822,30 @@
   background: color-mix(in srgb, var(--border-input) 30%, transparent);
 }
 
-/* ---- Press feedback (motion plan 001). Tiny icons dip deeper (0.9);
- * the custom accent chip keeps its documented transform:none. ---- */
+/* ---- Press feedback (motion plan 001). Tiny icons dip deeper (0.9). ---- */
 .settings__close:active,
-.playlist-row__delete:active,
-.accent-swatch:active {
+.playlist-row__delete:active {
   transform: scale(0.9);
 }
 .source-tools__discard:active,
 .source-tools__all:active:not(:disabled) {
   transform: scale(0.97);
 }
-.accent-custom .accent-swatch:active {
-  transform: none;
-}
 
 /* Reduced motion: entrances keep their fade, drop the movement. */
 @media (prefers-reduced-motion: reduce) {
   .settings,
-  .settings > *,
-  .accent-popover {
+  .settings > * {
     transition: opacity var(--dur-enter) var(--ease-out);
   }
   @starting-style {
     .settings,
-    .settings > *,
-    .accent-popover {
+    .settings > * {
       transform: none;
     }
   }
   .settings--closing {
     transform: none;
     transition: opacity 150ms var(--ease-out);
-  }
-}
-
-/* Reduced motion (motion plan 006): the swatch's hover grow drops; the
- * press dip stays. */
-@media (prefers-reduced-motion: reduce) {
-  .accent-swatch:hover:not(:active) {
-    transform: none;
   }
 }

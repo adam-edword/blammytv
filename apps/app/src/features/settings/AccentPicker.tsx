@@ -124,8 +124,13 @@ export function AccentPicker() {
         onClick={pickDefault}
       >
         {accent === "" && (
-          // `difference` so the tick reads on both halves of the split.
-          <CheckIcon size={14} className="text-white mix-blend-difference" />
+          // On its own chip, because the diagonal runs straight through
+          // the middle: a bare tick (even blended) straddled both halves
+          // and half of it vanished. `size-3` because Button's svg rule
+          // overrides the `size` prop on every icon inside it.
+          <span className="grid size-[18px] place-items-center rounded-full bg-background text-foreground shadow-sm">
+            <CheckIcon className="size-3" />
+          </span>
         )}
       </Button>
 
@@ -183,7 +188,12 @@ export function AccentPicker() {
             Custom
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="start" className="accent-popover w-auto p-3">
+        {/* `accent-picker` is only the scope for vendor.css's react-colorful
+         * overrides. It was `accent-popover` until v0.9.80, which is also
+         * the old Themes picker's class: settings.css still positioned it
+         * absolutely, the Radix wrapper measured 0x0, and the popover
+         * opened 246px left of this chip instead of under it. */}
+        <PopoverContent align="start" className="accent-picker w-auto p-3">
           <HexColorPicker color={customShown || "#c22727"} onChange={pickCustom} />
           <div className="mt-3 flex items-center gap-2">
             {eyeDropper && (

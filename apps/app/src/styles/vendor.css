@@ -22,23 +22,26 @@
 
 /* The accent picker, dressed in app tokens. Lived in settings.css until
  * Tailwind arrived and layers made the cascade care where it lived. */
-.accent-popover .react-colorful {
+.accent-picker .react-colorful {
   width: 220px;
   height: 180px;
 }
 
-.accent-popover .react-colorful__saturation {
-  border-radius: 12px;
+/* Nested inside the popover's 8px corner and 12px padding, so it takes a
+ * smaller radius than its container (it was 12px, rounder than the box it
+ * sits in). */
+.accent-picker .react-colorful__saturation {
+  border-radius: calc(var(--radius) - 4px);
   border-bottom: none;
   margin-bottom: 12px;
 }
 
-.accent-popover .react-colorful__hue {
+.accent-picker .react-colorful__hue {
   height: 14px;
   border-radius: 999px;
 }
 
-.accent-popover .react-colorful__pointer {
+.accent-picker .react-colorful__pointer {
   width: 18px;
   height: 18px;
   border: 2px solid #fff;

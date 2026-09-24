@@ -52,26 +52,43 @@ const KEY = "accent";
 const CUSTOM_KEY = "accent-custom";
 const VERSION = 1;
 
+/**
+ * The accent and its custom slot are on envelope v2 since v0.9.80, so a v1
+ * value reads as "never chosen" (storage.ts drops a version mismatch).
+ *
+ * Because v1 cannot tell a choice from a side effect. 0.9.0 stored an
+ * accent on a swatch click, but ALSO when Reset wrote the old brand red,
+ * and when a theme pack wrote its paired colour (Streamy's purple,
+ * Kawaii's pink). v0.9.79 put the boot line back and brought all of those
+ * back with it, as colours nobody picked. Only a pick made in the picker
+ * that shipped with the boot line counts, and that is a v2 write.
+ *
+ * The cost is that a colour someone did choose in 0.9.0 has to be chosen
+ * once more, on an app whose whole palette changed since. The style,
+ * pairing and egg keys stay on v1: Aurora reads them and is going.
+ */
+const PICK_VERSION = 2;
+
 /** The chosen accent, or "" when there is none. Callers that need a colour
  * to render a swatch with should read the computed `--accent` instead. */
 export function loadAccent(): string {
-  const stored = load<string>(KEY, VERSION, DEFAULT_ACCENT);
+  const stored = load<string>(KEY, PICK_VERSION, DEFAULT_ACCENT);
   return isValidHex(stored) ? stored.toLowerCase() : DEFAULT_ACCENT;
 }
 
 export function saveAccent(hex: string): void {
-  save(KEY, VERSION, hex.toLowerCase());
+  save(KEY, PICK_VERSION, hex.toLowerCase());
 }
 
 /** The last custom color, remembered separately so the custom swatch keeps
  * its color while a preset is selected. Empty until one is ever picked. */
 export function loadCustomAccent(): string {
-  const stored = load<string>(CUSTOM_KEY, VERSION, "");
+  const stored = load<string>(CUSTOM_KEY, PICK_VERSION, "");
   return isValidHex(stored) ? stored.toLowerCase() : "";
 }
 
 export function saveCustomAccent(hex: string): void {
-  save(CUSTOM_KEY, VERSION, hex.toLowerCase());
+  save(CUSTOM_KEY, PICK_VERSION, hex.toLowerCase());
 }
 
 /**

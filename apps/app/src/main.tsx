@@ -34,9 +34,10 @@ import { applyUiScale, loadUiScale } from "./features/settings/uiScale";
 // Only when one was actually chosen. An empty accent means "never picked",
 // and then nothing is applied and `--accent` resolves from tokens.css:
 // shadcn's neutral primary, which flips with the theme where a stored hex
-// cannot. 0.9.0 only ever stored an accent on a real swatch click, so this
-// resurrects deliberate picks and nothing else. A stored `aurora` style is
-// ignored; Aurora is gone (ROADMAP decision 1).
+// cannot. What 0.9.0 stored does NOT count as chosen: it also wrote the
+// accent on Reset and on a paired theme pack, so the key moved to envelope
+// v2 in v0.9.80 and only picks from the new picker load (see accent.ts). A
+// stored `aurora` style is ignored; Aurora is gone (ROADMAP decision 1).
 const accent = loadAccent();
 if (accent) applyAccent(accent);
 applyTheme(loadTheme());

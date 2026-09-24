@@ -9,7 +9,9 @@
 //     dark swatch, or a primary button carries unreadable text.
 //   - the popover's layer. At the registry's z-50 it paints BEHIND the
 //     Settings sheet (z 60), and a Custom button that opens nothing looks
-//     exactly like one that works.
+//     exactly like one that works. And its PLACE: a leftover class once
+//     drew it 246px away from its chip.
+//   - what counts as a choice. 0.9.0 stored accents nobody picked.
 //   - Reset. It clears storage; the picker has to stop ticking the old
 //     swatch when it does.
 //
@@ -85,6 +87,27 @@ const onTop = await page.evaluate(() => {
   return !!hit && p.contains(hit);
 });
 check("custom popover paints above the Settings sheet", onTop);
+// ...and opens where Radix put it: under the chip, start-aligned, at the
+// 4px sideOffset. v0.9.79 shipped it 246px to the LEFT, because the old
+// Themes picker's `.accent-popover` rule (position:absolute; right:0) rode
+// on the new content and collapsed Radix's wrapper to 0x0. The hit-test
+// above passed the whole time: the box was on top, just in the wrong place.
+const place = await page.evaluate(async () => {
+  const el = document.querySelector("[data-slot='popover-content']");
+  // Measured after the slide-in settles: mid-animation the box is still
+  // translated up, and the gap reads negative.
+  await Promise.all(el.getAnimations().map((a) => a.finished));
+  const p = el.getBoundingClientRect();
+  const t = document
+    .querySelector("[aria-label='Accent colour'] [data-slot='popover-trigger']")
+    .getBoundingClientRect();
+  return { dx: Math.round(p.left - t.left), gap: Math.round(p.top - t.bottom) };
+});
+check(
+  "custom popover opens under its chip, start-aligned",
+  Math.abs(place.dx) <= 1 && place.gap >= 2 && place.gap <= 6,
+  JSON.stringify(place),
+);
 await page.locator("input[aria-label='Hex colour']").fill("ff6a00");
 check("typing a full hex applies it", (await root()).inline === "#ff6a00");
 await page.keyboard.press("Escape");
@@ -121,6 +144,28 @@ check(
     .getByRole("button", { name: /Default/ })
     .getAttribute("aria-pressed")) === "true",
 );
+
+// 7. A 0.9.0-era accent is NOT a choice. 0.9.0 also stored one on Reset
+//    (the old brand red) and on a paired theme pack (Streamy's purple), so
+//    since v0.9.80 the key is envelope v2 and a v1 value reads as "never
+//    picked". Without that, the boot line repaints colours nobody chose.
+const stalePage = await (
+  await browser.newContext({ viewport: { width: 1400, height: 900 } })
+).newPage();
+stalePage.on("pageerror", (e) => errors.push(String(e)));
+await stalePage.addInitScript(() => {
+  localStorage.setItem("btv:onboarded", "1");
+  sessionStorage.setItem("btv:welcome-played", "1");
+  localStorage.setItem("blammytv.accent", JSON.stringify({ v: 1, data: "#7b5bf5" }));
+});
+await stalePage.goto(process.env.APP_URL ?? "http://localhost:4173/", {
+  waitUntil: "domcontentloaded",
+});
+await stalePage.waitForSelector(".navcap", { timeout: 20_000 });
+const staleInline = await stalePage.evaluate(() =>
+  document.documentElement.style.getPropertyValue("--accent"),
+);
+check("a 0.9.0-era (v1) accent is ignored at launch", staleInline === "", staleInline);
 
 check("no page errors", errors.length === 0, errors.join(" | "));
 await browser.close();
