@@ -196,7 +196,7 @@ for (const n of all) {
       (r.out.match(/^\s*(\w*Error:.{0,60})/m) ?? [])[1] ??
       "";
   }
-  rows.push({ n, status, pass, fail, note });
+  rows.push({ n, status, pass, fail, note, out: r.out });
   const mark = status === "ok" ? "ok " : status;
   console.log(
     `${n.padEnd(24)} ${mark.padEnd(8)} ${String(pass).padStart(4)}✓ ${String(fail).padStart(3)}✗  ${note}`,
@@ -211,5 +211,18 @@ console.log(
 );
 if (bad.length) {
   console.log(`not clean: ${bad.map((r) => `${r.n} (${r.status})`).join(", ")}`);
+  // WHICH check, not just how many. From a CI log there is no rerunning
+  // the one harness by hand, and "59✓ 1✗" says nothing about what broke.
+  // A FAILED row gets its FAIL lines; a CRASH or TIMEOUT gets the tail of
+  // its output, which is where the stack is.
+  for (const r of bad) {
+    const lines = r.out.split("\n");
+    const shown =
+      r.status === "FAILED"
+        ? lines.filter((l) => /^\s*(FAIL|✗)/.test(l)).slice(0, 12)
+        : lines.filter((l) => l.trim()).slice(-15);
+    console.log(`\n── ${r.n} (${r.status})`);
+    for (const l of shown) console.log(`   ${l}`);
+  }
   process.exit(1);
 }
