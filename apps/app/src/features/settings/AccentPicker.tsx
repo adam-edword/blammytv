@@ -195,7 +195,11 @@ export function AccentPicker() {
          * opened 246px left of this chip instead of under it. */}
         <PopoverContent align="start" className="accent-picker w-auto p-3">
           <HexColorPicker color={customShown || "#c22727"} onChange={pickCustom} />
-          <div className="mt-3 flex items-center gap-2">
+          {/* The picker's own 220px (vendor.css), so the row lines up with
+           * the square above it. Left to size itself, the hex Input's
+           * intrinsic width pushed the popover wider than the square and
+           * left an empty strip down its right side. */}
+          <div className="mt-3 flex w-[220px] items-center gap-2">
             {eyeDropper && (
               <Button
                 variant="outline"
@@ -215,7 +219,7 @@ export function AccentPicker() {
                 <EyeDropperIcon />
               </Button>
             )}
-            <div className="relative flex-1">
+            <div className="relative min-w-0 flex-1">
               <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm text-muted-foreground">
                 #
               </span>
