@@ -75,8 +75,19 @@ const sample = async (p, dest) => {
   // is not what this is trying to assert. The claim is "not a blink": a
   // 180ms fade should be visible across several frames, and one or two is
   // a snap. 5 sits well clear of both.
-  const mid = s.filter((x) => x[1] < 0.99).length;
-  check("over many frames, not a blink", mid >= 5, `${mid} frames under full opacity`);
+  //
+  // And it failed on CI's slower runner exactly that way: 4 frames, over a
+  // fade that had run its full length. So the assertion is the TIME the
+  // screen spends below full opacity, first dimmed frame to last. A snap is
+  // one or two frames, 0 to ~17ms; the 180ms fade spans well past 90ms
+  // however few frames the machine managed to paint inside it.
+  const under = s.filter((x) => x[1] < 0.99);
+  const span = under.length ? under[under.length - 1][0] - under[0][0] : 0;
+  check(
+    "a visible fade, not a blink",
+    span >= 90,
+    `${span}ms below full opacity over ${under.length} frames`,
+  );
 
   // Every property in flight must be one the compositor can own alone.
   const props = await p.evaluate(async () => {
