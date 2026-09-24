@@ -253,6 +253,11 @@ never be a deterrent to building anything." So:
 
 ### Alongside, whenever there is room
 
+- **An app-wide command palette** (Adam, 2026-09-24, on plan 017's M3:
+  "bookmark this as a full app feature down the line"). Multi-view's picker
+  is its first shape: search-first, keyboard-complete, rows with logos and
+  what is on. Grown out to channels, films and series, Settings and actions,
+  it is also the Ctrl+K channel search the Live slate ranked first.
 - **Sports matcher leftovers.** ACCNX and ESPN+ are carried as per-fixture
   event channels ("Liberty vs. Virginia (ACCNX)"), which is `matchEvent`
   territory. Run `btvSports()` on a college Saturday first; whether those

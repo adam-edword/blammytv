@@ -1,6 +1,9 @@
 # 017: Multi-view, designed
 
-**Status: DESIGN (2026-09-24, v0.9.104).** Written after Adam's first real
+**Status: DECIDED (2026-09-24).** Adam answered M1 to M9 the same day and
+added three things: the Focus split is resizable, multi-view gets its own
+tab between Guide and Sports, and every tile closes from an X on the tile.
+Nothing is built yet. Written after Adam's first real
 multi-view sessions: the streams work (v0.9.101's proxy, v0.9.104's
 buffering, 60s with 0 hitches), and the screen around them does not. His
 words: "we need a MAJOR design pass", and "the players are also simply just
@@ -11,9 +14,9 @@ architecture stands (web tiles, one connection per tile, the line's cap as
 the ceiling, one tile with the sound), and so do its two measured layout
 calls (the 3-up is one big plus two, and the 2-up is side by side).
 
-Five mockups were rendered with the app's own tokens, the Geist face, the
+Seven mockups were rendered with the app's own tokens, the Geist face, the
 app's icon paths, and video frames cropped from Adam's screenshots. They are
-in the chat, not the repo (binaries). Referred to below as frames A to E:
+in the chat, not the repo (binaries). Referred to below as frames A to G:
 
 - **A.** Focus layout, three streams, the pointer on the sound tile.
 - **B.** Grid, four streams, one tile per state (sound, tuning, failed, muted).
@@ -21,6 +24,13 @@ in the chat, not the repo (binaries). Referred to below as frames A to E:
 - **D.** Two streams at rest: the chrome gone, the sound marker faded to a
   hairline ring and a speaker in the name chip.
 - **E.** How it opens: the channel you came from, and a place for the next.
+- **F.** Dragging the Focus seam: the big tile at 77%, the stack smaller and
+  centred against it, a dashed line where the natural split is.
+- **G.** The Multi-view tab: the app's nav capsule in multi-view's bar,
+  names under the pictures, nothing drawn on them at rest.
+
+A to E predate Adam's answers and still show the name chip on the picture;
+G is how a tile looks at rest now (M4).
 
 ---
 
@@ -149,24 +159,33 @@ between layouts, so the motion below is this app's own.
 
 ## The design
 
-### The shell (frames A to E)
+### The Multi-view tab (frame G)
 
-A full-window layer above the app shell, as the player's stage is, on
-`#000`. The app header is not drawn. Its own top bar, over a gradient,
-reveals on pointer movement and fades after 2s idle (never while the pointer
-is on it or a menu is open):
+Multi-view is **a destination in the nav capsule, between Guide and Sports**
+(M5), on the Live side, so it shows only when a live source exists, as those
+two do. The capsule reads Guide, Multi-view, Sports, the app mark, Stream,
+Discover, Library.
 
-- **Left:** Back (leaves multi-view), the title, and a connection meter: one
-  dash per stream the line allows, filled per stream in use, with "3 of 3
-  streams". That is 013's "visually note their instance cap" as a glance,
-  not a sentence.
-- **Right:** the layout switch (Grid / Focus, with icons, shown only where
-  both exist), the sound control (speaker, the sound tile's name, a volume
-  slider), **Add channel** (primary; disabled at the cap with a tooltip
-  naming the cap), and full screen.
+It is a tab that behaves like the player (M1). The page is `#000`, and the
+app header is replaced by multi-view's own bar, **with the app's nav capsule
+in its centre** where it always sits, so moving to another tab works as it
+does everywhere. The bar reveals on pointer movement and fades after 2s
+idle (never while the pointer is on it or a menu is open), capsule and all.
+The clock and the Settings gear stay off this tab; both are one tab away.
+
+- **Left:** the connection meter (one dash per stream the line allows,
+  filled per stream in use, "3 of 3 streams": 013's "visually note their
+  instance cap" as a glance), then the layout switch (Grid / Focus, shown
+  only where both exist).
+- **Right:** the sound control (speaker, the sound tile's name, a volume
+  slider), **Add channel** (disabled at the cap, with a tooltip naming it),
+  and full screen.
 
 Tiles never sit under the bar: the stage starts below it, so a revealed bar
 covers black, not picture.
+
+**Leaving the tab stops every tile**, so the connections are free for the
+Guide or the player. Coming back restores the grid (M7) and tunes it again.
 
 ### Layouts
 
@@ -183,22 +202,41 @@ size pick; see decision M8.
 
 The defaults are 013's measured calls. The switch is remembered per count.
 
-**The arithmetic** (prototyped in the mockups, `layout()`): every tile
-16:9, gap `g`. For Focus with `k` small tiles stacked on the right, the big
-tile's height is `k·sh + (k−1)·g`, so the group is
-`(k+1)·sh·16/9 + g + (k−1)·g·16/9` wide by `k·sh + (k−1)·g` tall, and
-`sh = min(fromWidth, fromHeight)`. Grid is the usual cell fit. The group is
-centred in the stage. This is a pure function with unit tests: every rect is
-16:9 within half a pixel, no two overlap, all sit inside the stage, and the
-Focus big tile is exactly aligned with the stack's top and bottom.
+**Every tile has a caption row under it** (M4, frame G): the name lives in
+the black between tiles, not on the picture. The engine reserves it: a cell
+is a 16:9 picture plus a 30px caption.
+
+**The Focus split is yours** (Adam's ask, frame F). Drag the seam between
+the big tile and the stack to make the big one bigger or smaller. Every tile
+stays exactly 16:9; whichever side comes out shorter centres against the
+other. How far it goes: the big tile never gets narrower than half the
+width, nor so narrow that the stack outgrows the window's height, and the
+small tiles never get narrower than a fifth of the width. Double-click the
+seam, or `\`, to go back to the natural split, where the big tile is
+exactly as tall as the stack. `[` and `]` nudge it from the keyboard. The
+split is remembered per count (M7). The drag follows the pointer 1:1 and
+resizes the real videos as it goes; there is no preview box.
+
+**The arithmetic** (prototyped in the mockups, `focusSplit()` and
+`naturalBw()`): every picture 16:9, gap `g`, caption `c`. Focus takes the
+big tile's width `bw` as its input: the small tiles are `sw = W − g − bw`
+wide, the stack is `k·(sw·9/16 + c) + (k−1)·g` tall, the big tile
+`bw·9/16 + c`, and the taller of the two sets the group's height. The
+natural split solves big height = stack height for `bw`. Grid is the usual
+cell fit. The group is centred in the stage. This is a pure function with
+unit tests: every picture 16:9 within half a pixel, no two overlap, all
+inside the stage, the natural split aligned top and bottom, and the split
+clamped to its range at both ends.
 
 ### A tile (frames A, B, D)
 
-**At rest:** the picture and a name chip bottom-left (logo and channel
-name, translucent). On the sound tile the chip also carries a speaker glyph.
-The **Sound** badge (the accent colour, with three bars that move with the
-audio level) and the accent ring show when the sound moves, and on hover,
-then fade after 3 seconds to a hairline ring. YouTube TV and Channels DVR
+**At rest nothing is drawn on the picture** (Adam, on M4: "as long as it
+doesn't cover the content"). The caption under it carries the logo, the
+channel name, and what is on in muted text; the sound tile's caption adds a
+speaker glyph, and the tile gets a hairline ring on its outside edge. The
+**Sound** badge (the accent colour, with three bars that move with the audio
+level) and the full accent ring show when the sound moves, and on hover,
+then fade after 3 seconds back to the hairline. YouTube TV and Channels DVR
 both learned to fade this marker (see the survey above).
 
 **Under the pointer, or when it is the keyboard's current tile:** a gradient
@@ -212,8 +250,10 @@ its own (channel over title):
   refreshed with the board;
 - a **LIVE** pill, or "Behind live" with the seconds, if stalls have put it
   behind (there is no catch-up since v0.9.104, so this is how you would know);
-- **actions**, top-right: *Watch in player*, *Replace*, *Remove*. On a
-  muted tile, a *Sound here* button joins them.
+- **actions**, top-right: *Watch in player*, *Replace*, and **an X that
+  closes the stream** (Adam's ask). On a muted tile, a *Sound here* button
+  joins them. The X is there whenever the pointer is on the tile, on every
+  tile, in every state, including Tuning and a failure.
 
 **States** (frame B), each with a line of what happened and a way forward:
 
@@ -260,8 +300,10 @@ closes. A channel already in the grid says "In the grid" and cannot be
 added twice (one channel twice is two connections on one stream). The
 footer counts what is left on the line.
 
-**Remove** is the tile's X or Delete on the current tile, and the grid
-reflows. **Replace** swaps the stream in place: same slot, same sound state.
+**Remove** is the tile's X, or Delete on the keyboard's current tile. The
+stream's connection is handed back at once (the proxy drops the provider
+connection when the tile goes, proven in v0.9.101), and the grid reflows.
+**Replace** swaps the stream in place: same slot, same sound state.
 
 **Order.** Drag a tile onto another to swap them. Not in the first build
 (see "What we are not doing").
@@ -272,19 +314,19 @@ dropped quietly.
 
 ### Getting in and out
 
-**In:**
-- **Sports:** the board's Multi-view button (as now), and a game card gains
-  a "Watch in multi-view" action, which opens with that game.
+**In:** the Multi-view tab itself, and three shortcuts that land on it with
+a channel added:
+- **Sports:** the board's Multi-view button goes to the tab, and a game card
+  gains a "Watch in multi-view" action, which adds that game.
 - **From the player:** a Multi-view button in the player's top-right, which
-  opens with the channel you were watching as the first tile (frame E). The
-  main player stops first, so its connection is free.
+  adds the channel you were watching as the first tile (frame E). The main
+  player stops first, so its connection is free.
 - **The Guide:** a channel gains an "Add to multi-view" action. Channels have
   no menu today (only folders do, `LiveScreen.tsx:183`), so this is the
   first; a right-click menu on a channel row is the natural home.
 
 **Out:**
-- Back or Escape (Escape closes the picker first, then full screen, then
-  multi-view).
+- Any other tab in the capsule. Leaving stops the tiles (see the tab).
 - **Watch in player** on a tile: leaves multi-view and plays that channel in
   the main player (mpv), with its full controls. The other streams stop, so
   their connections are free.
@@ -305,8 +347,10 @@ dropped quietly.
 | Up / Down | volume |
 | G | switch Grid and Focus |
 | Enter / double-click | fill the window with the current tile |
+| [ and ] | make Focus's big tile smaller or bigger |
+| \ / double-click the seam | the natural split |
 | F | full screen |
-| Esc | picker, then full screen, then leave |
+| Esc | closes, in order: the picker, a filled tile, full screen |
 
 Keyboard actions do not animate: they happen dozens of times a sitting, and
 motion on them reads as lag (Emil Kowalski's rule; the house motion plans
@@ -327,6 +371,33 @@ follow his curves already).
 
 `<video>` elements keep playing through all of it: they are moved, never
 re-created, so a reflow never re-tunes a stream.
+
+### Source limits (M8)
+
+Adam's concern on M8. Every tile is one connection to the provider, and his
+line allows 3. The rules:
+
+- **Add can never go past the line's maximum.** The panel reports
+  `max_connections`, the meter draws that many dashes, and Add disables at
+  the last one with a tooltip that names it ("Your line allows 3"). The
+  picker's footer counts what is left. M3U and Stalker report no limit;
+  there everything up to 4 is offered and a refusal shows on the tile.
+- **Streams elsewhere are shown, not guessed at.** The panel also reports
+  `active_cons`, which counts every device on the line. Multi-view subtracts
+  its own tiles and, if something else is holding one, the meter says so
+  ("1 in use elsewhere") and Add stops one sooner. Panels take a few seconds
+  to count a new stream and up to about 20 to notice one has gone
+  (`connections.ts`), so the meter re-polls after every change rather than
+  trusting one reading.
+- **A refusal says it is the limit.** When the provider answers a tile with
+  403 or 503 while the line is at or near its cap, the tile reads "Your line
+  is at its limit" rather than a bare code, with Replace and Remove.
+- **Nothing ever needs a spare connection.** Replace closes the old stream
+  before opening the new one, and entering multi-view (from the player or a
+  shortcut) stops the main player and any popout first (F10). Leaving the tab
+  stops every tile.
+- **Removing is instant.** The X hands the connection back the moment the
+  tile goes.
 
 ### Accessibility
 
@@ -358,9 +429,10 @@ primitive, centred.
 
 ---
 
-## Decisions for Adam
+## Decisions
 
-Each has a recommendation. One message can settle all of them.
+Adam answered all nine on 2026-09-24, after the table below was written; his
+answers are under it, and the design above already follows them.
 
 | # | Question | Recommendation |
 | --- | --- | --- |
@@ -374,6 +446,14 @@ Each has a recommendation. One message can settle all of them.
 | M8 | The grid size follows how many channels you add, instead of a 2 / 3 / 4 pick. | **Yes.** This changes a call you made in 013 ("people can decide to just watch two or 3 or 4"): you still decide, by adding and removing, but there are no empty boxes to fill and nothing is dropped when you change your mind. |
 | M9 | One tap to fill the grid with live games, alongside picking by hand. | **Yes, as one action, not a preset system.** The picker's Live games section gets "Fill with live games": up to the cap, followed teams first (ESPN puts favorites first). "Presets only" was the survey's recurring complaint, and this keeps building by hand as the main path. |
 
+**Adam's answers:** M1 yes. M2 yes. M3 yes, and bookmark an app-wide
+palette as a feature of its own (now in the ROADMAP's "Alongside" list).
+M4 yes, "as long as it doesn't cover the content": the at-rest name moved
+off the picture into a caption. M5 yes, and multi-view gets **its own tab
+between Guide and Sports**. M6 sure. M7 yes. M8 yes, with a concern about
+source limits, answered in "Source limits" above. M9 yes. His additions: a
+**resizable Focus split**, and **an X on every tile** to close its stream.
+
 ---
 
 ## Build order
@@ -381,13 +461,17 @@ Each has a recommendation. One message can settle all of them.
 Each phase ends green, with a check that fails without it (plan 016's rule),
 and a version bump. The work is frontend unless marked.
 
-**P1. The shell and the layouts.** The full-window layer, the top bar with
-auto-hide, Back and Escape, full screen, and the layout engine as a pure
-function. Tiles as they are today, placed by the engine.
+**P1. The tab, the shell and the layouts.** The Multi-view tab in the
+capsule between Guide and Sports, the bar with the capsule in it and
+auto-hide, full screen, leaving the tab stopping every tile, and the layout
+engine as a pure function with caption rows and the Focus split as an input
+(the natural split for now). Tiles as they are today, placed by the engine.
 *Proof:* `layout.test.ts` (16:9 within half a pixel, no overlap, in bounds,
-Focus aligned; at 1400x900 and 1920x1080 and 1280x720). A new
-`verify-multiview.mjs` under the IPC stub: nothing of the app header is
-drawn, every tile's box is 16:9, nothing overlaps, Escape leaves.
+natural split aligned, the split clamped; at 1400x900, 1920x1080 and
+1280x720). A new `verify-multiview.mjs` under the IPC stub: the tab sits
+between Guide and Sports, the capsule navigates away, every picture is
+16:9, nothing overlaps, nothing covers a picture at rest, and leaving the
+tab closes every stream.
 
 **P2. The tile.** The rest and hover chrome, the Sound badge, the info (guide
 now and next, game score), the states table with reasons from the proxy
@@ -395,16 +479,21 @@ and the codecs, and the tile actions.
 *Proof:* harness checks per state, driven by the fake panel (a 404, a
 never-answering stream, a slow one); the info against a fake guide.
 
-**P3. Picking.** The palette (Dialog), the empty space, Replace and Remove,
-count-follows-channels (M8), the grid remembered (M7), Fill with live games
+**P3. Picking and limits.** The palette (Dialog), the empty space, Replace
+(closing the old stream first) and Remove, count-follows-channels (M8), the
+meter's "in use elsewhere", the grid remembered (M7), Fill with live games
 (M9). F12 and F14 go here.
-*Proof:* add, replace, remove, a duplicate refused, the cap refused, the
-grid restored after leaving and after a reload.
+*Proof:* add, replace, remove, a duplicate refused, the cap refused, a
+replace at the cap that never holds two connections, the grid restored after
+leaving and after a reload.
 
-**P4. Sound and keys.** Sound follows the stream, not an index (F13), the
-top-bar volume and mute, the level meter, the keyboard table.
+**P4. Sound, keys and the seam.** Sound follows the stream, not an index
+(F13), the top-bar volume and mute, the level meter, the keyboard table, and
+the draggable Focus seam (pointer capture, 1:1, clamped, double-click
+resets, remembered).
 *Proof:* sound stays on the same stream through a removal and a swap; every
-key in the table does its thing.
+key in the table does its thing; a drag moves the seam and keeps every
+picture 16:9; a double-click restores the natural split.
 
 **P5. Motion.** FLIP on layout changes, the swap into the big spot, enter
 and leave, the picker, reduced motion. Checked in slow motion by eye, and by
