@@ -30,7 +30,7 @@ v0.9.78.
 |---|---|
 | **Redesign** (plan 014) | L0 done. L1 partly: Button is in 24 files, Combobox, DropdownMenu, Tooltip and Item are in use. **Input, Card, Dialog, Badge, Separator, Popover, Textarea, Skeleton and InputGroup were generated and have zero consumers.** L2, L3 and the glass have not started. |
 | **Multi-view** (plan 013) | Built and reachable off the Sports board. **Never played a frame.** Everything below the demuxer is unit-tested; the demuxer itself is untested until someone opens it against a real stream. |
-| **Themes** | Parked at v0.9.58 because a pack outranks the base palette. **Coming back after 1.0, rebuilt** (decision 1 below). The code stays in `old/themes/`. |
+| **Themes** | Parked at v0.9.58 because a pack outranks the base palette. **The current looks are being removed and the concept returns after 1.0 with new ones; the accent picker returns in M1** (decision 1 below). |
 | **Sports matcher** | Probed against the real 26,621-channel catalog on 2026-09-13 and fixed from that data. ACCNX, SECN+ and ESPNEWS still miss. |
 
 ### Debt from the multi-view work
@@ -59,17 +59,38 @@ Put to him with a recommendation each. Three went against the
 recommendation and one is still open; the plan below follows what he
 chose.
 
-1. **Themes: DEFERRED, and the groundwork stays.** First answered "cut",
-   then revised the same day: *"I do want themes back eventually. So
-   let's make sure to keep the groundwork."* Not a 1.0 gate ("eventually"
-   is read as after; say so if it should land sooner). Paid or free is
-   undecided and does not need deciding yet. What "keep the groundwork"
-   means in practice:
-   - **Delete nothing.** `old/themes/` (modal, packs, `license.ts`, the
-     three harnesses), the unreferenced accent presets and Aurora code,
-     the `main.tsx` line that honours a stored Aurora style,
-     `scripts/fake-keybox.mjs`, and `services/keybox`, which is deployed
-     and should stay up.
+1. **Themes: the current looks go, the concept comes back, and the accent
+   picker comes back now.** Settled in three answers the same day. First
+   "cut"; then *"I do want themes back eventually. So let's make sure to
+   keep the groundwork"*; then *"I do want to lose all the themes we have
+   now though. But I want the concept of themes to come back."* Themes as
+   a concept are not a 1.0 gate ("eventually" is read as after; say so if
+   it should land sooner). Paid or free is undecided and does not need
+   deciding yet.
+   - **Lose the looks, in M1.** Every pack: Classic, BlammyTV, OLED,
+     Paper, Streamy, the intense four (Terminal, Dither, Kawaii,
+     Supporter) and the premium Nebula. And Aurora. That means
+     `packs.css`, `intense-packs.css`, the pack lists in `themePacks.ts`,
+     `verify-intense-themes.mjs`, and the Aurora code in `accent.ts`,
+     `tokens.css`, `ui.css` and `onboarding.css`. Aurora has not been
+     applied at startup since v0.9.60, so nothing a user sees changes
+     when it goes.
+   - **Keep the machinery.** The switching (`loadThemePack`,
+     `applyThemePack`, the `[data-theme-pack]` attribute), the paid-payload
+     seam (`injectPackCss`), `license.ts` and `verify-license.mjs`,
+     `ThemesModal.tsx` as a reference for the picker, `fake-keybox.mjs`,
+     and `services/keybox`, which is deployed and should stay up. The
+     Stripe product behind the Themes Pass sells packs that will no longer
+     exist; retiring it is Adam's.
+   - **The accent picker comes back now** (M1), not with themes. Adam asked
+     "Can this come back now?" and it can. The plumbing still works:
+     `applyAccent` sets `--accent` and a computed `--accent-ink`, and the
+     shadcn bridge maps `--color-primary` and `--color-primary-foreground`
+     onto those two, so a light accent gets dark text on its buttons
+     without anyone having to think about it. What is missing is a place
+     to pick one (it lived inside the Themes modal) and the one boot line
+     in `main.tsx` that v0.9.60 removed on purpose, because a stored accent
+     with no picker to change it could never be cleared.
    - **Keep the redesign themeable.** Measured 2026-09-24: every colour in
      the shadcn layer reaches the app's own tokens through `@theme inline`
      (`--color-background: var(--bg)`), so a pack that redefines `--bg`,
@@ -133,9 +154,23 @@ it land rather than assume it did.
    run. If mpegts.js does not play, fix it or hide the button.
 3. Move multi-view onto the primitives: Button for the size picker, close
    and rail rows, Dialog for the notice, Input for the search.
-4. Merge the multi-view branch into `main` (Adam's step: default branch).
-
-Themes are NOT removed here. Decision 1 keeps the parked code as it is.
+4. **Bring the accent picker back** (decision 1), in Settings → Customize,
+   built on the shadcn primitives from the start. Swatches plus the
+   react-colorful custom picker (still a dependency), and the boot line in
+   `main.tsx` goes back WITH it, never before, or a stored colour becomes
+   one nobody can clear again. The existing Reset already clears the
+   accent. Check a very light and a very dark custom colour on a primary
+   button: `--accent-ink` should flip the text, and any surface that
+   ignores it is a bug the redesign would otherwise have shipped. The old
+   `ACCENT_PRESETS` were chosen against the pre-shadcn palette, so look at
+   them rather than restoring them blind.
+5. **Remove the current looks** (decision 1): the pack CSS, the pack lists,
+   `verify-intense-themes.mjs`, and Aurora. Carefully in `ui.css` and
+   `tokens.css`: the Aurora rules sit interleaved with live ones, and
+   cutting them by hand is how v0.9.52 ate a closing brace. Run the full
+   `pnpm verify`, not just the tests. The machinery listed under decision 1
+   stays.
+6. Merge the multi-view branch into `main` (Adam's step: default branch).
 
 ### M2: finish the primitives (plan 014 L1 and L2)
 
@@ -163,8 +198,10 @@ Themes are NOT removed here. Decision 1 keeps the parked code as it is.
   because it is that channel's first run. Signed, if decision 3 says so;
   this is the first build where signing would buy anything.
 - **Themes, in the same release's words.** 0.10.0 is the first release
-  without them, and 0.9.0 users who picked a pack lose it. The changelog
-  says they are coming back rather than pretending nothing moved, and
+  without packs, and 0.9.0 users who picked one lose it (a picked accent
+  colour is not lost; the picker is back from M1). The changelog says
+  themes are coming back with new looks rather than pretending nothing
+  moved, and
   `services/site` stops selling the Themes Pass as a thing you can buy
   today. Both change at release, not before: until then the site describes
   0.9.0, which does have themes.
@@ -218,13 +255,12 @@ Not in 1.0: recording, anything else below.
 ## After 1.0
 
 - **Recording to disk.** Named as the post-1.0 headliner since July.
-- **Themes, rebuilt** (decision 1). Packs as overlays on the settled
-  tokens, under `[data-theme-pack]`, with no default pack. The pieces are in
-  `old/themes/` and its README lists where each one goes, but the pack CSS
-  in there was written for the old palette and gets rewritten, not moved
-  back. Cannot start before M3: tokens that are still moving cannot be
-  themed. Paid or free gets decided then; `services/keybox` is still up if
-  paid.
+- **Themes, the concept, with new looks** (decision 1). New packs as
+  overlays on the settled tokens, under `[data-theme-pack]`, with no default
+  pack. The machinery is in `old/themes/`; the looks are gone by then and
+  are designed fresh. Cannot start before M3: tokens that are still moving
+  cannot be themed. Paid or free gets decided then; `services/keybox` is
+  still up if paid.
 - **Android TV.** A branch exists from June, before the rebuild, so it is a
   starting point for the packaging and little else.
 - Timeshift, the mini-guide strip.

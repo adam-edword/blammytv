@@ -1,16 +1,22 @@
 # old/themes
 
-**Decided 2026-09-24: Themes come back after 1.0, rebuilt.** Adam: *"I do
-want themes back eventually. So let's make sure to keep the groundwork."*
-So nothing in here gets deleted. See ROADMAP, decision 1.
+**Decided 2026-09-24: the looks go, the concept comes back.** Adam: *"I do
+want to lose all the themes we have now though. But I want the concept of
+themes to come back."* See ROADMAP, decision 1.
 
-One warning before anyone follows "Putting it back" below: those steps
-restore the feature AS IT WAS, and the pack stylesheets here were written
-for the pre-shadcn palette. Moved back as they are, they paint over the new
-tokens, which is the exact reason this folder exists. The TypeScript
-(modal, `themePacks.ts`, `license.ts`) and the harnesses are the reusable
-part; the pack CSS gets rewritten as overlays on the new tokens, with no
-default pack, because "no pack selected" has to mean the base palette.
+- **Going, in ROADMAP M1:** every pack (`styles/packs.css`,
+  `styles/intense-packs.css`, the lists in `themePacks.ts`), Nebula, Aurora,
+  and `scripts/verify-intense-themes.mjs`.
+- **Staying, as the machinery for the next themes:** the switching and the
+  paid-payload seam in `themePacks.ts`, `license.ts` and its harness,
+  `ThemesModal.tsx` as a reference, and `services/keybox`.
+- **Coming back sooner, on its own:** the accent picker, in M1.
+
+So "Putting it back" below is a record of where the pieces used to plug
+in, not a plan. New looks are written as overlays on the shadcn tokens,
+with no default pack, because "no pack selected" has to mean the base
+palette; a default pack pinning the palette is what got this folder
+parked.
 
 The whole Themes feature, parked out of the build at v0.9.58.
 
@@ -53,9 +59,11 @@ modal removed them. Their code is still in the app, unreferenced:
   `clearAccent`, `saveCustomAccent` and the rest; nothing renders them. The
   app runs on `--accent` from `tokens.css`, which is shadcn's `primary`.
 - **The Aurora easter egg.** `isAuroraUnlocked` / `unlockAurora` /
-  `applyAurora` are intact and `main.tsx` still honours a stored
-  `accent-style: aurora`, so anyone who already unlocked it keeps it. There is
-  no way to unlock it now. Its CSS stays in `ui.css` and `tokens.css`,
+  `applyAurora` are intact. *(Corrected 2026-09-24: this used to say
+  `main.tsx` still honours a stored `accent-style: aurora`. It stopped in
+  v0.9.60, which removed the boot-time read of a stored accent and of
+  Aurora, so nobody has seen Aurora since.)* There is no way to unlock it
+  now. Its CSS stays in `ui.css` and `tokens.css`,
   deliberately: it paints nothing without `data-accent-style="aurora"`, and
   cutting interleaved rules out of those two files by hand is how v0.9.52 ate
   a closing brace.

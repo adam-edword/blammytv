@@ -1440,10 +1440,10 @@ Items 1, 2 and 4 shipped; item 3 is a v0.1.x-era read on Adam's Figma work.
    shipped headless via mpv_status (v0.1.133), and the WM_SETCURSOR /
    DComp corner-clip / switch-gap items dissolved with the comp.rs
    deletion (v0.1.135). Post-1.0 headliner: recording to disk.
-5. **~~PRE-1.0 GATE: Paid themes~~ DEFERRED to after 1.0 (2026-09-24).**
-   Themes come back rebuilt on the new tokens, and the parked code stays
-   as groundwork; see ROADMAP, decision 1. What follows is the original
-   reasoning. (Adam, 2026-07-11: free app, themes
+5. **~~PRE-1.0 GATE: Paid themes~~ Not a gate (2026-09-24).** Every
+   current look goes; the concept of themes returns after 1.0 with new
+   ones, on the machinery that is kept; the accent picker returns sooner.
+   See ROADMAP, decision 1. What follows is the original reasoning. (Adam, 2026-07-11: free app, themes
    behind a paywall). Architecture notes agreed in-session:
    - Mechanism = the Aurora pattern generalized: a theme is a named
      token bundle scoped under a root attribute (data-theme-pack), with
