@@ -50,6 +50,15 @@ describe("normalize", () => {
     expect(normalize("US: Indiana Sports")).toBe("indiana sports");
   });
 
+  it("takes accents off rather than cutting the word in two", () => {
+    // Spanish-language networks are the common case: a broadcast name and
+    // a playlist's spelling of the same channel often disagree on accents.
+    expect(normalize("TUDN México")).toBe(normalize("TUDN Mexico"));
+    expect(normalize("ESPN Fútbol")).toBe("espn futbol");
+    expect(normalize("MX: Televisión Pública HD")).toBe("television publica");
+    expect(normalize("Univisión Deportes")).toBe("univision deportes");
+  });
+
   it("drops resolution badges wherever they sit", () => {
     expect(normalize("US: Fox Sports 1 HD")).toBe("fox sports 1");
     expect(normalize("US: FOX Sports 2 FHD")).toBe("fox sports 2");

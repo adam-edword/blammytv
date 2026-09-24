@@ -106,6 +106,12 @@ const BRANDS: Record<string, string> = {
 export function normalize(name: string): string {
   return name
     .toLowerCase()
+    // Accents come OFF, not out. The `[^a-z0-9+]` pass below treats an
+    // accented letter as punctuation, so "TUDN México" became "tudn m xico"
+    // and could never meet a playlist's "TUDN Mexico" (v0.9.86). NFD splits
+    // é into e plus a combining mark, and the mark is what goes.
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
     .replace(COUNTRY, "")
     .replace(QUALITY, " ")
     // `+` survives: ESPN+ is a different thing from ESPN, and losing the
