@@ -1,7 +1,8 @@
 # 017: Multi-view, designed
 
 **Status: IN PROGRESS. P1 shipped in v0.9.105** (the tab, its bar, the
-layout engine); P2, the tile, is next. Decided 2026-09-24: Adam answered M1
+layout engine) **and P2 in v0.9.107** (the tile); P3, picking and limits,
+is next. Decided 2026-09-24: Adam answered M1
 to M9 the same day and added three things: the Focus split is resizable,
 multi-view gets its own tab between Guide and Sports, and every tile closes
 from an X on the tile. Written after Adam's first real
@@ -509,6 +510,32 @@ now and next, game score), the states table with reasons from the proxy
 and the codecs, and the tile actions.
 *Proof:* harness checks per state, driven by the fake panel (a 404, a
 never-answering stream, a slow one); the info against a fake guide.
+
+**P2 done in v0.9.107.** `mvTile.ts` (the failure wording, the codec check,
+what is on, behind live) with 21 unit tests, the tile in
+`MultiviewTile.tsx`, and `verify-mvtile.mjs` (19 checks), each
+mutation-tested. Where it differs from the above:
+- **Actions in P2 are the X and Sound here.** Replace needs P3's palette and
+  Watch in player needs P6's hand-off, so each lands with its phase. A
+  codec failure says "The Guide's player can" until then.
+- **No game score yet.** The board stops polling when you leave Sports, so
+  a score here would be up to half an hour old. P3's palette needs live
+  games too; both get a fresh source there. A game tile shows the
+  channel's guide meanwhile.
+- **F13 is fixed in P2**, not P4: the X made it bite. The sound follows a
+  stream's id and falls to the first tile left when that stream goes.
+- **A failed tile cannot take the sound**, and does not offer Sound here:
+  there is nothing to hear.
+- **Behind live is the time spent stalled**, since nothing catches up
+  (v0.9.104), shown from three seconds.
+- **Tuning and Buffering use the main player's pulse**, not a spinner: the
+  app has none, and the two players should read the same.
+- **The tile's information goes when the bar dims**: a pointer left resting
+  on a tile is watching it.
+- **A cold start is fixed.** Launching on Stream and going straight to
+  Multi-view left the search empty for the visit (v0.9.105): nothing had
+  loaded the catalog. The tab now loads it through `useLiveData`, the hook
+  Sports' catalog was already using, moved out so both share it.
 
 **P3. Picking and limits.** The palette (Dialog), the empty space, Replace
 (closing the old stream first) and Remove, count-follows-channels (M8), the

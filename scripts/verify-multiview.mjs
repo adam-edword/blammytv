@@ -192,7 +192,12 @@ for (let i = 0; i < 3; i++) await chans.nth(i).click();
 await page.waitForFunction(() => document.querySelectorAll("video.mvtile__video").length === 3, null, {
   timeout: 10_000,
 });
-await page.waitForTimeout(300);
+// "At rest" means playing, with the Sound badge's three seconds over (P2).
+// Nothing decodes here, so each tile gets the event its first frame fires.
+await page.evaluate(() =>
+  document.querySelectorAll("video.mvtile__video").forEach((v) => v.dispatchEvent(new Event("playing"))),
+);
+await page.waitForTimeout(3300);
 
 async function geometry(label) {
   const tiles = await rectOf(".mvtile");

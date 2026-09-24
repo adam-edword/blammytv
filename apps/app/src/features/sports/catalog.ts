@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
-import { loadLive, lookupLive, onLiveRefreshed, peekLive } from "../live/source";
+import { useMemo } from "react";
+import { lookupLive } from "../live/source";
+import { useLiveData } from "../live/useLiveData";
 import { indexChannels } from "./matcher";
 import type { Catalog, Tunable } from "./matcher";
 import type { Channel, LiveData } from "../live/model";
@@ -54,41 +55,9 @@ export function tunedChannel(id: string): Channel | null {
 const INDEXES = new WeakMap<LiveData, Catalog>();
 
 export function useCatalog(): Catalog | null {
-  // peekLive is synchronous and usually warm, because the guide has almost
-  // always loaded before anyone reaches this tab. Starting from it means the
-  // board's first paint already carries channels rather than flashing "not
-  // on your channels" and correcting itself a moment later.
-  // lookupLive for the FIRST paint, so a catalog older than half an hour
-  // still draws the board while the effect below reloads it.
-  const [live, setLive] = useState<LiveData | null>(lookupLive);
-
-  useEffect(() => {
-    let alive = true;
-    // Cold start, which only happens if this tab is the first thing opened.
-    // loadLive is single-flighted and cached, so this joins the Live
-    // screen's load rather than starting a second one.
-    if (!peekLive()) {
-      void loadLive(new Date()).then(() => {
-        // Whatever is CURRENT, not what this call resolved with. A
-        // playlist edit during a cold Sports load starts a second, forced
-        // load that finishes first; taking this one's result then
-        // regressed the board to the catalog the user had just changed.
-        // The refresh listener eight lines below already reads it this way.
-        const fresh = peekLive();
-        if (alive && fresh) setLive(fresh);
-      });
-    }
-    // The guide lands in two phases and a background refresh replaces it, so
-    // re-read on the same announcement the Live screen listens to.
-    const off = onLiveRefreshed(() => {
-      const fresh = peekLive();
-      if (alive && fresh) setLive(fresh);
-    });
-    return () => {
-      alive = false;
-      off();
-    };
-  }, []);
+  // Loaded when cold, followed after. See useLiveData, which is where this
+  // tab's own copy of that logic went.
+  const live = useLiveData();
 
   return useMemo(() => {
     if (!live) return null;

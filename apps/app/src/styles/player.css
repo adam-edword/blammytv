@@ -1179,6 +1179,8 @@
   inset: 0;
 }
 
+/* A tile (plan 017, P2). A container, so what it shows can scale with it:
+ * a Focus big tile is 1000px wide and a small one under 300. */
 .mvtile {
   position: absolute;
   display: block;
@@ -1188,20 +1190,34 @@
   overflow: hidden;
   background: #111;
   cursor: pointer;
+  container-type: size;
   /* The sound tile's ring sits OUTSIDE the picture, in the gap. A border
    * would take 4px out of a picture that is exactly 16:9 and letterbox it
    * by a pixel; an outline is drawn outside the box and is not clipped by
    * the tile's own overflow. */
-  outline: 2px solid transparent;
+  outline: 1px solid transparent;
   outline-offset: 3px;
-  transition: outline-color 140ms var(--ease-out, ease);
+  transition:
+    outline-color 200ms var(--ease-out, ease),
+    outline-width 200ms var(--ease-out, ease);
 }
 
+/* The sound tile at rest: a hairline. When the sound has just moved here,
+ * or the pointer is on it, the full accent ring, which fades back after
+ * three seconds with the badge (YouTube TV and Channels DVR both fade
+ * theirs: an always-on marker was called distracting). */
 .mvtile.is-on {
+  outline-color: rgb(255 255 255 / 0.4);
+}
+.mvtile.is-on.is-flash,
+.mvtab:not(.is-idle) .mvtile.is-on:hover {
+  outline-width: 2px;
   outline-color: var(--accent, #6c8cff);
+  transition-duration: 140ms;
 }
 
 .mvtile:focus-visible {
+  outline-width: 2px;
   outline-color: var(--text);
 }
 
@@ -1219,14 +1235,294 @@
   background: transparent;
 }
 
-.mvtile__error {
+/* Tuning, and failed: what happened and a way on, centred on the tile. */
+.mvtile__state {
   position: absolute;
   inset: 0;
   display: grid;
   place-content: center;
+  justify-items: center;
+  gap: 8px;
+  padding: 16px;
+  text-align: center;
+  color: var(--text);
+}
+.mvtile__stateicon {
   color: var(--text-muted);
+}
+.mvtile__statetitle {
+  font-size: 14.5px;
+  font-weight: 650;
+}
+.mvtile__statesub {
+  max-width: 34ch;
   font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+.mvtile__state .mvchip {
+  margin-top: 6px;
+}
+
+/* A stall: the last frame, dimmed, and the main player's Buffering pill. */
+.mvtile__stall {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgb(0 0 0 / 0.35);
+}
+.mvtile__buffering {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.6);
+  border: 1px solid rgb(255 255 255 / 0.22);
+  backdrop-filter: blur(16px);
+  font-family: var(--font-headline);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #fff;
+}
+
+/* The Sound badge: on the sound tile when the sound has just moved there,
+ * and under the pointer. Its bars are drawn still: making them move with
+ * the real level is P4's (an AnalyserNode), and bars that moved on their
+ * own would make a silent feed look loud. */
+.mvtile__badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 26px;
+  padding: 0 10px 0 8px;
+  border-radius: 999px;
+  background: var(--accent, #6c8cff);
+  color: var(--accent-ink, #111);
+  font-size: 11.5px;
+  font-weight: 700;
+  opacity: 0;
   pointer-events: none;
+  transition: opacity 200ms var(--ease-out, ease);
+}
+.mvtile.is-flash .mvtile__badge,
+.mvtab:not(.is-idle) .mvtile:hover .mvtile__badge {
+  opacity: 1;
+  transition-duration: 140ms;
+}
+.mvbars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 11px;
+}
+.mvbars i {
+  width: 3px;
+  border-radius: 1px;
+  background: currentColor;
+}
+.mvbars i:nth-child(1) { height: 6px; }
+.mvbars i:nth-child(2) { height: 11px; }
+.mvbars i:nth-child(3) { height: 8px; }
+
+/* Under the pointer, or with keyboard focus: the information and the
+ * tile's own actions over a scrim. Nothing at rest, and nothing while the
+ * bar is dimmed: a pointer left resting on a tile is watching it, not
+ * asking about it. */
+.mvtile__chrome {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background:
+    linear-gradient(to top, rgb(0 0 0 / 0.75), rgb(0 0 0 / 0) 50%),
+    linear-gradient(to bottom, rgb(0 0 0 / 0.45), rgb(0 0 0 / 0) 30%);
+  transition: opacity 200ms var(--ease-out, ease);
+  pointer-events: none;
+}
+/* Keyboard focus only, not :focus-within: a click focuses the tile too,
+ * and the chrome would then stay up on the last tile clicked, bar dimmed
+ * and pointer gone. */
+.mvtab:not(.is-idle) .mvtile:hover .mvtile__chrome,
+.mvtile:focus-visible .mvtile__chrome,
+.mvtile:has(:focus-visible) .mvtile__chrome {
+  opacity: 1;
+  transition-duration: 140ms;
+}
+.mvtab:not(.is-idle) .mvtile:hover .mvtile__chrome *,
+.mvtile:focus-visible .mvtile__chrome *,
+.mvtile:has(:focus-visible) .mvtile__chrome * {
+  pointer-events: auto;
+}
+/* A failed tile already says what happened in the middle; the chrome only
+ * carries the X over it, not a scrim that would dim the words. */
+.mvtile.is-failed .mvtile__chrome {
+  background: none;
+}
+
+.mvtile__actions {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  gap: 6px;
+}
+
+/* The tile's buttons, in the capsule's glass. */
+.mvchip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 30px;
+  min-width: 30px;
+  padding: 0 11px;
+  border: 1px solid rgb(255 255 255 / 0.14);
+  border-radius: 999px;
+  background: rgb(20 20 20 / 0.6);
+  backdrop-filter: blur(12px) saturate(1.4);
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 140ms var(--ease-out, ease);
+}
+.mvchip:hover {
+  background: rgb(45 45 45 / 0.75);
+}
+.mvchip:active {
+  transform: scale(0.95);
+}
+.mvchip--icon {
+  width: 30px;
+  padding: 0;
+}
+
+.mvtile__info {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 14px;
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  color: #fff;
+}
+.mvtile__meta {
+  flex: 1;
+  min-width: 0;
+}
+.mvtile__chan {
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 0.75);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mvtile__title {
+  margin-top: 2px;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mvtile__prog {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 7px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: rgb(255 255 255 / 0.7);
+}
+.mvtile__track {
+  position: relative;
+  flex: 1;
+  height: 3px;
+  border-radius: 2px;
+  background: rgb(255 255 255 / 0.25);
+}
+.mvtile__track i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 2px;
+  background: #fff;
+}
+.mvtile__live {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: rgb(255 255 255 / 0.14);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+/* The house live dot: the theater's, in the accent. */
+.mvtile__live::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent, #6c8cff);
+}
+.mvtile__live.is-behind {
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.mvtile__live.is-behind::before {
+  background: rgb(255 255 255 / 0.5);
+}
+
+/* A small tile (Focus's stack, a 2x2 on a small window): the title and
+ * the badge stay, the progress line and the logo go. */
+@container (max-width: 420px) {
+  .mvtile__info {
+    left: 11px;
+    right: 11px;
+    bottom: 9px;
+    gap: 8px;
+  }
+  .mvtile__info .mvlogo,
+  .mvtile__prog {
+    display: none;
+  }
+  .mvtile__title {
+    font-size: 14px;
+  }
+  .mvtile__statetitle {
+    font-size: 13px;
+  }
+  .mvtile__statesub {
+    font-size: 11.5px;
+  }
+  .mvtile__actions {
+    top: 7px;
+    right: 7px;
+  }
+  .mvtile__badge {
+    top: 7px;
+    left: 7px;
+  }
+}
+/* Too short for the reason at all: the headline and the way on. */
+@container (max-height: 150px) {
+  .mvtile__statesub {
+    display: none;
+  }
 }
 
 .mvtile--empty {
@@ -1242,8 +1538,27 @@
   color: var(--text-muted);
 }
 
-/* The name, UNDER the picture (Adam, on M4: "as long as it doesn't cover
- * the content"). */
+/* A channel's logo, or its initial. White ground, because provider logos
+ * are drawn for either and most of them read on white. */
+.mvlogo {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  border-radius: 22%;
+  background: #fff;
+  color: #111;
+  font-weight: 800;
+  overflow: hidden;
+}
+.mvlogo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 8%;
+}
+
+/* The caption, UNDER the picture (Adam, on M4: "as long as it doesn't
+ * cover the content"): logo, name, and what is on. */
 .mvcap {
   position: absolute;
   display: flex;
@@ -1258,6 +1573,8 @@
 }
 
 .mvcap__name {
+  flex: 0 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -1266,6 +1583,19 @@
   display: inline-grid;
   flex: none;
   color: var(--text);
+}
+
+.mvcap__now {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.mvcap__now::before {
+  content: "·";
+  margin-right: 7px;
 }
 
 /* The rail you fill it from, until P3's palette. */

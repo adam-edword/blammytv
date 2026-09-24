@@ -1,8 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import { MultiviewTile } from "./MultiviewTile";
+import { MultiviewTile, MvLogo, type TileChannel } from "./MultiviewTile";
 import { MultiviewNotice } from "./MultiviewNotice";
 import { multiviewNoticeSeen } from "./multiviewAck";
 import { MV_SPACING, mvLayout, type MvKind, type Rect } from "./mvLayout";
+import { airing } from "./mvTile";
+import type { Programme } from "./model";
 import { VolumeIcon } from "../../ui/icons";
 import type { XtreamConnections } from "../../data/xtream";
 
@@ -15,7 +17,25 @@ import type { XtreamConnections } from "../../data/xtream";
  * every tile was a black box of the wrong shape. Here the stage is measured
  * and every picture is exactly 16:9, with its name in a caption row under it
  * rather than on it (Adam, on M4: "as long as it doesn't cover the content").
+ *
+ * THE SOUND FOLLOWS A STREAM, NOT A SLOT (audit F13, planned for P4 and
+ * brought forward: P2's X made it bite). It used to be an index, so closing
+ * the tile before the sound tile moved the sound to whichever stream slid
+ * into that slot. It is the stream's id now, and when that stream goes the
+ * sound falls to the first tile left.
  */
+
+/** One stream in the grid, with what its tile shows. */
+export interface GridStream {
+  id: string;
+  name: string;
+  url: string;
+  channel: TileChannel;
+  programmes?: Programme[];
+}
+
+/** How often what is on, and its progress line, move on. */
+const TICK_MS = 30_000;
 
 /** Whole pixels for the element, so a picture's edges land on the grid. */
 const place = (r: Rect): CSSProperties => ({
@@ -37,13 +57,16 @@ export function MultiviewGrid({
   cells,
   kind,
   conns,
+  onRemove,
 }: {
   /** Up to four playable streams, already resolved to URLs. */
-  streams: { id: string; name: string; url: string }[];
+  streams: GridStream[];
   /** How many cells to lay out: the size the line allows. */
   cells: number;
   kind: MvKind;
   conns: XtreamConnections | null;
+  /** A tile's X: close that stream. */
+  onRemove: (id: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState<Rect | null>(null);
@@ -65,20 +88,31 @@ export function MultiviewGrid({
     return () => ro.disconnect();
   }, []);
 
-  const [focus, setFocus] = useState(0);
+  const [soundId, setSoundId] = useState<string | null>(null);
   // The notice gates the first grid ever, not this mount. Read once: it is a
   // stored flag, and re-reading it on every render would let the accept
   // inside the notice race its own dismissal.
   const [needsNotice, setNeedsNotice] = useState(() => !multiviewNoticeSeen());
 
-  // Focus must always land on a tile that exists. Shrinking 4 to 2 while
-  // watching tile 4 would otherwise leave every tile muted.
+  const [now, setNow] = useState(() => new Date());
   useEffect(() => {
-    if (focus >= cells) setFocus(0);
-  }, [focus, cells]);
+    const t = window.setInterval(() => setNow(new Date()), TICK_MS);
+    return () => window.clearInterval(t);
+  }, []);
 
   const shown = streams.slice(0, cells);
   const layout = box ? mvLayout(kind, cells, box, MV_SPACING) : null;
+  // Always a tile that exists: the one chosen, or the first when that one
+  // has gone (closed, or dropped by a smaller grid). Derived, not stored,
+  // so there is no frame where every tile is muted.
+  const sound = shown.find((s) => s.id === soundId) ?? shown[0];
+
+  // "Sound: CNN", read out when the sound moves, not when the grid opens.
+  const [said, setSaid] = useState("");
+  const chooseSound = (s: GridStream) => {
+    if (s.id !== sound?.id) setSaid(`Sound: ${s.name}`);
+    setSoundId(s.id);
+  };
 
   return (
     <>
@@ -90,23 +124,31 @@ export function MultiviewGrid({
           shown.flatMap((s, i) => {
             const r = layout.tiles[i];
             if (!r) return [];
-            const on = i === focus;
+            const on = s.id === sound?.id;
+            const onNow = airing(s.programmes, now).now;
             return [
               <MultiviewTile
                 key={s.id}
                 url={s.url}
                 name={s.name}
+                channel={s.channel}
+                programmes={s.programmes}
+                now={now}
                 focused={on}
-                onFocus={() => setFocus(i)}
+                onFocus={() => chooseSound(s)}
+                onRemove={() => onRemove(s.id)}
                 style={place(r)}
               />,
+              // The caption: who it is and what is on, under the picture.
               <div key={`cap-${s.id}`} className="mvcap" style={under(r)}>
+                <MvLogo channel={s.channel} size={20} />
                 <span className="mvcap__name">{s.name}</span>
                 {on && (
                   <span className="mvcap__sound" aria-hidden>
                     <VolumeIcon size={14} />
                   </span>
                 )}
+                {onNow && <span className="mvcap__now">{onNow.title}</span>}
               </div>,
             ];
           })}
@@ -119,6 +161,9 @@ export function MultiviewGrid({
               <span className="mvtile__hint">Pick a channel on the right</span>
             </div>
           ))}
+      </div>
+      <div className="sr-only" aria-live="polite">
+        {said}
       </div>
     </>
   );

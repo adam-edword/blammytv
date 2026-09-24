@@ -7,7 +7,7 @@ import {
   useState,
   type RefObject,
 } from "react";
-import { MultiviewGrid } from "./MultiviewGrid";
+import { MultiviewGrid, type GridStream } from "./MultiviewGrid";
 import { allowedSizes, usableSize, type GridSize } from "./multiview";
 import {
   loadGridSize,
@@ -19,7 +19,7 @@ import { peekLiveGames } from "./multiviewEntry";
 import { defaultKind, kindsFor, type MvKind } from "./mvLayout";
 import { useConnections } from "./connections";
 import { resolveStreamUrl } from "./stream";
-import { lookupLive } from "./source";
+import { useLiveData } from "./useLiveData";
 import { tunedChannel } from "../sports/catalog";
 import { Matchup } from "../sports/Matchup";
 import {
@@ -250,13 +250,14 @@ export function MultiviewTab() {
   /** The live games Sports last published. Read once: the tab is a fresh
    * mount each visit, and the list moving under the pointer mid-pick would
    * be worse than one that is a visit old. */
-  const [live] = useState(peekLiveGames);
+  const [games] = useState(peekLiveGames);
 
-  /** The visible catalog, for the search. Hidden folders stay hidden: this
+  /** The catalog: loaded here if nothing has yet, and followed after, so
+   * the search works however this tab was reached (useLiveData). */
+  const live = useLiveData();
+  /** The visible channels, for the search. Hidden folders stay hidden: this
    * is a picker, and the guide's own hiding is a statement about clutter. */
-  // lookupLive, not peekLive: the search must work however long the tab has
-  // been open, and peekLive goes null after half an hour.
-  const channels = useMemo(() => lookupLive()?.channels ?? [], []);
+  const channels = useMemo(() => live?.channels ?? [], [live]);
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -306,13 +307,21 @@ export function MultiviewTab() {
           : [...was, { channelId, label }],
     );
 
-  const streams = picked
-    .map((p) =>
-      urls[p.channelId]
-        ? { id: p.channelId, name: p.label, url: urls[p.channelId] }
-        : null,
-    )
-    .filter((s): s is { id: string; name: string; url: string } => s !== null);
+  const streams: GridStream[] = [];
+  for (const p of picked) {
+    const url = urls[p.channelId];
+    if (!url) continue;
+    const ch = tunedChannel(p.channelId);
+    streams.push({
+      id: p.channelId,
+      name: p.label,
+      url,
+      channel: { name: ch?.name ?? p.label, number: ch?.number, logo: ch?.logo },
+      programmes: live?.programmes.get(p.channelId),
+    });
+  }
+  const remove = (channelId: string) =>
+    setPicked((was) => was.filter((p) => p.channelId !== channelId));
 
   const has = (channelId: string) => picked.some((p) => p.channelId === channelId);
   const full = picked.length >= cap;
@@ -407,7 +416,13 @@ export function MultiviewTab() {
             Your line allows one stream at a time, so multi-view can’t run on it.
           </p>
         ) : (
-          <MultiviewGrid streams={streams} cells={cells} kind={kind} conns={line} />
+          <MultiviewGrid
+            streams={streams}
+            cells={cells}
+            kind={kind}
+            conns={line}
+            onRemove={remove}
+          />
         )}
       </div>
 
@@ -420,10 +435,10 @@ export function MultiviewTab() {
             </span>
           </h2>
 
-          {live.length > 0 && (
+          {games.length > 0 && (
             <>
               <p className="mvscreen__section">Live now</p>
-              {live.map((g) => {
+              {games.map((g) => {
                 const ch = g.channels[0];
                 if (!ch) return null;
                 const on = has(ch.id);
