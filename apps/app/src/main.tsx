@@ -20,7 +20,7 @@ import { installDiscoverProbe } from "./features/discover/probe";
 import { installSportsProbe } from "./features/sports/probe";
 import { installPlayerProbes } from "./features/live/probe";
 import { applyAccent, loadAccent } from "./features/settings/accent";
-import { applyTheme, loadTheme } from "./features/settings/theme";
+import { applyTheme } from "./features/settings/theme";
 import { applyUiScale, loadUiScale } from "./features/settings/uiScale";
 
 // Apply saved appearance before first paint so nothing flashes.
@@ -40,7 +40,14 @@ import { applyUiScale, loadUiScale } from "./features/settings/uiScale";
 // stored `aurora` style is ignored; Aurora is gone (ROADMAP decision 1).
 const accent = loadAccent();
 if (accent) applyAccent(accent);
-applyTheme(loadTheme());
+// DARK, whatever is stored (plan 016, decision D1). Light has had no
+// control since the Themes panel was parked in v0.9.58, and several of its
+// surfaces are broken (white text on a white toast, invisible hover fills,
+// dark names on the Sports rail), so a light setting carried over from
+// 0.9.0 painted a broken app with no way out but Reset. Light comes back
+// with its control in M3's light pass. The stored value is left alone, so
+// nobody's choice is lost in the meantime.
+applyTheme("dark");
 applyUiScale(loadUiScale());
 // Paid theme CSS, purely from cache — see license.ts's fail-open comment.
 

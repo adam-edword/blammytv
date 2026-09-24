@@ -111,6 +111,14 @@ check(
 await page.locator("input[aria-label='Hex colour']").fill("ff6a00");
 check("typing a full hex applies it", (await root()).inline === "#ff6a00");
 await page.keyboard.press("Escape");
+// ONE Escape closes the top layer only. Settings' own Escape listener used
+// to close the whole sheet too, from inside the popover (v0.9.91).
+await page.waitForTimeout(300);
+check(
+  "Escape closes the popover and leaves Settings open",
+  (await page.locator("[data-slot='popover-content']").count()) === 0 &&
+    (await page.getByRole("group", { name: "Accent colour" }).count()) === 1,
+);
 
 // 4. THE BOOT LINE. A reload must bring the pick back.
 await page.reload({ waitUntil: "domcontentloaded" });
@@ -157,6 +165,8 @@ await stalePage.addInitScript(() => {
   localStorage.setItem("btv:onboarded", "1");
   sessionStorage.setItem("btv:welcome-played", "1");
   localStorage.setItem("blammytv.accent", JSON.stringify({ v: 1, data: "#7b5bf5" }));
+  // And a stored LIGHT theme, which 0.9.0 could set and nothing since can.
+  localStorage.setItem("blammytv.theme", JSON.stringify({ v: 1, data: "light" }));
 });
 await stalePage.goto(process.env.APP_URL ?? "http://localhost:4173/", {
   waitUntil: "domcontentloaded",
@@ -166,6 +176,17 @@ const staleInline = await stalePage.evaluate(() =>
   document.documentElement.style.getPropertyValue("--accent"),
 );
 check("a 0.9.0-era (v1) accent is ignored at launch", staleInline === "", staleInline);
+// Dark only until M3's light pass (plan 016 D1): a stored light setting
+// no longer paints the half-broken light theme, and it is kept, not wiped.
+const staleTheme = await stalePage.evaluate(() => ({
+  applied: document.documentElement.dataset.theme ?? "dark",
+  stored: localStorage.getItem("blammytv.theme"),
+}));
+check(
+  "a stored light theme boots dark, and stays stored",
+  staleTheme.applied === "dark" && /light/.test(staleTheme.stored ?? ""),
+  JSON.stringify(staleTheme),
+);
 
 check("no page errors", errors.length === 0, errors.join(" | "));
 await browser.close();

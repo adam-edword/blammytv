@@ -333,6 +333,12 @@ export function installPlayerPerf(): void {
     console.info(`${key} = ${await setProp(key, String(value))}`);
   };
   window.mpvGet = async (key) => {
+    // These hold the playing URL, and Xtream puts the credentials in it.
+    // playerDiag already leaves `path` out; this probe printed it.
+    if (/^(path|filename|stream-open-filename|stream-path|playlist)/.test(key)) {
+      console.info(`${key} = (withheld: it is the stream URL, credentials and all)`);
+      return;
+    }
     console.info(`${key} = ${await getProp(key)}`);
   };
   window.ttff = async (seconds = 40) => {

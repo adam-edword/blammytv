@@ -1,3 +1,4 @@
+import { scrubbedMessage } from "../../lib/errors";
 import { httpGetText } from "../../lib/http";
 import { load, save } from "../../lib/storage";
 
@@ -368,6 +369,7 @@ export async function probeTmdb(): Promise<string> {
       ? `ok: "space" is keyword ${kw[0].id}, ${found.length} titles, first "${found[0].title}"`
       : `reached TMDB and resolved keyword ${kw[0].id}, but /discover returned nothing usable — check the results shape`;
   } catch (e) {
-    return `failed: ${e instanceof Error ? e.message : String(e)}`;
+    // btvTmdb() prints this, and the request URL carries the api_key.
+    return `failed: ${scrubbedMessage(e)}`;
   }
 }

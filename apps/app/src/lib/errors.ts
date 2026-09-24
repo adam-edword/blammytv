@@ -7,11 +7,19 @@
  */
 export function scrubbedMessage(e: unknown): string {
   const raw = e instanceof Error ? e.message : String(e);
-  return raw.replace(/https?:\/\/[^\s"')]+/gi, (m) => {
+  // The URL runs to whitespace or a double quote, NOT to the first `)` or
+  // `'`. Those stopped the match before v0.9.91, and they are legal in a
+  // password: `encodeURIComponent` leaves `'()!*` alone, so
+  // `password=se)cret` kept everything after the `)`. Nothing past the
+  // origin survives now, whatever the credential contains. Punctuation the
+  // message wrapped AROUND the URL (reqwest's `for url (…)`, a quote, a
+  // full stop) is peeled off the end first and put back after it.
+  return raw.replace(/https?:\/\/[^\s"]+/gi, (m) => {
+    const tail = /[)'.,;:!]+$/.exec(m)?.[0] ?? "";
     try {
-      return new URL(m).origin + "/…";
+      return new URL(m).origin + "/…" + tail;
     } catch {
-      return "https://…";
+      return "https://…" + tail;
     }
   });
 }

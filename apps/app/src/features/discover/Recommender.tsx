@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { scrubbedMessage } from "../../lib/errors";
 import { Button } from "../../components/ui/button";
 import { pick, remember } from "./pick";
 import { findByWords, imdbIdFor, tmdbEnabled } from "./tmdb";
@@ -121,7 +122,10 @@ export function Recommender({
       if (mine !== gen.current) return;
       setState({
         at: "error",
-        message: e instanceof Error ? e.message : String(e),
+        // Scrubbed: this text goes on screen, and a transport error carries
+        // the whole URL (the addon manifest, a TMDB api_key). Bug reports
+        // here are screenshots.
+        message: scrubbedMessage(e),
       });
     }
   }, [words, kind]);

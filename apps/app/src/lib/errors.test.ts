@@ -31,6 +31,33 @@ describe("scrubbedMessage", () => {
     expect(out).toBe("tried https://a.example/… then https://b.example/…");
   });
 
+  it("keeps nothing past the origin when the password holds ) or '", () => {
+    // encodeURIComponent leaves '()!* alone, so these reach the URL as-is,
+    // and the old pattern stopped at the first one and leaked the rest.
+    const paren = scrubbedMessage(
+      new Error(
+        "error sending request for url (http://h.example/get.php?username=a&password=se)cret&type=m3u)",
+      ),
+    );
+    expect(paren).toBe("error sending request for url (http://h.example/…)");
+    expect(paren).not.toContain("cret");
+    const quote = scrubbedMessage(
+      new Error("failed: 'http://h.example/live/u/pa'ss/1.ts'"),
+    );
+    expect(quote).toBe("failed: 'http://h.example/…'");
+    expect(quote).not.toContain("ss/1");
+  });
+
+  it("drops a TMDB api_key with the rest of the query", () => {
+    const out = scrubbedMessage(
+      new Error(
+        "error sending request for url (https://api.themoviedb.org/3/search/keyword?api_key=abc123secret&query=space)",
+      ),
+    );
+    expect(out).toBe("error sending request for url (https://api.themoviedb.org/…)");
+    expect(out).not.toContain("abc123secret");
+  });
+
   it("falls back to a bare https://… when the URL cannot be parsed", () => {
     // A colon-mangled authority throws in new URL().
     expect(scrubbedMessage(new Error("bad http://:9/x?u=1"))).toBe(

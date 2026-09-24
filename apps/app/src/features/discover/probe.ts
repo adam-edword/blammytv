@@ -1,3 +1,4 @@
+import { scrubbedMessage } from "../../lib/errors";
 import { clearSearchCache, loadDiscover, searchDiscover } from "./data";
 import { broaden, score } from "./match";
 import { resolveVodItem } from "../stream/source";
@@ -66,7 +67,7 @@ export function installDiscoverProbe(): void {
         );
       console.info(`[probe] union of all genres (${cfg.genres.length}):`, cfg.genres);
     } catch (e) {
-      console.error("[probe] discover failed:", e);
+      console.error("[probe] discover failed:", scrubbedMessage(e));
     }
   };
 
@@ -131,7 +132,7 @@ export function installDiscoverProbe(): void {
             : "[probe] NOTHING scored as a real match — the catalogs did not return it, which ranking cannot fix",
         );
       } catch (e) {
-        console.error("[probe] search failed:", e);
+        console.error("[probe] search failed:", scrubbedMessage(e));
       }
     };
 
@@ -215,7 +216,7 @@ export function installDiscoverProbe(): void {
             : "[probe] the addon could not resolve that id — the chain breaks here",
         );
       } catch (e) {
-        console.error("[probe] find failed:", e);
+        console.error("[probe] find failed:", scrubbedMessage(e));
       }
     };
 }

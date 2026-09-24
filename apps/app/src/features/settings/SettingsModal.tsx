@@ -64,7 +64,13 @@ export function SettingsModal({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") requestClose();
+      // Not an Escape something inside already used. A popover or menu in
+      // the sheet (the accent picker's Custom, a combobox) closes on the
+      // same key: Radix handles it on the document in the capture phase
+      // and marks it with preventDefault, before this window listener
+      // hears it. Without the check, one Escape closed the popover AND the
+      // whole of Settings, and dropped focus on the page (v0.9.91).
+      if (e.key === "Escape" && !e.defaultPrevented) requestClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
