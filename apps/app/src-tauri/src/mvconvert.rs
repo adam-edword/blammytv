@@ -278,10 +278,17 @@ fn encoder_args(encoder: &str) -> &'static [&'static str] {
 /// H.264, which came out `bt709/unknown/unknown` and left the webview to
 /// guess its primaries and transfer. The first HEVC tile's colours were
 /// "pretty funky" and "real warm" (Adam, v0.9.112).
+///
+/// NO PEAK DETECTION (`peak_detect=0`). By default libplacebo measures each
+/// frame's highlights and re-bends the tone curve every 20 frames, so a
+/// fixed white (the score bug) dims when the picture brightens and comes
+/// back when it darkens: "the whites keep fluctuating" (Adam, v0.9.113, on
+/// an HDR10 1080p TNF feed). Off, the curve follows the stream's own HDR10
+/// metadata and holds still.
 fn video_filter(placebo: bool) -> &'static str {
     if placebo {
         "libplacebo=w=-2:h=min(1080\\,ih):colorspace=bt709:color_primaries=bt709:\
-         color_trc=bt709:range=tv:format=nv12,\
+         color_trc=bt709:range=tv:peak_detect=0:format=nv12,\
          setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709:range=tv"
     } else {
         "scale=w=-2:h=min(1080\\,ih):out_color_matrix=bt709:out_range=tv,format=nv12,\
@@ -952,6 +959,7 @@ mod tests {
             cpu.contains("scale=w=-2:h=min(1080\\,ih)") && !cpu.contains("libplacebo"),
             "{cpu}"
         );
+        assert!(a.contains(":peak_detect=0:"), "{a}");
         // Both pictures carry every BT.709 tag on the frames themselves.
         for chain in [&a, &cpu] {
             assert!(

@@ -695,6 +695,19 @@ colours "pretty funky", "real warm"; "much further behind than source"):
   tone mapping off for a run.
 - **Volume** is P4, next.
 
+**On v0.9.113, measured on his line:** the TNF feed is HDR10
+(`yuv420p10le(tv, bt2020nc/bt2020/smpte2084)`, 1080p59.94) and comes out
+`bt709`; the warmth was the comparison monitor, not the tile. First bytes
+after 1.7s, down from 4.3s, the machine's answer taken at the tab (1.7s,
+three questions at once). It sits "a good minute behind" the Prime app,
+which is the restream's delay if the Guide's player shows the same.
+
+**v0.9.114: "the whites keep fluctuating".** libplacebo's dynamic peak
+detection re-bends the tone curve from each frame's highlights (20-frame
+smoothing, a third of a second at 59.94), so the score bug dimmed as the
+picture brightened. `peak_detect=0`: the curve follows the stream's HDR10
+metadata and holds still.
+
 ## Risks
 
 - **The guide for a channel** may be missing (1545 of 8459 channels in
