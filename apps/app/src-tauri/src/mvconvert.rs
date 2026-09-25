@@ -271,7 +271,8 @@ fn encoder_args(encoder: &str) -> &'static [&'static str] {
 }
 
 /// The picture: at most 1080 lines, BT.709, NV12 (what every encoder above
-/// takes). libplacebo tone maps HDR on the way; SDR goes through unchanged.
+/// takes). libplacebo tone maps HDR on the way, aiming at what mpv puts on
+/// the screen in the Guide.
 ///
 /// THE TAGS ARE SET ON THE FRAMES (`setparams`), not with the encoder's
 /// -color_primaries and -color_trc: measured, those never reached the
@@ -285,10 +286,29 @@ fn encoder_args(encoder: &str) -> &'static [&'static str] {
 /// back when it darkens: "the whites keep fluctuating" (Adam, v0.9.113, on
 /// an HDR10 1080p TNF feed). Off, the curve follows the stream's own HDR10
 /// metadata and holds still.
+///
+/// THE TONE CURVE IS BENT TO MATCH THE GUIDE. The same HDR10 feed came out
+/// darker and punchier in a tile than in the Guide (Adam, v0.9.114). mpv
+/// there tone maps to the display's reported SDR white, 80 nits
+/// (`video-target-params` max-luma 80), and this filter cannot be given a
+/// target peak: it always assumes 203. Squeezing 1000 nits into 80 leaves
+/// the midtones far higher against white than squeezing it into 203, so a
+/// 20-nit patch landed at 0.32 of the signal here and 0.44 in the Guide. The
+/// three spline constants in `extra_opts` pull this curve onto mpv's: fitted
+/// with a port of libplacebo's spline across HDR10 peaks of 600 to 10000
+/// nits, and checked against a real render of a PQ grey ramp, the distance
+/// from mpv's curve fell from 0.09 to 0.017 of the signal at 1000 nits. They
+/// only act when there is something to tone map. Beside them, what mpv's
+/// output reported: gamma 2.2 (not BT.1886) and no contrast recovery. The
+/// frames still say BT.709, because the webview hands a BT.709 picture to
+/// the screen as-is (measured in Chromium: BT.709, gamma 2.2 and sRGB tags
+/// render the same pixels), which is what mpv's gamma 2.2 needs.
 fn video_filter(placebo: bool) -> &'static str {
     if placebo {
         "libplacebo=w=-2:h=min(1080\\,ih):colorspace=bt709:color_primaries=bt709:\
-         color_trc=bt709:range=tv:peak_detect=0:format=nv12,\
+         color_trc=gamma22:range=tv:peak_detect=0:contrast_recovery=0:\
+         extra_opts='knee_default=0.14\\:spline_contrast=1.4\\:slope_tuning=6.4':\
+         format=nv12,\
          setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709:range=tv"
     } else {
         "scale=w=-2:h=min(1080\\,ih):out_color_matrix=bt709:out_range=tv,format=nv12,\
@@ -960,6 +980,16 @@ mod tests {
             "{cpu}"
         );
         assert!(a.contains(":peak_detect=0:"), "{a}");
+        // The Guide's curve: mpv's gamma, no contrast recovery, and the
+        // spline constants passed through as one escaped option.
+        assert!(
+            a.contains(":color_trc=gamma22:") && a.contains(":contrast_recovery=0:"),
+            "{a}"
+        );
+        assert!(
+            a.contains(":extra_opts='knee_default=0.14\\:spline_contrast=1.4\\:slope_tuning=6.4':"),
+            "{a}"
+        );
         // Both pictures carry every BT.709 tag on the frames themselves.
         for chain in [&a, &cpu] {
             assert!(

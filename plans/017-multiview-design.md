@@ -708,6 +708,21 @@ smoothing, a third of a second at 59.94), so the score bug dimmed as the
 picture brightened. `peak_detect=0`: the curve follows the stream's HDR10
 metadata and holds still.
 
+**v0.9.115: the tile's colours match the Guide's.** Same HDR10 feed, the
+tile darker and punchier than the Guide. Adam's `mpvGet` said why: mpv tone
+maps to the display's reported SDR white, 80 nits, and ffmpeg's libplacebo
+filter cannot be given a target, so it assumes 203. 1000 nits squeezed into
+80 keeps the midtones far higher against white: a 20-nit patch sat at 0.44
+of the signal in the Guide and 0.32 in the tile. Three spline constants
+through `extra_opts` pull the tile's curve onto mpv's (fitted with a port of
+libplacebo's spline across peaks of 600 to 10000 nits, then checked against
+a real render of a PQ grey ramp through the exact filter string): the
+distance fell from 0.09 to 0.017 at 1000 nits. Also taken from his mpv:
+gamma 2.2 out (not BT.1886) and no contrast recovery. The frames stay
+tagged BT.709, which Chromium puts on the screen as-is. What it cannot
+match: mpv measures each frame's peak and the tile holds still on purpose
+(v0.9.114), so a very dark or very bright scene will still differ a little.
+
 ## Risks
 
 - **The guide for a channel** may be missing (1545 of 8459 channels in
