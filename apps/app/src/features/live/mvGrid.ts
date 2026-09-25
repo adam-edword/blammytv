@@ -71,13 +71,23 @@ export function roomOn(
   return { max, elsewhere, used, left: Math.max(0, ceiling - used) };
 }
 
-/** The meter's words: "2 of 3 streams", and who else is on the line. */
+/**
+ * The meter's words: the LINE's total first, the way the Guide's pill
+ * shows it ("3 of 3 streams in use"), then how many of those are somewhere
+ * else. It used to lead with this grid's count ("2 of 3 streams"), which
+ * read as the line's total and was not (Adam, on v0.9.109: "verify the
+ * stream line thing is pulling from total current streams, and not just
+ * the multiview? same as how guide does it").
+ *
+ * The total is the grid's streams plus what the panel reports on top of
+ * them, which is the panel's own count once it has settled (roomOn). With
+ * no limit reported there is no line to count against, only the grid.
+ */
 export function meterLine(room: Room): string {
-  const count =
-    room.max === null
-      ? `${room.used} ${room.used === 1 ? "stream" : "streams"}`
-      : `${room.used} of ${room.max} ${room.max === 1 ? "stream" : "streams"}`;
-  return room.elsewhere > 0 ? `${count} · ${room.elsewhere} in use elsewhere` : count;
+  if (room.max === null) return `${room.used} ${room.used === 1 ? "stream" : "streams"}`;
+  const total = room.used + room.elsewhere;
+  const line = `${total} of ${room.max} ${room.max === 1 ? "stream" : "streams"} in use`;
+  return room.elsewhere > 0 ? `${line} · ${room.elsewhere} elsewhere` : line;
 }
 
 /** Why Add is off, for its tooltip. Null while there is room. */

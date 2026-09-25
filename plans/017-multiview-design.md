@@ -566,6 +566,10 @@ were. Where P3a differs from the above:
 - **Elsewhere waits 25 seconds.** A panel takes up to about 20 to notice a
   stream has gone (connections.ts), so a count read sooner would blame a
   stream the grid just closed on another device.
+- **The meter leads with the line's total** (v0.9.110): "3 of 3 streams in
+  use · 1 elsewhere", the number the Guide's sidebar pill shows, from the
+  same panel read. v0.9.109 led with this grid's count, which read as the
+  line's and was not. verify-mvpick checks the two numbers agree.
 - **A refusal on a full line reads as the limit** ("Your line is at its
   limit", with the code and what to do); on a line with room it is the
   code alone.

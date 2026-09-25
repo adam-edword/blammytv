@@ -15,7 +15,8 @@
 // - the grid, and which tile had the sound, survive a reload; a channel
 //   that has left the catalog is dropped;
 // - a stream on another device counts against the line once the panel's
-//   count settles, on the meter and on Add;
+//   count settles, on the meter and on Add, and the meter leads with the
+//   line's total: the number the Guide's own pill shows;
 // - a refusal on a line with room says the code, not the limit.
 //
 // The panel's connection counts are rewritten per scenario with page.route.
@@ -305,8 +306,9 @@ const tile = (page, name) => page.locator(`.mvtile[aria-label^="${name},"]`);
 
 // ------------------------------------------- a stream on another device
 {
-  // The line allows 3, and something else holds one of them.
-  const { page, ctx, errors } = await open({ line: (n) => [n + 1, 3] });
+  // The line allows 3 and the panel counts 3 in use: this grid's two, and
+  // one somewhere else.
+  const { page, ctx, errors } = await open({ line: () => [3, 3] });
   await page.locator(".mvtile--empty").click();
   await input(page).fill(ESPN);
   await page.keyboard.press("Enter");
@@ -326,12 +328,22 @@ const tile = (page, name) => page.locator(`.mvtile[aria-label^="${name},"]`);
   const tip = await page.locator("[role='tooltip']").first().textContent({ timeout: 3000 }).catch(() => "");
   check(
     "a stream elsewhere counts once the panel's count settles: on the meter, and on Add",
-    early === "2 of 3 streams" &&
-      meter === "2 of 3 streams · 1 in use elsewhere" &&
+    early === "2 of 3 streams in use" &&
+      meter === "3 of 3 streams in use · 1 elsewhere" &&
       hatched === 1 &&
       addOff === "true" &&
       tip.includes("Your line allows 3, and 1 is in use elsewhere"),
     JSON.stringify({ early, meter, hatched, addOff, tip }),
+  );
+  // The same panel count, read by the Guide: its sidebar pill is "3/3", and
+  // the meter's total is that number, not just this grid's two.
+  const total = Number(meter.match(/^(\d+) of/)?.[1]);
+  await page.locator('[data-dest="guide"]').click();
+  const pill = await page.locator(".live-conns").first().textContent({ timeout: 15_000 }).catch(() => "");
+  check(
+    "the meter's total is the number the Guide's pill shows",
+    pill === "3/3" && total === 3,
+    `meter total ${total}, Guide pill "${pill}"`,
   );
   check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
   await ctx.close();

@@ -67,10 +67,18 @@ describe("roomOn", () => {
 });
 
 describe("the words", () => {
-  it("meters the line", () => {
-    expect(meterLine(roomOn({ max: 3, active: 2 }, 2, true))).toBe("2 of 3 streams");
-    expect(meterLine(roomOn({ max: 3, active: 3 }, 2, true))).toBe("2 of 3 streams · 1 in use elsewhere");
+  it("meters the whole line first, as the Guide's pill does", () => {
+    expect(meterLine(roomOn({ max: 3, active: 2 }, 2, true))).toBe("2 of 3 streams in use");
+    // Two here, one on another device: three in use on the line.
+    expect(meterLine(roomOn({ max: 3, active: 3 }, 2, true))).toBe(
+      "3 of 3 streams in use · 1 elsewhere",
+    );
     expect(meterLine(roomOn(null, 1, true))).toBe("1 stream");
+  });
+
+  it("does not count a stream the grid just closed as elsewhere", () => {
+    // Closed a tile a moment ago; the panel still counts it.
+    expect(meterLine(roomOn({ max: 3, active: 3 }, 2, false))).toBe("2 of 3 streams in use");
   });
 
   it("says why Add is off, and nothing while it is on", () => {
