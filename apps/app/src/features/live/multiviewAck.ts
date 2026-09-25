@@ -86,6 +86,29 @@ export function saveLayoutKinds(kinds: Partial<Record<number, MvKind>>): void {
 }
 
 /**
+ * Where you dragged Focus's seam, per tile count (plan 017: "The split is
+ * remembered per count"). The big tile's share of the pictures' width, so
+ * it survives a different window. No entry means the natural split, which
+ * is also what a double-click on the seam or `\` goes back to: it follows
+ * the window, where a stored number would not.
+ */
+const SPLITS_KEY = "multiviewSplits";
+
+export function loadSplits(): Partial<Record<number, number>> {
+  const raw = load<Record<string, unknown>>(SPLITS_KEY, VERSION, {});
+  const out: Partial<Record<number, number>> = {};
+  for (const n of [2, 3, 4]) {
+    const s = raw?.[n];
+    if (typeof s === "number" && s > 0 && s < 1) out[n] = s;
+  }
+  return out;
+}
+
+export function saveSplits(splits: Partial<Record<number, number>>): void {
+  save(SPLITS_KEY, VERSION, splits);
+}
+
+/**
  * The sound tile's volume and mute (plan 017, "Sound and volume":
  * "remembered like the main player's"). Its own, not the main player's:
  * muting a grid should not leave the next channel silent.

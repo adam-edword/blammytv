@@ -13,9 +13,11 @@ import {
   loadGrid,
   loadLayoutKinds,
   loadMvVolume,
+  loadSplits,
   saveGrid,
   saveLayoutKinds,
   saveMvVolume,
+  saveSplits,
   type MvVolume,
 } from "./multiviewAck";
 import { peekLiveGames } from "./multiviewEntry";
@@ -288,6 +290,17 @@ export function MultiviewTab() {
     const next = { ...kinds, [cells]: k };
     saveLayoutKinds(next);
     setKinds(next);
+  };
+
+  // Where Focus's seam sits, per count; none means the natural split
+  // (multiviewAck.loadSplits). The grid says where a drag or a key left it.
+  const [splits, setSplits] = useState(loadSplits);
+  const chooseSplit = (s: number | null) => {
+    const next = { ...splits };
+    if (s === null) delete next[cells];
+    else next[cells] = s;
+    saveSplits(next);
+    setSplits(next);
   };
 
   // In Focus the sound tile is the big one (decision M2): choosing a small
@@ -598,6 +611,8 @@ export function MultiviewTab() {
             streams={streams}
             cells={cells}
             kind={kind}
+            split={splits[cells]}
+            onSplit={chooseSplit}
             conns={line}
             soundId={soundId}
             volume={vol.volume}

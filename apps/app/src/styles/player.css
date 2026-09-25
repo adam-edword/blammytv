@@ -1261,6 +1261,68 @@
   inset: 0;
 }
 
+/* Focus's seam (plan 017, P4b; frame F). A grab strip over the gap between
+ * the big tile and the stack: nothing to see at rest, the col-resize cursor
+ * on the way in, and the pill once the pointer is on it or it is moving. */
+.mvseam {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  cursor: col-resize;
+  touch-action: none;
+  outline: none;
+}
+.mvseam > i {
+  width: 4px;
+  height: 56px;
+  max-height: 60%;
+  border-radius: 3px;
+  background: rgb(255 255 255 / 0.9);
+  box-shadow:
+    0 0 0 4px rgb(255 255 255 / 0.12),
+    0 0 24px rgb(255 255 255 / 0.25);
+  opacity: 0;
+  transition: opacity 140ms var(--ease-out, ease);
+}
+.mvseam:hover > i {
+  opacity: 0.55;
+}
+.mvseam.is-dragging > i,
+.mvseam:focus-visible > i {
+  opacity: 1;
+}
+/* While it moves the tiles are not hovered or clicked through it. */
+.mvgrid.is-seam-drag {
+  cursor: col-resize;
+}
+.mvgrid.is-seam-drag .mvtile {
+  pointer-events: none;
+}
+/* Where the natural split is, and how big the big tile is now. */
+.mvseam-guide {
+  position: absolute;
+  z-index: 1;
+  width: 0;
+  border-left: 1px dashed rgb(255 255 255 / 0.28);
+  pointer-events: none;
+}
+.mvseam-tip {
+  position: absolute;
+  z-index: 3;
+  transform: translateX(-50%);
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: oklch(0.205 0 0 / 0.92);
+  border: 1px solid var(--border, rgb(255 255 255 / 0.1));
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.mvseam-tip b {
+  font-variant-numeric: tabular-nums;
+}
+
 /* A tile (plan 017, P2). A container, so what it shows can scale with it:
  * a Focus big tile is 1000px wide and a small one under 300. */
 .mvtile {

@@ -5,6 +5,9 @@ import {
   kindsFor,
   mvLayout,
   naturalSplit,
+  nudgeSplit,
+  SPLIT_STEP,
+  splitAt,
   splitRange,
   type MvKind,
   type Rect,
@@ -192,6 +195,71 @@ describe("focus", () => {
     expect(seam).toBeDefined();
     expect(seam!.x - (tiles[0].x + tiles[0].w)).toBeCloseTo(SP.gap / 2, 6);
     expect(tiles[1].x - seam!.x).toBeCloseTo(SP.gap / 2, 6);
+  });
+});
+
+describe("splitAt", () => {
+  // Wide, short, narrow and tall stages, two to four tiles.
+  const SHAPES: Array<[number, number, number]> = [
+    [1920, 1080, 3],
+    [1400, 700, 3],
+    [1000, 900, 3],
+    [1400, 900, 2],
+    [900, 700, 4],
+  ];
+
+  it("finds the split whose seam lands under the pointer, 1:1", () => {
+    for (const [W, H, n] of SHAPES) {
+      const box = stage(W, H);
+      const [lo, hi] = splitRange(n, box, SP);
+      for (let i = 0; i <= 10; i++) {
+        const s = lo + ((hi - lo) * i) / 10;
+        const x = mvLayout("focus", n, box, SP, s).seam!.x;
+        const found = splitAt(n, box, SP, x);
+        expect(Math.abs(mvLayout("focus", n, box, SP, found).seam!.x - x)).toBeLessThan(0.01);
+      }
+    }
+  });
+
+  it("rests on the pictures spanning the stage at both ends of any range that moves", () => {
+    for (const [W, H] of [...WINDOWS, [900, 700], [1400, 700], [1000, 900]] as Array<[number, number]>) {
+      for (const n of [2, 3, 4]) {
+        const box = stage(W, H);
+        const [lo, hi] = splitRange(n, box, SP);
+        if (hi - lo < 1e-9) continue;
+        for (const s of [lo, hi]) {
+          const { tiles } = mvLayout("focus", n, box, SP, s);
+          expect(Math.abs(tiles[0].x - box.x)).toBeLessThan(0.01);
+          expect(Math.abs(tiles[1].x + tiles[1].w - (box.x + box.w))).toBeLessThan(0.01);
+        }
+      }
+    }
+  });
+
+  it("stops at the ends of the range past either end", () => {
+    const box = stage(1920, 1080);
+    const [lo, hi] = splitRange(3, box, SP);
+    expect(splitAt(3, box, SP, -5000)).toBe(lo);
+    expect(splitAt(3, box, SP, 99999)).toBe(hi);
+  });
+
+  it("stays put where the range has collapsed", () => {
+    const box = stage(2600, 700);
+    const [lo] = splitRange(3, box, SP);
+    expect(splitAt(3, box, SP, 400)).toBe(lo);
+    expect(splitAt(3, box, SP, 2000)).toBe(lo);
+  });
+});
+
+describe("nudgeSplit", () => {
+  it("steps by SPLIT_STEP each way and stops at the ends", () => {
+    const box = stage(1920, 1080);
+    const [lo, hi] = splitRange(3, box, SP);
+    const nat = naturalSplit(3, box, SP);
+    expect(nudgeSplit(3, box, SP, nat, 1)).toBeCloseTo(nat + SPLIT_STEP, 9);
+    expect(nudgeSplit(3, box, SP, nat, -1)).toBeCloseTo(nat - SPLIT_STEP, 9);
+    expect(nudgeSplit(3, box, SP, hi, 1)).toBe(hi);
+    expect(nudgeSplit(3, box, SP, lo, -1)).toBe(lo);
   });
 });
 

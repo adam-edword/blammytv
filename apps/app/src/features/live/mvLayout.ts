@@ -34,8 +34,8 @@ export interface MvLayout {
   /** Focus only: the split it was laid out at (the big tile's share of the
    * pictures' combined width), after clamping. */
   split?: number;
-  /** Focus only: the gap between the big tile and the stack, for the seam
-   * a drag will grab (P4). */
+  /** Focus only: the gap between the big tile and the stack, where the
+   * seam a drag grabs sits (P4b). */
   seam?: { x: number; top: number; bottom: number };
 }
 
@@ -178,6 +178,33 @@ export function splitRange(n: number, box: Rect, sp: MvSpacing): [number, number
   const lo = Math.max(0.5, 1 - swFit / across);
   const hi = Math.min(1 - box.w / 5 / across, bwFit / across);
   return [Math.min(nat, lo), Math.max(nat, hi)];
+}
+
+/**
+ * The split whose seam lands at `x` (stage coordinates), clamped to the
+ * range: what a drag follows, so the seam stays under the pointer 1:1.
+ *
+ * Plain arithmetic, because the range stops each end exactly where a column
+ * would outgrow the stage's height. Inside it the pictures always span the
+ * stage (`across`), so the seam sits at `box.x + s·across + gap/2`. Where
+ * a column is height-limited the range has collapsed and there is nothing
+ * to follow.
+ */
+export function splitAt(n: number, box: Rect, sp: MvSpacing, x: number): number {
+  const [lo, hi] = splitRange(n, box, sp);
+  const across = box.w - sp.gap;
+  if (hi - lo < 1e-9 || across <= 0) return lo;
+  return Math.min(hi, Math.max(lo, (x - box.x - sp.gap / 2) / across));
+}
+
+/** How far `[` and `]` move the split: 2% of the pictures' width, about
+ * 30px in a 1600px window. */
+export const SPLIT_STEP = 0.02;
+
+/** The split one `[` (-1) or `]` (+1) away from `from`, clamped. */
+export function nudgeSplit(n: number, box: Rect, sp: MvSpacing, from: number, dir: 1 | -1): number {
+  const [lo, hi] = splitRange(n, box, sp);
+  return Math.min(hi, Math.max(lo, from + dir * SPLIT_STEP));
 }
 
 function focus(k: number, box: Rect, sp: MvSpacing, want?: number): MvLayout {

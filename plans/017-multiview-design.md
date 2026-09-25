@@ -2,8 +2,9 @@
 
 **Status: IN PROGRESS. P1 shipped in v0.9.105** (the tab, its bar, the
 layout engine), **P2 in v0.9.107** (the tile), **P3a in v0.9.109** (the
-picker and the line's limits), **P3b in v0.9.111** (live games) **and P4a
-in v0.9.116** (sound and keys); P4b, the seam, is next. Decided
+picker and the line's limits), **P3b in v0.9.111** (live games), **P4a
+in v0.9.116** (sound and keys) **and P4b in v0.9.117** (the seam); P5,
+motion, is next. Decided
 2026-09-24: Adam answered M1 to M9 the same day and added three things:
 the Focus split is resizable,
 multi-view gets its own tab between Guide and Sports, and every tile closes
@@ -636,6 +637,22 @@ nothing, as the Add button does. Left for P4b: the seam, `[`, `]` and `\`.
 Enter (fill the window) is P6's. verify-mvsound proves it, 23 checks, each
 one mutation-tested; the level comes from a stubbed `captureStream()`
 playing a real oscillator, since nothing decodes in the test Chromium.
+
+**P4b, the seam, shipped in v0.9.117.** A grab strip over the gap between
+Focus's big tile and its stack (`.mvseam`, a `separator`). A drag holds
+its own split until it lets go, so every tile follows the pointer 1:1
+with the real videos resized as it goes, then keeps it for this count
+(`multiviewSplits`). The tip ("Big tile 77% · double-click to reset") and
+a dashed line at the natural split show while it moves, as frame F drew
+them. Double-click or `\` goes back to natural, which is stored as no
+entry at all, so it keeps following the window; a click that does not
+move the seam does not pin it. `[` and `]` step 2% of the pictures'
+width. Focused, it is a splitter: ← → move it and not the sound, Home and
+End go to the ends. Grid has no seam. `splitAt` is plain arithmetic, not
+a search: the range stops each end where a column would outgrow the
+stage, so inside it the pictures always span the stage and the seam moves
+linearly (a unit test holds that). verify-mvseam, 14 checks, each caught
+by its own mutation.
 
 **P5. Motion.** FLIP on layout changes, the swap into the big spot, enter
 and leave, the picker, reduced motion. Checked in slow motion by eye, and by

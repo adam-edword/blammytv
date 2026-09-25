@@ -206,7 +206,9 @@ never be a deterrent to building anything." So:
    converted HDR tile's colours match the Guide's. P4a shipped in
    v0.9.116: the sound tile is Focus's big one, the bar has volume and
    mute, the Sound badge follows the real level, and the keyboard table
-   works. P4b (the seam) is next.
+   works. P4b shipped in v0.9.117: Focus's seam drags, `[` `]` nudge it,
+   `\` or a double-click resets it, and it is remembered per count. P5
+   (motion) is next.
 7. Merge the multi-view branch into `main` (Adam's step: default branch).
 
 ### M2: finish the primitives (plan 014 L1 and L2)
