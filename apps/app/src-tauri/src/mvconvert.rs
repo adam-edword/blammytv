@@ -35,7 +35,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use futures_util::{stream, Stream, StreamExt};
+use futures_util::{future, stream, Stream, StreamExt};
 use hyper::body::Bytes;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::OnceCell;
@@ -204,12 +204,32 @@ const HWACCELS: [(&str, &str); 0] = [];
 const ENCODERS: [&str; 4] = ["h264_nvenc", "h264_qsv", "h264_amf", "libx264"];
 
 /// Each encoder's settings. Low latency (no B-frames, a keyframe every 60
-/// frames), and a constant rate the tile's buffer can plan around.
+/// frames), and a constant rate the tile's buffer can plan around. NVENC
+/// holds no frames back either (`-delay 0`): a tile never catches up to
+/// live (multiviewTuning.ts), so every frame held is delay kept for good.
 fn encoder_args(encoder: &str) -> &'static [&'static str] {
     match encoder {
         "h264_nvenc" => &[
-            "-preset", "p4", "-tune", "ll", "-rc", "cbr", "-b:v", "8M", "-maxrate", "8M",
-            "-bufsize", "8M", "-bf", "0", "-g", "60",
+            "-preset",
+            "p4",
+            "-tune",
+            "ll",
+            "-zerolatency",
+            "1",
+            "-delay",
+            "0",
+            "-rc",
+            "cbr",
+            "-b:v",
+            "8M",
+            "-maxrate",
+            "8M",
+            "-bufsize",
+            "8M",
+            "-bf",
+            "0",
+            "-g",
+            "60",
         ],
         "h264_qsv" => &[
             "-preset", "veryfast", "-b:v", "8M", "-maxrate", "8M", "-bufsize", "8M", "-bf", "0",
@@ -252,12 +272,20 @@ fn encoder_args(encoder: &str) -> &'static [&'static str] {
 
 /// The picture: at most 1080 lines, BT.709, NV12 (what every encoder above
 /// takes). libplacebo tone maps HDR on the way; SDR goes through unchanged.
+///
+/// THE TAGS ARE SET ON THE FRAMES (`setparams`), not with the encoder's
+/// -color_primaries and -color_trc: measured, those never reached the
+/// H.264, which came out `bt709/unknown/unknown` and left the webview to
+/// guess its primaries and transfer. The first HEVC tile's colours were
+/// "pretty funky" and "real warm" (Adam, v0.9.112).
 fn video_filter(placebo: bool) -> &'static str {
     if placebo {
         "libplacebo=w=-2:h=min(1080\\,ih):colorspace=bt709:color_primaries=bt709:\
-         color_trc=bt709:range=tv:format=nv12"
+         color_trc=bt709:range=tv:format=nv12,\
+         setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709:range=tv"
     } else {
-        "scale=w=-2:h=min(1080\\,ih),format=nv12"
+        "scale=w=-2:h=min(1080\\,ih):out_color_matrix=bt709:out_range=tv,format=nv12,\
+         setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709:range=tv"
     }
 }
 
@@ -271,8 +299,14 @@ pub fn args(caps: &Caps) -> Vec<String> {
     a.extend_from_slice(&[
         "-hide_banner",
         "-nostats",
+        // Each line tagged with its level, so the log can show the streams'
+        // own descriptions (their colour tags) and every warning, and skip
+        // the rest of what info prints (`shown`).
         "-loglevel",
-        "warning",
+        "level+info",
+        // It is MPEG-TS: `sniff` just read its programme map.
+        "-f",
+        "mpegts",
         // A second to look at the stream rather than ffmpeg's default five.
         // Measured on a paced HEVC stream: first byte out at 4.8s with the
         // defaults, 0.2 to 0.8s with these.
@@ -280,6 +314,8 @@ pub fn args(caps: &Caps) -> Vec<String> {
         "4000000",
         "-analyzeduration",
         "1000000",
+        // NOT +nobuffer: measured, it corrupts HEVC decoding (40 and 94
+        // "Could not find ref" errors on two test streams, 0 without).
         "-fflags",
         "+genpts+discardcorrupt",
     ]);
@@ -305,12 +341,6 @@ pub fn args(caps: &Caps) -> Vec<String> {
         "160k",
         "-ac",
         "2",
-        "-color_primaries",
-        "bt709",
-        "-color_trc",
-        "bt709",
-        "-colorspace",
-        "bt709",
         "-f",
         "mpegts",
         "-flush_packets",
@@ -377,10 +407,36 @@ async fn works(ffmpeg: &PathBuf, args: &[&str]) -> bool {
 }
 
 /// Ask this machine's ffmpeg what it can do, with the conversion's own
-/// options on a generated picture. Each question takes ~20ms.
+/// options on a generated picture. The three questions are asked at once:
+/// each is an ffmpeg start, and on Windows the first HEVC tile waited for
+/// all of them in a row (first bytes after 4.3s on Adam's, v0.9.112).
 async fn probe() -> Result<Caps, String> {
     let ffmpeg = locate()?;
-    let head = ["-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i"];
+    let (encoder, placebo, hwaccel) =
+        future::join3(first_encoder(&ffmpeg), placebo(&ffmpeg), decoder(&ffmpeg)).await;
+    let Some(encoder) = encoder else {
+        // libx264 is in the build, so this is ffmpeg itself not running.
+        return Err(format!(
+            "{} does not run here",
+            ffmpeg
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("ffmpeg")
+        ));
+    };
+    Ok(Caps {
+        ffmpeg,
+        hwaccel,
+        encoder,
+        placebo,
+    })
+}
+
+const LAVFI: [&str; 6] = ["-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i"];
+
+/// The first encoder in ENCODERS that works here.
+async fn first_encoder(ffmpeg: &PathBuf) -> Option<&'static str> {
+    let head = LAVFI;
     let mut encoder = None;
     for e in ENCODERS {
         let mut a: Vec<&str> = head.to_vec();
@@ -393,22 +449,21 @@ async fn probe() -> Result<Caps, String> {
         ]);
         a.extend_from_slice(encoder_args(e));
         a.extend_from_slice(&["-f", "null", "-"]);
-        if works(&ffmpeg, &a).await {
+        if works(ffmpeg, &a).await {
             encoder = Some(e);
             break;
         }
     }
-    let Some(encoder) = encoder else {
-        // libx264 is in the build, so this is ffmpeg itself not running.
-        return Err(format!(
-            "{} does not run here",
-            ffmpeg
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("ffmpeg")
-        ));
-    };
-    let mut a: Vec<&str> = head.to_vec();
+    encoder
+}
+
+/// Whether libplacebo opens the GPU here. `BLAMMYTV_MV_PLACEBO=0` says no
+/// without asking, to compare a picture with and without it.
+async fn placebo(ffmpeg: &PathBuf) -> bool {
+    if std::env::var("BLAMMYTV_MV_PLACEBO").is_ok_and(|v| v == "0") {
+        return false;
+    }
+    let mut a: Vec<&str> = LAVFI.to_vec();
     a.extend_from_slice(&[
         "testsrc2=s=64x64:d=0.1",
         "-vf",
@@ -417,14 +472,7 @@ async fn probe() -> Result<Caps, String> {
         "null",
         "-",
     ]);
-    let placebo = works(&ffmpeg, &a).await;
-    let hwaccel = decoder(&ffmpeg).await;
-    Ok(Caps {
-        ffmpeg,
-        hwaccel,
-        encoder,
-        placebo,
-    })
+    works(ffmpeg, &a).await
 }
 
 /// The first GPU decoder that decodes HEVC here: a generated clip, decoded
@@ -488,13 +536,16 @@ async fn decoder(ffmpeg: &PathBuf) -> Option<&'static str> {
 
 static CAPS: OnceCell<Result<Caps, String>> = OnceCell::const_new();
 
-/// This machine's answer, asked on the first HEVC tile and kept.
+/// This machine's answer, asked once and kept: when the Multi-view tab
+/// opens (`mv_convert_warm`), or on the first HEVC tile if that comes first.
 pub async fn caps() -> Result<&'static Caps, String> {
     CAPS.get_or_init(|| async {
+        let asked = std::time::Instant::now();
         let caps = probe().await;
+        let took = asked.elapsed().as_millis();
         match &caps {
             Ok(c) => println!(
-                "[mvproxy] HEVC conversion: decoding {}, encoding on {}, {}",
+                "[mvproxy] HEVC conversion ({took}ms to ask): decoding {}, encoding on {}, {}",
                 c.hwaccel
                     .map_or("on the CPU".to_string(), |h| format!("on {h}")),
                 c.encoder,
@@ -504,7 +555,7 @@ pub async fn caps() -> Result<&'static Caps, String> {
                     "no GPU tone mapping (HDR will look flat)"
                 }
             ),
-            Err(e) => println!("[mvproxy] HEVC conversion unavailable: {e}"),
+            Err(e) => println!("[mvproxy] HEVC conversion unavailable ({took}ms to ask): {e}"),
         }
         caps
     })
@@ -556,9 +607,47 @@ impl Drop for Running {
     }
 }
 
-/// Lines ffmpeg printed, the last few kept for a failure's reason. Printed
-/// as they come, up to a limit: a bad stream can warn on every packet.
+/// Problems ffmpeg printed, the last few kept for a failure's reason.
+/// Printed as they come, up to a limit: a bad stream can warn on every
+/// packet.
 const LOG_LINES: usize = 20;
+
+/// What a line of ffmpeg's `level+info` log is worth.
+#[derive(Debug, PartialEq, Eq)]
+enum Said {
+    /// A stream's description, in or out: codec, pixel format, and the
+    /// colour tags a picture that looks wrong is diagnosed from.
+    Stream(String),
+    /// A warning or an error.
+    Problem(String),
+    /// The rest of what info prints.
+    Quiet,
+}
+
+/// Lines come as "[info] ..." or "[hevc @ 0x..] [warning] ...".
+fn said(line: &str) -> Said {
+    for (tag, problem) in [
+        ("[info] ", false),
+        ("[warning] ", true),
+        ("[error] ", true),
+        ("[fatal] ", true),
+        ("[panic] ", true),
+    ] {
+        if let Some(i) = line.find(tag) {
+            let text = format!("{}{}", &line[..i], &line[i + tag.len()..])
+                .trim()
+                .to_string();
+            return if problem {
+                Said::Problem(text)
+            } else if text.starts_with("Stream #") {
+                Said::Stream(text)
+            } else {
+                Said::Quiet
+            };
+        }
+    }
+    Said::Problem(line.trim().to_string())
+}
 
 /// Start converting. `head` is what was read to sniff; `input` is the rest.
 /// Resolves once ffmpeg has produced its first bytes, or with what ffmpeg
@@ -597,28 +686,33 @@ where
             }
         }
     });
-    let said = Arc::new(Mutex::new(VecDeque::<String>::new()));
-    let keep = said.clone();
+    let problems = Arc::new(Mutex::new(VecDeque::<String>::new()));
+    let keep = problems.clone();
     let log = tokio::spawn(async move {
         let mut lines = BufReader::new(stderr).lines();
         let mut printed = 0;
         while let Ok(Some(line)) = lines.next_line().await {
-            let line = line.trim().to_string();
-            if line.is_empty() {
+            if line.trim().is_empty() {
                 continue;
             }
-            if printed < LOG_LINES {
-                println!("[mvproxy] ffmpeg: {line}");
-                printed += 1;
-                if printed == LOG_LINES {
-                    println!("[mvproxy] ffmpeg: (further lines not shown)");
+            match said(&line) {
+                Said::Stream(text) => println!("[mvproxy] ffmpeg: {text}"),
+                Said::Problem(text) => {
+                    if printed < LOG_LINES {
+                        println!("[mvproxy] ffmpeg: {text}");
+                        printed += 1;
+                        if printed == LOG_LINES {
+                            println!("[mvproxy] ffmpeg: (further problems not shown)");
+                        }
+                    }
+                    if let Ok(mut s) = keep.lock() {
+                        s.push_back(text);
+                        if s.len() > 3 {
+                            s.pop_front();
+                        }
+                    }
                 }
-            }
-            if let Ok(mut s) = keep.lock() {
-                s.push_back(line);
-                if s.len() > 3 {
-                    s.pop_front();
-                }
+                Said::Quiet => {}
             }
         }
     });
@@ -633,7 +727,7 @@ where
             let _ = tokio::time::timeout(Duration::from_secs(2), child.wait()).await;
             let _ = tokio::time::timeout(Duration::from_millis(500), log).await;
             feed.abort();
-            let last = said.lock().ok().and_then(|s| s.back().cloned());
+            let last = problems.lock().ok().and_then(|s| s.back().cloned());
             return Err(last.unwrap_or_else(|| "ffmpeg stopped before any output".into()));
         }
         Err(_) => {
@@ -806,6 +900,25 @@ mod tests {
     }
 
     #[test]
+    fn shows_the_streams_and_the_problems_and_nothing_else() {
+        assert_eq!(
+            said("[info]   Stream #0:0[0x100]: Video: hevc (Main 10), yuv420p10le(tv, bt2020nc/bt2020/smpte2084), 3840x2160"),
+            Said::Stream("Stream #0:0[0x100]: Video: hevc (Main 10), yuv420p10le(tv, bt2020nc/bt2020/smpte2084), 3840x2160".into())
+        );
+        assert_eq!(
+            said("[hevc @ 0x5607] [error] Could not find ref with POC 50"),
+            Said::Problem("[hevc @ 0x5607] Could not find ref with POC 50".into())
+        );
+        assert_eq!(said("[info] Input #0, mpegts, from 'pipe:0':"), Said::Quiet);
+        assert_eq!(said("[info]   Duration: N/A, start: 1.434667"), Said::Quiet);
+        // Untagged (a crash, a loader): shown.
+        assert_eq!(
+            said("Assertion failed"),
+            Said::Problem("Assertion failed".into())
+        );
+    }
+
+    #[test]
     fn the_arguments_never_carry_a_url_and_use_what_was_found() {
         let caps = Caps {
             ffmpeg: "ffmpeg".into(),
@@ -816,6 +929,11 @@ mod tests {
         let a = args(&caps).join(" ");
         assert!(!a.contains("http"), "{a}");
         assert!(a.contains("-hwaccel d3d11va -i pipe:0"), "{a}");
+        assert!(
+            a.contains("-f mpegts -probesize") && !a.contains("nobuffer"),
+            "{a}"
+        );
+        assert!(a.contains("-delay 0"), "{a}");
         assert!(a.contains("-i pipe:0") && a.ends_with("pipe:1"), "{a}");
         assert!(a.contains("-c:v h264_nvenc -preset p4"), "{a}");
         assert!(
@@ -834,6 +952,15 @@ mod tests {
             cpu.contains("scale=w=-2:h=min(1080\\,ih)") && !cpu.contains("libplacebo"),
             "{cpu}"
         );
+        // Both pictures carry every BT.709 tag on the frames themselves.
+        for chain in [&a, &cpu] {
+            assert!(
+                chain.contains(
+                    "setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709:range=tv"
+                ),
+                "{chain}"
+            );
+        }
         assert!(cpu.contains("-tune zerolatency"), "{cpu}");
     }
 }

@@ -142,6 +142,12 @@ export function tauriMpvDiag(): Promise<Record<string, string>> {
 export function tauriMvProxyOpen(url: string, convertHevc = false): Promise<string> {
   return invoke<string>("mv_proxy_open", { url, convertHevc });
 }
+/** Multi-view opened on a webview that can't play HEVC: have the native side
+ * ask what its ffmpeg can do now, so the first HEVC tile doesn't wait for
+ * it (mvconvert.rs). Rejects on a native build from before it. */
+export function tauriMvConvertWarm(): Promise<void> {
+  return invoke("mv_convert_warm");
+}
 /** Forget a URL `tauriMvProxyOpen` returned. */
 export function tauriMvProxyClose(local: string): Promise<void> {
   return invoke("mv_proxy_close", { local });

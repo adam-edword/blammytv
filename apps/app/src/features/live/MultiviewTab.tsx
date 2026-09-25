@@ -32,8 +32,10 @@ import { tunedChannel } from "../sports/catalog";
 import {
   isTauri,
   tauriIsFullscreen,
+  tauriMvConvertWarm,
   tauriSetFullscreen,
 } from "../../lib/tauri";
+import { HEVC_MIME } from "./mvTile";
 import {
   ExitFullscreenIcon,
   FocusLayoutIcon,
@@ -217,6 +219,14 @@ export function MultiviewTab() {
   /** The catalog: loaded here if nothing has yet, and followed after, so
    * the picker works however this tab was reached (useLiveData). */
   const live = useLiveData();
+
+  // HEVC tiles are converted natively (mvconvert.rs), after one look at what
+  // this machine can do. Taken now, so the first HEVC tile doesn't wait for
+  // it: on Adam's it did, and a tile never catches up the time it waited.
+  useEffect(() => {
+    if (isTauri() && !MediaSource.isTypeSupported(HEVC_MIME))
+      void tauriMvConvertWarm().catch(() => {});
+  }, []);
 
   // The grid, as it was left (M7).
   const [saved] = useState(loadGrid);

@@ -672,6 +672,29 @@ the native multi-tile setup v0.9.94 backed out of), he chose converting
   provider connection back; a conversion that can't start says why. CI's
   Windows job runs them with the bundled build (no GPU there: the CPU path).
 
+**v0.9.113, after Adam's first converted tile** ("it does play now";
+colours "pretty funky", "real warm"; "much further behind than source"):
+- **The H.264 was not fully tagged.** Measured: it came out
+  `bt709/unknown/unknown`, the encoder's -color_primaries and -color_trc
+  never reaching it, so the webview guessed the primaries and transfer.
+  The frames are now tagged with `setparams` (all four BT.709), and the CPU
+  path converts its matrix to BT.709 rather than keeping the source's.
+  Whether that was the whole of the warmth is his next look: the log now
+  prints the source's own `Stream #` line (codec, pixel format, colour
+  tags) and the output's.
+- **A tile never catches up to live** (multiviewTuning.ts, on purpose), so
+  every second a conversion took to start stayed. His first HEVC tile gave
+  its first bytes after 4.3s, which included asking what the machine can
+  do. That is now asked when the tab opens (`mv_convert_warm`), and its
+  three questions run at once, not in a row. NVENC holds no frames back
+  (`-delay 0`, `-zerolatency 1`), and ffmpeg is told the input is MPEG-TS.
+  NOT `+nobuffer`, which looked like the obvious one: measured, it
+  corrupts HEVC decoding (40 and 94 "Could not find ref" errors on two
+  test streams, 0 without).
+- **An A/B for the colour question:** `BLAMMYTV_MV_PLACEBO=0` turns GPU
+  tone mapping off for a run.
+- **Volume** is P4, next.
+
 ## Risks
 
 - **The guide for a channel** may be missing (1545 of 8459 channels in

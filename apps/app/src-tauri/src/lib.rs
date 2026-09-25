@@ -767,6 +767,14 @@ fn mv_proxy_open(url: String, convert_hevc: Option<bool>) -> Result<String, Stri
     mvproxy::open(&url, convert_hevc.unwrap_or(false))
 }
 
+/// Multi-view opened on a webview that can't play HEVC: ask now what this
+/// machine's ffmpeg can do, so the first HEVC tile doesn't wait for it
+/// (mvconvert.rs). Asked once per run; later calls return at once.
+#[tauri::command]
+async fn mv_convert_warm() {
+    let _ = mvconvert::caps().await;
+}
+
 /// Forget a URL `mv_proxy_open` returned, when its tile unmounts.
 #[tauri::command]
 fn mv_proxy_close(local: String) {
@@ -981,6 +989,7 @@ pub fn run() {
             http_probe,
             mv_proxy_open,
             mv_proxy_close,
+            mv_convert_warm,
             check_update,
             install_update,
             frontend::frontend_ready,

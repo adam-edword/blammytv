@@ -99,6 +99,7 @@ async function open(proxyMode, hevc = true) {
             return Promise.resolve(`http://127.0.0.1:${port}/mv/tok${++n}`);
           }
           if (cmd === "mv_proxy_close") window.__calls.push([cmd, args.local]);
+          if (cmd === "mv_convert_warm") window.__calls.push([cmd, ""]);
           return Promise.resolve(undefined);
         },
       };
@@ -156,8 +157,8 @@ const direct = (urls) => urls.filter((u) => u.startsWith("http://localhost:8081/
   );
   check("and reads from the loopback URL it got back", hits.includes("/mv/tok1"), JSON.stringify(hits));
   check(
-    "a webview that plays HEVC does not ask for it to be converted",
-    opened[0]?.[2] === false,
+    "a webview that plays HEVC does not ask for it to be converted, or for the converter to get ready",
+    opened[0]?.[2] === false && !(await calls(page)).some(([c]) => c === "mv_convert_warm"),
     JSON.stringify(opened[0]?.[2]),
   );
   check(
@@ -222,6 +223,16 @@ const direct = (urls) => urls.filter((u) => u.startsWith("http://localhost:8081/
     "one that can't play HEVC asks the proxy to convert it",
     opened.length === 1 && opened[0][2] === true,
     JSON.stringify(opened.map(([, , h]) => h)),
+  );
+  // v0.9.113: and has the converter get ready as the tab opens, before the
+  // tile asks (the first HEVC tile waited 4.3s on Adam's for that look).
+  const all = await calls(page);
+  const warmAt = all.findIndex(([c]) => c === "mv_convert_warm");
+  const openAt = all.findIndex(([c]) => c === "mv_proxy_open");
+  check(
+    "and has the converter get ready when the tab opens, before the first tile",
+    warmAt >= 0 && warmAt < openAt,
+    JSON.stringify(all.map(([c]) => c)),
   );
   await ctx.close();
 }
