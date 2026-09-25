@@ -72,11 +72,23 @@ export function play(root: HTMLElement, first: Map<string, DOMRect>): void {
     const id = el.dataset.mv as string;
     if (!first.has(id) && !isCaption(id)) arriving.set(streamOf(id), arriving.size * STAGGER_MS);
   }
-  const growing = new Set<string>();
+  // The tile to follow is the one whose size changes most: into Focus's
+  // big spot, out to fill the window, back from it. It passes over the
+  // others rather than under them, its caption with it. A swap moves two
+  // tiles by the same amount, and then the one growing wins.
+  let lifted: string | null = null;
+  let most = 0;
   for (const el of els) {
     const id = el.dataset.mv as string;
     const was = first.get(id);
-    if (was && !isCaption(id) && was.width < el.getBoundingClientRect().width - 1) growing.add(streamOf(id));
+    if (!was || isCaption(id)) continue;
+    const now = el.getBoundingClientRect();
+    const change = now.width * now.height - was.width * was.height;
+    const score = Math.abs(change) + (change > 0 ? 1 : 0);
+    if (Math.abs(change) > 1 && score > most) {
+      most = score;
+      lifted = streamOf(id);
+    }
   }
   for (const el of els) {
     const id = el.dataset.mv as string;
@@ -108,12 +120,12 @@ export function play(root: HTMLElement, first: Map<string, DOMRect>): void {
       ],
       { duration: MOVE_MS, easing: EASE_IN_OUT, id: ID },
     );
-    // A tile growing (into Focus's big spot) is the one to follow, so it
-    // passes over the others rather than under them, its caption with it.
-    if (growing.has(streamOf(id))) {
+    if (streamOf(id) === lifted) {
       el.style.zIndex = "1";
+      // Only once nothing of ours still moves it: a move cancelled by the
+      // next one settles a tick later, after that one has lifted it again.
       const settle = () => {
-        el.style.zIndex = "";
+        if (!el.getAnimations().some((a) => a.id === ID && a.playState === "running")) el.style.zIndex = "";
       };
       move.finished.then(settle, settle);
     }

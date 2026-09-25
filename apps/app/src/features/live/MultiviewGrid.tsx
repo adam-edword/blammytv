@@ -14,6 +14,7 @@ import {
 } from "./mvLayout";
 import { airing } from "./mvTile";
 import { stepSound } from "./mvGrid";
+import { requestWatchInPlayer } from "./multiviewEntry";
 import { forMultiview } from "./mvKeys";
 import { ghostOf, lastInputWasKey, leave, play, snapshot, stop, type Ghost } from "./mvMotion";
 import { scoreLine } from "./mvGames";
@@ -173,19 +174,38 @@ export function MultiviewGrid({
   useEffect(() => () => window.clearTimeout(tipTimer.current), []);
 
   const shown = streams.slice(0, cells);
+  // Always a tile that exists: the one chosen, or the first when that one
+  // has gone (closed, or dropped by a smaller grid). Derived, not stored,
+  // so there is no frame where every tile is muted.
+  const sound =
+    shown.find((s) => s.id === soundId) ?? shown.find((s) => !s.unresolved) ?? shown[0];
+
+  // FILL THE WINDOW (decision M6): double-click a tile, or Enter, and it
+  // takes the whole stage inside multi-view; the others keep playing out of
+  // sight, so coming back is instant. Escape or a double-click returns. The
+  // filled tile is the sound tile, so 1 to 4 and the arrows flip the whole
+  // window between channels. Held with the count it was filled at: adding
+  // or closing a tile goes back to the grid, so nothing arrives unseen.
+  const [filledAt, setFilledAt] = useState<number | null>(null);
+  const fill = filledAt === cells && sound ? sound.id : null;
+  useEffect(() => {
+    if (filledAt !== null && filledAt !== cells) setFilledAt(null);
+  }, [cells, filledAt]);
+  const fillRect = fill && box ? mvLayout("grid", 1, box, MV_SPACING).tiles[0] : null;
+
   const layout = box ? mvLayout(kind, cells, box, MV_SPACING, dragSplit ?? split) : null;
   // Only a seam that can move is offered: on a stage too short to give
   // either side more, the range has collapsed and it stays put.
   const range = box && kind === "focus" && cells >= 2 ? splitRange(cells, box, MV_SPACING) : null;
   const seam =
-    range && range[1] - range[0] > 1e-6 && layout?.seam && layout.split !== undefined
+    !fill && range && range[1] - range[0] > 1e-6 && layout?.seam && layout.split !== undefined
       ? { ...layout.seam, split: layout.split, range }
       : null;
   // Motion (P5, mvMotion.ts). A change to which tiles there are, their order
   // or the layout moves them from where they are drawn, read here, during
   // the render that changes it, while the screen still shows the old
   // places. Keys never animate; a resize or a seam drag only stops a move.
-  const structure = `${kind}|${cells}|${shown.map((s) => s.id).join(",")}`;
+  const structure = `${kind}|${cells}|${shown.map((s) => s.id).join(",")}|${fill ?? ""}`;
   const shownStructure = useRef<string | null>(null);
   const drawn = useRef<Map<string, DOMRect> | null>(null);
   if (
@@ -219,12 +239,6 @@ export function MultiviewGrid({
     onRemove(id);
   };
 
-  // Always a tile that exists: the one chosen, or the first when that one
-  // has gone (closed, or dropped by a smaller grid). Derived, not stored,
-  // so there is no frame where every tile is muted.
-  const sound =
-    shown.find((s) => s.id === soundId) ?? shown.find((s) => !s.unresolved) ?? shown[0];
-
   // "Sound: CNN", read out when the sound moves, not when the grid opens.
   const [said, setSaid] = useState("");
   const chooseSound = (s: GridStream) => {
@@ -247,8 +261,15 @@ export function MultiviewGrid({
   // The tile keys from plan 017's table: 1 to 4 make that tile current (the
   // sound, and Focus's big spot), ← and → move it along, R replaces it and
   // Delete closes it. Read through a ref so the listener is added once.
-  const keys = useRef({ shown, sound, dead, chooseSound, onReplace, onRemove, seam, box, cells, onSplit, flashTip });
-  keys.current = { shown, sound, dead, chooseSound, onReplace, onRemove, seam, box, cells, onSplit, flashTip };
+  // Fill a tile (it takes the sound too), or put it back.
+  const fillWith = (s: GridStream) => {
+    if (dead.has(s.id)) return;
+    chooseSound(s);
+    setFilledAt(cells);
+  };
+
+  const keys = useRef({ shown, sound, dead, chooseSound, onReplace, onRemove, seam, box, cells, onSplit, flashTip, fill, fillWith, setFilledAt });
+  keys.current = { shown, sound, dead, chooseSound, onReplace, onRemove, seam, box, cells, onSplit, flashTip, fill, fillWith, setFilledAt };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!forMultiview(e)) return;
@@ -284,6 +305,17 @@ export function MultiviewGrid({
         );
         k.flashTip();
         return;
+      } else if (e.key === "Enter") {
+        // Fill the window with the current tile, or with the tile that has
+        // the keyboard. Not when Enter belongs to a button or the seam.
+        const t = e.target as HTMLElement | null;
+        if (t?.closest?.("button, a, [role=separator]")) return;
+        const onTile = t?.closest?.<HTMLElement>("[data-mv^='tile:']")?.dataset.mv?.slice(5);
+        const s = k.shown.find((x) => x.id === (onTile ?? k.sound?.id));
+        if (!s) return;
+        e.preventDefault();
+        k.fillWith(s);
+        return;
       } else {
         return;
       }
@@ -294,12 +326,37 @@ export function MultiviewGrid({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // Escape puts a filled tile back. Captured, so it is taken before the
+  // app's own Escape, which would leave full screen with the same press
+  // (plan 017: Esc closes the picker, then a filled tile, then full screen).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || !forMultiview(e) || !keys.current.fill) return;
+      e.preventDefault();
+      keys.current.setFilledAt(null);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, []);
+
   return (
     <>
       {needsNotice && (
         <MultiviewNotice conns={conns} onAccept={() => setNeedsNotice(false)} />
       )}
-      <div className={"mvgrid" + (dragSplit !== null ? " is-seam-drag" : "")} ref={ref}>
+      <div
+        className={"mvgrid" + (dragSplit !== null ? " is-seam-drag" : "")}
+        ref={ref}
+        onDoubleClick={(e) => {
+          const t = e.target as HTMLElement;
+          if (t.closest("button, a, [role=separator]")) return;
+          const id = t.closest<HTMLElement>("[data-mv^='tile:']")?.dataset.mv?.slice(5);
+          const s = shown.find((x) => x.id === id);
+          if (!s) return;
+          if (fill === s.id) setFilledAt(null);
+          else fillWith(s);
+        }}
+      >
         {ghosts.map((g) => (
           <MvGhost
             key={g.key}
@@ -329,14 +386,20 @@ export function MultiviewGrid({
                 onFocus={() => chooseSound(s)}
                 onDead={(is) => markDead(s.id, is)}
                 onRemove={() => close(s.id)}
+                onWatch={() => requestWatchInPlayer(s.id)}
                 onReplace={() => onReplace(s.id, s.name)}
                 onRetryResolve={() => onRetryResolve(s.id)}
                 atCap={atCap}
-                style={place(r)}
+                style={fill === s.id && fillRect ? place(fillRect) : fill ? { ...place(r), visibility: "hidden" } : place(r)}
                 mvId={`tile:${s.id}`}
               />,
               // The caption: who it is and what is on, under the picture.
-              <div key={`cap-${s.id}`} className="mvcap" style={under(r)} data-mv={`cap:${s.id}`}>
+              <div
+                key={`cap-${s.id}`}
+                className="mvcap"
+                style={fill === s.id && fillRect ? under(fillRect) : fill ? { ...under(r), visibility: "hidden" } : under(r)}
+                data-mv={`cap:${s.id}`}
+              >
                 <MvLogo channel={s.channel} size={20} />
                 <span className="mvcap__name">{s.name}</span>
                 {on && (
@@ -363,7 +426,7 @@ export function MultiviewGrid({
               key={`empty-${i}`}
               type="button"
               className="mvtile mvtile--empty"
-              style={place(r)}
+              style={fill ? { ...place(r), visibility: "hidden" } : place(r)}
               data-mv={`tile:empty-${i}`}
               onClick={onAdd}
             >

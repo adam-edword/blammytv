@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { createPortal } from "react-dom";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "../../components/ui/dialog";
 import { StatsIcon, TvIcon, VolumeIcon, WarnIcon } from "../../ui/icons";
 import { capLine } from "./multiview";
 import { markMultiviewNoticeSeen } from "./multiviewAck";
@@ -19,6 +19,11 @@ import type { XtreamConnections } from "../../data/xtream";
  * other overlay in this app closes on Escape, so this one breaking the
  * pattern is a decision rather than an oversight.
  *
+ * ON THE SHARED DIALOG (plan 017, P6): focus trapped inside it, the page
+ * behind inert, centred over a backdrop. It used to be a hand-rolled
+ * `aria-modal` card with no trap (a11y MV1) that floated top-right, because
+ * `.modal-backdrop--center` was never defined anywhere.
+ *
  * Shown once, ever. See multiviewAck.
  */
 export function MultiviewNotice({
@@ -35,25 +40,35 @@ export function MultiviewNotice({
     onAccept();
   };
 
-  // Portaled out of .app-shell for the reason SettingsModal gives: the shell
-  // carries the player's clip-path hole, and a card rendered inside it would
-  // have that hole cut through its middle.
-  return createPortal(
-    <div className="modal-backdrop modal-backdrop--center">
-      <section className="mvnotice" role="dialog" aria-modal="true" aria-labelledby="mvnotice-title">
+  // The Dialog portals out of .app-shell itself, which matters for the
+  // reason SettingsModal gives: the shell carries the player's clip-path
+  // hole, and a card inside it would have that hole cut through it.
+  // Open, and nothing listening for it to close: Escape and a click outside
+  // both ask the Dialog to close, and nothing answers. Only Got it does.
+  return (
+    <Dialog open>
+      <DialogContent
+        showCloseButton={false}
+        className="mvnotice flex flex-col items-center gap-0 rounded-[22px] border-(--border-strong) bg-(--card-glass) p-[30px_28px_22px] text-center shadow-[0_-13px_72.6px_rgba(0,0,0,0.73)] backdrop-blur-[10px] sm:max-w-[436px]"
+      >
         <div className="mvnotice__badge" aria-hidden>
           <WarnIcon size={26} />
         </div>
-        <h2 className="mvnotice__title" id="mvnotice-title">
+        {/* The shared title and description bring their own sizes, from a
+          * later cascade layer than player.css, so the notice's own are
+          * restated here. */}
+        <DialogTitle className="mvnotice__title text-[21px] leading-normal font-bold tracking-[-0.01em]">
           Multi-view
-        </h2>
-        <p className="mvnotice__sub">Plays in your browser, not mpv</p>
+        </DialogTitle>
+        <DialogDescription className="mvnotice__sub text-[13px] text-(--text-muted)">
+          Plays in your browser, not mpv
+        </DialogDescription>
 
         <ul className="mvnotice__list">
-          <Point icon={<TvIcon size={18} />} title="Some streams won’t play">
-            Multi-view decodes in the browser instead of mpv, so HEVC video and
-            some audio formats can come up blank. Normal playback is
-            unaffected.
+          <Point icon={<TvIcon size={18} />} title="Some streams play differently">
+            HEVC channels are converted first, so they take a moment longer to
+            start, and some audio formats can come up silent. Normal playback
+            is unaffected.
           </Point>
           <Point icon={<StatsIcon size={18} />} title="Every tile is a connection">
             {capLine(conns)}
@@ -67,9 +82,8 @@ export function MultiviewNotice({
           Got it
         </button>
         <p className="mvnotice__once">Shown once.</p>
-      </section>
-    </div>,
-    document.body,
+      </DialogContent>
+    </Dialog>
   );
 }
 

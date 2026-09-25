@@ -56,6 +56,7 @@ import { Guide } from "./Guide";
 import { Hero } from "./Hero";
 import type { Channel, LiveData, Programme } from "./model";
 import { loadRecents, recordRecent } from "./recents";
+import { onWatchRequest, takeWatchRequest } from "./multiviewEntry";
 import { loadLive, onLiveRefreshed, peekLive } from "./source";
 import { buildMeta, resolveStreamUrl } from "./stream";
 
@@ -521,6 +522,19 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
     setPlaying(true); // auto-play on select
     setRecents((list) => recordRecent(list, id));
   }, []);
+  // A multi-view tile's Watch in player (plan 017): its channel, tuned, in
+  // the theater with the player's full controls. Asked for as the tab is
+  // left, so it is usually waiting when this mounts.
+  useEffect(() => {
+    const take = () => {
+      const id = takeWatchRequest();
+      if (!id) return;
+      selectChannel(id);
+      setTheater(true);
+    };
+    take();
+    return onWatchRequest(take);
+  }, [selectChannel]);
   // Leave fullscreen fully — player state + the OS window together.
   const leaveFullscreen = useCallback(() => {
     setFullscreen(false);

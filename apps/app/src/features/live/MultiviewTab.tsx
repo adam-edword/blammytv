@@ -43,6 +43,7 @@ import { loadRecents, recordRecent } from "./recents";
 import { tunedChannel } from "../sports/catalog";
 import {
   isTauri,
+  stopLivePopout,
   tauriIsFullscreen,
   tauriMvConvertWarm,
   tauriSetFullscreen,
@@ -244,6 +245,13 @@ export function MultiviewTab() {
   useEffect(() => {
     if (isTauri() && !MediaSource.isTypeSupported(HEVC_MIME))
       void tauriMvConvertWarm().catch(() => {});
+  }, []);
+
+  // A live popout holds one of the line's connections, so it stops as the
+  // tab opens (plan 017, F10), the way the Guide's player stops by
+  // unmounting. The grid needs every connection the line has.
+  useEffect(() => {
+    if (isTauri()) stopLivePopout();
   }, []);
 
   // The grid, as it was left (M7).

@@ -30,7 +30,7 @@ import { scoreLine } from "./mvGames";
 import { watchLevel } from "./mvLevel";
 import { formatClock } from "../../lib/time";
 import { loadClockFormat } from "../settings/clockFormat";
-import { CloseIcon, SwapIcon, VolumeIcon, WarnIcon } from "../../ui/icons";
+import { CloseIcon, PlayIcon, SwapIcon, VolumeIcon, WarnIcon } from "../../ui/icons";
 
 /**
  * One tile of the multi-view grid: a `<video>` with a demuxer bolted to it.
@@ -166,6 +166,7 @@ export function MultiviewTile({
   onFocus,
   onRemove,
   onReplace,
+  onWatch,
   onRetryResolve,
   onDead,
   atCap,
@@ -198,6 +199,8 @@ export function MultiviewTile({
   onRemove: () => void;
   /** Swap it for another channel, in the same place (the picker). */
   onReplace: () => void;
+  /** Watch in player: this channel in the main player (plan 017). */
+  onWatch: () => void;
   /** Look the stream up again, after `unresolved`. */
   onRetryResolve: () => void;
   /** Whether it has failed: a failed tile can't take the sound, and the
@@ -547,8 +550,10 @@ export function MultiviewTile({
       data-state={dead ? "failed" : !playing ? "tuning" : stalled ? "stalled" : "playing"}
       onClick={takeSound}
       onKeyDown={(e) => {
+        // Space takes the sound. Enter is left to the grid, which fills the
+        // window with this tile (plan 017's table) and gives it the sound.
         if (e.target !== e.currentTarget) return;
-        if (e.key === "Enter" || e.key === " ") {
+        if (e.key === " ") {
           e.preventDefault();
           takeSound();
         }
@@ -574,6 +579,15 @@ export function MultiviewTile({
               Sound here
             </button>
           )}
+          <button
+            type="button"
+            className="mvchip mvchip--icon"
+            aria-label={`Watch ${name} in the player`}
+            title="Watch in player"
+            onClick={own(onWatch)}
+          >
+            <PlayIcon size={15} />
+          </button>
           <button
             type="button"
             className="mvchip mvchip--icon"

@@ -3,8 +3,9 @@
 **Status: IN PROGRESS. P1 shipped in v0.9.105** (the tab, its bar, the
 layout engine), **P2 in v0.9.107** (the tile), **P3a in v0.9.109** (the
 picker and the line's limits), **P3b in v0.9.111** (live games), **P4a
-in v0.9.116** (sound and keys), **P4b in v0.9.117** (the seam) **and P5
-in v0.9.118** (motion); P6, the ways in and out, is next. Decided
+in v0.9.116** (sound and keys), **P4b in v0.9.117** (the seam), **P5 in
+v0.9.118** (motion) **and P6a in v0.9.119** (the ways out); P6b, the ways
+in from the Guide, the player and a game card, is next. Decided
 2026-09-24: Adam answered M1 to M9 the same day and added three things:
 the Focus split is resizable,
 multi-view gets its own tab between Guide and Sports, and every tile closes
@@ -685,6 +686,30 @@ no fade to race.
 **P6. The ways in and out.** Player, Guide and game-card entries, Watch in
 player (stopping the grid first), fill-the-window, the popout stopped on
 entry (F10), and the notice on Dialog (MV1).
+
+**P6a shipped in v0.9.119: everything inside the tab.** Double-click a
+tile, or Enter, and it fills the window (the largest 16:9 the stage holds,
+its caption under it) and takes the sound; the others keep playing out of
+sight, hidden rather than closed, so coming back is instant. The filled
+tile is the sound tile, so 1 to 4 and the arrows flip the whole window
+between channels. Escape or a double-click puts it back; Escape is taken
+before the app's own, so full screen waits for the next press. Adding or
+closing a tile goes back to the grid, so nothing arrives unseen. Enter on
+a tile is now the grid's (fill), Space still takes the sound, and Enter on
+a button stays that button's. Watch in player, a new button on the tile,
+hands its channel to the Guide through a mailbox (`requestWatchInPlayer`):
+App flips to the Guide, which stops every tile by leaving the tab, and the
+Guide tunes it in the theater. F10: a LIVE popout stops as the tab opens,
+since it holds one of the line's connections; a VOD popout never touches
+the line and is left playing (tracked where `tauriPopoutOpen` is told
+which it is). MV1: the notice is on the shared Dialog, centred over a
+backdrop with focus kept inside it, still acknowledge-only, and its first
+point no longer says HEVC "can come up blank" (it converts, v0.9.112).
+The motion's lift now goes to the tile whose size changes most, ties to
+the one growing, because on the way back from a fill it is the shrinking
+tile you follow; and a move cancelled by the next no longer drops that
+next one's lift a tick later. verify-mvfill, 16 checks, each caught by
+its own mutation.
 
 **Alongside, native (a rebuild):** allow mpegts.js's worker in the CSP so
 transmuxing leaves the main thread (audit perf 6 said this "is native"; the

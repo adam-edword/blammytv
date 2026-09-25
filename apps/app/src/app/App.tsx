@@ -18,7 +18,7 @@ import { onOnboardingReplay, shouldShowOnboarding } from "./onboardingGate";
 import { LiveScreen } from "../features/live/LiveScreen";
 import { SportsScreen } from "../features/sports/SportsScreen";
 import { MultiviewTab } from "../features/live/MultiviewTab";
-import { onMultiviewRequest } from "../features/live/multiviewEntry";
+import { onMultiviewRequest, onWatchRequest } from "../features/live/multiviewEntry";
 import {
   loadPlaylists,
   onPlaylistsChange,
@@ -186,6 +186,16 @@ export function App() {
       onMultiviewRequest(() => {
         setSection("live");
         setLiveTab("multiview");
+      }),
+    [],
+  );
+  // A multi-view tile's Watch in player → the Guide, which plays it
+  // (LiveScreen drains the mailbox itself).
+  useEffect(
+    () =>
+      onWatchRequest(() => {
+        setSection("live");
+        setLiveTab("guide");
       }),
     [],
   );

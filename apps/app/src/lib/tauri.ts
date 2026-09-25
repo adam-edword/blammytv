@@ -70,7 +70,21 @@ export interface TheaterMeta {
  * in-app player down first (one provider connection at a time) and captures
  * the position so the popout resumes there, then plays in a separate mpv
  * instance the in-app teardown can't kill. */
+/** Whether the popout is playing live TV, which holds one of the line's
+ * connections. Multi-view stops such a popout when it opens (plan 017, F10),
+ * so the grid can have that connection; a VOD popout never touches the
+ * line and is left playing. */
+let livePopout = false;
+let watchingPopout = false;
+
 export function tauriPopoutOpen(url: string, live: boolean): Promise<void> {
+  livePopout = live;
+  if (!watchingPopout) {
+    watchingPopout = true;
+    void listen("popout-closed", () => {
+      livePopout = false;
+    }).catch(() => {});
+  }
   // `live` because no mpv property answers it: an IPTV provider was measured
   // reporting `duration = 24.745` on a live feed (really the length of the
   // buffered window), and the popout used to read that as VOD and hand mpv a
@@ -92,7 +106,12 @@ export function tauriPopoutPos(): Promise<number> {
 /** Close the popout window programmatically (the "Bring It Back" button).
  * Silent — no popout-closed event; the caller drives the reclaim. */
 export function tauriPopoutStop(): Promise<void> {
+  livePopout = false;
   return invoke("popout_stop");
+}
+/** Stop the popout if it is playing live TV (see `livePopout`). */
+export function stopLivePopout(): void {
+  if (livePopout) void tauriPopoutStop().catch(() => {});
 }
 
 /* ---- The player (inv.rs): video child at the bottom of the z-order,

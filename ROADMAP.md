@@ -210,8 +210,10 @@ never be a deterrent to building anything." So:
    `\` or a double-click resets it, and it is remembered per count. P5
    shipped in v0.9.118: tiles move from where they are drawn when a click
    changes the layout, arrive from 0.96, leave over their last frame, and
-   nothing done from the keyboard animates. P6 (the ways in and out) is
-   next.
+   nothing done from the keyboard animates. P6a shipped in v0.9.119: a
+   tile fills the window, Watch in player hands it to the Guide, a live
+   popout stops as the tab opens, and the first-run notice is a proper
+   dialog. P6b (the ways in: Guide, player, game card) is next.
 7. Merge the multi-view branch into `main` (Adam's step: default branch).
 
 ### M2: finish the primitives (plan 014 L1 and L2)

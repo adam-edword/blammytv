@@ -22,6 +22,32 @@ export function onMultiviewRequest(cb: () => void): () => void {
 }
 
 /**
+ * OUT: Watch in player (plan 017, "Getting in and out"). A tile hands its
+ * channel to the main player (mpv) with its full controls: App flips to
+ * the Guide, which leaves the Multi-view tab and so stops every tile, and
+ * the Guide takes the channel as it mounts (`takeWatchRequest`).
+ */
+const WATCH = "blammytv:watch-in-player";
+let watch: string | null = null;
+
+export function requestWatchInPlayer(channelId: string): void {
+  watch = channelId;
+  window.dispatchEvent(new Event(WATCH));
+}
+
+export function onWatchRequest(cb: () => void): () => void {
+  window.addEventListener(WATCH, cb);
+  return () => window.removeEventListener(WATCH, cb);
+}
+
+/** The channel asked for, once: reading it clears it. */
+export function takeWatchRequest(): string | null {
+  const id = watch;
+  watch = null;
+  return id;
+}
+
+/**
  * THE LIVE GAMES, as Sports last saw them.
  *
  * The rail's shortcut row: games already matched to a channel (013 kept
