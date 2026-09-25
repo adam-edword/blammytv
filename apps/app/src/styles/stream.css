@@ -112,6 +112,11 @@
   opacity: 0.7;
   transition: opacity 300ms ease;
 }
+/* Not yet decoded (lib/artIn.ts): no light. Once it is, the rules above
+ * fade it up to theirs, a card's art and its light arriving together. */
+.shero__glowbox img:not([data-loaded]) {
+  opacity: 0;
+}
 /* Slides are absolutely placed on the track at slot * step (inline left) —
  * the infinite window repositions freely. Vertical inset gives the active
  * card's glow room to breathe inside the clipped section. */
@@ -301,6 +306,9 @@
  * CSS adds the depth cue — a shadow that swells while the poster floats. */
 .stream-card__tilt {
   border-radius: var(--radius-card);
+  /* The placeholder while the poster fades in (.art-in): the poster's own
+   * background goes with its opacity. */
+  background: var(--surface);
   /* 450ms — deliberately quicker than the Tilt's 650ms transitionSpeed
    * (tuned in b243bb5): the shadow leads, the lean settles into it. */
   transition: box-shadow 450ms ease;

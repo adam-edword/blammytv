@@ -24,6 +24,12 @@ import type { StreamRow, StreamSource, VodData, VodItem } from "./model";
 
 // Titles per row: user-set (Settings → Catalog Row Size, default 40).
 const FEATURED_TOTAL = 9;
+/** Drawn per build, more than are shown: a pick whose full meta fails or
+ * has no backdrop stays out of the hero, and a spare takes its place. */
+const FEATURED_DRAW = 12;
+/** The longest a build waits on its hero's full meta. The rows wait with
+ * it, so the tab paints once with a finished hero. */
+const FEATURED_WAIT_MS = 4000;
 const DEFAULT_SOURCE_ROWS = 3; // rows the default hero mix draws from
 
 /** Session cache, keyed by the config that shaped it, mirrored to disk so
@@ -39,20 +45,11 @@ let inflight: { key: string; promise: Promise<VodData> } | null = null;
 export const configKey = () =>
   JSON.stringify([loadAioUrl(), loadHeroSources(), loadRowCap()]);
 
-/** Hero picks enrich in the background after the rows resolve — subscribe
- * to repaint as backdrops/synopses land. */
-type VodUpdateListener = (data: VodData) => void;
-const updateListeners = new Set<VodUpdateListener>();
-export function onVodUpdate(cb: VodUpdateListener): () => void {
-  updateListeners.add(cb);
-  return () => updateListeners.delete(cb);
-}
-function notifyUpdate(data: VodData) {
-  for (const cb of updateListeners) cb(data);
-}
-
 const DISK_KEY = "vodCache";
-const DISK_VERSION = 1;
+/** 2 since v0.9.123: a version-1 mirror could hold a hero of bare catalog
+ * previews (saved before their full meta landed), and that is exactly
+ * what must never be shown again. */
+const DISK_VERSION = 2;
 interface DiskVod {
   key: string;
   at: number;
@@ -185,13 +182,8 @@ async function buildVod(
     rowPools.set(cat.id, itemIds);
   }
 
-  // The build's identity, from its OWN args — sampling configKey() after
-  // the awaits raced a mid-build config change (the enrichment could then
-  // notify/mirror an old catalog under the NEW config's key).
-  const buildKey = JSON.stringify([manifestUrl, heroSources, rowCap]);
-
   const sourceIds = heroSources.length ? heroSources : defaultHero(rows);
-  const featured = await buildFeatured(
+  const picks = await buildFeatured(
     manifestUrl,
     manifest.catalogs,
     sourceIds,
@@ -199,38 +191,76 @@ async function buildVod(
     rowPools,
     rowCap,
   );
-
-  // Rows paint NOW; the hero picks enrich (backdrop + synopsis) in the
-  // background, notifying subscribers as each lands.
-  const data: VodData = { items, rows, featured };
-  void enrichFeatured(manifestUrl, data, buildKey);
-  return data;
+  const featured = await enrichFeatured(manifestUrl, picks, items);
+  return { items, rows, featured };
 }
 
-/** Best-effort full-meta fetch for each hero pick, mutating the shared
- * items map in place. Notifies only while the build is still current —
- * a config change mid-flight must not repaint the new UI with old data. */
+/**
+ * The hero's picks, with their full meta, in pick order: a pick joins the
+ * hero only once its full meta is back with a backdrop in it.
+ *
+ * A catalog preview has neither the backdrop nor the logo (mapper.ts), so
+ * a hero card built from one is the portrait poster stretched across the
+ * screen under a plain-text title. Until v0.9.123 the rows and the hero
+ * painted from previews and the meta arrived after, card by card; and the
+ * disk mirror was written before it arrived, so a relaunch inside the TTL
+ * could show the previews for the whole session.
+ *
+ * Settles when FEATURED_TOTAL are ready, when every pick has answered, or
+ * at FEATURED_WAIT_MS, whichever is first; a late answer is dropped.
+ */
 async function enrichFeatured(
   manifestUrl: string,
-  data: VodData,
-  buildKey: string,
-): Promise<void> {
-  await Promise.all(
-    data.featured.map(async (id) => {
-      const kind = data.items.get(id)?.kind ?? "movie";
-      try {
-        const { meta } = await fetchMeta(manifestUrl, kind, id);
-        if (!meta) return;
-        data.items.set(id, metaToVod(meta));
-        if (configKey() === buildKey) notifyUpdate(data);
-      } catch (err) {
-        console.warn(`[stream] hero enrich failed: ${msg(err)}`);
-      }
-    }),
-  );
-  // Re-mirror to disk so a relaunch peeks the enriched hero, not previews.
-  if (configKey() === buildKey && cache?.key === buildKey)
-    diskSave(buildKey, cache.at, data);
+  picks: string[],
+  items: Map<string, VodItem>,
+): Promise<string[]> {
+  const ready = new Map<string, VodItem>();
+  await new Promise<void>((resolve) => {
+    if (picks.length === 0) return resolve();
+    const timer = setTimeout(resolve, FEATURED_WAIT_MS);
+    let answered = 0;
+    for (const id of picks) {
+      fetchMeta(manifestUrl, items.get(id)?.kind ?? "movie", id)
+        .then(
+          ({ meta }) => {
+            const full = meta ? metaToVod(meta) : null;
+            // Under the catalog's id, whatever the meta calls itself: the
+            // rows, the streams and the disk mirror are keyed by it, and a
+            // meta answering under another id fell out of the mirror.
+            if (full?.backdrop) ready.set(id, { ...full, id });
+          },
+          (err) => console.warn(`[stream] hero enrich failed: ${msg(err)}`),
+        )
+        .finally(() => {
+          answered++;
+          if (ready.size >= FEATURED_TOTAL || answered === picks.length) {
+            clearTimeout(timer);
+            resolve();
+          }
+        });
+    }
+  });
+  const featured = picks.filter((id) => ready.has(id)).slice(0, FEATURED_TOTAL);
+  for (const id of featured) items.set(id, ready.get(id)!);
+  return featured;
+}
+
+/**
+ * What a refresh shows, given what is on screen: the hero keeps its titles.
+ *
+ * A build past the TTL draws a new random set, and it lands a second or so
+ * after the tab has painted the last one from disk. Swapping it in then
+ * changes every card under you and loses your place in the carousel, for
+ * nothing: the picks are random either way. The rows take the new build,
+ * and the new picks are what the tab opens on next time (the mirror has
+ * them). `shown` is null when nothing was on screen.
+ */
+export function keepHero(shown: VodData | null, next: VodData): VodData {
+  if (!shown || shown === next || shown.featured.length === 0) return next;
+  const items = new Map(next.items);
+  const featured = shown.featured.filter((id) => shown.items.has(id));
+  for (const id of featured) items.set(id, shown.items.get(id)!);
+  return { ...next, items, featured };
 }
 
 /** Full detail for one title (synopsis, cast, seasons for series), with the
@@ -321,7 +351,7 @@ function defaultHero(rows: StreamRow[]): string[] {
   return rows.slice(0, DEFAULT_SOURCE_ROWS).map((r) => r.id.replace(/^aio:/, ""));
 }
 
-/** Pool each selected catalog, then pick FEATURED_TOTAL spread evenly
+/** Pool each selected catalog, then draw FEATURED_DRAW spread evenly
  * (round-robin over shuffled pools, deduped). */
 async function buildFeatured(
   manifestUrl: string,
@@ -361,7 +391,7 @@ async function buildFeatured(
       }
     }),
   );
-  return pickEven(pools, FEATURED_TOTAL);
+  return pickEven(pools, FEATURED_DRAW);
 }
 
 /** Round-robin across shuffled pools, deduped, until `count` or dry. */

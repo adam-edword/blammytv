@@ -12,6 +12,7 @@ import { CheckIcon, ChevronIcon, CloseIcon, PlayIcon } from "../../ui/icons";
 import { Button } from "../../components/ui/button";
 import Tilt from "react-parallax-tilt";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
+import { artLoaded } from "../../lib/artIn";
 import { wantsEpisodeList } from "./backTarget";
 import { useMouseNav } from "../../lib/mouseNav";
 import { useViewStack } from "../../lib/viewStack";
@@ -38,8 +39,8 @@ import { useDirectOverlay } from "../live/useDirectOverlay";
 import type { Episode, Season, StreamSource, VodData, VodItem } from "./model";
 import {
   configKey,
+  keepHero,
   loadVod,
-  onVodUpdate,
   peekVod,
   resolveVodItem,
   resolveVodSources,
@@ -286,13 +287,6 @@ export function StreamScreen() {
     [captureScroll],
   );
 
-  // Hero picks enrich after the rows land — repaint as each arrives (the
-  // shared items map is already mutated; a fresh outer object re-renders).
-  useEffect(
-    () =>
-      onVodUpdate((data) => setLoad({ status: "ready", data: { ...data } })),
-    [],
-  );
   // Bumped by the error state's Try-again — re-runs the load effect.
   const [vodTick, setVodTick] = useState(0);
   // Escape also leaves, which it could not before: the stage covers the
@@ -324,7 +318,11 @@ export function StreamScreen() {
               prev.status === "ready"
               ? prev
               : { status: "error", message: data.error }
-            : { status: "ready", data },
+            : {
+                status: "ready",
+                // A refresh leaves the hero on screen alone (keepHero).
+                data: keepHero(prev.status === "ready" ? prev.data : null, data),
+              },
         ),
       (e) =>
         !stale &&
@@ -2230,11 +2228,12 @@ function Hero({
             const art = item?.backdrop ?? item?.poster;
             return art ? (
               <img
-                key={slot}
+                key={`${slot}:${art}`}
                 className={slot === v ? "shero__glow--lit" : undefined}
                 src={art}
                 alt=""
                 decoding="async"
+                onLoad={artLoaded}
                 style={{ left: slot * step, width: cardW }}
               />
             ) : null;
@@ -2316,23 +2315,17 @@ function Hero({
               >
               {(item.backdrop ?? item.poster) && (
                 <img
-                  className="shero__art"
+                  key={item.backdrop ?? item.poster}
+                  className="shero__art art-in"
                   src={item.backdrop ?? item.poster}
                   alt=""
                   decoding="async"
+                  onLoad={artLoaded}
                 />
               )}
               <div className="shero__scrim" aria-hidden />
               <div className="shero__text">
-                {item.logo ? (
-                  <img
-                    className="shero__logo"
-                    src={item.logo}
-                    alt={item.title}
-                  />
-                ) : (
-                  <h2 className="shero__title">{item.title}</h2>
-                )}
+                <HeroTitle key={item.logo ?? item.id} item={item} />
                 {item.synopsis && (
                   <p className="shero__synopsis">{item.synopsis}</p>
                 )}
@@ -2391,6 +2384,23 @@ function Hero({
   );
 }
 
+/** The hero card's title: the clearlogo, fading in once decoded, or the
+ * name in type when there is no logo or it fails to load. It used to be
+ * the browser's broken-image box with the name as its alt text. */
+function HeroTitle({ item }: { item: VodItem }) {
+  const [failed, setFailed] = useState(false);
+  if (!item.logo || failed) return <h2 className="shero__title">{item.title}</h2>;
+  return (
+    <img
+      className="shero__logo art-in"
+      src={item.logo}
+      alt={item.title}
+      onLoad={artLoaded}
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 /** Memoized: mapped by the hundreds across Stream rows, Discover's
  * infinite grid and My List, each wrapping a stateful Tilt — parent
  * re-renders (search keystrokes, enrichment passes) must not re-render
@@ -2443,11 +2453,13 @@ export const Card = memo(function Card({
       >
         {item.poster && !broken ? (
           <img
-            className="stream-card__poster"
+            key={item.poster}
+            className="stream-card__poster art-in"
             src={item.poster}
             alt=""
             loading="lazy"
             draggable={false}
+            onLoad={artLoaded}
             onError={() => setBroken(true)}
           />
         ) : (

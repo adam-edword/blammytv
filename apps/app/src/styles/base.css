@@ -1118,3 +1118,23 @@ button {
     animation: none;
   }
 }
+/* ------------------------------------------------------- artwork, fading in */
+
+/*
+ * Artwork that fades in once it is decoded (lib/artIn.ts marks it), where it
+ * used to paint in top-down as its bytes arrived. Opacity only, so reduced
+ * motion keeps it: a fade is not movement (index.css, the overlay guard).
+ *
+ * An ANIMATION from 0 rather than a transition to 1: it runs from nothing to
+ * whatever opacity the element's own rules give it, and it leaves their
+ * `transition` declarations alone. 300ms `ease` is the hero glow's own fade.
+ */
+.art-in:not([data-loaded]) {
+  opacity: 0;
+}
+.art-in[data-loaded] {
+  animation: art-in 300ms ease backwards;
+}
+@keyframes art-in {
+  from { opacity: 0; }
+}

@@ -49,12 +49,14 @@ export interface MetaPreview {
   description?: string;
   /** Cinemeta-style previews include it ("2h 49min" / "129 min"). */
   runtime?: string;
+  /** Some addons send the art in their catalogs too; most leave it for
+   * the full meta. */
+  background?: string;
+  logo?: string;
 }
 
 /** Full title detail — what powers the detail page. */
 export interface MetaDetail extends MetaPreview {
-  background?: string;
-  logo?: string;
   landscapePoster?: string;
   director?: string;
   year?: string | number;

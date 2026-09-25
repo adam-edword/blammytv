@@ -115,6 +115,9 @@ export function metaPreviewToVod(m: MetaPreview): VodItem {
     kind: isSeriesType(m.type) ? "series" : "movie",
     year: parseYear(m.releaseInfo),
     poster: httpUrl(m.poster),
+    // Only when the catalog sends them; the full meta always does.
+    backdrop: httpUrl(m.background),
+    logo: httpUrl(m.logo),
     rating: parseRating(m.imdbRating),
     runtimeMin: parseRuntime(m.runtime),
     synopsis: m.description,

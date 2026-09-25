@@ -187,6 +187,21 @@ describe("metaPreviewToVod", () => {
       metaPreviewToVod({ id: "tt7", type: "movie", name: "X" }).runtimeMin,
     ).toBeUndefined();
   });
+
+  it("keeps the backdrop and the logo when the catalog sends them", () => {
+    const v = metaPreviewToVod({
+      id: "tt8",
+      type: "movie",
+      name: "Film",
+      background: "https://img/bg.jpg",
+      logo: "https://img/logo.png",
+    });
+    expect(v.backdrop).toBe("https://img/bg.jpg");
+    expect(v.logo).toBe("https://img/logo.png");
+    const bare = metaPreviewToVod({ id: "tt9", type: "movie", name: "X" });
+    expect(bare.backdrop).toBeUndefined();
+    expect(bare.logo).toBeUndefined();
+  });
 });
 
 describe("nextEpisode", () => {
