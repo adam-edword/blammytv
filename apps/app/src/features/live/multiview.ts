@@ -69,23 +69,7 @@ export function capLine(conns: { max: number } | null | undefined): string {
     return "Your line allows 1 stream at a time, so multi-view can\u2019t run on it.";
   }
   if (conns.max >= 4) {
-    return `Your line allows ${conns.max} at once, so any size works.`;
+    return `Your line allows ${conns.max} at once, so it can fill all four tiles.`;
   }
-  return `Your line allows ${conns.max} at once, so that\u2019s the biggest grid you\u2019ll get.`;
-}
-
-/**
- * The size to actually open at, given what the viewer picked last.
- *
- * Clamps down to what the line allows rather than refusing: someone who
- * chose 4 on one playlist and switched to a 3-connection one gets 3, which
- * is what they meant. Null when the line cannot do multiview at all.
- */
-export function usableSize(
-  want: GridSize,
-  conns: { max: number } | null | undefined,
-): GridSize | null {
-  const allowed = allowedSizes(conns);
-  if (allowed.length === 0) return null;
-  return allowed.includes(want) ? want : allowed[allowed.length - 1];
+  return `Your line allows ${conns.max} at once, so that\u2019s the most tiles you\u2019ll get.`;
 }

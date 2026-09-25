@@ -990,3 +990,24 @@ export function FocusLayoutIcon({ size = 16, className }: IconProps) {
     </Svg>
   );
 }
+
+/** Add: a plus. */
+export function PlusIcon({ size = 16, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <path d="M12 5v14M5 12h14" />
+    </Svg>
+  );
+}
+
+/** Replace: two arrows passing each other. */
+export function SwapIcon({ size = 16, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <path d="M16 3l4 4-4 4" />
+      <path d="M20 7H9" />
+      <path d="M8 21l-4-4 4-4" />
+      <path d="M4 17h11" />
+    </Svg>
+  );
+}

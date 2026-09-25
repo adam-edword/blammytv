@@ -8,20 +8,25 @@ import {
   type RefObject,
 } from "react";
 import { MultiviewGrid, type GridStream } from "./MultiviewGrid";
-import { allowedSizes, usableSize, type GridSize } from "./multiview";
-import {
-  loadGridSize,
-  loadLayoutKinds,
-  saveGridSize,
-  saveLayoutKinds,
-} from "./multiviewAck";
+import { MultiviewPicker, type PickerMode } from "./MultiviewPicker";
+import { loadGrid, loadLayoutKinds, saveGrid, saveLayoutKinds } from "./multiviewAck";
 import { peekLiveGames } from "./multiviewEntry";
 import { defaultKind, kindsFor, type MvKind } from "./mvLayout";
+import {
+  addPick,
+  cellsFor,
+  fullReason,
+  meterLine,
+  removePick,
+  replacePick,
+  roomOn,
+  type Pick,
+} from "./mvGrid";
 import { useConnections } from "./connections";
 import { resolveStreamUrl } from "./stream";
 import { useLiveData } from "./useLiveData";
+import { loadRecents, recordRecent } from "./recents";
 import { tunedChannel } from "../sports/catalog";
-import { Matchup } from "../sports/Matchup";
 import {
   isTauri,
   tauriIsFullscreen,
@@ -32,11 +37,12 @@ import {
   FocusLayoutIcon,
   FullscreenIcon,
   GridLayoutIcon,
+  PlusIcon,
 } from "../../ui/icons";
 import { Hint } from "../../ui/Hint";
 
 /**
- * THE MULTI-VIEW TAB (plan 017, P1): several streams at once, as a place you
+ * THE MULTI-VIEW TAB (plan 017): several streams at once, as a place you
  * go rather than a panel inside Sports.
  *
  * It behaves like the player. The page is black, and the app header becomes
@@ -52,8 +58,10 @@ import { Hint } from "../../ui/Hint";
  * the upstream when the loopback reader goes, proven in v0.9.101). The
  * Guide or the player you go to next then has the line to itself.
  *
- * P1 keeps the picking as it was: the rail on the right, games from Sports
- * first, then search. P3 replaces it with the palette.
+ * PICKING (P3). The count follows the channels (M8): Add, the empty place
+ * or A opens the picker, a tile's X closes it, Replace swaps it in place.
+ * The line's limit is the ceiling, shown on the meter, and the grid is
+ * remembered across launches (M7).
  *
  * A TILE TAKES ANY CHANNEL, not only a live game, and that is a correction
  * rather than a feature. The first build filled tiles from live fixtures
@@ -62,27 +70,14 @@ import { Hint } from "../../ui/Hint";
  * SHORTCUT, not the source, and either way a pick resolves to a channel id.
  */
 
-/** One chosen tile, already reduced to the channel that will play in it. */
-interface Pick {
-  /** Channel id, which is also the identity: the same channel twice would
-   * be two tiles of one stream and two connections spent on it. */
-  channelId: string;
-  /** What the tile is called. A game says the fixture, a channel says
-   * itself, because that is what you picked in each case. */
-  label: string;
-}
-
-/** How many catalog rows a search shows. Enough to find it, few enough that
- * the rail stays a rail: a bare query can match thousands. */
-const SEARCH_LIMIT = 40;
-
 /** How long the pointer has to rest before the bar goes (plan 017). */
 const IDLE_MS = 2000;
 
 /**
  * Idle after IDLE_MS without the pointer or a key, but never while the
- * pointer rests on the bar or the capsule, or keyboard focus is in them:
- * a bar that dims under your hand reads as one about to go away.
+ * pointer rests on the bar or the capsule, keyboard focus is in them, or
+ * the picker is open: a bar that dims under your hand reads as one about
+ * to go away.
  *
  * Checked when the timer fires rather than tracked with enter/leave: the
  * header's children take the pointer while the header itself does not, and
@@ -96,7 +91,7 @@ function useIdle(): boolean {
       window.clearTimeout(t);
       t = window.setTimeout(() => {
         const busy = document.querySelector(
-          ".header:hover, .mvbar:hover, .mvtab__rail:hover, .header :focus-visible, .mvbar :focus-visible",
+          ".header:hover, .mvbar:hover, .header :focus-visible, .mvbar :focus-visible, [data-slot='dialog-content']",
         );
         if (busy) arm();
         else setIdle(true);
@@ -209,122 +204,155 @@ function useCompactSide(ref: RefObject<HTMLElement | null>): boolean {
   return compact;
 }
 
+/**
+ * How long after the grid changes before the panel's count is believed.
+ * connections.ts measured a panel taking up to about 20 seconds to notice a
+ * stream has gone; a little over that.
+ */
+const SETTLE_MS = 25_000;
+
 export function MultiviewTab() {
+  /** The catalog: loaded here if nothing has yet, and followed after, so
+   * the picker works however this tab was reached (useLiveData). */
+  const live = useLiveData();
+
+  // The grid, as it was left (M7).
+  const [saved] = useState(loadGrid);
+  const [picks, setPicks] = useState<Pick[]>(saved.picks);
+  const [soundId, setSoundId] = useState<string | null>(saved.sound);
+  useEffect(() => saveGrid({ picks, sound: soundId }), [picks, soundId]);
+
+  // A remembered channel that has left the catalog is dropped quietly, once
+  // the catalog is here to say so.
+  useEffect(() => {
+    if (!live) return;
+    setPicks((was) => {
+      const next = was.filter((p) => tunedChannel(p.channelId));
+      return next.length === was.length ? was : next;
+    });
+  }, [live]);
+
   /**
-   * The line's connection cap, which is multi-view's real ceiling.
+   * The line: its limit, what it reports in use, and so what is left.
    *
    * ONLY WHEN ONE PLAYLIST ANSWERS: with several, a grid can draw tiles from
    * different lines and no single cap describes it, and guessing wrong in
-   * either direction is worse than the documented "unknown means offer
-   * everything" rule. See allowedSizes.
+   * either direction is worse than offering up to four and letting a tile
+   * say it was refused. Keyed on the grid's channels so the count is asked
+   * again after every change, then again once the panel has caught up.
    */
-  const conns = useConnections(null);
+  const key = picks.map((p) => p.channelId).join("|");
+  const conns = useConnections(key || null);
   const line = conns.size === 1 ? [...conns.values()][0] : null;
-
-  // The size you chose is a preference and is kept as chosen; the size the
-  // grid USES is that, clamped to the line. Writing the clamp back (as the
-  // Sports version did, audit F14) lost a 4 the moment you opened a
-  // 3-connection playlist.
-  const [size, setSize] = useState<GridSize>(loadGridSize);
-  const cells = usableSize(size, line);
-  const sizes = allowedSizes(line);
-  const chooseSize = (n: GridSize) => {
-    saveGridSize(n);
-    setSize(n);
-  };
+  const [settledKey, setSettledKey] = useState<string | null>(null);
+  useEffect(() => {
+    const t = window.setTimeout(() => setSettledKey(key), SETTLE_MS);
+    return () => window.clearTimeout(t);
+  }, [key]);
+  const room = roomOn(line, picks.length, settledKey === key);
+  const roomRef = useRef(room);
+  roomRef.current = room;
+  const cells = cellsFor(picks.length, room.left);
 
   const [kinds, setKinds] = useState(loadLayoutKinds);
-  const kind: MvKind = cells ? kinds[cells] ?? defaultKind(cells) : "grid";
+  const kind: MvKind = kinds[cells] ?? defaultKind(cells);
   const chooseKind = (k: MvKind) => {
-    if (!cells) return;
     const next = { ...kinds, [cells]: k };
     saveLayoutKinds(next);
     setKinds(next);
   };
 
-  const [picked, setPicked] = useState<Pick[]>([]);
-  const [urls, setUrls] = useState<Record<string, string>>({});
-  const [query, setQuery] = useState("");
-  const cap = cells ?? 0;
+  /**
+   * Each channel's stream URL, looked up once (audit F12).
+   *
+   * The lookup used to be an effect that cancelled its own in-flight
+   * lookups whenever one finished, and dropped a channel whose lookup came
+   * back empty, which then held a slot nobody could see. Now a lookup runs
+   * to the end, its answer is kept, and an empty answer is a tile that says
+   * so and can try again. Null means looked up and found nothing.
+   */
+  const [urls, setUrls] = useState<Record<string, string | null>>({});
+  const looking = useRef(new Set<string>());
+  useEffect(() => {
+    for (const p of picks) {
+      const id = p.channelId;
+      if (id in urls || looking.current.has(id)) continue;
+      const real = tunedChannel(id);
+      // Not in the catalog yet: wait for it (the effect above drops the
+      // pick if it never turns up).
+      if (!real) continue;
+      looking.current.add(id);
+      void resolveStreamUrl(real)
+        .then(
+          (url) => setUrls((was) => ({ ...was, [id]: url })),
+          () => setUrls((was) => ({ ...was, [id]: null })),
+        )
+        .finally(() => looking.current.delete(id));
+    }
+  }, [picks, urls, live]);
+  const retryResolve = (id: string) =>
+    setUrls((was) => {
+      const next = { ...was };
+      delete next[id];
+      return next;
+    });
 
   /** The live games Sports last published. Read once: the tab is a fresh
    * mount each visit, and the list moving under the pointer mid-pick would
    * be worse than one that is a visit old. */
   const [games] = useState(peekLiveGames);
 
-  /** The catalog: loaded here if nothing has yet, and followed after, so
-   * the search works however this tab was reached (useLiveData). */
-  const live = useLiveData();
-  /** The visible channels, for the search. Hidden folders stay hidden: this
-   * is a picker, and the guide's own hiding is a statement about clutter. */
-  const channels = useMemo(() => live?.channels ?? [], [live]);
-
-  const results = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (q.length < 2) return [];
-    const out = [];
-    for (const c of channels) {
-      if (c.name.toLowerCase().includes(q)) out.push(c);
-      if (out.length >= SEARCH_LIMIT) break;
-    }
-    return out;
-  }, [channels, query]);
-
-  // Resolve each pick to a playable URL, once per channel.
-  useEffect(() => {
-    let dead = false;
-    for (const p of picked) {
-      if (urls[p.channelId]) continue;
-      const real = tunedChannel(p.channelId);
-      if (!real) continue;
-      void resolveStreamUrl(real).then(
-        (url) => {
-          if (dead || !url) return;
-          setUrls((was) =>
-            was[p.channelId] ? was : { ...was, [p.channelId]: url },
-          );
-        },
-        () => undefined,
-      );
-    }
-    return () => {
-      dead = true;
-    };
-  }, [picked, urls]);
-
-  // A smaller grid drops what no longer fits rather than keeping it selected
-  // invisibly and surprising you on the way back up.
-  useEffect(() => {
-    setPicked((was) => (was.length > cap ? was.slice(0, cap) : was));
-  }, [cap]);
-
-  const toggle = (channelId: string, label: string) =>
-    setPicked((was) =>
-      was.some((p) => p.channelId === channelId)
-        ? was.filter((p) => p.channelId !== channelId)
-        : was.length >= cap
-          ? was
-          : [...was, { channelId, label }],
-    );
-
-  const streams: GridStream[] = [];
-  for (const p of picked) {
-    const url = urls[p.channelId];
-    if (!url) continue;
+  const streams: GridStream[] = picks.map((p) => {
     const ch = tunedChannel(p.channelId);
-    streams.push({
+    const url = urls[p.channelId];
+    return {
       id: p.channelId,
       name: p.label,
-      url,
+      url: url ?? null,
+      unresolved: url === null,
       channel: { name: ch?.name ?? p.label, number: ch?.number, logo: ch?.logo },
       programmes: live?.programmes.get(p.channelId),
-    });
-  }
-  const remove = (channelId: string) =>
-    setPicked((was) => was.filter((p) => p.channelId !== channelId));
+    };
+  });
 
-  const has = (channelId: string) => picked.some((p) => p.channelId === channelId);
-  const full = picked.length >= cap;
+  // One Set per change of the grid, not per render: the picker's search is
+  // memoised on it, and a new Set every render re-ran the search over the
+  // whole catalog on every tick of the tab.
+  const inGrid = useMemo(() => new Set(picks.map((p) => p.channelId)), [picks]);
+
+  const [picker, setPicker] = useState<PickerMode | null>(null);
+  const openAdd = useCallback(() => {
+    if (roomRef.current.left > 0) setPicker({ kind: "add" });
+  }, []);
+  const choose = (pick: Pick) => {
+    if (!picker) return;
+    if (picker.kind === "replace") {
+      setPicks((was) => replacePick(was, picker.id, pick));
+      // Same place, same sound.
+      if (soundId === picker.id) setSoundId(pick.channelId);
+    } else {
+      setPicks((was) => addPick(was, pick, room));
+    }
+    // What you put in a grid is what you watched: the picker's Recent
+    // section, and the Guide's, should know it.
+    recordRecent(loadRecents(), pick.channelId);
+    setPicker(null);
+  };
+
+  // A opens the picker (plan 017's keyboard table). Never while typing, or
+  // while a dialog already has the keyboard.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== "a" || e.ctrlKey || e.metaKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if (document.querySelector("[data-slot='dialog-content']")) return;
+      e.preventDefault();
+      openAdd();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [openAdd]);
 
   const idle = useIdle();
   const [fullscreen, toggleFullscreen] = useWindowFullscreen();
@@ -348,30 +376,34 @@ export function MultiviewTab() {
     else delete root.dataset.mvIdle;
   }, [idle]);
 
+  const blocked = line !== null && line.max <= 1;
+  const full = fullReason(room);
+  const dashes = room.max !== null ? Math.min(room.max, 8) : 0;
+
   return (
     <div className={"mvtab" + (idle ? " is-idle" : "")}>
       <div className="mvbar">
         <div className={"mvbar__side" + (compact ? " is-compact" : "")} ref={leftRef}>
-          {cells !== null && sizes.length > 1 && (
-            <div className="mvseg" role="group" aria-label="Tiles">
-              <span className="mvseg__label" aria-hidden>
-                Tiles
+          {!blocked && (
+            <span className="mvmeter" aria-label={meterLine(room)}>
+              {dashes > 0 && (
+                <span className="mvmeter__dashes" aria-hidden>
+                  {Array.from({ length: dashes }, (_, i) => (
+                    <i
+                      key={i}
+                      className={
+                        i < room.used ? "is-on" : i < room.used + room.elsewhere ? "is-elsewhere" : undefined
+                      }
+                    />
+                  ))}
+                </span>
+              )}
+              <span className="mvmeter__text" aria-hidden>
+                {meterLine(room)}
               </span>
-              {sizes.map((n) => (
-                <button
-                  type="button"
-                  key={n}
-                  className={n === cells ? "is-on" : undefined}
-                  aria-pressed={n === cells}
-                  aria-label={`${n} tiles`}
-                  onClick={() => chooseSize(n)}
-                >
-                  {n}
-                </button>
-              ))}
-            </div>
+            </span>
           )}
-          {cells !== null && kindsFor(cells).length > 1 && (
+          {kindsFor(cells).length > 1 && (
             <div className="mvseg" role="group" aria-label="Layout">
               <button
                 type="button"
@@ -397,6 +429,19 @@ export function MultiviewTab() {
           )}
         </div>
         <div className="mvbar__side">
+          {!blocked && (
+            <Hint label={full ?? "Add a channel (A)"}>
+              <button
+                type="button"
+                className="mvbar__add"
+                aria-disabled={full !== null}
+                onClick={openAdd}
+              >
+                <PlusIcon size={16} />
+                Add channel
+              </button>
+            </Hint>
+          )}
           <Hint label={fullscreen ? "Exit full screen" : "Full screen"}>
             <button
               type="button"
@@ -411,7 +456,7 @@ export function MultiviewTab() {
       </div>
 
       <div className="mvtab__stage">
-        {cells === null ? (
+        {blocked ? (
           <p className="mvtab__blocked">
             Your line allows one stream at a time, so multi-view can’t run on it.
           </p>
@@ -421,85 +466,29 @@ export function MultiviewTab() {
             cells={cells}
             kind={kind}
             conns={line}
-            onRemove={remove}
+            soundId={soundId}
+            onSound={setSoundId}
+            onRemove={(id) => setPicks((was) => removePick(was, id))}
+            onReplace={(id, name) => setPicker({ kind: "replace", id, name })}
+            onRetryResolve={retryResolve}
+            onAdd={openAdd}
+            atCap={room.left === 0}
           />
         )}
       </div>
 
-      {cells !== null && (
-        <aside className="mvtab__rail mvscreen__rail">
-          <h2 className="mvscreen__title">
-            Fill the grid
-            <span className="mvscreen__count">
-              {picked.length}/{cap}
-            </span>
-          </h2>
-
-          {games.length > 0 && (
-            <>
-              <p className="mvscreen__section">Live now</p>
-              {games.map((g) => {
-                const ch = g.channels[0];
-                if (!ch) return null;
-                const on = has(ch.id);
-                return (
-                  <button
-                    key={g.id}
-                    type="button"
-                    className={
-                      "mvscreen__game" +
-                      (on ? " is-on" : "") +
-                      (!on && full ? " is-full" : "")
-                    }
-                    aria-pressed={on}
-                    disabled={!on && full}
-                    onClick={() =>
-                      toggle(
-                        ch.id,
-                        `${g.away.shortName ?? g.away.name} at ${g.home.shortName ?? g.home.name}`,
-                      )
-                    }
-                  >
-                    <Matchup game={g} />
-                  </button>
-                );
-              })}
-            </>
-          )}
-
-          <p className="mvscreen__section">Any channel</p>
-          <input
-            className="mvscreen__search"
-            type="search"
-            value={query}
-            placeholder="Search your channels"
-            aria-label="Search your channels"
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          {query.trim().length >= 2 && results.length === 0 && (
-            <p className="mvscreen__empty">Nothing matches that.</p>
-          )}
-          {results.map((c) => {
-            const on = has(c.id);
-            return (
-              <button
-                key={c.id}
-                type="button"
-                className={
-                  "mvscreen__chan" +
-                  (on ? " is-on" : "") +
-                  (!on && full ? " is-full" : "")
-                }
-                aria-pressed={on}
-                disabled={!on && full}
-                onClick={() => toggle(c.id, c.name)}
-              >
-                {c.name}
-              </button>
-            );
-          })}
-        </aside>
-      )}
+      <MultiviewPicker
+        open={picker !== null}
+        onOpenChange={(o) => {
+          if (!o) setPicker(null);
+        }}
+        mode={picker ?? { kind: "add" }}
+        live={live}
+        games={games}
+        inGrid={inGrid}
+        room={room}
+        onChoose={choose}
+      />
     </div>
   );
 }

@@ -31,6 +31,9 @@ export interface FailureFacts {
   network?: boolean;
   /** It was playing and the connection ended under it. */
   cut?: boolean;
+  /** The line was full when it failed: every connection it allows in use,
+   * this grid's and any elsewhere. */
+  atCap?: boolean;
   /** The browser refused the media (MSE or the decoder). */
   media?: boolean;
   /** What the stream carries, as mpegts.js reports it, "avc1.64001f + mp4a.40.2". */
@@ -113,6 +116,17 @@ export function explainFailure(channel: string, f: FailureFacts): Failure {
     return offair(`Your provider says it doesn’t exist (${f.code}).`);
 
   if (f.code !== undefined && f.code >= 400) {
+    // A refusal on a full line is most likely the line saying no, and that
+    // is the one a person can fix (plan 017, "A refusal says it is the
+    // limit"). On a line with room, the code is all we can honestly say.
+    if (f.atCap) {
+      return {
+        kind: "refused",
+        title: "Your line is at its limit",
+        reason: `Your provider refused it (${f.code}). Close a stream here or on another device, then retry.`,
+        retry: true,
+      };
+    }
     return {
       kind: "refused",
       title: "Your provider refused this one",

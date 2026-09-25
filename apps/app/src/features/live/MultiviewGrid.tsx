@@ -5,7 +5,7 @@ import { multiviewNoticeSeen } from "./multiviewAck";
 import { MV_SPACING, mvLayout, type MvKind, type Rect } from "./mvLayout";
 import { airing } from "./mvTile";
 import type { Programme } from "./model";
-import { VolumeIcon } from "../../ui/icons";
+import { PlusIcon, VolumeIcon } from "../../ui/icons";
 import type { XtreamConnections } from "../../data/xtream";
 
 /**
@@ -29,7 +29,10 @@ import type { XtreamConnections } from "../../data/xtream";
 export interface GridStream {
   id: string;
   name: string;
-  url: string;
+  /** Null while its stream is being looked up (see `unresolved`). */
+  url: string | null;
+  /** The lookup came back empty. */
+  unresolved?: boolean;
   channel: TileChannel;
   programmes?: Programme[];
 }
@@ -57,16 +60,34 @@ export function MultiviewGrid({
   cells,
   kind,
   conns,
+  soundId,
+  onSound,
   onRemove,
+  onReplace,
+  onRetryResolve,
+  onAdd,
+  atCap,
 }: {
-  /** Up to four playable streams, already resolved to URLs. */
+  /** The grid's channels, in order. */
   streams: GridStream[];
-  /** How many cells to lay out: the size the line allows. */
+  /** How many cells to lay out: the streams, and a place to add one while
+   * there is only one (mvGrid.cellsFor). */
   cells: number;
   kind: MvKind;
   conns: XtreamConnections | null;
+  /** The stream with the sound. The tab owns it, so a Replace can hand it
+   * on and the grid remembers it between visits. */
+  soundId: string | null;
+  onSound: (id: string) => void;
   /** A tile's X: close that stream. */
   onRemove: (id: string) => void;
+  /** A tile's Replace: open the picker for its place. */
+  onReplace: (id: string, name: string) => void;
+  onRetryResolve: (id: string) => void;
+  /** The empty place: open the picker to add. */
+  onAdd: () => void;
+  /** The line is full. */
+  atCap: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState<Rect | null>(null);
@@ -88,7 +109,6 @@ export function MultiviewGrid({
     return () => ro.disconnect();
   }, []);
 
-  const [soundId, setSoundId] = useState<string | null>(null);
   // The notice gates the first grid ever, not this mount. Read once: it is a
   // stored flag, and re-reading it on every render would let the accept
   // inside the notice race its own dismissal.
@@ -105,13 +125,14 @@ export function MultiviewGrid({
   // Always a tile that exists: the one chosen, or the first when that one
   // has gone (closed, or dropped by a smaller grid). Derived, not stored,
   // so there is no frame where every tile is muted.
-  const sound = shown.find((s) => s.id === soundId) ?? shown[0];
+  const sound =
+    shown.find((s) => s.id === soundId) ?? shown.find((s) => !s.unresolved) ?? shown[0];
 
   // "Sound: CNN", read out when the sound moves, not when the grid opens.
   const [said, setSaid] = useState("");
   const chooseSound = (s: GridStream) => {
     if (s.id !== sound?.id) setSaid(`Sound: ${s.name}`);
-    setSoundId(s.id);
+    onSound(s.id);
   };
 
   return (
@@ -130,6 +151,7 @@ export function MultiviewGrid({
               <MultiviewTile
                 key={s.id}
                 url={s.url}
+                unresolved={s.unresolved}
                 name={s.name}
                 channel={s.channel}
                 programmes={s.programmes}
@@ -137,6 +159,9 @@ export function MultiviewGrid({
                 focused={on}
                 onFocus={() => chooseSound(s)}
                 onRemove={() => onRemove(s.id)}
+                onReplace={() => onReplace(s.id, s.name)}
+                onRetryResolve={() => onRetryResolve(s.id)}
+                atCap={atCap}
                 style={place(r)}
               />,
               // The caption: who it is and what is on, under the picture.
@@ -152,14 +177,25 @@ export function MultiviewGrid({
               </div>,
             ];
           })}
-        {/* Fewer streams than cells is normal: you opened a 4-up and only
-          * three games are on. The empty cell keeps its place and says how
-          * to fill it, rather than the grid collapsing and moving the rest. */}
+        {/* The place to add one: the whole stage while the grid is empty,
+          * and beside a lone stream (frame E). */}
         {layout &&
           layout.tiles.slice(shown.length).map((r, i) => (
-            <div key={`empty-${i}`} className="mvtile mvtile--empty" style={place(r)}>
-              <span className="mvtile__hint">Pick a channel on the right</span>
-            </div>
+            <button
+              key={`empty-${i}`}
+              type="button"
+              className="mvtile mvtile--empty"
+              style={place(r)}
+              onClick={onAdd}
+            >
+              <span className="mvadd__plus" aria-hidden>
+                <PlusIcon size={20} />
+              </span>
+              <span className="mvadd__title">Add a channel</span>
+              <span className="mvadd__sub">
+                A live game or any channel. Or press <kbd>A</kbd>
+              </span>
+            </button>
           ))}
       </div>
       <div className="sr-only" aria-live="polite">

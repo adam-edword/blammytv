@@ -124,8 +124,10 @@ async function open(proxyMode) {
   await page.goto(URL, { waitUntil: "domcontentloaded" });
   // Its own tab since plan 017, between Guide and Sports.
   await page.locator('[data-dest="multiview"]').click({ timeout: 30_000 });
-  await page.locator(".mvscreen__search").fill("fake");
-  await page.locator(".mvscreen__chan", { hasText: "Fake ESPN 4K" }).first().click();
+  // The picker (plan 017, P3): the empty place opens it, the row adds.
+  await page.locator(".mvtile--empty").click();
+  await page.locator(".mvpick__input").fill("fake");
+  await page.locator(".mvpick__row", { hasText: "Fake ESPN 4K" }).first().click();
   return { page, ctx, errors, requested };
 }
 

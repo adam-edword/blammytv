@@ -1018,22 +1018,13 @@
 }
 
 /* Under the bar, never beneath it: a revealed bar covers black, not a
- * picture. The right edge leaves room for the rail until P3's palette
- * replaces it. */
+ * picture. The whole width since P3's picker replaced the rail. */
 .mvtab__stage {
   position: absolute;
   top: calc(var(--header-h, 92px) + 6px);
   left: 28px;
-  right: calc(290px + 20px + 24px);
+  right: 28px;
   bottom: 28px;
-}
-
-.mvtab__rail {
-  position: absolute;
-  top: calc(var(--header-h, 92px) + 6px);
-  right: 20px;
-  bottom: 20px;
-  width: 290px;
 }
 
 .mvtab__blocked {
@@ -1115,10 +1106,11 @@
   color: var(--text-muted);
 }
 
-/* A narrow window: the words go, the icons and numbers stay. See
+/* A narrow window: the words go, the icons and dashes stay. See
  * useCompactSide for why this is measured rather than a media query. */
 .mvbar__side.is-compact .mvseg__label,
-.mvbar__side.is-compact .mvseg__word {
+.mvbar__side.is-compact .mvseg__word,
+.mvbar__side.is-compact .mvmeter__text {
   display: none;
 }
 .mvbar__side.is-compact .mvseg button {
@@ -1170,8 +1162,70 @@
 }
 
 .mvseg button:active,
-.mvbar__icon:active {
+.mvbar__icon:active,
+.mvbar__add:active {
   transform: scale(0.95);
+}
+
+/* The connection meter (plan 017, "Source limits"): one dash per stream
+ * the line allows, filled for this grid's, hatched for streams elsewhere,
+ * so the cap is something you see rather than find out. */
+.mvmeter {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  backdrop-filter: blur(5px) saturate(1.4);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.mvmeter__dashes {
+  display: inline-flex;
+  gap: 3px;
+}
+.mvmeter__dashes i {
+  width: 14px;
+  height: 4px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--text) 20%, transparent);
+}
+.mvmeter__dashes i.is-on {
+  background: var(--text);
+}
+.mvmeter__dashes i.is-elsewhere {
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--text-muted) 0 2px,
+    transparent 2px 4px
+  );
+}
+
+/* Add: the one bright thing in the bar while there is room, and quiet
+ * (not gone) at the cap, with the reason in its tooltip. */
+.mvbar__add {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 40px;
+  padding: 0 16px 0 13px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--text);
+  color: var(--bg);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.mvbar__add[aria-disabled="true"] {
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  color: var(--text-muted);
+  cursor: not-allowed;
 }
 
 .mvgrid {
@@ -1525,17 +1579,183 @@
   }
 }
 
+/* The place to add one (frame E): the whole stage while the grid is
+ * empty, and beside a lone stream. */
 .mvtile--empty {
   display: grid;
-  place-items: center;
+  place-content: center;
+  justify-items: center;
+  gap: 9px;
   background: transparent;
   border: 1.5px dashed rgb(255 255 255 / 0.16);
-  cursor: default;
+  color: var(--text);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color 140ms var(--ease-out, ease),
+    background-color 140ms var(--ease-out, ease);
 }
-
-.mvtile__hint {
+.mvtile--empty:hover {
+  border-color: rgb(255 255 255 / 0.32);
+  background: rgb(255 255 255 / 0.02);
+}
+.mvadd__plus {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-bottom: 4px;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.08);
+}
+.mvadd__title {
+  font-size: 15px;
+  font-weight: 650;
+}
+.mvadd__sub {
   font-size: 12.5px;
   color: var(--text-muted);
+}
+.mvadd__sub kbd,
+.mvpick__foot kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  margin: 0 3px;
+  padding: 0 5px;
+  border-radius: 5px;
+  background: rgb(255 255 255 / 0.1);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* The picker (plan 017, M3): a search-first palette over the dimmed grid.
+ * The Dialog's frame is its own (Tailwind, in the utilities layer, which
+ * outranks this one); what is inside is styled here. */
+.mvpick__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 58px;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+}
+.mvpick__input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+}
+.mvpick__target {
+  flex: none;
+  font-size: 12px;
+}
+.mvpick__body {
+  max-height: min(520px, calc(100vh - 260px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 6px 8px 8px;
+}
+.mvpick__sec {
+  padding: 12px 10px 6px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.mvpick__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  scroll-margin-block: 8px;
+}
+.mvpick__row[data-highlighted] {
+  background: color-mix(in srgb, var(--text) 9%, transparent);
+}
+.mvpick__row[data-disabled] {
+  cursor: default;
+  opacity: 0.55;
+}
+.mvpick__meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mvpick__name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.mvpick__nametext {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mvpick__sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mvpick__game {
+  flex: 1;
+  min-width: 0;
+}
+.mvpick__gamechan {
+  flex: none;
+  max-width: 40%;
+}
+.mvpick__ingrid {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.mvpick__empty {
+  margin: 0;
+  padding: 28px 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.mvpick__foot {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 44px;
+  padding: 0 18px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.mvpick__foot > span {
+  display: inline-flex;
+  align-items: center;
+}
+.mvpick__left {
+  margin-left: auto;
 }
 
 /* A channel's logo, or its initial. White ground, because provider logos
@@ -1596,117 +1816,6 @@
 .mvcap__now::before {
   content: "·";
   margin-right: 7px;
-}
-
-/* The rail you fill it from, until P3's palette. */
-
-.mvscreen__rail {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  min-height: 0;
-  overflow-y: auto;
-}
-
-.mvscreen__title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin: 0 0 4px;
-  font-size: 13px;
-  font-weight: 650;
-}
-
-.mvscreen__count {
-  font-variant-numeric: tabular-nums;
-  color: var(--text-muted);
-  font-weight: 500;
-}
-
-.mvscreen__empty {
-  margin: 0;
-  font-size: 12.5px;
-  color: var(--text-muted);
-}
-
-.mvscreen__game {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 9px 11px;
-  border: 1px solid var(--border-strong);
-  border-radius: 11px;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-  transition:
-    border-color 140ms var(--ease-out, ease),
-    opacity 140ms var(--ease-out, ease);
-}
-
-.mvscreen__game.is-on {
-  border-color: var(--accent, #6c8cff);
-}
-
-/* Inert rather than invisible: the count above says why, and a game that
- * vanished when the grid filled would read as a bug. */
-.mvscreen__game.is-full {
-  opacity: 0.38;
-  cursor: not-allowed;
-}
-
-/* Rail sections and the channel search, added when a tile learned to take
- * any channel rather than only a live game. */
-
-.mvscreen__section {
-  margin: 10px 0 1px;
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.mvscreen__section:first-of-type {
-  margin-top: 0;
-}
-
-.mvscreen__search {
-  width: 100%;
-  padding: 8px 11px;
-  border: 1px solid var(--border-strong);
-  border-radius: 10px;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-size: 12.5px;
-}
-
-.mvscreen__chan {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 7px 11px;
-  border: 1px solid var(--border-strong);
-  border-radius: 9px;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.mvscreen__chan.is-on {
-  border-color: var(--accent, #6c8cff);
-}
-
-.mvscreen__chan.is-full {
-  opacity: 0.38;
-  cursor: not-allowed;
 }
 
 /* The board's way in. Its own classes, NOT sports__more/sports__morebtn:

@@ -1,0 +1,294 @@
+import { useMemo, useState } from "react";
+import { Autocomplete } from "@base-ui/react/autocomplete";
+import { Dialog, DialogContent, DialogTitle } from "../../components/ui/dialog";
+import { MvLogo } from "./MultiviewTile";
+import { airing } from "./mvTile";
+import { leftLine, searchChannels, type Pick, type Room } from "./mvGrid";
+import { loadFavorites } from "./favorites";
+import { loadRecents } from "./recents";
+import { Matchup } from "../sports/Matchup";
+import { QualityBadge } from "../../ui/QualityBadge";
+import { CheckIcon, SearchIcon } from "../../ui/icons";
+import { formatClock } from "../../lib/time";
+import { loadClockFormat } from "../settings/clockFormat";
+import type { Channel, LiveData } from "./model";
+import type { Fixture } from "../sports/model";
+
+/**
+ * The channel picker (plan 017, P3; decision M3): a search-first palette
+ * over the dimmed grid, in place of the rail that sat beside it.
+ *
+ * Built from Base UI's own command-palette recipe (docs/react/components/
+ * autocomplete.md): an Autocomplete rendered `inline open` inside a dialog,
+ * so the list, its keyboard (arrows move, Enter takes, Escape closes) and
+ * its screen-reader wiring are the library's rather than ours. The dialog
+ * is the app's Radix one, which traps focus and gives Escape to the picker
+ * before the app's own full-screen handler sees it.
+ *
+ * Before typing it offers the live games Sports last saw, your favourites
+ * and what you watched recently. Typing searches every channel. A channel
+ * already in the grid says so and cannot be taken twice.
+ */
+
+export type PickerMode = { kind: "add" } | { kind: "replace"; id: string; name: string };
+
+type Row =
+  | { key: string; kind: "game"; channelId: string; label: string; game: Fixture; channel?: Channel }
+  | { key: string; kind: "channel"; channelId: string; label: string; channel: Channel };
+
+interface Section {
+  value: string;
+  items: Row[];
+}
+
+/** How many favourites and recents show before typing. */
+const SHORTLIST = 8;
+
+const gameLabel = (g: Fixture) =>
+  `${g.away.shortName ?? g.away.name} at ${g.home.shortName ?? g.home.name}`;
+
+const channelRow = (c: Channel): Row => ({
+  key: `c:${c.id}`,
+  kind: "channel",
+  channelId: c.id,
+  label: c.name,
+  channel: c,
+});
+
+export function MultiviewPicker({
+  open,
+  onOpenChange,
+  mode,
+  live,
+  games,
+  inGrid,
+  room,
+  onChoose,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  mode: PickerMode;
+  live: LiveData | null;
+  /** Live games that have a channel, as Sports last saw them. */
+  games: Fixture[];
+  /** Channel ids already on the grid. */
+  inGrid: ReadonlySet<string>;
+  room: Room;
+  onChoose: (pick: Pick) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [clock] = useState(loadClockFormat);
+  const now = new Date();
+
+  const sections = useMemo((): Section[] => {
+    if (!live) return [];
+    const byId = new Map(live.channels.map((c) => [c.id, c]));
+    const q = query.trim().toLowerCase();
+    const gameRows = games
+      .filter((g) => g.channels[0])
+      .filter(
+        (g) =>
+          !q ||
+          [g.home.name, g.home.shortName, g.away.name, g.away.shortName]
+            .filter(Boolean)
+            .some((n) => n!.toLowerCase().includes(q)),
+      )
+      .map(
+        (g): Row => ({
+          key: `g:${g.id}`,
+          kind: "game",
+          channelId: g.channels[0].id,
+          label: gameLabel(g),
+          game: g,
+          channel: byId.get(g.channels[0].id),
+        }),
+      );
+    // What you can still add comes first in each section. The list
+    // highlights its first row and Enter takes it, and a first row that was
+    // already in the grid (so, disabled) left Enter doing nothing.
+    const open = (rows: Row[]) => [
+      ...rows.filter((r) => !inGrid.has(r.channelId)),
+      ...rows.filter((r) => inGrid.has(r.channelId)),
+    ];
+    const out: Section[] = [];
+    if (gameRows.length) out.push({ value: "Live games", items: open(gameRows) });
+    if (q) {
+      const found = searchChannels(live, q).map(channelRow);
+      if (found.length) out.push({ value: "Channels", items: open(found) });
+      return out;
+    }
+    const favs = loadFavorites()
+      .map((id) => byId.get(id))
+      .filter((c): c is Channel => !!c)
+      .slice(0, SHORTLIST);
+    if (favs.length) out.push({ value: "Favorites", items: open(favs.map(channelRow)) });
+    const favIds = new Set(favs.map((c) => c.id));
+    const recent = loadRecents()
+      .filter((id) => !favIds.has(id))
+      .map((id) => byId.get(id))
+      .filter((c): c is Channel => !!c)
+      .slice(0, SHORTLIST);
+    if (recent.length) out.push({ value: "Recent", items: open(recent.map(channelRow)) });
+    return out;
+    // `now` is left out on purpose: the rows' "what is on" is read at render.
+  }, [live, games, query, inGrid]);
+
+  const choose = (row: Row) => {
+    if (inGrid.has(row.channelId)) return;
+    onChoose({ channelId: row.channelId, label: row.label });
+  };
+
+  const title = mode.kind === "replace" ? `Replace ${mode.name}` : "Add a channel";
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        onOpenChange(o);
+        if (!o) setQuery("");
+      }}
+    >
+      <DialogContent
+        showCloseButton={false}
+        aria-describedby={undefined}
+        className="mvpick top-[96px] translate-y-0 gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-[640px]"
+      >
+        <DialogTitle className="sr-only">{title}</DialogTitle>
+        <Autocomplete.Root
+          open
+          inline
+          mode="none"
+          items={sections}
+          value={query}
+          onValueChange={setQuery}
+          itemToStringValue={(r: Row) => r.label}
+          autoHighlight="always"
+          keepHighlight
+        >
+          <div className="mvpick__head">
+            <SearchIcon size={19} aria-hidden />
+            <Autocomplete.Input
+              className="mvpick__input"
+              placeholder="Search your channels"
+              aria-label="Search your channels"
+            />
+            <span className="mvpick__target">
+              {mode.kind === "replace" ? `Replaces ${mode.name}` : null}
+            </span>
+          </div>
+
+          <div className="mvpick__body">
+            <Autocomplete.Empty>
+              <p className="mvpick__empty">
+                {!live
+                  ? "Loading your channels…"
+                  : query.trim()
+                    ? "Nothing matches that."
+                    : "Type to find a channel."}
+              </p>
+            </Autocomplete.Empty>
+            <Autocomplete.List>
+              {(section: Section) => (
+                <Autocomplete.Group key={section.value} items={section.items} className="mvpick__group">
+                  <Autocomplete.GroupLabel className="mvpick__sec">{section.value}</Autocomplete.GroupLabel>
+                  <Autocomplete.Collection>
+                    {(row: Row) => {
+                      const taken = inGrid.has(row.channelId);
+                      return (
+                        <Autocomplete.Item
+                          key={row.key}
+                          value={row}
+                          disabled={taken}
+                          onClick={() => choose(row)}
+                          className="mvpick__row"
+                        >
+                          {row.kind === "game" ? (
+                            <GameRow row={row} />
+                          ) : (
+                            <ChannelRow
+                              channel={row.channel}
+                              live={live}
+                              now={now}
+                              clock={clock}
+                            />
+                          )}
+                          {taken && (
+                            <span className="mvpick__ingrid">
+                              <CheckIcon size={14} />
+                              In the grid
+                            </span>
+                          )}
+                        </Autocomplete.Item>
+                      );
+                    }}
+                  </Autocomplete.Collection>
+                </Autocomplete.Group>
+              )}
+            </Autocomplete.List>
+          </div>
+
+          <div className="mvpick__foot">
+            <span>
+              <kbd>↑</kbd>
+              <kbd>↓</kbd>
+              move
+            </span>
+            <span>
+              <kbd>↵</kbd>
+              {mode.kind === "replace" ? "replace" : "add"}
+            </span>
+            <span>
+              <kbd>esc</kbd>
+              close
+            </span>
+            <span className="mvpick__left">
+              {mode.kind === "replace" ? "Same place, same sound" : leftLine(room)}
+            </span>
+          </div>
+        </Autocomplete.Root>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ChannelRow({
+  channel,
+  live,
+  now,
+  clock,
+}: {
+  channel: Channel;
+  live: LiveData | null;
+  now: Date;
+  clock: ReturnType<typeof loadClockFormat>;
+}) {
+  const on = airing(live?.programmes.get(channel.id), now).now;
+  const sub = [
+    channel.number != null ? String(channel.number) : null,
+    on?.title ?? null,
+    on ? `until ${formatClock(on.end, clock)}` : null,
+  ].filter(Boolean);
+  return (
+    <>
+      <MvLogo channel={channel} size={34} />
+      <span className="mvpick__meta">
+        <span className="mvpick__name">
+          <span className="mvpick__nametext">{channel.name}</span>
+          {channel.quality && <QualityBadge quality={channel.quality} />}
+        </span>
+        {sub.length > 0 && <span className="mvpick__sub">{sub.join(" · ")}</span>}
+      </span>
+    </>
+  );
+}
+
+function GameRow({ row }: { row: Extract<Row, { kind: "game" }> }) {
+  return (
+    <>
+      <span className="mvpick__game">
+        <Matchup game={row.game} />
+      </span>
+      {row.channel && <span className="mvpick__sub mvpick__gamechan">{row.channel.name}</span>}
+    </>
+  );
+}

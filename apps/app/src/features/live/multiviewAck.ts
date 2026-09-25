@@ -1,10 +1,10 @@
 import { load, save } from "../../lib/storage";
-import type { GridSize } from "./multiview";
 import type { MvKind } from "./mvLayout";
+import { MAX_TILES, type Pick } from "./mvGrid";
 
 /**
- * What multi-view remembers between sessions (plan 013): the notice, the
- * grid size, and (plan 017) Grid or Focus for each size.
+ * What multi-view remembers between sessions: the notice (plan 013), and
+ * (plan 017) the grid itself and Grid or Focus for each count.
  *
  * Whether the notice has been acknowledged.
  *
@@ -29,22 +29,38 @@ export function markMultiviewNoticeSeen(): void {
 }
 
 /**
- * The grid size the viewer last chose.
+ * The grid itself: its channels, in order, and which one had the sound
+ * (plan 017, decision M7: "remember the grid between visits", across
+ * launches). Rebuilding a grid is the most tedious part of using one, and
+ * channel ids are stable. A remembered channel that has since left the
+ * catalog is dropped when the catalog arrives (MultiviewTab).
  *
- * Remembered rather than reset, because it is a statement about their
- * machine and their line rather than about tonight's games. Clamped on read
- * to a real size; `usableSize` then clamps it again to what the line can
- * feed, which is the check that can change between playlists.
+ * This replaced the 2 / 3 / 4 size that used to be remembered here: the
+ * count follows the channels now (M8).
  */
-const SIZE_KEY = "multiviewSize";
+const GRID_KEY = "multiviewGrid";
 
-export function loadGridSize(): GridSize {
-  const n = load<number>(SIZE_KEY, VERSION, 2);
-  return n === 2 || n === 3 || n === 4 ? n : 2;
+export interface SavedGrid {
+  picks: Pick[];
+  sound: string | null;
 }
 
-export function saveGridSize(n: GridSize): void {
-  save(SIZE_KEY, VERSION, n);
+export function loadGrid(): SavedGrid {
+  const raw = load<Partial<SavedGrid>>(GRID_KEY, VERSION, {});
+  const picks = Array.isArray(raw?.picks)
+    ? raw.picks
+        .filter(
+          (p): p is Pick =>
+            !!p && typeof p.channelId === "string" && typeof p.label === "string",
+        )
+        .slice(0, MAX_TILES)
+    : [];
+  const sound = typeof raw?.sound === "string" ? raw.sound : null;
+  return { picks, sound };
+}
+
+export function saveGrid(grid: SavedGrid): void {
+  save(GRID_KEY, VERSION, grid);
 }
 
 /**
@@ -55,16 +71,16 @@ export function saveGridSize(n: GridSize): void {
  */
 const KINDS_KEY = "multiviewLayouts";
 
-export function loadLayoutKinds(): Partial<Record<GridSize, MvKind>> {
+export function loadLayoutKinds(): Partial<Record<number, MvKind>> {
   const raw = load<Record<string, unknown>>(KINDS_KEY, VERSION, {});
-  const out: Partial<Record<GridSize, MvKind>> = {};
-  for (const n of [2, 3, 4] as const) {
+  const out: Partial<Record<number, MvKind>> = {};
+  for (const n of [2, 3, 4]) {
     const k = raw?.[n];
     if (k === "grid" || k === "focus") out[n] = k;
   }
   return out;
 }
 
-export function saveLayoutKinds(kinds: Partial<Record<GridSize, MvKind>>): void {
+export function saveLayoutKinds(kinds: Partial<Record<number, MvKind>>): void {
   save(KINDS_KEY, VERSION, kinds);
 }

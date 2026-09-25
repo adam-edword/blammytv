@@ -1,8 +1,8 @@
 # 017: Multi-view, designed
 
 **Status: IN PROGRESS. P1 shipped in v0.9.105** (the tab, its bar, the
-layout engine) **and P2 in v0.9.107** (the tile); P3, picking and limits,
-is next. Decided 2026-09-24: Adam answered M1
+layout engine), **P2 in v0.9.107** (the tile) **and P3a in v0.9.109** (the
+picker and the line's limits); P3b, live games, is next. Decided 2026-09-24: Adam answered M1
 to M9 the same day and added three things: the Focus split is resizable,
 multi-view gets its own tab between Guide and Sports, and every tile closes
 from an X on the tile. Written after Adam's first real
@@ -544,6 +544,38 @@ meter's "in use elsewhere", the grid remembered (M7), Fill with live games
 *Proof:* add, replace, remove, a duplicate refused, the cap refused, a
 replace at the cap that never holds two connections, the grid restored after
 leaving and after a reload.
+
+**P3 is shipping in two parts.** P3a in v0.9.109: the picker, the empty
+place, Replace, count-follows-channels, the meter with "in use elsewhere",
+Add stopping at the line's limit, the grid remembered, and F12. `mvGrid.ts`
+(18 unit tests), `MultiviewPicker.tsx`, and `verify-mvpick.mjs` (15 checks),
+each mutation-tested; verify-multiview grew the count and the limit.
+**P3b** is Fill with live games (M9) and a fresh live-games source: until
+then the picker's Live games are the Sports board's last look, as the rail's
+were. Where P3a differs from the above:
+- **The picker is Base UI's Autocomplete** rendered `inline open` in the
+  app's Radix Dialog, which is Base UI's own documented command-palette
+  recipe: the keyboard and screen-reader wiring are the library's. Base UI
+  was already a dependency (the Combobox primitive).
+- **What is already in the grid sorts last** in each section. The list
+  highlights its first row and Enter takes it; a disabled first row left
+  Enter doing nothing.
+- **A number finds its channel first** ("209").
+- **Adding records the channel as recent**, so the picker's Recent and the
+  Guide's know what went into a grid.
+- **Elsewhere waits 25 seconds.** A panel takes up to about 20 to notice a
+  stream has gone (connections.ts), so a count read sooner would blame a
+  stream the grid just closed on another device.
+- **A refusal on a full line reads as the limit** ("Your line is at its
+  limit", with the code and what to do); on a line with room it is the
+  code alone.
+- **A lone stream keeps a place to add beside it**; from two streams on the
+  grid is exactly the streams, and Add or A adds more.
+- **Escape closes the picker, not full screen too.** App's full-screen
+  handler now leaves an Escape a dialog has taken.
+- **The generated Dialog's overlay forwards its ref** (React 18), the same
+  fix button.tsx and combobox.tsx carry; without it Radix could not wait
+  for the overlay's fade.
 
 **P4. Sound, keys and the seam.** Sound follows the stream, not an index
 (F13), the top-bar volume and mute, the level meter, the keyboard table, and

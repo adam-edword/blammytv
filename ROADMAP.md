@@ -194,7 +194,10 @@ never be a deterrent to building anything." So:
    016's Track 2. 017's P1 shipped in v0.9.105: multi-view is its own tab
    between Guide and Sports, with its own auto-hiding bar and every picture
    16:9. P2 shipped in v0.9.107: each tile says what is on, why it
-   failed, and closes from its own X. P3 (picking and limits) is next.
+   failed, and closes from its own X. P3a shipped in v0.9.109: a
+   search-first picker in place of the rail, a grid that follows its
+   channels up to the line's limit, and the grid remembered. P3b (live
+   games) is next.
 7. Merge the multi-view branch into `main` (Adam's step: default branch).
 
 ### M2: finish the primitives (plan 014 L1 and L2)

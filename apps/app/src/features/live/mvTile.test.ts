@@ -63,6 +63,18 @@ describe("explainFailure", () => {
     }
   });
 
+  it("says a refusal on a full line is the limit, and how to get past it", () => {
+    const f = explainFailure("CN", { code: 403, atCap: true });
+    expect(f.kind).toBe("refused");
+    expect(f.title).toBe("Your line is at its limit");
+    expect(f.reason).toMatch(/\(403\)/);
+    expect(f.reason).toMatch(/Close a stream/);
+  });
+
+  it("does not blame the limit for a 404, even on a full line", () => {
+    expect(explainFailure("CN", { code: 404, atCap: true }).kind).toBe("offair");
+  });
+
   it("calls a 404 off the air", () => {
     const f = explainFailure("CN", { code: 404 });
     expect(f.kind).toBe("offair");

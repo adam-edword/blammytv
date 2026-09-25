@@ -15,7 +15,9 @@
 // - full screen goes to the window;
 // - leaving the tab stops every tile: each proxy URL is handed back;
 // - the Sports board's Multi-view button lands on the tab;
-// - the size you chose is not overwritten when the line clamps it (F14).
+// - (P3) the grid follows the channels, stops at the line's limit and says
+//   so, Escape closes the picker before full screen, and a grid is still
+//   there when you come back.
 //
 // The fake panel reports max_connections 3, like Adam's line: sizes 2 and 3.
 // The test Chromium has no H.264, so nothing decodes; what is asserted is
@@ -83,8 +85,13 @@ await page.addInitScript(
           return Promise.resolve(`http://127.0.0.1:${port}/mv/tok${++n}`);
         }
         if (cmd === "mv_proxy_close") window.__calls.push([cmd, args.local]);
-        if (cmd === "plugin:window|set_fullscreen") window.__calls.push([cmd, args.value]);
-        if (cmd === "plugin:window|is_fullscreen") return Promise.resolve(false);
+        // The window's full screen, remembered, so App's own Escape handler
+        // (which asks the window first) behaves as it would in the shell.
+        if (cmd === "plugin:window|set_fullscreen") {
+          window.__full = args.value;
+          window.__calls.push([cmd, args.value]);
+        }
+        if (cmd === "plugin:window|is_fullscreen") return Promise.resolve(!!window.__full);
         return Promise.resolve(undefined);
       },
     };
@@ -92,11 +99,6 @@ await page.addInitScript(
     localStorage.setItem("btv:onboarded", "1");
     sessionStorage.setItem("btv:welcome-played", "1");
     localStorage.setItem("blammytv.multiviewNoticeSeen", JSON.stringify({ v: 1, data: true }));
-    // Chosen on a bigger line. This one allows 3.
-    if (!sessionStorage.getItem("mv-seeded")) {
-      sessionStorage.setItem("mv-seeded", "1");
-      localStorage.setItem("blammytv.multiviewSize", JSON.stringify({ v: 1, data: 4 }));
-    }
     localStorage.setItem(
       "blammytv.playlists",
       JSON.stringify({
@@ -174,21 +176,53 @@ check(
   JSON.stringify({ cap, left, right }),
 );
 
-// ---- the size you chose survives the line's clamp (audit F14)
-const sizes = await page.locator('.mvseg[aria-label="Tiles"] button').allTextContents();
-const on = await page.locator('.mvseg[aria-label="Tiles"] button.is-on').textContent();
-const stored = await page.evaluate(() => localStorage.getItem("blammytv.multiviewSize"));
+// ---- the count follows the channels (plan 017, M8)
+/** Add a channel through the picker, from the empty place or the bar. */
+async function add(name) {
+  const empty = page.locator(".mvtile--empty");
+  if (await empty.count()) await empty.click();
+  else await page.locator(".mvbar__add").click();
+  await page.locator(".mvpick__input").fill(name);
+  await page.locator(".mvpick__row", { hasText: name }).first().click();
+  await page.locator(".mvpick__input").waitFor({ state: "detached" });
+}
+const shape = async () => [
+  await page.locator(".mvtile").count(),
+  await page.locator(".mvtile--empty").count(),
+];
+const shapes = [await shape()];
+for (const n of ["Fake ESPN 4K", "Fake Sky Sports FHD", "Fake News Channel"]) {
+  await add(n);
+  shapes.push(await shape());
+}
 check(
-  "a 4 chosen elsewhere opens as 3 on a 3-connection line, and stays 4 in storage",
-  sizes.join(",") === "2,3" && on === "3" && JSON.parse(stored).data === 4,
-  `offered ${sizes}, on ${on}, stored ${stored}`,
+  "the grid follows the channels: a place to add, one beside the first, then exactly the streams",
+  JSON.stringify(shapes) === JSON.stringify([[1, 1], [2, 1], [2, 0], [3, 0]]),
+  JSON.stringify(shapes),
 );
-
-// ---- three tiles, placed
-await page.locator(".mvscreen__search").fill("fake");
-const chans = page.locator(".mvscreen__chan");
-await chans.first().waitFor({ timeout: 10_000 });
-for (let i = 0; i < 3; i++) await chans.nth(i).click();
+// The fake panel allows 3, like Adam's line.
+const addBtn = page.locator(".mvbar__add");
+await addBtn.hover();
+const tip = await page
+  .locator("[role='tooltip']")
+  .first()
+  .textContent({ timeout: 3000 })
+  .catch(() => "");
+await page.mouse.move(W - 400, H - 10);
+await page.keyboard.press("a");
+await page.waitForTimeout(300);
+check(
+  "at the line's limit, Add is off and says why, and A opens nothing",
+  (await addBtn.getAttribute("aria-disabled")) === "true" &&
+    tip.includes("Your line allows 3") &&
+    (await page.locator(".mvpick__input").count()) === 0,
+  `tooltip "${tip}"`,
+);
+check(
+  "the meter says so",
+  (await page.locator(".mvmeter").getAttribute("aria-label")) === "3 of 3 streams" &&
+    (await page.locator(".mvmeter__dashes i.is-on").count()) === 3,
+);
 await page.waitForFunction(() => document.querySelectorAll("video.mvtile__video").length === 3, null, {
   timeout: 10_000,
 });
@@ -346,6 +380,18 @@ check(
   "full screen asks the window",
   (await calls()).some(([c, v]) => c === "plugin:window|set_fullscreen" && v === true),
 );
+// Escape closes the picker first, and only the picker (plan 017's order).
+const news = page.locator('.mvtile[aria-label^="Fake News Channel,"]');
+await news.hover();
+await news.getByRole("button", { name: "Replace Fake News Channel" }).click();
+await page.locator(".mvpick__input").waitFor();
+await page.keyboard.press("Escape");
+await page.waitForTimeout(400);
+check(
+  "Escape closes the picker without leaving full screen",
+  (await page.locator(".mvpick__input").count()) === 0 &&
+    !(await calls()).some(([c, v]) => c === "plugin:window|set_fullscreen" && v === false),
+);
 
 // ---- leaving stops every tile
 const opened = (await calls()).filter(([c]) => c === "mv_proxy_open").length;
@@ -369,7 +415,7 @@ check(
   (await calls()).some(([c, v]) => c === "plugin:window|set_fullscreen" && v === false),
 );
 
-// ---- the Sports board's button lands on the tab
+// ---- the Sports board's button lands on the tab, and the grid is as left
 await page.locator('[data-dest="sports"]').click();
 await page.locator(".sports__mvbtn").click({ timeout: 20_000 });
 await page.locator(".mvtab").waitFor({ timeout: 5_000 }).catch(() => {});
@@ -377,6 +423,17 @@ check(
   "the Sports board's Multi-view button goes to the tab",
   (await page.locator('[data-dest="multiview"]').getAttribute("aria-current")) === "page" &&
     (await page.locator(".mvtab").count()) === 1,
+);
+await page.waitForFunction(() => document.querySelectorAll(".mvtile:not(.mvtile--empty)").length === 3, null, {
+  timeout: 10_000,
+}).catch(() => {});
+const back = await page
+  .locator(".mvtile:not(.mvtile--empty)")
+  .evaluateAll((els) => els.map((e) => e.getAttribute("aria-label").split(",")[0]));
+check(
+  "coming back finds the grid as it was left (M7)",
+  JSON.stringify(back) === JSON.stringify(["Fake ESPN 4K", "Fake Sky Sports FHD", "Fake News Channel"]),
+  JSON.stringify(back),
 );
 
 // ---- the narrowest window the app allows (tauri.conf: 1000x680)

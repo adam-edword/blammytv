@@ -8,8 +8,8 @@
 // - a tile says it is tuning, then shows the channel, what is on, its
 //   progress and LIVE under the pointer, and nothing at rest;
 // - a failure says why, in words from what the proxy reported: a DNS miss
-//   behind a redirect reads as off the air, a 403 as a refusal, and Retry
-//   opens the stream again;
+//   behind a redirect reads as off the air, a 403 on a full line as the
+//   limit, and Retry opens the stream again;
 // - a stall shows Buffering, and time lost to stalls shows as behind live;
 // - the sound moves with Sound here, is announced, cannot go to a dead
 //   tile, and follows the STREAM when another tile closes (audit F13);
@@ -113,7 +113,6 @@ async function open({ modes, startup }) {
       localStorage.setItem("btv:onboarded", "1");
       sessionStorage.setItem("btv:welcome-played", "1");
       localStorage.setItem("blammytv.multiviewNoticeSeen", JSON.stringify({ v: 1, data: true }));
-      localStorage.setItem("blammytv.multiviewSize", JSON.stringify({ v: 1, data: 3 }));
       localStorage.setItem("blammytv.startupTab", JSON.stringify({ v: 1, data: startup }));
       localStorage.setItem(
         "blammytv.playlists",
@@ -145,9 +144,16 @@ async function open({ modes, startup }) {
 const tile = (page, name) => page.locator(`.mvtile[aria-label^="${name},"]`);
 const labels = (page) =>
   page.locator(".mvtile:not(.mvtile--empty)").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")));
+/** Add channels through the picker (plan 017, P3), one at a time. */
 async function pick(page, names) {
-  await page.locator(".mvscreen__search").fill("fake");
-  for (const n of names) await page.locator(".mvscreen__chan", { hasText: n }).first().click();
+  for (const n of names) {
+    const empty = page.locator(".mvtile--empty");
+    if (await empty.count()) await empty.click();
+    else await page.locator(".mvbar__add").click();
+    await page.locator(".mvpick__input").fill(n);
+    await page.locator(".mvpick__row", { hasText: n }).first().click();
+    await page.locator(".mvpick__input").waitFor({ state: "detached" });
+  }
   await page.waitForFunction(
     (k) => document.querySelectorAll(".mvtile:not(.mvtile--empty)").length === k,
     names.length,
@@ -172,13 +178,15 @@ const NEWS = "Fake News Channel";
 {
   // Launched on Stream: nothing has loaded the catalog when the tab opens.
   const { page, ctx, errors } = await open({ modes: { 102: "dns", 103: "403" }, startup: "stream" });
-  await page.locator(".mvscreen__search").fill("fake");
+  await page.locator(".mvtile--empty").click();
+  await page.locator(".mvpick__input").fill("fake");
   const found = await page
-    .locator(".mvscreen__chan")
+    .locator(".mvpick__row")
     .first()
     .waitFor({ timeout: 10_000 })
     .then(() => true, () => false);
   check("opened first, before the Guide, it still finds your channels", found);
+  await page.keyboard.press("Escape");
 
   await pick(page, [ESPN, SKY, NEWS]);
   const espn = tile(page, ESPN);
@@ -203,9 +211,12 @@ const NEWS = "Fake News Channel";
     skyText.replace(/\n/g, " | "),
   );
   const newsText = await news.locator(".mvtile__state").innerText().catch(() => "");
+  // Three tiles on a line that allows three: the line is full, so a 403 is
+  // most likely the limit and says so (P3). verify-mvpick covers a refusal
+  // on a line with room.
   check(
-    "a 403 reads as a refusal, with the code",
-    /Your provider refused this one/.test(newsText) && /It answered 403\./.test(newsText),
+    "a 403 on a full line reads as the limit, with the code",
+    /Your line is at its limit/.test(newsText) && /\(403\)/.test(newsText),
     newsText.replace(/\n/g, " | "),
   );
 
@@ -367,7 +378,8 @@ const NEWS = "Fake News Channel";
     "the X closes that stream and hands its connection back",
     left.length === 2 && !left.some((l) => l.startsWith(ESPN)) && released &&
       closed === closedBefore + 1 &&
-      (await page.locator(".mvtile--empty").count()) === 1,
+      // The grid shrinks to what is left (M8): two streams, no hole.
+      (await page.locator(".mvtile").count()) === 2,
     `${JSON.stringify(left)}, ${closed - closedBefore} connection closed`,
   );
   check(

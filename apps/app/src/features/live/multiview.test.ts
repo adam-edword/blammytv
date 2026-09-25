@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   allowedSizes,
   capLine,
-  usableSize,
 } from "./multiview";
 
 describe("allowedSizes", () => {
@@ -36,25 +35,6 @@ describe("allowedSizes", () => {
   });
 });
 
-describe("usableSize", () => {
-  it("keeps the viewer's choice when the line allows it", () => {
-    expect(usableSize(4, { max: 4 })).toBe(4);
-    expect(usableSize(2, { max: 3 })).toBe(2);
-  });
-
-  it("clamps down rather than refusing", () => {
-    // Chose 4 on one playlist, switched to a 3-connection one: 3 is what
-    // they meant.
-    expect(usableSize(4, { max: 3 })).toBe(3);
-    expect(usableSize(4, { max: 2 })).toBe(2);
-  });
-
-  it("is null only when the line cannot do multiview at all", () => {
-    expect(usableSize(2, { max: 1 })).toBeNull();
-    expect(usableSize(4, null)).toBe(4);
-  });
-});
-
 describe("capLine", () => {
   it("says the number, because that is the actionable part", () => {
     expect(capLine({ max: 3 })).toContain("3");
@@ -62,12 +42,14 @@ describe("capLine", () => {
   });
 
   it("tells a big line it is not the constraint", () => {
-    expect(capLine({ max: 5 })).toMatch(/any size works/);
+    expect(capLine({ max: 5 })).toMatch(/all four tiles/);
   });
 
   it("tells a tight line what it caps out at", () => {
-    expect(capLine({ max: 3 })).toMatch(/biggest grid/);
-    expect(capLine({ max: 2 })).toMatch(/biggest grid/);
+    // The count follows the channels since plan 017, so there is no grid
+    // "size" to cap: the number of tiles is the thing.
+    expect(capLine({ max: 3 })).toMatch(/most tiles/);
+    expect(capLine({ max: 2 })).toMatch(/most tiles/);
   });
 
   it("says outright when multi-view cannot run at all", () => {

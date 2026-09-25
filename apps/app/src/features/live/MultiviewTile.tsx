@@ -26,7 +26,7 @@ import { progress } from "./epg";
 import type { Programme } from "./model";
 import { formatClock } from "../../lib/time";
 import { loadClockFormat } from "../settings/clockFormat";
-import { CloseIcon, VolumeIcon, WarnIcon } from "../../ui/icons";
+import { CloseIcon, SwapIcon, VolumeIcon, WarnIcon } from "../../ui/icons";
 
 /**
  * One tile of the multi-view grid: a `<video>` with a demuxer bolted to it.
@@ -150,6 +150,7 @@ const own =
 
 export function MultiviewTile({
   url,
+  unresolved,
   name,
   channel,
   programmes,
@@ -157,9 +158,16 @@ export function MultiviewTile({
   focused,
   onFocus,
   onRemove,
+  onReplace,
+  onRetryResolve,
+  atCap,
   style,
 }: {
-  url: string;
+  /** The stream. Null while the channel's stream is still being looked
+   * up; see `unresolved` for when that failed. */
+  url: string | null;
+  /** The lookup gave nothing: a channel the provider has no stream for. */
+  unresolved?: boolean;
   /** What the tile is called: the game, or the channel. */
   name: string;
   /** The channel behind it, for its logo and number. */
@@ -173,6 +181,13 @@ export function MultiviewTile({
   onFocus: () => void;
   /** Close this stream (Adam's X). */
   onRemove: () => void;
+  /** Swap it for another channel, in the same place (the picker). */
+  onReplace: () => void;
+  /** Look the stream up again, after `unresolved`. */
+  onRetryResolve: () => void;
+  /** The line was full when this tile last looked: a refusal then is most
+   * likely the limit, and says so (mvTile.explainFailure). */
+  atCap: boolean;
   /** Where the picture goes, from mvLayout. */
   style?: CSSProperties;
 }) {
@@ -190,10 +205,14 @@ export function MultiviewTile({
   // player, so btvMultiviewTune can A/B it on streams that are playing.
   const [profile, setProfile] = useState(getMvProfile);
   useEffect(() => onMvProfileChange(setProfile), []);
+  // Read when a failure lands, not when the effect started: the line fills
+  // and empties while a tile is tuning.
+  const atCapRef = useRef(atCap);
+  atCapRef.current = atCap;
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || !url) return;
     let disposed = false;
     setFailure(null);
     setPlaying(false);
@@ -213,6 +232,7 @@ export function MultiviewTile({
       if (disposed) return;
       logFailure(name, why, codecs);
       facts.codecs = codecs || undefined;
+      facts.atCap = atCapRef.current;
       setFailure(explainFailure(name, facts));
     };
     // The codecs, checked against what Media Source can play the moment the
@@ -399,7 +419,20 @@ export function MultiviewTile({
   const chanLine = [channel.name, channel.number].filter((v) => v != null).join(" · ");
 
   let state: ReactNode = null;
-  if (failure) {
+  if (!url && unresolved) {
+    state = (
+      <div className="mvtile__state mvtile__state--fail" data-kind="unresolved">
+        <span className="mvtile__stateicon" aria-hidden>
+          <WarnIcon size={22} />
+        </span>
+        <b className="mvtile__statetitle">No stream for {name}</b>
+        <span className="mvtile__statesub">Your provider didn’t give one for this channel.</span>
+        <button type="button" className="mvchip" onClick={own(onRetryResolve)}>
+          Retry
+        </button>
+      </div>
+    );
+  } else if (failure) {
     state = (
       <div className="mvtile__state mvtile__state--fail" data-kind={failure.kind}>
         <span className="mvtile__stateicon" aria-hidden>
@@ -436,11 +469,20 @@ export function MultiviewTile({
 
   // A failed tile has nothing to hear, so it cannot take the sound: a click
   // on it, or on where Sound here would be, would leave the grid silent.
-  const takeSound = failure ? () => {} : onFocus;
+  const dead = !!failure || (!url && !!unresolved);
+  const takeSound = dead ? () => {} : onFocus;
 
   const label =
     `${name}, ${focused ? "sound on" : "muted"}` +
-    (failure ? `, ${failure.title}` : !playing ? ", tuning" : on ? `, ${on.title}` : "");
+    (!url && unresolved
+      ? ", no stream"
+      : failure
+        ? `, ${failure.title}`
+        : !playing
+          ? ", tuning"
+          : on
+            ? `, ${on.title}`
+            : "");
 
   return (
     <div
@@ -448,13 +490,13 @@ export function MultiviewTile({
         "mvtile" +
         (focused ? " is-on" : "") +
         (flash ? " is-flash" : "") +
-        (failure ? " is-failed" : "")
+        (dead ? " is-failed" : "")
       }
       style={style}
       role="group"
       tabIndex={0}
       aria-label={label}
-      data-state={failure ? "failed" : !playing ? "tuning" : stalled ? "stalled" : "playing"}
+      data-state={dead ? "failed" : !playing ? "tuning" : stalled ? "stalled" : "playing"}
       onClick={takeSound}
       onKeyDown={(e) => {
         if (e.target !== e.currentTarget) return;
@@ -478,12 +520,21 @@ export function MultiviewTile({
       )}
       <div className="mvtile__chrome">
         <div className="mvtile__actions">
-          {!focused && !failure && (
+          {!focused && !dead && (
             <button type="button" className="mvchip" onClick={own(onFocus)}>
               <VolumeIcon size={15} />
               Sound here
             </button>
           )}
+          <button
+            type="button"
+            className="mvchip mvchip--icon"
+            aria-label={`Replace ${name}`}
+            title="Replace"
+            onClick={own(onReplace)}
+          >
+            <SwapIcon size={15} />
+          </button>
           <button
             type="button"
             className="mvchip mvchip--icon"

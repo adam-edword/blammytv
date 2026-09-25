@@ -269,6 +269,10 @@ export function App() {
     if (!isTauri()) return;
     const onKey = async (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
+      // A dialog took it (Radix dismisses on Escape and marks the event):
+      // one press closes the multi-view picker, not the picker AND full
+      // screen (plan 017: Esc closes the picker, then full screen).
+      if (e.defaultPrevented) return;
       // The VOD player owns Escape (theater↔fullscreen toggle through its
       // own state machine) — exiting OS fullscreen from here would desync
       // playing.mode and fight the overlay's toggle.
