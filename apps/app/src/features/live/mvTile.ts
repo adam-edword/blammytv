@@ -11,7 +11,7 @@ import type { Programme } from "./model";
 
 /** What went wrong, in the tile's words. */
 export interface Failure {
-  kind: "offair" | "refused" | "decode" | "unreachable" | "unknown";
+  kind: "offair" | "refused" | "decode" | "unreachable" | "frozen" | "unknown";
   /** The headline. */
   title: string;
   /** What happened, in one sentence. */
@@ -31,6 +31,8 @@ export interface FailureFacts {
   network?: boolean;
   /** It was playing and the connection ended under it. */
   cut?: boolean;
+  /** It was playing and the picture stopped moving (mvRecover.progressStep). */
+  frozen?: boolean;
   /** The line was full when it failed: every connection it allows in use,
    * this grid's and any elsewhere. */
   atCap?: boolean;
@@ -117,7 +119,24 @@ export function explainFailure(channel: string, f: FailureFacts): Failure {
         reason: "It’s HEVC, and converting it for multi-view failed here. The Guide’s player can play it.",
         retry: true,
       };
-    if (/dns|lookup|no such host|name or service not known|nodename/.test(why))
+    // The provider's own server, not one it sent the stream on to (the
+    // proxy writes a redirect as "a -> b"): with the first hop failing,
+    // it is the way to the provider that is down, most likely your own
+    // connection, not the channel (plan 018, R9).
+    const moved = why.includes(" -> ");
+    const dns = /dns|lookup|no such host|name or service not known|nodename/.test(why);
+    if (!moved && (dns || why.includes("timed out") || why.includes("could not connect")))
+      return {
+        kind: "unreachable",
+        title: "Can’t reach your provider",
+        reason: dns
+          ? "Nothing got through to it. Check your connection, then retry."
+          : why.includes("timed out")
+            ? "Its server didn’t answer in time."
+            : "Its server isn’t answering.",
+        retry: true,
+      };
+    if (dns)
       return offair("Your provider sends it to a server that doesn’t exist.");
     if (why.includes("timed out"))
       return offair("Your provider’s server for it didn’t answer in time.");
@@ -127,6 +146,14 @@ export function explainFailure(channel: string, f: FailureFacts): Failure {
       return offair("Your provider keeps redirecting it and never sends it.");
     return offair("The request to your provider failed.");
   }
+
+  if (f.frozen)
+    return {
+      kind: "frozen",
+      title: `${channel} froze`,
+      reason: "No new picture for a while.",
+      retry: true,
+    };
 
   if (f.code === 404 || f.code === 410)
     return offair(`Your provider says it doesn’t exist (${f.code}).`);

@@ -234,7 +234,9 @@ never be a deterrent to building anything." So:
    saved grid, the tab's cost, the keyboard and layout, and the proxy's
    hygiene. v0.9.124 took Adam's calls on it: grids open in Focus, one
    stream fills the stage, Focus from two streams, and a focused tile rests
-   with the bar.
+   with the bar. v0.9.125 (native) is H1: a tile that loses its stream
+   reconnects by itself, waiting for a free slot on the line first, and a
+   failed one lets go of its connection.
 7. Merge the multi-view branch into `main` (Adam's step: default branch).
 
 ### M2: finish the primitives (plan 014 L1 and L2)

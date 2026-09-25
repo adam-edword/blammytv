@@ -84,6 +84,7 @@ async function open({ modes, startup }) {
     ({ port, modes, startup }) => {
       MediaSource.isTypeSupported = () => true;
       window.__calls = [];
+      window.__line = [3, 3];
       let cb = 0;
       let n = 0;
       window.__TAURI_INTERNALS__ = {
@@ -98,7 +99,19 @@ async function open({ modes, startup }) {
           currentWebview: { label: "main", windowLabel: "main" },
         },
         invoke: (cmd, args) => {
-          if (cmd === "http_get") return fetch(args.url).then((r) => r.arrayBuffer());
+          if (cmd === "http_get") {
+            // The panel's count is the test's (the fake panel's own is 3 of
+            // 3, a full line); every other answer is the fake panel's.
+            if (/player_api\.php/.test(args.url) && !/action=/.test(args.url))
+              return fetch(args.url)
+                .then((r) => r.json())
+                .then((j) => {
+                  j.user_info.active_cons = String(window.__line[0]);
+                  j.user_info.max_connections = String(window.__line[1]);
+                  return new TextEncoder().encode(JSON.stringify(j)).buffer;
+                });
+            return fetch(args.url).then((r) => r.arrayBuffer());
+          }
           if (cmd === "mv_proxy_open") {
             const id = args.url.match(/(\d+)\.ts$/)?.[1];
             const local = `http://127.0.0.1:${port}/mv/${modes[id] ?? "ok"}-${++n}`;
@@ -221,17 +234,32 @@ const NEWS = "Fake News Channel";
     newsText.replace(/\n/g, " | "),
   );
 
-  // Retry opens it again, and hands the dead one back.
+  // Retry on a full line waits for a slot (plan 018, H1): straight away it
+  // would only be refused again. It says so, and goes once the panel shows
+  // one; the dead stream was handed back when it failed.
   const opens = async () =>
     (await page.evaluate(() => window.__calls)).filter(([c, id]) => c === "mv_proxy_open" && id === "103");
   const before = (await opens()).length;
   await news.hover();
   await news.getByRole("button", { name: "Retry" }).click();
-  await page.waitForTimeout(800);
+  await page.waitForTimeout(1200);
+  const waitWords = await news.locator(".mvtile__statesub").textContent().catch(() => "");
+  const held = (await opens()).length;
+  check(
+    "Retry on a full line waits for a free slot, and says so",
+    held === before && waitWords === "Waiting for a free slot on your line.",
+    JSON.stringify({ held: held - before, waitWords }),
+  );
+  await page.evaluate(() => (window.__line = [2, 3]));
+  await page
+    .waitForFunction((k) => window.__calls.filter(([c, id]) => c === "mv_proxy_open" && id === "103").length > k, before, {
+      timeout: 12_000,
+    })
+    .catch(() => {});
   const after = await opens();
   const closes = (await page.evaluate(() => window.__calls)).filter(([c]) => c === "mv_proxy_close");
   check(
-    "Retry opens the stream again and hands the old one back",
+    "then opens the stream again once there is one, the old one handed back",
     after.length === before + 1 && closes.some(([, , u]) => u === after[0][2]),
     `${before} -> ${after.length} opens`,
   );

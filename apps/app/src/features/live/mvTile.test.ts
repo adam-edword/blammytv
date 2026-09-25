@@ -26,18 +26,33 @@ describe("explainFailure", () => {
   });
 
   it("tells a server that is down from one that is slow", () => {
+    // The channel's own server, the provider having sent it on (a -> b).
     const down = explainFailure("CN", {
       code: 502,
-      statusText: "Bad Gateway: could not connect (provider.tv): Connection refused (os error 111)",
+      statusText: "Bad Gateway: could not connect (provider.tv -> edge.tv): Connection refused (os error 111)",
     });
     const slow = explainFailure("CN", {
       code: 502,
-      statusText: "Bad Gateway: timed out (provider.tv)",
+      statusText: "Bad Gateway: timed out (provider.tv -> edge.tv)",
     });
     expect(down.reason).toMatch(/isn.t answering/);
     expect(slow.reason).toMatch(/didn.t answer in time/);
     expect(down.kind).toBe("offair");
     expect(slow.kind).toBe("offair");
+  });
+
+  it("the provider's own server failing is the provider, not the channel (plan 018, R9)", () => {
+    const down = explainFailure("CN", {
+      code: 502,
+      statusText: "Bad Gateway: could not connect (provider.tv): Connection refused (os error 111)",
+    });
+    const slow = explainFailure("CN", { code: 502, statusText: "Bad Gateway: timed out (provider.tv)" });
+    for (const f of [down, slow]) {
+      expect(f.kind).toBe("unreachable");
+      expect(f.title).toBe("Can’t reach your provider");
+    }
+    expect(down.reason).toMatch(/isn.t answering/);
+    expect(slow.reason).toMatch(/didn.t answer in time/);
   });
 
   it("names a redirect loop", () => {

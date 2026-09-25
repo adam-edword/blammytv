@@ -100,6 +100,7 @@ export function MultiviewGrid({
   onRemove,
   onReplace,
   onRetryResolve,
+  onGate,
   onAdd,
   atCap,
 }: {
@@ -134,6 +135,8 @@ export function MultiviewGrid({
   /** A tile's Replace: open the picker for its place. */
   onReplace: (id: string, name: string) => void;
   onRetryResolve: (id: string) => void;
+  /** A tile about to connect again: resolves when it may (the tab's gate). */
+  onGate: (id: string, waiting: (on: boolean) => void) => Promise<void>;
   /** The empty place: open the picker to add. */
   onAdd: () => void;
   /** The line is full. */
@@ -185,11 +188,29 @@ export function MultiviewGrid({
   useEffect(() => () => window.clearTimeout(tipTimer.current), []);
 
   const shown = streams.slice(0, cells);
+  // Tiles that have failed: they can't take the sound, so the keys pass
+  // over them (a click on one already does nothing).
+  const [dead, setDead] = useState<ReadonlySet<string>>(new Set());
+  const markDead = (id: string, is: boolean) =>
+    setDead((was) => {
+      if (was.has(id) === is) return was;
+      const next = new Set(was);
+      if (is) next.add(id);
+      else next.delete(id);
+      return next;
+    });
   // Always a tile that exists: the one chosen, or the first when that one
   // has gone (closed, or dropped by a smaller grid). Derived, not stored,
-  // so there is no frame where every tile is muted.
+  // so there is no frame where every tile is muted. Never a failed one
+  // while a live one is there: the sound sat on a dead tile, unmuted and
+  // silent, with the working one muted beside it (plan 018, R8). A tile
+  // that is reconnecting keeps it; it is coming back.
+  const live = (s: GridStream) => !s.unresolved && !dead.has(s.id);
   const sound =
-    shown.find((s) => s.id === soundId) ?? shown.find((s) => !s.unresolved) ?? shown[0];
+    shown.find((s) => s.id === soundId && live(s)) ??
+    shown.find(live) ??
+    shown.find((s) => s.id === soundId) ??
+    shown[0];
 
   // FILL THE WINDOW (decision M6): double-click a tile, or Enter, and it
   // takes the whole stage inside multi-view; the others keep playing out of
@@ -256,18 +277,6 @@ export function MultiviewGrid({
     if (s.id !== sound?.id) setSaid(`Sound: ${s.name}`);
     onSound(s.id);
   };
-
-  // Tiles that have failed: they can't take the sound, so the keys pass
-  // over them (a click on one already does nothing).
-  const [dead, setDead] = useState<ReadonlySet<string>>(new Set());
-  const markDead = (id: string, is: boolean) =>
-    setDead((was) => {
-      if (was.has(id) === is) return was;
-      const next = new Set(was);
-      if (is) next.add(id);
-      else next.delete(id);
-      return next;
-    });
 
   // The tile keys from plan 017's table: 1 to 4 make that tile current (the
   // sound, and Focus's big spot), ← and → move it along, R replaces it and
@@ -413,6 +422,7 @@ export function MultiviewGrid({
                 onPick={() => onChoose(s.id)}
                 onReplace={() => onReplace(s.id, s.name)}
                 onRetryResolve={() => onRetryResolve(s.id)}
+                gate={(waiting) => onGate(s.id, waiting)}
                 atCap={atCap}
                 style={fill === s.id && fillRect ? place(fillRect) : fill ? { ...place(r), visibility: "hidden" } : place(r)}
                 mvId={`tile:${s.id}`}

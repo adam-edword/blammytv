@@ -17,6 +17,9 @@ import { loadPlaylists } from "../settings/playlists";
  * actually cares about includes his own stream.
  */
 const POLL_MS = 60_000;
+/** While something is waiting on the count: a multi-view tile waiting for
+ * a free slot before it reconnects (plan 018, H1). */
+const FAST_POLL_MS = 4_000;
 const POST_TUNE_DELAY_MS = 4_000;
 /**
  * A second look after a tune CHANGE, because 4s is enough for a panel to
@@ -29,6 +32,8 @@ const SETTLE_MS = 20_000;
 
 export function useConnections(
   tuneKey: string | null,
+  /** Ask every few seconds rather than every minute. */
+  fast = false,
 ): Map<string, XtreamConnections> {
   const [conns, setConns] = useState<Map<string, XtreamConnections>>(
     () => new Map(),
@@ -82,12 +87,12 @@ export function useConnections(
     lastKey.current = tuneKey;
     const delays = first ? [0] : [POST_TUNE_DELAY_MS, SETTLE_MS];
     const timers = delays.map((d) => window.setTimeout(refresh, d));
-    const id = window.setInterval(refresh, POLL_MS);
+    const id = window.setInterval(refresh, fast ? FAST_POLL_MS : POLL_MS);
     return () => {
       stale = true;
       timers.forEach(window.clearTimeout);
       window.clearInterval(id);
     };
-  }, [tuneKey]);
+  }, [tuneKey, fast]);
   return conns;
 }

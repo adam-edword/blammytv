@@ -600,20 +600,31 @@ pub fn running() -> usize {
     RUNNING.load(Ordering::SeqCst)
 }
 
+/// A task that stops when this does. The feeding task owns the provider's
+/// response, so it has to go the moment nobody reads: before `Running`
+/// existed a dropped handle only detached it, and a tile closed while ffmpeg
+/// was starting left the provider connected until its 20-second read
+/// timeout (plan 018, R6).
+struct Stops(tokio::task::AbortHandle);
+
+impl Drop for Stops {
+    fn drop(&mut self) {
+        self.0.abort();
+    }
+}
+
 /// Holds a conversion's process and tasks for as long as its tile reads.
 /// Dropped when the tile goes: the feeding task is aborted, which drops the
 /// provider's response and hands the connection back, and the process is
 /// killed.
 struct Running {
     child: Option<tokio::process::Child>,
-    feed: tokio::task::AbortHandle,
-    log: tokio::task::AbortHandle,
+    _feed: Stops,
+    _log: Stops,
 }
 
 impl Drop for Running {
     fn drop(&mut self) {
-        self.feed.abort();
-        self.log.abort();
         let Some(mut child) = self.child.take() else {
             return;
         };
@@ -702,17 +713,20 @@ where
 
     // The provider's bytes, as they arrive. Ends when the provider does or
     // when ffmpeg stops reading; dropping stdin then lets ffmpeg finish.
-    let feed = tokio::spawn(async move {
-        if stdin.write_all(&head).await.is_err() {
-            return;
-        }
-        let mut input = std::pin::pin!(input);
-        while let Some(b) = input.next().await {
-            if stdin.write_all(&b).await.is_err() {
+    let feed = Stops(
+        tokio::spawn(async move {
+            if stdin.write_all(&head).await.is_err() {
                 return;
             }
-        }
-    });
+            let mut input = std::pin::pin!(input);
+            while let Some(b) = input.next().await {
+                if stdin.write_all(&b).await.is_err() {
+                    return;
+                }
+            }
+        })
+        .abort_handle(),
+    );
     let problems = Arc::new(Mutex::new(VecDeque::<String>::new()));
     let keep = problems.clone();
     let log = tokio::spawn(async move {
@@ -744,6 +758,7 @@ where
         }
     });
 
+    let log_stops = Stops(log.abort_handle());
     let mut buf = vec![0u8; 64 * 1024];
     let first = tokio::time::timeout(Duration::from_secs(20), stdout.read(&mut buf)).await;
     let n = match first {
@@ -753,41 +768,113 @@ where
             // last line is the reason.
             let _ = tokio::time::timeout(Duration::from_secs(2), child.wait()).await;
             let _ = tokio::time::timeout(Duration::from_millis(500), log).await;
-            feed.abort();
+            drop(feed);
             let last = problems.lock().ok().and_then(|s| s.back().cloned());
             return Err(last.unwrap_or_else(|| "ffmpeg stopped before any output".into()));
         }
-        Err(_) => {
-            feed.abort();
-            log.abort();
-            return Err("ffmpeg produced nothing for 20 seconds".into());
-        }
+        Err(_) => return Err("ffmpeg produced nothing for 20 seconds".into()),
     };
     buf.truncate(n);
     RUNNING.fetch_add(1, Ordering::SeqCst);
     let running = Running {
         child: Some(child),
-        feed: feed.abort_handle(),
-        log: log.abort_handle(),
+        _feed: feed,
+        _log: log_stops,
     };
-    let rest = stream::unfold(Some((stdout, running)), |state| async move {
-        let (mut out, running) = state?;
-        let mut buf = vec![0u8; 64 * 1024];
-        match out.read(&mut buf).await {
-            Ok(0) => None,
-            Ok(n) => {
-                buf.truncate(n);
-                Some((Ok(Bytes::from(buf)), Some((out, running))))
-            }
-            Err(e) => Some((Err(e), None)),
-        }
-    });
+    let rest = output(stdout, running, OUTPUT_IDLE);
     Ok(stream::once(async move { Ok(Bytes::from(buf)) }).chain(rest))
+}
+
+/// How long ffmpeg may go without writing, once it has started, before the
+/// conversion counts as hung. The provider's own silence is caught sooner,
+/// by the proxy's read timeout (the same 20 seconds), which ends the input
+/// and so ffmpeg; this is for an ffmpeg that stops while its input flows.
+/// Without it a hung one held the tile on Buffering and the provider
+/// connection for as long as the tile stayed (plan 018, R3).
+const OUTPUT_IDLE: Duration = Duration::from_secs(20);
+
+/// ffmpeg's output as a stream of chunks, holding `keep` (the process and
+/// its tasks) until the stream is dropped. Ends at ffmpeg's end, which the
+/// proxy turns into an error (`mvproxy::live_body`), and with an error if
+/// nothing comes for `idle`.
+fn output<R, K>(
+    out: R,
+    keep: K,
+    idle: Duration,
+) -> impl Stream<Item = Result<Bytes, std::io::Error>> + Send + 'static
+where
+    R: tokio::io::AsyncRead + Unpin + Send + 'static,
+    K: Send + 'static,
+{
+    stream::unfold(Some((out, keep)), move |state| async move {
+        let (mut out, keep) = state?;
+        let mut buf = vec![0u8; 64 * 1024];
+        match tokio::time::timeout(idle, out.read(&mut buf)).await {
+            Ok(Ok(0)) => None,
+            Ok(Ok(n)) => {
+                buf.truncate(n);
+                Some((Ok(Bytes::from(buf)), Some((out, keep))))
+            }
+            Ok(Err(e)) => Some((Err(e), None)),
+            Err(_) => Some((
+                Err(std::io::Error::other(format!(
+                    "ffmpeg wrote nothing for {} seconds",
+                    idle.as_secs()
+                ))),
+                None,
+            )),
+        }
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_quiet_ffmpeg_is_an_error_not_a_wait() {
+        // Plan 018, R3: once started, ffmpeg going quiet for `idle` ends
+        // the output with an error, where it used to hold the tile (and the
+        // provider connection) for as long as the tile stayed.
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        rt.block_on(async {
+            let (mut w, r) = tokio::io::duplex(1024);
+            w.write_all(b"ts").await.unwrap();
+            // The writer is kept alive, not dropped: silence, not an end.
+            let mut out = std::pin::pin!(output(r, w, Duration::from_millis(200)));
+            assert_eq!(&out.next().await.unwrap().unwrap()[..], b"ts");
+            let t = std::time::Instant::now();
+            let quiet = out.next().await.unwrap();
+            assert!(quiet.is_err(), "silence was not an error");
+            assert!(
+                t.elapsed() >= Duration::from_millis(200),
+                "{:?}",
+                t.elapsed()
+            );
+            assert!(t.elapsed() < Duration::from_secs(2), "{:?}", t.elapsed());
+            assert!(out.next().await.is_none());
+        });
+    }
+
+    #[test]
+    fn ffmpeg_finishing_ends_the_output() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        rt.block_on(async {
+            let (mut w, r) = tokio::io::duplex(1024);
+            w.write_all(b"ts").await.unwrap();
+            drop(w);
+            let mut out = std::pin::pin!(output(r, (), Duration::from_secs(5)));
+            assert_eq!(&out.next().await.unwrap().unwrap()[..], b"ts");
+            // An end, which the proxy makes an error (mvproxy::live_body).
+            assert!(out.next().await.is_none());
+        });
+    }
 
     /// One 188-byte packet carrying a PSI section, stuffed with 0xff.
     fn psi(pid: u16, section: &[u8]) -> Vec<u8> {

@@ -2,8 +2,9 @@
 
 **Status: IN PROGRESS.** Adam took both decisions (2026-09-25) and added
 two calls of his own: a grid opens in Focus, and one stream fills the
-stage. All four shipped in v0.9.124, and L6 went with them. **H1 is
-next.** The test on his line turned out not to be needed (see H1).
+stage. All four shipped in v0.9.124, and L6 went with them. **H1
+shipped in v0.9.125** (a rebuild). **H2 is next.** The test on his line
+turned out not to be needed (see H1).
 
 *Source: five audits run against v0.9.122 on 2026-09-25, one per
 dimension: state and lifecycle, the native proxy, performance, hands-on UX
@@ -345,6 +346,39 @@ its inputs (progress, errors, time, the line) and for the sound. A harness
 on a fake stream that ends, then one that stalls, then one that keeps
 dying: the tile reconnects and plays, then shows the failure with Retry
 once its budget is spent; the sound leaves a dead tile.
+
+**Shipped in v0.9.125 (native: a rebuild).** Where it differs from the
+above, or says more:
+- **The proxy** (R2, R3, R5, R6). Every response goes through `live_body`:
+  the stream until `close()` drops the route, and never a clean end, so
+  a provider EOF, a read timeout and ffmpeg exiting all reach the tile as
+  a dropped connection. `close()` ends a route by dropping the only
+  sender of a watch channel its responses listen on. ffmpeg's output
+  times out after 20 seconds (`output`), and the feed and log tasks stop
+  when their handle drops (`Stops`), from the moment they are spawned.
+- **The budget** (mvRecover.ts): three reconnects, refilled by a minute of
+  picture; a freeze is 12 seconds without a decoded frame while the tile
+  can be seen and isn't paused, counted only once a frame has really
+  moved; the gate waits up to 45 seconds for a slot and spaces
+  reconnects 1.5 seconds apart. The gate is `passGate`, a pure function
+  of its clock, the line and a fresh-link step, so its rules are unit
+  tested.
+- **Only a tile that has played reconnects.** One that fails on its first
+  connection (off the air, refused, a codec) says so at once, as before;
+  the same thing again straight away rarely goes differently.
+- **Retry by hand goes through the same gate,** with a full budget. On a
+  full line it waits for a slot, and says so, rather than being refused
+  again.
+- **The sound** moves in sound only: in Focus a dead tile keeps the big
+  place. Moving it would reorder the grid under you while a tile comes and
+  goes.
+- **R9's first case** turned out to be wider: the provider's own server
+  failing (no redirect in the proxy's reason) is "Can't reach your
+  provider", whether its name didn't resolve, it refused, or it was slow.
+  Only a server the provider sent the stream on to is the channel off the
+  air.
+- **R10** is the fast poll: the panel is asked every 4 seconds while a
+  tile waits, and once at once when none does.
 
 ### H2. The line's count and the grid you saved (frontend)
 

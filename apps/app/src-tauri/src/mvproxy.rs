@@ -16,7 +16,9 @@
 //!   URL from a request, so it is not an open proxy, and the webview never
 //!   holds a URL with the provider's credentials in it (Chromium printed
 //!   them in full in its own CORS errors).
-//! - `close(local)` forgets the token. The tile calls it on unmount.
+//! - `close(local)` forgets the token and ends whatever it is serving: the
+//!   tile calls it when it goes, and the provider connection goes with it
+//!   at once, not when the webview gets round to closing its socket.
 //! - One server, started on first use, on its own thread and runtime, bound
 //!   to 127.0.0.1 only. Its own thread so it outlives whatever called it,
 //!   which is also what lets the tests below drive it for real.
@@ -24,6 +26,10 @@
 //!   the webview drops the connection, hyper drops the body, and the
 //!   upstream response goes with it: a closed tile must hand its provider
 //!   connection back at once, because the line's cap counts it (Adam's is 3).
+//! - A LIVE STREAM NEVER ENDS CLEANLY here. However it stops (the provider
+//!   closes, goes silent, ffmpeg exits), the body ends with an error, so the
+//!   tile hears a dropped stream and reconnects. A clean end read as a
+//!   finished one, and the tile froze on its last frame (plan 018, R2).
 //!
 //! HEVC IS CONVERTED HERE, when the tile asks (mvconvert.rs). The webview
 //! cannot decode it without a Store package; the first packets say whether
@@ -35,10 +41,11 @@
 
 use std::collections::HashMap;
 use std::convert::Infallible;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
-use futures_util::{stream, StreamExt};
+use futures_util::future::{select, Either};
+use futures_util::{stream, Stream, StreamExt};
 use http_body_util::{combinators::BoxBody, BodyExt, Empty, StreamBody};
 use hyper::body::{Bytes, Frame, Incoming};
 use hyper::header::{self, HeaderValue};
@@ -54,12 +61,14 @@ struct Proxy {
 }
 
 /// What a token stands for.
-#[derive(Clone)]
 struct Route {
     url: String,
     /// The tile's webview cannot play HEVC: convert it if that is what
     /// this turns out to be.
     convert_hevc: bool,
+    /// Held here only. `close` drops the route and with it this, which is
+    /// what tells every response serving the token to stop (`closed`).
+    live: Arc<tokio::sync::watch::Sender<()>>,
 }
 
 static PROXY: OnceLock<Result<Proxy, String>> = OnceLock::new();
@@ -163,12 +172,20 @@ pub fn open(url: &str, convert_hevc: bool) -> Result<String, String> {
             Route {
                 url: url.to_string(),
                 convert_hevc,
+                live: Arc::new(tokio::sync::watch::channel(()).0),
             },
         );
     Ok(format!("http://127.0.0.1:{}/mv/{}", p.port, token))
 }
 
-/// Forget a loopback URL `open` returned. Unknown URLs are ignored.
+/// Forget a loopback URL `open` returned, and end what it is serving.
+/// Unknown URLs are ignored.
+///
+/// ENDING IT HERE, not when the webview closes its socket: mpegts.js on a
+/// stream that has gone quiet waits for the next chunk before it lets go,
+/// and the provider connection stayed held for about 20 seconds, long
+/// enough for the tile replacing it to be refused on a full line (plan 018,
+/// R5).
 pub fn close(local: &str) {
     let Some(Ok(p)) = PROXY.get() else { return };
     if let Some(token) = local.rsplit("/mv/").next() {
@@ -360,10 +377,12 @@ async fn handle(req: Request<Incoming>, port: u16) -> Result<Response<Body>, Inf
     let Some(token) = req.uri().path().strip_prefix("/mv/") else {
         return Ok(reply(StatusCode::NOT_FOUND));
     };
-    let upstream = proxy()
-        .ok()
-        .and_then(|p| p.routes.lock().ok()?.get(token).cloned());
-    let Some(Route { url, convert_hevc }) = upstream else {
+    let upstream = proxy().ok().and_then(|p| {
+        let routes = p.routes.lock().ok()?;
+        let r = routes.get(token)?;
+        Some((r.url.clone(), r.convert_hevc, r.live.subscribe()))
+    });
+    let Some((url, convert_hevc, live)) = upstream else {
         return Ok(reply(StatusCode::NOT_FOUND));
     };
 
@@ -420,7 +439,7 @@ async fn handle(req: Request<Incoming>, port: u16) -> Result<Response<Body>, Inf
             }
         };
         if verdict == Sniff::Hevc {
-            return Ok(convert(Bytes::from(head), res).await);
+            return Ok(convert(Bytes::from(head), res, live).await);
         }
     }
     let content_type = res
@@ -431,16 +450,17 @@ async fn handle(req: Request<Incoming>, port: u16) -> Result<Response<Body>, Inf
 
     // Chunks as they arrive. A read error ends the body; hyper then closes
     // the connection and mpegts.js reports it like any dropped stream.
-    let head = (!head.is_empty()).then(|| Ok(Frame::data(Bytes::from(head))));
+    let head = (!head.is_empty()).then(|| Ok(Bytes::from(head)));
     let chunks = stream::iter(head).chain(stream::unfold(Some(res), |state| async move {
         let mut r = state?;
         match r.chunk().await {
-            Ok(Some(b)) => Some((Ok(Frame::data(b)), Some(r))),
+            Ok(Some(b)) => Some((Ok(b), Some(r))),
             Ok(None) => None,
             Err(_) => Some((Err(std::io::Error::other("upstream read failed")), None)),
         }
     }));
-    let mut out = Response::new(BodyExt::boxed(StreamBody::new(chunks)));
+    let body = live_body(chunks, live).map(|chunk| chunk.map(Frame::data));
+    let mut out = Response::new(BodyExt::boxed(StreamBody::new(body)));
     out.headers_mut().insert(header::CONTENT_TYPE, content_type);
     cors(&mut out);
     Ok(out)
@@ -449,7 +469,11 @@ async fn handle(req: Request<Incoming>, port: u16) -> Result<Response<Body>, Inf
 /// An HEVC stream, through ffmpeg. The tile hears nothing until ffmpeg has
 /// produced its first bytes, so a conversion that cannot start is a 502 that
 /// says why rather than a stream that ends at once.
-async fn convert(head: Bytes, res: reqwest::Response) -> Response<Body> {
+async fn convert(
+    head: Bytes,
+    res: reqwest::Response,
+    live: tokio::sync::watch::Receiver<()>,
+) -> Response<Body> {
     let started = std::time::Instant::now();
     let input = stream::unfold(Some(res), |state| async move {
         let mut r = state?;
@@ -471,7 +495,7 @@ async fn convert(head: Bytes, res: reqwest::Response) -> Response<Body> {
                 started.elapsed().as_millis()
             );
             let mut out = Response::new(BodyExt::boxed(StreamBody::new(
-                body.map(|chunk| chunk.map(Frame::data)),
+                live_body(body, live).map(|chunk| chunk.map(Frame::data)),
             )));
             out.headers_mut()
                 .insert(header::CONTENT_TYPE, HeaderValue::from_static("video/mp2t"));
@@ -483,6 +507,45 @@ async fn convert(head: Bytes, res: reqwest::Response) -> Response<Body> {
             bad_gateway(&format!("can't convert HEVC: {why}"))
         }
     }
+}
+
+/// What a tile is served: `inner` until the route is closed, and never a
+/// clean end. A live stream has none, so one that stops (the provider closed
+/// it, went quiet past the read timeout, ffmpeg exited) ends with an error:
+/// hyper then cuts the connection rather than finishing the body, and the
+/// tile hears a dropped stream, not a finished one (plan 018, R2).
+fn live_body<S>(
+    inner: S,
+    live: tokio::sync::watch::Receiver<()>,
+) -> impl Stream<Item = Result<Bytes, std::io::Error>> + Send + 'static
+where
+    S: Stream<Item = Result<Bytes, std::io::Error>> + Send + 'static,
+{
+    stream::unfold(Some((Box::pin(inner), live)), |state| async move {
+        let (mut inner, mut live) = state?;
+        let next = {
+            let gone = std::pin::pin!(closed(&mut live));
+            match select(gone, inner.next()).await {
+                Either::Left(_) => None,
+                Either::Right((next, _)) => Some(next),
+            }
+        };
+        match next {
+            None => Some((
+                Err(std::io::Error::other("the tile closed the stream")),
+                None,
+            )),
+            Some(Some(Ok(b))) => Some((Ok(b), Some((inner, live)))),
+            Some(Some(Err(e))) => Some((Err(e), None)),
+            Some(None) => Some((Err(std::io::Error::other("the stream ended")), None)),
+        }
+    })
+}
+
+/// Resolves when the route is closed: its sender, held only by the route,
+/// has gone. Nothing is ever sent on it.
+async fn closed(live: &mut tokio::sync::watch::Receiver<()>) {
+    while live.changed().await.is_ok() {}
 }
 
 #[cfg(test)]
@@ -537,6 +600,39 @@ mod tests {
                             conn,
                             "HTTP/1.1 302 Found\r\nLocation: http://127.0.0.1:{closed}/edge/secret-token.ts\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
                         );
+                    } else if path.starts_with("/short/") {
+                        // A stream the provider ends: some packets, then
+                        // the connection closed cleanly.
+                        let _ = conn.write_all(
+                            b"HTTP/1.1 200 OK\r\nContent-Type: video/mp2t\r\nConnection: close\r\n\r\n",
+                        );
+                        let mut packet = [0u8; 188];
+                        packet[0] = 0x47;
+                        for _ in 0..50 {
+                            let _ = conn.write_all(&packet);
+                        }
+                    } else if path.starts_with("/quiet/") {
+                        // Some packets, then silence with the socket held
+                        // open. `hung_up` flips when the proxy lets go of
+                        // it: the read sees the connection closed.
+                        let _ = conn.write_all(
+                            b"HTTP/1.1 200 OK\r\nContent-Type: video/mp2t\r\nConnection: close\r\n\r\n",
+                        );
+                        let mut packet = [0u8; 188];
+                        packet[0] = 0x47;
+                        for _ in 0..50 {
+                            let _ = conn.write_all(&packet);
+                        }
+                        let mut one = [0u8; 1];
+                        loop {
+                            match conn.read(&mut one) {
+                                Ok(0) | Err(_) => {
+                                    flag.store(true, Ordering::SeqCst);
+                                    break;
+                                }
+                                Ok(_) => {}
+                            }
+                        }
                     } else if path == "/cdn/stream.ts" {
                         let _ = conn.write_all(
                             b"HTTP/1.1 200 OK\r\nContent-Type: video/mp2t\r\nConnection: close\r\n\r\n",
@@ -644,6 +740,66 @@ mod tests {
             hung_up.load(Ordering::SeqCst),
             "upstream still held after the reader left"
         );
+    }
+
+    /// A chunked body to its end: the bytes, and whether it FINISHED (the
+    /// terminating zero-size chunk) rather than being cut off.
+    fn to_end(r: &mut BufReader<TcpStream>) -> (Vec<u8>, bool) {
+        let mut out = Vec::new();
+        loop {
+            let mut size = String::new();
+            match r.read_line(&mut size) {
+                Ok(0) | Err(_) => return (out, false),
+                Ok(_) => {}
+            }
+            let Ok(n) = usize::from_str_radix(size.trim(), 16) else {
+                return (out, false);
+            };
+            if n == 0 {
+                return (out, true);
+            }
+            let mut chunk = vec![0u8; n + 2];
+            if r.read_exact(&mut chunk).is_err() {
+                return (out, false);
+            }
+            chunk.truncate(n);
+            out.extend(chunk);
+        }
+    }
+
+    #[test]
+    fn a_stream_the_provider_ends_reaches_the_tile_as_a_drop() {
+        // Plan 018, R2: a clean end read as a finished stream, and the tile
+        // froze on its last frame. A live one never finishes.
+        let (base, _) = fake_provider();
+        let local = open(&format!("{base}/short/a/b/11.ts"), false).unwrap();
+        let (code, _, mut body) = get(&local, "GET", None);
+        assert_eq!(code, 200);
+        let (bytes, finished) = to_end(&mut body);
+        assert!(bytes.len() >= 188, "{} bytes", bytes.len());
+        assert!(!finished, "the body finished cleanly");
+    }
+
+    #[test]
+    fn closing_the_route_lets_a_quiet_provider_go_at_once() {
+        // Plan 018, R5: close() only forgot the token, and a quiet stream's
+        // provider connection stayed held until the 20s read timeout.
+        let (base, hung_up) = fake_provider();
+        let local = open(&format!("{base}/quiet/a/b/12.ts"), false).unwrap();
+        let (code, _, mut body) = get(&local, "GET", None);
+        assert_eq!(code, 200);
+        body_bytes(&mut body, 188);
+        close(&local);
+        let t = std::time::Instant::now();
+        while !hung_up.load(Ordering::SeqCst) && t.elapsed() < Duration::from_secs(2) {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert!(
+            hung_up.load(Ordering::SeqCst),
+            "the provider was still held after close"
+        );
+        // And the tile, still reading, hears a drop, not an end.
+        assert!(!to_end(&mut body).1);
     }
 
     #[test]
@@ -902,6 +1058,115 @@ mod tests {
         assert!(
             hung_up.load(Ordering::SeqCst),
             "upstream still held after the tile left"
+        );
+    }
+
+    /// A provider serving `clip` at about live pace, then closing: a stream
+    /// that ends.
+    fn serving_once(clip: Vec<u8>) -> String {
+        let l = TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", l.local_addr().unwrap());
+        std::thread::spawn(move || {
+            for conn in l.incoming() {
+                let Ok(mut conn) = conn else { continue };
+                let clip = clip.clone();
+                std::thread::spawn(move || {
+                    let mut reader = BufReader::new(conn.try_clone().unwrap());
+                    loop {
+                        let mut h = String::new();
+                        if reader.read_line(&mut h).unwrap_or(0) <= 2 {
+                            break;
+                        }
+                    }
+                    let _ = conn.write_all(
+                        b"HTTP/1.1 200 OK\r\nContent-Type: video/mp2t\r\nConnection: close\r\n\r\n",
+                    );
+                    for c in clip.chunks(188 * 32) {
+                        if conn.write_all(c).is_err() {
+                            return;
+                        }
+                        std::thread::sleep(Duration::from_millis(10));
+                    }
+                });
+            }
+        });
+        base
+    }
+
+    #[test]
+    fn a_converted_stream_that_ends_reaches_the_tile_as_a_drop() {
+        let _one = SERIAL.lock().unwrap_or_else(|p| p.into_inner());
+        let base = serving_once(clip("libx265"));
+        let local = open(&format!("{base}/live/u/p/13.ts"), true).unwrap();
+        let (code, headers, mut body) = get(&local, "GET", None);
+        assert_eq!(code, 200, "{:?}", headers.get(":reason"));
+        let (bytes, finished) = to_end(&mut body);
+        assert!(bytes.len() > 16 * 1024, "{} bytes", bytes.len());
+        assert!(!finished, "the converted body finished cleanly");
+    }
+
+    #[test]
+    fn a_tile_gone_before_the_first_picture_lets_the_provider_go() {
+        // Plan 018, R6: closed while ffmpeg was starting, the feeding task
+        // was only detached, and it held the provider's response until the
+        // 20s read timeout.
+        let _one = SERIAL.lock().unwrap_or_else(|p| p.into_inner());
+        std::env::set_var("BLAMMYTV_FFMPEG", ffmpeg());
+        // What the machine can do is asked first, so the drop below lands
+        // with ffmpeg running and waiting on its input.
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(mvconvert::caps())
+            .expect("no ffmpeg caps");
+        // The start of an HEVC stream (its map, and not enough for ffmpeg to
+        // produce anything), then silence with the socket held.
+        let head: Vec<u8> = clip("libx265").into_iter().take(188 * 64).collect();
+        let l = TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", l.local_addr().unwrap());
+        let hung_up = Arc::new(AtomicBool::new(false));
+        let flag = hung_up.clone();
+        std::thread::spawn(move || {
+            let Ok((mut conn, _)) = l.accept() else {
+                return;
+            };
+            let mut reader = BufReader::new(conn.try_clone().unwrap());
+            loop {
+                let mut h = String::new();
+                if reader.read_line(&mut h).unwrap_or(0) <= 2 {
+                    break;
+                }
+            }
+            let _ = conn.write_all(
+                b"HTTP/1.1 200 OK\r\nContent-Type: video/mp2t\r\nConnection: close\r\n\r\n",
+            );
+            let _ = conn.write_all(&head);
+            let mut one = [0u8; 1];
+            loop {
+                match conn.read(&mut one) {
+                    Ok(0) | Err(_) => {
+                        flag.store(true, Ordering::SeqCst);
+                        break;
+                    }
+                    Ok(_) => {}
+                }
+            }
+        });
+        let local = open(&format!("{base}/live/u/p/14.ts"), true).unwrap();
+        let rest = local.strip_prefix("http://").unwrap();
+        let (addr, path) = rest.split_at(rest.find('/').unwrap());
+        let mut tile = TcpStream::connect(addr).unwrap();
+        write!(tile, "GET {path} HTTP/1.1\r\nHost: {addr}\r\n\r\n").unwrap();
+        std::thread::sleep(Duration::from_millis(1500));
+        drop(tile); // the tile goes, before any picture
+        let t = std::time::Instant::now();
+        while !hung_up.load(Ordering::SeqCst) && t.elapsed() < Duration::from_secs(4) {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert!(
+            hung_up.load(Ordering::SeqCst),
+            "the provider was still held after the tile left"
         );
     }
 

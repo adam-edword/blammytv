@@ -23,6 +23,7 @@ import {
   type Failure,
   type FailureFacts,
 } from "./mvTile";
+import { FROZEN_MS, mayReconnect, newWatch, spend, watchStep } from "./mvRecover";
 import { progress } from "./epg";
 import type { Programme } from "./model";
 import type { Fixture } from "../sports/model";
@@ -173,6 +174,7 @@ export function MultiviewTile({
   onPick,
   onRetryResolve,
   onDead,
+  gate,
   atCap,
   style,
   mvId,
@@ -218,6 +220,10 @@ export function MultiviewTile({
   /** Whether it has failed: a failed tile can't take the sound, and the
    * grid's keys pass over it. */
   onDead?: (dead: boolean) => void;
+  /** Before connecting again: waits for the line to have a slot, and its
+   * turn after other tiles, and has the stream's link looked up afresh
+   * (the tab's, plan 018 H1). Says while it waits on the line. */
+  gate: (waiting: (on: boolean) => void) => Promise<void>;
   /** The line was full when this tile last looked: a refusal then is most
    * likely the limit, and says so (mvTile.explainFailure). */
   atCap: boolean;
@@ -252,8 +258,74 @@ export function MultiviewTile({
   /** Seconds spent waiting on data since the first frame: with no catch-up,
    * exactly how far behind live the tile has fallen (mvTile.behindLabel). */
   const [stalledS, setStalledS] = useState(0);
-  /** Bumped by Retry, which re-creates the player. */
+  /** Bumped by a reconnect or Retry, which re-creates the player. */
   const [attempt, setAttempt] = useState(0);
+
+  /**
+   * GETTING IT BACK (plan 018, H1). A tile that was playing and loses its
+   * stream reconnects by itself, MAX_TRIES times, the budget refilled by a
+   * minute of picture (mvRecover.ts). It used to freeze on its last frame,
+   * or show the failure and wait for a click, for the rest of the game.
+   * Each try waits on the tab's gate first: a free slot on the line, its
+   * turn, a fresh link.
+   */
+  const [recovering, setRecovering] = useState<"drop" | "retry" | null>(null);
+  /** The gate is waiting for a slot on the line. */
+  const [forSlot, setForSlot] = useState(false);
+  const played = useRef(false);
+  const playingSince = useRef<number | null>(null);
+  const tries = useRef(0);
+  const tryGen = useRef(0);
+  const alive = useRef(true);
+  useEffect(() => {
+    // Set here, not only at creation: StrictMode's dev replay runs the
+    // cleanup below and then this again, and a flag only ever cleared left
+    // every tile in `pnpm tauri dev` thinking it was gone.
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+  const gateRef = useRef(gate);
+  gateRef.current = gate;
+  const reconnect = async (why: "drop" | "retry") => {
+    const gen = ++tryGen.current;
+    setFailure(null);
+    setRecovering(why);
+    await gateRef
+      .current((on) => {
+        if (alive.current && gen === tryGen.current) setForSlot(on);
+      })
+      .catch(() => {});
+    if (!alive.current || gen !== tryGen.current) return;
+    setForSlot(false);
+    setAttempt((n) => n + 1);
+  };
+  /** The stream is gone: connect again while the budget lasts, else say why. */
+  const lose = (f: Failure) => {
+    const s = spend(tries.current, playingSince.current, performance.now());
+    playingSince.current = null;
+    if (!mayReconnect(f, played.current) || !s.give) {
+      setRecovering(null);
+      setFailure(f);
+      return;
+    }
+    tries.current = s.tries;
+    void reconnect("drop");
+  };
+  const loseRef = useRef(lose);
+  loseRef.current = lose;
+  /** Retry, by hand: a full budget, through the same gate. */
+  const retry = () => {
+    tries.current = 0;
+    playingSince.current = null;
+    void reconnect("retry");
+  };
+  // A fresh look-up that found nothing is its own state ("No stream"), with
+  // its own Retry: this one is over.
+  useEffect(() => {
+    if (!url && unresolved) setRecovering(null);
+  }, [url, unresolved]);
   // The buffering profile (multiviewTuning.ts). A change re-creates the
   // player, so btvMultiviewTune can A/B it on streams that are playing.
   const [profile, setProfile] = useState(getMvProfile);
@@ -281,12 +353,23 @@ export function MultiviewTile({
     // What the stream turned out to carry, once a library has looked. Read
     // by logFailure, so a codec refusal names the codec.
     let codecs = "";
+    let failed = false;
     const fail = (why: string) => {
-      if (disposed) return;
+      if (disposed || failed) return;
+      failed = true;
       logFailure(name, why, codecs);
       facts.codecs = codecs || undefined;
       facts.atCap = atCapRef.current;
-      setFailure(explainFailure(name, facts));
+      // Let go of it at once, outside the library's own event: a failed
+      // player kept loading into a MediaSource that refused every segment,
+      // holding its connection and growing by the stream's bitrate until
+      // the webview died (plan 018, R1).
+      window.setTimeout(() => {
+        if (disposed) return;
+        destroy?.();
+        destroy = undefined;
+      }, 0);
+      loseRef.current(explainFailure(name, facts));
     };
     // The codecs, checked against what Media Source can play the moment the
     // demuxer names them, rather than waiting for a decoder to give up.
@@ -305,6 +388,9 @@ export function MultiviewTile({
     let waitingSince = 0;
     let stallTimer = 0;
     const onPlaying = () => {
+      played.current = true;
+      playingSince.current ??= performance.now();
+      setRecovering(null);
       window.clearTimeout(stallTimer);
       if (waitingSince) {
         const lost = (performance.now() - waitingSince) / 1000;
@@ -327,9 +413,32 @@ export function MultiviewTile({
       facts.media = true;
       fail(`video element: code ${err.code} ${err.message}`);
     };
+    // A live stream has no end: one that ends has dropped. Through the proxy
+    // an end is an error now (plan 018, R2); played straight, the loader
+    // completes, mpegts.js ends the MediaSource, and once what was buffered
+    // has played, this.
+    const onEnded = () => {
+      facts.cut = true;
+      fail("the video ended");
+    };
     video.addEventListener("playing", onPlaying);
     video.addEventListener("waiting", onWaiting);
     video.addEventListener("error", onVideoError);
+    video.addEventListener("ended", onEnded);
+    // The freeze watch (mvRecover.watchStep): decoded frames, every two
+    // seconds, while the tile can be seen.
+    let watch = newWatch(performance.now());
+    const watcher = window.setInterval(() => {
+      if (disposed || failed) return;
+      const frames = video.getVideoPlaybackQuality?.().totalVideoFrames ?? 0;
+      const looking = document.visibilityState === "visible" && !video.paused;
+      const step = watchStep(watch, frames, performance.now(), looking);
+      watch = step.w;
+      if (step.frozen) {
+        facts.frozen = true;
+        fail(`no new picture for ${FROZEN_MS / 1000}s`);
+      }
+    }, 2000);
     void (async () => {
       try {
         if (kindOf(url) === "hls") {
@@ -436,9 +545,11 @@ export function MultiviewTile({
     return () => {
       disposed = true;
       window.clearTimeout(stallTimer);
+      window.clearInterval(watcher);
       video.removeEventListener("playing", onPlaying);
       video.removeEventListener("waiting", onWaiting);
       video.removeEventListener("error", onVideoError);
+      video.removeEventListener("ended", onEnded);
       // Destroy before the element goes: a demuxer still appending to a
       // detached media source is how a closed tile keeps its connection.
       destroy?.();
@@ -516,10 +627,24 @@ export function MultiviewTile({
         <b className="mvtile__statetitle">{failure.title}</b>
         <span className="mvtile__statesub">{failure.reason}</span>
         {failure.retry && (
-          <button type="button" className="mvchip" onClick={own(() => setAttempt((n) => n + 1))}>
+          <button type="button" className="mvchip" onClick={own(retry)}>
             Retry
           </button>
         )}
+      </div>
+    );
+  } else if (recovering) {
+    state = (
+      <div className="mvtile__state" data-kind="reconnecting">
+        <span className="buffering__dot" aria-hidden />
+        <b className="mvtile__statetitle">Reconnecting {name}</b>
+        <span className="mvtile__statesub">
+          {forSlot
+            ? "Waiting for a free slot on your line."
+            : recovering === "drop"
+              ? "It dropped. Getting it back."
+              : "Trying again."}
+        </span>
       </div>
     );
   } else if (!playing) {
@@ -557,13 +682,15 @@ export function MultiviewTile({
       ? ", no stream"
       : failure
         ? `, ${failure.title}`
-        : !playing
-          ? ", tuning"
-          : game
-            ? `, ${scoreLine(game)}`
-            : on
-              ? `, ${on.title}`
-              : "");
+        : recovering
+          ? ", reconnecting"
+          : !playing
+            ? ", tuning"
+            : game
+              ? `, ${scoreLine(game)}`
+              : on
+                ? `, ${on.title}`
+                : "");
 
   return (
     <div
@@ -580,7 +707,9 @@ export function MultiviewTile({
       role="group"
       tabIndex={0}
       aria-label={picking ? `${label}. Swap for ${picking}` : label}
-      data-state={dead ? "failed" : !playing ? "tuning" : stalled ? "stalled" : "playing"}
+      data-state={
+        dead ? "failed" : recovering ? "reconnecting" : !playing ? "tuning" : stalled ? "stalled" : "playing"
+      }
       onClick={act}
       onKeyDown={(e) => {
         // Space takes the sound. Enter is left to the grid, which fills the
@@ -646,7 +775,7 @@ export function MultiviewTile({
             </button>
           </Hint>
         </div>
-        {playing && !failure && (
+        {playing && !failure && !recovering && (
           <div className="mvtile__info">
             <MvLogo channel={channel} size={40} />
             <div className="mvtile__meta">

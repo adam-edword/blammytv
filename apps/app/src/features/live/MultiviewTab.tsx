@@ -51,6 +51,7 @@ import {
   tauriSetFullscreen,
 } from "../../lib/tauri";
 import { HEVC_MIME } from "./mvTile";
+import { hasRoom, passGate } from "./mvRecover";
 import {
   ExitFullscreenIcon,
   FocusLayoutIcon,
@@ -292,7 +293,10 @@ export function MultiviewTab() {
    * again after every change, then again once the panel has caught up.
    */
   const key = picks.map((p) => p.channelId).join("|");
-  const conns = useConnections(key || null);
+  /** Tiles waiting on the gate for a free slot: the panel is asked every
+   * few seconds while any is (plan 018, H1). */
+  const [waitingRoom, setWaitingRoom] = useState(0);
+  const conns = useConnections(key || null, waitingRoom > 0);
   const line = conns.size === 1 ? [...conns.values()][0] : null;
   const [settledKey, setSettledKey] = useState<string | null>(null);
   useEffect(() => {
@@ -406,6 +410,34 @@ export function MultiviewTab() {
       delete next[id];
       return next;
     });
+
+  /** The gate a tile passes before it connects again (mvRecover.passGate):
+   * a free slot on the line, its turn, a fresh link. */
+  const lineRef = useRef(line);
+  lineRef.current = line;
+  const turn = useRef({ last: 0 });
+  const gate = useCallback(
+    (id: string, waiting: (on: boolean) => void) =>
+      passGate({
+        room: () => hasRoom(lineRef.current),
+        waiting: (on) => {
+          setWaitingRoom((n) => n + (on ? 1 : -1));
+          waiting(on);
+        },
+        sleep: (ms) => new Promise((r) => window.setTimeout(r, ms)),
+        now: () => performance.now(),
+        turn: turn.current,
+        // Every kind is looked up again; for most it is the same URL.
+        fresh: () =>
+          setUrls((was) => {
+            if (!(id in was)) return was;
+            const next = { ...was };
+            delete next[id];
+            return next;
+          }),
+      }),
+    [],
+  );
 
   const [picker, setPicker] = useState<PickerMode | null>(null);
 
@@ -736,7 +768,11 @@ export function MultiviewTab() {
             onReplace={(id, name) => setPicker({ kind: "replace", id, name })}
             onRetryResolve={retryResolve}
             onAdd={openAdd}
-            atCap={room.left === 0}
+            onGate={gate}
+            // The LINE full, not the grid: four tiles on a line of five, or
+            // on a provider with no limit, used to read as "your line is at
+            // its limit" on any refusal (plan 018, R9).
+            atCap={room.max !== null && room.used + room.elsewhere >= room.max}
           />
         )}
       </div>
