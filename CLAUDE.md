@@ -9,6 +9,10 @@ you can defend before touching code. A wrong guess that ships costs far more tha
 a few extra messages. Hold an opinion and state it; don't hedge your way into a
 change you're not actually sure about.
 
+**A rebuild is never a cost.** Weigh native against frontend on what each
+does for the app, never on the rebuild or restart it needs. Adam, on the
+HEVC options (v0.9.111): "again rebuild should never be a deterrent".
+
 This is the spine of everything below: when the mechanism isn't obvious, get the
 data (next section); when it's a judgment call, reason it to confidence or ask
 (Confusion Protocol). Either way, decide before you build.
