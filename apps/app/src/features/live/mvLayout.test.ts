@@ -264,15 +264,18 @@ describe("nudgeSplit", () => {
 });
 
 describe("kinds", () => {
-  it("opens three in Focus and the rest in Grid", () => {
+  it("opens in Focus wherever Focus is offered (Adam, 2026-09-25)", () => {
+    expect(defaultKind(0)).toBe("grid");
     expect(defaultKind(1)).toBe("grid");
-    expect(defaultKind(2)).toBe("grid");
+    expect(defaultKind(2)).toBe("focus");
     expect(defaultKind(3)).toBe("focus");
-    expect(defaultKind(4)).toBe("grid");
+    expect(defaultKind(4)).toBe("focus");
   });
 
-  it("offers no Focus to a single tile", () => {
+  it("offers Focus from two streams, not two cells: one stream and its add place have none", () => {
+    expect(kindsFor(0)).toEqual(["grid"]);
     expect(kindsFor(1)).toEqual(["grid"]);
+    expect(kindsFor(2)).toEqual(["grid", "focus"]);
     expect(kindsFor(3)).toEqual(["grid", "focus"]);
   });
 });

@@ -20,16 +20,13 @@ const pick = (id: string): Pick => ({ channelId: id, label: id.toUpperCase() });
 
 describe("cellsFor", () => {
   it("opens on a single place to add the first", () => {
-    expect(cellsFor(0, 3)).toBe(1);
+    expect(cellsFor(0)).toBe(1);
   });
-  it("puts a place for the next beside a lone stream, while there is room", () => {
-    expect(cellsFor(1, 2)).toBe(2);
-    expect(cellsFor(1, 0)).toBe(1);
-  });
-  it("is exactly the streams from two on", () => {
-    expect(cellsFor(2, 1)).toBe(2);
-    expect(cellsFor(3, 0)).toBe(3);
-    expect(cellsFor(4, 0)).toBe(4);
+  it("is exactly the streams after that: a lone stream fills the stage, with no place beside it", () => {
+    expect(cellsFor(1)).toBe(1);
+    expect(cellsFor(2)).toBe(2);
+    expect(cellsFor(3)).toBe(3);
+    expect(cellsFor(4)).toBe(4);
   });
 });
 

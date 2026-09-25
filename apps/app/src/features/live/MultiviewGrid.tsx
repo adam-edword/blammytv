@@ -105,8 +105,8 @@ export function MultiviewGrid({
 }: {
   /** The grid's channels, in order. */
   streams: GridStream[];
-  /** How many cells to lay out: the streams, and a place to add one while
-   * there is only one (mvGrid.cellsFor). */
+  /** How many cells to lay out: the streams, or the place to add the first
+   * (mvGrid.cellsFor). */
   cells: number;
   kind: MvKind;
   /** Focus's split for this count, or undefined for the natural one. */

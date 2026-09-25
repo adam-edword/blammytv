@@ -32,6 +32,7 @@ in the chat, not the repo (binaries). Referred to below as frames A to G:
 - **D.** Two streams at rest: the chrome gone, the sound marker faded to a
   hairline ring and a speaker in the name chip.
 - **E.** How it opens: the channel you came from, and a place for the next.
+  (Superseded in v0.9.124: one stream fills the stage.)
 - **F.** Dragging the Focus seam: the big tile at 77%, the stack smaller and
   centred against it, a dashed line where the natural split is.
 - **G.** The Multi-view tab: the app's nav capsule in multi-view's bar,
@@ -206,12 +207,17 @@ size pick; see decision M8.
 
 | Streams | Default | Other |
 | --- | --- | --- |
-| 1 | the stream, and an **Add a channel** space beside it (frame E) | |
-| 2 | side by side, equal (frame D) | Focus: big plus one small |
+| 1 | the stream, filling the stage | |
+| 2 | Focus: big plus one small | side by side, equal (frame D) |
 | 3 | Focus: big plus two stacked (frame A) | Grid: two over one, centred |
-| 4 | Grid: 2x2 (frame B) | Focus: big plus three stacked |
+| 4 | Focus: big plus three stacked | Grid: 2x2 (frame B) |
 
-The defaults are 013's measured calls. The switch is remembered per count.
+**Changed in v0.9.124** (Adam, 2026-09-25, plan 018): every count opens in
+Focus where it has one, and one stream fills the stage instead of sitting
+beside an **Add a channel** space (frame E); the bar's Add, or A, adds the
+next. The defaults were 013's measured calls, with only three in Focus.
+Choices saved under the old defaults started over once. The switch is
+remembered per count.
 
 **Every tile has a caption row under it** (M4, frame G): the name lives in
 the black between tiles, not on the picture. The engine reserves it: a cell

@@ -51,17 +51,23 @@ export const MV_SPACING: MvSpacing = { gap: 14, caption: 30 };
 
 const R = 16 / 9;
 
-/** The layouts a cell count can take. One cell is only ever itself. */
-export function kindsFor(n: number): MvKind[] {
-  return n >= 2 ? ["grid", "focus"] : ["grid"];
+/**
+ * The layouts a grid of `streams` can take. Focus needs two pictures: one
+ * stream beside the place to add a second looks the same either way, so
+ * it only ever has Grid (Adam, 2026-09-25, plan 018 D2). It was offered
+ * from two CELLS, which one stream and its add place make.
+ */
+export function kindsFor(streams: number): MvKind[] {
+  return streams >= 2 ? ["grid", "focus"] : ["grid"];
 }
 
 /**
- * The layout a count opens in, before anyone picks: 013's measured calls.
- * Three is one big plus two; two and four are equal.
+ * The layout a grid opens in, before anyone picks: Focus, wherever it is
+ * offered (Adam, 2026-09-25). 013's measured calls had only three in
+ * Focus, and two and four equal.
  */
-export function defaultKind(n: number): MvKind {
-  return n === 3 ? "focus" : "grid";
+export function defaultKind(streams: number): MvKind {
+  return kindsFor(streams).includes("focus") ? "focus" : "grid";
 }
 
 export function mvLayout(

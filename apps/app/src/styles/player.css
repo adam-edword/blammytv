@@ -1557,16 +1557,18 @@
 }
 /* Keyboard focus only, not :focus-within: a click focuses the tile too,
  * and the chrome would then stay up on the last tile clicked, bar dimmed
- * and pointer gone. */
+ * and pointer gone. Focus rests with the bar too (Adam, plan 018 D1): the
+ * tile keeps its ring, so you know where you are, and the next key brings
+ * the rest back. */
 .mvtab:not(.is-idle) .mvtile:hover .mvtile__chrome,
-.mvtile:focus-visible .mvtile__chrome,
-.mvtile:has(:focus-visible) .mvtile__chrome {
+.mvtab:not(.is-idle) .mvtile:focus-visible .mvtile__chrome,
+.mvtab:not(.is-idle) .mvtile:has(:focus-visible) .mvtile__chrome {
   opacity: 1;
   transition-duration: 140ms;
 }
 .mvtab:not(.is-idle) .mvtile:hover .mvtile__chrome *,
-.mvtile:focus-visible .mvtile__chrome *,
-.mvtile:has(:focus-visible) .mvtile__chrome * {
+.mvtab:not(.is-idle) .mvtile:focus-visible .mvtile__chrome *,
+.mvtab:not(.is-idle) .mvtile:has(:focus-visible) .mvtile__chrome * {
   pointer-events: auto;
 }
 /* A failed tile already says what happened in the middle; the chrome only

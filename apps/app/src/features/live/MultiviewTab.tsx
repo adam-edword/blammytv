@@ -331,10 +331,10 @@ export function MultiviewTab() {
   /** A channel waiting for you to pick the tile it replaces: the grid was
    * full when it came. */
   const [choosing, setChoosing] = useState<Pick | null>(null);
-  const cells = cellsFor(picks.length, room.left);
+  const cells = cellsFor(picks.length);
 
   const [kinds, setKinds] = useState(loadLayoutKinds);
-  const kind: MvKind = kinds[cells] ?? defaultKind(cells);
+  const kind: MvKind = kinds[cells] ?? defaultKind(picks.length);
   const chooseKind = (k: MvKind) => {
     const next = { ...kinds, [cells]: k };
     saveLayoutKinds(next);
@@ -528,8 +528,9 @@ export function MultiviewTab() {
   // (1 to 4, ← →, R, Delete) are the grid's. Never while typing, or while a
   // dialog has the keyboard (mvKeys.forMultiview). Through a ref, so the
   // listener is added once.
-  const barKeys = useRef({ openAdd, toggleMute, nudge, chooseKind, kind, cells, toggleFullscreen });
-  barKeys.current = { openAdd, toggleMute, nudge, chooseKind, kind, cells, toggleFullscreen };
+  const streamCount = picks.length;
+  const barKeys = useRef({ openAdd, toggleMute, nudge, chooseKind, kind, streamCount, toggleFullscreen });
+  barKeys.current = { openAdd, toggleMute, nudge, chooseKind, kind, streamCount, toggleFullscreen };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!forMultiview(e)) return;
@@ -551,7 +552,7 @@ export function MultiviewTab() {
           break;
         case "g":
         case "G":
-          if (kindsFor(k.cells).length < 2) return;
+          if (kindsFor(k.streamCount).length < 2) return;
           k.chooseKind(k.kind === "grid" ? "focus" : "grid");
           break;
         case "f":
@@ -628,7 +629,7 @@ export function MultiviewTab() {
               </span>
             </span>
           )}
-          {kindsFor(cells).length > 1 && !choosing && (
+          {kindsFor(picks.length).length > 1 && !choosing && (
             <div className="mvseg" role="group" aria-label="Layout">
               <button
                 type="button"

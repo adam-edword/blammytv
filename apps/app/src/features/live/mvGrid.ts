@@ -27,15 +27,13 @@ export const MAX_TILES = 4;
 /**
  * How many cells the grid lays out for `n` streams.
  *
- * Nothing yet: one cell, the place to add the first. One stream: the stream
- * and a place for the next beside it (frame E), while the line has room for
- * one. From two on, exactly the streams: adding more is the bar's Add, or
- * A, and a grid of four does not carry an empty fifth.
+ * Nothing yet: one cell, the place to add the first. Then exactly the
+ * streams: adding more is the bar's Add, or A. One stream fills the stage
+ * (Adam, 2026-09-25); it used to sit beside a place for the next (017's
+ * frame E), half the size it could be for a tile that was mostly waiting.
  */
-export function cellsFor(n: number, left: number): number {
-  if (n <= 0) return 1;
-  if (n === 1) return left > 0 ? 2 : 1;
-  return n;
+export function cellsFor(n: number): number {
+  return Math.max(1, n);
 }
 
 /** What the line has room for, from its limit and what it reports in use. */

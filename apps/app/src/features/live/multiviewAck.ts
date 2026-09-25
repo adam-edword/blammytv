@@ -70,9 +70,13 @@ export function saveGrid(grid: SavedGrid): void {
  * should not flip the other.
  */
 const KINDS_KEY = "multiviewLayouts";
+/** 2 since v0.9.124, when a grid opens in Focus wherever Focus is offered
+ * (Adam). Choices saved before then were mostly Grid picked over a Grid
+ * default, and would have hidden the new one; they start over once. */
+const KINDS_VERSION = 2;
 
 export function loadLayoutKinds(): Partial<Record<number, MvKind>> {
-  const raw = load<Record<string, unknown>>(KINDS_KEY, VERSION, {});
+  const raw = load<Record<string, unknown>>(KINDS_KEY, KINDS_VERSION, {});
   const out: Partial<Record<number, MvKind>> = {};
   for (const n of [2, 3, 4]) {
     const k = raw?.[n];
@@ -82,7 +86,7 @@ export function loadLayoutKinds(): Partial<Record<number, MvKind>> {
 }
 
 export function saveLayoutKinds(kinds: Partial<Record<number, MvKind>>): void {
-  save(KINDS_KEY, VERSION, kinds);
+  save(KINDS_KEY, KINDS_VERSION, kinds);
 }
 
 /**

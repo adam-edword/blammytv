@@ -192,15 +192,41 @@ const shape = async () => [
   await page.locator(".mvtile").count(),
   await page.locator(".mvtile--empty").count(),
 ];
+/** The layout switch, as offered: null when there is none, else the one on. */
+const layoutOn = () =>
+  page.evaluate(() => document.querySelector(".mvseg [aria-pressed='true']")?.getAttribute("aria-label") ?? null);
 const shapes = [await shape()];
+const layouts = [await layoutOn()];
+let lone = null;
 for (const n of ["Fake ESPN 4K", "Fake Sky Sports FHD", "Fake News Channel"]) {
   await add(n);
   shapes.push(await shape());
+  layouts.push(await layoutOn());
+  if (!lone) {
+    // One stream fills the stage, and G has nothing to switch to.
+    await page.waitForTimeout(400);
+    const [t] = await rectOf(".mvtile");
+    const fit = await page.locator(".mvgrid").evaluate((e) => Math.min(e.clientWidth, ((e.clientHeight - 30) * 16) / 9));
+    await page.keyboard.press("g");
+    await page.waitForTimeout(400);
+    const [after] = await rectOf(".mvtile");
+    lone = { w: t.w, fit, same: Math.abs(after.w - t.w) < 1, seg: await layoutOn() };
+  }
 }
 check(
-  "the grid follows the channels: a place to add, one beside the first, then exactly the streams",
-  JSON.stringify(shapes) === JSON.stringify([[1, 1], [2, 1], [2, 0], [3, 0]]),
+  "the grid follows the channels: a place to add the first, then exactly the streams",
+  JSON.stringify(shapes) === JSON.stringify([[1, 1], [1, 0], [2, 0], [3, 0]]),
   JSON.stringify(shapes),
+);
+check(
+  "one stream fills the stage, with no place to add beside it and no layouts to switch between",
+  !!lone && Math.abs(lone.w - lone.fit) < 2 && lone.same && lone.seg === null,
+  JSON.stringify(lone),
+);
+check(
+  "two and three open in Focus (Adam, 2026-09-25)",
+  JSON.stringify(layouts) === JSON.stringify([null, null, "Focus", "Focus"]),
+  JSON.stringify(layouts),
 );
 // The fake panel allows 3, like Adam's line.
 const addBtn = page.locator(".mvbar__add");
@@ -392,6 +418,32 @@ await page.mouse.move(seg.x + seg.w / 2, seg.y + seg.h / 2);
 await page.waitForTimeout(2600);
 const held = await idleState();
 check("but not while the pointer rests on the bar", !held.idle && held.bar === "1", JSON.stringify(held));
+
+// A tile with keyboard focus rests with the bar (Adam, plan 018 D1): its
+// information and actions go, its ring stays, and the next key brings the
+// rest back.
+await page.mouse.move(W - 420, H - 12);
+await page.keyboard.press("Shift");
+await page.locator(".mvtile").first().focus();
+await page.waitForTimeout(300);
+const chromeOf = () =>
+  page.locator(".mvtile").first().evaluate((t) => ({
+    chrome: getComputedStyle(t.querySelector(".mvtile__chrome")).opacity,
+    ring: getComputedStyle(t).outlineStyle,
+    focused: t.matches(":focus-visible"),
+  }));
+const awake = await chromeOf();
+await page.waitForTimeout(2600);
+const resting = await chromeOf();
+await page.keyboard.press("Shift");
+await page.waitForTimeout(400);
+const again = await chromeOf();
+check(
+  "a keyboard-focused tile lets its information go when the tab rests, keeps its ring, and a key brings it back",
+  awake.focused && awake.chrome === "1" && resting.focused && resting.chrome === "0" && resting.ring !== "none" && again.chrome === "1",
+  JSON.stringify({ awake, resting, again }),
+);
+await page.locator(".mvtile").first().evaluate((t) => t.blur());
 
 // ---- full screen goes to the window
 await page.getByRole("button", { name: "Full screen", exact: true }).click();

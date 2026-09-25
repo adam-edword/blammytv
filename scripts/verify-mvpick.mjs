@@ -199,9 +199,9 @@ const tile = (page, name) => page.locator(`.mvtile[aria-label^="${name},"]`);
   await page.keyboard.press("Enter");
   await input(page).waitFor({ state: "detached", timeout: 5000 });
   check(
-    "Enter adds the highlighted one and closes the picker",
+    "Enter adds the highlighted one and closes the picker, and one stream fills the stage",
     JSON.stringify(await names(page)) === JSON.stringify([ESPN]) &&
-      (await page.locator(".mvtile--empty").count()) === 1,
+      (await page.locator(".mvtile--empty").count()) === 0,
     JSON.stringify(await names(page)),
   );
 
@@ -215,13 +215,13 @@ const tile = (page, name) => page.locator(`.mvtile[aria-label^="${name},"]`);
   const slow = await page.addStyleTag({
     content: ".mvpick[data-state=closed] { animation-duration: 1500ms !important; }",
   });
-  await page.locator(".mvtile--empty").click();
+  await page.locator(".mvbar__add").click();
   await input(page).waitFor({ timeout: 5000 });
   await page.waitForTimeout(300);
   await page.mouse.click(20, H - 20);
   await page.waitForTimeout(100);
   const fadingThen = await page.locator(".mvpick").count();
-  await page.locator(".mvtile--empty").click();
+  await page.locator(".mvbar__add").click();
   await page.waitForTimeout(1800);
   // On top, too: the overlay fades first, and remounting it put it over a
   // picker that was still fading, so the rows could not be clicked.
@@ -243,7 +243,7 @@ const tile = (page, name) => page.locator(`.mvtile[aria-label^="${name},"]`);
   await input(page).waitFor({ state: "detached", timeout: 5000 });
   await slow.evaluate((el) => el.remove());
   // And a click outside an open picker still closes it.
-  await page.locator(".mvtile--empty").click();
+  await page.locator(".mvbar__add").click();
   await input(page).waitFor({ timeout: 5000 });
   await page.waitForTimeout(300);
   await page.mouse.click(20, H - 20);
@@ -254,7 +254,7 @@ const tile = (page, name) => page.locator(`.mvtile[aria-label^="${name},"]`);
       .then(() => true, () => false),
   );
 
-  await page.locator(".mvtile--empty").click();
+  await page.locator(".mvbar__add").click();
   await input(page).fill("fake");
   await page.waitForTimeout(200);
   const order = await page.locator(".mvpick__row").evaluateAll((rs) =>
@@ -287,6 +287,13 @@ const tile = (page, name) => page.locator(`.mvtile[aria-label^="${name},"]`);
   const sky = tile(page, SKY);
   await sky.hover();
   await sky.getByRole("button", { name: "Sound here" }).click();
+  // Two open in Focus: the sound moved Sky into the big place, out from
+  // under the pointer, so it is pointed at again where it is now.
+  await page.waitForTimeout(500);
+  await sky.hover();
+  // Where Sky is now (first, in Focus), so "in place" means that place.
+  const was = await names(page);
+  const want = was.map((n) => (n === SKY ? TOON : n));
   await sky.getByRole("button", { name: `Replace ${SKY}` }).click();
   await input(page).waitFor();
   const target = await page.locator(".mvpick__target").textContent();
@@ -305,11 +312,12 @@ const tile = (page, name) => page.locator(`.mvtile[aria-label^="${name},"]`);
   check(
     "Replace swaps in place, keeps the sound, and closes the old stream before opening the new",
     target === `Replaces ${SKY}` &&
-      JSON.stringify(await names(page)) === JSON.stringify([ESPN, TOON]) &&
+      was.includes(SKY) &&
+      JSON.stringify(await names(page)) === JSON.stringify(want) &&
       JSON.stringify(await soundOn(page)) === JSON.stringify([TOON]) &&
       closeAt >= 0 &&
       openAt > closeAt,
-    JSON.stringify({ target, names: await names(page), after: after.map(([c, id]) => `${c} ${id ?? ""}`) }),
+    JSON.stringify({ target, was, names: await names(page), after: after.map(([c, id]) => `${c} ${id ?? ""}`) }),
   );
 
   // Reload: the grid, and the sound, come back.
@@ -320,7 +328,7 @@ const tile = (page, name) => page.locator(`.mvtile[aria-label^="${name},"]`);
   }).catch(() => {});
   check(
     "a reload finds the grid as it was, sound and all (M7)",
-    JSON.stringify(await names(page)) === JSON.stringify([ESPN, TOON]) &&
+    JSON.stringify(await names(page)) === JSON.stringify(want) &&
       JSON.stringify(await soundOn(page)) === JSON.stringify([TOON]),
     JSON.stringify(await tiles(page)),
   );

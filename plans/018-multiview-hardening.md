@@ -1,7 +1,9 @@
 # 018: Multi-view, hardened
 
-**Status: PLANNED (2026-09-25, v0.9.123).** Two decisions and one test on
-Adam's line are open (bottom). Nothing here is built yet.
+**Status: IN PROGRESS.** Adam took both decisions (2026-09-25) and added
+two calls of his own: a grid opens in Focus, and one stream fills the
+stage. All four shipped in v0.9.124, and L6 went with them. **H1 is
+next.** The test on his line turned out not to be needed (see H1).
 
 *Source: five audits run against v0.9.122 on 2026-09-25, one per
 dimension: state and lifecycle, the native proxy, performance, hands-on UX
@@ -128,7 +130,8 @@ How each finding was confirmed:
 - **L6. A filled tile stays filled going between one and two streams.**
   The fill resets when the cell count changes, and one stream and two both
   lay out two cells (`MultiviewGrid.tsx:200-204`). Add one while the only
-  tile fills the window and it tunes out of sight. *Test.*
+  tile fills the window and it tunes out of sight. *Test.* **Gone in
+  v0.9.124:** one stream is one cell now, so the count changes.
 - **L7. A seam drag can stick.** `dragSplit` clears only on the seam's own
   pointerup (`MultiviewGrid.tsx:176, 483-502`); press G or Enter while
   dragging and the seam unmounts with the drag still set. *Read.*
@@ -192,7 +195,8 @@ How each finding was confirmed:
   counts as busy (`MultiviewTab.tsx:114-116`). *Seen.*
 - **U4. A keyboard-focused tile keeps its chrome over the picture while
   idle** (`player.css:1561-1566`: hover waits for the bar to be awake,
-  focus doesn't). Worst in fill. *Seen.* **Decision D1.**
+  focus doesn't). Worst in fill. *Seen.* **Decision D1. Done in v0.9.124:**
+  the chrome rests with the bar, the ring stays, a key brings it back.
 - **U5. A long channel name pushes "what is on" out of the caption.** The
   name's `flex: 0 1 auto` wins over the programme's `flex: 1 1 0`
   (`player.css:2002-2022`): 8px left for it at 1400, none at 1000.
@@ -226,7 +230,10 @@ How each finding was confirmed:
 - **U12. Focus is Grid at one and two streams.** Focus is offered from two
   cells (`mvLayout.ts:55-57`), which one stream plus the add place makes,
   and the natural split of a one-tile stack is equal. Same tile sizes
-  either way. *Seen.* **Decision D2.**
+  either way. *Seen.* **Decision D2. Done in v0.9.124,** with Adam's two
+  calls on top: Focus is offered from two streams and is what a grid of
+  two or more opens in, and one stream has no add place beside it, so it
+  fills the stage (the bar's Add, or A, adds the next).
 - **U13. Small ones:**
   - the seam is last in Tab order, after every tile;
   - the default near-white accent makes the sound's flash ring look like a
@@ -311,10 +318,15 @@ refilled by a first frame. The theater's loop is the model
 
 **The line's own ghost.** A panel takes up to about 20s to notice a
 dropped connection, so on a full line a reconnect before then is likely
-refused by the tile's own old connection. The theater's 10s and 20s
-timing would die just as the ghost clears. On a line at its cap the first
-reconnect waits out the panel, and a refusal inside that window doesn't
-count against the budget. When several tiles fail at once (the network,
+refused by the tile's own old connection; the theater's 10s and 20s
+timing would die just as the ghost clears. Rather than guess at the
+panel's timing, a reconnect on a full line waits until the panel's own
+count shows a free slot, asked every few seconds while a tile is down, up
+to a ceiling, and a refusal before then doesn't count against the budget.
+The line is then never asked for more than it allows, so whether a panel
+refuses the extra stream or drops the oldest never comes up. (Adam's test
+hit multi-view's own limit, which is the same rule.) When several tiles
+fail at once (the network,
 the PC waking), reconnects are staggered through the tile registry
 (`multiviewTuning.ts:89-99`). A Stalker tile resolves a fresh link on
 every reconnect (R7). The panel is asked again after a reconnect or a
@@ -333,9 +345,6 @@ its inputs (progress, errors, time, the line) and for the sound. A harness
 on a fake stream that ends, then one that stalls, then one that keeps
 dying: the tile reconnects and plays, then shows the failure with Retry
 once its budget is spent; the sound leaves a dead tile.
-
-*Needs from Adam first:* the over-limit test (bottom). The ghost timing
-depends on its answer.
 
 ### H2. The line's count and the grid you saved (frontend)
 
@@ -422,17 +431,13 @@ N1 moves into H1 if Adam meets an HEVC channel that stays unplayable.
 
 ---
 
-## Open
+## Decided (Adam, 2026-09-25)
 
-- **D1 (U4). A keyboard-focused tile, once the tab goes idle:** fade its
-  chrome with the bar, as hover does (recommended: plan 017 says quiet at
-  rest, and the focus ring stays so you know where you are), or keep it
-  up.
-- **D2 (U12). Focus with one or two streams:** offer the switch from two
-  streams rather than two cells (recommended: one stream has nothing to
-  focus), or keep it and make one-plus-add look different.
-- **The over-limit test, on Adam's line, before H1.** With three streams
-  playing, start a fourth anywhere. Is the fourth refused, or does one of
-  the three stop? If the panel drops the oldest, a reconnect can kill a
-  healthy tile and two watchdogs chase each other, and H1's timing has to
-  be built around that.
+- **D1 (U4):** a keyboard-focused tile rests with the bar. Shipped v0.9.124.
+- **D2 (U12):** Focus from two streams. Shipped v0.9.124.
+- **A grid opens in Focus** wherever Focus is offered, and choices saved
+  under the old default start over once. Shipped v0.9.124.
+- **One stream fills the stage;** the add place beside it is gone.
+  Shipped v0.9.124.
+- **The over-limit test:** not needed. A reconnect waits for the panel to
+  show a free slot (H1), so the line is never asked for one too many.

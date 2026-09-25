@@ -232,7 +232,9 @@ never be a deterrent to building anything." So:
    [`plans/018-multiview-hardening.md`](plans/018-multiview-hardening.md):
    tiles that recover first (H1, a rebuild), then the line's count and the
    saved grid, the tab's cost, the keyboard and layout, and the proxy's
-   hygiene.
+   hygiene. v0.9.124 took Adam's calls on it: grids open in Focus, one
+   stream fills the stage, Focus from two streams, and a focused tile rests
+   with the bar.
 7. Merge the multi-view branch into `main` (Adam's step: default branch).
 
 ### M2: finish the primitives (plan 014 L1 and L2)
