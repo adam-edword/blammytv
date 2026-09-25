@@ -22,42 +22,42 @@
 
   /* ---- Design tokens ------------------------------------------------- */
   /* The base is shadcn neutral, the same values as the app's tokens.css
-   * (dark): background, card, border, input, foreground, muted-foreground.
-   * The rainbow (--brand and friends below) is kept on top of it. */
+   * (dark). The components below (Button, Card, Badge, Accordion,
+   * Separator) are shadcn's, ported from the app's components/ui and the
+   * registry's accordion to plain CSS, so the page keeps no build step.
+   * The rainbow is kept for the glows and the logo only. */
   :root {
-    --bg: oklch(0.145 0 0);
-    --card: oklch(0.205 0 0 / 40%);
-    --card-quiet: oklch(0.205 0 0 / 25%);
-    --nav: oklch(0.269 0 0 / 30%);
-    --border: oklch(1 0 0 / 10%);
-    --border-strong: oklch(1 0 0 / 15%);
-    --text: oklch(0.985 0 0);
-    --muted: oklch(0.708 0 0);
+    --bg: oklch(0.145 0 0);                 /* background */
+    --card: oklch(0.205 0 0);               /* card */
+    --primary: oklch(0.922 0 0);            /* primary */
+    --primary-foreground: oklch(0.205 0 0); /* primary-foreground */
+    --secondary: oklch(0.269 0 0);          /* secondary, accent, muted */
+    --border: oklch(1 0 0 / 10%);           /* border */
+    --input: oklch(1 0 0 / 15%);            /* input */
+    --ring: oklch(0.556 0 0);               /* ring */
+    --text: oklch(0.985 0 0);               /* foreground */
+    --muted: oklch(0.708 0 0);              /* muted-foreground */
     --dim: oklch(0.556 0 0);
+    /* shadcn's radius and the scale Tailwind derives from it (theme.css). */
+    --radius: 0.625rem;
+    --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) + 4px);
+    /* Tailwind v4's shadow-xs and shadow-sm. */
+    --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    --focus-ring: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
     --font-h: "Geist", ui-sans-serif, system-ui, sans-serif;
     --font-t: "Geist", ui-sans-serif, system-ui, sans-serif;
     --font-m: "Geist Mono", ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
-    /* Squircle corner profile + card radius — same as the app
-     * (tokens.css --corner / --radius-card). */
-    --corner: superellipse(2);
-    --radius: 35px;
     /* The brand conic — the app's own logo/boot palette. */
     --brand: conic-gradient(from 90deg,
       #ff9b9b, #ff8bc9, #ff7bf6, #c388fb, #8696ff,
       #85cbd4, #84ffa9, #c1f294, #ffe57f, #ff9b9b);
-    --brand-linear: linear-gradient(110deg, #ff9b9b, #ff7bf6, #8696ff, #84ffa9, #ffe57f);
-    --rainbow-background: conic-gradient(from 0deg at 50% 50%, #FF9B9B4A 0deg, #FF7BF64A 72deg, #8696FF4A 144deg, #84FFA94A 216deg, #FFE57F4A 288deg, #FF9B9B4A 360deg);
-    /* Same conic as --rainbow-background, full opacity — for use as a
-     * gradient stroke (a faint 0.29 stroke would vanish into the fill). */
-    --rainbow-stroke: conic-gradient(from 0deg at 50% 50%, #FF9B9B 0deg, #FF7BF6 72deg, #8696FF 144deg, #84FFA9 216deg, #FFE57F 288deg, #FF9B9B 360deg);
   }
 
-  *, *::before, *::after {
-    box-sizing: border-box; margin: 0; padding: 0;
-    /* Squircle corners everywhere a border-radius exists, matching the app
-     * (base.css). No-op on engines without corner-shape — plain round. */
-    corner-shape: var(--corner);
-  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   /* Base color on the root so it paints the canvas; the dither pseudo can
    * then sit above it without background-propagation hiding it. */
   html { scroll-behavior: smooth; background: var(--bg); overflow-x: clip; }
@@ -94,41 +94,55 @@
   h1, h2, h3 { font-family: var(--font-h); font-weight: 700; letter-spacing: -0.02em; line-height: 1.05; }
 
   /* ---- Brand mark ---------------------------------------------------- */
-  .mark { display: block; border-radius: 24%; }
+  /* No border-radius: logo.png carries its own transparent corners, and a
+   * clip on top could only shave them. */
+  .mark { display: block; }
 
-  /* ---- Buttons ------------------------------------------------------- */
+  /* ---- Button (shadcn, components/ui/button.tsx) -------------------- */
   .btn {
-    display: inline-flex; align-items: center; gap: 10px;
-    font-family: var(--font-h); font-weight: 700; font-size: 18px;
-    padding: 12px 20px; border-radius: var(--radius); cursor: pointer; border: 0;
-    transition: transform .12s ease, filter .12s ease;
+    display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; gap: 8px;
+    height: 36px; padding: 8px 16px; border: 0 solid transparent; border-radius: var(--radius-md);
+    font-family: var(--font-t); font-size: 14px; line-height: 20px; font-weight: 500; white-space: nowrap;
+    cursor: pointer; outline: none;
+    transition: all 150ms cubic-bezier(.4, 0, .2, 1);
   }
-  .btn:hover { transform: translateY(-1px); filter: brightness(1.08); }
-  .btn--download {
-    color: #fff; position: relative; isolation: isolate;
-    /* Faint rainbow conic over solid black (layers paint top-first), so the
-     * gradient tints a black button rather than showing the hero through. */
-    background: var(--rainbow-background), #00000085;
-    backdrop-filter: blur(8px);
+  .btn:focus-visible { border-color: var(--ring); box-shadow: var(--focus-ring); }
+  .btn svg { width: 16px; height: 16px; flex-shrink: 0; pointer-events: none; }
+  .btn:has(> svg) { padding-inline: 12px; }
+  .btn--default { background: var(--primary); color: var(--primary-foreground); }
+  .btn--default:hover { background: color-mix(in oklab, var(--primary) 90%, transparent); }
+  .btn--outline {
+    border-width: 1px; border-color: var(--input); background: color-mix(in oklab, var(--input) 30%, transparent);
+    box-shadow: var(--shadow-xs); color: var(--text);
   }
-  /* Gradient stroke: the conic painted only in a 1px ring via a mask that
-   * subtracts the padding-box from the border-box. Respects border-radius
-   * (inherit) and the squircle corner-shape (from the global *::before). */
-  .btn--download::before {
-    content: ""; position: absolute; inset: 0; z-index: -1;
-    border-radius: inherit; padding: 1px;
-    background: var(--rainbow-stroke);
-    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-            mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-    -webkit-mask-composite: xor;
-            mask-composite: exclude;
-    pointer-events: none;
+  .btn--outline:hover { background: color-mix(in oklab, var(--input) 50%, transparent); }
+  .btn--ghost { color: var(--text); }
+  .btn--ghost:hover { background: color-mix(in oklab, var(--secondary) 50%, transparent); }
+  .btn--link { color: var(--primary); text-underline-offset: 4px; }
+  .btn--link:hover { text-decoration: underline; }
+  .btn--sm { height: 32px; gap: 6px; padding-inline: 12px; }
+  .btn--sm:has(> svg) { padding-inline: 10px; }
+  .btn--lg { height: 40px; padding-inline: 24px; }
+  .btn--lg:has(> svg) { padding-inline: 16px; }
+
+  /* ---- Card (shadcn, components/ui/card.tsx) ------------------------ */
+  .card {
+    display: flex; flex-direction: column; gap: 24px; padding-block: 24px;
+    border: 1px solid var(--border); border-radius: var(--radius-xl);
+    background: var(--card); color: var(--text); box-shadow: var(--shadow-sm);
   }
-  .btn--glass {
-    color: #fff; background: rgba(37,37,37,.4);
-    border: 1px solid var(--border-strong); backdrop-filter: blur(4px);
+  .card__header { display: grid; gap: 8px; padding-inline: 24px; }
+  .card__title { font-family: var(--font-t); font-weight: 600; line-height: 1; letter-spacing: normal; }
+  .card__description { font-size: 14px; line-height: 20px; color: var(--muted); }
+  .card__content { padding-inline: 24px; }
+
+  /* ---- Badge (shadcn, components/ui/badge.tsx), outline ------------- */
+  .badge {
+    display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; gap: 4px;
+    width: fit-content; overflow: hidden; white-space: nowrap;
+    padding: 2px 8px; border: 1px solid var(--border); border-radius: 9999px;
+    font-size: 12px; line-height: 16px; font-weight: 500; color: var(--text);
   }
-  .btn svg { width: 20px; height: 20px; }
 
   /* ---- Glow blobs ---------------------------------------------------- */
   .glow {
@@ -141,21 +155,21 @@
   header.nav {
     position: sticky; top: 16px; z-index: 50;
   }
-  /* Bare over the hero; the glass fill + border + blur fade in on scroll
+  /* Bare over the hero; the fill, border and shadow fade in on scroll
    * (JS toggles .scrolled on header.nav past a few px). */
   .nav__bar {
     display: flex; align-items: center; justify-content: space-between;
     background: transparent; border: 1px solid transparent;
-    border-radius: var(--radius); padding: 16px 28px;
-    transition: background 250ms ease, border-color 250ms ease, backdrop-filter 250ms ease;
+    border-radius: var(--radius-xl); padding: 10px 10px 10px 20px;
+    transition: background 250ms ease, border-color 250ms ease, box-shadow 250ms ease;
   }
   .nav.scrolled .nav__bar {
-    background: var(--nav); border-color: var(--border); backdrop-filter: blur(8px);
+    background: color-mix(in oklab, var(--bg) 80%, transparent); border-color: var(--border);
+    backdrop-filter: blur(8px); box-shadow: var(--shadow-sm);
   }
   .nav__brand { display: flex; align-items: center; gap: 12px; font-family: var(--font-h); font-weight: 700; font-size: 24px; }
   .nav__brand .mark { width: 28px; height: 28px; }
-  .nav__links { display: flex; gap: 32px; font-size: 17px; opacity: .55; }
-  .nav__links a:hover { opacity: 1; color: #fff; }
+  .nav__links { display: flex; gap: 4px; }
   @media (max-width: 720px) { .nav__links { display: none; } }
 
   /* ---- Sections ------------------------------------------------------ */
@@ -171,7 +185,7 @@
     max-width: 720px; margin: 22px auto 0; font-size: 20px; color: rgba(255,255,255,.8);
     position: relative; z-index: 1;
   }
-  .hero__cta { display: flex; gap: 16px; justify-content: center; margin-top: 34px; position: relative; z-index: 1; flex-wrap: wrap; }
+  .hero__cta { display: flex; gap: 12px; justify-content: center; margin-top: 34px; position: relative; z-index: 1; flex-wrap: wrap; }
   /* wrap so the logo + wordmark stack instead of overflowing on narrow
    * screens (prevents the page from expanding past the viewport width). */
   .hero-logo-wrap {display:flex; gap: 16px; justify-content: center; align-items: center; flex-wrap: wrap;}
@@ -179,7 +193,7 @@
   /* ---- Browser mockup ------------------------------------------------ */
   .shot { position: relative; }
   .browser {
-    border: 1px solid var(--border); border-radius: 16px; overflow: hidden;
+    border: 1px solid var(--border); border-radius: var(--radius-xl); overflow: hidden;
     background: #000; box-shadow: 0 30px 80px rgba(0,0,0,.5);
   }
   /* Windows caption controls (minimize / maximize / close), top-right —
@@ -244,7 +258,7 @@
     position: absolute; top: 50%; left: 50%;
     width: var(--slide-w); height: var(--slide-h);
     transform: translate(-50%, -50%);
-    /* Own conic (NOT the global --brand, which drives the logo/buttons) so the
+    /* Own conic (NOT the global --brand, which drives the other glows) so the
      * hues land where the Figma has them: blue top, green right, orange
      * bottom, magenta left. */
     background: conic-gradient(from 0deg at 50% 50%,
@@ -293,20 +307,8 @@
   /* ---- Setup (3-up) -------------------------------------------------- */
   .setup { padding: 120px 0 40px; text-align: center; }
   .setup h2 { font-size: clamp(34px, 5vw, 48px); }
-  .setup__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; margin-top: 44px; }
-  /* Card radius 20px (Figma), --card bg, --border, backdrop blur — matching
-   * the Boomer Proof cards exactly. */
-  .setup__card {
-    background: var(--card); border: 1px solid var(--border); border-radius: 20px;
-    padding: 36px 24px; backdrop-filter: blur(8.75px);
-    /* Vertically center the content; keep children full-width so text wraps
-     * (align-items:center would shrink them to max-content and overflow). */
-    display: flex; flex-direction: column; justify-content: center;
-  }
-  /* Card title is Stack Sans Text Bold 29px (not the Headline font) per the
-   * Figma spec; subtitle is Text Regular 16px --muted. */
-  .setup__card h3 { font-family: var(--font-t); font-weight: 700; font-size: 29px; letter-spacing: -0.02em; }
-  .setup__card p { color: var(--muted); font-size: 16px; margin-top: 10px; letter-spacing: -0.02em; }
+  .setup__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 44px; text-align: left; }
+  .setup .card__title { font-size: 20px; }
   .setup__foot { color: var(--dim); font-size: 16px; margin-top: 28px; letter-spacing: -0.02em; }
   @media (max-width: 860px) { .setup__grid { grid-template-columns: 1fr; } }
 
@@ -326,7 +328,7 @@
   .feature__media { isolation: isolate; }
   .feature__media::before {
     content: ""; position: absolute; inset: 0; z-index: -1;
-    border-radius: 18px; background: var(--brand);
+    border-radius: var(--radius-xl); background: var(--brand);
     filter: blur(56px); opacity: .5; pointer-events: none;
   }
   .feature__text h2 { font-size: clamp(32px, 4.6vw, 48px); }
@@ -341,62 +343,48 @@
    * same rainbow rim, for the features with no screenshot yet (Sports,
    * Multi-view). Swap the .points for a .browser block and nothing else
    * in the row moves. */
-  .points {
-    position: relative; overflow: hidden;
-    border: 1px solid var(--border); border-radius: 16px;
-    background: var(--bg); box-shadow: 0 30px 80px rgba(0,0,0,.5);
-    display: grid; grid-template-columns: 1fr 1fr;
-  }
-  .point { padding: 34px 32px; border: 0 solid var(--border); }
+  /* A Card whose four cells are split by the border colour, which is what
+   * shadcn's Separator paints. */
+  .points { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 0; padding: 0; overflow: hidden; }
+  .point { display: grid; align-content: start; gap: 8px; padding: 24px; border: 0 solid var(--border); }
   .point:nth-child(odd) { border-right-width: 1px; }
   .point:nth-child(-n+2) { border-bottom-width: 1px; }
-  .point h3 { font-family: var(--font-t); font-weight: 600; font-size: 24px; letter-spacing: -0.02em; line-height: 1.2; }
-  .point p { color: var(--muted); font-size: 16px; margin-top: 8px; letter-spacing: -0.01em; }
+  .point .card__title { font-size: 18px; }
   @media (max-width: 560px) {
     .points { grid-template-columns: 1fr; }
     .point:nth-child(n) { border-right-width: 0; border-bottom-width: 1px; }
     .point:last-child { border-bottom-width: 0; }
-    .point { padding: 26px 24px; }
   }
 
   /* ---- Make it yours ------------------------------------------------- */
   .custom { padding: 120px 0 40px; text-align: center; }
   .custom h2 { font-size: clamp(34px, 5vw, 48px); }
   .custom__lede { max-width: 640px; margin: 20px auto 0; color: var(--muted); font-size: 20px; }
-  .grad-text { background: var(--brand-linear); -webkit-background-clip: text; background-clip: text; color: transparent; }
 
   /* The Accent row from Settings > Customize, drawn from the app's own
-   * values (AccentPicker.tsx, accent.ts): the Default swatch, which is half
+   * values (AccentPicker.tsx, accent.ts). Each swatch is an outline icon
+   * Button made round, as the app does it: the Default swatch, which is half
    * each theme's ink because it is not a colour, the seven presets, and
-   * the Custom chip with its conic dot. */
+   * the Custom button with its conic dot. */
   .accent-row {
     margin: 44px auto 0; max-width: 770px; text-align: left;
-    display: flex; align-items: center; justify-content: space-between; gap: 24px;
-    padding: 22px 28px; border: 1px solid var(--border); border-radius: 20px;
-    background: var(--card); backdrop-filter: blur(8.75px);
+    flex-direction: row; align-items: center; justify-content: space-between; gap: 24px; padding: 24px;
   }
-  .accent-row h3 { font-family: var(--font-t); font-weight: 600; font-size: 18px; letter-spacing: -0.01em; }
-  .accent-row p { color: var(--muted); font-size: 15px; margin-top: 2px; }
-  .swatches { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-  /* Round, not the site-wide squircle: the app dropped the squircle in
-   * v0.9.52 and its swatches are true circles. */
-  .swatch, .swatch-custom, .swatch-custom i, .settings-list li { corner-shape: round; }
-  .swatch { width: 32px; height: 32px; border-radius: 50%; flex: none; border: 1px solid var(--swatch, var(--border-strong)); background: var(--swatch); }
+  .accent-row .card__header { padding: 0; }
+  /* A picture of the control, not the control: no hover, no pointer. */
+  .swatches { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; pointer-events: none; }
+  .swatch {
+    width: 32px; height: 32px; border-radius: 9999px; flex: none; box-shadow: var(--shadow-xs);
+    border: 1px solid var(--swatch, var(--input)); background: var(--swatch);
+  }
   .swatch--default { background: linear-gradient(135deg, var(--text) 50%, var(--bg) 50%); }
-  .swatch-custom {
-    display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px 0 6px;
-    border: 1px solid var(--border-strong); border-radius: 999px; font-size: 14px; font-weight: 500;
-  }
-  .swatch-custom i { width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--border);
+  .swatch-custom { border-radius: 9999px; padding-left: 6px; }
+  .swatch-custom i { width: 20px; height: 20px; border-radius: 9999px; border: 1px solid var(--border);
     background: conic-gradient(#f43f5e, #f59e0b, #22c55e, #3b82f6, #a855f7, #f43f5e); }
   @media (max-width: 720px) { .accent-row { flex-direction: column; align-items: flex-start; } .swatches { justify-content: flex-start; } }
 
-  /* The rest of Customize, by the names the app gives them. */
-  .settings-list { margin: 22px auto 0; max-width: 770px; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
-  .settings-list li {
-    list-style: none; font-size: 14px; font-weight: 500; color: var(--muted);
-    padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
-  }
+  /* The rest of Customize, by the names the app gives them, as Badges. */
+  .settings-list { margin: 22px auto 0; max-width: 770px; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; list-style: none; }
 
   /* ---- App pricing band --------------------------------------------- */
   .band { text-align: center; padding: 110px 0; }
@@ -405,12 +393,9 @@
 
   /* ---- Download ------------------------------------------------------ */
   .download { padding: 20px 0 40px; }
-  .download__card {
-    position: relative; overflow: hidden; text-align: center;
-    border: 1px solid var(--border); border-radius: var(--radius);
-    background: var(--card-quiet); backdrop-filter: blur(8px);
-    padding: 124px 24px;
-  }
+  /* A Card, laid out as a block: the flex column and gap a Card brings
+   * would respace everything inside it. */
+  .download__card { display: block; position: relative; overflow: hidden; text-align: center; padding: 124px 24px; }
   /* Glow hugs the bottom edge (Figma): shorter + lower so the saturated band
    * lands on the bottom rather than washing up into the middle. */
   .download__card .glow { position: absolute; width: 1000px; height: 360px; left: 50%; top: auto; bottom: -170px; transform: translateX(-50%); opacity: .38;}
@@ -421,32 +406,46 @@
   .download__head { display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap; }
   .download__mark { width: 100px; height: 100px; }
   .download__card h2 { font-size: clamp(56px, 9vw, 116px); }
-  .download__meta { font-family: var(--font-m); font-size: 12px; color: #fff; margin-top: 10px; letter-spacing: 0; }
-  .download__card .btn { margin-top: 26px; }
+  .download__meta { font-family: var(--font-m); font-size: 12px; color: var(--text); margin-top: 10px; letter-spacing: 0; }
+  .download__cta { margin-top: 26px; }
   .download__note { color: var(--muted); font-size: 14px; margin-top: 16px; }
-  .download__gh { color: var(--muted); font-size: 16px; margin-top: 22px; display: inline-block; }
-  .download__gh:hover { color: var(--text); text-decoration: underline; text-underline-offset: 4px; }
+  .download__gh { margin-top: 14px; }
 
-  /* ---- FAQ ----------------------------------------------------------- */
+  /* ---- FAQ: Accordion (shadcn registry, new-york-v4) ---------------- */
+  /* <details>/<summary> in place of Radix, so it needs no script. Stock
+   * classes, text-base where the stock text-sm would read as fine print
+   * at this size. */
   .faq { padding: 100px 0 40px; }
   .faq h2 { text-align: center; font-size: clamp(34px, 5vw, 48px); margin-bottom: 40px; }
-  .faq__list { max-width: 1200px; margin-inline: auto; display: flex; flex-direction: column; gap: 16px; }
-  details.qa {
-    background: var(--card-quiet); border: 1px solid var(--border);
-    border-radius: var(--radius); backdrop-filter: blur(8px);
+  .faq__list { max-width: 768px; margin-inline: auto; }
+  .accordion__item { border-bottom: 1px solid var(--border); }
+  .accordion__item:last-child { border-bottom: 0; }
+  .accordion__trigger {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+    padding-block: 16px; border-radius: var(--radius-md);
+    font-size: 16px; line-height: 24px; font-weight: 500; text-align: left;
+    list-style: none; cursor: pointer; outline: none;
+    transition: all 150ms cubic-bezier(.4, 0, .2, 1);
   }
-  /* Padding lives on the summary (and answer) — not the details — so the whole
-   * closed box is a clickable toggle target, not just the text row. */
-  details.qa summary {
-    padding: 26px 44px;
-    list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between;
-    font-family: var(--font-h); font-weight: 600; font-size: 24px; gap: 20px;
+  .accordion__trigger::-webkit-details-marker { display: none; }
+  .accordion__trigger:hover { text-decoration: underline; }
+  .accordion__trigger:focus-visible { box-shadow: var(--focus-ring); }
+  .accordion__trigger svg {
+    width: 16px; height: 16px; flex-shrink: 0; pointer-events: none; color: var(--muted);
+    translate: 0 4px; transition: rotate 200ms cubic-bezier(.4, 0, .2, 1);
   }
-  details.qa summary::-webkit-details-marker { display: none; }
-  details.qa summary .chev { transition: transform .2s ease; flex: none; }
-  details.qa[open] summary .chev { transform: rotate(180deg); }
-  details.qa p { color: var(--muted); font-size: 17px; margin: 0; padding: 0 44px 26px; max-width: 80ch; }
-  @media (max-width: 620px) { details.qa summary { padding: 22px; font-size: 19px; } details.qa p { padding: 0 22px 22px; } }
+  .accordion__item[open] .accordion__trigger svg { rotate: 180deg; }
+  .accordion__content { padding-bottom: 16px; font-size: 16px; color: var(--muted); }
+  /* The accordion-down / accordion-up height animation (0.2s ease-out),
+   * where the engine can animate <details> (::details-content). Elsewhere
+   * it opens without one. */
+  :root { interpolate-size: allow-keywords; }
+  .accordion__item::details-content {
+    block-size: 0; overflow: hidden;
+    transition: block-size 200ms ease-out, content-visibility 200ms ease-out allow-discrete;
+  }
+  .accordion__item[open]::details-content { block-size: auto; }
+  @media (prefers-reduced-motion: reduce) { .accordion__item::details-content { transition: none; } }
 
   /* ---- Footer -------------------------------------------------------- */
   footer { padding: 60px 0 80px; border-top: 1px solid var(--border); margin-top: 80px; }
@@ -471,11 +470,11 @@
     <div class="nav__bar">
       <a class="nav__brand" href="#top"><img class="mark" src="assets/logo.png" alt="" /> BlammyTV</a>
       <nav class="nav__links">
-        <a href="#features">Features</a>
-        <a href="#customize">Customize</a>
-        <a href="#pricing">Pricing</a>
-        <a href="#download">Download</a>
-        <a href="#faq">FAQ</a>
+        <a class="btn btn--ghost btn--sm" href="#features">Features</a>
+        <a class="btn btn--ghost btn--sm" href="#customize">Customize</a>
+        <a class="btn btn--ghost btn--sm" href="#pricing">Pricing</a>
+        <a class="btn btn--ghost btn--sm" href="#download">Download</a>
+        <a class="btn btn--ghost btn--sm" href="#faq">FAQ</a>
       </nav>
     </div>
   </div>
@@ -490,12 +489,12 @@
     </div>
     <p class="lede">A free, elegant IPTV and Stremio player. Bring your own playlists and AIOStreams manifest, and watch live TV, sports, movies and shows in one beautiful app.</p>
     <div class="hero__cta">
-      <a class="btn btn--download" href="#download">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-5-5m5 5l5-5M4 21h16"/></svg>
+      <a class="btn btn--default btn--lg" href="#download">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0l-5-5m5 5l5-5M4 21h16"/></svg>
         Download
       </a>
-      <a class="btn btn--glass" href="#features">Features</a>
-      <a class="btn btn--glass" href="#pricing">Pricing</a>
+      <a class="btn btn--outline btn--lg" href="#features">Features</a>
+      <a class="btn btn--outline btn--lg" href="#pricing">Pricing</a>
     </div>
 
     <div class="hero__shots">
@@ -520,17 +519,23 @@
   <div class="wrap">
     <h2>Boomer Proof Setup</h2>
     <div class="setup__grid">
-      <div class="setup__card">
-        <h3>Download &amp; Install</h3>
-        <p>Auto updates, nothing lost</p>
+      <div class="card">
+        <div class="card__header">
+          <h3 class="card__title">Download &amp; Install</h3>
+          <p class="card__description">Auto updates, nothing lost</p>
+        </div>
       </div>
-      <div class="setup__card">
-        <h3>Add Your Sources</h3>
-        <p>Seamless onboarding with locally stored information</p>
+      <div class="card">
+        <div class="card__header">
+          <h3 class="card__title">Add Your Sources</h3>
+          <p class="card__description">Seamless onboarding with locally stored information</p>
+        </div>
       </div>
-      <div class="setup__card">
-        <h3>Customize &amp; Enjoy</h3>
-        <p>Live TV, sports, movies, series, and plenty to make your own</p>
+      <div class="card">
+        <div class="card__header">
+          <h3 class="card__title">Customize &amp; Enjoy</h3>
+          <p class="card__description">Live TV, sports, movies, series, and plenty to make your own</p>
+        </div>
       </div>
     </div>
     <p class="setup__foot">You bring the content; BlammyTV makes it beautiful.</p>
@@ -566,11 +571,11 @@
       <!-- No screenshot yet. To add one, replace .points with a .browser
            block like the rows above; the rim and the row stay as they are. -->
       <div class="feature__media shot">
-        <div class="points">
-          <div class="point"><h3>151 leagues</h3><p>Follow leagues and clubs. Search matches the sport too, so &ldquo;hockey&rdquo; finds all four hockey leagues.</p></div>
-          <div class="point"><h3>Live on 3 channels</h3><p>Every card says where you can watch it. If one buffers, fail over to the next.</p></div>
-          <div class="point"><h3>A card for every sport</h3><p>Scores for most, a race weekend in one card, a tennis draw with courts, a golf leaderboard.</p></div>
-          <div class="point"><h3>Says what it knows</h3><p>A game it can&rsquo;t find on your channels says so, instead of claiming it isn&rsquo;t on.</p></div>
+        <div class="card points">
+          <div class="point"><h3 class="card__title">151 leagues</h3><p class="card__description">Follow leagues and clubs. Search matches the sport too, so &ldquo;hockey&rdquo; finds all four hockey leagues.</p></div>
+          <div class="point"><h3 class="card__title">Live on 3 channels</h3><p class="card__description">Every card says where you can watch it. If one buffers, fail over to the next.</p></div>
+          <div class="point"><h3 class="card__title">A card for every sport</h3><p class="card__description">Scores for most, a race weekend in one card, a tennis draw with courts, a golf leaderboard.</p></div>
+          <div class="point"><h3 class="card__title">Says what it knows</h3><p class="card__description">A game it can&rsquo;t find on your channels says so, instead of claiming it isn&rsquo;t on.</p></div>
         </div>
       </div>
     </div>
@@ -582,11 +587,11 @@
       </div>
       <!-- No screenshot yet: see the Sports row. -->
       <div class="feature__media shot">
-        <div class="points">
-          <div class="point"><h3>Fill with live games</h3><p>One click fills the grid with what&rsquo;s on, your teams first. Game tiles carry the score and clock.</p></div>
-          <div class="point"><h3>Grid or Focus</h3><p>Focus makes one tile big. Drag the seam to size it however you like.</p></div>
-          <div class="point"><h3>Sound where you click</h3><p>Click a tile to hear it. Everything else stays quiet.</p></div>
-          <div class="point"><h3>Knows your limit</h3><p>On an Xtream line it reads how many streams you&rsquo;re allowed, and never asks for more.</p></div>
+        <div class="card points">
+          <div class="point"><h3 class="card__title">Fill with live games</h3><p class="card__description">One click fills the grid with what&rsquo;s on, your teams first. Game tiles carry the score and clock.</p></div>
+          <div class="point"><h3 class="card__title">Grid or Focus</h3><p class="card__description">Focus makes one tile big. Drag the seam to size it however you like.</p></div>
+          <div class="point"><h3 class="card__title">Sound where you click</h3><p class="card__description">Click a tile to hear it. Everything else stays quiet.</p></div>
+          <div class="point"><h3 class="card__title">Knows your limit</h3><p class="card__description">On an Xtream line it reads how many streams you&rsquo;re allowed, and never asks for more.</p></div>
         </div>
       </div>
     </div>
@@ -626,10 +631,10 @@
     <h2>Make It Yours.</h2>
     <p class="custom__lede">Pick an accent from seven presets, or any colour at all with the picker and its eyedropper. Then tune the rest, all in Settings &rarr; Customize.</p>
 
-    <div class="accent-row">
-      <div>
-        <h3>Accent</h3>
-        <p>Buttons, toggles and highlights.</p>
+    <div class="card accent-row">
+      <div class="card__header">
+        <h3 class="card__title">Accent</h3>
+        <p class="card__description">Buttons, toggles and highlights.</p>
       </div>
       <div class="swatches" aria-hidden="true">
         <span class="swatch swatch--default" title="Default"></span>
@@ -640,23 +645,23 @@
         <span class="swatch" style="--swatch:#a200ff" title="Purple"></span>
         <span class="swatch" style="--swatch:#ff2773" title="Pink"></span>
         <span class="swatch" style="--swatch:#9aa0b1" title="Grey"></span>
-        <span class="swatch-custom"><i></i>Custom</span>
+        <span class="btn btn--outline btn--sm swatch-custom"><i></i>Custom</span>
       </div>
     </div>
 
     <ul class="settings-list" aria-label="Other Customize settings">
-      <li>UI Scale</li>
-      <li>Startup Tab</li>
-      <li>Clock Format</li>
-      <li>Featured Carousel</li>
-      <li>Card Details</li>
-      <li>Player Overlay</li>
-      <li>Catalog Row Size</li>
-      <li>One-Click Play Movies</li>
-      <li>Auto Source Failover</li>
-      <li>Preferred Language</li>
-      <li>Skip Behavior</li>
-      <li>Channel Numbers</li>
+      <li class="badge">UI Scale</li>
+      <li class="badge">Startup Tab</li>
+      <li class="badge">Clock Format</li>
+      <li class="badge">Featured Carousel</li>
+      <li class="badge">Card Details</li>
+      <li class="badge">Player Overlay</li>
+      <li class="badge">Catalog Row Size</li>
+      <li class="badge">One-Click Play Movies</li>
+      <li class="badge">Auto Source Failover</li>
+      <li class="badge">Preferred Language</li>
+      <li class="badge">Skip Behavior</li>
+      <li class="badge">Channel Numbers</li>
     </ul>
   </div>
 </section>
@@ -664,7 +669,7 @@
 <!-- ============================ PRICING BAND ============================ -->
 <section class="band" id="pricing">
   <div class="wrap">
-    <h2>App Pricing? <span class="grad-text">Free</span></h2>
+    <h2>App Pricing? Free</h2>
     <p class="yup">Yup.</p>
   </div>
 </section>
@@ -672,21 +677,21 @@
 <!-- ============================ DOWNLOAD ============================ -->
 <section class="download" id="download">
   <div class="wrap">
-    <div class="download__card">
+    <div class="card download__card">
       <div class="glow"></div>
       <div class="download__head">
         <img class="mark download__mark" src="assets/logo.png" alt="" />
         <h2>BlammyTV</h2>
       </div>
       <div class="download__meta">Free · Auto-Updates · Windows 10/11 (64-bit)</div>
-      <div>
-        <a class="btn btn--download" href="https://github.com/adam-edword/blammytv/releases/latest" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="width:18px;height:18px"><path d="M3 5.4l7.4-1.02v6.94H3V5.4zm8.3-1.14L21 3v8.28h-9.7V4.26zM3 12.32h7.4v6.94L3 18.24v-5.92zm8.3 0H21V21l-9.7-1.32v-7.36z"/></svg>
+      <div class="download__cta">
+        <a class="btn btn--default btn--lg" href="https://github.com/adam-edword/blammytv/releases/latest" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.4l7.4-1.02v6.94H3V5.4zm8.3-1.14L21 3v8.28h-9.7V4.26zM3 12.32h7.4v6.94L3 18.24v-5.92zm8.3 0H21V21l-9.7-1.32v-7.36z"/></svg>
           Download
         </a>
       </div>
       <div class="download__note">Windows may show “Unknown publisher” because the installer isn’t code-signed. It’s safe: click <strong>More info → Run anyway</strong>.</div>
-      <a class="download__gh" href="https://github.com/adam-edword/blammytv/releases" target="_blank" rel="noopener">All Releases on GitHub →</a>
+      <a class="btn btn--link download__gh" href="https://github.com/adam-edword/blammytv/releases" target="_blank" rel="noopener">All Releases on GitHub →</a>
     </div>
   </div>
 </section>
@@ -696,41 +701,41 @@
   <div class="wrap">
     <h2>FAQ</h2>
     <div class="faq__list">
-      <details class="qa">
-        <summary>Is it really free?
-          <svg class="chev" width="28" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+      <details class="accordion__item">
+        <summary class="accordion__trigger">Is it really free?
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
         </summary>
-        <p>Yup. There&rsquo;s nothing to buy and nothing locked. Everything BlammyTV does is in the free download.</p>
+        <div class="accordion__content"><p>Yup. There&rsquo;s nothing to buy and nothing locked. Everything BlammyTV does is in the free download.</p></div>
       </details>
-      <details class="qa">
-        <summary>What content is provided?
-          <svg class="chev" width="28" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+      <details class="accordion__item">
+        <summary class="accordion__trigger">What content is provided?
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
         </summary>
-        <p>None. BlammyTV is a media player only. It provides no channels, streams, or content of any kind. You bring your own IPTV subscription, playlists, or Stremio/AIOStreams setup, and BlammyTV plays them beautifully. Again, we provide no media content of any kind.</p>
+        <div class="accordion__content"><p>None. BlammyTV is a media player only. It provides no channels, streams, or content of any kind. You bring your own IPTV subscription, playlists, or Stremio/AIOStreams setup, and BlammyTV plays them beautifully. Again, we provide no media content of any kind.</p></div>
       </details>
-      <details class="qa">
-        <summary>What sources are supported?
-          <svg class="chev" width="28" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+      <details class="accordion__item">
+        <summary class="accordion__trigger">What sources are supported?
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
         </summary>
-        <p>Currently Xtream Codes logins, M3U playlists (untested), Stalker portals (untested), and Stremio / AIOStreams manifests. Add as many as you like and BlammyTV brings them together in one app.</p>
+        <div class="accordion__content"><p>Currently Xtream Codes logins, M3U playlists (untested), Stalker portals (untested), and Stremio / AIOStreams manifests. Add as many as you like and BlammyTV brings them together in one app.</p></div>
       </details>
-      <details class="qa">
-        <summary>Accounts?
-          <svg class="chev" width="28" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+      <details class="accordion__item">
+        <summary class="accordion__trigger">Accounts?
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
         </summary>
-        <p>Nope. There's nothing to sign up for and no password to remember. Your sources are stored locally on your own device.</p>
+        <div class="accordion__content"><p>Nope. There's nothing to sign up for and no password to remember. Your sources are stored locally on your own device.</p></div>
       </details>
-      <details class="qa">
-        <summary>Does Sports need anything extra?
-          <svg class="chev" width="28" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+      <details class="accordion__item">
+        <summary class="accordion__trigger">Does Sports need anything extra?
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
         </summary>
-        <p>Nope, just a live TV playlist. Game schedules come from a free public source, and BlammyTV matches each game to the channels you already have.</p>
+        <div class="accordion__content"><p>Nope, just a live TV playlist. Game schedules come from a free public source, and BlammyTV matches each game to the channels you already have.</p></div>
       </details>
-      <details class="qa">
-        <summary>Where did the themes go?
-          <svg class="chev" width="28" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+      <details class="accordion__item">
+        <summary class="accordion__trigger">Where did the themes go?
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
         </summary>
-        <p>They&rsquo;re coming back, with new looks. BlammyTV moved onto a new design and the old packs didn&rsquo;t make the move. The accent picker did: pick your colour again in Settings &rarr; Customize.</p>
+        <div class="accordion__content"><p>They&rsquo;re coming back, with new looks. BlammyTV moved onto a new design and the old packs didn&rsquo;t make the move. The accent picker did: pick your colour again in Settings &rarr; Customize.</p></div>
       </details>
     </div>
   </div>

@@ -253,7 +253,8 @@ never be a deterrent to building anything." So:
   ahead of the release, on Adam's call ("it can go live, not a big
   deal"): Sports and Multi-view rows (text only, no screenshots yet),
   Make It Yours in place of Themes and the Pass, the Trakt claim gone,
-  Geist on shadcn neutral with the rainbow kept. What is left for the
+  and shadcn's components ported to plain CSS on Geist, with the rainbow
+  kept for the glows and the logo. What is left for the
   release: new screenshots, since the hero slider and the Guide, Stream
   and player rows still show the July look.
 
