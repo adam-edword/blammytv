@@ -115,6 +115,14 @@ unstubbed passes here and leans on the live service on CI. verify-discover's
 search did, and failed three CI runs when Cinemeta was slow. Abort or
 fulfill every external host with `page.route`, as verify-armed does.
 
+**Enter a tab with `goTo(page, dest)`** (`scripts/nav-settle.mjs`), not a
+bare click on `[data-dest=…]` straight after load. The nav capsule slides
+its tabs ~260px into place at launch, and a click in that window lands
+where the tab was: a gap, the BlammyTV mark, another tab. verify-mvsound
+lost a CI run to it (v0.9.117): the page sat on the Guide, no error.
+`goTo` waits for the tab to hold still with nothing moving in the capsule,
+then checks the click took.
+
 ## CI
 
 `.github/workflows/ci.yml` runs on every push to every branch: typecheck,

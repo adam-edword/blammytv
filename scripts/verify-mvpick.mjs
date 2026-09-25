@@ -28,6 +28,7 @@ import http from "node:http";
 import { createRequire } from "node:module";
 const req = createRequire(process.env.PW_FROM ?? import.meta.url);
 const { chromium } = req("playwright-core");
+import { goTo } from "./nav-settle.mjs";
 
 const URL = process.env.APP_URL ?? "http://localhost:4173/";
 const W = 1600;
@@ -146,7 +147,7 @@ async function open({ modes = {}, line = null, seed = {} } = {}) {
     { port: PORT, modes, seed },
   );
   await page.goto(URL, { waitUntil: "domcontentloaded" });
-  await page.locator('[data-dest="multiview"]').click({ timeout: 30_000 });
+  await goTo(page, "multiview");
   await page.locator(".mvtab").waitFor();
   return { page, ctx, errors };
 }
@@ -313,7 +314,7 @@ const tile = (page, name) => page.locator(`.mvtile[aria-label^="${name},"]`);
 
   // Reload: the grid, and the sound, come back.
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.locator('[data-dest="multiview"]').click({ timeout: 30_000 });
+  await goTo(page, "multiview");
   await page.waitForFunction(() => document.querySelectorAll(".mvtile:not(.mvtile--empty)").length === 2, null, {
     timeout: 10_000,
   }).catch(() => {});

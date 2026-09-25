@@ -23,6 +23,7 @@ import http from "node:http";
 import { createRequire } from "node:module";
 const req = createRequire(process.env.PW_FROM ?? import.meta.url);
 const { chromium } = req("playwright-core");
+import { goTo } from "./nav-settle.mjs";
 
 const URL = process.env.APP_URL ?? "http://localhost:4173/";
 const W = 1600;
@@ -137,10 +138,28 @@ async function open({ silent = false } = {}) {
     { port: PORT, grid: GRID, silent },
   );
   await page.goto(URL, { waitUntil: "domcontentloaded" });
-  await page.locator('[data-dest="multiview"]').click({ timeout: 30_000 });
-  await page.waitForFunction(() => document.querySelectorAll(".mvtile:not(.mvtile--empty)").length === 3, null, {
-    timeout: 15_000,
-  });
+  await goTo(page, "multiview");
+  // CI once timed out here on the fourth page of a run (v0.9.117) and nothing
+  // said why. Say what the page showed instead.
+  const ready = await page
+    .waitForFunction(() => document.querySelectorAll(".mvtile:not(.mvtile--empty)").length === 3, null, {
+      timeout: 15_000,
+    })
+    .then(() => true, () => false);
+  if (!ready) {
+    const seen = await page.evaluate(() => ({
+      url: location.href,
+      current: document.querySelector("[data-dest][aria-current='page'], [data-dest].is-active")?.getAttribute("data-dest"),
+      tab: !!document.querySelector(".mvtab"),
+      grid: !!document.querySelector(".mvgrid"),
+      tiles: document.querySelectorAll(".mvtile").length,
+      blocked: document.querySelector(".mvtab__blocked")?.textContent ?? null,
+      dialog: document.querySelector("[role=dialog]")?.getAttribute("aria-label") ?? !!document.querySelector("[role=dialog]"),
+      stored: localStorage.getItem("blammytv.multiviewGrid"),
+      body: document.body.innerText.slice(0, 300),
+    }));
+    throw new Error(`multi-view never showed its 3 tiles: ${JSON.stringify({ ...seen, errors })}`);
+  }
   await page.waitForTimeout(300);
   return { page, ctx, errors };
 }
@@ -238,7 +257,7 @@ const rest = (page) => page.mouse.move(W - 200, H - 10);
   );
 
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.locator('[data-dest="multiview"]').click({ timeout: 30_000 });
+  await goTo(page, "multiview");
   await page.waitForFunction(() => document.querySelectorAll(".mvtile:not(.mvtile--empty)").length === 3, null, {
     timeout: 15_000,
   });

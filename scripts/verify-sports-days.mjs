@@ -20,6 +20,7 @@
 import { createRequire } from "node:module";
 const req = createRequire(process.env.PW_FROM ?? import.meta.url);
 const { chromium } = req("playwright-core");
+import { goTo } from "./nav-settle.mjs";
 
 let fail = 0;
 const check = (n, ok, d = "") => {
@@ -283,7 +284,7 @@ await page.goto(process.env.APP_URL ?? "http://localhost:4173/", {
   waitUntil: "domcontentloaded",
 });
 await page.waitForSelector(".navcap", { timeout: 20_000 });
-await page.locator('[data-dest="sports"]').click();
+await goTo(page, "sports");
 await page.waitForSelector(".sports__grid", { timeout: 20_000 });
 await page.waitForTimeout(1500);
 

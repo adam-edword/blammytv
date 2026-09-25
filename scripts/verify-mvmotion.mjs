@@ -23,6 +23,7 @@ import http from "node:http";
 import { createRequire } from "node:module";
 const req = createRequire(process.env.PW_FROM ?? import.meta.url);
 const { chromium } = req("playwright-core");
+import { goTo } from "./nav-settle.mjs";
 
 const URL = process.env.APP_URL ?? "http://localhost:4173/";
 const W = 1600;
@@ -112,7 +113,7 @@ async function open({ reduced = false } = {}) {
     { port: PORT, grid: GRID },
   );
   await page.goto(URL, { waitUntil: "domcontentloaded" });
-  await page.locator('[data-dest="multiview"]').click({ timeout: 30_000 });
+  await goTo(page, "multiview");
   await page.waitForFunction(() => document.querySelectorAll(".mvtile:not(.mvtile--empty)").length === 3, null, {
     timeout: 15_000,
   });

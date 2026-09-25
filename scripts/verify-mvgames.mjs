@@ -20,6 +20,7 @@ import http from "node:http";
 import { createRequire } from "node:module";
 const req = createRequire(process.env.PW_FROM ?? import.meta.url);
 const { chromium } = req("playwright-core");
+import { goTo } from "./nav-settle.mjs";
 
 const URL = process.env.APP_URL ?? "http://localhost:4173/";
 const W = 1600;
@@ -165,7 +166,7 @@ const stub = ({ port, follows }) => {
 };
 const page = await open({ follows: true });
 await page.goto(URL, { waitUntil: "domcontentloaded" });
-await page.locator('[data-dest="multiview"]').click({ timeout: 30_000 });
+await goTo(page, "multiview");
 await page.locator(".mvtab").waitFor();
 await page.waitForTimeout(2000);
 check("with the picker shut and no game on the grid, nothing asks ESPN", asked.length === 0, `${asked.length} asked`);
@@ -224,7 +225,7 @@ check(
 // the picker shut, because a tile is a game.
 asked.length = 0;
 await page.reload({ waitUntil: "domcontentloaded" });
-await page.locator('[data-dest="multiview"]').click({ timeout: 30_000 });
+await goTo(page, "multiview");
 await page.waitForFunction(() => /–/.test(document.querySelector(".mvcap")?.textContent ?? ""), null, {
   timeout: 15_000,
 }).catch(() => {});
@@ -241,7 +242,7 @@ check(
 // claim an order it did not use.
 const bare = await open({ follows: false });
 await bare.goto(URL, { waitUntil: "domcontentloaded" });
-await bare.locator('[data-dest="multiview"]').click({ timeout: 30_000 });
+await goTo(bare, "multiview");
 await bare.locator(".mvtab").waitFor();
 await bare.keyboard.press("a");
 await bare.waitForFunction(() => document.querySelectorAll(".mvpick__game").length > 1, null, { timeout: 15_000 }).catch(() => {});

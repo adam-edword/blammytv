@@ -29,6 +29,7 @@ import http from "node:http";
 import { createRequire } from "node:module";
 const req = createRequire(process.env.PW_FROM ?? import.meta.url);
 const { chromium } = req("playwright-core");
+import { goTo } from "./nav-settle.mjs";
 
 const URL = process.env.APP_URL ?? "http://localhost:4173/";
 const W = 1600;
@@ -144,7 +145,7 @@ check(
 );
 const box = () => page.locator('[data-dest="multiview"] svg').getAttribute("viewBox");
 const offBox = await box();
-await page.locator('[data-dest="multiview"]').click({ timeout: 30_000 });
+await goTo(page, "multiview");
 await page.locator(".mvtab").waitFor();
 // The screen rises 8px into place over 180ms (App's swap); measure after.
 await page.waitForTimeout(400);

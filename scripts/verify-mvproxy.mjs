@@ -32,6 +32,7 @@ import http from "node:http";
 import { createRequire } from "node:module";
 const req = createRequire(process.env.PW_FROM ?? import.meta.url);
 const { chromium } = req("playwright-core");
+import { goTo } from "./nav-settle.mjs";
 
 const URL = process.env.APP_URL ?? "http://localhost:4173/";
 let fail = 0;
@@ -129,7 +130,7 @@ async function open(proxyMode, hevc = true) {
   );
   await page.goto(URL, { waitUntil: "domcontentloaded" });
   // Its own tab since plan 017, between Guide and Sports.
-  await page.locator('[data-dest="multiview"]').click({ timeout: 30_000 });
+  await goTo(page, "multiview");
   // The picker (plan 017, P3): the empty place opens it, the row adds.
   await page.locator(".mvtile--empty").click();
   await page.locator(".mvpick__input").fill("fake");
