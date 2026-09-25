@@ -249,12 +249,13 @@ never be a deterrent to building anything." So:
   `services/site` stops selling the Themes Pass as a thing you can buy
   today. Both change at release, not before: until then the site describes
   0.9.0, which does have themes.
-  **The site's 0.10.0 version is drafted** on
-  `claude/wonderful-darwin-fk1y1o` and parked: Sports and Multi-view rows
-  (text only, no screenshots yet), Make It Yours in place of Themes and
-  the Pass, the Trakt claim gone, Geist on shadcn neutral with the rainbow
-  kept. Before it lands on `website` it needs new screenshots: the hero
-  slider and the Guide, Stream and player rows still show the July look.
+  **The site went first.** Its 0.10.0 version went live on 2026-09-25,
+  ahead of the release, on Adam's call ("it can go live, not a big
+  deal"): Sports and Multi-view rows (text only, no screenshots yet),
+  Make It Yours in place of Themes and the Pass, the Trakt claim gone,
+  Geist on shadcn neutral with the rainbow kept. What is left for the
+  release: new screenshots, since the hero slider and the Guide, Stream
+  and player rows still show the July look.
 
 ### M4: Trakt, then MAL (decision 2)
 
