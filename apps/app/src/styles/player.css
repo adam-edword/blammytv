@@ -1004,11 +1004,12 @@
  * somewhere inside each one.
  * ------------------------------------------------------------------------ */
 
+/* No background of its own: the app's shows around the tiles, as it does
+ * behind every other tab (Adam, v0.9.120; it was #000). */
 .mvtab {
   position: relative;
   flex: 1;
   min-width: 0;
-  background: #000;
   overflow: hidden;
 }
 

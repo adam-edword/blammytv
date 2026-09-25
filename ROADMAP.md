@@ -213,7 +213,9 @@ never be a deterrent to building anything." So:
    nothing done from the keyboard animates. P6a shipped in v0.9.119: a
    tile fills the window, Watch in player hands it to the Guide, a live
    popout stops as the tab opens, and the first-run notice is a proper
-   dialog. P6b (the ways in: Guide, player, game card) is next.
+   dialog. v0.9.120: a tile's buttons have the app's tooltips, the wheel
+   over the sound tile is its volume, and the tab shows the app's
+   background. P6b (the ways in: Guide, player, game card) is next.
 7. Merge the multi-view branch into `main` (Adam's step: default branch).
 
 ### M2: finish the primitives (plan 014 L1 and L2)

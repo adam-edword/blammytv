@@ -124,11 +124,14 @@ function useIdle(): boolean {
     window.addEventListener("pointermove", wake);
     window.addEventListener("pointerdown", wake);
     window.addEventListener("keydown", wake);
+    // The wheel too: turning the volume over a tile should show the slider.
+    window.addEventListener("wheel", wake, { passive: true });
     return () => {
       window.clearTimeout(t);
       window.removeEventListener("pointermove", wake);
       window.removeEventListener("pointerdown", wake);
       window.removeEventListener("keydown", wake);
+      window.removeEventListener("wheel", wake);
     };
   }, []);
   return idle;
@@ -621,6 +624,7 @@ export function MultiviewTab() {
             kind={kind}
             split={splits[cells]}
             onSplit={chooseSplit}
+            onVolumeStep={nudge}
             conns={line}
             soundId={soundId}
             volume={vol.volume}

@@ -31,6 +31,7 @@ import { watchLevel } from "./mvLevel";
 import { formatClock } from "../../lib/time";
 import { loadClockFormat } from "../settings/clockFormat";
 import { CloseIcon, PlayIcon, SwapIcon, VolumeIcon, WarnIcon } from "../../ui/icons";
+import { Hint } from "../../ui/Hint";
 
 /**
  * One tile of the multi-view grid: a `<video>` with a demuxer bolted to it.
@@ -167,6 +168,7 @@ export function MultiviewTile({
   onRemove,
   onReplace,
   onWatch,
+  onVolumeStep,
   onRetryResolve,
   onDead,
   atCap,
@@ -201,6 +203,8 @@ export function MultiviewTile({
   onReplace: () => void;
   /** Watch in player: this channel in the main player (plan 017). */
   onWatch: () => void;
+  /** The wheel over the sound tile: the bar's volume, up or down a step. */
+  onVolumeStep: (step: number) => void;
   /** Look the stream up again, after `unresolved`. */
   onRetryResolve: () => void;
   /** Whether it has failed: a failed tile can't take the sound, and the
@@ -215,6 +219,24 @@ export function MultiviewTile({
   mvId?: string;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  // The wheel over the sound tile is the volume (Adam, v0.9.120), a step a
+  // notch as ↑ and ↓ are and as the Guide's player does, up also unmuting.
+  // The sound tile only: over any other the wheel does nothing. A native
+  // listener, since React's are passive and the page must not also scroll.
+  const volumeStep = useRef(onVolumeStep);
+  volumeStep.current = onVolumeStep;
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el || !focused) return;
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaY === 0) return;
+      e.preventDefault();
+      volumeStep.current(e.deltaY < 0 ? 0.05 : -0.05);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [focused]);
   const [failure, setFailure] = useState<Failure | null>(null);
   /** Before the first frame, the tile is tuning. */
   const [playing, setPlaying] = useState(false);
@@ -536,6 +558,7 @@ export function MultiviewTile({
 
   return (
     <div
+      ref={rootRef}
       className={
         "mvtile" +
         (focused ? " is-on" : "") +
@@ -579,33 +602,38 @@ export function MultiviewTile({
               Sound here
             </button>
           )}
-          <button
-            type="button"
-            className="mvchip mvchip--icon"
-            aria-label={`Watch ${name} in the player`}
-            title="Watch in player"
-            onClick={own(onWatch)}
-          >
-            <PlayIcon size={15} />
-          </button>
-          <button
-            type="button"
-            className="mvchip mvchip--icon"
-            aria-label={`Replace ${name}`}
-            title="Replace"
-            onClick={own(onReplace)}
-          >
-            <SwapIcon size={15} />
-          </button>
-          <button
-            type="button"
-            className="mvchip mvchip--icon"
-            aria-label={`Close ${name}`}
-            title="Close"
-            onClick={own(onRemove)}
-          >
-            <CloseIcon size={15} />
-          </button>
+          {/* The app's tooltips, not the browser's (ui/Hint). The keys are
+            * named on the sound tile only: R and Delete act on it. */}
+          <Hint label="Watch in player">
+            <button
+              type="button"
+              className="mvchip mvchip--icon"
+              aria-label={`Watch ${name} in the player`}
+              onClick={own(onWatch)}
+            >
+              <PlayIcon size={15} />
+            </button>
+          </Hint>
+          <Hint label={focused ? "Replace (R)" : "Replace"}>
+            <button
+              type="button"
+              className="mvchip mvchip--icon"
+              aria-label={`Replace ${name}`}
+              onClick={own(onReplace)}
+            >
+              <SwapIcon size={15} />
+            </button>
+          </Hint>
+          <Hint label={focused ? "Close (Delete)" : "Close"}>
+            <button
+              type="button"
+              className="mvchip mvchip--icon"
+              aria-label={`Close ${name}`}
+              onClick={own(onRemove)}
+            >
+              <CloseIcon size={15} />
+            </button>
+          </Hint>
         </div>
         {playing && !failure && (
           <div className="mvtile__info">

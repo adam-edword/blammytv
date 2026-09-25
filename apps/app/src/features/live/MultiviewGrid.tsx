@@ -89,6 +89,7 @@ export function MultiviewGrid({
   kind,
   split,
   onSplit,
+  onVolumeStep,
   conns,
   soundId,
   volume,
@@ -110,6 +111,8 @@ export function MultiviewGrid({
   split?: number;
   /** A drag or a key moved the seam; null is back to natural. */
   onSplit: (split: number | null) => void;
+  /** The wheel over the sound tile: the bar's volume, a step up or down. */
+  onVolumeStep: (step: number) => void;
   conns: XtreamConnections | null;
   /** The stream with the sound. The tab owns it, so a Replace can hand it
    * on and the grid remembers it between visits. */
@@ -387,6 +390,7 @@ export function MultiviewGrid({
                 onDead={(is) => markDead(s.id, is)}
                 onRemove={() => close(s.id)}
                 onWatch={() => requestWatchInPlayer(s.id)}
+                onVolumeStep={onVolumeStep}
                 onReplace={() => onReplace(s.id, s.name)}
                 onRetryResolve={() => onRetryResolve(s.id)}
                 atCap={atCap}

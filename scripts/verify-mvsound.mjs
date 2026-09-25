@@ -11,7 +11,10 @@
 //   of them while typing, and not the arrows when the volume slider has
 //   focus;
 // - the Sound badge's bars follow the tile's real level: a tone moves them,
-//   silence leaves them flat.
+//   silence leaves them flat;
+// - (v0.9.120) a tile's buttons have the app's tooltips, the sound tile's
+//   naming R and Delete; the wheel over the sound tile is its volume, and
+//   over any other tile does nothing.
 //
 // Nothing decodes in the test Chromium, so the level comes from a stub of
 // captureStream() that plays a real oscillator (or silence) through Web
@@ -343,6 +346,113 @@ const rest = (page) => page.mouse.move(W - 200, H - 10);
   const addTarget = added ? await page.locator(".mvpick__target").textContent() : null;
   check("with room on the line, A opens Add", added && addTarget === "", JSON.stringify({ added, addTarget }));
   await press(page, "Escape");
+  check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
+  await ctx.close();
+}
+
+// ------------------------------------------------ tooltips and the wheel
+/**
+ * Every tooltip open once the pointer rests on one of a tile's buttons.
+ *
+ * Moved as a hand moves, never in one jump. Radix keeps a tooltip open
+ * while the pointer heads for it, and only rechecks on the NEXT move: a
+ * pointer that jumps and stops leaves the last one open, and the button it
+ * landed on never hears of it. So a second move after leaving, and two
+ * small ones on the button.
+ */
+async function hint(page, name, button) {
+  await page.mouse.move(W - 200, H - 10);
+  await page.mouse.move(W - 201, H - 10);
+  await page.waitForTimeout(400);
+  const t = tile(page, name);
+  await t.hover({ position: { x: 60, y: 60 } });
+  const b = await t.getByRole("button", { name: new RegExp(`^${button} `) }).boundingBox();
+  const [x, y] = [b.x + b.width / 2, b.y + b.height / 2];
+  await page.mouse.move(x, y, { steps: 5 });
+  await page.mouse.move(x + 1, y);
+  await page.mouse.move(x, y);
+  const open = page.locator("[data-slot='tooltip-content'][data-state$='open']");
+  await open.first().waitFor({ timeout: 3000 }).catch(() => {});
+  await page.waitForTimeout(100);
+  return (await open.allTextContents()).join(" + ");
+}
+/** One notch of the wheel over a tile; whether anything took it, so the
+ * page could not also scroll. */
+async function wheel(page, name, dy) {
+  await page.evaluate(() => (window.__took = []));
+  await tile(page, name).hover({ position: { x: 60, y: 60 } });
+  await page.mouse.wheel(0, dy);
+  await page.waitForTimeout(150);
+  return page.evaluate(() => window.__took);
+}
+{
+  const { page, ctx, errors } = await open();
+  const mine = [await hint(page, ESPN, "Watch"), await hint(page, ESPN, "Replace"), await hint(page, ESPN, "Close")];
+  check(
+    "the sound tile's buttons have the app's tooltips, naming their keys",
+    JSON.stringify(mine) === JSON.stringify(["Watch in player", "Replace (R)", "Close (Delete)"]),
+    JSON.stringify(mine),
+  );
+  const theirs = [await hint(page, SKY, "Replace"), await hint(page, SKY, "Close")];
+  check(
+    "another tile's name no keys, since R and Delete act on the sound tile",
+    JSON.stringify(theirs) === JSON.stringify(["Replace", "Close"]),
+    JSON.stringify(theirs),
+  );
+  check("and no tile button still has the browser's", (await page.locator(".mvtile button[title]").count()) === 0);
+
+  await page.evaluate(() => window.addEventListener("wheel", (e) => window.__took.push(e.defaultPrevented)));
+  await page.locator(".mvvol__slider").fill("0.5");
+  await rest(page);
+  await press(page, "m");
+  const down = await wheel(page, ESPN, 100);
+  const a = (await audio(page))[ESPN];
+  check(
+    "the wheel down over the sound tile turns it down a step, leaves the mute alone, and the page does not scroll",
+    Math.abs(a[0] - 0.45) < 0.001 && a[1] === true && JSON.stringify(down) === "[true]",
+    JSON.stringify({ a, down }),
+  );
+  const up = await wheel(page, ESPN, -100);
+  const b = (await audio(page))[ESPN];
+  const slider = await page.locator(".mvvol__slider").inputValue();
+  check(
+    "and up turns it up a step and unmutes, as ↑ does, the bar's slider with it",
+    Math.abs(b[0] - 0.5) < 0.001 && b[1] === false && slider === "0.5" && JSON.stringify(up) === "[true]",
+    JSON.stringify({ b, slider, up }),
+  );
+  const other = [...(await wheel(page, SKY, -100)), ...(await wheel(page, NEWS, 100))];
+  const c = await audio(page);
+  check(
+    "over any other tile the wheel does nothing, and is left to the page",
+    Math.abs(c[ESPN][0] - 0.5) < 0.001 &&
+      JSON.stringify(await soundOn(page)) === JSON.stringify([ESPN]) &&
+      JSON.stringify(other) === "[false,false]",
+    JSON.stringify({ c, other }),
+  );
+
+  // The sound moves, and the wheel goes with it.
+  await tile(page, SKY).click({ position: { x: 60, y: 60 } });
+  await page.waitForTimeout(400);
+  await wheel(page, SKY, 100);
+  const onSky = (await audio(page))[SKY][0];
+  await wheel(page, ESPN, 100);
+  const d = await audio(page);
+  check(
+    "when the sound moves the wheel follows it: over Sky it turns, over ESPN no longer",
+    JSON.stringify(await soundOn(page)) === JSON.stringify([SKY]) &&
+      Math.abs(onSky - 0.45) < 0.001 &&
+      Math.abs(d[SKY][0] - 0.45) < 0.001,
+    JSON.stringify({ onSky, d }),
+  );
+
+  // The bar has dimmed by the time a hand reaches for the wheel; turning it
+  // brings the bar back, so the slider shows what it did.
+  await page.waitForTimeout(2400);
+  const dimmed = await page.evaluate(() => document.documentElement.dataset.mvIdle === "1");
+  await page.mouse.wheel(0, -100);
+  await page.waitForTimeout(150);
+  const woke = await page.evaluate(() => document.documentElement.dataset.mvIdle !== "1");
+  check("the wheel wakes the bar", dimmed && woke, JSON.stringify({ dimmed, woke }));
   check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
   await ctx.close();
 }

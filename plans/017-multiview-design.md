@@ -172,8 +172,9 @@ Multi-view is **a destination in the nav capsule, between Guide and Sports**
 two do. The capsule reads Guide, Multi-view, Sports, the app mark, Stream,
 Discover, Library.
 
-It is a tab that behaves like the player (M1). The page is `#000`, and the
-app header is replaced by multi-view's own bar, **with the app's nav capsule
+It is a tab that behaves like the player (M1). The page is the app's own
+background, as behind every other tab (Adam, v0.9.120; it was `#000`
+until then), and the app header is replaced by multi-view's own bar, **with the app's nav capsule
 in its centre** where it always sits, so moving to another tab works as it
 does everywhere. The bar dims to 35% after 2s idle and comes back on
 pointer movement (never dimming while the pointer is on it or a menu is
@@ -286,9 +287,11 @@ one, and choosing a small tile swaps it in (decision M2). In **Grid**, tiles
 stay where they are and only the sound moves.
 
 Volume is one control, in the top bar, for the sound tile, with mute. It is
-remembered like the main player's. The Sound badge's bars follow the real
-audio level (an `AnalyserNode` on the sound tile only), so a silent feed
-looks silent.
+remembered like the main player's. The wheel over the sound tile turns it
+too, a step a notch as in the Guide's player, up also unmuting; over any
+other tile the wheel does nothing (Adam, v0.9.120). The Sound badge's
+bars follow the real audio level (an `AnalyserNode` on the sound tile
+only), so a silent feed looks silent.
 
 ### Adding, replacing, removing (frame C)
 
@@ -710,6 +713,11 @@ the one growing, because on the way back from a fill it is the shrinking
 tile you follow; and a move cancelled by the next no longer drops that
 next one's lift a tick later. verify-mvfill, 16 checks, each caught by
 its own mutation.
+
+**v0.9.120, from Adam's first sitting with P6a.** A tile's Watch, Replace
+and Close have the app's tooltips instead of the browser's, the sound
+tile's naming R and Delete (the keys act on it). The wheel over the sound
+tile is its volume, and the tab shows the app's background, not `#000`.
 
 **Alongside, native (a rebuild):** allow mpegts.js's worker in the CSP so
 transmuxing leaves the main thread (audit perf 6 said this "is native"; the

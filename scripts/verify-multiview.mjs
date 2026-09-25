@@ -8,7 +8,8 @@
 // - on the tab the header gives up its clock and Settings, and multi-view's
 //   bar takes the flanks with the capsule still in the middle;
 // - every picture is 16:9, nothing overlaps, nothing is under the bar, and
-//   nothing is drawn over a picture at rest (the name is under it);
+//   nothing is drawn over a picture at rest (the name is under it), and
+//   the app's background shows around them, not one of the tab's own;
 // - Grid and Focus move the tiles without re-creating a video or re-tuning;
 // - the bar and capsule dim after two idle seconds (Adam: dim, not remove),
 //   stay clickable, don't dim under the pointer, and come back on movement;
@@ -317,6 +318,24 @@ check(
   "three open in Focus: one big, two stacked",
   focusTiles[0].w > focusTiles[1].w * 1.5 && Math.abs(focusTiles[1].x - focusTiles[2].x) < 1,
 );
+// The tab paints no background of its own (Adam, v0.9.120): the app's
+// shows around the tiles, as it does behind every other tab. So at an empty
+// point of the stage, everything stacked above the shell is see-through.
+const capsBottom = Math.max(...(await rectOf(".mvcap")).map((c) => c.y + c.h));
+const painted = await page.evaluate(({ x, y }) => {
+  // No alpha is opaque: black is rgb(0, 0, 0), which ends in ", 0)" too.
+  const clear = (c) => /^rgba\(.*,\s*0\)$/.test(c) || /\/\s*0\)$/.test(c) || c === "transparent";
+  const out = [];
+  for (const e of document.elementsFromPoint(x, y)) {
+    if (e.classList.contains("app-shell")) return out;
+    if (e.closest(".mvtile")) return ["a tile is at the point"];
+    const cs = getComputedStyle(e);
+    if (!clear(cs.backgroundColor) || cs.backgroundImage !== "none")
+      out.push(`${e.className || e.tagName}: ${cs.backgroundColor} ${cs.backgroundImage}`);
+  }
+  return [...out, "no .app-shell under the point"];
+}, { x: W / 2, y: (capsBottom + H) / 2 });
+check("the app's own background shows around the tiles", painted.length === 0, painted.join(", "));
 
 // Tag the elements, switch layout, and see the same elements come back.
 await page.evaluate(() =>
