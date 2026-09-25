@@ -1,4 +1,5 @@
 import type { Fixture } from "../sports/model";
+import type { Pick } from "./mvGrid";
 
 /**
  * The ways into the Multi-view tab from elsewhere (plan 017), and what
@@ -45,6 +46,34 @@ export function takeWatchRequest(): string | null {
   const id = watch;
   watch = null;
   return id;
+}
+
+/**
+ * IN: a channel sent to multi-view from elsewhere (plan 017, P6b): the
+ * Guide's right-click menu, or the player's Multi-view button. App flips to
+ * the tab, which leaves the Guide and so stops its player, freeing that
+ * connection for the grid. The tab takes the channel as it mounts
+ * (`takeAddRequest`): it joins the grid you left and takes the sound, and
+ * a full grid asks which tile it replaces.
+ */
+const ADD = "blammytv:add-to-multiview";
+let adding: Pick | null = null;
+
+export function requestAddToMultiview(pick: Pick): void {
+  adding = pick;
+  window.dispatchEvent(new Event(ADD));
+}
+
+export function onAddRequest(cb: () => void): () => void {
+  window.addEventListener(ADD, cb);
+  return () => window.removeEventListener(ADD, cb);
+}
+
+/** The channel sent, once: reading it clears it. */
+export function takeAddRequest(): Pick | null {
+  const p = adding;
+  adding = null;
+  return p;
 }
 
 /**

@@ -1131,6 +1131,49 @@
   width: 56px;
 }
 
+/* A channel sent from elsewhere with the grid full (plan 017, P6b): in
+ * place of the meter and the layout switch, what to do and the way out, in
+ * the meter's glass. A narrow window keeps "Pick a tile" and drops whose. */
+.mvchoose {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  height: 40px;
+  padding: 0 6px 0 16px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  backdrop-filter: blur(5px) saturate(1.4);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+.mvchoose__cancel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.mvchoose__cancel:hover {
+  background: color-mix(in srgb, var(--text) 18%, transparent);
+}
+.mvchoose__cancel kbd {
+  font: inherit;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.mvbar__side.is-compact .mvchoose__for {
+  display: none;
+}
+
 /* The sound tile's volume and mute (plan 017, "Sound and volume"): the
  * main player's slider, on the bar. */
 .mvvol {
@@ -1530,6 +1573,41 @@
  * carries the X over it, not a scrim that would dim the words. */
 .mvtile.is-failed .mvtile__chrome {
   background: none;
+}
+
+/* Picking the tile a channel sent from elsewhere replaces (plan 017, P6b).
+ * Every tile dims a little so the grid reads as a choice, and the one under
+ * the pointer or the keyboard says what picking it does. Over the chrome
+ * and any failure card, so the whole tile is the target and a Retry under
+ * it can't take the click. */
+.mvtile__pick {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgb(0 0 0 / 0.25);
+  transition: background-color 140ms var(--ease-out, ease);
+}
+.mvtile__pickword {
+  height: 38px;
+  padding: 0 16px;
+  font-size: 13.5px;
+  opacity: 0;
+  transition: opacity 140ms var(--ease-out, ease);
+}
+.mvtile.is-picking:hover .mvtile__pick,
+.mvtile.is-picking:focus-visible .mvtile__pick {
+  background: rgb(0 0 0 / 0.55);
+}
+.mvtile.is-picking:hover .mvtile__pickword,
+.mvtile.is-picking:focus-visible .mvtile__pickword {
+  opacity: 1;
+}
+.mvtile.is-picking .mvtile__chrome,
+.mvtile.is-picking .mvtile__badge,
+.mvtile.is-picking:hover .mvtile__state,
+.mvtile.is-picking:focus-visible .mvtile__state {
+  visibility: hidden;
 }
 
 .mvtile__actions {

@@ -54,6 +54,10 @@ export interface OverlayApi {
   fullscreen?: () => void; // theater → fullscreen
   exitFullscreen?: () => void; // fullscreen → theater
   popout?: () => void; // detach to mpv's floating PiP window
+  /** Live: send the playing channel to multi-view (plan 017, P6b). Present
+   * only where the host offers it, which is how the chrome knows to draw
+   * the button. */
+  multiview?: () => void;
   toggleFavorite?: () => void; // star/unstar the playing channel
   goLive?: () => void; // reload the stream at the live edge
   setMouseIgnore: (ignore: boolean) => void;

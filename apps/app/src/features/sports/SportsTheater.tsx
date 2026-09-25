@@ -24,6 +24,8 @@ import { TheaterOverlay } from "../live/TheaterOverlay";
 import { useDirectOverlay } from "../live/useDirectOverlay";
 import { setOverlayApiOverride } from "../live/overlayApi";
 import { resolveStreamUrl } from "../live/stream";
+import { requestAddToMultiview } from "../live/multiviewEntry";
+import { gameLabel } from "../live/mvGames";
 import { loadFavorites, toggleFavorite } from "../live/favorites";
 import { Hint } from "../../ui/Hint";
 import { Matchup } from "./Matchup";
@@ -345,6 +347,20 @@ export function SportsTheater({
       // stream. See tauriPopoutOpen.
       void tauriPopoutOpen(t.url, true).catch(() => {});
       stop();
+    },
+    // Watch in multi-view (plan 017, P6b): this game, on the channel it is
+    // playing on, joins the grid as a game, so its tile carries the score.
+    // App flips to the tab; leaving Sports stops this player and frees its
+    // connection, and the unmount above takes the window out of full screen.
+    onMultiview: () => {
+      const t = tunedRef.current;
+      if (!t) return;
+      requestAddToMultiview({
+        channelId: t.id,
+        label: gameLabel(game),
+        gameId: game.id,
+        league: game.leagueKey,
+      });
     },
     onToggleFavorite: () => {
       const t = tunedRef.current;

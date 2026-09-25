@@ -20,12 +20,13 @@ import {
   saveSplits,
   type MvVolume,
 } from "./multiviewAck";
-import { peekLiveGames } from "./multiviewEntry";
+import { onAddRequest, peekLiveGames, takeAddRequest } from "./multiviewEntry";
 import { gameLabel, liveWithChannels, useGamesToday } from "./mvGames";
 import { isFixture, type Fixture } from "../sports/model";
 import { defaultKind, kindsFor, type MvKind } from "./mvLayout";
 import {
   addPick,
+  arrive,
   cellsFor,
   fullReason,
   meterLine,
@@ -37,6 +38,7 @@ import {
 } from "./mvGrid";
 import { forMultiview } from "./mvKeys";
 import { useConnections } from "./connections";
+import { loadPlaylists } from "../settings/playlists";
 import { resolveStreamUrl } from "./stream";
 import { useLiveData } from "./useLiveData";
 import { loadRecents, recordRecent } from "./recents";
@@ -237,6 +239,13 @@ function useCompactSide(
  */
 const SETTLE_MS = 25_000;
 
+/**
+ * How long a channel sent from elsewhere waits for the line's answer before
+ * joining on what is known. The panel usually answers in well under a
+ * second; without one there is no limit to count against, only four.
+ */
+const LINE_WAIT_MS = 3000;
+
 export function MultiviewTab() {
   /** The catalog: loaded here if nothing has yet, and followed after, so
    * the picker works however this tab was reached (useLiveData). */
@@ -293,6 +302,35 @@ export function MultiviewTab() {
   const room = roomOn(line, picks.length, settledKey === key);
   const roomRef = useRef(room);
   roomRef.current = room;
+
+  /**
+   * A channel sent from the Guide or the player (plan 017, P6b), held until
+   * the line has answered: whether it fits is the line's to say, and the
+   * panel is asked as the tab opens. Taken from the mailbox as the tab
+   * mounts (App flipped here to deliver it), or as it arrives.
+   */
+  const [incoming, setIncoming] = useState<Pick | null>(null);
+  useEffect(() => {
+    const take = () => {
+      const p = takeAddRequest();
+      if (p) setIncoming(p);
+    };
+    take();
+    return onAddRequest(take);
+  }, []);
+  const [xtream] = useState(() => loadPlaylists().some((p) => p.kind === "xtream" && p.enabled));
+  const [waited, setWaited] = useState(false);
+  useEffect(() => {
+    if (!incoming) return;
+    const t = window.setTimeout(() => setWaited(true), LINE_WAIT_MS);
+    return () => window.clearTimeout(t);
+  }, [incoming]);
+  // One line that answered, several (no single cap, as `line` says), no
+  // panel to ask, or the wait is over.
+  const lineKnown = line !== null || conns.size > 1 || !xtream || waited;
+  /** A channel waiting for you to pick the tile it replaces: the grid was
+   * full when it came. */
+  const [choosing, setChoosing] = useState<Pick | null>(null);
   const cells = cellsFor(picks.length, room.left);
 
   const [kinds, setKinds] = useState(loadLayoutKinds);
@@ -404,8 +442,10 @@ export function MultiviewTab() {
   // whole catalog on every tick of the tab.
   const inGrid = useMemo(() => new Set(picks.map((p) => p.channelId)), [picks]);
 
+  const choosingRef = useRef(false);
+  choosingRef.current = choosing !== null;
   const openAdd = useCallback(() => {
-    if (roomRef.current.left > 0) setPicker({ kind: "add" });
+    if (roomRef.current.left > 0 && !choosingRef.current) setPicker({ kind: "add" });
   }, []);
   const choose = (pick: Pick) => {
     if (!picker) return;
@@ -439,6 +479,46 @@ export function MultiviewTab() {
     for (const g of list) recents = recordRecent(recents, g.channels[0].id);
     setPicker(null);
   };
+
+  // A channel sent from elsewhere, once the line has answered: it joins,
+  // or takes the sound, or waits for you to pick a tile (mvGrid.arrive).
+  useEffect(() => {
+    if (!incoming || !lineKnown) return;
+    setIncoming(null);
+    // A line of one shows why multi-view can't run on it, not a grid.
+    if (line !== null && line.max <= 1) return;
+    const a = arrive(picks, incoming, room);
+    if (a.kind === "full") {
+      setChoosing(incoming);
+      return;
+    }
+    if (a.kind === "add") {
+      setPicks(a.picks);
+      recordRecent(loadRecents(), incoming.channelId);
+    }
+    setSoundId(incoming.channelId);
+  }, [incoming, lineKnown, line, picks, room]);
+  /** The tile you picked for it: replaced in place, and it takes the sound
+   * (so in Focus it moves to the big spot, M2). */
+  const chooseTile = (id: string) => {
+    if (!choosing) return;
+    setPicks((was) => replacePick(was, id, choosing));
+    setSoundId(choosing.channelId);
+    recordRecent(loadRecents(), choosing.channelId);
+    setChoosing(null);
+  };
+  // Escape lets it go, before the grid's own Escape or the app's full
+  // screen hear it (both leave an Escape that is already taken).
+  useEffect(() => {
+    if (!choosing) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      e.preventDefault();
+      setChoosing(null);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [choosing]);
 
   const idle = useIdle();
   const [fullscreen, toggleFullscreen] = useWindowFullscreen();
@@ -516,7 +596,20 @@ export function MultiviewTab() {
     <div className={"mvtab" + (idle ? " is-idle" : "")}>
       <div className="mvbar">
         <div className={"mvbar__side" + (compact ? " is-compact" : "")} ref={leftRef}>
-          {!blocked && (
+          {choosing && (
+            // In place of the meter and the layout switch while a channel
+            // sent from elsewhere waits for its tile: what to do, and the
+            // way out.
+            <span className="mvchoose" role="status">
+              <span className="mvchoose__words">
+                Pick a tile<span className="mvchoose__for"> for {choosing.label}</span>
+              </span>
+              <button type="button" className="mvchoose__cancel" onClick={() => setChoosing(null)}>
+                Cancel <kbd>Esc</kbd>
+              </button>
+            </span>
+          )}
+          {!blocked && !choosing && (
             <span className="mvmeter" aria-label={meterLine(room)}>
               {dashes > 0 && (
                 <span className="mvmeter__dashes" aria-hidden>
@@ -535,7 +628,7 @@ export function MultiviewTab() {
               </span>
             </span>
           )}
-          {kindsFor(cells).length > 1 && (
+          {kindsFor(cells).length > 1 && !choosing && (
             <div className="mvseg" role="group" aria-label="Layout">
               <button
                 type="button"
@@ -625,6 +718,8 @@ export function MultiviewTab() {
             split={splits[cells]}
             onSplit={chooseSplit}
             onVolumeStep={nudge}
+            choosing={choosing?.label ?? null}
+            onChoose={chooseTile}
             conns={line}
             soundId={soundId}
             volume={vol.volume}

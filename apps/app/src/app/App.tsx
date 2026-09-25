@@ -18,7 +18,7 @@ import { onOnboardingReplay, shouldShowOnboarding } from "./onboardingGate";
 import { LiveScreen } from "../features/live/LiveScreen";
 import { SportsScreen } from "../features/sports/SportsScreen";
 import { MultiviewTab } from "../features/live/MultiviewTab";
-import { onMultiviewRequest, onWatchRequest } from "../features/live/multiviewEntry";
+import { onAddRequest, onMultiviewRequest, onWatchRequest } from "../features/live/multiviewEntry";
 import {
   loadPlaylists,
   onPlaylistsChange,
@@ -184,6 +184,16 @@ export function App() {
   useEffect(
     () =>
       onMultiviewRequest(() => {
+        setSection("live");
+        setLiveTab("multiview");
+      }),
+    [],
+  );
+  // A channel sent to multi-view (the Guide's menu, the player's button) →
+  // the tab, which takes it from the mailbox itself (plan 017, P6b).
+  useEffect(
+    () =>
+      onAddRequest(() => {
         setSection("live");
         setLiveTab("multiview");
       }),

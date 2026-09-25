@@ -140,6 +140,11 @@ async function open(pos) {
       (await page.getByLabel("Sources").count()) === 0 &&
       (await page.getByLabel("Next episode").count()) === 0,
   );
+  // Plan 017, P6b: the game joins multi-view from here, as the Guide's does.
+  check(
+    "and the top right offers Watch in multi-view",
+    (await page.locator(".theater-topright").getByLabel("Watch in multi-view").count()) === 1,
+  );
 
   const live = await page.locator(".theater-live").getAttribute("class");
   check("at the live edge, the LIVE pill is lit", /is-live/.test(live ?? ""), live ?? "");

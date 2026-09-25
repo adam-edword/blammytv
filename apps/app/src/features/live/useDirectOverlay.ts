@@ -53,6 +53,9 @@ export interface DirectOverlayHandlers {
   onFullscreen: () => void;
   onExitFullscreen: () => void;
   onPopout: () => void;
+  /** Live: send the playing channel to multi-view (plan 017, P6b). A host
+   * without one shows no button. */
+  onMultiview?: () => void;
   onToggleFavorite: () => void;
   /** Optional go-live override. Default is mpv's re-loadfile of the same
    * URL — right for Xtream/M3U, WRONG for Stalker, whose play_token is
@@ -352,6 +355,7 @@ export function useDirectOverlay(
   // no host grows or loses one mid-playback, so it is read once and the
   // api object stays the single stable identity the overlay depends on.
   const hasNext = !!handlers.onNextSource;
+  const hasMultiview = !!handlers.onMultiview;
 
   return useMemo<OverlayApi>(() => {
     const sub =
@@ -422,6 +426,8 @@ export function useDirectOverlay(
       fullscreen: () => h.current.onFullscreen(),
       exitFullscreen: () => h.current.onExitFullscreen(),
       popout: () => h.current.onPopout(),
+      // Present only if the host offers it, for the reason nextSource is.
+      multiview: hasMultiview ? () => h.current.onMultiview?.() : undefined,
       toggleFavorite: () => h.current.onToggleFavorite(),
       goLive: () => {
         if (h.current.onGoLive) h.current.onGoLive();
@@ -452,5 +458,5 @@ export function useDirectOverlay(
       getChapters: () => s.chapters,
       onChapters: sub(s.chapterCbs),
     };
-  }, [s, hasNext]);
+  }, [s, hasNext, hasMultiview]);
 }

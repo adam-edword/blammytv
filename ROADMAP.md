@@ -215,7 +215,13 @@ never be a deterrent to building anything." So:
    popout stops as the tab opens, and the first-run notice is a proper
    dialog. v0.9.120: a tile's buttons have the app's tooltips, the wheel
    over the sound tile is its volume, and the tab shows the app's
-   background. P6b (the ways in: Guide, player, game card) is next.
+   background. P6b shipped in v0.9.121: a Guide channel's right-click
+   menu and the player's Watch in multi-view send a channel into the grid
+   you left, with the sound, and a full grid asks which tile it replaces.
+   The game card's way in became an experiment, the Sports theater growing
+   into multi-view: mocked up, not built. Next: the Sports channel pairing
+   (Adam, 2026-09-25: wrong channels, missed ones, junk in the rail, bad
+   feeds and bad confidence scores), measured on his catalog first.
 7. Merge the multi-view branch into `main` (Adam's step: default branch).
 
 ### M2: finish the primitives (plan 014 L1 and L2)

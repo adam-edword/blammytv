@@ -132,6 +132,28 @@ export function removePick(list: Pick[], id: string): Pick[] {
   return list.filter((p) => p.channelId !== id);
 }
 
+/** What a channel sent from elsewhere does to the grid (`arrive`). */
+export type Arrival =
+  | { kind: "here" }
+  | { kind: "add"; picks: Pick[] }
+  | { kind: "full" };
+
+/**
+ * A channel sent from the Guide or the player (plan 017, P6b). It joins the
+ * grid you left rather than replacing it (the grid is remembered on
+ * purpose, M7), and takes the sound either way, so in Focus it is the big
+ * tile. Already there, it only takes the sound. With no room left, the grid
+ * asks which tile it replaces: nothing is dropped without you choosing.
+ * An empty grid always takes it, since there is no tile to choose; a line
+ * that refuses it says so on the tile.
+ */
+export function arrive(list: Pick[], pick: Pick, room: Room): Arrival {
+  if (list.some((p) => p.channelId === pick.channelId)) return { kind: "here" };
+  if (list.length === 0) return { kind: "add", picks: [pick] };
+  if (room.left > 0) return { kind: "add", picks: [...list, pick] };
+  return { kind: "full" };
+}
+
 /**
  * Focus's big spot is the sound tile's (decision M2): choosing a small tile
  * SWAPS it with the big one, so the one it displaces takes its old place

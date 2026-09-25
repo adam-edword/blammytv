@@ -49,6 +49,7 @@ import {
   PauseIcon,
   PlayIcon,
   PopoutIcon,
+  MultiviewIcon,
   RainbowStarIcon,
   SkipBackIcon,
   SkipFwdIcon,
@@ -1497,6 +1498,20 @@ export function TheaterOverlay({
       </div>
 
       <div className="theater-topright" data-interactive>
+        {/* Live, where the host offers it: this channel joins multi-view's
+          * grid and takes the sound (plan 017, P6b). The player stops as
+          * its screen is left, which frees the connection for the grid. */}
+        {!vod && api()?.multiview && (
+          <Button variant="ghost" size="icon"
+            type="button"
+            className="player__btn player__btn--glass"
+            aria-label="Watch in multi-view"
+            title="Watch in multi-view"
+            onClick={() => api()?.multiview?.()}
+          >
+            <MultiviewIcon size={20} />
+          </Button>
+        )}
         <Button variant="ghost" size="icon"
           type="button"
           className="player__btn player__btn--glass"

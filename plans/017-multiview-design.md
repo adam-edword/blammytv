@@ -4,8 +4,10 @@
 layout engine), **P2 in v0.9.107** (the tile), **P3a in v0.9.109** (the
 picker and the line's limits), **P3b in v0.9.111** (live games), **P4a
 in v0.9.116** (sound and keys), **P4b in v0.9.117** (the seam), **P5 in
-v0.9.118** (motion) **and P6a in v0.9.119** (the ways out); P6b, the ways
-in from the Guide, the player and a game card, is next. Decided
+v0.9.118** (motion), **P6a in v0.9.119** (the ways out) **and P6b in
+v0.9.121** (the ways in from the Guide and the player). A game card's way
+in became an experiment instead: the Sports theater growing into
+multi-view (mockups sent 2026-09-25, not built). Decided
 2026-09-24: Adam answered M1 to M9 the same day and added three things:
 the Focus split is resizable,
 multi-view gets its own tab between Guide and Sports, and every tile closes
@@ -328,7 +330,12 @@ dropped quietly.
 **In:** the Multi-view tab itself, and three shortcuts that land on it with
 a channel added:
 - **Sports:** the board's Multi-view button goes to the tab, and a game card
-  gains a "Watch in multi-view" action, which adds that game.
+  gains a "Watch in multi-view" action, which adds that game. *Superseded
+  (Adam, 2026-09-25):* rather than a second target on a card that is one
+  button, the Sports theater grows into multi-view: its Live Scores rail
+  offers each game beside the one playing. Mocked up on the real theater,
+  not built. The theater's player has the Watch in multi-view button below
+  meanwhile.
 - **From the player:** a Multi-view button in the player's top-right, which
   adds the channel you were watching as the first tile (frame E). The main
   player stops first, so its connection is free.
@@ -718,6 +725,37 @@ its own mutation.
 and Close have the app's tooltips instead of the browser's, the sound
 tile's naming R and Delete (the keys act on it). The wheel over the sound
 tile is its volume, and the tab shows the app's background, not `#000`.
+
+**P6b shipped in v0.9.121: the ways in.** Adam's calls (2026-09-25): a
+channel sent from elsewhere JOINS the grid you left and takes the sound,
+rather than starting a fresh one (the grid is remembered on purpose, M7);
+and on a full line YOU PICK the tile it replaces, rather than it quietly
+taking the sound tile's place or being refused.
+- **The Guide:** a channel's right-click menu (shadcn's ContextMenu, the
+  first menu a channel has had) names it and offers Add to multi-view. One
+  menu for the whole guide, since its rows are windowed and memoised; the
+  row under the click says which channel. The menu key works too: WebView2
+  sends it at 0,0, so it is sent again from the row.
+- **The player:** Watch in multi-view, top right, live only, in both the
+  Guide's player and the Sports theater's (which sends the game as a game,
+  so its tile keeps the score). Leaving the screen stops the player, which
+  frees its connection for the grid.
+- **Arriving** (`mvGrid.arrive`, 5 unit tests): already there, it only
+  takes the sound; with room, it joins at the end and takes the sound (so
+  in Focus it is the big tile); full, the bar says "Pick a tile for …" in
+  place of the meter and the layout switch, every tile offers "Swap for
+  …" under the pointer, and a click, Space, Enter or its number swaps it
+  in, in that place, with the sound. Escape lets it go. The tab waits for
+  the line's answer before deciding (3 seconds at most), so a slow panel
+  can't get a fourth stream opened on a line of three.
+- **A P6a bug, found on the way:** Watch in player on any tile but the
+  Guide's first played the first. With no channel to resume, the Guide's
+  "adopt a valid selection" effect, replayed by StrictMode with its
+  mount-time empty id, put the first channel back over the one just asked
+  for. It now reads the current selection. P6a's check had clicked the
+  first channel's tile, so it could not tell.
+
+verify-mventry, 18 checks, and one more in verify-sports-theater.
 
 **Alongside, native (a rebuild):** allow mpegts.js's worker in the CSP so
 transmuxing leaves the main thread (audit perf 6 said this "is native"; the

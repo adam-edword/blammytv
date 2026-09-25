@@ -56,7 +56,7 @@ import { Guide } from "./Guide";
 import { Hero } from "./Hero";
 import type { Channel, LiveData, Programme } from "./model";
 import { loadRecents, recordRecent } from "./recents";
-import { onWatchRequest, takeWatchRequest } from "./multiviewEntry";
+import { onWatchRequest, requestAddToMultiview, takeWatchRequest } from "./multiviewEntry";
 import { loadLive, onLiveRefreshed, peekLive } from "./source";
 import { buildMeta, resolveStreamUrl } from "./stream";
 
@@ -504,7 +504,12 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
       // it was PLAYING, auto-tuning an unrelated channel is a jumpscare:
       // stop instead (hiding the folder you're watching means stop).
       if (playing) setPlaying(false);
-      setChannelId(channels[0].id);
+      // Against the CURRENT selection, not this render's: a channel chosen
+      // in the same commit (a multi-view tile's Watch in player, taken as
+      // the Guide mounts) is valid, and StrictMode's replay of this effect,
+      // still holding the empty mount-time id, would put the first channel
+      // back over it (v0.9.121: the News tile's Watch played ESPN).
+      setChannelId((cur) => (channels.some((c) => c.id === cur) ? cur : channels[0].id));
     }
     if (
       folder &&
@@ -736,6 +741,16 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
       setPlaying(false);
       setTheater(false);
       leaveFullscreen();
+    },
+    // Watch in multi-view (plan 017, P6b): this channel joins the grid and
+    // takes the sound. App flips to the tab, and leaving the Guide stops
+    // this player, which frees its connection for the grid. Out of the
+    // window's full screen first: multi-view has its own (F).
+    onMultiview: () => {
+      const ch = heroChannelRef.current;
+      if (!ch) return;
+      leaveFullscreen();
+      requestAddToMultiview({ channelId: ch.id, label: ch.name });
     },
     onToggleFavorite: () => {
       const id = heroIdRef.current;

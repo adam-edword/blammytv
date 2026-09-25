@@ -9,14 +9,24 @@ import {
   useState,
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { load, save } from "../../lib/storage";
 import {
+  MultiviewIcon,
   RainbowStarIcon,
   StarGhostIcon,
   StarRainbowHollowIcon,
 } from "../../ui/icons";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuLabel,
+  ContextMenuTrigger,
+} from "../../components/ui/context-menu";
+import { requestAddToMultiview } from "./multiviewEntry";
 import { formatClock } from "../../lib/time";
 import {
   loadClockFormat,
@@ -466,6 +476,39 @@ export const Guide = memo(function Guide({
     </span>
   );
 
+  /**
+   * A channel's right-click menu (plan 017, P6b): the first menu a channel
+   * has had. One menu for the whole guide rather than one per row, since
+   * the rows are windowed and memoised: the row under the click says which
+   * channel it is for (`data-channel`). Anywhere else in the guide (the
+   * ruler, the gaps) opens nothing.
+   */
+  const [menuFor, setMenuFor] = useState<Channel | null>(null);
+  const onGuideMenu = (e: ReactMouseEvent<HTMLElement>) => {
+    const row = (e.target as Element).closest<HTMLElement>("[data-channel]");
+    const ch = row && channels.find((c) => c.channel.id === row.dataset.channel)?.channel;
+    if (!row || !ch) {
+      e.preventDefault();
+      return;
+    }
+    // The menu key sends no position (0,0), and the menu opens where the
+    // event says: send it again from the row, where a pointer would be.
+    if (e.clientX === 0 && e.clientY === 0) {
+      e.preventDefault();
+      const r = (e.target as Element).getBoundingClientRect();
+      e.target.dispatchEvent(
+        new MouseEvent("contextmenu", {
+          bubbles: true,
+          cancelable: true,
+          clientX: r.left + 24,
+          clientY: r.top + r.height / 2,
+        }),
+      );
+      return;
+    }
+    setMenuFor(ch);
+  };
+
   return (
     /* The wrapper exists for the resize handle: it must overlay the
      * column/lane boundary WITHOUT riding the horizontal pan, so it hangs
@@ -479,11 +522,14 @@ export const Guide = memo(function Guide({
        * entirely. Per-row mouseleave cleared it in the gap BETWEEN rows,
        * so a quick vertical sweep flashed the hero back to the selected
        * channel between every pair of cards. */}
+      <ContextMenu>
+      <ContextMenuTrigger asChild>
       <div
         className="guide"
         ref={scrollRef}
         onScroll={onScroll}
         onMouseLeave={() => onPreview(null)}
+        onContextMenu={onGuideMenu}
       >
       <div className="guide__canvas" style={{ width: laneX + laneW }}>
         <div className="guide__ruler" style={{ height: RULER_H }}>
@@ -516,6 +562,7 @@ export const Guide = memo(function Guide({
             <div
               key={channel.id}
               className="guide__row"
+              data-channel={channel.id}
               style={{ height: ROW_H + ROW_GAP }}
             >
               <div
@@ -635,6 +682,25 @@ export const Guide = memo(function Guide({
         />
       </div>
       </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="min-w-52">
+        {menuFor && (
+          <>
+            <ContextMenuLabel className="truncate text-xs text-muted-foreground">
+              {menuFor.name}
+            </ContextMenuLabel>
+            <ContextMenuItem
+              onSelect={() =>
+                requestAddToMultiview({ channelId: menuFor.id, label: menuFor.name })
+              }
+            >
+              <MultiviewIcon size={16} />
+              Add to multi-view
+            </ContextMenuItem>
+          </>
+        )}
+      </ContextMenuContent>
+      </ContextMenu>
 
       {/* Drag the channel-card column wider/narrower; double-click resets it
        * to the default width. */}

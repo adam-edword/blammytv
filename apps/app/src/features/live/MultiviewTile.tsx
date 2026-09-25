@@ -169,6 +169,8 @@ export function MultiviewTile({
   onReplace,
   onWatch,
   onVolumeStep,
+  picking,
+  onPick,
   onRetryResolve,
   onDead,
   atCap,
@@ -205,6 +207,12 @@ export function MultiviewTile({
   onWatch: () => void;
   /** The wheel over the sound tile: the bar's volume, up or down a step. */
   onVolumeStep: (step: number) => void;
+  /** A channel sent from elsewhere waits for the tile it replaces (its
+   * name): this tile is then a target, and a click, Space or Enter picks
+   * it rather than taking the sound (plan 017, P6b). A failed tile too:
+   * replacing one is the obvious use for it. */
+  picking?: string | null;
+  onPick?: () => void;
   /** Look the stream up again, after `unresolved`. */
   onRetryResolve: () => void;
   /** Whether it has failed: a failed tile can't take the sound, and the
@@ -538,6 +546,7 @@ export function MultiviewTile({
   // on it, or on where Sound here would be, would leave the grid silent.
   const dead = !!failure || (!url && !!unresolved);
   const takeSound = dead ? () => {} : onFocus;
+  const act = picking && onPick ? onPick : takeSound;
   const onDeadRef = useRef(onDead);
   onDeadRef.current = onDead;
   useEffect(() => onDeadRef.current?.(dead), [dead]);
@@ -563,22 +572,24 @@ export function MultiviewTile({
         "mvtile" +
         (focused ? " is-on" : "") +
         (flash ? " is-flash" : "") +
-        (dead ? " is-failed" : "")
+        (dead ? " is-failed" : "") +
+        (picking ? " is-picking" : "")
       }
       style={style}
       data-mv={mvId}
       role="group"
       tabIndex={0}
-      aria-label={label}
+      aria-label={picking ? `${label}. Swap for ${picking}` : label}
       data-state={dead ? "failed" : !playing ? "tuning" : stalled ? "stalled" : "playing"}
-      onClick={takeSound}
+      onClick={act}
       onKeyDown={(e) => {
         // Space takes the sound. Enter is left to the grid, which fills the
         // window with this tile (plan 017's table) and gives it the sound.
+        // While a tile is being picked, both pick this one.
         if (e.target !== e.currentTarget) return;
-        if (e.key === " ") {
+        if (e.key === " " || (picking && e.key === "Enter")) {
           e.preventDefault();
-          takeSound();
+          act();
         }
       }}
     >
@@ -663,6 +674,11 @@ export function MultiviewTile({
           </div>
         )}
       </div>
+      {picking && (
+        <div className="mvtile__pick" aria-hidden>
+          <span className="mvchip mvtile__pickword">Swap for {picking}</span>
+        </div>
+      )}
     </div>
   );
 }

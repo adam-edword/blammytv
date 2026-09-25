@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  arrive,
   swapToFront,
   stepSound,
   addPick,
@@ -117,6 +118,35 @@ describe("picks", () => {
 
   it("removes by id", () => {
     expect(removePick([pick("a"), pick("b")], "a").map((p) => p.channelId)).toEqual(["b"]);
+  });
+});
+
+describe("arrive", () => {
+  const ids = (a: ReturnType<typeof arrive>) => (a.kind === "add" ? a.picks.map((p) => p.channelId) : a.kind);
+
+  it("joins the grid you left, at the end, while the line has room", () => {
+    expect(ids(arrive([pick("a"), pick("b")], pick("x"), roomOn({ max: 3, active: 2 }, 2, true)))).toEqual([
+      "a",
+      "b",
+      "x",
+    ]);
+  });
+  it("is only the sound when it is already there, full or not", () => {
+    const list = [pick("a"), pick("b"), pick("c")];
+    expect(arrive(list, pick("b"), roomOn({ max: 3, active: 3 }, 3, true)).kind).toBe("here");
+  });
+  it("asks for a tile when the line is full, or at four", () => {
+    const three = [pick("a"), pick("b"), pick("c")];
+    expect(arrive(three, pick("x"), roomOn({ max: 3, active: 3 }, 3, true)).kind).toBe("full");
+    const four = [...three, pick("d")];
+    expect(arrive(four, pick("x"), roomOn(null, 4, true)).kind).toBe("full");
+  });
+  it("counts a stream elsewhere against the room", () => {
+    const two = [pick("a"), pick("b")];
+    expect(arrive(two, pick("x"), roomOn({ max: 3, active: 3 }, 2, true)).kind).toBe("full");
+  });
+  it("always takes it into an empty grid, where there is no tile to choose", () => {
+    expect(ids(arrive([], pick("x"), roomOn({ max: 2, active: 2 }, 0, true)))).toEqual(["x"]);
   });
 });
 

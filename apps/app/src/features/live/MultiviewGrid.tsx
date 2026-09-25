@@ -90,6 +90,8 @@ export function MultiviewGrid({
   split,
   onSplit,
   onVolumeStep,
+  choosing,
+  onChoose,
   conns,
   soundId,
   volume,
@@ -113,6 +115,12 @@ export function MultiviewGrid({
   onSplit: (split: number | null) => void;
   /** The wheel over the sound tile: the bar's volume, a step up or down. */
   onVolumeStep: (step: number) => void;
+  /** A channel sent from elsewhere is waiting for the tile it replaces (its
+   * name), the grid being full when it came (plan 017, P6b). Every tile is
+   * then a target: a click, Space or Enter on one, or its number, picks it.
+   * Nothing else in the grid answers until it is picked or let go. */
+  choosing: string | null;
+  onChoose: (id: string) => void;
   conns: XtreamConnections | null;
   /** The stream with the sound. The tab owns it, so a Replace can hand it
    * on and the grid remembers it between visits. */
@@ -271,13 +279,22 @@ export function MultiviewGrid({
     setFilledAt(cells);
   };
 
-  const keys = useRef({ shown, sound, dead, chooseSound, onReplace, onRemove, seam, box, cells, onSplit, flashTip, fill, fillWith, setFilledAt });
-  keys.current = { shown, sound, dead, chooseSound, onReplace, onRemove, seam, box, cells, onSplit, flashTip, fill, fillWith, setFilledAt };
+  const keys = useRef({ shown, sound, dead, chooseSound, onReplace, onRemove, seam, box, cells, onSplit, flashTip, fill, fillWith, setFilledAt, choosing, onChoose });
+  keys.current = { shown, sound, dead, chooseSound, onReplace, onRemove, seam, box, cells, onSplit, flashTip, fill, fillWith, setFilledAt, choosing, onChoose };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!forMultiview(e)) return;
       const k = keys.current;
       const n = Number(e.key);
+      // Picking a tile for a channel sent from elsewhere: its number picks
+      // it, and nothing else here moves the grid meanwhile.
+      if (k.choosing) {
+        const t = Number.isInteger(n) && n >= 1 && n <= 4 ? k.shown[n - 1] : undefined;
+        if (!t) return;
+        e.preventDefault();
+        k.onChoose(t.id);
+        return;
+      }
       let target: GridStream | undefined;
       if (Number.isInteger(n) && n >= 1 && n <= 4) {
         target = k.shown[n - 1];
@@ -351,6 +368,7 @@ export function MultiviewGrid({
         className={"mvgrid" + (dragSplit !== null ? " is-seam-drag" : "")}
         ref={ref}
         onDoubleClick={(e) => {
+          if (choosing) return;
           const t = e.target as HTMLElement;
           if (t.closest("button, a, [role=separator]")) return;
           const id = t.closest<HTMLElement>("[data-mv^='tile:']")?.dataset.mv?.slice(5);
@@ -391,6 +409,8 @@ export function MultiviewGrid({
                 onRemove={() => close(s.id)}
                 onWatch={() => requestWatchInPlayer(s.id)}
                 onVolumeStep={onVolumeStep}
+                picking={choosing}
+                onPick={() => onChoose(s.id)}
                 onReplace={() => onReplace(s.id, s.name)}
                 onRetryResolve={() => onRetryResolve(s.id)}
                 atCap={atCap}
