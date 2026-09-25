@@ -208,7 +208,10 @@ never be a deterrent to building anything." So:
    mute, the Sound badge follows the real level, and the keyboard table
    works. P4b shipped in v0.9.117: Focus's seam drags, `[` `]` nudge it,
    `\` or a double-click resets it, and it is remembered per count. P5
-   (motion) is next.
+   shipped in v0.9.118: tiles move from where they are drawn when a click
+   changes the layout, arrive from 0.96, leave over their last frame, and
+   nothing done from the keyboard animates. P6 (the ways in and out) is
+   next.
 7. Merge the multi-view branch into `main` (Adam's step: default branch).
 
 ### M2: finish the primitives (plan 014 L1 and L2)

@@ -28,5 +28,7 @@ export function forMultiview(e: KeyboardEvent): boolean {
       if (type !== "range" || SLIDER_KEYS.has(e.key)) return false;
     }
   }
-  return !document.querySelector("[data-slot='dialog-content']");
+  // An OPEN dialog: one fading out after a click has already let go of the
+  // keyboard, and keys pressed in its last 150ms are the grid's again.
+  return !document.querySelector("[data-slot='dialog-content'][data-state='open']");
 }

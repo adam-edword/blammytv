@@ -3,8 +3,8 @@
 **Status: IN PROGRESS. P1 shipped in v0.9.105** (the tab, its bar, the
 layout engine), **P2 in v0.9.107** (the tile), **P3a in v0.9.109** (the
 picker and the line's limits), **P3b in v0.9.111** (live games), **P4a
-in v0.9.116** (sound and keys) **and P4b in v0.9.117** (the seam); P5,
-motion, is next. Decided
+in v0.9.116** (sound and keys), **P4b in v0.9.117** (the seam) **and P5
+in v0.9.118** (motion); P6, the ways in and out, is next. Decided
 2026-09-24: Adam answered M1 to M9 the same day and added three things:
 the Focus split is resizable,
 multi-view gets its own tab between Guide and Sports, and every tile closes
@@ -657,6 +657,30 @@ by its own mutation.
 **P5. Motion.** FLIP on layout changes, the swap into the big spot, enter
 and leave, the picker, reduced motion. Checked in slow motion by eye, and by
 a harness check that a reflow never re-creates a `<video>`.
+
+**P5 shipped in v0.9.118** (`mvMotion.ts`). A change to which tiles there
+are, their order, or Grid and Focus moves every tile from where it is
+DRAWN (read during the render that changes it, transforms and all, so a
+change mid-move starts from wherever the tile had got to), 260ms on the
+strong ease-in-out, captions moving with their tiles without scaling. A
+new tile scales in from 0.96 with a fade (220ms ease-out, 40ms apart when
+several arrive); one closed from its X leaves a stand-in, its last frame,
+that fades out in 150ms while the rest move in. Nothing from the keyboard
+animates: the modality is tracked on every key and pointer press, so 2,
+G, Delete, a row chosen with Enter, and the picker opened with A or shut
+with Escape all happen at once. A resize or a seam drag stops a move in
+flight. Reduced motion fades what moved or arrived and moves nothing. The
+picker takes the plan's timing (0.98, 200ms in, 150ms out) in place of
+the shared Dialog's, through inline variables, because player.css sits
+in a lower cascade layer than the utilities. Watched at a tenth of its
+speed (CDP), the tile swapped into the big spot slid UNDER the one leaving
+it: a growing tile now rides above the rest for the length of its move.
+Two bugs found on the way: closing the sound tile left its id behind, so
+adding that channel back handed it the sound and the big spot; and a
+picker still fading out after a click held the keyboard for its last
+150ms. verify-mvmotion, 19 checks, each caught by its own mutation;
+verify-mvpick's reopen race now closes with a click, since Escape leaves
+no fade to race.
 
 **P6. The ways in and out.** Player, Guide and game-card entries, Watch in
 player (stopping the grid first), fill-the-window, the popout stopped on

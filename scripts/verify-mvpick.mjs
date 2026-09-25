@@ -204,17 +204,22 @@ const tile = (page, name) => page.locator(`.mvtile[aria-label^="${name},"]`);
     JSON.stringify(await names(page)),
   );
 
-  // Escape, then Add straight away. The overlay fades in 150ms and the
-  // picker in 200, and Radix dismisses on the CLICK after an outside press,
-  // so a click in between reopened the picker and the fading one closed it
-  // again (verify-mvtile, 2 runs in 13). The fade is stretched here so the
-  // click lands in it every run.
+  // A click outside, then Add straight away. The overlay fades in 150ms and
+  // the picker in 200, and Radix dismisses on the CLICK after an outside
+  // press, so a click in between reopened the picker and the fading one
+  // closed it again (verify-mvtile, 2 runs in 13). The fade is stretched
+  // here so the click lands in it every run. A pointer's close, since
+  // Escape now shuts it at once (P5: keys never animate) and leaves no
+  // fade to land in.
   const slow = await page.addStyleTag({
     content: ".mvpick[data-state=closed] { animation-duration: 1500ms !important; }",
   });
   await page.locator(".mvtile--empty").click();
   await input(page).waitFor({ timeout: 5000 });
-  await page.keyboard.press("Escape");
+  await page.waitForTimeout(300);
+  await page.mouse.click(20, H - 20);
+  await page.waitForTimeout(100);
+  const fadingThen = await page.locator(".mvpick").count();
   await page.locator(".mvtile--empty").click();
   await page.waitForTimeout(1800);
   // On top, too: the overlay fades first, and remounting it put it over a
@@ -229,9 +234,9 @@ const tile = (page, name) => page.locator(`.mvtile[aria-label^="${name},"]`);
     };
   });
   check(
-    "Escape, then Add while the picker is still fading out: it opens again, on top, focused",
-    (await input(page).isVisible()) && onTop.top && onTop.focused && onTop.pickers === 1,
-    JSON.stringify(onTop),
+    "a click outside, then Add while the picker is still fading out: it opens again, on top, focused",
+    fadingThen === 1 && (await input(page).isVisible()) && onTop.top && onTop.focused && onTop.pickers === 1,
+    JSON.stringify({ fadingThen, ...onTop }),
   );
   await page.keyboard.press("Escape");
   await input(page).waitFor({ state: "detached", timeout: 5000 });

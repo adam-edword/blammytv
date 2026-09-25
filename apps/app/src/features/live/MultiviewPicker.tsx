@@ -1,7 +1,9 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { Autocomplete } from "@base-ui/react/autocomplete";
 import { Dialog, DialogContent, DialogTitle } from "../../components/ui/dialog";
 import { MvLogo } from "./MultiviewTile";
+import { EASE_OUT, lastInputWasKey } from "./mvMotion";
+import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { airing } from "./mvTile";
 import { leftLine, searchChannels, type Pick, type Room } from "./mvGrid";
 import { loadFavorites } from "./favorites";
@@ -98,10 +100,25 @@ export function MultiviewPicker({
    */
   const [wasOpen, setWasOpen] = useState(open);
   const [opening, setOpening] = useState(0);
+  // Opened or closed from the keyboard (A, R, Escape, Enter on a row), it
+  // appears and goes at once (plan 017, "Keyboard"). Decided as it opens or
+  // closes and held, so typing in it does not restart its entrance.
+  const [instant, setInstant] = useState(false);
   if (open !== wasOpen) {
     setWasOpen(open);
+    setInstant(lastInputWasKey());
     if (open) setOpening((n) => n + 1);
   }
+  // Otherwise the plan's timing, not the shared Dialog's: from 0.98 rather
+  // than 0.95, 200ms in on the strong ease-out and 150ms out. Reduced motion
+  // keeps index.css's guard, which zeroes the scale and keeps the fade.
+  const motion: CSSProperties = instant
+    ? { animation: "none" }
+    : ({
+        "--tw-animation-duration": open ? "200ms" : "150ms",
+        "--tw-ease": EASE_OUT,
+        ...(REDUCED_MOTION ? {} : { "--tw-enter-scale": "0.98", "--tw-exit-scale": "0.98" }),
+      } as CSSProperties);
 
   const sections = useMemo((): Section[] => {
     if (!live) return [];
@@ -207,6 +224,7 @@ export function MultiviewPicker({
         showCloseButton={false}
         aria-describedby={undefined}
         className="mvpick top-[96px] translate-y-0 gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-[640px]"
+        style={motion}
       >
         <DialogTitle className="sr-only">{title}</DialogTitle>
         <Autocomplete.Root

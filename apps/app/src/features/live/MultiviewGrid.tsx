@@ -15,6 +15,7 @@ import {
 import { airing } from "./mvTile";
 import { stepSound } from "./mvGrid";
 import { forMultiview } from "./mvKeys";
+import { ghostOf, lastInputWasKey, leave, play, snapshot, stop, type Ghost } from "./mvMotion";
 import { scoreLine } from "./mvGames";
 import type { Fixture } from "../sports/model";
 import type { Programme } from "./model";
@@ -180,6 +181,44 @@ export function MultiviewGrid({
     range && range[1] - range[0] > 1e-6 && layout?.seam && layout.split !== undefined
       ? { ...layout.seam, split: layout.split, range }
       : null;
+  // Motion (P5, mvMotion.ts). A change to which tiles there are, their order
+  // or the layout moves them from where they are drawn, read here, during
+  // the render that changes it, while the screen still shows the old
+  // places. Keys never animate; a resize or a seam drag only stops a move.
+  const structure = `${kind}|${cells}|${shown.map((s) => s.id).join(",")}`;
+  const shownStructure = useRef<string | null>(null);
+  const drawn = useRef<Map<string, DOMRect> | null>(null);
+  if (
+    shownStructure.current !== null &&
+    shownStructure.current !== structure &&
+    !drawn.current &&
+    ref.current
+  ) {
+    drawn.current = snapshot(ref.current);
+  }
+  const placed = `${box?.w}x${box?.h}|${dragSplit ?? split}`;
+  useLayoutEffect(() => {
+    if (ref.current) stop(ref.current);
+  }, [placed]);
+  useLayoutEffect(() => {
+    const was = shownStructure.current;
+    shownStructure.current = structure;
+    const from = drawn.current;
+    drawn.current = null;
+    if (was === null || was === structure || !from || !ref.current) return;
+    if (lastInputWasKey()) stop(ref.current);
+    else play(ref.current, from);
+  }, [structure]);
+
+  // A tile closed from its X fades out over its last frame while the rest
+  // move into its place. From the keyboard (Delete) it just goes.
+  const [ghosts, setGhosts] = useState<Ghost[]>([]);
+  const close = (id: string) => {
+    const g = !lastInputWasKey() && ref.current ? ghostOf(ref.current, id) : null;
+    if (g) setGhosts((was) => [...was, g]);
+    onRemove(id);
+  };
+
   // Always a tile that exists: the one chosen, or the first when that one
   // has gone (closed, or dropped by a smaller grid). Derived, not stored,
   // so there is no frame where every tile is muted.
@@ -261,6 +300,13 @@ export function MultiviewGrid({
         <MultiviewNotice conns={conns} onAccept={() => setNeedsNotice(false)} />
       )}
       <div className={"mvgrid" + (dragSplit !== null ? " is-seam-drag" : "")} ref={ref}>
+        {ghosts.map((g) => (
+          <MvGhost
+            key={g.key}
+            ghost={g}
+            onGone={() => setGhosts((was) => was.filter((x) => x.key !== g.key))}
+          />
+        ))}
         {layout &&
           shown.flatMap((s, i) => {
             const r = layout.tiles[i];
@@ -282,14 +328,15 @@ export function MultiviewGrid({
                 muted={muted}
                 onFocus={() => chooseSound(s)}
                 onDead={(is) => markDead(s.id, is)}
-                onRemove={() => onRemove(s.id)}
+                onRemove={() => close(s.id)}
                 onReplace={() => onReplace(s.id, s.name)}
                 onRetryResolve={() => onRetryResolve(s.id)}
                 atCap={atCap}
                 style={place(r)}
+                mvId={`tile:${s.id}`}
               />,
               // The caption: who it is and what is on, under the picture.
-              <div key={`cap-${s.id}`} className="mvcap" style={under(r)}>
+              <div key={`cap-${s.id}`} className="mvcap" style={under(r)} data-mv={`cap:${s.id}`}>
                 <MvLogo channel={s.channel} size={20} />
                 <span className="mvcap__name">{s.name}</span>
                 {on && (
@@ -317,6 +364,7 @@ export function MultiviewGrid({
               type="button"
               className="mvtile mvtile--empty"
               style={place(r)}
+              data-mv={`tile:empty-${i}`}
               onClick={onAdd}
             >
               <span className="mvadd__plus" aria-hidden>
@@ -417,5 +465,37 @@ export function MultiviewGrid({
         {said}
       </div>
     </>
+  );
+}
+
+/** A closed tile's stand-in, fading out where it was (mvMotion.ghostOf). */
+function MvGhost({ ghost, onGone }: { ghost: Ghost; onGone: () => void }) {
+  const el = useRef<HTMLDivElement>(null);
+  const gone = useRef(onGone);
+  gone.current = onGone;
+  useLayoutEffect(() => {
+    const node = el.current;
+    if (!node) return;
+    if (ghost.frame) node.appendChild(ghost.frame);
+    let live = true;
+    void leave(node).then(() => {
+      if (live) gone.current();
+    });
+    return () => {
+      live = false;
+    };
+  }, [ghost]);
+  return (
+    <div
+      ref={el}
+      className="mvghost"
+      aria-hidden
+      style={{
+        left: Math.round(ghost.box.left),
+        top: Math.round(ghost.box.top),
+        width: Math.round(ghost.box.width),
+        height: Math.round(ghost.box.height),
+      }}
+    />
   );
 }

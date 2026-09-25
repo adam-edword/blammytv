@@ -170,6 +170,7 @@ export function MultiviewTile({
   onDead,
   atCap,
   style,
+  mvId,
 }: {
   /** The stream. Null while the channel's stream is still being looked
    * up; see `unresolved` for when that failed. */
@@ -207,6 +208,8 @@ export function MultiviewTile({
   atCap: boolean;
   /** Where the picture goes, from mvLayout. */
   style?: CSSProperties;
+  /** What the grid's motion knows this tile by (mvMotion.ts). */
+  mvId?: string;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
@@ -537,6 +540,7 @@ export function MultiviewTile({
         (dead ? " is-failed" : "")
       }
       style={style}
+      data-mv={mvId}
       role="group"
       tabIndex={0}
       aria-label={label}

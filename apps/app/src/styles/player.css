@@ -1261,6 +1261,21 @@
   inset: 0;
 }
 
+/* A closed tile's stand-in (plan 017, P5): its last frame, fading out
+ * under the tiles moving into its place. */
+.mvghost {
+  position: absolute;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #111;
+  pointer-events: none;
+}
+.mvghost > canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 /* Focus's seam (plan 017, P4b; frame F). A grab strip over the gap between
  * the big tile and the stack: nothing to see at rest, the col-resize cursor
  * on the way in, and the pill once the pointer is on it or it is moving. */

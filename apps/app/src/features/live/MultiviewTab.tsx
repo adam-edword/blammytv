@@ -618,7 +618,13 @@ export function MultiviewTab() {
             volume={vol.volume}
             muted={vol.muted}
             onSound={setSoundId}
-            onRemove={(id) => setPicks((was) => removePick(was, id))}
+            onRemove={(id) => {
+              setPicks((was) => removePick(was, id));
+              // The sound falls to the first tile left (the grid derives it).
+              // Holding the closed stream's id would hand the sound back,
+              // and Focus's big spot with it, if that channel came back.
+              if (id === soundId) setSoundId(null);
+            }}
             onReplace={(id, name) => setPicker({ kind: "replace", id, name })}
             onRetryResolve={retryResolve}
             onAdd={openAdd}
