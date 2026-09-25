@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { onDay } from "./day";
 import { DEFAULT_LEAGUES, fetchBoard } from "./espn";
-import { CARD_CONFIDENCE, matchEvent, matchGame, preferVisible } from "./matcher";
+import { CARD_CONFIDENCE, clubsOf, matchGame, railFor } from "./matcher";
 import type { Catalog } from "./matcher";
 import { gameTeamKeys } from "./follows";
 import { isFixture, isTournament } from "./model";
@@ -891,20 +891,16 @@ export function withChannels(games: Game[], catalog: Catalog | null): Game[] {
     // tournament listing says "National Bank Open", so both resolve off
     // their broadcasts alone until racing gets its own matcher path (plan
     // 010 #5) and a tournament gets one with it.
-    const named = isFixture(game)
-      ? matchEvent([game.home.name, game.away.name], game.start, catalog)
-      : [];
-    const seen = new Set(named.map((c) => c.id));
-    // preferVisible over the COMBINED list, because the hidden-folder rule
-    // is decided per GAME and not per source. `matchGame` applies it to the
-    // networks it was given, but `matchEvent` never reads `hidden` at all,
-    // so a fixture-named channel from a folder the viewer muted used to walk
-    // straight past the rule and LEAD the card — "Live on 2 channels", no
-    // mention of the hidden folder, tuning the hidden one first.
-    let found = preferVisible([
-      ...named,
-      ...matchGame(game.broadcasts, catalog).filter((c) => !seen.has(c.id)),
-    ]).filter((c) => c.confidence >= CARD_CONFIDENCE);
+    // The theater's rail, and the card counts the sure part of it. The
+    // hidden-folder rule is decided over the COMBINED list (railFor): a
+    // fixture-named channel from a folder the viewer muted used to walk
+    // straight past it and LEAD the card, tuning the hidden one first.
+    let found = railFor(game.broadcasts, catalog, isFixture(game) ? game : undefined).filter(
+      (c) => c.confidence >= CARD_CONFIDENCE,
+    );
+    // A club's own channel is sure for its own game (matcher SCORE.team),
+    // in the curated map's fallback too.
+    const clubs = isFixture(game) ? clubsOf([game.home, game.away]) : undefined;
     /**
      * THE CURATED MAP, and only where the source said NOTHING AT ALL.
      *
@@ -956,7 +952,7 @@ export function withChannels(games: Game[], catalog: Catalog | null): Game[] {
         ),
       ];
       if (presumed.length > 0) {
-        found = matchGame(presumed, catalog).filter(
+        found = matchGame(presumed, catalog, clubs).filter(
           (c) => c.confidence >= CARD_CONFIDENCE,
         );
         presumedOnly = found.length > 0;

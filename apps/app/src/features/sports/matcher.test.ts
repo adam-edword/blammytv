@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CARD_CONFIDENCE,
+  clubsOf,
   matchEvent,
   matchGame,
   matchNetwork,
@@ -414,6 +415,66 @@ describe("against the real corpora", () => {
     for (const name of got) {
       expect(name).not.toMatch(/ESPN\s*(\+|U|News|2)\b/i);
     }
+  });
+});
+
+describe("a club's own channel (2026-09-25)", () => {
+  // Both pairs verbatim from the dump, where they were the right channel at
+  // 40 and 25: under the card's bar, so the card said "couldn't link".
+  const dodgers = clubsOf([
+    { name: "Los Angeles Dodgers", shortName: "Dodgers" },
+    { name: "San Francisco Giants", shortName: "Giants" },
+  ]);
+  const rangers = clubsOf([
+    { name: "Texas Rangers", shortName: "Rangers" },
+    { name: "Houston Astros", shortName: "Astros" },
+  ]);
+
+  it("is sure of a club's channel for a game of that club", () => {
+    const la = matchNetwork("Sportsnet LA", ALL, dodgers);
+    expect(la[0].name).toBe("US: Spectrum SportsNet LA Dodgers");
+    expect(la[0].confidence).toBeGreaterThanOrEqual(CARD_CONFIDENCE);
+    const tex = matchNetwork("Rangers Sports Network", ALL, rangers);
+    expect(tex[0].name).toBe("US: Texas Rangers Sports Network");
+    expect(tex[0].confidence).toBeGreaterThanOrEqual(CARD_CONFIDENCE);
+  });
+
+  it("stays a guess without the game, and for another club's game", () => {
+    expect(matchNetwork("Sportsnet LA", ALL)[0].confidence).toBeLessThan(CARD_CONFIDENCE);
+    // The Lakers' channel, for a Dodgers game on the same owner's network.
+    const lakers = matchNetwork("Spectrum Sports Net", ALL, dodgers).find(
+      (c) => c.name === "US: Spectrum SportsNet Lakers",
+    );
+    expect(lakers!.confidence).toBeLessThan(CARD_CONFIDENCE);
+  });
+
+  it("does not make a regional sports net the national network's, city or not", () => {
+    // NBC Sports Boston for a Celtics game on NBC: Boston is the club's
+    // city, but "Sports" says it is a different network.
+    const celtics = clubsOf([
+      { name: "Boston Celtics", shortName: "Celtics" },
+      { name: "New York Knicks", shortName: "Knicks" },
+    ]);
+    const boston = matchNetwork("NBC", ALL, celtics).find((c) => c.name === "US: NBC Sports Boston");
+    expect(boston!.confidence).toBeLessThan(CARD_CONFIDENCE);
+  });
+});
+
+describe("a network named only by what kind it is (2026-09-25)", () => {
+  it("does not let bare Sportsnet reach every sports network in the dump", () => {
+    const got = matchNetwork("Sportsnet", ALL).map((c) => c.name);
+    // Measured before: 18 matches, 17 of them guesses, among them these.
+    for (const junk of ["US: CBS Sports Network", "US: CBS Sports Golazo Network", "US: Chicago Sports Network CHSN"])
+      expect(got).not.toContain(junk);
+    // Still the network itself, and its own siblings as guesses.
+    expect(got[0]).toBe("CA: Sportsnet 4K");
+    expect(got).toContain("CA: Sportsnet One 4K");
+  });
+
+  it("still meets SportsNet by its expansion when the name says more", () => {
+    // The reason `sportsnet` expands at all: one side writes the network
+    // as a word, the other as two.
+    expect(matchNetwork("Spectrum Sports Net", ALL).length).toBeGreaterThan(0);
   });
 });
 

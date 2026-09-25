@@ -220,6 +220,20 @@ const QUALIFIERS = new Set([
 const isQualifier = (w: string) => /^\d+$/.test(w) || QUALIFIERS.has(w);
 
 /**
+ * Words that say what KIND of channel something is and nothing about which.
+ *
+ * A network named with nothing else is too loose to match loosely. ESPN
+ * writes the Canadian network as bare "Sportsnet", which expands (WORDS) to
+ * "sports network", and every channel with those two words then reached the
+ * rail as a guess: measured against the dump, 17 of them, among them CBS
+ * Sports Network, CBS Sports Golazo Network and Chicago Sports Network. So
+ * a name made only of these has to meet the channel in its own spelling
+ * (`raw` in matchNetwork): "Sportsnet" finds Sportsnet One and SportsNet
+ * Pittsburgh, and no longer finds every sports network there is.
+ */
+const GENERIC = new Set(["sports", "network", "channel", "tv", "television"]);
+
+/**
  * How sure we are, 0 to 100, and where each number comes from.
  *
  * Derived from HOW the match was made rather than invented, so every score
@@ -240,6 +254,16 @@ const SCORE = {
    * the same one. Shown, ranked last, and never counted on a card.
    */
   loose: 40,
+  /**
+   * Agreed, and the words the channel says on top name one of THIS game's
+   * clubs: "Texas Rangers Sports Network" for a Rangers game listed on
+   * "Rangers Sports Network", "Spectrum SportsNet LA Dodgers" for a Dodgers
+   * one on "Sportsnet LA". A team's own channel, for a game of that team, is
+   * as sure as a shelf label. Both pairs came off the dump, where they
+   * scored 40 and 25, under the card's bar: the right channel, reading
+   * "couldn't link".
+   */
+  team: 85,
   /** Deduction when one of OUR expansions was needed to make them meet. */
   aliased: -15,
   /**
@@ -317,6 +341,7 @@ function carries(
   want: Set<string>,
   channel: Set<string>,
   viaAcronym: boolean,
+  clubs?: Clubs,
 ): number {
   if (![...want].every((w) => channel.has(w))) return 0;
   const extras = [...channel].filter((w) => !want.has(w));
@@ -328,7 +353,39 @@ function carries(
   // A lone timezone suffix is the same network an hour later, not a sibling.
   // See FEEDS: one extra only, so a two-word regional brand stays loose.
   if (extras.length === 1 && FEEDS.has(extras[0])) return SCORE.shelf;
+  // This game's own club. Either everything extra is its name ("Texas"
+  // for the Texas Rangers), or the channel carries its nickname among
+  // other words ("Spectrum ... Dodgers": the owner's brand rides along).
+  if (
+    clubs &&
+    (extras.every((w) => NOISE.has(w) || clubs.words.has(w)) ||
+      extras.some((w) => clubs.nicknames.has(w)))
+  )
+    return SCORE.team;
   return SCORE.loose;
+}
+
+/**
+ * The clubs in a game, as the words a channel might name them by.
+ *
+ * `words` is everything in both full names ("texas", "rangers"); an extra
+ * made only of these is the club. `nicknames` is the short names alone
+ * ("dodgers"), which are specific enough to count among other words; a
+ * city is not ("los angeles" is two clubs in every league).
+ */
+export interface Clubs {
+  words: Set<string>;
+  nicknames: Set<string>;
+}
+
+export function clubsOf(teams: { name: string; shortName?: string }[]): Clubs {
+  const words = new Set<string>();
+  const nicknames = new Set<string>();
+  for (const t of teams) {
+    for (const w of tokens(t.name)) words.add(w);
+    if (t.shortName) for (const w of tokens(t.shortName)) nicknames.add(w);
+  }
+  return { words, nicknames };
 }
 
 /**
@@ -342,6 +399,8 @@ function carries(
 interface Entry {
   channel: Tunable;
   ids: Set<string>[];
+  /** The name's own words, before any expansion (GENERIC's rule). */
+  raw: Set<string>;
 }
 
 /**
@@ -362,7 +421,7 @@ export function indexChannels(channels: Tunable[]): Catalog {
   const byToken = new Map<string, Entry[]>();
   for (const channel of channels) {
     const ids = identities(channel.name);
-    const entry: Entry = { channel, ids };
+    const entry: Entry = { channel, ids, raw: new Set(normalize(channel.name).split(" ")) };
     // Union across identities, so a channel is filed once per distinct word
     // however many names it answers to.
     const words = new Set<string>();
@@ -426,9 +485,15 @@ const rank = (q: string | null) => (q ? (QUALITY_RANK[q] ?? 4) : 5);
 export function matchNetwork(
   network: string,
   source: Tunable[] | Catalog,
+  /** The game's clubs, when there is a game: see SCORE.team. */
+  clubs?: Clubs,
 ): Match[] {
   const want = tokens(network);
   if (want.size === 0) return [];
+  // A name that says only what kind of channel it is must meet the channel
+  // in its own spelling, not in our expansion of it. See GENERIC.
+  const raw = normalize(network).split(" ").filter(Boolean);
+  const generic = [...want].every((w) => GENERIC.has(w));
   // Whether our own alias table was needed to get here. That is a claim we
   // made rather than something either side said, so it costs confidence.
   const aliased = normalize(network).split(" ").filter(Boolean).join(" ") !==
@@ -443,10 +508,11 @@ export function matchNetwork(
 
   const out: Match[] = [];
   const seen = new Set<string>();
-  for (const { channel, ids } of candidates ?? []) {
+  for (const { channel, ids, raw: own } of candidates ?? []) {
+    if (generic && !raw.every((w) => own.has(w))) continue;
     let best = 0;
     ids.forEach((id, i) => {
-      best = Math.max(best, carries(want, id, i > 0));
+      best = Math.max(best, carries(want, id, i > 0, clubs));
     });
     if (best === 0) continue;
     const confidence = Math.max(0, best + (aliased ? SCORE.aliased : 0));
@@ -628,16 +694,52 @@ export function preferVisible(matches: Match[]): Match[] {
  * with only MASN visible offers MASN alone: something visible carries it, so
  * the question of hidden folders never arises.
  */
+/**
+ * Every channel of yours for one game, in the order the theater's rail
+ * draws it and autoplay takes its top.
+ *
+ * Channels that name this fixture first, then the networks the schedule
+ * listed (national before regional, matchGame), with hidden folders only
+ * as the per-game fallback over the COMBINED list (preferVisible). The card
+ * counts the sure part of this, the rail shows all of it and the pairing
+ * probe reports it: one function, so the three cannot disagree about which
+ * channels a game has.
+ */
+export function railFor(
+  broadcasts: string[],
+  source: Tunable[] | Catalog,
+  /** The two clubs and the kick-off, for a game that has them. A race or a
+   * tournament resolves off its broadcasts alone. */
+  fixture?: {
+    home: { name: string; shortName?: string };
+    away: { name: string; shortName?: string };
+    start: Date;
+  },
+): Match[] {
+  const catalog = asCatalog(source);
+  const named = fixture
+    ? matchEvent([fixture.home.name, fixture.away.name], fixture.start, catalog)
+    : [];
+  const seen = new Set(named.map((c) => c.id));
+  const clubs = fixture ? clubsOf([fixture.home, fixture.away]) : undefined;
+  return preferVisible([
+    ...named,
+    ...matchGame(broadcasts, catalog, clubs).filter((c) => !seen.has(c.id)),
+  ]);
+}
+
 export function matchGame(
   networks: string[],
   source: Tunable[] | Catalog,
+  /** The game's clubs, so a club's own channel counts as sure. */
+  clubs?: Clubs,
 ): Match[] {
   const catalog = asCatalog(source);
   const seen = new Set<string>();
   const visible: Match[] = [];
   const hidden: Match[] = [];
   for (const network of networks) {
-    for (const c of matchNetwork(network, catalog)) {
+    for (const c of matchNetwork(network, catalog, clubs)) {
       if (seen.has(c.id)) continue;
       seen.add(c.id);
       (c.hidden ? hidden : visible).push(c);

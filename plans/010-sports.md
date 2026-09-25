@@ -1883,6 +1883,47 @@ is currently cheap, and landing it inside a change about hiding games would
 have been smuggling. It wants its own decision, which is whether the fix is
 `groups=50` always, or only once a conference in that league is followed.
 
+#### 51. The pairing, measured on the catalog it fails on [~] v0.9.122
+
+Adam, 2026-09-25, on channel pairing in general: wrong channels, games that
+say none while he has them, junk in the rail, a bad feed picked first, and
+confidence scores that don't mean what they say. Each has a different fix,
+and the container this is written in can't see his 26,000 channels, so
+v0.9.122 is mostly about getting the evidence, plus the two fixes the real
+names already prove.
+
+**The evidence.** The Sports theater logs every feed it puts on and why
+(autoplay, a click, failover after a dead one), whether it played and how
+long the first frame took, which ones died, and which ones he marks wrong
+from a rail row's new right-click menu (`pairingLog.ts`, the last 300
+events, names only). `copy(await btvPairing())` in devtools puts all of it
+on the clipboard with today's rails as the theater builds them, how the
+catalog prefixes its names, and how it names the broadcast networks' local
+affiliates. The rail, the card and the probe now build the list in one
+place (`matcher.railFor`), so the report is what the app does.
+
+**Two fixes, from the dump:**
+- A club's own channel is sure for that club's game: "Texas Rangers Sports
+  Network" for a Rangers game listed on "Rangers Sports Network", "Spectrum
+  SportsNet LA Dodgers" for a Dodgers one on "Sportsnet LA". They scored 40
+  and 25, so their cards said "couldn't link" (`SCORE.team`, 85).
+- A network named only by what kind it is ("Sportsnet", which expands to
+  "sports network") must meet a channel in its own spelling. It reached 17
+  channels as guesses, among them CBS Sports Network and Chicago Sports
+  Network (`GENERIC`). Across the corpus, guess rows went from 40 to 29
+  with nothing lost.
+
+**Also fixed on the way:** Escape to dismiss a rail menu left the theater
+too. The theater's Escape and the player's now leave an Escape a menu took.
+
+**What the report is for, next.** The Sept 13 run showed local affiliates
+named like `AL | Dothan | ABC WDHN`. An NFL Sunday game on CBS or FOX is on
+the affiliates in its two teams' markets, not on `US: FOX East`, which shows
+one game; the catalog's affiliate names say how to find them. The marks
+say which guesses are junk (the NBC Sports regionals under an NBC game are
+the open question: Adam's earlier rule kept them for failover). The log
+says whether autoplay's 4K-first pick is the one that dies.
+
 ---
 
 ## Shipped, and off the list

@@ -59,9 +59,10 @@ installPlayerPerf();
 // Same reasoning as above: compiled into every build, because a probe you
 // have to make a special build for is one nobody runs.
 installDiscoverProbe();
-// `btvSports()` / `btvChannels("abc")` in the devtools console. The sports
-// matcher is measured against a sports-folders-only dump, so the container
-// it is written in cannot see the catalog it fails on; see probe.ts.
+// `btvSports()` / `btvChannels("abc")` / `copy(await btvPairing())` in the
+// devtools console. The sports matcher is measured against a
+// sports-folders-only dump, so the container it is written in cannot see
+// the catalog it fails on; see probe.ts.
 installSportsProbe();
 // `btvMultiview()` in the devtools console. Plan 013: whether a web-based
 // multiview needs a Rust proxy comes down to whether the panel sends CORS

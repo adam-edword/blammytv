@@ -2092,6 +2092,22 @@
   color: rgba(var(--card-ink), 0.75);
   flex: 0 0 auto;
 }
+/* A row marked wrong for this game from its right-click menu (pairingLog).
+ * Said in words beside the name, in the badge's shape, and the row dims a
+ * little: still playable, since a mark is evidence, not a verdict. */
+.sportsrail__wrong {
+  padding: 2px 7px;
+  border-radius: 100px;
+  background: color-mix(in srgb, var(--danger) 18%, transparent);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--danger-text);
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.sportsrail.is-wrong .sportsrail__name {
+  opacity: 0.6;
+}
 .sportsrail__score {
   /* The number sits ON the bar, not beside it (Adam's Figma). Stacked
    * rather than side by side: two things reading one measurement should

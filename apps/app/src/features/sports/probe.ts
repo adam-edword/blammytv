@@ -5,13 +5,15 @@ import { isFixture } from "./model";
 import {
   CARD_CONFIDENCE,
   indexChannels,
-  matchEvent,
-  matchGame,
   matchNetwork,
   normalize,
+  railFor,
+  tokens,
   type Catalog,
   type Tunable,
 } from "./matcher";
+import { loadPairingLog } from "./pairingLog";
+import { APP_VERSION } from "../../lib/version";
 
 /**
  * Console probes for the sports channel matcher.
@@ -49,6 +51,7 @@ import {
 
 interface Probes {
   btvSports?: (...paths: string[]) => Promise<void>;
+  btvPairing?: (...paths: string[]) => Promise<unknown>;
   btvChannels?: (query: string) => void;
 }
 
@@ -161,14 +164,7 @@ export function installSportsProbe(): void {
       let railOnly = 0;
       let nothing = 0;
       for (const g of games) {
-        const named = isFixture(g)
-          ? matchEvent([g.home.name, g.away.name], g.start, catalog)
-          : [];
-        const seen = new Set(named.map((c) => c.id));
-        const found = [
-          ...named,
-          ...matchGame(g.broadcasts, catalog).filter((c) => !seen.has(c.id)),
-        ];
+        const found = railFor(g.broadcasts, catalog, isFixture(g) ? g : undefined);
         if (found.some((c) => c.confidence >= CARD_CONFIDENCE)) carded++;
         else if (found.length > 0) railOnly++;
         else nothing++;
@@ -183,6 +179,98 @@ export function installSportsProbe(): void {
     } catch (e) {
       console.error("[sports] probe failed:", e);
     }
+  };
+
+  /**
+   * EVERYTHING the pairing needs, as one object to paste back:
+   *
+   *   copy(await btvPairing())
+   *
+   * `copy` is the devtools console's own. Today's board (what you follow,
+   * or the leagues named, as btvSports), each game's rail exactly as the
+   * theater builds it (railFor), what its card counts and what autoplay
+   * would put on; how the catalog spells channels (its prefixes, with a
+   * few names each, and how it names the local affiliates of the broadcast
+   * networks, which NFL Sundays turn on); and the pairing log from the
+   * theater: every feed put on and why, whether it played, which died, and
+   * which were marked wrong (pairingLog.ts).
+   *
+   * Names only, like everything here.
+   */
+  w.btvPairing = async (...paths: string[]) => {
+    if (!peekLive()) await loadLive(new Date());
+    const all = tunables();
+    if (!all) {
+      console.warn("[sports] no playlist loaded, so there is nothing to match against");
+      return null;
+    }
+    const catalog = indexChannels(all);
+    const want = paths.length > 0 ? paths : fetchList(loadFollows());
+    const games = await fetchGames(want);
+
+    // How names are prefixed ("US:", "AL |"), with a few of each.
+    const prefixes = new Map<string, { n: number; eg: string[] }>();
+    for (const c of all) {
+      const p = /^([^:|]{1,24}?)\s*[:|]/.exec(c.name)?.[1].trim() ?? "(none)";
+      const got = prefixes.get(p) ?? { n: 0, eg: [] };
+      got.n++;
+      if (got.eg.length < 3) got.eg.push(c.name);
+      prefixes.set(p, got);
+    }
+    // The broadcast networks' local stations, however the catalog writes
+    // them: a regional NFL game is on the affiliates in its teams' markets.
+    const affiliates: Record<string, { n: number; names: string[] }> = {};
+    for (const net of ["ABC", "CBS", "FOX", "NBC", "CW"]) {
+      const word = net.toLowerCase();
+      const got = all.filter((c) => tokens(c.name).has(word));
+      affiliates[net] = { n: got.length, names: got.slice(0, 60).map((c) => c.name) };
+    }
+
+    const report = {
+      v: 1,
+      at: new Date().toISOString(),
+      app: APP_VERSION,
+      catalog: {
+        channels: all.length,
+        hidden: all.filter((c) => c.hidden).length,
+        prefixes: [...prefixes]
+          .sort((a, b) => b[1].n - a[1].n)
+          .slice(0, 40)
+          .map(([p, { n, eg }]) => ({ p, n, eg })),
+      },
+      affiliates,
+      games: games.map((g) => {
+        const rail = railFor(g.broadcasts, catalog, isFixture(g) ? g : undefined);
+        const card = rail.filter((c) => c.confidence >= CARD_CONFIDENCE).length;
+        return {
+          league: g.leagueKey,
+          state: g.state,
+          status: g.status,
+          start: g.start.toISOString(),
+          ...(isFixture(g)
+            ? {
+                home: [g.home.name, g.home.shortName ?? null, g.home.abbr],
+                away: [g.away.name, g.away.shortName ?? null, g.away.abbr],
+              }
+            : { title: "title" in g ? g.title : null }),
+          broadcasts: g.broadcasts,
+          // [name, confidence, quality, hidden]: the rail, top first.
+          rail: rail.slice(0, 12).map((c) => [c.name, c.confidence, c.quality, c.hidden ? 1 : 0]),
+          more: Math.max(0, rail.length - 12),
+          card,
+          // Nothing sure: what the catalog has that shares a word.
+          near: card === 0 ? g.broadcasts.map((b) => [b, nearby(all, b)]) : undefined,
+        };
+      }),
+      log: loadPairingLog(),
+    };
+    const carded = report.games.filter((g) => g.card > 0).length;
+    console.info(
+      `[sports] ${report.games.length} games: ${carded} with a channel on the card, ` +
+        `${report.games.length - carded} without. ${report.log.length} logged events. ` +
+        `copy(await btvPairing()) puts all of it on the clipboard.`,
+    );
+    return report;
   };
 
   /**

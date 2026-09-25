@@ -219,9 +219,15 @@ never be a deterrent to building anything." So:
    menu and the player's Watch in multi-view send a channel into the grid
    you left, with the sound, and a full grid asks which tile it replaces.
    The game card's way in became an experiment, the Sports theater growing
-   into multi-view: mocked up, not built. Next: the Sports channel pairing
+   into multi-view: mocked up, not built. The Sports channel pairing
    (Adam, 2026-09-25: wrong channels, missed ones, junk in the rail, bad
-   feeds and bad confidence scores), measured on his catalog first.
+   feeds and bad confidence scores) started in v0.9.122 with the evidence:
+   the theater logs every feed and why, a rail row can be marked wrong,
+   and `copy(await btvPairing())` hands it all back; plus two fixes the
+   real names prove (a club's own channel is sure, bare "Sportsnet" stops
+   reaching every sports network). Next, from his report: NFL affiliates
+   by market, the junk policy, and which feed autoplay picks (plan 010,
+   #51).
 7. Merge the multi-view branch into `main` (Adam's step: default branch).
 
 ### M2: finish the primitives (plan 014 L1 and L2)

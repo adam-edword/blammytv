@@ -1373,6 +1373,10 @@ export function TheaterOverlay({
       const el = e.target as HTMLElement | null;
       const tag = el?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || el?.isContentEditable) return;
+      // An Escape a menu or dialog already took (Radix dismisses on it and
+      // marks the event) closed that, not the player: the Sports rail's
+      // right-click menu, dismissed, used to leave the theater with it.
+      if (e.key === "Escape" && e.defaultPrevented) return;
       if (
         tag === "BUTTON" &&
         (e.key === " " || e.key === "Enter" || e.key.startsWith("Arrow"))

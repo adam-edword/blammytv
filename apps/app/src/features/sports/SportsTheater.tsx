@@ -28,11 +28,19 @@ import { requestAddToMultiview } from "../live/multiviewEntry";
 import { gameLabel } from "../live/mvGames";
 import { loadFavorites, toggleFavorite } from "../live/favorites";
 import { Hint } from "../../ui/Hint";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuLabel,
+  ContextMenuTrigger,
+} from "../../components/ui/context-menu";
 import { Matchup } from "./Matchup";
 import { CompactCard } from "./CompactCard";
 import { autoPlay, nextSource } from "./autoplay";
 import { tunedChannel } from "./catalog";
-import { matchEvent, matchGame, preferVisible } from "./matcher";
+import { railFor } from "./matcher";
+import { logPairing } from "./pairingLog";
 import type { Catalog, Match } from "./matcher";
 import type { Fixture, Game } from "./model";
 
@@ -84,25 +92,13 @@ export function SportsTheater({
   onOpen: (game: Game) => void;
   onClose: () => void;
 }) {
-  const matches = useMemo(() => {
-    if (!catalog) return [];
-    // Channels naming this exact fixture first, then whatever carries the
-    // networks the schedule listed. Same order the card counts them in.
-    const named = matchEvent(
-      [game.home.name, game.away.name],
-      game.start,
-      catalog,
-    );
-    const seen = new Set(named.map((c) => c.id));
-    // Through the same per-game hidden-folder rule the card uses. The rail
-    // shows more than the card does, but "a folder you muted only appears
-    // when nothing visible carries this" is a rule about the GAME, so the
-    // two surfaces must not disagree about which channels exist.
-    return preferVisible([
-      ...named,
-      ...matchGame(game.broadcasts, catalog).filter((c) => !seen.has(c.id)),
-    ]);
-  }, [game, catalog]);
+  // Channels naming this exact fixture first, then whatever carries the
+  // networks the schedule listed: the same list the card counts the sure
+  // part of (matcher.railFor).
+  const matches = useMemo(
+    () => (catalog ? railFor(game.broadcasts, catalog, game) : []),
+    [game, catalog],
+  );
 
   /**
    * The other live games, by league, in the order their first one started.
@@ -175,7 +171,14 @@ export function SportsTheater({
    * its own, so overlapping requests for one row are the designed path.
    */
   const want = useRef(0);
-  const tune = useCallback((channel: Match) => {
+  // For the pairing log (pairingLog.ts): which game, where the feed sat in
+  // the rail, and the tune still waiting for its first frame. Refs, because
+  // tune is stable and read long after the render that made it.
+  const gameName = `${game.away.name} at ${game.home.name}`;
+  const gameNameRef = useRef(gameName);
+  gameNameRef.current = gameName;
+  const waiting = useRef<{ channel: string; at: number } | null>(null);
+  const tune = useCallback((channel: Match, how: "auto" | "hand" | "failover") => {
     // The Channel, not the Tunable: the matcher's type carries no stream
     // credentials, deliberately. Null means the catalog moved under the
     // rail, which is exactly when not to play something.
@@ -185,6 +188,17 @@ export function SportsTheater({
     // in flight for a different row.
     if (!real) return;
     const gen = ++want.current;
+    logPairing({
+      t: Date.now(),
+      kind: "tune",
+      game: gameNameRef.current,
+      channel: channel.name,
+      quality: channel.quality,
+      confidence: channel.confidence,
+      rank: railRef.current.findIndex((m) => m.id === channel.id),
+      how,
+    });
+    waiting.current = { channel: channel.name, at: performance.now() };
     void resolveStreamUrl(real).then(
       (url) => {
         // Checked after the await, which is the only place it means
@@ -225,13 +239,36 @@ export function SportsTheater({
    */
   const railRef = useRef(matches);
   railRef.current = matches;
+  /**
+   * Rows marked wrong for this game from the rail's right-click menu. For
+   * the pairing log only: nothing is reordered on the strength of a mark
+   * until the marks have been read (pairingLog.ts).
+   */
+  const [wrong, setWrong] = useState<ReadonlySet<string>>(new Set());
+  const [wrongFor, setWrongFor] = useState(game.id);
+  if (wrongFor !== game.id) {
+    setWrongFor(game.id);
+    setWrong(new Set());
+  }
+  const markWrong = (c: Match) => {
+    setWrong((was) => new Set(was).add(c.id));
+    logPairing({
+      t: Date.now(),
+      kind: "wrong",
+      game: gameName,
+      channel: c.name,
+      confidence: c.confidence,
+      rank: matches.findIndex((m) => m.id === c.id),
+    });
+  };
   const failover = useCallback(() => {
     const t = tunedRef.current;
     if (!t) return;
+    logPairing({ t: Date.now(), kind: "dead", game: gameNameRef.current, channel: t.name });
     const next = nextSource(railRef.current, t.id);
     // End of the rail: nothing left to try, so let the overlay's dead card
     // stand rather than starting the same walk over.
-    if (next) tune(next);
+    if (next) tune(next, "failover");
   }, [tune]);
 
   /**
@@ -272,7 +309,7 @@ export function SportsTheater({
     const pick = autoPlay(game, matches, armed.current);
     if (!pick) return;
     armed.current = game.id;
-    tune(pick);
+    tune(pick, "auto");
   }, [game, matches, tune, stop]);
 
   const meta = useMemo<TheaterMeta | null>(
@@ -394,7 +431,25 @@ export function SportsTheater({
   // First-frame gate for the shell hole (see InvertedPlayer.ready): true
   // re-arms on every tune, false on mpv's first presented frame.
   const [videoReady, setVideoReady] = useState(false);
-  useEffect(() => directApi.onLoading((v) => setVideoReady(!v)), [directApi]);
+  useEffect(
+    () =>
+      directApi.onLoading((v) => {
+        setVideoReady(!v);
+        // The first frame of the feed last put on: it played, and this long
+        // after it was asked for (pairingLog).
+        const w = waiting.current;
+        if (v || !w) return;
+        waiting.current = null;
+        logPairing({
+          t: Date.now(),
+          kind: "played",
+          game: gameNameRef.current,
+          channel: w.channel,
+          ms: Math.round(performance.now() - w.at),
+        });
+      }),
+    [directApi],
+  );
   // Must be set before TheaterOverlay renders: its state initializers read
   // the api synchronously. Idempotent, so the render-path call is safe.
   if (isTauri() && tuned) setOverlayApiOverride(directApi);
@@ -454,6 +509,9 @@ export function SportsTheater({
       if (e.key !== "Escape") return;
       // Settings or Themes is over this screen and owns the key.
       if (isModalOpen()) return;
+      // So does a menu: the rail's right-click menu, dismissed with Escape,
+      // used to leave the theater too. Radix marks the Escape it takes.
+      if (e.defaultPrevented) return;
       if (!isTauri()) {
         onClose();
         return;
@@ -564,7 +622,9 @@ export function SportsTheater({
                 key={c.id}
                 channel={c}
                 on={tuned?.id === c.id}
-                onPlay={tune}
+                onPlay={(ch) => tune(ch, "hand")}
+                wrong={wrong.has(c.id)}
+                onWrong={markWrong}
               />
             ))
           ) : (
@@ -663,11 +723,16 @@ function Rail({
   channel,
   on,
   onPlay,
+  wrong,
+  onWrong,
 }: {
   channel: Match;
   /** This row is the one playing. */
   on: boolean;
   onPlay: (channel: Match) => void;
+  /** Marked wrong for this game, from its right-click menu. */
+  wrong: boolean;
+  onWrong: (channel: Match) => void;
 }) {
   const band =
     channel.confidence >= 85
@@ -676,9 +741,13 @@ function Rail({
         ? "likely"
         : "doubt";
   return (
+    // Right-click to say this is not the game (pairingLog.ts). The menu is
+    // the same shadcn one the Guide's channels use.
+    <ContextMenu>
+    <ContextMenuTrigger asChild>
     <button
       type="button"
-      className={"sportsrail" + (on ? " is-on" : "")}
+      className={"sportsrail" + (on ? " is-on" : "") + (wrong ? " is-wrong" : "")}
       title={channel.name}
       // Which row is playing was carried by a CSS class alone, so the
       // accessible name was identical playing or not. Same shape the
@@ -696,6 +765,7 @@ function Rail({
           />
         )}
         <span className="sportsrail__name">{channel.name}</span>
+        {wrong && <span className="sportsrail__wrong">Marked wrong</span>}
         {channel.quality && (
           <span className="sportsrail__badge">{channel.quality}</span>
         )}
@@ -713,6 +783,16 @@ function Rail({
         </span>
       </Lean>
     </button>
+    </ContextMenuTrigger>
+    <ContextMenuContent className="min-w-56">
+      <ContextMenuLabel className="truncate text-xs text-muted-foreground">
+        {channel.name}
+      </ContextMenuLabel>
+      <ContextMenuItem disabled={wrong} onSelect={() => onWrong(channel)}>
+        {wrong ? "Marked wrong for this game" : "Wrong channel for this game"}
+      </ContextMenuItem>
+    </ContextMenuContent>
+    </ContextMenu>
   );
 }
 
