@@ -13,8 +13,10 @@
   /* ---- Fonts (bundled from the app: Geist, the variable cut) ---------- */
   /* Same files the app ships (@fontsource-variable/geist and geist-mono,
    * latin subset). One file carries the whole 100-900 weight axis. */
+  /* ?v=2: a request made before the first deploy left Cloudflare holding a
+   * 404 for the bare URL (max-age 14400). The query string is a new key. */
   @font-face { font-family: "Geist"; font-weight: 100 900; font-style: normal; font-display: swap;
-    src: url("assets/geist-latin-wght-normal.woff2") format("woff2-variations"); }
+    src: url("assets/geist-latin-wght-normal.woff2?v=2") format("woff2-variations"); }
   @font-face { font-family: "Geist Mono"; font-weight: 100 900; font-style: normal; font-display: swap;
     src: url("assets/geist-mono-latin-wght-normal.woff2") format("woff2-variations"); }
 
