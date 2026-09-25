@@ -22,6 +22,10 @@
 // for mpegts.isSupported(). What is asserted is where the bytes come from,
 // not that they decode.
 //
+// v0.9.112: a webview that can't play HEVC (WebView2 without Windows' HEVC
+// extension, Adam's) asks the proxy to convert it (mvconvert.rs, tested
+// there against a real ffmpeg); one that can, doesn't.
+//
 //   node scripts/fake-panel.mjs   # :8081
 //   PW_FROM=<dir-with-node_modules>/x.js node scripts/verify-mvproxy.mjs
 import http from "node:http";
@@ -58,8 +62,9 @@ const PORT = proxy.address().port;
 
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 
-/** The app under the IPC stub; `proxyMode` "missing" plays an old build. */
-async function open(proxyMode) {
+/** The app under the IPC stub; `proxyMode` "missing" plays an old build.
+ * `hevc`: whether this webview says it can play HEVC. */
+async function open(proxyMode, hevc = true) {
   const ctx = await browser.newContext({ viewport: { width: 1600, height: 900 } });
   // Offline, as the dev container always is (CLAUDE.md).
   await ctx.route(/\.espn(cdn)?\.com\/|strem\.io/, (r) => r.abort());
@@ -69,8 +74,8 @@ async function open(proxyMode) {
   const requested = [];
   page.on("request", (r) => requested.push(r.url()));
   await page.addInitScript(
-    ({ port, mode }) => {
-      MediaSource.isTypeSupported = () => true;
+    ({ port, mode, hevc }) => {
+      MediaSource.isTypeSupported = (m) => hevc || !/hvc1|hev1/.test(m);
       window.__calls = [];
       let cb = 0;
       let n = 0;
@@ -88,7 +93,7 @@ async function open(proxyMode) {
         invoke: (cmd, args) => {
           if (cmd === "http_get") return fetch(args.url).then((r) => r.arrayBuffer());
           if (cmd === "mv_proxy_open") {
-            window.__calls.push([cmd, args.url]);
+            window.__calls.push([cmd, args.url, args.convertHevc]);
             if (mode === "missing")
               return Promise.reject(new Error("command mv_proxy_open not found"));
             return Promise.resolve(`http://127.0.0.1:${port}/mv/tok${++n}`);
@@ -119,7 +124,7 @@ async function open(proxyMode) {
         }),
       );
     },
-    { port: PORT, mode: proxyMode },
+    { port: PORT, mode: proxyMode, hevc },
   );
   await page.goto(URL, { waitUntil: "domcontentloaded" });
   // Its own tab since plan 017, between Guide and Sports.
@@ -150,6 +155,11 @@ const direct = (urls) => urls.filter((u) => u.startsWith("http://localhost:8081/
     JSON.stringify(opened.map(([, u]) => u.replace(/\/live\/.*$/, "/live/…"))),
   );
   check("and reads from the loopback URL it got back", hits.includes("/mv/tok1"), JSON.stringify(hits));
+  check(
+    "a webview that plays HEVC does not ask for it to be converted",
+    opened[0]?.[2] === false,
+    JSON.stringify(opened[0]?.[2]),
+  );
   check(
     "never from the provider directly",
     direct(requested).length === 0,
@@ -199,6 +209,20 @@ const direct = (urls) => urls.filter((u) => u.startsWith("http://localhost:8081/
   );
   check("and the connection to it closes", closed >= 2, `${closed} closed`);
   check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
+  await ctx.close();
+}
+
+{
+  const { page, ctx } = await open("present", false);
+  await page.waitForFunction(() => window.__calls.some(([c]) => c === "mv_proxy_open"), null, {
+    timeout: 10_000,
+  }).catch(() => {});
+  const opened = (await calls(page)).filter(([c]) => c === "mv_proxy_open");
+  check(
+    "one that can't play HEVC asks the proxy to convert it",
+    opened.length === 1 && opened[0][2] === true,
+    JSON.stringify(opened.map(([, , h]) => h)),
+  );
   await ctx.close();
 }
 

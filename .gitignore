@@ -28,6 +28,8 @@ dist-ssr/
 
 # libmpv runtime DLL (place locally for tauri build; not committed)
 **/src-tauri/*.dll
+# ffmpeg for multi-view's HEVC conversion (scripts/fetch-ffmpeg.mjs)
+**/src-tauri/ffmpeg.exe
 /libmpv-2.dll
 website/landing.html
 
@@ -44,3 +46,7 @@ undefined/
 
 # Harness screenshots (scripts/verify-all.mjs)
 .verify-shots/
+
+# The stream proxy host test crate (scripts/mvproxy-host)
+scripts/mvproxy-host/target/
+scripts/mvproxy-host/Cargo.lock

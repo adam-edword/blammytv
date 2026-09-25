@@ -206,14 +206,18 @@ env vars, and puts the `.sig` on the clipboard. Steps 0 (libmpv refresh),
 1 (version bump) and 3+ (publish) still apply.
 
 
-0. **Refresh the bundled libmpv** (the installer ships
-   `apps/app/src-tauri/libmpv-2.dll` via `tauri.windows.conf.json`; the DLL
-   is gitignored, so each release machine keeps its own copy current):
+0. **Refresh the bundled libmpv and ffmpeg** (the installer ships
+   `apps/app/src-tauri/libmpv-2.dll` and `ffmpeg.exe` via
+   `tauri.windows.conf.json`; both are gitignored, so each release machine
+   keeps its own copies current):
    ```powershell
    node scripts/fetch-libmpv.mjs   # needs 7-Zip; prints manual steps if not
+   node scripts/fetch-ffmpeg.mjs   # multi-view's HEVC conversion (v0.9.112)
    ```
    The app degrades gracefully on older mpv builds (e.g. the settings-glass
    frost needs gpu-next; without it the card goes solid), but ship current.
+   Without ffmpeg.exe the build refuses to run; with an empty one, an HEVC
+   tile says it couldn't convert.
 
 1. **Bump the version** in all SIX spots (they must agree: the updater compares
    against `tauri.conf.json`):

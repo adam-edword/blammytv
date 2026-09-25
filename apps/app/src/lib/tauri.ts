@@ -135,9 +135,12 @@ export function tauriMpvDiag(): Promise<Record<string, string>> {
 /** Multi-view: a loopback URL that serves `url` with a CORS header (the
  * native stream proxy, mvproxy.rs). The URL it returns carries a random
  * token, not the provider's credentials. Rejects on a native build that
- * predates the proxy, which the caller treats as "play it directly". */
-export function tauriMvProxyOpen(url: string): Promise<string> {
-  return invoke<string>("mv_proxy_open", { url });
+ * predates the proxy, which the caller treats as "play it directly".
+ * `convertHevc`: this webview can't play HEVC, so the proxy converts an
+ * HEVC stream to H.264 (mvconvert.rs). A native build from before that
+ * ignores it and the tile says it needs the main player, as it did. */
+export function tauriMvProxyOpen(url: string, convertHevc = false): Promise<string> {
+  return invoke<string>("mv_proxy_open", { url, convertHevc });
 }
 /** Forget a URL `tauriMvProxyOpen` returned. */
 export function tauriMvProxyClose(local: string): Promise<void> {

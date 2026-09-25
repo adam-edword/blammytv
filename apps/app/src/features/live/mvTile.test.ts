@@ -48,6 +48,17 @@ describe("explainFailure", () => {
     expect(f.reason).toMatch(/redirecting/);
   });
 
+  it("says a conversion that failed is one, and that a retry may help", () => {
+    // mvconvert.rs's reasons: ffmpeg's own last line, or its silence.
+    for (const cause of ["pipe:0: Invalid data found when processing input", "ffmpeg produced nothing for 20 seconds"]) {
+      const f = explainFailure("GAME PASS 1", { code: 502, statusText: `Bad Gateway: can't convert HEVC: ${cause}` });
+      expect(f.kind).toBe("decode");
+      expect(f.title).toBe("Couldn’t convert this one");
+      expect(f.reason).toMatch(/HEVC/);
+      expect(f.retry).toBe(true);
+    }
+  });
+
   it("treats the provider's own 502 as a refusal, not the proxy's", () => {
     const f = explainFailure("CN", { code: 502, statusText: "Bad Gateway" });
     expect(f.kind).toBe("refused");

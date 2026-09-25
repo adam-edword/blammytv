@@ -18,6 +18,7 @@ import {
   airing,
   behindLabel,
   explainFailure,
+  HEVC_MIME,
   unplayable,
   type Failure,
   type FailureFacts,
@@ -332,7 +333,10 @@ export function MultiviewTile({
         // tile then tries the stream directly, as it always did.
         let proxied = "";
         if (isTauri()) {
-          proxied = await tauriMvProxyOpen(url).catch(() => "");
+          // Asked for HEVC conversion only when this webview can't play
+          // it: with Windows' HEVC extension installed it plays as it is.
+          const convertHevc = !MediaSource.isTypeSupported(HEVC_MIME);
+          proxied = await tauriMvProxyOpen(url, convertHevc).catch(() => "");
           if (disposed) {
             if (proxied) void tauriMvProxyClose(proxied).catch(() => {});
             return;

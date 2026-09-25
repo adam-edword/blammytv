@@ -54,7 +54,8 @@ hyper = { version = "1", features = ["server", "http1"] }
 hyper-util = { version = "0.1", features = ["tokio"] }
 http-body-util = "0.1"
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
-tokio = { version = "1", features = ["net", "rt-multi-thread", "time"] }
+# process, io-util and sync: mvconvert.rs runs ffmpeg for an HEVC tile.
+tokio = { version = "1", features = ["net", "rt-multi-thread", "time", "process", "io-util", "sync"] }
 getrandom = "0.3"
 # All three are ALREADY compiled into the tree via tauri-plugin-updater, so
 # these direct deps cost no new download. frontend.rs verifies a staged

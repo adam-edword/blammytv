@@ -25,6 +25,11 @@
 //!   upstream response goes with it: a closed tile must hand its provider
 //!   connection back at once, because the line's cap counts it (Adam's is 3).
 //!
+//! HEVC IS CONVERTED HERE, when the tile asks (mvconvert.rs). The webview
+//! cannot decode it without a Store package; the first packets say whether
+//! a stream is HEVC, and if so ffmpeg turns it into H.264 on the way
+//! through. Still one provider connection per tile.
+//!
 //! NEVER LOGS A PATH OR QUERY. Xtream live URLs carry the username and
 //! password in the path; only the origin is printed, as in http_get.
 
@@ -33,7 +38,7 @@ use std::convert::Infallible;
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
-use futures_util::stream;
+use futures_util::{stream, StreamExt};
 use http_body_util::{combinators::BoxBody, BodyExt, Empty, StreamBody};
 use hyper::body::{Bytes, Frame, Incoming};
 use hyper::header::{self, HeaderValue};
@@ -41,9 +46,20 @@ use hyper::{Method, Request, Response, StatusCode};
 
 type Body = BoxBody<Bytes, std::io::Error>;
 
+use crate::mvconvert::{self, Sniff};
+
 struct Proxy {
     port: u16,
-    routes: Mutex<HashMap<String, String>>,
+    routes: Mutex<HashMap<String, Route>>,
+}
+
+/// What a token stands for.
+#[derive(Clone)]
+struct Route {
+    url: String,
+    /// The tile's webview cannot play HEVC: convert it if that is what
+    /// this turns out to be.
+    convert_hevc: bool,
 }
 
 static PROXY: OnceLock<Result<Proxy, String>> = OnceLock::new();
@@ -129,7 +145,8 @@ async fn serve(listener: std::net::TcpListener, port: u16) {
 }
 
 /// Register an upstream URL and get the loopback URL that serves it.
-pub fn open(url: &str) -> Result<String, String> {
+/// `convert_hevc`: the caller cannot play HEVC, so convert it (mvconvert.rs).
+pub fn open(url: &str, convert_hevc: bool) -> Result<String, String> {
     let parsed = reqwest::Url::parse(url).map_err(|_| "not a URL".to_string())?;
     if !matches!(parsed.scheme(), "http" | "https") {
         return Err(format!("won't proxy a {}: URL", parsed.scheme()));
@@ -141,7 +158,13 @@ pub fn open(url: &str) -> Result<String, String> {
     p.routes
         .lock()
         .map_err(|_| "stream proxy state poisoned".to_string())?
-        .insert(token.clone(), url.to_string());
+        .insert(
+            token.clone(),
+            Route {
+                url: url.to_string(),
+                convert_hevc,
+            },
+        );
     Ok(format!("http://127.0.0.1:{}/mv/{}", p.port, token))
 }
 
@@ -340,7 +363,7 @@ async fn handle(req: Request<Incoming>, port: u16) -> Result<Response<Body>, Inf
     let upstream = proxy()
         .ok()
         .and_then(|p| p.routes.lock().ok()?.get(token).cloned());
-    let Some(url) = upstream else {
+    let Some(Route { url, convert_hevc }) = upstream else {
         return Ok(reply(StatusCode::NOT_FOUND));
     };
 
@@ -378,6 +401,28 @@ async fn handle(req: Request<Incoming>, port: u16) -> Result<Response<Body>, Inf
             StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::BAD_GATEWAY),
         ));
     }
+    let mut res = res;
+    // What was read to see what the stream is: the first bytes of whatever
+    // is sent on, converted or not.
+    let mut head = Vec::new();
+    if convert_hevc {
+        // PAT and PMT repeat several times a second, so this is seconds of
+        // stream. A stream whose map never shows is passed through.
+        const LOOK: usize = 2 * 1024 * 1024;
+        let verdict = loop {
+            match mvconvert::sniff(&head) {
+                Sniff::NeedMore if head.len() < LOOK => match res.chunk().await {
+                    Ok(Some(b)) => head.extend_from_slice(&b),
+                    _ => break Sniff::Other,
+                },
+                Sniff::NeedMore => break Sniff::Other,
+                v => break v,
+            }
+        };
+        if verdict == Sniff::Hevc {
+            return Ok(convert(Bytes::from(head), res).await);
+        }
+    }
     let content_type = res
         .headers()
         .get(reqwest::header::CONTENT_TYPE)
@@ -386,18 +431,58 @@ async fn handle(req: Request<Incoming>, port: u16) -> Result<Response<Body>, Inf
 
     // Chunks as they arrive. A read error ends the body; hyper then closes
     // the connection and mpegts.js reports it like any dropped stream.
-    let chunks = stream::unfold(Some(res), |state| async move {
+    let head = (!head.is_empty()).then(|| Ok(Frame::data(Bytes::from(head))));
+    let chunks = stream::iter(head).chain(stream::unfold(Some(res), |state| async move {
         let mut r = state?;
         match r.chunk().await {
             Ok(Some(b)) => Some((Ok(Frame::data(b)), Some(r))),
             Ok(None) => None,
             Err(_) => Some((Err(std::io::Error::other("upstream read failed")), None)),
         }
-    });
+    }));
     let mut out = Response::new(BodyExt::boxed(StreamBody::new(chunks)));
     out.headers_mut().insert(header::CONTENT_TYPE, content_type);
     cors(&mut out);
     Ok(out)
+}
+
+/// An HEVC stream, through ffmpeg. The tile hears nothing until ffmpeg has
+/// produced its first bytes, so a conversion that cannot start is a 502 that
+/// says why rather than a stream that ends at once.
+async fn convert(head: Bytes, res: reqwest::Response) -> Response<Body> {
+    let started = std::time::Instant::now();
+    let input = stream::unfold(Some(res), |state| async move {
+        let mut r = state?;
+        match r.chunk().await {
+            Ok(Some(b)) => Some((b, Some(r))),
+            _ => None,
+        }
+    });
+    let converted = match mvconvert::caps().await {
+        Ok(caps) => mvconvert::start(caps, head, input)
+            .await
+            .map(|body| (caps.encoder, body)),
+        Err(e) => Err(e),
+    };
+    match converted {
+        Ok((encoder, body)) => {
+            println!(
+                "[mvproxy] HEVC -> H.264 on {encoder}, first bytes after {}ms",
+                started.elapsed().as_millis()
+            );
+            let mut out = Response::new(BodyExt::boxed(StreamBody::new(
+                body.map(|chunk| chunk.map(Frame::data)),
+            )));
+            out.headers_mut()
+                .insert(header::CONTENT_TYPE, HeaderValue::from_static("video/mp2t"));
+            cors(&mut out);
+            out
+        }
+        Err(why) => {
+            println!("[mvproxy] can't convert HEVC: {why}");
+            bad_gateway(&format!("can't convert HEVC: {why}"))
+        }
+    }
 }
 
 #[cfg(test)]
@@ -517,7 +602,7 @@ mod tests {
     #[test]
     fn follows_the_redirect_and_adds_the_cors_header() {
         let (base, _) = fake_provider();
-        let local = open(&format!("{base}/live/user/pass/1.ts")).unwrap();
+        let local = open(&format!("{base}/live/user/pass/1.ts"), false).unwrap();
         assert!(local.starts_with("http://127.0.0.1:"), "{local}");
         assert!(
             !local.contains("user") && !local.contains("pass"),
@@ -546,7 +631,7 @@ mod tests {
     #[test]
     fn a_closed_tile_hands_the_provider_connection_back() {
         let (base, hung_up) = fake_provider();
-        let local = open(&format!("{base}/live/a/b/2.ts")).unwrap();
+        let local = open(&format!("{base}/live/a/b/2.ts"), false).unwrap();
         let (code, _, body) = get(&local, "GET", None);
         assert_eq!(code, 200);
         std::thread::sleep(Duration::from_millis(200));
@@ -564,7 +649,7 @@ mod tests {
     #[test]
     fn passes_a_provider_refusal_through() {
         let (base, _) = fake_provider();
-        let local = open(&format!("{base}/forbidden")).unwrap();
+        let local = open(&format!("{base}/forbidden"), false).unwrap();
         let (code, headers, _) = get(&local, "GET", None);
         assert_eq!(code, 403);
         assert_eq!(
@@ -578,7 +663,7 @@ mod tests {
     #[test]
     fn unknown_and_closed_tokens_are_not_found() {
         let (base, _) = fake_provider();
-        let local = open(&format!("{base}/live/a/b/3.ts")).unwrap();
+        let local = open(&format!("{base}/live/a/b/3.ts"), false).unwrap();
         let port = local.split(':').nth(2).unwrap().split('/').next().unwrap();
         let (code, _, _) = get(&format!("http://127.0.0.1:{port}/mv/nope"), "GET", None);
         assert_eq!(code, 404);
@@ -590,7 +675,7 @@ mod tests {
     #[test]
     fn answers_a_preflight() {
         let (base, _) = fake_provider();
-        let local = open(&format!("{base}/live/a/b/4.ts")).unwrap();
+        let local = open(&format!("{base}/live/a/b/4.ts"), false).unwrap();
         let (code, headers, _) = get(&local, "OPTIONS", None);
         assert_eq!(code, 204);
         assert_eq!(
@@ -607,7 +692,7 @@ mod tests {
     #[test]
     fn refuses_a_rebound_hostname() {
         let (base, _) = fake_provider();
-        let local = open(&format!("{base}/live/a/b/5.ts")).unwrap();
+        let local = open(&format!("{base}/live/a/b/5.ts"), false).unwrap();
         let (code, _, _) = get(&local, "GET", Some("evil.example"));
         assert_eq!(code, 421);
     }
@@ -615,7 +700,7 @@ mod tests {
     #[test]
     fn says_which_server_failed_and_why_without_the_path() {
         let (base, _) = fake_provider();
-        let local = open(&format!("{base}/dead/user/pass/6.ts")).unwrap();
+        let local = open(&format!("{base}/dead/user/pass/6.ts"), false).unwrap();
         let (code, headers, _) = get(&local, "GET", None);
         assert_eq!(code, 502);
         let reason = &headers[":reason"];
@@ -630,9 +715,199 @@ mod tests {
         }
     }
 
+    // ------------------------------------------------ HEVC, converted
+    //
+    // These run the real ffmpeg: BLAMMYTV_FFMPEG, which CI points at the
+    // build the app bundles (scripts/fetch-ffmpeg.mjs). One at a time, so
+    // `mvconvert::running()` counts only the test's own conversion.
+
+    static SERIAL: Mutex<()> = Mutex::new(());
+
+    fn ffmpeg() -> String {
+        std::env::var("BLAMMYTV_FFMPEG")
+            .expect("set BLAMMYTV_FFMPEG to an ffmpeg with libx264 and libx265")
+    }
+
+    /// Four seconds of test picture and tone in `codec`, as MPEG-TS.
+    fn clip(codec: &str) -> Vec<u8> {
+        let out = std::process::Command::new(ffmpeg())
+            .args([
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-f",
+                "lavfi",
+                "-i",
+                "testsrc2=s=320x240:r=25",
+                "-f",
+                "lavfi",
+                "-i",
+                "sine=f=440:r=48000",
+                "-t",
+                "4",
+                "-c:v",
+                codec,
+                "-preset",
+                "ultrafast",
+                "-x265-params",
+                "log-level=error",
+                "-c:a",
+                "aac",
+                "-f",
+                "mpegts",
+                "pipe:1",
+            ])
+            .output()
+            .expect("ffmpeg did not run");
+        assert!(
+            out.status.success() && out.stdout.len() > 10_000,
+            "no {codec} clip"
+        );
+        out.stdout
+    }
+
+    /// A provider serving `clip` at about live pace, then null packets until
+    /// the reader goes (`hung_up`).
+    fn serving(clip: Vec<u8>) -> (String, Arc<AtomicBool>) {
+        let l = TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", l.local_addr().unwrap());
+        let hung_up = Arc::new(AtomicBool::new(false));
+        let flag = hung_up.clone();
+        let clip = Arc::new(clip);
+        std::thread::spawn(move || {
+            for conn in l.incoming() {
+                let Ok(mut conn) = conn else { continue };
+                let (flag, clip) = (flag.clone(), clip.clone());
+                std::thread::spawn(move || {
+                    let mut reader = BufReader::new(conn.try_clone().unwrap());
+                    loop {
+                        let mut h = String::new();
+                        if reader.read_line(&mut h).unwrap_or(0) <= 2 {
+                            break;
+                        }
+                    }
+                    let _ = conn.write_all(
+                        b"HTTP/1.1 200 OK\r\nContent-Type: video/mp2t\r\nConnection: close\r\n\r\n",
+                    );
+                    let mut null = [0u8; 188];
+                    null[..4].copy_from_slice(&[0x47, 0x1f, 0xff, 0x10]);
+                    let mut sent = clip.chunks(188 * 32);
+                    loop {
+                        let wrote = match sent.next() {
+                            Some(c) => conn.write_all(c),
+                            None => conn.write_all(&null),
+                        };
+                        if wrote.is_err() {
+                            flag.store(true, Ordering::SeqCst);
+                            break;
+                        }
+                        std::thread::sleep(Duration::from_millis(10));
+                    }
+                });
+            }
+        });
+        (base, hung_up)
+    }
+
+    /// Up to `want` bytes of a chunked body.
+    fn body_bytes(r: &mut BufReader<TcpStream>, want: usize) -> Vec<u8> {
+        let mut out = Vec::new();
+        while out.len() < want {
+            let mut size = String::new();
+            if r.read_line(&mut size).unwrap_or(0) == 0 {
+                break;
+            }
+            let n = usize::from_str_radix(size.trim(), 16).unwrap_or(0);
+            if n == 0 {
+                break;
+            }
+            let mut chunk = vec![0u8; n + 2];
+            r.read_exact(&mut chunk).unwrap();
+            chunk.truncate(n);
+            out.extend(chunk);
+        }
+        out
+    }
+
+    #[test]
+    fn converts_hevc_for_a_tile_that_asks() {
+        let _one = SERIAL.lock().unwrap_or_else(|p| p.into_inner());
+        let (base, _) = serving(clip("libx265"));
+        let local = open(&format!("{base}/live/u/p/7.ts"), true).unwrap();
+        let (code, headers, mut body) = get(&local, "GET", None);
+        assert_eq!(code, 200, "{:?}", headers.get(":reason"));
+        assert_eq!(
+            headers.get("content-type").map(String::as_str),
+            Some("video/mp2t")
+        );
+        assert_eq!(
+            headers
+                .get("access-control-allow-origin")
+                .map(String::as_str),
+            Some("*")
+        );
+        let out = body_bytes(&mut body, 64 * 1024);
+        let types = mvconvert::stream_types(&out).expect("no programme map in what came out");
+        // H.264 video and AAC audio, and no HEVC left.
+        assert!(types.contains(&0x1b) && types.contains(&0x0f), "{types:x?}");
+        assert!(!types.contains(&0x24), "{types:x?}");
+    }
+
+    #[test]
+    fn leaves_h264_exactly_as_it_came_even_when_asked() {
+        let _one = SERIAL.lock().unwrap_or_else(|p| p.into_inner());
+        let source = clip("libx264");
+        let (base, _) = serving(source.clone());
+        let local = open(&format!("{base}/live/u/p/8.ts"), true).unwrap();
+        let (code, _, mut body) = get(&local, "GET", None);
+        assert_eq!(code, 200);
+        let out = body_bytes(&mut body, 188 * 200);
+        assert!(out.len() >= 188 * 200);
+        assert_eq!(
+            out[..188 * 200],
+            source[..188 * 200],
+            "the bytes were touched"
+        );
+        assert_eq!(mvconvert::running(), 0, "an ffmpeg started for H.264");
+    }
+
+    #[test]
+    fn passes_hevc_through_when_the_tile_did_not_ask() {
+        let _one = SERIAL.lock().unwrap_or_else(|p| p.into_inner());
+        let (base, _) = serving(clip("libx265"));
+        let local = open(&format!("{base}/live/u/p/9.ts"), false).unwrap();
+        let (_, _, mut body) = get(&local, "GET", None);
+        let out = body_bytes(&mut body, 64 * 1024);
+        let types = mvconvert::stream_types(&out).expect("no programme map");
+        assert!(types.contains(&0x24), "{types:x?}");
+    }
+
+    #[test]
+    fn a_closed_converted_tile_takes_its_ffmpeg_and_the_connection() {
+        let _one = SERIAL.lock().unwrap_or_else(|p| p.into_inner());
+        let (base, hung_up) = serving(clip("libx265"));
+        let local = open(&format!("{base}/live/u/p/10.ts"), true).unwrap();
+        let (code, _, mut body) = get(&local, "GET", None);
+        assert_eq!(code, 200);
+        body_bytes(&mut body, 16 * 1024);
+        assert_eq!(mvconvert::running(), 1);
+        drop(body); // the tile goes away
+        let t = std::time::Instant::now();
+        while (mvconvert::running() > 0 || !hung_up.load(Ordering::SeqCst))
+            && t.elapsed() < Duration::from_secs(10)
+        {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert_eq!(mvconvert::running(), 0, "ffmpeg outlived its tile");
+        assert!(
+            hung_up.load(Ordering::SeqCst),
+            "upstream still held after the tile left"
+        );
+    }
+
     #[test]
     fn will_not_proxy_what_is_not_http() {
-        assert!(open("file:///etc/passwd").is_err());
-        assert!(open("not a url").is_err());
+        assert!(open("file:///etc/passwd", false).is_err());
+        assert!(open("not a url", false).is_err());
     }
 }

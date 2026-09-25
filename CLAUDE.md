@@ -9,9 +9,11 @@ you can defend before touching code. A wrong guess that ships costs far more tha
 a few extra messages. Hold an opinion and state it; don't hedge your way into a
 change you're not actually sure about.
 
-**A rebuild is never a cost.** Weigh native against frontend on what each
-does for the app, never on the rebuild or restart it needs. Adam, on the
-HEVC options (v0.9.111): "again rebuild should never be a deterrent".
+**A rebuild is never a cost.** Recompiling the app (`pnpm tauri dev`) is
+not a reason to prefer frontend over native: weigh each on what it does for
+the app. Adam, on the HEVC options (v0.9.111): "again rebuild should never
+be a deterrent". The size and risk of a REFACTOR still counts ("that should
+be a deterrent").
 
 This is the spine of everything below: when the mechanism isn't obvious, get the
 data (next section); when it's a judgment call, reason it to confidence or ask
@@ -58,7 +60,19 @@ Baseline is **9 warnings**, all of them the libmpv symbol transmutes at
 the tenth is cargo's own "generated 9 warnings" summary line.)
 
 It is a TYPE check, not a build: it will not catch a linker problem or
-anything about libmpv's runtime behaviour. It does catch every signature
+anything about libmpv's runtime behaviour.
+
+**The stream proxy's tests run here for real** (mvproxy.rs and
+mvconvert.rs, HEVC conversion through an actual ffmpeg included), from a
+host crate that includes the two files as they are:
+
+```
+curl -sSL https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz | tar xJ -C /tmp
+cd scripts/mvproxy-host && BLAMMYTV_FFMPEG=/tmp/ffmpeg-master-latest-linux64-gpl/bin/ffmpeg cargo test
+```
+
+Baseline 21 tests. On CI the Windows job runs the same tests with the
+bundled ffmpeg (`scripts/fetch-ffmpeg.mjs`), on the CPU path: no GPU there. It does catch every signature
 mistake, which is the class that has reached users' rebuilds before.
 
 `cargo fmt --check` is NOT a gate here: the repo has pre-existing drift in
@@ -72,7 +86,7 @@ servers on the ports the harnesses hard-code, starts vite on 4173, runs every
 `verify-*.mjs`, and prints a board. `pnpm verify discover nav` filters by
 name; `KEEP=1` leaves the servers up afterwards.
 
-Baseline is **32/32 harnesses clean, 538 or 539 checks** (v0.9.111). The
+Baseline is **32/32 harnesses clean, 540 or 541 checks** (v0.9.112). The
 one-check wobble is verify-cw-sources' last check, which only runs when the
 catalog is still loading at the click; the script says so and it is not a
 failure. If playwright-core is not installed, point `PW_FROM` at somewhere

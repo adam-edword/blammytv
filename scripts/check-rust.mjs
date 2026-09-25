@@ -60,12 +60,14 @@ if (!have("x86_64-w64-mingw32-gcc")) {
   process.exit(2);
 }
 
-// build.rs refuses to run without the bundled resource, which is gitignored
-// and per-machine. Its CONTENTS are irrelevant to a type check.
-const dll = join(crate, "libmpv-2.dll");
-if (!existsSync(dll)) {
-  writeFileSync(dll, "");
-  console.log("created an empty libmpv-2.dll placeholder (gitignored)");
+// build.rs refuses to run without the bundled resources, which are gitignored
+// and per-machine. Their CONTENTS are irrelevant to a type check.
+for (const name of ["libmpv-2.dll", "ffmpeg.exe"]) {
+  const file = join(crate, name);
+  if (!existsSync(file)) {
+    writeFileSync(file, "");
+    console.log(`created an empty ${name} placeholder (gitignored)`);
+  }
 }
 
 console.log(`checking the crate for ${TARGET} …\n`);

@@ -1,5 +1,6 @@
 mod frontend;
 mod mpv;
+mod mvconvert;
 mod mvproxy;
 #[cfg(windows)]
 mod inv;
@@ -759,9 +760,11 @@ async fn http_get(
 /// Multi-view: serve a live stream to the webview through the loopback
 /// proxy, which adds the CORS header the provider may not send. Returns the
 /// `http://127.0.0.1:…/mv/<token>` URL to hand mpegts.js. See mvproxy.rs.
+/// `convert_hevc`: this webview cannot play HEVC, so the proxy converts it
+/// (mvconvert.rs). Optional, so a frontend from before it still works.
 #[tauri::command]
-fn mv_proxy_open(url: String) -> Result<String, String> {
-    mvproxy::open(&url)
+fn mv_proxy_open(url: String, convert_hevc: Option<bool>) -> Result<String, String> {
+    mvproxy::open(&url, convert_hevc.unwrap_or(false))
 }
 
 /// Forget a URL `mv_proxy_open` returned, when its tile unmounts.

@@ -127,6 +127,14 @@ jobs:
       - name: libmpv placeholder
         run: touch apps/app/src-tauri/libmpv-2.dll
 
+      # The real ffmpeg the app bundles, NOT a placeholder: mvconvert.rs's
+      # tests convert HEVC with it. This runner has no GPU, so they run the
+      # CPU path (libx264, no tone mapping); Adam's machine runs the GPU one.
+      - name: ffmpeg for the HEVC conversion tests
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/fetch-ffmpeg.mjs
+
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -139,6 +147,8 @@ jobs:
 
       - name: cargo test
         working-directory: apps/app/src-tauri
+        env:
+          BLAMMYTV_FFMPEG: ${{ github.workspace }}/apps/app/src-tauri/ffmpeg.exe
         run: cargo test --locked
 
       # CLAUDE.md's baseline: 9 warnings, all the libmpv symbol transmutes

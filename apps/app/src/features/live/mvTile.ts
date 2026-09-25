@@ -75,6 +75,13 @@ export function unplayable(
   return null;
 }
 
+/**
+ * The HEVC question mpegts.js asks itself (core/features.js). WebView2 says
+ * no unless Windows' HEVC Video Extensions are installed, and then the
+ * stream proxy converts HEVC to H.264 for the tile (mvconvert.rs).
+ */
+export const HEVC_MIME = 'video/mp4; codecs="hvc1.1.6.L93.B0"';
+
 export function explainFailure(channel: string, f: FailureFacts): Failure {
   const offair = (reason: string): Failure => ({
     kind: "offair",
@@ -101,6 +108,15 @@ export function explainFailure(channel: string, f: FailureFacts): Failure {
   const proxied = f.code === 502 && f.statusText?.startsWith("Bad Gateway:");
   if (proxied) {
     const why = f.statusText!.toLowerCase();
+    // The stream came, and was HEVC, and turning it into H.264 did not
+    // work (mvconvert.rs). The reason after it is ffmpeg's, for the console.
+    if (why.includes("can't convert hevc"))
+      return {
+        kind: "decode",
+        title: "Couldn’t convert this one",
+        reason: "It’s HEVC, and converting it for multi-view failed here. The Guide’s player can play it.",
+        retry: true,
+      };
     if (/dns|lookup|no such host|name or service not known|nodename/.test(why))
       return offair("Your provider sends it to a server that doesn’t exist.");
     if (why.includes("timed out"))

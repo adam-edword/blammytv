@@ -199,7 +199,11 @@ never be a deterrent to building anything." So:
    channels up to the line's limit, and the grid remembered. P3b shipped
    in v0.9.111: the tab asks ESPN for itself while it needs to, "Fill
    with live games" fills the line, your teams first, and a game's tile
-   carries its score and clock. P4 (sound, keys, the seam) is next.
+   carries its score and clock. v0.9.112 (native): an HEVC channel plays
+   in a tile, the stream proxy converting it to H.264 with a bundled
+   ffmpeg (`mvconvert.rs`, `scripts/fetch-ffmpeg.mjs`), since WebView2 only
+   decodes HEVC with a Windows Store package. P4 (sound, keys, the seam) is
+   next.
 7. Merge the multi-view branch into `main` (Adam's step: default branch).
 
 ### M2: finish the primitives (plan 014 L1 and L2)

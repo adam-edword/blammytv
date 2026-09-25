@@ -1,0 +1,24 @@
+# Runs the app's stream proxy tests (mvproxy.rs, mvconvert.rs) on a Linux
+# box, where the app crate itself will not build (gdk-sys; see CLAUDE.md).
+# The two files are included as they are, byte for byte.
+#
+#   cd scripts/mvproxy-host
+#   BLAMMYTV_FFMPEG=<an ffmpeg with libx264 and libx265> cargo test
+[package]
+name = "mvproxy-host"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+# The app's own versions and features for these (src-tauri/Cargo.toml).
+[dependencies]
+reqwest = { version = "0.12", default-features = false }
+hyper = { version = "1", features = ["server", "http1"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+http-body-util = "0.1"
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+tokio = { version = "1", features = ["net", "rt-multi-thread", "time", "process", "io-util", "sync"] }
+getrandom = "0.3"

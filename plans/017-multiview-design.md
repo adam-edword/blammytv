@@ -634,6 +634,44 @@ transmuxing leaves the main thread (audit perf 6 said this "is native"; the
 freeze that made that a blocker is lifted). Measured before and after with
 `btvMultiviewStats`.
 
+**HEVC in a tile, shipped in v0.9.112 (native).** Adam's Falcons at Packers
+tile said "needs the main player": WebView2 decodes HEVC only through
+Windows' HEVC Video Extensions (Edge goes through Media Foundation, where
+Chrome goes to the GPU through D3D11), his RTX 4090 notwithstanding, and the
+free listing of that package would not install for him. Weighed against mpv
+tiles for HEVC (full quality, but every multi-view feature built twice and
+the native multi-tile setup v0.9.94 backed out of), he chose converting
+(2026-09-25):
+- **The proxy converts** (`mvconvert.rs`). The tile asks when this webview
+  can't play HEVC; the stream's first packets (PAT, PMT) say whether it is
+  HEVC; if so ffmpeg reads the provider's bytes on stdin and writes H.264
+  and AAC as MPEG-TS on stdout. Still one provider connection: the bytes
+  read to find out are ffmpeg's first bytes. Everything else passes through
+  untouched.
+- **ffmpeg is shinchiro's build**, the same builder as our libmpv, fetched
+  by `scripts/fetch-ffmpeg.mjs` and bundled like the DLL. 26MB compressed,
+  107MB on disk. BtbN's LGPL build was 136MB. It has everything needed:
+  D3D11 decoding, NVIDIA, Intel and AMD encoders, libx264, and libplacebo.
+- **What this machine can do is asked once**, with the conversion's own
+  options on a generated picture: D3D11 decoding (frames kept on the GPU, so
+  a quiet fall back to the CPU doesn't count), the first encoder of
+  h264_nvenc, h264_qsv, h264_amf and libx264 that works, and libplacebo.
+  Not `-hwaccel auto`: measured, it went from a missing CUDA to VAAPI, whose
+  loader aborted the whole process.
+- **The picture:** at most 1080 lines (a tile is never bigger), BT.709, HDR
+  tone mapped on the GPU by libplacebo. Without it (no Vulkan), scaled on
+  the CPU and HDR is not tone mapped; the console says so.
+- **Measured here** (Linux, 4 cores, CPU only): first byte 4.8s at ffmpeg's
+  default 5-second analysis, 0.2 to 0.8s with a 1-second one; 4K HDR10 to
+  1080p SDR with CPU tone mapping kept up with live (448 of ~450 frames).
+  Synthetic picture decodes far more easily than broadcast, so the GPU
+  path on Adam's machine is the real measurement.
+- **Tested for real** in mvproxy.rs against a real ffmpeg: HEVC in, H.264
+  and AAC out; H.264 untouched byte for byte even when asked; HEVC passed
+  through when not asked; a closed tile ends its ffmpeg and hands the
+  provider connection back; a conversion that can't start says why. CI's
+  Windows job runs them with the bundled build (no GPU there: the CPU path).
+
 ## Risks
 
 - **The guide for a channel** may be missing (1545 of 8459 channels in
