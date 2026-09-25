@@ -241,13 +241,20 @@ never be a deterrent to building anything." So:
   installer (the stream proxy is native). Signed, if decision 3 says so;
   this is the first build where signing would buy anything.
 - **Themes, in the same release's words.** 0.10.0 is the first release
-  without packs, and 0.9.0 users who picked one lose it (a picked accent
-  colour is not lost; the picker is back from M1). The changelog says
-  themes are coming back with new looks rather than pretending nothing
-  moved, and
+  without packs, and 0.9.0 users who picked one lose it. A picked accent
+  colour has to be picked again too: v0.9.80 reads 0.9.0's stored accent
+  as never chosen, because 0.9.0 also wrote one on Reset and on a paired
+  pack. The changelog says themes are coming back with new looks rather
+  than pretending nothing moved, and
   `services/site` stops selling the Themes Pass as a thing you can buy
   today. Both change at release, not before: until then the site describes
   0.9.0, which does have themes.
+  **The site's 0.10.0 version is drafted** on
+  `claude/wonderful-darwin-fk1y1o` and parked: Sports and Multi-view rows
+  (text only, no screenshots yet), Make It Yours in place of Themes and
+  the Pass, the Trakt claim gone, Geist on shadcn neutral with the rainbow
+  kept. Before it lands on `website` it needs new screenshots: the hero
+  slider and the Guide, Stream and player rows still show the July look.
 
 ### M4: Trakt, then MAL (decision 2)
 
