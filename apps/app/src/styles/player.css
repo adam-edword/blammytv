@@ -1498,6 +1498,10 @@
   font-variant-numeric: tabular-nums;
   color: rgb(255 255 255 / 0.7);
 }
+.mvtile__gamestatus {
+  font-weight: 600;
+  color: rgb(255 255 255 / 0.8);
+}
 .mvtile__track {
   position: relative;
   flex: 1;
@@ -1725,6 +1729,16 @@
 .mvpick__gamechan {
   flex: none;
   max-width: 40%;
+}
+.mvpick__fillicon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text) 12%, transparent);
+  color: var(--text);
 }
 .mvpick__ingrid {
   flex: none;

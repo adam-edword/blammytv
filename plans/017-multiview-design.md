@@ -1,8 +1,9 @@
 # 017: Multi-view, designed
 
 **Status: IN PROGRESS. P1 shipped in v0.9.105** (the tab, its bar, the
-layout engine), **P2 in v0.9.107** (the tile) **and P3a in v0.9.109** (the
-picker and the line's limits); P3b, live games, is next. Decided 2026-09-24: Adam answered M1
+layout engine), **P2 in v0.9.107** (the tile), **P3a in v0.9.109** (the
+picker and the line's limits) **and P3b in v0.9.111** (live games); P4,
+sound, keys and the seam, is next. Decided 2026-09-24: Adam answered M1
 to M9 the same day and added three things: the Focus split is resizable,
 multi-view gets its own tab between Guide and Sports, and every tile closes
 from an X on the tile. Written after Adam's first real
@@ -580,6 +581,37 @@ were. Where P3a differs from the above:
 - **The generated Dialog's overlay forwards its ref** (React 18), the same
   fix button.tsx and combobox.tsx carry; without it Radix could not wait
   for the overlay's fade.
+
+**P3b shipped in v0.9.111**: multi-view's own look at today's games, Fill
+with live games (M9), and the score on a game's tile. `mvGames.ts` (7 unit
+tests) and `verify-mvgames.mjs` (9 checks), each check mutation-tested.
+- **The tab asks ESPN itself, and only while it needs to**: the picker is
+  open, or a tile is a game. The board's manners: what you follow (or the
+  whole catalog when you follow nothing) on the first look, then only the
+  leagues that answered, every 90 seconds, through the same 30-second
+  response cache. Until the first answer lands the picker shows the board's
+  last look, as before.
+- **A game picked as a game stays one.** The pick carries its fixture id and
+  league, the league is asked for while the tile is up, and the tile shows
+  the score and clock ("BUF 17 – 24 KC · 7:22 - 3rd") in the caption and
+  under the pointer, in place of the guide. A game that drops off today's
+  list falls back to the guide.
+- **Fill ranks your teams, then your leagues, then the rest.** A followed
+  league counts as followed everywhere else, so ranking on that alone put an
+  NFL game ahead of the Chelsea match for someone following both leagues and
+  Chelsea. The harness caught it. One game per channel: a channel is one
+  stream.
+- **Fill only says "the ones you follow first" when one of them is.**
+- **"Sky Sports" does not claim "Fake Sky Sports FHD"**: it scores 40 (loose,
+  the extra word), under the 70 a game needs for a channel. The harness uses
+  the fake panel's own name for it rather than lowering anything.
+- **The picker is a fresh dialog on every opening.** Escape and then a
+  quick click on Add (inside the 50ms between the overlay's fade and the
+  picker's) either did nothing or opened a picker whose rows could not be
+  clicked: the fading picker's held outside-press closed the new one, or
+  the overlay came back on top of it. P3a's bug; P3b's extra work on open
+  made verify-mvtile catch it about one run in four. verify-mvpick now
+  stretches the fade so the click lands in it every run.
 
 **P4. Sound, keys and the seam.** Sound follows the stream, not an index
 (F13), the top-bar volume and mute, the level meter, the keyboard table, and

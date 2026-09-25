@@ -11,6 +11,8 @@ import { MultiviewGrid, type GridStream } from "./MultiviewGrid";
 import { MultiviewPicker, type PickerMode } from "./MultiviewPicker";
 import { loadGrid, loadLayoutKinds, saveGrid, saveLayoutKinds } from "./multiviewAck";
 import { peekLiveGames } from "./multiviewEntry";
+import { gameLabel, liveWithChannels, useGamesToday } from "./mvGames";
+import { isFixture, type Fixture } from "../sports/model";
 import { defaultKind, kindsFor, type MvKind } from "./mvLayout";
 import {
   addPick,
@@ -297,10 +299,21 @@ export function MultiviewTab() {
       return next;
     });
 
-  /** The live games Sports last published. Read once: the tab is a fresh
-   * mount each visit, and the list moving under the pointer mid-pick would
-   * be worse than one that is a visit old. */
-  const [games] = useState(peekLiveGames);
+  const [picker, setPicker] = useState<PickerMode | null>(null);
+
+  /**
+   * Today's games, asked for only while something here needs them: the
+   * picker is open, or a tile is a game (its score). Until the first answer
+   * lands, the picker shows what the Sports board last saw, which is
+   * instant and at most half an hour old (multiviewEntry).
+   */
+  const gameLeagues = picks.flatMap((p) => (p.gameId && p.league ? [p.league] : []));
+  const today = useGamesToday(picker !== null || gameLeagues.length > 0, gameLeagues);
+  const [snapshot] = useState(peekLiveGames);
+  const liveGames = today.looked ? liveWithChannels(today.games) : snapshot;
+  const fixtures = new Map(
+    today.games.filter(isFixture).map((g) => [g.id, g] as const),
+  );
 
   const streams: GridStream[] = picks.map((p) => {
     const ch = tunedChannel(p.channelId);
@@ -312,6 +325,7 @@ export function MultiviewTab() {
       unresolved: url === null,
       channel: { name: ch?.name ?? p.label, number: ch?.number, logo: ch?.logo },
       programmes: live?.programmes.get(p.channelId),
+      game: p.gameId ? fixtures.get(p.gameId) : undefined,
     };
   });
 
@@ -320,7 +334,6 @@ export function MultiviewTab() {
   // whole catalog on every tick of the tab.
   const inGrid = useMemo(() => new Set(picks.map((p) => p.channelId)), [picks]);
 
-  const [picker, setPicker] = useState<PickerMode | null>(null);
   const openAdd = useCallback(() => {
     if (roomRef.current.left > 0) setPicker({ kind: "add" });
   }, []);
@@ -336,6 +349,24 @@ export function MultiviewTab() {
     // What you put in a grid is what you watched: the picker's Recent
     // section, and the Guide's, should know it.
     recordRecent(loadRecents(), pick.channelId);
+    setPicker(null);
+  };
+  // Fill with live games (M9): the picker has already chosen them, as many
+  // as the line has room for, the ones you follow first (mvGames.fillFrom).
+  const fill = (list: Fixture[]) => {
+    setPicks((was) =>
+      list.reduce(
+        (acc, g) =>
+          addPick(
+            acc,
+            { channelId: g.channels[0].id, label: gameLabel(g), gameId: g.id, league: g.leagueKey },
+            roomOn(line, acc.length, settledKey === key),
+          ),
+        was,
+      ),
+    );
+    let recents = loadRecents();
+    for (const g of list) recents = recordRecent(recents, g.channels[0].id);
     setPicker(null);
   };
 
@@ -484,10 +515,11 @@ export function MultiviewTab() {
         }}
         mode={picker ?? { kind: "add" }}
         live={live}
-        games={games}
+        games={liveGames}
         inGrid={inGrid}
         room={room}
         onChoose={choose}
+        onFill={fill}
       />
     </div>
   );

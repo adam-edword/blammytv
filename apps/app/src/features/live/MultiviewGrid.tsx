@@ -4,6 +4,8 @@ import { MultiviewNotice } from "./MultiviewNotice";
 import { multiviewNoticeSeen } from "./multiviewAck";
 import { MV_SPACING, mvLayout, type MvKind, type Rect } from "./mvLayout";
 import { airing } from "./mvTile";
+import { scoreLine } from "./mvGames";
+import type { Fixture } from "../sports/model";
 import type { Programme } from "./model";
 import { PlusIcon, VolumeIcon } from "../../ui/icons";
 import type { XtreamConnections } from "../../data/xtream";
@@ -35,6 +37,8 @@ export interface GridStream {
   unresolved?: boolean;
   channel: TileChannel;
   programmes?: Programme[];
+  /** A game picked as a game, as ESPN last reported it (mvGames). */
+  game?: Fixture;
 }
 
 /** How often what is on, and its progress line, move on. */
@@ -155,6 +159,7 @@ export function MultiviewGrid({
                 name={s.name}
                 channel={s.channel}
                 programmes={s.programmes}
+                game={s.game}
                 now={now}
                 focused={on}
                 onFocus={() => chooseSound(s)}
@@ -173,7 +178,14 @@ export function MultiviewGrid({
                     <VolumeIcon size={14} />
                   </span>
                 )}
-                {onNow && <span className="mvcap__now">{onNow.title}</span>}
+                {s.game ? (
+                  <span className="mvcap__now">
+                    {scoreLine(s.game)}
+                    {s.game.status ? ` · ${s.game.status}` : ""}
+                  </span>
+                ) : (
+                  onNow && <span className="mvcap__now">{onNow.title}</span>
+                )}
               </div>,
             ];
           })}

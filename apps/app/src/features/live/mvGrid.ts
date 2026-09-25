@@ -15,6 +15,10 @@ export interface Pick {
   channelId: string;
   /** What the tile is called: the game, or the channel. */
   label: string;
+  /** A game picked as a game: its fixture id, for the score on its tile. */
+  gameId?: string;
+  /** And its league, so the score is asked for while it is on the grid. */
+  league?: string;
 }
 
 /** 013's ceiling, and most lines cap below it. */

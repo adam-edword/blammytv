@@ -5,10 +5,12 @@ import { MvLogo } from "./MultiviewTile";
 import { airing } from "./mvTile";
 import { leftLine, searchChannels, type Pick, type Room } from "./mvGrid";
 import { loadFavorites } from "./favorites";
+import { fillFrom, gameLabel } from "./mvGames";
+import { isFollowed, loadFollows } from "../sports/follows";
 import { loadRecents } from "./recents";
 import { Matchup } from "../sports/Matchup";
 import { QualityBadge } from "../../ui/QualityBadge";
-import { CheckIcon, SearchIcon } from "../../ui/icons";
+import { CheckIcon, PlusIcon, SearchIcon } from "../../ui/icons";
 import { formatClock } from "../../lib/time";
 import { loadClockFormat } from "../settings/clockFormat";
 import type { Channel, LiveData } from "./model";
@@ -34,7 +36,9 @@ export type PickerMode = { kind: "add" } | { kind: "replace"; id: string; name: 
 
 type Row =
   | { key: string; kind: "game"; channelId: string; label: string; game: Fixture; channel?: Channel }
-  | { key: string; kind: "channel"; channelId: string; label: string; channel: Channel };
+  | { key: string; kind: "channel"; channelId: string; label: string; channel: Channel }
+  /** "Fill with live games" (M9): one row, so Enter reaches it like any other. */
+  | { key: string; kind: "fill"; channelId: ""; label: string; games: Fixture[]; followed: boolean };
 
 interface Section {
   value: string;
@@ -43,9 +47,6 @@ interface Section {
 
 /** How many favourites and recents show before typing. */
 const SHORTLIST = 8;
-
-const gameLabel = (g: Fixture) =>
-  `${g.away.shortName ?? g.away.name} at ${g.home.shortName ?? g.home.name}`;
 
 const channelRow = (c: Channel): Row => ({
   key: `c:${c.id}`,
@@ -64,21 +65,43 @@ export function MultiviewPicker({
   inGrid,
   room,
   onChoose,
+  onFill,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   mode: PickerMode;
   live: LiveData | null;
-  /** Live games that have a channel, as Sports last saw them. */
+  /** Live games on your channels (mvGames). */
   games: Fixture[];
   /** Channel ids already on the grid. */
   inGrid: ReadonlySet<string>;
   room: Room;
   onChoose: (pick: Pick) => void;
+  /** Fill the grid with these games, in this order. */
+  onFill: (games: Fixture[]) => void;
 }) {
   const [query, setQuery] = useState("");
   const [clock] = useState(loadClockFormat);
   const now = new Date();
+
+  /**
+   * A fresh dialog for every opening.
+   *
+   * The overlay fades in 150ms and the picker in 200, and reopening a Radix
+   * Dialog inside that gap (Escape, then a quick click on Add) went wrong
+   * two ways, both caught by verify-mvtile about one run in four. The
+   * closing picker's outside-press dismissal, which Radix holds until the
+   * click, shut the picker that same click had just reopened. Or the
+   * overlay, in its own portal, came back as the last thing on the page,
+   * on top of a picker still fading, and its rows could not be clicked. A
+   * new key drops the fading one at once, listeners, overlay and all.
+   */
+  const [wasOpen, setWasOpen] = useState(open);
+  const [opening, setOpening] = useState(0);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setOpening((n) => n + 1);
+  }
 
   const sections = useMemo((): Section[] => {
     if (!live) return [];
@@ -111,7 +134,25 @@ export function MultiviewPicker({
       ...rows.filter((r) => inGrid.has(r.channelId)),
     ];
     const out: Section[] = [];
-    if (gameRows.length) out.push({ value: "Live games", items: open(gameRows) });
+    // One action, not a preset system (M9): fill what the line has room
+    // for, the games you follow first. Offered only when it would add one.
+    const follows = loadFollows();
+    const fill = mode.kind === "add" && !q ? fillFrom(games, inGrid, room.left, follows) : [];
+    const fillRow: Row[] = fill.length
+      ? [
+          {
+            key: "fill",
+            kind: "fill",
+            channelId: "",
+            label: "Fill with live games",
+            games: fill,
+            // "The ones you follow first" only when one of them is.
+            followed: fill.some((g) => isFollowed(g, follows)),
+          },
+        ]
+      : [];
+    if (gameRows.length)
+      out.push({ value: "Live games", items: [...fillRow, ...open(gameRows)] });
     if (q) {
       const found = searchChannels(live, q).map(channelRow);
       if (found.length) out.push({ value: "Channels", items: open(found) });
@@ -131,17 +172,31 @@ export function MultiviewPicker({
     if (recent.length) out.push({ value: "Recent", items: open(recent.map(channelRow)) });
     return out;
     // `now` is left out on purpose: the rows' "what is on" is read at render.
-  }, [live, games, query, inGrid]);
+  }, [live, games, query, inGrid, mode.kind, room.left]);
 
   const choose = (row: Row) => {
+    if (row.kind === "fill") {
+      onFill(row.games);
+      return;
+    }
     if (inGrid.has(row.channelId)) return;
-    onChoose({ channelId: row.channelId, label: row.label });
+    onChoose(
+      row.kind === "game"
+        ? {
+            channelId: row.channelId,
+            label: row.label,
+            gameId: row.game.id,
+            league: row.game.leagueKey,
+          }
+        : { channelId: row.channelId, label: row.label },
+    );
   };
 
   const title = mode.kind === "replace" ? `Replace ${mode.name}` : "Add a channel";
 
   return (
     <Dialog
+      key={opening}
       open={open}
       onOpenChange={(o) => {
         onOpenChange(o);
@@ -202,7 +257,9 @@ export function MultiviewPicker({
                           onClick={() => choose(row)}
                           className="mvpick__row"
                         >
-                          {row.kind === "game" ? (
+                          {row.kind === "fill" ? (
+                            <FillRow row={row} />
+                          ) : row.kind === "game" ? (
                             <GameRow row={row} />
                           ) : (
                             <ChannelRow
@@ -277,6 +334,24 @@ function ChannelRow({
           {channel.quality && <QualityBadge quality={channel.quality} />}
         </span>
         {sub.length > 0 && <span className="mvpick__sub">{sub.join(" · ")}</span>}
+      </span>
+    </>
+  );
+}
+
+function FillRow({ row }: { row: Extract<Row, { kind: "fill" }> }) {
+  const n = row.games.length;
+  return (
+    <>
+      <span className="mvpick__fillicon" aria-hidden>
+        <PlusIcon size={16} />
+      </span>
+      <span className="mvpick__meta">
+        <span className="mvpick__name">{row.label}</span>
+        <span className="mvpick__sub">
+          Adds {n === 1 ? "1 game" : `${n} games`}
+          {row.followed ? ", the ones you follow first" : ""}
+        </span>
       </span>
     </>
   );

@@ -204,6 +204,50 @@ const tile = (page, name) => page.locator(`.mvtile[aria-label^="${name},"]`);
     JSON.stringify(await names(page)),
   );
 
+  // Escape, then Add straight away. The overlay fades in 150ms and the
+  // picker in 200, and Radix dismisses on the CLICK after an outside press,
+  // so a click in between reopened the picker and the fading one closed it
+  // again (verify-mvtile, 2 runs in 13). The fade is stretched here so the
+  // click lands in it every run.
+  const slow = await page.addStyleTag({
+    content: ".mvpick[data-state=closed] { animation-duration: 1500ms !important; }",
+  });
+  await page.locator(".mvtile--empty").click();
+  await input(page).waitFor({ timeout: 5000 });
+  await page.keyboard.press("Escape");
+  await page.locator(".mvtile--empty").click();
+  await page.waitForTimeout(1800);
+  // On top, too: the overlay fades first, and remounting it put it over a
+  // picker that was still fading, so the rows could not be clicked.
+  const onTop = await page.evaluate(() => {
+    const box = document.querySelector(".mvpick__input");
+    const r = box?.getBoundingClientRect();
+    return {
+      top: !!r && !!document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.closest(".mvpick"),
+      focused: document.activeElement === box,
+      pickers: document.querySelectorAll(".mvpick").length,
+    };
+  });
+  check(
+    "Escape, then Add while the picker is still fading out: it opens again, on top, focused",
+    (await input(page).isVisible()) && onTop.top && onTop.focused && onTop.pickers === 1,
+    JSON.stringify(onTop),
+  );
+  await page.keyboard.press("Escape");
+  await input(page).waitFor({ state: "detached", timeout: 5000 });
+  await slow.evaluate((el) => el.remove());
+  // And a click outside an open picker still closes it.
+  await page.locator(".mvtile--empty").click();
+  await input(page).waitFor({ timeout: 5000 });
+  await page.waitForTimeout(300);
+  await page.mouse.click(20, H - 20);
+  check(
+    "a click outside the picker closes it",
+    await input(page)
+      .waitFor({ state: "detached", timeout: 3000 })
+      .then(() => true, () => false),
+  );
+
   await page.locator(".mvtile--empty").click();
   await input(page).fill("fake");
   await page.waitForTimeout(200);

@@ -24,6 +24,8 @@ import {
 } from "./mvTile";
 import { progress } from "./epg";
 import type { Programme } from "./model";
+import type { Fixture } from "../sports/model";
+import { scoreLine } from "./mvGames";
 import { formatClock } from "../../lib/time";
 import { loadClockFormat } from "../settings/clockFormat";
 import { CloseIcon, SwapIcon, VolumeIcon, WarnIcon } from "../../ui/icons";
@@ -154,6 +156,7 @@ export function MultiviewTile({
   name,
   channel,
   programmes,
+  game,
   now,
   focused,
   onFocus,
@@ -174,6 +177,9 @@ export function MultiviewTile({
   channel: TileChannel;
   /** Its guide, when it has one. */
   programmes?: Programme[];
+  /** The game, when it was picked as one: the score and clock instead of
+   * the guide (plan 017, "A tile"). */
+  game?: Fixture;
   /** The clock the grid ticks, for what is on and its progress. */
   now: Date;
   /** The one tile with sound. Exactly one, enforced by the grid. */
@@ -480,9 +486,11 @@ export function MultiviewTile({
         ? `, ${failure.title}`
         : !playing
           ? ", tuning"
-          : on
-            ? `, ${on.title}`
-            : "");
+          : game
+            ? `, ${scoreLine(game)}`
+            : on
+              ? `, ${on.title}`
+              : "");
 
   return (
     <div
@@ -550,8 +558,16 @@ export function MultiviewTile({
             <MvLogo channel={channel} size={40} />
             <div className="mvtile__meta">
               <div className="mvtile__chan">{chanLine}</div>
-              <div className="mvtile__title">{on?.title ?? name}</div>
-              {on && (
+              <div className="mvtile__title">
+                {game ? scoreLine(game) : (on?.title ?? name)}
+              </div>
+              {game ? (
+                <div className="mvtile__prog">
+                  <span className="mvtile__gamestatus">
+                    {[game.status, game.league].filter(Boolean).join(" · ")}
+                  </span>
+                </div>
+              ) : on && (
                 <div className="mvtile__prog">
                   <span>{formatClock(on.start, clock)}</span>
                   <span className="mvtile__track">
