@@ -28,6 +28,7 @@ Run with `improve-animations execute <plan>` or hand to any agent.
 | [014](014-shadcn-and-glass.md) | shadcn/ui, and a layer of liquid glass | LOW | IN PROGRESS (L0 done; L1 partly: Button everywhere, Input and Popover since v0.9.79, seven generated components unused; L2, L3 and glass not started) |
 | [016](016-audit-work.md) | Working the v0.9.79 audit: release path, what broke, the system, each screen once | HIGH | IN PROGRESS (D1 to D8 agreed 2026-09-24; Tracks 0 and 1 done in v0.9.82 to v0.9.96; Track 2 replaced by 017) |
 | [017](017-multiview-design.md) | Multi-view, designed: an immersive mode, 16:9 tiles with info and controls, a search-first picker | HIGH | IN PROGRESS (decided 2026-09-24; P1, the tab and its layouts, in v0.9.105; P2, the tile, in v0.9.107; P3a, the picker and limits, in v0.9.109; P3b, live games, in v0.9.111; P4, sound and keys, next) |
+| [018](018-multiview-hardening.md) | Multi-view, hardened: tiles that recover, the line's count, what the tab costs, the keyboard | HIGH | PLANNED (2026-09-25, from five audits of v0.9.122; H1 waits on one test on Adam's line) |
 
 ## Recommended execution order & dependencies
 

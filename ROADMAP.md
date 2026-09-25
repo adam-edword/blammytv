@@ -227,7 +227,12 @@ never be a deterrent to building anything." So:
    real names prove (a club's own channel is sure, bare "Sportsnet" stops
    reaching every sports network). Next, from his report: NFL affiliates
    by market, the junk policy, and which feed autoplay picks (plan 010,
-   #51).
+   #51). Five audits of v0.9.122's multi-view (lifecycle, the proxy,
+   performance, hands-on UX, a four-hour session) became
+   [`plans/018-multiview-hardening.md`](plans/018-multiview-hardening.md):
+   tiles that recover first (H1, a rebuild), then the line's count and the
+   saved grid, the tab's cost, the keyboard and layout, and the proxy's
+   hygiene.
 7. Merge the multi-view branch into `main` (Adam's step: default branch).
 
 ### M2: finish the primitives (plan 014 L1 and L2)
