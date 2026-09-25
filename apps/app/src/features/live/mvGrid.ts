@@ -132,6 +132,42 @@ export function removePick(list: Pick[], id: string): Pick[] {
   return list.filter((p) => p.channelId !== id);
 }
 
+/**
+ * Focus's big spot is the sound tile's (decision M2): choosing a small tile
+ * SWAPS it with the big one, so the one it displaces takes its old place
+ * and nothing else moves. Moving it to the front instead would shuffle
+ * every tile between them.
+ */
+export function swapToFront(list: Pick[], id: string): Pick[] {
+  const i = list.findIndex((p) => p.channelId === id);
+  if (i <= 0) return list;
+  const next = [...list];
+  [next[0], next[i]] = [next[i], next[0]];
+  return next;
+}
+
+/**
+ * The tile ← or → moves the sound to: `step` places along, wrapping, past
+ * any tile that can't take it (a failed one has nothing to hear). Null
+ * when no other tile can.
+ */
+export function stepSound(
+  ids: readonly string[],
+  dead: ReadonlySet<string>,
+  current: string | null,
+  step: 1 | -1,
+): string | null {
+  const n = ids.length;
+  // With nothing current, → starts at the first tile and ← at the last.
+  const found = current ? ids.indexOf(current) : -1;
+  const at = found >= 0 ? found : step === 1 ? -1 : n;
+  for (let k = 1; k <= n; k++) {
+    const id = ids[(((at + step * k) % n) + n) % n];
+    if (id !== current && !dead.has(id)) return id;
+  }
+  return null;
+}
+
 /** Names lowercased once per catalog (audit perf 8), not per keystroke. */
 const INDEXES = new WeakMap<LiveData, Array<[Channel, string]>>();
 

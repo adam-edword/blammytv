@@ -202,8 +202,11 @@ never be a deterrent to building anything." So:
    carries its score and clock. v0.9.112 (native): an HEVC channel plays
    in a tile, the stream proxy converting it to H.264 with a bundled
    ffmpeg (`mvconvert.rs`, `scripts/fetch-ffmpeg.mjs`), since WebView2 only
-   decodes HEVC with a Windows Store package. P4 (sound, keys, the seam) is
-   next.
+   decodes HEVC with a Windows Store package. v0.9.115 (native): a
+   converted HDR tile's colours match the Guide's. P4a shipped in
+   v0.9.116: the sound tile is Focus's big one, the bar has volume and
+   mute, the Sound badge follows the real level, and the keyboard table
+   works. P4b (the seam) is next.
 7. Merge the multi-view branch into `main` (Adam's step: default branch).
 
 ### M2: finish the primitives (plan 014 L1 and L2)

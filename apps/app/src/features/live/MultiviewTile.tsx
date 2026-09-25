@@ -27,6 +27,7 @@ import { progress } from "./epg";
 import type { Programme } from "./model";
 import type { Fixture } from "../sports/model";
 import { scoreLine } from "./mvGames";
+import { watchLevel } from "./mvLevel";
 import { formatClock } from "../../lib/time";
 import { loadClockFormat } from "../settings/clockFormat";
 import { CloseIcon, SwapIcon, VolumeIcon, WarnIcon } from "../../ui/icons";
@@ -160,10 +161,13 @@ export function MultiviewTile({
   game,
   now,
   focused,
+  volume,
+  muted,
   onFocus,
   onRemove,
   onReplace,
   onRetryResolve,
+  onDead,
   atCap,
   style,
 }: {
@@ -185,6 +189,9 @@ export function MultiviewTile({
   now: Date;
   /** The one tile with sound. Exactly one, enforced by the grid. */
   focused: boolean;
+  /** The bar's volume, 0 to 1, and its mute: for the sound tile. */
+  volume: number;
+  muted: boolean;
   onFocus: () => void;
   /** Close this stream (Adam's X). */
   onRemove: () => void;
@@ -192,6 +199,9 @@ export function MultiviewTile({
   onReplace: () => void;
   /** Look the stream up again, after `unresolved`. */
   onRetryResolve: () => void;
+  /** Whether it has failed: a failed tile can't take the sound, and the
+   * grid's keys pass over it. */
+  onDead?: (dead: boolean) => void;
   /** The line was full when this tile last looked: a refusal then is most
    * likely the limit, and says so (mvTile.explainFailure). */
   atCap: boolean;
@@ -403,11 +413,30 @@ export function MultiviewTile({
 
   // Audio follows focus rather than being set at mount, so moving focus does
   // not restart a stream. Exactly one tile is ever unmuted; the grid owns
-  // that invariant and this just obeys it.
+  // that invariant and this just obeys it. The bar's volume and mute are
+  // the sound tile's (plan 017, "Sound and volume").
   useEffect(() => {
     const video = videoRef.current;
-    if (video) video.muted = !focused;
-  }, [focused]);
+    if (!video) return;
+    video.muted = !focused || muted;
+    video.volume = volume;
+  }, [focused, muted, volume]);
+
+  // The Sound badge's bars follow what the feed is actually saying, on the
+  // sound tile only (mvLevel.ts). Set on the element directly: sixty
+  // renders a second of this tile to move three bars would be absurd.
+  const barsRef = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !focused || !playing) return;
+    return watchLevel(video, ([low, mid, high]) => {
+      const el = barsRef.current;
+      if (!el) return;
+      el.style.setProperty("--b1", low.toFixed(3));
+      el.style.setProperty("--b2", mid.toFixed(3));
+      el.style.setProperty("--b3", high.toFixed(3));
+    });
+  }, [focused, playing]);
 
   // The Sound badge shows when the sound arrives here, then fades back to
   // the hairline ring. YouTube TV made theirs fade because an always-on
@@ -481,9 +510,12 @@ export function MultiviewTile({
   // on it, or on where Sound here would be, would leave the grid silent.
   const dead = !!failure || (!url && !!unresolved);
   const takeSound = dead ? () => {} : onFocus;
+  const onDeadRef = useRef(onDead);
+  onDeadRef.current = onDead;
+  useEffect(() => onDeadRef.current?.(dead), [dead]);
 
   const label =
-    `${name}, ${focused ? "sound on" : "muted"}` +
+    `${name}, ${focused && !muted ? "sound on" : "muted"}` +
     (!url && unresolved
       ? ", no stream"
       : failure
@@ -521,13 +553,13 @@ export function MultiviewTile({
       <video ref={videoRef} className="mvtile__video" playsInline autoPlay muted />
       {state}
       {focused && (
-        <span className="mvtile__badge" aria-hidden>
-          <span className="mvbars">
+        <span className={"mvtile__badge" + (muted ? " is-muted" : "")} aria-hidden>
+          <span className="mvbars" ref={barsRef}>
             <i />
             <i />
             <i />
           </span>
-          Sound
+          {muted ? "Muted" : "Sound"}
         </span>
       )}
       <div className="mvtile__chrome">

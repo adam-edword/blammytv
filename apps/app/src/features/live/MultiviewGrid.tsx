@@ -4,10 +4,12 @@ import { MultiviewNotice } from "./MultiviewNotice";
 import { multiviewNoticeSeen } from "./multiviewAck";
 import { MV_SPACING, mvLayout, type MvKind, type Rect } from "./mvLayout";
 import { airing } from "./mvTile";
+import { stepSound } from "./mvGrid";
+import { forMultiview } from "./mvKeys";
 import { scoreLine } from "./mvGames";
 import type { Fixture } from "../sports/model";
 import type { Programme } from "./model";
-import { PlusIcon, VolumeIcon } from "../../ui/icons";
+import { MuteIcon, PlusIcon, VolumeIcon } from "../../ui/icons";
 import type { XtreamConnections } from "../../data/xtream";
 
 /**
@@ -65,6 +67,8 @@ export function MultiviewGrid({
   kind,
   conns,
   soundId,
+  volume,
+  muted,
   onSound,
   onRemove,
   onReplace,
@@ -82,6 +86,9 @@ export function MultiviewGrid({
   /** The stream with the sound. The tab owns it, so a Replace can hand it
    * on and the grid remembers it between visits. */
   soundId: string | null;
+  /** The bar's volume and mute, for the sound tile. */
+  volume: number;
+  muted: boolean;
   onSound: (id: string) => void;
   /** A tile's X: close that stream. */
   onRemove: (id: string) => void;
@@ -139,6 +146,58 @@ export function MultiviewGrid({
     onSound(s.id);
   };
 
+  // Tiles that have failed: they can't take the sound, so the keys pass
+  // over them (a click on one already does nothing).
+  const [dead, setDead] = useState<ReadonlySet<string>>(new Set());
+  const markDead = (id: string, is: boolean) =>
+    setDead((was) => {
+      if (was.has(id) === is) return was;
+      const next = new Set(was);
+      if (is) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+
+  // The tile keys from plan 017's table: 1 to 4 make that tile current (the
+  // sound, and Focus's big spot), ← and → move it along, R replaces it and
+  // Delete closes it. Read through a ref so the listener is added once.
+  const keys = useRef({ shown, sound, dead, chooseSound, onReplace, onRemove });
+  keys.current = { shown, sound, dead, chooseSound, onReplace, onRemove };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!forMultiview(e)) return;
+      const k = keys.current;
+      const n = Number(e.key);
+      let target: GridStream | undefined;
+      if (Number.isInteger(n) && n >= 1 && n <= 4) {
+        target = k.shown[n - 1];
+        if (target && k.dead.has(target.id)) target = undefined;
+      } else if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        const id = stepSound(
+          k.shown.map((s) => s.id),
+          k.dead,
+          k.sound?.id ?? null,
+          e.key === "ArrowRight" ? 1 : -1,
+        );
+        target = k.shown.find((s) => s.id === id);
+      } else if ((e.key === "r" || e.key === "R") && k.sound) {
+        e.preventDefault();
+        k.onReplace(k.sound.id, k.sound.name);
+        return;
+      } else if (e.key === "Delete" && k.sound) {
+        e.preventDefault();
+        k.onRemove(k.sound.id);
+        return;
+      } else {
+        return;
+      }
+      e.preventDefault();
+      if (target) k.chooseSound(target);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   return (
     <>
       {needsNotice && (
@@ -162,7 +221,10 @@ export function MultiviewGrid({
                 game={s.game}
                 now={now}
                 focused={on}
+                volume={volume}
+                muted={muted}
                 onFocus={() => chooseSound(s)}
+                onDead={(is) => markDead(s.id, is)}
                 onRemove={() => onRemove(s.id)}
                 onReplace={() => onReplace(s.id, s.name)}
                 onRetryResolve={() => onRetryResolve(s.id)}
@@ -175,7 +237,7 @@ export function MultiviewGrid({
                 <span className="mvcap__name">{s.name}</span>
                 {on && (
                   <span className="mvcap__sound" aria-hidden>
-                    <VolumeIcon size={14} />
+                    {muted ? <MuteIcon size={14} /> : <VolumeIcon size={14} />}
                   </span>
                 )}
                 {s.game ? (

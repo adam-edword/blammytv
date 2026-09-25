@@ -1116,6 +1116,34 @@
 .mvbar__side.is-compact .mvseg button {
   padding: 0 9px;
 }
+/* The right side gives way the same way: Add keeps its plus, the volume
+ * slider narrows. */
+.mvbar__side.is-compact .mvbar__addword {
+  display: none;
+}
+.mvbar__side.is-compact .mvbar__add {
+  width: 40px;
+  padding: 0;
+  justify-content: center;
+}
+.mvbar__side.is-compact .mvvol__slider {
+  width: 56px;
+}
+
+/* The sound tile's volume and mute (plan 017, "Sound and volume"): the
+ * main player's slider, on the bar. */
+.mvvol {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.mvvol__slider {
+  width: 88px;
+  height: 4px;
+  margin-right: 6px;
+  accent-color: var(--text);
+  cursor: pointer;
+}
 
 .mvseg button {
   display: inline-flex;
@@ -1374,14 +1402,23 @@
   gap: 2px;
   height: 11px;
 }
+/* The bars follow what the feed is saying (mvLevel.ts sets --b1 to --b3,
+ * low to high, 0 to 1): flat for silence, flat when muted. Until there is a
+ * level to show (no audio yet), the fixed shape they always had. */
 .mvbars i {
   width: 3px;
+  height: 11px;
   border-radius: 1px;
   background: currentColor;
+  transform-origin: bottom;
+  transition: transform 80ms linear;
 }
-.mvbars i:nth-child(1) { height: 6px; }
-.mvbars i:nth-child(2) { height: 11px; }
-.mvbars i:nth-child(3) { height: 8px; }
+.mvbars i:nth-child(1) { transform: scaleY(max(0.18, var(--b1, 0.55))); }
+.mvbars i:nth-child(2) { transform: scaleY(max(0.18, var(--b2, 1))); }
+.mvbars i:nth-child(3) { transform: scaleY(max(0.18, var(--b3, 0.73))); }
+.mvtile__badge.is-muted .mvbars i {
+  transform: scaleY(0.18);
+}
 
 /* Under the pointer, or with keyboard focus: the information and the
  * tile's own actions over a scrim. Nothing at rest, and nothing while the

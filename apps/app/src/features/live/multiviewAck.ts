@@ -84,3 +84,29 @@ export function loadLayoutKinds(): Partial<Record<number, MvKind>> {
 export function saveLayoutKinds(kinds: Partial<Record<number, MvKind>>): void {
   save(KINDS_KEY, VERSION, kinds);
 }
+
+/**
+ * The sound tile's volume and mute (plan 017, "Sound and volume":
+ * "remembered like the main player's"). Its own, not the main player's:
+ * muting a grid should not leave the next channel silent.
+ */
+const VOLUME_KEY = "multiviewVolume";
+
+export interface MvVolume {
+  /** 0 to 1, the element's own scale. */
+  volume: number;
+  muted: boolean;
+}
+
+export function loadMvVolume(): MvVolume {
+  const raw = load<Partial<MvVolume>>(VOLUME_KEY, VERSION, {});
+  const v = raw?.volume;
+  return {
+    volume: typeof v === "number" && v >= 0 && v <= 1 ? v : 1,
+    muted: raw?.muted === true,
+  };
+}
+
+export function saveMvVolume(v: MvVolume): void {
+  save(VOLUME_KEY, VERSION, v);
+}

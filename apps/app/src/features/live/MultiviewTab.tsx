@@ -9,7 +9,15 @@ import {
 } from "react";
 import { MultiviewGrid, type GridStream } from "./MultiviewGrid";
 import { MultiviewPicker, type PickerMode } from "./MultiviewPicker";
-import { loadGrid, loadLayoutKinds, saveGrid, saveLayoutKinds } from "./multiviewAck";
+import {
+  loadGrid,
+  loadLayoutKinds,
+  loadMvVolume,
+  saveGrid,
+  saveLayoutKinds,
+  saveMvVolume,
+  type MvVolume,
+} from "./multiviewAck";
 import { peekLiveGames } from "./multiviewEntry";
 import { gameLabel, liveWithChannels, useGamesToday } from "./mvGames";
 import { isFixture, type Fixture } from "../sports/model";
@@ -22,8 +30,10 @@ import {
   removePick,
   replacePick,
   roomOn,
+  swapToFront,
   type Pick,
 } from "./mvGrid";
+import { forMultiview } from "./mvKeys";
 import { useConnections } from "./connections";
 import { resolveStreamUrl } from "./stream";
 import { useLiveData } from "./useLiveData";
@@ -41,7 +51,9 @@ import {
   FocusLayoutIcon,
   FullscreenIcon,
   GridLayoutIcon,
+  MuteIcon,
   PlusIcon,
+  VolumeIcon,
 } from "../../ui/icons";
 import { Hint } from "../../ui/Hint";
 
@@ -176,7 +188,10 @@ function useWindowFullscreen(): [boolean, () => void] {
  * to 1000. The number moves with the UI scale and the font, so it is
  * measured rather than written into a media query.
  */
-function useCompactSide(ref: RefObject<HTMLElement | null>): boolean {
+function useCompactSide(
+  ref: RefObject<HTMLElement | null>,
+  edge: "left" | "right" = "left",
+): boolean {
   const [compact, setCompact] = useState(false);
   // The side's width WITH its words, from the last time they showed. Once
   // they are gone, its own width no longer says whether they would fit.
@@ -188,7 +203,8 @@ function useCompactSide(ref: RefObject<HTMLElement | null>): boolean {
     const fit = () => {
       const s = side.getBoundingClientRect();
       if (!side.classList.contains("is-compact")) full.current = s.width;
-      const room = cap.getBoundingClientRect().left - s.left - 16;
+      const c = cap.getBoundingClientRect();
+      const room = edge === "left" ? c.left - s.left - 16 : s.right - c.right - 16;
       setCompact(full.current > room);
     };
     fit();
@@ -204,7 +220,7 @@ function useCompactSide(ref: RefObject<HTMLElement | null>): boolean {
       window.removeEventListener("resize", fit);
       cap.removeEventListener("transitionend", fit);
     };
-  }, [ref]);
+  }, [ref, edge]);
   return compact;
 }
 
@@ -273,6 +289,26 @@ export function MultiviewTab() {
     saveLayoutKinds(next);
     setKinds(next);
   };
+
+  // In Focus the sound tile is the big one (decision M2): choosing a small
+  // tile swaps it in, and switching to Focus brings the sound tile up.
+  // Before paint, so the big spot never shows the wrong tile for a frame.
+  useLayoutEffect(() => {
+    if (kind !== "focus" || !soundId) return;
+    setPicks((was) => swapToFront(was, soundId));
+  }, [kind, soundId]);
+
+  // The sound tile's volume and mute, kept between visits (plan 017, "Sound
+  // and volume"). Saved as it moves: a slider steps 20 times end to end.
+  const [vol, setVol] = useState<MvVolume>(loadMvVolume);
+  useEffect(() => saveMvVolume(vol), [vol]);
+  const toggleMute = () => setVol((v) => ({ ...v, muted: !v.muted }));
+  // ↑ and ↓ step it as the main player's do, and up also unmutes.
+  const nudge = (d: number) =>
+    setVol((v) => ({
+      volume: Math.min(1, Math.max(0, +(v.volume + d).toFixed(2))),
+      muted: d > 0 ? false : v.muted,
+    }));
 
   /**
    * Each channel's stream URL, looked up once (audit F12).
@@ -380,25 +416,56 @@ export function MultiviewTab() {
     setPicker(null);
   };
 
-  // A opens the picker (plan 017's keyboard table). Never while typing, or
-  // while a dialog already has the keyboard.
+  const idle = useIdle();
+  const [fullscreen, toggleFullscreen] = useWindowFullscreen();
+
+  // The bar's keys from plan 017's table: A adds, M mutes, ↑ and ↓ are the
+  // volume, G flips Grid and Focus, F is full screen. The tiles' own keys
+  // (1 to 4, ← →, R, Delete) are the grid's. Never while typing, or while a
+  // dialog has the keyboard (mvKeys.forMultiview). Through a ref, so the
+  // listener is added once.
+  const barKeys = useRef({ openAdd, toggleMute, nudge, chooseKind, kind, cells, toggleFullscreen });
+  barKeys.current = { openAdd, toggleMute, nudge, chooseKind, kind, cells, toggleFullscreen };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() !== "a" || e.ctrlKey || e.metaKey || e.altKey) return;
-      const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
-      if (document.querySelector("[data-slot='dialog-content']")) return;
+      if (!forMultiview(e)) return;
+      const k = barKeys.current;
+      switch (e.key) {
+        case "a":
+        case "A":
+          k.openAdd();
+          break;
+        case "m":
+        case "M":
+          k.toggleMute();
+          break;
+        case "ArrowUp":
+          k.nudge(0.05);
+          break;
+        case "ArrowDown":
+          k.nudge(-0.05);
+          break;
+        case "g":
+        case "G":
+          if (kindsFor(k.cells).length < 2) return;
+          k.chooseKind(k.kind === "grid" ? "focus" : "grid");
+          break;
+        case "f":
+        case "F":
+          k.toggleFullscreen();
+          break;
+        default:
+          return;
+      }
       e.preventDefault();
-      openAdd();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [openAdd]);
-
-  const idle = useIdle();
-  const [fullscreen, toggleFullscreen] = useWindowFullscreen();
+  }, []);
   const leftRef = useRef<HTMLDivElement>(null);
   const compact = useCompactSide(leftRef);
+  const rightRef = useRef<HTMLDivElement>(null);
+  const compactRight = useCompactSide(rightRef, "right");
 
   // The shell reads these: the header hides its clock and Settings while
   // this tab is up, and dims with the bar when idle. On the root because
@@ -469,21 +536,46 @@ export function MultiviewTab() {
             </div>
           )}
         </div>
-        <div className="mvbar__side">
+        <div className={"mvbar__side" + (compactRight ? " is-compact" : "")} ref={rightRef}>
+          {!blocked && picks.length > 0 && (
+            <div className="mvvol">
+              <Hint label={vol.muted ? "Unmute (M)" : "Mute (M)"}>
+                <button
+                  type="button"
+                  className="mvbar__icon"
+                  aria-label={vol.muted ? "Unmute" : "Mute"}
+                  onClick={toggleMute}
+                >
+                  {vol.muted || vol.volume === 0 ? <MuteIcon size={18} /> : <VolumeIcon size={18} />}
+                </button>
+              </Hint>
+              <input
+                className="mvvol__slider"
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={vol.muted ? 0 : vol.volume}
+                aria-label="Volume"
+                onChange={(e) => setVol({ volume: parseFloat(e.target.value), muted: false })}
+              />
+            </div>
+          )}
           {!blocked && (
             <Hint label={full ?? "Add a channel (A)"}>
               <button
                 type="button"
                 className="mvbar__add"
                 aria-disabled={full !== null}
+                aria-label="Add channel"
                 onClick={openAdd}
               >
                 <PlusIcon size={16} />
-                Add channel
+                <span className="mvbar__addword">Add channel</span>
               </button>
             </Hint>
           )}
-          <Hint label={fullscreen ? "Exit full screen" : "Full screen"}>
+          <Hint label={fullscreen ? "Exit full screen (F)" : "Full screen (F)"}>
             <button
               type="button"
               className="mvbar__icon"
@@ -508,6 +600,8 @@ export function MultiviewTab() {
             kind={kind}
             conns={line}
             soundId={soundId}
+            volume={vol.volume}
+            muted={vol.muted}
             onSound={setSoundId}
             onRemove={(id) => setPicks((was) => removePick(was, id))}
             onReplace={(id, name) => setPicker({ kind: "replace", id, name })}

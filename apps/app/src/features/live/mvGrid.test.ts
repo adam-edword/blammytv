@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  swapToFront,
+  stepSound,
   addPick,
   cellsFor,
   fullReason,
@@ -150,5 +152,37 @@ describe("searchChannels", () => {
   it("returns nothing for nothing, and stops at the limit", () => {
     expect(searchChannels(live, "  ")).toEqual([]);
     expect(searchChannels(live, "n", 2)).toHaveLength(2);
+  });
+});
+
+describe("swapToFront", () => {
+  const p = (id: string) => ({ channelId: id, label: id });
+  it("swaps the chosen tile into the big spot, and nothing else moves", () => {
+    const out = swapToFront([p("a"), p("b"), p("c"), p("d")], "c");
+    expect(out.map((x) => x.channelId)).toEqual(["c", "b", "a", "d"]);
+  });
+  it("leaves the list alone when it is already first or not there", () => {
+    const list = [p("a"), p("b")];
+    expect(swapToFront(list, "a")).toBe(list);
+    expect(swapToFront(list, "zz")).toBe(list);
+  });
+});
+
+describe("stepSound", () => {
+  const ids = ["a", "b", "c", "d"];
+  it("moves along and wraps", () => {
+    expect(stepSound(ids, new Set(), "b", 1)).toBe("c");
+    expect(stepSound(ids, new Set(), "d", 1)).toBe("a");
+    expect(stepSound(ids, new Set(), "a", -1)).toBe("d");
+  });
+  it("skips a tile that can't take the sound", () => {
+    expect(stepSound(ids, new Set(["c"]), "b", 1)).toBe("d");
+    expect(stepSound(ids, new Set(["a"]), "b", -1)).toBe("d");
+  });
+  it("starts from an end when nothing has it, and gives up when nothing can", () => {
+    expect(stepSound(ids, new Set(), null, 1)).toBe("a");
+    expect(stepSound(ids, new Set(), null, -1)).toBe("d");
+    expect(stepSound(ids, new Set(), "gone", -1)).toBe("d");
+    expect(stepSound(ids, new Set(["b", "c", "d"]), "a", 1)).toBeNull();
   });
 });

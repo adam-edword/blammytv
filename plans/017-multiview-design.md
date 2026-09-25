@@ -2,9 +2,10 @@
 
 **Status: IN PROGRESS. P1 shipped in v0.9.105** (the tab, its bar, the
 layout engine), **P2 in v0.9.107** (the tile), **P3a in v0.9.109** (the
-picker and the line's limits) **and P3b in v0.9.111** (live games); P4,
-sound, keys and the seam, is next. Decided 2026-09-24: Adam answered M1
-to M9 the same day and added three things: the Focus split is resizable,
+picker and the line's limits), **P3b in v0.9.111** (live games) **and P4a
+in v0.9.116** (sound and keys); P4b, the seam, is next. Decided
+2026-09-24: Adam answered M1 to M9 the same day and added three things:
+the Focus split is resizable,
 multi-view gets its own tab between Guide and Sports, and every tile closes
 from an X on the tile. Written after Adam's first real
 multi-view sessions: the streams work (v0.9.101's proxy, v0.9.104's
@@ -620,6 +621,21 @@ resets, remembered).
 *Proof:* sound stays on the same stream through a removal and a swap; every
 key in the table does its thing; a drag moves the seam and keeps every
 picture 16:9; a double-click restores the natural split.
+
+**P4a, sound and keys, shipped in v0.9.116.** In Focus the sound tile is
+the big one: choosing a small tile swaps the two (`swapToFront`, so nothing
+else moves), and switching to Focus brings the sound tile up. In Grid only
+the sound moves. The bar has the volume and mute, for the sound tile only,
+remembered (`multiviewVolume`); ↑ also unmutes, as in the main player. The
+Sound badge's three bars follow the tile's real level: `captureStream()`
+into an `AnalyserNode`, on the sound tile only, low, mid and high bands
+(`mvLevel.ts`). Keys: 1 to 4, ← →, A, R, Delete, M, ↑ ↓, G and F. None
+while typing, with a dialog open or with a modifier held, and a focused
+volume slider keeps its own arrows (`mvKeys.ts`). A with the line full does
+nothing, as the Add button does. Left for P4b: the seam, `[`, `]` and `\`.
+Enter (fill the window) is P6's. verify-mvsound proves it, 23 checks, each
+one mutation-tested; the level comes from a stubbed `captureStream()`
+playing a real oscillator, since nothing decodes in the test Chromium.
 
 **P5. Motion.** FLIP on layout changes, the swap into the big spot, enter
 and leave, the picker, reduced motion. Checked in slow motion by eye, and by
