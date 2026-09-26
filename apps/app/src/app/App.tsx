@@ -18,7 +18,15 @@ import { onOnboardingReplay, shouldShowOnboarding } from "./onboardingGate";
 import { LiveScreen } from "../features/live/LiveScreen";
 import { SportsScreen } from "../features/sports/SportsScreen";
 import { MultiviewTab } from "../features/live/MultiviewTab";
-import { onAddRequest, onMultiviewRequest, onWatchRequest } from "../features/live/multiviewEntry";
+import {
+  onAddRequest,
+  onMultiviewRequest,
+  onWatchRequest,
+  requestWatchInPlayer,
+} from "../features/live/multiviewEntry";
+import { Palette, type GoTarget } from "../features/palette/Palette";
+import { loadAioUrl } from "../features/settings/aiostreams";
+import { saveSettingsTab } from "../features/settings/settingsTab";
 import {
   loadPlaylists,
   onPlaylistsChange,
@@ -34,6 +42,7 @@ import {
   onOpenRequest,
   onResumeRequest,
   onReturnRequest,
+  requestOpenInStream,
 } from "../features/stream/openRequest";
 
 /**
@@ -114,6 +123,10 @@ export function App() {
    */
   const [sportsHome, setSportsHome] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // The app palette (plan 019, K11): Ctrl+K anywhere, or the search button
+  // beside Settings. Not over onboarding, and not over Settings, which is
+  // its own modal (Ctrl+K there closes Settings' way first).
+  const [paletteOpen, setPaletteOpen] = useState(false);
   // The Themes panel pops OUT of Settings: opening it closes Settings, and
   // closing it returns to the app (Adam's call). Mutually exclusive with
   // Settings, so only one .settings card is ever mounted (the live-video
@@ -137,6 +150,21 @@ export function App() {
       }),
     [],
   );
+
+  // Ctrl+K (⌘K on a Mac keyboard) opens the palette from anywhere, and
+  // closes it again. Not while onboarding or Settings is up: each is a
+  // modal of its own.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;
+      if (e.key.toLowerCase() !== "k") return;
+      if (onboarding || settingsOpen) return;
+      e.preventDefault();
+      setPaletteOpen((o) => !o);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onboarding, settingsOpen]);
 
   // Section switches are instant: leaving Live unmounts LiveScreen, whose
   // InvertedPlayer cleanup heals the shell's clip hole SYNCHRONOUSLY (before
@@ -433,6 +461,7 @@ export function App() {
           setLiveTab(t);
         }}
         onOpenSettings={() => setSettingsOpen(true)}
+        onOpenSearch={() => setPaletteOpen(true)}
       />
       <main className="app-main" ref={mainRef}>
         {dest === "sports" ? (
@@ -450,6 +479,27 @@ export function App() {
         )}
       </main>
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+      <Palette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        hasLive={hasLiveSource}
+        hasStream={!!loadAioUrl()}
+        // Found, not played full-screen: the Guide tunes it in its preview.
+        onChannel={(id) => requestWatchInPlayer(id, false)}
+        onTitle={(item) => requestOpenInStream(item, "home")}
+        onGo={(to: GoTarget) => {
+          if (to.kind === "live") {
+            setSection("live");
+            setLiveTab(to.tab);
+          } else if (to.kind === "stream") {
+            setSection("stream");
+            setStreamTab(to.tab);
+          } else {
+            saveSettingsTab(to.tab);
+            setSettingsOpen(true);
+          }
+        }}
+      />
       {welcome && <WelcomeAnimation onDone={() => setWelcome(false)} />}
       {onboarding && <Onboarding onDone={() => setOnboarding(false)} />}
     </div>

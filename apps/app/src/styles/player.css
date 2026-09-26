@@ -1712,6 +1712,26 @@
   flex: none;
   max-width: 40%;
 }
+/* The app palette (plan 019, K11) is this picker grown to the whole app,
+ * and wears these same classes. Its one row of its own: a title's poster,
+ * 2:3 on the picture's ground, as tall as a channel row's logo tile. */
+.palette__poster {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 51px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--pic);
+  color: var(--text-muted);
+  font-weight: 700;
+}
+.palette__poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 .mvpick__fillicon {
   display: grid;
   place-items: center;

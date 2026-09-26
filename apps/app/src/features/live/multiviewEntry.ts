@@ -30,10 +30,19 @@ export function onMultiviewRequest(cb: () => void): () => void {
  */
 const WATCH = "blammytv:watch-in-player";
 let watch: string | null = null;
+let watchTheater = true;
 
-export function requestWatchInPlayer(channelId: string): void {
+/** `theater` false tunes it in the Guide's own preview instead: the app
+ * palette (plan 019, K11) finds a channel, it doesn't fill the screen. */
+export function requestWatchInPlayer(channelId: string, theater = true): void {
   watch = channelId;
+  watchTheater = theater;
   window.dispatchEvent(new Event(WATCH));
+}
+
+/** Whether the pending watch wants the theater. Read before taking it. */
+export function watchWantsTheater(): boolean {
+  return watchTheater;
 }
 
 export function onWatchRequest(cb: () => void): () => void {

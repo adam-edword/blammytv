@@ -1015,6 +1015,77 @@ const dimmedText = () =>
   await page.waitForTimeout(600);
 }
 
+// ====================================================================== K11
+// The palette: multi-view's picker grown to the whole app.
+{
+  await goTo(page, "guide");
+  await page.waitForTimeout(1000);
+  await page.mouse.move(W / 2, H - 4);
+  const glass = await token("--glass");
+  const btn = await page.evaluate(() => {
+    const b = document.querySelector("button[aria-label='Search']");
+    const g = document.querySelector("button[aria-label='Settings']");
+    if (!b || !g) return null;
+    const r = b.getBoundingClientRect();
+    return { w: r.width, h: r.height, bg: getComputedStyle(b).backgroundColor, beside: g.getBoundingClientRect().left > r.right && g.getBoundingClientRect().left - r.right < 20 };
+  });
+  check("a round glass search button sits beside Settings", btn && btn.w === 40 && btn.h === 40 && btn.bg === glass && btn.beside, JSON.stringify(btn));
+
+  await page.keyboard.press("Control+k");
+  const pal = page.locator(".palette");
+  const opened = await pal.waitFor({ timeout: 4000 }).then(() => true, () => false);
+  const stayed = await page.evaluate(() => document.querySelector("[data-dest='guide']")?.getAttribute("aria-current") === "page" || !!document.querySelector(".live-main"));
+  check("Ctrl+K opens the palette where you are (it used to jump to Discover)", opened && stayed, `open ${opened}, still on the Guide ${stayed}`);
+  await page.keyboard.type("espn");
+  await page.waitForTimeout(400);
+  const secs = await page.evaluate(() => [...document.querySelectorAll(".palette .mvpick__sec")].map((e) => e.textContent));
+  check("  it finds channels and what is on later, under eyebrows", secs.includes("Channels") && secs.includes("On later"), secs.join(", "));
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(1200);
+  const tuned = await page.evaluate(() => ({
+    closed: !document.querySelector(".palette"),
+    name: document.querySelector(".hero__channel-name")?.textContent,
+    theater: !!document.querySelector(".live--theater"),
+  }));
+  check("  Enter on a channel tunes it in the Guide, not the theater", tuned.closed && /ESPN/.test(tuned.name ?? "") && !tuned.theater, JSON.stringify(tuned));
+
+  // A title, from the Guide: to its page on Stream, and Back lands on Stream.
+  await page.keyboard.press("Control+k");
+  await pal.waitFor({ timeout: 4000 });
+  await page.keyboard.type("movie one");
+  await page.waitForTimeout(400);
+  const films = await page.evaluate(() => [...document.querySelectorAll(".palette .mvpick__sec")].map((e) => e.textContent));
+  await page.keyboard.press("Enter");
+  const page1 = await page.locator(".vod-detail").waitFor({ timeout: 10_000 }).then(() => true, () => false);
+  const title = await page.evaluate(() => document.querySelector(".vod-detail__title")?.textContent ?? document.querySelector(".vod-detail__logo")?.getAttribute("alt"));
+  check("  and a film opens its page on Stream", films.includes("Films and series") && page1 && title === "Fake Movie One", `${films.join(", ")} → ${title}`);
+  await page.locator(".vod-back").click();
+  await page.waitForTimeout(1500);
+  const home = await page.evaluate(() => !document.querySelector(".vod-detail") && !!document.querySelector(".media-row, .shero, .stream"));
+  check("  Back from it lands on Stream's rows", home, String(home));
+
+  // A place: Customize opens Settings on that tab.
+  await page.keyboard.press("Control+k");
+  await pal.waitFor({ timeout: 4000 });
+  await page.keyboard.type("customize");
+  await page.waitForTimeout(300);
+  await page.keyboard.press("Enter");
+  await page.locator(".settings").waitFor({ timeout: 5000 }).catch(() => {});
+  const tab = await page.evaluate(() => document.querySelector(".settings [role=tab][aria-selected=true]")?.textContent);
+  check("  and a place goes there: Customize opens Settings on Customize", tab === "Customize", String(tab));
+  // Past the palette's own 150ms exit before Escape, which is Settings'.
+  await page.waitForTimeout(500);
+  await page.keyboard.press("Escape");
+  await page.locator(".settings").waitFor({ state: "detached", timeout: 4000 }).catch(() => {});
+  await page.waitForTimeout(300);
+  // The button opens it too.
+  await page.locator("button[aria-label='Search']").click();
+  const byButton = await pal.waitFor({ timeout: 4000 }).then(() => true, () => false);
+  check("  the search button opens it too", byButton);
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(300);
+}
+
 check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
 await browser.close();
 console.log(fail ? `\n${fail} FAILED` : "\nALL PASS");

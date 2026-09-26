@@ -60,7 +60,12 @@ import { Guide } from "./Guide";
 import { Hero } from "./Hero";
 import type { Channel, LiveData, Programme } from "./model";
 import { loadRecents, recordRecent } from "./recents";
-import { onWatchRequest, requestAddToMultiview, takeWatchRequest } from "./multiviewEntry";
+import {
+  onWatchRequest,
+  requestAddToMultiview,
+  takeWatchRequest,
+  watchWantsTheater,
+} from "./multiviewEntry";
 import { loadLive, onLiveRefreshed, peekLive } from "./source";
 import { buildMeta, resolveStreamUrl } from "./stream";
 
@@ -540,10 +545,11 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   // left, so it is usually waiting when this mounts.
   useEffect(() => {
     const take = () => {
+      const theaterToo = watchWantsTheater();
       const id = takeWatchRequest();
       if (!id) return;
       selectChannel(id);
-      setTheater(true);
+      if (theaterToo) setTheater(true);
     };
     take();
     return onWatchRequest(take);

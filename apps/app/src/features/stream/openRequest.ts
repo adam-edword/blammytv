@@ -15,8 +15,10 @@ const RETURN_EVENT = "blammytv:return-to-discover";
 let pending: VodItem | null = null;
 
 /** Which grid the hand-off came from — backing all the way out returns
- * THERE, not to a hardcoded tab. */
-export type OpenOrigin = "discover" | "mylist";
+ * THERE, not to a hardcoded tab. "home" is the app palette's (plan 019,
+ * K11): it can open a title from any tab, and Stream's own rows are the
+ * nearest thing to where it came from. */
+export type OpenOrigin = "discover" | "mylist" | "home";
 let origin: OpenOrigin = "discover";
 
 /**

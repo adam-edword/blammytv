@@ -157,6 +157,7 @@ export function AppHeader({
   liveTab,
   onLiveTab,
   onOpenSettings,
+  onOpenSearch,
 }: {
   section: Section;
   streamTab: StreamTab;
@@ -167,6 +168,8 @@ export function AppHeader({
   onStreamTab: (t: StreamTab) => void;
   onLiveTab: (t: LiveTab) => void;
   onOpenSettings: () => void;
+  /** The app palette (plan 019, K11). */
+  onOpenSearch: () => void;
 }) {
   const clock = useClock();
   /* Mirrors, not owners. The filter's truth is a history entry in
@@ -186,9 +189,10 @@ export function AppHeader({
   const [recAvailable] = useState(tmdbEnabled);
   useEffect(() => onRecommendChange(setRecOpen), []);
   const searchRef = useRef<HTMLInputElement>(null);
-  // `/`, Ctrl+K, Ctrl+F reach the search field — which lives on Discover
+  // `/` and Ctrl+F reach the search field — which lives on Discover
   // now, so this GOES there first and asks for focus through the mailbox
-  // in searchQuery. Dispatching a bare event would not survive the trip:
+  // in searchQuery. (Ctrl+K was one of these until plan 019, K11: it opens
+  // the app palette now, which finds titles as well as everything else.) Dispatching a bare event would not survive the trip:
   // DiscoverScreen may not be mounted yet, and App holds the swap back by
   // NAV_SETTLE_MS on top of that.
   //
@@ -201,7 +205,7 @@ export function AppHeader({
       const combo =
         (e.ctrlKey || e.metaKey) &&
         !e.altKey &&
-        (e.key.toLowerCase() === "k" || e.key.toLowerCase() === "f");
+        e.key.toLowerCase() === "f";
       if (!slash && !combo) return;
       const t = e.target as HTMLElement | null;
       if (
@@ -765,6 +769,19 @@ export function AppHeader({
           * anything is worse than an absent one: it reads as broken. It
           * comes back when there is something behind it. */}
         <div className="header__actions">
+          {/* The palette's way in for the pointer, beside Settings and the
+            * same round glass (plan 019, K11). Ctrl+K is the other. */}
+          <Hint label="Search (Ctrl K)">
+            <Button variant="secondary" size="icon"
+              type="button"
+              className="header__action header__search"
+              aria-label="Search"
+              aria-keyshortcuts="Control+K"
+              onClick={onOpenSearch}
+            >
+              <SearchIcon className="size-5" />
+            </Button>
+          </Hint>
           <Hint label="Settings">
             <Button variant="secondary" size="icon"
               type="button"

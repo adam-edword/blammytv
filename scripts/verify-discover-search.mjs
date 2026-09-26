@@ -5,7 +5,7 @@
 // now, beside the All Content / Movies / Series tabs, and gone everywhere
 // else.
 //
-// The check that earns its place is the last one. `/`, Ctrl+K and Ctrl+F
+// The check that earns its place is the last one. `/` and Ctrl+F (Ctrl+K is the app palette since v0.10.9)
 // are handled app-wide, so they fire while DiscoverScreen may not be
 // mounted at all -- and App holds the screen swap back by NAV_SETTLE_MS on
 // top of that. A dispatched event would land in an empty room and the
