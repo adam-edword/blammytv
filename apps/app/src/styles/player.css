@@ -1361,7 +1361,7 @@
   box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text) 45%, transparent);
 }
 
-/* One line. The wheel scrolls it sideways (MvScores); the bar is hidden
+/* One line. The wheel scrolls it sideways (MultiviewScores); the bar is hidden
  * because the cards cut off at the edge say there is more. */
 .mvscores__row {
   flex: 1;

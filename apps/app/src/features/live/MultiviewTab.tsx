@@ -24,8 +24,8 @@ import {
 import { onAddRequest, peekLiveGames, takeAddRequest } from "./multiviewEntry";
 import { gameLabel, liveWithChannels, useGamesToday } from "./mvGames";
 import { filterSports, loadMvScores, rowGames, saveMvScores } from "./mvScores";
-import { MvScoresRow } from "./MvScores";
-import { MvScoresFilter } from "./MvScoresFilter";
+import { MvScoresRow } from "./MultiviewScores";
+import { MvScoresFilter } from "./MultiviewScoresFilter";
 import { fetchList, loadFollows } from "../sports/follows";
 import { isFixture, type Fixture } from "../sports/model";
 import { defaultKind, kindsFor, type MvKind } from "./mvLayout";
