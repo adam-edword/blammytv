@@ -2,10 +2,31 @@ import type { Programme } from "./model";
 import { EPG_KEEP_AHEAD_MS } from "./epgWindow";
 
 /**
- * XMLTV parsing, ported from the old build's proven mapper: the panel's
- * `xmltv.php` returns one document covering every channel; we parse it with
- * the WebView's native DOMParser, window it to keep the result bounded, and
- * match programmes to channels by their `epg_channel_id`.
+ * XMLTV parsing: the panel's `xmltv.php` returns one document covering every
+ * channel; we read the programmes out of it, window them to keep the result
+ * bounded, and match them to channels by their `epg_channel_id`.
+ *
+ * READ AS TEXT, NOT AS A DOCUMENT (v0.10.11). This used the WebView's
+ * DOMParser, which builds the whole document as a tree before anything can
+ * be read from it, and it has to run on the page's own thread. Adam's guide
+ * is 105.9MB: 3,323ms in one task, the whole app frozen, on every refresh,
+ * which a launch starts right after painting from the disk cache. Measured
+ * with freezeProbe on his machine: the 3,325ms long task that froze
+ * Multi-view's first open.
+ *
+ * A worker can do the reading (xmltvThread.ts), but a worker has no
+ * DOMParser. And XMLTV asks very little of a parser: three attributes on
+ * each <programme> and the text of its first <title> and <desc>. So this
+ * scans for those directly, which is also far cheaper than a tree: a
+ * programme on a channel we do not carry is skipped at its opening tag,
+ * and that is most of them. What a tree gave us for free is done here by
+ * hand and tested (xmltv.test.ts): entities and character references,
+ * CDATA, either quote style, attributes in any order, markup inside text.
+ *
+ * More forgiving than the tree was. A single malformed byte (a bare "&" in
+ * a title, which providers do send) made DOMParser return a parsererror
+ * and the whole guide came back empty; here it costs that one title its
+ * ampersand.
  */
 
 /** Keep an hour of history (the guide window opens slightly in the past)
@@ -97,44 +118,35 @@ export function parseXmltv(
     return hit;
   };
 
-  let doc: Document;
-  try {
-    doc = new DOMParser().parseFromString(xml, "text/xml");
-    if (doc.querySelector("parsererror")) return out;
-  } catch {
-    return out;
-  }
-
   const from = now.getTime() - PAST_MS;
   const to = now.getTime() + FUTURE_MS;
 
   // Only when asked: which of their ids we never used. Cheap (a Set of the
   // document's <channel> ids), and it is the difference between a thin
   // guide and a matching bug.
-  const theirs = stats
-    ? new Set(
-        Array.from(doc.getElementsByTagName("channel"))
-          .map((c) => c.getAttribute("id") ?? "")
-          .filter(Boolean),
-      )
-    : null;
+  const theirs = stats ? new Set<string>() : null;
+  if (theirs)
+    for (const tag of tags(xml, "channel")) {
+      const id = attrs(tag.head).get("id");
+      if (id) theirs.add(id);
+    }
   if (stats && theirs) stats.guideChannels = theirs.size;
 
-  for (const prog of Array.from(doc.getElementsByTagName("programme"))) {
-    const targets = lookup(prog.getAttribute("channel") ?? "");
+  for (const prog of tags(xml, "programme")) {
+    const a = attrs(prog.head);
+    const targets = lookup(a.get("channel") ?? "");
     if (!targets) continue;
-    const start = parseXmltvTime(prog.getAttribute("start"));
-    const stop = parseXmltvTime(prog.getAttribute("stop"));
+    const start = parseXmltvTime(a.get("start"));
+    const stop = parseXmltvTime(a.get("stop"));
     if (start == null || stop == null || stop < from || start > to) continue;
 
-    const title =
-      prog.getElementsByTagName("title")[0]?.textContent?.trim() ?? "";
+    const body = prog.body();
+    const title = child(body, "title")?.trim() ?? "";
     // Skip filler entries ("To Be Announced", "No Information", untitled…).
     // Providers often add a day-spanning placeholder that overlaps the real
     // programmes — it collides with them in the guide and clutters the hero.
     if (isFillerTitle(title)) continue;
-    const synopsis =
-      prog.getElementsByTagName("desc")[0]?.textContent?.trim() || undefined;
+    const synopsis = child(body, "desc")?.trim() || undefined;
 
     for (const chId of targets) {
       const list = out.get(chId) ?? [];
@@ -168,6 +180,98 @@ export function parseXmltv(
     }
   }
   return out;
+}
+
+/**
+ * Every `<name …>` element in the document, in order: its opening tag's
+ * attribute text, and its content on demand (most programmes are skipped
+ * before anyone asks).
+ *
+ * The opening tag is matched with its quotes respected, so a ">" inside
+ * an attribute value cannot end it early. `<name/>` has no content.
+ */
+const OPENERS = new Map<string, RegExp>();
+
+function* tags(xml: string, name: string): Generator<{ head: string; body: () => string }> {
+  // One per name, not per call: this runs twice for every programme kept.
+  // Sticky, so each use starts where it is pointed; no two walks of the
+  // same name are ever open at once.
+  let open = OPENERS.get(name);
+  if (!open) {
+    open = new RegExp(`<${name}(?=[\\s/>])((?:[^>"']|"[^"]*"|'[^']*')*)>`, "y");
+    OPENERS.set(name, open);
+  }
+  const close = `</${name}`;
+  let i = 0;
+  for (;;) {
+    const at = xml.indexOf(`<${name}`, i);
+    if (at === -1) return;
+    open.lastIndex = at;
+    const m = open.exec(xml);
+    if (!m) {
+      i = at + name.length + 1;
+      continue;
+    }
+    const headEnd = open.lastIndex;
+    const selfClosing = m[1].endsWith("/");
+    const head = selfClosing ? m[1].slice(0, -1) : m[1];
+    let bodyEnd = headEnd;
+    if (!selfClosing) {
+      const c = xml.indexOf(close, headEnd);
+      bodyEnd = c === -1 ? xml.length : c;
+    }
+    const from = headEnd;
+    const to = bodyEnd;
+    yield { head, body: () => (selfClosing ? "" : xml.slice(from, to)) };
+    i = selfClosing ? headEnd : bodyEnd + close.length;
+  }
+}
+
+const ATTR = /([^\s=/]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+
+/** An opening tag's attributes, values decoded. */
+function attrs(head: string): Map<string, string> {
+  const out = new Map<string, string>();
+  ATTR.lastIndex = 0;
+  for (let m = ATTR.exec(head); m; m = ATTR.exec(head))
+    out.set(m[1], decode(m[2] ?? m[3] ?? "").replace(/[\t\n\r]/g, " "));
+  return out;
+}
+
+/** The text of the first `<name>` in `body`, as DOMParser's textContent
+ * gave it: entities decoded, CDATA as written, markup inside dropped. */
+function child(body: string, name: string): string | undefined {
+  for (const t of tags(body, name)) return text(t.body());
+  return undefined;
+}
+
+function text(inner: string): string {
+  let out = "";
+  let i = 0;
+  while (i < inner.length) {
+    const c = inner.indexOf("<![CDATA[", i);
+    const plain = inner.slice(i, c === -1 ? inner.length : c);
+    out += decode(plain.includes("<") ? plain.replace(/<!--[\s\S]*?-->|<[^>]*>/g, "") : plain);
+    if (c === -1) break;
+    const e = inner.indexOf("]]>", c + 9);
+    out += inner.slice(c + 9, e === -1 ? inner.length : e);
+    i = e === -1 ? inner.length : e + 3;
+  }
+  return out;
+}
+
+const NAMED: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
+
+/** XML's five named entities and its character references. Anything else
+ * is left as written: HTML's &nbsp; is not XML, and the tree refused the
+ * whole document over it. */
+function decode(s: string): string {
+  if (!s.includes("&")) return s;
+  return s.replace(/&(#[xX][0-9a-fA-F]+|#[0-9]+|[a-zA-Z]+);/g, (m, e: string) => {
+    if (e[0] !== "#") return NAMED[e] ?? m;
+    const code = e[1] === "x" || e[1] === "X" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
+    return code >= 0 && code <= 0x10ffff ? String.fromCodePoint(code) : m;
+  });
 }
 
 /** "20260614200000 +0000" → epoch ms (UTC when no offset is given). */

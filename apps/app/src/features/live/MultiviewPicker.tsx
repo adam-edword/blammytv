@@ -12,7 +12,7 @@ import { isFollowed, loadFollows } from "../sports/follows";
 import { loadRecents } from "./recents";
 import { Matchup } from "../sports/Matchup";
 import { QualityBadge } from "../../ui/QualityBadge";
-import { CheckIcon, PlusIcon, SearchIcon } from "../../ui/icons";
+import { BackArrowIcon, CheckIcon, PlusIcon, SearchIcon } from "../../ui/icons";
 import { formatClock } from "../../lib/time";
 import { loadClockFormat } from "../settings/clockFormat";
 import type { Channel, LiveData } from "./model";
@@ -34,12 +34,34 @@ import { Kbd } from "../../ui/Kbd";
  * Before typing it offers the live games Sports last saw, your favourites
  * and what you watched recently. Typing searches every channel. A channel
  * already in the grid says so and cannot be taken twice.
+ *
+ * A GAME ASKS WHICH FEED, every time (Adam, v0.10.3: "sometimes it chooses
+ * the wrong source for the game and theres no way to override it"). Taking
+ * a game opens its feeds in place of the list, in the order the Sports
+ * theater's rail draws them (railFor), the first marked as the best match;
+ * taking a feed adds it. Escape, Backspace in an empty search or the arrow
+ * go back to the list. Fill with live games still takes each game's best
+ * match: it is the one-press way, and a feed can be changed after with R.
  */
 
 export type PickerMode = { kind: "add" } | { kind: "replace"; id: string; name: string };
 
 type Row =
-  | { key: string; kind: "game"; channelId: string; label: string; game: Fixture; channel?: Channel }
+  /** A game: taking it opens its feeds. `channelId` is empty, a game being
+   * no one channel; it is taken only when all its feeds are (`isTaken`). */
+  | { key: string; kind: "game"; channelId: ""; label: string; game: Fixture }
+  /** One of a game's feeds. `channel` is missing for one in a hidden folder
+   * (the matcher's fallback), which still plays; `name` is the rail's. */
+  | {
+      key: string;
+      kind: "feed";
+      channelId: string;
+      label: string;
+      game: Fixture;
+      name: string;
+      channel?: Channel;
+      best: boolean;
+    }
   | { key: string; kind: "channel"; channelId: string; label: string; channel: Channel }
   /** "Fill with live games" (M9): one row, so Enter reaches it like any other. */
   | { key: string; kind: "fill"; channelId: ""; label: string; games: Fixture[]; followed: boolean };
@@ -71,6 +93,7 @@ export function MultiviewPicker({
   onChoose,
   onFill,
   onCloseAutoFocus,
+  feedsFor = null,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -87,8 +110,13 @@ export function MultiviewPicker({
   /** Where focus goes as it closes: the tab's, since it opens from code and
    * has no trigger of its own for Radix to go back to (plan 018, U1). */
   onCloseAutoFocus?: (e: Event) => void;
+  /** Open on this game's feeds rather than the list: a game taken from the
+   * Live Scores row (v0.10.6). */
+  feedsFor?: Fixture | null;
 }) {
   const [query, setQuery] = useState("");
+  /** The game whose feeds are showing, in place of the list. */
+  const [feedsOf, setFeedsOf] = useState<Fixture | null>(null);
   const [clock] = useState(loadClockFormat);
   const now = new Date();
 
@@ -121,6 +149,7 @@ export function MultiviewPicker({
     if (open) {
       setOpening((n) => n + 1);
       setQuery("");
+      setFeedsOf(feedsFor);
     }
   }
   // Otherwise the plan's timing, not the shared Dialog's: from 0.98 rather
@@ -140,6 +169,30 @@ export function MultiviewPicker({
     if (!live || !open) return [];
     const byId = channelIndex(live, false);
     const q = query.trim().toLowerCase();
+    // What you can still add comes first in each section. The list
+    // highlights its first row and Enter takes it, and a first row that was
+    // already in the grid (so, disabled) left Enter doing nothing.
+    const addableFirst = (rows: Row[]) => [
+      ...rows.filter((r) => !isTaken(r, inGrid)),
+      ...rows.filter((r) => isTaken(r, inGrid)),
+    ];
+    if (feedsOf) {
+      const feeds = feedsOf.channels
+        .map(
+          (c, i): Row => ({
+            key: `f:${feedsOf.id}:${c.id}`,
+            kind: "feed",
+            channelId: c.id,
+            label: gameLabel(feedsOf),
+            game: feedsOf,
+            name: c.name,
+            channel: byId.get(c.id),
+            best: i === 0,
+          }),
+        )
+        .filter((r) => !q || (r.kind === "feed" && r.name.toLowerCase().includes(q)));
+      return feeds.length ? [{ value: `${gameLabel(feedsOf)}: pick a feed`, items: addableFirst(feeds) }] : [];
+    }
     const gameRows = games
       .filter((g) => g.channels[0])
       .filter(
@@ -153,24 +206,16 @@ export function MultiviewPicker({
         (g): Row => ({
           key: `g:${g.id}`,
           kind: "game",
-          channelId: g.channels[0].id,
+          channelId: "",
           label: gameLabel(g),
           game: g,
-          channel: byId.get(g.channels[0].id),
         }),
       );
-    // What you can still add comes first in each section. The list
-    // highlights its first row and Enter takes it, and a first row that was
-    // already in the grid (so, disabled) left Enter doing nothing.
-    const addableFirst = (rows: Row[]) => [
-      ...rows.filter((r) => !inGrid.has(r.channelId)),
-      ...rows.filter((r) => inGrid.has(r.channelId)),
-    ];
     const out: Section[] = [];
     // A section with nothing left to add goes last, so the row the picker
     // opens highlighting is one Enter can take. Every Favorite already on
     // the grid used to open it on a disabled row (plan 018, U10).
-    const spent = (sec: Section) => sec.items.every((r) => r.kind !== "fill" && inGrid.has(r.channelId));
+    const spent = (sec: Section) => sec.items.every((r) => r.kind !== "fill" && isTaken(r, inGrid));
     const spentLast = (secs: Section[]) => [...secs.filter((x) => !spent(x)), ...secs.filter(spent)];
     // One action, not a preset system (M9): fill what the line has room
     // for, the games you follow first. Offered only when it would add one.
@@ -210,16 +255,26 @@ export function MultiviewPicker({
     if (recent.length) out.push({ value: "Recent", items: addableFirst(recent.map(channelRow)) });
     return spentLast(out);
     // `now` is left out on purpose: the rows' "what is on" is read at render.
-  }, [open, live, games, query, inGrid, mode.kind, room.left]);
+  }, [open, live, games, query, inGrid, mode.kind, room.left, feedsOf]);
+
+  const back = () => {
+    setFeedsOf(null);
+    setQuery("");
+  };
 
   const choose = (row: Row) => {
     if (row.kind === "fill") {
       onFill(row.games);
       return;
     }
-    if (inGrid.has(row.channelId)) return;
+    if (isTaken(row, inGrid)) return;
+    if (row.kind === "game") {
+      setFeedsOf(row.game);
+      setQuery("");
+      return;
+    }
     onChoose(
-      row.kind === "game"
+      row.kind === "feed"
         ? {
             channelId: row.channelId,
             label: row.label,
@@ -245,6 +300,13 @@ export function MultiviewPicker({
         className="mvpick top-[96px] translate-y-0 gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-[640px]"
         style={motion}
         onCloseAutoFocus={onCloseAutoFocus}
+        // One layer at a time (the app's rule since v0.9.91): from a game's
+        // feeds, Escape goes back to the list, and only then closes.
+        onEscapeKeyDown={(e) => {
+          if (!feedsOf) return;
+          e.preventDefault();
+          back();
+        }}
       >
         <DialogTitle className="sr-only">{title}</DialogTitle>
         <Autocomplete.Root
@@ -259,11 +321,23 @@ export function MultiviewPicker({
           keepHighlight
         >
           <div className="mvpick__head">
-            <SearchIcon size={19} aria-hidden />
+            {feedsOf ? (
+              <button type="button" className="mvpick__back" aria-label="Back to the list" onClick={back}>
+                <BackArrowIcon size={19} />
+              </button>
+            ) : (
+              <SearchIcon size={19} aria-hidden />
+            )}
             <Autocomplete.Input
               className="mvpick__input"
-              placeholder="Search your channels"
-              aria-label="Search your channels"
+              placeholder={feedsOf ? "Search this game's feeds" : "Search your channels"}
+              aria-label={feedsOf ? "Search this game's feeds" : "Search your channels"}
+              onKeyDown={(e) => {
+                if (feedsOf && e.key === "Backspace" && !query) {
+                  e.preventDefault();
+                  back();
+                }
+              }}
             />
             <span className="mvpick__target">
               {mode.kind === "replace" ? `Replaces ${mode.name}` : null}
@@ -286,7 +360,7 @@ export function MultiviewPicker({
                   <Autocomplete.GroupLabel className={`mvpick__sec ${EYEBROW}`}>{section.value}</Autocomplete.GroupLabel>
                   <Autocomplete.Collection>
                     {(row: Row) => {
-                      const taken = inGrid.has(row.channelId);
+                      const taken = isTaken(row, inGrid);
                       return (
                         <Autocomplete.Item
                           key={row.key}
@@ -299,6 +373,8 @@ export function MultiviewPicker({
                             <FillRow row={row} />
                           ) : row.kind === "game" ? (
                             <GameRow row={row} />
+                          ) : row.kind === "feed" ? (
+                            <FeedRow row={row} live={live} now={now} clock={clock} />
                           ) : (
                             <ChannelRow
                               channel={row.channel}
@@ -330,11 +406,11 @@ export function MultiviewPicker({
             </span>
             <span>
               <Kbd>↵</Kbd>
-              {mode.kind === "replace" ? "replace" : "add"}
+              {feedsOf ? "pick" : mode.kind === "replace" ? "replace" : "add"}
             </span>
             <span>
               <Kbd>esc</Kbd>
-              close
+              {feedsOf ? "back" : "close"}
             </span>
             <span className="mvpick__left">
               {mode.kind === "replace" ? "Same place, same sound" : leftLine(room)}
@@ -396,12 +472,47 @@ function FillRow({ row }: { row: Extract<Row, { kind: "fill" }> }) {
 }
 
 function GameRow({ row }: { row: Extract<Row, { kind: "game" }> }) {
+  const n = row.game.channels.length;
   return (
     <>
       <span className="mvpick__game">
         <Matchup game={row.game} />
       </span>
-      {row.channel && <span className="mvpick__sub mvpick__gamechan">{row.channel.name}</span>}
+      <span className="mvpick__sub mvpick__gamechan">{n === 1 ? "1 feed" : `${n} feeds`}</span>
     </>
   );
+}
+
+function FeedRow({
+  row,
+  live,
+  now,
+  clock,
+}: {
+  row: Extract<Row, { kind: "feed" }>;
+  live: LiveData | null;
+  now: Date;
+  clock: ReturnType<typeof loadClockFormat>;
+}) {
+  return (
+    <>
+      {row.channel ? (
+        <ChannelRow channel={row.channel} live={live} now={now} clock={clock} />
+      ) : (
+        <span className="mvpick__meta">
+          <span className="mvpick__name">
+            <span className="mvpick__nametext">{row.name}</span>
+          </span>
+        </span>
+      )}
+      {row.best && <span className="mvpick__best">Best match</span>}
+    </>
+  );
+}
+
+/** A game is taken only when every one of its feeds is on the grid. */
+function isTaken(row: Row, inGrid: ReadonlySet<string>): boolean {
+  if (row.kind === "fill") return false;
+  if (row.kind === "game") return row.game.channels.every((c) => inGrid.has(c.id));
+  return inGrid.has(row.channelId);
 }

@@ -116,6 +116,16 @@ const type = async (page, ...ws) => {
 {
   const { page, errs, asked } = await open();
   check("the REC chip opens the page", (await page.locator(".rec").count()) === 1);
+  // TMDB's terms ask for this, and the app ships its own key (v0.10.1).
+  const credit = await page.locator(".rec__credit").evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return { text: el.textContent ?? "", onScreen: r.height > 0 && r.bottom <= innerHeight && r.top >= 0 };
+  }).catch(() => ({ text: "", onScreen: false }));
+  check(
+    "the page credits TMDB, on screen",
+    credit.text.includes("uses the TMDB API but is not endorsed or certified by TMDB") && credit.onScreen,
+    credit.text || "no credit",
+  );
   check("the Find button starts disabled", await page.locator(".rec__go").isDisabled());
 
   await type(page, "space", "horror");

@@ -48,8 +48,19 @@ export function setTmdbBase(url: string): void {
   base = url.replace(/\/+$/, "");
 }
 
+/**
+ * The app's own key (Adam, 2026-09-26: "we can ship our own key in the
+ * app"), so REC works for everyone. It comes from VITE_TMDB_KEY in the
+ * build machine's apps/app/.env.local, which is gitignored: the key ships
+ * in the app and never in the repo. A build without one (CI, the Pages
+ * site, the dev container) hides REC, as before. A key saved with
+ * btvTmdb() wins over it. Read per call, not at import, so a test can
+ * stub it.
+ */
+const builtInKey = (): string => String(import.meta.env.VITE_TMDB_KEY ?? "").trim();
+
 export function loadTmdbKey(): string {
-  return load<string>(KEY, VERSION, "");
+  return load<string>(KEY, VERSION, "") || builtInKey();
 }
 
 export function saveTmdbKey(k: string): void {

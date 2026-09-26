@@ -25,6 +25,10 @@ import {
 } from "./multiviewAck";
 import { onAddRequest, peekLiveGames, takeAddRequest } from "./multiviewEntry";
 import { gameLabel, liveWithChannels, useGamesToday } from "./mvGames";
+import { filterSports, loadMvScores, rowGames, saveMvScores } from "./mvScores";
+import { MvScoresRow } from "./MultiviewScores";
+import { MvScoresFilter } from "./MultiviewScoresFilter";
+import { fetchList, loadFollows } from "../sports/follows";
 import { isFixture, type Fixture } from "../sports/model";
 import { defaultKind, kindsFor, type MvKind } from "./mvLayout";
 import {
@@ -68,12 +72,14 @@ import {
   GridLayoutIcon,
   MuteIcon,
   PlusIcon,
+  SportsIcon,
   VolumeIcon,
 } from "../../ui/icons";
 import { Button } from "../../components/ui/button";
 import { Hint } from "../../ui/Hint";
 import { Segmented } from "../../ui/Segmented";
 import { LineMeter } from "../../ui/LineMeter";
+import { watchFreeze } from "../../lib/freezeProbe";
 
 /**
  * THE MULTI-VIEW TAB (plan 017): several streams at once, as a place you
@@ -197,21 +203,28 @@ function useWindowFullscreen(): [boolean, () => void] {
 function useCompactSide(
   ref: RefObject<HTMLElement | null>,
   edge: "left" | "right" = "left",
-): boolean {
-  const [compact, setCompact] = useState(false);
-  // The side's width WITH its words, from the last time they showed. Once
-  // they are gone, its own width no longer says whether they would fit.
-  const full = useRef(0);
+): 0 | 1 | 2 {
+  // 0 as drawn, 1 compact, 2 tight: still short of room once compact. Only
+  // the right side has a tight step (the volume slider goes), for the
+  // narrowest windows since Settings kept its corner (v0.10.9).
+  const [level, setLevel] = useState<0 | 1 | 2>(0);
+  // The side's width at each of the first two steps, from the last time it
+  // showed. Once a step is gone, the side's own width no longer says
+  // whether that step would fit.
+  const widths = useRef([0, 0]);
   useLayoutEffect(() => {
     const side = ref.current;
     const cap = document.querySelector<HTMLElement>(".navcap");
     if (!side || !cap) return;
     const fit = () => {
       const s = side.getBoundingClientRect();
-      if (!side.classList.contains("is-compact")) full.current = s.width;
+      const now = side.classList.contains("is-tight") ? 2 : side.classList.contains("is-compact") ? 1 : 0;
+      if (now < 2) widths.current[now] = s.width;
       const c = cap.getBoundingClientRect();
       const room = edge === "left" ? c.left - s.left - 16 : s.right - c.right - 16;
-      setCompact(full.current > room);
+      const [full, compact] = widths.current;
+      // Compact's width is unknown until it has shown once: try it first.
+      setLevel(full <= room ? 0 : compact === 0 || compact <= room ? 1 : 2);
     };
     fit();
     // The window, the capsule's size, and the capsule settling after the
@@ -227,9 +240,44 @@ function useCompactSide(
       cap.removeEventListener("transitionend", fit);
     };
   }, [ref, edge]);
-  return compact;
+  return level;
 }
 
+/**
+ * Where the bar's right side has to end: short of the header's own right
+ * side, Settings and an update when there is one, by the bar's gap.
+ *
+ * Those stay on this tab (Adam, v0.10.9: "the top right settings button,
+ * its gone in multiview"). They sat hidden under the bar, whose right side
+ * took their corner. Measured rather than a fixed width, because the update
+ * chip comes and goes. `null` until measured, and where there is no header,
+ * which leaves the bar where its CSS puts it.
+ */
+function useHeaderRight(): number | null {
+  const [right, setRight] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const el = document.querySelector<HTMLElement>(".header__right");
+    if (!el) return;
+    const read = () => {
+      // From the tab's right edge, which the bar is placed against.
+      const tab = document.querySelector(".mvtab")?.getBoundingClientRect();
+      const r = el.getBoundingClientRect();
+      setRight(tab && r.width > 0 ? Math.round(tab.right - r.left + BAR_GAP) : null);
+    };
+    read();
+    const ro = new ResizeObserver(read);
+    ro.observe(el);
+    window.addEventListener("resize", read);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", read);
+    };
+  }, []);
+  return right;
+}
+
+/** The bar's own gap between controls (player.css .mvbar). */
+const BAR_GAP = 12;
 
 /**
  * How long a channel sent from elsewhere waits for the line's answer before
@@ -239,6 +287,9 @@ function useCompactSide(
 const LINE_WAIT_MS = 3000;
 
 export function MultiviewTab() {
+  // Where the first open's hang goes (v0.10.10): from the first render, so
+  // a long one counts. Once per session, whatever this runs.
+  useState(() => watchFreeze("Multi-view"));
   /** The catalog: loaded here if nothing has yet, and followed after, so
    * the picker works however this tab was reached (useLiveData). */
   const live = useLiveData();
@@ -444,6 +495,17 @@ export function MultiviewTab() {
   );
 
   const [picker, setPicker] = useState<PickerMode | null>(null);
+  /** A game taken from the Live Scores row: the picker opens on its feeds. */
+  const [feedsFor, setFeedsFor] = useState<Fixture | null>(null);
+  useEffect(() => {
+    if (picker === null) setFeedsFor(null);
+  }, [picker]);
+
+  /** The Live Scores row (v0.10.6): whether it shows, and what it hides. */
+  const [scores, setScores] = useState(loadMvScores);
+  useEffect(() => saveMvScores(scores), [scores]);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const toggleScores = useCallback(() => setScores((s) => ({ ...s, on: !s.on })), []);
 
   /**
    * Today's games, asked for only while something here needs them: the
@@ -452,10 +514,11 @@ export function MultiviewTab() {
    * instant and at most half an hour old (multiviewEntry).
    */
   const gameLeagues = picks.flatMap((p) => (p.gameId && p.league ? [p.league] : []));
+  // The Live Scores row needs the whole list too, while it shows.
   const today = useGamesToday(
-    picker !== null || gameLeagues.length > 0,
+    picker !== null || gameLeagues.length > 0 || scores.on,
     gameLeagues,
-    picker !== null,
+    picker !== null || scores.on,
   );
   const [snapshot] = useState(peekLiveGames);
   // One list per answer, not per render: it is the picker's input, and a new
@@ -463,6 +526,10 @@ export function MultiviewTab() {
   const liveGames = useMemo(
     () => (today.listed ? liveWithChannels(today.games) : snapshot),
     [today.listed, today.games, snapshot],
+  );
+  const scoreGames = useMemo(
+    () => rowGames(today.listed ? today.games : snapshot, new Set(scores.hidden)),
+    [today.listed, today.games, snapshot, scores.hidden],
   );
   const fixtures = new Map(
     today.games.filter(isFixture).map((g) => [g.id, g] as const),
@@ -551,6 +618,16 @@ export function MultiviewTab() {
   const openAdd = useCallback(() => {
     if (roomRef.current.left > 0 && !choosingRef.current) openPicker({ kind: "add" });
   }, [openPicker]);
+  /** A game from the Live Scores row: the picker on its feeds. On a full
+   * line too: taking a feed then asks which tile it replaces (choose). */
+  const openGame = useCallback(
+    (g: Fixture) => {
+      if (choosingRef.current) return;
+      setFeedsFor(g);
+      openPicker({ kind: "add" });
+    },
+    [openPicker],
+  );
   const choose = (pick: Pick) => {
     if (!picker) return;
     if (picker.kind === "replace") {
@@ -646,13 +723,14 @@ export function MultiviewTab() {
   const [fullscreen, toggleFullscreen] = useWindowFullscreen();
 
   // The bar's keys from plan 017's table: A adds, M mutes, ↑ and ↓ are the
-  // volume, G flips Grid and Focus, F is full screen. The tiles' own keys
+  // volume, G flips Grid and Focus, F is full screen, S is the Live Scores
+  // row (v0.10.6). The tiles' own keys
   // (1 to 4, ← →, R, Delete) are the grid's. Never while typing, or while a
   // dialog has the keyboard (mvKeys.forMultiview). Through a ref, so the
   // listener is added once.
   const streamCount = picks.length;
-  const barKeys = useRef({ openAdd, toggleMute, nudge, chooseKind, kind, streamCount, toggleFullscreen });
-  barKeys.current = { openAdd, toggleMute, nudge, chooseKind, kind, streamCount, toggleFullscreen };
+  const barKeys = useRef({ openAdd, toggleMute, nudge, chooseKind, kind, streamCount, toggleFullscreen, toggleScores });
+  barKeys.current = { openAdd, toggleMute, nudge, chooseKind, kind, streamCount, toggleFullscreen, toggleScores };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!forMultiview(e)) return;
@@ -681,6 +759,10 @@ export function MultiviewTab() {
         case "F":
           k.toggleFullscreen();
           break;
+        case "s":
+        case "S":
+          k.toggleScores();
+          break;
         default:
           return;
       }
@@ -691,12 +773,14 @@ export function MultiviewTab() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
   const leftRef = useRef<HTMLDivElement>(null);
-  const compact = useCompactSide(leftRef);
+  const compact = useCompactSide(leftRef) > 0;
   const rightRef = useRef<HTMLDivElement>(null);
-  const compactRight = useCompactSide(rightRef, "right");
+  const rightLevel = useCompactSide(rightRef, "right");
+  const compactRight = rightLevel > 0;
+  const barRight = useHeaderRight();
 
-  // The shell reads these: the header hides its clock and Settings while
-  // this tab is up, and dims with the bar when idle. On the root because
+  // The shell reads these: the header hides its clock while this tab is
+  // up, and dims with the bar when idle. On the root because
   // the header is App's, not ours.
   useEffect(() => {
     const root = document.documentElement;
@@ -717,8 +801,8 @@ export function MultiviewTab() {
   const dashes = room.max !== null ? Math.min(room.max, 8) : 0;
 
   return (
-    <div className={"mvtab" + (idle ? " is-idle" : "")}>
-      <div className="mvbar">
+    <div className={"mvtab" + (idle ? " is-idle" : "") + (scores.on && !blocked ? " has-scores" : "")}>
+      <div className="mvbar" style={barRight ? { right: barRight } : undefined}>
         <div className={"mvbar__side" + (compact ? " is-compact" : "")} ref={leftRef}>
           {choosing && (
             // In place of the meter and the layout switch while a channel
@@ -771,7 +855,10 @@ export function MultiviewTab() {
             />
           )}
         </div>
-        <div className={"mvbar__side" + (compactRight ? " is-compact" : "")} ref={rightRef}>
+        <div
+          className={"mvbar__side" + (compactRight ? " is-compact" : "") + (rightLevel === 2 ? " is-tight" : "")}
+          ref={rightRef}
+        >
           {!blocked && picks.length > 0 && (
             <div className="mvvol">
               <Hint label={vol.muted ? "Unmute (M)" : "Mute (M)"}>
@@ -801,6 +888,19 @@ export function MultiviewTab() {
                 onChange={(e) => setVol({ volume: parseFloat(e.target.value), muted: false })}
               />
             </div>
+          )}
+          {!blocked && (
+            <Hint label={scores.on ? "Hide live scores (S)" : "Live scores (S)"}>
+              <button
+                type="button"
+                className={"mvbar__icon" + (scores.on ? " is-on" : "")}
+                aria-label="Live scores"
+                aria-pressed={scores.on}
+                onClick={toggleScores}
+              >
+                <SportsIcon size={18} />
+              </button>
+            </Hint>
           )}
           {!blocked && (
             <Hint label={full ?? "Add a channel (A)"}>
@@ -898,6 +998,25 @@ export function MultiviewTab() {
         onChoose={choose}
         onFill={fill}
         onCloseAutoFocus={pickerClosed}
+        feedsFor={feedsFor}
+      />
+
+      {scores.on && !blocked && (
+        <MvScoresRow
+          games={scoreGames}
+          looked={today.looked}
+          filtered={scores.hidden.length > 0}
+          onGrid={(g) => picks.some((p) => p.gameId === g.id || g.channels.some((c) => c.id === p.channelId))}
+          onOpen={openGame}
+          onFilter={() => setFilterOpen(true)}
+        />
+      )}
+      <MvScoresFilter
+        open={filterOpen}
+        onOpenChange={setFilterOpen}
+        sports={filterOpen ? filterSports(fetchList(loadFollows())) : []}
+        hidden={scores.hidden}
+        onHidden={(hidden) => setScores((s) => ({ ...s, hidden }))}
       />
     </div>
   );

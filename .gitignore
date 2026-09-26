@@ -50,3 +50,15 @@ undefined/
 # The stream proxy host test crate (scripts/mvproxy-host)
 scripts/mvproxy-host/target/
 scripts/mvproxy-host/Cargo.lock
+
+# Release files made by hand while publishing (RELEASING.md): the manifests,
+# their live copies, and the hot-channel bundle and its signature. They go
+# up to a GitHub release, never into the repo.
+/latest.json
+/latest.live.json
+/frontend.json
+/frontend.live.json
+apps/app/latest.json
+apps/app/frontend.json
+apps/app/frontend-*.tar.gz
+apps/app/frontend-*.tar.gz.sig

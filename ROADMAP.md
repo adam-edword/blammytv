@@ -251,7 +251,8 @@ never be a deterrent to building anything." So:
    sockets and answers strangers without CORS. After it, N5: the bundled
    ffmpeg and libmpv come from this repo's own copy (`deps-*` releases),
    pinned by hash in `scripts/deps.json`. Plan 018 is complete.
-7. Merge the multi-view branch into `main` (Adam's step: default branch).
+7. ~~Merge the multi-view branch into `main`~~ **Done: 0.10.0 shipped
+   2026-09-26**, main fast-forwarded to it and tagged.
 
 ### M2: finish the primitives (plan 014 L1 and L2)
 

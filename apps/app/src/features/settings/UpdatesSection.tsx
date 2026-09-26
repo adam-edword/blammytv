@@ -50,8 +50,14 @@ export function UpdatesSection() {
     // The hot channel first: a frontend-only release never appears in
     // latest.json, so checking only the native side would report "up to
     // date" while a bundle sat waiting to be fetched.
+    // Then ask what is WAITING, not what this check staged: a bundle the
+    // launch-time check already staged comes back from frontend_check as
+    // "" (nothing new to do), and the row said "You're up to date" over it
+    // (0.10.3, Adam: "checking for update doesn't do anything").
     void tauriFrontendCheck()
-      .then((v) => v && setPending(v))
+      .catch(() => "")
+      .then(() => tauriFrontendStatus())
+      .then((s) => setPending(s.pending))
       .catch(() => {});
     tauriCheckUpdate().then(
       (version) => {

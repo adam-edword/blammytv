@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchBoard } from "../sports/espn";
 import { fetchList, gameTeamKeys, isFollowed, loadFollows, type Follows } from "../sports/follows";
 import { useCatalog } from "../sports/catalog";
+import type { Catalog } from "../sports/matcher";
 import { withChannels } from "../sports/useGames";
 import { isFixture, type Fixture, type Game } from "../sports/model";
 
@@ -78,6 +79,62 @@ export function mergeLeagues(
 /** For tests: forget the last look. */
 export function resetGamesToday(): void {
   last = null;
+}
+
+/**
+ * Channels for the LIVE games, each game worked out once per catalog.
+ *
+ * Multi-view only ever tunes a game that is on: the picker lists live
+ * games, the scores row shows live ones, a tile reads its game's score. But
+ * it resolved every game of the day, finished and upcoming too, in the
+ * tab's first render (Adam, v0.10.9: "a weird 3ish second hang (whole app
+ * freezes) when loading multiview for the first time"). Measured on a
+ * 26,621-channel catalog with a 453-game day across 151 leagues, a third of
+ * it live: 482ms of matching in one task.
+ *
+ * And it did it again every 90 seconds. withChannels remembers a game by
+ * its object, and every look builds new objects, so with the scores row on
+ * the whole day was matched afresh on each poll. Here the answer is kept by
+ * what decides it (the fixture, its broadcasts, its clubs, its start), so a
+ * new score on the same game costs nothing.
+ */
+const RESOLVED = new WeakMap<Catalog, Map<string, Game>>();
+
+const matchKey = (g: Fixture): string =>
+  [g.leagueKey, g.id, g.start.getTime(), g.home.name, g.away.name, ...g.broadcasts].join("\u0001");
+
+export function liveChannels(raw: Game[], catalog: Catalog | null): Game[] {
+  // Not known yet: every game says so, as withChannels has them say.
+  if (!catalog) return withChannels(raw, null);
+  let memo = RESOLVED.get(catalog);
+  if (!memo) RESOLVED.set(catalog, (memo = new Map()));
+  const seen = memo;
+  const t0 = performance.now();
+  let matched = 0;
+  const out = raw.map((g) => {
+    if (!isFixture(g) || g.state !== "live") return g;
+    const key = matchKey(g);
+    let done = seen.get(key);
+    if (!done) {
+      done = withChannels([g], catalog)[0];
+      seen.set(key, done);
+      matched++;
+    }
+    if (done === g) return g;
+    return {
+      ...g,
+      channels: done.channels,
+      hiddenOnly: done.hiddenOnly,
+      presumedOnly: done.presumedOnly,
+      presumed: done.presumed,
+      channelsPending: false,
+    };
+  });
+  // Said only when it cost something, so a slow machine can tell us how
+  // slow (the devtools console, in `pnpm tauri dev`).
+  const ms = performance.now() - t0;
+  if (ms > 50) console.info(`[multiview] channels for ${matched} live games in ${Math.round(ms)}ms`);
+  return out;
 }
 
 /**
@@ -173,7 +230,7 @@ export function useGamesToday(
     };
   }, [active, pinKey, scoresOnly]);
 
-  const games = useMemo(() => withChannels(raw, catalog), [raw, catalog]);
+  const games = useMemo(() => liveChannels(raw, catalog), [raw, catalog]);
   return { games, looked, listed, at };
 }
 

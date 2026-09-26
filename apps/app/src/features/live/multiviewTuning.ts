@@ -53,6 +53,16 @@ export function onMvProfileChange(cb: (p: MvProfile) => void): () => void {
 }
 
 /**
+ * What a tile's <video> plays at for the bar's slider position: the slider
+ * CUBED, which is what mpv does with its own `volume` (player/audio.c,
+ * audio_get_gain: `gain = pow(volume / 100, 3)`). A <video>'s volume is
+ * plain amplitude, so the same slider played 12dB louder than the main
+ * player at 50%, and 1% was 40dB down where mpv's is silence (Adam,
+ * v0.10.2: "even on 1% its too loud").
+ */
+export const tileGain = (slider: number): number => Math.min(1, Math.max(0, slider)) ** 3;
+
+/**
  * What a tile keeps of what it has already played (plan 018, P2). A tile
  * can't seek, so behind the playhead is only memory: mpegts.js's live
  * default trims at 180s back to 120s, and hls.js keeps all of it, about 75

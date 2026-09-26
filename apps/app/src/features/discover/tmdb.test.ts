@@ -64,6 +64,22 @@ describe("the key", () => {
     expect(tmdbEnabled()).toBe(true);
   });
 
+  it("falls back to the app's own key, and a saved one wins", () => {
+    store.clear();
+    vi.stubEnv("VITE_TMDB_KEY", " built-in ");
+    try {
+      expect(tmdbEnabled()).toBe(true);
+      expect(loadTmdbKey()).toBe("built-in");
+      saveTmdbKey("mine");
+      expect(loadTmdbKey()).toBe("mine");
+    } finally {
+      vi.unstubAllEnvs();
+    }
+    store.clear();
+    expect(tmdbEnabled()).toBe(false);
+    saveTmdbKey("test-key");
+  });
+
   it("rides every request", async () => {
     reply = () => ({ results: [{ id: 1, name: "space" }] });
     await keywordIds(["space"]);

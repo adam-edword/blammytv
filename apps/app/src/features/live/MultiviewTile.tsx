@@ -14,6 +14,7 @@ import {
   mpegtsConfig,
   onMvProfileChange,
   registerTile,
+  tileGain,
 } from "./multiviewTuning";
 import {
   airing,
@@ -538,12 +539,13 @@ export function MultiviewTile({
   // Audio follows focus rather than being set at mount, so moving focus does
   // not restart a stream. Exactly one tile is ever unmuted; the grid owns
   // that invariant and this just obeys it. The bar's volume and mute are
-  // the sound tile's (plan 017, "Sound and volume").
+  // the sound tile's (plan 017, "Sound and volume"), on mpv's curve so the
+  // same slider sounds the same in both (tileGain).
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
     video.muted = !focused || muted;
-    video.volume = volume;
+    video.volume = tileGain(volume);
   }, [focused, muted, volume]);
 
   // The Sound badge's bars follow what the feed is actually saying, on the

@@ -136,6 +136,21 @@ const seamX = async (page) => {
   return b ? b.x + b.width / 2 : NaN;
 };
 const CAP = 30;
+/**
+ * The natural split's guide while the seam moves (v0.10.5): how many marks,
+ * where they sit, and any that lands on a tile or its caption. It was a
+ * dashed line down the whole stage, across the big tile's picture whenever
+ * the tile was dragged past the natural split (Adam: "stays over the video").
+ */
+const guideMarks = (page) =>
+  page.evaluate((cap) => {
+    const tiles = [...document.querySelectorAll(".mvtile:not(.mvtile--empty)")].map((e) => e.getBoundingClientRect());
+    const marks = [...document.querySelectorAll(".mvseam-guide")].map((e) => e.getBoundingClientRect());
+    const hits = marks.filter((m) =>
+      tiles.some((t) => m.left < t.right && t.left < m.right && m.top < t.bottom + cap && t.top < m.bottom),
+    );
+    return { n: marks.length, xs: marks.map((m) => m.left + m.width / 2), hits: hits.length };
+  }, CAP);
 /** The big tile and the stack line up top and bottom, captions included. */
 const natural = (t) => Math.abs(t[0].y - t[1].y) <= 1.5 && Math.abs(t[0].y + t[0].h - (t[2].y + t[2].h)) <= 1.5;
 const sixteenNine = (t) => t.every((r) => Math.abs((r.w * 9) / 16 - r.h) <= 1);
@@ -183,7 +198,7 @@ const press = async (page, key) => {
   const mid = await tiles(page);
   const midSeam = await seamX(page);
   const tip = await page.locator(".mvseam-tip").textContent().catch(() => "");
-  const guide = await page.locator(".mvseam-guide").count();
+  const guide = await guideMarks(page);
   check(
     "a drag moves the seam 1:1 under the pointer, the big tile with it",
     Math.abs(midSeam - (from - 120)) <= 1.5 && Math.abs(mid[0].w - (t0[0].w - 120)) <= 1.5,
@@ -194,11 +209,15 @@ const press = async (page, key) => {
     sixteenNine(mid) && !overlaps(mid) && mid[1].w > t0[1].w + 100,
     JSON.stringify(mid),
   );
+  const natX = s0.x + s0.width / 2;
   check(
-    "the tip says how big the big tile is, over a guide at the natural split",
-    /^Big tile \d+% · double-click to reset$/.test(tip) && guide === 1,
-    JSON.stringify({ tip, guide }),
+    "the tip says how big the big tile is, with the natural split marked above and below the pictures",
+    /^Big tile \d+% · double-click to reset$/.test(tip) &&
+      guide.n === 2 &&
+      guide.xs.every((x) => Math.abs(x - natX) <= 1.5),
+    JSON.stringify({ tip, guide, natX }),
   );
+  check("and neither mark sits on a picture or its caption", guide.hits === 0, JSON.stringify(guide));
   await page.mouse.up();
   await page.waitForTimeout(200);
   const after = await tiles(page);
@@ -226,8 +245,16 @@ const press = async (page, key) => {
   await page.mouse.move(at, y);
   await page.mouse.down();
   await page.mouse.move(W + 400, y, { steps: 8 });
+  // The big tile at its widest, far past the natural split: the case the
+  // old line crossed its picture in.
+  const wideGuide = await guideMarks(page);
   await page.mouse.up();
   const wide = await tiles(page);
+  check(
+    "with the big tile at its widest, the natural split's marks still stay off every picture",
+    wideGuide.n === 2 && wideGuide.hits === 0,
+    JSON.stringify(wideGuide),
+  );
   at = await seamX(page);
   await page.mouse.move(at, y);
   await page.mouse.down();

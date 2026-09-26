@@ -257,11 +257,21 @@ const rest = (page) => page.mouse.move(W - 200, H - 10);
   await page.locator(".mvvol__slider").fill("0.4");
   await page.waitForTimeout(150);
   const a = await audio(page);
+  // On mpv's curve, the slider cubed (v0.10.2): 0.4 plays at 0.064.
   check(
     "the bar's volume sets the sound tile's, and the others stay muted",
-    Math.abs(a[ESPN][0] - 0.4) < 0.001 && a[ESPN][1] === false && a[SKY][1] && a[NEWS][1],
+    Math.abs(a[ESPN][0] - 0.4 ** 3) < 1e-6 && a[ESPN][1] === false && a[SKY][1] && a[NEWS][1],
     JSON.stringify(a),
   );
+  // Adam: "even on 1% its too loud". The slider's lowest step is 5%, and a
+  // <video> at 0.05 is 26dB down and plainly audible; mpv's 5% is 0.000125,
+  // 78dB down.
+  await page.locator(".mvvol__slider").fill("0.05");
+  await page.waitForTimeout(150);
+  const low = (await audio(page))[ESPN][0];
+  check("the lowest step plays at mpv's level for it, 0.05 cubed", Math.abs(low - 0.05 ** 3) < 1e-9, `${low}`);
+  await page.locator(".mvvol__slider").fill("0.4");
+  await page.waitForTimeout(150);
   await page.getByRole("button", { name: "Mute", exact: true }).click();
   await page.waitForTimeout(150);
   const badge = await tile(page, ESPN).locator(".mvtile__badge").textContent();
@@ -280,7 +290,7 @@ const rest = (page) => page.mouse.move(W - 200, H - 10);
   const back = await audio(page);
   check(
     "both are remembered after a reload",
-    Math.abs(back[ESPN][0] - 0.4) < 0.001 && back[ESPN][1] === true,
+    Math.abs(back[ESPN][0] - 0.4 ** 3) < 1e-6 && back[ESPN][1] === true,
     JSON.stringify(back),
   );
 
@@ -293,7 +303,11 @@ const rest = (page) => page.mouse.move(W - 200, H - 10);
   await press(page, "ArrowDown");
   await press(page, "ArrowDown");
   const down = (await audio(page))[ESPN][0];
-  check("↑ and ↓ step the volume", Math.abs(up - 0.45) < 0.001 && Math.abs(down - 0.35) < 0.001, `${up} then ${down}`);
+  check(
+    "↑ and ↓ step the volume",
+    Math.abs(up - 0.45 ** 3) < 1e-6 && Math.abs(down - 0.35 ** 3) < 1e-6,
+    `${up} then ${down}`,
+  );
 
   // A focused slider keeps its arrows: → steps the volume, not the sound.
   await page.locator(".mvvol__slider").focus();
@@ -303,7 +317,7 @@ const rest = (page) => page.mouse.move(W - 200, H - 10);
   await page.locator(".mvtile").first().focus();
   check(
     "with the slider focused, → moves the volume and leaves the sound where it is",
-    Math.abs(once - 0.4) < 0.001 && JSON.stringify(stayed) === JSON.stringify([ESPN]),
+    Math.abs(once - 0.4 ** 3) < 1e-6 && JSON.stringify(stayed) === JSON.stringify([ESPN]),
     JSON.stringify({ once, stayed }),
   );
 
@@ -421,7 +435,7 @@ async function wheel(page, name, dy) {
   const a = (await audio(page))[ESPN];
   check(
     "the wheel down over the sound tile turns it down a step, leaves the mute alone, and the page does not scroll",
-    Math.abs(a[0] - 0.45) < 0.001 && a[1] === true && JSON.stringify(down) === "[true]",
+    Math.abs(a[0] - 0.45 ** 3) < 1e-6 && a[1] === true && JSON.stringify(down) === "[true]",
     JSON.stringify({ a, down }),
   );
   const up = await wheel(page, ESPN, -100);
@@ -429,14 +443,14 @@ async function wheel(page, name, dy) {
   const slider = await page.locator(".mvvol__slider").inputValue();
   check(
     "and up turns it up a step and unmutes, as ↑ does, the bar's slider with it",
-    Math.abs(b[0] - 0.5) < 0.001 && b[1] === false && slider === "0.5" && JSON.stringify(up) === "[true]",
+    Math.abs(b[0] - 0.5 ** 3) < 1e-6 && b[1] === false && slider === "0.5" && JSON.stringify(up) === "[true]",
     JSON.stringify({ b, slider, up }),
   );
   const other = [...(await wheel(page, SKY, -100)), ...(await wheel(page, NEWS, 100))];
   const c = await audio(page);
   check(
     "over any other tile the wheel does nothing, and is left to the page",
-    Math.abs(c[ESPN][0] - 0.5) < 0.001 &&
+    Math.abs(c[ESPN][0] - 0.5 ** 3) < 1e-6 &&
       JSON.stringify(await soundOn(page)) === JSON.stringify([ESPN]) &&
       JSON.stringify(other) === "[false,false]",
     JSON.stringify({ c, other }),
@@ -452,8 +466,8 @@ async function wheel(page, name, dy) {
   check(
     "when the sound moves the wheel follows it: over Sky it turns, over ESPN no longer",
     JSON.stringify(await soundOn(page)) === JSON.stringify([SKY]) &&
-      Math.abs(onSky - 0.45) < 0.001 &&
-      Math.abs(d[SKY][0] - 0.45) < 0.001,
+      Math.abs(onSky - 0.45 ** 3) < 1e-6 &&
+      Math.abs(d[SKY][0] - 0.45 ** 3) < 1e-6,
     JSON.stringify({ onSky, d }),
   );
 

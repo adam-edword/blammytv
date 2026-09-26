@@ -977,8 +977,9 @@
  *
  * A black page with its own bar, like the player. The bar sits in the
  * header's band with the nav capsule in its centre: the header hides its
- * clock and Settings while this tab is up (data-mv on the root) and the
- * bar's two flanks take their places. Both dim together after two idle
+ * clock while this tab is up (data-mv on the root) and the bar's left flank
+ * takes its place; the right flank ends short of Settings. Both dim
+ * together after two idle
  * seconds (data-mv-idle), in 200ms, and come back in 140ms.
  *
  * The tiles are PLACED, not flowed: mvLayout measures the stage and every
@@ -1021,11 +1022,12 @@
   font-size: 14px;
 }
 
-/* The header, on this tab. visibility rather than display for the clock
- * and Settings, so the header keeps its height and --header-h (which the
- * stage hangs from) does not move when you arrive. */
-:root[data-mv] .header__brand,
-:root[data-mv] .header__right {
+/* The header, on this tab. visibility rather than display for the clock,
+ * so the header keeps its height and --header-h (which the stage hangs
+ * from) does not move when you arrive. Settings stays (Adam, v0.10.9: "the
+ * top right settings button, its gone in multiview"): the bar's right side
+ * ends short of it (MultiviewTab useHeaderRight). */
+:root[data-mv] .header__brand {
   visibility: hidden;
 }
 :root[data-mv] .header {
@@ -1088,6 +1090,12 @@
 }
 .mvbar__side.is-compact .mvvol__slider {
   width: 56px;
+}
+/* The narrowest windows, since Settings kept its corner (v0.10.9): compact
+ * still met the capsule at 1000px, so the slider goes. Mute stays, and ↑
+ * and ↓ are the volume. */
+.mvbar__side.is-tight .mvvol__slider {
+  display: none;
 }
 
 /* A channel sent from elsewhere with the grid full (plan 017, P6b): in
@@ -1169,6 +1177,198 @@
   backdrop-filter: var(--glass-fx);
 }
 
+/* The Live Scores switch while the row shows: ringed, not filled, since Add
+ * is the one bright thing on the bar. */
+.mvbar__icon.is-on {
+  background: color-mix(in srgb, var(--text) 20%, transparent);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text) 55%, transparent);
+}
+
+/* ---------------------------------------------------------------------------
+ * Live Scores (v0.10.6): the Sports theater's score tracker as one row under
+ * the grid. The stage gives up the row's height and keeps its width, and
+ * mvLayout re-measures it like any resize, so the pictures stay 16:9.
+ * ------------------------------------------------------------------------ */
+.mvtab.has-scores .mvtab__stage {
+  /* The row, its 18px off the bottom and 12px clear of the captions. */
+  bottom: calc(18px + 52px + 12px);
+}
+
+/* Not dimmed with the bar: it is something you read while you watch, not a
+ * control you reach for. */
+.mvscores {
+  position: absolute;
+  left: 28px;
+  right: 28px;
+  bottom: 18px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mvscores__filter {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 140ms var(--ease-out, ease);
+}
+.mvscores__filter:hover {
+  color: var(--text);
+}
+.mvscores__filter:active {
+  transform: scale(0.95);
+}
+/* Something is hidden: the icon in full ink, so a short row reads as your
+ * choice and not as a quiet night. */
+.mvscores__filter.is-filtered {
+  color: var(--text);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text) 45%, transparent);
+}
+
+/* One line. The wheel scrolls it sideways (MultiviewScores); the bar is hidden
+ * because the cards cut off at the edge say there is more. */
+.mvscores__row {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+.mvscores__row::-webkit-scrollbar {
+  display: none;
+}
+
+/* The league, said once before its games, as the theater says it over them. */
+.mvscores__league {
+  flex: none;
+  padding: 0 2px 0 8px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+.mvscores__league:first-child {
+  padding-left: 2px;
+}
+
+/* As wide as its card. */
+.mvscores__game {
+  flex: none;
+  border-radius: 100px;
+}
+/* The theater's type on a shorter line: the row is height the grid gives up.
+ *
+ * As wide as what it says, never less than 272px: a fixed 272 ran a
+ * fourth-quarter "13:03 - 4TH" 12px into the home crest (Adam, v0.10.8:
+ * "make them wide enough to fit all the text"). The floor keeps a row of
+ * short clocks ("63'") from turning into a row of different-sized pills;
+ * a short card's slack goes to the home side, so the scoreline still ends
+ * on the card's right edge. */
+.mvscores .compactcard {
+  width: max-content;
+  min-width: 272px;
+  height: 44px;
+  gap: 16px;
+  padding: 0 16px;
+}
+.mvscores .compactcard__status,
+.mvscores .compactcard__abbr {
+  font-size: 13px;
+}
+.mvscores .compactcard__score {
+  font-size: 16px;
+}
+.mvscores .compactcard .gamebadge {
+  width: 24px;
+}
+.mvscores .compactcard .gamewash__mark {
+  height: 285%;
+}
+/* On the grid already: ringed, the way a tile with the sound is. */
+.mvscores__game.is-on .compactcard {
+  border-color: transparent;
+  box-shadow: inset 0 0 0 2px var(--text);
+}
+/* None of your channels carry it: a score and nothing more. The pointer
+ * goes through to the wrapper, whose title says why. */
+.mvscores__game.is-off {
+  opacity: 0.5;
+}
+.mvscores__game.is-off .compactcard {
+  pointer-events: none;
+}
+
+.mvscores__empty {
+  margin: 0;
+  padding-left: 4px;
+  font-size: 13px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Its filter: a sport's switch, and under a sport with more than one
+ * league, a smaller switch for each. */
+.mvfilter__head {
+  display: grid;
+  gap: 4px;
+  padding: 20px 22px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.mvfilter__list {
+  max-height: min(60vh, 520px);
+  overflow-y: auto;
+  padding: 6px 0 12px;
+}
+.mvfilter__sport + .mvfilter__sport {
+  border-top: 1px solid var(--border);
+}
+.mvfilter__sport {
+  padding: 6px 0;
+}
+.mvfilter__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 34px;
+  padding: 0 22px 0 38px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.mvfilter__row--sport {
+  min-height: 40px;
+  padding-left: 22px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+.mvfilter__only {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+.mvfilter__empty {
+  margin: 0;
+  padding: 18px 22px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
 .mvgrid {
   position: absolute;
   inset: 0;
@@ -1231,8 +1431,10 @@
 .mvseam-guide {
   position: absolute;
   z-index: 1;
-  width: 0;
-  border-left: 1px dashed rgb(255 255 255 / 0.28);
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: rgb(255 255 255 / 0.4);
   pointer-events: none;
 }
 .mvseam-tip {
@@ -1639,6 +1841,25 @@
   flex: none;
   font-size: 12px;
 }
+/* Back to the list, from a game's feeds (v0.10.3): in the search icon's
+ * place, the same size, so the input does not move. */
+.mvpick__back {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin: 0 -5px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.mvpick__back:hover {
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  color: var(--text);
+}
 .mvpick__body {
   max-height: min(520px, calc(100vh - 260px));
   overflow-y: auto;
@@ -1744,6 +1965,15 @@
   border-radius: 50%;
   background: color-mix(in srgb, var(--text) 12%, transparent);
   color: var(--text);
+}
+/* The rail's first feed for a game, which Fill would have taken. */
+.mvpick__best {
+  flex: none;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--text-muted);
 }
 .mvpick__ingrid {
   flex: none;

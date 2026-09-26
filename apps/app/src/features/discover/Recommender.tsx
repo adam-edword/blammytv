@@ -262,6 +262,12 @@ export function Recommender({
           </div>
         )}
       </div>
+      {/* TMDB's attribution, which their API terms ask of an app using it.
+        * It belongs here since the app ships its own key (tmdb.ts): REC is
+        * where everyone's requests to them come from. */}
+      <p className="rec__credit">
+        This product uses the TMDB API but is not endorsed or certified by TMDB.
+      </p>
     </div>
   );
 }

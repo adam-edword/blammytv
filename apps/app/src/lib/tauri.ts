@@ -1,7 +1,13 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke as rawInvoke, type InvokeArgs } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { notePoll } from "./playerPerf";
+import { noteCall } from "./freezeProbe";
+
+/** Every native call from here, timed for freezeProbe. */
+function invoke<T>(cmd: string, args?: InvokeArgs): Promise<T> {
+  return noteCall(cmd, rawInvoke<T>(cmd, args));
+}
 
 /** True when running inside the Tauri shell (vs. a plain browser tab). */
 export function isTauri(): boolean {
@@ -331,7 +337,7 @@ export async function tauriMpvStats(): Promise<MpvStats> {
 
 /** OS-window fullscreen (hides the title bar so the player fills the monitor). */
 export function tauriSetFullscreen(on: boolean): Promise<void> {
-  return getCurrentWindow().setFullscreen(on);
+  return noteCall("set_fullscreen", getCurrentWindow().setFullscreen(on));
 }
 
 /** Is the WINDOW fullscreen right now?
@@ -341,7 +347,7 @@ export function tauriSetFullscreen(on: boolean): Promise<void> {
  * launches, so a screen that only remembers what it was told can be
  * fullscreen without knowing it. Ask before acting on it. */
 export function tauriIsFullscreen(): Promise<boolean> {
-  return getCurrentWindow().isFullscreen();
+  return noteCall("is_fullscreen", getCurrentWindow().isFullscreen());
 }
 
 /** The floating PiP window was closed by the user (✕ / taskbar / q) — the app

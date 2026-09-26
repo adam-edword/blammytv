@@ -167,8 +167,8 @@ const vis = (sel) =>
     return e ? getComputedStyle(e).visibility : "missing";
   }, sel);
 check(
-  "the header gives up its clock and Settings here",
-  (await vis(".header__brand")) === "hidden" && (await vis(".header__right")) === "hidden",
+  "the header gives up its clock here, and keeps Settings",
+  (await vis(".header__brand")) === "hidden" && (await vis(".header__right")) === "visible",
 );
 const [cap] = await rectOf(".navcap");
 const [left, right] = await rectOf(".mvbar__side");
@@ -179,6 +179,34 @@ check(
     left.x + left.w < cap.x &&
     right.x > cap.x + cap.w,
   JSON.stringify({ cap, left, right }),
+);
+
+// Settings keeps its corner (v0.10.9, Adam: "the top right settings button,
+// its gone in multiview"): on top where it is drawn, and the bar's right
+// side ends short of it.
+const settingsClear = () =>
+  page.evaluate(() => {
+    const b = document.querySelector('.header__right [aria-label="Settings"]');
+    const side = document.querySelectorAll(".mvbar__side")[1];
+    if (!b || !side) return { found: false };
+    const r = b.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+    return { found: true, onTop: b.contains(hit), gap: Math.round(r.left - side.getBoundingClientRect().right) };
+  });
+const clear = await settingsClear();
+await page.locator('.header__right [aria-label="Settings"]').click();
+const settingsOpened = await page
+  .locator('[role="dialog"]')
+  .first()
+  .waitFor({ timeout: 3000 })
+  .then(() => true)
+  .catch(() => false);
+await page.keyboard.press("Escape");
+await page.locator('[role="dialog"]').first().waitFor({ state: "detached", timeout: 3000 }).catch(() => {});
+check(
+  "Settings stays in its corner, clear of the bar, and opens Settings",
+  clear.found && clear.onTop && clear.gap >= 8 && settingsOpened,
+  JSON.stringify({ ...clear, settingsOpened }),
 );
 
 // ---- the count follows the channels (plan 017, M8)
@@ -552,11 +580,32 @@ check(
     words && !wordsN && leftN.x + leftN.w < capN.x,
     `left side ends ${Math.round(leftN.x + leftN.w)}, capsule starts ${Math.round(capN.x)}`,
   );
+  const [, rightN] = await rectOf(".mvbar__side");
+  const clearN = await settingsClear();
+  const volN = await page.evaluate(() => ({
+    slider: getComputedStyle(document.querySelector(".mvvol__slider")).display,
+    mute: (document.querySelector(".mvvol button")?.getBoundingClientRect().width ?? 0) > 0,
+  }));
+  // The right side's steps held too, compact and then tight.
+  const flipsR = await page.evaluate(async () => {
+    const side = document.querySelectorAll(".mvbar__side")[1];
+    const seen = new Set();
+    for (let i = 0; i < 30; i++) {
+      seen.add(side.className);
+      await new Promise((r) => requestAnimationFrame(r));
+    }
+    return seen.size;
+  });
+  check(
+    "and at 1000 the right side fits between the capsule and Settings: the slider goes, mute stays, and it holds",
+    rightN.x > capN.x + capN.w && clearN.onTop && clearN.gap >= 8 && volN.slider === "none" && volN.mute && flipsR === 1,
+    JSON.stringify({ rightStarts: Math.round(rightN.x), capEnds: Math.round(capN.x + capN.w), ...clearN, ...volN, flipsR }),
+  );
   await page.setViewportSize({ width: W, height: H });
   await page.waitForTimeout(700);
   check(
-    "and gets them back when there is room again",
-    await page.locator(".mvseg .seg__word").first().isVisible(),
+    "and gets them back when there is room again, the volume slider too",
+    (await page.locator(".mvseg .seg__word").first().isVisible()) && (await page.locator(".mvvol__slider").isVisible()),
   );
 }
 

@@ -1,5 +1,11 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke as rawInvoke, type InvokeArgs } from "@tauri-apps/api/core";
+import { noteCall } from "./freezeProbe";
 import { isTauri } from "./tauri";
+
+/** Timed for freezeProbe, like tauri.ts's. */
+function invoke<T>(cmd: string, args?: InvokeArgs): Promise<T> {
+  return noteCall(cmd, rawInvoke<T>(cmd, args));
+}
 
 /**
  * GET a URL's body as text. In the Tauri app this goes through Rust (so it
@@ -38,6 +44,27 @@ export async function httpGetText(
 }
 
 /** What a failed endpoint's response says about WHO sent it. */
+/**
+ * GET a URL's body as bytes, undecoded. For the guide (v0.10.11): its
+ * worker decodes and parses them, so the page neither decodes a 106MB
+ * document nor holds a copy of it.
+ */
+export async function httpGetBytes(
+  url: string,
+  headers?: Record<string, string>,
+  timeoutSecs?: number,
+): Promise<ArrayBuffer> {
+  if (isTauri()) {
+    const raw = await invoke<unknown>("http_get", { url, headers, timeoutSecs });
+    // As httpGetText: bytes, unless the command ever reverts to a String.
+    if (typeof raw === "string") return new TextEncoder().encode(raw).buffer as ArrayBuffer;
+    return raw as ArrayBuffer;
+  }
+  const res = await fetch(url, headers ? { headers } : undefined);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.arrayBuffer();
+}
+
 export interface HttpForensics {
   status: number;
   headers: Record<string, string>;

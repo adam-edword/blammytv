@@ -88,7 +88,12 @@ export function useCatalog(): Catalog | null {
     // to resolve a 42-game board against it. The same board without the
     // index takes 3.7 SECONDS, which is the whole reason this is memoised
     // on the LiveData object rather than rebuilt per render.
+    const t0 = performance.now();
     const built = indexChannels(tunables);
+    // The other half of Multi-view's first open (mvGames liveChannels), and
+    // the Sports board's: said only when it cost something.
+    const ms = performance.now() - t0;
+    if (ms > 50) console.info(`[sports] channel index: ${tunables.length} channels in ${Math.round(ms)}ms`);
     INDEXES.set(live, built);
     return built;
   }, [live]);
