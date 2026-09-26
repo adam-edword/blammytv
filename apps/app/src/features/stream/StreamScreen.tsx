@@ -3049,7 +3049,7 @@ function Episodes({
               * an ItemHeader carrying the picture above an ItemContent
               * carrying the title and a description. ItemGroup is
               * `role="list"` and comes with `flex flex-col`, so the grid has
-              * to be said as UTILITIES here — a `display: grid` in
+              * to be said as UTILITIES here: a `display: grid` in
               * stream.css would lose to ItemGroup's own class, `utilities`
               * outranking `app`.
               *

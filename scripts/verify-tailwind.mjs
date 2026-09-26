@@ -695,8 +695,8 @@ check(
 // The probe is `.leaguetile`, a league in the Sports picker. It was
 // `.episode-card` until v0.9.67, when the episode row became a shadcn
 // <Item> and its CSS paint went away with it, then `.vod-source` until
-// v0.10.7, when a source became multi-view's flat row (plan 019, K10) —
-// each time the probe would have read a bare div and this check started
+// v0.10.7, when a source became multi-view's flat row (plan 019, K10).
+// Each time the probe would have read a bare div and this check started
 // asserting against nothing. Any class this points at has to be one that
 // still paints from CSS as a card; a control that has been converted to a
 // shadcn component, or to a row, never is.
@@ -727,7 +727,7 @@ check(
 
 // 9c. THE INPUT. Multi-view's field since plan 019 (frame G): 40px, the
 // 10px corner, a tint and no edge. It was shadcn's h-9 / rounded-md. It
-// RINGS on focus — reversing an opt-out this app carried for years — with
+// RINGS on focus, reversing an opt-out this app carried for years, with
 // the app's one ring. The ring is the only thing marking which field has
 // the caret in a column of identical boxes, so its absence is the
 // regression worth catching.

@@ -189,7 +189,7 @@ export function AppHeader({
   const [recAvailable] = useState(tmdbEnabled);
   useEffect(() => onRecommendChange(setRecOpen), []);
   const searchRef = useRef<HTMLInputElement>(null);
-  // `/` and Ctrl+F reach the search field — which lives on Discover
+  // `/` and Ctrl+F reach the search field, which lives on Discover
   // now, so this GOES there first and asks for focus through the mailbox
   // in searchQuery. (Ctrl+K was one of these until plan 019, K11: it opens
   // the app palette now, which finds titles as well as everything else.) Dispatching a bare event would not survive the trip:
