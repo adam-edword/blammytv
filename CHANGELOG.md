@@ -2,6 +2,28 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 0.10.3: Pick the feed (2026-09-26)
+
+Three fixes to 0.10.0. They arrive as an update to the app's screens, so
+there's no installer: it downloads by itself and applies the next time you
+open BlammyTV.
+
+- **A live game in Multi-view asks which feed.** Adding a game took its
+  best-guess channel, with no way to pick another, and the guess was
+  sometimes wrong. Choosing a game now lists every channel of yours that
+  carries it, the best match first, and you pick. To change a game's feed
+  once it's playing, press R on its tile, choose the game, and pick
+  another. Fill with live games still takes each game's best match.
+- **Multi-view's volume matches the main player's.** A tile played far
+  louder than the main player at the same setting, too loud even at the
+  bottom of the slider. It follows the main player's curve now, so the
+  same position sounds the same in both. Your saved Multi-view volume will
+  sound quieter the first time: turn it up once.
+- **REC is in Discover.** Type a few words, "space horror" or "heist",
+  and it picks one title for you from your own sources. It needed a TMDB
+  key that the app gave you no way to set, so 0.10.0 hid it. The app
+  brings its own now.
+
 ## 0.10.0: Multi-view (2026-09-26)
 
 Up to four live channels at once, on a tab of their own. The whole app has a

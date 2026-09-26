@@ -356,11 +356,22 @@ the bundle anyway, but do not make the app prove it for you.
    }
    ```
 
-5. **Publish the release with the bundle, the `.sig` and `frontend.json`.**
-   **Do NOT upload a `latest.json`.** That file is the native updater's
-   trigger; omitting it is what keeps the installer channel quiet. Still
-   tick "Set as the latest release", because the hot channel resolves its
-   manifest from `releases/latest/download/` too.
+5. **Publish the release with the bundle, the `.sig`, `frontend.json`, and
+   a copy of the CURRENT native release's `latest.json`.** Don't write a
+   new `latest.json`; download the live one and upload it unchanged:
+   ```powershell
+   curl.exe -sL -o latest.json https://github.com/adam-edword/blammytv/releases/latest/download/latest.json
+   ```
+   Both updaters read from `releases/latest/download/`, and this release
+   becomes latest. Without the copy, every install still on an OLDER
+   native line (someone who hasn't taken the last installer yet) asks for
+   `latest.json`, gets a 404, and is never offered the installer again.
+   The copy names the native version the hot users already run, so it
+   offers them nothing, which is what keeps the installer channel quiet.
+   (This step used to say to upload no `latest.json` at all. That was
+   only safe when every install was already on the latest native line.)
+   Tick "Set as the latest release": the hot channel resolves its manifest
+   from `releases/latest/download/` too.
 
 6. **Verify the bundle before step 4, and the manifest after step 5**, exactly
    as for an installer:
