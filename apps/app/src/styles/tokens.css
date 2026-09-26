@@ -135,13 +135,71 @@
   --accent-border: color-mix(in srgb, var(--accent) 36%, transparent);
   --accent-border-hover: color-mix(in srgb, var(--accent) 51%, black);
 
+  /* ------------------------------------------------ multi-view's material
+   * Plan 019, K1. What multi-view drew its controls with, as tokens, so a
+   * control anywhere that borrows the look borrows the same numbers. The
+   * capsule's glass was typed out by hand in five places before this.
+   *
+   * --glass and the two tints are a tint of the TEXT colour, not of white,
+   * so they turn with the theme. They are declared on :root and resolve
+   * there, which is fine: --text only ever changes on :root.
+   *
+   * --tint-hover is a row under the pointer or the keyboard; --tint-on is
+   * a chosen segment. Selection is a tint, never the accent: the accent is
+   * a signal (live, the sound), not a highlight. */
+  --glass: color-mix(in srgb, var(--text) 10%, transparent);
+  --glass-fx: blur(5px) saturate(1.4);
+  --tint-hover: color-mix(in srgb, var(--text) 9%, transparent);
+  --tint-on: color-mix(in srgb, var(--text) 16%, transparent);
+  /* The ground under a picture until its first frame, and the ink drawn
+   * ON a picture. Neither follows the theme: a picture is dark whatever
+   * the page is, so what sits on it is white in both. */
+  --pic: #111;
+  --on-image: #fff;
+  /* A chip on a picture: darker glass than --glass, because what is behind
+   * it is video, not the page, and a hairline so it holds its edge on a
+   * bright frame. */
+  --chip-bg: rgb(20 20 20 / 0.6);
+  --chip-bg-hover: rgb(45 45 45 / 0.75);
+  --chip-edge: color-mix(in srgb, var(--on-image) 14%, transparent);
+  --chip-fx: blur(12px) saturate(1.4);
+
+  /* ------------------------------------------------------------ layers
+   * Plan 016 3.1. Every layer that has to sit above another screen's, by
+   * name. Local stacking (a caption above its own picture) keeps small
+   * numbers; these are the ones that race each other across the app.
+   *
+   * Popovers sit ABOVE the sheet. Tooltips, menus and comboboxes were z-50
+   * under Settings' 60, so the next one used inside Settings would have
+   * opened behind it. */
+  --z-header: 20;
+  --z-bar: 21;
+  --z-panel: 30;
+  --z-tip: 40;
+  --z-player: 45;
+  --z-player-over: 46;
+  --z-toast: 50;
+  --z-sheet: 60;
+  --z-popover: 70;
+  --z-fullscreen: 200;
+  --z-boot: 1000;
+
   /* Text. shadcn names two tiers, `foreground` and `muted-foreground`; the
    * app has four, so the two quietest borrow `ring`'s neutral, which is the
    * next step down its own scale. */
   --text: oklch(0.985 0 0); /* shadcn `foreground` */
   --text-muted: oklch(0.708 0 0); /* shadcn `muted-foreground` */
-  --text-dim: oklch(0.556 0 0); /* quietest tier (hero synopsis/meta) */
+  /* 0.6, not shadcn's 0.556 (plan 016 3.1): the dim tier carries real
+   * words (the hero's synopsis, a failed row's note) and 0.556 missed
+   * 4.5:1 on the card. */
+  --text-dim: oklch(0.6 0 0); /* quiet tier (hero synopsis/meta) */
   --text-ghost: oklch(0.556 0 0); /* placeholders */
+  /* The quietest tier, and a COLOUR, not an opacity (plan 016 3.1, plan
+   * 019 rule 6). It is the header's old quiet level: the clock was drawn
+   * at 0.3 opacity and the version line at 0.35, and faded text is the
+   * app's own word for "not available". A mix with the page keeps the
+   * same look without that meaning. */
+  --text-faint: color-mix(in srgb, var(--text) 35%, var(--bg));
 
   /* Status — deliberately UNTHEMED constants: danger must read as danger
    * under any pack (the settings danger-zone's documented fixed-red rule).

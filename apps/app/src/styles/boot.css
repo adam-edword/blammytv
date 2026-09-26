@@ -55,7 +55,7 @@
 .boot-overlay {
   position: fixed;
   inset: 0;
-  z-index: 1000;
+  z-index: var(--z-boot);
   overflow: hidden;
   background: #000;
   opacity: 1;

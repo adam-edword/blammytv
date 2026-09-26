@@ -173,7 +173,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  color: #f2f2f4;
+  color: var(--on-image);
 }
 /* Clearlogo title art when the addon provides it; text is the fallback. */
 .shero__logo {
@@ -196,7 +196,7 @@
 .shero__synopsis {
   font-size: 15px;
   line-height: 1.5;
-  color: rgba(242, 242, 244, 0.85);
+  color: color-mix(in srgb, var(--on-image) 85%, transparent);
   max-width: 48ch;
   display: -webkit-box;
   -webkit-line-clamp: 10;
@@ -205,7 +205,7 @@
 }
 .shero__meta {
   font-size: 14px;
-  color: rgba(242, 242, 244, 0.6);
+  color: color-mix(in srgb, var(--on-image) 60%, transparent);
   white-space: pre;
 }
 .shero__rating { color: #ffd166; }
@@ -491,7 +491,7 @@
 /* Cast line: quiet credit under the meta. */
 .vod-detail__castline {
   font-size: 13px;
-  color: rgba(242, 242, 244, 0.55);
+  color: color-mix(in srgb, var(--on-image) 55%, transparent);
 }
 
 /* More Like This: full-width band under the detail body. The title and
@@ -521,7 +521,7 @@
   font-weight: 700;
   font-size: 14px;
   margin: 0 0 4px calc(6.51% - 1.6px);
-  color: rgba(242, 242, 244, 0.8);
+  color: color-mix(in srgb, var(--on-image) 80%, transparent);
 }
 .vod-more .media-row__viewport {
   margin: 0;
@@ -704,7 +704,7 @@
   padding: 0 7% 0 32px;
   /* The page itself never scrolls on the source screen — only the rail. */
   overflow: hidden;
-  color: #f2f2f4;
+  color: var(--on-image);
 }
 .vod-detail__body--episodes {
   grid-template-columns: 1fr;
@@ -807,8 +807,8 @@
   color: #fff;
   margin: 0;
 }
-.vod-detail__meta { color: rgba(242, 242, 244, 0.65); font-size: 18px; }
-.vod-detail__synopsis { font-size: 18px; line-height: 1.5; margin: 6px 0; color: rgba(242, 242, 244, 0.85); }
+.vod-detail__meta { color: color-mix(in srgb, var(--on-image) 65%, transparent); font-size: 18px; }
+.vod-detail__synopsis { font-size: 18px; line-height: 1.5; margin: 6px 0; color: color-mix(in srgb, var(--on-image) 85%, transparent); }
 .vod-detail__pills { display: flex; gap: 8px; flex-wrap: wrap; }
 /* Buttons now — each pill jumps to Discover with its genre selected. They
  * are `<Button variant="outline" size="sm">` since v0.9.55; the glass pill
@@ -855,7 +855,7 @@
   font-family: var(--font-headline);
 }
 
-.vod-sources__note { color: rgba(242, 242, 244, 0.6); font-size: 14px; }
+.vod-sources__note { color: color-mix(in srgb, var(--on-image) 60%, transparent); font-size: 14px; }
 /* Figma 133-721 source card: a glass slab with the quality in its own
  * raised block left, the addon's meta lines beside it, play glyph right. */
 .vod-source {
@@ -899,7 +899,7 @@
   min-width: 0;
   font-size: 13px;
   line-height: 1.45;
-  color: rgba(242, 242, 244, 0.75);
+  color: color-mix(in srgb, var(--on-image) 75%, transparent);
 }
 .vod-source__lines span {
   white-space: nowrap;
@@ -959,7 +959,7 @@
 .upnext {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: var(--z-toast);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1001,13 +1001,13 @@
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: clamp(24px, 3vw, 40px);
-  color: #f2f2f4;
+  color: var(--on-image);
   max-width: 70vw;
   text-align: center;
 }
 .upnext__count {
   font-size: 15px;
-  color: rgba(242, 242, 244, 0.65);
+  color: color-mix(in srgb, var(--on-image) 65%, transparent);
   font-variant-numeric: tabular-nums;
 }
 .upnext__actions {
@@ -1033,7 +1033,7 @@
   position: fixed;
   right: 44px;
   bottom: 262px;
-  z-index: 46;
+  z-index: var(--z-player-over);
   display: flex;
   align-items: stretch;
   width: 380px;
@@ -1080,7 +1080,7 @@
   font-weight: 700;
   font-size: 15px;
   line-height: 1.25;
-  color: #f2f2f4;
+  color: var(--on-image);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -1186,7 +1186,7 @@
 .vod-panel__backdrop {
   position: fixed;
   inset: 0;
-  z-index: 45;
+  z-index: var(--z-player);
   background: transparent;
 }
 
@@ -1196,7 +1196,7 @@
   right: 16px;
   bottom: 16px;
   width: min(420px, 86vw);
-  z-index: 46;
+  z-index: var(--z-player-over);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -1284,7 +1284,7 @@
  * the PiP plays. Bring It Back reclaims in-place; ✕ closes the pop-out
  * and lands on the source selector underneath. */
 .vod-stage--popped {
-  z-index: 30;
+  z-index: var(--z-panel);
   background: #000;
 }
 .vod-pip {
@@ -1306,7 +1306,7 @@
   font-family: var(--font-headline);
   font-weight: 600;
   font-size: 15px;
-  color: rgba(242, 242, 244, 0.55);
+  color: color-mix(in srgb, var(--on-image) 55%, transparent);
 }
 .vod-pip__close {
   position: absolute;

@@ -293,7 +293,7 @@
 /* Source-name tooltip beside the folded rail. */
 .live-tip {
   position: fixed;
-  z-index: 40;
+  z-index: var(--z-tip);
   transform: translateY(-50%);
   padding: 6px 12px;
   background: var(--surface-raised);
@@ -340,9 +340,8 @@
   min-height: 0;
   display: grid;
   place-items: center;
-  color: var(--text-muted);
   font-size: 14px;
-  opacity: 0.6;
+  color: var(--text-dim);
 }
 
 /* Whole-tab states: loading, playlist failure, nothing configured. */
@@ -354,9 +353,8 @@
   gap: 14px;
   padding: 0 48px;
   text-align: center;
-  color: var(--text-muted);
   font-size: 14px;
-  opacity: 0.6;
+  color: var(--text-dim);
 }
 
 /* A real failure shouldn't whisper like the idle "Loading…" hint. */
@@ -442,9 +440,8 @@
   font-size: 13px;
   /* Brighter than --text-dim: with no bar behind them, the ticks carry
    * their own readability over any theme's texture. */
-  color: var(--text);
-  opacity: 0.75;
   white-space: nowrap;
+  color: var(--text-muted);
 }
 
 /* Keeps ticks' sticky geometry over the channel column; transparent like
@@ -805,7 +802,7 @@
   transform: none;
   aspect-ratio: auto;
   border-radius: 0;
-  z-index: 200;
+  z-index: var(--z-fullscreen);
 }
 
 .hero__details {
@@ -1003,7 +1000,7 @@
   position: fixed;
   left: 50%;
   bottom: 28px;
-  z-index: 50;
+  z-index: var(--z-toast);
   display: flex;
   align-items: center;
   gap: 14px;
@@ -1055,7 +1052,7 @@
  * the tooltip's pattern). */
 .folder-menu {
   position: fixed;
-  z-index: 30;
+  z-index: var(--z-panel);
   min-width: 200px;
   max-width: 280px;
   /* 4px/8px, not 6px/12px: this is the last hand-rolled menu in the app and

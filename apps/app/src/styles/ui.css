@@ -26,15 +26,15 @@
   white-space: nowrap;
   padding: 6px 15px;
   border-radius: var(--radius-chip);
-  color: var(--text);
-  opacity: 0.5;
-  transition: opacity var(--dur-hover) ease,
+  /* Muted by colour, not a 0.5 fade (plan 019, rule 6). */
+  color: var(--text-muted);
+  transition: color var(--dur-hover) ease,
     transform 160ms var(--ease-out);
 }
 
 .chip-tabs__tab:hover,
 .chip-tabs__tab--active {
-  opacity: 1;
+  color: var(--text);
 }
 
 .chip-tabs__thumb {

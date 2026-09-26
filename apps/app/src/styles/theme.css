@@ -52,12 +52,25 @@
   --color-text-muted: var(--text-muted);
   --color-text-dim: var(--text-dim);
   --color-text-ghost: var(--text-ghost);
+  --color-text-faint: var(--text-faint);
 
   /* The accent is USER-PICKED at runtime, which is the single best reason
    * this whole file is `inline`. A build-time copy would freeze whatever
    * red happened to be in tokens.css and every custom accent would stop
    * reaching anything written with a utility. */
   --color-accent: var(--accent);
+
+  /* Multi-view's material (plan 019, K1): the capsule's glass, the two
+   * text tints, the ground under a picture and the ink and chip on one.
+   * What each is for is in tokens.css. */
+  --color-glass: var(--glass);
+  --color-tint-hover: var(--tint-hover);
+  --color-tint-on: var(--tint-on);
+  --color-pic: var(--pic);
+  --color-on-image: var(--on-image);
+  --color-chip: var(--chip-bg);
+  --color-chip-hover: var(--chip-bg-hover);
+  --color-chip-edge: var(--chip-edge);
 
   /* Radii. The app's two named ones sit alongside Tailwind's scale rather
    * than replacing it, because a card and a chip are the only two this

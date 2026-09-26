@@ -110,13 +110,12 @@ function ComboboxContent({
         align={align}
         alignOffset={alignOffset}
         anchor={anchor}
-        // z-70, not the registry's z-50. This app's modal layer is z 60
-        // (`.modal-backdrop` in settings.css), and both comboboxes live
-        // inside Settings — at 50 the popup portals to <body> and paints
-        // BEHIND the sheet, which looks exactly like a control that does
-        // nothing. 70 is the app's established "floating above a modal"
-        // tier. Nothing in the app sits above it.
-        className="isolate z-70"
+        // --z-popover (70), not the registry's z-50. This app's modal layer
+        // is --z-sheet (60, `.modal-backdrop` in settings.css), and both
+        // comboboxes live inside Settings — at 50 the popup portals to
+        // <body> and paints BEHIND the sheet, which looks exactly like a
+        // control that does nothing. tokens.css holds the scale.
+        className="isolate z-(--z-popover)"
       >
         <ComboboxPrimitive.Popup
           data-slot="combobox-content"

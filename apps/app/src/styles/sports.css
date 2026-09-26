@@ -2157,6 +2157,7 @@
 }
 .sportsrail.is-wrong .sportsrail__name {
   opacity: 0.6;
+  color: var(--text-dim);
 }
 .sportsrail__score {
   /* The number sits ON the bar, not beside it (Adam's Figma). Stacked
@@ -2359,15 +2360,24 @@
   /* The initial, where the art is missing or dead. Sized to the box the
    * mark would have filled rather than to the label under it. */
   font-size: 24px;
-  color: var(--text-muted);
   /* Idle marks sit back so the followed ones read as chosen; the tile's own
    * fill is doing the work, and a full-strength logo on every tile makes
-   * the grid shout before it says anything. */
+   * the grid shout before it says anything. The ART fades; an initial goes
+   * a tier quieter instead, because faded text reads as "not available"
+   * (plan 019, rule 6). */
+  color: var(--text-dim);
+  transition: color var(--dur-hover) ease;
+}
+.leaguetile__mark > img {
   opacity: 0.75;
   transition: opacity var(--dur-hover) ease;
 }
 .leaguetile--on .leaguetile__mark,
 .leaguetile:hover .leaguetile__mark {
+  color: var(--text-muted);
+}
+.leaguetile--on .leaguetile__mark > img,
+.leaguetile:hover .leaguetile__mark > img {
   opacity: 1;
 }
 .leaguetile__name {
@@ -2499,7 +2509,11 @@
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 14px;
-  color: var(--text-muted);
+  /* A tier quieter than the name, as a colour: the art may fade (below),
+   * an initial may not (plan 019, rule 6). */
+  color: var(--text-dim);
+}
+.leaguepick__mark > img {
   opacity: 0.85;
 }
 /* League art comes in every shape the source felt like; contain it. */

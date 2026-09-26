@@ -7,7 +7,7 @@
   inset: 0;
   /* Above everything: the floating header (20), the theater backdrop (40),
    * and the inverted player's inline chrome host (45). */
-  z-index: 60;
+  z-index: var(--z-sheet);
   display: flex;
   /* Top-right float, per the Figma (centered for a stretch in v0.1.120-136;
    * Adam moved it back 2026-07-09). The region frost follows the card's
@@ -225,6 +225,7 @@
 
 .settings__section-note--dim {
   opacity: 0.4;
+  color: var(--text-faint);
 }
 
 /* ------------------------------------------------------------- add form */
@@ -583,7 +584,7 @@
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.5px;
-  opacity: 0.35;
+  color: var(--text-faint);
 }
 
 /* The hero sources picker owns no CSS at all as of v0.9.68. It was a
@@ -643,10 +644,10 @@
   font-family: var(--font-headline);
   font-weight: 400;
   font-size: 12px;
-  opacity: 0.3;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--text-faint);
 }
 
 .playlist-row__actions {
@@ -754,7 +755,7 @@
 .aio-probe__forensic {
   display: block;
   font-size: 12.5px;
-  opacity: 0.75;
+  color: var(--text-muted);
 }
 /* Plain-language conclusion for conclusively-diagnosed failure shapes
  * (e.g. a Cloudflare challenge) — the actionable sentence, so users

@@ -49,7 +49,7 @@ function TooltipContent({
           // as material rather than as a rectangle.
           //
           // `add tooltip` WILL OVERWRITE THIS. See components/README.md.
-          "sports-tooltip z-50 w-fit origin-(--radix-tooltip-content-transform-origin)",
+          "sports-tooltip z-(--z-popover) w-fit origin-(--radix-tooltip-content-transform-origin)",
           "rounded-[10px] border border-float-border bg-popover px-2.5 py-1.5",
           "text-xs font-medium text-foreground text-balance",
           "shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_8px_28px_rgba(0,0,0,0.45)]",
