@@ -1,8 +1,10 @@
 # 019: Multi-view's look, on every tab
 
-**Status: PROPOSED (2026-09-26).** Eight mockups (frames A to H) were sent
-in the chat, not the repo. Nothing is built. Adam's calls on D1 to D7 come
-first.
+**Status: DECIDED (2026-09-26), not built.** Eight mockups (frames A to
+H) were sent in the chat, not the repo. Adam, the same day: its own track,
+yes to D2 to D7, and the source list revised (frame D, sent again): every
+line the addon sends, the column to the bottom of the window, and grouped
+by Cached and Not cached for any setup, not only his. See "Sources" below.
 
 *Origin: Adam, 2026-09-26: "take what was created in multiview, look at its
 design language and components and apply it to the other tabs in the app."*
@@ -20,20 +22,22 @@ SVG scenes, not video or real art).*
 
 ## Where this sits
 
-This is not a new track. ROADMAP's M2 (the primitives) and M3 (every
-screen, the glass, then 0.10.0) already plan one pass over every primitive
-and every screen, and plan 016's Tracks 3 and 4 hold their work list. What
-those plans lack is a picture of where it ends up. Plan 014 says "a subtle
-layer of liquid glass" on shadcn; v0.9.54's takeover said "we can build up
-the branding after" (`apps/app/src/styles/old/README.md`).
+**Its own track** (Adam, 2026-09-26: "plan 18 is already done and pushing
+live, so i think this is its own track"). Plan 014 says "a subtle layer of
+liquid glass" on shadcn, and v0.9.54's takeover said "we can build up the
+branding after" (`apps/app/src/styles/old/README.md`). Multi-view is the
+first screen built after that. It is shadcn underneath (Dialog, Tooltip
+through Hint) with the capsule's glass, round ends and a picture-first
+manner on top, and Adam has used it for hours. This track takes that to
+every tab.
 
-Multi-view is the first screen built after that. It is shadcn underneath
-(Dialog, Tooltip through Hint) with the capsule's glass, round ends and a
-picture-first manner on top, and Adam has used it for hours. So the
-proposal: **multi-view is what M2 and M3 build toward.** This plan says
-what each primitive looks like. 016 still says which ones and in what
-order, and 014's rule stands: ground up, by primitive, never screen by
-screen (Adam, 2026-09-07).
+It overlaps ROADMAP's M2 (the primitives) and M3 (every screen, the glass,
+then 0.10.0), whose work list is plan 016's Tracks 3 and 4. So that
+nothing is converted twice: **when this track builds a primitive or
+reaches a screen, it does the 016 items that primitive or screen carries**,
+and those items are done here, not again in M2 or M3. Each step below
+names the 016 items it takes. 014's rule stands: ground up, by primitive,
+never screen by screen (Adam, 2026-09-07).
 
 ---
 
@@ -151,9 +155,10 @@ New list and the Guide's lanes with no listings. Frame A.
 
 **K9. Eyebrow and SectionLabel.** Frames B, D, F, G, H.
 
-**K10. Row.** The picker's row: 52px, flat, a 9% tint under the pointer.
-Sources (with a quality tile, and ⚡ named "Instant", 016 4.5), playlists,
-the Guide's folders at 36px. Frames B, D, G.
+**K10. Row.** The picker's row: flat, a 9% tint under the pointer, as
+tall as what it carries. The list is one tab stop and the arrows move
+through it (rule 10). Sources (below), playlists, the Guide's folders at
+36px. Frames B, D, G.
 
 **K11. Palette.** The picker, grown to the whole app: channels, what is on
 later, films and series, Settings. Ctrl+K anywhere, and a round search
@@ -190,11 +195,79 @@ on hover; the row arrows are round glass. Unchanged: the carousel and its
 glow, the poster rows, tilt and glare, hold-to-clear.
 
 **D. A film's page.** Changes: Back is the round icon; Save is a glass
-split pill; genres are small glass pills; the sources sit in one glass
-panel over the backdrop (014 says glass earns its place here), as picker
-rows under "Instant" and "Everything else", with a `<kbd>` footer; "More
-like this" posters get captions. Unchanged: the layout, the backdrop, the
-column widths.
+split pill; genres are small glass pills; the sources are one glass column
+over the backdrop (014 says glass earns its place here), grouped, with a
+`<kbd>` footer (the rules are the next section); "More like this" posters
+get captions. Unchanged: the layout, the backdrop, the 420px column, and
+every line a source carries.
+
+### Sources
+
+Adam, on frame D: "we need to make sure it accounts for all the data",
+"'instant' would need to go to 'cached'", "i still want it to extend all
+the way down when possible", and grouping "if it can work for anyone and
+not just my config".
+
+**All the data.** A source is what the addon wrote. The app derives one
+field, the quality (the bingeGroup's resolution, else parsed from the
+name, `mapper.ts:207-220`), and shows every line of the addon's
+description as it came (`mapper.ts:79-84`). The rule today stays the rule
+("EVERY line", `StreamScreen.tsx:2856-2860`: a truncated one hides the
+audio track or the size that made it the right choice). The row:
+- the quality in a small glass tile, top left;
+- the first line in the text colour at 600, every other line muted, all
+  of them, each on one line with an ellipsis and the whole text on hover,
+  as today;
+- the play glyph, brighter under the pointer.
+
+The ⚡ leaves the quality block: the group says it. The addon's own lines
+keep whatever markers they carry.
+
+**All the way down.** The column starts under the header and runs to the
+window's bottom edge, scrolling inside, with the group labels sticking to
+its top as you pass them. A short list ends where it ends. The footer
+(the keys, and the count) sits at the bottom of the column.
+
+**Cached and Not cached, for anyone.** A source's cache status comes three
+ways, most trusted first:
+1. **AIOStreams' own data.** `streamData.service.cached`, true or false,
+   for any formatter and any service, debrid or usenet. The app already
+   asks for `streamData` (the `AIOStreams/` token, `stremio.ts:175-183`),
+   and AIOStreams sends `service` as `{ id, cached }` on every stream that
+   went through one (`packages/core/src/db/schemas.ts:1505-1510` and
+   `transformers/stremio.ts:125-155` in Viren070/AIOStreams at `00fb93a`).
+2. **The addon's text,** for older instances and other addons. Cached:
+   the ⚡ or a `[RD+]`-style tag, as today (`mapper.ts:57-76`). Not
+   cached, new: the ⏳ that AIOStreams' own formatters put on an uncached
+   stream (its GDrive formatter writes `⚡]` or `⏳]` after the service,
+   `utils/formatter-definitions.ts`), and Torrentio's `[RD download]`
+   (per `mapper.ts:57-58`).
+3. **Neither:** a direct link with no service, or an addon that marks
+   nothing. Unknown, not "not cached".
+
+`StreamSource.cached` stays the boolean auto-play trusts; the new field is
+a three-way status beside it. The groups:
+- **Cached**, then **Other sources** (the unknowns), then **Not cached**,
+  each labelled with its count, only when it has a source in it.
+- **No labels at all** when no source's status is known: a flat list, as
+  a setup without debrid gets today, minus the ⚡.
+- **The addon's order holds inside each group.** AIOStreams ranks and the
+  app never re-sorts (`stremio.ts`, "we never re-sort"); grouping only
+  moves a group ahead of another. AIOStreams' default config sorts cached
+  first anyway (`sortCriteria.global[0]`,
+  `packages/frontend/src/context/userData.tsx:401-405`), and its default
+  formatter is the GDrive one quoted above.
+- **Auto-play doesn't change.** It still plays only a cached source.
+
+The same rows are the player's source panel (`.vod-panel`,
+`StreamScreen.tsx:1437-1500`), where the playing one keeps its ring. The
+column's states (finding sources, couldn't load, none) are the StateCard
+(K8).
+
+*Proof:* unit tests in `mapper.test.ts` for each rule (`service.cached`
+true and false, ⚡, `[RD+]`, ⏳, `[RD download]`, none) and for the
+grouping (order kept inside groups, empty groups dropped, no labels when
+nothing is known).
 
 **E. A series' page.** Changes: seasons are the segmented control;
 episodes are tiles with captions; watched is a check in the caption and a
@@ -219,8 +292,8 @@ onto Dialog (016 3.3).
 films and series, go to. Rows are the picker's, footer and all.
 
 **Discover and Library** have no frame of their own: their cards are
-Stream's `Card` and `RowScroller`, which M2 moves into `ui/`, so frame C
-is theirs. Discover's filters already live in the capsule's second row.
+Stream's `Card` and `RowScroller`, which this track moves into `ui/`
+(M2's item), so frame C is theirs. Discover's filters already live in the capsule's second row.
 Library's New list is frame A's empty place, and its Remove pill
 (`LibraryScreen.tsx:360-374`) is already nearly `.mvchip`.
 
@@ -228,9 +301,11 @@ Library's New list is frame A's empty place, and its Remove pill
 
 ## Decisions
 
-**D1. Multi-view is what M2 and M3 build toward.** *Recommend yes.* The
-alternative is converting every screen to shadcn's defaults in M2 and
-again to this in M3.
+Taken by Adam, 2026-09-26: D1 as its own track, D2 to D7 as recommended.
+
+**D1. Multi-view is what M2 and M3 build toward.** *Recommended yes.*
+**Decided: its own track,** which does the 016 items it reaches (see
+"Where this sits"), so nothing is converted twice either way.
 
 **D2. Controls have round ends.** `sports.css:61-65` says "`rounded-md`
 because a pill is for a badge, and this is a control". Multi-view's
@@ -279,12 +354,13 @@ none of it waits on a rebuild.
 3. **K3 buttons**, with 016 3.3 item 8. The `.btn-*` hooks go.
 4. **K4 to K6:** LIVE, the meter, logos (with 016 3.3 item 4's Badge).
 5. **K7 and K8:** the tile, and the states (016 3.3 item 6).
-6. **K9 and K10:** labels and rows.
+6. **K9 and K10:** labels and rows, the sources' three-way cache status
+   and groups with them.
 7. **K12 and K13:** focus, kbd, idle.
 8. **K11:** the palette.
 
-Then 016's Track 4 runs each screen's own list as its last consumers
-move, and these frames are the target. Sports stays last.
+Then each screen's own list from 016's Track 4 runs as its last consumers
+move, in this track, and these frames are the target. Sports stays last.
 
 Every conversion updates its harness checks in the same commit (the
 v0.9.54 lesson). Multi-view's harnesses find things by `.mv*` classes, and
