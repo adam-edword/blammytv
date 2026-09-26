@@ -127,7 +127,8 @@ check("nav shows Discover as the active destination",
 // question about that row's height, not about a modifier class.
 check("the search field is open on Discover",
   (await page.locator(".navcap__row--sub").evaluate((el) => el.offsetHeight)) > 30);
-// No TMDB key in this profile, so no REC (v0.9.92, plan 016 D8). Without a
+// No TMDB key in this profile or this build, so no REC (v0.9.92, plan 016
+// D8; a build with VITE_TMDB_KEY in .env.local shows it). Without a
 // key all it could do was send you to the devtools console.
 check("REC is not offered without a TMDB key",
   (await page.locator('.navcap__row--sub [data-key="rec"]').count()) === 0);

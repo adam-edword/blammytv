@@ -368,6 +368,20 @@
 .rec__note--bad {
   color: var(--danger, #ff6b6b);
 }
+/* TMDB's attribution: at the foot of the page, over the wall, and quiet. */
+.rec__credit {
+  position: absolute;
+  z-index: 1;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 92%;
+  margin: 0;
+  color: color-mix(in srgb, var(--text) 42%, transparent);
+  font: 400 11px/1.4 var(--font-text);
+  text-align: center;
+}
 .rec__note code {
   font-family: var(--font-mono);
 }

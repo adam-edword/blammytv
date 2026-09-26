@@ -225,6 +225,11 @@ env vars, and puts the `.sig` on the clipboard. Steps 0 (libmpv refresh),
    Without ffmpeg.exe the build refuses to run; with an empty one, an HEVC
    tile says it couldn't convert.
 
+   **And the TMDB key.** REC (Discover's recommender) runs on the app's own
+   TMDB key, which Vite bakes in from `VITE_TMDB_KEY` in
+   `apps/app/.env.local` (gitignored; see `apps/app/.env.example`). Build
+   without it and REC ships hidden, with nothing to say so.
+
 1. **Bump the version** in all SIX spots (they must agree: the updater compares
    against `tauri.conf.json`):
    - `apps/app/src-tauri/tauri.conf.json` → `version`
