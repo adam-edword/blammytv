@@ -18,10 +18,10 @@ const openTab = async (manifest) => {
   // AIOStreams stopped being a tab: the rail is General / Customize, and
   // the manifest screen sits behind General -> Sources -> Stream. Scoped to
   // the source rail, because a bare "Stream" also matches the nav capsule's
-  // own destination button.
+  // own destination button. The rail is a tablist since plan 019 (K2).
   await page
     .locator(".customize-rail")
-    .getByRole("button", { name: "Stream", exact: true })
+    .getByRole("tab", { name: "Stream", exact: true })
     .click();
   await page.waitForTimeout(400);
   return page;
