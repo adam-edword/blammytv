@@ -19,14 +19,15 @@ import {
   type XtreamPlaylist,
 } from "../settings/playlists";
 import { loadShowAdult } from "../settings/adultFilter";
-import { httpGetText } from "../../lib/http";
+import { httpGetBytes, httpGetText } from "../../lib/http";
 import { isAdultCategory, isAdultStream, nameLooksAdult } from "./adult";
 import { diskGet, diskPut } from "./diskCache";
 import { normalizeProgrammes } from "./epg";
 import { parseM3U } from "./m3u";
 import type { Channel, LiveData, LiveGroup, Programme } from "./model";
 import { extractQuality } from "./quality";
-import { parseXmltv, type XmltvStats } from "./xmltv";
+import type { XmltvStats } from "./xmltv";
+import { parseXmltvOffThread } from "./xmltvThread";
 
 /**
  * The seam between the Live tab and where its data comes from. With no
@@ -430,9 +431,10 @@ async function buildXtreamSource(
     // returns without it and doLoad merges the programmes when they land.
     const epg = (async (): Promise<EpgPhase> => {
       try {
-        const xml = await xmlPromise; // in flight since right after sign-in
+        const bytes = await xmlPromise; // in flight since right after sign-in
         const fetched = performance.now();
-        await breathe(); // parseXmltv blocks for seconds on a big document
+        // Read before the worker takes the bytes, which empties this view.
+        const mb = (bytes.byteLength / 1e6).toFixed(1);
         const index = epgIndex(streams, p, hidden, !showAdult);
         const stats: XmltvStats = {
           guideChannels: 0,
@@ -440,9 +442,11 @@ async function buildXtreamSource(
           unmatchedTheirs: [],
           recovered: 0,
         };
-        const programmes = parseXmltv(xml, index, now, stats);
+        // On a worker: 3.3 seconds of a frozen app on Adam's 106MB guide,
+        // every refresh, when it ran here (xmltvThread.ts).
+        const { programmes } = await parseXmltvOffThread(bytes, index, now, stats);
         console.info(
-          `[live] ${p.name}: xmltv ${(xml.length / 1e6).toFixed(1)}MB in ${Math.round(fetched - xmlT0)}ms (overlapped), parsed EPG for ${programmes.size} channels in ${Math.round(performance.now() - fetched)}ms`,
+          `[live] ${p.name}: xmltv ${mb}MB in ${Math.round(fetched - xmlT0)}ms (overlapped), parsed EPG for ${programmes.size} channels in ${Math.round(performance.now() - fetched)}ms (off the page's thread)`,
         );
         // Coverage, because "248 guides for 1920 channels" has two very
         // different explanations. `channels with an epg id` vs `matched`
@@ -472,7 +476,7 @@ async function buildXtreamSource(
         if (programmes.size === 0)
           return {
             programmes,
-            epgError: `the guide downloaded (${(xml.length / 1e6).toFixed(1)}MB) but matched none of the channels`,
+            epgError: `the guide downloaded (${mb}MB) but matched none of the channels`,
           };
         return { programmes };
       } catch (err) {
@@ -632,9 +636,9 @@ async function buildM3uSource(
           epgError: "no channel carries a tvg-id to match the guide against",
         };
       try {
-        const xml = await httpGetText(epgUrl, undefined, 180);
-        await breathe(); // parseXmltv blocks for seconds on a big document
-        const programmes = parseXmltv(xml, epgIdx, now);
+        const bytes = await httpGetBytes(epgUrl, undefined, 180);
+        // On a worker, as the Xtream guide is (xmltvThread.ts).
+        const { programmes } = await parseXmltvOffThread(bytes, epgIdx, now);
         return programmes.size === 0
           ? {
               programmes,

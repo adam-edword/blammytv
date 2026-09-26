@@ -47,7 +47,10 @@ await page.addInitScript(() => {
       currentWebview: { label: "main", windowLabel: "main" },
     },
     invoke: (cmd) => {
-      if (cmd === "frontend_status") return Promise.resolve({ serving: "", pending: window.__staged });
+      if (cmd === "frontend_status") {
+        window.__statusAsked = (window.__statusAsked ?? 0) + 1;
+        return Promise.resolve({ serving: "", pending: window.__staged });
+      }
       // Already staged, so nothing NEW to do: the case that went wrong.
       if (cmd === "frontend_check") return Promise.resolve("");
       if (cmd === "check_update") return Promise.resolve(null);
@@ -66,7 +69,13 @@ await row.waitFor({ timeout: 15_000 });
 const note = () => row.locator(".settings__section-note").innerText();
 
 // Nothing waiting: Check says so, and offers no restart.
+const asked = await page.evaluate(() => window.__statusAsked ?? 0);
 await row.getByRole("button", { name: "Check for updates" }).click();
+// Until this Check has read the status, staging below would race it: a
+// slow page (the full board, run side by side) answered it AFTER the
+// bundle was staged, showed Restart now, and the second Check had no
+// button to press (v0.10.10's local board).
+await page.waitForFunction((n) => (window.__statusAsked ?? 0) > n, asked, { timeout: 10_000 }).catch(() => {});
 await page.waitForTimeout(400);
 check(
   "with nothing waiting, Check for updates says you're up to date",

@@ -1,4 +1,4 @@
-import { httpGetJson, httpGetText } from "../lib/http";
+import { httpGetBytes, httpGetJson } from "../lib/http";
 import type { XtreamPlaylist } from "../features/settings/playlists";
 
 /**
@@ -151,6 +151,7 @@ export async function fetchLiveStreams(
  * Three-minute timeout: the document is tens of MB and the client's 30s
  * default starved it on slower links (EPG silently empty for those users
  * while channels worked — the Telly-loads-it-we-don't signature). */
-export function fetchXmltv(p: XtreamPlaylist): Promise<string> {
-  return httpGetText(xmltvUrl(p), undefined, 180);
+export function fetchXmltv(p: XtreamPlaylist): Promise<ArrayBuffer> {
+  // Bytes: the guide's worker decodes them (xmltvThread.ts).
+  return httpGetBytes(xmltvUrl(p), undefined, 180);
 }
