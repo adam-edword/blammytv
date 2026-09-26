@@ -206,16 +206,22 @@ env vars, and puts the `.sig` on the clipboard. Steps 0 (libmpv refresh),
 1 (version bump) and 3+ (publish) still apply.
 
 
-0. **Refresh the bundled libmpv and ffmpeg** (the installer ships
+0. **Fetch the pinned libmpv and ffmpeg** (the installer ships
    `apps/app/src-tauri/libmpv-2.dll` and `ffmpeg.exe` via
    `tauri.windows.conf.json`; both are gitignored, so each release machine
-   keeps its own copies current):
+   fetches its own):
    ```powershell
    node scripts/fetch-libmpv.mjs   # needs 7-Zip; prints manual steps if not
    node scripts/fetch-ffmpeg.mjs   # multi-view's HEVC conversion (v0.9.112)
    ```
+   Both take the build `scripts/deps.json` pins, from this repo's `deps-*`
+   release, and refuse a file whose SHA-256 doesn't match. CI tests the
+   same ffmpeg. For a newer mpv, run the "Mirror bundled binaries" workflow
+   first (Actions tab, or put a shinchiro tag or `latest` on the first line
+   of `scripts/deps-request.txt` and push): it copies that build here and
+   commits the new pins. `git pull` before fetching.
    The app degrades gracefully on older mpv builds (e.g. the settings-glass
-   frost needs gpu-next; without it the card goes solid), but ship current.
+   frost needs gpu-next; without it the card goes solid).
    Without ffmpeg.exe the build refuses to run; with an empty one, an HEVC
    tile says it couldn't convert.
 

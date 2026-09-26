@@ -1,5 +1,7 @@
-latest
-# The shinchiro build to copy into this repo and pin (a tag like 20260926,
-# or latest). Changing this file runs the "Mirror bundled binaries"
-# workflow; its Run workflow button in the Actions tab does the same. Only
-# the first line is read.
+20260926
+# The shinchiro build pinned in scripts/deps.json. Only the first line is
+# read. To move to another, put its tag (like 20260926) or latest there and
+# push: the "Mirror bundled binaries" workflow copies it into this repo,
+# pins it, and writes the tag it pinned back here. Its Run workflow button
+# in the Actions tab does the same. A push that asks for what is already
+# pinned does nothing.

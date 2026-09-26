@@ -18,7 +18,7 @@ import { fileURLToPath } from "node:url";
 
 export const PINS = join(dirname(fileURLToPath(import.meta.url)), "deps.json");
 
-/** The pins, or null before the first mirror. */
+/** The pins, or null when scripts/deps.json is missing. */
 export function loadPins() {
   return existsSync(PINS) ? JSON.parse(readFileSync(PINS, "utf8")) : null;
 }
@@ -33,16 +33,21 @@ export async function download(url) {
 
 /**
  * The pinned archive for `which` ("ffmpeg" or "libmpv"), verified, as
- * { name, buf }; null when nothing is pinned yet. `fail` is called, and
- * never returns, on a download that fails or doesn't match its hash.
+ * { name, buf }. `fail` is called, and never returns, when nothing is
+ * pinned, or on a download that fails or doesn't match its hash. There is
+ * no unpinned path.
  * BLAMMYTV_DEPS_BASE points the download elsewhere, for testing the check.
  */
 export async function fetchPinned(which, fail) {
   const pins = loadPins();
   const pin = pins?.[which];
-  if (!pin) return null;
+  if (!pin)
+    fail(
+      `no ${which} pinned in scripts/deps.json: run the "Mirror bundled binaries" workflow`,
+    );
   const base =
-    process.env.BLAMMYTV_DEPS_BASE ?? `https://github.com/${pins.repo}/releases/download/${pins.release}`;
+    process.env.BLAMMYTV_DEPS_BASE ??
+    `https://github.com/${pins.repo}/releases/download/${pins.release}`;
   const url = `${base}/${pin.asset}`;
   let buf;
   try {

@@ -30,8 +30,6 @@ const DEST = join(
   "src-tauri",
   "libmpv-2.dll",
 );
-const API =
-  "https://api.github.com/repos/shinchiro/mpv-winbuild-cmake/releases/latest";
 
 const fail = (msg) => {
   console.error(`✗ ${msg}`);
@@ -43,36 +41,9 @@ const fail = (msg) => {
   process.exit(1);
 };
 
-// The pinned build. Only before anything is pinned (the first mirror), the
-// latest shinchiro build, as this script always took; that goes once
-// scripts/deps.json exists.
-let asset;
-let buf;
-const pinned = await fetchPinned("libmpv", fail);
-if (pinned) {
-  asset = { name: pinned.name };
-  buf = pinned.buf;
-} else {
-  console.warn("nothing pinned yet (scripts/deps.json): taking shinchiro's latest, unchecked");
-  const rel = await fetch(API, {
-    headers: { "user-agent": "blammytv-build" },
-  })
-    .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-    .catch((e) => fail(`GitHub API: ${e.message}`));
-  // Plain x86_64 build (skip the -v3 / clang variants).
-  asset = rel.assets.find((a) => /^mpv-dev-x86_64-\d{8}-git-[0-9a-f]+\.7z$/.test(a.name));
-  if (!asset) fail(`no mpv-dev-x86_64 asset in release "${rel.tag_name}"`);
-  console.log(`latest: ${asset.name} (${(asset.size / 1e6).toFixed(1)}MB)`);
-  buf = Buffer.from(
-    await fetch(asset.browser_download_url, {
-      headers: { "user-agent": "blammytv-build" },
-    })
-      .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`HTTP ${r.status}`))))
-      .catch((e) => fail(`download: ${e.message}`)),
-  );
-}
+const { name, buf } = await fetchPinned("libmpv", fail);
 const dir = mkdtempSync(join(tmpdir(), "blammytv-libmpv-"));
-const archive = join(dir, asset.name);
+const archive = join(dir, name);
 writeFileSync(archive, buf);
 
 const sevenZips = [
@@ -93,7 +64,7 @@ if (ex.status !== 0 || !existsSync(join(dir, "libmpv-2.dll")))
   fail("extraction failed");
 
 copyFileSync(join(dir, "libmpv-2.dll"), DEST);
-console.log(`✓ ${asset.name} → ${DEST}`);
+console.log(`✓ ${name} → ${DEST}`);
 console.log(
   "Dev runs pick it up too (mpv.rs probes next-to-exe, resources/, PATH).",
 );

@@ -582,9 +582,9 @@ fn reset_per_file(start: Option<f64>) {
     // Set as a PROPERTY, not as a `loadfile` per-file option, on purpose:
     // mpv 0.38 inserted an insertion-index argument into loadfile and broke
     // every existing use of its options argument, so the command form needs
-    // to know which libmpv it is talking to. scripts/fetch-libmpv.mjs
-    // tracks the latest shinchiro build, but "probably new enough" is not a
-    // thing to build a resume feature on.
+    // to know which libmpv it is talking to. scripts/deps.json pins the
+    // build now, but a re-pin can cross a version like that, and "probably
+    // new enough" is not a thing to build a resume feature on.
     //
     // Stated on EVERY load, never left to a separate clear: this runs
     // immediately before each loadfile, so `none` (mpv's own REL_TIME_NONE,

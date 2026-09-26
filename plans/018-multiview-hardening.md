@@ -1,10 +1,12 @@
 # 018: Multi-view, hardened
 
-**Status: IN PROGRESS.** Adam took both decisions (2026-09-25) and added
+**Status: COMPLETE.** Adam took both decisions (2026-09-25) and added
 two calls of his own: a grid opens in Focus, and one stream fills the
 stage. All four shipped in v0.9.124, and L6 went with them. **H1
-shipped in v0.9.125** (a rebuild), **H2 in v0.9.126, H3 in v0.9.129, H4 in v0.9.130, H5 in v0.9.131 (a rebuild) but for N5, which waits on Adam's call (see H5).** The test on his line
-turned out not to be needed (see H1).
+shipped in v0.9.125** (a rebuild), **H2 in v0.9.126, H3 in v0.9.129, H4
+in v0.9.130, H5 in v0.9.131 (a rebuild), and its N5 after it (build
+scripts only: Adam's call was our own copy, see H5).** The test on his
+line turned out not to be needed (see H1).
 
 *Source: five audits run against v0.9.122 on 2026-09-25, one per
 dimension: state and lifecycle, the native proxy, performance, hands-on UX
@@ -589,12 +591,25 @@ from the above, or says more:
   rebound host and a method nobody sends get a bare reply.
 - **N6** keeps the capability check only when it worked; a failure stands
   for 30 seconds, then the next tile or Retry asks again (`caps_with`).
-- **N5 is not done.** shinchiro keeps about 30 builds (the tags run from
-  2026-06-02 to 2026-09-26 on a years-old repo), so a pinned download URL
-  stops working a few months on, and CI with it. Pinning there, or
-  mirroring the pinned archives into a release on this repo, is Adam's
-  call. This container can't reach GitHub's releases either, so the
-  hashes have to come from CI or his machine.
+- **N5** shipped after v0.9.131, in the build scripts only. shinchiro
+  keeps about 30 builds (the tags run from 2026-06-02 to 2026-09-26 on a
+  years-old repo), so a pin to its downloads would stop working a few
+  months on. Adam's call: keep our own copy. The "Mirror bundled binaries"
+  workflow (`deps.yml`, `mirror-deps.mjs`) copies one shinchiro build's
+  two archives into a `deps-<tag>` release here, a prerelease and never
+  "latest", and commits their SHA-256 to `scripts/deps.json`.
+  `fetch-ffmpeg.mjs` and `fetch-libmpv.mjs` take only that, and refuse a
+  file whose hash doesn't match or a missing pin. CI's ffmpeg is the same
+  file. First pin: `deps-20260926`. A push that asks for the build already
+  pinned does nothing, so merging `deps-request.txt` into main can't
+  re-pin.
+
+  *Proof:* the workflow's first run made the release, and GitHub's own
+  digest of each asset matches the pin. From here, both real archives
+  download and pass the check; a wrong file served in the pinned one's
+  place is refused with both hashes; with no pins both scripts refuse;
+  a push run asking for the pinned tag exits before any request. The
+  updater's "latest" is still v0.9.0, and the Discord post didn't fire.
 
 *Proof:* host crate, 33 tests, 5 new: a PMT across two packets with
 another PID between, one missing its second half, a Latin-1 log line with
