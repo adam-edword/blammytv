@@ -2446,7 +2446,7 @@ export const Card = memo(function Card({
         glareEnable={!reducedMotion}
         glareMaxOpacity={0.12}
         glarePosition="all"
-        glareBorderRadius="var(--radius-card)"
+        glareBorderRadius="var(--radius-pic)"
       >
         {item.poster && !broken ? (
           <img
@@ -2538,7 +2538,7 @@ export function ContinueCard({
     <div
       role="button"
       tabIndex={0}
-      className={"continue-card" + (holding ? " continue-card--holding" : "")}
+      className={"tile continue-card" + (holding ? " continue-card--holding" : "")}
       onPointerDown={start}
       onPointerUp={cancel}
       onPointerLeave={cancel}
@@ -2562,12 +2562,13 @@ export function ContinueCard({
         }
       }}
     >
-      <span className="continue-card__artwrap">
-        <span className="continue-card__holdbar" aria-hidden />
+      {/* The tile (plan 019, K7): a 16:9 picture with nothing on it at
+        * rest, progress UNDER it, the caption under that. */}
+      <span className="tile__pic continue-card__artwrap">
         {entry.art ? (
-          <img className="continue-card__art" src={entry.art} alt="" loading="lazy" draggable={false} />
+          <img className="tile__art continue-card__art" src={entry.art} alt="" loading="lazy" draggable={false} />
         ) : (
-          <span className="continue-card__art continue-card__art--empty" />
+          <span className="tile__art continue-card__art" />
         )}
         {/* Clearlogo over the art, lower-middle — sits UNDER the hover
           * play cue (which is dead center), never fighting it. */}
@@ -2581,20 +2582,12 @@ export function ContinueCard({
             draggable={false}
           />
         )}
+        <span className="tile__scrim" aria-hidden />
         <span className="continue-card__cue" aria-hidden>
           <PlayIcon size={36} />
         </span>
-        {entry.posSec && entry.durSec ? (
-          <span className="continue-card__progress" aria-hidden>
-            <span
-              style={{
-                width: `${Math.min(100, (entry.posSec / entry.durSec) * 100)}%`,
-              }}
-            />
-          </span>
-        ) : null}
         {/* Straight to the source screen instead of quick-resume. */}
-        <Button variant="secondary" size="sm"
+        <Button variant="chip" size="chip"
           type="button"
           className="continue-card__sources"
           onPointerDown={(e) => e.stopPropagation()}
@@ -2603,12 +2596,18 @@ export function ContinueCard({
             onSources();
           }}
         >
-          Sources ›
+          Sources
         </Button>
+        <span className="continue-card__hold" aria-hidden>
+          Keep holding to clear
+        </span>
+        <span className="continue-card__holdbar" aria-hidden />
       </span>
-      <span className="continue-card__hold" aria-hidden>
-        Keep holding to clear
-      </span>
+      {entry.posSec && entry.durSec ? (
+        <span className="tile__track continue-card__progress" aria-hidden>
+          <i style={{ width: `${Math.min(100, (entry.posSec / entry.durSec) * 100)}%` }} />
+        </span>
+      ) : null}
       {/* The title/meta line goes to the SOURCE list, not playback — the
         * art is the "play this" target, the text is the "what is this"
         * target.
@@ -2876,8 +2875,8 @@ function Detail({
               >
                 {/* Same lean and glare as every other poster in the app.
                   * Props match Card exactly. The glare layer is clipped by
-                  * its own radius, not the button's, so it takes the card's
-                  * token. */}
+                  * its own radius, not the button's, so it takes the
+                  * picture's token. */}
                 <Tilt
                   className="vod-more__tilt"
                   tiltEnable={!REDUCED_MOTION}
@@ -2888,15 +2887,18 @@ function Detail({
                   glareEnable={!REDUCED_MOTION}
                   glareMaxOpacity={0.12}
                   glarePosition="all"
-                  glareBorderRadius="var(--radius-card)"
+                  glareBorderRadius="var(--radius-pic)"
                 >
                   <img
                     src={v.poster}
-                    alt={v.title}
+                    alt=""
                     loading="lazy"
                     draggable={false}
                   />
                 </Tilt>
+                {/* A poster has its caption under it everywhere (plan 019,
+                  * K7); this row was the one without. */}
+                <span className="vod-more__name">{v.title}</span>
               </button>
             ))}
           </RowScroller>
@@ -2931,8 +2933,11 @@ function Episodes({
   const watched = useMemo(() => loadWatched(item.id), [item.id]);
   // Next up: the episode after the last one watched/played (the CW entry
   // knows exactly where you are; the ledger covers checkmark-only state).
+  const entry = useMemo(
+    () => loadWatching().find((w) => w.id === item.id),
+    [item.id],
+  );
   const nextUp = useMemo(() => {
-    const entry = loadWatching().find((w) => w.id === item.id);
     const finished =
       !!entry?.posSec && !!entry?.durSec && entry.posSec >= entry.durSec * 0.9;
     return nextUpEpisode(
@@ -2940,7 +2945,7 @@ function Episodes({
       watched,
       entry ? { episodeId: entry.episodeId, finished } : undefined,
     );
-  }, [item, watched]);
+  }, [item, watched, entry]);
   // Smart resume: open on the season you're actually in, not Season 1.
   // The screen mounts with the LIGHTWEIGHT item (seasons: []) and the
   // full meta lands async — the initializer alone always saw an empty
@@ -3024,59 +3029,57 @@ function Episodes({
               }}
             />
             {/* shadcn's Item, in the `#header` arrangement Adam asked for:
-              * an ItemHeader carrying the art above an ItemContent carrying
-              * the title and a description. ItemGroup is `role="list"` and
-              * comes with `flex flex-col`, so the grid has to be said as
-              * UTILITIES here — a `display: grid` in stream.css would lose
-              * to ItemGroup's own class, `utilities` outranking `app`.
+              * an ItemHeader carrying the picture above an ItemContent
+              * carrying the title and a description. ItemGroup is
+              * `role="list"` and comes with `flex flex-col`, so the grid has
+              * to be said as UTILITIES here — a `display: grid` in
+              * stream.css would lose to ItemGroup's own class, `utilities`
+              * outranking `app`.
               *
-              * The thumbnail keeps 16/9. The docs example is `aspect-square`
-              * (it is showing model cards), and Adam's one constraint on
-              * this was "keeping thumbnail aspect ratio the same": a still
-              * from a 16:9 episode cropped to a square is a different
-              * picture, not a differently-sized one. */}
-            <ItemGroup className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3.5">
-              {season?.episodes.map((e) => (
+              * Since plan 019 (K7) the Item is a TILE rather than a card:
+              * no box, the picture exactly 16:9 on the picture ground,
+              * progress as a 3px track under it, the caption under that.
+              * The still keeps 16/9, Adam's one constraint when this became
+              * an Item ("keeping thumbnail aspect ratio the same"). */}
+            <ItemGroup className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-x-3.5 gap-y-5">
+              {season?.episodes.map((e) => {
+                const seen = watched.has(e.id);
+                // The track: full once watched, where you are for the one
+                // you're part-way through, nothing otherwise (kept in the
+                // flow, hidden, so every caption in a row lines up).
+                const at =
+                  entry?.episodeId === e.id && entry.posSec && entry.durSec
+                    ? Math.min(100, (entry.posSec / entry.durSec) * 100)
+                    : null;
+                const track = seen ? 100 : at;
+                return (
                 <Item
                   key={e.id}
                   asChild
-                  variant="outline"
                   size="sm"
                   className={
-                    // Three kinds of override, all deliberate.
-                    //
                     // `text-left` is a FIX: shadcn's Item is a <div>, and
                     // rendering it `asChild` over a <button> picks up the UA
                     // stylesheet's `text-align: center`, which centred every
                     // title and date. (The sidebar rows hit this too.)
                     //
-                    // `bg-card`/`text-card-foreground` and the hover pair
-                    // give the card its OWN ground. `variant="outline"` is
-                    // transparent, which is right on the docs' plain page
-                    // and wrong here: this screen paints the title's
-                    // backdrop art behind everything and pins a fixed light
-                    // foreground on it (`.vod-detail__body`), so a
-                    // transparent card inherits whatever the artwork is
-                    // doing, and the instant a hover fill lands under it the
-                    // white text is white on white. A card that carries its
-                    // own surface and its own foreground is legible in both
-                    // themes and both states, and is what shadcn's Card does
-                    // anyway.
+                    // `p-0 gap-2` because a tile has no box to pad: the
+                    // picture's edge is the tile's edge, as in multi-view.
+                    // `flex-row` because `.tile` is a column and Item's
+                    // `#header` arrangement is a WRAPPING row (every part
+                    // `basis-full`); a column there shrank the picture to
+                    // nothing under Item's `items-center`.
                     //
-                    // `rounded-lg px-3 py-2.5` is the docs preview's own
-                    // geometry, a step tighter than the published registry's
-                    // `size="sm"`.
-                    //
-                    // `content-start` because the grid stretches every card
+                    // `content-start` because the grid stretches every tile
                     // in a row to the tallest one, and Item is a WRAPPING
                     // flex container: with the default `align-content`, that
-                    // spare height is shared out between the two lines
-                    // instead of pooling at the bottom, so a card next to a
-                    // three-line title grew a gap between its still and its
-                    // text. Pack the lines at the top and the slack lands
-                    // where it belongs.
-                    "episode-card cursor-pointer content-start rounded-lg bg-card px-3 py-2.5 text-left text-card-foreground hover:bg-accent hover:text-accent-foreground" +
-                    (e.id === nextUp ? " episode-card--next" : "")
+                    // spare height is shared out between the lines instead
+                    // of pooling at the bottom, so a tile next to a
+                    // three-line title grew a gap between its picture and
+                    // its text. Pack the lines at the top and the slack
+                    // lands where it belongs.
+                    "episode-card tile cursor-pointer flex-row content-start gap-2 p-0 text-left" +
+                    (e.id === nextUp ? " is-next" : "")
                   }
                 >
                   <button
@@ -3093,28 +3096,36 @@ function Episodes({
                       )
                     }
                   >
-                    {e.still && (
-                      // `relative` so the play cue and the watched tick can
-                      // sit over the still: ItemHeader is a plain flex row
-                      // and the overlays need a positioned ancestor that is
-                      // the picture's own box, not the card's.
-                      <ItemHeader className="episode-card__thumb relative">
+                    {/* The picture ground stands in when there is no
+                      * still, with the episode's number on it, so a season
+                      * with a few stills missing is still a grid of one
+                      * shape. */}
+                    <ItemHeader className="episode-card__thumb tile__pic">
+                      {e.still ? (
                         <img
                           src={e.still}
                           alt=""
                           loading="lazy"
-                          className="aspect-video w-full rounded-sm object-cover"
+                          className="tile__art"
                         />
-                        <span className="episode-card__cue" aria-hidden>
-                          <PlayIcon size={36} />
+                      ) : (
+                        <span className="episode-card__mono" aria-hidden>
+                          {e.number}
                         </span>
-                        {watched.has(e.id) && (
-                          <span className="episode-card__seen" title="Watched">
-                            <CheckIcon size={13} />
-                          </span>
-                        )}
-                      </ItemHeader>
-                    )}
+                      )}
+                      <span className="tile__scrim" aria-hidden />
+                      <span className="episode-card__cue" aria-hidden>
+                        <PlayIcon size={36} />
+                      </span>
+                    </ItemHeader>
+                    <span
+                      className={
+                        "tile__track basis-full" + (track == null ? " invisible" : "")
+                      }
+                      aria-hidden
+                    >
+                      <i style={{ width: `${track ?? 0}%` }} />
+                    </span>
                     <ItemContent>
                       {/* `block w-full` over ItemTitle's own `flex w-fit`.
                         * The docs clamp their titles to one line, and this
@@ -3128,22 +3139,36 @@ function Episodes({
                         * indent. */}
                       <ItemTitle className="block w-full">
                         {/* Quiet metadata, then the title, which is how
-                          * shadcn separates the two inside one line. It was
-                          * bold and accent-coloured; --accent is near-white
-                          * in dark mode now, so that read as a second title
-                          * rather than as a label. */}
-                        <span className="mr-2 text-muted-foreground">
+                          * shadcn separates the two inside one line. The
+                          * page pins a light foreground over the backdrop,
+                          * so the quiet tier is the on-image one, not
+                          * --muted-foreground (dark in the light theme). */}
+                        <span className="mr-2 text-on-image/60">
                           E{e.number}
                         </span>
                         {e.title}
+                        {/* Watched: a check in the caption, with the full
+                          * track above it. */}
+                        {seen && (
+                          <span
+                            className="episode-card__seen"
+                            role="img"
+                            aria-label="Watched"
+                          >
+                            <CheckIcon size={13} />
+                          </span>
+                        )}
                       </ItemTitle>
                       {e.airDate && (
-                        <ItemDescription>{e.airDate}</ItemDescription>
+                        <ItemDescription className="text-on-image/60">
+                          {e.airDate}
+                        </ItemDescription>
                       )}
                     </ItemContent>
                   </button>
                 </Item>
-              ))}
+                );
+              })}
             </ItemGroup>
           </>
         )}

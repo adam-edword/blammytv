@@ -306,7 +306,7 @@
 /* react-parallax-tilt owns this wrapper's transform (tilt + scale + glare);
  * CSS adds the depth cue — a shadow that swells while the poster floats. */
 .stream-card__tilt {
-  border-radius: var(--radius-card);
+  border-radius: var(--radius-pic);
   /* The placeholder while the poster fades in (.art-in): the poster's own
    * background goes with its opacity. */
   background: var(--surface);
@@ -322,7 +322,7 @@
 .stream-card__mono {
   width: 300px;
   aspect-ratio: 2 / 3;
-  border-radius: var(--radius-card);
+  border-radius: var(--radius-pic);
   object-fit: cover;
   background: var(--surface);
 }
@@ -355,36 +355,26 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Continue Watching: landscape cards + the press-and-hold clear. The hold
- * label fades in while the art dims; releasing early opens as a click. */
+/* Continue Watching: the tile (ui.css, plan 019 K7) + the press-and-hold
+ * clear. The hold label fades in while the art dims; releasing early opens
+ * as a click. */
 .continue-card {
-  position: relative;
   flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
   text-align: left;
   cursor: pointer;
   transition: transform 160ms var(--ease-out);
 }
 .continue-card:hover { transform: translateY(-3px); }
-.continue-card__art {
+/* 300px tall, as the art was; exactly 16:9 now instead of whatever the
+ * backdrop's own aspect was, so every card in the row is one width. */
+.continue-card .tile__pic {
   height: 300px;
-  width: auto;
-  border-radius: var(--radius-card);
-  object-fit: cover;
-  background: var(--surface);
-  border: 1px solid var(--border-strong);
-  transition: filter 300ms ease;
+  width: calc(300px * 16 / 9);
 }
-.continue-card__art--empty { display: block; }
+.continue-card__art { transition: filter 300ms ease; }
 .continue-card__hold {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 300px;
-  border-radius: var(--radius-card);
+  inset: 0;
   display: grid;
   place-items: center;
   font-family: var(--font-headline);
@@ -396,8 +386,8 @@
   transition: opacity 250ms ease;
   pointer-events: none;
 }
-/* Art width now follows the image's own aspect at 300px tall; bound the
- * text so a long title can't stretch the auto-width card further. */
+/* Bound the text to the picture's width so a long title can't stretch the
+ * auto-width card. */
 .continue-card .stream-card__name,
 .continue-card .stream-card__meta {
   max-width: 533px;
@@ -425,7 +415,6 @@
   border-radius: 6px;
 }
 .continue-card__text:hover .stream-card__name { color: var(--accent); }
-/* Art + progress bar share a positioning box (art width is intrinsic). */
 /* Hold-to-clear progress: fills linearly over EXACTLY the 1000ms hold
  * timer in StreamScreen (the animation IS the countdown — keep it under
  * reduced motion, it carries information). A transition, not a keyframe:
@@ -450,27 +439,6 @@
   transition: transform 1000ms linear;
 }
 
-.continue-card__artwrap {
-  position: relative;
-  display: block;
-  width: fit-content;
-}
-.continue-card__progress {
-  position: absolute;
-  left: 10px;
-  right: 10px;
-  bottom: 10px;
-  height: 4px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.25);
-  overflow: hidden;
-}
-.continue-card__progress span {
-  display: block;
-  height: 100%;
-  border-radius: 2px;
-  background: var(--accent);
-}
 .continue-card--holding .continue-card__art { filter: brightness(0.5); }
 .continue-card--holding .continue-card__hold { opacity: 1; }
 
@@ -550,14 +518,14 @@
   display: none;
 }
 /* The shelf overlays the page bottom — the info column reserves its
- * height (≈ title + 255px cards + paddings) so text never sits under
+ * height (≈ title + 255px cards + their captions + paddings) so text never sits under
  * the cards; the 7% bottom margin trades down to keep the pills clear
  * at 900px-tall windows. */
 .vod-detail:has(.vod-more) .vod-detail__info {
   /* MARGIN, not padding: padding extends the column's hit-box over the
    * shelf and eats its card clicks (the info column is a pointer-events
    * child of the click-transparent body). */
-  margin-bottom: 330px;
+  margin-bottom: 356px;
 }
 /* The right nudge arrow parks LEFT of the sources panel — under it,
  * it was unreachable glass-on-glass. */
@@ -571,13 +539,19 @@
    * NOT clip: overflow:hidden here would cut the corners off a rotated
    * child and square them mid-lean. The radius and the ring move inward
    * with the shape they belong to. */
-  border-radius: var(--radius-card);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+  border-radius: var(--radius-pic);
   transition: transform var(--dur-hover) ease;
 }
+/* The picture's corner and ground, no border: a poster is a picture, and
+ * multi-view draws none round its pictures either. */
 .vod-more__tilt {
-  border-radius: var(--radius-card);
+  border-radius: var(--radius-pic);
   overflow: hidden;
-  border: 1px solid var(--border-strong, rgba(255, 255, 255, 0.14));
+  background: var(--pic);
   /* Quicker than the Tilt's 650ms lean, same as the catalog cards: the
    * shadow leads and the lean settles into it. */
   transition: box-shadow 450ms ease;
@@ -593,6 +567,14 @@
   width: 100%;
   aspect-ratio: 2 / 3;
   object-fit: cover;
+}
+.vod-more__name {
+  font-size: 13px;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--on-image) 85%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Save control on the detail screens. Two `<Button variant="outline">`
@@ -927,29 +909,15 @@
   overflow-x: auto;
   scrollbar-width: none;
 }
-/* `.episode-card` CARRIES NO PAINT since v0.9.67. The row is shadcn's
- * <Item variant="outline" size="sm"> in the `#header` arrangement now, so
- * its surface, border, radius, padding, gap, direction, text alignment and
- * hover all come from Item's utilities — a rule here setting any of them
- * would simply not apply, `utilities` outranking `app`. Same for
- * `.episode-grid`, which is gone entirely: the container is an ItemGroup
- * and the grid is written as utilities at the call site because ItemGroup
- * brings its own `flex flex-col`. The old rules are in styles/old/.
+/* `.episode-card` CARRIES NO PAINT of its own. The episode is shadcn's
+ * <Item size="sm"> in the `#header` arrangement, so its layout, radius,
+ * padding, gap and text alignment come from Item's utilities (a rule here
+ * setting any of them would simply not apply, `utilities` outranking
+ * `app`), and since plan 019 (K7) the look is the tile's, from ui.css.
  *
- * What is left below is the still's OVERLAYS, which are the one part
- * utilities cannot state: a ::after dim, an absolutely-positioned play cue
- * and the watched tick. They key off `.episode-card:hover`, so the class
- * still has to be on the Item. */
-.episode-card__thumb::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: var(--radius-sm);
-  background: rgba(0, 0, 0, 0.4);
-  opacity: 0;
-  transition: opacity var(--dur-hover) ease;
-}
-.episode-card:hover .episode-card__thumb::after { opacity: 1; }
+ * What is left below is what sits ON the picture: the hover play cue and
+ * the lettermark for an episode with no still, plus the watched check in
+ * the caption. */
 .episode-card__cue {
   position: absolute;
   inset: 0;
@@ -957,10 +925,23 @@
   display: grid;
   place-items: center;
   color: rgba(255, 255, 255, 0.75);
+  filter: drop-shadow(0 2px 12px rgb(0 0 0 / 0.55));
   opacity: 0;
   transition: opacity var(--dur-hover) ease;
 }
-.episode-card:hover .episode-card__cue { opacity: 1; }
+.episode-card:hover .episode-card__cue,
+.episode-card:focus-visible .episode-card__cue { opacity: 1; }
+.episode-card__mono {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-headline);
+  font-size: 34px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--on-image) 22%, transparent);
+  font-variant-numeric: tabular-nums;
+}
 
 /* Up Next (series EOF): fixed card above the player chrome (z 45),
  * below modals (60). */
@@ -1029,7 +1010,7 @@
   width: min(36vw, 440px);
   aspect-ratio: 16 / 9;
   object-fit: cover;
-  border-radius: var(--radius-card);
+  border-radius: var(--radius-pic);
   border: 1px solid var(--border);
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
 }
@@ -1106,37 +1087,30 @@
   right: 8px;
 }
 
-/* Next-up episode: the one smart-resume points at (accent ring, same
- * selected-language as the Discover genre card). */
-.episode-card--next {
-  box-shadow: 0 0 0 2px var(--accent);
-}
+/* The next episode up (the one smart-resume points at) wears multi-view's
+ * sound ring: `.tile.is-next` in ui.css. */
 
-/* Watched checkmark, top-right of the still. The tick takes --accent-ink,
- * not #fff: --accent is shadcn's primary, which is near-WHITE in dark mode
- * (it inverts with the theme), so a hardcoded white tick on it was a white
- * disc with nothing in it. --accent-ink is the pair that flips with it. */
+/* Watched: a check in the caption, after the title. A small disc on the
+ * on-image foreground, so it reads in both themes (the page pins a light
+ * foreground over the backdrop). */
 .episode-card__seen {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 1;
-  width: 24px;
-  height: 24px;
-  display: grid;
+  display: inline-grid;
   place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 8px;
+  vertical-align: -3px;
   border-radius: 50%;
-  background: var(--accent);
-  color: var(--accent-ink);
+  background: color-mix(in srgb, var(--on-image) 16%, transparent);
+  color: var(--on-image);
 }
 
-/* Continue-card escape hatch to the source screen: glass chip, top-right
- * of the art, revealed on card hover. */
+/* Continue-card escape hatch to the source screen: a chip, top-right of
+ * the art, revealed on card hover. */
 .continue-card__sources {
   position: absolute;
   top: 10px;
   right: 10px;
-  font-family: var(--font-headline);
   opacity: 0;
 }
 /* v0.9.56's prune (1cfcec91) parked this file's reveal rules in
@@ -1147,18 +1121,8 @@
 .continue-card:focus-within .continue-card__sources {
   opacity: 1;
 }
-/* Same hover treatment as episode stills: 0.4 dim + centered play cue. */
-.continue-card__artwrap::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: var(--radius-card);
-  background: rgba(0, 0, 0, 0.4);
-  opacity: 0;
-  transition: opacity var(--dur-hover) ease;
-  pointer-events: none;
-}
-.continue-card:hover .continue-card__artwrap::after { opacity: 1; }
+/* The tile's scrim comes up under the pointer (ui.css); the play cue
+ * rides it. */
 .continue-card__cue {
   position: absolute;
   inset: 0;
@@ -1166,6 +1130,9 @@
   display: grid;
   place-items: center;
   color: rgba(255, 255, 255, 0.75);
+  /* The scrim darkens the edges, not the middle, so the cue carries its
+   * own shadow on a bright frame. */
+  filter: drop-shadow(0 2px 12px rgb(0 0 0 / 0.55));
   opacity: 0;
   transition: opacity var(--dur-hover) ease;
   pointer-events: none;
@@ -1179,7 +1146,7 @@
  * z-index 2 keeps the message on top even mid-fade. */
 .continue-card--holding .continue-card__hold { z-index: 2; }
 .continue-card--holding:hover .continue-card__cue,
-.continue-card--holding:hover .continue-card__artwrap::after,
+.continue-card--holding:hover .tile__scrim,
 .continue-card--holding:hover .continue-card__sources,
 .continue-card--holding .continue-card__logo {
   opacity: 0;

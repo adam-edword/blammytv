@@ -489,7 +489,7 @@ function ListCard({
         glareEnable={!REDUCED_MOTION}
         glareMaxOpacity={0.12}
         glarePosition="all"
-        glareBorderRadius="var(--radius-card)"
+        glareBorderRadius="var(--radius-pic)"
       >
         {art && !broken ? (
           <img

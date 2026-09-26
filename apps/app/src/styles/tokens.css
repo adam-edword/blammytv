@@ -156,6 +156,10 @@
    * the page is, so what sits on it is white in both. */
   --pic: #111;
   --on-image: #fff;
+  /* A picture's corner (plan 019, K7): posters, tiles, episode stills and
+   * the player slots, multi-view's 10px. Cards and panels keep
+   * --radius-card; a picture is not a card. */
+  --radius-pic: var(--radius);
   /* A chip on a picture: darker glass than --glass, because what is behind
    * it is video, not the page, and a hairline so it holds its edge on a
    * bright frame. */

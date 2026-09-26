@@ -51,8 +51,10 @@ const OPEN_DEBOUNCE_MS = 150;
  */
 let lastTeardown = 0;
 /** CSS corner radius of #player-slot — keep in sync with .hero__preview.
- * A host whose slot is rounded differently passes its own; see `radius`. */
-const RADIUS_CSS = 12;
+ * A host whose slot is rounded differently passes its own; see `radius`.
+ * 10, the picture's corner (--radius-pic, plan 019 K7): the preview is a
+ * tile like multi-view's. */
+const RADIUS_CSS = 10;
 const SLOT_ID = "player-slot";
 
 function measure(el: HTMLElement, squared: boolean, radius: number): CompRect {
@@ -88,7 +90,7 @@ export function InvertedPlayer({
   /** The slot's own CSS corner radius, when it is not squared. Two things
    * are rounded by this number and they have to agree: the rect mpv draws
    * into, and the clip hole cut through the shell above it. A host whose
-   * slot is not the hero's 12px says so, or its border traces one curve
+   * slot is not the hero's 10px says so, or its border traces one curve
    * around a picture cut to another. */
   radius?: number;
   /** Drops the corner radius to 0 (theater/fullscreen fill to edges). Read

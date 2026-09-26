@@ -628,13 +628,15 @@
   flex-shrink: 0;
   width: 494px;
   aspect-ratio: 16 / 9;
-  /* Plain black slate with a hairline edge: this is what shows before/while
-   * a channel loads and during a channel switch (the mpv layer covers it
-   * once video arrives). Black + a faint border reads as an idle player, not
-   * the accent "glitch" the old gradient looked like mid-switch. */
-  border: 1px solid #ffffff10;
-  border-radius: 12px;
-  background: #000;
+  /* A tile (plan 019, K7): the picture ground and the picture's corner,
+   * no edge. This is what shows before/while a channel loads and during a
+   * channel switch (the mpv layer covers it once video arrives), and reads
+   * as an idle player, not the accent "glitch" the old gradient looked
+   * like mid-switch. The radius is a literal because InvertedPlayer's
+   * RADIUS_CSS has to match it: the hole the video shows through is cut
+   * from that number. */
+  border-radius: 10px;
+  background: var(--pic);
   cursor: pointer;
 }
 

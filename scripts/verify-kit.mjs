@@ -70,6 +70,20 @@ await page.addInitScript(() => {
   localStorage.setItem("btv:onboarded", "1");
   sessionStorage.setItem("btv:welcome-played", "1");
   localStorage.setItem("blammytv.multiviewNoticeSeen", JSON.stringify({ v: 1, data: true }));
+  // K7's tiles: two films part-way (one with art, one without) and a
+  // series on its second episode with the first watched.
+  localStorage.setItem(
+    "blammytv.watching",
+    JSON.stringify({
+      v: 1,
+      data: [
+        { id: "tt100003", title: "Fake Movie Three", at: 3, posSec: 1200, durSec: 5700, kind: "movie", art: "http://localhost:8084/bg/tt100003.png" },
+        { id: "tt100004", title: "Fake Movie Four", at: 2, posSec: 600, durSec: 5700, kind: "movie" },
+        { id: "tt200001", title: "Fake Series One", at: 1, episodeId: "tt200001:1:2", posSec: 2000, durSec: 5700, kind: "series" },
+      ],
+    }),
+  );
+  localStorage.setItem("blammytv.watchedEpisodes", JSON.stringify({ v: 1, data: { tt200001: ["tt200001:1:1"] } }));
   localStorage.setItem("blammytv.aiostreams", JSON.stringify({ v: 1, data: "http://localhost:8084/manifest.json" }));
   localStorage.setItem(
     "blammytv.playlists",
@@ -505,6 +519,144 @@ const dimmedText = () =>
   await page.locator(".gamepip").first().waitFor({ timeout: 15_000 }).catch(() => {});
   const pips = await page.evaluate(() => [...document.querySelectorAll(".gamepip, .gamecard__dot")].map((p) => getComputedStyle(p).backgroundColor));
   check("  and Sports' live dots are the accent, not red", pips.length > 0 && pips.every((c) => c === accent), `${pips.length}: ${[...new Set(pips)].join(" ")}`);
+}
+
+// ======================================================================= K7
+// The tile: a 16:9 picture on the picture's corner, nothing on it at rest,
+// progress UNDER it, the caption under that.
+{
+  const pic = await token("--radius-pic", "borderTopLeftRadius");
+  check("the picture's corner is multi-view's 10px", pic === "10px", pic);
+  await goTo(page, "home");
+  const cw = page.locator(".continue-card");
+  await cw.first().waitFor({ timeout: 20_000 });
+  await cw.first().scrollIntoViewIfNeeded();
+  await page.mouse.move(W / 2, H - 4);
+  await page.waitForTimeout(500);
+  const read = () =>
+    page.evaluate(() =>
+      [...document.querySelectorAll(".continue-card")].map((c) => {
+        const p = c.querySelector(".tile__pic");
+        const pr = p.getBoundingClientRect();
+        const track = c.querySelector(".tile__track");
+        const tr = track?.getBoundingClientRect();
+        const cap = c.querySelector(".continue-card__text").getBoundingClientRect();
+        const src = c.querySelector(".continue-card__sources");
+        return {
+          w: pr.width,
+          h: pr.height,
+          r: getComputedStyle(p).borderTopLeftRadius,
+          track: tr ? { top: tr.top, bottom: tr.bottom, h: tr.height, fill: getComputedStyle(track.firstElementChild).backgroundColor } : null,
+          picBottom: pr.bottom,
+          capTop: cap.top,
+          scrim: +getComputedStyle(c.querySelector(".tile__scrim")).opacity,
+          chip: { o: +getComputedStyle(src).opacity, v: src.dataset.variant },
+        };
+      }),
+    );
+  const rest = await read();
+  check(
+    "Continue Watching is tiles: every picture exactly 16:9, one width, the picture's corner",
+    rest.length === 3 && rest.every((t) => Math.abs(t.w / t.h - 16 / 9) < 0.01 && t.w === rest[0].w && t.r === "10px"),
+    JSON.stringify(rest.map((t) => [Math.round(t.w), Math.round(t.h), t.r])),
+  );
+  const text = await token("--text");
+  check(
+    "  progress is a 3px white track UNDER the picture, above the caption",
+    rest.every((t) => t.track && t.track.h === 3 && t.track.top >= t.picBottom && t.track.bottom <= t.capTop && t.track.fill === text),
+    JSON.stringify(rest.map((t) => t.track && [t.track.h, Math.round(t.track.top - t.picBottom), t.track.fill])),
+  );
+  check("  nothing on the picture at rest: no scrim, no chip", rest.every((t) => t.scrim === 0 && t.chip.o === 0));
+  await cw.nth(0).hover();
+  await page.waitForTimeout(500);
+  const hov = (await read())[0];
+  check("  under the pointer the scrim comes up, and Sources is a chip", hov.scrim === 1 && hov.chip.o === 1 && hov.chip.v === "chip", JSON.stringify(hov));
+  await page.mouse.move(W / 2, H - 4);
+
+  // Posters: 2:3 still, on the picture's corner.
+  const poster = await page.evaluate(() => {
+    const p = document.querySelector(".stream-card__poster, .stream-card__mono");
+    return p && getComputedStyle(p).borderTopLeftRadius;
+  });
+  check("a poster takes the picture's corner", poster === "10px", String(poster));
+
+  // A series: episodes are tiles, watched is a full track and a check in the
+  // caption, the next one up wears the sound tile's ring.
+  await page.locator(".stream-card", { hasText: "Fake Series One" }).first().click();
+  await page.locator(".episode-card").first().waitFor({ timeout: 15_000 });
+  await page.mouse.move(W - 4, H - 4);
+  await page.waitForTimeout(600);
+  const accent = await token("--accent");
+  const eps = await page.evaluate(() =>
+    [...document.querySelectorAll(".episode-card")].map((e) => {
+      const p = e.querySelector(".tile__pic");
+      const pr = p.getBoundingClientRect();
+      const track = e.querySelector(".tile__track");
+      const fill = track.firstElementChild.getBoundingClientRect().width / track.getBoundingClientRect().width;
+      const ps = getComputedStyle(p);
+      return {
+        ratio: pr.width / pr.height,
+        r: ps.borderTopLeftRadius,
+        bg: getComputedStyle(e).backgroundColor,
+        border: getComputedStyle(e).borderTopColor,
+        shown: getComputedStyle(track).visibility,
+        fill,
+        seen: !!e.querySelector("[data-slot=item-title] .episode-card__seen"),
+        ring: ps.outlineStyle === "solid" ? `${ps.outlineWidth} ${ps.outlineColor}` : "none",
+      };
+    }),
+  );
+  check(
+    "episodes are tiles: a 16:9 picture on the picture's corner, no box round it",
+    eps.length >= 3 && eps.every((e) => Math.abs(e.ratio - 16 / 9) < 0.01 && e.r === "10px" && e.bg === "rgba(0, 0, 0, 0)" && e.border === "rgba(0, 0, 0, 0)"),
+    JSON.stringify(eps.map((e) => [e.ratio.toFixed(3), e.r, e.bg])),
+  );
+  check("  a watched episode has a full track and a check in its caption", eps[0].shown === "visible" && eps[0].fill > 0.99 && eps[0].seen, JSON.stringify(eps[0]));
+  check(
+    "  the one you're part-way through shows where, and wears the ring",
+    eps[1].shown === "visible" && eps[1].fill > 0.3 && eps[1].fill < 0.4 && eps[1].ring === `2px ${accent}` && !eps[1].seen,
+    JSON.stringify(eps[1]),
+  );
+  check("  an untouched one keeps its track's place, hidden", eps[2].shown === "hidden" && eps[2].ring === "none", JSON.stringify(eps[2]));
+  await page.locator(".vod-back").click();
+  await page.waitForTimeout(600);
+
+  // More like this: posters with their caption, like every other row.
+  await page.locator(".stream-card", { hasText: "Fake Movie One" }).first().click();
+  await page.locator(".vod-more__card").first().waitFor({ timeout: 15_000 });
+  const more = await page.evaluate(() =>
+    [...document.querySelectorAll(".vod-more__card")].map((c) => ({
+      title: c.getAttribute("title"),
+      cap: c.querySelector(".vod-more__name")?.textContent,
+      r: getComputedStyle(c.querySelector(".vod-more__tilt")).borderTopLeftRadius,
+    })),
+  );
+  check(
+    "More like this: every poster has its caption under it, on the picture's corner",
+    more.length > 0 && more.every((m) => m.cap === m.title && m.r === "10px"),
+    JSON.stringify(more.slice(0, 2)),
+  );
+  await page.locator(".vod-back").click();
+  await page.waitForTimeout(600);
+
+  // The players: the Guide's preview is a tile, and the Sports theater's
+  // slot, and each agrees with the number its hole is cut from.
+  await goTo(page, "guide");
+  await page.waitForTimeout(800);
+  const prev = await page.evaluate(() => {
+    const p = document.querySelector(".hero__preview");
+    const s = getComputedStyle(p);
+    return { r: s.borderTopLeftRadius, bg: s.backgroundColor, edge: s.borderTopWidth };
+  });
+  check("the Guide's preview is a tile: the picture's corner and ground, no edge", prev.r === "10px" && prev.bg === (await token("--pic")) && prev.edge === "0px", JSON.stringify(prev));
+  const inv = readFileSync(join(SRC, "features/live/InvertedPlayer.tsx"), "utf8").match(/const RADIUS_CSS = (\d+)/)?.[1];
+  const slotJs = readFileSync(join(SRC, "features/sports/SportsTheater.tsx"), "utf8").match(/const SLOT_RADIUS = (\d+)/)?.[1];
+  const slotCss = sheets["sports.css"].match(/\.sportstheater__slot \{[^}]*border-radius: (\d+)px/)?.[1];
+  check(
+    "  and the numbers the video holes are cut from agree: preview 10, theater slot 10",
+    inv === "10" && slotJs === "10" && slotCss === "10",
+    `RADIUS_CSS ${inv}, SLOT_RADIUS ${slotJs}, .sportstheater__slot ${slotCss}`,
+  );
 }
 
 check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));

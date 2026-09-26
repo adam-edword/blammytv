@@ -209,6 +209,73 @@
   padding: 8%;
 }
 
+/* ---- The tile (plan 019, K7): multi-view's picture. Exactly 16:9, the
+ * picture's corner, the picture ground until the art lands, nothing drawn
+ * on it at rest. What it needs to say goes UNDER it: a 3px white track for
+ * progress, then the caption. Under the pointer or keyboard focus, the
+ * tile's scrim comes up for what sits on the picture (a chip, a cue).
+ *
+ * Classes rather than a component: every tile keeps its own behaviour
+ * (Continue Watching's hold-to-clear, an episode's pick), and the look is
+ * the part they share. */
+.tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.tile__pic {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-pic);
+  overflow: hidden;
+  background: var(--pic);
+}
+.tile__art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.tile__track {
+  display: block;
+  height: 3px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--text) 20%, transparent);
+  overflow: hidden;
+}
+.tile__track > i {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--text);
+}
+.tile__scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to top, rgb(0 0 0 / 0.75), rgb(0 0 0 / 0) 50%),
+    linear-gradient(to bottom, rgb(0 0 0 / 0.45), rgb(0 0 0 / 0) 30%);
+  opacity: 0;
+  transition: opacity var(--dur-enter) var(--ease-out);
+  pointer-events: none;
+}
+.tile:hover .tile__scrim,
+.tile:focus-visible .tile__scrim,
+.tile:has(:focus-visible) .tile__scrim {
+  opacity: 1;
+  transition-duration: var(--dur-hover);
+}
+/* What comes next (the episode up next): multi-view's sound ring, outside
+ * the picture so it takes nothing out of it. */
+.tile.is-next .tile__pic {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
 /* Switch, at shadcn's exact geometry.
  *
  * Adam: "ours seems rather large compared to the docs." Measured rather than

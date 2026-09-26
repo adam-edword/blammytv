@@ -63,7 +63,7 @@ import { ChannelLogo } from "../../ui/ChannelLogo";
 /** CSS corner radius of .sportstheater__slot. Two things round by it and
  * they must agree: the stylesheet below, and the rect InvertedPlayer cuts
  * the hole with. */
-const SLOT_RADIUS = 18;
+const SLOT_RADIUS = 10;
 
 /** A playback in progress. The url is its identity; the rest is what the
  * rail and the chrome need to say what is on. */

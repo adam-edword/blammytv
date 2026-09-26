@@ -2018,9 +2018,9 @@
  * curving one way around a picture cut the other is the failure. */
 .sportstheater__slot {
   flex: 1;
-  border: 1px solid #ffffff10;
-  border-radius: 18px;
-  background: #000;
+  /* The picture's corner (plan 019, K7), multi-view's 10px. */
+  border-radius: 10px;
+  background: var(--pic);
 }
 
 /* Fullscreen: the picture takes the window and everything beside it goes.

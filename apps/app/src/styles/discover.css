@@ -2,7 +2,8 @@
  * An art-backed genre rail (the only genre selector) and an infinite
  * poster grid of the exact Stream-home cards. The filters and the search
  * live in the capsule's second row (base.css). Radius language
- * matches Stream throughout (--radius-card). */
+ * matches Stream throughout: --radius-pic on posters, --radius-card on
+ * cards. */
 
 .discover {
   /* Flex child of .app-main: without width:100% it sizes to max-content
@@ -106,7 +107,7 @@
 .disc-skel {
   width: 300px;
   aspect-ratio: 2 / 3;
-  border-radius: var(--radius-card);
+  border-radius: var(--radius-pic);
   /* var(--surface), like .stream-card__mono — the tokened placeholder
    * surface for exactly this card shape. */
   background: var(--surface);
