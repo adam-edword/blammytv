@@ -223,7 +223,10 @@
   outline-offset: 0;
 }
 
-input:focus-visible,
+/* Not a SLIDER: a range input is a control, and Tab onto multi-view's
+ * volume showed nothing at all (plan 018, U2). It takes keyboard focus
+ * only, so the mouse trap above doesn't apply to it. */
+input:not([type="range"]):focus-visible,
 textarea:focus-visible,
 select:focus-visible,
 [contenteditable]:focus-visible {

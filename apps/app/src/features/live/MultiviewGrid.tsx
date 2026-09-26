@@ -15,7 +15,7 @@ import {
 import { airing } from "./mvTile";
 import { stepSound } from "./mvGrid";
 import { requestWatchInPlayer } from "./multiviewEntry";
-import { forMultiview } from "./mvKeys";
+import { forMultiview, releaseHeader } from "./mvKeys";
 import { ghostOf, lastInputWasKey, leave, play, snapshot, stop, type Ghost } from "./mvMotion";
 import { scoreLine } from "./mvGames";
 import type { Fixture } from "../sports/model";
@@ -304,7 +304,7 @@ export function MultiviewGrid({
   const keys = useRef({ shown, sound, dead, chooseSound, onReplace, onRemove, seam, box, cells, onSplit, flashTip, fill, fillWith, setFilledAt, choosing, onChoose });
   keys.current = { shown, sound, dead, chooseSound, onReplace, onRemove, seam, box, cells, onSplit, flashTip, fill, fillWith, setFilledAt, choosing, onChoose };
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
+    const handle = (e: KeyboardEvent) => {
       if (!forMultiview(e)) return;
       const k = keys.current;
       const n = Number(e.key);
@@ -364,6 +364,12 @@ export function MultiviewGrid({
       e.preventDefault();
       if (target) k.chooseSound(target);
     };
+    // A key taken here, not one something else had already taken.
+    const onKey = (e: KeyboardEvent) => {
+      const taken = e.defaultPrevented;
+      handle(e);
+      if (!taken && e.defaultPrevented) releaseHeader();
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
@@ -380,6 +386,72 @@ export function MultiviewGrid({
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
   }, []);
+
+  // Focus's seam, in the DOM (and so in Tab order) right after the big
+  // tile it sizes, not after every tile (plan 018, U13).
+  const seamEl =
+    seam && box ? (
+      <div
+        key="seam"
+        className={"mvseam" + (dragSplit !== null ? " is-dragging" : "")}
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Big tile size"
+        aria-valuemin={Math.round(seam.range[0] * 100)}
+        aria-valuemax={Math.round(seam.range[1] * 100)}
+        aria-valuenow={Math.round(seam.split * 100)}
+        aria-valuetext={`Big tile ${Math.round(seam.split * 100)}%`}
+        tabIndex={0}
+        style={{
+          left: Math.round(seam.x - SEAM_HIT / 2),
+          top: Math.round(seam.top),
+          width: SEAM_HIT,
+          height: Math.round(seam.bottom - seam.top),
+        }}
+        onPointerDown={(e) => {
+          if (e.button !== 0) return;
+          e.preventDefault();
+          e.currentTarget.setPointerCapture(e.pointerId);
+          const left = ref.current?.getBoundingClientRect().left ?? 0;
+          grab.current = { offset: e.clientX - left - seam.x, moved: false };
+          setDragSplit(seam.split);
+        }}
+        onPointerMove={(e) => {
+          if (dragSplit === null) return;
+          const left = ref.current?.getBoundingClientRect().left ?? 0;
+          grab.current.moved = true;
+          setDragSplit(splitAt(cells, box, MV_SPACING, e.clientX - left - grab.current.offset));
+        }}
+        onPointerUp={() => {
+          if (dragSplit === null) return;
+          if (grab.current.moved) onSplit(dragSplit);
+          setDragSplit(null);
+        }}
+        onPointerCancel={() => setDragSplit(null)}
+        onDoubleClick={() => {
+          onSplit(null);
+          flashTip();
+        }}
+        onKeyDown={(e) => {
+          // Focused, it is a splitter: ← and → move it (not the sound),
+          // Home and End take it to either end.
+          const to =
+            e.key === "ArrowLeft" || e.key === "ArrowRight"
+              ? nudgeSplit(cells, box, MV_SPACING, seam.split, e.key === "ArrowRight" ? 1 : -1)
+              : e.key === "Home"
+                ? seam.range[0]
+                : e.key === "End"
+                  ? seam.range[1]
+                  : null;
+          if (to === null) return;
+          e.preventDefault();
+          onSplit(to);
+          flashTip();
+        }}
+      >
+        <i aria-hidden />
+      </div>
+    ) : null;
 
   return (
     <>
@@ -465,6 +537,7 @@ export function MultiviewGrid({
                   onNow && <span className="mvcap__now">{onNow.title}</span>
                 )}
               </div>,
+              ...(i === 0 && seamEl ? [seamEl] : []),
             ];
           })}
         {/* The place to add one: the whole stage while the grid is empty,
@@ -488,67 +561,6 @@ export function MultiviewGrid({
               </span>
             </button>
           ))}
-        {seam && box && (
-          <div
-            className={"mvseam" + (dragSplit !== null ? " is-dragging" : "")}
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Big tile size"
-            aria-valuemin={Math.round(seam.range[0] * 100)}
-            aria-valuemax={Math.round(seam.range[1] * 100)}
-            aria-valuenow={Math.round(seam.split * 100)}
-            aria-valuetext={`Big tile ${Math.round(seam.split * 100)}%`}
-            tabIndex={0}
-            style={{
-              left: Math.round(seam.x - SEAM_HIT / 2),
-              top: Math.round(seam.top),
-              width: SEAM_HIT,
-              height: Math.round(seam.bottom - seam.top),
-            }}
-            onPointerDown={(e) => {
-              if (e.button !== 0) return;
-              e.preventDefault();
-              e.currentTarget.setPointerCapture(e.pointerId);
-              const left = ref.current?.getBoundingClientRect().left ?? 0;
-              grab.current = { offset: e.clientX - left - seam.x, moved: false };
-              setDragSplit(seam.split);
-            }}
-            onPointerMove={(e) => {
-              if (dragSplit === null) return;
-              const left = ref.current?.getBoundingClientRect().left ?? 0;
-              grab.current.moved = true;
-              setDragSplit(splitAt(cells, box, MV_SPACING, e.clientX - left - grab.current.offset));
-            }}
-            onPointerUp={() => {
-              if (dragSplit === null) return;
-              if (grab.current.moved) onSplit(dragSplit);
-              setDragSplit(null);
-            }}
-            onPointerCancel={() => setDragSplit(null)}
-            onDoubleClick={() => {
-              onSplit(null);
-              flashTip();
-            }}
-            onKeyDown={(e) => {
-              // Focused, it is a splitter: ← and → move it (not the sound),
-              // Home and End take it to either end.
-              const to =
-                e.key === "ArrowLeft" || e.key === "ArrowRight"
-                  ? nudgeSplit(cells, box, MV_SPACING, seam.split, e.key === "ArrowRight" ? 1 : -1)
-                  : e.key === "Home"
-                    ? seam.range[0]
-                    : e.key === "End"
-                      ? seam.range[1]
-                      : null;
-              if (to === null) return;
-              e.preventDefault();
-              onSplit(to);
-              flashTip();
-            }}
-          >
-            <i aria-hidden />
-          </div>
-        )}
         {seam && box && (dragSplit !== null || tip) && (
           <>
             <div
@@ -568,7 +580,16 @@ export function MultiviewGrid({
               aria-hidden
               style={{ left: Math.round(seam.x), top: Math.max(4, Math.round(seam.top) - 42) }}
             >
-              Big tile <b>{Math.round(seam.split * 100)}%</b> · double-click to reset
+              Big tile <b>{Math.round(seam.split * 100)}%</b> ·{" "}
+              {/* The reset for the hand that moved it: after [ or ], \ does
+                * it, and a double-click was the wrong advice (U13). */}
+              {lastInputWasKey() ? (
+                <>
+                  <kbd>\</kbd> to reset
+                </>
+              ) : (
+                "double-click to reset"
+              )}
             </div>
           </>
         )}

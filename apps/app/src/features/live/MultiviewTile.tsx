@@ -654,10 +654,21 @@ export function MultiviewTile({
         </span>
         <b className="mvtile__statetitle">{failure.title}</b>
         <span className="mvtile__statesub">{failure.reason}</span>
-        {failure.retry && (
-          <button type="button" className="mvchip" onClick={own(retry)}>
-            Retry
-          </button>
+        {(failure.retry || failure.kind === "decode") && (
+          <span className="mvtile__stateacts">
+            {failure.retry && (
+              <button type="button" className="mvchip" onClick={own(retry)}>
+                Retry
+              </button>
+            )}
+            {/* It says the Guide's player can, so the way there is on the
+              * card, not only a hover icon (plan 018, U7). */}
+            {failure.kind === "decode" && (
+              <button type="button" className="mvchip" onClick={own(onWatch)}>
+                Watch in player
+              </button>
+            )}
+          </span>
         )}
       </div>
     );
@@ -843,7 +854,9 @@ export function MultiviewTile({
       </div>
       {picking && (
         <div className="mvtile__pick" aria-hidden>
-          <span className="mvchip mvtile__pickword">Swap for {picking}</span>
+          <span className="mvchip mvtile__pickword">
+            <span className="mvtile__pickname">Swap for {picking}</span>
+          </span>
         </div>
       )}
     </div>

@@ -1173,6 +1173,11 @@
 .mvbar__side.is-compact .mvchoose__for {
   display: none;
 }
+/* And its key, which it says on hover instead: at 1000px "Pick a tile" and
+ * "Cancel Esc" ran 6px into the capsule (plan 018, U9). */
+.mvbar__side.is-compact .mvchoose__cancel kbd {
+  display: none;
+}
 
 /* The sound tile's volume and mute (plan 017, "Sound and volume"): the
  * main player's slider, on the bar. */
@@ -1378,6 +1383,10 @@
   white-space: nowrap;
   pointer-events: none;
 }
+.mvseam-tip kbd {
+  font: inherit;
+  font-weight: 700;
+}
 .mvseam-tip b {
   font-variant-numeric: tabular-nums;
 }
@@ -1419,9 +1428,15 @@
   transition-duration: 140ms;
 }
 
+/* KEYBOARD FOCUS IS A SECOND RING, OUTSIDE THE SOUND'S. Both were a 2px
+ * near-white outline at the same place under the default accent, so a
+ * sound flash read as focus, and a focused sound tile showed one of the
+ * two (plan 018, U13). The outline stays the sound's; focus is a shadow
+ * ring past it, with the page between. */
 .mvtile:focus-visible {
-  outline-width: 2px;
-  outline-color: var(--text);
+  box-shadow:
+    0 0 0 6px var(--bg),
+    0 0 0 8px var(--text);
 }
 
 .mvtile__video {
@@ -1465,6 +1480,13 @@
 }
 .mvtile__state .mvchip {
   margin-top: 6px;
+}
+/* Retry and Watch in player side by side, the pair one line. */
+.mvtile__stateacts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
 }
 
 /* A stall: the last frame, dimmed, and the main player's Buffering pill. */
@@ -1590,12 +1612,23 @@
   background: rgb(0 0 0 / 0.25);
   transition: background-color 140ms var(--ease-out, ease);
 }
-.mvtile__pickword {
+/* Chip AND word, so this wins over .mvchip's 30px, which comes later and
+ * used to take the height and the font; with nothing to stop it wrapping,
+ * "Swap for …" ran to three lines in a 30px pill on a small tile (plan
+ * 018, U8). One line, and a long name ends in an ellipsis. */
+.mvchip.mvtile__pickword {
   height: 38px;
+  max-width: calc(100% - 24px);
   padding: 0 16px;
   font-size: 13.5px;
   opacity: 0;
   transition: opacity 140ms var(--ease-out, ease);
+}
+.mvtile__pickname {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .mvtile.is-picking:hover .mvtile__pick,
 .mvtile.is-picking:focus-visible .mvtile__pick {
@@ -1886,9 +1919,22 @@
 .mvpick__row[data-highlighted] {
   background: color-mix(in srgb, var(--text) 9%, transparent);
 }
+/* Muted by colour, not opacity: faded text is the app's own "no" (2.9:1
+ * here), and the quieter tiers are what the rest of it uses (plan 018,
+ * U10). The logo, not text, may still fade. */
 .mvpick__row[data-disabled] {
   cursor: default;
-  opacity: 0.55;
+}
+.mvpick__row[data-disabled] .mvpick__name,
+.mvpick__row[data-disabled] .mvpick__game {
+  color: var(--text-muted);
+}
+.mvpick__row[data-disabled] .mvpick__sub {
+  color: var(--text-dim);
+}
+.mvpick__row[data-disabled] .mvlogo {
+  filter: grayscale(1);
+  opacity: 0.6;
 }
 .mvpick__meta {
   flex: 1;
@@ -2006,6 +2052,13 @@
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+/* SHARED WITH WHAT IS ON. The name's content-width basis took the whole
+ * caption from a programme sized from zero: a long name left "what is on"
+ * 8px at 1400 and nothing at 1000 (plan 018, U5). Only with a programme
+ * beside it; alone, the name has the caption. */
+.mvcap:has(.mvcap__now) .mvcap__name {
+  max-width: 55%;
 }
 
 .mvcap__sound {

@@ -32,3 +32,15 @@ export function forMultiview(e: KeyboardEvent): boolean {
   // keyboard, and keys pressed in its last 150ms are the grid's again.
   return !document.querySelector("[data-slot='dialog-content'][data-state='open']");
 }
+
+/**
+ * A multi-view shortcut was just used: the tab is being worked, not the
+ * nav. The nav pill that brought you here keeps keyboard focus otherwise,
+ * and the bar never dims while the header holds a focus ring (plan 018,
+ * U3). Called only for a key the tab or the grid took, never for one the
+ * nav handled itself.
+ */
+export function releaseHeader(): void {
+  const at = document.activeElement;
+  if (at instanceof HTMLElement && at.closest(".header")) at.blur();
+}

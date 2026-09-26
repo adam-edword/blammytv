@@ -166,8 +166,13 @@
  * Zero them and every current and future `slide-in-*` / `zoom-*` / `spin-*`
  * utility collapses to a cross-fade with no per-class list to maintain.
  */
+/* BY ATTRIBUTE, NOT CLASS. shadcn gates its animations on state, so the
+ * class is `data-[state=open]:animate-in`, and `.animate-in` matched one
+ * component out of nine: the picker and every menu, popover and dialog
+ * still zoomed from 0.95 with reduced motion on (plan 018, U11, measured).
+ * A class attribute containing either name covers every spelling. */
 @media (prefers-reduced-motion: reduce) {
-  :where(.animate-in, .animate-out) {
+  :where([class*="animate-in"], [class*="animate-out"]) {
     --tw-enter-translate-x: 0;
     --tw-enter-translate-y: 0;
     --tw-enter-scale: 1;

@@ -3,7 +3,7 @@
 **Status: IN PROGRESS.** Adam took both decisions (2026-09-25) and added
 two calls of his own: a grid opens in Focus, and one stream fills the
 stage. All four shipped in v0.9.124, and L6 went with them. **H1
-shipped in v0.9.125** (a rebuild), **H2 in v0.9.126, H3 in v0.9.129. H4 is next.** The test on his line
+shipped in v0.9.125** (a rebuild), **H2 in v0.9.126, H3 in v0.9.129, H4 in v0.9.130. H5 (a rebuild) is next.** The test on his line
 turned out not to be needed (see H1).
 
 *Source: five audits run against v0.9.122 on 2026-09-25, one per
@@ -526,6 +526,36 @@ state after a shortcut, the caption widths at 1000 and 1400, the meter in
 the accessibility tree, the pill's height, the bar's clearance, the
 picker's keyframes under reduced motion. The reduced-motion fix gets one
 check on another overlay too, since it's app-wide.
+
+**Shipped in v0.9.130.** Where it differs from the above, or says more:
+- **U11's cause was not `:where()`.** The guard is unlayered, so it wins
+  over the utilities whatever its specificity. It never MATCHED: shadcn
+  writes `data-[state=open]:animate-in`, and `.animate-in` found one
+  component of nine. Measured first: the picker and the Guide's right-click
+  menu both started from a scale of .95 under reduced motion. The guard
+  now matches the class attribute, and both start from 1.
+- **U1** remembers what had focus as the picker opens, and hands it back
+  in `onCloseAutoFocus`; when a replace took the opener with it, the tile
+  in its place. A closed tile that held focus passes it to the next one,
+  or the one before when it was last, or the place to add one.
+- **U3** releases the header only for a key the tab or the grid took
+  (`releaseHeader`), not for one the nav handled itself.
+- **U5** caps the name at 55% only when a programme sits beside it.
+- **U6:** the meter is a named image; at a compact width it, Grid, Focus
+  and the pick-a-tile Cancel say their words in a tooltip.
+- **U9:** with streams the bar already had 20px at 1000; picking a tile
+  ran 6px into the capsule. Compact, Cancel drops its "Esc" (said on
+  hover): 21px.
+- **U10** sorts a section with nothing left to add below the rest (Base UI
+  does highlight a disabled first row: the mutation shows it), and mutes
+  disabled rows by colour.
+- **U13:** the seam sits after the big tile in the DOM; its tip names `\`
+  after a key; keyboard focus is a second ring outside the sound's; the
+  quality badge is hidden from screen readers everywhere, since the
+  quality is always read out of the name beside it.
+
+*Proof:* verify-mvaccess (new, 22 checks), one section per finding. Two
+mutated, both caught: U3 (the header kept) and U10 (the order kept).
 
 ### H5. The proxy's hygiene (native: a rebuild)
 

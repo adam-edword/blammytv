@@ -68,6 +68,7 @@ export function MultiviewPicker({
   room,
   onChoose,
   onFill,
+  onCloseAutoFocus,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -81,6 +82,9 @@ export function MultiviewPicker({
   onChoose: (pick: Pick) => void;
   /** Fill the grid with these games, in this order. */
   onFill: (games: Fixture[]) => void;
+  /** Where focus goes as it closes: the tab's, since it opens from code and
+   * has no trigger of its own for Radix to go back to (plan 018, U1). */
+  onCloseAutoFocus?: (e: Event) => void;
 }) {
   const [query, setQuery] = useState("");
   const [clock] = useState(loadClockFormat);
@@ -161,6 +165,11 @@ export function MultiviewPicker({
       ...rows.filter((r) => inGrid.has(r.channelId)),
     ];
     const out: Section[] = [];
+    // A section with nothing left to add goes last, so the row the picker
+    // opens highlighting is one Enter can take. Every Favorite already on
+    // the grid used to open it on a disabled row (plan 018, U10).
+    const spent = (sec: Section) => sec.items.every((r) => r.kind !== "fill" && inGrid.has(r.channelId));
+    const spentLast = (secs: Section[]) => [...secs.filter((x) => !spent(x)), ...secs.filter(spent)];
     // One action, not a preset system (M9): fill what the line has room
     // for, the games you follow first. Offered only when it would add one.
     const follows = loadFollows();
@@ -183,7 +192,7 @@ export function MultiviewPicker({
     if (q) {
       const found = searchChannels(live, q).map(channelRow);
       if (found.length) out.push({ value: "Channels", items: addableFirst(found) });
-      return out;
+      return spentLast(out);
     }
     const favs = loadFavorites()
       .map((id) => byId.get(id))
@@ -197,7 +206,7 @@ export function MultiviewPicker({
       .filter((c): c is Channel => !!c)
       .slice(0, SHORTLIST);
     if (recent.length) out.push({ value: "Recent", items: addableFirst(recent.map(channelRow)) });
-    return out;
+    return spentLast(out);
     // `now` is left out on purpose: the rows' "what is on" is read at render.
   }, [open, live, games, query, inGrid, mode.kind, room.left]);
 
@@ -233,6 +242,7 @@ export function MultiviewPicker({
         aria-describedby={undefined}
         className="mvpick top-[96px] translate-y-0 gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-[640px]"
         style={motion}
+        onCloseAutoFocus={onCloseAutoFocus}
       >
         <DialogTitle className="sr-only">{title}</DialogTitle>
         <Autocomplete.Root

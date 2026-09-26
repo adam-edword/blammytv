@@ -5,6 +5,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactElement,
   type RefObject,
 } from "react";
 import { MultiviewGrid, type GridStream } from "./MultiviewGrid";
@@ -42,7 +43,7 @@ import {
   swapToFront,
   type Pick,
 } from "./mvGrid";
-import { forMultiview } from "./mvKeys";
+import { forMultiview, releaseHeader } from "./mvKeys";
 import { useConnections } from "./connections";
 import { loadPlaylists } from "../settings/playlists";
 import { resolveStreamUrl } from "./stream";
@@ -144,6 +145,23 @@ function useIdle(): boolean {
     };
   }, []);
   return idle;
+}
+
+/** A control that has dropped its words to fit says them on hover. */
+function wordless(compact: boolean, label: string, el: ReactElement): ReactElement {
+  return compact ? <Hint label={label}>{el}</Hint> : el;
+}
+
+/** A tile on the grid, by its channel. */
+const tileSelector = (id: string) => `[data-mv="tile:${CSS.escape(id)}"]`;
+
+/** Focus a tile, or with "" the place to add one (or the bar's Add). */
+function focusTile(id: string): void {
+  const el =
+    id === ""
+      ? (document.querySelector(".mvtile--empty") ?? document.querySelector('[aria-label="Add channel"]'))
+      : document.querySelector(tileSelector(id));
+  if (el instanceof HTMLElement) el.focus({ preventScroll: true });
 }
 
 /** How long the window holds still before full screen is asked again. */
@@ -536,9 +554,42 @@ export function MultiviewTab() {
 
   const choosingRef = useRef(false);
   choosingRef.current = choosing !== null;
-  const openAdd = useCallback(() => {
-    if (roomRef.current.left > 0 && !choosingRef.current) setPicker({ kind: "add" });
+
+  /**
+   * Where focus goes when the picker closes (plan 018, U1): back to what
+   * opened it, or, when a replace took that with it, to the tile in its
+   * place. It fell to the page, because the picker opens from code and
+   * Radix returns focus to a trigger it never had; the next Tab started
+   * over at the nav.
+   */
+  const opener = useRef<HTMLElement | null>(null);
+  const landing = useRef<string | null>(null);
+  const openPicker = useCallback((mode: PickerMode) => {
+    const at = document.activeElement;
+    opener.current = at instanceof HTMLElement && at !== document.body ? at : null;
+    landing.current = null;
+    setPicker(mode);
   }, []);
+  const pickerClosed = useCallback((e: Event) => {
+    e.preventDefault();
+    const back = opener.current;
+    const land = landing.current;
+    opener.current = null;
+    landing.current = null;
+    if (back?.isConnected) back.focus({ preventScroll: true });
+    else if (land) focusTile(land);
+  }, []);
+  /** And after a tile closes, the one that took its place. */
+  const [landOn, setLandOn] = useState<string | null>(null);
+  useEffect(() => {
+    if (landOn === null) return;
+    setLandOn(null);
+    focusTile(landOn);
+  }, [landOn]);
+
+  const openAdd = useCallback(() => {
+    if (roomRef.current.left > 0 && !choosingRef.current) openPicker({ kind: "add" });
+  }, [openPicker]);
   const choose = (pick: Pick) => {
     if (!picker) return;
     if (picker.kind === "replace") {
@@ -559,6 +610,7 @@ export function MultiviewTab() {
     // What you put in a grid is what you watched: the picker's Recent
     // section, and the Guide's, should know it.
     recordRecent(loadRecents(), pick.channelId);
+    landing.current = pick.channelId;
     setPicker(null);
   };
   // Fill with live games (M9): the picker has already chosen them, as many
@@ -669,6 +721,7 @@ export function MultiviewTab() {
           return;
       }
       e.preventDefault();
+      releaseHeader();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -711,13 +764,25 @@ export function MultiviewTab() {
               <span className="mvchoose__words">
                 Pick a tile<span className="mvchoose__for"> for {choosing.label}</span>
               </span>
-              <button type="button" className="mvchoose__cancel" onClick={() => setChoosing(null)}>
-                Cancel <kbd>Esc</kbd>
-              </button>
+              {wordless(
+                compact,
+                "Cancel (Esc)",
+                <button type="button" className="mvchoose__cancel" onClick={() => setChoosing(null)}>
+                  Cancel <kbd>Esc</kbd>
+                </button>,
+              )}
             </span>
           )}
-          {!blocked && !choosing && (
-            <span className="mvmeter" aria-label={meterLine(room)}>
+          {!blocked &&
+            !choosing &&
+            // A named image, so a screen reader has it: a label on a span
+            // with no role was read by nothing. Once the words go (a narrow
+            // window), it says them on hover, as the rest of the bar does
+            // (plan 018, U6).
+            wordless(
+              compact,
+              meterLine(room),
+            <span className="mvmeter" role="img" aria-label={meterLine(room)}>
               {dashes > 0 && (
                 <span className="mvmeter__dashes" aria-hidden>
                   {Array.from({ length: dashes }, (_, i) => (
@@ -733,30 +798,38 @@ export function MultiviewTab() {
               <span className="mvmeter__text" aria-hidden>
                 {meterLine(room)}
               </span>
-            </span>
-          )}
+            </span>,
+            )}
           {kindsFor(picks.length).length > 1 && !choosing && (
             <div className="mvseg" role="group" aria-label="Layout">
-              <button
-                type="button"
-                className={kind === "grid" ? "is-on" : undefined}
-                aria-pressed={kind === "grid"}
-                aria-label="Grid"
-                onClick={() => chooseKind("grid")}
-              >
-                <GridLayoutIcon size={15} />
-                <span className="mvseg__word">Grid</span>
-              </button>
-              <button
-                type="button"
-                className={kind === "focus" ? "is-on" : undefined}
-                aria-pressed={kind === "focus"}
-                aria-label="Focus"
-                onClick={() => chooseKind("focus")}
-              >
-                <FocusLayoutIcon size={15} />
-                <span className="mvseg__word">Focus</span>
-              </button>
+              {wordless(
+                compact,
+                "Grid (G)",
+                <button
+                  type="button"
+                  className={kind === "grid" ? "is-on" : undefined}
+                  aria-pressed={kind === "grid"}
+                  aria-label="Grid"
+                  onClick={() => chooseKind("grid")}
+                >
+                  <GridLayoutIcon size={15} />
+                  <span className="mvseg__word">Grid</span>
+                </button>,
+              )}
+              {wordless(
+                compact,
+                "Focus (G)",
+                <button
+                  type="button"
+                  className={kind === "focus" ? "is-on" : undefined}
+                  aria-pressed={kind === "focus"}
+                  aria-label="Focus"
+                  onClick={() => chooseKind("focus")}
+                >
+                  <FocusLayoutIcon size={15} />
+                  <span className="mvseg__word">Focus</span>
+                </button>,
+              )}
             </div>
           )}
         </div>
@@ -834,13 +907,21 @@ export function MultiviewTab() {
             muted={vol.muted}
             onSound={setSoundId}
             onRemove={(id) => {
+              // Focus in the tile goes to the one after it, or before it
+              // when it was last, or the place to add one (U1).
+              const held = document.querySelector(tileSelector(id))?.contains(document.activeElement);
+              if (held) {
+                const i = picks.findIndex((p) => p.channelId === id);
+                const rest = picks.filter((p) => p.channelId !== id);
+                setLandOn(rest[Math.min(i, rest.length - 1)]?.channelId ?? "");
+              }
               setPicks((was) => removePick(was, id));
               // The sound falls to the first tile left (the grid derives it).
               // Holding the closed stream's id would hand the sound back,
               // and Focus's big spot with it, if that channel came back.
               if (id === soundId) setSoundId(null);
             }}
-            onReplace={(id, name) => setPicker({ kind: "replace", id, name })}
+            onReplace={(id, name) => openPicker({ kind: "replace", id, name })}
             onRetryResolve={retryResolve}
             onAdd={openAdd}
             onGate={gate}
@@ -864,6 +945,7 @@ export function MultiviewTab() {
         room={room}
         onChoose={choose}
         onFill={fill}
+        onCloseAutoFocus={pickerClosed}
       />
     </div>
   );
