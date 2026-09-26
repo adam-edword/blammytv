@@ -1,5 +1,11 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke as rawInvoke, type InvokeArgs } from "@tauri-apps/api/core";
+import { noteCall } from "./freezeProbe";
 import { isTauri } from "./tauri";
+
+/** Timed for freezeProbe, like tauri.ts's. */
+function invoke<T>(cmd: string, args?: InvokeArgs): Promise<T> {
+  return noteCall(cmd, rawInvoke<T>(cmd, args));
+}
 
 /**
  * GET a URL's body as text. In the Tauri app this goes through Rust (so it

@@ -74,6 +74,7 @@ import {
   VolumeIcon,
 } from "../../ui/icons";
 import { Hint } from "../../ui/Hint";
+import { watchFreeze } from "../../lib/freezeProbe";
 
 /**
  * THE MULTI-VIEW TAB (plan 017): several streams at once, as a place you
@@ -325,6 +326,9 @@ const BAR_GAP = 12;
 const LINE_WAIT_MS = 3000;
 
 export function MultiviewTab() {
+  // Where the first open's hang goes (v0.10.10): from the first render, so
+  // a long one counts. Once per session, whatever this runs.
+  useState(() => watchFreeze("Multi-view"));
   /** The catalog: loaded here if nothing has yet, and followed after, so
    * the picker works however this tab was reached (useLiveData). */
   const live = useLiveData();
