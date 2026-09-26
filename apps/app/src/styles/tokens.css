@@ -160,6 +160,11 @@
    * the player slots, multi-view's 10px. Cards and panels keep
    * --radius-card; a picture is not a card. */
   --radius-pic: var(--radius);
+  /* The empty place's dashed edge (plan 019, K8), at rest and under the
+   * pointer. Tokens because a Guide lane draws it on a cell whose own rule
+   * comes later in the cascade than ui.css's `.place`. */
+  --place-edge: color-mix(in srgb, var(--text) 16%, transparent);
+  --place-edge-hover: color-mix(in srgb, var(--text) 32%, transparent);
   /* A chip on a picture: darker glass than --glass, because what is behind
    * it is video, not the page, and a hairline so it holds its edge on a
    * bright frame. */

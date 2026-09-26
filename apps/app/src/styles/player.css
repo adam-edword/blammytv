@@ -1315,39 +1315,11 @@
 }
 
 /* Tuning, and failed: what happened and a way on, centred on the tile. */
+/* The tile's state is the app's StateCard (ui.css `.state`, plan 019 K8),
+ * which is where this look came from; here it only fills the picture. */
 .mvtile__state {
   position: absolute;
   inset: 0;
-  display: grid;
-  place-content: center;
-  justify-items: center;
-  gap: 8px;
-  padding: 16px;
-  text-align: center;
-  color: var(--text);
-}
-.mvtile__stateicon {
-  color: var(--text-muted);
-}
-.mvtile__statetitle {
-  font-size: 14.5px;
-  font-weight: 650;
-}
-.mvtile__statesub {
-  max-width: 34ch;
-  font-size: 12.5px;
-  line-height: 1.45;
-  color: var(--text-muted);
-}
-.mvtile__state .mvchip {
-  margin-top: 6px;
-}
-/* Retry and Watch in player side by side, the pair one line. */
-.mvtile__stateacts {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px;
 }
 
 /* A stall: the last frame, dimmed, and the main player's Buffering pill. */
@@ -1593,10 +1565,10 @@
   .mvtile__title {
     font-size: 14px;
   }
-  .mvtile__statetitle {
+  .mvtile__state .state__title {
     font-size: 13px;
   }
-  .mvtile__statesub {
+  .mvtile__state .state__sub {
     font-size: 11.5px;
   }
   .mvtile__actions {
@@ -1610,7 +1582,7 @@
 }
 /* Too short for the reason at all: the headline and the way on. */
 @container (max-height: 150px) {
-  .mvtile__statesub {
+  .mvtile__state .state__sub {
     display: none;
   }
 }
@@ -1622,38 +1594,19 @@
   place-content: center;
   justify-items: center;
   gap: 9px;
+  /* The rest is the app's empty place (ui.css `.place`, plan 019 K8), which
+   * is where it came from. These undo what `.mvtile` sets after ui.css in
+   * the cascade: its border reset, its picture ground and its outline
+   * transition. verify-kit reads the edge off these exact classes. */
+  border: 1.5px dashed var(--place-edge);
   background: transparent;
-  border: 1.5px dashed rgb(255 255 255 / 0.16);
-  color: var(--text);
   font: inherit;
   text-align: center;
-  cursor: pointer;
   transition:
-    border-color var(--dur-hover) var(--ease-out, ease),
-    background-color var(--dur-hover) var(--ease-out, ease);
+    border-color var(--dur-hover) var(--ease-out),
+    background-color var(--dur-hover) var(--ease-out);
 }
-.mvtile--empty:hover {
-  border-color: rgb(255 255 255 / 0.32);
-  background: rgb(255 255 255 / 0.02);
-}
-.mvadd__plus {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  margin-bottom: 4px;
-  border-radius: 50%;
-  background: rgb(255 255 255 / 0.08);
-}
-.mvadd__title {
-  font-size: 15px;
-  font-weight: 650;
-}
-.mvadd__sub {
-  font-size: 12.5px;
-  color: var(--text-muted);
-}
-.mvadd__sub kbd,
+.place__sub kbd,
 .mvpick__foot kbd {
   display: inline-grid;
   place-items: center;

@@ -3,12 +3,13 @@ import { carriageText, carriageUnlinked } from "./carriage";
 import { GameCard } from "./GameCard";
 import { Segmented } from "../../ui/Segmented";
 import { UpcomingCard } from "./UpcomingCard";
-import { WarnIcon } from "../../ui/icons";
+import { WarnIcon, LeaguesIcon } from "../../ui/icons";
 import { useMouseNav } from "../../lib/mouseNav";
 import { isModalOpen } from "../../lib/modalOpen";
 import { isTauri, tauriIsFullscreen } from "../../lib/tauri";
 import type { Fixture, Tournament } from "./model";
 import { BackButton } from "../../ui/BackButton";
+import { StateCard } from "../../ui/StateCard";
 
 /** The "every draw" option's key: not a name a draw can have. */
 const ALL_DRAWS = "\u0000all";
@@ -244,7 +245,7 @@ export function TournamentDraw({
       ))}
 
       {shown.length === 0 && (
-        <p className="tourndraw__none">Nothing in this draw today.</p>
+        <StateCard icon={<LeaguesIcon size={28} />} title="Nothing in this draw today" />
       )}
     </div>
   );

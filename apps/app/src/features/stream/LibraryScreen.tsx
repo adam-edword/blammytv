@@ -38,6 +38,8 @@ import {
   type CardMetaField,
 } from "../settings/cardMeta";
 import { BackButton } from "../../ui/BackButton";
+import { LibraryIcon, PlusIcon } from "../../ui/icons";
+import { StateCard } from "../../ui/StateCard";
 
 /**
  * Library (plan 009): Discover's shape, with Continue Watching where the
@@ -326,11 +328,15 @@ export function LibraryScreen() {
           )}
         </div>
         {(isHistory ? watching.length : (list?.entries.length ?? 0)) === 0 ? (
-          <p className="discover__note">
-            {isHistory
-              ? "Nothing watched yet. Anything you start shows up here."
-              : "This list is empty. Open a title and use Add to Library to put it here."}
-          </p>
+          <StateCard
+            icon={<LibraryIcon size={28} />}
+            title={isHistory ? "Nothing watched yet" : "This list is empty"}
+            sub={
+              isHistory
+                ? "Anything you start shows up here."
+                : "Open a title and use Add to Library to put it here."
+            }
+          />
         ) : (
           <div className="disc-grid">
             {isHistory
@@ -425,7 +431,7 @@ export function LibraryScreen() {
             />
           ))}
           {creating ? (
-            <div className="library__new library__new--editing">
+            <div className="place library__new library__new--editing">
               <NameField
                 initial=""
                 placeholder="List name"
@@ -437,13 +443,13 @@ export function LibraryScreen() {
           ) : (
             <button
               type="button"
-              className="library__new"
+              className="place library__new"
               onClick={() => setCreating(true)}
             >
-              <span className="library__new-plus" aria-hidden>
-                +
+              <span className="place__plus" aria-hidden>
+                <PlusIcon size={20} />
               </span>
-              New list
+              <span className="place__title">New list</span>
             </button>
           )}
         </div>

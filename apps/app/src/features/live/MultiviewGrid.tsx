@@ -548,16 +548,16 @@ export function MultiviewGrid({
             <button
               key={`empty-${i}`}
               type="button"
-              className="mvtile mvtile--empty"
+              className="mvtile mvtile--empty place"
               style={fill ? { ...place(r), visibility: "hidden" } : place(r)}
               data-mv={`tile:empty-${i}`}
               onClick={onAdd}
             >
-              <span className="mvadd__plus" aria-hidden>
+              <span className="place__plus" aria-hidden>
                 <PlusIcon size={20} />
               </span>
-              <span className="mvadd__title">Add a channel</span>
-              <span className="mvadd__sub">
+              <span className="place__title">Add a channel</span>
+              <span className="place__sub">
                 A live game or any channel. Or press <kbd>A</kbd>
               </span>
             </button>

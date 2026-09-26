@@ -14,22 +14,11 @@
   gap: 0;
 }
 
+/* The tab's states are the StateCard (ui.css, plan 019 K8), centred in
+ * the scroll column. */
 .stream__note {
   margin: auto;
-  max-width: 48ch;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
 }
-/* shadcn's empty states sit at `text-xl font-semibold`. */
-.stream__note h2 {
-  font-family: var(--font-headline);
-  font-weight: 600;
-  font-size: 20px;
-}
-.stream__note p { color: var(--text-muted); }
-.stream__note--dim { color: var(--text-muted); }
 
 /* ---- featured hero (Figma 133-721): 80vh sliding track, 60px-radius
  * cards, neighbors peeking with a 30px gap. Escapes .stream's padding so
@@ -832,13 +821,6 @@
   font-size: 21px;
   margin: 0;
 }
-/* Inline retry beside a failed-note — quiet, accent-voiced. */
-.vod-sources__retry {
-  margin-left: 6px;
-  font-family: var(--font-headline);
-}
-
-.vod-sources__note { color: color-mix(in srgb, var(--on-image) 60%, transparent); font-size: 14px; }
 /* Figma 133-721 source card: a glass slab with the quality in its own
  * raised block left, the addon's meta lines beside it, play glyph right. */
 .vod-source {
@@ -1397,14 +1379,6 @@
 /* The "+" card sits in the same grid track as the list cards, so it has to
  * carry the poster aspect itself rather than collapsing to its text.
  *
- * NOT a shadcn Button, and v0.9.54 checked. It is an EMPTY SLOT, not a
- * control: a dashed 2:3 outline holding a grid track open next to the real
- * list cards. Every Button variant fills that outline in, which turns the
- * placeholder into the loudest object in the grid. shadcn has no variant
- * for "the space where a thing would go", so this one stays hand-written. */
-/* The "+" card sits in the same grid track as the list cards, so it has to
- * carry the poster aspect itself rather than collapsing to its text.
- *
  * NOT A <Button>, AND IT HAS NOW BEEN CONVERTED TWICE BY MISTAKE. v0.9.54
  * turned it into one, v0.9.55 reverted it on the argument below, and
  * v0.9.56's mass conversion put it straight back — leaving an 85x36 ghost
@@ -1413,38 +1387,17 @@
  * class with a codemod should stop here.
  *
  * It is an EMPTY SLOT, not a control: the shape says "a list would go
- * here", and every Button variant fills that shape in. shadcn does have an
- * answer for this and it is `border-dashed` on a Card, which is what this
- * is now — the card surface, dashed, muted until you hover it. */
+ * here", and every Button variant fills that shape in. Since plan 019 (K8)
+ * it is the app's empty place (ui.css `.place`), multi-view's dashed Add
+ * tile, so the look lives there and only the slot's shape lives here. */
 .library__new {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 9px;
   aspect-ratio: 2 / 3;
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-card);
-  background: none;
-  color: var(--text-muted);
-  font-family: var(--font-text);
-  font-weight: 500;
-  font-size: 14px;
-  cursor: pointer;
-  transition:
-    color var(--dur-hover) ease,
-    border-color var(--dur-hover) ease,
-    background var(--dur-hover) ease;
-}
-.library__new:hover {
-  color: var(--text);
-  border-color: var(--text-muted);
-  background: var(--surface);
-}
-.library__new-plus {
-  font-size: 34px;
-  line-height: 1;
-  font-weight: 300;
+  font: inherit;
 }
 
 /* Remove-from-list: revealed on card hover, like the guide's favourite

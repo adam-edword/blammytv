@@ -659,6 +659,147 @@ const dimmedText = () =>
   );
 }
 
+// ======================================================================= K8
+// Nothing here, drawn one way: multi-view's tile state is the StateCard,
+// and so is every screen's; its dashed Add tile is the empty place, and so
+// are Library's New list and the Guide's lanes with no listings.
+{
+  const readState = (sel) =>
+    page.evaluate((s) => {
+      const el = document.querySelector(s);
+      if (!el) return null;
+      const t = el.querySelector(".state__title");
+      const sub = el.querySelector(".state__sub");
+      const texts = [...el.querySelectorAll("*")].filter((n) => n.childElementCount === 0 && n.textContent.trim());
+      return {
+        isState: el.classList.contains("state"),
+        icon: !!el.querySelector(".state__icon svg, .state__icon .buffering__dot"),
+        title: t?.textContent.trim(),
+        weight: t && getComputedStyle(t).fontWeight,
+        titleInk: t && getComputedStyle(t).color,
+        subInk: sub && getComputedStyle(sub).color,
+        faded: texts.filter((n) => {
+          for (let e = n; e && e !== document.body; e = e.parentElement) if (+getComputedStyle(e).opacity < 1) return true;
+          return false;
+        }).length,
+      };
+    }, sel);
+  const text = await token("--text", "color");
+  const muted = await token("--text-muted", "color");
+
+  // The tile K3 opened failed (its proxy answers nothing): its state.
+  await goTo(page, "multiview");
+  await page.locator(".mvtile__state").first().waitFor({ timeout: 20_000 }).catch(() => {});
+  const tileState = await readState(".mvtile__state");
+  check(
+    "multi-view's tile state is the StateCard: an icon, the headline",
+    tileState?.isState && tileState.icon && tileState.weight === "650" && !!tileState.title,
+    JSON.stringify(tileState),
+  );
+
+  // The Guide with nothing starred.
+  await goTo(page, "guide");
+  await page.getByRole("tab", { name: "Favorites" }).click();
+  await page.locator(".guide-empty").waitFor({ timeout: 8000 }).catch(() => {});
+  const fav = await readState(".guide-empty");
+  check(
+    "the Guide's empty Favorites is the same card: icon, headline in the text colour, the why muted by colour",
+    fav?.isState && fav.icon && fav.title === "Nothing starred yet" && fav.weight === "650" && fav.titleInk === text && fav.subInk === muted && fav.faded === 0,
+    JSON.stringify(fav),
+  );
+  await page.getByRole("tab", { name: "Playlist" }).click();
+  await page.waitForTimeout(600);
+
+  // The empty place, three ways, one edge.
+  const edge = await token("--place-edge", "borderTopColor");
+  const lane = await page.evaluate(() => {
+    const c = document.querySelector(".guide__cell--blank");
+    if (!c) return null;
+    const s = getComputedStyle(c);
+    return { style: s.borderTopStyle, w: s.borderTopWidth, c: s.borderTopColor, bg: s.backgroundColor };
+  });
+  check(
+    "a Guide lane with no listings is the empty place: the dashed edge, no fill",
+    // Not the width: 1.5px rounds to a device pixel, 1px at this 1x.
+    lane && lane.style === "dashed" && lane.c === edge && lane.bg === "rgba(0, 0, 0, 0)",
+    JSON.stringify(lane),
+  );
+  await goTo(page, "mylist");
+  const nl = page.locator(".library__new");
+  await nl.waitFor({ timeout: 10_000 });
+  await page.mouse.move(W - 4, H - 4);
+  const place = await nl.evaluate((el) => {
+    const s = getComputedStyle(el);
+    return { style: s.borderTopStyle, w: s.borderTopWidth, c: s.borderTopColor, r: s.borderTopLeftRadius, plus: !!el.querySelector(".place__plus svg") };
+  });
+  check(
+    "  and so is Library's New list, with multi-view's plus",
+    place.style === "dashed" && place.w === lane?.w && place.c === edge && place.r === "10px" && place.plus,
+    JSON.stringify(place),
+  );
+  // Multi-view's Add tile, as its classes cascade: whether one is on screen
+  // here depends on the layout K3 left, and a check that reads nothing
+  // passes vacuously.
+  const mvSrc = readFileSync(join(SRC, "features/live/MultiviewGrid.tsx"), "utf8");
+  const mvPlace = await page.evaluate(() => {
+    const el = document.createElement("button");
+    el.className = "mvtile mvtile--empty place";
+    document.body.appendChild(el);
+    const s = getComputedStyle(el);
+    const out = { style: s.borderTopStyle, c: s.borderTopColor, bg: s.backgroundColor };
+    el.remove();
+    return out;
+  });
+  check(
+    "  and multi-view's Add tile is where it came from",
+    mvSrc.includes('className="mvtile mvtile--empty place"') && mvPlace.style === "dashed" && mvPlace.c === edge && mvPlace.bg === "rgba(0, 0, 0, 0)",
+    JSON.stringify(mvPlace),
+  );
+
+  // Stream and Discover with no addon: their states are the card too.
+  const bare = await browser.newContext({ viewport: { width: W, height: H } });
+  await bare.route((u) => !["localhost", "127.0.0.1"].includes(u.hostname), (r) => r.abort());
+  const p2 = await bare.newPage();
+  p2.on("pageerror", (e) => errors.push(String(e)));
+  await p2.addInitScript(() => {
+    localStorage.setItem("btv:onboarded", "1");
+    sessionStorage.setItem("btv:welcome-played", "1");
+  });
+  await p2.goto(APP, { waitUntil: "domcontentloaded" });
+  await p2.waitForSelector('[data-dest="home"]', { timeout: 60_000 });
+  await goTo(p2, "home");
+  const home = await p2.locator(".stream__note").evaluate((el) => ({
+    state: el.classList.contains("state"),
+    title: el.querySelector(".state__title")?.textContent,
+    icon: !!el.querySelector(".state__icon svg"),
+  })).catch(() => null);
+  check(
+    "Stream with no addon says so as a StateCard",
+    home?.state && home.icon && home.title === "Movies and shows, one tab over from live",
+    JSON.stringify(home),
+  );
+  await goTo(p2, "discover");
+  const disc = await p2.locator(".discover--empty .state").evaluate((el) => el.querySelector(".state__title")?.textContent).catch(() => null);
+  check("  and so does Discover", disc === "Something new to watch", String(disc));
+  await bare.close();
+
+  // None of the old layouts is left to drift back.
+  const old = [];
+  const scan = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, e.name);
+      if (e.isDirectory() && e.name !== "old") scan(p);
+      else if (/\.(tsx|css)$/.test(e.name)) {
+        const src = readFileSync(p, "utf8").replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "");
+        for (const m of src.matchAll(/\b(vod-sources__note|sports-empty__(?:mark|title|note|action)|stream__note--dim|tourndraw__none|mvtile__state(?:title|sub|icon|acts)|mvadd__(?:plus|title|sub)|library__new-plus)\b/g))
+          old.push(`${e.name}:${m[1]}`);
+      }
+    }
+  };
+  scan(SRC);
+  check("  and none of the nine old layouts' classes is left", old.length === 0, old.slice(0, 5).join(" "));
+}
+
 check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
 await browser.close();
 console.log(fail ? `\n${fail} FAILED` : "\nALL PASS");

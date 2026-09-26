@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../../components/ui/button";
+import { DiscoverIcon, SearchIcon, WarnIcon } from "../../ui/icons";
+import { StateCard } from "../../ui/StateCard";
 import {
   loadCardMeta,
   onCardMetaChange,
@@ -484,21 +486,20 @@ export function DiscoverScreen() {
   if (cfg.status === "error") {
     return (
       <div className="discover discover--empty">
+        {/* The tab's states are the StateCard (plan 019, K8). */}
         {cfg.message === "no addon configured" ? (
-          <>
-            <h2>Something new to watch.</h2>
-            <p className="discover__note">
-              Connect your AIOStreams manifest in Settings → General → Sources and
-              this tab fills itself.
-            </p>
-          </>
+          <StateCard
+            icon={<DiscoverIcon size={28} />}
+            title="Something new to watch"
+            sub="Connect your AIOStreams manifest in Settings → General → Sources and this tab fills itself."
+          />
         ) : (
-          <>
-            <h2>Couldn&rsquo;t load Discover.</h2>
-            <p className="discover__note" role="alert">
-              {cfg.message}
-            </p>
-            <p>
+          <StateCard
+            role="alert"
+            icon={<WarnIcon size={28} />}
+            title="Couldn’t load Discover"
+            sub={cfg.message}
+            actions={
               <Button
                 variant="default"
                 type="button"
@@ -506,8 +507,8 @@ export function DiscoverScreen() {
               >
                 Try again
               </Button>
-            </p>
-          </>
+            }
+          />
         )}
       </div>
     );
@@ -525,22 +526,27 @@ export function DiscoverScreen() {
         <section className="discover__gridwrap">
           <h3 className="media-row__title">Results for “{q}”</h3>
           {results === null ? (
-            <p className="discover__note" role="status">
-              Searching…
-            </p>
+            <StateCard role="status" busy title="Searching…" />
           ) : results === "failed" ? (
-            <p className="discover__note" role="alert">
-              Search didn&rsquo;t go through.{" "}
-              <Button
-                variant="default"
-                type="button"
-                onClick={() => setSearchTick((t) => t + 1)}
-              >
-                Try again
-              </Button>
-            </p>
+            <StateCard
+              role="alert"
+              icon={<WarnIcon size={28} />}
+              title="Search didn’t go through"
+              actions={
+                <Button
+                  variant="default"
+                  type="button"
+                  onClick={() => setSearchTick((t) => t + 1)}
+                >
+                  Try again
+                </Button>
+              }
+            />
           ) : results.length === 0 ? (
-            <p className="discover__note">No results for “{q}”.</p>
+            <StateCard
+              icon={<SearchIcon size={28} />}
+              title={<>No results for “{q}”</>}
+            />
           ) : (
             <div className="disc-grid">
               {results.map((item) => (
@@ -614,21 +620,27 @@ export function DiscoverScreen() {
             </div>
           </>
         ) : items.length === 0 && gridFailed ? (
-          <p className="discover__note" role="alert">
-            Discover didn&rsquo;t load. The catalog never answered.{" "}
-            <Button
-              variant="default"
-              type="button"
-              onClick={() => void loadMore(true)}
-            >
-              Try again
-            </Button>
-          </p>
+          <StateCard
+            role="alert"
+            icon={<WarnIcon size={28} />}
+            title="Discover didn’t load"
+            sub="The catalog never answered."
+            actions={
+              <Button
+                variant="default"
+                type="button"
+                onClick={() => void loadMore(true)}
+              >
+                Try again
+              </Button>
+            }
+          />
         ) : items.length === 0 ? (
-          <p className="discover__note">
-            Nothing here. The catalog returned no titles
-            {genre ? ` for ${genre}` : ""}.
-          </p>
+          <StateCard
+            icon={<DiscoverIcon size={28} />}
+            title="Nothing here"
+            sub={<>The catalog returned no titles{genre ? ` for ${genre}` : ""}.</>}
+          />
         ) : (
           <div className="disc-grid">
             {items.map((item) => (

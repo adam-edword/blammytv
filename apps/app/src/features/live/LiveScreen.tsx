@@ -21,9 +21,11 @@ import {
   RecentsIcon,
   StarIcon,
   TvIcon,
+  WarnIcon,
 } from "../../ui/icons";
 import { Segmented, type SegOption } from "../../ui/Segmented";
 import { LineMeter } from "../../ui/LineMeter";
+import { StateCard } from "../../ui/StateCard";
 import {
   isTauri,
   onPopoutClosed,
@@ -980,51 +982,54 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
         )}
 
       <div className="live-main">
+        {/* The whole tab's states are the StateCard (plan 019, K8). An
+          * error keeps its Try again with the message, as plan 016 3.3
+          * asked. */}
         {live.status === "loading" && (
-          <div className="live-status" role="status" aria-live="polite">
-            <p>{stage ?? "Loading channels…"}</p>
-          </div>
+          <StateCard
+            className="live-status"
+            role="status"
+            aria-live="polite"
+            busy
+            title={stage ?? "Loading channels…"}
+          />
         )}
-        {live.status === "error" && (
-          <div
+        {(live.status === "error" ||
+          (ready && !shownChannel && ready.groups.some((g) => g.error))) && (
+          <StateCard
             className="live-status live-status--error"
             role="alert"
-          >
-            <p>
-              Couldn&rsquo;t load your playlists: {live.message}. Check them in
-              Settings → General → Sources.
-            </p>
-            <Button variant="default"
-              type="button"
-              className="live-status__retry"
-              onClick={() => refresh(false)}
-            >
-              Try again
-            </Button>
-          </div>
-        )}
-        {ready &&
-          !shownChannel &&
-          (ready.groups.find((g) => g.error) ? (
-            <div className="live-status live-status--error" role="alert">
-              <p>
-                Couldn&rsquo;t load your playlists:{" "}
-                {ready.groups.find((g) => g.error)!.error}. Check them in
-                Settings → General → Sources.
-              </p>
-              <Button variant="default"
+            icon={<WarnIcon size={28} />}
+            title="Couldn’t load your playlists"
+            sub={
+              <>
+                {live.status === "error"
+                  ? live.message
+                  : ready!.groups.find((g) => g.error)!.error}
+                . Check them in Settings → General → Sources.
+              </>
+            }
+            actions={
+              <Button
+                variant="default"
                 type="button"
                 className="live-status__retry"
                 onClick={() => refresh(false)}
               >
                 Try again
               </Button>
-            </div>
-          ) : (
-            <div className="live-status" role="status">
-              <p>No channels here yet. Add a playlist in Settings → General → Sources.</p>
-            </div>
-          ))}
+            }
+          />
+        )}
+        {ready && !shownChannel && !ready.groups.some((g) => g.error) && (
+          <StateCard
+            className="live-status"
+            role="status"
+            icon={<TvIcon size={28} />}
+            title="No channels here yet"
+            sub="Add a playlist in Settings → General → Sources."
+          />
+        )}
         {ready && shownChannel && (
           <>
             <Hero
@@ -1065,15 +1070,32 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
                 chromeHostRef.current,
               )}
             {visible.length === 0 ? (
-              <div className="guide-empty">
-                <p>
-                  {mode === "favorites"
-                    ? "Nothing starred yet. Hover a channel card and hit the star."
+              <StateCard
+                className="guide-empty"
+                icon={
+                  mode === "favorites" ? (
+                    <StarIcon size={28} />
+                  ) : mode === "recents" ? (
+                    <RecentsIcon size={28} />
+                  ) : (
+                    <TvIcon size={28} />
+                  )
+                }
+                title={
+                  mode === "favorites"
+                    ? "Nothing starred yet"
                     : mode === "recents"
-                      ? "Nothing watched yet. Recents fill in as you tune around."
-                      : "No channels in this folder."}
-                </p>
-              </div>
+                      ? "Nothing watched yet"
+                      : "No channels in this folder"
+                }
+                sub={
+                  mode === "favorites"
+                    ? "Hover a channel card and hit the star."
+                    : mode === "recents"
+                      ? "Recents fill in as you tune around."
+                      : undefined
+                }
+              />
             ) : (
               <Guide
                 channels={visible}

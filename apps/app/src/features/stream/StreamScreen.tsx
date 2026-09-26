@@ -8,7 +8,16 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { CheckIcon, ChevronIcon, CloseIcon, PlayIcon } from "../../ui/icons";
+import {
+  CheckIcon,
+  ChevronIcon,
+  CloseIcon,
+  MoviesIcon,
+  PlayIcon,
+  StreamIcon,
+  WarnIcon,
+} from "../../ui/icons";
+import { StateCard } from "../../ui/StateCard";
 import { Button } from "../../components/ui/button";
 import { Segmented } from "../../ui/Segmented";
 import Tilt from "react-parallax-tilt";
@@ -1462,21 +1471,28 @@ export function StreamScreen() {
               </div>
               <div className="vod-panel__list">
                 {panelSources === null && (
-                  <p className="vod-sources__note" role="status">
-                    Finding sources…
-                  </p>
+                  <StateCard size="tile" onImage role="status" busy title="Finding sources…" />
                 )}
                 {panelSources === "failed" && (
-                  <p className="vod-sources__note" role="alert">
-                    Couldn&rsquo;t load sources.{" "}
-                    <Button variant="default"
-                      type="button"
-                      className="vod-sources__retry"
-                      onClick={() => setPanelTick((t) => t + 1)}
-                    >
-                      Try again
-                    </Button>
-                  </p>
+                  <StateCard
+                    size="tile"
+                    onImage
+                    role="alert"
+                    icon={<WarnIcon size={22} />}
+                    title="Couldn’t load sources"
+                    actions={
+                      <Button
+                        variant="default"
+                        type="button"
+                        onClick={() => setPanelTick((t) => t + 1)}
+                      >
+                        Try again
+                      </Button>
+                    }
+                  />
+                )}
+                {Array.isArray(panelSources) && panelSources.length === 0 && (
+                  <StateCard size="tile" onImage icon={<PlayIcon size={22} />} title="No sources available" />
                 )}
                 {Array.isArray(panelSources) &&
                   panelSources.map((src) => (
@@ -1788,40 +1804,42 @@ function Home({
   // Which details the cards show — flips live while Settings is open.
   const [metaFields, setMetaFields] = useState<CardMetaField[]>(loadCardMeta);
   useEffect(() => onCardMetaChange(setMetaFields), []);
+  // The tab's states are the StateCard (plan 019, K8).
   if (!loadAioUrl()) {
     return (
-      <div className="stream__note">
-        <h2>Movies and shows, one tab over from live.</h2>
-        <p>
-          Paste your AIOStreams manifest URL in Settings → General → Sources and the
-          catalog appears here.
-        </p>
-      </div>
+      <StateCard
+        className="stream__note"
+        icon={<StreamIcon size={28} />}
+        title="Movies and shows, one tab over from live"
+        sub="Paste your AIOStreams manifest URL in Settings → General → Sources and the catalog appears here."
+      />
     );
   }
   if (load.status === "loading")
     return (
-      <div className="stream__note stream__note--dim" role="status">
-        Loading your catalog…
-      </div>
+      <StateCard
+        className="stream__note"
+        role="status"
+        busy
+        title="Loading your catalog…"
+      />
     );
   if (load.status === "error")
     return (
-      <div className="stream__note" role="alert">
-        <h2>Couldn&rsquo;t load your catalog.</h2>
-        <p>{load.message}. Check the manifest URL in Settings → General → Sources.</p>
-        {/* Live's error states retry; siblings match (the audit's
-          * dead-end finding). */}
-        <p>
-          <Button
-            variant="default"
-            type="button"
-            onClick={onRetry}
-          >
+      <StateCard
+        className="stream__note"
+        role="alert"
+        icon={<WarnIcon size={28} />}
+        title="Couldn’t load your catalog"
+        sub={<>{load.message}. Check the manifest URL in Settings → General → Sources.</>}
+        // Live's error states retry; siblings match (the audit's dead-end
+        // finding).
+        actions={
+          <Button variant="default" type="button" onClick={onRetry}>
             Try again
           </Button>
-        </p>
-      </div>
+        }
+      />
     );
   const { data } = load;
   const featured = data.featured
@@ -1839,13 +1857,12 @@ function Home({
     data.rows.every((r) => r.itemIds.length === 0)
   )
     return (
-      <div className="stream__note">
-        <h2>Nothing came back from your catalogs.</h2>
-        <p>
-          The manifest loaded but every catalog returned empty. Check the
-          manifest in Settings → General → Sources, or just try again in a minute.
-        </p>
-      </div>
+      <StateCard
+        className="stream__note"
+        icon={<MoviesIcon size={28} />}
+        title="Nothing came back from your catalogs"
+        sub="The manifest loaded but every catalog returned empty. Check the manifest in Settings → General → Sources, or just try again in a minute."
+      />
     );
   return (
     <>
@@ -2810,25 +2827,36 @@ function Detail({
         </div>
         <div className="vod-sources">
           <h3>Sources</h3>
+          {/* The column's states are the StateCard (plan 019, K8). */}
           {sources === null && (
-            <p className="vod-sources__note" role="status">
-              Finding sources…
-            </p>
+            <StateCard size="tile" onImage role="status" busy title="Finding sources…" />
           )}
           {sources === "failed" && (
-            <p className="vod-sources__note" role="alert">
-              Couldn&rsquo;t load sources.{" "}
-              <Button variant="default"
-                type="button"
-                className="vod-sources__retry"
-                onClick={() => setSourcesTick((t) => t + 1)}
-              >
-                Try again
-              </Button>
-            </p>
+            <StateCard
+              size="tile"
+              onImage
+              role="alert"
+              icon={<WarnIcon size={22} />}
+              title="Couldn’t load sources"
+              actions={
+                <Button
+                  variant="default"
+                  type="button"
+                  onClick={() => setSourcesTick((t) => t + 1)}
+                >
+                  Try again
+                </Button>
+              }
+            />
           )}
           {Array.isArray(sources) && sources.length === 0 && (
-            <p className="vod-sources__note">No sources available.</p>
+            <StateCard
+              size="tile"
+              onImage
+              icon={<PlayIcon size={22} />}
+              title="No sources available"
+              sub="Your addons came back with nothing playable for this one."
+            />
           )}
           {Array.isArray(sources) &&
             sources.map((s, i) => (
@@ -2999,22 +3027,40 @@ function Episodes({
         </div>
         {item.seasons.length === 0 ? (
           metaState === "failed" ? (
-            <p className="vod-sources__note" role="alert">
-              Couldn&rsquo;t load episodes.{" "}
-              <Button variant="default"
-                type="button"
-                className="vod-sources__retry"
-                onClick={onRetryMeta}
-              >
-                Try again
-              </Button>
-            </p>
+            <StateCard
+              size="tile"
+              onImage
+              className="vod-episodes__state"
+              role="alert"
+              icon={<WarnIcon size={22} />}
+              title="Couldn’t load episodes"
+              actions={
+                <Button
+                  variant="default"
+                  type="button"
+                  onClick={onRetryMeta}
+                >
+                  Try again
+                </Button>
+              }
+            />
           ) : metaState === "ready" ? (
-            <p className="vod-sources__note">No episodes listed.</p>
+            <StateCard
+              size="tile"
+              onImage
+              className="vod-episodes__state"
+              icon={<PlayIcon size={22} />}
+              title="No episodes listed"
+            />
           ) : (
-            <p className="vod-sources__note" role="status">
-              Loading episodes…
-            </p>
+            <StateCard
+              size="tile"
+              onImage
+              className="vod-episodes__state"
+              role="status"
+              busy
+              title="Loading episodes…"
+            />
           )
         ) : (
           <>

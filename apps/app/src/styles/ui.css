@@ -276,6 +276,126 @@
   outline-offset: 3px;
 }
 
+/* ---- StateCard (plan 019, K8): multi-view's tile state, for every
+ * empty, error and loading layout. An icon, what happened, why, a way on.
+ * "tile" is multi-view's size, for a picture or a narrow column; "page"
+ * takes a screen. Muted by colour, never by opacity (plan 019 rule 6). */
+.state {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  padding: 16px;
+  text-align: center;
+  color: var(--text);
+}
+.state__icon {
+  display: grid;
+  place-items: center;
+  min-height: 22px;
+  color: var(--text-muted);
+}
+/* The pulse is the player's, in the ink the title is in, as multi-view's
+ * tuning tile drew it. */
+.state__icon.is-busy {
+  color: inherit;
+}
+.state__title {
+  font-size: 14.5px;
+  font-weight: 650;
+  text-wrap: balance;
+}
+.state__sub {
+  max-width: 34ch;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+.state__acts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.state--page {
+  gap: 10px;
+  padding: 48px 24px;
+}
+.state--page .state__icon {
+  min-height: 28px;
+  margin-bottom: 2px;
+}
+/* 20px: what Stream's note was, shadcn's text-xl. A whole empty screen
+ * wants more than a tile's 14.5, and Discover's and Sports' 28 read as a
+ * page title rather than as the page's answer. */
+.state--page .state__title {
+  font-size: 20px;
+}
+.state--page .state__sub {
+  max-width: 46ch;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.state--page .state__acts {
+  margin-top: 8px;
+}
+/* Over artwork (a film's page, the player): the page pins a light
+ * foreground there whatever the theme, and so does this. */
+.state--on-image {
+  color: var(--on-image);
+}
+.state--on-image .state__icon,
+.state--on-image .state__sub {
+  color: color-mix(in srgb, var(--on-image) 65%, transparent);
+}
+
+/* ---- The empty place (plan 019, K8): multi-view's dashed "a thing goes
+ * here". No fill at rest; under the pointer the edge firms up. For a slot
+ * you can fill (Library's New list, multi-view's Add) and a lane with
+ * nothing in it (the Guide's blank rows). */
+.place {
+  border: 1.5px dashed var(--place-edge);
+  border-radius: var(--radius-pic);
+  background: transparent;
+  color: var(--text-muted);
+  transition:
+    border-color var(--dur-hover) var(--ease-out),
+    background-color var(--dur-hover) var(--ease-out),
+    color var(--dur-hover) var(--ease-out);
+}
+button.place {
+  cursor: pointer;
+}
+button.place:hover,
+button.place:focus-visible {
+  border-color: var(--place-edge-hover);
+  background: color-mix(in srgb, var(--text) 2%, transparent);
+  color: var(--text);
+}
+/* What goes in a place you can fill: multi-view's plus in a circle, the
+ * headline, a line under it. */
+.place__plus {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-bottom: 4px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text);
+}
+.place__title {
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--text);
+}
+.place__sub {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
 /* Switch, at shadcn's exact geometry.
  *
  * Adam: "ours seems rather large compared to the docs." Measured rather than

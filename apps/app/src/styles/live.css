@@ -243,37 +243,14 @@
   flex-direction: column;
 }
 
-/* Empty modes (no favorites / no recents yet). */
-.guide-empty {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  place-items: center;
-  font-size: 14px;
-  color: var(--text-dim);
-}
-
-/* Whole-tab states: loading, playlist failure, nothing configured. */
+/* Empty modes (no favorites / no recents yet) and the whole tab's states
+ * (loading, playlist failure, nothing configured). Both are the StateCard
+ * (ui.css, plan 019 K8); this only lets them take the space the Guide
+ * would. */
+.guide-empty,
 .live-status {
   flex: 1;
   min-height: 0;
-  display: grid;
-  place-items: center;
-  gap: 14px;
-  padding: 0 48px;
-  text-align: center;
-  font-size: 14px;
-  color: var(--text-dim);
-}
-
-/* A real failure shouldn't whisper like the idle "Loading…" hint. */
-.live-status--error {
-  color: var(--text);
-  opacity: 1;
-}
-
-.live-status__retry {
-  font-family: var(--font-headline);
 }
 
 /* -------------------------------------------------------------- guide */
@@ -537,9 +514,13 @@
   border: 1px solid var(--accent-border);
 }
 
+/* A lane with no listings is the empty place (plan 019, K8): multi-view's
+ * dashed edge, no fill. Drawn from the place's tokens rather than its
+ * class because `.guide__cell` above sets a surface and a solid border and
+ * comes later in the cascade than ui.css. */
 .guide__cell--blank {
-  background: var(--surface);
-  border: 1.5px dashed color-mix(in srgb, var(--accent) 24%, var(--mix-base));
+  background: transparent;
+  border: 1.5px dashed var(--place-edge);
   font-family: var(--font-headline);
   font-weight: 500;
   font-size: 15px;

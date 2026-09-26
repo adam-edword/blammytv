@@ -207,7 +207,7 @@ const served = async (id) => {
   drop("101", "cut");
   await page.waitForFunction((n) => document.querySelector(`.mvtile[aria-label^="${n},"]`)?.dataset.state === "reconnecting", ESPN, { timeout: 5000 }).catch(() => {});
   const during = await stateOf(page, ESPN);
-  const words = await tile(page, ESPN).locator(".mvtile__statetitle").textContent().catch(() => "");
+  const words = await tile(page, ESPN).locator(".mvtile__state .state__title").textContent().catch(() => "");
   const again = await opened(page, "101", 2);
   await served("101");
   await playing(page, ESPN);
@@ -363,7 +363,7 @@ const served = async (id) => {
   });
   await page.waitForTimeout(3000);
   await page.waitForFunction((n) => document.querySelector(`.mvtile[aria-label^="${n},"]`)?.dataset.state === "failed", TOON, { timeout: 10_000 }).catch(() => {});
-  const title = await tile(page, TOON).locator(".mvtile__statetitle").textContent().catch(() => "");
+  const title = await tile(page, TOON).locator(".mvtile__state .state__title").textContent().catch(() => "");
   check(
     "four tiles on a line of five is the grid's ceiling, not the line's: a refusal there isn't \"your line is at its limit\"",
     title === "Your provider refused this one",

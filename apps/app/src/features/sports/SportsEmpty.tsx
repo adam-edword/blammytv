@@ -1,5 +1,6 @@
 import { LeaguesIcon } from "../../ui/icons";
 import { Button } from "../../components/ui/button";
+import { StateCard } from "../../ui/StateCard";
 
 /**
  * The board with nothing on it (plan 010 #40).
@@ -22,11 +23,11 @@ import { Button } from "../../components/ui/button";
  *   asks for 151 leagues over two days and that measured 8.3s warm and 38s
  *   cold at the six-request gate.
  *
- * The language is Discover's, deliberately (`.discover--empty` and
- * `.disc-skel`): centred column, a headline at 28px, a muted note under it,
- * one primary action, and the same 1.3s breath on the placeholders. This
- * app already had an answer for "a screen with nothing on it" and a second
- * one that nearly matched would be the worse outcome.
+ * The statement is the app's StateCard (plan 019, K8), the same one
+ * Discover, Stream and the Guide use: an icon, the headline, the note and
+ * one primary action. It used to be Discover's layout copied here with a
+ * 64px mark at 0.45 opacity; the card's own icon is the mark now, muted by
+ * colour.
  */
 
 export function SportsEmpty({
@@ -42,29 +43,23 @@ export function SportsEmpty({
   action?: { label: string; onClick: () => void };
 }) {
   return (
-    <div className="sports-empty">
-      {/* The trophy, quiet and large. One mark across all three states
-        * rather than a different picture per failure: the headline already
-        * says which one this is, and a zoo of icons for "nothing here"
-        * reads as decoration. */}
-      <span className="sports-empty__mark" aria-hidden>
-        <LeaguesIcon />
-      </span>
-      <h2 className="sports-empty__title">{title}</h2>
-      <p className="sports-empty__note" role={alert ? "alert" : "status"}>
-        {note}
-      </p>
-      {action && (
-        <Button
-          variant="default"
-          type="button"
-          className="sports-empty__action"
-          onClick={action.onClick}
-        >
-          {action.label}
-        </Button>
-      )}
-    </div>
+    <StateCard
+      className="sports-empty"
+      role={alert ? "alert" : "status"}
+      // The trophy. One mark across all three states rather than a
+      // different picture per failure: the headline already says which one
+      // this is, and a zoo of icons for "nothing here" reads as decoration.
+      icon={<LeaguesIcon size={28} />}
+      title={title}
+      sub={note}
+      actions={
+        action && (
+          <Button variant="default" type="button" onClick={action.onClick}>
+            {action.label}
+          </Button>
+        )
+      }
+    />
   );
 }
 

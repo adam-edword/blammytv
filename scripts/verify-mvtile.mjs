@@ -207,7 +207,7 @@ const NEWS = "Fake News Channel";
   check(
     "a new tile says it is tuning",
     (await espn.getAttribute("data-state")) === "tuning" &&
-      (await espn.locator(".mvtile__statetitle").textContent()) === `Tuning ${ESPN}`,
+      (await espn.locator(".mvtile__state .state__title").textContent()) === `Tuning ${ESPN}`,
   );
 
   // The failures: words from what the proxy said.
@@ -243,7 +243,7 @@ const NEWS = "Fake News Channel";
   await news.hover();
   await news.getByRole("button", { name: "Retry" }).click();
   await page.waitForTimeout(1200);
-  const waitWords = await news.locator(".mvtile__statesub").textContent().catch(() => "");
+  const waitWords = await news.locator(".mvtile__state .state__sub").textContent().catch(() => "");
   const held = (await opens()).length;
   check(
     "Retry on a full line waits for a free slot, and says so",

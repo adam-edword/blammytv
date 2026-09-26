@@ -36,6 +36,7 @@ import { CloseIcon, PlayIcon, SwapIcon, VolumeIcon, WarnIcon } from "../../ui/ic
 import { Button, buttonVariants } from "../../components/ui/button";
 import { Hint } from "../../ui/Hint";
 import { ChannelLogo } from "../../ui/ChannelLogo";
+import { StateCard } from "../../ui/StateCard";
 import { LivePill } from "../../ui/LivePill";
 
 /**
@@ -599,65 +600,76 @@ export function MultiviewTile({
   let state: ReactNode = null;
   if (!url && unresolved) {
     state = (
-      <div className="mvtile__state mvtile__state--fail" data-kind="unresolved">
-        <span className="mvtile__stateicon" aria-hidden>
-          <WarnIcon size={22} />
-        </span>
-        <b className="mvtile__statetitle">No stream for {name}</b>
-        <span className="mvtile__statesub">Your provider didn’t give one for this channel.</span>
-        <Button variant="chip" size="chip" type="button" className="mvchip" onClick={own(onRetryResolve)}>
-          Retry
-        </Button>
-      </div>
+      <StateCard
+        size="tile"
+        className="mvtile__state mvtile__state--fail"
+        data-kind="unresolved"
+        icon={<WarnIcon size={22} />}
+        title={<>No stream for {name}</>}
+        sub="Your provider didn’t give one for this channel."
+        actions={
+          <Button variant="chip" size="chip" type="button" className="mvchip" onClick={own(onRetryResolve)}>
+            Retry
+          </Button>
+        }
+      />
     );
   } else if (failure) {
     state = (
-      <div className="mvtile__state mvtile__state--fail" data-kind={failure.kind}>
-        <span className="mvtile__stateicon" aria-hidden>
-          <WarnIcon size={22} />
-        </span>
-        <b className="mvtile__statetitle">{failure.title}</b>
-        <span className="mvtile__statesub">{failure.reason}</span>
-        {(failure.retry || failure.kind === "decode") && (
-          <span className="mvtile__stateacts">
-            {failure.retry && (
-              <Button variant="chip" size="chip" type="button" className="mvchip" onClick={own(retry)}>
-                Retry
-              </Button>
-            )}
-            {/* It says the Guide's player can, so the way there is on the
-              * card, not only a hover icon (plan 018, U7). */}
-            {failure.kind === "decode" && (
-              <Button variant="chip" size="chip" type="button" className="mvchip" onClick={own(onWatch)}>
-                Watch in player
-              </Button>
-            )}
-          </span>
-        )}
-      </div>
+      <StateCard
+        size="tile"
+        className="mvtile__state mvtile__state--fail"
+        data-kind={failure.kind}
+        icon={<WarnIcon size={22} />}
+        title={failure.title}
+        sub={failure.reason}
+        actions={
+          (failure.retry || failure.kind === "decode") && (
+            <>
+              {failure.retry && (
+                <Button variant="chip" size="chip" type="button" className="mvchip" onClick={own(retry)}>
+                  Retry
+                </Button>
+              )}
+              {/* It says the Guide's player can, so the way there is on the
+                * card, not only a hover icon (plan 018, U7). */}
+              {failure.kind === "decode" && (
+                <Button variant="chip" size="chip" type="button" className="mvchip" onClick={own(onWatch)}>
+                  Watch in player
+                </Button>
+              )}
+            </>
+          )
+        }
+      />
     );
   } else if (recovering) {
     state = (
-      <div className="mvtile__state" data-kind="reconnecting">
-        <span className="buffering__dot" aria-hidden />
-        <b className="mvtile__statetitle">Reconnecting {name}</b>
-        <span className="mvtile__statesub">
-          {forSlot
+      <StateCard
+        size="tile"
+        className="mvtile__state"
+        data-kind="reconnecting"
+        busy
+        title={<>Reconnecting {name}</>}
+        sub={
+          forSlot
             ? "Waiting for a free slot on your line."
             : recovering === "drop"
               ? "It dropped. Getting it back."
-              : "Trying again."}
-        </span>
-      </div>
+              : "Trying again."
+        }
+      />
     );
   } else if (!playing) {
+    // The main player's buffering pulse, so the two speak one language.
     state = (
-      <div className="mvtile__state">
-        {/* The main player's buffering pulse, so the two speak one language. */}
-        <span className="buffering__dot" aria-hidden />
-        <b className="mvtile__statetitle">Tuning {name}</b>
-        {chanLine !== name && <span className="mvtile__statesub">{chanLine}</span>}
-      </div>
+      <StateCard
+        size="tile"
+        className="mvtile__state"
+        busy
+        title={<>Tuning {name}</>}
+        sub={chanLine !== name ? chanLine : undefined}
+      />
     );
   } else if (stalled) {
     state = (

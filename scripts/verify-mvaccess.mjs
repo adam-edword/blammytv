@@ -288,7 +288,7 @@ const focusedLabel = (page) =>
   });
   const news = tile(page, NEWS);
   await news.locator(".mvtile__state--fail").waitFor({ timeout: 15_000 }).catch(() => {});
-  const title = await news.locator(".mvtile__statetitle").textContent().catch(() => null);
+  const title = await news.locator(".mvtile__state .state__title").textContent().catch(() => null);
   const watch = news.locator(".mvtile__state--fail").getByRole("button", { name: "Watch in player" });
   const offered = await watch.count();
   await watch.click().catch(() => {});
