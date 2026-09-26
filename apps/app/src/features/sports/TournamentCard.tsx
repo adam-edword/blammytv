@@ -57,7 +57,7 @@ function TournamentCardImpl({
         glareEnable={!REDUCED_MOTION}
         glareMaxOpacity={0.09}
         glarePosition="all"
-        glareBorderRadius="42.6px"
+        glareBorderRadius="var(--radius-card)"
       >
         <span className="upcard__body">
           <span className="upcard__head">

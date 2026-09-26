@@ -2311,7 +2311,7 @@ function Hero({
                 glareEnable={!reducedMotion}
                 glareMaxOpacity={0.12}
                 glarePosition="all"
-                glareBorderRadius="60px"
+                glareBorderRadius="var(--radius-card)"
               >
               {(item.backdrop ?? item.poster) && (
                 <img
@@ -2449,7 +2449,7 @@ export const Card = memo(function Card({
         glareEnable={!reducedMotion}
         glareMaxOpacity={0.12}
         glarePosition="all"
-        glareBorderRadius="25px"
+        glareBorderRadius="var(--radius-card)"
       >
         {item.poster && !broken ? (
           <img
@@ -2885,9 +2885,9 @@ function Detail({
                 onClick={() => onOpenItem?.(v)}
               >
                 {/* Same lean and glare as every other poster in the app.
-                  * Props match Card exactly, except the glare radius, which
-                  * tracks THIS card's corner (30px) — the glare layer is
-                  * clipped by its own radius, not the button's. */}
+                  * Props match Card exactly. The glare layer is clipped by
+                  * its own radius, not the button's, so it takes the card's
+                  * token. */}
                 <Tilt
                   className="vod-more__tilt"
                   tiltEnable={!REDUCED_MOTION}
@@ -2898,7 +2898,7 @@ function Detail({
                   glareEnable={!REDUCED_MOTION}
                   glareMaxOpacity={0.12}
                   glarePosition="all"
-                  glareBorderRadius="30px"
+                  glareBorderRadius="var(--radius-card)"
                 >
                   <img
                     src={v.poster}

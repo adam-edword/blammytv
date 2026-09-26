@@ -468,9 +468,9 @@
   position: relative;
   display: block;
   height: 276.9px;
-  /* Keep glareBorderRadius in GameCard in step with this: the glare is its
-   * own layer with its own clip, so a mismatch shows as a square sheen
-   * poking out of a round corner. */
+  /* GameCard's glareBorderRadius is this same token: the glare is its own
+   * layer with its own clip, so a mismatch shows as a sheen with a
+   * different corner from the card's. Change one, change both. */
   border-radius: var(--radius-card);
   overflow: hidden;
   border: 1px solid rgba(var(--card-ink), 0.07);
@@ -1274,7 +1274,7 @@
    * header and along the bottom edge: at 114 the whole thing came to four
    * pixels of slack and the last row sat right on the card's edge. */
   height: 181.76px;
-  /* Keep glareBorderRadius in UpcomingCard in step with this. */
+  /* UpcomingCard's glareBorderRadius is this same token. */
   border-radius: var(--radius-card);
   overflow: hidden;
   border: 1px solid rgba(var(--card-ink), 0.07);
@@ -2631,7 +2631,7 @@
    * able to say why. */
   padding: 5px 25.56px;
   border: 1px solid rgba(var(--card-ink), 0.07);
-  /* Keep glareBorderRadius in RaceCard in step with this. */
+  /* RaceCard's glareBorderRadius is this same token. */
   border-radius: var(--radius-card);
   background: var(--card-bg);
   overflow: hidden;
@@ -3013,8 +3013,8 @@
 }
 /* The tilt layer owns the clip, the ring and the shadow, for the reason
  * .gamecard__tilt does: overflow:hidden on a parent squares off the
- * corners of a rotated child mid-lean. Keep the radius in step with
- * glareBorderRadius in WideRaceCard.tsx. */
+ * corners of a rotated child mid-lean. WideRaceCard.tsx's
+ * glareBorderRadius is this radius's token. */
 .wracecard__tilt {
   position: relative;
   display: block;
@@ -3687,9 +3687,9 @@
  * and a content-driven height, which read as a different KIND of object
  * sitting in the same grid.
  *
- * Keep glareBorderRadius in GolfCard in step with the radius, the same
- * note the race card carries: the tilt library draws its own layer and
- * cannot read this. */
+ * GolfCard's glareBorderRadius is this radius's token, the same note the
+ * race card carries: the tilt library draws its own layer and is handed
+ * the radius as a string. */
 .golfcard__tilt {
   position: relative;
   display: block;

@@ -66,9 +66,9 @@ function RaceCardImpl({ race }: { race: Field }) {
         * the same object about a different sport.
         *
         * The tilt layer is the card SURFACE, not a wrapper around it. That
-        * is what gives the glare something to clip to, and it is why the
-        * radius is repeated here — the library draws its own layer and
-        * cannot read the CSS. Keep it in step with .racecard__tilt. */}
+        * is what gives the glare something to clip to. The library draws
+        * its own layer, so its radius is .racecard__tilt's token, passed
+        * as a string. */}
       <Tilt
         className="racecard__tilt"
         tiltEnable={!REDUCED_MOTION}
@@ -79,7 +79,7 @@ function RaceCardImpl({ race }: { race: Field }) {
         glareEnable={!REDUCED_MOTION}
         glareMaxOpacity={0.09}
         glarePosition="all"
-        glareBorderRadius="42.6px"
+        glareBorderRadius="var(--radius-card)"
       >
         {/* The host country's colours, hugging the right edge. The card was
           * all greys and a couple of driver flags, and a race has a country

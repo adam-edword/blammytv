@@ -46,7 +46,7 @@ function WeekendCardImpl({ weekend }: { weekend: Weekend }) {
         glareEnable={!REDUCED_MOTION}
         glareMaxOpacity={0.09}
         glarePosition="all"
-        glareBorderRadius="42.6px"
+        glareBorderRadius="var(--radius-card)"
       >
         {flag && (
           <img className="racecard__flag" src={flag} alt="" aria-hidden loading="lazy" />
