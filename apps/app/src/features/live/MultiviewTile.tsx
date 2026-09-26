@@ -33,6 +33,7 @@ import { watchLevel, type LevelWatch } from "./mvLevel";
 import { formatClock } from "../../lib/time";
 import { loadClockFormat } from "../settings/clockFormat";
 import { CloseIcon, PlayIcon, SwapIcon, VolumeIcon, WarnIcon } from "../../ui/icons";
+import { Button, buttonVariants } from "../../components/ui/button";
 import { Hint } from "../../ui/Hint";
 
 /**
@@ -641,9 +642,9 @@ export function MultiviewTile({
         </span>
         <b className="mvtile__statetitle">No stream for {name}</b>
         <span className="mvtile__statesub">Your provider didn’t give one for this channel.</span>
-        <button type="button" className="mvchip" onClick={own(onRetryResolve)}>
+        <Button variant="chip" size="chip" type="button" className="mvchip" onClick={own(onRetryResolve)}>
           Retry
-        </button>
+        </Button>
       </div>
     );
   } else if (failure) {
@@ -657,16 +658,16 @@ export function MultiviewTile({
         {(failure.retry || failure.kind === "decode") && (
           <span className="mvtile__stateacts">
             {failure.retry && (
-              <button type="button" className="mvchip" onClick={own(retry)}>
+              <Button variant="chip" size="chip" type="button" className="mvchip" onClick={own(retry)}>
                 Retry
-              </button>
+              </Button>
             )}
             {/* It says the Guide's player can, so the way there is on the
               * card, not only a hover icon (plan 018, U7). */}
             {failure.kind === "decode" && (
-              <button type="button" className="mvchip" onClick={own(onWatch)}>
+              <Button variant="chip" size="chip" type="button" className="mvchip" onClick={own(onWatch)}>
                 Watch in player
-              </button>
+              </Button>
             )}
           </span>
         )}
@@ -778,42 +779,48 @@ export function MultiviewTile({
       <div className="mvtile__chrome">
         <div className="mvtile__actions">
           {!focused && !dead && (
-            <button type="button" className="mvchip" onClick={own(onFocus)}>
-              <VolumeIcon size={15} />
+            <Button variant="chip" size="chip" type="button" className="mvchip" onClick={own(onFocus)}>
+              <VolumeIcon size={15} className="size-[15px]" />
               Sound here
-            </button>
+            </Button>
           )}
           {/* The app's tooltips, not the browser's (ui/Hint). The keys are
             * named on the sound tile only: R and Delete act on it. */}
           <Hint label="Watch in player">
-            <button
+            <Button
+              variant="chip"
+              size="icon-chip"
               type="button"
-              className="mvchip mvchip--icon"
+              className="mvchip"
               aria-label={`Watch ${name} in the player`}
               onClick={own(onWatch)}
             >
-              <PlayIcon size={15} />
-            </button>
+              <PlayIcon size={15} className="size-[15px]" />
+            </Button>
           </Hint>
           <Hint label={focused ? "Replace (R)" : "Replace"}>
-            <button
+            <Button
+              variant="chip"
+              size="icon-chip"
               type="button"
-              className="mvchip mvchip--icon"
+              className="mvchip"
               aria-label={`Replace ${name}`}
               onClick={own(onReplace)}
             >
-              <SwapIcon size={15} />
-            </button>
+              <SwapIcon size={15} className="size-[15px]" />
+            </Button>
           </Hint>
           <Hint label={focused ? "Close (Delete)" : "Close"}>
-            <button
+            <Button
+              variant="chip"
+              size="icon-chip"
               type="button"
-              className="mvchip mvchip--icon"
+              className="mvchip"
               aria-label={`Close ${name}`}
               onClick={own(onRemove)}
             >
-              <CloseIcon size={15} />
-            </button>
+              <CloseIcon size={15} className="size-[15px]" />
+            </Button>
           </Hint>
         </div>
         {playing && !failure && !recovering && (
@@ -854,7 +861,14 @@ export function MultiviewTile({
       </div>
       {picking && (
         <div className="mvtile__pick" aria-hidden>
-          <span className="mvchip mvtile__pickword">
+          <span
+            className={
+              // A chip's look on a span: the whole tile is the target, so
+              // this only says what picking it does.
+              buttonVariants({ variant: "chip", size: "chip" }) +
+              " mvtile__pickword h-[38px] max-w-[calc(100%-24px)] px-4 text-[13.5px]"
+            }
+          >
             <span className="mvtile__pickname">Swap for {picking}</span>
           </span>
         </div>

@@ -264,9 +264,10 @@
  * hover (they only render at all when scrolling that way is possible). */
 .media-row__arrow {
   position: absolute;
-  /* Centred on the artwork band, which sits above the row's titles. It
-   * assumed the old 46px circle; the circle is 44px now (size-11). */
-  top: calc(50% - 44px);
+  /* Centred on the artwork band, which sits above the row's titles: the
+   * 40px glass circle (Button's `icon`), 2px lower than the old 44px one
+   * so its centre stays put. */
+  top: calc(50% - 42px);
   z-index: 3;
   place-items: center;
   opacity: 0;

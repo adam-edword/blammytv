@@ -960,27 +960,8 @@
   color: var(--text-muted);
 }
 
-.mvnotice__accept {
-  width: 100%;
-  padding: 12px;
-  border: 0;
-  border-radius: 13px;
-  background: var(--text);
-  color: var(--bg);
-  font: inherit;
-  font-size: 14px;
-  font-weight: 650;
-  cursor: pointer;
-  transition: filter 120ms var(--ease-out, ease);
-}
-
-.mvnotice__accept:hover:not(:active) {
-  filter: brightness(0.92);
-}
-
-.mvnotice__accept:active {
-  filter: brightness(0.84);
-}
+/* "Got it" is Button's white pill at `lg`, the dialog's one bright thing
+ * (plan 019, K3). */
 
 .mvnotice__once {
   margin: 9px 0 0;
@@ -1102,11 +1083,6 @@
 .mvbar__side.is-compact .mvbar__addword {
   display: none;
 }
-.mvbar__side.is-compact .mvbar__add {
-  width: 40px;
-  padding: 0;
-  justify-content: center;
-}
 .mvbar__side.is-compact .mvvol__slider {
   width: 56px;
 }
@@ -1174,21 +1150,8 @@
   cursor: pointer;
 }
 
-.mvbar__icon {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border: 0;
-  border-radius: 50%;
-  background: var(--glass);
-  backdrop-filter: var(--glass-fx);
-  color: var(--text);
-  cursor: pointer;
-}
-
-.mvbar__icon:active,
-.mvbar__add:active {
+.mvbar__add:active,
+.mvbar__icon:active {
   transform: scale(0.95);
 }
 
@@ -1230,28 +1193,6 @@
   );
 }
 
-/* Add: the one bright thing in the bar while there is room, and quiet
- * (not gone) at the cap, with the reason in its tooltip. */
-.mvbar__add {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  height: 40px;
-  padding: 0 16px 0 13px;
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: var(--text);
-  color: var(--bg);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 650;
-  cursor: pointer;
-}
-.mvbar__add[aria-disabled="true"] {
-  background: var(--glass);
-  color: var(--text-muted);
-  cursor: not-allowed;
-}
 
 .mvgrid {
   position: absolute;
@@ -1560,15 +1501,10 @@
   background: rgb(0 0 0 / 0.25);
   transition: background-color var(--dur-hover) var(--ease-out, ease);
 }
-/* Chip AND word, so this wins over .mvchip's 30px, which comes later and
- * used to take the height and the font; with nothing to stop it wrapping,
- * "Swap for …" ran to three lines in a 30px pill on a small tile (plan
- * 018, U8). One line, and a long name ends in an ellipsis. */
-.mvchip.mvtile__pickword {
-  height: 38px;
-  max-width: calc(100% - 24px);
-  padding: 0 16px;
-  font-size: 13.5px;
+/* The pick word's size is utilities at the call site (it wears Button's
+ * chip look); one line, and a long name ends in an ellipsis (plan 018, U8).
+ * Only the fade is here. */
+.mvtile__pickword {
   opacity: 0;
   transition: opacity var(--dur-hover) var(--ease-out, ease);
 }
@@ -1601,35 +1537,10 @@
   gap: 6px;
 }
 
-/* The tile's buttons, in the capsule's glass. */
-.mvchip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  height: 30px;
-  min-width: 30px;
-  padding: 0 11px;
-  border: 1px solid var(--chip-edge);
-  border-radius: var(--radius-pill);
-  background: var(--chip-bg);
-  backdrop-filter: var(--chip-fx);
-  color: var(--on-image);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color var(--dur-hover) var(--ease-out, ease);
-}
-.mvchip:hover {
-  background: var(--chip-bg-hover);
-}
+/* The tile's buttons are Button's `chip` variant (plan 019, K3): the
+ * paint that lived here is components/ui/button.tsx's now. */
 .mvchip:active {
   transform: scale(0.95);
-}
-.mvchip--icon {
-  width: 30px;
-  padding: 0;
 }
 
 .mvtile__info {

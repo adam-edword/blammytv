@@ -97,7 +97,6 @@ export function AioStreamsTab() {
         <Button
           variant="default"
           type="button"
-          className="btn-primary"
           disabled={!dirty || !submittable}
           onClick={submit}
         >
@@ -114,9 +113,8 @@ export function AioStreamsTab() {
             result when reporting a problem; it never shows your URL.
           </p>
           <Button
-            variant="default"
+            variant="secondary"
             type="button"
-            className="btn-primary"
             disabled={probing}
             onClick={() => runProbe(savedUrl)}
           >

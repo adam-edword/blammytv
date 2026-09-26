@@ -280,7 +280,9 @@ export function SportsSidebar({
             * Compact results toggle uses. */}
           <div className="sportsside__presets">
             {power.length > 0 && (
-              <button
+              <Button
+                variant="secondary"
+                size="sm"
                 type="button"
                 className={
                   "sports__toggle sports__toggle--pill" +
@@ -290,14 +292,16 @@ export function SportsSidebar({
                 onClick={() => onFollows(toggleConferences(follows, power))}
               >
                 Power 4
-              </button>
+              </Button>
             )}
             {/* NOT A CONFERENCE, and it is on this tab because this is the
               * only board it can act on: a poll has no opinion about the
               * NFL. It intersects where the conferences union, which is
               * why it is a separate control rather than a chip in the list
               * below. */}
-            <button
+            <Button
+              variant="secondary"
+              size="sm"
               type="button"
               className={
                 "sports__toggle sports__toggle--pill" +
@@ -307,7 +311,7 @@ export function SportsSidebar({
               onClick={onToggleRanked}
             >
               Ranked
-            </button>
+            </Button>
           </div>
           {confs.map((c) => (
             <Row

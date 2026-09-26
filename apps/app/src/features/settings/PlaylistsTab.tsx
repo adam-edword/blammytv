@@ -186,7 +186,6 @@ export function PlaylistsTab() {
         <Button
           variant="default"
           type="button"
-          className="btn-primary"
           disabled={!isComplete(kind, form)}
           onClick={add}
         >
@@ -375,13 +374,14 @@ function FolderEditor({
         {hidden.map((id) => (
           <div className="source-row" key={id}>
             <span className="source-row__name">{id}</span>
-            <button
+            <Button
+              variant="secondary"
+              size="sm"
               type="button"
-              className="btn-quiet"
               onClick={() => onSave(hidden.filter((h) => h !== id))}
             >
               Unhide
-            </button>
+            </Button>
           </div>
         ))}
       </div>
@@ -483,14 +483,16 @@ function FolderEditor({
               Discard
             </Button>
             <Button
-              variant="default"
+              // Glass, not the white pill: Add Playlist is this pane's one
+              // bright thing (plan 019, K3).
+              variant="secondary"
               // Sits in the source-tools bar beside a 13px search field, so
               // it takes shadcn's compact size rather than the bar's old
               // padding/font-size override (both are Button utilities now
               // and a rule in settings.css could not reach them).
               size="sm"
               type="button"
-              className="btn-primary source-tools__save"
+              className="source-tools__save"
               onClick={() => onSave([...draft])}
             >
               Save

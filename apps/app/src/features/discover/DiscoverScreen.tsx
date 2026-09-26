@@ -502,7 +502,6 @@ export function DiscoverScreen() {
               <Button
                 variant="default"
                 type="button"
-                className="btn-primary"
                 onClick={() => setCfgTick((t) => t + 1)}
               >
                 Try again
@@ -535,7 +534,6 @@ export function DiscoverScreen() {
               <Button
                 variant="default"
                 type="button"
-                className="btn-primary"
                 onClick={() => setSearchTick((t) => t + 1)}
               >
                 Try again
@@ -621,7 +619,6 @@ export function DiscoverScreen() {
             <Button
               variant="default"
               type="button"
-              className="btn-primary"
               onClick={() => void loadMore(true)}
             >
               Try again

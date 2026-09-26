@@ -58,7 +58,7 @@ export function SportsEmpty({
         <Button
           variant="default"
           type="button"
-          className="btn-primary sports-empty__action"
+          className="sports-empty__action"
           onClick={action.onClick}
         >
           {action.label}

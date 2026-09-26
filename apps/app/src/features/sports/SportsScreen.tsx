@@ -811,7 +811,9 @@ export function SportsScreen({ home }: { home?: number } = {}) {
               * headings' toggle: a row with nothing finished on it has
               * nothing to hide. */}
             {rowHasFinals && (
-              <button
+              <Button
+                variant="secondary"
+                size="sm"
                 type="button"
                 className={
                   "sports__toggle sports__toggle--pill" +
@@ -821,7 +823,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
                 aria-pressed={hideFinished}
               >
                 Hide finished
-              </button>
+              </Button>
             )}
           </div>
           {rowItems.length > 0 ? (
@@ -853,7 +855,9 @@ export function SportsScreen({ home }: { home?: number } = {}) {
                 {/* Only where it would do something. A day with nothing
                   * finished on it has no results to compact. */}
                 {day.games.some((g) => g.state === "final") && (
-                  <button
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     type="button"
                     className={
                       "sports__toggle" + (compact ? " is-on" : "")
@@ -862,7 +866,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
                     aria-pressed={compact}
                   >
                     Compact results
-                  </button>
+                  </Button>
                 )}
               </div>
               <div className="sports__grid">

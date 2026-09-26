@@ -68,6 +68,7 @@ import {
   PlusIcon,
   VolumeIcon,
 } from "../../ui/icons";
+import { Button } from "../../components/ui/button";
 import { Hint } from "../../ui/Hint";
 import { Segmented } from "../../ui/Segmented";
 
@@ -821,14 +822,20 @@ export function MultiviewTab() {
           {!blocked && picks.length > 0 && (
             <div className="mvvol">
               <Hint label={vol.muted ? "Unmute (M)" : "Mute (M)"}>
-                <button
+                <Button
+                  variant="secondary"
+                  size="icon"
                   type="button"
                   className="mvbar__icon"
                   aria-label={vol.muted ? "Unmute" : "Mute"}
                   onClick={toggleMute}
                 >
-                  {vol.muted || vol.volume === 0 ? <MuteIcon size={18} /> : <VolumeIcon size={18} />}
-                </button>
+                  {vol.muted || vol.volume === 0 ? (
+                    <MuteIcon size={18} className="size-[18px]" />
+                  ) : (
+                    <VolumeIcon size={18} className="size-[18px]" />
+                  )}
+                </Button>
               </Hint>
               <input
                 className="mvvol__slider"
@@ -844,27 +851,35 @@ export function MultiviewTab() {
           )}
           {!blocked && (
             <Hint label={full ?? "Add a channel (A)"}>
-              <button
+              <Button
                 type="button"
-                className="mvbar__add"
+                // Narrow, the word goes and Add is its plus in a circle. As a
+                // utility, because Button's own padding outranks app CSS.
+                className={"mvbar__add" + (compactRight ? " w-10 px-0 has-[>svg]:pl-0" : "")}
                 aria-disabled={full !== null}
                 aria-label="Add channel"
                 onClick={openAdd}
               >
                 <PlusIcon size={16} />
                 <span className="mvbar__addword">Add channel</span>
-              </button>
+              </Button>
             </Hint>
           )}
           <Hint label={fullscreen ? "Exit full screen (F)" : "Full screen (F)"}>
-            <button
+            <Button
+              variant="secondary"
+              size="icon"
               type="button"
               className="mvbar__icon"
               aria-label={fullscreen ? "Exit full screen" : "Full screen"}
               onClick={toggleFullscreen}
             >
-              {fullscreen ? <ExitFullscreenIcon size={18} /> : <FullscreenIcon size={18} />}
-            </button>
+              {fullscreen ? (
+                <ExitFullscreenIcon size={18} className="size-[18px]" />
+              ) : (
+                <FullscreenIcon size={18} className="size-[18px]" />
+              )}
+            </Button>
           </Hint>
         </div>
       </div>

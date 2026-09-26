@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Button } from "../../components/ui/button";
 import { carriageText, carriageUnlinked } from "./carriage";
 import { GameCard } from "./GameCard";
 import { Segmented } from "../../ui/Segmented";
 import { UpcomingCard } from "./UpcomingCard";
-import { BackArrowIcon, WarnIcon } from "../../ui/icons";
+import { WarnIcon } from "../../ui/icons";
 import { useMouseNav } from "../../lib/mouseNav";
 import { isModalOpen } from "../../lib/modalOpen";
 import { isTauri, tauriIsFullscreen } from "../../lib/tauri";
 import type { Fixture, Tournament } from "./model";
+import { BackButton } from "../../ui/BackButton";
 
 /** The "every draw" option's key: not a name a draw can have. */
 const ALL_DRAWS = "\u0000all";
@@ -165,15 +165,7 @@ export function TournamentDraw({
         * lines. A wrapper has no such number in it. */}
       <div className="tourndraw__head">
         <header className="tourndraw__top">
-          <Button variant="outline" size="sm"
-            ref={back}
-            type="button"
-            className="tourndraw__back"
-            aria-label="Back to the board"
-            onClick={onClose}
-          >
-            <BackArrowIcon className="size-5" />
-          </Button>
+          <BackButton ref={back} label="Back to the board" className="tourndraw__back" onClick={onClose} />
           <div className="tourndraw__titles">
             <h2 className="tourndraw__title">{event.title}</h2>
             <p className="tourndraw__where">

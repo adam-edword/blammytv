@@ -1413,11 +1413,10 @@ export function TheaterOverlay({
         {loading && (
           <TuneCard meta={meta} phase={tune} onRetry={retryTune} vod={vod} compact />
         )}
-        <Button variant="ghost" size="icon"
+        <Button variant="chip" size="icon"
           type="button"
-          // Fixed white on a scrim, whatever the app theme: it sits on the
-          // picture, not on the page.
-          className="overlay__btn overlay__play rounded-full bg-black/30 text-white hover:bg-black/45 hover:text-white"
+          // A chip on the picture, whatever the app theme (plan 019, K3).
+          className="overlay__btn overlay__play"
           aria-label={paused ? "Play" : "Pause"}
           title={paused ? "Play" : "Pause"}
           onClick={(e) => {
@@ -1427,11 +1426,10 @@ export function TheaterOverlay({
         >
           {paused ? <PlayIcon className="size-4.5" /> : <PauseIcon className="size-4.5" />}
         </Button>
-        <Button variant="ghost" size="icon"
+        <Button variant="chip" size="icon"
           type="button"
-          // Fixed white on a scrim, whatever the app theme: it sits on the
-          // picture, not on the page.
-          className="overlay__btn mini-overlay__close rounded-full bg-black/30 text-white hover:bg-black/45 hover:text-white"
+          // A chip on the picture, whatever the app theme (plan 019, K3).
+          className="overlay__btn mini-overlay__close"
           aria-label="Stop"
           title="Stop"
           onClick={(e) => {
@@ -1483,9 +1481,9 @@ export function TheaterOverlay({
           * this is a screen you came to from somewhere, and the somewhere
           * is what you want. Same action either way: fullscreen steps back
           * to the theater, the theater steps back to where you were. */}
-        <Button variant="ghost" size="icon"
+        <Button variant="chip" size="icon"
           type="button"
-          className="player__btn player__btn--glass"
+          className="player__btn"
           aria-label={fs ? "Exit fullscreen" : "Back"}
           title={fs ? "Exit fullscreen" : "Back"}
           onClick={() => (fs ? api()?.exitFullscreen?.() : api()?.collapse?.())}
@@ -1496,9 +1494,9 @@ export function TheaterOverlay({
           * fullscreen toggle applies to both: VOD theater ↔ OS
           * fullscreen.) */}
         {!vod && (
-          <Button variant="ghost" size="icon"
+          <Button variant="chip" size="icon"
             type="button"
-            className={"player__btn player__btn--glass" + (fav ? " is-fav" : "")}
+            className={"player__btn" + (fav ? " is-fav" : "")}
             aria-label={fav ? "Remove from favorites" : "Add to favorites"}
           title={fav ? "Remove from favorites" : "Add to favorites"}
             aria-pressed={fav}
@@ -1514,9 +1512,9 @@ export function TheaterOverlay({
           * grid and takes the sound (plan 017, P6b). The player stops as
           * its screen is left, which frees the connection for the grid. */}
         {!vod && api()?.multiview && (
-          <Button variant="ghost" size="icon"
+          <Button variant="chip" size="icon"
             type="button"
-            className="player__btn player__btn--glass"
+            className="player__btn"
             aria-label="Watch in multi-view"
             title="Watch in multi-view"
             onClick={() => api()?.multiview?.()}
@@ -1524,18 +1522,18 @@ export function TheaterOverlay({
             <MultiviewIcon size={20} />
           </Button>
         )}
-        <Button variant="ghost" size="icon"
+        <Button variant="chip" size="icon"
           type="button"
-          className="player__btn player__btn--glass"
+          className="player__btn"
           aria-label="Pop out"
           title="Pop out"
           onClick={() => api()?.popout?.()}
         >
           <PopoutIcon className="size-5" />
         </Button>
-        <Button variant="ghost" size="icon"
+        <Button variant="chip" size="icon"
           type="button"
-          className="player__btn player__btn--glass"
+          className="player__btn"
           aria-label={fs ? "Exit fullscreen" : "Fullscreen"}
           title={fs ? "Exit fullscreen" : "Fullscreen"}
           onClick={toggleFullscreen}

@@ -595,7 +595,6 @@ export function CustomizeTab() {
             <Button
               variant="destructive"
               type="button"
-              className="btn-danger"
               onClick={reset}
             >
               Reset

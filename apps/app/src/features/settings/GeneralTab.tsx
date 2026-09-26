@@ -79,9 +79,8 @@ export function GeneralTab() {
             </p>
           </div>
           <Button
-            variant="default"
+            variant="secondary"
             type="button"
-            className="btn-primary"
             onClick={requestOnboardingReplay}
           >
             Replay
@@ -113,10 +112,7 @@ export function GeneralTab() {
               // (It also could not have stayed in CSS: the variant paints
               // the fill with a utility, and utilities outrank the app
               // layer.) The label still carries the state in words.
-              className={
-                "btn-danger" +
-                (clearArmed ? " ring-[3px] ring-destructive/50" : "")
-              }
+              className={clearArmed ? "ring-[3px] ring-destructive/50" : undefined}
               onClick={clearLogins}
             >
               {clearArmed ? "Click again to confirm" : "Clear…"}

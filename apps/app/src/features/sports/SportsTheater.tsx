@@ -57,6 +57,7 @@ import { railFor } from "./matcher";
 import { logPairing } from "./pairingLog";
 import type { Catalog, Match } from "./matcher";
 import type { Fixture, Game } from "./model";
+import { BackButton } from "../../ui/BackButton";
 
 /** CSS corner radius of .sportstheater__slot. Two things round by it and
  * they must agree: the stylesheet below, and the rect InvertedPlayer cuts
@@ -665,25 +666,7 @@ export function SportsTheater({
          * picture takes the window: mpv is a native surface BELOW the page
          * and cannot be overlapped, so a button drawn over it would not be
          * there at all. Escape and mouse-back still work in that state. */}
-        <Button
-          variant="ghost"
-          // Folded, this is an arrow and nothing else, which is exactly what
-          // shadcn's `icon` size is for: a 36px square instead of the text
-          // button's h-9 px-4. It replaces a padding override that used to
-          // live in sports.css and, since v0.9.54, could no longer work
-          // there — Button's `px-4` is a utility and utilities outrank the
-          // app layer, so the narrower padding never reached the element.
-          size={folded ? "icon" : "default"}
-          type="button"
-          className="vod-back sportstheater__back rounded-full hover:bg-black/60"
-          onClick={onClose}
-          // Folded, the pill is the arrow alone: the word would set the
-          // strip's width on its own, so the name has to be said here
-          // instead of read off the text.
-          aria-label="Back"
-        >
-          {folded ? "←" : "← Back"}
-        </Button>
+        <BackButton className="vod-back sportstheater__back" onClick={onClose} />
         <Matchup game={game} />
 
         {/* Every channel of yours carrying this game. The schedule names

@@ -37,6 +37,7 @@ import {
   onCardMetaChange,
   type CardMetaField,
 } from "../settings/cardMeta";
+import { BackButton } from "../../ui/BackButton";
 
 /**
  * Library (plan 009): Discover's shape, with Continue Watching where the
@@ -248,14 +249,7 @@ export function LibraryScreen() {
     return (
       <div ref={scrollRef} className="discover library">
         <div className="library__bar">
-          <Button
-            variant="ghost"
-            type="button"
-            className="vod-back rounded-full hover:bg-black/60"
-            onClick={goBack}
-          >
-            ← Back
-          </Button>
+          <BackButton className="vod-back" onClick={goBack} />
           {!isHistory && list && renaming ? (
             <NameField
               initial={list.name}
@@ -357,13 +351,11 @@ export function LibraryScreen() {
                       metaFields={gridMetaFields}
                       onOpen={openItem}
                     />
-                    <Button variant="ghost" size="sm"
+                    <Button variant="chip" size="chip"
                       type="button"
-                      // A pill on a scrim over the poster, revealed with the
-                      // card (stream.css). It was size="icon-sm", a 32px
-                      // square, with the word "Remove" spilling out of it on
-                      // every card, all the time.
-                      className="library__remove h-7 rounded-full border border-white/20 bg-black/55 px-3 text-xs text-white backdrop-blur-sm hover:bg-black/70 hover:text-white"
+                      // A chip on the poster (plan 019, K3), revealed with the
+                      // card (stream.css).
+                      className="library__remove"
                       aria-label={`Remove ${e.title} from ${list?.name ?? "list"}`}
                       onClick={() => {
                         if (list) removeFromList(list.id, e.id);

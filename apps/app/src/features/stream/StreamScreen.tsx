@@ -92,6 +92,7 @@ import {
   tauriPopoutPos,
   tauriPopoutStop,
 } from "../../lib/tauri";
+import { BackButton } from "../../ui/BackButton";
 
 /**
  * The Stream tab: AIOStreams-powered movies + series. A featured hero, then
@@ -1376,13 +1377,15 @@ export function StreamScreen() {
           {slowResolve && (
             <p className="tune__vodslow">Still looking for a source…</p>
           )}
-          <button
+          <Button
+            variant="secondary"
+            size="sm"
             type="button"
-            className="btn-quiet tune__vodcancel"
+            className="tune__vodcancel"
             onClick={cancelResolve}
           >
             Cancel
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -1448,9 +1451,9 @@ export function StreamScreen() {
               >
               <div className="vod-panel__head">
                 <h3>Sources</h3>
-                <Button variant="ghost" size="icon"
+                <Button variant="ghost" size="icon-sm"
                   type="button"
-                  className="player__btn player__btn--glass"
+                  className="player__btn"
                   aria-label="Close sources"
                   onClick={closePanel}
                 >
@@ -1550,7 +1553,6 @@ export function StreamScreen() {
                 <Button
                   variant="default"
                   type="button"
-                  className="btn-primary"
                   onClick={() => void playUpNext()}
                 >
                   Play now
@@ -1558,7 +1560,6 @@ export function StreamScreen() {
                 <Button
                   variant="secondary"
                   type="button"
-                  className="shero__btn-quiet"
                   onClick={stop}
                 >
                   Cancel
@@ -1600,7 +1601,6 @@ export function StreamScreen() {
                     // utilities now, so it has to be the size prop.
                     size="sm"
                     type="button"
-                    className="btn-primary"
                     onClick={() => {
                       const m = upNextMini;
                       setUpNextMini(null);
@@ -1611,9 +1611,9 @@ export function StreamScreen() {
                   </Button>
                 </div>
               </div>
-              <Button variant="ghost" size="icon"
+              <Button variant="chip" size="icon-chip"
                 type="button"
-                className="player__btn player__btn--glass upnext-mini__close"
+                className="player__btn upnext-mini__close"
                 aria-label="Dismiss"
                 onClick={() => {
                   miniDismissedRef.current = upNextMini.episode.id;
@@ -1639,16 +1639,15 @@ export function StreamScreen() {
             <Button
               variant="default"
               type="button"
-              className="btn-primary"
               onClick={() => void bringBack()}
             >
               Bring It Back
             </Button>
             {/* ✕ = done with the pop-out too: close it and land on the
               * source selector (the view under the stage). */}
-            <Button variant="ghost" size="icon"
+            <Button variant="chip" size="icon-chip"
               type="button"
-              className="player__btn player__btn--glass vod-pip__close"
+              className="player__btn vod-pip__close"
               aria-label="Close pop-out"
               onClick={() => {
                 void tauriPopoutStop().catch(() => {});
@@ -1817,7 +1816,6 @@ function Home({
           <Button
             variant="default"
             type="button"
-            className="btn-primary"
             onClick={onRetry}
           >
             Try again
@@ -2083,12 +2081,12 @@ export function RowScroller({ children }: { children: ReactNode }) {
         {children}
       </div>
       {can.left && (
-        <Button variant="ghost" size="icon"
+        <Button variant="secondary" size="icon"
           type="button"
-          // A circle of the page colour behind the glyph: it sits over
-          // artwork and card text, and a bare chevron over a team name
-          // read as part of the name. Token colours, so a theme repaints it.
-          className="media-row__arrow media-row__arrow--left size-11 rounded-full border border-border bg-background/70 backdrop-blur-sm hover:bg-background/90"
+          // The capsule's glass behind the glyph (plan 019, K3): it sits over
+          // artwork and card text, and a bare chevron over a team name read
+          // as part of the name.
+          className="media-row__arrow media-row__arrow--left"
           aria-label="Scroll back"
           onClick={() => nudge(-1)}
         >
@@ -2096,12 +2094,12 @@ export function RowScroller({ children }: { children: ReactNode }) {
         </Button>
       )}
       {can.right && (
-        <Button variant="ghost" size="icon"
+        <Button variant="secondary" size="icon"
           type="button"
-          // A circle of the page colour behind the glyph: it sits over
-          // artwork and card text, and a bare chevron over a team name
-          // read as part of the name. Token colours, so a theme repaints it.
-          className="media-row__arrow media-row__arrow--right size-11 rounded-full border border-border bg-background/70 backdrop-blur-sm hover:bg-background/90"
+          // The capsule's glass behind the glyph (plan 019, K3): it sits over
+          // artwork and card text, and a bare chevron over a team name read
+          // as part of the name.
+          className="media-row__arrow media-row__arrow--right"
           aria-label="Scroll forward"
           onClick={() => nudge(1)}
         >
@@ -2353,7 +2351,6 @@ function Hero({
                   <Button
                     variant="default"
                     type="button"
-                    className="btn-primary"
                     tabIndex={active ? undefined : -1}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -2365,7 +2362,6 @@ function Hero({
                   <Button
                     variant="secondary"
                     type="button"
-                    className="shero__btn-quiet"
                     tabIndex={active ? undefined : -1}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -2781,14 +2777,7 @@ function Detail({
         <img className="vod-detail__backdrop" src={item.backdrop} alt="" />
       )}
       <div className="vod-detail__scrim" aria-hidden />
-      <Button
-        variant="ghost"
-        type="button"
-        className="vod-back rounded-full hover:bg-black/60"
-        onClick={onBack}
-      >
-        ← Back
-      </Button>
+      <BackButton className="vod-back" onClick={onBack} />
       <div className="vod-detail__body">
         <div className="vod-detail__info">
           {item.logo ? (
@@ -2981,14 +2970,7 @@ function Episodes({
         <img className="vod-detail__backdrop" src={item.backdrop} alt="" />
       )}
       <div className="vod-detail__scrim" aria-hidden />
-      <Button
-        variant="ghost"
-        type="button"
-        className="vod-back rounded-full hover:bg-black/60"
-        onClick={onBack}
-      >
-        ← Back
-      </Button>
+      <BackButton className="vod-back" onClick={onBack} />
       <div className="vod-detail__body vod-detail__body--episodes">
         <div className="vod-detail__info">
           {item.logo ? (

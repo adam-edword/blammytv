@@ -58,7 +58,13 @@ await page.addInitScript(() => {
     },
     convertFileSrc: (p) => p,
     metadata: { currentWindow: { label: "main" }, currentWebview: { label: "main", windowLabel: "main" } },
-    invoke: (cmd, args) => (cmd === "http_get" ? fetch(args.url).then((r) => r.arrayBuffer()) : Promise.resolve(undefined)),
+    invoke: (cmd, args) => {
+      if (cmd === "http_get") return fetch(args.url).then((r) => r.arrayBuffer());
+      // A tile that opens and fails: its chrome, the X included, is there in
+      // every state, which is all K3 reads.
+      if (cmd === "mv_proxy_open") return Promise.resolve("http://127.0.0.1:9/mv/none");
+      return Promise.resolve(undefined);
+    },
   };
   window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
   localStorage.setItem("btv:onboarded", "1");
@@ -117,11 +123,11 @@ const token = (name, prop = "backgroundColor") =>
     return { bg: s.backgroundColor, fx: s.backdropFilter };
   });
   const seg = await probe("seg", "backgroundColor");
-  const icon = await probe("mvbar__icon", "backdropFilter");
+  const icon = await page.evaluate(() => getComputedStyle(document.querySelector(".header__action")).backdropFilter);
   check(
-    "the capsule and multi-view's controls are the same glass, from --glass",
+    "the capsule, the segmented control and the gear are the same glass, from --glass",
     cap.bg === glass && seg === glass && cap.fx === fx && icon === fx && /blur\(5px\)/.test(fx),
-    `glass ${glass} ${fx}; capsule ${cap.bg} ${cap.fx}; seg ${seg}; icon ${icon}`,
+    `glass ${glass} ${fx}; capsule ${cap.bg} ${cap.fx}; seg ${seg}; gear ${icon}`,
   );
   const copies = Object.entries(sheets)
     .filter(([n]) => n !== "tokens.css")
@@ -133,7 +139,7 @@ const token = (name, prop = "backgroundColor") =>
 {
   const pic = await token("--pic");
   const tile = await probe("mvtile", "backgroundColor");
-  const chip = await probe("mvchip", "backgroundColor");
+  const chip = await probe("bg-chip", "backgroundColor");
   const chipTok = await token("--chip-bg");
   check(
     "a tile sits on --pic and a chip on a picture is --chip-bg",
@@ -306,6 +312,146 @@ const dimmedText = () =>
   );
   await page.keyboard.press("Escape");
   await page.waitForTimeout(400);
+}
+
+// ======================================================================= K3
+// Buttons in multi-view's shapes, from Button's own variants.
+{
+  /** Every visible Button on the page, as the numbers K3 is about. Found by
+   * data-variant, not data-slot: a Button inside a Hint is Radix's trigger,
+   * and Radix writes its own data-slot over Button's. */
+  const buttons = () =>
+    page.evaluate(() =>
+      [...document.querySelectorAll("button[data-variant]")]
+        .map((b) => {
+          const r = b.getBoundingClientRect();
+          const s = getComputedStyle(b);
+          const radius = Math.max(...["TopLeft", "TopRight", "BottomRight", "BottomLeft"].map((c) => parseFloat(s[`border${c}Radius`]) || 0));
+          return {
+            v: b.dataset.variant,
+            name: (b.getAttribute("aria-label") || b.textContent || "").trim().slice(0, 24),
+            h: r.height,
+            round: radius >= r.height / 2 - 0.5,
+            seen: r.width > 0 && r.height > 0 && r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight && s.visibility !== "hidden" && Number(s.opacity) > 0,
+            bg: s.backgroundColor,
+          };
+        })
+        .filter((b) => b.seen),
+    );
+  const square = [];
+  const whites = {};
+  // Stream's home is left out of the white-pill count on purpose: its
+  // carousel shows the next film's card peeking in, Watch now and all.
+  let counted = 0;
+  for (const dest of ["guide", "sports", "discover", "mylist", "home"]) {
+    await goTo(page, dest);
+    await page.waitForTimeout(1500);
+    const bs = await buttons();
+    counted += bs.length;
+    for (const b of bs) if (!b.round && b.v !== "link") square.push(`${dest}:${b.name}`);
+    if (dest !== "home") whites[dest] = bs.filter((b) => b.v === "default").map((b) => b.name);
+  }
+  await goTo(page, "guide");
+  await page.locator(".header__right button").last().click();
+  await page.locator(".settings").waitFor();
+  // General, where the pane's one pill is (K2's check left Settings on
+  // Customize, and Settings remembers).
+  await page.getByRole("tab", { name: "General", exact: true }).click();
+  await page.waitForTimeout(800);
+  for (const b of await buttons()) if (!b.round && b.v !== "link") square.push(`settings:${b.name}`);
+  whites.settings = (await buttons()).filter((b) => b.v === "default").map((b) => b.name);
+  const text = await token("--text");
+  const pill = await page.evaluate(() => {
+    const b = [...document.querySelectorAll(".settings button[data-variant=default]")][0];
+    return b ? { bg: getComputedStyle(b).backgroundColor, h: b.getBoundingClientRect().height } : null;
+  });
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(400);
+  check(
+    "every button is round-ended, on every tab and in Settings",
+    square.length === 0 && counted >= 10,
+    `${counted} read; square: ${square.slice(0, 5).join(" | ")}`,
+  );
+  const many = Object.entries(whites).filter(([, v]) => v.length > 1);
+  check(
+    "  and a screen has one white pill at most, the text colour as its fill",
+    many.length === 0 && pill && pill.bg === text && pill.h === 40,
+    `${JSON.stringify(whites)} pill ${JSON.stringify(pill)} vs ${text}`,
+  );
+  // The gear is multi-view's round glass icon, read at rest.
+  await page.mouse.move(W / 2, H - 4);
+  await page.waitForTimeout(300);
+  const gear = await page.evaluate(() => {
+    const b = document.querySelector(".header__action");
+    const r = b.getBoundingClientRect();
+    return { w: r.width, h: r.height, bg: getComputedStyle(b).backgroundColor, r: getComputedStyle(b).borderTopLeftRadius };
+  });
+  check("  the Settings gear is a 40px circle of the glass", gear.w === 40 && gear.h === 40 && gear.bg === (await token("--glass")) && parseFloat(gear.r) >= 20, JSON.stringify(gear));
+  // No dead hooks. The paint for these went to styles/old in v0.9.54 to 56
+  // and the names were left on elements that drew nothing (two were bare
+  // browser buttons).
+  const dead = [];
+  const walk = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, e.name);
+      if (e.isDirectory() && e.name !== "old") walk(p);
+      else if (/\.(tsx|css)$/.test(e.name)) {
+        const src = readFileSync(p, "utf8").replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "");
+        for (const m of src.matchAll(/\b(btn-primary|btn-quiet|btn-danger|shero__btn-quiet|player__btn--glass)\b/g)) dead.push(`${e.name}:${m[1]}`);
+      }
+    }
+  };
+  walk(SRC);
+  check("  and none of the dead button hooks is left", dead.length === 0, dead.slice(0, 5).join(" "));
+}
+
+// Back is one control: the round glass arrow, named Back.
+{
+  await goTo(page, "home");
+  await page.waitForTimeout(2000);
+  await page.mouse.wheel(0, 700);
+  await page.waitForTimeout(800);
+  await page.locator(".stream-card", { hasText: "Movie" }).first().click();
+  const back = page.locator(".vod-back");
+  await back.waitFor({ timeout: 10_000 });
+  await page.waitForTimeout(600);
+  const b = await back.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return { w: r.width, h: r.height, name: el.getAttribute("aria-label"), text: el.textContent.trim(), bg: getComputedStyle(el).backgroundColor };
+  });
+  check("a film's Back is the round glass arrow, named Back, no word on it", b.w === 40 && b.h === 40 && b.name === "Back" && b.text === "" && b.bg === (await token("--glass")), JSON.stringify(b));
+  await back.click();
+  await page.waitForTimeout(600);
+}
+
+// Chips on pictures: a multi-view tile's actions are Button's `chip`.
+{
+  await goTo(page, "multiview");
+  await page.waitForTimeout(800);
+  const empty = page.locator(".mvtile--empty");
+  if (await empty.count()) await empty.click();
+  else await page.locator(".mvbar__add").click();
+  await page.locator(".mvpick__input").fill("ESPN");
+  await page.locator(".mvpick__row", { hasText: "ESPN" }).first().click();
+  await page.locator(".mvpick__input").waitFor({ state: "detached" });
+  await page.waitForTimeout(900);
+  const t = await page.locator(".mvtile:not(.mvtile--empty)").first().boundingBox();
+  await page.mouse.move(t.x + t.width / 2, t.y + t.height / 2);
+  await page.waitForTimeout(500);
+  const chips = await page.evaluate(() =>
+    [...document.querySelectorAll(".mvtile__actions button[data-variant]")].map((b) => ({ v: b.dataset.variant, bg: getComputedStyle(b).backgroundColor, h: b.getBoundingClientRect().height })),
+  );
+  const chipBg = await token("--chip-bg");
+  check(
+    "a tile's actions are chips: the dark glass, 30px",
+    chips.length >= 1 && chips.every((c) => c.v === "chip" && c.bg === chipBg && c.h === 30),
+    JSON.stringify(chips),
+  );
+  const add = await page.evaluate(() => {
+    const b = document.querySelector(".mvbar__add");
+    return { v: b.dataset.variant, bg: getComputedStyle(b).backgroundColor, h: b.getBoundingClientRect().height };
+  });
+  check("  and the bar's Add is the white pill", add.v === "default" && add.bg === (await token("--text")) && add.h === 40, JSON.stringify(add));
 }
 
 check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));

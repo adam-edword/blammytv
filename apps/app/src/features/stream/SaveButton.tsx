@@ -138,14 +138,10 @@ export function SaveButton({ item }: { item: VodItem }) {
         <Button
           variant="outline"
           type="button"
-          // The seam, as utilities: square the inside edge and pull the right
-          // half a hairline left so the two 1px borders do not read as 2px.
-          // Radius and margin are Button's own utilities, so this is the only
-          // place it can be said — see the note in stream.css.
-          className={
-            "vod-save rounded-r-none" +
-            (saved ? " vod-save--on border-primary" : "")
-          }
+          // One glass pill in two halves (plan 019, K3): the inside edges
+          // square, a hairline between. Radius and border are Button's own
+          // utilities, so this is the only place it can be said.
+          className={"vod-save rounded-r-none" + (saved ? " vod-save--on" : "")}
           onClick={primary}
         >
           {saved ? <CheckIcon className="size-4" /> : <span aria-hidden>+</span>} {label}
@@ -157,10 +153,7 @@ export function SaveButton({ item }: { item: VodItem }) {
             variant="outline"
             size="icon"
             type="button"
-            className={
-              "vod-save vod-save__more rounded-l-none -ml-px" +
-              (saved ? " border-primary" : "")
-            }
+            className="vod-save vod-save__more rounded-l-none border-l border-border"
             aria-label="Choose lists"
           >
             <ChevronIcon className="size-3.5" />

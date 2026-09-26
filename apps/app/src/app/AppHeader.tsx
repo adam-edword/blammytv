@@ -766,7 +766,7 @@ export function AppHeader({
           * comes back when there is something behind it. */}
         <div className="header__actions">
           <Hint label="Settings">
-            <Button variant="ghost" size="icon"
+            <Button variant="secondary" size="icon"
               type="button"
               className="header__action"
               aria-label="Settings"

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Button } from "../../components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "../../components/ui/dialog";
 import { StatsIcon, TvIcon, VolumeIcon, WarnIcon } from "../../ui/icons";
 import { capLine } from "./multiview";
@@ -78,9 +79,9 @@ export function MultiviewNotice({
           </Point>
         </ul>
 
-        <button type="button" className="mvnotice__accept" onClick={accept} autoFocus>
+        <Button type="button" size="lg" className="mvnotice__accept w-full" onClick={accept} autoFocus>
           Got it
-        </button>
+        </Button>
         <p className="mvnotice__once">Shown once.</p>
       </DialogContent>
     </Dialog>
