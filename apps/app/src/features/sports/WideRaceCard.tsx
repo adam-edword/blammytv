@@ -95,10 +95,9 @@ function WideRaceCardImpl({ race }: { race: Field }) {
     >
       {/* GameCard's lean and glare exactly. Degrees are not the unit that
         * matters: a 780px card sweeps far more pixels at its corners than
-        * a 315px one does at the same angle. The radius is repeated from
-        * the stylesheet because the glare is its own layer with its own
-        * clip, and a mismatch shows as a square sheen poking out of a
-        * round corner. Keep it in step with .wracecard__tilt. */}
+        * a 315px one does at the same angle. The glare is its own layer
+        * with its own clip, so its radius is .wracecard__tilt's token,
+        * passed as a string. */}
       <Tilt
         className="wracecard__tilt"
         tiltEnable={!REDUCED_MOTION}
@@ -109,7 +108,7 @@ function WideRaceCardImpl({ race }: { race: Field }) {
         glareEnable={!REDUCED_MOTION}
         glareMaxOpacity={0.07}
         glarePosition="all"
-        glareBorderRadius="63.9px"
+        glareBorderRadius="var(--radius-card)"
       >
         {/* The host country's colours down the right edge, as on the small
           * card. A race has a country in a way a fixture between two clubs

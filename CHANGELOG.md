@@ -2,6 +2,166 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 0.10.0: Multi-view (2026-09-26)
+
+Up to four live channels at once, on a tab of their own. The whole app has a
+new look too, and there's a round of fixes under both.
+
+Coming from 0.9.0, a few things moved or went, themes among them: see
+"Changed, or gone" below.
+
+### What Multi-view is
+
+A tab between Guide and Sports that plays up to four live channels side by
+side. It's built for a day of games: three tiles, four hours, and the sound
+on whichever one matters right now.
+
+- **Up to four channels, one screen.** Press A, or the add button, and
+  search for a channel. The grid follows what you add, two to four tiles,
+  every picture 16:9, and it's there again the next time you open the tab.
+- **Grid or Focus.** Grid gives every tile the same size. Focus makes the
+  tile with the sound the big one, with the rest beside it. Drag the seam
+  between them to size it (`[` and `]` nudge it, `\` or a double-click puts
+  it back), and it's remembered for each number of tiles. G switches.
+- **The sound goes where you click.** One tile plays sound at a time.
+  Click a tile to move it there, or press 1 to 4, or ← and →. The bar has
+  volume and mute, and so do M, ↑ and ↓, and the wheel over that tile.
+- **Fill with live games.** One row in the picker fills the free tiles with
+  what's on now, your teams first. A game's tile carries its score and
+  clock, and goes back to plain channel once the game is long over.
+- **It knows your line's limit.** Most providers cap how many streams you
+  can have open at once, and every tile is one. The meter shows how much
+  of your line is in use, the picker won't take you past it, and adding to
+  a full line asks which tile to replace.
+- **Tiles look after themselves.** A tile that loses its stream reconnects
+  on its own, waiting for a free slot on your line first. One that can't
+  play says why and lets go of its connection. A playlist refresh that
+  fails no longer costs you the grid.
+- **HEVC channels play.** The app's web player can't decode HEVC without a
+  Windows Store add-on, so the app converts those channels to H.264 as they
+  play, with a copy of ffmpeg it now ships with, on your graphics card
+  where it can. HDR channels keep the colours the Guide gives them. That's
+  why this installer is bigger. They take a moment longer to start, and
+  some audio formats can come up silent in a tile.
+- **Ways in and out.** Right-click a channel in the Guide, or press Watch
+  in multi-view in the player or the Sports theater, and it joins the grid
+  you left, with the sound. Enter fills the window with one tile, F is
+  full screen, and Watch in player hands a tile back to the main player
+  with all its controls.
+- **By keyboard, and to a screen reader.** The tab works from the
+  keyboard, focus comes back to where you were when the picker closes,
+  and a screen reader hears what the meter and each button are. With
+  reduced motion on, nothing zooms, here or anywhere else in the app.
+
+### A new look
+
+- **One nav, in a glass capsule.** Guide, Multi-view and Sports on the
+  left of the mark; Stream, Discover and Library on the right. "Home" is
+  Stream now. Switching tabs fades the new screen in instead of cutting.
+- **The whole app is restyled.** A new typeface (Geist), a neutral palette
+  with your accent on top, tighter corners, and labels in sentence case
+  rather than capitals. Controls you reach by keyboard show a focus ring,
+  text fields included, and the ones that only showed on hover (the
+  Guide's star, a row's arrows) show on keyboard focus too.
+- **Settings has its own round button** in the header.
+
+### Changed, or gone
+
+- **Themes are gone for now.** The theme packs and the Themes panel are
+  out while themes are rebuilt with new looks. If you picked one in 0.9.0,
+  you're back on the default.
+- **Your accent is in Settings → Customize → Interface → Accent**, with
+  presets, a custom colour and an eyedropper. The default is now neutral
+  rather than red (red is still a preset), and a colour picked in 0.9.0
+  needs picking again. Onboarding's "Make it yours" step has the same
+  picker.
+- **Dark only, for now.** Light mode is coming back with a proper pass;
+  several of its screens had broken. Your choice is kept for when it does.
+- **Corner Style and the Profile button are gone.**
+- **Search lives in Discover.** It's in Discover's own row, with Any,
+  Movies and Series beside it. `/`, Ctrl+K or Ctrl+F jumps there from any
+  tab when nothing is playing.
+- **Sports' "Coming up" section is gone.** Its games sit under their own
+  day.
+
+### Sports
+
+- **The theater's side column is the width you drag it to.** Grab the
+  grip on its edge, or use ← and → on it. Double-click puts it back.
+- **More of your channels get found**, each fix checked against real
+  channel names:
+  - ABC's East and West feeds count as ABC.
+  - A club's own network counts for that club's games: "Texas Rangers
+    Sports Network" for a Rangers game.
+  - "MSG2" finds "MSG 2".
+  - Channels that are only placeholders ("Netflix Premiere info", a radio
+    station) are no longer offered as guesses.
+  - A listing that just says "Sportsnet" no longer offers other sports
+    networks, CBS Sports Network among them, as guesses.
+- **A wrong channel can be marked.** Right-click a row in the theater's
+  channel list and mark it wrong for that game. It's how the next round of
+  pairing fixes gets its evidence.
+- **The board opens on five days** and "Show more days" pages forward.
+  "Show earlier days" at the top goes back a day at a time, up to three.
+  Every card says which day it's on.
+- **"Hide finished"** on the Today's Games row, off by default.
+- **College has a Confs tab** in the sidebar, with a Ranked filter, when
+  college is on your board.
+- **The theater has a Back button**, and its channel column folds to a
+  strip.
+
+### Discover
+
+- **Search finds more.** It also asks Cinemeta, so it finds titles that
+  aren't in your lists yet, and it ignores case, spacing, punctuation and
+  accents.
+- **Back from a title in one of your Library lists goes back to that
+  list**, not to Library's front page.
+- **Long episode titles wrap** instead of being cut off.
+- **Add to Library's menu** takes arrow keys and typing, and follows its
+  button when you scroll.
+
+### Stream
+
+- **The hero opens finished.** It could open on a catalog preview: a
+  stretched poster under the title in plain type. It now waits (four
+  seconds at most) for the picks' full art and shows only those that have
+  it. The art and the posters fade in as they load, and a logo that fails
+  shows the title instead of a broken image.
+
+### Settings
+
+- **Language pickers are searchable**: typing "es" finds Spanish.
+- **Hero Slider Sources is one field** you type into.
+- **Your mouse's Back button closes Settings**, and Escape in a popover
+  closes only the popover.
+
+### Fixed
+
+- **Sports stopped tuning after half an hour.** Once your channel list was
+  30 minutes old, clicking a channel in the theater, a game's autoplay and
+  failover all did nothing.
+- **Channel names with accents match in Sports**: "TUDN México" used to
+  become "tudn m xico" and find nothing.
+- **Back in the sports player left a black screen** with no controls. It
+  leaves the theater now, and an invisible layer that swallowed clicks is
+  gone.
+- **"Play now" on the next episode did nothing for about four seconds.**
+  It stops the old episode straight away.
+- **Your audio and subtitle languages stick on the next episode.** The
+  player could quietly refuse the track, and the app took the asking as
+  done.
+- **Cancel on the "finding sources" screen really cancels**, where a slow
+  addon could start playing half a minute later.
+- **A password with `)` or `'` in it could show up in an error message.**
+  Errors are scrubbed properly now.
+- **Switching to the Guide no longer freezes** for a moment.
+- **Guide data matches channels whose ids differ only in case or
+  spacing.**
+- **Stopping a channel no longer leaves an empty layer over the Guide.**
+- **The player's controls no longer squash into a narrow column** while a
+  film is still opening.
+
 ## 0.9.0: Sports (2026-08-23)
 
 Sports is finished. It first appeared in 0.8.163 while the last of it was

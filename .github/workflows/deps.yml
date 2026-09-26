@@ -1,0 +1,62 @@
+name: Mirror bundled binaries
+
+# Copies one shinchiro build of ffmpeg and libmpv into a deps-* release on
+# this repo, and commits their SHA-256 to scripts/deps.json (plan 018, N5).
+# fetch-ffmpeg.mjs and fetch-libmpv.mjs download from that release and refuse
+# anything that doesn't match. shinchiro keeps only its latest builds, so the
+# copy here is what keeps a pinned build downloadable.
+#
+# Run it from the Actions tab (a tag, or blank for the latest), or by
+# changing scripts/deps-request.txt. A push that asks for the build already
+# pinned does nothing, so merging the file into main never re-pins. The
+# release is a prerelease and never "latest": the updater and the site's
+# download button both read latest.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "shinchiro release tag, like 20260926 (blank: the latest)"
+        required: false
+  push:
+    paths:
+      - scripts/deps-request.txt
+
+# It creates the release and commits the pins.
+permissions:
+  contents: write
+
+concurrency:
+  group: deps
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    name: copy the build here and pin it
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Copy and pin
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_INPUT: ${{ inputs.tag }}
+        run: node scripts/mirror-deps.mjs
+
+      - name: Commit the pins
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/deps.json scripts/deps-request.txt
+          if git diff --cached --quiet; then
+            echo "pins unchanged"
+            exit 0
+          fi
+          git commit -m "deps: pin $(node -p "require('./scripts/deps.json').release")"
+          git pull --rebase origin "$GITHUB_REF_NAME"
+          git push origin "HEAD:$GITHUB_REF_NAME"

@@ -29,6 +29,27 @@ let text = await page.evaluate(() => document.body.innerText);
 check("catalog rows render", text.includes("Top Movies") && text.includes("Top Series"));
 check("search-only catalog excluded", !text.includes("Search"));
 check("hero carousel present", await page.locator(".shero").count() > 0);
+
+// The tilt glare's corner against its card's (v0.9.132). react-parallax-tilt
+// clips its glare to a radius of its own, and each card named one, 25 to
+// 60px, that the restyle's 14px corners left behind: a rounder sheen inside
+// a squarer card. The hero's tilt has no corner of its own; its art does.
+const glareCorners = (sel) =>
+  page.evaluate((sel) =>
+    [...document.querySelectorAll(sel)].map((g) => {
+      const tilt = g.parentElement;
+      const card = getComputedStyle(tilt).borderTopLeftRadius !== "0px"
+        ? tilt
+        : tilt.querySelector(".shero__art") ?? tilt;
+      return [getComputedStyle(g).borderTopLeftRadius, getComputedStyle(card).borderTopLeftRadius];
+    }), sel);
+const heroGlare = await glareCorners(".shero__card--active .shero__tilt > .glare-wrapper");
+const cardGlare = await glareCorners(".stream-card__tilt > .glare-wrapper");
+check(
+  "the hero's and the posters' glare share their card's corner",
+  heroGlare.length > 0 && cardGlare.length > 0 && [...heroGlare, ...cardGlare].every(([g, c]) => g === c),
+  [...new Set([...heroGlare, ...cardGlare].map(([g, c]) => `glare ${g} on ${c}`))].join(", "),
+);
 await page.screenshot({ path: process.env.SHOT_DIR ? process.env.SHOT_DIR + "/stream-home.png" : "stream-home.png" });
 
 // Keyboard in the hero (v0.9.92). Every slide's buttons were tab stops,

@@ -1,0 +1,13 @@
+{
+  "repo": "adam-edword/blammytv",
+  "release": "deps-20260926",
+  "source": "shinchiro/mpv-winbuild-cmake 20260926",
+  "ffmpeg": {
+    "asset": "ffmpeg-x86_64-git-243dfa399.7z",
+    "sha256": "96c502c2c2658a8e6fabf3b294aae552561db662478ab98eabdd6deeeea1ebee"
+  },
+  "libmpv": {
+    "asset": "mpv-dev-x86_64-20260926-git-35af06172b.7z",
+    "sha256": "b32107527c9fe60e2a032933379625428c32cb594c47a91acf1e4bb46b2bfc57"
+  }
+}

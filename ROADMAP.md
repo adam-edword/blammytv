@@ -246,7 +246,11 @@ never be a deterrent to building anything." So:
    v0.9.129 is 018's H3: the tab's cost, the sound meter's frame loop
    above all (82ms of main thread a second down to 26). v0.9.130 is H4:
    the keyboard, screen readers and the smallest window, and reduced
-   motion now reaching every overlay in the app.
+   motion now reaching every overlay in the app. v0.9.131 (native) is
+   H5: HEVC with a long programme map converts, and the proxy closes idle
+   sockets and answers strangers without CORS. After it, N5: the bundled
+   ffmpeg and libmpv come from this repo's own copy (`deps-*` releases),
+   pinned by hash in `scripts/deps.json`. Plan 018 is complete.
 7. Merge the multi-view branch into `main` (Adam's step: default branch).
 
 ### M2: finish the primitives (plan 014 L1 and L2)

@@ -130,9 +130,9 @@ jobs:
       # The real ffmpeg the app bundles, NOT a placeholder: mvconvert.rs's
       # tests convert HEVC with it. This runner has no GPU, so they run the
       # CPU path (libx264, no tone mapping); Adam's machine runs the GPU one.
+      # The build scripts/deps.json pins, hash-checked, so CI tests the one
+      # a release ships.
       - name: ffmpeg for the HEVC conversion tests
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/fetch-ffmpeg.mjs
 
       - name: Set up Rust

@@ -120,7 +120,7 @@ function UpcomingCardImpl({
         glareEnable={!REDUCED_MOTION}
         glareMaxOpacity={0.09}
         glarePosition="all"
-        glareBorderRadius="42.6px"
+        glareBorderRadius="var(--radius-card)"
       >
         <Wash side="home" team={home} lost={lost === "home"} />
         <Wash side="away" team={away} lost={lost === "away"} />

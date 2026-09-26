@@ -109,10 +109,10 @@ function GameCardImpl({
        * angle, so matching the poster's 5deg here read as a barn door.
        * The glare is lighter than a poster's for the same reason: it
        * sweeps a much larger area, so the same opacity reads as a much
-       * brighter wipe. The radius is repeated from the stylesheet because
-       * the glare is its own layer with its own clip and the library takes
-       * it as a string prop; a mismatch shows as a square sheen poking out
-       * of a round corner. */}
+       * brighter wipe. The glare is its own layer with its own clip, and
+       * the library takes the radius as a string prop, so it gets the
+       * stylesheet's token: a number here was left at 63.9px when the
+       * cards went to 14px (v0.9.132), a rounder sheen inside the card. */}
       <Tilt
         className="gamecard__tilt"
         tiltEnable={!REDUCED_MOTION}
@@ -123,7 +123,7 @@ function GameCardImpl({
         glareEnable={!REDUCED_MOTION}
         glareMaxOpacity={0.07}
         glarePosition="all"
-        glareBorderRadius="63.9px"
+        glareBorderRadius="var(--radius-card)"
       >
         <Wash side="home" team={home} lost={lost === "home"} haze />
         <Wash side="away" team={away} lost={lost === "away"} haze />

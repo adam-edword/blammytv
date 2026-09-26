@@ -375,6 +375,25 @@ check(
 await compactBtn.click();
 await page.waitForTimeout(400);
 
+// ---- THE CARDS' GLARE (v0.9.132) --------------------------------------
+// react-parallax-tilt clips its glare to a radius of its own, and each card
+// named one (63.9px, 42.6px) that the restyle's 14px corners left behind: a
+// rounder sheen inside a squarer card.
+const glare = await page.evaluate(() =>
+  [...document.querySelectorAll(".gamecard__tilt > .glare-wrapper, .upcard__tilt > .glare-wrapper")].map(
+    (g) => [
+      g.parentElement.classList.contains("upcard__tilt") ? "up" : "game",
+      getComputedStyle(g).borderTopLeftRadius,
+      getComputedStyle(g.parentElement).borderTopLeftRadius,
+    ],
+  ),
+);
+check(
+  "a game card's glare has the card's corner",
+  glare.some(([k]) => k === "game") && glare.every(([, g, c]) => g === c),
+  [...new Set(glare.map(([k, g, c]) => `${k}: glare ${g} on ${c}`))].join(", "),
+);
+
 // ---- THE ROW'S "HIDE FINISHED" PILL (Adam's) -------------------------
 const rowCards = () =>
   page.evaluate(

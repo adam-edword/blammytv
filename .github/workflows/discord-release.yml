@@ -14,6 +14,11 @@ permissions:
 
 jobs:
   notify:
+    # Not the bundled-binaries mirror's releases (deps-*, plan 018 N5): they
+    # aren't BlammyTV releases. The workflow that makes them can't trigger
+    # this anyway (GITHUB_TOKEN events don't), so this is for one made by
+    # hand.
+    if: ${{ !startsWith(github.event.release.tag_name, 'deps-') }}
     runs-on: ubuntu-latest
     steps:
       - name: Post release to Discord

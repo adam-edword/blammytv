@@ -60,9 +60,11 @@ const HEVC: u8 = 0x24;
 /// Read the programme map out of the start of a transport stream.
 ///
 /// The PAT (PID 0) names the PMT's PID, and the PMT lists each elementary
-/// stream's type. Both are small and repeat several times a second, so a
-/// section that spans two packets is not waited for: the next copy will
-/// fit, and a stream whose never does is passed through as it is.
+/// stream's type. Either can span packets: a programme with many audio
+/// tracks and descriptors needs two for its PMT on every copy, so the
+/// sections are put back together from the packets that carry them (plan
+/// 018, N1). Read one packet at a time, the proxy used to give up at 2MB
+/// on such a stream and pass HEVC to a webview that can't play it.
 pub fn sniff(buf: &[u8]) -> Sniff {
     match read_map(buf) {
         Map::Types(types) if types.contains(&HEVC) => Sniff::Hevc,
@@ -87,6 +89,29 @@ enum Map {
     NotTs,
 }
 
+/// A PSI section being put back together: its bytes so far, and the
+/// continuity counter the next packet of its PID should carry. A packet
+/// missed in between drops it, and the next copy starts over.
+struct Gathering {
+    bytes: Vec<u8>,
+    next_cc: u8,
+}
+
+/// A PSI section is at most 1024 bytes, header included.
+const SECTION_MAX: usize = 1024;
+
+impl Gathering {
+    /// The whole section, once it has all arrived.
+    fn whole(&self) -> Option<&[u8]> {
+        let b = &self.bytes;
+        if b.len() < 3 {
+            return None;
+        }
+        let end = 3 + ((usize::from(b[1] & 0x0f) << 8) | usize::from(b[2]));
+        (b.len() >= end).then(|| &b[..end])
+    }
+}
+
 fn read_map(buf: &[u8]) -> Map {
     // Where the packets start: a sync byte with another one packet later.
     let aligned = (0..buf.len().min(TS))
@@ -99,6 +124,8 @@ fn read_map(buf: &[u8]) -> Map {
         };
     };
     let mut pmt_pid = None;
+    let mut pat_sec: Option<Gathering> = None;
+    let mut pmt_sec: Option<Gathering> = None;
     for pkt in buf[start..].chunks_exact(TS) {
         if pkt[0] != SYNC {
             // Lost sync: not a stream this can read, so leave it alone.
@@ -106,6 +133,11 @@ fn read_map(buf: &[u8]) -> Map {
         }
         let unit_start = pkt[1] & 0x40 != 0;
         let pid = (u16::from(pkt[1] & 0x1f) << 8) | u16::from(pkt[2]);
+        let is_pat = pid == 0;
+        if !is_pat && Some(pid) != pmt_pid {
+            continue;
+        }
+        let cc = pkt[3] & 0x0f;
         let mut at = 4;
         match (pkt[3] >> 4) & 0x3 {
             // No payload.
@@ -114,23 +146,45 @@ fn read_map(buf: &[u8]) -> Map {
             3 => at += 1 + usize::from(pkt[4]),
             _ => {}
         }
-        if !unit_start || at >= TS {
+        if at >= TS {
             continue;
         }
-        // A section starts after its pointer field.
-        at += 1 + usize::from(pkt[at]);
-        let Some(section) = pkt.get(at..) else {
+        let slot = if is_pat { &mut pat_sec } else { &mut pmt_sec };
+        if unit_start {
+            // A section starts after its pointer field.
+            let from = at + 1 + usize::from(pkt[at]);
+            let Some(bytes) = pkt.get(from..) else {
+                *slot = None;
+                continue;
+            };
+            *slot = Some(Gathering {
+                bytes: bytes.to_vec(),
+                next_cc: (cc + 1) & 0x0f,
+            });
+        } else {
+            // The rest of one already begun, if this is the packet it wants.
+            match slot {
+                Some(g) if g.next_cc == cc && g.bytes.len() < SECTION_MAX => {
+                    g.bytes.extend_from_slice(&pkt[at..]);
+                    g.next_cc = (cc + 1) & 0x0f;
+                }
+                _ => {
+                    *slot = None;
+                    continue;
+                }
+            }
+        }
+        let Some(section) = slot.as_ref().and_then(Gathering::whole) else {
             continue;
         };
-        if pid == 0 {
+        if is_pat {
             if let Some(p) = pat(section) {
                 pmt_pid = Some(p);
             }
-        } else if Some(pid) == pmt_pid {
-            if let Some(types) = pmt(section) {
-                return Map::Types(types);
-            }
+        } else if let Some(types) = pmt(section) {
+            return Map::Types(types);
         }
+        *slot = None;
     }
     Map::NeedMore
 }
@@ -561,12 +615,18 @@ async fn decoder(ffmpeg: &PathBuf) -> Option<&'static str> {
     found
 }
 
-static CAPS: OnceCell<Result<Caps, String>> = OnceCell::const_new();
+static CAPS: OnceCell<Caps> = OnceCell::const_new();
 
-/// This machine's answer, asked once and kept: when the Multi-view tab
-/// opens (`mv_convert_warm`), or on the first HEVC tile if that comes first.
+/// This machine's answer: when the Multi-view tab opens (`mv_convert_warm`),
+/// or on the first HEVC tile if that comes first.
+///
+/// KEPT ONLY WHEN IT WORKED. A failure was kept for the whole run too, with
+/// the tile still offering a Retry that could not help: whatever made the
+/// check fail, it stood until the app restarted (plan 018, N6). A failure
+/// now stands for RETRY_AFTER, so three HEVC tiles opening together ask
+/// once, and the next tile or Retry after that asks again.
 pub async fn caps() -> Result<&'static Caps, String> {
-    CAPS.get_or_init(|| async {
+    caps_with(&CAPS, &FAILED, RETRY_AFTER, || async {
         let asked = std::time::Instant::now();
         let caps = probe().await;
         let took = asked.elapsed().as_millis();
@@ -587,8 +647,51 @@ pub async fn caps() -> Result<&'static Caps, String> {
         caps
     })
     .await
-    .as_ref()
-    .map_err(|e| e.clone())
+}
+
+/// How long a failed check stands before the next one asks again.
+const RETRY_AFTER: Duration = Duration::from_secs(30);
+
+/// The last failed check, and when.
+static FAILED: Mutex<Option<(std::time::Instant, String)>> = Mutex::new(None);
+
+/// `caps`, with its cell, its memory of a failure and the check handed in,
+/// so the rule can be tested without the process-wide answer.
+async fn caps_with<'a, F, Fut>(
+    cell: &'a OnceCell<Caps>,
+    failed: &Mutex<Option<(std::time::Instant, String)>>,
+    retry_after: Duration,
+    check: F,
+) -> Result<&'a Caps, String>
+where
+    F: FnOnce() -> Fut,
+    Fut: std::future::Future<Output = Result<Caps, String>>,
+{
+    if let Some(c) = cell.get() {
+        return Ok(c);
+    }
+    if let Ok(f) = failed.lock() {
+        if let Some((at, why)) = f.as_ref() {
+            if at.elapsed() < retry_after {
+                return Err(why.clone());
+            }
+        }
+    }
+    let got = cell
+        .get_or_try_init(|| async {
+            let r = check().await;
+            if let (Err(why), Ok(mut f)) = (&r, failed.lock()) {
+                *f = Some((std::time::Instant::now(), why.clone()));
+            }
+            r
+        })
+        .await;
+    if got.is_ok() {
+        if let Ok(mut f) = failed.lock() {
+            *f = None;
+        }
+    }
+    got
 }
 
 /// ffmpeg processes running now, counted down when the process has actually
@@ -687,6 +790,49 @@ fn said(line: &str) -> Said {
     Said::Problem(line.trim().to_string())
 }
 
+/// ffmpeg's log, a line at a time: the stream descriptions printed as they
+/// come, and the problems, up to LOG_LINES of them, with the last three
+/// kept in `keep` for the tile's reason.
+///
+/// AS BYTES, each line made text lossily. `lines()` ended at the first line
+/// that isn't UTF-8, and a Latin-1 service name in a stream's metadata is
+/// one: everything after it went, the colour tags and the reason a
+/// conversion failed included, which then read "stopped before any output"
+/// (plan 018, N2).
+async fn follow_log<R>(stderr: R, keep: Arc<Mutex<VecDeque<String>>>)
+where
+    R: tokio::io::AsyncRead + Unpin,
+{
+    let mut lines = BufReader::new(stderr).split(b'\n');
+    let mut printed = 0;
+    while let Ok(Some(raw)) = lines.next_segment().await {
+        let line = String::from_utf8_lossy(&raw);
+        let line = line.trim_end_matches('\r');
+        if line.trim().is_empty() {
+            continue;
+        }
+        match said(line) {
+            Said::Stream(text) => println!("[mvproxy] ffmpeg: {text}"),
+            Said::Problem(text) => {
+                if printed < LOG_LINES {
+                    println!("[mvproxy] ffmpeg: {text}");
+                    printed += 1;
+                    if printed == LOG_LINES {
+                        println!("[mvproxy] ffmpeg: (further problems not shown)");
+                    }
+                }
+                if let Ok(mut s) = keep.lock() {
+                    s.push_back(text);
+                    if s.len() > 3 {
+                        s.pop_front();
+                    }
+                }
+            }
+            Said::Quiet => {}
+        }
+    }
+}
+
 /// Start converting. `head` is what was read to sniff; `input` is the rest.
 /// Resolves once ffmpeg has produced its first bytes, or with what ffmpeg
 /// last said if it gave up first, so the tile can be told why.
@@ -728,35 +874,7 @@ where
         .abort_handle(),
     );
     let problems = Arc::new(Mutex::new(VecDeque::<String>::new()));
-    let keep = problems.clone();
-    let log = tokio::spawn(async move {
-        let mut lines = BufReader::new(stderr).lines();
-        let mut printed = 0;
-        while let Ok(Some(line)) = lines.next_line().await {
-            if line.trim().is_empty() {
-                continue;
-            }
-            match said(&line) {
-                Said::Stream(text) => println!("[mvproxy] ffmpeg: {text}"),
-                Said::Problem(text) => {
-                    if printed < LOG_LINES {
-                        println!("[mvproxy] ffmpeg: {text}");
-                        printed += 1;
-                        if printed == LOG_LINES {
-                            println!("[mvproxy] ffmpeg: (further problems not shown)");
-                        }
-                    }
-                    if let Ok(mut s) = keep.lock() {
-                        s.push_back(text);
-                        if s.len() > 3 {
-                            s.pop_front();
-                        }
-                    }
-                }
-                Said::Quiet => {}
-            }
-        }
-    });
+    let log = tokio::spawn(follow_log(stderr, problems.clone()));
 
     let log_stops = Stops(log.abort_handle());
     let mut buf = vec![0u8; 64 * 1024];
@@ -830,6 +948,57 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_failed_check_is_asked_again_and_a_good_one_kept() {
+        let cell = OnceCell::new();
+        let failed = Mutex::new(None);
+        let asked = AtomicUsize::new(0);
+        let good = || Caps {
+            ffmpeg: PathBuf::from("ffmpeg"),
+            hwaccel: None,
+            encoder: "libx264",
+            placebo: false,
+        };
+        let hour = Duration::from_secs(3600);
+        let bad = block_on(caps_with(&cell, &failed, hour, || async {
+            asked.fetch_add(1, Ordering::SeqCst);
+            Err::<Caps, _>("no ffmpeg".to_string())
+        }));
+        assert_eq!(bad.err().as_deref(), Some("no ffmpeg"));
+        // While it stands, the failure is the answer and nothing is asked.
+        let standing = block_on(caps_with(&cell, &failed, hour, || async {
+            asked.fetch_add(1, Ordering::SeqCst);
+            Ok(good())
+        }));
+        assert_eq!(standing.err().as_deref(), Some("no ffmpeg"));
+        assert_eq!(asked.load(Ordering::SeqCst), 1);
+        // Once it has stood long enough, asked again; and a good answer kept.
+        let later = block_on(caps_with(&cell, &failed, Duration::ZERO, || async {
+            asked.fetch_add(1, Ordering::SeqCst);
+            Ok(good())
+        }));
+        assert_eq!(later.map(|c| c.encoder), Ok("libx264"));
+        let kept = block_on(caps_with(&cell, &failed, Duration::ZERO, || async {
+            asked.fetch_add(1, Ordering::SeqCst);
+            Err::<Caps, _>("never asked".to_string())
+        }));
+        assert!(kept.is_ok());
+        assert_eq!(asked.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn a_log_line_that_isnt_utf8_does_not_end_the_log() {
+        // "Café" in Latin-1, as a service name in a stream's metadata, and
+        // then the reason the conversion failed.
+        let log: &[u8] = b"[info] Stream #0:0: Video: hevc (Main 10)\r\n\
+            [info]     service_name    : Caf\xe9 TV\n\
+            [error] Could not open encoder\n";
+        let keep = Arc::new(Mutex::new(VecDeque::new()));
+        block_on(follow_log(log, keep.clone()));
+        let kept = keep.lock().unwrap().back().cloned();
+        assert_eq!(kept.as_deref(), Some("Could not open encoder"));
+    }
 
     #[test]
     fn a_quiet_ffmpeg_is_an_error_not_a_wait() {
@@ -912,6 +1081,33 @@ mod tests {
         psi(pmt, &table(0x02, &body))
     }
 
+    /// A PMT too long for one packet: every stream carries an 8-byte
+    /// descriptor, as a feed with a language on each audio track does. The
+    /// section goes out over as many packets as it takes, the first with
+    /// the unit start, each with the next continuity counter.
+    fn long_pmt_packets(pmt: u16, types: &[u8]) -> Vec<Vec<u8>> {
+        let mut body = vec![0, 1, 0xc1, 0, 0, 0xe1, 0x00, 0xf0, 0x00];
+        for (i, t) in types.iter().enumerate() {
+            body.extend_from_slice(&[*t, 0xe1, i as u8, 0xf0, 0x08]);
+            body.extend_from_slice(&[0x0a, 0x06, b'e', b'n', b'g', 0, 0xff, 0xff]);
+        }
+        let mut bytes = vec![0u8]; // pointer field
+        bytes.extend(table(0x02, &body));
+        bytes
+            .chunks(TS - 4)
+            .enumerate()
+            .map(|(n, chunk)| {
+                let mut p = vec![0xffu8; TS];
+                p[0] = SYNC;
+                p[1] = if n == 0 { 0x40 } else { 0 } | ((pmt >> 8) as u8 & 0x1f);
+                p[2] = pmt as u8;
+                p[3] = 0x10 | (n as u8 & 0x0f);
+                p[4..4 + chunk.len()].copy_from_slice(chunk);
+                p
+            })
+            .collect()
+    }
+
     fn filler() -> Vec<u8> {
         let mut p = vec![0u8; TS];
         p[0] = SYNC;
@@ -919,6 +1115,40 @@ mod tests {
         p[2] = 0xff; // null PID
         p[3] = 0x10;
         p
+    }
+
+    #[test]
+    fn reads_a_programme_map_that_spans_packets() {
+        // HEVC and fifteen audio tracks, each with its language: 222 bytes
+        // of section, two packets, with another PID's packet between them.
+        let mut types = vec![HEVC];
+        types.extend([0x0f; 15]);
+        let parts = long_pmt_packets(0x42, &types);
+        assert_eq!(parts.len(), 2);
+        let s = [
+            pat_packet(0x42),
+            parts[0].clone(),
+            filler(),
+            parts[1].clone(),
+        ]
+        .concat();
+        assert_eq!(sniff(&s), Sniff::Hevc);
+        assert_eq!(stream_types(&s).map(|t| t.len()), Some(16));
+    }
+
+    #[test]
+    fn a_map_missing_a_packet_is_not_read() {
+        // The second half never came (its counter says one was lost): no
+        // guess at what the first half says, just wait for the next copy.
+        let mut types = vec![HEVC];
+        types.extend([0x0f; 15]);
+        let parts = long_pmt_packets(0x42, &types);
+        let mut late = parts[1].clone();
+        late[3] = 0x10 | 5;
+        assert_eq!(
+            sniff(&[pat_packet(0x42), parts[0].clone(), late].concat()),
+            Sniff::NeedMore
+        );
     }
 
     #[test]
