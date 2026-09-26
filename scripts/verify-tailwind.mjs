@@ -725,30 +725,33 @@ check(
   `${card.radius}, shadow ${card.shadow.slice(0, 34)}…`,
 );
 
-// 9c. THE INPUT. shadcn's is h-9 / rounded-md / bg-input/30, and it RINGS on
-// focus — reversing an opt-out this app carried for years. The ring is the
-// only thing marking which field has the caret in a column of identical
-// boxes, so its absence is the regression worth catching.
+// 9c. THE INPUT. Multi-view's field since plan 019 (frame G): 40px, the
+// 10px corner, a tint and no edge. It was shadcn's h-9 / rounded-md. It
+// RINGS on focus — reversing an opt-out this app carried for years — with
+// the app's one ring. The ring is the only thing marking which field has
+// the caret in a column of identical boxes, so its absence is the
+// regression worth catching.
 const field = await page.evaluate(() => {
   const el = document.createElement("input");
   el.className = "settings-input";
   document.body.appendChild(el);
   const s = getComputedStyle(el);
-  const rest = { h: el.getBoundingClientRect().height, r: s.borderRadius };
+  const rest = { h: el.getBoundingClientRect().height, r: s.borderRadius, edge: s.borderTopColor };
   el.focus();
-  const lit = getComputedStyle(el).boxShadow;
+  const f = getComputedStyle(el);
+  const lit = `${f.outlineStyle} ${f.outlineWidth}`;
   el.remove();
   return { ...rest, lit };
 });
 check(
-  "a text field is shadcn's Input box",
-  Math.round(field.h) === 36 && field.r === "8px",
-  `${Math.round(field.h)}px tall, radius ${field.r}`,
+  "a text field is multi-view's: 40px, the 10px corner, no edge",
+  Math.round(field.h) === 40 && field.r === "10px" && field.edge === "rgba(0, 0, 0, 0)",
+  `${Math.round(field.h)}px tall, radius ${field.r}, edge ${field.edge}`,
 );
 check(
-  "  and it takes a focus ring, which shadcn's does and this app used not to",
-  /\d/.test(field.lit) && field.lit !== "none",
-  field.lit.slice(0, 46) + "…",
+  "  and it takes the app's focus ring, which this app's fields used not to",
+  field.lit === "solid 2px",
+  field.lit,
 );
 
 // 9c-ii. THE SHADCN RESET ACTUALLY REACHES A VENDORED CONTROL. Preflight is

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../../components/ui/button";
+import { MultiviewIcon } from "../../ui/icons";
 import { RowScroller } from "../stream/StreamScreen";
 import {
   loadCompactResults,
@@ -738,111 +739,120 @@ export function SportsScreen({ home }: { home?: number } = {}) {
         * a selection mode through them is the change that re-renders the
         * whole board on every tick. The button goes to that tab (plan 017),
         * which reads this board's live games through multiviewEntry. */}
-      {allowedSizes(cap).length > 0 && (
-        <div className="sports__mv">
+      {(() => {
+        // ONE TOOLBAR ROW BESIDE THE HEADING (plan 019 frame F, 016 4.4):
+        // Today's Games' heading carries the board's tools on its own line,
+        // and the board's note comes under it. Without a Today row, the
+        // tools still head the board on their own.
+        const mvBtn = allowedSizes(cap).length > 0 && (
           <Button
             variant="outline"
             type="button"
             className="sports__mvbtn"
             onClick={requestMultiview}
           >
+            <MultiviewIcon size={17} />
             Multi-view
           </Button>
-        </div>
-      )}
-      {/* EARLIER DAYS, at the very top of the board and left-aligned on its
-        * column (Adam's, off a screenshot).
-        *
-        * It used to sit between the row and the day grids, which read as
-        * belonging to the row above it rather than to the days below. Up
-        * here it belongs to the board: the whole thing is a list running
-        * forwards in time, and this is the end you walk back from.
-        *
-        * A button rather than a scroll trigger, and the arithmetic is why:
-        * with nothing followed the fetch list is all 151 catalog leagues and
-        * a day costs one request each, so this has to be something somebody
-        * asked for rather than something they fell into by scrolling up.
-        *
-        * It disappears at the cap instead of sitting there disabled. There
-        * is no later state in which it starts working again. */}
-      {state === "ready" && !earlierDone && (
-        <div className="sports__more sports__more--earlier">
-          <Button
-            variant="outline"
-            type="button"
-            className="sports__morebtn"
-            onClick={() => void loadEarlier()}
-            disabled={earlierState === "loading"}
-          >
-            {earlierState === "loading"
-              ? "Loading…"
-              : earlierState === "error"
-                ? "Couldn't load that. Try again"
-                : "Show earlier days"}
-          </Button>
-        </div>
-      )}
-      {/* Said ONCE, above the board, rather than on every card (#21). The
-        * board stays: knowing a game exists is useful even when you cannot
-        * watch it here, and hiding it would answer a question nobody
-        * asked. */}
-      {unlinked && (
-        <p className="sports__unlinked" role="status">
-          {unlinked === "no-playlist"
-            ? "None of these are matched to channels yet. Add a playlist in Settings and BlammyTV will line these games up against it."
-            : "None of these are on a channel in your playlist. The game is still on; your provider just doesn't carry the networks showing it."}
-        </p>
-      )}
-      {/* THE SECOND ARM IS THE WAY BACK OUT. On `rowItems.length` alone, a
-        * day whose games have all finished emptied the row, which took the
-        * pill with it and left no control anywhere that could turn the pill
-        * off again. Keeping the header up costs one muted line and is the
-        * difference between a filter and a trap. */}
-      {(rowItems.length > 0 || (hideFinished && rowHasFinals)) && (
-        <section className="media-row" ref={row}>
-          <div className="sports__head">
-            <h3 className="media-row__title sports__title">
-              {/* The pip is a claim about the world, so it only appears when
-                * something is actually on. */}
-              {live && <span className="gamepip" aria-hidden />}
-              Today&rsquo;s Games
-            </h3>
-            {/* Only where it would do something, same rule as the day
-              * headings' toggle: a row with nothing finished on it has
-              * nothing to hide. */}
-            {rowHasFinals && (
-              <Button
-                variant="secondary"
-                size="sm"
-                type="button"
-                className={
-                  "sports__toggle sports__toggle--pill" +
-                  (hideFinished ? " is-on" : "")
-                }
-                onClick={toggleHideFinished}
-                aria-pressed={hideFinished}
-              >
-                Hide finished
-              </Button>
-            )}
-          </div>
-          {rowItems.length > 0 ? (
-            <RowScroller>
-              {rowItems.map((g) =>
-                isField(g) ? (
-                  <WideRaceCard key={g.id} race={g} />
-                ) : (
-                  <GameCard key={g.id} game={g} onOpen={openGame} />
-                ),
+        );
+        // EARLIER DAYS, heading the board (Adam's, off a screenshot): the
+        // whole thing is a list running forwards in time, and this is the
+        // end you walk back from. A button rather than a scroll trigger,
+        // because with nothing followed a day costs 151 requests. It goes
+        // at the cap rather than sitting there disabled.
+        const earlierBtn = state === "ready" && !earlierDone && (
+          <span className="sports__more sports__more--earlier">
+            <Button
+              variant="outline"
+              type="button"
+              className="sports__morebtn"
+              onClick={() => void loadEarlier()}
+              disabled={earlierState === "loading"}
+            >
+              {earlierState === "loading"
+                ? "Loading…"
+                : earlierState === "error"
+                  ? "Couldn't load that. Try again"
+                  : "Show earlier days"}
+            </Button>
+          </span>
+        );
+        // Said ONCE, above the cards, rather than on every card (#21).
+        const note = unlinked && (
+          <p className="sports__unlinked" role="status">
+            {unlinked === "no-playlist"
+              ? "None of these are matched to channels yet. Add a playlist in Settings and BlammyTV will line these games up against it."
+              : "None of these are on a channel in your playlist. The game is still on; your provider just doesn't carry the networks showing it."}
+          </p>
+        );
+        // THE SECOND ARM IS THE WAY BACK OUT. On `rowItems.length` alone, a
+        // day whose games have all finished emptied the row, which took the
+        // pill with it and left no control anywhere that could turn the
+        // pill off again.
+        const today = rowItems.length > 0 || (hideFinished && rowHasFinals);
+        if (!today)
+          return (
+            <>
+              {(mvBtn || earlierBtn) && (
+                <div className="sports__bar">
+                  {mvBtn}
+                  {earlierBtn}
+                </div>
               )}
-            </RowScroller>
-          ) : (
-            <p className="sports__unlinked" role="status">
-              Everything today has finished. The results are below.
-            </p>
-          )}
-        </section>
-      )}
+              {note}
+            </>
+          );
+        return (
+          <section className="media-row" ref={row}>
+            <div className="sports__head sports__head--today">
+              <h3 className="media-row__title sports__title">
+                {/* The pip is a claim about the world, so it only appears
+                  * when something is actually on. */}
+                {live && <span className="gamepip" aria-hidden />}
+                Today&rsquo;s Games
+              </h3>
+              <div className="sports__bar">
+                {mvBtn}
+                {earlierBtn}
+                {/* Only where it would do something, same rule as the day
+                  * headings' toggle: a row with nothing finished on it has
+                  * nothing to hide. */}
+                {rowHasFinals && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    type="button"
+                    className={
+                      "sports__toggle sports__toggle--pill" +
+                      (hideFinished ? " is-on" : "")
+                    }
+                    onClick={toggleHideFinished}
+                    aria-pressed={hideFinished}
+                  >
+                    Hide finished
+                  </Button>
+                )}
+              </div>
+            </div>
+            {note}
+            {rowItems.length > 0 ? (
+              <RowScroller>
+                {rowItems.map((g) =>
+                  isField(g) ? (
+                    <WideRaceCard key={g.id} race={g} />
+                  ) : (
+                    <GameCard key={g.id} game={g} onOpen={openGame} />
+                  ),
+                )}
+              </RowScroller>
+            ) : (
+              <p className="sports__unlinked" role="status">
+                Everything today has finished. The results are below.
+              </p>
+            )}
+          </section>
+        );
+      })()}
 
       {laidOut.map(
         (day) =>

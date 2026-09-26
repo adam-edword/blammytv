@@ -320,16 +320,28 @@
   z-index: 3;
 }
 
+/* The ruler (plan 019 frame B, 016 4.3): tabular times at 12px, each
+ * after a real 1px tick rather than a typed "|". */
 .guide__tick {
   position: absolute;
   top: 2px;
-  font-family: var(--font-headline);
+  padding-left: 6px;
   font-weight: 500;
-  font-size: 13px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
   /* Brighter than --text-dim: with no bar behind them, the ticks carry
    * their own readability over any theme's texture. */
   white-space: nowrap;
   color: var(--text-muted);
+}
+.guide__tick::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 2px;
+  bottom: 2px;
+  width: 1px;
+  background: currentColor;
 }
 
 /* Keeps ticks' sticky geometry over the channel column; transparent like
@@ -382,7 +394,9 @@
   text-align: left;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-card);
+  /* One radius for card and cell (plan 019 frame B, 016 4.3): the
+   * picture's 10px. */
+  border-radius: var(--radius);
   overflow: hidden;
   transition: border-color var(--dur-hover) ease;
 }
@@ -478,7 +492,7 @@
    * one edge in the app that was not the border token. */
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-chip);
+  border-radius: var(--radius);
   overflow: hidden;
   transition: filter var(--dur-hover) ease;
 }

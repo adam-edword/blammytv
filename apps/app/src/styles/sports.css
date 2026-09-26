@@ -53,6 +53,31 @@
   justify-content: space-between;
   gap: 16px;
 }
+/* The board's tools, one row (plan 019 frame F, 016 4.4): beside Today's
+ * Games' heading, or heading the board on their own when there is no
+ * Today row. */
+.sports__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+/* Bottom-aligned: the heading carries the browser's 1em top margin, so
+ * centring put the pills level with its margin rather than its words, and
+ * baseline let the Multi-view icon decide the line. The heading's box and
+ * a 40px pill end together, so their middles meet. */
+.sports__head--today {
+  justify-content: flex-start;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+}
+.sports__bar .sports__more {
+  display: contents;
+}
+div.sports__bar:not(.sports__head *) {
+  margin-bottom: 18px;
+}
 
 /* The board's on/off toggles (Compact results, Hide finished, Power 4,
  * Ranked) are Button's glass `secondary` at `sm` (plan 019, K3): the tint

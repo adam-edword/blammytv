@@ -2335,11 +2335,13 @@ function Hero({
                     item.kind === "series" ? "Series" : "Movie",
                   ]
                     .filter(Boolean)
-                    .join("   ")}
+                    // " · ", the app's one separator (016 4.5): three
+                    // spaces under `white-space: pre` read as a layout gap
+                    // rather than as a list.
+                    .join(" · ")}
                   {item.rating ? (
                     <span className="shero__rating">
-                      {" "}
-                      ★ {item.rating.toFixed(1)}/10
+                      {" · "}★ {item.rating.toFixed(1)}/10
                     </span>
                   ) : null}
                 </p>

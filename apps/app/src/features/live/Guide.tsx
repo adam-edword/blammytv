@@ -518,7 +518,7 @@ export const Guide = memo(function Guide({
               className="guide__tick"
               style={{ left: laneX + xForTime(t, start) }}
             >
-              | {formatClock(t, clockFmt)}
+              {formatClock(t, clockFmt)}
             </span>
           ))}
           <div className="guide__corner" style={{ width: laneX }} />

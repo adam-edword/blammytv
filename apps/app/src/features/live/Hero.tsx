@@ -91,11 +91,10 @@ export function Hero({
           {/* Only airing programmes wear LIVE: a hover-previewed future
            * show shouldn't claim to be live. */}
           {live && <LivePill />}
+          {/* The track sits BETWEEN its two times (plan 019, frame B), so
+            * where it starts and where it ends are read off its ends. */}
           {current && (
-            <span className="hero__time">
-              {formatClock(current.start, clockFmt)} –{" "}
-              {formatClock(current.end, clockFmt)}
-            </span>
+            <span className="hero__time">{formatClock(current.start, clockFmt)}</span>
           )}
           <div className="hero__bar">
             <div
@@ -103,6 +102,9 @@ export function Hero({
               style={{ width: `${(progress * 100).toFixed(2)}%` }}
             />
           </div>
+          {current && (
+            <span className="hero__time">{formatClock(current.end, clockFmt)}</span>
+          )}
         </div>
       </div>
     </section>

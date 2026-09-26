@@ -1086,6 +1086,90 @@ const dimmedText = () =>
   await page.waitForTimeout(300);
 }
 
+// ================================================================== Screens
+// The frames' own changes (plan 019, "Each screen"), beyond the kit.
+{
+  // B. The Guide: one radius for card and cell, a real tick on the ruler,
+  // the programme's track between its two times.
+  await goTo(page, "guide");
+  await page.waitForTimeout(1200);
+  const g = await page.evaluate(() => {
+    const card = document.querySelector(".guide__card");
+    const cell = document.querySelector(".guide__cell:not(.guide__cell--blank)");
+    const tick = document.querySelector(".guide__tick");
+    const meta = document.querySelector(".hero__meta");
+    return {
+      card: card && getComputedStyle(card).borderTopLeftRadius,
+      cell: cell && getComputedStyle(cell).borderTopLeftRadius,
+      tickText: tick?.textContent,
+      tickSize: tick && getComputedStyle(tick).fontSize,
+      tickNums: tick && getComputedStyle(tick).fontVariantNumeric,
+      tickLine: tick && getComputedStyle(tick, "::before").width,
+      order: meta ? [...meta.children].map((c) => c.className.split(" ")[0]) : [],
+    };
+  });
+  check(
+    "the Guide: card and cell share the 10px corner",
+    g.card === "10px" && g.cell === "10px",
+    `card ${g.card}, cell ${g.cell}`,
+  );
+  check(
+    "  the ruler is 12px tabular times after a 1px tick, not a typed bar",
+    !/\|/.test(g.tickText ?? "|") && g.tickSize === "12px" && /tabular-nums/.test(g.tickNums ?? "") && g.tickLine === "1px",
+    JSON.stringify({ text: g.tickText, size: g.tickSize, line: g.tickLine }),
+  );
+  check(
+    "  and the programme's track sits between its two times",
+    g.order.join(" ").endsWith("hero__time hero__bar hero__time"),
+    g.order.join(" "),
+  );
+
+  // C. Stream: the hero's meta takes the middle dot.
+  await goTo(page, "home");
+  await page.waitForTimeout(1500);
+  const meta = await page.evaluate(() => document.querySelector(".shero__card:not([inert]) .shero__meta, .shero__meta")?.textContent ?? "");
+  check("Stream: the hero's meta is joined with \" · \"", / · /.test(meta) && !/ {2,}/.test(meta), JSON.stringify(meta));
+
+  // F. Sports: the board's tools on one row beside Today's Games.
+  await goTo(page, "sports");
+  await page.locator(".sports__head--today").waitFor({ timeout: 15_000 }).catch(() => {});
+  const f = await page.evaluate(() => {
+    const head = document.querySelector(".sports__head--today");
+    if (!head) return null;
+    const h = head.querySelector(".sports__title").getBoundingClientRect();
+    const mv = head.querySelector(".sports__mvbtn")?.getBoundingClientRect();
+    const early = head.querySelector(".sports__morebtn")?.getBoundingClientRect();
+    return {
+      mv: !!mv,
+      early: !!early,
+      beside: !!mv && !!early && mv.left > h.right && early.left > mv.right && Math.abs(mv.top - early.top) < 1,
+      level: !!mv && Math.abs((mv.top + mv.bottom) / 2 - (h.top + h.bottom) / 2) < 8,
+    };
+  });
+  check(
+    "Sports: Multi-view and Show earlier days on one row beside Today's Games",
+    f && f.mv && f.early && f.beside && f.level,
+    JSON.stringify(f),
+  );
+
+  // G. Settings: fields are 40px, a tint, no edge.
+  await page.locator(".header__right button[aria-label='Settings']").click();
+  await page.locator(".settings").waitFor();
+  await page.getByRole("tab", { name: "General", exact: true }).click();
+  const field = await page.evaluate(() => {
+    const i = document.querySelector(".settings .settings-input");
+    const s = getComputedStyle(i);
+    return { h: i.getBoundingClientRect().height, edge: s.borderTopColor, r: s.borderTopLeftRadius };
+  });
+  check(
+    "Settings: a field is 40px, the 10px corner, no edge (it measured 28px in its column)",
+    field.h === 40 && field.r === "10px" && field.edge === "rgba(0, 0, 0, 0)",
+    JSON.stringify(field),
+  );
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(400);
+}
+
 check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
 await browser.close();
 console.log(fail ? `\n${fail} FAILED` : "\nALL PASS");

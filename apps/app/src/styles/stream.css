@@ -194,8 +194,8 @@
 }
 .shero__meta {
   font-size: 14px;
+  font-variant-numeric: tabular-nums;
   color: color-mix(in srgb, var(--on-image) 60%, transparent);
-  white-space: pre;
 }
 .shero__rating { color: #ffd166; }
 .shero__actions { display: flex; gap: 10px; margin-top: 6px; }
