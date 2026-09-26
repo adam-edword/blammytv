@@ -92,6 +92,7 @@ export function MultiviewGrid({
   split,
   onSplit,
   onVolumeStep,
+  idle = false,
   choosing,
   onChoose,
   conns,
@@ -118,6 +119,8 @@ export function MultiviewGrid({
   onSplit: (split: number | null) => void;
   /** The wheel over the sound tile: the bar's volume, a step up or down. */
   onVolumeStep: (step: number) => void;
+  /** The tab has gone idle (the bar dimmed): tiles show nothing on hover. */
+  idle?: boolean;
   /** A channel sent from elsewhere is waiting for the tile it replaces (its
    * name), the grid being full when it came (plan 017, P6b). Every tile is
    * then a target: a click, Space or Enter on one, or its number, picks it.
@@ -434,6 +437,7 @@ export function MultiviewGrid({
                 onReplace={() => onReplace(s.id, s.name)}
                 onRetryResolve={() => onRetryResolve(s.id)}
                 gate={(waiting) => onGate(s.id, waiting)}
+                idle={idle}
                 atCap={atCap}
                 style={fill === s.id && fillRect ? place(fillRect) : fill ? { ...place(r), visibility: "hidden" } : place(r)}
                 mvId={`tile:${s.id}`}

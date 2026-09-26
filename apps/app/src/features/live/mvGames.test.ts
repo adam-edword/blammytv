@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fillFrom, gameLabel, liveWithChannels, scoreLine } from "./mvGames";
+import { fillFrom, gameLabel, liveWithChannels, mergeLeagues, scoreLine } from "./mvGames";
 import type { Fixture, Game } from "../sports/model";
 
 const game = (
@@ -73,5 +73,25 @@ describe("the words", () => {
   it("reads the score like a bug, and only the matchup before the start", () => {
     expect(scoreLine(game("1"))).toBe("BUF 17 – 24 KC");
     expect(scoreLine(game("1", { state: "pre" }))).toBe("BUF at KC");
+  });
+});
+
+describe("mergeLeagues (plan 018, P5)", () => {
+  const nfl = (id: string, score = 0) =>
+    game(id, { home: { name: "Kansas City", shortName: "Chiefs", abbr: "KC", score, id: `h${id}` } });
+  const epl = (id: string) => game(id, { leagueKey: "soccer/eng.1", league: "Premier League" });
+  const mlb = (id: string) => game(id, { leagueKey: "baseball/mlb", league: "MLB" });
+  const ids = (gs: readonly Game[]) => gs.map((g) => g.id);
+
+  it("answers the asked leagues afresh, where they sat, and keeps the rest", () => {
+    const prev = [mlb("m1"), nfl("n1", 3), nfl("n2"), epl("e1")];
+    const out = mergeLeagues(prev, [nfl("n1", 10)], ["football/nfl"]);
+    expect(ids(out)).toEqual(["m1", "n1", "e1"]);
+    expect((out[1] as Fixture).home.score).toBe(10);
+  });
+
+  it("a league that answers nothing loses its games; one new to the list goes last", () => {
+    const prev = [nfl("n1"), epl("e1")];
+    expect(ids(mergeLeagues(prev, [mlb("m1")], ["football/nfl", "baseball/mlb"]))).toEqual(["e1", "m1"]);
   });
 });

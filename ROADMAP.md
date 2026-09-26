@@ -243,6 +243,8 @@ never be a deterrent to building anything." So:
    channel once the game is long over. v0.9.127: the Sports theater's
    side column is dragged to the width you want, the first piece of the
    approved merge. v0.9.128 gives its edge a grip you can see at rest.
+   v0.9.129 is 018's H3: the tab's cost, the sound meter's frame loop
+   above all (82ms of main thread a second down to 26).
 7. Merge the multi-view branch into `main` (Adam's step: default branch).
 
 ### M2: finish the primitives (plan 014 L1 and L2)

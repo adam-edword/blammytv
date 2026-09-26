@@ -10,6 +10,7 @@ import { scrubbedMessage } from "../../lib/errors";
 import { isTauri, tauriMvProxyClose, tauriMvProxyOpen } from "../../lib/tauri";
 import {
   getMvProfile,
+  hlsConfig,
   mpegtsConfig,
   onMvProfileChange,
   registerTile,
@@ -28,7 +29,7 @@ import { progress } from "./epg";
 import type { Programme } from "./model";
 import type { Fixture } from "../sports/model";
 import { scoreLine } from "./mvGames";
-import { watchLevel } from "./mvLevel";
+import { watchLevel, type LevelWatch } from "./mvLevel";
 import { formatClock } from "../../lib/time";
 import { loadClockFormat } from "../settings/clockFormat";
 import { CloseIcon, PlayIcon, SwapIcon, VolumeIcon, WarnIcon } from "../../ui/icons";
@@ -181,6 +182,7 @@ export function MultiviewTile({
   onDead,
   gate,
   atCap,
+  idle = false,
   style,
   mvId,
 }: {
@@ -234,6 +236,8 @@ export function MultiviewTile({
   /** The line was full when this tile last looked: a refusal then is most
    * likely the limit, and says so (mvTile.explainFailure). */
   atCap: boolean;
+  /** The tab has gone idle: the bar is dimmed, and hover shows nothing. */
+  idle?: boolean;
   /** Where the picture goes, from mvLayout. */
   style?: CSSProperties;
   /** What the grid's motion knows this tile by (mvMotion.ts). */
@@ -457,7 +461,7 @@ export function MultiviewTile({
             video.src = url;
             return;
           }
-          const hls = new Hls({ enableWorker: true, lowLatencyMode: false });
+          const hls = new Hls(hlsConfig());
           hls.on(Hls.Events.MANIFEST_PARSED, (_e, data) => {
             const l = data.levels[0];
             if (l) checkCodecs(l.videoCodec, l.audioCodec);
@@ -580,16 +584,22 @@ export function MultiviewTile({
   // sound tile only (mvLevel.ts). Set on the element directly: sixty
   // renders a second of this tile to move three bars would be absurd.
   const barsRef = useRef<HTMLSpanElement>(null);
+  const level = useRef<LevelWatch | null>(null);
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !focused || !playing) return;
-    return watchLevel(video, ([low, mid, high]) => {
+    const watch = watchLevel(video, ([low, mid, high]) => {
       const el = barsRef.current;
       if (!el) return;
       el.style.setProperty("--b1", low.toFixed(3));
       el.style.setProperty("--b2", mid.toFixed(3));
       el.style.setProperty("--b3", high.toFixed(3));
     });
+    level.current = watch;
+    return () => {
+      level.current = null;
+      watch.stop();
+    };
   }, [focused, playing]);
 
   // The Sound badge shows when the sound arrives here, then fades back to
@@ -605,6 +615,17 @@ export function MultiviewTile({
     const t = window.setTimeout(() => setFlash(false), FLASH_MS);
     return () => window.clearTimeout(t);
   }, [focused]);
+
+  // The bars are measured only while the badge can be seen (plan 018, P1):
+  // the flash, or the pointer over the tile with the tab awake, as
+  // player.css shows it, and never muted, where they sit flat. Measuring
+  // behind a hidden badge cost 64.8ms of main thread a second, the thread
+  // that transmuxes every tile.
+  const [hovered, setHovered] = useState(false);
+  const barsSeen = focused && playing && !muted && !picking && (flash || (hovered && !idle));
+  useEffect(() => {
+    level.current?.run(barsSeen);
+  }, [barsSeen, focused, playing]);
 
   const [clock] = useState(loadClockFormat);
   const on = airing(programmes, now).now;
@@ -718,6 +739,8 @@ export function MultiviewTile({
         dead ? "failed" : recovering ? "reconnecting" : !playing ? "tuning" : stalled ? "stalled" : "playing"
       }
       onClick={act}
+      onPointerEnter={() => setHovered(true)}
+      onPointerLeave={() => setHovered(false)}
       onKeyDown={(e) => {
         // Space takes the sound. Enter is left to the grid, which fills the
         // window with this tile (plan 017's table) and gives it the sound.

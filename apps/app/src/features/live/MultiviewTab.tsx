@@ -28,6 +28,7 @@ import {
   addPick,
   arrive,
   cellsFor,
+  channelIndex,
   countKey,
   fullReason,
   gameOver,
@@ -145,13 +146,16 @@ function useIdle(): boolean {
   return idle;
 }
 
+/** How long the window holds still before full screen is asked again. */
+const RESIZE_SETTLE_MS = 150;
+
 /**
  * Whether the WINDOW is full screen, and a way to flip it.
  *
  * The window is the truth, not a flag of ours: Escape exits full screen at
  * app level (App.tsx) and the window-state plugin restores it across
- * launches, so this re-asks on every resize. Full screen this tab turned on
- * is turned off again when you leave it; one it found already on is left
+ * launches, so this re-asks after every resize. Full screen this tab turned
+ * on is turned off again when you leave it; one it found already on is left
  * alone.
  */
 function useWindowFullscreen(): [boolean, () => void] {
@@ -163,10 +167,19 @@ function useWindowFullscreen(): [boolean, () => void] {
       else setFull(document.fullscreenElement != null);
     };
     sync();
-    window.addEventListener("resize", sync);
+    // Asked once the window has settled, not on every resize event: a drag
+    // fires about 60 a second, each an IPC call (plan 018, P7). Going full
+    // screen is one resize, so the switch follows 150ms later.
+    let settle = 0;
+    const onResize = () => {
+      window.clearTimeout(settle);
+      settle = window.setTimeout(sync, RESIZE_SETTLE_MS);
+    };
+    window.addEventListener("resize", onResize);
     document.addEventListener("fullscreenchange", sync);
     return () => {
-      window.removeEventListener("resize", sync);
+      window.clearTimeout(settle);
+      window.removeEventListener("resize", onResize);
       document.removeEventListener("fullscreenchange", sync);
       if (!ours.current) return;
       if (isTauri()) void tauriSetFullscreen(false).catch(() => {});
@@ -281,7 +294,8 @@ export function MultiviewTab() {
   useEffect(() => {
     if (!live) return;
     const loaded = live.groups.filter((g) => !g.error).map((g) => g.id);
-    const gone = (id: string) => goneFrom(loaded, id, (c) => tunedChannel(c) !== null);
+    const known = channelIndex(live);
+    const gone = (id: string) => goneFrom(loaded, id, (c) => known.has(c));
     setPicks((was) => (was.some((p) => gone(p.channelId)) ? was.filter((p) => !gone(p.channelId)) : was));
     setSoundId((s) => (s !== null && gone(s) ? null : s));
   }, [live]);
@@ -402,7 +416,7 @@ export function MultiviewTab() {
     for (const p of picks) {
       const id = p.channelId;
       if (id in urls || looking.current.has(id)) continue;
-      const real = tunedChannel(id);
+      const real = live ? channelIndex(live).get(id) : undefined;
       // Not in the catalog yet: wait for it (the effect above drops the
       // pick if it never turns up).
       if (!real) continue;
@@ -459,9 +473,18 @@ export function MultiviewTab() {
    * instant and at most half an hour old (multiviewEntry).
    */
   const gameLeagues = picks.flatMap((p) => (p.gameId && p.league ? [p.league] : []));
-  const today = useGamesToday(picker !== null || gameLeagues.length > 0, gameLeagues);
+  const today = useGamesToday(
+    picker !== null || gameLeagues.length > 0,
+    gameLeagues,
+    picker !== null,
+  );
   const [snapshot] = useState(peekLiveGames);
-  const liveGames = today.looked ? liveWithChannels(today.games) : snapshot;
+  // One list per answer, not per render: it is the picker's input, and a new
+  // array every render re-ran the picker's whole memo (plan 018, P3).
+  const liveGames = useMemo(
+    () => (today.listed ? liveWithChannels(today.games) : snapshot),
+    [today.listed, today.games, snapshot],
+  );
   const fixtures = new Map(
     today.games.filter(isFixture).map((g) => [g.id, g] as const),
   );
@@ -489,8 +512,10 @@ export function MultiviewTab() {
     );
   }, [today.games, today.looked]);
 
+  // The channel behind each tile, from the catalog's index (plan 018, P4).
+  const known = live ? channelIndex(live) : null;
   const streams: GridStream[] = picks.map((p) => {
-    const ch = tunedChannel(p.channelId);
+    const ch = known?.get(p.channelId);
     const url = urls[p.channelId];
     return {
       id: p.channelId,
@@ -800,6 +825,7 @@ export function MultiviewTab() {
             split={splits[cells]}
             onSplit={chooseSplit}
             onVolumeStep={nudge}
+            idle={idle}
             choosing={choosing?.label ?? null}
             onChoose={chooseTile}
             conns={line}

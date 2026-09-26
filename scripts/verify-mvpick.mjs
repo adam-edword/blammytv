@@ -320,6 +320,15 @@ const tile = (page, name) => page.locator(`.mvtile[aria-label^="${name},"]`);
     JSON.stringify({ target, was, names: await names(page), after: after.map(([c, id]) => `${c} ${id ?? ""}`) }),
   );
 
+  // That pick closed the picker from outside, which used to leave "toon" in
+  // it for the next Add (plan 018, P3).
+  await page.keyboard.press("a");
+  await input(page).waitFor({ timeout: 5000 }).catch(() => {});
+  const reopened = await input(page).inputValue().catch(() => null);
+  await page.keyboard.press("Escape");
+  await input(page).waitFor({ state: "detached", timeout: 5000 }).catch(() => {});
+  check("after a pick, the picker opens again on an empty search", reopened === "", JSON.stringify(reopened));
+
   // Reload: the grid, and the sound, come back.
   await page.reload({ waitUntil: "domcontentloaded" });
   await goTo(page, "multiview");

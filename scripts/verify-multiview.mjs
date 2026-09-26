@@ -93,7 +93,10 @@ await page.addInitScript(
           window.__full = args.value;
           window.__calls.push([cmd, args.value]);
         }
-        if (cmd === "plugin:window|is_fullscreen") return Promise.resolve(!!window.__full);
+        if (cmd === "plugin:window|is_fullscreen") {
+          window.__asksFull = (window.__asksFull ?? 0) + 1;
+          return Promise.resolve(!!window.__full);
+        }
         return Promise.resolve(undefined);
       },
     };
@@ -444,6 +447,22 @@ check(
   JSON.stringify({ awake, resting, again }),
 );
 await page.locator(".mvtile").first().evaluate((t) => t.blur());
+
+// ---- a resize asks about full screen once it settles (plan 018, P7)
+{
+  const size = page.viewportSize();
+  const before = await page.evaluate(() => window.__asksFull ?? 0);
+  for (let i = 1; i <= 12; i++) await page.setViewportSize({ width: size.width - i * 8, height: size.height });
+  await page.waitForTimeout(500);
+  const asks = (await page.evaluate(() => window.__asksFull ?? 0)) - before;
+  await page.setViewportSize(size);
+  await page.waitForTimeout(500);
+  check(
+    "a window being resized asks whether it's full screen once it settles, not on every step",
+    asks >= 1 && asks <= 2,
+    `${asks} asks for 12 resizes`,
+  );
+}
 
 // ---- full screen goes to the window
 await page.getByRole("button", { name: "Full screen", exact: true }).click();

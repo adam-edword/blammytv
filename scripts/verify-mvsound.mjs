@@ -74,9 +74,21 @@ async function open({ silent = false } = {}) {
       MediaSource.isTypeSupported = () => true;
       // The tile's copy of its sound: a 300 Hz tone, or nothing.
       window.__captured = new Set();
+      // The app's own AudioContext (mvLevel's), told apart from the tone's.
+      window.__appCtx = [];
+      let inStub = false;
+      const Ctx = window.AudioContext;
+      window.AudioContext = class extends Ctx {
+        constructor(...a) {
+          super(...a);
+          if (!inStub) window.__appCtx.push(this);
+        }
+      };
       HTMLMediaElement.prototype.captureStream = function () {
         window.__captured.add(this);
+        inStub = true;
         const ac = new AudioContext();
+        inStub = false;
         const osc = ac.createOscillator();
         osc.frequency.value = 300;
         const gain = ac.createGain();
@@ -468,6 +480,8 @@ for (const silent of [false, true]) {
   await page.evaluate(() =>
     document.querySelectorAll("video.mvtile__video").forEach((v) => v.dispatchEvent(new Event("playing"))),
   );
+  // The bars move only while the badge shows: under the pointer, here.
+  await tile(page, ESPN).hover();
   await page.waitForTimeout(800);
   const [b1, b2, b3] = await bars(page, ESPN);
   if (!silent) {
@@ -478,6 +492,44 @@ for (const silent of [false, true]) {
   // Every tile got its playing event; only the sound tile may listen.
   const listened = await page.evaluate(() => window.__captured.size);
   if (!silent) check("and only the sound tile is measured", listened === 1, `${listened} tiles listened to`);
+  if (!silent) {
+    // Measured only while the badge can be seen (plan 018, P1), and the
+    // audio context rests while nothing measures (P6). Pointer off the
+    // tiles, past the sound's 3s flash: no writes to the bars, no frame
+    // loop, the context suspended. Back over the sound tile: all three on.
+    const writes = () =>
+      page.evaluate(
+        () =>
+          new Promise((done) => {
+            const el = document.querySelector(".mvtile.is-on .mvbars");
+            let n = 0;
+            const mo = new MutationObserver((m) => (n += m.length));
+            mo.observe(el, { attributes: true, attributeFilter: ["style"] });
+            setTimeout(() => {
+              mo.disconnect();
+              done(n);
+            }, 1200);
+          }),
+      );
+    const ctxState = () => page.evaluate(() => window.__appCtx.map((c) => c.state).join(","));
+    await page.mouse.move(W / 2, 20);
+    await page.waitForTimeout(3500);
+    const hiddenWrites = await writes();
+    const hiddenCtx = await ctxState();
+    await tile(page, ESPN).hover();
+    await page.waitForTimeout(300);
+    const shownWrites = await writes();
+    const shownCtx = await ctxState();
+    check(
+      "the bars are measured only while the badge shows, and the context rests otherwise",
+      hiddenWrites === 0 && shownWrites > 10 && hiddenCtx === "suspended" && shownCtx === "running",
+      JSON.stringify({ hiddenWrites, shownWrites, hiddenCtx, shownCtx }),
+    );
+    await goTo(page, "guide");
+    await page.waitForTimeout(500);
+    const left = await ctxState();
+    check("leaving the tab rests the context", left === "suspended", left);
+  }
   check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
   await ctx.close();
 }

@@ -5,7 +5,7 @@ import { MvLogo } from "./MultiviewTile";
 import { EASE_OUT, lastInputWasKey } from "./mvMotion";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { airing } from "./mvTile";
-import { leftLine, searchChannels, type Pick, type Room } from "./mvGrid";
+import { channelIndex, leftLine, searchChannels, type Pick, type Room } from "./mvGrid";
 import { loadFavorites } from "./favorites";
 import { fillFrom, gameLabel } from "./mvGames";
 import { isFollowed, loadFollows } from "../sports/follows";
@@ -107,7 +107,15 @@ export function MultiviewPicker({
   if (open !== wasOpen) {
     setWasOpen(open);
     setInstant(lastInputWasKey());
-    if (open) setOpening((n) => n + 1);
+    // Every opening starts from an empty search. Only the dialog's own
+    // close cleared it, so after a pick (which closes it from outside) the
+    // next Add opened on the last search (plan 018, P3). Cleared as it
+    // opens rather than as it closes, so the closing one keeps its rows
+    // while it fades.
+    if (open) {
+      setOpening((n) => n + 1);
+      setQuery("");
+    }
   }
   // Otherwise the plan's timing, not the shared Dialog's: from 0.98 rather
   // than 0.95, 200ms in on the strong ease-out and 150ms out. Reduced motion
@@ -121,8 +129,10 @@ export function MultiviewPicker({
       } as CSSProperties);
 
   const sections = useMemo((): Section[] => {
-    if (!live) return [];
-    const byId = new Map(live.channels.map((c) => [c.id, c]));
+    // Closed, it lists nothing: this ran on every render of the tab, the
+    // clock's tick and every volume notch included (plan 018, P3).
+    if (!live || !open) return [];
+    const byId = channelIndex(live, false);
     const q = query.trim().toLowerCase();
     const gameRows = games
       .filter((g) => g.channels[0])
@@ -146,7 +156,7 @@ export function MultiviewPicker({
     // What you can still add comes first in each section. The list
     // highlights its first row and Enter takes it, and a first row that was
     // already in the grid (so, disabled) left Enter doing nothing.
-    const open = (rows: Row[]) => [
+    const addableFirst = (rows: Row[]) => [
       ...rows.filter((r) => !inGrid.has(r.channelId)),
       ...rows.filter((r) => inGrid.has(r.channelId)),
     ];
@@ -169,27 +179,27 @@ export function MultiviewPicker({
         ]
       : [];
     if (gameRows.length)
-      out.push({ value: "Live games", items: [...fillRow, ...open(gameRows)] });
+      out.push({ value: "Live games", items: [...fillRow, ...addableFirst(gameRows)] });
     if (q) {
       const found = searchChannels(live, q).map(channelRow);
-      if (found.length) out.push({ value: "Channels", items: open(found) });
+      if (found.length) out.push({ value: "Channels", items: addableFirst(found) });
       return out;
     }
     const favs = loadFavorites()
       .map((id) => byId.get(id))
       .filter((c): c is Channel => !!c)
       .slice(0, SHORTLIST);
-    if (favs.length) out.push({ value: "Favorites", items: open(favs.map(channelRow)) });
+    if (favs.length) out.push({ value: "Favorites", items: addableFirst(favs.map(channelRow)) });
     const favIds = new Set(favs.map((c) => c.id));
     const recent = loadRecents()
       .filter((id) => !favIds.has(id))
       .map((id) => byId.get(id))
       .filter((c): c is Channel => !!c)
       .slice(0, SHORTLIST);
-    if (recent.length) out.push({ value: "Recent", items: open(recent.map(channelRow)) });
+    if (recent.length) out.push({ value: "Recent", items: addableFirst(recent.map(channelRow)) });
     return out;
     // `now` is left out on purpose: the rows' "what is on" is read at render.
-  }, [live, games, query, inGrid, mode.kind, room.left]);
+  }, [open, live, games, query, inGrid, mode.kind, room.left]);
 
   const choose = (row: Row) => {
     if (row.kind === "fill") {
@@ -216,10 +226,7 @@ export function MultiviewPicker({
     <Dialog
       key={opening}
       open={open}
-      onOpenChange={(o) => {
-        onOpenChange(o);
-        if (!o) setQuery("");
-      }}
+      onOpenChange={onOpenChange}
     >
       <DialogContent
         showCloseButton={false}

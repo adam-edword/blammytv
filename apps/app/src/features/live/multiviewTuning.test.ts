@@ -1,19 +1,32 @@
 import { describe, expect, it } from "vitest";
-import { findHitches, mpegtsConfig } from "./multiviewTuning";
+import { findHitches, hlsConfig, mpegtsConfig } from "./multiviewTuning";
 
 describe("mpegtsConfig", () => {
   it("smooth never jumps and never changes speed", () => {
     // The library's own buffering, untouched. Adam's streams keep a bursty
     // 6 to 14s cushion, and every catch-up threshold tried flipped the
     // audio tile between 1x and 1.1x (v0.9.102, v0.9.103).
-    expect(mpegtsConfig("smooth")).toEqual({});
+    const c = mpegtsConfig("smooth");
+    expect(c.liveBufferLatencyChasing).toBeUndefined();
+    expect(c.liveSync).toBeUndefined();
+    expect(c.enableStashBuffer).toBeUndefined();
   });
 
-  it("chase is exactly what v0.9.101 shipped, for the A/B", () => {
-    expect(mpegtsConfig("chase")).toEqual({
+  it("chase is what v0.9.101 shipped, for the A/B", () => {
+    expect(mpegtsConfig("chase")).toMatchObject({
       enableStashBuffer: false,
       liveBufferLatencyChasing: true,
     });
+  });
+
+  it("either keeps 30s behind the playhead, not the library's 180 (plan 018, P2)", () => {
+    for (const p of ["smooth", "chase"] as const)
+      expect(mpegtsConfig(p)).toMatchObject({
+        autoCleanupSourceBuffer: true,
+        autoCleanupMaxBackwardDuration: 30,
+        autoCleanupMinBackwardDuration: 20,
+      });
+    expect(hlsConfig()).toMatchObject({ backBufferLength: 30 });
   });
 });
 

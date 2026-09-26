@@ -3,7 +3,7 @@
 **Status: IN PROGRESS.** Adam took both decisions (2026-09-25) and added
 two calls of his own: a grid opens in Focus, and one stream fills the
 stage. All four shipped in v0.9.124, and L6 went with them. **H1
-shipped in v0.9.125** (a rebuild), **H2 in v0.9.126. H3 is next.** The test on his line
+shipped in v0.9.125** (a rebuild), **H2 in v0.9.126, H3 in v0.9.129. H4 is next.** The test on his line
 turned out not to be needed (see H1).
 
 *Source: five audits run against v0.9.122 on 2026-09-25, one per
@@ -466,6 +466,40 @@ P1 to P7.
 numbers in the commit. A harness check that the meter's frame loop stops
 when the badge hides (a counted `requestAnimationFrame`). The picker
 reopens on an empty search.
+
+**Shipped in v0.9.129.** Where it differs from the above, or says more:
+- **P1 was measured in the app**, not a synthetic page: three tiles on
+  verify-mvsound's tone, the badge hidden, the pointer on the bar. Main
+  thread 81.9ms a second before, 25.8 after; the frame loop and the style
+  recalcs it caused 60 a second before, 0 after. The badge's conditions
+  are mirrored in the tile (the flash, or hover with the tab awake; not
+  muted, not picking), which needed the tab's idle passed down.
+- **P6 rides on P1:** the context runs only while the bars are measured,
+  so it rests behind a hidden badge as well as on the Guide.
+- **P2 is 30s**, trimmed to 20, for both profiles and hls.js. The
+  audit's 120 to 180s was right: `isLive` turns mpegts.js's cleanup on at
+  those defaults. Not measurable here (nothing decodes headless).
+- **P3 and P4 share one index**, `channelIndex` in mvGrid.ts, per catalog.
+  The picker asks it for visible channels only, as it always offered; the
+  tiles ask with hidden ones, as tunedChannel had them. The audit's
+  benchmarks re-run: the picker's 26k Map was 3.9ms per memo run, and ran
+  on every render of the tab; now once per catalog, and nothing while
+  closed. Four tiles' lookups were 0.81ms a render; now four Map gets.
+- **P5 keeps one cache:** a look at only the grid's leagues replaces those
+  leagues' games in the last full look (`mergeLeagues`), so the picker
+  still opens on the whole list, and a full look runs as it opens if the
+  last one is a poll old.
+- **P7 waits 150ms** for the window to hold still.
+
+*Proof:*
+- verify-mvsound: the bars written and the context running only while
+  the badge shows, and resting after the tab is left.
+- verify-mvgames: with the picker shut and following nothing, only the
+  grid's two leagues are asked; opened, all 149.
+- verify-mvpick: after a pick, the picker opens again on an empty search
+  (mutated: fails with the clear removed).
+- verify-multiview: 12 resizes ask about full screen once.
+- Unit tests: `mergeLeagues`, and the back buffer in both profiles.
 
 ### H4. The keyboard, screen readers, and layout (frontend)
 

@@ -52,11 +52,31 @@ export function onMvProfileChange(cb: (p: MvProfile) => void): () => void {
   return () => window.removeEventListener(EVENT, h);
 }
 
-/** mpegts.js's config for a profile. */
+/**
+ * What a tile keeps of what it has already played (plan 018, P2). A tile
+ * can't seek, so behind the playhead is only memory: mpegts.js's live
+ * default trims at 180s back to 120s, and hls.js keeps all of it, about 75
+ * to 150MB a tile. 30s, trimmed to 20, is room for the browser's own small
+ * steps back and nothing more.
+ */
+export const BACK_BUFFER_S = 30;
+const BACK_BUFFER_KEEP_S = 20;
+
+/** mpegts.js's config for a profile. Either way the back buffer is capped. */
 export function mpegtsConfig(p: MvProfile): Record<string, unknown> {
+  const cleanup = {
+    autoCleanupSourceBuffer: true,
+    autoCleanupMaxBackwardDuration: BACK_BUFFER_S,
+    autoCleanupMinBackwardDuration: BACK_BUFFER_KEEP_S,
+  };
   return p === "chase"
-    ? { enableStashBuffer: false, liveBufferLatencyChasing: true }
-    : {};
+    ? { enableStashBuffer: false, liveBufferLatencyChasing: true, ...cleanup }
+    : cleanup;
+}
+
+/** hls.js's config for a tile. */
+export function hlsConfig(): Record<string, unknown> {
+  return { enableWorker: true, lowLatencyMode: false, backBufferLength: BACK_BUFFER_S };
 }
 
 /**

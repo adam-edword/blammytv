@@ -191,6 +191,33 @@ export function stepSound(
   return null;
 }
 
+/**
+ * The catalog's channels by id, one Map per catalog (plan 018, P4): what a
+ * tile, the picker and the drop check look a channel up in. Every tile on
+ * every render used to go through tunedChannel(), which parses the
+ * playlists out of storage and scans the whole list, and the picker built
+ * its own Map of 26k channels on every render, closed or not (P3).
+ *
+ * With `hidden`, the channels of folders you hid too, as tunedChannel has
+ * them (a tile of one stays); a visible one wins an id they share. Without,
+ * only what the Guide shows, for what the picker offers.
+ */
+const BY_ID = new WeakMap<LiveData, ReadonlyMap<string, Channel>>();
+const SHOWN_BY_ID = new WeakMap<LiveData, ReadonlyMap<string, Channel>>();
+
+export function channelIndex(live: LiveData, hidden = true): ReadonlyMap<string, Channel> {
+  const cache = hidden ? BY_ID : SHOWN_BY_ID;
+  let index = cache.get(live);
+  if (!index) {
+    const m = new Map<string, Channel>();
+    if (hidden) for (const c of live.hidden ?? []) m.set(c.id, c);
+    for (const c of live.channels) m.set(c.id, c);
+    index = m;
+    cache.set(live, index);
+  }
+  return index;
+}
+
 /** Names lowercased once per catalog (audit perf 8), not per keystroke. */
 const INDEXES = new WeakMap<LiveData, Array<[Channel, string]>>();
 

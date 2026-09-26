@@ -253,6 +253,30 @@ check(
   bareFill,
 );
 
+// With the picker shut only the grid's games matter, so only their leagues
+// are asked (plan 018, P5). Following nothing is the case that shows it: a
+// full look asks the whole catalog, and the grid holds two leagues.
+await bare.keyboard.press("Enter");
+await bare.locator(".mvpick__input").waitFor({ state: "detached", timeout: 5000 }).catch(() => {});
+asked.length = 0;
+await bare.reload({ waitUntil: "domcontentloaded" });
+await goTo(bare, "multiview");
+await bare.waitForFunction(() => /–/.test(document.querySelector(".mvcap")?.textContent ?? ""), null, {
+  timeout: 15_000,
+}).catch(() => {});
+await bare.waitForTimeout(1000);
+const leagueOf = (p) => p.split("/sports/")[1]?.split("/scoreboard")[0];
+const shut = [...new Set(asked.map(leagueOf))].sort();
+asked.length = 0;
+await bare.keyboard.press("a");
+await bare.waitForFunction(() => document.querySelectorAll(".mvpick__game").length > 1, null, { timeout: 15_000 }).catch(() => {});
+const opened = new Set(asked.map(leagueOf)).size;
+check(
+  "with the picker shut, the score poll asks only the grid's leagues; opened, it asks them all",
+  JSON.stringify(shut) === JSON.stringify(["football/nfl", "soccer/eng.1"]) && opened > 10,
+  JSON.stringify({ shut, opened }),
+);
+
 check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
 await browser.close();
 proxy.close();
