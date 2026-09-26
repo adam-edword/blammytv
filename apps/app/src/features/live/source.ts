@@ -444,9 +444,9 @@ async function buildXtreamSource(
         };
         // On a worker: 3.3 seconds of a frozen app on Adam's 106MB guide,
         // every refresh, when it ran here (xmltvThread.ts).
-        const { programmes } = await parseXmltvOffThread(bytes, index, now, stats);
+        const { programmes, onWorker } = await parseXmltvOffThread(bytes, index, now, stats);
         console.info(
-          `[live] ${p.name}: xmltv ${mb}MB in ${Math.round(fetched - xmlT0)}ms (overlapped), parsed EPG for ${programmes.size} channels in ${Math.round(performance.now() - fetched)}ms (off the page's thread)`,
+          `[live] ${p.name}: xmltv ${mb}MB in ${Math.round(fetched - xmlT0)}ms (overlapped), parsed EPG for ${programmes.size} channels in ${Math.round(performance.now() - fetched)}ms (${onWorker ? "off the page's thread" : "on the page"})`,
         );
         // Coverage, because "248 guides for 1920 channels" has two very
         // different explanations. `channels with an epg id` vs `matched`

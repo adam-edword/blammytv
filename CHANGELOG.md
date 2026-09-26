@@ -2,6 +2,31 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 0.10.11: Live scores in Multi-view (2026-09-26)
+
+An update to the app's screens, like 0.10.3: it downloads by itself and
+applies the next time you open BlammyTV.
+
+- **Live scores in Multi-view.** Press S, or the new button on the bar,
+  for a row of live scores under your channels, the same cards as the
+  Sports theater's. Click a game one of your channels carries and pick its
+  feed; a game already on the grid is ringed. The filter at the start of
+  the row picks which sports and leagues it shows. Off until you turn it
+  on, and remembered.
+- **No more freeze while the guide loads.** A big guide (100MB and up)
+  froze the whole app for a few seconds while it was read, every time it
+  refreshed: after opening the app, and on whatever tab you were on. It's
+  read in the background now.
+- **A single bad character no longer empties the guide.** A stray `&` in
+  one programme's title used to throw the whole guide away.
+- **Settings is back on Multi-view**, in the top right like every other
+  tab.
+- **Check for updates says when one is waiting.** Settings → General could
+  say "You're up to date" over an update that had already downloaded.
+- Smaller Multi-view fixes: resizing Focus no longer draws a line across
+  the picture, and in a narrow window the bar fits between the nav and
+  Settings.
+
 ## 0.10.3: Pick the feed (2026-09-26)
 
 Three fixes to 0.10.0. They arrive as an update to the app's screens, so

@@ -20,6 +20,12 @@ export type XmltvDone =
   | { programmes: ReturnType<typeof parseXmltv>; stats?: XmltvStats; chars: number }
   | { error: string };
 
+/** Said once this file has loaded: the page hands the bytes over only
+ * then, so a worker that never starts leaves them with the page. */
+export interface XmltvReady {
+  ready: true;
+}
+
 self.onmessage = (e: MessageEvent<XmltvJob>) => {
   const { bytes, ids, now, stats: want } = e.data;
   let reply: XmltvDone;
@@ -34,3 +40,5 @@ self.onmessage = (e: MessageEvent<XmltvJob>) => {
   }
   (self as unknown as DedicatedWorkerGlobalScope).postMessage(reply);
 };
+
+(self as unknown as DedicatedWorkerGlobalScope).postMessage({ ready: true } satisfies XmltvReady);

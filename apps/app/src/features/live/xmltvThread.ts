@@ -1,6 +1,6 @@
 import type { Programme } from "./model";
 import { parseXmltv, type XmltvStats } from "./xmltv";
-import type { XmltvDone, XmltvJob } from "./xmltv.worker";
+import type { XmltvDone, XmltvJob, XmltvReady } from "./xmltv.worker";
 
 /**
  * Parse a downloaded guide on a worker, so the page never waits on it
@@ -18,36 +18,68 @@ import type { XmltvDone, XmltvJob } from "./xmltv.worker";
  * The bytes are handed over, not copied (the download is ours to give
  * away), and the programmes come back as a structured clone.
  *
- * Where there is no Worker (the unit tests), or one cannot be started,
- * the parse runs here, as it always did. A worker that starts and then
- * fails is an error like any other guide failure: the bytes went with it.
+ * Where there is no Worker (the unit tests), or one does not start, the
+ * parse runs here, as it always did: slower, and the guide still arrives.
+ * A hot release is the first place this runs as a packaged build, served
+ * through the app's own protocol rather than a dev server; a worker that
+ * would not load there must not cost anyone their guide. So the bytes are
+ * handed over only once the worker says it has loaded, and until then the
+ * page still has them to fall back on. After that, a failure is an error
+ * like any other guide failure.
  */
 export function parseXmltvOffThread(
   bytes: ArrayBuffer,
   byEpgId: Map<string, string[]>,
   now: Date,
   stats?: XmltvStats,
-): Promise<{ programmes: Map<string, Programme[]>; chars: number }> {
+): Promise<{ programmes: Map<string, Programme[]>; chars: number; onWorker: boolean }> {
+  const here = () => {
+    const xml = new TextDecoder().decode(bytes);
+    return { programmes: parseXmltv(xml, byEpgId, now, stats), chars: xml.length, onWorker: false };
+  };
   let worker: Worker;
   try {
     worker = new Worker(new URL("./xmltv.worker.ts", import.meta.url), { type: "module" });
   } catch {
-    const xml = new TextDecoder().decode(bytes);
-    return Promise.resolve({ programmes: parseXmltv(xml, byEpgId, now, stats), chars: xml.length });
+    return Promise.resolve(here());
   }
   return new Promise((resolve, reject) => {
-    worker.onmessage = (e: MessageEvent<XmltvDone>) => {
+    let started = false;
+    let gaveUp = false;
+    const giveUp = (why: string) => {
+      // The timer and a late load error can both land: read it once.
+      if (gaveUp) return;
+      gaveUp = true;
       worker.terminate();
-      const done = e.data;
-      if ("error" in done) return reject(new Error(done.error));
-      if (stats && done.stats) Object.assign(stats, done.stats);
-      resolve({ programmes: done.programmes, chars: done.chars });
+      console.warn(`[live] the guide's worker did not start (${why}); reading it on the page`);
+      resolve(here());
+    };
+    const slow = window.setTimeout(() => giveUp("no word in 5s"), START_MS);
+    worker.onmessage = (e: MessageEvent<XmltvReady | XmltvDone>) => {
+      const msg = e.data;
+      if ("ready" in msg) {
+        window.clearTimeout(slow);
+        started = true;
+        const job: XmltvJob = { bytes, ids: [...byEpgId], now: now.getTime(), stats: !!stats };
+        worker.postMessage(job, [bytes]);
+        return;
+      }
+      worker.terminate();
+      if ("error" in msg) return reject(new Error(msg.error));
+      if (stats && msg.stats) Object.assign(stats, msg.stats);
+      resolve({ programmes: msg.programmes, chars: msg.chars, onWorker: true });
     };
     worker.onerror = (e) => {
+      if (!started) {
+        window.clearTimeout(slow);
+        return giveUp(e.message || "it failed to load");
+      }
       worker.terminate();
-      reject(new Error(e.message || "the guide's worker failed to start"));
+      reject(new Error(e.message || "the guide's worker failed"));
     };
-    const job: XmltvJob = { bytes, ids: [...byEpgId], now: now.getTime(), stats: !!stats };
-    worker.postMessage(job, [bytes]);
   });
 }
+
+/** How long a worker may take to load before the page reads the guide
+ * itself. It loads in milliseconds; this is for one that never will. */
+const START_MS = 5_000;
