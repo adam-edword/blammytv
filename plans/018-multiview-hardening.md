@@ -3,7 +3,7 @@
 **Status: IN PROGRESS.** Adam took both decisions (2026-09-25) and added
 two calls of his own: a grid opens in Focus, and one stream fills the
 stage. All four shipped in v0.9.124, and L6 went with them. **H1
-shipped in v0.9.125** (a rebuild). **H2 is next.** The test on his line
+shipped in v0.9.125** (a rebuild), **H2 in v0.9.126. H3 is next.** The test on his line
 turned out not to be needed (see H1).
 
 *Source: five audits run against v0.9.122 on 2026-09-25, one per
@@ -401,6 +401,52 @@ L1 to L10.
 *Proof:* unit tests for each rule in `mvGrid.ts` and `connections.ts`,
 turned from the audit's proof tests (which assert today's behaviour) into
 tests of the right one. verify-mvfill gains the one-and-two case.
+
+**Shipped in v0.9.126.** Where it differs from the above, or says more:
+- **The rules are pure** in `mvGrid.ts` (`countKey`, `lineFor`,
+  `settledOn`, `goneFrom`, `gameOver`) and `connections.ts`
+  (`foldReading`), unit tested, and wired into the tab.
+- **L1 and L3 share a change:** every reading carries when it was taken.
+  A failed poll now throws out of `fetchConnections` (its only caller was
+  the hook) and leaves the last reading standing. The Live sidebar and
+  Sports get that too. "Elsewhere" is believed from a reading taken 19
+  seconds or more after the grid last changed. The tab also asks once
+  more 20 seconds after it opens, so that isn't a minute away.
+- **L4 is the simple form:** the line's limit holds while every tile is
+  on it. With a tile from another source there is no single limit, and
+  Add is offered up to four, as with several lines.
+- **L5 went further than the tab.** M3U and Stalker now keep what a
+  folder the user hid holds, as Xtream always has (never an adult one),
+  so hiding a folder in the Guide no longer deletes its multi-view tiles.
+  The Sports matcher gets the same fallback on those sources. Kept M3U
+  channels are numbered apart, so keeping them changes no visible
+  channel's id, and one that would share a visible channel's id isn't
+  kept. Hiding a folder can still renumber a later channel sharing a
+  tvg-id with one in it, as it always could; numbering them all together
+  would fix that, at the cost of renumbering once for anyone it affects.
+- **L6** went in v0.9.124 (one stream is one cell).
+- **L8:** a pick that finds the line full turns into picking the tile it
+  replaces, as a channel sent from the Guide does.
+- **L9** needs to know when a game started, so a game pick carries
+  `start` from now on. A pick saved before that goes when the board no
+  longer has its game.
+- **L10** says "as of" once a score is five minutes old (three looks
+  missed). The midnight half of L10 (a late game leaving the new day's
+  board) is not done: a game with `start` keeps its tile until 12 hours
+  after it began, so the tile stays and only its score stops.
+
+*Proof:* verify-mvline (new):
+- a failed poll keeping a full line full
+- a failed playlist keeping its tiles
+- an add on a filled line asking which tile it replaces
+- a long-over game tile going back to its channel
+- an old score saying so
+
+verify-mvseam: a drag held through G. Unit tests: the rules above, and
+M3U and Stalker keeping hidden folders aside. Mutations: 14 of 14. The
+failed-playlist check first passed on an empty page (no catalog, so
+nothing was judged); it now loads an M3U beside the failed line and
+checks the picker lists it.
 
 ### H3. What the tab costs (frontend)
 

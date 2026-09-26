@@ -15,6 +15,7 @@ vi.mock("./diskCache", () => ({
   diskPut: vi.fn().mockResolvedValue(undefined),
 }));
 let showAdult = false;
+let hiddenCategories: string[] = [];
 vi.mock("../settings/adultFilter", () => ({
   loadShowAdult: () => showAdult,
 }));
@@ -26,6 +27,7 @@ vi.mock("../settings/playlists", () => ({
       name: "My M3U",
       enabled: true,
       url: "http://host/playlist.m3u",
+      hiddenCategories,
     },
   ],
 }));
@@ -45,6 +47,7 @@ describe("loadLive M3U path", () => {
     vi.clearAllMocks();
     vi.resetModules();
     showAdult = false;
+    hiddenCategories = [];
     httpGetText.mockImplementation((url: string) =>
       url.endsWith(".m3u")
         ? Promise.resolve(PLAYLIST)
@@ -62,6 +65,43 @@ describe("loadLive M3U path", () => {
     const folders = data.groups[0].folders.map((f) => f.name);
     expect(folders).toEqual(["UK"]);
     expect(folders).not.toContain("XXX Adult");
+  });
+
+  it("keeps a folder the user hid aside, under the ids it had, and never an adult one (plan 018, L5)", async () => {
+    hiddenCategories = ["UK", "XXX Adult"];
+    const { loadLive } = await import("./source");
+    const data = await loadLive(new Date());
+    expect(data.channels).toEqual([]);
+    expect(data.groups[0].folders).toEqual([]);
+    // Multi-view's remembered tiles are keyed by these ids.
+    expect((data.hidden ?? []).map((c) => [c.id, c.name])).toEqual([
+      ["m1:bbc1.uk", "BBC One"],
+      [expect.stringMatching(/^m1:/), "ITV"],
+    ]);
+    expect((data.hidden ?? []).some((c) => c.name === "Naughty Channel")).toBe(false);
+  });
+
+  it("doesn't keep a hidden channel under a visible one's id", async () => {
+    hiddenCategories = ["US"];
+    httpGetText.mockImplementation((url: string) =>
+      url.endsWith(".m3u")
+        ? Promise.resolve(
+            [
+              "#EXTM3U",
+              '#EXTINF:-1 tvg-id="espn.us" group-title="Sports",ESPN',
+              "http://host/live/1.ts",
+              '#EXTINF:-1 tvg-id="espn.us" group-title="US",ESPN East',
+              "http://host/live/2.ts",
+              '#EXTINF:-1 tvg-id="fox.us" group-title="US",FOX',
+              "http://host/live/3.ts",
+            ].join("\n"),
+          )
+        : Promise.reject(new Error("no epg")),
+    );
+    const { loadLive } = await import("./source");
+    const data = await loadLive(new Date());
+    expect(data.channels.map((c) => [c.id, c.name])).toEqual([["m1:espn.us", "ESPN"]]);
+    expect((data.hidden ?? []).map((c) => [c.id, c.name])).toEqual([["m1:fox.us", "FOX"]]);
   });
 
   it("keeps the adult group when the filter is off", async () => {

@@ -320,6 +320,28 @@ const press = async (page, key) => {
     (await page.getByRole("separator").count()) === 0 && JSON.stringify(g0) === JSON.stringify(g1),
     JSON.stringify(g1.map((t) => Math.round(t.w))),
   );
+
+  // A drag held while G takes the seam away ends with it (plan 018, L7).
+  // It used to stay set: the next Focus ignored the saved split and the
+  // seam went on dragging under a pointer with no button down.
+  await press(page, "g");
+  const sx = await seamX(page);
+  const sy = (await seamBox(page)).y + 40;
+  await page.mouse.move(sx, sy);
+  await page.mouse.down();
+  await page.mouse.move(sx - 150, sy, { steps: 6 });
+  await press(page, "g");
+  await page.mouse.up();
+  await rest(page);
+  await press(page, "g");
+  await page.waitForTimeout(400);
+  const again = await tiles(page);
+  const dragging = await page.locator(".mvgrid.is-seam-drag").count();
+  check(
+    "a drag held while G takes the seam away ends with it: Focus comes back at its split",
+    natural(again) && dragging === 0,
+    JSON.stringify({ natural: natural(again), dragging, big: Math.round(again[0].w) }),
+  );
   check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
   await ctx.close();
 }

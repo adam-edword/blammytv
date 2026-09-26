@@ -105,6 +105,10 @@ export interface TileChannel {
 const STALL_MS = 1000;
 /** How long the Sound badge stays after the sound moves (plan 017). */
 const FLASH_MS = 3000;
+/** A score this old says when it is from: ESPN has failed that long, and it
+ * looked exactly like a live one (plan 018, L10). The board is asked every
+ * 90 seconds, so this is three looks missed. */
+const SCORE_STALE_MS = 5 * 60_000;
 
 /**
  * The channel's logo, or its first letter when there is none or it broke.
@@ -161,6 +165,7 @@ export function MultiviewTile({
   channel,
   programmes,
   game,
+  scoreAt,
   now,
   focused,
   volume,
@@ -193,6 +198,8 @@ export function MultiviewTile({
   /** The game, when it was picked as one: the score and clock instead of
    * the guide (plan 017, "A tile"). */
   game?: Fixture;
+  /** When that score came (Date.now()): past SCORE_STALE_MS it says so. */
+  scoreAt?: number;
   /** The clock the grid ticks, for what is on and its progress. */
   now: Date;
   /** The one tile with sound. Exactly one, enforced by the grid. */
@@ -786,7 +793,15 @@ export function MultiviewTile({
               {game ? (
                 <div className="mvtile__prog">
                   <span className="mvtile__gamestatus">
-                    {[game.status, game.league].filter(Boolean).join(" · ")}
+                    {[
+                      game.status,
+                      game.league,
+                      scoreAt !== undefined && now.getTime() - scoreAt > SCORE_STALE_MS
+                        ? `as of ${formatClock(new Date(scoreAt), clock)}`
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </span>
                 </div>
               ) : on && (

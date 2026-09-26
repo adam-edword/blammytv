@@ -30,12 +30,43 @@ const POST_TUNE_DELAY_MS = 4_000;
  */
 const SETTLE_MS = 20_000;
 
+/** A playlist's count, and when it was read (Date.now()): how old it is
+ * says whether it can have caught up with a change (plan 018, L3). */
+export interface LineReading extends XtreamConnections {
+  at: number;
+}
+
+/**
+ * One poll's answer, folded into the readings. A count replaces the last
+ * one; a panel that reports no limit has none; and a poll that FAILED
+ * leaves the last reading where it was. It used to count as no limit,
+ * which let multi-view offer a fourth stream on a line of three until the
+ * next good poll, a minute later (plan 018, L1).
+ */
+export function foldReading(
+  prev: Map<string, LineReading>,
+  id: string,
+  answer: XtreamConnections | null | "failed",
+  at: number,
+): Map<string, LineReading> {
+  if (answer === "failed") return prev;
+  if (answer === null) {
+    if (!prev.has(id)) return prev;
+    const next = new Map(prev);
+    next.delete(id);
+    return next;
+  }
+  const next = new Map(prev);
+  next.set(id, { ...answer, at });
+  return next;
+}
+
 export function useConnections(
   tuneKey: string | null,
   /** Ask every few seconds rather than every minute. */
   fast = false,
-): Map<string, XtreamConnections> {
-  const [conns, setConns] = useState<Map<string, XtreamConnections>>(
+): Map<string, LineReading> {
+  const [conns, setConns] = useState<Map<string, LineReading>>(
     () => new Map(),
   );
   /** First run of the effect vs a later tune change. Both arrive with
@@ -54,23 +85,20 @@ export function useConnections(
       const mine = ++seq.current;
       for (const p of loadPlaylists()) {
         if (p.kind !== "xtream" || !p.enabled) continue;
-        void fetchConnections(p).then((c) => {
-          if (stale || mine !== seq.current) return;
-          // Pure updater (StrictMode) that keeps the Map identity stable
-          // when nothing changed — the sidebar re-renders on every tick
-          // otherwise.
-          setConns((prev) => {
-            const cur = prev.get(p.id);
-            const same = c
-              ? cur?.active === c.active && cur?.max === c.max
-              : !cur;
-            if (same) return prev;
-            const next = new Map(prev);
-            if (c) next.set(p.id, c);
-            else next.delete(p.id);
-            return next;
-          });
-        });
+        void fetchConnections(p).then(
+          (c) => {
+            if (stale || mine !== seq.current) return;
+            // A new Map every good poll, even with the same numbers: the
+            // reading's time is part of it (LineReading). That is one
+            // render a minute, a few seconds apart only while a
+            // multi-view tile waits for a slot.
+            const at = Date.now();
+            setConns((prev) => foldReading(prev, p.id, c, at));
+          },
+          () => {
+            // Failed: the last reading stands (foldReading, "failed").
+          },
+        );
       }
     };
     // First mount: ask at once, there is nothing to wait for. Any later
@@ -85,7 +113,10 @@ export function useConnections(
     // sentinel is undefined.
     const first = lastKey.current === undefined || lastKey.current === tuneKey;
     lastKey.current = tuneKey;
-    const delays = first ? [0] : [POST_TUNE_DELAY_MS, SETTLE_MS];
+    // And on the first run, once more at SETTLE_MS: a count read at 0 was
+    // taken before anything just opened had connected, and the next look
+    // was a full minute away (plan 018, L3).
+    const delays = first ? [0, SETTLE_MS] : [POST_TUNE_DELAY_MS, SETTLE_MS];
     const timers = delays.map((d) => window.setTimeout(refresh, d));
     const id = window.setInterval(refresh, fast ? FAST_POLL_MS : POLL_MS);
     return () => {

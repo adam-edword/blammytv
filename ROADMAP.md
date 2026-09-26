@@ -236,7 +236,10 @@ never be a deterrent to building anything." So:
    stream fills the stage, Focus from two streams, and a focused tile rests
    with the bar. v0.9.125 (native) is H1: a tile that loses its stream
    reconnects by itself, waiting for a free slot on the line first, and a
-   failed one lets go of its connection.
+   failed one lets go of its connection. v0.9.126 is H2: a failed poll or
+   playlist no longer costs the grid its count or its tiles, an add on a
+   full line asks which tile to replace, and a game tile goes back to its
+   channel once the game is long over.
 7. Merge the multi-view branch into `main` (Adam's step: default branch).
 
 ### M2: finish the primitives (plan 014 L1 and L2)

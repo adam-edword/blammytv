@@ -28,11 +28,16 @@ import {
   addPick,
   arrive,
   cellsFor,
+  countKey,
   fullReason,
+  gameOver,
+  goneFrom,
+  lineFor,
   meterLine,
   removePick,
   replacePick,
   roomOn,
+  settledOn,
   swapToFront,
   type Pick,
 } from "./mvGrid";
@@ -233,12 +238,6 @@ function useCompactSide(
   return compact;
 }
 
-/**
- * How long after the grid changes before the panel's count is believed.
- * connections.ts measured a panel taking up to about 20 seconds to notice a
- * stream has gone; a little over that.
- */
-const SETTLE_MS = 25_000;
 
 /**
  * How long a channel sent from elsewhere waits for the line's answer before
@@ -274,36 +273,48 @@ export function MultiviewTab() {
   useEffect(() => saveGrid({ picks, sound: soundId }), [picks, soundId]);
 
   // A remembered channel that has left the catalog is dropped quietly, once
-  // the catalog is here to say so.
+  // the catalog is here to say so. ITS OWN PLAYLIST's catalog: one that
+  // failed to load (a slow panel, a refresh that timed out) says nothing
+  // about its channels, and its tiles used to be dropped and the smaller
+  // grid saved, mid-game (plan 018, L5). The sound goes with a tile that
+  // goes, so the channel coming back later doesn't find it waiting.
   useEffect(() => {
     if (!live) return;
-    setPicks((was) => {
-      const next = was.filter((p) => tunedChannel(p.channelId));
-      return next.length === was.length ? was : next;
-    });
+    const loaded = live.groups.filter((g) => !g.error).map((g) => g.id);
+    const gone = (id: string) => goneFrom(loaded, id, (c) => tunedChannel(c) !== null);
+    setPicks((was) => (was.some((p) => gone(p.channelId)) ? was.filter((p) => !gone(p.channelId)) : was));
+    setSoundId((s) => (s !== null && gone(s) ? null : s));
   }, [live]);
 
   /**
    * The line: its limit, what it reports in use, and so what is left.
    *
-   * ONLY WHEN ONE PLAYLIST ANSWERS: with several, a grid can draw tiles from
-   * different lines and no single cap describes it, and guessing wrong in
-   * either direction is worse than offering up to four and letting a tile
-   * say it was refused. Keyed on the grid's channels so the count is asked
-   * again after every change, then again once the panel has caught up.
+   * ONLY WHEN ONE PLAYLIST ANSWERS, AND EVERY TILE IS ON IT: with several,
+   * or with tiles from another source (an M3U beside an Xtream line), no
+   * single cap describes the grid, and guessing wrong in either direction
+   * is worse than offering up to four and letting a tile say it was
+   * refused. It used to be "one Xtream line answered", so a line of one
+   * stream capped an M3U beside it too (plan 018, L4).
+   *
+   * Keyed on the grid's channels so the count is asked again after every
+   * change, then again once the panel has caught up. The SET of them, not
+   * their order: making a small tile big in Focus reorders the grid without
+   * changing a connection, and restarted the count, opening a window where
+   * a full line offered Add (plan 018, L2).
    */
-  const key = picks.map((p) => p.channelId).join("|");
+  const key = countKey(picks);
   /** Tiles waiting on the gate for a free slot: the panel is asked every
    * few seconds while any is (plan 018, H1). */
   const [waitingRoom, setWaitingRoom] = useState(0);
   const conns = useConnections(key || null, waitingRoom > 0);
-  const line = conns.size === 1 ? [...conns.values()][0] : null;
-  const [settledKey, setSettledKey] = useState<string | null>(null);
-  useEffect(() => {
-    const t = window.setTimeout(() => setSettledKey(key), SETTLE_MS);
-    return () => window.clearTimeout(t);
-  }, [key]);
-  const room = roomOn(line, picks.length, settledKey === key);
+  const line = lineFor(conns, picks);
+  // When the grid's channels last changed. Set as the render sees the new
+  // key, not in an effect after it, so no render believes a reading taken
+  // before the change against the new grid.
+  const changed = useRef({ key, at: Date.now() });
+  if (changed.current.key !== key) changed.current = { key, at: Date.now() };
+  const settled = settledOn(line, changed.current.at);
+  const room = roomOn(line, picks.length, settled);
   const roomRef = useRef(room);
   roomRef.current = room;
 
@@ -455,6 +466,29 @@ export function MultiviewTab() {
     today.games.filter(isFixture).map((g) => [g.id, g] as const),
   );
 
+  // A game tile goes back to being its channel once its game is over: half
+  // an hour after the board first called it final, or 12 hours after it
+  // started. A tile from before `start` was kept goes when a look at the
+  // board no longer has its game. It used to say "Buffalo at Kansas City"
+  // the next day, and keep ESPN asked every 90 seconds (plan 018, L9).
+  const finalSeen = useRef(new Map<string, number>());
+  useEffect(() => {
+    const now = Date.now();
+    const onBoard = new Map(today.games.filter(isFixture).map((g) => [g.id, g] as const));
+    for (const g of onBoard.values())
+      if (g.state === "final" && !finalSeen.current.has(g.id)) finalSeen.current.set(g.id, now);
+    const over = (p: Pick) =>
+      !!p.gameId &&
+      gameOver(p, now, finalSeen.current.get(p.gameId), today.looked, onBoard.has(p.gameId));
+    setPicks((was) =>
+      was.some(over)
+        ? was.map((p) =>
+            over(p) ? { channelId: p.channelId, label: tunedChannel(p.channelId)?.name ?? p.label } : p,
+          )
+        : was,
+    );
+  }, [today.games, today.looked]);
+
   const streams: GridStream[] = picks.map((p) => {
     const ch = tunedChannel(p.channelId);
     const url = urls[p.channelId];
@@ -466,6 +500,7 @@ export function MultiviewTab() {
       channel: { name: ch?.name ?? p.label, number: ch?.number, logo: ch?.logo },
       programmes: live?.programmes.get(p.channelId),
       game: p.gameId ? fixtures.get(p.gameId) : undefined,
+      scoreAt: p.gameId ? (today.at ?? undefined) : undefined,
     };
   });
 
@@ -485,6 +520,14 @@ export function MultiviewTab() {
       setPicks((was) => replacePick(was, picker.id, pick));
       // Same place, same sound.
       if (soundId === picker.id) setSoundId(pick.channelId);
+    } else if (room.left === 0) {
+      // The line filled while the picker was open (the count settled, a
+      // poll came in): pick the tile it replaces, as a channel sent from
+      // the Guide does. It used to close the picker and add nothing
+      // (plan 018, L8).
+      setPicker(null);
+      setChoosing(pick);
+      return;
     } else {
       setPicks((was) => addPick(was, pick, room));
     }
@@ -501,8 +544,14 @@ export function MultiviewTab() {
         (acc, g) =>
           addPick(
             acc,
-            { channelId: g.channels[0].id, label: gameLabel(g), gameId: g.id, league: g.leagueKey },
-            roomOn(line, acc.length, settledKey === key),
+            {
+              channelId: g.channels[0].id,
+              label: gameLabel(g),
+              gameId: g.id,
+              league: g.leagueKey,
+              start: g.start.getTime(),
+            },
+            roomOn(line, acc.length, settled),
           ),
         was,
       ),

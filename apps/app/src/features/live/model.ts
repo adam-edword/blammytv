@@ -73,7 +73,8 @@ export interface LiveData {
    * recents all read `channels` and none of them may see these. It exists
    * because a game is a different question from a channel list, and the
    * matcher falls back to it when nothing visible carries a game (plan 010).
-   * Absent for M3U and Stalker sources, which have no hidden categories.
+   * Every kind of source keeps it since v0.9.126: multi-view's remembered
+   * tiles look here too, so hiding a folder doesn't delete them.
    */
   hidden?: Channel[];
   /** Channels arrived but the guide is STILL DOWNLOADING (source.ts returns

@@ -43,9 +43,12 @@ export function resetGamesToday(): void {
 export function useGamesToday(
   active: boolean,
   pinned: readonly string[],
-): { games: Game[]; looked: boolean } {
+): { games: Game[]; looked: boolean; at: number | null } {
   const catalog = useCatalog();
   const [raw, setRaw] = useState<Game[]>(() => last?.games ?? []);
+  /** When the last answer came (Date.now()): a score kept through failed
+   * looks says how old it is (plan 018, L10). */
+  const [at, setAt] = useState<number | null>(() => last?.at ?? null);
   // Whether an answer has come back, this visit or an earlier one: an empty
   // list then means a quiet day, not "not asked yet".
   const [looked, setLooked] = useState(() => last !== null);
@@ -66,6 +69,7 @@ export function useGamesToday(
         if (alive) {
           setRaw(games);
           setLooked(true);
+          setAt(last.at);
         }
       } catch {
         // Every league failed: an outage, not a quiet day. Keep what we had
@@ -87,7 +91,7 @@ export function useGamesToday(
   }, [active, pinKey]);
 
   const games = useMemo(() => withChannels(raw, catalog), [raw, catalog]);
-  return { games, looked };
+  return { games, looked, at };
 }
 
 /** The fixtures on now that one of your channels carries. */

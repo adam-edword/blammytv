@@ -122,7 +122,7 @@ type EpgPhase = { programmes: Map<string, Programme[]>; epgError?: string };
 type SourceBuild = {
   group: LiveGroup;
   channels: Channel[];
-  /** Only the Xtream builder fills this; see LiveData.hidden. */
+  /** Every builder fills this since v0.9.126; see LiveData.hidden. */
   hidden?: Channel[];
   epg: Promise<EpgPhase>;
 };
@@ -560,11 +560,21 @@ async function buildM3uSource(
     // keeps the plain id (stable for favorites); later ones get a counter
     // suffix, deterministic because playlist order is.
     const usedIds = new Map<string, number>();
+    // What the folders the USER hid hold, kept aside as Xtream's are
+    // (LiveData.hidden): multi-view's remembered tiles still find them, and
+    // the sports matcher may fall back on them. Never what the adult filter
+    // hid. Hiding one used to delete its channels' multi-view tiles (plan
+    // 018, L5). Numbered apart, so keeping them doesn't change a visible
+    // channel's id from what it was before they were kept. That can give
+    // one the id of a visible channel sharing its tvg-id; it goes, below.
+    const hiddenIds = new Map<string, number>();
+    const hiddenChannels: Channel[] = [];
 
     for (const e of entries) {
       const group = e.groupTitle?.trim() || M3U_UNGROUPED;
-      if (isHidden(group)) continue;
-      if (!seen.has(group)) {
+      const aside = isHidden(group);
+      if (aside && !(userHidden.has(group) && (showAdult || !nameLooksAdult(group)))) continue;
+      if (!aside && !seen.has(group)) {
         seen.add(group);
         folders.push({ id: folderId(p.id, group), name: group });
       }
@@ -579,10 +589,11 @@ async function buildM3uSource(
       const safe = validUrl(e.url);
       if (!safe) continue;
       const base = channelId(p.id, e.tvgId || hashId(e.url));
-      const dupes = usedIds.get(base) ?? 0;
-      usedIds.set(base, dupes + 1);
+      const ids = aside ? hiddenIds : usedIds;
+      const dupes = ids.get(base) ?? 0;
+      ids.set(base, dupes + 1);
       const id = dupes === 0 ? base : `${base}~${dupes}`;
-      channels.push({
+      const channel: Channel = {
         id,
         name: e.name,
         quality: extractQuality(e.name),
@@ -591,7 +602,12 @@ async function buildM3uSource(
         archiveDays: 0,
         number: e.channelNumber,
         url: safe,
-      });
+      };
+      if (aside) {
+        hiddenChannels.push(channel);
+        continue;
+      }
+      channels.push(channel);
       if (e.tvgId) {
         const list = epgIdx.get(e.tvgId) ?? [];
         list.push(id);
@@ -634,7 +650,13 @@ async function buildM3uSource(
       }
     })();
 
-    return { group: { id: p.id, name: p.name, folders }, channels, epg };
+    // A kept channel whose id a visible one already holds: a lookup finds
+    // the visible one first anyway, and two channels with one id would be
+    // two rows with one key on the Sports rail.
+    const visibleIds = new Set(channels.map((c) => c.id));
+    const hidden = hiddenChannels.filter((c) => !visibleIds.has(c.id));
+
+    return { group: { id: p.id, name: p.name, folders }, channels, hidden, epg };
   } catch (err) {
     console.error(`[live] playlist "${p.name}" failed: ${msg(err)}`);
     return {
@@ -664,10 +686,16 @@ async function buildStalkerSource(
     const showAdult = loadShowAdult();
     const userHidden = new Set(p.hiddenCategories ?? []);
     const hidden = new Set<string>();
+    // The folders only the USER hid, whose channels are kept aside as an
+    // Xtream line's are (LiveData.hidden; plan 018, L5). Not a genre the
+    // adult filter would hide too.
+    const aside = new Set<string>();
     for (const g of genres) {
-      if (userHidden.has(g.id)) hidden.add(g.id);
-      else if (!showAdult && (g.censored || nameLooksAdult(g.title)))
+      const adult = !showAdult && (g.censored || nameLooksAdult(g.title));
+      if (userHidden.has(g.id)) {
         hidden.add(g.id);
+        if (!adult) aside.add(g.id);
+      } else if (adult) hidden.add(g.id);
     }
     const folders = genres
       .filter((g) => !hidden.has(g.id))
@@ -685,12 +713,26 @@ async function buildStalkerSource(
     );
 
     const channels: Channel[] = [];
+    const hiddenChannels: Channel[] = [];
     // Kept portal channel ids, for scoping the EPG map to visible channels.
     const kept = new Set<string>();
     for (const c of raw) {
       const genre = c.genreId ?? "";
-      if (hidden.has(genre)) continue;
       if (!showAdult && c.censored) continue; // per-channel adult flag
+      if (hidden.has(genre)) {
+        if (aside.has(genre))
+          hiddenChannels.push({
+            id: channelId(p.id, c.id),
+            name: c.name,
+            quality: extractQuality(c.name),
+            folderId: folderId(p.id, genre),
+            logo: validUrl(c.logo),
+            archiveDays: 0,
+            number: c.number,
+            streamCmd: c.cmd,
+          });
+        continue;
+      }
       kept.add(c.id);
       channels.push({
         id: channelId(p.id, c.id),
@@ -749,7 +791,7 @@ async function buildStalkerSource(
       }
     })();
 
-    return { group: { id: p.id, name: p.name, folders }, channels, epg };
+    return { group: { id: p.id, name: p.name, folders }, channels, hidden: hiddenChannels, epg };
   } catch (err) {
     console.error(`[live] playlist "${p.name}" failed: ${msg(err)}`);
     return {

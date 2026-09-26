@@ -16,6 +16,7 @@ vi.mock("./diskCache", () => ({
   diskPut: vi.fn().mockResolvedValue(undefined),
 }));
 let showAdult = false;
+let hiddenCategories: string[] = [];
 vi.mock("../settings/adultFilter", () => ({
   loadShowAdult: () => showAdult,
 }));
@@ -29,6 +30,7 @@ vi.mock("../settings/playlists", async (importOriginal) => ({
       enabled: true,
       portal: "http://portal.example",
       mac: "00:1A:79:AA:BB:CC",
+      hiddenCategories,
     },
   ],
 }));
@@ -105,6 +107,7 @@ describe("loadLive Stalker path", () => {
     vi.clearAllMocks();
     vi.resetModules();
     showAdult = false;
+    hiddenCategories = [];
     installPortal();
   });
 
@@ -137,6 +140,17 @@ describe("loadLive Stalker path", () => {
     const progs = full.programmes.get("s1:101")!;
     expect(progs.map((p) => p.title)).toEqual(["The Brief"]);
     expect(full.programmes.has("s1:103")).toBe(false);
+  });
+
+  it("keeps a genre the user hid aside, and never an adult one or a censored channel (plan 018, L5)", async () => {
+    hiddenCategories = ["1", "2"];
+    const { loadLive } = await import("./source");
+    const data = await loadLive(NOW);
+    expect(data.channels).toEqual([]);
+    // News (hidden by the user) is kept aside; its censored channel isn't,
+    // and neither is the adult genre's.
+    expect((data.hidden ?? []).map((c) => c.id)).toEqual(["s1:101"]);
+    expect(data.hidden?.[0]).toMatchObject({ name: "News One", streamCmd: "ffconc http://p/ch/101" });
   });
 
   it("keeps adult genres and censored channels when the filter is off", async () => {

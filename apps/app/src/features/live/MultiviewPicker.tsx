@@ -204,6 +204,7 @@ export function MultiviewPicker({
             label: row.label,
             gameId: row.game.id,
             league: row.game.leagueKey,
+            start: row.game.start.getTime(),
           }
         : { channelId: row.channelId, label: row.label },
     );

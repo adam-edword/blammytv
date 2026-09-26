@@ -13,6 +13,14 @@ import {
   roomOn,
   searchChannels,
   type Pick,
+  countKey,
+  lineFor,
+  settledOn,
+  goneFrom,
+  gameOver,
+  SETTLED_AFTER_MS,
+  GAME_KEEP_MS,
+  GAME_MAX_MS,
 } from "./mvGrid";
 import type { Channel, LiveData } from "./model";
 
@@ -211,5 +219,65 @@ describe("stepSound", () => {
     expect(stepSound(ids, new Set(), null, -1)).toBe("d");
     expect(stepSound(ids, new Set(), "gone", -1)).toBe("d");
     expect(stepSound(ids, new Set(["b", "c", "d"]), "a", 1)).toBeNull();
+  });
+});
+
+describe("the line's count (plan 018, H2)", () => {
+  const p = (id: string, extra: Partial<Pick> = {}): Pick => ({ channelId: id, label: id, ...extra });
+
+  it("is keyed on the set of channels: a Focus swap isn't a change (L2)", () => {
+    expect(countKey([p("t:1"), p("t:2")])).toBe(countKey([p("t:2"), p("t:1")]));
+    expect(countKey([p("t:1")])).not.toBe(countKey([p("t:1"), p("t:2")]));
+  });
+
+  it("holds the grid to the one line only when every tile is on it (L4)", () => {
+    const conns = new Map([["t", { max: 1, active: 0 }]]);
+    expect(lineFor(conns, [p("t:1"), p("t:2")])).toEqual({ max: 1, active: 0 });
+    expect(lineFor(conns, [])).toEqual({ max: 1, active: 0 });
+    // An M3U tile beside it: no single cap describes the grid.
+    expect(lineFor(conns, [p("t:1"), p("m:9")])).toBeNull();
+    // Two lines answering: none either.
+    expect(lineFor(new Map([["t", 1], ["u", 2]]), [p("t:1")])).toBeNull();
+  });
+
+  it("believes 'elsewhere' only from a count taken long enough after the change (L3)", () => {
+    expect(settledOn({ at: 1000 + SETTLED_AFTER_MS }, 1000)).toBe(true);
+    expect(settledOn({ at: 1000 + SETTLED_AFTER_MS - 1 }, 1000)).toBe(false);
+    // Taken before the change: never, however long ago the change was.
+    expect(settledOn({ at: 500 }, 1000)).toBe(false);
+    expect(settledOn(null, 0)).toBe(false);
+  });
+});
+
+describe("goneFrom (plan 018, L5)", () => {
+  const inCatalog = (id: string) => id === "t:1";
+  it("drops a tile whose playlist loaded without it", () => {
+    expect(goneFrom(["t"], "t:2", inCatalog)).toBe(true);
+    expect(goneFrom(["t"], "t:1", inCatalog)).toBe(false);
+  });
+  it("keeps a tile whose playlist failed to load: it says nothing about its channels", () => {
+    expect(goneFrom(["m"], "t:2", inCatalog)).toBe(false);
+  });
+});
+
+describe("gameOver (plan 018, L9)", () => {
+  const game = (start?: number): Pick => ({ channelId: "t:1", label: "BUF at KC", gameId: "g1", league: "football/nfl", start });
+  const now = 100 * GAME_MAX_MS;
+  it("half an hour after the board first called it final", () => {
+    expect(gameOver(game(now - 3600_000), now, now - GAME_KEEP_MS, true, true)).toBe(true);
+    expect(gameOver(game(now - 3600_000), now, now - GAME_KEEP_MS + 1, true, true)).toBe(false);
+  });
+  it("or 12 hours after it started, whether the board says or not", () => {
+    expect(gameOver(game(now - GAME_MAX_MS), now, undefined, true, false)).toBe(true);
+    // Still on the board's day or not, a game that started an hour ago stays.
+    expect(gameOver(game(now - 3600_000), now, undefined, true, false)).toBe(false);
+  });
+  it("a tile saved before its start was kept goes when the board no longer has it", () => {
+    expect(gameOver(game(), now, undefined, true, false)).toBe(true);
+    expect(gameOver(game(), now, undefined, false, false)).toBe(false);
+    expect(gameOver(game(), now, undefined, true, true)).toBe(false);
+  });
+  it("a channel tile is never a game", () => {
+    expect(gameOver({ channelId: "t:1", label: "ESPN" }, now, 0, true, false)).toBe(false);
   });
 });

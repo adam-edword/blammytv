@@ -19,6 +19,9 @@ export interface Pick {
   gameId?: string;
   /** And its league, so the score is asked for while it is on the grid. */
   league?: string;
+  /** And when it started (epoch ms): a game tile goes back to being its
+   * channel once the game is long over (plan 018, L9). */
+  start?: number;
 }
 
 /** 013's ceiling, and most lines cap below it. */
@@ -219,4 +222,83 @@ export function searchChannels(live: LiveData, query: string, limit = 40): Chann
     if (lower.includes(q) && !(num !== null && c.number === num)) out.push(c);
   }
   return out.slice(0, limit);
+}
+
+/**
+ * What the line's count is keyed on: the SET of the grid's channels, not
+ * their order. Making a small tile big in Focus reorders the grid without
+ * changing a connection, and used to restart the count, opening a window
+ * where a full line offered Add (plan 018, L2).
+ */
+export function countKey(picks: readonly Pick[]): string {
+  return picks
+    .map((p) => p.channelId)
+    .sort()
+    .join("|");
+}
+
+/**
+ * The line whose limit the grid is held to: the one playlist that answered,
+ * when every tile is on it. With several lines, or a tile from another
+ * source (an M3U beside an Xtream line), no single cap describes the grid;
+ * it used to be "one Xtream line answered", so a line of one stream capped
+ * an M3U beside it too (plan 018, L4). Channel ids are "{playlist}:{id}".
+ */
+export function lineFor<L>(conns: ReadonlyMap<string, L>, picks: readonly Pick[]): L | null {
+  if (conns.size !== 1) return null;
+  const [id, line] = [...conns][0];
+  return picks.every((p) => p.channelId.startsWith(`${id}:`)) ? line : null;
+}
+
+/**
+ * How long after the grid changed a count has to have been TAKEN for its
+ * "in use elsewhere" to be believed. A panel takes up to about 20 seconds
+ * to notice a stream has gone, and connections.ts asks again at 20. It
+ * used to go by the time since the change, whatever the reading's age, so
+ * one taken before the change was believed at 25 seconds (plan 018, L3).
+ */
+export const SETTLED_AFTER_MS = 19_000;
+
+export function settledOn(line: { at: number } | null, changedAt: number): boolean {
+  return line !== null && line.at - changedAt >= SETTLED_AFTER_MS;
+}
+
+/**
+ * Whether a remembered tile has left the catalog: its OWN playlist loaded,
+ * and the channel isn't in it, hidden folders included. A playlist that
+ * failed to load says nothing about its channels; its tiles used to be
+ * dropped and the smaller grid saved, mid-game (plan 018, L5).
+ */
+export function goneFrom(
+  loaded: readonly string[],
+  channelId: string,
+  inCatalog: (id: string) => boolean,
+): boolean {
+  return loaded.some((src) => channelId.startsWith(`${src}:`)) && !inCatalog(channelId);
+}
+
+/** A game tile goes back to being its channel this long after its game was
+ * first seen final (plan 018, L9). */
+export const GAME_KEEP_MS = 30 * 60_000;
+/** Or this long after it started, when the board no longer says. */
+export const GAME_MAX_MS = 12 * 3_600_000;
+
+/**
+ * Whether a game tile's game is over: half an hour after the board first
+ * called it final, or 12 hours after it started. A tile saved before
+ * `start` was kept goes when a look at the board no longer has its game.
+ * One used to say "Buffalo at Kansas City" the next day, and keep ESPN
+ * asked every 90 seconds (plan 018, L9).
+ */
+export function gameOver(
+  p: Pick,
+  now: number,
+  finalSeenAt: number | undefined,
+  looked: boolean,
+  onBoard: boolean,
+): boolean {
+  if (!p.gameId) return false;
+  if (finalSeenAt !== undefined && now - finalSeenAt >= GAME_KEEP_MS) return true;
+  if (typeof p.start === "number") return now - p.start >= GAME_MAX_MS;
+  return looked && !onBoard;
 }

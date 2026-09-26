@@ -57,6 +57,8 @@ export interface GridStream {
   programmes?: Programme[];
   /** A game picked as a game, as ESPN last reported it (mvGames). */
   game?: Fixture;
+  /** When ESPN last answered (Date.now()), for a score that has gone stale. */
+  scoreAt?: number;
 }
 
 /** The seam's grab strip: exactly the gap. Wider would put an element over
@@ -233,6 +235,14 @@ export function MultiviewGrid({
     !fill && range && range[1] - range[0] > 1e-6 && layout?.seam && layout.split !== undefined
       ? { ...layout.seam, split: layout.split, range }
       : null;
+  // A drag held while the seam goes (G to Grid, Enter to fill a tile) ends
+  // with it. Only the seam's own pointerup cleared it, so it stayed set: the
+  // next Focus ignored the saved split, and the seam dragged on a hover
+  // with no button down (plan 018, L7).
+  const hasSeam = seam !== null;
+  useEffect(() => {
+    if (!hasSeam) setDragSplit(null);
+  }, [hasSeam]);
   // Motion (P5, mvMotion.ts). A change to which tiles there are, their order
   // or the layout moves them from where they are drawn, read here, during
   // the render that changes it, while the screen still shows the old
@@ -409,6 +419,7 @@ export function MultiviewGrid({
                 channel={s.channel}
                 programmes={s.programmes}
                 game={s.game}
+                scoreAt={s.scoreAt}
                 now={now}
                 focused={on}
                 volume={volume}

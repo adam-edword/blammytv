@@ -397,6 +397,7 @@ export function SportsTheater({
         label: gameLabel(game),
         gameId: game.id,
         league: game.leagueKey,
+        start: game.start.getTime(),
       });
     },
     onToggleFavorite: () => {

@@ -66,17 +66,15 @@ export function parseConnections(
 }
 
 /** Light account poll for the sidebar's connection pill — the same tiny
- * player_api endpoint authenticate uses. Never throws: a failed poll
- * just hides the pill until the next one. */
+ * player_api endpoint authenticate uses. Null when the panel reports no
+ * usable limit; THROWS when the poll itself fails, so a caller can keep
+ * the last reading rather than take a slow panel for one with no limit
+ * (plan 018, L1: that let multi-view past the line's cap for a minute). */
 export async function fetchConnections(
   p: XtreamPlaylist,
 ): Promise<XtreamConnections | null> {
-  try {
-    const auth = await httpGetJson<XtreamAuth>(playerApiUrl(p));
-    return parseConnections(auth?.user_info);
-  } catch {
-    return null;
-  }
+  const auth = await httpGetJson<XtreamAuth>(playerApiUrl(p));
+  return parseConnections(auth?.user_info);
 }
 
 /** Pure URL builders, separated from the fetches for testability. */
