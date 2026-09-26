@@ -3,7 +3,7 @@
 **Status: IN PROGRESS.** Adam took both decisions (2026-09-25) and added
 two calls of his own: a grid opens in Focus, and one stream fills the
 stage. All four shipped in v0.9.124, and L6 went with them. **H1
-shipped in v0.9.125** (a rebuild), **H2 in v0.9.126, H3 in v0.9.129, H4 in v0.9.130. H5 (a rebuild) is next.** The test on his line
+shipped in v0.9.125** (a rebuild), **H2 in v0.9.126, H3 in v0.9.129, H4 in v0.9.130, H5 in v0.9.131 (a rebuild) but for N5, which waits on Adam's call (see H5).** The test on his line
 turned out not to be needed (see H1).
 
 *Source: five audits run against v0.9.122 on 2026-09-25, one per
@@ -572,6 +572,37 @@ name keeps the log; an idle socket is closed; a 404 carries no CORS). The
 fetch scripts refuse a hash that doesn't match.
 
 N1 moves into H1 if Adam meets an HEVC channel that stays unplayable.
+
+**Shipped in v0.9.131 (native: a rebuild), N5 apart.** Where it differs
+from the above, or says more:
+- **N1** gathers a PAT or PMT across the packets its PID carries,
+  following the continuity counter; a missed packet drops the section and
+  the next copy starts over. Measured on the audit's built stream (HEVC
+  and 15 audio tracks, a 192-byte PMT): v0.9.130 still read "need more"
+  at 2MB, and gave up; now HEVC is found in the first 64KB.
+- **N2** reads ffmpeg's log as bytes, each line made text lossily
+  (`follow_log`).
+- **N3:** a 10-second header-read timeout, hyper's own, with the timer it
+  needs. It covers the idle wait between requests too.
+- **N4:** CORS only on a live route's replies (the stream, the provider's
+  own status, the 502 with its reason, a preflight). An unknown token, a
+  rebound host and a method nobody sends get a bare reply.
+- **N6** keeps the capability check only when it worked; a failure stands
+  for 30 seconds, then the next tile or Retry asks again (`caps_with`).
+- **N5 is not done.** shinchiro keeps about 30 builds (the tags run from
+  2026-06-02 to 2026-09-26 on a years-old repo), so a pinned download URL
+  stops working a few months on, and CI with it. Pinning there, or
+  mirroring the pinned archives into a release on this repo, is Adam's
+  call. This container can't reach GitHub's releases either, so the
+  hashes have to come from CI or his machine.
+
+*Proof:* host crate, 33 tests, 5 new: a PMT across two packets with
+another PID between, one missing its second half, a Latin-1 log line with
+the reason after it, a socket that sends nothing closed within a second
+(the test's timeout) and not at all without it (mutated), a failure
+asked again and a good answer kept. No CORS on an unknown or closed
+token's 404 or an OPTIONS to one; a provider's 403 keeps it. Clippy at 9,
+the Windows type check clean.
 
 ---
 

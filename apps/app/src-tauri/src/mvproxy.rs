@@ -140,18 +140,35 @@ async fn serve(listener: std::net::TcpListener, port: u16) {
             return;
         }
     };
+    // A connection that hasn't sent a whole request head in HEADER_TIMEOUT
+    // is closed, the idle wait between requests included. There was no
+    // timeout at all: 501 of 501 idle sockets were still held after 40s
+    // (plan 018, N3). hyper only runs one with a timer.
+    let mut http = hyper::server::conn::http1::Builder::new();
+    http.timer(hyper_util::rt::TokioTimer::new())
+        .header_read_timeout(HEADER_TIMEOUT);
     loop {
         let Ok((tcp, _)) = listener.accept().await else {
             continue;
         };
+        let http = http.clone();
         tokio::spawn(async move {
             let svc = hyper::service::service_fn(move |req| handle(req, port));
-            let _ = hyper::server::conn::http1::Builder::new()
+            let _ = http
                 .serve_connection(hyper_util::rt::TokioIo::new(tcp), svc)
                 .await;
         });
     }
 }
+
+/// How long a connection may take to send a request head. The webview
+/// sends its GET at once; this is for sockets that send nothing. A second
+/// under test, so the test doesn't wait ten.
+const HEADER_TIMEOUT: Duration = if cfg!(test) {
+    Duration::from_secs(1)
+} else {
+    Duration::from_secs(10)
+};
 
 /// Register an upstream URL and get the loopback URL that serves it.
 /// `convert_hevc`: the caller cannot play HEVC, so convert it (mvconvert.rs).
@@ -201,9 +218,20 @@ fn empty() -> Body {
         .boxed()
 }
 
+/// A bare reply: no CORS. Anything not about a live route (an unknown
+/// token, a rebound hostname, a method nobody sends) gets one, so a web
+/// page in any browser on this machine can't read that the proxy is here
+/// (plan 018, N4). Every reply used to say `Access-Control-Allow-Origin:
+/// *`, 404s included.
 fn reply(status: StatusCode) -> Response<Body> {
     let mut res = Response::new(empty());
     *res.status_mut() = status;
+    res
+}
+
+/// A reply about a live route's stream, which the tile reads: CORS on.
+fn stream_reply(status: StatusCode) -> Response<Body> {
+    let mut res = reply(status);
     cors(&mut res);
     res
 }
@@ -324,7 +352,7 @@ fn root_cause(e: &reqwest::Error, asked: &str, at: &reqwest::Url) -> String {
 /// line carries it (mpegts.js reports the status text). Printable ASCII
 /// only, which is all a reason phrase may hold.
 fn bad_gateway(why: &str) -> Response<Body> {
-    let mut res = reply(StatusCode::BAD_GATEWAY);
+    let mut res = stream_reply(StatusCode::BAD_GATEWAY);
     let text: String = format!("Bad Gateway: {why}")
         .chars()
         .map(|c| {
@@ -354,8 +382,18 @@ async fn handle(req: Request<Incoming>, port: u16) -> Result<Response<Body>, Inf
     if !host_ok {
         return Ok(reply(StatusCode::MISDIRECTED_REQUEST));
     }
+    // The route first: only a live one's replies carry CORS (N4).
+    let upstream = req.uri().path().strip_prefix("/mv/").and_then(|token| {
+        let p = proxy().ok()?;
+        let routes = p.routes.lock().ok()?;
+        let r = routes.get(token)?;
+        Some((r.url.clone(), r.convert_hevc, r.live.subscribe()))
+    });
+    let Some((url, convert_hevc, live)) = upstream else {
+        return Ok(reply(StatusCode::NOT_FOUND));
+    };
     if req.method() == Method::OPTIONS {
-        let mut res = reply(StatusCode::NO_CONTENT);
+        let mut res = stream_reply(StatusCode::NO_CONTENT);
         let h = res.headers_mut();
         h.insert(
             header::ACCESS_CONTROL_ALLOW_METHODS,
@@ -374,17 +412,6 @@ async fn handle(req: Request<Incoming>, port: u16) -> Result<Response<Body>, Inf
     if req.method() != Method::GET {
         return Ok(reply(StatusCode::METHOD_NOT_ALLOWED));
     }
-    let Some(token) = req.uri().path().strip_prefix("/mv/") else {
-        return Ok(reply(StatusCode::NOT_FOUND));
-    };
-    let upstream = proxy().ok().and_then(|p| {
-        let routes = p.routes.lock().ok()?;
-        let r = routes.get(token)?;
-        Some((r.url.clone(), r.convert_hevc, r.live.subscribe()))
-    });
-    let Some((url, convert_hevc, live)) = upstream else {
-        return Ok(reply(StatusCode::NOT_FOUND));
-    };
 
     let res = match fetch(&url).await {
         Ok(r) => r,
@@ -416,7 +443,7 @@ async fn handle(req: Request<Incoming>, port: u16) -> Result<Response<Body>, Inf
     if !status.is_success() {
         // Passed through, so the tile's console line names the real code:
         // a 403 from the provider and a dead proxy are different problems.
-        return Ok(reply(
+        return Ok(stream_reply(
             StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::BAD_GATEWAY),
         ));
     }
@@ -821,11 +848,41 @@ mod tests {
         let (base, _) = fake_provider();
         let local = open(&format!("{base}/live/a/b/3.ts"), false).unwrap();
         let port = local.split(':').nth(2).unwrap().split('/').next().unwrap();
-        let (code, _, _) = get(&format!("http://127.0.0.1:{port}/mv/nope"), "GET", None);
+        let (code, headers, _) = get(&format!("http://127.0.0.1:{port}/mv/nope"), "GET", None);
         assert_eq!(code, 404);
+        // Nothing a web page could read: no CORS on what isn't a stream (N4).
+        assert!(!headers.contains_key("access-control-allow-origin"));
+        let (code, headers, _) = get(&format!("http://127.0.0.1:{port}/mv/nope"), "OPTIONS", None);
+        assert_eq!(code, 404);
+        assert!(!headers.contains_key("access-control-allow-origin"));
         close(&local);
-        let (code, _, _) = get(&local, "GET", None);
+        let (code, headers, _) = get(&local, "GET", None);
         assert_eq!(code, 404);
+        assert!(!headers.contains_key("access-control-allow-origin"));
+    }
+
+    #[test]
+    fn a_connection_that_sends_nothing_is_closed() {
+        // N3: there was no timeout at all, and every idle socket was held.
+        let (base, _) = fake_provider();
+        let local = open(&format!("{base}/live/a/b/9.ts"), false).unwrap();
+        let port: u16 = local
+            .split(':')
+            .nth(2)
+            .unwrap()
+            .split('/')
+            .next()
+            .unwrap()
+            .parse()
+            .unwrap();
+        let mut idle = TcpStream::connect(("127.0.0.1", port)).unwrap();
+        idle.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+        let t = std::time::Instant::now();
+        let mut buf = [0u8; 64];
+        // Closed from the far end: a read of nothing, or a reset.
+        let closed =
+            matches!(idle.read(&mut buf), Ok(0) | Err(_)) && t.elapsed() < Duration::from_secs(4);
+        assert!(closed, "still open after {:?}", t.elapsed());
     }
 
     #[test]

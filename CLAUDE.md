@@ -71,7 +71,7 @@ curl -sSL https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-
 cd scripts/mvproxy-host && BLAMMYTV_FFMPEG=/tmp/ffmpeg-master-latest-linux64-gpl/bin/ffmpeg cargo test
 ```
 
-Baseline 28 tests (v0.9.125). On CI the Windows job runs the same tests with the
+Baseline 33 tests (v0.9.131). On CI the Windows job runs the same tests with the
 bundled ffmpeg (`scripts/fetch-ffmpeg.mjs`), on the CPU path: no GPU there. It does catch every signature
 mistake, which is the class that has reached users' rebuilds before.
 
