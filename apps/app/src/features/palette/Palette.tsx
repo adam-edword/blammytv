@@ -27,6 +27,7 @@ import { peekVod } from "../stream/source";
 import { loadLists } from "../stream/lists";
 import type { VodItem } from "../stream/model";
 import type { LiveTab, StreamTab } from "../../app/AppHeader";
+import { lastInputWasKey } from "../live/mvMotion";
 
 /**
  * The app's palette (plan 019, K11): multi-view's channel picker, grown to
@@ -89,10 +90,16 @@ export function Palette({
 }) {
   const [query, setQuery] = useState("");
   const [clock] = useState(loadClockFormat);
-  // Every opening starts from an empty field, as the picker's does.
+  // Every opening starts from an empty field, as the picker's does. And,
+  // as the picker's does, opened or closed from the keyboard it comes and
+  // goes at once: its closing layer would otherwise hold the next Escape
+  // for its 150ms fade, and after Enter on Settings that Escape is meant
+  // for Settings.
   const [wasOpen, setWasOpen] = useState(open);
+  const [instant, setInstant] = useState(false);
   if (open !== wasOpen) {
     setWasOpen(open);
+    setInstant(lastInputWasKey());
     if (open) setQuery("");
   }
 
@@ -241,6 +248,7 @@ export function Palette({
         showCloseButton={false}
         aria-describedby={undefined}
         className="mvpick palette top-[96px] translate-y-0 gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-[640px]"
+        style={instant ? { animation: "none" } : undefined}
       >
         <DialogTitle className="sr-only">Search BlammyTV</DialogTitle>
         <Autocomplete.Root

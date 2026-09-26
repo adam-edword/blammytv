@@ -174,13 +174,20 @@ check("Discover tab click clears search to browse",
   (await page.inputValue(".navcap__searchinput")) === "");
 // Keyboard shortcuts focus the pill on the VOD side.
 await page.locator("body").click({ position: { x: 400, y: 500 } });
-for (const combo of ["/", "Control+k", "Control+f"]) {
+for (const combo of ["/", "Control+f"]) {
   await page.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur());
   await page.keyboard.press(combo);
   await page.waitForTimeout(150);
   const hit = await page.evaluate(() => document.activeElement?.classList.contains("navcap__searchinput") ?? false);
   check("shortcut " + combo + " focuses search", hit);
 }
+// Ctrl+K is the app palette since v0.10.9 (plan 019, K11), which searches
+// titles along with everything else, so it no longer lands here.
+await page.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur());
+await page.keyboard.press("Control+k");
+check("Ctrl+K opens the app palette instead", await page.locator(".palette").waitFor({ timeout: 3000 }).then(() => true, () => false));
+await page.keyboard.press("Escape");
+await page.locator(".palette").waitFor({ state: "detached", timeout: 3000 }).catch(() => {});
 // Typing "/" INSIDE the input must not re-trigger/steal (it just types).
 await typeSearch("");
 await page.type(".navcap__searchinput", "a/b");

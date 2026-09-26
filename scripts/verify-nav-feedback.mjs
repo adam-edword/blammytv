@@ -204,12 +204,13 @@ check("and the mark is still on the midline", Math.abs(drift) < 1.5, `${drift}px
 // off the property, because that is the difference between "the rule is
 // there" and "the corner is round" — the exact gap that shipped a squircle
 // rim over a round fill in v0.9.19.
-check("the header holds one action, not a disabled Profile beside it",
-  (await page.locator(".header__action").count()) === 1);
-check("and it is the Settings button",
-  (await page.locator(".header__action").getAttribute("aria-label")) === "Settings");
+// Since v0.10.9 the palette's Search sits beside it (plan 019, K11): two
+// real actions, still no placeholder.
+const actions = await page.locator(".header__action").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")));
+check("the header holds Search and Settings, not a disabled Profile beside them",
+  actions.join(",") === "Search,Settings", actions.join(","));
 {
-  const gear = page.locator(".header__action");
+  const gear = page.locator(".header__action[aria-label='Settings']");
   const box = await gear.boundingBox();
   check("the chip is square in its box", Math.abs(box.width - box.height) < 1,
     `${box.width} x ${box.height}`);

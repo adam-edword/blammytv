@@ -1,10 +1,32 @@
 # 019: Multi-view's look, on every tab
 
-**Status: DECIDED (2026-09-26), not built.** Eight mockups (frames A to
-H) were sent in the chat, not the repo. Adam, the same day: its own track,
-yes to D2 to D7, and the source list revised (frame D, sent again): every
-line the addon sends, the column to the bottom of the window, and grouped
-by Cached and Not cached for any setup, not only his. See "Sources" below.
+**Status: BUILT on `claude/multiview`, v0.10.1 to v0.10.11 (2026-09-26),
+not yet merged.** Eight mockups (frames A to H) were sent in the chat, not
+the repo. Adam, the same day: its own track, yes to D2 to D7, and the
+source list revised (frame D, sent again): every line the addon sends, the
+column to the bottom of the window, and grouped by Cached and Not cached
+for any setup, not only his. See "Sources" below.
+
+What shipped where: K1 v0.10.1, K2 v0.10.2, K3 v0.10.3, K4 to K6 v0.10.4,
+K7 v0.10.5, K8 v0.10.6, K9 and K10 (and the sources) v0.10.7, K12 and K13
+v0.10.8, K11 v0.10.9, the screens' own changes v0.10.10, and what the
+full board found in those two v0.10.11. verify-kit measures every one of
+them.
+
+Left for later, each with its reason in the commit that skipped it:
+- **Settings onto Dialog** (frame G, 016 3.3). Its comboboxes are Base UI,
+  whose popups portal outside the sheet; under a Radix modal an option
+  click would count as outside and close Settings. Needs a pass with
+  someone clicking through Settings. (v0.10.10)
+- **An episode's hover eyebrow and Sources chip** (frame E). Picking an
+  episode already opens its sources, so the chip would be a second button
+  for the same thing; the hover shows the scrim and the play cue.
+  (v0.10.5)
+- **Sports cards' LIVE pill and a "Couldn't link" chip** (frame F). The
+  frame also says the cards are unchanged; only their live dot moved to
+  the accent (D5). (v0.10.4)
+- **The Sports theater's rail note** stays in the card's ink rather than
+  the StateCard, as the other small in-place notes do. (v0.10.6)
 
 *Origin: Adam, 2026-09-26: "take what was created in multiview, look at its
 design language and components and apply it to the other tabs in the app."*

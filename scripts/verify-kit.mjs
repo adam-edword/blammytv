@@ -137,7 +137,7 @@ const token = (name, prop = "backgroundColor") =>
     return { bg: s.backgroundColor, fx: s.backdropFilter };
   });
   const seg = await probe("seg", "backgroundColor");
-  const icon = await page.evaluate(() => getComputedStyle(document.querySelector(".header__action")).backdropFilter);
+  const icon = await page.evaluate(() => getComputedStyle(document.querySelector(".header__action[aria-label='Settings']")).backdropFilter);
   check(
     "the capsule, the segmented control and the gear are the same glass, from --glass",
     cap.bg === glass && seg === glass && cap.fx === fx && icon === fx && /blur\(5px\)/.test(fx),
@@ -398,7 +398,7 @@ const dimmedText = () =>
   await page.mouse.move(W / 2, H - 4);
   await page.waitForTimeout(300);
   const gear = await page.evaluate(() => {
-    const b = document.querySelector(".header__action");
+    const b = document.querySelector(".header__action[aria-label='Settings']");
     const r = b.getBoundingClientRect();
     return { w: r.width, h: r.height, bg: getComputedStyle(b).backgroundColor, r: getComputedStyle(b).borderTopLeftRadius };
   });
@@ -936,7 +936,7 @@ const dimmedText = () =>
     }, sel);
   await goTo(page, "guide");
   await page.keyboard.press("Tab");
-  const gear = await ringOn(".header__action");
+  const gear = await ringOn(".header__action[aria-label='Settings']");
   const seg = await ringOn(".live-sidebar .seg__opt");
   const ok = (r, off = "2px") => r && r.fv && r.w === "2px" && r.st === "solid" && r.c === text && r.off === off;
   check("keyboard focus is multi-view's ring: 2px of the text colour, held 2px off (a Button)", ok(gear), JSON.stringify(gear));
@@ -1073,10 +1073,12 @@ const dimmedText = () =>
   await page.locator(".settings").waitFor({ timeout: 5000 }).catch(() => {});
   const tab = await page.evaluate(() => document.querySelector(".settings [role=tab][aria-selected=true]")?.textContent);
   check("  and a place goes there: Customize opens Settings on Customize", tab === "Customize", String(tab));
-  // Past the palette's own 150ms exit before Escape, which is Settings'.
-  await page.waitForTimeout(500);
+  // Escape straight away: the palette, closed from the keyboard, is gone at
+  // once, so the key is Settings'. (Its fading layer used to take it.)
   await page.keyboard.press("Escape");
-  await page.locator(".settings").waitFor({ state: "detached", timeout: 4000 }).catch(() => {});
+  const closed = await page.locator(".settings").waitFor({ state: "detached", timeout: 4000 }).then(() => true, () => false);
+  check("  and the Escape right after closes Settings, not the palette that already went", closed);
+  if (!closed) await page.locator("button[aria-label='Close settings']").click().catch(() => {});
   await page.waitForTimeout(300);
   // The button opens it too.
   await page.locator("button[aria-label='Search']").click();

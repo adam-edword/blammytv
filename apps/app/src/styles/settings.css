@@ -305,14 +305,19 @@
 
 /* The app's ring (ui.css, plan 019 K12), which every other control wears:
  * the text colour, held off the field. On a field it shows while typing,
- * on purpose (see above). */
-.settings-input:focus-visible,
-.onb-input:focus-visible,
-.rec__input:focus-visible,
-.list-picker__input:focus-visible,
-.library__new-input:focus-visible,
-.library__heading-input:focus-visible,
-.rowcap__value--edit:focus-visible {
+ * on purpose (see above).
+ *
+ * `input` in front of each: ui.css opts text inputs out of the ring with
+ * `input:not([type="range"]):focus-visible`, which is (0,2,1), and a bare
+ * class with :focus-visible is (0,2,0), so the opt-out won and these
+ * fields had no ring at all. Tied at (0,2,1), this file comes later. */
+input.settings-input:focus-visible,
+input.onb-input:focus-visible,
+input.rec__input:focus-visible,
+input.list-picker__input:focus-visible,
+input.library__new-input:focus-visible,
+input.library__heading-input:focus-visible,
+input.rowcap__value--edit:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }

@@ -301,7 +301,7 @@ await page.emulateMedia({ reducedMotion: "no-preference" });
 // chip. That is shadcn's look and every floating surface in this app is the
 // dark glass recipe instead, so tooltip.tsx is edited away from the default
 // and `add tooltip` would put it back. This is what would catch that.
-await page.hover(".header__action");
+await page.hover(".header__action[aria-label='Settings']");
 await page.waitForSelector("[data-slot='tooltip-content']", { timeout: 4000 });
 const bubble = await page.evaluate(() => {
   const el = document.querySelector("[data-slot='tooltip-content']");
