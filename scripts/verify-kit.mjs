@@ -48,7 +48,8 @@ await ctx.route(/site\.api\.espn\.com/, (r) =>
 const page = await ctx.newPage();
 const errors = [];
 page.on("pageerror", (e) => errors.push(String(e)));
-await page.addInitScript(() => {
+/** The app as every section here sees it; a second page takes it too. */
+const init = () => {
   let cb = 0;
   window.__TAURI_INTERNALS__ = {
     transformCallback: (f) => {
@@ -92,7 +93,8 @@ await page.addInitScript(() => {
       data: [{ kind: "xtream", id: "t", name: "Test", enabled: true, server: "http://localhost:8081", username: "u", password: "p" }],
     }),
   );
-});
+};
+await page.addInitScript(init);
 await page.goto(APP, { waitUntil: "domcontentloaded" });
 await page.waitForSelector('[data-dest="guide"]', { timeout: 60_000 });
 
@@ -1170,6 +1172,74 @@ const dimmedText = () =>
   );
   await page.keyboard.press("Escape");
   await page.waitForTimeout(400);
+}
+
+// E. A series with more seasons than fit (Adam's, v0.10.11): the bar keeps
+// its height and its options their width, the wheel scrolls it rather than
+// the page, and the edge with more past it fades. A fresh page with the
+// fake's 2 seasons swapped for Specials and 24 of 14 episodes each, so the
+// page overflows the way a real long show's does.
+{
+  const p3 = await ctx.newPage();
+  p3.on("pageerror", (e) => errors.push(String(e)));
+  await p3.addInitScript(init);
+  await p3.route(/localhost:8084\/(.*\/)?meta\/series\/tt200001/, async (r) => {
+    const res = await r.fetch();
+    const body = await res.json();
+    const videos = [];
+    for (let s = 0; s <= 24; s++)
+      for (let e = 1; e <= 14; e++)
+        videos.push({ id: `tt200001:${s}:${e}`, season: s, episode: e, name: `S${s}E${e}`, released: "2024-01-01T00:00:00Z" });
+    body.meta.videos = videos;
+    return r.fulfill({ response: res, json: body });
+  });
+  await p3.goto(APP, { waitUntil: "domcontentloaded" });
+  await p3.waitForSelector('[data-dest="home"]', { timeout: 60_000 });
+  await goTo(p3, "home");
+  await p3.waitForTimeout(1500);
+  await p3.mouse.wheel(0, 700);
+  await p3.locator(".stream-card", { hasText: "Fake Series One" }).first().click();
+  await p3.waitForFunction(() => document.querySelectorAll(".season-bar .seg__opt").length >= 25, null, { timeout: 15_000 }).catch(() => {});
+  await p3.waitForTimeout(800);
+  const bar = await p3.evaluate(() => {
+    const s = document.querySelector(".season-bar");
+    if (!s) return null;
+    const opts = [...s.querySelectorAll(".seg__opt")];
+    const rs = opts.map((o) => o.getBoundingClientRect());
+    const list = document.querySelector("[data-slot=item-group]")?.getBoundingClientRect();
+    return {
+      n: opts.length,
+      h: s.getBoundingClientRect().height,
+      optH: rs[0].height,
+      squeezed: opts.filter((o) => o.scrollWidth > o.clientWidth + 1).length,
+      overlap: rs.some((r, i) => i > 0 && r.left < rs[i - 1].right - 0.5),
+      below: list ? Math.round(list.top - s.getBoundingClientRect().bottom) : null,
+      scrolls: s.scrollWidth > s.clientWidth,
+      more: s.dataset.more ?? "",
+    };
+  });
+  check(
+    "E. many seasons: the bar keeps its height and each season its width",
+    bar && bar.n >= 25 && bar.h >= bar.optH + 8 && bar.squeezed === 0 && !bar.overlap && bar.below >= 20,
+    JSON.stringify(bar),
+  );
+  check("  it scrolls sideways, and the far edge fades", bar?.scrolls && bar.more === "end", JSON.stringify(bar && { scrolls: bar.scrolls, more: bar.more }));
+  const box = await p3.locator(".season-bar").boundingBox();
+  const pageTop = () => p3.evaluate(() => document.querySelector(".vod-detail__body--episodes").scrollTop);
+  const top0 = await pageTop();
+  await p3.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await p3.mouse.wheel(0, 240);
+  await p3.waitForTimeout(400);
+  const after = await p3.evaluate(() => {
+    const s = document.querySelector(".season-bar");
+    return { left: s.scrollLeft, max: s.scrollWidth - s.clientWidth, more: s.dataset.more };
+  });
+  check(
+    "  the wheel over it scrolls the seasons, not the page",
+    after.left >= Math.min(200, after.max) - 1 && after.left > 0 && (await pageTop()) === top0 && after.more !== "end",
+    JSON.stringify({ ...after, page: await pageTop(), was: top0 }),
+  );
+  await p3.close();
 }
 
 check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));

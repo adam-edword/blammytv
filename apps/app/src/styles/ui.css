@@ -19,6 +19,23 @@
   background: var(--glass);
   backdrop-filter: var(--glass-fx);
 }
+/* More options past an edge (Segmented's `data-more`, when the track
+ * scrolls): that edge fades, so the row reads as going on. */
+.seg[data-more="end"] {
+  mask-image: linear-gradient(to right, #000 calc(100% - 48px), transparent);
+}
+.seg[data-more="start"] {
+  mask-image: linear-gradient(to left, #000 calc(100% - 48px), transparent);
+}
+.seg[data-more="both"] {
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 48px,
+    #000 calc(100% - 48px),
+    transparent
+  );
+}
 /* Across the row, options spread: the sidebars' rails, where the chosen
  * mode is named and the other two sit at the far end as marks. */
 .seg--fill {

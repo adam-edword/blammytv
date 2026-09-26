@@ -1,5 +1,6 @@
 import {
   useCallback,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -7,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { Hint } from "./Hint";
+import { REDUCED_MOTION } from "../lib/reducedMotion";
 
 /** One option: its key, its word (also its accessible name) and its mark. */
 export interface SegOption<K extends string> {
@@ -37,6 +39,12 @@ export interface SegOption<K extends string> {
  *   and the arrows move the choice and the focus together (plan 016 3.4).
  * - `choice` sets a value (Grid or Focus, a season). Pressed buttons, each
  *   its own tab stop, which is what they were and what harnesses read.
+ *
+ * MORE OPTIONS THAN FIT (a long-running show's seasons): the track scrolls
+ * sideways, and three things keep the far ones reachable. The chosen option
+ * is kept in view, the mouse wheel scrolls the track while there is track
+ * to scroll (then hands back to the page), and the edge with more past it
+ * fades (`data-more`).
  */
 export function Segmented<K extends string>({
   options,
@@ -81,18 +89,52 @@ export function Segmented<K extends string>({
    */
   const valueRef = useRef(value);
   valueRef.current = value;
+  /** Which edges have options past them, for the fade. Written to the DOM:
+   * it changes on every scroll frame and only CSS reads it. */
+  const placed = useRef(false);
+  /** Whether the track is a scroller (the season bar); one whose options
+   * merely spill over (a compact bar) must not fade or eat the wheel. */
+  const scrolls = (el: HTMLElement) => /auto|scroll/.test(getComputedStyle(el).overflowX);
+  const syncMore = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (!scrolls(el)) {
+      delete el.dataset.more;
+      return;
+    }
+    const start = el.scrollLeft > 1;
+    const end = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+    const more = start && end ? "both" : start ? "start" : end ? "end" : "";
+    if (more) el.dataset.more = more;
+    else delete el.dataset.more;
+  }, []);
   const measure = useCallback((snap: boolean) => {
-    const opt = ref.current?.querySelector<HTMLElement>(
+    const el = ref.current;
+    const opt = el?.querySelector<HTMLElement>(
       `[data-seg="${CSS.escape(valueRef.current)}"]`,
     );
-    if (!opt) return;
+    if (!el || !opt) return;
+    const first = !placed.current;
+    placed.current = true;
     setThumb((prev) => ({
       x: opt.offsetLeft,
       w: opt.offsetWidth,
       // The first placement snaps; later ones glide.
       snap: snap || prev.w === 0,
     }));
-  }, []);
+    // Keep the chosen one in view when the track scrolls: a show opened on
+    // Season 9 must not open with Season 9 off the end. Its neighbour's
+    // edge stays visible past it, so it reads as a place in a row.
+    if (scrolls(el) && el.scrollWidth > el.clientWidth) {
+      const pad = 40;
+      const left = opt.offsetLeft - pad;
+      const right = opt.offsetLeft + opt.offsetWidth + pad - el.clientWidth;
+      const to = left < el.scrollLeft ? left : right > el.scrollLeft ? right : null;
+      if (to !== null)
+        el.scrollTo({ left: to, behavior: snap || first || REDUCED_MOTION ? "auto" : "smooth" });
+    }
+    syncMore();
+  }, [syncMore]);
   useLayoutEffect(() => {
     measure(false);
   }, [value, words, measure]);
@@ -111,6 +153,27 @@ export function Segmented<K extends string>({
       ro.disconnect();
     };
   }, [measure, options.length]);
+
+  // The wheel scrolls a track that scrolls. Native only (React's onWheel is
+  // passive and cannot keep the page from moving too), and only while the
+  // track can still go that way, so at either end the page scrolls as usual.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (el.scrollWidth <= el.clientWidth || !scrolls(el)) return;
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+      const before = el.scrollLeft;
+      el.scrollLeft += e.deltaY;
+      if (el.scrollLeft !== before) e.preventDefault();
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    el.addEventListener("scroll", syncMore, { passive: true });
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("scroll", syncMore);
+    };
+  }, [syncMore]);
 
   const onKey = (e: ReactKeyboardEvent<HTMLButtonElement>) => {
     if (role !== "tabs") return;

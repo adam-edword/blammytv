@@ -693,6 +693,13 @@
 }
 .vod-detail__body--episodes {
   grid-template-columns: 1fr;
+  /* Every row as tall as what is in it. This body scrolls itself, so no row
+   * ever needs to give up height; with `auto` rows, once a long season's
+   * episodes overflowed, the grid took it from the one row that could give
+   * it: the season bar, a sideways scroller with no minimum height of its
+   * own. It measured 8px, its padding, with the words cut through (Adam's
+   * screenshot, v0.10.11). */
+  grid-auto-rows: max-content;
   align-content: start;
   overflow-y: auto;
   /* Header clearance + the pinned Back button's footprint (~40px pill
@@ -963,6 +970,12 @@
   max-width: 100%;
   overflow-x: auto;
   scrollbar-width: none;
+}
+/* And each season keeps its width: a flex item shrinks by default, so past
+ * the column's width the options squeezed and their words ran together
+ * instead of the track scrolling. */
+.seg.season-bar .seg__opt {
+  flex-shrink: 0;
 }
 /* `.episode-card` CARRIES NO PAINT of its own. The episode is shadcn's
  * <Item size="sm"> in the `#header` arrangement, so its layout, radius,
