@@ -1,0 +1,5 @@
+latest
+# The shinchiro build to copy into this repo and pin (a tag like 20260926,
+# or latest). Changing this file runs the "Mirror bundled binaries"
+# workflow; its Run workflow button in the Actions tab does the same. Only
+# the first line is read.
