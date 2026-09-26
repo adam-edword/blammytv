@@ -48,7 +48,15 @@ const liveEvent = ({ id, home, away, hs, as, network, detail }) => {
     period: 3,
     type: { id: "2", name: "STATUS_IN_PROGRESS", state: "in", completed: false, shortDetail: detail },
   };
-  const team = (t) => ({ id: t.id, displayName: t.name, shortDisplayName: t.short, abbreviation: t.abbr, name: t.short });
+  // A crest each, served below, so the cards carry what real ones do.
+  const team = (t) => ({
+    id: t.id,
+    displayName: t.name,
+    shortDisplayName: t.short,
+    abbreviation: t.abbr,
+    name: t.short,
+    logo: `https://a.espncdn.com/i/teamlogos/test/500/${t.abbr}.png`,
+  });
   return {
     id,
     date: new Date(Date.now() - 90 * 60_000).toISOString(),
@@ -77,7 +85,7 @@ const NFL = liveEvent({
   hs: 24,
   as: 17,
   network: "ESPN",
-  detail: "7:22 - 3rd",
+  detail: "13:03 - 4th",
 });
 const EPL = liveEvent({
   id: "702",
@@ -106,7 +114,14 @@ const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromi
 const asked = [];
 const errors = [];
 const ctx = await browser.newContext({ viewport: { width: W, height: H } });
-await ctx.route(/strem\.io|a\.espncdn\.com/, (r) => r.abort());
+await ctx.route(/strem\.io/, (r) => r.abort());
+// Every crest one transparent pixel: the card sizes it, the file only has
+// to load.
+const PIXEL = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+  "base64",
+);
+await ctx.route(/a\.espncdn\.com/, (r) => r.fulfill({ status: 200, contentType: "image/png", body: PIXEL }));
 await ctx.route(/site\.api\.espn\.com/, async (route) => {
   const path = new globalThis.URL(route.request().url()).pathname;
   asked.push(path);
@@ -255,6 +270,32 @@ check(
 );
 await page.waitForTimeout(400);
 if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/mv-scores.png` });
+
+// Adam, on the first build: "make them wide enough to fit all the text".
+// A fourth-quarter clock ran into the home crest on a fixed-width card.
+// Every card: nothing spills past its edge, and the clock ends before the
+// crest starts, with room between.
+const fits = await page.locator(".mvscores .compactcard").evaluateAll((els) =>
+  els.map((c) => {
+    const status = c.querySelector(".compactcard__status").getBoundingClientRect();
+    const badges = [...c.querySelectorAll(".compactcard__game .gamebadge")].map((b) => b.getBoundingClientRect());
+    const card = c.getBoundingClientRect();
+    // The text and the crests, not the team-colour art behind them, which
+    // bleeds past the pill by design and is clipped there.
+    const parts = [status, ...[...c.querySelectorAll(".compactcard__game > *")].map((e) => e.getBoundingClientRect())];
+    return {
+      status: c.querySelector(".compactcard__status").textContent,
+      clear: Math.round(badges[0].left - status.right),
+      inside: parts.every((r) => r.left >= card.left + 8 && r.right <= card.right - 8),
+    };
+  }),
+);
+const bad = fits.filter((f) => f.clear < 8 || !f.inside);
+check(
+  "every card fits its text: the clock clears the crest, nothing spills past the edge",
+  fits.length === 8 && fits.some((f) => /13:03/.test(f.status)) && bad.length === 0,
+  JSON.stringify(bad.length ? bad : fits.find((f) => /13:03/.test(f.status))),
+);
 
 const [onTile] = await rect(".mvtile:not(.mvtile--empty)");
 const [onStage] = await rect(".mvtab__stage");

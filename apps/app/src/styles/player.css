@@ -1395,12 +1395,22 @@
   padding-left: 2px;
 }
 
+/* As wide as its card. */
 .mvscores__game {
-  flex: 0 0 272px;
+  flex: none;
   border-radius: 100px;
 }
-/* The theater's type on a shorter line: the row is height the grid gives up. */
+/* The theater's type on a shorter line: the row is height the grid gives up.
+ *
+ * As wide as what it says, never less than 272px: a fixed 272 ran a
+ * fourth-quarter "13:03 - 4TH" 12px into the home crest (Adam, v0.10.8:
+ * "make them wide enough to fit all the text"). The floor keeps a row of
+ * short clocks ("63'") from turning into a row of different-sized pills;
+ * a short card's slack goes to the home side, so the scoreline still ends
+ * on the card's right edge. */
 .mvscores .compactcard {
+  width: max-content;
+  min-width: 272px;
   height: 44px;
   gap: 16px;
   padding: 0 16px;
