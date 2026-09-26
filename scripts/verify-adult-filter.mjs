@@ -40,7 +40,7 @@ const browser = await chromium.launch({
   executablePath: "/opt/pw-browsers/chromium",
 });
 
-async function loadApp(showAdult) {
+async function loadApp(showAdult, guide = false) {
   const ctx = await browser.newContext({
     viewport: { width: 1440, height: 900 },
   });
@@ -64,6 +64,14 @@ async function loadApp(showAdult) {
     null,
     { timeout: 30_000 },
   );
+  // The guide lands after the channels, by design (source.ts's EPG phase),
+  // and since v0.10.11 from a worker: 130 to 180ms later here. Waited for
+  // on the CONTROL, ESPN, which matches exactly, so the case-mismatched
+  // Sky below is still a real test and not a wait that hides its failure.
+  if (guide)
+    await page
+      .waitForFunction(() => document.body.innerText.includes("ESPN Hour"), null, { timeout: 15_000 })
+      .catch(() => {});
   const text = await page.evaluate(() => document.body.innerText);
   return { ctx, text };
 }
@@ -100,7 +108,7 @@ async function loadApp(showAdult) {
 
 // ---- Filter off (Show adult content = on) ----
 {
-  const { ctx, text } = await loadApp(true);
+  const { ctx, text } = await loadApp(true, true);
   check(
     "showAdult=true restores adult folders + channels",
     text.includes("VIP Extra") &&
