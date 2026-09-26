@@ -241,21 +241,28 @@ function useWindowFullscreen(): [boolean, () => void] {
 function useCompactSide(
   ref: RefObject<HTMLElement | null>,
   edge: "left" | "right" = "left",
-): boolean {
-  const [compact, setCompact] = useState(false);
-  // The side's width WITH its words, from the last time they showed. Once
-  // they are gone, its own width no longer says whether they would fit.
-  const full = useRef(0);
+): 0 | 1 | 2 {
+  // 0 as drawn, 1 compact, 2 tight: still short of room once compact. Only
+  // the right side has a tight step (the volume slider goes), for the
+  // narrowest windows since Settings kept its corner (v0.10.9).
+  const [level, setLevel] = useState<0 | 1 | 2>(0);
+  // The side's width at each of the first two steps, from the last time it
+  // showed. Once a step is gone, the side's own width no longer says
+  // whether that step would fit.
+  const widths = useRef([0, 0]);
   useLayoutEffect(() => {
     const side = ref.current;
     const cap = document.querySelector<HTMLElement>(".navcap");
     if (!side || !cap) return;
     const fit = () => {
       const s = side.getBoundingClientRect();
-      if (!side.classList.contains("is-compact")) full.current = s.width;
+      const now = side.classList.contains("is-tight") ? 2 : side.classList.contains("is-compact") ? 1 : 0;
+      if (now < 2) widths.current[now] = s.width;
       const c = cap.getBoundingClientRect();
       const room = edge === "left" ? c.left - s.left - 16 : s.right - c.right - 16;
-      setCompact(full.current > room);
+      const [full, compact] = widths.current;
+      // Compact's width is unknown until it has shown once: try it first.
+      setLevel(full <= room ? 0 : compact === 0 || compact <= room ? 1 : 2);
     };
     fit();
     // The window, the capsule's size, and the capsule settling after the
@@ -271,9 +278,44 @@ function useCompactSide(
       cap.removeEventListener("transitionend", fit);
     };
   }, [ref, edge]);
-  return compact;
+  return level;
 }
 
+/**
+ * Where the bar's right side has to end: short of the header's own right
+ * side, Settings and an update when there is one, by the bar's gap.
+ *
+ * Those stay on this tab (Adam, v0.10.9: "the top right settings button,
+ * its gone in multiview"). They sat hidden under the bar, whose right side
+ * took their corner. Measured rather than a fixed width, because the update
+ * chip comes and goes. `null` until measured, and where there is no header,
+ * which leaves the bar where its CSS puts it.
+ */
+function useHeaderRight(): number | null {
+  const [right, setRight] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const el = document.querySelector<HTMLElement>(".header__right");
+    if (!el) return;
+    const read = () => {
+      // From the tab's right edge, which the bar is placed against.
+      const tab = document.querySelector(".mvtab")?.getBoundingClientRect();
+      const r = el.getBoundingClientRect();
+      setRight(tab && r.width > 0 ? Math.round(tab.right - r.left + BAR_GAP) : null);
+    };
+    read();
+    const ro = new ResizeObserver(read);
+    ro.observe(el);
+    window.addEventListener("resize", read);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", read);
+    };
+  }, []);
+  return right;
+}
+
+/** The bar's own gap between controls (player.css .mvbar). */
+const BAR_GAP = 12;
 
 /**
  * How long a channel sent from elsewhere waits for the line's answer before
@@ -763,12 +805,14 @@ export function MultiviewTab() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
   const leftRef = useRef<HTMLDivElement>(null);
-  const compact = useCompactSide(leftRef);
+  const compact = useCompactSide(leftRef) > 0;
   const rightRef = useRef<HTMLDivElement>(null);
-  const compactRight = useCompactSide(rightRef, "right");
+  const rightLevel = useCompactSide(rightRef, "right");
+  const compactRight = rightLevel > 0;
+  const barRight = useHeaderRight();
 
-  // The shell reads these: the header hides its clock and Settings while
-  // this tab is up, and dims with the bar when idle. On the root because
+  // The shell reads these: the header hides its clock while this tab is
+  // up, and dims with the bar when idle. On the root because
   // the header is App's, not ours.
   useEffect(() => {
     const root = document.documentElement;
@@ -790,7 +834,7 @@ export function MultiviewTab() {
 
   return (
     <div className={"mvtab" + (idle ? " is-idle" : "") + (scores.on && !blocked ? " has-scores" : "")}>
-      <div className="mvbar">
+      <div className="mvbar" style={barRight ? { right: barRight } : undefined}>
         <div className={"mvbar__side" + (compact ? " is-compact" : "")} ref={leftRef}>
           {choosing && (
             // In place of the meter and the layout switch while a channel
@@ -869,7 +913,10 @@ export function MultiviewTab() {
             </div>
           )}
         </div>
-        <div className={"mvbar__side" + (compactRight ? " is-compact" : "")} ref={rightRef}>
+        <div
+          className={"mvbar__side" + (compactRight ? " is-compact" : "") + (rightLevel === 2 ? " is-tight" : "")}
+          ref={rightRef}
+        >
           {!blocked && picks.length > 0 && (
             <div className="mvvol">
               <Hint label={vol.muted ? "Unmute (M)" : "Mute (M)"}>

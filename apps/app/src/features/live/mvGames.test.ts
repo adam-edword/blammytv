@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { fillFrom, gameLabel, liveWithChannels, mergeLeagues, scoreLine } from "./mvGames";
+import { fillFrom, gameLabel, liveChannels, liveWithChannels, mergeLeagues, scoreLine } from "./mvGames";
+import { indexChannels } from "../sports/matcher";
 import type { Fixture, Game } from "../sports/model";
 
 const game = (
@@ -93,5 +94,39 @@ describe("mergeLeagues (plan 018, P5)", () => {
   it("a league that answers nothing loses its games; one new to the list goes last", () => {
     const prev = [nfl("n1"), epl("e1")];
     expect(ids(mergeLeagues(prev, [mlb("m1")], ["football/nfl", "baseball/mlb"]))).toEqual(["e1", "m1"]);
+  });
+});
+
+describe("liveChannels (v0.10.9)", () => {
+  const catalog = indexChannels([{ id: "p:1", name: "US: ESPN HD", quality: "HD" }]);
+  // As ESPN hands them over: no channels yet.
+  const raw = (id: string, opts: Partial<Fixture> = {}) => game(id, { ch: "", ...opts });
+
+  it("finds channels for the live games only; the rest go through untouched", () => {
+    const pre = raw("2", { state: "pre" });
+    const done = raw("3", { state: "final" });
+    const out = liveChannels([raw("1"), pre, done], catalog);
+    expect(out[0].channels.map((c) => c.id)).toEqual(["p:1"]);
+    expect(out[1]).toBe(pre);
+    expect(out[2]).toBe(done);
+  });
+
+  it("a new score on the same game reuses the answer rather than matching again", () => {
+    const [a] = liveChannels([raw("1", { home: { name: "Kansas City", shortName: "Chiefs", abbr: "KC", score: 24, id: "h1" } })], catalog);
+    const [b] = liveChannels([raw("1", { home: { name: "Kansas City", shortName: "Chiefs", abbr: "KC", score: 31, id: "h1" } })], catalog);
+    expect((b as Fixture).home.score).toBe(31);
+    // The same array: the answer was kept, not worked out again.
+    expect(b.channels).toBe(a.channels);
+  });
+
+  it("a game whose broadcasts change is matched again", () => {
+    const [a] = liveChannels([raw("5")], catalog);
+    const [b] = liveChannels([raw("5", { broadcasts: ["ABC"] })], catalog);
+    expect(a.channels.map((c) => c.id)).toEqual(["p:1"]);
+    expect(b.channels).toEqual([]);
+  });
+
+  it("with no catalog yet, says the channels are pending, as the board does", () => {
+    expect(liveChannels([raw("1")], null)[0].channelsPending).toBe(true);
   });
 });
