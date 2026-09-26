@@ -1367,8 +1367,10 @@
 .mvseam-guide {
   position: absolute;
   z-index: 1;
-  width: 0;
-  border-left: 1px dashed rgb(255 255 255 / 0.28);
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: rgb(255 255 255 / 0.4);
   pointer-events: none;
 }
 .mvseam-tip {

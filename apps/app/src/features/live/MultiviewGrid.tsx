@@ -85,6 +85,11 @@ const under = (r: Rect): CSSProperties => ({
   height: MV_SPACING.caption,
 });
 
+/** The natural split's notches while the seam moves: how long each is, and
+ * how far it stands off the pictures' top and bottom edges. */
+const GUIDE_LEN = 8;
+const GUIDE_GAP = 6;
+
 export function MultiviewGrid({
   streams,
   cells,
@@ -563,18 +568,25 @@ export function MultiviewGrid({
           ))}
         {seam && box && (dragSplit !== null || tip) && (
           <>
-            <div
-              className="mvseam-guide"
-              aria-hidden
-              style={{
-                left: Math.round(
-                  mvLayout(kind, cells, box, MV_SPACING, naturalSplit(cells, box, MV_SPACING)).seam
-                    ?.x ?? 0,
-                ),
-                top: Math.round(seam.top),
-                height: Math.round(seam.bottom - seam.top),
-              }}
-            />
+            {/* Where the natural split is, as a notch above the pictures
+              * and one below them. It was a dashed line down the stage,
+              * which crossed the big tile's picture whenever the tile was
+              * dragged past it (Adam, v0.10.5). */}
+            {[Math.round(seam.top) - GUIDE_GAP - GUIDE_LEN, Math.round(seam.bottom) + GUIDE_GAP].map((top) => (
+              <div
+                key={top}
+                className="mvseam-guide"
+                aria-hidden
+                style={{
+                  left: Math.round(
+                    mvLayout(kind, cells, box, MV_SPACING, naturalSplit(cells, box, MV_SPACING)).seam
+                      ?.x ?? 0,
+                  ),
+                  top,
+                  height: GUIDE_LEN,
+                }}
+              />
+            ))}
             <div
               className="mvseam-tip"
               aria-hidden
