@@ -34,6 +34,7 @@ import { formatClock } from "../../lib/time";
 import { loadClockFormat } from "../settings/clockFormat";
 import { CloseIcon, PlayIcon, SwapIcon, VolumeIcon, WarnIcon } from "../../ui/icons";
 import { Button, buttonVariants } from "../../components/ui/button";
+import { cn } from "cn";
 import { Hint } from "../../ui/Hint";
 import { ChannelLogo } from "../../ui/ChannelLogo";
 import { StateCard } from "../../ui/StateCard";
@@ -839,9 +840,12 @@ export function MultiviewTile({
           <span
             className={
               // A chip's look on a span: the whole tile is the target, so
-              // this only says what picking it does.
-              buttonVariants({ variant: "chip", size: "chip" }) +
-              " mvtile__pickword h-[38px] max-w-[calc(100%-24px)] px-4 text-[13.5px]"
+              // this only says what picking it does. Merged, so px-4 beats
+              // the chip size's px-[11px] (concatenated, it didn't: 11px).
+              cn(
+                buttonVariants({ variant: "chip", size: "chip" }),
+                "mvtile__pickword h-[38px] max-w-[calc(100%-24px)] px-4 text-[13.5px]",
+              )
             }
           >
             <span className="mvtile__pickname">Swap for {picking}</span>

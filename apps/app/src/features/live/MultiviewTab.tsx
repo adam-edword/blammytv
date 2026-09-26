@@ -9,6 +9,7 @@ import {
   type RefObject,
 } from "react";
 import { useIdle } from "../../lib/useIdle";
+import { isModalOpen } from "../../lib/modalOpen";
 import { MultiviewGrid, type GridStream } from "./MultiviewGrid";
 import { MultiviewPicker, type PickerMode } from "./MultiviewPicker";
 import {
@@ -631,6 +632,9 @@ export function MultiviewTab() {
     if (!choosing) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape" || e.defaultPrevented) return;
+      // The palette over it owns this one. A capture listener on window
+      // hears it before the palette can, and taking it kept the palette up.
+      if (isModalOpen()) return;
       e.preventDefault();
       setChoosing(null);
     };

@@ -16,10 +16,13 @@ let pending: VodItem | null = null;
 
 /** Which grid the hand-off came from — backing all the way out returns
  * THERE, not to a hardcoded tab. "home" is the app palette's (plan 019,
- * K11): it can open a title from any tab, and Stream's own rows are the
- * nearest thing to where it came from. */
+ * K11) from anywhere but Discover and the Library: it can open a title from
+ * any tab, and Stream's own rows are the nearest thing to where it came
+ * from. */
 export type OpenOrigin = "discover" | "mylist" | "home";
 let origin: OpenOrigin = "discover";
+/** The return the latest hand-off replaced. See keepEarlierReturn. */
+let replaced: { origin: OpenOrigin; list: string | null } | null = null;
 
 /**
  * ...and WHICH list inside the Library, when that is where it came from.
@@ -44,9 +47,23 @@ export function requestOpenInStream(
   list: string | null = null,
 ): void {
   pending = item;
+  replaced = { origin, list: originList };
   origin = from;
   originList = list;
   window.dispatchEvent(new CustomEvent(EVENT));
+}
+
+/**
+ * A hand-off onto a page that already owes a return keeps that return: a
+ * title Discover opened, then another from the palette on top of it. Back
+ * goes through the first title on the way out, so the way out is still
+ * the first one's. The palette's "home" had been overwriting it.
+ */
+export function keepEarlierReturn(): void {
+  if (!replaced) return;
+  origin = replaced.origin;
+  originList = replaced.list;
+  replaced = null;
 }
 
 /** Which list to reopen, or null. Pure — safe to call while rendering. */

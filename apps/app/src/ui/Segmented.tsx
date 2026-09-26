@@ -108,12 +108,21 @@ export function Segmented<K extends string>({
     if (more) el.dataset.more = more;
     else delete el.dataset.more;
   }, []);
-  const measure = useCallback((snap: boolean) => {
+  const measure = useCallback((snap: boolean, reveal: boolean) => {
     const el = ref.current;
-    const opt = el?.querySelector<HTMLElement>(
+    if (!el) return;
+    const opt = el.querySelector<HTMLElement>(
       `[data-seg="${CSS.escape(valueRef.current)}"]`,
     );
-    if (!el || !opt) return;
+    if (!opt) {
+      // A value none of these options carries: no thumb, rather than one
+      // left over an option that isn't chosen. Left where it was, it also
+      // kept a short track scrolled past all its options (the next show's
+      // two seasons, after a far season of the last one).
+      setThumb((prev) => (prev.w ? { x: 0, w: 0, snap: true } : prev));
+      syncMore();
+      return;
+    }
     const first = !placed.current;
     placed.current = true;
     setThumb((prev) => ({
@@ -124,8 +133,10 @@ export function Segmented<K extends string>({
     }));
     // Keep the chosen one in view when the track scrolls: a show opened on
     // Season 9 must not open with Season 9 off the end. Its neighbour's
-    // edge stays visible past it, so it reads as a place in a row.
-    if (scrolls(el) && el.scrollWidth > el.clientWidth) {
+    // edge stays visible past it, so it reads as a place in a row. Only
+    // when the choice or the options change: on a resize it pulled a track
+    // you had wheeled along back to the chosen season.
+    if (reveal && scrolls(el) && el.scrollWidth > el.clientWidth) {
       const pad = 40;
       const left = opt.offsetLeft - pad;
       const right = opt.offsetLeft + opt.offsetWidth + pad - el.clientWidth;
@@ -136,16 +147,16 @@ export function Segmented<K extends string>({
     syncMore();
   }, [syncMore]);
   useLayoutEffect(() => {
-    measure(false);
-  }, [value, words, measure]);
+    measure(false, true);
+  }, [value, words, options.length, measure]);
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
     let alive = true;
     document.fonts?.ready.then(() => {
-      if (alive) measure(true);
+      if (alive) measure(true, false);
     });
-    const ro = new ResizeObserver(() => measure(true));
+    const ro = new ResizeObserver(() => measure(true, false));
     ro.observe(el);
     el.querySelectorAll<HTMLElement>("[data-seg]").forEach((o) => ro.observe(o));
     return () => {
@@ -246,9 +257,13 @@ export function Segmented<K extends string>({
             )}
           </button>
         );
-        const tip = words === "none" || hints || (words === "chosen" && !on);
+        // "chosen" keeps the Hint on every option and shuts the chosen one's,
+        // whose word is showing. Wrapping only the others swapped each
+        // option's element on every change, which remounted the buttons and
+        // dropped focus to the page: → on the Guide's rail went nowhere.
+        const tip = words !== "all" || hints;
         return tip ? (
-          <Hint key={o.key} label={o.hint ?? o.label}>
+          <Hint key={o.key} label={o.hint ?? o.label} off={words === "chosen" && on && !hints}>
             {button}
           </Hint>
         ) : (

@@ -238,7 +238,10 @@ export function PlaylistsTab() {
                 </div>
                 <div className="playlist-row__actions">
                   {(() => {
-                    const c = conns.get(p.id);
+                    // An off playlist isn't asked any more, so the last
+                    // reading it had would sit here unchanged until
+                    // Settings reopened.
+                    const c = p.enabled ? conns.get(p.id) : undefined;
                     return c ? (
                       <LineMeter
                         size="sm"

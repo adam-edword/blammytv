@@ -1373,6 +1373,10 @@ export function TheaterOverlay({
       const el = e.target as HTMLElement | null;
       const tag = el?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || el?.isContentEditable) return;
+      // A shortcut held with Ctrl, Alt or ⌘ is the app's, not the player's:
+      // Ctrl+K opens the palette, and read as a bare K it paused the stream
+      // under it too.
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
       // An Escape a menu or dialog already took (Radix dismisses on it and
       // marks the event) closed that, not the player: the Sports rail's
       // right-click menu, dismissed, used to leave the theater with it.

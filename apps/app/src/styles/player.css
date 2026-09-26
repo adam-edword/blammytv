@@ -162,7 +162,9 @@
   inset: 0;
   box-sizing: border-box;
   border: 2px solid transparent;
-  border-radius: 12px;
+  /* The hole's corner (InvertedPlayer's RADIUS_CSS, 10 since plan 019 K7):
+   * at 12 the ring traced a rounder curve than the picture under it. */
+  border-radius: var(--radius-pic);
   cursor: pointer;
 }
 
@@ -248,9 +250,10 @@
 /* While a modal covers the app (root carries data-native-hidden), the
  * video KEEPS PLAYING — mpv GPU-frosts only the region under the card
  * (LiveScreen drives it) and this ::after adds a light dim so the card
- * pops without hiding the picture. Radius matches the rounded hole. */
+ * pops without hiding the picture. Radius matches the rounded hole
+ * (InvertedPlayer's RADIUS_CSS, the picture's corner). */
 #inv-chrome {
-  border-radius: 12px;
+  border-radius: var(--radius-pic);
 }
 
 #inv-chrome::after {

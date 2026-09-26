@@ -57,7 +57,14 @@ export function StateCard({
           {icon}
         </span>
       ) : null}
-      <b className="state__title">{title}</b>
+      {/* A page's state is that page's heading, as the h2s it replaced
+        * were (a screen reader's H found nothing on these screens without
+        * it). A tile's is a line inside a picture. */}
+      {size === "page" ? (
+        <h2 className="state__title">{title}</h2>
+      ) : (
+        <b className="state__title">{title}</b>
+      )}
       {sub && <span className="state__sub">{sub}</span>}
       {actions && <span className="state__acts">{actions}</span>}
     </div>

@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Autocomplete } from "@base-ui/react/autocomplete";
 import { Dialog, DialogContent, DialogTitle } from "../../components/ui/dialog";
 import { ChannelLogo } from "../../ui/ChannelLogo";
@@ -17,7 +17,7 @@ import {
   StreamIcon,
 } from "../../ui/icons";
 import { formatClock } from "../../lib/time";
-import { loadClockFormat } from "../settings/clockFormat";
+import { loadClockFormat, onClockFormatChange } from "../settings/clockFormat";
 import { peekLive } from "../live/source";
 import { channelIndex, searchChannels } from "../live/mvGrid";
 import { airing } from "../live/mvTile";
@@ -89,7 +89,32 @@ export function Palette({
   onGo: (to: GoTarget) => void;
 }) {
   const [query, setQuery] = useState("");
-  const [clock] = useState(loadClockFormat);
+  // Mounted for the app's life, so it hears a change rather than reading
+  // the setting once: 12h to 24h in Settings reached the header and not
+  // the "until 9:00 PM" here.
+  const [clock, setClock] = useState(loadClockFormat);
+  useEffect(() => onClockFormatChange(setClock), []);
+  // Where focus was when it opened, to hand it back on close. There is no
+  // trigger for Radix to return it to (Ctrl+K opens it from anywhere), so
+  // it fell to the page: the next Tab started over at the header, and the
+  // Guide's arrows went to the player. The picker keeps its opener the same
+  // way. Taken before the dialog's focus scope moves focus in: layout
+  // effects run ahead of the scope's own.
+  const opener = useRef<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    if (!open) return;
+    const a = document.activeElement;
+    opener.current = a instanceof HTMLElement && a !== document.body ? a : null;
+  }, [open]);
+  const closed = (e: Event) => {
+    e.preventDefault();
+    const back = opener.current;
+    opener.current = null;
+    // Something the pick opened took focus already (Settings): leave it.
+    const now = document.activeElement;
+    if (now && now !== document.body) return;
+    if (back?.isConnected) back.focus({ preventScroll: true });
+  };
   // Every opening starts from an empty field, as the picker's does. And,
   // as the picker's does, opened or closed from the keyboard it comes and
   // goes at once: its closing layer would otherwise hold the next Escape
@@ -249,6 +274,7 @@ export function Palette({
         aria-describedby={undefined}
         className="mvpick palette top-[96px] translate-y-0 gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-[640px]"
         style={instant ? { animation: "none" } : undefined}
+        onCloseAutoFocus={closed}
       >
         <DialogTitle className="sr-only">Search BlammyTV</DialogTitle>
         <Autocomplete.Root

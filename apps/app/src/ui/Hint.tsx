@@ -30,10 +30,22 @@ import {
  * an accessible name: Radix wires the tooltip up as a description, and a
  * screen reader that never fires a hover would otherwise reach an unnamed
  * button. Every call site here is a control that already had one.
+ *
+ * FOCUS FROM A SCRIPT DOESN'T OPEN IT. Radix opens on any focus that isn't
+ * a press, so a screen that moves focus as it opens (the tennis draw puts
+ * it on its Back button) popped the label under a mouse user's pointer.
+ * Only a focus the browser would ring, `:focus-visible`, opens it now: Tab
+ * does, a script's focus after a click doesn't.
+ *
+ * `off` KEEPS THE WRAPPER and just stays shut, for a control whose words are
+ * sometimes showing (Segmented's chosen option). Adding and dropping the
+ * wrapper instead changes the element React sees, so it remounts the button
+ * and focus falls to the page.
  */
 export function Hint({
   label,
   side = "bottom",
+  off = false,
   children,
 }: {
   /** The words. Kept short: this is a name, not a sentence. */
@@ -43,17 +55,34 @@ export function Hint({
    * live in the header and a tooltip above one would be off-screen.
    */
   side?: "top" | "right" | "bottom" | "left";
+  /** Stay shut (the words are showing), without dropping the wrapper. */
+  off?: boolean;
   /** The control itself. Cloned, not wrapped. */
   children: ReactElement;
 }) {
   return (
     <Tooltip>
-      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipTrigger
+        asChild
+        // Radix skips its own open when this marks the event.
+        onFocus={(e) => {
+          if (!e.currentTarget.matches(":focus-visible")) e.preventDefault();
+        }}
+      >
+        {children}
+      </TooltipTrigger>
       {/* 6px, which is the gap the app's other floating surfaces sit at, and
-        * enough that the bubble reads as attached without an arrow. */}
-      <TooltipContent side={side} sideOffset={6}>
-        {label}
-      </TooltipContent>
+        * enough that the bubble reads as attached without an arrow.
+        *
+        * `off` draws no bubble and leaves Radix's own open state alone.
+        * Holding a controlled `open` at false instead lost the closes Radix
+        * made meanwhile (it only reports a change from the value it was
+        * given), so the option you had just left popped its label. */}
+      {!off && (
+        <TooltipContent side={side} sideOffset={6}>
+          {label}
+        </TooltipContent>
+      )}
     </Tooltip>
   );
 }

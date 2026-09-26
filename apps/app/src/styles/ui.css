@@ -296,6 +296,13 @@
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
+/* It sits where the tile's focus ring goes, and the picture paints over
+ * the tile, so with an accent that isn't white Tab showed the accent round
+ * the picture and the focus ring only round the caption. Focused, the
+ * focus ring is the one you see. */
+.tile.is-next:focus-visible .tile__pic {
+  outline-color: transparent;
+}
 
 /* ---- StateCard (plan 019, K8): multi-view's tile state, for every
  * empty, error and loading layout. An icon, what happened, why, a way on.

@@ -360,6 +360,13 @@
   height: 300px;
   width: calc(300px * 16 / 9);
 }
+/* In a grid (the Library's history) the column sets the width: at the
+ * row's 300px height every card was 533px across in a 300px column, over
+ * the card beside it. */
+.disc-grid .continue-card .tile__pic {
+  width: 100%;
+  height: auto;
+}
 .continue-card__art { transition: filter 300ms ease; }
 .continue-card__hold {
   position: absolute;

@@ -11,8 +11,11 @@ import type { Fixture, Tournament } from "./model";
 import { BackButton } from "../../ui/BackButton";
 import { StateCard } from "../../ui/StateCard";
 
-/** The "every draw" option's key: not a name a draw can have. */
-const ALL_DRAWS = "\u0000all";
+/** The "every draw" option's key: not a name a draw has (ESPN's are words,
+ * "Men's Singles"). Printable: Segmented finds the chosen option with
+ * `CSS.escape`, which turns U+0000 into U+FFFD, so the old "\u0000all"
+ * never matched and "All" never got the thumb. */
+const ALL_DRAWS = "*";
 
 /**
  * A tournament's day, opened (plan 010 #38).
@@ -86,6 +89,10 @@ export function TournamentDraw({
       if (e.key !== "Escape") return;
       // Settings or Themes is over this screen and owns the key.
       if (isModalOpen()) return;
+      // So does a dialog that just took it: the palette's Escape closes the
+      // palette, and by the time it reaches here the palette may already
+      // have told modalOpen it's gone. Radix marks the Escape it takes.
+      if (e.defaultPrevented) return;
       if (!isTauri()) {
         onClose();
         return;

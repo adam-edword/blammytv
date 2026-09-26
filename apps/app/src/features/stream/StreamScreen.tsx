@@ -62,6 +62,7 @@ import { SaveButton } from "./SaveButton";
 import { nextEpisode, nextUpEpisode, pickCachedIndex } from "./mapper";
 import { getAniskipRanges, type SkipRange } from "./aniskip";
 import {
+  keepEarlierReturn,
   onOpenRequest,
   onResumeRequest,
   requestDiscoverGenre,
@@ -311,7 +312,9 @@ export function StreamScreen() {
     }
     const t = window.setTimeout(() => setSlowResolve(true), 5000);
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") cancelResolve();
+      // Not an Escape a dialog took: the palette's closed it AND cancelled
+      // the resolve under it. Radix marks the ones it dismisses on.
+      if (e.key === "Escape" && !e.defaultPrevented) cancelResolve();
     };
     document.addEventListener("keydown", onKey);
     return () => {
@@ -506,6 +509,13 @@ export function StreamScreen() {
     [watchNow, open],
   );
 
+  // ---- Playback: fullscreen through the shared inverted player. The
+  // overlay's meta is minimal VOD shape (live:false, no programme). ----
+  const stop = useCallback(() => {
+    setPlaying(null);
+    if (isTauri()) void tauriSetFullscreen(false).catch(() => {});
+  }, [setPlaying]);
+
   // Discover/My List → Stream handoff: drain the mailbox on mount (the
   // tab switch mounts this screen after the request was parked) and on
   // the event (already-on-Stream case). One-click play applies here too.
@@ -513,6 +523,12 @@ export function StreamScreen() {
     const consume = () => {
       const item = takeOpenRequest();
       if (item) {
+        // Only the palette asks while something plays here (plan 019,
+        // K11). The stage covers the pages, so the title opened unseen
+        // underneath it; leave the player first, as its ✕ does.
+        if (playingRef.current) stop();
+        // Onto a page that owes a return already: that return stands.
+        if (handoffRef.current && depth() > 0) keepEarlierReturn();
         // Arm for the duration of the open attempt: navigate() claims it on
         // the push. Only a hand-off that actually NAVIGATED owes a
         // return-to-origin on back-out — one-click play can resolve straight
@@ -527,15 +543,8 @@ export function StreamScreen() {
     };
     consume();
     return onOpenRequest(consume);
-  }, [cardOpen]);
+  }, [cardOpen, stop, depth]);
 
-
-  // ---- Playback: fullscreen through the shared inverted player. The
-  // overlay's meta is minimal VOD shape (live:false, no programme). ----
-  const stop = useCallback(() => {
-    setPlaying(null);
-    if (isTauri()) void tauriSetFullscreen(false).catch(() => {});
-  }, [setPlaying]);
   // Theater ↔ OS-fullscreen. State flips in the pure updater; the window
   // call rides outside it.
   const setVodMode = useCallback((mode: "theater" | "fullscreen") => {
@@ -1719,6 +1728,11 @@ export function StreamScreen() {
       )}
       {view.at === "episodes" && (
         <Episodes
+          // One show's page per show. The palette can open a series over
+          // another's page, and the reused page kept the last show's
+          // season: the next one opened on the wrong season with its
+          // season bar scrolled past both its options.
+          key={view.item.id}
           item={view.item}
           metaState={metaState?.id === view.item.id ? metaState.s : "ready"}
           onRetryMeta={() => void resolveIntoView(view.item)}
@@ -2813,7 +2827,11 @@ function Detail({
         {/* One glass column from under the header to the window's bottom
           * edge, scrolling inside (plan 019, "Sources"): Adam, "i still want
           * it to extend all the way down when possible". */}
-        <div className="vod-sources" aria-label="Sources">
+        <div className="vod-sources">
+          {/* The column's heading, for a screen reader's H: its visible
+            * labels are the groups' (Cached, Not cached), and an aria-label
+            * on a div with no role is read by nothing. */}
+          <h3 className="sr-only">Sources</h3>
           {/* The column's states are the StateCard (plan 019, K8). */}
           {sources === null && (
             <StateCard size="tile" onImage role="status" busy title="Finding sources…" />

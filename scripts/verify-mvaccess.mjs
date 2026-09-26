@@ -337,6 +337,7 @@ const focusedLabel = (page) =>
       pill: Math.round(el.getBoundingClientRect().height),
       text: Math.round(el.querySelector(".mvtile__pickname")?.getBoundingClientRect().height ?? 0),
       fits: el.getBoundingClientRect().width <= el.closest(".mvtile").getBoundingClientRect().width,
+      pad: getComputedStyle(el).paddingLeft,
     }))
     .catch(() => null);
   check(
@@ -349,6 +350,16 @@ const focusedLabel = (page) =>
     !!pill && pill.pill === 38 && pill.text > 0 && pill.text < 26 && pill.fits,
     JSON.stringify(pill),
   );
+  // Its own 16px, not the chip size's 11px (concatenated, the chip's won).
+  check("  with the 16px sides it asks for", pill?.pad === "16px", String(pill?.pad));
+  // The palette over "pick a tile": Escape is the palette's. Picking's own
+  // Escape listens first, on window, and used to take it.
+  await page.keyboard.press("Control+k");
+  const pal = await page.locator(".palette").waitFor({ timeout: 4000 }).then(() => true, () => false);
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(500);
+  const after = await page.evaluate(() => ({ palette: !!document.querySelector(".palette"), picking: !!document.querySelector(".mvchoose") }));
+  check("  Escape in the palette over it closes the palette, and picking stays", pal && !after.palette && after.picking, JSON.stringify({ pal, ...after }));
   check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
   await ctx.close();
 }

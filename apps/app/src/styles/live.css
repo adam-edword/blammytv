@@ -87,6 +87,16 @@
 
 .live-group {
   overflow: hidden;
+}
+/* A long name fades out rather than cutting off. The fade is the NAME's,
+ * not the row's: on the row it took the line meter's last 14px with it,
+ * the final "3" of "3 of 3" half gone. The name takes the room the meter
+ * leaves, so a short one never reaches the fade. */
+.live-group__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
   mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent);
 }
 

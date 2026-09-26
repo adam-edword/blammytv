@@ -1090,6 +1090,273 @@ const dimmedText = () =>
   await page.waitForTimeout(300);
 }
 
+// ==================================================================== Audit
+// What the audit of plan 019 found (v0.10.13), each checked where it showed.
+{
+  // The Guide's rail: an arrow moves the choice AND the focus. Its options
+  // trade words for marks, and wrapping only the unchosen ones in a tooltip
+  // remounted the buttons on every move: focus fell to the page.
+  await goTo(page, "guide");
+  await page.waitForTimeout(1000);
+  await page.mouse.move(W / 2, H - 4);
+  const railTab = (name) => page.locator(`.live-sidebar [role=tab][aria-label="${name}"]`);
+  await railTab("Playlist").click();
+  await page.waitForTimeout(500);
+  await railTab("Playlist").focus();
+  const moves = [];
+  for (const k of ["ArrowRight", "ArrowRight", "ArrowLeft"]) {
+    await page.keyboard.press(k);
+    await page.waitForTimeout(250);
+    moves.push(
+      await page.evaluate(() => ({
+        focus: document.activeElement?.getAttribute("aria-label") ?? document.activeElement?.tagName,
+        chosen: document.querySelector(".live-sidebar [role=tab][aria-selected=true]")?.getAttribute("aria-label"),
+        bubbles: [...document.querySelectorAll("[data-slot=tooltip-content]")].map((t) => t.textContent),
+      })),
+    );
+  }
+  check(
+    "Audit. the Guide's rail: each arrow moves the choice, and focus goes with it",
+    moves.every((m) => m.focus === m.chosen) && moves.map((m) => m.chosen).join() === "Favorites,Recents,Favorites",
+    JSON.stringify(moves),
+  );
+  check("  and the option you left doesn't pop its label", moves.every((m) => m.bubbles.length === 0), JSON.stringify(moves.map((m) => m.bubbles)));
+  await railTab("Playlist").click();
+  await page.waitForTimeout(800);
+
+  // Escape out of the palette hands focus back (it fell to the page).
+  await railTab("Playlist").focus();
+  await page.keyboard.press("Control+k");
+  await page.locator(".palette").waitFor({ timeout: 4000 });
+  await page.keyboard.press("Escape");
+  await page.locator(".palette").waitFor({ state: "detached", timeout: 4000 }).catch(() => {});
+  await page.waitForTimeout(200);
+  const back = await page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? document.activeElement?.tagName);
+  check("  Escape out of the palette puts focus back where it was", back === "Playlist", String(back));
+
+  // A playlist's line meter clear of its name's fade (the row's fade took
+  // the meter's last 14px).
+  const meter = await page.evaluate(() => {
+    const g = document.querySelector(".live-group");
+    const n = g?.querySelector(".live-group__name");
+    const m = g?.querySelector(".live-conns");
+    if (!g || !n || !m) return null;
+    return {
+      row: getComputedStyle(g).maskImage,
+      name: getComputedStyle(n).maskImage,
+      nameRight: Math.round(n.getBoundingClientRect().right),
+      meterLeft: Math.round(m.getBoundingClientRect().left),
+    };
+  });
+  check(
+    "  a playlist's line meter sits clear of its name's fade",
+    !!meter && meter.row === "none" && /gradient/.test(meter.name) && meter.meterLeft >= meter.nameRight,
+    JSON.stringify(meter),
+  );
+
+  // The palette's times follow the clock setting (it read it once).
+  const laterTimes = async () => {
+    await page.keyboard.press("Control+k");
+    await page.locator(".palette").waitFor({ timeout: 4000 });
+    await page.keyboard.type("espn");
+    await page.waitForTimeout(400);
+    const t = await page.evaluate(() => [...document.querySelectorAll(".palette .mvpick__sub")].map((e) => e.textContent).filter((x) => /\d:\d\d/.test(x)));
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(300);
+    return t;
+  };
+  const clockTo = async (f) => {
+    await page.locator("button[aria-label='Settings']").click();
+    await page.getByRole("tab", { name: "Customize", exact: true }).click();
+    await page.locator(`.settings button[aria-label='${f}']`).click();
+    await page.keyboard.press("Escape");
+    await page.locator(".settings").waitFor({ state: "detached", timeout: 4000 }).catch(() => {});
+  };
+  const t12 = await laterTimes();
+  await clockTo("24h");
+  const t24 = await laterTimes();
+  await clockTo("12h");
+  check(
+    "  the palette's times follow a switch to 24h without a restart",
+    t12.length > 0 && t12.every((x) => /[AP]M/.test(x)) && t24.length > 0 && t24.every((x) => !/[AP]M/.test(x)),
+    JSON.stringify({ t12: t12.slice(0, 2), t24: t24.slice(0, 2) }),
+  );
+
+  // Dimmed once, by colour (plan 019 rule 6): the old opacities had stayed
+  // on top of the new colours.
+  const dim = await page.evaluate(() => {
+    const note = document.createElement("p");
+    note.className = "settings__section-note settings__section-note--dim";
+    const rail = document.createElement("div");
+    rail.className = "sportsrail is-wrong";
+    const name = document.createElement("span");
+    name.className = "sportsrail__name";
+    rail.appendChild(name);
+    document.body.append(note, rail);
+    const r = { note: getComputedStyle(note).opacity, name: getComputedStyle(name).opacity };
+    note.remove();
+    rail.remove();
+    return r;
+  });
+  check("  a dimmed note and a wrong pick's name are dimmed by colour alone", dim.note === "1" && dim.name === "1", JSON.stringify(dim));
+
+  // The Library's history: each picture in its own column. At the row's
+  // 300px height every card was 533px across in a 300px column.
+  await goTo(page, "mylist");
+  await page.waitForTimeout(1200);
+  await page.locator(".disc-grid > *", { hasText: /^Library/ }).first().click();
+  await page.waitForSelector(".disc-grid .continue-card", { timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(400);
+  const hist = await page.evaluate(() =>
+    [...document.querySelectorAll(".disc-grid .continue-card")].map((c) => {
+      const r = c.getBoundingClientRect();
+      const p = c.querySelector(".tile__pic").getBoundingClientRect();
+      return { right: Math.round(r.right), picLeft: Math.round(p.left), picRight: Math.round(p.right) };
+    }),
+  );
+  check(
+    "  the Library's history: each picture fits its column, none over the next card",
+    hist.length >= 2 && hist.every((h, i) => h.picRight <= h.right && (i === 0 || hist[i - 1].picRight <= h.picLeft)),
+    JSON.stringify(hist),
+  );
+
+  // A title the palette opens over one Discover opened: Back, Back is
+  // Discover again (the palette's hand-off had written over the return).
+  await goTo(page, "discover");
+  await page.waitForFunction(() => document.querySelectorAll(".disc-grid .stream-card").length > 0, null, { timeout: 20_000 });
+  await page.locator(".disc-grid .stream-card", { hasText: "Fake Movie" }).first().click();
+  await page.locator(".vod-detail").waitFor({ timeout: 10_000 });
+  await page.waitForTimeout(800);
+  // The source column's heading, for a screen reader's H.
+  const head = await page.evaluate(() => [...document.querySelectorAll(".vod-sources h3")].map((h) => [h.textContent, h.className]));
+  check("  a film's source column has its heading back, for a screen reader", head.length === 1 && head[0][0] === "Sources" && head[0][1] === "sr-only", JSON.stringify(head));
+  await page.keyboard.press("Control+k");
+  await page.locator(".palette").waitFor({ timeout: 4000 });
+  await page.keyboard.type("Fake Series Two");
+  await page.locator(".palette [role=option]", { hasText: "Fake Series Two" }).first().click();
+  await page.waitForSelector(".season-bar", { timeout: 10_000 }).catch(() => {});
+  await page.waitForTimeout(800);
+  // Its up-next episode, focused: the focus ring shows round the picture,
+  // not the accent ring that sits in the same place.
+  await page.evaluate(() => document.documentElement.style.setProperty("--accent", "rgb(255, 0, 0)"));
+  const upnext = page.locator(".tile.is-next").first();
+  const ring = async () =>
+    page.evaluate(() => ({
+      pic: getComputedStyle(document.querySelector(".tile.is-next .tile__pic")).outlineColor,
+      focused: document.activeElement?.matches(".tile.is-next:focus-visible") ?? false,
+    }));
+  const idle = await ring();
+  if (await upnext.count()) {
+    await upnext.focus();
+    await page.keyboard.press("Shift+Tab");
+    await page.keyboard.press("Tab");
+    await page.waitForTimeout(250);
+  }
+  const lit = await ring();
+  await page.evaluate(() => document.documentElement.style.removeProperty("--accent"));
+  check(
+    "  the up-next episode, focused, shows the focus ring and not the accent over it",
+    idle.pic === "rgb(255, 0, 0)" && lit.focused && lit.pic === "rgba(0, 0, 0, 0)",
+    JSON.stringify({ idle, lit }),
+  );
+  await page.locator(".vod-back").click();
+  await page.waitForTimeout(1200);
+  await page.locator(".vod-back").click();
+  await page.waitForTimeout(1800);
+  const where = await page.evaluate(() => document.querySelector("[data-dest][aria-current=page]")?.getAttribute("data-dest"));
+  check("  a title opened by the palette over one Discover opened: Back, Back is Discover", where === "discover", String(where));
+  // Discover's search row stands in for the Live tabs; Stream brings them back.
+  await goTo(page, "home");
+  await page.waitForTimeout(600);
+
+  // A page's state is that page's heading again (h2, as it was). Its own
+  // context: storage is the context's, and taking the manifest away here
+  // took it from the first page as well.
+  const ctx5 = await browser.newContext({ viewport: { width: W, height: H } });
+  await ctx5.route((u) => !["localhost", "127.0.0.1"].includes(u.hostname), (r) => r.abort());
+  const p5 = await ctx5.newPage();
+  p5.on("pageerror", (e) => errors.push(String(e)));
+  await p5.addInitScript(init);
+  await p5.addInitScript(() => localStorage.removeItem("blammytv.aiostreams"));
+  await p5.goto(APP, { waitUntil: "domcontentloaded" });
+  await p5.waitForSelector('[data-dest="home"]', { timeout: 60_000 });
+  await goTo(p5, "home");
+  await p5.waitForSelector(".state--page", { timeout: 10_000 }).catch(() => {});
+  const h2 = await p5.evaluate(() => [...document.querySelectorAll(".state--page .state__title")].map((t) => t.tagName));
+  check("  a page's empty state is a heading", h2.length > 0 && h2.every((t) => t === "H2"), JSON.stringify(h2));
+  await ctx5.close();
+
+  // The tennis draw: both of a day's draws on one card, the day pinned. Its
+  // own context, because a clock is the whole context's: pinned here, it
+  // froze the first page's clock too, and goTo waits on that clock.
+  const ctx6 = await browser.newContext({ viewport: { width: W, height: H } });
+  const atp = JSON.parse(readFileSync(join(SRC, "features/sports/fixtures/atp-scoreboard.json"), "utf8"));
+  for (const g of atp.events[0].groupings) for (const c of g.competitions) c.date = "2026-07-26T17:00Z";
+  await ctx6.route((u) => !["localhost", "127.0.0.1"].includes(u.hostname) && !/site\.api\.espn\.com/.test(u.hostname), (r) => r.abort());
+  await ctx6.route(/site\.api\.espn\.com/, (r) =>
+    r.fulfill({ status: 200, contentType: "application/json", body: /tennis\/atp/.test(r.request().url()) ? JSON.stringify(atp) : '{"events":[]}' }),
+  );
+  await ctx6.clock.setFixedTime(new Date("2026-07-26T16:00:00Z"));
+  const p6 = await ctx6.newPage();
+  p6.on("pageerror", (e) => errors.push(String(e)));
+  await p6.addInitScript(init);
+  await p6.addInitScript(() =>
+    localStorage.setItem("blammytv.sports-follows", JSON.stringify({ v: 1, data: { leagues: ["tennis/atp"], teams: [], conferences: [] } })),
+  );
+  await p6.goto(APP, { waitUntil: "domcontentloaded" });
+  await p6.waitForSelector('[data-dest="sports"]', { timeout: 60_000 });
+  await goTo(p6, "sports");
+  await p6.locator(".tourncard").first().waitFor({ timeout: 15_000 }).catch(() => {});
+  await p6.locator(".tourncard").first().click();
+  await p6.locator(".tourndraw").waitFor({ timeout: 8000 }).catch(() => {});
+  await p6.waitForTimeout(900);
+  const opened = await p6.evaluate(() => ({
+    focus: document.activeElement?.getAttribute("aria-label"),
+    bubbles: [...document.querySelectorAll("[data-slot=tooltip-content]")].map((t) => t.textContent),
+  }));
+  check(
+    "  a draw opened with a click puts focus on Back without popping its label",
+    opened.focus === "Back to the board" && opened.bubbles.length === 0,
+    JSON.stringify(opened),
+  );
+  const onAll = () =>
+    p6.evaluate(() => {
+      const b = document.querySelector(".tourndraw__draws .seg");
+      const on = b?.querySelector(".seg__opt[aria-pressed=true]");
+      const t = b?.querySelector(".seg__thumb");
+      return {
+        chosen: on?.textContent.trim() ?? null,
+        onThumb: !!on && !!t && t.getBoundingClientRect().width > 0 && Math.abs(t.getBoundingClientRect().left - on.getBoundingClientRect().left) < 1,
+      };
+    });
+  const first = await onAll();
+  await p6.locator(".tourndraw__draws .seg__opt").nth(2).click();
+  await p6.waitForTimeout(400);
+  await p6.locator(".tourndraw__draws .seg__opt").nth(0).click();
+  await p6.waitForTimeout(500);
+  const again = await onAll();
+  check(
+    '  its draw filter\'s thumb sits on "All", opened and chosen again',
+    first.chosen === "All" && first.onThumb && again.chosen === "All" && again.onThumb,
+    JSON.stringify({ first, again }),
+  );
+  await p6.keyboard.press("Control+k");
+  await p6.locator(".palette").waitFor({ timeout: 4000 });
+  await p6.keyboard.press("Escape");
+  await p6.waitForTimeout(500);
+  const esc = await p6.evaluate(() => ({ palette: !!document.querySelector(".palette"), draw: !!document.querySelector(".tourndraw") }));
+  check("  Escape in the palette over it closes the palette, not the draw too", !esc.palette && esc.draw, JSON.stringify(esc));
+  await p6.keyboard.press("Control+k");
+  await p6.locator(".palette").waitFor({ timeout: 4000 });
+  await p6.evaluate(() => {
+    for (const t of ["mousedown", "mouseup"]) window.dispatchEvent(new MouseEvent(t, { button: 3, bubbles: true, cancelable: true }));
+  });
+  await p6.waitForTimeout(500);
+  const mb = await p6.evaluate(() => ({ palette: !!document.querySelector(".palette"), draw: !!document.querySelector(".tourndraw") }));
+  check("  and the mouse's Back closes the palette, not the draw under it", !mb.palette && mb.draw, JSON.stringify(mb));
+  await ctx6.close();
+}
+
 // ================================================================== Screens
 // The frames' own changes (plan 019, "Each screen"), beyond the kit.
 {
@@ -1238,6 +1505,44 @@ const dimmedText = () =>
     "  the wheel over it scrolls the seasons, not the page",
     after.left >= Math.min(200, after.max) - 1 && after.left > 0 && (await pageTop()) === top0 && after.more !== "end",
     JSON.stringify({ ...after, page: await pageTop(), was: top0 }),
+  );
+  // A resize leaves it where the wheel put it (it used to pull the track
+  // back to the chosen season).
+  await p3.setViewportSize({ width: W - 100, height: H });
+  await p3.waitForTimeout(600);
+  const kept = await p3.evaluate(() => document.querySelector(".season-bar").scrollLeft);
+  await p3.setViewportSize({ width: W, height: H });
+  await p3.waitForTimeout(400);
+  check("  and a resize leaves it where you wheeled it", Math.abs(kept - after.left) <= 1, JSON.stringify({ wheeled: after.left, resized: kept }));
+
+  // A far season, then another show from the palette: the new show's own
+  // first season, chosen, with the thumb on it and the track at its start.
+  // The page was reused, so it kept the last show's season (clamped to
+  // this one's last) and a thumb beyond both its options.
+  await p3.locator(".season-bar .seg__opt", { hasText: /^Season 20$/ }).first().click();
+  await p3.waitForTimeout(500);
+  await p3.keyboard.press("Control+k");
+  await p3.locator(".palette").waitFor({ timeout: 4000 });
+  await p3.keyboard.type("Fake Series Two");
+  await p3.locator(".palette [role=option]", { hasText: "Fake Series Two" }).first().click();
+  await p3.waitForFunction(() => /Two/.test(document.querySelector(".vod-detail__title")?.textContent ?? ""), null, { timeout: 10_000 }).catch(() => {});
+  await p3.waitForTimeout(1200);
+  const other = await p3.evaluate(() => {
+    const b = document.querySelector(".season-bar");
+    const on = b?.querySelector(".seg__opt[aria-pressed=true]");
+    const t = b?.querySelector(".seg__thumb");
+    return {
+      title: document.querySelector(".vod-detail__title")?.textContent,
+      opts: b?.querySelectorAll(".seg__opt").length,
+      chosen: on?.textContent?.trim() ?? null,
+      onThumb: !!on && !!t && Math.abs(t.getBoundingClientRect().left - on.getBoundingClientRect().left) < 1,
+      left: b?.scrollLeft,
+    };
+  });
+  check(
+    "  another show from the palette opens on its own first season, the thumb on it",
+    other.opts === 2 && other.chosen === "Season 1" && other.onThumb && other.left === 0,
+    JSON.stringify(other),
   );
   await p3.close();
 }

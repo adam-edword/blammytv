@@ -146,7 +146,7 @@ const SidebarSources = memo(function SidebarSources({
                   (open ? "" : " live-group__caret--closed")
                 }
               />
-              {g.name}
+              <span className="live-group__name">{g.name}</span>
               {/* Connection usage (Xtream only): multi-view's meter (plan
                * 019, K5), a dash a stream, so the line being full is
                * something you see. */}

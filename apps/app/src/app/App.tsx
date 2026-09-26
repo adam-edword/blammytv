@@ -261,11 +261,12 @@ export function App() {
   }, [settingsOpen]);
 
   // The screen underneath a modal stays mounted and keeps its own window
-  // listeners, so it has to be told to sit still. See lib/modalOpen.
+  // listeners, so it has to be told to sit still. See lib/modalOpen. The
+  // palette too: mouse Back under it walked the page it covers back a step.
   useEffect(() => {
-    setModalOpen(settingsOpen);
+    setModalOpen(settingsOpen || paletteOpen);
     return () => setModalOpen(false);
-  }, [settingsOpen]);
+  }, [settingsOpen, paletteOpen]);
 
   /*
    * THE MOUSE'S BACK BUTTON CLOSES THE MODAL.
@@ -286,11 +287,13 @@ export function App() {
    * navigate the document out from under the app.
    */
   useEffect(() => {
-    if (!settingsOpen) return;
+    if (!settingsOpen && !paletteOpen) return;
     const onButton = (e: MouseEvent) => {
       if (e.button !== 3 && e.button !== 4) return;
       e.preventDefault();
       if (e.type !== "mouseup" || e.button !== 3) return;
+      // The palette never opens over Settings, so one of them is up.
+      if (paletteOpen) setPaletteOpen(false);
       else setSettingsOpen(false);
     };
     window.addEventListener("mousedown", onButton);
@@ -299,7 +302,7 @@ export function App() {
       window.removeEventListener("mousedown", onButton);
       window.removeEventListener("mouseup", onButton);
     };
-  }, [settingsOpen]);
+  }, [settingsOpen, paletteOpen]);
 
   // Escape always exits fullscreen. The window-state plugin restores
   // fullscreen across launches, so without this there's no way out from
@@ -486,7 +489,11 @@ export function App() {
         hasStream={!!loadAioUrl()}
         // Found, not played full-screen: the Guide tunes it in its preview.
         onChannel={(id) => requestWatchInPlayer(id, false)}
-        onTitle={(item) => requestOpenInStream(item, "home")}
+        // Backing out of it returns to the grid it was found over, like a
+        // pick made in that grid; from anywhere else, Stream's own rows.
+        onTitle={(item) =>
+          requestOpenInStream(item, dest === "discover" || dest === "mylist" ? dest : "home")
+        }
         onGo={(to: GoTarget) => {
           if (to.kind === "live") {
             setSection("live");

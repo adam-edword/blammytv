@@ -23,8 +23,11 @@ import type { StreamSource } from "./model";
  * tabindex over the flat order the rows are drawn in. Enter or Space plays,
  * which is the row being a real button.
  *
- * The queue a pick hands on is the rows after it in the order they are
- * DRAWN, so a failover tries the next cached source before an unknown one.
+ * The queue a pick hands on is the sources after it in the ADDON's order,
+ * not the drawn one. Failover only ever plays a cached source, and every
+ * cached row is drawn above the rest, so the drawn order left a failed
+ * uncached pick with no cached source after it at all: the player just
+ * closed where it used to fall to the next cached one.
  */
 export function SourceList({
   sources,
@@ -105,7 +108,7 @@ export function SourceList({
                   aria-current={current || undefined}
                   title={s.lines.join("\n")}
                   onFocus={() => setActive(n)}
-                  onClick={() => onPick(s, flat.slice(n + 1))}
+                  onClick={() => onPick(s, sources.slice(sources.indexOf(s) + 1))}
                 >
                   <span className="vod-source__quality">{s.quality}</span>
                   <span className="vod-source__lines">

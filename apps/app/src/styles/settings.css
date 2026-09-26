@@ -221,8 +221,9 @@
   line-height: 1.45;
 }
 
+/* By colour alone (plan 019 rule 6). The opacity it had before stayed on
+ * top of this, dimming it twice. */
 .settings__section-note--dim {
-  opacity: 0.4;
   color: var(--text-faint);
 }
 

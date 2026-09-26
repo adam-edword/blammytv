@@ -2088,8 +2088,9 @@ div.sports__bar:not(.sports__head *) {
   white-space: nowrap;
   flex: 0 0 auto;
 }
+/* By colour alone (plan 019 rule 6); with the old 0.6 opacity still on,
+ * it was dimmed twice. */
 .sportsrail.is-wrong .sportsrail__name {
-  opacity: 0.6;
   color: var(--text-dim);
 }
 .sportsrail__score {
