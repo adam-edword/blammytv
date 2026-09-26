@@ -529,12 +529,12 @@ check(
 
 // ---- the narrowest window the app allows (tauri.conf: 1000x680)
 {
-  const words = await page.locator(".mvseg__word").first().isVisible();
+  const words = await page.locator(".mvseg .seg__word").first().isVisible();
   await page.setViewportSize({ width: 1000, height: 680 });
   await page.waitForTimeout(700);
   const [capN] = await rectOf(".navcap");
   const [leftN] = await rectOf(".mvbar__side");
-  const wordsN = await page.locator(".mvseg__word").first().isVisible();
+  const wordsN = await page.locator(".mvseg .seg__word").first().isVisible();
   // Held, not flickering: a side that measured its own shrunk width would
   // decide the words fit, show them, measure them, and hide them again.
   const flips = await page.evaluate(async () => {
@@ -556,7 +556,7 @@ check(
   await page.waitForTimeout(700);
   check(
     "and gets them back when there is room again",
-    await page.locator(".mvseg__word").first().isVisible(),
+    await page.locator(".mvseg .seg__word").first().isVisible(),
   );
 }
 

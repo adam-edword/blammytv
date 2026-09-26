@@ -370,7 +370,7 @@
 /* Divides Customize into General/Theme/Display pills (Adam: "like m3u/
  * xtream/stalker"). Sits above the active section rather than inside it
  * (PlaylistsTab's kind rail is the inline variant) — display:flex keeps
- * the chip-tabs track shrink-wrapped instead of stretching the settings__body
+ * the segmented track shrink-wrapped instead of stretching the settings__body
  * flex column's default align-items: stretch across the full card width. */
 .customize-rail {
   display: flex;

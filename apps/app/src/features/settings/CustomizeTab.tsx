@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Button } from "../../components/ui/button";
-import { ChipTabs } from "../../ui/ChipTabs";
+import { Segmented } from "../../ui/Segmented";
 import { Combobox, type ComboboxOption } from "../../ui/Combobox";
 import { Toggle } from "../../ui/Toggle";
 import { loadAioUrl } from "./aiostreams";
@@ -256,7 +256,7 @@ export function CustomizeTab() {
               Where the app opens.
             </p>
           </div>
-          <ChipTabs tabs={STARTUP_TABS} active={startup} onChange={pickStartup} />
+          <Segmented label="Start on" options={STARTUP_TABS} value={startup} onChange={pickStartup} />
         </div>
 
         <div className="customize-row">
@@ -266,7 +266,7 @@ export function CustomizeTab() {
               How the header clock reads.
             </p>
           </div>
-          <ChipTabs tabs={CLOCK_TABS} active={clock} onChange={pickClock} />
+          <Segmented label="Clock format" options={CLOCK_TABS} value={clock} onChange={pickClock} />
         </div>
 
         <div className="customize-row">
@@ -276,9 +276,10 @@ export function CustomizeTab() {
               Make everything bigger or smaller.
             </p>
           </div>
-          <ChipTabs
-            tabs={SCALE_TABS}
-            active={String(scale)}
+          <Segmented
+            label="UI scale"
+            options={SCALE_TABS}
+            value={String(scale)}
             onChange={(key) => pickScale(Number(key) as UiScale)}
           />
         </div>
@@ -288,7 +289,7 @@ export function CustomizeTab() {
       {/* Per-world look, behind the same pill General's Sources uses. */}
       <h3 className="settings__group">Media</h3>
       <div className="customize-rail">
-        <ChipTabs tabs={WORLD_TABS} active={world} onChange={setWorld} />
+        <Segmented role="tabs" label="Media" options={WORLD_TABS} value={world} onChange={setWorld} />
       </div>
 
       {world === "stream" && !hasAddon && (
@@ -542,13 +543,14 @@ export function CustomizeTab() {
                 chapters. Combine merges credits and preview into one jump.
               </p>
             </div>
-            <ChipTabs
-              tabs={[
+            <Segmented
+              label="Skip button"
+              options={[
                 { key: "hidden", label: "Hidden" },
                 { key: "normal", label: "Normal" },
                 { key: "combine", label: "Combine Credits & Preview" },
               ]}
-              active={skip}
+              value={skip}
               onChange={(k: SkipBehavior) => {
                 setSkip(k);
                 saveSkipBehavior(k);

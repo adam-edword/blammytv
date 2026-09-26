@@ -69,6 +69,7 @@ import {
   VolumeIcon,
 } from "../../ui/icons";
 import { Hint } from "../../ui/Hint";
+import { Segmented } from "../../ui/Segmented";
 
 /**
  * THE MULTI-VIEW TAB (plan 017): several streams at once, as a place you
@@ -801,36 +802,19 @@ export function MultiviewTab() {
             </span>,
             )}
           {kindsFor(picks.length).length > 1 && !choosing && (
-            <div className="mvseg" role="group" aria-label="Layout">
-              {wordless(
-                compact,
-                "Grid (G)",
-                <button
-                  type="button"
-                  className={kind === "grid" ? "is-on" : undefined}
-                  aria-pressed={kind === "grid"}
-                  aria-label="Grid"
-                  onClick={() => chooseKind("grid")}
-                >
-                  <GridLayoutIcon size={15} />
-                  <span className="mvseg__word">Grid</span>
-                </button>,
-              )}
-              {wordless(
-                compact,
-                "Focus (G)",
-                <button
-                  type="button"
-                  className={kind === "focus" ? "is-on" : undefined}
-                  aria-pressed={kind === "focus"}
-                  aria-label="Focus"
-                  onClick={() => chooseKind("focus")}
-                >
-                  <FocusLayoutIcon size={15} />
-                  <span className="mvseg__word">Focus</span>
-                </button>,
-              )}
-            </div>
+            <Segmented<MvKind>
+              className="mvseg"
+              label="Layout"
+              options={[
+                { key: "grid", label: "Grid", icon: <GridLayoutIcon size={15} />, hint: "Grid (G)" },
+                { key: "focus", label: "Focus", icon: <FocusLayoutIcon size={15} />, hint: "Focus (G)" },
+              ]}
+              value={kind}
+              onChange={chooseKind}
+              // The bar drops the words itself when it runs out of room
+              // (useCompactSide), and then they are said on hover.
+              hints={compact}
+            />
           )}
         </div>
         <div className={"mvbar__side" + (compactRight ? " is-compact" : "")} ref={rightRef}>

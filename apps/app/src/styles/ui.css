@@ -1,94 +1,119 @@
-/* Shared primitives: chip rail, toggle, primary button. */
+/* Shared primitives: the segmented control, the switch, the badges. */
 
-/* Chip rail: near-black track; the raised #2a2a2a chip is a single thumb
- * that slides under the active label. Text is Bold 12 on every chip,
- * inactive labels dimmed. */
-.chip-tabs {
+/* ---- The segmented control (plan 019, K2; ui/Segmented.tsx).
+ *
+ * Multi-view's .mvseg made the one version of a control that was drawn five
+ * ways (ChipTabs, the sidebars' mode rail, the season bar, the draw filter,
+ * multi-view's Grid and Focus): the capsule's glass, round ends, and the
+ * chosen option a 16% tint of the text colour. The tint is a THUMB that
+ * slides between options on the spring rather than a background that jumps
+ * (Adam's constraint, 2026-09-06: the thumb stays), which is what the
+ * capsule's own pill does at nav scale. */
+.seg {
   position: relative;
-  display: flex;
-  align-items: center;
-  background: var(--surface-track);
-  border-radius: var(--radius-track);
-  padding: 2px;
-}
-
-.chip-tabs__tab {
-  position: relative;
-  z-index: 1;
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 12px;
-  /* Labels never wrap: the header rail animates max-width past widths
-   * narrower than the chips, and a wrapping label ("My List") reflows
-   * to two lines mid-glide. nowrap pins min-content at full label
-   * width, so the cluster overflows the growing box (overflow is
-   * visible; the delayed fade carries the reveal) instead of reflowing. */
-  white-space: nowrap;
-  padding: 6px 15px;
-  border-radius: var(--radius-chip);
-  /* Muted by colour, not a 0.5 fade (plan 019, rule 6). */
-  color: var(--text-muted);
-  transition: color var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
-}
-
-.chip-tabs__tab:hover,
-.chip-tabs__tab--active {
-  color: var(--text);
-}
-
-.chip-tabs__thumb {
-  position: absolute;
-  top: 2px;
-  bottom: 2px;
-  background: var(--surface-raised);
-  border: 1px solid var(--border-raised);
-  border-radius: var(--radius-chip);
-  /* 380ms — the spring's designed pairing (tokens.css) and the mode
-   * rail's speed. 300ms read as a twitchy overshoot (Adam, wave-A
-   * feel-gate). If the spring still doesn't sit right here, the next
-   * stop is var(--ease-drawer) at the same duration, no bounce. */
-  transition:
-    left 380ms var(--spring),
-    width 380ms var(--spring);
-}
-
-/* Trackless variant (the header's Stream rail): same chips, same sliding
- * thumb, no track behind them — the pills float on the header. Labels
- * ride Regular (the Bold-12 rule is for tracked rails over surfaces).
- * The thumb goes GLASS here: content scrolls under the floating header,
- * so it frosts what's beneath instead of sitting flat. */
-.chip-tabs--bare {
-  background: transparent;
-}
-.chip-tabs--bare .chip-tabs__tab {
-  font-weight: 400;
-  padding: 6px 12px;
-  /* Pin every chip to the height an ICON chip takes, so a rail's height
-   * comes from this rule and not from whatever happens to be inside it.
-   * The Stream rail ends in the search chip (18px icon + 12px padding =
-   * 30px); a text chip is 26px, which left the two header rails 4px apart.
-   *
-   * 30, not 18: box-sizing is border-box app-wide, so min-height is the
-   * BORDER box. 18px here was under the natural 26px and did nothing at
-   * all (measured in Chromium, not guessed, after the first attempt at
-   * this failed exactly that way). */
   display: inline-flex;
   align-items: center;
-  min-height: 30px;
+  gap: 2px;
+  padding: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--glass);
+  backdrop-filter: var(--glass-fx);
 }
-.chip-tabs--bare .chip-tabs__thumb {
+/* Across the row, options spread: the sidebars' rails, where the chosen
+ * mode is named and the other two sit at the far end as marks. */
+.seg--fill {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  justify-content: space-between;
+}
+.seg__thumb {
+  position: absolute;
   top: 4px;
-  bottom: 3px;
-  background: rgba(170, 170, 170, 0.19);
-  backdrop-filter: blur(10px);
-  border: 1px solid #ffffff40;
+  bottom: 4px;
+  left: 0;
+  border-radius: var(--radius-pill);
+  background: var(--tint-on);
+  pointer-events: none;
+  will-change: transform, width;
+  /* 380ms on the spring: the pairing tokens.css gives it and the speed the
+   * rails always had (Adam, wave-A feel-gate: 300ms read as twitchy). */
+  transition:
+    transform 380ms var(--spring),
+    width 380ms var(--spring);
 }
-/* Adam's glass spec above is tuned for the dark header — over the light
- * one both the gray wash and the white border vanish (fleet finding). */
-:root[data-theme="light"] .chip-tabs--bare .chip-tabs__thumb {
-  background: rgba(40, 42, 52, 0.12);
-  border-color: rgba(0, 0, 0, 0.28);
+.seg__thumb--snap {
+  transition: none;
+}
+.seg__opt {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 32px;
+  min-width: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--dur-hover) var(--ease-out);
+}
+.seg__opt:hover,
+.seg__opt.is-on {
+  color: var(--text);
+}
+.seg__opt svg {
+  flex: none;
+}
+.seg--sm {
+  padding: 3px;
+}
+.seg--sm .seg__thumb {
+  top: 3px;
+  bottom: 3px;
+}
+.seg--sm .seg__opt {
+  height: 30px;
+  min-width: 30px;
+  padding: 0 10px;
+  font-size: 12.5px;
+}
+/* The sidebars' marks at the size the mode rail drew them (Button's sm
+ * sized every svg to 16px; these icons default larger). */
+.seg--sm .seg__opt > svg {
+  width: 16px;
+  height: 16px;
+}
+/* words="chosen": only the chosen option names itself. Every word stacks in
+ * one cell with the others invisible, so the chosen option is one width
+ * whichever it is; it fades in as the thumb arrives. */
+.seg__words {
+  display: none;
+}
+.seg__opt.is-on .seg__words {
+  display: inline-grid;
+  justify-items: center;
+  animation: seg-word-in 100ms ease-out backwards;
+}
+.seg__words > span {
+  grid-area: 1 / 1;
+}
+.seg__words > .is-ghost {
+  visibility: hidden;
+}
+@keyframes seg-word-in {
+  from {
+    opacity: 0;
+  }
 }
 
 /* Switch, at shadcn's exact geometry.
@@ -170,9 +195,12 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .chip-tabs__thumb,
+  .seg__thumb,
   .toggle__thumb {
     transition: none;
+  }
+  .seg__opt.is-on .seg__words {
+    animation: none;
   }
 }
 
@@ -349,14 +377,8 @@ select:focus-visible,
  * never clips inside scroll boxes. Small controls 0.97, thumb dips
  * deeper (it's 26px). The dip rides the thumb's own spring so press
  * and slide share one motion. ---- */
-.chip-tabs__tab:active {
-  transform: scale(0.97);
-}
-/* The header search chip is a chip-tabs__tab, but pressing it means
- * "put the caret in the input" — scaling the chip mid-click dragged its
- * absolutely-positioned input around under the cursor. No press here. */
-.header__searchchip:active {
-  transform: none;
+.seg__opt:active {
+  transform: scale(0.95);
 }
 
 .toggle:active .toggle__thumb {

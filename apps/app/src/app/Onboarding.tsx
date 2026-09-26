@@ -45,7 +45,7 @@ import { discoverEndpoint } from "../data/stalker";
 import { httpGetText } from "../lib/http";
 import { scrubbedMessage } from "../lib/errors";
 import { AccentPicker } from "../features/settings/AccentPicker";
-import { ChipTabs } from "../ui/ChipTabs";
+import { Segmented } from "../ui/Segmented";
 import { markOnboarded } from "./onboardingGate";
 import { bootVars, markWelcomePlayed } from "./welcome";
 import { BootScene, BOOT_TIMELINE_MS, type BootSceneHandle } from "./BootScene";
@@ -622,7 +622,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           </p>
         )}
         <div className="onb-chips" style={idx(2)}>
-          <ChipTabs tabs={KIND_TABS} active={tvKind} onChange={switchTvKind} />
+          <Segmented role="tabs" label="Playlist type" options={KIND_TABS} value={tvKind} onChange={switchTvKind} />
         </div>
         <div className="onb-fields" style={idx(3)}>
           {tvKind === "xtream" ? (
@@ -766,7 +766,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           <AccentPicker portalContainer={root} />
           <span className="onb-chips__label">Clock</span>
           <div className="onb-chips">
-            <ChipTabs tabs={CLOCK_TABS} active={clock} onChange={pickClock} />
+            <Segmented label="Clock format" options={CLOCK_TABS} value={clock} onChange={pickClock} />
           </div>
         </div>
         <Button variant="default" size="lg"
@@ -788,9 +788,10 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           Settings.
         </p>
         <div className="onb-chips" style={idx(2)}>
-          <ChipTabs
-            tabs={STARTUP_TABS}
-            active={startup}
+          <Segmented
+            label="Start on"
+            options={STARTUP_TABS}
+            value={startup}
             onChange={pickStartup}
           />
         </div>

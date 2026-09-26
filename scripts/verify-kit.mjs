@@ -116,7 +116,7 @@ const token = (name, prop = "backgroundColor") =>
     const s = getComputedStyle(document.querySelector(".navcap"));
     return { bg: s.backgroundColor, fx: s.backdropFilter };
   });
-  const seg = await probe("mvseg", "backgroundColor");
+  const seg = await probe("seg", "backgroundColor");
   const icon = await probe("mvbar__icon", "backdropFilter");
   check(
     "the capsule and multi-view's controls are the same glass, from --glass",
@@ -226,6 +226,86 @@ const dimmedText = () =>
   });
   const faint = await token("--text-faint", "color");
   check("  the clock is the faint tier, a colour, not a 0.3 fade", clock.o === "1" && clock.c === faint, `${clock.o} ${clock.c} vs ${faint}`);
+}
+
+// ======================================================================= K2
+// ONE segmented control (ui/Segmented.tsx), where there were five drawings
+// of it, with a thumb that slides.
+{
+  const where = {};
+  await goTo(page, "guide");
+  await page.waitForTimeout(800);
+  where.guide = await page.locator(".live-sidebar .seg").count();
+  await goTo(page, "sports");
+  await page.waitForTimeout(1200);
+  where.sports = await page.locator(".live-sidebar .seg").count();
+  await goTo(page, "guide");
+  await page.locator(".header__right button").last().click();
+  await page.locator(".settings").waitFor();
+  await page.waitForTimeout(700);
+  where.settings = await page.locator(".settings .seg").count();
+  const old = await page.evaluate(() => document.querySelectorAll(".chip-tabs, .mode-rail, .season-chip").length);
+  check(
+    "the sidebars' rails and Settings' tabs are the one segmented control",
+    where.guide === 1 && where.sports === 1 && where.settings >= 2 && old === 0,
+    `${JSON.stringify(where)}, old ${old}`,
+  );
+  const look = await page.evaluate(() => {
+    const seg = document.querySelector(".settings .seg");
+    const t = seg.querySelector(".seg__thumb");
+    return { bg: getComputedStyle(seg).backgroundColor, thumb: getComputedStyle(t).backgroundColor, r: getComputedStyle(seg).borderRadius };
+  });
+  const glass = await token("--glass");
+  const on = await token("--tint-on");
+  check("  in the capsule's glass, round-ended, the chosen option a 16% tint", look.bg === glass && look.thumb === on && look.r === "999px", JSON.stringify(look));
+
+  // TABS, for a control that switches what the panel shows (016 3.4): a
+  // tablist, the chosen tab the only tab stop, and the arrows move the
+  // choice and the focus together.
+  const tabs = page.getByRole("tablist", { name: "Settings" });
+  const general = tabs.getByRole("tab", { name: "General", exact: true });
+  const customize = tabs.getByRole("tab", { name: "Customize", exact: true });
+  check(
+    "Settings' sections are a tablist with one tab stop",
+    (await general.getAttribute("aria-selected")) === "true" &&
+      (await general.getAttribute("tabindex")) === "0" &&
+      (await customize.getAttribute("tabindex")) === "-1",
+  );
+  await general.focus();
+  // Sample the thumb every frame from the key press on, in the page, so the
+  // reading can't miss the move or land on its overshoot by timing luck.
+  const path = await page.evaluate(
+    () =>
+      new Promise((done) => {
+        const t = document.querySelector(".settings .seg .seg__thumb");
+        const xs = [t.getBoundingClientRect().left];
+        document.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+        const t0 = performance.now();
+        const tick = () => {
+          xs.push(t.getBoundingClientRect().left);
+          if (performance.now() - t0 < 700) requestAnimationFrame(tick);
+          else done(xs);
+        };
+        requestAnimationFrame(tick);
+      }),
+  );
+  const target = (await customize.boundingBox()).x;
+  const from = path[0];
+  const to = path.at(-1);
+  // Any frame off both ends is the thumb in motion, overshoot included (the
+  // spring passes the target by about 4% on its way in).
+  const between = path.filter((x) => Math.abs(x - from) > 1 && Math.abs(x - to) > 1).length;
+  check(
+    "  the arrow moves the choice and the focus",
+    (await customize.getAttribute("aria-selected")) === "true" && (await customize.evaluate((e) => e === document.activeElement)),
+  );
+  check(
+    "  and the thumb SLIDES there, frame by frame (the thumb stays, Adam 2026-09-06)",
+    between >= 4 && Math.abs(to - target) < 1.5,
+    `${between} frames in motion from ${from.toFixed(1)} to ${to.toFixed(1)} (target ${target.toFixed(1)})`,
+  );
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(400);
 }
 
 check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));

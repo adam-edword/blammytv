@@ -450,7 +450,7 @@ await page4.locator("button[aria-label='Settings']").click();
 await page4.waitForTimeout(400);
 // The row cap moved to Customize; there is no AIOStreams tab any more
 // (the rail is General / Customize, with sources split inside General).
-await page4.getByRole("button", { name: "Customize", exact: true }).click();
+await page4.getByRole("tab", { name: "Customize", exact: true }).click();
 await page4.waitForTimeout(400);
 await page4.locator(".rowcap__value--btn").click();
 await page4.fill(".rowcap__value--edit", "37");

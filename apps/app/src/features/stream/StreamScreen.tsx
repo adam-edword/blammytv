@@ -10,6 +10,7 @@ import {
 } from "react";
 import { CheckIcon, ChevronIcon, CloseIcon, PlayIcon } from "../../ui/icons";
 import { Button } from "../../components/ui/button";
+import { Segmented } from "../../ui/Segmented";
 import Tilt from "react-parallax-tilt";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { artLoaded } from "../../lib/artIn";
@@ -3030,32 +3031,16 @@ function Episodes({
           )
         ) : (
           <>
-            <div className="season-bar">
-              {item.seasons.map((s, i) => (
-                <Button
-                  // The season row is a toggle group, so the variant comes
-                  // from the same boolean as aria-pressed. `hover:bg-muted`
-                  // on the off chips because --color-accent (ghost's hover)
-                  // and --color-secondary (the on state) both bridge to
-                  // --surface-raised here, so ghost's own hover would paint
-                  // an off season in exactly the on colour.
-                  variant={i === seasonIdx ? "secondary" : "ghost"}
-                  key={s.id}
-                  type="button"
-                  className={
-                    "season-chip" +
-                    (i === seasonIdx ? " season-chip--on" : " hover:bg-muted")
-                  }
-                  aria-pressed={i === seasonIdx}
-                  onClick={() => {
-                    pickedSeasonRef.current = true; // user override wins
-                    setSeasonIdx(i);
-                  }}
-                >
-                  {s.name}
-                </Button>
-              ))}
-            </div>
+            <Segmented
+              className="season-bar"
+              label="Season"
+              options={item.seasons.map((s, i) => ({ key: String(i), label: s.name }))}
+              value={String(seasonIdx)}
+              onChange={(k) => {
+                pickedSeasonRef.current = true; // user override wins
+                setSeasonIdx(Number(k));
+              }}
+            />
             {/* shadcn's Item, in the `#header` arrangement Adam asked for:
               * an ItemHeader carrying the art above an ItemContent carrying
               * the title and a description. ItemGroup is `role="list"` and

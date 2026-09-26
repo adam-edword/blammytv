@@ -914,11 +914,18 @@
 .vod-source:hover .vod-source__play { opacity: 1; }
 
 /* ---- episodes ---- */
-.season-bar { display: flex; gap: 8px; flex-wrap: wrap; }
-/* `.season-chip` and `.season-chip--on` carry NO paint since v0.9.55. They
- * were a glass pill with a white hairline and an accent-surface active
- * state; the row is `<Button variant={on ? "secondary" : "ghost"}>` now and
- * both classes survive only as hooks for the harnesses and for this file. */
+/* The seasons are the segmented control (plan 019, K2). A long-running
+ * show can have more seasons than the column is wide, so the track
+ * scrolls sideways rather than wrapping: the thumb lives inside it and
+ * scrolls with the option it sits under. */
+.seg.season-bar {
+  /* Its column stretches its children; the track is as wide as its
+   * seasons, no wider. */
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
 /* `.episode-card` CARRIES NO PAINT since v0.9.67. The row is shadcn's
  * <Item variant="outline" size="sm"> in the `#header` arrangement now, so
  * its surface, border, radius, padding, gap, direction, text alignment and

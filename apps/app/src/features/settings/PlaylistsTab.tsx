@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "../../components/ui/button";
-import { ChipTabs } from "../../ui/ChipTabs";
+import { Segmented } from "../../ui/Segmented";
 import { Toggle } from "../../ui/Toggle";
 import { ChevronIcon, CloseIcon } from "../../ui/icons";
 import { fetchLiveCategories, type XtreamCategory } from "../../data/xtream";
@@ -99,7 +99,7 @@ export function PlaylistsTab() {
   return (
     <>
       <section className="settings-section">
-        <ChipTabs tabs={KIND_TABS} active={kind} onChange={setKind} />
+        <Segmented role="tabs" label="Playlist type" options={KIND_TABS} value={kind} onChange={setKind} />
         <h3 className="settings-section__list-title">
           Add {KIND_LABELS[kind]} Playlist
         </h3>

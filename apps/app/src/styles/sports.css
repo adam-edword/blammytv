@@ -3454,13 +3454,7 @@
 /* The draw filter. Narrows without re-sectioning, which is what keeps the
  * live matches at the top whichever draw you are looking at. */
 .tourndraw__draws {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
   padding-bottom: 22px;
-}
-.tourndraw__chip {
-  font-family: var(--font-headline);
 }
 
 .tourndraw__section {

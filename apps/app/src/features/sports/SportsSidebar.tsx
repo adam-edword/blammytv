@@ -8,7 +8,7 @@ import {
   loadSidebarCollapsed,
   saveSidebarCollapsed,
 } from "../settings/sportsSidebar";
-import { ModeRail, type RailMode } from "../../ui/ModeRail";
+import { Segmented, type SegOption } from "../../ui/Segmented";
 import {
   ConferencesIcon,
   LeaguesIcon,
@@ -44,7 +44,7 @@ type Mode = "leagues" | "teams" | "conferences";
  * in your playlist, the channels matched to today's board, or the place
  * corrections get taught (#26). Answer it first, then bring the tab back
  * with a real icon. Re-adding the stub is not the same thing. */
-const MODES: RailMode<Mode>[] = [
+const MODES: SegOption<Mode>[] = [
   { key: "leagues", label: "Leagues", icon: () => <LeaguesIcon /> },
   { key: "teams", label: "Teams", icon: () => <TeamsIcon /> },
 ];
@@ -60,7 +60,7 @@ const MODES: RailMode<Mode>[] = [
  * when games do; a conference tab on a board with no college on it is
  * empty for a reason that will not change by waiting.
  */
-const MODES_WITH_CONFS: RailMode<Mode>[] = [
+const MODES_WITH_CONFS: SegOption<Mode>[] = [
   ...MODES,
   { key: "conferences", label: "Confs", icon: () => <ConferencesIcon /> },
 ];
@@ -223,9 +223,14 @@ export function SportsSidebar({
                   </Button>
         </Hint>
         {!collapsed && (
-          <ModeRail
-            modes={confs.length > 0 ? MODES_WITH_CONFS : MODES}
-            mode={mode}
+          <Segmented
+            role="tabs"
+            words="chosen"
+            size="sm"
+            fill
+            label="Board mode"
+            options={confs.length > 0 ? MODES_WITH_CONFS : MODES}
+            value={mode}
             onChange={setMode}
           />
         )}

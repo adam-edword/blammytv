@@ -68,8 +68,8 @@
   background: rgba(0, 0, 0, 0.45);
   transition: background var(--dur-hover) ease;
 }
-/* Darkening-hover family — the SELECTED card is exempt, like
- * .season-chip--on: hovering what you just chose must not re-dim it. */
+/* Darkening-hover family: the SELECTED card is exempt, since hovering
+ * what you just chose must not re-dim it. */
 .genre-card:not(.genre-card--on):hover .genre-card__scrim {
   background: rgba(0, 0, 0, 0.6);
 }

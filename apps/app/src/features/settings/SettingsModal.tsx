@@ -4,7 +4,7 @@ import { loadSettingsTab, saveSettingsTab } from "./settingsTab";
 import { createPortal } from "react-dom";
 import { CloseIcon } from "../../ui/icons";
 import { useClosingExit } from "./useClosingExit";
-import { ChipTabs } from "../../ui/ChipTabs";
+import { Segmented } from "../../ui/Segmented";
 import { CustomizeTab } from "./CustomizeTab";
 import { GeneralTab } from "./GeneralTab";
 
@@ -92,9 +92,11 @@ export function SettingsModal({
       >
         <header className="settings__header">
           <h2 className="settings__title">Settings</h2>
-          <ChipTabs
-            tabs={TABS}
-            active={tab}
+          <Segmented
+            role="tabs"
+            label="Settings"
+            options={TABS}
+            value={tab}
             onChange={(t) => {
               saveSettingsTab(t);
               setTab(t);

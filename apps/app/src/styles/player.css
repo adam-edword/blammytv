@@ -1088,32 +1088,13 @@
   pointer-events: auto;
 }
 
-/* Segmented controls in the capsule's own glass, round-ended like it. */
-.mvseg {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 4px;
-  border-radius: var(--radius-pill);
-  background: var(--glass);
-  backdrop-filter: var(--glass-fx);
-}
-
-.mvseg__label {
-  padding: 0 6px 0 10px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-muted);
-}
-
 /* A narrow window: the words go, the icons and dashes stay. See
  * useCompactSide for why this is measured rather than a media query. */
-.mvbar__side.is-compact .mvseg__label,
-.mvbar__side.is-compact .mvseg__word,
+.mvbar__side.is-compact .seg__word,
 .mvbar__side.is-compact .mvmeter__text {
   display: none;
 }
-.mvbar__side.is-compact .mvseg button {
+.mvbar__side.is-compact .seg__opt {
   padding: 0 9px;
 }
 /* The right side gives way the same way: Add keeps its plus, the volume
@@ -1193,37 +1174,6 @@
   cursor: pointer;
 }
 
-.mvseg button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  height: 32px;
-  min-width: 32px;
-  padding: 0 12px;
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--text-muted);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  cursor: pointer;
-  transition:
-    background-color var(--dur-hover) var(--ease-out, ease),
-    color var(--dur-hover) var(--ease-out, ease);
-}
-
-.mvseg button:hover {
-  color: var(--text);
-}
-
-.mvseg button.is-on {
-  background: var(--tint-on);
-  color: var(--text);
-}
-
 .mvbar__icon {
   display: grid;
   place-items: center;
@@ -1237,7 +1187,6 @@
   cursor: pointer;
 }
 
-.mvseg button:active,
 .mvbar__icon:active,
 .mvbar__add:active {
   transform: scale(0.95);

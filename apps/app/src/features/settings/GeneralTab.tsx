@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "../../components/ui/button";
 import { remove as removeStored } from "../../lib/storage";
-import { ChipTabs } from "../../ui/ChipTabs";
+import { Segmented } from "../../ui/Segmented";
 import { UpdatesSection } from "./UpdatesSection";
 import { PlaylistsTab } from "./PlaylistsTab";
 import { AioStreamsTab } from "./AioStreamsTab";
@@ -61,7 +61,7 @@ export function GeneralTab() {
         * they just sit behind a pill here instead of behind a tab. */}
       <h3 className="settings__group">Sources</h3>
       <div className="customize-rail">
-        <ChipTabs tabs={SOURCE_TABS} active={source} onChange={setSource} />
+        <Segmented role="tabs" label="Sources" options={SOURCE_TABS} value={source} onChange={setSource} />
       </div>
       {source === "live" ? <PlaylistsTab /> : <AioStreamsTab />}
 

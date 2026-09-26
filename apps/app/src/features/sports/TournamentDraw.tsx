@@ -2,12 +2,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../../components/ui/button";
 import { carriageText, carriageUnlinked } from "./carriage";
 import { GameCard } from "./GameCard";
+import { Segmented } from "../../ui/Segmented";
 import { UpcomingCard } from "./UpcomingCard";
 import { BackArrowIcon, WarnIcon } from "../../ui/icons";
 import { useMouseNav } from "../../lib/mouseNav";
 import { isModalOpen } from "../../lib/modalOpen";
 import { isTauri, tauriIsFullscreen } from "../../lib/tauri";
 import type { Fixture, Tournament } from "./model";
+
+/** The "every draw" option's key: not a name a draw can have. */
+const ALL_DRAWS = "\u0000all";
 
 /**
  * A tournament's day, opened (plan 010 #38).
@@ -202,14 +206,15 @@ export function TournamentDraw({
           * chip that does nothing. */}
         {event.draws.length > 1 && (
           <div className="tourndraw__draws">
-            <Chip on={draw === null} onClick={() => setDraw(null)}>
-              All
-            </Chip>
-            {event.draws.map((d) => (
-              <Chip key={d} on={draw === d} onClick={() => setDraw(d)}>
-                {d}
-              </Chip>
-            ))}
+            <Segmented
+              label="Draw"
+              options={[
+                { key: ALL_DRAWS, label: "All" },
+                ...event.draws.map((d) => ({ key: d, label: d })),
+              ]}
+              value={draw ?? ALL_DRAWS}
+              onChange={(k) => setDraw(k === ALL_DRAWS ? null : k)}
+            />
           </div>
         )}
       </div>
@@ -250,31 +255,5 @@ export function TournamentDraw({
         <p className="tourndraw__none">Nothing in this draw today.</p>
       )}
     </div>
-  );
-}
-
-function Chip({
-  on,
-  onClick,
-  children,
-}: {
-  on: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <Button
-      // Variant BY STATE, the meta-pick pattern. The selected look was
-      // `.tourndraw__chip.is-on`, parked in styles/old by v0.9.56's prune,
-      // so from then the chosen filter looked like every other chip.
-      variant={on ? "secondary" : "outline"}
-      size="sm"
-      type="button"
-      className="tourndraw__chip"
-      aria-pressed={on}
-      onClick={onClick}
-    >
-      {children}
-    </Button>
   );
 }

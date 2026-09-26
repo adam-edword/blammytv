@@ -50,7 +50,7 @@ const root = () =>
   }));
 const openCustomize = async () => {
   await page.locator("button[aria-label='Settings']").click();
-  await page.getByRole("button", { name: "Customize", exact: true }).click();
+  await page.getByRole("tab", { name: "Customize", exact: true }).click();
   const group = page.getByRole("group", { name: "Accent color" });
   await group.waitFor({ timeout: 10_000 });
   return group;

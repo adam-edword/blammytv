@@ -294,7 +294,7 @@ if (!FAST) {
   const settledAnims = await page.$eval(".onb-title", (el) => el.getAnimations().length);
   check("step settles: entrance animations are REMOVED (nothing to replay)",
     settledAnims === 0, `animations=${settledAnims}`);
-  await page.getByRole("button", { name: "M3U", exact: true }).click();
+  await page.getByRole("tab", { name: "M3U", exact: true }).click();
   await page.waitForTimeout(250);
   const afterSwitch = await page.$eval(".onb-title", (el) =>
     ({ anims: el.getAnimations().length, opacity: getComputedStyle(el).opacity }));

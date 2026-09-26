@@ -71,10 +71,10 @@ const cssVar = (name) =>
 //
 // Cascade layers sort BEFORE specificity, and unlayered beats every layer. So
 // with the app's sheets left unlayered, a utility would have lost to any app
-// rule touching the same property, at any specificity. `.chip-tabs` sets
-// `border-radius: var(--radius-track)`, which is 10px; `rounded-md` is 8px.
+// rule touching the same property, at any specificity. `.seg` sets
+// `border-radius: var(--radius-pill)`, which is 999px; `rounded-md` is 8px.
 // If `app` is below `utilities`, the utility wins. If the layering is undone,
-// this reads 10px and nothing else on the screen looks wrong.
+// this reads 999px and nothing else on the screen looks wrong.
 //
 // BOTH NUMBERS MOVED IN v0.9.57 and both moves are the point of that change.
 // The track was 12px and `rounded-md` was Tailwind's stock 6px, because the
@@ -83,18 +83,19 @@ const cssVar = (name) =>
 // is `calc(--radius - 2px)`. A 6px here again means the four `--radius-*`
 // entries fell out of theme.css and every component is off shadcn's scale.
 //
-// `.chip-tabs` RATHER THAN a button class, deliberately. This probe needs an
-// app rule that owns its own radius, and v0.9.54 handed every standalone
+// `.seg` RATHER THAN a button class, deliberately. This probe needs an app
+// rule that owns its own radius, and v0.9.54 handed every standalone
 // button's radius to shadcn's Button (it was `.sports__morebtn` here before,
-// and it silently stopped setting one). The chip rail is the safest anchor
-// left: its sliding thumb is the reason it is staying hand-written rather
-// than becoming a shadcn primitive, so its radius is app-owned by decision.
-const pill = await computed("chip-tabs", "border-radius");
-const overridden = await computed("chip-tabs rounded-md", "border-radius");
+// and it silently stopped setting one). The segmented control is the safest
+// anchor left: its sliding thumb is the reason it is hand-written rather
+// than a shadcn primitive, so its radius is app-owned by decision. (It was
+// `.chip-tabs` until plan 019's K2 made the one segmented control.)
+const pill = await computed("seg", "border-radius");
+const overridden = await computed("seg rounded-md", "border-radius");
 check(
   "the app's own rule still applies on its own",
-  pill === "10px",
-  `border-radius ${pill}, expected 10px`,
+  pill === "999px",
+  `border-radius ${pill}, expected 999px`,
 );
 check(
   "and a Tailwind utility OVERRIDES it, which is what the layer order buys",

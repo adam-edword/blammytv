@@ -22,7 +22,7 @@ import {
   StarIcon,
   TvIcon,
 } from "../../ui/icons";
-import { ModeRail, type RailMode } from "../../ui/ModeRail";
+import { Segmented, type SegOption } from "../../ui/Segmented";
 import {
   isTauri,
   onPopoutClosed,
@@ -62,7 +62,7 @@ import { buildMeta, resolveStreamUrl } from "./stream";
 
 type Mode = "playlist" | "favorites" | "recents";
 
-const MODES: RailMode<Mode>[] = [
+const MODES: SegOption<Mode>[] = [
   { key: "playlist", label: "Playlist", icon: () => <TvIcon /> },
   {
     key: "favorites",
@@ -893,7 +893,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
                       </Button>
           </Hint>
           {!collapsed && (
-            <ModeRail modes={MODES} mode={mode} onChange={setMode} />
+            <Segmented role="tabs" words="chosen" size="sm" fill label="Guide mode" options={MODES} value={mode} onChange={setMode} />
           )}
         </div>
 

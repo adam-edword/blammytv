@@ -73,87 +73,6 @@
   border-radius: var(--radius-chip);
 }
 
-/* Mode rail, the Claude-app way: buttons snap to their new size instantly
- * (labels show/hide with no width animation); the single indicator element
- * glides to the settled target via transform+width on the spring. */
-.mode-rail {
-  position: relative;
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: stretch;
-  justify-content: space-between;
-  gap: 3px;
-  padding: 2px;
-  background: var(--surface-puck);
-  border-radius: var(--radius-track);
-}
-
-.mode-rail__indicator {
-  position: absolute;
-  top: 2px;
-  bottom: 2px;
-  left: 0;
-  border-radius: var(--radius-chip);
-  background: var(--surface-raised);
-  border: 1px solid var(--border-raised);
-  will-change: transform, width;
-  transition:
-    transform 380ms var(--spring),
-    width 380ms var(--spring);
-}
-
-.mode-rail__indicator--snap {
-  transition: none;
-}
-
-.mode-rail__chip {
-  position: relative;
-  z-index: 1;
-  font-family: var(--font-headline);
-}
-
-/* Labels collapse instantly (the indicator masks the snap); the incoming
- * label fades in as the pill arrives. */
-.mode-rail__label {
-  display: none;
-}
-
-.mode-rail__chip--active .mode-rail__label {
-  display: inline-grid;
-  justify-items: center;
-  animation: mode-label-in 100ms ease-out backwards;
-}
-
-/* The stacked label lines share one cell; ghosts hold the widest width so
- * the pill never changes size between modes. */
-.mode-rail__label-line {
-  grid-area: 1 / 1;
-}
-
-.mode-rail__label-line--ghost {
-  visibility: hidden;
-}
-
-@keyframes mode-label-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .mode-rail__indicator {
-    transition: none;
-  }
-
-  .mode-rail__chip--active .mode-rail__label {
-    animation: none;
-  }
-}
-
 /* --------------------------------------------------- playlist group */
 
 /* shadcn's SidebarMenu: `gap-1` between rows, not 6px. Four pixels reads as
@@ -1144,9 +1063,6 @@
 .guide__cell:active,
 .guide__card:active {
   background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2));
-}
-.mode-rail__chip:active {
-  transform: scale(0.97);
 }
 .live-collapse:active,
 .live-status__retry:active {
