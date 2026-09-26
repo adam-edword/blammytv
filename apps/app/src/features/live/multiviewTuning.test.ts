@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findHitches, hlsConfig, mpegtsConfig } from "./multiviewTuning";
+import { findHitches, hlsConfig, mpegtsConfig, tileGain } from "./multiviewTuning";
 
 describe("mpegtsConfig", () => {
   it("smooth never jumps and never changes speed", () => {
@@ -58,5 +58,21 @@ describe("findHitches", () => {
   it("says nothing with too few frames to judge", () => {
     expect(findHitches([])).toEqual([]);
     expect(findHitches([0])).toEqual([]);
+  });
+});
+
+describe("tileGain", () => {
+  it("is mpv's curve: the slider cubed", () => {
+    // player/audio.c, audio_get_gain: gain = pow(volume / 100, 3).
+    expect(tileGain(1)).toBe(1);
+    expect(tileGain(0.5)).toBeCloseTo(0.125, 10);
+    expect(tileGain(0.01)).toBeCloseTo(1e-6, 12);
+    expect(tileGain(0)).toBe(0);
+  });
+
+  it("stays inside what a <video> accepts", () => {
+    // HTMLMediaElement.volume throws outside 0 to 1.
+    expect(tileGain(1.2)).toBe(1);
+    expect(tileGain(-0.1)).toBe(0);
   });
 });
