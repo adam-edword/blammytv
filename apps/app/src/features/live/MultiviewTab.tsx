@@ -23,6 +23,10 @@ import {
 } from "./multiviewAck";
 import { onAddRequest, peekLiveGames, takeAddRequest } from "./multiviewEntry";
 import { gameLabel, liveWithChannels, useGamesToday } from "./mvGames";
+import { filterSports, loadMvScores, rowGames, saveMvScores } from "./mvScores";
+import { MvScoresRow } from "./MvScores";
+import { MvScoresFilter } from "./MvScoresFilter";
+import { fetchList, loadFollows } from "../sports/follows";
 import { isFixture, type Fixture } from "../sports/model";
 import { defaultKind, kindsFor, type MvKind } from "./mvLayout";
 import {
@@ -66,6 +70,7 @@ import {
   GridLayoutIcon,
   MuteIcon,
   PlusIcon,
+  SportsIcon,
   VolumeIcon,
 } from "../../ui/icons";
 import { Hint } from "../../ui/Hint";
@@ -483,6 +488,17 @@ export function MultiviewTab() {
   );
 
   const [picker, setPicker] = useState<PickerMode | null>(null);
+  /** A game taken from the Live Scores row: the picker opens on its feeds. */
+  const [feedsFor, setFeedsFor] = useState<Fixture | null>(null);
+  useEffect(() => {
+    if (picker === null) setFeedsFor(null);
+  }, [picker]);
+
+  /** The Live Scores row (v0.10.6): whether it shows, and what it hides. */
+  const [scores, setScores] = useState(loadMvScores);
+  useEffect(() => saveMvScores(scores), [scores]);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const toggleScores = useCallback(() => setScores((s) => ({ ...s, on: !s.on })), []);
 
   /**
    * Today's games, asked for only while something here needs them: the
@@ -491,10 +507,11 @@ export function MultiviewTab() {
    * instant and at most half an hour old (multiviewEntry).
    */
   const gameLeagues = picks.flatMap((p) => (p.gameId && p.league ? [p.league] : []));
+  // The Live Scores row needs the whole list too, while it shows.
   const today = useGamesToday(
-    picker !== null || gameLeagues.length > 0,
+    picker !== null || gameLeagues.length > 0 || scores.on,
     gameLeagues,
-    picker !== null,
+    picker !== null || scores.on,
   );
   const [snapshot] = useState(peekLiveGames);
   // One list per answer, not per render: it is the picker's input, and a new
@@ -502,6 +519,10 @@ export function MultiviewTab() {
   const liveGames = useMemo(
     () => (today.listed ? liveWithChannels(today.games) : snapshot),
     [today.listed, today.games, snapshot],
+  );
+  const scoreGames = useMemo(
+    () => rowGames(today.listed ? today.games : snapshot, new Set(scores.hidden)),
+    [today.listed, today.games, snapshot, scores.hidden],
   );
   const fixtures = new Map(
     today.games.filter(isFixture).map((g) => [g.id, g] as const),
@@ -590,6 +611,16 @@ export function MultiviewTab() {
   const openAdd = useCallback(() => {
     if (roomRef.current.left > 0 && !choosingRef.current) openPicker({ kind: "add" });
   }, [openPicker]);
+  /** A game from the Live Scores row: the picker on its feeds. On a full
+   * line too: taking a feed then asks which tile it replaces (choose). */
+  const openGame = useCallback(
+    (g: Fixture) => {
+      if (choosingRef.current) return;
+      setFeedsFor(g);
+      openPicker({ kind: "add" });
+    },
+    [openPicker],
+  );
   const choose = (pick: Pick) => {
     if (!picker) return;
     if (picker.kind === "replace") {
@@ -682,13 +713,14 @@ export function MultiviewTab() {
   const [fullscreen, toggleFullscreen] = useWindowFullscreen();
 
   // The bar's keys from plan 017's table: A adds, M mutes, ↑ and ↓ are the
-  // volume, G flips Grid and Focus, F is full screen. The tiles' own keys
+  // volume, G flips Grid and Focus, F is full screen, S is the Live Scores
+  // row (v0.10.6). The tiles' own keys
   // (1 to 4, ← →, R, Delete) are the grid's. Never while typing, or while a
   // dialog has the keyboard (mvKeys.forMultiview). Through a ref, so the
   // listener is added once.
   const streamCount = picks.length;
-  const barKeys = useRef({ openAdd, toggleMute, nudge, chooseKind, kind, streamCount, toggleFullscreen });
-  barKeys.current = { openAdd, toggleMute, nudge, chooseKind, kind, streamCount, toggleFullscreen };
+  const barKeys = useRef({ openAdd, toggleMute, nudge, chooseKind, kind, streamCount, toggleFullscreen, toggleScores });
+  barKeys.current = { openAdd, toggleMute, nudge, chooseKind, kind, streamCount, toggleFullscreen, toggleScores };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!forMultiview(e)) return;
@@ -716,6 +748,10 @@ export function MultiviewTab() {
         case "f":
         case "F":
           k.toggleFullscreen();
+          break;
+        case "s":
+        case "S":
+          k.toggleScores();
           break;
         default:
           return;
@@ -753,7 +789,7 @@ export function MultiviewTab() {
   const dashes = room.max !== null ? Math.min(room.max, 8) : 0;
 
   return (
-    <div className={"mvtab" + (idle ? " is-idle" : "")}>
+    <div className={"mvtab" + (idle ? " is-idle" : "") + (scores.on && !blocked ? " has-scores" : "")}>
       <div className="mvbar">
         <div className={"mvbar__side" + (compact ? " is-compact" : "")} ref={leftRef}>
           {choosing && (
@@ -859,6 +895,19 @@ export function MultiviewTab() {
             </div>
           )}
           {!blocked && (
+            <Hint label={scores.on ? "Hide live scores (S)" : "Live scores (S)"}>
+              <button
+                type="button"
+                className={"mvbar__icon" + (scores.on ? " is-on" : "")}
+                aria-label="Live scores"
+                aria-pressed={scores.on}
+                onClick={toggleScores}
+              >
+                <SportsIcon size={18} />
+              </button>
+            </Hint>
+          )}
+          {!blocked && (
             <Hint label={full ?? "Add a channel (A)"}>
               <button
                 type="button"
@@ -946,6 +995,25 @@ export function MultiviewTab() {
         onChoose={choose}
         onFill={fill}
         onCloseAutoFocus={pickerClosed}
+        feedsFor={feedsFor}
+      />
+
+      {scores.on && !blocked && (
+        <MvScoresRow
+          games={scoreGames}
+          looked={today.looked}
+          filtered={scores.hidden.length > 0}
+          onGrid={(g) => picks.some((p) => p.gameId === g.id || g.channels.some((c) => c.id === p.channelId))}
+          onOpen={openGame}
+          onFilter={() => setFilterOpen(true)}
+        />
+      )}
+      <MvScoresFilter
+        open={filterOpen}
+        onOpenChange={setFilterOpen}
+        sports={filterOpen ? filterSports(fetchList(loadFollows())) : []}
+        hidden={scores.hidden}
+        onHidden={(hidden) => setScores((s) => ({ ...s, hidden }))}
       />
     </div>
   );

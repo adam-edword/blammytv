@@ -91,6 +91,7 @@ export function MultiviewPicker({
   onChoose,
   onFill,
   onCloseAutoFocus,
+  feedsFor = null,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -107,6 +108,9 @@ export function MultiviewPicker({
   /** Where focus goes as it closes: the tab's, since it opens from code and
    * has no trigger of its own for Radix to go back to (plan 018, U1). */
   onCloseAutoFocus?: (e: Event) => void;
+  /** Open on this game's feeds rather than the list: a game taken from the
+   * Live Scores row (v0.10.6). */
+  feedsFor?: Fixture | null;
 }) {
   const [query, setQuery] = useState("");
   /** The game whose feeds are showing, in place of the list. */
@@ -143,7 +147,7 @@ export function MultiviewPicker({
     if (open) {
       setOpening((n) => n + 1);
       setQuery("");
-      setFeedsOf(null);
+      setFeedsOf(feedsFor);
     }
   }
   // Otherwise the plan's timing, not the shared Dialog's: from 0.98 rather

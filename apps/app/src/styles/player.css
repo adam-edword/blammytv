@@ -1305,6 +1305,188 @@
   cursor: not-allowed;
 }
 
+/* The Live Scores switch while the row shows: ringed, not filled, since Add
+ * is the one bright thing on the bar. */
+.mvbar__icon.is-on {
+  background: color-mix(in srgb, var(--text) 20%, transparent);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text) 55%, transparent);
+}
+
+/* ---------------------------------------------------------------------------
+ * Live Scores (v0.10.6): the Sports theater's score tracker as one row under
+ * the grid. The stage gives up the row's height and keeps its width, and
+ * mvLayout re-measures it like any resize, so the pictures stay 16:9.
+ * ------------------------------------------------------------------------ */
+.mvtab.has-scores .mvtab__stage {
+  /* The row, its 18px off the bottom and 12px clear of the captions. */
+  bottom: calc(18px + 52px + 12px);
+}
+
+/* Not dimmed with the bar: it is something you read while you watch, not a
+ * control you reach for. */
+.mvscores {
+  position: absolute;
+  left: 28px;
+  right: 28px;
+  bottom: 18px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mvscores__filter {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 140ms var(--ease-out, ease);
+}
+.mvscores__filter:hover {
+  color: var(--text);
+}
+.mvscores__filter:active {
+  transform: scale(0.95);
+}
+/* Something is hidden: the icon in full ink, so a short row reads as your
+ * choice and not as a quiet night. */
+.mvscores__filter.is-filtered {
+  color: var(--text);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text) 45%, transparent);
+}
+
+/* One line. The wheel scrolls it sideways (MvScores); the bar is hidden
+ * because the cards cut off at the edge say there is more. */
+.mvscores__row {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+.mvscores__row::-webkit-scrollbar {
+  display: none;
+}
+
+/* The league, said once before its games, as the theater says it over them. */
+.mvscores__league {
+  flex: none;
+  padding: 0 2px 0 8px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+.mvscores__league:first-child {
+  padding-left: 2px;
+}
+
+.mvscores__game {
+  flex: 0 0 272px;
+  border-radius: 100px;
+}
+/* The theater's type on a shorter line: the row is height the grid gives up. */
+.mvscores .compactcard {
+  height: 44px;
+  gap: 16px;
+  padding: 0 16px;
+}
+.mvscores .compactcard__status,
+.mvscores .compactcard__abbr {
+  font-size: 13px;
+}
+.mvscores .compactcard__score {
+  font-size: 16px;
+}
+.mvscores .compactcard .gamebadge {
+  width: 24px;
+}
+.mvscores .compactcard .gamewash__mark {
+  height: 285%;
+}
+/* On the grid already: ringed, the way a tile with the sound is. */
+.mvscores__game.is-on .compactcard {
+  border-color: transparent;
+  box-shadow: inset 0 0 0 2px var(--text);
+}
+/* None of your channels carry it: a score and nothing more. The pointer
+ * goes through to the wrapper, whose title says why. */
+.mvscores__game.is-off {
+  opacity: 0.5;
+}
+.mvscores__game.is-off .compactcard {
+  pointer-events: none;
+}
+
+.mvscores__empty {
+  margin: 0;
+  padding-left: 4px;
+  font-size: 13px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Its filter: a sport's switch, and under a sport with more than one
+ * league, a smaller switch for each. */
+.mvfilter__head {
+  display: grid;
+  gap: 4px;
+  padding: 20px 22px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.mvfilter__list {
+  max-height: min(60vh, 520px);
+  overflow-y: auto;
+  padding: 6px 0 12px;
+}
+.mvfilter__sport + .mvfilter__sport {
+  border-top: 1px solid var(--border);
+}
+.mvfilter__sport {
+  padding: 6px 0;
+}
+.mvfilter__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 34px;
+  padding: 0 22px 0 38px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.mvfilter__row--sport {
+  min-height: 40px;
+  padding-left: 22px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+.mvfilter__only {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+.mvfilter__empty {
+  margin: 0;
+  padding: 18px 22px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
 .mvgrid {
   position: absolute;
   inset: 0;
