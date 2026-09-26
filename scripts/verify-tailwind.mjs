@@ -542,6 +542,12 @@ check(
         }
         value = tag.slice(j, k + 1);
       }
+      // Comments out first. LeaguePicker's className carries two lines of
+      // `//` between its literals, and an apostrophe in one ("icon-sm's")
+      // paired with the closing quote before it, so the words of the comment
+      // read as classes. It was harmless until one of them ("tile") became
+      // a real class in v0.10.5.
+      value = value.replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, "");
       for (const lit of value.matchAll(/["'`]([^"'`]*)["'`]/g))
         for (const c of lit[1].split(/\s+/))
           if (defined.has(c)) onButton.add(c);
