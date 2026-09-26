@@ -338,6 +338,20 @@ async function open(pos) {
     JSON.stringify({ before, edge: eb && [Math.round(eb.x), Math.round(eb.width)], slotX: Math.round(sb.x) }),
   );
 
+  // v0.9.127 drew nothing until the pointer was on the 12px strip, and Adam
+  // couldn't find it. The grip shows at rest.
+  const grip = await page.evaluate(() => {
+    const i = document.querySelector(".sportstheater__edge > i");
+    if (!i) return null;
+    const r = i.getBoundingClientRect();
+    return { opacity: Number(getComputedStyle(i).opacity), w: r.width, h: r.height };
+  });
+  check(
+    "the edge shows its grip at rest",
+    !!grip && grip.opacity >= 0.2 && grip.w >= 3 && grip.h >= 40,
+    JSON.stringify(grip),
+  );
+
   await drag(120);
   const dragged = await widths();
   const rects = (await calls("inv_set_rect")).map((r) => r.w);

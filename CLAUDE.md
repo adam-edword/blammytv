@@ -147,6 +147,11 @@ before each one doubled every version's wait and bought nothing CI doesn't
   never have happened (verify-mvline's failed playlist passed on an empty
   page). One or two per change. A check that measures a real result (a
   width, a count, a rect sent to mpv) doesn't need one.
+- **An interrupted mutation run leaves its mutation in the file.** The
+  runner restores in a `finally`, and a killed process never gets there:
+  v0.9.127 shipped `next = w` where `next = w - 24` belonged, and ← on the
+  theater's edge did nothing. After one, `git diff` every file it touched
+  before committing.
 - **The full board locally** only for changes that reach across the app (a
   shared component, App-level wiring) and before a merge to main.
 

@@ -242,7 +242,7 @@ never be a deterrent to building anything." So:
    full line asks which tile to replace, and a game tile goes back to its
    channel once the game is long over. v0.9.127: the Sports theater's
    side column is dragged to the width you want, the first piece of the
-   approved merge.
+   approved merge. v0.9.128 gives its edge a grip you can see at rest.
 7. Merge the multi-view branch into `main` (Adam's step: default branch).
 
 ### M2: finish the primitives (plan 014 L1 and L2)

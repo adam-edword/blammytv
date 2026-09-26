@@ -2004,31 +2004,38 @@
 /* The column's drag edge: the 22px gap between it and the picture, as a
  * 12px strip centred in it (-11px, less half of 12). Positioned off the
  * stage rather than the column, so it sits on the edge the column is DRAWN
- * at, 40% cap and all, and the column's own scroller can't clip it. The
- * line is the Guide's column handle: an accent hairline on hover, while
- * dragging, and with keyboard focus. */
+ * at, 40% cap and all, and the column's own scroller can't clip it. */
 .sportstheater__edge {
   position: absolute;
   top: 0;
   bottom: 0;
   left: -17px;
   width: 12px;
+  display: grid;
+  place-items: center;
+  color: var(--text);
   cursor: col-resize;
   touch-action: none;
   z-index: 1;
 }
-.sportstheater__edge::after {
-  content: "";
-  position: absolute;
-  inset: 0 calc(50% - 1px);
-  border-radius: 1px;
-  background: transparent;
-  transition: background var(--dur-hover) ease;
+/* The grip: multi-view's Focus seam pill, THERE AT REST. The first cut
+ * showed nothing until the pointer was on the 12px strip, and Adam, who
+ * asked for the drag, couldn't find it ("not seeing any resize bar").
+ * Brighter under the pointer, brightest in hand or with keyboard focus. */
+.sportstheater__edge > i {
+  width: 4px;
+  height: 56px;
+  border-radius: 3px;
+  background: currentColor;
+  opacity: 0.28;
+  transition: opacity var(--dur-hover) ease;
 }
-.sportstheater__edge:hover::after,
-.sportstheater__edge:focus-visible::after,
-.sportstheater__edge--active::after {
-  background: var(--accent);
+.sportstheater__edge:hover > i {
+  opacity: 0.6;
+}
+.sportstheater__edge--active > i,
+.sportstheater__edge:focus-visible > i {
+  opacity: 0.9;
 }
 .sportstheater__edge:focus-visible {
   outline-offset: -1px;

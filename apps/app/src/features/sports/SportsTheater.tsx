@@ -214,7 +214,7 @@ export function SportsTheater({
   const onEdgeKey = (e: ReactKeyboardEvent<HTMLDivElement>) => {
     const w = shownSide();
     let next: number;
-    if (e.key === "ArrowLeft") next = w;
+    if (e.key === "ArrowLeft") next = w - 24;
     else if (e.key === "ArrowRight") next = w + 24;
     else if (e.key === "Home") next = SIDE_MIN;
     else if (e.key === "End") next = SIDE_MAX;
@@ -776,7 +776,9 @@ export function SportsTheater({
               onLostPointerCapture={onEdgeEnd}
               onKeyDown={onEdgeKey}
               onDoubleClick={() => setSideW(SIDE_DEFAULT)}
-            />
+            >
+              <i aria-hidden />
+            </div>
           </Hint>
         )}
         <div id="player-slot" className="sportstheater__slot" />
